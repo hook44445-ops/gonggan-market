@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { TempBadge } from "./common";
+import { TempBadge } from "../components/common";
 
 export default function ChatScreen({ company, onBack, messages, onUpdateMessages }) {
   const [input, setInput] = useState("");

@@ -1,18 +1,21 @@
 import { useState } from "react";
-import { C, R, S, COMPANIES, REQUESTS, MOCK_BIDS, GRADE } from "../constants";
+import { C, R, S, GRADE } from "../constants";
 import { TempBadge, CertBadge, Divider } from "./common";
 import LiveFeed from "./LiveFeed";
 import CompanyCard from "./CompanyCard";
-import PortfolioScreen from "./PortfolioScreen";
-import ReviewScreen from "./ReviewScreen";
-import ChatScreen from "./ChatScreen";
-import EscrowScreen from "./EscrowScreen";
-import DashboardScreen from "./DashboardScreen";
-import BidStatusScreen from "./BidStatusScreen";
-import AdminScreen from "./AdminScreen";
+import PortfolioScreen from "../screens/PortfolioScreen";
+import ReviewScreen from "../screens/ReviewScreen";
+import ChatScreen from "../screens/ChatScreen";
+import EscrowScreen from "../screens/EscrowScreen";
+import DashboardScreen from "../screens/DashboardScreen";
+import BidStatusScreen from "../screens/BidStatusScreen";
+import AdminScreen from "../screens/AdminScreen";
 import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
+import { COMPANIES } from "../mock/mockCompanies";
+import { REQUESTS } from "../mock/mockRequests";
+import { MOCK_CHATS } from "../mock/mockChats";
 
 export default function MainApp({ user, onLogout, onStartOnboarding }) {
   const [mode, setMode] = useState(user.role);
@@ -23,32 +26,38 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
   const [showReq, setShowReq] = useState(false);
   const [myRequests, setMyRequests] = useState([]);
   const [bidAlert, setBidAlert] = useState(null);
-  // bids keyed by requestId → array of bid objects
-  const [bids, setBids] = useState({});
   const [bidViewRequestId, setBidViewRequestId] = useState(null);
-  const [chatLogs, setChatLogs] = useState(() => {
-    const init = {};
-    COMPANIES.forEach(c => { init[c.id] = c.chat; });
-    return init;
-  });
+  const [chatLogs, setChatLogs] = useState(() => ({ ...MOCK_CHATS }));
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
   const addBid = (request, bidData) => {
-    const companyInfo = { ...COMPANIES[0] };
-    const newBid = { id: Date.now(), company: companyInfo, ...bidData, time:"방금" };
-    const existing = bids[request.id] || [];
-    const updated  = [...existing, newBid];
-    setBids(prev => ({ ...prev, [request.id]: updated }));
-    setBidAlert({
-      count:       updated.length,
-      requestType: request.type,
-      requestId:   request.id,
-      companies:   updated.map(b => b.company),
+    const newBid = {
+      id: Date.now(),
+      requestId: request.id,
+      companyId: currentUser?.id ?? null,
+      company: currentUser,
+      price: bidData.price,
+      period: bidData.period,
+      material: bidData.material,
+      comment: bidData.comment,
+      createdAt: new Date().toISOString(),
+      status: "pending",
+    };
+    setSubmittedBids(prev => {
+      const updated = [...prev, newBid];
+      const forRequest = updated.filter(b => b.requestId === request.id);
+      setBidAlert({
+        count: forRequest.length,
+        requestType: request.type,
+        requestId: request.id,
+        companies: forRequest.map(b => b.company),
+      });
+      return updated;
     });
   };
 
-  const [customerRequests, setCustomerRequests] = useState([]);
+  const [customerRequests, setCustomerRequests] = useState(() => [...REQUESTS]);
   const [submittedBids, setSubmittedBids] = useState([]);
   const [selectedBid, setSelectedBid] = useState(null);
   const [escrowContracts, setEscrowContracts] = useState([]);
@@ -177,7 +186,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                   <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>{myRequests.length}건</span>
                 </div>
                 {myRequests.map(r => {
-                  const reqBids  = bids[r.id] || [];
+                  const reqBids  = submittedBids.filter(b => b.requestId === r.id);
                   const hasBids  = reqBids.length > 0;
                   return (
                     <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
@@ -323,7 +332,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             <LiveFeed />
 
             <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>📋 인근 시공 요청</div>
-            {[...myRequests, ...REQUESTS].map(r => (
+            {customerRequests.map(r => (
               <BidCard
                 key={r.id}
                 r={r}
@@ -375,13 +384,13 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} messages={chatLogs[selCo.id]||[]} onUpdateMessages={msgs => updateChat(selCo.id, msgs)} />}
         {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} mode={mode} selectedBid={selectedBid} currentUser={currentUser} />}
-        {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={[...myRequests, ...REQUESTS]} currentUser={currentUser} customerRequests={customerRequests} submittedBids={submittedBids} />}
+        {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
             onBack={() => setScreen("home")}
             onChat={c => go("chat",c)}
-            bids={bidViewRequestId ? (bids[bidViewRequestId] || []) : []}
-            request={[...myRequests, ...REQUESTS].find(r => r.id === bidViewRequestId) ?? null}
+            bids={bidViewRequestId ? submittedBids.filter(b => b.requestId === bidViewRequestId) : []}
+            request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null}
             selectedBid={selectedBid}
             setSelectedBid={setSelectedBid}
             setEscrowContracts={setEscrowContracts}
@@ -583,28 +592,9 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
           bids: 0, time: "방금", status: "입찰중"
         };
         setMyRequests(prev => [newReq, ...prev]);
+        setCustomerRequests(prev => [newReq, ...prev]);
         setShowReq(false);
         showToast("✅ 인근 업체들에게 전달됐어요!");
-        // Simulate incoming bids from nearby companies after 3 s
-        setTimeout(() => {
-          const mockCos   = COMPANIES.slice(0, Math.floor(Math.random()*2)+1);
-          const mockBids  = mockCos.map((c, i) => ({
-            id:       newReq.id + i + 1,
-            company:  c,
-            price:    2400 + Math.floor(Math.random() * 600),
-            period:   25   + Math.floor(Math.random() * 15),
-            material: "LX하우시스 바닥재, 대림 욕실",
-            comment:  c.desc,
-            time:     "방금",
-          }));
-          setBids(prev => ({ ...prev, [newReq.id]: mockBids }));
-          setBidAlert({
-            count:       mockBids.length,
-            requestType: form.type,
-            requestId:   newReq.id,
-            companies:   mockCos,
-          });
-        }, 3000);
       }} />}
 
       {bidAlert && (
@@ -617,7 +607,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               <div style={{ fontSize:14, color:C.text3, lineHeight:1.7 }}>{bidAlert.requestType} 견적을 확인한 업체들이<br/>금액과 기간을 제출했어요</div>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.xl }}>
-              {(bidAlert.companies || COMPANIES.slice(0, bidAlert.count)).map((c, i) => (
+              {(bidAlert.companies || []).map((c, i) => (
                 <div key={c.id ?? i} style={{ background:C.surface2, borderRadius:R.lg, padding:`${S.sm}px ${S.lg}px`, display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
                   <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
                     <div style={{ width:32, height:32, borderRadius:R.sm, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:900, color:C.brand }}>{c.name[0]}</div>

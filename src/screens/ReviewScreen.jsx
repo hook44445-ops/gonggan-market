@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
-import { TempBadge, Stars, Divider } from "./common";
-import ReviewModal from "./ReviewModal";
+import { TempBadge, Stars, Divider } from "../components/common";
+import ReviewModal from "../components/ReviewModal";
 
 export default function ReviewScreen({ company, onBack }) {
   const [reviews, setReviews] = useState(company.reviewList);
