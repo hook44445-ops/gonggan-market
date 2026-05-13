@@ -32,10 +32,14 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
   const addBid = (request, bidData) => {
+    if (!currentUser) {
+      console.error("[addBid] currentUser is null — company not initialized");
+      return;
+    }
     const newBid = {
       id: Date.now(),
       requestId: request.id,
-      companyId: currentUser?.id ?? null,
+      companyId: currentUser.id ?? null,
       company: currentUser,
       price: bidData.price,
       period: bidData.period,
@@ -51,7 +55,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         count: forRequest.length,
         requestType: request.type,
         requestId: request.id,
-        companies: forRequest.map(b => b.company),
+        companies: forRequest.map(b => b.company).filter(Boolean),
       });
       return updated;
     });
@@ -61,7 +65,12 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
   const [submittedBids, setSubmittedBids] = useState([]);
   const [selectedBid, setSelectedBid] = useState(null);
   const [escrowContracts, setEscrowContracts] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (user?.role === "company") {
+      return COMPANIES.find(c => c.name === user.name) ?? COMPANIES[0] ?? null;
+    }
+    return null;
+  });
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const isGuestCompany = mode==="company" && user.isGuest;
   const go = (s, co=null) => { setPrevScreen(screen); if(co) setSelCo(co); setScreen(s); };
@@ -606,15 +615,15 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.xl }}>
               {(bidAlert.companies || []).map((c, i) => (
-                <div key={c.id ?? i} style={{ background:C.surface2, borderRadius:R.lg, padding:`${S.sm}px ${S.lg}px`, display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
+                <div key={c?.id ?? i} style={{ background:C.surface2, borderRadius:R.lg, padding:`${S.sm}px ${S.lg}px`, display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
                   <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
                     <div style={{ width:32, height:32, borderRadius:R.sm, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:900, color:C.brand }}>{(c?.name ?? "?")[0]}</div>
                     <div>
-                      <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{c.name}</div>
-                      <div style={{ fontSize:11, color:C.text3 }}>{c.distance || "인근"} · 견적 제출</div>
+                      <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{c?.name ?? "—"}</div>
+                      <div style={{ fontSize:11, color:C.text3 }}>{c?.distance || "인근"} · 견적 제출</div>
                     </div>
                   </div>
-                  <TempBadge temp={c.temp} />
+                  <TempBadge temp={c?.temp ?? 0} />
                 </div>
               ))}
             </div>
