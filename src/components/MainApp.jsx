@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { C, R, S, COMPANIES, REQUESTS, GRADE } from "../constants";
+import { C, R, S, COMPANIES, REQUESTS, MOCK_BIDS, GRADE } from "../constants";
 import { TempBadge, CertBadge, Divider } from "./common";
 import LiveFeed from "./LiveFeed";
 import CompanyCard from "./CompanyCard";
@@ -10,6 +10,8 @@ import EscrowScreen from "./EscrowScreen";
 import DashboardScreen from "./DashboardScreen";
 import BidStatusScreen from "./BidStatusScreen";
 import AdminScreen from "./AdminScreen";
+import BidCard from "./BidCard";
+import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 
 export default function MainApp({ user, onLogout, onStartOnboarding }) {
@@ -21,6 +23,9 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
   const [showReq, setShowReq] = useState(false);
   const [myRequests, setMyRequests] = useState([]);
   const [bidAlert, setBidAlert] = useState(null);
+  // bids keyed by requestId → array of bid objects
+  const [bids, setBids] = useState({});
+  const [bidViewRequestId, setBidViewRequestId] = useState(null);
   const [chatLogs, setChatLogs] = useState(() => {
     const init = {};
     COMPANIES.forEach(c => { init[c.id] = c.chat; });
@@ -28,6 +33,20 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
   });
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
+
+  const addBid = (request, bidData) => {
+    const companyInfo = { ...COMPANIES[0] };
+    const newBid = { id: Date.now(), company: companyInfo, ...bidData, time:"방금" };
+    const existing = bids[request.id] || [];
+    const updated  = [...existing, newBid];
+    setBids(prev => ({ ...prev, [request.id]: updated }));
+    setBidAlert({
+      count:       updated.length,
+      requestType: request.type,
+      requestId:   request.id,
+      companies:   updated.map(b => b.company),
+    });
+  };
 
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const isGuestCompany = mode==="company" && user.isGuest;
@@ -153,11 +172,12 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                   <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>{myRequests.length}건</span>
                 </div>
                 {myRequests.map(r => {
-                  const bidCount = Math.floor(Math.random()*4)+1;
+                  const reqBids  = bids[r.id] || [];
+                  const hasBids  = reqBids.length > 0;
                   return (
                     <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
-                      marginBottom:S.md, border:`1.5px solid ${C.brandM}`, overflow:"hidden" }}>
-                      <div style={{ height:3, background:C.brand }} />
+                      marginBottom:S.md, border:`1.5px solid ${hasBids ? C.brandM : C.bgWarm}`, overflow:"hidden" }}>
+                      <div style={{ height:3, background: hasBids ? C.brand : C.bgWarm }} />
                       <div style={{ padding:S.xl }}>
                         <div style={{ display:"flex", justifyContent:"space-between", marginBottom:S.sm }}>
                           <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{r.type} · {r.size}</div>
@@ -167,31 +187,45 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                         <div style={{ fontSize:13, color:C.text3, marginBottom:S.sm }}>
                           📍 {r.area} · {r.style} · {r.time}
                         </div>
-                        <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
-                          marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
-                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.sm }}>
-                            <span style={{ fontSize:13, fontWeight:800, color:C.brand }}>
-                              🔔 업체 {bidCount}곳이 입찰했어요
-                            </span>
+
+                        {hasBids ? (
+                          <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
+                            marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
+                            <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:S.sm }}>
+                              🔔 업체 {reqBids.length}곳이 입찰했어요
+                            </div>
+                            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
+                              {reqBids.map(b => (
+                                <div key={b.id}
+                                  style={{ background:C.surface, borderRadius:R.md, padding:"6px 10px",
+                                    fontSize:12, fontWeight:700, color:C.text1,
+                                    border:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:4 }}>
+                                  <TempBadge temp={b.company.temp} />
+                                  <span>{b.company.name}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
+                              style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff",
+                                border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer",
+                                boxShadow:`0 3px 12px ${C.brand}44` }}>
+                              💰 견적 비교하고 업체 선택하기 →
+                            </button>
                           </div>
-                          <div style={{ display:"flex", gap:6, marginBottom:S.md }}>
-                            {COMPANIES.slice(0,bidCount).map(c => (
-                              <div key={c.id}
-                                style={{ background:C.surface, borderRadius:R.md, padding:"6px 10px",
-                                  fontSize:12, fontWeight:700, color:C.text1,
-                                  border:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:4 }}>
-                                <TempBadge temp={c.temp} />
-                                <span>{c.name}</span>
+                        ) : (
+                          <div style={{ background:C.surface2, borderRadius:R.lg, padding:S.md,
+                            marginBottom:S.md, border:`1px solid ${C.bgWarm}`,
+                            display:"flex", alignItems:"center", gap:S.sm }}>
+                            <span style={{ fontSize:18 }}>⏳</span>
+                            <div>
+                              <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>입찰 대기 중</div>
+                              <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
+                                인근 업체들이 견적을 검토하고 있어요
                               </div>
-                            ))}
+                            </div>
                           </div>
-                          <button onClick={() => setScreen("bidstatus")}
-                            style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff",
-                              border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer",
-                              boxShadow:`0 3px 12px ${C.brand}44` }}>
-                            💰 견적 비교하고 업체 선택하기 →
-                          </button>
-                        </div>
+                        )}
+
                         <div style={{ display:"flex", gap:S.sm }}>
                           <button onClick={() => setScreen("timeline")}
                             style={{ flex:1, padding:"10px", background:C.surface2,
@@ -199,12 +233,14 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                               fontWeight:700, fontSize:13, cursor:"pointer" }}>
                             📊 진행 현황
                           </button>
-                          <button onClick={() => go("chat", COMPANIES[0])}
-                            style={{ flex:1, padding:"10px", background:C.brand,
-                              color:"#fff", border:"none", borderRadius:R.lg,
-                              fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                            💬 업체 채팅
-                          </button>
+                          {hasBids && (
+                            <button onClick={() => go("chat", reqBids[0].company)}
+                              style={{ flex:1, padding:"10px", background:C.brand,
+                                color:"#fff", border:"none", borderRadius:R.lg,
+                                fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                              💬 업체 채팅
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -283,22 +319,12 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
 
             <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>📋 인근 시공 요청</div>
             {[...myRequests, ...REQUESTS].map(r => (
-              <div key={r.id} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, border:`1px solid ${C.bgWarm}` }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:S.sm }}>
-                  <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{r.type} · {r.size}</div>
-                  <div style={{ display:"flex", gap:6 }}>
-                    {r.urgent && <span style={{ background:"#FFF0F0", color:C.red, borderRadius:R.full, padding:"2px 8px", fontSize:11, fontWeight:700 }}>급구</span>}
-                    <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>입찰중</span>
-                  </div>
-                </div>
-                <div style={{ fontSize:13, color:C.text3, marginBottom:S.sm }}>📍 {r.area} · {r.style}</div>
-                <div style={{ fontSize:14, color:C.text2, marginBottom:S.lg, lineHeight:1.5 }}>{r.desc}</div>
-                <Divider />
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:S.md }}>
-                  <div style={{ fontSize:12, color:C.text3 }}>💰 {r.budget} · 입찰 {r.bids}개</div>
-                  <button onClick={() => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",COMPANIES[0])} style={{ background:C.brand, color:"#fff", border:"none", borderRadius:R.full, padding:"8px 18px", fontWeight:700, fontSize:13, cursor:"pointer" }}>{isGuestCompany?"🔒 입찰하기":"견적 입찰하기"}</button>
-                </div>
-              </div>
+              <BidCard
+                key={r.id}
+                r={r}
+                onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
+                onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
+              />
             ))}
           </div>
         )}
@@ -344,7 +370,14 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         {screen==="chat" && selCo && <ChatScreen company={selCo} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} messages={chatLogs[selCo.id]||[]} onUpdateMessages={msgs => updateChat(selCo.id, msgs)} />}
         {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} mode={mode} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={[...myRequests, ...REQUESTS]} />}
-        {screen==="bidstatus" && <BidStatusScreen onBack={() => setScreen("home")} onChat={c => go("chat",c)} />}
+        {screen==="bidstatus" && (
+          <BidStatusScreen
+            onBack={() => setScreen("home")}
+            onChat={c => go("chat",c)}
+            bids={bidViewRequestId ? (bids[bidViewRequestId] || []) : []}
+            request={[...myRequests, ...REQUESTS].find(r => r.id === bidViewRequestId) ?? null}
+          />
+        )}
         {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} />}
 
         {screen==="chatlist" && (
@@ -467,38 +500,11 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             {user.role==="company" && (
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🏦 보증금 현황</div>
-                <div style={{ background:C.surface, borderRadius:R.xl, overflow:"hidden", marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-                  <div style={{ background:`linear-gradient(135deg,${C.navy},${C.navyM})`, padding:S.xxl, color:"#fff" }}>
-                    <div style={{ fontSize:12, opacity:0.7, marginBottom:4 }}>납부한 보증금</div>
-                    <div style={{ fontSize:32, fontWeight:900, marginBottom:4 }}>600만원</div>
-                    <div style={{ display:"flex", gap:6 }}>
-                      <span style={{ background:"rgba(255,255,255,0.15)", borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>🥈 스탠다드</span>
-                      <span style={{ background:"rgba(255,255,255,0.15)", borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>공사 ~2,000만원</span>
-                    </div>
-                  </div>
-                  <div style={{ padding:S.xl }}>
-                    {[["보관 방식","공간마켓 법인 신탁 계좌"],["납부일","2026.05.13"],["보증금 비율","20% (시공보험 할인 적용)"],["환급 조건","탈퇴 신청 7일 내 전액 환급"],["현재 상태","✅ 정상 보관 중"]].map(([k,v]) => (
-                      <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:`${S.sm}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
-                        <span style={{ fontSize:13, color:C.text3 }}>{k}</span>
-                        <span style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ background:C.brandL, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
-                  <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:S.sm }}>🥇 프리미엄으로 업그레이드</div>
-                  <div style={{ fontSize:13, color:C.text2, lineHeight:1.7, marginBottom:S.md }}>추가 보증금 400만원으로<br/>5,000만원 규모 공사까지 수주 가능</div>
-                  <button style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>업그레이드 신청하기</button>
-                </div>
-                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, border:`1px solid ${C.bgWarm}` }}>
-                  <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.md }}>🛡 보증금이 안전한 이유</div>
-                  {["법인 전용 신탁 계좌 분리 보관","회사 운영비와 절대 혼용 없음","탈퇴 시 7일 내 전액 환급 약정","환급 보증 약정서 발급","향후 은행 신탁 기관 연계 예정"].map(t => (
-                    <div key={t} style={{ display:"flex", gap:S.sm, alignItems:"center", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
-                      <span style={{ color:C.green, fontWeight:900, fontSize:14 }}>✓</span>
-                      <span style={{ fontSize:13, color:C.text2 }}>{t}</span>
-                    </div>
-                  ))}
-                </div>
+                <CompanyDepositCard
+                  badge="standard"
+                  hasInsurance={false}
+                  onUpgrade={(next) => showToast(`${next.label} 업그레이드 신청이 접수됐어요!`)}
+                />
               </div>
             )}
 
@@ -570,9 +576,25 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         setMyRequests(prev => [newReq, ...prev]);
         setShowReq(false);
         showToast("✅ 인근 업체들에게 전달됐어요!");
+        // Simulate incoming bids from nearby companies after 3 s
         setTimeout(() => {
-          const bidCount = Math.floor(Math.random()*3)+2;
-          setBidAlert({ count: bidCount, requestType: form.type });
+          const mockCos   = COMPANIES.slice(0, Math.floor(Math.random()*2)+1);
+          const mockBids  = mockCos.map((c, i) => ({
+            id:       newReq.id + i + 1,
+            company:  c,
+            price:    2400 + Math.floor(Math.random() * 600),
+            period:   25   + Math.floor(Math.random() * 15),
+            material: "LX하우시스 바닥재, 대림 욕실",
+            comment:  c.desc,
+            time:     "방금",
+          }));
+          setBids(prev => ({ ...prev, [newReq.id]: mockBids }));
+          setBidAlert({
+            count:       mockBids.length,
+            requestType: form.type,
+            requestId:   newReq.id,
+            companies:   mockCos,
+          });
         }, 3000);
       }} />}
 
@@ -586,13 +608,13 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               <div style={{ fontSize:14, color:C.text3, lineHeight:1.7 }}>{bidAlert.requestType} 견적을 확인한 업체들이<br/>금액과 기간을 제출했어요</div>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.xl }}>
-              {COMPANIES.slice(0, bidAlert.count).map(c => (
-                <div key={c.id} style={{ background:C.surface2, borderRadius:R.lg, padding:`${S.sm}px ${S.lg}px`, display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
+              {(bidAlert.companies || COMPANIES.slice(0, bidAlert.count)).map((c, i) => (
+                <div key={c.id ?? i} style={{ background:C.surface2, borderRadius:R.lg, padding:`${S.sm}px ${S.lg}px`, display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
                   <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
                     <div style={{ width:32, height:32, borderRadius:R.sm, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:900, color:C.brand }}>{c.name[0]}</div>
                     <div>
                       <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{c.name}</div>
-                      <div style={{ fontSize:11, color:C.text3 }}>{c.distance} · 견적 제출</div>
+                      <div style={{ fontSize:11, color:C.text3 }}>{c.distance || "인근"} · 견적 제출</div>
                     </div>
                   </div>
                   <TempBadge temp={c.temp} />
@@ -605,7 +627,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             </div>
             <div style={{ display:"flex", gap:S.sm }}>
               <button onClick={() => setBidAlert(null)} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>나중에</button>
-              <button onClick={() => { setBidAlert(null); setScreen("bidstatus"); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>💰 견적 비교하기</button>
+              <button onClick={() => { setBidViewRequestId(bidAlert.requestId ?? null); setBidAlert(null); setScreen("bidstatus"); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>💰 견적 비교하기</button>
             </div>
           </div>
         </div>
