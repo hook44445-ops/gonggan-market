@@ -4,7 +4,7 @@ import { TempBadge, Stars, Divider } from "../components/common";
 import ReviewModal from "../components/ReviewModal";
 
 export default function ReviewScreen({ company, onBack }) {
-  const [reviews, setReviews] = useState(company.reviewList);
+  const [reviews, setReviews] = useState(company?.reviewList ?? []);
   const [showModal, setShowModal] = useState(false);
   const [newId, setNewId] = useState(null);
   const avg = reviews.length > 0

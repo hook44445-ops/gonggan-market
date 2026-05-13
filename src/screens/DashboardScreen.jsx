@@ -4,7 +4,8 @@ import { ACTIVE_JOBS } from "../mock/mockCompanies";
 import { TempBadge } from "../components/common";
 import BidCard from "../components/BidCard";
 
-export default function DashboardScreen({ onBack, onEscrow, allRequests, currentUser, submittedBids }) {
+export default function DashboardScreen({ onBack, onEscrow, allRequests: allRequestsProp, currentUser, submittedBids }) {
+  const allRequests = allRequestsProp ?? [];
   const [tab, setTab] = useState("active");
   const thisMonthRevenue = 2190;
 

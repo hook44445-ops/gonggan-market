@@ -214,8 +214,8 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                                   style={{ background:C.surface, borderRadius:R.md, padding:"6px 10px",
                                     fontSize:12, fontWeight:700, color:C.text1,
                                     border:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:4 }}>
-                                  <TempBadge temp={b.company.temp} />
-                                  <span>{b.company.name}</span>
+                                  <TempBadge temp={b.company?.temp ?? 0} />
+                                  <span>{b.company?.name ?? "—"}</span>
                                 </div>
                               ))}
                             </div>
@@ -248,7 +248,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                             📊 진행 현황
                           </button>
                           {hasBids && (
-                            <button onClick={() => go("chat", reqBids[0].company)}
+                            <button onClick={() => reqBids[0]?.company && go("chat", reqBids[0].company)}
                               style={{ flex:1, padding:"10px", background:C.brand,
                                 color:"#fff", border:"none", borderRadius:R.lg,
                                 fontWeight:700, fontSize:13, cursor:"pointer" }}>
@@ -414,9 +414,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                     <TempBadge temp={c.temp} />
                   </div>
                   <div style={{ fontSize:13, color:C.text3, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
-                    {(chatLogs[c.id]||[]).length > 0
-                      ? chatLogs[c.id][chatLogs[c.id].length-1].text
-                      : "채팅을 시작해보세요"}
+                    {(() => { const logs = chatLogs[c.id] ?? []; return logs.length > 0 ? (logs[logs.length-1]?.text ?? "채팅을 시작해보세요") : "채팅을 시작해보세요"; })()}
                   </div>
                 </div>
               </div>
@@ -610,7 +608,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               {(bidAlert.companies || []).map((c, i) => (
                 <div key={c.id ?? i} style={{ background:C.surface2, borderRadius:R.lg, padding:`${S.sm}px ${S.lg}px`, display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
                   <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
-                    <div style={{ width:32, height:32, borderRadius:R.sm, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:900, color:C.brand }}>{c.name[0]}</div>
+                    <div style={{ width:32, height:32, borderRadius:R.sm, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:900, color:C.brand }}>{(c?.name ?? "?")[0]}</div>
                     <div>
                       <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{c.name}</div>
                       <div style={{ fontSize:11, color:C.text3 }}>{c.distance || "인근"} · 견적 제출</div>
