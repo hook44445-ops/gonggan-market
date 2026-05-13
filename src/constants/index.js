@@ -1,41 +1,41 @@
 export const C = {
-  brand:    "#D95F00",
-  brandL:   "#FDF3EC",
-  brandM:   "#F5D5B8",
-  brandD:   "#A84800",
+  brand:    "#2E5F4B",
+  brandL:   "#EAF2EE",
+  brandM:   "#B5D4C5",
+  brandD:   "#1D3D2F",
 
-  navy:     "#1A2744",
-  navyM:    "#2D3F6B",
-  navyL:    "#EEF1F8",
+  navy:     "#1F2A24",
+  navyM:    "#2E5F4B",
+  navyL:    "#EAF2EE",
 
-  bg:       "#F7F2EC",
-  bgWarm:   "#EDE7DF",
+  bg:       "#F5F1EA",
+  bgWarm:   "#E8E0D4",
   surface:  "#FFFFFF",
-  surface2: "#FAF7F3",
+  surface2: "#F8F5F0",
 
-  text1:    "#1C1712",
-  text2:    "#4A4540",
-  text3:    "#8A837A",
-  text4:    "#C0B8B0",
+  text1:    "#1F2A24",
+  text2:    "#3A4A3E",
+  text3:    "#7A8A7E",
+  text4:    "#B0BAB4",
 
-  green:    "#00995C",
-  greenL:   "#E6F7F0",
+  green:    "#2E5F4B",
+  greenL:   "#EAF2EE",
   red:      "#D63030",
-  gold:     "#E8A000",
+  gold:     "#C8A15A",
 
-  trust:    "#1A2744",
-  trustL:   "#EEF1F8",
-  trustM:   "#C8D0E8",
+  trust:    "#1F2A24",
+  trustL:   "#EAF2EE",
+  trustM:   "#B5D4C5",
 };
 
 export const R = { xs:4, sm:8, md:12, lg:16, xl:20, xxl:24, full:999 };
 export const S = { xs:4, sm:8, md:12, lg:16, xl:20, xxl:28 };
 
 export const GRADE = t => {
-  if(t>=96) return { label:"최우수",  color:"#C04000", bg:"#FFF0E8", bar:"#D95F00", icon:"🏆" };
-  if(t>=90) return { label:"신뢰",    color:"#D95F00", bg:"#FDF3EC", bar:"#E87030", icon:"✅" };
-  if(t>=84) return { label:"양호",    color:"#C08000", bg:"#FDF8EC", bar:"#E8A000", icon:"👍" };
-  return           { label:"신규",    color:"#8A837A", bg:"#F5F0EB", bar:"#C0B8B0", icon:"🆕" };
+  if(t>=96) return { label:"최우수", color:"#1D3D2F", bg:"#E8F0EC", bar:"#2E5F4B", icon:"🏆" };
+  if(t>=90) return { label:"신뢰",   color:"#2E5F4B", bg:"#EAF2EE", bar:"#3A7A5C", icon:"✅" };
+  if(t>=84) return { label:"양호",   color:"#B08040", bg:"#FBF5E8", bar:"#C8A15A", icon:"👍" };
+  return           { label:"신규",   color:"#7A8A7E", bg:"#F0EDE8", bar:"#B0BAB4", icon:"🆕" };
 };
 
 export const PHOTOS = {
@@ -76,10 +76,10 @@ export const FEED_BASE = [
 ];
 
 export const FEED_META = {
-  bid:      { icon:"💬", color:"#D95F00" },
-  complete: { icon:"✅", color:"#00995C" },
-  review:   { icon:"⭐", color:"#E8A000" },
-  new:      { icon:"📋", color:"#D95F00" },
+  bid:      { icon:"💬", color:"#2E5F4B" },
+  complete: { icon:"✅", color:"#2E5F4B" },
+  review:   { icon:"⭐", color:"#C8A15A" },
+  new:      { icon:"📋", color:"#2E5F4B" },
 };
 
 export const fmtPhone = v => {

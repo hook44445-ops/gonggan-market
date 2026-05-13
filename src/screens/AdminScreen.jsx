@@ -2,10 +2,10 @@ import { useState } from "react";
 import { C, R, S } from "../constants";
 
 const BADGE_META = {
-  basic:      { label:"베이직",      icon:"🥉", color:"#8A837A", bg:"#F5F0EB", deposit:300,  maxJob:"500만원"  },
-  standard:   { label:"스탠다드",    icon:"🥈", color:"#D95F00", bg:"#FDF3EC", deposit:600,  maxJob:"2,000만원" },
-  premium:    { label:"프리미엄",    icon:"🥇", color:"#C04000", bg:"#FFF0E8", deposit:1000, maxJob:"5,000만원" },
-  enterprise: { label:"엔터프라이즈",icon:"💎", color:"#1A2744", bg:"#EEF1F8", deposit:2000, maxJob:"무제한"   },
+  basic:      { label:"베이직",      icon:"🥉", color:"#7A8A7E", bg:"#F0EDE8", deposit:300,  maxJob:"500만원"  },
+  standard:   { label:"스탠다드",    icon:"🥈", color:"#2E5F4B", bg:"#EAF2EE", deposit:600,  maxJob:"2,000만원" },
+  premium:    { label:"프리미엄",    icon:"🥇", color:"#C8A15A", bg:"#FBF5E8", deposit:1000, maxJob:"5,000만원" },
+  enterprise: { label:"엔터프라이즈",icon:"💎", color:"#1F2A24", bg:"#EAF2EE", deposit:2000, maxJob:"무제한"   },
 };
 
 const MOCK_COMPANIES = [
@@ -56,7 +56,7 @@ const MOCK_COMPANIES = [
 ];
 
 const STATUS = {
-  pending:  { label:"대기중", color:C.gold,  bg:"#FFF8EC" },
+  pending:  { label:"대기중", color:C.gold,  bg:"#FBF5E8" },
   approved: { label:"승인",   color:C.green, bg:C.greenL  },
   rejected: { label:"반려",   color:C.red,   bg:"#FFF0F0" },
 };
@@ -102,7 +102,7 @@ export default function AdminScreen({ onBack }) {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Apple SD Gothic Neo',sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
 
       {/* Header */}
       <div style={{ background:C.surface, padding:"14px 20px", borderBottom:`1px solid ${C.bgWarm}`,
@@ -196,7 +196,7 @@ export default function AdminScreen({ onBack }) {
       {/* Detail bottom sheet */}
       {selected && (
         <div
-          style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.6)",
+          style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)",
             display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:200 }}
           onClick={e => { if (e.target === e.currentTarget) { setSelected(null); setRejectMode(false); } }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%",
@@ -327,7 +327,7 @@ export default function AdminScreen({ onBack }) {
 
       {/* Confirm dialog */}
       {confirm && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.7)",
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.7)",
           display:"flex", alignItems:"center", justifyContent:"center",
           zIndex:300, padding:`0 ${S.xl}px` }}>
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, width:"100%", maxWidth:320 }}>

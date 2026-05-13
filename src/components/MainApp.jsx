@@ -78,7 +78,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     : [["📋","요청","home"],["🗺","지도","map"],["💬","채팅","chatlist"],["👤","내정보","my"]];
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Apple SD Gothic Neo','Pretendard',sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
 
       {(screen==="home"||screen==="map") && (
         <div style={{ background:C.surface, padding:"14px 20px 0", borderBottom:`1px solid ${C.bgWarm}`, position:"sticky", top:0, zIndex:10 }}>
@@ -119,7 +119,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         {/* 의뢰인 홈 */}
         {screen==="home" && mode==="consumer" && (
           <div>
-            <div style={{ background:`linear-gradient(150deg,#FDF0E4 0%,${C.bgWarm} 100%)`,
+            <div style={{ background:`linear-gradient(150deg,${C.brandL} 0%,${C.bgWarm} 100%)`,
               borderRadius:R.xl, padding:S.xxl, marginBottom:S.lg,
               border:`1.5px solid ${C.brandM}`,
               position:"relative", overflow:"hidden" }}>
@@ -214,8 +214,8 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                                   style={{ background:C.surface, borderRadius:R.md, padding:"6px 10px",
                                     fontSize:12, fontWeight:700, color:C.text1,
                                     border:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:4 }}>
-                                  <TempBadge temp={b.company.temp} />
-                                  <span>{b.company.name}</span>
+                                  <TempBadge temp={b.company?.temp ?? 0} />
+                                  <span>{b.company?.name ?? "—"}</span>
                                 </div>
                               ))}
                             </div>
@@ -248,7 +248,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                             📊 진행 현황
                           </button>
                           {hasBids && (
-                            <button onClick={() => go("chat", reqBids[0].company)}
+                            <button onClick={() => reqBids[0]?.company && go("chat", reqBids[0].company)}
                               style={{ flex:1, padding:"10px", background:C.brand,
                                 color:"#fff", border:"none", borderRadius:R.lg,
                                 fontWeight:700, fontSize:13, cursor:"pointer" }}>
@@ -414,9 +414,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                     <TempBadge temp={c.temp} />
                   </div>
                   <div style={{ fontSize:13, color:C.text3, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
-                    {(chatLogs[c.id]||[]).length > 0
-                      ? chatLogs[c.id][chatLogs[c.id].length-1].text
-                      : "채팅을 시작해보세요"}
+                    {(() => { const logs = chatLogs[c.id] ?? []; return logs.length > 0 ? (logs[logs.length-1]?.text ?? "채팅을 시작해보세요") : "채팅을 시작해보세요"; })()}
                   </div>
                 </div>
               </div>
@@ -558,7 +556,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
       </div>
 
       {showRegisterPrompt && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.6)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
             <div style={{ textAlign:"center", marginBottom:S.xxl }}>
@@ -598,7 +596,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
       }} />}
 
       {bidAlert && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.6)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:400 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:400 }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
             <div style={{ textAlign:"center", marginBottom:S.xxl }}>
@@ -610,7 +608,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               {(bidAlert.companies || []).map((c, i) => (
                 <div key={c.id ?? i} style={{ background:C.surface2, borderRadius:R.lg, padding:`${S.sm}px ${S.lg}px`, display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
                   <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
-                    <div style={{ width:32, height:32, borderRadius:R.sm, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:900, color:C.brand }}>{c.name[0]}</div>
+                    <div style={{ width:32, height:32, borderRadius:R.sm, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, fontWeight:900, color:C.brand }}>{(c?.name ?? "?")[0]}</div>
                     <div>
                       <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{c.name}</div>
                       <div style={{ fontSize:11, color:C.text3 }}>{c.distance || "인근"} · 견적 제출</div>

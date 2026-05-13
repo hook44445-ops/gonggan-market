@@ -89,15 +89,15 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
           display:"flex", justifyContent:"space-between", alignItems:"center",
           boxShadow:"0 1px 6px rgba(28,23,18,0.05)" }}>
           <div style={{ display:"flex", alignItems:"center", gap:S.md }}>
-            <div style={{ width:44, height:44, borderRadius:R.lg, background:"#FFF8E8",
+            <div style={{ width:44, height:44, borderRadius:R.lg, background:"#FBF5E8",
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>⭐</div>
             <div style={{ textAlign:"left" }}>
               <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>
-                시공 후기 {company.reviewList.length}개
+                시공 후기 {(company.reviewList ?? []).length}개
               </div>
               <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>
-                {company.reviewList.length > 0
-                  ? `평균 ${(company.reviewList.reduce((s,r) => s+r.rating,0)/company.reviewList.length).toFixed(1)}점 · 탭해서 보기`
+                {(company.reviewList ?? []).length > 0
+                  ? `평균 ${((company.reviewList ?? []).reduce((s,r) => s+r.rating,0)/(company.reviewList ?? []).length).toFixed(1)}점 · 탭해서 보기`
                   : "첫 후기를 남겨주세요"}
               </div>
             </div>
@@ -109,11 +109,11 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
           <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>
             시공 포트폴리오
             <span style={{ fontSize:13, fontWeight:500, color:C.text3, marginLeft:6 }}>
-              {company.portfolio.length}건
+              {(company.portfolio ?? []).length}건
             </span>
           </div>
         </div>
-        {company.portfolio.map(work => (
+        {(company.portfolio ?? []).map(work => (
           <PortfolioCard key={work.id} work={work} onExpand={setPhotoWork} />
         ))}
 

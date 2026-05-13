@@ -29,8 +29,8 @@ export default function BidStatusScreen({ onBack, onChat, bids: propBids, reques
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.lg }}>
-              <div style={{ width:48, height:48, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand }}>{selBid.company.name[0]}</div>
-              <div style={{ flex:1 }}><div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>{selBid.company.name}</div><TempBadge temp={selBid.company.temp} /></div>
+              <div style={{ width:48, height:48, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand }}>{(selBid.company?.name ?? "?")[0]}</div>
+              <div style={{ flex:1 }}><div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>{selBid.company?.name ?? "—"}</div><TempBadge temp={selBid.company?.temp ?? 0} /></div>
               <div style={{ textAlign:"right" }}><div style={{ fontSize:20, fontWeight:900, color:C.brand }}>{fmtMoney(selBid.price)}</div><div style={{ fontSize:12, color:C.text3 }}>{selBid.period}일</div></div>
             </div>
             <div style={{ fontSize:13, color:C.text2 }}>{selBid.material}</div>
@@ -56,15 +56,15 @@ export default function BidStatusScreen({ onBack, onChat, bids: propBids, reques
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
         <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
           <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.md }}>
-            <div style={{ width:44, height:44, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:900, color:C.brand }}>{selBid.company.name[0]}</div>
-            <div><div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{selBid.company.name}</div><div style={{ fontSize:13, color:C.text3 }}>{fmtMoney(selBid.price)} · {selBid.period}일</div></div>
+            <div style={{ width:44, height:44, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:900, color:C.brand }}>{(selBid.company?.name ?? "?")[0]}</div>
+            <div><div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{selBid.company?.name ?? "—"}</div><div style={{ fontSize:13, color:C.text3 }}>{fmtMoney(selBid.price)} · {selBid.period}일</div></div>
           </div>
           <div style={{ background:C.brandL, borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`, fontSize:13, color:C.brand, fontWeight:700, textAlign:"center" }}>🎉 예약 확정 완료 · 결제 방식 선택</div>
         </div>
         <div onClick={() => setStep("done_direct")} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.md, border:`1.5px solid ${C.bgWarm}`, cursor:"pointer" }}>
           <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:4 }}>직거래</div>
           <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>업체와 직접 결제 · 공간마켓 보호 없음</div>
-          <div style={{ background:"#FFF8E8", borderRadius:R.sm, padding:"6px 10px", fontSize:11, color:"#C08000" }}>⚠️ 분쟁 발생 시 공간마켓 개입 없음</div>
+          <div style={{ background:"#FBF5E8", borderRadius:R.sm, padding:"6px 10px", fontSize:11, color:"#B08040" }}>⚠️ 분쟁 발생 시 공간마켓 개입 없음</div>
         </div>
         <div onClick={() => setStep("payment")} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, border:`2px solid ${C.brand}`, cursor:"pointer" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
@@ -132,7 +132,7 @@ export default function BidStatusScreen({ onBack, onChat, bids: propBids, reques
         <div style={{ fontSize:64, marginBottom:16 }}>✅</div>
         <div style={{ fontSize:22, fontWeight:900, color:C.text1, marginBottom:8 }}>예약 완료!</div>
         <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>{step==="done" ? "에스크로 예치 완료. 착공 확인 후 업체에 지급됩니다." : "직거래로 예약됐어요. 업체와 채팅으로 결제 조율하세요."}</div>
-        <button onClick={() => onChat(selBid.company)} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44`, marginBottom:S.sm }}>💬 {selBid.company.name}와 채팅하기</button>
+        <button onClick={() => selBid.company && onChat(selBid.company)} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44`, marginBottom:S.sm }}>💬 {selBid.company?.name ?? "업체"}와 채팅하기</button>
         <button onClick={onBack} style={{ width:"100%", padding:S.lg, background:"none", color:C.text3, border:"none", fontWeight:600, fontSize:14, cursor:"pointer" }}>홈으로</button>
       </div>
     </div>
@@ -163,13 +163,13 @@ export default function BidStatusScreen({ onBack, onChat, bids: propBids, reques
             <div key={bid.id} style={{ background:C.surface, borderRadius:R.xl, marginBottom:S.md, border:`1px solid ${C.bgWarm}`, overflow:"hidden" }}>
               <div style={{ padding:S.xl }}>
                 <div style={{ display:"flex", gap:S.md, alignItems:"flex-start", marginBottom:S.lg }}>
-                  <div style={{ width:44, height:44, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:900, color:C.brand }}>{bid.company.name[0]}</div>
-                  <div style={{ flex:1 }}><div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{bid.company.name}</div><TempBadge temp={bid.company.temp} /></div>
+                  <div style={{ width:44, height:44, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:900, color:C.brand }}>{(bid.company?.name ?? "?")[0]}</div>
+                  <div style={{ flex:1 }}><div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{bid.company?.name ?? "—"}</div><TempBadge temp={bid.company?.temp ?? 0} /></div>
                   <div style={{ textAlign:"right" }}><div style={{ fontSize:20, fontWeight:900, color:C.brand }}>{fmtMoney(bid.price)}</div><div style={{ fontSize:11, color:C.text3 }}>{bid.period}일</div></div>
                 </div>
                 <div style={{ fontSize:13, color:C.text2, marginBottom:S.md, fontStyle:"italic" }}>{bid.comment}</div>
                 <div style={{ display:"flex", flexDirection:"column", gap:S.sm }}>
-                  <button onClick={() => onChat(bid.company)} style={{ width:"100%", padding:"11px", background:C.surface, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>💬 상담하기</button>
+                  <button onClick={() => bid.company && onChat(bid.company)} style={{ width:"100%", padding:"11px", background:C.surface, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>💬 상담하기</button>
                   <button onClick={() => selectBid(bid)} style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 12px ${C.brand}44` }}>✅ 이 업체로 선택하기</button>
                 </div>
               </div>
