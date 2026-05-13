@@ -78,7 +78,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     : [["📋","요청","home"],["🗺","지도","map"],["💬","채팅","chatlist"],["👤","내정보","my"]];
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Apple SD Gothic Neo','Pretendard',sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
 
       {(screen==="home"||screen==="map") && (
         <div style={{ background:C.surface, padding:"14px 20px 0", borderBottom:`1px solid ${C.bgWarm}`, position:"sticky", top:0, zIndex:10 }}>
@@ -119,7 +119,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         {/* 의뢰인 홈 */}
         {screen==="home" && mode==="consumer" && (
           <div>
-            <div style={{ background:`linear-gradient(150deg,#FDF0E4 0%,${C.bgWarm} 100%)`,
+            <div style={{ background:`linear-gradient(150deg,${C.brandL} 0%,${C.bgWarm} 100%)`,
               borderRadius:R.xl, padding:S.xxl, marginBottom:S.lg,
               border:`1.5px solid ${C.brandM}`,
               position:"relative", overflow:"hidden" }}>
@@ -558,7 +558,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
       </div>
 
       {showRegisterPrompt && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.6)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
             <div style={{ textAlign:"center", marginBottom:S.xxl }}>
@@ -598,7 +598,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
       }} />}
 
       {bidAlert && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.6)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:400 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:400 }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
             <div style={{ textAlign:"center", marginBottom:S.xxl }}>

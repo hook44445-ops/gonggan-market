@@ -114,7 +114,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
 
       {/* Bid form bottom sheet */}
       {showForm && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.6)",
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)",
           display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}
           onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0",

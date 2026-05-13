@@ -10,7 +10,7 @@ export default function RequestModal({ onClose, onDone }) {
     marginBottom:14, fontFamily:"inherit", color:C.text1, background:C.surface };
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.55)",
+    <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)",
       display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:100 }}>
       <div style={{ background:C.surface, borderRadius:"24px 24px 0 0",
         width:"100%", maxWidth:480, padding:"20px 24px 40px" }}>

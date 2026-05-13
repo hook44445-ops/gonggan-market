@@ -84,12 +84,12 @@ export const COMPANIES = [
 export const ACTIVE_JOBS = [
   {
     id:1, client:"김민준", area:"마포구 합정동", type:"아파트 전체 32평",
-    total:2650, paid:70, status:"중간점검", statusColor:"#D95F00",
+    total:2650, paid:70, status:"중간점검", statusColor:"#C8A15A",
     dDay:12, img: PHOTOS.apt_after1,
   },
   {
     id:2, client:"박서연", area:"마포구 망원동", type:"원룸 부분",
-    total:680, paid:30, status:"시공중", statusColor:"#00995C",
+    total:680, paid:30, status:"시공중", statusColor:"#2E5F4B",
     dDay:8, img: PHOTOS.room_after,
   },
 ];

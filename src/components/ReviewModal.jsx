@@ -12,7 +12,7 @@ export default function ReviewModal({ onClose, onSubmit }) {
   const toggle = t => setTags(p => p.includes(t) ? p.filter(x=>x!==t) : [...p,t]);
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.55)",
+    <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)",
       display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:200 }}>
       <div style={{ background:C.surface, borderRadius:"24px 24px 0 0",
         width:"100%", maxWidth:480, padding:"20px 24px 40px", maxHeight:"90vh", overflowY:"auto" }}>

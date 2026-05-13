@@ -2,10 +2,10 @@ import { useState } from "react";
 import { C, R, S } from "../constants";
 
 const BADGE_LEVELS = [
-  { key:"basic",      icon:"🥉", label:"베이직",      color:"#8A837A", bg:"#F5F0EB", deposit:300,  maxJob:500,   desc:"소규모 부분 공사",         insurance:false },
-  { key:"standard",   icon:"🥈", label:"스탠다드",    color:"#D95F00", bg:"#FDF3EC", deposit:600,  maxJob:2000,  desc:"중형 아파트 시공",          insurance:false },
-  { key:"premium",    icon:"🥇", label:"프리미엄",    color:"#C04000", bg:"#FFF0E8", deposit:1000, maxJob:5000,  desc:"대형·상업 공간 전문",       insurance:true  },
-  { key:"enterprise", icon:"💎", label:"엔터프라이즈",color:"#1A2744", bg:"#EEF1F8", deposit:2000, maxJob:99999, desc:"무제한 수주·최상위 노출",   insurance:true  },
+  { key:"basic",      icon:"🥉", label:"베이직",      color:"#7A8A7E", bg:"#F0EDE8", deposit:300,  maxJob:500,   desc:"소규모 부분 공사",         insurance:false },
+  { key:"standard",   icon:"🥈", label:"스탠다드",    color:"#2E5F4B", bg:"#EAF2EE", deposit:600,  maxJob:2000,  desc:"중형 아파트 시공",          insurance:false },
+  { key:"premium",    icon:"🥇", label:"프리미엄",    color:"#C8A15A", bg:"#FBF5E8", deposit:1000, maxJob:5000,  desc:"대형·상업 공간 전문",       insurance:true  },
+  { key:"enterprise", icon:"💎", label:"엔터프라이즈",color:"#1F2A24", bg:"#EAF2EE", deposit:2000, maxJob:99999, desc:"무제한 수주·최상위 노출",   insurance:true  },
 ];
 
 export default function CompanyDepositCard({ badge = "standard", hasInsurance = false, onUpgrade }) {
@@ -17,9 +17,9 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
   const additionalNeeded = next ? next.deposit - current.deposit : 0;
 
   const badgeColor = {
-    basic:      { grad:`linear-gradient(135deg,#8A837A,#6E675F)` },
+    basic:      { grad:`linear-gradient(135deg,#7A8A7E,#5A6A5E)` },
     standard:   { grad:`linear-gradient(135deg,${C.brand},${C.brandD})` },
-    premium:    { grad:`linear-gradient(135deg,#C04000,#8B2E00)` },
+    premium:    { grad:`linear-gradient(135deg,#C8A15A,#A07830)` },
     enterprise: { grad:`linear-gradient(135deg,${C.navy},${C.navyM})` },
   }[badge] || { grad:`linear-gradient(135deg,${C.brand},${C.brandD})` };
 
@@ -151,7 +151,7 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
 
       {/* Upgrade bottom sheet */}
       {showUpgradeSheet && next && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.6)",
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)",
           display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}
           onClick={e => { if (e.target === e.currentTarget) setShowUpgradeSheet(false); }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%",

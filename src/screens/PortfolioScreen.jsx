@@ -89,7 +89,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
           display:"flex", justifyContent:"space-between", alignItems:"center",
           boxShadow:"0 1px 6px rgba(28,23,18,0.05)" }}>
           <div style={{ display:"flex", alignItems:"center", gap:S.md }}>
-            <div style={{ width:44, height:44, borderRadius:R.lg, background:"#FFF8E8",
+            <div style={{ width:44, height:44, borderRadius:R.lg, background:"#FBF5E8",
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>⭐</div>
             <div style={{ textAlign:"left" }}>
               <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>

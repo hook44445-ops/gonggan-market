@@ -5,7 +5,7 @@ export default function PhotoModal({ work, onClose }) {
   const [view, setView] = useState("after");
 
   return (
-    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.9)",
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.92)",
       zIndex:300, display:"flex", flexDirection:"column",
       alignItems:"center", justifyContent:"center", padding:S.xl }}>
       <div onClick={e => e.stopPropagation()}
@@ -41,7 +41,7 @@ export default function PhotoModal({ work, onClose }) {
                 style={{ width:"100%", height:"100%", objectFit:"cover", filter:"grayscale(30%)" }}
                 onError={e => { e.target.style.background=C.bgWarm; }} />
               <div style={{ position:"absolute", bottom:S.sm, left:S.sm,
-                background:"rgba(28,23,18,0.7)", color:"#fff",
+                background:"rgba(31,42,36,0.7)", color:"#fff",
                 borderRadius:R.full, padding:"2px 8px", fontSize:10, fontWeight:800 }}>BEFORE</div>
             </div>
             <div style={{ width:2, background:C.brand }} />

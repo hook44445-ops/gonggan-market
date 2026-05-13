@@ -95,7 +95,7 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
     : "에스크로 안전 정산";
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Apple SD Gothic Neo',sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
 
       {/* Header */}
       <div style={{ background:C.surface, padding:"14px 20px", borderBottom:`1px solid ${C.bgWarm}`,
@@ -323,7 +323,7 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
 
       {/* Consumer: approve confirmation sheet */}
       {showConfirm && isConsumer && stages[1] && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.6)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
             <div style={{ textAlign:"center", marginBottom:S.xxl }}>
@@ -352,7 +352,7 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
 
       {/* Dispute sheet */}
       {showDisputeSheet && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(28,23,18,0.6)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }} onClick={e => { if (e.target === e.currentTarget) setShowDisputeSheet(false); }}>
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }} onClick={e => { if (e.target === e.currentTarget) setShowDisputeSheet(false); }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
             <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:6 }}>⚠️ 이의 신청</div>

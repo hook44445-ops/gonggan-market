@@ -64,7 +64,7 @@ export default function BidStatusScreen({ onBack, onChat, bids: propBids, reques
         <div onClick={() => setStep("done_direct")} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.md, border:`1.5px solid ${C.bgWarm}`, cursor:"pointer" }}>
           <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:4 }}>직거래</div>
           <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>업체와 직접 결제 · 공간마켓 보호 없음</div>
-          <div style={{ background:"#FFF8E8", borderRadius:R.sm, padding:"6px 10px", fontSize:11, color:"#C08000" }}>⚠️ 분쟁 발생 시 공간마켓 개입 없음</div>
+          <div style={{ background:"#FBF5E8", borderRadius:R.sm, padding:"6px 10px", fontSize:11, color:"#B08040" }}>⚠️ 분쟁 발생 시 공간마켓 개입 없음</div>
         </div>
         <div onClick={() => setStep("payment")} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, border:`2px solid ${C.brand}`, cursor:"pointer" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
