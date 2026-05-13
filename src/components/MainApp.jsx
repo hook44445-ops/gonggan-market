@@ -10,6 +10,7 @@ import EscrowScreen from "./EscrowScreen";
 import DashboardScreen from "./DashboardScreen";
 import BidStatusScreen from "./BidStatusScreen";
 import AdminScreen from "./AdminScreen";
+import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 
 export default function MainApp({ user, onLogout, onStartOnboarding }) {
@@ -467,38 +468,11 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             {user.role==="company" && (
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🏦 보증금 현황</div>
-                <div style={{ background:C.surface, borderRadius:R.xl, overflow:"hidden", marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-                  <div style={{ background:`linear-gradient(135deg,${C.navy},${C.navyM})`, padding:S.xxl, color:"#fff" }}>
-                    <div style={{ fontSize:12, opacity:0.7, marginBottom:4 }}>납부한 보증금</div>
-                    <div style={{ fontSize:32, fontWeight:900, marginBottom:4 }}>600만원</div>
-                    <div style={{ display:"flex", gap:6 }}>
-                      <span style={{ background:"rgba(255,255,255,0.15)", borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>🥈 스탠다드</span>
-                      <span style={{ background:"rgba(255,255,255,0.15)", borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>공사 ~2,000만원</span>
-                    </div>
-                  </div>
-                  <div style={{ padding:S.xl }}>
-                    {[["보관 방식","공간마켓 법인 신탁 계좌"],["납부일","2026.05.13"],["보증금 비율","20% (시공보험 할인 적용)"],["환급 조건","탈퇴 신청 7일 내 전액 환급"],["현재 상태","✅ 정상 보관 중"]].map(([k,v]) => (
-                      <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:`${S.sm}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
-                        <span style={{ fontSize:13, color:C.text3 }}>{k}</span>
-                        <span style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ background:C.brandL, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
-                  <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:S.sm }}>🥇 프리미엄으로 업그레이드</div>
-                  <div style={{ fontSize:13, color:C.text2, lineHeight:1.7, marginBottom:S.md }}>추가 보증금 400만원으로<br/>5,000만원 규모 공사까지 수주 가능</div>
-                  <button style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>업그레이드 신청하기</button>
-                </div>
-                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, border:`1px solid ${C.bgWarm}` }}>
-                  <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.md }}>🛡 보증금이 안전한 이유</div>
-                  {["법인 전용 신탁 계좌 분리 보관","회사 운영비와 절대 혼용 없음","탈퇴 시 7일 내 전액 환급 약정","환급 보증 약정서 발급","향후 은행 신탁 기관 연계 예정"].map(t => (
-                    <div key={t} style={{ display:"flex", gap:S.sm, alignItems:"center", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
-                      <span style={{ color:C.green, fontWeight:900, fontSize:14 }}>✓</span>
-                      <span style={{ fontSize:13, color:C.text2 }}>{t}</span>
-                    </div>
-                  ))}
-                </div>
+                <CompanyDepositCard
+                  badge="standard"
+                  hasInsurance={false}
+                  onUpgrade={(next) => showToast(`${next.label} 업그레이드 신청이 접수됐어요!`)}
+                />
               </div>
             )}
 
