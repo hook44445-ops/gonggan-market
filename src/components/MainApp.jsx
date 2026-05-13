@@ -32,16 +32,17 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
   const addBid = (request, bidData) => {
-    if (!currentUser) {
-      console.error("[addBid] currentUser is null — company not initialized");
+    // Fall back to COMPANIES[0] when currentUser is null (e.g. consumer toggled to company mode)
+    const company = currentUser ?? COMPANIES[0] ?? null;
+    if (!company) {
+      console.error("[addBid] no company available — COMPANIES list may be empty");
       return;
     }
-    console.log("[addBid] submitting bid — requestId:", request.id, "company:", currentUser?.name);
     const newBid = {
       id: Date.now(),
       requestId: request.id,
-      companyId: currentUser.id ?? null,
-      company: currentUser,
+      companyId: company.id ?? null,
+      company: company,
       price: bidData.price,
       period: bidData.period,
       material: bidData.material,
@@ -49,11 +50,10 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
       createdAt: new Date().toISOString(),
       status: "pending",
     };
-    console.log("[addBid] newBid object:", newBid);
+    console.log("BID SUBMITTED:", newBid);
     setSubmittedBids(prev => {
       const updated = [...prev, newBid];
       const forRequest = updated.filter(b => b.requestId === request.id);
-      console.log("[addBid] submittedBids updated — total:", updated.length, "for requestId", request.id, ":", forRequest.length, "bid(s)");
       setBidAlert({
         count: forRequest.length,
         requestType: request.type,

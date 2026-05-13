@@ -10,7 +10,9 @@ export default function BidStatusScreen({ onBack, onChat, submittedBids: propSub
   const [selBid, setSelBid] = useState(null);
 
   useEffect(() => {
-    console.log("[BidStatusScreen] submittedBids received:", allBids.length, "filtering by request.id:", request?.id ?? null, "→", bids.length, "bid(s)", bids);
+    console.log("ALL BIDS:", allBids);
+    console.log("CURRENT REQUEST ID:", request?.id);
+    console.log("FILTERED BIDS:", bids);
   }, [propSubmittedBids, request]);
 
   const selectBid = (bid) => {
