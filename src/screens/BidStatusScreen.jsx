@@ -3,14 +3,15 @@ import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 
-export default function BidStatusScreen({ onBack, onChat, bids: propBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
-  const bids = propBids ?? [];
+export default function BidStatusScreen({ onBack, onChat, submittedBids: propSubmittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
+  const allBids = propSubmittedBids ?? [];
+  const bids = request ? allBids.filter(bid => bid.requestId === request.id) : [];
   const [step, setStep] = useState("list");
   const [selBid, setSelBid] = useState(null);
 
   useEffect(() => {
-    console.log("[BidStatusScreen] bids prop updated — count:", bids.length, "request:", request?.id ?? null, bids);
-  }, [bids, request]);
+    console.log("[BidStatusScreen] submittedBids received:", allBids.length, "filtering by request.id:", request?.id ?? null, "→", bids.length, "bid(s)", bids);
+  }, [propSubmittedBids, request]);
 
   const selectBid = (bid) => {
     console.log("[BidStatusScreen] customer selected bid:", bid.id, "company:", bid.company?.name, "price:", bid.price);

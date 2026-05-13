@@ -32,6 +32,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
         material: bidForm.material,
         comment:  bidForm.comment,
       };
+      console.log("[BidCard] handleSubmit — requestId:", r.id, "bid shape:", { requestId: r.id, ...bidData });
       onBidSubmit?.(bidData);
       setShowForm(false);
       setSubmitted(true);
