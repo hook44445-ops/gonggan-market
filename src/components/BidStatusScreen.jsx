@@ -2,8 +2,8 @@ import { useState } from "react";
 import { C, R, S, MOCK_BIDS } from "../constants";
 import { TempBadge } from "./common";
 
-export default function BidStatusScreen({ onBack, onChat }) {
-  const [bids] = useState(MOCK_BIDS);
+export default function BidStatusScreen({ onBack, onChat, bids: propBids, request }) {
+  const bids = propBids && propBids.length > 0 ? propBids : MOCK_BIDS;
   const [step, setStep] = useState("list");
   const [selBid, setSelBid] = useState(null);
 
@@ -109,7 +109,7 @@ export default function BidStatusScreen({ onBack, onChat }) {
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      <H title="입찰 현황" sub={`업체 ${bids.length}곳이 입찰했어요`} />
+      <H title="입찰 현황" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, border:`1px solid ${C.brandM}` }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.brand }}>💡 업체 금액은 선택 전까지 서로 모릅니다</div>
