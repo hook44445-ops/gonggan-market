@@ -31,39 +31,6 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
-  const addBid = (request, bidData) => {
-    // Fall back to COMPANIES[0] when currentUser is null (e.g. consumer toggled to company mode)
-    const company = currentUser ?? COMPANIES[0] ?? null;
-    if (!company) {
-      console.error("[addBid] no company available — COMPANIES list may be empty");
-      return;
-    }
-    const newBid = {
-      id: Date.now(),
-      requestId: request.id,
-      companyId: company.id ?? null,
-      company: company,
-      price: bidData.price,
-      period: bidData.period,
-      material: bidData.material,
-      comment: bidData.comment,
-      createdAt: new Date().toISOString(),
-      status: "pending",
-    };
-    console.log("BID SUBMITTED:", newBid);
-    setSubmittedBids(prev => {
-      const updated = [...prev, newBid];
-      const forRequest = updated.filter(b => b.requestId === request.id);
-      setBidAlert({
-        count: forRequest.length,
-        requestType: request.type,
-        requestId: request.id,
-        companies: forRequest.map(b => b.company).filter(Boolean),
-      });
-      return updated;
-    });
-  };
-
   const [customerRequests, setCustomerRequests] = useState(() => [...REQUESTS]);
   const [submittedBids, setSubmittedBids] = useState([]);
   const [selectedBid, setSelectedBid] = useState(null);
@@ -349,7 +316,8 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                 key={r.id}
                 r={r}
                 currentUser={currentUser}
-                onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
+                setSubmittedBids={isGuestCompany ? null : setSubmittedBids}
+                setBidAlert={setBidAlert}
                 onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
               />
             ))}

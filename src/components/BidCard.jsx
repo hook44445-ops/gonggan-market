@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "./common";
+import { COMPANIES } from "../mock/mockCompanies";
 
-export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth }) {
+export default function BidCard({ r, currentUser, setSubmittedBids, setBidAlert, onRequiresAuth }) {
   const [submitted, setSubmitted] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bidForm, setBidForm] = useState({ price:"", period:"", material:"", comment:"" });
   const setBF = (k, v) => setBidForm(f => ({ ...f, [k]:v }));
-  const isGuest = !onBidSubmit && !!onRequiresAuth;
+  const isGuest = !setSubmittedBids && !!onRequiresAuth;
   const canSubmit = bidForm.price && bidForm.period;
 
   const iS = {
@@ -26,21 +27,38 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
     if (!canSubmit || submitting) return;
     setSubmitting(true);
     setTimeout(() => {
-      const bidData = {
+      const company = currentUser ?? COMPANIES[0] ?? null;
+      const newBid = {
+        id: Date.now(),
+        requestId: r.id,
+        companyId: company?.id ?? null,
+        company: company,
         price:    parseInt(bidForm.price, 10),
         period:   parseInt(bidForm.period, 10),
         material: bidForm.material,
         comment:  bidForm.comment,
+        createdAt: new Date().toISOString(),
+        status: "pending",
       };
-      console.log("[BidCard] handleSubmit — requestId:", r.id, "bid shape:", { requestId: r.id, ...bidData });
-      onBidSubmit?.(bidData);
+      console.log("BID SUBMITTED:", newBid);
+      setSubmittedBids?.(prev => {
+        const updated = [...prev, newBid];
+        const forRequest = updated.filter(b => String(b.requestId) === String(r.id));
+        setBidAlert?.({
+          count: forRequest.length,
+          requestType: r.type,
+          requestId: r.id,
+          companies: forRequest.map(b => b.company).filter(Boolean),
+        });
+        return updated;
+      });
       setShowForm(false);
       setSubmitted(true);
       setSubmitting(false);
     }, 800);
   };
 
-  const company = currentUser;
+  const company = currentUser ?? COMPANIES[0];
 
   return (
     <div>
@@ -145,7 +163,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
               placeholder="예: 12년 경력, 에스크로 156건 완료. 중간 점검 사진 매번 공유해드립니다."
               rows={3} style={{ ...iS, resize:"none", lineHeight:1.7 }} />
 
-            {/* Company trust badge — shown only when logged-in company data is available */}
+            {/* Company trust badge */}
             {company && (
               <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
                 marginBottom:S.md, display:"flex", gap:S.md, alignItems:"center",

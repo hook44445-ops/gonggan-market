@@ -5,7 +5,9 @@ import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../uti
 
 export default function BidStatusScreen({ onBack, onChat, submittedBids: propSubmittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
   const allBids = propSubmittedBids ?? [];
-  const bids = request ? allBids.filter(bid => bid.requestId === request.id) : [];
+  const bids = request
+    ? allBids.filter(bid => String(bid.requestId) === String(request.id))
+    : [];
   const [step, setStep] = useState("list");
   const [selBid, setSelBid] = useState(null);
 
@@ -150,6 +152,7 @@ export default function BidStatusScreen({ onBack, onChat, submittedBids: propSub
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
       <H title="입찰 현황" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} />
+
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, border:`1px solid ${C.brandM}` }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.brand }}>💡 업체 금액은 선택 전까지 서로 모릅니다</div>
