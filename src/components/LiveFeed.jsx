@@ -32,7 +32,7 @@ export default function LiveFeed() {
         </div>
       </div>
       {feed.slice(0,4).map(item => {
-        const m = FEED_META[item.type];
+        const m = FEED_META[item.type] ?? FEED_META.new;
         return (
           <div key={item.id} style={{ display:"flex", alignItems:"center", gap:S.sm,
             padding:`${S.xs}px ${S.sm}px`, borderRadius:R.md,

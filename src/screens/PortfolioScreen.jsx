@@ -5,11 +5,13 @@ import PortfolioCard from "../components/PortfolioCard";
 import PhotoModal from "../components/PhotoModal";
 
 export default function PortfolioScreen({ company, onChat, onReview, onBack, onEscrow }) {
-  const g = GRADE(company.temp);
+  const g = GRADE(company?.temp ?? 0);
   const [photoWork, setPhotoWork] = useState(null);
 
+  if (!company) return null;
+
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Apple SD Gothic Neo',sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
       <div style={{ background:C.surface, padding:"14px 20px", borderBottom:`1px solid ${C.bgWarm}`,
         position:"sticky", top:0, zIndex:10, display:"flex", alignItems:"center", gap:S.md }}>
         <button onClick={onBack} style={{ background:"none", border:"none",

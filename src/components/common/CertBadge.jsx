@@ -8,6 +8,7 @@ const META = {
 
 export default function CertBadge({ type }) {
   const b = META[type];
+  if (!b) return null;
   return (
     <span style={{ background:b.bg, color:b.c, borderRadius:R.full,
       padding:"2px 9px", fontSize:11, fontWeight:700,

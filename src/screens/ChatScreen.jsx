@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 
-export default function ChatScreen({ company, onBack, messages, onUpdateMessages }) {
+export default function ChatScreen({ company, onBack, messages: messagesProp, onUpdateMessages }) {
+  const messages = messagesProp ?? [];
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const bottomRef = useRef(null);
@@ -30,20 +31,20 @@ export default function ChatScreen({ company, onBack, messages, onUpdateMessages
   };
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100vh", fontFamily:"'Apple SD Gothic Neo',sans-serif" }}>
+    <div style={{ display:"flex", flexDirection:"column", height:"100vh", fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
       <div style={{ background:C.surface, borderBottom:`1px solid ${C.bgWarm}`, padding:"12px 16px",
         display:"flex", alignItems:"center", gap:S.md, position:"sticky", top:0, zIndex:10 }}>
         <button onClick={onBack} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
         <div style={{ width:40, height:40, borderRadius:R.full, flexShrink:0,
           background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center",
           fontSize:18, fontWeight:900, color:C.brand, position:"relative" }}>
-          {company.name[0]}
-          {company.online && <div style={{ position:"absolute", bottom:0, right:0, width:10, height:10, borderRadius:"50%", background:C.green, border:"2px solid #fff" }} />}
+          {(company?.name ?? "?")[0]}
+          {company?.online && <div style={{ position:"absolute", bottom:0, right:0, width:10, height:10, borderRadius:"50%", background:C.green, border:"2px solid #fff" }} />}
         </div>
         <div>
-          <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{company.name}</div>
-          <div style={{ fontSize:11, color:company.online?C.green:C.text3, fontWeight:600 }}>
-            {company.online?`활동중 · ${company.lastActive}`:company.responseTime}
+          <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{company?.name ?? "—"}</div>
+          <div style={{ fontSize:11, color:company?.online?C.green:C.text3, fontWeight:600 }}>
+            {company?.online?`활동중 · ${company.lastActive}`:company?.responseTime ?? ""}
           </div>
         </div>
         <div style={{ marginLeft:"auto" }}><TempBadge temp={company.temp} /></div>
@@ -63,7 +64,7 @@ export default function ChatScreen({ company, onBack, messages, onUpdateMessages
             {msg.from==="company" && (
               <div style={{ width:32, height:32, borderRadius:R.full, background:C.brandL,
                 display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:13, fontWeight:900, color:C.brand, flexShrink:0 }}>{company.name[0]}</div>
+                fontSize:13, fontWeight:900, color:C.brand, flexShrink:0 }}>{(company?.name ?? "?")[0]}</div>
             )}
             <div>
               <div style={{ background:msg.from==="user"?C.brand:C.surface,
@@ -79,7 +80,7 @@ export default function ChatScreen({ company, onBack, messages, onUpdateMessages
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:S.md }}>
             <div style={{ width:32, height:32, borderRadius:R.full, background:C.brandL,
               display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:13, fontWeight:900, color:C.brand }}>{company.name[0]}</div>
+              fontSize:13, fontWeight:900, color:C.brand }}>{(company?.name ?? "?")[0]}</div>
             <div style={{ background:C.surface, borderRadius:"18px 18px 18px 4px",
               padding:"12px 16px", boxShadow:"0 1px 4px rgba(28,23,18,0.08)" }}>
               <div style={{ display:"flex", gap:5 }}>
