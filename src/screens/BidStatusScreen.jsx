@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
@@ -8,7 +8,12 @@ export default function BidStatusScreen({ onBack, onChat, bids: propBids, reques
   const [step, setStep] = useState("list");
   const [selBid, setSelBid] = useState(null);
 
+  useEffect(() => {
+    console.log("[BidStatusScreen] bids prop updated — count:", bids.length, "request:", request?.id ?? null, bids);
+  }, [bids, request]);
+
   const selectBid = (bid) => {
+    console.log("[BidStatusScreen] customer selected bid:", bid.id, "company:", bid.company?.name, "price:", bid.price);
     setSelBid(bid);
     if (setSelectedBid) setSelectedBid(bid);
     setStep("confirm");
