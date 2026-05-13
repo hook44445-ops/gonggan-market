@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { C, R, S, COMPANIES } from "../constants";
+import { C, R, S } from "../constants";
 import { TempBadge } from "./common";
 
-export default function BidCard({ r, onBidSubmit, onRequiresAuth }) {
+export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth }) {
   const [submitted, setSubmitted] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -39,7 +39,7 @@ export default function BidCard({ r, onBidSubmit, onRequiresAuth }) {
     }, 800);
   };
 
-  const company = COMPANIES[0];
+  const company = currentUser;
 
   return (
     <div>
@@ -144,15 +144,17 @@ export default function BidCard({ r, onBidSubmit, onRequiresAuth }) {
               placeholder="예: 12년 경력, 에스크로 156건 완료. 중간 점검 사진 매번 공유해드립니다."
               rows={3} style={{ ...iS, resize:"none", lineHeight:1.7 }} />
 
-            {/* Company trust badge */}
-            <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
-              marginBottom:S.md, display:"flex", gap:S.md, alignItems:"center",
-              border:`1px solid ${C.brandM}` }}>
-              <TempBadge temp={company.temp} lg />
-              <div style={{ fontSize:12, color:C.text2 }}>
-                재계약률 {company.recontractRate}% · AS {company.asRate}% · 완료 {company.completedJobs}건
+            {/* Company trust badge — shown only when logged-in company data is available */}
+            {company && (
+              <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
+                marginBottom:S.md, display:"flex", gap:S.md, alignItems:"center",
+                border:`1px solid ${C.brandM}` }}>
+                <TempBadge temp={company.temp ?? 0} lg />
+                <div style={{ fontSize:12, color:C.text2 }}>
+                  재계약률 {company.recontractRate ?? "—"}% · AS {company.asRate ?? "—"}% · 완료 {company.completedJobs ?? "—"}건
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Fee info */}
             <div style={{ background:C.surface2, borderRadius:R.lg, padding:S.md,

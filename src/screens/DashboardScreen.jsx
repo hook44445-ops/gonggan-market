@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { C, R, S, ACTIVE_JOBS } from "../constants";
-import { TempBadge } from "./common";
-import BidCard from "./BidCard";
+import { C, R, S } from "../constants";
+import { ACTIVE_JOBS } from "../mock/mockCompanies";
+import { TempBadge } from "../components/common";
+import BidCard from "../components/BidCard";
 
-export default function DashboardScreen({ onBack, onEscrow, allRequests }) {
+export default function DashboardScreen({ onBack, onEscrow, allRequests, currentUser, submittedBids }) {
   const [tab, setTab] = useState("active");
   const thisMonthRevenue = 2190;
 
@@ -89,7 +90,7 @@ export default function DashboardScreen({ onBack, onEscrow, allRequests }) {
             <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>
               오늘 새로운 견적 요청 <b style={{color:C.brand}}>{allRequests.length}건</b>
             </div>
-            {allRequests.map(r => <BidCard key={r.id} r={r} />)}
+            {allRequests.map(r => <BidCard key={r.id} r={r} currentUser={currentUser} />)}
           </div>
         )}
 

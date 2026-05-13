@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { C, R, S, ALL_REGIONS, SPECIALTIES } from "../constants";
-import { Divider } from "./common";
+import { Divider } from "../components/common";
 
 export default function CompanyOnboarding({ phone, onDone }) {
   const [step, setStep] = useState(1);

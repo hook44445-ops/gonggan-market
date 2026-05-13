@@ -1,6 +1,6 @@
 import { useState } from "react";
 import MainApp from "./components/MainApp";
-import LoginScreen from "./components/LoginScreen";
+import LoginScreen from "./screens/LoginScreen";
 
 export default function App() {
   const [user, setUser] = useState(null);

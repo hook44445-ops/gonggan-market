@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { C, R, S, GRADE } from "../constants";
-import { TempBadge, CertBadge } from "./common";
-import PortfolioCard from "./PortfolioCard";
-import PhotoModal from "./PhotoModal";
+import { TempBadge, CertBadge } from "../components/common";
+import PortfolioCard from "../components/PortfolioCard";
+import PhotoModal from "../components/PhotoModal";
 
 export default function PortfolioScreen({ company, onChat, onReview, onBack, onEscrow }) {
   const g = GRADE(company.temp);
