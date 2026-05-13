@@ -53,7 +53,7 @@ export default function PortfolioCard({ work, onExpand }) {
             {work.title}
           </div>
           <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-            {work.tags.map(t => (
+            {(work.tags ?? []).map(t => (
               <span key={t} style={{ background:"rgba(255,255,255,0.18)",
                 color:"#fff", borderRadius:R.full, padding:"2px 9px",
                 fontSize:11, fontWeight:600, backdropFilter:"blur(6px)" }}>{t}</span>

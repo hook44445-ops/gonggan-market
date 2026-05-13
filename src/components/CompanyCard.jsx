@@ -2,7 +2,8 @@ import { C, R, S, GRADE } from "../constants";
 import { TempBadge, CertBadge } from "./common";
 
 export default function CompanyCard({ company, onClick }) {
-  const g = GRADE(company.temp);
+  if (!company) return null;
+  const g = GRADE(company.temp ?? 0);
   return (
     <div onClick={onClick} style={{ background:C.surface, borderRadius:R.xl,
       marginBottom:S.sm, cursor:"pointer",
@@ -17,7 +18,7 @@ export default function CompanyCard({ company, onClick }) {
             background:C.brandL,
             display:"flex", alignItems:"center", justifyContent:"center",
             fontSize:20, fontWeight:900, color:C.brand, position:"relative" }}>
-            {company.name[0]}
+            {(company.name ?? "?")[0]}
             {company.online && <div style={{ position:"absolute", bottom:-1, right:-1,
               width:12, height:12, borderRadius:"50%", background:C.green, border:"2.5px solid #fff" }} />}
           </div>
