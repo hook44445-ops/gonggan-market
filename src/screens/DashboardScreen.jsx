@@ -115,6 +115,30 @@ export default function DashboardScreen({ onBack, onEscrow, allRequests: allRequ
 
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
               marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md }}>💸 수수료 구조 안내</div>
+              {[
+                ["에스크로 이용료", "고객 3%", "고객 예치금에 포함"],
+                ["플랫폼 수수료",   "업체 4%", "정산 시 자동 차감"],
+                ["보증금 비율",     "보험 미가입 30%", "보험 가입 시 20%"],
+              ].map(([label, val, sub]) => (
+                <div key={label} style={{ display:"flex", justifyContent:"space-between",
+                  alignItems:"center", padding:`${S.sm}px 0`,
+                  borderBottom:`1px solid ${C.bgWarm}` }}>
+                  <div>
+                    <div style={{ fontSize:13, color:C.text2, fontWeight:600 }}>{label}</div>
+                    <div style={{ fontSize:11, color:C.text4 }}>{sub}</div>
+                  </div>
+                  <span style={{ fontSize:13, fontWeight:800, color:C.brand }}>{val}</span>
+                </div>
+              ))}
+              <div style={{ marginTop:S.md, background:C.brandL, borderRadius:R.md,
+                padding:`${S.sm}px ${S.md}px`, fontSize:12, color:C.brand, fontWeight:700 }}>
+                💡 이번 달 수수료 추산: {Math.round(thisMonthRevenue * 0.04).toLocaleString()}만원 차감
+              </div>
+            </div>
+
+            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
+              marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.xl }}>월별 정산 수익</div>
               {[["1월",1200],["2월",980],["3월",1650],["4월",2190],["5월",0]].map(([month,val]) => {
                 const max = 2190;

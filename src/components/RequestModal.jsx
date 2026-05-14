@@ -84,6 +84,11 @@ export default function RequestModal({ onClose, onDone }) {
           <textarea placeholder="예) 주방 확장, 욕실 2개 교체, 바닥재 전체 교체 원합니다." value={form.desc}
             onChange={e => set("desc",e.target.value)} rows={4}
             style={{ ...iS, resize:"none", lineHeight:1.7, marginBottom:S.sm }} />
+          <div style={{ background:C.surface2, borderRadius:R.md, padding:"10px 14px",
+            marginBottom:S.sm, fontSize:12, color:C.text3, lineHeight:1.8 }}>
+            💰 에스크로 선택 시 <b style={{color:C.brand}}>이용료 3%</b>가 고객 부담으로 추가됩니다<br/>
+            예시: 시공비 3,000만 → 총 예치 3,090만원 (수수료 90만원)
+          </div>
           <div style={{ background:C.navyL, borderRadius:R.md, padding:"10px 14px",
             marginBottom:S.xl, fontSize:13, color:C.navy, fontWeight:600,
             display:"flex", gap:8, alignItems:"center" }}>

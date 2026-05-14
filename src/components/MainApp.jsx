@@ -480,6 +480,40 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               </div>
             </div>
 
+            {/* 업체 이용 절차 5단계 */}
+            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
+              marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.lg }}>🗂 업체 이용 절차</div>
+              {[
+                { icon:"🔍", title:"프로젝트 매칭",     desc:"인근 견적 요청 확인 후 입찰 제출" },
+                { icon:"📝", title:"계약 & 착공",        desc:"고객 선택 시 착공금 30% 즉시 수령" },
+                { icon:"🏗",  title:"단계별 공사 진행",  desc:"중간 점검 사진 공유 · 에스크로 보호" },
+                { icon:"💰", title:"단계별 정산",        desc:"고객 승인 후 중도금 40% 수령" },
+                { icon:"⭐", title:"완료 & 리뷰",        desc:"잔금 30% 수령 · 공간온도 상승" },
+              ].map(({ icon, title, desc }, i, arr) => (
+                <div key={title} style={{ display:"flex", gap:S.md, marginBottom:i < arr.length - 1 ? S.lg : 0 }}>
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
+                    <div style={{ width:36, height:36, borderRadius:R.full, background:C.brandL,
+                      display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>{icon}</div>
+                    {i < arr.length - 1 && (
+                      <div style={{ width:2, flex:1, minHeight:12, marginTop:4, background:C.bgWarm }} />
+                    )}
+                  </div>
+                  <div style={{ flex:1, paddingTop:6 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:S.sm, marginBottom:3 }}>
+                      <span style={{ background:C.brand, color:"#fff", borderRadius:R.full,
+                        width:18, height:18, fontSize:10, fontWeight:900,
+                        display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
+                        {i + 1}
+                      </span>
+                      <span style={{ fontSize:14, fontWeight:800, color:C.text1 }}>{title}</span>
+                    </div>
+                    <div style={{ fontSize:12, color:C.text3 }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <LiveFeed />
 
             <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>📋 인근 시공 요청</div>
@@ -532,7 +566,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         )}
 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
-        {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} />}
+        {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} />}
         {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} mode={mode} selectedBid={selectedBid} currentUser={currentUser} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}

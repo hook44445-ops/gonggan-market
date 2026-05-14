@@ -143,3 +143,33 @@ export const disputeEscrowStep = (paymentId, step, reason) =>
     .from("escrow_payments")
     .update({ [`step_${step}_disputed`]: true, dispute_reason: reason, disputed_at: new Date().toISOString() })
     .eq("id", paymentId);
+
+// ── Portfolios ────────────────────────────────────────────────────────────────
+
+export const getPortfolios = (companyId) =>
+  supabase
+    .from("portfolios")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false });
+
+export const createPortfolio = (data) =>
+  supabase.from("portfolios").insert(data).select().single();
+
+export const deletePortfolio = (id) =>
+  supabase.from("portfolios").delete().eq("id", id);
+
+// ── Reviews ───────────────────────────────────────────────────────────────────
+
+export const getReviews = (companyId) =>
+  supabase
+    .from("reviews")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false });
+
+export const createReview = (data) =>
+  supabase.from("reviews").insert(data).select().single();
+
+export const replyToReview = (reviewId, reply) =>
+  supabase.from("reviews").update({ reply }).eq("id", reviewId);
