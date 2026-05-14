@@ -43,6 +43,9 @@ export const getCompanies = () =>
 export const getCompany = (id) =>
   supabase.from("companies").select("*").eq("id", id).single();
 
+export const getCompanyByOwnerId = (ownerId) =>
+  supabase.from("companies").select("*").eq("owner_id", ownerId).single();
+
 export const upsertCompany = (data) =>
   supabase.from("companies").upsert(data).select().single();
 
@@ -106,6 +109,13 @@ export const subscribeToChatRoom = (roomId, callback) =>
     .channel(`chat:${roomId}`)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats",
       filter: `room_id=eq.${roomId}` }, callback)
+    .subscribe();
+
+export const subscribeToBidInserts = (requestId, callback) =>
+  supabase
+    .channel(`bids:${requestId}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "bids",
+      filter: `request_id=eq.${requestId}` }, callback)
     .subscribe();
 
 // ── Escrow Payments ───────────────────────────────────────────────────────────
