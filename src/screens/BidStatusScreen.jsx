@@ -3,7 +3,7 @@ import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 
-export default function BidStatusScreen({ onBack, onChat, bids: propBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
+export default function BidStatusScreen({ onBack, onChat, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
   const bids = propBids ?? [];
   const [step, setStep] = useState("list");
   const [selBid, setSelBid] = useState(null);
