@@ -80,7 +80,7 @@ export const createBid = (data) =>
 export const getBidsForRequest = (requestId) =>
   supabase
     .from("bids")
-    .select("*, companies(*)")
+    .select("*")
     .eq("request_id", requestId)
     .order("price", { ascending: true });
 
