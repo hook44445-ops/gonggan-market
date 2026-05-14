@@ -165,7 +165,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                   <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>{myRequests.length}건</span>
                 </div>
                 {myRequests.map(r => {
-                  const reqBids  = submittedBids.filter(b => b.requestId === r.id);
+                  const reqBids  = submittedBids.filter(b => String(b.requestId) === String(r.id));
                   const hasBids  = reqBids.length > 0;
                   return (
                     <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
@@ -366,7 +366,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} mode={mode} selectedBid={selectedBid} currentUser={currentUser} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}
         {screen==="bidstatus" && (() => {
-          const req = [...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null;
+          const req = [...myRequests, ...customerRequests].find(r => String(r.id) === String(bidViewRequestId)) ?? null;
           console.log("[MainApp] rendering BidStatusScreen — bidViewRequestId:", bidViewRequestId, "request found:", req?.id ?? null, "submittedBids total:", submittedBids.length);
           return (
             <BidStatusScreen

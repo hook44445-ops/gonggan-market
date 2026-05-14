@@ -41,16 +41,14 @@ export default function BidCard({ r, currentUser, setSubmittedBids, setBidAlert,
         status: "pending",
       };
       console.log("BID SUBMITTED:", newBid);
-      setSubmittedBids?.(prev => {
-        const updated = [...prev, newBid];
-        const forRequest = updated.filter(b => String(b.requestId) === String(r.id));
-        setBidAlert?.({
-          count: forRequest.length,
-          requestType: r.type,
-          requestId: r.id,
-          companies: forRequest.map(b => b.company).filter(Boolean),
-        });
-        return updated;
+      // Call setSubmittedBids with a pure updater (no side-effects inside)
+      setSubmittedBids?.(prev => [...prev, newBid]);
+      // Call setBidAlert separately — NOT inside the updater
+      setBidAlert?.({
+        count: 1,
+        requestType: r.type,
+        requestId: r.id,
+        companies: company ? [company] : [],
       });
       setShowForm(false);
       setSubmitted(true);
