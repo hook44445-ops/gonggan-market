@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, R, S, GRADE } from "../constants";
 import { TempBadge, CertBadge, Divider } from "./common";
 import LiveFeed from "./LiveFeed";
@@ -14,8 +14,60 @@ import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 import { COMPANIES } from "../mock/mockCompanies";
-import { REQUESTS } from "../mock/mockRequests";
 import { MOCK_CHATS } from "../mock/mockChats";
+import {
+  supabase,
+  getRequests,
+  createRequest,
+  createBid,
+  getBidsForRequest,
+  getCompanyByOwnerId,
+} from "../lib/supabase";
+
+// ── normalizers: DB row → local shape ─────────────────────────────────────────
+
+const normalizeCompany = (row) => ({
+  id: row.id,
+  name: row.name ?? "업체",
+  temp: row.temp ?? 70,
+  verified: row.verified ?? false,
+  badge: row.badge ?? "basic",
+  completedJobs: row.completed_jobs ?? 0,
+  recontractRate: row.recontract_rate ?? 0,
+  asRate: row.as_rate ?? 0,
+  region: row.region ?? "",
+  online: row.online ?? false,
+  specialties: row.specialties ?? [],
+});
+
+const normalizeRequest = (row) => ({
+  id: row.id,
+  user_id: row.user_id,
+  type: row.space_type ?? "",
+  size: row.size ?? "",
+  budget: [row.budget_min, row.budget_max].filter(Boolean).map(n => `${n}만원`).join("~") || "협의",
+  style: row.style ?? "",
+  desc: row.desc ?? "",
+  area: row.area ?? "",
+  user: "의뢰인",
+  bids: 0,
+  time: new Date(row.created_at).toLocaleString("ko-KR", { month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" }),
+  status: row.status ?? "open",
+  urgent: row.urgent ?? false,
+});
+
+const normalizeBid = (row) => ({
+  id: row.id,
+  requestId: row.request_id,
+  companyId: row.company_id,
+  company: row.companies ? normalizeCompany(row.companies) : null,
+  price: row.price,
+  period: row.period_days,
+  material: row.material_note ?? "",
+  comment: row.comment ?? "",
+  createdAt: row.created_at,
+  status: row.selected ? "selected" : "pending",
+});
 
 export default function MainApp({ user, onLogout, onStartOnboarding }) {
   const [mode, setMode] = useState(user.role);
@@ -28,7 +80,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
   const [bidAlert, setBidAlert] = useState(null);
   const [bidViewRequestId, setBidViewRequestId] = useState(null);
   const [chatLogs, setChatLogs] = useState(() => ({ ...MOCK_CHATS }));
-  const [customerRequests, setCustomerRequests] = useState(() => [...REQUESTS]);
+  const [customerRequests, setCustomerRequests] = useState([]);
   const [submittedBids, setSubmittedBids] = useState([]);
   const [selectedBid, setSelectedBid] = useState(null);
   const [escrowContracts, setEscrowContracts] = useState([]);
@@ -39,18 +91,76 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     return null;
   });
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
+  const bidRealtimeRef = useRef(null);
+
+  // Load all requests on mount (home screen data)
+  useEffect(() => {
+    getRequests().then(({ data, error }) => {
+      if (error) { console.error("[requests] load failed:", error.message); return; }
+      if (data) {
+        const normalized = data.map(normalizeRequest);
+        setCustomerRequests(normalized);
+        if (user.id) {
+          setMyRequests(normalized.filter(r => r.user_id === user.id));
+        }
+      }
+    });
+  }, []);
+
+  // Load company profile from Supabase for authenticated company users
+  useEffect(() => {
+    if (user?.role !== "company" || !user?.id) return;
+    getCompanyByOwnerId(user.id).then(({ data }) => {
+      if (data) setCurrentUser(normalizeCompany(data));
+    });
+  }, [user?.id, user?.role]);
+
+  // Load bids + subscribe to realtime when viewing a request's bid status
+  useEffect(() => {
+    if (!bidViewRequestId) return;
+
+    getBidsForRequest(bidViewRequestId).then(({ data, error }) => {
+      if (error) { console.error("[bids] load failed:", error.message); return; }
+      if (data) setSubmittedBids(data.map(normalizeBid));
+    });
+
+    // Realtime: append new bids as companies submit them
+    const channel = supabase
+      .channel(`bids:${bidViewRequestId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "bids",
+        filter: `request_id=eq.${bidViewRequestId}`,
+      }, async (payload) => {
+        // Fetch the full row with company join so we have company data
+        const { data } = await getBidsForRequest(bidViewRequestId);
+        if (data) {
+          const normalized = data.map(normalizeBid);
+          setSubmittedBids(normalized);
+          const request = customerRequests.find(r => r.id === bidViewRequestId) ?? myRequests.find(r => r.id === bidViewRequestId);
+          setBidAlert({
+            count: normalized.length,
+            requestType: request?.type ?? "",
+            requestId: bidViewRequestId,
+            companies: normalized.map(b => b.company).filter(Boolean),
+          });
+        }
+      })
+      .subscribe();
+
+    bidRealtimeRef.current = channel;
+    return () => { supabase.removeChannel(channel); bidRealtimeRef.current = null; };
+  }, [bidViewRequestId]);
 
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
-  const addBid = (request, bidData) => {
+  const addBid = async (request, bidData) => {
     if (!currentUser) {
-      console.error("[addBid] currentUser is null — company not initialized");
+      console.error("[addBid] currentUser is null");
       return;
     }
-    console.log("[addBid] submitting bid — requestId:", request.id, "company:", currentUser?.name);
-    const newBid = {
-      id: Date.now(),
+    const optimistic = {
+      id: `tmp-${Date.now()}`,
       requestId: request.id,
       companyId: currentUser.id ?? null,
       company: currentUser,
@@ -61,18 +171,39 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
       createdAt: new Date().toISOString(),
       status: "pending",
     };
-    console.log("[addBid] newBid object:", newBid);
+
+    // Optimistic update so the UI responds immediately
+    setSubmittedBids(prev => [...prev, optimistic]);
+
+    // INSERT to Supabase (only when company has a real UUID)
+    if (currentUser.id && typeof currentUser.id === "string" && currentUser.id.includes("-")) {
+      const { data, error } = await createBid({
+        request_id: request.id,
+        company_id: currentUser.id,
+        price: bidData.price,
+        period_days: bidData.period,
+        material_note: bidData.material,
+        comment: bidData.comment,
+      });
+      if (error) {
+        console.error("[addBid] insert failed:", error.message);
+      } else if (data) {
+        // Replace optimistic entry with real DB row (no company join data here yet)
+        setSubmittedBids(prev =>
+          prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: currentUser } : b)
+        );
+      }
+    }
+
     setSubmittedBids(prev => {
-      const updated = [...prev, newBid];
-      const forRequest = updated.filter(b => b.requestId === request.id);
-      console.log("[addBid] submittedBids updated — total:", updated.length, "for requestId", request.id, ":", forRequest.length, "bid(s)");
+      const forRequest = prev.filter(b => b.requestId === request.id);
       setBidAlert({
         count: forRequest.length,
         requestType: request.type,
         requestId: request.id,
         companies: forRequest.map(b => b.company).filter(Boolean),
       });
-      return updated;
+      return prev;
     });
   };
   const isGuestCompany = mode==="company" && user.isGuest;
@@ -594,18 +725,42 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         <div style={{ position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:C.brand, color:"#fff", borderRadius:R.full, padding:"12px 22px", fontSize:13, fontWeight:700, boxShadow:`0 8px 24px ${C.brand}44`, zIndex:200, whiteSpace:"nowrap" }}>{toast}</div>
       )}
 
-      {showReq && <RequestModal onClose={() => setShowReq(false)} onDone={(form) => {
-        const newReq = {
-          id: Date.now(),
+      {showReq && <RequestModal onClose={() => setShowReq(false)} onDone={async (form) => {
+        // Optimistic local entry (shown immediately)
+        const optimistic = {
+          id: `tmp-${Date.now()}`,
+          user_id: user.id ?? null,
           type: form.type, size: form.size, budget: form.budget,
           style: form.style, desc: form.desc,
-          area: `${user.region}`, user: user.name,
+          area: user.region ?? "", user: user.name,
           bids: 0, time: "방금", status: "입찰중"
         };
-        setMyRequests(prev => [newReq, ...prev]);
-        setCustomerRequests(prev => [newReq, ...prev]);
+        setMyRequests(prev => [optimistic, ...prev]);
+        setCustomerRequests(prev => [optimistic, ...prev]);
         setShowReq(false);
         showToast("✅ 인근 업체들에게 전달됐어요!");
+
+        // INSERT to Supabase
+        if (user.id) {
+          const { data, error } = await createRequest({
+            user_id: user.id,
+            area: user.region ?? "",
+            space_type: form.type,
+            size: form.size,
+            style: form.style,
+            desc: form.desc,
+            budget_min: 0,
+            budget_max: 0,
+          });
+          if (error) {
+            console.error("[request] insert failed:", error.message);
+          } else if (data) {
+            const saved = normalizeRequest(data);
+            const replace = r => r.id === optimistic.id ? saved : r;
+            setMyRequests(prev => prev.map(replace));
+            setCustomerRequests(prev => prev.map(replace));
+          }
+        }
       }} />}
 
       {bidAlert && (

@@ -2,15 +2,57 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
+import { supabase, getBidsForRequest } from "../lib/supabase";
+
+const normalizeCompany = (row) => ({
+  id: row.id, name: row.name ?? "업체", temp: row.temp ?? 70,
+  verified: row.verified ?? false, badge: row.badge ?? "basic",
+  completedJobs: row.completed_jobs ?? 0, recontractRate: row.recontract_rate ?? 0,
+  asRate: row.as_rate ?? 0, region: row.region ?? "", online: row.online ?? false,
+});
+const normalizeBid = (row) => ({
+  id: row.id, requestId: row.request_id, companyId: row.company_id,
+  company: row.companies ? normalizeCompany(row.companies) : null,
+  price: row.price, period: row.period_days,
+  material: row.material_note ?? "", comment: row.comment ?? "",
+  createdAt: row.created_at, status: row.selected ? "selected" : "pending",
+});
 
 export default function BidStatusScreen({ onBack, onChat, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
-  const bids = propBids ?? [];
+  const [localBids, setLocalBids] = useState(propBids ?? []);
+  const bids = localBids.length > 0 ? localBids : (propBids ?? []);
   const [step, setStep] = useState("list");
   const [selBid, setSelBid] = useState(null);
 
+  // SELECT bids when screen loads (or request changes)
   useEffect(() => {
-    console.log("[BidStatusScreen] bids prop updated — count:", bids.length, "request:", request?.id ?? null, bids);
-  }, [bids, request]);
+    if (!request?.id) { setLocalBids(propBids ?? []); return; }
+    getBidsForRequest(request.id).then(({ data, error }) => {
+      if (error) { console.error("[BidStatusScreen] fetch failed:", error.message); return; }
+      if (data) setLocalBids(data.map(normalizeBid));
+    });
+  }, [request?.id]);
+
+  // Keep localBids in sync when propBids updates (e.g. optimistic from MainApp)
+  useEffect(() => {
+    if (propBids && propBids.length > localBids.length) setLocalBids(propBids);
+  }, [propBids]);
+
+  // Realtime: subscribe to new bid inserts for this request
+  useEffect(() => {
+    if (!request?.id) return;
+    const channel = supabase
+      .channel(`bidscreen:${request.id}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "bids",
+        filter: `request_id=eq.${request.id}`,
+      }, async () => {
+        const { data } = await getBidsForRequest(request.id);
+        if (data) setLocalBids(data.map(normalizeBid));
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [request?.id]);
 
   const selectBid = (bid) => {
     console.log("[BidStatusScreen] customer selected bid:", bid.id, "company:", bid.company?.name, "price:", bid.price);
