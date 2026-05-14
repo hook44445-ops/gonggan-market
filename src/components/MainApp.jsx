@@ -177,6 +177,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
 
     // INSERT to Supabase (only when company has a real UUID)
     if (user.id) {
+      console.log("[addBid] before createBid — user.id:", user.id, "request.id:", request.id, "bidData:", bidData);
       const { data, error } = await createBid({
         request_id: request.id,
         company_id: user.id,
@@ -185,8 +186,10 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         material_note: bidData.material,
         comment: bidData.comment,
       });
+      console.log("[addBid] after createBid — user.id:", user.id, "request.id:", request.id, "bidData:", bidData);
       if (error) {
         console.error("[addBid] insert failed:", error.message);
+        alert(`입찰 저장 실패: ${error.message}`);
       } else if (data) {
         // Replace optimistic entry with real DB row (no company join data here yet)
         setSubmittedBids(prev =>
