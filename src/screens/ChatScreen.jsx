@@ -1,33 +1,78 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
+import { supabase, getChatMessages, sendMessage } from "../lib/supabase";
 
-export default function ChatScreen({ company, onBack, messages: messagesProp, onUpdateMessages }) {
-  const messages = messagesProp ?? [];
+const WELCOME = "안녕하세요! 공간마켓 파트너 업체입니다 😊 견적 관련해서 궁금한 점 편하게 물어보세요!";
+
+const fmtTime = (iso) => {
+  const d = new Date(iso);
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+
+const normalizeMsg = (row) => ({
+  id: row.id,
+  from: row.sender_type === "company" ? "company" : "user",
+  text: row.text,
+  time: fmtTime(row.created_at),
+});
+
+export default function ChatScreen({ company, user, onBack }) {
+  const roomId = `${user?.id ?? "guest"}_${company?.id ?? "0"}`;
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const bottomRef = useRef(null);
-  const REPLIES = [
-    "현장 방문 실측 후 정확한 견적 드릴게요. 에스크로 안전거래로 진행됩니다 🛡",
-    "해당 범위 많이 해본 작업이에요. 중간 점검 사진은 매번 공유해드립니다.",
-    "무료 실측 상담 가능합니다. 편하신 날짜 알려주세요 📅",
-    "계약서에 자재 브랜드·수량 전부 명시하고 추가 비용 없이 진행합니다.",
-  ];
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages, typing]);
 
-  const send = () => {
-    if(!input.trim()) return;
-    const now = new Date();
-    const time = `${now.getHours()}:${String(now.getMinutes()).padStart(2,"0")}`;
-    const userMsg = { from:"user", text:input, time };
-    const updated = [...messages, userMsg];
-    onUpdateMessages(updated);
-    setInput(""); setTyping(true);
-    setTimeout(() => {
-      const reply = { from:"company", text:REPLIES[Math.floor(Math.random()*REPLIES.length)], time };
-      onUpdateMessages([...updated, reply]);
-      setTyping(false);
-    }, 1200);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      const { data, error } = await getChatMessages(roomId);
+      if (cancelled) return;
+      if (error) { console.error("[chat] load error:", error.message); return; }
+
+      let rows = data ?? [];
+      if (rows.length === 0) {
+        // Insert welcome message from company, then re-fetch to get real DB id
+        await sendMessage(roomId, String(company?.id ?? "company"), "company", WELCOME);
+        const { data: after } = await getChatMessages(roomId);
+        if (!cancelled) rows = after ?? [];
+      }
+      if (!cancelled) setMessages(rows.map(normalizeMsg));
+    }
+
+    init();
+
+    const channel = supabase
+      .channel(`chat:${roomId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "chats",
+        filter: `room_id=eq.${roomId}`,
+      }, (payload) => {
+        setMessages(prev => {
+          if (prev.some(m => m.id === payload.new.id)) return prev;
+          return [...prev, normalizeMsg(payload.new)];
+        });
+      })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [roomId]);
+
+  const send = async () => {
+    if (!input.trim()) return;
+    const text = input.trim();
+    setInput("");
+    setTyping(true);
+    await sendMessage(roomId, user?.id ?? "guest", "user", text);
+    // typing indicator disappears once realtime delivers the reply (or after timeout)
+    setTimeout(() => setTyping(false), 3000);
   };
 
   return (
@@ -44,10 +89,10 @@ export default function ChatScreen({ company, onBack, messages: messagesProp, on
         <div>
           <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{company?.name ?? "—"}</div>
           <div style={{ fontSize:11, color:company?.online?C.green:C.text3, fontWeight:600 }}>
-            {company?.online?`활동중 · ${company.lastActive}`:company?.responseTime ?? ""}
+            {company?.online ? `활동중 · ${company.lastActive}` : company?.responseTime ?? ""}
           </div>
         </div>
-        <div style={{ marginLeft:"auto" }}><TempBadge temp={company.temp} /></div>
+        <div style={{ marginLeft:"auto" }}><TempBadge temp={company?.temp ?? 0} /></div>
       </div>
 
       <div style={{ background:C.navyL, padding:"8px 16px", borderBottom:`1px solid ${C.trustM}`,
@@ -57,11 +102,13 @@ export default function ChatScreen({ company, onBack, messages: messagesProp, on
       </div>
 
       <div style={{ flex:1, overflowY:"auto", padding:S.xl, background:C.bg }}>
-        {messages.length===0 && <div style={{ textAlign:"center", fontSize:13, color:C.text3, marginTop:60 }}>첫 메시지를 보내보세요!</div>}
-        {messages.map((msg,i) => (
-          <div key={i} style={{ display:"flex", justifyContent:msg.from==="user"?"flex-end":"flex-start",
+        {messages.length === 0 && (
+          <div style={{ textAlign:"center", fontSize:13, color:C.text3, marginTop:60 }}>로딩 중...</div>
+        )}
+        {messages.map((msg) => (
+          <div key={msg.id} style={{ display:"flex", justifyContent:msg.from==="user"?"flex-end":"flex-start",
             marginBottom:S.md, alignItems:"flex-end", gap:6 }}>
-            {msg.from==="company" && (
+            {msg.from === "company" && (
               <div style={{ width:32, height:32, borderRadius:R.full, background:C.brandL,
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontSize:13, fontWeight:900, color:C.brand, flexShrink:0 }}>{(company?.name ?? "?")[0]}</div>
@@ -95,7 +142,7 @@ export default function ChatScreen({ company, onBack, messages: messagesProp, on
       <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`,
         padding:`${S.sm}px ${S.lg}px ${S.lg}px`, display:"flex", gap:S.sm, alignItems:"flex-end" }}>
         <input value={input} onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key==="Enter"&&send()} placeholder="메시지를 입력하세요"
+          onKeyDown={e => e.key === "Enter" && send()} placeholder="메시지를 입력하세요"
           style={{ flex:1, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.full,
             padding:"11px 18px", fontSize:14, outline:"none", fontFamily:"inherit",
             background:C.bg, color:C.text1 }} />
