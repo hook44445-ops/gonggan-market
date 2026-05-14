@@ -23,6 +23,7 @@ import {
   getBidsForRequest,
   getCompanyByOwnerId,
 } from "../lib/supabase";
+import { useCompanyList } from "../hooks/useCompanyList";
 
 // ── normalizers: DB row → local shape ─────────────────────────────────────────
 
@@ -150,6 +151,8 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     bidRealtimeRef.current = channel;
     return () => { supabase.removeChannel(channel); bidRealtimeRef.current = null; };
   }, [bidViewRequestId]);
+
+  const { companies } = useCompanyList();
 
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
@@ -412,7 +415,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             )}
 
             <div style={{ display:"flex", gap:S.sm, marginBottom:S.xl }}>
-              {[["🏘","인근 업체",`${COMPANIES.length}곳`],["⭐","평균 별점","4.8점"],["✅","이번 달 완료","47건"]].map(([icon,label,val]) => (
+              {[["🏘","인근 업체",`${companies.length}곳`],["⭐","평균 별점","4.8점"],["✅","이번 달 완료","47건"]].map(([icon,label,val]) => (
                 <div key={label} style={{ flex:1, background:C.surface, borderRadius:R.lg,
                   padding:`${S.lg}px ${S.sm}px`, textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
                   <div style={{ fontSize:18 }}>{icon}</div>
@@ -426,7 +429,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>인근 업체</div>
               <button onClick={() => setScreen("map")} style={{ fontSize:13, background:"none", border:"none", cursor:"pointer", color:C.brand, fontWeight:700 }}>지도로 보기 →</button>
             </div>
-            {COMPANIES.map(c => <CompanyCard key={c.id} company={c} onClick={() => go("portfolio",c)} />)}
+            {companies.map(c => <CompanyCard key={c.id} company={c} onClick={() => go("portfolio",c)} />)}
           </div>
         )}
 
@@ -473,7 +476,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               </div>
               <div style={{ display:"flex", gap:S.sm }}>
                 <button onClick={() => go("dashboard")} style={{ background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>📊 대시보드 →</button>
-                <button onClick={() => go("portfolio",COMPANIES[0])} style={{ background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>포트폴리오</button>
+                <button onClick={() => go("portfolio",companies[0])} style={{ background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>포트폴리오</button>
               </div>
             </div>
 
@@ -505,7 +508,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                 { x:57,y:28,name:"공간설계소", temp:91,online:false },
                 { x:71,y:57,name:"우리집시공단",temp:86,online:true },
                 { x:42,y:54,type:"req" }, { x:64,y:68,type:"req" }].map((pin,i) => (
-                <div key={i} onClick={() => { if(!pin.type){ const c=COMPANIES.find(c=>c.name===pin.name); if(c) go("portfolio",c); }}}
+                <div key={i} onClick={() => { if(!pin.type){ const c=companies.find(c=>c.name===pin.name); if(c) go("portfolio",c); }}}
                   style={{ position:"absolute", left:`${pin.x}%`, top:`${pin.y}%`, transform:"translate(-50%,-100%)", cursor:!pin.type?"pointer":"default", zIndex:10 }}>
                   <div style={{ background:pin.type?C.red:GRADE(pin.temp||80).bar, color:"#fff",
                     borderRadius:pin.type?R.sm:R.full, padding:"5px 10px", fontSize:11, fontWeight:800,
@@ -523,8 +526,8 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               </div>
               <div style={{ position:"absolute", bottom:10, right:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:600 }}>📍 {user.region} · 반경 3km</div>
             </div>
-            <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>인근 업체 <span style={{ color:C.brand }}>{COMPANIES.length}곳</span></div>
-            {COMPANIES.map(c => <CompanyCard key={c.id} company={c} onClick={() => go("portfolio",c)} />)}
+            <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>인근 업체 <span style={{ color:C.brand }}>{companies.length}곳</span></div>
+            {companies.map(c => <CompanyCard key={c.id} company={c} onClick={() => go("portfolio",c)} />)}
           </div>
         )}
 
@@ -550,7 +553,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         {screen==="chatlist" && (
           <div>
             <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:S.xl }}>채팅</div>
-            {COMPANIES.map(c => (
+            {companies.map(c => (
               <div key={c.id} onClick={() => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)}
                 style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
                 <div style={{ width:48, height:48, borderRadius:R.full, flexShrink:0, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand, position:"relative" }}>
