@@ -156,15 +156,12 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
 
   const addBid = async (request, bidData) => {
     alert("addBid 호출됨: " + user.id);
-    if (!currentUser) {
-      console.error("[addBid] currentUser is null");
-      return;
-    }
+    const actor = currentUser ?? { id: user.id ?? null, name: user.name ?? "업체", temp: 70 };
     const optimistic = {
       id: `tmp-${Date.now()}`,
       requestId: request.id,
-      companyId: currentUser.id ?? null,
-      company: currentUser,
+      companyId: actor.id ?? null,
+      company: actor,
       price: bidData.price,
       period: bidData.period,
       material: bidData.material,
@@ -176,12 +173,12 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     // Optimistic update so the UI responds immediately
     setSubmittedBids(prev => [...prev, optimistic]);
 
-    // INSERT to Supabase (only when company has a real UUID)
-    if (user.id) {
+    // INSERT to Supabase (only when actor has a real UUID)
+    if (actor.id && typeof actor.id === "string" && actor.id.includes("-")) {
       console.log("[addBid] before createBid — user.id:", user.id, "request.id:", request.id, "bidData:", bidData);
       const { data, error } = await createBid({
         request_id: request.id,
-        company_id: user.id,
+        company_id: actor.id,
         price: bidData.price,
         period_days: bidData.period,
         material_note: bidData.material,
@@ -194,7 +191,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
       } else if (data) {
         // Replace optimistic entry with real DB row (no company join data here yet)
         setSubmittedBids(prev =>
-          prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: currentUser } : b)
+          prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
         );
       }
     }
