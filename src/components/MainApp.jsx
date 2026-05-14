@@ -155,6 +155,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
   const addBid = async (request, bidData) => {
+    alert("addBid 호출됨: " + user.id);
     if (!currentUser) {
       console.error("[addBid] currentUser is null");
       return;
