@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { C, R, S, ALL_REGIONS, SPECIALTIES } from "../constants";
 import { Divider } from "../components/common";
+import { upsertUser, upsertCompany } from "../lib/supabase";
 
-export default function CompanyOnboarding({ phone, onDone }) {
+export default function CompanyOnboarding({ phone, authUserId, onDone }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name:"", bizName:"", bizNumber:"", bizVerified:false,
@@ -124,7 +125,21 @@ export default function CompanyOnboarding({ phone, onDone }) {
           ✅ 착공 확인 즉시 선금 30% 지급
         </div>
       </div>
-      <button onClick={() => onDone({ name:form.name, role:"company", region:form.mainRegion, phone })}
+      <button onClick={async () => {
+          const profile = { id: authUserId, name: form.name, role: "company", region: form.mainRegion, phone };
+          const { data: userRow } = await upsertUser(profile);
+          await upsertCompany({
+            owner_id: authUserId,
+            name: form.bizName,
+            phone,
+            region: form.mainRegion,
+            specialties: form.specialties,
+            badge: form.badge,
+            has_insurance: form.hasInsurance,
+            deposit_amount: depositAmt,
+          });
+          onDone(userRow || profile);
+        }}
         style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff",
           border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
           boxShadow:`0 6px 20px ${C.brand}44` }}>

@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { C, R, S, REGIONS, fmtPhone } from "../constants";
 import CompanyOnboarding from "./CompanyOnboarding";
+import { signInWithPhone, verifyOtp, getUser, upsertUser } from "../lib/supabase";
+
+const toE164 = (phone) => {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("0")) return "+82" + digits.slice(1);
+  return "+" + digits;
+};
 
 export default function LoginScreen({ onLogin, startAtOnboarding }) {
   const [step, setStep] = useState(startAtOnboarding ? 3 : 1);
@@ -10,26 +17,54 @@ export default function LoginScreen({ onLogin, startAtOnboarding }) {
   const [codeSent, setCodeSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  const [authUserId, setAuthUserId] = useState(null);
   const [form, setForm] = useState({ name:"", region:"마포구", bizNumber:"", bizName:"", bizVerified:false });
   const set = (k,v) => setForm(f => ({...f,[k]:v}));
   const iS = { width:"100%", padding:"14px 16px", border:`1.5px solid ${C.bgWarm}`,
     borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box",
     marginBottom:14, fontFamily:"inherit", color:C.text1, background:C.surface };
 
-  const sendCode = () => {
+  const sendCode = async () => {
     if(phone.replace(/-/g,"").length<10) return setMsg("올바른 전화번호를 입력해주세요");
     setLoading(true);
-    setTimeout(() => { setCodeSent(true); setMsg("✅ 인증번호 발송! (데모: 000000)"); setLoading(false); }, 800);
+    setMsg("");
+    const { error } = await signInWithPhone(toE164(phone));
+    setLoading(false);
+    if (error) return setMsg("❌ " + (error.message || "인증번호 발송에 실패했습니다"));
+    setCodeSent(true);
+    setMsg("✅ 인증번호가 발송되었습니다");
   };
-  const verifyCode = () => {
+
+  const verifyCode = async () => {
     if(code.length<4) return setMsg("인증번호를 입력해주세요");
     setLoading(true);
-    setTimeout(() => { setStep(4); setMsg(""); setLoading(false); }, 600);
+    setMsg("");
+    const { data, error } = await verifyOtp(toE164(phone), code);
+    if (error) { setLoading(false); return setMsg("❌ " + (error.message || "인증에 실패했습니다")); }
+
+    const userId = data.user?.id;
+    setAuthUserId(userId);
+
+    // Check if profile exists
+    const { data: profile } = await getUser(userId);
+    setLoading(false);
+    if (profile) {
+      onLogin(profile);
+    } else {
+      setStep(4);
+      setMsg("");
+    }
   };
-  const save = () => {
+
+  const save = async () => {
     if(!form.name) return setMsg("이름을 입력해주세요");
     if(role==="company"&&!form.bizVerified) return setMsg("사업자번호 인증이 필요합니다");
-    onLogin({ name:form.name, role, region:form.region, phone });
+    setLoading(true);
+    const profile = { id: authUserId, name: form.name, role, region: form.region, phone: toE164(phone) };
+    const { data, error } = await upsertUser(profile);
+    setLoading(false);
+    if (error) return setMsg("❌ 프로필 저장에 실패했습니다");
+    onLogin(data || profile);
   };
 
   return (
@@ -147,7 +182,7 @@ export default function LoginScreen({ onLogin, startAtOnboarding }) {
       )}
 
       {step===4 && role==="company" && (
-        <CompanyOnboarding phone={phone} onDone={u => onLogin(u)} />
+        <CompanyOnboarding phone={phone} authUserId={authUserId} onDone={u => onLogin(u)} />
       )}
 
       {step===4 && role==="consumer" && (
