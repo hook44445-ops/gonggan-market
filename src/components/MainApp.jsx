@@ -176,10 +176,10 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     setSubmittedBids(prev => [...prev, optimistic]);
 
     // INSERT to Supabase (only when company has a real UUID)
-    if (currentUser.id && typeof currentUser.id === "string" && currentUser.id.includes("-")) {
+    if (user.id) {
       const { data, error } = await createBid({
         request_id: request.id,
-        company_id: currentUser.id,
+        company_id: user.id,
         price: bidData.price,
         period_days: bidData.period,
         material_note: bidData.material,
