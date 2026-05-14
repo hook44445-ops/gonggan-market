@@ -28,6 +28,18 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
   const [bidAlert, setBidAlert] = useState(null);
   const [bidViewRequestId, setBidViewRequestId] = useState(null);
   const [chatLogs, setChatLogs] = useState(() => ({ ...MOCK_CHATS }));
+  const [customerRequests, setCustomerRequests] = useState(() => [...REQUESTS]);
+  const [submittedBids, setSubmittedBids] = useState([]);
+  const [selectedBid, setSelectedBid] = useState(null);
+  const [escrowContracts, setEscrowContracts] = useState([]);
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (user?.role === "company") {
+      return COMPANIES.find(c => c.name === user.name) ?? COMPANIES[0] ?? null;
+    }
+    return null;
+  });
+  const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
+
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
@@ -63,18 +75,6 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
       return updated;
     });
   };
-
-  const [customerRequests, setCustomerRequests] = useState(() => [...REQUESTS]);
-  const [submittedBids, setSubmittedBids] = useState([]);
-  const [selectedBid, setSelectedBid] = useState(null);
-  const [escrowContracts, setEscrowContracts] = useState([]);
-  const [currentUser, setCurrentUser] = useState(() => {
-    if (user?.role === "company") {
-      return COMPANIES.find(c => c.name === user.name) ?? COMPANIES[0] ?? null;
-    }
-    return null;
-  });
-  const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const isGuestCompany = mode==="company" && user.isGuest;
   const go = (s, co=null) => { setPrevScreen(screen); if(co) setSelCo(co); setScreen(s); };
 
