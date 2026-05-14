@@ -1,4 +1,5 @@
 import { C, R, S, GRADE } from "../constants";
+import { BADGES } from "../constants/badges";
 import { TempBadge, CertBadge } from "./common";
 
 export default function CompanyCard({ company, onClick }) {
@@ -30,14 +31,13 @@ export default function CompanyCard({ company, onClick }) {
             </div>
 
             <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:7 }}>
-              {company.badge && (
-                <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full,
+              {company.badge && (() => { const bm = BADGES[company.badge] ?? BADGES.basic; return (
+                <span style={{ background:bm.bg, color:bm.color, borderRadius:R.full,
                   padding:"2px 10px", fontSize:11, fontWeight:800,
                   display:"inline-flex", alignItems:"center", gap:3 }}>
-                  {company.badge==="premium"?"🥇":company.badge==="standard"?"🥈":company.badge==="enterprise"?"💎":"🥉"}
-                  공간보증 {company.badge==="premium"?"프리미엄":company.badge==="standard"?"스탠다드":company.badge==="enterprise"?"엔터프라이즈":"베이직"}
+                  {bm.icon} 공간보증 {bm.label}
                 </span>
-              )}
+              ); })()}
               {!company.badge && (
                 <span style={{ background:C.surface2, color:C.text3, borderRadius:R.full,
                   padding:"2px 10px", fontSize:11, fontWeight:600 }}>직거래</span>

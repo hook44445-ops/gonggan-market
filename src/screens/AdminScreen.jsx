@@ -1,12 +1,8 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
+import { BADGES } from "../constants/badges";
 
-const BADGE_META = {
-  basic:      { label:"베이직",      icon:"🥉", color:"#7A8A7E", bg:"#F0EDE8", deposit:300,  maxJob:"500만원"  },
-  standard:   { label:"스탠다드",    icon:"🥈", color:"#2E5F4B", bg:"#EAF2EE", deposit:600,  maxJob:"2,000만원" },
-  premium:    { label:"프리미엄",    icon:"🥇", color:"#C8A15A", bg:"#FBF5E8", deposit:1000, maxJob:"5,000만원" },
-  enterprise: { label:"엔터프라이즈",icon:"💎", color:"#1F2A24", bg:"#EAF2EE", deposit:2000, maxJob:"무제한"   },
-};
+const BADGE_META = BADGES;
 
 const MOCK_COMPANIES = [
   {
