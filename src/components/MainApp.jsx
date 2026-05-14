@@ -533,13 +533,14 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} />}
-        {screen==="chat" && selCo && <ChatScreen company={selCo} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} messages={chatLogs[selCo.id]||[]} onUpdateMessages={msgs => updateChat(selCo.id, msgs)} />}
+        {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} />}
         {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} mode={mode} selectedBid={selectedBid} currentUser={currentUser} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
             onBack={() => setScreen("home")}
             onChat={c => go("chat",c)}
+            onEscrow={(bid) => { setSelectedBid(bid); go("escrow"); }}
             bids={bidViewRequestId ? submittedBids.filter(b => b.requestId === bidViewRequestId) : []}
             submittedBids={submittedBids}
             request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null}

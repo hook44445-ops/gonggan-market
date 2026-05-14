@@ -18,7 +18,7 @@ const normalizeBid = (row) => ({
   createdAt: row.created_at, status: row.selected ? "selected" : "pending",
 });
 
-export default function BidStatusScreen({ onBack, onChat, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
+export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
   const [localBids, setLocalBids] = useState(propBids ?? []);
   const bids = localBids.length > 0 ? localBids : (propBids ?? []);
   const [step, setStep] = useState("list");
@@ -153,20 +153,20 @@ export default function BidStatusScreen({ onBack, onChat, bids: propBids, submit
             <span>🛡</span><span>예치금은 공간마켓이 보관하며 단계별 확인 후 업체에 지급됩니다</span>
           </div>
           <button onClick={() => {
-            if (setEscrowContracts) {
-              setEscrowContracts(prev => [...prev, {
-                id: Date.now(),
-                requestId: selBid.requestId,
-                bidId: selBid.id,
-                totalAmount: customerTotal,
-                customerFee: fee,
-                platformFeeRate: 4,
-                stages: calculateStagePayments(selBid.price),
-                status: "active",
-                createdAt: new Date().toISOString(),
-              }]);
-            }
-            setStep("done");
+            const contract = {
+              id: Date.now(),
+              requestId: selBid.requestId,
+              bidId: selBid.id,
+              totalAmount: customerTotal,
+              customerFee: fee,
+              platformFeeRate: 4,
+              stages: calculateStagePayments(selBid.price),
+              status: "active",
+              createdAt: new Date().toISOString(),
+            };
+            if (setEscrowContracts) setEscrowContracts(prev => [...prev, contract]);
+            if (setSelectedBid) setSelectedBid(selBid);
+            if (onEscrow) { onEscrow(selBid); } else { setStep("done"); }
           }} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>🔒 {fmtMoney(customerTotal)} 에스크로 예치하기</button>
         </div>
       </div>
