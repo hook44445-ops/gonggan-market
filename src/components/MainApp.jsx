@@ -155,6 +155,10 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
   const addBid = async (request, bidData) => {
+    if (request.id?.startsWith("tmp-")) {
+      alert("견적 요청이 저장 중입니다. 잠시 후 다시 시도해주세요");
+      return;
+    }
     alert("addBid 호출됨: " + user.id);
     const actor = currentUser ?? { id: user.id ?? null, name: user.name ?? "업체", temp: 70 };
     const optimistic = {
@@ -749,7 +753,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             space_type: form.type,
             size: form.size,
             style: form.style,
-            desc: form.desc,
+            description: form.desc,
             budget_min: 0,
             budget_max: 0,
           });
