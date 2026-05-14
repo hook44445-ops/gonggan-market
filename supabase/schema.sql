@@ -210,3 +210,60 @@ create policy "escrow: request owner" on public.escrow_payments
     or
     auth.uid() = (select owner_id from public.companies where id = company_id)
   );
+
+-- ── portfolios ────────────────────────────────────────────────────────────────
+create table if not exists public.portfolios (
+  id            uuid primary key default gen_random_uuid(),
+  company_id    uuid references public.companies(id) on delete cascade,
+  title         text not null,
+  space_type    text,
+  area          text,
+  size          text,
+  budget        integer,                -- 만원 단위
+  before_photos text[],
+  after_photos  text[],
+  desc          text,
+  tags          text[],
+  created_at    timestamptz not null default now()
+);
+
+comment on table public.portfolios is '업체 시공 포트폴리오';
+
+alter table public.portfolios enable row level security;
+
+create policy "portfolios: public read" on public.portfolios
+  for select using (true);
+create policy "portfolios: company write" on public.portfolios
+  for all using (
+    auth.uid() = (select owner_id from public.companies where id = company_id)
+  );
+
+-- ── reviews ───────────────────────────────────────────────────────────────────
+create table if not exists public.reviews (
+  id          uuid primary key default gen_random_uuid(),
+  company_id  uuid references public.companies(id) on delete cascade,
+  user_id     uuid references public.users(id) on delete set null,
+  request_id  uuid references public.requests(id) on delete set null,
+  rating      integer not null check (rating between 1 and 5),
+  content     text not null,
+  tags        text[],
+  amount      text,
+  space_type  text,
+  user_name   text,
+  region      text,
+  reply       text,
+  created_at  timestamptz not null default now()
+);
+
+comment on table public.reviews is '의뢰인이 작성한 업체 시공 후기';
+
+alter table public.reviews enable row level security;
+
+create policy "reviews: public read" on public.reviews
+  for select using (true);
+create policy "reviews: consumer write" on public.reviews
+  for insert with check (auth.uid() = user_id);
+create policy "reviews: company reply" on public.reviews
+  for update using (
+    auth.uid() = (select owner_id from public.companies where id = company_id)
+  );

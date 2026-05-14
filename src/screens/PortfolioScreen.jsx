@@ -1,12 +1,120 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { C, R, S, GRADE } from "../constants";
 import { TempBadge, CertBadge } from "../components/common";
 import PortfolioCard from "../components/PortfolioCard";
 import PhotoModal from "../components/PhotoModal";
+import { getPortfolios, createPortfolio } from "../lib/supabase";
+
+const normalizePortfolio = (row) => ({
+  id:    row.id,
+  type:  row.space_type ?? "시공",
+  size:  row.size ?? "",
+  area:  row.area ?? "",
+  after: (row.after_photos ?? [])[0] ?? null,
+  tags:  row.tags ?? [],
+  desc:  row.desc ?? "",
+  title: row.title,
+});
+
+function PortfolioWriteModal({ companyId, onClose, onSaved }) {
+  const [form, setForm] = useState({ title:"", space_type:"", area:"", size:"", desc:"" });
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]:v }));
+  const iS = { width:"100%", padding:"12px 14px", border:`1.5px solid ${C.bgWarm}`,
+    borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box",
+    marginBottom:12, fontFamily:"inherit", color:C.text1, background:C.surface };
+
+  const handleSave = async () => {
+    if (!form.title.trim() || saving) return;
+    setSaving(true);
+    const { data, error } = await createPortfolio({
+      company_id:  companyId,
+      title:       form.title.trim(),
+      space_type:  form.space_type.trim() || null,
+      area:        form.area.trim() || null,
+      size:        form.size.trim() || null,
+      desc:        form.desc.trim() || null,
+    });
+    setSaving(false);
+    if (error) { console.error("[Portfolio] save failed:", error.message); return; }
+    onSaved(data);
+    onClose();
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)",
+      display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:200 }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background:C.surface, borderRadius:"24px 24px 0 0",
+        width:"100%", maxWidth:480, padding:"24px 24px 40px", maxHeight:"85vh", overflowY:"auto" }}>
+        <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
+        <div style={{ fontSize:17, fontWeight:900, color:C.text1, marginBottom:4 }}>포트폴리오 추가</div>
+        <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>완공된 시공 사례를 등록하세요</div>
+
+        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:6 }}>제목 <span style={{color:C.red}}>*</span></div>
+        <input placeholder="예: 마포구 32평 아파트 전체 인테리어" value={form.title}
+          onChange={e => set("title", e.target.value)} style={iS} />
+
+        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:6 }}>공간 유형</div>
+        <input placeholder="예: 아파트, 빌라, 상가" value={form.space_type}
+          onChange={e => set("space_type", e.target.value)} style={iS} />
+
+        <div style={{ display:"flex", gap:S.sm }}>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:6 }}>지역</div>
+            <input placeholder="예: 마포구" value={form.area}
+              onChange={e => set("area", e.target.value)} style={iS} />
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:6 }}>평수</div>
+            <input placeholder="예: 32평" value={form.size}
+              onChange={e => set("size", e.target.value)} style={iS} />
+          </div>
+        </div>
+
+        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:6 }}>시공 설명</div>
+        <textarea placeholder="시공 범위, 자재, 특이사항 등을 적어주세요"
+          value={form.desc} onChange={e => set("desc", e.target.value)}
+          rows={3} style={{ ...iS, resize:"none", lineHeight:1.7 }} />
+
+        <div style={{ display:"flex", gap:S.sm, marginTop:S.sm }}>
+          <button onClick={onClose}
+            style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2,
+              border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>
+            취소
+          </button>
+          <button onClick={handleSave} disabled={!form.title.trim() || saving}
+            style={{ flex:2, padding:S.xl,
+              background: form.title.trim() ? C.brand : C.bgWarm,
+              color: form.title.trim() ? "#fff" : C.text4,
+              border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15,
+              cursor: form.title.trim() ? "pointer" : "not-allowed",
+              boxShadow: form.title.trim() ? `0 4px 16px ${C.brand}44` : "none" }}>
+            {saving ? "저장 중..." : "저장하기"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function PortfolioScreen({ company, onChat, onReview, onBack, onEscrow }) {
   const g = GRADE(company?.temp ?? 0);
   const [photoWork, setPhotoWork] = useState(null);
+  const [showWriteModal, setShowWriteModal] = useState(false);
+  const [portfolio, setPortfolio] = useState(company?.portfolio ?? []);
+
+  useEffect(() => {
+    if (!company?.id) return;
+    getPortfolios(company.id).then(({ data, error }) => {
+      if (error) { console.error("[PortfolioScreen] load failed:", error.message); return; }
+      if (data && data.length > 0) setPortfolio(data.map(normalizePortfolio));
+    });
+  }, [company?.id]);
+
+  const handlePortfolioSaved = (row) => {
+    setPortfolio(prev => [normalizePortfolio(row), ...prev]);
+  };
 
   if (!company) return null;
 
@@ -95,7 +203,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>⭐</div>
             <div style={{ textAlign:"left" }}>
               <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>
-                시공 후기 {(company.reviewList ?? []).length}개
+                시공 후기 {portfolio.length > 0 ? (company.reviewList ?? []).length : (company.reviewList ?? []).length}개
               </div>
               <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>
                 {(company.reviewList ?? []).length > 0
@@ -111,11 +219,16 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
           <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>
             시공 포트폴리오
             <span style={{ fontSize:13, fontWeight:500, color:C.text3, marginLeft:6 }}>
-              {(company.portfolio ?? []).length}건
+              {portfolio.length}건
             </span>
           </div>
+          <button onClick={() => setShowWriteModal(true)}
+            style={{ background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`,
+              borderRadius:R.full, padding:"6px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            + 추가
+          </button>
         </div>
-        {(company.portfolio ?? []).map(work => (
+        {portfolio.map(work => (
           <PortfolioCard key={work.id} work={work} onExpand={setPhotoWork} />
         ))}
 
@@ -135,6 +248,13 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
       </div>
 
       {photoWork && <PhotoModal work={photoWork} onClose={() => setPhotoWork(null)} />}
+      {showWriteModal && (
+        <PortfolioWriteModal
+          companyId={company.id}
+          onClose={() => setShowWriteModal(false)}
+          onSaved={handlePortfolioSaved}
+        />
+      )}
     </div>
   );
 }

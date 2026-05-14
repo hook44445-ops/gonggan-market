@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S, ESCROW_STEPS, PHOTOS } from "../constants";
 import { fmtMoney, calculateCustomerTotal, calculateCompanyReceive, calculateStagePayments } from "../utils/calculations";
+import EscrowCalculator from "../components/EscrowCalculator";
 
 const PLACEHOLDER_PHOTOS = [PHOTOS.apt_after1, PHOTOS.apt_after2];
 
@@ -299,6 +300,9 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
             </div>
           ))}
         </div>
+
+        {/* Real-time calculator */}
+        <EscrowCalculator />
 
         {/* Warranty info */}
         <div style={{ background:C.navyL, borderRadius:R.xl, padding:S.xl, border:`1px solid ${C.trustM}`, display:"flex", gap:S.md, alignItems:"flex-start", marginBottom:S.lg }}>

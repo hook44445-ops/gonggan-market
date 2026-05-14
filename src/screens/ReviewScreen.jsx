@@ -1,23 +1,68 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge, Stars, Divider } from "../components/common";
 import ReviewModal from "../components/ReviewModal";
+import { getReviews, createReview } from "../lib/supabase";
 
-export default function ReviewScreen({ company, onBack }) {
+const normalizeReview = (row) => ({
+  id:      row.id,
+  user:    row.user_name ?? "익명",
+  region:  row.region   ?? "—",
+  rating:  row.rating,
+  date:    row.created_at?.slice(0, 10).replace(/-/g, ".") ?? "",
+  amount:  row.amount     ?? "—",
+  type:    row.space_type ?? "시공 완료",
+  content: row.content,
+  tags:    row.tags   ?? [],
+  reply:   row.reply  ?? null,
+});
+
+export default function ReviewScreen({ company, onBack, currentUser }) {
   const [reviews, setReviews] = useState(company?.reviewList ?? []);
   const [showModal, setShowModal] = useState(false);
   const [newId, setNewId] = useState(null);
   const avg = reviews.length > 0
-    ? (reviews.reduce((s,r) => s+r.rating, 0)/reviews.length).toFixed(1) : "0.0";
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : "0.0";
 
-  const handleSubmit = data => {
+  useEffect(() => {
+    if (!company?.id) return;
+    getReviews(company.id).then(({ data, error }) => {
+      if (error) { console.error("[ReviewScreen] load failed:", error.message); return; }
+      if (data && data.length > 0) setReviews(data.map(normalizeReview));
+    });
+  }, [company?.id]);
+
+  const handleSubmit = async (data) => {
     const now = new Date();
-    const nr = { id:Date.now(), user:"나", region:"마포구", rating:data.rating,
-      date:`${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,"0")}.${String(now.getDate()).padStart(2,"0")}`,
-      amount:"진행중", type:"시공 완료", content:data.content, tags:data.tags, reply:null };
-    setReviews(r => [nr,...r]);
+    const nr = {
+      id:      Date.now(),
+      user:    currentUser?.name ?? "나",
+      region:  currentUser?.region ?? "—",
+      rating:  data.rating,
+      date:    `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,"0")}.${String(now.getDate()).padStart(2,"0")}`,
+      amount:  "진행중",
+      type:    "시공 완료",
+      content: data.content,
+      tags:    data.tags,
+      reply:   null,
+    };
+    setReviews(r => [nr, ...r]);
     setNewId(nr.id);
     setTimeout(() => setNewId(null), 3000);
+
+    if (company?.id) {
+      const { error } = await createReview({
+        company_id: company.id,
+        user_id:    currentUser?.id ?? null,
+        rating:     data.rating,
+        content:    data.content,
+        tags:       data.tags,
+        user_name:  currentUser?.name ?? "익명",
+        region:     currentUser?.region ?? null,
+        space_type: company.type ?? null,
+      });
+      if (error) console.error("[ReviewScreen] createReview failed:", error.message);
+    }
   };
 
   return (
@@ -69,7 +114,7 @@ export default function ReviewScreen({ company, onBack }) {
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.md }}>
               <div style={{ display:"flex", gap:S.md, alignItems:"center" }}>
                 <div style={{ width:40, height:40, borderRadius:"50%",
-                  background:`hsl(${rv.id*55},40%,88%)`,
+                  background:`hsl(${typeof rv.id === "number" ? rv.id*55 : 120},40%,88%)`,
                   display:"flex", alignItems:"center", justifyContent:"center",
                   fontSize:15, fontWeight:900, color:C.text2 }}>{rv.user[0]}</div>
                 <div>
