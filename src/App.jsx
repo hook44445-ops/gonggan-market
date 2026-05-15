@@ -61,7 +61,7 @@ export default function App() {
   if (loading) return null;
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary onLogout={handleLogout}>
       {user
         ? <MainApp user={user} onLogout={handleLogout} onStartOnboarding={() => { clearSession(); setUser(null); setGoOnboarding(true); }} />
         : <LoginScreen onLogin={handleLogin} startAtOnboarding={goOnboarding} />}

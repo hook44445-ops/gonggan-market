@@ -4,6 +4,8 @@ import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 import { supabase, getBidsForRequest } from "../lib/supabase";
 
+const DEFAULT_COMPANY = { id: null, name: "—", temp: 0, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
+
 const normalizeCompany = (row) => ({
   id: row.id, name: row.name ?? "업체", temp: row.temp ?? 70,
   verified: row.verified ?? false, badge: row.badge ?? "basic",
@@ -12,11 +14,24 @@ const normalizeCompany = (row) => ({
 });
 const normalizeBid = (row) => ({
   id: row.id, requestId: row.request_id, companyId: row.company_id,
-  company: row.companies ? normalizeCompany(row.companies) : null,
+  company: row.companies ? normalizeCompany(row.companies) : { ...DEFAULT_COMPANY, id: row.company_id },
   price: row.price, period: row.period_days,
   material: row.material_note ?? "", comment: row.comment ?? "",
   createdAt: row.created_at, status: row.selected ? "selected" : "pending",
 });
+
+// Hoisted outside the component so it is never in a TDZ when used in early returns
+function BidScreenHeader({ title, sub, onBack }) {
+  return (
+    <div style={{ background:C.surface, padding:"14px 20px", borderBottom:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:S.md }}>
+      <button onClick={onBack} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
+      <div>
+        <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>{title}</div>
+        {sub && <div style={{ fontSize:12, color:C.text3 }}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
 
 export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
   console.log("render BidStatusScreen", { request: request?.id, selectedBid: selectedBid?.id });
@@ -56,18 +71,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   }, [request?.id]);
 
   const selectBid = (bid) => {
-    console.log("[BidStatusScreen] customer selected bid:", bid.id, "company:", bid.company?.name, "price:", bid.price);
-    setSelBid(bid);
-    if (setSelectedBid) setSelectedBid(bid);
+    const safeBid = { ...bid, company: bid.company ?? { ...DEFAULT_COMPANY, id: bid.companyId } };
+    setSelBid(safeBid);
+    if (setSelectedBid) setSelectedBid(safeBid);
     setStep("confirm");
   };
 
-  const H = ({ title, sub }) => (
-    <div style={{ background:C.surface, padding:"14px 20px", borderBottom:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:S.md }}>
-      <button onClick={() => step==="list" ? onBack() : setStep("list")} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
-      <div><div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>{title}</div>{sub && <div style={{ fontSize:12, color:C.text3 }}>{sub}</div>}</div>
-    </div>
-  );
+  const goBack = () => step === "list" ? onBack() : setStep("list");
 
   if (step==="confirm" && selBid) {
     const stages = calculateStagePayments(selBid.price);
@@ -75,7 +85,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
     const escrowFee = Math.round((customerTotal - selBid.price) * 10) / 10;
     return (
       <div style={{ minHeight:"100vh", background:C.bg }}>
-        <H title="예약 확인" />
+        <BidScreenHeader title="예약 확인" onBack={goBack} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.lg }}>
@@ -115,7 +125,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
 
   if (step==="reserved" && selBid) return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      <H title="결제 방식 선택" />
+      <BidScreenHeader title="결제 방식 선택" onBack={goBack} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
         <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
           <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.md }}>
@@ -147,7 +157,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
     const stages = calculateStagePayments(selBid.price);
     return (
       <div style={{ minHeight:"100vh", background:C.bg }}>
-        <H title="에스크로 전액 예치" />
+        <BidScreenHeader title="에스크로 전액 예치" onBack={goBack} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ fontSize:13, color:C.text3, marginBottom:4 }}>예치 금액 (에스크로 수수료 3% 포함)</div>
@@ -204,7 +214,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   // Bid list — empty state maintains container layout
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      <H title="입찰 현황" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} />
+      <BidScreenHeader title="입찰 현황" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, border:`1px solid ${C.brandM}` }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.brand }}>💡 업체 금액은 선택 전까지 서로 모릅니다</div>
