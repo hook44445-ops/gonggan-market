@@ -8,7 +8,8 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
   const [submitting, setSubmitting] = useState(false);
   const [bidForm, setBidForm] = useState({ price:"", period:"", material:"", comment:"" });
   const setBF = (k, v) => setBidForm(f => ({ ...f, [k]:v }));
-  const isGuest = !onBidSubmit && !!onRequiresAuth;
+  const isGuest  = !onBidSubmit && !!onRequiresAuth;
+  const isClosed = r.isActive === false && r.isActive !== undefined;
   const canSubmit = bidForm.price && bidForm.period;
 
   const iS = {
@@ -59,6 +60,8 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
               )}
               {submitted
                 ? <span style={{ background:C.greenL, color:C.green, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>✓ 입찰완료</span>
+                : isClosed
+                ? <span style={{ background:"#F0EDE8", color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>마감됨</span>
                 : <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>입찰중</span>
               }
             </div>
@@ -89,6 +92,16 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
                 <div style={{ fontSize:12, color:C.text3, marginBottom:3 }}>🔨 {bidForm.material}</div>
               )}
               <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>의뢰인 검토 중 · 알림이 오면 확인하세요</div>
+            </div>
+          ) : isClosed ? (
+            /* Closed: no bidding allowed */
+            <div style={{ background:"#F8F5F0", borderRadius:R.lg, padding:S.md,
+              display:"flex", alignItems:"center", gap:S.sm, border:`1px solid ${C.bgWarm}` }}>
+              <span style={{ fontSize:16 }}>🔒</span>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text3 }}>마감된 요청</div>
+                <div style={{ fontSize:11, color:C.text4, marginTop:1 }}>입찰이 마감되어 새 견적을 제출할 수 없어요</div>
+              </div>
             </div>
           ) : (
             /* Bottom row: budget info + bid button */

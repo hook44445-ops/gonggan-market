@@ -69,13 +69,20 @@ create table if not exists public.requests (
   style        text,
   desc         text,
   status       text not null default 'open'
-                 check (status in ('open','in_progress','completed','cancelled')),
+                 check (status in ('open','in_progress','completed','cancelled','closed')),
   urgent       boolean not null default false,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
 
 comment on table public.requests is '의뢰인이 등록한 견적 요청';
+
+-- Migration: add 'closed' to requests status check (run once on existing projects)
+alter table public.requests
+  drop constraint if exists requests_status_check;
+alter table public.requests
+  add constraint requests_status_check
+    check (status in ('open','in_progress','completed','cancelled','closed'));
 
 -- ── bids ──────────────────────────────────────────────────────────────────────
 create table if not exists public.bids (
