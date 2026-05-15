@@ -6,6 +6,20 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // Validate env vars before doing any work — createClient throws "supabaseUrl is required"
+  // if this is undefined, which is swallowed by the catch block without a clear message.
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  console.log("[verify-otp] env check:", {
+    VITE_SUPABASE_URL: supabaseUrl || "MISSING",
+    SUPABASE_SERVICE_ROLE_KEY: supabaseServiceKey ? "[SET]" : "MISSING",
+  });
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return res.status(500).json({
+      error: "Server misconfiguration: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set",
+    });
+  }
+
   const { phone, token } = req.body;
   if (!phone || !token) {
     return res.status(400).json({ error: "Phone and token are required" });
@@ -23,14 +37,6 @@ export default async function handler(req, res) {
 
     if (check.status !== "approved") {
       return res.status(400).json({ error: "인증번호가 올바르지 않습니다" });
-    }
-
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return res.status(500).json({
-        error: "Server misconfiguration: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set",
-      });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
