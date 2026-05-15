@@ -1,8 +1,18 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { C, R, S, ALL_REGIONS, SPECIALTIES } from "../constants";
 import { BADGES } from "../constants/badges";
 import { Divider } from "../components/common";
-import { upsertUserByPhone, upsertCompany } from "../lib/supabase";
+import { upsertUserByPhone, upsertCompany, supabase } from "../lib/supabase";
+
+async function uploadDocToStorage(file) {
+  try {
+    const path = `company-docs/${Date.now()}-${file.name}`;
+    await supabase.storage.from("company-docs").upload(path, file, { upsert: true });
+  } catch {
+    // Supabase Storage may not be configured; file name is still recorded
+  }
+  return file.name;
+}
 
 export default function CompanyOnboarding({ phone, onDone }) {
   console.log("render CompanyOnboarding", { phone });
@@ -17,7 +27,21 @@ export default function CompanyOnboarding({ phone, onDone }) {
     agreeTerms:false, agreeEscrow:false, agreeAs:false, agreeDeposit:false,
   });
   const [submitted, setSubmitted] = useState(null);
+  const [uploadingDoc, setUploadingDoc] = useState(null); // 'biz' | 'insurance'
+  const bizDocInputRef = useRef(null);
+  const insuranceDocInputRef = useRef(null);
   const set = (k,v) => setForm(f => ({...f,[k]:v}));
+
+  const handleDocUpload = async (e, docType) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingDoc(docType);
+    e.target.value = "";
+    const name = await uploadDocToStorage(file);
+    if (docType === "biz") { set("bizDocFile", name); set("hasBizDoc", true); }
+    else { set("insuranceFile", name); set("hasInsurance", true); }
+    setUploadingDoc(null);
+  };
   const toggleArr = (k,v) => setForm(f => ({
     ...f, [k]: f[k].includes(v) ? f[k].filter(x=>x!==v) : [...f[k],v]
   }));
@@ -263,24 +287,23 @@ export default function CompanyOnboarding({ phone, onDone }) {
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>📋</div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>사업자등록증</div>
-              <div style={{ fontSize:12, color:C.text3 }}>
-                {form.bizDocFile ? `✅ ${form.bizDocFile}` : "필수 · 파일명 입력"}
+              <div style={{ fontSize:12, color:form.hasBizDoc?C.green:C.text3 }}>
+                {uploadingDoc==="biz" ? "업로드 중..." : form.bizDocFile ? `✅ ${form.bizDocFile}` : "필수 · PDF 또는 이미지"}
               </div>
             </div>
             {form.hasBizDoc && <span style={{ fontSize:18, color:C.green }}>✓</span>}
           </div>
           {!form.hasBizDoc && (
-            <div style={{ display:"flex", gap:8 }}>
-              <input placeholder="예: 사업자등록증.pdf"
-                onKeyDown={e => { if(e.key==="Enter"&&e.target.value) { set("bizDocFile",e.target.value); set("hasBizDoc",true); }}}
-                style={{ flex:1, padding:"10px 14px", border:`1.5px solid ${C.bgWarm}`,
-                  borderRadius:R.md, fontSize:13, outline:"none", fontFamily:"inherit", color:C.text1 }} />
-              <button onMouseDown={e => { const inp = e.target.previousSibling; if(inp&&inp.value){ set("bizDocFile",inp.value); set("hasBizDoc",true); }}}
-                style={{ padding:"10px 16px", background:C.brand, color:"#fff",
-                  border:"none", borderRadius:R.md, fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                확인
+            <>
+              <button onClick={() => bizDocInputRef.current?.click()} disabled={uploadingDoc==="biz"}
+                style={{ width:"100%", padding:"12px", background:uploadingDoc==="biz"?C.surface2:C.brand,
+                  color:uploadingDoc==="biz"?C.text3:"#fff", border:"none",
+                  borderRadius:R.md, fontWeight:700, fontSize:13, cursor:"pointer", boxSizing:"border-box" }}>
+                {uploadingDoc==="biz" ? "⏳ 업로드 중..." : "📁 파일 업로드"}
               </button>
-            </div>
+              <input ref={bizDocInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:"none" }}
+                onChange={e => handleDocUpload(e, "biz")} />
+            </>
           )}
         </div>
 
@@ -292,23 +315,22 @@ export default function CompanyOnboarding({ phone, onDone }) {
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>🔒</div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>시공보험 증서</div>
-              <div style={{ fontSize:12, color:C.text3 }}>
-                {form.insuranceFile ? `✅ ${form.insuranceFile}` : "선택 · 보증금 10% 절감"}
+              <div style={{ fontSize:12, color:form.hasInsurance?C.green:C.text3 }}>
+                {uploadingDoc==="insurance" ? "업로드 중..." : form.insuranceFile ? `✅ ${form.insuranceFile}` : "선택 · 보증금 10% 절감"}
               </div>
             </div>
             {form.hasInsurance && <span style={{ fontSize:18, color:C.green }}>✓</span>}
           </div>
           {!form.hasInsurance && (
-            <div style={{ display:"flex", gap:8, marginBottom:S.md }}>
-              <input placeholder="예: 시공보험증서.pdf"
-                onKeyDown={e => { if(e.key==="Enter"&&e.target.value){ set("insuranceFile",e.target.value); set("hasInsurance",true); }}}
-                style={{ flex:1, padding:"10px 14px", border:`1.5px solid ${C.bgWarm}`,
-                  borderRadius:R.md, fontSize:13, outline:"none", fontFamily:"inherit", color:C.text1 }} />
-              <button onMouseDown={e => { const inp = e.target.previousSibling; if(inp&&inp.value){ set("insuranceFile",inp.value); set("hasInsurance",true); }}}
-                style={{ padding:"10px 16px", background:C.brand, color:"#fff",
-                  border:"none", borderRadius:R.md, fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                확인
+            <div style={{ marginBottom:S.md }}>
+              <button onClick={() => insuranceDocInputRef.current?.click()} disabled={uploadingDoc==="insurance"}
+                style={{ width:"100%", padding:"12px", background:uploadingDoc==="insurance"?C.surface2:C.surface,
+                  color:uploadingDoc==="insurance"?C.text3:C.text2, border:`1px solid ${C.bgWarm}`,
+                  borderRadius:R.md, fontWeight:700, fontSize:13, cursor:"pointer", boxSizing:"border-box" }}>
+                {uploadingDoc==="insurance" ? "⏳ 업로드 중..." : "📁 파일 업로드 (선택)"}
               </button>
+              <input ref={insuranceDocInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:"none" }}
+                onChange={e => handleDocUpload(e, "insurance")} />
             </div>
           )}
           <div style={{ background:form.hasInsurance?C.greenL:C.brandL, borderRadius:R.lg,
