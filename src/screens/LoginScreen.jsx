@@ -16,7 +16,6 @@ const SERVICE_ICONS = {
 };
 
 export default function LoginScreen({ onLogin, startAtOnboarding }) {
-  console.log("render LoginScreen", { startAtOnboarding });
   const [step, setStep] = useState(startAtOnboarding ? 3 : 1);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");

@@ -91,8 +91,7 @@ const normalizeBid = (row) => ({
 });
 
 export default function MainApp({ user, onLogout, onStartOnboarding }) {
-  console.log("render MainApp", { role: user?.role, isGuest: user?.isGuest });
-  const [mode, setMode] = useState(user.role);
+  const [mode, setMode] = useState(user.role ?? "consumer");
   const [screen, setScreen] = useState("home");
   const [prevScreen, setPrevScreen] = useState("home");
   const [selCo, setSelCo] = useState(null);
@@ -239,7 +238,6 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
 
     // INSERT to Supabase (only when actor has a real UUID)
     if (actor.id && typeof actor.id === "string" && actor.id.includes("-")) {
-      console.log("[addBid] before createBid — user.id:", user.id, "request.id:", request.id, "bidData:", bidData);
       const { data, error } = await createBid({
         request_id: request.id,
         company_id: actor.id,
@@ -248,7 +246,6 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         material_note: bidData.material,
         comment: bidData.comment,
       });
-      console.log("[addBid] after createBid — user.id:", user.id, "request.id:", request.id, "bidData:", bidData);
       if (error) {
         console.error("[addBid] insert failed:", error.message);
         alert(`입찰 저장 실패: ${error.message}`);
@@ -568,7 +565,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                   boxShadow:`0 4px 16px ${C.brand}44` }}>
                 업체 로그인
               </button>
-              <button onClick={() => { console.log("[MainApp] 업체 회원가입 clicked"); onStartOnboarding(); }}
+              <button onClick={() => { onStartOnboarding(); }}
                 style={{ padding:"16px", background:C.surface, color:C.brand,
                   border:`2px solid ${C.brandM}`, borderRadius:R.lg,
                   fontWeight:800, fontSize:15, cursor:"pointer" }}>
@@ -826,7 +823,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, textAlign:"center" }}>
               <div style={{ width:72, height:72, borderRadius:R.full, background:C.brandL,
                 display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:28, fontWeight:900, color:C.brand, margin:"0 auto 14px" }}>{user.name[0]}</div>
+                fontSize:28, fontWeight:900, color:C.brand, margin:"0 auto 14px" }}>{user.name?.[0] ?? "?"}</div>
               <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>{user.name}</div>
               <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>📍 {user.region} · {user.role==="consumer"?"의뢰인":"검증 업체"}</div>
               {user.role === "consumer" && (() => {
@@ -988,7 +985,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             </div>
             <div style={{ display:"flex", gap:S.sm }}>
               <button onClick={() => setShowRegisterPrompt(false)} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>나중에</button>
-              <button onClick={() => { console.log("[MainApp] 업체 등록하기 clicked"); setShowRegisterPrompt(false); onStartOnboarding(); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>🚀 업체 등록하기</button>
+              <button onClick={() => { setShowRegisterPrompt(false); onStartOnboarding(); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>🚀 업체 등록하기</button>
             </div>
           </div>
         </div>

@@ -4,7 +4,6 @@ import { BADGES } from "../constants/badges";
 import { TempBadge } from "./common";
 
 export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth }) {
-  console.log("render BidCard", { r: r?.id, currentUser: currentUser?.name });
   const [submitted, setSubmitted] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
