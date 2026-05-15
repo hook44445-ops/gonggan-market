@@ -25,7 +25,17 @@ function loadSavedSession() {
 
 function saveSession(user) {
   try {
-    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+    const slim = {
+      id:       user.id       ?? null,
+      role:     user.role     ?? "consumer",
+      phone:    user.phone    ?? "",
+      verified: user.verified ?? false,
+      name:     user.name     ?? "",
+      region:   user.region   ?? "",
+      badge:    user.badge    ?? "basic",
+      isGuest:  user.isGuest  ?? false,
+    };
+    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(slim));
     localStorage.setItem(SESSION_TS_KEY, Date.now().toString());
   } catch {}
 }

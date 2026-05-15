@@ -34,7 +34,6 @@ function BidScreenHeader({ title, sub, onBack }) {
 }
 
 export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
-  console.log("render BidStatusScreen", { request: request?.id, selectedBid: selectedBid?.id });
   const [localBids, setLocalBids] = useState(propBids ?? []);
   const bids = localBids.length > 0 ? localBids : (propBids ?? []);
   const [step, setStep] = useState("list");
