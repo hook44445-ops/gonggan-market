@@ -51,11 +51,16 @@ const fmtTs = (ts) => {
   return `${mm}/${dd} ${hh}:${min}`;
 };
 
+// 에스크로는 플랫폼 수익 구조가 아닌 신뢰 인프라입니다.
+// 플랫폼은 법적 중재자가 아닌 구조적 신뢰 제공자입니다.
+// 신뢰는 아래 구조로 해결됩니다:
+// - 단계별 승인 / 업로드 기록 / 에스크로 보관 / 지급 조건 / 진행 기록
 const STAGE_META = [
-  { id: 1, label: "전액 예치",  sub: "고객이 총 금액을 공간마켓에 예치",         icon: "🔒", pct: 0,  confirmLabel: null },
-  { id: 2, label: "착공 · 선금", sub: "착공 시작 확인 후 공간마켓→업체 30% 지급", icon: "💰", pct: 30, confirmLabel: "착공 확정" },
-  { id: 3, label: "중간 점검",  sub: "50% 공정 확인 후 업체에 40% 지급",        icon: "🔍", pct: 40, confirmLabel: "중간점검 확정" },
-  { id: 4, label: "완료 확인",  sub: "시공 완료 확인 후 업체에 잔금 30% 지급",   icon: "✅", pct: 30, confirmLabel: "완료 확정" },
+  { id: 1, label: "전액 예치",    sub: "고객이 총 금액을 공간마켓에 예치",              icon: "🔒", pct: 0,  confirmLabel: null, autoRelease: false },
+  { id: 2, label: "자재비 선지급", sub: "계약 완료 즉시 자동 지급 · 고객 확인 불필요",  icon: "💰", pct: 10, confirmLabel: null, autoRelease: true  },
+  { id: 3, label: "착공 확인",    sub: "고객 착공 확인 후 공간마켓→업체 20% 지급",    icon: "🏗", pct: 20, confirmLabel: "착공 확정" },
+  { id: 4, label: "중간 점검",    sub: "고객 중간점검 확인 후 업체에 40% 지급",       icon: "🔍", pct: 40, confirmLabel: "중간점검 확정" },
+  { id: 5, label: "완료 확인",    sub: "고객 완료 확인 후 업체에 잔금 30% 지급",      icon: "✅", pct: 30, confirmLabel: "완료 확정" },
 ];
 
 const TIMELINE_ICONS = {
@@ -74,24 +79,25 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
   // Dynamic stage flow
   const [stageStatus, setStageStatus] = useState({
     1: "done",
-    2: "company_todo",
-    3: "locked",
+    2: "done",
+    3: "company_todo",
     4: "locked",
+    5: "locked",
   });
 
   // Per-stage photo upload
-  const [stagePhotos, setStagePhotos] = useState({ 2: [], 3: [], 4: [] });
+  const [stagePhotos, setStagePhotos] = useState({ 3: [], 4: [], 5: [] });
   const [uploadingStage, setUploadingStage] = useState(null);
   const [stageDeadlines, setStageDeadlines] = useState({});
 
-  const fileInputRef2 = useRef(null);
   const fileInputRef3 = useRef(null);
   const fileInputRef4 = useRef(null);
-  const fileInputRefs = { 2: fileInputRef2, 3: fileInputRef3, 4: fileInputRef4 };
+  const fileInputRef5 = useRef(null);
+  const fileInputRefs = { 3: fileInputRef3, 4: fileInputRef4, 5: fileInputRef5 };
 
   // Timeline
   const [timeline, setTimeline] = useState([
-    { id: 1, type: "contract", label: "계약 완료", ts: Date.now() - 2 * 24 * 3600 * 1000 },
+    { id: 1, type: "contract", label: "계약 완료 · 자재비 선지급 (10%)", ts: Date.now() - 2 * 24 * 3600 * 1000 },
   ]);
 
   const addTimeline = (type, label) => {
@@ -109,7 +115,7 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
     setStageStatus(prev => ({
       ...prev,
       [stageId]: "done",
-      ...(stageId < 4 ? { [stageId + 1]: "company_todo" } : {}),
+      ...(stageId < 5 ? { [stageId + 1]: "company_todo" } : {}),
     }));
     setConfirmStage(null);
     if (s?.confirmLabel) addTimeline("confirm", s.confirmLabel);
@@ -210,7 +216,7 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
         <div style={{ background: `linear-gradient(135deg,${C.navy},${C.navyM})`, borderRadius: R.xl, padding: S.xxl, marginBottom: S.xl, color: "#fff" }}>
           {isConsumer ? (
             <>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>총 예치 금액 (시공비 + 에스크로 수수료 3%)</div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>총 예치 금액 (시공비 + 안전거래 수수료 3% VAT 포함)</div>
               <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(customerTotal)}</div>
               <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>고객 예치 완료 · 단계별로 업체에 지급됩니다</div>
             </>
@@ -235,7 +241,8 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.xl }}>정산 단계</div>
           {STAGE_META.map((s, i) => {
             const status = stageStatus[s.id];
-            const stage = stages[i - 1];
+            // stages[0..3] correspond to STAGE_META ids 2..5 (id 1 is deposit, no payment)
+            const stage = s.id >= 2 ? stages[s.id - 2] : null;
             const active = isActive(s.id);
             const done = status === "done";
             const col = statusColor(s.id);
@@ -361,9 +368,9 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
                   {isConsumer && status === "pending_customer" && (
                     <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.brandM}`, marginTop: S.sm }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: C.brand, marginBottom: S.sm }}>
-                        {s.id === 2 && "🏗 업체가 착공을 시작했습니다"}
-                        {s.id === 3 && "📸 중간 점검 사진을 확인하고 승인해주세요"}
-                        {s.id === 4 && "🏁 업체가 시공 완료를 신고했습니다"}
+                        {s.id === 3 && "🏗 업체가 착공을 시작했습니다"}
+                        {s.id === 4 && "📸 중간 점검 사진을 확인하고 승인해주세요"}
+                        {s.id === 5 && "🏁 업체가 시공 완료를 신고했습니다"}
                       </div>
                       {deadline && <CountdownTimer deadlineMs={deadline} />}
                       {photos.length > 0 && (
@@ -375,10 +382,10 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
                           ))}
                         </div>
                       )}
-                      {s.id !== 3 && (
+                      {s.id !== 4 && (
                         <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
-                          {s.id === 2 && <>선금 <b>{stage ? fmtMoney(stage.amount) : "30%"}</b>을 업체에 지급하시겠습니까?</>}
-                          {s.id === 4 && <>잔금 <b>{stage ? fmtMoney(stage.amount) : "30%"}</b>을 업체에 지급하시겠습니까?</>}
+                          {s.id === 3 && <>착공금 <b>{stage ? fmtMoney(stage.amount) : "20%"}</b>을 업체에 지급하시겠습니까?</>}
+                          {s.id === 5 && <>잔금 <b>{stage ? fmtMoney(stage.amount) : "30%"}</b>을 업체에 지급하시겠습니까?</>}
                         </div>
                       )}
                       <div style={{ display: "flex", gap: S.sm }}>
@@ -471,9 +478,9 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
             <div style={{ textAlign: "center", marginBottom: S.xxl }}>
               <div style={{ fontSize: 44, marginBottom: 10 }}>💸</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6 }}>
-                {confirmStage === 2 && "업체에게 선금을 지급할까요?"}
-                {confirmStage === 3 && "업체에게 중도금을 지급할까요?"}
-                {confirmStage === 4 && "업체에게 잔금을 지급할까요?"}
+                {confirmStage === 3 && "업체에게 착공금을 지급할까요?"}
+                {confirmStage === 4 && "업체에게 중도금을 지급할까요?"}
+                {confirmStage === 5 && "업체에게 잔금을 지급할까요?"}
               </div>
               <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
                 공간마켓이 보관 중인 금액에서<br />
