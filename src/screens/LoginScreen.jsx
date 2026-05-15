@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { C, R, S, REGIONS, fmtPhone } from "../constants";
 import CompanyOnboarding from "./CompanyOnboarding";
-import { signInWithPhone, verifyOtp, getUser, upsertUser } from "../lib/supabase";
+import { getUser, upsertUser } from "../lib/supabase";
 
 const toE164 = (phone) => {
   const digits = phone.replace(/\D/g, "");
@@ -28,31 +28,50 @@ export default function LoginScreen({ onLogin, startAtOnboarding }) {
     if(phone.replace(/-/g,"").length<10) return setMsg("올바른 전화번호를 입력해주세요");
     setLoading(true);
     setMsg("");
-    const { error } = await signInWithPhone(toE164(phone));
-    setLoading(false);
-    if (error) return setMsg("❌ " + (error.message || "인증번호 발송에 실패했습니다"));
-    setCodeSent(true);
-    setMsg("✅ 인증번호가 발송되었습니다");
+    try {
+      const res = await fetch("/api/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: toE164(phone) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "인증번호 발송에 실패했습니다");
+      setCodeSent(true);
+      setMsg("✅ 인증번호가 발송되었습니다");
+    } catch (err) {
+      setMsg("❌ " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const verifyCode = async () => {
     if(code.length<4) return setMsg("인증번호를 입력해주세요");
     setLoading(true);
     setMsg("");
-    const { data, error } = await verifyOtp(toE164(phone), code);
-    if (error) { setLoading(false); return setMsg("❌ " + (error.message || "인증에 실패했습니다")); }
+    try {
+      const res = await fetch("/api/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: toE164(phone), token: code }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "인증에 실패했습니다");
 
-    const userId = data.user?.id;
-    setAuthUserId(userId);
+      const userId = json.data?.user?.id;
+      setAuthUserId(userId);
 
-    // Check if profile exists
-    const { data: profile } = await getUser(userId);
-    setLoading(false);
-    if (profile) {
-      onLogin(profile);
-    } else {
-      setStep(4);
-      setMsg("");
+      const { data: profile } = await getUser(userId);
+      if (profile) {
+        onLogin(profile);
+      } else {
+        setStep(4);
+        setMsg("");
+      }
+    } catch (err) {
+      setMsg("❌ " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
