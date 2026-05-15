@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
-import { C, R, S, PHOTOS } from "../constants";
-import { fmtMoney, calculateCustomerTotal, calculateCompanyReceive, calculateStagePayments } from "../utils/calculations";
+import { useState, useRef } from "react";
+import { C, R, S } from "../constants";
+import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
+import { uploadFile } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 
 // Stage status values:
@@ -10,14 +11,15 @@ import EscrowCalculator from "../components/EscrowCalculator";
 // 'locked'         — not yet reachable
 
 function CountdownTimer({ deadlineMs }) {
-  const [remaining, setRemaining] = useState(() => Math.max(0, deadlineMs - Date.now()));
-  useEffect(() => {
-    if (remaining <= 0) return;
+  const [remaining, setRemaining] = useState(() => deadlineMs ? Math.max(0, deadlineMs - Date.now()) : 0);
+  useState(() => {
+    if (!deadlineMs || remaining <= 0) return;
     const id = setInterval(() => {
       setRemaining(prev => { const n = Math.max(0, deadlineMs - Date.now()); if (n <= 0) clearInterval(id); return n; });
     }, 1000);
     return () => clearInterval(id);
-  }, [deadlineMs]);
+  });
+  if (!deadlineMs) return null;
   const total = Math.floor(remaining / 1000);
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
@@ -40,16 +42,30 @@ function CountdownTimer({ deadlineMs }) {
   );
 }
 
+const fmtTs = (ts) => {
+  const d = new Date(ts);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${mm}/${dd} ${hh}:${min}`;
+};
+
 const STAGE_META = [
-  { id: 1, label: "전액 예치",  sub: "고객이 총 금액을 공간마켓에 예치",         icon: "🔒", pct: 0  },
-  { id: 2, label: "착공 · 선금", sub: "착공 시작 확인 후 공간마켓→업체 30% 지급", icon: "💰", pct: 30 },
-  { id: 3, label: "중간 점검",  sub: "50% 공정 확인 후 업체에 40% 지급",        icon: "🔍", pct: 40 },
-  { id: 4, label: "완료 확인",  sub: "시공 완료 확인 후 업체에 잔금 30% 지급",   icon: "✅", pct: 30 },
+  { id: 1, label: "전액 예치",  sub: "고객이 총 금액을 공간마켓에 예치",         icon: "🔒", pct: 0,  confirmLabel: null },
+  { id: 2, label: "착공 · 선금", sub: "착공 시작 확인 후 공간마켓→업체 30% 지급", icon: "💰", pct: 30, confirmLabel: "착공 확정" },
+  { id: 3, label: "중간 점검",  sub: "50% 공정 확인 후 업체에 40% 지급",        icon: "🔍", pct: 40, confirmLabel: "중간점검 확정" },
+  { id: 4, label: "완료 확인",  sub: "시공 완료 확인 후 업체에 잔금 30% 지급",   icon: "✅", pct: 30, confirmLabel: "완료 확정" },
 ];
 
+const TIMELINE_ICONS = {
+  contract: "📝",
+  photo:    "📸",
+  confirm:  "✅",
+  dispute:  "⚠️",
+};
+
 export default function EscrowScreen({ onBack, mode, selectedBid }) {
-  const PLACEHOLDER_PHOTOS = [PHOTOS.apt_after1, PHOTOS.apt_after2];
-  console.log("render EscrowScreen", { selectedBid: selectedBid?.id, mode });
   const isConsumer = mode === "consumer";
   const bidAmount   = selectedBid?.price ?? 0;
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
@@ -63,43 +79,79 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
     4: "locked",
   });
 
-  // Photo upload (stage 3)
-  const [uploadedPhotos, setUploadedPhotos] = useState([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadDone, setUploadDone] = useState(false);
-  const fileInputRef = useRef(null);
+  // Per-stage photo upload
+  const [stagePhotos, setStagePhotos] = useState({ 2: [], 3: [], 4: [] });
+  const [uploadingStage, setUploadingStage] = useState(null);
+  const [stageDeadlines, setStageDeadlines] = useState({});
+
+  const fileInputRef2 = useRef(null);
+  const fileInputRef3 = useRef(null);
+  const fileInputRef4 = useRef(null);
+  const fileInputRefs = { 2: fileInputRef2, 3: fileInputRef3, 4: fileInputRef4 };
+
+  // Timeline
+  const [timeline, setTimeline] = useState([
+    { id: 1, type: "contract", label: "계약 완료", ts: Date.now() - 2 * 24 * 3600 * 1000 },
+  ]);
+
+  const addTimeline = (type, label) => {
+    setTimeline(prev => [...prev, { id: prev.length + 1, type, label, ts: Date.now() }]);
+  };
 
   // Modals
-  const [confirmStage, setConfirmStage] = useState(null);  // stageId waiting consumer confirm
+  const [confirmStage, setConfirmStage] = useState(null);
   const [showDispute, setShowDispute] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeSubmitted, setDisputeSubmitted] = useState(false);
-  const [deadline] = useState(() => Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000);
 
   const advanceStage = (stageId) => {
+    const s = STAGE_META.find(x => x.id === stageId);
     setStageStatus(prev => ({
       ...prev,
       [stageId]: "done",
       ...(stageId < 4 ? { [stageId + 1]: "company_todo" } : {}),
     }));
     setConfirmStage(null);
+    if (s?.confirmLabel) addTimeline("confirm", s.confirmLabel);
   };
 
   const reportComplete = (stageId) => {
+    const s = STAGE_META.find(x => x.id === stageId);
     setStageStatus(prev => ({ ...prev, [stageId]: "pending_customer" }));
-    if (stageId === 3) setUploadDone(true);
+    setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
+    if (s?.label) addTimeline("photo", s.label);
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e, stageId) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
-    setIsUploading(true);
-    setTimeout(() => {
-      const previews = files.map((_, i) => i < PLACEHOLDER_PHOTOS.length ? PLACEHOLDER_PHOTOS[i] : PLACEHOLDER_PHOTOS[0]);
-      setUploadedPhotos(prev => [...prev, ...previews].slice(0, 6));
-      setIsUploading(false);
-    }, 1200);
-    e.target.value = "";
+    setUploadingStage(stageId);
+    try {
+      const urls = await Promise.all(
+        files.map(async (file) => {
+          const path = `escrow/${stageId}/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
+          try {
+            return await uploadFile("documents", path, file);
+          } catch {
+            return URL.createObjectURL(file);
+          }
+        })
+      );
+      setStagePhotos(prev => ({
+        ...prev,
+        [stageId]: [...(prev[stageId] || []), ...urls].slice(0, 6),
+      }));
+    } finally {
+      setUploadingStage(null);
+      e.target.value = "";
+    }
+  };
+
+  const removePhoto = (stageId, photoIdx) => {
+    setStagePhotos(prev => ({
+      ...prev,
+      [stageId]: prev[stageId].filter((_, i) => i !== photoIdx),
+    }));
   };
 
   const paid = STAGE_META.filter(s => stageStatus[s.id] === "done" && s.pct > 0).reduce((a, s) => a + s.pct, 0);
@@ -187,6 +239,9 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
             const active = isActive(s.id);
             const done = status === "done";
             const col = statusColor(s.id);
+            const photos = stagePhotos[s.id] || [];
+            const isUploadingThis = uploadingStage === s.id;
+            const deadline = stageDeadlines[s.id];
 
             return (
               <div key={s.id} style={{ display: "flex", gap: S.md, marginBottom: i < STAGE_META.length - 1 ? S.xl : 0 }}>
@@ -229,73 +284,68 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
                   </div>
                   <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5, marginBottom: active ? S.md : 0 }}>{s.sub}</div>
 
-                  {/* ── Company action buttons ── */}
-                  {!isConsumer && status === "company_todo" && (
+                  {/* ── Company action buttons (stages 2, 3, 4) ── */}
+                  {!isConsumer && status === "company_todo" && s.id >= 2 && (
                     <div style={{ marginTop: S.sm }}>
-                      {s.id === 2 && (
-                        <button
-                          onClick={() => reportComplete(2)}
-                          style={{ width: "100%", padding: "13px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: "pointer", boxShadow: `0 4px 14px ${C.brand}44` }}>
-                          🏗 착공 완료 신고
-                        </button>
-                      )}
-                      {s.id === 3 && (
-                        <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📸 중간 점검 사진 업로드</div>
-                          <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: S.md }}>
-                            고객이 사진을 확인하면 중도금 {stage ? fmtMoney(stage.amount) : "40%"} 지급 승인이 진행됩니다.
-                          </div>
-                          {uploadedPhotos.length > 0 && (
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm, marginBottom: S.md }}>
-                              {uploadedPhotos.map((src, pi) => (
-                                <div key={pi} style={{ position: "relative", aspectRatio: "1", borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
-                                  <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
-                                  <button onClick={() => setUploadedPhotos(prev => prev.filter((_, i) => i !== pi))} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "rgba(0,0,0,0.55)", color: "#fff", border: "none", borderRadius: R.full, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-                                </div>
-                              ))}
-                              {uploadedPhotos.length < 6 && (
-                                <button onClick={() => fileInputRef.current?.click()} style={{ aspectRatio: "1", background: C.bg, border: `2px dashed ${C.bgWarm}`, borderRadius: R.md, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                                  <span style={{ fontSize: 20, color: C.text4 }}>+</span>
-                                </button>
-                              )}
-                            </div>
-                          )}
-                          {uploadedPhotos.length === 0 && (
-                            <button onClick={() => fileInputRef.current?.click()} disabled={isUploading}
-                              style={{ width: "100%", padding: "18px", background: C.bg, border: `2px dashed ${C.bgWarm}`, borderRadius: R.lg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: S.sm, cursor: "pointer", marginBottom: S.md }}>
-                              <span style={{ fontSize: 28 }}>{isUploading ? "⏳" : "📷"}</span>
-                              <span style={{ fontSize: 13, color: C.text3, fontWeight: 600 }}>{isUploading ? "처리 중..." : "사진을 선택하세요"}</span>
-                              <span style={{ fontSize: 11, color: C.text4 }}>JPG, PNG · 최대 6장</span>
-                            </button>
-                          )}
-                          <div style={{ display: "flex", gap: S.sm }}>
-                            <button onClick={() => fileInputRef.current?.click()} disabled={isUploading}
-                              style={{ flex: 1, padding: "11px", background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                              📁 사진 선택
-                            </button>
-                            <button onClick={() => reportComplete(3)} disabled={isUploading || uploadedPhotos.length === 0}
-                              style={{ flex: 2, padding: "11px", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: uploadedPhotos.length > 0 ? "pointer" : "not-allowed", border: "none", background: uploadedPhotos.length > 0 ? C.brand : C.bgWarm, color: uploadedPhotos.length > 0 ? "#fff" : C.text4, boxShadow: uploadedPhotos.length > 0 ? `0 4px 14px ${C.brand}44` : "none" }}>
-                              {isUploading ? "업로드 중..." : "고객에게 전송하기"}
-                            </button>
-                          </div>
-                          <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFileChange} />
+                      <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📸 사진 업로드</div>
+                        <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: S.md }}>
+                          고객이 사진을 확인하면 {stage ? fmtMoney(stage.amount) : `${s.pct}%`} 지급 승인이 진행됩니다.
                         </div>
-                      )}
-                      {s.id === 4 && (
-                        <button
-                          onClick={() => reportComplete(4)}
-                          style={{ width: "100%", padding: "13px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: "pointer", boxShadow: `0 4px 14px ${C.brand}44` }}>
-                          🏁 완료 신고
-                        </button>
-                      )}
+                        {photos.length > 0 && (
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm, marginBottom: S.md }}>
+                            {photos.map((src, pi) => (
+                              <div key={pi} style={{ position: "relative", aspectRatio: "1", borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
+                                <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
+                                <button onClick={() => removePhoto(s.id, pi)} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "rgba(0,0,0,0.55)", color: "#fff", border: "none", borderRadius: R.full, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                              </div>
+                            ))}
+                            {photos.length < 6 && (
+                              <button onClick={() => fileInputRefs[s.id]?.current?.click()} style={{ aspectRatio: "1", background: C.bg, border: `2px dashed ${C.bgWarm}`, borderRadius: R.md, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                                <span style={{ fontSize: 20, color: C.text4 }}>+</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {photos.length === 0 && (
+                          <button onClick={() => fileInputRefs[s.id]?.current?.click()} disabled={isUploadingThis}
+                            style={{ width: "100%", padding: "18px", background: C.bg, border: `2px dashed ${C.bgWarm}`, borderRadius: R.lg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: S.sm, cursor: "pointer", marginBottom: S.md }}>
+                            <span style={{ fontSize: 28 }}>{isUploadingThis ? "⏳" : "📷"}</span>
+                            <span style={{ fontSize: 13, color: C.text3, fontWeight: 600 }}>{isUploadingThis ? "처리 중..." : "사진을 선택하세요"}</span>
+                            <span style={{ fontSize: 11, color: C.text4 }}>JPG, PNG · 최대 6장</span>
+                          </button>
+                        )}
+                        <div style={{ display: "flex", gap: S.sm }}>
+                          <button onClick={() => fileInputRefs[s.id]?.current?.click()} disabled={isUploadingThis}
+                            style={{ flex: 1, padding: "11px", background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                            📁 사진 선택
+                          </button>
+                          <button onClick={() => reportComplete(s.id)} disabled={isUploadingThis || photos.length === 0}
+                            style={{ flex: 2, padding: "11px", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: photos.length > 0 ? "pointer" : "not-allowed", border: "none", background: photos.length > 0 ? C.brand : C.bgWarm, color: photos.length > 0 ? "#fff" : C.text4, boxShadow: photos.length > 0 ? `0 4px 14px ${C.brand}44` : "none" }}>
+                            {isUploadingThis ? "업로드 중..." : "고객에게 전송하기"}
+                          </button>
+                        </div>
+                        <input ref={fileInputRefs[s.id]} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => handleFileChange(e, s.id)} />
+                      </div>
                     </div>
                   )}
 
-                  {/* Company: waiting for customer */}
+                  {/* Company: uploaded photos shown in pending_customer */}
                   {!isConsumer && status === "pending_customer" && (
-                    <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
-                      <span style={{ fontSize: 16 }}>⏳</span>
-                      <span style={{ fontSize: 13, color: C.brand, fontWeight: 700 }}>고객 확인 대기중 · 72시간 내 자동 승인</span>
+                    <div style={{ marginTop: S.sm }}>
+                      {photos.length > 0 && (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm, marginBottom: S.sm }}>
+                          {photos.map((src, pi) => (
+                            <div key={pi} style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}`, aspectRatio: "1" }}>
+                              <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm }}>
+                        <span style={{ fontSize: 16 }}>⏳</span>
+                        <span style={{ fontSize: 13, color: C.brand, fontWeight: 700 }}>고객 확인 대기중 · 72시간 내 자동 승인</span>
+                      </div>
                     </div>
                   )}
 
@@ -310,47 +360,33 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
                   {/* ── Customer confirmation UI ── */}
                   {isConsumer && status === "pending_customer" && (
                     <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.brandM}`, marginTop: S.sm }}>
-                      {s.id === 2 && (
-                        <>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: C.brand, marginBottom: S.sm }}>🏗 업체가 착공을 시작했습니다</div>
-                          <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
-                            선금 <b>{stage ? fmtMoney(stage.amount) : "30%"}</b>을 업체에 지급하시겠습니까?
-                          </div>
-                          <div style={{ display: "flex", gap: S.sm }}>
-                            <button onClick={() => setShowDispute(true)} style={{ flex: 1, padding: "11px", background: C.surface, color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>⚠️ 이의 신청</button>
-                            <button onClick={() => setConfirmStage(2)} style={{ flex: 2, padding: "11px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: `0 4px 14px ${C.brand}44` }}>✅ 착공 확인 · 선금 승인</button>
-                          </div>
-                        </>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.brand, marginBottom: S.sm }}>
+                        {s.id === 2 && "🏗 업체가 착공을 시작했습니다"}
+                        {s.id === 3 && "📸 중간 점검 사진을 확인하고 승인해주세요"}
+                        {s.id === 4 && "🏁 업체가 시공 완료를 신고했습니다"}
+                      </div>
+                      {deadline && <CountdownTimer deadlineMs={deadline} />}
+                      {photos.length > 0 && (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.md }}>
+                          {photos.map((src, pi) => (
+                            <div key={pi} style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.brandM}`, aspectRatio: "4/3" }}>
+                              <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
+                            </div>
+                          ))}
+                        </div>
                       )}
-                      {s.id === 3 && (
-                        <>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: C.brand, marginBottom: S.sm }}>📸 중간 점검 사진을 확인하고 승인해주세요</div>
-                          <CountdownTimer deadlineMs={deadline} />
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.md }}>
-                            {PLACEHOLDER_PHOTOS.map((src, pi) => (
-                              <div key={pi} style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.brandM}`, aspectRatio: "4/3" }}>
-                                <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
-                              </div>
-                            ))}
-                          </div>
-                          <div style={{ display: "flex", gap: S.sm }}>
-                            <button onClick={() => setShowDispute(true)} style={{ flex: 1, padding: "11px", background: C.surface, color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>⚠️ 이의 신청</button>
-                            <button onClick={() => setConfirmStage(3)} style={{ flex: 2, padding: "11px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: `0 4px 14px ${C.brand}44` }}>✅ 확인 · 중도금 승인</button>
-                          </div>
-                        </>
+                      {s.id !== 3 && (
+                        <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
+                          {s.id === 2 && <>선금 <b>{stage ? fmtMoney(stage.amount) : "30%"}</b>을 업체에 지급하시겠습니까?</>}
+                          {s.id === 4 && <>잔금 <b>{stage ? fmtMoney(stage.amount) : "30%"}</b>을 업체에 지급하시겠습니까?</>}
+                        </div>
                       )}
-                      {s.id === 4 && (
-                        <>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: C.brand, marginBottom: S.sm }}>🏁 업체가 시공 완료를 신고했습니다</div>
-                          <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
-                            잔금 <b>{stage ? fmtMoney(stage.amount) : "30%"}</b>을 업체에 지급하시겠습니까?
-                          </div>
-                          <div style={{ display: "flex", gap: S.sm }}>
-                            <button onClick={() => setShowDispute(true)} style={{ flex: 1, padding: "11px", background: C.surface, color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>⚠️ 이의 신청</button>
-                            <button onClick={() => setConfirmStage(4)} style={{ flex: 2, padding: "11px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: `0 4px 14px ${C.brand}44` }}>✅ 완료 확인 · 잔금 지급</button>
-                          </div>
-                        </>
-                      )}
+                      <div style={{ display: "flex", gap: S.sm }}>
+                        <button onClick={() => setShowDispute(true)} style={{ flex: 1, padding: "11px", background: C.surface, color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>⚠️ 이의 신청</button>
+                        <button onClick={() => setConfirmStage(s.id)} style={{ flex: 2, padding: "11px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: `0 4px 14px ${C.brand}44` }}>
+                          ✅ {s.confirmLabel}
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -358,7 +394,7 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
                   {isConsumer && status === "done" && s.pct > 0 && (
                     <div style={{ background: C.greenL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
                       <span style={{ fontSize: 16 }}>✅</span>
-                      <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>승인 완료 · {fmtMoney(stage?.amount ?? 0)} 지급됨</span>
+                      <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>확정 완료 · {fmtMoney(stage?.amount ?? 0)} 지급됨</span>
                     </div>
                   )}
 
@@ -381,6 +417,27 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
               </div>
             );
           })}
+        </div>
+
+        {/* ── Shared Construction Timeline ── */}
+        <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>🗓 공사 타임라인</div>
+          {timeline.map((item, idx) => (
+            <div key={item.id} style={{ display: "flex", gap: S.md, marginBottom: idx < timeline.length - 1 ? S.lg : 0 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                <div style={{ width: 32, height: 32, borderRadius: R.full, background: item.type === "confirm" ? C.greenL : item.type === "dispute" ? "#FFF0F0" : C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>
+                  {TIMELINE_ICONS[item.type] ?? "●"}
+                </div>
+                {idx < timeline.length - 1 && (
+                  <div style={{ width: 2, flex: 1, minHeight: 16, marginTop: 4, background: C.bgWarm }} />
+                )}
+              </div>
+              <div style={{ flex: 1, paddingTop: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: item.type === "confirm" ? C.green : item.type === "dispute" ? C.red : C.text1 }}>{item.label}</div>
+                <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>{fmtTs(item.ts)}</div>
+              </div>
+            </div>
+          ))}
         </div>
 
         <EscrowCalculator />
@@ -435,7 +492,9 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
             )}
             <div style={{ display: "flex", gap: S.sm }}>
               <button onClick={() => setConfirmStage(null)} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>취소</button>
-              <button onClick={() => advanceStage(confirmStage)} style={{ flex: 2, padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>✅ 승인하고 지급</button>
+              <button onClick={() => advanceStage(confirmStage)} style={{ flex: 2, padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
+                ✅ {STAGE_META.find(x => x.id === confirmStage)?.confirmLabel ?? "승인하고 지급"}
+              </button>
             </div>
           </div>
         </div>
@@ -455,7 +514,7 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
             <div style={{ display: "flex", gap: S.sm }}>
               <button onClick={() => setShowDispute(false)} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>취소</button>
               <button
-                onClick={() => { if (!disputeReason.trim()) return; setShowDispute(false); setDisputeSubmitted(true); }}
+                onClick={() => { if (!disputeReason.trim()) return; addTimeline("dispute", "이의 신청"); setShowDispute(false); setDisputeSubmitted(true); }}
                 style={{ flex: 2, padding: S.xl, background: disputeReason.trim() ? C.red : C.bgWarm, color: disputeReason.trim() ? "#fff" : C.text4, border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: disputeReason.trim() ? "pointer" : "not-allowed" }}>
                 이의 신청하기
               </button>
