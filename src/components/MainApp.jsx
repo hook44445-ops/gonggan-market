@@ -704,8 +704,8 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🏦 보증금 현황</div>
                 <CompanyDepositCard
-                  badge="standard"
-                  hasInsurance={false}
+                  badge={user.badge ?? "standard"}
+                  hasInsurance={user.insurance ?? false}
                   onUpgrade={(next) => showToast(`${next.label} 업그레이드 신청이 접수됐어요!`)}
                 />
               </div>

@@ -5,6 +5,7 @@ import { TempBadge, CertBadge } from "./common";
 export default function CompanyCard({ company, onClick }) {
   if (!company) return null;
   const g = GRADE(company.temp ?? 0);
+  const bm = company.badge ? (BADGES[company.badge] ?? BADGES.basic) : null;
   return (
     <div onClick={onClick} style={{ background:C.surface, borderRadius:R.xl,
       marginBottom:S.sm, cursor:"pointer",
@@ -31,14 +32,14 @@ export default function CompanyCard({ company, onClick }) {
             </div>
 
             <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:7 }}>
-              {company.badge && (() => { const bm = BADGES[company.badge] ?? BADGES.basic; return (
+              {bm && (
                 <span style={{ background:bm.bg, color:bm.color, borderRadius:R.full,
                   padding:"2px 10px", fontSize:11, fontWeight:800,
                   display:"inline-flex", alignItems:"center", gap:3 }}>
                   {bm.icon} 공간보증 {bm.label}
                 </span>
-              ); })()}
-              {!company.badge && (
+              )}
+              {!bm && (
                 <span style={{ background:C.surface2, color:C.text3, borderRadius:R.full,
                   padding:"2px 10px", fontSize:11, fontWeight:600 }}>직거래</span>
               )}
