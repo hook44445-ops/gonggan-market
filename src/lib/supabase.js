@@ -32,8 +32,15 @@ export const getSession = () => supabase.auth.getSession();
 export const upsertUser = (profile) =>
   supabase.from("users").upsert(profile).select().single();
 
+// Upsert by phone (no Supabase auth id required)
+export const upsertUserByPhone = (profile) =>
+  supabase.from("users").upsert(profile, { onConflict: "phone" }).select().single();
+
 export const getUser = (id) =>
   supabase.from("users").select("*").eq("id", id).single();
+
+export const getUserByPhone = (phone) =>
+  supabase.from("users").select("*").eq("phone", phone).maybeSingle();
 
 // ── Companies ─────────────────────────────────────────────────────────────────
 
