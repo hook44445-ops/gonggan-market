@@ -51,15 +51,18 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    // Clear session data immediately — don't wait for SIGNED_OUT event,
+    // which may not fire if the component tree has crashed.
+    localStorage.removeItem(SESSION_TS_KEY);
     setUser(null);
     setGoOnboarding(false);
+    await supabase.auth.signOut().catch(() => {});
   };
 
   if (loading) return null;
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary onLogout={handleLogout}>
       {user
         ? <MainApp user={user} onLogout={handleLogout} onStartOnboarding={() => { setUser(null); setGoOnboarding(true); }} />
         : <LoginScreen onLogin={u => { setUser(u); setGoOnboarding(false); }} startAtOnboarding={goOnboarding} />}
