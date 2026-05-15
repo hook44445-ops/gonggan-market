@@ -22,6 +22,11 @@ create table if not exists public.users (
 -- Migration: add interests column if upgrading from earlier schema
 alter table public.users add column if not exists interests text[];
 
+-- Migration: add customer_grade column
+alter table public.users add column if not exists customer_grade text not null default '새집'
+  check (customer_grade in ('새집','우리집','드림하우스','홈마스터'));
+alter table public.users add column if not exists completed_jobs integer not null default 0;
+
 comment on table public.users is '앱 사용자 (의뢰인 / 업체 대표 / 관리자)';
 
 -- ── companies ─────────────────────────────────────────────────────────────────

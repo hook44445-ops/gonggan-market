@@ -8,6 +8,7 @@ export default function ReviewModal({ onClose, onSubmit }) {
   const [hover, setHover] = useState(0);
   const [content, setContent] = useState("");
   const [tags, setTags] = useState([]);
+  const [hasPhoto, setHasPhoto] = useState(false);
   const LABELS = ["","별로예요","아쉬워요","보통이에요","좋았어요","최고예요!"];
   const toggle = t => setTags(p => p.includes(t) ? p.filter(x=>x!==t) : [...p,t]);
 
@@ -74,6 +75,28 @@ export default function ReviewModal({ onClose, onSubmit }) {
           <div style={{ textAlign:"right", fontSize:12, color:content.length<20?C.red:C.text4, marginBottom:S.lg }}>
             {content.length}자 {content.length<20?"(최소 20자)":""}
           </div>
+
+          {/* Photo reward CTA */}
+          <div onClick={() => setHasPhoto(p => !p)}
+            style={{ background:hasPhoto?C.greenL:C.surface2, borderRadius:R.lg, padding:S.md,
+              marginBottom:S.md, border:`1.5px solid ${hasPhoto?C.green:C.bgWarm}`,
+              display:"flex", alignItems:"center", gap:S.md, cursor:"pointer" }}>
+            <div style={{ width:40, height:40, borderRadius:R.md, flexShrink:0,
+              background:hasPhoto?C.green:"#E8E0D4",
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>
+              {hasPhoto ? "✓" : "📷"}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:800, color:hasPhoto?C.green:C.text1 }}>
+                {hasPhoto ? "사진 첨부 완료!" : "사진 첨부하기"}
+              </div>
+              <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
+                사진 리뷰 작성 시 ☕ 스타벅스 쿠폰 증정
+              </div>
+            </div>
+            {hasPhoto && <span style={{ fontSize:20 }}>🎁</span>}
+          </div>
+
           <button onClick={() => content.length>=20&&setStep(3)}
             style={{ width:"100%", padding:S.xl, background:content.length>=20?C.brand:"#E8E4DC",
               color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16,
@@ -85,12 +108,23 @@ export default function ReviewModal({ onClose, onSubmit }) {
             <div style={{ fontSize:64, marginBottom:16 }}>🎉</div>
             <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:8 }}>후기 등록 완료!</div>
             <div style={{ fontSize:13, color:C.text3, marginBottom:20, lineHeight:1.7 }}>소중한 후기 감사합니다.</div>
-            <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xxl, display:"inline-block" }}>
+            <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.md, display:"inline-block" }}>
               <div style={{ fontSize:13, color:C.brand, fontWeight:700 }}>🌡 공간온도 +0.3° 상승!</div>
             </div>
-            <br/>
-            <button onClick={() => { onSubmit({ rating, content, tags }); onClose(); }}
-              style={{ padding:"14px 40px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer" }}>확인</button>
+            {hasPhoto && (
+              <div style={{ background:"#FFF8E7", borderRadius:R.lg, padding:S.lg,
+                marginBottom:S.md, border:"1.5px solid #F5C842" }}>
+                <div style={{ fontSize:22, marginBottom:6 }}>☕</div>
+                <div style={{ fontSize:14, fontWeight:800, color:"#8B6914", marginBottom:4 }}>
+                  리뷰 작성 완료!
+                </div>
+                <div style={{ fontSize:13, color:"#6B5010", lineHeight:1.6 }}>
+                  카카오톡으로 스타벅스 쿠폰을<br/>보내드립니다 🎁
+                </div>
+              </div>
+            )}
+            <button onClick={() => { onSubmit({ rating, content, tags, hasPhoto }); onClose(); }}
+              style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer" }}>확인</button>
           </div>
         )}
       </div>

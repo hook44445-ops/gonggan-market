@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
+import { BADGES } from "../constants/badges";
 import { TempBadge } from "./common";
 
 export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth }) {
@@ -10,7 +11,11 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
   const setBF = (k, v) => setBidForm(f => ({ ...f, [k]:v }));
   const isGuest  = !onBidSubmit && !!onRequiresAuth;
   const isClosed = r.isActive === false && r.isActive !== undefined;
-  const canSubmit = bidForm.price && bidForm.period;
+  const companyBadge = BADGES[company?.badge ?? "basic"] ?? BADGES.basic;
+  const maxBidAmount = companyBadge.maxAmount;
+  const bidPrice = parseInt(bidForm.price, 10);
+  const overLimit = !!bidForm.price && bidPrice > maxBidAmount;
+  const canSubmit = bidForm.price && bidForm.period && !overLimit;
 
   const iS = {
     width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`,
@@ -140,9 +145,25 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
               {r.type} · {r.size} · {r.area}
             </div>
 
+            {/* Company grade limit info */}
+            <div style={{ background:companyBadge.bg, borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`,
+              marginBottom:S.md, display:"flex", alignItems:"center", gap:S.sm,
+              border:`1px solid ${companyBadge.color}33` }}>
+              <span style={{ fontSize:16 }}>{companyBadge.icon}</span>
+              <span style={{ fontSize:12, color:companyBadge.color, fontWeight:700 }}>
+                {companyBadge.label} · 최대 {companyBadge.maxAmount.toLocaleString()}만원까지 입찰 가능
+              </span>
+            </div>
+
             <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:6 }}>견적 금액 (만원) <span style={{color:C.red}}>*</span></div>
             <input value={bidForm.price} onChange={e => setBF("price", e.target.value)}
-              placeholder="예: 2800" type="number" style={iS} />
+              placeholder="예: 2800" type="number"
+              style={{ ...iS, borderColor: overLimit ? C.red : undefined }} />
+            {overLimit && (
+              <div style={{ fontSize:12, color:C.red, marginTop:-10, marginBottom:10, fontWeight:600 }}>
+                ⚠️ {companyBadge.label} 등급 최대 {companyBadge.maxAmount.toLocaleString()}만원을 초과했습니다
+              </div>
+            )}
 
             <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:6 }}>예상 시공 기간 (일) <span style={{color:C.red}}>*</span></div>
             <input value={bidForm.period} onChange={e => setBF("period", e.target.value)}
@@ -163,8 +184,13 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
                 marginBottom:S.md, display:"flex", gap:S.md, alignItems:"center",
                 border:`1px solid ${C.brandM}` }}>
                 <TempBadge temp={company.temp ?? 0} lg />
-                <div style={{ fontSize:12, color:C.text2 }}>
-                  재계약률 {company.recontractRate ?? "—"}% · AS {company.asRate ?? "—"}% · 완료 {company.completedJobs ?? "—"}건
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:12, color:C.text2 }}>
+                    재계약률 {company.recontractRate ?? "—"}% · AS {company.asRate ?? "—"}% · 완료 {company.completedJobs ?? "—"}건
+                  </div>
+                  <div style={{ fontSize:11, color:companyBadge.color, fontWeight:700, marginTop:3 }}>
+                    {companyBadge.icon} {companyBadge.label}
+                  </div>
                 </div>
               </div>
             )}

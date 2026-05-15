@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { C, R, S, GRADE } from "../constants";
+import { C, R, S, GRADE, calcCustomerGrade } from "../constants";
 import { TempBadge, CertBadge, Divider } from "./common";
 import LiveFeed from "./LiveFeed";
 import CompanyCard from "./CompanyCard";
@@ -776,7 +776,18 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontSize:28, fontWeight:900, color:C.brand, margin:"0 auto 14px" }}>{user.name[0]}</div>
               <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>{user.name}</div>
-              <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>📍 {user.region} · {user.role==="consumer"?"의뢰인":"검증 업체"}</div>
+              <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>📍 {user.region} · {user.role==="consumer"?"의뢰인":"검증 업체"}</div>
+              {user.role === "consumer" && (() => {
+                const grade = calcCustomerGrade(user.completedJobs ?? 0);
+                return (
+                  <div style={{ display:"inline-flex", alignItems:"center", gap:6,
+                    background:C.brandL, borderRadius:R.full, padding:"4px 12px",
+                    border:`1px solid ${C.brandM}`, marginBottom:S.xl }}>
+                    <span style={{ fontSize:16 }}>{grade.icon}</span>
+                    <span style={{ fontSize:12, fontWeight:800, color:C.brand }}>{grade.label}</span>
+                  </div>
+                );
+              })()}
               <div style={{ display:"flex", gap:0, marginBottom:S.xl, borderTop:`1px solid ${C.bgWarm}`, paddingTop:S.xl }}>
                 {(user.role==="consumer"
                   ? [[`${myRequests.length}`,"견적 요청"],["0","진행중"],["0","완료"]]
@@ -803,6 +814,40 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                 />
               </div>
             )}
+
+            {user.role==="consumer" && (() => {
+              const grade = calcCustomerGrade(user.completedJobs ?? 0);
+              const nextGrade = [0,1,3,5].find(n => n > (user.completedJobs ?? 0));
+              return (
+                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
+                  marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
+                    <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{grade.icon} {grade.label} 등급</div>
+                    {nextGrade !== undefined && (
+                      <span style={{ fontSize:11, color:C.text3 }}>다음 등급까지 {nextGrade - (user.completedJobs ?? 0)}건</span>
+                    )}
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:S.md }}>
+                    {grade.benefits.map(b => (
+                      <span key={b} style={{ background:C.brandL, color:C.brand, borderRadius:R.full,
+                        padding:"3px 10px", fontSize:11, fontWeight:700 }}>✓ {b}</span>
+                    ))}
+                  </div>
+                  <div style={{ display:"flex", gap:4 }}>
+                    {[0,1,3,5].map((threshold, i) => {
+                      const done = (user.completedJobs ?? 0) >= threshold || threshold === 0;
+                      return (
+                        <div key={i} style={{ flex:1, height:4, borderRadius:R.full,
+                          background: done ? C.brand : C.bgWarm }} />
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize:11, color:C.text3, marginTop:S.sm }}>
+                    완료 {user.completedJobs ?? 0}건 · 새집 → 우리집(1건) → 드림하우스(3건) → 홈마스터(5건)
+                  </div>
+                </div>
+              );
+            })()}
 
             {user.role==="consumer" && (
               <div>
