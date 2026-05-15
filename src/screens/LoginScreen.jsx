@@ -16,7 +16,6 @@ const SERVICE_ICONS = {
 };
 
 export default function LoginScreen({ onLogin, startAtOnboarding }) {
-  console.log("render LoginScreen", { startAtOnboarding });
   const [step, setStep] = useState(startAtOnboarding ? 3 : 1);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -72,8 +71,6 @@ export default function LoginScreen({ onLogin, startAtOnboarding }) {
 
       if (data.user) {
         if (startAtOnboarding && data.user.role !== "company") {
-          // User exists but as consumer; direct to company onboarding instead of logging in
-          console.log("[LoginScreen] startAtOnboarding: existing non-company user → step 4 company onboarding");
           setStep(4); setMsg("");
         } else {
           onLogin(data.user);

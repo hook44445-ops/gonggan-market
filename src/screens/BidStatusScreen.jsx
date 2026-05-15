@@ -19,7 +19,6 @@ const normalizeBid = (row) => ({
 });
 
 export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
-  console.log("render BidStatusScreen", { request: request?.id, selectedBid: selectedBid?.id });
   const [localBids, setLocalBids] = useState(propBids ?? []);
   const bids = localBids.length > 0 ? localBids : (propBids ?? []);
   const [step, setStep] = useState("list");
@@ -56,7 +55,6 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   }, [request?.id]);
 
   const selectBid = (bid) => {
-    console.log("[BidStatusScreen] customer selected bid:", bid.id, "company:", bid.company?.name, "price:", bid.price);
     setSelBid(bid);
     if (setSelectedBid) setSelectedBid(bid);
     setStep("confirm");

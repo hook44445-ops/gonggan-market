@@ -50,7 +50,6 @@ const STAGE_META = [
 ];
 
 export default function EscrowScreen({ onBack, mode, selectedBid }) {
-  console.log("render EscrowScreen", { selectedBid: selectedBid?.id, mode });
   const isConsumer = mode === "consumer";
   const bidAmount   = selectedBid?.price ?? 0;
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
