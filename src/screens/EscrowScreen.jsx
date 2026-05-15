@@ -3,8 +3,6 @@ import { C, R, S, PHOTOS } from "../constants";
 import { fmtMoney, calculateCustomerTotal, calculateCompanyReceive, calculateStagePayments } from "../utils/calculations";
 import EscrowCalculator from "../components/EscrowCalculator";
 
-const PLACEHOLDER_PHOTOS = [PHOTOS.apt_after1, PHOTOS.apt_after2];
-
 // Stage status values:
 // 'done'           — payment released
 // 'company_todo'   — waiting for company to act
@@ -50,6 +48,7 @@ const STAGE_META = [
 ];
 
 export default function EscrowScreen({ onBack, mode, selectedBid }) {
+  const PLACEHOLDER_PHOTOS = [PHOTOS.apt_after1, PHOTOS.apt_after2];
   const isConsumer = mode === "consumer";
   const bidAmount   = selectedBid?.price ?? 0;
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;

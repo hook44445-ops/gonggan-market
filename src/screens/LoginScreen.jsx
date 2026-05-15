@@ -86,7 +86,7 @@ export default function LoginScreen({ onLogin, startAtOnboarding }) {
       }
 
       const { data: profile } = await getUser(userId);
-      if (profile) {
+      if (profile && !startAtOnboarding) {
         onLogin(profile);
       } else {
         setStep(4); setMsg("");

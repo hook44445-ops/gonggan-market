@@ -2,15 +2,14 @@ import { useState } from "react";
 import { C, R, S } from "../constants";
 import { BADGES } from "../constants/badges";
 
-const BADGE_LEVELS = [
-  { key:"basic",      ...BADGES.basic,      maxJob:500,   desc:"소규모 부분 공사",       insurance:false },
-  { key:"standard",   ...BADGES.standard,   maxJob:1000,  desc:"중형 아파트 시공",        insurance:false },
-  { key:"premium",    ...BADGES.premium,    maxJob:2000,  desc:"대형·상업 공간 전문",     insurance:true  },
-  { key:"enterprise", ...BADGES.enterprise, maxJob:5000,  desc:"대규모·상업 공간",        insurance:true  },
-  { key:"signature",  ...BADGES.signature,  maxJob:99999, desc:"최상위 VIP 파트너십",     insurance:true  },
-];
-
 export default function CompanyDepositCard({ badge = "standard", hasInsurance = false, onUpgrade }) {
+  const BADGE_LEVELS = [
+    { key:"basic",      ...BADGES.basic,      maxJob:500,   desc:"소규모 부분 공사",       insurance:false },
+    { key:"standard",   ...BADGES.standard,   maxJob:1000,  desc:"중형 아파트 시공",        insurance:false },
+    { key:"premium",    ...BADGES.premium,    maxJob:2000,  desc:"대형·상업 공간 전문",     insurance:true  },
+    { key:"enterprise", ...BADGES.enterprise, maxJob:5000,  desc:"대규모·상업 공간",        insurance:true  },
+    { key:"signature",  ...BADGES.signature,  maxJob:99999, desc:"최상위 VIP 파트너십",     insurance:true  },
+  ];
   const [showUpgradeSheet, setShowUpgradeSheet] = useState(false);
 
   const current = BADGE_LEVELS.find(b => b.key === badge) || BADGE_LEVELS[1];

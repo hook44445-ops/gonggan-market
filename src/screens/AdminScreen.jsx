@@ -2,8 +2,6 @@ import { useState } from "react";
 import { C, R, S } from "../constants";
 import { BADGES } from "../constants/badges";
 
-const BADGE_META = BADGES;
-
 const MOCK_COMPANIES = [
   {
     id:1, name:"홍익시공", badge:"premium", temp:97, phone:"010-1234-5678",
@@ -155,7 +153,7 @@ export default function AdminScreen({ onBack }) {
             <div style={{ fontSize:14, color:C.text3 }}>해당 항목이 없습니다</div>
           </div>
         ) : filtered.map(company => {
-          const bm = BADGE_META[company.badge] || BADGE_META.basic;
+          const bm = BADGES[company.badge] || BADGES.basic;
           const sm = STATUS[company.status];
           const allOk = company.docs.every(d => d.submitted);
           return (
@@ -201,7 +199,7 @@ export default function AdminScreen({ onBack }) {
 
             {/* Company header */}
             {(() => {
-              const bm = BADGE_META[selected.badge] || BADGE_META.basic;
+              const bm = BADGES[selected.badge] || BADGES.basic;
               return (
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.xl }}>
                   <div>
