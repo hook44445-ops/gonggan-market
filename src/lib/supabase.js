@@ -167,6 +167,15 @@ export const disputeEscrowStep = (paymentId, step, reason) =>
     .update({ [`step_${step}_disputed`]: true, dispute_reason: reason, disputed_at: new Date().toISOString() })
     .eq("id", paymentId);
 
+// ── Storage ───────────────────────────────────────────────────────────────────
+
+export const uploadFile = async (bucket, path, file) => {
+  const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
+};
+
 // ── Portfolios ────────────────────────────────────────────────────────────────
 
 export const getPortfolios = (companyId) =>

@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { C, R, S, ALL_REGIONS, SPECIALTIES } from "../constants";
 import { BADGES } from "../constants/badges";
 import { Divider } from "../components/common";
-import { upsertUserByPhone, upsertCompany } from "../lib/supabase";
+import { upsertUserByPhone, upsertCompany, supabase, uploadFile } from "../lib/supabase";
 
 export default function CompanyOnboarding({ phone, onDone }) {
   console.log("render CompanyOnboarding", { phone });
@@ -13,10 +13,15 @@ export default function CompanyOnboarding({ phone, onDone }) {
     specialties:[], portfolioDesc:"",
     hasBizDoc:false, hasInsurance:false,
     bizDocFile:null, insuranceFile:null,
+    bizDocUrl:null, insuranceUrl:null,
     badge:"standard",
     agreeTerms:false, agreeEscrow:false, agreeAs:false, agreeDeposit:false,
   });
   const [submitted, setSubmitted] = useState(null);
+  const [uploadingBiz, setUploadingBiz] = useState(false);
+  const [uploadingIns, setUploadingIns] = useState(false);
+  const bizDocRef = useRef(null);
+  const insDocRef = useRef(null);
   const set = (k,v) => setForm(f => ({...f,[k]:v}));
   const toggleArr = (k,v) => setForm(f => ({
     ...f, [k]: f[k].includes(v) ? f[k].filter(x=>x!==v) : [...f[k],v]
@@ -140,6 +145,8 @@ export default function CompanyOnboarding({ phone, onDone }) {
             badge: form.badge,
             has_insurance: form.hasInsurance,
             deposit_amount: depositAmt,
+            biz_cert_url: form.bizDocUrl,
+            insurance_url: form.insuranceUrl,
           });
           onDone(userRow || profile);
         }}
@@ -263,25 +270,39 @@ export default function CompanyOnboarding({ phone, onDone }) {
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>📋</div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>사업자등록증</div>
-              <div style={{ fontSize:12, color:C.text3 }}>
-                {form.bizDocFile ? `✅ ${form.bizDocFile}` : "필수 · 파일명 입력"}
+              <div style={{ fontSize:12, color:form.hasBizDoc?C.green:C.text3 }}>
+                {uploadingBiz ? "업로드 중..." : form.bizDocFile ? `✅ ${form.bizDocFile}` : "필수 · PDF 또는 이미지"}
               </div>
             </div>
             {form.hasBizDoc && <span style={{ fontSize:18, color:C.green }}>✓</span>}
           </div>
           {!form.hasBizDoc && (
-            <div style={{ display:"flex", gap:8 }}>
-              <input placeholder="예: 사업자등록증.pdf"
-                onKeyDown={e => { if(e.key==="Enter"&&e.target.value) { set("bizDocFile",e.target.value); set("hasBizDoc",true); }}}
-                style={{ flex:1, padding:"10px 14px", border:`1.5px solid ${C.bgWarm}`,
-                  borderRadius:R.md, fontSize:13, outline:"none", fontFamily:"inherit", color:C.text1 }} />
-              <button onMouseDown={e => { const inp = e.target.previousSibling; if(inp&&inp.value){ set("bizDocFile",inp.value); set("hasBizDoc",true); }}}
-                style={{ padding:"10px 16px", background:C.brand, color:"#fff",
-                  border:"none", borderRadius:R.md, fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                확인
-              </button>
-            </div>
+            <button onClick={() => bizDocRef.current?.click()} disabled={uploadingBiz}
+              style={{ width:"100%", padding:"12px", background:uploadingBiz?C.surface2:C.brandL,
+                color:uploadingBiz?C.text4:C.brand, border:`1.5px dashed ${C.brandM}`,
+                borderRadius:R.md, fontWeight:700, fontSize:13, cursor:uploadingBiz?"not-allowed":"pointer" }}>
+              {uploadingBiz ? "⏳ 업로드 중..." : "📂 파일 선택하기"}
+            </button>
           )}
+          <input ref={bizDocRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:"none" }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setUploadingBiz(true);
+              try {
+                const path = `biz-doc/${Date.now()}_${file.name.replace(/\s/g,"_")}`;
+                const url = await uploadFile("documents", path, file).catch(() => URL.createObjectURL(file));
+                set("bizDocFile", file.name);
+                set("bizDocUrl", url);
+                set("hasBizDoc", true);
+              } catch {
+                set("bizDocFile", file.name);
+                set("hasBizDoc", true);
+              } finally {
+                setUploadingBiz(false);
+                e.target.value = "";
+              }
+            }} />
         </div>
 
         <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
@@ -291,24 +312,40 @@ export default function CompanyOnboarding({ phone, onDone }) {
               background:form.hasInsurance?C.greenL:C.surface2,
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>🔒</div>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>시공보험 증서</div>
-              <div style={{ fontSize:12, color:C.text3 }}>
-                {form.insuranceFile ? `✅ ${form.insuranceFile}` : "선택 · 보증금 10% 절감"}
+              <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>시공보험증서</div>
+              <div style={{ fontSize:12, color:form.hasInsurance?C.green:C.text3 }}>
+                {uploadingIns ? "업로드 중..." : form.insuranceFile ? `✅ ${form.insuranceFile}` : "선택 · 보증금 할인 혜택"}
               </div>
             </div>
             {form.hasInsurance && <span style={{ fontSize:18, color:C.green }}>✓</span>}
           </div>
           {!form.hasInsurance && (
-            <div style={{ display:"flex", gap:8, marginBottom:S.md }}>
-              <input placeholder="예: 시공보험증서.pdf"
-                onKeyDown={e => { if(e.key==="Enter"&&e.target.value){ set("insuranceFile",e.target.value); set("hasInsurance",true); }}}
-                style={{ flex:1, padding:"10px 14px", border:`1.5px solid ${C.bgWarm}`,
-                  borderRadius:R.md, fontSize:13, outline:"none", fontFamily:"inherit", color:C.text1 }} />
-              <button onMouseDown={e => { const inp = e.target.previousSibling; if(inp&&inp.value){ set("insuranceFile",inp.value); set("hasInsurance",true); }}}
-                style={{ padding:"10px 16px", background:C.brand, color:"#fff",
-                  border:"none", borderRadius:R.md, fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                확인
+            <div style={{ marginBottom:S.md }}>
+              <button onClick={() => insDocRef.current?.click()} disabled={uploadingIns}
+                style={{ width:"100%", padding:"12px", background:uploadingIns?C.surface2:C.brandL,
+                  color:uploadingIns?C.text4:C.brand, border:`1.5px dashed ${C.brandM}`,
+                  borderRadius:R.md, fontWeight:700, fontSize:13, cursor:uploadingIns?"not-allowed":"pointer" }}>
+                {uploadingIns ? "⏳ 업로드 중..." : "📂 파일 선택하기"}
               </button>
+              <input ref={insDocRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:"none" }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setUploadingIns(true);
+                  try {
+                    const path = `insurance/${Date.now()}_${file.name.replace(/\s/g,"_")}`;
+                    const url = await uploadFile("documents", path, file).catch(() => URL.createObjectURL(file));
+                    set("insuranceFile", file.name);
+                    set("insuranceUrl", url);
+                    set("hasInsurance", true);
+                  } catch {
+                    set("insuranceFile", file.name);
+                    set("hasInsurance", true);
+                  } finally {
+                    setUploadingIns(false);
+                    e.target.value = "";
+                  }
+                }} />
             </div>
           )}
           <div style={{ background:form.hasInsurance?C.greenL:C.brandL, borderRadius:R.lg,
