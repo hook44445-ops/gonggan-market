@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C, R, S, ALL_REGIONS, SPECIALTIES } from "../constants";
+import { BADGES } from "../constants/badges";
 import { Divider } from "../components/common";
 import { upsertUser, upsertCompany } from "../lib/supabase";
 
@@ -25,10 +26,11 @@ export default function CompanyOnboarding({ phone, authUserId, onDone }) {
 
   const STEPS = ["기본정보","활동지역","전문분야","서류제출","계약동의"];
   const BADGE_INFO = {
-    basic:      { icon:"🥉", label:"베이직",       range:"~500만원",   dep20:100, dep30:150 },
-    standard:   { icon:"🥈", label:"스탠다드",     range:"~2,000만원", dep20:400, dep30:600 },
-    premium:    { icon:"🥇", label:"프리미엄",     range:"~5,000만원", dep20:1000, dep30:1500 },
-    enterprise: { icon:"💎", label:"엔터프라이즈", range:"~1억원",     dep20:2000, dep30:3000 },
+    basic:      { ...BADGES.basic,      range:"~500만원",   dep20:100,  dep30:150 },
+    standard:   { ...BADGES.standard,   range:"~2,000만원", dep20:400,  dep30:600 },
+    premium:    { ...BADGES.premium,    range:"~5,000만원", dep20:1000, dep30:1500 },
+    enterprise: { ...BADGES.enterprise, range:"~1억원",     dep20:2000, dep30:3000 },
+    signature:  { ...BADGES.signature,  range:"~3억원",     dep20:4000, dep30:6000 },
   };
   const badge = BADGE_INFO[form.badge] || BADGE_INFO.standard;
   const depositAmt = form.hasInsurance ? badge.dep20 : badge.dep30;
@@ -42,12 +44,12 @@ export default function CompanyOnboarding({ phone, authUserId, onDone }) {
       <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
         marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
         <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.lg }}>
-          <div style={{ width:52, height:52, borderRadius:R.lg, background:C.brandL,
+          <div style={{ width:52, height:52, borderRadius:R.lg, background:badge.bg,
             display:"flex", alignItems:"center", justifyContent:"center", fontSize:26 }}>
             {badge.icon}
           </div>
           <div>
-            <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>{badge.label} 배지</div>
+            <div style={{ fontSize:16, fontWeight:800, color:badge.color }}>{badge.label} 배지</div>
             <div style={{ fontSize:12, color:C.text3 }}>공사 규모 {badge.range}</div>
           </div>
         </div>
@@ -343,30 +345,25 @@ export default function CompanyOnboarding({ phone, authUserId, onDone }) {
           수주할 공사 규모에 맞게 선택해주세요
         </div>
 
-        {[
-          { key:"basic",      icon:"🥉", label:"베이직",       range:"~500만원",   dep20:100, dep30:150 },
-          { key:"standard",   icon:"🥈", label:"스탠다드",     range:"~2,000만원", dep20:400, dep30:600 },
-          { key:"premium",    icon:"🥇", label:"프리미엄",     range:"~5,000만원", dep20:1000, dep30:1500 },
-          { key:"enterprise", icon:"💎", label:"엔터프라이즈", range:"~1억원",     dep20:2000, dep30:3000 },
-        ].map(b => {
+        {Object.entries(BADGE_INFO).map(([key, b]) => {
           const dep = form.hasInsurance ? b.dep20 : b.dep30;
-          const selected = form.badge === b.key;
+          const selected = form.badge === key;
           return (
-            <div key={b.key} onClick={() => set("badge", b.key)}
+            <div key={key} onClick={() => set("badge", key)}
               style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm,
-                border:`1.5px solid ${selected?C.brand:C.bgWarm}`, cursor:"pointer" }}>
+                border:`1.5px solid ${selected?b.color:C.bgWarm}`, cursor:"pointer" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ display:"flex", gap:S.md, alignItems:"center" }}>
                   <div style={{ width:40, height:40, borderRadius:R.lg,
-                    background:selected?C.brandL:C.surface2,
+                    background:selected?b.bg:C.surface2,
                     display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>{b.icon}</div>
                   <div>
-                    <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>{b.label}</div>
+                    <div style={{ fontSize:14, fontWeight:800, color:selected?b.color:C.text1 }}>{b.label}</div>
                     <div style={{ fontSize:12, color:C.text3 }}>공사 규모 {b.range}</div>
                   </div>
                 </div>
                 <div style={{ textAlign:"right" }}>
-                  <div style={{ fontSize:15, fontWeight:900, color:selected?C.brand:C.text1 }}>
+                  <div style={{ fontSize:15, fontWeight:900, color:selected?b.color:C.text1 }}>
                     {dep.toLocaleString()}만원
                   </div>
                   <div style={{ fontSize:10, color:C.text3 }}>
