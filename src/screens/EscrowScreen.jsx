@@ -49,6 +49,7 @@ const STAGE_META = [
 
 export default function EscrowScreen({ onBack, mode, selectedBid }) {
   const PLACEHOLDER_PHOTOS = [PHOTOS.apt_after1, PHOTOS.apt_after2];
+  console.log("render EscrowScreen", { selectedBid: selectedBid?.id, mode });
   const isConsumer = mode === "consumer";
   const bidAmount   = selectedBid?.price ?? 0;
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;

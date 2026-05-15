@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge, Stars, Divider } from "../components/common";
 import ReviewModal from "../components/ReviewModal";
-import { getReviews, createReview } from "../lib/supabase";
+import { calcTempDelta, clampTemp } from "../utils/calculations";
+import { getReviews, createReview, updateCompanyTemp } from "../lib/supabase";
 
 const normalizeReview = (row) => ({
   id:      row.id,
@@ -21,6 +22,8 @@ export default function ReviewScreen({ company, onBack, currentUser }) {
   const [reviews, setReviews] = useState(company?.reviewList ?? []);
   const [showModal, setShowModal] = useState(false);
   const [newId, setNewId] = useState(null);
+  const [localTemp, setLocalTemp] = useState(company?.temp ?? 36.5);
+
   const avg = reviews.length > 0
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : "0.0";
 
@@ -50,18 +53,25 @@ export default function ReviewScreen({ company, onBack, currentUser }) {
     setNewId(nr.id);
     setTimeout(() => setNewId(null), 3000);
 
+    const delta = calcTempDelta(data.rating, data.hasPhoto);
+    setLocalTemp(t => clampTemp(t + delta));
+
     if (company?.id) {
-      const { error } = await createReview({
-        company_id: company.id,
-        user_id:    currentUser?.id ?? null,
-        rating:     data.rating,
-        content:    data.content,
-        tags:       data.tags,
-        user_name:  currentUser?.name ?? "익명",
-        region:     currentUser?.region ?? null,
-        space_type: company.type ?? null,
-      });
-      if (error) console.error("[ReviewScreen] createReview failed:", error.message);
+      const [reviewRes, tempRes] = await Promise.all([
+        createReview({
+          company_id: company.id,
+          user_id:    currentUser?.id ?? null,
+          rating:     data.rating,
+          content:    data.content,
+          tags:       data.tags,
+          user_name:  currentUser?.name ?? "익명",
+          region:     currentUser?.region ?? null,
+          space_type: company.type ?? null,
+        }),
+        updateCompanyTemp(company.id, delta),
+      ]);
+      if (reviewRes.error) console.error("[ReviewScreen] createReview failed:", reviewRes.error.message);
+      if (tempRes.error)   console.error("[ReviewScreen] updateCompanyTemp failed:", tempRes.error.message);
     }
   };
 
@@ -103,7 +113,7 @@ export default function ReviewScreen({ company, onBack, currentUser }) {
           <Divider />
           <div style={{ marginTop:S.lg, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>🌡 공간온도</div>
-            <TempBadge temp={company.temp} lg />
+            <TempBadge temp={localTemp} lg />
           </div>
         </div>
 

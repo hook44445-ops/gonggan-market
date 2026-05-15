@@ -42,3 +42,36 @@ export const calculateDeposit = (badge, hasInsurance) => {
   const amount = base[badge] ?? base.basic;
   return hasInsurance ? Math.round(amount * 2 / 3) : amount;
 };
+
+// ── 공간온도 (Space Temperature) ──────────────────────────────────────────────
+
+export const TEMP_DEFAULT = 36.5;
+export const TEMP_MIN     = 0;
+export const TEMP_MAX     = 99;
+
+// Deltas for each event type
+export const TEMP_DELTAS = {
+  review5:      +1.0,  // 5점 리뷰
+  review4:      +0.5,  // 4점 리뷰
+  review3:       0.0,  // 3점 리뷰
+  review2:      -1.0,  // 2점 이하
+  photoBonus:   +0.3,  // 사진 포함 리뷰 추가
+  jobComplete:  +0.5,  // 공사 완료
+  dispute:      -2.0,  // 분쟁 발생
+  disputeResolved: +1.0, // 분쟁 해결
+};
+
+// Returns the temp delta for a submitted review
+export const calcTempDelta = (rating, hasPhoto = false) => {
+  let delta = 0;
+  if (rating >= 5)      delta = TEMP_DELTAS.review5;
+  else if (rating >= 4) delta = TEMP_DELTAS.review4;
+  else if (rating >= 3) delta = TEMP_DELTAS.review3;
+  else                  delta = TEMP_DELTAS.review2;
+  if (hasPhoto) delta += TEMP_DELTAS.photoBonus;
+  return Math.round(delta * 10) / 10;
+};
+
+// Clamp a temperature value to valid range
+export const clampTemp = (t) =>
+  Math.round(Math.min(TEMP_MAX, Math.max(TEMP_MIN, t)) * 10) / 10;
