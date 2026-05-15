@@ -1,39 +1,58 @@
+const feeConfig = { customerRate: 0.03, companyRate: 0.04, vatRate: 0.1 };
+
 export const fmtMoney = (amount) => {
   if (amount == null || isNaN(amount)) return "—";
   const rounded = Math.round(amount * 10) / 10;
   return `${rounded.toLocaleString()}만원`;
 };
 
-// Customer pays bid amount + 3% escrow fee
+// Customer pays bid amount + 3% safety transaction fee (VAT inclusive)
 export const calculateCustomerTotal = (bidAmount) => {
   if (!bidAmount || isNaN(bidAmount)) return 0;
-  return Math.round(bidAmount * 1.03 * 10) / 10;
+  const fee = Math.round(bidAmount * feeConfig.customerRate * (1 + feeConfig.vatRate) * 10) / 10;
+  return Math.round((bidAmount + fee) * 10) / 10;
 };
 
-// Returns 3-stage payment schedule based on bid amount.
-// Each stage includes what the company actually receives (after 4% platform fee).
+// 에스크로는 플랫폼 수익 구조가 아닌 신뢰 인프라입니다.
+// 플랫폼은 법적 중재자가 아닌 구조적 신뢰 제공자입니다.
+// 신뢰는 아래 구조로 해결됩니다:
+// - 단계별 승인 / 업로드 기록 / 에스크로 보관 / 지급 조건 / 진행 기록
 export const calculateStagePayments = (bidAmount) => {
   if (!bidAmount || isNaN(bidAmount)) return [];
   const defs = [
-    { name: "착공",    percent: 30 },
-    { name: "중간점검", percent: 40 },
-    { name: "완료",    percent: 30 },
+    { name: "자재비 선지급", percent: 10, autoRelease: true },
+    { name: "착공 확인",    percent: 20, autoRelease: false },
+    { name: "중간점검",     percent: 40, autoRelease: false },
+    { name: "완료 확인",    percent: 30, autoRelease: false },
   ];
-  return defs.map(({ name, percent }) => {
+  return defs.map(({ name, percent, autoRelease }) => {
     const amount = Math.round(bidAmount * percent / 100);
     return {
       name,
       percent,
       amount,
-      companyReceiveAmount: Math.round(amount * 0.96 * 10) / 10,
+      autoRelease,
+      companyReceiveAmount: Math.round(amount * (1 - feeConfig.companyRate * (1 + feeConfig.vatRate)) * 10) / 10,
       released: false,
     };
   });
 };
 
-// Company receives stage amount minus 4% platform fee
+// Company receives stage amount minus 4% platform fee (VAT inclusive)
 export const calculateCompanyReceive = (stageAmount) => {
-  return Math.round(stageAmount * 0.96 * 10) / 10;
+  return Math.round(stageAmount * (1 - feeConfig.companyRate * (1 + feeConfig.vatRate)) * 10) / 10;
+};
+
+export const calcCustomerFee = (amount) => {
+  const rate = feeConfig.customerRate;
+  const vat = rate * feeConfig.vatRate;
+  return Math.round(amount * (rate + vat) * 10) / 10;
+};
+
+export const calcCompanyFee = (amount) => {
+  const rate = feeConfig.companyRate;
+  const vat = rate * feeConfig.vatRate;
+  return Math.round(amount * (rate + vat) * 10) / 10;
 };
 
 // Deposit required for a given badge tier, with optional insurance discount (30% → 20%)
