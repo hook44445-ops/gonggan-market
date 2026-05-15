@@ -60,7 +60,25 @@ export default async function handler(req, res) {
       userId = newUser.user.id;
     }
 
-    res.status(200).json({ data: { user: { id: userId } } });
+    // Create a real Supabase session so the frontend can call setSession()
+    const { data: sessionData, error: sessionErr } =
+      await supabase.auth.admin.createSession({ user_id: userId });
+    if (sessionErr) {
+      return res.status(500).json({ error: sessionErr.message });
+    }
+
+    res.status(200).json({
+      data: {
+        user: { id: userId },
+        session: {
+          access_token:  sessionData.session.access_token,
+          refresh_token: sessionData.session.refresh_token,
+          expires_in:    sessionData.session.expires_in,
+          expires_at:    sessionData.session.expires_at,
+          token_type:    sessionData.session.token_type ?? "bearer",
+        },
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import CompanyOnboarding from "./CompanyOnboarding";
-import { getUser, upsertUser } from "../lib/supabase";
+import { supabase, getUser, upsertUser } from "../lib/supabase";
+
+const SESSION_TS_KEY = "gonggan_login_at";
 
 const toE164 = (phone) => {
   const digits = phone.replace(/\D/g, "");
@@ -69,8 +71,20 @@ export default function LoginScreen({ onLogin, startAtOnboarding }) {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "인증에 실패했습니다");
-      const userId = json.data?.user?.id;
+
+      const userId  = json.data?.user?.id;
+      const session = json.data?.session;
       setAuthUserId(userId);
+
+      // Persist the Supabase session so the client can auto-refresh it
+      if (session?.access_token && session?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token:  session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        localStorage.setItem(SESSION_TS_KEY, Date.now().toString());
+      }
+
       const { data: profile } = await getUser(userId);
       if (profile) {
         onLogin(profile);
