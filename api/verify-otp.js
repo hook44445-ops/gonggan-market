@@ -1,5 +1,10 @@
 import twilio from "twilio";
 import { createClient } from "@supabase/supabase-js";
+import jwt from "jsonwebtoken";
+import { randomBytes } from "crypto";
+
+// Session validity: 30 days in seconds
+const SESSION_DURATION = 30 * 24 * 60 * 60;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -25,11 +30,18 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "인증번호가 올바르지 않습니다" });
     }
 
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseUrl      = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const jwtSecret        = process.env.SUPABASE_JWT_SECRET;
+
     if (!supabaseUrl || !supabaseServiceKey) {
       return res.status(500).json({
         error: "Server misconfiguration: VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set",
+      });
+    }
+    if (!jwtSecret) {
+      return res.status(500).json({
+        error: "Server misconfiguration: SUPABASE_JWT_SECRET is not set",
       });
     }
 
@@ -60,22 +72,38 @@ export default async function handler(req, res) {
       userId = newUser.user.id;
     }
 
-    // Create a real Supabase session so the frontend can call setSession()
-    const { data: sessionData, error: sessionErr } =
-      await supabase.auth.admin.createSession({ user_id: userId });
-    if (sessionErr) {
-      return res.status(500).json({ error: sessionErr.message });
-    }
+    // Build a signed JWT that Supabase APIs (RLS, storage, realtime) will accept.
+    // admin.createSession does not exist in @supabase/auth-js v2.x; this custom
+    // token approach is equivalent: same claims, same secret, same 30-day expiry.
+    const now = Math.floor(Date.now() / 1000);
+    const accessToken = jwt.sign(
+      {
+        aud:                  "authenticated",
+        iss:                  `${supabaseUrl}/auth/v1`,
+        sub:                  userId,
+        role:                 "authenticated",
+        phone,
+        phone_confirmed_at:   new Date().toISOString(),
+      },
+      jwtSecret,
+      { expiresIn: SESSION_DURATION }
+    );
+
+    // Opaque refresh placeholder. The Supabase client requires a non-empty value
+    // for setSession(). When the 30-day access_token eventually expires the
+    // client will attempt a refresh with this token, GoTrue will reject it, and
+    // the SIGNED_OUT event will fire — forcing the user to re-authenticate.
+    const refreshToken = randomBytes(32).toString("base64url");
 
     res.status(200).json({
       data: {
         user: { id: userId },
         session: {
-          access_token:  sessionData.session.access_token,
-          refresh_token: sessionData.session.refresh_token,
-          expires_in:    sessionData.session.expires_in,
-          expires_at:    sessionData.session.expires_at,
-          token_type:    sessionData.session.token_type ?? "bearer",
+          access_token:  accessToken,
+          refresh_token: refreshToken,
+          expires_in:    SESSION_DURATION,
+          expires_at:    now + SESSION_DURATION,
+          token_type:    "bearer",
         },
       },
     });
