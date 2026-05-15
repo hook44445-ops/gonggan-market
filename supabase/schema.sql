@@ -13,10 +13,14 @@ create table if not exists public.users (
   name        text not null,
   role        text not null check (role in ('consumer', 'company', 'admin')),
   region      text,
+  interests   text[],
   avatar_url  text,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+
+-- Migration: add interests column if upgrading from earlier schema
+alter table public.users add column if not exists interests text[];
 
 comment on table public.users is '앱 사용자 (의뢰인 / 업체 대표 / 관리자)';
 

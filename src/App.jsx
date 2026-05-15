@@ -4,6 +4,19 @@ import LoginScreen from "./screens/LoginScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { supabase, getUser } from "./lib/supabase";
 
+const SESSION_TS_KEY  = "gonggan_login_at";
+const THIRTY_DAYS_MS  = 30 * 24 * 60 * 60 * 1000;
+
+async function clearExpiredSession() {
+  const loginAt = localStorage.getItem(SESSION_TS_KEY);
+  if (loginAt && Date.now() - parseInt(loginAt, 10) > THIRTY_DAYS_MS) {
+    await supabase.auth.signOut();
+    localStorage.removeItem(SESSION_TS_KEY);
+    return true;
+  }
+  return false;
+}
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [goOnboarding, setGoOnboarding] = useState(false);
@@ -12,8 +25,11 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        const profile = await loadProfile(session.user.id);
-        if (profile) setUser(profile);
+        const expired = await clearExpiredSession();
+        if (!expired) {
+          const profile = await loadProfile(session.user.id);
+          if (profile) setUser(profile);
+        }
       }
       setLoading(false);
     });
@@ -22,6 +38,7 @@ export default function App() {
       if (event === "SIGNED_OUT") {
         setUser(null);
         setGoOnboarding(false);
+        localStorage.removeItem(SESSION_TS_KEY);
       }
     });
 
