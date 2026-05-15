@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { C, R, S, GRADE } from "../constants";
+import { C, R, S, GRADE, calcCustomerGrade } from "../constants";
 import { TempBadge, CertBadge, Divider } from "./common";
 import LiveFeed from "./LiveFeed";
 import CompanyCard from "./CompanyCard";
@@ -19,6 +19,7 @@ import {
   supabase,
   getRequests,
   createRequest,
+  closeRequest,
   createBid,
   getBidsForRequest,
   getCompanyByOwnerId,
@@ -41,21 +42,40 @@ const normalizeCompany = (row) => ({
   specialties: row.specialties ?? [],
 });
 
-const normalizeRequest = (row) => ({
-  id: row.id,
-  user_id: row.user_id,
-  type: row.space_type ?? "",
-  size: row.size ?? "",
-  budget: [row.budget_min, row.budget_max].filter(Boolean).map(n => `${n}만원`).join("~") || "협의",
-  style: row.style ?? "",
-  desc: row.desc ?? "",
-  area: row.area ?? "",
-  user: "의뢰인",
-  bids: 0,
-  time: new Date(row.created_at).toLocaleString("ko-KR", { month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" }),
-  status: row.status ?? "open",
-  urgent: row.urgent ?? false,
-});
+const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+const normalizeRequest = (row) => {
+  const createdAt  = row.created_at ? new Date(row.created_at) : new Date();
+  const expiresAt  = new Date(createdAt.getTime() + REQUEST_TTL_MS);
+  const msLeft     = expiresAt.getTime() - Date.now();
+  const daysLeft   = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+  const status     = row.status ?? "open";
+  const isExpiredByTime = daysLeft <= 0;
+  const isActive   = status === "open" && !isExpiredByTime;
+  const isClosed   = status === "closed" || status === "cancelled" ||
+                     (status === "open" && isExpiredByTime);
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    type: row.space_type ?? "",
+    size: row.size ?? "",
+    budget: [row.budget_min, row.budget_max].filter(Boolean).map(n => `${n}만원`).join("~") || "협의",
+    style: row.style ?? "",
+    desc: row.desc ?? "",
+    area: row.area ?? "",
+    user: "의뢰인",
+    bids: 0,
+    time: new Date(row.created_at).toLocaleString("ko-KR", { month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" }),
+    status,
+    urgent: row.urgent ?? false,
+    createdAt: row.created_at,
+    expiresAt: expiresAt.toISOString(),
+    daysLeft: Math.max(0, daysLeft),
+    isExpiredByTime,
+    isActive,
+    isClosed,
+  };
+};
 
 const normalizeBid = (row) => ({
   id: row.id,
@@ -92,7 +112,18 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
     return null;
   });
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
+
+  const handleCloseRequest = async (requestId) => {
+    const markClosed = r => r.id === requestId
+      ? { ...r, status: "closed", isActive: false, isClosed: true, daysLeft: 0 }
+      : r;
+    setMyRequests(prev => prev.map(markClosed));
+    setCustomerRequests(prev => prev.map(markClosed));
+    const { error } = await closeRequest(requestId);
+    if (error) console.error("[request] close failed:", error.message);
+  };
 
   // Load all requests on mount (home screen data)
   useEffect(() => {
@@ -100,9 +131,19 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
       if (error) { console.error("[requests] load failed:", error.message); return; }
       if (data) {
         const normalized = data.map(normalizeRequest);
-        setCustomerRequests(normalized);
+        // Auto-close any open requests that have passed the 7-day window
+        normalized
+          .filter(r => r.status === "open" && r.isExpiredByTime)
+          .forEach(r => closeRequest(r.id));
+        // Apply closed state locally for expired rows
+        const withExpiry = normalized.map(r =>
+          r.status === "open" && r.isExpiredByTime
+            ? { ...r, status: "closed", isActive: false, isClosed: true }
+            : r
+        );
+        setCustomerRequests(withExpiry);
         if (user.id) {
-          setMyRequests(normalized.filter(r => r.user_id === user.id));
+          setMyRequests(withExpiry.filter(r => r.user_id === user.id));
         }
       }
     });
@@ -330,89 +371,141 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               ))}
             </div>
 
-            {myRequests.length > 0 && (
-              <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>
-                  📋 내 견적 요청
-                  <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>{myRequests.length}건</span>
-                </div>
-                {myRequests.map(r => {
-                  const reqBids  = submittedBids.filter(b => b.requestId === r.id);
-                  const hasBids  = reqBids.length > 0;
-                  return (
-                    <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
-                      marginBottom:S.md, border:`1.5px solid ${hasBids ? C.brandM : C.bgWarm}`, overflow:"hidden" }}>
-                      <div style={{ height:3, background: hasBids ? C.brand : C.bgWarm }} />
-                      <div style={{ padding:S.xl }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:S.sm }}>
-                          <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{r.type} · {r.size}</div>
-                          <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full,
-                            padding:"3px 10px", fontSize:11, fontWeight:700 }}>{r.status}</span>
-                        </div>
-                        <div style={{ fontSize:13, color:C.text3, marginBottom:S.sm }}>
-                          📍 {r.area} · {r.style} · {r.time}
-                        </div>
-
-                        {hasBids ? (
-                          <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
-                            marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
-                            <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:S.sm }}>
-                              🔔 업체 {reqBids.length}곳이 입찰했어요
-                            </div>
-                            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
-                              {reqBids.map(b => (
-                                <div key={b.id}
-                                  style={{ background:C.surface, borderRadius:R.md, padding:"6px 10px",
-                                    fontSize:12, fontWeight:700, color:C.text1,
-                                    border:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:4 }}>
-                                  <TempBadge temp={b.company?.temp ?? 0} />
-                                  <span>{b.company?.name ?? "—"}</span>
+            {(() => {
+              const activeReqs  = myRequests.filter(r => r.isActive || r.status === "in_progress");
+              const historyReqs = myRequests.filter(r => r.isClosed || r.status === "completed");
+              return myRequests.length > 0 ? (
+                <div style={{ marginBottom:S.xl }}>
+                  {/* ── Active requests ── */}
+                  {activeReqs.length > 0 && (
+                    <>
+                      <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>
+                        📋 내 견적 요청
+                        <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>{activeReqs.length}건</span>
+                      </div>
+                      {activeReqs.map(r => {
+                        const reqBids = submittedBids.filter(b => b.requestId === r.id);
+                        const hasBids = reqBids.length > 0;
+                        const urgentDays = r.daysLeft <= 1;
+                        const warningDays = r.daysLeft <= 3;
+                        return (
+                          <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
+                            marginBottom:S.md, border:`1.5px solid ${hasBids ? C.brandM : C.bgWarm}`, overflow:"hidden" }}>
+                            <div style={{ height:3, background: hasBids ? C.brand : C.bgWarm }} />
+                            <div style={{ padding:S.xl }}>
+                              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.sm }}>
+                                <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{r.type} · {r.size}</div>
+                                <div style={{ display:"flex", gap:5, flexWrap:"wrap", justifyContent:"flex-end" }}>
+                                  {r.isActive && (
+                                    <span style={{
+                                      background: urgentDays ? "#FFF0F0" : warningDays ? "#FFF7E6" : C.brandL,
+                                      color: urgentDays ? C.red : warningDays ? "#C07000" : C.brand,
+                                      borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700,
+                                    }}>
+                                      마감 {r.daysLeft}일 전
+                                    </span>
+                                  )}
+                                  <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>
+                                    입찰중
+                                  </span>
                                 </div>
-                              ))}
-                            </div>
-                            <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
-                              style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff",
-                                border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer",
-                                boxShadow:`0 3px 12px ${C.brand}44` }}>
-                              💰 견적 비교하고 업체 선택하기 →
-                            </button>
-                          </div>
-                        ) : (
-                          <div style={{ background:C.surface2, borderRadius:R.lg, padding:S.md,
-                            marginBottom:S.md, border:`1px solid ${C.bgWarm}`,
-                            display:"flex", alignItems:"center", gap:S.sm }}>
-                            <span style={{ fontSize:18 }}>⏳</span>
-                            <div>
-                              <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>입찰 대기 중</div>
-                              <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
-                                인근 업체들이 견적을 검토하고 있어요
+                              </div>
+                              <div style={{ fontSize:13, color:C.text3, marginBottom:S.sm }}>
+                                📍 {r.area} · {r.style} · {r.time}
+                              </div>
+
+                              {hasBids ? (
+                                <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
+                                  marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
+                                  <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:S.sm }}>
+                                    🔔 업체 {reqBids.length}곳이 입찰했어요
+                                  </div>
+                                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
+                                    {reqBids.map(b => (
+                                      <div key={b.id}
+                                        style={{ background:C.surface, borderRadius:R.md, padding:"6px 10px",
+                                          fontSize:12, fontWeight:700, color:C.text1,
+                                          border:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:4 }}>
+                                        <TempBadge temp={b.company?.temp ?? 0} />
+                                        <span>{b.company?.name ?? "—"}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
+                                    style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff",
+                                      border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer",
+                                      boxShadow:`0 3px 12px ${C.brand}44` }}>
+                                    💰 견적 비교하고 업체 선택하기 →
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{ background:C.surface2, borderRadius:R.lg, padding:S.md,
+                                  marginBottom:S.md, border:`1px solid ${C.bgWarm}`,
+                                  display:"flex", alignItems:"center", gap:S.sm }}>
+                                  <span style={{ fontSize:18 }}>⏳</span>
+                                  <div>
+                                    <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>입찰 대기 중</div>
+                                    <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
+                                      인근 업체들이 견적을 검토하고 있어요
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div style={{ display:"flex", gap:S.sm }}>
+                                <button onClick={() => setScreen("timeline")}
+                                  style={{ flex:1, padding:"10px", background:C.surface2,
+                                    color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
+                                    fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                  📊 진행 현황
+                                </button>
+                                {hasBids && (
+                                  <button onClick={() => reqBids[0]?.company && go("chat", reqBids[0].company)}
+                                    style={{ flex:1, padding:"10px", background:C.brand,
+                                      color:"#fff", border:"none", borderRadius:R.lg,
+                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                    💬 업체 채팅
+                                  </button>
+                                )}
+                                <button onClick={() => setShowCloseConfirm(r.id)}
+                                  style={{ flex:1, padding:"10px", background:C.surface,
+                                    color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
+                                    fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                  견적 마감
+                                </button>
                               </div>
                             </div>
                           </div>
-                        )}
+                        );
+                      })}
+                    </>
+                  )}
 
-                        <div style={{ display:"flex", gap:S.sm }}>
-                          <button onClick={() => setScreen("timeline")}
-                            style={{ flex:1, padding:"10px", background:C.surface2,
-                              color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
-                              fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                            📊 진행 현황
-                          </button>
-                          {hasBids && (
-                            <button onClick={() => reqBids[0]?.company && go("chat", reqBids[0].company)}
-                              style={{ flex:1, padding:"10px", background:C.brand,
-                                color:"#fff", border:"none", borderRadius:R.lg,
-                                fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                              💬 업체 채팅
-                            </button>
-                          )}
-                        </div>
+                  {/* ── Closed / history ── */}
+                  {historyReqs.length > 0 && (
+                    <>
+                      <div style={{ fontSize:14, fontWeight:800, color:C.text3, marginBottom:S.sm, marginTop: activeReqs.length > 0 ? S.lg : 0 }}>
+                        마감된 요청 · {historyReqs.length}건
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                      {historyReqs.map(r => (
+                        <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
+                          marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, overflow:"hidden", opacity:0.65 }}>
+                          <div style={{ padding:`${S.lg}px ${S.xl}px`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                            <div>
+                              <div style={{ fontSize:14, fontWeight:700, color:C.text2 }}>{r.type} · {r.size}</div>
+                              <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>📍 {r.area} · {r.time}</div>
+                            </div>
+                            <span style={{ background:C.bg, color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700, flexShrink:0 }}>
+                              {r.isExpiredByTime ? "기간만료" : "마감됨"}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              ) : null;
+            })()}
 
             <div style={{ display:"flex", gap:S.sm, marginBottom:S.xl }}>
               {[["🏘","인근 업체",`${companies.length}곳`],["⭐","평균 별점","4.8점"],["✅","이번 달 완료","47건"]].map(([icon,label,val]) => (
@@ -517,7 +610,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             <LiveFeed />
 
             <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>📋 인근 시공 요청</div>
-            {customerRequests.map(r => (
+            {customerRequests.filter(r => r.isActive !== false || r.status === undefined).map(r => (
               <BidCard
                 key={r.id}
                 r={r}
@@ -683,7 +776,18 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontSize:28, fontWeight:900, color:C.brand, margin:"0 auto 14px" }}>{user.name[0]}</div>
               <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>{user.name}</div>
-              <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>📍 {user.region} · {user.role==="consumer"?"의뢰인":"검증 업체"}</div>
+              <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>📍 {user.region} · {user.role==="consumer"?"의뢰인":"검증 업체"}</div>
+              {user.role === "consumer" && (() => {
+                const grade = calcCustomerGrade(user.completedJobs ?? 0);
+                return (
+                  <div style={{ display:"inline-flex", alignItems:"center", gap:6,
+                    background:C.brandL, borderRadius:R.full, padding:"4px 12px",
+                    border:`1px solid ${C.brandM}`, marginBottom:S.xl }}>
+                    <span style={{ fontSize:16 }}>{grade.icon}</span>
+                    <span style={{ fontSize:12, fontWeight:800, color:C.brand }}>{grade.label}</span>
+                  </div>
+                );
+              })()}
               <div style={{ display:"flex", gap:0, marginBottom:S.xl, borderTop:`1px solid ${C.bgWarm}`, paddingTop:S.xl }}>
                 {(user.role==="consumer"
                   ? [[`${myRequests.length}`,"견적 요청"],["0","진행중"],["0","완료"]]
@@ -711,6 +815,40 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               </div>
             )}
 
+            {user.role==="consumer" && (() => {
+              const grade = calcCustomerGrade(user.completedJobs ?? 0);
+              const nextGrade = [0,1,3,5].find(n => n > (user.completedJobs ?? 0));
+              return (
+                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
+                  marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
+                    <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{grade.icon} {grade.label} 등급</div>
+                    {nextGrade !== undefined && (
+                      <span style={{ fontSize:11, color:C.text3 }}>다음 등급까지 {nextGrade - (user.completedJobs ?? 0)}건</span>
+                    )}
+                  </div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:S.md }}>
+                    {grade.benefits.map(b => (
+                      <span key={b} style={{ background:C.brandL, color:C.brand, borderRadius:R.full,
+                        padding:"3px 10px", fontSize:11, fontWeight:700 }}>✓ {b}</span>
+                    ))}
+                  </div>
+                  <div style={{ display:"flex", gap:4 }}>
+                    {[0,1,3,5].map((threshold, i) => {
+                      const done = (user.completedJobs ?? 0) >= threshold || threshold === 0;
+                      return (
+                        <div key={i} style={{ flex:1, height:4, borderRadius:R.full,
+                          background: done ? C.brand : C.bgWarm }} />
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize:11, color:C.text3, marginTop:S.sm }}>
+                    완료 {user.completedJobs ?? 0}건 · 새집 → 우리집(1건) → 드림하우스(3건) → 홈마스터(5건)
+                  </div>
+                </div>
+              );
+            })()}
+
             {user.role==="consumer" && (
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>내 견적 이력</div>
@@ -723,24 +861,64 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                       + 첫 견적 요청하기
                     </button>
                   </div>
-                ) : myRequests.map(r => (
-                  <div key={r.id} onClick={() => setScreen("timeline")}
-                    style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <div>
-                      <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>{r.type} · {r.size}</div>
-                      <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>📍 {r.area} · {r.time}</div>
+                ) : myRequests.map(r => {
+                  const closed = r.isClosed || r.status === "completed";
+                  const dLabel = r.isClosed
+                    ? (r.isExpiredByTime ? "기간만료" : "마감됨")
+                    : r.status === "in_progress" ? "진행중"
+                    : r.status === "completed"   ? "완료"
+                    : `마감 ${r.daysLeft}일 전`;
+                  const dColor = r.isClosed ? C.text4
+                    : r.status === "in_progress" ? C.brand
+                    : r.status === "completed"   ? C.green
+                    : r.daysLeft <= 1 ? C.red : r.daysLeft <= 3 ? "#C07000" : C.brand;
+                  const dBg = r.isClosed ? C.bg
+                    : r.daysLeft <= 1 ? "#FFF0F0" : r.daysLeft <= 3 ? "#FFF7E6" : C.brandL;
+                  return (
+                    <div key={r.id} onClick={() => !closed && setScreen("timeline")}
+                      style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, cursor: closed ? "default" : "pointer", display:"flex", justifyContent:"space-between", alignItems:"center", opacity: closed ? 0.7 : 1 }}>
+                      <div>
+                        <div style={{ fontSize:14, fontWeight:800, color: closed ? C.text3 : C.text1 }}>{r.type} · {r.size}</div>
+                        <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>📍 {r.area} · {r.time}</div>
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+                        <span style={{ background:dBg, color:dColor, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>{dLabel}</span>
+                        {!closed && <span style={{ fontSize:11, color:C.brand, fontWeight:700 }}>진행 현황 →</span>}
+                      </div>
                     </div>
-                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-                      <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>{r.status}</span>
-                      <span style={{ fontSize:11, color:C.brand, fontWeight:700 }}>진행 현황 →</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         )}
       </div>
+
+      {/* ── 견적 마감 확인 ── */}
+      {showCloseConfirm && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}>
+          <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
+            <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
+            <div style={{ textAlign:"center", marginBottom:S.xxl }}>
+              <div style={{ fontSize:40, marginBottom:12 }}>🔒</div>
+              <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:8 }}>견적을 마감할까요?</div>
+              <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>
+                마감 후에는 새 입찰을 받을 수 없어요.<br/>기존에 받은 입찰은 계속 확인할 수 있어요.
+              </div>
+            </div>
+            <div style={{ display:"flex", gap:S.sm }}>
+              <button onClick={() => setShowCloseConfirm(null)}
+                style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>
+                취소
+              </button>
+              <button onClick={() => { handleCloseRequest(showCloseConfirm); setShowCloseConfirm(null); }}
+                style={{ flex:2, padding:S.xl, background:C.text1, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer" }}>
+                견적 마감하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showRegisterPrompt && (
         <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}>
@@ -770,13 +948,20 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
 
       {showReq && <RequestModal onClose={() => setShowReq(false)} onDone={async (form) => {
         // Optimistic local entry (shown immediately)
+        const _now = Date.now();
         const optimistic = {
-          id: `tmp-${Date.now()}`,
+          id: `tmp-${_now}`,
           user_id: user.id ?? null,
           type: form.type, size: form.size, budget: form.budget,
           style: form.style, desc: form.desc,
           area: user.region ?? "", user: user.name,
-          bids: 0, time: "방금", status: "입찰중"
+          bids: 0, time: "방금", status: "open",
+          createdAt: new Date(_now).toISOString(),
+          expiresAt: new Date(_now + REQUEST_TTL_MS).toISOString(),
+          daysLeft: 7,
+          isExpiredByTime: false,
+          isActive: true,
+          isClosed: false,
         };
         setMyRequests(prev => [optimistic, ...prev]);
         setCustomerRequests(prev => [optimistic, ...prev]);

@@ -22,6 +22,11 @@ create table if not exists public.users (
 -- Migration: add interests column if upgrading from earlier schema
 alter table public.users add column if not exists interests text[];
 
+-- Migration: add customer_grade column
+alter table public.users add column if not exists customer_grade text not null default '새집'
+  check (customer_grade in ('새집','우리집','드림하우스','홈마스터'));
+alter table public.users add column if not exists completed_jobs integer not null default 0;
+
 comment on table public.users is '앱 사용자 (의뢰인 / 업체 대표 / 관리자)';
 
 -- ── companies ─────────────────────────────────────────────────────────────────
@@ -69,13 +74,20 @@ create table if not exists public.requests (
   style        text,
   desc         text,
   status       text not null default 'open'
-                 check (status in ('open','in_progress','completed','cancelled')),
+                 check (status in ('open','in_progress','completed','cancelled','closed')),
   urgent       boolean not null default false,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
 
 comment on table public.requests is '의뢰인이 등록한 견적 요청';
+
+-- Migration: add 'closed' to requests status check (run once on existing projects)
+alter table public.requests
+  drop constraint if exists requests_status_check;
+alter table public.requests
+  add constraint requests_status_check
+    check (status in ('open','in_progress','completed','cancelled','closed'));
 
 -- ── bids ──────────────────────────────────────────────────────────────────────
 create table if not exists public.bids (

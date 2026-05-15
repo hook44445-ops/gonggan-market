@@ -27,10 +27,10 @@ export default function CompanyOnboarding({ phone, authUserId, onDone }) {
   const STEPS = ["기본정보","활동지역","전문분야","서류제출","계약동의"];
   const BADGE_INFO = {
     basic:      { ...BADGES.basic,      range:"~500만원",   dep20:100,  dep30:150 },
-    standard:   { ...BADGES.standard,   range:"~2,000만원", dep20:400,  dep30:600 },
-    premium:    { ...BADGES.premium,    range:"~5,000만원", dep20:1000, dep30:1500 },
-    enterprise: { ...BADGES.enterprise, range:"~1억원",     dep20:2000, dep30:3000 },
-    signature:  { ...BADGES.signature,  range:"~3억원",     dep20:4000, dep30:6000 },
+    standard:   { ...BADGES.standard,   range:"~1,000만원", dep20:200,  dep30:300 },
+    premium:    { ...BADGES.premium,    range:"~2,000만원", dep20:400,  dep30:600 },
+    enterprise: { ...BADGES.enterprise, range:"~5,000만원", dep20:1000, dep30:1500 },
+    signature:  { ...BADGES.signature,  range:"~1억원",     dep20:2000, dep30:3000 },
   };
   const badge = BADGE_INFO[form.badge] || BADGE_INFO.standard;
   const depositAmt = form.hasInsurance ? badge.dep20 : badge.dep30;
