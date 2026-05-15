@@ -205,3 +205,29 @@ export const createReview = (data) =>
 
 export const replyToReview = (reviewId, reply) =>
   supabase.from("reviews").update({ reply }).eq("id", reviewId);
+
+// ── Fee Config ────────────────────────────────────────────────────────────────
+
+export const getFeeConfig = () =>
+  supabase.from("fee_config").select("*").single();
+
+// ── Admin Logs ────────────────────────────────────────────────────────────────
+
+export const createAdminLog = (log) =>
+  supabase.from("admin_logs").insert(log).select().single();
+
+export const getAdminLogs = () =>
+  supabase.from("admin_logs").select("*").order("created_at", { ascending: false });
+
+// ── Early Partner ─────────────────────────────────────────────────────────────
+
+export const setEarlyPartner = (companyId, joinedAt) => {
+  const benefitUntil = new Date(joinedAt);
+  benefitUntil.setFullYear(benefitUntil.getFullYear() + 1);
+  return supabase.from("companies").update({
+    is_early_partner: true,
+    early_partner_joined_at: joinedAt,
+    early_partner_benefit_until: benefitUntil.toISOString(),
+    fee_rate: 0.04,
+  }).eq("id", companyId);
+};

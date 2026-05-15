@@ -91,7 +91,7 @@ const normalizeBid = (row) => ({
 });
 
 export default function MainApp({ user, onLogout, onStartOnboarding }) {
-  const [mode, setMode] = useState(user.role ?? "consumer");
+  const mode = user.role === "company" ? "company" : user.role === "admin" ? "admin" : "consumer";
   const [screen, setScreen] = useState("home");
   const [prevScreen, setPrevScreen] = useState("home");
   const [selCo, setSelCo] = useState(null);
@@ -114,6 +114,12 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
+
+  // Admin hidden entry
+  const [adminTapCount, setAdminTapCount] = useState(0);
+  const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
+  const [adminCodeInput, setAdminCodeInput] = useState("");
+  const [adminCodeError, setAdminCodeError] = useState("");
 
   const handleCloseRequest = async (requestId) => {
     const markClosed = r => r.id === requestId
@@ -213,12 +219,16 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
+  const showToast = msg => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
+
   const addBid = async (request, bidData) => {
     if (request.id?.startsWith("tmp-")) {
-      alert("견적 요청이 저장 중입니다. 잠시 후 다시 시도해주세요");
+      showToast("견적 요청이 저장 중입니다. 잠시 후 다시 시도해주세요");
       return;
     }
-    alert("addBid 호출됨: " + user.id);
     const actor = currentUser ?? { id: user.id ?? null, name: user.name ?? "업체", temp: 70 };
     const optimistic = {
       id: `tmp-${Date.now()}`,
@@ -247,8 +257,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         comment: bidData.comment,
       });
       if (error) {
-        console.error("[addBid] insert failed:", error.message);
-        alert(`입찰 저장 실패: ${error.message}`);
+        showToast(`입찰 저장 실패: ${error.message}`);
       } else if (data) {
         // Replace optimistic entry with real DB row (no company join data here yet)
         setSubmittedBids(prev =>
@@ -268,17 +277,25 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
       return prev;
     });
   };
-  const isGuestCompany = mode==="company" && user.isGuest;
-  const go = (s, co=null) => { setPrevScreen(screen); if(co) setSelCo(co); setScreen(s); };
-
-  const showToast = msg => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
+  const isGuestCompany = false;
+  const go = (s, co=null) => {
+    if (s === "admin" && user.role !== "admin") return;
+    if (s === "dashboard" && user.role !== "company") return;
+    setPrevScreen(screen);
+    if (co) setSelCo(co);
+    setScreen(s);
   };
+
+  useEffect(() => {
+    if (screen === "admin" && user.role !== "admin") setScreen("home");
+    if (screen === "dashboard" && user.role !== "company") setScreen("home");
+  }, [screen, user.role]);
 
   const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline"].includes(screen);
-  const NAV = mode==="consumer"
+  const NAV = mode === "admin"
+    ? [["📋","관리","admin"],["👤","마이","my"]]
+    : mode === "consumer"
     ? [["🏠","홈","home"],["🗺","지도","map"],["💬","채팅","chatlist"],["👤","마이","my"]]
     : [["📋","요청","home"],["🗺","지도","map"],["💬","채팅","chatlist"],["👤","내정보","my"]];
 
@@ -295,14 +312,6 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               <div style={{ fontSize:20, fontWeight:900, color:C.text1, letterSpacing:"-0.5px" }}>공간마켓</div>
             </div>
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
-              <div style={{ background:C.bg, borderRadius:R.full, padding:3, display:"flex" }}>
-                {[["consumer","의뢰인"],["company","업체"]].map(([v,l]) => (
-                  <button key={v} onClick={() => { setMode(v); setScreen("home"); }}
-                    style={{ padding:"5px 13px", borderRadius:R.full, border:"none",
-                      background:mode===v?C.brand:"transparent",
-                      color:mode===v?"#fff":C.text3, fontWeight:700, fontSize:13, cursor:"pointer" }}>{l}</button>
-                ))}
-              </div>
               <button onClick={onLogout} style={{ fontSize:11, color:C.text4, background:"none", border:"none", cursor:"pointer" }}>로그아웃</button>
             </div>
           </div>
@@ -853,6 +862,30 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                 padding:"11px 28px", fontWeight:700, fontSize:14, cursor:"pointer" }}>로그아웃</button>
             </div>
 
+            {user.role === "company" && user.isEarlyPartner && user.earlyPartnerBenefitUntil && (
+              <div style={{ background: C.brandL, borderRadius: R.xl, padding: S.xl, marginTop: S.lg, border: `1px solid ${C.brandM}` }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.brand, marginBottom: 4 }}>🏆 초기 파트너 혜택 중</div>
+                <div style={{ fontSize: 12, color: C.text3 }}>
+                  혜택 만료일: {new Date(user.earlyPartnerBenefitUntil).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
+                </div>
+              </div>
+            )}
+
+            <div style={{ textAlign: "center", marginTop: S.xxl }}>
+              <div
+                onClick={() => {
+                  const next = adminTapCount + 1;
+                  setAdminTapCount(next);
+                  if (next >= 5) {
+                    setAdminTapCount(0);
+                    setShowAdminCodeModal(true);
+                  }
+                }}
+                style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
+                공간마켓 v1.0.0
+              </div>
+            </div>
+
             {user.role==="company" && (
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🏦 보증금 현황</div>
@@ -993,6 +1026,42 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
 
       {toast && (
         <div style={{ position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:C.brand, color:"#fff", borderRadius:R.full, padding:"12px 22px", fontSize:13, fontWeight:700, boxShadow:`0 8px 24px ${C.brand}44`, zIndex:200, whiteSpace:"nowrap" }}>{toast}</div>
+      )}
+
+      {showAdminCodeModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:999, padding:20 }}>
+          <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, width:"100%", maxWidth:340 }}>
+            <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:6 }}>관리자 코드</div>
+            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>관리자 전용 코드를 입력해주세요</div>
+            <input
+              value={adminCodeInput}
+              onChange={e => { setAdminCodeInput(e.target.value); setAdminCodeError(""); }}
+              type="password"
+              placeholder="코드 입력"
+              style={{ width:"100%", padding:"14px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:18, outline:"none", boxSizing:"border-box", marginBottom:14, fontFamily:"inherit", color:C.text1, background:C.surface, textAlign:"center", letterSpacing:4 }}
+            />
+            {adminCodeError && <div style={{ color:C.red, fontSize:12, fontWeight:600, marginBottom:S.sm }}>{adminCodeError}</div>}
+            <div style={{ display:"flex", gap:S.sm }}>
+              <button onClick={() => { setShowAdminCodeModal(false); setAdminCodeInput(""); setAdminCodeError(""); }}
+                style={{ flex:1, padding:S.lg, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>
+                취소
+              </button>
+              <button onClick={() => {
+                if (adminCodeInput === "admin1234") {
+                  setShowAdminCodeModal(false);
+                  setAdminCodeInput("");
+                  setAdminCodeError("");
+                  setScreen("admin");
+                } else {
+                  setAdminCodeError("관리자 코드가 올바르지 않습니다");
+                }
+              }}
+                style={{ flex:1, padding:S.lg, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer" }}>
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showReq && <RequestModal onClose={() => setShowReq(false)} onDone={async (form) => {

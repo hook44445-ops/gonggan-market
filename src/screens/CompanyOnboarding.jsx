@@ -146,6 +146,10 @@ export default function CompanyOnboarding({ phone, onDone }) {
             deposit_amount: depositAmt,
             biz_cert_url: form.bizDocUrl,
             insurance_url: form.insuranceUrl,
+            is_early_partner: true,
+            early_partner_joined_at: new Date().toISOString(),
+            early_partner_benefit_until: (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString(); })(),
+            fee_rate: 0.04,
           });
           onDone(userRow || profile);
         }}

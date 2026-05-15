@@ -87,11 +87,18 @@ export const calcCustomerGrade = (completedJobs = 0) => {
 };
 
 export const ESCROW_STEPS = [
-  { id:1, label:"전액 예치",    sub:"고객이 총 금액을 공간마켓에 예치",      pct:0,  icon:"🔒", done:true  },
-  { id:2, label:"선금 지급",    sub:"착공 시작 · 공간마켓→업체 30% 지급",   pct:30, icon:"💰", done:true  },
-  { id:3, label:"중간 점검",    sub:"50% 공정 확인 후 업체에 40% 지급",     pct:40, icon:"🔍", done:false, active:true },
-  { id:4, label:"완료 확인",    sub:"시공 완료 확인 후 업체에 잔금 30% 지급", pct:30, icon:"✅", done:false },
+  { id:1, label:"전액 예치",    sub:"고객이 총 금액을 공간마켓에 예치",                pct:0,  icon:"🔒", done:true  },
+  { id:2, label:"자재비 선지급", sub:"계약 완료 즉시 자동 지급 (고객 확인 없음)",       pct:10, icon:"💰", done:true  },
+  { id:3, label:"착공 확인",    sub:"고객 착공 확인 후 업체에 20% 지급",              pct:20, icon:"🏗", done:false, active:false },
+  { id:4, label:"중간점검",     sub:"고객 중간점검 확인 후 업체에 40% 지급",           pct:40, icon:"🔍", done:false },
+  { id:5, label:"완료 확인",    sub:"고객 완료 확인 후 업체에 잔금 30% 지급",         pct:30, icon:"✅", done:false },
 ];
+
+export const FEE_CONFIG = {
+  customerRate: 0.03,
+  companyRate:  0.04,
+  vatRate:      0.1,
+};
 
 export const FEED_BASE = [
   { id:1, type:"bid",      co:"홍익시공",    area:"합정동", msg:"32평 아파트 견적 제출",    t:0 },

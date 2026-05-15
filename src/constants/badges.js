@@ -6,6 +6,14 @@ export const BADGES = {
   signature:  { label: "시그니처",     icon: "👑", maxAmount: 10000, depositBase: 3000, deposit: 3000, maxJob: "1억원",     color: "#7C3AED", bg: "#F5F0FF", grad: "linear-gradient(135deg,#7C3AED,#5B21B6)" },
 };
 
+export const BADGE_TIERS = {
+  BASIC:      { label: "Basic",      maxProject: 5000000,   deposit: 1500000  },
+  STANDARD:   { label: "Standard",   maxProject: 10000000,  deposit: 3000000  },
+  PREMIUM:    { label: "Premium",    maxProject: 20000000,  deposit: 6000000  },
+  ENTERPRISE: { label: "Enterprise", maxProject: 50000000,  deposit: 15000000 },
+  SIGNATURE:  { label: "Signature",  maxProject: 100000000, deposit: 30000000 },
+};
+
 // Deposit rate drops from 30% → 20% when insurance is submitted
 export const DEPOSIT_RATE_BASE      = 30;
 export const DEPOSIT_RATE_INSURANCE = 20;

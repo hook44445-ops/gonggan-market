@@ -94,8 +94,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
             </div>
             <div style={{ fontSize:13, color:C.text2, marginBottom:S.md }}>{selBid.material}</div>
             <div style={{ background:C.brandL, borderRadius:R.md, padding:S.md, border:`1px solid ${C.brandM}` }}>
-              <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs }}>💰 에스크로 이용료 안내 (고객 부담)</div>
-              {[["시공비", fmtMoney(selBid.price)], ["에스크로 이용료 3%", `+${fmtMoney(escrowFee)}`]].map(([k, v]) => (
+              <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs }}>💰 안전거래 수수료 안내 (고객 부담)</div>
+              {[["시공비", fmtMoney(selBid.price)], ["안전거래 수수료 3% (VAT 별도)", `+${fmtMoney(escrowFee)}`]].map(([k, v]) => (
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.text2, marginBottom:2 }}>
                   <span>{k}</span><span style={{ fontWeight:700 }}>{v}</span>
                 </div>

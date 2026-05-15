@@ -283,3 +283,34 @@ create policy "reviews: company reply" on public.reviews
   for update using (
     auth.uid() = (select owner_id from public.companies where id = company_id)
   );
+
+-- ── fee_config ─────────────────────────────────────────────────────────────────
+create table if not exists public.fee_config (
+  id           uuid primary key default gen_random_uuid(),
+  customer_rate numeric(5,4) not null default 0.03,
+  company_rate  numeric(5,4) not null default 0.04,
+  vat_rate      numeric(5,4) not null default 0.10,
+  updated_at    timestamptz not null default now()
+);
+insert into public.fee_config (customer_rate, company_rate, vat_rate)
+  values (0.03, 0.04, 0.10)
+  on conflict do nothing;
+
+-- ── admin_logs ─────────────────────────────────────────────────────────────────
+create table if not exists public.admin_logs (
+  id          uuid primary key default gen_random_uuid(),
+  admin_id    uuid references public.users(id),
+  action      text not null,
+  target_type text not null check (target_type in ('company','customer','dispute','settlement')),
+  target_id   uuid,
+  before_val  jsonb,
+  after_val   jsonb,
+  reason      text,
+  created_at  timestamptz not null default now()
+);
+
+-- ── companies: early partner columns ─────────────────────────────────────────
+alter table public.companies add column if not exists is_early_partner boolean not null default false;
+alter table public.companies add column if not exists early_partner_joined_at timestamptz;
+alter table public.companies add column if not exists early_partner_benefit_until timestamptz;
+alter table public.companies add column if not exists fee_rate numeric(5,4) not null default 0.04;
