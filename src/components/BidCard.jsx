@@ -4,6 +4,7 @@ import { BADGES } from "../constants/badges";
 import { TempBadge } from "./common";
 
 export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth }) {
+  console.log("render BidCard", { r: r?.id, currentUser: currentUser?.name });
   const [submitted, setSubmitted] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -11,6 +12,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
   const setBF = (k, v) => setBidForm(f => ({ ...f, [k]:v }));
   const isGuest  = !onBidSubmit && !!onRequiresAuth;
   const isClosed = r.isActive === false && r.isActive !== undefined;
+  const company = currentUser;
   const companyBadge = BADGES[company?.badge ?? "basic"] ?? BADGES.basic;
   const maxBidAmount = companyBadge.maxAmount;
   const bidPrice = parseInt(bidForm.price, 10);
@@ -44,8 +46,6 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
       setSubmitting(false);
     }, 800);
   };
-
-  const company = currentUser;
 
   return (
     <div>

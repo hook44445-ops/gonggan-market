@@ -91,6 +91,7 @@ const normalizeBid = (row) => ({
 });
 
 export default function MainApp({ user, onLogout, onStartOnboarding }) {
+  console.log("render MainApp", { role: user?.role, isGuest: user?.isGuest });
   const [mode, setMode] = useState(user.role);
   const [screen, setScreen] = useState("home");
   const [prevScreen, setPrevScreen] = useState("home");
@@ -567,7 +568,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                   boxShadow:`0 4px 16px ${C.brand}44` }}>
                 업체 로그인
               </button>
-              <button onClick={onStartOnboarding}
+              <button onClick={() => { console.log("[MainApp] 업체 회원가입 clicked"); onStartOnboarding(); }}
                 style={{ padding:"16px", background:C.surface, color:C.brand,
                   border:`2px solid ${C.brandM}`, borderRadius:R.lg,
                   fontWeight:800, fontSize:15, cursor:"pointer" }}>
@@ -987,7 +988,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             </div>
             <div style={{ display:"flex", gap:S.sm }}>
               <button onClick={() => setShowRegisterPrompt(false)} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>나중에</button>
-              <button onClick={() => { setShowRegisterPrompt(false); onStartOnboarding(); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>🚀 업체 등록하기</button>
+              <button onClick={() => { console.log("[MainApp] 업체 등록하기 clicked"); setShowRegisterPrompt(false); onStartOnboarding(); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>🚀 업체 등록하기</button>
             </div>
           </div>
         </div>

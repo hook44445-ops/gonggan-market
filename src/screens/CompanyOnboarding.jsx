@@ -5,6 +5,7 @@ import { Divider } from "../components/common";
 import { upsertUserByPhone, upsertCompany } from "../lib/supabase";
 
 export default function CompanyOnboarding({ phone, onDone }) {
+  console.log("render CompanyOnboarding", { phone });
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name:"", bizName:"", bizNumber:"", bizVerified:false,
