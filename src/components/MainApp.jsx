@@ -143,7 +143,22 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         );
         setCustomerRequests(withExpiry);
         if (user.id) {
-          setMyRequests(withExpiry.filter(r => r.user_id === user.id));
+          const mine = withExpiry.filter(r => r.user_id === user.id);
+          // Enforce one-active-request rule: close all but the most recent active request
+          const activeOwn = mine.filter(r => r.isActive)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          if (activeOwn.length > 1) {
+            activeOwn.slice(1).forEach(r => closeRequest(r.id));
+            const keepId = activeOwn[0].id;
+            const cleaned = mine.map(r =>
+              r.isActive && r.id !== keepId
+                ? { ...r, status: "closed", isActive: false, isClosed: true }
+                : r
+            );
+            setMyRequests(cleaned);
+          } else {
+            setMyRequests(mine);
+          }
         }
       }
     });
@@ -328,12 +343,23 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
               <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl, lineHeight:1.6 }}>
                 평균 2~3곳에서 30분 내 연락이 옵니다
               </div>
-              <button onClick={() => setShowReq(true)}
-                style={{ background:C.brand, color:"#fff", border:"none",
-                  borderRadius:R.full, padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer",
-                  boxShadow:`0 4px 16px ${C.brand}44` }}>
-                + 무료 견적 요청하기
-              </button>
+              {(() => {
+                const hasActive = myRequests.some(r => r.isActive);
+                return hasActive ? (
+                  <div style={{ background:"rgba(255,255,255,0.18)", borderRadius:R.full,
+                    padding:"12px 24px", fontSize:13, fontWeight:700, color:"#fff",
+                    border:"1.5px solid rgba(255,255,255,0.4)", display:"inline-block" }}>
+                    📋 진행 중인 견적이 있습니다
+                  </div>
+                ) : (
+                  <button onClick={() => setShowReq(true)}
+                    style={{ background:C.brand, color:"#fff", border:"none",
+                      borderRadius:R.full, padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer",
+                      boxShadow:`0 4px 16px ${C.brand}44` }}>
+                    + 무료 견적 요청하기
+                  </button>
+                );
+              })()}
             </div>
 
             <LiveFeed />
@@ -527,7 +553,31 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
         )}
 
         {/* 업체 홈 */}
-        {screen==="home" && mode==="company" && (
+        {screen==="home" && mode==="company" && user.role==="consumer" && (
+          <div style={{ textAlign:"center", padding:"60px 20px" }}>
+            <div style={{ fontSize:48, marginBottom:16 }}>🔨</div>
+            <div style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:8 }}>업체 로그인이 필요합니다</div>
+            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xxl, lineHeight:1.7 }}>
+              업체 서비스를 이용하려면<br/>업체 계정으로 로그인해 주세요
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:10, maxWidth:280, margin:"0 auto" }}>
+              <button onClick={onLogout}
+                style={{ padding:"16px", background:C.brand, color:"#fff", border:"none",
+                  borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
+                  boxShadow:`0 4px 16px ${C.brand}44` }}>
+                업체 로그인
+              </button>
+              <button onClick={onStartOnboarding}
+                style={{ padding:"16px", background:C.surface, color:C.brand,
+                  border:`2px solid ${C.brandM}`, borderRadius:R.lg,
+                  fontWeight:800, fontSize:15, cursor:"pointer" }}>
+                업체 회원가입
+              </button>
+            </div>
+          </div>
+        )}
+
+        {screen==="home" && mode==="company" && user.role!=="consumer" && (
           <div>
             {isGuestCompany && (
               <div onClick={() => setShowRegisterPrompt(true)}
@@ -621,6 +671,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
             ))}
           </div>
         )}
+
 
         {/* 지도 */}
         {screen==="map" && (
