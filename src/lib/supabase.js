@@ -32,8 +32,15 @@ export const getSession = () => supabase.auth.getSession();
 export const upsertUser = (profile) =>
   supabase.from("users").upsert(profile).select().single();
 
+// Upsert by phone (no Supabase auth id required)
+export const upsertUserByPhone = (profile) =>
+  supabase.from("users").upsert(profile, { onConflict: "phone" }).select().single();
+
 export const getUser = (id) =>
   supabase.from("users").select("*").eq("id", id).single();
+
+export const getUserByPhone = (phone) =>
+  supabase.from("users").select("*").eq("phone", phone).maybeSingle();
 
 // ── Companies ─────────────────────────────────────────────────────────────────
 
@@ -48,6 +55,19 @@ export const getCompanyByOwnerId = (ownerId) =>
 
 export const upsertCompany = (data) =>
   supabase.from("companies").upsert(data).select().single();
+
+// Atomically adjust a company's 공간온도 by delta, clamped to 0–99
+export const updateCompanyTemp = async (companyId, delta) => {
+  const { data, error } = await supabase
+    .from("companies")
+    .select("temp")
+    .eq("id", companyId)
+    .single();
+  if (error) return { error };
+  const current = typeof data?.temp === "number" ? data.temp : 36.5;
+  const next    = Math.round(Math.min(99, Math.max(0, current + delta)) * 10) / 10;
+  return supabase.from("companies").update({ temp: next }).eq("id", companyId).select("temp").single();
+};
 
 export const getPendingCompanies = () =>
   supabase.from("companies").select("*").eq("doc_status", "pending");

@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import CompanyOnboarding from "./CompanyOnboarding";
-import { supabase, getUser, upsertUser } from "../lib/supabase";
-
-const SESSION_TS_KEY = "gonggan_login_at";
+import { upsertUserByPhone } from "../lib/supabase";
 
 const toE164 = (phone) => {
   const digits = phone.replace(/\D/g, "");
@@ -24,7 +22,6 @@ export default function LoginScreen({ onLogin, startAtOnboarding }) {
   const [codeSent, setCodeSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
-  const [authUserId, setAuthUserId] = useState(null);
 
   // Onboarding state — role chosen after phone verify
   const [role, setRole] = useState(startAtOnboarding ? "company" : null);
@@ -67,27 +64,13 @@ export default function LoginScreen({ onLogin, startAtOnboarding }) {
       const res = await fetch("/api/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: toE164(phone), token: code }),
+        body: JSON.stringify({ phone: toE164(phone), code }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "인증에 실패했습니다");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "인증에 실패했습니다");
 
-      const userId  = json.data?.user?.id;
-      const session = json.data?.session;
-      setAuthUserId(userId);
-
-      // Persist the Supabase session so the client can auto-refresh it
-      if (session?.access_token && session?.refresh_token) {
-        await supabase.auth.setSession({
-          access_token:  session.access_token,
-          refresh_token: session.refresh_token,
-        });
-        localStorage.setItem(SESSION_TS_KEY, Date.now().toString());
-      }
-
-      const { data: profile } = await getUser(userId);
-      if (profile) {
-        onLogin(profile);
+      if (data.user) {
+        onLogin(data.user);
       } else {
         setStep(4); setMsg("");
       }
@@ -105,14 +88,13 @@ export default function LoginScreen({ onLogin, startAtOnboarding }) {
       ? `${selectedCity} ${selectedDistrict}`
       : selectedCity || "서울 마포구";
     const profile = {
-      id: authUserId,
       name: name.trim(),
       role: "consumer",
       region,
       interests: selectedServices,
       phone: toE164(phone),
     };
-    const { data, error } = await upsertUser(profile);
+    const { data, error } = await upsertUserByPhone(profile);
     setLoading(false);
     if (error) return setMsg("❌ 프로필 저장에 실패했습니다");
     onLogin(data || profile);
@@ -480,7 +462,7 @@ export default function LoginScreen({ onLogin, startAtOnboarding }) {
 
       {/* 4-company: Company onboarding (existing flow) */}
       {step === 4 && role === "company" && (
-        <CompanyOnboarding phone={phone} authUserId={authUserId} onDone={u => onLogin(u)} />
+        <CompanyOnboarding phone={phone} onDone={u => onLogin(u)} />
       )}
     </div>
   );

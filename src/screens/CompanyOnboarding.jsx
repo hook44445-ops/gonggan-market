@@ -2,9 +2,9 @@ import { useState } from "react";
 import { C, R, S, ALL_REGIONS, SPECIALTIES } from "../constants";
 import { BADGES } from "../constants/badges";
 import { Divider } from "../components/common";
-import { upsertUser, upsertCompany } from "../lib/supabase";
+import { upsertUserByPhone, upsertCompany } from "../lib/supabase";
 
-export default function CompanyOnboarding({ phone, authUserId, onDone }) {
+export default function CompanyOnboarding({ phone, onDone }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name:"", bizName:"", bizNumber:"", bizVerified:false,
@@ -128,10 +128,10 @@ export default function CompanyOnboarding({ phone, authUserId, onDone }) {
         </div>
       </div>
       <button onClick={async () => {
-          const profile = { id: authUserId, name: form.name, role: "company", region: form.mainRegion, phone };
-          const { data: userRow } = await upsertUser(profile);
+          const profile = { name: form.name, role: "company", region: form.mainRegion, phone };
+          const { data: userRow } = await upsertUserByPhone(profile);
           await upsertCompany({
-            owner_id: authUserId,
+            owner_id: userRow?.id ?? null,
             name: form.bizName,
             phone,
             region: form.mainRegion,
