@@ -13,7 +13,6 @@ import AdminScreen from "../screens/AdminScreen";
 import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
-import { COMPANIES } from "../mock/mockCompanies";
 import {
   supabase,
   getRequests,
@@ -110,12 +109,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [submittedBids, setSubmittedBids] = useState([]);
   const [selectedBid, setSelectedBid] = useState(null);
   const [escrowContracts, setEscrowContracts] = useState([]);
-  const [currentUser, setCurrentUser] = useState(() => {
-    if (user?.role === "company") {
-      return COMPANIES.find(c => c.name === user.name) ?? COMPANIES[0] ?? null;
-    }
-    return null;
-  });
+  const [currentUser, setCurrentUser] = useState(null);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
@@ -133,7 +127,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     setMyRequests(prev => prev.map(markClosed));
     setCustomerRequests(prev => prev.map(markClosed));
     const { error } = await closeRequest(requestId);
-    if (error) console.error("[request] close failed:", error.message);
+    if (error) return;
   };
 
   // Load requests on mount
@@ -197,7 +191,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (!bidViewRequestId) return;
 
     getBidsForRequest(bidViewRequestId).then(({ data, error }) => {
-      if (error) { console.error("[bids] load failed:", error.message); return; }
+      if (error) return;
       if (data) setSubmittedBids(data.map(normalizeBid));
     });
 
@@ -755,7 +749,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             setEscrowContracts={setEscrowContracts}
           />
         )}
-        {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} />}
+        {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} user={user} />}
 
         {screen==="chatlist" && (
           <div>
@@ -1114,7 +1108,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             budget_max: 0,
           });
           if (error) {
-            console.error("[request] insert failed:", error.message);
+            void error;
           } else if (data) {
             const saved = normalizeRequest(data);
             const replace = r => r.id === optimistic.id ? saved : r;

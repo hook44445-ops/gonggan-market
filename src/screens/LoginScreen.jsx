@@ -2,7 +2,12 @@ import { useState } from "react";
 import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import { BADGES } from "../constants/badges";
 import CompanyOnboarding from "./CompanyOnboarding";
-import { upsertUserByPhone } from "../lib/supabase";
+import { upsertUserByPhone, getUserByPhone } from "../lib/supabase";
+
+// Same-device phone bypass keys (STEP F)
+const PHONE_KEY = { consumer: "gonggan_ph_c", company: "gonggan_ph_co" };
+const getStoredPhone = (role) => PHONE_KEY[role] ? localStorage.getItem(PHONE_KEY[role]) : null;
+const setStoredPhone = (role, phone) => { if (PHONE_KEY[role]) localStorage.setItem(PHONE_KEY[role], phone); };
 
 const toE164 = (phone) => {
   const digits = phone.replace(/\D/g, "");
@@ -47,8 +52,23 @@ export default function LoginScreen({ onLogin }) {
     marginBottom: 14, fontFamily: "inherit", color: C.text1, background: C.surface,
   };
 
-  const chooseRole = (role) => {
+  const chooseRole = async (role) => {
     setPendingRole(role);
+    // STEP F: Same-device bypass — if phone verified before, skip SMS
+    const stored = getStoredPhone(role);
+    if (stored) {
+      setLoading(true);
+      try {
+        const { data: existingUser } = await getUserByPhone(toE164(stored));
+        if (existingUser) {
+          setLoading(false);
+          onLogin({ ...existingUser, role: existingUser.role || role });
+          return;
+        }
+      } catch {}
+      setLoading(false);
+      setPhone(stored); // Pre-fill the stored phone
+    }
     setStep(2);
   };
 
@@ -84,6 +104,8 @@ export default function LoginScreen({ onLogin }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "인증에 실패했습니다");
 
+      // STEP F: Save verified phone for same-device bypass
+      setStoredPhone(pendingRole, phone);
       if (data.user) {
         // Explicit company/admin selection takes precedence over DB role
         const userRole = (pendingRole === "company" || pendingRole === "admin")
@@ -107,8 +129,8 @@ export default function LoginScreen({ onLogin }) {
       setShowAdminModal(false);
       setAdminCode("");
       setAdminCodeError("");
-      setPendingRole("admin");
-      setStep(2);
+      // STEP A: Skip SMS — admin enters directly after code
+      onLogin({ role: "admin", name: "관리자", id: null, phone: "", verified: true });
     } else {
       setAdminCodeError("관리자 코드가 올바르지 않습니다");
     }

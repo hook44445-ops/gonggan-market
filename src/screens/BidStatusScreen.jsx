@@ -43,7 +43,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   useEffect(() => {
     if (!request?.id) { setLocalBids(propBids ?? []); return; }
     getBidsForRequest(request.id).then(({ data, error }) => {
-      if (error) { console.error("[BidStatusScreen] fetch failed:", error.message); return; }
+      if (error) return;
       if (data) setLocalBids(data.map(normalizeBid));
     });
   }, [request?.id]);

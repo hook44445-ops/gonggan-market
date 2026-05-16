@@ -505,3 +505,57 @@ export const subscribeToContractNotes = (contractId, callback) =>
       filter: `contract_id=eq.${contractId}`,
     }, callback)
     .subscribe();
+
+// ── Admin: list users by role ─────────────────────────────────────────────────
+
+export const getUsers = ({ role } = {}) => {
+  let q = supabase.from("users").select("*").order("created_at", { ascending: false });
+  if (role) q = q.eq("role", role);
+  return q;
+};
+
+// ── Company dashboard: active escrow jobs ─────────────────────────────────────
+
+export const getCompanyActiveJobs = (companyId) =>
+  supabase
+    .from("escrow_payments")
+    .select("*, requests(space_type, area, size)")
+    .eq("company_id", companyId)
+    .not("status", "eq", "completed")
+    .order("created_at", { ascending: false });
+
+// ── Admin: update company doc_status with audit log ───────────────────────────
+
+export const adminReviewCompany = async (companyId, adminId, docStatus, rejectNote = null) => {
+  const { data: prev } = await supabase
+    .from("companies")
+    .select("doc_status, verified")
+    .eq("id", companyId)
+    .single();
+
+  const { data, error } = await supabase
+    .from("companies")
+    .update({
+      doc_status: docStatus,
+      reject_note: rejectNote,
+      reviewed_at: new Date().toISOString(),
+      ...(docStatus === "approved" && { verified: true }),
+    })
+    .eq("id", companyId)
+    .select()
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null,
+      action: docStatus === "approved" ? "APPROVE_COMPANY" : "REJECT_COMPANY",
+      target_type: "company",
+      target_id: companyId,
+      before_val: { doc_status: prev?.doc_status },
+      after_val: { doc_status: docStatus },
+      reason: rejectNote,
+    });
+  }
+
+  return { data, error };
+};
