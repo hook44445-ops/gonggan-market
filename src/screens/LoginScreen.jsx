@@ -80,8 +80,10 @@ export default function LoginScreen({ onLogin }) {
       if (!res.ok) throw new Error(data.error || "인증에 실패했습니다");
 
       if (data.user) {
-        // Existing user: use DB role (overrides pendingRole)
-        const userRole = data.user.role ?? pendingRole ?? "consumer";
+        // Explicit company/admin selection takes precedence over DB role
+        const userRole = (pendingRole === "company" || pendingRole === "admin")
+          ? pendingRole
+          : (data.user.role ?? "consumer");
         onLogin({ ...data.user, role: userRole });
       } else {
         // New user: go to onboarding with pendingRole

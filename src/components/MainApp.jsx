@@ -90,7 +90,7 @@ const normalizeBid = (row) => ({
   status: row.selected ? "selected" : "pending",
 });
 
-export default function MainApp({ user, onLogout, onStartOnboarding }) {
+export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) {
   const mode = user.role === "company" ? "company" : user.role === "admin" ? "admin" : "consumer";
   const [screen, setScreen] = useState("home");
   const [prevScreen, setPrevScreen] = useState("home");
@@ -1051,6 +1051,7 @@ export default function MainApp({ user, onLogout, onStartOnboarding }) {
                   setShowAdminCodeModal(false);
                   setAdminCodeInput("");
                   setAdminCodeError("");
+                  onLogin({ ...user, role: "admin" });
                   setScreen("admin");
                 } else {
                   setAdminCodeError("관리자 코드가 올바르지 않습니다");
