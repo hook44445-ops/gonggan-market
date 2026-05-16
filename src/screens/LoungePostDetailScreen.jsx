@@ -57,10 +57,11 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
     setReplyTo(null);
   };
 
-  // 대화 신청 - 토큰 차감하지 않고 신청만
   const handleChatRequest = () => {
+    const cost = 20;
+    onSpendToken?.('chat_request', cost, '대화 신청');
     setShowChat(false);
-    showToast('💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.');
+    showToast('💬 대화 신청을 보냈어요!');
   };
 
   if (loading || !post) {
@@ -132,10 +133,10 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
         <button
           onClick={isGuest ? () => onRequireLogin?.() : () => setShowChat(true)}
           style={{ width: '100%', padding: S.xl, background: `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 4px 16px ${C.brand}44` }}>
-          {isGuest ? '💬 대화 신청하기 (로그인 필요)' : '💬 대화 신청하기 (수락 시 20토큰)'}
+          {isGuest ? '💬 대화 신청하기 (로그인 필요)' : '💬 대화 신청하기 (20토큰)'}
         </button>
         <div style={{ textAlign: 'center', marginTop: S.sm, fontSize: 11, color: C.text4 }}>
-          신청은 무료 · 상대방이 수락해야 대화방이 열려요
+          신청 즉시 20토큰 차감 · 상대방 수락 시 대화방이 열려요
         </div>
       </div>
 
