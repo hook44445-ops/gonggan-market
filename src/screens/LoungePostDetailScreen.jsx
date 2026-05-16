@@ -10,7 +10,7 @@ import { useState, useRef } from 'react';
 import { C, R, S } from '../constants';
 import { CATEGORY_LABEL, TOKEN_COSTS } from '../constants/lounge';
 import { useLoungePost } from '../hooks/useLounge';
-import { getAnonymousNickname, formatRelativeTime } from '../utils/anonymousNickname';
+import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname } from '../utils/anonymousNickname';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 
@@ -82,6 +82,7 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
   }
 
   const catLabel = CATEGORY_LABEL[post.category] ?? post.category;
+  const postAvatar     = getAnonymousAvatarByNickname(post.anonymous_nickname);
   const topComments    = comments.filter(c => !c.parent_id);
   const replyComments  = comments.filter(c => !!c.parent_id);
 
@@ -94,6 +95,14 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
 
       <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: S.md, flexWrap: 'wrap' }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: '50%',
+            background: postAvatar.color,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 22, flexShrink: 0, boxShadow: `0 2px 8px ${postAvatar.color}55`,
+          }}>
+            {postAvatar.emoji}
+          </div>
           <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>{post.anonymous_nickname}</span>
           <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{catLabel}</span>
           {post.region && <span style={{ fontSize: 11, color: C.text3 }}>📍 {post.region}</span>}

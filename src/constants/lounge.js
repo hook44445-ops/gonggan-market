@@ -43,12 +43,12 @@ export const LOUNGE_CATEGORIES = [
 ];
 
 export const TOKEN_PACKAGES = [
-  { tokens: 25,   bonus: 0,   price: 8800,   badge: null },
-  { tokens: 45,   bonus: 0,   price: 13800,  badge: null },
-  { tokens: 90,   bonus: 10,  price: 24800,  badge: null },
-  { tokens: 200,  bonus: 30,  price: 49800,  badge: '인기' },
-  { tokens: 600,  bonus: 100, price: 128900, badge: null },
-  { tokens: 1100, bonus: 200, price: 228900, badge: '실속' },
+  { tokens: 25,   bonus: 0, price: 8900,   badge: null },
+  { tokens: 45,   bonus: 0, price: 13900,  badge: null },
+  { tokens: 100,  bonus: 0, price: 25900,  badge: null },
+  { tokens: 200,  bonus: 0, price: 45900,  badge: '인기' },
+  { tokens: 600,  bonus: 0, price: 128900, badge: null },
+  { tokens: 1100, bonus: 0, price: 228900, badge: '실속' },
 ];
 
 export const TOKEN_COSTS = {

@@ -28,9 +28,11 @@ export default function TokenPackageCard({ pkg, onBuy }) {
               </span>
             )}
           </div>
-          <div style={{ fontSize: 13, color: isPopular ? 'rgba(255,255,255,0.7)' : C.text3, marginTop: 2 }}>
-            총 {(pkg.tokens + pkg.bonus).toLocaleString()} 토큰
-          </div>
+          {pkg.bonus > 0 && (
+            <div style={{ fontSize: 13, color: isPopular ? 'rgba(255,255,255,0.7)' : C.text3, marginTop: 2 }}>
+              총 {(pkg.tokens + pkg.bonus).toLocaleString()} 토큰
+            </div>
+          )}
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 18, fontWeight: 900, color: isPopular ? '#fff' : C.brand }}>

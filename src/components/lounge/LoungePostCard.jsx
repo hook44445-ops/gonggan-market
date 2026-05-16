@@ -4,11 +4,12 @@
 
 import { C, R, S } from '../../constants';
 import { CATEGORY_LABEL } from '../../constants/lounge';
-import { formatRelativeTime } from '../../utils/anonymousNickname';
+import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 
 export default function LoungePostCard({ post, onClick }) {
   const catLabel = CATEGORY_LABEL[post.category] ?? post.category;
   const isBoosted = post.boost_until && new Date(post.boost_until) > new Date();
+  const avatar = getAnonymousAvatarByNickname(post.anonymous_nickname);
 
   return (
     <div onClick={onClick} style={{
@@ -21,6 +22,14 @@ export default function LoungePostCard({ post, onClick }) {
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: S.sm, flexWrap: 'wrap' }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%',
+          background: avatar.color,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 20, flexShrink: 0, boxShadow: `0 2px 6px ${avatar.color}55`,
+        }}>
+          {avatar.emoji}
+        </div>
         <span style={{ fontWeight: 800, fontSize: 13, color: C.text1 }}>{post.anonymous_nickname}</span>
         <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
           {catLabel}
