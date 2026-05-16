@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getCompanies } from "../lib/supabase";
+import { getActiveCompanies } from "../lib/supabase";
 import { COMPANIES as MOCK_COMPANIES } from "../mock/mockCompanies";
 
 const normalizeRow = (row) => ({
@@ -36,7 +36,7 @@ export function useCompanyList() {
 
   useEffect(() => {
     let cancelled = false;
-    getCompanies()
+    getActiveCompanies()
       .then(({ data, error }) => {
         if (cancelled) return;
         if (!error && Array.isArray(data) && data.length > 0) {

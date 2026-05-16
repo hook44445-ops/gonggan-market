@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { C, R, S } from "../constants";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 
 // Stage status values:
@@ -70,7 +70,7 @@ const TIMELINE_ICONS = {
   dispute:  "⚠️",
 };
 
-export default function EscrowScreen({ onBack, mode, selectedBid }) {
+export default function EscrowScreen({ onBack, mode, selectedBid, contractId, userId }) {
   const isConsumer = mode === "consumer";
   const bidAmount   = selectedBid?.price ?? 0;
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
@@ -110,8 +110,9 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeSubmitted, setDisputeSubmitted] = useState(false);
 
-  const advanceStage = (stageId) => {
+  const advanceStage = async (stageId) => {
     const s = STAGE_META.find(x => x.id === stageId);
+    // Immediate UI update (optimistic)
     setStageStatus(prev => ({
       ...prev,
       [stageId]: "done",
@@ -119,13 +120,53 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
     }));
     setConfirmStage(null);
     if (s?.confirmLabel) addTimeline("confirm", s.confirmLabel);
+
+    // DB updates (fire-and-forget, non-blocking)
+    if (contractId) {
+      // stageId 3→payout 2, 4→payout 3, 5→payout 4
+      const payoutMap = { 3: 2, 4: 3, 5: 4 };
+      const payoutStage = payoutMap[stageId];
+      if (payoutStage) {
+        approveEscrowPayoutByStage(contractId, payoutStage, userId ?? null).catch(() => {});
+      }
+      // On completion, update to SETTLED
+      if (stageId === 5) {
+        updateTransactionStatus(contractId, "SETTLED").catch(() => {});
+        if (selectedBid?.companyId) {
+          updateCompanyTemp(selectedBid.companyId, 2.5).catch(() => {});
+        }
+      }
+      logActivity({
+        userId:     userId ?? null,
+        role:       "consumer",
+        action:     "STEP_APPROVED",
+        targetType: "contract",
+        targetId:   contractId,
+        metadata:   { stage: stageId, label: s?.label },
+      }).catch(() => {});
+    }
   };
 
-  const reportComplete = (stageId) => {
+  const reportComplete = async (stageId) => {
     const s = STAGE_META.find(x => x.id === stageId);
     setStageStatus(prev => ({ ...prev, [stageId]: "pending_customer" }));
     setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
     if (s?.label) addTimeline("photo", s.label);
+
+    if (contractId) {
+      const statusMap = { 3: "STARTED", 4: "MID_INSPECTION", 5: "COMPLETED" };
+      if (statusMap[stageId]) {
+        updateTransactionStatus(contractId, statusMap[stageId]).catch(() => {});
+      }
+      logActivity({
+        userId:     userId ?? null,
+        role:       "company",
+        action:     "STEP_APPROVED",
+        targetType: "contract",
+        targetId:   contractId,
+        metadata:   { stage: stageId, label: s?.label, type: "company_report" },
+      }).catch(() => {});
+    }
   };
 
   const handleFileChange = async (e, stageId) => {
@@ -521,7 +562,25 @@ export default function EscrowScreen({ onBack, mode, selectedBid }) {
             <div style={{ display: "flex", gap: S.sm }}>
               <button onClick={() => setShowDispute(false)} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>취소</button>
               <button
-                onClick={() => { if (!disputeReason.trim()) return; addTimeline("dispute", "이의 신청"); setShowDispute(false); setDisputeSubmitted(true); }}
+                onClick={async () => {
+                  if (!disputeReason.trim()) return;
+                  addTimeline("dispute", "이의 신청");
+                  setShowDispute(false);
+                  setDisputeSubmitted(true);
+                  if (contractId) {
+                    holdAllPayoutsForEscrow(contractId).catch(() => {});
+                    updateTransactionStatus(contractId, "DISPUTE").catch(() => {});
+                    updateDisputeStatus(contractId, "DISPUTE_OPEN").catch(() => {});
+                    logActivity({
+                      userId:     userId ?? null,
+                      role:       "consumer",
+                      action:     "DISPUTE_FILED",
+                      targetType: "contract",
+                      targetId:   contractId,
+                      metadata:   { reason: disputeReason },
+                    }).catch(() => {});
+                  }
+                }}
                 style={{ flex: 2, padding: S.xl, background: disputeReason.trim() ? C.red : C.bgWarm, color: disputeReason.trim() ? "#fff" : C.text4, border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: disputeReason.trim() ? "pointer" : "not-allowed" }}>
                 이의 신청하기
               </button>

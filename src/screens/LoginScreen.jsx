@@ -39,6 +39,12 @@ export default function LoginScreen({ onLogin }) {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [adminCodeError, setAdminCodeError] = useState("");
 
+  // Step 2 bypass state
+  const [step2TapCount, setStep2TapCount] = useState(0);
+  const [showBypassModal, setShowBypassModal] = useState(false);
+  const [bypassCode, setBypassCode] = useState("");
+  const [bypassCodeError, setBypassCodeError] = useState("");
+
   // Consumer onboarding state
   const [consumerStep, setConsumerStep] = useState(1);
   const [name, setName] = useState("");
@@ -153,6 +159,53 @@ export default function LoginScreen({ onLogin }) {
     setLoading(false);
     if (error) return setMsg("❌ 프로필 저장에 실패했습니다");
     onLogin(data || profile);
+  };
+
+  const handleBypassLogin = async () => {
+    if (bypassCode !== "admin1234") {
+      setBypassCodeError("코드가 올바르지 않습니다");
+      return;
+    }
+    setShowBypassModal(false);
+    setBypassCode("");
+    setBypassCodeError("");
+    setLoading(true);
+    try {
+      if (phone.replace(/\D/g, "").length >= 10) {
+        const { data: existing } = await getUserByPhone(toE164(phone));
+        if (existing) {
+          setLoading(false);
+          onLogin({ ...existing, role: pendingRole === "company" ? existing.role || "company" : existing.role || "consumer" });
+          return;
+        }
+        const profile = {
+          name: pendingRole === "company" ? "테스트업체" : "테스트의뢰인",
+          role: pendingRole,
+          region: "서울",
+          phone: toE164(phone),
+        };
+        const { data } = await upsertUserByPhone(profile);
+        onLogin(data || { ...profile, id: null, verified: true });
+      } else {
+        onLogin({
+          role:     pendingRole,
+          name:     pendingRole === "company" ? "테스트업체" : "테스트의뢰인",
+          id:       null,
+          phone:    "",
+          verified: true,
+        });
+      }
+    } catch {
+      onLogin({
+        role:     pendingRole,
+        name:     pendingRole === "company" ? "테스트업체" : "테스트의뢰인",
+        id:       null,
+        phone:    "",
+        verified: true,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleService = (s) =>
@@ -319,6 +372,17 @@ export default function LoginScreen({ onLogin }) {
               📱 입력한 번호로 인증문자가 발송됩니다<br />🔒 번호는 인증 외 목적으로 사용되지 않습니다
             </div>
           )}
+          <div style={{ textAlign: "center", marginTop: 32 }}>
+            <div
+              onClick={() => {
+                const next = step2TapCount + 1;
+                setStep2TapCount(next);
+                if (next >= 5) { setStep2TapCount(0); setShowBypassModal(true); }
+              }}
+              style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
+              공간마켓 v1.0.0
+            </div>
+          </div>
         </div>
       )}
 
@@ -619,6 +683,36 @@ export default function LoginScreen({ onLogin }) {
                 취소
               </button>
               <button onClick={handleAdminCode}
+                style={{ flex: 1, padding: S.lg, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bypass modal (step 2) */}
+      {showBypassModal && step === 2 && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 20 }}>
+          <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 340 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6 }}>
+              {pendingRole === "company" ? "업체" : "의뢰인"} 빠른 진입
+            </div>
+            <div style={{ fontSize: 13, color: C.text3, marginBottom: S.xl }}>코드를 입력하면 SMS 없이 진입합니다</div>
+            <input
+              value={bypassCode}
+              onChange={e => { setBypassCode(e.target.value); setBypassCodeError(""); }}
+              type="password"
+              placeholder="코드 입력"
+              style={{ ...iS, textAlign: "center", letterSpacing: 4, fontSize: 18 }}
+            />
+            {bypassCodeError && <div style={{ color: C.red, fontSize: 12, fontWeight: 600, marginBottom: S.sm }}>{bypassCodeError}</div>}
+            <div style={{ display: "flex", gap: S.sm }}>
+              <button onClick={() => { setShowBypassModal(false); setBypassCode(""); setBypassCodeError(""); }}
+                style={{ flex: 1, padding: S.lg, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                취소
+              </button>
+              <button onClick={handleBypassLogin}
                 style={{ flex: 1, padding: S.lg, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
                 확인
               </button>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, setRequestInProgress } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, createNotification, logActivity } from "../lib/supabase";
 import { calcCustomerFee } from "../utils/calculations";
 
 const DEFAULT_COMPANY = { id: null, name: "—", temp: 0, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
@@ -12,6 +12,8 @@ const normalizeCompany = (row) => ({
   verified: row.verified ?? false, badge: row.badge ?? "basic",
   completedJobs: row.completed_jobs ?? 0, recontractRate: row.recontract_rate ?? 0,
   asRate: row.as_rate ?? 0, region: row.region ?? "", online: row.online ?? false,
+  ownerId: row.owner_id ?? null,
+  companyStatus: row.company_status ?? "PENDING",
 });
 const normalizeBid = (row) => ({
   id: row.id, requestId: row.request_id, companyId: row.company_id,
@@ -179,40 +181,64 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
             <span>🛡</span><span>예치금은 공간마켓이 보관하며 단계별 확인 후 업체에 지급됩니다</span>
           </div>
           <button onClick={async () => {
-            const contract = {
-              id: Date.now(),
-              requestId: selBid.requestId,
-              bidId: selBid.id,
-              totalAmount: customerTotal,
-              customerFee: fee,
-              platformFeeRate: 4,
-              stages: calculateStagePayments(selBid.price),
-              status: "active",
-              createdAt: new Date().toISOString(),
-            };
+            let contractId = null;
 
-            // STEP B: create payment_order (avoid duplicates)
-            if (selBid.id && !selBid.id.toString().startsWith("tmp-")) {
-              const { data: existing } = await getPaymentOrderByBid(selBid.id);
-              if (!existing) {
-                await createPaymentOrder({
-                  bid_id:         selBid.id,
-                  request_id:     request?.id ?? null,
-                  amount:         selBid.price,
-                  customer_fee:   fee,
-                  vat:            Math.round(fee * 0.1),
-                  total_amount:   customerTotal,
-                  payment_method: "escrow",
-                  status:         "PENDING",
+            if (selBid.id && !selBid.id.toString().startsWith("tmp-") && selBid.companyId && request?.id) {
+              // 1. Create escrow record (contract)
+              const { data: escrowData } = await createEscrowRecord({
+                requestId:   request.id,
+                companyId:   selBid.companyId,
+                totalAmount: selBid.price,
+              });
+              if (escrowData) {
+                contractId = escrowData.id;
+                // 2. Create 4 escrow payout stages
+                await createEscrowPayoutsForContract(escrowData.id, selBid.companyId, selBid.price);
+                // 3. Create payment_order linked to escrow (avoid duplicates)
+                const { data: existingOrder } = await getPaymentOrderByBid(selBid.id);
+                if (!existingOrder) {
+                  await createPaymentOrder({
+                    user_id:        request.user_id ?? null,
+                    bid_id:         selBid.id,
+                    request_id:     request.id,
+                    contract_id:    escrowData.id,
+                    amount:         selBid.price,
+                    customer_fee:   fee,
+                    vat:            Math.round(fee * 0.1),
+                    total_amount:   customerTotal,
+                    payment_method: "escrow",
+                    status:         "PAID",
+                  });
+                }
+                // 4. Notify company owner
+                const companyOwnerId = selBid.company?.ownerId ?? null;
+                if (companyOwnerId) {
+                  await createNotification({
+                    userId:      companyOwnerId,
+                    type:        "COMPANY_SELECTED",
+                    title:       "계약 체결!",
+                    message:     `${request?.type ?? "시공"} 요청에서 선택되었습니다. 에스크로 계약이 시작됩니다.`,
+                    relatedId:   escrowData.id,
+                    relatedType: "contract",
+                  });
+                }
+                // 5. Log activity
+                await logActivity({
+                  userId:     request.user_id ?? null,
+                  role:       "consumer",
+                  action:     "CONTRACT_CREATED",
+                  targetType: "contract",
+                  targetId:   escrowData.id,
+                  metadata:   { bidId: selBid.id, companyId: selBid.companyId, amount: selBid.price },
                 });
               }
               // Mark request in-progress
-              if (request?.id) await setRequestInProgress(request.id);
+              await setRequestInProgress(request.id);
             }
 
-            if (setEscrowContracts) setEscrowContracts(prev => [...prev, contract]);
+            if (setEscrowContracts) setEscrowContracts(prev => [...prev, { id: contractId ?? Date.now(), requestId: selBid.requestId, bidId: selBid.id, totalAmount: customerTotal, status: "active", createdAt: new Date().toISOString() }]);
             if (setSelectedBid) setSelectedBid(selBid);
-            if (onEscrow) { onEscrow(selBid); } else { setStep("done"); }
+            if (onEscrow) { onEscrow({ ...selBid, contractId }); } else { setStep("done"); }
           }} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>🔒 {fmtMoney(customerTotal)} 에스크로 예치하기</button>
         </div>
       </div>
