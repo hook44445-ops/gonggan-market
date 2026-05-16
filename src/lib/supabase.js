@@ -281,7 +281,7 @@ export const getContractTimeline = (contractId) =>
 
 // ── STEP 21: Notifications ────────────────────────────────────────────────────
 
-export const createNotification = ({ userId, type, title, message, relatedId, relatedType }) =>
+export const createNotification = ({ userId, type, title, message, relatedId, relatedType, priority = "NORMAL" }) =>
   supabase.from("notifications").insert({
     user_id:      userId,
     type,
@@ -289,6 +289,7 @@ export const createNotification = ({ userId, type, title, message, relatedId, re
     message,
     related_id:   relatedId   ?? null,
     related_type: relatedType ?? null,
+    priority,
   });
 
 export const getUserNotifications = (userId, { unreadOnly = false, limit = 30 } = {}) => {
@@ -638,8 +639,9 @@ export const createEscrowRecord = (data) =>
     step1_deposited_at:  new Date().toISOString(),
   }).select().single();
 
-// Create all 4 escrow payout records for a contract
-export const createEscrowPayoutsForContract = async (escrowId, companyId, totalAmount, feeRate = 0.04) => {
+// STEP M: Create all 4 escrow payout records for a contract (with fee_snapshot)
+export const createEscrowPayoutsForContract = async (escrowId, companyId, totalAmount, feeRate = 0.04, vatRate = 0.1) => {
+  const feeSnapshot = { companyFeeRate: feeRate, vatRate, snapshotAt: new Date().toISOString() };
   const stages = [
     { stage: 1, percent: 10 },
     { stage: 2, percent: 20 },
@@ -649,7 +651,7 @@ export const createEscrowPayoutsForContract = async (escrowId, companyId, totalA
   const payouts = stages.map(s => {
     const amount      = Math.round(totalAmount * s.percent / 100);
     const platformFee = Math.round(amount * feeRate);
-    const vat         = Math.round(platformFee * 0.1);
+    const vat         = Math.round(platformFee * vatRate);
     return {
       escrow_id:    escrowId,
       company_id:   companyId,
@@ -659,6 +661,7 @@ export const createEscrowPayoutsForContract = async (escrowId, companyId, totalA
       platform_fee: platformFee,
       vat,
       net_amount:   amount - platformFee - vat,
+      fee_snapshot: feeSnapshot,
       status:       "PENDING",
     };
   });
@@ -684,3 +687,55 @@ export const approveEscrowPayoutByStage = (escrowId, stage, approvedBy = null) =
     .eq("stage", stage)
     .select()
     .single();
+
+// ── STEP O: ops_config (Emergency Switch) ────────────────────────────────────
+
+export const getOpsConfig = () =>
+  supabase.from("ops_config").select("*").limit(1).single();
+
+export const updateOpsConfig = async (adminId, updates) => {
+  const { data: existing } = await supabase.from("ops_config").select("id").limit(1).single();
+  if (existing?.id) {
+    return supabase.from("ops_config")
+      .update({ ...updates, updated_by: adminId ?? null, updated_at: new Date().toISOString() })
+      .eq("id", existing.id)
+      .select().single();
+  }
+  return supabase.from("ops_config")
+    .insert({ ...updates, updated_by: adminId ?? null })
+    .select().single();
+};
+
+// ── STEP L: customer_reports ──────────────────────────────────────────────────
+
+export const createCustomerReport = ({ reporterId, reportedId, reportType, description, contractId }) =>
+  supabase.from("customer_reports").insert({
+    reporter_id: reporterId ?? null,
+    reported_id: reportedId,
+    report_type: reportType,
+    description: description ?? null,
+    contract_id: contractId ?? null,
+  }).select().single();
+
+export const getCustomerReports = ({ status } = {}) => {
+  let q = supabase.from("customer_reports")
+    .select("*, reporter:reporter_id(name, phone), reported:reported_id(name, phone)")
+    .order("created_at", { ascending: false });
+  if (status) q = q.eq("status", status);
+  return q;
+};
+
+export const updateCustomerReportStatus = (id, status, adminNote = null) =>
+  supabase.from("customer_reports")
+    .update({ status, ...(adminNote && { admin_note: adminNote }) })
+    .eq("id", id)
+    .select().single();
+
+// ── STEP H: payment_transactions ─────────────────────────────────────────────
+
+export const createPaymentTransaction = (data) =>
+  supabase.from("payment_transactions").insert(data).select().single();
+
+export const getPaymentTransactions = (paymentOrderId) =>
+  supabase.from("payment_transactions").select("*").eq("payment_order_id", paymentOrderId)
+    .order("created_at", { ascending: false });

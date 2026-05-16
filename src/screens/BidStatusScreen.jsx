@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, createNotification, logActivity } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, createNotification, logActivity, createPaymentTransaction } from "../lib/supabase";
+
+const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 import { calcCustomerFee } from "../utils/calculations";
 
 const DEFAULT_COMPANY = { id: null, name: "—", temp: 0, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
@@ -162,7 +164,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
         <BidScreenHeader title="에스크로 전액 예치" onBack={goBack} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:4 }}>예치 금액 (에스크로 수수료 3% 포함)</div>
+            <div style={{ fontSize:13, color:C.text3, marginBottom:4 }}>예치 금액 (시공비 + 에스크로 수수료 3%, VAT 별도)</div>
             <div style={{ fontSize:32, fontWeight:900, color:C.text1, marginBottom:4 }}>{fmtMoney(customerTotal)}</div>
             <div style={{ fontSize:11, color:C.text4, marginBottom:S.md }}>시공비 {fmtMoney(selBid.price)} + 수수료 {fmtMoney(fee)}</div>
             {stages.map(({ name, percent, amount }) => (
@@ -180,10 +182,16 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
           <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.md, margin:`${S.xl}px 0`, fontSize:12, color:C.navy, display:"flex", gap:S.sm }}>
             <span>🛡</span><span>예치금은 공간마켓이 보관하며 단계별 확인 후 업체에 지급됩니다</span>
           </div>
+          {SAFE_MODE && (
+            <div style={{ background:"#FBF5E8", borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`, marginBottom:S.md, fontSize:12, color:"#B08040", fontWeight:700, textAlign:"center" }}>
+              🔧 SAFE_MODE: 실제 결제 비활성 (테스트 모드)
+            </div>
+          )}
           <button onClick={async () => {
             let contractId = null;
+            const feeSnapshot = { customerFeeRate: 0.03, companyFeeRate: 0.04, vatRate: 0.1, snapshotAt: new Date().toISOString() };
 
-            if (selBid.id && !selBid.id.toString().startsWith("tmp-") && selBid.companyId && request?.id) {
+            if (!SAFE_MODE && selBid.id && !selBid.id.toString().startsWith("tmp-") && selBid.companyId && request?.id) {
               // 1. Create escrow record (contract)
               const { data: escrowData } = await createEscrowRecord({
                 requestId:   request.id,
@@ -192,12 +200,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
               });
               if (escrowData) {
                 contractId = escrowData.id;
-                // 2. Create 4 escrow payout stages
-                await createEscrowPayoutsForContract(escrowData.id, selBid.companyId, selBid.price);
-                // 3. Create payment_order linked to escrow (avoid duplicates)
+                // 2. Create 4 escrow payout stages (with fee_snapshot)
+                await createEscrowPayoutsForContract(escrowData.id, selBid.companyId, selBid.price, 0.04, 0.1);
+                // 3. Create payment_order (avoid duplicates) with fee_snapshot
                 const { data: existingOrder } = await getPaymentOrderByBid(selBid.id);
                 if (!existingOrder) {
-                  await createPaymentOrder({
+                  const { data: order } = await createPaymentOrder({
                     user_id:        request.user_id ?? null,
                     bid_id:         selBid.id,
                     request_id:     request.id,
@@ -207,10 +215,22 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
                     vat:            Math.round(fee * 0.1),
                     total_amount:   customerTotal,
                     payment_method: "escrow",
+                    fee_snapshot:   feeSnapshot,
                     status:         "PAID",
                   });
+                  // 4. Record payment_transaction
+                  if (order) {
+                    await createPaymentTransaction({
+                      payment_order_id: order.id,
+                      pg_provider:      "toss",
+                      method:           "escrow",
+                      amount:           customerTotal,
+                      status:           "PAID",
+                      approved_at:      new Date().toISOString(),
+                    });
+                  }
                 }
-                // 4. Notify company owner
+                // 5. Notify company owner (CRITICAL priority for contract)
                 const companyOwnerId = selBid.company?.ownerId ?? null;
                 if (companyOwnerId) {
                   await createNotification({
@@ -220,26 +240,30 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
                     message:     `${request?.type ?? "시공"} 요청에서 선택되었습니다. 에스크로 계약이 시작됩니다.`,
                     relatedId:   escrowData.id,
                     relatedType: "contract",
+                    priority:    "HIGH",
                   });
                 }
-                // 5. Log activity
+                // 6. Log activity
                 await logActivity({
                   userId:     request.user_id ?? null,
                   role:       "consumer",
                   action:     "CONTRACT_CREATED",
                   targetType: "contract",
                   targetId:   escrowData.id,
-                  metadata:   { bidId: selBid.id, companyId: selBid.companyId, amount: selBid.price },
+                  metadata:   { bidId: selBid.id, companyId: selBid.companyId, amount: selBid.price, feeSnapshot },
                 });
               }
-              // Mark request in-progress
               await setRequestInProgress(request.id);
+            } else if (SAFE_MODE) {
+              contractId = `safe-${Date.now()}`;
             }
 
             if (setEscrowContracts) setEscrowContracts(prev => [...prev, { id: contractId ?? Date.now(), requestId: selBid.requestId, bidId: selBid.id, totalAmount: customerTotal, status: "active", createdAt: new Date().toISOString() }]);
             if (setSelectedBid) setSelectedBid(selBid);
             if (onEscrow) { onEscrow({ ...selBid, contractId }); } else { setStep("done"); }
-          }} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>🔒 {fmtMoney(customerTotal)} 에스크로 예치하기</button>
+          }} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>
+            {SAFE_MODE ? "🔧 테스트 예치 (SAFE_MODE)" : `🔒 ${fmtMoney(customerTotal)} 에스크로 예치하기`}
+          </button>
         </div>
       </div>
     );

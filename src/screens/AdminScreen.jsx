@@ -10,6 +10,8 @@ import {
   createNotification,
   getUserNotifications,
   getAdminLogs,
+  getOpsConfig,
+  updateOpsConfig,
 } from "../lib/supabase";
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
@@ -175,6 +177,8 @@ export default function AdminScreen({ onBack, user }) {
   const [docModal, setDocModal]             = useState(null); // null | "biz" | "insurance" | "badge"
   const [holdMode, setHoldMode]             = useState(false);
   const [holdNote, setHoldNote]             = useState("");
+  const [opsConfig, setOpsConfig]           = useState({ pause_new_payments: false, pause_new_bids: false, pause_new_approvals: false });
+  const [opsLoading, setOpsLoading]         = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -197,6 +201,18 @@ export default function AdminScreen({ onBack, user }) {
       if (data) setNotifications(data);
     });
   }, [user?.id]);
+
+  useEffect(() => {
+    getOpsConfig().then(({ data }) => { if (data) setOpsConfig(data); }).catch(() => {});
+  }, []);
+
+  const toggleOps = async (field) => {
+    setOpsLoading(true);
+    const next = { ...opsConfig, [field]: !opsConfig[field] };
+    const { data } = await updateOpsConfig(user?.id ?? null, { [field]: next[field] });
+    if (data) setOpsConfig(data);
+    setOpsLoading(false);
+  };
 
   const stats = {
     pending:    companies.filter(c => c.status === "pending").length,
@@ -370,11 +386,11 @@ export default function AdminScreen({ onBack, user }) {
                     </div>
                   ))}
                 </div>
-                <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}` }}>
+                <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, marginBottom: S.lg }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: S.md }}>🛡 공간마켓 운영 현황</div>
                   {[
-                    ["플랫폼 수수료 (고객)", "3% + VAT"],
-                    ["플랫폼 수수료 (업체)", "4% + VAT"],
+                    ["플랫폼 수수료 (고객)", "3% (VAT 별도)"],
+                    ["플랫폼 수수료 (업체)", "4% (VAT 별도)"],
                     ["에스크로 구조",        "10/20/40/30"],
                     ["초기 파트너 혜택",     "수수료 동일 · 배지 우선"],
                   ].map(([k, v]) => (
@@ -382,6 +398,36 @@ export default function AdminScreen({ onBack, user }) {
                       padding: `${S.xs}px 0`, borderBottom: `1px solid ${C.trustM}` }}>
                       <span style={{ fontSize: 13, color: C.text3 }}>{k}</span>
                       <span style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* STEP O — Emergency Switch */}
+                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `2px solid ${C.red}33` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginBottom: S.lg }}>
+                    <span style={{ fontSize: 18 }}>🚨</span>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.red }}>긴급 운영 스위치</div>
+                    {opsLoading && <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>저장 중...</span>}
+                  </div>
+                  {[
+                    ["pause_new_payments",  "💳 신규 결제 중지",    "결제 버튼 비활성화"],
+                    ["pause_new_bids",      "📋 신규 입찰 중지",    "업체 입찰 제한"],
+                    ["pause_new_approvals", "✅ 신규 승인 중지",    "업체 가입 심사 중지"],
+                  ].map(([field, label, sub]) => (
+                    <div key={field} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{label}</div>
+                        <div style={{ fontSize: 11, color: C.text4 }}>{sub}</div>
+                      </div>
+                      <button
+                        onClick={() => toggleOps(field)}
+                        disabled={opsLoading}
+                        style={{ padding: "6px 16px", borderRadius: R.full, border: "none", fontWeight: 700, fontSize: 13, cursor: opsLoading ? "not-allowed" : "pointer",
+                          background: opsConfig[field] ? C.red : C.bgWarm,
+                          color: opsConfig[field] ? "#fff" : C.text3 }}>
+                        {opsConfig[field] ? "중지 중" : "정상"}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -663,7 +709,7 @@ export default function AdminScreen({ onBack, user }) {
                   {showStatusModal && (
                     <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S.sm, marginBottom: S.sm }}>
-                        {["ACTIVE","PAUSED","SUSPENDED","BLACKLISTED"].map(st => {
+                        {["ACTIVE","PAUSED","TEMP_RESTRICTED","SUSPENDED","BLACKLISTED"].map(st => {
                           const m = COMPANY_STATUS_META[st];
                           return (
                             <button key={st}

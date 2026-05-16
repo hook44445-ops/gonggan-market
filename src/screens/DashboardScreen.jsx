@@ -187,8 +187,8 @@ export default function DashboardScreen({ onBack, onEscrow, allRequests: allRequ
               marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.md }}>💸 수수료 구조 안내</div>
               {[
-                ["에스크로 이용료", "고객 3%", "고객 예치금에 포함"],
-                ["플랫폼 수수료",   "업체 4%", "정산 시 자동 차감"],
+                ["에스크로 이용료", "고객 3% (VAT 별도)", "고객 예치금에 포함"],
+                ["플랫폼 수수료",   "업체 4% (VAT 별도)", "정산 시 자동 차감"],
                 ["보증금 비율",     "보험 미가입 30%", "보험 가입 시 20%"],
               ].map(([label, val, sub]) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between",
@@ -201,10 +201,13 @@ export default function DashboardScreen({ onBack, onEscrow, allRequests: allRequ
                   <span style={{ fontSize: 13, fontWeight: 800, color: C.brand }}>{val}</span>
                 </div>
               ))}
+              <div style={{ marginTop: S.sm, fontSize: 11, color: C.text4 }}>
+                * 수수료는 VAT 별도 (부가세 10% 추가)
+              </div>
               {thisMonthRevenue > 0 && (
-                <div style={{ marginTop: S.md, background: C.brandL, borderRadius: R.md,
+                <div style={{ marginTop: S.sm, background: C.brandL, borderRadius: R.md,
                   padding: `${S.sm}px ${S.md}px`, fontSize: 12, color: C.brand, fontWeight: 700 }}>
-                  💡 이번 달 수수료 추산: {Math.round(thisMonthRevenue * 0.04).toLocaleString()}만원 차감
+                  💡 이번 달 수수료 추산: {Math.round(thisMonthRevenue * 0.044).toLocaleString()}만원 차감 (VAT 포함)
                 </div>
               )}
             </div>

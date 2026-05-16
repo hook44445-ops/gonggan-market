@@ -1,7 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 
 // Stage status values:
@@ -95,14 +95,29 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
   const fileInputRef5 = useRef(null);
   const fileInputRefs = { 3: fileInputRef3, 4: fileInputRef4, 5: fileInputRef5 };
 
-  // Timeline
+  // Timeline — start with local entry; DB entries loaded when contractId present
   const [timeline, setTimeline] = useState([
     { id: 1, type: "contract", label: "계약 완료 · 자재비 선지급 (10%)", ts: Date.now() - 2 * 24 * 3600 * 1000 },
   ]);
 
   const addTimeline = (type, label) => {
-    setTimeline(prev => [...prev, { id: prev.length + 1, type, label, ts: Date.now() }]);
+    setTimeline(prev => [...prev, { id: Date.now(), type, label, ts: Date.now() }]);
   };
+
+  // Load DB timeline when contractId is available
+  useEffect(() => {
+    if (!contractId) return;
+    getContractTimeline(contractId).then(({ data }) => {
+      if (!data || data.length === 0) return;
+      const mapped = data.map(row => {
+        const a = row.action ?? "";
+        const type = a.includes("DISPUTE") ? "dispute" : a.includes("PHOTO") ? "photo" : a.includes("STEP") ? "confirm" : "contract";
+        const label = (row.metadata?.label) ?? a.replace(/_/g, " ");
+        return { id: row.id, type, label, ts: new Date(row.created_at).getTime() };
+      });
+      setTimeline(mapped);
+    }).catch(() => {});
+  }, [contractId]);
 
   // Modals
   const [confirmStage, setConfirmStage] = useState(null);
@@ -238,6 +253,21 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 40px` }}>
 
+        {/* STEP J — Dispute freeze banner */}
+        {disputeSubmitted && (
+          <div style={{ background: "#FFF0F0", border: `2px solid ${C.red}44`, borderRadius: R.lg,
+            padding: S.lg, marginBottom: S.lg, display: "flex", alignItems: "flex-start", gap: S.sm }}>
+            <span style={{ fontSize: 22, flexShrink: 0 }}>⚠️</span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.red, marginBottom: 3 }}>분쟁 접수 — 계약 일시 동결</div>
+              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6 }}>
+                이의 신청이 접수되어 모든 단계 승인 및 지급이 동결됩니다.<br />
+                공간마켓 중재팀이 검토 후 연락드립니다 (영업일 1~2일).
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Role banner */}
         <div style={{
           background: isConsumer ? C.brandL : C.surface2,
@@ -257,7 +287,7 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
         <div style={{ background: `linear-gradient(135deg,${C.navy},${C.navyM})`, borderRadius: R.xl, padding: S.xxl, marginBottom: S.xl, color: "#fff" }}>
           {isConsumer ? (
             <>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>총 예치 금액 (시공비 + 안전거래 수수료 3% VAT 포함)</div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>총 예치 금액 (시공비 + 안전거래 수수료 3%, VAT 별도)</div>
               <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(customerTotal)}</div>
               <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>고객 예치 완료 · 단계별로 업체에 지급됩니다</div>
             </>
@@ -368,9 +398,9 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
                             style={{ flex: 1, padding: "11px", background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                             📁 사진 선택
                           </button>
-                          <button onClick={() => reportComplete(s.id)} disabled={isUploadingThis || photos.length === 0}
-                            style={{ flex: 2, padding: "11px", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: photos.length > 0 ? "pointer" : "not-allowed", border: "none", background: photos.length > 0 ? C.brand : C.bgWarm, color: photos.length > 0 ? "#fff" : C.text4, boxShadow: photos.length > 0 ? `0 4px 14px ${C.brand}44` : "none" }}>
-                            {isUploadingThis ? "업로드 중..." : "고객에게 전송하기"}
+                          <button onClick={() => !disputeSubmitted && reportComplete(s.id)} disabled={isUploadingThis || photos.length === 0 || disputeSubmitted}
+                            style={{ flex: 2, padding: "11px", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: photos.length > 0 && !disputeSubmitted ? "pointer" : "not-allowed", border: "none", background: photos.length > 0 && !disputeSubmitted ? C.brand : C.bgWarm, color: photos.length > 0 && !disputeSubmitted ? "#fff" : C.text4, boxShadow: photos.length > 0 && !disputeSubmitted ? `0 4px 14px ${C.brand}44` : "none" }}>
+                            {disputeSubmitted ? "🔒 분쟁 동결 중" : isUploadingThis ? "업로드 중..." : "고객에게 전송하기"}
                           </button>
                         </div>
                         <input ref={fileInputRefs[s.id]} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => handleFileChange(e, s.id)} />
@@ -430,9 +460,14 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
                         </div>
                       )}
                       <div style={{ display: "flex", gap: S.sm }}>
-                        <button onClick={() => setShowDispute(true)} style={{ flex: 1, padding: "11px", background: C.surface, color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>⚠️ 이의 신청</button>
-                        <button onClick={() => setConfirmStage(s.id)} style={{ flex: 2, padding: "11px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: `0 4px 14px ${C.brand}44` }}>
-                          ✅ {s.confirmLabel}
+                        {!disputeSubmitted && (
+                          <button onClick={() => setShowDispute(true)} style={{ flex: 1, padding: "11px", background: C.surface, color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>⚠️ 이의 신청</button>
+                        )}
+                        <button
+                          onClick={() => !disputeSubmitted && setConfirmStage(s.id)}
+                          disabled={disputeSubmitted}
+                          style={{ flex: 2, padding: "11px", background: disputeSubmitted ? C.bgWarm : C.brand, color: disputeSubmitted ? C.text4 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: disputeSubmitted ? "not-allowed" : "pointer", boxShadow: disputeSubmitted ? "none" : `0 4px 14px ${C.brand}44` }}>
+                          {disputeSubmitted ? "🔒 분쟁 동결 중" : `✅ ${s.confirmLabel}`}
                         </button>
                       </div>
                     </div>
@@ -578,6 +613,16 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
                       targetType: "contract",
                       targetId:   contractId,
                       metadata:   { reason: disputeReason },
+                    }).catch(() => {});
+                    // STEP R: notify admin with CRITICAL priority
+                    createNotification({
+                      userId:      null,
+                      type:        "DISPUTE_FILED",
+                      title:       "분쟁 접수",
+                      message:     `계약 ${contractId} 에서 분쟁이 접수되었습니다.`,
+                      relatedId:   contractId,
+                      relatedType: "contract",
+                      priority:    "CRITICAL",
                     }).catch(() => {});
                   }
                 }}

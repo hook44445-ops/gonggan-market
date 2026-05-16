@@ -3,7 +3,32 @@ import { C, R, S, REVIEW_TAGS } from "../constants";
 import { Stars } from "./common";
 import { calcTempDelta } from "../utils/calculations";
 
-export default function ReviewModal({ onClose, onSubmit }) {
+// STEP P: contractStatus must be 'COMPLETED' or 'SETTLED', no active dispute
+export default function ReviewModal({ onClose, onSubmit, contractStatus, hasActiveDispute }) {
+  if (hasActiveDispute) {
+    return (
+      <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:200 }}>
+        <div style={{ background:"#FFF0F0", borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"32px 24px 48px", textAlign:"center" }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>⚠️</div>
+          <div style={{ fontSize:17, fontWeight:800, color:"#D63030", marginBottom:8 }}>분쟁 진행 중</div>
+          <div style={{ fontSize:13, color:"#7A8A7E", lineHeight:1.7, marginBottom:24 }}>분쟁이 진행 중인 계약에는 후기를 작성할 수 없습니다.<br />분쟁 해결 후 작성 가능합니다.</div>
+          <button onClick={onClose} style={{ padding:"14px 40px", background:"#D63030", color:"#fff", border:"none", borderRadius:12, fontWeight:800, fontSize:15, cursor:"pointer" }}>확인</button>
+        </div>
+      </div>
+    );
+  }
+  if (contractStatus && !["COMPLETED","SETTLED"].includes(contractStatus)) {
+    return (
+      <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:200 }}>
+        <div style={{ background:"#F8F5F0", borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"32px 24px 48px", textAlign:"center" }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>🔒</div>
+          <div style={{ fontSize:17, fontWeight:800, color:"#1F2A24", marginBottom:8 }}>아직 후기를 남길 수 없어요</div>
+          <div style={{ fontSize:13, color:"#7A8A7E", lineHeight:1.7, marginBottom:24 }}>공사가 완료되고 정산이 끝난 후 후기를 작성할 수 있습니다.</div>
+          <button onClick={onClose} style={{ padding:"14px 40px", background:"#2E5F4B", color:"#fff", border:"none", borderRadius:12, fontWeight:800, fontSize:15, cursor:"pointer" }}>확인</button>
+        </div>
+      </div>
+    );
+  }
   const [step, setStep]         = useState(1);
   const [rating, setRating]     = useState(0);
   const [hover, setHover]       = useState(0);
