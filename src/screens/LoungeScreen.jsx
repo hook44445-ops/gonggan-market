@@ -48,34 +48,28 @@ export default function LoungeScreen({ user, onPostClick, onWrite, onStoryUpload
 
       <LoungeStoryBar stories={stories} onStoryClick={() => {}} />
 
-      <div style={{ padding: `${S.md}px ${S.xl}px` }}>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
-            <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
-          </div>
-        ) : posts.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-            <div style={{ fontSize: 14, color: C.text3 }}>아직 게시글이 없어요</div>
-            {isLoggedIn && (
-              <button onClick={() => onWrite?.('post')} style={{ marginTop: S.xl, padding: '12px 24px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
-                첫 글 작성하기
-              </button>
-            )}
-          </div>
-        ) : (
-          posts.map(post => (
-            <LoungePostCard key={post.id} post={post} onClick={() => {
-              if (!isLoggedIn) {
-                onPostClick?.(post);
-                return;
-              }
-              onPostClick?.(post);
-            }} />
-          ))
-        )}
-      </div>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+          <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
+        </div>
+      ) : posts.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+          <div style={{ fontSize: 14, color: C.text3 }}>아직 게시글이 없어요</div>
+          {isLoggedIn && (
+            <button onClick={() => onWrite?.('post')} style={{ marginTop: S.xl, padding: '12px 24px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+              첫 글 작성하기
+            </button>
+          )}
+        </div>
+      ) : (
+        <div style={{ background: C.surface }}>
+          {posts.map(post => (
+            <LoungePostCard key={post.id} post={post} onClick={() => onPostClick?.(post)} />
+          ))}
+        </div>
+      )}
 
       <button onClick={handleWriteClick} style={{
         position: 'fixed', right: S.xl, bottom: 80, width: 56, height: 56,
