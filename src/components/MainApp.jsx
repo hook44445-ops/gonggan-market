@@ -131,8 +131,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [favTab, setFavTab] = useState("received");
 
   // ── 라운지 상태 ──────────────────────────────────────────────────────────────
-  const [loungePost, setLoungePost]       = useState(null);
-  const [localLoungePosts, setLocalLoungePosts] = useState([]);
+  const [loungePost, setLoungePost]             = useState(null);
+  const [localLoungePosts, setLocalLoungePosts]   = useState([]);
+  const [localLoungeStories, setLocalLoungeStories] = useState([]);
   const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
   const { temperature } = useSpaceTemperature(user?.id);
 
@@ -811,6 +812,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <LoungeScreen
             user={user}
             extraPosts={localLoungePosts}
+            extraStories={localLoungeStories}
             onPostClick={(post) => { setLoungePost(post); go("lounge-detail"); }}
             onWrite={() => requireAuth(() => go("lounge-write"))}
             onStoryUpload={() => requireAuth(() => go("lounge-story"))}
@@ -830,6 +832,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {screen==="lounge-detail" && loungePost && (
           <LoungePostDetailScreen
             postId={loungePost.id}
+            initialPost={loungePost}
             user={user}
             tokenBalance={tokenBalance}
             onBack={() => setScreen("lounge")}
@@ -843,7 +846,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <LoungeStoryUploadScreen
             user={user}
             onBack={() => setScreen("lounge")}
-            onPublish={() => { showToast("📸 스토리가 공유됐어요! (24시간)"); setScreen("lounge"); }}
+            onPublish={(story) => { if (story) setLocalLoungeStories(prev => [story, ...prev]); showToast("📸 스토리가 공유됐어요! (24시간)"); setScreen("lounge"); }}
           />
         )}
 

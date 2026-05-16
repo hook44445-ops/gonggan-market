@@ -10,8 +10,9 @@ import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname 
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 
-export default function LoungePostDetailScreen({ postId, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin }) {
-  const { post, comments, loading, addComment, likeComment } = useLoungePost(postId);
+export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin }) {
+  const { post: foundPost, comments, loading, addComment, likeComment } = useLoungePost(postId);
+  const post = foundPost ?? initialPost ?? null;
   const [commentText, setCommentText]   = useState('');
   const [replyTo,     setReplyTo]       = useState(null);
   const [liked,       setLiked]         = useState(false);
@@ -64,7 +65,7 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
     showToast('💬 대화 신청을 보냈어요!');
   };
 
-  if (loading || !post) {
+  if (loading && !post) {
     return (
       <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>

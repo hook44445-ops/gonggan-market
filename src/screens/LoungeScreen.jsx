@@ -133,7 +133,7 @@ function NotifPanel({ onClose, onGoSettings }) {
 }
 
 // ── 메인 스크린 ────────────────────────────────────────
-export default function LoungeScreen({ user, extraPosts = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage }) {
+export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage }) {
   const [category,        setCategory]        = useState('all');
   const [showWriteOptions, setShowWriteOptions] = useState(false);
   const [searchOpen,      setSearchOpen]       = useState(false);
@@ -187,7 +187,7 @@ export default function LoungeScreen({ user, extraPosts = [], onPostClick, onWri
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
 
-      <LoungeStoryBar stories={stories} onStoryClick={() => {}} />
+      <LoungeStoryBar stories={[...extraStories, ...stories]} onStoryClick={() => {}} />
 
       {/* 인기 탭 안내 배너 */}
       {isPopular && (
