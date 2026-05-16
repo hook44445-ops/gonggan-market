@@ -10,9 +10,19 @@ import EscrowScreen from "../screens/EscrowScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import BidStatusScreen from "../screens/BidStatusScreen";
 import AdminScreen from "../screens/AdminScreen";
+import LoungeScreen from "../screens/LoungeScreen";
+import LoungeWriteScreen from "../screens/LoungeWriteScreen";
+import LoungePostDetailScreen from "../screens/LoungePostDetailScreen";
+import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
+import TokenStoreScreen from "../screens/TokenStoreScreen";
+import TokenHistoryScreen from "../screens/TokenHistoryScreen";
 import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
+import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
+import { useSpaceToken } from "../hooks/useSpaceToken";
+import { useSpaceTemperature } from "../hooks/useSpaceTemperature";
+import { MOCK_LOUNGE_POSTS } from "../constants/lounge";
 import {
   supabase,
   getRequests,
@@ -96,6 +106,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [screen, setScreen] = useState(() => {
     if (user.role === "admin") return "admin";
     if (user.role === "company") return "dashboard";
+    if (user.startAt) return user.startAt;
     return "home";
   });
   const [prevScreen, setPrevScreen] = useState("home");
@@ -115,6 +126,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
+
+  // ── 관심 탭 ──────────────────────────────────────────────────────────────────
+  const [favTab, setFavTab] = useState("companies");
+
+  // ── 라운지 상태 ──────────────────────────────────────────────────────────────
+  const [loungePost, setLoungePost] = useState(null); // 현재 상세 조회 중인 게시글
+  const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
+  const { temperature } = useSpaceTemperature(user?.id);
 
   // Admin hidden entry
   const [adminTapCount, setAdminTapCount] = useState(0);
@@ -229,9 +248,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
+  const [showLoginRequired, setShowLoginRequired] = useState(false);
+
   const showToast = msg => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
+  };
+
+  // 게스트 상태에서 로그인이 필요한 액션을 막는 헬퍼
+  const requireAuth = (action) => {
+    if (user.isGuest) { setShowLoginRequired(true); return; }
+    action();
   };
 
   const addBid = async (request, bidData) => {
@@ -305,13 +332,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (screen === "dashboard" && user.role !== "company") setScreen("home");
   }, [screen, user.role]);
 
-  const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin"].includes(screen);
-  const NO_PAD = ["escrow","dashboard","timeline"].includes(screen);
+  const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
+  const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NAV = mode === "admin"
-    ? [["📋","관리","admin"],["👤","마이","my"]]
+    ? [["📋","관리","admin"],["💬","라운지","lounge"],["👤","마이","my"]]
     : mode === "consumer"
-    ? [["🏠","홈","home"],["🗺","지도","map"],["💬","채팅","chatlist"],["👤","마이","my"]]
-    : [["📋","요청","home"],["🗺","지도","map"],["💬","채팅","chatlist"],["👤","내정보","my"]];
+    ? [["🏠","홈","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","마이","my"]]
+    : [["📋","요청","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","내정보","my"]];
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
@@ -577,6 +604,28 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <button onClick={() => setScreen("map")} style={{ fontSize:13, background:"none", border:"none", cursor:"pointer", color:C.brand, fontWeight:700 }}>지도로 보기 →</button>
             </div>
             {companies.map(c => <CompanyCard key={c.id} company={c} onClick={() => go("portfolio",c)} />)}
+
+            {/* 라운지 섹션 — 둘러보기 하단 */}
+            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.xl, border:`1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.lg }}>라운지</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.lg }}>
+                {MOCK_LOUNGE_POSTS.slice(0,3).map(post => (
+                  <div key={post.id} onClick={() => { setLoungePost(post); go("lounge-detail"); }}
+                    style={{ background:C.bg, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
+                    <div style={{ flex:1, minWidth:0, marginRight:S.md }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                        {post.title ?? post.content.slice(0,30)}
+                      </div>
+                    </div>
+                    <div style={{ fontSize:12, color:C.text3, flexShrink:0 }}>❤️ {post.like_count}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setScreen("lounge")}
+                style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand}44` }}>
+                라운지 들어가기 →
+              </button>
+            </div>
           </div>
         )}
 
@@ -757,6 +806,64 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         )}
         {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} user={user} />}
 
+        {screen==="lounge" && (
+          <LoungeScreen
+            user={user}
+            onPostClick={(post) => { setLoungePost(post); go("lounge-detail"); }}
+            onWrite={() => requireAuth(() => go("lounge-write"))}
+            onStoryUpload={() => requireAuth(() => go("lounge-story"))}
+            onRequireLogin={() => setShowLoginRequired(true)}
+            onGoMyPage={() => setScreen("my")}
+          />
+        )}
+
+        {screen==="lounge-write" && (
+          <LoungeWriteScreen
+            user={user}
+            onBack={() => setScreen("lounge")}
+            onPublish={(post) => { showToast("✅ 글이 등록됐어요!"); earnToken("first_post"); setScreen("lounge"); }}
+          />
+        )}
+
+        {screen==="lounge-detail" && loungePost && (
+          <LoungePostDetailScreen
+            postId={loungePost.id}
+            user={user}
+            tokenBalance={tokenBalance}
+            onBack={() => setScreen("lounge")}
+            onSpendToken={(action, amount, desc) => spendToken(action, amount, desc)}
+            onTokenStore={() => requireAuth(() => go("token-store"))}
+            onRequireLogin={() => setShowLoginRequired(true)}
+          />
+        )}
+
+        {screen==="lounge-story" && (
+          <LoungeStoryUploadScreen
+            user={user}
+            onBack={() => setScreen("lounge")}
+            onPublish={() => { showToast("📸 스토리가 공유됐어요! (24시간)"); setScreen("lounge"); }}
+          />
+        )}
+
+        {screen==="token-store" && (
+          <TokenStoreScreen
+            user={user}
+            balance={tokenBalance}
+            logs={tokenLogs}
+            onBack={() => setScreen(prevScreen || "my")}
+            onEarnToken={(action) => earnToken(action)}
+            onHistory={() => go("token-history")}
+          />
+        )}
+
+        {screen==="token-history" && (
+          <TokenHistoryScreen
+            balance={tokenBalance}
+            logs={tokenLogs}
+            onBack={() => setScreen("token-store")}
+          />
+        )}
+
         {screen==="chatlist" && (
           <div>
             <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:S.xl }}>채팅</div>
@@ -836,6 +943,58 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {screen==="favorites" && (
+          <div>
+            <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:S.xl }}>관심</div>
+
+            {/* 탭: 하트 관련 내용만 */}
+            <div style={{ display:"flex", background:C.bg, borderRadius:R.lg, padding:4, marginBottom:S.xl }}>
+              {[["❤️ 좋아요한 글","likes"],["📸 스토리 하트","stories"]].map(([label,id]) => (
+                <button key={id} onClick={() => setFavTab(id)} style={{ flex:1, padding:"10px 4px", border:"none", borderRadius:R.md, background:favTab===id?C.surface:"transparent", color:favTab===id?C.brand:C.text3, fontWeight:favTab===id?800:500, fontSize:13, cursor:"pointer", transition:"background 0.15s" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {favTab === "likes" && (
+              <div>
+                <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
+                  <div style={{ fontSize:52, marginBottom:12 }}>❤️</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>좋아요한 글이 없어요</div>
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
+                    라운지 글에 ❤️를 누르면<br/>여기서 모아볼 수 있어요
+                  </div>
+                  <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                    라운지 가기
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {favTab === "stories" && (
+              <div>
+                <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
+                  <div style={{ fontSize:52, marginBottom:12 }}>📸</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>하트 누른 스토리가 없어요</div>
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
+                    마음에 드는 스토리에 ❤️를 누르면<br/>24시간 동안 여기서 볼 수 있어요
+                  </div>
+                  <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                    라운지 가기
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.lg, border:`1px solid ${C.bgWarm}`, marginTop:S.md }}>
+              <div style={{ fontSize:12, color:C.text3, lineHeight:1.8 }}>
+                💡 저장한 글·내가 쓴 글·토큰 내역은<br/>
+                <span style={{ color:C.brand, fontWeight:700, cursor:"pointer" }} onClick={() => setScreen("my")}>마이페이지 › 라운지</span> 에서 볼 수 있어요
+              </div>
+            </div>
           </div>
         )}
 
@@ -945,6 +1104,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               );
             })()}
 
+            <LoungeMyPageSection
+              user={user}
+              temperature={temperature}
+              balance={tokenBalance}
+              onNavigate={(target) => {
+                if (target === "token-store")        { requireAuth(() => go("token-store")); }
+                else if (target === "token-history") { requireAuth(() => go("token-history")); }
+                else { showToast("준비 중인 기능이에요"); }
+              }}
+            />
+
             {user.role==="consumer" && (
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>내 견적 이력</div>
@@ -1040,6 +1210,38 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
       {toast && (
         <div style={{ position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:C.brand, color:"#fff", borderRadius:R.full, padding:"12px 22px", fontSize:13, fontWeight:700, boxShadow:`0 8px 24px ${C.brand}44`, zIndex:200, whiteSpace:"nowrap" }}>{toast}</div>
+      )}
+
+      {showLoginRequired && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:500 }}
+          onClick={() => setShowLoginRequired(false)}>
+          <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
+            <div style={{ textAlign:"center", marginBottom:S.xxl }}>
+              <div style={{ fontSize:40, marginBottom:12 }}>🔒</div>
+              <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:8 }}>로그인이 필요해요</div>
+              <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>
+                글쓰기, 댓글, 대화 신청, 토큰 사용 등<br/>
+                라운지 활동은 로그인 후 이용할 수 있어요.
+              </div>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:S.sm }}>
+              <button onClick={() => { setShowLoginRequired(false); onLogout(); }}
+                style={{ width:"100%", padding:S.xl, background:`linear-gradient(135deg,${C.brand},${C.brandD})`, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                🏡 의뢰인으로 시작
+              </button>
+              <button onClick={() => { setShowLoginRequired(false); onLogout(); }}
+                style={{ width:"100%", padding:S.xl, background:C.surface, color:C.brand, border:`2px solid ${C.brandM}`, borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer" }}>
+                🔨 업체로 시작
+              </button>
+              <button onClick={() => setShowLoginRequired(false)}
+                style={{ width:"100%", padding:"12px", background:"none", border:"none", color:C.text3, fontWeight:700, fontSize:14, cursor:"pointer", marginTop:S.xs }}>
+                계속 둘러보기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showAdminCodeModal && (
