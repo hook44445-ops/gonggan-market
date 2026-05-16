@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import CompanyOnboarding from "./CompanyOnboarding";
+import ExploreScreen from "./ExploreScreen";
 import { upsertUserByPhone } from "../lib/supabase";
 
 const toE164 = (phone) => {
@@ -16,6 +17,7 @@ const SERVICE_ICONS = {
 };
 
 export default function LoginScreen({ onLogin }) {
+  const [exploring, setExploring] = useState(false);
   const [step, setStep] = useState(1);
   const [pendingRole, setPendingRole] = useState(null);
   const [phone, setPhone] = useState("");
@@ -143,6 +145,15 @@ export default function LoginScreen({ onLogin }) {
     </div>
   );
 
+  if (exploring) {
+    return (
+      <ExploreScreen
+        onBack={() => setExploring(false)}
+        onStart={(role) => { setExploring(false); chooseRole(role); }}
+      />
+    );
+  }
+
   return (
     <div style={{
       minHeight: "100vh", background: C.bg,
@@ -213,6 +224,20 @@ export default function LoginScreen({ onLogin }) {
                 <div style={{ fontSize: 13, color: C.text3 }}>견적 의뢰를 받고 일감을 늘려요</div>
               </div>
               <div style={{ marginLeft: "auto", color: C.brand, fontSize: 20 }}>›</div>
+            </button>
+
+            <button onClick={() => setExploring(true)}
+              style={{
+                background: C.surface2, border: `1.5px solid ${C.bgWarm}`,
+                borderRadius: R.xl, padding: "14px 20px",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                cursor: "pointer", boxShadow: "0 2px 8px rgba(28,23,18,0.06)",
+              }}>
+              <span style={{ fontSize: 18 }}>🔍</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text2 }}>로그인 없이 둘러보기</div>
+                <div style={{ fontSize: 12, color: C.text4 }}>신뢰지표 · 에스크로 · 배지 · 업체 미리보기</div>
+              </div>
             </button>
           </div>
         </div>
