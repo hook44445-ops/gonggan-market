@@ -1146,10 +1146,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               user={user}
               temperature={temperature}
               balance={tokenBalance}
+              tokenLogs={tokenLogs}
+              myPosts={localLoungePosts}
               onNavigate={(target) => {
                 if (target === "token-store")        { requireAuth(() => go("token-store")); }
                 else if (target === "token-history") { requireAuth(() => go("token-history")); }
-                else { showToast("준비 중인 기능이에요"); }
               }}
             />
 

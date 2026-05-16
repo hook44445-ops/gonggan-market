@@ -17,7 +17,12 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [commentText, setCommentText]   = useState('');
   const [replyTo,     setReplyTo]       = useState(null);
   const [liked,       setLiked]         = useState(false);
-  const [saved,       setSaved]         = useState(false);
+  const [saved,       setSaved]         = useState(() => {
+    try {
+      const saves = JSON.parse(localStorage.getItem('lounge_saved_posts') ?? '[]');
+      return saves.some(s => s.id === postId);
+    } catch { return false; }
+  });
   const [showChat,    setShowChat]      = useState(false);
   const [chatSending, setChatSending]   = useState(false);
   const [chatSent,    setChatSent]      = useState(false);
@@ -59,8 +64,24 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       created_at:         new Date().toISOString(),
     };
     addComment(newComment);
+    handleCommentSubmit(commentText.trim());
     setCommentText('');
     setReplyTo(null);
+  };
+
+  const handleSaveToggle = () => {
+    if (!post) return;
+    const next = !saved;
+    setSaved(next);
+    try {
+      const key = 'lounge_saved_posts';
+      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+      const updated = next
+        ? [{ id: post.id, title: post.title, content: post.content?.slice(0, 80), category: post.category, anonymous_nickname: post.anonymous_nickname, created_at: post.created_at, has_badge: post.has_badge }, ...prev.filter(s => s.id !== post.id)]
+        : prev.filter(s => s.id !== post.id);
+      localStorage.setItem(key, JSON.stringify(updated));
+    } catch {}
+    showToast(next ? '🔖 저장됐어요' : '저장이 취소됐어요');
   };
 
   // 대화 신청: 신청 자체 무료, 수락 시 20토큰 차감
@@ -71,7 +92,23 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setChatSending(false);
     setChatSent(true);
     setShowChat(false);
+    try {
+      const key = 'lounge_chat_requests';
+      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+      prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), nickname: post?.anonymous_nickname, sentAt: new Date().toISOString() });
+      localStorage.setItem(key, JSON.stringify(prev.slice(0, 50)));
+    } catch {}
     showToast('💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.');
+  };
+
+  const handleCommentSubmit = (text) => {
+    if (!user?.id || !text.trim()) return;
+    try {
+      const key = 'lounge_my_comments';
+      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+      prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), content: text.trim(), createdAt: new Date().toISOString() });
+      localStorage.setItem(key, JSON.stringify(prev.slice(0, 100)));
+    } catch {}
   };
 
   const handleReport = (reason) => {
@@ -157,7 +194,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
             {liked ? '❤️' : '🤍'} {(post.like_count ?? 0) + (liked ? 1 : 0)}
           </button>
-          <button onClick={() => setSaved(!saved)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
+          <button onClick={handleSaveToggle} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
             {saved ? '🔖' : '📄'} 저장
           </button>
           <button onClick={() => setReportTarget({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
