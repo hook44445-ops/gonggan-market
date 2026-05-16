@@ -15,7 +15,12 @@ export function useLounge(category = 'all') {
     setTimeout(() => {
       let filtered = [...MOCK_LOUNGE_POSTS];
       if (category === 'popular') {
-        filtered = filtered.sort((a, b) => b.like_count - a.like_count);
+        // 조회수 우선, 동점 시 관심(좋아요) 순
+        filtered = filtered.sort((a, b) =>
+          b.view_count !== a.view_count
+            ? b.view_count - a.view_count
+            : b.like_count - a.like_count
+        );
       } else if (category !== 'all') {
         filtered = filtered.filter(p => p.category === category);
       }

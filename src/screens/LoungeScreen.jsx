@@ -144,6 +144,7 @@ export default function LoungeScreen({ user, onPostClick, onWrite, onStoryUpload
 
   const isGuest    = !user?.id || user?.isGuest;
   const isLoggedIn = !isGuest;
+  const isPopular  = category === 'popular'; // 인기 탭은 읽기 전용
 
   const handleWriteClick = () => {
     if (isGuest) { onRequireLogin?.(); return; }
@@ -188,6 +189,14 @@ export default function LoungeScreen({ user, onPostClick, onWrite, onStoryUpload
 
       <LoungeStoryBar stories={stories} onStoryClick={() => {}} />
 
+      {/* 인기 탭 안내 배너 */}
+      {isPopular && (
+        <div style={{ background: C.brandL, borderLeft: `3px solid ${C.brand}`, padding: `${S.sm}px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.sm }}>
+          <span style={{ fontSize: 14 }}>🔥</span>
+          <span style={{ fontSize: 12, color: C.brand, fontWeight: 600 }}>조회수·관심 순 인기 글 모음 — 읽기·댓글·관심만 가능해요</span>
+        </div>
+      )}
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
@@ -211,14 +220,14 @@ export default function LoungeScreen({ user, onPostClick, onWrite, onStoryUpload
         </div>
       )}
 
-      {/* FAB */}
-      <button onClick={handleWriteClick} style={{
+      {/* FAB — 인기 탭에서는 숨김 */}
+      {!isPopular && <button onClick={handleWriteClick} style={{
         position: 'fixed', right: S.xl, bottom: 80, width: 56, height: 56,
         borderRadius: R.full, background: C.brand, color: '#fff',
         border: 'none', fontSize: 24, cursor: 'pointer',
         boxShadow: `0 4px 16px ${C.brand}66`, zIndex: 20,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>+</button>
+      }}>+</button>}
 
       {/* 글쓰기 선택 */}
       {showWriteOptions && (
