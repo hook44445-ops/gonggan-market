@@ -17,6 +17,7 @@ import { COMPANIES } from "../mock/mockCompanies";
 import {
   supabase,
   getRequests,
+  getUserRequests,
   createRequest,
   closeRequest,
   createBid,
@@ -33,6 +34,7 @@ const normalizeCompany = (row) => ({
   temp: row.temp ?? 70,
   verified: row.verified ?? false,
   badge: row.badge ?? "basic",
+  hasInsurance: row.has_insurance ?? false,
   completedJobs: row.completed_jobs ?? 0,
   recontractRate: row.recontract_rate ?? 0,
   asRate: row.as_rate ?? 0,
@@ -134,43 +136,52 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (error) console.error("[request] close failed:", error.message);
   };
 
-  // Load all requests on mount (home screen data)
+  // Load requests on mount
+  // Consumer: server-side filter by userId; Company/Admin: load all open requests for bidding
   useEffect(() => {
-    getRequests().then(({ data, error }) => {
-      if (error) { console.error("[requests] load failed:", error.message); return; }
-      if (data) {
-        const normalized = data.map(normalizeRequest);
-        // Auto-close any open requests that have passed the 7-day window
-        normalized
-          .filter(r => r.status === "open" && r.isExpiredByTime)
-          .forEach(r => closeRequest(r.id));
-        // Apply closed state locally for expired rows
-        const withExpiry = normalized.map(r =>
-          r.status === "open" && r.isExpiredByTime
-            ? { ...r, status: "closed", isActive: false, isClosed: true }
-            : r
-        );
-        setCustomerRequests(withExpiry);
-        if (user.id) {
-          const mine = withExpiry.filter(r => r.user_id === user.id);
-          // Enforce one-active-request rule: close all but the most recent active request
-          const activeOwn = mine.filter(r => r.isActive)
+    const applyExpiry = (rows) => {
+      const normalized = rows.map(normalizeRequest);
+      normalized
+        .filter(r => r.status === "open" && r.isExpiredByTime)
+        .forEach(r => closeRequest(r.id));
+      return normalized.map(r =>
+        r.status === "open" && r.isExpiredByTime
+          ? { ...r, status: "closed", isActive: false, isClosed: true }
+          : r
+      );
+    };
+
+    if (user.role === "consumer" && user.id) {
+      // Consumers only see their own requests (server-side filter)
+      getUserRequests(user.id).then(({ data, error }) => {
+        if (error) return;
+        if (data) {
+          const withExpiry = applyExpiry(data);
+          const activeOwn = withExpiry.filter(r => r.isActive)
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           if (activeOwn.length > 1) {
             activeOwn.slice(1).forEach(r => closeRequest(r.id));
             const keepId = activeOwn[0].id;
-            const cleaned = mine.map(r =>
+            setMyRequests(withExpiry.map(r =>
               r.isActive && r.id !== keepId
                 ? { ...r, status: "closed", isActive: false, isClosed: true }
                 : r
-            );
-            setMyRequests(cleaned);
+            ));
           } else {
-            setMyRequests(mine);
+            setMyRequests(withExpiry);
           }
         }
-      }
-    });
+      });
+    } else {
+      // Company / Admin: fetch all open requests for the bidding list
+      getRequests().then(({ data, error }) => {
+        if (error) return;
+        if (data) {
+          const withExpiry = applyExpiry(data);
+          setCustomerRequests(withExpiry);
+        }
+      });
+    }
   }, []);
 
   // Load company profile from Supabase for authenticated company users
@@ -793,11 +804,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:4 }}>{r.type} · {r.size}</div>
                   <div style={{ fontSize:12, color:C.text3, marginBottom:S.xl }}>📍 {r.area} · 💰 {r.budget}</div>
                   {[
-                    { label:"견적 요청 완료",    sub:"인근 업체에 공개됨",           done:true,  time:r.time },
-                    { label:`업체 ${Math.floor(Math.random()*4)+1}곳 입찰`, sub:"업체 프로필 확인 후 선택", done:true, time:"방금", bidStep:true },
-                    { label:"업체 선택",          sub:"계약 및 에스크로 예치",        done:false, active:true },
-                    { label:"시공 진행",           sub:"중간 점검 사진 공유",          done:false },
-                    { label:"시공 완료",           sub:"잔금 지급 및 후기 작성",       done:false },
+                    { label:"견적 요청",    sub:"요청 등록 완료",             done:true,  time:r.time },
+                    { label:"업체 선택",   sub:"입찰 비교 후 계약",            done:false, active:true, bidStep:true },
+                    { label:"공사 진행",   sub:"착공 ~ 중간점검",              done:false },
+                    { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",        done:false },
                   ].map((step, i, arr) => (
                     <div key={step.label} style={{ display:"flex", gap:S.md, marginBottom: i<arr.length-1?S.lg:0 }}>
                       <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
@@ -817,13 +827,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                         {step.bidStep && (
                           <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                             style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
-                            🔔 입찰 현황 비교하기 →
-                          </button>
-                        )}
-                        {step.active && (
-                          <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
-                            style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer" }}>
-                            업체 선택하기 →
+                            🔔 입찰 비교 후 업체 선택 →
                           </button>
                         )}
                       </div>
@@ -900,8 +904,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🏦 보증금 현황</div>
                 <CompanyDepositCard
-                  badge={user.badge ?? "standard"}
-                  hasInsurance={user.insurance ?? false}
+                  badge={currentUser?.badge ?? user.badge ?? "standard"}
+                  hasInsurance={currentUser?.hasInsurance ?? user.insurance ?? false}
                   onUpgrade={(next) => showToast(`${next.label} 업그레이드 신청이 접수됐어요!`)}
                 />
               </div>

@@ -151,7 +151,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
             early_partner_benefit_until: (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString(); })(),
             fee_rate: 0.04,
           });
-          onDone(userRow || profile);
+          onDone({ ...(userRow || profile), badge: form.badge, has_insurance: form.hasInsurance });
         }}
         style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff",
           border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
