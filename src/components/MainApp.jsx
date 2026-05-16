@@ -28,18 +28,19 @@ import { useCompanyList } from "../hooks/useCompanyList";
 // ── normalizers: DB row → local shape ─────────────────────────────────────────
 
 const normalizeCompany = (row) => ({
-  id: row.id,
-  name: row.name ?? "업체",
-  temp: row.temp ?? 70,
-  verified: row.verified ?? false,
-  badge: row.badge ?? "basic",
-  hasInsurance: row.has_insurance ?? false,
+  id:            row.id,
+  name:          row.name ?? "업체",
+  temp:          row.temp ?? 70,
+  verified:      row.verified ?? false,
+  badge:         row.badge ?? "basic",
+  hasInsurance:  row.has_insurance ?? false,
   completedJobs: row.completed_jobs ?? 0,
   recontractRate: row.recontract_rate ?? 0,
-  asRate: row.as_rate ?? 0,
-  region: row.region ?? "",
-  online: row.online ?? false,
-  specialties: row.specialties ?? [],
+  asRate:        row.as_rate ?? 0,
+  region:        row.region ?? "",
+  online:        row.online ?? false,
+  specialties:   row.specialties ?? [],
+  companyStatus: row.company_status ?? "PENDING",
 });
 
 const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -233,6 +234,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   const addBid = async (request, bidData) => {
+    if (currentUser?.companyStatus && currentUser.companyStatus !== "ACTIVE") {
+      showToast("현재 업체 상태에서는 입찰할 수 없습니다. 관리자 승인 후 이용 가능합니다.");
+      return;
+    }
     if (request.id?.startsWith("tmp-")) {
       showToast("견적 요청이 저장 중입니다. 잠시 후 다시 시도해주세요");
       return;

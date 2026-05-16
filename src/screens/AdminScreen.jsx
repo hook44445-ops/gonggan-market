@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { BADGES } from "../constants/badges";
+import { COMPANY_STATUS_META } from "../constants";
 import {
   getCompanies,
   getUsers,
   adminReviewCompany,
+  adminSetCompanyStatus,
   createNotification,
 } from "../lib/supabase";
 
@@ -15,13 +17,14 @@ const STATUS_MAP = {
 };
 
 const normalizeCompany = (row) => ({
-  id:         row.id,
-  name:       row.name ?? "업체",
-  badge:      row.badge ?? "basic",
-  temp:       row.temp ?? 70,
-  phone:      row.phone ?? "",
-  ownerId:    row.owner_id ?? null,
-  submittedAt: row.created_at
+  id:            row.id,
+  name:          row.name ?? "업체",
+  badge:         row.badge ?? "basic",
+  temp:          row.temp ?? 70,
+  phone:         row.phone ?? "",
+  ownerId:       row.owner_id ?? null,
+  companyStatus: row.company_status ?? "PENDING",
+  submittedAt:   row.created_at
     ? new Date(row.created_at).toLocaleDateString("ko-KR")
     : "",
   status: row.doc_status === "draft" ? "pending" : (row.doc_status ?? "pending"),
@@ -57,7 +60,9 @@ export default function AdminScreen({ onBack, user }) {
   const [rejectMode, setRejectMode]     = useState(false);
   const [rejectNote, setRejectNote]     = useState("");
   const [confirm, setConfirm]           = useState(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [actionLoading, setActionLoading]   = useState(false);
+  const [statusReason, setStatusReason]     = useState("");
+  const [showStatusModal, setShowStatusModal] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -135,10 +140,37 @@ export default function AdminScreen({ onBack, user }) {
     setConfirm(null);
   };
 
+  const handleCompanyStatus = async (company, newStatus) => {
+    setActionLoading(true);
+    const { error } = await adminSetCompanyStatus(company.id, user?.id ?? null, newStatus, statusReason || null);
+    if (!error) {
+      setCompanies(prev => prev.map(c =>
+        c.id === company.id ? { ...c, companyStatus: newStatus } : c
+      ));
+      if (selected?.id === company.id) setSelected(prev => ({ ...prev, companyStatus: newStatus }));
+      if (company.ownerId) {
+        const meta = COMPANY_STATUS_META[newStatus];
+        await createNotification({
+          userId:      company.ownerId,
+          type:        "COMPANY_STATUS_CHANGED",
+          title:       `업체 상태 변경: ${meta?.label ?? newStatus}`,
+          message:     statusReason || `${company.name} 업체 상태가 ${meta?.label ?? newStatus}로 변경되었습니다.`,
+          relatedId:   company.id,
+          relatedType: "company",
+        });
+      }
+    }
+    setActionLoading(false);
+    setShowStatusModal(false);
+    setStatusReason("");
+  };
+
   const openDetail = (company) => {
     setSelected(company);
     setRejectMode(false);
     setRejectNote("");
+    setShowStatusModal(false);
+    setStatusReason("");
   };
 
   const MAIN_TABS = [
@@ -419,6 +451,50 @@ export default function AdminScreen({ onBack, user }) {
               <span style={{ fontSize: 12, color: C.text3 }}>신청일</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: C.text1 }}>{selected.submittedAt}</span>
             </div>
+
+            {/* Company operational status */}
+            {(() => {
+              const csMeta = COMPANY_STATUS_META[selected.companyStatus] ?? COMPANY_STATUS_META.PENDING;
+              return (
+                <div style={{ marginBottom: S.xl }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>운영 상태</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                    background: csMeta.bg, borderRadius: R.lg, padding: `${S.sm}px ${S.lg}px`,
+                    border: `1px solid ${csMeta.color}44`, marginBottom: S.sm }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: csMeta.color }}>{csMeta.label}</span>
+                    <button onClick={() => setShowStatusModal(v => !v)}
+                      style={{ fontSize: 11, fontWeight: 700, color: C.brand, background: "none", border: "none", cursor: "pointer" }}>
+                      상태 변경 ▾
+                    </button>
+                  </div>
+                  {showStatusModal && (
+                    <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S.sm, marginBottom: S.sm }}>
+                        {["ACTIVE","PAUSED","SUSPENDED","BLACKLISTED"].map(st => {
+                          const m = COMPANY_STATUS_META[st];
+                          return (
+                            <button key={st}
+                              onClick={() => handleCompanyStatus(selected, st)}
+                              disabled={actionLoading || selected.companyStatus === st}
+                              style={{ padding: "10px", borderRadius: R.md, border: `1.5px solid ${m.color}44`,
+                                background: selected.companyStatus === st ? m.bg : C.surface,
+                                color: m.color, fontWeight: 700, fontSize: 12, cursor: "pointer",
+                                opacity: selected.companyStatus === st ? 0.6 : 1 }}>
+                              {m.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <input value={statusReason} onChange={e => setStatusReason(e.target.value)}
+                        placeholder="변경 사유 (선택)"
+                        style={{ width: "100%", padding: "10px 12px", borderRadius: R.md,
+                          border: `1px solid ${C.bgWarm}`, fontSize: 12, outline: "none",
+                          boxSizing: "border-box", fontFamily: "inherit", background: C.surface }} />
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Actions for pending */}
             {selected.status === "pending" && (

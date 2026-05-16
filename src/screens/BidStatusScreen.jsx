@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, setRequestInProgress } from "../lib/supabase";
+import { calcCustomerFee } from "../utils/calculations";
 
 const DEFAULT_COMPANY = { id: null, name: "—", temp: 0, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
 
@@ -177,7 +178,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
           <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.md, margin:`${S.xl}px 0`, fontSize:12, color:C.navy, display:"flex", gap:S.sm }}>
             <span>🛡</span><span>예치금은 공간마켓이 보관하며 단계별 확인 후 업체에 지급됩니다</span>
           </div>
-          <button onClick={() => {
+          <button onClick={async () => {
             const contract = {
               id: Date.now(),
               requestId: selBid.requestId,
@@ -189,6 +190,26 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
               status: "active",
               createdAt: new Date().toISOString(),
             };
+
+            // STEP B: create payment_order (avoid duplicates)
+            if (selBid.id && !selBid.id.toString().startsWith("tmp-")) {
+              const { data: existing } = await getPaymentOrderByBid(selBid.id);
+              if (!existing) {
+                await createPaymentOrder({
+                  bid_id:         selBid.id,
+                  request_id:     request?.id ?? null,
+                  amount:         selBid.price,
+                  customer_fee:   fee,
+                  vat:            Math.round(fee * 0.1),
+                  total_amount:   customerTotal,
+                  payment_method: "escrow",
+                  status:         "PENDING",
+                });
+              }
+              // Mark request in-progress
+              if (request?.id) await setRequestInProgress(request.id);
+            }
+
             if (setEscrowContracts) setEscrowContracts(prev => [...prev, contract]);
             if (setSelectedBid) setSelectedBid(selBid);
             if (onEscrow) { onEscrow(selBid); } else { setStep("done"); }
