@@ -110,6 +110,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [submittedBids, setSubmittedBids] = useState([]);
   const [selectedBid, setSelectedBid] = useState(null);
   const [escrowContracts, setEscrowContracts] = useState([]);
+  const [contractId, setContractId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
@@ -739,13 +740,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} />}
-        {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} mode={mode} selectedBid={selectedBid} currentUser={currentUser} />}
+        {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} mode={mode} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
             onBack={() => setScreen("home")}
             onChat={c => go("chat",c)}
-            onEscrow={(bid) => { setSelectedBid(bid); go("escrow"); }}
+            onEscrow={(bid) => { setSelectedBid(bid); if (bid?.contractId) setContractId(bid.contractId); go("escrow"); }}
             bids={bidViewRequestId ? submittedBids.filter(b => b.requestId === bidViewRequestId) : []}
             submittedBids={submittedBids}
             request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null}

@@ -8,6 +8,8 @@ import {
   adminReviewCompany,
   adminSetCompanyStatus,
   createNotification,
+  getUserNotifications,
+  getAdminLogs,
 } from "../lib/supabase";
 
 const STATUS_MAP = {
@@ -63,6 +65,10 @@ export default function AdminScreen({ onBack, user }) {
   const [actionLoading, setActionLoading]   = useState(false);
   const [statusReason, setStatusReason]     = useState("");
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [notifications, setNotifications]   = useState([]);
+  const [docModal, setDocModal]             = useState(null); // null | "biz" | "insurance" | "badge"
+  const [holdMode, setHoldMode]             = useState(false);
+  const [holdNote, setHoldNote]             = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -78,6 +84,13 @@ export default function AdminScreen({ onBack, user }) {
       }),
     ]).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    getUserNotifications(user.id, { limit: 50 }).then(({ data }) => {
+      if (data) setNotifications(data);
+    });
+  }, [user?.id]);
 
   const stats = {
     pending:    companies.filter(c => c.status === "pending").length,
@@ -171,14 +184,18 @@ export default function AdminScreen({ onBack, user }) {
     setRejectNote("");
     setShowStatusModal(false);
     setStatusReason("");
+    setHoldMode(false);
+    setHoldNote("");
+    setDocModal(null);
   };
 
   const MAIN_TABS = [
-    ["dashboard",   "대시보드"],
-    ["companies",   "업체관리"],
-    ["customers",   "고객관리"],
-    ["disputes",    "분쟁관리"],
-    ["settlements", "정산관리"],
+    ["dashboard",      "대시보드"],
+    ["companies",      "업체관리"],
+    ["customers",      "고객관리"],
+    ["disputes",       "분쟁관리"],
+    ["settlements",    "정산관리"],
+    ["notifications",  "알림"],
   ];
 
   return (
@@ -391,6 +408,59 @@ export default function AdminScreen({ onBack, user }) {
                 <div style={{ fontSize: 13, color: C.text3 }}>에스크로 정산 내역은 거래 완료 시 표시됩니다</div>
               </div>
             )}
+
+            {/* ── Notifications ── */}
+            {mainTab === "notifications" && (
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
+                  알림 <span style={{ color: C.brand }}>{notifications.length}건</span>
+                </div>
+                {notifications.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>🔔</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>새 알림이 없습니다</div>
+                  </div>
+                ) : notifications.map(n => (
+                  <div key={n.id}
+                    style={{ background: n.is_read ? C.surface : C.brandL, borderRadius: R.xl,
+                      padding: S.xl, marginBottom: S.sm,
+                      border: `1px solid ${n.is_read ? C.bgWarm : C.brandM}`, cursor: "pointer" }}
+                    onClick={() => {
+                      if (n.related_type === "company") setMainTab("companies");
+                      if (n.related_type === "dispute") setMainTab("disputes");
+                    }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.xs }}>
+                      <div style={{ fontSize: 14, fontWeight: n.is_read ? 600 : 800, color: C.text1 }}>{n.title}</div>
+                      {!n.is_read && <div style={{ width: 8, height: 8, borderRadius: "50%", background: C.brand, flexShrink: 0, marginTop: 4 }} />}
+                    </div>
+                    <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6 }}>{n.message}</div>
+                    <div style={{ fontSize: 11, color: C.text4, marginTop: S.xs }}>
+                      {new Date(n.created_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Derived activity: recent pending companies */}
+                {companies.filter(c => c.status === "pending").length > 0 && (
+                  <div style={{ marginTop: S.xl }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text2, marginBottom: S.md }}>📋 최근 심사 대기</div>
+                    {companies.filter(c => c.status === "pending").map(c => (
+                      <div key={c.id}
+                        onClick={() => { setMainTab("companies"); openDetail(c); }}
+                        style={{ background: C.surface, borderRadius: R.xl, padding: `${S.md}px ${S.xl}px`,
+                          marginBottom: S.sm, border: `1px solid ${C.bgWarm}`,
+                          display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{c.name}</div>
+                          <div style={{ fontSize: 11, color: C.text3 }}>신규 업체 가입 · {c.submittedAt}</div>
+                        </div>
+                        <span style={{ background: "#FBF5E8", color: C.gold, borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>심사대기</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -400,7 +470,7 @@ export default function AdminScreen({ onBack, user }) {
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
             display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 200 }}
-          onClick={e => { if (e.target === e.currentTarget) { setSelected(null); setRejectMode(false); } }}>
+          onClick={e => { if (e.target === e.currentTarget) { setSelected(null); setRejectMode(false); setHoldMode(false); setDocModal(null); } }}>
           <div style={{ background: C.surface, borderRadius: "24px 24px 0 0", width: "100%",
             maxWidth: 480, padding: "24px 24px 40px", maxHeight: "88vh", overflowY: "auto" }}>
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 20px" }} />
@@ -423,6 +493,10 @@ export default function AdminScreen({ onBack, user }) {
                     <div style={{ fontSize: 22, fontWeight: 900, color: C.navy }}>{selected.deposit.toLocaleString()}만원</div>
                     <div style={{ fontSize: 11, color: C.text4 }}>납부 보증금</div>
                     <div style={{ fontSize: 11, color: bm.color, fontWeight: 700, marginTop: 2 }}>최대 {bm.maxJob} 수주</div>
+                    <button onClick={() => setDocModal("badge")}
+                      style={{ fontSize: 11, color: C.brand, background: "none", border: "none", cursor: "pointer", fontWeight: 700, marginTop: 4, textDecoration: "underline" }}>
+                      배지 상세 ›
+                    </button>
                   </div>
                 </div>
               );
@@ -433,10 +507,19 @@ export default function AdminScreen({ onBack, user }) {
               marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📄 제출 서류</div>
               {selected.docs.map((doc, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: `${S.sm}px 0`,
-                  borderBottom: i < selected.docs.length - 1 ? `1px solid ${C.bgWarm}` : "none" }}>
-                  <span style={{ fontSize: 13, color: C.text2 }}>{doc.label}</span>
+                <div key={i}
+                  onClick={() => {
+                    if (!doc.submitted) return;
+                    if (i === 0) setDocModal("biz");
+                    if (i === 1) setDocModal("insurance");
+                  }}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: `${S.sm}px 0`,
+                    borderBottom: i < selected.docs.length - 1 ? `1px solid ${C.bgWarm}` : "none",
+                    cursor: doc.submitted && i < 2 ? "pointer" : "default" }}>
+                  <span style={{ fontSize: 13, color: C.text2 }}>
+                    {doc.label} {doc.submitted && i < 2 ? "›" : ""}
+                  </span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: doc.submitted ? C.green : C.red }}>
                     {doc.submitted ? "✓ 제출" : "✗ 미제출"}
                   </span>
@@ -499,20 +582,76 @@ export default function AdminScreen({ onBack, user }) {
             {/* Actions for pending */}
             {selected.status === "pending" && (
               !rejectMode ? (
-                <div style={{ display: "flex", gap: S.sm }}>
-                  <button onClick={() => setRejectMode(true)} disabled={actionLoading}
-                    style={{ flex: 1, padding: "13px", background: "#FFF0F0", color: C.red,
-                      border: `1px solid ${C.red}33`, borderRadius: R.lg,
-                      fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-                    ✗ 반려
-                  </button>
-                  <button onClick={() => setConfirm({ type: "approve", company: selected })} disabled={actionLoading}
-                    style={{ flex: 2, padding: "13px", background: C.green, color: "#fff",
-                      border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14,
-                      cursor: "pointer", boxShadow: `0 4px 14px ${C.green}44` }}>
-                    ✓ 승인하기
-                  </button>
-                </div>
+                !holdMode ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: S.sm }}>
+                    <button onClick={() => setRejectMode(true)} disabled={actionLoading}
+                      style={{ padding: "13px", background: "#FFF0F0", color: C.red,
+                        border: `1px solid ${C.red}33`, borderRadius: R.lg,
+                        fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                      ✗ 반려
+                    </button>
+                    <button onClick={() => setHoldMode(true)} disabled={actionLoading}
+                      style={{ padding: "13px", background: "#FBF5E8", color: C.gold,
+                        border: `1px solid ${C.gold}44`, borderRadius: R.lg,
+                        fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                      ⏸ 보류
+                    </button>
+                    <button onClick={() => setConfirm({ type: "approve", company: selected })} disabled={actionLoading}
+                      style={{ padding: "13px", background: C.green, color: "#fff",
+                        border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14,
+                        cursor: "pointer", boxShadow: `0 4px 14px ${C.green}44` }}>
+                      ✓ 승인하기
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: S.sm }}>보류 사유 입력</div>
+                    <textarea
+                      value={holdNote}
+                      onChange={e => setHoldNote(e.target.value)}
+                      placeholder="보류 사유를 입력하세요 (서류 보완 요청 등)"
+                      style={{ width: "100%", padding: S.lg, borderRadius: R.lg, border: `1px solid ${C.bgWarm}`,
+                        background: C.surface2, fontSize: 13, color: C.text1, resize: "none", height: 80,
+                        boxSizing: "border-box", marginBottom: S.md, outline: "none", fontFamily: "inherit", lineHeight: 1.6 }}
+                    />
+                    <div style={{ display: "flex", gap: S.sm }}>
+                      <button onClick={() => { setHoldMode(false); setHoldNote(""); }}
+                        style={{ flex: 1, padding: "13px", background: C.bg, color: C.text2,
+                          border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                        취소
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!holdNote.trim()) return;
+                          setActionLoading(true);
+                          const { error } = await adminReviewCompany(selected.id, user?.id ?? null, "pending", holdNote);
+                          if (!error) {
+                            if (selected.ownerId) {
+                              await createNotification({
+                                userId:      selected.ownerId,
+                                type:        "ADMIN_ACTION",
+                                title:       "서류 검토 보류",
+                                message:     `${selected.name} 업체 서류가 보류되었습니다. 사유: ${holdNote}`,
+                                relatedId:   selected.id,
+                                relatedType: "company",
+                              });
+                            }
+                          }
+                          setActionLoading(false);
+                          setHoldMode(false);
+                          setHoldNote("");
+                        }}
+                        disabled={actionLoading}
+                        style={{ flex: 2, padding: "13px",
+                          background: holdNote.trim() ? C.gold : C.bgWarm,
+                          color: holdNote.trim() ? "#fff" : C.text4,
+                          border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14,
+                          cursor: holdNote.trim() ? "pointer" : "not-allowed" }}>
+                        보류 처리하기
+                      </button>
+                    </div>
+                  </div>
+                )
               ) : (
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: S.sm }}>반려 사유 입력</div>
@@ -567,6 +706,107 @@ export default function AdminScreen({ onBack, user }) {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Biz cert modal */}
+      {docModal === "biz" && selected && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}
+          onClick={() => setDocModal(null)}>
+          <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 360 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>📄 사업자등록증</div>
+            {[
+              ["상호명",   selected.name],
+              ["전화번호", selected.phone || "—"],
+              ["서류 상태", selected.docs[0]?.submitted ? "✓ 제출 완료" : "✗ 미제출"],
+              ["검토 상태", selected.status === "approved" ? "승인" : selected.status === "rejected" ? "반려" : "검토 대기"],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
+                <span style={{ fontSize: 13, color: C.text3 }}>{k}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{v}</span>
+              </div>
+            ))}
+            <div style={{ marginTop: S.xl, background: C.brandL, borderRadius: R.lg, padding: S.md, fontSize: 12, color: C.brand }}>
+              실제 서류 내용은 업로드된 원본 파일을 확인하세요
+            </div>
+            <button onClick={() => setDocModal(null)}
+              style={{ width: "100%", marginTop: S.lg, padding: S.lg, background: C.bg,
+                color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Insurance modal */}
+      {docModal === "insurance" && selected && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}
+          onClick={() => setDocModal(null)}>
+          <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 360 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>🛡 시공보험증서</div>
+            {[
+              ["업체명",   selected.name],
+              ["보험 가입", selected.docs[1]?.submitted ? "✓ 가입 완료" : "✗ 미가입"],
+              ["보증금 할인", selected.docs[1]?.submitted ? "20% 적용" : "미적용 (30% 기준)"],
+              ["검토 상태", selected.status === "approved" ? "승인" : selected.status === "rejected" ? "반려" : "검토 대기"],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
+                <span style={{ fontSize: 13, color: C.text3 }}>{k}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{v}</span>
+              </div>
+            ))}
+            <div style={{ marginTop: S.xl, background: C.brandL, borderRadius: R.lg, padding: S.md, fontSize: 12, color: C.brand }}>
+              보험증권 원본은 업로드된 파일에서 확인하세요
+            </div>
+            <button onClick={() => setDocModal(null)}
+              style={{ width: "100%", marginTop: S.lg, padding: S.lg, background: C.bg,
+                color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Badge modal */}
+      {docModal === "badge" && selected && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}
+          onClick={() => setDocModal(null)}>
+          <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 360 }}
+            onClick={e => e.stopPropagation()}>
+            {(() => {
+              const bm2 = BADGES[selected.badge] || BADGES.basic;
+              return (
+                <>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>🏆 공간보증 배지</div>
+                  {[
+                    ["배지 등급",      `${bm2.icon} ${bm2.label}`],
+                    ["가능 공사 금액", bm2.maxJob],
+                    ["필요 보증금",    `${selected.deposit.toLocaleString()}만원`],
+                    ["보험 제출 여부", selected.docs[1]?.submitted ? "✓ 제출" : "✗ 미제출"],
+                    ["승인 상태",      selected.status === "approved" ? "✓ 승인" : selected.status === "rejected" ? "✗ 반려" : "검토 중"],
+                  ].map(([k, v]) => (
+                    <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                      padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
+                      <span style={{ fontSize: 13, color: C.text3 }}>{k}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{v}</span>
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
+            <button onClick={() => setDocModal(null)}
+              style={{ width: "100%", marginTop: S.lg, padding: S.lg, background: C.bg,
+                color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              닫기
+            </button>
           </div>
         </div>
       )}

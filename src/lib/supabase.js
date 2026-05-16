@@ -103,7 +103,7 @@ export const createBid = (data) =>
 export const getBidsForRequest = (requestId) =>
   supabase
     .from("bids")
-    .select("*")
+    .select("*, companies(id, name, temp, verified, badge, completed_jobs, recontract_rate, as_rate, region, online, owner_id, company_status, has_insurance)")
     .eq("request_id", requestId)
     .order("price", { ascending: true });
 
@@ -625,3 +625,62 @@ export const setRequestInProgress = (requestId) =>
 
 export const getCompanyStatus = (companyId) =>
   supabase.from("companies").select("company_status").eq("id", companyId).single();
+
+// ── STEP B: Escrow record creation ────────────────────────────────────────────
+
+export const createEscrowRecord = (data) =>
+  supabase.from("escrow_payments").insert({
+    request_id:          data.requestId ?? null,
+    company_id:          data.companyId ?? null,
+    total_amount:        data.totalAmount,
+    transaction_status:  "CONTRACTED",
+    status:              "deposited",
+    step1_deposited_at:  new Date().toISOString(),
+  }).select().single();
+
+// Create all 4 escrow payout records for a contract
+export const createEscrowPayoutsForContract = async (escrowId, companyId, totalAmount, feeRate = 0.04) => {
+  const stages = [
+    { stage: 1, percent: 10 },
+    { stage: 2, percent: 20 },
+    { stage: 3, percent: 40 },
+    { stage: 4, percent: 30 },
+  ];
+  const payouts = stages.map(s => {
+    const amount      = Math.round(totalAmount * s.percent / 100);
+    const platformFee = Math.round(amount * feeRate);
+    const vat         = Math.round(platformFee * 0.1);
+    return {
+      escrow_id:    escrowId,
+      company_id:   companyId,
+      stage:        s.stage,
+      percent:      s.percent,
+      amount,
+      platform_fee: platformFee,
+      vat,
+      net_amount:   amount - platformFee - vat,
+      status:       "PENDING",
+    };
+  });
+  return supabase.from("escrow_payouts").insert(payouts).select();
+};
+
+// Hold all non-final payouts when a dispute is filed
+export const holdAllPayoutsForEscrow = (escrowId) =>
+  supabase.from("escrow_payouts")
+    .update({ status: "HELD" })
+    .eq("escrow_id", escrowId)
+    .in("status", ["PENDING", "READY", "APPROVED"]);
+
+// Approve a specific stage payout
+export const approveEscrowPayoutByStage = (escrowId, stage, approvedBy = null) =>
+  supabase.from("escrow_payouts")
+    .update({
+      status:      "APPROVED",
+      approved_by: approvedBy ?? null,
+      approved_at: new Date().toISOString(),
+    })
+    .eq("escrow_id", escrowId)
+    .eq("stage", stage)
+    .select()
+    .single();
