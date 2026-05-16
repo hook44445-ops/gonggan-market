@@ -10,9 +10,19 @@ import EscrowScreen from "../screens/EscrowScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import BidStatusScreen from "../screens/BidStatusScreen";
 import AdminScreen from "../screens/AdminScreen";
+import LoungeScreen from "../screens/LoungeScreen";
+import LoungeWriteScreen from "../screens/LoungeWriteScreen";
+import LoungePostDetailScreen from "../screens/LoungePostDetailScreen";
+import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
+import TokenStoreScreen from "../screens/TokenStoreScreen";
+import TokenHistoryScreen from "../screens/TokenHistoryScreen";
 import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
+import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
+import { useSpaceToken } from "../hooks/useSpaceToken";
+import { useSpaceTemperature } from "../hooks/useSpaceTemperature";
+import { MOCK_LOUNGE_POSTS } from "../constants/lounge";
 import {
   supabase,
   getRequests,
@@ -115,6 +125,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
+
+  // ── 라운지 상태 ──────────────────────────────────────────────────────────────
+  const [loungePost, setLoungePost] = useState(null); // 현재 상세 조회 중인 게시글
+  const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
+  const { temperature } = useSpaceTemperature(user?.id);
 
   // Admin hidden entry
   const [adminTapCount, setAdminTapCount] = useState(0);
@@ -305,13 +320,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (screen === "dashboard" && user.role !== "company") setScreen("home");
   }, [screen, user.role]);
 
-  const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin"].includes(screen);
-  const NO_PAD = ["escrow","dashboard","timeline"].includes(screen);
+  const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
+  const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NAV = mode === "admin"
     ? [["📋","관리","admin"],["👤","마이","my"]]
     : mode === "consumer"
-    ? [["🏠","홈","home"],["🗺","지도","map"],["💬","채팅","chatlist"],["👤","마이","my"]]
-    : [["📋","요청","home"],["🗺","지도","map"],["💬","채팅","chatlist"],["👤","내정보","my"]];
+    ? [["🏠","홈","home"],["💬","라운지","lounge"],["❤️","관심","my"],["🗨","대화","chatlist"],["👤","마이","my"]]
+    : [["📋","요청","home"],["💬","라운지","lounge"],["❤️","관심","my"],["🗨","대화","chatlist"],["👤","내정보","my"]];
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
@@ -577,6 +592,28 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <button onClick={() => setScreen("map")} style={{ fontSize:13, background:"none", border:"none", cursor:"pointer", color:C.brand, fontWeight:700 }}>지도로 보기 →</button>
             </div>
             {companies.map(c => <CompanyCard key={c.id} company={c} onClick={() => go("portfolio",c)} />)}
+
+            {/* 라운지 섹션 — 둘러보기 하단 */}
+            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.xl, border:`1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.lg }}>라운지</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.lg }}>
+                {MOCK_LOUNGE_POSTS.slice(0,3).map(post => (
+                  <div key={post.id} onClick={() => { setLoungePost(post); go("lounge-detail"); }}
+                    style={{ background:C.bg, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
+                    <div style={{ flex:1, minWidth:0, marginRight:S.md }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                        {post.title ?? post.content.slice(0,30)}
+                      </div>
+                    </div>
+                    <div style={{ fontSize:12, color:C.text3, flexShrink:0 }}>❤️ {post.like_count}</div>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setScreen("lounge")}
+                style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand}44` }}>
+                라운지 들어가기 →
+              </button>
+            </div>
           </div>
         )}
 
@@ -756,6 +793,61 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           />
         )}
         {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} user={user} />}
+
+        {screen==="lounge" && (
+          <LoungeScreen
+            user={user}
+            onPostClick={(post) => { setLoungePost(post); go("lounge-detail"); }}
+            onWrite={() => go("lounge-write")}
+            onStoryUpload={() => go("lounge-story")}
+          />
+        )}
+
+        {screen==="lounge-write" && (
+          <LoungeWriteScreen
+            user={user}
+            onBack={() => setScreen("lounge")}
+            onPublish={(post) => { showToast("✅ 글이 등록됐어요!"); earnToken("first_post"); setScreen("lounge"); }}
+          />
+        )}
+
+        {screen==="lounge-detail" && loungePost && (
+          <LoungePostDetailScreen
+            postId={loungePost.id}
+            user={user}
+            tokenBalance={tokenBalance}
+            onBack={() => setScreen("lounge")}
+            onSpendToken={(action, amount, desc) => spendToken(action, amount, desc)}
+            onTokenStore={() => go("token-store")}
+          />
+        )}
+
+        {screen==="lounge-story" && (
+          <LoungeStoryUploadScreen
+            user={user}
+            onBack={() => setScreen("lounge")}
+            onPublish={() => { showToast("📸 스토리가 공유됐어요! (24시간)"); setScreen("lounge"); }}
+          />
+        )}
+
+        {screen==="token-store" && (
+          <TokenStoreScreen
+            user={user}
+            balance={tokenBalance}
+            logs={tokenLogs}
+            onBack={() => setScreen(prevScreen || "my")}
+            onEarnToken={(action) => earnToken(action)}
+            onHistory={() => go("token-history")}
+          />
+        )}
+
+        {screen==="token-history" && (
+          <TokenHistoryScreen
+            balance={tokenBalance}
+            logs={tokenLogs}
+            onBack={() => setScreen("token-store")}
+          />
+        )}
 
         {screen==="chatlist" && (
           <div>
@@ -944,6 +1036,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               );
             })()}
+
+            <LoungeMyPageSection
+              user={user}
+              temperature={temperature}
+              balance={tokenBalance}
+              onNavigate={(target) => {
+                if (target === "token-store")   { go("token-store"); }
+                else if (target === "token-history") { go("token-history"); }
+                else { showToast("준비 중인 기능이에요"); }
+              }}
+            />
 
             {user.role==="consumer" && (
               <div>
