@@ -664,10 +664,9 @@ export default function LoginScreen({ onLogin }) {
               <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: 16, border: `1px solid ${C.bgWarm}` }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>라운지 → 신뢰 → 거래</div>
                 {[
-                  { icon: "💬", step: "라운지 입장",   desc: "익명으로 이웃과 자유롭게 소통" },
-                  { icon: "🤝", step: "신뢰 형성",     desc: "인테리어 후기·질문·전문가 답변" },
-                  { icon: "📩", step: "대화 연결",     desc: "관심 있는 상대와 1:1 대화 신청" },
-                  { icon: "🏠", step: "견적 → 거래",  desc: "에스크로 안전 정산으로 공사 완료" },
+                  { icon: "💬", step: "라운지 입장",  desc: "익명으로 이웃과 자유롭게 소통" },
+                  { icon: "🤝", step: "신뢰 형성",    desc: "인테리어 후기·질문·전문가 답변" },
+                  { icon: "📩", step: "대화 연결",    desc: "관심 있는 상대와 1:1 대화 신청" },
                 ].map(({ icon, step, desc }, i, arr) => (
                   <div key={step} style={{ display: "flex", gap: S.md, marginBottom: i < arr.length - 1 ? S.lg : 0 }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
