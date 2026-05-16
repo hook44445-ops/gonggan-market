@@ -47,6 +47,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
       like_count:         0,
       comment_count:      0,
       created_at:         new Date().toISOString(),
+      has_badge:          !!(user?.badge && user.badge !== 'basic'),
     };
 
     await new Promise(r => setTimeout(r, 300));
