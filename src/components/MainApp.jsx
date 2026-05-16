@@ -813,6 +813,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onWrite={() => requireAuth(() => go("lounge-write"))}
             onStoryUpload={() => requireAuth(() => go("lounge-story"))}
             onRequireLogin={() => setShowLoginRequired(true)}
+            onGoMyPage={() => setScreen("my")}
           />
         )}
 
@@ -949,62 +950,51 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <div>
             <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:S.xl }}>관심</div>
 
-            {/* 탭 */}
+            {/* 탭: 하트 관련 내용만 */}
             <div style={{ display:"flex", background:C.bg, borderRadius:R.lg, padding:4, marginBottom:S.xl }}>
-              {[["관심 업체","companies"],["저장한 글","posts"],["좋아요한 글","likes"]].map(([label,id]) => (
-                <button key={id} onClick={() => setFavTab(id)} style={{ flex:1, padding:"10px 4px", border:"none", borderRadius:R.md, background:favTab===id?C.surface:"transparent", color:favTab===id?C.brand:C.text3, fontWeight:favTab===id?800:500, fontSize:12, cursor:"pointer", transition:"background 0.15s" }}>
+              {[["❤️ 좋아요한 글","likes"],["📸 스토리 하트","stories"]].map(([label,id]) => (
+                <button key={id} onClick={() => setFavTab(id)} style={{ flex:1, padding:"10px 4px", border:"none", borderRadius:R.md, background:favTab===id?C.surface:"transparent", color:favTab===id?C.brand:C.text3, fontWeight:favTab===id?800:500, fontSize:13, cursor:"pointer", transition:"background 0.15s" }}>
                   {label}
                 </button>
               ))}
             </div>
 
-            {favTab === "companies" && (
+            {favTab === "likes" && (
               <div>
                 <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
-                  <div style={{ fontSize:48, marginBottom:12 }}>🏠</div>
-                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>관심 업체가 없어요</div>
+                  <div style={{ fontSize:52, marginBottom:12 }}>❤️</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>좋아요한 글이 없어요</div>
                   <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
-                    업체를 둘러보고 ❤️를 눌러<br/>관심 업체를 저장해보세요
+                    라운지 글에 ❤️를 누르면<br/>여기서 모아볼 수 있어요
                   </div>
-                  <button onClick={() => setScreen("home")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
-                    업체 둘러보기
+                  <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                    라운지 가기
                   </button>
                 </div>
-                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.lg, border:`1px solid ${C.bgWarm}` }}>
-                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.8 }}>
-                    ✓ 관심 업체 등록 시 새 견적 알림 수신<br/>
-                    ✓ 최근 시공 후기 바로 보기<br/>
-                    ✓ 재계약률 · 응답속도 비교 가능
+              </div>
+            )}
+
+            {favTab === "stories" && (
+              <div>
+                <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
+                  <div style={{ fontSize:52, marginBottom:12 }}>📸</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>하트 누른 스토리가 없어요</div>
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
+                    마음에 드는 스토리에 ❤️를 누르면<br/>24시간 동안 여기서 볼 수 있어요
                   </div>
+                  <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                    라운지 가기
+                  </button>
                 </div>
               </div>
             )}
 
-            {favTab === "posts" && (
-              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
-                <div style={{ fontSize:48, marginBottom:12 }}>🔖</div>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>저장한 글이 없어요</div>
-                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
-                  라운지 글에서 저장 버튼을 눌러<br/>나만의 글 모음을 만들어보세요
-                </div>
-                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
-                  라운지 둘러보기
-                </button>
+            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.lg, border:`1px solid ${C.bgWarm}`, marginTop:S.md }}>
+              <div style={{ fontSize:12, color:C.text3, lineHeight:1.8 }}>
+                💡 저장한 글·내가 쓴 글·토큰 내역은<br/>
+                <span style={{ color:C.brand, fontWeight:700, cursor:"pointer" }} onClick={() => setScreen("my")}>마이페이지 › 라운지</span> 에서 볼 수 있어요
               </div>
-            )}
-
-            {favTab === "likes" && (
-              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
-                <div style={{ fontSize:48, marginBottom:12 }}>❤️</div>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>좋아요한 글이 없어요</div>
-                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
-                  공감되는 글에 좋아요를 누르면<br/>여기서 모아볼 수 있어요
-                </div>
-                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
-                  라운지 둘러보기
-                </button>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
