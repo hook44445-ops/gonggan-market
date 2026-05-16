@@ -12,6 +12,112 @@ import {
   getAdminLogs,
 } from "../lib/supabase";
 
+// ── 라운지 관리 탭 ────────────────────────────────────────
+function LoungeManagementTab() {
+  const allReports = (() => {
+    try { return JSON.parse(localStorage.getItem("lounge_reports") ?? "[]"); } catch { return []; }
+  })();
+  const allBlocks = (() => {
+    try { return JSON.parse(localStorage.getItem("lounge_blocks") ?? "[]"); } catch { return []; }
+  })();
+  const [hiddenIds, setHiddenIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("lounge_hidden") ?? "[]"); } catch { return []; }
+  });
+
+  const toggleHide = (id) => {
+    setHiddenIds(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      try { localStorage.setItem("lounge_hidden", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const postReports    = allReports.filter(r => r.type === "post");
+  const commentReports = allReports.filter(r => r.type === "comment");
+  const storyReports   = allReports.filter(r => r.type === "story");
+
+  const ReportList = ({ reports, label }) => (
+    <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
+      <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>{label}</div>
+      {reports.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "20px 0", color: C.text3, fontSize: 13 }}>신고 내역이 없습니다</div>
+      ) : reports.map((r, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: S.sm, padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bg}` }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: C.text2, fontWeight: 600 }}>ID: {r.targetId}</div>
+            <div style={{ fontSize: 11, color: C.text3 }}>
+              사유: {r.reason} · {new Date(r.createdAt).toLocaleDateString("ko-KR")}
+              {hiddenIds.includes(r.targetId) && <span style={{ marginLeft: 6, color: C.red, fontWeight: 700 }}>숨김중</span>}
+            </div>
+          </div>
+          <button
+            onClick={() => toggleHide(r.targetId)}
+            style={{ padding: "5px 10px", borderRadius: R.full, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", background: hiddenIds.includes(r.targetId) ? C.brandL : "#FEF0F0", color: hiddenIds.includes(r.targetId) ? C.brand : C.red }}>
+            {hiddenIds.includes(r.targetId) ? "숨김해제" : "숨김"}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>💬 라운지 관리</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
+        {[
+          ["게시글 신고", `${postReports.length}건`,    "📝"],
+          ["댓글 신고",   `${commentReports.length}건`, "💬"],
+          ["스토리 신고", `${storyReports.length}건`,   "📸"],
+          ["차단 처리",   `${allBlocks.length}명`,       "🚫"],
+        ].map(([label,val,icon]) => (
+          <div key={label} style={{ background: "#fff", borderRadius: R.lg, padding: S.xl, border: `1px solid ${C.bgWarm}`, textAlign: "center" }}>
+            <div style={{ fontSize: 24, marginBottom: S.sm }}>{icon}</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text1 }}>{val}</div>
+            <div style={{ fontSize: 12, color: C.text3, marginTop: 4 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      <ReportList reports={postReports}    label="📋 신고된 게시글" />
+      <ReportList reports={commentReports} label="💬 신고된 댓글" />
+      <ReportList reports={storyReports}   label="📸 신고된 스토리" />
+
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>💰 공간토큰 수동 관리</div>
+        <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.md, border: `1px solid ${C.brandM}` }}>
+          <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>
+            ℹ️ 사용자 ID 기반 수동 지급/회수는 Supabase 대시보드에서 직접 처리하세요.
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: S.sm }}>
+          <input placeholder="사용자 ID 또는 전화번호" style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <input placeholder="토큰 수" type="number" style={{ width: 90, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+        </div>
+        <div style={{ display: "flex", gap: S.sm, marginTop: S.sm }}>
+          <button style={{ flex: 1, padding: "10px", background: C.brandL, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>+ 지급</button>
+          <button style={{ flex: 1, padding: "10px", background: "#FEF0F0", color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>- 회수</button>
+        </div>
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🌡️ 공간온도 수동 조정</div>
+        <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.md, border: `1px solid ${C.brandM}` }}>
+          <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>
+            변경 사유를 반드시 입력하세요. 변경 기록은 adminLogs에 자동 저장됩니다.
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
+          <input placeholder="사용자 ID" style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <input placeholder="변경값 (+0.1 또는 -0.5)" type="number" step="0.1" style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <input placeholder="변경 사유 (필수)" style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <button style={{ padding: "12px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: "pointer", boxShadow: `0 4px 14px ${C.brand}44` }}>공간온도 조정하기</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const STATUS_MAP = {
   pending:  { label: "대기중", color: C.gold,  bg: "#FBF5E8" },
   approved: { label: "승인",   color: C.green, bg: C.greenL  },
@@ -411,68 +517,7 @@ export default function AdminScreen({ onBack, user }) {
             )}
 
             {/* ── Lounge Management ── */}
-            {mainTab === "lounge" && (
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>💬 라운지 관리</div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
-                  {[["게시물 신고","0건","📝"],["댓글 신고","0건","💬"],["사용자 제재","0명","🚫"],["토큰 관리","준비중","💰"]].map(([label,val,icon]) => (
-                    <div key={label} style={{ background: C.surface, borderRadius: R.lg, padding: S.xl, border: `1px solid ${C.bgWarm}`, textAlign: "center" }}>
-                      <div style={{ fontSize: 24, marginBottom: S.sm }}>{icon}</div>
-                      <div style={{ fontSize: 18, fontWeight: 900, color: C.text1 }}>{val}</div>
-                      <div style={{ fontSize: 12, color: C.text3, marginTop: 4 }}>{label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📋 게시물 관리</div>
-                  <div style={{ textAlign: "center", padding: "30px 0", color: C.text3, fontSize: 13 }}>
-                    신고된 게시물이 없습니다
-                  </div>
-                </div>
-
-                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>💬 댓글 관리</div>
-                  <div style={{ textAlign: "center", padding: "30px 0", color: C.text3, fontSize: 13 }}>
-                    신고된 댓글이 없습니다
-                  </div>
-                </div>
-
-                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>💰 공간토큰 수동 관리</div>
-                  <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.md, border: `1px solid ${C.brandM}` }}>
-                    <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>
-                      ℹ️ 사용자 ID 기반 수동 지급/회수는 Supabase 대시보드에서 직접 처리하세요.<br/>
-                      MVP 단계에서는 UI만 제공합니다.
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: S.sm }}>
-                    <input placeholder="사용자 ID 또는 전화번호" style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: C.surface, color: C.text1, fontFamily: "inherit" }} />
-                    <input placeholder="토큰 수" type="number" style={{ width: 90, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: C.surface, color: C.text1, fontFamily: "inherit" }} />
-                  </div>
-                  <div style={{ display: "flex", gap: S.sm, marginTop: S.sm }}>
-                    <button style={{ flex: 1, padding: "10px", background: C.brandL, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>+ 지급</button>
-                    <button style={{ flex: 1, padding: "10px", background: "#FEF0F0", color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>- 회수</button>
-                  </div>
-                </div>
-
-                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🌡️ 공간온도 수동 조정</div>
-                  <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.md, border: `1px solid ${C.brandM}` }}>
-                    <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>
-                      변경 사유는 반드시 입력하세요. 변경 기록은 adminLogs에 자동 저장됩니다.
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
-                    <input placeholder="사용자 ID" style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: C.surface, color: C.text1, fontFamily: "inherit" }} />
-                    <input placeholder="변경값 (+0.1 또는 -0.5)" type="number" step="0.1" style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: C.surface, color: C.text1, fontFamily: "inherit" }} />
-                    <input placeholder="변경 사유 (필수)" style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: C.surface, color: C.text1, fontFamily: "inherit" }} />
-                    <button style={{ padding: "12px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: "pointer", boxShadow: `0 4px 14px ${C.brand}44` }}>공간온도 조정하기</button>
-                  </div>
-                </div>
-              </div>
-            )}
+            {mainTab === "lounge" && <LoungeManagementTab />}
 
             {/* ── Notifications ── */}
             {mainTab === "notifications" && (
