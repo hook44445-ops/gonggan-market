@@ -663,6 +663,10 @@ export default function LoginScreen({ onLogin }) {
               style={{ flex: 1, padding: "16px", background: C.surface, color: C.brand, border: `2px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
               🔨 업체로 시작
             </button>
+            <button onClick={() => { setShowBrowse(false); onLogin({ id: null, role: "consumer", name: "게스트", region: "", isGuest: true, startAt: "lounge" }); }}
+              style={{ flex: 1, padding: "16px", background: C.surface, color: C.text2, border: `2px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+              💬 라운지
+            </button>
           </div>
         </div>
       )}

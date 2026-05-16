@@ -50,7 +50,7 @@ export default function App() {
   }, []);
 
   const handleLogin = (u) => {
-    saveSession(u);
+    if (!u.isGuest) saveSession(u);
     setUser(u);
     setGoOnboarding(false);
   };

@@ -106,6 +106,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [screen, setScreen] = useState(() => {
     if (user.role === "admin") return "admin";
     if (user.role === "company") return "dashboard";
+    if (user.startAt) return user.startAt;
     return "home";
   });
   const [prevScreen, setPrevScreen] = useState("home");
