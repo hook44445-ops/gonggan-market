@@ -6,18 +6,58 @@
 // 그 신뢰가 거래로 이어지는 구조입니다.
 // ─────────────────────────────────────────────────────
 
-const NICKNAMES = [
-  '사자코끼리','날쌘다람쥐','파파스머프','졸린판다',
-  '배고픈수달','민트고양이','새벽올빼미','행복한코끼리',
-  '용감한사자','느린거북이','빠른치타','조용한부엉이',
-  '달리는말','수영하는오리','나는독수리','잠자는곰',
-  '노래하는새','뛰는토끼','헤엄치는물고기','웃는하마',
-  '감동한사자','웃긴고양이','핑크판다','졸린너구리',
-  '신난강아지','조용한고슴도치','빠른매','느긋한거북',
-  '귀여운펭귄','진지한독수리','활발한원숭이','부지런한비버',
-  '온화한기린','씩씩한호랑이','영리한여우','귀여운토끼',
-  '차분한고양이','활기찬참새','따뜻한북극곰','용감한펭귄',
+const NICKNAME_DATA = [
+  { name: '사자코끼리',    emoji: '🦁' },
+  { name: '날쌘다람쥐',    emoji: '🐿️' },
+  { name: '파파스머프',    emoji: '🐱' },
+  { name: '졸린판다',      emoji: '🐼' },
+  { name: '배고픈수달',    emoji: '🦦' },
+  { name: '민트고양이',    emoji: '🐱' },
+  { name: '새벽올빼미',    emoji: '🦉' },
+  { name: '행복한코끼리',  emoji: '🐘' },
+  { name: '용감한사자',    emoji: '🦁' },
+  { name: '느린거북이',    emoji: '🐢' },
+  { name: '빠른치타',      emoji: '🐆' },
+  { name: '조용한부엉이',  emoji: '🦉' },
+  { name: '달리는말',      emoji: '🐎' },
+  { name: '수영하는오리',  emoji: '🦆' },
+  { name: '나는독수리',    emoji: '🦅' },
+  { name: '잠자는곰',      emoji: '🐻' },
+  { name: '노래하는새',    emoji: '🐦' },
+  { name: '뛰는토끼',      emoji: '🐰' },
+  { name: '헤엄치는물고기', emoji: '🐟' },
+  { name: '웃는하마',      emoji: '🦛' },
+  { name: '감동한사자',    emoji: '🦁' },
+  { name: '웃긴고양이',    emoji: '😸' },
+  { name: '핑크판다',      emoji: '🐼' },
+  { name: '졸린너구리',    emoji: '🦝' },
+  { name: '신난강아지',    emoji: '🐶' },
+  { name: '조용한고슴도치', emoji: '🦔' },
+  { name: '빠른매',        emoji: '🦅' },
+  { name: '느긋한거북',    emoji: '🐢' },
+  { name: '귀여운펭귄',    emoji: '🐧' },
+  { name: '진지한독수리',  emoji: '🦅' },
+  { name: '활발한원숭이',  emoji: '🐒' },
+  { name: '부지런한비버',  emoji: '🦫' },
+  { name: '온화한기린',    emoji: '🦒' },
+  { name: '씩씩한호랑이',  emoji: '🐯' },
+  { name: '영리한여우',    emoji: '🦊' },
+  { name: '귀여운토끼',    emoji: '🐰' },
+  { name: '차분한고양이',  emoji: '🐱' },
+  { name: '활기찬참새',    emoji: '🐦' },
+  { name: '따뜻한북극곰',  emoji: '🐻‍❄️' },
+  { name: '용감한펭귄',    emoji: '🐧' },
 ];
+
+const AVATAR_COLORS = [
+  '#2E5F4B', '#C8A15A', '#3A7A5C', '#E07A5F',
+  '#5B8DB8', '#7B5EA7', '#4A9B6F', '#D4845A',
+  '#6A5ACD', '#20B2AA', '#CD853F', '#708090',
+];
+
+const NICKNAME_MAP = new Map(
+  NICKNAME_DATA.map((d, i) => [d.name, { emoji: d.emoji, color: AVATAR_COLORS[i % AVATAR_COLORS.length] }])
+);
 
 const STORAGE_KEY = 'lounge_nicknames_cache';
 
@@ -49,7 +89,7 @@ function hashCode(str) {
 // 다른 글에서는 다른 닉네임 배정
 export function getAnonymousNickname(userId, postId) {
   if (!userId || !postId) {
-    return NICKNAMES[Math.floor(Math.random() * NICKNAMES.length)];
+    return NICKNAME_DATA[Math.floor(Math.random() * NICKNAME_DATA.length)].name;
   }
 
   const key = `${userId}::${postId}`;
@@ -57,13 +97,20 @@ export function getAnonymousNickname(userId, postId) {
 
   if (cache[key]) return cache[key];
 
-  const idx = hashCode(key) % NICKNAMES.length;
-  const nickname = NICKNAMES[idx];
+  const idx = hashCode(key) % NICKNAME_DATA.length;
+  const nickname = NICKNAME_DATA[idx].name;
 
   cache[key] = nickname;
   saveNicknameCache(cache);
 
   return nickname;
+}
+
+// 닉네임 문자열로 아바타 { emoji, color } 반환
+export function getAnonymousAvatarByNickname(nickname) {
+  if (NICKNAME_MAP.has(nickname)) return NICKNAME_MAP.get(nickname);
+  const idx = hashCode(nickname ?? '') % AVATAR_COLORS.length;
+  return { emoji: '🐾', color: AVATAR_COLORS[idx] };
 }
 
 export function formatRelativeTime(isoString) {

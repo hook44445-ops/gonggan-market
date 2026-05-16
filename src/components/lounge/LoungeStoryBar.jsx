@@ -3,21 +3,22 @@
 // ─────────────────────────────────────────────────────
 
 import { C, R, S } from '../../constants';
+import { getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 
-function StoryCircle({ nickname, color }) {
-  const colors = ['#2E5F4B','#C8A15A','#3A7A5C','#1D3D2F','#B08040'];
-  const bg = color ?? colors[nickname.charCodeAt(0) % colors.length];
+function StoryCircle({ nickname }) {
+  const { emoji, color } = getAnonymousAvatarByNickname(nickname);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
       <div style={{
         width: 56, height: 56, borderRadius: R.full,
-        background: `linear-gradient(135deg, ${bg}, ${bg}88)`,
-        border: `2.5px solid ${bg}`, padding: 2,
+        background: color,
+        border: `2.5px solid ${color}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 20, color: '#fff', fontWeight: 900,
-        boxShadow: `0 2px 8px ${bg}44`,
+        fontSize: 26,
+        boxShadow: `0 2px 8px ${color}55`,
       }}>
-        {nickname[0]}
+        {emoji}
       </div>
       <div style={{ fontSize: 10, color: C.text3, maxWidth: 56, textAlign: 'center', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
         {nickname}
