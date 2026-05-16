@@ -335,7 +335,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NAV = mode === "admin"
-    ? [["📋","관리","admin"],["👤","마이","my"]]
+    ? [["📋","관리","admin"],["💬","라운지","lounge"],["👤","마이","my"]]
     : mode === "consumer"
     ? [["🏠","홈","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","마이","my"]]
     : [["📋","요청","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","내정보","my"]];
