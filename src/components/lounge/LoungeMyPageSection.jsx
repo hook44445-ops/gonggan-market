@@ -8,15 +8,15 @@ import { SPACE_TEMPERATURE_BASE } from '../../constants/lounge';
 
 // 알림 받을 수 있는 관심 카테고리
 const INTEREST_CATS = [
-  { id: 'interior_review', label: '인테리어후기' },
-  { id: 'before_after',    label: '시공전/후' },
+  { id: 'interior_review', label: '인테리어' },
+  { id: 'humor',           label: '유머' },
   { id: 'room_deco',       label: '집꾸미기' },
   { id: 'realestate',      label: '부동산' },
   { id: 'economy',         label: '경제' },
   { id: 'domestic_stock',  label: '국내주식' },
   { id: 'overseas_stock',  label: '해외주식' },
   { id: 'worry',           label: '고민' },
-  { id: 'neighborhood',    label: '동네' },
+  { id: 'daily',           label: '생활' },
   { id: 'pet',             label: '반려동물' },
   { id: 'exercise',        label: '운동' },
 ];
