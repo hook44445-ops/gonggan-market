@@ -127,6 +127,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
 
+  // ── 관심 탭 ──────────────────────────────────────────────────────────────────
+  const [favTab, setFavTab] = useState("companies");
+
   // ── 라운지 상태 ──────────────────────────────────────────────────────────────
   const [loungePost, setLoungePost] = useState(null); // 현재 상세 조회 중인 게시글
   const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
@@ -334,8 +337,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const NAV = mode === "admin"
     ? [["📋","관리","admin"],["👤","마이","my"]]
     : mode === "consumer"
-    ? [["🏠","홈","home"],["💬","라운지","lounge"],["❤️","관심","my"],["🗨","대화","chatlist"],["👤","마이","my"]]
-    : [["📋","요청","home"],["💬","라운지","lounge"],["❤️","관심","my"],["🗨","대화","chatlist"],["👤","내정보","my"]];
+    ? [["🏠","홈","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","마이","my"]]
+    : [["📋","요청","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","내정보","my"]];
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
@@ -939,6 +942,69 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {screen==="favorites" && (
+          <div>
+            <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:S.xl }}>관심</div>
+
+            {/* 탭 */}
+            <div style={{ display:"flex", background:C.bg, borderRadius:R.lg, padding:4, marginBottom:S.xl }}>
+              {[["관심 업체","companies"],["저장한 글","posts"],["좋아요한 글","likes"]].map(([label,id]) => (
+                <button key={id} onClick={() => setFavTab(id)} style={{ flex:1, padding:"10px 4px", border:"none", borderRadius:R.md, background:favTab===id?C.surface:"transparent", color:favTab===id?C.brand:C.text3, fontWeight:favTab===id?800:500, fontSize:12, cursor:"pointer", transition:"background 0.15s" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {favTab === "companies" && (
+              <div>
+                <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
+                  <div style={{ fontSize:48, marginBottom:12 }}>🏠</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>관심 업체가 없어요</div>
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
+                    업체를 둘러보고 ❤️를 눌러<br/>관심 업체를 저장해보세요
+                  </div>
+                  <button onClick={() => setScreen("home")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                    업체 둘러보기
+                  </button>
+                </div>
+                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.lg, border:`1px solid ${C.bgWarm}` }}>
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.8 }}>
+                    ✓ 관심 업체 등록 시 새 견적 알림 수신<br/>
+                    ✓ 최근 시공 후기 바로 보기<br/>
+                    ✓ 재계약률 · 응답속도 비교 가능
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {favTab === "posts" && (
+              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
+                <div style={{ fontSize:48, marginBottom:12 }}>🔖</div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>저장한 글이 없어요</div>
+                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
+                  라운지 글에서 저장 버튼을 눌러<br/>나만의 글 모음을 만들어보세요
+                </div>
+                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                  라운지 둘러보기
+                </button>
+              </div>
+            )}
+
+            {favTab === "likes" && (
+              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
+                <div style={{ fontSize:48, marginBottom:12 }}>❤️</div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>좋아요한 글이 없어요</div>
+                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
+                  공감되는 글에 좋아요를 누르면<br/>여기서 모아볼 수 있어요
+                </div>
+                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                  라운지 둘러보기
+                </button>
+              </div>
+            )}
           </div>
         )}
 
