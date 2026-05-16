@@ -651,6 +651,65 @@ export default function LoginScreen({ onLogin }) {
                 );
               })}
             </div>
+
+            {/* 6. 공간마켓 라운지 소개 */}
+            <div style={{ marginTop: 36 }}>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간마켓 라운지</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: C.text1, marginBottom: 6 }}>놀다가 거래되는 구조</div>
+              <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7, marginBottom: 20 }}>
+                익명 커뮤니티에서 자유롭게 소통하다가<br/>자연스럽게 신뢰가 쌓이고, 거래로 이어져요.
+              </div>
+
+              {/* 흐름 */}
+              <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: 16, border: `1px solid ${C.bgWarm}` }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>라운지 → 신뢰 → 거래</div>
+                {[
+                  { icon: "💬", step: "라운지 입장",   desc: "익명으로 이웃과 자유롭게 소통" },
+                  { icon: "🤝", step: "신뢰 형성",     desc: "인테리어 후기·질문·전문가 답변" },
+                  { icon: "📩", step: "대화 연결",     desc: "관심 있는 상대와 1:1 대화 신청" },
+                  { icon: "🏠", step: "견적 → 거래",  desc: "에스크로 안전 정산으로 공사 완료" },
+                ].map(({ icon, step, desc }, i, arr) => (
+                  <div key={step} style={{ display: "flex", gap: S.md, marginBottom: i < arr.length - 1 ? S.lg : 0 }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: R.full, background: C.brandL, border: `1.5px solid ${C.brandM}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{icon}</div>
+                      {i < arr.length - 1 && <div style={{ width: 2, height: 20, background: C.bgWarm, marginTop: 4 }} />}
+                    </div>
+                    <div style={{ paddingTop: 6 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 2 }}>{step}</div>
+                      <div style={{ fontSize: 12, color: C.text3 }}>{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 카테고리 */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>이런 이야기들이 오가요</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {["🏠 인테리어 후기","🔨 시공 전/후","💬 견적 질문","📈 부동산","🌿 자취·집꾸미기","😊 동네 일상","🍜 맛집","🏦 주식·경제","🐾 반려동물","🚗 차·오토바이"].map(tag => (
+                    <span key={tag} style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "5px 12px", fontSize: 12, color: C.text2, fontWeight: 600 }}>{tag}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* 익명·토큰 안내 */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
+                {[
+                  { icon: "🛡", title: "완전 익명", desc: "닉네임은 자동 배정 · 실명·연락처 절대 비공개" },
+                  { icon: "💰", title: "공간토큰", desc: "가입만 해도 20 토큰 지급 · 대화 신청에 사용" },
+                  { icon: "⭐", title: "전문가 답변", desc: "인증 업체가 직접 답변 · 배지로 구분" },
+                ].map(({ icon, title, desc }) => (
+                  <div key={title} style={{ background: C.surface, borderRadius: R.lg, padding: `${S.md}px ${S.lg}px`, border: `1px solid ${C.bgWarm}`, display: "flex", gap: S.md, alignItems: "center" }}>
+                    <div style={{ width: 36, height: 36, borderRadius: R.full, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{icon}</div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>{title}</div>
+                      <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
 
           {/* 하단 CTA */}
