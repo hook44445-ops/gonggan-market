@@ -245,9 +245,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
 
+  const [showLoginRequired, setShowLoginRequired] = useState(false);
+
   const showToast = msg => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
+  };
+
+  // 게스트 상태에서 로그인이 필요한 액션을 막는 헬퍼
+  const requireAuth = (action) => {
+    if (user.isGuest) { setShowLoginRequired(true); return; }
+    action();
   };
 
   const addBid = async (request, bidData) => {
@@ -799,8 +807,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <LoungeScreen
             user={user}
             onPostClick={(post) => { setLoungePost(post); go("lounge-detail"); }}
-            onWrite={() => go("lounge-write")}
-            onStoryUpload={() => go("lounge-story")}
+            onWrite={() => requireAuth(() => go("lounge-write"))}
+            onStoryUpload={() => requireAuth(() => go("lounge-story"))}
+            onRequireLogin={() => setShowLoginRequired(true)}
           />
         )}
 
@@ -819,7 +828,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             tokenBalance={tokenBalance}
             onBack={() => setScreen("lounge")}
             onSpendToken={(action, amount, desc) => spendToken(action, amount, desc)}
-            onTokenStore={() => go("token-store")}
+            onTokenStore={() => requireAuth(() => go("token-store"))}
+            onRequireLogin={() => setShowLoginRequired(true)}
           />
         )}
 
@@ -1043,8 +1053,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               temperature={temperature}
               balance={tokenBalance}
               onNavigate={(target) => {
-                if (target === "token-store")   { go("token-store"); }
-                else if (target === "token-history") { go("token-history"); }
+                if (target === "token-store")        { requireAuth(() => go("token-store")); }
+                else if (target === "token-history") { requireAuth(() => go("token-history")); }
                 else { showToast("준비 중인 기능이에요"); }
               }}
             />
@@ -1144,6 +1154,38 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
       {toast && (
         <div style={{ position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:C.brand, color:"#fff", borderRadius:R.full, padding:"12px 22px", fontSize:13, fontWeight:700, boxShadow:`0 8px 24px ${C.brand}44`, zIndex:200, whiteSpace:"nowrap" }}>{toast}</div>
+      )}
+
+      {showLoginRequired && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:500 }}
+          onClick={() => setShowLoginRequired(false)}>
+          <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
+            <div style={{ textAlign:"center", marginBottom:S.xxl }}>
+              <div style={{ fontSize:40, marginBottom:12 }}>🔒</div>
+              <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:8 }}>로그인이 필요해요</div>
+              <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>
+                글쓰기, 댓글, 대화 신청, 토큰 사용 등<br/>
+                라운지 활동은 로그인 후 이용할 수 있어요.
+              </div>
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:S.sm }}>
+              <button onClick={() => { setShowLoginRequired(false); onLogout(); }}
+                style={{ width:"100%", padding:S.xl, background:`linear-gradient(135deg,${C.brand},${C.brandD})`, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                🏡 의뢰인으로 시작
+              </button>
+              <button onClick={() => { setShowLoginRequired(false); onLogout(); }}
+                style={{ width:"100%", padding:S.xl, background:C.surface, color:C.brand, border:`2px solid ${C.brandM}`, borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer" }}>
+                🔨 업체로 시작
+              </button>
+              <button onClick={() => setShowLoginRequired(false)}
+                style={{ width:"100%", padding:"12px", background:"none", border:"none", color:C.text3, fontWeight:700, fontSize:14, cursor:"pointer", marginTop:S.xs }}>
+                계속 둘러보기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showAdminCodeModal && (

@@ -14,7 +14,7 @@ import { getAnonymousNickname, formatRelativeTime } from '../utils/anonymousNick
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 
-export default function LoungePostDetailScreen({ postId, user, tokenBalance, onBack, onSpendToken, onTokenStore }) {
+export default function LoungePostDetailScreen({ postId, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin }) {
   const { post, comments, loading, addComment, likeComment } = useLoungePost(postId);
   const [commentText, setCommentText]   = useState('');
   const [replyTo,     setReplyTo]       = useState(null);
@@ -24,7 +24,8 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
   const [toast,       setToast]         = useState(null);
   const inputRef = useRef(null);
 
-  const isLoggedIn = !!user?.id;
+  const isGuest    = !user?.id || user?.isGuest;
+  const isLoggedIn = !isGuest;
 
   const showToast = (msg) => {
     setToast(msg);
@@ -32,7 +33,7 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
   };
 
   const handleLike = () => {
-    if (!isLoggedIn) { showToast('로그인 후 이용해주세요'); return; }
+    if (isGuest) { onRequireLogin?.(); return; }
     const cost = TOKEN_COSTS.INTEREST_MIN;
     if (tokenBalance < cost) { showToast('토큰이 부족합니다'); return; }
     onSpendToken?.('interest_send', cost, '게시글 좋아요');
@@ -41,7 +42,7 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
   };
 
   const handleComment = () => {
-    if (!isLoggedIn) { showToast('로그인 후 이용해주세요'); return; }
+    if (isGuest) { onRequireLogin?.(); return; }
     if (!commentText.trim()) return;
 
     const nickname = getAnonymousNickname(user.id, postId);
@@ -118,13 +119,13 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
         </div>
       </div>
 
-      {isLoggedIn && (
-        <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
-          <button onClick={() => setShowChat(true)} style={{ width: '100%', padding: S.xl, background: `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 4px 16px ${C.brand}44` }}>
-            💬 대화 신청 ({TOKEN_COSTS.CHAT_REQUEST} 토큰)
-          </button>
-        </div>
-      )}
+      <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
+        <button
+          onClick={isGuest ? () => onRequireLogin?.() : () => setShowChat(true)}
+          style={{ width: '100%', padding: S.xl, background: `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 4px 16px ${C.brand}44` }}>
+          {isGuest ? '💬 대화 신청하기 (로그인 필요)' : `💬 대화 신청 (${TOKEN_COSTS.CHAT_REQUEST} 토큰)`}
+        </button>
+      </div>
 
       <div style={{ background: C.surface, padding: `${S.xl}px ${S.xl}px 0` }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
@@ -159,18 +160,23 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
             <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: C.text3, padding: 0 }}>✕</button>
           </div>
         )}
-        <div style={{ display: 'flex', gap: S.sm, alignItems: 'flex-end' }}>
-          <input ref={inputRef} value={commentText} onChange={e => setCommentText(e.target.value)}
-            placeholder={isLoggedIn ? '댓글을 입력하세요...' : '로그인 후 댓글을 달 수 있어요'}
-            disabled={!isLoggedIn}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
-            style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.full, fontSize: 14, outline: 'none', background: C.surface, color: C.text1, fontFamily: 'inherit' }}
-          />
-          <button onClick={handleComment} disabled={!commentText.trim() || !isLoggedIn}
-            style={{ background: commentText.trim() && isLoggedIn ? C.brand : C.text4, color: '#fff', border: 'none', borderRadius: R.full, width: 44, height: 44, fontSize: 16, cursor: commentText.trim() && isLoggedIn ? 'pointer' : 'not-allowed', flexShrink: 0 }}>
-            ↑
+        {isGuest ? (
+          <button onClick={() => onRequireLogin?.()} style={{ width: '100%', padding: '13px', background: C.brandL, color: C.brand, border: `1.5px solid ${C.brandM}`, borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+            🔒 로그인하고 댓글 달기
           </button>
-        </div>
+        ) : (
+          <div style={{ display: 'flex', gap: S.sm, alignItems: 'flex-end' }}>
+            <input ref={inputRef} value={commentText} onChange={e => setCommentText(e.target.value)}
+              placeholder='댓글을 입력하세요...'
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
+              style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.full, fontSize: 14, outline: 'none', background: C.surface, color: C.text1, fontFamily: 'inherit' }}
+            />
+            <button onClick={handleComment} disabled={!commentText.trim()}
+              style={{ background: commentText.trim() ? C.brand : C.text4, color: '#fff', border: 'none', borderRadius: R.full, width: 44, height: 44, fontSize: 16, cursor: commentText.trim() ? 'pointer' : 'not-allowed', flexShrink: 0 }}>
+              ↑
+            </button>
+          </div>
+        )}
       </div>
 
       {showChat && (
