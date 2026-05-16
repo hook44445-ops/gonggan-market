@@ -707,3 +707,72 @@ alter table public.webhook_logs enable row level security;
 --   for select using (
 --     exists (select 1 from public.users where id = auth.uid() and role = 'admin')
 --   );
+
+-- ============================================================
+--  STEP M — fee_snapshot (계약 시점 수수료 고정)
+-- ============================================================
+alter table public.escrow_payouts   add column if not exists fee_snapshot jsonb;
+alter table public.payment_orders   add column if not exists fee_snapshot jsonb;
+
+-- ============================================================
+--  STEP O — 운영 Emergency Switch
+-- ============================================================
+create table if not exists public.ops_config (
+  id                  uuid primary key default gen_random_uuid(),
+  pause_new_payments  boolean not null default false,
+  pause_new_bids      boolean not null default false,
+  pause_new_approvals boolean not null default false,
+  updated_by          uuid references public.users(id) on delete set null,
+  updated_at          timestamptz not null default now()
+);
+insert into public.ops_config (pause_new_payments, pause_new_bids, pause_new_approvals)
+  values (false, false, false)
+  on conflict do nothing;
+
+alter table public.ops_config enable row level security;
+create policy "ops_config: admin read" on public.ops_config
+  for select using (exists (select 1 from public.users where id = auth.uid() and role = 'admin'));
+create policy "ops_config: admin write" on public.ops_config
+  for all using (exists (select 1 from public.users where id = auth.uid() and role = 'admin'));
+
+-- ============================================================
+--  STEP R — Notification 우선순위
+-- ============================================================
+alter table public.notifications
+  add column if not exists priority text not null default 'NORMAL'
+    check (priority in ('LOW','NORMAL','HIGH','CRITICAL'));
+
+create index if not exists notifications_priority_idx on public.notifications (user_id, priority, created_at desc);
+
+-- ============================================================
+--  STEP S — TEMP_RESTRICTED 활동 제한 상태
+-- ============================================================
+alter table public.companies
+  drop constraint if exists companies_company_status_check;
+alter table public.companies
+  add constraint companies_company_status_check
+    check (company_status in ('PENDING','ACTIVE','PAUSED','SUSPENDED','BLACKLISTED','TEMP_RESTRICTED'));
+
+-- ============================================================
+--  STEP L — 고객/업체 보호 (customer_reports)
+-- ============================================================
+create table if not exists public.customer_reports (
+  id           uuid primary key default gen_random_uuid(),
+  reporter_id  uuid references public.users(id) on delete set null,
+  reported_id  uuid references public.users(id) on delete cascade,
+  report_type  text not null check (report_type in ('반복취소','욕설','무리한요구','허위리뷰시도','기타')),
+  description  text,
+  contract_id  uuid references public.escrow_payments(id) on delete set null,
+  status       text not null default 'PENDING'
+    check (status in ('PENDING','REVIEWED','RESOLVED')),
+  admin_note   text,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.customer_reports enable row level security;
+create policy "customer_reports: admin read" on public.customer_reports
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy "customer_reports: authenticated insert" on public.customer_reports
+  for insert with check (auth.uid() = reporter_id);
