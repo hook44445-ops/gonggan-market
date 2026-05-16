@@ -34,6 +34,7 @@ import {
   getCompanyByOwnerId,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
+import KakaoMap from "./KakaoMap";
 
 // ── normalizers: DB row → local shape ─────────────────────────────────────────
 
@@ -604,7 +605,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>인근 업체</div>
               <button onClick={() => setScreen("map")} style={{ fontSize:13, background:"none", border:"none", cursor:"pointer", color:C.brand, fontWeight:700 }}>지도로 보기 →</button>
             </div>
-            {companies.map(c => <CompanyCard key={c.id} company={c} onClick={() => go("portfolio",c)} />)}
+            {companies.map(c => <CompanyCard key={c.id} company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />)}
 
             {/* 라운지 섹션 — 둘러보기 하단 */}
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.xl, border:`1px solid ${C.bgWarm}` }}>
@@ -751,39 +752,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         )}
 
 
-        {/* 지도 */}
+        {/* 지도 — STEP 15: 카카오맵 SDK 연동 */}
         {screen==="map" && (
           <div>
-            <div style={{ position:"relative", background:"linear-gradient(145deg,#E4EBE0,#D4E2CC,#DCE8D0)",
-              borderRadius:R.xl, height:250, overflow:"hidden", marginBottom:S.xl, border:"1px solid #C4D8BC" }}>
-              {[...Array(7)].map((_,i) => <div key={i} style={{ position:"absolute", left:`${i*18}%`, top:0, bottom:0, borderLeft:"1px solid rgba(0,0,0,0.04)" }} />)}
-              {[...Array(6)].map((_,i) => <div key={i} style={{ position:"absolute", top:`${i*20}%`, left:0, right:0, borderTop:"1px solid rgba(0,0,0,0.04)" }} />)}
-              <div style={{ position:"absolute", left:"44%", top:0, bottom:0, width:4, background:"rgba(255,255,255,0.65)" }} />
-              <div style={{ position:"absolute", top:"48%", left:0, right:0, height:4, background:"rgba(255,255,255,0.65)" }} />
-              {[{ x:28,y:40,name:"홍익시공",   temp:97,online:true },
-                { x:57,y:28,name:"공간설계소", temp:91,online:false },
-                { x:71,y:57,name:"우리집시공단",temp:86,online:true },
-                { x:42,y:54,type:"req" }, { x:64,y:68,type:"req" }].map((pin,i) => (
-                <div key={i} onClick={() => { if(!pin.type){ const c=companies.find(c=>c.name===pin.name); if(c) go("portfolio",c); }}}
-                  style={{ position:"absolute", left:`${pin.x}%`, top:`${pin.y}%`, transform:"translate(-50%,-100%)", cursor:!pin.type?"pointer":"default", zIndex:10 }}>
-                  <div style={{ background:pin.type?C.red:GRADE(pin.temp||80).bar, color:"#fff",
-                    borderRadius:pin.type?R.sm:R.full, padding:"5px 10px", fontSize:11, fontWeight:800,
-                    boxShadow:"0 3px 10px rgba(0,0,0,0.2)", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
-                    {pin.type ? "📋 요청" : <>
-                      {pin.online && <div style={{ width:5, height:5, borderRadius:"50%", background:C.green }} />}
-                      🏠 {pin.name?.slice(0,4)}
-                    </>}
-                  </div>
-                  <div style={{ width:2, height:8, background:pin.type?C.red:GRADE(pin.temp||80).bar, margin:"0 auto" }} />
-                </div>
-              ))}
-              <div style={{ position:"absolute", left:"50%", top:"50%", transform:"translate(-50%,-50%)" }}>
-                <div style={{ width:14, height:14, borderRadius:"50%", background:C.brand, border:"3px solid #fff", boxShadow:`0 0 0 8px ${C.brand}22` }} />
-              </div>
-              <div style={{ position:"absolute", bottom:10, right:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:600 }}>📍 {user.region} · 반경 3km</div>
+            <div style={{ marginBottom:S.xl }}>
+              <KakaoMap
+                companies={companies}
+                userRegion={user.region ?? ""}
+                onPinClick={c => go("portfolio", c)}
+              />
             </div>
             <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>인근 업체 <span style={{ color:C.brand }}>{companies.length}곳</span></div>
-            {companies.map(c => <CompanyCard key={c.id} company={c} onClick={() => go("portfolio",c)} />)}
+            {companies.map(c => <CompanyCard key={c.id} company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />)}
           </div>
         )}
 

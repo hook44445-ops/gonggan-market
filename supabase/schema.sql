@@ -709,6 +709,15 @@ alter table public.webhook_logs enable row level security;
 --   );
 
 -- ============================================================
+--  STEP 15 — 카카오맵 위도/경도 컬럼
+-- ============================================================
+alter table public.companies add column if not exists lat  numeric(10,7);
+alter table public.companies add column if not exists lng  numeric(10,7);
+
+-- STEP 17 — 업체 총 거래액 컬럼
+alter table public.companies add column if not exists total_transaction_volume integer not null default 0;
+
+-- ============================================================
 --  STEP M — fee_snapshot (계약 시점 수수료 고정)
 -- ============================================================
 alter table public.escrow_payouts   add column if not exists fee_snapshot jsonb;

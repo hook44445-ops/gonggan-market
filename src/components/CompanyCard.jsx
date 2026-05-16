@@ -2,7 +2,34 @@ import { C, R, S, GRADE } from "../constants";
 import { BADGES } from "../constants/badges";
 import { TempBadge, CertBadge } from "./common";
 
-export default function CompanyCard({ company, onClick }) {
+// STEP 17 — KPI display varies by login state
+function KpiRow({ isLoggedIn, company }) {
+  if (isLoggedIn) {
+    const responseText = company.avgResponseHours > 0
+      ? (company.avgResponseHours < 1 ? `${Math.round(company.avgResponseHours * 60)}분` : `${company.avgResponseHours}시간`)
+      : company.responseTime ?? "—";
+    return (
+      <div style={{ display:"flex", gap:S.lg, fontSize:12, color:C.text3, flexWrap:"wrap" }}>
+        <span>✅ {company.completedJobs}건 완료</span>
+        <span>🔄 재계약 {company.recontractRate}%</span>
+        <span>⭐ {company.rating > 0 ? company.rating.toFixed(1) : "—"}</span>
+        <span>⚡ {responseText}</span>
+      </div>
+    );
+  }
+  const disputeRate = company.disputeRate ?? 0;
+  const totalVol = company.totalTransactionVolume ?? 0;
+  return (
+    <div style={{ display:"flex", gap:S.lg, fontSize:12, color:C.text3, flexWrap:"wrap" }}>
+      <span>✅ {company.completedJobs}건 완료</span>
+      <span>⭐ {company.rating > 0 ? company.rating.toFixed(1) : "—"}({company.reviews})</span>
+      {totalVol > 0 && <span>💰 {totalVol.toLocaleString()}만원</span>}
+      <span>⚠️ 분쟁 {disputeRate}%</span>
+    </div>
+  );
+}
+
+export default function CompanyCard({ company, onClick, isLoggedIn = false }) {
   if (!company) return null;
   const g = GRADE(company.temp ?? 0);
   const bm = company.badge ? (BADGES[company.badge] ?? BADGES.basic) : null;
@@ -64,11 +91,7 @@ export default function CompanyCard({ company, onClick }) {
               )}
             </div>
 
-            <div style={{ display:"flex", gap:S.lg, fontSize:12, color:C.text3 }}>
-              <span>⭐ {company.rating}({company.reviews})</span>
-              <span>✅ {company.completedJobs}건 완료</span>
-              <span>🔄 재계약 {company.recontractRate}%</span>
-            </div>
+            <KpiRow isLoggedIn={isLoggedIn} company={company} />
           </div>
         </div>
 
