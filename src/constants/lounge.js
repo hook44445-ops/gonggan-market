@@ -14,32 +14,23 @@
 // ─────────────────────────────────────────────────────
 
 export const LOUNGE_CATEGORIES = [
-  { id: 'all',      label: '전체',           group: null },
-  { id: 'popular',  label: '🔥 인기',        group: null },
-
-  { id: 'free',              label: '자유',           group: '지역/일상' },
-  { id: 'neighborhood',      label: '동네',           group: '지역/일상' },
-  { id: 'restaurant',        label: '맛집',           group: '지역/일상' },
-  { id: 'daily',             label: '일상',           group: '지역/일상' },
-  { id: 'worry',             label: '고민',           group: '지역/일상' },
-
-  { id: 'interior_review',   label: '인테리어 후기',  group: '인테리어/공간' },
-  { id: 'before_after',      label: '시공 전/후',     group: '인테리어/공간' },
-  { id: 'company_recommend', label: '업체 추천',      group: '인테리어/공간' },
-  { id: 'quote_question',    label: '견적 질문',      group: '인테리어/공간' },
-  { id: 'room_deco',         label: '자취/집꾸미기',  group: '인테리어/공간' },
-
-  { id: 'domestic_stock',    label: '국내주식',       group: '경제/정보' },
-  { id: 'overseas_stock',    label: '해외주식',       group: '경제/정보' },
-  { id: 'economy',           label: '경제',           group: '경제/정보' },
-  { id: 'realestate',        label: '부동산',         group: '경제/정보' },
-  { id: 'startup',           label: '창업',           group: '경제/정보' },
-
-  { id: 'exercise',          label: '운동',           group: '취미/라이프' },
-  { id: 'car',               label: '차/오토바이',    group: '취미/라이프' },
-  { id: 'game',              label: '게임',           group: '취미/라이프' },
-  { id: 'travel',            label: '여행',           group: '취미/라이프' },
-  { id: 'pet',               label: '반려동물',       group: '취미/라이프' },
+  { id: 'all',        label: '전체',    group: null },
+  { id: 'popular',    label: '🔥 인기', group: null },
+  { id: 'interior',   label: '인테리어', group: '공간' },
+  { id: 'room_deco',  label: '집꾸미기', group: '공간' },
+  { id: 'worry',      label: '고민',    group: '일상' },
+  { id: 'daily',      label: '생활',    group: '일상' },
+  { id: 'chat',       label: '대화해요', group: '일상' },
+  { id: 'realestate', label: '부동산',   group: '경제' },
+  { id: 'stock',      label: '주식',    group: '경제' },
+  { id: 'humor',      label: '유머',    group: '일상' },
+  { id: 'pet',        label: '반려동물', group: '취미' },
+  { id: 'exercise',   label: '운동',    group: '취미' },
+  { id: 'startup',    label: '창업',    group: '경제' },
+  { id: 'travel',     label: '여행',    group: '취미' },
+  { id: 'game',       label: '게임',    group: '취미' },
+  { id: 'local',      label: '동네',    group: '일상' },
+  { id: 'food',       label: '맛집',    group: '일상' },
 ];
 
 export const TOKEN_PACKAGES = [
@@ -52,13 +43,11 @@ export const TOKEN_PACKAGES = [
 ];
 
 export const TOKEN_COSTS = {
-  CHAT_REQUEST:          20,
-  INTEREST_MIN:          1,
-  INTEREST_MAX:          2,
-  POST_BOOST_MIN:        15,
-  POST_BOOST_MAX:        30,
-  EXPERT_HIGHLIGHT_MIN:  30,
-  EXPERT_HIGHLIGHT_MAX:  50,
+  CHAT_REQUEST:         20,
+  POST_BOOST_MIN:       15,
+  POST_BOOST_MAX:       30,
+  EXPERT_HIGHLIGHT_MIN: 30,
+  EXPERT_HIGHLIGHT_MAX: 50,
 };
 
 export const TOKEN_EARN = {
@@ -82,7 +71,7 @@ export const MOCK_LOUNGE_POSTS = [
   {
     id: 'mock-1',
     anonymous_nickname: '날쌘다람쥐',
-    category: 'interior_review',
+    category: 'interior',
     title: '셀프도배하다 벽지 망했다…',
     content: '혼자 해보려고 유튜브 보면서 도전했는데 이음새가 너무 벌어져버렸어요. 결국 업체 불러야 할 것 같아서 여기 물어봅니다. 이런 경우 비용이 얼마나 나올까요?',
     view_count: 1240,
@@ -93,11 +82,12 @@ export const MOCK_LOUNGE_POSTS = [
     region: '마포구',
     gender: null,
     age_group: '30대',
+    has_badge: true,
   },
   {
     id: 'mock-2',
     anonymous_nickname: '파파스머프',
-    category: 'domestic_stock',
+    category: 'stock',
     title: '테슬라 오늘 왜 오르냐',
     content: '뉴스 찾아봐도 딱히 호재가 없는데 3% 올랐네요. 혹시 아시는 분?',
     view_count: 830,
@@ -108,6 +98,7 @@ export const MOCK_LOUNGE_POSTS = [
     region: null,
     gender: 'male',
     age_group: null,
+    has_badge: false,
   },
   {
     id: 'mock-3',
@@ -123,6 +114,7 @@ export const MOCK_LOUNGE_POSTS = [
     region: '강남구',
     gender: 'female',
     age_group: '20대',
+    has_badge: false,
   },
   {
     id: 'mock-4',
@@ -138,6 +130,7 @@ export const MOCK_LOUNGE_POSTS = [
     region: '용산구',
     gender: null,
     age_group: '40대',
+    has_badge: false,
   },
 ];
 

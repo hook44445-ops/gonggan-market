@@ -82,6 +82,7 @@ export default function LoungePostCard({ post, onClick }) {
           {avatar.emoji}
         </div>
         <span style={{ fontSize: 12, color: C.text3, fontWeight: 600 }}>
+          {post.has_badge && <span style={{ fontSize: 11, marginRight: 2 }}>🛡️</span>}
           {post.anonymous_nickname}
         </span>
         {post.gender && (

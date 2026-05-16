@@ -1,14 +1,10 @@
 // ─────────────────────────────────────────────────────
 // 공간마켓 라운지 시스템
-//
-// 라운지는 단순 커뮤니티 게시판이 아닙니다.
-// 사람이 머무는 공간 안에서 신뢰가 생기고,
-// 그 신뢰가 거래로 이어지는 구조입니다.
 // ─────────────────────────────────────────────────────
 
 import { useState, useRef } from 'react';
 import { C, R, S } from '../constants';
-import { CATEGORY_LABEL, TOKEN_COSTS } from '../constants/lounge';
+import { CATEGORY_LABEL } from '../constants/lounge';
 import { useLoungePost } from '../hooks/useLounge';
 import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname } from '../utils/anonymousNickname';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
@@ -32,11 +28,9 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
     setTimeout(() => setToast(null), 2000);
   };
 
+  // 하트는 무료
   const handleLike = () => {
     if (isGuest) { onRequireLogin?.(); return; }
-    const cost = TOKEN_COSTS.INTEREST_MIN;
-    if (tokenBalance < cost) { showToast('토큰이 부족합니다'); return; }
-    onSpendToken?.('interest_send', cost, '게시글 좋아요');
     setLiked(true);
     showToast('❤️ 좋아요를 눌렀어요');
   };
@@ -63,11 +57,10 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
     setReplyTo(null);
   };
 
+  // 대화 신청 - 토큰 차감하지 않고 신청만
   const handleChatRequest = () => {
-    const cost = TOKEN_COSTS.CHAT_REQUEST;
-    onSpendToken?.('chat_request', cost, '대화 신청');
     setShowChat(false);
-    showToast('💬 대화 신청을 보냈어요!');
+    showToast('💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.');
   };
 
   if (loading || !post) {
@@ -81,18 +74,21 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
     );
   }
 
-  const catLabel = CATEGORY_LABEL[post.category] ?? post.category;
-  const postAvatar     = getAnonymousAvatarByNickname(post.anonymous_nickname);
-  const topComments    = comments.filter(c => !c.parent_id);
-  const replyComments  = comments.filter(c => !!c.parent_id);
+  const catLabel    = CATEGORY_LABEL[post.category] ?? post.category;
+  const postAvatar  = getAnonymousAvatarByNickname(post.anonymous_nickname);
+  const topComments = comments.filter(c => !c.parent_id);
+  const replyComments = comments.filter(c => !!c.parent_id);
+  const hasBadge    = post.has_badge === true;
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 80 }}>
+      {/* 헤더 */}
       <div style={{ background: C.surface, padding: `14px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.md, borderBottom: `1px solid ${C.bgWarm}`, position: 'sticky', top: 0, zIndex: 10 }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.text1, padding: 0 }}>←</button>
         <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>라운지</div>
       </div>
 
+      {/* 본문 */}
       <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: S.md, flexWrap: 'wrap' }}>
           <div style={{
@@ -103,7 +99,10 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
           }}>
             {postAvatar.emoji}
           </div>
-          <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>{post.anonymous_nickname}</span>
+          <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>
+            {hasBadge && <span style={{ fontSize: 13, marginRight: 3 }}>🛡️</span>}
+            {post.anonymous_nickname}
+          </span>
           <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{catLabel}</span>
           {post.region && <span style={{ fontSize: 11, color: C.text3 }}>📍 {post.region}</span>}
           {post.gender && <span style={{ fontSize: 11, color: C.text4 }}>{post.gender === 'male' ? '남' : '여'}</span>}
@@ -118,7 +117,7 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
 
         <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bg}` }}>
           <span style={{ fontSize: 12, color: C.text3 }}>👁 {post.view_count.toLocaleString()}</span>
-          <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: liked ? C.red : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
+          <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
             {liked ? '❤️' : '🤍'} {post.like_count + (liked ? 1 : 0)}
           </button>
           <button onClick={() => setSaved(!saved)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
@@ -128,14 +127,19 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
         </div>
       </div>
 
+      {/* 대화 신청 버튼 */}
       <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
         <button
           onClick={isGuest ? () => onRequireLogin?.() : () => setShowChat(true)}
           style={{ width: '100%', padding: S.xl, background: `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 4px 16px ${C.brand}44` }}>
-          {isGuest ? '💬 대화 신청하기 (로그인 필요)' : `💬 대화 신청 (${TOKEN_COSTS.CHAT_REQUEST} 토큰)`}
+          {isGuest ? '💬 대화 신청하기 (로그인 필요)' : '💬 대화 신청하기 (수락 시 20토큰)'}
         </button>
+        <div style={{ textAlign: 'center', marginTop: S.sm, fontSize: 11, color: C.text4 }}>
+          신청은 무료 · 상대방이 수락해야 대화방이 열려요
+        </div>
       </div>
 
+      {/* 댓글 */}
       <div style={{ background: C.surface, padding: `${S.xl}px ${S.xl}px 0` }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
           댓글 {comments.length}개
@@ -162,6 +166,7 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
         )}
       </div>
 
+      {/* 댓글 입력 바 */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.surface, borderTop: `1px solid ${C.bgWarm}`, padding: `${S.sm}px ${S.xl}px`, paddingBottom: 'env(safe-area-inset-bottom, 8px)', zIndex: 10 }}>
         {replyTo && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.brandL, borderRadius: R.sm, padding: `${S.xs}px ${S.sm}px`, marginBottom: S.xs }}>

@@ -8,17 +8,21 @@ import { SPACE_TEMPERATURE_BASE } from '../../constants/lounge';
 
 // 알림 받을 수 있는 관심 카테고리
 const INTEREST_CATS = [
-  { id: 'interior_review', label: '인테리어' },
-  { id: 'humor',           label: '유머' },
-  { id: 'room_deco',       label: '집꾸미기' },
-  { id: 'realestate',      label: '부동산' },
-  { id: 'economy',         label: '경제' },
-  { id: 'domestic_stock',  label: '국내주식' },
-  { id: 'overseas_stock',  label: '해외주식' },
-  { id: 'worry',           label: '고민' },
-  { id: 'daily',           label: '생활' },
-  { id: 'pet',             label: '반려동물' },
-  { id: 'exercise',        label: '운동' },
+  { id: 'interior',   label: '인테리어' },
+  { id: 'room_deco',  label: '집꾸미기' },
+  { id: 'worry',      label: '고민' },
+  { id: 'daily',      label: '생활' },
+  { id: 'chat',       label: '대화해요' },
+  { id: 'realestate', label: '부동산' },
+  { id: 'stock',      label: '주식' },
+  { id: 'humor',      label: '유머' },
+  { id: 'pet',        label: '반려동물' },
+  { id: 'exercise',   label: '운동' },
+  { id: 'startup',    label: '창업' },
+  { id: 'travel',     label: '여행' },
+  { id: 'game',       label: '게임' },
+  { id: 'local',      label: '동네' },
+  { id: 'food',       label: '맛집' },
 ];
 
 function Row({ label, icon, onClick }) {
