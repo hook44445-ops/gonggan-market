@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
+import { BADGES } from "../constants/badges";
 import CompanyOnboarding from "./CompanyOnboarding";
 import { upsertUserByPhone } from "../lib/supabase";
 
@@ -23,6 +24,10 @@ export default function LoginScreen({ onLogin }) {
   const [codeSent, setCodeSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+
+  // Admin hidden entry — version text tap (5x) on first screen
+  const [tapCount, setTapCount] = useState(0);
+  const [showBrowse, setShowBrowse] = useState(false);
 
   // Admin hidden entry state
   const [adminCode, setAdminCode] = useState("");
@@ -178,6 +183,24 @@ export default function LoginScreen({ onLogin }) {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button onClick={() => setShowBrowse(true)}
+              style={{
+                background: C.surface, border: `1.5px solid ${C.bgWarm}`, borderRadius: R.xl,
+                padding: "15px 20px", display: "flex", alignItems: "center", gap: 14,
+                cursor: "pointer", boxShadow: "0 2px 8px rgba(28,23,18,0.06)", textAlign: "left",
+              }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: R.lg, flexShrink: 0,
+                background: C.brandL, border: `1.5px solid ${C.brandM}`,
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
+              }}>🔍</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 2 }}>통합 둘러보기</div>
+                <div style={{ fontSize: 12, color: C.text3 }}>가입 전 플랫폼 구조 · 업체 · 후기 확인</div>
+              </div>
+              <div style={{ marginLeft: "auto", color: C.brand, fontSize: 20 }}>›</div>
+            </button>
+
             <button onClick={() => chooseRole("consumer")}
               style={{
                 background: `linear-gradient(135deg,${C.brand},${C.brandD})`, color: "#fff",
@@ -214,6 +237,18 @@ export default function LoginScreen({ onLogin }) {
               </div>
               <div style={{ marginLeft: "auto", color: C.brand, fontSize: 20 }}>›</div>
             </button>
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: 24 }}>
+            <div
+              onClick={() => {
+                const next = tapCount + 1;
+                setTapCount(next);
+                if (next >= 5) { setTapCount(0); setShowAdminModal(true); }
+              }}
+              style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
+              공간마켓 v1.0.0
+            </div>
           </div>
         </div>
       )}
@@ -379,6 +414,170 @@ export default function LoginScreen({ onLogin }) {
             style={{ width: "100%", padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, cursor: "pointer" }}>
             {loading ? "저장 중..." : "관리자로 시작하기"}
           </button>
+        </div>
+      )}
+
+      {/* ── 통합 둘러보기 ── */}
+      {showBrowse && (
+        <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 100, display: "flex", flexDirection: "column" }}>
+          {/* 헤더 */}
+          <div style={{ background: C.surface, borderBottom: `1px solid ${C.bgWarm}`, padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: R.md, background: C.brand, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🏠</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>공간마켓 둘러보기</div>
+            </div>
+            <button onClick={() => setShowBrowse(false)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: C.text3, padding: "0 4px", lineHeight: 1 }}>×</button>
+          </div>
+
+          {/* 스크롤 본문 */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 120px" }}>
+
+            {/* 1. 신뢰 지표 */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간마켓 신뢰 지표</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: C.text1, marginBottom: 14 }}>숫자로 증명하는 플랫폼</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                {[
+                  { icon: "✅", value: "1,247건", label: "누적 완료 공사" },
+                  { icon: "⭐", value: "4.9점",   label: "평균 만족도" },
+                  { icon: "🛡", value: "89곳",    label: "공간보증 업체" },
+                  { icon: "🌡", value: "91°",     label: "평균 공간온도" },
+                ].map(({ icon, value, label }) => (
+                  <div key={label} style={{ background: C.surface, borderRadius: R.lg, padding: S.xl, border: `1px solid ${C.bgWarm}`, textAlign: "center" }}>
+                    <div style={{ fontSize: 22, marginBottom: 4 }}>{icon}</div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: C.brand }}>{value}</div>
+                    <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.brandM}`, textAlign: "center" }}>
+                <div style={{ fontSize: 22, fontWeight: 900, color: C.brand }}>48억원+</div>
+                <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>총 안전 거래액 (에스크로 보호)</div>
+              </div>
+            </div>
+
+            {/* 2. 에스크로 구조 */}
+            <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: 28, border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>에스크로 안전 정산</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 14 }}>공사비는 공간마켓이 보관해요</div>
+              {[
+                { icon: "📝", step: "계약",      desc: "고객이 총 공사비를 공간마켓에 예치" },
+                { icon: "🏗",  step: "단계 승인", desc: "착공·중간점검·완료 단계별 고객 확인" },
+                { icon: "💰", step: "안전 정산", desc: "고객 확인 완료 후 업체에 단계별 지급" },
+                { icon: "🎉", step: "공사 완료", desc: "리뷰 작성·공간온도 반영 · AS 보장" },
+              ].map(({ icon, step, desc }, i, arr) => (
+                <div key={step} style={{ display: "flex", gap: S.md, marginBottom: i < arr.length - 1 ? S.lg : 0 }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: R.full, background: C.brandL, border: `1.5px solid ${C.brandM}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{icon}</div>
+                    {i < arr.length - 1 && <div style={{ width: 2, height: 20, background: C.bgWarm, marginTop: 4 }} />}
+                  </div>
+                  <div style={{ paddingTop: 6 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 2 }}>{step}</div>
+                    <div style={{ fontSize: 12, color: C.text3 }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 3. 공간보증 배지 */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간보증 배지</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 14 }}>보증금 예치로 신뢰를 증명해요</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {Object.entries(BADGES).map(([key, b]) => (
+                  <div key={key} style={{ background: C.surface, borderRadius: R.lg, padding: `${S.md}px ${S.xl}px`, border: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.lg }}>
+                    <div style={{ width: 40, height: 40, borderRadius: R.md, background: b.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{b.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: b.color }}>{b.label}</span>
+                        <span style={{ fontSize: 12, color: C.text3, fontWeight: 600 }}>최대 {b.maxJob}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>보증금 {b.deposit.toLocaleString()}만원 예치</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. 완료 후기 미리보기 */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>완료 후기</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 14 }}>실제 고객 후기를 확인하세요</div>
+              {[
+                { photo: "🏠", stars: 5, text: "에스크로 덕분에 걱정 없이 진행했어요. 마감도 깔끔하고 일정도 정확히 지켜줬어요.", region: "서울 마포구", type: "아파트 전체", co: "홍익시공", temp: 97 },
+                { photo: "🛋", stars: 5, text: "중간보고를 꼼꼼히 해줘서 신뢰가 갔어요. 공간온도 이유를 알겠더라고요.", region: "서울 연남동", type: "거실·주방", co: "공간설계소", temp: 91 },
+                { photo: "🚿", stars: 4, text: "욕실 시공 퀄리티 정말 만족해요. 추가금 없이 견적 그대로 완료!", region: "경기 수원시", type: "욕실 시공", co: "우리집시공단", temp: 86 },
+              ].map((r, i) => (
+                <div key={i} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                    <div style={{ display: "flex", gap: S.sm, alignItems: "center" }}>
+                      <div style={{ width: 44, height: 44, borderRadius: R.md, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{r.photo}</div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{r.co}</div>
+                        <div style={{ fontSize: 11, color: C.text3 }}>{r.region} · {r.type}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, color: "#C8A15A", letterSpacing: 1 }}>{"★".repeat(r.stars)}</div>
+                  </div>
+                  <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6 }}>"{r.text}"</div>
+                </div>
+              ))}
+            </div>
+
+            {/* 5. 업체 카드 미리보기 */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>검증 업체</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 14 }}>공간보증 인증 업체들</div>
+              {[
+                { name: "홍익시공",    temp: 97, badge: "premium",    jobs: 84, reviews: 4.9, region: "서울 마포", specs: ["아파트 전체","주방","욕실"] },
+                { name: "공간설계소",  temp: 91, badge: "standard",   jobs: 52, reviews: 4.8, region: "서울 서대문", specs: ["인테리어","오피스","카페"] },
+                { name: "우리집시공단",temp: 86, badge: "basic",      jobs: 31, reviews: 4.7, region: "경기 성남", specs: ["아파트 부분","바닥/도배"] },
+              ].map(c => {
+                const b = BADGES[c.badge] ?? BADGES.basic;
+                return (
+                  <div key={c.name} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                      <div style={{ display: "flex", gap: S.md, alignItems: "center" }}>
+                        <div style={{ width: 44, height: 44, borderRadius: R.md, background: b.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, color: b.color }}>{b.icon}</div>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{c.name}</span>
+                            <span style={{ background: b.bg, color: b.color, borderRadius: R.full, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>{b.label}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>📍 {c.region}</div>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 20, fontWeight: 900, color: c.temp >= 90 ? C.brand : "#C8A15A" }}>{c.temp}°</div>
+                        <div style={{ fontSize: 10, color: C.text4 }}>공간온도</div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: S.sm, marginBottom: S.sm }}>
+                      {c.specs.map(s => (
+                        <span key={s} style={{ background: C.surface2, color: C.text3, borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 600, border: `1px solid ${C.bgWarm}` }}>{s}</span>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: S.xl, fontSize: 12, color: C.text3 }}>
+                      <span>✅ 완료 {c.jobs}건</span>
+                      <span>⭐ {c.reviews}점</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 하단 CTA */}
+          <div style={{ background: C.surface, borderTop: `1px solid ${C.bgWarm}`, padding: "12px 20px 24px", display: "flex", gap: 8, flexShrink: 0 }}>
+            <button onClick={() => { setShowBrowse(false); chooseRole("consumer"); }}
+              style={{ flex: 1, padding: "16px", background: `linear-gradient(135deg,${C.brand},${C.brandD})`, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
+              🏡 의뢰인으로 시작
+            </button>
+            <button onClick={() => { setShowBrowse(false); chooseRole("company"); }}
+              style={{ flex: 1, padding: "16px", background: C.surface, color: C.brand, border: `2px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+              🔨 업체로 시작
+            </button>
+          </div>
         </div>
       )}
 

@@ -14,7 +14,6 @@ import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 import { COMPANIES } from "../mock/mockCompanies";
-import { MOCK_CHATS } from "../mock/mockChats";
 import {
   supabase,
   getRequests,
@@ -92,7 +91,11 @@ const normalizeBid = (row) => ({
 
 export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) {
   const mode = user.role === "company" ? "company" : user.role === "admin" ? "admin" : "consumer";
-  const [screen, setScreen] = useState("home");
+  const [screen, setScreen] = useState(() => {
+    if (user.role === "admin") return "admin";
+    if (user.role === "company") return "dashboard";
+    return "home";
+  });
   const [prevScreen, setPrevScreen] = useState("home");
   const [selCo, setSelCo] = useState(null);
   const [toast, setToast] = useState(null);
@@ -100,7 +103,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [myRequests, setMyRequests] = useState([]);
   const [bidAlert, setBidAlert] = useState(null);
   const [bidViewRequestId, setBidViewRequestId] = useState(null);
-  const [chatLogs, setChatLogs] = useState(() => ({ ...MOCK_CHATS }));
+  const [chatLogs, setChatLogs] = useState({});
   const [customerRequests, setCustomerRequests] = useState([]);
   const [submittedBids, setSubmittedBids] = useState([]);
   const [selectedBid, setSelectedBid] = useState(null);
@@ -540,8 +543,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               ) : null;
             })()}
 
+            {(() => {
+              const totalJobs = companies.reduce((s, c) => s + (c.completedJobs ?? 0), 0);
+              const avgTemp = companies.length > 0
+                ? Math.round(companies.reduce((s, c) => s + (c.temp ?? 70), 0) / companies.length)
+                : 70;
+              return (
             <div style={{ display:"flex", gap:S.sm, marginBottom:S.xl }}>
-              {[["🏘","인근 업체",`${companies.length}곳`],["⭐","평균 별점","4.8점"],["✅","이번 달 완료","47건"]].map(([icon,label,val]) => (
+              {[["🏘","인근 업체",`${companies.length}곳`],["🌡","평균 공간온도",`${avgTemp}°`],["✅","누적 완료",`${totalJobs}건`]].map(([icon,label,val]) => (
                 <div key={label} style={{ flex:1, background:C.surface, borderRadius:R.lg,
                   padding:`${S.lg}px ${S.sm}px`, textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
                   <div style={{ fontSize:18 }}>{icon}</div>
@@ -550,6 +559,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               ))}
             </div>
+              ); })()}
 
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
               <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>인근 업체</div>
