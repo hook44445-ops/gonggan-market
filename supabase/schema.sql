@@ -609,3 +609,101 @@ create policy "contract_notes: author update" on public.contract_notes
 
 -- 삭제는 소프트 삭제만 (is_deleted = true)
 -- hard delete 정책 없음 — 기록 보존 원칙
+
+-- ============================================================
+--  STEP H — 결제 준비 구조
+-- ============================================================
+
+-- ── payment_orders ────────────────────────────────────────────────────────────
+create table if not exists public.payment_orders (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid references public.users(id) on delete set null,
+  request_id     uuid references public.requests(id) on delete set null,
+  bid_id         uuid references public.bids(id) on delete set null,
+  contract_id    uuid references public.escrow_payments(id) on delete set null,
+  amount         integer not null,
+  customer_fee   integer not null default 0,
+  vat            integer not null default 0,
+  total_amount   integer not null,
+  payment_method text,
+  status         text not null default 'PENDING'
+    check (status in ('PENDING','READY','PAID','FAILED','CANCELLED','REFUNDED')),
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+create or replace trigger payment_orders_updated_at
+  before update on public.payment_orders
+  for each row execute procedure public.set_updated_at();
+
+alter table public.payment_orders enable row level security;
+create policy "payment_orders: owner read" on public.payment_orders
+  for select using (auth.uid() = user_id);
+create policy "payment_orders: owner insert" on public.payment_orders
+  for insert with check (auth.uid() = user_id);
+
+-- ── payment_transactions ──────────────────────────────────────────────────────
+create table if not exists public.payment_transactions (
+  id               uuid primary key default gen_random_uuid(),
+  payment_order_id uuid references public.payment_orders(id) on delete cascade,
+  pg_provider      text not null default 'toss',
+  pg_payment_key   text,
+  method           text,
+  amount           integer not null,
+  status           text not null default 'PENDING',
+  approved_at      timestamptz,
+  raw_response     jsonb,
+  created_at       timestamptz not null default now()
+);
+
+alter table public.payment_transactions enable row level security;
+create policy "payment_transactions: public read own" on public.payment_transactions
+  for select using (
+    exists (select 1 from public.payment_orders po where po.id = payment_order_id and auth.uid() = po.user_id)
+  );
+
+-- ── escrow_payouts ────────────────────────────────────────────────────────────
+create table if not exists public.escrow_payouts (
+  id           uuid primary key default gen_random_uuid(),
+  escrow_id    uuid references public.escrow_payments(id) on delete cascade,
+  company_id   uuid references public.companies(id) on delete cascade,
+  stage        integer not null check (stage between 1 and 4),
+  percent      integer not null,
+  amount       integer not null,
+  platform_fee integer not null default 0,
+  vat          integer not null default 0,
+  net_amount   integer not null,
+  status       text not null default 'PENDING'
+    check (status in ('PENDING','READY','APPROVED','HELD','PAID_MANUALLY','CANCELLED')),
+  approved_by  uuid references public.users(id) on delete set null,
+  approved_at  timestamptz,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.escrow_payouts enable row level security;
+create policy "escrow_payouts: company read" on public.escrow_payouts
+  for select using (
+    exists (select 1 from public.companies c where c.id = company_id and auth.uid() = c.owner_id)
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- ── webhook_logs ──────────────────────────────────────────────────────────────
+create table if not exists public.webhook_logs (
+  id           uuid primary key default gen_random_uuid(),
+  provider     text not null,
+  event_type   text not null,
+  payment_key  text,
+  payload      jsonb,
+  processed    boolean not null default false,
+  created_at   timestamptz not null default now()
+);
+
+-- Accessible only via service role (backend only)
+alter table public.webhook_logs enable row level security;
+
+-- ── RLS: admin can read/write users (needed for admin dashboard) ──────────────
+-- NOTE: Apply this migration to enable admin customer management
+-- create policy "users: admin read all" on public.users
+--   for select using (
+--     exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+--   );

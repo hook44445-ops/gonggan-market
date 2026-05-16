@@ -505,3 +505,123 @@ export const subscribeToContractNotes = (contractId, callback) =>
       filter: `contract_id=eq.${contractId}`,
     }, callback)
     .subscribe();
+
+// ── Admin: list users by role ─────────────────────────────────────────────────
+
+export const getUsers = ({ role } = {}) => {
+  let q = supabase.from("users").select("*").order("created_at", { ascending: false });
+  if (role) q = q.eq("role", role);
+  return q;
+};
+
+// ── Company dashboard: active escrow jobs ─────────────────────────────────────
+
+export const getCompanyActiveJobs = (companyId) =>
+  supabase
+    .from("escrow_payments")
+    .select("*, requests(space_type, area, size)")
+    .eq("company_id", companyId)
+    .not("status", "eq", "completed")
+    .order("created_at", { ascending: false });
+
+// ── Admin: update company doc_status with audit log ───────────────────────────
+
+export const adminReviewCompany = async (companyId, adminId, docStatus, rejectNote = null) => {
+  const { data: prev } = await supabase
+    .from("companies")
+    .select("doc_status, verified")
+    .eq("id", companyId)
+    .single();
+
+  const { data, error } = await supabase
+    .from("companies")
+    .update({
+      doc_status: docStatus,
+      reject_note: rejectNote,
+      reviewed_at: new Date().toISOString(),
+      ...(docStatus === "approved" && { verified: true }),
+    })
+    .eq("id", companyId)
+    .select()
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null,
+      action: docStatus === "approved" ? "APPROVE_COMPANY" : "REJECT_COMPANY",
+      target_type: "company",
+      target_id: companyId,
+      before_val: { doc_status: prev?.doc_status },
+      after_val: { doc_status: docStatus },
+      reason: rejectNote,
+    });
+  }
+
+  return { data, error };
+};
+
+// ── STEP H: Payment Orders ────────────────────────────────────────────────────
+
+export const createPaymentOrder = (data) =>
+  supabase.from("payment_orders").insert(data).select().single();
+
+export const getPaymentOrder = (id) =>
+  supabase.from("payment_orders").select("*").eq("id", id).single();
+
+export const getPaymentOrderByBid = (bidId) =>
+  supabase.from("payment_orders").select("*").eq("bid_id", bidId).maybeSingle();
+
+export const updatePaymentOrderStatus = (id, status) =>
+  supabase.from("payment_orders").update({ status }).eq("id", id).select().single();
+
+// ── STEP H: Escrow Payouts ────────────────────────────────────────────────────
+
+export const createEscrowPayout = (data) =>
+  supabase.from("escrow_payouts").insert(data).select().single();
+
+export const getEscrowPayouts = (escrowId) =>
+  supabase.from("escrow_payouts").select("*").eq("escrow_id", escrowId).order("stage");
+
+export const updateEscrowPayoutStatus = (id, status, approvedBy = null) =>
+  supabase.from("escrow_payouts").update({
+    status,
+    ...(approvedBy && { approved_by: approvedBy, approved_at: new Date().toISOString() }),
+  }).eq("id", id).select().single();
+
+// ── STEP G: Admin company status ──────────────────────────────────────────────
+
+export const adminSetCompanyStatus = async (companyId, adminId, companyStatus, reason = null) => {
+  const { data: prev } = await supabase
+    .from("companies").select("company_status").eq("id", companyId).single();
+
+  const { data, error } = await supabase
+    .from("companies")
+    .update({ company_status: companyStatus })
+    .eq("id", companyId)
+    .select("id, company_status")
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null,
+      action: `SET_COMPANY_STATUS_${companyStatus}`,
+      target_type: "company",
+      target_id: companyId,
+      before_val: { company_status: prev?.company_status },
+      after_val: { company_status: companyStatus },
+      reason,
+    });
+  }
+
+  return { data, error };
+};
+
+// ── STEP B: Update request status (in_progress) ───────────────────────────────
+
+export const setRequestInProgress = (requestId) =>
+  supabase.from("requests").update({ status: "in_progress" }).eq("id", requestId);
+
+// ── STEP B: Get company status ────────────────────────────────────────────────
+
+export const getCompanyStatus = (companyId) =>
+  supabase.from("companies").select("company_status").eq("id", companyId).single();

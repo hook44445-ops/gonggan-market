@@ -150,6 +150,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
             early_partner_joined_at: new Date().toISOString(),
             early_partner_benefit_until: (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString(); })(),
             fee_rate: 0.04,
+            doc_status: "pending",
           });
           onDone({ ...(userRow || profile), badge: form.badge, has_insurance: form.hasInsurance });
         }}

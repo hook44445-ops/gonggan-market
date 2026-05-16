@@ -32,7 +32,7 @@ export default function ChatScreen({ company, user, onBack }) {
     async function init() {
       const { data, error } = await getChatMessages(roomId);
       if (cancelled) return;
-      if (error) { console.error("[chat] load error:", error.message); return; }
+      if (error) return;
 
       let rows = data ?? [];
       if (rows.length === 0) {

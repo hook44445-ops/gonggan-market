@@ -36,7 +36,7 @@ function PortfolioWriteModal({ companyId, onClose, onSaved }) {
       desc:        form.desc.trim() || null,
     });
     setSaving(false);
-    if (error) { console.error("[Portfolio] save failed:", error.message); return; }
+    if (error) return;
     onSaved(data);
     onClose();
   };
@@ -107,7 +107,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
   useEffect(() => {
     if (!company?.id) return;
     getPortfolios(company.id).then(({ data, error }) => {
-      if (error) { console.error("[PortfolioScreen] load failed:", error.message); return; }
+      if (error) return;
       if (data && data.length > 0) setPortfolio(data.map(normalizePortfolio));
     });
   }, [company?.id]);

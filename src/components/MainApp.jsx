@@ -13,7 +13,6 @@ import AdminScreen from "../screens/AdminScreen";
 import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
-import { COMPANIES } from "../mock/mockCompanies";
 import {
   supabase,
   getRequests,
@@ -29,18 +28,19 @@ import { useCompanyList } from "../hooks/useCompanyList";
 // ── normalizers: DB row → local shape ─────────────────────────────────────────
 
 const normalizeCompany = (row) => ({
-  id: row.id,
-  name: row.name ?? "업체",
-  temp: row.temp ?? 70,
-  verified: row.verified ?? false,
-  badge: row.badge ?? "basic",
-  hasInsurance: row.has_insurance ?? false,
+  id:            row.id,
+  name:          row.name ?? "업체",
+  temp:          row.temp ?? 70,
+  verified:      row.verified ?? false,
+  badge:         row.badge ?? "basic",
+  hasInsurance:  row.has_insurance ?? false,
   completedJobs: row.completed_jobs ?? 0,
   recontractRate: row.recontract_rate ?? 0,
-  asRate: row.as_rate ?? 0,
-  region: row.region ?? "",
-  online: row.online ?? false,
-  specialties: row.specialties ?? [],
+  asRate:        row.as_rate ?? 0,
+  region:        row.region ?? "",
+  online:        row.online ?? false,
+  specialties:   row.specialties ?? [],
+  companyStatus: row.company_status ?? "PENDING",
 });
 
 const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -110,12 +110,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [submittedBids, setSubmittedBids] = useState([]);
   const [selectedBid, setSelectedBid] = useState(null);
   const [escrowContracts, setEscrowContracts] = useState([]);
-  const [currentUser, setCurrentUser] = useState(() => {
-    if (user?.role === "company") {
-      return COMPANIES.find(c => c.name === user.name) ?? COMPANIES[0] ?? null;
-    }
-    return null;
-  });
+  const [currentUser, setCurrentUser] = useState(null);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
@@ -133,7 +128,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     setMyRequests(prev => prev.map(markClosed));
     setCustomerRequests(prev => prev.map(markClosed));
     const { error } = await closeRequest(requestId);
-    if (error) console.error("[request] close failed:", error.message);
+    if (error) return;
   };
 
   // Load requests on mount
@@ -197,7 +192,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (!bidViewRequestId) return;
 
     getBidsForRequest(bidViewRequestId).then(({ data, error }) => {
-      if (error) { console.error("[bids] load failed:", error.message); return; }
+      if (error) return;
       if (data) setSubmittedBids(data.map(normalizeBid));
     });
 
@@ -239,6 +234,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   const addBid = async (request, bidData) => {
+    if (currentUser?.companyStatus && currentUser.companyStatus !== "ACTIVE") {
+      showToast("현재 업체 상태에서는 입찰할 수 없습니다. 관리자 승인 후 이용 가능합니다.");
+      return;
+    }
     if (request.id?.startsWith("tmp-")) {
       showToast("견적 요청이 저장 중입니다. 잠시 후 다시 시도해주세요");
       return;
@@ -755,7 +754,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             setEscrowContracts={setEscrowContracts}
           />
         )}
-        {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} />}
+        {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} user={user} />}
 
         {screen==="chatlist" && (
           <div>
@@ -1114,7 +1113,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             budget_max: 0,
           });
           if (error) {
-            console.error("[request] insert failed:", error.message);
+            void error;
           } else if (data) {
             const saved = normalizeRequest(data);
             const replace = r => r.id === optimistic.id ? saved : r;

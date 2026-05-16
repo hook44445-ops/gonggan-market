@@ -30,7 +30,7 @@ export default function ReviewScreen({ company, onBack, currentUser }) {
   useEffect(() => {
     if (!company?.id) return;
     getReviews(company.id).then(({ data, error }) => {
-      if (error) { console.error("[ReviewScreen] load failed:", error.message); return; }
+      if (error) return;
       if (data && data.length > 0) setReviews(data.map(normalizeReview));
     });
   }, [company?.id]);
@@ -70,8 +70,6 @@ export default function ReviewScreen({ company, onBack, currentUser }) {
         }),
         updateCompanyTemp(company.id, delta),
       ]);
-      if (reviewRes.error) console.error("[ReviewScreen] createReview failed:", reviewRes.error.message);
-      if (tempRes.error)   console.error("[ReviewScreen] updateCompanyTemp failed:", tempRes.error.message);
     }
   };
 

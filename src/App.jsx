@@ -5,18 +5,11 @@ import ErrorBoundary from "./components/ErrorBoundary";
 
 const SESSION_TS_KEY   = "gonggan_login_at";
 const SESSION_USER_KEY = "gonggan_user";
-const THIRTY_DAYS_MS   = 30 * 24 * 60 * 60 * 1000;
 
 function loadSavedSession() {
   try {
-    const loginAt = localStorage.getItem(SESSION_TS_KEY);
-    const raw     = localStorage.getItem(SESSION_USER_KEY);
-    if (!loginAt || !raw) return null;
-    if (Date.now() - parseInt(loginAt, 10) > THIRTY_DAYS_MS) {
-      localStorage.removeItem(SESSION_TS_KEY);
-      localStorage.removeItem(SESSION_USER_KEY);
-      return null;
-    }
+    const raw = localStorage.getItem(SESSION_USER_KEY);
+    if (!raw) return null;
     return JSON.parse(raw);
   } catch {
     return null;
