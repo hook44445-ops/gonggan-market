@@ -231,3 +231,277 @@ export const setEarlyPartner = (companyId, joinedAt) => {
     fee_rate: 0.04,
   }).eq("id", companyId);
 };
+
+// ── STEP 19: Transaction State Machine ───────────────────────────────────────
+
+export const updateTransactionStatus = (paymentId, transactionStatus) =>
+  supabase
+    .from("escrow_payments")
+    .update({ transaction_status: transactionStatus })
+    .eq("id", paymentId)
+    .select("id, transaction_status")
+    .single();
+
+export const getContractByTransactionStatus = (transactionStatus) =>
+  supabase
+    .from("escrow_payments")
+    .select("*, requests(*), companies(*)")
+    .eq("transaction_status", transactionStatus);
+
+// ── STEP 20: Activity Logs ────────────────────────────────────────────────────
+
+export const logActivity = ({ userId, role, action, targetType, targetId, metadata = {} }) =>
+  supabase.from("activity_logs").insert({
+    user_id:     userId ?? null,
+    role,
+    action,
+    target_type: targetType ?? null,
+    target_id:   targetId  ?? null,
+    metadata,
+  });
+
+export const getActivityLogs = ({ targetType, targetId, limit = 50 } = {}) => {
+  let q = supabase
+    .from("activity_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (targetType) q = q.eq("target_type", targetType);
+  if (targetId)   q = q.eq("target_id", targetId);
+  return q;
+};
+
+export const getContractTimeline = (contractId) =>
+  supabase
+    .from("activity_logs")
+    .select("*")
+    .eq("target_type", "contract")
+    .eq("target_id", contractId)
+    .order("created_at", { ascending: true });
+
+// ── STEP 21: Notifications ────────────────────────────────────────────────────
+
+export const createNotification = ({ userId, type, title, message, relatedId, relatedType }) =>
+  supabase.from("notifications").insert({
+    user_id:      userId,
+    type,
+    title,
+    message,
+    related_id:   relatedId   ?? null,
+    related_type: relatedType ?? null,
+  });
+
+export const getUserNotifications = (userId, { unreadOnly = false, limit = 30 } = {}) => {
+  let q = supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (unreadOnly) q = q.eq("is_read", false);
+  return q;
+};
+
+export const getUnreadCount = async (userId) => {
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_read", false);
+  return { count: count ?? 0, error };
+};
+
+export const markNotificationRead = (notificationId) =>
+  supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("id", notificationId);
+
+export const markAllNotificationsRead = (userId) =>
+  supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("user_id", userId)
+    .eq("is_read", false);
+
+export const subscribeToNotifications = (userId, callback) =>
+  supabase
+    .channel(`notifications:${userId}`)
+    .on("postgres_changes", {
+      event:  "INSERT",
+      schema: "public",
+      table:  "notifications",
+      filter: `user_id=eq.${userId}`,
+    }, callback)
+    .subscribe();
+
+// ── STEP 22: Company Status System ───────────────────────────────────────────
+
+export const setCompanyStatus = (companyId, companyStatus, adminId) =>
+  supabase
+    .from("companies")
+    .update({ company_status: companyStatus })
+    .eq("id", companyId)
+    .select("id, company_status")
+    .single();
+
+export const getActiveCompanies = () =>
+  supabase
+    .from("companies")
+    .select("*")
+    .eq("company_status", "ACTIVE")
+    .order("temp", { ascending: false });
+
+// ── STEP 24: Company KPI ──────────────────────────────────────────────────────
+
+export const updateCompanyKpi = (companyId, kpi) =>
+  supabase
+    .from("companies")
+    .update({
+      avg_response_hours: kpi.avgResponseHours  ?? undefined,
+      response_rate:      kpi.responseRate       ?? undefined,
+      conversion_rate:    kpi.conversionRate     ?? undefined,
+      completion_rate:    kpi.completionRate     ?? undefined,
+      dispute_rate:       kpi.disputeRate        ?? undefined,
+    })
+    .eq("id", companyId)
+    .select("id, avg_response_hours, response_rate, conversion_rate, completion_rate, dispute_rate")
+    .single();
+
+// ── STEP 25: Dispute Status ───────────────────────────────────────────────────
+
+export const updateDisputeStatus = (paymentId, disputeStatus) =>
+  supabase
+    .from("escrow_payments")
+    .update({ dispute_status: disputeStatus })
+    .eq("id", paymentId)
+    .select("id, dispute_status")
+    .single();
+
+// ── STEP 26-1: Change Orders ──────────────────────────────────────────────────
+
+export const createChangeOrder = ({ contractId, requestedBy, requestedByRole, description, amount }) =>
+  supabase.from("change_orders").insert({
+    contract_id:       contractId,
+    requested_by:      requestedBy,
+    requested_by_role: requestedByRole,
+    description,
+    amount,
+  }).select().single();
+
+export const getChangeOrders = (contractId) =>
+  supabase
+    .from("change_orders")
+    .select("*")
+    .eq("contract_id", contractId)
+    .order("created_at", { ascending: false });
+
+export const approveChangeOrder = (changeOrderId) =>
+  supabase
+    .from("change_orders")
+    .update({ status: "APPROVED", approved_by_customer: true, approved_at: new Date().toISOString() })
+    .eq("id", changeOrderId)
+    .select()
+    .single();
+
+export const rejectChangeOrder = (changeOrderId, rejectReason) =>
+  supabase
+    .from("change_orders")
+    .update({ status: "REJECTED", reject_reason: rejectReason })
+    .eq("id", changeOrderId)
+    .select()
+    .single();
+
+// ── STEP 26-2: Contract Scope ─────────────────────────────────────────────────
+
+export const upsertContractScope = (data) =>
+  supabase
+    .from("contract_scopes")
+    .upsert(data, { onConflict: "contract_id" })
+    .select()
+    .single();
+
+export const getContractScope = (contractId) =>
+  supabase
+    .from("contract_scopes")
+    .select("*")
+    .eq("contract_id", contractId)
+    .maybeSingle();
+
+// ── STEP 26-3: Phase Photos ───────────────────────────────────────────────────
+
+export const addPhasePhotos = ({ contractId, step, photos, uploadedBy, uploaderRole, caption }) =>
+  supabase.from("phase_photos").insert({
+    contract_id:   contractId,
+    step,
+    photos,
+    uploaded_by:   uploadedBy,
+    uploader_role: uploaderRole,
+    caption:       caption ?? null,
+  }).select().single();
+
+export const getPhasePhotos = (contractId, step = null) => {
+  let q = supabase
+    .from("phase_photos")
+    .select("*")
+    .eq("contract_id", contractId)
+    .order("created_at", { ascending: true });
+  if (step !== null) q = q.eq("step", step);
+  return q;
+};
+
+// ── STEP 27: Contract Notes (양방향 기록) ────────────────────────────────────
+
+export const addContractNote = ({ contractId, authorId, authorRole, type, content, images = [] }) =>
+  supabase.from("contract_notes").insert({
+    contract_id: contractId,
+    author_id:   authorId,
+    author_role: authorRole,
+    type,
+    content,
+    images,
+  }).select().single();
+
+export const getContractNotes = (contractId) =>
+  supabase
+    .from("contract_notes")
+    .select("*, users(name, role)")
+    .eq("contract_id", contractId)
+    .eq("is_deleted", false)
+    .order("created_at", { ascending: true });
+
+export const updateContractNote = async (noteId, newContent, authorId) => {
+  const { data: existing, error } = await supabase
+    .from("contract_notes")
+    .select("content, edit_history, updated_at")
+    .eq("id", noteId)
+    .single();
+  if (error) return { error };
+
+  const historyEntry = { content: existing.content, edited_at: existing.updated_at };
+  const editHistory  = [...(existing.edit_history ?? []), historyEntry];
+
+  return supabase
+    .from("contract_notes")
+    .update({ content: newContent, edit_history: editHistory })
+    .eq("id", noteId)
+    .eq("author_id", authorId);
+};
+
+export const softDeleteContractNote = (noteId, authorId) =>
+  supabase
+    .from("contract_notes")
+    .update({ is_deleted: true })
+    .eq("id", noteId)
+    .eq("author_id", authorId);
+
+export const subscribeToContractNotes = (contractId, callback) =>
+  supabase
+    .channel(`contract_notes:${contractId}`)
+    .on("postgres_changes", {
+      event:  "INSERT",
+      schema: "public",
+      table:  "contract_notes",
+      filter: `contract_id=eq.${contractId}`,
+    }, callback)
+    .subscribe();

@@ -314,3 +314,298 @@ alter table public.companies add column if not exists is_early_partner boolean n
 alter table public.companies add column if not exists early_partner_joined_at timestamptz;
 alter table public.companies add column if not exists early_partner_benefit_until timestamptz;
 alter table public.companies add column if not exists fee_rate numeric(5,4) not null default 0.04;
+
+-- ============================================================
+--  STEP 19-27 — 운영/분쟁/기록 구조 고도화
+-- ============================================================
+
+-- ── STEP 19: Transaction State Machine ───────────────────────────────────────
+-- escrow_payments 에 통합 거래 상태 컬럼 추가
+alter table public.escrow_payments
+  add column if not exists transaction_status text not null default 'REQUESTED'
+    check (transaction_status in (
+      'REQUESTED','BIDDING','COMPANY_SELECTED','CONTRACTED',
+      'STARTED','MID_INSPECTION','COMPLETED','SETTLED',
+      'DISPUTE','CANCELLED'
+    ));
+
+-- ── STEP 22: Company Status System ───────────────────────────────────────────
+-- 업체 운영 상태 (doc_status 와 별개, 운영 제재용)
+alter table public.companies
+  add column if not exists company_status text not null default 'PENDING'
+    check (company_status in ('PENDING','ACTIVE','PAUSED','SUSPENDED','BLACKLISTED'));
+
+-- ── STEP 24: Company KPI columns ─────────────────────────────────────────────
+alter table public.companies add column if not exists avg_response_hours  numeric(6,2) not null default 0;
+alter table public.companies add column if not exists response_rate       integer not null default 0;  -- %
+alter table public.companies add column if not exists conversion_rate     integer not null default 0;  -- %
+alter table public.companies add column if not exists completion_rate     integer not null default 0;  -- %
+alter table public.companies add column if not exists dispute_rate        integer not null default 0;  -- %
+
+-- ── STEP 25: Dispute Status Granularization ───────────────────────────────────
+alter table public.escrow_payments
+  add column if not exists dispute_status text
+    check (dispute_status in (
+      'DISPUTE_OPEN','UNDER_REVIEW','WAITING_CUSTOMER','WAITING_COMPANY',
+      'RESOLVED','REFUNDED','PARTIAL_REFUND'
+    ));
+
+-- ── STEP 20: Activity Logs ───────────────────────────────────────────────────
+create table if not exists public.activity_logs (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid references public.users(id) on delete set null,
+  role        text check (role in ('consumer','company','admin','system')),
+  action      text not null,
+  target_type text,   -- 'request' | 'bid' | 'contract' | 'escrow' | 'dispute' | 'review' | 'company' | 'user'
+  target_id   uuid,
+  metadata    jsonb,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists activity_logs_target_idx on public.activity_logs (target_type, target_id, created_at desc);
+create index if not exists activity_logs_user_idx   on public.activity_logs (user_id, created_at desc);
+
+comment on table public.activity_logs is '모든 주요 행동 기록 — 기록 기반 신뢰 플랫폼의 핵심 로그';
+
+alter table public.activity_logs enable row level security;
+
+-- 관리자 전체 조회 / 본인 기록 조회
+create policy "activity_logs: own read" on public.activity_logs
+  for select using (
+    auth.uid() = user_id
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy "activity_logs: insert" on public.activity_logs
+  for insert with check (auth.uid() = user_id or user_id is null);
+
+-- ── STEP 21: Notification System ────────────────────────────────────────────
+create table if not exists public.notifications (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references public.users(id) on delete cascade,
+  type         text not null,   -- 'bid_submitted' | 'company_selected' | 'step_approval_request' | 'settled' | 'dispute_filed' | 'admin_action' | ...
+  title        text not null,
+  message      text not null,
+  is_read      boolean not null default false,
+  related_id   uuid,            -- 관련 엔티티 ID
+  related_type text,            -- 'request' | 'bid' | 'contract' | 'dispute' | 'company'
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists notifications_user_unread_idx on public.notifications (user_id, is_read, created_at desc);
+
+comment on table public.notifications is '앱 내부 알림 (향후 카카오·문자·푸시 연동 대비)';
+
+alter table public.notifications enable row level security;
+
+create policy "notifications: own read" on public.notifications
+  for select using (auth.uid() = user_id);
+create policy "notifications: own update" on public.notifications
+  for update using (auth.uid() = user_id);
+create policy "notifications: insert" on public.notifications
+  for insert with check (true);  -- 서버·트리거에서 삽입
+
+-- ── STEP 23: Review protection — escrow_payment_id 연결 ─────────────────────
+alter table public.reviews
+  add column if not exists escrow_payment_id uuid references public.escrow_payments(id) on delete set null;
+
+-- 리뷰는 COMPLETED 상태인 에스크로 계약에서만 작성 가능
+-- (애플리케이션 레이어에서 강제, RLS 보조)
+create policy "reviews: only on completed contracts" on public.reviews
+  for insert with check (
+    auth.uid() = user_id
+    and (
+      escrow_payment_id is null  -- 레거시 호환
+      or exists (
+        select 1 from public.escrow_payments ep
+        where ep.id = escrow_payment_id
+          and ep.transaction_status in ('COMPLETED','SETTLED')
+      )
+    )
+  );
+
+-- 기존 insert 정책 제거 후 위 정책으로 교체
+drop policy if exists "reviews: consumer write" on public.reviews;
+
+-- ── STEP 26-1: Change Orders ─────────────────────────────────────────────────
+create table if not exists public.change_orders (
+  id                   uuid primary key default gen_random_uuid(),
+  contract_id          uuid not null references public.escrow_payments(id) on delete cascade,
+  requested_by         uuid references public.users(id) on delete set null,
+  requested_by_role    text check (requested_by_role in ('consumer','company')),
+  description          text not null,
+  amount               integer not null default 0,   -- 만원 단위 (음수 가능: 감액)
+  status               text not null default 'PENDING'
+                         check (status in ('PENDING','APPROVED','REJECTED')),
+  approved_by_customer boolean not null default false,
+  approved_at          timestamptz,
+  reject_reason        text,
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+
+create index if not exists change_orders_contract_idx on public.change_orders (contract_id, created_at desc);
+
+comment on table public.change_orders is '추가금(변경 지시) 요청 및 승인 기록';
+
+create or replace trigger change_orders_updated_at
+  before update on public.change_orders
+  for each row execute procedure public.set_updated_at();
+
+alter table public.change_orders enable row level security;
+
+create policy "change_orders: contract parties read" on public.change_orders
+  for select using (
+    exists (
+      select 1 from public.escrow_payments ep
+      join public.requests r on r.id = ep.request_id
+      join public.companies c on c.id = ep.company_id
+      where ep.id = contract_id
+        and (auth.uid() = r.user_id or auth.uid() = c.owner_id)
+    )
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+create policy "change_orders: parties write" on public.change_orders
+  for all using (
+    exists (
+      select 1 from public.escrow_payments ep
+      join public.requests r on r.id = ep.request_id
+      join public.companies c on c.id = ep.company_id
+      where ep.id = contract_id
+        and (auth.uid() = r.user_id or auth.uid() = c.owner_id)
+    )
+  );
+
+-- ── STEP 26-2: Contract Scope ────────────────────────────────────────────────
+create table if not exists public.contract_scopes (
+  id               uuid primary key default gen_random_uuid(),
+  contract_id      uuid not null unique references public.escrow_payments(id) on delete cascade,
+  included_items   text[],    -- 포함 공정
+  excluded_items   text[],    -- 제외 공정
+  material_scope   text,      -- 자재 범위
+  work_scope       text,      -- 공사 범위
+  schedule_scope   text,      -- 일정 범위
+  special_notes    text,      -- 특이사항
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+comment on table public.contract_scopes is '계약 범위 고정 기록 — "말이 달랐다" 분쟁 예방';
+
+create or replace trigger contract_scopes_updated_at
+  before update on public.contract_scopes
+  for each row execute procedure public.set_updated_at();
+
+alter table public.contract_scopes enable row level security;
+
+create policy "contract_scopes: public read" on public.contract_scopes
+  for select using (
+    exists (
+      select 1 from public.escrow_payments ep
+      join public.requests r on r.id = ep.request_id
+      join public.companies c on c.id = ep.company_id
+      where ep.id = contract_id
+        and (auth.uid() = r.user_id or auth.uid() = c.owner_id)
+    )
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+create policy "contract_scopes: parties write" on public.contract_scopes
+  for all using (
+    exists (
+      select 1 from public.escrow_payments ep
+      join public.requests r on r.id = ep.request_id
+      join public.companies c on c.id = ep.company_id
+      where ep.id = contract_id
+        and (auth.uid() = r.user_id or auth.uid() = c.owner_id)
+    )
+  );
+
+-- ── STEP 26-3: Phase Photos ──────────────────────────────────────────────────
+create table if not exists public.phase_photos (
+  id            uuid primary key default gen_random_uuid(),
+  contract_id   uuid not null references public.escrow_payments(id) on delete cascade,
+  step          integer not null check (step between 1 and 5),
+  photos        text[] not null default '{}',
+  uploaded_by   uuid references public.users(id) on delete set null,
+  uploader_role text check (uploader_role in ('consumer','company')),
+  caption       text,
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists phase_photos_contract_step_idx on public.phase_photos (contract_id, step, created_at desc);
+
+comment on table public.phase_photos is '단계별 공사 사진 기록 — 분쟁 증빙 및 공사 진행 기록';
+
+alter table public.phase_photos enable row level security;
+
+create policy "phase_photos: parties read" on public.phase_photos
+  for select using (
+    exists (
+      select 1 from public.escrow_payments ep
+      join public.requests r on r.id = ep.request_id
+      join public.companies c on c.id = ep.company_id
+      where ep.id = contract_id
+        and (auth.uid() = r.user_id or auth.uid() = c.owner_id)
+    )
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+create policy "phase_photos: company upload" on public.phase_photos
+  for insert with check (
+    exists (
+      select 1 from public.escrow_payments ep
+      join public.companies c on c.id = ep.company_id
+      where ep.id = contract_id and auth.uid() = c.owner_id
+    )
+  );
+
+-- ── STEP 27: Contract Notes (양방향 기록) ────────────────────────────────────
+create table if not exists public.contract_notes (
+  id           uuid primary key default gen_random_uuid(),
+  contract_id  uuid not null references public.escrow_payments(id) on delete cascade,
+  author_id    uuid not null references public.users(id) on delete set null,
+  author_role  text not null check (author_role in ('consumer','company','admin')),
+  type         text not null check (type in ('customer_note','company_note','admin_note')),
+  content      text not null,
+  images       text[] default '{}',
+  is_deleted   boolean not null default false,
+  edit_history jsonb[] default '{}',   -- [{content, edited_at}]
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create index if not exists contract_notes_contract_idx on public.contract_notes (contract_id, created_at asc);
+
+comment on table public.contract_notes is '고객/업체 양방향 기록 — 분쟁 타임라인 증빙';
+
+create or replace trigger contract_notes_updated_at
+  before update on public.contract_notes
+  for each row execute procedure public.set_updated_at();
+
+alter table public.contract_notes enable row level security;
+
+create policy "contract_notes: parties read" on public.contract_notes
+  for select using (
+    is_deleted = false
+    and (
+      exists (
+        select 1 from public.escrow_payments ep
+        join public.requests r on r.id = ep.request_id
+        join public.companies c on c.id = ep.company_id
+        where ep.id = contract_id
+          and (auth.uid() = r.user_id or auth.uid() = c.owner_id)
+      )
+      or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+    )
+  );
+
+create policy "contract_notes: author write" on public.contract_notes
+  for insert with check (auth.uid() = author_id);
+
+-- 수정은 허용하되 edit_history 강제 (애플리케이션 레이어에서 처리)
+create policy "contract_notes: author update" on public.contract_notes
+  for update using (auth.uid() = author_id and is_deleted = false);
+
+-- 삭제는 소프트 삭제만 (is_deleted = true)
+-- hard delete 정책 없음 — 기록 보존 원칙
