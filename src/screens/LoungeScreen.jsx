@@ -142,7 +142,7 @@ export default function LoungeScreen({ user, onPostClick, onWrite, onStoryUpload
 
   const { posts, stories, loading } = useLounge(category);
 
-  const isGuest    = !user?.id || user?.isGuest;
+  const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
   const isPopular  = category === 'popular'; // 인기 탭은 읽기 전용
 

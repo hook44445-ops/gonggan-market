@@ -24,7 +24,7 @@ export default function LoungePostDetailScreen({ postId, user, tokenBalance, onB
   const [toast,       setToast]         = useState(null);
   const inputRef = useRef(null);
 
-  const isGuest    = !user?.id || user?.isGuest;
+  const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
 
   const showToast = (msg) => {
