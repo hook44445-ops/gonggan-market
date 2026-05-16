@@ -133,7 +133,7 @@ function NotifPanel({ onClose, onGoSettings }) {
 }
 
 // ── 메인 스크린 ────────────────────────────────────────
-export default function LoungeScreen({ user, extraPosts = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage }) {
+export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage }) {
   const [category,        setCategory]        = useState('all');
   const [showWriteOptions, setShowWriteOptions] = useState(false);
   const [searchOpen,      setSearchOpen]       = useState(false);
@@ -187,7 +187,7 @@ export default function LoungeScreen({ user, extraPosts = [], onPostClick, onWri
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
 
-      <LoungeStoryBar stories={stories} onStoryClick={() => {}} />
+      <LoungeStoryBar stories={[...extraStories, ...stories].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)} onStoryClick={() => {}} />
 
       {/* 인기 탭 안내 배너 */}
       {isPopular && (
@@ -203,11 +203,14 @@ export default function LoungeScreen({ user, extraPosts = [], onPostClick, onWri
           <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
         </div>
       ) : posts.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-          <div style={{ fontSize: 14, color: C.text3 }}>아직 게시글이 없어요</div>
-          {isLoggedIn && (
-            <button onClick={() => onWrite?.('post')} style={{ marginTop: S.xl, padding: '12px 24px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text2, marginBottom: 8 }}>아직 게시글이 없어요</div>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6, marginBottom: S.xl }}>
+            이 카테고리에 첫 이야기를 시작해보세요
+          </div>
+          {isLoggedIn && !isPopular && (
+            <button onClick={() => onWrite?.('post')} style={{ padding: '12px 28px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: `0 4px 14px ${C.brand}44` }}>
               첫 글 작성하기
             </button>
           )}

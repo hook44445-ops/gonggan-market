@@ -5,13 +5,15 @@
 import { useState, useRef } from 'react';
 import { C, R, S } from '../../constants';
 import { getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
+import ReportModal from './ReportModal';
 
 // ── 스토리 뷰어 (전체화면, 위아래 스와이프) ───────────
 function StoryViewer({ stories, startIndex, onClose }) {
-  const [index,   setIndex]   = useState(startIndex);
-  const [liked,   setLiked]   = useState({});
-  const [comment, setComment] = useState('');
-  const [showInput, setShowInput] = useState(false);
+  const [index,        setIndex]        = useState(startIndex);
+  const [liked,        setLiked]        = useState({});
+  const [comment,      setComment]      = useState('');
+  const [showInput,    setShowInput]    = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
   const touchStartY = useRef(null);
 
   const story   = stories[index];
@@ -121,9 +123,24 @@ function StoryViewer({ stories, startIndex, onClose }) {
               style={{ background: 'rgba(255,255,255,0.18)', border: 'none', borderRadius: R.full, padding: '10px 16px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
               💬 대화
             </button>
+            {/* 신고 */}
+            <button
+              onClick={() => setReportTarget({ type: 'story', targetId: story.id })}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 11, cursor: 'pointer', padding: '0 4px' }}>
+              신고
+            </button>
           </div>
         )}
       </div>
+
+      {reportTarget && (
+        <ReportModal
+          type={reportTarget.type}
+          targetId={reportTarget.targetId}
+          onClose={() => setReportTarget(null)}
+          onReport={() => {}}
+        />
+      )}
     </div>
   );
 }
