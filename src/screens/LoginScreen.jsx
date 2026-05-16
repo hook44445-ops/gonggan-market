@@ -654,18 +654,20 @@ export default function LoginScreen({ onLogin }) {
           </div>
 
           {/* 하단 CTA */}
-          <div style={{ background: C.surface, borderTop: `1px solid ${C.bgWarm}`, padding: "12px 20px 24px", display: "flex", gap: 8, flexShrink: 0 }}>
-            <button onClick={() => { setShowBrowse(false); chooseRole("consumer"); }}
-              style={{ flex: 1, padding: "16px", background: `linear-gradient(135deg,${C.brand},${C.brandD})`, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
-              🏡 의뢰인으로 시작
-            </button>
-            <button onClick={() => { setShowBrowse(false); chooseRole("company"); }}
-              style={{ flex: 1, padding: "16px", background: C.surface, color: C.brand, border: `2px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
-              🔨 업체로 시작
-            </button>
+          <div style={{ background: C.surface, borderTop: `1px solid ${C.bgWarm}`, padding: "12px 20px 24px", display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { setShowBrowse(false); chooseRole("consumer"); }}
+                style={{ flex: 1, padding: "16px", background: `linear-gradient(135deg,${C.brand},${C.brandD})`, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
+                🏡 의뢰인으로 시작
+              </button>
+              <button onClick={() => { setShowBrowse(false); chooseRole("company"); }}
+                style={{ flex: 1, padding: "16px", background: C.surface, color: C.brand, border: `2px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+                🔨 업체로 시작
+              </button>
+            </div>
             <button onClick={() => { setShowBrowse(false); onLogin({ id: null, role: "consumer", name: "게스트", region: "", isGuest: true, startAt: "lounge" }); }}
-              style={{ flex: 1, padding: "16px", background: C.surface, color: C.text2, border: `2px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
-              💬 라운지
+              style={{ width: "100%", padding: "14px", background: C.surface, color: C.text2, border: `2px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+              💬 라운지 둘러보기
             </button>
           </div>
         </div>
