@@ -1,6 +1,5 @@
 // ─────────────────────────────────────────────────────
 // 공간마켓 라운지 시스템
-// 토큰 = 진짜 관심과 가벼운 접근을 구분하는 장치
 // ─────────────────────────────────────────────────────
 
 import { C, R, S } from '../../constants';
@@ -24,7 +23,7 @@ export default function ChatRequestModal({ balance, onConfirm, onCancel }) {
           {[
             ['현재 보유 토큰', `${balance.toLocaleString()} 토큰`],
             ['대화 신청 비용', `${cost} 토큰`],
-            ['신청 후 잔액', `${Math.max(0, balance - cost).toLocaleString()} 토큰`],
+            ['신청 후 잔액',  `${Math.max(0, balance - cost).toLocaleString()} 토큰`],
           ].map(([label, val], i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: i < 2 ? S.sm : 0 }}>
               <span style={{ fontSize: 13, color: C.text3 }}>{label}</span>
@@ -36,8 +35,8 @@ export default function ChatRequestModal({ balance, onConfirm, onCancel }) {
         </div>
 
         <div style={{ fontSize: 12, color: C.text3, textAlign: 'center', marginBottom: S.xl, lineHeight: 1.6 }}>
-          상대방이 수락하면 대화방이 생성됩니다.<br/>
-          거절 시 토큰은 반환되지 않습니다.
+          신청 즉시 {cost}토큰이 차감됩니다.<br/>
+          상대방이 수락하면 대화방이 생성됩니다.
         </div>
 
         {!canSend && (

@@ -128,10 +128,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const bidRealtimeRef = useRef(null);
 
   // ── 관심 탭 ──────────────────────────────────────────────────────────────────
-  const [favTab, setFavTab] = useState("companies");
+  const [favTab, setFavTab] = useState("received");
 
   // ── 라운지 상태 ──────────────────────────────────────────────────────────────
-  const [loungePost, setLoungePost] = useState(null); // 현재 상세 조회 중인 게시글
+  const [loungePost, setLoungePost]       = useState(null);
+  const [localLoungePosts, setLocalLoungePosts] = useState([]);
   const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
   const { temperature } = useSpaceTemperature(user?.id);
 
@@ -809,6 +810,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {screen==="lounge" && (
           <LoungeScreen
             user={user}
+            extraPosts={localLoungePosts}
             onPostClick={(post) => { setLoungePost(post); go("lounge-detail"); }}
             onWrite={() => requireAuth(() => go("lounge-write"))}
             onStoryUpload={() => requireAuth(() => go("lounge-story"))}
@@ -821,7 +823,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <LoungeWriteScreen
             user={user}
             onBack={() => setScreen("lounge")}
-            onPublish={(post) => { showToast("✅ 글이 등록됐어요!"); earnToken("first_post"); setScreen("lounge"); }}
+            onPublish={(post) => { setLocalLoungePosts(prev => [post, ...prev]); showToast("✅ 글이 등록됐어요!"); earnToken("first_post"); setScreen("lounge"); }}
           />
         )}
 
@@ -950,51 +952,66 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <div>
             <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:S.xl }}>관심</div>
 
-            {/* 탭: 하트 관련 내용만 */}
-            <div style={{ display:"flex", background:C.bg, borderRadius:R.lg, padding:4, marginBottom:S.xl }}>
-              {[["❤️ 좋아요한 글","likes"],["📸 스토리 하트","stories"]].map(([label,id]) => (
-                <button key={id} onClick={() => setFavTab(id)} style={{ flex:1, padding:"10px 4px", border:"none", borderRadius:R.md, background:favTab===id?C.surface:"transparent", color:favTab===id?C.brand:C.text3, fontWeight:favTab===id?800:500, fontSize:13, cursor:"pointer", transition:"background 0.15s" }}>
+            {/* 4탭 */}
+            <div style={{ display:"flex", background:C.bg, borderRadius:R.lg, padding:4, marginBottom:S.xl, gap:2 }}>
+              {[["받은❤️","received"],["보낸❤️","sent"],["📸스토리","stories"],["🔖저장","saved"]].map(([label,id]) => (
+                <button key={id} onClick={() => setFavTab(id)} style={{ flex:1, padding:"9px 2px", border:"none", borderRadius:R.md, background:favTab===id?C.surface:"transparent", color:favTab===id?C.brand:C.text3, fontWeight:favTab===id?800:500, fontSize:11, cursor:"pointer", transition:"background 0.15s", whiteSpace:"nowrap" }}>
                   {label}
                 </button>
               ))}
             </div>
 
-            {favTab === "likes" && (
-              <div>
-                <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
-                  <div style={{ fontSize:52, marginBottom:12 }}>❤️</div>
-                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>좋아요한 글이 없어요</div>
-                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
-                    라운지 글에 ❤️를 누르면<br/>여기서 모아볼 수 있어요
-                  </div>
-                  <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
-                    라운지 가기
-                  </button>
+            {favTab === "received" && (
+              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
+                <div style={{ fontSize:52, marginBottom:12 }}>📬</div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>받은 하트글이 없어요</div>
+                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
+                  내 게시글에 ❤️를 받으면<br/>여기서 확인할 수 있어요
                 </div>
+                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                  라운지 가기
+                </button>
+              </div>
+            )}
+
+            {favTab === "sent" && (
+              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
+                <div style={{ fontSize:52, marginBottom:12 }}>❤️</div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>보낸 하트글이 없어요</div>
+                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
+                  라운지 글에 ❤️를 누르면<br/>여기서 모아볼 수 있어요
+                </div>
+                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                  라운지 가기
+                </button>
               </div>
             )}
 
             {favTab === "stories" && (
-              <div>
-                <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
-                  <div style={{ fontSize:52, marginBottom:12 }}>📸</div>
-                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>하트 누른 스토리가 없어요</div>
-                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
-                    마음에 드는 스토리에 ❤️를 누르면<br/>24시간 동안 여기서 볼 수 있어요
-                  </div>
-                  <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
-                    라운지 가기
-                  </button>
+              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
+                <div style={{ fontSize:52, marginBottom:12 }}>📸</div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>하트한 스토리가 없어요</div>
+                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
+                  스토리에 ❤️를 누르면<br/>24시간 동안 여기서 볼 수 있어요
                 </div>
+                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                  라운지 가기
+                </button>
               </div>
             )}
 
-            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.lg, border:`1px solid ${C.bgWarm}`, marginTop:S.md }}>
-              <div style={{ fontSize:12, color:C.text3, lineHeight:1.8 }}>
-                💡 저장한 글·내가 쓴 글·토큰 내역은<br/>
-                <span style={{ color:C.brand, fontWeight:700, cursor:"pointer" }} onClick={() => setScreen("my")}>마이페이지 › 라운지</span> 에서 볼 수 있어요
+            {favTab === "saved" && (
+              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
+                <div style={{ fontSize:52, marginBottom:12 }}>🔖</div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>저장한 글이 없어요</div>
+                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
+                  게시글 상세에서 📄 저장을 누르면<br/>여기서 모아볼 수 있어요
+                </div>
+                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                  라운지 가기
+                </button>
               </div>
-            </div>
+            )}
           </div>
         )}
 

@@ -133,7 +133,7 @@ function NotifPanel({ onClose, onGoSettings }) {
 }
 
 // ── 메인 스크린 ────────────────────────────────────────
-export default function LoungeScreen({ user, onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage }) {
+export default function LoungeScreen({ user, extraPosts = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage }) {
   const [category,        setCategory]        = useState('all');
   const [showWriteOptions, setShowWriteOptions] = useState(false);
   const [searchOpen,      setSearchOpen]       = useState(false);
@@ -214,7 +214,7 @@ export default function LoungeScreen({ user, onPostClick, onWrite, onStoryUpload
         </div>
       ) : (
         <div style={{ background: C.surface }}>
-          {posts.map(post => (
+          {[...extraPosts, ...posts].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i).map(post => (
             <LoungePostCard key={post.id} post={post} onClick={() => onPostClick?.(post)} />
           ))}
         </div>
