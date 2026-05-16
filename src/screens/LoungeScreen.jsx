@@ -20,12 +20,18 @@ import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
 import LoungePostCard from '../components/lounge/LoungePostCard';
 
-export default function LoungeScreen({ user, onPostClick, onWrite, onStoryUpload }) {
+export default function LoungeScreen({ user, onPostClick, onWrite, onStoryUpload, onRequireLogin }) {
   const [category, setCategory] = useState('all');
   const [showWriteOptions, setShowWriteOptions] = useState(false);
   const { posts, stories, loading } = useLounge(category);
 
-  const isLoggedIn = !!user?.id;
+  const isGuest    = !user?.id || user?.isGuest;
+  const isLoggedIn = !isGuest;
+
+  const handleWriteClick = () => {
+    if (isGuest) { onRequireLogin?.(); return; }
+    setShowWriteOptions(true);
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 90 }}>
@@ -71,15 +77,13 @@ export default function LoungeScreen({ user, onPostClick, onWrite, onStoryUpload
         )}
       </div>
 
-      {isLoggedIn && (
-        <button onClick={() => setShowWriteOptions(true)} style={{
-          position: 'fixed', right: S.xl, bottom: 80, width: 56, height: 56,
-          borderRadius: R.full, background: C.brand, color: '#fff',
-          border: 'none', fontSize: 24, cursor: 'pointer',
-          boxShadow: `0 4px 16px ${C.brand}66`, zIndex: 20,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>+</button>
-      )}
+      <button onClick={handleWriteClick} style={{
+        position: 'fixed', right: S.xl, bottom: 80, width: 56, height: 56,
+        borderRadius: R.full, background: C.brand, color: '#fff',
+        border: 'none', fontSize: 24, cursor: 'pointer',
+        boxShadow: `0 4px 16px ${C.brand}66`, zIndex: 20,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>+</button>
 
       {showWriteOptions && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.65)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 300 }} onClick={() => setShowWriteOptions(false)}>
