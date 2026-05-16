@@ -120,3 +120,111 @@ export const fmtPhone = v => {
   if(n.length<=7) return `${n.slice(0,3)}-${n.slice(3)}`;
   return `${n.slice(0,3)}-${n.slice(3,7)}-${n.slice(7,11)}`;
 };
+
+// ── STEP 19: Transaction Status Machine ──────────────────────────────────────
+export const TRANSACTION_STATUS = {
+  REQUESTED:        "REQUESTED",
+  BIDDING:          "BIDDING",
+  COMPANY_SELECTED: "COMPANY_SELECTED",
+  CONTRACTED:       "CONTRACTED",
+  STARTED:          "STARTED",
+  MID_INSPECTION:   "MID_INSPECTION",
+  COMPLETED:        "COMPLETED",
+  SETTLED:          "SETTLED",
+  DISPUTE:          "DISPUTE",
+  CANCELLED:        "CANCELLED",
+};
+
+export const TRANSACTION_STATUS_META = {
+  REQUESTED:        { label: "견적 요청",   color: "#7A8A7E", bg: "#F0EDE8", icon: "📋" },
+  BIDDING:          { label: "입찰 중",     color: "#B08040", bg: "#FBF5E8", icon: "💬" },
+  COMPANY_SELECTED: { label: "업체 선택",   color: "#2E5F4B", bg: "#EAF2EE", icon: "✅" },
+  CONTRACTED:       { label: "계약 체결",   color: "#1D3D2F", bg: "#E8F0EC", icon: "📝" },
+  STARTED:          { label: "공사 시작",   color: "#1D3D2F", bg: "#E8F0EC", icon: "🏗" },
+  MID_INSPECTION:   { label: "중간 점검",   color: "#B08040", bg: "#FBF5E8", icon: "🔍" },
+  COMPLETED:        { label: "공사 완료",   color: "#2E5F4B", bg: "#EAF2EE", icon: "🎉" },
+  SETTLED:          { label: "정산 완료",   color: "#1D3D2F", bg: "#E8F0EC", icon: "💰" },
+  DISPUTE:          { label: "분쟁 중",     color: "#D63030", bg: "#FEF0F0", icon: "⚠️" },
+  CANCELLED:        { label: "취소",        color: "#B0BAB4", bg: "#F5F1EA", icon: "✖" },
+};
+
+// 특정 transaction_status 에서 허용/차단되는 액션
+export const TRANSACTION_GUARDS = {
+  canWriteReview:    (s) => s === "COMPLETED" || s === "SETTLED",
+  canModifyContract: (s) => !["COMPLETED","SETTLED","CANCELLED"].includes(s),
+  canBid:            (s) => s === "BIDDING",
+  canDispute:        (s) => ["STARTED","MID_INSPECTION","COMPLETED"].includes(s),
+  canSettle:         (s) => s === "COMPLETED",
+};
+
+// ── STEP 22: Company Status ───────────────────────────────────────────────────
+export const COMPANY_STATUS = {
+  PENDING:     "PENDING",
+  ACTIVE:      "ACTIVE",
+  PAUSED:      "PAUSED",
+  SUSPENDED:   "SUSPENDED",
+  BLACKLISTED: "BLACKLISTED",
+};
+
+export const COMPANY_STATUS_META = {
+  PENDING:     { label: "심사 중",   color: "#B08040", bg: "#FBF5E8", canBid: false },
+  ACTIVE:      { label: "정상",      color: "#2E5F4B", bg: "#EAF2EE", canBid: true  },
+  PAUSED:      { label: "일시 정지", color: "#7A8A7E", bg: "#F0EDE8", canBid: false },
+  SUSPENDED:   { label: "운영 제재", color: "#D63030", bg: "#FEF0F0", canBid: false },
+  BLACKLISTED: { label: "블랙리스트",color: "#1F2A24", bg: "#E8E0D4", canBid: false },
+};
+
+// ── STEP 25: Dispute Status ───────────────────────────────────────────────────
+export const DISPUTE_STATUS = {
+  DISPUTE_OPEN:     "DISPUTE_OPEN",
+  UNDER_REVIEW:     "UNDER_REVIEW",
+  WAITING_CUSTOMER: "WAITING_CUSTOMER",
+  WAITING_COMPANY:  "WAITING_COMPANY",
+  RESOLVED:         "RESOLVED",
+  REFUNDED:         "REFUNDED",
+  PARTIAL_REFUND:   "PARTIAL_REFUND",
+};
+
+export const DISPUTE_STATUS_META = {
+  DISPUTE_OPEN:     { label: "분쟁 접수",     color: "#D63030", bg: "#FEF0F0", icon: "🚨" },
+  UNDER_REVIEW:     { label: "검토 중",       color: "#B08040", bg: "#FBF5E8", icon: "🔍" },
+  WAITING_CUSTOMER: { label: "고객 답변 대기", color: "#7A8A7E", bg: "#F0EDE8", icon: "⏳" },
+  WAITING_COMPANY:  { label: "업체 답변 대기", color: "#7A8A7E", bg: "#F0EDE8", icon: "⏳" },
+  RESOLVED:         { label: "분쟁 해결",     color: "#2E5F4B", bg: "#EAF2EE", icon: "✅" },
+  REFUNDED:         { label: "전액 환불",     color: "#1D3D2F", bg: "#E8F0EC", icon: "💰" },
+  PARTIAL_REFUND:   { label: "부분 환불",     color: "#1D3D2F", bg: "#E8F0EC", icon: "💸" },
+};
+
+// ── STEP 20: Activity Log Actions ─────────────────────────────────────────────
+export const ACTIVITY_ACTIONS = {
+  BID_SUBMITTED:         "BID_SUBMITTED",
+  COMPANY_SELECTED:      "COMPANY_SELECTED",
+  CONTRACT_CREATED:      "CONTRACT_CREATED",
+  STEP_APPROVED:         "STEP_APPROVED",
+  PHOTO_UPLOADED:        "PHOTO_UPLOADED",
+  CHANGE_ORDER_REQUESTED:"CHANGE_ORDER_REQUESTED",
+  CHANGE_ORDER_APPROVED: "CHANGE_ORDER_APPROVED",
+  CHANGE_ORDER_REJECTED: "CHANGE_ORDER_REJECTED",
+  SETTLEMENT_REQUESTED:  "SETTLEMENT_REQUESTED",
+  SETTLEMENT_COMPLETED:  "SETTLEMENT_COMPLETED",
+  DISPUTE_FILED:         "DISPUTE_FILED",
+  DISPUTE_UPDATED:       "DISPUTE_UPDATED",
+  DISPUTE_RESOLVED:      "DISPUTE_RESOLVED",
+  ADMIN_STATUS_CHANGED:  "ADMIN_STATUS_CHANGED",
+  REVIEW_WRITTEN:        "REVIEW_WRITTEN",
+  NOTE_ADDED:            "NOTE_ADDED",
+};
+
+// ── STEP 21: Notification Types ───────────────────────────────────────────────
+export const NOTIFICATION_TYPES = {
+  BID_SUBMITTED:         "BID_SUBMITTED",
+  COMPANY_SELECTED:      "COMPANY_SELECTED",
+  STEP_APPROVAL_REQUEST: "STEP_APPROVAL_REQUEST",
+  CHANGE_ORDER_REQUEST:  "CHANGE_ORDER_REQUEST",
+  CHANGE_ORDER_RESULT:   "CHANGE_ORDER_RESULT",
+  SETTLEMENT_COMPLETE:   "SETTLEMENT_COMPLETE",
+  DISPUTE_FILED:         "DISPUTE_FILED",
+  DISPUTE_UPDATED:       "DISPUTE_UPDATED",
+  ADMIN_ACTION:          "ADMIN_ACTION",
+  NEW_NOTE:              "NEW_NOTE",
+};
