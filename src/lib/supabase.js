@@ -819,6 +819,42 @@ export const getPendingPayouts = () =>
     .in("status", ["PENDING", "READY", "APPROVED", "HELD"])
     .order("created_at", { ascending: false });
 
+
+// ── Admin: Dispute management ─────────────────────────────────────────────────
+
+export const getDisputePayments = () =>
+  supabase
+    .from("escrow_payments")
+    .select("*, requests(id, space_type, area, user_id), companies(id, name, owner_id)")
+    .not("dispute_status", "is", null)
+    .order("disputed_at", { ascending: false });
+
+export const adminResolveDispute = async (paymentId, adminId, resolution, reason = null) => {
+  const { data: prev } = await supabase
+    .from("escrow_payments").select("dispute_status").eq("id", paymentId).single();
+
+  const { data, error } = await supabase
+    .from("escrow_payments")
+    .update({ dispute_status: resolution })
+    .eq("id", paymentId)
+    .select("id, dispute_status")
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      `DISPUTE_${resolution}`,
+      target_type: "dispute",
+      target_id:   paymentId,
+      before_val:  { dispute_status: prev?.dispute_status },
+      after_val:   { dispute_status: resolution },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+
 export const adminSetPayoutStatus = async (payoutId, adminId, status, reason = null) => {
   const { data: prev } = await supabase
     .from("escrow_payouts").select("status").eq("id", payoutId).single();
@@ -827,16 +863,16 @@ export const adminSetPayoutStatus = async (payoutId, adminId, status, reason = n
     .from("escrow_payouts")
     .update({
       status,
-      ...(status === "APPROVED" && { approved_by: adminId, approved_at: new Date().toISOString() }),
+      ...(status === "APPROVED" ? { approved_by: adminId, approved_at: new Date().toISOString() } : {}),
     })
     .eq("id", payoutId)
-    .select()
+    .select("id, status")
     .single();
 
   if (!error) {
     await supabase.from("admin_logs").insert({
       admin_id:    adminId || null,
-      action:      `PAYOUT_${status}`,
+      action:      `SET_PAYOUT_${status}`,
       target_type: "settlement",
       target_id:   payoutId,
       before_val:  { status: prev?.status },
@@ -909,3 +945,120 @@ export const adminReviewDocument = async (docId, adminId, reviewStatus, reason =
   return { data, error };
 };
 
+// ── Admin: User status & space economy ────────────────────────────────────────
+
+export const adminSetUserStatus = async (userId, adminId, status, reason = null) => {
+  const { data: prev } = await supabase
+    .from("users").select("account_status").eq("id", userId).single();
+
+  const { data, error } = await supabase
+    .from("users")
+    .update({ account_status: status })
+    .eq("id", userId)
+    .select("id, account_status")
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      `SET_USER_STATUS_${status}`,
+      target_type: "user",
+      target_id:   userId,
+      before_val:  { account_status: prev?.account_status },
+      after_val:   { account_status: status },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+export const adminAdjustSpaceTemp = async (userId, adminId, delta, reason) => {
+  const { data: curr } = await supabase.from("users").select("space_temp").eq("id", userId).single();
+  const prev = curr?.space_temp ?? 36.5;
+  const next = Math.round(Math.min(99, Math.max(0, prev + delta)) * 10) / 10;
+
+  const { data, error } = await supabase
+    .from("users").update({ space_temp: next }).eq("id", userId).select("id, space_temp").single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      "ADJUST_SPACE_TEMP",
+      target_type: "user",
+      target_id:   userId,
+      before_val:  { space_temp: prev },
+      after_val:   { space_temp: next },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+export const adminAdjustUserTokens = async (userId, adminId, delta, reason) => {
+  const { data: curr } = await supabase.from("users").select("space_tokens").eq("id", userId).single();
+  const prev = curr?.space_tokens ?? 0;
+  const next = Math.max(0, prev + delta);
+
+  const { data, error } = await supabase
+    .from("users").update({ space_tokens: next }).eq("id", userId).select("id, space_tokens").single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      delta > 0 ? "AWARD_TOKENS" : "REVOKE_TOKENS",
+      target_type: "user",
+      target_id:   userId,
+      before_val:  { space_tokens: prev },
+      after_val:   { space_tokens: next },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+// ── Admin: Lounge management ──────────────────────────────────────────────────
+
+export const getLoungePosts = ({ hidden = null, limit = 100 } = {}) => {
+  let q = supabase.from("lounge_posts").select("*").order("created_at", { ascending: false }).limit(limit);
+  if (hidden !== null) q = q.eq("is_hidden", hidden);
+  return q;
+};
+
+export const getLoungeReports = ({ status = null } = {}) => {
+  let q = supabase
+    .from("lounge_reports")
+    .select("*, reporter:reporter_id(name, phone)")
+    .order("created_at", { ascending: false });
+  if (status) q = q.eq("status", status);
+  return q;
+};
+
+export const adminHideContent = async (table, id, adminId, hidden, reason = null) => {
+  const { data, error } = await supabase
+    .from(table)
+    .update({ is_hidden: hidden, ...(hidden && reason ? { hidden_reason: reason } : {}) })
+    .eq("id", id)
+    .select("id, is_hidden")
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      hidden ? `HIDE_${table.toUpperCase()}` : `UNHIDE_${table.toUpperCase()}`,
+      target_type: "lounge",
+      target_id:   id,
+      before_val:  { is_hidden: !hidden },
+      after_val:   { is_hidden: hidden },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+export const adminUpdateLoungeReport = (id, status, adminNote = null) =>
+  supabase
+    .from("lounge_reports")
+    .update({ status, ...(adminNote ? { admin_note: adminNote } : {}) })
+    .eq("id", id)
+    .select("id, status")
+    .single();

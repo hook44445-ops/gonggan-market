@@ -301,7 +301,7 @@ create table if not exists public.admin_logs (
   id          uuid primary key default gen_random_uuid(),
   admin_id    uuid references public.users(id),
   action      text not null,
-  target_type text not null check (target_type in ('company','customer','dispute','settlement')),
+  target_type text not null check (target_type in ('company','customer','user','dispute','settlement','lounge','report')),
   target_id   uuid,
   before_val  jsonb,
   after_val   jsonb,
@@ -786,20 +786,47 @@ create policy "customer_reports: admin read" on public.customer_reports
 create policy "customer_reports: authenticated insert" on public.customer_reports
   for insert with check (auth.uid() = reporter_id);
 
--- ── Migration: extend admin_logs target_type to include payment ───────────────
-alter table public.admin_logs drop constraint if exists admin_logs_target_type_check;
-alter table public.admin_logs add constraint admin_logs_target_type_check
-  check (target_type in ('company','customer','user','dispute','settlement','payment','lounge','report'));
+-- ============================================================
+--  Admin Dashboard 실운영화 — 사용자/라운지/신고 구조 추가
+-- ============================================================
 
--- ── Migration: payment_orders admin management columns ───────────────────────
-alter table public.payment_orders add column if not exists admin_note text;
+-- User account_status + space economy columns
+alter table public.users add column if not exists account_status text not null default 'NORMAL'
+  check (account_status in ('NORMAL','TEMP_RESTRICTED','SUSPENDED','BLACKLISTED'));
+alter table public.users add column if not exists space_temp    numeric(4,1) not null default 36.5;
+alter table public.users add column if not exists space_tokens  integer      not null default 0;
 
--- ── Migration: admin RLS on payment_orders / payment_transactions ─────────────
-create policy if not exists "payment_orders: admin read all" on public.payment_orders
+-- ── lounge_posts ──────────────────────────────────────────────────────────────
+create table if not exists public.lounge_posts (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid references public.users(id) on delete set null,
+  anonymous_nickname text not null,
+  category           text not null default 'daily',
+  title              text,
+  content            text not null,
+  view_count         integer not null default 0,
+  like_count         integer not null default 0,
+  comment_count      integer not null default 0,
+  is_hidden          boolean not null default false,
+  hidden_reason      text,
+  region             text,
+  gender             text,
+  age_group          text,
+  has_badge          boolean not null default false,
+  is_story           boolean not null default false,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+alter table public.lounge_posts enable row level security;
+create policy "lounge_posts: public read" on public.lounge_posts
   for select using (
-    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+    is_hidden = false
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
   );
-create policy if not exists "payment_orders: admin update" on public.payment_orders
+create policy "lounge_posts: owner insert" on public.lounge_posts
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_posts: admin update" on public.lounge_posts
   for update using (
     exists (select 1 from public.users where id = auth.uid() and role = 'admin')
   );
@@ -811,6 +838,91 @@ create policy if not exists "payment_transactions: admin read" on public.payment
 create policy if not exists "payment_transactions: owner insert" on public.payment_transactions
   for insert with check (
     exists (select 1 from public.payment_orders po where po.id = payment_order_id and auth.uid() = po.user_id)
+  );
+
+-- ── Migration: payment_orders admin management columns ───────────────────────
+alter table public.payment_orders add column if not exists admin_note text;
+
+-- ── Migration: admin RLS on payment_orders ───────────────────────────────────
+create policy if not exists "payment_orders: admin read all" on public.payment_orders
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy if not exists "payment_orders: admin update" on public.payment_orders
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- ── lounge_comments ───────────────────────────────────────────────────────────
+create table if not exists public.lounge_comments (
+  id                 uuid primary key default gen_random_uuid(),
+  post_id            uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id            uuid references public.users(id) on delete set null,
+  parent_id          uuid references public.lounge_comments(id) on delete cascade,
+  anonymous_nickname text not null,
+  content            text not null,
+  like_count         integer not null default 0,
+  is_expert_reply    boolean not null default false,
+  is_hidden          boolean not null default false,
+  hidden_reason      text,
+  created_at         timestamptz not null default now()
+);
+
+alter table public.lounge_comments enable row level security;
+create policy "lounge_comments: public read" on public.lounge_comments
+  for select using (
+    is_hidden = false
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy "lounge_comments: owner insert" on public.lounge_comments
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_comments: admin update" on public.lounge_comments
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- ── lounge_reports ────────────────────────────────────────────────────────────
+create table if not exists public.lounge_reports (
+  id           uuid primary key default gen_random_uuid(),
+  reporter_id  uuid references public.users(id) on delete set null,
+  target_type  text not null check (target_type in ('post','comment','story','user')),
+  target_id    uuid not null,
+  reason       text not null,
+  description  text,
+  status       text not null default 'pending'
+    check (status in ('pending','reviewing','resolved','dismissed')),
+  admin_note   text,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.lounge_reports enable row level security;
+create policy "lounge_reports: admin read" on public.lounge_reports
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy "lounge_reports: authenticated insert" on public.lounge_reports
+  for insert with check (auth.uid() = reporter_id);
+create policy "lounge_reports: admin update" on public.lounge_reports
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- escrow_payouts: allow admin to update (for settlement management)
+create policy "escrow_payouts: admin update" on public.escrow_payouts
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- escrow_payments: allow admin to update dispute_status
+create policy "escrow_payments: admin update" on public.escrow_payments
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- users: allow admin to update account_status / space fields
+create policy "users: admin update" on public.users
+  for update using (
+    exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
   );
 
 -- ============================================================
@@ -849,7 +961,7 @@ CREATE POLICY "company_documents: admin all" ON public.company_documents
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
   );
 
--- ── extend admin_logs target_type for document reviews ───────────────────────
+-- ── extend admin_logs target_type for all domains ────────────────────────────
 ALTER TABLE public.admin_logs DROP CONSTRAINT IF EXISTS admin_logs_target_type_check;
 ALTER TABLE public.admin_logs ADD CONSTRAINT admin_logs_target_type_check
   CHECK (target_type IN ('company','customer','user','dispute','settlement','payment','lounge','report','document'));
