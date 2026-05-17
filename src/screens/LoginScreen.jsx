@@ -68,7 +68,7 @@ export default function LoginScreen({ onLogin }) {
         const { data: existingUser } = await getUserByPhone(toE164(stored));
         if (existingUser) {
           setLoading(false);
-          onLogin({ ...existingUser, role: existingUser.role || role });
+          onLogin({ ...existingUser, role: role });
           return;
         }
       } catch {}
@@ -175,7 +175,7 @@ export default function LoginScreen({ onLogin }) {
         const { data: existing } = await getUserByPhone(toE164(phone));
         if (existing) {
           setLoading(false);
-          onLogin({ ...existing, role: pendingRole === "company" ? existing.role || "company" : existing.role || "consumer" });
+          onLogin({ ...existing, role: pendingRole });
           return;
         }
         const profile = {
