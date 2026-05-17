@@ -51,7 +51,7 @@ const normalizeCustomer = (row) => ({
     : "",
 });
 
-export default function AdminScreen({ onBack, user }) {
+export default function AdminScreen({ onBack, onHome, user }) {
   const [companies, setCompanies]       = useState([]);
   const [customers, setCustomers]       = useState([]);
   const [customersErr, setCustomersErr] = useState(false);
@@ -210,12 +210,22 @@ export default function AdminScreen({ onBack, user }) {
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>관리자 대시보드</div>
           <div style={{ fontSize: 11, color: C.text4 }}>공간마켓 운영 관리</div>
         </div>
-        {stats.pending > 0 && (
-          <div style={{ marginLeft: "auto", background: C.red, color: "#fff",
-            borderRadius: R.full, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>
-            심사 대기 {stats.pending}건
-          </div>
-        )}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: S.sm }}>
+          {stats.pending > 0 && (
+            <div style={{ background: C.red, color: "#fff",
+              borderRadius: R.full, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>
+              심사 대기 {stats.pending}건
+            </div>
+          )}
+          {onHome && (
+            <button onClick={onHome}
+              style={{ background: C.bgWarm, border: "none", borderRadius: R.md,
+                padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.text2,
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              🏠 홈으로
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Tabs */}

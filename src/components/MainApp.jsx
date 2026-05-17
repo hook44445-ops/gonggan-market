@@ -755,7 +755,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             setEscrowContracts={setEscrowContracts}
           />
         )}
-        {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} user={user} />}
+        {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} onHome={() => setScreen("home")} user={user} />}
 
         {screen==="chatlist" && (
           <div>
