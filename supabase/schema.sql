@@ -812,3 +812,44 @@ create policy if not exists "payment_transactions: owner insert" on public.payme
   for insert with check (
     exists (select 1 from public.payment_orders po where po.id = payment_order_id and auth.uid() = po.user_id)
   );
+
+-- ============================================================
+--  STEP DOC — company_documents (서류 관리 시스템)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.company_documents (
+  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id    uuid        REFERENCES public.companies(id) ON DELETE CASCADE,
+  user_id       uuid        REFERENCES public.users(id) ON DELETE SET NULL,
+  document_type text        NOT NULL,
+  file_name     text,
+  file_url      text,
+  file_size     int,
+  mime_type     text,
+  checklist     jsonb,
+  review_status text        NOT NULL DEFAULT 'draft'
+    CHECK (review_status IN ('draft','submitted','reviewing','approved','held','rejected')),
+  review_reason text,
+  reviewed_by   uuid        REFERENCES public.users(id) ON DELETE SET NULL,
+  reviewed_at   timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (company_id, document_type)
+);
+
+ALTER TABLE public.company_documents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "company_documents: owner read" ON public.company_documents
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "company_documents: owner insert" ON public.company_documents
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "company_documents: owner update" ON public.company_documents
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "company_documents: admin all" ON public.company_documents
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );
+
+-- ── extend admin_logs target_type for document reviews ───────────────────────
+ALTER TABLE public.admin_logs DROP CONSTRAINT IF EXISTS admin_logs_target_type_check;
+ALTER TABLE public.admin_logs ADD CONSTRAINT admin_logs_target_type_check
+  CHECK (target_type IN ('company','customer','user','dispute','settlement','payment','lounge','report','document'));

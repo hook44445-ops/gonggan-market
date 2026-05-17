@@ -18,7 +18,9 @@ import {
   getDisputePayments,
   getPendingPayouts,
   adminSetPayoutStatus,
+  getCompanyDocuments,
 } from "../lib/supabase";
+import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
 function LoungeManagementTab() {
@@ -221,6 +223,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [settlements, setSettlements]       = useState([]);
   const [tabLoaded, setTabLoaded]           = useState({});
   const [toast, setToast]                   = useState(null);
+  const [companyDocuments, setCompanyDocuments] = useState([]);
+  const [showDocReview, setShowDocReview]   = useState(false);
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -252,6 +256,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
   useEffect(() => {
     getOpsConfig().then(({ data }) => { if (data) setOpsConfig(data); }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!selected?.id) { setCompanyDocuments([]); return; }
+    getCompanyDocuments(selected.id).then(({ data }) => {
+      setCompanyDocuments(data ?? []);
+    }).catch(() => {});
+  }, [selected?.id]);
 
   const toggleOps = async (field) => {
     setOpsLoading(true);
@@ -951,7 +962,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
             <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg,
               marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📄 제출 서류</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.md }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>📄 제출 서류</div>
+                <button onClick={() => setShowDocReview(true)}
+                  style={{ fontSize: 12, color: C.brand, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>
+                  서류 검토 ›
+                </button>
+              </div>
               {selected.docs.map((doc, i) => (
                 <div key={i}
                   onClick={() => {
@@ -971,6 +988,21 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   </span>
                 </div>
               ))}
+              {companyDocuments.length > 0 && (
+                <div style={{ marginTop: S.sm, paddingTop: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
+                  <div style={{ fontSize: 11, color: C.text3, marginBottom: S.xs }}>서류 관리 시스템</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: S.xs }}>
+                    {companyDocuments.map(d => {
+                      const sm = { draft:"#B0BAB4", submitted:C.brand, reviewing:C.gold, approved:C.green, held:C.gold, rejected:C.red }[d.review_status ?? "draft"];
+                      return (
+                        <span key={d.id} style={{ fontSize: 10, color: sm, background: C.bg, borderRadius: R.sm, padding: "2px 6px", border: `1px solid ${sm}44` }}>
+                          {{ business_license:"사업자", insurance_certificate:"보험", operation_pledge:"서약서", escrow_agreement:"에스크로" }[d.document_type] ?? d.document_type}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between",
@@ -1150,6 +1182,18 @@ export default function AdminScreen({ onBack, onHome, user }) {
             )}
           </div>
         </div>
+      )}
+
+      {showDocReview && selected && (
+        <AdminDocumentReviewModal
+          docs={companyDocuments}
+          company={selected}
+          adminUser={user}
+          onClose={() => setShowDocReview(false)}
+          onUpdate={(updated) => {
+            setCompanyDocuments(prev => prev.map(d => d.id === updated.id ? updated : d));
+          }}
+        />
       )}
 
       {docModal === "biz" && selected && (
