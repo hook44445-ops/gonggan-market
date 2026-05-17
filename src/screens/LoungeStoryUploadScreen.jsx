@@ -5,6 +5,7 @@
 import { useState, useRef } from 'react';
 import { C, R, S } from '../constants';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
+import { IS_SUPABASE_READY, createLoungeStory } from '../lib/supabase';
 
 const MAX_SIZE_MB = 5;
 
@@ -66,9 +67,16 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
       comment_count:      0,
     };
 
-    await new Promise(r => setTimeout(r, 300));
-    setSubmitting(false);
-    onPublish?.(newStory);
+    if (IS_SUPABASE_READY) {
+      const { data, error: err } = await createLoungeStory(newStory);
+      setSubmitting(false);
+      if (err) { setUploadError('업로드 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
+      onPublish?.(data ?? newStory);
+    } else {
+      await new Promise(r => setTimeout(r, 300));
+      setSubmitting(false);
+      onPublish?.(newStory);
+    }
   };
 
   return (

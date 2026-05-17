@@ -707,3 +707,182 @@ alter table public.webhook_logs enable row level security;
 --   for select using (
 --     exists (select 1 from public.users where id = auth.uid() and role = 'admin')
 --   );
+
+-- ============================================================
+--  라운지 시스템 — Lounge Community Tables
+-- ============================================================
+
+-- ── lounge_posts (일반 게시글 + is_story=true 이면 스토리) ────────────────────
+create table if not exists public.lounge_posts (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid references public.users(id) on delete set null,
+  anonymous_nickname text not null,
+  category           text not null,
+  title              text,
+  content            text not null,
+  image_urls         text[]      not null default '{}',
+  gender             text,
+  age_group          text,
+  region             text,
+  is_story           boolean     not null default false,
+  story_expires_at   timestamptz,
+  view_count         integer     not null default 0,
+  like_count         integer     not null default 0,
+  comment_count      integer     not null default 0,
+  has_badge          boolean     not null default false,
+  boost_until        timestamptz,
+  is_deleted         boolean     not null default false,
+  deleted_at         timestamptz,
+  deleted_by         uuid references public.users(id) on delete set null,
+  is_hidden          boolean     not null default false,
+  hidden_by          uuid references public.users(id) on delete set null,
+  hidden_reason      text,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+comment on table public.lounge_posts is '라운지 게시글 및 스토리 (is_story=true이면 스토리)';
+
+create or replace trigger lounge_posts_updated_at
+  before update on public.lounge_posts
+  for each row execute procedure public.set_updated_at();
+
+alter table public.lounge_posts enable row level security;
+
+-- 누구나 삭제/숨김되지 않은 글 조회 가능
+create policy "lounge_posts: public read" on public.lounge_posts
+  for select using (is_deleted = false and is_hidden = false);
+
+-- 로그인 사용자 게시글 작성
+create policy "lounge_posts: auth insert" on public.lounge_posts
+  for insert with check (auth.uid() = user_id);
+
+-- 본인 글만 수정 (소프트 삭제 포함)
+create policy "lounge_posts: owner update" on public.lounge_posts
+  for update using (auth.uid() = user_id);
+
+-- ── lounge_comments ───────────────────────────────────────────────────────────
+create table if not exists public.lounge_comments (
+  id                 uuid primary key default gen_random_uuid(),
+  post_id            uuid not null references public.lounge_posts(id) on delete cascade,
+  parent_id          uuid references public.lounge_comments(id) on delete cascade,
+  user_id            uuid references public.users(id) on delete set null,
+  anonymous_nickname text not null,
+  content            text not null,
+  image_urls         text[]      not null default '{}',
+  is_expert_reply    boolean     not null default false,
+  like_count         integer     not null default 0,
+  is_deleted         boolean     not null default false,
+  deleted_at         timestamptz,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+comment on table public.lounge_comments is '라운지 댓글 및 대댓글';
+
+alter table public.lounge_comments enable row level security;
+
+create policy "lounge_comments: public read" on public.lounge_comments
+  for select using (is_deleted = false);
+
+create policy "lounge_comments: auth insert" on public.lounge_comments
+  for insert with check (auth.uid() = user_id);
+
+create policy "lounge_comments: owner update" on public.lounge_comments
+  for update using (auth.uid() = user_id);
+
+-- ── lounge_post_likes (중복 방지 unique 좋아요) ───────────────────────────────
+create table if not exists public.lounge_post_likes (
+  post_id    uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id    uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+
+alter table public.lounge_post_likes enable row level security;
+create policy "lounge_post_likes: auth read" on public.lounge_post_likes
+  for select using (auth.uid() = user_id);
+create policy "lounge_post_likes: auth insert" on public.lounge_post_likes
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_post_likes: auth delete" on public.lounge_post_likes
+  for delete using (auth.uid() = user_id);
+
+-- ── lounge_comment_likes ──────────────────────────────────────────────────────
+create table if not exists public.lounge_comment_likes (
+  comment_id uuid not null references public.lounge_comments(id) on delete cascade,
+  user_id    uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (comment_id, user_id)
+);
+
+alter table public.lounge_comment_likes enable row level security;
+create policy "lounge_comment_likes: auth insert" on public.lounge_comment_likes
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_comment_likes: auth delete" on public.lounge_comment_likes
+  for delete using (auth.uid() = user_id);
+
+-- ── lounge_saves (저장한 글) ──────────────────────────────────────────────────
+create table if not exists public.lounge_saves (
+  post_id    uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id    uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+
+alter table public.lounge_saves enable row level security;
+create policy "lounge_saves: owner read" on public.lounge_saves
+  for select using (auth.uid() = user_id);
+create policy "lounge_saves: owner insert" on public.lounge_saves
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_saves: owner delete" on public.lounge_saves
+  for delete using (auth.uid() = user_id);
+
+-- ── lounge_reports ────────────────────────────────────────────────────────────
+create table if not exists public.lounge_reports (
+  id          uuid primary key default gen_random_uuid(),
+  reporter_id uuid references public.users(id) on delete set null,
+  target_type text not null check (target_type in ('post','comment','story','user')),
+  target_id   text not null,
+  reason      text not null,
+  created_at  timestamptz not null default now()
+);
+
+alter table public.lounge_reports enable row level security;
+create policy "lounge_reports: auth insert" on public.lounge_reports
+  for insert with check (auth.uid() = reporter_id);
+create policy "lounge_reports: admin read" on public.lounge_reports
+  for select using (exists (select 1 from public.users where id = auth.uid() and role = 'admin'));
+
+-- ── lounge_blocks ─────────────────────────────────────────────────────────────
+create table if not exists public.lounge_blocks (
+  blocker_id uuid not null references public.users(id) on delete cascade,
+  blocked_id uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id)
+);
+
+alter table public.lounge_blocks enable row level security;
+create policy "lounge_blocks: owner rw" on public.lounge_blocks
+  for all using (auth.uid() = blocker_id);
+
+-- ── lounge_chat_requests ──────────────────────────────────────────────────────
+create table if not exists public.lounge_chat_requests (
+  id          uuid primary key default gen_random_uuid(),
+  post_id     uuid references public.lounge_posts(id) on delete cascade,
+  requester_id uuid references public.users(id) on delete cascade,
+  target_id   uuid references public.users(id) on delete cascade,
+  status      text not null default 'pending'
+                check (status in ('pending','accepted','rejected','expired')),
+  token_charged boolean not null default false,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table public.lounge_chat_requests enable row level security;
+create policy "lounge_chat_requests: owner read" on public.lounge_chat_requests
+  for select using (auth.uid() = requester_id or auth.uid() = target_id);
+create policy "lounge_chat_requests: auth insert" on public.lounge_chat_requests
+  for insert with check (auth.uid() = requester_id);
+create policy "lounge_chat_requests: target update" on public.lounge_chat_requests
+  for update using (auth.uid() = target_id or auth.uid() = requester_id);
+

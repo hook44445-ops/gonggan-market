@@ -684,3 +684,126 @@ export const approveEscrowPayoutByStage = (escrowId, stage, approvedBy = null) =
     .eq("stage", stage)
     .select()
     .single();
+
+// ── Lounge ────────────────────────────────────────────────────────────────────
+
+export const IS_SUPABASE_READY = !!(
+  import.meta.env.VITE_SUPABASE_URL &&
+  import.meta.env.VITE_SUPABASE_URL !== "https://placeholder.supabase.co"
+);
+
+export const getLoungePosts = async (category = "all") => {
+  let q = supabase
+    .from("lounge_posts")
+    .select("*")
+    .eq("is_story", false)
+    .eq("is_deleted", false)
+    .eq("is_hidden", false)
+    .order("created_at", { ascending: false });
+  if (category === "popular") {
+    q = q.order("view_count", { ascending: false });
+  } else if (category !== "all") {
+    q = q.eq("category", category);
+  }
+  return q;
+};
+
+export const getLoungePost = (postId) =>
+  supabase.from("lounge_posts").select("*").eq("id", postId).single();
+
+export const createLoungePost = (data) =>
+  supabase.from("lounge_posts").insert(data).select().single();
+
+export const updateLoungePost = (postId, userId, updates) =>
+  supabase
+    .from("lounge_posts")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", postId)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+export const softDeleteLoungePost = (postId, userId) =>
+  supabase
+    .from("lounge_posts")
+    .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq("id", postId)
+    .eq("user_id", userId);
+
+export const getLoungeStories = () =>
+  supabase
+    .from("lounge_posts")
+    .select("*")
+    .eq("is_story", true)
+    .eq("is_deleted", false)
+    .eq("is_hidden", false)
+    .gt("story_expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
+
+export const createLoungeStory = (data) =>
+  supabase.from("lounge_posts").insert({ ...data, is_story: true }).select().single();
+
+export const softDeleteLoungeStory = (storyId, userId) =>
+  supabase
+    .from("lounge_posts")
+    .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq("id", storyId)
+    .eq("user_id", userId);
+
+export const getLoungeComments = (postId) =>
+  supabase
+    .from("lounge_comments")
+    .select("*")
+    .eq("post_id", postId)
+    .eq("is_deleted", false)
+    .order("created_at", { ascending: true });
+
+export const createLoungeComment = (data) =>
+  supabase.from("lounge_comments").insert(data).select().single();
+
+export const softDeleteLoungeComment = (commentId, userId) =>
+  supabase
+    .from("lounge_comments")
+    .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq("id", commentId)
+    .eq("user_id", userId);
+
+export const likeLoungePost = (postId, userId) =>
+  supabase.from("lounge_post_likes").insert({ post_id: postId, user_id: userId });
+
+export const unlikeLoungePost = (postId, userId) =>
+  supabase
+    .from("lounge_post_likes")
+    .delete()
+    .eq("post_id", postId)
+    .eq("user_id", userId);
+
+export const saveLoungePost = (postId, userId) =>
+  supabase.from("lounge_saves").insert({ post_id: postId, user_id: userId });
+
+export const unsaveLoungePost = (postId, userId) =>
+  supabase
+    .from("lounge_saves")
+    .delete()
+    .eq("post_id", postId)
+    .eq("user_id", userId);
+
+export const getMyLoungePosts = (userId) =>
+  supabase
+    .from("lounge_posts")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_deleted", false)
+    .order("created_at", { ascending: false });
+
+export const adminHideLoungePost = (postId, adminId, reason = "") =>
+  supabase
+    .from("lounge_posts")
+    .update({ is_hidden: true, hidden_by: adminId, hidden_reason: reason, updated_at: new Date().toISOString() })
+    .eq("id", postId);
+
+export const adminUnhideLoungePost = (postId) =>
+  supabase
+    .from("lounge_posts")
+    .update({ is_hidden: false, hidden_by: null, hidden_reason: null, updated_at: new Date().toISOString() })
+    .eq("id", postId);

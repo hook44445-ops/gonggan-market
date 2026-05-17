@@ -131,7 +131,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [favTab, setFavTab] = useState("received");
 
   // ── 라운지 상태 ──────────────────────────────────────────────────────────────
-  const [loungePost, setLoungePost]             = useState(null);
+  const [loungePost, setLoungePost]               = useState(null);
+  const [editingLoungePost, setEditingLoungePost] = useState(null);
   const [localLoungePosts, setLocalLoungePosts]   = useState([]);
   const [localLoungeStories, setLocalLoungeStories] = useState([]);
   const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
@@ -818,6 +819,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onStoryUpload={() => requireAuth(() => go("lounge-story"))}
             onRequireLogin={() => setShowLoginRequired(true)}
             onGoMyPage={() => setScreen("my")}
+            onDeleteStory={(id) => setLocalLoungeStories(prev => prev.filter(s => s.id !== id))}
           />
         )}
 
@@ -825,7 +827,27 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <LoungeWriteScreen
             user={user}
             onBack={() => setScreen("lounge")}
-            onPublish={(post) => { setLocalLoungePosts(prev => [post, ...prev]); showToast("✅ 글이 등록됐어요!"); earnToken("first_post"); setScreen("lounge"); }}
+            onPublish={(post) => {
+              setLocalLoungePosts(prev => [post, ...prev.filter(p => p.id !== post.id)]);
+              showToast("✅ 글이 등록됐어요!");
+              earnToken("first_post");
+              setScreen("lounge");
+            }}
+          />
+        )}
+
+        {screen==="lounge-edit" && editingLoungePost && (
+          <LoungeWriteScreen
+            user={user}
+            editPost={editingLoungePost}
+            onBack={() => { setEditingLoungePost(null); setScreen("lounge-detail"); }}
+            onPublish={(updated) => {
+              setLocalLoungePosts(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+              if (loungePost?.id === updated.id) setLoungePost(prev => ({ ...prev, ...updated }));
+              setEditingLoungePost(null);
+              showToast("✅ 글이 수정됐어요!");
+              setScreen("lounge-detail");
+            }}
           />
         )}
 
@@ -839,6 +861,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onSpendToken={(action, amount, desc) => spendToken(action, amount, desc)}
             onTokenStore={() => requireAuth(() => go("token-store"))}
             onRequireLogin={() => setShowLoginRequired(true)}
+            onEditPost={(post) => { setEditingLoungePost(post); go("lounge-edit"); }}
+            onDeletePost={(id) => {
+              setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
+              setLoungePost(null);
+            }}
           />
         )}
 
@@ -846,7 +873,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <LoungeStoryUploadScreen
             user={user}
             onBack={() => setScreen("lounge")}
-            onPublish={(story) => { if (story) setLocalLoungeStories(prev => [story, ...prev]); showToast("📸 스토리가 공유됐어요! (24시간)"); setScreen("lounge"); }}
+            onPublish={(story) => {
+              if (story) setLocalLoungeStories(prev => [story, ...prev]);
+              showToast("📸 스토리가 공유됐어요! (24시간)");
+              setScreen("lounge");
+            }}
           />
         )}
 

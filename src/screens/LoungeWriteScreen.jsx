@@ -1,28 +1,30 @@
 // ─────────────────────────────────────────────────────
 // 공간마켓 라운지 시스템
-//
-// 라운지는 단순 커뮤니티 게시판이 아닙니다.
-// 사람이 머무는 공간 안에서 신뢰가 생기고,
-// 그 신뢰가 거래로 이어지는 구조입니다.
 // ─────────────────────────────────────────────────────
 
 import { useState, useRef } from 'react';
 import { C, R, S, REGIONS } from '../constants';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
+import { IS_SUPABASE_READY, createLoungePost, updateLoungePost } from '../lib/supabase';
 
 const WRITABLE_CATS = LOUNGE_CATEGORIES.filter(c => c.group !== null);
 const MAX_IMAGES    = 5;
 const MAX_SIZE_MB   = 5;
 
-export default function LoungeWriteScreen({ user, onBack, onPublish }) {
-  const [category,   setCategory]   = useState('');
-  const [title,      setTitle]      = useState('');
-  const [content,    setContent]    = useState('');
-  const [region,     setRegion]     = useState('');
-  const [gender,     setGender]     = useState('');
-  const [ageGroup,   setAgeGroup]   = useState('');
-  const [images,     setImages]     = useState([]); // { url, name }[]
+// editPost: existing post object when editing, null when creating new
+export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = null }) {
+  const isEdit = !!editPost;
+
+  const [category,   setCategory]   = useState(editPost?.category ?? '');
+  const [title,      setTitle]      = useState(editPost?.title ?? '');
+  const [content,    setContent]    = useState(editPost?.content ?? '');
+  const [region,     setRegion]     = useState(editPost?.region ?? '');
+  const [gender,     setGender]     = useState(editPost?.gender ?? '');
+  const [ageGroup,   setAgeGroup]   = useState(editPost?.age_group ?? '');
+  const [images,     setImages]     = useState(
+    (editPost?.image_urls ?? []).map(url => ({ url, name: '', existing: true }))
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState('');
   const fileInputRef = useRef(null);
@@ -39,7 +41,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
         setError(`파일 크기는 ${MAX_SIZE_MB}MB 이하로 올려주세요`);
         continue;
       }
-      valid.push({ url: URL.createObjectURL(f), name: f.name });
+      valid.push({ url: URL.createObjectURL(f), name: f.name, existing: false });
     }
     setImages(prev => [...prev, ...valid].slice(0, MAX_IMAGES));
     if (valid.length) setError('');
@@ -48,7 +50,8 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
 
   const removeImage = (idx) => {
     setImages(prev => {
-      URL.revokeObjectURL(prev[idx].url);
+      const img = prev[idx];
+      if (!img.existing) URL.revokeObjectURL(img.url);
       return prev.filter((_, i) => i !== idx);
     });
   };
@@ -58,51 +61,88 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
     if (!content.trim()) { setError('내용을 입력해주세요'); return; }
 
     setSubmitting(true);
-    const postId   = `post-${Date.now()}`;
-    const nickname = getAnonymousNickname(user?.id ?? 'guest', postId);
+    setError('');
 
-    const newPost = {
-      id:                 postId,
-      user_id:            user?.id ?? null,
-      anonymous_nickname: nickname,
-      category,
-      title:              title.trim() || null,
-      content:            content.trim(),
-      image_urls:         images.map(img => img.url),
-      gender:             gender || null,
-      age_group:          ageGroup || null,
-      region:             region || null,
-      is_story:           false,
-      view_count:         0,
-      like_count:         0,
-      comment_count:      0,
-      created_at:         new Date().toISOString(),
-      has_badge:          !!(user?.badge && user.badge !== 'basic'),
-    };
+    const imageUrls = images.map(img => img.url);
 
-    await new Promise(r => setTimeout(r, 300));
-    setSubmitting(false);
-    onPublish?.(newPost);
+    if (isEdit) {
+      const updates = {
+        category,
+        title:      title.trim() || null,
+        content:    content.trim(),
+        image_urls: imageUrls,
+        gender:     gender || null,
+        age_group:  ageGroup || null,
+        region:     region || null,
+      };
+      if (IS_SUPABASE_READY) {
+        const { data, error: err } = await updateLoungePost(editPost.id, user?.id, updates);
+        setSubmitting(false);
+        if (err) { setError('수정 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
+        onPublish?.({ ...editPost, ...updates, ...(data ?? {}) });
+      } else {
+        await new Promise(r => setTimeout(r, 300));
+        setSubmitting(false);
+        onPublish?.({ ...editPost, ...updates });
+      }
+    } else {
+      const postId   = `post-${Date.now()}`;
+      const nickname = getAnonymousNickname(user?.id ?? 'guest', postId);
+
+      const newPost = {
+        id:                 postId,
+        user_id:            user?.id ?? null,
+        anonymous_nickname: nickname,
+        category,
+        title:              title.trim() || null,
+        content:            content.trim(),
+        image_urls:         imageUrls,
+        gender:             gender || null,
+        age_group:          ageGroup || null,
+        region:             region || null,
+        is_story:           false,
+        is_deleted:         false,
+        is_hidden:          false,
+        view_count:         0,
+        like_count:         0,
+        comment_count:      0,
+        created_at:         new Date().toISOString(),
+        has_badge:          !!(user?.badge && user.badge !== 'basic'),
+      };
+
+      if (IS_SUPABASE_READY) {
+        const { data, error: err } = await createLoungePost(newPost);
+        setSubmitting(false);
+        if (err) { setError('등록 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
+        onPublish?.(data ?? newPost);
+      } else {
+        await new Promise(r => setTimeout(r, 300));
+        setSubmitting(false);
+        onPublish?.(newPost);
+      }
+    }
   };
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg }}>
       <div style={{ background: C.surface, padding: `14px ${S.xl}px`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${C.bgWarm}`, position: 'sticky', top: 0, zIndex: 10 }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.text1, padding: 0 }}>←</button>
-        <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>글쓰기</div>
+        <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>{isEdit ? '글 수정' : '글쓰기'}</div>
         <button onClick={handleSubmit} disabled={submitting} style={{ background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, padding: '8px 18px', fontWeight: 800, fontSize: 14, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
-          {submitting ? '등록중...' : '등록'}
+          {submitting ? (isEdit ? '수정중...' : '등록중...') : (isEdit ? '수정' : '등록')}
         </button>
       </div>
 
       <div style={{ padding: S.xl }}>
-        <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.xl, border: `1px solid ${C.brandM}` }}>
-          <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>
-            🛡 글 작성 시 익명 아이디가 자동 배정됩니다.<br/>
-            같은 글의 댓글에서는 동일 익명이 유지됩니다.<br/>
-            다른 글에서는 새로운 닉네임이 배정됩니다.
+        {!isEdit && (
+          <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.xl, border: `1px solid ${C.brandM}` }}>
+            <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>
+              🛡 글 작성 시 익명 아이디가 자동 배정됩니다.<br/>
+              같은 글의 댓글에서는 동일 익명이 유지됩니다.<br/>
+              다른 글에서는 새로운 닉네임이 배정됩니다.
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ marginBottom: S.xl }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>카테고리 <span style={{ color: C.red }}>*</span></div>

@@ -6,20 +6,24 @@ import { useState, useRef } from 'react';
 import { C, R, S } from '../../constants';
 import { getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 import ReportModal from './ReportModal';
+import { IS_SUPABASE_READY, softDeleteLoungeStory } from '../../lib/supabase';
 
 // ── 스토리 뷰어 (전체화면, 위아래 스와이프) ───────────
-function StoryViewer({ stories, startIndex, onClose }) {
+function StoryViewer({ stories, startIndex, user, onClose, onDeleteStory }) {
   const [index,        setIndex]        = useState(startIndex);
   const [liked,        setLiked]        = useState({});
   const [comment,      setComment]      = useState('');
   const [showInput,    setShowInput]    = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting,     setDeleting]    = useState(false);
   const touchStartY = useRef(null);
 
   const story   = stories[index];
   const avatar  = getAnonymousAvatarByNickname(story.anonymous_nickname);
   const isFirst = index === 0;
   const isLast  = index === stories.length - 1;
+  const isOwn   = user && story.user_id && user.id && story.user_id === user.id;
 
   const prev = () => { if (!isFirst) setIndex(i => i - 1); };
   const next = () => { if (!isLast) setIndex(i => i + 1); else onClose(); };
@@ -28,9 +32,20 @@ function StoryViewer({ stories, startIndex, onClose }) {
   const onTouchEnd   = (e) => {
     if (touchStartY.current === null) return;
     const delta = touchStartY.current - e.changedTouches[0].clientY;
-    if (delta > 50) next();       // 위로 스와이프 → 다음
-    else if (delta < -50) prev(); // 아래로 스와이프 → 이전
+    if (delta > 50) next();
+    else if (delta < -50) prev();
     touchStartY.current = null;
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    if (IS_SUPABASE_READY) {
+      await softDeleteLoungeStory(story.id, user.id);
+    }
+    setDeleting(false);
+    onDeleteStory?.(story.id);
+    setShowDeleteConfirm(false);
+    onClose();
   };
 
   return (
@@ -57,19 +72,29 @@ function StoryViewer({ stories, startIndex, onClose }) {
             {new Date(story.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
+        {isOwn && (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            style={{ background: 'rgba(229,62,62,0.2)', border: '1px solid rgba(229,62,62,0.5)', borderRadius: R.full, padding: '6px 12px', color: '#ff6b6b', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginRight: 4 }}>
+            삭제
+          </button>
+        )}
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
       </div>
 
       {/* 스토리 카드 */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', position: 'relative' }}>
-        {/* 이전/다음 영역 (좌우 터치) */}
         <div onClick={prev} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '35%', zIndex: 1 }} />
         <div onClick={next} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '35%', zIndex: 1 }} />
 
         <div style={{ width: '100%', maxWidth: 360, background: `linear-gradient(145deg, ${avatar.color}22, ${avatar.color}44)`, borderRadius: 20, padding: 32, minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `2px solid ${avatar.color}66`, backdropFilter: 'blur(20px)' }}>
-          <div style={{ fontSize: 72, marginBottom: 20 }}>{avatar.emoji}</div>
+          {story.image_urls && story.image_urls.length > 0 ? (
+            <img src={story.image_urls[0]} alt="" style={{ width: '100%', maxHeight: 280, objectFit: 'cover', borderRadius: 12, marginBottom: 16 }} />
+          ) : (
+            <div style={{ fontSize: 72, marginBottom: 20 }}>{avatar.emoji}</div>
+          )}
           <div style={{ fontSize: 16, color: '#fff', fontWeight: 700, textAlign: 'center', lineHeight: 1.6 }}>
-            {story.text || `${story.anonymous_nickname}의 스토리`}
+            {story.content || story.text || `${story.anonymous_nickname}의 스토리`}
           </div>
           {story.category && (
             <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.18)', borderRadius: R.full, padding: '4px 14px', fontSize: 12, color: '#fff', fontWeight: 600 }}>
@@ -78,7 +103,6 @@ function StoryViewer({ stories, startIndex, onClose }) {
           )}
         </div>
 
-        {/* 위아래 안내 */}
         {!isFirst && (
           <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>▲ 이전</div>
         )}
@@ -111,24 +135,25 @@ function StoryViewer({ stories, startIndex, onClose }) {
               style={{ flex: 1, padding: '11px 16px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: R.full, color: 'rgba(255,255,255,0.7)', fontSize: 14, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
               댓글 달기...
             </button>
-            {/* 하트 */}
             <button
               onClick={() => setLiked(prev => ({ ...prev, [story.id]: !prev[story.id] }))}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 28, lineHeight: 1 }}>
               {liked[story.id] ? '❤️' : '🤍'}
             </button>
-            {/* 대화 신청 */}
-            <button
-              onClick={() => {}}
-              style={{ background: 'rgba(255,255,255,0.18)', border: 'none', borderRadius: R.full, padding: '10px 16px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              💬 대화
-            </button>
-            {/* 신고 */}
-            <button
-              onClick={() => setReportTarget({ type: 'story', targetId: story.id })}
-              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 11, cursor: 'pointer', padding: '0 4px' }}>
-              신고
-            </button>
+            {!isOwn && (
+              <button
+                onClick={() => {}}
+                style={{ background: 'rgba(255,255,255,0.18)', border: 'none', borderRadius: R.full, padding: '10px 16px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                💬 대화
+              </button>
+            )}
+            {!isOwn && (
+              <button
+                onClick={() => setReportTarget({ type: 'story', targetId: story.id })}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 11, cursor: 'pointer', padding: '0 4px' }}>
+                신고
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -140,6 +165,27 @@ function StoryViewer({ stories, startIndex, onClose }) {
           onClose={() => setReportTarget(null)}
           onReport={() => {}}
         />
+      )}
+
+      {/* 삭제 확인 */}
+      {showDeleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '0 24px' }}>
+          <div style={{ background: C.surface, borderRadius: R.xl, padding: 24, width: '100%', maxWidth: 300 }}>
+            <div style={{ fontSize: 20, textAlign: 'center', marginBottom: 12 }}>🗑️</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, textAlign: 'center', marginBottom: 8 }}>스토리를 삭제할까요?</div>
+            <div style={{ fontSize: 13, color: C.text3, textAlign: 'center', lineHeight: 1.6, marginBottom: 20 }}>삭제된 스토리는 복구할 수 없어요</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowDeleteConfirm(false)} disabled={deleting}
+                style={{ flex: 1, padding: '12px', background: C.bg, border: 'none', borderRadius: R.lg, fontWeight: 700, fontSize: 14, color: C.text2, cursor: 'pointer' }}>
+                취소
+              </button>
+              <button onClick={handleDelete} disabled={deleting}
+                style={{ flex: 1, padding: '12px', background: '#E53E3E', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 14, color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.7 : 1 }}>
+                {deleting ? '삭제 중...' : '삭제'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -171,7 +217,7 @@ function StoryCircle({ story, seen, onClick }) {
 }
 
 // ── 메인 스토리바 ──────────────────────────────────────
-export default function LoungeStoryBar({ stories, onStoryClick }) {
+export default function LoungeStoryBar({ stories, user, onStoryClick, onDeleteStory }) {
   const [viewerIndex, setViewerIndex] = useState(null);
   const [seen,        setSeen]        = useState({});
 
@@ -202,7 +248,12 @@ export default function LoungeStoryBar({ stories, onStoryClick }) {
         <StoryViewer
           stories={stories}
           startIndex={viewerIndex}
+          user={user}
           onClose={() => setViewerIndex(null)}
+          onDeleteStory={(id) => {
+            onDeleteStory?.(id);
+            setViewerIndex(null);
+          }}
         />
       )}
     </>
