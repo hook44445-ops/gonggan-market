@@ -54,7 +54,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       anonymous_nickname: nickname,
       content:            commentText.trim(),
       image_urls:         [],
-      is_expert_reply:    user.role === 'company',
+      is_expert_reply:    (user.activeRole ?? user.role) === 'company',
       like_count:         0,
       created_at:         new Date().toISOString(),
     };

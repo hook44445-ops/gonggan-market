@@ -822,13 +822,6 @@ export const getPendingPayouts = () =>
 
 // ── Admin: Dispute management ─────────────────────────────────────────────────
 
-export const getDisputePayments = () =>
-  supabase
-    .from("escrow_payments")
-    .select("*, requests(id, space_type, area, user_id), companies(id, name, owner_id)")
-    .not("dispute_status", "is", null)
-    .order("disputed_at", { ascending: false });
-
 export const adminResolveDispute = async (paymentId, adminId, resolution, reason = null) => {
   const { data: prev } = await supabase
     .from("escrow_payments").select("dispute_status").eq("id", paymentId).single();
