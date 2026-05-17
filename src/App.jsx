@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import MainApp from "./components/MainApp";
 import LoginScreen from "./screens/LoginScreen";
+import LandingScreen from "./screens/LandingScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 const SESSION_TS_KEY   = "gonggan_login_at";
@@ -41,8 +42,8 @@ function clearSession() {
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [goOnboarding, setGoOnboarding] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pendingRole, setPendingRole] = useState(null);
 
   useEffect(() => {
     const saved = loadSavedSession();
@@ -53,22 +54,49 @@ export default function App() {
   const handleLogin = (u) => {
     if (!u.isGuest) saveSession(u);
     setUser(u);
-    setGoOnboarding(false);
+    setPendingRole(null);
   };
 
   const handleLogout = () => {
     clearSession();
     setUser(null);
-    setGoOnboarding(false);
+    setPendingRole(null);
+  };
+
+  const handleRoleSelect = (role) => {
+    setPendingRole(role);
   };
 
   if (loading) return null;
 
+  if (user) {
+    return (
+      <ErrorBoundary onLogout={handleLogout}>
+        <MainApp
+          user={user}
+          onLogout={handleLogout}
+          onLogin={handleLogin}
+          onStartOnboarding={() => {
+            clearSession();
+            setUser(null);
+            setPendingRole("company");
+          }}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  if (!pendingRole) {
+    return (
+      <ErrorBoundary onLogout={handleLogout}>
+        <LandingScreen onSelectRole={handleRoleSelect} />
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary onLogout={handleLogout}>
-      {user
-        ? <MainApp user={user} onLogout={handleLogout} onLogin={handleLogin} onStartOnboarding={() => { clearSession(); setUser(null); setGoOnboarding(true); }} />
-        : <LoginScreen onLogin={handleLogin} startAtOnboarding={goOnboarding} />}
+      <LoginScreen onLogin={handleLogin} initialRole={pendingRole} />
     </ErrorBoundary>
   );
 }
