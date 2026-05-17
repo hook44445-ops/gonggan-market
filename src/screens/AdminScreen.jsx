@@ -159,7 +159,7 @@ const normalizeCustomer = (row) => ({
     : "",
 });
 
-export default function AdminScreen({ onBack, user }) {
+export default function AdminScreen({ onBack, onHome, user }) {
   const [companies, setCompanies]       = useState([]);
   const [customers, setCustomers]       = useState([]);
   const [customersErr, setCustomersErr] = useState(false);
@@ -174,7 +174,7 @@ export default function AdminScreen({ onBack, user }) {
   const [statusReason, setStatusReason]     = useState("");
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [notifications, setNotifications]   = useState([]);
-  const [docModal, setDocModal]             = useState(null); // null | "biz" | "insurance" | "badge"
+  const [docModal, setDocModal]             = useState(null);
   const [holdMode, setHoldMode]             = useState(false);
   const [holdNote, setHoldNote]             = useState("");
   const [opsConfig, setOpsConfig]           = useState({ pause_new_payments: false, pause_new_bids: false, pause_new_approvals: false });
@@ -333,12 +333,22 @@ export default function AdminScreen({ onBack, user }) {
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>관리자 대시보드</div>
           <div style={{ fontSize: 11, color: C.text4 }}>공간마켓 운영 관리</div>
         </div>
-        {stats.pending > 0 && (
-          <div style={{ marginLeft: "auto", background: C.red, color: "#fff",
-            borderRadius: R.full, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>
-            심사 대기 {stats.pending}건
-          </div>
-        )}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: S.sm }}>
+          {stats.pending > 0 && (
+            <div style={{ background: C.red, color: "#fff",
+              borderRadius: R.full, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>
+              심사 대기 {stats.pending}건
+            </div>
+          )}
+          {onHome && (
+            <button onClick={onHome}
+              style={{ background: C.bgWarm, border: "none", borderRadius: R.md,
+                padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.text2,
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              🏠 홈으로
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Tabs */}
@@ -596,7 +606,6 @@ export default function AdminScreen({ onBack, user }) {
                   </div>
                 ))}
 
-                {/* Derived activity: recent pending companies */}
                 {companies.filter(c => c.status === "pending").length > 0 && (
                   <div style={{ marginTop: S.xl }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.text2, marginBottom: S.md }}>📋 최근 심사 대기</div>
@@ -621,7 +630,6 @@ export default function AdminScreen({ onBack, user }) {
         )}
       </div>
 
-      {/* Company Detail bottom sheet */}
       {selected && mainTab === "companies" && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
@@ -658,7 +666,6 @@ export default function AdminScreen({ onBack, user }) {
               );
             })()}
 
-            {/* Documents checklist */}
             <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg,
               marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📄 제출 서류</div>
@@ -683,7 +690,6 @@ export default function AdminScreen({ onBack, user }) {
               ))}
             </div>
 
-            {/* Submission info */}
             <div style={{ display: "flex", justifyContent: "space-between",
               padding: `${S.sm}px 0`, marginBottom: S.xl,
               borderTop: `1px solid ${C.bgWarm}`, borderBottom: `1px solid ${C.bgWarm}` }}>
@@ -691,7 +697,6 @@ export default function AdminScreen({ onBack, user }) {
               <span style={{ fontSize: 12, fontWeight: 700, color: C.text1 }}>{selected.submittedAt}</span>
             </div>
 
-            {/* Company operational status */}
             {(() => {
               const csMeta = COMPANY_STATUS_META[selected.companyStatus] ?? COMPANY_STATUS_META.PENDING;
               return (
@@ -735,7 +740,6 @@ export default function AdminScreen({ onBack, user }) {
               );
             })()}
 
-            {/* Actions for pending */}
             {selected.status === "pending" && (
               !rejectMode ? (
                 !holdMode ? (
@@ -841,7 +845,6 @@ export default function AdminScreen({ onBack, user }) {
               )
             )}
 
-            {/* Status display for non-pending */}
             {selected.status !== "pending" && (
               <div style={{ background: selected.status === "approved" ? C.greenL : "#FFF0F0",
                 borderRadius: R.lg, padding: S.lg, display: "flex", alignItems: "flex-start", gap: S.sm,
@@ -866,7 +869,6 @@ export default function AdminScreen({ onBack, user }) {
         </div>
       )}
 
-      {/* Biz cert modal */}
       {docModal === "biz" && selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
           display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}
@@ -898,7 +900,6 @@ export default function AdminScreen({ onBack, user }) {
         </div>
       )}
 
-      {/* Insurance modal */}
       {docModal === "insurance" && selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
           display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}
@@ -930,7 +931,6 @@ export default function AdminScreen({ onBack, user }) {
         </div>
       )}
 
-      {/* Badge modal */}
       {docModal === "badge" && selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
           display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}
@@ -967,7 +967,6 @@ export default function AdminScreen({ onBack, user }) {
         </div>
       )}
 
-      {/* Confirm dialog */}
       {confirm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.7)",
           display: "flex", alignItems: "center", justifyContent: "center",
