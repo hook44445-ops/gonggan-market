@@ -68,7 +68,7 @@ export default function LoginScreen({ onLogin }) {
         const { data: existingUser } = await getUserByPhone(toE164(stored));
         if (existingUser) {
           setLoading(false);
-          onLogin({ ...existingUser, role: existingUser.role || role });
+          onLogin({ ...existingUser, role, activeRole: role });
           return;
         }
       } catch {}
@@ -113,11 +113,8 @@ export default function LoginScreen({ onLogin }) {
       // STEP F: Save verified phone for same-device bypass
       setStoredPhone(pendingRole, phone);
       if (data.user) {
-        // Explicit company/admin selection takes precedence over DB role
-        const userRole = (pendingRole === "company" || pendingRole === "admin")
-          ? pendingRole
-          : (data.user.role ?? "consumer");
-        onLogin({ ...data.user, role: userRole });
+        const userRole = pendingRole || data.user.role || "consumer";
+        onLogin({ ...data.user, role: userRole, activeRole: pendingRole });
       } else {
         // New user: go to onboarding with pendingRole
         setStep(3);
@@ -136,7 +133,7 @@ export default function LoginScreen({ onLogin }) {
       setAdminCode("");
       setAdminCodeError("");
       // STEP A: Skip SMS — admin enters directly after code
-      onLogin({ role: "admin", name: "관리자", id: null, phone: "", verified: true });
+      onLogin({ role: "admin", activeRole: "admin", name: "관리자", id: null, phone: "", verified: true });
     } else {
       setAdminCodeError("관리자 코드가 올바르지 않습니다");
     }
@@ -158,7 +155,7 @@ export default function LoginScreen({ onLogin }) {
     const { data, error } = await upsertUserByPhone(profile);
     setLoading(false);
     if (error) return setMsg("❌ 프로필 저장에 실패했습니다");
-    onLogin(data || profile);
+    onLogin(data ? { ...data, activeRole: "consumer" } : { ...profile, activeRole: "consumer" });
   };
 
   const handleBypassLogin = async () => {
@@ -175,7 +172,7 @@ export default function LoginScreen({ onLogin }) {
         const { data: existing } = await getUserByPhone(toE164(phone));
         if (existing) {
           setLoading(false);
-          onLogin({ ...existing, role: pendingRole === "company" ? existing.role || "company" : existing.role || "consumer" });
+          onLogin({ ...existing, role: pendingRole, activeRole: pendingRole });
           return;
         }
         const profile = {
@@ -185,23 +182,25 @@ export default function LoginScreen({ onLogin }) {
           phone: toE164(phone),
         };
         const { data } = await upsertUserByPhone(profile);
-        onLogin(data || { ...profile, id: null, verified: true });
+        onLogin(data ? { ...data, role: pendingRole, activeRole: pendingRole } : { ...profile, id: null, verified: true, activeRole: pendingRole });
       } else {
         onLogin({
-          role:     pendingRole,
-          name:     pendingRole === "company" ? "테스트업체" : "테스트의뢰인",
-          id:       null,
-          phone:    "",
-          verified: true,
+          role:       pendingRole,
+          activeRole: pendingRole,
+          name:       pendingRole === "company" ? "테스트업체" : "테스트의뢰인",
+          id:         null,
+          phone:      "",
+          verified:   true,
         });
       }
     } catch {
       onLogin({
-        role:     pendingRole,
-        name:     pendingRole === "company" ? "테스트업체" : "테스트의뢰인",
-        id:       null,
-        phone:    "",
-        verified: true,
+        role:       pendingRole,
+        activeRole: pendingRole,
+        name:       pendingRole === "company" ? "테스트업체" : "테스트의뢰인",
+        id:         null,
+        phone:      "",
+        verified:   true,
       });
     } finally {
       setLoading(false);
@@ -478,7 +477,7 @@ export default function LoginScreen({ onLogin }) {
 
       {/* Company onboarding */}
       {step === 3 && pendingRole === "company" && (
-        <CompanyOnboarding phone={phone} onDone={u => onLogin({ ...u, role: "company" })} />
+        <CompanyOnboarding phone={phone} onDone={u => onLogin({ ...u, role: "company", activeRole: "company" })} />
       )}
 
       {/* Admin onboarding */}
