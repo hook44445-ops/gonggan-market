@@ -16,6 +16,7 @@ import LoungePostDetailScreen from "../screens/LoungePostDetailScreen";
 import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
 import TokenStoreScreen from "../screens/TokenStoreScreen";
 import TokenHistoryScreen from "../screens/TokenHistoryScreen";
+import DocumentCenterScreen from "../screens/DocumentCenterScreen";
 import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
@@ -764,6 +765,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           />
         )}
         {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} onHome={() => setScreen("home")} user={user} />}
+        {screen==="document-center" && <DocumentCenterScreen company={currentUser} user={user} onBack={() => setScreen("my")} />}
 
         {screen==="lounge" && (
           <LoungeScreen
@@ -1062,6 +1064,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   hasInsurance={currentUser?.hasInsurance ?? user.insurance ?? false}
                   onUpgrade={(next) => showToast(`${next.label} 업그레이드 신청이 접수됐어요!`)}
                 />
+                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.md, border:`1px solid ${C.bgWarm}` }}>
+                  <div onClick={() => setScreen("document-center")}
+                    style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer" }}>
+                    <span style={{ fontSize:14, color:C.text1, fontWeight:600 }}>📁 서류 관리</span>
+                    <span style={{ fontSize:16, color:C.text3 }}>›</span>
+                  </div>
+                </div>
               </div>
             )}
 

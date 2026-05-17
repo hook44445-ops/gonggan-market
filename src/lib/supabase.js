@@ -848,3 +848,64 @@ export const adminSetPayoutStatus = async (payoutId, adminId, status, reason = n
   return { data, error };
 };
 
+// ── Company Documents ─────────────────────────────────────────────────────────
+
+export const getCompanyDocuments = (companyId) =>
+  supabase
+    .from("company_documents")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: true });
+
+export const upsertCompanyDocument = (data) => {
+  if (data.id) {
+    const { id, ...rest } = data;
+    return supabase
+      .from("company_documents")
+      .update({ ...rest, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+  }
+  return supabase
+    .from("company_documents")
+    .upsert({ ...data, updated_at: new Date().toISOString() }, { onConflict: "company_id,document_type" })
+    .select()
+    .single();
+};
+
+export const submitCompanyDocument = (docId) =>
+  supabase
+    .from("company_documents")
+    .update({ review_status: "submitted", updated_at: new Date().toISOString() })
+    .eq("id", docId)
+    .select()
+    .single();
+
+export const adminReviewDocument = async (docId, adminId, reviewStatus, reason = null) => {
+  const { data, error } = await supabase
+    .from("company_documents")
+    .update({
+      review_status: reviewStatus,
+      review_reason: reason ?? null,
+      reviewed_by:   adminId ?? null,
+      reviewed_at:   new Date().toISOString(),
+      updated_at:    new Date().toISOString(),
+    })
+    .eq("id", docId)
+    .select()
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId ?? null,
+      action:      `DOC_${reviewStatus.toUpperCase()}`,
+      target_type: "document",
+      target_id:   docId,
+      after_val:   { review_status: reviewStatus, reason },
+    });
+  }
+
+  return { data, error };
+};
+
