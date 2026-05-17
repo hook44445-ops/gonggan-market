@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { BADGES } from "../constants/badges";
 import { COMPANY_STATUS_META } from "../constants";
 import {
+  supabase,
   getCompanies,
   getUsers,
   adminReviewCompany,
@@ -12,6 +13,11 @@ import {
   getAdminLogs,
   getOpsConfig,
   updateOpsConfig,
+  getPaymentOrders,
+  adminUpdatePaymentOrder,
+  getDisputePayments,
+  getPendingPayouts,
+  adminSetPayoutStatus,
 } from "../lib/supabase";
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
@@ -120,6 +126,34 @@ function LoungeManagementTab() {
   );
 }
 
+const PAYMENT_STATUS_META = {
+  PENDING:   { label: "결제대기", color: C.gold,    bg: "#FBF5E8" },
+  READY:     { label: "준비완료", color: C.brand,   bg: C.brandL  },
+  PAID:      { label: "결제완료", color: "#27AE60", bg: "#EAF7EE" },
+  FAILED:    { label: "결제실패", color: C.red,     bg: "#FFF0F0" },
+  CANCELLED: { label: "취소",     color: C.text4,   bg: C.bg      },
+  REFUNDED:  { label: "환불",     color: "#9B59B6", bg: "#F5EEF8" },
+};
+
+const PAYOUT_STATUS_META = {
+  PENDING:       { label: "대기",     color: C.text4,   bg: C.bg      },
+  READY:         { label: "지급준비", color: C.brand,   bg: C.brandL  },
+  APPROVED:      { label: "승인",     color: "#27AE60", bg: "#EAF7EE" },
+  HELD:          { label: "보류",     color: C.gold,    bg: "#FBF5E8" },
+  PAID_MANUALLY: { label: "수동지급", color: "#9B59B6", bg: "#F5EEF8" },
+  CANCELLED:     { label: "취소",     color: C.red,     bg: "#FFF0F0" },
+};
+
+const DISPUTE_STATUS_META = {
+  DISPUTE_OPEN:     { label: "분쟁접수",     color: C.red,     bg: "#FFF0F0" },
+  UNDER_REVIEW:     { label: "검토중",       color: C.gold,    bg: "#FBF5E8" },
+  WAITING_CUSTOMER: { label: "고객답변대기", color: C.brand,   bg: C.brandL  },
+  WAITING_COMPANY:  { label: "업체답변대기", color: "#9B59B6", bg: "#F5EEF8" },
+  RESOLVED:         { label: "해결완료",     color: "#27AE60", bg: "#EAF7EE" },
+  REFUNDED:         { label: "환불처리",     color: C.text4,   bg: C.bg      },
+  PARTIAL_REFUND:   { label: "일부환불",     color: C.text3,   bg: C.bg      },
+};
+
 const STATUS_MAP = {
   pending:  { label: "대기중", color: C.gold,  bg: "#FBF5E8" },
   approved: { label: "승인",   color: C.green, bg: C.greenL  },
@@ -170,6 +204,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [rejectMode, setRejectMode]     = useState(false);
   const [rejectNote, setRejectNote]     = useState("");
   const [confirm, setConfirm]           = useState(null);
+  const [confirmReason, setConfirmReason] = useState("");
   const [actionLoading, setActionLoading]   = useState(false);
   const [statusReason, setStatusReason]     = useState("");
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -179,6 +214,18 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [holdNote, setHoldNote]             = useState("");
   const [opsConfig, setOpsConfig]           = useState({ pause_new_payments: false, pause_new_bids: false, pause_new_approvals: false });
   const [opsLoading, setOpsLoading]         = useState(false);
+
+  const [paymentOrders, setPaymentOrders]   = useState([]);
+  const [paymentFilter, setPaymentFilter]   = useState("all");
+  const [disputes, setDisputes]             = useState([]);
+  const [settlements, setSettlements]       = useState([]);
+  const [tabLoaded, setTabLoaded]           = useState({});
+  const [toast, setToast]                   = useState(null);
+
+  const showToast = (msg, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 2500);
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -214,13 +261,34 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setOpsLoading(false);
   };
 
+  useEffect(() => {
+    if (tabLoaded[mainTab]) return;
+    setTabLoaded(prev => ({ ...prev, [mainTab]: true }));
+    if (mainTab === "payments") {
+      getPaymentOrders({ limit: 100 }).then(({ data }) => {
+        if (data) setPaymentOrders(data);
+      });
+    }
+    if (mainTab === "disputes") {
+      getDisputePayments().then(({ data }) => {
+        if (data) setDisputes(data);
+      });
+    }
+    if (mainTab === "settlements") {
+      getPendingPayouts().then(({ data }) => {
+        if (data) setSettlements(data);
+      });
+    }
+  }, [mainTab]);
+
   const stats = {
-    pending:    companies.filter(c => c.status === "pending").length,
-    approved:   companies.filter(c => c.status === "approved").length,
-    rejected:   companies.filter(c => c.status === "rejected").length,
-    customers:  customers.length,
-    disputes:   0,
-    settlements: 0,
+    pending:     companies.filter(c => c.status === "pending").length,
+    approved:    companies.filter(c => c.status === "approved").length,
+    rejected:    companies.filter(c => c.status === "rejected").length,
+    customers:   customers.length,
+    disputes:    disputes.length,
+    settlements: settlements.length,
+    payments:    paymentOrders.filter(o => o.status === "PENDING").length,
   };
 
   const filtered = companyTab === "all"
@@ -315,6 +383,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["dashboard",      "대시보드"],
     ["companies",      "업체관리"],
     ["customers",      "고객관리"],
+    ["payments",       "결제관리"],
     ["disputes",       "분쟁관리"],
     ["settlements",    "정산관리"],
     ["lounge",         "라운지관리"],
@@ -381,12 +450,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📊 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
                   {[
-                    ["업체 심사 대기", stats.pending,    C.gold,  "companies"],
-                    ["승인된 업체",    stats.approved,   C.green, "companies"],
-                    ["등록 고객",      stats.customers,  C.brand, "customers"],
-                    ["분쟁 대기",      stats.disputes,   C.red,   "disputes"],
-                    ["정산 대기",      stats.settlements, C.brand, "settlements"],
-                    ["반려된 업체",    stats.rejected,   C.text4, "companies"],
+                    ["업체 심사 대기", stats.pending,    C.gold,    "companies"],
+                    ["승인된 업체",    stats.approved,   C.green,   "companies"],
+                    ["등록 고객",      stats.customers,  C.brand,   "customers"],
+                    ["결제 대기",      stats.payments,   C.gold,    "payments"],
+                    ["분쟁 대기",      stats.disputes,   C.red,     "disputes"],
+                    ["정산 대기",      stats.settlements, C.brand,  "settlements"],
+                    ["반려된 업체",    stats.rejected,   C.text4,   "companies"],
                   ].map(([label, count, color, tab]) => (
                     <div key={label} onClick={() => setMainTab(tab)}
                       style={{ background: C.surface, borderRadius: R.lg,
@@ -554,21 +624,234 @@ export default function AdminScreen({ onBack, onHome, user }) {
               </div>
             )}
 
+            {/* ── Payment Management ── */}
+            {mainTab === "payments" && (
+              <div>
+                <div style={{ display: "flex", gap: S.xs, marginBottom: S.lg, overflowX: "auto" }}>
+                  {[["all","전체"], ["PENDING","대기"], ["PAID","완료"], ["FAILED","실패"], ["REFUNDED","환불"]].map(([v, l]) => (
+                    <button key={v} onClick={() => setPaymentFilter(v)}
+                      style={{ padding: "7px 14px", borderRadius: R.full, cursor: "pointer", whiteSpace: "nowrap",
+                        background: paymentFilter === v ? C.brand : C.surface,
+                        color: paymentFilter === v ? "#fff" : C.text3,
+                        fontWeight: paymentFilter === v ? 700 : 500, fontSize: 12,
+                        border: `1px solid ${paymentFilter === v ? C.brand : C.bgWarm}` }}>{l}</button>
+                  ))}
+                </div>
+
+                {paymentOrders
+                  .filter(o => paymentFilter === "all" || o.status === paymentFilter)
+                  .length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>💳</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>해당 결제 내역이 없습니다</div>
+                  </div>
+                ) : paymentOrders
+                  .filter(o => paymentFilter === "all" || o.status === paymentFilter)
+                  .map(order => {
+                    const sm = PAYMENT_STATUS_META[order.status] ?? PAYMENT_STATUS_META.PENDING;
+                    return (
+                      <div key={order.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                        marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>
+                              {order.users?.name ?? "고객"} <span style={{ fontSize: 11, color: C.text4 }}>{order.users?.phone ?? ""}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+                              {order.payment_method ?? "—"} · {new Date(order.created_at).toLocaleDateString("ko-KR")}
+                            </div>
+                          </div>
+                          <span style={{ background: sm.bg, color: sm.color, borderRadius: R.full,
+                            padding: "3px 10px", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{sm.label}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.md }}>
+                          <div>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: C.text1 }}>{(order.total_amount ?? 0).toLocaleString()}만원</div>
+                            <div style={{ fontSize: 11, color: C.text4 }}>시공비 {(order.amount ?? 0).toLocaleString()} + 수수료 {(order.customer_fee ?? 0).toLocaleString()}</div>
+                          </div>
+                          {order.admin_note && (
+                            <div style={{ fontSize: 11, color: C.text3, fontStyle: "italic", maxWidth: 120, textAlign: "right" }}>{order.admin_note}</div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: S.sm }}>
+                          {order.status !== "REFUNDED" && order.status !== "CANCELLED" && (
+                            <button onClick={() => setConfirm({
+                              emoji: "🔄", title: "환불 요청 기록",
+                              msg: `이 결제를 환불 처리로 기록합니다.\n실제 자동 환불은 발생하지 않습니다.`,
+                              needsReason: true,
+                              onConfirm: async (reason) => {
+                                const { error } = await adminUpdatePaymentOrder(order.id, user?.id ?? null, { status: "REFUNDED", adminNote: reason });
+                                if (!error) {
+                                  setPaymentOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "REFUNDED", admin_note: reason } : o));
+                                  showToast("환불 기록 완료");
+                                } else { showToast("처리 실패", false); }
+                              },
+                            })}
+                              style={{ flex: 1, padding: "9px", background: "#FFF0F0", color: C.red,
+                                border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                              환불 기록
+                            </button>
+                          )}
+                          {order.status === "PAID" && (
+                            <button onClick={() => setConfirm({
+                              emoji: "⏸", title: "지급 보류",
+                              msg: `결제 지급을 보류 처리합니다.`,
+                              needsReason: true,
+                              onConfirm: async (reason) => {
+                                const { error } = await adminUpdatePaymentOrder(order.id, user?.id ?? null, { status: "CANCELLED", adminNote: reason });
+                                if (!error) {
+                                  setPaymentOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "CANCELLED", admin_note: reason } : o));
+                                  showToast("지급 보류 처리 완료");
+                                } else { showToast("처리 실패", false); }
+                              },
+                            })}
+                              style={{ flex: 1, padding: "9px", background: "#FBF5E8", color: C.gold,
+                                border: `1px solid ${C.gold}44`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                              지급 보류
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
             {/* ── Dispute Management ── */}
             {mainTab === "disputes" && (
-              <div style={{ textAlign: "center", padding: "60px 0" }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>⚖️</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.text1, marginBottom: 8 }}>분쟁 대기 없음</div>
-                <div style={{ fontSize: 13, color: C.text3 }}>실시간 분쟁 내역은 거래 발생 시 표시됩니다</div>
+              <div>
+                {disputes.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>⚖️</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text1, marginBottom: 8 }}>분쟁 대기 없음</div>
+                    <div style={{ fontSize: 13, color: C.text3 }}>실시간 분쟁 내역은 거래 발생 시 표시됩니다</div>
+                  </div>
+                ) : disputes.map(d => {
+                  const sm = DISPUTE_STATUS_META[d.dispute_status] ?? DISPUTE_STATUS_META.DISPUTE_OPEN;
+                  return (
+                    <div key={d.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                      marginBottom: S.sm, border: `1.5px solid ${sm.color}33` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>
+                            {d.requests?.area ?? "—"} · {d.requests?.space_type ?? ""}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.text3 }}>업체: {d.companies?.name ?? "—"}</div>
+                          <div style={{ fontSize: 11, color: C.text4 }}>
+                            {d.disputed_at ? new Date(d.disputed_at).toLocaleDateString("ko-KR") : "—"}
+                          </div>
+                        </div>
+                        <span style={{ background: sm.bg, color: sm.color, borderRadius: R.full,
+                          padding: "3px 10px", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{sm.label}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: C.text2, marginBottom: S.md }}>
+                        분쟁사유: {d.dispute_reason ?? "—"}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, marginBottom: S.md }}>
+                        총 금액: {(d.total_amount ?? 0).toLocaleString()}만원
+                      </div>
+                      <div style={{ display: "flex", gap: S.sm }}>
+                        {["UNDER_REVIEW", "RESOLVED", "REFUNDED"].map(st => {
+                          if (st === d.dispute_status) return null;
+                          const m = DISPUTE_STATUS_META[st];
+                          return (
+                            <button key={st}
+                              onClick={() => setConfirm({
+                                emoji: "⚖️", title: `상태를 "${m.label}"로 변경`,
+                                msg: `분쟁 상태를 변경합니다.`,
+                                needsReason: st === "RESOLVED" || st === "REFUNDED",
+                                onConfirm: async (reason) => {
+                                  const { error } = await supabase.from("escrow_payments")
+                                    .update({ dispute_status: st }).eq("id", d.id);
+                                  if (!error) {
+                                    setDisputes(prev => prev.map(x => x.id === d.id ? { ...x, dispute_status: st } : x));
+                                    showToast("상태 변경 완료");
+                                  } else { showToast("처리 실패", false); }
+                                },
+                              })}
+                              style={{ flex: 1, padding: "9px", background: m.bg, color: m.color,
+                                border: `1px solid ${m.color}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                              {m.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
             {/* ── Settlement Management ── */}
             {mainTab === "settlements" && (
-              <div style={{ textAlign: "center", padding: "60px 0" }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>💰</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.text1, marginBottom: 8 }}>정산 대기 없음</div>
-                <div style={{ fontSize: 13, color: C.text3 }}>에스크로 정산 내역은 거래 완료 시 표시됩니다</div>
+              <div>
+                {settlements.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>💰</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text1, marginBottom: 8 }}>정산 대기 없음</div>
+                    <div style={{ fontSize: 13, color: C.text3 }}>에스크로 정산 내역은 거래 완료 시 표시됩니다</div>
+                  </div>
+                ) : settlements.map(p => {
+                  const sm = PAYOUT_STATUS_META[p.status] ?? PAYOUT_STATUS_META.PENDING;
+                  return (
+                    <div key={p.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                      marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>
+                            {p.companies?.name ?? "—"} · {p.stage}단계
+                          </div>
+                          <div style={{ fontSize: 11, color: C.text3 }}>
+                            {p.percent}% · 정산액 {(p.net_amount ?? 0).toLocaleString()}만원
+                          </div>
+                        </div>
+                        <span style={{ background: sm.bg, color: sm.color, borderRadius: R.full,
+                          padding: "3px 10px", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{sm.label}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: C.text4, marginBottom: S.md }}>
+                        총액 {(p.amount ?? 0).toLocaleString()} · 수수료 {(p.platform_fee ?? 0).toLocaleString()} · VAT {(p.vat ?? 0).toLocaleString()}
+                      </div>
+                      <div style={{ display: "flex", gap: S.sm }}>
+                        {p.status !== "HELD" && p.status !== "PAID_MANUALLY" && p.status !== "CANCELLED" && (
+                          <button onClick={() => setConfirm({
+                            emoji: "⏸", title: "지급 보류",
+                            msg: `${p.companies?.name ?? "업체"} ${p.stage}단계 정산을 보류합니다.`,
+                            needsReason: true,
+                            onConfirm: async (reason) => {
+                              const { error } = await adminSetPayoutStatus(p.id, user?.id ?? null, "HELD", reason);
+                              if (!error) {
+                                setSettlements(prev => prev.map(x => x.id === p.id ? { ...x, status: "HELD" } : x));
+                                showToast("지급 보류 처리 완료");
+                              } else { showToast("처리 실패", false); }
+                            },
+                          })}
+                            style={{ flex: 1, padding: "9px", background: "#FBF5E8", color: C.gold,
+                              border: `1px solid ${C.gold}44`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                            지급 보류
+                          </button>
+                        )}
+                        {p.status !== "PAID_MANUALLY" && p.status !== "CANCELLED" && (
+                          <button onClick={() => setConfirm({
+                            emoji: "✅", title: "수동 지급 완료",
+                            msg: `${p.companies?.name ?? "업체"} ${p.stage}단계를 수동 지급 완료로 기록합니다.\n실제 자동 송금은 발생하지 않습니다.`,
+                            needsReason: false,
+                            onConfirm: async () => {
+                              const { error } = await adminSetPayoutStatus(p.id, user?.id ?? null, "PAID_MANUALLY");
+                              if (!error) {
+                                setSettlements(prev => prev.map(x => x.id === p.id ? { ...x, status: "PAID_MANUALLY" } : x));
+                                showToast("수동 지급 완료 처리");
+                              } else { showToast("처리 실패", false); }
+                            },
+                          })}
+                            style={{ flex: 1, padding: "9px", background: "#EAF7EE", color: "#27AE60",
+                              border: "1px solid #27AE6033", borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                            수동 지급 완료
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -971,41 +1254,69 @@ export default function AdminScreen({ onBack, onHome, user }) {
         <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.7)",
           display: "flex", alignItems: "center", justifyContent: "center",
           zIndex: 300, padding: `0 ${S.xl}px` }}>
-          <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 320 }}>
+          <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 340 }}>
             <div style={{ textAlign: "center", marginBottom: S.xl }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>
-                {confirm.type === "approve" ? "✅" : "❌"}
+                {confirm.emoji ?? (confirm.type === "approve" ? "✅" : "❌")}
               </div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
-                {confirm.type === "approve" ? "승인하시겠어요?" : "반려하시겠어요?"}
+              <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
+                {confirm.title ?? (confirm.type === "approve" ? "승인하시겠어요?" : "반려하시겠어요?")}
               </div>
-              <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>
-                <b style={{ color: C.text1 }}>{confirm.company.name}</b> 업체를<br/>
-                {confirm.type === "approve"
-                  ? "승인 처리합니다. 업체에게 알림이 전달됩니다."
-                  : "반려 처리합니다. 사유가 업체에 전달됩니다."}
+              <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7, whiteSpace: "pre-line" }}>
+                {confirm.msg ?? (confirm.company
+                  ? (<><b style={{ color: C.text1 }}>{confirm.company.name}</b> 업체를<br/>{confirm.type === "approve" ? "승인 처리합니다." : "반려 처리합니다."}</>)
+                  : "")}
               </div>
             </div>
+            {confirm.needsReason && (
+              <textarea
+                value={confirmReason}
+                onChange={e => setConfirmReason(e.target.value)}
+                placeholder="처리 사유를 입력하세요"
+                style={{ width: "100%", padding: S.lg, borderRadius: R.lg, border: `1px solid ${C.bgWarm}`,
+                  background: C.bg, fontSize: 13, color: C.text1, resize: "none", height: 70,
+                  boxSizing: "border-box", marginBottom: S.lg, outline: "none", fontFamily: "inherit", lineHeight: 1.6 }}
+              />
+            )}
             <div style={{ display: "flex", gap: S.sm }}>
-              <button onClick={() => setConfirm(null)} disabled={actionLoading}
+              <button onClick={() => { setConfirm(null); setConfirmReason(""); }} disabled={actionLoading}
                 style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2,
-                  border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
+                  border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
                 취소
               </button>
               <button
-                onClick={() => confirm.type === "approve"
-                  ? handleApprove(confirm.company)
-                  : handleReject(confirm.company, confirm.note)}
-                disabled={actionLoading}
+                disabled={actionLoading || (confirm.needsReason && !confirmReason.trim())}
+                onClick={async () => {
+                  if (confirm.onConfirm) {
+                    setActionLoading(true);
+                    await confirm.onConfirm(confirmReason);
+                    setActionLoading(false);
+                    setConfirm(null);
+                    setConfirmReason("");
+                  } else if (confirm.type === "approve") {
+                    handleApprove(confirm.company);
+                  } else {
+                    handleReject(confirm.company, confirm.note);
+                  }
+                }}
                 style={{ flex: 2, padding: S.xl,
-                  background: confirm.type === "approve" ? C.green : C.red,
-                  color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15,
-                  cursor: "pointer", opacity: actionLoading ? 0.7 : 1,
-                  boxShadow: `0 4px 16px ${confirm.type === "approve" ? C.green : C.red}44` }}>
-                {actionLoading ? "처리 중..." : confirm.type === "approve" ? "승인하기" : "반려하기"}
+                  background: confirm.type === "approve" ? C.green : C.brand,
+                  color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14,
+                  cursor: "pointer", opacity: actionLoading ? 0.7 : 1 }}>
+                {actionLoading ? "처리 중..." : "확인"}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+          background: toast.ok ? "#1C3A28" : C.red, color: "#fff",
+          borderRadius: R.full, padding: "10px 20px", fontSize: 13, fontWeight: 700,
+          zIndex: 999, boxShadow: "0 4px 20px rgba(0,0,0,0.25)", whiteSpace: "nowrap" }}>
+          {toast.ok ? "✓" : "✗"} {toast.msg}
         </div>
       )}
     </div>

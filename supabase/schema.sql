@@ -785,3 +785,30 @@ create policy "customer_reports: admin read" on public.customer_reports
   );
 create policy "customer_reports: authenticated insert" on public.customer_reports
   for insert with check (auth.uid() = reporter_id);
+
+-- ── Migration: extend admin_logs target_type to include payment ───────────────
+alter table public.admin_logs drop constraint if exists admin_logs_target_type_check;
+alter table public.admin_logs add constraint admin_logs_target_type_check
+  check (target_type in ('company','customer','user','dispute','settlement','payment','lounge','report'));
+
+-- ── Migration: payment_orders admin management columns ───────────────────────
+alter table public.payment_orders add column if not exists admin_note text;
+
+-- ── Migration: admin RLS on payment_orders / payment_transactions ─────────────
+create policy if not exists "payment_orders: admin read all" on public.payment_orders
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy if not exists "payment_orders: admin update" on public.payment_orders
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+create policy if not exists "payment_transactions: admin read" on public.payment_transactions
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy if not exists "payment_transactions: owner insert" on public.payment_transactions
+  for insert with check (
+    exists (select 1 from public.payment_orders po where po.id = payment_order_id and auth.uid() = po.user_id)
+  );

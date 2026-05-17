@@ -731,11 +731,120 @@ export const updateCustomerReportStatus = (id, status, adminNote = null) =>
     .eq("id", id)
     .select().single();
 
-// ── STEP H: payment_transactions ─────────────────────────────────────────────
+// ── STEP H: Payment Transactions ──────────────────────────────────────────────
 
 export const createPaymentTransaction = (data) =>
   supabase.from("payment_transactions").insert(data).select().single();
 
-export const getPaymentTransactions = (paymentOrderId) =>
-  supabase.from("payment_transactions").select("*").eq("payment_order_id", paymentOrderId)
+export const getPaymentTransactions = ({ orderId = null, limit = 50 } = {}) => {
+  let q = supabase
+    .from("payment_transactions")
+    .select("*, payment_orders(id, amount, payment_method, status)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (orderId) q = q.eq("payment_order_id", orderId);
+  return q;
+};
+
+// ── Admin: Payment Order Management ──────────────────────────────────────────
+
+export const getPaymentOrders = ({ status = null, limit = 100, userId = null } = {}) => {
+  let q = supabase
+    .from("payment_orders")
+    .select("*, users:user_id(id, name, phone)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (status && status !== "all") q = q.eq("status", status);
+  if (userId) q = q.eq("user_id", userId);
+  return q;
+};
+
+export const adminUpdatePaymentOrder = async (id, adminId, { status, adminNote = null } = {}) => {
+  const { data: prev } = await supabase
+    .from("payment_orders").select("status").eq("id", id).single();
+
+  const updateData = {};
+  if (status) updateData.status = status;
+  if (adminNote) updateData.admin_note = adminNote;
+
+  const { data, error } = await supabase
+    .from("payment_orders")
+    .update(updateData)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      `PAYMENT_${status ?? "UPDATE"}`,
+      target_type: "payment",
+      target_id:   id,
+      before_val:  { status: prev?.status },
+      after_val:   { status },
+      reason:      adminNote,
+    });
+  }
+
+  return { data, error };
+};
+
+// ── Webhook Logs ──────────────────────────────────────────────────────────────
+
+export const createWebhookLog = (data) =>
+  supabase.from("webhook_logs").insert(data).select().single();
+
+export const getWebhookLogs = ({ limit = 50 } = {}) =>
+  supabase
+    .from("webhook_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+// ── Admin: Dispute Payments ───────────────────────────────────────────────────
+
+export const getDisputePayments = () =>
+  supabase
+    .from("escrow_payments")
+    .select("*, requests(id, space_type, area, user_id), companies(id, name, owner_id)")
+    .not("dispute_status", "is", null)
+    .order("disputed_at", { ascending: false });
+
+// ── Admin: Pending Payouts ────────────────────────────────────────────────────
+
+export const getPendingPayouts = () =>
+  supabase
+    .from("escrow_payouts")
+    .select("*, companies(id, name, owner_id), escrow_payments(id, total_amount, transaction_status)")
+    .in("status", ["PENDING", "READY", "APPROVED", "HELD"])
     .order("created_at", { ascending: false });
+
+export const adminSetPayoutStatus = async (payoutId, adminId, status, reason = null) => {
+  const { data: prev } = await supabase
+    .from("escrow_payouts").select("status").eq("id", payoutId).single();
+
+  const { data, error } = await supabase
+    .from("escrow_payouts")
+    .update({
+      status,
+      ...(status === "APPROVED" && { approved_by: adminId, approved_at: new Date().toISOString() }),
+    })
+    .eq("id", payoutId)
+    .select()
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      `PAYOUT_${status}`,
+      target_type: "settlement",
+      target_id:   payoutId,
+      before_val:  { status: prev?.status },
+      after_val:   { status },
+      reason,
+    });
+  }
+
+  return { data, error };
+};
+

@@ -103,10 +103,11 @@ const normalizeBid = (row) => ({
 });
 
 export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) {
-  const mode = user.role === "company" ? "company" : user.role === "admin" ? "admin" : "consumer";
+  const activeRole = user.activeRole ?? user.role ?? "consumer";
+  const mode = activeRole === "company" ? "company" : activeRole === "admin" ? "admin" : "consumer";
   const [screen, setScreen] = useState(() => {
-    if (user.role === "admin") return "admin";
-    if (user.role === "company") return "dashboard";
+    if (activeRole === "admin") return "admin";
+    if (activeRole === "company") return "dashboard";
     if (user.startAt) return user.startAt;
     return "home";
   });
@@ -169,7 +170,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       );
     };
 
-    if (user.role === "consumer" && user.id) {
+    if (activeRole === "consumer" && user.id) {
       // Consumers only see their own requests (server-side filter)
       getUserRequests(user.id).then(({ data, error }) => {
         if (error) return;
@@ -204,11 +205,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   // Load company profile from Supabase for authenticated company users
   useEffect(() => {
-    if (user?.role !== "company" || !user?.id) return;
+    if (activeRole !== "company" || !user?.id) return;
     getCompanyByOwnerId(user.id).then(({ data }) => {
       if (data) setCurrentUser(normalizeCompany(data));
     });
-  }, [user?.id, user?.role]);
+  }, [user?.id, activeRole]);
 
   // Load bids + subscribe to realtime when viewing a request's bid status
   useEffect(() => {
@@ -323,17 +324,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
   const isGuestCompany = false;
   const go = (s, co=null) => {
-    if (s === "admin" && user.role !== "admin") return;
-    if (s === "dashboard" && user.role !== "company") return;
+    if (s === "admin" && activeRole !== "admin") return;
+    if (s === "dashboard" && activeRole !== "company") return;
     setPrevScreen(screen);
     if (co) setSelCo(co);
     setScreen(s);
   };
 
   useEffect(() => {
-    if (screen === "admin" && user.role !== "admin") setScreen("home");
-    if (screen === "dashboard" && user.role !== "company") setScreen("home");
-  }, [screen, user.role]);
+    if (screen === "admin" && activeRole !== "admin") setScreen("home");
+    if (screen === "dashboard" && activeRole !== "company") setScreen("home");
+  }, [screen, activeRole]);
 
   const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
@@ -633,31 +634,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         )}
 
         {/* 업체 홈 */}
-        {screen==="home" && mode==="company" && user.role==="consumer" && (
-          <div style={{ textAlign:"center", padding:"60px 20px" }}>
-            <div style={{ fontSize:48, marginBottom:16 }}>🔨</div>
-            <div style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:8 }}>업체 로그인이 필요합니다</div>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xxl, lineHeight:1.7 }}>
-              업체 서비스를 이용하려면<br/>업체 계정으로 로그인해 주세요
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:10, maxWidth:280, margin:"0 auto" }}>
-              <button onClick={onLogout}
-                style={{ padding:"16px", background:C.brand, color:"#fff", border:"none",
-                  borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
-                  boxShadow:`0 4px 16px ${C.brand}44` }}>
-                업체 로그인
-              </button>
-              <button onClick={() => { onStartOnboarding(); }}
-                style={{ padding:"16px", background:C.surface, color:C.brand,
-                  border:`2px solid ${C.brandM}`, borderRadius:R.lg,
-                  fontWeight:800, fontSize:15, cursor:"pointer" }}>
-                업체 회원가입
-              </button>
-            </div>
-          </div>
-        )}
-
-        {screen==="home" && mode==="company" && user.role!=="consumer" && (
+        {screen==="home" && mode==="company" && (
           <div>
             {isGuestCompany && (
               <div onClick={() => setShowRegisterPrompt(true)}
@@ -1007,8 +984,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontSize:28, fontWeight:900, color:C.brand, margin:"0 auto 14px" }}>{user.name?.[0] ?? "?"}</div>
               <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>{user.name}</div>
-              <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>📍 {user.region} · {user.role==="consumer"?"의뢰인":"검증 업체"}</div>
-              {user.role === "consumer" && (() => {
+              <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>📍 {user.region} · {activeRole==="consumer"?"의뢰인":"검증 업체"}</div>
+              {activeRole === "consumer" && (() => {
                 const grade = calcCustomerGrade(user.completedJobs ?? 0);
                 return (
                   <div style={{ display:"inline-flex", alignItems:"center", gap:6,
@@ -1020,7 +997,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 );
               })()}
               <div style={{ display:"flex", gap:0, marginBottom:S.xl, borderTop:`1px solid ${C.bgWarm}`, paddingTop:S.xl }}>
-                {(user.role==="consumer"
+                {(activeRole==="consumer"
                   ? [[`${myRequests.length}`,"견적 요청"],["0","진행중"],["0","완료"]]
                   : [[" 3","낙찰"],["84","후기"],["97°","공간온도"]]
                 ).map(([v,l],i,arr) => (
@@ -1035,7 +1012,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 padding:"11px 28px", fontWeight:700, fontSize:14, cursor:"pointer" }}>로그아웃</button>
             </div>
 
-            {user.role === "company" && user.isEarlyPartner && user.earlyPartnerBenefitUntil && (
+            {activeRole === "company" && user.isEarlyPartner && user.earlyPartnerBenefitUntil && (
               <div style={{ background: C.brandL, borderRadius: R.xl, padding: S.xl, marginTop: S.lg, border: `1px solid ${C.brandM}` }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.brand, marginBottom: 4 }}>🏆 초기 파트너 혜택 중</div>
                 <div style={{ fontSize: 12, color: C.text3 }}>
@@ -1077,7 +1054,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               </div>
             </div>
 
-            {user.role==="company" && (
+            {activeRole==="company" && (
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🏦 보증금 현황</div>
                 <CompanyDepositCard
@@ -1088,7 +1065,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               </div>
             )}
 
-            {user.role==="consumer" && (() => {
+            {activeRole==="consumer" && (() => {
               const grade = calcCustomerGrade(user.completedJobs ?? 0);
               const nextGrade = [0,1,3,5].find(n => n > (user.completedJobs ?? 0));
               return (
@@ -1133,7 +1110,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               }}
             />
 
-            {user.role==="consumer" && (
+            {activeRole==="consumer" && (
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>내 견적 이력</div>
                 {myRequests.length === 0 ? (
@@ -1285,7 +1262,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   setShowAdminCodeModal(false);
                   setAdminCodeInput("");
                   setAdminCodeError("");
-                  onLogin({ ...user, role: "admin" });
+                  onLogin({ ...user, role: "admin", activeRole: "admin" });
                   setScreen("admin");
                 } else {
                   setAdminCodeError("관리자 코드가 올바르지 않습니다");
@@ -1376,6 +1353,15 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <button onClick={() => { setBidViewRequestId(bidAlert.requestId ?? null); setBidAlert(null); setScreen("bidstatus"); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>💰 견적 비교하기</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {import.meta.env.DEV && (
+        <div style={{ position:"fixed", top:8, right:8, background:"rgba(0,0,0,0.82)", color:"#0f0", borderRadius:8, padding:"8px 10px", fontSize:10, zIndex:9999, lineHeight:1.9, fontFamily:"monospace", maxWidth:200, pointerEvents:"none" }}>
+          activeRole: {activeRole}<br/>
+          dbRole: {user.role ?? "—"}<br/>
+          screen: {screen}<br/>
+          mode: {mode}
         </div>
       )}
 
