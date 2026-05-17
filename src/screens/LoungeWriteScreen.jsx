@@ -6,29 +6,59 @@
 // 그 신뢰가 거래로 이어지는 구조입니다.
 // ─────────────────────────────────────────────────────
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { C, R, S, REGIONS } from '../constants';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
 
 const WRITABLE_CATS = LOUNGE_CATEGORIES.filter(c => c.group !== null);
+const MAX_IMAGES    = 5;
+const MAX_SIZE_MB   = 5;
 
 export default function LoungeWriteScreen({ user, onBack, onPublish }) {
-  const [category, setCategory] = useState('');
-  const [title,    setTitle]    = useState('');
-  const [content,  setContent]  = useState('');
-  const [region,   setRegion]   = useState('');
-  const [gender,   setGender]   = useState('');
-  const [ageGroup, setAgeGroup] = useState('');
+  const [category,   setCategory]   = useState('');
+  const [title,      setTitle]      = useState('');
+  const [content,    setContent]    = useState('');
+  const [region,     setRegion]     = useState('');
+  const [gender,     setGender]     = useState('');
+  const [ageGroup,   setAgeGroup]   = useState('');
+  const [images,     setImages]     = useState([]); // { url, name }[]
   const [submitting, setSubmitting] = useState(false);
-  const [error,    setError]    = useState('');
+  const [error,      setError]      = useState('');
+  const fileInputRef = useRef(null);
+
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    const valid = [];
+    for (const f of files) {
+      if (!f.type.startsWith('image/')) {
+        setError('이미지 파일만 업로드할 수 있어요');
+        continue;
+      }
+      if (f.size > MAX_SIZE_MB * 1024 * 1024) {
+        setError(`파일 크기는 ${MAX_SIZE_MB}MB 이하로 올려주세요`);
+        continue;
+      }
+      valid.push({ url: URL.createObjectURL(f), name: f.name });
+    }
+    setImages(prev => [...prev, ...valid].slice(0, MAX_IMAGES));
+    if (valid.length) setError('');
+    e.target.value = '';
+  };
+
+  const removeImage = (idx) => {
+    setImages(prev => {
+      URL.revokeObjectURL(prev[idx].url);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
 
   const handleSubmit = async () => {
     if (!category) { setError('카테고리를 선택해주세요'); return; }
     if (!content.trim()) { setError('내용을 입력해주세요'); return; }
 
     setSubmitting(true);
-    const postId = `post-${Date.now()}`;
+    const postId   = `post-${Date.now()}`;
     const nickname = getAnonymousNickname(user?.id ?? 'guest', postId);
 
     const newPost = {
@@ -38,7 +68,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
       category,
       title:              title.trim() || null,
       content:            content.trim(),
-      image_urls:         [],
+      image_urls:         images.map(img => img.url),
       gender:             gender || null,
       age_group:          ageGroup || null,
       region:             region || null,
@@ -95,6 +125,29 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>내용 <span style={{ color: C.red }}>*</span></div>
           <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="무슨 이야기를 나눠볼까요?" rows={8}
             style={{ width: '100%', padding: '14px 16px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box', background: C.surface, color: C.text1, fontFamily: 'inherit', lineHeight: 1.6 }} />
+        </div>
+
+        {/* 이미지 업로드 */}
+        <div style={{ marginBottom: S.lg }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>
+            사진 (선택, 최대 {MAX_IMAGES}장)
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {images.map((img, i) => (
+              <div key={i} style={{ position: 'relative' }}>
+                <img src={img.url} alt="" style={{ width: 80, height: 80, borderRadius: R.md, objectFit: 'cover', display: 'block' }} />
+                <button onClick={() => removeImage(i)} style={{ position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: 'none', color: '#fff', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>✕</button>
+              </div>
+            ))}
+            {images.length < MAX_IMAGES && (
+              <div onClick={() => fileInputRef.current?.click()} style={{ width: 80, height: 80, borderRadius: R.md, border: `2px dashed ${C.bgWarm}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer', background: C.surface }}>
+                <span style={{ fontSize: 24, color: C.text4 }}>📷</span>
+                <span style={{ fontSize: 10, color: C.text4 }}>추가</span>
+              </div>
+            )}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageSelect} style={{ display: 'none' }} />
+          <div style={{ fontSize: 11, color: C.text4, marginTop: 4 }}>JPG·PNG·GIF · 최대 {MAX_SIZE_MB}MB</div>
         </div>
 
         <div style={{ display: 'flex', gap: S.sm, marginBottom: S.lg, flexWrap: 'wrap' }}>

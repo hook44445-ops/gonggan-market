@@ -6,18 +6,33 @@ import { useState, useRef } from 'react';
 import { C, R, S } from '../constants';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
 
+const MAX_SIZE_MB = 5;
+
 export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
   const [photos,     setPhotos]     = useState([]);   // blob URL[]
   const [text,       setText]       = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef(null);
 
   const canSubmit = photos.length > 0 || text.trim().length > 0;
 
   const handlePhotoSelect = (e) => {
     const files = Array.from(e.target.files);
-    const urls  = files.map(f => URL.createObjectURL(f));
-    setPhotos(prev => [...prev, ...urls].slice(0, 5));
+    const valid = [];
+    for (const f of files) {
+      if (!f.type.startsWith('image/')) {
+        setUploadError('이미지 파일만 업로드할 수 있어요');
+        continue;
+      }
+      if (f.size > MAX_SIZE_MB * 1024 * 1024) {
+        setUploadError(`파일 크기는 ${MAX_SIZE_MB}MB 이하로 올려주세요`);
+        continue;
+      }
+      valid.push(URL.createObjectURL(f));
+    }
+    setPhotos(prev => [...prev, ...valid].slice(0, 5));
+    if (valid.length) setUploadError('');
     e.target.value = '';
   };
 
@@ -176,6 +191,13 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
             fontFamily: 'inherit', lineHeight: 1.6,
           }}
         />
+
+        {/* 업로드 오류 */}
+        {uploadError && (
+          <div style={{ background: 'rgba(229,62,62,0.15)', borderRadius: R.lg, padding: S.md, border: '1px solid rgba(229,62,62,0.3)' }}>
+            <div style={{ fontSize: 12, color: '#ff6b6b', fontWeight: 700 }}>{uploadError}</div>
+          </div>
+        )}
 
         {/* 안내 */}
         <div style={{ background: 'rgba(46,95,75,0.3)', borderRadius: R.lg, padding: S.md, border: `1px solid ${C.brandM}55` }}>

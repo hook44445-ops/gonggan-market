@@ -1064,7 +1064,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               </div>
             )}
 
-            <div style={{ textAlign: "center", marginTop: S.xxl }}>
+            {/* 앱 정보 / 약관 */}
+            <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text3, marginBottom: S.sm }}>앱 정보</div>
+              {[
+                { label: "이용약관", icon: "📄" },
+                { label: "개인정보처리방침", icon: "🔒" },
+                { label: "위치기반서비스 이용약관", icon: "📍" },
+                { label: "문의하기", icon: "💌" },
+              ].map(({ label, icon }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bg}`, cursor: "pointer" }}
+                  onClick={() => showToast("준비 중입니다")}>
+                  <span style={{ fontSize: 14, color: C.text2 }}>{icon} {label}</span>
+                  <span style={{ fontSize: 16, color: C.text3 }}>›</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: C.text4, marginTop: S.sm }}>토큰 결제는 준비 중이며 현재 테스트 운영 중입니다.</div>
+            </div>
+
+            <div style={{ textAlign: "center", marginTop: S.lg }}>
               <div
                 onClick={() => {
                   const next = adminTapCount + 1;
@@ -1075,7 +1093,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   }
                 }}
                 style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
-                공간마켓 v1.0.0
+                공간마켓 v1.0.0 · 베타
               </div>
             </div>
 
@@ -1128,10 +1146,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               user={user}
               temperature={temperature}
               balance={tokenBalance}
+              tokenLogs={tokenLogs}
+              myPosts={localLoungePosts}
               onNavigate={(target) => {
                 if (target === "token-store")        { requireAuth(() => go("token-store")); }
                 else if (target === "token-history") { requireAuth(() => go("token-history")); }
-                else { showToast("준비 중인 기능이에요"); }
               }}
             />
 

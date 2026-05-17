@@ -9,6 +9,7 @@ import { useLoungePost } from '../hooks/useLounge';
 import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname } from '../utils/anonymousNickname';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
+import ReportModal from '../components/lounge/ReportModal';
 
 export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin }) {
   const { post: foundPost, comments, loading, addComment, likeComment } = useLoungePost(postId);
@@ -16,9 +17,17 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [commentText, setCommentText]   = useState('');
   const [replyTo,     setReplyTo]       = useState(null);
   const [liked,       setLiked]         = useState(false);
-  const [saved,       setSaved]         = useState(false);
+  const [saved,       setSaved]         = useState(() => {
+    try {
+      const saves = JSON.parse(localStorage.getItem('lounge_saved_posts') ?? '[]');
+      return saves.some(s => s.id === postId);
+    } catch { return false; }
+  });
   const [showChat,    setShowChat]      = useState(false);
+  const [chatSending, setChatSending]   = useState(false);
+  const [chatSent,    setChatSent]      = useState(false);
   const [toast,       setToast]         = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
   const inputRef = useRef(null);
 
   const isGuest    = user?.isGuest === true;
@@ -26,12 +35,13 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   const showToast = (msg) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 2000);
+    setTimeout(() => setToast(null), 2200);
   };
 
-  // 하트는 무료
+  // 하트는 무료, 중복 방지
   const handleLike = () => {
     if (isGuest) { onRequireLogin?.(); return; }
+    if (liked) return;
     setLiked(true);
     showToast('❤️ 좋아요를 눌렀어요');
   };
@@ -54,15 +64,55 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       created_at:         new Date().toISOString(),
     };
     addComment(newComment);
+    handleCommentSubmit(commentText.trim());
     setCommentText('');
     setReplyTo(null);
   };
 
-  const handleChatRequest = () => {
-    const cost = 20;
-    onSpendToken?.('chat_request', cost, '대화 신청');
+  const handleSaveToggle = () => {
+    if (!post) return;
+    const next = !saved;
+    setSaved(next);
+    try {
+      const key = 'lounge_saved_posts';
+      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+      const updated = next
+        ? [{ id: post.id, title: post.title, content: post.content?.slice(0, 80), category: post.category, anonymous_nickname: post.anonymous_nickname, created_at: post.created_at, has_badge: post.has_badge }, ...prev.filter(s => s.id !== post.id)]
+        : prev.filter(s => s.id !== post.id);
+      localStorage.setItem(key, JSON.stringify(updated));
+    } catch {}
+    showToast(next ? '🔖 저장됐어요' : '저장이 취소됐어요');
+  };
+
+  // 대화 신청: 신청 자체 무료, 수락 시 20토큰 차감
+  const handleChatRequest = async () => {
+    if (chatSending || chatSent) return;
+    setChatSending(true);
+    await new Promise(r => setTimeout(r, 400));
+    setChatSending(false);
+    setChatSent(true);
     setShowChat(false);
-    showToast('💬 대화 신청을 보냈어요!');
+    try {
+      const key = 'lounge_chat_requests';
+      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+      prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), nickname: post?.anonymous_nickname, sentAt: new Date().toISOString() });
+      localStorage.setItem(key, JSON.stringify(prev.slice(0, 50)));
+    } catch {}
+    showToast('💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.');
+  };
+
+  const handleCommentSubmit = (text) => {
+    if (!user?.id || !text.trim()) return;
+    try {
+      const key = 'lounge_my_comments';
+      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+      prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), content: text.trim(), createdAt: new Date().toISOString() });
+      localStorage.setItem(key, JSON.stringify(prev.slice(0, 100)));
+    } catch {}
+  };
+
+  const handleReport = (reason) => {
+    showToast(`신고가 접수됐어요`);
   };
 
   if (loading && !post) {
@@ -76,11 +126,30 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     );
   }
 
-  const catLabel    = CATEGORY_LABEL[post.category] ?? post.category;
-  const postAvatar  = getAnonymousAvatarByNickname(post.anonymous_nickname);
-  const topComments = comments.filter(c => !c.parent_id);
+  if (!post) {
+    return (
+      <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: C.surface, padding: `14px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.md, borderBottom: `1px solid ${C.bgWarm}` }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.text1, padding: 0 }}>←</button>
+          <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>라운지</div>
+        </div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text2, marginBottom: 8 }}>게시글을 찾을 수 없어요</div>
+          <div style={{ fontSize: 13, color: C.text3, textAlign: 'center', lineHeight: 1.6 }}>삭제됐거나 존재하지 않는 게시글이에요</div>
+          <button onClick={onBack} style={{ marginTop: 24, padding: '12px 28px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+            라운지로 돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const catLabel      = CATEGORY_LABEL[post.category] ?? post.category;
+  const postAvatar    = getAnonymousAvatarByNickname(post.anonymous_nickname);
+  const topComments   = comments.filter(c => !c.parent_id);
   const replyComments = comments.filter(c => !!c.parent_id);
-  const hasBadge    = post.has_badge === true;
+  const hasBadge      = post.has_badge === true;
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 80 }}>
@@ -93,12 +162,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       {/* 본문 */}
       <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: S.md, flexWrap: 'wrap' }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: '50%',
-            background: postAvatar.color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, flexShrink: 0, boxShadow: `0 2px 8px ${postAvatar.color}55`,
-          }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: postAvatar.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, boxShadow: `0 2px 8px ${postAvatar.color}55` }}>
             {postAvatar.emoji}
           </div>
           <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>
@@ -117,27 +181,38 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         )}
         <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.8, marginBottom: S.xl, whiteSpace: 'pre-wrap' }}>{post.content}</div>
 
+        {post.image_urls && post.image_urls.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, marginBottom: S.lg, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            {post.image_urls.map((url, i) => (
+              <img key={i} src={url} alt="" style={{ width: 120, height: 120, borderRadius: R.md, objectFit: 'cover', flexShrink: 0 }} />
+            ))}
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bg}` }}>
-          <span style={{ fontSize: 12, color: C.text3 }}>👁 {post.view_count.toLocaleString()}</span>
-          <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
-            {liked ? '❤️' : '🤍'} {post.like_count + (liked ? 1 : 0)}
+          <span style={{ fontSize: 12, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
+          <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
+            {liked ? '❤️' : '🤍'} {(post.like_count ?? 0) + (liked ? 1 : 0)}
           </button>
-          <button onClick={() => setSaved(!saved)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
+          <button onClick={handleSaveToggle} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
             {saved ? '🔖' : '📄'} 저장
           </button>
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>신고</button>
+          <button onClick={() => setReportTarget({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
+            신고
+          </button>
         </div>
       </div>
 
       {/* 대화 신청 버튼 */}
       <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
         <button
-          onClick={isGuest ? () => onRequireLogin?.() : () => setShowChat(true)}
-          style={{ width: '100%', padding: S.xl, background: `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 4px 16px ${C.brand}44` }}>
-          {isGuest ? '💬 대화 신청하기 (로그인 필요)' : '💬 대화 신청하기 (20토큰)'}
+          onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent) setShowChat(true); }}
+          disabled={chatSent}
+          style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand}44`, transition: 'background 0.2s' }}>
+          {isGuest ? '💬 대화 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 대화 신청하기'}
         </button>
         <div style={{ textAlign: 'center', marginTop: S.sm, fontSize: 11, color: C.text4 }}>
-          신청 즉시 20토큰 차감 · 상대방 수락 시 대화방이 열려요
+          {chatSent ? '상대방이 수락하면 20토큰이 차감되고 대화방이 열려요' : '신청은 무료 · 상대방 수락 시 20토큰 차감'}
         </div>
       </div>
 
@@ -153,10 +228,16 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               comment={comment}
               onLike={likeComment}
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
-              onReport={() => showToast('신고가 접수됐어요')}
+              onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
             />
             {replyComments.filter(r => r.parent_id === comment.id).map(reply => (
-              <LoungeCommentItem key={reply.id} comment={reply} isReply onLike={likeComment} onReport={() => showToast('신고가 접수됐어요')} />
+              <LoungeCommentItem
+                key={reply.id}
+                comment={reply}
+                isReply
+                onLike={likeComment}
+                onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
+              />
             ))}
           </div>
         ))}
@@ -200,6 +281,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           balance={tokenBalance ?? 0}
           onConfirm={handleChatRequest}
           onCancel={() => setShowChat(false)}
+        />
+      )}
+
+      {reportTarget && (
+        <ReportModal
+          type={reportTarget.type}
+          targetId={reportTarget.targetId}
+          onClose={() => setReportTarget(null)}
+          onReport={handleReport}
         />
       )}
 

@@ -2,11 +2,19 @@
 // 공간마켓 라운지 시스템
 // ─────────────────────────────────────────────────────
 
+import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 
 export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply }) {
-  const avatar = getAnonymousAvatarByNickname(comment.anonymous_nickname);
+  const avatar  = getAnonymousAvatarByNickname(comment.anonymous_nickname);
+  const [liked, setLiked] = useState(false);
+
+  const handleLike = () => {
+    if (liked) return;
+    setLiked(true);
+    onLike?.(comment.id);
+  };
 
   return (
     <div style={{
@@ -48,8 +56,8 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
       )}
 
       <div style={{ display: 'flex', gap: S.lg, alignItems: 'center', paddingLeft: 38 }}>
-        <button onClick={() => onLike?.(comment.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text3, padding: 0 }}>
-          ❤️ {comment.like_count}
+        <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 700 : 400, padding: 0 }}>
+          {liked ? '❤️' : '🤍'} {comment.like_count + (liked ? 1 : 0)}
         </button>
         {!isReply && (
           <button onClick={() => onReply?.(comment)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text3, padding: 0 }}>
