@@ -362,10 +362,11 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   // Bid list — empty state maintains container layout
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      <BidScreenHeader title="입찰 현황" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} />
+      <BidScreenHeader title="업체 비교하기" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, border:`1px solid ${C.brandM}` }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.brand }}>💡 업체 금액은 선택 전까지 서로 모릅니다</div>
+          <div style={{ fontSize:12, color:C.brand, marginTop:4, opacity:0.8 }}>기록과 리뷰를 보고 안심하고 선택하세요</div>
         </div>
 
         {bids.length === 0 ? (
@@ -375,8 +376,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
           }}>
             <div style={{ textAlign:"center", padding:S.xxl }}>
               <div style={{ fontSize:36, marginBottom:12 }}>💬</div>
-              <div style={{ fontSize:14, fontWeight:700, color:C.text3 }}>아직 입찰이 없습니다</div>
-              <div style={{ fontSize:12, color:C.text4, marginTop:6 }}>인근 업체들이 견적을 검토하고 있어요</div>
+              <div style={{ fontSize:14, fontWeight:700, color:C.text3 }}>인근 업체들이 견적을 검토 중입니다</div>
+              <div style={{ fontSize:12, color:C.text4, marginTop:6 }}>보통 24시간 내 입찰이 시작됩니다</div>
             </div>
           </div>
         ) : (
