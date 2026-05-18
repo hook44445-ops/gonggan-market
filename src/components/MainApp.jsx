@@ -333,8 +333,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   useEffect(() => {
-    if (screen === "admin" && activeRole !== "admin") setScreen("home");
-    if (screen === "dashboard" && activeRole !== "company") setScreen("home");
+    if (activeRole === "admin") {
+      // Admin users auto-navigate to admin screen when landing on home/map
+      if (screen === "home" || screen === "map") setScreen("admin");
+    } else {
+      // Non-admin/non-company users cannot access guarded screens
+      if (screen === "admin") setScreen("home");
+      if (screen === "dashboard" && activeRole !== "company") setScreen("home");
+    }
   }, [screen, activeRole]);
 
   const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
