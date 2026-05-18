@@ -30,18 +30,41 @@ export function useLounge(category = 'all') {
       setStories(storiesRes.data ?? []);
     } else {
       await new Promise(r => setTimeout(r, 200));
-      let filtered = [...MOCK_LOUNGE_POSTS];
+
+      let offlinePosts = [];
+      try {
+        offlinePosts = JSON.parse(localStorage.getItem('lounge_offline_posts') ?? '[]');
+      } catch {}
+
+      let offlineStories = [];
+      try {
+        const stored = JSON.parse(localStorage.getItem('lounge_offline_stories') ?? '[]');
+        const now = new Date();
+        offlineStories = stored.filter(s => new Date(s.story_expires_at) > now);
+        // Prune expired entries
+        if (offlineStories.length !== stored.length) {
+          localStorage.setItem('lounge_offline_stories', JSON.stringify(offlineStories));
+        }
+      } catch {}
+
+      let allPosts = [...offlinePosts, ...MOCK_LOUNGE_POSTS]
+        .filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
+        .filter(p => !p.is_deleted && !p.is_hidden);
+
       if (category === 'popular') {
-        filtered = filtered.sort((a, b) =>
+        allPosts = [...allPosts].sort((a, b) =>
           b.view_count !== a.view_count
             ? b.view_count - a.view_count
             : b.like_count - a.like_count
         );
       } else if (category !== 'all') {
-        filtered = filtered.filter(p => p.category === category);
+        allPosts = allPosts.filter(p => p.category === category);
       }
-      setPosts(filtered);
-      setStories(MOCK_STORIES);
+      setPosts(allPosts);
+
+      const allStories = [...offlineStories, ...MOCK_STORIES]
+        .filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i);
+      setStories(allStories);
     }
     setLoading(false);
   }, [category]);

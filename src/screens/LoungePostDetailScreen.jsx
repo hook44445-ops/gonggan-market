@@ -193,6 +193,12 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setDeleting(true);
     if (IS_SUPABASE_READY) {
       await softDeleteLoungePost(post.id, user.id);
+    } else {
+      try {
+        const key = 'lounge_offline_posts';
+        const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+        localStorage.setItem(key, JSON.stringify(prev.filter(p => p.id !== post.id)));
+      } catch {}
     }
     setDeleting(false);
     setShowDeleteConfirm(false);

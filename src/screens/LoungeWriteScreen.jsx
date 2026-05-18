@@ -81,6 +81,11 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         if (err) { setError('수정 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
         onPublish?.({ ...editPost, ...updates, ...(data ?? {}) });
       } else {
+        try {
+          const key = 'lounge_offline_posts';
+          const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+          localStorage.setItem(key, JSON.stringify(prev.map(p => p.id === editPost.id ? { ...p, ...updates } : p)));
+        } catch {}
         await new Promise(r => setTimeout(r, 300));
         setSubmitting(false);
         onPublish?.({ ...editPost, ...updates });
@@ -116,6 +121,11 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         if (err) { setError('등록 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
         onPublish?.(data ?? newPost);
       } else {
+        try {
+          const key = 'lounge_offline_posts';
+          const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+          localStorage.setItem(key, JSON.stringify([newPost, ...prev.filter(p => p.id !== newPost.id)]));
+        } catch {}
         await new Promise(r => setTimeout(r, 300));
         setSubmitting(false);
         onPublish?.(newPost);

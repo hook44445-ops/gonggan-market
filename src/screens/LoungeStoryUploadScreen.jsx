@@ -73,6 +73,11 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
       if (err) { setUploadError('업로드 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
       onPublish?.(data ?? newStory);
     } else {
+      try {
+        const key = 'lounge_offline_stories';
+        const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+        localStorage.setItem(key, JSON.stringify([newStory, ...prev.filter(s => s.id !== newStory.id)]));
+      } catch {}
       await new Promise(r => setTimeout(r, 300));
       setSubmitting(false);
       onPublish?.(newStory);
