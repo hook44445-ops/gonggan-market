@@ -91,9 +91,9 @@ export default function LoungePostCard({ post, onClick }) {
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-          <span style={{ fontSize: 11, color: C.text4 }}>👁 {post.view_count.toLocaleString()}</span>
-          <span style={{ fontSize: 11, color: C.text4 }}>❤️ {post.like_count}</span>
-          <span style={{ fontSize: 11, color: C.text4 }}>💬 {post.comment_count}</span>
+          <span style={{ fontSize: 11, color: C.text4 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
+          <span style={{ fontSize: 11, color: C.text4 }}>❤️ {post.like_count ?? 0}</span>
+          <span style={{ fontSize: 11, color: C.text4 }}>💬 {post.comment_count ?? 0}</span>
         </div>
       </div>
     </div>

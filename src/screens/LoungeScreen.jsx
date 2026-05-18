@@ -144,7 +144,19 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
-  const isPopular  = category === 'popular'; // 인기 탭은 읽기 전용
+  const isPopular  = category === 'popular';
+
+  // extraPosts를 카테고리별로 필터 후 hook 데이터와 병합
+  const filteredExtra = (() => {
+    if (category === 'all')     return extraPosts;
+    if (category === 'popular') return [...extraPosts].sort((a, b) =>
+      (b.view_count ?? 0) !== (a.view_count ?? 0)
+        ? (b.view_count ?? 0) - (a.view_count ?? 0)
+        : (b.like_count ?? 0) - (a.like_count ?? 0)
+    );
+    return extraPosts.filter(p => p.category === category);
+  })();
+  const allPosts = [...filteredExtra, ...posts].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i);
 
   const handleWriteClick = () => {
     if (isGuest) { onRequireLogin?.(); return; }
@@ -202,12 +214,12 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         </div>
       )}
 
-      {loading ? (
+      {loading && allPosts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
           <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
         </div>
-      ) : posts.length === 0 ? (
+      ) : allPosts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.text2, marginBottom: 8 }}>아직 게시글이 없어요</div>
@@ -222,7 +234,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         </div>
       ) : (
         <div style={{ background: C.surface }}>
-          {[...extraPosts, ...posts].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i).map(post => (
+          {allPosts.map(post => (
             <LoungePostCard key={post.id} post={post} onClick={() => onPostClick?.(post)} />
           ))}
         </div>
