@@ -18,10 +18,10 @@ function CatChip({ cat, selected, onChange }) {
       onClick={() => onChange(cat.id)}
       style={{
         flexShrink: 0,
-        padding: '7px 14px',
+        padding: '6px 14px',
         borderRadius: R.full,
         border: active ? 'none' : `1px solid ${C.bgWarm}`,
-        background: active ? C.brand : C.surface,
+        background: active ? C.brand : C.bg,
         color: active ? '#fff' : C.text3,
         fontWeight: active ? 800 : 500,
         fontSize: 12,
@@ -49,10 +49,10 @@ export default function LoungeCategoryTabs({ selected, onChange }) {
           onClick={() => setExpanded(v => !v)}
           style={{
             flexShrink: 0,
-            padding: '7px 12px',
+            padding: '6px 12px',
             borderRadius: R.full,
             border: `1px solid ${C.bgWarm}`,
-            background: expanded ? C.brandL : C.surface,
+            background: expanded ? C.brandL : C.bg,
             color: expanded ? C.brand : C.text3,
             fontWeight: 700,
             fontSize: 12,

@@ -16,12 +16,25 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
     onLike?.(comment.id);
   };
 
+  const expertWrap = comment.is_expert_reply
+    ? {
+        background: C.brandL,
+        borderRadius: R.md,
+        padding: 8,
+        borderLeft: `3px solid ${C.brand}`,
+        marginBottom: S.sm,
+      }
+    : {};
+
   return (
     <div style={{
       marginLeft: isReply ? 28 : 0,
+      marginBottom: comment.is_expert_reply ? 0 : S.sm,
+      ...expertWrap,
+    }}>
+    <div style={{
       padding: `${S.md}px ${S.lg}px`,
-      borderLeft: isReply ? `2px solid ${C.bgWarm}` : 'none',
-      marginBottom: S.sm,
+      borderLeft: !comment.is_expert_reply && isReply ? `2px solid ${C.bgWarm}` : 'none',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: S.xs }}>
         <div style={{
@@ -68,6 +81,7 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
           신고
         </button>
       </div>
+    </div>
     </div>
   );
 }

@@ -168,22 +168,24 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
       {/* 헤더 */}
       <div style={{ background: C.surface, position: 'sticky', top: 0, zIndex: 10, borderBottom: `1px solid ${C.bgWarm}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `14px ${S.xl}px 0` }}>
-          <div style={{ fontSize: 20, fontWeight: 900, color: C.text1, letterSpacing: '-0.5px' }}>라운지</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: C.text1, letterSpacing: '-0.5px' }}>
+            <span style={{ borderBottom: `2px solid ${C.brand}`, paddingBottom: 1 }}>라운지</span>
+          </div>
           <div style={{ display: 'flex', gap: S.md }}>
-            {/* 돋보기 */}
+            {/* 검색 버튼 */}
             <button
               onClick={() => setSearchOpen(true)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.text2, padding: 4 }}>
-              🔍
+              style={{ background: 'none', border: `1px solid ${C.bgWarm}`, borderRadius: R.full, cursor: 'pointer', color: C.text2, padding: '4px 10px', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, lineHeight: 1 }}>
+              <span style={{ fontSize: 14, lineHeight: 1 }}>○</span>─
             </button>
-            {/* 종 */}
+            {/* 알림 버튼 */}
             <button
               onClick={() => isGuest ? onRequireLogin?.() : setNotifOpen(true)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.text2, padding: 4, position: 'relative' }}>
-              🔔
+              style={{ background: 'none', border: `1px solid ${C.bgWarm}`, borderRadius: R.full, cursor: 'pointer', fontSize: 13, color: C.text2, padding: '4px 10px', fontWeight: 600, position: 'relative', lineHeight: 1 }}>
+              알림
               {isLoggedIn && notifCount > 0 && (
                 <span style={{
-                  position: 'absolute', top: 0, right: 0,
+                  position: 'absolute', top: -4, right: -4,
                   background: '#E53E3E', color: '#fff',
                   borderRadius: '50%', width: 16, height: 16,
                   fontSize: 10, fontWeight: 800,
@@ -195,6 +197,10 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
               )}
             </button>
           </div>
+        </div>
+        {/* 커뮤니티 서브 배너 */}
+        <div style={{ background: `linear-gradient(150deg, ${C.brandL}, ${C.bgWarm})`, padding: `10px ${S.xl}px`, marginTop: 10 }}>
+          <span style={{ fontSize: 12, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>공간마켓 커뮤니티 · 익명 자유 소통</span>
         </div>
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
