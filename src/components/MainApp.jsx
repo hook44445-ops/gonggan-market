@@ -391,10 +391,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 📍 {user.region} · {user.name}님 안녕하세요
               </div>
               <div style={{ fontSize:21, fontWeight:900, color:C.text1, marginBottom:8, lineHeight:1.4 }}>
-                인근 시공 업체에게<br/>바로 견적 받아보세요 🏠
+                안심하고 맡기는 공사<br/>기록과 확인이 함께합니다
               </div>
               <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl, lineHeight:1.6 }}>
-                평균 2~3곳에서 30분 내 연락이 옵니다
+                검증된 인근 업체에게 견적을 받아보세요
               </div>
               {(() => {
                 const hasActive = myRequests.some(r => r.isActive);
@@ -409,7 +409,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     style={{ background:C.brand, color:"#fff", border:"none",
                       borderRadius:R.full, padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer",
                       boxShadow:`0 4px 16px ${C.brand}44` }}>
-                    + 무료 견적 요청하기
+                    안전하게 견적 시작하기
                   </button>
                 );
               })()}
@@ -523,9 +523,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                   display:"flex", alignItems:"center", gap:S.sm }}>
                                   <span style={{ fontSize:18 }}>⏳</span>
                                   <div>
-                                    <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>입찰 대기 중</div>
+                                    <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>인근 검증 업체들이 검토 중입니다</div>
                                     <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
-                                      인근 업체들이 견적을 검토하고 있어요
+                                      보통 24시간 내 견적이 도착해요
                                     </div>
                                   </div>
                                 </div>
@@ -865,7 +865,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <button onClick={() => { setScreen("home"); setShowReq(true); }}
                   style={{ marginTop:S.xl, padding:"12px 24px", background:C.brand,
                     color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer" }}>
-                  + 견적 요청하기
+                  안전하게 견적 시작하기
                 </button>
               </div>
             ) : myRequests.map(r => (
@@ -1128,7 +1128,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>아직 견적 요청이 없어요</div>
                     <button onClick={() => { setScreen("home"); setShowReq(true); }}
                       style={{ padding:"12px 24px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer" }}>
-                      + 첫 견적 요청하기
+                      첫 견적 시작하기
                     </button>
                   </div>
                 ) : myRequests.map(r => {

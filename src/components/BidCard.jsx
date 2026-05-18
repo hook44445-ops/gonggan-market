@@ -81,7 +81,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
             <div style={{ background:C.greenL, borderRadius:R.lg, padding:S.lg,
               border:`1px solid ${C.green}33` }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.sm }}>
-                <div style={{ fontSize:14, fontWeight:800, color:C.green }}>🎉 입찰 완료!</div>
+                <div style={{ fontSize:14, fontWeight:800, color:C.green }}>✅ 입찰 제출 완료</div>
                 <span style={{ fontSize:20 }}>✅</span>
               </div>
               <div style={{ display:"flex", gap:S.sm, flexWrap:"wrap", marginBottom:S.sm }}>
@@ -95,7 +95,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
               {bidForm.material && (
                 <div style={{ fontSize:12, color:C.text3, marginBottom:3 }}>🔨 {bidForm.material}</div>
               )}
-              <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>의뢰인 검토 중 · 알림이 오면 확인하세요</div>
+              <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>의뢰인이 검토 중입니다</div>
             </div>
           ) : isClosed ? (
             /* Closed: no bidding allowed */
@@ -139,7 +139,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
             maxHeight:"88vh", overflowY:"auto" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 16px" }} />
 
-            <div style={{ fontSize:18, fontWeight:900, color:C.text1, marginBottom:3 }}>견적 입찰 작성</div>
+            <div style={{ fontSize:18, fontWeight:900, color:C.text1, marginBottom:3 }}>안심 견적 제출하기</div>
             <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>
               {r.type} · {r.size} · {r.area}
             </div>
@@ -200,8 +200,8 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
               <div style={{ fontSize:12, color:C.text3, lineHeight:1.8 }}>
                 💡 낙찰 시 플랫폼 수수료 안내<br/>
                 • 직거래 낙찰 → 견적금액의 <b style={{color:C.text2}}>5%</b><br/>
-                • 에스크로 낙찰 → 견적금액의 <b style={{color:C.text2}}>4%</b><br/>
-                <span style={{color:C.text4}}>* 고객 부담 없음. 업체 수령액에서 자동 차감</span>
+                • 에스크로(안심결제) 낙찰 → 견적금액의 <b style={{color:C.text2}}>4%</b><br/>
+                <span style={{color:C.text4}}>* 의뢰인 부담 없음. 업체 수령액에서 자동 차감</span>
               </div>
             </div>
 
@@ -223,7 +223,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
                   boxShadow: canSubmit ? `0 4px 16px ${C.brand}44` : "none",
                   transition:"all 0.2s"
                 }}>
-                {submitting ? "제출 중..." : "🚀 입찰 제출하기"}
+                {submitting ? "제출 중..." : "안심 견적 제출하기"}
               </button>
             </div>
           </div>
