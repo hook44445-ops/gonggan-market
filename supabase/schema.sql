@@ -886,3 +886,32 @@ create policy "lounge_chat_requests: auth insert" on public.lounge_chat_requests
 create policy "lounge_chat_requests: target update" on public.lounge_chat_requests
   for update using (auth.uid() = target_id or auth.uid() = requester_id);
 
+
+-- ── Storage: lounge-images 버킷 ───────────────────────────────────────────────
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'lounge-images',
+  'lounge-images',
+  true,
+  5242880,
+  array['image/jpeg','image/jpg','image/png','image/gif','image/webp']
+) on conflict (id) do nothing;
+
+-- 공개 읽기 (누구나 이미지 조회 가능)
+create policy "lounge-images: public read" on storage.objects
+  for select using (bucket_id = 'lounge-images');
+
+-- 로그인 사용자 업로드 (본인 폴더만)
+create policy "lounge-images: auth upload" on storage.objects
+  for insert with check (
+    bucket_id = 'lounge-images' and
+    auth.uid() is not null and
+    split_part(name, '/', 2) = auth.uid()::text
+  );
+
+-- 본인 파일 삭제
+create policy "lounge-images: owner delete" on storage.objects
+  for delete using (
+    bucket_id = 'lounge-images' and
+    split_part(name, '/', 2) = auth.uid()::text
+  );

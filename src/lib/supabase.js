@@ -689,8 +689,22 @@ export const approveEscrowPayoutByStage = (escrowId, stage, approvedBy = null) =
 
 export const IS_SUPABASE_READY = !!(
   import.meta.env.VITE_SUPABASE_URL &&
-  import.meta.env.VITE_SUPABASE_URL !== "https://placeholder.supabase.co"
+  import.meta.env.VITE_SUPABASE_URL !== "https://placeholder.supabase.co" &&
+  import.meta.env.VITE_SUPABASE_ANON_KEY &&
+  import.meta.env.VITE_SUPABASE_ANON_KEY !== "placeholder-anon-key"
 );
+
+export const uploadLoungeImage = async (file, userId) => {
+  const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const name = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const path = `lounge/${userId}/${name}`;
+  const { error } = await supabase.storage
+    .from('lounge-images')
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (error) return { data: null, error };
+  const { data } = supabase.storage.from('lounge-images').getPublicUrl(path);
+  return { data, error: null };
+};
 
 export const getLoungePosts = async (category = "all") => {
   let q = supabase

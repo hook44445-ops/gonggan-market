@@ -5,12 +5,12 @@
 import { useState, useRef } from 'react';
 import { C, R, S } from '../constants';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
-import { IS_SUPABASE_READY, createLoungeStory } from '../lib/supabase';
+import { IS_SUPABASE_READY, createLoungeStory, uploadLoungeImage } from '../lib/supabase';
 
 const MAX_SIZE_MB = 5;
 
 export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
-  const [photos,     setPhotos]     = useState([]);   // blob URL[]
+  const [photos,     setPhotos]     = useState([]);   // { file: File, url: string }[]
   const [text,       setText]       = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -30,7 +30,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         setUploadError(`파일 크기는 ${MAX_SIZE_MB}MB 이하로 올려주세요`);
         continue;
       }
-      valid.push(URL.createObjectURL(f));
+      valid.push({ file: f, url: URL.createObjectURL(f) });
     }
     setPhotos(prev => [...prev, ...valid].slice(0, 5));
     if (valid.length) setUploadError('');
@@ -39,7 +39,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
 
   const removePhoto = (idx) => {
     setPhotos(prev => {
-      URL.revokeObjectURL(prev[idx]);
+      URL.revokeObjectURL(prev[idx].url);
       return prev.filter((_, i) => i !== idx);
     });
   };
@@ -48,16 +48,32 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
     if (!canSubmit) return;
     setSubmitting(true);
 
-    const now      = new Date();
-    const storyId  = `story-${Date.now()}`;
+    const useSupabase = IS_SUPABASE_READY && !user?.isGuest && !!user?.id;
+
+    const now     = new Date();
+    // UUID 생성 — Supabase lounge_posts.id 는 uuid 타입
+    const storyId = crypto.randomUUID();
     const nickname = getAnonymousNickname(user?.id ?? 'guest', storyId);
+
+    // 이미지 처리: Supabase → Storage public URL, 오프라인 → blob URL
+    let imageUrls;
+    if (useSupabase && photos.length > 0) {
+      const results = await Promise.all(photos.map(async (p) => {
+        const { data: up, error: upErr } = await uploadLoungeImage(p.file, user.id);
+        if (upErr) return p.url; // Storage 실패 시 blob URL fallback
+        return up.publicUrl;
+      }));
+      imageUrls = results;
+    } else {
+      imageUrls = photos.map(p => p.url); // blob URL (세션 내 유효)
+    }
 
     const newStory = {
       id:                 storyId,
       user_id:            user?.id ?? null,
       anonymous_nickname: nickname,
       content:            text.trim(),
-      image_urls:         photos,
+      image_urls:         imageUrls,
       is_story:           true,
       story_expires_at:   new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
       created_at:         now.toISOString(),
@@ -67,7 +83,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
       comment_count:      0,
     };
 
-    if (IS_SUPABASE_READY) {
+    if (useSupabase) {
       const { data, error: err } = await createLoungeStory(newStory);
       setSubmitting(false);
       if (err) { setUploadError('업로드 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
@@ -130,7 +146,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
             {/* 메인 사진 (첫 번째) */}
             <div style={{ position: 'relative', borderRadius: R.xl, overflow: 'hidden', marginBottom: 6 }}>
               <img
-                src={photos[0]}
+                src={photos[0].url}
                 alt=""
                 style={{ width: '100%', maxHeight: 340, objectFit: 'cover', display: 'block' }}
               />
@@ -145,9 +161,9 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
             {/* 추가 사진 썸네일 행 */}
             {photos.length > 1 && (
               <div style={{ display: 'flex', gap: 6 }}>
-                {photos.slice(1).map((url, i) => (
+                {photos.slice(1).map((p, i) => (
                   <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
-                    <img src={url} alt="" style={{ width: 72, height: 72, borderRadius: R.md, objectFit: 'cover', display: 'block' }} />
+                    <img src={p.url} alt="" style={{ width: 72, height: 72, borderRadius: R.md, objectFit: 'cover', display: 'block' }} />
                     <button onClick={() => removePhoto(i + 1)} style={{
                       position: 'absolute', top: 2, right: 2,
                       background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%',

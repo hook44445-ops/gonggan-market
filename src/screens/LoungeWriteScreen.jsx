@@ -6,7 +6,7 @@ import { useState, useRef } from 'react';
 import { C, R, S, REGIONS } from '../constants';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
-import { IS_SUPABASE_READY, createLoungePost, updateLoungePost } from '../lib/supabase';
+import { IS_SUPABASE_READY, createLoungePost, updateLoungePost, uploadLoungeImage } from '../lib/supabase';
 
 const WRITABLE_CATS = LOUNGE_CATEGORIES.filter(c => c.group !== null);
 const MAX_IMAGES    = 5;
@@ -23,7 +23,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
   const [gender,     setGender]     = useState(editPost?.gender ?? '');
   const [ageGroup,   setAgeGroup]   = useState(editPost?.age_group ?? '');
   const [images,     setImages]     = useState(
-    (editPost?.image_urls ?? []).map(url => ({ url, name: '', existing: true }))
+    (editPost?.image_urls ?? []).map(url => ({ file: null, url, name: '', existing: true }))
   );
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState('');
@@ -41,7 +41,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         setError(`파일 크기는 ${MAX_SIZE_MB}MB 이하로 올려주세요`);
         continue;
       }
-      valid.push({ url: URL.createObjectURL(f), name: f.name, existing: false });
+      valid.push({ file: f, url: URL.createObjectURL(f), name: f.name, existing: false });
     }
     setImages(prev => [...prev, ...valid].slice(0, MAX_IMAGES));
     if (valid.length) setError('');
@@ -63,9 +63,22 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
     setSubmitting(true);
     setError('');
 
-    const imageUrls = images.map(img => img.url);
+    // Supabase를 사용할 수 있는 조건: URL/키 설정됨 + 로그인 사용자
+    const useSupabase = IS_SUPABASE_READY && !user?.isGuest && !!user?.id;
+
+    // 이미지 public URL 변환 (Supabase Storage 업로드)
+    const resolveImageUrls = async () => {
+      if (!useSupabase) return images.map(img => img.url); // 오프라인: blob URL 그대로
+      return Promise.all(images.map(async (img) => {
+        if (img.existing || !img.file) return img.url; // 기존 public URL 유지
+        const { data: up, error: upErr } = await uploadLoungeImage(img.file, user.id);
+        if (upErr) return img.url; // Storage 실패 시 blob URL fallback
+        return up.publicUrl;
+      }));
+    };
 
     if (isEdit) {
+      const imageUrls = await resolveImageUrls();
       const updates = {
         category,
         title:      title.trim() || null,
@@ -75,8 +88,8 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         age_group:  ageGroup || null,
         region:     region || null,
       };
-      if (IS_SUPABASE_READY) {
-        const { data, error: err } = await updateLoungePost(editPost.id, user?.id, updates);
+      if (useSupabase) {
+        const { data, error: err } = await updateLoungePost(editPost.id, user.id, updates);
         setSubmitting(false);
         if (err) { setError('수정 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
         onPublish?.({ ...editPost, ...updates, ...(data ?? {}) });
@@ -91,8 +104,10 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         onPublish?.({ ...editPost, ...updates });
       }
     } else {
-      const postId   = `post-${Date.now()}`;
+      // UUID 생성 — Supabase lounge_posts.id 는 uuid 타입
+      const postId   = crypto.randomUUID();
       const nickname = getAnonymousNickname(user?.id ?? 'guest', postId);
+      const imageUrls = await resolveImageUrls();
 
       const newPost = {
         id:                 postId,
@@ -115,7 +130,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         has_badge:          !!(user?.badge && user.badge !== 'basic'),
       };
 
-      if (IS_SUPABASE_READY) {
+      if (useSupabase) {
         const { data, error: err } = await createLoungePost(newPost);
         setSubmitting(false);
         if (err) { setError('등록 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
