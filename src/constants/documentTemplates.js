@@ -1,7 +1,3 @@
-// src/constants/documentTemplates.js
-// 공간마켓 서류 시스템 — 문서 템플릿 정의
-// 역할: 모든 서류 UI/체크리스트/약관 문구의 단일 소스
-
 export const DOCUMENT_TEMPLATES = [
   {
     type: "service_terms",
