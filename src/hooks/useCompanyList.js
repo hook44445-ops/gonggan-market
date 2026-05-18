@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { getActiveCompanies } from "../lib/supabase";
-import { COMPANIES as MOCK_COMPANIES } from "../mock/mockCompanies";
 
 const normalizeRow = (row) => ({
   id:                     row.id,
@@ -45,15 +44,12 @@ export function useCompanyList() {
     getActiveCompanies()
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (!error && Array.isArray(data) && data.length > 0) {
+        if (!error && Array.isArray(data)) {
           setCompanies(data.map(normalizeRow));
-        } else {
-          // Fallback to mock companies when DB has no data yet
-          setCompanies(MOCK_COMPANIES.map(normalizeRow));
         }
       })
       .catch(() => {
-        if (!cancelled) setCompanies(MOCK_COMPANIES);
+        // silent fail — empty list
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

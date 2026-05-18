@@ -10,6 +10,7 @@ import { useState, useRef } from 'react';
 import { C, R, S, REGIONS } from '../constants';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
+import { createLoungePost, uploadFile } from '../lib/supabase';
 
 const WRITABLE_CATS = LOUNGE_CATEGORIES.filter(c => c.group !== null);
 const MAX_IMAGES    = 5;
@@ -58,31 +59,60 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
     if (!content.trim()) { setError('내용을 입력해주세요'); return; }
 
     setSubmitting(true);
-    const postId   = `post-${Date.now()}`;
-    const nickname = getAnonymousNickname(user?.id ?? 'guest', postId);
+    setError('');
 
-    const newPost = {
-      id:                 postId,
-      user_id:            user?.id ?? null,
-      anonymous_nickname: nickname,
-      category,
-      title:              title.trim() || null,
-      content:            content.trim(),
-      image_urls:         images.map(img => img.url),
-      gender:             gender || null,
-      age_group:          ageGroup || null,
-      region:             region || null,
-      is_story:           false,
-      view_count:         0,
-      like_count:         0,
-      comment_count:      0,
-      created_at:         new Date().toISOString(),
-      has_badge:          !!(user?.badge && user.badge !== 'basic'),
-    };
+    try {
+      // Upload images to Supabase Storage
+      const imageUrls = [];
+      if (images.length > 0 && user?.id) {
+        for (const img of images) {
+          try {
+            const resp = await fetch(img.url);
+            const blob = await resp.blob();
+            const ext  = blob.type.split('/')[1] ?? 'jpg';
+            const path = `lounge/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+            const url  = await uploadFile('lounge-images', path, blob);
+            imageUrls.push(url);
+          } catch {
+            // skip failed uploads, do not block post creation
+          }
+        }
+      }
 
-    await new Promise(r => setTimeout(r, 300));
-    setSubmitting(false);
-    onPublish?.(newPost);
+      const tempId   = `post-${Date.now()}`;
+      const nickname = getAnonymousNickname(user?.id ?? 'guest', tempId);
+
+      const payload = {
+        user_id:            user?.id ?? null,
+        anonymous_nickname: nickname,
+        category,
+        title:              title.trim() || null,
+        content:            content.trim(),
+        image_urls:         imageUrls,
+        gender:             gender || null,
+        age_group:          ageGroup || null,
+        region:             region || null,
+        is_story:           false,
+        view_count:         0,
+        like_count:         0,
+        comment_count:      0,
+        has_badge:          !!(user?.badge && user.badge !== 'basic'),
+      };
+
+      const { data, error: insertError } = await createLoungePost(payload);
+
+      if (insertError) {
+        setError('등록에 실패했어요. 다시 시도해주세요.');
+        setSubmitting(false);
+        return;
+      }
+
+      onPublish?.(data ?? { ...payload, id: tempId, created_at: new Date().toISOString() });
+    } catch {
+      setError('등록에 실패했어요. 다시 시도해주세요.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

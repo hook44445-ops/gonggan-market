@@ -853,3 +853,145 @@ CREATE POLICY "company_documents: admin all" ON public.company_documents
 ALTER TABLE public.admin_logs DROP CONSTRAINT IF EXISTS admin_logs_target_type_check;
 ALTER TABLE public.admin_logs ADD CONSTRAINT admin_logs_target_type_check
   CHECK (target_type IN ('company','customer','user','dispute','settlement','payment','lounge','report','document'));
+
+-- ============================================================
+--  STEP SYNC-1 — Request TTL & Repost
+-- ============================================================
+
+alter table public.requests add column if not exists expires_at     timestamptz;
+alter table public.requests add column if not exists reposted_at    timestamptz;
+alter table public.requests add column if not exists exposure_count integer not null default 0;
+
+alter table public.requests drop constraint if exists requests_status_check;
+alter table public.requests add constraint requests_status_check
+  check (status in ('open','in_progress','completed','cancelled','closed','expired'));
+
+create table if not exists public.request_reposts (
+  id             uuid primary key default gen_random_uuid(),
+  request_id     uuid not null references public.requests(id) on delete cascade,
+  user_id        uuid references public.users(id) on delete set null,
+  reposted_at    timestamptz not null default now(),
+  exposure_count integer not null default 1
+);
+
+alter table public.request_reposts enable row level security;
+create policy "request_reposts: owner read" on public.request_reposts
+  for select using (auth.uid() = user_id);
+create policy "request_reposts: owner insert" on public.request_reposts
+  for insert with check (auth.uid() = user_id);
+
+-- ============================================================
+--  STEP SYNC-2 — Lounge Posts & Comments
+-- ============================================================
+
+create table if not exists public.lounge_posts (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid references public.users(id) on delete set null,
+  anonymous_nickname text not null,
+  category           text not null,
+  title              text,
+  content            text not null,
+  image_urls         text[] not null default '{}',
+  gender             text,
+  age_group          text,
+  region             text,
+  is_story           boolean not null default false,
+  view_count         integer not null default 0,
+  like_count         integer not null default 0,
+  comment_count      integer not null default 0,
+  has_badge          boolean not null default false,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+create index if not exists lounge_posts_category_idx on public.lounge_posts (category, created_at desc);
+create index if not exists lounge_posts_created_idx  on public.lounge_posts (created_at desc);
+create index if not exists lounge_posts_story_idx    on public.lounge_posts (is_story, created_at desc);
+create index if not exists lounge_posts_popular_idx  on public.lounge_posts (view_count desc, like_count desc);
+
+create or replace trigger lounge_posts_updated_at
+  before update on public.lounge_posts
+  for each row execute procedure public.set_updated_at();
+
+alter table public.lounge_posts enable row level security;
+create policy "lounge_posts: public read" on public.lounge_posts
+  for select using (true);
+create policy "lounge_posts: authenticated insert" on public.lounge_posts
+  for insert with check (auth.uid() = user_id or user_id is null);
+create policy "lounge_posts: own update" on public.lounge_posts
+  for update using (auth.uid() = user_id);
+
+create table if not exists public.lounge_comments (
+  id                 uuid primary key default gen_random_uuid(),
+  post_id            uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id            uuid references public.users(id) on delete set null,
+  parent_id          uuid references public.lounge_comments(id) on delete cascade,
+  anonymous_nickname text not null,
+  content            text not null,
+  like_count         integer not null default 0,
+  is_expert_reply    boolean not null default false,
+  is_deleted         boolean not null default false,
+  created_at         timestamptz not null default now()
+);
+
+create index if not exists lounge_comments_post_idx on public.lounge_comments (post_id, created_at asc);
+
+alter table public.lounge_comments enable row level security;
+create policy "lounge_comments: public read" on public.lounge_comments
+  for select using (is_deleted = false);
+create policy "lounge_comments: authenticated insert" on public.lounge_comments
+  for insert with check (auth.uid() = user_id or user_id is null);
+
+create table if not exists public.lounge_post_likes (
+  id         uuid primary key default gen_random_uuid(),
+  post_id    uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id    uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (post_id, user_id)
+);
+
+alter table public.lounge_post_likes enable row level security;
+create policy "lounge_post_likes: public read" on public.lounge_post_likes
+  for select using (true);
+create policy "lounge_post_likes: own write" on public.lounge_post_likes
+  for all using (auth.uid() = user_id);
+
+-- ============================================================
+--  STEP SYNC-3 — Space Tokens
+-- ============================================================
+
+create table if not exists public.space_tokens (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null unique references public.users(id) on delete cascade,
+  balance    integer not null default 20,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create or replace trigger space_tokens_updated_at
+  before update on public.space_tokens
+  for each row execute procedure public.set_updated_at();
+
+alter table public.space_tokens enable row level security;
+create policy "space_tokens: own read" on public.space_tokens
+  for select using (auth.uid() = user_id);
+create policy "space_tokens: own write" on public.space_tokens
+  for all using (auth.uid() = user_id);
+
+create table if not exists public.space_token_logs (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.users(id) on delete cascade,
+  type        text not null check (type in ('earn','spend')),
+  action      text not null,
+  amount      integer not null,
+  description text,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists space_token_logs_user_idx on public.space_token_logs (user_id, created_at desc);
+
+alter table public.space_token_logs enable row level security;
+create policy "space_token_logs: own read" on public.space_token_logs
+  for select using (auth.uid() = user_id);
+create policy "space_token_logs: own insert" on public.space_token_logs
+  for insert with check (auth.uid() = user_id);
