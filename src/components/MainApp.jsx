@@ -23,13 +23,16 @@ import RequestModal from "./RequestModal";
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
 import { useSpaceToken } from "../hooks/useSpaceToken";
 import { useSpaceTemperature } from "../hooks/useSpaceTemperature";
-import { MOCK_LOUNGE_POSTS } from "../constants/lounge";
 import {
   supabase,
   getRequests,
   getUserRequests,
   createRequest,
   closeRequest,
+  repostRequest,
+  createRequestRepost,
+  expireRequest,
+  getLoungePosts,
   createBid,
   getBidsForRequest,
   getCompanyByOwnerId,
@@ -66,6 +69,7 @@ const normalizeRequest = (row) => {
   const isExpiredByTime = daysLeft <= 0;
   const isActive   = status === "open" && !isExpiredByTime;
   const isClosed   = status === "closed" || status === "cancelled" ||
+                     status === "expired" ||
                      (status === "open" && isExpiredByTime);
   return {
     id: row.id,
@@ -152,8 +156,26 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       : r;
     setMyRequests(prev => prev.map(markClosed));
     setCustomerRequests(prev => prev.map(markClosed));
-    const { error } = await closeRequest(requestId);
-    if (error) return;
+    await closeRequest(requestId);
+  };
+
+  const handleRepost = async (requestId) => {
+    const newExpiry    = new Date(Date.now() + REQUEST_TTL_MS);
+    const markReposted = r => r.id === requestId
+      ? { ...r, status: "open", isActive: true, isClosed: false,
+          isExpiredByTime: false, daysLeft: 7,
+          expiresAt: newExpiry.toISOString() }
+      : r;
+    setMyRequests(prev => prev.map(markReposted));
+    setCustomerRequests(prev => prev.map(markReposted));
+    showToast("✅ 견적 요청이 재노출되었습니다");
+
+    if (!requestId.startsWith("tmp-")) {
+      const { error } = await repostRequest(requestId);
+      if (!error && user.id) {
+        await createRequestRepost({ request_id: requestId, user_id: user.id });
+      }
+    }
   };
 
   // Load requests on mount
@@ -163,10 +185,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       const normalized = rows.map(normalizeRequest);
       normalized
         .filter(r => r.status === "open" && r.isExpiredByTime)
-        .forEach(r => closeRequest(r.id));
+        .forEach(r => expireRequest(r.id));
       return normalized.map(r =>
         r.status === "open" && r.isExpiredByTime
-          ? { ...r, status: "closed", isActive: false, isClosed: true }
+          ? { ...r, status: "expired", isActive: false, isClosed: true }
           : r
       );
     };
@@ -211,6 +233,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       if (data) setCurrentUser(normalizeCompany(data));
     });
   }, [user?.id, activeRole]);
+
+  // Load recent lounge posts for home preview (consumer home section)
+  useEffect(() => {
+    getLoungePosts("all", 3).then(({ data }) => {
+      if (data && data.length > 0) setLocalLoungePosts(data);
+    }).catch(() => {});
+  }, []);
 
   // Load bids + subscribe to realtime when viewing a request's bid status
   useEffect(() => {
@@ -538,12 +567,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                     fontWeight:700, fontSize:13, cursor:"pointer" }}>
                                   📊 진행 현황
                                 </button>
-                                {hasBids && (
+                                {hasBids ? (
                                   <button onClick={() => reqBids[0]?.company && go("chat", reqBids[0].company)}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
                                       fontWeight:700, fontSize:13, cursor:"pointer" }}>
                                     💬 업체 채팅
+                                  </button>
+                                ) : (
+                                  <button onClick={() => handleRepost(r.id)}
+                                    style={{ flex:1, padding:"10px", background:C.brandL,
+                                      color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg,
+                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                    🔄 재노출
                                   </button>
                                 )}
                                 <button onClick={() => setShowCloseConfirm(r.id)}
@@ -568,15 +604,23 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                       </div>
                       {historyReqs.map(r => (
                         <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
-                          marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, overflow:"hidden", opacity:0.65 }}>
+                          marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, overflow:"hidden" }}>
                           <div style={{ padding:`${S.lg}px ${S.xl}px`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                            <div>
+                            <div style={{ opacity:0.65 }}>
                               <div style={{ fontSize:14, fontWeight:700, color:C.text2 }}>{r.type} · {r.size}</div>
                               <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>📍 {r.area} · {r.time}</div>
                             </div>
-                            <span style={{ background:C.bg, color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700, flexShrink:0 }}>
-                              {r.isExpiredByTime ? "기간만료" : "마감됨"}
-                            </span>
+                            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:5, flexShrink:0 }}>
+                              <span style={{ background:C.bg, color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>
+                                {r.status === "expired" || r.isExpiredByTime ? "기간만료" : "마감됨"}
+                              </span>
+                              {(r.status === "expired" || r.isExpiredByTime) && (
+                                <button onClick={() => handleRepost(r.id)}
+                                  style={{ background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.full, padding:"4px 12px", fontSize:11, fontWeight:800, cursor:"pointer" }}>
+                                  🔄 다시 올리기
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -613,19 +657,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             {/* 라운지 섹션 — 둘러보기 하단 */}
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.xl, border:`1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.lg }}>라운지</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.lg }}>
-                {MOCK_LOUNGE_POSTS.slice(0,3).map(post => (
-                  <div key={post.id} onClick={() => { setLoungePost(post); go("lounge-detail"); }}
-                    style={{ background:C.bg, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
-                    <div style={{ flex:1, minWidth:0, marginRight:S.md }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
-                        {post.title ?? post.content.slice(0,30)}
+              {localLoungePosts.slice(0,3).length > 0 ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.lg }}>
+                  {localLoungePosts.slice(0,3).map(post => (
+                    <div key={post.id} onClick={() => { setLoungePost(post); go("lounge-detail"); }}
+                      style={{ background:C.bg, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
+                      <div style={{ flex:1, minWidth:0, marginRight:S.md }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                          {post.title ?? post.content?.slice(0,30)}
+                        </div>
                       </div>
+                      <div style={{ fontSize:12, color:C.text3, flexShrink:0 }}>❤️ {post.like_count ?? 0}</div>
                     </div>
-                    <div style={{ fontSize:12, color:C.text3, flexShrink:0 }}>❤️ {post.like_count}</div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign:"center", padding:`${S.lg}px 0`, marginBottom:S.lg }}>
+                  <div style={{ fontSize:13, color:C.text3 }}>공간 이야기를 나눠보세요</div>
+                </div>
+              )}
               <button onClick={() => setScreen("lounge")}
                 style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand}44` }}>
                 라운지 들어가기 →

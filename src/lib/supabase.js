@@ -909,3 +909,119 @@ export const adminReviewDocument = async (docId, adminId, reviewStatus, reason =
   return { data, error };
 };
 
+// ── STEP SYNC-1: Request Repost ───────────────────────────────────────────────
+
+export const repostRequest = async (requestId) => {
+  const { data: current, error: fetchError } = await supabase
+    .from("requests")
+    .select("exposure_count")
+    .eq("id", requestId)
+    .single();
+  if (fetchError) return { error: fetchError };
+  const nextCount = (current?.exposure_count ?? 0) + 1;
+  return supabase
+    .from("requests")
+    .update({
+      reposted_at:    new Date().toISOString(),
+      expires_at:     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      exposure_count: nextCount,
+      status:         "open",
+      updated_at:     new Date().toISOString(),
+    })
+    .eq("id", requestId)
+    .select()
+    .single();
+};
+
+export const createRequestRepost = (data) =>
+  supabase.from("request_reposts").insert(data).select().single();
+
+export const expireRequest = (id) =>
+  supabase.from("requests").update({ status: "expired" }).eq("id", id);
+
+// ── STEP SYNC-2: Lounge CRUD ──────────────────────────────────────────────────
+
+export const getLoungePosts = (category = "all", limit = 50) => {
+  let q = supabase
+    .from("lounge_posts")
+    .select("*")
+    .eq("is_story", false)
+    .limit(limit);
+  if (category === "popular") {
+    q = q.order("view_count", { ascending: false })
+         .order("like_count", { ascending: false });
+  } else {
+    if (category !== "all") q = q.eq("category", category);
+    q = q.order("created_at", { ascending: false });
+  }
+  return q;
+};
+
+export const getLoungeStories = (limit = 20) =>
+  supabase
+    .from("lounge_posts")
+    .select("*")
+    .eq("is_story", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+export const createLoungePost = (data) =>
+  supabase.from("lounge_posts").insert(data).select().single();
+
+export const getLoungePost = (postId) =>
+  supabase.from("lounge_posts").select("*").eq("id", postId).single();
+
+export const getLoungeComments = (postId) =>
+  supabase
+    .from("lounge_comments")
+    .select("*")
+    .eq("post_id", postId)
+    .eq("is_deleted", false)
+    .order("created_at", { ascending: true });
+
+export const createLoungeComment = (data) =>
+  supabase.from("lounge_comments").insert(data).select().single();
+
+export const likeLoungePost = async (postId) => {
+  const { data: current } = await supabase
+    .from("lounge_posts")
+    .select("like_count")
+    .eq("id", postId)
+    .single();
+  return supabase
+    .from("lounge_posts")
+    .update({ like_count: (current?.like_count ?? 0) + 1 })
+    .eq("id", postId)
+    .select("like_count")
+    .single();
+};
+
+// ── STEP SYNC-3: Space Tokens ─────────────────────────────────────────────────
+
+export const getSpaceToken = (userId) =>
+  supabase.from("space_tokens").select("balance").eq("user_id", userId).maybeSingle();
+
+export const upsertSpaceToken = (userId, balance) =>
+  supabase
+    .from("space_tokens")
+    .upsert({ user_id: userId, balance }, { onConflict: "user_id" })
+    .select("balance")
+    .single();
+
+export const createSpaceTokenLog = ({ userId, type, action, amount, description }) =>
+  supabase.from("space_token_logs").insert({
+    user_id:     userId,
+    type,
+    action,
+    amount,
+    description: description ?? null,
+  });
+
+export const getSpaceTokenLogs = (userId, limit = 50) =>
+  supabase
+    .from("space_token_logs")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
