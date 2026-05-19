@@ -65,6 +65,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
     try {
       // Upload images to Supabase Storage
       const imageUrls = [];
+      let uploadErrors = 0;
       if (images.length > 0 && user?.id) {
         for (const img of images) {
           try {
@@ -73,9 +74,15 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
             const ext  = blob.type.split('/')[1] ?? 'jpg';
             const path = `lounge/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
             const url  = await uploadFile('lounge-images', path, blob);
-            imageUrls.push(url);
+            if (url) {
+              imageUrls.push(url);
+            } else {
+              uploadErrors++;
+              if (import.meta.env.DEV) imageUrls.push(img.url); // blob URL fallback in dev
+            }
           } catch {
-            // skip failed uploads, do not block post creation
+            uploadErrors++;
+            if (import.meta.env.DEV) imageUrls.push(img.url); // blob URL fallback in dev
           }
         }
       }
@@ -104,10 +111,11 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
 
       if (import.meta.env.DEV) {
         setDevInfo({
-          user_id:     user?.id ?? 'null',
-          insertId:    data?.id ?? null,
-          insertError: insertError?.message ?? null,
-          imageCount:  imageUrls.length,
+          user_id:      user?.id ?? 'null',
+          insertId:     data?.id ?? null,
+          insertError:  insertError?.message ?? null,
+          imageCount:   imageUrls.length,
+          uploadErrors,
         });
       }
 
@@ -228,7 +236,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
           user_id: {devInfo.user_id}<br/>
           insert_id: {devInfo.insertId ?? 'null'}<br/>
           error: {devInfo.insertError ?? 'none'}<br/>
-          images: {devInfo.imageCount}장
+          images: {devInfo.imageCount}장 (upload_errors: {devInfo.uploadErrors ?? 0})
         </div>
       )}
     </div>
