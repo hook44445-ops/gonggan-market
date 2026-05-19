@@ -753,13 +753,18 @@ alter table public.lounge_posts enable row level security;
 create policy "lounge_posts: public read" on public.lounge_posts
   for select using (is_deleted = false and is_hidden = false);
 
+-- 본인 글 직접 조회 (마이페이지용, 숨김 포함 가능)
+create policy "lounge_posts: owner read own" on public.lounge_posts
+  for select using (auth.uid() = user_id);
+
 -- 로그인 사용자 게시글 작성
 create policy "lounge_posts: auth insert" on public.lounge_posts
   for insert with check (auth.uid() = user_id);
 
 -- 본인 글만 수정 (소프트 삭제 포함)
 create policy "lounge_posts: owner update" on public.lounge_posts
-  for update using (auth.uid() = user_id);
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- ── lounge_comments ───────────────────────────────────────────────────────────
 create table if not exists public.lounge_comments (

@@ -133,6 +133,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   // ── 라운지 상태 ──────────────────────────────────────────────────────────────
   const [loungePost, setLoungePost]               = useState(null);
   const [editingLoungePost, setEditingLoungePost] = useState(null);
+  const [editOriginScreen, setEditOriginScreen]   = useState('lounge-detail');
+  const [myPostsRefreshKey, setMyPostsRefreshKey] = useState(0);
   const [localLoungePosts, setLocalLoungePosts]   = useState([]);
   const [localLoungeStories, setLocalLoungeStories] = useState([]);
   const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
@@ -840,13 +842,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <LoungeWriteScreen
             user={user}
             editPost={editingLoungePost}
-            onBack={() => { setEditingLoungePost(null); setScreen("lounge-detail"); }}
+            onBack={() => { setEditingLoungePost(null); setScreen(editOriginScreen); }}
             onPublish={(updated) => {
               setLocalLoungePosts(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
               if (loungePost?.id === updated.id) setLoungePost(prev => ({ ...prev, ...updated }));
               setEditingLoungePost(null);
               showToast("✅ 글이 수정됐어요!");
-              setScreen("lounge-detail");
+              if (editOriginScreen === 'my') setMyPostsRefreshKey(k => k + 1);
+              setScreen(editOriginScreen);
             }}
           />
         )}
@@ -861,7 +864,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onSpendToken={(action, amount, desc) => spendToken(action, amount, desc)}
             onTokenStore={() => requireAuth(() => go("token-store"))}
             onRequireLogin={() => setShowLoginRequired(true)}
-            onEditPost={(post) => { setEditingLoungePost(post); go("lounge-edit"); }}
+            onEditPost={(post) => { setEditingLoungePost(post); setEditOriginScreen('lounge-detail'); go("lounge-edit"); }}
             onDeletePost={(id) => {
               setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
               setLoungePost(null);
@@ -1179,9 +1182,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               balance={tokenBalance}
               tokenLogs={tokenLogs}
               myPosts={localLoungePosts}
+              refreshKey={myPostsRefreshKey}
               onNavigate={(target) => {
                 if (target === "token-store")        { requireAuth(() => go("token-store")); }
                 else if (target === "token-history") { requireAuth(() => go("token-history")); }
+              }}
+              onEditPost={(post) => {
+                setEditingLoungePost(post);
+                setEditOriginScreen('my');
+                go("lounge-edit");
+              }}
+              onDeletePost={(id) => {
+                setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
+                if (loungePost?.id === id) setLoungePost(null);
               }}
             />
 

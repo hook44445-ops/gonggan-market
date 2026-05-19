@@ -2,10 +2,16 @@
 // 공간마켓 라운지 시스템
 // ─────────────────────────────────────────────────────
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { C, R, S } from '../../constants';
 import { SPACE_TEMPERATURE_BASE, TOKEN_EARN, CATEGORY_LABEL } from '../../constants/lounge';
 import { formatRelativeTime } from '../../utils/anonymousNickname';
+import {
+  IS_SUPABASE_READY,
+  getMyLoungePosts,
+  softDeleteLoungePost,
+  supabase,
+} from '../../lib/supabase';
 
 // ── 로컬스토리지 헬퍼 ──────────────────────────────────
 const readLS = (key, fallback = []) => {
@@ -37,33 +43,152 @@ function EmptyState({ icon, title, desc, cta, onCta }) {
   );
 }
 
+// ── 삭제 확인 다이얼로그 ──────────────────────────────
+function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '0 24px' }}>
+      <div style={{ background: C.surface, borderRadius: R.xl, padding: 24, width: '100%', maxWidth: 320 }}>
+        <div style={{ fontSize: 20, textAlign: 'center', marginBottom: 12 }}>🗑️</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, textAlign: 'center', marginBottom: 8 }}>게시글을 삭제할까요?</div>
+        <div style={{ fontSize: 13, color: C.text3, textAlign: 'center', lineHeight: 1.6, marginBottom: 20 }}>삭제된 글은 복구할 수 없어요</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onCancel} disabled={loading}
+            style={{ flex: 1, padding: '13px', background: C.bg, border: 'none', borderRadius: R.lg, fontWeight: 700, fontSize: 14, color: C.text2, cursor: 'pointer' }}>
+            취소
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            style={{ flex: 1, padding: '13px', background: '#E53E3E', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 14, color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+            {loading ? '삭제 중...' : '삭제'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── DEV 패널 ──────────────────────────────────────────
+function DevPanel({ info }) {
+  const [open, setOpen] = useState(true);
+  if (!info) return null;
+  return (
+    <div style={{ background: '#0d1117', borderBottom: '1px solid #30363d', fontFamily: 'monospace', fontSize: 11, lineHeight: 1.7 }}>
+      <div
+        onClick={() => setOpen(v => !v)}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 14px', cursor: 'pointer', color: '#58a6ff' }}>
+        <span>🔧 DEV — 마이페이지 내가 쓴 글</span>
+        <span>{open ? '▲' : '▼'}</span>
+      </div>
+      {open && (
+        <div style={{ padding: '0 14px 10px', color: '#e6edf3' }}>
+          <div>currentUser.id : <span style={{ color: '#79c0ff' }}>{info.currentUserId ?? 'null'}</span></div>
+          <div>auth.uid()     : <span style={{ color: info.uidMatch ? '#3fb950' : '#f85149' }}>{info.authUid ?? 'null (미인증)'}</span></div>
+          <div>uid 일치       : <span style={{ color: info.uidMatch ? '#3fb950' : '#f85149' }}>{info.uidMatch ? '✅ 일치' : '❌ 불일치 → RLS 차단 원인'}</span></div>
+          <div>posts.length   : <span style={{ color: '#79c0ff' }}>{info.postsCount}</span></div>
+          <div>IS_SUPABASE    : <span style={{ color: info.isSupabase ? '#3fb950' : '#f85149' }}>{info.isSupabase ? 'true' : 'false (오프라인 모드)'}</span></div>
+          {info.fetchError && <div style={{ color: '#f85149' }}>fetchError : {info.fetchError}</div>}
+          {!info.uidMatch && info.authUid && (
+            <div style={{ color: '#e3b341', marginTop: 4 }}>⚠ lounge_posts.user_id={info.currentUserId?.slice(0,8)}… ≠ auth.uid={info.authUid?.slice(0,8)}…</div>
+          )}
+          {!info.authUid && (
+            <div style={{ color: '#e3b341', marginTop: 4 }}>⚠ Supabase auth 세션 없음 → RLS insert/update/select 막힘</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 내가 쓴 글 ──────────────────────────────────────
-function MyPostsScreen({ posts, onBack, onPost }) {
+function MyPostsScreen({ posts, loading, devInfo, onBack, onEdit, onDelete }) {
+  const [confirmId,  setConfirmId]  = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [toast,      setToast]      = useState(null);
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
+
+  const handleDelete = async (postId) => {
+    setDeletingId(postId);
+    const result = await onDelete?.(postId);
+    setDeletingId(null);
+    setConfirmId(null);
+    if (result?.error) showToast(`❌ 삭제 실패: ${result.error}`);
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: C.bg }}>
       <SubHeader title="내가 쓴 글" onBack={onBack} />
-      {posts.length === 0 ? (
+
+      {import.meta.env.DEV && <DevPanel info={devInfo} />}
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+          <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
+        </div>
+      ) : posts.length === 0 ? (
         <EmptyState icon="📝" title="아직 쓴 글이 없어요" desc={'첫 글을 올리면 이곳에 모여요\n라운지에서 이야기를 시작해보세요'} />
       ) : (
         <div style={{ background: C.surface }}>
           {posts.map(post => (
-            <div key={post.id} onClick={() => onPost?.(post)} style={{ padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}`, cursor: 'pointer' }}>
+            <div key={post.id} style={{ padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}` }}>
+              {/* 헤더 행 */}
               <div style={{ display: 'flex', gap: S.sm, alignItems: 'center', marginBottom: 6 }}>
                 <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '2px 9px', fontSize: 11, fontWeight: 700 }}>
                   {CATEGORY_LABEL[post.category] ?? post.category}
                 </span>
                 <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>{formatRelativeTime(post.created_at)}</span>
               </div>
-              {post.title && <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{post.title}</div>}
-              <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {post.content}
+
+              {/* 본문 + 썸네일 */}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {post.title && (
+                    <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4, letterSpacing: '-0.3px' }}>
+                      {post.title}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {post.content}
+                  </div>
+                </div>
+                {post.image_urls?.[0] && (
+                  <img src={post.image_urls[0]} alt="" style={{ width: 64, height: 64, borderRadius: R.md, objectFit: 'cover', flexShrink: 0 }} />
+                )}
               </div>
-              <div style={{ display: 'flex', gap: S.md, marginTop: 8 }}>
+
+              {/* 통계 + 액션 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: S.md }}>
                 <span style={{ fontSize: 11, color: C.text4 }}>❤️ {post.like_count ?? 0}</span>
                 <span style={{ fontSize: 11, color: C.text4 }}>💬 {post.comment_count ?? 0}</span>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={() => onEdit?.(post)}
+                    style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, color: C.brand, background: C.brandL, border: 'none', borderRadius: R.full, cursor: 'pointer' }}>
+                    ✏️ 수정
+                  </button>
+                  <button
+                    onClick={() => setConfirmId(post.id)}
+                    style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, color: '#E53E3E', background: '#FEF0F0', border: 'none', borderRadius: R.full, cursor: 'pointer' }}>
+                    🗑️ 삭제
+                  </button>
+                </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {confirmId && (
+        <DeleteConfirmDialog
+          onConfirm={() => handleDelete(confirmId)}
+          onCancel={() => setConfirmId(null)}
+          loading={!!deletingId}
+        />
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1F2A24', color: '#fff', borderRadius: R.full, padding: '10px 20px', fontSize: 13, fontWeight: 700, zIndex: 600, whiteSpace: 'nowrap' }}>
+          {toast}
         </div>
       )}
     </div>
@@ -145,7 +270,6 @@ function ChatHistoryScreen({ onBack }) {
   const requests = readLS('lounge_chat_requests');
 
   const statusLabel = (req) => {
-    // 시간 기반 상태 시뮬레이션
     const ms = Date.now() - new Date(req.sentAt).getTime();
     if (ms < 5 * 60 * 1000) return { label: '대기중', color: C.gold };
     if (ms < 24 * 60 * 60 * 1000 && Math.random() > 0.5) return { label: '수락됨', color: C.brand };
@@ -406,23 +530,104 @@ function Row({ label, icon, count, onClick }) {
 }
 
 // ── 메인 섹션 ──────────────────────────────────────────
-export default function LoungeMyPageSection({ user, temperature, balance, tokenLogs, myPosts, onNavigate }) {
+export default function LoungeMyPageSection({
+  user, temperature, balance, tokenLogs, myPosts,
+  onNavigate, onEditPost, onDeletePost, refreshKey = 0,
+}) {
   const temp   = temperature ?? SPACE_TEMPERATURE_BASE;
   const isComp = user?.role === 'company';
   const [subScreen, setSubScreen] = useState(null);
+
+  // ── 내가 쓴 글: Supabase fetch 또는 prop fallback ──
+  const [supabasePosts, setSupabasePosts] = useState([]);
+  const [postsLoading,  setPostsLoading]  = useState(false);
+  const [devInfo,       setDevInfo]       = useState(null);
+
+  // Supabase 모드: user.id / refreshKey 변경 시 refetch
+  useEffect(() => {
+    if (!IS_SUPABASE_READY || !user?.id) return;
+    let cancelled = false;
+    setPostsLoading(true);
+
+    const fetch = async () => {
+      const { data, error } = await getMyLoungePosts(user.id);
+      if (cancelled) return;
+      setSupabasePosts(data ?? []);
+      setPostsLoading(false);
+
+      if (import.meta.env.DEV) {
+        try {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (!cancelled) setDevInfo({
+            currentUserId: user.id,
+            authUid:       authUser?.id ?? null,
+            uidMatch:      user.id === authUser?.id,
+            postsCount:    data?.length ?? 0,
+            fetchError:    error?.message ?? null,
+            isSupabase:    true,
+          });
+        } catch {}
+      }
+    };
+
+    fetch();
+    return () => { cancelled = true; };
+  }, [user?.id, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // DEV 정보 (오프라인 모드)
+  useEffect(() => {
+    if (!import.meta.env.DEV || IS_SUPABASE_READY) return;
+    setDevInfo({
+      currentUserId: user?.id ?? null,
+      authUid:       null,
+      uidMatch:      false,
+      postsCount:    (myPosts ?? []).length,
+      fetchError:    null,
+      isSupabase:    false,
+    });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const displayPosts   = IS_SUPABASE_READY ? supabasePosts : (myPosts ?? []);
+  const displayLoading = IS_SUPABASE_READY ? postsLoading : false;
+
+  // ── 삭제 핸들러 ──────────────────────────────────────
+  const handleDeletePost = async (postId) => {
+    if (IS_SUPABASE_READY && user?.id) {
+      const { error } = await softDeleteLoungePost(postId, user.id);
+      if (error) return { error: error.message };
+      setSupabasePosts(prev => prev.filter(p => p.id !== postId));
+    } else {
+      try {
+        const key  = 'lounge_offline_posts';
+        const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+        localStorage.setItem(key, JSON.stringify(prev.filter(p => p.id !== postId)));
+      } catch {}
+    }
+    onDeletePost?.(postId);
+    return {};
+  };
 
   const level = temp >= 45 ? { label: '홈마스터', icon: '👑' }
     : temp >= 40 ? { label: '드림하우스', icon: '🏰' }
     : temp >= 36 ? { label: '다정한 이웃', icon: '🏡' }
     : { label: '새 이웃', icon: '🏠' };
 
-  const savedCount    = readLS('lounge_saved_posts').length;
-  const commentCount  = readLS('lounge_my_comments').length;
-  const chatCount     = readLS('lounge_chat_requests').length;
-  const blocksCount   = readLS('lounge_blocks').length;
+  const savedCount   = readLS('lounge_saved_posts').length;
+  const commentCount = readLS('lounge_my_comments').length;
+  const chatCount    = readLS('lounge_chat_requests').length;
+  const blocksCount  = readLS('lounge_blocks').length;
 
   // 서브스크린 처리
-  if (subScreen === 'my-posts')     return <MyPostsScreen    posts={myPosts ?? []}  onBack={() => setSubScreen(null)} onPost={null} />;
+  if (subScreen === 'my-posts') return (
+    <MyPostsScreen
+      posts={displayPosts}
+      loading={displayLoading}
+      devInfo={devInfo}
+      onBack={() => setSubScreen(null)}
+      onEdit={(post) => { setSubScreen(null); onEditPost?.(post); }}
+      onDelete={handleDeletePost}
+    />
+  );
   if (subScreen === 'my-saves')     return <MySavesScreen    onBack={() => setSubScreen(null)} onPost={null} />;
   if (subScreen === 'my-comments')  return <MyCommentsScreen onBack={() => setSubScreen(null)} />;
   if (subScreen === 'chat-history') return <ChatHistoryScreen onBack={() => setSubScreen(null)} />;
@@ -476,7 +681,7 @@ export default function LoungeMyPageSection({ user, temperature, balance, tokenL
       {/* 내 활동 */}
       <div style={{ borderTop: `1px solid ${C.bg}`, paddingTop: S.md }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: S.sm }}>내 활동</div>
-        <Row label="내가 쓴 글"   icon="📝" count={myPosts?.length ? `${myPosts.length}개` : undefined} onClick={() => setSubScreen('my-posts')} />
+        <Row label="내가 쓴 글"   icon="📝" count={displayPosts.length ? `${displayPosts.length}개` : undefined} onClick={() => setSubScreen('my-posts')} />
         <Row label="저장한 글"    icon="🔖" count={savedCount   ? `${savedCount}개`   : undefined} onClick={() => setSubScreen('my-saves')} />
         <Row label="내 댓글"      icon="💬" count={commentCount ? `${commentCount}개` : undefined} onClick={() => setSubScreen('my-comments')} />
 
