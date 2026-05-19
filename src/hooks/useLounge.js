@@ -2,24 +2,36 @@ import { useState, useEffect, useCallback } from 'react';
 import { getLoungePosts, getLoungeStories, getLoungePost, getLoungeComments, likeLoungePost } from '../lib/supabase';
 
 export function useLounge(category = 'all') {
-  const [posts, setPosts]     = useState([]);
-  const [stories, setStories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [posts,       setPosts]       = useState([]);
+  const [stories,     setStories]     = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [fetchError,  setFetchError]  = useState(null);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
-    try {
-      const [postsResult, storiesResult] = await Promise.all([
-        getLoungePosts(category),
-        getLoungeStories(),
-      ]);
+    setFetchError(null);
+    const [postsResult, storiesResult] = await Promise.all([
+      getLoungePosts(category),
+      getLoungeStories(),
+    ]);
+    if (postsResult.error) {
+      setFetchError(postsResult.error.message);
+      setPosts([]);
+    } else {
       setPosts(postsResult.data ?? []);
-      setStories(storiesResult.data ?? []);
-    } catch {
-      // silent fail — empty state, no mock
-    } finally {
-      setLoading(false);
     }
+    if (!storiesResult.error) {
+      const now = Date.now();
+      // client-side expiry filter (story_expires_at may not exist in older schemas)
+      const active = (storiesResult.data ?? []).filter(s => {
+        if (!s.story_expires_at) return true;
+        return new Date(s.story_expires_at).getTime() > now;
+      });
+      setStories(active);
+    } else {
+      setStories([]);
+    }
+    setLoading(false);
   }, [category]);
 
   useEffect(() => { loadPosts(); }, [loadPosts]);
@@ -35,13 +47,17 @@ export function useLounge(category = 'all') {
     setPosts(prev => [newPost, ...prev]);
   }, []);
 
-  return { posts, stories, loading, likePost, addPost, reload: loadPosts };
+  const addStory = useCallback((newStory) => {
+    setStories(prev => [newStory, ...prev]);
+  }, []);
+
+  return { posts, stories, loading, fetchError, likePost, addPost, addStory, reload: loadPosts };
 }
 
 export function useLoungePost(postId) {
-  const [post, setPost]         = useState(null);
+  const [post,     setPost]     = useState(null);
   const [comments, setComments] = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [loading,  setLoading]  = useState(true);
 
   useEffect(() => {
     if (!postId) return;

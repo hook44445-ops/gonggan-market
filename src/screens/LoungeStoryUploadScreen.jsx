@@ -77,8 +77,6 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         image_urls:         imageUrls,
         is_story:           true,
         story_expires_at:   expiresAt,
-        is_deleted:         false,
-        is_hidden:          false,
         view_count:         0,
         like_count:         0,
         comment_count:      0,

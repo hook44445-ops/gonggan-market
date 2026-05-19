@@ -84,7 +84,12 @@ export const createRequest = (data) =>
   supabase.from("requests").insert(data).select().single();
 
 export const getRequests = () =>
-  supabase.from("requests").select("*").order("created_at", { ascending: false });
+  supabase
+    .from("requests")
+    .select("*")
+    .eq("status", "open")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
 
 export const getRequest = (id) =>
   supabase.from("requests").select("*").eq("id", id).single();
@@ -946,8 +951,6 @@ export const getLoungePosts = (category = "all", limit = 50) => {
     .from("lounge_posts")
     .select("*")
     .eq("is_story", false)
-    .eq("is_deleted", false)
-    .eq("is_hidden", false)
     .limit(limit);
   if (category === "popular") {
     q = q.order("view_count", { ascending: false })
@@ -959,16 +962,16 @@ export const getLoungePosts = (category = "all", limit = 50) => {
   return q;
 };
 
-export const getLoungeStories = (limit = 20) =>
-  supabase
+export const getLoungeStories = (limit = 20) => {
+  const q = supabase
     .from("lounge_posts")
     .select("*")
     .eq("is_story", true)
-    .eq("is_deleted", false)
-    .eq("is_hidden", false)
-    .gt("story_expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })
     .limit(limit);
+  // story_expires_at filter applied client-side to avoid schema migration dependency
+  return q;
+};
 
 export const createLoungePost = (data) =>
   supabase.from("lounge_posts").insert(data).select().single();
