@@ -1387,14 +1387,15 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         // INSERT to Supabase
         if (user.id) {
           const { data, error } = await createRequest({
-            user_id: user.id,
-            area: user.region ?? "",
+            user_id:    user.id,
+            area:       user.region ?? "",
             space_type: form.type,
-            size: form.size,
-            style: form.style,
-            description: form.desc,
-            budget_min: 0,
-            budget_max: 0,
+            size:       form.size,
+            style:      form.style,
+            desc:       form.desc ?? "",
+            budget_min: form.budget_min ?? 0,
+            budget_max: form.budget_max ?? 0,
+            expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
           });
           if (error) {
             void error;

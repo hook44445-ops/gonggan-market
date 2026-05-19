@@ -2,12 +2,21 @@
 // 공간마켓 라운지 시스템
 // ─────────────────────────────────────────────────────
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
 import { CATEGORY_LABEL } from '../constants/lounge';
 import { useLoungePost } from '../hooks/useLounge';
 import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname } from '../utils/anonymousNickname';
-import { createLoungeComment } from '../lib/supabase';
+import {
+  createLoungeComment,
+  likeLoungePost,
+  addLoungePostLike,
+  checkLoungePostLiked,
+  addLoungeSave,
+  removeLoungeSave,
+  checkLoungeSaved,
+  createLoungeChat,
+} from '../lib/supabase';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
@@ -15,31 +24,57 @@ import ReportModal from '../components/lounge/ReportModal';
 export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin }) {
   const { post: foundPost, comments, loading, addComment, likeComment } = useLoungePost(postId);
   const post = foundPost ?? initialPost ?? null;
-  const [commentText, setCommentText]   = useState('');
-  const [replyTo,     setReplyTo]       = useState(null);
-  const [liked,       setLiked]         = useState(false);
-  const [saved,       setSaved]         = useState(false);
-  const [showChat,    setShowChat]      = useState(false);
-  const [chatSending, setChatSending]   = useState(false);
-  const [chatSent,    setChatSent]      = useState(false);
-  const [toast,       setToast]         = useState(null);
+  const [commentText,  setCommentText]  = useState('');
+  const [replyTo,      setReplyTo]      = useState(null);
+  const [liked,        setLiked]        = useState(false);
+  const [saved,        setSaved]        = useState(false);
+  const [showChat,     setShowChat]     = useState(false);
+  const [chatSending,  setChatSending]  = useState(false);
+  const [chatSent,     setChatSent]     = useState(false);
+  const [toast,        setToast]        = useState(null);
   const [reportTarget, setReportTarget] = useState(null);
   const inputRef = useRef(null);
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
 
+  // Load initial like/save state from DB
+  useEffect(() => {
+    if (!user?.id || !postId || isGuest) return;
+    Promise.all([
+      checkLoungePostLiked(postId, user.id),
+      checkLoungeSaved(postId, user.id),
+    ]).then(([likeRes, saveRes]) => {
+      if (likeRes.data) setLiked(true);
+      if (saveRes.data) setSaved(true);
+    }).catch(() => {});
+  }, [postId, user?.id, isGuest]);
+
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2200);
   };
 
-  // 하트는 무료, 중복 방지
-  const handleLike = () => {
+  const handleLike = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
     if (liked) return;
     setLiked(true);
     showToast('❤️ 좋아요를 눌렀어요');
+    await Promise.all([
+      addLoungePostLike(postId, user.id),
+      likeLoungePost(postId),
+    ]);
+  };
+
+  const handleSave = async () => {
+    if (isGuest) { onRequireLogin?.(); return; }
+    const next = !saved;
+    setSaved(next);
+    if (next) {
+      await addLoungeSave(postId, user.id);
+    } else {
+      await removeLoungeSave(postId, user.id);
+    }
   };
 
   const handleComment = async () => {
@@ -55,7 +90,6 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       user_id:            user.id,
       anonymous_nickname: nickname,
       content:            commentText.trim(),
-      image_urls:         [],
       is_expert_reply:    false,
       like_count:         0,
       created_at:         new Date().toISOString(),
@@ -70,25 +104,29 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       user_id:            user.id,
       anonymous_nickname: nickname,
       content:            optimistic.content,
-      image_urls:         [],
       is_expert_reply:    false,
     });
     if (commentError) showToast('댓글 저장에 실패했어요. 다시 시도해주세요.');
   };
 
-  // 대화 신청: 신청 자체 무료, 수락 시 20토큰 차감
   const handleChatRequest = async () => {
     if (chatSending || chatSent) return;
     setChatSending(true);
-    await new Promise(r => setTimeout(r, 400));
+    if (user?.id) {
+      await createLoungeChat({
+        post_id:      postId,
+        requester_id: user.id,
+        post_user_id: post?.user_id ?? null,
+      });
+    }
     setChatSending(false);
     setChatSent(true);
     setShowChat(false);
     showToast('💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.');
   };
 
-  const handleReport = (reason) => {
-    showToast(`신고가 접수됐어요`);
+  const handleReport = () => {
+    showToast('신고가 접수됐어요');
   };
 
   if (loading && !post) {
@@ -121,11 +159,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     );
   }
 
-  const catLabel      = CATEGORY_LABEL[post.category] ?? post.category;
-  const postAvatar    = getAnonymousAvatarByNickname(post.anonymous_nickname);
-  const topComments   = comments.filter(c => !c.parent_id);
-  const replyComments = comments.filter(c => !!c.parent_id);
-  const hasBadge      = post.has_badge === true;
+  const catLabel    = CATEGORY_LABEL[post.category] ?? post.category;
+  const postAvatar  = getAnonymousAvatarByNickname(post.anonymous_nickname);
+  const topComments = comments.filter(c => !c.parent_id);
+  const replyComs   = comments.filter(c => !!c.parent_id);
+  const hasBadge    = post.has_badge === true;
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 80 }}>
@@ -170,8 +208,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
             {liked ? '❤️' : '🤍'} {(post.like_count ?? 0) + (liked ? 1 : 0)}
           </button>
-          <button onClick={() => setSaved(!saved)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
-            {saved ? '🔖' : '📄'} 저장
+          <button onClick={handleSave} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
+            {saved ? '🔖' : '📄'} {saved ? '저장됨' : '저장'}
           </button>
           <button onClick={() => setReportTarget({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
             신고
@@ -179,7 +217,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         </div>
       </div>
 
-      {/* 대화 신청 버튼 */}
+      {/* 대화 신청 */}
       <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
         <button
           onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent) setShowChat(true); }}
@@ -206,7 +244,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
               onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
             />
-            {replyComments.filter(r => r.parent_id === comment.id).map(reply => (
+            {replyComs.filter(r => r.parent_id === comment.id).map(reply => (
               <LoungeCommentItem
                 key={reply.id}
                 comment={reply}

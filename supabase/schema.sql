@@ -1006,3 +1006,42 @@ alter table public.lounge_posts add column if not exists is_hidden  boolean not 
 create index if not exists lounge_posts_active_stories_idx
   on public.lounge_posts (is_story, story_expires_at desc)
   where is_story = true and is_deleted = false and is_hidden = false;
+
+-- ============================================================
+--  STEP SYNC-4 — Lounge Saves & Chat Requests
+-- ============================================================
+
+create table if not exists public.lounge_saves (
+  id         uuid primary key default gen_random_uuid(),
+  post_id    uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id    uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (post_id, user_id)
+);
+
+alter table public.lounge_saves enable row level security;
+create policy "lounge_saves: own read" on public.lounge_saves
+  for select using (auth.uid() = user_id);
+create policy "lounge_saves: own write" on public.lounge_saves
+  for all using (auth.uid() = user_id);
+
+create table if not exists public.lounge_chats (
+  id            uuid primary key default gen_random_uuid(),
+  post_id       uuid not null references public.lounge_posts(id) on delete cascade,
+  requester_id  uuid references public.users(id) on delete set null,
+  post_user_id  uuid references public.users(id) on delete set null,
+  status        text not null default 'pending'
+                  check (status in ('pending','accepted','rejected','expired')),
+  token_charged boolean not null default false,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  unique (post_id, requester_id)
+);
+
+alter table public.lounge_chats enable row level security;
+create policy "lounge_chats: participant read" on public.lounge_chats
+  for select using (auth.uid() = requester_id or auth.uid() = post_user_id);
+create policy "lounge_chats: requester insert" on public.lounge_chats
+  for insert with check (auth.uid() = requester_id or requester_id is null);
+create policy "lounge_chats: participant update" on public.lounge_chats
+  for update using (auth.uid() = requester_id or auth.uid() = post_user_id);
