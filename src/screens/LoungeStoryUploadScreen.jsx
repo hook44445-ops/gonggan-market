@@ -49,18 +49,42 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
     try {
       // Upload images to Supabase Storage
       const imageUrls = [];
+      let uploadErrors = 0;
+      let firstUploadErrMsg = null;
       if (photos.length > 0 && user?.id) {
         for (const photo of photos) {
           try {
             const ext  = photo.blob.type.split('/')[1] ?? 'jpg';
             const path = `lounge/${user.id}/stories/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
             const url  = await uploadFile('lounge-images', path, photo.blob);
-            imageUrls.push(url);
-          } catch {
-            // skip failed uploads, use blob URL as fallback in dev
-            if (import.meta.env.DEV) imageUrls.push(photo.url);
+            if (url) {
+              imageUrls.push(url);
+            } else {
+              uploadErrors++;
+              firstUploadErrMsg = firstUploadErrMsg ?? 'URL 반환 없음';
+            }
+          } catch (uploadErr) {
+            uploadErrors++;
+            const msg = uploadErr?.message ?? String(uploadErr);
+            const isBucketMissing = msg.toLowerCase().includes('bucket') || msg.toLowerCase().includes('not found');
+            firstUploadErrMsg = firstUploadErrMsg ?? (isBucketMissing
+              ? 'Storage 버킷 없음 — Supabase 대시보드에서 lounge-images 버킷을 생성해주세요'
+              : msg);
           }
         }
+      }
+
+      if (photos.length > 0 && uploadErrors > 0) {
+        if (import.meta.env.DEV) {
+          setDevInfo({
+            user_id: user?.id ?? 'null', is_story: true, story_expires_at: null,
+            insertId: null, insertError: null,
+            imageUrls_count: imageUrls.length, uploadErrors, uploadErrMsg: firstUploadErrMsg,
+          });
+        }
+        setUploadError(`사진 업로드 실패: ${firstUploadErrMsg}`);
+        setSubmitting(false);
+        return;
       }
 
       const now       = new Date();
@@ -93,6 +117,9 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
           insertId:         data?.id ?? null,
           insertError:      insertError?.message ?? null,
           imageUrls_count:  imageUrls.length,
+          uploadErrors,
+          uploadErrMsg:     firstUploadErrMsg,
+          insertedImgUrls:  data?.image_urls ?? null,
         });
       }
 
@@ -229,14 +256,15 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
       <div style={{ height: 32 }} />
 
       {import.meta.env.DEV && devInfo && (
-        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace' }}>
+        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace', maxHeight: 200, overflowY: 'auto' }}>
           [DEV] story upload<br/>
           user_id: {devInfo.user_id}<br/>
-          is_story: {String(devInfo.is_story)}<br/>
-          expires_at: {devInfo.story_expires_at}<br/>
+          upload_errors: {devInfo.uploadErrors ?? 0} | images: {devInfo.imageUrls_count}장<br/>
+          {devInfo.uploadErrMsg && <span style={{color:'#f66'}}>err: {devInfo.uploadErrMsg}<br/></span>}
+          inserted_image_urls: {JSON.stringify(devInfo.insertedImgUrls ?? [])}<br/>
           insert_id: {devInfo.insertId ?? 'null'}<br/>
-          error: {devInfo.insertError ?? 'none'}<br/>
-          images: {devInfo.imageUrls_count}장
+          insert_error: {devInfo.insertError ?? 'none'}<br/>
+          expires_at: {devInfo.story_expires_at}
         </div>
       )}
     </div>

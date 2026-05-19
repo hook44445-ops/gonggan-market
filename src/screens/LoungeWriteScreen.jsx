@@ -66,6 +66,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
       // Upload images to Supabase Storage
       const imageUrls = [];
       let uploadErrors = 0;
+      let firstUploadErrMsg = null;
       if (images.length > 0 && user?.id) {
         for (const img of images) {
           try {
@@ -78,13 +79,26 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
               imageUrls.push(url);
             } else {
               uploadErrors++;
-              if (import.meta.env.DEV) imageUrls.push(img.url); // blob URL fallback in dev
+              firstUploadErrMsg = firstUploadErrMsg ?? 'URL 반환 없음';
             }
-          } catch {
+          } catch (uploadErr) {
             uploadErrors++;
-            if (import.meta.env.DEV) imageUrls.push(img.url); // blob URL fallback in dev
+            const msg = uploadErr?.message ?? String(uploadErr);
+            const isBucketMissing = msg.toLowerCase().includes('bucket') || msg.toLowerCase().includes('not found');
+            firstUploadErrMsg = firstUploadErrMsg ?? (isBucketMissing
+              ? 'Storage 버킷 없음 — Supabase 대시보드에서 lounge-images 버킷을 생성해주세요'
+              : msg);
           }
         }
+      }
+
+      if (images.length > 0 && uploadErrors > 0) {
+        if (import.meta.env.DEV) {
+          setDevInfo({ user_id: user?.id ?? 'null', selectedFiles: images.length, uploadErrors, uploadErrMsg: firstUploadErrMsg, uploadedUrls: imageUrls, insertId: null, insertError: null });
+        }
+        setError(`사진 업로드 실패: ${firstUploadErrMsg}`);
+        setSubmitting(false);
+        return;
       }
 
       const tempId   = `post-${Date.now()}`;
@@ -111,11 +125,15 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
 
       if (import.meta.env.DEV) {
         setDevInfo({
-          user_id:      user?.id ?? 'null',
-          insertId:     data?.id ?? null,
-          insertError:  insertError?.message ?? null,
-          imageCount:   imageUrls.length,
+          user_id:         user?.id ?? 'null',
+          selectedFiles:   images.length,
           uploadErrors,
+          uploadErrMsg:    firstUploadErrMsg,
+          uploadedUrls:    imageUrls,
+          insertId:        data?.id ?? null,
+          insertError:     insertError?.message ?? null,
+          insertedImgUrls: data?.image_urls ?? null,
+          renderedFirst:   (data?.image_urls ?? imageUrls)?.[0] ?? null,
         });
       }
 
@@ -231,12 +249,17 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
       </div>
 
       {import.meta.env.DEV && devInfo && (
-        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace' }}>
+        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace', maxHeight: 200, overflowY: 'auto' }}>
           [DEV] lounge post write<br/>
           user_id: {devInfo.user_id}<br/>
+          selected_files: {devInfo.selectedFiles ?? 0} | upload_errors: {devInfo.uploadErrors ?? 0}<br/>
+          {devInfo.uploadErrMsg && <span style={{color:'#f66'}}>err: {devInfo.uploadErrMsg}<br/></span>}
+          uploaded_urls: {devInfo.uploadedUrls?.length ?? 0}장<br/>
+          {(devInfo.uploadedUrls ?? []).map((u, i) => <span key={i} style={{display:'block', color:'#8f8'}}> [{i}] {u.slice(0, 60)}</span>)}
           insert_id: {devInfo.insertId ?? 'null'}<br/>
-          error: {devInfo.insertError ?? 'none'}<br/>
-          images: {devInfo.imageCount}장 (upload_errors: {devInfo.uploadErrors ?? 0})
+          insert_error: {devInfo.insertError ?? 'none'}<br/>
+          inserted_image_urls: {JSON.stringify(devInfo.insertedImgUrls ?? [])}<br/>
+          rendered[0]: {devInfo.renderedFirst ?? 'none'}
         </div>
       )}
     </div>

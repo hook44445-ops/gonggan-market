@@ -88,7 +88,7 @@ export const getRequests = () =>
     .from("requests")
     .select("*")
     .eq("status", "open")
-    .gt("expires_at", new Date().toISOString())
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .order("created_at", { ascending: false });
 
 export const getRequest = (id) =>

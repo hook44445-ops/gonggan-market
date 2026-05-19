@@ -1045,3 +1045,40 @@ create policy "lounge_chats: requester insert" on public.lounge_chats
   for insert with check (auth.uid() = requester_id or requester_id is null);
 create policy "lounge_chats: participant update" on public.lounge_chats
   for update using (auth.uid() = requester_id or auth.uid() = post_user_id);
+
+-- ============================================================
+--  STORAGE — lounge-images 버킷 설정
+--  Supabase SQL Editor에서는 Storage 버킷 생성이 불가합니다.
+--  아래 절차를 Supabase 대시보드에서 직접 수행하세요:
+--
+--  1. Storage → New Bucket
+--     name: lounge-images
+--     Public: ON (이미지 공개 URL 접근 필요)
+--
+--  2. Storage → lounge-images → Policies → Add policy
+--     INSERT: authenticated users can upload
+--       allow insert where: auth.uid()::text = (storage.foldername(name))[2]
+--     SELECT: anyone can read (public bucket)
+--       allow select where: true
+--
+--  또는 아래 SQL로 RLS 정책 추가 (버킷 생성 후 실행):
+-- ============================================================
+
+insert into storage.buckets (id, name, public)
+  values ('lounge-images', 'lounge-images', true)
+  on conflict (id) do update set public = true;
+
+create policy "lounge_images: public read" on storage.objects
+  for select using (bucket_id = 'lounge-images');
+
+create policy "lounge_images: auth upload" on storage.objects
+  for insert with check (
+    bucket_id = 'lounge-images'
+    and auth.uid() is not null
+  );
+
+create policy "lounge_images: owner delete" on storage.objects
+  for delete using (
+    bucket_id = 'lounge-images'
+    and auth.uid()::text = (storage.foldername(name))[2]
+  );

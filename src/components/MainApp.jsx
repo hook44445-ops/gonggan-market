@@ -206,11 +206,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           const activeOwn = withExpiry.filter(r => r.isActive)
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           if (activeOwn.length > 1) {
-            activeOwn.slice(1).forEach(r => closeRequest(r.id));
+            activeOwn.slice(1).forEach(r => expireRequest(r.id));
             const keepId = activeOwn[0].id;
             setMyRequests(withExpiry.map(r =>
               r.isActive && r.id !== keepId
-                ? { ...r, status: "closed", isActive: false, isClosed: true }
+                ? { ...r, status: "expired", isActive: false, isClosed: true }
                 : r
             ));
           } else {
@@ -228,7 +228,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         }
       });
     }
-  }, []);
+  }, [activeRole, user?.id]);
 
   // Load company profile from Supabase for authenticated company users
   useEffect(() => {
@@ -635,14 +635,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             })()}
 
             {import.meta.env.DEV && (
-              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.85)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.8, fontFamily:"monospace" }}>
+              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.85)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.8, fontFamily:"monospace", maxHeight:220, overflowY:"auto" }}>
                 [DEV] consumer requests<br/>
-                activeRole: {activeRole}<br/>
-                user.id: {user?.id ?? "null"}<br/>
-                myRequests: {myRequests.length} (active: {myRequests.filter(r=>r.isActive).length})<br/>
-                fetch_error: {reqDebug?.consumerFetchError ?? "none"}<br/>
-                db_rows_returned: {reqDebug?.consumerRows ?? "?"}<br/>
-                submittedBids: {submittedBids.length}
+                activeRole: {activeRole} | user.id: {(user?.id ?? "null").slice(0,8)}<br/>
+                fetch_err: {reqDebug?.consumerFetchError ?? "none"} | db_rows: {reqDebug?.consumerRows ?? "?"}<br/>
+                local: {myRequests.length} (active:{myRequests.filter(r=>r.isActive).length}) | bids:{submittedBids.length}<br/>
+                {myRequests.map(r => (
+                  <span key={r.id} style={{display:"block"}}>
+                    [{r.status}] id:{r.id.slice(0,8)} uid:{String(r.user_id ?? "").slice(0,8)} {r.type} exp:{(r.expiresAt ?? "").slice(0,10)} act:{String(r.isActive)}
+                  </span>
+                ))}
               </div>
             )}
 
@@ -795,13 +797,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             ))}
 
             {import.meta.env.DEV && (
-              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.85)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.8, fontFamily:"monospace" }}>
+              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.85)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.8, fontFamily:"monospace", maxHeight:220, overflowY:"auto" }}>
                 [DEV] company requests<br/>
-                activeRole: {activeRole}<br/>
-                user.id: {user?.id ?? "null"}<br/>
-                customerRequests: {customerRequests.length} (active: {customerRequests.filter(r=>r.isActive).length})<br/>
-                fetch_error: {reqDebug?.companyFetchError ?? "none"}<br/>
-                db_rows_returned: {reqDebug?.companyRows ?? "?"}
+                activeRole: {activeRole} | user.id: {(user?.id ?? "null").slice(0,8)}<br/>
+                query: status=open, expires_at IS NULL OR {">"}now()<br/>
+                fetch_err: {reqDebug?.companyFetchError ?? "none"} | db_rows: {reqDebug?.companyRows ?? "?"}<br/>
+                total:{customerRequests.length} | active:{customerRequests.filter(r=>r.isActive).length}<br/>
+                ids: {customerRequests.filter(r=>r.isActive).map(r=>r.id.slice(0,8)).join(" | ") || "none"}
               </div>
             )}
           </div>
