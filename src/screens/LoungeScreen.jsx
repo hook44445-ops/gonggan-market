@@ -5,6 +5,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
 import { useLounge } from '../hooks/useLounge';
+import { supabase } from '../lib/supabase';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
 import LoungePostCard from '../components/lounge/LoungePostCard';
@@ -136,6 +137,17 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
   const [notifCount]                             = useState(2);
 
   const { posts, stories, loading, fetchError, reload } = useLounge(category);
+
+  const [dbDiag, setDbDiag] = useState(null);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    supabase
+      .from('lounge_posts')
+      .select('id, is_story, title, content, image_urls, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .then(({ data, error }) => setDbDiag({ rows: data ?? [], error: error?.message ?? null }));
+  }, []);
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
@@ -270,13 +282,34 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
       )}
 
       {import.meta.env.DEV && (
-        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace', pointerEvents: 'none' }}>
-          [DEV] lounge feed<br/>
-          user.id: {user?.id ?? 'null'}<br/>
-          db.posts: {posts.length} / extra: {extraPosts.length} / merged: {mergedPosts.length}<br/>
-          db.stories: {stories.length} / extra: {extraStories.length} / merged: {mergedStories.length}<br/>
-          fetch_error: {fetchError ?? 'none'}<br/>
-          category: {category}
+        <div style={{ margin: '12px 16px 90px', background: 'rgba(0,0,0,0.92)', color: '#0f0', borderRadius: 8, padding: '10px 12px', fontSize: 11, lineHeight: 2, fontFamily: 'monospace', maxHeight: 460, overflowY: 'auto' }}>
+          [DEV] lounge feed — {new Date().toLocaleTimeString('ko-KR')}<br/>
+          user: {user?.id?.slice(0, 8) ?? 'null'} | category: {category} | feed_err: {fetchError ?? 'none'}<br/>
+          posts: db={posts.length} extra={extraPosts.length} merged={mergedPosts.length}<br/>
+          stories: db={stories.length} extra={extraStories.length} merged={mergedStories.length}<br/>
+          <span style={{ color: '#ff0' }}>── DB actual (lounge_posts 최신 5개) ──</span><br/>
+          {dbDiag == null && <span>loading...</span>}
+          {dbDiag?.error && <span style={{ color: '#f66' }}>db_err: {dbDiag.error}</span>}
+          {(dbDiag?.rows ?? []).map((r, i) => {
+            const imgs = r.image_urls ?? [];
+            const isBlob    = imgs.some(u => u.startsWith('blob:'));
+            const isStorage = imgs.some(u => u.includes('/storage/'));
+            const tag = imgs.length === 0 ? '❌EMPTY' : isBlob ? '❌BLOB' : isStorage ? '✅OK' : '⚠️?';
+            return (
+              <span key={r.id} style={{ display: 'block' }}>
+                [{i}] {r.id.slice(0, 8)} story:{String(r.is_story)} imgs:{imgs.length} {tag}<br/>
+                <span style={{ paddingLeft: 16, color: imgs.length > 0 ? '#8f8' : '#f88' }}>
+                  {imgs.length > 0 ? imgs[0].slice(0, 72) : 'image_urls = []'}
+                </span>
+              </span>
+            );
+          })}
+          <span style={{ color: '#ff0' }}>── 피드 렌더 (merged) ──</span><br/>
+          {mergedPosts.slice(0, 3).map(p => (
+            <span key={p.id} style={{ display: 'block' }}>
+              post:{p.id.slice(0, 8)} imgs:{(p.image_urls ?? []).length}
+            </span>
+          ))}
         </div>
       )}
     </div>

@@ -199,7 +199,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
     if (activeRole === "consumer" && user.id) {
       getUserRequests(user.id).then(({ data, error }) => {
-        if (import.meta.env.DEV) setReqDebug(d => ({ ...d, consumerFetchError: error?.message ?? null, consumerRows: data?.length ?? 0 }));
+        if (import.meta.env.DEV) setReqDebug(d => ({ ...d, consumerFetchError: error?.message ?? null, consumerRows: data?.length ?? 0, consumerData: data ?? [] }));
         if (error) return;
         if (data) {
           const withExpiry = applyExpiry(data);
@@ -220,7 +220,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       });
     } else {
       getRequests().then(({ data, error }) => {
-        if (import.meta.env.DEV) setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: data?.length ?? 0 }));
+        if (import.meta.env.DEV) setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: data?.length ?? 0, companyData: data ?? [] }));
         if (error) return;
         if (data) {
           const withExpiry = applyExpiry(data);
@@ -635,14 +635,22 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             })()}
 
             {import.meta.env.DEV && (
-              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.85)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.8, fontFamily:"monospace", maxHeight:220, overflowY:"auto" }}>
+              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:320, overflowY:"auto" }}>
                 [DEV] consumer requests<br/>
                 activeRole: {activeRole} | user.id: {(user?.id ?? "null").slice(0,8)}<br/>
                 fetch_err: {reqDebug?.consumerFetchError ?? "none"} | db_rows: {reqDebug?.consumerRows ?? "?"}<br/>
                 local: {myRequests.length} (active:{myRequests.filter(r=>r.isActive).length}) | bids:{submittedBids.length}<br/>
+                <span style={{color:"#ff0"}}>── DB raw (getUserRequests) ──</span><br/>
+                {(reqDebug?.consumerData ?? []).map((r, i) => (
+                  <span key={r.id} style={{display:"block"}}>
+                    [{i}] id:{r.id.slice(0,8)} uid:{String(r.user_id ?? "").slice(0,8)} status:{r.status} type:{r.space_type} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
+                  </span>
+                ))}
+                {(reqDebug?.consumerData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0 — 요청 없음<br/></span>}
+                <span style={{color:"#ff0"}}>── normalized ──</span><br/>
                 {myRequests.map(r => (
                   <span key={r.id} style={{display:"block"}}>
-                    [{r.status}] id:{r.id.slice(0,8)} uid:{String(r.user_id ?? "").slice(0,8)} {r.type} exp:{(r.expiresAt ?? "").slice(0,10)} act:{String(r.isActive)}
+                    [{r.status}] {r.id.slice(0,8)} {r.type} exp:{(r.expiresAt ?? "").slice(0,10)} act:{String(r.isActive)}
                   </span>
                 ))}
               </div>
@@ -797,12 +805,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             ))}
 
             {import.meta.env.DEV && (
-              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.85)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.8, fontFamily:"monospace", maxHeight:220, overflowY:"auto" }}>
+              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:320, overflowY:"auto" }}>
                 [DEV] company requests<br/>
                 activeRole: {activeRole} | user.id: {(user?.id ?? "null").slice(0,8)}<br/>
                 query: status=open, expires_at IS NULL OR {">"}now()<br/>
                 fetch_err: {reqDebug?.companyFetchError ?? "none"} | db_rows: {reqDebug?.companyRows ?? "?"}<br/>
-                total:{customerRequests.length} | active:{customerRequests.filter(r=>r.isActive).length}<br/>
+                <span style={{color:"#ff0"}}>── DB raw (getRequests) ──</span><br/>
+                {(reqDebug?.companyData ?? []).map((r, i) => (
+                  <span key={r.id} style={{display:"block"}}>
+                    [{i}] id:{r.id.slice(0,8)} uid:{String(r.user_id ?? "").slice(0,8)} status:{r.status} type:{r.space_type} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
+                  </span>
+                ))}
+                {(reqDebug?.companyData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0 — open 요청 없음<br/></span>}
+                <span style={{color:"#ff0"}}>── displayed ──</span><br/>
+                active:{customerRequests.filter(r=>r.isActive).length}<br/>
                 ids: {customerRequests.filter(r=>r.isActive).map(r=>r.id.slice(0,8)).join(" | ") || "none"}
               </div>
             )}
