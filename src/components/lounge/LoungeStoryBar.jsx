@@ -66,14 +66,31 @@ function StoryViewer({ stories, startIndex, onClose }) {
         <div onClick={prev} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '35%', zIndex: 1 }} />
         <div onClick={next} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '35%', zIndex: 1 }} />
 
-        <div style={{ width: '100%', maxWidth: 360, background: `linear-gradient(145deg, ${avatar.color}22, ${avatar.color}44)`, borderRadius: 20, padding: 32, minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `2px solid ${avatar.color}66`, backdropFilter: 'blur(20px)' }}>
-          <div style={{ fontSize: 72, marginBottom: 20 }}>{avatar.emoji}</div>
-          <div style={{ fontSize: 16, color: '#fff', fontWeight: 700, textAlign: 'center', lineHeight: 1.6 }}>
-            {story.text || `${story.anonymous_nickname}의 스토리`}
-          </div>
-          {story.category && (
-            <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.18)', borderRadius: R.full, padding: '4px 14px', fontSize: 12, color: '#fff', fontWeight: 600 }}>
-              {story.category}
+        <div style={{ width: '100%', maxWidth: 360, background: `linear-gradient(145deg, ${avatar.color}22, ${avatar.color}44)`, borderRadius: 20, overflow: 'hidden', minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `2px solid ${avatar.color}66`, backdropFilter: 'blur(20px)' }}>
+          {story.image_urls?.length > 0 ? (
+            <>
+              <img
+                src={story.image_urls[0]}
+                alt=""
+                style={{ width: '100%', maxHeight: 340, objectFit: 'cover', display: 'block' }}
+              />
+              {(story.content || story.text) && (
+                <div style={{ padding: '16px 24px', fontSize: 15, color: '#fff', fontWeight: 600, textAlign: 'center', lineHeight: 1.6, background: 'rgba(0,0,0,0.35)', width: '100%', boxSizing: 'border-box' }}>
+                  {story.content || story.text}
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ padding: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ fontSize: 72, marginBottom: 20 }}>{avatar.emoji}</div>
+              <div style={{ fontSize: 16, color: '#fff', fontWeight: 700, textAlign: 'center', lineHeight: 1.6 }}>
+                {story.content || story.text || `${story.anonymous_nickname}의 스토리`}
+              </div>
+              {story.category && (
+                <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.18)', borderRadius: R.full, padding: '4px 14px', fontSize: 12, color: '#fff', fontWeight: 600 }}>
+                  {story.category}
+                </div>
+              )}
             </div>
           )}
         </div>

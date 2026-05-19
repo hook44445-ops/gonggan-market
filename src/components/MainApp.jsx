@@ -62,7 +62,9 @@ const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const normalizeRequest = (row) => {
   const createdAt  = row.created_at ? new Date(row.created_at) : new Date();
-  const expiresAt  = new Date(createdAt.getTime() + REQUEST_TTL_MS);
+  const expiresAt  = row.expires_at
+    ? new Date(row.expires_at)
+    : new Date(createdAt.getTime() + REQUEST_TTL_MS);
   const msLeft     = expiresAt.getTime() - Date.now();
   const daysLeft   = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
   const status     = row.status ?? "open";
@@ -178,6 +180,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     }
   };
 
+  const [reqDebug, setReqDebug] = useState(null);
+
   // Load requests on mount
   // Consumer: server-side filter by userId; Company/Admin: load all open requests for bidding
   useEffect(() => {
@@ -194,8 +198,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     };
 
     if (activeRole === "consumer" && user.id) {
-      // Consumers only see their own requests (server-side filter)
       getUserRequests(user.id).then(({ data, error }) => {
+        if (import.meta.env.DEV) setReqDebug(d => ({ ...d, consumerFetchError: error?.message ?? null, consumerRows: data?.length ?? 0 }));
         if (error) return;
         if (data) {
           const withExpiry = applyExpiry(data);
@@ -215,8 +219,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         }
       });
     } else {
-      // Company / Admin: fetch all open requests for the bidding list
       getRequests().then(({ data, error }) => {
+        if (import.meta.env.DEV) setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: data?.length ?? 0 }));
         if (error) return;
         if (data) {
           const withExpiry = applyExpiry(data);
@@ -630,6 +634,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               ) : null;
             })()}
 
+            {import.meta.env.DEV && (
+              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.85)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.8, fontFamily:"monospace" }}>
+                [DEV] consumer requests<br/>
+                activeRole: {activeRole}<br/>
+                user.id: {user?.id ?? "null"}<br/>
+                myRequests: {myRequests.length} (active: {myRequests.filter(r=>r.isActive).length})<br/>
+                fetch_error: {reqDebug?.consumerFetchError ?? "none"}<br/>
+                db_rows_returned: {reqDebug?.consumerRows ?? "?"}<br/>
+                submittedBids: {submittedBids.length}
+              </div>
+            )}
+
             {(() => {
               const totalJobs = companies.reduce((s, c) => s + (c.completedJobs ?? 0), 0);
               const avgTemp = companies.length > 0
@@ -768,7 +784,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             <LiveFeed />
 
             <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>📋 인근 시공 요청</div>
-            {customerRequests.filter(r => r.isActive !== false || r.status === undefined).map(r => (
+            {customerRequests.filter(r => r.isActive).map(r => (
               <BidCard
                 key={r.id}
                 r={r}
@@ -777,6 +793,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
               />
             ))}
+
+            {import.meta.env.DEV && (
+              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.85)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.8, fontFamily:"monospace" }}>
+                [DEV] company requests<br/>
+                activeRole: {activeRole}<br/>
+                user.id: {user?.id ?? "null"}<br/>
+                customerRequests: {customerRequests.length} (active: {customerRequests.filter(r=>r.isActive).length})<br/>
+                fetch_error: {reqDebug?.companyFetchError ?? "none"}<br/>
+                db_rows_returned: {reqDebug?.companyRows ?? "?"}
+              </div>
+            )}
           </div>
         )}
 
@@ -1360,14 +1387,15 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         // INSERT to Supabase
         if (user.id) {
           const { data, error } = await createRequest({
-            user_id: user.id,
-            area: user.region ?? "",
+            user_id:    user.id,
+            area:       user.region ?? "",
             space_type: form.type,
-            size: form.size,
-            style: form.style,
-            description: form.desc,
-            budget_min: 0,
-            budget_max: 0,
+            size:       form.size,
+            style:      form.style,
+            desc:       form.desc ?? "",
+            budget_min: form.budget_min ?? 0,
+            budget_max: form.budget_max ?? 0,
+            expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
           });
           if (error) {
             void error;

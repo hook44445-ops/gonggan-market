@@ -84,7 +84,12 @@ export const createRequest = (data) =>
   supabase.from("requests").insert(data).select().single();
 
 export const getRequests = () =>
-  supabase.from("requests").select("*").order("created_at", { ascending: false });
+  supabase
+    .from("requests")
+    .select("*")
+    .eq("status", "open")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
 
 export const getRequest = (id) =>
   supabase.from("requests").select("*").eq("id", id).single();
@@ -957,13 +962,16 @@ export const getLoungePosts = (category = "all", limit = 50) => {
   return q;
 };
 
-export const getLoungeStories = (limit = 20) =>
-  supabase
+export const getLoungeStories = (limit = 20) => {
+  const q = supabase
     .from("lounge_posts")
     .select("*")
     .eq("is_story", true)
     .order("created_at", { ascending: false })
     .limit(limit);
+  // story_expires_at filter applied client-side to avoid schema migration dependency
+  return q;
+};
 
 export const createLoungePost = (data) =>
   supabase.from("lounge_posts").insert(data).select().single();
@@ -1025,3 +1033,48 @@ export const getSpaceTokenLogs = (userId, limit = 50) =>
     .order("created_at", { ascending: false })
     .limit(limit);
 
+// ── STEP SYNC-4: Lounge Likes ─────────────────────────────────────────────────
+
+export const checkLoungePostLiked = (postId, userId) =>
+  supabase
+    .from("lounge_post_likes")
+    .select("id")
+    .eq("post_id", postId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+export const addLoungePostLike = (postId, userId) =>
+  supabase
+    .from("lounge_post_likes")
+    .upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
+
+// ── STEP SYNC-4: Lounge Saves ─────────────────────────────────────────────────
+
+export const checkLoungeSaved = (postId, userId) =>
+  supabase
+    .from("lounge_saves")
+    .select("id")
+    .eq("post_id", postId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+export const addLoungeSave = (postId, userId) =>
+  supabase
+    .from("lounge_saves")
+    .upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
+
+export const removeLoungeSave = (postId, userId) =>
+  supabase
+    .from("lounge_saves")
+    .delete()
+    .eq("post_id", postId)
+    .eq("user_id", userId);
+
+// ── STEP SYNC-4: Lounge Chat Requests ────────────────────────────────────────
+
+export const createLoungeChat = (data) =>
+  supabase
+    .from("lounge_chats")
+    .upsert(data, { onConflict: "post_id,requester_id", ignoreDuplicates: true })
+    .select()
+    .single();
