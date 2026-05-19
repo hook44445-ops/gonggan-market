@@ -5,20 +5,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
 import { useLounge } from '../hooks/useLounge';
-import { MOCK_LOUNGE_POSTS } from '../constants/lounge';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
 import LoungePostCard from '../components/lounge/LoungePostCard';
 
 // ── 검색 오버레이 ──────────────────────────────────────
-function SearchOverlay({ onClose, onPostClick }) {
+function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
   const [query, setQuery] = useState('');
   const inputRef = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const results = query.trim().length >= 1
-    ? MOCK_LOUNGE_POSTS.filter(p =>
+    ? allPosts.filter(p =>
         p.title?.includes(query) ||
         p.content?.includes(query) ||
         p.anonymous_nickname?.includes(query)
@@ -254,7 +253,11 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
 
       {/* 검색 오버레이 */}
       {searchOpen && (
-        <SearchOverlay onClose={() => setSearchOpen(false)} onPostClick={onPostClick} />
+        <SearchOverlay
+          onClose={() => setSearchOpen(false)}
+          onPostClick={onPostClick}
+          allPosts={[...extraPosts, ...posts].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)}
+        />
       )}
 
       {/* 알림 패널 */}

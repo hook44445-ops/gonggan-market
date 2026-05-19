@@ -1,18 +1,16 @@
-// ─────────────────────────────────────────────────────
-// 공간마켓 라운지 시스템
-// ─────────────────────────────────────────────────────
-
 import { useState, useRef } from 'react';
 import { C, R, S } from '../constants';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
+import { createLoungePost, uploadFile } from '../lib/supabase';
 
 const MAX_SIZE_MB = 5;
 
 export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
-  const [photos,     setPhotos]     = useState([]);   // blob URL[]
-  const [text,       setText]       = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [photos,      setPhotos]      = useState([]);   // { blob, url }[]
+  const [text,        setText]        = useState('');
+  const [submitting,  setSubmitting]  = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [devInfo,     setDevInfo]     = useState(null);
   const fileInputRef = useRef(null);
 
   const canSubmit = photos.length > 0 || text.trim().length > 0;
@@ -29,7 +27,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         setUploadError(`파일 크기는 ${MAX_SIZE_MB}MB 이하로 올려주세요`);
         continue;
       }
-      valid.push(URL.createObjectURL(f));
+      valid.push({ blob: f, url: URL.createObjectURL(f) });
     }
     setPhotos(prev => [...prev, ...valid].slice(0, 5));
     if (valid.length) setUploadError('');
@@ -38,37 +36,80 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
 
   const removePhoto = (idx) => {
     setPhotos(prev => {
-      URL.revokeObjectURL(prev[idx]);
+      URL.revokeObjectURL(prev[idx].url);
       return prev.filter((_, i) => i !== idx);
     });
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || submitting) return;
     setSubmitting(true);
+    setUploadError('');
 
-    const now      = new Date();
-    const storyId  = `story-${Date.now()}`;
-    const nickname = getAnonymousNickname(user?.id ?? 'guest', storyId);
+    try {
+      // Upload images to Supabase Storage
+      const imageUrls = [];
+      if (photos.length > 0 && user?.id) {
+        for (const photo of photos) {
+          try {
+            const ext  = photo.blob.type.split('/')[1] ?? 'jpg';
+            const path = `lounge/${user.id}/stories/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+            const url  = await uploadFile('lounge-images', path, photo.blob);
+            imageUrls.push(url);
+          } catch {
+            // skip failed uploads, use blob URL as fallback in dev
+            if (import.meta.env.DEV) imageUrls.push(photo.url);
+          }
+        }
+      }
 
-    const newStory = {
-      id:                 storyId,
-      user_id:            user?.id ?? null,
-      anonymous_nickname: nickname,
-      content:            text.trim(),
-      image_urls:         photos,
-      is_story:           true,
-      story_expires_at:   new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-      created_at:         now.toISOString(),
-      category:           'daily',
-      view_count:         0,
-      like_count:         0,
-      comment_count:      0,
-    };
+      const now       = new Date();
+      const tempId    = `story-${Date.now()}`;
+      const nickname  = getAnonymousNickname(user?.id ?? 'guest', tempId);
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-    await new Promise(r => setTimeout(r, 300));
-    setSubmitting(false);
-    onPublish?.(newStory);
+      const payload = {
+        user_id:            user?.id ?? null,
+        anonymous_nickname: nickname,
+        category:           'daily',
+        title:              null,
+        content:            text.trim(),
+        image_urls:         imageUrls,
+        is_story:           true,
+        story_expires_at:   expiresAt,
+        is_deleted:         false,
+        is_hidden:          false,
+        view_count:         0,
+        like_count:         0,
+        comment_count:      0,
+        has_badge:          !!(user?.badge && user.badge !== 'basic'),
+      };
+
+      const { data, error: insertError } = await createLoungePost(payload);
+
+      if (import.meta.env.DEV) {
+        setDevInfo({
+          user_id:          user?.id ?? 'null',
+          is_story:         true,
+          story_expires_at: expiresAt,
+          insertId:         data?.id ?? null,
+          insertError:      insertError?.message ?? null,
+          imageUrls_count:  imageUrls.length,
+        });
+      }
+
+      if (insertError) {
+        setUploadError(`저장 실패: ${insertError.message}`);
+        setSubmitting(false);
+        return;
+      }
+
+      onPublish?.(data ?? { ...payload, id: tempId, created_at: now.toISOString() });
+    } catch (e) {
+      setUploadError('업로드 중 오류가 발생했어요. 다시 시도해주세요.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -94,7 +135,6 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
       {/* 사진 영역 */}
       <div style={{ flex: 1, padding: `0 ${S.xl}px`, display: 'flex', flexDirection: 'column', gap: S.md }}>
 
-        {/* 사진 없을 때: 업로드 버튼 */}
         {photos.length === 0 ? (
           <div
             onClick={() => fileInputRef.current?.click()}
@@ -112,15 +152,9 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
             <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>탭하여 갤러리에서 선택 (최대 5장)</div>
           </div>
         ) : (
-          /* 사진 미리보기 그리드 */
           <div>
-            {/* 메인 사진 (첫 번째) */}
             <div style={{ position: 'relative', borderRadius: R.xl, overflow: 'hidden', marginBottom: 6 }}>
-              <img
-                src={photos[0]}
-                alt=""
-                style={{ width: '100%', maxHeight: 340, objectFit: 'cover', display: 'block' }}
-              />
+              <img src={photos[0].url} alt="" style={{ width: '100%', maxHeight: 340, objectFit: 'cover', display: 'block' }} />
               <button onClick={() => removePhoto(0)} style={{
                 position: 'absolute', top: 8, right: 8,
                 background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%',
@@ -128,13 +162,11 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>✕</button>
             </div>
-
-            {/* 추가 사진 썸네일 행 */}
             {photos.length > 1 && (
               <div style={{ display: 'flex', gap: 6 }}>
-                {photos.slice(1).map((url, i) => (
+                {photos.slice(1).map((photo, i) => (
                   <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
-                    <img src={url} alt="" style={{ width: 72, height: 72, borderRadius: R.md, objectFit: 'cover', display: 'block' }} />
+                    <img src={photo.url} alt="" style={{ width: 72, height: 72, borderRadius: R.md, objectFit: 'cover', display: 'block' }} />
                     <button onClick={() => removePhoto(i + 1)} style={{
                       position: 'absolute', top: 2, right: 2,
                       background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%',
@@ -143,41 +175,29 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
                     }}>✕</button>
                   </div>
                 ))}
-                {/* 사진 추가 버튼 (5장 미만일 때) */}
                 {photos.length < 5 && (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      width: 72, height: 72, borderRadius: R.md,
-                      border: '2px dashed rgba(255,255,255,0.3)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 24, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', flexShrink: 0,
-                    }}>
-                    +
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 사진 1장일 때 추가 버튼 */}
-            {photos.length === 1 && (
-              <div style={{ display: 'flex', gap: 6 }}>
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
+                  <div onClick={() => fileInputRef.current?.click()} style={{
                     width: 72, height: 72, borderRadius: R.md,
                     border: '2px dashed rgba(255,255,255,0.3)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 24, color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
-                  }}>
-                  +
-                </div>
+                    fontSize: 24, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', flexShrink: 0,
+                  }}>+</div>
+                )}
+              </div>
+            )}
+            {photos.length === 1 && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <div onClick={() => fileInputRef.current?.click()} style={{
+                  width: 72, height: 72, borderRadius: R.md,
+                  border: '2px dashed rgba(255,255,255,0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 24, color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
+                }}>+</div>
               </div>
             )}
           </div>
         )}
 
-        {/* 텍스트 입력 */}
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
@@ -192,14 +212,12 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
           }}
         />
 
-        {/* 업로드 오류 */}
         {uploadError && (
           <div style={{ background: 'rgba(229,62,62,0.15)', borderRadius: R.lg, padding: S.md, border: '1px solid rgba(229,62,62,0.3)' }}>
             <div style={{ fontSize: 12, color: '#ff6b6b', fontWeight: 700 }}>{uploadError}</div>
           </div>
         )}
 
-        {/* 안내 */}
         <div style={{ background: 'rgba(46,95,75,0.3)', borderRadius: R.lg, padding: S.md, border: `1px solid ${C.brandM}55` }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
             ⏰ 스토리는 <strong style={{ color: '#fff' }}>24시간</strong> 후 자동으로 사라집니다.<br />
@@ -208,17 +226,21 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         </div>
       </div>
 
-      {/* hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={handlePhotoSelect}
-        style={{ display: 'none' }}
-      />
+      <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoSelect} style={{ display: 'none' }} />
 
       <div style={{ height: 32 }} />
+
+      {import.meta.env.DEV && devInfo && (
+        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace' }}>
+          [DEV] story upload<br/>
+          user_id: {devInfo.user_id}<br/>
+          is_story: {String(devInfo.is_story)}<br/>
+          expires_at: {devInfo.story_expires_at}<br/>
+          insert_id: {devInfo.insertId ?? 'null'}<br/>
+          error: {devInfo.insertError ?? 'none'}<br/>
+          images: {devInfo.imageUrls_count}장
+        </div>
+      )}
     </div>
   );
 }

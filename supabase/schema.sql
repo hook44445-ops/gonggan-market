@@ -995,3 +995,14 @@ create policy "space_token_logs: own read" on public.space_token_logs
   for select using (auth.uid() = user_id);
 create policy "space_token_logs: own insert" on public.space_token_logs
   for insert with check (auth.uid() = user_id);
+
+-- ============================================================
+--  STEP SYNC-2a — lounge_posts: story expiry & soft-delete columns
+-- ============================================================
+alter table public.lounge_posts add column if not exists story_expires_at timestamptz;
+alter table public.lounge_posts add column if not exists is_deleted boolean not null default false;
+alter table public.lounge_posts add column if not exists is_hidden  boolean not null default false;
+
+create index if not exists lounge_posts_active_stories_idx
+  on public.lounge_posts (is_story, story_expires_at desc)
+  where is_story = true and is_deleted = false and is_hidden = false;

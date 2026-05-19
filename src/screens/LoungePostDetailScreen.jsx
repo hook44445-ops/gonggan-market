@@ -7,6 +7,7 @@ import { C, R, S } from '../constants';
 import { CATEGORY_LABEL } from '../constants/lounge';
 import { useLoungePost } from '../hooks/useLounge';
 import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname } from '../utils/anonymousNickname';
+import { createLoungeComment } from '../lib/supabase';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
@@ -41,26 +42,38 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     showToast('❤️ 좋아요를 눌렀어요');
   };
 
-  const handleComment = () => {
+  const handleComment = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
     if (!commentText.trim()) return;
 
     const nickname = getAnonymousNickname(user.id, postId);
-    const newComment = {
-      id:                 `c-${Date.now()}`,
+    const tempId   = `c-${Date.now()}`;
+    const optimistic = {
+      id:                 tempId,
       post_id:            postId,
       parent_id:          replyTo?.id ?? null,
       user_id:            user.id,
       anonymous_nickname: nickname,
       content:            commentText.trim(),
       image_urls:         [],
-      is_expert_reply:    user.role === 'company',
+      is_expert_reply:    false,
       like_count:         0,
       created_at:         new Date().toISOString(),
     };
-    addComment(newComment);
+    addComment(optimistic);
     setCommentText('');
     setReplyTo(null);
+
+    const { error: commentError } = await createLoungeComment({
+      post_id:            postId,
+      parent_id:          replyTo?.id ?? null,
+      user_id:            user.id,
+      anonymous_nickname: nickname,
+      content:            optimistic.content,
+      image_urls:         [],
+      is_expert_reply:    false,
+    });
+    if (commentError) showToast('댓글 저장에 실패했어요. 다시 시도해주세요.');
   };
 
   // 대화 신청: 신청 자체 무료, 수락 시 20토큰 차감

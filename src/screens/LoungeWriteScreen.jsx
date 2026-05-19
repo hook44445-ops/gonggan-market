@@ -26,6 +26,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
   const [images,     setImages]     = useState([]); // { url, name }[]
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState('');
+  const [devInfo,    setDevInfo]    = useState(null);
   const fileInputRef = useRef(null);
 
   const handleImageSelect = (e) => {
@@ -101,8 +102,17 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
 
       const { data, error: insertError } = await createLoungePost(payload);
 
+      if (import.meta.env.DEV) {
+        setDevInfo({
+          user_id:     user?.id ?? 'null',
+          insertId:    data?.id ?? null,
+          insertError: insertError?.message ?? null,
+          imageCount:  imageUrls.length,
+        });
+      }
+
       if (insertError) {
-        setError('등록에 실패했어요. 다시 시도해주세요.');
+        setError(`등록에 실패했어요: ${insertError.message}`);
         setSubmitting(false);
         return;
       }
@@ -211,6 +221,16 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
           </div>
         )}
       </div>
+
+      {import.meta.env.DEV && devInfo && (
+        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace' }}>
+          [DEV] lounge post write<br/>
+          user_id: {devInfo.user_id}<br/>
+          insert_id: {devInfo.insertId ?? 'null'}<br/>
+          error: {devInfo.insertError ?? 'none'}<br/>
+          images: {devInfo.imageCount}장
+        </div>
+      )}
     </div>
   );
 }

@@ -946,6 +946,8 @@ export const getLoungePosts = (category = "all", limit = 50) => {
     .from("lounge_posts")
     .select("*")
     .eq("is_story", false)
+    .eq("is_deleted", false)
+    .eq("is_hidden", false)
     .limit(limit);
   if (category === "popular") {
     q = q.order("view_count", { ascending: false })
@@ -962,6 +964,9 @@ export const getLoungeStories = (limit = 20) =>
     .from("lounge_posts")
     .select("*")
     .eq("is_story", true)
+    .eq("is_deleted", false)
+    .eq("is_hidden", false)
+    .gt("story_expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })
     .limit(limit);
 

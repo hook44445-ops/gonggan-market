@@ -69,7 +69,7 @@ function StoryViewer({ stories, startIndex, onClose }) {
         <div style={{ width: '100%', maxWidth: 360, background: `linear-gradient(145deg, ${avatar.color}22, ${avatar.color}44)`, borderRadius: 20, padding: 32, minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: `2px solid ${avatar.color}66`, backdropFilter: 'blur(20px)' }}>
           <div style={{ fontSize: 72, marginBottom: 20 }}>{avatar.emoji}</div>
           <div style={{ fontSize: 16, color: '#fff', fontWeight: 700, textAlign: 'center', lineHeight: 1.6 }}>
-            {story.text || `${story.anonymous_nickname}의 스토리`}
+            {story.content || story.text || `${story.anonymous_nickname}의 스토리`}
           </div>
           {story.category && (
             <div style={{ marginTop: 16, background: 'rgba(255,255,255,0.18)', borderRadius: R.full, padding: '4px 14px', fontSize: 12, color: '#fff', fontWeight: 600 }}>
