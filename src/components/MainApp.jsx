@@ -29,6 +29,7 @@ import {
   getUserRequests,
   createRequest,
   closeRequest,
+  updateRequest,
   repostRequest,
   createRequestRepost,
   expireRequest,
@@ -177,6 +178,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       if (!error && user.id) {
         await createRequestRepost({ request_id: requestId, user_id: user.id });
       }
+    }
+  };
+
+  const [editRequest, setEditRequest] = useState(null);
+  const handleUpdateRequest = async (form, requestId) => {
+    const markUpdated = r => r.id === requestId
+      ? { ...r, type: form.type, size: form.size, style: form.style, desc: form.desc }
+      : r;
+    setMyRequests(prev => prev.map(markUpdated));
+    setCustomerRequests(prev => prev.map(markUpdated));
+    setEditRequest(null);
+    showToast("✅ 견적 요청이 수정됐어요");
+    if (!requestId.startsWith("tmp-")) {
+      await updateRequest(requestId, {
+        space_type: form.type,
+        size:       form.size,
+        style:      form.style,
+        desc:       form.desc ?? "",
+      });
     }
   };
 
@@ -565,12 +585,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                 </div>
                               )}
 
-                              <div style={{ display:"flex", gap:S.sm }}>
+                              <div style={{ display:"flex", gap:S.sm, flexWrap:"wrap" }}>
                                 <button onClick={() => setScreen("timeline")}
-                                  style={{ flex:1, padding:"10px", background:C.surface2,
+                                  style={{ flex:1, minWidth:"calc(50% - 4px)", padding:"10px", background:C.surface2,
                                     color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
                                     fontWeight:700, fontSize:13, cursor:"pointer" }}>
                                   📊 진행 현황
+                                </button>
+                                <button onClick={() => setEditRequest(r)}
+                                  style={{ flex:1, minWidth:"calc(50% - 4px)", padding:"10px", background:C.brandL,
+                                    color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg,
+                                    fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                  ✏️ 수정
                                 </button>
                                 {hasBids ? (
                                   <button onClick={() => reqBids[0]?.company && go("chat", reqBids[0].company)}
@@ -1419,6 +1445,15 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             </div>
           </div>
         </div>
+      )}
+
+      {editRequest && (
+        <RequestModal
+          isEdit
+          initialData={editRequest}
+          onClose={() => setEditRequest(null)}
+          onDone={(form) => handleUpdateRequest(form, editRequest.id)}
+        />
       )}
 
       {showReq && <RequestModal onClose={() => setShowReq(false)} onDone={async (form) => {

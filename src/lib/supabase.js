@@ -100,6 +100,9 @@ export const getUserRequests = (userId) =>
 export const closeRequest = (id) =>
   supabase.from("requests").update({ status: "closed" }).eq("id", id);
 
+export const updateRequest = (id, data) =>
+  supabase.from("requests").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+
 // ── Bids ──────────────────────────────────────────────────────────────────────
 
 export const createBid = (data) =>
