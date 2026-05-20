@@ -13,7 +13,7 @@ export async function saveDocumentDraft(payload) {
         status: "draft",
         updated_at: new Date().toISOString()
       },
-      { onConflict: "company_id,user_id,document_type" }
+      { onConflict: "company_id,document_type" }
     )
     .select()
     .single();
@@ -32,7 +32,7 @@ export async function submitDocument(payload) {
         review_status: "pending",
         updated_at: new Date().toISOString()
       },
-      { onConflict: "company_id,user_id,document_type" }
+      { onConflict: "company_id,document_type" }
     )
     .select()
     .single();

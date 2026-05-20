@@ -23,13 +23,16 @@ import RequestModal from "./RequestModal";
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
 import { useSpaceToken } from "../hooks/useSpaceToken";
 import { useSpaceTemperature } from "../hooks/useSpaceTemperature";
-import { MOCK_LOUNGE_POSTS } from "../constants/lounge";
 import {
   supabase,
   getRequests,
   getUserRequests,
   createRequest,
   closeRequest,
+  repostRequest,
+  createRequestRepost,
+  expireRequest,
+  getLoungePosts,
   createBid,
   getBidsForRequest,
   getCompanyByOwnerId,
@@ -59,13 +62,16 @@ const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const normalizeRequest = (row) => {
   const createdAt  = row.created_at ? new Date(row.created_at) : new Date();
-  const expiresAt  = new Date(createdAt.getTime() + REQUEST_TTL_MS);
+  const expiresAt  = row.expires_at
+    ? new Date(row.expires_at)
+    : new Date(createdAt.getTime() + REQUEST_TTL_MS);
   const msLeft     = expiresAt.getTime() - Date.now();
   const daysLeft   = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
   const status     = row.status ?? "open";
   const isExpiredByTime = daysLeft <= 0;
   const isActive   = status === "open" && !isExpiredByTime;
   const isClosed   = status === "closed" || status === "cancelled" ||
+                     status === "expired" ||
                      (status === "open" && isExpiredByTime);
   return {
     id: row.id,
@@ -152,9 +158,30 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       : r;
     setMyRequests(prev => prev.map(markClosed));
     setCustomerRequests(prev => prev.map(markClosed));
-    const { error } = await closeRequest(requestId);
-    if (error) return;
+    await closeRequest(requestId);
   };
+
+  const handleRepost = async (requestId) => {
+    const newExpiry    = new Date(Date.now() + REQUEST_TTL_MS);
+    const markReposted = r => r.id === requestId
+      ? { ...r, status: "open", isActive: true, isClosed: false,
+          isExpiredByTime: false, daysLeft: 7,
+          expiresAt: newExpiry.toISOString() }
+      : r;
+    setMyRequests(prev => prev.map(markReposted));
+    setCustomerRequests(prev => prev.map(markReposted));
+    showToast("✅ 견적 요청이 재노출되었습니다");
+
+    if (!requestId.startsWith("tmp-")) {
+      const { error } = await repostRequest(requestId);
+      if (!error && user.id) {
+        await createRequestRepost({ request_id: requestId, user_id: user.id });
+      }
+    }
+  };
+
+  const [reqDebug, setReqDebug] = useState(null);
+  const [reqCreateDebug, setReqCreateDebug] = useState(null);
 
   // Load requests on mount
   // Consumer: server-side filter by userId; Company/Admin: load all open requests for bidding
@@ -163,28 +190,28 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       const normalized = rows.map(normalizeRequest);
       normalized
         .filter(r => r.status === "open" && r.isExpiredByTime)
-        .forEach(r => closeRequest(r.id));
+        .forEach(r => expireRequest(r.id));
       return normalized.map(r =>
         r.status === "open" && r.isExpiredByTime
-          ? { ...r, status: "closed", isActive: false, isClosed: true }
+          ? { ...r, status: "expired", isActive: false, isClosed: true }
           : r
       );
     };
 
     if (activeRole === "consumer" && user.id) {
-      // Consumers only see their own requests (server-side filter)
       getUserRequests(user.id).then(({ data, error }) => {
+        if (import.meta.env.DEV) setReqDebug(d => ({ ...d, consumerFetchError: error?.message ?? null, consumerRows: data?.length ?? 0, consumerData: data ?? [] }));
         if (error) return;
         if (data) {
           const withExpiry = applyExpiry(data);
           const activeOwn = withExpiry.filter(r => r.isActive)
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           if (activeOwn.length > 1) {
-            activeOwn.slice(1).forEach(r => closeRequest(r.id));
+            activeOwn.slice(1).forEach(r => expireRequest(r.id));
             const keepId = activeOwn[0].id;
             setMyRequests(withExpiry.map(r =>
               r.isActive && r.id !== keepId
-                ? { ...r, status: "closed", isActive: false, isClosed: true }
+                ? { ...r, status: "expired", isActive: false, isClosed: true }
                 : r
             ));
           } else {
@@ -193,8 +220,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         }
       });
     } else {
-      // Company / Admin: fetch all open requests for the bidding list
       getRequests().then(({ data, error }) => {
+        if (import.meta.env.DEV) setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: data?.length ?? 0, companyData: data ?? [] }));
         if (error) return;
         if (data) {
           const withExpiry = applyExpiry(data);
@@ -202,7 +229,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         }
       });
     }
-  }, []);
+  }, [activeRole, user?.id]);
 
   // Load company profile from Supabase for authenticated company users
   useEffect(() => {
@@ -211,6 +238,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       if (data) setCurrentUser(normalizeCompany(data));
     });
   }, [user?.id, activeRole]);
+
+  // Load recent lounge posts for home preview (consumer home section)
+  useEffect(() => {
+    getLoungePosts("all", 3).then(({ data }) => {
+      if (data && data.length > 0) setLocalLoungePosts(data);
+    }).catch(() => {});
+  }, []);
 
   // Load bids + subscribe to realtime when viewing a request's bid status
   useEffect(() => {
@@ -538,12 +572,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                     fontWeight:700, fontSize:13, cursor:"pointer" }}>
                                   📊 진행 현황
                                 </button>
-                                {hasBids && (
+                                {hasBids ? (
                                   <button onClick={() => reqBids[0]?.company && go("chat", reqBids[0].company)}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
                                       fontWeight:700, fontSize:13, cursor:"pointer" }}>
                                     💬 업체 채팅
+                                  </button>
+                                ) : (
+                                  <button onClick={() => handleRepost(r.id)}
+                                    style={{ flex:1, padding:"10px", background:C.brandL,
+                                      color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg,
+                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                    🔄 재노출
                                   </button>
                                 )}
                                 <button onClick={() => setShowCloseConfirm(r.id)}
@@ -568,15 +609,23 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                       </div>
                       {historyReqs.map(r => (
                         <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
-                          marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, overflow:"hidden", opacity:0.65 }}>
+                          marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, overflow:"hidden" }}>
                           <div style={{ padding:`${S.lg}px ${S.xl}px`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                            <div>
+                            <div style={{ opacity:0.65 }}>
                               <div style={{ fontSize:14, fontWeight:700, color:C.text2 }}>{r.type} · {r.size}</div>
                               <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>📍 {r.area} · {r.time}</div>
                             </div>
-                            <span style={{ background:C.bg, color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700, flexShrink:0 }}>
-                              {r.isExpiredByTime ? "기간만료" : "마감됨"}
-                            </span>
+                            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:5, flexShrink:0 }}>
+                              <span style={{ background:C.bg, color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>
+                                {r.status === "expired" || r.isExpiredByTime ? "기간만료" : "마감됨"}
+                              </span>
+                              {(r.status === "expired" || r.isExpiredByTime) && (
+                                <button onClick={() => handleRepost(r.id)}
+                                  style={{ background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.full, padding:"4px 12px", fontSize:11, fontWeight:800, cursor:"pointer" }}>
+                                  🔄 다시 올리기
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -585,6 +634,38 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               ) : null;
             })()}
+
+            {import.meta.env.DEV && (
+              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:320, overflowY:"auto" }}>
+                [DEV] consumer requests<br/>
+                activeRole: {activeRole} | user.id: {(user?.id ?? "null").slice(0,8)}<br/>
+                fetch_err: {reqDebug?.consumerFetchError ?? "none"} | db_rows: {reqDebug?.consumerRows ?? "?"}<br/>
+                local: {myRequests.length} (active:{myRequests.filter(r=>r.isActive).length}) | bids:{submittedBids.length}<br/>
+                <span style={{color:"#ff0"}}>── DB raw (getUserRequests) ──</span><br/>
+                {(reqDebug?.consumerData ?? []).map((r, i) => (
+                  <span key={r.id} style={{display:"block"}}>
+                    [{i}] id:{r.id.slice(0,8)} uid:{String(r.user_id ?? "").slice(0,8)} status:{r.status} type:{r.space_type} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
+                  </span>
+                ))}
+                {(reqDebug?.consumerData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0 — 요청 없음<br/></span>}
+                <span style={{color:"#ff0"}}>── normalized ──</span><br/>
+                {myRequests.map(r => (
+                  <span key={r.id} style={{display:"block"}}>
+                    [{r.status}] {r.id.slice(0,8)} {r.type} exp:{(r.expiresAt ?? "").slice(0,10)} act:{String(r.isActive)}
+                  </span>
+                ))}
+                {reqCreateDebug && (
+                  <>
+                    <span style={{color:"#ff0"}}>── 최근 생성 요청 (DB 응답) ──</span><br/>
+                    id: {reqCreateDebug.id?.slice(0,8) ?? "null"}<br/>
+                    status: {reqCreateDebug.status ?? "null"}<br/>
+                    expires_at: {reqCreateDebug.expires_at?.slice(0,10) ?? "null"}<br/>
+                    space_type: {reqCreateDebug.space_type ?? "null"}<br/>
+                    {reqCreateDebug.insertError && <span style={{color:"#f66"}}>insert_err: {reqCreateDebug.insertError}<br/></span>}
+                  </>
+                )}
+              </div>
+            )}
 
             {(() => {
               const totalJobs = companies.reduce((s, c) => s + (c.completedJobs ?? 0), 0);
@@ -613,19 +694,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             {/* 라운지 섹션 — 둘러보기 하단 */}
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.xl, border:`1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.lg }}>라운지</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.lg }}>
-                {MOCK_LOUNGE_POSTS.slice(0,3).map(post => (
-                  <div key={post.id} onClick={() => { setLoungePost(post); go("lounge-detail"); }}
-                    style={{ background:C.bg, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
-                    <div style={{ flex:1, minWidth:0, marginRight:S.md }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
-                        {post.title ?? post.content.slice(0,30)}
+              {localLoungePosts.slice(0,3).length > 0 ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.lg }}>
+                  {localLoungePosts.slice(0,3).map(post => (
+                    <div key={post.id} onClick={() => { setLoungePost(post); go("lounge-detail"); }}
+                      style={{ background:C.bg, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
+                      <div style={{ flex:1, minWidth:0, marginRight:S.md }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                          {post.title ?? post.content?.slice(0,30)}
+                        </div>
                       </div>
+                      <div style={{ fontSize:12, color:C.text3, flexShrink:0 }}>❤️ {post.like_count ?? 0}</div>
                     </div>
-                    <div style={{ fontSize:12, color:C.text3, flexShrink:0 }}>❤️ {post.like_count}</div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign:"center", padding:`${S.lg}px 0`, marginBottom:S.lg }}>
+                  <div style={{ fontSize:13, color:C.text3 }}>공간 이야기를 나눠보세요</div>
+                </div>
+              )}
               <button onClick={() => setScreen("lounge")}
                 style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand}44` }}>
                 라운지 들어가기 →
@@ -717,16 +804,65 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
             <LiveFeed />
 
-            <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>📋 인근 시공 요청</div>
-            {customerRequests.filter(r => r.isActive !== false || r.status === undefined).map(r => (
-              <BidCard
-                key={r.id}
-                r={r}
-                currentUser={currentUser}
-                onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
-                onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
-              />
-            ))}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
+              <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>
+                📋 새 견적 요청
+                {customerRequests.filter(r => r.isActive).length > 0 && (
+                  <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
+                    {customerRequests.filter(r => r.isActive).length}건
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize:11, color:C.text4 }}>전체 · 지역 필터 없음</div>
+            </div>
+
+            {customerRequests.filter(r => r.isActive).length === 0 ? (
+              <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
+                <div style={{ fontSize:32, marginBottom:12 }}>📭</div>
+                <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:6 }}>활성 견적 요청이 없습니다</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.6 }}>
+                  의뢰인이 요청을 등록하면 이곳에 표시됩니다<br/>
+                  {import.meta.env.DEV && `(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}
+                </div>
+              </div>
+            ) : (
+              customerRequests.filter(r => r.isActive).map(r => (
+                <BidCard
+                  key={r.id}
+                  r={r}
+                  currentUser={currentUser}
+                  onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
+                  onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
+                />
+              ))
+            )}
+
+            {import.meta.env.DEV && (
+              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:360, overflowY:"auto" }}>
+                [DEV] company requests<br/>
+                activeRole: {activeRole}<br/>
+                user.id: {(user?.id ?? "null").slice(0,8)} | currentUser.id: {currentUser?.id?.slice(0,8) ?? "null (프로필 없음)"}<br/>
+                query: status=open AND (expires_at IS NULL OR expires_at {">"} now())<br/>
+                fetch_err: {reqDebug?.companyFetchError ?? "none"} | db_rows: {reqDebug?.companyRows ?? "?"}<br/>
+                <span style={{color:"#ff0"}}>── DB raw (getRequests) ──</span><br/>
+                {(reqDebug?.companyData ?? []).map((r, i) => (
+                  <span key={r.id} style={{display:"block"}}>
+                    [{i}] id:{r.id.slice(0,8)} uid:{String(r.user_id ?? "").slice(0,8)} status:{r.status} type:{r.space_type} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
+                  </span>
+                ))}
+                {(reqDebug?.companyData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0 — open 요청 없음<br/></span>}
+                {reqDebug?.companyData?.[0] && (
+                  <>
+                    <span style={{color:"#ff0"}}>── first row detail ──</span><br/>
+                    status: {reqDebug.companyData[0].status}<br/>
+                    expires_at: {reqDebug.companyData[0].expires_at?.slice(0,19) ?? "NULL"}<br/>
+                  </>
+                )}
+                <span style={{color:"#ff0"}}>── displayed ──</span><br/>
+                active:{customerRequests.filter(r=>r.isActive).length}<br/>
+                ids: {customerRequests.filter(r=>r.isActive).map(r=>r.id.slice(0,8)).join(" | ") || "none"}
+              </div>
+            )}
           </div>
         )}
 
@@ -749,7 +885,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} />}
-        {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} mode={mode} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} />}
+        {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
@@ -1310,15 +1446,27 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         // INSERT to Supabase
         if (user.id) {
           const { data, error } = await createRequest({
-            user_id: user.id,
-            area: user.region ?? "",
+            user_id:    user.id,
+            status:     'open',
+            area:       user.region ?? "",
             space_type: form.type,
-            size: form.size,
-            style: form.style,
-            description: form.desc,
-            budget_min: 0,
-            budget_max: 0,
+            size:       form.size,
+            style:      form.style,
+            desc:       form.desc ?? "",
+            budget_min: form.budget_min ?? 0,
+            budget_max: form.budget_max ?? 0,
+            expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
           });
+          if (import.meta.env.DEV) {
+            setReqCreateDebug({
+              id:         data?.id ?? null,
+              status:     data?.status ?? null,
+              expires_at: data?.expires_at ?? null,
+              space_type: data?.space_type ?? null,
+              user_id:    data?.user_id ?? null,
+              insertError: error?.message ?? null,
+            });
+          }
           if (error) {
             void error;
           } else if (data) {

@@ -301,7 +301,7 @@ create table if not exists public.admin_logs (
   id          uuid primary key default gen_random_uuid(),
   admin_id    uuid references public.users(id),
   action      text not null,
-  target_type text not null check (target_type in ('company','customer','dispute','settlement')),
+  target_type text not null check (target_type in ('company','customer','user','dispute','settlement','lounge','report')),
   target_id   uuid,
   before_val  jsonb,
   after_val   jsonb,
@@ -786,20 +786,47 @@ create policy "customer_reports: admin read" on public.customer_reports
 create policy "customer_reports: authenticated insert" on public.customer_reports
   for insert with check (auth.uid() = reporter_id);
 
--- ── Migration: extend admin_logs target_type to include payment ───────────────
-alter table public.admin_logs drop constraint if exists admin_logs_target_type_check;
-alter table public.admin_logs add constraint admin_logs_target_type_check
-  check (target_type in ('company','customer','user','dispute','settlement','payment','lounge','report'));
+-- ============================================================
+--  Admin Dashboard 실운영화 — 사용자/라운지/신고 구조 추가
+-- ============================================================
 
--- ── Migration: payment_orders admin management columns ───────────────────────
-alter table public.payment_orders add column if not exists admin_note text;
+-- User account_status + space economy columns
+alter table public.users add column if not exists account_status text not null default 'NORMAL'
+  check (account_status in ('NORMAL','TEMP_RESTRICTED','SUSPENDED','BLACKLISTED'));
+alter table public.users add column if not exists space_temp    numeric(4,1) not null default 36.5;
+alter table public.users add column if not exists space_tokens  integer      not null default 0;
 
--- ── Migration: admin RLS on payment_orders / payment_transactions ─────────────
-create policy if not exists "payment_orders: admin read all" on public.payment_orders
+-- ── lounge_posts ──────────────────────────────────────────────────────────────
+create table if not exists public.lounge_posts (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid references public.users(id) on delete set null,
+  anonymous_nickname text not null,
+  category           text not null default 'daily',
+  title              text,
+  content            text not null,
+  view_count         integer not null default 0,
+  like_count         integer not null default 0,
+  comment_count      integer not null default 0,
+  is_hidden          boolean not null default false,
+  hidden_reason      text,
+  region             text,
+  gender             text,
+  age_group          text,
+  has_badge          boolean not null default false,
+  is_story           boolean not null default false,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+alter table public.lounge_posts enable row level security;
+create policy "lounge_posts: public read" on public.lounge_posts
   for select using (
-    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+    is_hidden = false
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
   );
-create policy if not exists "payment_orders: admin update" on public.payment_orders
+create policy "lounge_posts: owner insert" on public.lounge_posts
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_posts: admin update" on public.lounge_posts
   for update using (
     exists (select 1 from public.users where id = auth.uid() and role = 'admin')
   );
@@ -811,6 +838,91 @@ create policy if not exists "payment_transactions: admin read" on public.payment
 create policy if not exists "payment_transactions: owner insert" on public.payment_transactions
   for insert with check (
     exists (select 1 from public.payment_orders po where po.id = payment_order_id and auth.uid() = po.user_id)
+  );
+
+-- ── Migration: payment_orders admin management columns ───────────────────────
+alter table public.payment_orders add column if not exists admin_note text;
+
+-- ── Migration: admin RLS on payment_orders ───────────────────────────────────
+create policy if not exists "payment_orders: admin read all" on public.payment_orders
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy if not exists "payment_orders: admin update" on public.payment_orders
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- ── lounge_comments ───────────────────────────────────────────────────────────
+create table if not exists public.lounge_comments (
+  id                 uuid primary key default gen_random_uuid(),
+  post_id            uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id            uuid references public.users(id) on delete set null,
+  parent_id          uuid references public.lounge_comments(id) on delete cascade,
+  anonymous_nickname text not null,
+  content            text not null,
+  like_count         integer not null default 0,
+  is_expert_reply    boolean not null default false,
+  is_hidden          boolean not null default false,
+  hidden_reason      text,
+  created_at         timestamptz not null default now()
+);
+
+alter table public.lounge_comments enable row level security;
+create policy "lounge_comments: public read" on public.lounge_comments
+  for select using (
+    is_hidden = false
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy "lounge_comments: owner insert" on public.lounge_comments
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_comments: admin update" on public.lounge_comments
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- ── lounge_reports ────────────────────────────────────────────────────────────
+create table if not exists public.lounge_reports (
+  id           uuid primary key default gen_random_uuid(),
+  reporter_id  uuid references public.users(id) on delete set null,
+  target_type  text not null check (target_type in ('post','comment','story','user')),
+  target_id    uuid not null,
+  reason       text not null,
+  description  text,
+  status       text not null default 'pending'
+    check (status in ('pending','reviewing','resolved','dismissed')),
+  admin_note   text,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.lounge_reports enable row level security;
+create policy "lounge_reports: admin read" on public.lounge_reports
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy "lounge_reports: authenticated insert" on public.lounge_reports
+  for insert with check (auth.uid() = reporter_id);
+create policy "lounge_reports: admin update" on public.lounge_reports
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- escrow_payouts: allow admin to update (for settlement management)
+create policy "escrow_payouts: admin update" on public.escrow_payouts
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- escrow_payments: allow admin to update dispute_status
+create policy "escrow_payments: admin update" on public.escrow_payments
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- users: allow admin to update account_status / space fields
+create policy "users: admin update" on public.users
+  for update using (
+    exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
   );
 
 -- ============================================================
@@ -849,7 +961,293 @@ CREATE POLICY "company_documents: admin all" ON public.company_documents
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
   );
 
--- ── extend admin_logs target_type for document reviews ───────────────────────
+-- ── extend admin_logs target_type for all domains ────────────────────────────
 ALTER TABLE public.admin_logs DROP CONSTRAINT IF EXISTS admin_logs_target_type_check;
 ALTER TABLE public.admin_logs ADD CONSTRAINT admin_logs_target_type_check
   CHECK (target_type IN ('company','customer','user','dispute','settlement','payment','lounge','report','document'));
+
+-- ============================================================
+--  STEP SYNC-1 — Request TTL & Repost
+-- ============================================================
+
+alter table public.requests add column if not exists expires_at     timestamptz;
+alter table public.requests add column if not exists reposted_at    timestamptz;
+alter table public.requests add column if not exists exposure_count integer not null default 0;
+
+alter table public.requests drop constraint if exists requests_status_check;
+alter table public.requests add constraint requests_status_check
+  check (status in ('open','in_progress','completed','cancelled','closed','expired'));
+
+create table if not exists public.request_reposts (
+  id             uuid primary key default gen_random_uuid(),
+  request_id     uuid not null references public.requests(id) on delete cascade,
+  user_id        uuid references public.users(id) on delete set null,
+  reposted_at    timestamptz not null default now(),
+  exposure_count integer not null default 1
+);
+
+alter table public.request_reposts enable row level security;
+create policy "request_reposts: owner read" on public.request_reposts
+  for select using (auth.uid() = user_id);
+create policy "request_reposts: owner insert" on public.request_reposts
+  for insert with check (auth.uid() = user_id);
+
+-- ============================================================
+--  STEP SYNC-2 — Lounge Posts & Comments
+-- ============================================================
+
+create table if not exists public.lounge_posts (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid references public.users(id) on delete set null,
+  anonymous_nickname text not null,
+  category           text not null,
+  title              text,
+  content            text not null,
+  image_urls         text[] not null default '{}',
+  gender             text,
+  age_group          text,
+  region             text,
+  is_story           boolean not null default false,
+  view_count         integer not null default 0,
+  like_count         integer not null default 0,
+  comment_count      integer not null default 0,
+  has_badge          boolean not null default false,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+create index if not exists lounge_posts_category_idx on public.lounge_posts (category, created_at desc);
+create index if not exists lounge_posts_created_idx  on public.lounge_posts (created_at desc);
+create index if not exists lounge_posts_story_idx    on public.lounge_posts (is_story, created_at desc);
+create index if not exists lounge_posts_popular_idx  on public.lounge_posts (view_count desc, like_count desc);
+
+create or replace trigger lounge_posts_updated_at
+  before update on public.lounge_posts
+  for each row execute procedure public.set_updated_at();
+
+alter table public.lounge_posts enable row level security;
+create policy "lounge_posts: public read" on public.lounge_posts
+  for select using (true);
+create policy "lounge_posts: authenticated insert" on public.lounge_posts
+  for insert with check (auth.uid() = user_id or user_id is null);
+create policy "lounge_posts: own update" on public.lounge_posts
+  for update using (auth.uid() = user_id);
+
+create table if not exists public.lounge_comments (
+  id                 uuid primary key default gen_random_uuid(),
+  post_id            uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id            uuid references public.users(id) on delete set null,
+  parent_id          uuid references public.lounge_comments(id) on delete cascade,
+  anonymous_nickname text not null,
+  content            text not null,
+  like_count         integer not null default 0,
+  is_expert_reply    boolean not null default false,
+  is_deleted         boolean not null default false,
+  created_at         timestamptz not null default now()
+);
+
+create index if not exists lounge_comments_post_idx on public.lounge_comments (post_id, created_at asc);
+
+alter table public.lounge_comments enable row level security;
+create policy "lounge_comments: public read" on public.lounge_comments
+  for select using (is_deleted = false);
+create policy "lounge_comments: authenticated insert" on public.lounge_comments
+  for insert with check (auth.uid() = user_id or user_id is null);
+
+create table if not exists public.lounge_post_likes (
+  id         uuid primary key default gen_random_uuid(),
+  post_id    uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id    uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (post_id, user_id)
+);
+
+alter table public.lounge_post_likes enable row level security;
+create policy "lounge_post_likes: public read" on public.lounge_post_likes
+  for select using (true);
+create policy "lounge_post_likes: own write" on public.lounge_post_likes
+  for all using (auth.uid() = user_id);
+
+-- ============================================================
+--  STEP SYNC-3 — Space Tokens
+-- ============================================================
+
+create table if not exists public.space_tokens (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null unique references public.users(id) on delete cascade,
+  balance    integer not null default 20,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create or replace trigger space_tokens_updated_at
+  before update on public.space_tokens
+  for each row execute procedure public.set_updated_at();
+
+alter table public.space_tokens enable row level security;
+create policy "space_tokens: own read" on public.space_tokens
+  for select using (auth.uid() = user_id);
+create policy "space_tokens: own write" on public.space_tokens
+  for all using (auth.uid() = user_id);
+
+create table if not exists public.space_token_logs (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.users(id) on delete cascade,
+  type        text not null check (type in ('earn','spend')),
+  action      text not null,
+  amount      integer not null,
+  description text,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists space_token_logs_user_idx on public.space_token_logs (user_id, created_at desc);
+
+alter table public.space_token_logs enable row level security;
+create policy "space_token_logs: own read" on public.space_token_logs
+  for select using (auth.uid() = user_id);
+create policy "space_token_logs: own insert" on public.space_token_logs
+  for insert with check (auth.uid() = user_id);
+
+-- ============================================================
+--  STEP SYNC-2a — lounge_posts: story expiry & soft-delete columns
+-- ============================================================
+alter table public.lounge_posts add column if not exists story_expires_at timestamptz;
+alter table public.lounge_posts add column if not exists is_deleted boolean not null default false;
+alter table public.lounge_posts add column if not exists is_hidden  boolean not null default false;
+
+create index if not exists lounge_posts_active_stories_idx
+  on public.lounge_posts (is_story, story_expires_at desc)
+  where is_story = true and is_deleted = false and is_hidden = false;
+
+-- ============================================================
+--  STEP SYNC-4 — Lounge Saves & Chat Requests
+-- ============================================================
+
+create table if not exists public.lounge_saves (
+  id         uuid primary key default gen_random_uuid(),
+  post_id    uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id    uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (post_id, user_id)
+);
+
+alter table public.lounge_saves enable row level security;
+create policy "lounge_saves: own read" on public.lounge_saves
+  for select using (auth.uid() = user_id);
+create policy "lounge_saves: own write" on public.lounge_saves
+  for all using (auth.uid() = user_id);
+
+create table if not exists public.lounge_chats (
+  id            uuid primary key default gen_random_uuid(),
+  post_id       uuid not null references public.lounge_posts(id) on delete cascade,
+  requester_id  uuid references public.users(id) on delete set null,
+  post_user_id  uuid references public.users(id) on delete set null,
+  status        text not null default 'pending'
+                  check (status in ('pending','accepted','rejected','expired')),
+  token_charged boolean not null default false,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+  unique (post_id, requester_id)
+);
+
+alter table public.lounge_chats enable row level security;
+create policy "lounge_chats: participant read" on public.lounge_chats
+  for select using (auth.uid() = requester_id or auth.uid() = post_user_id);
+create policy "lounge_chats: requester insert" on public.lounge_chats
+  for insert with check (auth.uid() = requester_id or requester_id is null);
+create policy "lounge_chats: participant update" on public.lounge_chats
+  for update using (auth.uid() = requester_id or auth.uid() = post_user_id);
+
+-- ============================================================
+--  STORAGE — lounge-images 버킷 설정
+--  Supabase SQL Editor에서는 Storage 버킷 생성이 불가합니다.
+--  아래 절차를 Supabase 대시보드에서 직접 수행하세요:
+--
+--  1. Storage → New Bucket
+--     name: lounge-images
+--     Public: ON (이미지 공개 URL 접근 필요)
+--
+--  2. Storage → lounge-images → Policies → Add policy
+--     INSERT: authenticated users can upload
+--       allow insert where: auth.uid()::text = (storage.foldername(name))[2]
+--     SELECT: anyone can read (public bucket)
+--       allow select where: true
+--
+--  또는 아래 SQL로 RLS 정책 추가 (버킷 생성 후 실행):
+-- ============================================================
+
+insert into storage.buckets (id, name, public)
+  values ('lounge-images', 'lounge-images', true)
+  on conflict (id) do update set public = true;
+
+create policy "lounge_images: public read" on storage.objects
+  for select using (bucket_id = 'lounge-images');
+
+create policy "lounge_images: auth upload" on storage.objects
+  for insert with check (
+    bucket_id = 'lounge-images'
+    and auth.uid() is not null
+  );
+
+create policy "lounge_images: owner delete" on storage.objects
+  for delete using (
+    bucket_id = 'lounge-images'
+    and auth.uid()::text = (storage.foldername(name))[2]
+  );
+
+-- ============================================================
+--  STEP STORY-ACT — 스토리 댓글/대화/삭제 지원 마이그레이션
+-- ============================================================
+
+-- space_token_logs: 중복 차감 방지용 related_id 컬럼 추가
+alter table public.space_token_logs add column if not exists related_id uuid;
+create index if not exists space_token_logs_related_idx on public.space_token_logs (related_id) where related_id is not null;
+
+-- lounge_posts: is_deleted 컬럼이 없는 구 DB를 위한 보장
+alter table public.lounge_posts add column if not exists is_deleted boolean not null default false;
+alter table public.lounge_posts add column if not exists is_hidden  boolean not null default false;
+
+-- lounge_posts: own update 정책 (is_deleted soft-delete 포함)
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'lounge_posts'
+      and policyname = 'lounge_posts: own update'
+  ) then
+    create policy "lounge_posts: own update" on public.lounge_posts
+      for update using (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- lounge_comments: insert 정책 보장
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'lounge_comments'
+      and policyname = 'lounge_comments: authenticated insert'
+  ) then
+    create policy "lounge_comments: authenticated insert" on public.lounge_comments
+      for insert with check (auth.uid() = user_id or user_id is null);
+  end if;
+end $$;
+
+-- ============================================================
+--  STEP COMMENT-FIX — lounge_comments 컬럼 + RLS 정책 수정
+-- ============================================================
+
+-- lounge_comments: 누락 컬럼 추가
+alter table public.lounge_comments add column if not exists is_deleted boolean not null default false;
+alter table public.lounge_comments add column if not exists image_urls  text[]  not null default '{}';
+
+-- lounge_comments: 기존 제한적 RLS 정책 모두 삭제 후 permissive로 교체
+drop policy if exists "lounge_comments: public read"            on public.lounge_comments;
+drop policy if exists "lounge_comments: owner insert"           on public.lounge_comments;
+drop policy if exists "lounge_comments: admin update"           on public.lounge_comments;
+drop policy if exists "lounge_comments: authenticated insert"   on public.lounge_comments;
+drop policy if exists "allow read comments"                     on public.lounge_comments;
+drop policy if exists "allow insert comments"                   on public.lounge_comments;
+drop policy if exists "allow update comments"                   on public.lounge_comments;
+
+create policy "allow read comments"   on public.lounge_comments for select using (true);
+create policy "allow insert comments" on public.lounge_comments for insert with check (true);
+create policy "allow update comments" on public.lounge_comments for update using (true) with check (true);

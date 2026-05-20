@@ -5,20 +5,20 @@
 import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
 import { useLounge } from '../hooks/useLounge';
-import { MOCK_LOUNGE_POSTS } from '../constants/lounge';
+import { supabase } from '../lib/supabase';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
 import LoungePostCard from '../components/lounge/LoungePostCard';
 
 // ── 검색 오버레이 ──────────────────────────────────────
-function SearchOverlay({ onClose, onPostClick }) {
+function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
   const [query, setQuery] = useState('');
   const inputRef = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const results = query.trim().length >= 1
-    ? MOCK_LOUNGE_POSTS.filter(p =>
+    ? allPosts.filter(p =>
         p.title?.includes(query) ||
         p.content?.includes(query) ||
         p.anonymous_nickname?.includes(query)
@@ -27,7 +27,6 @@ function SearchOverlay({ onClose, onPostClick }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 200, display: 'flex', flexDirection: 'column' }}>
-      {/* 검색 헤더 */}
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.bgWarm}`, padding: `12px ${S.xl}px`, display: 'flex', gap: S.sm, alignItems: 'center' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: C.bg, borderRadius: R.full, padding: '0 14px', gap: S.sm, height: 42 }}>
           <span style={{ fontSize: 16, color: C.text3 }}>🔍</span>
@@ -47,7 +46,6 @@ function SearchOverlay({ onClose, onPostClick }) {
         </button>
       </div>
 
-      {/* 결과 */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {query.trim().length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -83,7 +81,7 @@ function SearchOverlay({ onClose, onPostClick }) {
 
 // ── 알림 패널 ──────────────────────────────────────────
 function NotifPanel({ onClose, onGoSettings }) {
-  const MOCK_NOTIFS = [
+  const NOTIFS = [
     { id: 1, icon: '❤️', text: '내 글에 좋아요가 달렸어요', time: '5분 전', unread: true },
     { id: 2, icon: '💬', text: '내 댓글에 답글이 달렸어요', time: '23분 전', unread: true },
     { id: 3, icon: '🏆', text: '전문가가 내 질문에 답했어요', time: '1시간 전', unread: false },
@@ -93,7 +91,6 @@ function NotifPanel({ onClose, onGoSettings }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 300 }} onClick={onClose}>
       <div style={{ background: C.surface, borderRadius: '24px 24px 0 0', width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
-        {/* 핸들 + 헤더 */}
         <div style={{ padding: '16px 20px 12px', borderBottom: `1px solid ${C.bgWarm}` }}>
           <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: '0 auto 16px' }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -104,9 +101,8 @@ function NotifPanel({ onClose, onGoSettings }) {
           </div>
         </div>
 
-        {/* 알림 목록 */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {MOCK_NOTIFS.map(n => (
+          {NOTIFS.map(n => (
             <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: S.md, padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bg}`, background: n.unread ? `${C.brandL}88` : C.surface }}>
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: n.unread ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
                 {n.icon}
@@ -134,22 +130,36 @@ function NotifPanel({ onClose, onGoSettings }) {
 
 // ── 메인 스크린 ────────────────────────────────────────
 export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage }) {
-  const [category,        setCategory]        = useState('all');
-  const [showWriteOptions, setShowWriteOptions] = useState(false);
-  const [searchOpen,      setSearchOpen]       = useState(false);
-  const [notifOpen,       setNotifOpen]        = useState(false);
-  const [notifCount]                           = useState(2); // 읽지 않은 알림 수
+  const [category,         setCategory]         = useState('all');
+  const [showWriteOptions, setShowWriteOptions]  = useState(false);
+  const [searchOpen,       setSearchOpen]        = useState(false);
+  const [notifOpen,        setNotifOpen]         = useState(false);
+  const [notifCount]                             = useState(2);
 
-  const { posts, stories, loading } = useLounge(category);
+  const { posts, stories, loading, fetchError, reload } = useLounge(category);
+
+  const [dbDiag, setDbDiag] = useState(null);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    supabase
+      .from('lounge_posts')
+      .select('id, is_story, title, content, image_urls, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .then(({ data, error }) => setDbDiag({ rows: data ?? [], error: error?.message ?? null }));
+  }, []);
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
-  const isPopular  = category === 'popular'; // 인기 탭은 읽기 전용
+  const isPopular  = category === 'popular';
 
   const handleWriteClick = () => {
     if (isGuest) { onRequireLogin?.(); return; }
     setShowWriteOptions(true);
   };
+
+  const mergedStories = [...extraStories, ...stories].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i);
+  const mergedPosts   = [...extraPosts,   ...posts  ].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i);
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 90 }}>
@@ -158,13 +168,11 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `14px ${S.xl}px 0` }}>
           <div style={{ fontSize: 20, fontWeight: 900, color: C.text1, letterSpacing: '-0.5px' }}>라운지</div>
           <div style={{ display: 'flex', gap: S.md }}>
-            {/* 돋보기 */}
             <button
               onClick={() => setSearchOpen(true)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.text2, padding: 4 }}>
               🔍
             </button>
-            {/* 종 */}
             <button
               onClick={() => isGuest ? onRequireLogin?.() : setNotifOpen(true)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.text2, padding: 4, position: 'relative' }}>
@@ -187,9 +195,8 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
 
-      <LoungeStoryBar stories={[...extraStories, ...stories].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)} onStoryClick={() => {}} />
+      <LoungeStoryBar stories={mergedStories} onStoryClick={() => {}} user={user} />
 
-      {/* 인기 탭 안내 배너 */}
       {isPopular && (
         <div style={{ background: C.brandL, borderLeft: `3px solid ${C.brand}`, padding: `${S.sm}px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.sm }}>
           <span style={{ fontSize: 14 }}>🔥</span>
@@ -202,7 +209,16 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
           <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
           <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
         </div>
-      ) : posts.length === 0 ? (
+      ) : fetchError ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 14, color: C.text2, fontWeight: 700, marginBottom: 8 }}>피드를 불러오지 못했어요</div>
+          <div style={{ fontSize: 12, color: C.text3, marginBottom: S.xl }}>{fetchError}</div>
+          <button onClick={reload} style={{ padding: '10px 24px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+            다시 시도
+          </button>
+        </div>
+      ) : mergedPosts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 20px' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.text2, marginBottom: 8 }}>아직 게시글이 없어요</div>
@@ -217,13 +233,12 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         </div>
       ) : (
         <div style={{ background: C.surface }}>
-          {[...extraPosts, ...posts].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i).map(post => (
+          {mergedPosts.map(post => (
             <LoungePostCard key={post.id} post={post} onClick={() => onPostClick?.(post)} />
           ))}
         </div>
       )}
 
-      {/* FAB — 인기 탭에서는 숨김 */}
       {!isPopular && <button onClick={handleWriteClick} style={{
         position: 'fixed', right: S.xl, bottom: 80, width: 56, height: 56,
         borderRadius: R.full, background: C.brand, color: '#fff',
@@ -232,7 +247,6 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>+</button>}
 
-      {/* 글쓰기 선택 */}
       {showWriteOptions && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.65)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 300 }} onClick={() => setShowWriteOptions(false)}>
           <div style={{ background: C.surface, borderRadius: '24px 24px 0 0', width: '100%', maxWidth: 480, padding: '24px 24px 40px' }} onClick={e => e.stopPropagation()}>
@@ -252,17 +266,51 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         </div>
       )}
 
-      {/* 검색 오버레이 */}
       {searchOpen && (
-        <SearchOverlay onClose={() => setSearchOpen(false)} onPostClick={onPostClick} />
+        <SearchOverlay
+          onClose={() => setSearchOpen(false)}
+          onPostClick={onPostClick}
+          allPosts={mergedPosts}
+        />
       )}
 
-      {/* 알림 패널 */}
       {notifOpen && (
         <NotifPanel
           onClose={() => setNotifOpen(false)}
           onGoSettings={() => { setNotifOpen(false); onGoMyPage?.(); }}
         />
+      )}
+
+      {import.meta.env.DEV && (
+        <div style={{ margin: '12px 16px 90px', background: 'rgba(0,0,0,0.92)', color: '#0f0', borderRadius: 8, padding: '10px 12px', fontSize: 11, lineHeight: 2, fontFamily: 'monospace', maxHeight: 460, overflowY: 'auto' }}>
+          [DEV] lounge feed — {new Date().toLocaleTimeString('ko-KR')}<br/>
+          user: {user?.id?.slice(0, 8) ?? 'null'} | category: {category} | feed_err: {fetchError ?? 'none'}<br/>
+          posts: db={posts.length} extra={extraPosts.length} merged={mergedPosts.length}<br/>
+          stories: db={stories.length} extra={extraStories.length} merged={mergedStories.length}<br/>
+          <span style={{ color: '#ff0' }}>── DB actual (lounge_posts 최신 5개) ──</span><br/>
+          {dbDiag == null && <span>loading...</span>}
+          {dbDiag?.error && <span style={{ color: '#f66' }}>db_err: {dbDiag.error}</span>}
+          {(dbDiag?.rows ?? []).map((r, i) => {
+            const imgs = r.image_urls ?? [];
+            const isBlob    = imgs.some(u => u.startsWith('blob:'));
+            const isStorage = imgs.some(u => u.includes('/storage/'));
+            const tag = imgs.length === 0 ? '❌EMPTY' : isBlob ? '❌BLOB' : isStorage ? '✅OK' : '⚠️?';
+            return (
+              <span key={r.id} style={{ display: 'block' }}>
+                [{i}] {r.id.slice(0, 8)} story:{String(r.is_story)} imgs:{imgs.length} {tag}<br/>
+                <span style={{ paddingLeft: 16, color: imgs.length > 0 ? '#8f8' : '#f88' }}>
+                  {imgs.length > 0 ? imgs[0].slice(0, 72) : 'image_urls = []'}
+                </span>
+              </span>
+            );
+          })}
+          <span style={{ color: '#ff0' }}>── 피드 렌더 (merged) ──</span><br/>
+          {mergedPosts.slice(0, 3).map(p => (
+            <span key={p.id} style={{ display: 'block' }}>
+              post:{p.id.slice(0, 8)} imgs:{(p.image_urls ?? []).length}
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );

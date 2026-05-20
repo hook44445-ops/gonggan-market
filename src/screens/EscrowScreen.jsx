@@ -70,8 +70,8 @@ const TIMELINE_ICONS = {
   dispute:  "⚠️",
 };
 
-export default function EscrowScreen({ onBack, mode, selectedBid, contractId, userId }) {
-  const isConsumer = mode === "consumer";
+export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId }) {
+  const isConsumer = activeRole === "consumer";
   const bidAmount   = selectedBid?.price ?? 0;
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
   const stages      = bidAmount > 0 ? calculateStagePayments(bidAmount) : [];

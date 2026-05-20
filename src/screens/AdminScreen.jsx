@@ -4,21 +4,19 @@ import { BADGES } from "../constants/badges";
 import { COMPANY_STATUS_META } from "../constants";
 import {
   supabase,
-  getCompanies,
-  getUsers,
-  adminReviewCompany,
-  adminSetCompanyStatus,
-  createNotification,
-  getUserNotifications,
-  getAdminLogs,
-  getOpsConfig,
-  updateOpsConfig,
-  getPaymentOrders,
-  adminUpdatePaymentOrder,
-  getDisputePayments,
-  getPendingPayouts,
-  adminSetPayoutStatus,
-  getCompanyDocuments,
+  getCompanies, getUsers,
+  adminReviewCompany, adminSetCompanyStatus,
+  createNotification, getUserNotifications,
+  getAdminLogs, getOpsConfig, updateOpsConfig,
+  getPaymentOrders, adminUpdatePaymentOrder,
+  getDisputePayments, adminResolveDispute,
+  getPendingPayouts, adminSetPayoutStatus,
+  adminSetUserStatus, adminAdjustSpaceTemp, adminAdjustUserTokens,
+  adminGetLoungePosts, getLoungeReports,
+  adminHideContent, adminUpdateLoungeReport,
+  getCustomerReports, updateCustomerReportStatus,
+  holdAllPayoutsForEscrow,
+  getCompanyDocuments, adminReviewDocument,
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
@@ -225,6 +223,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [toast, setToast]                   = useState(null);
   const [companyDocuments, setCompanyDocuments] = useState([]);
   const [showDocReview, setShowDocReview]   = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [tokenInput, setTokenInput]   = useState("");
+  const [tempInput, setTempInput]     = useState("");
+  const [adjReason, setAdjReason]     = useState("");
+  const [loungePosts, setLoungePosts]   = useState([]);
+  const [loungeReports, setLoungeReports] = useState([]);
+  const [reports, setReports]           = useState([]);
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -290,7 +295,19 @@ export default function AdminScreen({ onBack, onHome, user }) {
         if (data) setSettlements(data);
       });
     }
-  }, [mainTab]);
+    if (mainTab === "lounge") {
+      Promise.all([
+        adminGetLoungePosts().catch(() => ({ data: [] })),
+        getLoungeReports().catch(() => ({ data: [] })),
+      ]).then(([{ data: p }, { data: r }]) => {
+        setLoungePosts(p ?? []);
+        setLoungeReports(r ?? []);
+      });
+    }
+    if (mainTab === "reports") {
+      getCustomerReports().then(({ data }) => setReports(data ?? [])).catch(() => setReports([]));
+    }
+  }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stats = {
     pending:     companies.filter(c => c.status === "pending").length,
@@ -390,6 +407,44 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setDocModal(null);
   };
 
+  const handleCustomerStatus = async (customer, status, reason) => {
+    setActionLoading(true);
+    const { error } = await adminSetUserStatus(customer.id, user?.id, status, reason);
+    if (!error) {
+      const update = { accountStatus: status };
+      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, ...update } : c));
+      setSelectedCustomer(prev => prev ? { ...prev, ...update } : prev);
+      showToast("상태 변경 완료");
+    } else { showToast("처리 실패", false); }
+    setActionLoading(false);
+  };
+
+  const handleAdjustTemp = async (customer, delta) => {
+    setActionLoading(true);
+    const { error } = await adminAdjustSpaceTemp(customer.id, user?.id, delta, adjReason || null);
+    if (!error) {
+      const next = Math.round(Math.min(99, Math.max(0, (customer.spaceTemp ?? 36.5) + delta)) * 10) / 10;
+      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, spaceTemp: next } : c));
+      setSelectedCustomer(prev => prev ? { ...prev, spaceTemp: next } : prev);
+      showToast("공간온도 조정 완료");
+    } else { showToast("처리 실패", false); }
+    setActionLoading(false);
+    setAdjReason("");
+  };
+
+  const handleAdjustTokens = async (customer, delta) => {
+    setActionLoading(true);
+    const { error } = await adminAdjustUserTokens(customer.id, user?.id, delta, adjReason || null);
+    if (!error) {
+      const next = Math.max(0, (customer.spaceTokens ?? 0) + delta);
+      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, spaceTokens: next } : c));
+      setSelectedCustomer(prev => prev ? { ...prev, spaceTokens: next } : prev);
+      showToast("토큰 조정 완료");
+    } else { showToast("처리 실패", false); }
+    setActionLoading(false);
+    setAdjReason("");
+  };
+
   const MAIN_TABS = [
     ["dashboard",      "대시보드"],
     ["companies",      "업체관리"],
@@ -398,6 +453,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["disputes",       "분쟁관리"],
     ["settlements",    "정산관리"],
     ["lounge",         "라운지관리"],
+    ["reports",        "신고관리"],
     ["notifications",  "알림"],
   ];
 
@@ -868,6 +924,52 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
             {/* ── Lounge Management ── */}
             {mainTab === "lounge" && <LoungeManagementTab />}
+
+            {/* ── Customer Reports ── */}
+            {mainTab === "reports" && (
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
+                  신고 <span style={{ color: C.red }}>{reports.length}건</span>
+                </div>
+                {reports.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>신고 내역 없음</div>
+                  </div>
+                ) : reports.map(r => (
+                  <div key={r.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{r.subject ?? "신고"}</div>
+                        <div style={{ fontSize: 11, color: C.text3 }}>{r.created_at ? new Date(r.created_at).toLocaleDateString("ko-KR") : ""}</div>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: r.status === "resolved" ? C.green : C.gold,
+                        background: r.status === "resolved" ? C.greenL : "#FBF5E8",
+                        borderRadius: R.full, padding: "3px 10px" }}>
+                        {r.status === "resolved" ? "처리완료" : "검토중"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: C.text2, marginBottom: S.sm }}>{r.description ?? ""}</div>
+                    {r.status !== "resolved" && (
+                      <button
+                        disabled={actionLoading}
+                        onClick={() => {
+                          setActionLoading(true);
+                          updateCustomerReportStatus(r.id, "resolved").then(({ error }) => {
+                            if (!error) setReports(prev => prev.map(x => x.id === r.id ? { ...x, status: "resolved" } : x));
+                            else showToast("처리 실패", false);
+                            setActionLoading(false);
+                          });
+                        }}
+                        style={{ padding: "7px 16px", borderRadius: R.lg, background: C.brand, color: "#fff",
+                          border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        처리 완료
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* ── Notifications ── */}
             {mainTab === "notifications" && (
