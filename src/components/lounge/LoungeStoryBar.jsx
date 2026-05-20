@@ -6,10 +6,8 @@ import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../../constants';
 import { getAnonymousAvatarByNickname, getAnonymousNickname } from '../../utils/anonymousNickname';
 import {
-  supabase,
   getLoungeComments,
   createLoungeComment,
-  createLoungeChat,
   softDeleteLoungePost,
   checkLoungePostLiked,
   addLoungePostLike,
@@ -192,9 +190,6 @@ function MoreSheet({ isOwner, onDelete, onReport, onClose }) {
 function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
   const [index,        setIndex]        = useState(startIndex);
   const [comments,     setComments]     = useState([]);
-  const [existingChat, setExistingChat] = useState(null);
-  const [chatLoading,  setChatLoading]  = useState(false);
-  const [chatError,    setChatError]    = useState(null);
   const [isLiked,      setIsLiked]      = useState(false);
   const [likeCount,    setLikeCount]    = useState(0);
   const [likeLoading,  setLikeLoading]  = useState(false);
@@ -211,13 +206,10 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
   const isFirst = index === 0;
   const isLast  = index === stories.length - 1;
   const isOwner = !!(user?.id && story.user_id && user.id === story.user_id);
-  const isSelf  = user?.id === story.user_id;
 
   useEffect(() => {
     if (!story?.id) return;
     setComments([]);
-    setExistingChat(null);
-    setChatError(null);
     setDeleteError(null);
     setIsLiked(false);
     setLikeCount(story.like_count ?? 0);
@@ -226,16 +218,6 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
 
     if (user?.id) {
       checkLoungePostLiked(story.id, user.id).then(({ data }) => setIsLiked(!!data));
-    }
-    if (user?.id && story.user_id && !isSelf) {
-      supabase
-        .from('lounge_chats')
-        .select('id, status')
-        .eq('post_id', story.id)
-        .eq('requester_id', user.id)
-        .in('status', ['pending', 'accepted'])
-        .maybeSingle()
-        .then(({ data }) => setExistingChat(data ?? null));
     }
   }, [story?.id, user?.id]);
 
@@ -276,33 +258,6 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
     setLikeLoading(false);
   };
 
-  const handleChat = async () => {
-    if (!user?.id || isSelf || existingChat || chatLoading) return;
-    setChatLoading(true);
-    setChatError(null);
-    const { data, error } = await createLoungeChat({
-      requester_id:  user.id,
-      post_user_id:  story.user_id,
-      post_id:       story.id,
-      status:        'pending',
-      token_charged: false,
-    });
-    if (error) {
-      setChatError(error.message);
-    } else if (data) {
-      setExistingChat(data);
-    } else {
-      const { data: existing } = await supabase
-        .from('lounge_chats')
-        .select('id, status')
-        .eq('post_id', story.id)
-        .eq('requester_id', user.id)
-        .maybeSingle();
-      setExistingChat(existing ?? null);
-    }
-    setChatLoading(false);
-  };
-
   const handleDelete = async () => {
     if (!isOwner || !story?.id) return;
     const { error } = await softDeleteLoungePost(story.id, user.id);
@@ -310,10 +265,6 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
     onStoryDeleted?.(story.id);
     onClose();
   };
-
-  const chatLabel = existingChat
-    ? (existingChat.status === 'accepted' ? '대화중' : '신청완료')
-    : (chatLoading ? '...' : '메시지');
 
   const imageUrls = Array.isArray(story.image_urls) ? story.image_urls : [];
   const hasImage  = imageUrls.length > 0;
@@ -403,9 +354,6 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
         {deleteError && (
           <div style={{ fontSize: 11, color: '#fca', marginTop: 4 }}>{deleteError}</div>
         )}
-        {chatError && (
-          <div style={{ fontSize: 11, color: '#fca', marginTop: 4 }}>{chatError}</div>
-        )}
       </div>
 
       {/* ── 우측 세로 액션바 (블릿 스타일) ── */}
@@ -430,19 +378,6 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
           <span style={{ fontSize: 26, lineHeight: 1, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}>💬</span>
           {comments.length > 0 && <span style={{ fontSize: 12, color: '#fff', fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{comments.length}</span>}
         </button>
-
-        {/* 대화신청 (본인 제외) */}
-        {!isSelf && (
-          <button
-            onClick={handleChat}
-            disabled={chatLoading || !!existingChat}
-            style={{ background: 'none', border: 'none', cursor: existingChat ? 'default' : 'pointer', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, opacity: chatLoading ? 0.5 : 1 }}>
-            <span style={{ fontSize: 24, lineHeight: 1, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}>
-              {existingChat?.status === 'accepted' ? '✅' : existingChat ? '⏳' : '✈️'}
-            </span>
-            <span style={{ fontSize: 11, color: '#fff', fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.5)', whiteSpace: 'nowrap' }}>{chatLabel}</span>
-          </button>
-        )}
 
         {/* 더보기 */}
         <button
@@ -490,7 +425,6 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
               imgs: {imageUrls.length}장<br/>
               comments: {comments.length}<br/>
               liked: {String(isLiked)} / cnt:{likeCount}<br/>
-              chat: {existingChat ? `${existingChat.id?.slice(0,8)}/${existingChat.status}` : 'none'}<br/>
             </div>
           )}
         </div>
