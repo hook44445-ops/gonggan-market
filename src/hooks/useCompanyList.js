@@ -22,7 +22,7 @@ const normalizeRow = (row) => ({
   platformCert:           row.platform_cert ?? row.platformCert ?? false,
   badge:                  row.badge ?? null,
   specialties:            row.specialties ?? [],
-  desc:                   row.desc ?? "",
+  desc:                   row.description ?? row.desc ?? "",
   rating:                 row.rating ?? 0,
   portfolio:              row.portfolio ?? [],
   reviewList:             row.reviewList ?? [],
