@@ -37,6 +37,7 @@ import {
   createBid,
   getBidsForRequest,
   getCompanyByOwnerId,
+  upsertCompany,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -252,11 +253,23 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   }, [activeRole, user?.id]);
 
   // Load company profile from Supabase for authenticated company users
+  // Auto-creates a row if none exists yet
   useEffect(() => {
     if (activeRole !== "company" || !user?.id) return;
-    getCompanyByOwnerId(user.id).then(({ data }) => {
-      if (data) setCurrentUser(normalizeCompany(data));
-    });
+    getCompanyByOwnerId(user.id).then(async ({ data }) => {
+      if (data) {
+        setCurrentUser(normalizeCompany(data));
+      } else {
+        const { data: created } = await upsertCompany({
+          owner_id:       user.id,
+          name:           user.name ?? "업체",
+          region:         user.region ?? "",
+          company_status: "ACTIVE",
+          online:         true,
+        });
+        if (created) setCurrentUser(normalizeCompany(created));
+      }
+    }).catch(() => {});
   }, [user?.id, activeRole]);
 
   // Load recent lounge posts for home preview (consumer home section)

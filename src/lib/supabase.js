@@ -51,10 +51,10 @@ export const getCompany = (id) =>
   supabase.from("companies").select("*").eq("id", id).single();
 
 export const getCompanyByOwnerId = (ownerId) =>
-  supabase.from("companies").select("*").eq("owner_id", ownerId).single();
+  supabase.from("companies").select("*").eq("owner_id", ownerId).maybeSingle();
 
 export const upsertCompany = (data) =>
-  supabase.from("companies").upsert(data).select().single();
+  supabase.from("companies").upsert(data, { onConflict: "owner_id" }).select().single();
 
 // Atomically adjust a company's 공간온도 by delta, clamped to 0–99
 export const updateCompanyTemp = async (companyId, delta) => {
