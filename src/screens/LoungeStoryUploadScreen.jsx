@@ -85,6 +85,29 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
 
     if (useSupabase) {
       const { data, error: err } = await createLoungeStory(newStory);
+      if (import.meta.env.DEV) {
+        try {
+          localStorage.setItem('lounge_dev_story_upload', JSON.stringify({
+            ts: new Date().toISOString(),
+            useSupabase: true,
+            payload: {
+              id: newStory.id,
+              is_story: newStory.is_story,
+              story_expires_at: newStory.story_expires_at,
+              image_urls_count: newStory.image_urls.length,
+              image_urls_sample: newStory.image_urls[0]?.slice(0, 100) ?? null,
+              content_length: newStory.content.length,
+            },
+            result: data ? {
+              id: data.id,
+              is_story: data.is_story,
+              story_expires_at: data.story_expires_at,
+              image_urls_count: (data.image_urls ?? []).length,
+            } : null,
+            error: err ? { message: err.message, code: err.code, details: err.details } : null,
+          }));
+        } catch {}
+      }
       setSubmitting(false);
       if (err) { setUploadError('업로드 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
       onPublish?.(data ?? newStory);
@@ -94,6 +117,24 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
         localStorage.setItem(key, JSON.stringify([newStory, ...prev.filter(s => s.id !== newStory.id)]));
       } catch {}
+      if (import.meta.env.DEV) {
+        try {
+          localStorage.setItem('lounge_dev_story_upload', JSON.stringify({
+            ts: new Date().toISOString(),
+            useSupabase: false,
+            payload: {
+              id: newStory.id,
+              is_story: newStory.is_story,
+              story_expires_at: newStory.story_expires_at,
+              image_urls_count: newStory.image_urls.length,
+              image_urls_sample: newStory.image_urls[0]?.slice(0, 100) ?? null,
+              content_length: newStory.content.length,
+            },
+            result: null,
+            error: null,
+          }));
+        } catch {}
+      }
       await new Promise(r => setTimeout(r, 300));
       setSubmitting(false);
       onPublish?.(newStory);

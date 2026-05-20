@@ -15,9 +15,10 @@ import {
 } from '../lib/supabase';
 
 export function useLounge(category = 'all') {
-  const [posts, setPosts]     = useState([]);
-  const [stories, setStories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [posts, setPosts]         = useState([]);
+  const [stories, setStories]     = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [storiesError, setStoriesError] = useState(null);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -28,6 +29,7 @@ export function useLounge(category = 'all') {
       ]);
       setPosts(postsRes.data ?? []);
       setStories(storiesRes.data ?? []);
+      setStoriesError(storiesRes.error ?? null);
     } else {
       await new Promise(r => setTimeout(r, 200));
 
@@ -97,7 +99,7 @@ export function useLounge(category = 'all') {
     setStories(prev => prev.filter(s => s.id !== storyId));
   }, []);
 
-  return { posts, stories, loading, likePost, addPost, removePost, updatePost, addStory, removeStory, reload: loadPosts };
+  return { posts, stories, loading, storiesError, likePost, addPost, removePost, updatePost, addStory, removeStory, reload: loadPosts };
 }
 
 export function useLoungePost(postId, initialPost = null) {

@@ -132,6 +132,88 @@ function NotifPanel({ onClose, onGoSettings }) {
   );
 }
 
+// ── 스토리 DEV 패널 ────────────────────────────────────
+function StoryDevPanel({ stories, storiesError }) {
+  const [devData, setDevData] = useState(null);
+  const [open, setOpen]       = useState(false);
+
+  const refresh = () => {
+    try {
+      const raw = localStorage.getItem('lounge_dev_story_upload');
+      setDevData(raw ? JSON.parse(raw) : null);
+    } catch { setDevData(null); }
+    setOpen(true);
+  };
+
+  if (!open) {
+    return (
+      <button onClick={refresh} style={{ display: 'block', width: '100%', background: '#1a1a2e', color: '#7fdbff', border: 'none', padding: '6px 16px', fontSize: 11, fontWeight: 700, textAlign: 'left', cursor: 'pointer', letterSpacing: 0.5 }}>
+        [DEV] 스토리 파이프라인 패널 열기 ▼
+      </button>
+    );
+  }
+
+  const rowStyle = { display: 'flex', gap: 8, padding: '3px 0', borderBottom: '1px solid #2a2a4a', flexWrap: 'wrap' };
+  const keyStyle = { color: '#7fdbff', fontSize: 10, fontWeight: 700, minWidth: 130, flexShrink: 0 };
+  const valStyle = { color: '#e0e0e0', fontSize: 10, wordBreak: 'break-all', flex: 1 };
+  const errStyle = { color: '#ff6b6b', fontSize: 10, wordBreak: 'break-all', flex: 1 };
+
+  return (
+    <div style={{ background: '#0d0d1a', border: '1px solid #2a2a4a', margin: '0 0 2px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #2a2a4a' }}>
+        <span style={{ color: '#7fdbff', fontSize: 11, fontWeight: 900 }}>[DEV] 스토리 파이프라인</span>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={refresh} style={{ background: '#1a2a3a', color: '#7fdbff', border: 'none', borderRadius: 3, padding: '2px 8px', fontSize: 10, cursor: 'pointer' }}>새로고침</button>
+          <button onClick={() => setOpen(false)} style={{ background: 'none', color: '#666', border: 'none', fontSize: 13, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+        </div>
+      </div>
+
+      <div style={{ padding: '8px 12px' }}>
+        <div style={{ color: '#aaa', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>■ 스토리바 현재 상태</div>
+        <div style={rowStyle}><span style={keyStyle}>stories.length</span><span style={valStyle}>{stories.length}</span></div>
+        <div style={rowStyle}><span style={keyStyle}>storiesError</span><span style={storiesError ? errStyle : valStyle}>{storiesError ? JSON.stringify({ message: storiesError.message, code: storiesError.code }) : 'null'}</span></div>
+        {stories.slice(0, 3).map((s, i) => (
+          <div key={s.id} style={rowStyle}>
+            <span style={keyStyle}>stories[{i}].id</span>
+            <span style={valStyle}>{s.id?.slice(0, 16)}… is_story={String(s.is_story)} expires={s.story_expires_at?.slice(0, 19) ?? 'null'} imgs={s.image_urls?.length ?? 0}</span>
+          </div>
+        ))}
+      </div>
+
+      {devData ? (
+        <div style={{ padding: '8px 12px', borderTop: '1px solid #2a2a4a' }}>
+          <div style={{ color: '#aaa', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>■ 마지막 업로드 ({devData.ts?.slice(0, 19)})</div>
+          <div style={rowStyle}><span style={keyStyle}>useSupabase</span><span style={valStyle}>{String(devData.useSupabase)}</span></div>
+          {devData.payload && <>
+            <div style={rowStyle}><span style={keyStyle}>payload.id</span><span style={valStyle}>{devData.payload.id}</span></div>
+            <div style={rowStyle}><span style={keyStyle}>payload.is_story</span><span style={valStyle}>{String(devData.payload.is_story)}</span></div>
+            <div style={rowStyle}><span style={keyStyle}>payload.story_expires_at</span><span style={valStyle}>{devData.payload.story_expires_at ?? 'null'}</span></div>
+            <div style={rowStyle}><span style={keyStyle}>payload.image_urls_count</span><span style={valStyle}>{devData.payload.image_urls_count}</span></div>
+            <div style={rowStyle}><span style={keyStyle}>payload.image_urls_sample</span><span style={valStyle}>{devData.payload.image_urls_sample ?? '(없음)'}</span></div>
+          </>}
+          {devData.result ? <>
+            <div style={{ color: '#aaa', fontSize: 10, fontWeight: 700, margin: '6px 0 4px' }}>insert 결과</div>
+            <div style={rowStyle}><span style={keyStyle}>result.id</span><span style={valStyle}>{devData.result.id}</span></div>
+            <div style={rowStyle}><span style={keyStyle}>result.is_story</span><span style={valStyle}>{String(devData.result.is_story)}</span></div>
+            <div style={rowStyle}><span style={keyStyle}>result.story_expires_at</span><span style={valStyle}>{devData.result.story_expires_at ?? 'null'}</span></div>
+            <div style={rowStyle}><span style={keyStyle}>result.image_urls_count</span><span style={valStyle}>{devData.result.image_urls_count}</span></div>
+          </> : devData.useSupabase && <div style={rowStyle}><span style={keyStyle}>result</span><span style={errStyle}>null (insert 실패 또는 미수행)</span></div>}
+          {devData.error && <>
+            <div style={{ color: '#ff6b6b', fontSize: 10, fontWeight: 700, margin: '6px 0 4px' }}>오류</div>
+            <div style={rowStyle}><span style={keyStyle}>error.message</span><span style={errStyle}>{devData.error.message}</span></div>
+            <div style={rowStyle}><span style={keyStyle}>error.code</span><span style={errStyle}>{devData.error.code ?? 'null'}</span></div>
+            {devData.error.details && <div style={rowStyle}><span style={keyStyle}>error.details</span><span style={errStyle}>{devData.error.details}</span></div>}
+          </>}
+        </div>
+      ) : (
+        <div style={{ padding: '8px 12px', borderTop: '1px solid #2a2a4a', color: '#666', fontSize: 10 }}>
+          아직 업로드 기록 없음 (lounge_dev_story_upload 키 없음)
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 메인 스크린 ────────────────────────────────────────
 export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage, onDeleteStory }) {
   const [category,        setCategory]        = useState('all');
@@ -140,7 +222,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
   const [notifOpen,       setNotifOpen]        = useState(false);
   const [notifCount]                           = useState(2); // 읽지 않은 알림 수
 
-  const { posts, stories, loading } = useLounge(category);
+  const { posts, stories, loading, storiesError } = useLounge(category);
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
@@ -205,6 +287,12 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
 
+      {import.meta.env.DEV && (
+        <StoryDevPanel
+          stories={[...extraStories, ...stories].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)}
+          storiesError={storiesError}
+        />
+      )}
       <LoungeStoryBar
         stories={[...extraStories, ...stories].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)}
         user={user}
