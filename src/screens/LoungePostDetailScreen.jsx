@@ -95,11 +95,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     const nickname = getAnonymousNickname(user.id, postId);
     const payload  = {
       post_id:            post.id,
-      parent_id:          replyTo?.id ?? null,
       user_id:            user.id,
       anonymous_nickname: nickname,
       content,
       is_expert_reply:    false,
+      ...(replyTo?.id ? { parent_id: replyTo.id } : {}),
     };
 
     if (import.meta.env.DEV) {

@@ -33,6 +33,7 @@ function CommentSheet({ storyId, user, comments, setComments, onClose }) {
       user_id:            user.id,
       anonymous_nickname: getAnonymousNickname(user.id, storyId),
       content,
+      is_expert_reply:    false,
     });
     if (err) {
       setError(err.message);
