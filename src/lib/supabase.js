@@ -1048,6 +1048,27 @@ export const addLoungePostLike = (postId, userId) =>
     .from("lounge_post_likes")
     .upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
 
+export const removeLoungePostLike = (postId, userId) =>
+  supabase
+    .from("lounge_post_likes")
+    .delete()
+    .eq("post_id", postId)
+    .eq("user_id", userId);
+
+export const unlikeLoungePost = async (postId) => {
+  const { data: current } = await supabase
+    .from("lounge_posts")
+    .select("like_count")
+    .eq("id", postId)
+    .single();
+  return supabase
+    .from("lounge_posts")
+    .update({ like_count: Math.max(0, (current?.like_count ?? 1) - 1) })
+    .eq("id", postId)
+    .select("like_count")
+    .single();
+};
+
 // ── STEP SYNC-4: Lounge Saves ─────────────────────────────────────────────────
 
 export const checkLoungeSaved = (postId, userId) =>
