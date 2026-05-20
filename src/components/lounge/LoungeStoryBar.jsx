@@ -165,24 +165,35 @@ function StoryViewer({ stories, startIndex, onClose }) {
 // ── 스토리 원형 미니어처 ──────────────────────────────
 function StoryCircle({ story, seen, onClick }) {
   const { emoji, color } = getAnonymousAvatarByNickname(story.anonymous_nickname);
-  const thumb = story.image_urls?.[0];
+  const imageUrls = Array.isArray(story.image_urls) ? story.image_urls : [];
+  const thumb = imageUrls[0] ?? null;
+  const [imgFailed, setImgFailed] = useState(false);
+  const showThumb = thumb && !imgFailed;
 
   return (
     <div onClick={onClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0, cursor: 'pointer' }}>
       <div style={{
         width: 56, height: 56, borderRadius: R.full,
-        background: seen ? C.bg : (thumb ? '#000' : color),
-        border: seen ? `2.5px solid ${C.bgWarm}` : `2.5px solid ${color}`,
+        background: seen ? C.bg : (showThumb ? '#000' : color),
+        border: `2.5px solid ${seen ? C.bgWarm : color}`,
         overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 26,
         opacity: seen ? 0.5 : 1,
         boxShadow: seen ? 'none' : `0 2px 8px ${color}55`,
         transition: 'all 0.2s',
+        flexShrink: 0,
       }}>
-        {thumb
-          ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          : emoji}
+        {showThumb ? (
+          <img
+            src={thumb}
+            alt=""
+            onError={() => setImgFailed(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          emoji
+        )}
       </div>
       <div style={{ fontSize: 10, color: seen ? C.text4 : C.text3, maxWidth: 56, textAlign: 'center', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
         {story.anonymous_nickname}
