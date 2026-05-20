@@ -1082,3 +1082,39 @@ create policy "lounge_images: owner delete" on storage.objects
     bucket_id = 'lounge-images'
     and auth.uid()::text = (storage.foldername(name))[2]
   );
+
+-- ============================================================
+--  STEP STORY-ACT — 스토리 댓글/대화/삭제 지원 마이그레이션
+-- ============================================================
+
+-- space_token_logs: 중복 차감 방지용 related_id 컬럼 추가
+alter table public.space_token_logs add column if not exists related_id uuid;
+create index if not exists space_token_logs_related_idx on public.space_token_logs (related_id) where related_id is not null;
+
+-- lounge_posts: is_deleted 컬럼이 없는 구 DB를 위한 보장
+alter table public.lounge_posts add column if not exists is_deleted boolean not null default false;
+alter table public.lounge_posts add column if not exists is_hidden  boolean not null default false;
+
+-- lounge_posts: own update 정책 (is_deleted soft-delete 포함)
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'lounge_posts'
+      and policyname = 'lounge_posts: own update'
+  ) then
+    create policy "lounge_posts: own update" on public.lounge_posts
+      for update using (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- lounge_comments: insert 정책 보장
+do $$ begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'lounge_comments'
+      and policyname = 'lounge_comments: authenticated insert'
+  ) then
+    create policy "lounge_comments: authenticated insert" on public.lounge_comments
+      for insert with check (auth.uid() = user_id or user_id is null);
+  end if;
+end $$;

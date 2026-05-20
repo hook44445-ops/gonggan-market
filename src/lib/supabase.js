@@ -951,6 +951,7 @@ export const getLoungePosts = (category = "all", limit = 50) => {
     .from("lounge_posts")
     .select("*")
     .eq("is_story", false)
+    .eq("is_deleted", false)
     .limit(limit);
   if (category === "popular") {
     q = q.order("view_count", { ascending: false })
@@ -963,14 +964,13 @@ export const getLoungePosts = (category = "all", limit = 50) => {
 };
 
 export const getLoungeStories = (limit = 20) => {
-  const q = supabase
+  return supabase
     .from("lounge_posts")
     .select("*")
     .eq("is_story", true)
+    .eq("is_deleted", false)
     .order("created_at", { ascending: false })
     .limit(limit);
-  // story_expires_at filter applied client-side to avoid schema migration dependency
-  return q;
 };
 
 export const createLoungePost = (data) =>
@@ -1076,5 +1076,22 @@ export const createLoungeChat = (data) =>
   supabase
     .from("lounge_chats")
     .upsert(data, { onConflict: "post_id,requester_id", ignoreDuplicates: true })
+    .select()
+    .single();
+
+export const softDeleteLoungePost = (postId, userId) =>
+  supabase
+    .from("lounge_posts")
+    .update({ is_deleted: true, updated_at: new Date().toISOString() })
+    .eq("id", postId)
+    .eq("user_id", userId);
+
+// 대화 수락 시 호출 (token_charged=true, space_tokens 차감은 caller에서 처리)
+export const acceptLoungeChat = (chatId, participantId) =>
+  supabase
+    .from("lounge_chats")
+    .update({ status: "accepted", token_charged: true })
+    .eq("id", chatId)
+    .or(`requester_id.eq.${participantId},post_user_id.eq.${participantId}`)
     .select()
     .single();

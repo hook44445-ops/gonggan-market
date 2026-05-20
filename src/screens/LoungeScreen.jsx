@@ -195,7 +195,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
 
-      <LoungeStoryBar stories={mergedStories} onStoryClick={() => {}} />
+      <LoungeStoryBar stories={mergedStories} onStoryClick={() => {}} user={user} />
 
       {isPopular && (
         <div style={{ background: C.brandL, borderLeft: `3px solid ${C.brand}`, padding: `${S.sm}px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.sm }}>
