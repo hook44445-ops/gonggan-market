@@ -1230,3 +1230,24 @@ do $$ begin
       for insert with check (auth.uid() = user_id or user_id is null);
   end if;
 end $$;
+
+-- ============================================================
+--  STEP COMMENT-FIX — lounge_comments 컬럼 + RLS 정책 수정
+-- ============================================================
+
+-- lounge_comments: 누락 컬럼 추가
+alter table public.lounge_comments add column if not exists is_deleted boolean not null default false;
+alter table public.lounge_comments add column if not exists image_urls  text[]  not null default '{}';
+
+-- lounge_comments: 기존 제한적 RLS 정책 모두 삭제 후 permissive로 교체
+drop policy if exists "lounge_comments: public read"            on public.lounge_comments;
+drop policy if exists "lounge_comments: owner insert"           on public.lounge_comments;
+drop policy if exists "lounge_comments: admin update"           on public.lounge_comments;
+drop policy if exists "lounge_comments: authenticated insert"   on public.lounge_comments;
+drop policy if exists "allow read comments"                     on public.lounge_comments;
+drop policy if exists "allow insert comments"                   on public.lounge_comments;
+drop policy if exists "allow update comments"                   on public.lounge_comments;
+
+create policy "allow read comments"   on public.lounge_comments for select using (true);
+create policy "allow insert comments" on public.lounge_comments for insert with check (true);
+create policy "allow update comments" on public.lounge_comments for update using (true) with check (true);

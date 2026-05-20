@@ -55,9 +55,10 @@ export function useLounge(category = 'all') {
 }
 
 export function useLoungePost(postId) {
-  const [post,     setPost]     = useState(null);
-  const [comments, setComments] = useState([]);
-  const [loading,  setLoading]  = useState(true);
+  const [post,               setPost]               = useState(null);
+  const [comments,           setComments]           = useState([]);
+  const [loading,            setLoading]            = useState(true);
+  const [commentsFetchError, setCommentsFetchError] = useState(null);
 
   useEffect(() => {
     if (!postId) return;
@@ -67,10 +68,26 @@ export function useLoungePost(postId) {
       getLoungeComments(postId),
     ]).then(([postResult, commentsResult]) => {
       if (postResult.data) setPost(postResult.data);
-      setComments(commentsResult.data ?? []);
-    }).catch(() => {
-      // silent fail — caller falls back to initialPost
+      if (commentsResult.error) {
+        setCommentsFetchError(commentsResult.error.message);
+      } else {
+        setComments(commentsResult.data ?? []);
+        setCommentsFetchError(null);
+      }
+    }).catch((e) => {
+      setCommentsFetchError(e?.message ?? 'unknown');
     }).finally(() => setLoading(false));
+  }, [postId]);
+
+  const refetchComments = useCallback(async () => {
+    if (!postId) return;
+    const { data, error } = await getLoungeComments(postId);
+    if (error) {
+      setCommentsFetchError(error.message);
+    } else {
+      setComments(data ?? []);
+      setCommentsFetchError(null);
+    }
   }, [postId]);
 
   const addComment = useCallback((comment) => {
@@ -84,5 +101,5 @@ export function useLoungePost(postId) {
     ));
   }, []);
 
-  return { post, comments, loading, addComment, likeComment, setPost };
+  return { post, comments, loading, commentsFetchError, addComment, likeComment, refetchComments, setPost };
 }

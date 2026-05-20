@@ -22,17 +22,19 @@ import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
 
 export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin }) {
-  const { post: foundPost, comments, loading, addComment, likeComment } = useLoungePost(postId);
+  const { post: foundPost, comments, loading, commentsFetchError, addComment, likeComment, refetchComments } = useLoungePost(postId);
   const post = foundPost ?? initialPost ?? null;
-  const [commentText,  setCommentText]  = useState('');
-  const [replyTo,      setReplyTo]      = useState(null);
-  const [liked,        setLiked]        = useState(false);
-  const [saved,        setSaved]        = useState(false);
-  const [showChat,     setShowChat]     = useState(false);
-  const [chatSending,  setChatSending]  = useState(false);
-  const [chatSent,     setChatSent]     = useState(false);
-  const [toast,        setToast]        = useState(null);
-  const [reportTarget, setReportTarget] = useState(null);
+  const [commentText,    setCommentText]    = useState('');
+  const [replyTo,        setReplyTo]        = useState(null);
+  const [liked,          setLiked]          = useState(false);
+  const [saved,          setSaved]          = useState(false);
+  const [showChat,       setShowChat]       = useState(false);
+  const [chatSending,    setChatSending]    = useState(false);
+  const [chatSent,       setChatSent]       = useState(false);
+  const [toast,          setToast]          = useState(null);
+  const [reportTarget,   setReportTarget]   = useState(null);
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [devCommentInfo, setDevCommentInfo] = useState(null);
   const inputRef = useRef(null);
 
   const isGuest    = user?.isGuest === true;
@@ -79,35 +81,53 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   const handleComment = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
-    if (!commentText.trim()) return;
+    if (commentSubmitting) return;
+
+    const content = commentText.trim();
+
+    // payload 검증
+    if (!post?.id) { showToast('게시글 정보를 불러오는 중이에요'); return; }
+    if (!user?.id) { showToast('로그인이 필요해요'); return; }
+    if (!content)  { showToast('댓글 내용을 입력해주세요'); return; }
+
+    setCommentSubmitting(true);
 
     const nickname = getAnonymousNickname(user.id, postId);
-    const tempId   = `c-${Date.now()}`;
-    const optimistic = {
-      id:                 tempId,
-      post_id:            postId,
+    const payload  = {
+      post_id:            post.id,
       parent_id:          replyTo?.id ?? null,
       user_id:            user.id,
       anonymous_nickname: nickname,
-      content:            commentText.trim(),
-      image_urls:         [],
-      is_expert_reply:    user.activeRole === 'company',
-      like_count:         0,
-      created_at:         new Date().toISOString(),
+      content,
+      is_expert_reply:    false,
     };
-    addComment(optimistic);
+
+    if (import.meta.env.DEV) {
+      setDevCommentInfo({ payload, insertResult: null, insertError: null });
+    }
+
+    const { data, error } = await createLoungeComment(payload);
+
+    if (import.meta.env.DEV) {
+      setDevCommentInfo(prev => ({
+        ...prev,
+        insertResult: data ? { id: data.id, post_id: data.post_id, user_id: data.user_id } : null,
+        insertError:  error?.message ?? null,
+      }));
+    }
+
+    if (error) {
+      showToast(`댓글 오류: ${error.message}`);
+      setCommentSubmitting(false);
+      return;
+    }
+
+    // 성공: 입력 초기화 후 DB 결과를 UI에 추가, 목록 리프레시
     setCommentText('');
     setReplyTo(null);
-
-    const { error: commentError } = await createLoungeComment({
-      post_id:            postId,
-      parent_id:          replyTo?.id ?? null,
-      user_id:            user.id,
-      anonymous_nickname: nickname,
-      content:            optimistic.content,
-      is_expert_reply:    false,
-    });
-    if (commentError) showToast('댓글 저장에 실패했어요. 다시 시도해주세요.');
+    if (data) addComment(data);
+    await refetchComments();
+    setCommentSubmitting(false);
   };
 
   const handleChatRequest = async () => {
@@ -231,6 +251,27 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         </div>
       </div>
 
+      {/* DEV 패널 */}
+      {import.meta.env.DEV && (
+        <div style={{ background: 'rgba(0,0,0,0.9)', color: '#0f0', margin: `0 0 ${S.sm}px`, padding: '8px 14px', fontSize: 10.5, lineHeight: 1.85, fontFamily: 'monospace' }}>
+          [DEV] lounge_comments<br/>
+          post.id: {post?.id?.slice(0,8) ?? 'NULL ⚠️'}<br/>
+          user.id: {user?.id?.slice(0,8) ?? 'NULL ⚠️'}<br/>
+          comments.length: {comments.length} | fetch_err: {commentsFetchError ?? 'none'}<br/>
+          ids: {comments.slice(0,3).map(c => c.id?.slice(0,6)).join(', ') || '(empty)'}<br/>
+          {devCommentInfo && <>
+            --- last insert ---<br/>
+            payload: post_id={devCommentInfo.payload?.post_id?.slice(0,8)} uid={devCommentInfo.payload?.user_id?.slice(0,8)} content="{devCommentInfo.payload?.content?.slice(0,20)}"<br/>
+            {devCommentInfo.insertError
+              ? <span style={{color:'#f66'}}>insert_err: {devCommentInfo.insertError}<br/></span>
+              : devCommentInfo.insertResult
+                ? <span style={{color:'#0f0'}}>insert_ok: id={devCommentInfo.insertResult.id?.slice(0,8)} post_id={devCommentInfo.insertResult.post_id?.slice(0,8)}<br/></span>
+                : null
+            }
+          </>}
+        </div>
+      )}
+
       {/* 댓글 */}
       <div style={{ background: C.surface, padding: `${S.xl}px ${S.xl}px 0` }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
@@ -283,9 +324,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
               style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.full, fontSize: 14, outline: 'none', background: C.surface, color: C.text1, fontFamily: 'inherit' }}
             />
-            <button onClick={handleComment} disabled={!commentText.trim()}
-              style={{ background: commentText.trim() ? C.brand : C.text4, color: '#fff', border: 'none', borderRadius: R.full, width: 44, height: 44, fontSize: 16, cursor: commentText.trim() ? 'pointer' : 'not-allowed', flexShrink: 0 }}>
-              ↑
+            <button onClick={handleComment} disabled={!commentText.trim() || commentSubmitting}
+              style={{ background: (commentText.trim() && !commentSubmitting) ? C.brand : C.text4, color: '#fff', border: 'none', borderRadius: R.full, width: 44, height: 44, fontSize: 16, cursor: (commentText.trim() && !commentSubmitting) ? 'pointer' : 'not-allowed', flexShrink: 0 }}>
+              {commentSubmitting ? '…' : '↑'}
             </button>
           </div>
         )}

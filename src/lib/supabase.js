@@ -1132,6 +1132,7 @@ export const getLoungeComments = (postId) =>
     .select("*")
     .eq("post_id", postId)
     .eq("is_deleted", false)
+    .eq("is_hidden", false)
     .order("created_at", { ascending: true });
 
 export const createLoungeComment = (data) =>
