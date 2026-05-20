@@ -181,6 +181,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   const [reqDebug, setReqDebug] = useState(null);
+  const [reqCreateDebug, setReqCreateDebug] = useState(null);
 
   // Load requests on mount
   // Consumer: server-side filter by userId; Company/Admin: load all open requests for bidding
@@ -653,6 +654,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     [{r.status}] {r.id.slice(0,8)} {r.type} exp:{(r.expiresAt ?? "").slice(0,10)} act:{String(r.isActive)}
                   </span>
                 ))}
+                {reqCreateDebug && (
+                  <>
+                    <span style={{color:"#ff0"}}>── 최근 생성 요청 (DB 응답) ──</span><br/>
+                    id: {reqCreateDebug.id?.slice(0,8) ?? "null"}<br/>
+                    status: {reqCreateDebug.status ?? "null"}<br/>
+                    expires_at: {reqCreateDebug.expires_at?.slice(0,10) ?? "null"}<br/>
+                    space_type: {reqCreateDebug.space_type ?? "null"}<br/>
+                    {reqCreateDebug.insertError && <span style={{color:"#f66"}}>insert_err: {reqCreateDebug.insertError}<br/></span>}
+                  </>
+                )}
               </div>
             )}
 
@@ -827,10 +838,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             )}
 
             {import.meta.env.DEV && (
-              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:320, overflowY:"auto" }}>
+              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:360, overflowY:"auto" }}>
                 [DEV] company requests<br/>
-                activeRole: {activeRole} | user.id: {(user?.id ?? "null").slice(0,8)}<br/>
-                query: status=open, expires_at IS NULL OR {">"}now()<br/>
+                activeRole: {activeRole}<br/>
+                user.id: {(user?.id ?? "null").slice(0,8)} | currentUser.id: {currentUser?.id?.slice(0,8) ?? "null (프로필 없음)"}<br/>
+                query: status=open AND (expires_at IS NULL OR expires_at {">"} now())<br/>
                 fetch_err: {reqDebug?.companyFetchError ?? "none"} | db_rows: {reqDebug?.companyRows ?? "?"}<br/>
                 <span style={{color:"#ff0"}}>── DB raw (getRequests) ──</span><br/>
                 {(reqDebug?.companyData ?? []).map((r, i) => (
@@ -839,6 +851,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   </span>
                 ))}
                 {(reqDebug?.companyData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0 — open 요청 없음<br/></span>}
+                {reqDebug?.companyData?.[0] && (
+                  <>
+                    <span style={{color:"#ff0"}}>── first row detail ──</span><br/>
+                    status: {reqDebug.companyData[0].status}<br/>
+                    expires_at: {reqDebug.companyData[0].expires_at?.slice(0,19) ?? "NULL"}<br/>
+                  </>
+                )}
                 <span style={{color:"#ff0"}}>── displayed ──</span><br/>
                 active:{customerRequests.filter(r=>r.isActive).length}<br/>
                 ids: {customerRequests.filter(r=>r.isActive).map(r=>r.id.slice(0,8)).join(" | ") || "none"}
@@ -1428,6 +1447,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         if (user.id) {
           const { data, error } = await createRequest({
             user_id:    user.id,
+            status:     'open',
             area:       user.region ?? "",
             space_type: form.type,
             size:       form.size,
@@ -1437,6 +1457,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             budget_max: form.budget_max ?? 0,
             expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
           });
+          if (import.meta.env.DEV) {
+            setReqCreateDebug({
+              id:         data?.id ?? null,
+              status:     data?.status ?? null,
+              expires_at: data?.expires_at ?? null,
+              space_type: data?.space_type ?? null,
+              user_id:    data?.user_id ?? null,
+              insertError: error?.message ?? null,
+            });
+          }
           if (error) {
             void error;
           } else if (data) {
