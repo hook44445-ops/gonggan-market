@@ -97,7 +97,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         anonymous_nickname: nickname,
         category:           'daily',
         title:              null,
-        content:            text.trim(),
+        content:            text.trim() || '',
         image_urls:         imageUrls,
         is_story:           true,
         story_expires_at:   expiresAt,
@@ -107,19 +107,29 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         has_badge:          !!(user?.badge && user.badge !== 'basic'),
       };
 
-      const { data, error: insertError } = await createLoungePost(payload);
+      // story_expires_at 컬럼이 없는 구 DB를 위한 fallback
+      let { data, error: insertError } = await createLoungePost(payload);
+      if (insertError?.message?.includes('story_expires_at')) {
+        const { story_expires_at: _dropped, ...payloadWithout } = payload;
+        ({ data, error: insertError } = await createLoungePost(payloadWithout));
+      }
 
       if (import.meta.env.DEV) {
         setDevInfo({
-          user_id:          user?.id ?? 'null',
-          is_story:         true,
-          story_expires_at: expiresAt,
-          insertId:         data?.id ?? null,
-          insertError:      insertError?.message ?? null,
-          imageUrls_count:  imageUrls.length,
+          user_id:           user?.id ?? 'null',
+          is_story:          true,
+          payload_content:   payload.content,
+          payload_img_count: payload.image_urls.length,
+          payload_imgs:      payload.image_urls,
+          story_expires_at:  expiresAt,
           uploadErrors,
-          uploadErrMsg:     firstUploadErrMsg,
-          insertedImgUrls:  data?.image_urls ?? null,
+          uploadErrMsg:      firstUploadErrMsg,
+          insertId:          data?.id ?? null,
+          insertError:       insertError?.message ?? null,
+          insertedContent:   data?.content ?? null,
+          insertedImgUrls:   data?.image_urls ?? null,
+          insertedIsStory:   data?.is_story ?? null,
+          insertedExpiry:    data?.story_expires_at ?? null,
         });
       }
 
@@ -256,15 +266,22 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
       <div style={{ height: 32 }} />
 
       {import.meta.env.DEV && devInfo && (
-        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace', maxHeight: 200, overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace', maxHeight: 260, overflowY: 'auto' }}>
           [DEV] story upload<br/>
           user_id: {devInfo.user_id}<br/>
-          upload_errors: {devInfo.uploadErrors ?? 0} | images: {devInfo.imageUrls_count}장<br/>
-          {devInfo.uploadErrMsg && <span style={{color:'#f66'}}>err: {devInfo.uploadErrMsg}<br/></span>}
-          inserted_image_urls: {JSON.stringify(devInfo.insertedImgUrls ?? [])}<br/>
+          upload_errors: {devInfo.uploadErrors ?? 0} | images: {devInfo.payload_img_count ?? devInfo.imageUrls_count ?? 0}장<br/>
+          {devInfo.uploadErrMsg && <span style={{color:'#f66'}}>upload_err: {devInfo.uploadErrMsg}<br/></span>}
+          --- payload ---<br/>
+          payload_content: {devInfo.payload_content ? `"${devInfo.payload_content}"` : '(empty)'}<br/>
+          payload_imgs: {devInfo.payload_img_count ?? 0}장 {JSON.stringify(devInfo.payload_imgs ?? [])}<br/>
+          --- inserted row ---<br/>
           insert_id: {devInfo.insertId ?? 'null'}<br/>
-          insert_error: {devInfo.insertError ?? 'none'}<br/>
-          expires_at: {devInfo.story_expires_at}
+          insert_error: {devInfo.insertError ? <span style={{color:'#f66'}}>{devInfo.insertError}</span> : 'none'}<br/>
+          inserted_content: {devInfo.insertedContent != null ? `"${devInfo.insertedContent}"` : 'null'}<br/>
+          inserted_image_urls: {JSON.stringify(devInfo.insertedImgUrls ?? [])}<br/>
+          inserted_is_story: {String(devInfo.insertedIsStory)}<br/>
+          inserted_expires_at: {devInfo.insertedExpiry ?? 'null'}<br/>
+          story_expires_at (payload): {devInfo.story_expires_at}
         </div>
       )}
     </div>
