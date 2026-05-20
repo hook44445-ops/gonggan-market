@@ -58,9 +58,9 @@ const fmtTs = (ts) => {
 const STAGE_META = [
   { id: 1, label: "전액 예치",    sub: "고객이 총 금액을 공간마켓에 예치",              icon: "🔒", pct: 0,  confirmLabel: null, autoRelease: false },
   { id: 2, label: "자재비 선지급", sub: "계약 완료 즉시 자동 지급 · 고객 확인 불필요",  icon: "💰", pct: 10, confirmLabel: null, autoRelease: true  },
-  { id: 3, label: "착공 확인",    sub: "고객 착공 확인 후 공간마켓→업체 20% 지급",    icon: "🏗", pct: 20, confirmLabel: "착공 확정" },
-  { id: 4, label: "중간 점검",    sub: "고객 중간점검 확인 후 업체에 40% 지급",       icon: "🔍", pct: 40, confirmLabel: "중간점검 확정" },
-  { id: 5, label: "완료 확인",    sub: "고객 완료 확인 후 업체에 잔금 30% 지급",      icon: "✅", pct: 30, confirmLabel: "완료 확정" },
+  { id: 3, label: "착공 확인",    sub: "착공 사진을 확인하고 승인하면 업체에 20% 지급",    icon: "🏗", pct: 20, confirmLabel: "착공 확인하기",    timelineLabel: "착공 확인 완료" },
+  { id: 4, label: "중간 점검",    sub: "중간 점검 사진을 확인하고 승인하면 40% 지급",       icon: "🔍", pct: 40, confirmLabel: "중간점검 확인하기", timelineLabel: "중간점검 확인 완료" },
+  { id: 5, label: "완료 확인",    sub: "완료 사진을 확인하고 승인하면 잔금 30% 지급",      icon: "✅", pct: 30, confirmLabel: "완료 확인하기",    timelineLabel: "완료 확인 · 정산 완료" },
 ];
 
 const TIMELINE_ICONS = {
@@ -97,7 +97,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
   // Timeline — start with local entry; DB entries loaded when contractId present
   const [timeline, setTimeline] = useState([
-    { id: 1, type: "contract", label: "계약 완료 · 자재비 선지급 (10%)", ts: Date.now() - 2 * 24 * 3600 * 1000 },
+    { id: 1, type: "contract", label: "계약 완료 · 공사비 안전 예치 · 자재비 선지급 (10%)", ts: Date.now() - 2 * 24 * 3600 * 1000 },
   ]);
 
   const addTimeline = (type, label) => {
@@ -134,7 +134,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       ...(stageId < 5 ? { [stageId + 1]: "company_todo" } : {}),
     }));
     setConfirmStage(null);
-    if (s?.confirmLabel) addTimeline("confirm", s.confirmLabel);
+    if (s?.confirmLabel) addTimeline("confirm", s.timelineLabel ?? s.confirmLabel);
 
     // DB updates (fire-and-forget, non-blocking)
     if (contractId) {
@@ -278,7 +278,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <span style={{ fontSize: 16 }}>{isConsumer ? "👤" : "🏗"}</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: isConsumer ? C.brand : C.text2 }}>
             {isConsumer
-              ? "각 단계를 확인하고 승인하시면 업체에 지급됩니다"
+              ? "🔒 각 단계 사진을 확인한 후 승인해야 업체에 지급됩니다"
               : "단계별로 완료 신고 후 고객 확인 시 입금됩니다"}
           </span>
         </div>

@@ -59,7 +59,7 @@ export default function DashboardScreen({ onBack, onEscrow, allRequests: allRequ
         position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: S.md, marginBottom: 14 }}>
           <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
-          <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>업체 대시보드</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>안녕하세요, {currentUser?.name ?? ""}님</div>
           <div style={{ marginLeft: "auto" }}>
             <TempBadge temp={temp} />
           </div>
@@ -87,7 +87,7 @@ export default function DashboardScreen({ onBack, onEscrow, allRequests: allRequ
                 {thisMonthRevenue > 0 ? `${thisMonthRevenue.toLocaleString()}만원` : "—"}
               </div>
               <div style={{ fontSize: 13, opacity: 0.75 }}>
-                진행중 {activeJobs.length}건 · 완료 대기 {pendingAmount > 0 ? `${pendingAmount.toLocaleString()}만원` : "—"}
+                진행중 {activeJobs.length}건 · 단계 확인 후 입금 예정 {pendingAmount > 0 ? `${pendingAmount.toLocaleString()}만원` : "—"}
               </div>
             </div>
 
@@ -101,8 +101,8 @@ export default function DashboardScreen({ onBack, onEscrow, allRequests: allRequ
               <div style={{ background: C.surface, borderRadius: R.xl, padding: "40px 20px",
                 textAlign: "center", border: `1px solid ${C.bgWarm}` }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 6 }}>진행 중인 공사가 없어요</div>
-                <div style={{ fontSize: 12, color: C.text3 }}>입찰 탭에서 견적 요청을 확인하세요</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 6 }}>아직 진행 중인 공사가 없어요</div>
+                <div style={{ fontSize: 12, color: C.text3 }}>새로운 견적 요청을 확인해보세요</div>
               </div>
             )}
 

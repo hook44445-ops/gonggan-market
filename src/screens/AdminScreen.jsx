@@ -12,7 +12,7 @@ import {
   getDisputePayments, adminResolveDispute,
   getPendingPayouts, adminSetPayoutStatus,
   adminSetUserStatus, adminAdjustSpaceTemp, adminAdjustUserTokens,
-  getLoungePosts, getLoungeReports,
+  adminGetLoungePosts, getLoungeReports,
   adminHideContent, adminUpdateLoungeReport,
   getCustomerReports, updateCustomerReportStatus,
   holdAllPayoutsForEscrow,
@@ -297,7 +297,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     }
     if (mainTab === "lounge") {
       Promise.all([
-        getLoungePosts().catch(() => ({ data: [] })),
+        adminGetLoungePosts().catch(() => ({ data: [] })),
         getLoungeReports().catch(() => ({ data: [] })),
       ]).then(([{ data: p }, { data: r }]) => {
         setLoungePosts(p ?? []);

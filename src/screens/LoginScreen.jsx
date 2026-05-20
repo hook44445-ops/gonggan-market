@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import { BADGES } from "../constants/badges";
 import CompanyOnboarding from "./CompanyOnboarding";
@@ -21,7 +21,7 @@ const SERVICE_ICONS = {
   "욕실": "🚿", "주방": "🍳", "바닥/도배": "🪵", "조명/전기": "💡",
 };
 
-export default function LoginScreen({ onLogin }) {
+export default function LoginScreen({ onLogin, initialRole }) {
   const [step, setStep] = useState(1);
   const [pendingRole, setPendingRole] = useState(null);
   const [phone, setPhone] = useState("");
@@ -58,6 +58,8 @@ export default function LoginScreen({ onLogin }) {
     marginBottom: 14, fontFamily: "inherit", color: C.text1, background: C.surface,
   };
 
+  const initialRoleFired = useRef(false);
+
   const chooseRole = async (role) => {
     setPendingRole(role);
     // STEP F: Same-device bypass — if phone verified before, skip SMS
@@ -77,6 +79,14 @@ export default function LoginScreen({ onLogin }) {
     }
     setStep(2);
   };
+
+  // Auto-proceed when coming from LandingScreen with a pre-selected role
+  useEffect(() => {
+    if (initialRole && !initialRoleFired.current) {
+      initialRoleFired.current = true;
+      chooseRole(initialRole);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendCode = async () => {
     if (phone.replace(/-/g, "").length < 10) return setMsg("올바른 전화번호를 입력해주세요");

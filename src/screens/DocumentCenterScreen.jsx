@@ -1,15 +1,25 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { getCompanyDocuments } from "../lib/supabase";
+import { DOCUMENT_TEMPLATES, UPLOAD_DOCUMENT_TEMPLATES } from "../constants/documentTemplates";
 import DocumentUploadCard from "../components/DocumentUploadCard";
 import DocumentChecklistCard from "../components/DocumentChecklistCard";
 import DocumentDetailModal from "../components/DocumentDetailModal";
 
+const DOC_ICONS = {
+  business_license:      "📋",
+  insurance_certificate: "🔒",
+  operation_pledge:      "📝",
+  escrow_agreement:      "🛡",
+};
+
 const REQUIRED_DOCS = [
-  { document_type: "business_license",      title: "사업자등록증",   icon: "📋", type: "UPLOAD" },
-  { document_type: "insurance_certificate", title: "시공보험 증서",   icon: "🔒", type: "UPLOAD" },
-  { document_type: "operation_pledge",      title: "운영 서약서",     icon: "📝", type: "CHECKLIST" },
-  { document_type: "escrow_agreement",      title: "에스크로 동의서", icon: "🛡", type: "CHECKLIST" },
+  ...UPLOAD_DOCUMENT_TEMPLATES
+    .filter(t => t.target === "company" && t.required)
+    .map(t => ({ document_type: t.type, title: t.title, icon: DOC_ICONS[t.type] ?? "📄", type: "UPLOAD" })),
+  ...DOCUMENT_TEMPLATES
+    .filter(t => t.target === "company" && t.required)
+    .map(t => ({ document_type: t.type, title: t.title, icon: DOC_ICONS[t.type] ?? "📝", type: "CHECKLIST" })),
 ];
 
 export default function DocumentCenterScreen({ company, user, onBack }) {

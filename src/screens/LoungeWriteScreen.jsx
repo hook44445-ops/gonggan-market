@@ -10,6 +10,7 @@ import { useState, useRef } from 'react';
 import { C, R, S, REGIONS } from '../constants';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
+import { createLoungePost, uploadFile } from '../lib/supabase';
 
 const WRITABLE_CATS = LOUNGE_CATEGORIES.filter(c => c.group !== null);
 const MAX_IMAGES    = 5;
@@ -25,6 +26,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
   const [images,     setImages]     = useState([]); // { url, name }[]
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState('');
+  const [devInfo,    setDevInfo]    = useState(null);
   const fileInputRef = useRef(null);
 
   const handleImageSelect = (e) => {
@@ -58,31 +60,95 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
     if (!content.trim()) { setError('내용을 입력해주세요'); return; }
 
     setSubmitting(true);
-    const postId   = `post-${Date.now()}`;
-    const nickname = getAnonymousNickname(user?.id ?? 'guest', postId);
+    setError('');
 
-    const newPost = {
-      id:                 postId,
-      user_id:            user?.id ?? null,
-      anonymous_nickname: nickname,
-      category,
-      title:              title.trim() || null,
-      content:            content.trim(),
-      image_urls:         images.map(img => img.url),
-      gender:             gender || null,
-      age_group:          ageGroup || null,
-      region:             region || null,
-      is_story:           false,
-      view_count:         0,
-      like_count:         0,
-      comment_count:      0,
-      created_at:         new Date().toISOString(),
-      has_badge:          !!(user?.badge && user.badge !== 'basic'),
-    };
+    try {
+      // Upload images to Supabase Storage
+      const imageUrls = [];
+      let uploadErrors = 0;
+      let firstUploadErrMsg = null;
+      if (images.length > 0 && user?.id) {
+        for (const img of images) {
+          try {
+            const resp = await fetch(img.url);
+            const blob = await resp.blob();
+            const ext  = blob.type.split('/')[1] ?? 'jpg';
+            const path = `lounge/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+            const url  = await uploadFile('lounge-images', path, blob);
+            if (url) {
+              imageUrls.push(url);
+            } else {
+              uploadErrors++;
+              firstUploadErrMsg = firstUploadErrMsg ?? 'URL 반환 없음';
+            }
+          } catch (uploadErr) {
+            uploadErrors++;
+            const msg = uploadErr?.message ?? String(uploadErr);
+            const isBucketMissing = msg.toLowerCase().includes('bucket') || msg.toLowerCase().includes('not found');
+            firstUploadErrMsg = firstUploadErrMsg ?? (isBucketMissing
+              ? 'Storage 버킷 없음 — Supabase 대시보드에서 lounge-images 버킷을 생성해주세요'
+              : msg);
+          }
+        }
+      }
 
-    await new Promise(r => setTimeout(r, 300));
-    setSubmitting(false);
-    onPublish?.(newPost);
+      if (images.length > 0 && uploadErrors > 0) {
+        if (import.meta.env.DEV) {
+          setDevInfo({ user_id: user?.id ?? 'null', selectedFiles: images.length, uploadErrors, uploadErrMsg: firstUploadErrMsg, uploadedUrls: imageUrls, insertId: null, insertError: null });
+        }
+        setError(`사진 업로드 실패: ${firstUploadErrMsg}`);
+        setSubmitting(false);
+        return;
+      }
+
+      const tempId   = `post-${Date.now()}`;
+      const nickname = getAnonymousNickname(user?.id ?? 'guest', tempId);
+
+      const payload = {
+        user_id:            user?.id ?? null,
+        anonymous_nickname: nickname,
+        category,
+        title:              title.trim() || null,
+        content:            content.trim(),
+        image_urls:         imageUrls,
+        gender:             gender || null,
+        age_group:          ageGroup || null,
+        region:             region || null,
+        is_story:           false,
+        view_count:         0,
+        like_count:         0,
+        comment_count:      0,
+        has_badge:          !!(user?.badge && user.badge !== 'basic'),
+      };
+
+      const { data, error: insertError } = await createLoungePost(payload);
+
+      if (import.meta.env.DEV) {
+        setDevInfo({
+          user_id:         user?.id ?? 'null',
+          selectedFiles:   images.length,
+          uploadErrors,
+          uploadErrMsg:    firstUploadErrMsg,
+          uploadedUrls:    imageUrls,
+          insertId:        data?.id ?? null,
+          insertError:     insertError?.message ?? null,
+          insertedImgUrls: data?.image_urls ?? null,
+          renderedFirst:   (data?.image_urls ?? imageUrls)?.[0] ?? null,
+        });
+      }
+
+      if (insertError) {
+        setError(`등록에 실패했어요: ${insertError.message}`);
+        setSubmitting(false);
+        return;
+      }
+
+      onPublish?.(data ?? { ...payload, id: tempId, created_at: new Date().toISOString() });
+    } catch {
+      setError('등록에 실패했어요. 다시 시도해주세요.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -181,6 +247,21 @@ export default function LoungeWriteScreen({ user, onBack, onPublish }) {
           </div>
         )}
       </div>
+
+      {import.meta.env.DEV && devInfo && (
+        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace', maxHeight: 200, overflowY: 'auto' }}>
+          [DEV] lounge post write<br/>
+          user_id: {devInfo.user_id}<br/>
+          selected_files: {devInfo.selectedFiles ?? 0} | upload_errors: {devInfo.uploadErrors ?? 0}<br/>
+          {devInfo.uploadErrMsg && <span style={{color:'#f66'}}>err: {devInfo.uploadErrMsg}<br/></span>}
+          uploaded_urls: {devInfo.uploadedUrls?.length ?? 0}장<br/>
+          {(devInfo.uploadedUrls ?? []).map((u, i) => <span key={i} style={{display:'block', color:'#8f8'}}> [{i}] {u.slice(0, 60)}</span>)}
+          insert_id: {devInfo.insertId ?? 'null'}<br/>
+          insert_error: {devInfo.insertError ?? 'none'}<br/>
+          inserted_image_urls: {JSON.stringify(devInfo.insertedImgUrls ?? [])}<br/>
+          rendered[0]: {devInfo.renderedFirst ?? 'none'}
+        </div>
+      )}
     </div>
   );
 }
