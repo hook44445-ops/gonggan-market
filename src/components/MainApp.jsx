@@ -793,16 +793,38 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
             <LiveFeed />
 
-            <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>📋 인근 시공 요청</div>
-            {customerRequests.filter(r => r.isActive).map(r => (
-              <BidCard
-                key={r.id}
-                r={r}
-                currentUser={currentUser}
-                onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
-                onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
-              />
-            ))}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
+              <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>
+                📋 새 견적 요청
+                {customerRequests.filter(r => r.isActive).length > 0 && (
+                  <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
+                    {customerRequests.filter(r => r.isActive).length}건
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize:11, color:C.text4 }}>전체 · 지역 필터 없음</div>
+            </div>
+
+            {customerRequests.filter(r => r.isActive).length === 0 ? (
+              <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
+                <div style={{ fontSize:32, marginBottom:12 }}>📭</div>
+                <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:6 }}>활성 견적 요청이 없습니다</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.6 }}>
+                  의뢰인이 요청을 등록하면 이곳에 표시됩니다<br/>
+                  {import.meta.env.DEV && `(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}
+                </div>
+              </div>
+            ) : (
+              customerRequests.filter(r => r.isActive).map(r => (
+                <BidCard
+                  key={r.id}
+                  r={r}
+                  currentUser={currentUser}
+                  onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
+                  onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
+                />
+              ))
+            )}
 
             {import.meta.env.DEV && (
               <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:320, overflowY:"auto" }}>
