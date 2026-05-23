@@ -402,7 +402,14 @@ create policy "notifications: own read" on public.notifications
 create policy "notifications: own update" on public.notifications
   for update using (auth.uid() = user_id);
 create policy "notifications: insert" on public.notifications
-  for insert with check (true);  -- 서버·트리거에서 삽입
+  for insert with check (true);  -- 서버·트리거·앱에서 삽입
+
+-- 라운지 알림 type 값:
+--   post_like      내 글에 좋아요
+--   post_comment   내 글에 댓글
+--   comment_reply  내 댓글에 답글
+--   expert_answer  전문가가 내 글에 답변
+--   popular_post   관심 카테고리 인기글 (서버사이드 예정)
 
 -- ── STEP 23: Review protection — escrow_payment_id 연결 ─────────────────────
 alter table public.reviews

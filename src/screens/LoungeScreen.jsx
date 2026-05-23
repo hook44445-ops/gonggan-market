@@ -6,9 +6,34 @@ import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
 import { useLounge } from '../hooks/useLounge';
 import { MOCK_LOUNGE_POSTS } from '../constants/lounge';
+import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead } from '../lib/supabase';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
 import LoungePostCard from '../components/lounge/LoungePostCard';
+
+// ── 알림 유틸 ──────────────────────────────────────────
+const NOTIF_META = {
+  post_like:             { icon: '❤️' },
+  post_comment:          { icon: '💬' },
+  comment_reply:         { icon: '↩️' },
+  expert_answer:         { icon: '🏆' },
+  popular_post:          { icon: '🔥' },
+  bid_submitted:         { icon: '📝' },
+  company_selected:      { icon: '🏠' },
+  step_approval_request: { icon: '✅' },
+  settled:               { icon: '💰' },
+  dispute_filed:         { icon: '⚠️' },
+  admin_action:          { icon: '🛡️' },
+};
+
+function relTime(isoStr) {
+  const m = Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000);
+  if (m < 1)   return '방금';
+  if (m < 60)  return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
+}
 
 // ── 검색 오버레이 ──────────────────────────────────────
 function SearchOverlay({ onClose, onPostClick }) {
@@ -82,14 +107,7 @@ function SearchOverlay({ onClose, onPostClick }) {
 }
 
 // ── 알림 패널 ──────────────────────────────────────────
-function NotifPanel({ onClose, onGoSettings }) {
-  const MOCK_NOTIFS = [
-    { id: 1, icon: '❤️', text: '내 글에 좋아요가 달렸어요', time: '5분 전', unread: true },
-    { id: 2, icon: '💬', text: '내 댓글에 답글이 달렸어요', time: '23분 전', unread: true },
-    { id: 3, icon: '🏆', text: '전문가가 내 질문에 답했어요', time: '1시간 전', unread: false },
-    { id: 4, icon: '🔥', text: '관심 카테고리에 인기 글이 올라왔어요', time: '2시간 전', unread: false },
-  ];
-
+function NotifPanel({ notifs, loading, onClose, onGoSettings }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 300 }} onClick={onClose}>
       <div style={{ background: C.surface, borderRadius: '24px 24px 0 0', width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
@@ -98,28 +116,44 @@ function NotifPanel({ onClose, onGoSettings }) {
           <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: '0 auto 16px' }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>🔔 알림</div>
-            <button onClick={onGoSettings} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.brand, fontWeight: 700, padding: 0 }}>
-              알림 설정
+            <button onClick={onGoSettings} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, fontWeight: 700, padding: 0 }}>
+              알림 설정 (준비중)
             </button>
           </div>
         </div>
 
         {/* 알림 목록 */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {MOCK_NOTIFS.map(n => (
-            <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: S.md, padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bg}`, background: n.unread ? `${C.brandL}88` : C.surface }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: n.unread ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                {n.icon}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, color: C.text1, fontWeight: n.unread ? 700 : 500, lineHeight: 1.4 }}>{n.text}</div>
-                <div style={{ fontSize: 11, color: C.text4, marginTop: 3 }}>{n.time}</div>
-              </div>
-              {n.unread && (
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.brand, flexShrink: 0 }} />
-              )}
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
+              <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
             </div>
-          ))}
+          ) : notifs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔔</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text2, marginBottom: 6 }}>새 알림이 없습니다</div>
+              <div style={{ fontSize: 12, color: C.text4, lineHeight: 1.6 }}>좋아요·댓글·전문가 답변 알림이 여기에 표시됩니다</div>
+            </div>
+          ) : (
+            notifs.map(n => {
+              const icon = NOTIF_META[n.type]?.icon ?? '🔔';
+              return (
+                <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: S.md, padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bg}`, background: !n.is_read ? `${C.brandL}88` : C.surface }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: !n.is_read ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+                    {icon}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: C.text1, fontWeight: !n.is_read ? 700 : 500, lineHeight: 1.4 }}>{n.message}</div>
+                    <div style={{ fontSize: 11, color: C.text4, marginTop: 3 }}>{relTime(n.created_at)}</div>
+                  </div>
+                  {!n.is_read && (
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.brand, flexShrink: 0 }} />
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
 
         <div style={{ padding: `${S.md}px ${S.xl}px ${S.xl}px` }}>
@@ -127,6 +161,44 @@ function NotifPanel({ onClose, onGoSettings }) {
             닫기
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 알림 DEV 패널 ─────────────────────────────────────
+function NotifsDevPanel({ notifs, notifsLoading, notifsError }) {
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{ display: 'block', width: '100%', background: '#1a1a2e', color: '#ffcc44', border: 'none', padding: '6px 16px', fontSize: 11, fontWeight: 700, textAlign: 'left', cursor: 'pointer', letterSpacing: 0.5 }}>
+        [DEV] 알림 패널 열기 ▼
+      </button>
+    );
+  }
+  const rowStyle = { display: 'flex', gap: 8, padding: '3px 0', borderBottom: '1px solid #2a2a4a', flexWrap: 'wrap' };
+  const keyStyle = { color: '#ffcc44', fontSize: 10, fontWeight: 700, minWidth: 130, flexShrink: 0 };
+  const valStyle = { color: '#e0e0e0', fontSize: 10, wordBreak: 'break-all', flex: 1 };
+  const errStyle = { color: '#ff6b6b', fontSize: 10, wordBreak: 'break-all', flex: 1 };
+
+  return (
+    <div style={{ background: '#0d0d1a', border: '1px solid #2a2a4a', margin: '0 0 2px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #2a2a4a' }}>
+        <span style={{ color: '#ffcc44', fontSize: 11, fontWeight: 900 }}>[DEV] 알림 (notifications)</span>
+        <button onClick={() => setOpen(false)} style={{ background: 'none', color: '#666', border: 'none', fontSize: 13, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+      </div>
+      <div style={{ padding: '8px 12px' }}>
+        <div style={rowStyle}><span style={keyStyle}>loading</span><span style={valStyle}>{String(notifsLoading)}</span></div>
+        <div style={rowStyle}><span style={keyStyle}>db_rows</span><span style={valStyle}>{notifs.length}</span></div>
+        <div style={rowStyle}><span style={keyStyle}>unread_count</span><span style={valStyle}>{notifs.filter(n => !n.is_read).length}</span></div>
+        <div style={rowStyle}><span style={keyStyle}>fetch_err</span><span style={notifsError ? errStyle : valStyle}>{notifsError ? JSON.stringify({ message: notifsError.message, code: notifsError.code }) : 'null'}</span></div>
+        <div style={rowStyle}><span style={keyStyle}>IS_SUPABASE_READY</span><span style={valStyle}>{String(IS_SUPABASE_READY)}</span></div>
+        {notifs.slice(0, 3).map((n, i) => (
+          <div key={n.id} style={rowStyle}>
+            <span style={keyStyle}>rows[{i}]</span>
+            <span style={valStyle}>type={n.type} read={String(n.is_read)} {relTime(n.created_at)}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -220,13 +292,38 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
   const [showWriteOptions, setShowWriteOptions] = useState(false);
   const [searchOpen,      setSearchOpen]       = useState(false);
   const [notifOpen,       setNotifOpen]        = useState(false);
-  const [notifCount]                           = useState(2); // 읽지 않은 알림 수
+  const [notifs,          setNotifs]           = useState([]);
+  const [notifsLoading,   setNotifsLoading]    = useState(false);
+  const [notifsError,     setNotifsError]      = useState(null);
+  const [notifCount,      setNotifCount]       = useState(0);
 
   const { posts, stories, loading, storiesError } = useLounge(category);
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
   const isPopular  = category === 'popular';
+
+  // 알림 로드
+  useEffect(() => {
+    if (isGuest || !user?.id || !IS_SUPABASE_READY) return;
+    setNotifsLoading(true);
+    getNotifications(user.id).then(({ data, error }) => {
+      setNotifsLoading(false);
+      if (error) { setNotifsError(error); return; }
+      const rows = data ?? [];
+      setNotifs(rows);
+      setNotifCount(rows.filter(n => !n.is_read).length);
+    });
+  }, [user?.id, isGuest]);
+
+  const handleOpenNotif = () => {
+    setNotifOpen(true);
+    if (IS_SUPABASE_READY && !isGuest && user?.id && notifCount > 0) {
+      markAllNotifsRead(user.id);
+      setNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
+      setNotifCount(0);
+    }
+  };
 
   // extraPosts를 카테고리별로 필터 후 hook 데이터와 병합
   const filteredExtra = (() => {
@@ -262,7 +359,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
             </button>
             {/* 알림 버튼 */}
             <button
-              onClick={() => isGuest ? onRequireLogin?.() : setNotifOpen(true)}
+              onClick={() => isGuest ? onRequireLogin?.() : handleOpenNotif()}
               style={{ background: 'none', border: `1px solid ${C.bgWarm}`, borderRadius: R.full, cursor: 'pointer', fontSize: 13, color: C.text2, padding: '4px 10px', fontWeight: 600, position: 'relative', lineHeight: 1 }}>
               알림
               {isLoggedIn && notifCount > 0 && (
@@ -288,10 +385,13 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
       </div>
 
       {import.meta.env.DEV && (
-        <StoryDevPanel
-          stories={[...extraStories, ...stories].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)}
-          storiesError={storiesError}
-        />
+        <>
+          <NotifsDevPanel notifs={notifs} notifsLoading={notifsLoading} notifsError={notifsError} />
+          <StoryDevPanel
+            stories={[...extraStories, ...stories].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)}
+            storiesError={storiesError}
+          />
+        </>
       )}
       <LoungeStoryBar
         stories={[...extraStories, ...stories].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)}
@@ -371,8 +471,10 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
       {/* 알림 패널 */}
       {notifOpen && (
         <NotifPanel
+          notifs={notifs}
+          loading={notifsLoading}
           onClose={() => setNotifOpen(false)}
-          onGoSettings={() => { setNotifOpen(false); onGoMyPage?.(); }}
+          onGoSettings={() => { setNotifOpen(false); }}
         />
       )}
     </div>

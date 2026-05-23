@@ -10,7 +10,7 @@ import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname 
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
-import { IS_SUPABASE_READY, softDeleteLoungePost } from '../lib/supabase';
+import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification } from '../lib/supabase';
 
 // ── 삭제 확인 다이얼로그 ───────────────────────────────
 function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
@@ -104,6 +104,16 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     if (liked) return;
     setLiked(true);
     showToast('❤️ 좋아요를 눌렀어요');
+    if (IS_SUPABASE_READY && post?.user_id && user?.id && post.user_id !== user.id) {
+      createLoungeNotification({
+        userId:      post.user_id,
+        type:        'post_like',
+        title:       '좋아요',
+        message:     '내 글에 좋아요가 달렸어요',
+        relatedId:   post.id,
+        relatedType: 'lounge_post',
+      });
+    }
   };
 
   const handleComment = () => {
@@ -126,6 +136,36 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     addComment(newComment);
     handleCommentSubmit(commentText.trim());
     setCommentText('');
+
+    if (IS_SUPABASE_READY && user?.id) {
+      const isExpert = user.role === 'company';
+      const isReply  = !!replyTo?.id;
+
+      // 원글 작성자에게 알림 (본인 글 제외)
+      if (post?.user_id && post.user_id !== user.id) {
+        const type = isExpert ? 'expert_answer' : 'post_comment';
+        createLoungeNotification({
+          userId:      post.user_id,
+          type,
+          title:       isExpert ? '전문가 답변' : '새 댓글',
+          message:     isExpert ? '전문가가 내 글에 답변했어요' : '내 글에 댓글이 달렸어요',
+          relatedId:   post.id,
+          relatedType: 'lounge_post',
+        });
+      }
+      // 답글 대상 댓글 작성자에게 알림 (본인 댓글 제외)
+      if (isReply && replyTo.user_id && replyTo.user_id !== user.id) {
+        createLoungeNotification({
+          userId:      replyTo.user_id,
+          type:        'comment_reply',
+          title:       '답글',
+          message:     '내 댓글에 답글이 달렸어요',
+          relatedId:   post.id,
+          relatedType: 'lounge_post',
+        });
+      }
+    }
+
     setReplyTo(null);
   };
 

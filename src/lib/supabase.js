@@ -821,3 +821,37 @@ export const adminUnhideLoungePost = (postId) =>
     .from("lounge_posts")
     .update({ is_hidden: false, hidden_by: null, hidden_reason: null, updated_at: new Date().toISOString() })
     .eq("id", postId);
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export const getNotifications = (userId) =>
+  supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+export const markAllNotifsRead = (userId) =>
+  supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("user_id", userId)
+    .eq("is_read", false);
+
+export const markNotifRead = (notifId) =>
+  supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("id", notifId);
+
+export const createLoungeNotification = ({ userId, type, title, message, relatedId = null, relatedType = null }) =>
+  supabase.from("notifications").insert({
+    user_id:      userId,
+    type,
+    title,
+    message,
+    related_id:   relatedId,
+    related_type: relatedType,
+    is_read:      false,
+  });
