@@ -46,7 +46,7 @@ function BidScreenHeader({ title, sub, onBack }) {
   );
 }
 
-const IS_DEBUG = import.meta.env.DEV || import.meta.env.VITE_DEBUG === "true";
+const IS_DEBUG = true; // 디버깅 중 — 항상 표시
 
 export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
   const [localBids, setLocalBids] = useState(propBids ?? []);
