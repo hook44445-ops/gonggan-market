@@ -459,6 +459,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
 
+      <div style={{ background:"#1a1a1a", color:"#00ff88", textAlign:"center", padding:"3px 0", fontSize:10, fontFamily:"monospace", letterSpacing:"0.5px", position:"sticky", top:0, zIndex:999 }}>
+        ▶ DEPLOY CHECK 2026-05-23 sha:2a3e533 ◀
+      </div>
+
       {(screen==="home"||screen==="map") && (
         <div style={{ background:C.surface, padding:"14px 20px 0", borderBottom:`1px solid ${C.bgWarm}`, position:"sticky", top:0, zIndex:10 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
