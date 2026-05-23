@@ -331,7 +331,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
             </div>
           )}
 
-          {!SAFE_MODE && import.meta.env.DEV && (
+          {!SAFE_MODE && IS_DEBUG && (
             <div style={{ background:"#F0F4FF", borderRadius:R.lg, padding:S.md, marginBottom:S.lg, fontSize:11, color:"#4466CC" }}>
               🧪 테스트 모드 · 실제 결제가 발생하지 않습니다
             </div>

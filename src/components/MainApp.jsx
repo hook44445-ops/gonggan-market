@@ -182,7 +182,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       expireRequest(requestId);
 
       // DB: 새 요청 생성 (새 UUID, bids 0건)
-      const { data } = await createRequest({
+      const { data, error } = await createRequest({
         user_id:    user.id,
         status:     'open',
         area:       originalReq.area ?? user.region ?? "",
@@ -195,23 +195,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
       });
 
-      if (import.meta.env.DEV) {
-        setReqCreateDebug({
-          id:         data?.id ?? null,
-          status:     data?.status ?? null,
-          expires_at: data?.expires_at ?? null,
-          space_type: data?.space_type ?? null,
-          user_id:    data?.user_id ?? null,
-          insertError: null,
-          _note: "repost → new request",
-        });
-      }
+      setReqCreateDebug({
+        id:          data?.id ?? null,
+        status:      data?.status ?? null,
+        expires_at:  data?.expires_at ?? null,
+        space_type:  data?.space_type ?? null,
+        user_id:     data?.user_id ?? null,
+        insertError: error?.message ?? null,
+        _note: "repost → new request",
+      });
 
-      if (data) {
+      if (error) {
+        showToast(`재노출 실패: ${error.message}`);
+      } else if (data) {
         const newReq = normalizeRequest(data);
         setMyRequests(prev => [newReq, ...prev]);
         setCustomerRequests(prev => [newReq, ...prev]);
       }
+    } else {
+      setReqCreateDebug({ _note: "repost guard blocked", requestId, hasTmpPrefix: requestId.startsWith("tmp-"), hasUserId: !!user.id, hasOriginalReq: !!originalReq });
     }
   };
 
@@ -257,7 +259,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
     if (activeRole === "consumer" && user.id) {
       getUserRequests(user.id).then(({ data, error }) => {
-        if (import.meta.env.DEV) setReqDebug(d => ({ ...d, consumerFetchError: error?.message ?? null, consumerRows: data?.length ?? 0, consumerData: data ?? [] }));
+        setReqDebug(d => ({ ...d, consumerFetchError: error?.message ?? null, consumerRows: data?.length ?? 0, consumerData: data ?? [] }));
         if (error) return;
         if (data) {
           const withExpiry = applyExpiry(data);
@@ -278,7 +280,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       });
     } else {
       getRequests().then(({ data, error }) => {
-        if (import.meta.env.DEV) setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: data?.length ?? 0, companyData: data ?? [] }));
+        setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: data?.length ?? 0, companyData: data ?? [] }));
         if (error) return;
         if (data) {
           const withExpiry = applyExpiry(data);
@@ -406,14 +408,12 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         material_note: bidData.material,
         comment: bidData.comment,
       });
-      if (import.meta.env.DEV) {
-        setBidDebug({
-          request_id:    request.id,
-          company_id:    actor.id,
-          insertResult:  data  ? { id: data.id?.slice(0,8), request_id: data.request_id?.slice(0,8) } : null,
-          insertError:   error?.message ?? null,
-        });
-      }
+      setBidDebug({
+        request_id:    request.id,
+        company_id:    actor.id,
+        insertResult:  data  ? { id: data.id?.slice(0,8), request_id: data.request_id?.slice(0,8) } : null,
+        insertError:   error?.message ?? null,
+      });
       if (error) {
         showToast(`입찰 저장 실패: ${error.message}`);
       } else if (data) {
@@ -746,17 +746,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 {(reqDebug?.consumerData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0 — 요청 없음<br/></span>}
                 <span style={{color:"#ff0"}}>── normalized (bidCount/isActive) ──</span><br/>
                 {myRequests.map(r => (
-                  <span key={r.id} style={{display:"block"}}>
-                    [{r.status}] {r.id.slice(0,8)} {r.type} bidCount:{r.bidCount ?? 0} act:{String(r.isActive)} exp:{(r.expiresAt ?? "").slice(0,10)}
+                  <span key={r.id} style={{display:"block", color: r.isActive ? "#0f0" : "#f88"}}>
+                    [{r.status}] {r.id.slice(0,8)} {r.type} bidCount:{r.bidCount ?? 0} act:{String(r.isActive)} isExpired:{String(r.isExpiredByTime)} exp:{(r.expiresAt ?? "").slice(0,10)}
                   </span>
                 ))}
                 {reqCreateDebug && (
                   <>
-                    <span style={{color:"#ff0"}}>── 최근 생성/재노출 요청 ──</span><br/>
-                    id: {reqCreateDebug.id?.slice(0,8) ?? "null"} | status: {reqCreateDebug.status ?? "null"}<br/>
-                    expires_at: {reqCreateDebug.expires_at?.slice(0,10) ?? "null"} | type: {reqCreateDebug.space_type ?? "null"}<br/>
-                    {reqCreateDebug._note && <span style={{color:"#8ff"}}>{reqCreateDebug._note}<br/></span>}
-                    {reqCreateDebug.insertError && <span style={{color:"#f66"}}>insert_err: {reqCreateDebug.insertError}<br/></span>}
+                    <span style={{color:"#ff0"}}>── 최근 repost 결과 ──</span><br/>
+                    <span style={{color:"#8ff"}}>{reqCreateDebug._note}<br/></span>
+                    {reqCreateDebug.id
+                      ? <span style={{color:"#0f0"}}>✅ new_id:{reqCreateDebug.id.slice(0,8)} status:{reqCreateDebug.status} exp:{reqCreateDebug.expires_at?.slice(0,10)}<br/></span>
+                      : reqCreateDebug.hasTmpPrefix !== undefined
+                        ? <span style={{color:"#f88"}}>⚠️ guard: tmpPrefix:{String(reqCreateDebug.hasTmpPrefix)} userId:{String(reqCreateDebug.hasUserId)} origReq:{String(reqCreateDebug.hasOriginalReq)}<br/></span>
+                        : <span style={{color:"#f66"}}>❌ insert_err: {reqCreateDebug.insertError}<br/></span>
+                    }
                   </>
                 )}
               </div>
@@ -917,7 +920,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:6 }}>활성 견적 요청이 없습니다</div>
                 <div style={{ fontSize:12, color:C.text3, lineHeight:1.6 }}>
                   의뢰인이 요청을 등록하면 이곳에 표시됩니다<br/>
-                  {import.meta.env.DEV && `(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}
+                  {`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}
                 </div>
               </div>
             ) : (
@@ -1565,16 +1568,15 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             budget_max: form.budget_max ?? 0,
             expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
           });
-          if (import.meta.env.DEV) {
-            setReqCreateDebug({
-              id:         data?.id ?? null,
-              status:     data?.status ?? null,
-              expires_at: data?.expires_at ?? null,
-              space_type: data?.space_type ?? null,
-              user_id:    data?.user_id ?? null,
-              insertError: error?.message ?? null,
-            });
-          }
+          setReqCreateDebug({
+            id:         data?.id ?? null,
+            status:     data?.status ?? null,
+            expires_at: data?.expires_at ?? null,
+            space_type: data?.space_type ?? null,
+            user_id:    data?.user_id ?? null,
+            insertError: error?.message ?? null,
+            _note: "신규 견적 요청",
+          });
           if (error) {
             void error;
           } else if (data) {
@@ -1621,7 +1623,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         </div>
       )}
 
-      {import.meta.env.DEV && (
+      {IS_DEBUG && (
         <div style={{ position:"fixed", top:8, right:8, background:"rgba(0,0,0,0.82)", color:"#0f0", borderRadius:8, padding:"8px 10px", fontSize:10, zIndex:9999, lineHeight:1.9, fontFamily:"monospace", maxWidth:200, pointerEvents:"none" }}>
           activeRole: {activeRole}<br/>
           dbRole: {user.role ?? "—"}<br/>
