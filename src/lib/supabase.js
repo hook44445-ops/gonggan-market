@@ -95,7 +95,11 @@ export const getRequest = (id) =>
   supabase.from("requests").select("*").eq("id", id).single();
 
 export const getUserRequests = (userId) =>
-  supabase.from("requests").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+  supabase
+    .from("requests")
+    .select("*, bids(id, company_id, price, status)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
 
 export const closeRequest = (id) =>
   supabase.from("requests").update({ status: "closed" }).eq("id", id);

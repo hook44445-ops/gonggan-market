@@ -86,6 +86,7 @@ const normalizeRequest = (row) => {
     area: row.area ?? "",
     user: "의뢰인",
     bids: 0,
+    bidCount: (row.bids ?? []).length,
     time: new Date(row.created_at).toLocaleString("ko-KR", { month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" }),
     status,
     urgent: row.urgent ?? false,
@@ -531,7 +532,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                       </div>
                       {activeReqs.map(r => {
                         const reqBids = submittedBids.filter(b => b.requestId === r.id);
-                        const hasBids = reqBids.length > 0;
+                        const hasBids = r.bidCount > 0;
                         const urgentDays = r.daysLeft <= 1;
                         const warningDays = r.daysLeft <= 3;
                         return (
@@ -564,19 +565,21 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                 <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
                                   marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
                                   <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:S.sm }}>
-                                    🔔 업체 {reqBids.length}곳이 입찰했어요
+                                    🔔 업체 {r.bidCount}곳이 입찰했어요
                                   </div>
-                                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
-                                    {reqBids.map(b => (
-                                      <div key={b.id}
-                                        style={{ background:C.surface, borderRadius:R.md, padding:"6px 10px",
-                                          fontSize:12, fontWeight:700, color:C.text1,
-                                          border:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:4 }}>
-                                        <TempBadge temp={b.company?.temp ?? 0} />
-                                        <span>{b.company?.name ?? "—"}</span>
-                                      </div>
-                                    ))}
-                                  </div>
+                                  {reqBids.length > 0 && (
+                                    <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
+                                      {reqBids.map(b => (
+                                        <div key={b.id}
+                                          style={{ background:C.surface, borderRadius:R.md, padding:"6px 10px",
+                                            fontSize:12, fontWeight:700, color:C.text1,
+                                            border:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:4 }}>
+                                          <TempBadge temp={b.company?.temp ?? 0} />
+                                          <span>{b.company?.name ?? "—"}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                   <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                                     style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff",
                                       border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer",
@@ -612,11 +615,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                   ✏️ 수정
                                 </button>
                                 {hasBids ? (
-                                  <button onClick={() => reqBids[0]?.company && go("chat", reqBids[0].company)}
+                                  <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
                                       fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                    💬 업체 채팅
+                                    💰 견적 보기
                                   </button>
                                 ) : (
                                   <button onClick={() => handleRepost(r.id)}
