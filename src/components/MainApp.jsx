@@ -165,25 +165,58 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   const handleRepost = async (requestId) => {
-    const newExpiry    = new Date(Date.now() + REQUEST_TTL_MS);
-    const markReposted = r => r.id === requestId
-      ? { ...r, status: "open", isActive: true, isClosed: false,
-          isExpiredByTime: false, daysLeft: 7,
-          expiresAt: newExpiry.toISOString() }
-      : r;
-    setMyRequests(prev => prev.map(markReposted));
-    setCustomerRequests(prev => prev.map(markReposted));
+    const originalReq = myRequests.find(r => r.id === requestId)
+      ?? customerRequests.find(r => r.id === requestId);
+
     showToast("✅ 견적 요청이 재노출되었습니다");
 
-    if (!requestId.startsWith("tmp-")) {
-      const { error } = await repostRequest(requestId);
-      if (!error && user.id) {
-        await createRequestRepost({ request_id: requestId, user_id: user.id });
+    // UI: 기존 요청 즉시 만료 처리
+    const markExpired = r => r.id === requestId
+      ? { ...r, status: "expired", isActive: false, isClosed: true, daysLeft: 0 }
+      : r;
+    setMyRequests(prev => prev.map(markExpired));
+    setCustomerRequests(prev => prev.map(markExpired));
+
+    if (!requestId.startsWith("tmp-") && user.id && originalReq) {
+      // DB: 기존 요청 expire
+      expireRequest(requestId);
+
+      // DB: 새 요청 생성 (새 UUID, bids 0건)
+      const { data } = await createRequest({
+        user_id:    user.id,
+        status:     'open',
+        area:       originalReq.area ?? user.region ?? "",
+        space_type: originalReq.type,
+        size:       originalReq.size,
+        style:      originalReq.style,
+        desc:       originalReq.desc ?? "",
+        budget_min: 0,
+        budget_max: 0,
+        expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
+      });
+
+      if (import.meta.env.DEV) {
+        setReqCreateDebug({
+          id:         data?.id ?? null,
+          status:     data?.status ?? null,
+          expires_at: data?.expires_at ?? null,
+          space_type: data?.space_type ?? null,
+          user_id:    data?.user_id ?? null,
+          insertError: null,
+          _note: "repost → new request",
+        });
+      }
+
+      if (data) {
+        const newReq = normalizeRequest(data);
+        setMyRequests(prev => [newReq, ...prev]);
+        setCustomerRequests(prev => [newReq, ...prev]);
       }
     }
   };
 
   const [editRequest, setEditRequest] = useState(null);
+  const [bidDebug, setBidDebug] = useState(null);
   const handleUpdateRequest = async (form, requestId) => {
     const markUpdated = r => r.id === requestId
       ? { ...r, type: form.type, size: form.size, style: form.style, desc: form.desc }
@@ -370,10 +403,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         material_note: bidData.material,
         comment: bidData.comment,
       });
+      if (import.meta.env.DEV) {
+        setBidDebug({
+          request_id:    request.id,
+          company_id:    actor.id,
+          insertResult:  data  ? { id: data.id?.slice(0,8), request_id: data.request_id?.slice(0,8) } : null,
+          insertError:   error?.message ?? null,
+        });
+      }
       if (error) {
         showToast(`입찰 저장 실패: ${error.message}`);
       } else if (data) {
-        // Replace optimistic entry with real DB row (no company join data here yet)
         setSubmittedBids(prev =>
           prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
         );
@@ -678,31 +718,31 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             })()}
 
             {import.meta.env.DEV && (
-              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:320, overflowY:"auto" }}>
+              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:400, overflowY:"auto" }}>
                 [DEV] consumer requests<br/>
-                activeRole: {activeRole} | user.id: {(user?.id ?? "null").slice(0,8)}<br/>
+                user.id: {(user?.id ?? "null").slice(0,8)} | activeRole: {activeRole}<br/>
                 fetch_err: {reqDebug?.consumerFetchError ?? "none"} | db_rows: {reqDebug?.consumerRows ?? "?"}<br/>
-                local: {myRequests.length} (active:{myRequests.filter(r=>r.isActive).length}) | bids:{submittedBids.length}<br/>
-                <span style={{color:"#ff0"}}>── DB raw (getUserRequests) ──</span><br/>
+                local_total: {myRequests.length} | active: {myRequests.filter(r=>r.isActive).length} | submittedBids: {submittedBids.length}<br/>
+                selectedReqId: {bidViewRequestId?.slice(0,8) ?? "none"}<br/>
+                <span style={{color:"#ff0"}}>── DB raw (getUserRequests + bids join) ──</span><br/>
                 {(reqDebug?.consumerData ?? []).map((r, i) => (
                   <span key={r.id} style={{display:"block"}}>
-                    [{i}] id:{r.id.slice(0,8)} uid:{String(r.user_id ?? "").slice(0,8)} status:{r.status} type:{r.space_type} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
+                    [{i}] id:{r.id.slice(0,8)} status:{r.status} type:{r.space_type} bids:{(r.bids ?? []).length} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
                   </span>
                 ))}
                 {(reqDebug?.consumerData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0 — 요청 없음<br/></span>}
-                <span style={{color:"#ff0"}}>── normalized ──</span><br/>
+                <span style={{color:"#ff0"}}>── normalized (bidCount/isActive) ──</span><br/>
                 {myRequests.map(r => (
                   <span key={r.id} style={{display:"block"}}>
-                    [{r.status}] {r.id.slice(0,8)} {r.type} exp:{(r.expiresAt ?? "").slice(0,10)} act:{String(r.isActive)}
+                    [{r.status}] {r.id.slice(0,8)} {r.type} bidCount:{r.bidCount ?? 0} act:{String(r.isActive)} exp:{(r.expiresAt ?? "").slice(0,10)}
                   </span>
                 ))}
                 {reqCreateDebug && (
                   <>
-                    <span style={{color:"#ff0"}}>── 최근 생성 요청 (DB 응답) ──</span><br/>
-                    id: {reqCreateDebug.id?.slice(0,8) ?? "null"}<br/>
-                    status: {reqCreateDebug.status ?? "null"}<br/>
-                    expires_at: {reqCreateDebug.expires_at?.slice(0,10) ?? "null"}<br/>
-                    space_type: {reqCreateDebug.space_type ?? "null"}<br/>
+                    <span style={{color:"#ff0"}}>── 최근 생성/재노출 요청 ──</span><br/>
+                    id: {reqCreateDebug.id?.slice(0,8) ?? "null"} | status: {reqCreateDebug.status ?? "null"}<br/>
+                    expires_at: {reqCreateDebug.expires_at?.slice(0,10) ?? "null"} | type: {reqCreateDebug.space_type ?? "null"}<br/>
+                    {reqCreateDebug._note && <span style={{color:"#8ff"}}>{reqCreateDebug._note}<br/></span>}
                     {reqCreateDebug.insertError && <span style={{color:"#f66"}}>insert_err: {reqCreateDebug.insertError}<br/></span>}
                   </>
                 )}
@@ -880,29 +920,32 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             )}
 
             {import.meta.env.DEV && (
-              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:360, overflowY:"auto" }}>
-                [DEV] company requests<br/>
-                activeRole: {activeRole}<br/>
-                user.id: {(user?.id ?? "null").slice(0,8)} | currentUser.id: {currentUser?.id?.slice(0,8) ?? "null (프로필 없음)"}<br/>
-                query: status=open AND (expires_at IS NULL OR expires_at {">"} now())<br/>
+              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:400, overflowY:"auto" }}>
+                [DEV] company<br/>
+                user.id: {(user?.id ?? "null").slice(0,8)} | currentUser.id: {currentUser?.id?.slice(0,8) ?? "null ⚠️"}<br/>
                 fetch_err: {reqDebug?.companyFetchError ?? "none"} | db_rows: {reqDebug?.companyRows ?? "?"}<br/>
-                <span style={{color:"#ff0"}}>── DB raw (getRequests) ──</span><br/>
+                <span style={{color:"#ff0"}}>── open requests (DB) ──</span><br/>
                 {(reqDebug?.companyData ?? []).map((r, i) => (
                   <span key={r.id} style={{display:"block"}}>
-                    [{i}] id:{r.id.slice(0,8)} uid:{String(r.user_id ?? "").slice(0,8)} status:{r.status} type:{r.space_type} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
+                    [{i}] id:{r.id.slice(0,8)} status:{r.status} type:{r.space_type} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
                   </span>
                 ))}
-                {(reqDebug?.companyData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0 — open 요청 없음<br/></span>}
-                {reqDebug?.companyData?.[0] && (
+                {(reqDebug?.companyData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0<br/></span>}
+                <span style={{color:"#ff0"}}>── displayed active ──</span><br/>
+                {customerRequests.filter(r=>r.isActive).map(r=>(
+                  <span key={r.id} style={{display:"block"}}>{r.id.slice(0,8)} {r.type} {r.size}</span>
+                ))}
+                {bidDebug && (
                   <>
-                    <span style={{color:"#ff0"}}>── first row detail ──</span><br/>
-                    status: {reqDebug.companyData[0].status}<br/>
-                    expires_at: {reqDebug.companyData[0].expires_at?.slice(0,19) ?? "NULL"}<br/>
+                    <span style={{color:"#ff0"}}>── 최근 입찰 insert ──</span><br/>
+                    req_id: {bidDebug.request_id?.slice(0,8)}<br/>
+                    company_id: {bidDebug.company_id?.slice(0,8)}<br/>
+                    {bidDebug.insertResult
+                      ? <span style={{color:"#0f0"}}>ok: bid_id={bidDebug.insertResult.id} req={bidDebug.insertResult.request_id}<br/></span>
+                      : <span style={{color:"#f66"}}>err: {bidDebug.insertError}<br/></span>
+                    }
                   </>
                 )}
-                <span style={{color:"#ff0"}}>── displayed ──</span><br/>
-                active:{customerRequests.filter(r=>r.isActive).length}<br/>
-                ids: {customerRequests.filter(r=>r.isActive).map(r=>r.id.slice(0,8)).join(" | ") || "none"}
               </div>
             )}
           </div>
@@ -1481,7 +1524,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           type: form.type, size: form.size, budget: form.budget,
           style: form.style, desc: form.desc,
           area: user.region ?? "", user: user.name,
-          bids: 0, time: "방금", status: "open",
+          bids: 0, bidCount: 0, time: "방금", status: "open",
           createdAt: new Date(_now).toISOString(),
           expiresAt: new Date(_now + REQUEST_TTL_MS).toISOString(),
           daysLeft: 7,
