@@ -46,6 +46,8 @@ function BidScreenHeader({ title, sub, onBack }) {
   );
 }
 
+const IS_DEBUG = import.meta.env.DEV || import.meta.env.VITE_DEBUG === "true";
+
 export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
   const [localBids, setLocalBids] = useState(propBids ?? []);
   const bids = localBids.length > 0 ? localBids : (propBids ?? []);
@@ -53,11 +55,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   const [selBid, setSelBid] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [bidScreenDebug, setBidScreenDebug] = useState(null);
 
   // SELECT bids when screen loads (or request changes)
   useEffect(() => {
     if (!request?.id) { setLocalBids(propBids ?? []); return; }
     getBidsForRequest(request.id).then(({ data, error }) => {
+      if (IS_DEBUG) setBidScreenDebug({ src: "bidscreen_effect", req_id: request.id, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id?.slice(0,8)) });
       if (error) return;
       if (data) setLocalBids(data.map(normalizeBid));
     });
@@ -364,6 +368,24 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
     <div style={{ minHeight:"100vh", background:C.bg }}>
       <BidScreenHeader title="업체 비교하기" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
+        {IS_DEBUG && (
+          <div style={{ marginBottom:12, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:300, overflowY:"auto" }}>
+            [DEV:bidscreen]<br/>
+            <span style={{color:"#4ff"}}>request.id: {request?.id?.slice(0,8) ?? "null ⚠️"}</span><br/>
+            request.type: {request?.type ?? "—"} | request.bidCount: {request?.bidCount ?? "—"}<br/>
+            propBids.length: {(propBids ?? []).length} | localBids.length: {localBids.length}<br/>
+            <span style={{color:"#4ff"}}>bids(displayed): {bids.length}</span><br/>
+            fetch_src: {bidScreenDebug?.src ?? "—"} | fetch_req_id: {bidScreenDebug?.req_id?.slice(0,8) ?? "—"}<br/>
+            fetched_count: {bidScreenDebug?.count ?? "—"}<br/>
+            <span style={{color: bidScreenDebug?.err ? "#f66" : "#0f0"}}>fetch_err: {bidScreenDebug?.err ?? "none"}</span><br/>
+            bids_req_ids: [{(bidScreenDebug?.req_ids ?? []).join(", ")}]<br/>
+            {bids.map((b, i) => (
+              <span key={b.id} style={{display:"block", color:"#8ff"}}>
+                [{i}] bid:{b.id?.slice(0,8)} req:{b.requestId?.slice(0,8)} co:{b.companyId?.slice(0,8)} price:{b.price}
+              </span>
+            ))}
+          </div>
+        )}
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, border:`1px solid ${C.brandM}` }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.brand }}>💡 업체 금액은 선택 전까지 서로 모릅니다</div>
           <div style={{ fontSize:12, color:C.brand, marginTop:4, opacity:0.8 }}>기록과 리뷰를 보고 안심하고 선택하세요</div>

@@ -235,8 +235,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     }
   };
 
+  const IS_DEBUG = import.meta.env.DEV || import.meta.env.VITE_DEBUG === "true";
   const [reqDebug, setReqDebug] = useState(null);
   const [reqCreateDebug, setReqCreateDebug] = useState(null);
+  const [bidFetchDebug, setBidFetchDebug] = useState(null);
 
   // Load requests on mount
   // Consumer: server-side filter by userId; Company/Admin: load all open requests for bidding
@@ -318,6 +320,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (!bidViewRequestId) return;
 
     getBidsForRequest(bidViewRequestId).then(({ data, error }) => {
+      if (IS_DEBUG) setBidFetchDebug({ src: "mainapp_effect", req_id: bidViewRequestId, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id?.slice(0,8)) });
       if (error) return;
       if (data) setSubmittedBids(data.map(normalizeBid));
     });
@@ -717,13 +720,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               ) : null;
             })()}
 
-            {import.meta.env.DEV && (
-              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:400, overflowY:"auto" }}>
-                [DEV] consumer requests<br/>
+            {IS_DEBUG && (
+              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:500, overflowY:"auto" }}>
+                [DEV:consumer] screen:{screen}<br/>
                 user.id: {(user?.id ?? "null").slice(0,8)} | activeRole: {activeRole}<br/>
                 fetch_err: {reqDebug?.consumerFetchError ?? "none"} | db_rows: {reqDebug?.consumerRows ?? "?"}<br/>
-                local_total: {myRequests.length} | active: {myRequests.filter(r=>r.isActive).length} | submittedBids: {submittedBids.length}<br/>
-                selectedReqId: {bidViewRequestId?.slice(0,8) ?? "none"}<br/>
+                local_total: {myRequests.length} | active: {myRequests.filter(r=>r.isActive).length}<br/>
+                submittedBids_total: {submittedBids.length}<br/>
+                <span style={{color:"#4ff"}}>selectedReqId: {bidViewRequestId?.slice(0,8) ?? "none"}</span><br/>
+                submittedBids_for_req: {submittedBids.filter(b => b.requestId === bidViewRequestId).length}<br/>
+                <span style={{color:"#ff0"}}>── bid fetch (mainapp) ──</span><br/>
+                src: {bidFetchDebug?.src ?? "—"} | req_id: {bidFetchDebug?.req_id?.slice(0,8) ?? "—"}<br/>
+                fetched_count: {bidFetchDebug?.count ?? "—"} | fetch_err: {bidFetchDebug?.err ?? "none"}<br/>
+                bids_req_ids: [{(bidFetchDebug?.req_ids ?? []).join(", ")}]<br/>
                 <span style={{color:"#ff0"}}>── DB raw (getUserRequests + bids join) ──</span><br/>
                 {(reqDebug?.consumerData ?? []).map((r, i) => (
                   <span key={r.id} style={{display:"block"}}>
@@ -919,11 +928,12 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               ))
             )}
 
-            {import.meta.env.DEV && (
+            {IS_DEBUG && (
               <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:400, overflowY:"auto" }}>
-                [DEV] company<br/>
+                [DEV:company] screen:{screen}<br/>
                 user.id: {(user?.id ?? "null").slice(0,8)} | currentUser.id: {currentUser?.id?.slice(0,8) ?? "null ⚠️"}<br/>
                 fetch_err: {reqDebug?.companyFetchError ?? "none"} | db_rows: {reqDebug?.companyRows ?? "?"}<br/>
+                active_displayed: {customerRequests.filter(r=>r.isActive).length}<br/>
                 <span style={{color:"#ff0"}}>── open requests (DB) ──</span><br/>
                 {(reqDebug?.companyData ?? []).map((r, i) => (
                   <span key={r.id} style={{display:"block"}}>
