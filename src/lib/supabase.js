@@ -115,7 +115,7 @@ export const createBid = (data) =>
 export const getBidsForRequest = (requestId) =>
   supabase
     .from("bids")
-    .select("*, companies(id, name, temp, verified, badge, completed_jobs, recontract_rate, as_rate, region, online, owner_id, company_status, has_insurance)")
+    .select("*")
     .eq("request_id", requestId)
     .order("price", { ascending: true });
 
