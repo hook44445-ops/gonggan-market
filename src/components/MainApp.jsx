@@ -242,22 +242,31 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [reqDebug, setReqDebug] = useState(null);
   const [reqCreateDebug, setReqCreateDebug] = useState(null);
   const [bidFetchDebug, setBidFetchDebug] = useState(null);
+  const [lastFetchAt, setLastFetchAt] = useState(null);
+
+  const applyExpiry = (rows) => {
+    const normalized = rows.map(normalizeRequest);
+    normalized
+      .filter(r => r.status === "open" && r.isExpiredByTime)
+      .forEach(r => expireRequest(r.id));
+    return normalized.map(r =>
+      r.status === "open" && r.isExpiredByTime
+        ? { ...r, status: "expired", isActive: false, isClosed: true }
+        : r
+    );
+  };
+
+  const loadCompanyRequests = async () => {
+    const { data, error } = await getRequests();
+    setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: data?.length ?? 0, companyData: data ?? [] }));
+    setLastFetchAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    if (error) return;
+    if (data) setCustomerRequests(applyExpiry(data));
+  };
 
   // Load requests on mount
   // Consumer: server-side filter by userId; Company/Admin: load all open requests for bidding
   useEffect(() => {
-    const applyExpiry = (rows) => {
-      const normalized = rows.map(normalizeRequest);
-      normalized
-        .filter(r => r.status === "open" && r.isExpiredByTime)
-        .forEach(r => expireRequest(r.id));
-      return normalized.map(r =>
-        r.status === "open" && r.isExpiredByTime
-          ? { ...r, status: "expired", isActive: false, isClosed: true }
-          : r
-      );
-    };
-
     if (activeRole === "consumer" && user.id) {
       getUserRequests(user.id).then(({ data, error }) => {
         setReqDebug(d => ({ ...d, consumerFetchError: error?.message ?? null, consumerRows: data?.length ?? 0, consumerData: data ?? [] }));
@@ -280,16 +289,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         }
       });
     } else {
-      getRequests().then(({ data, error }) => {
-        setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: data?.length ?? 0, companyData: data ?? [] }));
-        if (error) return;
-        if (data) {
-          const withExpiry = applyExpiry(data);
-          setCustomerRequests(withExpiry);
-        }
-      });
+      loadCompanyRequests();
     }
-  }, [activeRole, user?.id]);
+  }, [activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load company profile from Supabase for authenticated company users
   // Auto-creates a row if none exists yet
@@ -399,11 +401,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       showToast("견적 요청이 저장 중입니다. 잠시 후 다시 시도해주세요");
       return;
     }
+    if (request.isClosed) {
+      showToast("이미 마감된 견적 요청입니다");
+      return;
+    }
     const actor = currentUser ?? { id: user.id ?? null, name: user.name ?? "업체", temp: 70 };
+    if (!actor.id || typeof actor.id !== "string" || !actor.id.includes("-")) {
+      setBidDebug({ request_id: request.id, company_id: null, insertError: "actor.id null — company 프로필 미로드" });
+      showToast("업체 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요");
+      return;
+    }
     const optimistic = {
       id: `tmp-${Date.now()}`,
       requestId: request.id,
-      companyId: actor.id ?? null,
+      companyId: actor.id,
       company: actor,
       price: bidData.price,
       period: bidData.period,
@@ -416,29 +427,31 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     // Optimistic update so the UI responds immediately
     setSubmittedBids(prev => [...prev, optimistic]);
 
-    // INSERT to Supabase (only when actor has a real UUID)
-    if (actor.id && typeof actor.id === "string" && actor.id.includes("-")) {
-      const { data, error } = await createBid({
-        request_id: request.id,
-        company_id: actor.id,
-        price: bidData.price,
-        period_days: bidData.period,
-        material_note: bidData.material,
-        comment: bidData.comment,
-      });
+    // INSERT to Supabase
+    const { data, error } = await createBid({
+      request_id: request.id,
+      company_id: actor.id,
+      price: bidData.price,
+      period_days: bidData.period,
+      material_note: bidData.material,
+      comment: bidData.comment,
+    });
+    if (error) {
+      setBidDebug({ request_id: request.id, company_id: actor.id, insertResult: null, insertError: error.message });
+      showToast(`입찰 저장 실패: ${error.message}`);
+    } else if (data) {
+      setSubmittedBids(prev =>
+        prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
+      );
+      // Post-insert verification: confirm bid is in DB with correct request_id
+      const { data: verifyData } = await getBidsForRequest(request.id);
       setBidDebug({
-        request_id:   request.id,           // full UUID
-        company_id:   actor.id,             // full UUID
-        insertResult: data ? { id: data.id, request_id: data.request_id } : null,
-        insertError:  error?.message ?? null,
+        request_id:   request.id,
+        company_id:   actor.id,
+        insertResult: { id: data.id, request_id: data.request_id },
+        insertError:  null,
+        verifyCount:  verifyData?.length ?? 0,
       });
-      if (error) {
-        showToast(`입찰 저장 실패: ${error.message}`);
-      } else if (data) {
-        setSubmittedBids(prev =>
-          prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
-        );
-      }
     }
 
     setSubmittedBids(prev => {
@@ -932,7 +945,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   </span>
                 )}
               </div>
-              <div style={{ fontSize:11, color:C.text4 }}>전체 · 지역 필터 없음</div>
+              <button onClick={loadCompanyRequests} style={{ fontSize:13, background:C.brandL, border:`1px solid ${C.brandM}`, color:C.brand, borderRadius:R.full, padding:"6px 14px", fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>🔄 새로고침</button>
             </div>
 
             {customerRequests.filter(r => r.isActive).length === 0 ? (
@@ -962,7 +975,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 user.id: {user?.id ?? "null"}<br/>
                 currentUser.id: {currentUser?.id ?? "null ⚠️"}<br/>
                 <span style={{color: reqDebug?.companyFetchError ? "#f66" : "#0f0"}}>fetch_err: {reqDebug?.companyFetchError ?? "none"}</span><br/>
-                db_rows: {reqDebug?.companyRows ?? "?"} | active_displayed: {customerRequests.filter(r=>r.isActive).length}<br/>
+                last_fetch: {lastFetchAt ?? "—"} | db_rows: {reqDebug?.companyRows ?? "?"} | active_displayed: {customerRequests.filter(r=>r.isActive).length}<br/>
                 <span style={{color:"#ff0"}}>── DB open requests (full id) ──</span><br/>
                 {(reqDebug?.companyData ?? []).map((r, i) => (
                   <span key={r.id} style={{display:"block", color:"#8ff"}}>
@@ -976,11 +989,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 ))}
                 {bidDebug && (
                   <>
-                    <span style={{color:"#ff0"}}>── INSERT TARGET ──</span><br/>
+                    <span style={{color:"#ff0"}}>── LAST BID ATTEMPT ──</span><br/>
                     <span style={{color:"#4ff"}}>request_id={bidDebug.request_id}</span><br/>
-                    company_id={bidDebug.company_id}<br/>
+                    company_id={bidDebug.company_id ?? "null ⚠️"}<br/>
                     {bidDebug.insertResult
-                      ? <span style={{color:"#0f0"}}>✅ inserted bid_id={bidDebug.insertResult.id}<br/>   bid.request_id={bidDebug.insertResult.request_id}<br/></span>
+                      ? <span style={{color:"#0f0"}}>✅ inserted bid_id={bidDebug.insertResult.id}<br/>   bid.request_id={bidDebug.insertResult.request_id}<br/>   verify_count={bidDebug.verifyCount ?? "—"}<br/></span>
                       : <span style={{color:"#f66"}}>❌ insert_err: {bidDebug.insertError}<br/></span>
                     }
                   </>
