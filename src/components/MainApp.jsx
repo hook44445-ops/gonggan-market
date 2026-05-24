@@ -322,7 +322,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (!bidViewRequestId) return;
 
     getBidsForRequest(bidViewRequestId).then(({ data, error }) => {
-      if (IS_DEBUG) setBidFetchDebug({ src: "mainapp_effect", req_id: bidViewRequestId, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id?.slice(0,8)) });
+      if (IS_DEBUG) setBidFetchDebug({ src: "mainapp_effect", req_id: bidViewRequestId, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
       if (error) return;
       if (data) setSubmittedBids(data.map(normalizeBid));
     });
@@ -409,10 +409,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         comment: bidData.comment,
       });
       setBidDebug({
-        request_id:    request.id,
-        company_id:    actor.id,
-        insertResult:  data  ? { id: data.id?.slice(0,8), request_id: data.request_id?.slice(0,8) } : null,
-        insertError:   error?.message ?? null,
+        request_id:   request.id,           // full UUID
+        company_id:   actor.id,             // full UUID
+        insertResult: data ? { id: data.id, request_id: data.request_id } : null,
+        insertError:  error?.message ?? null,
       });
       if (error) {
         showToast(`입찰 저장 실패: ${error.message}`);
@@ -734,9 +734,12 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <span style={{color:"#4ff"}}>selectedReqId: {bidViewRequestId?.slice(0,8) ?? "none"}</span><br/>
                 submittedBids_for_req: {submittedBids.filter(b => b.requestId === bidViewRequestId).length}<br/>
                 <span style={{color:"#ff0"}}>── bid fetch (mainapp) ──</span><br/>
-                src: {bidFetchDebug?.src ?? "—"} | req_id: {bidFetchDebug?.req_id?.slice(0,8) ?? "—"}<br/>
-                fetched_count: {bidFetchDebug?.count ?? "—"} | fetch_err: {bidFetchDebug?.err ?? "none"}<br/>
-                bids_req_ids: [{(bidFetchDebug?.req_ids ?? []).join(", ")}]<br/>
+                src: {bidFetchDebug?.src ?? "—"}<br/>
+                <span style={{color:"#4ff"}}>fetch_req_id: {bidFetchDebug?.req_id ?? "—"}</span><br/>
+                fetched_count: {bidFetchDebug?.count ?? "—"}<br/>
+                <span style={{color: bidFetchDebug?.err ? "#f66" : "#0f0"}}>fetch_err: {bidFetchDebug?.err ?? "none"}</span><br/>
+                bids_req_ids (full):<br/>
+                {(bidFetchDebug?.req_ids ?? []).map((id, i) => <span key={i} style={{display:"block", color:"#8ff", paddingLeft:8}}>[{i}] {id}</span>)}<br/>
                 <span style={{color:"#ff0"}}>── DB raw (getUserRequests + bids join) ──</span><br/>
                 {(reqDebug?.consumerData ?? []).map((r, i) => (
                   <span key={r.id} style={{display:"block"}}>
@@ -936,30 +939,31 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             )}
 
             {IS_DEBUG && (
-              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:400, overflowY:"auto" }}>
+              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:500, overflowY:"auto" }}>
                 [DEV:company] screen:{screen}<br/>
-                user.id: {(user?.id ?? "null").slice(0,8)} | currentUser.id: {currentUser?.id?.slice(0,8) ?? "null ⚠️"}<br/>
-                fetch_err: {reqDebug?.companyFetchError ?? "none"} | db_rows: {reqDebug?.companyRows ?? "?"}<br/>
-                active_displayed: {customerRequests.filter(r=>r.isActive).length}<br/>
-                <span style={{color:"#ff0"}}>── open requests (DB) ──</span><br/>
+                user.id: {user?.id ?? "null"}<br/>
+                currentUser.id: {currentUser?.id ?? "null ⚠️"}<br/>
+                <span style={{color: reqDebug?.companyFetchError ? "#f66" : "#0f0"}}>fetch_err: {reqDebug?.companyFetchError ?? "none"}</span><br/>
+                db_rows: {reqDebug?.companyRows ?? "?"} | active_displayed: {customerRequests.filter(r=>r.isActive).length}<br/>
+                <span style={{color:"#ff0"}}>── DB open requests (full id) ──</span><br/>
                 {(reqDebug?.companyData ?? []).map((r, i) => (
-                  <span key={r.id} style={{display:"block"}}>
-                    [{i}] id:{r.id.slice(0,8)} status:{r.status} type:{r.space_type} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
+                  <span key={r.id} style={{display:"block", color:"#8ff"}}>
+                    [{i}] {r.id} {r.space_type} {r.status} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
                   </span>
                 ))}
-                {(reqDebug?.companyData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0<br/></span>}
-                <span style={{color:"#ff0"}}>── displayed active ──</span><br/>
+                {(reqDebug?.companyData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>⚠️ DB rows: 0 — fetch_err 확인<br/></span>}
+                <span style={{color:"#ff0"}}>── displayed active (full id) ──</span><br/>
                 {customerRequests.filter(r=>r.isActive).map(r=>(
-                  <span key={r.id} style={{display:"block"}}>{r.id.slice(0,8)} {r.type} {r.size}</span>
+                  <span key={r.id} style={{display:"block", color:"#8ff"}}>{r.id} {r.type} {r.size}</span>
                 ))}
                 {bidDebug && (
                   <>
-                    <span style={{color:"#ff0"}}>── 최근 입찰 insert ──</span><br/>
-                    req_id: {bidDebug.request_id?.slice(0,8)}<br/>
-                    company_id: {bidDebug.company_id?.slice(0,8)}<br/>
+                    <span style={{color:"#ff0"}}>── INSERT TARGET ──</span><br/>
+                    <span style={{color:"#4ff"}}>request_id={bidDebug.request_id}</span><br/>
+                    company_id={bidDebug.company_id}<br/>
                     {bidDebug.insertResult
-                      ? <span style={{color:"#0f0"}}>ok: bid_id={bidDebug.insertResult.id} req={bidDebug.insertResult.request_id}<br/></span>
-                      : <span style={{color:"#f66"}}>err: {bidDebug.insertError}<br/></span>
+                      ? <span style={{color:"#0f0"}}>✅ inserted bid_id={bidDebug.insertResult.id}<br/>   bid.request_id={bidDebug.insertResult.request_id}<br/></span>
+                      : <span style={{color:"#f66"}}>❌ insert_err: {bidDebug.insertError}<br/></span>
                     }
                   </>
                 )}

@@ -89,7 +89,6 @@ export const getRequests = () =>
     .select("*")
     .eq("status", "open")
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-    .or("is_hidden.is.null,is_hidden.eq.false")
     .order("created_at", { ascending: false });
 
 export const getRequest = (id) =>
@@ -100,7 +99,6 @@ export const getUserRequests = (userId) =>
     .from("requests")
     .select("*, bids(id, company_id, price, status)")
     .eq("user_id", userId)
-    .or("is_hidden.is.null,is_hidden.eq.false")
     .order("created_at", { ascending: false });
 
 export const closeRequest = (id) =>

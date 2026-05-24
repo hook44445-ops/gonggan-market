@@ -61,7 +61,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   useEffect(() => {
     if (!request?.id) { setLocalBids(propBids ?? []); return; }
     getBidsForRequest(request.id).then(({ data, error }) => {
-      if (IS_DEBUG) setBidScreenDebug({ src: "bidscreen_effect", req_id: request.id, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id?.slice(0,8)) });
+      if (IS_DEBUG) setBidScreenDebug({ src: "bidscreen_effect", req_id: request.id, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
       if (error) return;
       if (data) setLocalBids(data.map(normalizeBid));
     });
@@ -369,19 +369,23 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
       <BidScreenHeader title="업체 비교하기" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
         {IS_DEBUG && (
-          <div style={{ marginBottom:12, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:300, overflowY:"auto" }}>
+          <div style={{ marginBottom:12, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:400, overflowY:"auto" }}>
             [DEV:bidscreen]<br/>
-            <span style={{color:"#4ff"}}>request.id: {request?.id?.slice(0,8) ?? "null ⚠️"}</span><br/>
+            <span style={{color:"#4ff"}}>request.id (full): {request?.id ?? "null ⚠️"}</span><br/>
             request.type: {request?.type ?? "—"} | request.bidCount: {request?.bidCount ?? "—"}<br/>
             propBids.length: {(propBids ?? []).length} | localBids.length: {localBids.length}<br/>
             <span style={{color:"#4ff"}}>bids(displayed): {bids.length}</span><br/>
-            fetch_src: {bidScreenDebug?.src ?? "—"} | fetch_req_id: {bidScreenDebug?.req_id?.slice(0,8) ?? "—"}<br/>
+            fetch_src: {bidScreenDebug?.src ?? "—"}<br/>
+            <span style={{color:"#4ff"}}>fetch_req_id (full): {bidScreenDebug?.req_id ?? "—"}</span><br/>
             fetched_count: {bidScreenDebug?.count ?? "—"}<br/>
             <span style={{color: bidScreenDebug?.err ? "#f66" : "#0f0"}}>fetch_err: {bidScreenDebug?.err ?? "none"}</span><br/>
-            bids_req_ids: [{(bidScreenDebug?.req_ids ?? []).join(", ")}]<br/>
+            <span style={{color:"#ff0"}}>── bids_req_ids (full) ──</span><br/>
+            {(bidScreenDebug?.req_ids ?? []).map((id, i) => <span key={i} style={{display:"block", color:"#8ff", paddingLeft:8}}>[{i}] {id}</span>)}
+            {(bidScreenDebug?.req_ids ?? []).length === 0 && <span style={{color:"#f88"}}>bids_req_ids: [] (fetch 결과 없음)<br/></span>}
+            <span style={{color:"#ff0"}}>── each bid ──</span><br/>
             {bids.map((b, i) => (
-              <span key={b.id} style={{display:"block", color:"#8ff"}}>
-                [{i}] bid:{b.id?.slice(0,8)} req:{b.requestId?.slice(0,8)} co:{b.companyId?.slice(0,8)} price:{b.price}
+              <span key={b.id} style={{display:"block", color: b.requestId === request?.id ? "#0f0" : "#f66"}}>
+                [{i}] bid:{b.id} req:{b.requestId} {b.requestId === request?.id ? "✅match" : "❌MISMATCH"}
               </span>
             ))}
           </div>
