@@ -70,9 +70,48 @@ const TIMELINE_ICONS = {
   dispute:  "⚠️",
 };
 
-export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId }) {
+export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request }) {
+  const IS_DEBUG = true;
+  const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
+  const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
+  const [escrowDebug, setEscrowDebug] = useState(null);
+
+  // Self-fetch: restore selectedBid from payment_orders if null
+  useEffect(() => {
+    if (resolvedBid || !request?.id) return;
+    const fetchContract = async () => {
+      const { data: order, error: orderErr } = await getPaymentOrderByRequest(request.id);
+      if (orderErr || !order) {
+        setEscrowDebug({ src: "self_fetch", err: orderErr?.message ?? "no order", requestId: request.id });
+        return;
+      }
+      if (order.contract_id) setResolvedContractId(order.contract_id);
+      if (!order.bid_id) { setEscrowDebug({ src: "self_fetch", err: "no bid_id", order }); return; }
+      const { data: bid, error: bidErr } = await getBidById(order.bid_id);
+      if (bidErr || !bid) { setEscrowDebug({ src: "self_fetch", err: bidErr?.message ?? "no bid", order }); return; }
+      let company = { id: bid.company_id, name: "업체", temp: 70 };
+      const { data: compRow } = await getCompanyByOwnerId(bid.company_id).catch(() => ({}));
+      if (compRow) company = { id: compRow.id, ownerId: compRow.owner_id, name: compRow.name ?? "업체", temp: compRow.temp ?? 70 };
+      const restored = {
+        id: bid.id,
+        requestId: bid.request_id,
+        companyId: bid.company_id,
+        company,
+        price: bid.price,
+        period: bid.period_days,
+        material: bid.material_note ?? "",
+        comment: bid.comment ?? "",
+        createdAt: bid.created_at,
+        status: bid.selected ? "selected" : "pending",
+      };
+      setResolvedBid(restored);
+      setEscrowDebug({ src: "self_fetch", restored: true, bidId: bid.id, companyName: company.name, orderId: order.id, contractId: order.contract_id });
+    };
+    fetchContract();
+  }, [request?.id]);
+
   const isConsumer = activeRole === "consumer";
-  const bidAmount   = selectedBid?.price ?? 0;
+  const bidAmount   = resolvedBid?.price ?? 0;
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
   const stages      = bidAmount > 0 ? calculateStagePayments(bidAmount) : [];
 
@@ -104,10 +143,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     setTimeline(prev => [...prev, { id: Date.now(), type, label, ts: Date.now() }]);
   };
 
-  // Load DB timeline when contractId is available
+  // Load DB timeline when resolvedContractId is available
   useEffect(() => {
-    if (!contractId) return;
-    getContractTimeline(contractId).then(({ data }) => {
+    if (!resolvedContractId) return;
+    getContractTimeline(resolvedContractId).then(({ data }) => {
       if (!data || data.length === 0) return;
       const mapped = data.map(row => {
         const a = row.action ?? "";
@@ -117,7 +156,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       });
       setTimeline(mapped);
     }).catch(() => {});
-  }, [contractId]);
+  }, [resolvedContractId]);
 
   // Modals
   const [confirmStage, setConfirmStage] = useState(null);
@@ -137,18 +176,18 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     if (s?.confirmLabel) addTimeline("confirm", s.timelineLabel ?? s.confirmLabel);
 
     // DB updates (fire-and-forget, non-blocking)
-    if (contractId) {
+    if (resolvedContractId) {
       // stageId 3→payout 2, 4→payout 3, 5→payout 4
       const payoutMap = { 3: 2, 4: 3, 5: 4 };
       const payoutStage = payoutMap[stageId];
       if (payoutStage) {
-        approveEscrowPayoutByStage(contractId, payoutStage, userId ?? null).catch(() => {});
+        approveEscrowPayoutByStage(resolvedContractId, payoutStage, userId ?? null).catch(() => {});
       }
       // On completion, update to SETTLED
       if (stageId === 5) {
-        updateTransactionStatus(contractId, "SETTLED").catch(() => {});
-        if (selectedBid?.companyId) {
-          updateCompanyTemp(selectedBid.companyId, 2.5).catch(() => {});
+        updateTransactionStatus(resolvedContractId, "SETTLED").catch(() => {});
+        if (resolvedBid?.companyId) {
+          updateCompanyTemp(resolvedBid.companyId, 2.5).catch(() => {});
         }
       }
       logActivity({
@@ -156,7 +195,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         role:       "consumer",
         action:     "STEP_APPROVED",
         targetType: "contract",
-        targetId:   contractId,
+        targetId:   resolvedContractId,
         metadata:   { stage: stageId, label: s?.label },
       }).catch(() => {});
     }
@@ -168,17 +207,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
     if (s?.label) addTimeline("photo", s.label);
 
-    if (contractId) {
+    if (resolvedContractId) {
       const statusMap = { 3: "STARTED", 4: "MID_INSPECTION", 5: "COMPLETED" };
       if (statusMap[stageId]) {
-        updateTransactionStatus(contractId, statusMap[stageId]).catch(() => {});
+        updateTransactionStatus(resolvedContractId, statusMap[stageId]).catch(() => {});
       }
       logActivity({
         userId:     userId ?? null,
         role:       "company",
         action:     "STEP_APPROVED",
         targetType: "contract",
-        targetId:   contractId,
+        targetId:   resolvedContractId,
         metadata:   { stage: stageId, label: s?.label, type: "company_report" },
       }).catch(() => {});
     }
@@ -218,8 +257,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
   const paid = STAGE_META.filter(s => stageStatus[s.id] === "done" && s.pct > 0).reduce((a, s) => a + s.pct, 0);
 
-  const headerSub = selectedBid
-    ? `${selectedBid.company?.name ?? "—"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
+  const headerSub = resolvedBid
+    ? `${resolvedBid.company?.name ?? "—"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
     : "에스크로 안전 정산";
 
   const statusColor = (sid) => {
@@ -252,6 +291,23 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       </div>
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 40px` }}>
+
+        {IS_DEBUG && (
+          <div style={{ margin:"0 0 12px", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:300, overflowY:"auto" }}>
+            [DEV:escrow]<br/>
+            request.id: {request?.id ?? "null ⚠️"}<br/>
+            selectedBid (prop): {selectedBid?.id ?? "null"}<br/>
+            resolvedBid.id: {resolvedBid?.id ?? "null ⚠️"}<br/>
+            resolvedBid.company: {resolvedBid?.company?.name ?? "—"}<br/>
+            resolvedBid.price: {resolvedBid?.price ?? "—"}<br/>
+            resolvedContractId: {resolvedContractId ?? "—"}<br/>
+            {escrowDebug && (
+              <span style={{color: escrowDebug.restored ? "#0f0" : "#f66"}}>
+                fetch: {JSON.stringify(escrowDebug)}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* STEP J — Dispute freeze banner */}
         {disputeSubmitted && (
@@ -602,16 +658,16 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   addTimeline("dispute", "이의 신청");
                   setShowDispute(false);
                   setDisputeSubmitted(true);
-                  if (contractId) {
-                    holdAllPayoutsForEscrow(contractId).catch(() => {});
-                    updateTransactionStatus(contractId, "DISPUTE").catch(() => {});
-                    updateDisputeStatus(contractId, "DISPUTE_OPEN").catch(() => {});
+                  if (resolvedContractId) {
+                    holdAllPayoutsForEscrow(resolvedContractId).catch(() => {});
+                    updateTransactionStatus(resolvedContractId, "DISPUTE").catch(() => {});
+                    updateDisputeStatus(resolvedContractId, "DISPUTE_OPEN").catch(() => {});
                     logActivity({
                       userId:     userId ?? null,
                       role:       "consumer",
                       action:     "DISPUTE_FILED",
                       targetType: "contract",
-                      targetId:   contractId,
+                      targetId:   resolvedContractId,
                       metadata:   { reason: disputeReason },
                     }).catch(() => {});
                     // STEP R: notify admin with CRITICAL priority
@@ -619,8 +675,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       userId:      null,
                       type:        "DISPUTE_FILED",
                       title:       "분쟁 접수",
-                      message:     `계약 ${contractId} 에서 분쟁이 접수되었습니다.`,
-                      relatedId:   contractId,
+                      message:     `계약 ${resolvedContractId} 에서 분쟁이 접수되었습니다.`,
+                      relatedId:   resolvedContractId,
                       relatedType: "contract",
                       priority:    "CRITICAL",
                     }).catch(() => {});

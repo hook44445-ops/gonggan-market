@@ -39,6 +39,15 @@ import {
   getBidsForRequest,
   getCompanyByOwnerId,
   upsertCompany,
+  getBidById,
+  getPaymentOrderByRequest,
+  getEscrowByRequest,
+  createEscrowRecord,
+  createEscrowPayoutsForContract,
+  createPaymentOrder,
+  createPaymentTransaction,
+  createNotification,
+  setRequestInProgress,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -320,6 +329,108 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       if (data && data.length > 0) setLocalLoungePosts(data);
     }).catch(() => {});
   }, []);
+
+  // Handle TossPayments redirect return
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("pg_success") !== "1") return;
+
+    // Clean URL immediately
+    window.history.replaceState({}, "", window.location.pathname);
+
+    const paymentKey = params.get("paymentKey");
+    const orderId    = params.get("orderId");
+    const amount     = Number(params.get("amount")) || 0;
+
+    let pending = null;
+    try { pending = JSON.parse(localStorage.getItem("pg_pending") ?? "null"); } catch {}
+    if (!pending || !pending.requestId) return;
+
+    // Remove pending so we don't re-process
+    try { localStorage.removeItem("pg_pending"); } catch {}
+
+    const processTossReturn = async () => {
+      // Optional: server-side confirm
+      if (paymentKey && orderId && amount) {
+        try {
+          await fetch("/api/confirm-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentKey, orderId, amount }),
+          });
+        } catch {}
+      }
+
+      // DB writes
+      const { data: escrowData } = await createEscrowRecord({
+        requestId:   pending.requestId,
+        companyId:   pending.companyId,
+        totalAmount: pending.bidPrice,
+      });
+      let pgContractId = escrowData?.id ?? null;
+
+      if (pgContractId) {
+        await createEscrowPayoutsForContract(pgContractId, pending.companyId, pending.bidPrice, 0.04, 0.1);
+        const { data: newOrder } = await createPaymentOrder({
+          user_id:        pending.requestUserId ?? null,
+          bid_id:         pending.bidId,
+          request_id:     pending.requestId,
+          contract_id:    pgContractId,
+          amount:         pending.bidPrice,
+          customer_fee:   pending.fee,
+          vat:            Math.round((pending.fee ?? 0) * 0.1),
+          total_amount:   pending.customerTotal,
+          payment_method: pending.paymentMethod,
+          fee_snapshot:   { customerFeeRate: 0.03, companyFeeRate: 0.04, vatRate: 0.1 },
+          status:         "PAID",
+        });
+        if (newOrder) {
+          await createPaymentTransaction({
+            payment_order_id: newOrder.id,
+            pg_provider:      "toss",
+            pg_payment_key:   paymentKey ?? `toss_${Date.now()}`,
+            method:           pending.paymentMethod ?? "CARD",
+            amount:           pending.customerTotal,
+            status:           "DONE",
+            approved_at:      new Date().toISOString(),
+            raw_response:     { paymentKey, orderId, amount, method: pending.paymentMethod },
+          });
+        }
+        if (pending.companyOwnerId) {
+          await createNotification({
+            userId:      pending.companyOwnerId,
+            type:        "COMPANY_SELECTED",
+            title:       "계약 체결!",
+            message:     `${pending.requestType ?? "시공"} 요청에서 선택되었습니다.`,
+            relatedId:   pgContractId,
+            relatedType: "contract",
+            priority:    "HIGH",
+          });
+        }
+        await setRequestInProgress(pending.requestId);
+      }
+
+      // Restore selBid from DB
+      const { data: bid } = await getBidById(pending.bidId).catch(() => ({}));
+      if (bid) {
+        const restoredBid = {
+          id: bid.id, requestId: bid.request_id, companyId: bid.company_id,
+          company: { id: bid.company_id, name: pending.companyName ?? "업체", temp: 70, ownerId: pending.companyOwnerId },
+          price: bid.price, period: bid.period_days,
+          material: bid.material_note ?? "", comment: bid.comment ?? "",
+          createdAt: bid.created_at, status: "selected",
+          contractId: pgContractId,
+        };
+        setSelectedBid(restoredBid);
+        if (pgContractId) setContractId(pgContractId);
+        setBidViewRequestId(pending.requestId);
+        setScreen("escrow");
+        setPrevScreen("home");
+      }
+    };
+
+    processTossReturn().catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One-time cleanup: archive known test requests (runs once on mount)
   useEffect(() => {
@@ -1040,7 +1151,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} />}
-        {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} />}
+        {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
