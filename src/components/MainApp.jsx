@@ -506,7 +506,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
 
       <div style={{ background:"#1a1a1a", color:"#00ff88", textAlign:"center", padding:"4px 0", fontSize:10, fontFamily:"monospace", letterSpacing:"0.5px", position:"sticky", top:0, zIndex:999 }}>
-        ▶ DEPLOY CHECK 2026-05-24 sha:876bdc4 ◀ &nbsp;|&nbsp; MODE:{import.meta.env.MODE} &nbsp;|&nbsp; VITE_DEBUG:{String(import.meta.env.VITE_DEBUG ?? "undefined")}
+        ▶ DEPLOY CHECK 2026-05-24 sha:f688d6c ◀ &nbsp;|&nbsp; MODE:{import.meta.env.MODE} &nbsp;|&nbsp; VITE_DEBUG:{String(import.meta.env.VITE_DEBUG ?? "undefined")}
       </div>
 
       {(screen==="home"||screen==="map") && (
