@@ -1308,3 +1308,21 @@ export const getCompanyBids = (userId) =>
     .select("*, requests(*)")
     .eq("company_id", userId)
     .order("created_at", { ascending: false });
+
+// ── Consumer: escrow + payouts for a request (for home card stage computation) ─
+export const getEscrowWithPayouts = async (requestId) => {
+  const { data: escrow, error } = await supabase
+    .from("escrow_payments")
+    .select("*")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !escrow) return { data: null, error: error ?? null };
+  const { data: payouts } = await supabase
+    .from("escrow_payouts")
+    .select("*")
+    .eq("escrow_id", escrow.id)
+    .order("stage");
+  return { data: { escrow, payouts: payouts ?? [] }, error: null };
+};

@@ -49,6 +49,7 @@ import {
   createNotification,
   setRequestInProgress,
   getCompanyBids,
+  getEscrowWithPayouts,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -123,6 +124,61 @@ const normalizeBid = (row) => ({
   createdAt: row.created_at,
   status: row.selected ? "selected" : "pending",
 });
+
+// Compute customer-facing stage from request + escrow/payout data
+const computeCustomerStage = (r, escrowData) => {
+  if (!r) return null;
+  const { escrow = null, payouts = [] } = escrowData ?? {};
+
+  if (!escrow) {
+    if (r.status === "in_progress") return {
+      badge: "계약중", badgeBg: C.brandL, badgeFg: C.brand,
+      label: "계약 진행중", sub: "에스크로 정산 진행 중",
+      action: "escrow", cta: "에스크로 확인하기",
+    };
+    if (r.bidCount > 0) return {
+      badge: "입찰중", badgeBg: C.brandL, badgeFg: C.brand,
+      label: "입찰중", sub: `업체 ${r.bidCount}곳이 입찰했어요`,
+      action: "bids", cta: "견적 비교하고 업체 선택하기",
+    };
+    return {
+      badge: "접수완료", badgeBg: C.bgWarm, badgeFg: C.text3,
+      label: "접수완료", sub: "업체가 견적을 검토 중입니다",
+      action: null, cta: null,
+    };
+  }
+
+  const txStatus = escrow.transaction_status ?? "CONTRACTED";
+  const payout2 = payouts.find(p => p.stage === 2); // 착공 확인
+  const payout3 = payouts.find(p => p.stage === 3); // 중간 점검
+  const payout4 = payouts.find(p => p.stage === 4); // 완료 확인
+
+  if (txStatus === "SETTLED" || payout4?.status === "APPROVED") return {
+    badge: "완료", badgeBg: "#E6F9EE", badgeFg: "#00b050",
+    label: "시공 완료", sub: "정산 완료",
+    action: "escrow", cta: "정산 내역 보기",
+  };
+  if (txStatus === "COMPLETED") return {
+    badge: "확인 필요", badgeBg: "#FFF7E6", badgeFg: "#C07000",
+    label: "완료 사진 확인 대기", sub: "완료 사진 확인 후 승인하면 30% 지급",
+    action: "escrow", cta: "완료 사진 확인하기",
+  };
+  if (txStatus === "MID_INSPECTION") return {
+    badge: "확인 필요", badgeBg: "#FFF7E6", badgeFg: "#C07000",
+    label: "중간 점검 사진 확인 대기", sub: "사진 확인 후 승인하면 40% 지급",
+    action: "escrow", cta: "중간 점검 확인하기",
+  };
+  if (txStatus === "STARTED" && payout2?.status !== "APPROVED") return {
+    badge: "확인 필요", badgeBg: "#FFF7E6", badgeFg: "#C07000",
+    label: "착공 사진 확인 대기", sub: "착공 사진 확인 후 승인하면 20% 지급",
+    action: "escrow", cta: "착공 사진 확인하기",
+  };
+  return {
+    badge: "시공중", badgeBg: C.brandL, badgeFg: C.brand,
+    label: "시공 진행중", sub: "업체 진행 중 · 단계별 사진 확인 예정",
+    action: "escrow", cta: "시공 진행 확인하기",
+  };
+};
 
 export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
@@ -256,6 +312,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [lastFetchAt, setLastFetchAt] = useState(null);
   const [companyJobs, setCompanyJobs] = useState([]);
   const [companyJobsDebug, setCompanyJobsDebug] = useState(null);
+  const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
+  const [escrowRefreshTrigger, setEscrowRefreshTrigger] = useState(0);
 
   const applyExpiry = (rows) => {
     const normalized = rows.map(normalizeRequest);
@@ -358,6 +416,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       setCompanyJobsDebug(d => ({ ...d, jobCount: jobs.length }));
     }).catch(() => {});
   }, [activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load escrow+payouts for consumer in_progress requests
+  useEffect(() => {
+    if (activeRole !== "consumer") return;
+    const inProgress = myRequests.filter(r => r.status === "in_progress");
+    if (inProgress.length === 0) return;
+    inProgress.forEach(r => {
+      getEscrowWithPayouts(r.id).then(({ data }) => {
+        setMyRequestsEscrow(prev => ({ ...prev, [r.id]: data ?? null }));
+      }).catch(() => {});
+    });
+  }, [myRequests, escrowRefreshTrigger, activeRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load recent lounge posts for home preview (consumer home section)
   useEffect(() => {
@@ -772,18 +842,22 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                       </div>
                       {activeReqs.map(r => {
                         const reqBids = submittedBids.filter(b => b.requestId === r.id);
-                        const hasBids = r.bidCount > 0;
+                        const escrowData = myRequestsEscrow[r.id] ?? null;
+                        const stage = computeCustomerStage(r, escrowData);
+                        const hasEscrow = !!escrowData?.escrow;
                         const urgentDays = r.daysLeft <= 1;
                         const warningDays = r.daysLeft <= 3;
+                        const borderColor = stage?.badge === "확인 필요" ? "#C07000" : hasEscrow ? C.brandM : r.bidCount > 0 ? C.brandM : C.bgWarm;
+                        const topBarColor = stage?.badge === "확인 필요" ? "#C07000" : hasEscrow ? C.brand : r.bidCount > 0 ? C.brand : C.bgWarm;
                         return (
                           <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
-                            marginBottom:S.md, border:`1.5px solid ${hasBids ? C.brandM : C.bgWarm}`, overflow:"hidden" }}>
-                            <div style={{ height:3, background: hasBids ? C.brand : C.bgWarm }} />
+                            marginBottom:S.md, border:`1.5px solid ${borderColor}`, overflow:"hidden" }}>
+                            <div style={{ height:3, background: topBarColor }} />
                             <div style={{ padding:S.xl }}>
                               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.sm }}>
                                 <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{r.type} · {r.size}</div>
                                 <div style={{ display:"flex", gap:5, flexWrap:"wrap", justifyContent:"flex-end" }}>
-                                  {r.isActive && (
+                                  {r.isActive && !hasEscrow && (
                                     <span style={{
                                       background: urgentDays ? "#FFF0F0" : warningDays ? "#FFF7E6" : C.brandL,
                                       color: urgentDays ? C.red : warningDays ? "#C07000" : C.brand,
@@ -792,16 +866,36 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                       마감 {r.daysLeft}일 전
                                     </span>
                                   )}
-                                  <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>
-                                    입찰중
-                                  </span>
+                                  {stage && (
+                                    <span style={{ background: stage.badgeBg, color: stage.badgeFg, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>
+                                      {stage.badge}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <div style={{ fontSize:13, color:C.text3, marginBottom:S.sm }}>
                                 📍 {r.area} · {r.style} · {r.time}
                               </div>
 
-                              {hasBids ? (
+                              {/* ── Stage-aware action block ── */}
+                              {hasEscrow ? (
+                                <div style={{ background: stage?.badge === "확인 필요" ? "#FFF7E6" : C.brandL,
+                                  borderRadius:R.lg, padding:S.md, marginBottom:S.md,
+                                  border:`1px solid ${stage?.badge === "확인 필요" ? "#C07000" : C.brandM}` }}>
+                                  <div style={{ fontSize:13, fontWeight:800, color: stage?.badge === "확인 필요" ? "#C07000" : C.brand, marginBottom:S.sm }}>
+                                    {stage?.badge === "확인 필요" ? "🔔" : "🏗"} {stage?.label ?? "시공 진행중"}
+                                  </div>
+                                  <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>{stage?.sub}</div>
+                                  <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                                    style={{ width:"100%", padding:"11px",
+                                      background: stage?.badge === "확인 필요" ? "#C07000" : C.brand,
+                                      color:"#fff", border:"none", borderRadius:R.lg,
+                                      fontWeight:800, fontSize:14, cursor:"pointer",
+                                      boxShadow:`0 3px 12px ${C.brand}44` }}>
+                                    {stage?.cta ?? "에스크로 확인하기"} →
+                                  </button>
+                                </div>
+                              ) : r.bidCount > 0 ? (
                                 <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
                                   marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
                                   <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:S.sm }}>
@@ -848,13 +942,22 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                     fontWeight:700, fontSize:13, cursor:"pointer" }}>
                                   📊 진행 현황
                                 </button>
-                                <button onClick={() => setEditRequest(r)}
-                                  style={{ flex:1, minWidth:"calc(50% - 4px)", padding:"10px", background:C.brandL,
-                                    color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg,
-                                    fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                  ✏️ 수정
-                                </button>
-                                {hasBids ? (
+                                {!hasEscrow && (
+                                  <button onClick={() => setEditRequest(r)}
+                                    style={{ flex:1, minWidth:"calc(50% - 4px)", padding:"10px", background:C.brandL,
+                                      color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg,
+                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                    ✏️ 수정
+                                  </button>
+                                )}
+                                {hasEscrow ? (
+                                  <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                                    style={{ flex:1, padding:"10px", background:C.brand,
+                                      color:"#fff", border:"none", borderRadius:R.lg,
+                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                    🏗 에스크로 보기
+                                  </button>
+                                ) : r.bidCount > 0 ? (
                                   <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
@@ -869,12 +972,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                     🔄 재노출
                                   </button>
                                 )}
-                                <button onClick={() => setShowCloseConfirm(r.id)}
-                                  style={{ flex:1, padding:"10px", background:C.surface,
-                                    color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
-                                    fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                  견적 마감
-                                </button>
+                                {!hasEscrow && (
+                                  <button onClick={() => setShowCloseConfirm(r.id)}
+                                    style={{ flex:1, padding:"10px", background:C.surface,
+                                      color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
+                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                    견적 마감
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -918,7 +1023,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             })()}
 
             {IS_DEBUG && (
-              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:500, overflowY:"auto" }}>
+              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:600, overflowY:"auto" }}>
                 [DEV:consumer] screen:{screen}<br/>
                 user.id: {(user?.id ?? "null").slice(0,8)} | activeRole: {activeRole}<br/>
                 fetch_err: {reqDebug?.consumerFetchError ?? "none"} | db_rows: {reqDebug?.consumerRows ?? "?"}<br/>
@@ -926,13 +1031,6 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 submittedBids_total: {submittedBids.length}<br/>
                 <span style={{color:"#4ff"}}>selectedReqId: {bidViewRequestId?.slice(0,8) ?? "none"}</span><br/>
                 submittedBids_for_req: {submittedBids.filter(b => b.requestId === bidViewRequestId).length}<br/>
-                <span style={{color:"#ff0"}}>── bid fetch (mainapp) ──</span><br/>
-                src: {bidFetchDebug?.src ?? "—"}<br/>
-                <span style={{color:"#4ff"}}>fetch_req_id: {bidFetchDebug?.req_id ?? "—"}</span><br/>
-                fetched_count: {bidFetchDebug?.count ?? "—"}<br/>
-                <span style={{color: bidFetchDebug?.err ? "#f66" : "#0f0"}}>fetch_err: {bidFetchDebug?.err ?? "none"}</span><br/>
-                bids_req_ids (full):<br/>
-                {(bidFetchDebug?.req_ids ?? []).map((id, i) => <span key={i} style={{display:"block", color:"#8ff", paddingLeft:8}}>[{i}] {id}</span>)}<br/>
                 <span style={{color:"#ff0"}}>── DB raw (getUserRequests + bids join) ──</span><br/>
                 {(reqDebug?.consumerData ?? []).map((r, i) => (
                   <span key={r.id} style={{display:"block"}}>
@@ -943,9 +1041,29 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <span style={{color:"#ff0"}}>── normalized (bidCount/isActive) ──</span><br/>
                 {myRequests.map(r => (
                   <span key={r.id} style={{display:"block", color: r.id.startsWith("tmp-") ? "#f66" : r.isActive ? "#0f0" : "#f88"}}>
-                    {r.id.startsWith("tmp-") ? "⚠️tmp" : "✅uuid"} [{r.status}] {r.id.slice(0,8)} {r.type} bidCount:{r.bidCount ?? 0} act:{String(r.isActive)} isExpired:{String(r.isExpiredByTime)} exp:{(r.expiresAt ?? "").slice(0,10)}
+                    {r.id.startsWith("tmp-") ? "⚠️tmp" : "✅uuid"} [{r.status}] {r.id.slice(0,8)} {r.type} bidCount:{r.bidCount ?? 0} act:{String(r.isActive)}
                   </span>
                 ))}
+                <span style={{color:"#ff0"}}>── escrow stage per request ──</span><br/>
+                {myRequests.filter(r => r.status === "in_progress").map(r => {
+                  const ed = myRequestsEscrow[r.id] ?? null;
+                  const cs = computeCustomerStage(r, ed);
+                  const txStatus = ed?.escrow?.transaction_status ?? "—";
+                  const po = ed?.payouts ?? [];
+                  const p2 = po.find(p => p.stage === 2);
+                  const p3 = po.find(p => p.stage === 3);
+                  return (
+                    <span key={r.id} style={{display:"block", color: cs?.badge === "확인 필요" ? "#f93" : "#0f0"}}>
+                      {r.id.slice(0,8)} status:{r.status} tx:{txStatus}<br/>
+                      <span style={{paddingLeft:8, color:"#8ff"}}>
+                        p2:{p2?.status ?? "?"} p3:{p3?.status ?? "?"} | badge:{cs?.badge} | cta:{cs?.cta ?? "—"}
+                      </span>
+                    </span>
+                  );
+                })}
+                {myRequests.filter(r => r.status === "in_progress").length === 0 && (
+                  <span style={{color:"#888"}}>in_progress 요청 없음<br/></span>
+                )}
                 {reqCreateDebug && (
                   <>
                     <span style={{color:"#ff0"}}>── 최근 repost 결과 ──</span><br/>
@@ -1248,7 +1366,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} />}
-        {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} />}
+        {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
@@ -1367,45 +1485,75 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   안전하게 견적 시작하기
                 </button>
               </div>
-            ) : myRequests.map(r => (
-              <div key={r.id} style={{ background:C.surface, borderRadius:R.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, overflow:"hidden" }}>
-                <div style={{ height:3, background:C.brand }} />
-                <div style={{ padding:S.xl }}>
-                  <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:4 }}>{r.type} · {r.size}</div>
-                  <div style={{ fontSize:12, color:C.text3, marginBottom:S.xl }}>📍 {r.area} · 💰 {r.budget}</div>
-                  {[
-                    { label:"견적 요청",    sub:"요청 등록 완료",             done:true,  time:r.time },
-                    { label:"업체 선택",   sub:"입찰 비교 후 계약",            done:false, active:true, bidStep:true },
-                    { label:"공사 진행",   sub:"착공 ~ 중간점검",              done:false },
-                    { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",        done:false },
-                  ].map((step, i, arr) => (
-                    <div key={step.label} style={{ display:"flex", gap:S.md, marginBottom: i<arr.length-1?S.lg:0 }}>
-                      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
-                        <div style={{ width:32, height:32, borderRadius:R.full,
-                          background: step.done?C.green : step.active?C.brand : C.bgWarm,
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:14, color: step.done||step.active?"#fff":C.text4,
-                          boxShadow: step.active?`0 0 0 4px ${C.brand}22`:"none", fontWeight:900 }}>
-                          {step.done?"✓":i+1}
+            ) : myRequests.map(r => {
+              const escData = myRequestsEscrow[r.id] ?? null;
+              const { escrow: esc, payouts: po = [] } = escData ?? {};
+              const txStatus = esc?.transaction_status ?? null;
+              const hasEscrow = !!esc;
+              const isSettled = txStatus === "SETTLED";
+              const csStage = computeCustomerStage(r, escData);
+              const step2done = hasEscrow || r.status === "in_progress";
+              const step3active = hasEscrow && !isSettled;
+              const step4done = isSettled;
+
+              const constructionSub = (() => {
+                if (!hasEscrow) return "착공 ~ 중간점검";
+                if (txStatus === "STARTED") return "착공 사진 확인 대기";
+                if (txStatus === "MID_INSPECTION") return "중간 점검 사진 확인 대기";
+                if (txStatus === "COMPLETED") return "완료 사진 확인 대기";
+                return "에스크로 보관 중 · 착공 대기";
+              })();
+
+              const steps = [
+                { label:"견적 요청",    sub:"요청 등록 완료",         done:true,        time:r.time },
+                { label:"업체 선택",   sub: step2done ? "계약 & 에스크로 완료" : "입찰 비교 후 계약", done:step2done, active:!step2done, bidStep:!step2done },
+                { label:"공사 진행",   sub: constructionSub,          done:isSettled,   active:step3active, escrowStep:step3active },
+                { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",   done:step4done },
+              ];
+
+              return (
+                <div key={r.id} style={{ background:C.surface, borderRadius:R.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, overflow:"hidden" }}>
+                  <div style={{ height:3, background:C.brand }} />
+                  <div style={{ padding:S.xl }}>
+                    <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:4 }}>{r.type} · {r.size}</div>
+                    <div style={{ fontSize:12, color:C.text3, marginBottom:S.xl }}>📍 {r.area} · 💰 {r.budget}</div>
+                    {steps.map((step, i, arr) => (
+                      <div key={step.label} style={{ display:"flex", gap:S.md, marginBottom: i<arr.length-1?S.lg:0 }}>
+                        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
+                          <div style={{ width:32, height:32, borderRadius:R.full,
+                            background: step.done?C.green : step.active?C.brand : C.bgWarm,
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            fontSize:14, color: step.done||step.active?"#fff":C.text4,
+                            boxShadow: step.active?`0 0 0 4px ${C.brand}22`:"none", fontWeight:900 }}>
+                            {step.done?"✓":i+1}
+                          </div>
+                          {i<arr.length-1 && <div style={{ width:2, flex:1, minHeight:16, marginTop:4, background:step.done?C.green:step.active?`${C.brand}44`:C.bgWarm }} />}
                         </div>
-                        {i<arr.length-1 && <div style={{ width:2, flex:1, minHeight:16, marginTop:4, background:step.done?C.green:C.bgWarm }} />}
+                        <div style={{ flex:1, paddingTop:6 }}>
+                          <div style={{ fontSize:14, fontWeight:700, color:step.done?C.green:step.active?C.brand:C.text3 }}>{step.label}</div>
+                          <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>{step.sub}</div>
+                          {step.time && <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>{step.time}</div>}
+                          {step.bidStep && (
+                            <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
+                              style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+                              🔔 입찰 비교 후 업체 선택 →
+                            </button>
+                          )}
+                          {step.escrowStep && csStage?.cta && (
+                            <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                              style={{ marginTop:S.sm, padding:"8px 16px",
+                                background: csStage.badge === "확인 필요" ? "#C07000" : C.brand,
+                                color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+                              {csStage.cta} →
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ flex:1, paddingTop:6 }}>
-                        <div style={{ fontSize:14, fontWeight:700, color:step.done?C.green:step.active?C.brand:C.text3 }}>{step.label}</div>
-                        <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>{step.sub}</div>
-                        {step.time && <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>{step.time}</div>}
-                        {step.bidStep && (
-                          <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
-                            style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
-                            🔔 입찰 비교 후 업체 선택 →
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
