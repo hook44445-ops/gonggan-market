@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, createNotification, logActivity } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, createNotification, logActivity, getPaymentOrderByRequest } from "../lib/supabase";
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 import { calcCustomerFee } from "../utils/calculations";
@@ -14,6 +14,8 @@ const PAYMENT_METHODS = [
   { id: "KAKAO_PAY",       icon: "💛", label: "카카오페이",     desc: "심사 후 제공 예정",       available: false },
   { id: "NAVER_PAY",       icon: "💚", label: "네이버페이",     desc: "심사 후 제공 예정",       available: false },
 ];
+
+const TOSS_METHOD_MAP = { CARD: "카드", TRANSFER: "계좌이체", VIRTUAL_ACCOUNT: "가상계좌" };
 
 const DEFAULT_COMPANY = { id: null, name: "—", temp: 0, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
 
@@ -56,6 +58,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [bidScreenDebug, setBidScreenDebug] = useState(null);
+  const [localToast, setLocalToast] = useState(null);
+  const showLocalToast = (msg) => { setLocalToast(msg); setTimeout(() => setLocalToast(null), 3000); };
 
   // SELECT bids when screen loads (or request changes)
   useEffect(() => {
@@ -175,100 +179,143 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
     const stages = calculateStagePayments(selBid.price);
 
     const handlePay = async () => {
+      if (!selectedMethod && !SAFE_MODE) return;
+      setPaymentLoading(true);
       const feeSnapshot = { customerFeeRate: 0.03, companyFeeRate: 0.04, vatRate: 0.1, snapshotAt: new Date().toISOString() };
 
-      if (SAFE_MODE) {
-        const contractId = `safe-${Date.now()}`;
-        if (setEscrowContracts) setEscrowContracts(prev => [...prev, { id: contractId, requestId: selBid.requestId, bidId: selBid.id, totalAmount: customerTotal, status: "active", createdAt: new Date().toISOString() }]);
-        if (setSelectedBid) setSelectedBid(selBid);
-        if (onEscrow) { onEscrow({ ...selBid, contractId }); } else { setStep("done"); }
-        return;
-      }
-
-      if (!selectedMethod) return;
-      setPaymentLoading(true);
-      let contractId = null;
-      let orderId = null;
-
-      try {
-        if (selBid.id && !selBid.id.toString().startsWith("tmp-") && selBid.companyId && request?.id) {
-          // 1. Create escrow record
-          const { data: escrowData } = await createEscrowRecord({
-            requestId:   request.id,
-            companyId:   selBid.companyId,
-            totalAmount: selBid.price,
-          });
-          if (escrowData) {
-            contractId = escrowData.id;
-            await createEscrowPayoutsForContract(escrowData.id, selBid.companyId, selBid.price, 0.04, 0.1);
-
-            // 2. Create payment_order (PENDING → PAID flow)
-            const { data: existingOrder } = await getPaymentOrderByBid(selBid.id);
-            let paymentOrderId = existingOrder?.id ?? null;
-            if (!existingOrder) {
-              const { data: newOrder } = await createPaymentOrder({
-                user_id:        request.user_id ?? null,
-                bid_id:         selBid.id,
-                request_id:     request.id,
-                contract_id:    escrowData.id,
-                amount:         selBid.price,
-                customer_fee:   fee,
-                vat:            Math.round(fee * 0.1),
-                total_amount:   customerTotal,
-                payment_method: selectedMethod,
-                fee_snapshot:   feeSnapshot,
-                status:         "PENDING",
-              });
-              paymentOrderId = newOrder?.id ?? null;
-            }
-
-            // 3. Mark payment PAID and record transaction
-            if (paymentOrderId) {
-              orderId = paymentOrderId;
-              await updatePaymentOrderStatus(paymentOrderId, "PAID");
-              await createPaymentTransaction({
-                payment_order_id: paymentOrderId,
-                pg_provider:      "toss",
-                pg_payment_key:   `test_${Date.now()}`,
-                method:           selectedMethod,
-                amount:           customerTotal,
-                status:           "DONE",
-                approved_at:      new Date().toISOString(),
-                raw_response:     { test_mode: true, method: selectedMethod },
-              });
-            }
-
-            // 4. Notify company
-            const companyOwnerId = selBid.company?.ownerId ?? null;
-            if (companyOwnerId) {
-              await createNotification({
-                userId:      companyOwnerId,
-                type:        "COMPANY_SELECTED",
-                title:       "계약 체결!",
-                message:     `${request?.type ?? "시공"} 요청에서 선택되었습니다. 에스크로 계약이 시작됩니다.`,
-                relatedId:   escrowData.id,
-                relatedType: "contract",
-                priority:    "HIGH",
-              });
-            }
-            // 5. Log activity
-            await logActivity({
-              userId:     request.user_id ?? null,
-              role:       "consumer",
-              action:     "CONTRACT_CREATED",
-              targetType: "contract",
-              targetId:   escrowData.id,
-              metadata:   { bidId: selBid.id, companyId: selBid.companyId, amount: selBid.price, paymentMethod: selectedMethod, feeSnapshot },
+      const runDBWrites = async (pgPaymentKey = null) => {
+        let contractId = null;
+        let orderId = null;
+        try {
+          if (selBid.id && !String(selBid.id).startsWith("tmp-") && selBid.companyId && request?.id) {
+            const { data: escrowData } = await createEscrowRecord({
+              requestId:   request.id,
+              companyId:   selBid.companyId,
+              totalAmount: selBid.price,
             });
-          }
-          await setRequestInProgress(request.id);
-        }
+            if (escrowData) {
+              contractId = escrowData.id;
+              await createEscrowPayoutsForContract(escrowData.id, selBid.companyId, selBid.price, 0.04, 0.1);
 
-        if (setEscrowContracts) setEscrowContracts(prev => [...prev, { id: contractId ?? Date.now(), requestId: selBid.requestId, bidId: selBid.id, totalAmount: customerTotal, status: "active", createdAt: new Date().toISOString() }]);
-        if (setSelectedBid) setSelectedBid(selBid);
-        if (onEscrow) { onEscrow({ ...selBid, contractId }); } else { setStep("done"); }
-      } finally {
-        setPaymentLoading(false);
+              const { data: existingOrder } = await getPaymentOrderByBid(selBid.id);
+              let paymentOrderId = existingOrder?.id ?? null;
+              if (!existingOrder) {
+                const { data: newOrder } = await createPaymentOrder({
+                  user_id:        request.user_id ?? null,
+                  bid_id:         selBid.id,
+                  request_id:     request.id,
+                  contract_id:    escrowData.id,
+                  amount:         selBid.price,
+                  customer_fee:   fee,
+                  vat:            Math.round(fee * 0.1),
+                  total_amount:   customerTotal,
+                  payment_method: selectedMethod,
+                  fee_snapshot:   feeSnapshot,
+                  status:         "PAID",
+                });
+                paymentOrderId = newOrder?.id ?? null;
+              }
+              if (paymentOrderId) {
+                orderId = paymentOrderId;
+                if (existingOrder) await updatePaymentOrderStatus(paymentOrderId, "PAID");
+                await createPaymentTransaction({
+                  payment_order_id: paymentOrderId,
+                  pg_provider:      "toss",
+                  pg_payment_key:   pgPaymentKey ?? `test_${Date.now()}`,
+                  method:           selectedMethod ?? "CARD",
+                  amount:           customerTotal,
+                  status:           "DONE",
+                  approved_at:      new Date().toISOString(),
+                  raw_response:     { test_mode: !pgPaymentKey, method: selectedMethod },
+                });
+              }
+              const companyOwnerId = selBid.company?.ownerId ?? null;
+              if (companyOwnerId) {
+                await createNotification({
+                  userId:      companyOwnerId,
+                  type:        "COMPANY_SELECTED",
+                  title:       "계약 체결!",
+                  message:     `${request?.type ?? "시공"} 요청에서 선택되었습니다.`,
+                  relatedId:   escrowData.id,
+                  relatedType: "contract",
+                  priority:    "HIGH",
+                });
+              }
+              await logActivity({
+                userId:     request.user_id ?? null,
+                role:       "consumer",
+                action:     "CONTRACT_CREATED",
+                targetType: "contract",
+                targetId:   escrowData.id,
+                metadata:   { bidId: selBid.id, companyId: selBid.companyId, amount: selBid.price, paymentMethod: selectedMethod, feeSnapshot, pgPaymentKey },
+              });
+            }
+            await setRequestInProgress(request.id);
+          }
+          if (setEscrowContracts) setEscrowContracts(prev => [...prev, { id: contractId ?? Date.now(), requestId: selBid.requestId, bidId: selBid.id, totalAmount: customerTotal, status: "active", createdAt: new Date().toISOString() }]);
+          if (setSelectedBid) setSelectedBid(selBid);
+          if (onEscrow) onEscrow({ ...selBid, contractId }); else setStep("done");
+        } finally {
+          setPaymentLoading(false);
+        }
+      };
+
+      if (SAFE_MODE) { await runDBWrites(); return; }
+
+      // Test mode: show toast
+      showLocalToast("🧪 테스트 모드입니다. 실제 결제는 발생하지 않습니다.");
+
+      const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
+      if (clientKey && selectedMethod) {
+        // Save pending payment info for recovery after Toss redirect
+        try {
+          localStorage.setItem("pg_pending", JSON.stringify({
+            requestId: request?.id,
+            requestUserId: request?.user_id,
+            requestType: request?.type,
+            bidId: selBid.id,
+            bidPrice: selBid.price,
+            companyId: selBid.companyId,
+            companyOwnerId: selBid.company?.ownerId ?? null,
+            companyName: selBid.company?.name ?? "업체",
+            customerTotal,
+            fee,
+            paymentMethod: selectedMethod,
+            savedAt: Date.now(),
+          }));
+        } catch {}
+
+        const tossOrderId = `order_${Date.now()}`;
+        try {
+          // Load Toss v1 SDK dynamically
+          await new Promise((resolve, reject) => {
+            if (window.TossPayments) { resolve(); return; }
+            const s = document.createElement("script");
+            s.src = "https://js.tosspayments.com/v1/payment";
+            s.onload = resolve;
+            s.onerror = () => reject(new Error("Toss SDK load failed"));
+            document.head.appendChild(s);
+          });
+          const tossPayments = window.TossPayments(clientKey);
+          const tossMethod = TOSS_METHOD_MAP[selectedMethod] ?? "카드";
+          // This will redirect to Toss — return value is never reached
+          await tossPayments.requestPayment(tossMethod, {
+            amount: customerTotal,
+            orderId: tossOrderId,
+            orderName: `공간마켓 시공비 에스크로 (${request?.type ?? "시공"})`,
+            customerName: "고객",
+            successUrl: window.location.origin + "/?pg_success=1",
+            failUrl:    window.location.origin + "/?pg_fail=1",
+          });
+          // If requestPayment didn't redirect (e.g. popup mode), fall through to DB writes
+          await runDBWrites();
+        } catch (err) {
+          // Toss SDK error or load failure — fall back to simulation
+          await runDBWrites();
+        }
+      } else {
+        // No Toss key — simulate
+        await runDBWrites();
       }
     };
 
@@ -347,6 +394,11 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
             {paymentLoading ? "처리 중..." : SAFE_MODE ? "🔧 테스트 예치 (SAFE_MODE)" : selectedMethod ? `🔒 ${fmtMoney(customerTotal)} 결제하기` : "결제 수단을 선택하세요"}
           </button>
         </div>
+        {localToast && (
+          <div style={{ position:"fixed", bottom:100, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,0.82)", color:"#fff", borderRadius:20, padding:"10px 20px", fontSize:13, fontWeight:600, zIndex:500, whiteSpace:"nowrap", pointerEvents:"none" }}>
+            {localToast}
+          </div>
+        )}
       </div>
     );
   }

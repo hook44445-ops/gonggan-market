@@ -1278,3 +1278,25 @@ export const acceptLoungeChat = (chatId, participantId) =>
     .or(`requester_id.eq.${participantId},post_user_id.eq.${participantId}`)
     .select()
     .single();
+
+// ── Payment / Contract restore helpers ───────────────────────────────────────
+
+export const getPaymentOrderByRequest = (requestId) =>
+  supabase.from("payment_orders")
+    .select("*")
+    .eq("request_id", requestId)
+    .eq("status", "PAID")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+export const getBidById = (bidId) =>
+  supabase.from("bids").select("*").eq("id", bidId).single();
+
+export const getEscrowByRequest = (requestId) =>
+  supabase.from("escrow_payments")
+    .select("*")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
