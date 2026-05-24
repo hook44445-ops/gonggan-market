@@ -33,6 +33,7 @@ import {
   repostRequest,
   createRequestRepost,
   expireRequest,
+  archiveRequest,
   getLoungePosts,
   createBid,
   getBidsForRequest,
@@ -315,6 +316,23 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     getLoungePosts("all", 3).then(({ data }) => {
       if (data && data.length > 0) setLocalLoungePosts(data);
     }).catch(() => {});
+  }, []);
+
+  // One-time cleanup: archive known test requests (runs once on mount)
+  useEffect(() => {
+    const TEST_IDS = [
+      "7c04f82e", "eac3b498", "ba6b29b6", "18d966b7",
+    ];
+    // supabase uuid starts with these prefixes — archive via prefix match using RPC isn't available,
+    // so we archive by fetching then filtering
+    supabase
+      .from("requests")
+      .select("id")
+      .or(TEST_IDS.map(p => `id.ilike.${p}%`).join(","))
+      .then(({ data }) => {
+        if (data) data.forEach(r => archiveRequest(r.id));
+      })
+      .catch(() => {});
   }, []);
 
   // Load bids + subscribe to realtime when viewing a request's bid status
