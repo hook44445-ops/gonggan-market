@@ -878,7 +878,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                               </div>
 
                               {/* ── Stage-aware action block ── */}
-                              {hasEscrow ? (
+                              {stage?.action === "escrow" ? (
                                 <div style={{ background: stage?.badge === "확인 필요" ? "#FFF7E6" : C.brandL,
                                   borderRadius:R.lg, padding:S.md, marginBottom:S.md,
                                   border:`1px solid ${stage?.badge === "확인 필요" ? "#C07000" : C.brandM}` }}>
@@ -942,7 +942,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                     fontWeight:700, fontSize:13, cursor:"pointer" }}>
                                   📊 진행 현황
                                 </button>
-                                {!hasEscrow && (
+                                {stage?.action !== "escrow" && (
                                   <button onClick={() => setEditRequest(r)}
                                     style={{ flex:1, minWidth:"calc(50% - 4px)", padding:"10px", background:C.brandL,
                                       color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg,
@@ -950,7 +950,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                     ✏️ 수정
                                   </button>
                                 )}
-                                {hasEscrow ? (
+                                {stage?.action === "escrow" ? (
                                   <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
@@ -972,7 +972,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                     🔄 재노출
                                   </button>
                                 )}
-                                {!hasEscrow && (
+                                {stage?.action !== "escrow" && (
                                   <button onClick={() => setShowCloseConfirm(r.id)}
                                     style={{ flex:1, padding:"10px", background:C.surface,
                                       color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
@@ -1492,23 +1492,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               const hasEscrow = !!esc;
               const isSettled = txStatus === "SETTLED";
               const csStage = computeCustomerStage(r, escData);
-              const step2done = hasEscrow || r.status === "in_progress";
-              const step3active = hasEscrow && !isSettled;
+              const inProgress = hasEscrow || r.status === "in_progress";
+              const step2done = inProgress;
+              const step3active = inProgress && !isSettled;
               const step4done = isSettled;
 
               const constructionSub = (() => {
-                if (!hasEscrow) return "착공 ~ 중간점검";
                 if (txStatus === "STARTED") return "착공 사진 확인 대기";
                 if (txStatus === "MID_INSPECTION") return "중간 점검 사진 확인 대기";
                 if (txStatus === "COMPLETED") return "완료 사진 확인 대기";
-                return "에스크로 보관 중 · 착공 대기";
+                if (hasEscrow) return "착공 대기 · 에스크로 보관 중";
+                if (r.status === "in_progress") return "에스크로 정산 진행 중";
+                return "착공 ~ 중간점검";
               })();
 
               const steps = [
-                { label:"견적 요청",    sub:"요청 등록 완료",         done:true,        time:r.time },
-                { label:"업체 선택",   sub: step2done ? "계약 & 에스크로 완료" : "입찰 비교 후 계약", done:step2done, active:!step2done, bidStep:!step2done },
-                { label:"공사 진행",   sub: constructionSub,          done:isSettled,   active:step3active, escrowStep:step3active },
-                { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",   done:step4done },
+                { label:"견적 요청",    sub:"요청 등록 완료",           done:true,      time:r.time },
+                { label:"업체 선택",   sub: step2done ? "계약 완료" : "입찰 비교 후 계약", done:step2done, active:!step2done, bidStep:!step2done },
+                { label:"공사 진행",   sub: constructionSub,            done:isSettled, active:step3active, escrowStep:step3active },
+                { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",     done:step4done },
               ];
 
               return (
@@ -1539,12 +1541,12 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                               🔔 입찰 비교 후 업체 선택 →
                             </button>
                           )}
-                          {step.escrowStep && csStage?.cta && (
+                          {step.escrowStep && (
                             <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
                               style={{ marginTop:S.sm, padding:"8px 16px",
-                                background: csStage.badge === "확인 필요" ? "#C07000" : C.brand,
+                                background: csStage?.badge === "확인 필요" ? "#C07000" : C.brand,
                                 color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
-                              {csStage.cta} →
+                              {csStage?.cta ?? "에스크로 진행현황 보기"} →
                             </button>
                           )}
                         </div>
