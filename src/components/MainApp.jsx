@@ -48,6 +48,7 @@ import {
   createPaymentTransaction,
   createNotification,
   setRequestInProgress,
+  getCompanyBids,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -253,6 +254,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [reqCreateDebug, setReqCreateDebug] = useState(null);
   const [bidFetchDebug, setBidFetchDebug] = useState(null);
   const [lastFetchAt, setLastFetchAt] = useState(null);
+  const [companyJobs, setCompanyJobs] = useState([]);
+  const [companyJobsDebug, setCompanyJobsDebug] = useState(null);
 
   const applyExpiry = (rows) => {
     const normalized = rows.map(normalizeRequest);
@@ -322,6 +325,39 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       }
     }).catch(() => {});
   }, [user?.id, activeRole]);
+
+  // Load company's own awarded/in-progress jobs
+  useEffect(() => {
+    if (activeRole !== "company" || !user?.id) return;
+    getCompanyBids(user.id).then(({ data, error }) => {
+      setCompanyJobsDebug(d => ({
+        ...d,
+        fetchError: error?.message ?? null,
+        rawCount: data?.length ?? 0,
+        statuses: (data ?? []).map(b => ({ id: b.id, req_status: b.requests?.status ?? "?" })),
+      }));
+      if (error || !data) return;
+      const jobs = data
+        .filter(b => b.requests?.status === "in_progress" || b.selected === true)
+        .map(b => ({
+          bid: {
+            id: b.id,
+            requestId: b.request_id,
+            companyId: b.company_id,
+            price: b.price,
+            period: b.period_days,
+            material: b.material_note ?? "",
+            comment: b.comment ?? "",
+            createdAt: b.created_at,
+            status: "selected",
+            company: { id: b.company_id, name: user.name ?? "업체", temp: 70, ownerId: user.id },
+          },
+          request: b.requests ? normalizeRequest(b.requests) : null,
+        }));
+      setCompanyJobs(jobs);
+      setCompanyJobsDebug(d => ({ ...d, jobCount: jobs.length }));
+    }).catch(() => {});
+  }, [activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load recent lounge posts for home preview (consumer home section)
   useEffect(() => {
@@ -1062,6 +1098,53 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
             <LiveFeed />
 
+            {/* ── 진행중 작업 ─────────────────────────────────────────── */}
+            {companyJobs.length > 0 && (
+              <div style={{ marginBottom:S.xl }}>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>
+                  🏗 내 시공 진행중
+                  <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
+                    {companyJobs.length}건
+                  </span>
+                </div>
+                {companyJobs.map(({ bid, request }) => (
+                  <div key={bid.id} style={{
+                    background:C.surface, borderRadius:R.xl, padding:S.xl,
+                    marginBottom:S.md, border:`1.5px solid ${C.brandM}`,
+                    boxShadow:`0 2px 12px ${C.brand}18`,
+                  }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.sm }}>
+                      <div>
+                        <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:4 }}>
+                          {request?.type || "인테리어"} · {request?.size || ""}
+                        </div>
+                        <div style={{ fontSize:12, color:C.text3 }}>
+                          📍 {request?.area || "지역 미정"}
+                        </div>
+                      </div>
+                      <div style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"4px 10px", fontSize:11, fontWeight:800 }}>
+                        진행중
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ fontSize:15, fontWeight:900, color:C.brand }}>
+                        {bid.price ? `${(bid.price / 10000).toLocaleString()}만원` : "금액 미정"}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedBid(bid);
+                          setBidViewRequestId(bid.requestId);
+                          go("escrow");
+                        }}
+                        style={{ background:C.brand, color:"#fff", border:"none", borderRadius:R.full, padding:"8px 16px", fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>
+                        계약 확인 →
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
               <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>
                 📋 새 견적 요청
@@ -1096,22 +1179,36 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             )}
 
             {IS_DEBUG && (
-              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:500, overflowY:"auto" }}>
+              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:600, overflowY:"auto" }}>
                 [DEV:company] screen:{screen}<br/>
                 user.id: {user?.id ?? "null"}<br/>
                 currentUser.id: {currentUser?.id ?? "null ⚠️"}<br/>
+                selectedBid.id: {selectedBid?.id ?? "null"} | requestId: {selectedBid?.requestId ?? "null"}<br/>
+                contractId: {contractId ?? "null"}<br/>
                 <span style={{color: reqDebug?.companyFetchError ? "#f66" : "#0f0"}}>fetch_err: {reqDebug?.companyFetchError ?? "none"}</span><br/>
                 last_fetch: {lastFetchAt ?? "—"} | db_rows: {reqDebug?.companyRows ?? "?"} | active_displayed: {customerRequests.filter(r=>r.isActive).length}<br/>
                 <span style={{color:"#ff0"}}>── DB open requests (full id) ──</span><br/>
                 {(reqDebug?.companyData ?? []).map((r, i) => (
                   <span key={r.id} style={{display:"block", color:"#8ff"}}>
-                    [{i}] {r.id} {r.space_type} {r.status} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
+                    [{i}] {r.id} {r.space_type} status:{r.status} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
                   </span>
                 ))}
                 {(reqDebug?.companyData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>⚠️ DB rows: 0 — fetch_err 확인<br/></span>}
                 <span style={{color:"#ff0"}}>── displayed active (full id) ──</span><br/>
                 {customerRequests.filter(r=>r.isActive).map(r=>(
-                  <span key={r.id} style={{display:"block", color:"#8ff"}}>{r.id} {r.type} {r.size}</span>
+                  <span key={r.id} style={{display:"block", color:"#8ff"}}>{r.id} {r.type} {r.size} status:{r.status}</span>
+                ))}
+                <span style={{color:"#ff0"}}>── companyJobs (in_progress) ──</span><br/>
+                <span style={{color: companyJobsDebug?.fetchError ? "#f66" : "#0f0"}}>jobs_err:{companyJobsDebug?.fetchError ?? "none"}</span> raw:{companyJobsDebug?.rawCount ?? "?"} jobs:{companyJobsDebug?.jobCount ?? "?"}<br/>
+                {(companyJobsDebug?.statuses ?? []).map((s, i) => (
+                  <span key={s.id} style={{display:"block", color: s.req_status === "in_progress" ? "#0f0" : "#8ff"}}>
+                    [{i}] bid:{s.id?.slice(0,8)} req_status:{s.req_status}
+                  </span>
+                ))}
+                {companyJobs.map((j, i) => (
+                  <span key={j.bid.id} style={{display:"block", color:"#aff"}}>
+                    job[{i}] bid:{j.bid.id?.slice(0,8)} req:{j.request?.id?.slice(0,8)} {j.request?.type} {j.request?.status}
+                  </span>
                 ))}
                 {bidDebug && (
                   <>

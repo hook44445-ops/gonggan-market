@@ -1300,3 +1300,11 @@ export const getEscrowByRequest = (requestId) =>
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+// ── Company: my submitted bids with request data ──────────────────────────────
+export const getCompanyBids = (userId) =>
+  supabase
+    .from("bids")
+    .select("*, requests(*)")
+    .eq("company_id", userId)
+    .order("created_at", { ascending: false });
