@@ -76,7 +76,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
   const [escrowDebug, setEscrowDebug] = useState(null);
 
-  // Self-fetch: restore selectedBid from payment_orders if null
+  // Self-fetch: restore selectedBid from payment_orders if prop is null
   useEffect(() => {
     if (resolvedBid || !request?.id) return;
     const fetchContract = async () => {
@@ -86,29 +86,57 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         return;
       }
       if (order.contract_id) setResolvedContractId(order.contract_id);
-      if (!order.bid_id) { setEscrowDebug({ src: "self_fetch", err: "no bid_id", order }); return; }
+      if (!order.bid_id) { setEscrowDebug({ src: "self_fetch", err: "no bid_id" }); return; }
       const { data: bid, error: bidErr } = await getBidById(order.bid_id);
-      if (bidErr || !bid) { setEscrowDebug({ src: "self_fetch", err: bidErr?.message ?? "no bid", order }); return; }
-      let company = { id: bid.company_id, name: "업체", temp: 70 };
-      const { data: compRow } = await getCompanyByOwnerId(bid.company_id).catch(() => ({}));
-      if (compRow) company = { id: compRow.id, ownerId: compRow.owner_id, name: compRow.name ?? "업체", temp: compRow.temp ?? 70 };
+      if (bidErr || !bid) { setEscrowDebug({ src: "self_fetch", err: bidErr?.message ?? "no bid" }); return; }
       const restored = {
-        id: bid.id,
-        requestId: bid.request_id,
-        companyId: bid.company_id,
-        company,
-        price: bid.price,
-        period: bid.period_days,
-        material: bid.material_note ?? "",
-        comment: bid.comment ?? "",
-        createdAt: bid.created_at,
-        status: bid.selected ? "selected" : "pending",
+        id: bid.id, requestId: bid.request_id, companyId: bid.company_id,
+        company: { id: bid.company_id, name: "업체", temp: 70 },
+        price: bid.price, period: bid.period_days,
+        material: bid.material_note ?? "", comment: bid.comment ?? "",
+        createdAt: bid.created_at, status: bid.selected ? "selected" : "pending",
       };
       setResolvedBid(restored);
-      setEscrowDebug({ src: "self_fetch", restored: true, bidId: bid.id, companyName: company.name, orderId: order.id, contractId: order.contract_id });
+      setEscrowDebug({ src: "self_fetch", restored: true, bidId: bid.id, orderId: order.id });
     };
     fetchContract();
-  }, [request?.id]);
+  }, [request?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Company fetch: always run when companyId is known but name is missing/default
+  // bids.company_id → users.id; companies.owner_id → users.id
+  useEffect(() => {
+    const companyId = resolvedBid?.companyId;
+    if (!companyId) return;
+    const existingName = resolvedBid?.company?.name;
+    if (existingName && existingName !== "—" && existingName !== "업체") return;
+    getCompanyByOwnerId(companyId).then(({ data, error }) => {
+      setEscrowDebug(prev => ({
+        ...prev,
+        companyLookup: {
+          ownerId: companyId,
+          err:     error?.message ?? null,
+          found:   !!data,
+          id:      data?.id ?? null,
+          name:    data?.name ?? null,
+        },
+      }));
+      if (!data) return;
+      setResolvedBid(prev => prev ? {
+        ...prev,
+        company: { id: data.id, ownerId: data.owner_id, name: data.name ?? "업체", temp: data.temp ?? 70 },
+      } : prev);
+    }).catch(() => {});
+  }, [resolvedBid?.companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Contract ID fetch: if resolvedBid is known but contractId is still missing
+  useEffect(() => {
+    if (resolvedContractId) return;
+    const reqId = request?.id ?? resolvedBid?.requestId;
+    if (!reqId) return;
+    getPaymentOrderByRequest(reqId).then(({ data }) => {
+      if (data?.contract_id) setResolvedContractId(data.contract_id);
+    }).catch(() => {});
+  }, [resolvedBid?.requestId, request?.id, resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isConsumer = activeRole === "consumer";
   const bidAmount   = resolvedBid?.price ?? 0;
@@ -293,17 +321,30 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       <div style={{ padding: `${S.xl}px ${S.xl}px 40px` }}>
 
         {IS_DEBUG && (
-          <div style={{ margin:"0 0 12px", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:300, overflowY:"auto" }}>
+          <div style={{ margin:"0 0 12px", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:340, overflowY:"auto" }}>
             [DEV:escrow]<br/>
             request.id: {request?.id ?? "null ⚠️"}<br/>
-            selectedBid (prop): {selectedBid?.id ?? "null"}<br/>
+            selectedBid(prop).id: {selectedBid?.id ?? "null"}<br/>
             resolvedBid.id: {resolvedBid?.id ?? "null ⚠️"}<br/>
-            resolvedBid.company: {resolvedBid?.company?.name ?? "—"}<br/>
             resolvedBid.price: {resolvedBid?.price ?? "—"}<br/>
+            <span style={{color:"#4ff"}}>resolvedBid.company_id: {resolvedBid?.companyId ?? "—"}</span><br/>
+            <span style={{color: resolvedBid?.company?.name && resolvedBid.company.name !== "—" ? "#0f0" : "#f66"}}>
+              resolvedBid.company.name: {resolvedBid?.company?.name ?? "—"}
+            </span><br/>
             resolvedContractId: {resolvedContractId ?? "—"}<br/>
-            {escrowDebug && (
+            {escrowDebug?.companyLookup && (
+              <>
+                <span style={{color:"#ff0"}}>── company lookup (owner_id) ──</span><br/>
+                <span style={{color: escrowDebug.companyLookup.found ? "#0f0" : "#f66"}}>
+                  ownerId={escrowDebug.companyLookup.ownerId}<br/>
+                  found={String(escrowDebug.companyLookup.found)} id={escrowDebug.companyLookup.id ?? "—"} name={escrowDebug.companyLookup.name ?? "—"}<br/>
+                  {escrowDebug.companyLookup.err && <span style={{color:"#f66"}}>err: {escrowDebug.companyLookup.err}</span>}
+                </span>
+              </>
+            )}
+            {escrowDebug && !escrowDebug.companyLookup && (
               <span style={{color: escrowDebug.restored ? "#0f0" : "#f66"}}>
-                fetch: {JSON.stringify(escrowDebug)}
+                self_fetch: {JSON.stringify(escrowDebug)}
               </span>
             )}
           </div>
