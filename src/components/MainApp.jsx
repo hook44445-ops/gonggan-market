@@ -82,7 +82,7 @@ const normalizeRequest = (row) => {
     size: row.size ?? "",
     budget: [row.budget_min, row.budget_max].filter(Boolean).map(n => `${n}만원`).join("~") || "협의",
     style: row.style ?? "",
-    desc: row.desc ?? "",
+    desc: row.description ?? row.desc ?? "",
     area: row.area ?? "",
     user: "의뢰인",
     bids: 0,
@@ -185,14 +185,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       const { data, error } = await createRequest({
         user_id:    user.id,
         status:     'open',
-        area:       originalReq.area ?? user.region ?? "",
-        space_type: originalReq.type,
-        size:       originalReq.size,
-        style:      originalReq.style,
-        desc:       originalReq.desc ?? "",
-        budget_min: 0,
-        budget_max: 0,
-        expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
+        area:        originalReq.area ?? user.region ?? "",
+        space_type:  originalReq.type,
+        size:        originalReq.size,
+        style:       originalReq.style,
+        description: originalReq.desc ?? "",
+        budget_min:  0,
+        budget_max:  0,
+        expires_at:  new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
       });
 
       setReqCreateDebug({
@@ -229,10 +229,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     showToast("✅ 견적 요청이 수정됐어요");
     if (!requestId.startsWith("tmp-")) {
       await updateRequest(requestId, {
-        space_type: form.type,
-        size:       form.size,
-        style:      form.style,
-        desc:       form.desc ?? "",
+        space_type:  form.type,
+        size:        form.size,
+        style:       form.style,
+        description: form.desc ?? "",
       });
     }
   };
@@ -746,8 +746,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 {(reqDebug?.consumerData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0 — 요청 없음<br/></span>}
                 <span style={{color:"#ff0"}}>── normalized (bidCount/isActive) ──</span><br/>
                 {myRequests.map(r => (
-                  <span key={r.id} style={{display:"block", color: r.isActive ? "#0f0" : "#f88"}}>
-                    [{r.status}] {r.id.slice(0,8)} {r.type} bidCount:{r.bidCount ?? 0} act:{String(r.isActive)} isExpired:{String(r.isExpiredByTime)} exp:{(r.expiresAt ?? "").slice(0,10)}
+                  <span key={r.id} style={{display:"block", color: r.id.startsWith("tmp-") ? "#f66" : r.isActive ? "#0f0" : "#f88"}}>
+                    {r.id.startsWith("tmp-") ? "⚠️tmp" : "✅uuid"} [{r.status}] {r.id.slice(0,8)} {r.type} bidCount:{r.bidCount ?? 0} act:{String(r.isActive)} isExpired:{String(r.isExpiredByTime)} exp:{(r.expiresAt ?? "").slice(0,10)}
                   </span>
                 ))}
                 {reqCreateDebug && (
@@ -1557,16 +1557,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         // INSERT to Supabase
         if (user.id) {
           const { data, error } = await createRequest({
-            user_id:    user.id,
-            status:     'open',
-            area:       user.region ?? "",
-            space_type: form.type,
-            size:       form.size,
-            style:      form.style,
-            desc:       form.desc ?? "",
-            budget_min: form.budget_min ?? 0,
-            budget_max: form.budget_max ?? 0,
-            expires_at: new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
+            user_id:     user.id,
+            status:      'open',
+            area:        user.region ?? "",
+            space_type:  form.type,
+            size:        form.size,
+            style:       form.style,
+            description: form.desc ?? "",
+            budget_min:  form.budget_min ?? 0,
+            budget_max:  form.budget_max ?? 0,
+            expires_at:  new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
           });
           setReqCreateDebug({
             id:         data?.id ?? null,
