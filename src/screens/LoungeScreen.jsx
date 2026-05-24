@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
 import { useLounge } from '../hooks/useLounge';
 import { MOCK_LOUNGE_POSTS } from '../constants/lounge';
-import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead } from '../lib/supabase';
+import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead, createLoungeNotification } from '../lib/supabase';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
 import LoungePostCard from '../components/lounge/LoungePostCard';
@@ -167,8 +167,30 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings }) {
 }
 
 // ── 알림 DEV 패널 ─────────────────────────────────────
-function NotifsDevPanel({ notifs, notifsLoading, notifsError }) {
-  const [open, setOpen] = useState(false);
+function NotifsDevPanel({ notifs, notifsLoading, notifsError, userId }) {
+  const [open,       setOpen]       = useState(false);
+  const [testResult, setTestResult] = useState(null); // { ok, err }
+  const [testing,    setTesting]    = useState(false);
+
+  const tableNotFound = !!(notifsError?.code === '42P01' || notifsError?.message?.includes('does not exist'));
+  const tableExists   = IS_SUPABASE_READY && !notifsError ? 'unknown (loading...)' : IS_SUPABASE_READY ? (tableNotFound ? 'false ❌' : 'true ✓') : 'N/A (Supabase off)';
+
+  const runInsertTest = async () => {
+    if (!userId || !IS_SUPABASE_READY) return;
+    setTesting(true);
+    setTestResult(null);
+    const { error } = await createLoungeNotification({
+      userId,
+      type:        '__dev_test__',
+      title:       'DEV 테스트',
+      message:     'NotifsDevPanel insert 검증',
+      relatedId:   null,
+      relatedType: null,
+    });
+    setTestResult({ ok: !error, err: error ? { message: error.message, code: error.code } : null });
+    setTesting(false);
+  };
+
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} style={{ display: 'block', width: '100%', background: '#1a1a2e', color: '#ffcc44', border: 'none', padding: '6px 16px', fontSize: 11, fontWeight: 700, textAlign: 'left', cursor: 'pointer', letterSpacing: 0.5 }}>
@@ -180,6 +202,7 @@ function NotifsDevPanel({ notifs, notifsLoading, notifsError }) {
   const keyStyle = { color: '#ffcc44', fontSize: 10, fontWeight: 700, minWidth: 130, flexShrink: 0 };
   const valStyle = { color: '#e0e0e0', fontSize: 10, wordBreak: 'break-all', flex: 1 };
   const errStyle = { color: '#ff6b6b', fontSize: 10, wordBreak: 'break-all', flex: 1 };
+  const okStyle  = { color: '#44ff88', fontSize: 10, wordBreak: 'break-all', flex: 1 };
 
   return (
     <div style={{ background: '#0d0d1a', border: '1px solid #2a2a4a', margin: '0 0 2px' }}>
@@ -188,17 +211,48 @@ function NotifsDevPanel({ notifs, notifsLoading, notifsError }) {
         <button onClick={() => setOpen(false)} style={{ background: 'none', color: '#666', border: 'none', fontSize: 13, cursor: 'pointer', lineHeight: 1 }}>✕</button>
       </div>
       <div style={{ padding: '8px 12px' }}>
+        <div style={rowStyle}><span style={keyStyle}>IS_SUPABASE_READY</span><span style={valStyle}>{String(IS_SUPABASE_READY)}</span></div>
+        <div style={rowStyle}><span style={keyStyle}>table_exists</span><span style={tableNotFound ? errStyle : valStyle}>{tableExists}</span></div>
         <div style={rowStyle}><span style={keyStyle}>loading</span><span style={valStyle}>{String(notifsLoading)}</span></div>
         <div style={rowStyle}><span style={keyStyle}>db_rows</span><span style={valStyle}>{notifs.length}</span></div>
         <div style={rowStyle}><span style={keyStyle}>unread_count</span><span style={valStyle}>{notifs.filter(n => !n.is_read).length}</span></div>
         <div style={rowStyle}><span style={keyStyle}>fetch_err</span><span style={notifsError ? errStyle : valStyle}>{notifsError ? JSON.stringify({ message: notifsError.message, code: notifsError.code }) : 'null'}</span></div>
-        <div style={rowStyle}><span style={keyStyle}>IS_SUPABASE_READY</span><span style={valStyle}>{String(IS_SUPABASE_READY)}</span></div>
+
+        {/* Insert 테스트 */}
+        <div style={{ margin: '8px 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={runInsertTest}
+            disabled={testing || !IS_SUPABASE_READY || !userId}
+            style={{ background: '#1a2a3a', color: '#ffcc44', border: '1px solid #ffcc4466', borderRadius: 3, padding: '3px 10px', fontSize: 10, cursor: 'pointer', fontWeight: 700 }}>
+            {testing ? '테스트 중...' : 'Insert 테스트 실행'}
+          </button>
+          {!userId && <span style={{ color: '#ff6b6b', fontSize: 10 }}>userId 없음 (로그인 필요)</span>}
+        </div>
+        {testResult && (
+          <>
+            <div style={rowStyle}><span style={keyStyle}>insert_ok</span><span style={testResult.ok ? okStyle : errStyle}>{String(testResult.ok)}</span></div>
+            <div style={rowStyle}><span style={keyStyle}>insert_err</span><span style={testResult.err ? errStyle : valStyle}>{testResult.err ? JSON.stringify(testResult.err) : 'null'}</span></div>
+          </>
+        )}
+
+        {/* 최근 rows 미리보기 */}
+        {notifs.length > 0 && (
+          <div style={{ marginTop: 4, color: '#aaa', fontSize: 10, fontWeight: 700 }}>최근 rows (최대 3)</div>
+        )}
         {notifs.slice(0, 3).map((n, i) => (
           <div key={n.id} style={rowStyle}>
             <span style={keyStyle}>rows[{i}]</span>
             <span style={valStyle}>type={n.type} read={String(n.is_read)} {relTime(n.created_at)}</span>
           </div>
         ))}
+      </div>
+
+      {/* 확인 SQL */}
+      <div style={{ padding: '6px 12px 10px', borderTop: '1px solid #2a2a4a' }}>
+        <div style={{ color: '#888', fontSize: 9, fontWeight: 700, marginBottom: 3 }}>SQL 확인 쿼리 (Supabase SQL Editor)</div>
+        <div style={{ background: '#111', borderRadius: 3, padding: '5px 8px', fontSize: 9, color: '#7fdbff', fontFamily: 'monospace', lineHeight: 1.6, userSelect: 'all' }}>
+          {'select * from notifications order by created_at desc limit 20;'}
+        </div>
       </div>
     </div>
   );
@@ -386,7 +440,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
 
       {import.meta.env.DEV && (
         <>
-          <NotifsDevPanel notifs={notifs} notifsLoading={notifsLoading} notifsError={notifsError} />
+          <NotifsDevPanel notifs={notifs} notifsLoading={notifsLoading} notifsError={notifsError} userId={user?.id} />
           <StoryDevPanel
             stories={[...extraStories, ...stories].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i)}
             storiesError={storiesError}

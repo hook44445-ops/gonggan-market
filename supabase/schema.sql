@@ -379,30 +379,41 @@ create policy "activity_logs: insert" on public.activity_logs
   for insert with check (auth.uid() = user_id or user_id is null);
 
 -- ── STEP 21: Notification System ────────────────────────────────────────────
+-- 실제 적용: supabase/migrations/001_notifications.sql 을 SQL Editor에서 실행
 create table if not exists public.notifications (
-  id           uuid primary key default gen_random_uuid(),
-  user_id      uuid not null references public.users(id) on delete cascade,
-  type         text not null,   -- 'bid_submitted' | 'company_selected' | 'step_approval_request' | 'settled' | 'dispute_filed' | 'admin_action' | ...
-  title        text not null,
-  message      text not null,
-  is_read      boolean not null default false,
-  related_id   uuid,            -- 관련 엔티티 ID
-  related_type text,            -- 'request' | 'bid' | 'contract' | 'dispute' | 'company'
+  id           uuid        primary key default gen_random_uuid(),
+  user_id      uuid        not null,
+  type         text        not null,
+  title        text,
+  message      text,
+  related_id   uuid,
+  related_type text,
+  is_read      boolean     not null default false,
   created_at   timestamptz not null default now()
 );
 
-create index if not exists notifications_user_unread_idx on public.notifications (user_id, is_read, created_at desc);
+create index if not exists notifications_user_id_idx
+  on public.notifications (user_id);
 
-comment on table public.notifications is '앱 내부 알림 (향후 카카오·문자·푸시 연동 대비)';
+create index if not exists notifications_created_at_idx
+  on public.notifications (created_at desc);
+
+create index if not exists notifications_user_unread_idx
+  on public.notifications (user_id, is_read, created_at desc);
+
+comment on table public.notifications is '앱 내부 알림 — 라운지 좋아요/댓글/답글/전문가 답변 + 거래 알림';
 
 alter table public.notifications enable row level security;
 
-create policy "notifications: own read" on public.notifications
+create policy "notifications: own select" on public.notifications
   for select using (auth.uid() = user_id);
+
 create policy "notifications: own update" on public.notifications
-  for update using (auth.uid() = user_id);
-create policy "notifications: insert" on public.notifications
-  for insert with check (true);  -- 서버·트리거·앱에서 삽입
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "notifications: authenticated insert" on public.notifications
+  for insert with check (auth.role() = 'authenticated');
 
 -- 라운지 알림 type 값:
 --   post_like      내 글에 좋아요
