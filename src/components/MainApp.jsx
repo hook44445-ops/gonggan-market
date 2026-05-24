@@ -47,6 +47,7 @@ import KakaoMap from "./KakaoMap";
 
 const normalizeCompany = (row) => ({
   id:            row.id,
+  ownerId:       row.owner_id ?? null,
   name:          row.name ?? "업체",
   temp:          row.temp ?? 70,
   verified:      row.verified ?? false,
@@ -405,16 +406,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       showToast("이미 마감된 견적 요청입니다");
       return;
     }
-    const actor = currentUser ?? { id: user.id ?? null, name: user.name ?? "업체", temp: 70 };
-    if (!actor.id || typeof actor.id !== "string" || !actor.id.includes("-")) {
-      setBidDebug({ request_id: request.id, company_id: null, insertError: "actor.id null — company 프로필 미로드" });
-      showToast("업체 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요");
+    // actor: display info only (name, temp, badge). DO NOT use actor.id for FK.
+    const actor = currentUser ?? { id: null, ownerId: null, name: user.name ?? "업체", temp: 70 };
+    // bids.company_id FK → users.id, so always use auth user.id
+    const bidCompanyId = user.id;
+    if (!bidCompanyId || typeof bidCompanyId !== "string" || !bidCompanyId.includes("-")) {
+      setBidDebug({ request_id: request.id, payload_company_id: null, insertError: "user.id null — 로그인 필요" });
+      showToast("로그인 정보를 확인할 수 없습니다");
       return;
     }
     const optimistic = {
       id: `tmp-${Date.now()}`,
       requestId: request.id,
-      companyId: actor.id,
+      companyId: bidCompanyId,
       company: actor,
       price: bidData.price,
       period: bidData.period,
@@ -427,17 +431,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     // Optimistic update so the UI responds immediately
     setSubmittedBids(prev => [...prev, optimistic]);
 
-    // INSERT to Supabase
+    // INSERT to Supabase — company_id must be users.id (FK target)
     const { data, error } = await createBid({
-      request_id: request.id,
-      company_id: actor.id,
-      price: bidData.price,
-      period_days: bidData.period,
+      request_id:    request.id,
+      company_id:    bidCompanyId,   // users.id ← FK
+      price:         bidData.price,
+      period_days:   bidData.period,
       material_note: bidData.material,
-      comment: bidData.comment,
+      comment:       bidData.comment,
     });
     if (error) {
-      setBidDebug({ request_id: request.id, company_id: actor.id, insertResult: null, insertError: error.message });
+      setBidDebug({
+        payload_company_id: bidCompanyId,
+        expected_fk_target: "users.id",
+        companyProfile_id:  currentUser?.id ?? null,
+        companyProfile_ownerId: currentUser?.ownerId ?? null,
+        request_id:   request.id,
+        insertResult: null,
+        insertError:  error.message,
+      });
       showToast(`입찰 저장 실패: ${error.message}`);
     } else if (data) {
       setSubmittedBids(prev =>
@@ -446,8 +458,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       // Post-insert verification: confirm bid is in DB with correct request_id
       const { data: verifyData } = await getBidsForRequest(request.id);
       setBidDebug({
+        payload_company_id: bidCompanyId,
+        expected_fk_target: "users.id",
+        companyProfile_id:  currentUser?.id ?? null,
+        companyProfile_ownerId: currentUser?.ownerId ?? null,
         request_id:   request.id,
-        company_id:   actor.id,
         insertResult: { id: data.id, request_id: data.request_id },
         insertError:  null,
         verifyCount:  verifyData?.length ?? 0,
@@ -991,7 +1006,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   <>
                     <span style={{color:"#ff0"}}>── LAST BID ATTEMPT ──</span><br/>
                     <span style={{color:"#4ff"}}>request_id={bidDebug.request_id}</span><br/>
-                    company_id={bidDebug.company_id ?? "null ⚠️"}<br/>
+                    <span style={{color:"#8ff"}}>payload.company_id={bidDebug.payload_company_id ?? "null ⚠️"}</span><br/>
+                    expected_fk_target={bidDebug.expected_fk_target ?? "users.id"}<br/>
+                    companyProfile.id={bidDebug.companyProfile_id ?? "null"}<br/>
+                    companyProfile.ownerId={bidDebug.companyProfile_ownerId ?? "null"}<br/>
                     {bidDebug.insertResult
                       ? <span style={{color:"#0f0"}}>✅ inserted bid_id={bidDebug.insertResult.id}<br/>   bid.request_id={bidDebug.insertResult.request_id}<br/>   verify_count={bidDebug.verifyCount ?? "—"}<br/></span>
                       : <span style={{color:"#f66"}}>❌ insert_err: {bidDebug.insertError}<br/></span>
