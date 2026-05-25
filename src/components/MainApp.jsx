@@ -867,8 +867,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               })()}
             </div>
 
-            {topReviews.length > 0 && (
-              <div style={{ marginBottom:S.xl }}>
+            {/* 후기 섹션 — DOM 위치 고정 (LiveFeed 위). 데이터 없으면 숨김 */}
+            <div style={{ marginBottom: topReviews.length > 0 ? S.xl : 0,
+              display: topReviews.length > 0 ? "block" : "none" }}>
                 <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md }}>
                   믿고 맡긴 후기
                   <span style={{ fontSize:12, fontWeight:600, color:C.text3, marginLeft:6 }}>
@@ -976,8 +977,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     );
                   })}
                 </div>
-              </div>
-            )}
+            </div>
 
             <LiveFeed />
 
