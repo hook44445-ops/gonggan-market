@@ -887,11 +887,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     const showSplit = hasBefore && hasAfter;
                     return (
                       <div key={rv.id}
-                        onClick={() => { if (rv.company_id) { setSelCo({ id: rv.company_id }); setScreen("portfolio"); } }}
                         style={{ flexShrink:0, width:228, background:C.surface,
                           borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
                           overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
-                          cursor: rv.company_id ? "pointer" : "default" }}>
+                          cursor:"default" }}>
 
                         {/* BEFORE / AFTER 이미지 */}
                         {hasPhoto && (
@@ -972,14 +971,6 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                             </div>
                           )}
 
-                          {/* CTA */}
-                          <div style={{ borderTop:`1px solid ${C.bgWarm}`, paddingTop:8,
-                            display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                            <span style={{ fontSize:11, fontWeight:700, color:C.brand }}>
-                              검증업체 프로필 보기
-                            </span>
-                            <span style={{ fontSize:11, color:C.brand }}>›</span>
-                          </div>
                         </div>
                       </div>
                     );
