@@ -58,10 +58,13 @@ function PhotoSection({ label, badge, badgeColor, badgeBg, photos, onAdd, onRemo
   );
 }
 
+const REVIEW_BUCKET = "review-images";
+const IS_DEBUG = true;
+
 export default function ReviewModal({
   onClose, onSubmit,
   contractStatus, hasActiveDispute,
-  companyId, customerId,
+  companyId, customerId, contractId,
 }) {
   if (hasActiveDispute) {
     return (
@@ -96,8 +99,9 @@ export default function ReviewModal({
   const [beforePhotos, setBeforePhotos] = useState([]); // { id, file, preview }
   const [afterPhotos,  setAfterPhotos]  = useState([]); // { id, file, preview }
   const [uploading,    setUploading]    = useState(false);
-  const [uploadErr,    setUploadErr]    = useState(false);
+  const [uploadErr,    setUploadErr]    = useState(null);  // null | string error message
   const [finalUrls,    setFinalUrls]    = useState({ before: [], after: [] });
+  const [uploadDebug,  setUploadDebug]  = useState(null);  // DEV panel state
   const beforeInputRef = useRef(null);
   const afterInputRef  = useRef(null);
 
@@ -128,19 +132,37 @@ export default function ReviewModal({
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setUploading(true);
-    setUploadErr(false);
-    const cid = companyId  ?? "unknown";
-    const uid = customerId ?? "unknown";
+    setUploadErr(null);
+
+    const folder = contractId ?? companyId ?? "unknown";
+    const sanitize = (name) => name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "");
+
+    const makeBeforePath = (file) =>
+      `reviews/${folder}/before/${Date.now()}_${sanitize(file.name)}`;
+    const makeAfterPath  = (file) =>
+      `reviews/${folder}/after/${Date.now()}_${sanitize(file.name)}`;
+
+    const debug = {
+      upload_bucket: REVIEW_BUCKET,
+      upload_paths:  [
+        ...beforePhotos.map(({ file }) => makeBeforePath(file)),
+        ...afterPhotos.map(({ file }) => makeAfterPath(file)),
+      ],
+      upload_err: null,
+    };
+
     try {
       const [beforeUrls, afterUrls] = await Promise.all([
         Promise.all(beforePhotos.map(({ file }) =>
-          uploadFile("photos", `reviews/${cid}/${uid}/before/${Date.now()}_${file.name}`, file)
+          uploadFile(REVIEW_BUCKET, makeBeforePath(file), file)
         )),
         Promise.all(afterPhotos.map(({ file }) =>
-          uploadFile("photos", `reviews/${cid}/${uid}/after/${Date.now()}_${file.name}`, file)
+          uploadFile(REVIEW_BUCKET, makeAfterPath(file), file)
         )),
       ]);
+
       setFinalUrls({ before: beforeUrls, after: afterUrls });
+      setUploadDebug({ ...debug, upload_err: null, ok: true });
       onSubmit({
         rating,
         content,
@@ -150,10 +172,14 @@ export default function ReviewModal({
         imageUrls:       [...beforeUrls, ...afterUrls],
       });
       setStep(3);
-    } catch {
-      setUploadErr(true);
+    } catch (e) {
+      const msg = e?.message ?? "알 수 없는 오류";
+      debug.upload_err = msg;
+      setUploadDebug(debug);
+      setUploadErr(msg);
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   return (
@@ -294,8 +320,30 @@ export default function ReviewModal({
           )}
 
           {uploadErr && (
-            <div style={{ fontSize:12, color:C.red, textAlign:"center", marginBottom:S.md }}>
-              사진 업로드 중 오류가 발생했습니다. 다시 시도해주세요.
+            <div style={{ background:"#FFF0F0", borderRadius:R.md, padding:`${S.sm}px ${S.md}px`,
+              marginBottom:S.md, border:"1px solid #FFCCCC" }}>
+              <div style={{ fontSize:13, color:C.red, fontWeight:700, marginBottom:3 }}>
+                사진 업로드 중 오류가 발생했습니다. 다시 시도해주세요.
+              </div>
+              <div style={{ fontSize:11, color:C.red, opacity:0.8 }}>{uploadErr}</div>
+            </div>
+          )}
+
+          {IS_DEBUG && uploadDebug && (
+            <div style={{ background:"rgba(0,0,0,0.90)", color:"#0f0", borderRadius:8,
+              padding:"8px 12px", fontSize:10, lineHeight:1.8, fontFamily:"monospace",
+              marginBottom:S.md, overflowX:"auto" }}>
+              [DEV:review-upload]<br/>
+              <span style={{ color:"#4ff" }}>upload_bucket: {uploadDebug.upload_bucket}</span><br/>
+              <span style={{ color: uploadDebug.upload_err ? "#f66" : "#0f0" }}>
+                upload_err: {uploadDebug.upload_err ?? "none"}
+              </span><br/>
+              <span style={{ color:"#ff0" }}>paths ({uploadDebug.upload_paths?.length ?? 0}):</span><br/>
+              {(uploadDebug.upload_paths ?? []).map((p, i) => (
+                <span key={i} style={{ display:"block", color:"#8ff", paddingLeft:8 }}>
+                  [{i}] {p.slice(0, 60)}
+                </span>
+              ))}
             </div>
           )}
 
