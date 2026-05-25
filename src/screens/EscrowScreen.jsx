@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getBidById, getCompanyByOwnerId, getEscrowByRequest, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getBidById, getCompanyByOwnerId, getEscrowByRequest, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 
 // Stage status values:
@@ -70,7 +70,7 @@ const TIMELINE_ICONS = {
   dispute:  "⚠️",
 };
 
-export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request }) {
+export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview }) {
   const IS_DEBUG = true;
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
@@ -204,6 +204,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [dbRefreshKey, setDbRefreshKey] = useState(0); // increment to force re-fetch
   const [companyReportDebug, setCompanyReportDebug] = useState(null);
   const [approvalLog, setApprovalLog] = useState(null);
+  const [reviewedForContract, setReviewedForContract] = useState(false);
 
   const fileInputRef3 = useRef(null);
   const fileInputRef4 = useRef(null);
@@ -218,6 +219,14 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const addTimeline = (type, label) => {
     setTimeline(prev => [...prev, { id: Date.now(), type, label, ts: Date.now() }]);
   };
+
+  // Load review status for this contract (consumer only)
+  useEffect(() => {
+    if (!resolvedContractId || !isConsumer) return;
+    getReviewByContract(resolvedContractId).then(({ data }) => {
+      if (data?.id) setReviewedForContract(true);
+    }).catch(() => {});
+  }, [resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load DB timeline when resolvedContractId is available
   useEffect(() => {
@@ -882,6 +891,39 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7 }}>완료 확인 후 <b style={{ color: C.navy }}>1년간 무상 AS</b> 보장</div>
           </div>
         </div>
+
+        {/* Review CTA — shown to consumer when SETTLED/completed */}
+        {isConsumer && (stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
+          <div style={{ background: reviewedForContract ? C.brandL : "#FFF8EC",
+            borderRadius: R.xl, padding: S.xl, marginBottom: S.lg,
+            border: `1px solid ${reviewedForContract ? C.brandM : "#F5D97A"}` }}>
+            {reviewedForContract ? (
+              <div style={{ display:"flex", alignItems:"center", gap:S.md }}>
+                <div style={{ fontSize:28, flexShrink:0 }}>✅</div>
+                <div>
+                  <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:2 }}>리뷰 작성 완료</div>
+                  <div style={{ fontSize:12, color:C.text3 }}>소중한 후기 감사합니다. 커피쿠폰 발송 예정입니다.</div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display:"flex", alignItems:"center", gap:S.md, marginBottom:S.md }}>
+                  <div style={{ fontSize:28, flexShrink:0 }}>☕</div>
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:800, color:"#8A5C00", marginBottom:2 }}>공사 완료 — 후기를 남겨보세요</div>
+                    <div style={{ fontSize:12, color:"#A06B00", lineHeight:1.6 }}>포토리뷰 작성 시 커피쿠폰을 드립니다.</div>
+                  </div>
+                </div>
+                <button onClick={() => onReview && onReview(resolvedBid?.company)}
+                  style={{ width:"100%", padding:S.lg, background:"#8A5C00", color:"#fff",
+                    border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14,
+                    cursor:"pointer", boxShadow:"0 4px 16px rgba(138,92,0,0.25)" }}>
+                  ⭐ 포토리뷰 작성하고 커피쿠폰 받기
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Deposit info */}
         <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>

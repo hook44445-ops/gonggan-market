@@ -261,6 +261,15 @@ export const updateReviewReward = (id, status) =>
     .select("id, status")
     .single();
 
+export const getTopReviews = ({ limit = 12 } = {}) =>
+  supabase
+    .from("reviews")
+    .select("id, company_id, rating, content, image_urls, created_at, user_name, region, tags, space_type")
+    .gte("rating", 4)
+    .in("status", ["published", "approved"])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
 // ── Fee Config ────────────────────────────────────────────────────────────────
 
 export const getFeeConfig = () =>

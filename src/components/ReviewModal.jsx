@@ -4,7 +4,7 @@ import { Stars } from "./common";
 import { calcTempDelta } from "../utils/calculations";
 import { uploadFile } from "../lib/supabase";
 
-const MAX_PHOTOS = 5;
+const MAX_PHOTOS = 10;
 
 export default function ReviewModal({
   onClose, onSubmit,

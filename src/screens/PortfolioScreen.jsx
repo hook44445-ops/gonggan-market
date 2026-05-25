@@ -3,7 +3,7 @@ import { C, R, S, GRADE } from "../constants";
 import { TempBadge, CertBadge } from "../components/common";
 import PortfolioCard from "../components/PortfolioCard";
 import PhotoModal from "../components/PhotoModal";
-import { getPortfolios, createPortfolio, uploadFile } from "../lib/supabase";
+import { getPortfolios, createPortfolio, uploadFile, getReviews } from "../lib/supabase";
 
 const normalizePortfolio = (row) => {
   const beforePhotos = row.before_photos ?? [];
@@ -225,6 +225,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
   const [photoWork, setPhotoWork] = useState(null);
   const [showWriteModal, setShowWriteModal] = useState(false);
   const [portfolio, setPortfolio] = useState(company?.portfolio ?? []);
+  const [reviews, setReviews] = useState(company?.reviewList ?? []);
 
   useEffect(() => {
     if (!company?.id) return;
@@ -232,7 +233,15 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
       if (error) return;
       if (data && data.length > 0) setPortfolio(data.map(normalizePortfolio));
     });
+    getReviews(company.id).then(({ data }) => {
+      if (data && data.length > 0) setReviews(data);
+    });
   }, [company?.id]);
+
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((s, r) => s + (r.rating ?? 0), 0) / reviews.length).toFixed(1)
+    : null;
+  const photoReviewCount = reviews.filter(r => (r.image_urls?.length ?? 0) > 0).length;
 
   const handlePortfolioSaved = (row) => {
     setPortfolio(prev => [normalizePortfolio(row), ...prev]);
@@ -274,10 +283,11 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
               {company.bizCert && <CertBadge type="biz" />}
             </div>
 
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:S.sm, marginBottom:S.lg }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:S.sm, marginBottom:S.lg }}>
               {[["✅","완료 건수",`${company.completedJobs}건`],
-                ["🔄","재계약률",`${company.recontractRate}%`],
-                ["🛠","AS 처리율",`${company.asRate}%`]].map(([icon,label,val]) => (
+                ["⭐","평균 평점", avgRating ? `${avgRating}점` : "—"],
+                ["📷","포토후기", `${photoReviewCount}건`],
+                ["🔄","재계약률",`${company.recontractRate}%`]].map(([icon,label,val]) => (
                 <div key={label} style={{ background:C.surface2, borderRadius:R.lg,
                   padding:`${S.md}px ${S.sm}px`, textAlign:"center",
                   border:`1px solid ${C.bgWarm}` }}>
@@ -325,11 +335,11 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>⭐</div>
             <div style={{ textAlign:"left" }}>
               <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>
-                시공 후기 {(company.reviewList ?? []).length}개
+                시공 후기 {reviews.length}개
               </div>
               <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>
-                {(company.reviewList ?? []).length > 0
-                  ? `평균 ${((company.reviewList ?? []).reduce((s,r) => s+r.rating,0)/(company.reviewList ?? []).length).toFixed(1)}점 · 탭해서 보기`
+                {reviews.length > 0
+                  ? `평균 ${avgRating}점${photoReviewCount > 0 ? ` · 포토후기 ${photoReviewCount}건` : ""} · 탭해서 보기`
                   : "첫 후기를 남겨주세요"}
               </div>
             </div>

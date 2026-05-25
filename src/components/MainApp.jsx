@@ -52,6 +52,7 @@ import {
   getEscrowWithPayouts,
   getActiveRequestByUser,
   archiveRequestAuto,
+  getTopReviews,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -318,6 +319,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [companyJobsDebug, setCompanyJobsDebug] = useState(null);
   const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
   const [escrowRefreshTrigger, setEscrowRefreshTrigger] = useState(0);
+  const [topReviews, setTopReviews] = useState([]);
 
   const applyExpiry = (rows) => {
     const normalized = rows.map(normalizeRequest);
@@ -338,6 +340,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (error) return;
     if (data) setCustomerRequests(applyExpiry(data));
   };
+
+  // Load top reviews once on mount (consumer home hero section)
+  useEffect(() => {
+    getTopReviews({ limit: 12 }).then(({ data }) => {
+      if (data) setTopReviews(data.filter(r => (r.image_urls?.length ?? 0) > 0));
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load requests on mount
   // Consumer: server-side filter by userId; Company/Admin: load all open requests for bidding
@@ -845,6 +854,47 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             </div>
 
             <LiveFeed />
+
+            {topReviews.length > 0 && (
+              <div style={{ marginBottom:S.xl }}>
+                <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md }}>
+                  믿고 맡긴 후기
+                  <span style={{ fontSize:12, fontWeight:600, color:C.text3, marginLeft:6 }}>
+                    실제 시공 완료 고객
+                  </span>
+                </div>
+                <div style={{ display:"flex", gap:S.md, overflowX:"auto", paddingBottom:S.sm,
+                  scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                  {topReviews.map(rv => (
+                    <div key={rv.id} style={{ flexShrink:0, width:220, background:C.surface,
+                      borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
+                      overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)" }}>
+                      {rv.image_urls?.[0] && (
+                        <img src={rv.image_urls[0]} alt=""
+                          style={{ width:"100%", height:130, objectFit:"cover", display:"block" }}
+                          onError={e => { e.target.style.display = "none"; }} />
+                      )}
+                      <div style={{ padding:S.md }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+                          {[1,2,3,4,5].map(s => (
+                            <span key={s} style={{ fontSize:11, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
+                          ))}
+                          <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
+                        </div>
+                        <div style={{ fontSize:12, color:C.text2, lineHeight:1.6,
+                          overflow:"hidden", display:"-webkit-box",
+                          WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
+                          {rv.content}
+                        </div>
+                        <div style={{ fontSize:11, color:C.text4, marginTop:4 }}>
+                          {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? ""}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
               marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
@@ -1432,7 +1482,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} />}
-        {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} />}
+        {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
