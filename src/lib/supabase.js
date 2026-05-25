@@ -106,13 +106,18 @@ export const getUserRequests = (userId) =>
 export const getActiveRequestByUser = (userId) =>
   supabase
     .from("requests")
-    .select("id, status, space_type, created_at")
+    .select("id, status, space_type, created_at, last_activity_at")
     .eq("user_id", userId)
     .in("status", ["open", "in_progress", "contracting", "escrow_pending"])
     .or("is_hidden.is.null,is_hidden.eq.false")
     .or("is_deleted.is.null,is_deleted.eq.false")
     .limit(1)
     .maybeSingle();
+
+export const archiveRequestAuto = (id, reason) =>
+  supabase.from("requests")
+    .update({ is_hidden: true, archived_at: new Date().toISOString(), hidden_reason: reason })
+    .eq("id", id);
 
 export const closeRequest = (id) =>
   supabase.from("requests").update({ status: "closed" }).eq("id", id);

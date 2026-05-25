@@ -51,6 +51,7 @@ import {
   getCompanyBids,
   getEscrowWithPayouts,
   getActiveRequestByUser,
+  archiveRequestAuto,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -194,7 +195,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [selCo, setSelCo] = useState(null);
   const [toast, setToast] = useState(null);
   const [showReq, setShowReq] = useState(false);
-  const [reqBlockModal, setReqBlockModal] = useState(false);
+  const [reqBlock, setReqBlock] = useState(null);   // null | { type, activeReq, remainingMs }
+  const [reqCheckDebug, setReqCheckDebug] = useState(null);
   const [myRequests, setMyRequests] = useState([]);
   const [bidAlert, setBidAlert] = useState(null);
   const [bidViewRequestId, setBidViewRequestId] = useState(null);
@@ -613,19 +615,56 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   const ACTIVE_STATUSES = ["open", "in_progress", "contracting", "escrow_pending"];
+  const ESCROW_STATUSES = ["in_progress", "contracting", "escrow_pending"];
+  const COOLDOWN_MS = 6 * 24 * 60 * 60 * 1000; // 144h
+
+  const fmtCooldown = (ms) => {
+    const totalH = Math.floor(ms / (3600 * 1000));
+    const d = Math.floor(totalH / 24);
+    const h = totalH % 24;
+    if (d > 0 && h > 0) return `${d}일 ${h}시간`;
+    if (d > 0) return `${d}일`;
+    return `${h}시간`;
+  };
+
+  const checkRequestBlock = async () => {
+    let active = myRequests.find(r =>
+      ACTIVE_STATUSES.includes(r.status) && !r.is_hidden && !r.is_deleted
+    ) ?? null;
+    if (!active && user?.id) {
+      const { data } = await getActiveRequestByUser(user.id);
+      active = data ?? null;
+    }
+    if (!active) {
+      setReqCheckDebug({ active_count: 0, active_request_status: "none", cooldown_remaining_hours: 0, blocked_reason: "none" });
+      return null;
+    }
+    const isEscrow = ESCROW_STATUSES.includes(active.status);
+    const baseTs = active.last_activity_at ?? active.created_at ?? active.createdAt;
+    const ageMs = Date.now() - new Date(baseTs).getTime();
+    const remainingMs = Math.max(0, COOLDOWN_MS - ageMs);
+    const canOverride = !isEscrow && ageMs >= COOLDOWN_MS;
+    const blocked_reason = isEscrow ? "ESCROW_BLOCK" : canOverride ? "OPEN_ALLOW" : "COOLDOWN_BLOCK";
+    setReqCheckDebug({
+      active_count: 1,
+      active_request_status: active.status,
+      cooldown_remaining_hours: Math.ceil(remainingMs / (3600 * 1000)),
+      blocked_reason,
+    });
+    if (canOverride) return { type: "OPEN_ALLOW", activeReq: active };
+    return { type: blocked_reason, activeReq: active, remainingMs };
+  };
 
   const handleOpenNewReq = async () => {
-    // 1. Local cache check (instant)
-    const hasLocalActive = myRequests.some(r =>
-      ACTIVE_STATUSES.includes(r.status) && !r.is_hidden && !r.is_deleted
-    );
-    if (hasLocalActive) { setReqBlockModal(true); return; }
-    // 2. Server-side confirmation
-    if (user?.id) {
-      const { data: existing } = await getActiveRequestByUser(user.id);
-      if (existing) { setReqBlockModal(true); return; }
+    const block = await checkRequestBlock();
+    if (!block) { setShowReq(true); return; }
+    if (block.type === "OPEN_ALLOW") {
+      await archiveRequestAuto(block.activeReq.id, "auto_new_request_after_6days").catch(() => {});
+      setMyRequests(prev => prev.filter(r => r.id !== block.activeReq.id));
+      setShowReq(true);
+      return;
     }
-    setShowReq(true);
+    setReqBlock(block);
   };
 
   const addBid = async (request, bidData) => {
@@ -1056,6 +1095,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 user.id: {(user?.id ?? "null").slice(0,8)} | activeRole: {activeRole}<br/>
                 fetch_err: {reqDebug?.consumerFetchError ?? "none"} | db_rows: {reqDebug?.consumerRows ?? "?"}<br/>
                 local_total: {myRequests.length} | active: {myRequests.filter(r=>r.isActive).length}<br/>
+                <span style={{color:"#ff0"}}>── new-req block check ──</span><br/>
+                <span style={{color: reqCheckDebug?.blocked_reason === "none" ? "#0f0" : reqCheckDebug?.blocked_reason === "OPEN_ALLOW" ? "#4ff" : "#f93"}}>
+                  active_count: {reqCheckDebug?.active_count ?? "?"} | status: {reqCheckDebug?.active_request_status ?? "?"}<br/>
+                  cooldown_remaining_hours: {reqCheckDebug?.cooldown_remaining_hours ?? "?"} | blocked_reason: {reqCheckDebug?.blocked_reason ?? "not_checked"}
+                </span><br/>
                 submittedBids_total: {submittedBids.length}<br/>
                 <span style={{color:"#4ff"}}>selectedReqId: {bidViewRequestId?.slice(0,8) ?? "none"}</span><br/>
                 submittedBids_for_req: {submittedBids.filter(b => b.requestId === bidViewRequestId).length}<br/>
@@ -1971,42 +2015,85 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         />
       )}
 
-      {reqBlockModal && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:500 }}>
-          <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"28px 24px 40px" }}>
-            <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
-            <div style={{ fontSize:22, textAlign:"center", marginBottom:12 }}>📋</div>
-            <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
-              진행 중인 견적요청이 있습니다
+      {reqBlock && (() => {
+        const isEscrow = reqBlock.type === "ESCROW_BLOCK";
+        const isCooldown = reqBlock.type === "COOLDOWN_BLOCK";
+        return (
+          <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:500 }}>
+            <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"28px 24px 40px" }}>
+              <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
+              <div style={{ fontSize:22, textAlign:"center", marginBottom:12 }}>📋</div>
+              <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
+                진행 중인 견적요청이 있습니다
+              </div>
+              <div style={{ fontSize:13, color:C.text3, textAlign:"center", lineHeight:1.7, marginBottom: isCooldown ? S.sm : S.xl }}>
+                {isEscrow
+                  ? <>업체 선택 또는 요청 종료 후<br/>새 요청을 등록할 수 있습니다.</>
+                  : <>견적 요청 등록 후 6일 동안은<br/>새 요청 등록이 제한됩니다.</>
+                }
+              </div>
+              {isCooldown && reqBlock.remainingMs > 0 && (
+                <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
+                  marginBottom:S.xl, textAlign:"center", border:`1px solid ${C.brandM}` }}>
+                  <div style={{ fontSize:12, color:C.text3, marginBottom:4 }}>새 요청 가능까지</div>
+                  <div style={{ fontSize:16, fontWeight:900, color:C.brand }}>
+                    {fmtCooldown(reqBlock.remainingMs)} 남았습니다
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={() => { setReqBlock(null); setScreen("home"); }}
+                style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff", border:"none",
+                  borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
+                  boxShadow:`0 4px 16px ${C.brand}44`, marginBottom:10 }}>
+                진행 중 요청 보기
+              </button>
+              {!isEscrow && reqBlock.activeReq?.id && (
+                <button
+                  onClick={async () => {
+                    await archiveRequestAuto(reqBlock.activeReq.id, "manual_hide").catch(() => {});
+                    setMyRequests(prev => prev.filter(r => r.id !== reqBlock.activeReq.id));
+                    setReqBlock(null);
+                    setShowReq(true);
+                  }}
+                  style={{ width:"100%", padding:"12px", background:C.surface2, color:C.text2,
+                    border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:10 }}>
+                  요청 숨기고 새 요청 등록하기
+                </button>
+              )}
+              <button
+                onClick={() => setReqBlock(null)}
+                style={{ width:"100%", padding:"12px", background:"none", color:C.text4,
+                  border:"none", borderRadius:R.lg, fontWeight:600, fontSize:13, cursor:"pointer" }}>
+                닫기
+              </button>
             </div>
-            <div style={{ fontSize:13, color:C.text3, textAlign:"center", lineHeight:1.7, marginBottom:S.xl }}>
-              기존 요청을 마감하거나 완료한 뒤<br/>새 요청을 등록할 수 있습니다.
-            </div>
-            <button
-              onClick={() => { setReqBlockModal(false); setScreen("home"); }}
-              style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff", border:"none",
-                borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
-                boxShadow:`0 4px 16px ${C.brand}44`, marginBottom:10 }}>
-              진행 중 요청 보기
-            </button>
-            <button
-              onClick={() => setReqBlockModal(false)}
-              style={{ width:"100%", padding:"12px", background:C.surface2, color:C.text3,
-                border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>
-              닫기
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {showReq && <RequestModal onClose={() => setShowReq(false)} onDone={async (form) => {
         // Pre-insert server-side duplicate guard
         if (user?.id) {
           const { data: dup } = await getActiveRequestByUser(user.id);
           if (dup) {
-            setShowReq(false);
-            setReqBlockModal(true);
-            return;
+            const isEscrow = ESCROW_STATUSES.includes(dup.status);
+            const baseTs = dup.last_activity_at ?? dup.created_at;
+            const ageMs = Date.now() - new Date(baseTs).getTime();
+            const canProceed = !isEscrow && ageMs >= COOLDOWN_MS;
+            if (canProceed) {
+              await archiveRequestAuto(dup.id, "auto_new_request_after_6days").catch(() => {});
+              setMyRequests(prev => prev.filter(r => r.id !== dup.id));
+              // proceed with insert
+            } else {
+              setShowReq(false);
+              setReqBlock({
+                type: isEscrow ? "ESCROW_BLOCK" : "COOLDOWN_BLOCK",
+                activeReq: dup,
+                remainingMs: Math.max(0, COOLDOWN_MS - ageMs),
+              });
+              return;
+            }
           }
         }
 
