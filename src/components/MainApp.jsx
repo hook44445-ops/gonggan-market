@@ -128,6 +128,14 @@ const normalizeBid = (row) => ({
   status: row.selected ? "selected" : "pending",
 });
 
+const maskCompanyName = (name) => {
+  if (!name) return "업체";
+  const len = name.length;
+  if (len <= 3) return name[0] + "*";
+  if (len <= 5) return name.slice(0, 2) + "***";
+  return name.slice(0, Math.min(Math.ceil(len / 2), 4)) + "***";
+};
+
 // Compute customer-facing stage from request + escrow/payout data
 const computeCustomerStage = (r, escrowData) => {
   if (!r) return null;
@@ -859,8 +867,6 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               })()}
             </div>
 
-            <LiveFeed />
-
             {topReviews.length > 0 && (
               <div style={{ marginBottom:S.xl }}>
                 <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md }}>
@@ -875,49 +881,104 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     const afterThumb  = rv.after_image_urls?.[0]  ?? null;
                     const beforeThumb = rv.before_image_urls?.[0] ?? null;
                     const legacyThumb = rv.image_urls?.[0]        ?? null;
-                    const thumb = afterThumb ?? legacyThumb;
+                    const hasAfter  = !!(afterThumb ?? legacyThumb);
                     const hasBefore = !!(beforeThumb);
-                    const [cardShowBefore, setCardShowBefore] = [false, () => {}]; // static for home card
+                    const hasPhoto  = hasAfter || hasBefore;
+                    const showSplit = hasBefore && hasAfter;
                     return (
-                      <div key={rv.id} style={{ flexShrink:0, width:220, background:C.surface,
-                        borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
-                        overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)" }}>
-                        <div style={{ position:"relative" }}>
-                          {thumb && (
-                            <img src={thumb} alt=""
-                              style={{ width:"100%", height:130, objectFit:"cover", display:"block" }}
-                              onError={e => { e.target.style.display = "none"; }} />
-                          )}
-                          {thumb && (
-                            <span style={{ position:"absolute", top:6, left:6,
-                              background:"rgba(0,0,0,0.55)", color:"#fff",
-                              borderRadius:R.full, padding:"2px 8px", fontSize:10, fontWeight:800 }}>
-                              AFTER
+                      <div key={rv.id}
+                        onClick={() => { if (rv.company_id) { setSelCo({ id: rv.company_id }); setScreen("portfolio"); } }}
+                        style={{ flexShrink:0, width:228, background:C.surface,
+                          borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
+                          overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
+                          cursor: rv.company_id ? "pointer" : "default" }}>
+
+                        {/* BEFORE / AFTER 이미지 */}
+                        {hasPhoto && (
+                          <div style={{ display:"flex", height:116, overflow:"hidden" }}>
+                            {showSplit ? (
+                              <>
+                                <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff" }}>
+                                  <img src={beforeThumb} alt=""
+                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                    onError={e => { e.target.style.display="none"; }} />
+                                  <span style={{ position:"absolute", bottom:4, left:4,
+                                    background:"rgba(58,95,204,0.82)", color:"#fff",
+                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                    BEFORE
+                                  </span>
+                                </div>
+                                <div style={{ flex:1, position:"relative" }}>
+                                  <img src={afterThumb ?? legacyThumb} alt=""
+                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                    onError={e => { e.target.style.display="none"; }} />
+                                  <span style={{ position:"absolute", bottom:4, right:4,
+                                    background:"rgba(0,0,0,0.55)", color:"#fff",
+                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                    AFTER
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <div style={{ flex:1, position:"relative" }}>
+                                <img src={afterThumb ?? legacyThumb ?? beforeThumb} alt=""
+                                  style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                  onError={e => { e.target.style.display="none"; }} />
+                                <span style={{ position:"absolute", bottom:4, left:4,
+                                  background: hasAfter ? "rgba(0,0,0,0.55)" : "rgba(58,95,204,0.82)",
+                                  color:"#fff", borderRadius:R.full,
+                                  padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                  {hasAfter ? "AFTER" : "BEFORE"}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div style={{ padding:"10px 12px 12px" }}>
+                          {/* 포토리뷰 배지 */}
+                          {hasPhoto && (
+                            <span style={{ display:"inline-block", background:"#FFF8EC", color:"#8A5C00",
+                              borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:800,
+                              border:"1px solid #F5D97A", marginBottom:6 }}>
+                              📷 포토리뷰
                             </span>
                           )}
-                          {hasBefore && (
-                            <span style={{ position:"absolute", top:6, right:6,
-                              background:"rgba(255,255,255,0.9)", color:"#3A5FCC",
-                              borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800,
-                              border:"1px solid #A0BCFF" }}>
-                              +BEFORE
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ padding:S.md }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+
+                          {/* 별점 */}
+                          <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:5 }}>
                             {[1,2,3,4,5].map(s => (
-                              <span key={s} style={{ fontSize:11, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
+                              <span key={s} style={{ fontSize:12, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
                             ))}
                             <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
                           </div>
-                          <div style={{ fontSize:12, color:C.text2, lineHeight:1.6,
+
+                          {/* 후기 내용 2~3줄 */}
+                          <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:6,
                             overflow:"hidden", display:"-webkit-box",
-                            WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
+                            WebkitLineClamp:3, WebkitBoxOrient:"vertical" }}>
                             {rv.content}
                           </div>
-                          <div style={{ fontSize:11, color:C.text4, marginTop:4 }}>
-                            {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? ""}
+
+                          {/* 고객(익명) · 공사유형 */}
+                          <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
+                            {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? "시공"}
+                          </div>
+
+                          {/* 부분공개 업체명 */}
+                          {rv.company_id && (
+                            <div style={{ fontSize:11, fontWeight:700, color:C.text3, marginBottom:8 }}>
+                              🏠 {maskCompanyName(rv.companies?.name ?? null)}
+                            </div>
+                          )}
+
+                          {/* CTA */}
+                          <div style={{ borderTop:`1px solid ${C.bgWarm}`, paddingTop:8,
+                            display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                            <span style={{ fontSize:11, fontWeight:700, color:C.brand }}>
+                              검증업체 프로필 보기
+                            </span>
+                            <span style={{ fontSize:11, color:C.brand }}>›</span>
                           </div>
                         </div>
                       </div>
@@ -926,6 +987,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               </div>
             )}
+
+            <LiveFeed />
 
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
               marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>

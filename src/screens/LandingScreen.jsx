@@ -301,7 +301,11 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
       </div>
 
       {/* ── Footer version ───────────────────────────────────────── */}
-      <div style={{ padding: "20px 0 28px", background: "#111", textAlign: "center" }}>
+      <div style={{
+        padding: "24px 20px 40px",
+        background: "#f5f3ef",
+        textAlign: "center",
+      }}>
         <div
           onClick={() => {
             const next = versionTapCount + 1;
@@ -311,8 +315,14 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
               if (onAdminTap) onAdminTap();
             }
           }}
-          style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", cursor: "default", userSelect: "none" }}>
-          v0.1.0 · gonggan-market
+          style={{
+            fontSize: 12,
+            color: "#b0a89e",
+            cursor: "default",
+            userSelect: "none",
+            letterSpacing: "0.03em",
+          }}>
+          공간마켓 v0.1.0
         </div>
       </div>
     </div>
