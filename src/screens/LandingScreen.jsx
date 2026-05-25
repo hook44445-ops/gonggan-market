@@ -50,11 +50,12 @@ const STEPS = [
   { num: 5, label: "완료 후 정산", desc: "완료 확인 후 업체 지급 / 분쟁 시 관리자 개입" },
 ];
 
-export default function LandingScreen({ onSelectRole }) {
+export default function LandingScreen({ onSelectRole, onAdminTap }) {
   const [heroRef, heroVisible]     = useVisible(0.05);
   const [sec1Ref, sec1Visible]     = useVisible(0.1);
   const [sec2Ref, sec2Visible]     = useVisible(0.1);
   const [sec3Ref, sec3Visible]     = useVisible(0.1);
+  const [versionTapCount, setVersionTapCount] = useState(0);
 
   const btnBase = {
     display: "flex", alignItems: "center", justifyContent: "center",
@@ -296,6 +297,22 @@ export default function LandingScreen({ onSelectRole }) {
           }}>
             가입비 없음 · 견적 무료 · 단계별 안전정산
           </div>
+        </div>
+      </div>
+
+      {/* ── Footer version ───────────────────────────────────────── */}
+      <div style={{ padding: "20px 0 28px", background: "#111", textAlign: "center" }}>
+        <div
+          onClick={() => {
+            const next = versionTapCount + 1;
+            setVersionTapCount(next);
+            if (next >= 5) {
+              setVersionTapCount(0);
+              if (onAdminTap) onAdminTap();
+            }
+          }}
+          style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", cursor: "default", userSelect: "none" }}>
+          v0.1.0 · gonggan-market
         </div>
       </div>
     </div>

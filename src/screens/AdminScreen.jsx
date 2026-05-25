@@ -18,6 +18,7 @@ import {
   holdAllPayoutsForEscrow,
   getCompanyDocuments, adminReviewDocument,
   getReviewRewardsPending, updateReviewReward,
+  adminGetHiddenRequests, adminRestoreRequest,
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
@@ -232,6 +233,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [loungeReports, setLoungeReports] = useState([]);
   const [reports, setReports]           = useState([]);
   const [reviewRewards, setReviewRewards] = useState([]);
+  const [hiddenRequests, setHiddenRequests] = useState([]);
+  const [hiddenLoading, setHiddenLoading] = useState(false);
+  const [restoring, setRestoring] = useState(null);
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -311,6 +315,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
     }
     if (mainTab === "reviews") {
       getReviewRewardsPending().then(({ data }) => setReviewRewards(data ?? [])).catch(() => setReviewRewards([]));
+    }
+    if (mainTab === "hidden") {
+      setHiddenLoading(true);
+      adminGetHiddenRequests().then(({ data }) => setHiddenRequests(data ?? [])).catch(() => setHiddenRequests([])).finally(() => setHiddenLoading(false));
     }
   }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -454,10 +462,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["dashboard",      "대시보드"],
     ["companies",      "업체관리"],
     ["customers",      "고객관리"],
+    ["hidden",         "숨김요청관리"],
     ["payments",       "결제관리"],
     ["disputes",       "분쟁관리"],
     ["settlements",    "정산관리"],
-    ["reviews",        "포토리뷰"],
+    ["reviews",        "리뷰관리"],
     ["lounge",         "라운지관리"],
     ["reports",        "신고관리"],
     ["notifications",  "알림"],
@@ -694,6 +703,84 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     ))}
                   </>
                 )}
+              </div>
+            )}
+
+            {/* ── Hidden Request Management ── */}
+            {mainTab === "hidden" && (
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+                  숨김 요청 목록
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.red, marginLeft: 8 }}>
+                    {hiddenRequests.length}건
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg }}>
+                  의뢰인이 숨긴 견적 요청입니다. "다시 보이기"로 복구할 수 있습니다.
+                </div>
+
+                {hiddenLoading ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", color: C.text3, fontSize: 14 }}>
+                    로딩 중...
+                  </div>
+                ) : hiddenRequests.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>숨김 처리된 요청이 없습니다</div>
+                  </div>
+                ) : hiddenRequests.map(req => (
+                  <div key={req.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                    marginBottom: S.sm, border: `1.5px solid ${C.red}22` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                      <div style={{ flex: 1, marginRight: S.sm }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+                          {req.space_type ?? "—"} · {req.area ?? "—"} · {req.size ?? "—"}평
+                        </div>
+                        <div style={{ fontSize: 12, color: C.text3, marginBottom: 2 }}>
+                          스타일: {req.style ?? "—"}
+                        </div>
+                        {req.description && (
+                          <div style={{ fontSize: 11, color: C.text4, lineHeight: 1.5 }}>
+                            {req.description.slice(0, 60)}{req.description.length > 60 ? "…" : ""}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <span style={{ background: "#FFF0F0", color: C.red, borderRadius: R.full,
+                          padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>숨김</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: C.text4 }}>
+                          숨김 처리: {req.archived_at ? new Date(req.archived_at).toLocaleDateString("ko-KR") : "—"}
+                        </div>
+                        {req.hidden_reason && (
+                          <div style={{ fontSize: 11, color: C.text4 }}>사유: {req.hidden_reason}</div>
+                        )}
+                      </div>
+                      <button
+                        disabled={restoring === req.id}
+                        onClick={async () => {
+                          setRestoring(req.id);
+                          const { data, error } = await adminRestoreRequest(req.id);
+                          if (!error && data) {
+                            setHiddenRequests(prev => prev.filter(r => r.id !== req.id));
+                            showToast("요청이 다시 노출됩니다");
+                          } else {
+                            showToast("복구 실패", false);
+                          }
+                          setRestoring(null);
+                        }}
+                        style={{ padding: "8px 16px", background: C.brandL, color: C.brand,
+                          border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 700,
+                          fontSize: 12, cursor: restoring === req.id ? "not-allowed" : "pointer",
+                          opacity: restoring === req.id ? 0.6 : 1 }}>
+                        {restoring === req.id ? "처리 중..." : "다시 보이기"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 

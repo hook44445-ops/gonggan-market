@@ -239,7 +239,7 @@ export const replyToReview = (reviewId, reply) =>
 export const getReviewByContract = (contractId) =>
   supabase
     .from("reviews")
-    .select("id")
+    .select("id, rating, created_at")
     .eq("contract_id", contractId)
     .maybeSingle();
 
@@ -249,7 +249,7 @@ export const createReviewReward = (data) =>
 export const getReviewRewardsPending = () =>
   supabase
     .from("review_rewards")
-    .select("*, reviews(id, company_id, rating, content, image_urls, created_at, user_name)")
+    .select("*, reviews(id, company_id, rating, content, image_urls, before_image_urls, after_image_urls, created_at, user_name)")
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -1153,6 +1153,21 @@ export const expireRequest = (id) =>
 export const archiveRequest = (id) =>
   supabase.from("requests")
     .update({ is_hidden: true, archived_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id, is_hidden")
+    .maybeSingle();
+
+export const adminGetHiddenRequests = () =>
+  supabase
+    .from("requests")
+    .select("id, space_type, area, size, style, description, status, created_at, archived_at, hidden_reason, user_id")
+    .eq("is_hidden", true)
+    .order("archived_at", { ascending: false, nullsFirst: false });
+
+export const adminRestoreRequest = (id) =>
+  supabase
+    .from("requests")
+    .update({ is_hidden: false, archived_at: null })
     .eq("id", id)
     .select("id, is_hidden")
     .maybeSingle();

@@ -225,6 +225,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   // Admin hidden entry
   const [adminTapCount, setAdminTapCount] = useState(0);
   const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
+  const [adminIdInput, setAdminIdInput] = useState("");
   const [adminCodeInput, setAdminCodeInput] = useState("");
   const [adminCodeError, setAdminCodeError] = useState("");
 
@@ -2093,36 +2094,61 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       {showAdminCodeModal && (
         <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:999, padding:20 }}>
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, width:"100%", maxWidth:340 }}>
-            <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:6 }}>관리자 코드</div>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>관리자 전용 코드를 입력해주세요</div>
+            <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:6 }}>관리자 로그인</div>
+            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>관리자 계정으로 로그인하세요</div>
             <input
+              value={adminIdInput}
+              onChange={e => { setAdminIdInput(e.target.value); setAdminCodeError(""); }}
+              type="text"
+              placeholder="아이디"
+              autoComplete="off"
+              onKeyDown={e => e.key === "Enter" && document.getElementById("admin-pw-input")?.focus()}
+              style={{ width:"100%", padding:"13px 14px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box", marginBottom:10, fontFamily:"inherit", color:C.text1, background:C.surface }}
+            />
+            <input
+              id="admin-pw-input"
               value={adminCodeInput}
               onChange={e => { setAdminCodeInput(e.target.value); setAdminCodeError(""); }}
               type="password"
-              placeholder="코드 입력"
-              style={{ width:"100%", padding:"14px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:18, outline:"none", boxSizing:"border-box", marginBottom:14, fontFamily:"inherit", color:C.text1, background:C.surface, textAlign:"center", letterSpacing:4 }}
+              placeholder="비밀번호"
+              autoComplete="off"
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  if (adminIdInput === "admin" && adminCodeInput === "44445") {
+                    localStorage.setItem("admin_authed", "true");
+                    setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError("");
+                    onLogin({ ...user, role:"admin", activeRole:"admin" }); setScreen("admin");
+                  } else { setAdminCodeError("아이디 또는 비밀번호가 올바르지 않습니다"); }
+                }
+              }}
+              style={{ width:"100%", padding:"13px 14px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box", marginBottom:adminCodeError ? 8 : S.xl, fontFamily:"inherit", color:C.text1, background:C.surface }}
             />
-            {adminCodeError && <div style={{ color:C.red, fontSize:12, fontWeight:600, marginBottom:S.sm }}>{adminCodeError}</div>}
+            {adminCodeError && <div style={{ color:C.red, fontSize:12, fontWeight:600, marginBottom:S.md }}>{adminCodeError}</div>}
             <div style={{ display:"flex", gap:S.sm }}>
-              <button onClick={() => { setShowAdminCodeModal(false); setAdminCodeInput(""); setAdminCodeError(""); }}
+              <button onClick={() => { setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError(""); }}
                 style={{ flex:1, padding:S.lg, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>
                 취소
               </button>
               <button onClick={() => {
-                if (adminCodeInput === "admin1234") {
-                  setShowAdminCodeModal(false);
-                  setAdminCodeInput("");
-                  setAdminCodeError("");
-                  onLogin({ ...user, role: "admin", activeRole: "admin" });
-                  setScreen("admin");
+                if (adminIdInput === "admin" && adminCodeInput === "44445") {
+                  localStorage.setItem("admin_authed", "true");
+                  setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError("");
+                  onLogin({ ...user, role:"admin", activeRole:"admin" }); setScreen("admin");
                 } else {
-                  setAdminCodeError("관리자 코드가 올바르지 않습니다");
+                  setAdminCodeError("아이디 또는 비밀번호가 올바르지 않습니다");
                 }
               }}
                 style={{ flex:1, padding:S.lg, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer" }}>
-                확인
+                로그인
               </button>
             </div>
+            {IS_DEBUG && (
+              <div style={{ marginTop:S.lg, padding:"8px 10px", background:"#111", color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
+                admin_authed: {localStorage.getItem("admin_authed") ?? "null"}<br/>
+                activeRole: {activeRole}<br/>
+                admin_login_err: {adminCodeError || "—"}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2319,7 +2345,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           activeRole: {activeRole}<br/>
           dbRole: {user.role ?? "—"}<br/>
           screen: {screen}<br/>
-          mode: {mode}
+          mode: {mode}<br/>
+          admin_authed: {localStorage.getItem("admin_authed") ?? "null"}
         </div>
       )}
 

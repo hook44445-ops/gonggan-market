@@ -40,10 +40,16 @@ function clearSession() {
   localStorage.removeItem(SESSION_TS_KEY);
 }
 
+const IS_DEBUG = true;
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pendingRole, setPendingRole] = useState(null);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminId, setAdminId] = useState("");
+  const [adminPw, setAdminPw] = useState("");
+  const [adminLoginErr, setAdminLoginErr] = useState("");
 
   useEffect(() => {
     const saved = loadSavedSession();
@@ -86,10 +92,76 @@ export default function App() {
     );
   }
 
+  const handleAdminLogin = () => {
+    if (adminId === "admin" && adminPw === "44445") {
+      localStorage.setItem("admin_authed", "true");
+      setShowAdminLogin(false);
+      setAdminId("");
+      setAdminPw("");
+      setAdminLoginErr("");
+      handleLogin({ id: "admin", role: "admin", activeRole: "admin", name: "관리자", isGuest: true });
+    } else {
+      setAdminLoginErr("아이디 또는 비밀번호가 올바르지 않습니다");
+    }
+  };
+
   if (!pendingRole) {
     return (
       <ErrorBoundary onLogout={handleLogout}>
-        <LandingScreen onSelectRole={handleRoleSelect} />
+        <LandingScreen
+          onSelectRole={handleRoleSelect}
+          onAdminTap={() => {
+            setAdminId("");
+            setAdminPw("");
+            setAdminLoginErr("");
+            setShowAdminLogin(true);
+          }}
+        />
+        {showAdminLogin && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+            <div style={{ background: "#fff", borderRadius: 20, padding: 28, width: "100%", maxWidth: 340 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#1a1a1a", marginBottom: 6 }}>관리자 로그인</div>
+              <div style={{ fontSize: 13, color: "#999", marginBottom: 20 }}>관리자 계정으로 로그인하세요</div>
+              <input
+                value={adminId}
+                onChange={e => { setAdminId(e.target.value); setAdminLoginErr(""); }}
+                type="text"
+                placeholder="아이디"
+                autoComplete="off"
+                onKeyDown={e => e.key === "Enter" && handleAdminLogin()}
+                style={{ width: "100%", padding: "13px 14px", border: "1.5px solid #e0e0e0", borderRadius: 10, fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 10, fontFamily: "inherit", color: "#1a1a1a" }}
+              />
+              <input
+                value={adminPw}
+                onChange={e => { setAdminPw(e.target.value); setAdminLoginErr(""); }}
+                type="password"
+                placeholder="비밀번호"
+                autoComplete="off"
+                onKeyDown={e => e.key === "Enter" && handleAdminLogin()}
+                style={{ width: "100%", padding: "13px 14px", border: "1.5px solid #e0e0e0", borderRadius: 10, fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: adminLoginErr ? 8 : 20, fontFamily: "inherit", color: "#1a1a1a" }}
+              />
+              {adminLoginErr && <div style={{ color: "#e74c3c", fontSize: 12, fontWeight: 600, marginBottom: 14 }}>{adminLoginErr}</div>}
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => { setShowAdminLogin(false); setAdminId(""); setAdminPw(""); setAdminLoginErr(""); }}
+                  style={{ flex: 1, padding: "13px", background: "#f5f5f5", color: "#666", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                  취소
+                </button>
+                <button
+                  onClick={handleAdminLogin}
+                  style={{ flex: 2, padding: "13px", background: "#1B4D31", color: "#fff", border: "none", borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
+                  로그인
+                </button>
+              </div>
+              {IS_DEBUG && (
+                <div style={{ marginTop: 16, padding: "8px 10px", background: "#111", color: "#0f0", borderRadius: 6, fontSize: 10, fontFamily: "monospace", lineHeight: 1.8 }}>
+                  admin_authed: {localStorage.getItem("admin_authed") ?? "null"}<br/>
+                  admin_login_err: {adminLoginErr || "—"}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </ErrorBoundary>
     );
   }
