@@ -344,7 +344,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   // Load top reviews once on mount (consumer home hero section)
   useEffect(() => {
     getTopReviews({ limit: 12 }).then(({ data }) => {
-      if (data) setTopReviews(data.filter(r => (r.image_urls?.length ?? 0) > 0));
+      if (data) setTopReviews(data.filter(r =>
+        (r.after_image_urls?.length ?? 0) > 0 ||
+        (r.image_urls?.length       ?? 0) > 0
+      ));
     }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -865,33 +868,58 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
                 <div style={{ display:"flex", gap:S.md, overflowX:"auto", paddingBottom:S.sm,
                   scrollbarWidth:"none", msOverflowStyle:"none" }}>
-                  {topReviews.map(rv => (
-                    <div key={rv.id} style={{ flexShrink:0, width:220, background:C.surface,
-                      borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
-                      overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)" }}>
-                      {rv.image_urls?.[0] && (
-                        <img src={rv.image_urls[0]} alt=""
-                          style={{ width:"100%", height:130, objectFit:"cover", display:"block" }}
-                          onError={e => { e.target.style.display = "none"; }} />
-                      )}
-                      <div style={{ padding:S.md }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
-                          {[1,2,3,4,5].map(s => (
-                            <span key={s} style={{ fontSize:11, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
-                          ))}
-                          <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
+                  {topReviews.map(rv => {
+                    const afterThumb  = rv.after_image_urls?.[0]  ?? null;
+                    const beforeThumb = rv.before_image_urls?.[0] ?? null;
+                    const legacyThumb = rv.image_urls?.[0]        ?? null;
+                    const thumb = afterThumb ?? legacyThumb;
+                    const hasBefore = !!(beforeThumb);
+                    const [cardShowBefore, setCardShowBefore] = [false, () => {}]; // static for home card
+                    return (
+                      <div key={rv.id} style={{ flexShrink:0, width:220, background:C.surface,
+                        borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
+                        overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)" }}>
+                        <div style={{ position:"relative" }}>
+                          {thumb && (
+                            <img src={thumb} alt=""
+                              style={{ width:"100%", height:130, objectFit:"cover", display:"block" }}
+                              onError={e => { e.target.style.display = "none"; }} />
+                          )}
+                          {thumb && (
+                            <span style={{ position:"absolute", top:6, left:6,
+                              background:"rgba(0,0,0,0.55)", color:"#fff",
+                              borderRadius:R.full, padding:"2px 8px", fontSize:10, fontWeight:800 }}>
+                              AFTER
+                            </span>
+                          )}
+                          {hasBefore && (
+                            <span style={{ position:"absolute", top:6, right:6,
+                              background:"rgba(255,255,255,0.9)", color:"#3A5FCC",
+                              borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800,
+                              border:"1px solid #A0BCFF" }}>
+                              +BEFORE
+                            </span>
+                          )}
                         </div>
-                        <div style={{ fontSize:12, color:C.text2, lineHeight:1.6,
-                          overflow:"hidden", display:"-webkit-box",
-                          WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
-                          {rv.content}
-                        </div>
-                        <div style={{ fontSize:11, color:C.text4, marginTop:4 }}>
-                          {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? ""}
+                        <div style={{ padding:S.md }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+                            {[1,2,3,4,5].map(s => (
+                              <span key={s} style={{ fontSize:11, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
+                            ))}
+                            <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
+                          </div>
+                          <div style={{ fontSize:12, color:C.text2, lineHeight:1.6,
+                            overflow:"hidden", display:"-webkit-box",
+                            WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
+                            {rv.content}
+                          </div>
+                          <div style={{ fontSize:11, color:C.text4, marginTop:4 }}>
+                            {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? ""}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

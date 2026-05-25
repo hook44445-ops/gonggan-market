@@ -4,7 +4,59 @@ import { Stars } from "./common";
 import { calcTempDelta } from "../utils/calculations";
 import { uploadFile } from "../lib/supabase";
 
-const MAX_PHOTOS = 10;
+const MAX_PER_SIDE = 5;
+
+function PhotoSection({ label, badge, badgeColor, badgeBg, photos, onAdd, onRemove, inputRef }) {
+  return (
+    <div style={{ marginBottom: S.md }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:S.sm }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ background: badgeBg, color: badgeColor,
+            borderRadius: R.sm, padding:"2px 8px", fontSize:11, fontWeight:800 }}>
+            {badge}
+          </span>
+          <span style={{ fontSize:12, color:C.text3 }}>{label}</span>
+        </div>
+        <span style={{ fontSize:11, fontWeight:700,
+          color: photos.length >= 1 ? C.brand : C.text4 }}>
+          {photos.length}/{MAX_PER_SIDE}
+        </span>
+      </div>
+      {photos.length > 0 && (
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:S.sm }}>
+          {photos.map(({ id, preview }) => (
+            <div key={id} style={{ position:"relative", width:72, height:72 }}>
+              <img src={preview} alt=""
+                style={{ width:"100%", height:"100%", objectFit:"cover",
+                  borderRadius:R.md, border:`1px solid ${C.bgWarm}` }} />
+              <button onClick={() => onRemove(id)}
+                style={{ position:"absolute", top:-7, right:-7, width:20, height:20,
+                  background:"rgba(28,23,18,0.8)", color:"#fff", border:"none",
+                  borderRadius:"50%", fontSize:13, cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontWeight:900, lineHeight:1 }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {photos.length < MAX_PER_SIDE && (
+        <>
+          <input ref={inputRef} type="file" accept="image/*" multiple
+            style={{ display:"none" }}
+            onChange={e => { onAdd(e.target.files); e.target.value = ""; }} />
+          <button onClick={() => inputRef.current?.click()}
+            style={{ width:"100%", padding:"10px",
+              background: photos.length === 0 ? badgeBg : C.surface2,
+              color:       photos.length === 0 ? badgeColor : C.text2,
+              border: `1.5px dashed ${photos.length === 0 ? badgeColor + "88" : C.bgWarm}`,
+              borderRadius:R.md, fontWeight:700, fontSize:13, cursor:"pointer" }}>
+            {photos.length === 0 ? `+ ${badge === "BEFORE" ? "비포" : "애프터"} 사진 추가` : "+ 사진 추가"}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function ReviewModal({
   onClose, onSubmit,
@@ -36,55 +88,67 @@ export default function ReviewModal({
     );
   }
 
-  const [step,      setStep]      = useState(1);
-  const [rating,    setRating]    = useState(0);
-  const [hover,     setHover]     = useState(0);
-  const [content,   setContent]   = useState("");
-  const [tags,      setTags]      = useState([]);
-  const [photos,    setPhotos]    = useState([]); // { id, file, preview }
-  const [uploading, setUploading] = useState(false);
-  const [uploadErr, setUploadErr] = useState(false);
-  const [imageUrls, setImageUrls] = useState([]);
-  const fileInputRef = useRef(null);
+  const [step,         setStep]         = useState(1);
+  const [rating,       setRating]       = useState(0);
+  const [hover,        setHover]        = useState(0);
+  const [content,      setContent]      = useState("");
+  const [tags,         setTags]         = useState([]);
+  const [beforePhotos, setBeforePhotos] = useState([]); // { id, file, preview }
+  const [afterPhotos,  setAfterPhotos]  = useState([]); // { id, file, preview }
+  const [uploading,    setUploading]    = useState(false);
+  const [uploadErr,    setUploadErr]    = useState(false);
+  const [finalUrls,    setFinalUrls]    = useState({ before: [], after: [] });
+  const beforeInputRef = useRef(null);
+  const afterInputRef  = useRef(null);
 
   const LABELS = ["","별로예요","아쉬워요","보통이에요","좋았어요","최고예요!"];
-  const toggle  = t => setTags(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
+  const toggle = t => setTags(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t]);
 
-  const delta     = calcTempDelta(rating, photos.length > 0);
-  const deltaStr  = delta > 0 ? `+${delta}` : `${delta}`;
-  const deltaColor = delta > 0 ? C.brand : delta < 0 ? C.red : C.text3;
+  const totalPhotos = beforePhotos.length + afterPhotos.length;
+  const delta       = calcTempDelta(rating, totalPhotos > 0);
+  const deltaStr    = delta > 0 ? `+${delta}` : `${delta}`;
+  const deltaColor  = delta > 0 ? C.brand : delta < 0 ? C.red : C.text3;
 
-  const addPhotos = (files) => {
-    const slots = MAX_PHOTOS - photos.length;
+  const addPhotos = (files, current, setter) => {
+    const slots = MAX_PER_SIDE - current.length;
     if (slots <= 0) return;
     const items = Array.from(files).slice(0, slots).map(file => ({
       id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
       file,
       preview: URL.createObjectURL(file),
     }));
-    setPhotos(prev => [...prev, ...items]);
+    setter(prev => [...prev, ...items]);
   };
 
-  const removePhoto = (id) => setPhotos(prev => prev.filter(p => p.id !== id));
+  const removePhoto = (id, setter) => setter(prev => prev.filter(p => p.id !== id));
 
-  const canSubmit = content.length >= 20 && photos.length > 0 && !uploading;
+  const photoValid = beforePhotos.length >= 1 && afterPhotos.length >= 1;
+  const canSubmit  = content.length >= 20 && photoValid && !uploading;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setUploading(true);
     setUploadErr(false);
+    const cid = companyId  ?? "unknown";
+    const uid = customerId ?? "unknown";
     try {
-      const urls = await Promise.all(
-        photos.map(({ file }) =>
-          uploadFile(
-            "photos",
-            `reviews/${companyId ?? "unknown"}/${customerId ?? "unknown"}/${Date.now()}_${file.name}`,
-            file
-          )
-        )
-      );
-      setImageUrls(urls);
-      onSubmit({ rating, content, tags, imageUrls: urls });
+      const [beforeUrls, afterUrls] = await Promise.all([
+        Promise.all(beforePhotos.map(({ file }) =>
+          uploadFile("photos", `reviews/${cid}/${uid}/before/${Date.now()}_${file.name}`, file)
+        )),
+        Promise.all(afterPhotos.map(({ file }) =>
+          uploadFile("photos", `reviews/${cid}/${uid}/after/${Date.now()}_${file.name}`, file)
+        )),
+      ]);
+      setFinalUrls({ before: beforeUrls, after: afterUrls });
+      onSubmit({
+        rating,
+        content,
+        tags,
+        beforeImageUrls: beforeUrls,
+        afterImageUrls:  afterUrls,
+        imageUrls:       [...beforeUrls, ...afterUrls],
+      });
       setStep(3);
     } catch {
       setUploadErr(true);
@@ -107,18 +171,17 @@ export default function ReviewModal({
             <div style={{ fontSize:13, color:C.text3 }}>솔직한 후기가 다른 분들께 큰 도움이 됩니다</div>
           </div>
 
-          {/* Coupon incentive */}
           <div style={{ background:"#FFF8EC", borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`,
             marginBottom:S.xl, border:"1px solid #F5D97A",
             display:"flex", alignItems:"flex-start", gap:S.sm }}>
             <div style={{ fontSize:22, flexShrink:0 }}>☕</div>
             <div>
               <div style={{ fontSize:13, fontWeight:800, color:"#8A5C00", marginBottom:3 }}>
-                포토리뷰 작성 시 커피쿠폰 지급
+                비포/애프터 포토리뷰 작성 시 커피쿠폰 지급
               </div>
               <div style={{ fontSize:11, color:"#A06B00", lineHeight:1.6 }}>
-                공사 완료 후 포토리뷰를 남겨주시면 커피쿠폰을 드립니다.<br/>
-                별점과 관계없이 현장 사진이 포함된 실제 거래 후기에 한해 지급됩니다.
+                공사 전·후 사진을 등록하면 커피쿠폰을 드립니다.<br/>
+                실제 거래 경험과 현장 사진이 포함된 후기에 한해 지급됩니다.
               </div>
             </div>
           </div>
@@ -177,54 +240,45 @@ export default function ReviewModal({
             {content.length}자 {content.length < 20 ? "(최소 20자)" : ""}
           </div>
 
-          {/* Photo upload — required */}
+          {/* Photo upload — BEFORE / AFTER */}
           <div style={{ marginBottom:S.lg }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.sm }}>
-              <div>
-                <div style={{ fontSize:13, fontWeight:800, color:C.text1 }}>
-                  📷 현장 사진 <span style={{ color:C.red }}>*</span>
-                </div>
-                <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
-                  사진 1장 이상 필수 · 최대 {MAX_PHOTOS}장 · 커피쿠폰 지급 조건
-                </div>
+            <div style={{ marginBottom:S.md }}>
+              <div style={{ fontSize:13, fontWeight:800, color:C.text1 }}>
+                📷 현장 사진 <span style={{ color:C.red }}>*</span>
               </div>
-              <span style={{ fontSize:11, color: photos.length > 0 ? C.brand : C.text4, fontWeight:700 }}>
-                {photos.length}/{MAX_PHOTOS}
-              </span>
+              <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
+                공사 전과 후 사진을 등록해주세요 · 비포 1장 + 애프터 1장 최소
+              </div>
             </div>
 
-            {photos.length > 0 && (
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:S.sm }}>
-                {photos.map(({ id, preview }) => (
-                  <div key={id} style={{ position:"relative", width:76, height:76 }}>
-                    <img src={preview} alt=""
-                      style={{ width:"100%", height:"100%", objectFit:"cover",
-                        borderRadius:R.md, border:`1px solid ${C.bgWarm}` }} />
-                    <button onClick={() => removePhoto(id)}
-                      style={{ position:"absolute", top:-7, right:-7, width:20, height:20,
-                        background:"rgba(28,23,18,0.8)", color:"#fff", border:"none",
-                        borderRadius:"50%", fontSize:13, cursor:"pointer",
-                        display:"flex", alignItems:"center", justifyContent:"center",
-                        fontWeight:900, lineHeight:1 }}>×</button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <PhotoSection
+              label="공사 전 · 최소 1장"
+              badge="BEFORE"
+              badgeColor="#3A5FCC"
+              badgeBg="#EEF2FF"
+              photos={beforePhotos}
+              onAdd={files => addPhotos(files, beforePhotos, setBeforePhotos)}
+              onRemove={id => removePhoto(id, setBeforePhotos)}
+              inputRef={beforeInputRef}
+            />
 
-            {photos.length < MAX_PHOTOS && (
-              <>
-                <input ref={fileInputRef} type="file" accept="image/*" multiple
-                  style={{ display:"none" }}
-                  onChange={e => { addPhotos(e.target.files); e.target.value = ""; }} />
-                <button onClick={() => fileInputRef.current?.click()}
-                  style={{ width:"100%", padding:"11px",
-                    background: photos.length === 0 ? "#FFF8EC" : C.surface2,
-                    color: photos.length === 0 ? "#8A5C00" : C.text2,
-                    border: `1.5px dashed ${photos.length === 0 ? "#F5D97A" : C.bgWarm}`,
-                    borderRadius:R.md, fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                  {photos.length === 0 ? "☕ + 현장 사진 추가 (쿠폰 지급 조건)" : "+ 사진 추가"}
-                </button>
-              </>
+            <div style={{ height:1, background:C.bgWarm, marginBottom:S.md }} />
+
+            <PhotoSection
+              label="공사 후 · 최소 1장"
+              badge="AFTER"
+              badgeColor={C.brand}
+              badgeBg={C.brandL}
+              photos={afterPhotos}
+              onAdd={files => addPhotos(files, afterPhotos, setAfterPhotos)}
+              onRemove={id => removePhoto(id, setAfterPhotos)}
+              inputRef={afterInputRef}
+            />
+
+            {totalPhotos > 0 && !photoValid && (
+              <div style={{ fontSize:12, color:C.red, marginTop:S.sm, fontWeight:600 }}>
+                비포와 애프터 사진을 각각 1장 이상 등록해주세요.
+              </div>
             )}
           </div>
 
@@ -250,7 +304,9 @@ export default function ReviewModal({
               background: canSubmit ? C.brand : "#E8E4DC",
               color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16,
               cursor: canSubmit ? "pointer" : "not-allowed" }}>
-            {uploading ? "사진 업로드 중..." : photos.length === 0 ? "사진을 추가해주세요" : "후기 등록하기"}
+            {uploading ? "사진 업로드 중..."
+              : !photoValid ? "비포/애프터 사진을 추가해주세요"
+              : "후기 등록하기"}
           </button>
         </>)}
 
@@ -258,19 +314,34 @@ export default function ReviewModal({
         {step === 3 && (
           <div style={{ textAlign:"center", padding:"24px 0" }}>
             <div style={{ fontSize:64, marginBottom:16 }}>🎉</div>
-            <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:8 }}>포토리뷰 등록 완료!</div>
+            <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:8 }}>비포/애프터 리뷰 등록 완료!</div>
             <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl, lineHeight:1.7 }}>소중한 후기 감사합니다.</div>
 
-            {imageUrls.length > 0 && (
-              <div style={{ background:"#FFF8EC", borderRadius:R.lg, padding:S.xl,
-                marginBottom:S.xl, border:"1px solid #F5D97A" }}>
-                <div style={{ fontSize:28, marginBottom:8 }}>☕</div>
-                <div style={{ fontSize:15, fontWeight:800, color:"#8A5C00", marginBottom:6 }}>
-                  커피쿠폰 지급 대상입니다!
-                </div>
-                <div style={{ fontSize:12, color:"#A06B00", lineHeight:1.6 }}>
-                  담당자 확인 후 등록하신 연락처로<br/>커피쿠폰을 발송해 드립니다.
-                </div>
+            <div style={{ background:"#FFF8EC", borderRadius:R.lg, padding:S.xl,
+              marginBottom:S.xl, border:"1px solid #F5D97A" }}>
+              <div style={{ fontSize:28, marginBottom:8 }}>☕</div>
+              <div style={{ fontSize:15, fontWeight:800, color:"#8A5C00", marginBottom:6 }}>
+                커피쿠폰 지급 대상입니다!
+              </div>
+              <div style={{ fontSize:12, color:"#A06B00", lineHeight:1.6 }}>
+                담당자 확인 후 등록하신 연락처로<br/>커피쿠폰을 발송해 드립니다.
+              </div>
+            </div>
+
+            {(finalUrls.before.length > 0 || finalUrls.after.length > 0) && (
+              <div style={{ display:"flex", gap:S.sm, justifyContent:"center", marginBottom:S.xl }}>
+                {finalUrls.before[0] && (
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:10, fontWeight:800, color:"#3A5FCC", marginBottom:3 }}>BEFORE</div>
+                    <img src={finalUrls.before[0]} alt="" style={{ width:72, height:72, objectFit:"cover", borderRadius:R.md, border:"2px solid #A0BCFF" }} />
+                  </div>
+                )}
+                {finalUrls.after[0] && (
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:10, fontWeight:800, color:C.brand, marginBottom:3 }}>AFTER</div>
+                    <img src={finalUrls.after[0]} alt="" style={{ width:72, height:72, objectFit:"cover", borderRadius:R.md, border:`2px solid ${C.brandM}` }} />
+                  </div>
+                )}
               </div>
             )}
 

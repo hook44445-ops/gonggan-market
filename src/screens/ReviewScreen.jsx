@@ -6,25 +6,131 @@ import { calcTempDelta, clampTemp } from "../utils/calculations";
 import { getReviews, createReview, createReviewReward, updateCompanyTemp } from "../lib/supabase";
 
 const normalizeReview = (row) => ({
-  id:         row.id,
-  user:       row.user_name  ?? "익명",
-  region:     row.region     ?? "—",
-  rating:     row.rating,
-  date:       row.created_at?.slice(0, 10).replace(/-/g, ".") ?? "",
-  amount:     row.amount     ?? "—",
-  type:       row.space_type ?? "시공 완료",
-  content:    row.content,
-  tags:       row.tags       ?? [],
-  reply:      row.reply      ?? null,
-  imageUrls:  row.image_urls ?? [],
-  contractId: row.contract_id ?? null,
+  id:              row.id,
+  user:            row.user_name         ?? "익명",
+  region:          row.region            ?? "—",
+  rating:          row.rating,
+  date:            row.created_at?.slice(0, 10).replace(/-/g, ".") ?? "",
+  type:            row.space_type        ?? "시공 완료",
+  content:         row.content,
+  tags:            row.tags              ?? [],
+  reply:           row.reply             ?? null,
+  beforeImageUrls: row.before_image_urls ?? [],
+  afterImageUrls:  row.after_image_urls  ?? [],
+  imageUrls:       row.image_urls        ?? [], // deprecated compat
+  contractId:      row.contract_id       ?? null,
 });
 
+function ReviewCard({ rv, isNew }) {
+  const [showBefore, setShowBefore] = useState(false);
+
+  const hasAfter  = rv.afterImageUrls.length  > 0;
+  const hasBefore = rv.beforeImageUrls.length > 0;
+  const hasLegacy = rv.imageUrls.length        > 0;
+  const hasPhotos = hasAfter || hasBefore || hasLegacy;
+
+  const displayUrls = showBefore ? rv.beforeImageUrls : (hasAfter ? rv.afterImageUrls : rv.imageUrls);
+
+  return (
+    <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.md,
+      border:`1.5px solid ${isNew ? C.brand : C.bgWarm}`,
+      animation: isNew ? "fadeUp 0.4s ease" : "none" }}>
+
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.md }}>
+        <div style={{ display:"flex", gap:S.md, alignItems:"center" }}>
+          <div style={{ width:40, height:40, borderRadius:"50%",
+            background:`hsl(${typeof rv.id === "number" ? rv.id*55 : 120},40%,88%)`,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:15, fontWeight:900, color:C.text2 }}>{rv.user[0]}</div>
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>{rv.user}</div>
+              {hasPhotos && (
+                <span style={{ background:"#FFF8EC", color:"#8A5C00", borderRadius:R.full,
+                  padding:"1px 8px", fontSize:10, fontWeight:700, border:"1px solid #F5D97A" }}>
+                  📷 포토리뷰
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize:12, color:C.text3 }}>📍 {rv.region} · {rv.date}</div>
+          </div>
+        </div>
+        <Stars rating={rv.rating} size={13} />
+      </div>
+
+      <div style={{ background:C.surface2, borderRadius:R.md, padding:"8px 12px", marginBottom:S.md }}>
+        <span style={{ fontSize:12, color:C.text3 }}>🏠 {rv.type}</span>
+      </div>
+
+      {rv.tags?.length > 0 && (
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
+          {rv.tags.map(t => (
+            <span key={t} style={{ background:C.brandL, color:C.brand, borderRadius:R.full,
+              padding:"3px 10px", fontSize:11, fontWeight:700 }}>✓ {t}</span>
+          ))}
+        </div>
+      )}
+
+      <div style={{ fontSize:14, color:C.text2, lineHeight:1.7,
+        marginBottom: hasPhotos ? S.md : 0 }}>{rv.content}</div>
+
+      {hasPhotos && (
+        <div>
+          {/* BEFORE/AFTER toggle — only if both exist */}
+          {hasAfter && hasBefore && (
+            <div style={{ display:"flex", gap:6, marginBottom:S.sm }}>
+              <button onClick={() => setShowBefore(false)}
+                style={{ padding:"4px 12px", borderRadius:R.full, fontSize:11, fontWeight:800,
+                  border:"none", cursor:"pointer",
+                  background: !showBefore ? C.brand : C.bgWarm,
+                  color:      !showBefore ? "#fff"  : C.text3 }}>
+                AFTER
+              </button>
+              <button onClick={() => setShowBefore(true)}
+                style={{ padding:"4px 12px", borderRadius:R.full, fontSize:11, fontWeight:800,
+                  border:"none", cursor:"pointer",
+                  background: showBefore ? "#3A5FCC" : C.bgWarm,
+                  color:      showBefore ? "#fff"    : C.text3 }}>
+                BEFORE
+              </button>
+            </div>
+          )}
+
+          {/* Label when only one type */}
+          {!hasBefore && hasAfter && (
+            <div style={{ fontSize:10, fontWeight:800, color:C.brand, marginBottom:4 }}>AFTER</div>
+          )}
+          {!hasAfter && hasBefore && (
+            <div style={{ fontSize:10, fontWeight:800, color:"#3A5FCC", marginBottom:4 }}>BEFORE</div>
+          )}
+
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            {displayUrls.slice(0, 5).map((url, i) => (
+              <img key={i} src={url} alt={`review-${i}`}
+                style={{ width:80, height:80, objectFit:"cover", borderRadius:R.md,
+                  border:`1px solid ${C.bgWarm}` }}
+                onError={e => { e.target.style.display = "none"; }} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {rv.reply && (
+        <div style={{ background:C.surface2, borderRadius:R.md, padding:S.md, marginTop:S.md,
+          borderLeft:`3px solid ${C.brand}` }}>
+          <div style={{ fontSize:11, fontWeight:800, color:C.brand, marginBottom:4 }}>🏠 업체 답글</div>
+          <div style={{ fontSize:13, color:C.text2, lineHeight:1.6 }}>{rv.reply}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ReviewScreen({ company, onBack, currentUser, requestId, contractId }) {
-  const [reviews,   setReviews]   = useState(company?.reviewList ?? []);
-  const [showModal, setShowModal] = useState(false);
-  const [newId,     setNewId]     = useState(null);
-  const [localTemp, setLocalTemp] = useState(company?.temp ?? 36.5);
+  const [reviews,        setReviews]        = useState(company?.reviewList ?? []);
+  const [showModal,      setShowModal]      = useState(false);
+  const [newId,          setNewId]          = useState(null);
+  const [localTemp,      setLocalTemp]      = useState(company?.temp ?? 36.5);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
 
   const avg = reviews.length > 0
@@ -37,7 +143,6 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
       if (data && data.length > 0) {
         const normalized = data.map(normalizeReview);
         setReviews(normalized);
-        // Check if current user already reviewed this contract
         if (contractId) {
           setAlreadyReviewed(normalized.some(r => r.contractId === contractId));
         }
@@ -48,47 +153,51 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
   const handleSubmit = async (data) => {
     const now = new Date();
     const nr = {
-      id:        Date.now(),
-      user:      currentUser?.name ?? "나",
-      region:    currentUser?.region ?? "—",
-      rating:    data.rating,
-      date:      `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,"0")}.${String(now.getDate()).padStart(2,"0")}`,
-      amount:    "시공 완료",
-      type:      "시공 완료",
-      content:   data.content,
-      tags:      data.tags,
-      imageUrls: data.imageUrls ?? [],
-      reply:     null,
+      id:              Date.now(),
+      user:            currentUser?.name  ?? "나",
+      region:          currentUser?.region ?? "—",
+      rating:          data.rating,
+      date:            `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,"0")}.${String(now.getDate()).padStart(2,"0")}`,
+      type:            "시공 완료",
+      content:         data.content,
+      tags:            data.tags,
+      beforeImageUrls: data.beforeImageUrls ?? [],
+      afterImageUrls:  data.afterImageUrls  ?? [],
+      imageUrls:       data.imageUrls        ?? [],
+      reply:           null,
     };
     setReviews(r => [nr, ...r]);
     setNewId(nr.id);
     setTimeout(() => setNewId(null), 3000);
     if (contractId) setAlreadyReviewed(true);
 
-    const delta = calcTempDelta(data.rating, data.imageUrls?.length > 0);
+    const hasPhotos = (data.beforeImageUrls?.length ?? 0) + (data.afterImageUrls?.length ?? 0) > 0;
+    const delta = calcTempDelta(data.rating, hasPhotos);
     setLocalTemp(t => clampTemp(t + delta));
 
     if (company?.id) {
       const { data: reviewRow } = await createReview({
-        company_id:  company.id,
-        user_id:     currentUser?.id    ?? null,
-        customer_id: currentUser?.id    ?? null,
-        request_id:  requestId          ?? null,
-        contract_id: contractId         ?? null,
-        rating:      data.rating,
-        content:     data.content,
-        tags:        data.tags,
-        image_urls:  data.imageUrls     ?? [],
-        user_name:   currentUser?.name  ?? "익명",
-        region:      currentUser?.region ?? null,
-        space_type:  company.type       ?? null,
-        status:      "published",
+        company_id:        company.id,
+        user_id:           currentUser?.id    ?? null,
+        customer_id:       currentUser?.id    ?? null,
+        request_id:        requestId          ?? null,
+        contract_id:       contractId         ?? null,
+        rating:            data.rating,
+        content:           data.content,
+        tags:              data.tags,
+        before_image_urls: data.beforeImageUrls ?? [],
+        after_image_urls:  data.afterImageUrls  ?? [],
+        image_urls:        data.imageUrls       ?? [],
+        user_name:         currentUser?.name    ?? "익명",
+        region:            currentUser?.region  ?? null,
+        space_type:        company.type         ?? null,
+        status:            "published",
       });
 
       await updateCompanyTemp(company.id, delta).catch(() => {});
 
-      // Create coupon reward if photos uploaded
-      if (reviewRow && (data.imageUrls?.length ?? 0) > 0) {
+      // Coupon: triggered whenever photos are present (always with new before/after requirement)
+      if (reviewRow && hasPhotos) {
         await createReviewReward({
           review_id:   reviewRow.id,
           customer_id: currentUser?.id ?? null,
@@ -99,7 +208,11 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
     }
   };
 
-  const photoReviewCount = reviews.filter(r => (r.imageUrls?.length ?? 0) > 0).length;
+  const photoReviewCount = reviews.filter(r =>
+    (r.beforeImageUrls?.length ?? 0) > 0 ||
+    (r.afterImageUrls?.length  ?? 0) > 0 ||
+    (r.imageUrls?.length       ?? 0) > 0
+  ).length;
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Apple SD Gothic Neo',sans-serif" }}>
@@ -121,11 +234,11 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
           <div style={{ fontSize:28, flexShrink:0 }}>☕</div>
           <div>
             <div style={{ fontSize:14, fontWeight:800, color:"#8A5C00", marginBottom:4 }}>
-              포토리뷰 작성 시 커피쿠폰 지급
+              비포/애프터 포토리뷰 작성 시 커피쿠폰 지급
             </div>
             <div style={{ fontSize:12, color:"#A06B00", lineHeight:1.6 }}>
-              공사 완료 후 포토리뷰를 남겨주시면 커피쿠폰을 드립니다.<br/>
-              별점과 관계없이 실제 거래 경험과 현장 사진이 포함된 리뷰에 한해 지급됩니다.
+              공사 전·후 사진을 함께 등록하면 커피쿠폰을 드립니다.<br/>
+              실제 거래 경험과 현장 사진이 포함된 리뷰에 한해 지급됩니다.
             </div>
           </div>
         </div>
@@ -168,58 +281,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
         </div>
 
         {reviews.map(rv => (
-          <div key={rv.id} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.md,
-            border:`1.5px solid ${rv.id===newId?C.brand:C.bgWarm}`,
-            animation:rv.id===newId?"fadeUp 0.4s ease":"none" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.md }}>
-              <div style={{ display:"flex", gap:S.md, alignItems:"center" }}>
-                <div style={{ width:40, height:40, borderRadius:"50%",
-                  background:`hsl(${typeof rv.id === "number" ? rv.id*55 : 120},40%,88%)`,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:15, fontWeight:900, color:C.text2 }}>{rv.user[0]}</div>
-                <div>
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>{rv.user}</div>
-                    {(rv.imageUrls?.length ?? 0) > 0 && (
-                      <span style={{ background:"#FFF8EC", color:"#8A5C00", borderRadius:R.full,
-                        padding:"1px 8px", fontSize:10, fontWeight:700, border:"1px solid #F5D97A" }}>
-                        📷 포토리뷰
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize:12, color:C.text3 }}>📍 {rv.region} · {rv.date}</div>
-                </div>
-              </div>
-              <Stars rating={rv.rating} size={13} />
-            </div>
-            <div style={{ background:C.surface2, borderRadius:R.md, padding:"8px 12px", marginBottom:S.md, display:"flex", gap:S.lg }}>
-              <span style={{ fontSize:12, color:C.text3 }}>🏠 {rv.type}</span>
-            </div>
-            {rv.tags?.length > 0 && (
-              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
-                {rv.tags.map(t => (
-                  <span key={t} style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>✓ {t}</span>
-                ))}
-              </div>
-            )}
-            <div style={{ fontSize:14, color:C.text2, lineHeight:1.7, marginBottom: rv.imageUrls?.length > 0 ? S.md : 0 }}>{rv.content}</div>
-            {(rv.imageUrls?.length ?? 0) > 0 && (
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop:S.sm }}>
-                {rv.imageUrls.slice(0, 5).map((url, i) => (
-                  <img key={i} src={url} alt={`review-${i}`}
-                    style={{ width:80, height:80, objectFit:"cover", borderRadius:R.md,
-                      border:`1px solid ${C.bgWarm}` }}
-                    onError={e => { e.target.style.display = "none"; }} />
-                ))}
-              </div>
-            )}
-            {rv.reply && (
-              <div style={{ background:C.surface2, borderRadius:R.md, padding:S.md, marginTop:S.md, borderLeft:`3px solid ${C.brand}` }}>
-                <div style={{ fontSize:11, fontWeight:800, color:C.brand, marginBottom:4 }}>🏠 업체 답글</div>
-                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6 }}>{rv.reply}</div>
-              </div>
-            )}
-          </div>
+          <ReviewCard key={rv.id} rv={rv} isNew={rv.id === newId} />
         ))}
 
         {reviews.length === 0 && (
@@ -237,7 +299,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
             style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff",
               border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15,
               cursor:"pointer", boxShadow:`0 8px 24px ${C.brand}44` }}>
-            ✏️ 포토리뷰 작성하기 (☕ 쿠폰 지급)
+            ✏️ 비포/애프터 포토리뷰 작성하기 (☕ 쿠폰 지급)
           </button>
         </div>
       )}

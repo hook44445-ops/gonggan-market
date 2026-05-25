@@ -264,7 +264,7 @@ export const updateReviewReward = (id, status) =>
 export const getTopReviews = ({ limit = 12 } = {}) =>
   supabase
     .from("reviews")
-    .select("id, company_id, rating, content, image_urls, created_at, user_name, region, tags, space_type")
+    .select("id, company_id, rating, content, image_urls, before_image_urls, after_image_urls, created_at, user_name, region, tags, space_type")
     .gte("rating", 4)
     .in("status", ["published", "approved"])
     .order("created_at", { ascending: false })
