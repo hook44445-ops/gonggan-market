@@ -136,6 +136,58 @@ const maskCompanyName = (name) => {
   return name.slice(0, Math.min(Math.ceil(len / 2), 4)) + "***";
 };
 
+// ── 홈 리뷰 목업 풀 ──────────────────────────────────────────────────────────
+const MOCK_REVIEW_POOL = [
+  {
+    id: "mr1", isMock: true, rating: 5,
+    content: "입주 전 낡고 어두운 분위기였는데 시공 후 완전히 달라졌어요. 단계마다 사진으로 확인하면서 진행돼 믿음이 갔습니다.",
+    space_type: "32평 아파트 전체", region: "강남구", user_name: "김○○", maskedName: "공간○○",
+    beforeGrad: "linear-gradient(160deg,#7a7068 0%,#9a9088 60%,#6a6258 100%)",
+    afterGrad:  "linear-gradient(160deg,#f5ede0 0%,#e8d8c0 60%,#f0e4cc 100%)",
+  },
+  {
+    id: "mr2", isMock: true, rating: 5,
+    content: "카페 개업 전 리모델링인데 일정을 딱 맞게 끝내줬어요. 중간 점검 사진도 꼼꼼하게 보내줘서 안심됐습니다.",
+    space_type: "카페 리모델링", region: "마포구", user_name: "이○○", maskedName: "홍○시공",
+    beforeGrad: "linear-gradient(160deg,#6e6860 0%,#8a8278 60%,#5e5a52 100%)",
+    afterGrad:  "linear-gradient(160deg,#e8f0e8 0%,#d4e4d4 60%,#e0ecd8 100%)",
+  },
+  {
+    id: "mr3", isMock: true, rating: 5,
+    content: "욕실 전체를 바꿨는데 타일 선택부터 완료까지 기록이 다 남아서 나중에 확인하기도 좋았어요.",
+    space_type: "욕실 리모델링", region: "송파구", user_name: "박○○", maskedName: "우리○시공",
+    beforeGrad: "linear-gradient(160deg,#82807c 0%,#a0a09a 60%,#726e6a 100%)",
+    afterGrad:  "linear-gradient(160deg,#f0f0f0 0%,#e8e8e8 60%,#f5f5f2 100%)",
+  },
+  {
+    id: "mr4", isMock: true, rating: 5,
+    content: "낡은 주방을 전면 교체했어요. 자재 반입부터 마감까지 사진으로 공유해줘서 진행 상황을 실시간으로 확인할 수 있었습니다.",
+    space_type: "주방 전면 교체", region: "수원 영통", user_name: "최○○", maskedName: "공간***",
+    beforeGrad: "linear-gradient(160deg,#6a6460 0%,#887e78 60%,#5a5450 100%)",
+    afterGrad:  "linear-gradient(160deg,#f8f0e4 0%,#ece0cc 60%,#f4ecd8 100%)",
+  },
+  {
+    id: "mr5", isMock: true, rating: 5,
+    content: "오피스 이전에 맞춰 인테리어를 진행했는데 공사 범위를 계약서로 명확히 정해두니 추가 비용 없이 마무리됐습니다.",
+    space_type: "오피스 인테리어", region: "중구", user_name: "정○○", maskedName: "홍***",
+    beforeGrad: "linear-gradient(160deg,#787470 0%,#969290 60%,#686460 100%)",
+    afterGrad:  "linear-gradient(160deg,#e8f0f8 0%,#d8e4f0 60%,#e4ecf8 100%)",
+  },
+];
+
+const _REVIEW_SEED = Date.now() & 0xffff;
+function shuffleMockReviews(arr) {
+  const a = [...arr];
+  let s = _REVIEW_SEED;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1664525) + 1013904223) & 0xffffffff;
+    const j = Math.abs(s) % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const SHUFFLED_MOCK_REVIEWS = shuffleMockReviews(MOCK_REVIEW_POOL);
+
 // Compute customer-facing stage from request + escrow/payout data
 const computeCustomerStage = (r, escrowData) => {
   if (!r) return null;
@@ -356,9 +408,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   useEffect(() => {
     getTopReviews({ limit: 12 }).then(({ data }) => {
       if (data) setTopReviews(data.filter(r =>
-        (r.after_image_urls?.length ?? 0) > 0 ||
-        (r.image_urls?.length       ?? 0) > 0
-      ));
+        (r.before_image_urls?.length ?? 0) > 0 ||
+        (r.after_image_urls?.length  ?? 0) > 0 ||
+        (r.image_urls?.length        ?? 0) > 0
+      ).slice(0, 5));
     }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -867,117 +920,194 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               })()}
             </div>
 
-            {topReviews.length > 0 && (
-              <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md }}>
-                  믿고 맡긴 후기
-                  <span style={{ fontSize:12, fontWeight:600, color:C.text3, marginLeft:6 }}>
-                    실제 시공 완료 고객
-                  </span>
-                </div>
-                <div style={{ display:"flex", gap:S.md, overflowX:"auto", paddingBottom:S.sm,
-                  scrollbarWidth:"none", msOverflowStyle:"none" }}>
-                  {topReviews.map(rv => {
-                    const afterThumb  = rv.after_image_urls?.[0]  ?? null;
-                    const beforeThumb = rv.before_image_urls?.[0] ?? null;
-                    const legacyThumb = rv.image_urls?.[0]        ?? null;
-                    const hasAfter  = !!(afterThumb ?? legacyThumb);
-                    const hasBefore = !!(beforeThumb);
-                    const hasPhoto  = hasAfter || hasBefore;
-                    const showSplit = hasBefore && hasAfter;
-                    return (
-                      <div key={rv.id}
-                        style={{ flexShrink:0, width:228, background:C.surface,
-                          borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
-                          overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
-                          cursor:"default" }}>
+            {/* ── 믿고 맡긴 후기 — 실제 + 목업 혼합, 항상 렌더 ── */}
+            {(() => {
+              const realCount  = topReviews.length;
+              const mockNeeded = realCount >= 3 ? 0 : Math.max(0, 5 - realCount);
+              const displayReviews = [
+                ...topReviews.map(r => ({ ...r, isMock: false })),
+                ...SHUFFLED_MOCK_REVIEWS.slice(0, mockNeeded),
+              ].slice(0, 5);
 
-                        {/* BEFORE / AFTER 이미지 */}
-                        {hasPhoto && (
-                          <div style={{ display:"flex", height:116, overflow:"hidden" }}>
-                            {showSplit ? (
-                              <>
-                                <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff" }}>
-                                  <img src={beforeThumb} alt=""
+              return (
+                <div style={{ marginBottom:S.xl }}>
+                  <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md }}>
+                    믿고 맡긴 후기
+                    <span style={{ fontSize:12, fontWeight:600, color:C.text3, marginLeft:6 }}>
+                      실제 시공 완료 고객
+                    </span>
+                  </div>
+                  <div style={{ display:"flex", gap:S.md, overflowX:"auto", paddingBottom:S.sm,
+                    scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                    {displayReviews.map(rv => {
+                      /* ── 목업 카드 ── */
+                      if (rv.isMock) {
+                        return (
+                          <div key={rv.id}
+                            style={{ flexShrink:0, width:228, background:C.surface,
+                              borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
+                              overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
+                              cursor:"default" }}>
+                            {/* BEFORE / AFTER 그라디언트 */}
+                            <div style={{ display:"flex", height:116, overflow:"hidden" }}>
+                              <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff",
+                                background:rv.beforeGrad }}>
+                                <span style={{ position:"absolute", inset:0, display:"flex",
+                                  alignItems:"center", justifyContent:"center",
+                                  fontSize:10, fontWeight:700, color:"rgba(255,255,255,0.55)",
+                                  letterSpacing:"0.06em" }}>시공 전</span>
+                                <span style={{ position:"absolute", bottom:4, left:4,
+                                  background:"rgba(58,95,204,0.82)", color:"#fff",
+                                  borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                  BEFORE
+                                </span>
+                              </div>
+                              <div style={{ flex:1, position:"relative", background:rv.afterGrad }}>
+                                <span style={{ position:"absolute", inset:0, display:"flex",
+                                  alignItems:"center", justifyContent:"center",
+                                  fontSize:10, fontWeight:700, color:"rgba(100,80,40,0.45)",
+                                  letterSpacing:"0.06em" }}>시공 후</span>
+                                <span style={{ position:"absolute", bottom:4, right:4,
+                                  background:"rgba(0,0,0,0.45)", color:"#fff",
+                                  borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                  AFTER
+                                </span>
+                              </div>
+                            </div>
+                            <div style={{ padding:"10px 12px 12px" }}>
+                              {/* 샘플 + 포토리뷰 배지 */}
+                              <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:6 }}>
+                                <span style={{ background:C.bgWarm, color:C.text4,
+                                  borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:700 }}>
+                                  샘플
+                                </span>
+                                <span style={{ background:"#FFF8EC", color:"#8A5C00",
+                                  borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:800,
+                                  border:"1px solid #F5D97A" }}>
+                                  📷 포토리뷰
+                                </span>
+                              </div>
+                              {/* 별점 */}
+                              <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:5 }}>
+                                {[1,2,3,4,5].map(s => (
+                                  <span key={s} style={{ fontSize:12, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
+                                ))}
+                                <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
+                              </div>
+                              {/* 후기 내용 */}
+                              <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:6,
+                                overflow:"hidden", display:"-webkit-box",
+                                WebkitLineClamp:3, WebkitBoxOrient:"vertical" }}>
+                                {rv.content}
+                              </div>
+                              {/* 고객 · 공사유형 */}
+                              <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
+                                {rv.user_name} · {rv.space_type}
+                              </div>
+                              {/* 업체명 일부 노출 */}
+                              <div style={{ fontSize:11, fontWeight:700, color:C.text3 }}>
+                                🏠 {rv.maskedName}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      /* ── 실제 리뷰 카드 ── */
+                      const afterThumb  = rv.after_image_urls?.[0]  ?? null;
+                      const beforeThumb = rv.before_image_urls?.[0] ?? null;
+                      const legacyThumb = rv.image_urls?.[0]        ?? null;
+                      const hasAfter  = !!(afterThumb ?? legacyThumb);
+                      const hasBefore = !!beforeThumb;
+                      const hasPhoto  = hasAfter || hasBefore;
+                      const showSplit = hasBefore && hasAfter;
+                      return (
+                        <div key={rv.id}
+                          style={{ flexShrink:0, width:228, background:C.surface,
+                            borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
+                            overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
+                            cursor:"default" }}>
+                          {/* BEFORE / AFTER 이미지 */}
+                          {hasPhoto && (
+                            <div style={{ display:"flex", height:116, overflow:"hidden" }}>
+                              {showSplit ? (
+                                <>
+                                  <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff" }}>
+                                    <img src={beforeThumb} alt=""
+                                      style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                      onError={e => { e.target.style.display="none"; }} />
+                                    <span style={{ position:"absolute", bottom:4, left:4,
+                                      background:"rgba(58,95,204,0.82)", color:"#fff",
+                                      borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                      BEFORE
+                                    </span>
+                                  </div>
+                                  <div style={{ flex:1, position:"relative" }}>
+                                    <img src={afterThumb ?? legacyThumb} alt=""
+                                      style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                      onError={e => { e.target.style.display="none"; }} />
+                                    <span style={{ position:"absolute", bottom:4, right:4,
+                                      background:"rgba(0,0,0,0.55)", color:"#fff",
+                                      borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                      AFTER
+                                    </span>
+                                  </div>
+                                </>
+                              ) : (
+                                <div style={{ flex:1, position:"relative" }}>
+                                  <img src={afterThumb ?? legacyThumb ?? beforeThumb} alt=""
                                     style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
                                     onError={e => { e.target.style.display="none"; }} />
                                   <span style={{ position:"absolute", bottom:4, left:4,
-                                    background:"rgba(58,95,204,0.82)", color:"#fff",
-                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
-                                    BEFORE
+                                    background: hasAfter ? "rgba(0,0,0,0.55)" : "rgba(58,95,204,0.82)",
+                                    color:"#fff", borderRadius:R.full,
+                                    padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                    {hasAfter ? "AFTER" : "BEFORE"}
                                   </span>
                                 </div>
-                                <div style={{ flex:1, position:"relative" }}>
-                                  <img src={afterThumb ?? legacyThumb} alt=""
-                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
-                                    onError={e => { e.target.style.display="none"; }} />
-                                  <span style={{ position:"absolute", bottom:4, right:4,
-                                    background:"rgba(0,0,0,0.55)", color:"#fff",
-                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
-                                    AFTER
-                                  </span>
-                                </div>
-                              </>
-                            ) : (
-                              <div style={{ flex:1, position:"relative" }}>
-                                <img src={afterThumb ?? legacyThumb ?? beforeThumb} alt=""
-                                  style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
-                                  onError={e => { e.target.style.display="none"; }} />
-                                <span style={{ position:"absolute", bottom:4, left:4,
-                                  background: hasAfter ? "rgba(0,0,0,0.55)" : "rgba(58,95,204,0.82)",
-                                  color:"#fff", borderRadius:R.full,
-                                  padding:"2px 6px", fontSize:9, fontWeight:800 }}>
-                                  {hasAfter ? "AFTER" : "BEFORE"}
-                                </span>
+                              )}
+                            </div>
+                          )}
+                          <div style={{ padding:"10px 12px 12px" }}>
+                            {/* 포토리뷰 배지 */}
+                            {hasPhoto && (
+                              <span style={{ display:"inline-block", background:"#FFF8EC", color:"#8A5C00",
+                                borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:800,
+                                border:"1px solid #F5D97A", marginBottom:6 }}>
+                                📷 포토리뷰
+                              </span>
+                            )}
+                            {/* 별점 */}
+                            <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:5 }}>
+                              {[1,2,3,4,5].map(s => (
+                                <span key={s} style={{ fontSize:12, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
+                              ))}
+                              <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
+                            </div>
+                            {/* 후기 내용 2~3줄 */}
+                            <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:6,
+                              overflow:"hidden", display:"-webkit-box",
+                              WebkitLineClamp:3, WebkitBoxOrient:"vertical" }}>
+                              {rv.content}
+                            </div>
+                            {/* 고객(익명) · 공사유형 */}
+                            <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
+                              {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? "시공"}
+                            </div>
+                            {/* 부분공개 업체명 */}
+                            {rv.company_id && (
+                              <div style={{ fontSize:11, fontWeight:700, color:C.text3 }}>
+                                🏠 {maskCompanyName(rv.companies?.name ?? null)}
                               </div>
                             )}
                           </div>
-                        )}
-
-                        <div style={{ padding:"10px 12px 12px" }}>
-                          {/* 포토리뷰 배지 */}
-                          {hasPhoto && (
-                            <span style={{ display:"inline-block", background:"#FFF8EC", color:"#8A5C00",
-                              borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:800,
-                              border:"1px solid #F5D97A", marginBottom:6 }}>
-                              📷 포토리뷰
-                            </span>
-                          )}
-
-                          {/* 별점 */}
-                          <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:5 }}>
-                            {[1,2,3,4,5].map(s => (
-                              <span key={s} style={{ fontSize:12, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
-                            ))}
-                            <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
-                          </div>
-
-                          {/* 후기 내용 2~3줄 */}
-                          <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:6,
-                            overflow:"hidden", display:"-webkit-box",
-                            WebkitLineClamp:3, WebkitBoxOrient:"vertical" }}>
-                            {rv.content}
-                          </div>
-
-                          {/* 고객(익명) · 공사유형 */}
-                          <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
-                            {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? "시공"}
-                          </div>
-
-                          {/* 부분공개 업체명 */}
-                          {rv.company_id && (
-                            <div style={{ fontSize:11, fontWeight:700, color:C.text3, marginBottom:8 }}>
-                              🏠 {maskCompanyName(rv.companies?.name ?? null)}
-                            </div>
-                          )}
-
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             <LiveFeed />
 

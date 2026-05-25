@@ -276,8 +276,9 @@ export const getTopReviews = ({ limit = 12 } = {}) =>
   supabase
     .from("reviews")
     .select("id, company_id, rating, content, image_urls, before_image_urls, after_image_urls, created_at, user_name, region, tags, space_type, companies(name)")
-    .gte("rating", 4)
+    .gte("rating", 4.5)
     .in("status", ["published", "approved"])
+    .order("rating", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit);
 
