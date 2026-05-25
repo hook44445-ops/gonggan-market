@@ -615,8 +615,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   const ACTIVE_STATUSES = ["open", "in_progress", "contracting", "escrow_pending"];
-  const ESCROW_STATUSES = ["in_progress", "contracting", "escrow_pending"];
-  const COOLDOWN_MS = 6 * 24 * 60 * 60 * 1000; // 144h
+  const COOLDOWN_MS = 6 * 24 * 60 * 60 * 1000; // 144h — applied after manual override
+  const OVERRIDE_LS_KEY = "gm_req_override_ts";
 
   const fmtCooldown = (ms) => {
     const totalH = Math.floor(ms / (3600 * 1000));
@@ -628,6 +628,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   const checkRequestBlock = async () => {
+    // 1. Override cooldown check (localStorage — penalty after manual hide)
+    const overrideTs = localStorage.getItem(OVERRIDE_LS_KEY);
+    if (overrideTs) {
+      const remainingMs = Math.max(0, COOLDOWN_MS - (Date.now() - parseInt(overrideTs, 10)));
+      if (remainingMs > 0) {
+        setReqCheckDebug({ active_count: 0, active_request_status: "cooldown", cooldown_remaining_hours: Math.ceil(remainingMs / 3600000), blocked_reason: "COOLDOWN_BLOCK" });
+        return { type: "COOLDOWN_BLOCK", remainingMs };
+      }
+      localStorage.removeItem(OVERRIDE_LS_KEY);
+    }
+
+    // 2. Active request check (open/in_progress/escrow → hard block)
     let active = myRequests.find(r =>
       ACTIVE_STATUSES.includes(r.status) && !r.is_hidden && !r.is_deleted
     ) ?? null;
@@ -639,31 +651,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       setReqCheckDebug({ active_count: 0, active_request_status: "none", cooldown_remaining_hours: 0, blocked_reason: "none" });
       return null;
     }
-    const isEscrow = ESCROW_STATUSES.includes(active.status);
-    const baseTs = active.last_activity_at ?? active.created_at ?? active.createdAt;
-    const ageMs = Date.now() - new Date(baseTs).getTime();
-    const remainingMs = Math.max(0, COOLDOWN_MS - ageMs);
-    const canOverride = !isEscrow && ageMs >= COOLDOWN_MS;
-    const blocked_reason = isEscrow ? "ESCROW_BLOCK" : canOverride ? "OPEN_ALLOW" : "COOLDOWN_BLOCK";
-    setReqCheckDebug({
-      active_count: 1,
-      active_request_status: active.status,
-      cooldown_remaining_hours: Math.ceil(remainingMs / (3600 * 1000)),
-      blocked_reason,
-    });
-    if (canOverride) return { type: "OPEN_ALLOW", activeReq: active };
-    return { type: blocked_reason, activeReq: active, remainingMs };
+    setReqCheckDebug({ active_count: 1, active_request_status: active.status, cooldown_remaining_hours: 0, blocked_reason: "HARD_BLOCK" });
+    return { type: "HARD_BLOCK", activeReq: active };
   };
 
   const handleOpenNewReq = async () => {
     const block = await checkRequestBlock();
     if (!block) { setShowReq(true); return; }
-    if (block.type === "OPEN_ALLOW") {
-      await archiveRequestAuto(block.activeReq.id, "auto_new_request_after_6days").catch(() => {});
-      setMyRequests(prev => prev.filter(r => r.id !== block.activeReq.id));
-      setShowReq(true);
-      return;
-    }
     setReqBlock(block);
   };
 
@@ -2016,51 +2010,61 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       )}
 
       {reqBlock && (() => {
-        const isEscrow = reqBlock.type === "ESCROW_BLOCK";
+        const isHard = reqBlock.type === "HARD_BLOCK";
         const isCooldown = reqBlock.type === "COOLDOWN_BLOCK";
         return (
           <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:500 }}>
             <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"28px 24px 40px" }}>
               <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
-              <div style={{ fontSize:22, textAlign:"center", marginBottom:12 }}>📋</div>
-              <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
-                진행 중인 견적요청이 있습니다
-              </div>
-              <div style={{ fontSize:13, color:C.text3, textAlign:"center", lineHeight:1.7, marginBottom: isCooldown ? S.sm : S.xl }}>
-                {isEscrow
-                  ? <>업체 선택 또는 요청 종료 후<br/>새 요청을 등록할 수 있습니다.</>
-                  : <>견적 요청 등록 후 6일 동안은<br/>새 요청 등록이 제한됩니다.</>
-                }
-              </div>
-              {isCooldown && reqBlock.remainingMs > 0 && (
-                <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
-                  marginBottom:S.xl, textAlign:"center", border:`1px solid ${C.brandM}` }}>
-                  <div style={{ fontSize:12, color:C.text3, marginBottom:4 }}>새 요청 가능까지</div>
-                  <div style={{ fontSize:16, fontWeight:900, color:C.brand }}>
-                    {fmtCooldown(reqBlock.remainingMs)} 남았습니다
-                  </div>
+              <div style={{ fontSize:22, textAlign:"center", marginBottom:12 }}>{isCooldown ? "⏳" : "📋"}</div>
+
+              {isHard && (<>
+                <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
+                  진행 중인 견적요청이 있습니다
                 </div>
-              )}
-              <button
-                onClick={() => { setReqBlock(null); setScreen("home"); }}
-                style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff", border:"none",
-                  borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
-                  boxShadow:`0 4px 16px ${C.brand}44`, marginBottom:10 }}>
-                진행 중 요청 보기
-              </button>
-              {!isEscrow && reqBlock.activeReq?.id && (
+                <div style={{ fontSize:13, color:C.text3, textAlign:"center", lineHeight:1.7, marginBottom:S.xl }}>
+                  업체 선택 또는 요청 종료 후<br/>새 요청을 등록할 수 있습니다.
+                </div>
                 <button
-                  onClick={async () => {
-                    await archiveRequestAuto(reqBlock.activeReq.id, "manual_hide").catch(() => {});
-                    setMyRequests(prev => prev.filter(r => r.id !== reqBlock.activeReq.id));
-                    setReqBlock(null);
-                    setShowReq(true);
-                  }}
-                  style={{ width:"100%", padding:"12px", background:C.surface2, color:C.text2,
-                    border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:10 }}>
-                  요청 숨기고 새 요청 등록하기
+                  onClick={() => { setReqBlock(null); setScreen("home"); }}
+                  style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff", border:"none",
+                    borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
+                    boxShadow:`0 4px 16px ${C.brand}44`, marginBottom:10 }}>
+                  진행 중 요청 보기
                 </button>
-              )}
+                {reqBlock.activeReq?.id && (
+                  <button
+                    onClick={async () => {
+                      await archiveRequestAuto(reqBlock.activeReq.id, "manual_override").catch(() => {});
+                      setMyRequests(prev => prev.filter(r => r.id !== reqBlock.activeReq.id));
+                      localStorage.setItem(OVERRIDE_LS_KEY, Date.now().toString());
+                      setReqBlock({ type: "COOLDOWN_BLOCK", remainingMs: COOLDOWN_MS });
+                    }}
+                    style={{ width:"100%", padding:"12px", background:C.surface2, color:C.text2,
+                      border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:10 }}>
+                    진행 중 요청 숨기기
+                  </button>
+                )}
+              </>)}
+
+              {isCooldown && (<>
+                <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
+                  새 요청 등록 대기 중
+                </div>
+                <div style={{ fontSize:13, color:C.text3, textAlign:"center", lineHeight:1.7, marginBottom:S.sm }}>
+                  진행 중 요청 숨기기 후 6일 동안은<br/>새 요청 등록이 제한됩니다.
+                </div>
+                {reqBlock.remainingMs > 0 && (
+                  <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
+                    marginBottom:S.xl, textAlign:"center", border:`1px solid ${C.brandM}` }}>
+                    <div style={{ fontSize:12, color:C.text3, marginBottom:4 }}>새 요청 가능까지</div>
+                    <div style={{ fontSize:16, fontWeight:900, color:C.brand }}>
+                      {fmtCooldown(reqBlock.remainingMs)} 남았습니다
+                    </div>
+                  </div>
+                )}
+              </>)}
+
               <button
                 onClick={() => setReqBlock(null)}
                 style={{ width:"100%", padding:"12px", background:"none", color:C.text4,
@@ -2074,26 +2078,22 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
       {showReq && <RequestModal onClose={() => setShowReq(false)} onDone={async (form) => {
         // Pre-insert server-side duplicate guard
+        const overrideTsInsert = localStorage.getItem(OVERRIDE_LS_KEY);
+        if (overrideTsInsert) {
+          const remainingMs = Math.max(0, COOLDOWN_MS - (Date.now() - parseInt(overrideTsInsert, 10)));
+          if (remainingMs > 0) {
+            setShowReq(false);
+            setReqBlock({ type: "COOLDOWN_BLOCK", remainingMs });
+            return;
+          }
+          localStorage.removeItem(OVERRIDE_LS_KEY);
+        }
         if (user?.id) {
           const { data: dup } = await getActiveRequestByUser(user.id);
           if (dup) {
-            const isEscrow = ESCROW_STATUSES.includes(dup.status);
-            const baseTs = dup.last_activity_at ?? dup.created_at;
-            const ageMs = Date.now() - new Date(baseTs).getTime();
-            const canProceed = !isEscrow && ageMs >= COOLDOWN_MS;
-            if (canProceed) {
-              await archiveRequestAuto(dup.id, "auto_new_request_after_6days").catch(() => {});
-              setMyRequests(prev => prev.filter(r => r.id !== dup.id));
-              // proceed with insert
-            } else {
-              setShowReq(false);
-              setReqBlock({
-                type: isEscrow ? "ESCROW_BLOCK" : "COOLDOWN_BLOCK",
-                activeReq: dup,
-                remainingMs: Math.max(0, COOLDOWN_MS - ageMs),
-              });
-              return;
-            }
+            setShowReq(false);
+            setReqBlock({ type: "HARD_BLOCK", activeReq: dup });
+            return;
           }
         }
 
