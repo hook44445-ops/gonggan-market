@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import BidCard from "../components/BidCard";
-import { getCompanyActiveJobs } from "../lib/supabase";
+import { getCompanyEscrowJobs } from "../lib/supabase";
 
 const STEP_INFO = {
   1: { paid: 0,  label: "예치완료", color: "#8B9B8E" },
@@ -38,7 +38,7 @@ export default function DashboardScreen({ onBack, onEscrow, allRequests: allRequ
   useEffect(() => {
     if (!currentUser?.id) return;
     setJobsLoading(true);
-    getCompanyActiveJobs(currentUser.id)
+    getCompanyEscrowJobs(currentUser.id)
       .then(({ data }) => {
         if (data) setActiveJobs(data.map(normalizeJob));
       })
