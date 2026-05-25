@@ -1324,6 +1324,28 @@ export const advanceContractStep = (contractId, step, nextStep, txStatus = null)
     .single();
 };
 
+// ── EscrowScreen: company reports phase (착공/중간점검/완료) ───────────────────
+// Updates transaction_status, current_step, photos_uploaded_at together
+export const markEscrowPhaseStarted = (contractId, txStatus, currentStep) =>
+  supabase.from("escrow_payments")
+    .update({
+      transaction_status:  txStatus,
+      current_step:        currentStep,
+      photos_uploaded_at:  new Date().toISOString(),
+    })
+    .eq("id", contractId)
+    .select("id, transaction_status, current_step")
+    .single();
+
+// ── EscrowScreen: set escrow_payouts stage to READY (customer approval pending) ─
+export const setEscrowPayoutReady = (escrowId, stage) =>
+  supabase.from("escrow_payouts")
+    .update({ status: "READY" })
+    .eq("escrow_id", escrowId)
+    .eq("stage", stage)
+    .select("id, status")
+    .single();
+
 // ── Consumer: escrow + payouts for a request (for home card stage computation) ─
 export const getEscrowWithPayouts = async (requestId) => {
   const { data: escrow, error } = await supabase
