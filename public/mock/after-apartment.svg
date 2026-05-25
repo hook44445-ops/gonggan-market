@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5f2ee"/>
+      <stop offset="100%" stop-color="#ede8e2"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#c8a97a"/>
+      <stop offset="50%" stop-color="#d4b88a"/>
+      <stop offset="100%" stop-color="#c0a070"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8f4f8"/>
+      <stop offset="100%" stop-color="#d0e8f0"/>
+    </linearGradient>
+  </defs>
+  <!-- ceiling -->
+  <rect width="400" height="300" fill="#f5f2ee"/>
+  <!-- wall -->
+  <rect x="0" y="30" width="400" height="195" fill="url(#wall)"/>
+  <!-- floor -->
+  <rect x="0" y="225" width="400" height="75" fill="url(#floor)"/>
+  <!-- floor planks -->
+  <line x1="0" y1="237" x2="400" y2="237" stroke="#b89060" stroke-width="0.8" opacity="0.5"/>
+  <line x1="0" y1="249" x2="400" y2="249" stroke="#b89060" stroke-width="0.8" opacity="0.5"/>
+  <line x1="0" y1="261" x2="400" y2="261" stroke="#b89060" stroke-width="0.8" opacity="0.5"/>
+  <line x1="80" y1="225" x2="80" y2="300" stroke="#b89060" stroke-width="0.8" opacity="0.4"/>
+  <line x1="180" y1="225" x2="180" y2="300" stroke="#b89060" stroke-width="0.8" opacity="0.4"/>
+  <line x1="290" y1="225" x2="290" y2="300" stroke="#b89060" stroke-width="0.8" opacity="0.4"/>
+  <!-- large window -->
+  <rect x="50" y="55" width="130" height="150" fill="url(#sky)" rx="4"/>
+  <rect x="52" y="57" width="126" height="146" fill="#b8d8e8" opacity="0.6" rx="3"/>
+  <line x1="116" y1="57" x2="116" y2="203" stroke="#e0dcd6" stroke-width="3"/>
+  <line x1="52" y1="130" x2="178" y2="130" stroke="#e0dcd6" stroke-width="3"/>
+  <!-- window frame -->
+  <rect x="48" y="53" width="134" height="154" fill="none" stroke="#d0ccc4" stroke-width="4" rx="4"/>
+  <!-- sofa -->
+  <rect x="200" y="175" width="170" height="50" fill="#7a8e7a" rx="8"/>
+  <rect x="204" y="165" width="162" height="18" fill="#8a9e8a" rx="6"/>
+  <rect x="200" y="175" width="20" height="50" fill="#6a7e6a" rx="4"/>
+  <rect x="350" y="175" width="20" height="50" fill="#6a7e6a" rx="4"/>
+  <!-- cushions -->
+  <rect x="215" y="168" width="35" height="22" fill="#9aae9a" rx="5"/>
+  <rect x="258" y="168" width="35" height="22" fill="#9aae9a" rx="5"/>
+  <rect x="301" y="168" width="35" height="22" fill="#9aae9a" rx="5"/>
+  <!-- accent wall stripe -->
+  <rect x="0" y="30" width="6" height="195" fill="#d4c8b8"/>
+  <!-- label -->
+  <rect x="8" y="8" width="92" height="26" fill="rgba(30,80,50,0.85)" rx="13"/>
+  <text x="54" y="25" fill="#ffffff" font-family="sans-serif" font-size="13" font-weight="700" text-anchor="middle">아파트 완성</text>
+</svg>
