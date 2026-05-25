@@ -17,6 +17,7 @@ import {
   getCustomerReports, updateCustomerReportStatus,
   holdAllPayoutsForEscrow,
   getCompanyDocuments, adminReviewDocument,
+  getReviewRewardsPending, updateReviewReward,
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
@@ -230,6 +231,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [loungePosts, setLoungePosts]   = useState([]);
   const [loungeReports, setLoungeReports] = useState([]);
   const [reports, setReports]           = useState([]);
+  const [reviewRewards, setReviewRewards] = useState([]);
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -306,6 +308,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
     }
     if (mainTab === "reports") {
       getCustomerReports().then(({ data }) => setReports(data ?? [])).catch(() => setReports([]));
+    }
+    if (mainTab === "reviews") {
+      getReviewRewardsPending().then(({ data }) => setReviewRewards(data ?? [])).catch(() => setReviewRewards([]));
     }
   }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -452,6 +457,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["payments",       "결제관리"],
     ["disputes",       "분쟁관리"],
     ["settlements",    "정산관리"],
+    ["reviews",        "포토리뷰"],
     ["lounge",         "라운지관리"],
     ["reports",        "신고관리"],
     ["notifications",  "알림"],
@@ -972,6 +978,110 @@ export default function AdminScreen({ onBack, onHome, user }) {
             )}
 
             {/* ── Notifications ── */}
+            {mainTab === "reviews" && (
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+                  포토리뷰 쿠폰 관리
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.brand, marginLeft: 8 }}>
+                    {reviewRewards.filter(r => r.status === "PENDING").length}건 대기
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg }}>
+                  포토리뷰 확인 후 커피쿠폰을 발송 처리하세요
+                </div>
+
+                {reviewRewards.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>☕</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>대기 중인 포토리뷰가 없습니다</div>
+                  </div>
+                ) : reviewRewards.map(rw => {
+                  const rv = rw.reviews ?? {};
+                  const imgs = rv.image_urls ?? [];
+                  const isPending  = rw.status === "PENDING";
+                  const isSent     = rw.status === "SENT";
+                  const isCanceled = rw.status === "CANCELED";
+                  return (
+                    <div key={rw.id} style={{ background: C.surface, borderRadius: R.xl,
+                      marginBottom: S.md, border: `1.5px solid ${isPending ? "#F5D97A" : C.bgWarm}`,
+                      overflow: "hidden" }}>
+                      <div style={{ height: 3, background: isPending ? "#F5C842" : isSent ? C.brand : C.text4 }} />
+                      <div style={{ padding: S.xl }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                          <div>
+                            <span style={{ background: isPending ? "#FFF8EC" : isSent ? C.brandL : C.surface2,
+                              color: isPending ? "#8A5C00" : isSent ? C.brand : C.text4,
+                              border: `1px solid ${isPending ? "#F5D97A" : isSent ? C.brandM : C.bgWarm}`,
+                              borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>
+                              {isPending ? "☕ 쿠폰 대기" : isSent ? "✅ 발송 완료" : "취소됨"}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 11, color: C.text4 }}>
+                            {rw.created_at?.slice(0, 10)}
+                          </div>
+                        </div>
+
+                        {rv.content && (
+                          <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6, marginBottom: S.sm }}>
+                            {"★".repeat(rv.rating ?? 0)} — {rv.content?.slice(0, 80)}{(rv.content?.length ?? 0) > 80 ? "…" : ""}
+                          </div>
+                        )}
+
+                        {imgs.length > 0 && (
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: S.md }}>
+                            {imgs.slice(0, 5).map((url, i) => (
+                              <img key={i} src={url} alt=""
+                                style={{ width: 72, height: 72, objectFit: "cover",
+                                  borderRadius: R.md, border: `1px solid ${C.bgWarm}` }}
+                                onError={e => { e.target.style.display = "none"; }} />
+                            ))}
+                            {imgs.length > 5 && (
+                              <div style={{ width: 72, height: 72, borderRadius: R.md,
+                                background: C.surface2, border: `1px solid ${C.bgWarm}`,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 12, color: C.text3, fontWeight: 700 }}>
+                                +{imgs.length - 5}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {isPending && (
+                          <div style={{ display: "flex", gap: S.sm }}>
+                            <button
+                              onClick={async () => {
+                                const { data } = await updateReviewReward(rw.id, "SENT");
+                                if (data) setReviewRewards(prev => prev.map(r => r.id === rw.id ? { ...r, status: "SENT", sent_at: data.sent_at } : r));
+                                showToast("쿠폰 발송 처리 완료");
+                              }}
+                              style={{ flex: 2, padding: "10px", background: C.brand, color: "#fff",
+                                border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                              ☕ SENT 처리
+                            </button>
+                            <button
+                              onClick={async () => {
+                                await updateReviewReward(rw.id, "CANCELED");
+                                setReviewRewards(prev => prev.map(r => r.id === rw.id ? { ...r, status: "CANCELED" } : r));
+                                showToast("취소 처리됨", false);
+                              }}
+                              style={{ flex: 1, padding: "10px", background: C.surface2, color: C.text3,
+                                border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                              취소
+                            </button>
+                          </div>
+                        )}
+                        {isSent && (
+                          <div style={{ fontSize: 12, color: C.brand, fontWeight: 700 }}>
+                            발송 완료: {rw.sent_at?.slice(0, 16).replace("T", " ") ?? "—"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {mainTab === "notifications" && (
               <div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>

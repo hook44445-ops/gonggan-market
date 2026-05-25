@@ -236,6 +236,31 @@ export const createReview = (data) =>
 export const replyToReview = (reviewId, reply) =>
   supabase.from("reviews").update({ reply }).eq("id", reviewId);
 
+export const getReviewByContract = (contractId) =>
+  supabase
+    .from("reviews")
+    .select("id")
+    .eq("contract_id", contractId)
+    .maybeSingle();
+
+export const createReviewReward = (data) =>
+  supabase.from("review_rewards").insert(data).select().single();
+
+export const getReviewRewardsPending = () =>
+  supabase
+    .from("review_rewards")
+    .select("*, reviews(id, company_id, rating, content, image_urls, created_at, user_name)")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+export const updateReviewReward = (id, status) =>
+  supabase
+    .from("review_rewards")
+    .update({ status, ...(status === "SENT" ? { sent_at: new Date().toISOString() } : {}) })
+    .eq("id", id)
+    .select("id, status")
+    .single();
+
 // ── Fee Config ────────────────────────────────────────────────────────────────
 
 export const getFeeConfig = () =>
