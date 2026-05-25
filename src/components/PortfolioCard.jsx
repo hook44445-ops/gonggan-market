@@ -3,7 +3,13 @@ import { C, R, S } from "../constants";
 
 export default function PortfolioCard({ work, onExpand }) {
   const [loaded, setLoaded] = useState(false);
-  const [err, setErr] = useState(false);
+  const [err,    setErr]    = useState(false);
+
+  const afterCount  = (work.afterPhotos  ?? []).length;
+  const beforeCount = (work.beforePhotos ?? []).length;
+  const hasAfter    = afterCount  > 0;
+  const hasBefore   = beforeCount > 0;
+  const coverUrl    = work.after ?? null;
 
   return (
     <div onClick={() => onExpand(work)}
@@ -11,9 +17,10 @@ export default function PortfolioCard({ work, onExpand }) {
         border:`1px solid ${C.bgWarm}`, cursor:"pointer",
         boxShadow:"0 2px 10px rgba(28,23,18,0.07)", marginBottom:S.md }}>
 
+      {/* ── Cover photo (After) ── */}
       <div style={{ position:"relative", height:210, background:C.bgWarm }}>
-        {!err ? (
-          <img src={work.after} alt={work.title}
+        {coverUrl && !err ? (
+          <img src={coverUrl} alt={work.title}
             onLoad={() => setLoaded(true)}
             onError={() => setErr(true)}
             style={{ width:"100%", height:"100%", objectFit:"cover",
@@ -32,18 +39,21 @@ export default function PortfolioCard({ work, onExpand }) {
         <div style={{ position:"absolute", inset:0,
           background:"linear-gradient(to bottom, transparent 45%, rgba(28,23,18,0.72))" }} />
 
+        {/* AFTER badge + count */}
         <div style={{ position:"absolute", top:S.md, right:S.md,
-          background:C.brand, color:"#fff", borderRadius:R.full,
-          padding:"3px 10px", fontSize:10, fontWeight:800, letterSpacing:"0.5px" }}>
-          AFTER
+          display:"flex", gap:5, alignItems:"center" }}>
+          <div style={{ background:C.brand, color:"#fff", borderRadius:R.full,
+            padding:"3px 10px", fontSize:10, fontWeight:800, letterSpacing:"0.5px" }}>
+            AFTER{afterCount > 1 ? ` ${afterCount}장` : ""}
+          </div>
         </div>
 
-        {work.escrow && (
+        {/* BEFORE badge + count */}
+        {hasBefore && (
           <div style={{ position:"absolute", top:S.md, left:S.md,
-            background:C.navy, color:"#fff", borderRadius:R.full,
-            padding:"3px 10px", fontSize:10, fontWeight:700,
-            display:"flex", alignItems:"center", gap:4 }}>
-            🛡 에스크로 완료
+            background:"rgba(28,23,18,0.72)", color:"#fff", borderRadius:R.full,
+            padding:"3px 10px", fontSize:10, fontWeight:700 }}>
+            BEFORE{beforeCount > 1 ? ` ${beforeCount}장` : ""}
           </div>
         )}
 
@@ -62,31 +72,57 @@ export default function PortfolioCard({ work, onExpand }) {
         </div>
       </div>
 
+      {/* ── Info row ── */}
       <div style={{ padding:S.lg, display:"flex", gap:S.md, alignItems:"center" }}>
-        <div style={{ width:70, height:54, borderRadius:R.sm, overflow:"hidden",
-          flexShrink:0, position:"relative", border:`1px solid ${C.bgWarm}` }}>
-          <img src={work.before} alt="before"
-            style={{ width:"100%", height:"100%", objectFit:"cover",
-              filter:"grayscale(50%) brightness(0.88)" }}
-            onError={e => { e.target.style.background=C.bgWarm; }} />
-          <div style={{ position:"absolute", inset:0, display:"flex",
-            alignItems:"center", justifyContent:"center",
-            background:"rgba(28,23,18,0.28)" }}>
-            <span style={{ fontSize:9, color:"#fff", fontWeight:800, letterSpacing:"0.5px" }}>BEFORE</span>
+
+        {/* Before thumbnail */}
+        {hasBefore ? (
+          <div style={{ width:70, height:54, borderRadius:R.sm, overflow:"hidden",
+            flexShrink:0, position:"relative", border:`1px solid ${C.bgWarm}` }}>
+            <img src={work.before} alt="before"
+              style={{ width:"100%", height:"100%", objectFit:"cover",
+                filter:"grayscale(50%) brightness(0.88)" }}
+              onError={e => { e.target.style.background = C.bgWarm; }} />
+            <div style={{ position:"absolute", inset:0, display:"flex",
+              alignItems:"center", justifyContent:"center",
+              background:"rgba(28,23,18,0.28)" }}>
+              <span style={{ fontSize:9, color:"#fff", fontWeight:800, letterSpacing:"0.5px" }}>BEFORE</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ width:70, height:54, borderRadius:R.sm, flexShrink:0,
+            background:C.surface2, border:`1px dashed ${C.bgWarm}`,
+            display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <span style={{ fontSize:9, color:C.text4, fontWeight:700 }}>BEFORE</span>
+          </div>
+        )}
 
         <div style={{ flex:1 }}>
-          <div style={{ display:"flex", gap:S.md, marginBottom:4 }}>
-            <span style={{ fontSize:13, color:C.text2, fontWeight:600 }}>💰 {work.budget}</span>
-            <span style={{ fontSize:13, color:C.text2 }}>📅 {work.period}</span>
+          <div style={{ display:"flex", gap:S.sm, marginBottom:4, flexWrap:"wrap" }}>
+            {work.budget && (
+              <span style={{ fontSize:12, color:C.text2, fontWeight:600 }}>💰 {work.budget}</span>
+            )}
+            {work.type && (
+              <span style={{ background:C.bgWarm, color:C.text3, borderRadius:R.full,
+                padding:"2px 9px", fontSize:11, fontWeight:600 }}>{work.type}</span>
+            )}
           </div>
-          <span style={{ background:C.bgWarm, color:C.text3, borderRadius:R.full,
-            padding:"2px 9px", fontSize:11, fontWeight:600 }}>{work.type}</span>
+          <div style={{ display:"flex", gap:6 }}>
+            {hasAfter && (
+              <span style={{ fontSize:11, color:C.brand, fontWeight:700 }}>
+                시공 후 {afterCount}장
+              </span>
+            )}
+            {hasBefore && (
+              <span style={{ fontSize:11, color:C.text3, fontWeight:600 }}>
+                · 시공 전 {beforeCount}장
+              </span>
+            )}
+          </div>
         </div>
 
         <div style={{ background:C.brandL, color:C.brand, borderRadius:R.full,
-          padding:"5px 10px", fontSize:12, fontWeight:700 }}>
+          padding:"5px 10px", fontSize:12, fontWeight:700, flexShrink:0 }}>
           전후 비교 →
         </div>
       </div>
