@@ -58,6 +58,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [bidScreenDebug, setBidScreenDebug] = useState(null);
+  const [dbWriteLog, setDbWriteLog] = useState(null);
   const [localToast, setLocalToast] = useState(null);
   const showLocalToast = (msg) => { setLocalToast(msg); setTimeout(() => setLocalToast(null), 3000); };
 
@@ -185,74 +186,100 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
 
       const runDBWrites = async (pgPaymentKey = null) => {
         let contractId = null;
-        let orderId = null;
+        const log = {};
         try {
-          if (selBid.id && !String(selBid.id).startsWith("tmp-") && selBid.companyId && request?.id) {
-            const { data: escrowData } = await createEscrowRecord({
-              requestId:   request.id,
-              companyId:   selBid.companyId,
-              totalAmount: selBid.price,
-            });
-            if (escrowData) {
-              contractId = escrowData.id;
-              await createEscrowPayoutsForContract(escrowData.id, selBid.companyId, selBid.price, 0.04, 0.1);
+          const guardOk = selBid.id && !String(selBid.id).startsWith("tmp-") && selBid.companyId && request?.id;
+          log.guard = guardOk ? "ok" : `SKIP bid=${selBid.id} co=${selBid.companyId} req=${request?.id}`;
+          if (!guardOk) { setDbWriteLog(log); return; }
 
-              const { data: existingOrder } = await getPaymentOrderByBid(selBid.id);
-              let paymentOrderId = existingOrder?.id ?? null;
-              if (!existingOrder) {
-                const { data: newOrder } = await createPaymentOrder({
-                  user_id:        request.user_id ?? null,
-                  bid_id:         selBid.id,
-                  request_id:     request.id,
-                  contract_id:    escrowData.id,
-                  amount:         selBid.price,
-                  customer_fee:   fee,
-                  vat:            Math.round(fee * 0.1),
-                  total_amount:   customerTotal,
-                  payment_method: selectedMethod,
-                  fee_snapshot:   feeSnapshot,
-                  status:         "PAID",
-                });
-                paymentOrderId = newOrder?.id ?? null;
-              }
-              if (paymentOrderId) {
-                orderId = paymentOrderId;
-                if (existingOrder) await updatePaymentOrderStatus(paymentOrderId, "PAID");
-                await createPaymentTransaction({
-                  payment_order_id: paymentOrderId,
-                  pg_provider:      "toss",
-                  pg_payment_key:   pgPaymentKey ?? `test_${Date.now()}`,
-                  method:           selectedMethod ?? "CARD",
-                  amount:           customerTotal,
-                  status:           "DONE",
-                  approved_at:      new Date().toISOString(),
-                  raw_response:     { test_mode: !pgPaymentKey, method: selectedMethod },
-                });
-              }
-              const companyOwnerId = selBid.company?.ownerId ?? null;
-              if (companyOwnerId) {
-                await createNotification({
-                  userId:      companyOwnerId,
-                  type:        "COMPANY_SELECTED",
-                  title:       "계약 체결!",
-                  message:     `${request?.type ?? "시공"} 요청에서 선택되었습니다.`,
-                  relatedId:   escrowData.id,
-                  relatedType: "contract",
-                  priority:    "HIGH",
-                });
-              }
-              await logActivity({
-                userId:     request.user_id ?? null,
-                role:       "consumer",
-                action:     "CONTRACT_CREATED",
-                targetType: "contract",
-                targetId:   escrowData.id,
-                metadata:   { bidId: selBid.id, companyId: selBid.companyId, amount: selBid.price, paymentMethod: selectedMethod, feeSnapshot, pgPaymentKey },
-              });
-            }
-            await setRequestInProgress(request.id);
+          // ── 1. escrow_payments ──────────────────────────────────
+          const { data: escrowData, error: escrowErr } = await createEscrowRecord({
+            requestId:   request.id,
+            companyId:   selBid.companyId,
+            totalAmount: selBid.price,
+          });
+          log.escrow = escrowData ? escrowData.id.slice(0, 8) : (escrowErr?.message ?? "null");
+          setDbWriteLog({ ...log });
+
+          if (!escrowData) { setDbWriteLog(log); return; }
+          contractId = escrowData.id;
+
+          // ── 2. escrow_payouts (10/20/40/30%) ────────────────────
+          const { error: payoutsErr } = await createEscrowPayoutsForContract(
+            escrowData.id, selBid.companyId, selBid.price, 0.04, 0.1
+          );
+          log.payouts = payoutsErr ? payoutsErr.message : "ok(4 rows)";
+          setDbWriteLog({ ...log });
+
+          // ── 3. payment_orders ───────────────────────────────────
+          const { data: existingOrder } = await getPaymentOrderByBid(selBid.id);
+          let paymentOrderId = existingOrder?.id ?? null;
+          if (!existingOrder) {
+            const { data: newOrder, error: orderErr } = await createPaymentOrder({
+              user_id:        request.user_id ?? null,
+              bid_id:         selBid.id,
+              request_id:     request.id,
+              contract_id:    escrowData.id,
+              amount:         selBid.price,
+              customer_fee:   fee,
+              vat:            Math.round(fee * 0.1),
+              total_amount:   customerTotal,
+              payment_method: selectedMethod ?? "CARD",
+              fee_snapshot:   feeSnapshot,
+              status:         "PAID",
+            });
+            log.payment_order = newOrder ? newOrder.id.slice(0, 8) : (orderErr?.message ?? "null");
+            paymentOrderId = newOrder?.id ?? null;
+          } else {
+            log.payment_order = "existing:" + existingOrder.id.slice(0, 8);
+            await updatePaymentOrderStatus(paymentOrderId, "PAID");
           }
-          if (setEscrowContracts) setEscrowContracts(prev => [...prev, { id: contractId ?? Date.now(), requestId: selBid.requestId, bidId: selBid.id, totalAmount: customerTotal, status: "active", createdAt: new Date().toISOString() }]);
+          setDbWriteLog({ ...log });
+
+          // ── 4. payment_transactions ─────────────────────────────
+          if (paymentOrderId) {
+            const { error: txErr } = await createPaymentTransaction({
+              payment_order_id: paymentOrderId,
+              pg_provider:      "toss",
+              pg_payment_key:   pgPaymentKey ?? `test_${Date.now()}`,
+              method:           selectedMethod ?? "CARD",
+              amount:           customerTotal,
+              status:           "DONE",
+              approved_at:      new Date().toISOString(),
+              raw_response:     { test_mode: !pgPaymentKey, method: selectedMethod },
+            });
+            log.tx = txErr ? txErr.message : "ok";
+            setDbWriteLog({ ...log });
+          }
+
+          // ── 5. request → in_progress ────────────────────────────
+          const { error: statusErr } = await setRequestInProgress(request.id);
+          log.req_status = statusErr ? statusErr.message : "in_progress";
+          setDbWriteLog({ ...log });
+
+          // ── 6. notification + activity (fire-and-forget) ────────
+          const companyOwnerId = selBid.company?.ownerId ?? null;
+          if (companyOwnerId) {
+            createNotification({
+              userId:      companyOwnerId,
+              type:        "COMPANY_SELECTED",
+              title:       "계약 체결!",
+              message:     `${request?.type ?? "시공"} 요청에서 선택되었습니다.`,
+              relatedId:   escrowData.id,
+              relatedType: "contract",
+              priority:    "HIGH",
+            }).catch(() => {});
+          }
+          logActivity({
+            userId:     request.user_id ?? null,
+            role:       "consumer",
+            action:     "CONTRACT_CREATED",
+            targetType: "contract",
+            targetId:   escrowData.id,
+            metadata:   { bidId: selBid.id, companyId: selBid.companyId, amount: selBid.price, paymentMethod: selectedMethod, feeSnapshot, pgPaymentKey },
+          }).catch(() => {});
+
+          if (setEscrowContracts) setEscrowContracts(prev => [...prev, { id: contractId, requestId: selBid.requestId, bidId: selBid.id, totalAmount: customerTotal, status: "active", createdAt: new Date().toISOString() }]);
           if (setSelectedBid) setSelectedBid(selBid);
           if (onEscrow) onEscrow({ ...selBid, contractId }); else setStep("done");
         } finally {
@@ -406,6 +433,16 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   if ((step==="done" || step==="done_direct") && selBid) return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:S.xxl }}>
       <div style={{ width:"100%", maxWidth:390, textAlign:"center" }}>
+        {IS_DEBUG && dbWriteLog && (
+          <div style={{ marginBottom:16, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", textAlign:"left" }}>
+            [DEV:db_writes]<br/>
+            {Object.entries(dbWriteLog).map(([k,v]) => (
+              <span key={k} style={{display:"block", color: String(v).startsWith("ok") || String(v).match(/^[0-9a-f]{8}/) ? "#0f0" : "#f66"}}>
+                {k}: {String(v)}
+              </span>
+            ))}
+          </div>
+        )}
         <div style={{ fontSize:64, marginBottom:16 }}>✅</div>
         <div style={{ fontSize:22, fontWeight:900, color:C.text1, marginBottom:8 }}>예약 완료!</div>
         <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>{step==="done" ? "에스크로 예치 완료. 착공 확인 후 업체에 지급됩니다." : "직거래로 예약됐어요. 업체와 채팅으로 결제 조율하세요."}</div>
@@ -431,6 +468,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
             <span style={{color:"#4ff"}}>fetch_req_id (full): {bidScreenDebug?.req_id ?? "—"}</span><br/>
             fetched_count: {bidScreenDebug?.count ?? "—"}<br/>
             <span style={{color: bidScreenDebug?.err ? "#f66" : "#0f0"}}>fetch_err: {bidScreenDebug?.err ?? "none"}</span><br/>
+            {dbWriteLog && (<>
+              <span style={{color:"#ff0"}}>── DB write results ──</span><br/>
+              {Object.entries(dbWriteLog).map(([k,v]) => (
+                <span key={k} style={{display:"block", color: String(v).startsWith("ok") || String(v).match(/^[0-9a-f]{8}/) ? "#0f0" : "#f66"}}>
+                  {k}: {String(v)}
+                </span>
+              ))}
+            </>)}
             <span style={{color:"#ff0"}}>── bids_req_ids (full) ──</span><br/>
             {(bidScreenDebug?.req_ids ?? []).map((id, i) => <span key={i} style={{display:"block", color:"#8ff", paddingLeft:8}}>[{i}] {id}</span>)}
             {(bidScreenDebug?.req_ids ?? []).length === 0 && <span style={{color:"#f88"}}>bids_req_ids: [] (fetch 결과 없음)<br/></span>}

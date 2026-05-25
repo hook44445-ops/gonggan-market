@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getBidById, getCompanyByOwnerId } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getBidById, getCompanyByOwnerId, getEscrowByRequest, getBidsForRequest } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 
 // Stage status values:
@@ -76,28 +76,62 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
   const [escrowDebug, setEscrowDebug] = useState(null);
 
-  // Self-fetch: restore selectedBid from payment_orders if prop is null
+  // Self-fetch: restore selectedBid via 3-level fallback
+  // 1. payment_orders → bid_id → bids
+  // 2. escrow_payments → bids (selected) — for cases where payment_order missing
+  // 3. bids (selected) only — minimal restore when neither escrow table has data
   useEffect(() => {
     if (resolvedBid || !request?.id) return;
     const fetchContract = async () => {
-      const { data: order, error: orderErr } = await getPaymentOrderByRequest(request.id);
-      if (orderErr || !order) {
-        setEscrowDebug({ src: "self_fetch", err: orderErr?.message ?? "no order", requestId: request.id });
-        return;
-      }
-      if (order.contract_id) setResolvedContractId(order.contract_id);
-      if (!order.bid_id) { setEscrowDebug({ src: "self_fetch", err: "no bid_id" }); return; }
-      const { data: bid, error: bidErr } = await getBidById(order.bid_id);
-      if (bidErr || !bid) { setEscrowDebug({ src: "self_fetch", err: bidErr?.message ?? "no bid" }); return; }
-      const restored = {
+      const buildRestored = (bid) => ({
         id: bid.id, requestId: bid.request_id, companyId: bid.company_id,
         company: { id: bid.company_id, name: "업체", temp: 70 },
         price: bid.price, period: bid.period_days,
         material: bid.material_note ?? "", comment: bid.comment ?? "",
         createdAt: bid.created_at, status: bid.selected ? "selected" : "pending",
-      };
-      setResolvedBid(restored);
-      setEscrowDebug({ src: "self_fetch", restored: true, bidId: bid.id, orderId: order.id });
+      });
+
+      // ── Level 1: payment_orders ──────────────────────────────
+      const { data: order } = await getPaymentOrderByRequest(request.id);
+      if (order) {
+        if (order.contract_id) setResolvedContractId(order.contract_id);
+        if (order.bid_id) {
+          const { data: bid, error: bidErr } = await getBidById(order.bid_id);
+          if (bid) {
+            setResolvedBid(buildRestored(bid));
+            setEscrowDebug({ src: "payment_order", restored: true, bidId: bid.id, orderId: order.id, contractId: order.contract_id });
+            return;
+          }
+          setEscrowDebug({ src: "payment_order", err: bidErr?.message ?? "bid not found" });
+        }
+        return;
+      }
+
+      // ── Level 2: escrow_payments → bids ─────────────────────
+      const { data: escrow } = await getEscrowByRequest(request.id);
+      if (escrow) {
+        setResolvedContractId(escrow.id);
+        const { data: bidsData } = await getBidsForRequest(request.id);
+        const row = bidsData?.find(b => b.selected) ?? bidsData?.[0] ?? null;
+        if (row) {
+          setResolvedBid(buildRestored(row));
+          setEscrowDebug({ src: "escrow_fallback", restored: true, escrowId: escrow.id, bidId: row.id });
+        } else {
+          setEscrowDebug({ src: "escrow_fallback", err: "no bids", escrowId: escrow.id });
+        }
+        return;
+      }
+
+      // ── Level 3: bids only (no escrow row yet) ───────────────
+      const { data: bidsData } = await getBidsForRequest(request.id);
+      const row = bidsData?.find(b => b.selected) ?? bidsData?.[0] ?? null;
+      if (row) {
+        setResolvedBid(buildRestored(row));
+        setEscrowDebug({ src: "bids_only_fallback", restored: true, bidId: row.id, note: "no escrow row" });
+        return;
+      }
+
+      setEscrowDebug({ src: "self_fetch", err: "no order, no escrow, no bids", requestId: request.id });
     };
     fetchContract();
   }, [request?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -133,9 +167,14 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     if (resolvedContractId) return;
     const reqId = request?.id ?? resolvedBid?.requestId;
     if (!reqId) return;
-    getPaymentOrderByRequest(reqId).then(({ data }) => {
-      if (data?.contract_id) setResolvedContractId(data.contract_id);
-    }).catch(() => {});
+    const resolve = async () => {
+      const { data: order } = await getPaymentOrderByRequest(reqId);
+      if (order?.contract_id) { setResolvedContractId(order.contract_id); return; }
+      // Fallback: try escrow_payments directly
+      const { data: escrow } = await getEscrowByRequest(reqId);
+      if (escrow?.id) setResolvedContractId(escrow.id);
+    };
+    resolve().catch(() => {});
   }, [resolvedBid?.requestId, request?.id, resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isConsumer = activeRole === "consumer";
