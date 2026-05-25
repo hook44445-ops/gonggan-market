@@ -21,6 +21,9 @@ import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
+import SiteVisitModal from "./SiteVisitModal";
+import PlatformEstimateModal from "./PlatformEstimateModal";
+import CompanyActiveJobCard from "./CompanyActiveJobCard";
 import { useSpaceToken } from "../hooks/useSpaceToken";
 import { useSpaceTemperature } from "../hooks/useSpaceTemperature";
 import { MOCK_LOUNGE_POSTS } from "../constants/lounge";
@@ -33,6 +36,7 @@ import {
   createBid,
   getBidsForRequest,
   getCompanyByOwnerId,
+  getCompanyActiveJobs,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -103,6 +107,37 @@ const normalizeBid = (row) => ({
   status: row.selected ? "selected" : "pending",
 });
 
+function ConsumerRequestCard({ r, closed, dLabel, dColor, dBg, onOpen }) {
+  const [devOpen, setDevOpen] = useState(false);
+  return (
+    <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, opacity: closed ? 0.7 : 1 }}>
+      <div onClick={onOpen} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor: closed ? "default" : "pointer" }}>
+        <div>
+          <div style={{ fontSize:14, fontWeight:800, color: closed ? C.text3 : C.text1 }}>{r.type} · {r.size}</div>
+          <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>📍 {r.area} · {r.time}</div>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+          <span style={{ background:dBg, color:dColor, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>{dLabel}</span>
+          {!closed && <span style={{ fontSize:11, color:C.brand, fontWeight:700 }}>진행 현황 →</span>}
+        </div>
+      </div>
+      <div style={{ marginTop:S.sm }}>
+        <button onClick={e => { e.stopPropagation(); setDevOpen(v => !v); }}
+          style={{ background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.sm, padding:"2px 6px", fontSize:10, color:C.text4, fontWeight:700, cursor:"pointer" }}>
+          {devOpen ? "▲" : "▼"} DEV
+        </button>
+        {devOpen && (
+          <div style={{ marginTop:S.sm, background:C.bg, borderRadius:R.md, padding:S.md, fontSize:10, color:C.text3, fontFamily:"monospace", lineHeight:1.8 }}>
+            <div>request_id: {r.id ?? "-"}</div>
+            <div>request_status: {r.status ?? "-"}</div>
+            <div>fetch_err: null</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
   const mode = activeRole === "company" ? "company" : activeRole === "admin" ? "admin" : "consumer";
@@ -139,6 +174,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [localLoungeStories, setLocalLoungeStories] = useState([]);
   const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
   const { temperature } = useSpaceTemperature(user?.id);
+
+  const [activeJobs, setActiveJobs] = useState([]);
+  const [siteVisitJob, setSiteVisitJob] = useState(null);
+  const [estimateJob, setEstimateJob] = useState(null);
 
   // Admin hidden entry
   const [adminTapCount, setAdminTapCount] = useState(0);
@@ -211,6 +250,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       if (data) setCurrentUser(normalizeCompany(data));
     });
   }, [user?.id, activeRole]);
+
+  useEffect(() => {
+    if (activeRole !== "company" || !currentUser?.id) return;
+    getCompanyActiveJobs(currentUser.id).then(({ data }) => {
+      if (data) setActiveJobs(data);
+    });
+  }, [currentUser?.id, activeRole]);
 
   // Load bids + subscribe to realtime when viewing a request's bid status
   useEffect(() => {
@@ -715,10 +761,31 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               ))}
             </div>
 
+            {activeJobs.length > 0 && (
+              <div style={{ marginBottom:S.xl }}>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🔨 진행중 작업 ({activeJobs.length})</div>
+                {activeJobs.map((job) => (
+                  <CompanyActiveJobCard
+                    key={job.bid.id}
+                    job={job}
+                    onAction={(actionType, j) => {
+                      if (actionType === "schedule" || actionType === "checkin" || actionType === "field_estimate") {
+                        setSiteVisitJob(j);
+                      } else if (actionType === "platform_estimate") {
+                        setEstimateJob(j);
+                      } else if (actionType === "escrow") {
+                        go("escrow");
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
             <LiveFeed />
 
-            <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>📋 인근 시공 요청</div>
-            {customerRequests.filter(r => r.isActive !== false || r.status === undefined).map(r => (
+            <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>📋 새 견적 요청</div>
+            {customerRequests.filter(r => r.isActive !== false).map(r => (
               <BidCard
                 key={r.id}
                 r={r}
@@ -874,36 +941,47 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <div style={{ padding:S.xl }}>
                   <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:4 }}>{r.type} · {r.size}</div>
                   <div style={{ fontSize:12, color:C.text3, marginBottom:S.xl }}>📍 {r.area} · 💰 {r.budget}</div>
-                  {[
-                    { label:"견적 요청",    sub:"요청 등록 완료",             done:true,  time:r.time },
-                    { label:"업체 선택",   sub:"입찰 비교 후 계약",            done:false, active:true, bidStep:true },
-                    { label:"공사 진행",   sub:"착공 ~ 중간점검",              done:false },
-                    { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",        done:false },
-                  ].map((step, i, arr) => (
-                    <div key={step.label} style={{ display:"flex", gap:S.md, marginBottom: i<arr.length-1?S.lg:0 }}>
-                      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
-                        <div style={{ width:32, height:32, borderRadius:R.full,
-                          background: step.done?C.green : step.active?C.brand : C.bgWarm,
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:14, color: step.done||step.active?"#fff":C.text4,
-                          boxShadow: step.active?`0 0 0 4px ${C.brand}22`:"none", fontWeight:900 }}>
-                          {step.done?"✓":i+1}
+                  {(() => {
+                    const status = r.status ?? "open";
+                    const hasInProgress = ["in_progress","contracting","estimate_submitted","escrow_pending"].includes(status);
+                    const hasEscrow = ["escrow_pending","completed"].includes(status);
+                    const steps = [
+                      { label:"견적 요청", sub:"요청 등록 완료", done:true, time:r.time },
+                      { label:"업체 선택", sub:"입찰 비교 후 계약", done:hasInProgress, active:!hasInProgress, bidStep:!hasInProgress },
+                      { label:"실측 & 견적", sub:"실측 방문은 3일 내 진행됩니다", done:hasEscrow, active:hasInProgress && !hasEscrow, slaStep:hasInProgress && !hasEscrow },
+                      { label:"공사 & 정산", sub:"완료 확인 + 잔금 지급", done:false },
+                    ];
+                    return steps.map((step, i, arr) => (
+                      <div key={step.label} style={{ display:"flex", gap:S.md, marginBottom: i<arr.length-1?S.lg:0 }}>
+                        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
+                          <div style={{ width:32, height:32, borderRadius:R.full,
+                            background: step.done?C.green : step.active?C.brand : C.bgWarm,
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            fontSize:14, color: step.done||step.active?"#fff":C.text4,
+                            boxShadow: step.active?`0 0 0 4px ${C.brand}22`:"none", fontWeight:900 }}>
+                            {step.done?"✓":i+1}
+                          </div>
+                          {i<arr.length-1 && <div style={{ width:2, flex:1, minHeight:16, marginTop:4, background:step.done?C.green:C.bgWarm }} />}
                         </div>
-                        {i<arr.length-1 && <div style={{ width:2, flex:1, minHeight:16, marginTop:4, background:step.done?C.green:C.bgWarm }} />}
+                        <div style={{ flex:1, paddingTop:6 }}>
+                          <div style={{ fontSize:14, fontWeight:700, color:step.done?C.green:step.active?C.brand:C.text3 }}>{step.label}</div>
+                          <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>{step.sub}</div>
+                          {step.time && <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>{step.time}</div>}
+                          {step.bidStep && (
+                            <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
+                              style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+                              🔔 입찰 비교 후 업체 선택 →
+                            </button>
+                          )}
+                          {step.slaStep && (
+                            <div style={{ marginTop:S.sm, background:C.brandL, borderRadius:R.md, padding:"8px 12px", fontSize:11, color:C.brand }}>
+                              💬 상세 견적서는 실측 후 24시간 내 플랫폼에 등록됩니다
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ flex:1, paddingTop:6 }}>
-                        <div style={{ fontSize:14, fontWeight:700, color:step.done?C.green:step.active?C.brand:C.text3 }}>{step.label}</div>
-                        <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>{step.sub}</div>
-                        {step.time && <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>{step.time}</div>}
-                        {step.bidStep && (
-                          <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
-                            style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
-                            🔔 입찰 비교 후 업체 선택 →
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
               </div>
             ))}
@@ -1145,17 +1223,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   const dBg = r.isClosed ? C.bg
                     : r.daysLeft <= 1 ? "#FFF0F0" : r.daysLeft <= 3 ? "#FFF7E6" : C.brandL;
                   return (
-                    <div key={r.id} onClick={() => !closed && setScreen("timeline")}
-                      style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, cursor: closed ? "default" : "pointer", display:"flex", justifyContent:"space-between", alignItems:"center", opacity: closed ? 0.7 : 1 }}>
-                      <div>
-                        <div style={{ fontSize:14, fontWeight:800, color: closed ? C.text3 : C.text1 }}>{r.type} · {r.size}</div>
-                        <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>📍 {r.area} · {r.time}</div>
-                      </div>
-                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-                        <span style={{ background:dBg, color:dColor, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>{dLabel}</span>
-                        {!closed && <span style={{ fontSize:11, color:C.brand, fontWeight:700 }}>진행 현황 →</span>}
-                      </div>
-                    </div>
+                    <ConsumerRequestCard key={r.id} r={r} closed={closed} dLabel={dLabel} dColor={dColor} dBg={dBg} onOpen={() => !closed && setScreen("timeline")} />
                   );
                 })}
               </div>
@@ -1163,6 +1231,32 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           </div>
         )}
       </div>
+
+      {siteVisitJob && (
+        <SiteVisitModal
+          job={siteVisitJob}
+          companyId={currentUser?.id}
+          userId={user?.id}
+          onClose={() => setSiteVisitJob(null)}
+          onChange={(updatedJob) => {
+            setActiveJobs(prev => prev.map(j => j.bid.id === updatedJob.bid.id ? updatedJob : j));
+            setSiteVisitJob(updatedJob);
+          }}
+          onGoEstimate={(job) => { setSiteVisitJob(null); setEstimateJob(job); }}
+        />
+      )}
+      {estimateJob && (
+        <PlatformEstimateModal
+          job={estimateJob}
+          companyId={currentUser?.id}
+          userId={user?.id}
+          onClose={() => setEstimateJob(null)}
+          onChange={(updatedJob) => {
+            setActiveJobs(prev => prev.map(j => j.bid.id === updatedJob.bid.id ? updatedJob : j));
+            setEstimateJob(updatedJob);
+          }}
+        />
+      )}
 
       {/* ── 견적 마감 확인 ── */}
       {showCloseConfirm && (

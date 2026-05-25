@@ -617,6 +617,82 @@ export const adminSetCompanyStatus = async (companyId, adminId, companyStatus, r
   return { data, error };
 };
 
+export const createSiteVisit = (data) =>
+  supabase.from("site_visits").insert({ ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select().single();
+
+export const getSiteVisitForBid = (bidId) =>
+  supabase.from("site_visits").select("*").eq("bid_id", bidId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+export const getSiteVisitsByCompany = (companyId) =>
+  supabase.from("site_visits").select("*").eq("company_id", companyId).order("created_at", { ascending: false });
+
+export const updateSiteVisit = (id, data) =>
+  supabase.from("site_visits").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+
+export const gpsCheckin = (id, { lat, lng, photos }) =>
+  supabase.from("site_visits").update({
+    checked_in_at: new Date().toISOString(),
+    gps_lat: lat, gps_lng: lng,
+    photos: photos ?? [],
+    status: "checked_in",
+    updated_at: new Date().toISOString(),
+  }).eq("id", id).select().single();
+
+export const completeSiteVisit = (id, { fieldAmount, fieldNote }) => {
+  const completedAt = new Date().toISOString();
+  const estimateDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  return supabase.from("site_visits").update({
+    completed_at: completedAt,
+    estimate_due_at: estimateDueAt,
+    field_estimate_amount: fieldAmount ?? null,
+    field_estimate_note: fieldNote ?? null,
+    status: "completed",
+    updated_at: new Date().toISOString(),
+  }).eq("id", id).select().single();
+};
+
+export const createEstimate = (data) =>
+  supabase.from("estimates").insert({ ...data, status: "draft", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select().single();
+
+export const getEstimateForSiteVisit = (siteVisitId) =>
+  supabase.from("estimates").select("*").eq("site_visit_id", siteVisitId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+export const getEstimateForRequest = (requestId) =>
+  supabase.from("estimates").select("*").eq("request_id", requestId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+export const updateEstimate = (id, data) =>
+  supabase.from("estimates").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+
+export const submitEstimate = async (id, siteVisitId, requestId) => {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase.from("estimates")
+    .update({ status: "submitted", submitted_at: now, updated_at: now })
+    .eq("id", id).select().single();
+  if (!error) {
+    if (siteVisitId) await supabase.from("site_visits").update({ status: "estimate_submitted", updated_at: now }).eq("id", siteVisitId);
+    if (requestId) await supabase.from("requests").update({ status: "contracting", updated_at: now }).eq("id", requestId);
+  }
+  return { data, error };
+};
+
+export const getCompanyActiveJobs = async (companyId) => {
+  const { data: bids, error } = await supabase
+    .from("bids")
+    .select("*, requests(*)")
+    .eq("company_id", companyId)
+    .eq("selected", true)
+    .order("created_at", { ascending: false });
+  if (error || !bids) return { data: [], error };
+
+  const jobs = await Promise.all(bids.map(async (bid) => {
+    const { data: sv } = await supabase.from("site_visits").select("*").eq("bid_id", bid.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const { data: est } = sv ? await supabase.from("estimates").select("*").eq("site_visit_id", sv.id).order("created_at", { ascending: false }).limit(1).maybeSingle() : { data: null };
+    return { bid, request: bid.requests ?? null, siteVisit: sv ?? null, estimate: est ?? null };
+  }));
+
+  return { data: jobs, error: null };
+};
+
 // ── STEP B: Update request status (in_progress) ───────────────────────────────
 
 export const setRequestInProgress = (requestId) =>
@@ -907,87 +983,5 @@ export const adminReviewDocument = async (docId, adminId, reviewStatus, reason =
   }
 
   return { data, error };
-};
-
-// ── Site Visits ───────────────────────────────────────────────────────────────
-
-export const createSiteVisit = (data) =>
-  supabase.from("site_visits").insert({ ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select().single();
-
-export const getSiteVisitForBid = (bidId) =>
-  supabase.from("site_visits").select("*").eq("bid_id", bidId).order("created_at", { ascending: false }).limit(1).maybeSingle();
-
-export const getSiteVisitsByCompany = (companyId) =>
-  supabase.from("site_visits").select("*").eq("company_id", companyId).order("created_at", { ascending: false });
-
-export const updateSiteVisit = (id, data) =>
-  supabase.from("site_visits").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
-
-export const gpsCheckin = (id, { lat, lng, photos }) =>
-  supabase.from("site_visits").update({
-    checked_in_at: new Date().toISOString(),
-    gps_lat: lat, gps_lng: lng,
-    photos: photos ?? [],
-    status: "checked_in",
-    updated_at: new Date().toISOString(),
-  }).eq("id", id).select().single();
-
-export const completeSiteVisit = (id, { fieldAmount, fieldNote }) => {
-  const completedAt = new Date().toISOString();
-  const estimateDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-  return supabase.from("site_visits").update({
-    completed_at: completedAt,
-    estimate_due_at: estimateDueAt,
-    field_estimate_amount: fieldAmount ?? null,
-    field_estimate_note: fieldNote ?? null,
-    status: "completed",
-    updated_at: new Date().toISOString(),
-  }).eq("id", id).select().single();
-};
-
-// ── Estimates ─────────────────────────────────────────────────────────────────
-
-export const createEstimate = (data) =>
-  supabase.from("estimates").insert({ ...data, status: "draft", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select().single();
-
-export const getEstimateForSiteVisit = (siteVisitId) =>
-  supabase.from("estimates").select("*").eq("site_visit_id", siteVisitId).order("created_at", { ascending: false }).limit(1).maybeSingle();
-
-export const getEstimateForRequest = (requestId) =>
-  supabase.from("estimates").select("*").eq("request_id", requestId).order("created_at", { ascending: false }).limit(1).maybeSingle();
-
-export const updateEstimate = (id, data) =>
-  supabase.from("estimates").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
-
-export const submitEstimate = async (id, siteVisitId, requestId) => {
-  const now = new Date().toISOString();
-  const { data, error } = await supabase.from("estimates")
-    .update({ status: "submitted", submitted_at: now, updated_at: now })
-    .eq("id", id).select().single();
-  if (!error) {
-    if (siteVisitId) await supabase.from("site_visits").update({ status: "estimate_submitted", updated_at: now }).eq("id", siteVisitId);
-    if (requestId) await supabase.from("requests").update({ status: "contracting", updated_at: now }).eq("id", requestId);
-  }
-  return { data, error };
-};
-
-// ── Company Active Jobs ───────────────────────────────────────────────────────
-
-export const getCompanyActiveJobs = async (companyId) => {
-  const { data: bids, error } = await supabase
-    .from("bids")
-    .select("*, requests(*)")
-    .eq("company_id", companyId)
-    .eq("selected", true)
-    .order("created_at", { ascending: false });
-  if (error || !bids) return { data: [], error };
-
-  const jobs = await Promise.all(bids.map(async (bid) => {
-    const { data: sv } = await supabase.from("site_visits").select("*").eq("bid_id", bid.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    const { data: est } = sv ? await supabase.from("estimates").select("*").eq("site_visit_id", sv.id).order("created_at", { ascending: false }).limit(1).maybeSingle() : { data: null };
-    return { bid, request: bid.requests ?? null, siteVisit: sv ?? null, estimate: est ?? null };
-  }));
-
-  return { data: jobs, error: null };
 };
 
