@@ -136,42 +136,42 @@ const maskCompanyName = (name) => {
   return name.slice(0, Math.min(Math.ceil(len / 2), 4)) + "***";
 };
 
-// ── 홈 리뷰 목업 풀 (picsum.photos seed — 안정적 무료 이미지) ─────────────
+// ── 홈 리뷰 목업 풀 (Unsplash 실제 인테리어 공간 사진) ──────────────────────
 const MOCK_REVIEW_POOL = [
   {
     id: "mr1", isMock: true, rating: 5,
     content: "입주 전 낡고 어두운 분위기였는데 시공 후 완전히 달라졌어요. 단계마다 사진으로 확인하면서 진행돼 믿음이 갔습니다.",
     space_type: "32평 아파트 전체", region: "강남구", user_name: "김○○", maskedName: "공간○○",
-    beforeImage: "https://picsum.photos/seed/apt-old-01/400/300",
-    afterImage:  "https://picsum.photos/seed/apt-new-01/400/300",
+    beforeImage: "https://images.unsplash.com/photo-1449247709967-d4461a6a6103?w=400&h=300&fit=crop&q=75",
+    afterImage:  "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop&q=75",
   },
   {
     id: "mr2", isMock: true, rating: 5,
     content: "카페 개업 전 리모델링인데 일정을 딱 맞게 끝내줬어요. 중간 점검 사진도 꼼꼼하게 보내줘서 안심됐습니다.",
     space_type: "카페 리모델링", region: "마포구", user_name: "이○○", maskedName: "홍○시공",
-    beforeImage: "https://picsum.photos/seed/cafe-old-02/400/300",
-    afterImage:  "https://picsum.photos/seed/cafe-new-02/400/300",
+    beforeImage: "https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=400&h=300&fit=crop&q=75",
+    afterImage:  "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop&q=75",
   },
   {
     id: "mr3", isMock: true, rating: 5,
     content: "욕실 전체를 바꿨는데 타일 선택부터 완료까지 기록이 다 남아서 나중에 확인하기도 좋았어요.",
     space_type: "욕실 리모델링", region: "송파구", user_name: "박○○", maskedName: "우리○시공",
-    beforeImage: "https://picsum.photos/seed/bath-old-03/400/300",
-    afterImage:  "https://picsum.photos/seed/bath-new-03/400/300",
+    beforeImage: "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=400&h=300&fit=crop&q=75",
+    afterImage:  "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=400&h=300&fit=crop&q=75",
   },
   {
     id: "mr4", isMock: true, rating: 5,
     content: "낡은 주방을 전면 교체했어요. 자재 반입부터 마감까지 사진으로 공유해줘서 진행 상황을 확인할 수 있었습니다.",
     space_type: "주방 전면 교체", region: "수원 영통", user_name: "최○○", maskedName: "공간***",
-    beforeImage: "https://picsum.photos/seed/kit-old-04/400/300",
-    afterImage:  "https://picsum.photos/seed/kit-new-04/400/300",
+    beforeImage: "https://images.unsplash.com/photo-1565538810643-b5bdb714032a?w=400&h=300&fit=crop&q=75",
+    afterImage:  "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop&q=75",
   },
   {
     id: "mr5", isMock: true, rating: 5,
     content: "오피스 이전에 맞춰 인테리어를 진행했는데 공사 범위를 계약서로 명확히 정해두니 추가 비용 없이 마무리됐습니다.",
     space_type: "오피스 인테리어", region: "중구", user_name: "정○○", maskedName: "홍***",
-    beforeImage: "https://picsum.photos/seed/office-old-05/400/300",
-    afterImage:  "https://picsum.photos/seed/office-new-05/400/300",
+    beforeImage: "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=400&h=300&fit=crop&q=75",
+    afterImage:  "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop&q=75",
   },
 ];
 
@@ -959,20 +959,21 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                 cursor:"default" }}>
                               {/* BEFORE / AFTER 이미지 */}
                               <div style={{ display:"flex", height:116, overflow:"hidden" }}>
-                                <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff" }}>
+                                <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff",
+                                  background:"#9a9088" }}>
                                   <img src={rv.beforeImage} alt=""
                                     style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
-                                    onError={e => { e.target.style.display="none"; }} />
+                                    onError={e => { e.target.style.opacity="0"; }} />
                                   <span style={{ position:"absolute", bottom:4, left:4,
                                     background:"rgba(58,95,204,0.82)", color:"#fff",
                                     borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
                                     BEFORE
                                   </span>
                                 </div>
-                                <div style={{ flex:1, position:"relative" }}>
+                                <div style={{ flex:1, position:"relative", background:"#e8d8c0" }}>
                                   <img src={rv.afterImage} alt=""
                                     style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
-                                    onError={e => { e.target.style.display="none"; }} />
+                                    onError={e => { e.target.style.opacity="0"; }} />
                                   <span style={{ position:"absolute", bottom:4, right:4,
                                     background:"rgba(0,0,0,0.45)", color:"#fff",
                                     borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
@@ -1115,6 +1116,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                       mock_reviews_count: {displayReviews.filter(r => r.isMock).length}<br/>
                       rendered_reviews_count: {displayReviews.length}<br/>
                       first_real_review_id: {firstReal?.id ?? "—"}<br/>
+                      first_real_status: {firstReal?.status ?? "—"}<br/>
+                      first_real_rating: {firstReal?.rating ?? "—"}<br/>
                       first_real_before_count: {firstReal?.before_image_urls?.length ?? 0}<br/>
                       first_real_after_count: {firstReal?.after_image_urls?.length ?? 0}<br/>
                       first_real_image_count: {firstReal?.image_urls?.length ?? 0}<br/>
