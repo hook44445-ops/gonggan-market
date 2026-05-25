@@ -277,9 +277,18 @@ export const getTopReviews = ({ limit = 12 } = {}) =>
     .from("reviews")
     .select("id, company_id, rating, content, status, image_urls, before_image_urls, after_image_urls, created_at, user_name, region, tags, space_type, companies(name)")
     .gte("rating", 1)
-    .in("status", ["published", "approved"])
+    // DEV: status 조건 완화 (published/approved/pending/null 모두 허용)
+    // .in("status", ["published", "approved"])
     .or("is_hidden.is.null,is_hidden.eq.false")
-    .order("rating", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+// 진단용 raw 쿼리 — status 조건 없이 전체 조회
+export const getRawReviewsDiag = ({ limit = 10 } = {}) =>
+  supabase
+    .from("reviews")
+    .select("id, company_id, contract_id, rating, status, is_hidden, image_urls, before_image_urls, after_image_urls, created_at")
+    .or("is_hidden.is.null,is_hidden.eq.false")
     .order("created_at", { ascending: false })
     .limit(limit);
 
