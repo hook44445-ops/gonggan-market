@@ -50,6 +50,7 @@ import {
   setRequestInProgress,
   getCompanyBids,
   getEscrowWithPayouts,
+  getActiveRequestByUser,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -193,6 +194,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [selCo, setSelCo] = useState(null);
   const [toast, setToast] = useState(null);
   const [showReq, setShowReq] = useState(false);
+  const [reqBlockModal, setReqBlockModal] = useState(false);
   const [myRequests, setMyRequests] = useState([]);
   const [bidAlert, setBidAlert] = useState(null);
   const [bidViewRequestId, setBidViewRequestId] = useState(null);
@@ -610,6 +612,22 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     action();
   };
 
+  const ACTIVE_STATUSES = ["open", "in_progress", "contracting", "escrow_pending"];
+
+  const handleOpenNewReq = async () => {
+    // 1. Local cache check (instant)
+    const hasLocalActive = myRequests.some(r =>
+      ACTIVE_STATUSES.includes(r.status) && !r.is_hidden && !r.is_deleted
+    );
+    if (hasLocalActive) { setReqBlockModal(true); return; }
+    // 2. Server-side confirmation
+    if (user?.id) {
+      const { data: existing } = await getActiveRequestByUser(user.id);
+      if (existing) { setReqBlockModal(true); return; }
+    }
+    setShowReq(true);
+  };
+
   const addBid = async (request, bidData) => {
     if (currentUser?.companyStatus && currentUser.companyStatus !== "ACTIVE") {
       showToast("현재 업체 상태에서는 입찰할 수 없습니다. 관리자 승인 후 이용 가능합니다.");
@@ -783,7 +801,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     📋 진행 중인 견적이 있습니다
                   </div>
                 ) : (
-                  <button onClick={() => setShowReq(true)}
+                  <button onClick={handleOpenNewReq}
                     style={{ background:C.brand, color:"#fff", border:"none",
                       borderRadius:R.full, padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer",
                       boxShadow:`0 4px 16px ${C.brand}44` }}>
@@ -1489,7 +1507,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <div style={{ textAlign:"center", padding:"60px 0" }}>
                 <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
                 <div style={{ fontSize:14, color:C.text3 }}>아직 견적 요청이 없어요</div>
-                <button onClick={() => { setScreen("home"); setShowReq(true); }}
+                <button onClick={() => { setScreen("home"); handleOpenNewReq(); }}
                   style={{ marginTop:S.xl, padding:"12px 24px", background:C.brand,
                     color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer" }}>
                   안전하게 견적 시작하기
@@ -1785,7 +1803,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   <div style={{ background:C.surface, borderRadius:R.xl, padding:"40px 20px", textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
                     <div style={{ fontSize:32, marginBottom:10 }}>📋</div>
                     <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>아직 견적 요청이 없어요</div>
-                    <button onClick={() => { setScreen("home"); setShowReq(true); }}
+                    <button onClick={() => { setScreen("home"); handleOpenNewReq(); }}
                       style={{ padding:"12px 24px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer" }}>
                       첫 견적 시작하기
                     </button>
@@ -1953,7 +1971,45 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         />
       )}
 
+      {reqBlockModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:500 }}>
+          <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"28px 24px 40px" }}>
+            <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
+            <div style={{ fontSize:22, textAlign:"center", marginBottom:12 }}>📋</div>
+            <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
+              진행 중인 견적요청이 있습니다
+            </div>
+            <div style={{ fontSize:13, color:C.text3, textAlign:"center", lineHeight:1.7, marginBottom:S.xl }}>
+              기존 요청을 마감하거나 완료한 뒤<br/>새 요청을 등록할 수 있습니다.
+            </div>
+            <button
+              onClick={() => { setReqBlockModal(false); setScreen("home"); }}
+              style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff", border:"none",
+                borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
+                boxShadow:`0 4px 16px ${C.brand}44`, marginBottom:10 }}>
+              진행 중 요청 보기
+            </button>
+            <button
+              onClick={() => setReqBlockModal(false)}
+              style={{ width:"100%", padding:"12px", background:C.surface2, color:C.text3,
+                border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
       {showReq && <RequestModal onClose={() => setShowReq(false)} onDone={async (form) => {
+        // Pre-insert server-side duplicate guard
+        if (user?.id) {
+          const { data: dup } = await getActiveRequestByUser(user.id);
+          if (dup) {
+            setShowReq(false);
+            setReqBlockModal(true);
+            return;
+          }
+        }
+
         // Optimistic local entry (shown immediately)
         const _now = Date.now();
         const optimistic = {

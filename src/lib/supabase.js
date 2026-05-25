@@ -103,6 +103,17 @@ export const getUserRequests = (userId) =>
     .or("is_hidden.is.null,is_hidden.eq.false")
     .order("created_at", { ascending: false });
 
+export const getActiveRequestByUser = (userId) =>
+  supabase
+    .from("requests")
+    .select("id, status, space_type, created_at")
+    .eq("user_id", userId)
+    .in("status", ["open", "in_progress", "contracting", "escrow_pending"])
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .limit(1)
+    .maybeSingle();
+
 export const closeRequest = (id) =>
   supabase.from("requests").update({ status: "closed" }).eq("id", id);
 
