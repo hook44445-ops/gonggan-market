@@ -50,11 +50,12 @@ const STEPS = [
   { num: 5, label: "완료 후 정산", desc: "완료 확인 후 업체 지급 / 분쟁 시 관리자 개입" },
 ];
 
-export default function LandingScreen({ onSelectRole }) {
+export default function LandingScreen({ onSelectRole, onAdminTap }) {
   const [heroRef, heroVisible]     = useVisible(0.05);
   const [sec1Ref, sec1Visible]     = useVisible(0.1);
   const [sec2Ref, sec2Visible]     = useVisible(0.1);
   const [sec3Ref, sec3Visible]     = useVisible(0.1);
+  const [versionTapCount, setVersionTapCount] = useState(0);
 
   const btnBase = {
     display: "flex", alignItems: "center", justifyContent: "center",
@@ -65,11 +66,20 @@ export default function LandingScreen({ onSelectRole }) {
 
   return (
     <div style={{
+      display: "flex",
+      flexDirection: "column",
       minHeight: "100vh",
       background: C.bg,
       fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif",
-      overflowX: "hidden",
     }}>
+      {/* DEPLOY CHECK — 배포 확인용 */}
+      <div style={{ background:"#1a1a1a", color:"#00ff88", textAlign:"center", padding:"4px 0", fontSize:10, fontFamily:"monospace", letterSpacing:"0.5px" }}>
+        ▶ DEPLOY 2026-05-25 sha:{typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "?"} ◀
+        &nbsp;|&nbsp;landing_footer_rendered:true
+        &nbsp;|&nbsp;review_card_v2_enabled:true
+        &nbsp;|&nbsp;live_hybrid_enabled:true
+        &nbsp;|&nbsp;MODE:{import.meta.env.MODE}
+      </div>
 
       {/* ── HERO ──────────────────────────────────────────────────── */}
       <div style={{
@@ -80,6 +90,7 @@ export default function LandingScreen({ onSelectRole }) {
         paddingRight: 24,
         position: "relative",
         overflow: "hidden",
+        flexShrink: 0,
       }}>
         {/* decorative circle */}
         <div style={{
@@ -292,6 +303,36 @@ export default function LandingScreen({ onSelectRole }) {
           }}>
             가입비 없음 · 견적 무료 · 단계별 안전정산
           </div>
+        </div>
+      </div>
+
+      {/* ── Footer version ───────────────────────────────────────── */}
+      <div style={{
+        marginTop: "auto",
+        padding: "20px 20px 36px",
+        background: "#e8e4dc",
+        borderTop: "1px solid #d6d0c8",
+        textAlign: "center",
+        flexShrink: 0,
+      }}>
+        <div
+          onClick={() => {
+            const next = versionTapCount + 1;
+            setVersionTapCount(next);
+            if (next >= 5) {
+              setVersionTapCount(0);
+              if (onAdminTap) onAdminTap();
+            }
+          }}
+          style={{
+            fontSize: 12,
+            color: "#7a7265",
+            cursor: "default",
+            userSelect: "none",
+            letterSpacing: "0.03em",
+            fontWeight: 500,
+          }}>
+          공간마켓 v0.1.0
         </div>
       </div>
     </div>

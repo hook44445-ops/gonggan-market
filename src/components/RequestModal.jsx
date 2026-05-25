@@ -1,9 +1,15 @@
 import { useState } from "react";
 import { C, R, S, SPACE_TYPES, STYLES } from "../constants";
 
-export default function RequestModal({ onClose, onDone }) {
+export default function RequestModal({ onClose, onDone, initialData = null, isEdit = false }) {
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ type:"", size:"", budget:"", style:"", desc:"" });
+  const [form, setForm] = useState({
+    type:   initialData?.type   ?? "",
+    size:   initialData?.size   ?? "",
+    budget: initialData?.budget ?? "",
+    style:  initialData?.style  ?? "",
+    desc:   initialData?.desc   ?? "",
+  });
   const set = (k,v) => setForm(f => ({...f,[k]:v}));
   const iS = { width:"100%", padding:"14px 16px", border:`1.5px solid ${C.bgWarm}`,
     borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box",
@@ -20,7 +26,7 @@ export default function RequestModal({ onClose, onDone }) {
         </div>
 
         {step===1 && <>
-          <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:4 }}>어떤 공간인가요?</div>
+          <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:4 }}>{isEdit ? "견적 요청 수정" : "어떤 공간인가요?"}</div>
           <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>시공할 공간을 선택해주세요</div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:S.xl }}>
             {SPACE_TYPES.map(t => (
@@ -97,7 +103,7 @@ export default function RequestModal({ onClose, onDone }) {
           </div>
           <div style={{ display:"flex", gap:S.sm }}>
             <button onClick={() => setStep(2)} style={{ flex:0.5, padding:S.xl, background:C.bg, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>← 이전</button>
-            <button onClick={() => form.desc&&onDone(form)} style={{ flex:1, padding:S.xl, background:form.desc?C.brand:"#E8E4DC", color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:form.desc?"pointer":"not-allowed" }}>🚀 견적 요청하기</button>
+            <button onClick={() => form.desc&&onDone(form)} style={{ flex:1, padding:S.xl, background:form.desc?C.brand:"#E8E4DC", color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:form.desc?"pointer":"not-allowed" }}>{isEdit ? "✅ 수정 완료" : "🚀 견적 요청하기"}</button>
           </div>
         </>}
       </div>

@@ -4,21 +4,21 @@ import { BADGES } from "../constants/badges";
 import { COMPANY_STATUS_META } from "../constants";
 import {
   supabase,
-  getCompanies,
-  getUsers,
-  adminReviewCompany,
-  adminSetCompanyStatus,
-  createNotification,
-  getUserNotifications,
-  getAdminLogs,
-  getOpsConfig,
-  updateOpsConfig,
-  getPaymentOrders,
-  adminUpdatePaymentOrder,
-  getDisputePayments,
-  getPendingPayouts,
-  adminSetPayoutStatus,
-  getCompanyDocuments,
+  getCompanies, getUsers,
+  adminReviewCompany, adminSetCompanyStatus,
+  createNotification, getUserNotifications,
+  getAdminLogs, getOpsConfig, updateOpsConfig,
+  getPaymentOrders, adminUpdatePaymentOrder,
+  getDisputePayments, adminResolveDispute,
+  getPendingPayouts, adminSetPayoutStatus,
+  adminSetUserStatus, adminAdjustSpaceTemp, adminAdjustUserTokens,
+  adminGetLoungePosts, getLoungeReports,
+  adminHideContent, adminUpdateLoungeReport,
+  getCustomerReports, updateCustomerReportStatus,
+  holdAllPayoutsForEscrow,
+  getCompanyDocuments, adminReviewDocument,
+  getReviewRewardsPending, updateReviewReward,
+  adminGetHiddenRequests, adminRestoreRequest,
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
@@ -225,6 +225,17 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [toast, setToast]                   = useState(null);
   const [companyDocuments, setCompanyDocuments] = useState([]);
   const [showDocReview, setShowDocReview]   = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [tokenInput, setTokenInput]   = useState("");
+  const [tempInput, setTempInput]     = useState("");
+  const [adjReason, setAdjReason]     = useState("");
+  const [loungePosts, setLoungePosts]   = useState([]);
+  const [loungeReports, setLoungeReports] = useState([]);
+  const [reports, setReports]           = useState([]);
+  const [reviewRewards, setReviewRewards] = useState([]);
+  const [hiddenRequests, setHiddenRequests] = useState([]);
+  const [hiddenLoading, setHiddenLoading] = useState(false);
+  const [restoring, setRestoring] = useState(null);
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -290,7 +301,26 @@ export default function AdminScreen({ onBack, onHome, user }) {
         if (data) setSettlements(data);
       });
     }
-  }, [mainTab]);
+    if (mainTab === "lounge") {
+      Promise.all([
+        adminGetLoungePosts().catch(() => ({ data: [] })),
+        getLoungeReports().catch(() => ({ data: [] })),
+      ]).then(([{ data: p }, { data: r }]) => {
+        setLoungePosts(p ?? []);
+        setLoungeReports(r ?? []);
+      });
+    }
+    if (mainTab === "reports") {
+      getCustomerReports().then(({ data }) => setReports(data ?? [])).catch(() => setReports([]));
+    }
+    if (mainTab === "reviews") {
+      getReviewRewardsPending().then(({ data }) => setReviewRewards(data ?? [])).catch(() => setReviewRewards([]));
+    }
+    if (mainTab === "hidden") {
+      setHiddenLoading(true);
+      adminGetHiddenRequests().then(({ data }) => setHiddenRequests(data ?? [])).catch(() => setHiddenRequests([])).finally(() => setHiddenLoading(false));
+    }
+  }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stats = {
     pending:     companies.filter(c => c.status === "pending").length,
@@ -390,14 +420,55 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setDocModal(null);
   };
 
+  const handleCustomerStatus = async (customer, status, reason) => {
+    setActionLoading(true);
+    const { error } = await adminSetUserStatus(customer.id, user?.id, status, reason);
+    if (!error) {
+      const update = { accountStatus: status };
+      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, ...update } : c));
+      setSelectedCustomer(prev => prev ? { ...prev, ...update } : prev);
+      showToast("상태 변경 완료");
+    } else { showToast("처리 실패", false); }
+    setActionLoading(false);
+  };
+
+  const handleAdjustTemp = async (customer, delta) => {
+    setActionLoading(true);
+    const { error } = await adminAdjustSpaceTemp(customer.id, user?.id, delta, adjReason || null);
+    if (!error) {
+      const next = Math.round(Math.min(99, Math.max(0, (customer.spaceTemp ?? 36.5) + delta)) * 10) / 10;
+      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, spaceTemp: next } : c));
+      setSelectedCustomer(prev => prev ? { ...prev, spaceTemp: next } : prev);
+      showToast("공간온도 조정 완료");
+    } else { showToast("처리 실패", false); }
+    setActionLoading(false);
+    setAdjReason("");
+  };
+
+  const handleAdjustTokens = async (customer, delta) => {
+    setActionLoading(true);
+    const { error } = await adminAdjustUserTokens(customer.id, user?.id, delta, adjReason || null);
+    if (!error) {
+      const next = Math.max(0, (customer.spaceTokens ?? 0) + delta);
+      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, spaceTokens: next } : c));
+      setSelectedCustomer(prev => prev ? { ...prev, spaceTokens: next } : prev);
+      showToast("토큰 조정 완료");
+    } else { showToast("처리 실패", false); }
+    setActionLoading(false);
+    setAdjReason("");
+  };
+
   const MAIN_TABS = [
     ["dashboard",      "대시보드"],
     ["companies",      "업체관리"],
     ["customers",      "고객관리"],
+    ["hidden",         "숨김요청관리"],
     ["payments",       "결제관리"],
     ["disputes",       "분쟁관리"],
     ["settlements",    "정산관리"],
+    ["reviews",        "리뷰관리"],
     ["lounge",         "라운지관리"],
+    ["reports",        "신고관리"],
     ["notifications",  "알림"],
   ];
 
@@ -635,6 +706,84 @@ export default function AdminScreen({ onBack, onHome, user }) {
               </div>
             )}
 
+            {/* ── Hidden Request Management ── */}
+            {mainTab === "hidden" && (
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+                  숨김 요청 목록
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.red, marginLeft: 8 }}>
+                    {hiddenRequests.length}건
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg }}>
+                  의뢰인이 숨긴 견적 요청입니다. "다시 보이기"로 복구할 수 있습니다.
+                </div>
+
+                {hiddenLoading ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", color: C.text3, fontSize: 14 }}>
+                    로딩 중...
+                  </div>
+                ) : hiddenRequests.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>숨김 처리된 요청이 없습니다</div>
+                  </div>
+                ) : hiddenRequests.map(req => (
+                  <div key={req.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                    marginBottom: S.sm, border: `1.5px solid ${C.red}22` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                      <div style={{ flex: 1, marginRight: S.sm }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+                          {req.space_type ?? "—"} · {req.area ?? "—"} · {req.size ?? "—"}평
+                        </div>
+                        <div style={{ fontSize: 12, color: C.text3, marginBottom: 2 }}>
+                          스타일: {req.style ?? "—"}
+                        </div>
+                        {req.description && (
+                          <div style={{ fontSize: 11, color: C.text4, lineHeight: 1.5 }}>
+                            {req.description.slice(0, 60)}{req.description.length > 60 ? "…" : ""}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <span style={{ background: "#FFF0F0", color: C.red, borderRadius: R.full,
+                          padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>숨김</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: C.text4 }}>
+                          숨김 처리: {req.archived_at ? new Date(req.archived_at).toLocaleDateString("ko-KR") : "—"}
+                        </div>
+                        {req.hidden_reason && (
+                          <div style={{ fontSize: 11, color: C.text4 }}>사유: {req.hidden_reason}</div>
+                        )}
+                      </div>
+                      <button
+                        disabled={restoring === req.id}
+                        onClick={async () => {
+                          setRestoring(req.id);
+                          const { data, error } = await adminRestoreRequest(req.id);
+                          if (!error && data) {
+                            setHiddenRequests(prev => prev.filter(r => r.id !== req.id));
+                            showToast("요청이 다시 노출됩니다");
+                          } else {
+                            showToast("복구 실패", false);
+                          }
+                          setRestoring(null);
+                        }}
+                        style={{ padding: "8px 16px", background: C.brandL, color: C.brand,
+                          border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 700,
+                          fontSize: 12, cursor: restoring === req.id ? "not-allowed" : "pointer",
+                          opacity: restoring === req.id ? 0.6 : 1 }}>
+                        {restoring === req.id ? "처리 중..." : "다시 보이기"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* ── Payment Management ── */}
             {mainTab === "payments" && (
               <div>
@@ -869,7 +1018,157 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── Lounge Management ── */}
             {mainTab === "lounge" && <LoungeManagementTab />}
 
+            {/* ── Customer Reports ── */}
+            {mainTab === "reports" && (
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
+                  신고 <span style={{ color: C.red }}>{reports.length}건</span>
+                </div>
+                {reports.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>신고 내역 없음</div>
+                  </div>
+                ) : reports.map(r => (
+                  <div key={r.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{r.subject ?? "신고"}</div>
+                        <div style={{ fontSize: 11, color: C.text3 }}>{r.created_at ? new Date(r.created_at).toLocaleDateString("ko-KR") : ""}</div>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: r.status === "resolved" ? C.green : C.gold,
+                        background: r.status === "resolved" ? C.greenL : "#FBF5E8",
+                        borderRadius: R.full, padding: "3px 10px" }}>
+                        {r.status === "resolved" ? "처리완료" : "검토중"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: C.text2, marginBottom: S.sm }}>{r.description ?? ""}</div>
+                    {r.status !== "resolved" && (
+                      <button
+                        disabled={actionLoading}
+                        onClick={() => {
+                          setActionLoading(true);
+                          updateCustomerReportStatus(r.id, "resolved").then(({ error }) => {
+                            if (!error) setReports(prev => prev.map(x => x.id === r.id ? { ...x, status: "resolved" } : x));
+                            else showToast("처리 실패", false);
+                            setActionLoading(false);
+                          });
+                        }}
+                        style={{ padding: "7px 16px", borderRadius: R.lg, background: C.brand, color: "#fff",
+                          border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        처리 완료
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* ── Notifications ── */}
+            {mainTab === "reviews" && (
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+                  포토리뷰 쿠폰 관리
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.brand, marginLeft: 8 }}>
+                    {reviewRewards.filter(r => r.status === "PENDING").length}건 대기
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg }}>
+                  포토리뷰 확인 후 커피쿠폰을 발송 처리하세요
+                </div>
+
+                {reviewRewards.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>☕</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>대기 중인 포토리뷰가 없습니다</div>
+                  </div>
+                ) : reviewRewards.map(rw => {
+                  const rv = rw.reviews ?? {};
+                  const imgs = rv.image_urls ?? [];
+                  const isPending  = rw.status === "PENDING";
+                  const isSent     = rw.status === "SENT";
+                  const isCanceled = rw.status === "CANCELED";
+                  return (
+                    <div key={rw.id} style={{ background: C.surface, borderRadius: R.xl,
+                      marginBottom: S.md, border: `1.5px solid ${isPending ? "#F5D97A" : C.bgWarm}`,
+                      overflow: "hidden" }}>
+                      <div style={{ height: 3, background: isPending ? "#F5C842" : isSent ? C.brand : C.text4 }} />
+                      <div style={{ padding: S.xl }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                          <div>
+                            <span style={{ background: isPending ? "#FFF8EC" : isSent ? C.brandL : C.surface2,
+                              color: isPending ? "#8A5C00" : isSent ? C.brand : C.text4,
+                              border: `1px solid ${isPending ? "#F5D97A" : isSent ? C.brandM : C.bgWarm}`,
+                              borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>
+                              {isPending ? "☕ 쿠폰 대기" : isSent ? "✅ 발송 완료" : "취소됨"}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 11, color: C.text4 }}>
+                            {rw.created_at?.slice(0, 10)}
+                          </div>
+                        </div>
+
+                        {rv.content && (
+                          <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6, marginBottom: S.sm }}>
+                            {"★".repeat(rv.rating ?? 0)} — {rv.content?.slice(0, 80)}{(rv.content?.length ?? 0) > 80 ? "…" : ""}
+                          </div>
+                        )}
+
+                        {imgs.length > 0 && (
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: S.md }}>
+                            {imgs.slice(0, 5).map((url, i) => (
+                              <img key={i} src={url} alt=""
+                                style={{ width: 72, height: 72, objectFit: "cover",
+                                  borderRadius: R.md, border: `1px solid ${C.bgWarm}` }}
+                                onError={e => { e.target.style.display = "none"; }} />
+                            ))}
+                            {imgs.length > 5 && (
+                              <div style={{ width: 72, height: 72, borderRadius: R.md,
+                                background: C.surface2, border: `1px solid ${C.bgWarm}`,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 12, color: C.text3, fontWeight: 700 }}>
+                                +{imgs.length - 5}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {isPending && (
+                          <div style={{ display: "flex", gap: S.sm }}>
+                            <button
+                              onClick={async () => {
+                                const { data } = await updateReviewReward(rw.id, "SENT");
+                                if (data) setReviewRewards(prev => prev.map(r => r.id === rw.id ? { ...r, status: "SENT", sent_at: data.sent_at } : r));
+                                showToast("쿠폰 발송 처리 완료");
+                              }}
+                              style={{ flex: 2, padding: "10px", background: C.brand, color: "#fff",
+                                border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                              ☕ SENT 처리
+                            </button>
+                            <button
+                              onClick={async () => {
+                                await updateReviewReward(rw.id, "CANCELED");
+                                setReviewRewards(prev => prev.map(r => r.id === rw.id ? { ...r, status: "CANCELED" } : r));
+                                showToast("취소 처리됨", false);
+                              }}
+                              style={{ flex: 1, padding: "10px", background: C.surface2, color: C.text3,
+                                border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                              취소
+                            </button>
+                          </div>
+                        )}
+                        {isSent && (
+                          <div style={{ fontSize: 12, color: C.brand, fontWeight: 700 }}>
+                            발송 완료: {rw.sent_at?.slice(0, 16).replace("T", " ") ?? "—"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {mainTab === "notifications" && (
               <div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>

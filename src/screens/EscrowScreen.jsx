@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getBidById, getCompanyByOwnerId, getEscrowByRequest, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 
 // Stage status values:
@@ -70,9 +70,115 @@ const TIMELINE_ICONS = {
   dispute:  "⚠️",
 };
 
-export default function EscrowScreen({ onBack, mode, selectedBid, contractId, userId }) {
-  const isConsumer = mode === "consumer";
-  const bidAmount   = selectedBid?.price ?? 0;
+export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview }) {
+  const IS_DEBUG = true;
+  const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
+  const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
+  const [escrowDebug, setEscrowDebug] = useState(null);
+
+  // Self-fetch: restore selectedBid via 3-level fallback
+  // 1. payment_orders → bid_id → bids
+  // 2. escrow_payments → bids (selected) — for cases where payment_order missing
+  // 3. bids (selected) only — minimal restore when neither escrow table has data
+  useEffect(() => {
+    if (resolvedBid || !request?.id) return;
+    const fetchContract = async () => {
+      const buildRestored = (bid) => ({
+        id: bid.id, requestId: bid.request_id, companyId: bid.company_id,
+        company: { id: bid.company_id, name: "업체", temp: 70 },
+        price: bid.price, period: bid.period_days,
+        material: bid.material_note ?? "", comment: bid.comment ?? "",
+        createdAt: bid.created_at, status: bid.selected ? "selected" : "pending",
+      });
+
+      // ── Level 1: payment_orders ──────────────────────────────
+      const { data: order } = await getPaymentOrderByRequest(request.id);
+      if (order) {
+        if (order.contract_id) setResolvedContractId(order.contract_id);
+        if (order.bid_id) {
+          const { data: bid, error: bidErr } = await getBidById(order.bid_id);
+          if (bid) {
+            setResolvedBid(buildRestored(bid));
+            setEscrowDebug({ src: "payment_order", restored: true, bidId: bid.id, orderId: order.id, contractId: order.contract_id });
+            return;
+          }
+          setEscrowDebug({ src: "payment_order", err: bidErr?.message ?? "bid not found" });
+        }
+        return;
+      }
+
+      // ── Level 2: escrow_payments → bids ─────────────────────
+      const { data: escrow } = await getEscrowByRequest(request.id);
+      if (escrow) {
+        setResolvedContractId(escrow.id);
+        const { data: bidsData } = await getBidsForRequest(request.id);
+        const row = bidsData?.find(b => b.selected) ?? bidsData?.[0] ?? null;
+        if (row) {
+          setResolvedBid(buildRestored(row));
+          setEscrowDebug({ src: "escrow_fallback", restored: true, escrowId: escrow.id, bidId: row.id });
+        } else {
+          setEscrowDebug({ src: "escrow_fallback", err: "no bids", escrowId: escrow.id });
+        }
+        return;
+      }
+
+      // ── Level 3: bids only (no escrow row yet) ───────────────
+      const { data: bidsData } = await getBidsForRequest(request.id);
+      const row = bidsData?.find(b => b.selected) ?? bidsData?.[0] ?? null;
+      if (row) {
+        setResolvedBid(buildRestored(row));
+        setEscrowDebug({ src: "bids_only_fallback", restored: true, bidId: row.id, note: "no escrow row" });
+        return;
+      }
+
+      setEscrowDebug({ src: "self_fetch", err: "no order, no escrow, no bids", requestId: request.id });
+    };
+    fetchContract();
+  }, [request?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Company fetch: always run when companyId is known but name is missing/default
+  // bids.company_id → users.id; companies.owner_id → users.id
+  useEffect(() => {
+    const companyId = resolvedBid?.companyId;
+    if (!companyId) return;
+    const existingName = resolvedBid?.company?.name;
+    if (existingName && existingName !== "—" && existingName !== "업체") return;
+    getCompanyByOwnerId(companyId).then(({ data, error }) => {
+      setEscrowDebug(prev => ({
+        ...prev,
+        companyLookup: {
+          ownerId: companyId,
+          err:     error?.message ?? null,
+          found:   !!data,
+          id:      data?.id ?? null,
+          name:    data?.name ?? null,
+        },
+      }));
+      if (!data) return;
+      setResolvedBid(prev => prev ? {
+        ...prev,
+        company: { id: data.id, ownerId: data.owner_id, name: data.name ?? "업체", temp: data.temp ?? 70 },
+      } : prev);
+    }).catch(() => {});
+  }, [resolvedBid?.companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Contract ID fetch: if resolvedBid is known but contractId is still missing
+  useEffect(() => {
+    if (resolvedContractId) return;
+    const reqId = request?.id ?? resolvedBid?.requestId;
+    if (!reqId) return;
+    const resolve = async () => {
+      const { data: order } = await getPaymentOrderByRequest(reqId);
+      if (order?.contract_id) { setResolvedContractId(order.contract_id); return; }
+      // Fallback: try escrow_payments directly
+      const { data: escrow } = await getEscrowByRequest(reqId);
+      if (escrow?.id) setResolvedContractId(escrow.id);
+    };
+    resolve().catch(() => {});
+  }, [resolvedBid?.requestId, request?.id, resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isConsumer = activeRole === "consumer";
+  const bidAmount   = resolvedBid?.price ?? 0;
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
   const stages      = bidAmount > 0 ? calculateStagePayments(bidAmount) : [];
 
@@ -90,6 +196,16 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
   const [uploadingStage, setUploadingStage] = useState(null);
   const [stageDeadlines, setStageDeadlines] = useState({});
 
+  // DB-loaded contract state
+  const [contractData, setContractData] = useState(null);
+  const [dbPayoutMap, setDbPayoutMap] = useState({});  // { [stage]: payout row }
+  const [dbPhotos, setDbPhotos]     = useState({});    // { [dbStep]: string[] }
+  const [dbLoaded, setDbLoaded]     = useState(false);
+  const [dbRefreshKey, setDbRefreshKey] = useState(0); // increment to force re-fetch
+  const [companyReportDebug, setCompanyReportDebug] = useState(null);
+  const [approvalLog, setApprovalLog] = useState(null);
+  const [reviewedForContract, setReviewedForContract] = useState(false);
+
   const fileInputRef3 = useRef(null);
   const fileInputRef4 = useRef(null);
   const fileInputRef5 = useRef(null);
@@ -104,10 +220,18 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
     setTimeline(prev => [...prev, { id: Date.now(), type, label, ts: Date.now() }]);
   };
 
-  // Load DB timeline when contractId is available
+  // Load review status for this contract (consumer only)
   useEffect(() => {
-    if (!contractId) return;
-    getContractTimeline(contractId).then(({ data }) => {
+    if (!resolvedContractId || !isConsumer) return;
+    getReviewByContract(resolvedContractId).then(({ data }) => {
+      if (data?.id) setReviewedForContract(true);
+    }).catch(() => {});
+  }, [resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load DB timeline when resolvedContractId is available
+  useEffect(() => {
+    if (!resolvedContractId) return;
+    getContractTimeline(resolvedContractId).then(({ data }) => {
       if (!data || data.length === 0) return;
       const mapped = data.map(row => {
         const a = row.action ?? "";
@@ -117,7 +241,92 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
       });
       setTimeline(mapped);
     }).catch(() => {});
-  }, [contractId]);
+  }, [resolvedContractId]);
+
+  // Load escrow_payments + escrow_payouts + phase_photos from DB
+  useEffect(() => {
+    if (!resolvedContractId) return;
+    const load = async () => {
+      // escrow_payments (need current txStatus / current_step)
+      const reqId = request?.id ?? resolvedBid?.requestId;
+      if (reqId) {
+        const { data: ep } = await getEscrowByRequest(reqId);
+        if (ep) setContractData(ep);
+      }
+      // payouts
+      const { data: payouts } = await getEscrowPayouts(resolvedContractId);
+      const pm = {};
+      (payouts ?? []).forEach(p => { pm[p.stage] = p; });
+      setDbPayoutMap(pm);
+      // phase photos { dbStep → [url,...] }
+      const { data: photos } = await getPhasePhotos(resolvedContractId);
+      const ph = {};
+      (photos ?? []).forEach(p => {
+        const urls = Array.isArray(p.photos) ? p.photos : (p.photos ? [p.photos] : []);
+        ph[p.step] = [...(ph[p.step] ?? []), ...urls];
+      });
+      setDbPhotos(ph);
+      setDbLoaded(true);
+    };
+    load().catch(() => {});
+  }, [resolvedContractId, dbRefreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Derive stageStatus + populate customer photo previews from DB state
+  // Priority: payout.APPROVED > phase_photos presence > transaction_status
+  useEffect(() => {
+    if (!dbLoaded) return;
+    const txStatus = contractData?.transaction_status ?? "CONTRACTED";
+    const p2 = dbPayoutMap[2]; // 착공 payout
+    const p3 = dbPayoutMap[3]; // 중간점검 payout
+    const p4 = dbPayoutMap[4]; // 완료 payout
+
+    const ns = { 1: "done", 2: "done", 3: "company_todo", 4: "locked", 5: "locked" };
+
+    // Stage 3: 착공
+    if (p2?.status === "APPROVED") {
+      ns[3] = "done";
+    } else if (
+      txStatus === "STARTED" ||
+      (contractData?.current_step ?? 0) >= 2 ||
+      (dbPhotos[1]?.length ?? 0) > 0
+    ) {
+      ns[3] = "pending_customer";
+    }
+
+    // Stage 4: 중간점검
+    if (ns[3] === "done") {
+      if (p3?.status === "APPROVED") {
+        ns[4] = "done";
+      } else if ((dbPhotos[2]?.length ?? 0) > 0) {
+        ns[4] = "pending_customer";
+      } else {
+        ns[4] = "company_todo";
+      }
+    }
+
+    // Stage 5: 완료
+    if (ns[4] === "done") {
+      if (p4?.status === "APPROVED" || txStatus === "SETTLED") {
+        ns[5] = "done";
+      } else if ((dbPhotos[3]?.length ?? 0) > 0) {
+        ns[5] = "pending_customer";
+      } else {
+        ns[5] = "company_todo";
+      }
+    }
+
+    if (txStatus === "SETTLED") { ns[3] = "done"; ns[4] = "done"; ns[5] = "done"; }
+
+    setStageStatus(ns);
+
+    // Populate stagePhotos from DB so customer sees company's uploaded photos
+    setStagePhotos(prev => ({
+      ...prev,
+      ...(dbPhotos[1]?.length > 0 ? { 3: dbPhotos[1] } : {}),
+      ...(dbPhotos[2]?.length > 0 ? { 4: dbPhotos[2] } : {}),
+      ...(dbPhotos[3]?.length > 0 ? { 5: dbPhotos[3] } : {}),
+    }));
+  }, [dbLoaded, contractData, dbPayoutMap, dbPhotos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Modals
   const [confirmStage, setConfirmStage] = useState(null);
@@ -127,7 +336,7 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
 
   const advanceStage = async (stageId) => {
     const s = STAGE_META.find(x => x.id === stageId);
-    // Immediate UI update (optimistic)
+    // Optimistic UI
     setStageStatus(prev => ({
       ...prev,
       [stageId]: "done",
@@ -136,27 +345,46 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
     setConfirmStage(null);
     if (s?.confirmLabel) addTimeline("confirm", s.timelineLabel ?? s.confirmLabel);
 
-    // DB updates (fire-and-forget, non-blocking)
-    if (contractId) {
-      // stageId 3→payout 2, 4→payout 3, 5→payout 4
-      const payoutMap = { 3: 2, 4: 3, 5: 4 };
-      const payoutStage = payoutMap[stageId];
+    if (resolvedContractId) {
+      const log = { stageId, contractId: resolvedContractId.slice(0, 8) };
+
+      // 1. Approve payout: UI stage 3→DB payout 2, 4→3, 5→4
+      const uiToPayoutStage = { 3: 2, 4: 3, 5: 4 };
+      const payoutStage = uiToPayoutStage[stageId];
       if (payoutStage) {
-        approveEscrowPayoutByStage(contractId, payoutStage, userId ?? null).catch(() => {});
+        const { error: pe } = await approveEscrowPayoutByStage(resolvedContractId, payoutStage, userId ?? null);
+        log.payout = pe?.message ?? "ok";
       }
-      // On completion, update to SETTLED
-      if (stageId === 5) {
-        updateTransactionStatus(contractId, "SETTLED").catch(() => {});
-        if (selectedBid?.companyId) {
-          updateCompanyTemp(selectedBid.companyId, 2.5).catch(() => {});
-        }
+
+      // 2. Advance escrow_payments: stepN_approved_at + current_step + txStatus
+      const stepConfig = {
+        3: { dbStep: 2, nextStep: 3, txStatus: "MID_INSPECTION" },
+        4: { dbStep: 3, nextStep: 4, txStatus: null },
+        5: { dbStep: 4, nextStep: 5, txStatus: "SETTLED" },
+      }[stageId];
+      if (stepConfig) {
+        const { error: se } = await advanceContractStep(
+          resolvedContractId,
+          stepConfig.dbStep,
+          stepConfig.nextStep,
+          stepConfig.txStatus
+        );
+        log.step = se?.message ?? "ok";
       }
+
+      setApprovalLog(log);
+      setDbRefreshKey(k => k + 1);
+
+      if (stageId === 5 && resolvedBid?.companyId) {
+        updateCompanyTemp(resolvedBid.companyId, 2.5).catch(() => {});
+      }
+
       logActivity({
         userId:     userId ?? null,
         role:       "consumer",
         action:     "STEP_APPROVED",
         targetType: "contract",
-        targetId:   contractId,
+        targetId:   resolvedContractId,
         metadata:   { stage: stageId, label: s?.label },
       }).catch(() => {});
     }
@@ -168,20 +396,71 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
     setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
     if (s?.label) addTimeline("photo", s.label);
 
-    if (contractId) {
-      const statusMap = { 3: "STARTED", 4: "MID_INSPECTION", 5: "COMPLETED" };
-      if (statusMap[stageId]) {
-        updateTransactionStatus(contractId, statusMap[stageId]).catch(() => {});
-      }
-      logActivity({
-        userId:     userId ?? null,
-        role:       "company",
-        action:     "STEP_APPROVED",
-        targetType: "contract",
-        targetId:   contractId,
-        metadata:   { stage: stageId, label: s?.label, type: "company_report" },
-      }).catch(() => {});
+    // Per-stage config: dbStep for phase_photos, txStatus, currentStep, payoutStage for READY
+    const phaseConfig = {
+      3: { dbStep: 1, txStatus: "STARTED",        currentStep: 2, payoutStage: 2 },
+      4: { dbStep: 2, txStatus: "MID_INSPECTION",  currentStep: 3, payoutStage: 3 },
+      5: { dbStep: 3, txStatus: "COMPLETED",       currentStep: 4, payoutStage: 4 },
+    }[stageId];
+
+    if (!phaseConfig) return;
+    const { dbStep, txStatus, currentStep, payoutStage } = phaseConfig;
+    const photos = stagePhotos[stageId] ?? [];
+    const cid = resolvedContractId;
+
+    const debug = {
+      stageId,
+      contractId: cid ?? "NULL — writes skipped!",
+      photoCount:  photos.length,
+      inserted_phase_photo_id: null,
+      update_escrow_err:  null,
+      update_payout_err:  null,
+      phase_photo_step1_count_after: null,
+    };
+
+    if (!cid) {
+      setCompanyReportDebug(debug);
+      return; // cannot write without contractId
     }
+
+    // 1. Insert phase_photos
+    if (photos.length > 0) {
+      const { data: photoRow, error: photoErr } = await addPhasePhotos({
+        contractId:   cid,
+        step:         dbStep,
+        photos,
+        uploadedBy:   userId ?? null,
+        uploaderRole: "company",
+        caption:      s?.label ?? null,
+      });
+      debug.inserted_phase_photo_id = photoRow?.id ?? null;
+      debug.photo_err = photoErr?.message ?? null;
+    } else {
+      debug.photo_err = "no photos in state";
+    }
+
+    // 2. Update escrow_payments: txStatus + current_step + photos_uploaded_at
+    const { error: escrowErr } = await markEscrowPhaseStarted(cid, txStatus, currentStep);
+    debug.update_escrow_err = escrowErr?.message ?? null;
+
+    // 3. Update escrow_payouts stage to READY (customer approval pending)
+    const { error: payoutErr } = await setEscrowPayoutReady(cid, payoutStage);
+    debug.update_payout_err = payoutErr?.message ?? null;
+
+    setCompanyReportDebug(debug);
+
+    // 4. Re-fetch DB state so customer view updates on next open
+    setDbRefreshKey(k => k + 1);
+
+    logActivity({
+      userId:     userId ?? null,
+      role:       "company",
+      action:     "PHOTO_UPLOADED",
+      targetType: "contract",
+      targetId:   cid,
+      metadata:   { stage: stageId, dbStep, photoCount: photos.length, label: s?.label,
+                    escrowErr: debug.update_escrow_err, payoutErr: debug.update_payout_err },
+    }).catch(() => {});
   };
 
   const handleFileChange = async (e, stageId) => {
@@ -218,8 +497,8 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
 
   const paid = STAGE_META.filter(s => stageStatus[s.id] === "done" && s.pct > 0).reduce((a, s) => a + s.pct, 0);
 
-  const headerSub = selectedBid
-    ? `${selectedBid.company?.name ?? "—"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
+  const headerSub = resolvedBid
+    ? `${resolvedBid.company?.name ?? "—"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
     : "에스크로 안전 정산";
 
   const statusColor = (sid) => {
@@ -252,6 +531,75 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
       </div>
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 40px` }}>
+
+        {IS_DEBUG && (() => {
+          const approveVisible = stageStatus[3] === "pending_customer";
+          const approvalRequired = approveVisible || stageStatus[4] === "pending_customer" || stageStatus[5] === "pending_customer";
+          return (
+            <div style={{ margin:"0 0 12px", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:480, overflowY:"auto" }}>
+              [DEV:escrow | {activeRole}]<br/>
+              request.id: {request?.id?.slice(0,8) ?? "null ⚠️"}<br/>
+              resolvedBid.id: {resolvedBid?.id?.slice(0,8) ?? "null ⚠️"}<br/>
+              resolvedBid.price: {resolvedBid?.price ?? "—"}<br/>
+              <span style={{color: resolvedContractId ? "#0f0" : "#f66"}}>
+                resolvedContractId: {resolvedContractId?.slice(0,8) ?? "null ⚠️"}
+              </span><br/>
+              dbLoaded: {String(dbLoaded)} | dbRefreshKey: {dbRefreshKey}<br/>
+              <span style={{color:"#ff0"}}>── contract DB state ──</span><br/>
+              <span style={{color: contractData?.transaction_status === "STARTED" || contractData?.transaction_status === "MID_INSPECTION" ? "#0f0" : "#f66"}}>
+                transaction_status: {contractData?.transaction_status ?? "—"}
+              </span><br/>
+              current_step: {contractData?.current_step ?? "—"}<br/>
+              stage2_status(착공 payout): {dbPayoutMap[2]?.status ?? "—"}<br/>
+              <span style={{color: (dbPhotos[1]?.length ?? 0) > 0 ? "#0f0" : "#f66"}}>
+                phase_photo_step1_count: {dbPhotos[1]?.length ?? 0}
+              </span><br/>
+              {(dbPhotos[1]?.length ?? 0) > 0 && (
+                <span style={{color:"#4ff"}}>
+                  phase_photo_step1_urls: {(dbPhotos[1] ?? []).slice(0,2).map(u => "…" + u.slice(-18)).join(", ")}<br/>
+                </span>
+              )}
+              <span style={{color: approvalRequired ? "#ff0" : "#888"}}>
+                customer_approval_required: {String(approvalRequired)}
+              </span><br/>
+              <span style={{color: approveVisible ? "#0f0" : "#f66"}}>
+                approve_button_visible(착공): {String(approveVisible)}
+              </span><br/>
+              stageStatus: {JSON.stringify(stageStatus)}<br/>
+              {!isConsumer && companyReportDebug && (<>
+                <span style={{color:"#ff0"}}>── company report result ──</span><br/>
+                <span style={{color: companyReportDebug.contractId && !companyReportDebug.contractId.includes("NULL") ? "#0f0" : "#f66"}}>
+                  contractId: {typeof companyReportDebug.contractId === "string" ? companyReportDebug.contractId.slice(0,8) : String(companyReportDebug.contractId)}<br/>
+                </span>
+                photoCount: {companyReportDebug.photoCount}<br/>
+                <span style={{color: companyReportDebug.inserted_phase_photo_id ? "#0f0" : "#f66"}}>
+                  inserted_phase_photo_id: {companyReportDebug.inserted_phase_photo_id?.slice(0,8) ?? (companyReportDebug.photo_err ?? "null")}
+                </span><br/>
+                <span style={{color: companyReportDebug.update_escrow_err ? "#f66" : "#0f0"}}>
+                  update_escrow_err: {companyReportDebug.update_escrow_err ?? "none"}
+                </span><br/>
+                <span style={{color: companyReportDebug.update_payout_err ? "#f66" : "#0f0"}}>
+                  update_payout_err: {companyReportDebug.update_payout_err ?? "none"}
+                </span><br/>
+              </>)}
+              {isConsumer && approvalLog && (<>
+                <span style={{color:"#ff0"}}>── customer approval result ──</span><br/>
+                stage: {approvalLog.stageId} | cid: {approvalLog.contractId}<br/>
+                <span style={{color: approvalLog.payout === "ok" ? "#0f0" : "#f66"}}>
+                  payout: {approvalLog.payout ?? "—"}
+                </span><br/>
+                <span style={{color: approvalLog.step === "ok" ? "#0f0" : "#f66"}}>
+                  step: {approvalLog.step ?? "—"}
+                </span><br/>
+              </>)}
+              {escrowDebug && (
+                <span style={{color: escrowDebug.restored ? "#0f0" : "#f66"}}>
+                  self_fetch: src={escrowDebug.src} {escrowDebug.err ? `err=${escrowDebug.err}` : "ok"}
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* STEP J — Dispute freeze banner */}
         {disputeSubmitted && (
@@ -398,9 +746,19 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
                             style={{ flex: 1, padding: "11px", background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                             📁 사진 선택
                           </button>
-                          <button onClick={() => !disputeSubmitted && reportComplete(s.id)} disabled={isUploadingThis || photos.length === 0 || disputeSubmitted}
-                            style={{ flex: 2, padding: "11px", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: photos.length > 0 && !disputeSubmitted ? "pointer" : "not-allowed", border: "none", background: photos.length > 0 && !disputeSubmitted ? C.brand : C.bgWarm, color: photos.length > 0 && !disputeSubmitted ? "#fff" : C.text4, boxShadow: photos.length > 0 && !disputeSubmitted ? `0 4px 14px ${C.brand}44` : "none" }}>
-                            {disputeSubmitted ? "🔒 분쟁 동결 중" : isUploadingThis ? "업로드 중..." : "고객에게 전송하기"}
+                          <button
+                            onClick={() => !disputeSubmitted && resolvedContractId && reportComplete(s.id)}
+                            disabled={isUploadingThis || photos.length === 0 || disputeSubmitted || !resolvedContractId}
+                            style={{ flex: 2, padding: "11px", borderRadius: R.lg, fontWeight: 800, fontSize: 14,
+                              cursor: photos.length > 0 && !disputeSubmitted && resolvedContractId ? "pointer" : "not-allowed",
+                              border: "none",
+                              background: photos.length > 0 && !disputeSubmitted && resolvedContractId ? C.brand : C.bgWarm,
+                              color:      photos.length > 0 && !disputeSubmitted && resolvedContractId ? "#fff" : C.text4,
+                              boxShadow:  photos.length > 0 && !disputeSubmitted && resolvedContractId ? `0 4px 14px ${C.brand}44` : "none" }}>
+                            {disputeSubmitted ? "🔒 분쟁 동결 중"
+                              : isUploadingThis ? "업로드 중..."
+                              : !resolvedContractId ? "계약 로딩 중..."
+                              : "고객에게 전송하기"}
                           </button>
                         </div>
                         <input ref={fileInputRefs[s.id]} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => handleFileChange(e, s.id)} />
@@ -534,6 +892,39 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
           </div>
         </div>
 
+        {/* Review CTA — shown to consumer when SETTLED/completed */}
+        {isConsumer && (stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
+          <div style={{ background: reviewedForContract ? C.brandL : "#FFF8EC",
+            borderRadius: R.xl, padding: S.xl, marginBottom: S.lg,
+            border: `1px solid ${reviewedForContract ? C.brandM : "#F5D97A"}` }}>
+            {reviewedForContract ? (
+              <div style={{ display:"flex", alignItems:"center", gap:S.md }}>
+                <div style={{ fontSize:28, flexShrink:0 }}>✅</div>
+                <div>
+                  <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:2 }}>리뷰 작성 완료</div>
+                  <div style={{ fontSize:12, color:C.text3 }}>소중한 후기 감사합니다. 커피쿠폰 발송 예정입니다.</div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display:"flex", alignItems:"center", gap:S.md, marginBottom:S.md }}>
+                  <div style={{ fontSize:28, flexShrink:0 }}>☕</div>
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:800, color:"#8A5C00", marginBottom:2 }}>공사 완료 — 후기를 남겨보세요</div>
+                    <div style={{ fontSize:12, color:"#A06B00", lineHeight:1.6 }}>포토리뷰 작성 시 커피쿠폰을 드립니다.</div>
+                  </div>
+                </div>
+                <button onClick={() => onReview && onReview(resolvedBid?.company)}
+                  style={{ width:"100%", padding:S.lg, background:"#8A5C00", color:"#fff",
+                    border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14,
+                    cursor:"pointer", boxShadow:"0 4px 16px rgba(138,92,0,0.25)" }}>
+                  ⭐ 포토리뷰 작성하고 커피쿠폰 받기
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Deposit info */}
         <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🏦 예치금 보관 안내</div>
@@ -602,16 +993,16 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
                   addTimeline("dispute", "이의 신청");
                   setShowDispute(false);
                   setDisputeSubmitted(true);
-                  if (contractId) {
-                    holdAllPayoutsForEscrow(contractId).catch(() => {});
-                    updateTransactionStatus(contractId, "DISPUTE").catch(() => {});
-                    updateDisputeStatus(contractId, "DISPUTE_OPEN").catch(() => {});
+                  if (resolvedContractId) {
+                    holdAllPayoutsForEscrow(resolvedContractId).catch(() => {});
+                    updateTransactionStatus(resolvedContractId, "DISPUTE").catch(() => {});
+                    updateDisputeStatus(resolvedContractId, "DISPUTE_OPEN").catch(() => {});
                     logActivity({
                       userId:     userId ?? null,
                       role:       "consumer",
                       action:     "DISPUTE_FILED",
                       targetType: "contract",
-                      targetId:   contractId,
+                      targetId:   resolvedContractId,
                       metadata:   { reason: disputeReason },
                     }).catch(() => {});
                     // STEP R: notify admin with CRITICAL priority
@@ -619,8 +1010,8 @@ export default function EscrowScreen({ onBack, mode, selectedBid, contractId, us
                       userId:      null,
                       type:        "DISPUTE_FILED",
                       title:       "분쟁 접수",
-                      message:     `계약 ${contractId} 에서 분쟁이 접수되었습니다.`,
-                      relatedId:   contractId,
+                      message:     `계약 ${resolvedContractId} 에서 분쟁이 접수되었습니다.`,
+                      relatedId:   resolvedContractId,
                       relatedType: "contract",
                       priority:    "CRITICAL",
                     }).catch(() => {});

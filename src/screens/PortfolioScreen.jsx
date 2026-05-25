@@ -1,56 +1,150 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, R, S, GRADE } from "../constants";
 import { TempBadge, CertBadge } from "../components/common";
 import PortfolioCard from "../components/PortfolioCard";
 import PhotoModal from "../components/PhotoModal";
-import { getPortfolios, createPortfolio } from "../lib/supabase";
+import { getPortfolios, createPortfolio, uploadFile, getReviews } from "../lib/supabase";
 
-const normalizePortfolio = (row) => ({
-  id:    row.id,
-  type:  row.space_type ?? "시공",
-  size:  row.size ?? "",
-  area:  row.area ?? "",
-  after: (row.after_photos ?? [])[0] ?? null,
-  tags:  row.tags ?? [],
-  desc:  row.desc ?? "",
-  title: row.title,
-});
+const normalizePortfolio = (row) => {
+  const beforePhotos = row.before_photos ?? [];
+  const afterPhotos  = row.after_photos  ?? [];
+  return {
+    id:           row.id,
+    type:         row.space_type ?? "시공",
+    size:         row.size ?? "",
+    area:         row.area ?? "",
+    title:        row.title,
+    desc:         row.desc ?? "",
+    tags:         row.tags ?? [],
+    beforePhotos,
+    afterPhotos,
+    // single-image aliases for backward compat
+    before:       beforePhotos[0] ?? null,
+    after:        afterPhotos[0] ?? beforePhotos[0] ?? null,
+    budget:       row.budget ? `${Number(row.budget).toLocaleString()}만원` : null,
+  };
+};
+
+const MAX_PHOTOS = 10;
+
+function PhotoUploadSection({ label, hint, files, onAdd, onRemove, inputRef }) {
+  return (
+    <div style={{ marginBottom: S.xl }}>
+      <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:3 }}>{label}</div>
+      <div style={{ fontSize:12, color:C.text3, marginBottom:S.md }}>{hint}</div>
+
+      {files.length > 0 && (
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:S.md }}>
+          {files.map(({ id, preview }) => (
+            <div key={id} style={{ position:"relative", width:76, height:76, flexShrink:0 }}>
+              <img src={preview} alt=""
+                style={{ width:"100%", height:"100%", objectFit:"cover",
+                  borderRadius:R.md, border:`1px solid ${C.bgWarm}` }} />
+              <button onClick={() => onRemove(id)}
+                style={{ position:"absolute", top:-7, right:-7, width:20, height:20,
+                  background:"rgba(28,23,18,0.8)", color:"#fff", border:"none",
+                  borderRadius:"50%", fontSize:13, cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontWeight:900, lineHeight:1 }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {files.length < MAX_PHOTOS && (
+        <>
+          <input ref={inputRef} type="file" accept="image/*" multiple
+            style={{ display:"none" }}
+            onChange={e => { onAdd(e.target.files); e.target.value = ""; }} />
+          <button onClick={() => inputRef.current?.click()}
+            style={{ width:"100%", padding:"11px", background:C.surface2,
+              color:C.text2, border:`1.5px dashed ${C.bgWarm}`,
+              borderRadius:R.md, fontWeight:700, fontSize:13, cursor:"pointer" }}>
+            + {label} 추가 ({files.length} / {MAX_PHOTOS})
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
 
 function PortfolioWriteModal({ companyId, onClose, onSaved }) {
   const [form, setForm] = useState({ title:"", space_type:"", area:"", size:"", desc:"" });
-  const [saving, setSaving] = useState(false);
+  const [beforeFiles, setBeforeFiles] = useState([]);
+  const [afterFiles,  setAfterFiles]  = useState([]);
+  const [saving,      setSaving]      = useState(false);
+  const [progress,    setProgress]    = useState("");
+  const beforeRef = useRef(null);
+  const afterRef  = useRef(null);
+
   const set = (k, v) => setForm(f => ({ ...f, [k]:v }));
-  const iS = { width:"100%", padding:"12px 14px", border:`1.5px solid ${C.bgWarm}`,
-    borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box",
-    marginBottom:12, fontFamily:"inherit", color:C.text1, background:C.surface };
+
+  const addFiles = (incoming, setter, existing) => {
+    const slots = MAX_PHOTOS - existing.length;
+    if (slots <= 0) return;
+    const items = Array.from(incoming).slice(0, slots).map(file => ({
+      id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setter(prev => [...prev, ...items]);
+  };
+
+  const removeFile = (id, setter) => setter(prev => prev.filter(f => f.id !== id));
 
   const handleSave = async () => {
     if (!form.title.trim() || saving) return;
     setSaving(true);
-    const { data, error } = await createPortfolio({
-      company_id:  companyId,
-      title:       form.title.trim(),
-      space_type:  form.space_type.trim() || null,
-      area:        form.area.trim() || null,
-      size:        form.size.trim() || null,
-      desc:        form.desc.trim() || null,
-    });
+    try {
+      setProgress("시공 전 사진 업로드 중...");
+      const beforeUrls = await Promise.all(
+        beforeFiles.map(({ file }) =>
+          uploadFile("photos", `portfolio/${companyId}/before/${Date.now()}_${file.name}`, file)
+        )
+      );
+
+      setProgress("시공 후 사진 업로드 중...");
+      const afterUrls = await Promise.all(
+        afterFiles.map(({ file }) =>
+          uploadFile("photos", `portfolio/${companyId}/after/${Date.now()}_${file.name}`, file)
+        )
+      );
+
+      setProgress("저장 중...");
+      const { data, error } = await createPortfolio({
+        company_id:    companyId,
+        title:         form.title.trim(),
+        space_type:    form.space_type.trim() || null,
+        area:          form.area.trim() || null,
+        size:          form.size.trim() || null,
+        desc:          form.desc.trim() || null,
+        before_photos: beforeUrls,
+        after_photos:  afterUrls,
+      });
+      if (!error && data) { onSaved(data); onClose(); return; }
+    } catch { /* upload failed */ }
     setSaving(false);
-    if (error) return;
-    onSaved(data);
-    onClose();
+    setProgress("");
+  };
+
+  const iS = {
+    width:"100%", padding:"12px 14px", border:`1.5px solid ${C.bgWarm}`,
+    borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box",
+    marginBottom:12, fontFamily:"inherit", color:C.text1, background:C.surface,
   };
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)",
       display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:200 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background:C.surface, borderRadius:"24px 24px 0 0",
-        width:"100%", maxWidth:480, padding:"24px 24px 40px", maxHeight:"85vh", overflowY:"auto" }}>
+      <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%",
+        maxWidth:480, padding:"24px 24px 40px", maxHeight:"92vh", overflowY:"auto" }}>
+
         <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
         <div style={{ fontSize:17, fontWeight:900, color:C.text1, marginBottom:4 }}>포트폴리오 추가</div>
         <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>완공된 시공 사례를 등록하세요</div>
 
+        {/* ── 기본 정보 ── */}
         <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:6 }}>제목 <span style={{color:C.red}}>*</span></div>
         <input placeholder="예: 마포구 32평 아파트 전체 인테리어" value={form.title}
           onChange={e => set("title", e.target.value)} style={iS} />
@@ -77,7 +171,35 @@ function PortfolioWriteModal({ companyId, onClose, onSaved }) {
           value={form.desc} onChange={e => set("desc", e.target.value)}
           rows={3} style={{ ...iS, resize:"none", lineHeight:1.7 }} />
 
-        <div style={{ display:"flex", gap:S.sm, marginTop:S.sm }}>
+        {/* ── 구분선 ── */}
+        <div style={{ height:1, background:C.bgWarm, margin:`${S.lg}px 0` }} />
+
+        {/* ── Before 사진 ── */}
+        <PhotoUploadSection
+          label="시공 전 사진"
+          hint="공사 전 상태를 등록해주세요"
+          files={beforeFiles}
+          onAdd={f => addFiles(f, setBeforeFiles, beforeFiles)}
+          onRemove={id => removeFile(id, setBeforeFiles)}
+          inputRef={beforeRef}
+        />
+
+        {/* ── After 사진 ── */}
+        <PhotoUploadSection
+          label="시공 후 사진"
+          hint="완공 후 모습을 등록해주세요"
+          files={afterFiles}
+          onAdd={f => addFiles(f, setAfterFiles, afterFiles)}
+          onRemove={id => removeFile(id, setAfterFiles)}
+          inputRef={afterRef}
+        />
+
+        {progress && (
+          <div style={{ fontSize:12, color:C.brand, textAlign:"center",
+            marginBottom:S.md, fontWeight:700 }}>{progress}</div>
+        )}
+
+        <div style={{ display:"flex", gap:S.sm }}>
           <button onClick={onClose}
             style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2,
               border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>
@@ -103,6 +225,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
   const [photoWork, setPhotoWork] = useState(null);
   const [showWriteModal, setShowWriteModal] = useState(false);
   const [portfolio, setPortfolio] = useState(company?.portfolio ?? []);
+  const [reviews, setReviews] = useState(company?.reviewList ?? []);
 
   useEffect(() => {
     if (!company?.id) return;
@@ -110,7 +233,15 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
       if (error) return;
       if (data && data.length > 0) setPortfolio(data.map(normalizePortfolio));
     });
+    getReviews(company.id).then(({ data }) => {
+      if (data && data.length > 0) setReviews(data);
+    });
   }, [company?.id]);
+
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((s, r) => s + (r.rating ?? 0), 0) / reviews.length).toFixed(1)
+    : null;
+  const photoReviewCount = reviews.filter(r => (r.image_urls?.length ?? 0) > 0).length;
 
   const handlePortfolioSaved = (row) => {
     setPortfolio(prev => [normalizePortfolio(row), ...prev]);
@@ -152,10 +283,11 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
               {company.bizCert && <CertBadge type="biz" />}
             </div>
 
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:S.sm, marginBottom:S.lg }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:S.sm, marginBottom:S.lg }}>
               {[["✅","완료 건수",`${company.completedJobs}건`],
-                ["🔄","재계약률",`${company.recontractRate}%`],
-                ["🛠","AS 처리율",`${company.asRate}%`]].map(([icon,label,val]) => (
+                ["⭐","평균 평점", avgRating ? `${avgRating}점` : "—"],
+                ["📷","포토후기", `${photoReviewCount}건`],
+                ["🔄","재계약률",`${company.recontractRate}%`]].map(([icon,label,val]) => (
                 <div key={label} style={{ background:C.surface2, borderRadius:R.lg,
                   padding:`${S.md}px ${S.sm}px`, textAlign:"center",
                   border:`1px solid ${C.bgWarm}` }}>
@@ -203,11 +335,11 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>⭐</div>
             <div style={{ textAlign:"left" }}>
               <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>
-                시공 후기 {portfolio.length > 0 ? (company.reviewList ?? []).length : (company.reviewList ?? []).length}개
+                시공 후기 {reviews.length}개
               </div>
               <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>
-                {(company.reviewList ?? []).length > 0
-                  ? `평균 ${((company.reviewList ?? []).reduce((s,r) => s+r.rating,0)/(company.reviewList ?? []).length).toFixed(1)}점 · 탭해서 보기`
+                {reviews.length > 0
+                  ? `평균 ${avgRating}점${photoReviewCount > 0 ? ` · 포토후기 ${photoReviewCount}건` : ""} · 탭해서 보기`
                   : "첫 후기를 남겨주세요"}
               </div>
             </div>
