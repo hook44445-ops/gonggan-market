@@ -203,6 +203,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [dbLoaded, setDbLoaded]     = useState(false);
   const [dbRefreshKey, setDbRefreshKey] = useState(0); // increment to force re-fetch
   const [companyReportDebug, setCompanyReportDebug] = useState(null);
+  const [approvalLog, setApprovalLog] = useState(null);
 
   const fileInputRef3 = useRef(null);
   const fileInputRef4 = useRef(null);
@@ -336,30 +337,34 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     if (s?.confirmLabel) addTimeline("confirm", s.timelineLabel ?? s.confirmLabel);
 
     if (resolvedContractId) {
+      const log = { stageId, contractId: resolvedContractId.slice(0, 8) };
+
       // 1. Approve payout: UI stage 3→DB payout 2, 4→3, 5→4
       const uiToPayoutStage = { 3: 2, 4: 3, 5: 4 };
       const payoutStage = uiToPayoutStage[stageId];
       if (payoutStage) {
-        approveEscrowPayoutByStage(resolvedContractId, payoutStage, userId ?? null).catch(() => {});
+        const { error: pe } = await approveEscrowPayoutByStage(resolvedContractId, payoutStage, userId ?? null);
+        log.payout = pe?.message ?? "ok";
       }
 
       // 2. Advance escrow_payments: stepN_approved_at + current_step + txStatus
-      // UI stage 3 → DB step2, next=3, txStatus=MID_INSPECTION (per user spec)
-      // UI stage 4 → DB step3, next=4, txStatus unchanged (null = skip)
-      // UI stage 5 → DB step4, next=5, txStatus=SETTLED
       const stepConfig = {
         3: { dbStep: 2, nextStep: 3, txStatus: "MID_INSPECTION" },
         4: { dbStep: 3, nextStep: 4, txStatus: null },
         5: { dbStep: 4, nextStep: 5, txStatus: "SETTLED" },
       }[stageId];
       if (stepConfig) {
-        advanceContractStep(
+        const { error: se } = await advanceContractStep(
           resolvedContractId,
           stepConfig.dbStep,
           stepConfig.nextStep,
           stepConfig.txStatus
-        ).catch(() => {});
+        );
+        log.step = se?.message ?? "ok";
       }
+
+      setApprovalLog(log);
+      setDbRefreshKey(k => k + 1);
 
       if (stageId === 5 && resolvedBid?.companyId) {
         updateCompanyTemp(resolvedBid.companyId, 2.5).catch(() => {});
@@ -566,6 +571,16 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                 </span><br/>
                 <span style={{color: companyReportDebug.update_payout_err ? "#f66" : "#0f0"}}>
                   update_payout_err: {companyReportDebug.update_payout_err ?? "none"}
+                </span><br/>
+              </>)}
+              {isConsumer && approvalLog && (<>
+                <span style={{color:"#ff0"}}>── customer approval result ──</span><br/>
+                stage: {approvalLog.stageId} | cid: {approvalLog.contractId}<br/>
+                <span style={{color: approvalLog.payout === "ok" ? "#0f0" : "#f66"}}>
+                  payout: {approvalLog.payout ?? "—"}
+                </span><br/>
+                <span style={{color: approvalLog.step === "ok" ? "#0f0" : "#f66"}}>
+                  step: {approvalLog.step ?? "—"}
                 </span><br/>
               </>)}
               {escrowDebug && (

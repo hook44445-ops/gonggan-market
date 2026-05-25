@@ -980,6 +980,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                     견적 마감
                                   </button>
                                 )}
+                                <button
+                                  onClick={() => {
+                                    archiveRequest(r.id).catch(() => {});
+                                    setMyRequests(prev => prev.filter(x => x.id !== r.id));
+                                  }}
+                                  style={{ flex:1, padding:"10px", background:C.surface,
+                                    color:C.text4, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
+                                    fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                  숨기기
+                                </button>
                               </div>
                             </div>
                           </div>
