@@ -21,6 +21,9 @@ import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
+import SiteVisitModal from "./SiteVisitModal";
+import PlatformEstimateModal from "./PlatformEstimateModal";
+import CompanyActiveJobCard from "./CompanyActiveJobCard";
 import { useSpaceToken } from "../hooks/useSpaceToken";
 import { useSpaceTemperature } from "../hooks/useSpaceTemperature";
 import {
@@ -38,6 +41,7 @@ import {
   createBid,
   getBidsForRequest,
   getCompanyByOwnerId,
+  getCompanyActiveJobs,
   upsertCompany,
   getBidById,
   getPaymentOrderByRequest,
@@ -127,6 +131,37 @@ const normalizeBid = (row) => ({
   createdAt: row.created_at,
   status: row.selected ? "selected" : "pending",
 });
+
+function ConsumerRequestCard({ r, closed, dLabel, dColor, dBg, onOpen }) {
+  const [devOpen, setDevOpen] = useState(false);
+  return (
+    <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, opacity: closed ? 0.7 : 1 }}>
+      <div onClick={onOpen} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor: closed ? "default" : "pointer" }}>
+        <div>
+          <div style={{ fontSize:14, fontWeight:800, color: closed ? C.text3 : C.text1 }}>{r.type} · {r.size}</div>
+          <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>📍 {r.area} · {r.time}</div>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+          <span style={{ background:dBg, color:dColor, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>{dLabel}</span>
+          {!closed && <span style={{ fontSize:11, color:C.brand, fontWeight:700 }}>진행 현황 →</span>}
+        </div>
+      </div>
+      <div style={{ marginTop:S.sm }}>
+        <button onClick={e => { e.stopPropagation(); setDevOpen(v => !v); }}
+          style={{ background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.sm, padding:"2px 6px", fontSize:10, color:C.text4, fontWeight:700, cursor:"pointer" }}>
+          {devOpen ? "▲" : "▼"} DEV
+        </button>
+        {devOpen && (
+          <div style={{ marginTop:S.sm, background:C.bg, borderRadius:R.md, padding:S.md, fontSize:10, color:C.text3, fontFamily:"monospace", lineHeight:1.8 }}>
+            <div>request_id: {r.id ?? "-"}</div>
+            <div>request_status: {r.status ?? "-"}</div>
+            <div>fetch_err: null</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const maskCompanyName = (name) => {
   if (!name) return "업체";
@@ -281,6 +316,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [localLoungeStories, setLocalLoungeStories] = useState([]);
   const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
   const { temperature } = useSpaceTemperature(user?.id);
+
+  const [activeJobs, setActiveJobs] = useState([]);
+  const [siteVisitJob, setSiteVisitJob] = useState(null);
+  const [estimateJob, setEstimateJob] = useState(null);
 
   // Admin hidden entry
   const [adminTapCount, setAdminTapCount] = useState(0);
@@ -463,6 +502,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       }
     }).catch(() => {});
   }, [user?.id, activeRole]);
+
+  useEffect(() => {
+    if (activeRole !== "company" || !currentUser?.id) return;
+    getCompanyActiveJobs(currentUser.id).then(({ data }) => {
+      if (data) setActiveJobs(data);
+    });
+  }, [currentUser?.id, activeRole]);
 
   // Load company's own awarded/in-progress jobs
   useEffect(() => {
@@ -1592,7 +1638,49 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               ))}
             </div>
 
+            {activeJobs.length > 0 && (
+              <div style={{ marginBottom:S.xl }}>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🔨 진행중 작업 ({activeJobs.length})</div>
+                {activeJobs.map((job) => (
+                  <CompanyActiveJobCard
+                    key={job.bid.id}
+                    job={job}
+                    onAction={(actionType, j) => {
+                      if (actionType === "schedule" || actionType === "checkin" || actionType === "field_estimate") {
+                        setSiteVisitJob(j);
+                      } else if (actionType === "platform_estimate") {
+                        setEstimateJob(j);
+                      } else if (actionType === "escrow") {
+                        go("escrow");
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
             <LiveFeed />
+
+            {activeJobs.length > 0 && (
+              <div style={{ marginBottom:S.xl }}>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🔨 진행중 작업 ({activeJobs.length})</div>
+                {activeJobs.map((job) => (
+                  <CompanyActiveJobCard
+                    key={job.bid.id}
+                    job={job}
+                    onAction={(actionType, j) => {
+                      if (actionType === "schedule" || actionType === "checkin" || actionType === "field_estimate") {
+                        setSiteVisitJob(j);
+                      } else if (actionType === "platform_estimate") {
+                        setEstimateJob(j);
+                      } else if (actionType === "escrow") {
+                        go("escrow");
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* ── 진행중 작업 ─────────────────────────────────────────── */}
             {companyJobs.length > 0 && (
@@ -1865,7 +1953,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               </div>
             ) : myRequests.map(r => {
               const escData = myRequestsEscrow[r.id] ?? null;
-              const { escrow: esc, payouts: po = [] } = escData ?? {};
+              const { escrow: esc } = escData ?? {};
               const txStatus = esc?.transaction_status ?? null;
               const hasEscrow = !!esc;
               const isSettled = txStatus === "SETTLED";
@@ -1880,7 +1968,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 if (txStatus === "MID_INSPECTION") return "중간 점검 사진 확인 대기";
                 if (txStatus === "COMPLETED") return "완료 사진 확인 대기";
                 if (hasEscrow) return "착공 대기 · 에스크로 보관 중";
-                if (r.status === "in_progress") return "에스크로 정산 진행 중";
+                if (r.status === "in_progress") return "실측 방문 3일 내 · 견적서 24시간 내 등록";
                 return "착공 ~ 중간점검";
               })();
 
@@ -1926,6 +2014,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                 color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
                               {csStage?.cta ?? "에스크로 진행현황 보기"} →
                             </button>
+                          )}
+                          {step.escrowStep && r.status === "in_progress" && !hasEscrow && (
+                            <div style={{ marginTop:S.sm, background:C.brandL, borderRadius:R.md, padding:"8px 12px", fontSize:11, color:C.brand }}>
+                              💬 상세 견적서는 실측 후 24시간 내 플랫폼에 등록됩니다
+                            </div>
                           )}
                         </div>
                       </div>
@@ -2172,17 +2265,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   const dBg = r.isClosed ? C.bg
                     : r.daysLeft <= 1 ? "#FFF0F0" : r.daysLeft <= 3 ? "#FFF7E6" : C.brandL;
                   return (
-                    <div key={r.id} onClick={() => !closed && setScreen("timeline")}
-                      style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, cursor: closed ? "default" : "pointer", display:"flex", justifyContent:"space-between", alignItems:"center", opacity: closed ? 0.7 : 1 }}>
-                      <div>
-                        <div style={{ fontSize:14, fontWeight:800, color: closed ? C.text3 : C.text1 }}>{r.type} · {r.size}</div>
-                        <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>📍 {r.area} · {r.time}</div>
-                      </div>
-                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-                        <span style={{ background:dBg, color:dColor, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>{dLabel}</span>
-                        {!closed && <span style={{ fontSize:11, color:C.brand, fontWeight:700 }}>진행 현황 →</span>}
-                      </div>
-                    </div>
+                    <ConsumerRequestCard key={r.id} r={r} closed={closed} dLabel={dLabel} dColor={dColor} dBg={dBg} onOpen={() => !closed && setScreen("timeline")} />
                   );
                 })}
               </div>
@@ -2190,6 +2273,32 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           </div>
         )}
       </div>
+
+      {siteVisitJob && (
+        <SiteVisitModal
+          job={siteVisitJob}
+          companyId={currentUser?.id}
+          userId={user?.id}
+          onClose={() => setSiteVisitJob(null)}
+          onChange={(updatedJob) => {
+            setActiveJobs(prev => prev.map(j => j.bid.id === updatedJob.bid.id ? updatedJob : j));
+            setSiteVisitJob(updatedJob);
+          }}
+          onGoEstimate={(job) => { setSiteVisitJob(null); setEstimateJob(job); }}
+        />
+      )}
+      {estimateJob && (
+        <PlatformEstimateModal
+          job={estimateJob}
+          companyId={currentUser?.id}
+          userId={user?.id}
+          onClose={() => setEstimateJob(null)}
+          onChange={(updatedJob) => {
+            setActiveJobs(prev => prev.map(j => j.bid.id === updatedJob.bid.id ? updatedJob : j));
+            setEstimateJob(updatedJob);
+          }}
+        />
+      )}
 
       {/* ── 견적 마감 확인 ── */}
       {showCloseConfirm && (
