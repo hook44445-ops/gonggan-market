@@ -128,6 +128,14 @@ const normalizeBid = (row) => ({
   status: row.selected ? "selected" : "pending",
 });
 
+const maskCompanyName = (name) => {
+  if (!name) return "업체";
+  const len = name.length;
+  if (len <= 3) return name[0] + "*";
+  if (len <= 5) return name.slice(0, 2) + "***";
+  return name.slice(0, Math.min(Math.ceil(len / 2), 4)) + "***";
+};
+
 // Compute customer-facing stage from request + escrow/payout data
 const computeCustomerStage = (r, escrowData) => {
   if (!r) return null;
@@ -225,6 +233,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   // Admin hidden entry
   const [adminTapCount, setAdminTapCount] = useState(0);
   const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
+  const [adminIdInput, setAdminIdInput] = useState("");
   const [adminCodeInput, setAdminCodeInput] = useState("");
   const [adminCodeError, setAdminCodeError] = useState("");
 
@@ -858,8 +867,6 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               })()}
             </div>
 
-            <LiveFeed />
-
             {topReviews.length > 0 && (
               <div style={{ marginBottom:S.xl }}>
                 <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md }}>
@@ -874,50 +881,96 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     const afterThumb  = rv.after_image_urls?.[0]  ?? null;
                     const beforeThumb = rv.before_image_urls?.[0] ?? null;
                     const legacyThumb = rv.image_urls?.[0]        ?? null;
-                    const thumb = afterThumb ?? legacyThumb;
+                    const hasAfter  = !!(afterThumb ?? legacyThumb);
                     const hasBefore = !!(beforeThumb);
-                    const [cardShowBefore, setCardShowBefore] = [false, () => {}]; // static for home card
+                    const hasPhoto  = hasAfter || hasBefore;
+                    const showSplit = hasBefore && hasAfter;
                     return (
-                      <div key={rv.id} style={{ flexShrink:0, width:220, background:C.surface,
-                        borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
-                        overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)" }}>
-                        <div style={{ position:"relative" }}>
-                          {thumb && (
-                            <img src={thumb} alt=""
-                              style={{ width:"100%", height:130, objectFit:"cover", display:"block" }}
-                              onError={e => { e.target.style.display = "none"; }} />
-                          )}
-                          {thumb && (
-                            <span style={{ position:"absolute", top:6, left:6,
-                              background:"rgba(0,0,0,0.55)", color:"#fff",
-                              borderRadius:R.full, padding:"2px 8px", fontSize:10, fontWeight:800 }}>
-                              AFTER
+                      <div key={rv.id}
+                        style={{ flexShrink:0, width:228, background:C.surface,
+                          borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
+                          overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
+                          cursor:"default" }}>
+
+                        {/* BEFORE / AFTER 이미지 */}
+                        {hasPhoto && (
+                          <div style={{ display:"flex", height:116, overflow:"hidden" }}>
+                            {showSplit ? (
+                              <>
+                                <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff" }}>
+                                  <img src={beforeThumb} alt=""
+                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                    onError={e => { e.target.style.display="none"; }} />
+                                  <span style={{ position:"absolute", bottom:4, left:4,
+                                    background:"rgba(58,95,204,0.82)", color:"#fff",
+                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                    BEFORE
+                                  </span>
+                                </div>
+                                <div style={{ flex:1, position:"relative" }}>
+                                  <img src={afterThumb ?? legacyThumb} alt=""
+                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                    onError={e => { e.target.style.display="none"; }} />
+                                  <span style={{ position:"absolute", bottom:4, right:4,
+                                    background:"rgba(0,0,0,0.55)", color:"#fff",
+                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                    AFTER
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <div style={{ flex:1, position:"relative" }}>
+                                <img src={afterThumb ?? legacyThumb ?? beforeThumb} alt=""
+                                  style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                  onError={e => { e.target.style.display="none"; }} />
+                                <span style={{ position:"absolute", bottom:4, left:4,
+                                  background: hasAfter ? "rgba(0,0,0,0.55)" : "rgba(58,95,204,0.82)",
+                                  color:"#fff", borderRadius:R.full,
+                                  padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                  {hasAfter ? "AFTER" : "BEFORE"}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div style={{ padding:"10px 12px 12px" }}>
+                          {/* 포토리뷰 배지 */}
+                          {hasPhoto && (
+                            <span style={{ display:"inline-block", background:"#FFF8EC", color:"#8A5C00",
+                              borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:800,
+                              border:"1px solid #F5D97A", marginBottom:6 }}>
+                              📷 포토리뷰
                             </span>
                           )}
-                          {hasBefore && (
-                            <span style={{ position:"absolute", top:6, right:6,
-                              background:"rgba(255,255,255,0.9)", color:"#3A5FCC",
-                              borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800,
-                              border:"1px solid #A0BCFF" }}>
-                              +BEFORE
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ padding:S.md }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:4, marginBottom:4 }}>
+
+                          {/* 별점 */}
+                          <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:5 }}>
                             {[1,2,3,4,5].map(s => (
-                              <span key={s} style={{ fontSize:11, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
+                              <span key={s} style={{ fontSize:12, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
                             ))}
                             <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
                           </div>
-                          <div style={{ fontSize:12, color:C.text2, lineHeight:1.6,
+
+                          {/* 후기 내용 2~3줄 */}
+                          <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:6,
                             overflow:"hidden", display:"-webkit-box",
-                            WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
+                            WebkitLineClamp:3, WebkitBoxOrient:"vertical" }}>
                             {rv.content}
                           </div>
-                          <div style={{ fontSize:11, color:C.text4, marginTop:4 }}>
-                            {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? ""}
+
+                          {/* 고객(익명) · 공사유형 */}
+                          <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
+                            {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? "시공"}
                           </div>
+
+                          {/* 부분공개 업체명 */}
+                          {rv.company_id && (
+                            <div style={{ fontSize:11, fontWeight:700, color:C.text3, marginBottom:8 }}>
+                              🏠 {maskCompanyName(rv.companies?.name ?? null)}
+                            </div>
+                          )}
+
                         </div>
                       </div>
                     );
@@ -925,6 +978,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               </div>
             )}
+
+            <LiveFeed />
 
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
               marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
@@ -2093,36 +2148,61 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       {showAdminCodeModal && (
         <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:999, padding:20 }}>
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, width:"100%", maxWidth:340 }}>
-            <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:6 }}>관리자 코드</div>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>관리자 전용 코드를 입력해주세요</div>
+            <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:6 }}>관리자 로그인</div>
+            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>관리자 계정으로 로그인하세요</div>
             <input
+              value={adminIdInput}
+              onChange={e => { setAdminIdInput(e.target.value); setAdminCodeError(""); }}
+              type="text"
+              placeholder="아이디"
+              autoComplete="off"
+              onKeyDown={e => e.key === "Enter" && document.getElementById("admin-pw-input")?.focus()}
+              style={{ width:"100%", padding:"13px 14px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box", marginBottom:10, fontFamily:"inherit", color:C.text1, background:C.surface }}
+            />
+            <input
+              id="admin-pw-input"
               value={adminCodeInput}
               onChange={e => { setAdminCodeInput(e.target.value); setAdminCodeError(""); }}
               type="password"
-              placeholder="코드 입력"
-              style={{ width:"100%", padding:"14px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:18, outline:"none", boxSizing:"border-box", marginBottom:14, fontFamily:"inherit", color:C.text1, background:C.surface, textAlign:"center", letterSpacing:4 }}
+              placeholder="비밀번호"
+              autoComplete="off"
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  if (adminIdInput === "admin" && adminCodeInput === "44445") {
+                    localStorage.setItem("admin_authed", "true");
+                    setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError("");
+                    onLogin({ ...user, role:"admin", activeRole:"admin" }); setScreen("admin");
+                  } else { setAdminCodeError("아이디 또는 비밀번호가 올바르지 않습니다"); }
+                }
+              }}
+              style={{ width:"100%", padding:"13px 14px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box", marginBottom:adminCodeError ? 8 : S.xl, fontFamily:"inherit", color:C.text1, background:C.surface }}
             />
-            {adminCodeError && <div style={{ color:C.red, fontSize:12, fontWeight:600, marginBottom:S.sm }}>{adminCodeError}</div>}
+            {adminCodeError && <div style={{ color:C.red, fontSize:12, fontWeight:600, marginBottom:S.md }}>{adminCodeError}</div>}
             <div style={{ display:"flex", gap:S.sm }}>
-              <button onClick={() => { setShowAdminCodeModal(false); setAdminCodeInput(""); setAdminCodeError(""); }}
+              <button onClick={() => { setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError(""); }}
                 style={{ flex:1, padding:S.lg, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>
                 취소
               </button>
               <button onClick={() => {
-                if (adminCodeInput === "admin1234") {
-                  setShowAdminCodeModal(false);
-                  setAdminCodeInput("");
-                  setAdminCodeError("");
-                  onLogin({ ...user, role: "admin", activeRole: "admin" });
-                  setScreen("admin");
+                if (adminIdInput === "admin" && adminCodeInput === "44445") {
+                  localStorage.setItem("admin_authed", "true");
+                  setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError("");
+                  onLogin({ ...user, role:"admin", activeRole:"admin" }); setScreen("admin");
                 } else {
-                  setAdminCodeError("관리자 코드가 올바르지 않습니다");
+                  setAdminCodeError("아이디 또는 비밀번호가 올바르지 않습니다");
                 }
               }}
                 style={{ flex:1, padding:S.lg, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer" }}>
-                확인
+                로그인
               </button>
             </div>
+            {IS_DEBUG && (
+              <div style={{ marginTop:S.lg, padding:"8px 10px", background:"#111", color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
+                admin_authed: {localStorage.getItem("admin_authed") ?? "null"}<br/>
+                activeRole: {activeRole}<br/>
+                admin_login_err: {adminCodeError || "—"}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2319,7 +2399,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           activeRole: {activeRole}<br/>
           dbRole: {user.role ?? "—"}<br/>
           screen: {screen}<br/>
-          mode: {mode}
+          mode: {mode}<br/>
+          admin_authed: {localStorage.getItem("admin_authed") ?? "null"}
         </div>
       )}
 

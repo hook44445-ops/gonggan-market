@@ -167,11 +167,10 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
       imageUrls:       data.imageUrls        ?? [],
       reply:           null,
     };
-    // Optimistic update — show immediately regardless of DB outcome
+    // Optimistic update — show immediately, rolled back on DB failure
     setReviews(r => [nr, ...r]);
     setNewId(nr.id);
     setTimeout(() => setNewId(null), 3000);
-    setAlreadyReviewed(true); // always block duplicate CTA after any submission
 
     const hasPhotos = (data.beforeImageUrls?.length ?? 0) + (data.afterImageUrls?.length ?? 0) > 0;
     const delta = calcTempDelta(data.rating, hasPhotos);
@@ -202,18 +201,25 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
       log.db_err = reviewErr?.message ?? null;
       setSubmitDebug(log);
 
-      await updateCompanyTemp(company.id, delta).catch(() => {});
+      if (reviewRow) {
+        setAlreadyReviewed(true);
+        await updateCompanyTemp(company.id, delta).catch(() => {});
 
-      if (reviewRow && hasPhotos) {
-        const { error: rewardErr } = await createReviewReward({
-          review_id:   reviewRow.id,
-          customer_id: currentUser?.id ?? null,
-          reward_type: "COFFEE_COUPON",
-          status:      "PENDING",
-        }).catch(e => ({ error: e }));
-        log.reward_ok  = !rewardErr;
-        log.reward_err = rewardErr?.message ?? null;
-        setSubmitDebug({ ...log });
+        if (hasPhotos) {
+          const { error: rewardErr } = await createReviewReward({
+            review_id:   reviewRow.id,
+            customer_id: currentUser?.id ?? null,
+            reward_type: "COFFEE_COUPON",
+            status:      "PENDING",
+          }).catch(e => ({ error: e }));
+          log.reward_ok  = !rewardErr;
+          log.reward_err = rewardErr?.message ?? null;
+          setSubmitDebug({ ...log });
+        }
+      } else {
+        // DB 저장 실패 — 낙관적 업데이트 롤백
+        setReviews(r => r.filter(rv => rv.id !== nr.id));
+        setLocalTemp(t => clampTemp(t - delta));
       }
     }
   };
