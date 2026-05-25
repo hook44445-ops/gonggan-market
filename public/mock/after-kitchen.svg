@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8f6f2"/>
+      <stop offset="100%" stop-color="#f0ece6"/>
+    </linearGradient>
+    <linearGradient id="cab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4f4f2"/>
+      <stop offset="100%" stop-color="#e8e8e4"/>
+    </linearGradient>
+    <linearGradient id="counter" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d0ccc6"/>
+      <stop offset="100%" stop-color="#c0bbb4"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="#f8f6f2"/>
+  <rect width="400" height="30" fill="#f0ece6"/>
+  <!-- wall -->
+  <rect x="0" y="30" width="400" height="195" fill="url(#wall)"/>
+  <!-- upper cabinets (white, flat) -->
+  <rect x="0" y="42" width="400" height="88" fill="url(#cab)" rx="3"/>
+  <!-- cabinet divisions -->
+  <line x1="100" y1="42" x2="100" y2="130" stroke="#e0dcd6" stroke-width="1.5"/>
+  <line x1="200" y1="42" x2="200" y2="130" stroke="#e0dcd6" stroke-width="1.5"/>
+  <line x1="300" y1="42" x2="300" y2="130" stroke="#e0dcd6" stroke-width="1.5"/>
+  <!-- slim bar handles -->
+  <rect x="30" y="88" width="40" height="3" fill="#c0bdb8" rx="1.5"/>
+  <rect x="130" y="88" width="40" height="3" fill="#c0bdb8" rx="1.5"/>
+  <rect x="230" y="88" width="40" height="3" fill="#c0bdb8" rx="1.5"/>
+  <rect x="330" y="88" width="40" height="3" fill="#c0bdb8" rx="1.5"/>
+  <!-- subway tile backsplash -->
+  <rect x="0" y="170" width="400" height="42" fill="#f4f4f4"/>
+  <g stroke="#e0dcd8" stroke-width="1" opacity="0.8">
+    <line x1="0" y1="183" x2="400" y2="183"/>
+    <line x1="0" y1="198" x2="400" y2="198"/>
+    <line x1="0" y1="212" x2="400" y2="212"/>
+    <line x1="30" y1="170" x2="30" y2="212"/>
+    <line x1="90" y1="170" x2="90" y2="212"/>
+    <line x1="150" y1="170" x2="150" y2="212"/>
+    <line x1="210" y1="170" x2="210" y2="212"/>
+    <line x1="270" y1="170" x2="270" y2="212"/>
+    <line x1="330" y1="170" x2="330" y2="212"/>
+    <line x1="390" y1="170" x2="390" y2="212"/>
+  </g>
+  <!-- countertop (quartz) -->
+  <rect x="0" y="160" width="400" height="14" fill="url(#counter)" rx="2"/>
+  <!-- quartz veins -->
+  <path d="M 50 162 Q 80 168 70 173" stroke="#b8b4ae" stroke-width="0.8" fill="none" opacity="0.5"/>
+  <path d="M 260 163 Q 290 169 280 174" stroke="#b8b4ae" stroke-width="0.8" fill="none" opacity="0.4"/>
+  <!-- lower cabinets (white) -->
+  <rect x="0" y="174" width="400" height="126" fill="url(#cab)" rx="3"/>
+  <line x1="100" y1="174" x2="100" y2="300" stroke="#e0dcd6" stroke-width="1.5"/>
+  <line x1="200" y1="174" x2="200" y2="300" stroke="#e0dcd6" stroke-width="1.5"/>
+  <line x1="300" y1="174" x2="300" y2="300" stroke="#e0dcd6" stroke-width="1.5"/>
+  <rect x="30" y="235" width="40" height="3" fill="#c0bdb8" rx="1.5"/>
+  <rect x="130" y="235" width="40" height="3" fill="#c0bdb8" rx="1.5"/>
+  <rect x="230" y="235" width="40" height="3" fill="#c0bdb8" rx="1.5"/>
+  <rect x="330" y="235" width="40" height="3" fill="#c0bdb8" rx="1.5"/>
+  <!-- undermount sink -->
+  <rect x="140" y="163" width="90" height="18" fill="#9ab0ba" rx="3"/>
+  <rect x="155" y="165" width="60" height="14" fill="#8aa0aa" rx="2"/>
+  <!-- chrome faucet -->
+  <rect x="200" y="148" width="4" height="18" fill="#c0c4c8" rx="2"/>
+  <path d="M 202 148 Q 210 140 215 152" stroke="#c0c4c8" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- range hood (modern) -->
+  <rect x="160" y="32" width="80" height="12" fill="#d8d4ce" rx="2"/>
+  <rect x="168" y="44" width="64" height="6" fill="#c8c4bc" rx="1"/>
+  <!-- label -->
+  <rect x="8" y="8" width="78" height="26" fill="rgba(30,80,50,0.85)" rx="13"/>
+  <text x="47" y="25" fill="#ffffff" font-family="sans-serif" font-size="13" font-weight="700" text-anchor="middle">주방 완성</text>
+</svg>

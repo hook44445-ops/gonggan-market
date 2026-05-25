@@ -144,41 +144,36 @@ const MOCK_REVIEW_POOL = [
     id: "mr1", isMock: true, rating: 5,
     content: "입주 전 낡고 어두운 분위기였는데 시공 후 완전히 달라졌어요. 단계마다 사진으로 확인하면서 진행돼 믿음이 갔습니다.",
     space_type: "32평 아파트 전체", region: "강남구", user_name: "김○○", maskedName: "공간○○",
-    // BEFORE: 공사 전 낡은 내부 / AFTER: 모던 미니멀 거실
-    beforeImage: "https://images.unsplash.com/photo-yyMtJ9h0N7w?w=400&h=300&fit=crop&q=75",
-    afterImage:  "https://images.unsplash.com/photo-4r9OKorlcTk?w=400&h=300&fit=crop&q=75",
+    beforeImage: "/mock/before-apartment.svg",
+    afterImage:  "/mock/after-apartment.svg",
   },
   {
     id: "mr2", isMock: true, rating: 5,
     content: "카페 개업 전 리모델링인데 일정을 딱 맞게 끝내줬어요. 중간 점검 사진도 꼼꼼하게 보내줘서 안심됐습니다.",
     space_type: "카페 리모델링", region: "마포구", user_name: "이○○", maskedName: "홍○시공",
-    // BEFORE: 빈 구형 카페 / AFTER: 밝은 모던 카페
-    beforeImage: "https://images.unsplash.com/photo-ucZv4gn94VE?w=400&h=300&fit=crop&q=75",
-    afterImage:  "https://images.unsplash.com/photo-J8YEvimZMZ4?w=400&h=300&fit=crop&q=75",
+    beforeImage: "/mock/before-cafe.svg",
+    afterImage:  "/mock/after-cafe.svg",
   },
   {
     id: "mr3", isMock: true, rating: 5,
     content: "욕실 전체를 바꿨는데 타일 선택부터 완료까지 기록이 다 남아서 나중에 확인하기도 좋았어요.",
     space_type: "욕실 리모델링", region: "송파구", user_name: "박○○", maskedName: "우리○시공",
-    // BEFORE: 낡은 욕실 / AFTER: 호텔식 모던 욕실
-    beforeImage: "https://images.unsplash.com/photo-fRZTgGnGuN0?w=400&h=300&fit=crop&q=75",
-    afterImage:  "https://images.unsplash.com/photo-VCUbsNJdZpQ?w=400&h=300&fit=crop&q=75",
+    beforeImage: "/mock/before-bath.svg",
+    afterImage:  "/mock/after-bath.svg",
   },
   {
     id: "mr4", isMock: true, rating: 5,
     content: "낡은 주방을 전면 교체했어요. 자재 반입부터 마감까지 사진으로 공유해줘서 진행 상황을 확인할 수 있었습니다.",
     space_type: "주방 전면 교체", region: "수원 영통", user_name: "최○○", maskedName: "공간***",
-    // BEFORE: 구형 주방 / AFTER: 화이트 모던 주방
-    beforeImage: "https://images.unsplash.com/photo-UiGsP8TvOJQ?w=400&h=300&fit=crop&q=75",
-    afterImage:  "https://images.unsplash.com/photo-EWa9IuheEWo?w=400&h=300&fit=crop&q=75",
+    beforeImage: "/mock/before-kitchen.svg",
+    afterImage:  "/mock/after-kitchen.svg",
   },
   {
     id: "mr5", isMock: true, rating: 5,
     content: "오피스 이전에 맞춰 인테리어를 진행했는데 공사 범위를 계약서로 명확히 정해두니 추가 비용 없이 마무리됐습니다.",
     space_type: "오피스 인테리어", region: "중구", user_name: "정○○", maskedName: "홍***",
-    // BEFORE: 빈 구형 사무실 / AFTER: 최신 오피스
-    beforeImage: "https://images.unsplash.com/photo-pU0XbVsDBzw?w=400&h=300&fit=crop&q=75",
-    afterImage:  "https://images.unsplash.com/photo-ieDXimQcLeM?w=400&h=300&fit=crop&q=75",
+    beforeImage: "/mock/before-office.svg",
+    afterImage:  "/mock/after-office.svg",
   },
 ];
 
@@ -413,6 +408,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   const [reviewFetchErr, setReviewFetchErr] = useState(null);
   const [rawReviewsDiag, setRawReviewsDiag] = useState([]);
+  const [imgErrors, setImgErrors] = useState({});
+  const [imgLoaded, setImgLoaded] = useState({});
 
   // Load top reviews once on mount (consumer home hero section)
   useEffect(() => {
@@ -972,20 +969,30 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                               {/* BEFORE / AFTER 이미지 */}
                               <div style={{ display:"flex", height:116, overflow:"hidden" }}>
                                 <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff",
-                                  background:"#9a9088" }}>
+                                  background:"#7a6e60" }}>
                                   <img src={rv.beforeImage} alt=""
                                     style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
-                                    onError={e => { e.target.style.opacity="0"; }} />
+                                    onLoad={() => setImgLoaded(p => ({ ...p, [rv.id+"_b"]: true }))}
+                                    onError={e => {
+                                      console.error("[IMG] mock before failed", rv.id, rv.beforeImage);
+                                      setImgErrors(p => ({ ...p, [rv.id+"_b"]: true }));
+                                      if (!true) e.target.style.opacity = "0"; // always visible in DEV
+                                    }} />
                                   <span style={{ position:"absolute", bottom:4, left:4,
-                                    background:"rgba(58,95,204,0.82)", color:"#fff",
+                                    background:"rgba(30,60,180,0.82)", color:"#fff",
                                     borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
                                     BEFORE
                                   </span>
                                 </div>
-                                <div style={{ flex:1, position:"relative", background:"#e8d8c0" }}>
+                                <div style={{ flex:1, position:"relative", background:"#d4c8b0" }}>
                                   <img src={rv.afterImage} alt=""
                                     style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
-                                    onError={e => { e.target.style.opacity="0"; }} />
+                                    onLoad={() => setImgLoaded(p => ({ ...p, [rv.id+"_a"]: true }))}
+                                    onError={e => {
+                                      console.error("[IMG] mock after failed", rv.id, rv.afterImage);
+                                      setImgErrors(p => ({ ...p, [rv.id+"_a"]: true }));
+                                      if (!true) e.target.style.opacity = "0"; // always visible in DEV
+                                    }} />
                                   <span style={{ position:"absolute", bottom:4, right:4,
                                     background:"rgba(0,0,0,0.45)", color:"#fff",
                                     borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
@@ -1123,9 +1130,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   {/* DEV panel */}
                   {true && (() => {
                     const raw0 = rawReviewsDiag[0] ?? null;
+                    const mock0 = displayReviews.find(r => r.isMock) ?? null;
                     return (
                       <div style={{ marginBottom:S.md, padding:"8px 10px", background:"#111",
                         color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
+                        <span style={{ color:"#ff0", fontWeight:700 }}>── mock image debug ──</span><br/>
+                        mock_before_src: {mock0?.beforeImage ?? "—"}<br/>
+                        mock_after_src: {mock0?.afterImage ?? "—"}<br/>
+                        before_img_loaded: {String(!!imgLoaded[mock0?.id+"_b"])}<br/>
+                        after_img_loaded: {String(!!imgLoaded[mock0?.id+"_a"])}<br/>
+                        img_error_before: {String(!!imgErrors[mock0?.id+"_b"])}<br/>
+                        img_error_after: {String(!!imgErrors[mock0?.id+"_a"])}<br/>
                         <span style={{ color:"#ff0", fontWeight:700 }}>── getTopReviews ──</span><br/>
                         real_reviews_count: {realCount}<br/>
                         mock_reviews_count: {displayReviews.filter(r => r.isMock).length}<br/>

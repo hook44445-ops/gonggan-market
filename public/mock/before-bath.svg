@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c8bc9a"/>
+      <stop offset="100%" stop-color="#b0a480"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9a9080"/>
+      <stop offset="100%" stop-color="#7a7068"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="#b0a480"/>
+  <!-- ceiling -->
+  <rect width="400" height="30" fill="#9a8e6c"/>
+  <!-- wall tiles (old, yellowed) -->
+  <rect x="0" y="30" width="400" height="190" fill="url(#wall)"/>
+  <!-- old tile grid -->
+  <g stroke="#9a8e70" stroke-width="1" opacity="0.6">
+    <line x1="0" y1="60" x2="400" y2="60"/>
+    <line x1="0" y1="90" x2="400" y2="90"/>
+    <line x1="0" y1="120" x2="400" y2="120"/>
+    <line x1="0" y1="150" x2="400" y2="150"/>
+    <line x1="0" y1="180" x2="400" y2="180"/>
+    <line x1="50" y1="30" x2="50" y2="220"/>
+    <line x1="100" y1="30" x2="100" y2="220"/>
+    <line x1="150" y1="30" x2="150" y2="220"/>
+    <line x1="200" y1="30" x2="200" y2="220"/>
+    <line x1="250" y1="30" x2="250" y2="220"/>
+    <line x1="300" y1="30" x2="300" y2="220"/>
+    <line x1="350" y1="30" x2="350" y2="220"/>
+  </g>
+  <!-- grout staining -->
+  <ellipse cx="125" cy="105" rx="8" ry="5" fill="#8a7850" opacity="0.4"/>
+  <ellipse cx="275" cy="75" rx="6" ry="4" fill="#8a7850" opacity="0.35"/>
+  <ellipse cx="200" cy="165" rx="10" ry="4" fill="#8a7850" opacity="0.3"/>
+  <!-- floor -->
+  <rect x="0" y="220" width="400" height="80" fill="url(#floor)"/>
+  <!-- old bathtub -->
+  <rect x="220" y="155" width="165" height="65" fill="#c0b898" rx="8"/>
+  <rect x="228" y="163" width="149" height="50" fill="#a8a080" rx="6"/>
+  <!-- tub stain -->
+  <ellipse cx="300" cy="185" rx="25" ry="10" fill="#8a8060" opacity="0.4"/>
+  <!-- old faucet -->
+  <rect x="354" y="148" width="8" height="18" fill="#8a8070" rx="2"/>
+  <rect x="340" y="146" width="36" height="8" fill="#8a8070" rx="2"/>
+  <!-- old mirror (small, yellowed frame) -->
+  <rect x="50" y="45" width="90" height="70" fill="#b8b0a0" rx="2"/>
+  <rect x="54" y="49" width="82" height="62" fill="#d0c8b0" opacity="0.7"/>
+  <!-- rust stains on mirror frame -->
+  <rect x="50" y="45" width="90" height="70" fill="none" stroke="#8a7850" stroke-width="5"/>
+  <!-- label -->
+  <rect x="8" y="8" width="100" height="26" fill="rgba(0,0,0,0.65)" rx="13"/>
+  <text x="58" y="25" fill="#e8d0a0" font-family="sans-serif" font-size="13" font-weight="700" text-anchor="middle">욕실 시공 전</text>
+</svg>
