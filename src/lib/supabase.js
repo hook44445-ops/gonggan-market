@@ -1153,7 +1153,9 @@ export const expireRequest = (id) =>
 export const archiveRequest = (id) =>
   supabase.from("requests")
     .update({ is_hidden: true, archived_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id, is_hidden")
+    .maybeSingle();
 
 // ── STEP SYNC-2: Lounge CRUD ──────────────────────────────────────────────────
 

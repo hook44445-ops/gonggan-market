@@ -320,6 +320,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
   const [escrowRefreshTrigger, setEscrowRefreshTrigger] = useState(0);
   const [topReviews, setTopReviews] = useState([]);
+  const [hidingId, setHidingId] = useState(null);     // requestId currently being hidden
+  const [hideDebug, setHideDebug] = useState(null);   // DEV panel
 
   const applyExpiry = (rows) => {
     const normalized = rows.map(normalizeRequest);
@@ -1110,14 +1112,46 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => {
-                                    archiveRequest(r.id).catch(() => {});
-                                    setMyRequests(prev => prev.filter(x => x.id !== r.id));
+                                  disabled={hidingId === r.id}
+                                  onClick={async () => {
+                                    setHidingId(r.id);
+                                    const log = { hide_click: r.id.slice(0, 8), hide_db_ok: false, hide_local_ok: false, hide_err: null };
+                                    try {
+                                      const { data, error } = await archiveRequest(r.id);
+                                      if (error) {
+                                        log.hide_err = error.message;
+                                        setHideDebug(log);
+                                        setToast("숨기기에 실패했습니다");
+                                        setTimeout(() => setToast(null), 3000);
+                                        return;
+                                      }
+                                      if (!data) {
+                                        log.hide_err = "0 rows updated — RLS or missing row";
+                                        setHideDebug(log);
+                                        setToast("숨기기에 실패했습니다");
+                                        setTimeout(() => setToast(null), 3000);
+                                        return;
+                                      }
+                                      log.hide_db_ok = true;
+                                      setMyRequests(prev => prev.filter(x => x.id !== r.id));
+                                      log.hide_local_ok = true;
+                                      setHideDebug(log);
+                                      setToast("요청이 숨겨졌습니다");
+                                      setTimeout(() => setToast(null), 3000);
+                                    } catch (e) {
+                                      log.hide_err = e?.message ?? "unknown";
+                                      setHideDebug(log);
+                                      setToast("숨기기에 실패했습니다");
+                                      setTimeout(() => setToast(null), 3000);
+                                    } finally {
+                                      setHidingId(null);
+                                    }
                                   }}
-                                  style={{ flex:1, padding:"10px", background:C.surface,
+                                  style={{ flex:1, padding:"10px", background:hidingId === r.id ? C.bgWarm : C.surface,
                                     color:C.text4, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
-                                    fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                  숨기기
+                                    fontWeight:700, fontSize:13, cursor: hidingId === r.id ? "not-allowed" : "pointer",
+                                    opacity: hidingId === r.id ? 0.6 : 1 }}>
+                                  {hidingId === r.id ? "숨기는 중..." : "숨기기"}
                                 </button>
                               </div>
                             </div>
@@ -1218,6 +1252,21 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                         ? <span style={{color:"#f88"}}>⚠️ guard: tmpPrefix:{String(reqCreateDebug.hasTmpPrefix)} userId:{String(reqCreateDebug.hasUserId)} origReq:{String(reqCreateDebug.hasOriginalReq)}<br/></span>
                         : <span style={{color:"#f66"}}>❌ insert_err: {reqCreateDebug.insertError}<br/></span>
                     }
+                  </>
+                )}
+                {hideDebug && (
+                  <>
+                    <span style={{color:"#ff0"}}>── 숨기기 결과 ──</span><br/>
+                    <span style={{color:"#4ff"}}>hide_click: {hideDebug.hide_click}</span><br/>
+                    <span style={{color: hideDebug.hide_db_ok ? "#0f0" : "#f66"}}>
+                      hide_db_ok: {String(hideDebug.hide_db_ok)}
+                    </span><br/>
+                    <span style={{color: hideDebug.hide_local_ok ? "#0f0" : "#f66"}}>
+                      hide_local_ok: {String(hideDebug.hide_local_ok)}
+                    </span><br/>
+                    {hideDebug.hide_err && (
+                      <span style={{color:"#f66"}}>hide_err: {hideDebug.hide_err}<br/></span>
+                    )}
                   </>
                 )}
               </div>
