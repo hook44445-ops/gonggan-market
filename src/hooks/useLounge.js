@@ -54,11 +54,13 @@ export function useLounge(category = 'all') {
         .filter(p => !p.is_deleted && !p.is_hidden);
 
       if (category === 'popular') {
-        allPosts = [...allPosts].sort((a, b) =>
-          b.view_count !== a.view_count
-            ? b.view_count - a.view_count
-            : b.like_count - a.like_count
-        );
+        allPosts = [...allPosts].sort((a, b) => {
+          // real 글(is_seed=false) 우선, 그 안에서 view_count desc
+          const seedDiff = (a.is_seed ? 1 : 0) - (b.is_seed ? 1 : 0);
+          if (seedDiff !== 0) return seedDiff;
+          if (b.view_count !== a.view_count) return b.view_count - a.view_count;
+          return b.like_count - a.like_count;
+        });
       } else if (category !== 'all') {
         allPosts = allPosts.filter(p => p.category === category);
       }

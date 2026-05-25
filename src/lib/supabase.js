@@ -713,13 +713,15 @@ export const getLoungePosts = async (category = "all") => {
     .eq("is_story", false)
     .eq("is_deleted", false)
     .eq("is_hidden", false)
-    .order("created_at", { ascending: false });
+    .order("is_seed", { ascending: true });   // real 글 먼저
+
   if (category === "popular") {
     q = q.order("view_count", { ascending: false });
   } else if (category !== "all") {
     q = q.eq("category", category);
   }
-  return q;
+
+  return q.order("created_at", { ascending: false });
 };
 
 export const getLoungePost = (postId) =>

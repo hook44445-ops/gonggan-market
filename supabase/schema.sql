@@ -744,6 +744,7 @@ create table if not exists public.lounge_posts (
   region             text,
   is_story           boolean     not null default false,
   story_expires_at   timestamptz,
+  is_seed            boolean     not null default false,  -- true: 플랫폼 seed 글 (real 글이 없을 때 초기 화면용)
   view_count         integer     not null default 0,
   like_count         integer     not null default 0,
   comment_count      integer     not null default 0,
