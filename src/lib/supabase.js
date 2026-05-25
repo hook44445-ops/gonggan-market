@@ -1309,6 +1309,21 @@ export const getCompanyBids = (userId) =>
     .eq("company_id", userId)
     .order("created_at", { ascending: false });
 
+// ── EscrowScreen: advance escrow step on customer approval ───────────────────
+// Updates step{N}_approved_at, current_step, and optionally transaction_status
+export const advanceContractStep = (contractId, step, nextStep, txStatus = null) => {
+  const update = {
+    [`step${step}_approved_at`]: new Date().toISOString(),
+    current_step: nextStep,
+  };
+  if (txStatus) update.transaction_status = txStatus;
+  return supabase.from("escrow_payments")
+    .update(update)
+    .eq("id", contractId)
+    .select("id, current_step, transaction_status")
+    .single();
+};
+
 // ── Consumer: escrow + payouts for a request (for home card stage computation) ─
 export const getEscrowWithPayouts = async (requestId) => {
   const { data: escrow, error } = await supabase
