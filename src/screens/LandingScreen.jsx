@@ -66,10 +66,11 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
 
   return (
     <div style={{
+      display: "flex",
+      flexDirection: "column",
       minHeight: "100vh",
       background: C.bg,
       fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif",
-      overflowX: "hidden",
     }}>
       {/* DEPLOY CHECK — 배포 확인용 */}
       <div style={{ background:"#1a1a1a", color:"#00ff88", textAlign:"center", padding:"4px 0", fontSize:10, fontFamily:"monospace", letterSpacing:"0.5px" }}>
@@ -85,6 +86,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
         paddingRight: 24,
         position: "relative",
         overflow: "hidden",
+        flexShrink: 0,
       }}>
         {/* decorative circle */}
         <div style={{
@@ -302,9 +304,12 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
 
       {/* ── Footer version ───────────────────────────────────────── */}
       <div style={{
-        padding: "24px 20px 40px",
-        background: "#f5f3ef",
+        marginTop: "auto",
+        padding: "20px 20px 36px",
+        background: "#e8e4dc",
+        borderTop: "1px solid #d6d0c8",
         textAlign: "center",
+        flexShrink: 0,
       }}>
         <div
           onClick={() => {
@@ -317,10 +322,11 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
           }}
           style={{
             fontSize: 12,
-            color: "#b0a89e",
+            color: "#7a7265",
             cursor: "default",
             userSelect: "none",
             letterSpacing: "0.03em",
+            fontWeight: 500,
           }}>
           공간마켓 v0.1.0
         </div>
