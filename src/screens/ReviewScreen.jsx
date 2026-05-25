@@ -127,11 +127,12 @@ function ReviewCard({ rv, isNew }) {
 }
 
 export default function ReviewScreen({ company, onBack, currentUser, requestId, contractId }) {
-  const [reviews,        setReviews]        = useState(company?.reviewList ?? []);
-  const [showModal,      setShowModal]      = useState(false);
-  const [newId,          setNewId]          = useState(null);
-  const [localTemp,      setLocalTemp]      = useState(company?.temp ?? 36.5);
-  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [reviews,          setReviews]          = useState(company?.reviewList ?? []);
+  const [showModal,        setShowModal]        = useState(false);
+  const [newId,            setNewId]            = useState(null);
+  const [localTemp,        setLocalTemp]        = useState(company?.temp ?? 36.5);
+  const [alreadyReviewed,  setAlreadyReviewed]  = useState(false);
+  const [submitDebug,      setSubmitDebug]      = useState(null);
 
   const avg = reviews.length > 0
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : "0.0";
@@ -166,17 +167,20 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
       imageUrls:       data.imageUrls        ?? [],
       reply:           null,
     };
+    // Optimistic update — show immediately regardless of DB outcome
     setReviews(r => [nr, ...r]);
     setNewId(nr.id);
     setTimeout(() => setNewId(null), 3000);
-    if (contractId) setAlreadyReviewed(true);
+    setAlreadyReviewed(true); // always block duplicate CTA after any submission
 
     const hasPhotos = (data.beforeImageUrls?.length ?? 0) + (data.afterImageUrls?.length ?? 0) > 0;
     const delta = calcTempDelta(data.rating, hasPhotos);
     setLocalTemp(t => clampTemp(t + delta));
 
+    const log = { company_id: company?.id?.slice(0, 8), contract_id: contractId?.slice(0, 8) ?? null, db_ok: false, db_err: null, reward_ok: false };
+
     if (company?.id) {
-      const { data: reviewRow } = await createReview({
+      const { data: reviewRow, error: reviewErr } = await createReview({
         company_id:        company.id,
         user_id:           currentUser?.id    ?? null,
         customer_id:       currentUser?.id    ?? null,
@@ -194,16 +198,22 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
         status:            "published",
       });
 
+      log.db_ok  = !!reviewRow;
+      log.db_err = reviewErr?.message ?? null;
+      setSubmitDebug(log);
+
       await updateCompanyTemp(company.id, delta).catch(() => {});
 
-      // Coupon: triggered whenever photos are present (always with new before/after requirement)
       if (reviewRow && hasPhotos) {
-        await createReviewReward({
+        const { error: rewardErr } = await createReviewReward({
           review_id:   reviewRow.id,
           customer_id: currentUser?.id ?? null,
           reward_type: "COFFEE_COUPON",
           status:      "PENDING",
-        }).catch(() => {});
+        }).catch(e => ({ error: e }));
+        log.reward_ok  = !rewardErr;
+        log.reward_err = rewardErr?.message ?? null;
+        setSubmitDebug({ ...log });
       }
     }
   };
@@ -228,6 +238,21 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
       <div style={{ padding:`${S.xl}px ${S.xl}px 100px` }}>
 
         {/* Coupon incentive banner */}
+        {submitDebug && (
+          <div style={{ background:"rgba(0,0,0,0.90)", color:"#0f0", borderRadius:8,
+            padding:"8px 12px", fontSize:10, lineHeight:1.8, fontFamily:"monospace",
+            marginBottom:S.md, overflowX:"auto" }}>
+            [DEV:review-submit]<br/>
+            <span style={{ color:"#4ff" }}>company: {submitDebug.company_id} | contract: {submitDebug.contract_id ?? "null"}</span><br/>
+            <span style={{ color: submitDebug.db_ok ? "#0f0" : "#f66" }}>
+              db_ok: {String(submitDebug.db_ok)} {submitDebug.db_err ? `| db_err: ${submitDebug.db_err}` : ""}
+            </span><br/>
+            <span style={{ color: submitDebug.reward_ok ? "#0f0" : "#888" }}>
+              reward_ok: {String(!!submitDebug.reward_ok)} {submitDebug.reward_err ? `| reward_err: ${submitDebug.reward_err}` : ""}
+            </span>
+          </div>
+        )}
+
         <div style={{ background:"#FFF8EC", borderRadius:R.xl, padding:S.xl,
           marginBottom:S.lg, border:"1px solid #F5D97A",
           display:"flex", gap:S.md, alignItems:"flex-start" }}>

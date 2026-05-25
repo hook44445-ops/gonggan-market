@@ -134,30 +134,37 @@ export default function ReviewModal({
     setUploading(true);
     setUploadErr(null);
 
-    const folder = contractId ?? companyId ?? "unknown";
+    const folder   = contractId ?? companyId ?? "unknown";
+    const ts       = Date.now();
     const sanitize = (name) => name.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "");
 
-    const makeBeforePath = (file) =>
-      `reviews/${folder}/before/${Date.now()}_${sanitize(file.name)}`;
-    const makeAfterPath  = (file) =>
-      `reviews/${folder}/after/${Date.now()}_${sanitize(file.name)}`;
+    // Pre-compute paths once — same ts used for debug display and actual upload
+    const beforeEntries = beforePhotos.map((p, i) => ({
+      ...p,
+      path: `reviews/${folder}/before/${ts}_${i}_${sanitize(p.file.name)}`,
+    }));
+    const afterEntries = afterPhotos.map((p, i) => ({
+      ...p,
+      path: `reviews/${folder}/after/${ts}_${i}_${sanitize(p.file.name)}`,
+    }));
 
     const debug = {
       upload_bucket: REVIEW_BUCKET,
       upload_paths:  [
-        ...beforePhotos.map(({ file }) => makeBeforePath(file)),
-        ...afterPhotos.map(({ file }) => makeAfterPath(file)),
+        ...beforeEntries.map(e => e.path),
+        ...afterEntries.map(e => e.path),
       ],
       upload_err: null,
     };
+    setUploadDebug(debug); // show paths in DEV panel before upload starts
 
     try {
       const [beforeUrls, afterUrls] = await Promise.all([
-        Promise.all(beforePhotos.map(({ file }) =>
-          uploadFile(REVIEW_BUCKET, makeBeforePath(file), file)
+        Promise.all(beforeEntries.map(({ file, path }) =>
+          uploadFile(REVIEW_BUCKET, path, file)
         )),
-        Promise.all(afterPhotos.map(({ file }) =>
-          uploadFile(REVIEW_BUCKET, makeAfterPath(file), file)
+        Promise.all(afterEntries.map(({ file, path }) =>
+          uploadFile(REVIEW_BUCKET, path, file)
         )),
       ]);
 
@@ -174,8 +181,9 @@ export default function ReviewModal({
       setStep(3);
     } catch (e) {
       const msg = e?.message ?? "알 수 없는 오류";
-      debug.upload_err = msg;
-      setUploadDebug(debug);
+      // eslint-disable-next-line no-console
+      console.error("[review-upload] failed", { bucket: REVIEW_BUCKET, folder, msg });
+      setUploadDebug({ ...debug, upload_err: msg });
       setUploadErr(msg);
     } finally {
       setUploading(false);
