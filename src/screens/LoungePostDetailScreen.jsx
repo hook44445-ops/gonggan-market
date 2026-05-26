@@ -79,34 +79,37 @@ function PostMenuSheet({ isOwn, onEdit, onDelete, onReport, onBlock, onClose }) 
 }
 
 export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost }) {
-  const { post: foundPost, comments, loading, addComment, likeComment } = useLoungePost(postId, initialPost);
+  const { post: foundPost, comments, loading, commentsFetchError, addComment, likeComment, refetchComments } = useLoungePost(postId, initialPost);
   const post = foundPost ?? initialPost ?? null;
-  const [commentText, setCommentText]   = useState('');
-  const [replyTo,     setReplyTo]       = useState(null);
-  const [liked,       setLiked]         = useState(false);
-  const [saved,       setSaved]         = useState(() => {
+  const isSeedPost = post?.is_seed === true;
+  const [commentText, setCommentText]       = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [devCommentInfo, setDevCommentInfo] = useState(null);
+  const [replyTo,     setReplyTo]           = useState(null);
+  const [liked,       setLiked]             = useState(false);
+  const [saved,       setSaved]             = useState(() => {
     try {
       const saves = JSON.parse(localStorage.getItem('lounge_saved_posts') ?? '[]');
       return saves.some(s => s.id === postId);
     } catch { return false; }
   });
-  const [showChat,    setShowChat]      = useState(false);
-  const [chatSending, setChatSending]   = useState(false);
-  const [chatSent,    setChatSent]      = useState(false);
-  const [toast,       setToast]         = useState(null);
-  const [reportTarget, setReportTarget] = useState(null);
-  const [showMenu,    setShowMenu]      = useState(false);
+  const [showChat,    setShowChat]          = useState(false);
+  const [chatSending, setChatSending]       = useState(false);
+  const [chatSent,    setChatSent]          = useState(false);
+  const [toast,       setToast]             = useState(null);
+  const [reportTarget, setReportTarget]     = useState(null);
+  const [showMenu,    setShowMenu]          = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting,    setDeleting]      = useState(false);
+  const [deleting,    setDeleting]          = useState(false);
   const inputRef = useRef(null);
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
   const isOwn      = isLoggedIn && post?.user_id && user?.id && post.user_id === user.id;
 
-  // Load initial like/save state from DB
+  // Load initial like/save state from DB (skip for seed posts — not in lounge_posts)
   useEffect(() => {
-    if (!user?.id || !postId || isGuest) return;
+    if (!user?.id || !postId || isGuest || isSeedPost) return;
     Promise.all([
       checkLoungePostLiked(postId, user.id),
       checkLoungeSaved(postId, user.id),
@@ -114,7 +117,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       if (likeRes.data) setLiked(true);
       if (saveRes.data) setSaved(true);
     }).catch(() => {});
-  }, [postId, user?.id, isGuest]);
+  }, [postId, user?.id, isGuest, isSeedPost]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -123,7 +126,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   const handleLike = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
-    if (liked) return;
+    if (liked || isSeedPost) return;
     setLiked(true);
     showToast('❤️ 좋아요를 눌렀어요');
     await Promise.all([
@@ -144,6 +147,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   const handleSave = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
+    if (isSeedPost) return;
     const next = !saved;
     setSaved(next);
     if (next) {
@@ -155,7 +159,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   const handleComment = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
-    if (commentSubmitting) return;
+    if (commentSubmitting || isSeedPost) return;
 
     const content = commentText.trim();
 
@@ -395,8 +399,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         </div>
       </div>
 
-      {/* 대화 신청 버튼 — 본인 글에는 숨김 */}
-      {!isOwn && (
+      {/* 대화 신청 버튼 — 본인 글, seed 글에는 숨김 */}
+      {!isOwn && !isSeedPost && (
         <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm, borderRadius: R.xl, margin: `0 8px ${S.sm}px` }}>
           <button
             onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent) setShowChat(true); }}
@@ -472,7 +476,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: C.text3, padding: 0 }}>✕</button>
           </div>
         )}
-        {isGuest ? (
+        {isSeedPost ? (
+          <div style={{ textAlign: 'center', padding: '10px 0', color: C.text4, fontSize: 13 }}>
+            이 게시글에는 댓글을 달 수 없어요
+          </div>
+        ) : isGuest ? (
           <button onClick={() => onRequireLogin?.()} style={{ width: '100%', padding: '13px', background: C.brandL, color: C.brand, border: `1.5px solid ${C.brandM}`, borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
             🔒 로그인하고 댓글 달기
           </button>

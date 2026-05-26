@@ -14,6 +14,7 @@ import {
   adminSetUserStatus, adminAdjustSpaceTemp, adminAdjustUserTokens,
   adminGetLoungePosts, getLoungeReports,
   adminHideContent, adminUpdateLoungeReport,
+  adminGetLoungeSeeds, createLoungeSeed, updateLoungeSeed, deleteLoungeSeed, uploadLoungeSeedImage,
   getCustomerReports, updateCustomerReportStatus,
   holdAllPayoutsForEscrow,
   getCompanyDocuments, adminReviewDocument,
@@ -22,8 +23,25 @@ import {
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
+const SEED_CATEGORIES = [
+  { id: 'interior',   label: '인테리어' },
+  { id: 'room_deco',  label: '집꾸미기' },
+  { id: 'worry',      label: '고민' },
+  { id: 'daily',      label: '생활' },
+  { id: 'chat',       label: '대화해요' },
+  { id: 'realestate', label: '부동산' },
+  { id: 'startup',    label: '창업' },
+  { id: 'travel',     label: '여행' },
+  { id: 'humor',      label: '유머' },
+  { id: 'pet',        label: '반려동물' },
+  { id: 'exercise',   label: '운동' },
+  { id: 'food',       label: '맛집' },
+];
+
+const BLANK_SEED = { category: 'interior', title: '', content: '', nickname: '공간마켓', sort_order: 0, is_active: true, show_on_lounge: true };
+
 // ── 라운지 관리 탭 ────────────────────────────────────────
-function LoungeManagementTab() {
+function LoungeManagementTab({ seeds = [], seedsLoading = false, onReloadSeeds }) {
   const allReports = (() => {
     try { return JSON.parse(localStorage.getItem("lounge_reports") ?? "[]"); } catch { return []; }
   })();
@@ -33,6 +51,89 @@ function LoungeManagementTab() {
   const [hiddenIds, setHiddenIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem("lounge_hidden") ?? "[]"); } catch { return []; }
   });
+
+  const [seedSubTab, setSeedSubTab]   = useState("list");
+  const [editSeed, setEditSeed]       = useState(null);
+  const [seedForm, setSeedForm]       = useState(BLANK_SEED);
+  const [seedSaving, setSeedSaving]   = useState(false);
+  const [seedError, setSeedError]     = useState(null);
+  const [seedImages, setSeedImages]   = useState([]);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const [deletingId, setDeletingId]   = useState(null);
+  const [togglingId, setTogglingId]   = useState(null);
+
+  const openCreate = () => {
+    setEditSeed(null);
+    setSeedForm(BLANK_SEED);
+    setSeedImages([]);
+    setSeedError(null);
+    setSeedSubTab("form");
+  };
+
+  const openEdit = (s) => {
+    setEditSeed(s);
+    setSeedForm({
+      category:       s.category,
+      title:          s.title ?? '',
+      content:        s.content,
+      nickname:       s.nickname,
+      sort_order:     s.sort_order,
+      is_active:      s.is_active,
+      show_on_lounge: s.show_on_lounge,
+    });
+    setSeedImages(s.image_urls ?? []);
+    setSeedError(null);
+    setSeedSubTab("form");
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImg(true);
+    const { data, error } = await uploadLoungeSeedImage(file);
+    if (error) { setSeedError("이미지 업로드 실패: " + error.message); }
+    else { setSeedImages(prev => [...prev, data.publicUrl]); }
+    setUploadingImg(false);
+    e.target.value = "";
+  };
+
+  const handleSaveSeed = async () => {
+    if (!seedForm.content.trim()) { setSeedError("내용을 입력하세요"); return; }
+    setSeedSaving(true);
+    setSeedError(null);
+    const payload = { ...seedForm, image_urls: seedImages, sort_order: Number(seedForm.sort_order) || 0 };
+    const { error } = editSeed
+      ? await updateLoungeSeed(editSeed.id, payload)
+      : await createLoungeSeed(payload);
+    if (error) { setSeedError(error.message); setSeedSaving(false); return; }
+    setSeedSaving(false);
+    setSeedSubTab("list");
+    onReloadSeeds?.();
+  };
+
+  const handleToggleActive = async (s) => {
+    if (togglingId) return;
+    setTogglingId(s.id);
+    await updateLoungeSeed(s.id, { is_active: !s.is_active });
+    setTogglingId(null);
+    onReloadSeeds?.();
+  };
+
+  const handleToggleShow = async (s) => {
+    if (togglingId) return;
+    setTogglingId(s.id);
+    await updateLoungeSeed(s.id, { show_on_lounge: !s.show_on_lounge });
+    setTogglingId(null);
+    onReloadSeeds?.();
+  };
+
+  const handleDeleteSeed = async (s) => {
+    if (deletingId) return;
+    setDeletingId(s.id);
+    await deleteLoungeSeed(s.id);
+    setDeletingId(null);
+    onReloadSeeds?.();
+  };
 
   const toggleHide = (id) => {
     setHiddenIds(prev => {
@@ -70,6 +171,8 @@ function LoungeManagementTab() {
     </div>
   );
 
+  const seedCatLabel = (id) => SEED_CATEGORIES.find(c => c.id === id)?.label ?? id;
+
   return (
     <div>
       <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>💬 라운지 관리</div>
@@ -92,6 +195,155 @@ function LoungeManagementTab() {
       <ReportList reports={postReports}    label="📋 신고된 게시글" />
       <ReportList reports={commentReports} label="💬 신고된 댓글" />
       <ReportList reports={storyReports}   label="📸 신고된 스토리" />
+
+      {/* ── Seed 게시글 관리 ── */}
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.md }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>🌱 Seed 게시글 관리</div>
+          {seedSubTab === "list" ? (
+            <button onClick={openCreate}
+              style={{ padding: "7px 14px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+              + 새 seed
+            </button>
+          ) : (
+            <button onClick={() => setSeedSubTab("list")}
+              style={{ padding: "7px 14px", background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+              ← 목록
+            </button>
+          )}
+        </div>
+
+        {seedSubTab === "list" && (
+          seedsLoading ? (
+            <div style={{ textAlign: "center", padding: "20px 0", color: C.text3, fontSize: 13 }}>불러오는 중...</div>
+          ) : seeds.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "20px 0", color: C.text3, fontSize: 13 }}>등록된 seed 게시글이 없습니다</div>
+          ) : seeds.map(s => (
+            <div key={s.id} style={{ padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bg}`, display: "flex", gap: S.sm, alignItems: "flex-start" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", gap: S.xs, alignItems: "center", marginBottom: 2, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: C.brand, background: C.brandL, borderRadius: R.sm, padding: "1px 6px" }}>
+                    {seedCatLabel(s.category)}
+                  </span>
+                  <span style={{ fontSize: 10, color: s.is_active ? "#27AE60" : C.text4, fontWeight: 700 }}>
+                    {s.is_active ? "활성" : "비활성"}
+                  </span>
+                  {!s.show_on_lounge && (
+                    <span style={{ fontSize: 10, color: C.text4, fontWeight: 600 }}>숨김</span>
+                  )}
+                  <span style={{ fontSize: 10, color: C.text4 }}>순서:{s.sort_order}</span>
+                </div>
+                {s.title && <div style={{ fontSize: 12, fontWeight: 700, color: C.text1, marginBottom: 2 }}>{s.title}</div>}
+                <div style={{ fontSize: 11, color: C.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>
+                  {s.content.slice(0, 60)}{s.content.length > 60 ? "…" : ""}
+                </div>
+                <div style={{ fontSize: 10, color: C.text4, marginTop: 2 }}>by {s.nickname}</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                <button onClick={() => openEdit(s)}
+                  style={{ padding: "4px 10px", background: C.brandL, color: C.brand, border: "none", borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  수정
+                </button>
+                <button onClick={() => handleToggleActive(s)} disabled={!!togglingId}
+                  style={{ padding: "4px 10px", background: s.is_active ? "#FEF0F0" : "#EAF7EE", color: s.is_active ? C.red : "#27AE60", border: "none", borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  {s.is_active ? "비활성" : "활성"}
+                </button>
+                <button onClick={() => handleToggleShow(s)} disabled={!!togglingId}
+                  style={{ padding: "4px 10px", background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  {s.show_on_lounge ? "숨김" : "노출"}
+                </button>
+                <button onClick={() => handleDeleteSeed(s)} disabled={!!deletingId}
+                  style={{ padding: "4px 10px", background: "#FEF0F0", color: C.red, border: "none", borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  {deletingId === s.id ? "…" : "삭제"}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+
+        {seedSubTab === "form" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.xs }}>
+              {editSeed ? "Seed 수정" : "새 Seed 등록"}
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>카테고리</div>
+              <select value={seedForm.category} onChange={e => setSeedForm(f => ({ ...f, category: e.target.value }))}
+                style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }}>
+                {SEED_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>제목 (선택)</div>
+              <input value={seedForm.title} onChange={e => setSeedForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="제목 없으면 비워두세요"
+                style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>내용 *</div>
+              <textarea value={seedForm.content} onChange={e => setSeedForm(f => ({ ...f, content: e.target.value }))}
+                placeholder="게시글 내용을 입력하세요"
+                rows={6}
+                style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", resize: "vertical", boxSizing: "border-box" }} />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>닉네임</div>
+              <input value={seedForm.nickname} onChange={e => setSeedForm(f => ({ ...f, nickname: e.target.value }))}
+                placeholder="공간마켓"
+                style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>노출 순서 (낮을수록 먼저)</div>
+              <input type="number" value={seedForm.sort_order} onChange={e => setSeedForm(f => ({ ...f, sort_order: e.target.value }))}
+                style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
+            </div>
+
+            <div style={{ display: "flex", gap: S.sm }}>
+              <label style={{ display: "flex", alignItems: "center", gap: S.xs, cursor: "pointer", fontSize: 13, color: C.text1 }}>
+                <input type="checkbox" checked={seedForm.is_active} onChange={e => setSeedForm(f => ({ ...f, is_active: e.target.checked }))} />
+                활성
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: S.xs, cursor: "pointer", fontSize: 13, color: C.text1 }}>
+                <input type="checkbox" checked={seedForm.show_on_lounge} onChange={e => setSeedForm(f => ({ ...f, show_on_lounge: e.target.checked }))} />
+                라운지 노출
+              </label>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>이미지 ({seedImages.length}개)</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: S.xs, marginBottom: S.xs }}>
+                {seedImages.map((url, i) => (
+                  <div key={i} style={{ position: "relative" }}>
+                    <img src={url} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: R.sm, border: `1px solid ${C.bgWarm}` }} />
+                    <button onClick={() => setSeedImages(prev => prev.filter((_, j) => j !== i))}
+                      style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: C.red, color: "#fff", border: "none", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <label style={{ display: "inline-flex", alignItems: "center", gap: S.xs, padding: "8px 14px", background: C.bg, borderRadius: R.lg, fontSize: 12, color: C.text2, cursor: uploadingImg ? "not-allowed" : "pointer", border: `1px solid ${C.bgWarm}` }}>
+                {uploadingImg ? "업로드 중..." : "📷 이미지 추가"}
+                <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploadingImg} style={{ display: "none" }} />
+              </label>
+            </div>
+
+            {seedError && (
+              <div style={{ fontSize: 12, color: C.red, background: "#FEF0F0", borderRadius: R.sm, padding: S.sm }}>{seedError}</div>
+            )}
+
+            <button onClick={handleSaveSeed} disabled={seedSaving}
+              style={{ padding: "13px", background: seedSaving ? C.text4 : C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: seedSaving ? "not-allowed" : "pointer" }}>
+              {seedSaving ? "저장 중..." : editSeed ? "수정 완료" : "등록하기"}
+            </button>
+          </div>
+        )}
+      </div>
 
       <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>💰 공간토큰 수동 관리</div>
@@ -231,6 +483,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [adjReason, setAdjReason]     = useState("");
   const [loungePosts, setLoungePosts]   = useState([]);
   const [loungeReports, setLoungeReports] = useState([]);
+  const [loungeSeeds, setLoungeSeeds]   = useState([]);
+  const [seedsLoading, setSeedsLoading] = useState(false);
   const [reports, setReports]           = useState([]);
   const [reviewRewards, setReviewRewards] = useState([]);
   const [hiddenRequests, setHiddenRequests] = useState([]);
@@ -302,13 +556,16 @@ export default function AdminScreen({ onBack, onHome, user }) {
       });
     }
     if (mainTab === "lounge") {
+      setSeedsLoading(true);
       Promise.all([
         adminGetLoungePosts().catch(() => ({ data: [] })),
         getLoungeReports().catch(() => ({ data: [] })),
-      ]).then(([{ data: p }, { data: r }]) => {
+        adminGetLoungeSeeds().catch(() => ({ data: [] })),
+      ]).then(([{ data: p }, { data: r }, { data: s }]) => {
         setLoungePosts(p ?? []);
         setLoungeReports(r ?? []);
-      });
+        setLoungeSeeds(s ?? []);
+      }).finally(() => setSeedsLoading(false));
     }
     if (mainTab === "reports") {
       getCustomerReports().then(({ data }) => setReports(data ?? [])).catch(() => setReports([]));
@@ -1016,7 +1273,16 @@ export default function AdminScreen({ onBack, onHome, user }) {
             )}
 
             {/* ── Lounge Management ── */}
-            {mainTab === "lounge" && <LoungeManagementTab />}
+            {mainTab === "lounge" && (
+              <LoungeManagementTab
+                seeds={loungeSeeds}
+                seedsLoading={seedsLoading}
+                onReloadSeeds={() => {
+                  setSeedsLoading(true);
+                  adminGetLoungeSeeds().then(({ data }) => setLoungeSeeds(data ?? [])).finally(() => setSeedsLoading(false));
+                }}
+              />
+            )}
 
             {/* ── Customer Reports ── */}
             {mainTab === "reports" && (

@@ -1628,3 +1628,54 @@ export const getEscrowWithPayouts = async (requestId) => {
     .order("stage");
   return { data: { escrow, payouts: payouts ?? [] }, error: null };
 };
+
+// ── Lounge Seed Posts (관리자 관리 초기 콘텐츠) ─────────────────────────────
+
+export const getLoungeSeeds = (category = 'all') => {
+  let q = supabase
+    .from('lounge_seed_posts')
+    .select('*')
+    .eq('is_active', true)
+    .eq('show_on_lounge', true)
+    .order('sort_order', { ascending: true });
+  if (category !== 'all' && category !== 'popular') {
+    q = q.eq('category', category);
+  }
+  return q;
+};
+
+export const adminGetLoungeSeeds = () =>
+  supabase
+    .from('lounge_seed_posts')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: false });
+
+export const createLoungeSeed = (data) =>
+  supabase.from('lounge_seed_posts').insert(data).select().single();
+
+export const updateLoungeSeed = (id, data) =>
+  supabase
+    .from('lounge_seed_posts')
+    .update({ ...data, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+
+export const deleteLoungeSeed = (id) =>
+  supabase
+    .from('lounge_seed_posts')
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq('id', id);
+
+export const uploadLoungeSeedImage = async (file) => {
+  const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const name = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const path = `lounge/admin-seeds/${name}`;
+  const { error } = await supabase.storage
+    .from('lounge-images')
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (error) return { data: null, error };
+  const { data } = supabase.storage.from('lounge-images').getPublicUrl(path);
+  return { data, error: null };
+};
