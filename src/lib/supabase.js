@@ -292,6 +292,14 @@ export const getRawReviewsDiag = ({ limit = 10 } = {}) =>
     .order("created_at", { ascending: false })
     .limit(limit);
 
+// 완전 무조건 raw — RLS 진단 (필터 0개, is_hidden 포함 모든 행)
+export const getRawReviewsAll = ({ limit = 10 } = {}) =>
+  supabase
+    .from("reviews")
+    .select("id, status, is_hidden, rating, before_image_urls, after_image_urls, image_urls, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
 // ── Fee Config ────────────────────────────────────────────────────────────────
 
 export const getFeeConfig = () =>

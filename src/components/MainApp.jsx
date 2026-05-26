@@ -54,6 +54,7 @@ import {
   archiveRequestAuto,
   getTopReviews,
   getRawReviewsDiag,
+  getRawReviewsAll,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -141,39 +142,49 @@ const maskCompanyName = (name) => {
 // BEFORE: 공사 전/구형/철거 느낌 / AFTER: 최신 완성 인테리어
 const MOCK_REVIEW_POOL = [
   {
-    id: "mr1", isMock: true, rating: 5,
+    id: "mock-apartment-01", isMock: true, rating: 5,
+    category: "아파트 전체 인테리어",
+    space_type: "32평 아파트 전체", region: "강남구", user_name: "김○○",
+    maskedCompanyName: "공간○○",
     content: "입주 전 낡고 어두운 분위기였는데 시공 후 완전히 달라졌어요. 단계마다 사진으로 확인하면서 진행돼 믿음이 갔습니다.",
-    space_type: "32평 아파트 전체", region: "강남구", user_name: "김○○", maskedName: "공간○○",
-    beforeImage: "/mock/before-apartment.svg",
-    afterImage:  "/mock/after-apartment.svg",
+    beforeImage: "/mock-reviews/before-apartment.svg",
+    afterImage:  "/mock-reviews/after-apartment.svg",
   },
   {
-    id: "mr2", isMock: true, rating: 5,
+    id: "mock-cafe-01", isMock: true, rating: 5,
+    category: "카페 리모델링",
+    space_type: "카페 리모델링", region: "마포구", user_name: "이○○",
+    maskedCompanyName: "홍○시공",
     content: "카페 개업 전 리모델링인데 일정을 딱 맞게 끝내줬어요. 중간 점검 사진도 꼼꼼하게 보내줘서 안심됐습니다.",
-    space_type: "카페 리모델링", region: "마포구", user_name: "이○○", maskedName: "홍○시공",
-    beforeImage: "/mock/before-cafe.svg",
-    afterImage:  "/mock/after-cafe.svg",
+    beforeImage: "/mock-reviews/before-cafe.svg",
+    afterImage:  "/mock-reviews/after-cafe.svg",
   },
   {
-    id: "mr3", isMock: true, rating: 5,
+    id: "mock-bathroom-01", isMock: true, rating: 5,
+    category: "욕실 리모델링",
+    space_type: "욕실 리모델링", region: "송파구", user_name: "박○○",
+    maskedCompanyName: "우리○시공",
     content: "욕실 전체를 바꿨는데 타일 선택부터 완료까지 기록이 다 남아서 나중에 확인하기도 좋았어요.",
-    space_type: "욕실 리모델링", region: "송파구", user_name: "박○○", maskedName: "우리○시공",
-    beforeImage: "/mock/before-bath.svg",
-    afterImage:  "/mock/after-bath.svg",
+    beforeImage: "/mock-reviews/before-bathroom.svg",
+    afterImage:  "/mock-reviews/after-bathroom.svg",
   },
   {
-    id: "mr4", isMock: true, rating: 5,
+    id: "mock-kitchen-01", isMock: true, rating: 5,
+    category: "주방 교체",
+    space_type: "주방 전면 교체", region: "수원 영통", user_name: "최○○",
+    maskedCompanyName: "공간***",
     content: "낡은 주방을 전면 교체했어요. 자재 반입부터 마감까지 사진으로 공유해줘서 진행 상황을 확인할 수 있었습니다.",
-    space_type: "주방 전면 교체", region: "수원 영통", user_name: "최○○", maskedName: "공간***",
-    beforeImage: "/mock/before-kitchen.svg",
-    afterImage:  "/mock/after-kitchen.svg",
+    beforeImage: "/mock-reviews/before-kitchen.svg",
+    afterImage:  "/mock-reviews/after-kitchen.svg",
   },
   {
-    id: "mr5", isMock: true, rating: 5,
+    id: "mock-office-01", isMock: true, rating: 5,
+    category: "오피스 인테리어",
+    space_type: "오피스 인테리어", region: "중구", user_name: "정○○",
+    maskedCompanyName: "홍***",
     content: "오피스 이전에 맞춰 인테리어를 진행했는데 공사 범위를 계약서로 명확히 정해두니 추가 비용 없이 마무리됐습니다.",
-    space_type: "오피스 인테리어", region: "중구", user_name: "정○○", maskedName: "홍***",
-    beforeImage: "/mock/before-office.svg",
-    afterImage:  "/mock/after-office.svg",
+    beforeImage: "/mock-reviews/before-office.svg",
+    afterImage:  "/mock-reviews/after-office.svg",
   },
 ];
 
@@ -408,11 +419,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   const [reviewFetchErr, setReviewFetchErr] = useState(null);
   const [rawReviewsDiag, setRawReviewsDiag] = useState([]);
+  const [rawReviewsAll, setRawReviewsAll] = useState([]);
+  const [rawReviewsAllErr, setRawReviewsAllErr] = useState(null);
   const [imgErrors, setImgErrors] = useState({});
   const [imgLoaded, setImgLoaded] = useState({});
 
   // Load top reviews once on mount (consumer home hero section)
   useEffect(() => {
+    // 완전 무조건 raw — RLS 진단 (필터 없음)
+    getRawReviewsAll({ limit: 10 }).then(({ data, error }) => {
+      if (error) setRawReviewsAllErr(error.message ?? "err");
+      else if (data) setRawReviewsAll(data);
+    }).catch(e => setRawReviewsAllErr(String(e)));
+
     // 진단용 raw 쿼리 (status 조건 없음)
     getRawReviewsDiag({ limit: 10 }).then(({ data }) => {
       if (data) setRawReviewsDiag(data);
@@ -1027,7 +1046,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                   {rv.user_name} · {rv.space_type}
                                 </div>
                                 <div style={{ fontSize:11, fontWeight:700, color:C.text3 }}>
-                                  🏠 {rv.maskedName}
+                                  🏠 {rv.maskedCompanyName}
                                 </div>
                               </div>
                             </div>
@@ -1130,17 +1149,24 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   {/* DEV panel */}
                   {true && (() => {
                     const raw0 = rawReviewsDiag[0] ?? null;
-                    const mock0 = displayReviews.find(r => r.isMock) ?? null;
+                    const allRaw0 = rawReviewsAll[0] ?? null;
+                    const mockCards = displayReviews.filter(r => r.isMock);
                     return (
                       <div style={{ marginBottom:S.md, padding:"8px 10px", background:"#111",
                         color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
-                        <span style={{ color:"#ff0", fontWeight:700 }}>── mock image debug ──</span><br/>
-                        mock_before_src: {mock0?.beforeImage ?? "—"}<br/>
-                        mock_after_src: {mock0?.afterImage ?? "—"}<br/>
-                        before_img_loaded: {String(!!imgLoaded[mock0?.id+"_b"])}<br/>
-                        after_img_loaded: {String(!!imgLoaded[mock0?.id+"_a"])}<br/>
-                        img_error_before: {String(!!imgErrors[mock0?.id+"_b"])}<br/>
-                        img_error_after: {String(!!imgErrors[mock0?.id+"_a"])}<br/>
+                        <span style={{ color:"#ff0", fontWeight:700 }}>── mock image debug (per card) ──</span><br/>
+                        {mockCards.map(rv => (
+                          <span key={rv.id}>
+                            [{rv.id}]<br/>
+                            &nbsp;&nbsp;mock_category: {rv.category}<br/>
+                            &nbsp;&nbsp;mock_before_src: {rv.beforeImage}<br/>
+                            &nbsp;&nbsp;mock_after_src: {rv.afterImage}<br/>
+                            &nbsp;&nbsp;mock_before_loaded: {String(!!imgLoaded[rv.id+"_b"])}<br/>
+                            &nbsp;&nbsp;mock_after_loaded: {String(!!imgLoaded[rv.id+"_a"])}<br/>
+                            &nbsp;&nbsp;mock_before_error: {String(!!imgErrors[rv.id+"_b"])}<br/>
+                            &nbsp;&nbsp;mock_after_error: {String(!!imgErrors[rv.id+"_a"])}<br/>
+                          </span>
+                        ))}
                         <span style={{ color:"#ff0", fontWeight:700 }}>── getTopReviews ──</span><br/>
                         real_reviews_count: {realCount}<br/>
                         mock_reviews_count: {displayReviews.filter(r => r.isMock).length}<br/>
@@ -1152,18 +1178,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                         first_real_after_count: {firstReal?.after_image_urls?.length ?? 0}<br/>
                         first_real_image_count: {firstReal?.image_urls?.length ?? 0}<br/>
                         review_fetch_err: {reviewFetchErr ?? "—"}<br/>
-                        <span style={{ color:"#ff0", fontWeight:700 }}>── raw diag (no status filter) ──</span><br/>
-                        raw_reviews_count: {rawReviewsDiag.length}<br/>
-                        first_raw_review_id: {raw0?.id ?? "—"}<br/>
-                        first_raw_status: {raw0?.status ?? "—"}<br/>
-                        first_raw_rating: {raw0?.rating ?? "—"}<br/>
-                        first_raw_is_hidden: {String(raw0?.is_hidden ?? "null")}<br/>
-                        first_raw_before_count: {raw0?.before_image_urls?.length ?? 0}<br/>
-                        first_raw_after_count: {raw0?.after_image_urls?.length ?? 0}<br/>
-                        first_raw_image_count: {raw0?.image_urls?.length ?? 0}<br/>
-                        first_raw_company_id: {raw0?.company_id ?? "—"}<br/>
-                        first_raw_contract_id: {raw0?.contract_id ?? "—"}<br/>
-                        first_raw_created_at: {raw0?.created_at?.slice(0,10) ?? "—"}
+                        <span style={{ color:"#ff0", fontWeight:700 }}>── raw_all (조건 없음, RLS 진단) ──</span><br/>
+                        raw_reviews_count: {rawReviewsAll.length}<br/>
+                        raw_first_status: {allRaw0?.status ?? "—"}<br/>
+                        raw_first_is_hidden: {String(allRaw0?.is_hidden ?? "null")}<br/>
+                        raw_first_rating: {allRaw0?.rating ?? "—"}<br/>
+                        raw_first_before_count: {allRaw0?.before_image_urls?.length ?? 0}<br/>
+                        raw_first_after_count: {allRaw0?.after_image_urls?.length ?? 0}<br/>
+                        raw_first_image_count: {allRaw0?.image_urls?.length ?? 0}<br/>
+                        review_query_error: {rawReviewsAllErr ?? "—"}<br/>
+                        <span style={{ color:"#ff0", fontWeight:700 }}>── raw_diag (is_hidden 필터 있음) ──</span><br/>
+                        raw_diag_count: {rawReviewsDiag.length}<br/>
+                        raw_diag_first_id: {raw0?.id ?? "—"}<br/>
+                        raw_diag_first_status: {raw0?.status ?? "—"}<br/>
+                        raw_diag_first_is_hidden: {String(raw0?.is_hidden ?? "null")}
                       </div>
                     );
                   })()}

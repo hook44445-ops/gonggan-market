@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f5f5f3"/>
+      <stop offset="100%" stop-color="#eceae6"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dedad4"/>
+      <stop offset="100%" stop-color="#cec9c2"/>
+    </linearGradient>
+    <linearGradient id="desk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#eae6e0"/>
+      <stop offset="100%" stop-color="#d8d4ce"/>
+    </linearGradient>
+  </defs>
+  <!-- wall bright white -->
+  <rect width="400" height="300" fill="url(#wall)"/>
+  <rect width="400" height="30" fill="#f5f5f3"/>
+  <!-- accent green stripe -->
+  <rect x="0" y="30" width="8" height="206" fill="#2e5f4b" opacity="0.25"/>
+  <!-- recessed LED lights -->
+  <circle cx="80" cy="16" r="7" fill="#fff8e0" opacity="0.95"/>
+  <circle cx="80" cy="16" r="14" fill="#fff8e0" opacity="0.3"/>
+  <circle cx="200" cy="16" r="7" fill="#fff8e0" opacity="0.95"/>
+  <circle cx="200" cy="16" r="14" fill="#fff8e0" opacity="0.3"/>
+  <circle cx="320" cy="16" r="7" fill="#fff8e0" opacity="0.95"/>
+  <circle cx="320" cy="16" r="14" fill="#fff8e0" opacity="0.3"/>
+  <!-- light wash from ceiling lights -->
+  <ellipse cx="80" cy="50" rx="50" ry="30" fill="#fffce8" opacity="0.3"/>
+  <ellipse cx="200" cy="50" rx="50" ry="30" fill="#fffce8" opacity="0.3"/>
+  <ellipse cx="320" cy="50" rx="50" ry="30" fill="#fffce8" opacity="0.3"/>
+  <!-- large window right -->
+  <rect x="270" y="40" width="120" height="160" fill="#c8e4f4" rx="5"/>
+  <rect x="272" y="42" width="116" height="156" fill="#d4ecfa" opacity="0.7" rx="4"/>
+  <rect x="268" y="38" width="124" height="164" fill="none" stroke="#e4e0da" stroke-width="4" rx="5"/>
+  <line x1="331" y1="42" x2="331" y2="198" stroke="#e4e0da" stroke-width="2.5"/>
+  <!-- glass partition (modern) -->
+  <rect x="248" y="36" width="6" height="200" fill="#d4d0ca" rx="3"/>
+  <!-- glass visual -->
+  <rect x="254" y="38" width="14" height="198" fill="#d8ecf4" opacity="0.3"/>
+  <!-- desk setup 1 -->
+  <rect x="18" y="188" width="220" height="10" fill="url(#desk)" rx="3"/>
+  <rect x="18" y="198" width="5" height="92" fill="#c4c0ba" rx="2"/>
+  <rect x="232" y="198" width="5" height="92" fill="#c4c0ba" rx="2"/>
+  <!-- modern thin monitor -->
+  <rect x="55" y="145" width="88" height="50" fill="#1e2832" rx="4"/>
+  <rect x="57" y="147" width="84" height="46" fill="#1a2230" rx="3"/>
+  <rect x="59" y="149" width="80" height="40" fill="#243040" rx="2"/>
+  <!-- monitor screen content (code/work) -->
+  <rect x="61" y="151" width="40" height="3" fill="#4a8cff" opacity="0.6" rx="1"/>
+  <rect x="61" y="157" width="60" height="2" fill="#4a8cff" opacity="0.35" rx="1"/>
+  <rect x="61" y="163" width="50" height="2" fill="#4a8cff" opacity="0.35" rx="1"/>
+  <rect x="61" y="169" width="35" height="2" fill="#4a8cff" opacity="0.35" rx="1"/>
+  <!-- monitor stand -->
+  <rect x="94" y="195" width="12" height="5" fill="#2a3040" rx="2"/>
+  <rect x="88" y="200" width="24" height="4" fill="#2a3040" rx="2"/>
+  <!-- laptop on desk -->
+  <rect x="155" y="172" width="58" height="38" fill="#2a3040" rx="3"/>
+  <rect x="157" y="174" width="54" height="32" fill="#1a2030" rx="2"/>
+  <rect x="159" y="176" width="50" height="26" fill="#243240" rx="1"/>
+  <rect x="155" y="210" width="58" height="5" fill="#3a4050" rx="2"/>
+  <!-- keyboard -->
+  <rect x="60" y="192" width="75" height="8" fill="#d8d4ce" rx="3"/>
+  <!-- desk accessories -->
+  <rect x="192" y="185" width="28" height="10" fill="#8a9a8a" rx="2"/> <!-- plant pot -->
+  <ellipse cx="206" cy="183" rx="16" ry="18" fill="#5a8a6a"/>
+  <ellipse cx="198" cy="172" rx="10" ry="13" fill="#4a7a5a"/>
+  <!-- chair (ergonomic) -->
+  <rect x="90" y="210" width="68" height="22" fill="#7a8a9a" rx="5"/>
+  <rect x="98" y="198" width="52" height="14" fill="#7a8a9a" rx="4"/>
+  <rect x="122" y="232" width="6" height="28" fill="#6a7a8a" rx="3"/>
+  <rect x="104" y="256" width="42" height="6" fill="#6a7a8a" rx="3"/>
+  <!-- floor clean gray -->
+  <rect x="0" y="236" width="400" height="64" fill="url(#floor)"/>
+  <g stroke="#c4c0ba" stroke-width="0.8" opacity="0.5">
+    <line x1="0" y1="252" x2="400" y2="252"/>
+    <line x1="0" y1="268" x2="400" y2="268"/>
+    <line x1="0" y1="284" x2="400" y2="284"/>
+    <line x1="80" y1="236" x2="80" y2="300"/>
+    <line x1="200" y1="236" x2="200" y2="300"/>
+    <line x1="320" y1="236" x2="320" y2="300"/>
+  </g>
+  <!-- green label -->
+  <rect x="18" y="8" width="104" height="26" fill="rgba(30,80,50,0.88)" rx="13"/>
+  <text x="70" y="25" fill="#ffffff" font-family="'Apple SD Gothic Neo',sans-serif" font-size="13" font-weight="700" text-anchor="middle">오피스 완성</text>
+</svg>

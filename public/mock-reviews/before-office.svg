@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a0a098"/>
+      <stop offset="100%" stop-color="#909088"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8a8880"/>
+      <stop offset="100%" stop-color="#6a6860"/>
+    </linearGradient>
+  </defs>
+  <!-- ceiling tiles (old suspended) -->
+  <rect width="400" height="300" fill="#8a8880"/>
+  <rect width="400" height="36" fill="#929088"/>
+  <!-- ceiling tile grid -->
+  <g stroke="#7a7870" stroke-width="1" opacity="0.6">
+    <line x1="0" y1="18" x2="400" y2="18"/>
+    <line x1="100" y1="0" x2="100" y2="36"/>
+    <line x1="200" y1="0" x2="200" y2="36"/>
+    <line x1="300" y1="0" x2="300" y2="36"/>
+  </g>
+  <!-- old fluorescent lights (yellowed) -->
+  <rect x="60" y="30" width="130" height="9" fill="#c8c8b8" rx="2"/>
+  <rect x="62" y="31" width="126" height="7" fill="#d8d8c8" opacity="0.85"/>
+  <rect x="210" y="30" width="130" height="9" fill="#c8c8b8" rx="2"/>
+  <rect x="212" y="31" width="126" height="7" fill="#d8d8c8" opacity="0.85"/>
+  <!-- wall (plain, dingy) -->
+  <rect x="0" y="36" width="400" height="200" fill="url(#wall)"/>
+  <!-- wall scuffs and marks -->
+  <ellipse cx="100" cy="100" rx="20" ry="12" fill="#8a8880" opacity="0.45"/>
+  <ellipse cx="320" cy="140" rx="15" ry="9" fill="#8a8880" opacity="0.4"/>
+  <rect x="0" y="36" width="6" height="200" fill="#909088"/>
+  <rect x="394" y="36" width="6" height="200" fill="#909088"/>
+  <!-- old blinds (horizontal) -->
+  <rect x="50" y="50" width="130" height="110" fill="#c0c0b0" rx="2"/>
+  <g stroke="#b0b0a0" stroke-width="2">
+    <line x1="50" y1="68" x2="180" y2="68"/>
+    <line x1="50" y1="82" x2="180" y2="82"/>
+    <line x1="50" y1="96" x2="180" y2="96"/>
+    <line x1="50" y1="110" x2="180" y2="110"/>
+    <line x1="50" y1="124" x2="180" y2="124"/>
+    <line x1="50" y1="138" x2="180" y2="138"/>
+    <line x1="50" y1="152" x2="180" y2="152"/>
+  </g>
+  <!-- old partition (gray metal) -->
+  <rect x="250" y="55" width="10" height="180" fill="#7a7870" rx="2"/>
+  <!-- old desks (dark, worn) -->
+  <rect x="0" y="195" width="230" height="9" fill="#7a7068" rx="2"/>
+  <rect x="0" y="204" width="5" height="96" fill="#6a6058"/>
+  <rect x="224" y="204" width="5" height="96" fill="#6a6058"/>
+  <!-- old monitor (boxy CRT) -->
+  <rect x="50" y="150" width="65" height="52" fill="#5a5850" rx="3"/>
+  <rect x="53" y="153" width="59" height="46" fill="#484640" rx="2"/>
+  <rect x="55" y="155" width="55" height="40" fill="#2a3040" rx="2"/>
+  <!-- CRT screen glow (dim) -->
+  <rect x="57" y="157" width="51" height="36" fill="#1a2030" opacity="0.9" rx="1"/>
+  <!-- CRT base -->
+  <rect x="72" y="202" width="30" height="6" fill="#5a5850" rx="2"/>
+  <!-- chair (old, worn) -->
+  <rect x="270" y="178" width="80" height="25" fill="#5a5850" rx="4"/>
+  <rect x="285" y="158" width="50" height="22" fill="#5a5850" rx="3"/>
+  <rect x="310" y="203" width="5" height="30" fill="#4a4840"/>
+  <!-- cardboard boxes -->
+  <rect x="300" y="172" width="48" height="32" fill="#b8a878" rx="2"/>
+  <line x1="324" y1="172" x2="324" y2="204" stroke="#a89868" stroke-width="1.5"/>
+  <line x1="300" y1="184" x2="348" y2="184" stroke="#a89868" stroke-width="1.5"/>
+  <!-- floor (old vinyl) -->
+  <rect x="0" y="236" width="400" height="64" fill="url(#floor)"/>
+  <g stroke="#5a5850" stroke-width="1" opacity="0.4">
+    <line x1="0" y1="252" x2="400" y2="252"/>
+    <line x1="0" y1="268" x2="400" y2="268"/>
+    <line x1="0" y1="284" x2="400" y2="284"/>
+    <line x1="60" y1="236" x2="60" y2="300"/>
+    <line x1="130" y1="236" x2="130" y2="300"/>
+    <line x1="210" y1="236" x2="210" y2="300"/>
+    <line x1="290" y1="236" x2="290" y2="300"/>
+    <line x1="355" y1="236" x2="355" y2="300"/>
+  </g>
+  <!-- label -->
+  <rect x="8" y="8" width="122" height="26" fill="rgba(0,0,0,0.72)" rx="13"/>
+  <text x="69" y="25" fill="#e8c880" font-family="'Apple SD Gothic Neo',sans-serif" font-size="13" font-weight="700" text-anchor="middle">오피스 시공 전</text>
+</svg>
