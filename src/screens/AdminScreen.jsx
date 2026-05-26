@@ -14,7 +14,7 @@ import {
   adminSetUserStatus, adminAdjustSpaceTemp, adminAdjustUserTokens,
   adminGetLoungePosts, getLoungeReports,
   adminHideContent, adminUpdateLoungeReport,
-  adminGetLoungeSeeds, createLoungeSeed, updateLoungeSeed, deleteLoungeSeed, uploadLoungeSeedImage,
+  adminGetSeedLoungePosts, createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage,
   getCustomerReports, updateCustomerReportStatus,
   holdAllPayoutsForEscrow,
   getCompanyDocuments, adminReviewDocument,
@@ -39,6 +39,7 @@ const SEED_CATEGORIES = [
 ];
 
 const BLANK_SEED = { category: 'interior', title: '', content: '', nickname: '공간마켓', sort_order: 0, is_active: true, show_on_lounge: true };
+const BLANK_LOUNGE_SEED = { category: 'interior', title: '', content: '', author_name: '공간마켓', sort_order: 0, is_active: true };
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
 function LoungeManagementTab({ seeds = [], seedsLoading = false, onReloadSeeds }) {

@@ -6,11 +6,11 @@ import {
   getLoungeStories,
   getLoungeComments,
   softDeleteLoungeComment,
-  getLoungeSeeds,
+  getSeedLoungePosts,
   likeLoungePost,
 } from '../lib/supabase';
 
-// seed 게시글이 많을 때 첫 페이지 노출 최소화 (실제 글 20개 이상이면 최대 3개)
+const FEED_MIN_TARGET = 5;
 const SEED_LIMIT_WHEN_PLENTY = 3;
 
 function adaptSeedPost(s) {
@@ -18,7 +18,7 @@ function adaptSeedPost(s) {
     id:                   `seed_${s.id}`,
     _seed_post_id:        s.id,
     user_id:              null,
-    anonymous_nickname:   s.nickname ?? '공간러',
+    anonymous_nickname:   s.author_name ?? '공간마켓',
     category:             s.category,
     title:                s.title ?? null,
     content:              s.content,
@@ -52,16 +52,16 @@ export function useLounge(category = 'all') {
       const [postsRes, storiesRes, seedsRes] = await Promise.all([
         getLoungePosts(category),
         getLoungeStories(),
-        getLoungeSeeds(category),
+        getSeedLoungePosts(category),
       ]);
 
       const realPosts = postsRes.data ?? [];
       const seeds     = (seedsRes.data ?? []).map(adaptSeedPost);
 
-      // 실제 글이 20개 이상이면 seed는 최대 3개만 노출
-      const seedsToShow = realPosts.length >= 20
-        ? seeds.slice(0, SEED_LIMIT_WHEN_PLENTY)
-        : seeds;
+      const needed = realPosts.length >= 20
+        ? SEED_LIMIT_WHEN_PLENTY
+        : Math.max(0, FEED_MIN_TARGET - realPosts.length);
+      const seedsToShow = seeds.slice(0, needed);
 
       // 실제 글 먼저, seed 글은 뒤
       const merged = [...realPosts, ...seedsToShow];
