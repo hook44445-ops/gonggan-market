@@ -1338,8 +1338,8 @@ export const getLoungePosts = async (category = "all") => {
     .from("lounge_posts")
     .select("*")
     .eq("is_story", false)
-    .eq("is_deleted", false)
-    .eq("is_hidden", false)
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .or("is_hidden.is.null,is_hidden.eq.false")
     .order("is_seed", { ascending: true });   // real 글 먼저
 
   if (category === "popular") {
@@ -1378,8 +1378,8 @@ export const getLoungeStories = () =>
     .from("lounge_posts")
     .select("*")
     .eq("is_story", true)
-    .eq("is_deleted", false)
-    .eq("is_hidden", false)
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .or("is_hidden.is.null,is_hidden.eq.false")
     .gt("story_expires_at", new Date().toISOString())
     .order("created_at", { ascending: false });
 
@@ -1398,8 +1398,8 @@ export const getLoungeComments = (postId) =>
     .from("lounge_comments")
     .select("*")
     .eq("post_id", postId)
-    .eq("is_deleted", false)
-    .eq("is_hidden", false)
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .or("is_hidden.is.null,is_hidden.eq.false")
     .order("created_at", { ascending: true });
 
 export const createLoungeComment = (data) =>
