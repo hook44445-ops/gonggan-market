@@ -322,14 +322,25 @@ export const deleteSeedReview = (id) =>
   supabase.from("seed_reviews").delete().eq("id", id);
 
 export const uploadSeedReviewImage = async (file, slot) => {
+  const bucket = "seed-review-images";
   const ext = file.name.split(".").pop().toLowerCase();
   const path = `${slot}_${Date.now()}.${ext}`;
+
+  // collect auth diagnostics — anon client has no session, service role bypasses RLS
+  const { data: { session } } = await supabase.auth.getSession();
+  const _diag = {
+    upload_bucket: bucket,
+    upload_path: path,
+    current_supabase_user_id: session?.user?.id ?? null,
+    auth_role: session?.user?.role ?? (session ? "authenticated" : "anon"),
+  };
+
   const { error } = await supabase.storage
-    .from("seed-review-images")
+    .from(bucket)
     .upload(path, file, { upsert: true });
-  if (error) return { error };
-  const { data } = supabase.storage.from("seed-review-images").getPublicUrl(path);
-  return { url: data.publicUrl };
+  if (error) return { error, _diag: { ..._diag, upload_error: error.message ?? String(error) } };
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return { url: data.publicUrl, _diag };
 };
 
 // ── Fee Config ────────────────────────────────────────────────────────────────

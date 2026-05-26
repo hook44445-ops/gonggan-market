@@ -538,6 +538,7 @@ function SeedReviewTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState({ before: false, after: false });
+  const [uploadDiag, setUploadDiag] = useState(null);
   const [editId, setEditId] = useState(null);
   const [toast, setToast] = useState(null);
   const emptyForm = {
@@ -580,9 +581,15 @@ function SeedReviewTab() {
 
   const handleUpload = async (file, slot) => {
     setUploading(p => ({ ...p, [slot]: true }));
-    const { url, error } = await uploadSeedReviewImage(file, slot);
+    setUploadDiag(null);
+    const { url, error, _diag } = await uploadSeedReviewImage(file, slot);
     setUploading(p => ({ ...p, [slot]: false }));
-    if (error) { showToast("업로드 실패", false); return; }
+    if (error) {
+      setUploadDiag(_diag ?? { upload_error: String(error) });
+      showToast("업로드 실패: " + (_diag?.upload_error ?? "unknown"), false);
+      return;
+    }
+    setUploadDiag(null);
     setForm(p => ({ ...p, [slot === "before" ? "before_image_url" : "after_image_url"]: url }));
     showToast("업로드 완료");
   };
@@ -671,6 +678,33 @@ function SeedReviewTab() {
         CREATE POLICY "admin_all" ON seed_reviews USING (true) WITH CHECK (true);<br/>
         -- Storage 버킷: seed-review-images (public)
       </div>
+
+      {/* Storage INSERT policy (이미지 업로드 실패 시 실행) */}
+      <div style={{ background: "#1a2e1a", color: "#ffdd88", borderRadius: R.md,
+        padding: "10px 14px", fontSize: 10, fontFamily: "monospace", marginBottom: S.lg,
+        lineHeight: 1.7, border: "1px solid #c07000" }}>
+        <span style={{ color: "#ff6644", fontWeight: 700 }}>⚠️ 이미지 업로드 실패 시 — Storage INSERT policy SQL:</span><br/>
+        DROP POLICY IF EXISTS "seed-review-images 1l8aott_0" ON storage.objects;<br/>
+        <br/>
+        CREATE POLICY "seed_review_images_insert_public"<br/>
+        ON storage.objects FOR INSERT TO public<br/>
+        WITH CHECK (bucket_id = 'seed-review-images');
+      </div>
+
+      {/* 업로드 실패 DEV 진단 패널 */}
+      {uploadDiag && (
+        <div style={{ background: "#111", color: "#ff4444", borderRadius: R.md,
+          padding: "8px 12px", fontSize: 10, fontFamily: "monospace", marginBottom: S.lg,
+          lineHeight: 1.9, border: "1px solid #ff4444" }}>
+          <span style={{ color: "#ff0", fontWeight: 700 }}>── upload 실패 진단 ──</span><br/>
+          upload_bucket: {uploadDiag.upload_bucket ?? "—"}<br/>
+          upload_path: {uploadDiag.upload_path ?? "—"}<br/>
+          upload_error: {uploadDiag.upload_error ?? "—"}<br/>
+          current_supabase_user_id: {uploadDiag.current_supabase_user_id ?? "null (비로그인)"}<br/>
+          auth_role: {uploadDiag.auth_role ?? "—"}<br/>
+          <span style={{ color: "#aaa" }}>※ auth_role=anon 이면 Storage INSERT policy를 public으로 변경하세요 (위 SQL 참조)</span>
+        </div>
+      )}
 
       {/* 등록/수정 폼 */}
       <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
