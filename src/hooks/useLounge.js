@@ -44,6 +44,7 @@ export function useLounge(category = 'all') {
   const [stories, setStories]     = useState([]);
   const [loading, setLoading]     = useState(true);
   const [storiesError, setStoriesError] = useState(null);
+  const [devInfo, setDevInfo]     = useState(null);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -63,14 +64,31 @@ export function useLounge(category = 'all') {
         : seeds;
 
       // 실제 글 먼저, seed 글은 뒤
-      setPosts([...realPosts, ...seedsToShow]);
+      const merged = [...realPosts, ...seedsToShow];
+      setPosts(merged);
       setStories(storiesRes.data ?? []);
       setStoriesError(storiesRes.error ?? null);
+
+      if (import.meta.env.DEV) {
+        const first = realPosts[0];
+        setDevInfo({
+          raw_posts_count:     realPosts.length,
+          seeds_count:         seeds.length,
+          visible_posts_count: merged.length,
+          fetch_err:           postsRes.error?.message ?? null,
+          first_id:            first?.id?.slice(0, 8) ?? null,
+          first_content:       first?.content?.slice(0, 30) ?? null,
+          first_user_id:       first?.user_id?.slice(0, 8) ?? null,
+          first_is_deleted:    first?.is_deleted ?? null,
+          first_is_hidden:     first?.is_hidden ?? null,
+        });
+      }
     } else {
       // Supabase 미연결 시 빈 피드 (코드 목업 제거)
       await new Promise(r => setTimeout(r, 200));
       setPosts([]);
       setStories([]);
+      if (import.meta.env.DEV) setDevInfo({ fetch_err: 'Supabase not ready' });
     }
     setLoading(false);
   }, [category]);
@@ -105,7 +123,7 @@ export function useLounge(category = 'all') {
     setStories(prev => prev.filter(s => s.id !== storyId));
   }, []);
 
-  return { posts, stories, loading, storiesError, likePost, addPost, removePost, updatePost, addStory, removeStory, reload: loadPosts };
+  return { posts, stories, loading, storiesError, likePost, addPost, removePost, updatePost, addStory, removeStory, reload: loadPosts, devInfo };
 }
 
 export function useLoungePost(postId, initialPost = null) {

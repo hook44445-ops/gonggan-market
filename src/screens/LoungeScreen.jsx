@@ -346,7 +346,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
   const [notifsError,     setNotifsError]      = useState(null);
   const [notifCount,      setNotifCount]       = useState(0);
 
-  const { posts, stories, loading, storiesError } = useLounge(category);
+  const { posts, stories, loading, storiesError, devInfo } = useLounge(category);
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
@@ -533,6 +533,15 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
           user: {user?.id?.slice(0, 8) ?? 'null'} | category: {category} | feed_err: {fetchError ?? 'none'}<br/>
           posts: db={posts.length} extra={extraPosts.length} merged={mergedPosts.length}<br/>
           stories: db={stories.length} extra={extraStories.length} merged={mergedStories.length}<br/>
+          <span style={{ color: '#ff0' }}>── 조회 진단 ──</span><br/>
+          raw_posts_count: {devInfo?.raw_posts_count ?? '…'} | seeds_count: {devInfo?.seeds_count ?? '…'}<br/>
+          visible_posts_count: {devInfo?.visible_posts_count ?? '…'}<br/>
+          fetch_err: <span style={{ color: devInfo?.fetch_err ? '#f66' : '#0f0' }}>{devInfo?.fetch_err ?? 'none'}</span><br/>
+          {devInfo?.first_id && <>
+            first: id={devInfo.first_id} uid={devInfo.first_user_id ?? 'null'}<br/>
+            content="{devInfo.first_content}"<br/>
+            is_deleted={String(devInfo.first_is_deleted)} is_hidden={String(devInfo.first_is_hidden)}<br/>
+          </>}
           <span style={{ color: '#ff0' }}>── DB actual (lounge_posts 최신 5개) ──</span><br/>
           {dbDiag == null && <span>loading...</span>}
           {dbDiag?.error && <span style={{ color: '#f66' }}>db_err: {dbDiag.error}</span>}
