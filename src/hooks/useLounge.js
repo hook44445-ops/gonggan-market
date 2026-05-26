@@ -1,7 +1,3 @@
-// ─────────────────────────────────────────────────────
-// 공간마켓 라운지 시스템
-// ─────────────────────────────────────────────────────
-
 import { useState, useEffect, useCallback } from 'react';
 import { MOCK_LOUNGE_POSTS, MOCK_STORIES } from '../constants/lounge';
 import {
@@ -12,6 +8,7 @@ import {
   getLoungeComments,
   createLoungeComment,
   softDeleteLoungeComment,
+  likeLoungePost,
 } from '../lib/supabase';
 
 export function useLounge(category = 'all') {
@@ -43,7 +40,6 @@ export function useLounge(category = 'all') {
         const stored = JSON.parse(localStorage.getItem('lounge_offline_stories') ?? '[]');
         const now = new Date();
         offlineStories = stored.filter(s => new Date(s.story_expires_at) > now);
-        // Prune expired entries
         if (offlineStories.length !== stored.length) {
           localStorage.setItem('lounge_offline_stories', JSON.stringify(offlineStories));
         }
@@ -55,7 +51,6 @@ export function useLounge(category = 'all') {
 
       if (category === 'popular') {
         allPosts = [...allPosts].sort((a, b) => {
-          // real 글(is_seed=false) 우선, 그 안에서 view_count desc
           const seedDiff = (a.is_seed ? 1 : 0) - (b.is_seed ? 1 : 0);
           if (seedDiff !== 0) return seedDiff;
           if (b.view_count !== a.view_count) return b.view_count - a.view_count;
@@ -75,10 +70,11 @@ export function useLounge(category = 'all') {
 
   useEffect(() => { loadPosts(); }, [loadPosts]);
 
-  const likePost = useCallback((postId) => {
+  const likePost = useCallback(async (postId) => {
     setPosts(prev => prev.map(p =>
       p.id === postId ? { ...p, like_count: (p.like_count ?? 0) + 1 } : p
     ));
+    await likeLoungePost(postId);
   }, []);
 
   const addPost = useCallback((newPost) => {
@@ -105,9 +101,10 @@ export function useLounge(category = 'all') {
 }
 
 export function useLoungePost(postId, initialPost = null) {
-  const [post, setPost]         = useState(initialPost);
-  const [comments, setComments] = useState([]);
-  const [loading, setLoading]   = useState(!initialPost);
+  const [post, setPost]                     = useState(initialPost);
+  const [comments, setComments]             = useState([]);
+  const [loading, setLoading]               = useState(!initialPost);
+  const [commentsFetchError, setCommentsFetchError] = useState(null);
 
   useEffect(() => {
     if (!postId) return;
@@ -122,7 +119,12 @@ export function useLoungePost(postId, initialPost = null) {
         ]);
         if (cancelled) return;
         if (postRes.data) setPost(postRes.data);
-        setComments(commentsRes.data ?? []);
+        if (commentsRes.error) {
+          setCommentsFetchError(commentsRes.error.message);
+        } else {
+          setComments(commentsRes.data ?? []);
+          setCommentsFetchError(null);
+        }
       } else {
         await new Promise(r => setTimeout(r, 150));
         if (cancelled) return;
@@ -161,6 +163,17 @@ export function useLoungePost(postId, initialPost = null) {
     return () => { cancelled = true; };
   }, [postId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const refetchComments = useCallback(async () => {
+    if (!postId) return;
+    const { data, error } = await getLoungeComments(postId);
+    if (error) {
+      setCommentsFetchError(error.message);
+    } else {
+      setComments(data ?? []);
+      setCommentsFetchError(null);
+    }
+  }, [postId]);
+
   const addComment = useCallback((comment) => {
     setComments(prev => [...prev, comment]);
     setPost(p => p ? { ...p, comment_count: (p.comment_count ?? 0) + 1 } : p);
@@ -184,5 +197,5 @@ export function useLoungePost(postId, initialPost = null) {
     setPost(p => p ? { ...p, ...updates } : p);
   }, []);
 
-  return { post, comments, loading, addComment, removeComment, likeComment, updatePostLocal };
+  return { post, comments, loading, commentsFetchError, addComment, removeComment, likeComment, updatePostLocal, refetchComments, setPost };
 }

@@ -2,11 +2,21 @@
 // 공간마켓 라운지 시스템
 // ─────────────────────────────────────────────────────
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
 import { CATEGORY_LABEL } from '../constants/lounge';
 import { useLoungePost } from '../hooks/useLounge';
 import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname } from '../utils/anonymousNickname';
+import {
+  createLoungeComment,
+  likeLoungePost,
+  addLoungePostLike,
+  checkLoungePostLiked,
+  addLoungeSave,
+  removeLoungeSave,
+  checkLoungeSaved,
+  createLoungeChat,
+} from '../lib/supabase';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
@@ -94,16 +104,32 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const isLoggedIn = !isGuest;
   const isOwn      = isLoggedIn && post?.user_id && user?.id && post.user_id === user.id;
 
+  // Load initial like/save state from DB
+  useEffect(() => {
+    if (!user?.id || !postId || isGuest) return;
+    Promise.all([
+      checkLoungePostLiked(postId, user.id),
+      checkLoungeSaved(postId, user.id),
+    ]).then(([likeRes, saveRes]) => {
+      if (likeRes.data) setLiked(true);
+      if (saveRes.data) setSaved(true);
+    }).catch(() => {});
+  }, [postId, user?.id, isGuest]);
+
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2200);
   };
 
-  const handleLike = () => {
+  const handleLike = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
     if (liked) return;
     setLiked(true);
     showToast('❤️ 좋아요를 눌렀어요');
+    await Promise.all([
+      addLoungePostLike(postId, user.id),
+      likeLoungePost(postId),
+    ]);
     if (IS_SUPABASE_READY && post?.user_id && user?.id && post.user_id !== user.id) {
       createLoungeNotification({
         userId:      post.user_id,
@@ -116,25 +142,61 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     }
   };
 
-  const handleComment = () => {
+  const handleSave = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
-    if (!commentText.trim()) return;
+    const next = !saved;
+    setSaved(next);
+    if (next) {
+      await addLoungeSave(postId, user.id);
+    } else {
+      await removeLoungeSave(postId, user.id);
+    }
+  };
+
+  const handleComment = async () => {
+    if (isGuest) { onRequireLogin?.(); return; }
+    if (commentSubmitting) return;
+
+    const content = commentText.trim();
+
+    // payload 검증
+    if (!post?.id) { showToast('게시글 정보를 불러오는 중이에요'); return; }
+    if (!user?.id) { showToast('로그인이 필요해요'); return; }
+    if (!content)  { showToast('댓글 내용을 입력해주세요'); return; }
+
+    setCommentSubmitting(true);
 
     const nickname = getAnonymousNickname(user.id, postId);
-    const newComment = {
-      id:                 `c-${Date.now()}`,
-      post_id:            postId,
-      parent_id:          replyTo?.id ?? null,
+    const payload  = {
+      post_id:            post.id,
       user_id:            user.id,
       anonymous_nickname: nickname,
-      content:            commentText.trim(),
-      image_urls:         [],
-      is_expert_reply:    user.role === 'company',
-      like_count:         0,
-      created_at:         new Date().toISOString(),
+      content,
+      is_expert_reply:    false,
+      ...(replyTo?.id ? { parent_id: replyTo.id } : {}),
     };
-    addComment(newComment);
-    handleCommentSubmit(commentText.trim());
+
+    if (import.meta.env.DEV) {
+      setDevCommentInfo({ payload, insertResult: null, insertError: null });
+    }
+
+    const { data, error } = await createLoungeComment(payload);
+
+    if (import.meta.env.DEV) {
+      setDevCommentInfo(prev => ({
+        ...prev,
+        insertResult: data ? { id: data.id, post_id: data.post_id, user_id: data.user_id } : null,
+        insertError:  error?.message ?? null,
+      }));
+    }
+
+    if (error) {
+      showToast(`댓글 오류: ${error.message}`);
+      setCommentSubmitting(false);
+      return;
+    }
+
+    // 성공: 입력 초기화 후 DB 결과를 UI에 추가, 목록 리프레시
     setCommentText('');
 
     if (IS_SUPABASE_READY && user?.id) {
@@ -167,27 +229,21 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     }
 
     setReplyTo(null);
-  };
-
-  const handleSaveToggle = () => {
-    if (!post) return;
-    const next = !saved;
-    setSaved(next);
-    try {
-      const key = 'lounge_saved_posts';
-      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
-      const updated = next
-        ? [{ id: post.id, title: post.title, content: post.content?.slice(0, 80), category: post.category, anonymous_nickname: post.anonymous_nickname, created_at: post.created_at, has_badge: post.has_badge }, ...prev.filter(s => s.id !== post.id)]
-        : prev.filter(s => s.id !== post.id);
-      localStorage.setItem(key, JSON.stringify(updated));
-    } catch {}
-    showToast(next ? '🔖 저장됐어요' : '저장이 취소됐어요');
+    if (data) addComment(data);
+    await refetchComments();
+    setCommentSubmitting(false);
   };
 
   const handleChatRequest = async () => {
     if (chatSending || chatSent) return;
     setChatSending(true);
-    await new Promise(r => setTimeout(r, 400));
+    if (user?.id) {
+      await createLoungeChat({
+        post_id:      postId,
+        requester_id: user.id,
+        post_user_id: post?.user_id ?? null,
+      });
+    }
     setChatSending(false);
     setChatSent(true);
     setShowChat(false);
@@ -276,11 +332,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     );
   }
 
-  const catLabel      = CATEGORY_LABEL[post.category] ?? post.category;
-  const postAvatar    = getAnonymousAvatarByNickname(post.anonymous_nickname);
-  const topComments   = comments.filter(c => !c.parent_id);
-  const replyComments = comments.filter(c => !!c.parent_id);
-  const hasBadge      = post.has_badge === true;
+  const catLabel    = CATEGORY_LABEL[post.category] ?? post.category;
+  const postAvatar  = getAnonymousAvatarByNickname(post.anonymous_nickname);
+  const topComments = comments.filter(c => !c.parent_id);
+  const replyComs   = comments.filter(c => !!c.parent_id);
+  const hasBadge    = post.has_badge === true;
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 80 }}>
@@ -328,8 +384,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
             {liked ? '❤️' : '🤍'} {(post.like_count ?? 0) + (liked ? 1 : 0)}
           </button>
-          <button onClick={handleSaveToggle} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
-            {saved ? '🔖' : '📄'} 저장
+          <button onClick={handleSave} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
+            {saved ? '🔖' : '📄'} {saved ? '저장됨' : '저장'}
           </button>
           {!isOwn && (
             <button onClick={() => setReportTarget({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
@@ -354,6 +410,27 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         </div>
       )}
 
+      {/* DEV 패널 */}
+      {import.meta.env.DEV && (
+        <div style={{ background: 'rgba(0,0,0,0.9)', color: '#0f0', margin: `0 0 ${S.sm}px`, padding: '8px 14px', fontSize: 10.5, lineHeight: 1.85, fontFamily: 'monospace' }}>
+          [DEV] lounge_comments<br/>
+          post.id: {post?.id?.slice(0,8) ?? 'NULL ⚠️'}<br/>
+          user.id: {user?.id?.slice(0,8) ?? 'NULL ⚠️'}<br/>
+          comments.length: {comments.length} | fetch_err: {commentsFetchError ?? 'none'}<br/>
+          ids: {comments.slice(0,3).map(c => c.id?.slice(0,6)).join(', ') || '(empty)'}<br/>
+          {devCommentInfo && <>
+            --- last insert ---<br/>
+            payload: post_id={devCommentInfo.payload?.post_id?.slice(0,8)} uid={devCommentInfo.payload?.user_id?.slice(0,8)} content="{devCommentInfo.payload?.content?.slice(0,20)}"<br/>
+            {devCommentInfo.insertError
+              ? <span style={{color:'#f66'}}>insert_err: {devCommentInfo.insertError}<br/></span>
+              : devCommentInfo.insertResult
+                ? <span style={{color:'#0f0'}}>insert_ok: id={devCommentInfo.insertResult.id?.slice(0,8)} post_id={devCommentInfo.insertResult.post_id?.slice(0,8)}<br/></span>
+                : null
+            }
+          </>}
+        </div>
+      )}
+
       {/* 댓글 */}
       <div style={{ background: C.surface, padding: `${S.xl}px ${S.xl}px 0` }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
@@ -368,7 +445,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
               onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
             />
-            {replyComments.filter(r => r.parent_id === comment.id).map(reply => (
+            {replyComs.filter(r => r.parent_id === comment.id).map(reply => (
               <LoungeCommentItem
                 key={reply.id}
                 comment={reply}
@@ -406,9 +483,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
               style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.full, fontSize: 14, outline: 'none', background: C.surface, color: C.text1, fontFamily: 'inherit' }}
             />
-            <button onClick={handleComment} disabled={!commentText.trim()}
-              style={{ background: commentText.trim() ? C.brand : C.text4, color: '#fff', border: 'none', borderRadius: R.full, width: 44, height: 44, fontSize: 16, cursor: commentText.trim() ? 'pointer' : 'not-allowed', flexShrink: 0 }}>
-              ↑
+            <button onClick={handleComment} disabled={!commentText.trim() || commentSubmitting}
+              style={{ background: (commentText.trim() && !commentSubmitting) ? C.brand : C.text4, color: '#fff', border: 'none', borderRadius: R.full, width: 44, height: 44, fontSize: 16, cursor: (commentText.trim() && !commentSubmitting) ? 'pointer' : 'not-allowed', flexShrink: 0 }}>
+              {commentSubmitting ? '…' : '↑'}
             </button>
           </div>
         )}

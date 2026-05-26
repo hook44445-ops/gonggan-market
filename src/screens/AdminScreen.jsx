@@ -3,14 +3,24 @@ import { C, R, S } from "../constants";
 import { BADGES } from "../constants/badges";
 import { COMPANY_STATUS_META } from "../constants";
 import {
-  getCompanies,
-  getUsers,
-  adminReviewCompany,
-  adminSetCompanyStatus,
-  createNotification,
-  getUserNotifications,
-  getAdminLogs,
+  supabase,
+  getCompanies, getUsers,
+  adminReviewCompany, adminSetCompanyStatus,
+  createNotification, getUserNotifications,
+  getAdminLogs, getOpsConfig, updateOpsConfig,
+  getPaymentOrders, adminUpdatePaymentOrder,
+  getDisputePayments, adminResolveDispute,
+  getPendingPayouts, adminSetPayoutStatus,
+  adminSetUserStatus, adminAdjustSpaceTemp, adminAdjustUserTokens,
+  adminGetLoungePosts, getLoungeReports,
+  adminHideContent, adminUpdateLoungeReport,
+  getCustomerReports, updateCustomerReportStatus,
+  holdAllPayoutsForEscrow,
+  getCompanyDocuments, adminReviewDocument,
+  getReviewRewardsPending, updateReviewReward,
+  adminGetHiddenRequests, adminRestoreRequest,
 } from "../lib/supabase";
+import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
 function LoungeManagementTab() {
@@ -118,6 +128,34 @@ function LoungeManagementTab() {
   );
 }
 
+const PAYMENT_STATUS_META = {
+  PENDING:   { label: "결제대기", color: C.gold,    bg: "#FBF5E8" },
+  READY:     { label: "준비완료", color: C.brand,   bg: C.brandL  },
+  PAID:      { label: "결제완료", color: "#27AE60", bg: "#EAF7EE" },
+  FAILED:    { label: "결제실패", color: C.red,     bg: "#FFF0F0" },
+  CANCELLED: { label: "취소",     color: C.text4,   bg: C.bg      },
+  REFUNDED:  { label: "환불",     color: "#9B59B6", bg: "#F5EEF8" },
+};
+
+const PAYOUT_STATUS_META = {
+  PENDING:       { label: "대기",     color: C.text4,   bg: C.bg      },
+  READY:         { label: "지급준비", color: C.brand,   bg: C.brandL  },
+  APPROVED:      { label: "승인",     color: "#27AE60", bg: "#EAF7EE" },
+  HELD:          { label: "보류",     color: C.gold,    bg: "#FBF5E8" },
+  PAID_MANUALLY: { label: "수동지급", color: "#9B59B6", bg: "#F5EEF8" },
+  CANCELLED:     { label: "취소",     color: C.red,     bg: "#FFF0F0" },
+};
+
+const DISPUTE_STATUS_META = {
+  DISPUTE_OPEN:     { label: "분쟁접수",     color: C.red,     bg: "#FFF0F0" },
+  UNDER_REVIEW:     { label: "검토중",       color: C.gold,    bg: "#FBF5E8" },
+  WAITING_CUSTOMER: { label: "고객답변대기", color: C.brand,   bg: C.brandL  },
+  WAITING_COMPANY:  { label: "업체답변대기", color: "#9B59B6", bg: "#F5EEF8" },
+  RESOLVED:         { label: "해결완료",     color: "#27AE60", bg: "#EAF7EE" },
+  REFUNDED:         { label: "환불처리",     color: C.text4,   bg: C.bg      },
+  PARTIAL_REFUND:   { label: "일부환불",     color: C.text3,   bg: C.bg      },
+};
+
 const STATUS_MAP = {
   pending:  { label: "대기중", color: C.gold,  bg: "#FBF5E8" },
   approved: { label: "승인",   color: C.green, bg: C.greenL  },
@@ -157,7 +195,7 @@ const normalizeCustomer = (row) => ({
     : "",
 });
 
-export default function AdminScreen({ onBack, user }) {
+export default function AdminScreen({ onBack, onHome, user }) {
   const [companies, setCompanies]       = useState([]);
   const [customers, setCustomers]       = useState([]);
   const [customersErr, setCustomersErr] = useState(false);
@@ -168,13 +206,41 @@ export default function AdminScreen({ onBack, user }) {
   const [rejectMode, setRejectMode]     = useState(false);
   const [rejectNote, setRejectNote]     = useState("");
   const [confirm, setConfirm]           = useState(null);
+  const [confirmReason, setConfirmReason] = useState("");
   const [actionLoading, setActionLoading]   = useState(false);
   const [statusReason, setStatusReason]     = useState("");
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [notifications, setNotifications]   = useState([]);
-  const [docModal, setDocModal]             = useState(null); // null | "biz" | "insurance" | "badge"
+  const [docModal, setDocModal]             = useState(null);
   const [holdMode, setHoldMode]             = useState(false);
   const [holdNote, setHoldNote]             = useState("");
+  const [opsConfig, setOpsConfig]           = useState({ pause_new_payments: false, pause_new_bids: false, pause_new_approvals: false });
+  const [opsLoading, setOpsLoading]         = useState(false);
+
+  const [paymentOrders, setPaymentOrders]   = useState([]);
+  const [paymentFilter, setPaymentFilter]   = useState("all");
+  const [disputes, setDisputes]             = useState([]);
+  const [settlements, setSettlements]       = useState([]);
+  const [tabLoaded, setTabLoaded]           = useState({});
+  const [toast, setToast]                   = useState(null);
+  const [companyDocuments, setCompanyDocuments] = useState([]);
+  const [showDocReview, setShowDocReview]   = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [tokenInput, setTokenInput]   = useState("");
+  const [tempInput, setTempInput]     = useState("");
+  const [adjReason, setAdjReason]     = useState("");
+  const [loungePosts, setLoungePosts]   = useState([]);
+  const [loungeReports, setLoungeReports] = useState([]);
+  const [reports, setReports]           = useState([]);
+  const [reviewRewards, setReviewRewards] = useState([]);
+  const [hiddenRequests, setHiddenRequests] = useState([]);
+  const [hiddenLoading, setHiddenLoading] = useState(false);
+  const [restoring, setRestoring] = useState(null);
+
+  const showToast = (msg, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 2500);
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -198,13 +264,72 @@ export default function AdminScreen({ onBack, user }) {
     });
   }, [user?.id]);
 
+  useEffect(() => {
+    getOpsConfig().then(({ data }) => { if (data) setOpsConfig(data); }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selected?.id) { setCompanyDocuments([]); return; }
+    getCompanyDocuments(selected.id).then(({ data }) => {
+      setCompanyDocuments(data ?? []);
+    }).catch(() => {});
+  }, [selected?.id]);
+
+  const toggleOps = async (field) => {
+    setOpsLoading(true);
+    const next = { ...opsConfig, [field]: !opsConfig[field] };
+    const { data } = await updateOpsConfig(user?.id ?? null, { [field]: next[field] });
+    if (data) setOpsConfig(data);
+    setOpsLoading(false);
+  };
+
+  useEffect(() => {
+    if (tabLoaded[mainTab]) return;
+    setTabLoaded(prev => ({ ...prev, [mainTab]: true }));
+    if (mainTab === "payments") {
+      getPaymentOrders({ limit: 100 }).then(({ data }) => {
+        if (data) setPaymentOrders(data);
+      });
+    }
+    if (mainTab === "disputes") {
+      getDisputePayments().then(({ data }) => {
+        if (data) setDisputes(data);
+      });
+    }
+    if (mainTab === "settlements") {
+      getPendingPayouts().then(({ data }) => {
+        if (data) setSettlements(data);
+      });
+    }
+    if (mainTab === "lounge") {
+      Promise.all([
+        adminGetLoungePosts().catch(() => ({ data: [] })),
+        getLoungeReports().catch(() => ({ data: [] })),
+      ]).then(([{ data: p }, { data: r }]) => {
+        setLoungePosts(p ?? []);
+        setLoungeReports(r ?? []);
+      });
+    }
+    if (mainTab === "reports") {
+      getCustomerReports().then(({ data }) => setReports(data ?? [])).catch(() => setReports([]));
+    }
+    if (mainTab === "reviews") {
+      getReviewRewardsPending().then(({ data }) => setReviewRewards(data ?? [])).catch(() => setReviewRewards([]));
+    }
+    if (mainTab === "hidden") {
+      setHiddenLoading(true);
+      adminGetHiddenRequests().then(({ data }) => setHiddenRequests(data ?? [])).catch(() => setHiddenRequests([])).finally(() => setHiddenLoading(false));
+    }
+  }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const stats = {
-    pending:    companies.filter(c => c.status === "pending").length,
-    approved:   companies.filter(c => c.status === "approved").length,
-    rejected:   companies.filter(c => c.status === "rejected").length,
-    customers:  customers.length,
-    disputes:   0,
-    settlements: 0,
+    pending:     companies.filter(c => c.status === "pending").length,
+    approved:    companies.filter(c => c.status === "approved").length,
+    rejected:    companies.filter(c => c.status === "rejected").length,
+    customers:   customers.length,
+    disputes:    disputes.length,
+    settlements: settlements.length,
+    payments:    paymentOrders.filter(o => o.status === "PENDING").length,
   };
 
   const filtered = companyTab === "all"
@@ -295,13 +420,55 @@ export default function AdminScreen({ onBack, user }) {
     setDocModal(null);
   };
 
+  const handleCustomerStatus = async (customer, status, reason) => {
+    setActionLoading(true);
+    const { error } = await adminSetUserStatus(customer.id, user?.id, status, reason);
+    if (!error) {
+      const update = { accountStatus: status };
+      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, ...update } : c));
+      setSelectedCustomer(prev => prev ? { ...prev, ...update } : prev);
+      showToast("상태 변경 완료");
+    } else { showToast("처리 실패", false); }
+    setActionLoading(false);
+  };
+
+  const handleAdjustTemp = async (customer, delta) => {
+    setActionLoading(true);
+    const { error } = await adminAdjustSpaceTemp(customer.id, user?.id, delta, adjReason || null);
+    if (!error) {
+      const next = Math.round(Math.min(99, Math.max(0, (customer.spaceTemp ?? 36.5) + delta)) * 10) / 10;
+      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, spaceTemp: next } : c));
+      setSelectedCustomer(prev => prev ? { ...prev, spaceTemp: next } : prev);
+      showToast("공간온도 조정 완료");
+    } else { showToast("처리 실패", false); }
+    setActionLoading(false);
+    setAdjReason("");
+  };
+
+  const handleAdjustTokens = async (customer, delta) => {
+    setActionLoading(true);
+    const { error } = await adminAdjustUserTokens(customer.id, user?.id, delta, adjReason || null);
+    if (!error) {
+      const next = Math.max(0, (customer.spaceTokens ?? 0) + delta);
+      setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, spaceTokens: next } : c));
+      setSelectedCustomer(prev => prev ? { ...prev, spaceTokens: next } : prev);
+      showToast("토큰 조정 완료");
+    } else { showToast("처리 실패", false); }
+    setActionLoading(false);
+    setAdjReason("");
+  };
+
   const MAIN_TABS = [
     ["dashboard",      "대시보드"],
     ["companies",      "업체관리"],
     ["customers",      "고객관리"],
+    ["hidden",         "숨김요청관리"],
+    ["payments",       "결제관리"],
     ["disputes",       "분쟁관리"],
     ["settlements",    "정산관리"],
+    ["reviews",        "리뷰관리"],
     ["lounge",         "라운지관리"],
+    ["reports",        "신고관리"],
     ["notifications",  "알림"],
   ];
 
@@ -317,12 +484,22 @@ export default function AdminScreen({ onBack, user }) {
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>관리자 대시보드</div>
           <div style={{ fontSize: 11, color: C.text4 }}>공간마켓 운영 관리</div>
         </div>
-        {stats.pending > 0 && (
-          <div style={{ marginLeft: "auto", background: C.red, color: "#fff",
-            borderRadius: R.full, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>
-            심사 대기 {stats.pending}건
-          </div>
-        )}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: S.sm }}>
+          {stats.pending > 0 && (
+            <div style={{ background: C.red, color: "#fff",
+              borderRadius: R.full, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>
+              심사 대기 {stats.pending}건
+            </div>
+          )}
+          {onHome && (
+            <button onClick={onHome}
+              style={{ background: C.bgWarm, border: "none", borderRadius: R.md,
+                padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.text2,
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              🏠 홈으로
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Main Tabs */}
@@ -355,12 +532,13 @@ export default function AdminScreen({ onBack, user }) {
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📊 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
                   {[
-                    ["업체 심사 대기", stats.pending,    C.gold,  "companies"],
-                    ["승인된 업체",    stats.approved,   C.green, "companies"],
-                    ["등록 고객",      stats.customers,  C.brand, "customers"],
-                    ["분쟁 대기",      stats.disputes,   C.red,   "disputes"],
-                    ["정산 대기",      stats.settlements, C.brand, "settlements"],
-                    ["반려된 업체",    stats.rejected,   C.text4, "companies"],
+                    ["업체 심사 대기", stats.pending,    C.gold,    "companies"],
+                    ["승인된 업체",    stats.approved,   C.green,   "companies"],
+                    ["등록 고객",      stats.customers,  C.brand,   "customers"],
+                    ["결제 대기",      stats.payments,   C.gold,    "payments"],
+                    ["분쟁 대기",      stats.disputes,   C.red,     "disputes"],
+                    ["정산 대기",      stats.settlements, C.brand,  "settlements"],
+                    ["반려된 업체",    stats.rejected,   C.text4,   "companies"],
                   ].map(([label, count, color, tab]) => (
                     <div key={label} onClick={() => setMainTab(tab)}
                       style={{ background: C.surface, borderRadius: R.lg,
@@ -370,11 +548,11 @@ export default function AdminScreen({ onBack, user }) {
                     </div>
                   ))}
                 </div>
-                <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}` }}>
+                <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, marginBottom: S.lg }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: S.md }}>🛡 공간마켓 운영 현황</div>
                   {[
-                    ["플랫폼 수수료 (고객)", "3% + VAT"],
-                    ["플랫폼 수수료 (업체)", "4% + VAT"],
+                    ["플랫폼 수수료 (고객)", "3% (VAT 별도)"],
+                    ["플랫폼 수수료 (업체)", "4% (VAT 별도)"],
                     ["에스크로 구조",        "10/20/40/30"],
                     ["초기 파트너 혜택",     "수수료 동일 · 배지 우선"],
                   ].map(([k, v]) => (
@@ -382,6 +560,36 @@ export default function AdminScreen({ onBack, user }) {
                       padding: `${S.xs}px 0`, borderBottom: `1px solid ${C.trustM}` }}>
                       <span style={{ fontSize: 13, color: C.text3 }}>{k}</span>
                       <span style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* STEP O — Emergency Switch */}
+                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `2px solid ${C.red}33` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginBottom: S.lg }}>
+                    <span style={{ fontSize: 18 }}>🚨</span>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.red }}>긴급 운영 스위치</div>
+                    {opsLoading && <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>저장 중...</span>}
+                  </div>
+                  {[
+                    ["pause_new_payments",  "💳 신규 결제 중지",    "결제 버튼 비활성화"],
+                    ["pause_new_bids",      "📋 신규 입찰 중지",    "업체 입찰 제한"],
+                    ["pause_new_approvals", "✅ 신규 승인 중지",    "업체 가입 심사 중지"],
+                  ].map(([field, label, sub]) => (
+                    <div key={field} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{label}</div>
+                        <div style={{ fontSize: 11, color: C.text4 }}>{sub}</div>
+                      </div>
+                      <button
+                        onClick={() => toggleOps(field)}
+                        disabled={opsLoading}
+                        style={{ padding: "6px 16px", borderRadius: R.full, border: "none", fontWeight: 700, fontSize: 13, cursor: opsLoading ? "not-allowed" : "pointer",
+                          background: opsConfig[field] ? C.red : C.bgWarm,
+                          color: opsConfig[field] ? "#fff" : C.text3 }}>
+                        {opsConfig[field] ? "중지 중" : "정상"}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -498,28 +706,469 @@ export default function AdminScreen({ onBack, user }) {
               </div>
             )}
 
+            {/* ── Hidden Request Management ── */}
+            {mainTab === "hidden" && (
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+                  숨김 요청 목록
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.red, marginLeft: 8 }}>
+                    {hiddenRequests.length}건
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg }}>
+                  의뢰인이 숨긴 견적 요청입니다. "다시 보이기"로 복구할 수 있습니다.
+                </div>
+
+                {hiddenLoading ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", color: C.text3, fontSize: 14 }}>
+                    로딩 중...
+                  </div>
+                ) : hiddenRequests.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>숨김 처리된 요청이 없습니다</div>
+                  </div>
+                ) : hiddenRequests.map(req => (
+                  <div key={req.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                    marginBottom: S.sm, border: `1.5px solid ${C.red}22` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                      <div style={{ flex: 1, marginRight: S.sm }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+                          {req.space_type ?? "—"} · {req.area ?? "—"} · {req.size ?? "—"}평
+                        </div>
+                        <div style={{ fontSize: 12, color: C.text3, marginBottom: 2 }}>
+                          스타일: {req.style ?? "—"}
+                        </div>
+                        {req.description && (
+                          <div style={{ fontSize: 11, color: C.text4, lineHeight: 1.5 }}>
+                            {req.description.slice(0, 60)}{req.description.length > 60 ? "…" : ""}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <span style={{ background: "#FFF0F0", color: C.red, borderRadius: R.full,
+                          padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>숨김</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: C.text4 }}>
+                          숨김 처리: {req.archived_at ? new Date(req.archived_at).toLocaleDateString("ko-KR") : "—"}
+                        </div>
+                        {req.hidden_reason && (
+                          <div style={{ fontSize: 11, color: C.text4 }}>사유: {req.hidden_reason}</div>
+                        )}
+                      </div>
+                      <button
+                        disabled={restoring === req.id}
+                        onClick={async () => {
+                          setRestoring(req.id);
+                          const { data, error } = await adminRestoreRequest(req.id);
+                          if (!error && data) {
+                            setHiddenRequests(prev => prev.filter(r => r.id !== req.id));
+                            showToast("요청이 다시 노출됩니다");
+                          } else {
+                            showToast("복구 실패", false);
+                          }
+                          setRestoring(null);
+                        }}
+                        style={{ padding: "8px 16px", background: C.brandL, color: C.brand,
+                          border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 700,
+                          fontSize: 12, cursor: restoring === req.id ? "not-allowed" : "pointer",
+                          opacity: restoring === req.id ? 0.6 : 1 }}>
+                        {restoring === req.id ? "처리 중..." : "다시 보이기"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── Payment Management ── */}
+            {mainTab === "payments" && (
+              <div>
+                <div style={{ display: "flex", gap: S.xs, marginBottom: S.lg, overflowX: "auto" }}>
+                  {[["all","전체"], ["PENDING","대기"], ["PAID","완료"], ["FAILED","실패"], ["REFUNDED","환불"]].map(([v, l]) => (
+                    <button key={v} onClick={() => setPaymentFilter(v)}
+                      style={{ padding: "7px 14px", borderRadius: R.full, cursor: "pointer", whiteSpace: "nowrap",
+                        background: paymentFilter === v ? C.brand : C.surface,
+                        color: paymentFilter === v ? "#fff" : C.text3,
+                        fontWeight: paymentFilter === v ? 700 : 500, fontSize: 12,
+                        border: `1px solid ${paymentFilter === v ? C.brand : C.bgWarm}` }}>{l}</button>
+                  ))}
+                </div>
+
+                {paymentOrders
+                  .filter(o => paymentFilter === "all" || o.status === paymentFilter)
+                  .length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>💳</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>해당 결제 내역이 없습니다</div>
+                  </div>
+                ) : paymentOrders
+                  .filter(o => paymentFilter === "all" || o.status === paymentFilter)
+                  .map(order => {
+                    const sm = PAYMENT_STATUS_META[order.status] ?? PAYMENT_STATUS_META.PENDING;
+                    return (
+                      <div key={order.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                        marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>
+                              {order.users?.name ?? "고객"} <span style={{ fontSize: 11, color: C.text4 }}>{order.users?.phone ?? ""}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+                              {order.payment_method ?? "—"} · {new Date(order.created_at).toLocaleDateString("ko-KR")}
+                            </div>
+                          </div>
+                          <span style={{ background: sm.bg, color: sm.color, borderRadius: R.full,
+                            padding: "3px 10px", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{sm.label}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.md }}>
+                          <div>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: C.text1 }}>{(order.total_amount ?? 0).toLocaleString()}만원</div>
+                            <div style={{ fontSize: 11, color: C.text4 }}>시공비 {(order.amount ?? 0).toLocaleString()} + 수수료 {(order.customer_fee ?? 0).toLocaleString()}</div>
+                          </div>
+                          {order.admin_note && (
+                            <div style={{ fontSize: 11, color: C.text3, fontStyle: "italic", maxWidth: 120, textAlign: "right" }}>{order.admin_note}</div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: S.sm }}>
+                          {order.status !== "REFUNDED" && order.status !== "CANCELLED" && (
+                            <button onClick={() => setConfirm({
+                              emoji: "🔄", title: "환불 요청 기록",
+                              msg: `이 결제를 환불 처리로 기록합니다.\n실제 자동 환불은 발생하지 않습니다.`,
+                              needsReason: true,
+                              onConfirm: async (reason) => {
+                                const { error } = await adminUpdatePaymentOrder(order.id, user?.id ?? null, { status: "REFUNDED", adminNote: reason });
+                                if (!error) {
+                                  setPaymentOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "REFUNDED", admin_note: reason } : o));
+                                  showToast("환불 기록 완료");
+                                } else { showToast("처리 실패", false); }
+                              },
+                            })}
+                              style={{ flex: 1, padding: "9px", background: "#FFF0F0", color: C.red,
+                                border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                              환불 기록
+                            </button>
+                          )}
+                          {order.status === "PAID" && (
+                            <button onClick={() => setConfirm({
+                              emoji: "⏸", title: "지급 보류",
+                              msg: `결제 지급을 보류 처리합니다.`,
+                              needsReason: true,
+                              onConfirm: async (reason) => {
+                                const { error } = await adminUpdatePaymentOrder(order.id, user?.id ?? null, { status: "CANCELLED", adminNote: reason });
+                                if (!error) {
+                                  setPaymentOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "CANCELLED", admin_note: reason } : o));
+                                  showToast("지급 보류 처리 완료");
+                                } else { showToast("처리 실패", false); }
+                              },
+                            })}
+                              style={{ flex: 1, padding: "9px", background: "#FBF5E8", color: C.gold,
+                                border: `1px solid ${C.gold}44`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                              지급 보류
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
             {/* ── Dispute Management ── */}
             {mainTab === "disputes" && (
-              <div style={{ textAlign: "center", padding: "60px 0" }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>⚖️</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.text1, marginBottom: 8 }}>분쟁 대기 없음</div>
-                <div style={{ fontSize: 13, color: C.text3 }}>실시간 분쟁 내역은 거래 발생 시 표시됩니다</div>
+              <div>
+                {disputes.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>⚖️</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text1, marginBottom: 8 }}>분쟁 대기 없음</div>
+                    <div style={{ fontSize: 13, color: C.text3 }}>실시간 분쟁 내역은 거래 발생 시 표시됩니다</div>
+                  </div>
+                ) : disputes.map(d => {
+                  const sm = DISPUTE_STATUS_META[d.dispute_status] ?? DISPUTE_STATUS_META.DISPUTE_OPEN;
+                  return (
+                    <div key={d.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                      marginBottom: S.sm, border: `1.5px solid ${sm.color}33` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>
+                            {d.requests?.area ?? "—"} · {d.requests?.space_type ?? ""}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.text3 }}>업체: {d.companies?.name ?? "—"}</div>
+                          <div style={{ fontSize: 11, color: C.text4 }}>
+                            {d.disputed_at ? new Date(d.disputed_at).toLocaleDateString("ko-KR") : "—"}
+                          </div>
+                        </div>
+                        <span style={{ background: sm.bg, color: sm.color, borderRadius: R.full,
+                          padding: "3px 10px", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{sm.label}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: C.text2, marginBottom: S.md }}>
+                        분쟁사유: {d.dispute_reason ?? "—"}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, marginBottom: S.md }}>
+                        총 금액: {(d.total_amount ?? 0).toLocaleString()}만원
+                      </div>
+                      <div style={{ display: "flex", gap: S.sm }}>
+                        {["UNDER_REVIEW", "RESOLVED", "REFUNDED"].map(st => {
+                          if (st === d.dispute_status) return null;
+                          const m = DISPUTE_STATUS_META[st];
+                          return (
+                            <button key={st}
+                              onClick={() => setConfirm({
+                                emoji: "⚖️", title: `상태를 "${m.label}"로 변경`,
+                                msg: `분쟁 상태를 변경합니다.`,
+                                needsReason: st === "RESOLVED" || st === "REFUNDED",
+                                onConfirm: async (reason) => {
+                                  const { error } = await supabase.from("escrow_payments")
+                                    .update({ dispute_status: st }).eq("id", d.id);
+                                  if (!error) {
+                                    setDisputes(prev => prev.map(x => x.id === d.id ? { ...x, dispute_status: st } : x));
+                                    showToast("상태 변경 완료");
+                                  } else { showToast("처리 실패", false); }
+                                },
+                              })}
+                              style={{ flex: 1, padding: "9px", background: m.bg, color: m.color,
+                                border: `1px solid ${m.color}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>
+                              {m.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
             {/* ── Settlement Management ── */}
             {mainTab === "settlements" && (
-              <div style={{ textAlign: "center", padding: "60px 0" }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>💰</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.text1, marginBottom: 8 }}>정산 대기 없음</div>
-                <div style={{ fontSize: 13, color: C.text3 }}>에스크로 정산 내역은 거래 완료 시 표시됩니다</div>
+              <div>
+                {settlements.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>💰</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text1, marginBottom: 8 }}>정산 대기 없음</div>
+                    <div style={{ fontSize: 13, color: C.text3 }}>에스크로 정산 내역은 거래 완료 시 표시됩니다</div>
+                  </div>
+                ) : settlements.map(p => {
+                  const sm = PAYOUT_STATUS_META[p.status] ?? PAYOUT_STATUS_META.PENDING;
+                  return (
+                    <div key={p.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                      marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>
+                            {p.companies?.name ?? "—"} · {p.stage}단계
+                          </div>
+                          <div style={{ fontSize: 11, color: C.text3 }}>
+                            {p.percent}% · 정산액 {(p.net_amount ?? 0).toLocaleString()}만원
+                          </div>
+                        </div>
+                        <span style={{ background: sm.bg, color: sm.color, borderRadius: R.full,
+                          padding: "3px 10px", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{sm.label}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: C.text4, marginBottom: S.md }}>
+                        총액 {(p.amount ?? 0).toLocaleString()} · 수수료 {(p.platform_fee ?? 0).toLocaleString()} · VAT {(p.vat ?? 0).toLocaleString()}
+                      </div>
+                      <div style={{ display: "flex", gap: S.sm }}>
+                        {p.status !== "HELD" && p.status !== "PAID_MANUALLY" && p.status !== "CANCELLED" && (
+                          <button onClick={() => setConfirm({
+                            emoji: "⏸", title: "지급 보류",
+                            msg: `${p.companies?.name ?? "업체"} ${p.stage}단계 정산을 보류합니다.`,
+                            needsReason: true,
+                            onConfirm: async (reason) => {
+                              const { error } = await adminSetPayoutStatus(p.id, user?.id ?? null, "HELD", reason);
+                              if (!error) {
+                                setSettlements(prev => prev.map(x => x.id === p.id ? { ...x, status: "HELD" } : x));
+                                showToast("지급 보류 처리 완료");
+                              } else { showToast("처리 실패", false); }
+                            },
+                          })}
+                            style={{ flex: 1, padding: "9px", background: "#FBF5E8", color: C.gold,
+                              border: `1px solid ${C.gold}44`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                            지급 보류
+                          </button>
+                        )}
+                        {p.status !== "PAID_MANUALLY" && p.status !== "CANCELLED" && (
+                          <button onClick={() => setConfirm({
+                            emoji: "✅", title: "수동 지급 완료",
+                            msg: `${p.companies?.name ?? "업체"} ${p.stage}단계를 수동 지급 완료로 기록합니다.\n실제 자동 송금은 발생하지 않습니다.`,
+                            needsReason: false,
+                            onConfirm: async () => {
+                              const { error } = await adminSetPayoutStatus(p.id, user?.id ?? null, "PAID_MANUALLY");
+                              if (!error) {
+                                setSettlements(prev => prev.map(x => x.id === p.id ? { ...x, status: "PAID_MANUALLY" } : x));
+                                showToast("수동 지급 완료 처리");
+                              } else { showToast("처리 실패", false); }
+                            },
+                          })}
+                            style={{ flex: 1, padding: "9px", background: "#EAF7EE", color: "#27AE60",
+                              border: "1px solid #27AE6033", borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                            수동 지급 완료
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
             {/* ── Lounge Management ── */}
             {mainTab === "lounge" && <LoungeManagementTab />}
 
+            {/* ── Customer Reports ── */}
+            {mainTab === "reports" && (
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
+                  신고 <span style={{ color: C.red }}>{reports.length}건</span>
+                </div>
+                {reports.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>신고 내역 없음</div>
+                  </div>
+                ) : reports.map(r => (
+                  <div key={r.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{r.subject ?? "신고"}</div>
+                        <div style={{ fontSize: 11, color: C.text3 }}>{r.created_at ? new Date(r.created_at).toLocaleDateString("ko-KR") : ""}</div>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: r.status === "resolved" ? C.green : C.gold,
+                        background: r.status === "resolved" ? C.greenL : "#FBF5E8",
+                        borderRadius: R.full, padding: "3px 10px" }}>
+                        {r.status === "resolved" ? "처리완료" : "검토중"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: C.text2, marginBottom: S.sm }}>{r.description ?? ""}</div>
+                    {r.status !== "resolved" && (
+                      <button
+                        disabled={actionLoading}
+                        onClick={() => {
+                          setActionLoading(true);
+                          updateCustomerReportStatus(r.id, "resolved").then(({ error }) => {
+                            if (!error) setReports(prev => prev.map(x => x.id === r.id ? { ...x, status: "resolved" } : x));
+                            else showToast("처리 실패", false);
+                            setActionLoading(false);
+                          });
+                        }}
+                        style={{ padding: "7px 16px", borderRadius: R.lg, background: C.brand, color: "#fff",
+                          border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        처리 완료
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* ── Notifications ── */}
+            {mainTab === "reviews" && (
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+                  포토리뷰 쿠폰 관리
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.brand, marginLeft: 8 }}>
+                    {reviewRewards.filter(r => r.status === "PENDING").length}건 대기
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg }}>
+                  포토리뷰 확인 후 커피쿠폰을 발송 처리하세요
+                </div>
+
+                {reviewRewards.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>☕</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>대기 중인 포토리뷰가 없습니다</div>
+                  </div>
+                ) : reviewRewards.map(rw => {
+                  const rv = rw.reviews ?? {};
+                  const imgs = rv.image_urls ?? [];
+                  const isPending  = rw.status === "PENDING";
+                  const isSent     = rw.status === "SENT";
+                  const isCanceled = rw.status === "CANCELED";
+                  return (
+                    <div key={rw.id} style={{ background: C.surface, borderRadius: R.xl,
+                      marginBottom: S.md, border: `1.5px solid ${isPending ? "#F5D97A" : C.bgWarm}`,
+                      overflow: "hidden" }}>
+                      <div style={{ height: 3, background: isPending ? "#F5C842" : isSent ? C.brand : C.text4 }} />
+                      <div style={{ padding: S.xl }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                          <div>
+                            <span style={{ background: isPending ? "#FFF8EC" : isSent ? C.brandL : C.surface2,
+                              color: isPending ? "#8A5C00" : isSent ? C.brand : C.text4,
+                              border: `1px solid ${isPending ? "#F5D97A" : isSent ? C.brandM : C.bgWarm}`,
+                              borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>
+                              {isPending ? "☕ 쿠폰 대기" : isSent ? "✅ 발송 완료" : "취소됨"}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 11, color: C.text4 }}>
+                            {rw.created_at?.slice(0, 10)}
+                          </div>
+                        </div>
+
+                        {rv.content && (
+                          <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6, marginBottom: S.sm }}>
+                            {"★".repeat(rv.rating ?? 0)} — {rv.content?.slice(0, 80)}{(rv.content?.length ?? 0) > 80 ? "…" : ""}
+                          </div>
+                        )}
+
+                        {imgs.length > 0 && (
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: S.md }}>
+                            {imgs.slice(0, 5).map((url, i) => (
+                              <img key={i} src={url} alt=""
+                                style={{ width: 72, height: 72, objectFit: "cover",
+                                  borderRadius: R.md, border: `1px solid ${C.bgWarm}` }}
+                                onError={e => { e.target.style.display = "none"; }} />
+                            ))}
+                            {imgs.length > 5 && (
+                              <div style={{ width: 72, height: 72, borderRadius: R.md,
+                                background: C.surface2, border: `1px solid ${C.bgWarm}`,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 12, color: C.text3, fontWeight: 700 }}>
+                                +{imgs.length - 5}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {isPending && (
+                          <div style={{ display: "flex", gap: S.sm }}>
+                            <button
+                              onClick={async () => {
+                                const { data } = await updateReviewReward(rw.id, "SENT");
+                                if (data) setReviewRewards(prev => prev.map(r => r.id === rw.id ? { ...r, status: "SENT", sent_at: data.sent_at } : r));
+                                showToast("쿠폰 발송 처리 완료");
+                              }}
+                              style={{ flex: 2, padding: "10px", background: C.brand, color: "#fff",
+                                border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                              ☕ SENT 처리
+                            </button>
+                            <button
+                              onClick={async () => {
+                                await updateReviewReward(rw.id, "CANCELED");
+                                setReviewRewards(prev => prev.map(r => r.id === rw.id ? { ...r, status: "CANCELED" } : r));
+                                showToast("취소 처리됨", false);
+                              }}
+                              style={{ flex: 1, padding: "10px", background: C.surface2, color: C.text3,
+                                border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                              취소
+                            </button>
+                          </div>
+                        )}
+                        {isSent && (
+                          <div style={{ fontSize: 12, color: C.brand, fontWeight: 700 }}>
+                            발송 완료: {rw.sent_at?.slice(0, 16).replace("T", " ") ?? "—"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {mainTab === "notifications" && (
               <div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
@@ -550,7 +1199,6 @@ export default function AdminScreen({ onBack, user }) {
                   </div>
                 ))}
 
-                {/* Derived activity: recent pending companies */}
                 {companies.filter(c => c.status === "pending").length > 0 && (
                   <div style={{ marginTop: S.xl }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.text2, marginBottom: S.md }}>📋 최근 심사 대기</div>
@@ -575,7 +1223,6 @@ export default function AdminScreen({ onBack, user }) {
         )}
       </div>
 
-      {/* Company Detail bottom sheet */}
       {selected && mainTab === "companies" && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
@@ -612,10 +1259,15 @@ export default function AdminScreen({ onBack, user }) {
               );
             })()}
 
-            {/* Documents checklist */}
             <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg,
               marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📄 제출 서류</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.md }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>📄 제출 서류</div>
+                <button onClick={() => setShowDocReview(true)}
+                  style={{ fontSize: 12, color: C.brand, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>
+                  서류 검토 ›
+                </button>
+              </div>
               {selected.docs.map((doc, i) => (
                 <div key={i}
                   onClick={() => {
@@ -635,9 +1287,23 @@ export default function AdminScreen({ onBack, user }) {
                   </span>
                 </div>
               ))}
+              {companyDocuments.length > 0 && (
+                <div style={{ marginTop: S.sm, paddingTop: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
+                  <div style={{ fontSize: 11, color: C.text3, marginBottom: S.xs }}>서류 관리 시스템</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: S.xs }}>
+                    {companyDocuments.map(d => {
+                      const sm = { draft:"#B0BAB4", submitted:C.brand, reviewing:C.gold, approved:C.green, held:C.gold, rejected:C.red }[d.review_status ?? "draft"];
+                      return (
+                        <span key={d.id} style={{ fontSize: 10, color: sm, background: C.bg, borderRadius: R.sm, padding: "2px 6px", border: `1px solid ${sm}44` }}>
+                          {{ business_license:"사업자", insurance_certificate:"보험", operation_pledge:"서약서", escrow_agreement:"에스크로" }[d.document_type] ?? d.document_type}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Submission info */}
             <div style={{ display: "flex", justifyContent: "space-between",
               padding: `${S.sm}px 0`, marginBottom: S.xl,
               borderTop: `1px solid ${C.bgWarm}`, borderBottom: `1px solid ${C.bgWarm}` }}>
@@ -645,7 +1311,6 @@ export default function AdminScreen({ onBack, user }) {
               <span style={{ fontSize: 12, fontWeight: 700, color: C.text1 }}>{selected.submittedAt}</span>
             </div>
 
-            {/* Company operational status */}
             {(() => {
               const csMeta = COMPANY_STATUS_META[selected.companyStatus] ?? COMPANY_STATUS_META.PENDING;
               return (
@@ -663,7 +1328,7 @@ export default function AdminScreen({ onBack, user }) {
                   {showStatusModal && (
                     <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S.sm, marginBottom: S.sm }}>
-                        {["ACTIVE","PAUSED","SUSPENDED","BLACKLISTED"].map(st => {
+                        {["ACTIVE","PAUSED","TEMP_RESTRICTED","SUSPENDED","BLACKLISTED"].map(st => {
                           const m = COMPANY_STATUS_META[st];
                           return (
                             <button key={st}
@@ -689,7 +1354,6 @@ export default function AdminScreen({ onBack, user }) {
               );
             })()}
 
-            {/* Actions for pending */}
             {selected.status === "pending" && (
               !rejectMode ? (
                 !holdMode ? (
@@ -795,7 +1459,6 @@ export default function AdminScreen({ onBack, user }) {
               )
             )}
 
-            {/* Status display for non-pending */}
             {selected.status !== "pending" && (
               <div style={{ background: selected.status === "approved" ? C.greenL : "#FFF0F0",
                 borderRadius: R.lg, padding: S.lg, display: "flex", alignItems: "flex-start", gap: S.sm,
@@ -820,7 +1483,18 @@ export default function AdminScreen({ onBack, user }) {
         </div>
       )}
 
-      {/* Biz cert modal */}
+      {showDocReview && selected && (
+        <AdminDocumentReviewModal
+          docs={companyDocuments}
+          company={selected}
+          adminUser={user}
+          onClose={() => setShowDocReview(false)}
+          onUpdate={(updated) => {
+            setCompanyDocuments(prev => prev.map(d => d.id === updated.id ? updated : d));
+          }}
+        />
+      )}
+
       {docModal === "biz" && selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
           display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}
@@ -852,7 +1526,6 @@ export default function AdminScreen({ onBack, user }) {
         </div>
       )}
 
-      {/* Insurance modal */}
       {docModal === "insurance" && selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
           display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}
@@ -884,7 +1557,6 @@ export default function AdminScreen({ onBack, user }) {
         </div>
       )}
 
-      {/* Badge modal */}
       {docModal === "badge" && selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)",
           display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 20 }}
@@ -921,46 +1593,73 @@ export default function AdminScreen({ onBack, user }) {
         </div>
       )}
 
-      {/* Confirm dialog */}
       {confirm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.7)",
           display: "flex", alignItems: "center", justifyContent: "center",
           zIndex: 300, padding: `0 ${S.xl}px` }}>
-          <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 320 }}>
+          <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 340 }}>
             <div style={{ textAlign: "center", marginBottom: S.xl }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>
-                {confirm.type === "approve" ? "✅" : "❌"}
+                {confirm.emoji ?? (confirm.type === "approve" ? "✅" : "❌")}
               </div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
-                {confirm.type === "approve" ? "승인하시겠어요?" : "반려하시겠어요?"}
+              <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
+                {confirm.title ?? (confirm.type === "approve" ? "승인하시겠어요?" : "반려하시겠어요?")}
               </div>
-              <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>
-                <b style={{ color: C.text1 }}>{confirm.company.name}</b> 업체를<br/>
-                {confirm.type === "approve"
-                  ? "승인 처리합니다. 업체에게 알림이 전달됩니다."
-                  : "반려 처리합니다. 사유가 업체에 전달됩니다."}
+              <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7, whiteSpace: "pre-line" }}>
+                {confirm.msg ?? (confirm.company
+                  ? (<><b style={{ color: C.text1 }}>{confirm.company.name}</b> 업체를<br/>{confirm.type === "approve" ? "승인 처리합니다." : "반려 처리합니다."}</>)
+                  : "")}
               </div>
             </div>
+            {confirm.needsReason && (
+              <textarea
+                value={confirmReason}
+                onChange={e => setConfirmReason(e.target.value)}
+                placeholder="처리 사유를 입력하세요"
+                style={{ width: "100%", padding: S.lg, borderRadius: R.lg, border: `1px solid ${C.bgWarm}`,
+                  background: C.bg, fontSize: 13, color: C.text1, resize: "none", height: 70,
+                  boxSizing: "border-box", marginBottom: S.lg, outline: "none", fontFamily: "inherit", lineHeight: 1.6 }}
+              />
+            )}
             <div style={{ display: "flex", gap: S.sm }}>
-              <button onClick={() => setConfirm(null)} disabled={actionLoading}
+              <button onClick={() => { setConfirm(null); setConfirmReason(""); }} disabled={actionLoading}
                 style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2,
-                  border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
+                  border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
                 취소
               </button>
               <button
-                onClick={() => confirm.type === "approve"
-                  ? handleApprove(confirm.company)
-                  : handleReject(confirm.company, confirm.note)}
-                disabled={actionLoading}
+                disabled={actionLoading || (confirm.needsReason && !confirmReason.trim())}
+                onClick={async () => {
+                  if (confirm.onConfirm) {
+                    setActionLoading(true);
+                    await confirm.onConfirm(confirmReason);
+                    setActionLoading(false);
+                    setConfirm(null);
+                    setConfirmReason("");
+                  } else if (confirm.type === "approve") {
+                    handleApprove(confirm.company);
+                  } else {
+                    handleReject(confirm.company, confirm.note);
+                  }
+                }}
                 style={{ flex: 2, padding: S.xl,
-                  background: confirm.type === "approve" ? C.green : C.red,
-                  color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15,
-                  cursor: "pointer", opacity: actionLoading ? 0.7 : 1,
-                  boxShadow: `0 4px 16px ${confirm.type === "approve" ? C.green : C.red}44` }}>
-                {actionLoading ? "처리 중..." : confirm.type === "approve" ? "승인하기" : "반려하기"}
+                  background: confirm.type === "approve" ? C.green : C.brand,
+                  color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14,
+                  cursor: "pointer", opacity: actionLoading ? 0.7 : 1 }}>
+                {actionLoading ? "처리 중..." : "확인"}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+          background: toast.ok ? "#1C3A28" : C.red, color: "#fff",
+          borderRadius: R.full, padding: "10px 20px", fontSize: 13, fontWeight: 700,
+          zIndex: 999, boxShadow: "0 4px 20px rgba(0,0,0,0.25)", whiteSpace: "nowrap" }}>
+          {toast.ok ? "✓" : "✗"} {toast.msg}
         </div>
       )}
     </div>

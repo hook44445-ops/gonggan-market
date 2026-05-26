@@ -51,10 +51,10 @@ export const getCompany = (id) =>
   supabase.from("companies").select("*").eq("id", id).single();
 
 export const getCompanyByOwnerId = (ownerId) =>
-  supabase.from("companies").select("*").eq("owner_id", ownerId).single();
+  supabase.from("companies").select("*").eq("owner_id", ownerId).maybeSingle();
 
 export const upsertCompany = (data) =>
-  supabase.from("companies").upsert(data).select().single();
+  supabase.from("companies").upsert(data, { onConflict: "owner_id" }).select().single();
 
 // Atomically adjust a company's 공간온도 by delta, clamped to 0–99
 export const updateCompanyTemp = async (companyId, delta) => {
@@ -84,16 +84,57 @@ export const createRequest = (data) =>
   supabase.from("requests").insert(data).select().single();
 
 export const getRequests = () =>
-  supabase.from("requests").select("*").order("created_at", { ascending: false });
+  supabase
+    .from("requests")
+    .select("*")
+    .eq("status", "open")
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .order("created_at", { ascending: false });
 
 export const getRequest = (id) =>
   supabase.from("requests").select("*").eq("id", id).single();
 
 export const getUserRequests = (userId) =>
-  supabase.from("requests").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+  supabase
+    .from("requests")
+    .select("*, bids(id, company_id, price, status)")
+    .eq("user_id", userId)
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .order("created_at", { ascending: false });
+
+export const getLiveRequests = ({ limit = 5 } = {}) =>
+  supabase
+    .from("requests")
+    .select("id, space_type, area, size, status, created_at, last_activity_at")
+    .in("status", ["in_progress", "contracting", "escrow_pending"])
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .order("last_activity_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+export const getActiveRequestByUser = (userId) =>
+  supabase
+    .from("requests")
+    .select("id, status, space_type, created_at, last_activity_at")
+    .eq("user_id", userId)
+    .in("status", ["open", "in_progress", "contracting", "escrow_pending"])
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .limit(1)
+    .maybeSingle();
+
+export const archiveRequestAuto = (id, reason) =>
+  supabase.from("requests")
+    .update({ is_hidden: true, archived_at: new Date().toISOString(), hidden_reason: reason })
+    .eq("id", id);
 
 export const closeRequest = (id) =>
   supabase.from("requests").update({ status: "closed" }).eq("id", id);
+
+export const updateRequest = (id, data) =>
+  supabase.from("requests").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
 
 // ── Bids ──────────────────────────────────────────────────────────────────────
 
@@ -103,7 +144,7 @@ export const createBid = (data) =>
 export const getBidsForRequest = (requestId) =>
   supabase
     .from("bids")
-    .select("*, companies(id, name, temp, verified, badge, completed_jobs, recontract_rate, as_rate, region, online, owner_id, company_status, has_insurance)")
+    .select("*")
     .eq("request_id", requestId)
     .order("price", { ascending: true });
 
@@ -206,6 +247,51 @@ export const createReview = (data) =>
 export const replyToReview = (reviewId, reply) =>
   supabase.from("reviews").update({ reply }).eq("id", reviewId);
 
+export const getReviewByContract = (contractId) =>
+  supabase
+    .from("reviews")
+    .select("id, rating, created_at")
+    .eq("contract_id", contractId)
+    .maybeSingle();
+
+export const createReviewReward = (data) =>
+  supabase.from("review_rewards").insert(data).select().single();
+
+export const getReviewRewardsPending = () =>
+  supabase
+    .from("review_rewards")
+    .select("*, reviews(id, company_id, rating, content, image_urls, before_image_urls, after_image_urls, created_at, user_name)")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+export const updateReviewReward = (id, status) =>
+  supabase
+    .from("review_rewards")
+    .update({ status, ...(status === "SENT" ? { sent_at: new Date().toISOString() } : {}) })
+    .eq("id", id)
+    .select("id, status")
+    .single();
+
+export const getTopReviews = ({ limit = 12 } = {}) =>
+  supabase
+    .from("reviews")
+    .select("id, company_id, rating, content, status, image_urls, before_image_urls, after_image_urls, created_at, user_name, region, tags, space_type, companies(name)")
+    .gte("rating", 1)
+    // DEV: status 조건 완화 (published/approved/pending/null 모두 허용)
+    // .in("status", ["published", "approved"])
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+// 진단용 raw 쿼리 — status 조건 없이 전체 조회
+export const getRawReviewsDiag = ({ limit = 10 } = {}) =>
+  supabase
+    .from("reviews")
+    .select("id, company_id, contract_id, rating, status, is_hidden, image_urls, before_image_urls, after_image_urls, created_at")
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
 // ── Fee Config ────────────────────────────────────────────────────────────────
 
 export const getFeeConfig = () =>
@@ -281,7 +367,7 @@ export const getContractTimeline = (contractId) =>
 
 // ── STEP 21: Notifications ────────────────────────────────────────────────────
 
-export const createNotification = ({ userId, type, title, message, relatedId, relatedType }) =>
+export const createNotification = ({ userId, type, title, message, relatedId, relatedType, priority = "NORMAL" }) =>
   supabase.from("notifications").insert({
     user_id:      userId,
     type,
@@ -289,6 +375,7 @@ export const createNotification = ({ userId, type, title, message, relatedId, re
     message,
     related_id:   relatedId   ?? null,
     related_type: relatedType ?? null,
+    priority,
   });
 
 export const getUserNotifications = (userId, { unreadOnly = false, limit = 30 } = {}) => {
@@ -516,7 +603,7 @@ export const getUsers = ({ role } = {}) => {
 
 // ── Company dashboard: active escrow jobs ─────────────────────────────────────
 
-export const getCompanyActiveJobs = (companyId) =>
+export const getCompanyEscrowJobs = (companyId) =>
   supabase
     .from("escrow_payments")
     .select("*, requests(space_type, area, size)")
@@ -616,6 +703,82 @@ export const adminSetCompanyStatus = async (companyId, adminId, companyStatus, r
   return { data, error };
 };
 
+export const createSiteVisit = (data) =>
+  supabase.from("site_visits").insert({ ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select().single();
+
+export const getSiteVisitForBid = (bidId) =>
+  supabase.from("site_visits").select("*").eq("bid_id", bidId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+export const getSiteVisitsByCompany = (companyId) =>
+  supabase.from("site_visits").select("*").eq("company_id", companyId).order("created_at", { ascending: false });
+
+export const updateSiteVisit = (id, data) =>
+  supabase.from("site_visits").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+
+export const gpsCheckin = (id, { lat, lng, photos }) =>
+  supabase.from("site_visits").update({
+    checked_in_at: new Date().toISOString(),
+    gps_lat: lat, gps_lng: lng,
+    photos: photos ?? [],
+    status: "checked_in",
+    updated_at: new Date().toISOString(),
+  }).eq("id", id).select().single();
+
+export const completeSiteVisit = (id, { fieldAmount, fieldNote }) => {
+  const completedAt = new Date().toISOString();
+  const estimateDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  return supabase.from("site_visits").update({
+    completed_at: completedAt,
+    estimate_due_at: estimateDueAt,
+    field_estimate_amount: fieldAmount ?? null,
+    field_estimate_note: fieldNote ?? null,
+    status: "completed",
+    updated_at: new Date().toISOString(),
+  }).eq("id", id).select().single();
+};
+
+export const createEstimate = (data) =>
+  supabase.from("estimates").insert({ ...data, status: "draft", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select().single();
+
+export const getEstimateForSiteVisit = (siteVisitId) =>
+  supabase.from("estimates").select("*").eq("site_visit_id", siteVisitId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+export const getEstimateForRequest = (requestId) =>
+  supabase.from("estimates").select("*").eq("request_id", requestId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+export const updateEstimate = (id, data) =>
+  supabase.from("estimates").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+
+export const submitEstimate = async (id, siteVisitId, requestId) => {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase.from("estimates")
+    .update({ status: "submitted", submitted_at: now, updated_at: now })
+    .eq("id", id).select().single();
+  if (!error) {
+    if (siteVisitId) await supabase.from("site_visits").update({ status: "estimate_submitted", updated_at: now }).eq("id", siteVisitId);
+    if (requestId) await supabase.from("requests").update({ status: "contracting", updated_at: now }).eq("id", requestId);
+  }
+  return { data, error };
+};
+
+export const getCompanyActiveJobs = async (companyId) => {
+  const { data: bids, error } = await supabase
+    .from("bids")
+    .select("*, requests(*)")
+    .eq("company_id", companyId)
+    .eq("selected", true)
+    .order("created_at", { ascending: false });
+  if (error || !bids) return { data: [], error };
+
+  const jobs = await Promise.all(bids.map(async (bid) => {
+    const { data: sv } = await supabase.from("site_visits").select("*").eq("bid_id", bid.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const { data: est } = sv ? await supabase.from("estimates").select("*").eq("site_visit_id", sv.id).order("created_at", { ascending: false }).limit(1).maybeSingle() : { data: null };
+    return { bid, request: bid.requests ?? null, siteVisit: sv ?? null, estimate: est ?? null };
+  }));
+
+  return { data: jobs, error: null };
+};
+
 // ── STEP B: Update request status (in_progress) ───────────────────────────────
 
 export const setRequestInProgress = (requestId) =>
@@ -638,8 +801,9 @@ export const createEscrowRecord = (data) =>
     step1_deposited_at:  new Date().toISOString(),
   }).select().single();
 
-// Create all 4 escrow payout records for a contract
-export const createEscrowPayoutsForContract = async (escrowId, companyId, totalAmount, feeRate = 0.04) => {
+// STEP M: Create all 4 escrow payout records for a contract (with fee_snapshot)
+export const createEscrowPayoutsForContract = async (escrowId, companyId, totalAmount, feeRate = 0.04, vatRate = 0.1) => {
+  const feeSnapshot = { companyFeeRate: feeRate, vatRate, snapshotAt: new Date().toISOString() };
   const stages = [
     { stage: 1, percent: 10 },
     { stage: 2, percent: 20 },
@@ -649,7 +813,7 @@ export const createEscrowPayoutsForContract = async (escrowId, companyId, totalA
   const payouts = stages.map(s => {
     const amount      = Math.round(totalAmount * s.percent / 100);
     const platformFee = Math.round(amount * feeRate);
-    const vat         = Math.round(platformFee * 0.1);
+    const vat         = Math.round(platformFee * vatRate);
     return {
       escrow_id:    escrowId,
       company_id:   companyId,
@@ -659,6 +823,7 @@ export const createEscrowPayoutsForContract = async (escrowId, companyId, totalA
       platform_fee: platformFee,
       vat,
       net_amount:   amount - platformFee - vat,
+      fee_snapshot: feeSnapshot,
       status:       "PENDING",
     };
   });
@@ -705,6 +870,428 @@ export const uploadLoungeImage = async (file, userId) => {
   const { data } = supabase.storage.from('lounge-images').getPublicUrl(path);
   return { data, error: null };
 };
+
+// ── STEP O: ops_config (Emergency Switch) ────────────────────────────────────
+
+export const getOpsConfig = () =>
+  supabase.from("ops_config").select("*").limit(1).single();
+
+export const updateOpsConfig = async (adminId, updates) => {
+  const { data: existing } = await supabase.from("ops_config").select("id").limit(1).single();
+  if (existing?.id) {
+    return supabase.from("ops_config")
+      .update({ ...updates, updated_by: adminId ?? null, updated_at: new Date().toISOString() })
+      .eq("id", existing.id)
+      .select().single();
+  }
+  return supabase.from("ops_config")
+    .insert({ ...updates, updated_by: adminId ?? null })
+    .select().single();
+};
+
+// ── STEP L: customer_reports ──────────────────────────────────────────────────
+
+export const createCustomerReport = ({ reporterId, reportedId, reportType, description, contractId }) =>
+  supabase.from("customer_reports").insert({
+    reporter_id: reporterId ?? null,
+    reported_id: reportedId,
+    report_type: reportType,
+    description: description ?? null,
+    contract_id: contractId ?? null,
+  }).select().single();
+
+export const getCustomerReports = ({ status } = {}) => {
+  let q = supabase.from("customer_reports")
+    .select("*, reporter:reporter_id(name, phone), reported:reported_id(name, phone)")
+    .order("created_at", { ascending: false });
+  if (status) q = q.eq("status", status);
+  return q;
+};
+
+export const updateCustomerReportStatus = (id, status, adminNote = null) =>
+  supabase.from("customer_reports")
+    .update({ status, ...(adminNote && { admin_note: adminNote }) })
+    .eq("id", id)
+    .select().single();
+
+// ── STEP H: Payment Transactions ──────────────────────────────────────────────
+
+export const createPaymentTransaction = (data) =>
+  supabase.from("payment_transactions").insert(data).select().single();
+
+export const getPaymentTransactions = ({ orderId = null, limit = 50 } = {}) => {
+  let q = supabase
+    .from("payment_transactions")
+    .select("*, payment_orders(id, amount, payment_method, status)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (orderId) q = q.eq("payment_order_id", orderId);
+  return q;
+};
+
+// ── Admin: Payment Order Management ──────────────────────────────────────────
+
+export const getPaymentOrders = ({ status = null, limit = 100, userId = null } = {}) => {
+  let q = supabase
+    .from("payment_orders")
+    .select("*, users:user_id(id, name, phone)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (status && status !== "all") q = q.eq("status", status);
+  if (userId) q = q.eq("user_id", userId);
+  return q;
+};
+
+export const adminUpdatePaymentOrder = async (id, adminId, { status, adminNote = null } = {}) => {
+  const { data: prev } = await supabase
+    .from("payment_orders").select("status").eq("id", id).single();
+
+  const updateData = {};
+  if (status) updateData.status = status;
+  if (adminNote) updateData.admin_note = adminNote;
+
+  const { data, error } = await supabase
+    .from("payment_orders")
+    .update(updateData)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      `PAYMENT_${status ?? "UPDATE"}`,
+      target_type: "payment",
+      target_id:   id,
+      before_val:  { status: prev?.status },
+      after_val:   { status },
+      reason:      adminNote,
+    });
+  }
+
+  return { data, error };
+};
+
+// ── Webhook Logs ──────────────────────────────────────────────────────────────
+
+export const createWebhookLog = (data) =>
+  supabase.from("webhook_logs").insert(data).select().single();
+
+export const getWebhookLogs = ({ limit = 50 } = {}) =>
+  supabase
+    .from("webhook_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+// ── Admin: Dispute Payments ───────────────────────────────────────────────────
+
+export const getDisputePayments = () =>
+  supabase
+    .from("escrow_payments")
+    .select("*, requests(id, space_type, area, user_id), companies(id, name, owner_id)")
+    .not("dispute_status", "is", null)
+    .order("disputed_at", { ascending: false });
+
+// ── Admin: Pending Payouts ────────────────────────────────────────────────────
+
+export const getPendingPayouts = () =>
+  supabase
+    .from("escrow_payouts")
+    .select("*, companies(id, name, owner_id), escrow_payments(id, total_amount, transaction_status)")
+    .in("status", ["PENDING", "READY", "APPROVED", "HELD"])
+    .order("created_at", { ascending: false });
+
+
+// ── Admin: Dispute management ─────────────────────────────────────────────────
+
+export const adminResolveDispute = async (paymentId, adminId, resolution, reason = null) => {
+  const { data: prev } = await supabase
+    .from("escrow_payments").select("dispute_status").eq("id", paymentId).single();
+
+  const { data, error } = await supabase
+    .from("escrow_payments")
+    .update({ dispute_status: resolution })
+    .eq("id", paymentId)
+    .select("id, dispute_status")
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      `DISPUTE_${resolution}`,
+      target_type: "dispute",
+      target_id:   paymentId,
+      before_val:  { dispute_status: prev?.dispute_status },
+      after_val:   { dispute_status: resolution },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+
+export const adminSetPayoutStatus = async (payoutId, adminId, status, reason = null) => {
+  const { data: prev } = await supabase
+    .from("escrow_payouts").select("status").eq("id", payoutId).single();
+
+  const { data, error } = await supabase
+    .from("escrow_payouts")
+    .update({
+      status,
+      ...(status === "APPROVED" ? { approved_by: adminId, approved_at: new Date().toISOString() } : {}),
+    })
+    .eq("id", payoutId)
+    .select("id, status")
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      `SET_PAYOUT_${status}`,
+      target_type: "settlement",
+      target_id:   payoutId,
+      before_val:  { status: prev?.status },
+      after_val:   { status },
+      reason,
+    });
+  }
+
+  return { data, error };
+};
+
+// ── Company Documents ─────────────────────────────────────────────────────────
+
+export const getCompanyDocuments = (companyId) =>
+  supabase
+    .from("company_documents")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: true });
+
+export const upsertCompanyDocument = (data) => {
+  if (data.id) {
+    const { id, ...rest } = data;
+    return supabase
+      .from("company_documents")
+      .update({ ...rest, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+  }
+  return supabase
+    .from("company_documents")
+    .upsert({ ...data, updated_at: new Date().toISOString() }, { onConflict: "company_id,document_type" })
+    .select()
+    .single();
+};
+
+export const submitCompanyDocument = (docId) =>
+  supabase
+    .from("company_documents")
+    .update({ review_status: "submitted", updated_at: new Date().toISOString() })
+    .eq("id", docId)
+    .select()
+    .single();
+
+export const adminReviewDocument = async (docId, adminId, reviewStatus, reason = null) => {
+  const { data, error } = await supabase
+    .from("company_documents")
+    .update({
+      review_status: reviewStatus,
+      review_reason: reason ?? null,
+      reviewed_by:   adminId ?? null,
+      reviewed_at:   new Date().toISOString(),
+      updated_at:    new Date().toISOString(),
+    })
+    .eq("id", docId)
+    .select()
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId ?? null,
+      action:      `DOC_${reviewStatus.toUpperCase()}`,
+      target_type: "document",
+      target_id:   docId,
+      after_val:   { review_status: reviewStatus, reason },
+    });
+  }
+
+  return { data, error };
+};
+
+// ── Admin: User status & space economy ────────────────────────────────────────
+
+export const adminSetUserStatus = async (userId, adminId, status, reason = null) => {
+  const { data: prev } = await supabase
+    .from("users").select("account_status").eq("id", userId).single();
+
+  const { data, error } = await supabase
+    .from("users")
+    .update({ account_status: status })
+    .eq("id", userId)
+    .select("id, account_status")
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      `SET_USER_STATUS_${status}`,
+      target_type: "user",
+      target_id:   userId,
+      before_val:  { account_status: prev?.account_status },
+      after_val:   { account_status: status },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+export const adminAdjustSpaceTemp = async (userId, adminId, delta, reason) => {
+  const { data: curr } = await supabase.from("users").select("space_temp").eq("id", userId).single();
+  const prev = curr?.space_temp ?? 36.5;
+  const next = Math.round(Math.min(99, Math.max(0, prev + delta)) * 10) / 10;
+
+  const { data, error } = await supabase
+    .from("users").update({ space_temp: next }).eq("id", userId).select("id, space_temp").single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      "ADJUST_SPACE_TEMP",
+      target_type: "user",
+      target_id:   userId,
+      before_val:  { space_temp: prev },
+      after_val:   { space_temp: next },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+export const adminAdjustUserTokens = async (userId, adminId, delta, reason) => {
+  const { data: curr } = await supabase.from("users").select("space_tokens").eq("id", userId).single();
+  const prev = curr?.space_tokens ?? 0;
+  const next = Math.max(0, prev + delta);
+
+  const { data, error } = await supabase
+    .from("users").update({ space_tokens: next }).eq("id", userId).select("id, space_tokens").single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      delta > 0 ? "AWARD_TOKENS" : "REVOKE_TOKENS",
+      target_type: "user",
+      target_id:   userId,
+      before_val:  { space_tokens: prev },
+      after_val:   { space_tokens: next },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+// ── Admin: Lounge management ──────────────────────────────────────────────────
+
+export const adminGetLoungePosts = ({ hidden = null, limit = 100 } = {}) => {
+  let q = supabase.from("lounge_posts").select("*").order("created_at", { ascending: false }).limit(limit);
+  if (hidden !== null) q = q.eq("is_hidden", hidden);
+  return q;
+};
+
+export const getLoungeReports = ({ status = null } = {}) => {
+  let q = supabase
+    .from("lounge_reports")
+    .select("*, reporter:reporter_id(name, phone)")
+    .order("created_at", { ascending: false });
+  if (status) q = q.eq("status", status);
+  return q;
+};
+
+export const adminHideContent = async (table, id, adminId, hidden, reason = null) => {
+  const { data, error } = await supabase
+    .from(table)
+    .update({ is_hidden: hidden, ...(hidden && reason ? { hidden_reason: reason } : {}) })
+    .eq("id", id)
+    .select("id, is_hidden")
+    .single();
+
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      hidden ? `HIDE_${table.toUpperCase()}` : `UNHIDE_${table.toUpperCase()}`,
+      target_type: "lounge",
+      target_id:   id,
+      before_val:  { is_hidden: !hidden },
+      after_val:   { is_hidden: hidden },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+export const adminUpdateLoungeReport = (id, status, adminNote = null) =>
+  supabase
+    .from("lounge_reports")
+    .update({ status, ...(adminNote ? { admin_note: adminNote } : {}) })
+    .eq("id", id)
+    .select("id, status")
+    .single();
+
+// ── STEP SYNC-1: Request Repost ───────────────────────────────────────────────
+
+export const repostRequest = async (requestId) => {
+  const { data: current, error: fetchError } = await supabase
+    .from("requests")
+    .select("exposure_count")
+    .eq("id", requestId)
+    .single();
+  if (fetchError) return { error: fetchError };
+  const nextCount = (current?.exposure_count ?? 0) + 1;
+  return supabase
+    .from("requests")
+    .update({
+      reposted_at:    new Date().toISOString(),
+      expires_at:     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      exposure_count: nextCount,
+      status:         "open",
+      updated_at:     new Date().toISOString(),
+    })
+    .eq("id", requestId)
+    .select()
+    .single();
+};
+
+export const createRequestRepost = (data) =>
+  supabase.from("request_reposts").insert(data).select().single();
+
+export const expireRequest = (id) =>
+  supabase.from("requests").update({ status: "expired" }).eq("id", id);
+
+export const archiveRequest = (id) =>
+  supabase.from("requests")
+    .update({ is_hidden: true, archived_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id, is_hidden")
+    .maybeSingle();
+
+export const adminGetHiddenRequests = () =>
+  supabase
+    .from("requests")
+    .select("id, space_type, area, size, style, description, status, created_at, archived_at, hidden_reason, user_id")
+    .eq("is_hidden", true)
+    .order("archived_at", { ascending: false, nullsFirst: false });
+
+export const adminRestoreRequest = (id) =>
+  supabase
+    .from("requests")
+    .update({ is_hidden: false, archived_at: null })
+    .eq("id", id)
+    .select("id, is_hidden")
+    .maybeSingle();
+
+// ── STEP SYNC-2: Lounge CRUD ──────────────────────────────────────────────────
 
 export const getLoungePosts = async (category = "all") => {
   let q = supabase
@@ -772,6 +1359,7 @@ export const getLoungeComments = (postId) =>
     .select("*")
     .eq("post_id", postId)
     .eq("is_deleted", false)
+    .eq("is_hidden", false)
     .order("created_at", { ascending: true });
 
 export const createLoungeComment = (data) =>
@@ -784,20 +1372,101 @@ export const softDeleteLoungeComment = (commentId, userId) =>
     .eq("id", commentId)
     .eq("user_id", userId);
 
-export const likeLoungePost = (postId, userId) =>
-  supabase.from("lounge_post_likes").insert({ post_id: postId, user_id: userId });
+export const likeLoungePost = async (postId) => {
+  const { data: current } = await supabase
+    .from("lounge_posts")
+    .select("like_count")
+    .eq("id", postId)
+    .single();
+  return supabase
+    .from("lounge_posts")
+    .update({ like_count: (current?.like_count ?? 0) + 1 })
+    .eq("id", postId)
+    .select("like_count")
+    .single();
+};
 
-export const unlikeLoungePost = (postId, userId) =>
+// ── STEP SYNC-3: Space Tokens ─────────────────────────────────────────────────
+
+export const getSpaceToken = (userId) =>
+  supabase.from("space_tokens").select("balance").eq("user_id", userId).maybeSingle();
+
+export const upsertSpaceToken = (userId, balance) =>
+  supabase
+    .from("space_tokens")
+    .upsert({ user_id: userId, balance }, { onConflict: "user_id" })
+    .select("balance")
+    .single();
+
+export const createSpaceTokenLog = ({ userId, type, action, amount, description }) =>
+  supabase.from("space_token_logs").insert({
+    user_id:     userId,
+    type,
+    action,
+    amount,
+    description: description ?? null,
+  });
+
+export const getSpaceTokenLogs = (userId, limit = 50) =>
+  supabase
+    .from("space_token_logs")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+// ── STEP SYNC-4: Lounge Likes ─────────────────────────────────────────────────
+
+export const checkLoungePostLiked = (postId, userId) =>
+  supabase
+    .from("lounge_post_likes")
+    .select("id")
+    .eq("post_id", postId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+export const addLoungePostLike = (postId, userId) =>
+  supabase
+    .from("lounge_post_likes")
+    .upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
+
+export const removeLoungePostLike = (postId, userId) =>
   supabase
     .from("lounge_post_likes")
     .delete()
     .eq("post_id", postId)
     .eq("user_id", userId);
 
-export const saveLoungePost = (postId, userId) =>
-  supabase.from("lounge_saves").insert({ post_id: postId, user_id: userId });
+export const unlikeLoungePost = async (postId) => {
+  const { data: current } = await supabase
+    .from("lounge_posts")
+    .select("like_count")
+    .eq("id", postId)
+    .single();
+  return supabase
+    .from("lounge_posts")
+    .update({ like_count: Math.max(0, (current?.like_count ?? 1) - 1) })
+    .eq("id", postId)
+    .select("like_count")
+    .single();
+};
 
-export const unsaveLoungePost = (postId, userId) =>
+// ── STEP SYNC-4: Lounge Saves ─────────────────────────────────────────────────
+
+export const checkLoungeSaved = (postId, userId) =>
+  supabase
+    .from("lounge_saves")
+    .select("id")
+    .eq("post_id", postId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+export const addLoungeSave = (postId, userId) =>
+  supabase
+    .from("lounge_saves")
+    .upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
+
+export const removeLoungeSave = (postId, userId) =>
   supabase
     .from("lounge_saves")
     .delete()
@@ -857,3 +1526,105 @@ export const createLoungeNotification = ({ userId, type, title, message, related
     related_type: relatedType,
     is_read:      false,
   });
+// ── STEP SYNC-4: Lounge Chat Requests ────────────────────────────────────────
+
+export const createLoungeChat = (data) =>
+  supabase
+    .from("lounge_chats")
+    .upsert(data, { onConflict: "post_id,requester_id", ignoreDuplicates: true })
+    .select()
+    .single();
+
+export const acceptLoungeChat = (chatId, participantId) =>
+  supabase
+    .from("lounge_chats")
+    .update({ status: "accepted", token_charged: true })
+    .eq("id", chatId)
+    .or(`requester_id.eq.${participantId},post_user_id.eq.${participantId}`)
+    .select()
+    .single();
+
+// ── Payment / Contract restore helpers ───────────────────────────────────────
+
+export const getPaymentOrderByRequest = (requestId) =>
+  supabase.from("payment_orders")
+    .select("*")
+    .eq("request_id", requestId)
+    .eq("status", "PAID")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+export const getBidById = (bidId) =>
+  supabase.from("bids").select("*").eq("id", bidId).single();
+
+export const getEscrowByRequest = (requestId) =>
+  supabase.from("escrow_payments")
+    .select("*")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+// ── Company: my submitted bids with request data ──────────────────────────────
+export const getCompanyBids = (userId) =>
+  supabase
+    .from("bids")
+    .select("*, requests(*)")
+    .eq("company_id", userId)
+    .order("created_at", { ascending: false });
+
+// ── EscrowScreen: advance escrow step on customer approval ───────────────────
+// Updates step{N}_approved_at, current_step, and optionally transaction_status
+export const advanceContractStep = (contractId, step, nextStep, txStatus = null) => {
+  const update = {
+    [`step${step}_approved_at`]: new Date().toISOString(),
+    current_step: nextStep,
+  };
+  if (txStatus) update.transaction_status = txStatus;
+  return supabase.from("escrow_payments")
+    .update(update)
+    .eq("id", contractId)
+    .select("id, current_step, transaction_status")
+    .single();
+};
+
+// ── EscrowScreen: company reports phase (착공/중간점검/완료) ───────────────────
+// Updates transaction_status, current_step, photos_uploaded_at together
+export const markEscrowPhaseStarted = (contractId, txStatus, currentStep) =>
+  supabase.from("escrow_payments")
+    .update({
+      transaction_status:  txStatus,
+      current_step:        currentStep,
+      photos_uploaded_at:  new Date().toISOString(),
+    })
+    .eq("id", contractId)
+    .select("id, transaction_status, current_step")
+    .single();
+
+// ── EscrowScreen: set escrow_payouts stage to READY (customer approval pending) ─
+export const setEscrowPayoutReady = (escrowId, stage) =>
+  supabase.from("escrow_payouts")
+    .update({ status: "READY" })
+    .eq("escrow_id", escrowId)
+    .eq("stage", stage)
+    .select("id, status")
+    .single();
+
+// ── Consumer: escrow + payouts for a request (for home card stage computation) ─
+export const getEscrowWithPayouts = async (requestId) => {
+  const { data: escrow, error } = await supabase
+    .from("escrow_payments")
+    .select("*")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !escrow) return { data: null, error: error ?? null };
+  const { data: payouts } = await supabase
+    .from("escrow_payouts")
+    .select("*")
+    .eq("escrow_id", escrow.id)
+    .order("stage");
+  return { data: { escrow, payouts: payouts ?? [] }, error: null };
+};

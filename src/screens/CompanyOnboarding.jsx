@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { C, R, S, ALL_REGIONS, SPECIALTIES } from "../constants";
 import { BADGES } from "../constants/badges";
 import { Divider } from "../components/common";
-import { upsertUserByPhone, upsertCompany, uploadFile } from "../lib/supabase";
+import { upsertUserByPhone, upsertCompany, uploadFile, upsertCompanyDocument } from "../lib/supabase";
 
 export default function CompanyOnboarding({ phone, onDone }) {
   const [step, setStep] = useState(1);
@@ -14,6 +14,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
     bizDocFile:null, insuranceFile:null,
     bizDocUrl: null, insuranceUrl: null,
     badge:"standard",
+    pledgeChecklist:{}, escrowChecklist:{},
     agreeTerms:false, agreeEscrow:false, agreeAs:false, agreeDeposit:false,
   });
   const [submitted, setSubmitted] = useState(null);
@@ -30,6 +31,22 @@ export default function CompanyOnboarding({ phone, onDone }) {
     marginBottom:14, fontFamily:"inherit", color:C.text1, background:C.surface };
 
   const STEPS = ["기본정보","활동지역","전문분야","서류제출","계약동의"];
+
+  const PLEDGE_ITEMS = [
+    { key:"no_fraud", label:"부정 경쟁 및 뒷거래 금지 서약" },
+    { key:"privacy",  label:"고객 개인정보 보호 서약" },
+    { key:"as_duty",  label:"하자보수 AS 의무 이행 동의" },
+    { key:"quality",  label:"품질 관리 및 안전 수칙 준수 동의" },
+    { key:"policy",   label:"공간마켓 운영 정책 준수 동의" },
+  ];
+  const ESCROW_ITEMS = [
+    { key:"phase_structure", label:"에스크로 단계별 정산 구조 이해 (계약 10% → 착공 20% → 중간점검 40% → 완료 30%)" },
+    { key:"phase_delay",     label:"단계 미완료 시 정산 지연 동의" },
+    { key:"dispute",         label:"분쟁 발생 시 공간마켓 중재 동의" },
+    { key:"final_approval",  label:"고객 최종 승인 후 정산 동의" },
+  ];
+  const pledgeAllChecked = PLEDGE_ITEMS.every(i => form.pledgeChecklist[i.key]);
+  const escrowAllChecked = ESCROW_ITEMS.every(i => form.escrowChecklist[i.key]);
   const BADGE_INFO = {
     basic:      { ...BADGES.basic,      range:"~500만원",   dep20:100,  dep30:150 },
     standard:   { ...BADGES.standard,   range:"~1,000만원", dep20:200,  dep30:300 },
@@ -135,7 +152,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
       <button onClick={async () => {
           const profile = { name: form.name, role: "company", region: form.mainRegion, phone };
           const { data: userRow } = await upsertUserByPhone(profile);
-          await upsertCompany({
+          const { data: companyRow } = await upsertCompany({
             owner_id: userRow?.id ?? null,
             name: form.bizName,
             phone,
@@ -152,6 +169,16 @@ export default function CompanyOnboarding({ phone, onDone }) {
             fee_rate: 0.04,
             doc_status: "pending",
           });
+          if (companyRow?.id && userRow?.id) {
+            const uid = userRow.id;
+            const cid = companyRow.id;
+            await Promise.all([
+              upsertCompanyDocument({ company_id:cid, user_id:uid, document_type:"business_license", file_url:form.bizDocUrl||null, file_name:form.bizDocFile||null, review_status:form.bizDocUrl?"submitted":"draft" }),
+              upsertCompanyDocument({ company_id:cid, user_id:uid, document_type:"insurance_certificate", file_url:form.insuranceUrl||null, file_name:form.insuranceFile||null, review_status:form.insuranceUrl?"submitted":"draft" }),
+              upsertCompanyDocument({ company_id:cid, user_id:uid, document_type:"operation_pledge", checklist:form.pledgeChecklist, review_status:PLEDGE_ITEMS.every(i=>form.pledgeChecklist[i.key])?"submitted":"draft" }),
+              upsertCompanyDocument({ company_id:cid, user_id:uid, document_type:"escrow_agreement", checklist:form.escrowChecklist, review_status:ESCROW_ITEMS.every(i=>form.escrowChecklist[i.key])?"submitted":"draft" }),
+            ]).catch(() => {});
+          }
           onDone({ ...(userRow || profile), badge: form.badge, has_insurance: form.hasInsurance });
         }}
         style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff",
@@ -432,6 +459,40 @@ export default function CompanyOnboarding({ phone, onDone }) {
           </div>
         </div>
 
+        <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.sm }}>📝 운영 서약서</div>
+        <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.md, border:`1.5px solid ${pledgeAllChecked?C.brand:C.bgWarm}` }}>
+          {PLEDGE_ITEMS.map((item,i) => (
+            <div key={item.key} onClick={() => set("pledgeChecklist",{...form.pledgeChecklist,[item.key]:!form.pledgeChecklist[item.key]})}
+              style={{ display:"flex", gap:S.md, alignItems:"flex-start", padding:`${S.sm}px 0`,
+                borderBottom:i<PLEDGE_ITEMS.length-1?`1px solid ${C.bg}`:"none", cursor:"pointer" }}>
+              <div style={{ width:20,height:20,borderRadius:4,flexShrink:0,marginTop:1,
+                background:form.pledgeChecklist[item.key]?C.brand:C.surface,
+                border:`2px solid ${form.pledgeChecklist[item.key]?C.brand:C.bgWarm}`,
+                display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:11,fontWeight:900 }}>
+                {form.pledgeChecklist[item.key]?"✓":""}
+              </div>
+              <span style={{ fontSize:12,color:C.text1,lineHeight:1.7 }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.sm }}>🛡 에스크로 동의서</div>
+        <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, border:`1.5px solid ${escrowAllChecked?C.brand:C.bgWarm}` }}>
+          {ESCROW_ITEMS.map((item,i) => (
+            <div key={item.key} onClick={() => set("escrowChecklist",{...form.escrowChecklist,[item.key]:!form.escrowChecklist[item.key]})}
+              style={{ display:"flex", gap:S.md, alignItems:"flex-start", padding:`${S.sm}px 0`,
+                borderBottom:i<ESCROW_ITEMS.length-1?`1px solid ${C.bg}`:"none", cursor:"pointer" }}>
+              <div style={{ width:20,height:20,borderRadius:4,flexShrink:0,marginTop:1,
+                background:form.escrowChecklist[item.key]?C.brand:C.surface,
+                border:`2px solid ${form.escrowChecklist[item.key]?C.brand:C.bgWarm}`,
+                display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:11,fontWeight:900 }}>
+                {form.escrowChecklist[item.key]?"✓":""}
+              </div>
+              <span style={{ fontSize:12,color:C.text1,lineHeight:1.7 }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+
         <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md }}>계약 동의</div>
         {[
           { key:"agreeTerms",  title:"이용약관 동의", sub:"업체 파트너 이용약관 (필수)" },
@@ -457,14 +518,19 @@ export default function CompanyOnboarding({ phone, onDone }) {
           </div>
         ))}
 
-        <button
-          onClick={() => { if(form.agreeTerms&&form.agreeEscrow&&form.agreeAs&&form.agreeDeposit) setSubmitted("payment"); }}
-          style={{ width:"100%", padding:S.xl, marginTop:S.md,
-            background:form.agreeTerms&&form.agreeEscrow&&form.agreeAs&&form.agreeDeposit?C.brand:"#E8E4DC",
-            color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
-            boxShadow:form.agreeTerms&&form.agreeEscrow&&form.agreeAs&&form.agreeDeposit?`0 6px 20px ${C.brand}44`:"none" }}>
-          🚀 업체 파트너 신청 완료
-        </button>
+        {(() => {
+          const canSubmit = form.agreeTerms&&form.agreeEscrow&&form.agreeAs&&form.agreeDeposit&&pledgeAllChecked&&escrowAllChecked;
+          return (
+            <button
+              onClick={() => { if(canSubmit) setSubmitted("payment"); }}
+              style={{ width:"100%", padding:S.xl, marginTop:S.md,
+                background:canSubmit?C.brand:"#E8E4DC",
+                color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
+                boxShadow:canSubmit?`0 6px 20px ${C.brand}44`:"none" }}>
+              🚀 업체 파트너 신청 완료
+            </button>
+          );
+        })()}
       </>}
     </div>
   );

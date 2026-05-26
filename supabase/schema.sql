@@ -301,7 +301,7 @@ create table if not exists public.admin_logs (
   id          uuid primary key default gen_random_uuid(),
   admin_id    uuid references public.users(id),
   action      text not null,
-  target_type text not null check (target_type in ('company','customer','dispute','settlement')),
+  target_type text not null check (target_type in ('company','customer','user','dispute','settlement','lounge','report')),
   target_id   uuid,
   before_val  jsonb,
   after_val   jsonb,
@@ -727,6 +727,293 @@ alter table public.webhook_logs enable row level security;
 --   );
 
 -- ============================================================
+--  STEP 15 — 카카오맵 위도/경도 컬럼
+-- ============================================================
+alter table public.companies add column if not exists lat  numeric(10,7);
+alter table public.companies add column if not exists lng  numeric(10,7);
+
+-- STEP 17 — 업체 총 거래액 컬럼
+alter table public.companies add column if not exists total_transaction_volume integer not null default 0;
+
+-- ============================================================
+--  STEP M — fee_snapshot (계약 시점 수수료 고정)
+-- ============================================================
+alter table public.escrow_payouts   add column if not exists fee_snapshot jsonb;
+alter table public.payment_orders   add column if not exists fee_snapshot jsonb;
+
+-- ============================================================
+--  STEP O — 운영 Emergency Switch
+-- ============================================================
+create table if not exists public.ops_config (
+  id                  uuid primary key default gen_random_uuid(),
+  pause_new_payments  boolean not null default false,
+  pause_new_bids      boolean not null default false,
+  pause_new_approvals boolean not null default false,
+  updated_by          uuid references public.users(id) on delete set null,
+  updated_at          timestamptz not null default now()
+);
+insert into public.ops_config (pause_new_payments, pause_new_bids, pause_new_approvals)
+  values (false, false, false)
+  on conflict do nothing;
+
+alter table public.ops_config enable row level security;
+create policy "ops_config: admin read" on public.ops_config
+  for select using (exists (select 1 from public.users where id = auth.uid() and role = 'admin'));
+create policy "ops_config: admin write" on public.ops_config
+  for all using (exists (select 1 from public.users where id = auth.uid() and role = 'admin'));
+
+-- ============================================================
+--  STEP R — Notification 우선순위
+-- ============================================================
+alter table public.notifications
+  add column if not exists priority text not null default 'NORMAL'
+    check (priority in ('LOW','NORMAL','HIGH','CRITICAL'));
+
+create index if not exists notifications_priority_idx on public.notifications (user_id, priority, created_at desc);
+
+-- ============================================================
+--  STEP S — TEMP_RESTRICTED 활동 제한 상태
+-- ============================================================
+alter table public.companies
+  drop constraint if exists companies_company_status_check;
+alter table public.companies
+  add constraint companies_company_status_check
+    check (company_status in ('PENDING','ACTIVE','PAUSED','SUSPENDED','BLACKLISTED','TEMP_RESTRICTED'));
+
+-- ============================================================
+--  STEP L — 고객/업체 보호 (customer_reports)
+-- ============================================================
+create table if not exists public.customer_reports (
+  id           uuid primary key default gen_random_uuid(),
+  reporter_id  uuid references public.users(id) on delete set null,
+  reported_id  uuid references public.users(id) on delete cascade,
+  report_type  text not null check (report_type in ('반복취소','욕설','무리한요구','허위리뷰시도','기타')),
+  description  text,
+  contract_id  uuid references public.escrow_payments(id) on delete set null,
+  status       text not null default 'PENDING'
+    check (status in ('PENDING','REVIEWED','RESOLVED')),
+  admin_note   text,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.customer_reports enable row level security;
+create policy "customer_reports: admin read" on public.customer_reports
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy "customer_reports: authenticated insert" on public.customer_reports
+  for insert with check (auth.uid() = reporter_id);
+
+-- ============================================================
+--  Admin Dashboard 실운영화 — 사용자/라운지/신고 구조 추가
+-- ============================================================
+
+-- User account_status + space economy columns
+alter table public.users add column if not exists account_status text not null default 'NORMAL'
+  check (account_status in ('NORMAL','TEMP_RESTRICTED','SUSPENDED','BLACKLISTED'));
+alter table public.users add column if not exists space_temp    numeric(4,1) not null default 36.5;
+alter table public.users add column if not exists space_tokens  integer      not null default 0;
+
+-- ── lounge_posts ──────────────────────────────────────────────────────────────
+create table if not exists public.lounge_posts (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid references public.users(id) on delete set null,
+  anonymous_nickname text not null,
+  category           text not null default 'daily',
+  title              text,
+  content            text not null,
+  view_count         integer not null default 0,
+  like_count         integer not null default 0,
+  comment_count      integer not null default 0,
+  is_hidden          boolean not null default false,
+  hidden_reason      text,
+  region             text,
+  gender             text,
+  age_group          text,
+  has_badge          boolean not null default false,
+  is_story           boolean not null default false,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+alter table public.lounge_posts enable row level security;
+create policy "lounge_posts: public read" on public.lounge_posts
+  for select using (
+    is_hidden = false
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy "lounge_posts: owner insert" on public.lounge_posts
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_posts: admin update" on public.lounge_posts
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+create policy if not exists "payment_transactions: admin read" on public.payment_transactions
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy if not exists "payment_transactions: owner insert" on public.payment_transactions
+  for insert with check (
+    exists (select 1 from public.payment_orders po where po.id = payment_order_id and auth.uid() = po.user_id)
+  );
+
+-- ── Migration: payment_orders admin management columns ───────────────────────
+alter table public.payment_orders add column if not exists admin_note text;
+
+-- ── Migration: admin RLS on payment_orders ───────────────────────────────────
+create policy if not exists "payment_orders: admin read all" on public.payment_orders
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy if not exists "payment_orders: admin update" on public.payment_orders
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- ── lounge_comments ───────────────────────────────────────────────────────────
+create table if not exists public.lounge_comments (
+  id                 uuid primary key default gen_random_uuid(),
+  post_id            uuid not null references public.lounge_posts(id) on delete cascade,
+  user_id            uuid references public.users(id) on delete set null,
+  parent_id          uuid references public.lounge_comments(id) on delete cascade,
+  anonymous_nickname text not null,
+  content            text not null,
+  like_count         integer not null default 0,
+  is_expert_reply    boolean not null default false,
+  is_hidden          boolean not null default false,
+  hidden_reason      text,
+  created_at         timestamptz not null default now()
+);
+
+alter table public.lounge_comments enable row level security;
+create policy "lounge_comments: public read" on public.lounge_comments
+  for select using (
+    is_hidden = false
+    or exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy "lounge_comments: owner insert" on public.lounge_comments
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_comments: admin update" on public.lounge_comments
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- ── lounge_reports ────────────────────────────────────────────────────────────
+create table if not exists public.lounge_reports (
+  id           uuid primary key default gen_random_uuid(),
+  reporter_id  uuid references public.users(id) on delete set null,
+  target_type  text not null check (target_type in ('post','comment','story','user')),
+  target_id    uuid not null,
+  reason       text not null,
+  description  text,
+  status       text not null default 'pending'
+    check (status in ('pending','reviewing','resolved','dismissed')),
+  admin_note   text,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.lounge_reports enable row level security;
+create policy "lounge_reports: admin read" on public.lounge_reports
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+create policy "lounge_reports: authenticated insert" on public.lounge_reports
+  for insert with check (auth.uid() = reporter_id);
+create policy "lounge_reports: admin update" on public.lounge_reports
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- escrow_payouts: allow admin to update (for settlement management)
+create policy "escrow_payouts: admin update" on public.escrow_payouts
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- escrow_payments: allow admin to update dispute_status
+create policy "escrow_payments: admin update" on public.escrow_payments
+  for update using (
+    exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+  );
+
+-- users: allow admin to update account_status / space fields
+create policy "users: admin update" on public.users
+  for update using (
+    exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin')
+  );
+
+-- ============================================================
+--  STEP DOC — company_documents (서류 관리 시스템)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.company_documents (
+  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id    uuid        REFERENCES public.companies(id) ON DELETE CASCADE,
+  user_id       uuid        REFERENCES public.users(id) ON DELETE SET NULL,
+  document_type text        NOT NULL,
+  file_name     text,
+  file_url      text,
+  file_size     int,
+  mime_type     text,
+  checklist     jsonb,
+  review_status text        NOT NULL DEFAULT 'draft'
+    CHECK (review_status IN ('draft','submitted','reviewing','approved','held','rejected')),
+  review_reason text,
+  reviewed_by   uuid        REFERENCES public.users(id) ON DELETE SET NULL,
+  reviewed_at   timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (company_id, document_type)
+);
+
+ALTER TABLE public.company_documents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "company_documents: owner read" ON public.company_documents
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "company_documents: owner insert" ON public.company_documents
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "company_documents: owner update" ON public.company_documents
+  FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "company_documents: admin all" ON public.company_documents
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
+  );
+
+-- ── extend admin_logs target_type for all domains ────────────────────────────
+ALTER TABLE public.admin_logs DROP CONSTRAINT IF EXISTS admin_logs_target_type_check;
+ALTER TABLE public.admin_logs ADD CONSTRAINT admin_logs_target_type_check
+  CHECK (target_type IN ('company','customer','user','dispute','settlement','payment','lounge','report','document'));
+
+-- ============================================================
+--  STEP SYNC-1 — Request TTL & Repost
+-- ============================================================
+
+alter table public.requests add column if not exists expires_at     timestamptz;
+alter table public.requests add column if not exists reposted_at    timestamptz;
+alter table public.requests add column if not exists exposure_count integer not null default 0;
+
+alter table public.requests drop constraint if exists requests_status_check;
+alter table public.requests add constraint requests_status_check
+  check (status in ('open','in_progress','completed','cancelled','closed','expired'));
+
+create table if not exists public.request_reposts (
+  id             uuid primary key default gen_random_uuid(),
+  request_id     uuid not null references public.requests(id) on delete cascade,
+  user_id        uuid references public.users(id) on delete set null,
+  reposted_at    timestamptz not null default now(),
+  exposure_count integer not null default 1
+);
+
+alter table public.request_reposts enable row level security;
+create policy "request_reposts: owner read" on public.request_reposts
+  for select using (auth.uid() = user_id);
+create policy "request_reposts: owner insert" on public.request_reposts
+  for insert with check (auth.uid() = user_id);
+
+-- ============================================================
+--  STEP SYNC-2 — Lounge Posts & Comments
+-- ============================================================
+
 --  라운지 시스템 — Lounge Community Tables
 -- ============================================================
 
@@ -761,6 +1048,10 @@ create table if not exists public.lounge_posts (
 );
 
 comment on table public.lounge_posts is '라운지 게시글 및 스토리 (is_story=true이면 스토리)';
+create index if not exists lounge_posts_category_idx on public.lounge_posts (category, created_at desc);
+create index if not exists lounge_posts_created_idx  on public.lounge_posts (created_at desc);
+create index if not exists lounge_posts_story_idx    on public.lounge_posts (is_story, created_at desc);
+create index if not exists lounge_posts_popular_idx  on public.lounge_posts (view_count desc, like_count desc);
 
 create or replace trigger lounge_posts_updated_at
   before update on public.lounge_posts

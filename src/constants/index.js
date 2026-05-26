@@ -56,7 +56,7 @@ export const PHOTOS = {
 
 export const SPACE_TYPES = ["아파트 전체","아파트 부분","원룸/오피스텔","카페/식당","오피스","상가"];
 export const STYLES = ["모던 미니멀","북유럽 감성","인더스트리얼","내추럴 우드","럭셔리 클래식"];
-export const REVIEW_TAGS = ["에스크로 신뢰","중간보고 충실","마감 깔끔","일정 준수","견적 투명","빠른 AS","하자보수 완료","계약 준수"];
+export const REVIEW_TAGS = ["시간 준수","소통 만족","마감 만족","친절함","가격 만족","재이용 의사"];
 export const REGIONS = ["마포구","서대문구","용산구","은평구","강남구","송파구"];
 export const ALL_REGIONS = ["마포구","서대문구","용산구","은평구","강남구","송파구","강동구","강서구","영등포구","동작구","관악구","종로구","중구","성동구","광진구","노원구"];
 export const SPECIALTIES = ["아파트 전체","아파트 부분","원룸/오피스텔","카페/식당","오피스","상가","욕실","주방","바닥/도배","조명/전기"];
@@ -159,19 +159,29 @@ export const TRANSACTION_GUARDS = {
 
 // ── STEP 22: Company Status ───────────────────────────────────────────────────
 export const COMPANY_STATUS = {
-  PENDING:     "PENDING",
-  ACTIVE:      "ACTIVE",
-  PAUSED:      "PAUSED",
-  SUSPENDED:   "SUSPENDED",
-  BLACKLISTED: "BLACKLISTED",
+  PENDING:          "PENDING",
+  ACTIVE:           "ACTIVE",
+  PAUSED:           "PAUSED",
+  SUSPENDED:        "SUSPENDED",
+  BLACKLISTED:      "BLACKLISTED",
+  TEMP_RESTRICTED:  "TEMP_RESTRICTED",
 };
 
 export const COMPANY_STATUS_META = {
-  PENDING:     { label: "심사 중",   color: "#B08040", bg: "#FBF5E8", canBid: false },
-  ACTIVE:      { label: "정상",      color: "#2E5F4B", bg: "#EAF2EE", canBid: true  },
-  PAUSED:      { label: "일시 정지", color: "#7A8A7E", bg: "#F0EDE8", canBid: false },
-  SUSPENDED:   { label: "운영 제재", color: "#D63030", bg: "#FEF0F0", canBid: false },
-  BLACKLISTED: { label: "블랙리스트",color: "#1F2A24", bg: "#E8E0D4", canBid: false },
+  PENDING:         { label: "심사 중",    color: "#B08040", bg: "#FBF5E8", canBid: false },
+  ACTIVE:          { label: "정상",       color: "#2E5F4B", bg: "#EAF2EE", canBid: true  },
+  PAUSED:          { label: "일시 정지",  color: "#7A8A7E", bg: "#F0EDE8", canBid: false },
+  SUSPENDED:       { label: "운영 제재",  color: "#D63030", bg: "#FEF0F0", canBid: false },
+  BLACKLISTED:     { label: "블랙리스트", color: "#1F2A24", bg: "#E8E0D4", canBid: false },
+  TEMP_RESTRICTED: { label: "활동 제한",  color: "#D63030", bg: "#FFF3F0", canBid: false },
+};
+
+// ── STEP R: Notification Priority ────────────────────────────────────────────
+export const NOTIFICATION_PRIORITY = {
+  LOW:      "LOW",
+  NORMAL:   "NORMAL",
+  HIGH:     "HIGH",
+  CRITICAL: "CRITICAL",
 };
 
 // ── STEP 25: Dispute Status ───────────────────────────────────────────────────

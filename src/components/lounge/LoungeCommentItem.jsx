@@ -70,7 +70,7 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
 
       <div style={{ display: 'flex', gap: S.lg, alignItems: 'center', paddingLeft: 38 }}>
         <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 700 : 400, padding: 0 }}>
-          {liked ? '❤️' : '🤍'} {comment.like_count + (liked ? 1 : 0)}
+          {liked ? '❤️' : '🤍'} {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
         </button>
         {!isReply && (
           <button onClick={() => onReply?.(comment)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text3, padding: 0 }}>

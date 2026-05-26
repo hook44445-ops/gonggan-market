@@ -2,8 +2,20 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, createNotification, logActivity } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, createNotification, logActivity, getPaymentOrderByRequest } from "../lib/supabase";
+
+const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 import { calcCustomerFee } from "../utils/calculations";
+
+const PAYMENT_METHODS = [
+  { id: "CARD",            icon: "💳", label: "신용/체크카드",  desc: "TossPayments 안전결제",  available: true  },
+  { id: "TRANSFER",        icon: "🏦", label: "계좌이체",       desc: "실시간 계좌이체",         available: true  },
+  { id: "VIRTUAL_ACCOUNT", icon: "📋", label: "가상계좌",       desc: "24시간 무통장입금",       available: true  },
+  { id: "KAKAO_PAY",       icon: "💛", label: "카카오페이",     desc: "심사 후 제공 예정",       available: false },
+  { id: "NAVER_PAY",       icon: "💚", label: "네이버페이",     desc: "심사 후 제공 예정",       available: false },
+];
+
+const TOSS_METHOD_MAP = { CARD: "카드", TRANSFER: "계좌이체", VIRTUAL_ACCOUNT: "가상계좌" };
 
 const DEFAULT_COMPANY = { id: null, name: "—", temp: 0, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
 
@@ -36,16 +48,25 @@ function BidScreenHeader({ title, sub, onBack }) {
   );
 }
 
+const IS_DEBUG = true; // 디버깅 중 — 항상 표시
+
 export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
   const [localBids, setLocalBids] = useState(propBids ?? []);
   const bids = localBids.length > 0 ? localBids : (propBids ?? []);
   const [step, setStep] = useState("list");
   const [selBid, setSelBid] = useState(null);
+  const [selectedMethod, setSelectedMethod] = useState(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [bidScreenDebug, setBidScreenDebug] = useState(null);
+  const [dbWriteLog, setDbWriteLog] = useState(null);
+  const [localToast, setLocalToast] = useState(null);
+  const showLocalToast = (msg) => { setLocalToast(msg); setTimeout(() => setLocalToast(null), 3000); };
 
   // SELECT bids when screen loads (or request changes)
   useEffect(() => {
     if (!request?.id) { setLocalBids(propBids ?? []); return; }
     getBidsForRequest(request.id).then(({ data, error }) => {
+      if (IS_DEBUG) setBidScreenDebug({ src: "bidscreen_effect", req_id: request.id, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
       if (error) return;
       if (data) setLocalBids(data.map(normalizeBid));
     });
@@ -157,90 +178,254 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
     const customerTotal = calculateCustomerTotal(selBid.price);
     const fee = Math.round((customerTotal - selBid.price) * 10) / 10;
     const stages = calculateStagePayments(selBid.price);
+
+    const handlePay = async () => {
+      if (!selectedMethod && !SAFE_MODE) return;
+      setPaymentLoading(true);
+      const feeSnapshot = { customerFeeRate: 0.03, companyFeeRate: 0.04, vatRate: 0.1, snapshotAt: new Date().toISOString() };
+
+      const runDBWrites = async (pgPaymentKey = null) => {
+        let contractId = null;
+        const log = {};
+        try {
+          const guardOk = selBid.id && !String(selBid.id).startsWith("tmp-") && selBid.companyId && request?.id;
+          log.guard = guardOk ? "ok" : `SKIP bid=${selBid.id} co=${selBid.companyId} req=${request?.id}`;
+          if (!guardOk) { setDbWriteLog(log); return; }
+
+          // ── 1. escrow_payments ──────────────────────────────────
+          const { data: escrowData, error: escrowErr } = await createEscrowRecord({
+            requestId:   request.id,
+            companyId:   selBid.companyId,
+            totalAmount: selBid.price,
+          });
+          log.escrow = escrowData ? escrowData.id.slice(0, 8) : (escrowErr?.message ?? "null");
+          setDbWriteLog({ ...log });
+
+          if (!escrowData) { setDbWriteLog(log); return; }
+          contractId = escrowData.id;
+
+          // ── 2. escrow_payouts (10/20/40/30%) ────────────────────
+          const { error: payoutsErr } = await createEscrowPayoutsForContract(
+            escrowData.id, selBid.companyId, selBid.price, 0.04, 0.1
+          );
+          log.payouts = payoutsErr ? payoutsErr.message : "ok(4 rows)";
+          setDbWriteLog({ ...log });
+
+          // ── 3. payment_orders ───────────────────────────────────
+          const { data: existingOrder } = await getPaymentOrderByBid(selBid.id);
+          let paymentOrderId = existingOrder?.id ?? null;
+          if (!existingOrder) {
+            const { data: newOrder, error: orderErr } = await createPaymentOrder({
+              user_id:        request.user_id ?? null,
+              bid_id:         selBid.id,
+              request_id:     request.id,
+              contract_id:    escrowData.id,
+              amount:         selBid.price,
+              customer_fee:   fee,
+              vat:            Math.round(fee * 0.1),
+              total_amount:   customerTotal,
+              payment_method: selectedMethod ?? "CARD",
+              fee_snapshot:   feeSnapshot,
+              status:         "PAID",
+            });
+            log.payment_order = newOrder ? newOrder.id.slice(0, 8) : (orderErr?.message ?? "null");
+            paymentOrderId = newOrder?.id ?? null;
+          } else {
+            log.payment_order = "existing:" + existingOrder.id.slice(0, 8);
+            await updatePaymentOrderStatus(paymentOrderId, "PAID");
+          }
+          setDbWriteLog({ ...log });
+
+          // ── 4. payment_transactions ─────────────────────────────
+          if (paymentOrderId) {
+            const { error: txErr } = await createPaymentTransaction({
+              payment_order_id: paymentOrderId,
+              pg_provider:      "toss",
+              pg_payment_key:   pgPaymentKey ?? `test_${Date.now()}`,
+              method:           selectedMethod ?? "CARD",
+              amount:           customerTotal,
+              status:           "DONE",
+              approved_at:      new Date().toISOString(),
+              raw_response:     { test_mode: !pgPaymentKey, method: selectedMethod },
+            });
+            log.tx = txErr ? txErr.message : "ok";
+            setDbWriteLog({ ...log });
+          }
+
+          // ── 5. request → in_progress ────────────────────────────
+          const { error: statusErr } = await setRequestInProgress(request.id);
+          log.req_status = statusErr ? statusErr.message : "in_progress";
+          setDbWriteLog({ ...log });
+
+          // ── 6. notification + activity (fire-and-forget) ────────
+          const companyOwnerId = selBid.company?.ownerId ?? null;
+          if (companyOwnerId) {
+            createNotification({
+              userId:      companyOwnerId,
+              type:        "COMPANY_SELECTED",
+              title:       "계약 체결!",
+              message:     `${request?.type ?? "시공"} 요청에서 선택되었습니다.`,
+              relatedId:   escrowData.id,
+              relatedType: "contract",
+              priority:    "HIGH",
+            }).catch(() => {});
+          }
+          logActivity({
+            userId:     request.user_id ?? null,
+            role:       "consumer",
+            action:     "CONTRACT_CREATED",
+            targetType: "contract",
+            targetId:   escrowData.id,
+            metadata:   { bidId: selBid.id, companyId: selBid.companyId, amount: selBid.price, paymentMethod: selectedMethod, feeSnapshot, pgPaymentKey },
+          }).catch(() => {});
+
+          if (setEscrowContracts) setEscrowContracts(prev => [...prev, { id: contractId, requestId: selBid.requestId, bidId: selBid.id, totalAmount: customerTotal, status: "active", createdAt: new Date().toISOString() }]);
+          if (setSelectedBid) setSelectedBid(selBid);
+          if (onEscrow) onEscrow({ ...selBid, contractId }); else setStep("done");
+        } finally {
+          setPaymentLoading(false);
+        }
+      };
+
+      if (SAFE_MODE) { await runDBWrites(); return; }
+
+      // Test mode: show toast
+      showLocalToast("🧪 테스트 모드입니다. 실제 결제는 발생하지 않습니다.");
+
+      const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
+      if (clientKey && selectedMethod) {
+        // Save pending payment info for recovery after Toss redirect
+        try {
+          localStorage.setItem("pg_pending", JSON.stringify({
+            requestId: request?.id,
+            requestUserId: request?.user_id,
+            requestType: request?.type,
+            bidId: selBid.id,
+            bidPrice: selBid.price,
+            companyId: selBid.companyId,
+            companyOwnerId: selBid.company?.ownerId ?? null,
+            companyName: selBid.company?.name ?? "업체",
+            customerTotal,
+            fee,
+            paymentMethod: selectedMethod,
+            savedAt: Date.now(),
+          }));
+        } catch {}
+
+        const tossOrderId = `order_${Date.now()}`;
+        try {
+          // Load Toss v1 SDK dynamically
+          await new Promise((resolve, reject) => {
+            if (window.TossPayments) { resolve(); return; }
+            const s = document.createElement("script");
+            s.src = "https://js.tosspayments.com/v1/payment";
+            s.onload = resolve;
+            s.onerror = () => reject(new Error("Toss SDK load failed"));
+            document.head.appendChild(s);
+          });
+          const tossPayments = window.TossPayments(clientKey);
+          const tossMethod = TOSS_METHOD_MAP[selectedMethod] ?? "카드";
+          // This will redirect to Toss — return value is never reached
+          await tossPayments.requestPayment(tossMethod, {
+            amount: customerTotal,
+            orderId: tossOrderId,
+            orderName: `공간마켓 시공비 에스크로 (${request?.type ?? "시공"})`,
+            customerName: "고객",
+            successUrl: window.location.origin + "/?pg_success=1",
+            failUrl:    window.location.origin + "/?pg_fail=1",
+          });
+          // If requestPayment didn't redirect (e.g. popup mode), fall through to DB writes
+          await runDBWrites();
+        } catch (err) {
+          // Toss SDK error or load failure — fall back to simulation
+          await runDBWrites();
+        }
+      } else {
+        // No Toss key — simulate
+        await runDBWrites();
+      }
+    };
+
     return (
       <div style={{ minHeight:"100vh", background:C.bg }}>
-        <BidScreenHeader title="에스크로 전액 예치" onBack={goBack} />
+        <BidScreenHeader title="결제 수단 선택" onBack={goBack} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
+          {/* Amount summary */}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:4 }}>예치 금액 (에스크로 수수료 3% 포함)</div>
+            <div style={{ fontSize:13, color:C.text3, marginBottom:4 }}>예치 금액 (시공비 + 에스크로 수수료 3%, VAT 별도)</div>
             <div style={{ fontSize:32, fontWeight:900, color:C.text1, marginBottom:4 }}>{fmtMoney(customerTotal)}</div>
             <div style={{ fontSize:11, color:C.text4, marginBottom:S.md }}>시공비 {fmtMoney(selBid.price)} + 수수료 {fmtMoney(fee)}</div>
             {stages.map(({ name, percent, amount }) => (
               <div key={name} style={{ display:"flex", justifyContent:"space-between", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
-                <div><div style={{ fontSize:12, fontWeight:700, color:C.text2 }}>{name} {percent}%</div></div>
+                <div style={{ fontSize:12, fontWeight:700, color:C.text2 }}>{name} {percent}%</div>
                 <div style={{ fontSize:13, fontWeight:800, color:C.brand }}>{fmtMoney(amount)}</div>
               </div>
             ))}
           </div>
-          {[["💳","신용/체크카드"],["📱","카카오페이"],["🏦","계좌이체"]].map(([i,l]) => (
-            <div key={l} style={{ display:"flex", alignItems:"center", gap:S.md, padding:`${S.md}px 0`, borderBottom:`1px solid ${C.bgWarm}`, cursor:"pointer" }}>
-              <span style={{ fontSize:20 }}>{i}</span><span style={{ fontSize:14, fontWeight:600, color:C.text1 }}>{l}</span><span style={{ marginLeft:"auto", color:C.text4 }}>›</span>
-            </div>
-          ))}
-          <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.md, margin:`${S.xl}px 0`, fontSize:12, color:C.navy, display:"flex", gap:S.sm }}>
-            <span>🛡</span><span>예치금은 공간마켓이 보관하며 단계별 확인 후 업체에 지급됩니다</span>
+
+          {/* Payment method selection */}
+          <div style={{ background:C.surface, borderRadius:R.xl, overflow:"hidden", marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
+            {PAYMENT_METHODS.map((m, idx) => {
+              const isSelected = selectedMethod === m.id;
+              return (
+                <div key={m.id}
+                  onClick={() => m.available && setSelectedMethod(m.id)}
+                  style={{
+                    display:"flex", alignItems:"center", gap:S.md, padding:S.xl,
+                    borderBottom: idx < PAYMENT_METHODS.length - 1 ? `1px solid ${C.bgWarm}` : "none",
+                    cursor: m.available ? "pointer" : "default",
+                    background: isSelected ? C.brandL : C.surface,
+                    opacity: m.available ? 1 : 0.5,
+                  }}>
+                  <span style={{ fontSize:22, width:32, textAlign:"center" }}>{m.icon}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:14, fontWeight:700, color:C.text1 }}>{m.label}</div>
+                    <div style={{ fontSize:11, color: m.available ? C.text3 : C.red }}>
+                      {m.available ? m.desc : "준비중 · 가맹점 심사 후 제공"}
+                    </div>
+                  </div>
+                  <div style={{ width:20, height:20, borderRadius:"50%",
+                    border: `2px solid ${isSelected ? C.brand : C.bgWarm}`,
+                    background: isSelected ? C.brand : "transparent",
+                    display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    {isSelected && <div style={{ width:8, height:8, borderRadius:"50%", background:"#fff" }} />}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <button onClick={async () => {
-            let contractId = null;
 
-            if (selBid.id && !selBid.id.toString().startsWith("tmp-") && selBid.companyId && request?.id) {
-              // 1. Create escrow record (contract)
-              const { data: escrowData } = await createEscrowRecord({
-                requestId:   request.id,
-                companyId:   selBid.companyId,
-                totalAmount: selBid.price,
-              });
-              if (escrowData) {
-                contractId = escrowData.id;
-                // 2. Create 4 escrow payout stages
-                await createEscrowPayoutsForContract(escrowData.id, selBid.companyId, selBid.price);
-                // 3. Create payment_order linked to escrow (avoid duplicates)
-                const { data: existingOrder } = await getPaymentOrderByBid(selBid.id);
-                if (!existingOrder) {
-                  await createPaymentOrder({
-                    user_id:        request.user_id ?? null,
-                    bid_id:         selBid.id,
-                    request_id:     request.id,
-                    contract_id:    escrowData.id,
-                    amount:         selBid.price,
-                    customer_fee:   fee,
-                    vat:            Math.round(fee * 0.1),
-                    total_amount:   customerTotal,
-                    payment_method: "escrow",
-                    status:         "PAID",
-                  });
-                }
-                // 4. Notify company owner
-                const companyOwnerId = selBid.company?.ownerId ?? null;
-                if (companyOwnerId) {
-                  await createNotification({
-                    userId:      companyOwnerId,
-                    type:        "COMPANY_SELECTED",
-                    title:       "계약 체결!",
-                    message:     `${request?.type ?? "시공"} 요청에서 선택되었습니다. 에스크로 계약이 시작됩니다.`,
-                    relatedId:   escrowData.id,
-                    relatedType: "contract",
-                  });
-                }
-                // 5. Log activity
-                await logActivity({
-                  userId:     request.user_id ?? null,
-                  role:       "consumer",
-                  action:     "CONTRACT_CREATED",
-                  targetType: "contract",
-                  targetId:   escrowData.id,
-                  metadata:   { bidId: selBid.id, companyId: selBid.companyId, amount: selBid.price },
-                });
-              }
-              // Mark request in-progress
-              await setRequestInProgress(request.id);
-            }
+          <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.md, marginBottom:S.xl, fontSize:12, color:C.navy, display:"flex", gap:S.sm }}>
+            <span>🛡</span><span>예치금은 공간마켓이 안전하게 보관하며 단계별 확인 후 업체에 지급됩니다</span>
+          </div>
 
-            if (setEscrowContracts) setEscrowContracts(prev => [...prev, { id: contractId ?? Date.now(), requestId: selBid.requestId, bidId: selBid.id, totalAmount: customerTotal, status: "active", createdAt: new Date().toISOString() }]);
-            if (setSelectedBid) setSelectedBid(selBid);
-            if (onEscrow) { onEscrow({ ...selBid, contractId }); } else { setStep("done"); }
-          }} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>🔒 {fmtMoney(customerTotal)} 에스크로 예치하기</button>
+          {SAFE_MODE && (
+            <div style={{ background:"#FBF5E8", borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`, marginBottom:S.md, fontSize:12, color:"#B08040", fontWeight:700, textAlign:"center" }}>
+              🔧 SAFE_MODE: 실제 결제 비활성 (테스트 모드)
+            </div>
+          )}
+
+          {!SAFE_MODE && IS_DEBUG && (
+            <div style={{ background:"#F0F4FF", borderRadius:R.lg, padding:S.md, marginBottom:S.lg, fontSize:11, color:"#4466CC" }}>
+              🧪 테스트 모드 · 실제 결제가 발생하지 않습니다
+            </div>
+          )}
+
+          <button
+            onClick={handlePay}
+            disabled={(!selectedMethod && !SAFE_MODE) || paymentLoading}
+            style={{ width:"100%", padding:S.xxl, background: (selectedMethod || SAFE_MODE) && !paymentLoading ? C.brand : C.bgWarm,
+              color: (selectedMethod || SAFE_MODE) && !paymentLoading ? "#fff" : C.text4, border:"none", borderRadius:R.lg,
+              fontWeight:800, fontSize:16, cursor: (selectedMethod || SAFE_MODE) && !paymentLoading ? "pointer" : "not-allowed",
+              boxShadow: (selectedMethod || SAFE_MODE) && !paymentLoading ? `0 6px 20px ${C.brand}44` : "none" }}>
+            {paymentLoading ? "처리 중..." : SAFE_MODE ? "🔧 테스트 예치 (SAFE_MODE)" : selectedMethod ? `🔒 ${fmtMoney(customerTotal)} 결제하기` : "결제 수단을 선택하세요"}
+          </button>
         </div>
+        {localToast && (
+          <div style={{ position:"fixed", bottom:100, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,0.82)", color:"#fff", borderRadius:20, padding:"10px 20px", fontSize:13, fontWeight:600, zIndex:500, whiteSpace:"nowrap", pointerEvents:"none" }}>
+            {localToast}
+          </div>
+        )}
       </div>
     );
   }
@@ -248,6 +433,16 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   if ((step==="done" || step==="done_direct") && selBid) return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:S.xxl }}>
       <div style={{ width:"100%", maxWidth:390, textAlign:"center" }}>
+        {IS_DEBUG && dbWriteLog && (
+          <div style={{ marginBottom:16, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", textAlign:"left" }}>
+            [DEV:db_writes]<br/>
+            {Object.entries(dbWriteLog).map(([k,v]) => (
+              <span key={k} style={{display:"block", color: String(v).startsWith("ok") || String(v).match(/^[0-9a-f]{8}/) ? "#0f0" : "#f66"}}>
+                {k}: {String(v)}
+              </span>
+            ))}
+          </div>
+        )}
         <div style={{ fontSize:64, marginBottom:16 }}>✅</div>
         <div style={{ fontSize:22, fontWeight:900, color:C.text1, marginBottom:8 }}>예약 완료!</div>
         <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>{step==="done" ? "에스크로 예치 완료. 착공 확인 후 업체에 지급됩니다." : "직거래로 예약됐어요. 업체와 채팅으로 결제 조율하세요."}</div>
@@ -260,10 +455,41 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   // Bid list — empty state maintains container layout
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      <BidScreenHeader title="입찰 현황" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} />
+      <BidScreenHeader title="업체 비교하기" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
+        {IS_DEBUG && (
+          <div style={{ marginBottom:12, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:400, overflowY:"auto" }}>
+            [DEV:bidscreen]<br/>
+            <span style={{color:"#4ff"}}>request.id (full): {request?.id ?? "null ⚠️"}</span><br/>
+            request.type: {request?.type ?? "—"} | request.bidCount: {request?.bidCount ?? "—"}<br/>
+            propBids.length: {(propBids ?? []).length} | localBids.length: {localBids.length}<br/>
+            <span style={{color:"#4ff"}}>bids(displayed): {bids.length}</span><br/>
+            fetch_src: {bidScreenDebug?.src ?? "—"}<br/>
+            <span style={{color:"#4ff"}}>fetch_req_id (full): {bidScreenDebug?.req_id ?? "—"}</span><br/>
+            fetched_count: {bidScreenDebug?.count ?? "—"}<br/>
+            <span style={{color: bidScreenDebug?.err ? "#f66" : "#0f0"}}>fetch_err: {bidScreenDebug?.err ?? "none"}</span><br/>
+            {dbWriteLog && (<>
+              <span style={{color:"#ff0"}}>── DB write results ──</span><br/>
+              {Object.entries(dbWriteLog).map(([k,v]) => (
+                <span key={k} style={{display:"block", color: String(v).startsWith("ok") || String(v).match(/^[0-9a-f]{8}/) ? "#0f0" : "#f66"}}>
+                  {k}: {String(v)}
+                </span>
+              ))}
+            </>)}
+            <span style={{color:"#ff0"}}>── bids_req_ids (full) ──</span><br/>
+            {(bidScreenDebug?.req_ids ?? []).map((id, i) => <span key={i} style={{display:"block", color:"#8ff", paddingLeft:8}}>[{i}] {id}</span>)}
+            {(bidScreenDebug?.req_ids ?? []).length === 0 && <span style={{color:"#f88"}}>bids_req_ids: [] (fetch 결과 없음)<br/></span>}
+            <span style={{color:"#ff0"}}>── each bid ──</span><br/>
+            {bids.map((b, i) => (
+              <span key={b.id} style={{display:"block", color: b.requestId === request?.id ? "#0f0" : "#f66"}}>
+                [{i}] bid:{b.id} req:{b.requestId} {b.requestId === request?.id ? "✅match" : "❌MISMATCH"}
+              </span>
+            ))}
+          </div>
+        )}
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, border:`1px solid ${C.brandM}` }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.brand }}>💡 업체 금액은 선택 전까지 서로 모릅니다</div>
+          <div style={{ fontSize:12, color:C.brand, marginTop:4, opacity:0.8 }}>기록과 리뷰를 보고 안심하고 선택하세요</div>
         </div>
 
         {bids.length === 0 ? (
@@ -273,8 +499,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
           }}>
             <div style={{ textAlign:"center", padding:S.xxl }}>
               <div style={{ fontSize:36, marginBottom:12 }}>💬</div>
-              <div style={{ fontSize:14, fontWeight:700, color:C.text3 }}>아직 입찰이 없습니다</div>
-              <div style={{ fontSize:12, color:C.text4, marginTop:6 }}>인근 업체들이 견적을 검토하고 있어요</div>
+              <div style={{ fontSize:14, fontWeight:700, color:C.text3 }}>인근 업체들이 견적을 검토 중입니다</div>
+              <div style={{ fontSize:12, color:C.text4, marginTop:6 }}>보통 24시간 내 입찰이 시작됩니다</div>
             </div>
           </div>
         ) : (

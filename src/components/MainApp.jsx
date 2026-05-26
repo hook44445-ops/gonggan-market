@@ -16,29 +16,57 @@ import LoungePostDetailScreen from "../screens/LoungePostDetailScreen";
 import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
 import TokenStoreScreen from "../screens/TokenStoreScreen";
 import TokenHistoryScreen from "../screens/TokenHistoryScreen";
+import DocumentCenterScreen from "../screens/DocumentCenterScreen";
 import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
+import SiteVisitModal from "./SiteVisitModal";
+import PlatformEstimateModal from "./PlatformEstimateModal";
+import CompanyActiveJobCard from "./CompanyActiveJobCard";
 import { useSpaceToken } from "../hooks/useSpaceToken";
 import { useSpaceTemperature } from "../hooks/useSpaceTemperature";
-import { MOCK_LOUNGE_POSTS } from "../constants/lounge";
 import {
   supabase,
   getRequests,
   getUserRequests,
   createRequest,
   closeRequest,
+  updateRequest,
+  repostRequest,
+  createRequestRepost,
+  expireRequest,
+  archiveRequest,
+  getLoungePosts,
   createBid,
   getBidsForRequest,
   getCompanyByOwnerId,
+  getCompanyActiveJobs,
+  upsertCompany,
+  getBidById,
+  getPaymentOrderByRequest,
+  getEscrowByRequest,
+  createEscrowRecord,
+  createEscrowPayoutsForContract,
+  createPaymentOrder,
+  createPaymentTransaction,
+  createNotification,
+  setRequestInProgress,
+  getCompanyBids,
+  getEscrowWithPayouts,
+  getActiveRequestByUser,
+  archiveRequestAuto,
+  getTopReviews,
+  getRawReviewsDiag,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
+import KakaoMap from "./KakaoMap";
 
 // ── normalizers: DB row → local shape ─────────────────────────────────────────
 
 const normalizeCompany = (row) => ({
   id:            row.id,
+  ownerId:       row.owner_id ?? null,
   name:          row.name ?? "업체",
   temp:          row.temp ?? 70,
   verified:      row.verified ?? false,
@@ -57,13 +85,16 @@ const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const normalizeRequest = (row) => {
   const createdAt  = row.created_at ? new Date(row.created_at) : new Date();
-  const expiresAt  = new Date(createdAt.getTime() + REQUEST_TTL_MS);
+  const expiresAt  = row.expires_at
+    ? new Date(row.expires_at)
+    : new Date(createdAt.getTime() + REQUEST_TTL_MS);
   const msLeft     = expiresAt.getTime() - Date.now();
   const daysLeft   = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
   const status     = row.status ?? "open";
   const isExpiredByTime = daysLeft <= 0;
   const isActive   = status === "open" && !isExpiredByTime;
   const isClosed   = status === "closed" || status === "cancelled" ||
+                     status === "expired" ||
                      (status === "open" && isExpiredByTime);
   return {
     id: row.id,
@@ -72,10 +103,11 @@ const normalizeRequest = (row) => {
     size: row.size ?? "",
     budget: [row.budget_min, row.budget_max].filter(Boolean).map(n => `${n}만원`).join("~") || "협의",
     style: row.style ?? "",
-    desc: row.desc ?? "",
+    desc: row.description ?? row.desc ?? "",
     area: row.area ?? "",
     user: "의뢰인",
     bids: 0,
+    bidCount: (row.bids ?? []).length,
     time: new Date(row.created_at).toLocaleString("ko-KR", { month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" }),
     status,
     urgent: row.urgent ?? false,
@@ -101,11 +133,164 @@ const normalizeBid = (row) => ({
   status: row.selected ? "selected" : "pending",
 });
 
+function ConsumerRequestCard({ r, closed, dLabel, dColor, dBg, onOpen }) {
+  const [devOpen, setDevOpen] = useState(false);
+  return (
+    <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, opacity: closed ? 0.7 : 1 }}>
+      <div onClick={onOpen} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor: closed ? "default" : "pointer" }}>
+        <div>
+          <div style={{ fontSize:14, fontWeight:800, color: closed ? C.text3 : C.text1 }}>{r.type} · {r.size}</div>
+          <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>📍 {r.area} · {r.time}</div>
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+          <span style={{ background:dBg, color:dColor, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>{dLabel}</span>
+          {!closed && <span style={{ fontSize:11, color:C.brand, fontWeight:700 }}>진행 현황 →</span>}
+        </div>
+      </div>
+      <div style={{ marginTop:S.sm }}>
+        <button onClick={e => { e.stopPropagation(); setDevOpen(v => !v); }}
+          style={{ background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.sm, padding:"2px 6px", fontSize:10, color:C.text4, fontWeight:700, cursor:"pointer" }}>
+          {devOpen ? "▲" : "▼"} DEV
+        </button>
+        {devOpen && (
+          <div style={{ marginTop:S.sm, background:C.bg, borderRadius:R.md, padding:S.md, fontSize:10, color:C.text3, fontFamily:"monospace", lineHeight:1.8 }}>
+            <div>request_id: {r.id ?? "-"}</div>
+            <div>request_status: {r.status ?? "-"}</div>
+            <div>fetch_err: null</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const maskCompanyName = (name) => {
+  if (!name) return "업체";
+  const len = name.length;
+  if (len <= 3) return name[0] + "*";
+  if (len <= 5) return name.slice(0, 2) + "***";
+  return name.slice(0, Math.min(Math.ceil(len / 2), 4)) + "***";
+};
+
+// ── 홈 리뷰 목업 풀 — 카테고리별 시공 전/후 Unsplash 사진 ──────────────────
+// BEFORE: 공사 전/구형/철거 느낌 / AFTER: 최신 완성 인테리어
+const MOCK_REVIEW_POOL = [
+  {
+    id: "mr1", isMock: true, rating: 5,
+    content: "입주 전 낡고 어두운 분위기였는데 시공 후 완전히 달라졌어요. 단계마다 사진으로 확인하면서 진행돼 믿음이 갔습니다.",
+    space_type: "32평 아파트 전체", region: "강남구", user_name: "김○○", maskedName: "공간○○",
+    // BEFORE: 공사 전 낡은 내부 / AFTER: 모던 미니멀 거실
+    beforeImage: "https://images.unsplash.com/photo-yyMtJ9h0N7w?w=400&h=300&fit=crop&q=75",
+    afterImage:  "https://images.unsplash.com/photo-4r9OKorlcTk?w=400&h=300&fit=crop&q=75",
+  },
+  {
+    id: "mr2", isMock: true, rating: 5,
+    content: "카페 개업 전 리모델링인데 일정을 딱 맞게 끝내줬어요. 중간 점검 사진도 꼼꼼하게 보내줘서 안심됐습니다.",
+    space_type: "카페 리모델링", region: "마포구", user_name: "이○○", maskedName: "홍○시공",
+    // BEFORE: 빈 구형 카페 / AFTER: 밝은 모던 카페
+    beforeImage: "https://images.unsplash.com/photo-ucZv4gn94VE?w=400&h=300&fit=crop&q=75",
+    afterImage:  "https://images.unsplash.com/photo-J8YEvimZMZ4?w=400&h=300&fit=crop&q=75",
+  },
+  {
+    id: "mr3", isMock: true, rating: 5,
+    content: "욕실 전체를 바꿨는데 타일 선택부터 완료까지 기록이 다 남아서 나중에 확인하기도 좋았어요.",
+    space_type: "욕실 리모델링", region: "송파구", user_name: "박○○", maskedName: "우리○시공",
+    // BEFORE: 낡은 욕실 / AFTER: 호텔식 모던 욕실
+    beforeImage: "https://images.unsplash.com/photo-fRZTgGnGuN0?w=400&h=300&fit=crop&q=75",
+    afterImage:  "https://images.unsplash.com/photo-VCUbsNJdZpQ?w=400&h=300&fit=crop&q=75",
+  },
+  {
+    id: "mr4", isMock: true, rating: 5,
+    content: "낡은 주방을 전면 교체했어요. 자재 반입부터 마감까지 사진으로 공유해줘서 진행 상황을 확인할 수 있었습니다.",
+    space_type: "주방 전면 교체", region: "수원 영통", user_name: "최○○", maskedName: "공간***",
+    // BEFORE: 구형 주방 / AFTER: 화이트 모던 주방
+    beforeImage: "https://images.unsplash.com/photo-UiGsP8TvOJQ?w=400&h=300&fit=crop&q=75",
+    afterImage:  "https://images.unsplash.com/photo-EWa9IuheEWo?w=400&h=300&fit=crop&q=75",
+  },
+  {
+    id: "mr5", isMock: true, rating: 5,
+    content: "오피스 이전에 맞춰 인테리어를 진행했는데 공사 범위를 계약서로 명확히 정해두니 추가 비용 없이 마무리됐습니다.",
+    space_type: "오피스 인테리어", region: "중구", user_name: "정○○", maskedName: "홍***",
+    // BEFORE: 빈 구형 사무실 / AFTER: 최신 오피스
+    beforeImage: "https://images.unsplash.com/photo-pU0XbVsDBzw?w=400&h=300&fit=crop&q=75",
+    afterImage:  "https://images.unsplash.com/photo-ieDXimQcLeM?w=400&h=300&fit=crop&q=75",
+  },
+];
+
+const _REVIEW_SEED = Date.now() & 0xffff;
+function shuffleMockReviews(arr) {
+  const a = [...arr];
+  let s = _REVIEW_SEED;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1664525) + 1013904223) & 0xffffffff;
+    const j = Math.abs(s) % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const SHUFFLED_MOCK_REVIEWS = shuffleMockReviews(MOCK_REVIEW_POOL);
+
+// Compute customer-facing stage from request + escrow/payout data
+const computeCustomerStage = (r, escrowData) => {
+  if (!r) return null;
+  const { escrow = null, payouts = [] } = escrowData ?? {};
+
+  if (!escrow) {
+    if (r.status === "in_progress") return {
+      badge: "계약중", badgeBg: C.brandL, badgeFg: C.brand,
+      label: "계약 진행중", sub: "에스크로 정산 진행 중",
+      action: "escrow", cta: "에스크로 확인하기",
+    };
+    if (r.bidCount > 0) return {
+      badge: "입찰중", badgeBg: C.brandL, badgeFg: C.brand,
+      label: "입찰중", sub: `업체 ${r.bidCount}곳이 입찰했어요`,
+      action: "bids", cta: "견적 비교하고 업체 선택하기",
+    };
+    return {
+      badge: "접수완료", badgeBg: C.bgWarm, badgeFg: C.text3,
+      label: "접수완료", sub: "업체가 견적을 검토 중입니다",
+      action: null, cta: null,
+    };
+  }
+
+  const txStatus = escrow.transaction_status ?? "CONTRACTED";
+  const payout2 = payouts.find(p => p.stage === 2); // 착공 확인
+  const payout3 = payouts.find(p => p.stage === 3); // 중간 점검
+  const payout4 = payouts.find(p => p.stage === 4); // 완료 확인
+
+  if (txStatus === "SETTLED" || payout4?.status === "APPROVED") return {
+    badge: "완료", badgeBg: "#E6F9EE", badgeFg: "#00b050",
+    label: "시공 완료", sub: "정산 완료",
+    action: "escrow", cta: "정산 내역 보기",
+  };
+  if (txStatus === "COMPLETED") return {
+    badge: "확인 필요", badgeBg: "#FFF7E6", badgeFg: "#C07000",
+    label: "완료 사진 확인 대기", sub: "완료 사진 확인 후 승인하면 30% 지급",
+    action: "escrow", cta: "완료 사진 확인하기",
+  };
+  if (txStatus === "MID_INSPECTION") return {
+    badge: "확인 필요", badgeBg: "#FFF7E6", badgeFg: "#C07000",
+    label: "중간 점검 사진 확인 대기", sub: "사진 확인 후 승인하면 40% 지급",
+    action: "escrow", cta: "중간 점검 확인하기",
+  };
+  if (txStatus === "STARTED" && payout2?.status !== "APPROVED") return {
+    badge: "확인 필요", badgeBg: "#FFF7E6", badgeFg: "#C07000",
+    label: "착공 사진 확인 대기", sub: "착공 사진 확인 후 승인하면 20% 지급",
+    action: "escrow", cta: "착공 사진 확인하기",
+  };
+  return {
+    badge: "시공중", badgeBg: C.brandL, badgeFg: C.brand,
+    label: "시공 진행중", sub: "업체 진행 중 · 단계별 사진 확인 예정",
+    action: "escrow", cta: "시공 진행 확인하기",
+  };
+};
+
 export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) {
-  const mode = user.role === "company" ? "company" : user.role === "admin" ? "admin" : "consumer";
+  const activeRole = user.activeRole ?? user.role ?? "consumer";
+  const mode = activeRole === "company" ? "company" : activeRole === "admin" ? "admin" : "consumer";
   const [screen, setScreen] = useState(() => {
-    if (user.role === "admin") return "admin";
-    if (user.role === "company") return "dashboard";
+    if (activeRole === "admin") return "admin";
+    if (activeRole === "company") return "dashboard";
     if (user.startAt) return user.startAt;
     return "home";
   });
@@ -113,6 +298,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [selCo, setSelCo] = useState(null);
   const [toast, setToast] = useState(null);
   const [showReq, setShowReq] = useState(false);
+  const [reqBlock, setReqBlock] = useState(null);   // null | { type, activeReq, remainingMs }
+  const [reqCheckDebug, setReqCheckDebug] = useState(null);
   const [myRequests, setMyRequests] = useState([]);
   const [bidAlert, setBidAlert] = useState(null);
   const [bidViewRequestId, setBidViewRequestId] = useState(null);
@@ -140,9 +327,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
   const { temperature } = useSpaceTemperature(user?.id);
 
+  const [activeJobs, setActiveJobs] = useState([]);
+  const [siteVisitJob, setSiteVisitJob] = useState(null);
+  const [estimateJob, setEstimateJob] = useState(null);
+
   // Admin hidden entry
   const [adminTapCount, setAdminTapCount] = useState(0);
   const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
+  const [adminIdInput, setAdminIdInput] = useState("");
   const [adminCodeInput, setAdminCodeInput] = useState("");
   const [adminCodeError, setAdminCodeError] = useState("");
 
@@ -152,39 +344,151 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       : r;
     setMyRequests(prev => prev.map(markClosed));
     setCustomerRequests(prev => prev.map(markClosed));
-    const { error } = await closeRequest(requestId);
-    if (error) return;
+    await closeRequest(requestId);
   };
+
+  const handleRepost = async (requestId) => {
+    const originalReq = myRequests.find(r => r.id === requestId)
+      ?? customerRequests.find(r => r.id === requestId);
+
+    showToast("✅ 견적 요청이 재노출되었습니다");
+
+    // UI: 기존 요청 즉시 만료 처리
+    const markExpired = r => r.id === requestId
+      ? { ...r, status: "expired", isActive: false, isClosed: true, daysLeft: 0 }
+      : r;
+    setMyRequests(prev => prev.map(markExpired));
+    setCustomerRequests(prev => prev.map(markExpired));
+
+    if (!requestId.startsWith("tmp-") && user.id && originalReq) {
+      // DB: 기존 요청 expire
+      expireRequest(requestId);
+
+      // DB: 새 요청 생성 (새 UUID, bids 0건)
+      const { data, error } = await createRequest({
+        user_id:    user.id,
+        status:     'open',
+        area:        originalReq.area ?? user.region ?? "",
+        space_type:  originalReq.type,
+        size:        originalReq.size,
+        style:       originalReq.style,
+        description: originalReq.desc ?? "",
+        budget_min:  0,
+        budget_max:  0,
+        expires_at:  new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
+      });
+
+      setReqCreateDebug({
+        id:          data?.id ?? null,
+        status:      data?.status ?? null,
+        expires_at:  data?.expires_at ?? null,
+        space_type:  data?.space_type ?? null,
+        user_id:     data?.user_id ?? null,
+        insertError: error?.message ?? null,
+        _note: "repost → new request",
+      });
+
+      if (error) {
+        showToast(`재노출 실패: ${error.message}`);
+      } else if (data) {
+        const newReq = normalizeRequest(data);
+        setMyRequests(prev => [newReq, ...prev]);
+        setCustomerRequests(prev => [newReq, ...prev]);
+      }
+    } else {
+      setReqCreateDebug({ _note: "repost guard blocked", requestId, hasTmpPrefix: requestId.startsWith("tmp-"), hasUserId: !!user.id, hasOriginalReq: !!originalReq });
+    }
+  };
+
+  const [editRequest, setEditRequest] = useState(null);
+  const [bidDebug, setBidDebug] = useState(null);
+  const handleUpdateRequest = async (form, requestId) => {
+    const markUpdated = r => r.id === requestId
+      ? { ...r, type: form.type, size: form.size, style: form.style, desc: form.desc }
+      : r;
+    setMyRequests(prev => prev.map(markUpdated));
+    setCustomerRequests(prev => prev.map(markUpdated));
+    setEditRequest(null);
+    showToast("✅ 견적 요청이 수정됐어요");
+    if (!requestId.startsWith("tmp-")) {
+      await updateRequest(requestId, {
+        space_type:  form.type,
+        size:        form.size,
+        style:       form.style,
+        description: form.desc ?? "",
+      });
+    }
+  };
+
+  const IS_DEBUG = true; // 디버깅 중 — 항상 표시
+  const [reqDebug, setReqDebug] = useState(null);
+  const [reqCreateDebug, setReqCreateDebug] = useState(null);
+  const [bidFetchDebug, setBidFetchDebug] = useState(null);
+  const [lastFetchAt, setLastFetchAt] = useState(null);
+  const [companyJobs, setCompanyJobs] = useState([]);
+  const [companyJobsDebug, setCompanyJobsDebug] = useState(null);
+  const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
+  const [escrowRefreshTrigger, setEscrowRefreshTrigger] = useState(0);
+  const [topReviews, setTopReviews] = useState([]);
+  const [hidingId, setHidingId] = useState(null);     // requestId currently being hidden
+  const [hideDebug, setHideDebug] = useState(null);   // DEV panel
+
+  const applyExpiry = (rows) => {
+    const normalized = rows.map(normalizeRequest);
+    normalized
+      .filter(r => r.status === "open" && r.isExpiredByTime)
+      .forEach(r => expireRequest(r.id));
+    return normalized.map(r =>
+      r.status === "open" && r.isExpiredByTime
+        ? { ...r, status: "expired", isActive: false, isClosed: true }
+        : r
+    );
+  };
+
+  const loadCompanyRequests = async () => {
+    const { data, error } = await getRequests();
+    setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: data?.length ?? 0, companyData: data ?? [] }));
+    setLastFetchAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    if (error) return;
+    if (data) setCustomerRequests(applyExpiry(data));
+  };
+
+  const [reviewFetchErr, setReviewFetchErr] = useState(null);
+  const [rawReviewsDiag, setRawReviewsDiag] = useState([]);
+
+  // Load top reviews once on mount (consumer home hero section)
+  useEffect(() => {
+    // 진단용 raw 쿼리 (status 조건 없음)
+    getRawReviewsDiag({ limit: 10 }).then(({ data }) => {
+      if (data) setRawReviewsDiag(data);
+    }).catch(() => {});
+
+    getTopReviews({ limit: 12 }).then(({ data, error }) => {
+      if (error) { setReviewFetchErr(error.message ?? "fetch_err"); return; }
+      if (data) {
+        // 이미지 없어도 일단 전부 포함 (이미지 매핑에서 처리)
+        setTopReviews(data.slice(0, 5));
+      }
+    }).catch(e => setReviewFetchErr(String(e)));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load requests on mount
   // Consumer: server-side filter by userId; Company/Admin: load all open requests for bidding
   useEffect(() => {
-    const applyExpiry = (rows) => {
-      const normalized = rows.map(normalizeRequest);
-      normalized
-        .filter(r => r.status === "open" && r.isExpiredByTime)
-        .forEach(r => closeRequest(r.id));
-      return normalized.map(r =>
-        r.status === "open" && r.isExpiredByTime
-          ? { ...r, status: "closed", isActive: false, isClosed: true }
-          : r
-      );
-    };
-
-    if (user.role === "consumer" && user.id) {
-      // Consumers only see their own requests (server-side filter)
+    if (activeRole === "consumer" && user.id) {
       getUserRequests(user.id).then(({ data, error }) => {
+        setReqDebug(d => ({ ...d, consumerFetchError: error?.message ?? null, consumerRows: data?.length ?? 0, consumerData: data ?? [] }));
         if (error) return;
         if (data) {
           const withExpiry = applyExpiry(data);
           const activeOwn = withExpiry.filter(r => r.isActive)
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           if (activeOwn.length > 1) {
-            activeOwn.slice(1).forEach(r => closeRequest(r.id));
+            activeOwn.slice(1).forEach(r => expireRequest(r.id));
             const keepId = activeOwn[0].id;
             setMyRequests(withExpiry.map(r =>
               r.isActive && r.id !== keepId
-                ? { ...r, status: "closed", isActive: false, isClosed: true }
+                ? { ...r, status: "expired", isActive: false, isClosed: true }
                 : r
             ));
           } else {
@@ -193,30 +497,214 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         }
       });
     } else {
-      // Company / Admin: fetch all open requests for the bidding list
-      getRequests().then(({ data, error }) => {
-        if (error) return;
-        if (data) {
-          const withExpiry = applyExpiry(data);
-          setCustomerRequests(withExpiry);
-        }
-      });
+      loadCompanyRequests();
     }
-  }, []);
+  }, [activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load company profile from Supabase for authenticated company users
+  // Auto-creates a row if none exists yet
   useEffect(() => {
-    if (user?.role !== "company" || !user?.id) return;
-    getCompanyByOwnerId(user.id).then(({ data }) => {
-      if (data) setCurrentUser(normalizeCompany(data));
+    if (activeRole !== "company" || !user?.id) return;
+    getCompanyByOwnerId(user.id).then(async ({ data }) => {
+      if (data) {
+        setCurrentUser(normalizeCompany(data));
+      } else {
+        const { data: created } = await upsertCompany({
+          owner_id:       user.id,
+          name:           user.name ?? "업체",
+          region:         user.region ?? "",
+          company_status: "ACTIVE",
+          online:         true,
+        });
+        if (created) setCurrentUser(normalizeCompany(created));
+      }
+    }).catch(() => {});
+  }, [user?.id, activeRole]);
+
+  useEffect(() => {
+    if (activeRole !== "company" || !currentUser?.id) return;
+    getCompanyActiveJobs(currentUser.id).then(({ data }) => {
+      if (data) setActiveJobs(data);
     });
-  }, [user?.id, user?.role]);
+  }, [currentUser?.id, activeRole]);
+
+  // Load company's own awarded/in-progress jobs
+  useEffect(() => {
+    if (activeRole !== "company" || !user?.id) return;
+    getCompanyBids(user.id).then(({ data, error }) => {
+      setCompanyJobsDebug(d => ({
+        ...d,
+        fetchError: error?.message ?? null,
+        rawCount: data?.length ?? 0,
+        statuses: (data ?? []).map(b => ({ id: b.id, req_status: b.requests?.status ?? "?" })),
+      }));
+      if (error || !data) return;
+      const jobs = data
+        .filter(b => b.requests?.status === "in_progress" || b.selected === true)
+        .map(b => ({
+          bid: {
+            id: b.id,
+            requestId: b.request_id,
+            companyId: b.company_id,
+            price: b.price,
+            period: b.period_days,
+            material: b.material_note ?? "",
+            comment: b.comment ?? "",
+            createdAt: b.created_at,
+            status: "selected",
+            company: { id: b.company_id, name: user.name ?? "업체", temp: 70, ownerId: user.id },
+          },
+          request: b.requests ? normalizeRequest(b.requests) : null,
+        }));
+      setCompanyJobs(jobs);
+      setCompanyJobsDebug(d => ({ ...d, jobCount: jobs.length }));
+    }).catch(() => {});
+  }, [activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load escrow+payouts for consumer in_progress requests
+  useEffect(() => {
+    if (activeRole !== "consumer") return;
+    const inProgress = myRequests.filter(r => r.status === "in_progress");
+    if (inProgress.length === 0) return;
+    inProgress.forEach(r => {
+      getEscrowWithPayouts(r.id).then(({ data }) => {
+        setMyRequestsEscrow(prev => ({ ...prev, [r.id]: data ?? null }));
+      }).catch(() => {});
+    });
+  }, [myRequests, escrowRefreshTrigger, activeRole]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load recent lounge posts for home preview (consumer home section)
+  useEffect(() => {
+    getLoungePosts("all", 3).then(({ data }) => {
+      if (data && data.length > 0) setLocalLoungePosts(data);
+    }).catch(() => {});
+  }, []);
+
+  // Handle TossPayments redirect return
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("pg_success") !== "1") return;
+
+    // Clean URL immediately
+    window.history.replaceState({}, "", window.location.pathname);
+
+    const paymentKey = params.get("paymentKey");
+    const orderId    = params.get("orderId");
+    const amount     = Number(params.get("amount")) || 0;
+
+    let pending = null;
+    try { pending = JSON.parse(localStorage.getItem("pg_pending") ?? "null"); } catch {}
+    if (!pending || !pending.requestId) return;
+
+    // Remove pending so we don't re-process
+    try { localStorage.removeItem("pg_pending"); } catch {}
+
+    const processTossReturn = async () => {
+      // Optional: server-side confirm
+      if (paymentKey && orderId && amount) {
+        try {
+          await fetch("/api/confirm-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentKey, orderId, amount }),
+          });
+        } catch {}
+      }
+
+      // DB writes
+      const { data: escrowData } = await createEscrowRecord({
+        requestId:   pending.requestId,
+        companyId:   pending.companyId,
+        totalAmount: pending.bidPrice,
+      });
+      let pgContractId = escrowData?.id ?? null;
+
+      if (pgContractId) {
+        await createEscrowPayoutsForContract(pgContractId, pending.companyId, pending.bidPrice, 0.04, 0.1);
+        const { data: newOrder } = await createPaymentOrder({
+          user_id:        pending.requestUserId ?? null,
+          bid_id:         pending.bidId,
+          request_id:     pending.requestId,
+          contract_id:    pgContractId,
+          amount:         pending.bidPrice,
+          customer_fee:   pending.fee,
+          vat:            Math.round((pending.fee ?? 0) * 0.1),
+          total_amount:   pending.customerTotal,
+          payment_method: pending.paymentMethod,
+          fee_snapshot:   { customerFeeRate: 0.03, companyFeeRate: 0.04, vatRate: 0.1 },
+          status:         "PAID",
+        });
+        if (newOrder) {
+          await createPaymentTransaction({
+            payment_order_id: newOrder.id,
+            pg_provider:      "toss",
+            pg_payment_key:   paymentKey ?? `toss_${Date.now()}`,
+            method:           pending.paymentMethod ?? "CARD",
+            amount:           pending.customerTotal,
+            status:           "DONE",
+            approved_at:      new Date().toISOString(),
+            raw_response:     { paymentKey, orderId, amount, method: pending.paymentMethod },
+          });
+        }
+        if (pending.companyOwnerId) {
+          await createNotification({
+            userId:      pending.companyOwnerId,
+            type:        "COMPANY_SELECTED",
+            title:       "계약 체결!",
+            message:     `${pending.requestType ?? "시공"} 요청에서 선택되었습니다.`,
+            relatedId:   pgContractId,
+            relatedType: "contract",
+            priority:    "HIGH",
+          });
+        }
+        await setRequestInProgress(pending.requestId);
+      }
+
+      // Restore selBid from DB
+      const { data: bid } = await getBidById(pending.bidId).catch(() => ({}));
+      if (bid) {
+        const restoredBid = {
+          id: bid.id, requestId: bid.request_id, companyId: bid.company_id,
+          company: { id: bid.company_id, name: pending.companyName ?? "업체", temp: 70, ownerId: pending.companyOwnerId },
+          price: bid.price, period: bid.period_days,
+          material: bid.material_note ?? "", comment: bid.comment ?? "",
+          createdAt: bid.created_at, status: "selected",
+          contractId: pgContractId,
+        };
+        setSelectedBid(restoredBid);
+        if (pgContractId) setContractId(pgContractId);
+        setBidViewRequestId(pending.requestId);
+        setScreen("escrow");
+        setPrevScreen("home");
+      }
+    };
+
+    processTossReturn().catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // One-time cleanup: archive known test requests (runs once on mount)
+  useEffect(() => {
+    const TEST_IDS = [
+      "7c04f82e", "eac3b498", "ba6b29b6", "18d966b7",
+    ];
+    // supabase uuid starts with these prefixes — archive via prefix match using RPC isn't available,
+    // so we archive by fetching then filtering
+    supabase
+      .from("requests")
+      .select("id")
+      .or(TEST_IDS.map(p => `id.ilike.${p}%`).join(","))
+      .then(({ data }) => {
+        if (data) data.forEach(r => archiveRequest(r.id));
+      })
+      .catch(() => {});
+  }, []);
 
   // Load bids + subscribe to realtime when viewing a request's bid status
   useEffect(() => {
     if (!bidViewRequestId) return;
 
     getBidsForRequest(bidViewRequestId).then(({ data, error }) => {
+      if (IS_DEBUG) setBidFetchDebug({ src: "mainapp_effect", req_id: bidViewRequestId, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
       if (error) return;
       if (data) setSubmittedBids(data.map(normalizeBid));
     });
@@ -266,6 +754,53 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     action();
   };
 
+  const ACTIVE_STATUSES = ["open", "in_progress", "contracting", "escrow_pending"];
+  const COOLDOWN_MS = 6 * 24 * 60 * 60 * 1000; // 144h — applied after manual override
+  const OVERRIDE_LS_KEY = "gm_req_override_ts";
+
+  const fmtCooldown = (ms) => {
+    const totalH = Math.floor(ms / (3600 * 1000));
+    const d = Math.floor(totalH / 24);
+    const h = totalH % 24;
+    if (d > 0 && h > 0) return `${d}일 ${h}시간`;
+    if (d > 0) return `${d}일`;
+    return `${h}시간`;
+  };
+
+  const checkRequestBlock = async () => {
+    // 1. Override cooldown check (localStorage — penalty after manual hide)
+    const overrideTs = localStorage.getItem(OVERRIDE_LS_KEY);
+    if (overrideTs) {
+      const remainingMs = Math.max(0, COOLDOWN_MS - (Date.now() - parseInt(overrideTs, 10)));
+      if (remainingMs > 0) {
+        setReqCheckDebug({ active_count: 0, active_request_status: "cooldown", cooldown_remaining_hours: Math.ceil(remainingMs / 3600000), blocked_reason: "COOLDOWN_BLOCK" });
+        return { type: "COOLDOWN_BLOCK", remainingMs };
+      }
+      localStorage.removeItem(OVERRIDE_LS_KEY);
+    }
+
+    // 2. Active request check (open/in_progress/escrow → hard block)
+    let active = myRequests.find(r =>
+      ACTIVE_STATUSES.includes(r.status) && !r.is_hidden && !r.is_deleted
+    ) ?? null;
+    if (!active && user?.id) {
+      const { data } = await getActiveRequestByUser(user.id);
+      active = data ?? null;
+    }
+    if (!active) {
+      setReqCheckDebug({ active_count: 0, active_request_status: "none", cooldown_remaining_hours: 0, blocked_reason: "none" });
+      return null;
+    }
+    setReqCheckDebug({ active_count: 1, active_request_status: active.status, cooldown_remaining_hours: 0, blocked_reason: "HARD_BLOCK" });
+    return { type: "HARD_BLOCK", activeReq: active };
+  };
+
+  const handleOpenNewReq = async () => {
+    const block = await checkRequestBlock();
+    if (!block) { setShowReq(true); return; }
+    setReqBlock(block);
+  };
+
   const addBid = async (request, bidData) => {
     if (currentUser?.companyStatus && currentUser.companyStatus !== "ACTIVE") {
       showToast("현재 업체 상태에서는 입찰할 수 없습니다. 관리자 승인 후 이용 가능합니다.");
@@ -275,11 +810,23 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       showToast("견적 요청이 저장 중입니다. 잠시 후 다시 시도해주세요");
       return;
     }
-    const actor = currentUser ?? { id: user.id ?? null, name: user.name ?? "업체", temp: 70 };
+    if (request.isClosed) {
+      showToast("이미 마감된 견적 요청입니다");
+      return;
+    }
+    // actor: display info only (name, temp, badge). DO NOT use actor.id for FK.
+    const actor = currentUser ?? { id: null, ownerId: null, name: user.name ?? "업체", temp: 70 };
+    // bids.company_id FK → users.id, so always use auth user.id
+    const bidCompanyId = user.id;
+    if (!bidCompanyId || typeof bidCompanyId !== "string" || !bidCompanyId.includes("-")) {
+      setBidDebug({ request_id: request.id, payload_company_id: null, insertError: "user.id null — 로그인 필요" });
+      showToast("로그인 정보를 확인할 수 없습니다");
+      return;
+    }
     const optimistic = {
       id: `tmp-${Date.now()}`,
       requestId: request.id,
-      companyId: actor.id ?? null,
+      companyId: bidCompanyId,
       company: actor,
       price: bidData.price,
       period: bidData.period,
@@ -292,24 +839,42 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     // Optimistic update so the UI responds immediately
     setSubmittedBids(prev => [...prev, optimistic]);
 
-    // INSERT to Supabase (only when actor has a real UUID)
-    if (actor.id && typeof actor.id === "string" && actor.id.includes("-")) {
-      const { data, error } = await createBid({
-        request_id: request.id,
-        company_id: actor.id,
-        price: bidData.price,
-        period_days: bidData.period,
-        material_note: bidData.material,
-        comment: bidData.comment,
+    // INSERT to Supabase — company_id must be users.id (FK target)
+    const { data, error } = await createBid({
+      request_id:    request.id,
+      company_id:    bidCompanyId,   // users.id ← FK
+      price:         bidData.price,
+      period_days:   bidData.period,
+      material_note: bidData.material,
+      comment:       bidData.comment,
+    });
+    if (error) {
+      setBidDebug({
+        payload_company_id: bidCompanyId,
+        expected_fk_target: "users.id",
+        companyProfile_id:  currentUser?.id ?? null,
+        companyProfile_ownerId: currentUser?.ownerId ?? null,
+        request_id:   request.id,
+        insertResult: null,
+        insertError:  error.message,
       });
-      if (error) {
-        showToast(`입찰 저장 실패: ${error.message}`);
-      } else if (data) {
-        // Replace optimistic entry with real DB row (no company join data here yet)
-        setSubmittedBids(prev =>
-          prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
-        );
-      }
+      showToast(`입찰 저장 실패: ${error.message}`);
+    } else if (data) {
+      setSubmittedBids(prev =>
+        prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
+      );
+      // Post-insert verification: confirm bid is in DB with correct request_id
+      const { data: verifyData } = await getBidsForRequest(request.id);
+      setBidDebug({
+        payload_company_id: bidCompanyId,
+        expected_fk_target: "users.id",
+        companyProfile_id:  currentUser?.id ?? null,
+        companyProfile_ownerId: currentUser?.ownerId ?? null,
+        request_id:   request.id,
+        insertResult: { id: data.id, request_id: data.request_id },
+        insertError:  null,
+        verifyCount:  verifyData?.length ?? 0,
+      });
     }
 
     setSubmittedBids(prev => {
@@ -325,17 +890,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
   const isGuestCompany = false;
   const go = (s, co=null) => {
-    if (s === "admin" && user.role !== "admin") return;
-    if (s === "dashboard" && user.role !== "company") return;
+    if (s === "admin" && activeRole !== "admin") return;
+    if (s === "dashboard" && activeRole !== "company") return;
     setPrevScreen(screen);
     if (co) setSelCo(co);
     setScreen(s);
   };
 
   useEffect(() => {
-    if (screen === "admin" && user.role !== "admin") setScreen("home");
-    if (screen === "dashboard" && user.role !== "company") setScreen("home");
-  }, [screen, user.role]);
+    if (screen === "admin" && activeRole !== "admin") setScreen("home");
+    if (screen === "dashboard" && activeRole !== "company") setScreen("home");
+  }, [screen, activeRole]);
 
   const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
@@ -347,6 +912,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+
+      <div style={{ background:"#1a1a1a", color:"#00ff88", textAlign:"center", padding:"4px 0", fontSize:10, fontFamily:"monospace", letterSpacing:"0.5px", position:"sticky", top:0, zIndex:999 }}>
+        ▶ DEPLOY 2026-05-25 sha:{typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "?"} ◀
+        &nbsp;|&nbsp;landing_footer_rendered:true
+        &nbsp;|&nbsp;review_card_v2_enabled:true
+        &nbsp;|&nbsp;live_hybrid_enabled:true
+        &nbsp;|&nbsp;MODE:{import.meta.env.MODE}
+      </div>
 
       {(screen==="home"||screen==="map") && (
         <div style={{ background:C.surface, padding:"14px 20px 0", borderBottom:`1px solid ${C.bgWarm}`, position:"sticky", top:0, zIndex:10 }}>
@@ -391,10 +964,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 📍 {user.region} · {user.name}님 안녕하세요
               </div>
               <div style={{ fontSize:21, fontWeight:900, color:C.text1, marginBottom:8, lineHeight:1.4 }}>
-                인근 시공 업체에게<br/>바로 견적 받아보세요 🏠
+                안심하고 맡기는 공사<br/>기록과 확인이 함께합니다
               </div>
               <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl, lineHeight:1.6 }}>
-                평균 2~3곳에서 30분 내 연락이 옵니다
+                검증된 인근 업체에게 견적을 받아보세요
               </div>
               {(() => {
                 const hasActive = myRequests.some(r => r.isActive);
@@ -405,15 +978,232 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     📋 진행 중인 견적이 있습니다
                   </div>
                 ) : (
-                  <button onClick={() => setShowReq(true)}
+                  <button onClick={handleOpenNewReq}
                     style={{ background:C.brand, color:"#fff", border:"none",
                       borderRadius:R.full, padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer",
                       boxShadow:`0 4px 16px ${C.brand}44` }}>
-                    + 무료 견적 요청하기
+                    안전하게 견적 시작하기
                   </button>
                 );
               })()}
             </div>
+
+            {/* ── 믿고 맡긴 후기 — 실제 + 목업 혼합, 항상 렌더 ── */}
+            {(() => {
+              const realCount  = topReviews.length;
+              const mockNeeded = realCount >= 3 ? 0 : Math.max(0, 5 - realCount);
+              const displayReviews = [
+                ...topReviews.map(r => ({ ...r, isMock: false })),
+                ...SHUFFLED_MOCK_REVIEWS.slice(0, mockNeeded),
+              ].slice(0, 5);
+              const firstReal = topReviews[0] ?? null;
+
+              return (
+                <>
+                  <div style={{ marginBottom:S.xl }}>
+                    <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md }}>
+                      믿고 맡긴 후기
+                      <span style={{ fontSize:12, fontWeight:600, color:C.text3, marginLeft:6 }}>
+                        실제 시공 완료 고객
+                      </span>
+                    </div>
+                    <div style={{ display:"flex", gap:S.md, overflowX:"auto", paddingBottom:S.sm,
+                      scrollbarWidth:"none", msOverflowStyle:"none" }}>
+                      {displayReviews.map(rv => {
+                        /* ── 목업 카드 ── */
+                        if (rv.isMock) {
+                          return (
+                            <div key={rv.id}
+                              style={{ flexShrink:0, width:228, background:C.surface,
+                                borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
+                                overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
+                                cursor:"default" }}>
+                              {/* BEFORE / AFTER 이미지 */}
+                              <div style={{ display:"flex", height:116, overflow:"hidden" }}>
+                                <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff",
+                                  background:"#9a9088" }}>
+                                  <img src={rv.beforeImage} alt=""
+                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                    onError={e => { e.target.style.opacity="0"; }} />
+                                  <span style={{ position:"absolute", bottom:4, left:4,
+                                    background:"rgba(58,95,204,0.82)", color:"#fff",
+                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                    BEFORE
+                                  </span>
+                                </div>
+                                <div style={{ flex:1, position:"relative", background:"#e8d8c0" }}>
+                                  <img src={rv.afterImage} alt=""
+                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                    onError={e => { e.target.style.opacity="0"; }} />
+                                  <span style={{ position:"absolute", bottom:4, right:4,
+                                    background:"rgba(0,0,0,0.45)", color:"#fff",
+                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                    AFTER
+                                  </span>
+                                </div>
+                              </div>
+                              <div style={{ padding:"10px 12px 12px" }}>
+                                <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:6 }}>
+                                  <span style={{ background:C.bgWarm, color:C.text4,
+                                    borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:700 }}>
+                                    샘플
+                                  </span>
+                                  <span style={{ background:"#FFF8EC", color:"#8A5C00",
+                                    borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:800,
+                                    border:"1px solid #F5D97A" }}>
+                                    📷 포토리뷰
+                                  </span>
+                                </div>
+                                <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:5 }}>
+                                  {[1,2,3,4,5].map(s => (
+                                    <span key={s} style={{ fontSize:12, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
+                                  ))}
+                                  <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
+                                </div>
+                                <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:6,
+                                  overflow:"hidden", display:"-webkit-box",
+                                  WebkitLineClamp:3, WebkitBoxOrient:"vertical" }}>
+                                  {rv.content}
+                                </div>
+                                <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
+                                  {rv.user_name} · {rv.space_type}
+                                </div>
+                                <div style={{ fontSize:11, fontWeight:700, color:C.text3 }}>
+                                  🏠 {rv.maskedName}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        /* ── 실제 리뷰 카드 — fallback 이미지 매핑 ── */
+                        const beforeImgs = rv.before_image_urls?.length
+                          ? rv.before_image_urls
+                          : rv.image_urls?.length ? [rv.image_urls[0]] : [];
+                        const afterImgs = rv.after_image_urls?.length
+                          ? rv.after_image_urls
+                          : rv.image_urls?.length > 1
+                            ? [rv.image_urls[1]]
+                            : rv.image_urls?.length ? [rv.image_urls[0]] : [];
+                        const beforeThumb = beforeImgs[0] ?? null;
+                        const afterThumb  = afterImgs[0]  ?? null;
+                        const hasBefore = !!beforeThumb;
+                        const hasAfter  = !!afterThumb;
+                        const hasPhoto  = hasBefore || hasAfter;
+                        const showSplit = hasBefore && hasAfter;
+                        return (
+                          <div key={rv.id}
+                            style={{ flexShrink:0, width:228, background:C.surface,
+                              borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
+                              overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
+                              cursor:"default" }}>
+                            {hasPhoto && (
+                              <div style={{ display:"flex", height:116, overflow:"hidden" }}>
+                                {showSplit ? (
+                                  <>
+                                    <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff" }}>
+                                      <img src={beforeThumb} alt=""
+                                        style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                        onError={e => { e.target.style.display="none"; }} />
+                                      <span style={{ position:"absolute", bottom:4, left:4,
+                                        background:"rgba(58,95,204,0.82)", color:"#fff",
+                                        borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                        BEFORE
+                                      </span>
+                                    </div>
+                                    <div style={{ flex:1, position:"relative" }}>
+                                      <img src={afterThumb} alt=""
+                                        style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                        onError={e => { e.target.style.display="none"; }} />
+                                      <span style={{ position:"absolute", bottom:4, right:4,
+                                        background:"rgba(0,0,0,0.55)", color:"#fff",
+                                        borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                        AFTER
+                                      </span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div style={{ flex:1, position:"relative" }}>
+                                    <img src={afterThumb ?? beforeThumb} alt=""
+                                      style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                      onError={e => { e.target.style.display="none"; }} />
+                                    <span style={{ position:"absolute", bottom:4, left:4,
+                                      background: hasAfter ? "rgba(0,0,0,0.55)" : "rgba(58,95,204,0.82)",
+                                      color:"#fff", borderRadius:R.full,
+                                      padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                      {hasAfter ? "AFTER" : "BEFORE"}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <div style={{ padding:"10px 12px 12px" }}>
+                              {hasPhoto && (
+                                <span style={{ display:"inline-block", background:"#FFF8EC", color:"#8A5C00",
+                                  borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:800,
+                                  border:"1px solid #F5D97A", marginBottom:6 }}>
+                                  📷 포토리뷰
+                                </span>
+                              )}
+                              <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:5 }}>
+                                {[1,2,3,4,5].map(s => (
+                                  <span key={s} style={{ fontSize:12, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
+                                ))}
+                                <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
+                              </div>
+                              <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:6,
+                                overflow:"hidden", display:"-webkit-box",
+                                WebkitLineClamp:3, WebkitBoxOrient:"vertical" }}>
+                                {rv.content}
+                              </div>
+                              <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
+                                {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? "시공"}
+                              </div>
+                              <div style={{ fontSize:11, fontWeight:700, color:C.text3 }}>
+                                🏠 {maskCompanyName(rv.companies?.name ?? null)}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* DEV panel */}
+                  {true && (() => {
+                    const raw0 = rawReviewsDiag[0] ?? null;
+                    return (
+                      <div style={{ marginBottom:S.md, padding:"8px 10px", background:"#111",
+                        color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
+                        <span style={{ color:"#ff0", fontWeight:700 }}>── getTopReviews ──</span><br/>
+                        real_reviews_count: {realCount}<br/>
+                        mock_reviews_count: {displayReviews.filter(r => r.isMock).length}<br/>
+                        rendered_reviews_count: {displayReviews.length}<br/>
+                        first_real_review_id: {firstReal?.id ?? "—"}<br/>
+                        first_real_status: {firstReal?.status ?? "—"}<br/>
+                        first_real_rating: {firstReal?.rating ?? "—"}<br/>
+                        first_real_before_count: {firstReal?.before_image_urls?.length ?? 0}<br/>
+                        first_real_after_count: {firstReal?.after_image_urls?.length ?? 0}<br/>
+                        first_real_image_count: {firstReal?.image_urls?.length ?? 0}<br/>
+                        review_fetch_err: {reviewFetchErr ?? "—"}<br/>
+                        <span style={{ color:"#ff0", fontWeight:700 }}>── raw diag (no status filter) ──</span><br/>
+                        raw_reviews_count: {rawReviewsDiag.length}<br/>
+                        first_raw_review_id: {raw0?.id ?? "—"}<br/>
+                        first_raw_status: {raw0?.status ?? "—"}<br/>
+                        first_raw_rating: {raw0?.rating ?? "—"}<br/>
+                        first_raw_is_hidden: {String(raw0?.is_hidden ?? "null")}<br/>
+                        first_raw_before_count: {raw0?.before_image_urls?.length ?? 0}<br/>
+                        first_raw_after_count: {raw0?.after_image_urls?.length ?? 0}<br/>
+                        first_raw_image_count: {raw0?.image_urls?.length ?? 0}<br/>
+                        first_raw_company_id: {raw0?.company_id ?? "—"}<br/>
+                        first_raw_contract_id: {raw0?.contract_id ?? "—"}<br/>
+                        first_raw_created_at: {raw0?.created_at?.slice(0,10) ?? "—"}
+                      </div>
+                    );
+                  })()}
+                </>
+              );
+            })()}
 
             <LiveFeed />
 
@@ -464,18 +1254,22 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                       </div>
                       {activeReqs.map(r => {
                         const reqBids = submittedBids.filter(b => b.requestId === r.id);
-                        const hasBids = reqBids.length > 0;
+                        const escrowData = myRequestsEscrow[r.id] ?? null;
+                        const stage = computeCustomerStage(r, escrowData);
+                        const hasEscrow = !!escrowData?.escrow;
                         const urgentDays = r.daysLeft <= 1;
                         const warningDays = r.daysLeft <= 3;
+                        const borderColor = stage?.badge === "확인 필요" ? "#C07000" : hasEscrow ? C.brandM : r.bidCount > 0 ? C.brandM : C.bgWarm;
+                        const topBarColor = stage?.badge === "확인 필요" ? "#C07000" : hasEscrow ? C.brand : r.bidCount > 0 ? C.brand : C.bgWarm;
                         return (
                           <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
-                            marginBottom:S.md, border:`1.5px solid ${hasBids ? C.brandM : C.bgWarm}`, overflow:"hidden" }}>
-                            <div style={{ height:3, background: hasBids ? C.brand : C.bgWarm }} />
+                            marginBottom:S.md, border:`1.5px solid ${borderColor}`, overflow:"hidden" }}>
+                            <div style={{ height:3, background: topBarColor }} />
                             <div style={{ padding:S.xl }}>
                               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.sm }}>
                                 <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{r.type} · {r.size}</div>
                                 <div style={{ display:"flex", gap:5, flexWrap:"wrap", justifyContent:"flex-end" }}>
-                                  {r.isActive && (
+                                  {r.isActive && !hasEscrow && (
                                     <span style={{
                                       background: urgentDays ? "#FFF0F0" : warningDays ? "#FFF7E6" : C.brandL,
                                       color: urgentDays ? C.red : warningDays ? "#C07000" : C.brand,
@@ -484,32 +1278,54 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                       마감 {r.daysLeft}일 전
                                     </span>
                                   )}
-                                  <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>
-                                    입찰중
-                                  </span>
+                                  {stage && (
+                                    <span style={{ background: stage.badgeBg, color: stage.badgeFg, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>
+                                      {stage.badge}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <div style={{ fontSize:13, color:C.text3, marginBottom:S.sm }}>
                                 📍 {r.area} · {r.style} · {r.time}
                               </div>
 
-                              {hasBids ? (
+                              {/* ── Stage-aware action block ── */}
+                              {stage?.action === "escrow" ? (
+                                <div style={{ background: stage?.badge === "확인 필요" ? "#FFF7E6" : C.brandL,
+                                  borderRadius:R.lg, padding:S.md, marginBottom:S.md,
+                                  border:`1px solid ${stage?.badge === "확인 필요" ? "#C07000" : C.brandM}` }}>
+                                  <div style={{ fontSize:13, fontWeight:800, color: stage?.badge === "확인 필요" ? "#C07000" : C.brand, marginBottom:S.sm }}>
+                                    {stage?.badge === "확인 필요" ? "🔔" : "🏗"} {stage?.label ?? "시공 진행중"}
+                                  </div>
+                                  <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>{stage?.sub}</div>
+                                  <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                                    style={{ width:"100%", padding:"11px",
+                                      background: stage?.badge === "확인 필요" ? "#C07000" : C.brand,
+                                      color:"#fff", border:"none", borderRadius:R.lg,
+                                      fontWeight:800, fontSize:14, cursor:"pointer",
+                                      boxShadow:`0 3px 12px ${C.brand}44` }}>
+                                    {stage?.cta ?? "에스크로 확인하기"} →
+                                  </button>
+                                </div>
+                              ) : r.bidCount > 0 ? (
                                 <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
                                   marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
                                   <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:S.sm }}>
-                                    🔔 업체 {reqBids.length}곳이 입찰했어요
+                                    🔔 업체 {r.bidCount}곳이 입찰했어요
                                   </div>
-                                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
-                                    {reqBids.map(b => (
-                                      <div key={b.id}
-                                        style={{ background:C.surface, borderRadius:R.md, padding:"6px 10px",
-                                          fontSize:12, fontWeight:700, color:C.text1,
-                                          border:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:4 }}>
-                                        <TempBadge temp={b.company?.temp ?? 0} />
-                                        <span>{b.company?.name ?? "—"}</span>
-                                      </div>
-                                    ))}
-                                  </div>
+                                  {reqBids.length > 0 && (
+                                    <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
+                                      {reqBids.map(b => (
+                                        <div key={b.id}
+                                          style={{ background:C.surface, borderRadius:R.md, padding:"6px 10px",
+                                            fontSize:12, fontWeight:700, color:C.text1,
+                                            border:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:4 }}>
+                                          <TempBadge temp={b.company?.temp ?? 0} />
+                                          <span>{b.company?.name ?? "—"}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                   <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                                     style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff",
                                       border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer",
@@ -523,34 +1339,100 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                   display:"flex", alignItems:"center", gap:S.sm }}>
                                   <span style={{ fontSize:18 }}>⏳</span>
                                   <div>
-                                    <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>입찰 대기 중</div>
+                                    <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>인근 검증 업체들이 검토 중입니다</div>
                                     <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
-                                      인근 업체들이 견적을 검토하고 있어요
+                                      보통 24시간 내 견적이 도착해요
                                     </div>
                                   </div>
                                 </div>
                               )}
 
-                              <div style={{ display:"flex", gap:S.sm }}>
+                              <div style={{ display:"flex", gap:S.sm, flexWrap:"wrap" }}>
                                 <button onClick={() => setScreen("timeline")}
-                                  style={{ flex:1, padding:"10px", background:C.surface2,
+                                  style={{ flex:1, minWidth:"calc(50% - 4px)", padding:"10px", background:C.surface2,
                                     color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
                                     fontWeight:700, fontSize:13, cursor:"pointer" }}>
                                   📊 진행 현황
                                 </button>
-                                {hasBids && (
-                                  <button onClick={() => reqBids[0]?.company && go("chat", reqBids[0].company)}
+                                {stage?.action !== "escrow" && (
+                                  <button onClick={() => setEditRequest(r)}
+                                    style={{ flex:1, minWidth:"calc(50% - 4px)", padding:"10px", background:C.brandL,
+                                      color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg,
+                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                    ✏️ 수정
+                                  </button>
+                                )}
+                                {stage?.action === "escrow" ? (
+                                  <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
                                       fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                    💬 업체 채팅
+                                    🏗 에스크로 보기
+                                  </button>
+                                ) : r.bidCount > 0 ? (
+                                  <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
+                                    style={{ flex:1, padding:"10px", background:C.brand,
+                                      color:"#fff", border:"none", borderRadius:R.lg,
+                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                    💰 견적 보기
+                                  </button>
+                                ) : (
+                                  <button onClick={() => handleRepost(r.id)}
+                                    style={{ flex:1, padding:"10px", background:C.brandL,
+                                      color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg,
+                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                    🔄 재노출
                                   </button>
                                 )}
-                                <button onClick={() => setShowCloseConfirm(r.id)}
-                                  style={{ flex:1, padding:"10px", background:C.surface,
-                                    color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
-                                    fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                  견적 마감
+                                {stage?.action !== "escrow" && (
+                                  <button onClick={() => setShowCloseConfirm(r.id)}
+                                    style={{ flex:1, padding:"10px", background:C.surface,
+                                      color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
+                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                                    견적 마감
+                                  </button>
+                                )}
+                                <button
+                                  disabled={hidingId === r.id}
+                                  onClick={async () => {
+                                    setHidingId(r.id);
+                                    const log = { hide_click: r.id.slice(0, 8), hide_db_ok: false, hide_local_ok: false, hide_err: null };
+                                    try {
+                                      const { data, error } = await archiveRequest(r.id);
+                                      if (error) {
+                                        log.hide_err = error.message;
+                                        setHideDebug(log);
+                                        setToast("숨기기에 실패했습니다");
+                                        setTimeout(() => setToast(null), 3000);
+                                        return;
+                                      }
+                                      if (!data) {
+                                        log.hide_err = "0 rows updated — RLS or missing row";
+                                        setHideDebug(log);
+                                        setToast("숨기기에 실패했습니다");
+                                        setTimeout(() => setToast(null), 3000);
+                                        return;
+                                      }
+                                      log.hide_db_ok = true;
+                                      setMyRequests(prev => prev.filter(x => x.id !== r.id));
+                                      log.hide_local_ok = true;
+                                      setHideDebug(log);
+                                      setToast("요청이 숨겨졌습니다");
+                                      setTimeout(() => setToast(null), 3000);
+                                    } catch (e) {
+                                      log.hide_err = e?.message ?? "unknown";
+                                      setHideDebug(log);
+                                      setToast("숨기기에 실패했습니다");
+                                      setTimeout(() => setToast(null), 3000);
+                                    } finally {
+                                      setHidingId(null);
+                                    }
+                                  }}
+                                  style={{ flex:1, padding:"10px", background:hidingId === r.id ? C.bgWarm : C.surface,
+                                    color:C.text4, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
+                                    fontWeight:700, fontSize:13, cursor: hidingId === r.id ? "not-allowed" : "pointer",
+                                    opacity: hidingId === r.id ? 0.6 : 1 }}>
+                                  {hidingId === r.id ? "숨기는 중..." : "숨기기"}
                                 </button>
                               </div>
                             </div>
@@ -568,15 +1450,23 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                       </div>
                       {historyReqs.map(r => (
                         <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
-                          marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, overflow:"hidden", opacity:0.65 }}>
+                          marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, overflow:"hidden" }}>
                           <div style={{ padding:`${S.lg}px ${S.xl}px`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                            <div>
+                            <div style={{ opacity:0.65 }}>
                               <div style={{ fontSize:14, fontWeight:700, color:C.text2 }}>{r.type} · {r.size}</div>
                               <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>📍 {r.area} · {r.time}</div>
                             </div>
-                            <span style={{ background:C.bg, color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700, flexShrink:0 }}>
-                              {r.isExpiredByTime ? "기간만료" : "마감됨"}
-                            </span>
+                            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:5, flexShrink:0 }}>
+                              <span style={{ background:C.bg, color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>
+                                {r.status === "expired" || r.isExpiredByTime ? "기간만료" : "마감됨"}
+                              </span>
+                              {(r.status === "expired" || r.isExpiredByTime) && (
+                                <button onClick={() => handleRepost(r.id)}
+                                  style={{ background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.full, padding:"4px 12px", fontSize:11, fontWeight:800, cursor:"pointer" }}>
+                                  🔄 다시 올리기
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -585,6 +1475,83 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               ) : null;
             })()}
+
+            {IS_DEBUG && (
+              <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:600, overflowY:"auto" }}>
+                [DEV:consumer] screen:{screen}<br/>
+                user.id: {(user?.id ?? "null").slice(0,8)} | activeRole: {activeRole}<br/>
+                fetch_err: {reqDebug?.consumerFetchError ?? "none"} | db_rows: {reqDebug?.consumerRows ?? "?"}<br/>
+                local_total: {myRequests.length} | active: {myRequests.filter(r=>r.isActive).length}<br/>
+                <span style={{color:"#ff0"}}>── new-req block check ──</span><br/>
+                <span style={{color: reqCheckDebug?.blocked_reason === "none" ? "#0f0" : reqCheckDebug?.blocked_reason === "OPEN_ALLOW" ? "#4ff" : "#f93"}}>
+                  active_count: {reqCheckDebug?.active_count ?? "?"} | status: {reqCheckDebug?.active_request_status ?? "?"}<br/>
+                  cooldown_remaining_hours: {reqCheckDebug?.cooldown_remaining_hours ?? "?"} | blocked_reason: {reqCheckDebug?.blocked_reason ?? "not_checked"}
+                </span><br/>
+                submittedBids_total: {submittedBids.length}<br/>
+                <span style={{color:"#4ff"}}>selectedReqId: {bidViewRequestId?.slice(0,8) ?? "none"}</span><br/>
+                submittedBids_for_req: {submittedBids.filter(b => b.requestId === bidViewRequestId).length}<br/>
+                <span style={{color:"#ff0"}}>── DB raw (getUserRequests + bids join) ──</span><br/>
+                {(reqDebug?.consumerData ?? []).map((r, i) => (
+                  <span key={r.id} style={{display:"block"}}>
+                    [{i}] id:{r.id.slice(0,8)} status:{r.status} type:{r.space_type} bids:{(r.bids ?? []).length} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
+                  </span>
+                ))}
+                {(reqDebug?.consumerData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>DB rows: 0 — 요청 없음<br/></span>}
+                <span style={{color:"#ff0"}}>── normalized (bidCount/isActive) ──</span><br/>
+                {myRequests.map(r => (
+                  <span key={r.id} style={{display:"block", color: r.id.startsWith("tmp-") ? "#f66" : r.isActive ? "#0f0" : "#f88"}}>
+                    {r.id.startsWith("tmp-") ? "⚠️tmp" : "✅uuid"} [{r.status}] {r.id.slice(0,8)} {r.type} bidCount:{r.bidCount ?? 0} act:{String(r.isActive)}
+                  </span>
+                ))}
+                <span style={{color:"#ff0"}}>── escrow stage per request ──</span><br/>
+                {myRequests.filter(r => r.status === "in_progress").map(r => {
+                  const ed = myRequestsEscrow[r.id] ?? null;
+                  const cs = computeCustomerStage(r, ed);
+                  const txStatus = ed?.escrow?.transaction_status ?? "—";
+                  const po = ed?.payouts ?? [];
+                  const p2 = po.find(p => p.stage === 2);
+                  const p3 = po.find(p => p.stage === 3);
+                  return (
+                    <span key={r.id} style={{display:"block", color: cs?.badge === "확인 필요" ? "#f93" : "#0f0"}}>
+                      {r.id.slice(0,8)} status:{r.status} tx:{txStatus}<br/>
+                      <span style={{paddingLeft:8, color:"#8ff"}}>
+                        p2:{p2?.status ?? "?"} p3:{p3?.status ?? "?"} | badge:{cs?.badge} | cta:{cs?.cta ?? "—"}
+                      </span>
+                    </span>
+                  );
+                })}
+                {myRequests.filter(r => r.status === "in_progress").length === 0 && (
+                  <span style={{color:"#888"}}>in_progress 요청 없음<br/></span>
+                )}
+                {reqCreateDebug && (
+                  <>
+                    <span style={{color:"#ff0"}}>── 최근 repost 결과 ──</span><br/>
+                    <span style={{color:"#8ff"}}>{reqCreateDebug._note}<br/></span>
+                    {reqCreateDebug.id
+                      ? <span style={{color:"#0f0"}}>✅ new_id:{reqCreateDebug.id.slice(0,8)} status:{reqCreateDebug.status} exp:{reqCreateDebug.expires_at?.slice(0,10)}<br/></span>
+                      : reqCreateDebug.hasTmpPrefix !== undefined
+                        ? <span style={{color:"#f88"}}>⚠️ guard: tmpPrefix:{String(reqCreateDebug.hasTmpPrefix)} userId:{String(reqCreateDebug.hasUserId)} origReq:{String(reqCreateDebug.hasOriginalReq)}<br/></span>
+                        : <span style={{color:"#f66"}}>❌ insert_err: {reqCreateDebug.insertError}<br/></span>
+                    }
+                  </>
+                )}
+                {hideDebug && (
+                  <>
+                    <span style={{color:"#ff0"}}>── 숨기기 결과 ──</span><br/>
+                    <span style={{color:"#4ff"}}>hide_click: {hideDebug.hide_click}</span><br/>
+                    <span style={{color: hideDebug.hide_db_ok ? "#0f0" : "#f66"}}>
+                      hide_db_ok: {String(hideDebug.hide_db_ok)}
+                    </span><br/>
+                    <span style={{color: hideDebug.hide_local_ok ? "#0f0" : "#f66"}}>
+                      hide_local_ok: {String(hideDebug.hide_local_ok)}
+                    </span><br/>
+                    {hideDebug.hide_err && (
+                      <span style={{color:"#f66"}}>hide_err: {hideDebug.hide_err}<br/></span>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             {(() => {
               const totalJobs = companies.reduce((s, c) => s + (c.completedJobs ?? 0), 0);
@@ -608,24 +1575,30 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>인근 업체</div>
               <button onClick={() => setScreen("map")} style={{ fontSize:13, background:"none", border:"none", cursor:"pointer", color:C.brand, fontWeight:700 }}>지도로 보기 →</button>
             </div>
-            {companies.map(c => <CompanyCard key={c.id} company={c} onClick={() => go("portfolio",c)} />)}
+            {companies.map(c => <CompanyCard key={c.id} company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />)}
 
             {/* 라운지 섹션 — 둘러보기 하단 */}
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.xl, border:`1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.lg }}>라운지</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.lg }}>
-                {MOCK_LOUNGE_POSTS.slice(0,3).map(post => (
-                  <div key={post.id} onClick={() => { setLoungePost(post); go("lounge-detail"); }}
-                    style={{ background:C.bg, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
-                    <div style={{ flex:1, minWidth:0, marginRight:S.md }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
-                        {post.title ?? post.content.slice(0,30)}
+              {localLoungePosts.slice(0,3).length > 0 ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.lg }}>
+                  {localLoungePosts.slice(0,3).map(post => (
+                    <div key={post.id} onClick={() => { setLoungePost(post); go("lounge-detail"); }}
+                      style={{ background:C.bg, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
+                      <div style={{ flex:1, minWidth:0, marginRight:S.md }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                          {post.title ?? post.content?.slice(0,30)}
+                        </div>
                       </div>
+                      <div style={{ fontSize:12, color:C.text3, flexShrink:0 }}>❤️ {post.like_count ?? 0}</div>
                     </div>
-                    <div style={{ fontSize:12, color:C.text3, flexShrink:0 }}>❤️ {post.like_count}</div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign:"center", padding:`${S.lg}px 0`, marginBottom:S.lg }}>
+                  <div style={{ fontSize:13, color:C.text3 }}>공간 이야기를 나눠보세요</div>
+                </div>
+              )}
               <button onClick={() => setScreen("lounge")}
                 style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand}44` }}>
                 라운지 들어가기 →
@@ -635,31 +1608,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         )}
 
         {/* 업체 홈 */}
-        {screen==="home" && mode==="company" && user.role==="consumer" && (
-          <div style={{ textAlign:"center", padding:"60px 20px" }}>
-            <div style={{ fontSize:48, marginBottom:16 }}>🔨</div>
-            <div style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:8 }}>업체 로그인이 필요합니다</div>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xxl, lineHeight:1.7 }}>
-              업체 서비스를 이용하려면<br/>업체 계정으로 로그인해 주세요
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:10, maxWidth:280, margin:"0 auto" }}>
-              <button onClick={onLogout}
-                style={{ padding:"16px", background:C.brand, color:"#fff", border:"none",
-                  borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
-                  boxShadow:`0 4px 16px ${C.brand}44` }}>
-                업체 로그인
-              </button>
-              <button onClick={() => { onStartOnboarding(); }}
-                style={{ padding:"16px", background:C.surface, color:C.brand,
-                  border:`2px solid ${C.brandM}`, borderRadius:R.lg,
-                  fontWeight:800, fontSize:15, cursor:"pointer" }}>
-                업체 회원가입
-              </button>
-            </div>
-          </div>
-        )}
-
-        {screen==="home" && mode==="company" && user.role!=="consumer" && (
+        {screen==="home" && mode==="company" && (
           <div>
             {isGuestCompany && (
               <div onClick={() => setShowRegisterPrompt(true)}
@@ -739,62 +1688,201 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               ))}
             </div>
 
+            {activeJobs.length > 0 && (
+              <div style={{ marginBottom:S.xl }}>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🔨 진행중 작업 ({activeJobs.length})</div>
+                {activeJobs.map((job) => (
+                  <CompanyActiveJobCard
+                    key={job.bid.id}
+                    job={job}
+                    onAction={(actionType, j) => {
+                      if (actionType === "schedule" || actionType === "checkin" || actionType === "field_estimate") {
+                        setSiteVisitJob(j);
+                      } else if (actionType === "platform_estimate") {
+                        setEstimateJob(j);
+                      } else if (actionType === "escrow") {
+                        go("escrow");
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
             <LiveFeed />
 
-            <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>📋 인근 시공 요청</div>
-            {customerRequests.filter(r => r.isActive !== false || r.status === undefined).map(r => (
-              <BidCard
-                key={r.id}
-                r={r}
-                currentUser={currentUser}
-                onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
-                onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
-              />
-            ))}
+            {activeJobs.length > 0 && (
+              <div style={{ marginBottom:S.xl }}>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🔨 진행중 작업 ({activeJobs.length})</div>
+                {activeJobs.map((job) => (
+                  <CompanyActiveJobCard
+                    key={job.bid.id}
+                    job={job}
+                    onAction={(actionType, j) => {
+                      if (actionType === "schedule" || actionType === "checkin" || actionType === "field_estimate") {
+                        setSiteVisitJob(j);
+                      } else if (actionType === "platform_estimate") {
+                        setEstimateJob(j);
+                      } else if (actionType === "escrow") {
+                        go("escrow");
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* ── 진행중 작업 ─────────────────────────────────────────── */}
+            {companyJobs.length > 0 && (
+              <div style={{ marginBottom:S.xl }}>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>
+                  🏗 내 시공 진행중
+                  <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
+                    {companyJobs.length}건
+                  </span>
+                </div>
+                {companyJobs.map(({ bid, request }) => (
+                  <div key={bid.id} style={{
+                    background:C.surface, borderRadius:R.xl, padding:S.xl,
+                    marginBottom:S.md, border:`1.5px solid ${C.brandM}`,
+                    boxShadow:`0 2px 12px ${C.brand}18`,
+                  }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.sm }}>
+                      <div>
+                        <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:4 }}>
+                          {request?.type || "인테리어"} · {request?.size || ""}
+                        </div>
+                        <div style={{ fontSize:12, color:C.text3 }}>
+                          📍 {request?.area || "지역 미정"}
+                        </div>
+                      </div>
+                      <div style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"4px 10px", fontSize:11, fontWeight:800 }}>
+                        진행중
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ fontSize:15, fontWeight:900, color:C.brand }}>
+                        {bid.price ? `${(bid.price / 10000).toLocaleString()}만원` : "금액 미정"}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedBid(bid);
+                          setBidViewRequestId(bid.requestId);
+                          go("escrow");
+                        }}
+                        style={{ background:C.brand, color:"#fff", border:"none", borderRadius:R.full, padding:"8px 16px", fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>
+                        계약 확인 →
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
+              <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>
+                📋 새 견적 요청
+                {customerRequests.filter(r => r.isActive).length > 0 && (
+                  <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
+                    {customerRequests.filter(r => r.isActive).length}건
+                  </span>
+                )}
+              </div>
+              <button onClick={loadCompanyRequests} style={{ fontSize:13, background:C.brandL, border:`1px solid ${C.brandM}`, color:C.brand, borderRadius:R.full, padding:"6px 14px", fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>🔄 새로고침</button>
+            </div>
+
+            {customerRequests.filter(r => r.isActive).length === 0 ? (
+              <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
+                <div style={{ fontSize:32, marginBottom:12 }}>📭</div>
+                <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:6 }}>활성 견적 요청이 없습니다</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.6 }}>
+                  의뢰인이 요청을 등록하면 이곳에 표시됩니다<br/>
+                  {`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}
+                </div>
+              </div>
+            ) : (
+              customerRequests.filter(r => r.isActive).map(r => (
+                <BidCard
+                  key={r.id}
+                  r={r}
+                  currentUser={currentUser}
+                  onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
+                  onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
+                />
+              ))
+            )}
+
+            {IS_DEBUG && (
+              <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:600, overflowY:"auto" }}>
+                [DEV:company] screen:{screen}<br/>
+                user.id: {user?.id ?? "null"}<br/>
+                currentUser.id: {currentUser?.id ?? "null ⚠️"}<br/>
+                selectedBid.id: {selectedBid?.id ?? "null"} | requestId: {selectedBid?.requestId ?? "null"}<br/>
+                contractId: {contractId ?? "null"}<br/>
+                <span style={{color: reqDebug?.companyFetchError ? "#f66" : "#0f0"}}>fetch_err: {reqDebug?.companyFetchError ?? "none"}</span><br/>
+                last_fetch: {lastFetchAt ?? "—"} | db_rows: {reqDebug?.companyRows ?? "?"} | active_displayed: {customerRequests.filter(r=>r.isActive).length}<br/>
+                <span style={{color:"#ff0"}}>── DB open requests (full id) ──</span><br/>
+                {(reqDebug?.companyData ?? []).map((r, i) => (
+                  <span key={r.id} style={{display:"block", color:"#8ff"}}>
+                    [{i}] {r.id} {r.space_type} status:{r.status} exp:{r.expires_at?.slice(0,10) ?? "NULL"}
+                  </span>
+                ))}
+                {(reqDebug?.companyData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>⚠️ DB rows: 0 — fetch_err 확인<br/></span>}
+                <span style={{color:"#ff0"}}>── displayed active (full id) ──</span><br/>
+                {customerRequests.filter(r=>r.isActive).map(r=>(
+                  <span key={r.id} style={{display:"block", color:"#8ff"}}>{r.id} {r.type} {r.size} status:{r.status}</span>
+                ))}
+                <span style={{color:"#ff0"}}>── companyJobs (in_progress) ──</span><br/>
+                <span style={{color: companyJobsDebug?.fetchError ? "#f66" : "#0f0"}}>jobs_err:{companyJobsDebug?.fetchError ?? "none"}</span> raw:{companyJobsDebug?.rawCount ?? "?"} jobs:{companyJobsDebug?.jobCount ?? "?"}<br/>
+                {(companyJobsDebug?.statuses ?? []).map((s, i) => (
+                  <span key={s.id} style={{display:"block", color: s.req_status === "in_progress" ? "#0f0" : "#8ff"}}>
+                    [{i}] bid:{s.id?.slice(0,8)} req_status:{s.req_status}
+                  </span>
+                ))}
+                {companyJobs.map((j, i) => (
+                  <span key={j.bid.id} style={{display:"block", color:"#aff"}}>
+                    job[{i}] bid:{j.bid.id?.slice(0,8)} req:{j.request?.id?.slice(0,8)} {j.request?.type} {j.request?.status}
+                  </span>
+                ))}
+                {bidDebug && (
+                  <>
+                    <span style={{color:"#ff0"}}>── LAST BID ATTEMPT ──</span><br/>
+                    <span style={{color:"#4ff"}}>request_id={bidDebug.request_id}</span><br/>
+                    <span style={{color:"#8ff"}}>payload.company_id={bidDebug.payload_company_id ?? "null ⚠️"}</span><br/>
+                    expected_fk_target={bidDebug.expected_fk_target ?? "users.id"}<br/>
+                    companyProfile.id={bidDebug.companyProfile_id ?? "null"}<br/>
+                    companyProfile.ownerId={bidDebug.companyProfile_ownerId ?? "null"}<br/>
+                    {bidDebug.insertResult
+                      ? <span style={{color:"#0f0"}}>✅ inserted bid_id={bidDebug.insertResult.id}<br/>   bid.request_id={bidDebug.insertResult.request_id}<br/>   verify_count={bidDebug.verifyCount ?? "—"}<br/></span>
+                      : <span style={{color:"#f66"}}>❌ insert_err: {bidDebug.insertError}<br/></span>
+                    }
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 
 
-        {/* 지도 */}
+        {/* 지도 — STEP 15: 카카오맵 SDK 연동 */}
         {screen==="map" && (
           <div>
-            <div style={{ position:"relative", background:"linear-gradient(145deg,#E4EBE0,#D4E2CC,#DCE8D0)",
-              borderRadius:R.xl, height:250, overflow:"hidden", marginBottom:S.xl, border:"1px solid #C4D8BC" }}>
-              {[...Array(7)].map((_,i) => <div key={i} style={{ position:"absolute", left:`${i*18}%`, top:0, bottom:0, borderLeft:"1px solid rgba(0,0,0,0.04)" }} />)}
-              {[...Array(6)].map((_,i) => <div key={i} style={{ position:"absolute", top:`${i*20}%`, left:0, right:0, borderTop:"1px solid rgba(0,0,0,0.04)" }} />)}
-              <div style={{ position:"absolute", left:"44%", top:0, bottom:0, width:4, background:"rgba(255,255,255,0.65)" }} />
-              <div style={{ position:"absolute", top:"48%", left:0, right:0, height:4, background:"rgba(255,255,255,0.65)" }} />
-              {[{ x:28,y:40,name:"홍익시공",   temp:97,online:true },
-                { x:57,y:28,name:"공간설계소", temp:91,online:false },
-                { x:71,y:57,name:"우리집시공단",temp:86,online:true },
-                { x:42,y:54,type:"req" }, { x:64,y:68,type:"req" }].map((pin,i) => (
-                <div key={i} onClick={() => { if(!pin.type){ const c=companies.find(c=>c.name===pin.name); if(c) go("portfolio",c); }}}
-                  style={{ position:"absolute", left:`${pin.x}%`, top:`${pin.y}%`, transform:"translate(-50%,-100%)", cursor:!pin.type?"pointer":"default", zIndex:10 }}>
-                  <div style={{ background:pin.type?C.red:GRADE(pin.temp||80).bar, color:"#fff",
-                    borderRadius:pin.type?R.sm:R.full, padding:"5px 10px", fontSize:11, fontWeight:800,
-                    boxShadow:"0 3px 10px rgba(0,0,0,0.2)", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}>
-                    {pin.type ? "📋 요청" : <>
-                      {pin.online && <div style={{ width:5, height:5, borderRadius:"50%", background:C.green }} />}
-                      🏠 {pin.name?.slice(0,4)}
-                    </>}
-                  </div>
-                  <div style={{ width:2, height:8, background:pin.type?C.red:GRADE(pin.temp||80).bar, margin:"0 auto" }} />
-                </div>
-              ))}
-              <div style={{ position:"absolute", left:"50%", top:"50%", transform:"translate(-50%,-50%)" }}>
-                <div style={{ width:14, height:14, borderRadius:"50%", background:C.brand, border:"3px solid #fff", boxShadow:`0 0 0 8px ${C.brand}22` }} />
-              </div>
-              <div style={{ position:"absolute", bottom:10, right:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:600 }}>📍 {user.region} · 반경 3km</div>
+            <div style={{ marginBottom:S.xl }}>
+              <KakaoMap
+                companies={companies}
+                userRegion={user.region ?? ""}
+                onPinClick={c => go("portfolio", c)}
+              />
             </div>
             <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>인근 업체 <span style={{ color:C.brand }}>{companies.length}곳</span></div>
-            {companies.map(c => <CompanyCard key={c.id} company={c} onClick={() => go("portfolio",c)} />)}
+            {companies.map(c => <CompanyCard key={c.id} company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />)}
           </div>
         )}
 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
-        {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} />}
+        {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} />}
-        {screen==="escrow" && <EscrowScreen onBack={() => setScreen(prevScreen||"home")} mode={mode} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} />}
+        {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
@@ -809,7 +1897,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             setEscrowContracts={setEscrowContracts}
           />
         )}
-        {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} user={user} />}
+        {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} onHome={() => setScreen("home")} user={user} />}
+        {screen==="document-center" && <DocumentCenterScreen company={currentUser} user={user} onBack={() => setScreen("my")} />}
 
         {screen==="lounge" && (
           <LoungeScreen
@@ -937,51 +2026,88 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <div style={{ textAlign:"center", padding:"60px 0" }}>
                 <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
                 <div style={{ fontSize:14, color:C.text3 }}>아직 견적 요청이 없어요</div>
-                <button onClick={() => { setScreen("home"); setShowReq(true); }}
+                <button onClick={() => { setScreen("home"); handleOpenNewReq(); }}
                   style={{ marginTop:S.xl, padding:"12px 24px", background:C.brand,
                     color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer" }}>
-                  + 견적 요청하기
+                  안전하게 견적 시작하기
                 </button>
               </div>
-            ) : myRequests.map(r => (
-              <div key={r.id} style={{ background:C.surface, borderRadius:R.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, overflow:"hidden" }}>
-                <div style={{ height:3, background:C.brand }} />
-                <div style={{ padding:S.xl }}>
-                  <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:4 }}>{r.type} · {r.size}</div>
-                  <div style={{ fontSize:12, color:C.text3, marginBottom:S.xl }}>📍 {r.area} · 💰 {r.budget}</div>
-                  {[
-                    { label:"견적 요청",    sub:"요청 등록 완료",             done:true,  time:r.time },
-                    { label:"업체 선택",   sub:"입찰 비교 후 계약",            done:false, active:true, bidStep:true },
-                    { label:"공사 진행",   sub:"착공 ~ 중간점검",              done:false },
-                    { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",        done:false },
-                  ].map((step, i, arr) => (
-                    <div key={step.label} style={{ display:"flex", gap:S.md, marginBottom: i<arr.length-1?S.lg:0 }}>
-                      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
-                        <div style={{ width:32, height:32, borderRadius:R.full,
-                          background: step.done?C.green : step.active?C.brand : C.bgWarm,
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:14, color: step.done||step.active?"#fff":C.text4,
-                          boxShadow: step.active?`0 0 0 4px ${C.brand}22`:"none", fontWeight:900 }}>
-                          {step.done?"✓":i+1}
+            ) : myRequests.map(r => {
+              const escData = myRequestsEscrow[r.id] ?? null;
+              const { escrow: esc } = escData ?? {};
+              const txStatus = esc?.transaction_status ?? null;
+              const hasEscrow = !!esc;
+              const isSettled = txStatus === "SETTLED";
+              const csStage = computeCustomerStage(r, escData);
+              const inProgress = hasEscrow || r.status === "in_progress";
+              const step2done = inProgress;
+              const step3active = inProgress && !isSettled;
+              const step4done = isSettled;
+
+              const constructionSub = (() => {
+                if (txStatus === "STARTED") return "착공 사진 확인 대기";
+                if (txStatus === "MID_INSPECTION") return "중간 점검 사진 확인 대기";
+                if (txStatus === "COMPLETED") return "완료 사진 확인 대기";
+                if (hasEscrow) return "착공 대기 · 에스크로 보관 중";
+                if (r.status === "in_progress") return "실측 방문 3일 내 · 견적서 24시간 내 등록";
+                return "착공 ~ 중간점검";
+              })();
+
+              const steps = [
+                { label:"견적 요청",    sub:"요청 등록 완료",           done:true,      time:r.time },
+                { label:"업체 선택",   sub: step2done ? "계약 완료" : "입찰 비교 후 계약", done:step2done, active:!step2done, bidStep:!step2done },
+                { label:"공사 진행",   sub: constructionSub,            done:isSettled, active:step3active, escrowStep:step3active },
+                { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",     done:step4done },
+              ];
+
+              return (
+                <div key={r.id} style={{ background:C.surface, borderRadius:R.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, overflow:"hidden" }}>
+                  <div style={{ height:3, background:C.brand }} />
+                  <div style={{ padding:S.xl }}>
+                    <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:4 }}>{r.type} · {r.size}</div>
+                    <div style={{ fontSize:12, color:C.text3, marginBottom:S.xl }}>📍 {r.area} · 💰 {r.budget}</div>
+                    {steps.map((step, i, arr) => (
+                      <div key={step.label} style={{ display:"flex", gap:S.md, marginBottom: i<arr.length-1?S.lg:0 }}>
+                        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
+                          <div style={{ width:32, height:32, borderRadius:R.full,
+                            background: step.done?C.green : step.active?C.brand : C.bgWarm,
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            fontSize:14, color: step.done||step.active?"#fff":C.text4,
+                            boxShadow: step.active?`0 0 0 4px ${C.brand}22`:"none", fontWeight:900 }}>
+                            {step.done?"✓":i+1}
+                          </div>
+                          {i<arr.length-1 && <div style={{ width:2, flex:1, minHeight:16, marginTop:4, background:step.done?C.green:step.active?`${C.brand}44`:C.bgWarm }} />}
                         </div>
-                        {i<arr.length-1 && <div style={{ width:2, flex:1, minHeight:16, marginTop:4, background:step.done?C.green:C.bgWarm }} />}
+                        <div style={{ flex:1, paddingTop:6 }}>
+                          <div style={{ fontSize:14, fontWeight:700, color:step.done?C.green:step.active?C.brand:C.text3 }}>{step.label}</div>
+                          <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>{step.sub}</div>
+                          {step.time && <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>{step.time}</div>}
+                          {step.bidStep && (
+                            <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
+                              style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+                              🔔 입찰 비교 후 업체 선택 →
+                            </button>
+                          )}
+                          {step.escrowStep && (
+                            <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                              style={{ marginTop:S.sm, padding:"8px 16px",
+                                background: csStage?.badge === "확인 필요" ? "#C07000" : C.brand,
+                                color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+                              {csStage?.cta ?? "에스크로 진행현황 보기"} →
+                            </button>
+                          )}
+                          {step.escrowStep && r.status === "in_progress" && !hasEscrow && (
+                            <div style={{ marginTop:S.sm, background:C.brandL, borderRadius:R.md, padding:"8px 12px", fontSize:11, color:C.brand }}>
+                              💬 상세 견적서는 실측 후 24시간 내 플랫폼에 등록됩니다
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ flex:1, paddingTop:6 }}>
-                        <div style={{ fontSize:14, fontWeight:700, color:step.done?C.green:step.active?C.brand:C.text3 }}>{step.label}</div>
-                        <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>{step.sub}</div>
-                        {step.time && <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>{step.time}</div>}
-                        {step.bidStep && (
-                          <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
-                            style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
-                            🔔 입찰 비교 후 업체 선택 →
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -1061,8 +2187,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontSize:28, fontWeight:900, color:C.brand, margin:"0 auto 14px" }}>{user.name?.[0] ?? "?"}</div>
               <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>{user.name}</div>
-              <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>📍 {user.region} · {user.role==="consumer"?"의뢰인":"검증 업체"}</div>
-              {user.role === "consumer" && (() => {
+              <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>📍 {user.region} · {activeRole==="consumer"?"의뢰인":"검증 업체"}</div>
+              {activeRole === "consumer" && (() => {
                 const grade = calcCustomerGrade(user.completedJobs ?? 0);
                 return (
                   <div style={{ display:"inline-flex", alignItems:"center", gap:6,
@@ -1074,7 +2200,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 );
               })()}
               <div style={{ display:"flex", gap:0, marginBottom:S.xl, borderTop:`1px solid ${C.bgWarm}`, paddingTop:S.xl }}>
-                {(user.role==="consumer"
+                {(activeRole==="consumer"
                   ? [[`${myRequests.length}`,"견적 요청"],["0","진행중"],["0","완료"]]
                   : [[" 3","낙찰"],["84","후기"],["97°","공간온도"]]
                 ).map(([v,l],i,arr) => (
@@ -1089,7 +2215,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 padding:"11px 28px", fontWeight:700, fontSize:14, cursor:"pointer" }}>로그아웃</button>
             </div>
 
-            {user.role === "company" && user.isEarlyPartner && user.earlyPartnerBenefitUntil && (
+            {activeRole === "company" && user.isEarlyPartner && user.earlyPartnerBenefitUntil && (
               <div style={{ background: C.brandL, borderRadius: R.xl, padding: S.xl, marginTop: S.lg, border: `1px solid ${C.brandM}` }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.brand, marginBottom: 4 }}>🏆 초기 파트너 혜택 중</div>
                 <div style={{ fontSize: 12, color: C.text3 }}>
@@ -1131,7 +2257,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               </div>
             </div>
 
-            {user.role==="company" && (
+            {activeRole==="company" && (
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🏦 보증금 현황</div>
                 <CompanyDepositCard
@@ -1139,10 +2265,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   hasInsurance={currentUser?.hasInsurance ?? user.insurance ?? false}
                   onUpgrade={(next) => showToast(`${next.label} 업그레이드 신청이 접수됐어요!`)}
                 />
+                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.md, border:`1px solid ${C.bgWarm}` }}>
+                  <div onClick={() => setScreen("document-center")}
+                    style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer" }}>
+                    <span style={{ fontSize:14, color:C.text1, fontWeight:600 }}>📁 서류 관리</span>
+                    <span style={{ fontSize:16, color:C.text3 }}>›</span>
+                  </div>
+                </div>
               </div>
             )}
 
-            {user.role==="consumer" && (() => {
+            {activeRole==="consumer" && (() => {
               const grade = calcCustomerGrade(user.completedJobs ?? 0);
               const nextGrade = [0,1,3,5].find(n => n > (user.completedJobs ?? 0));
               return (
@@ -1198,16 +2331,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               }}
             />
 
-            {user.role==="consumer" && (
+            {activeRole==="consumer" && (
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>내 견적 이력</div>
                 {myRequests.length === 0 ? (
                   <div style={{ background:C.surface, borderRadius:R.xl, padding:"40px 20px", textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
                     <div style={{ fontSize:32, marginBottom:10 }}>📋</div>
                     <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>아직 견적 요청이 없어요</div>
-                    <button onClick={() => { setScreen("home"); setShowReq(true); }}
+                    <button onClick={() => { setScreen("home"); handleOpenNewReq(); }}
                       style={{ padding:"12px 24px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer" }}>
-                      + 첫 견적 요청하기
+                      첫 견적 시작하기
                     </button>
                   </div>
                 ) : myRequests.map(r => {
@@ -1224,17 +2357,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   const dBg = r.isClosed ? C.bg
                     : r.daysLeft <= 1 ? "#FFF0F0" : r.daysLeft <= 3 ? "#FFF7E6" : C.brandL;
                   return (
-                    <div key={r.id} onClick={() => !closed && setScreen("timeline")}
-                      style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, cursor: closed ? "default" : "pointer", display:"flex", justifyContent:"space-between", alignItems:"center", opacity: closed ? 0.7 : 1 }}>
-                      <div>
-                        <div style={{ fontSize:14, fontWeight:800, color: closed ? C.text3 : C.text1 }}>{r.type} · {r.size}</div>
-                        <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>📍 {r.area} · {r.time}</div>
-                      </div>
-                      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
-                        <span style={{ background:dBg, color:dColor, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>{dLabel}</span>
-                        {!closed && <span style={{ fontSize:11, color:C.brand, fontWeight:700 }}>진행 현황 →</span>}
-                      </div>
-                    </div>
+                    <ConsumerRequestCard key={r.id} r={r} closed={closed} dLabel={dLabel} dColor={dColor} dBg={dBg} onOpen={() => !closed && setScreen("timeline")} />
                   );
                 })}
               </div>
@@ -1242,6 +2365,32 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           </div>
         )}
       </div>
+
+      {siteVisitJob && (
+        <SiteVisitModal
+          job={siteVisitJob}
+          companyId={currentUser?.id}
+          userId={user?.id}
+          onClose={() => setSiteVisitJob(null)}
+          onChange={(updatedJob) => {
+            setActiveJobs(prev => prev.map(j => j.bid.id === updatedJob.bid.id ? updatedJob : j));
+            setSiteVisitJob(updatedJob);
+          }}
+          onGoEstimate={(job) => { setSiteVisitJob(null); setEstimateJob(job); }}
+        />
+      )}
+      {estimateJob && (
+        <PlatformEstimateModal
+          job={estimateJob}
+          companyId={currentUser?.id}
+          userId={user?.id}
+          onClose={() => setEstimateJob(null)}
+          onChange={(updatedJob) => {
+            setActiveJobs(prev => prev.map(j => j.bid.id === updatedJob.bid.id ? updatedJob : j));
+            setEstimateJob(updatedJob);
+          }}
+        />
+      )}
 
       {/* ── 견적 마감 확인 ── */}
       {showCloseConfirm && (
@@ -1330,41 +2479,162 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       {showAdminCodeModal && (
         <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:999, padding:20 }}>
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, width:"100%", maxWidth:340 }}>
-            <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:6 }}>관리자 코드</div>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>관리자 전용 코드를 입력해주세요</div>
+            <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:6 }}>관리자 로그인</div>
+            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>관리자 계정으로 로그인하세요</div>
             <input
+              value={adminIdInput}
+              onChange={e => { setAdminIdInput(e.target.value); setAdminCodeError(""); }}
+              type="text"
+              placeholder="아이디"
+              autoComplete="off"
+              onKeyDown={e => e.key === "Enter" && document.getElementById("admin-pw-input")?.focus()}
+              style={{ width:"100%", padding:"13px 14px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box", marginBottom:10, fontFamily:"inherit", color:C.text1, background:C.surface }}
+            />
+            <input
+              id="admin-pw-input"
               value={adminCodeInput}
               onChange={e => { setAdminCodeInput(e.target.value); setAdminCodeError(""); }}
               type="password"
-              placeholder="코드 입력"
-              style={{ width:"100%", padding:"14px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:18, outline:"none", boxSizing:"border-box", marginBottom:14, fontFamily:"inherit", color:C.text1, background:C.surface, textAlign:"center", letterSpacing:4 }}
+              placeholder="비밀번호"
+              autoComplete="off"
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  if (adminIdInput === "admin" && adminCodeInput === "44445") {
+                    localStorage.setItem("admin_authed", "true");
+                    setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError("");
+                    onLogin({ ...user, role:"admin", activeRole:"admin" }); setScreen("admin");
+                  } else { setAdminCodeError("아이디 또는 비밀번호가 올바르지 않습니다"); }
+                }
+              }}
+              style={{ width:"100%", padding:"13px 14px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box", marginBottom:adminCodeError ? 8 : S.xl, fontFamily:"inherit", color:C.text1, background:C.surface }}
             />
-            {adminCodeError && <div style={{ color:C.red, fontSize:12, fontWeight:600, marginBottom:S.sm }}>{adminCodeError}</div>}
+            {adminCodeError && <div style={{ color:C.red, fontSize:12, fontWeight:600, marginBottom:S.md }}>{adminCodeError}</div>}
             <div style={{ display:"flex", gap:S.sm }}>
-              <button onClick={() => { setShowAdminCodeModal(false); setAdminCodeInput(""); setAdminCodeError(""); }}
+              <button onClick={() => { setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError(""); }}
                 style={{ flex:1, padding:S.lg, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>
                 취소
               </button>
               <button onClick={() => {
-                if (adminCodeInput === "admin1234") {
-                  setShowAdminCodeModal(false);
-                  setAdminCodeInput("");
-                  setAdminCodeError("");
-                  onLogin({ ...user, role: "admin" });
-                  setScreen("admin");
+                if (adminIdInput === "admin" && adminCodeInput === "44445") {
+                  localStorage.setItem("admin_authed", "true");
+                  setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError("");
+                  onLogin({ ...user, role:"admin", activeRole:"admin" }); setScreen("admin");
                 } else {
-                  setAdminCodeError("관리자 코드가 올바르지 않습니다");
+                  setAdminCodeError("아이디 또는 비밀번호가 올바르지 않습니다");
                 }
               }}
                 style={{ flex:1, padding:S.lg, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer" }}>
-                확인
+                로그인
               </button>
             </div>
+            {IS_DEBUG && (
+              <div style={{ marginTop:S.lg, padding:"8px 10px", background:"#111", color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
+                admin_authed: {localStorage.getItem("admin_authed") ?? "null"}<br/>
+                activeRole: {activeRole}<br/>
+                admin_login_err: {adminCodeError || "—"}
+              </div>
+            )}
           </div>
         </div>
       )}
 
+      {editRequest && (
+        <RequestModal
+          isEdit
+          initialData={editRequest}
+          onClose={() => setEditRequest(null)}
+          onDone={(form) => handleUpdateRequest(form, editRequest.id)}
+        />
+      )}
+
+      {reqBlock && (() => {
+        const isHard = reqBlock.type === "HARD_BLOCK";
+        const isCooldown = reqBlock.type === "COOLDOWN_BLOCK";
+        return (
+          <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:500 }}>
+            <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"28px 24px 40px" }}>
+              <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
+              <div style={{ fontSize:22, textAlign:"center", marginBottom:12 }}>{isCooldown ? "⏳" : "📋"}</div>
+
+              {isHard && (<>
+                <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
+                  진행 중인 견적요청이 있습니다
+                </div>
+                <div style={{ fontSize:13, color:C.text3, textAlign:"center", lineHeight:1.7, marginBottom:S.xl }}>
+                  업체 선택 또는 요청 종료 후<br/>새 요청을 등록할 수 있습니다.
+                </div>
+                <button
+                  onClick={() => { setReqBlock(null); setScreen("home"); }}
+                  style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff", border:"none",
+                    borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
+                    boxShadow:`0 4px 16px ${C.brand}44`, marginBottom:10 }}>
+                  진행 중 요청 보기
+                </button>
+                {reqBlock.activeReq?.id && (
+                  <button
+                    onClick={async () => {
+                      await archiveRequestAuto(reqBlock.activeReq.id, "manual_override").catch(() => {});
+                      setMyRequests(prev => prev.filter(r => r.id !== reqBlock.activeReq.id));
+                      localStorage.setItem(OVERRIDE_LS_KEY, Date.now().toString());
+                      setReqBlock({ type: "COOLDOWN_BLOCK", remainingMs: COOLDOWN_MS });
+                    }}
+                    style={{ width:"100%", padding:"12px", background:C.surface2, color:C.text2,
+                      border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:10 }}>
+                    진행 중 요청 숨기기
+                  </button>
+                )}
+              </>)}
+
+              {isCooldown && (<>
+                <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
+                  새 요청 등록 대기 중
+                </div>
+                <div style={{ fontSize:13, color:C.text3, textAlign:"center", lineHeight:1.7, marginBottom:S.sm }}>
+                  진행 중 요청 숨기기 후 6일 동안은<br/>새 요청 등록이 제한됩니다.
+                </div>
+                {reqBlock.remainingMs > 0 && (
+                  <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
+                    marginBottom:S.xl, textAlign:"center", border:`1px solid ${C.brandM}` }}>
+                    <div style={{ fontSize:12, color:C.text3, marginBottom:4 }}>새 요청 가능까지</div>
+                    <div style={{ fontSize:16, fontWeight:900, color:C.brand }}>
+                      {fmtCooldown(reqBlock.remainingMs)} 남았습니다
+                    </div>
+                  </div>
+                )}
+              </>)}
+
+              <button
+                onClick={() => setReqBlock(null)}
+                style={{ width:"100%", padding:"12px", background:"none", color:C.text4,
+                  border:"none", borderRadius:R.lg, fontWeight:600, fontSize:13, cursor:"pointer" }}>
+                닫기
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {showReq && <RequestModal onClose={() => setShowReq(false)} onDone={async (form) => {
+        // Pre-insert server-side duplicate guard
+        const overrideTsInsert = localStorage.getItem(OVERRIDE_LS_KEY);
+        if (overrideTsInsert) {
+          const remainingMs = Math.max(0, COOLDOWN_MS - (Date.now() - parseInt(overrideTsInsert, 10)));
+          if (remainingMs > 0) {
+            setShowReq(false);
+            setReqBlock({ type: "COOLDOWN_BLOCK", remainingMs });
+            return;
+          }
+          localStorage.removeItem(OVERRIDE_LS_KEY);
+        }
+        if (user?.id) {
+          const { data: dup } = await getActiveRequestByUser(user.id);
+          if (dup) {
+            setShowReq(false);
+            setReqBlock({ type: "HARD_BLOCK", activeReq: dup });
+            return;
+          }
+        }
+
         // Optimistic local entry (shown immediately)
         const _now = Date.now();
         const optimistic = {
@@ -1373,7 +2643,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           type: form.type, size: form.size, budget: form.budget,
           style: form.style, desc: form.desc,
           area: user.region ?? "", user: user.name,
-          bids: 0, time: "방금", status: "open",
+          bids: 0, bidCount: 0, time: "방금", status: "open",
           createdAt: new Date(_now).toISOString(),
           expiresAt: new Date(_now + REQUEST_TTL_MS).toISOString(),
           daysLeft: 7,
@@ -1389,14 +2659,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         // INSERT to Supabase
         if (user.id) {
           const { data, error } = await createRequest({
-            user_id: user.id,
-            area: user.region ?? "",
-            space_type: form.type,
-            size: form.size,
-            style: form.style,
-            description: form.desc,
-            budget_min: 0,
-            budget_max: 0,
+            user_id:     user.id,
+            status:      'open',
+            area:        user.region ?? "",
+            space_type:  form.type,
+            size:        form.size,
+            style:       form.style,
+            description: form.desc ?? "",
+            budget_min:  form.budget_min ?? 0,
+            budget_max:  form.budget_max ?? 0,
+            expires_at:  new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
+          });
+          setReqCreateDebug({
+            id:         data?.id ?? null,
+            status:     data?.status ?? null,
+            expires_at: data?.expires_at ?? null,
+            space_type: data?.space_type ?? null,
+            user_id:    data?.user_id ?? null,
+            insertError: error?.message ?? null,
+            _note: "신규 견적 요청",
           });
           if (error) {
             void error;
@@ -1441,6 +2722,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <button onClick={() => { setBidViewRequestId(bidAlert.requestId ?? null); setBidAlert(null); setScreen("bidstatus"); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>💰 견적 비교하기</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {IS_DEBUG && (
+        <div style={{ position:"fixed", top:8, right:8, background:"rgba(0,0,0,0.82)", color:"#0f0", borderRadius:8, padding:"8px 10px", fontSize:10, zIndex:9999, lineHeight:1.9, fontFamily:"monospace", maxWidth:200, pointerEvents:"none" }}>
+          activeRole: {activeRole}<br/>
+          dbRole: {user.role ?? "—"}<br/>
+          screen: {screen}<br/>
+          mode: {mode}<br/>
+          admin_authed: {localStorage.getItem("admin_authed") ?? "null"}
         </div>
       )}
 
