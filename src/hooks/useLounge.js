@@ -1,35 +1,69 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getLoungePosts, getLoungeStories, getLoungePost, getLoungeComments, likeLoungePost } from '../lib/supabase';
+import { MOCK_LOUNGE_POSTS, MOCK_STORIES } from '../constants/lounge';
+import {
+  IS_SUPABASE_READY,
+  getLoungePosts,
+  getLoungePost,
+  getLoungeStories,
+  getLoungeComments,
+  createLoungeComment,
+  softDeleteLoungeComment,
+  likeLoungePost,
+} from '../lib/supabase';
 
 export function useLounge(category = 'all') {
-  const [posts,       setPosts]       = useState([]);
-  const [stories,     setStories]     = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [fetchError,  setFetchError]  = useState(null);
+  const [posts, setPosts]         = useState([]);
+  const [stories, setStories]     = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [storiesError, setStoriesError] = useState(null);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
-    setFetchError(null);
-    const [postsResult, storiesResult] = await Promise.all([
-      getLoungePosts(category),
-      getLoungeStories(),
-    ]);
-    if (postsResult.error) {
-      setFetchError(postsResult.error.message);
-      setPosts([]);
+    if (IS_SUPABASE_READY) {
+      const [postsRes, storiesRes] = await Promise.all([
+        getLoungePosts(category),
+        getLoungeStories(),
+      ]);
+      setPosts(postsRes.data ?? []);
+      setStories(storiesRes.data ?? []);
+      setStoriesError(storiesRes.error ?? null);
     } else {
-      setPosts(postsResult.data ?? []);
-    }
-    if (!storiesResult.error) {
-      const now = Date.now();
-      // client-side expiry filter (story_expires_at may not exist in older schemas)
-      const active = (storiesResult.data ?? []).filter(s => {
-        if (!s.story_expires_at) return true;
-        return new Date(s.story_expires_at).getTime() > now;
-      });
-      setStories(active);
-    } else {
-      setStories([]);
+      await new Promise(r => setTimeout(r, 200));
+
+      let offlinePosts = [];
+      try {
+        offlinePosts = JSON.parse(localStorage.getItem('lounge_offline_posts') ?? '[]');
+      } catch {}
+
+      let offlineStories = [];
+      try {
+        const stored = JSON.parse(localStorage.getItem('lounge_offline_stories') ?? '[]');
+        const now = new Date();
+        offlineStories = stored.filter(s => new Date(s.story_expires_at) > now);
+        if (offlineStories.length !== stored.length) {
+          localStorage.setItem('lounge_offline_stories', JSON.stringify(offlineStories));
+        }
+      } catch {}
+
+      let allPosts = [...offlinePosts, ...MOCK_LOUNGE_POSTS]
+        .filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
+        .filter(p => !p.is_deleted && !p.is_hidden);
+
+      if (category === 'popular') {
+        allPosts = [...allPosts].sort((a, b) => {
+          const seedDiff = (a.is_seed ? 1 : 0) - (b.is_seed ? 1 : 0);
+          if (seedDiff !== 0) return seedDiff;
+          if (b.view_count !== a.view_count) return b.view_count - a.view_count;
+          return b.like_count - a.like_count;
+        });
+      } else if (category !== 'all') {
+        allPosts = allPosts.filter(p => p.category === category);
+      }
+      setPosts(allPosts);
+
+      const allStories = [...offlineStories, ...MOCK_STORIES]
+        .filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i);
+      setStories(allStories);
     }
     setLoading(false);
   }, [category]);
@@ -47,37 +81,87 @@ export function useLounge(category = 'all') {
     setPosts(prev => [newPost, ...prev]);
   }, []);
 
-  const addStory = useCallback((newStory) => {
-    setStories(prev => [newStory, ...prev]);
+  const removePost = useCallback((postId) => {
+    setPosts(prev => prev.filter(p => p.id !== postId));
   }, []);
 
-  return { posts, stories, loading, fetchError, likePost, addPost, addStory, reload: loadPosts };
+  const updatePost = useCallback((postId, updates) => {
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...updates } : p));
+  }, []);
+
+  const addStory = useCallback((story) => {
+    setStories(prev => [story, ...prev]);
+  }, []);
+
+  const removeStory = useCallback((storyId) => {
+    setStories(prev => prev.filter(s => s.id !== storyId));
+  }, []);
+
+  return { posts, stories, loading, storiesError, likePost, addPost, removePost, updatePost, addStory, removeStory, reload: loadPosts };
 }
 
-export function useLoungePost(postId) {
-  const [post,               setPost]               = useState(null);
-  const [comments,           setComments]           = useState([]);
-  const [loading,            setLoading]            = useState(true);
+export function useLoungePost(postId, initialPost = null) {
+  const [post, setPost]                     = useState(initialPost);
+  const [comments, setComments]             = useState([]);
+  const [loading, setLoading]               = useState(!initialPost);
   const [commentsFetchError, setCommentsFetchError] = useState(null);
 
   useEffect(() => {
     if (!postId) return;
-    setLoading(true);
-    Promise.all([
-      getLoungePost(postId),
-      getLoungeComments(postId),
-    ]).then(([postResult, commentsResult]) => {
-      if (postResult.data) setPost(postResult.data);
-      if (commentsResult.error) {
-        setCommentsFetchError(commentsResult.error.message);
+    let cancelled = false;
+
+    const load = async () => {
+      if (!initialPost) setLoading(true);
+      if (IS_SUPABASE_READY) {
+        const [postRes, commentsRes] = await Promise.all([
+          getLoungePost(postId),
+          getLoungeComments(postId),
+        ]);
+        if (cancelled) return;
+        if (postRes.data) setPost(postRes.data);
+        if (commentsRes.error) {
+          setCommentsFetchError(commentsRes.error.message);
+        } else {
+          setComments(commentsRes.data ?? []);
+          setCommentsFetchError(null);
+        }
       } else {
-        setComments(commentsResult.data ?? []);
-        setCommentsFetchError(null);
+        await new Promise(r => setTimeout(r, 150));
+        if (cancelled) return;
+        if (!initialPost) {
+          const found = MOCK_LOUNGE_POSTS.find(p => p.id === postId);
+          setPost(found ?? null);
+        }
+        setComments([
+          {
+            id: 'c1', post_id: postId, parent_id: null,
+            anonymous_nickname: '배고픈수달',
+            content: '저도 같은 경험 있어요. 이음새 부분만 다시 하는 건 어렵지 않다고 하더라고요.',
+            like_count: 5, is_expert_reply: false,
+            created_at: new Date(Date.now() - 30 * 60000).toISOString(),
+          },
+          {
+            id: 'c2', post_id: postId, parent_id: null,
+            anonymous_nickname: '공간설계사',
+            content: '업체 입장에서 말씀드리면, 전체 재작업보다 이음새 보수만 하면 훨씬 저렴합니다. 견적 문의 남겨주시면 도와드릴게요.',
+            like_count: 12, is_expert_reply: true,
+            created_at: new Date(Date.now() - 20 * 60000).toISOString(),
+          },
+          {
+            id: 'c3', post_id: postId, parent_id: 'c1',
+            anonymous_nickname: '날쌘다람쥐',
+            content: '감사해요! 보수로 가능한지 여쭤봐야겠네요.',
+            like_count: 2, is_expert_reply: false,
+            created_at: new Date(Date.now() - 15 * 60000).toISOString(),
+          },
+        ]);
       }
-    }).catch((e) => {
-      setCommentsFetchError(e?.message ?? 'unknown');
-    }).finally(() => setLoading(false));
-  }, [postId]);
+      if (!cancelled) setLoading(false);
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [postId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refetchComments = useCallback(async () => {
     if (!postId) return;
@@ -95,11 +179,23 @@ export function useLoungePost(postId) {
     setPost(p => p ? { ...p, comment_count: (p.comment_count ?? 0) + 1 } : p);
   }, []);
 
+  const removeComment = useCallback(async (commentId, userId) => {
+    if (IS_SUPABASE_READY) {
+      await softDeleteLoungeComment(commentId, userId);
+    }
+    setComments(prev => prev.filter(c => c.id !== commentId));
+    setPost(p => p ? { ...p, comment_count: Math.max(0, (p.comment_count ?? 1) - 1) } : p);
+  }, []);
+
   const likeComment = useCallback((commentId) => {
     setComments(prev => prev.map(c =>
       c.id === commentId ? { ...c, like_count: (c.like_count ?? 0) + 1 } : c
     ));
   }, []);
 
-  return { post, comments, loading, commentsFetchError, addComment, likeComment, refetchComments, setPost };
+  const updatePostLocal = useCallback((updates) => {
+    setPost(p => p ? { ...p, ...updates } : p);
+  }, []);
+
+  return { post, comments, loading, commentsFetchError, addComment, removeComment, likeComment, updatePostLocal, refetchComments, setPost };
 }

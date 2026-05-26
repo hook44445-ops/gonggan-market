@@ -7,9 +7,11 @@ import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/an
 import { CATEGORY_LABEL } from '../../constants/lounge';
 
 export default function LoungePostCard({ post, onClick }) {
-  const catLabel = CATEGORY_LABEL[post.category] ?? post.category;
-  const isBoosted = post.boost_until && new Date(post.boost_until) > new Date();
-  const avatar = getAnonymousAvatarByNickname(post.anonymous_nickname);
+  const catLabel   = CATEGORY_LABEL[post.category] ?? post.category;
+  const avatar     = getAnonymousAvatarByNickname(post.anonymous_nickname);
+  const hasImage   = post.image_urls?.length > 0;
+  const thumbUrl   = hasImage ? post.image_urls[0] : null;
+  const hasTitle   = !!post.title;
 
   return (
     <div onClick={onClick} style={{
@@ -17,13 +19,9 @@ export default function LoungePostCard({ post, onClick }) {
       padding: `14px ${S.xl}px`,
       borderBottom: `1px solid ${C.bgWarm}`,
       cursor: 'pointer',
-      position: 'relative',
     }}>
-      {isBoosted && (
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: C.brand }} />
-      )}
 
-      {/* 카테고리 · 지역 · 시간 */}
+      {/* Row 1: 카테고리 · 지역 · 연령 ··· 시간 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <span style={{
           background: C.brandL, color: C.brand,
@@ -32,46 +30,55 @@ export default function LoungePostCard({ post, onClick }) {
         }}>
           {catLabel}
         </span>
-        {post.region && <span style={{ fontSize: 11, color: C.text4 }}>· {post.region}</span>}
+        {post.region    && <span style={{ fontSize: 11, color: C.text4 }}>· {post.region}</span>}
         {post.age_group && <span style={{ fontSize: 11, color: C.text4 }}>· {post.age_group}</span>}
         <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>
           {formatRelativeTime(post.created_at)}
         </span>
       </div>
 
-      {/* 제목 */}
-      {post.title && (
-        <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, lineHeight: 1.4, marginBottom: 4 }}>
-          {post.title}
+      {/* Row 2 + 3: 제목 · 본문 (왼쪽) + 썸네일 (오른쪽) */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* 제목 */}
+          {hasTitle && (
+            <div style={{
+              fontSize: 15, fontWeight: 800, color: C.text1,
+              lineHeight: 1.4, letterSpacing: '-0.3px',
+              marginBottom: 4,
+            }}>
+              {post.title}
+            </div>
+          )}
+          {/* 본문 미리보기 */}
+          <div style={{
+            fontSize: 13, color: C.text2, lineHeight: 1.65,
+            display: '-webkit-box',
+            WebkitLineClamp: hasTitle ? 1 : 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}>
+            {post.content}
+          </div>
         </div>
-      )}
 
-      {/* 본문 미리보기 */}
-      <div style={{
-        fontSize: 13, color: C.text2, lineHeight: 1.65, marginBottom: 10,
-        display: '-webkit-box', WebkitLineClamp: 2,
-        WebkitBoxOrient: 'vertical', overflow: 'hidden',
-      }}>
-        {post.content}
+        {/* 썸네일 */}
+        {thumbUrl && (
+          <img
+            src={thumbUrl}
+            alt=""
+            style={{
+              width: 80, height: 80,
+              borderRadius: R.md,
+              objectFit: 'cover',
+              flexShrink: 0,
+              display: 'block',
+            }}
+          />
+        )}
       </div>
 
-      {/* 이미지 썸네일 */}
-      {post.image_urls && post.image_urls.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto', scrollbarWidth: 'none' }}>
-          {post.image_urls.slice(0, 4).map((url, i) => (
-            <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
-              <img src={url} alt="" style={{ width: 72, height: 72, borderRadius: R.sm, objectFit: 'cover', display: 'block' }} />
-              {i === 3 && post.image_urls.length > 4 && (
-                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', borderRadius: R.sm, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 800 }}>
-                  +{post.image_urls.length - 4}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 하단: 작성자 + 통계 */}
+      {/* Row 4: 아바타 · 닉네임 · 성별 ··· 조회 · 좋아요 · 댓글 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <div style={{
           width: 20, height: 20, borderRadius: '50%',
@@ -91,9 +98,9 @@ export default function LoungePostCard({ post, onClick }) {
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-          <span style={{ fontSize: 11, color: C.text4 }}>👁 {post.view_count.toLocaleString()}</span>
-          <span style={{ fontSize: 11, color: C.text4 }}>❤️ {post.like_count}</span>
-          <span style={{ fontSize: 11, color: C.text4 }}>💬 {post.comment_count}</span>
+          <span style={{ fontSize: 11, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
+          <span style={{ fontSize: 11, color: C.text3 }}>❤️ {post.like_count ?? 0}</span>
+          <span style={{ fontSize: 11, color: C.text3 }}>💬 {post.comment_count ?? 0}</span>
         </div>
       </div>
     </div>

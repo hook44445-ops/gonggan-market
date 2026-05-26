@@ -20,25 +20,89 @@ import {
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
+import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification } from '../lib/supabase';
 
-export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin }) {
-  const { post: foundPost, comments, loading, commentsFetchError, addComment, likeComment, refetchComments } = useLoungePost(postId);
+// ── 삭제 확인 다이얼로그 ───────────────────────────────
+function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '0 24px' }}>
+      <div style={{ background: C.surface, borderRadius: R.xl, padding: 24, width: '100%', maxWidth: 320 }}>
+        <div style={{ fontSize: 20, textAlign: 'center', marginBottom: 12 }}>🗑️</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, textAlign: 'center', marginBottom: 8 }}>게시글을 삭제할까요?</div>
+        <div style={{ fontSize: 13, color: C.text3, textAlign: 'center', lineHeight: 1.6, marginBottom: 20 }}>삭제된 글은 복구할 수 없어요</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onCancel} disabled={loading}
+            style={{ flex: 1, padding: '13px', background: C.bg, border: 'none', borderRadius: R.lg, fontWeight: 700, fontSize: 14, color: C.text2, cursor: 'pointer' }}>
+            취소
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            style={{ flex: 1, padding: '13px', background: C.red ?? '#E53E3E', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 14, color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+            {loading ? '삭제 중...' : '삭제'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 포스트 메뉴 시트 ───────────────────────────────────
+function PostMenuSheet({ isOwn, onEdit, onDelete, onReport, onBlock, onClose }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 400 }} onClick={onClose}>
+      <div style={{ background: C.surface, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, paddingBottom: 'env(safe-area-inset-bottom, 20px)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: '12px auto 8px' }} />
+        {isOwn ? (
+          <>
+            <button onClick={onEdit} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: `1px solid ${C.bg}`, fontSize: 15, fontWeight: 700, color: C.brand, cursor: 'pointer', textAlign: 'left' }}>
+              ✏️ 수정하기
+            </button>
+            <button onClick={onDelete} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', fontSize: 15, fontWeight: 700, color: C.red ?? '#E53E3E', cursor: 'pointer', textAlign: 'left' }}>
+              🗑️ 삭제하기
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={onReport} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: `1px solid ${C.bg}`, fontSize: 15, fontWeight: 700, color: C.text2, cursor: 'pointer', textAlign: 'left' }}>
+              🚨 신고하기
+            </button>
+            <button onClick={onBlock} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', fontSize: 15, fontWeight: 700, color: C.text2, cursor: 'pointer', textAlign: 'left' }}>
+              🚫 차단하기
+            </button>
+          </>
+        )}
+        <button onClick={onClose} style={{ width: '100%', padding: '14px 20px', background: 'none', border: 'none', fontSize: 14, color: C.text3, cursor: 'pointer' }}>
+          취소
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost }) {
+  const { post: foundPost, comments, loading, addComment, likeComment } = useLoungePost(postId, initialPost);
   const post = foundPost ?? initialPost ?? null;
-  const [commentText,    setCommentText]    = useState('');
-  const [replyTo,        setReplyTo]        = useState(null);
-  const [liked,          setLiked]          = useState(false);
-  const [saved,          setSaved]          = useState(false);
-  const [showChat,       setShowChat]       = useState(false);
-  const [chatSending,    setChatSending]    = useState(false);
-  const [chatSent,       setChatSent]       = useState(false);
-  const [toast,          setToast]          = useState(null);
-  const [reportTarget,   setReportTarget]   = useState(null);
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
-  const [devCommentInfo, setDevCommentInfo] = useState(null);
+  const [commentText, setCommentText]   = useState('');
+  const [replyTo,     setReplyTo]       = useState(null);
+  const [liked,       setLiked]         = useState(false);
+  const [saved,       setSaved]         = useState(() => {
+    try {
+      const saves = JSON.parse(localStorage.getItem('lounge_saved_posts') ?? '[]');
+      return saves.some(s => s.id === postId);
+    } catch { return false; }
+  });
+  const [showChat,    setShowChat]      = useState(false);
+  const [chatSending, setChatSending]   = useState(false);
+  const [chatSent,    setChatSent]      = useState(false);
+  const [toast,       setToast]         = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [showMenu,    setShowMenu]      = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting,    setDeleting]      = useState(false);
   const inputRef = useRef(null);
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
+  const isOwn      = isLoggedIn && post?.user_id && user?.id && post.user_id === user.id;
 
   // Load initial like/save state from DB
   useEffect(() => {
@@ -66,6 +130,16 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       addLoungePostLike(postId, user.id),
       likeLoungePost(postId),
     ]);
+    if (IS_SUPABASE_READY && post?.user_id && user?.id && post.user_id !== user.id) {
+      createLoungeNotification({
+        userId:      post.user_id,
+        type:        'post_like',
+        title:       '좋아요',
+        message:     '내 글에 좋아요가 달렸어요',
+        relatedId:   post.id,
+        relatedType: 'lounge_post',
+      });
+    }
   };
 
   const handleSave = async () => {
@@ -124,6 +198,36 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
     // 성공: 입력 초기화 후 DB 결과를 UI에 추가, 목록 리프레시
     setCommentText('');
+
+    if (IS_SUPABASE_READY && user?.id) {
+      const isExpert = user.role === 'company';
+      const isReply  = !!replyTo?.id;
+
+      // 원글 작성자에게 알림 (본인 글 제외)
+      if (post?.user_id && post.user_id !== user.id) {
+        const type = isExpert ? 'expert_answer' : 'post_comment';
+        createLoungeNotification({
+          userId:      post.user_id,
+          type,
+          title:       isExpert ? '전문가 답변' : '새 댓글',
+          message:     isExpert ? '전문가가 내 글에 답변했어요' : '내 글에 댓글이 달렸어요',
+          relatedId:   post.id,
+          relatedType: 'lounge_post',
+        });
+      }
+      // 답글 대상 댓글 작성자에게 알림 (본인 댓글 제외)
+      if (isReply && replyTo.user_id && replyTo.user_id !== user.id) {
+        createLoungeNotification({
+          userId:      replyTo.user_id,
+          type:        'comment_reply',
+          title:       '답글',
+          message:     '내 댓글에 답글이 달렸어요',
+          relatedId:   post.id,
+          relatedType: 'lounge_post',
+        });
+      }
+    }
+
     setReplyTo(null);
     if (data) addComment(data);
     await refetchComments();
@@ -143,11 +247,59 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setChatSending(false);
     setChatSent(true);
     setShowChat(false);
+    try {
+      const key = 'lounge_chat_requests';
+      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+      prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), nickname: post?.anonymous_nickname, sentAt: new Date().toISOString() });
+      localStorage.setItem(key, JSON.stringify(prev.slice(0, 50)));
+    } catch {}
     showToast('💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.');
   };
 
+  const handleCommentSubmit = (text) => {
+    if (!user?.id || !text.trim()) return;
+    try {
+      const key = 'lounge_my_comments';
+      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+      prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), content: text.trim(), createdAt: new Date().toISOString() });
+      localStorage.setItem(key, JSON.stringify(prev.slice(0, 100)));
+    } catch {}
+  };
+
   const handleReport = () => {
-    showToast('신고가 접수됐어요');
+    setShowMenu(false);
+    setReportTarget({ type: 'post', targetId: post.id });
+  };
+
+  const handleBlock = () => {
+    setShowMenu(false);
+    if (!post?.user_id) return;
+    try {
+      const key = 'lounge_blocks';
+      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+      if (!prev.find(b => b.id === post.user_id)) {
+        prev.unshift({ id: post.user_id, nickname: post.anonymous_nickname, blockedAt: new Date().toISOString() });
+        localStorage.setItem(key, JSON.stringify(prev));
+      }
+    } catch {}
+    showToast('🚫 차단됐어요');
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    if (IS_SUPABASE_READY) {
+      await softDeleteLoungePost(post.id, user.id);
+    } else {
+      try {
+        const key = 'lounge_offline_posts';
+        const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+        localStorage.setItem(key, JSON.stringify(prev.filter(p => p.id !== post.id)));
+      } catch {}
+    }
+    setDeleting(false);
+    setShowDeleteConfirm(false);
+    onDeletePost?.(post.id);
+    onBack?.();
   };
 
   if (loading && !post) {
@@ -191,7 +343,10 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       {/* 헤더 */}
       <div style={{ background: C.surface, padding: `14px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.md, borderBottom: `1px solid ${C.bgWarm}`, position: 'sticky', top: 0, zIndex: 10 }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: C.text1, padding: 0 }}>←</button>
-        <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>라운지</div>
+        <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, flex: 1 }}>라운지</div>
+        {isLoggedIn && (
+          <button onClick={() => setShowMenu(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: C.text2, padding: 4, lineHeight: 1 }}>⋯</button>
+        )}
       </div>
 
       {/* 본문 */}
@@ -224,7 +379,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bg}` }}>
+        <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bgWarm}`, background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
           <span style={{ fontSize: 12, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
           <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
             {liked ? '❤️' : '🤍'} {(post.like_count ?? 0) + (liked ? 1 : 0)}
@@ -232,24 +387,28 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           <button onClick={handleSave} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
             {saved ? '🔖' : '📄'} {saved ? '저장됨' : '저장'}
           </button>
-          <button onClick={() => setReportTarget({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
-            신고
-          </button>
+          {!isOwn && (
+            <button onClick={() => setReportTarget({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
+              신고
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 대화 신청 */}
-      <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
-        <button
-          onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent) setShowChat(true); }}
-          disabled={chatSent}
-          style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand}44`, transition: 'background 0.2s' }}>
-          {isGuest ? '💬 대화 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 대화 신청하기'}
-        </button>
-        <div style={{ textAlign: 'center', marginTop: S.sm, fontSize: 11, color: C.text4 }}>
-          {chatSent ? '상대방이 수락하면 20토큰이 차감되고 대화방이 열려요' : '신청은 무료 · 상대방 수락 시 20토큰 차감'}
+      {/* 대화 신청 버튼 — 본인 글에는 숨김 */}
+      {!isOwn && (
+        <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm, borderRadius: R.xl, margin: `0 8px ${S.sm}px` }}>
+          <button
+            onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent) setShowChat(true); }}
+            disabled={chatSent}
+            style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand}44`, transition: 'background 0.2s' }}>
+            {isGuest ? '💬 대화 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 대화 신청하기'}
+          </button>
+          <div style={{ textAlign: 'center', marginTop: S.sm, fontSize: 11, color: C.text4 }}>
+            {chatSent ? '상대방이 수락하면 20토큰이 차감되고 대화방이 열려요' : '신청은 무료 · 상대방 수락 시 20토큰 차감'}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* DEV 패널 */}
       {import.meta.env.DEV && (
@@ -345,7 +504,26 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           type={reportTarget.type}
           targetId={reportTarget.targetId}
           onClose={() => setReportTarget(null)}
+          onReport={() => showToast('신고가 접수됐어요')}
+        />
+      )}
+
+      {showMenu && (
+        <PostMenuSheet
+          isOwn={isOwn}
+          onEdit={() => { setShowMenu(false); onEditPost?.(post); }}
+          onDelete={() => { setShowMenu(false); setShowDeleteConfirm(true); }}
           onReport={handleReport}
+          onBlock={handleBlock}
+          onClose={() => setShowMenu(false)}
+        />
+      )}
+
+      {showDeleteConfirm && (
+        <DeleteConfirmDialog
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
         />
       )}
 

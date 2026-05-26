@@ -379,30 +379,48 @@ create policy "activity_logs: insert" on public.activity_logs
   for insert with check (auth.uid() = user_id or user_id is null);
 
 -- ── STEP 21: Notification System ────────────────────────────────────────────
+-- 실제 적용: supabase/migrations/001_notifications.sql 을 SQL Editor에서 실행
 create table if not exists public.notifications (
-  id           uuid primary key default gen_random_uuid(),
-  user_id      uuid not null references public.users(id) on delete cascade,
-  type         text not null,   -- 'bid_submitted' | 'company_selected' | 'step_approval_request' | 'settled' | 'dispute_filed' | 'admin_action' | ...
-  title        text not null,
-  message      text not null,
-  is_read      boolean not null default false,
-  related_id   uuid,            -- 관련 엔티티 ID
-  related_type text,            -- 'request' | 'bid' | 'contract' | 'dispute' | 'company'
+  id           uuid        primary key default gen_random_uuid(),
+  user_id      uuid        not null,
+  type         text        not null,
+  title        text,
+  message      text,
+  related_id   uuid,
+  related_type text,
+  is_read      boolean     not null default false,
   created_at   timestamptz not null default now()
 );
 
-create index if not exists notifications_user_unread_idx on public.notifications (user_id, is_read, created_at desc);
+create index if not exists notifications_user_id_idx
+  on public.notifications (user_id);
 
-comment on table public.notifications is '앱 내부 알림 (향후 카카오·문자·푸시 연동 대비)';
+create index if not exists notifications_created_at_idx
+  on public.notifications (created_at desc);
+
+create index if not exists notifications_user_unread_idx
+  on public.notifications (user_id, is_read, created_at desc);
+
+comment on table public.notifications is '앱 내부 알림 — 라운지 좋아요/댓글/답글/전문가 답변 + 거래 알림';
 
 alter table public.notifications enable row level security;
 
-create policy "notifications: own read" on public.notifications
+create policy "notifications: own select" on public.notifications
   for select using (auth.uid() = user_id);
+
 create policy "notifications: own update" on public.notifications
-  for update using (auth.uid() = user_id);
-create policy "notifications: insert" on public.notifications
-  for insert with check (true);  -- 서버·트리거에서 삽입
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "notifications: authenticated insert" on public.notifications
+  for insert with check (auth.role() = 'authenticated');
+
+-- 라운지 알림 type 값:
+--   post_like      내 글에 좋아요
+--   post_comment   내 글에 댓글
+--   comment_reply  내 댓글에 답글
+--   expert_answer  전문가가 내 글에 답변
+--   popular_post   관심 카테고리 인기글 (서버사이드 예정)
 
 -- ── STEP 23: Review protection — escrow_payment_id 연결 ─────────────────────
 alter table public.reviews
@@ -996,6 +1014,10 @@ create policy "request_reposts: owner insert" on public.request_reposts
 --  STEP SYNC-2 — Lounge Posts & Comments
 -- ============================================================
 
+--  라운지 시스템 — Lounge Community Tables
+-- ============================================================
+
+-- ── lounge_posts (일반 게시글 + is_story=true 이면 스토리) ────────────────────
 create table if not exists public.lounge_posts (
   id                 uuid primary key default gen_random_uuid(),
   user_id            uuid references public.users(id) on delete set null,
@@ -1003,19 +1025,29 @@ create table if not exists public.lounge_posts (
   category           text not null,
   title              text,
   content            text not null,
-  image_urls         text[] not null default '{}',
+  image_urls         text[]      not null default '{}',
   gender             text,
   age_group          text,
   region             text,
-  is_story           boolean not null default false,
-  view_count         integer not null default 0,
-  like_count         integer not null default 0,
-  comment_count      integer not null default 0,
-  has_badge          boolean not null default false,
+  is_story           boolean     not null default false,
+  story_expires_at   timestamptz,
+  is_seed            boolean     not null default false,  -- true: 플랫폼 seed 글 (real 글이 없을 때 초기 화면용)
+  view_count         integer     not null default 0,
+  like_count         integer     not null default 0,
+  comment_count      integer     not null default 0,
+  has_badge          boolean     not null default false,
+  boost_until        timestamptz,
+  is_deleted         boolean     not null default false,
+  deleted_at         timestamptz,
+  deleted_by         uuid references public.users(id) on delete set null,
+  is_hidden          boolean     not null default false,
+  hidden_by          uuid references public.users(id) on delete set null,
+  hidden_reason      text,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
 );
 
+comment on table public.lounge_posts is '라운지 게시글 및 스토리 (is_story=true이면 스토리)';
 create index if not exists lounge_posts_category_idx on public.lounge_posts (category, created_at desc);
 create index if not exists lounge_posts_created_idx  on public.lounge_posts (created_at desc);
 create index if not exists lounge_posts_story_idx    on public.lounge_posts (is_story, created_at desc);
@@ -1026,228 +1058,175 @@ create or replace trigger lounge_posts_updated_at
   for each row execute procedure public.set_updated_at();
 
 alter table public.lounge_posts enable row level security;
-create policy "lounge_posts: public read" on public.lounge_posts
-  for select using (true);
-create policy "lounge_posts: authenticated insert" on public.lounge_posts
-  for insert with check (auth.uid() = user_id or user_id is null);
-create policy "lounge_posts: own update" on public.lounge_posts
-  for update using (auth.uid() = user_id);
 
+-- 누구나 삭제/숨김되지 않은 글 조회 가능
+create policy "lounge_posts: public read" on public.lounge_posts
+  for select using (is_deleted = false and is_hidden = false);
+
+-- 본인 글 직접 조회 (마이페이지용, 숨김 포함 가능)
+create policy "lounge_posts: owner read own" on public.lounge_posts
+  for select using (auth.uid() = user_id);
+
+-- 로그인 사용자 게시글 작성
+create policy "lounge_posts: auth insert" on public.lounge_posts
+  for insert with check (auth.uid() = user_id);
+
+-- 본인 글만 수정 (소프트 삭제 포함)
+create policy "lounge_posts: owner update" on public.lounge_posts
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ── lounge_comments ───────────────────────────────────────────────────────────
 create table if not exists public.lounge_comments (
   id                 uuid primary key default gen_random_uuid(),
   post_id            uuid not null references public.lounge_posts(id) on delete cascade,
-  user_id            uuid references public.users(id) on delete set null,
   parent_id          uuid references public.lounge_comments(id) on delete cascade,
+  user_id            uuid references public.users(id) on delete set null,
   anonymous_nickname text not null,
   content            text not null,
-  like_count         integer not null default 0,
-  is_expert_reply    boolean not null default false,
-  is_deleted         boolean not null default false,
-  created_at         timestamptz not null default now()
+  image_urls         text[]      not null default '{}',
+  is_expert_reply    boolean     not null default false,
+  like_count         integer     not null default 0,
+  is_deleted         boolean     not null default false,
+  deleted_at         timestamptz,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
 );
 
-create index if not exists lounge_comments_post_idx on public.lounge_comments (post_id, created_at asc);
+comment on table public.lounge_comments is '라운지 댓글 및 대댓글';
 
 alter table public.lounge_comments enable row level security;
+
 create policy "lounge_comments: public read" on public.lounge_comments
   for select using (is_deleted = false);
-create policy "lounge_comments: authenticated insert" on public.lounge_comments
-  for insert with check (auth.uid() = user_id or user_id is null);
 
+create policy "lounge_comments: auth insert" on public.lounge_comments
+  for insert with check (auth.uid() = user_id);
+
+create policy "lounge_comments: owner update" on public.lounge_comments
+  for update using (auth.uid() = user_id);
+
+-- ── lounge_post_likes (중복 방지 unique 좋아요) ───────────────────────────────
 create table if not exists public.lounge_post_likes (
-  id         uuid primary key default gen_random_uuid(),
   post_id    uuid not null references public.lounge_posts(id) on delete cascade,
   user_id    uuid not null references public.users(id) on delete cascade,
   created_at timestamptz not null default now(),
-  unique (post_id, user_id)
+  primary key (post_id, user_id)
 );
 
 alter table public.lounge_post_likes enable row level security;
-create policy "lounge_post_likes: public read" on public.lounge_post_likes
-  for select using (true);
-create policy "lounge_post_likes: own write" on public.lounge_post_likes
-  for all using (auth.uid() = user_id);
-
--- ============================================================
---  STEP SYNC-3 — Space Tokens
--- ============================================================
-
-create table if not exists public.space_tokens (
-  id         uuid primary key default gen_random_uuid(),
-  user_id    uuid not null unique references public.users(id) on delete cascade,
-  balance    integer not null default 20,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create or replace trigger space_tokens_updated_at
-  before update on public.space_tokens
-  for each row execute procedure public.set_updated_at();
-
-alter table public.space_tokens enable row level security;
-create policy "space_tokens: own read" on public.space_tokens
+create policy "lounge_post_likes: auth read" on public.lounge_post_likes
   for select using (auth.uid() = user_id);
-create policy "space_tokens: own write" on public.space_tokens
-  for all using (auth.uid() = user_id);
-
-create table if not exists public.space_token_logs (
-  id          uuid primary key default gen_random_uuid(),
-  user_id     uuid not null references public.users(id) on delete cascade,
-  type        text not null check (type in ('earn','spend')),
-  action      text not null,
-  amount      integer not null,
-  description text,
-  created_at  timestamptz not null default now()
-);
-
-create index if not exists space_token_logs_user_idx on public.space_token_logs (user_id, created_at desc);
-
-alter table public.space_token_logs enable row level security;
-create policy "space_token_logs: own read" on public.space_token_logs
-  for select using (auth.uid() = user_id);
-create policy "space_token_logs: own insert" on public.space_token_logs
+create policy "lounge_post_likes: auth insert" on public.lounge_post_likes
   for insert with check (auth.uid() = user_id);
+create policy "lounge_post_likes: auth delete" on public.lounge_post_likes
+  for delete using (auth.uid() = user_id);
 
--- ============================================================
---  STEP SYNC-2a — lounge_posts: story expiry & soft-delete columns
--- ============================================================
-alter table public.lounge_posts add column if not exists story_expires_at timestamptz;
-alter table public.lounge_posts add column if not exists is_deleted boolean not null default false;
-alter table public.lounge_posts add column if not exists is_hidden  boolean not null default false;
+-- ── lounge_comment_likes ──────────────────────────────────────────────────────
+create table if not exists public.lounge_comment_likes (
+  comment_id uuid not null references public.lounge_comments(id) on delete cascade,
+  user_id    uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (comment_id, user_id)
+);
 
-create index if not exists lounge_posts_active_stories_idx
-  on public.lounge_posts (is_story, story_expires_at desc)
-  where is_story = true and is_deleted = false and is_hidden = false;
+alter table public.lounge_comment_likes enable row level security;
+create policy "lounge_comment_likes: auth insert" on public.lounge_comment_likes
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_comment_likes: auth delete" on public.lounge_comment_likes
+  for delete using (auth.uid() = user_id);
 
--- ============================================================
---  STEP SYNC-4 — Lounge Saves & Chat Requests
--- ============================================================
-
+-- ── lounge_saves (저장한 글) ──────────────────────────────────────────────────
 create table if not exists public.lounge_saves (
-  id         uuid primary key default gen_random_uuid(),
   post_id    uuid not null references public.lounge_posts(id) on delete cascade,
   user_id    uuid not null references public.users(id) on delete cascade,
   created_at timestamptz not null default now(),
-  unique (post_id, user_id)
+  primary key (post_id, user_id)
 );
 
 alter table public.lounge_saves enable row level security;
-create policy "lounge_saves: own read" on public.lounge_saves
+create policy "lounge_saves: owner read" on public.lounge_saves
   for select using (auth.uid() = user_id);
-create policy "lounge_saves: own write" on public.lounge_saves
-  for all using (auth.uid() = user_id);
+create policy "lounge_saves: owner insert" on public.lounge_saves
+  for insert with check (auth.uid() = user_id);
+create policy "lounge_saves: owner delete" on public.lounge_saves
+  for delete using (auth.uid() = user_id);
 
-create table if not exists public.lounge_chats (
-  id            uuid primary key default gen_random_uuid(),
-  post_id       uuid not null references public.lounge_posts(id) on delete cascade,
-  requester_id  uuid references public.users(id) on delete set null,
-  post_user_id  uuid references public.users(id) on delete set null,
-  status        text not null default 'pending'
-                  check (status in ('pending','accepted','rejected','expired')),
-  token_charged boolean not null default false,
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now(),
-  unique (post_id, requester_id)
+-- ── lounge_reports ────────────────────────────────────────────────────────────
+create table if not exists public.lounge_reports (
+  id          uuid primary key default gen_random_uuid(),
+  reporter_id uuid references public.users(id) on delete set null,
+  target_type text not null check (target_type in ('post','comment','story','user')),
+  target_id   text not null,
+  reason      text not null,
+  created_at  timestamptz not null default now()
 );
 
-alter table public.lounge_chats enable row level security;
-create policy "lounge_chats: participant read" on public.lounge_chats
-  for select using (auth.uid() = requester_id or auth.uid() = post_user_id);
-create policy "lounge_chats: requester insert" on public.lounge_chats
-  for insert with check (auth.uid() = requester_id or requester_id is null);
-create policy "lounge_chats: participant update" on public.lounge_chats
-  for update using (auth.uid() = requester_id or auth.uid() = post_user_id);
+alter table public.lounge_reports enable row level security;
+create policy "lounge_reports: auth insert" on public.lounge_reports
+  for insert with check (auth.uid() = reporter_id);
+create policy "lounge_reports: admin read" on public.lounge_reports
+  for select using (exists (select 1 from public.users where id = auth.uid() and role = 'admin'));
 
--- ============================================================
---  STORAGE — lounge-images 버킷 설정
---  Supabase SQL Editor에서는 Storage 버킷 생성이 불가합니다.
---  아래 절차를 Supabase 대시보드에서 직접 수행하세요:
---
---  1. Storage → New Bucket
---     name: lounge-images
---     Public: ON (이미지 공개 URL 접근 필요)
---
---  2. Storage → lounge-images → Policies → Add policy
---     INSERT: authenticated users can upload
---       allow insert where: auth.uid()::text = (storage.foldername(name))[2]
---     SELECT: anyone can read (public bucket)
---       allow select where: true
---
---  또는 아래 SQL로 RLS 정책 추가 (버킷 생성 후 실행):
--- ============================================================
+-- ── lounge_blocks ─────────────────────────────────────────────────────────────
+create table if not exists public.lounge_blocks (
+  blocker_id uuid not null references public.users(id) on delete cascade,
+  blocked_id uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id)
+);
 
-insert into storage.buckets (id, name, public)
-  values ('lounge-images', 'lounge-images', true)
-  on conflict (id) do update set public = true;
+alter table public.lounge_blocks enable row level security;
+create policy "lounge_blocks: owner rw" on public.lounge_blocks
+  for all using (auth.uid() = blocker_id);
 
-create policy "lounge_images: public read" on storage.objects
+-- ── lounge_chat_requests ──────────────────────────────────────────────────────
+create table if not exists public.lounge_chat_requests (
+  id          uuid primary key default gen_random_uuid(),
+  post_id     uuid references public.lounge_posts(id) on delete cascade,
+  requester_id uuid references public.users(id) on delete cascade,
+  target_id   uuid references public.users(id) on delete cascade,
+  status      text not null default 'pending'
+                check (status in ('pending','accepted','rejected','expired')),
+  token_charged boolean not null default false,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table public.lounge_chat_requests enable row level security;
+create policy "lounge_chat_requests: owner read" on public.lounge_chat_requests
+  for select using (auth.uid() = requester_id or auth.uid() = target_id);
+create policy "lounge_chat_requests: auth insert" on public.lounge_chat_requests
+  for insert with check (auth.uid() = requester_id);
+create policy "lounge_chat_requests: target update" on public.lounge_chat_requests
+  for update using (auth.uid() = target_id or auth.uid() = requester_id);
+
+
+-- ── Storage: lounge-images 버킷 ───────────────────────────────────────────────
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'lounge-images',
+  'lounge-images',
+  true,
+  5242880,
+  array['image/jpeg','image/jpg','image/png','image/gif','image/webp']
+) on conflict (id) do nothing;
+
+-- 공개 읽기 (누구나 이미지 조회 가능)
+create policy "lounge-images: public read" on storage.objects
   for select using (bucket_id = 'lounge-images');
 
-create policy "lounge_images: auth upload" on storage.objects
+-- 로그인 사용자 업로드 (본인 폴더만)
+create policy "lounge-images: auth upload" on storage.objects
   for insert with check (
-    bucket_id = 'lounge-images'
-    and auth.uid() is not null
+    bucket_id = 'lounge-images' and
+    auth.uid() is not null and
+    split_part(name, '/', 2) = auth.uid()::text
   );
 
-create policy "lounge_images: owner delete" on storage.objects
+-- 본인 파일 삭제
+create policy "lounge-images: owner delete" on storage.objects
   for delete using (
-    bucket_id = 'lounge-images'
-    and auth.uid()::text = (storage.foldername(name))[2]
+    bucket_id = 'lounge-images' and
+    split_part(name, '/', 2) = auth.uid()::text
   );
-
--- ============================================================
---  STEP STORY-ACT — 스토리 댓글/대화/삭제 지원 마이그레이션
--- ============================================================
-
--- space_token_logs: 중복 차감 방지용 related_id 컬럼 추가
-alter table public.space_token_logs add column if not exists related_id uuid;
-create index if not exists space_token_logs_related_idx on public.space_token_logs (related_id) where related_id is not null;
-
--- lounge_posts: is_deleted 컬럼이 없는 구 DB를 위한 보장
-alter table public.lounge_posts add column if not exists is_deleted boolean not null default false;
-alter table public.lounge_posts add column if not exists is_hidden  boolean not null default false;
-
--- lounge_posts: own update 정책 (is_deleted soft-delete 포함)
-do $$ begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname = 'public' and tablename = 'lounge_posts'
-      and policyname = 'lounge_posts: own update'
-  ) then
-    create policy "lounge_posts: own update" on public.lounge_posts
-      for update using (auth.uid() = user_id);
-  end if;
-end $$;
-
--- lounge_comments: insert 정책 보장
-do $$ begin
-  if not exists (
-    select 1 from pg_policies
-    where schemaname = 'public' and tablename = 'lounge_comments'
-      and policyname = 'lounge_comments: authenticated insert'
-  ) then
-    create policy "lounge_comments: authenticated insert" on public.lounge_comments
-      for insert with check (auth.uid() = user_id or user_id is null);
-  end if;
-end $$;
-
--- ============================================================
---  STEP COMMENT-FIX — lounge_comments 컬럼 + RLS 정책 수정
--- ============================================================
-
--- lounge_comments: 누락 컬럼 추가
-alter table public.lounge_comments add column if not exists is_deleted boolean not null default false;
-alter table public.lounge_comments add column if not exists image_urls  text[]  not null default '{}';
-
--- lounge_comments: 기존 제한적 RLS 정책 모두 삭제 후 permissive로 교체
-drop policy if exists "lounge_comments: public read"            on public.lounge_comments;
-drop policy if exists "lounge_comments: owner insert"           on public.lounge_comments;
-drop policy if exists "lounge_comments: admin update"           on public.lounge_comments;
-drop policy if exists "lounge_comments: authenticated insert"   on public.lounge_comments;
-drop policy if exists "allow read comments"                     on public.lounge_comments;
-drop policy if exists "allow insert comments"                   on public.lounge_comments;
-drop policy if exists "allow update comments"                   on public.lounge_comments;
-
-create policy "allow read comments"   on public.lounge_comments for select using (true);
-create policy "allow insert comments" on public.lounge_comments for insert with check (true);
-create policy "allow update comments" on public.lounge_comments for update using (true) with check (true);

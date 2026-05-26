@@ -1,16 +1,19 @@
+// ─────────────────────────────────────────────────────
+// 공간마켓 라운지 시스템
+// ─────────────────────────────────────────────────────
+
 import { useState, useRef } from 'react';
 import { C, R, S } from '../constants';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
-import { createLoungePost, uploadFile } from '../lib/supabase';
+import { IS_SUPABASE_READY, createLoungeStory, uploadLoungeImage } from '../lib/supabase';
 
 const MAX_SIZE_MB = 5;
 
 export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
-  const [photos,      setPhotos]      = useState([]);   // { blob, url }[]
-  const [text,        setText]        = useState('');
-  const [submitting,  setSubmitting]  = useState(false);
+  const [photos,     setPhotos]     = useState([]);   // { file: File, url: string }[]
+  const [text,       setText]       = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [devInfo,     setDevInfo]     = useState(null);
   const fileInputRef = useRef(null);
 
   const canSubmit = photos.length > 0 || text.trim().length > 0;
@@ -27,7 +30,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         setUploadError(`파일 크기는 ${MAX_SIZE_MB}MB 이하로 올려주세요`);
         continue;
       }
-      valid.push({ blob: f, url: URL.createObjectURL(f) });
+      valid.push({ file: f, url: URL.createObjectURL(f) });
     }
     setPhotos(prev => [...prev, ...valid].slice(0, 5));
     if (valid.length) setUploadError('');
@@ -42,108 +45,99 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit || submitting) return;
+    if (!canSubmit) return;
     setSubmitting(true);
-    setUploadError('');
 
-    try {
-      // Upload images to Supabase Storage
-      const imageUrls = [];
-      let uploadErrors = 0;
-      let firstUploadErrMsg = null;
-      if (photos.length > 0 && user?.id) {
-        for (const photo of photos) {
-          try {
-            const ext  = photo.blob.type.split('/')[1] ?? 'jpg';
-            const path = `lounge/${user.id}/stories/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-            const url  = await uploadFile('lounge-images', path, photo.blob);
-            if (url) {
-              imageUrls.push(url);
-            } else {
-              uploadErrors++;
-              firstUploadErrMsg = firstUploadErrMsg ?? 'URL 반환 없음';
-            }
-          } catch (uploadErr) {
-            uploadErrors++;
-            const msg = uploadErr?.message ?? String(uploadErr);
-            const isBucketMissing = msg.toLowerCase().includes('bucket') || msg.toLowerCase().includes('not found');
-            firstUploadErrMsg = firstUploadErrMsg ?? (isBucketMissing
-              ? 'Storage 버킷 없음 — Supabase 대시보드에서 lounge-images 버킷을 생성해주세요'
-              : msg);
-          }
-        }
-      }
+    const useSupabase = IS_SUPABASE_READY && !user?.isGuest && !!user?.id;
 
-      if (photos.length > 0 && uploadErrors > 0) {
-        if (import.meta.env.DEV) {
-          setDevInfo({
-            user_id: user?.id ?? 'null', is_story: true, story_expires_at: null,
-            insertId: null, insertError: null,
-            imageUrls_count: imageUrls.length, uploadErrors, uploadErrMsg: firstUploadErrMsg,
-          });
-        }
-        setUploadError(`사진 업로드 실패: ${firstUploadErrMsg}`);
-        setSubmitting(false);
-        return;
-      }
+    const now     = new Date();
+    // UUID 생성 — Supabase lounge_posts.id 는 uuid 타입
+    const storyId = crypto.randomUUID();
+    const nickname = getAnonymousNickname(user?.id ?? 'guest', storyId);
 
-      const now       = new Date();
-      const tempId    = `story-${Date.now()}`;
-      const nickname  = getAnonymousNickname(user?.id ?? 'guest', tempId);
-      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    // 이미지 처리: Supabase → Storage public URL, 오프라인 → blob URL
+    let imageUrls;
+    if (useSupabase && photos.length > 0) {
+      const results = await Promise.all(photos.map(async (p) => {
+        const { data: up, error: upErr } = await uploadLoungeImage(p.file, user.id);
+        if (upErr) return p.url; // Storage 실패 시 blob URL fallback
+        return up.publicUrl;
+      }));
+      imageUrls = results;
+    } else {
+      imageUrls = photos.map(p => p.url); // blob URL (세션 내 유효)
+    }
 
-      const payload = {
-        user_id:            user?.id ?? null,
-        anonymous_nickname: nickname,
-        category:           'daily',
-        title:              null,
-        content:            text.trim() || '',
-        image_urls:         imageUrls,
-        is_story:           true,
-        story_expires_at:   expiresAt,
-        view_count:         0,
-        like_count:         0,
-        comment_count:      0,
-        has_badge:          !!(user?.badge && user.badge !== 'basic'),
-      };
+    const newStory = {
+      id:                 storyId,
+      user_id:            user?.id ?? null,
+      anonymous_nickname: nickname,
+      content:            text.trim(),
+      image_urls:         imageUrls,
+      is_story:           true,
+      story_expires_at:   new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      created_at:         now.toISOString(),
+      category:           'daily',
+      view_count:         0,
+      like_count:         0,
+      comment_count:      0,
+    };
 
-      // story_expires_at 컬럼이 없는 구 DB를 위한 fallback
-      let { data, error: insertError } = await createLoungePost(payload);
-      if (insertError?.message?.includes('story_expires_at')) {
-        const { story_expires_at: _dropped, ...payloadWithout } = payload;
-        ({ data, error: insertError } = await createLoungePost(payloadWithout));
-      }
-
+    if (useSupabase) {
+      const { data, error: err } = await createLoungeStory(newStory);
       if (import.meta.env.DEV) {
-        setDevInfo({
-          user_id:           user?.id ?? 'null',
-          is_story:          true,
-          payload_content:   payload.content,
-          payload_img_count: payload.image_urls.length,
-          payload_imgs:      payload.image_urls,
-          story_expires_at:  expiresAt,
-          uploadErrors,
-          uploadErrMsg:      firstUploadErrMsg,
-          insertId:          data?.id ?? null,
-          insertError:       insertError?.message ?? null,
-          insertedContent:   data?.content ?? null,
-          insertedImgUrls:   data?.image_urls ?? null,
-          insertedIsStory:   data?.is_story ?? null,
-          insertedExpiry:    data?.story_expires_at ?? null,
-        });
+        try {
+          localStorage.setItem('lounge_dev_story_upload', JSON.stringify({
+            ts: new Date().toISOString(),
+            useSupabase: true,
+            payload: {
+              id: newStory.id,
+              is_story: newStory.is_story,
+              story_expires_at: newStory.story_expires_at,
+              image_urls_count: newStory.image_urls.length,
+              image_urls_sample: newStory.image_urls[0]?.slice(0, 100) ?? null,
+              content_length: newStory.content.length,
+            },
+            result: data ? {
+              id: data.id,
+              is_story: data.is_story,
+              story_expires_at: data.story_expires_at,
+              image_urls_count: (data.image_urls ?? []).length,
+            } : null,
+            error: err ? { message: err.message, code: err.code, details: err.details } : null,
+          }));
+        } catch {}
       }
-
-      if (insertError) {
-        setUploadError(`저장 실패: ${insertError.message}`);
-        setSubmitting(false);
-        return;
-      }
-
-      onPublish?.(data ?? { ...payload, id: tempId, created_at: now.toISOString() });
-    } catch (e) {
-      setUploadError('업로드 중 오류가 발생했어요. 다시 시도해주세요.');
-    } finally {
       setSubmitting(false);
+      if (err) { setUploadError('업로드 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
+      onPublish?.(data ?? newStory);
+    } else {
+      try {
+        const key = 'lounge_offline_stories';
+        const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+        localStorage.setItem(key, JSON.stringify([newStory, ...prev.filter(s => s.id !== newStory.id)]));
+      } catch {}
+      if (import.meta.env.DEV) {
+        try {
+          localStorage.setItem('lounge_dev_story_upload', JSON.stringify({
+            ts: new Date().toISOString(),
+            useSupabase: false,
+            payload: {
+              id: newStory.id,
+              is_story: newStory.is_story,
+              story_expires_at: newStory.story_expires_at,
+              image_urls_count: newStory.image_urls.length,
+              image_urls_sample: newStory.image_urls[0]?.slice(0, 100) ?? null,
+              content_length: newStory.content.length,
+            },
+            result: null,
+            error: null,
+          }));
+        } catch {}
+      }
+      await new Promise(r => setTimeout(r, 300));
+      setSubmitting(false);
+      onPublish?.(newStory);
     }
   };
 
@@ -170,6 +164,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
       {/* 사진 영역 */}
       <div style={{ flex: 1, padding: `0 ${S.xl}px`, display: 'flex', flexDirection: 'column', gap: S.md }}>
 
+        {/* 사진 없을 때: 업로드 버튼 */}
         {photos.length === 0 ? (
           <div
             onClick={() => fileInputRef.current?.click()}
@@ -187,9 +182,15 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
             <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>탭하여 갤러리에서 선택 (최대 5장)</div>
           </div>
         ) : (
+          /* 사진 미리보기 그리드 */
           <div>
+            {/* 메인 사진 (첫 번째) */}
             <div style={{ position: 'relative', borderRadius: R.xl, overflow: 'hidden', marginBottom: 6 }}>
-              <img src={photos[0].url} alt="" style={{ width: '100%', maxHeight: 340, objectFit: 'cover', display: 'block' }} />
+              <img
+                src={photos[0].url}
+                alt=""
+                style={{ width: '100%', maxHeight: 340, objectFit: 'cover', display: 'block' }}
+              />
               <button onClick={() => removePhoto(0)} style={{
                 position: 'absolute', top: 8, right: 8,
                 background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%',
@@ -197,11 +198,13 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>✕</button>
             </div>
+
+            {/* 추가 사진 썸네일 행 */}
             {photos.length > 1 && (
               <div style={{ display: 'flex', gap: 6 }}>
-                {photos.slice(1).map((photo, i) => (
+                {photos.slice(1).map((p, i) => (
                   <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
-                    <img src={photo.url} alt="" style={{ width: 72, height: 72, borderRadius: R.md, objectFit: 'cover', display: 'block' }} />
+                    <img src={p.url} alt="" style={{ width: 72, height: 72, borderRadius: R.md, objectFit: 'cover', display: 'block' }} />
                     <button onClick={() => removePhoto(i + 1)} style={{
                       position: 'absolute', top: 2, right: 2,
                       background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%',
@@ -210,29 +213,41 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
                     }}>✕</button>
                   </div>
                 ))}
+                {/* 사진 추가 버튼 (5장 미만일 때) */}
                 {photos.length < 5 && (
-                  <div onClick={() => fileInputRef.current?.click()} style={{
-                    width: 72, height: 72, borderRadius: R.md,
-                    border: '2px dashed rgba(255,255,255,0.3)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 24, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', flexShrink: 0,
-                  }}>+</div>
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      width: 72, height: 72, borderRadius: R.md,
+                      border: '2px dashed rgba(255,255,255,0.3)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 24, color: 'rgba(255,255,255,0.4)', cursor: 'pointer', flexShrink: 0,
+                    }}>
+                    +
+                  </div>
                 )}
               </div>
             )}
+
+            {/* 사진 1장일 때 추가 버튼 */}
             {photos.length === 1 && (
               <div style={{ display: 'flex', gap: 6 }}>
-                <div onClick={() => fileInputRef.current?.click()} style={{
-                  width: 72, height: 72, borderRadius: R.md,
-                  border: '2px dashed rgba(255,255,255,0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 24, color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
-                }}>+</div>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    width: 72, height: 72, borderRadius: R.md,
+                    border: '2px dashed rgba(255,255,255,0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 24, color: 'rgba(255,255,255,0.4)', cursor: 'pointer',
+                  }}>
+                  +
+                </div>
               </div>
             )}
           </div>
         )}
 
+        {/* 텍스트 입력 */}
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
@@ -247,12 +262,14 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
           }}
         />
 
+        {/* 업로드 오류 */}
         {uploadError && (
           <div style={{ background: 'rgba(229,62,62,0.15)', borderRadius: R.lg, padding: S.md, border: '1px solid rgba(229,62,62,0.3)' }}>
             <div style={{ fontSize: 12, color: '#ff6b6b', fontWeight: 700 }}>{uploadError}</div>
           </div>
         )}
 
+        {/* 안내 */}
         <div style={{ background: 'rgba(46,95,75,0.3)', borderRadius: R.lg, padding: S.md, border: `1px solid ${C.brandM}55` }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
             ⏰ 스토리는 <strong style={{ color: '#fff' }}>24시간</strong> 후 자동으로 사라집니다.<br />
@@ -261,29 +278,17 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         </div>
       </div>
 
-      <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoSelect} style={{ display: 'none' }} />
+      {/* hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handlePhotoSelect}
+        style={{ display: 'none' }}
+      />
 
       <div style={{ height: 32 }} />
-
-      {import.meta.env.DEV && devInfo && (
-        <div style={{ position: 'fixed', bottom: 8, left: 8, right: 8, background: 'rgba(0,0,0,0.85)', color: '#0f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, zIndex: 9999, lineHeight: 1.8, fontFamily: 'monospace', maxHeight: 260, overflowY: 'auto' }}>
-          [DEV] story upload<br/>
-          user_id: {devInfo.user_id}<br/>
-          upload_errors: {devInfo.uploadErrors ?? 0} | images: {devInfo.payload_img_count ?? devInfo.imageUrls_count ?? 0}장<br/>
-          {devInfo.uploadErrMsg && <span style={{color:'#f66'}}>upload_err: {devInfo.uploadErrMsg}<br/></span>}
-          --- payload ---<br/>
-          payload_content: {devInfo.payload_content ? `"${devInfo.payload_content}"` : '(empty)'}<br/>
-          payload_imgs: {devInfo.payload_img_count ?? 0}장 {JSON.stringify(devInfo.payload_imgs ?? [])}<br/>
-          --- inserted row ---<br/>
-          insert_id: {devInfo.insertId ?? 'null'}<br/>
-          insert_error: {devInfo.insertError ? <span style={{color:'#f66'}}>{devInfo.insertError}</span> : 'none'}<br/>
-          inserted_content: {devInfo.insertedContent != null ? `"${devInfo.insertedContent}"` : 'null'}<br/>
-          inserted_image_urls: {JSON.stringify(devInfo.insertedImgUrls ?? [])}<br/>
-          inserted_is_story: {String(devInfo.insertedIsStory)}<br/>
-          inserted_expires_at: {devInfo.insertedExpiry ?? 'null'}<br/>
-          story_expires_at (payload): {devInfo.story_expires_at}
-        </div>
-      )}
     </div>
   );
 }

@@ -858,6 +858,27 @@ export const approveEscrowPayoutByStage = (escrowId, stage, approvedBy = null) =
     .select()
     .single();
 
+// ── Lounge ────────────────────────────────────────────────────────────────────
+
+export const IS_SUPABASE_READY = !!(
+  import.meta.env.VITE_SUPABASE_URL &&
+  import.meta.env.VITE_SUPABASE_URL !== "https://placeholder.supabase.co" &&
+  import.meta.env.VITE_SUPABASE_ANON_KEY &&
+  import.meta.env.VITE_SUPABASE_ANON_KEY !== "placeholder-anon-key"
+);
+
+export const uploadLoungeImage = async (file, userId) => {
+  const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const name = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const path = `lounge/${userId}/${name}`;
+  const { error } = await supabase.storage
+    .from('lounge-images')
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (error) return { data: null, error };
+  const { data } = supabase.storage.from('lounge-images').getPublicUrl(path);
+  return { data, error: null };
+};
+
 // ── STEP O: ops_config (Emergency Switch) ────────────────────────────────────
 
 export const getOpsConfig = () =>
@@ -1280,38 +1301,65 @@ export const adminRestoreRequest = (id) =>
 
 // ── STEP SYNC-2: Lounge CRUD ──────────────────────────────────────────────────
 
-export const getLoungePosts = (category = "all", limit = 50) => {
+export const getLoungePosts = async (category = "all") => {
   let q = supabase
     .from("lounge_posts")
     .select("*")
     .eq("is_story", false)
     .eq("is_deleted", false)
-    .limit(limit);
+    .eq("is_hidden", false)
+    .order("is_seed", { ascending: true });   // real 글 먼저
+
   if (category === "popular") {
-    q = q.order("view_count", { ascending: false })
-         .order("like_count", { ascending: false });
-  } else {
-    if (category !== "all") q = q.eq("category", category);
-    q = q.order("created_at", { ascending: false });
+    q = q.order("view_count", { ascending: false });
+  } else if (category !== "all") {
+    q = q.eq("category", category);
   }
-  return q;
+
+  return q.order("created_at", { ascending: false });
 };
 
-export const getLoungeStories = (limit = 20) => {
-  return supabase
-    .from("lounge_posts")
-    .select("*")
-    .eq("is_story", true)
-    .eq("is_deleted", false)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-};
+export const getLoungePost = (postId) =>
+  supabase.from("lounge_posts").select("*").eq("id", postId).single();
 
 export const createLoungePost = (data) =>
   supabase.from("lounge_posts").insert(data).select().single();
 
-export const getLoungePost = (postId) =>
-  supabase.from("lounge_posts").select("*").eq("id", postId).single();
+export const updateLoungePost = (postId, userId, updates) =>
+  supabase
+    .from("lounge_posts")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", postId)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+export const softDeleteLoungePost = (postId, userId) =>
+  supabase
+    .from("lounge_posts")
+    .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq("id", postId)
+    .eq("user_id", userId);
+
+export const getLoungeStories = () =>
+  supabase
+    .from("lounge_posts")
+    .select("*")
+    .eq("is_story", true)
+    .eq("is_deleted", false)
+    .eq("is_hidden", false)
+    .gt("story_expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
+
+export const createLoungeStory = (data) =>
+  supabase.from("lounge_posts").insert({ ...data, is_story: true }).select().single();
+
+export const softDeleteLoungeStory = (storyId, userId) =>
+  supabase
+    .from("lounge_posts")
+    .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq("id", storyId)
+    .eq("user_id", userId);
 
 export const getLoungeComments = (postId) =>
   supabase
@@ -1324,6 +1372,13 @@ export const getLoungeComments = (postId) =>
 
 export const createLoungeComment = (data) =>
   supabase.from("lounge_comments").insert(data).select().single();
+
+export const softDeleteLoungeComment = (commentId, userId) =>
+  supabase
+    .from("lounge_comments")
+    .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
+    .eq("id", commentId)
+    .eq("user_id", userId);
 
 export const likeLoungePost = async (postId) => {
   const { data: current } = await supabase
@@ -1426,6 +1481,59 @@ export const removeLoungeSave = (postId, userId) =>
     .eq("post_id", postId)
     .eq("user_id", userId);
 
+export const getMyLoungePosts = (userId) =>
+  supabase
+    .from("lounge_posts")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_deleted", false)
+    .order("created_at", { ascending: false });
+
+export const adminHideLoungePost = (postId, adminId, reason = "") =>
+  supabase
+    .from("lounge_posts")
+    .update({ is_hidden: true, hidden_by: adminId, hidden_reason: reason, updated_at: new Date().toISOString() })
+    .eq("id", postId);
+
+export const adminUnhideLoungePost = (postId) =>
+  supabase
+    .from("lounge_posts")
+    .update({ is_hidden: false, hidden_by: null, hidden_reason: null, updated_at: new Date().toISOString() })
+    .eq("id", postId);
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export const getNotifications = (userId) =>
+  supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+export const markAllNotifsRead = (userId) =>
+  supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("user_id", userId)
+    .eq("is_read", false);
+
+export const markNotifRead = (notifId) =>
+  supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("id", notifId);
+
+export const createLoungeNotification = ({ userId, type, title, message, relatedId = null, relatedType = null }) =>
+  supabase.from("notifications").insert({
+    user_id:      userId,
+    type,
+    title,
+    message,
+    related_id:   relatedId,
+    related_type: relatedType,
+    is_read:      false,
+  });
 // ── STEP SYNC-4: Lounge Chat Requests ────────────────────────────────────────
 
 export const createLoungeChat = (data) =>
@@ -1435,14 +1543,6 @@ export const createLoungeChat = (data) =>
     .select()
     .single();
 
-export const softDeleteLoungePost = (postId, userId) =>
-  supabase
-    .from("lounge_posts")
-    .update({ is_deleted: true, updated_at: new Date().toISOString() })
-    .eq("id", postId)
-    .eq("user_id", userId);
-
-// 대화 수락 시 호출 (token_charged=true, space_tokens 차감은 caller에서 처리)
 export const acceptLoungeChat = (chatId, participantId) =>
   supabase
     .from("lounge_chats")
