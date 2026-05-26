@@ -300,6 +300,38 @@ export const getRawReviewsAll = ({ limit = 10 } = {}) =>
     .order("created_at", { ascending: false })
     .limit(limit);
 
+// ── Seed Reviews ─────────────────────────────────────────────────────────────
+
+export const getSeedReviews = ({ limit = 20, activeOnly = true } = {}) => {
+  let q = supabase
+    .from("seed_reviews")
+    .select("id, category, space_type, region, user_name, masked_company_name, content, rating, before_image_url, after_image_url, sort_order, is_active, created_at")
+    .order("sort_order", { ascending: true })
+    .limit(limit);
+  if (activeOnly) q = q.eq("is_active", true);
+  return q;
+};
+
+export const createSeedReview = (row) =>
+  supabase.from("seed_reviews").insert(row).select().single();
+
+export const updateSeedReview = (id, updates) =>
+  supabase.from("seed_reviews").update(updates).eq("id", id).select().single();
+
+export const deleteSeedReview = (id) =>
+  supabase.from("seed_reviews").delete().eq("id", id);
+
+export const uploadSeedReviewImage = async (file, slot) => {
+  const ext = file.name.split(".").pop().toLowerCase();
+  const path = `${slot}_${Date.now()}.${ext}`;
+  const { error } = await supabase.storage
+    .from("seed-review-images")
+    .upload(path, file, { upsert: true });
+  if (error) return { error };
+  const { data } = supabase.storage.from("seed-review-images").getPublicUrl(path);
+  return { url: data.publicUrl };
+};
+
 // ── Fee Config ────────────────────────────────────────────────────────────────
 
 export const getFeeConfig = () =>
