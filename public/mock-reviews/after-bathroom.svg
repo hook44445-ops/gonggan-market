@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="marble" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8f6f4"/>
+      <stop offset="100%" stop-color="#ede9e4"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d8d4ce"/>
+      <stop offset="100%" stop-color="#c4c0ba"/>
+    </linearGradient>
+    <linearGradient id="tub" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0efee"/>
+    </linearGradient>
+  </defs>
+  <!-- wall — large marble tiles -->
+  <rect width="400" height="300" fill="url(#marble)"/>
+  <rect width="400" height="32" fill="#f8f6f4"/>
+  <!-- subtle marble veins -->
+  <path d="M 40 38 Q 80 80 60 130 Q 90 160 70 200" stroke="#e4e0d8" stroke-width="2" fill="none" opacity="0.7"/>
+  <path d="M 200 40 Q 220 90 210 130 Q 240 160 220 195" stroke="#e4e0d8" stroke-width="1.5" fill="none" opacity="0.55"/>
+  <path d="M 330 50 Q 350 100 340 160" stroke="#e4e0d8" stroke-width="1.5" fill="none" opacity="0.5"/>
+  <!-- large tile grid -->
+  <g stroke="#dedad4" stroke-width="1.5" opacity="0.7">
+    <line x1="0" y1="92" x2="400" y2="92"/>
+    <line x1="0" y1="172" x2="400" y2="172"/>
+    <line x1="133" y1="32" x2="133" y2="232"/>
+    <line x1="266" y1="32" x2="266" y2="232"/>
+  </g>
+  <!-- floor small hex tiles -->
+  <rect x="0" y="232" width="400" height="68" fill="url(#floor)"/>
+  <g stroke="#b8b4ae" stroke-width="0.8" opacity="0.5">
+    <line x1="0" y1="248" x2="400" y2="248"/>
+    <line x1="0" y1="264" x2="400" y2="264"/>
+    <line x1="0" y1="280" x2="400" y2="280"/>
+    <line x1="0" y1="296" x2="400" y2="296"/>
+    <line x1="36" y1="232" x2="36" y2="300"/>
+    <line x1="72" y1="232" x2="72" y2="300"/>
+    <line x1="108" y1="232" x2="108" y2="300"/>
+    <line x1="144" y1="232" x2="144" y2="300"/>
+    <line x1="180" y1="232" x2="180" y2="300"/>
+    <line x1="216" y1="232" x2="216" y2="300"/>
+    <line x1="252" y1="232" x2="252" y2="300"/>
+    <line x1="288" y1="232" x2="288" y2="300"/>
+    <line x1="324" y1="232" x2="324" y2="300"/>
+    <line x1="360" y1="232" x2="360" y2="300"/>
+    <line x1="396" y1="232" x2="396" y2="300"/>
+  </g>
+  <!-- freestanding tub (modern) -->
+  <ellipse cx="295" cy="200" rx="95" ry="34" fill="url(#tub)"/>
+  <ellipse cx="295" cy="200" rx="87" ry="27" fill="#f4f4f4"/>
+  <ellipse cx="295" cy="200" rx="80" ry="21" fill="#e8f0f8"/>
+  <!-- tub rim shadow -->
+  <ellipse cx="295" cy="232" rx="92" ry="6" fill="#d8d4ce" opacity="0.5"/>
+  <!-- chrome floor faucet -->
+  <rect x="374" y="178" width="5" height="24" fill="#c8ccd0" rx="2"/>
+  <path d="M 376 178 Q 386 168 390 182" stroke="#c8ccd0" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <circle cx="390" cy="185" r="4" fill="#d0d4d8"/>
+  <!-- frameless mirror -->
+  <rect x="42" y="36" width="116" height="95" fill="#c0d4de" rx="4" opacity="0.85"/>
+  <rect x="42" y="36" width="116" height="95" fill="none" stroke="#e8e4de" stroke-width="4" rx="4"/>
+  <!-- mirror reflection highlights -->
+  <rect x="44" y="38" width="20" height="90" fill="white" opacity="0.12"/>
+  <!-- wall sconce (modern) -->
+  <rect x="88" y="30" width="18" height="10" fill="#e8e0d0" rx="4"/>
+  <ellipse cx="97" cy="30" rx="6" ry="4" fill="#fff8e0" opacity="0.95"/>
+  <ellipse cx="97" cy="30" rx="12" ry="8" fill="#fff8e0" opacity="0.35"/>
+  <!-- modern sink (undermount style) -->
+  <rect x="42" y="188" width="116" height="50" fill="#f0ede8" rx="6"/>
+  <ellipse cx="100" cy="207" rx="36" ry="20" fill="#e0ddd8"/>
+  <ellipse cx="100" cy="207" rx="28" ry="14" fill="#c8d4dc"/>
+  <!-- chrome faucet -->
+  <rect x="98" y="182" width="5" height="14" fill="#c8ccd0" rx="2"/>
+  <path d="M 100 182 Q 110 174 114 186" stroke="#c8ccd0" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <!-- plant in corner -->
+  <rect x="18" y="200" width="22" height="32" fill="#9a8870" rx="5"/>
+  <ellipse cx="29" cy="197" rx="20" ry="25" fill="#4a7a5a"/>
+  <ellipse cx="18" cy="185" rx="13" ry="17" fill="#3a6a4a"/>
+  <!-- green label -->
+  <rect x="8" y="8" width="82" height="26" fill="rgba(30,80,50,0.88)" rx="13"/>
+  <text x="49" y="25" fill="#ffffff" font-family="'Apple SD Gothic Neo',sans-serif" font-size="13" font-weight="700" text-anchor="middle">욕실 완성</text>
+</svg>

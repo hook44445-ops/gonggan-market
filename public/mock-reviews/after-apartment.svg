@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0ece4"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#c8a870"/>
+      <stop offset="40%" stop-color="#d4b880"/>
+      <stop offset="100%" stop-color="#c0a068"/>
+    </linearGradient>
+    <linearGradient id="sunlight" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#fffef5" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#fffef5" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c8e4f4"/>
+      <stop offset="100%" stop-color="#e8f4f8"/>
+    </linearGradient>
+  </defs>
+  <!-- wall -->
+  <rect width="400" height="300" fill="url(#wall)"/>
+  <rect width="400" height="28" fill="#f8f6f2"/>
+  <!-- accent wall stripe left -->
+  <rect x="0" y="28" width="8" height="205" fill="#2e5f4b" opacity="0.15"/>
+  <!-- large window -->
+  <rect x="42" y="48" width="140" height="155" fill="url(#sky)" rx="5"/>
+  <rect x="44" y="50" width="136" height="151" fill="#d8eef8" opacity="0.6" rx="4"/>
+  <!-- window frame -->
+  <rect x="40" y="46" width="144" height="159" fill="none" stroke="#e8e4de" stroke-width="5" rx="5"/>
+  <line x1="113" y1="50" x2="113" y2="201" stroke="#e8e4de" stroke-width="3"/>
+  <line x1="44" y1="128" x2="180" y2="128" stroke="#e8e4de" stroke-width="3"/>
+  <!-- sunlight ray through window -->
+  <polygon points="113,50 150,50 250,230 195,230" fill="url(#sunlight)" opacity="0.5"/>
+  <!-- floor -->
+  <rect x="0" y="233" width="400" height="67" fill="url(#floor)"/>
+  <!-- floor planks -->
+  <g stroke="#b89058" stroke-width="0.8" opacity="0.5">
+    <line x1="0" y1="245" x2="400" y2="245"/>
+    <line x1="0" y1="257" x2="400" y2="257"/>
+    <line x1="0" y1="269" x2="400" y2="269"/>
+    <line x1="0" y1="281" x2="400" y2="281"/>
+    <line x1="75" y1="233" x2="75" y2="300"/>
+    <line x1="165" y1="233" x2="165" y2="300"/>
+    <line x1="265" y1="233" x2="265" y2="300"/>
+    <line x1="355" y1="233" x2="355" y2="300"/>
+  </g>
+  <!-- modern sofa -->
+  <rect x="195" y="178" width="185" height="58" fill="#7a9080" rx="8"/>
+  <rect x="195" y="166" width="185" height="18" fill="#8aa090" rx="6"/>
+  <rect x="195" y="178" width="24" height="58" fill="#6a8070" rx="5"/>
+  <rect x="356" y="178" width="24" height="58" fill="#6a8070" rx="5"/>
+  <!-- cushions -->
+  <rect x="212" y="169" width="40" height="24" fill="#9ab0a0" rx="5"/>
+  <rect x="260" y="169" width="40" height="24" fill="#9ab0a0" rx="5"/>
+  <rect x="308" y="169" width="40" height="24" fill="#9ab0a0" rx="5"/>
+  <!-- light coffee table -->
+  <rect x="200" y="228" width="90" height="7" fill="#d4b880" rx="3"/>
+  <rect x="203" y="235" width="5" height="28" fill="#c4a870" rx="2"/>
+  <rect x="282" y="235" width="5" height="28" fill="#c4a870" rx="2"/>
+  <!-- plant in corner -->
+  <rect x="360" y="193" width="22" height="40" fill="#9a8870" rx="4"/>
+  <ellipse cx="371" cy="190" rx="22" ry="26" fill="#4a7a5a"/>
+  <ellipse cx="356" cy="178" rx="14" ry="18" fill="#3a6a4a"/>
+  <ellipse cx="385" cy="182" rx="12" ry="16" fill="#5a8a6a"/>
+  <!-- green label -->
+  <rect x="8" y="8" width="92" height="26" fill="rgba(30,80,50,0.88)" rx="13"/>
+  <text x="54" y="25" fill="#ffffff" font-family="'Apple SD Gothic Neo',sans-serif" font-size="13" font-weight="700" text-anchor="middle">아파트 완성</text>
+</svg>

@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fdf9f4"/>
+      <stop offset="100%" stop-color="#f4ede4"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c8a068"/>
+      <stop offset="100%" stop-color="#b88c54"/>
+    </linearGradient>
+    <linearGradient id="counter" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8ddd0"/>
+      <stop offset="100%" stop-color="#d4c8b8"/>
+    </linearGradient>
+    <linearGradient id="light" cx="0.5" cy="0" r="0.5" fx="0.5" fy="0" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#fff8e0" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#fff8e0" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- wall warm white -->
+  <rect width="400" height="300" fill="url(#wall)"/>
+  <rect width="400" height="32" fill="#f8f2ea"/>
+  <!-- wood panel accent wall behind counter -->
+  <rect x="0" y="32" width="200" height="205" fill="#d4b888" opacity="0.18"/>
+  <!-- large window right side -->
+  <rect x="220" y="48" width="165" height="160" fill="#d4ecf8" rx="5"/>
+  <rect x="222" y="50" width="161" height="156" fill="#c8e4f4" opacity="0.6" rx="4"/>
+  <rect x="218" y="46" width="169" height="164" fill="none" stroke="#e8e0d4" stroke-width="5" rx="5"/>
+  <line x1="304" y1="50" x2="304" y2="206" stroke="#e8e0d4" stroke-width="3"/>
+  <!-- warm light from pendant -->
+  <ellipse cx="100" cy="44" rx="55" ry="30" fill="#fff4d0" opacity="0.55"/>
+  <ellipse cx="200" cy="44" rx="40" ry="22" fill="#fff4d0" opacity="0.4"/>
+  <!-- pendant lights -->
+  <line x1="100" y1="32" x2="100" y2="58" stroke="#c8a870" stroke-width="2"/>
+  <ellipse cx="100" cy="63" rx="16" ry="10" fill="#e8c870"/>
+  <ellipse cx="100" cy="61" rx="10" ry="6" fill="#fff8d0" opacity="0.9"/>
+  <line x1="200" y1="32" x2="200" y2="55" stroke="#c8a870" stroke-width="2"/>
+  <ellipse cx="200" cy="60" rx="14" ry="9" fill="#e8c870"/>
+  <ellipse cx="200" cy="58" rx="9" ry="5" fill="#fff8d0" opacity="0.9"/>
+  <!-- counter -->
+  <rect x="0" y="178" width="195" height="60" fill="url(#counter)" rx="4"/>
+  <rect x="0" y="170" width="195" height="12" fill="#c8b8a4" rx="3"/>
+  <!-- espresso machine -->
+  <rect x="18" y="136" width="54" height="42" fill="#3a4a5a" rx="5"/>
+  <rect x="21" y="130" width="48" height="10" fill="#2a3a4a" rx="3"/>
+  <circle cx="45" cy="150" r="12" fill="#1a2a3a"/>
+  <circle cx="45" cy="150" r="8" fill="#2a3a4a"/>
+  <!-- steam nozzle -->
+  <rect x="64" y="145" width="3" height="16" fill="#4a5a6a" rx="1"/>
+  <!-- cups on counter -->
+  <ellipse cx="85" cy="174" rx="7" ry="3" fill="#c8b09a"/>
+  <rect x="79" y="160" width="12" height="14" fill="#d4c0aa" rx="2"/>
+  <ellipse cx="115" cy="174" rx="7" ry="3" fill="#c8b09a"/>
+  <rect x="109" y="163" width="12" height="11" fill="#d4c0aa" rx="2"/>
+  <!-- shelves with items -->
+  <rect x="0" y="78" width="185" height="8" fill="#c8b09a" rx="2"/>
+  <rect x="0" y="120" width="185" height="8" fill="#c8b09a" rx="2"/>
+  <!-- bottles/jars on shelves -->
+  <rect x="15" y="61" width="12" height="17" fill="#6a9a7a" rx="2"/>
+  <rect x="33" y="64" width="10" height="14" fill="#8a7a5a" rx="2"/>
+  <rect x="50" y="58" width="14" height="20" fill="#5a7a8a" rx="3"/>
+  <rect x="72" y="62" width="10" height="16" fill="#9a7a5a" rx="2"/>
+  <!-- café seating area -->
+  <!-- table 1 -->
+  <ellipse cx="290" cy="224" rx="28" ry="8" fill="#d4c0a8"/>
+  <rect x="288" y="224" width="4" height="30" fill="#c4b098"/>
+  <!-- chairs -->
+  <rect x="258" y="205" width="24" height="20" fill="#8a9a7a" rx="4"/>
+  <rect x="318" y="205" width="24" height="20" fill="#8a9a7a" rx="4"/>
+  <!-- floor terracotta -->
+  <rect x="0" y="238" width="400" height="62" fill="url(#floor)"/>
+  <g stroke="#b08850" stroke-width="0.8" opacity="0.4">
+    <line x1="0" y1="255" x2="400" y2="255"/>
+    <line x1="0" y1="272" x2="400" y2="272"/>
+    <line x1="0" y1="289" x2="400" y2="289"/>
+    <line x1="60" y1="238" x2="60" y2="300"/>
+    <line x1="130" y1="238" x2="130" y2="300"/>
+    <line x1="210" y1="238" x2="210" y2="300"/>
+    <line x1="290" y1="238" x2="290" y2="300"/>
+    <line x1="360" y1="238" x2="360" y2="300"/>
+  </g>
+  <!-- plant -->
+  <rect x="368" y="195" width="20" height="43" fill="#9a8870" rx="4"/>
+  <ellipse cx="378" cy="192" rx="20" ry="25" fill="#4a7a5a"/>
+  <ellipse cx="365" cy="180" rx="13" ry="17" fill="#3a6a4a"/>
+  <!-- green label -->
+  <rect x="8" y="8" width="84" height="26" fill="rgba(30,80,50,0.88)" rx="13"/>
+  <text x="50" y="25" fill="#ffffff" font-family="'Apple SD Gothic Neo',sans-serif" font-size="13" font-weight="700" text-anchor="middle">카페 완성</text>
+</svg>
