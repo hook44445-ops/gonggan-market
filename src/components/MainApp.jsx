@@ -53,8 +53,7 @@ import {
   getActiveRequestByUser,
   archiveRequestAuto,
   getTopReviews,
-  getRawReviewsDiag,
-  getRawReviewsAll,
+  getSeedReviews,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -138,91 +137,7 @@ const maskCompanyName = (name) => {
   return name.slice(0, Math.min(Math.ceil(len / 2), 4)) + "***";
 };
 
-// ── 목업 인라인 SVG (외부 URL 없음 — JS 번들에 포함) ────────────────────────
-const _svg = s => `data:image/svg+xml,${encodeURIComponent(s)}`;
-
-const MOCK_IMG = {
-  beforeApartment: _svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="wa" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5a4e40"/><stop offset="100%" stop-color="#4a3e30"/></linearGradient></defs><rect width="400" height="300" fill="#3e3428"/><rect x="0" y="28" width="400" height="207" fill="url(#wa)"/><rect x="0" y="235" width="400" height="65" fill="#3a2e1e"/><line x1="0" y1="250" x2="400" y2="250" stroke="#2a1e10" stroke-width="1"/><line x1="0" y1="268" x2="400" y2="268" stroke="#2a1e10" stroke-width="1"/><rect x="48" y="52" width="108" height="88" fill="#3a5060" rx="2"/><rect x="48" y="52" width="108" height="88" fill="#2e2418" fill-opacity=".5" rx="2"/><line x1="103" y1="55" x2="103" y2="137" stroke="#2a2018" stroke-width="4"/><line x1="51" y1="97" x2="153" y2="97" stroke="#2a2018" stroke-width="4"/><rect x="40" y="50" width="6" height="92" fill="#3a3020" fill-opacity=".7"/><rect x="162" y="50" width="6" height="92" fill="#3a3020" fill-opacity=".7"/><rect x="200" y="178" width="185" height="57" fill="#4a3c2c" rx="6"/><rect x="200" y="167" width="185" height="17" fill="#563e2e" rx="5"/><rect x="200" y="178" width="22" height="57" fill="#3a2e1e" rx="4"/><rect x="363" y="178" width="22" height="57" fill="#3a2e1e" rx="4"/><ellipse cx="310" cy="100" rx="22" ry="14" fill="#4a4030" fill-opacity=".5"/><ellipse cx="90" cy="145" rx="14" ry="9" fill="#4a4030" fill-opacity=".4"/><rect x="8" y="8" width="122" height="26" fill="#111" fill-opacity=".75" rx="13"/><text x="69" y="25" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#e8c880" text-anchor="middle">아파트 시공 전</text></svg>`),
-
-  afterApartment: _svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="fl" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#c0a060"/><stop offset="50%" stop-color="#d4b470"/><stop offset="100%" stop-color="#c0a060"/></linearGradient><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c4e0f4"/><stop offset="100%" stop-color="#d8eef8"/></linearGradient></defs><rect width="400" height="300" fill="#f8f6f2"/><rect x="0" y="28" width="400" height="207" fill="#f5f2ec"/><rect x="0" y="28" width="8" height="207" fill="#2e5f4b" fill-opacity=".2"/><rect x="0" y="235" width="400" height="65" fill="url(#fl)"/><line x1="0" y1="248" x2="400" y2="248" stroke="#b89050" stroke-width="1" stroke-opacity=".4"/><line x1="0" y1="261" x2="400" y2="261" stroke="#b89050" stroke-width="1" stroke-opacity=".4"/><line x1="80" y1="235" x2="80" y2="300" stroke="#b89050" stroke-width="1" stroke-opacity=".35"/><line x1="190" y1="235" x2="190" y2="300" stroke="#b89050" stroke-width="1" stroke-opacity=".35"/><line x1="310" y1="235" x2="310" y2="300" stroke="#b89050" stroke-width="1" stroke-opacity=".35"/><rect x="40" y="44" width="144" height="165" fill="url(#sk)" rx="5"/><rect x="38" y="42" width="148" height="169" fill="none" stroke="#e0dcd6" stroke-width="4" rx="5"/><line x1="113" y1="46" x2="113" y2="207" stroke="#e0dcd6" stroke-width="3"/><line x1="42" y1="126" x2="184" y2="126" stroke="#e0dcd6" stroke-width="3"/><polygon points="113,46 155,46 260,235 195,235" fill="#fffce8" fill-opacity=".35"/><rect x="195" y="176" width="190" height="59" fill="#7a9080" rx="8"/><rect x="195" y="164" width="190" height="18" fill="#8aa090" rx="6"/><rect x="195" y="176" width="25" height="59" fill="#6a8070" rx="5"/><rect x="360" y="176" width="25" height="59" fill="#6a8070" rx="5"/><rect x="212" y="167" width="42" height="24" fill="#9ab0a0" rx="5"/><rect x="262" y="167" width="42" height="24" fill="#9ab0a0" rx="5"/><rect x="312" y="167" width="42" height="24" fill="#9ab0a0" rx="5"/><rect x="360" y="195" width="22" height="40" fill="#9a8870" rx="4"/><ellipse cx="371" cy="192" rx="22" ry="26" fill="#4a7a5a"/><ellipse cx="356" cy="180" rx="13" ry="17" fill="#3a6a4a"/><rect x="8" y="8" width="96" height="26" fill="#1b4d31" fill-opacity=".88" rx="13"/><text x="56" y="25" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">아파트 완성</text></svg>`),
-
-  beforeCafe: _svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#2e2818"/><rect width="400" height="36" fill="#242018"/><rect x="0" y="36" width="400" height="5" fill="#3a3428"/><line x1="0" y1="41" x2="200" y2="41" stroke="#3a3428" stroke-width="3"/><rect x="0" y="36" width="400" height="199" fill="#3a3028"/><rect x="80" y="60" width="60" height="42" fill="#444038" fill-opacity=".5"/><rect x="265" y="80" width="75" height="50" fill="#3a3428" fill-opacity=".45"/><path d="M200 48 L205 75 L198 85 L204 115" stroke="#242018" stroke-width="1.5" fill="none"/><path d="M320 58 L325 90 L330 78" stroke="#242018" stroke-width="1" fill="none"/><rect x="50" y="65" width="118" height="92" fill="#4a3c28" rx="2"/><line x1="50" y1="95" x2="168" y2="95" stroke="#3a3020" stroke-width="4"/><line x1="50" y1="120" x2="168" y2="120" stroke="#3a3020" stroke-width="4"/><line x1="50" y1="145" x2="168" y2="145" stroke="#3a3020" stroke-width="4"/><line x1="50" y1="65" x2="168" y2="157" stroke="#3a3020" stroke-width="2" stroke-opacity=".7"/><rect x="218" y="52" width="118" height="30" fill="#5a4a38" fill-opacity=".7" rx="3"/><rect x="0" y="180" width="172" height="55" fill="#4a3c2c" rx="3"/><rect x="0" y="172" width="172" height="12" fill="#5a4a38" rx="2"/><rect x="0" y="235" width="400" height="65" fill="#4a3828"/><ellipse cx="240" cy="250" rx="32" ry="11" fill="#3a2818" fill-opacity=".5"/><rect x="8" y="8" width="110" height="26" fill="#111" fill-opacity=".75" rx="13"/><text x="63" y="25" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#e8c880" text-anchor="middle">카페 시공 전</text></svg>`),
-
-  afterCafe: _svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="tf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c8a068"/><stop offset="100%" stop-color="#b88c54"/></linearGradient></defs><rect width="400" height="300" fill="#fdf9f4"/><rect width="400" height="30" fill="#f8f2ea"/><rect x="0" y="30" width="400" height="210" fill="#fdf9f4"/><rect x="218" y="46" width="168" height="162" fill="#c8e4f4" rx="5"/><rect x="216" y="44" width="172" height="166" fill="none" stroke="#e8e0d4" stroke-width="4" rx="5"/><line x1="304" y1="48" x2="304" y2="206" stroke="#e8e0d4" stroke-width="2.5"/><line x1="220" y1="127" x2="384" y2="127" stroke="#e8e0d4" stroke-width="2.5"/><ellipse cx="100" cy="38" rx="55" ry="25" fill="#fff4d0" fill-opacity=".5"/><line x1="100" y1="30" x2="100" y2="58" stroke="#c8a870" stroke-width="2"/><ellipse cx="100" cy="63" rx="15" ry="9" fill="#e8c870"/><line x1="195" y1="30" x2="195" y2="56" stroke="#c8a870" stroke-width="2"/><ellipse cx="195" cy="61" rx="13" ry="8" fill="#e8c870"/><rect x="0" y="176" width="192" height="62" fill="#e8ddd0" rx="4"/><rect x="0" y="168" width="192" height="12" fill="#c8b8a4" rx="3"/><rect x="18" y="134" width="52" height="42" fill="#3a4a5a" rx="5"/><rect x="21" y="128" width="46" height="10" fill="#2a3a4a" rx="3"/><circle cx="44" cy="148" r="11" fill="#1a2a3a"/><circle cx="44" cy="148" r="7" fill="#2a3a4a"/><rect x="14" y="76" width="180" height="8" fill="#c8b09a" rx="2"/><rect x="14" y="120" width="180" height="8" fill="#c8b09a" rx="2"/><rect x="22" y="59" width="11" height="17" fill="#6a9a7a" rx="2"/><rect x="40" y="62" width="10" height="14" fill="#8a7a5a" rx="2"/><rect x="57" y="56" width="14" height="20" fill="#5a7a8a" rx="3"/><rect x="78" y="63" width="10" height="15" fill="#9a7a5a" rx="2"/><ellipse cx="290" cy="222" rx="28" ry="7" fill="#d4c0a8"/><rect x="288" y="222" width="4" height="30" fill="#c4b098"/><rect x="258" y="203" width="24" height="20" fill="#8a9a7a" rx="4"/><rect x="318" y="203" width="24" height="20" fill="#8a9a7a" rx="4"/><rect x="0" y="238" width="400" height="62" fill="url(#tf)"/><line x1="0" y1="254" x2="400" y2="254" stroke="#b08850" stroke-width="1" stroke-opacity=".4"/><line x1="0" y1="271" x2="400" y2="271" stroke="#b08850" stroke-width="1" stroke-opacity=".4"/><line x1="65" y1="238" x2="65" y2="300" stroke="#b08850" stroke-width="1" stroke-opacity=".35"/><line x1="140" y1="238" x2="140" y2="300" stroke="#b08850" stroke-width="1" stroke-opacity=".35"/><line x1="215" y1="238" x2="215" y2="300" stroke="#b08850" stroke-width="1" stroke-opacity=".35"/><line x1="290" y1="238" x2="290" y2="300" stroke="#b08850" stroke-width="1" stroke-opacity=".35"/><line x1="360" y1="238" x2="360" y2="300" stroke="#b08850" stroke-width="1" stroke-opacity=".35"/><rect x="8" y="8" width="86" height="26" fill="#1b4d31" fill-opacity=".88" rx="13"/><text x="51" y="25" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">카페 완성</text></svg>`),
-
-  beforeBathroom: _svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="bt" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c0b28a"/><stop offset="100%" stop-color="#aaa070"/></linearGradient></defs><rect width="400" height="300" fill="#aaa070"/><rect width="400" height="30" fill="#928c68"/><ellipse cx="200" cy="16" rx="80" ry="10" fill="#787050" fill-opacity=".5"/><rect x="0" y="30" width="400" height="202" fill="url(#bt)"/><g stroke="#9a8a68" stroke-width="1.2"><line x1="0" y1="60" x2="400" y2="60"/><line x1="0" y1="90" x2="400" y2="90"/><line x1="0" y1="120" x2="400" y2="120"/><line x1="0" y1="150" x2="400" y2="150"/><line x1="0" y1="180" x2="400" y2="180"/><line x1="0" y1="210" x2="400" y2="210"/><line x1="50" y1="30" x2="50" y2="232"/><line x1="100" y1="30" x2="100" y2="232"/><line x1="150" y1="30" x2="150" y2="232"/><line x1="200" y1="30" x2="200" y2="232"/><line x1="250" y1="30" x2="250" y2="232"/><line x1="300" y1="30" x2="300" y2="232"/><line x1="350" y1="30" x2="350" y2="232"/></g><rect x="100" y="90" width="50" height="3" fill="#7a7058" fill-opacity=".6"/><rect x="200" y="120" width="50" height="3" fill="#7a7058" fill-opacity=".5"/><ellipse cx="175" cy="158" rx="20" ry="7" fill="#8a7858" fill-opacity=".45"/><rect x="220" y="162" width="168" height="70" fill="#c0b898" rx="10"/><rect x="228" y="170" width="152" height="55" fill="#a8a078" rx="8"/><ellipse cx="348" cy="205" rx="18" ry="8" fill="#8a7050" fill-opacity=".5"/><rect x="370" y="155" width="6" height="16" fill="#8a7058" rx="2"/><rect x="360" y="153" width="26" height="7" fill="#8a7058" rx="2"/><circle cx="358" cy="156" r="5" fill="#7a6048"/><circle cx="388" cy="156" r="5" fill="#7a6048"/><rect x="48" y="44" width="98" height="78" fill="#b0a888" rx="3"/><rect x="52" y="48" width="90" height="70" fill="#c8c0a0" fill-opacity=".65"/><circle cx="58" cy="55" r="4" fill="#9a8a60" fill-opacity=".7"/><rect x="0" y="232" width="400" height="68" fill="#9a9080"/><g stroke="#6a6050" stroke-width="1" stroke-opacity=".45"><line x1="0" y1="250" x2="400" y2="250"/><line x1="0" y1="268" x2="400" y2="268"/><line x1="50" y1="232" x2="50" y2="300"/><line x1="150" y1="232" x2="150" y2="300"/><line x1="250" y1="232" x2="250" y2="300"/><line x1="350" y1="232" x2="350" y2="300"/></g><rect x="8" y="8" width="110" height="26" fill="#111" fill-opacity=".75" rx="13"/><text x="63" y="25" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#e8c880" text-anchor="middle">욕실 시공 전</text></svg>`),
-
-  afterBathroom: _svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="tb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="#f0efee"/></linearGradient></defs><rect width="400" height="300" fill="#f8f6f4"/><rect x="0" y="30" width="400" height="205" fill="#f8f6f4"/><path d="M40 36 Q80 80 60 130 Q90 158 70 200" stroke="#e0dcd6" stroke-width="2" fill="none"/><path d="M200 38 Q218 90 210 128 Q238 158 218 195" stroke="#e0dcd6" stroke-width="1.5" fill="none"/><path d="M328 48 Q348 98 338 158" stroke="#e0dcd6" stroke-width="1.5" fill="none"/><g stroke="#dedad4" stroke-width="1.5"><line x1="0" y1="90" x2="400" y2="90"/><line x1="0" y1="170" x2="400" y2="170"/><line x1="133" y1="30" x2="133" y2="235"/><line x1="266" y1="30" x2="266" y2="235"/></g><rect x="0" y="235" width="400" height="65" fill="#d8d4ce"/><g stroke="#b8b4ae" stroke-width="0.8" stroke-opacity=".5"><line x1="0" y1="252" x2="400" y2="252"/><line x1="0" y1="269" x2="400" y2="269"/><line x1="0" y1="286" x2="400" y2="286"/><line x1="40" y1="235" x2="40" y2="300"/><line x1="80" y1="235" x2="80" y2="300"/><line x1="120" y1="235" x2="120" y2="300"/><line x1="160" y1="235" x2="160" y2="300"/><line x1="200" y1="235" x2="200" y2="300"/><line x1="240" y1="235" x2="240" y2="300"/><line x1="280" y1="235" x2="280" y2="300"/><line x1="320" y1="235" x2="320" y2="300"/><line x1="360" y1="235" x2="360" y2="300"/></g><ellipse cx="295" cy="202" rx="93" ry="33" fill="url(#tb)"/><ellipse cx="295" cy="202" rx="85" ry="26" fill="#f4f4f4"/><ellipse cx="295" cy="202" rx="78" ry="20" fill="#e8f0f8"/><rect x="374" y="178" width="5" height="24" fill="#c8ccd0" rx="2"/><path d="M376 178 Q386 168 390 182" stroke="#c8ccd0" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="42" y="36" width="114" height="94" fill="#c0d4de" rx="4" fill-opacity=".82"/><rect x="42" y="36" width="114" height="94" fill="none" stroke="#e8e4de" stroke-width="4" rx="4"/><rect x="44" y="38" width="18" height="90" fill="#fff" fill-opacity=".12"/><rect x="88" y="30" width="18" height="10" fill="#e8e0d0" rx="4"/><ellipse cx="97" cy="30" rx="6" ry="4" fill="#fff8e0" fill-opacity=".95"/><rect x="42" y="190" width="114" height="48" fill="#f0ede8" rx="6"/><ellipse cx="99" cy="208" rx="34" ry="18" fill="#e0ddd8"/><ellipse cx="99" cy="208" rx="26" ry="13" fill="#c8d4dc"/><rect x="97" y="183" width="5" height="14" fill="#c8ccd0" rx="2"/><rect x="16" y="200" width="22" height="35" fill="#9a8870" rx="5"/><ellipse cx="27" cy="197" rx="20" ry="24" fill="#4a7a5a"/><ellipse cx="16" cy="185" rx="12" ry="16" fill="#3a6a4a"/><rect x="8" y="8" width="84" height="26" fill="#1b4d31" fill-opacity=".88" rx="13"/><text x="50" y="25" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">욕실 완성</text></svg>`),
-
-  beforeKitchen: _svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="kw" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c0b080"/><stop offset="100%" stop-color="#aa9868"/></linearGradient><linearGradient id="kc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8a6840"/><stop offset="100%" stop-color="#7a5830"/></linearGradient></defs><rect width="400" height="300" fill="#a89870"/><rect width="400" height="30" fill="#9a8860"/><rect x="0" y="30" width="400" height="205" fill="url(#kw)"/><ellipse cx="200" cy="118" rx="38" ry="18" fill="#9a8850" fill-opacity=".4"/><rect x="0" y="42" width="400" height="85" fill="url(#kc)" rx="2"/><line x1="100" y1="42" x2="100" y2="127" stroke="#6a4a28" stroke-width="2"/><line x1="200" y1="42" x2="200" y2="127" stroke="#6a4a28" stroke-width="2"/><line x1="300" y1="42" x2="300" y2="127" stroke="#6a4a28" stroke-width="2"/><rect x="5" y="47" width="88" height="74" fill="#9a7a50" rx="1"/><rect x="105" y="47" width="88" height="74" fill="#9a7a50" rx="1"/><rect x="205" y="47" width="88" height="74" fill="#9a7a50" rx="1"/><rect x="305" y="47" width="88" height="74" fill="#9a7a50" rx="1"/><circle cx="49" cy="85" r="6" fill="#6a5030"/><circle cx="149" cy="85" r="6" fill="#6a5030"/><circle cx="249" cy="85" r="6" fill="#6a5030"/><circle cx="349" cy="85" r="6" fill="#6a5030"/><rect x="0" y="175" width="400" height="42" fill="#c8b078"/><g stroke="#a89050" stroke-width="1" stroke-opacity=".7"><line x1="0" y1="196" x2="400" y2="196"/><line x1="50" y1="175" x2="50" y2="217"/><line x1="100" y1="175" x2="100" y2="217"/><line x1="150" y1="175" x2="150" y2="217"/><line x1="200" y1="175" x2="200" y2="217"/><line x1="250" y1="175" x2="250" y2="217"/><line x1="300" y1="175" x2="300" y2="217"/><line x1="350" y1="175" x2="350" y2="217"/></g><ellipse cx="175" cy="185" rx="28" ry="7" fill="#9a8040" fill-opacity=".45"/><rect x="0" y="163" width="400" height="16" fill="#b09060" rx="2"/><line x1="80" y1="166" x2="175" y2="172" stroke="#8a7040" stroke-width="1" stroke-opacity=".6"/><rect x="0" y="179" width="400" height="121" fill="url(#kc)"/><line x1="100" y1="179" x2="100" y2="300" stroke="#6a4a28" stroke-width="2"/><line x1="200" y1="179" x2="200" y2="300" stroke="#6a4a28" stroke-width="2"/><line x1="300" y1="179" x2="300" y2="300" stroke="#6a4a28" stroke-width="2"/><rect x="5" y="183" width="88" height="111" fill="#9a7a50" rx="1"/><rect x="105" y="183" width="88" height="111" fill="#9a7a50" rx="1"/><rect x="205" y="183" width="88" height="111" fill="#9a7a50" rx="1"/><rect x="305" y="183" width="88" height="111" fill="#9a7a50" rx="1"/><circle cx="49" cy="242" r="6" fill="#6a5030"/><circle cx="149" cy="242" r="6" fill="#6a5030"/><circle cx="249" cy="242" r="6" fill="#6a5030"/><circle cx="349" cy="242" r="6" fill="#6a5030"/><rect x="130" y="165" width="108" height="18" fill="#8a8878" rx="2"/><rect x="188" y="145" width="5" height="22" fill="#8a8070" rx="2"/><rect x="178" y="143" width="26" height="6" fill="#8a8070" rx="2"/><rect x="8" y="8" width="110" height="26" fill="#111" fill-opacity=".75" rx="13"/><text x="63" y="25" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#e8c880" text-anchor="middle">주방 시공 전</text></svg>`),
-
-  afterKitchen: _svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="ac" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f8f7f5"/><stop offset="100%" stop-color="#edebe7"/></linearGradient><linearGradient id="ct" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#d4d0ca"/><stop offset="100%" stop-color="#c4c0ba"/></linearGradient></defs><rect width="400" height="300" fill="#f8f6f2"/><rect width="400" height="30" fill="#f5f3ef"/><rect x="0" y="38" width="400" height="90" fill="url(#ac)" rx="3"/><rect x="0" y="38" width="400" height="90" fill="none" stroke="#e8e4de" stroke-width="1.5" rx="3"/><line x1="100" y1="38" x2="100" y2="128" stroke="#e0dcd6" stroke-width="1.5"/><line x1="200" y1="38" x2="200" y2="128" stroke="#e0dcd6" stroke-width="1.5"/><line x1="300" y1="38" x2="300" y2="128" stroke="#e0dcd6" stroke-width="1.5"/><rect x="28" y="90" width="44" height="3.5" fill="#b8b4ae" rx="1.8"/><rect x="128" y="90" width="44" height="3.5" fill="#b8b4ae" rx="1.8"/><rect x="228" y="90" width="44" height="3.5" fill="#b8b4ae" rx="1.8"/><rect x="328" y="90" width="44" height="3.5" fill="#b8b4ae" rx="1.8"/><rect x="0" y="124" width="400" height="8" fill="#fff4d0" fill-opacity=".55"/><rect x="0" y="173" width="400" height="44" fill="#f4f4f4"/><g stroke="#e0dcd8" stroke-width="1" stroke-opacity=".8"><line x1="0" y1="186" x2="400" y2="186"/><line x1="0" y1="199" x2="400" y2="199"/><line x1="0" y1="212" x2="400" y2="212"/><line x1="30" y1="173" x2="30" y2="217"/><line x1="90" y1="173" x2="90" y2="217"/><line x1="150" y1="173" x2="150" y2="217"/><line x1="210" y1="173" x2="210" y2="217"/><line x1="270" y1="173" x2="270" y2="217"/><line x1="330" y1="173" x2="330" y2="217"/><line x1="390" y1="173" x2="390" y2="217"/></g><rect x="0" y="163" width="400" height="14" fill="url(#ct)" rx="2"/><rect x="145" y="165" width="100" height="20" fill="#9ab0ba" rx="3"/><rect x="150" y="167" width="90" height="16" fill="#88a0aa" rx="2"/><rect x="197" y="146" width="5" height="20" fill="#c0c4c8" rx="2"/><path d="M199 146 Q211 136 215 150" stroke="#c0c4c8" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="0" y="177" width="400" height="123" fill="url(#ac)"/><rect x="0" y="177" width="400" height="123" fill="none" stroke="#e8e4de" stroke-width="1.5"/><line x1="100" y1="177" x2="100" y2="300" stroke="#e0dcd6" stroke-width="1.5"/><line x1="200" y1="177" x2="200" y2="300" stroke="#e0dcd6" stroke-width="1.5"/><line x1="300" y1="177" x2="300" y2="300" stroke="#e0dcd6" stroke-width="1.5"/><rect x="28" y="240" width="44" height="3.5" fill="#b8b4ae" rx="1.8"/><rect x="128" y="240" width="44" height="3.5" fill="#b8b4ae" rx="1.8"/><rect x="228" y="240" width="44" height="3.5" fill="#b8b4ae" rx="1.8"/><rect x="328" y="240" width="44" height="3.5" fill="#b8b4ae" rx="1.8"/><rect x="160" y="30" width="80" height="11" fill="#d0ccc6" rx="2"/><rect x="228" y="42" width="80" height="82" fill="#c8e4f4" rx="4"/><rect x="230" y="44" width="76" height="78" fill="#d4ecfa" fill-opacity=".7" rx="3"/><line x1="269" y1="44" x2="269" y2="122" stroke="#e0dcd6" stroke-width="2"/><line x1="230" y1="84" x2="306" y2="84" stroke="#e0dcd6" stroke-width="2"/><polygon points="228,122 308,122 350,177 195,177" fill="#fffce8" fill-opacity=".3"/><rect x="8" y="8" width="86" height="26" fill="#1b4d31" fill-opacity=".88" rx="13"/><text x="51" y="25" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">주방 완성</text></svg>`),
-
-  beforeOffice: _svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#8a8880"/><rect width="400" height="36" fill="#929088"/><g stroke="#7a7870" stroke-width="1" stroke-opacity=".6"><line x1="0" y1="18" x2="400" y2="18"/><line x1="100" y1="0" x2="100" y2="36"/><line x1="200" y1="0" x2="200" y2="36"/><line x1="300" y1="0" x2="300" y2="36"/></g><rect x="60" y="30" width="130" height="9" fill="#c8c8b8" rx="2"/><rect x="62" y="31" width="126" height="7" fill="#d8d8c8" fill-opacity=".85"/><rect x="210" y="30" width="130" height="9" fill="#c8c8b8" rx="2"/><rect x="212" y="31" width="126" height="7" fill="#d8d8c8" fill-opacity=".85"/><rect x="0" y="36" width="400" height="200" fill="#a0a098"/><ellipse cx="100" cy="100" rx="18" ry="11" fill="#8a8880" fill-opacity=".45"/><ellipse cx="315" cy="138" rx="14" ry="8" fill="#8a8880" fill-opacity=".4"/><rect x="50" y="50" width="128" height="112" fill="#c0c0b0" rx="2"/><g stroke="#b0b0a0" stroke-width="2"><line x1="50" y1="68" x2="178" y2="68"/><line x1="50" y1="83" x2="178" y2="83"/><line x1="50" y1="98" x2="178" y2="98"/><line x1="50" y1="113" x2="178" y2="113"/><line x1="50" y1="128" x2="178" y2="128"/><line x1="50" y1="143" x2="178" y2="143"/></g><rect x="250" y="55" width="10" height="180" fill="#7a7870" rx="2"/><rect x="0" y="195" width="228" height="9" fill="#7a7068" rx="2"/><rect x="0" y="204" width="5" height="96" fill="#6a6058"/><rect x="222" y="204" width="5" height="96" fill="#6a6058"/><rect x="50" y="150" width="63" height="52" fill="#5a5850" rx="3"/><rect x="53" y="153" width="57" height="46" fill="#484640" rx="2"/><rect x="55" y="155" width="53" height="38" fill="#1a2030" rx="2"/><rect x="72" y="202" width="28" height="6" fill="#5a5850" rx="2"/><rect x="268" y="178" width="80" height="25" fill="#5a5850" rx="4"/><rect x="283" y="158" width="50" height="22" fill="#5a5850" rx="3"/><rect x="298" y="172" width="50" height="35" fill="#b8a878" rx="2"/><line x1="323" y1="172" x2="323" y2="207" stroke="#a89868" stroke-width="1.5"/><line x1="298" y1="184" x2="348" y2="184" stroke="#a89868" stroke-width="1.5"/><rect x="0" y="236" width="400" height="64" fill="#8a8880"/><g stroke="#5a5850" stroke-width="1" stroke-opacity=".4"><line x1="0" y1="252" x2="400" y2="252"/><line x1="0" y1="268" x2="400" y2="268"/><line x1="60" y1="236" x2="60" y2="300"/><line x1="130" y1="236" x2="130" y2="300"/><line x1="210" y1="236" x2="210" y2="300"/><line x1="290" y1="236" x2="290" y2="300"/><line x1="355" y1="236" x2="355" y2="300"/></g><rect x="8" y="8" width="122" height="26" fill="#111" fill-opacity=".75" rx="13"/><text x="69" y="25" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#e8c880" text-anchor="middle">오피스 시공 전</text></svg>`),
-
-  afterOffice: _svg(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="od" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#eae6e0"/><stop offset="100%" stop-color="#d8d4ce"/></linearGradient></defs><rect width="400" height="300" fill="#f5f5f3"/><rect width="400" height="30" fill="#f2f2f0"/><rect x="0" y="30" width="8" height="206" fill="#2e5f4b" fill-opacity=".25"/><circle cx="80" cy="15" r="7" fill="#fff8e0" fill-opacity=".95"/><circle cx="80" cy="15" r="13" fill="#fff8e0" fill-opacity=".3"/><circle cx="200" cy="15" r="7" fill="#fff8e0" fill-opacity=".95"/><circle cx="200" cy="15" r="13" fill="#fff8e0" fill-opacity=".3"/><circle cx="320" cy="15" r="7" fill="#fff8e0" fill-opacity=".95"/><circle cx="320" cy="15" r="13" fill="#fff8e0" fill-opacity=".3"/><ellipse cx="200" cy="48" rx="50" ry="28" fill="#fffce8" fill-opacity=".28"/><rect x="268" y="38" width="122" height="162" fill="#c8e4f4" rx="5"/><rect x="266" y="36" width="126" height="166" fill="none" stroke="#e4e0da" stroke-width="4" rx="5"/><line x1="329" y1="40" x2="329" y2="198" stroke="#e4e0da" stroke-width="2.5"/><line x1="270" y1="118" x2="390" y2="118" stroke="#e4e0da" stroke-width="2.5"/><rect x="246" y="36" width="6" height="200" fill="#d4d0ca" rx="3"/><rect x="252" y="38" width="14" height="198" fill="#d8ecf4" fill-opacity=".3"/><rect x="18" y="188" width="218" height="10" fill="url(#od)" rx="3"/><rect x="18" y="198" width="5" height="92" fill="#c4c0ba" rx="2"/><rect x="230" y="198" width="5" height="92" fill="#c4c0ba" rx="2"/><rect x="54" y="144" width="86" height="50" fill="#1e2832" rx="4"/><rect x="56" y="146" width="82" height="46" fill="#1a2230" rx="3"/><rect x="58" y="148" width="78" height="38" fill="#243040" rx="2"/><rect x="60" y="150" width="38" height="3" fill="#4a8cff" fill-opacity=".6" rx="1"/><rect x="60" y="156" width="58" height="2" fill="#4a8cff" fill-opacity=".35" rx="1"/><rect x="60" y="162" width="48" height="2" fill="#4a8cff" fill-opacity=".35" rx="1"/><rect x="60" y="168" width="33" height="2" fill="#4a8cff" fill-opacity=".35" rx="1"/><rect x="92" y="194" width="13" height="5" fill="#2a3040" rx="2"/><rect x="86" y="199" width="25" height="4" fill="#2a3040" rx="2"/><rect x="154" y="170" width="57" height="38" fill="#2a3040" rx="3"/><rect x="156" y="172" width="53" height="32" fill="#1a2030" rx="2"/><rect x="154" y="208" width="57" height="5" fill="#3a4050" rx="2"/><rect x="59" y="191" width="73" height="8" fill="#d8d4ce" rx="3"/><rect x="192" y="185" width="26" height="10" fill="#8a9a8a" rx="2"/><ellipse cx="205" cy="182" rx="15" ry="17" fill="#5a8a6a"/><rect x="89" y="208" width="66" height="22" fill="#7a8a9a" rx="5"/><rect x="96" y="196" width="52" height="14" fill="#7a8a9a" rx="4"/><rect x="120" y="230" width="6" height="28" fill="#6a7a8a" rx="3"/><rect x="102" y="254" width="40" height="6" fill="#6a7a8a" rx="3"/><rect x="0" y="236" width="400" height="64" fill="#dedad4"/><g stroke="#c4c0ba" stroke-width="0.8" stroke-opacity=".5"><line x1="0" y1="252" x2="400" y2="252"/><line x1="0" y1="268" x2="400" y2="268"/><line x1="0" y1="284" x2="400" y2="284"/><line x1="80" y1="236" x2="80" y2="300"/><line x1="200" y1="236" x2="200" y2="300"/><line x1="320" y1="236" x2="320" y2="300"/></g><rect x="18" y="8" width="106" height="26" fill="#1b4d31" fill-opacity=".88" rx="13"/><text x="71" y="25" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">오피스 완성</text></svg>`),
-};
-
-const MOCK_REVIEW_POOL = [
-  {
-    id: "mock-apartment-01", isMock: true, rating: 5,
-    category: "아파트 전체 인테리어",
-    space_type: "32평 아파트 전체", region: "강남구", user_name: "김○○",
-    maskedCompanyName: "공간○○",
-    content: "입주 전 낡고 어두운 분위기였는데 시공 후 완전히 달라졌어요. 단계마다 사진으로 확인하면서 진행돼 믿음이 갔습니다.",
-    beforeImage: MOCK_IMG.beforeApartment,
-    afterImage:  MOCK_IMG.afterApartment,
-  },
-  {
-    id: "mock-cafe-01", isMock: true, rating: 5,
-    category: "카페 리모델링",
-    space_type: "카페 리모델링", region: "마포구", user_name: "이○○",
-    maskedCompanyName: "홍○시공",
-    content: "카페 개업 전 리모델링인데 일정을 딱 맞게 끝내줬어요. 중간 점검 사진도 꼼꼼하게 보내줘서 안심됐습니다.",
-    beforeImage: MOCK_IMG.beforeCafe,
-    afterImage:  MOCK_IMG.afterCafe,
-  },
-  {
-    id: "mock-bathroom-01", isMock: true, rating: 5,
-    category: "욕실 리모델링",
-    space_type: "욕실 리모델링", region: "송파구", user_name: "박○○",
-    maskedCompanyName: "우리○시공",
-    content: "욕실 전체를 바꿨는데 타일 선택부터 완료까지 기록이 다 남아서 나중에 확인하기도 좋았어요.",
-    beforeImage: MOCK_IMG.beforeBathroom,
-    afterImage:  MOCK_IMG.afterBathroom,
-  },
-  {
-    id: "mock-kitchen-01", isMock: true, rating: 5,
-    category: "주방 교체",
-    space_type: "주방 전면 교체", region: "수원 영통", user_name: "최○○",
-    maskedCompanyName: "공간***",
-    content: "낡은 주방을 전면 교체했어요. 자재 반입부터 마감까지 사진으로 공유해줘서 진행 상황을 확인할 수 있었습니다.",
-    beforeImage: MOCK_IMG.beforeKitchen,
-    afterImage:  MOCK_IMG.afterKitchen,
-  },
-  {
-    id: "mock-office-01", isMock: true, rating: 5,
-    category: "오피스 인테리어",
-    space_type: "오피스 인테리어", region: "중구", user_name: "정○○",
-    maskedCompanyName: "홍***",
-    content: "오피스 이전에 맞춰 인테리어를 진행했는데 공사 범위를 계약서로 명확히 정해두니 추가 비용 없이 마무리됐습니다.",
-    beforeImage: MOCK_IMG.beforeOffice,
-    afterImage:  MOCK_IMG.afterOffice,
-  },
-];
-
-const _REVIEW_SEED = Date.now() & 0xffff;
-function shuffleMockReviews(arr) {
-  const a = [...arr];
-  let s = _REVIEW_SEED;
-  for (let i = a.length - 1; i > 0; i--) {
-    s = (Math.imul(s, 1664525) + 1013904223) & 0xffffffff;
-    const j = Math.abs(s) % (i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-const SHUFFLED_MOCK_REVIEWS = shuffleMockReviews(MOCK_REVIEW_POOL);
+// ── (mock code removed — replaced by seed_reviews DB table) ─────────────────
 
 // Compute customer-facing stage from request + escrow/payout data
 const computeCustomerStage = (r, escrowData) => {
@@ -441,32 +356,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   const [reviewFetchErr, setReviewFetchErr] = useState(null);
-  const [rawReviewsDiag, setRawReviewsDiag] = useState([]);
-  const [rawReviewsAll, setRawReviewsAll] = useState([]);
-  const [rawReviewsAllErr, setRawReviewsAllErr] = useState(null);
-  const [imgErrors, setImgErrors] = useState({});
-  const [imgLoaded, setImgLoaded] = useState({});
+  const [seedReviews, setSeedReviews] = useState([]);
+  const [seedFetchErr, setSeedFetchErr] = useState(null);
 
-  // Load top reviews once on mount (consumer home hero section)
+  // Load top reviews + seed reviews once on mount
   useEffect(() => {
-    // 완전 무조건 raw — RLS 진단 (필터 없음)
-    getRawReviewsAll({ limit: 10 }).then(({ data, error }) => {
-      if (error) setRawReviewsAllErr(error.message ?? "err");
-      else if (data) setRawReviewsAll(data);
-    }).catch(e => setRawReviewsAllErr(String(e)));
-
-    // 진단용 raw 쿼리 (status 조건 없음)
-    getRawReviewsDiag({ limit: 10 }).then(({ data }) => {
-      if (data) setRawReviewsDiag(data);
-    }).catch(() => {});
-
     getTopReviews({ limit: 12 }).then(({ data, error }) => {
       if (error) { setReviewFetchErr(error.message ?? "fetch_err"); return; }
-      if (data) {
-        // 이미지 없어도 일단 전부 포함 (이미지 매핑에서 처리)
-        setTopReviews(data.slice(0, 5));
-      }
+      if (data) setTopReviews(data.slice(0, 5));
     }).catch(e => setReviewFetchErr(String(e)));
+
+    getSeedReviews({ limit: 10, activeOnly: true }).then(({ data, error }) => {
+      if (error) setSeedFetchErr(error.message ?? "seed_err");
+      else if (data) setSeedReviews(data);
+    }).catch(e => setSeedFetchErr(String(e)));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load requests on mount
@@ -978,15 +881,36 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               })()}
             </div>
 
-            {/* ── 믿고 맡긴 후기 — 실제 + 목업 혼합, 항상 렌더 ── */}
+            {/* ── 믿고 맡긴 후기 — 실제 우선, 부족분은 seed_reviews로 채움 ── */}
             {(() => {
-              const realCount  = topReviews.length;
-              const mockNeeded = realCount >= 3 ? 0 : Math.max(0, 5 - realCount);
+              const seedNeeded = Math.max(0, 5 - topReviews.length);
               const displayReviews = [
-                ...topReviews.map(r => ({ ...r, isMock: false })),
-                ...SHUFFLED_MOCK_REVIEWS.slice(0, mockNeeded),
+                ...topReviews.map(r => {
+                  const beforeImgs = r.before_image_urls?.length ? r.before_image_urls
+                    : r.image_urls?.length ? [r.image_urls[0]] : [];
+                  const afterImgs = r.after_image_urls?.length ? r.after_image_urls
+                    : r.image_urls?.length > 1 ? [r.image_urls[1]]
+                    : r.image_urls?.length ? [r.image_urls[0]] : [];
+                  return {
+                    id: r.id, isSeed: false,
+                    rating: r.rating, content: r.content,
+                    user_name: r.user_name ?? "익명",
+                    space_type: r.space_type ?? r.region ?? "시공",
+                    companyName: maskCompanyName(r.companies?.name ?? null),
+                    beforeThumb: beforeImgs[0] ?? null,
+                    afterThumb: afterImgs[0] ?? null,
+                  };
+                }),
+                ...seedReviews.slice(0, seedNeeded).map(s => ({
+                  id: s.id, isSeed: true,
+                  rating: s.rating, content: s.content,
+                  user_name: s.user_name ?? "익명",
+                  space_type: s.space_type ?? s.region ?? "시공",
+                  companyName: s.masked_company_name ?? "공간○○",
+                  beforeThumb: s.before_image_url ?? null,
+                  afterThumb: s.after_image_url ?? null,
+                })),
               ].slice(0, 5);
-              const firstReal = topReviews[0] ?? null;
 
               return (
                 <>
@@ -1000,97 +924,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     <div style={{ display:"flex", gap:S.md, overflowX:"auto", paddingBottom:S.sm,
                       scrollbarWidth:"none", msOverflowStyle:"none" }}>
                       {displayReviews.map(rv => {
-                        /* ── 목업 카드 ── */
-                        if (rv.isMock) {
-                          return (
-                            <div key={rv.id}
-                              style={{ flexShrink:0, width:228, background:C.surface,
-                                borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
-                                overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
-                                cursor:"default" }}>
-                              {/* BEFORE / AFTER 이미지 */}
-                              <div style={{ display:"flex", height:116, overflow:"hidden" }}>
-                                <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff",
-                                  background:"#7a6e60" }}>
-                                  <img src={rv.beforeImage} alt=""
-                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
-                                    onLoad={() => setImgLoaded(p => ({ ...p, [rv.id+"_b"]: true }))}
-                                    onError={e => {
-                                      console.error("[IMG] mock before failed", rv.id, rv.beforeImage);
-                                      setImgErrors(p => ({ ...p, [rv.id+"_b"]: true }));
-                                      if (!true) e.target.style.opacity = "0"; // always visible in DEV
-                                    }} />
-                                  <span style={{ position:"absolute", bottom:4, left:4,
-                                    background:"rgba(30,60,180,0.82)", color:"#fff",
-                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
-                                    BEFORE
-                                  </span>
-                                </div>
-                                <div style={{ flex:1, position:"relative", background:"#d4c8b0" }}>
-                                  <img src={rv.afterImage} alt=""
-                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
-                                    onLoad={() => setImgLoaded(p => ({ ...p, [rv.id+"_a"]: true }))}
-                                    onError={e => {
-                                      console.error("[IMG] mock after failed", rv.id, rv.afterImage);
-                                      setImgErrors(p => ({ ...p, [rv.id+"_a"]: true }));
-                                      if (!true) e.target.style.opacity = "0"; // always visible in DEV
-                                    }} />
-                                  <span style={{ position:"absolute", bottom:4, right:4,
-                                    background:"rgba(0,0,0,0.45)", color:"#fff",
-                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
-                                    AFTER
-                                  </span>
-                                </div>
-                              </div>
-                              <div style={{ padding:"10px 12px 12px" }}>
-                                <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:6 }}>
-                                  <span style={{ background:C.bgWarm, color:C.text4,
-                                    borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:700 }}>
-                                    샘플
-                                  </span>
-                                  <span style={{ background:"#FFF8EC", color:"#8A5C00",
-                                    borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:800,
-                                    border:"1px solid #F5D97A" }}>
-                                    📷 포토리뷰
-                                  </span>
-                                </div>
-                                <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:5 }}>
-                                  {[1,2,3,4,5].map(s => (
-                                    <span key={s} style={{ fontSize:12, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
-                                  ))}
-                                  <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
-                                </div>
-                                <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:6,
-                                  overflow:"hidden", display:"-webkit-box",
-                                  WebkitLineClamp:3, WebkitBoxOrient:"vertical" }}>
-                                  {rv.content}
-                                </div>
-                                <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
-                                  {rv.user_name} · {rv.space_type}
-                                </div>
-                                <div style={{ fontSize:11, fontWeight:700, color:C.text3 }}>
-                                  🏠 {rv.maskedCompanyName}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        /* ── 실제 리뷰 카드 — fallback 이미지 매핑 ── */
-                        const beforeImgs = rv.before_image_urls?.length
-                          ? rv.before_image_urls
-                          : rv.image_urls?.length ? [rv.image_urls[0]] : [];
-                        const afterImgs = rv.after_image_urls?.length
-                          ? rv.after_image_urls
-                          : rv.image_urls?.length > 1
-                            ? [rv.image_urls[1]]
-                            : rv.image_urls?.length ? [rv.image_urls[0]] : [];
-                        const beforeThumb = beforeImgs[0] ?? null;
-                        const afterThumb  = afterImgs[0]  ?? null;
-                        const hasBefore = !!beforeThumb;
-                        const hasAfter  = !!afterThumb;
-                        const hasPhoto  = hasBefore || hasAfter;
-                        const showSplit = hasBefore && hasAfter;
+                        const { beforeThumb, afterThumb } = rv;
+                        const showSplit = !!beforeThumb && !!afterThumb;
+                        const hasPhoto  = !!beforeThumb || !!afterThumb;
                         return (
                           <div key={rv.id}
                             style={{ flexShrink:0, width:228, background:C.surface,
@@ -1128,10 +964,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                       style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
                                       onError={e => { e.target.style.display="none"; }} />
                                     <span style={{ position:"absolute", bottom:4, left:4,
-                                      background: hasAfter ? "rgba(0,0,0,0.55)" : "rgba(58,95,204,0.82)",
+                                      background: afterThumb ? "rgba(0,0,0,0.55)" : "rgba(58,95,204,0.82)",
                                       color:"#fff", borderRadius:R.full,
                                       padding:"2px 6px", fontSize:9, fontWeight:800 }}>
-                                      {hasAfter ? "AFTER" : "BEFORE"}
+                                      {afterThumb ? "AFTER" : "BEFORE"}
                                     </span>
                                   </div>
                                 )}
@@ -1157,10 +993,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                 {rv.content}
                               </div>
                               <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
-                                {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? "시공"}
+                                {rv.user_name} · {rv.space_type}
                               </div>
                               <div style={{ fontSize:11, fontWeight:700, color:C.text3 }}>
-                                🏠 {maskCompanyName(rv.companies?.name ?? null)}
+                                🏠 {rv.companyName}
                               </div>
                             </div>
                           </div>
@@ -1170,54 +1006,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   </div>
 
                   {/* DEV panel */}
-                  {true && (() => {
-                    const raw0 = rawReviewsDiag[0] ?? null;
-                    const allRaw0 = rawReviewsAll[0] ?? null;
-                    const mockCards = displayReviews.filter(r => r.isMock);
-                    return (
-                      <div style={{ marginBottom:S.md, padding:"8px 10px", background:"#111",
-                        color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
-                        <span style={{ color:"#ff0", fontWeight:700 }}>── mock image debug (per card) ──</span><br/>
-                        {mockCards.map(rv => (
-                          <span key={rv.id}>
-                            [{rv.id}]<br/>
-                            &nbsp;&nbsp;mock_category: {rv.category}<br/>
-                            &nbsp;&nbsp;mock_before_src: {rv.beforeImage}<br/>
-                            &nbsp;&nbsp;mock_after_src: {rv.afterImage}<br/>
-                            &nbsp;&nbsp;mock_before_loaded: {String(!!imgLoaded[rv.id+"_b"])}<br/>
-                            &nbsp;&nbsp;mock_after_loaded: {String(!!imgLoaded[rv.id+"_a"])}<br/>
-                            &nbsp;&nbsp;mock_before_error: {String(!!imgErrors[rv.id+"_b"])}<br/>
-                            &nbsp;&nbsp;mock_after_error: {String(!!imgErrors[rv.id+"_a"])}<br/>
-                          </span>
-                        ))}
-                        <span style={{ color:"#ff0", fontWeight:700 }}>── getTopReviews ──</span><br/>
-                        real_reviews_count: {realCount}<br/>
-                        mock_reviews_count: {displayReviews.filter(r => r.isMock).length}<br/>
-                        rendered_reviews_count: {displayReviews.length}<br/>
-                        first_real_review_id: {firstReal?.id ?? "—"}<br/>
-                        first_real_status: {firstReal?.status ?? "—"}<br/>
-                        first_real_rating: {firstReal?.rating ?? "—"}<br/>
-                        first_real_before_count: {firstReal?.before_image_urls?.length ?? 0}<br/>
-                        first_real_after_count: {firstReal?.after_image_urls?.length ?? 0}<br/>
-                        first_real_image_count: {firstReal?.image_urls?.length ?? 0}<br/>
-                        review_fetch_err: {reviewFetchErr ?? "—"}<br/>
-                        <span style={{ color:"#ff0", fontWeight:700 }}>── raw_all (조건 없음, RLS 진단) ──</span><br/>
-                        raw_reviews_count: {rawReviewsAll.length}<br/>
-                        raw_first_status: {allRaw0?.status ?? "—"}<br/>
-                        raw_first_is_hidden: {String(allRaw0?.is_hidden ?? "null")}<br/>
-                        raw_first_rating: {allRaw0?.rating ?? "—"}<br/>
-                        raw_first_before_count: {allRaw0?.before_image_urls?.length ?? 0}<br/>
-                        raw_first_after_count: {allRaw0?.after_image_urls?.length ?? 0}<br/>
-                        raw_first_image_count: {allRaw0?.image_urls?.length ?? 0}<br/>
-                        review_query_error: {rawReviewsAllErr ?? "—"}<br/>
-                        <span style={{ color:"#ff0", fontWeight:700 }}>── raw_diag (is_hidden 필터 있음) ──</span><br/>
-                        raw_diag_count: {rawReviewsDiag.length}<br/>
-                        raw_diag_first_id: {raw0?.id ?? "—"}<br/>
-                        raw_diag_first_status: {raw0?.status ?? "—"}<br/>
-                        raw_diag_first_is_hidden: {String(raw0?.is_hidden ?? "null")}
-                      </div>
-                    );
-                  })()}
+                  {true && (
+                    <div style={{ marginBottom:S.md, padding:"8px 10px", background:"#111",
+                      color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
+                      <span style={{ color:"#ff0", fontWeight:700 }}>── review panel ──</span><br/>
+                      real_reviews_count: {topReviews.length}<br/>
+                      seed_reviews_count: {seedReviews.length}<br/>
+                      rendered_reviews_count: {displayReviews.length}<br/>
+                      first_real_review_id: {topReviews[0]?.id ?? "—"}<br/>
+                      first_seed_review_id: {seedReviews[0]?.id ?? "—"}<br/>
+                      review_fetch_err: {reviewFetchErr ?? "—"}<br/>
+                      seed_fetch_err: {seedFetchErr ?? "—"}
+                    </div>
+                  )}
                 </>
               );
             })()}

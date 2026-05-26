@@ -19,6 +19,7 @@ import {
   getCompanyDocuments, adminReviewDocument,
   getReviewRewardsPending, updateReviewReward,
   adminGetHiddenRequests, adminRestoreRequest,
+  getSeedReviews, createSeedReview, updateSeedReview, deleteSeedReview, uploadSeedReviewImage,
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
@@ -194,6 +195,339 @@ const normalizeCustomer = (row) => ({
     ? new Date(row.created_at).toLocaleDateString("ko-KR")
     : "",
 });
+
+// ── 포토후기 시딩 탭 ──────────────────────────────────────────────────────────
+function SeedReviewTab() {
+  const [seeds, setSeeds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState({ before: false, after: false });
+  const [editId, setEditId] = useState(null);
+  const [toast, setToast] = useState(null);
+  const emptyForm = {
+    category: "", space_type: "", region: "", user_name: "",
+    masked_company_name: "", content: "", rating: 5,
+    before_image_url: "", after_image_url: "", sort_order: 0, is_active: true,
+  };
+  const [form, setForm] = useState(emptyForm);
+
+  const showToast = (msg, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const loadSeeds = async () => {
+    setLoading(true);
+    const { data } = await getSeedReviews({ limit: 50, activeOnly: false });
+    setSeeds(data ?? []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadSeeds(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const resetForm = (nextOrder = 0) => {
+    setForm({ ...emptyForm, sort_order: nextOrder });
+    setEditId(null);
+  };
+
+  const handleEdit = (s) => {
+    setEditId(s.id);
+    setForm({
+      category: s.category ?? "", space_type: s.space_type ?? "",
+      region: s.region ?? "", user_name: s.user_name ?? "",
+      masked_company_name: s.masked_company_name ?? "", content: s.content ?? "",
+      rating: s.rating ?? 5, before_image_url: s.before_image_url ?? "",
+      after_image_url: s.after_image_url ?? "", sort_order: s.sort_order ?? 0,
+      is_active: s.is_active ?? true,
+    });
+  };
+
+  const handleUpload = async (file, slot) => {
+    setUploading(p => ({ ...p, [slot]: true }));
+    const { url, error } = await uploadSeedReviewImage(file, slot);
+    setUploading(p => ({ ...p, [slot]: false }));
+    if (error) { showToast("업로드 실패", false); return; }
+    setForm(p => ({ ...p, [slot === "before" ? "before_image_url" : "after_image_url"]: url }));
+    showToast("업로드 완료");
+  };
+
+  const handleSave = async () => {
+    if (!form.content.trim()) return showToast("후기 내용을 입력하세요", false);
+    setSaving(true);
+    const row = {
+      category: form.category || null, space_type: form.space_type || null,
+      region: form.region || null, user_name: form.user_name || null,
+      masked_company_name: form.masked_company_name || null,
+      content: form.content,
+      rating: Number(form.rating),
+      before_image_url: form.before_image_url || null,
+      after_image_url: form.after_image_url || null,
+      sort_order: Number(form.sort_order),
+      is_active: form.is_active,
+    };
+    const { error } = editId
+      ? await updateSeedReview(editId, row)
+      : await createSeedReview(row);
+    setSaving(false);
+    if (error) { showToast("저장 실패: " + error.message, false); return; }
+    showToast(editId ? "수정 완료" : "등록 완료");
+    resetForm(seeds.length + 1);
+    loadSeeds();
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("이 시딩 후기를 삭제하시겠습니까?")) return;
+    await deleteSeedReview(id);
+    showToast("삭제 완료");
+    loadSeeds();
+  };
+
+  const handleToggle = async (s) => {
+    await updateSeedReview(s.id, { is_active: !s.is_active });
+    loadSeeds();
+  };
+
+  const inp = (field, label, placeholder = "") => (
+    <div style={{ marginBottom: S.sm }}>
+      <div style={{ fontSize: 11, color: C.text3, marginBottom: 3 }}>{label}</div>
+      <input
+        value={form[field]}
+        onChange={e => setForm(p => ({ ...p, [field]: e.target.value }))}
+        placeholder={placeholder}
+        style={{ width: "100%", padding: "8px 10px", borderRadius: R.md,
+          border: `1px solid ${C.bgWarm}`, fontSize: 13, color: C.text1,
+          background: C.surface, boxSizing: "border-box" }}
+      />
+    </div>
+  );
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position: "fixed", top: 70, left: "50%", transform: "translateX(-50%)",
+          background: toast.ok ? C.brand : "#c0392b", color: "#fff",
+          borderRadius: R.xl, padding: "10px 20px", fontSize: 13, fontWeight: 700, zIndex: 9999 }}>
+          {toast.msg}
+        </div>
+      )}
+
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>포토후기 시딩</div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg }}>
+        홈 화면에 표시할 BEFORE/AFTER 샘플 후기를 등록하세요. 실제 후기가 5개 이상이면 자동으로 숨겨집니다.
+      </div>
+
+      {/* SQL 안내 */}
+      <div style={{ background: "#1a1a2e", color: "#7fff7f", borderRadius: R.md,
+        padding: "10px 14px", fontSize: 10, fontFamily: "monospace", marginBottom: S.lg,
+        lineHeight: 1.7 }}>
+        <span style={{ color: "#ff0", fontWeight: 700 }}>Supabase에서 아래 SQL을 먼저 실행하세요:</span><br/>
+        CREATE TABLE IF NOT EXISTS seed_reviews (<br/>
+        &nbsp;&nbsp;id uuid PRIMARY KEY DEFAULT gen_random_uuid(),<br/>
+        &nbsp;&nbsp;category text, space_type text, region text,<br/>
+        &nbsp;&nbsp;user_name text, masked_company_name text,<br/>
+        &nbsp;&nbsp;content text NOT NULL, rating int2 DEFAULT 5,<br/>
+        &nbsp;&nbsp;before_image_url text, after_image_url text,<br/>
+        &nbsp;&nbsp;sort_order int2 DEFAULT 0, is_active boolean DEFAULT true,<br/>
+        &nbsp;&nbsp;created_at timestamptz DEFAULT now()<br/>
+        );<br/>
+        ALTER TABLE seed_reviews ENABLE ROW LEVEL SECURITY;<br/>
+        CREATE POLICY "anon_read" ON seed_reviews FOR SELECT USING (true);<br/>
+        CREATE POLICY "admin_all" ON seed_reviews USING (true) WITH CHECK (true);<br/>
+        -- Storage 버킷: seed-review-images (public)
+      </div>
+
+      {/* 등록/수정 폼 */}
+      <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+        border: `1.5px solid ${editId ? C.brand : C.bgWarm}`, marginBottom: S.xl }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: S.md }}>
+          {editId ? "✏️ 수정" : "➕ 새 시딩 후기 등록"}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S.sm }}>
+          {inp("category", "카테고리", "예: 아파트 전체 인테리어")}
+          {inp("space_type", "공간 유형", "예: 32평 아파트 전체")}
+          {inp("region", "지역", "예: 강남구")}
+          {inp("user_name", "고객명", "예: 김○○")}
+          {inp("masked_company_name", "업체명(마스킹)", "예: 공간○○")}
+          <div style={{ marginBottom: S.sm }}>
+            <div style={{ fontSize: 11, color: C.text3, marginBottom: 3 }}>별점</div>
+            <select value={form.rating} onChange={e => setForm(p => ({ ...p, rating: e.target.value }))}
+              style={{ width: "100%", padding: "8px 10px", borderRadius: R.md,
+                border: `1px solid ${C.bgWarm}`, fontSize: 13, color: C.text1, background: C.surface }}>
+              {[5,4,3].map(v => <option key={v} value={v}>{v}점</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ marginBottom: S.sm }}>
+          <div style={{ fontSize: 11, color: C.text3, marginBottom: 3 }}>후기 내용</div>
+          <textarea value={form.content}
+            onChange={e => setForm(p => ({ ...p, content: e.target.value }))}
+            placeholder="고객 후기 내용을 입력하세요"
+            rows={3}
+            style={{ width: "100%", padding: "8px 10px", borderRadius: R.md,
+              border: `1px solid ${C.bgWarm}`, fontSize: 13, color: C.text1,
+              background: C.surface, boxSizing: "border-box", resize: "vertical" }}
+          />
+        </div>
+        {/* 이미지 업로드 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S.sm, marginBottom: S.md }}>
+          {["before", "after"].map(slot => {
+            const urlKey = slot === "before" ? "before_image_url" : "after_image_url";
+            return (
+              <div key={slot}>
+                <div style={{ fontSize: 11, color: C.text3, marginBottom: 3 }}>
+                  {slot === "before" ? "BEFORE 이미지" : "AFTER 이미지"}
+                </div>
+                {form[urlKey] && (
+                  <img src={form[urlKey]} alt=""
+                    style={{ width: "100%", height: 80, objectFit: "cover",
+                      borderRadius: R.md, marginBottom: 6, border: `1px solid ${C.bgWarm}` }} />
+                )}
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <label style={{ flex: 1, background: C.brandL, color: C.brand,
+                    borderRadius: R.md, padding: "7px 0", fontSize: 12, fontWeight: 700,
+                    textAlign: "center", cursor: "pointer" }}>
+                    {uploading[slot] ? "업로드 중…" : "📁 파일 선택"}
+                    <input type="file" accept="image/*" style={{ display: "none" }}
+                      onChange={e => { if (e.target.files[0]) handleUpload(e.target.files[0], slot); }} />
+                  </label>
+                  {form[urlKey] && (
+                    <button onClick={() => setForm(p => ({ ...p, [urlKey]: "" }))}
+                      style={{ background: "none", border: "none", color: C.text4,
+                        fontSize: 18, cursor: "pointer", padding: "0 4px" }}>✕</button>
+                  )}
+                </div>
+                <input value={form[urlKey]}
+                  onChange={e => setForm(p => ({ ...p, [urlKey]: e.target.value }))}
+                  placeholder="또는 이미지 URL 직접 입력"
+                  style={{ width: "100%", padding: "6px 8px", borderRadius: R.md,
+                    border: `1px solid ${C.bgWarm}`, fontSize: 11, color: C.text3,
+                    background: C.surface, boxSizing: "border-box", marginTop: 4 }} />
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: S.sm, alignItems: "center" }}>
+          <div style={{ marginBottom: S.sm, flex: 0 }}>
+            <div style={{ fontSize: 11, color: C.text3, marginBottom: 3 }}>순서</div>
+            <input type="number" value={form.sort_order}
+              onChange={e => setForm(p => ({ ...p, sort_order: e.target.value }))}
+              style={{ width: 70, padding: "8px 10px", borderRadius: R.md,
+                border: `1px solid ${C.bgWarm}`, fontSize: 13, color: C.text1, background: C.surface }} />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+            fontSize: 13, color: C.text2, marginTop: 8 }}>
+            <input type="checkbox" checked={form.is_active}
+              onChange={e => setForm(p => ({ ...p, is_active: e.target.checked }))} />
+            활성화
+          </label>
+          <div style={{ flex: 1 }} />
+          {editId && (
+            <button onClick={() => resetForm(seeds.length)}
+              style={{ padding: "10px 16px", borderRadius: R.lg, border: `1px solid ${C.bgWarm}`,
+                background: C.surface, color: C.text3, fontSize: 13, cursor: "pointer" }}>
+              취소
+            </button>
+          )}
+          <button onClick={handleSave} disabled={saving}
+            style={{ padding: "10px 20px", borderRadius: R.lg, border: "none",
+              background: C.brand, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            {saving ? "저장 중…" : editId ? "수정 저장" : "등록"}
+          </button>
+        </div>
+      </div>
+
+      {/* 목록 */}
+      <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.md }}>
+        등록된 시딩 후기 ({seeds.length}건)
+      </div>
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "40px 0", color: C.text4 }}>불러오는 중…</div>
+      ) : seeds.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px 0" }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📷</div>
+          <div style={{ fontSize: 14, color: C.text3 }}>등록된 시딩 후기가 없습니다</div>
+        </div>
+      ) : seeds.map(s => (
+        <div key={s.id} style={{ background: C.surface, borderRadius: R.xl,
+          marginBottom: S.md, border: `1.5px solid ${s.is_active ? C.bgWarm : "#eee"}`,
+          overflow: "hidden", opacity: s.is_active ? 1 : 0.55 }}>
+          <div style={{ height: 3, background: s.is_active ? C.brand : C.text4 }} />
+          <div style={{ padding: S.lg }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+              <div>
+                <span style={{ background: s.is_active ? C.brandL : C.surface2,
+                  color: s.is_active ? C.brand : C.text4, borderRadius: R.full,
+                  padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>
+                  {s.is_active ? "활성" : "비활성"}
+                </span>
+                {s.category && (
+                  <span style={{ marginLeft: 6, background: C.bgWarm, color: C.text3,
+                    borderRadius: R.full, padding: "2px 10px", fontSize: 11 }}>
+                    {s.category}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: C.text4 }}>순서 {s.sort_order}</div>
+            </div>
+            {/* 이미지 프리뷰 */}
+            {(s.before_image_url || s.after_image_url) && (
+              <div style={{ display: "flex", gap: 6, marginBottom: S.sm }}>
+                {s.before_image_url && (
+                  <div style={{ position: "relative" }}>
+                    <img src={s.before_image_url} alt=""
+                      style={{ width: 80, height: 60, objectFit: "cover", borderRadius: R.md }} />
+                    <span style={{ position: "absolute", bottom: 2, left: 2,
+                      background: "rgba(58,95,204,0.82)", color: "#fff",
+                      borderRadius: 4, padding: "1px 4px", fontSize: 8, fontWeight: 800 }}>
+                      BEFORE
+                    </span>
+                  </div>
+                )}
+                {s.after_image_url && (
+                  <div style={{ position: "relative" }}>
+                    <img src={s.after_image_url} alt=""
+                      style={{ width: 80, height: 60, objectFit: "cover", borderRadius: R.md }} />
+                    <span style={{ position: "absolute", bottom: 2, right: 2,
+                      background: "rgba(0,0,0,0.55)", color: "#fff",
+                      borderRadius: 4, padding: "1px 4px", fontSize: 8, fontWeight: 800 }}>
+                      AFTER
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.xs }}>
+              {"★".repeat(s.rating ?? 0)} {s.content?.slice(0, 60)}{(s.content?.length ?? 0) > 60 ? "…" : ""}
+            </div>
+            <div style={{ fontSize: 11, color: C.text4 }}>
+              {s.user_name ?? "익명"} · {s.space_type ?? s.region ?? "시공"} · 🏠 {s.masked_company_name ?? "—"}
+            </div>
+            <div style={{ display: "flex", gap: S.sm, marginTop: S.md }}>
+              <button onClick={() => handleToggle(s)}
+                style={{ flex: 1, padding: "8px 0", borderRadius: R.md,
+                  border: `1px solid ${C.bgWarm}`, background: C.surface,
+                  color: s.is_active ? C.text3 : C.brand, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                {s.is_active ? "비활성화" : "활성화"}
+              </button>
+              <button onClick={() => handleEdit(s)}
+                style={{ flex: 1, padding: "8px 0", borderRadius: R.md,
+                  border: `1px solid ${C.brand}`, background: C.brandL,
+                  color: C.brand, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                수정
+              </button>
+              <button onClick={() => handleDelete(s.id)}
+                style={{ padding: "8px 14px", borderRadius: R.md,
+                  border: "none", background: "#fef0f0",
+                  color: "#c0392b", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function AdminScreen({ onBack, onHome, user }) {
   const [companies, setCompanies]       = useState([]);
@@ -467,6 +801,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["disputes",       "분쟁관리"],
     ["settlements",    "정산관리"],
     ["reviews",        "리뷰관리"],
+    ["seed",           "포토후기 시딩"],
     ["lounge",         "라운지관리"],
     ["reports",        "신고관리"],
     ["notifications",  "알림"],
@@ -1168,6 +1503,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 })}
               </div>
             )}
+
+            {mainTab === "seed" && <SeedReviewTab />}
 
             {mainTab === "notifications" && (
               <div>
