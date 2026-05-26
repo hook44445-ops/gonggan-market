@@ -1,15 +1,43 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MOCK_LOUNGE_POSTS, MOCK_STORIES } from '../constants/lounge';
 import {
   IS_SUPABASE_READY,
   getLoungePosts,
   getLoungePost,
   getLoungeStories,
   getLoungeComments,
-  createLoungeComment,
   softDeleteLoungeComment,
+  getLoungeSeeds,
   likeLoungePost,
 } from '../lib/supabase';
+
+// seed 게시글이 많을 때 첫 페이지 노출 최소화 (실제 글 20개 이상이면 최대 3개)
+const SEED_LIMIT_WHEN_PLENTY = 3;
+
+function adaptSeedPost(s) {
+  return {
+    id:                   `seed_${s.id}`,
+    _seed_post_id:        s.id,
+    user_id:              null,
+    anonymous_nickname:   s.nickname ?? '공간러',
+    category:             s.category,
+    title:                s.title ?? null,
+    content:              s.content,
+    image_urls:           s.image_urls ?? [],
+    view_count:           0,
+    like_count:           0,
+    comment_count:        0,
+    is_story:             false,
+    is_deleted:           false,
+    is_hidden:            false,
+    is_seed:              true,
+    has_badge:            false,
+    region:               null,
+    gender:               null,
+    age_group:            null,
+    created_at:           s.created_at,
+    sort_order:           s.sort_order ?? 0,
+  };
+}
 
 export function useLounge(category = 'all') {
   const [posts, setPosts]         = useState([]);
@@ -20,50 +48,29 @@ export function useLounge(category = 'all') {
   const loadPosts = useCallback(async () => {
     setLoading(true);
     if (IS_SUPABASE_READY) {
-      const [postsRes, storiesRes] = await Promise.all([
+      const [postsRes, storiesRes, seedsRes] = await Promise.all([
         getLoungePosts(category),
         getLoungeStories(),
+        getLoungeSeeds(category),
       ]);
-      setPosts(postsRes.data ?? []);
+
+      const realPosts = postsRes.data ?? [];
+      const seeds     = (seedsRes.data ?? []).map(adaptSeedPost);
+
+      // 실제 글이 20개 이상이면 seed는 최대 3개만 노출
+      const seedsToShow = realPosts.length >= 20
+        ? seeds.slice(0, SEED_LIMIT_WHEN_PLENTY)
+        : seeds;
+
+      // 실제 글 먼저, seed 글은 뒤
+      setPosts([...realPosts, ...seedsToShow]);
       setStories(storiesRes.data ?? []);
       setStoriesError(storiesRes.error ?? null);
     } else {
+      // Supabase 미연결 시 빈 피드 (코드 목업 제거)
       await new Promise(r => setTimeout(r, 200));
-
-      let offlinePosts = [];
-      try {
-        offlinePosts = JSON.parse(localStorage.getItem('lounge_offline_posts') ?? '[]');
-      } catch {}
-
-      let offlineStories = [];
-      try {
-        const stored = JSON.parse(localStorage.getItem('lounge_offline_stories') ?? '[]');
-        const now = new Date();
-        offlineStories = stored.filter(s => new Date(s.story_expires_at) > now);
-        if (offlineStories.length !== stored.length) {
-          localStorage.setItem('lounge_offline_stories', JSON.stringify(offlineStories));
-        }
-      } catch {}
-
-      let allPosts = [...offlinePosts, ...MOCK_LOUNGE_POSTS]
-        .filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
-        .filter(p => !p.is_deleted && !p.is_hidden);
-
-      if (category === 'popular') {
-        allPosts = [...allPosts].sort((a, b) => {
-          const seedDiff = (a.is_seed ? 1 : 0) - (b.is_seed ? 1 : 0);
-          if (seedDiff !== 0) return seedDiff;
-          if (b.view_count !== a.view_count) return b.view_count - a.view_count;
-          return b.like_count - a.like_count;
-        });
-      } else if (category !== 'all') {
-        allPosts = allPosts.filter(p => p.category === category);
-      }
-      setPosts(allPosts);
-
-      const allStories = [...offlineStories, ...MOCK_STORIES]
-        .filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i);
-      setStories(allStories);
+      setPosts([]);
+      setStories([]);
     }
     setLoading(false);
   }, [category]);
@@ -71,6 +78,7 @@ export function useLounge(category = 'all') {
   useEffect(() => { loadPosts(); }, [loadPosts]);
 
   const likePost = useCallback(async (postId) => {
+    if (postId?.startsWith('seed_')) return;
     setPosts(prev => prev.map(p =>
       p.id === postId ? { ...p, like_count: (p.like_count ?? 0) + 1 } : p
     ));
@@ -101,9 +109,9 @@ export function useLounge(category = 'all') {
 }
 
 export function useLoungePost(postId, initialPost = null) {
-  const [post, setPost]                     = useState(initialPost);
-  const [comments, setComments]             = useState([]);
-  const [loading, setLoading]               = useState(!initialPost);
+  const [post, setPost]                             = useState(initialPost);
+  const [comments, setComments]                     = useState([]);
+  const [loading, setLoading]                       = useState(!initialPost);
   const [commentsFetchError, setCommentsFetchError] = useState(null);
 
   useEffect(() => {
@@ -112,6 +120,14 @@ export function useLoungePost(postId, initialPost = null) {
 
     const load = async () => {
       if (!initialPost) setLoading(true);
+
+      // seed 게시글은 DB 조회 없이 initialPost 사용
+      const isSeedPost = postId?.startsWith('seed_');
+      if (isSeedPost) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+
       if (IS_SUPABASE_READY) {
         const [postRes, commentsRes] = await Promise.all([
           getLoungePost(postId),
@@ -128,34 +144,8 @@ export function useLoungePost(postId, initialPost = null) {
       } else {
         await new Promise(r => setTimeout(r, 150));
         if (cancelled) return;
-        if (!initialPost) {
-          const found = MOCK_LOUNGE_POSTS.find(p => p.id === postId);
-          setPost(found ?? null);
-        }
-        setComments([
-          {
-            id: 'c1', post_id: postId, parent_id: null,
-            anonymous_nickname: '배고픈수달',
-            content: '저도 같은 경험 있어요. 이음새 부분만 다시 하는 건 어렵지 않다고 하더라고요.',
-            like_count: 5, is_expert_reply: false,
-            created_at: new Date(Date.now() - 30 * 60000).toISOString(),
-          },
-          {
-            id: 'c2', post_id: postId, parent_id: null,
-            anonymous_nickname: '공간설계사',
-            content: '업체 입장에서 말씀드리면, 전체 재작업보다 이음새 보수만 하면 훨씬 저렴합니다. 견적 문의 남겨주시면 도와드릴게요.',
-            like_count: 12, is_expert_reply: true,
-            created_at: new Date(Date.now() - 20 * 60000).toISOString(),
-          },
-          {
-            id: 'c3', post_id: postId, parent_id: 'c1',
-            anonymous_nickname: '날쌘다람쥐',
-            content: '감사해요! 보수로 가능한지 여쭤봐야겠네요.',
-            like_count: 2, is_expert_reply: false,
-            created_at: new Date(Date.now() - 15 * 60000).toISOString(),
-          },
-        ]);
       }
+
       if (!cancelled) setLoading(false);
     };
 
@@ -164,7 +154,7 @@ export function useLoungePost(postId, initialPost = null) {
   }, [postId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refetchComments = useCallback(async () => {
-    if (!postId) return;
+    if (!postId || postId.startsWith('seed_')) return;
     const { data, error } = await getLoungeComments(postId);
     if (error) {
       setCommentsFetchError(error.message);
