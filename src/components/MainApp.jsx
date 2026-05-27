@@ -479,11 +479,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         ...d,
         fetchError: error?.message ?? null,
         rawCount: data?.length ?? 0,
-        statuses: (data ?? []).map(b => ({ id: b.id, req_status: b.requests?.status ?? "?" })),
+        statuses: (data ?? []).map(b => ({
+          id: b.id,
+          req_status: b.requests?.status ?? "?",
+          escrow_tx: (Array.isArray(b.requests?.escrow_payments)
+            ? b.requests.escrow_payments[0]
+            : b.requests?.escrow_payments)?.transaction_status ?? "none",
+        })),
       }));
       if (error || !data) return;
+      const EXCLUDED_TX_STATUSES = new Set(["SETTLED", "COMPLETED", "CANCELLED", "REFUNDED"]);
       const jobs = data
-        .filter(b => b.requests?.status === "in_progress" || b.selected === true)
+        .filter(b => {
+          if (!b.selected) return false;
+          if (b.requests?.status !== "in_progress") return false;
+          const ep = b.requests?.escrow_payments;
+          const escrow = Array.isArray(ep) ? ep[0] : ep;
+          if (escrow && EXCLUDED_TX_STATUSES.has(escrow.transaction_status)) return false;
+          return true;
+        })
         .map(b => ({
           bid: {
             id: b.id,

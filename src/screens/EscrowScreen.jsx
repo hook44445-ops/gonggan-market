@@ -194,6 +194,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   // Per-stage photo upload
   const [stagePhotos, setStagePhotos] = useState({ 3: [], 4: [], 5: [] });
   const [uploadingStage, setUploadingStage] = useState(null);
+  const [reportingStage, setReportingStage] = useState(null);
+  const [reportError, setReportError] = useState(null);
   const [stageDeadlines, setStageDeadlines] = useState({});
 
   // DB-loaded contract state
@@ -392,75 +394,103 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
   const reportComplete = async (stageId) => {
     const s = STAGE_META.find(x => x.id === stageId);
-    setStageStatus(prev => ({ ...prev, [stageId]: "pending_customer" }));
-    setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
-    if (s?.label) addTimeline("photo", s.label);
+    setReportingStage(stageId);
+    setReportError(null);
 
-    // Per-stage config: dbStep for phase_photos, txStatus, currentStep, payoutStage for READY
     const phaseConfig = {
-      3: { dbStep: 1, txStatus: "STARTED",        currentStep: 2, payoutStage: 2 },
-      4: { dbStep: 2, txStatus: "MID_INSPECTION",  currentStep: 3, payoutStage: 3 },
-      5: { dbStep: 3, txStatus: "COMPLETED",       currentStep: 4, payoutStage: 4 },
+      3: { dbStep: 1, txStatus: "STARTED",       currentStep: 2, payoutStage: 2 },
+      4: { dbStep: 2, txStatus: "MID_INSPECTION", currentStep: 3, payoutStage: 3 },
+      5: { dbStep: 3, txStatus: "COMPLETED",      currentStep: 4, payoutStage: 4 },
     }[stageId];
 
-    if (!phaseConfig) return;
+    if (!phaseConfig) { setReportingStage(null); return; }
+
     const { dbStep, txStatus, currentStep, payoutStage } = phaseConfig;
     const photos = stagePhotos[stageId] ?? [];
     const cid = resolvedContractId;
 
     const debug = {
-      stageId,
-      contractId: cid ?? "NULL — writes skipped!",
-      photoCount:  photos.length,
-      inserted_phase_photo_id: null,
-      update_escrow_err:  null,
-      update_payout_err:  null,
-      phase_photo_step1_count_after: null,
+      contract_id:          cid ?? "NULL",
+      request_id:           request?.id ?? resolvedBid?.requestId ?? "NULL",
+      company_id:           resolvedBid?.companyId ?? userId ?? "NULL",
+      current_status:       contractData?.transaction_status ?? "—",
+      current_phase:        stageId,
+      uploaded_photo_url:   photos[0] ?? null,
+      upload_ok:            null,
+      upload_err:           null,
+      status_update_ok:     null,
+      status_update_err:    null,
+      payout_update_ok:     null,
+      payout_update_err:    null,
+      contract_reload_ok:   null,
+      contract_reload_err:  null,
+      caught_err:           null,
     };
 
     if (!cid) {
+      debug.upload_err = "resolvedContractId is null — DB writes skipped";
       setCompanyReportDebug(debug);
-      return; // cannot write without contractId
+      setReportError("계약 정보를 아직 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+      setReportingStage(null);
+      return;
     }
 
-    // 1. Insert phase_photos
-    if (photos.length > 0) {
-      const { data: photoRow, error: photoErr } = await addPhasePhotos({
-        contractId:   cid,
-        step:         dbStep,
-        photos,
-        uploadedBy:   userId ?? null,
-        uploaderRole: "company",
-        caption:      s?.label ?? null,
-      });
-      debug.inserted_phase_photo_id = photoRow?.id ?? null;
-      debug.photo_err = photoErr?.message ?? null;
-    } else {
-      debug.photo_err = "no photos in state";
+    try {
+      // 1. Insert phase_photos
+      if (photos.length > 0) {
+        const { data: photoRow, error: photoErr } = await addPhasePhotos({
+          contractId:   cid,
+          step:         dbStep,
+          photos,
+          uploadedBy:   userId ?? null,
+          uploaderRole: "company",
+          caption:      s?.label ?? null,
+        });
+        debug.upload_ok  = !photoErr;
+        debug.upload_err = photoErr?.message ?? null;
+        debug.uploaded_photo_url = photos[0];
+      } else {
+        debug.upload_err = "no photos in state";
+      }
+
+      // 2. Update escrow_payments: txStatus + current_step + photos_uploaded_at
+      const { error: escrowErr } = await markEscrowPhaseStarted(cid, txStatus, currentStep);
+      debug.status_update_ok  = !escrowErr;
+      debug.status_update_err = escrowErr?.message ?? null;
+
+      // 3. Update escrow_payouts stage to READY (customer approval pending)
+      const { error: payoutErr } = await setEscrowPayoutReady(cid, payoutStage);
+      debug.payout_update_ok  = !payoutErr;
+      debug.payout_update_err = payoutErr?.message ?? null;
+
+      // Optimistic UI update (DB will confirm on re-fetch)
+      if (!escrowErr) {
+        setStageStatus(prev => ({ ...prev, [stageId]: "pending_customer" }));
+        setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
+        if (s?.label) addTimeline("photo", s.label);
+      } else {
+        setReportError(`단계 상태 업데이트 실패: ${escrowErr.message}`);
+      }
+
+      logActivity({
+        userId:     userId ?? null,
+        role:       "company",
+        action:     "PHOTO_UPLOADED",
+        targetType: "contract",
+        targetId:   cid,
+        metadata:   { stage: stageId, dbStep, photoCount: photos.length, label: s?.label,
+                      escrowErr: debug.status_update_err, payoutErr: debug.payout_update_err },
+      }).catch(() => {});
+
+    } catch (err) {
+      debug.caught_err = err?.message ?? String(err);
+      setReportError(`오류가 발생했습니다: ${debug.caught_err}`);
+    } finally {
+      setCompanyReportDebug(debug);
+      setReportingStage(null);
+      // Always re-fetch to sync DB state
+      setDbRefreshKey(k => k + 1);
     }
-
-    // 2. Update escrow_payments: txStatus + current_step + photos_uploaded_at
-    const { error: escrowErr } = await markEscrowPhaseStarted(cid, txStatus, currentStep);
-    debug.update_escrow_err = escrowErr?.message ?? null;
-
-    // 3. Update escrow_payouts stage to READY (customer approval pending)
-    const { error: payoutErr } = await setEscrowPayoutReady(cid, payoutStage);
-    debug.update_payout_err = payoutErr?.message ?? null;
-
-    setCompanyReportDebug(debug);
-
-    // 4. Re-fetch DB state so customer view updates on next open
-    setDbRefreshKey(k => k + 1);
-
-    logActivity({
-      userId:     userId ?? null,
-      role:       "company",
-      action:     "PHOTO_UPLOADED",
-      targetType: "contract",
-      targetId:   cid,
-      metadata:   { stage: stageId, dbStep, photoCount: photos.length, label: s?.label,
-                    escrowErr: debug.update_escrow_err, payoutErr: debug.update_payout_err },
-    }).catch(() => {});
   };
 
   const handleFileChange = async (e, stageId) => {
@@ -568,19 +598,31 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               stageStatus: {JSON.stringify(stageStatus)}<br/>
               {!isConsumer && companyReportDebug && (<>
                 <span style={{color:"#ff0"}}>── company report result ──</span><br/>
-                <span style={{color: companyReportDebug.contractId && !companyReportDebug.contractId.includes("NULL") ? "#0f0" : "#f66"}}>
-                  contractId: {typeof companyReportDebug.contractId === "string" ? companyReportDebug.contractId.slice(0,8) : String(companyReportDebug.contractId)}<br/>
-                </span>
-                photoCount: {companyReportDebug.photoCount}<br/>
-                <span style={{color: companyReportDebug.inserted_phase_photo_id ? "#0f0" : "#f66"}}>
-                  inserted_phase_photo_id: {companyReportDebug.inserted_phase_photo_id?.slice(0,8) ?? (companyReportDebug.photo_err ?? "null")}
+                <span style={{color: companyReportDebug.contract_id && companyReportDebug.contract_id !== "NULL" ? "#0f0" : "#f66"}}>
+                  contract_id: {companyReportDebug.contract_id?.slice?.(0,8) ?? companyReportDebug.contract_id}
                 </span><br/>
-                <span style={{color: companyReportDebug.update_escrow_err ? "#f66" : "#0f0"}}>
-                  update_escrow_err: {companyReportDebug.update_escrow_err ?? "none"}
+                <span style={{color:"#aaa"}}>
+                  request_id: {companyReportDebug.request_id?.slice?.(0,8) ?? companyReportDebug.request_id} | company_id: {companyReportDebug.company_id?.slice?.(0,8) ?? companyReportDebug.company_id}
                 </span><br/>
-                <span style={{color: companyReportDebug.update_payout_err ? "#f66" : "#0f0"}}>
-                  update_payout_err: {companyReportDebug.update_payout_err ?? "none"}
+                current_status: {companyReportDebug.current_status} | phase: {companyReportDebug.current_phase}<br/>
+                <span style={{color: companyReportDebug.uploaded_photo_url ? "#4ff" : "#888"}}>
+                  uploaded_photo_url: {companyReportDebug.uploaded_photo_url ? "…" + String(companyReportDebug.uploaded_photo_url).slice(-24) : "none"}
                 </span><br/>
+                <span style={{color: companyReportDebug.upload_ok ? "#0f0" : companyReportDebug.upload_err ? "#f66" : "#888"}}>
+                  upload_ok: {String(companyReportDebug.upload_ok ?? "—")} | upload_err: {companyReportDebug.upload_err ?? "none"}
+                </span><br/>
+                <span style={{color: companyReportDebug.status_update_ok ? "#0f0" : companyReportDebug.status_update_err ? "#f66" : "#888"}}>
+                  status_update_ok: {String(companyReportDebug.status_update_ok ?? "—")} | err: {companyReportDebug.status_update_err ?? "none"}
+                </span><br/>
+                <span style={{color: companyReportDebug.payout_update_ok ? "#0f0" : companyReportDebug.payout_update_err ? "#f66" : "#888"}}>
+                  payout_update_ok: {String(companyReportDebug.payout_update_ok ?? "—")} | err: {companyReportDebug.payout_update_err ?? "none"}
+                </span><br/>
+                <span style={{color: companyReportDebug.contract_reload_ok ? "#0f0" : companyReportDebug.contract_reload_err ? "#f66" : "#888"}}>
+                  contract_reload_ok: {String(companyReportDebug.contract_reload_ok ?? "—")} | err: {companyReportDebug.contract_reload_err ?? "none"}
+                </span><br/>
+                {companyReportDebug.caught_err && (
+                  <span style={{color:"#f66"}}>caught_err: {companyReportDebug.caught_err}<br/></span>
+                )}
               </>)}
               {isConsumer && approvalLog && (<>
                 <span style={{color:"#ff0"}}>── customer approval result ──</span><br/>
@@ -747,20 +789,25 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                             📁 사진 선택
                           </button>
                           <button
-                            onClick={() => !disputeSubmitted && resolvedContractId && reportComplete(s.id)}
-                            disabled={isUploadingThis || photos.length === 0 || disputeSubmitted || !resolvedContractId}
+                            onClick={() => !disputeSubmitted && !reportingStage && reportComplete(s.id)}
+                            disabled={isUploadingThis || reportingStage === s.id || photos.length === 0 || disputeSubmitted}
                             style={{ flex: 2, padding: "11px", borderRadius: R.lg, fontWeight: 800, fontSize: 14,
-                              cursor: photos.length > 0 && !disputeSubmitted && resolvedContractId ? "pointer" : "not-allowed",
+                              cursor: photos.length > 0 && !disputeSubmitted && !reportingStage ? "pointer" : "not-allowed",
                               border: "none",
-                              background: photos.length > 0 && !disputeSubmitted && resolvedContractId ? C.brand : C.bgWarm,
-                              color:      photos.length > 0 && !disputeSubmitted && resolvedContractId ? "#fff" : C.text4,
-                              boxShadow:  photos.length > 0 && !disputeSubmitted && resolvedContractId ? `0 4px 14px ${C.brand}44` : "none" }}>
+                              background: photos.length > 0 && !disputeSubmitted ? C.brand : C.bgWarm,
+                              color:      photos.length > 0 && !disputeSubmitted ? "#fff" : C.text4,
+                              boxShadow:  photos.length > 0 && !disputeSubmitted ? `0 4px 14px ${C.brand}44` : "none" }}>
                             {disputeSubmitted ? "🔒 분쟁 동결 중"
+                              : reportingStage === s.id ? "전송 중..."
                               : isUploadingThis ? "업로드 중..."
-                              : !resolvedContractId ? "계약 로딩 중..."
                               : "고객에게 전송하기"}
                           </button>
                         </div>
+                        {reportError && (
+                          <div style={{ marginTop: S.sm, padding: "8px 12px", background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.md, fontSize: 12, color: C.red }}>
+                            {reportError}
+                          </div>
+                        )}
                         <input ref={fileInputRefs[s.id]} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => handleFileChange(e, s.id)} />
                       </div>
                     </div>
