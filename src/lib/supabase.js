@@ -1590,7 +1590,9 @@ export const softDeleteLoungePost = (postId, userId) =>
     .from("lounge_posts")
     .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
     .eq("id", postId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("id, is_deleted")
+    .single();
 
 export const getLoungeStories = () =>
   supabase

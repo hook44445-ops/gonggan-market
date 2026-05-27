@@ -264,6 +264,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   // ── 라운지 상태 ──────────────────────────────────────────────────────────────
   const [loungePost, setLoungePost]               = useState(null);
   const [editingLoungePost, setEditingLoungePost] = useState(null);
+  const [loungeRefreshKey, setLoungeRefreshKey] = useState(0);
   const [editOriginScreen, setEditOriginScreen]   = useState('lounge-detail');
   const [myPostsRefreshKey, setMyPostsRefreshKey] = useState(0);
   const [localLoungePosts, setLocalLoungePosts]   = useState([]);
@@ -1824,6 +1825,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onDeletePost={(id) => {
               setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
               setLoungePost(null);
+              setLoungeRefreshKey(k => k + 1);
             }}
           />
         )}

@@ -140,7 +140,7 @@ export function useLounge(category = 'all') {
     setStories(prev => prev.filter(s => s.id !== storyId));
   }, []);
 
-  return { posts, stories, loading, storiesError, likePost, addPost, removePost, updatePost, addStory, removeStory, reload: loadPosts, devInfo };
+  return { posts, stories, loading, storiesError, likePost, addPost, removePost, updatePost, addStory, removeStory, reload: loadPosts, refetch: loadPosts, devInfo };
 }
 
 export function useLoungePost(postId, initialPost = null) {

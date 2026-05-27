@@ -101,6 +101,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [showMenu,    setShowMenu]          = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting,    setDeleting]          = useState(false);
+  const [deleteDevInfo, setDeleteDevInfo] = useState(null);
   const inputRef = useRef(null);
 
   const isGuest    = user?.isGuest === true;
@@ -292,7 +293,23 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const handleDelete = async () => {
     setDeleting(true);
     if (IS_SUPABASE_READY) {
-      await softDeleteLoungePost(post.id, user.id);
+      const { data, error } = await softDeleteLoungePost(post.id, user.id);
+      if (import.meta.env.DEV) {
+        setDeleteDevInfo({
+          currentUserId: user?.id,
+          postUserId:    post?.user_id,
+          isOwner:       post?.user_id === user?.id,
+          postId:        post?.id,
+          delete_ok:     !error,
+          delete_err:    error?.message ?? null,
+          affected_rows: data ? 1 : 0,
+        });
+      }
+      if (error) {
+        setDeleting(false);
+        showToast('삭제에 실패했습니다');
+        return;
+      }
     } else {
       try {
         const key = 'lounge_offline_posts';
@@ -420,6 +437,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           [DEV] lounge_comments<br/>
           post.id: {post?.id?.slice(0,8) ?? 'NULL ⚠️'}<br/>
           user.id: {user?.id?.slice(0,8) ?? 'NULL ⚠️'}<br/>
+          isOwner: {String(isOwn)} | post.user_id: {post?.user_id?.slice(0,8) ?? 'null'}<br/>
           comments.length: {comments.length} | fetch_err: {commentsFetchError ?? 'none'}<br/>
           ids: {comments.slice(0,3).map(c => c.id?.slice(0,6)).join(', ') || '(empty)'}<br/>
           {devCommentInfo && <>
@@ -431,6 +449,13 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 ? <span style={{color:'#0f0'}}>insert_ok: id={devCommentInfo.insertResult.id?.slice(0,8)} post_id={devCommentInfo.insertResult.post_id?.slice(0,8)}<br/></span>
                 : null
             }
+          </>}
+          {deleteDevInfo && <>
+            --- last delete ---<br/>
+            currentUser.id: {deleteDevInfo.currentUserId?.slice(0,8)}<br/>
+            post.user_id: {deleteDevInfo.postUserId?.slice(0,8)} | isOwner: {String(deleteDevInfo.isOwner)}<br/>
+            delete_ok: <span style={{color: deleteDevInfo.delete_ok ? '#0f0' : '#f66'}}>{String(deleteDevInfo.delete_ok)}</span> | err: {deleteDevInfo.delete_err ?? 'null'}<br/>
+            affected_rows: {deleteDevInfo.affected_rows}<br/>
           </>}
         </div>
       )}
