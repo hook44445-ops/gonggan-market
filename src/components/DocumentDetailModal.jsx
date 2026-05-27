@@ -1,54 +1,38 @@
 import { useState, useRef } from "react";
 import { C, R, S } from "../constants";
+import { DOCUMENT_TEMPLATES, UPLOAD_DOCUMENT_TEMPLATES } from "../constants/documentTemplates";
 import { uploadFile, upsertCompanyDocument, submitCompanyDocument } from "../lib/supabase";
 
+const ALL_TEMPLATES = [...UPLOAD_DOCUMENT_TEMPLATES, ...DOCUMENT_TEMPLATES];
+const UPLOAD_TYPES  = new Set(UPLOAD_DOCUMENT_TEMPLATES.map(t => t.type));
+
 const STATUS_META = {
-  draft:     { label: "미작성",   color: C.text4,  bg: C.bg      },
-  submitted: { label: "제출완료", color: C.brand,  bg: C.brandL  },
-  reviewing: { label: "검토중",   color: C.gold,   bg: "#FBF5E8" },
-  approved:  { label: "승인완료", color: C.green,  bg: C.greenL  },
-  held:      { label: "보류",     color: C.gold,   bg: "#FBF5E8" },
-  rejected:  { label: "반려",     color: C.red,    bg: "#FEF0F0" },
-};
-
-const DOC_CONFIGS = {
-  business_license:      { type: "UPLOAD",    icon: "📋" },
-  insurance_certificate: { type: "UPLOAD",    icon: "🔒" },
-  operation_pledge:      { type: "CHECKLIST", icon: "📝" },
-  escrow_agreement:      { type: "CHECKLIST", icon: "🛡" },
-};
-
-const CHECKLIST_ITEMS = {
-  operation_pledge: [
-    { key: "no_fraud", label: "부정 경쟁 및 뒷거래 금지 서약" },
-    { key: "privacy",  label: "고객 개인정보 보호 서약" },
-    { key: "as_duty",  label: "하자보수 AS 의무 이행 동의" },
-    { key: "quality",  label: "품질 관리 및 안전 수칙 준수 동의" },
-    { key: "policy",   label: "공간마켓 운영 정책 준수 동의" },
-  ],
-  escrow_agreement: [
-    { key: "phase_structure", label: "에스크로 단계별 정산 구조 이해 (계약 10% → 착공 20% → 중간점검 40% → 완료 30%)" },
-    { key: "phase_delay",     label: "단계 미완료 시 정산 지연 동의" },
-    { key: "dispute",         label: "분쟁 발생 시 공간마켓 중재 동의" },
-    { key: "final_approval",  label: "고객 최종 승인 후 정산 동의" },
-  ],
+  draft:     { label: "미작성",   color: C.text4, bg: C.bg      },
+  submitted: { label: "제출완료", color: C.brand, bg: C.brandL  },
+  reviewing: { label: "검토중",   color: C.gold,  bg: "#FBF5E8" },
+  approved:  { label: "승인완료", color: C.green, bg: C.greenL  },
+  held:      { label: "보류",     color: C.gold,  bg: "#FBF5E8" },
+  rejected:  { label: "반려",     color: C.red,   bg: "#FEF0F0" },
 };
 
 export default function DocumentDetailModal({ doc, companyId, userId, onClose, onChange }) {
-  const cfg = DOC_CONFIGS[doc.document_type] ?? { type: "UPLOAD", icon: "📄" };
-  const status = doc?.review_status ?? "draft";
-  const meta = STATUS_META[status] ?? STATUS_META.draft;
-  const canEdit = !["submitted", "reviewing", "approved"].includes(status);
+  const template  = ALL_TEMPLATES.find(t => t.type === doc.document_type) ?? {};
+  const isUpload  = UPLOAD_TYPES.has(doc.document_type);
+  const status    = doc?.review_status ?? "draft";
+  const meta      = STATUS_META[status] ?? STATUS_META.draft;
+  const canEdit   = !["submitted", "reviewing", "approved"].includes(status);
+  const icon      = doc.icon ?? template.icon ?? (isUpload ? "📄" : "📝");
 
-  const [uploading, setUploading] = useState(false);
-  const [fileInfo, setFileInfo] = useState({ name: doc.file_name ?? null, url: doc.file_url ?? null });
+  const [uploading, setUploading]   = useState(false);
+  const [fileInfo, setFileInfo]     = useState({ name: doc.file_name ?? null, url: doc.file_url ?? null });
+  const [checklist, setChecklist]   = useState(doc?.checklist ?? {});
+  const [docId, setDocId]           = useState(doc?.id ?? null);
+  const [saving, setSaving]         = useState(false);
+  const [sectionsOpen, setSectionsOpen] = useState({});
   const fileRef = useRef(null);
 
-  const items = CHECKLIST_ITEMS[doc.document_type] ?? [];
-  const [checklist, setChecklist] = useState(doc?.checklist ?? {});
-  const [docId, setDocId] = useState(doc?.id ?? null);
-  const [saving, setSaving] = useState(false);
-  const allChecked = items.every(i => checklist[i.key]);
+  const items     = template.checklist ?? [];
+  const allChecked = items.length > 0 && items.every((_, i) => checklist[String(i)]);
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -56,7 +40,7 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
     setUploading(true);
     try {
       const path = `company-docs/${companyId}/${doc.document_type}/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
-      const url = await uploadFile("documents", path, file).catch(() => URL.createObjectURL(file));
+      const url  = await uploadFile("documents", path, file).catch(() => URL.createObjectURL(file));
       const { data } = await upsertCompanyDocument({
         ...(docId ? { id: docId } : {}),
         company_id: companyId, user_id: userId,
@@ -86,8 +70,9 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
     }
   };
 
-  const toggleCheck = async (key) => {
+  const toggleCheck = async (idx) => {
     if (!canEdit) return;
+    const key  = String(idx);
     const next = { ...checklist, [key]: !checklist[key] };
     setChecklist(next);
     const { data } = await upsertCompanyDocument({
@@ -126,16 +111,25 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
       }}>
         <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 20px" }} />
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.xl }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.sm }}>
           <div style={{ display: "flex", gap: S.sm, alignItems: "center" }}>
-            <span style={{ fontSize: 22 }}>{cfg.icon}</span>
-            <div style={{ fontSize: 18, fontWeight: 900, color: C.text1 }}>{doc.title}</div>
+            <span style={{ fontSize: 22 }}>{icon}</span>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text1 }}>{doc.title ?? template.title}</div>
           </div>
           <span style={{ background: meta.bg, color: meta.color, borderRadius: R.full, padding: "4px 12px", fontSize: 12, fontWeight: 700 }}>
             {meta.label}
           </span>
         </div>
 
+        {/* Purpose */}
+        {template.purpose && (
+          <div style={{ fontSize: 12, color: C.text3, marginBottom: S.xl, paddingLeft: 2 }}>
+            📌 {template.purpose}
+          </div>
+        )}
+
+        {/* Reject / Hold reason */}
         {(status === "rejected" || status === "held") && doc.review_reason && (
           <div style={{
             background: status === "rejected" ? "#FEF0F0" : "#FFF7E6",
@@ -149,8 +143,64 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
           </div>
         )}
 
-        {cfg.type === "UPLOAD" && (
+        {/* Reason box */}
+        {template.reason && (
+          <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, marginBottom: S.xl,
+            border: `1px solid ${C.brandM}`, fontSize: 12, color: C.brand, lineHeight: 1.7 }}>
+            💡 {template.reason}
+          </div>
+        )}
+
+        {/* Sections (accordion) */}
+        {template.sections?.length > 0 && (
+          <div style={{ marginBottom: S.xl }}>
+            {template.sections.map((sec, i) => (
+              <div key={i} style={{ marginBottom: S.sm }}>
+                <div
+                  onClick={() => setSectionsOpen(p => ({ ...p, [i]: !p[i] }))}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                    background: C.surface2, borderRadius: R.md, padding: `${S.sm}px ${S.lg}px`,
+                    cursor: "pointer", border: `1px solid ${C.bgWarm}`,
+                    marginBottom: sectionsOpen[i] ? S.xs : 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{sec.title}</span>
+                  <span style={{ fontSize: 14, color: C.text3 }}>{sectionsOpen[i] ? "▲" : "▼"}</span>
+                </div>
+                {sectionsOpen[i] && (
+                  <div style={{ background: C.bg, borderRadius: R.md, padding: S.lg,
+                    fontSize: 13, color: C.text2, lineHeight: 1.8, border: `1px solid ${C.bgWarm}`,
+                    whiteSpace: "pre-line" }}>
+                    {sec.body}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* UPLOAD type */}
+        {isUpload && (
           <>
+            {/* Submit items */}
+            {template.submitItems?.length > 0 && (
+              <div style={{ background: "#F5F1EA", borderRadius: R.lg, padding: S.lg, marginBottom: S.md }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.brand, marginBottom: S.xs }}>제출 항목</div>
+                {template.submitItems.map((item, i) => (
+                  <div key={i} style={{ fontSize: 13, color: C.text2, lineHeight: 1.8 }}>• {item}</div>
+                ))}
+              </div>
+            )}
+
+            {/* Review criteria */}
+            {template.reviewCriteria?.length > 0 && (
+              <div style={{ background: "#EEF4F0", borderRadius: R.lg, padding: S.lg, marginBottom: S.xl }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.green, marginBottom: S.xs }}>검토 기준</div>
+                {template.reviewCriteria.map((item, i) => (
+                  <div key={i} style={{ fontSize: 13, color: C.text2, lineHeight: 1.8 }}>✓ {item}</div>
+                ))}
+              </div>
+            )}
+
+            {/* File area */}
             {fileInfo.url ? (
               <div style={{ background: C.greenL, borderRadius: R.lg, padding: S.lg, marginBottom: S.xl, border: `1px solid ${C.brandM}` }}>
                 <div style={{ fontSize: 12, color: C.text3, marginBottom: 4 }}>첨부 파일</div>
@@ -168,6 +218,8 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
                 <div style={{ fontSize: 13, color: C.text3 }}>PDF 또는 이미지 파일을 업로드해주세요</div>
               </div>
             )}
+
+            {/* Upload / submit buttons */}
             {canEdit && (
               <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
                 <button onClick={() => fileRef.current?.click()} disabled={uploading}
@@ -194,35 +246,52 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
                 )}
               </div>
             )}
-            <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: "none" }} onChange={handleUpload} />
+            <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.heic" style={{ display: "none" }} onChange={handleUpload} />
           </>
         )}
 
-        {cfg.type === "CHECKLIST" && (
+        {/* CHECKLIST type */}
+        {!isUpload && items.length > 0 && (
           <>
-            <div style={{ marginBottom: S.xl }}>
-              {items.map((item, i) => (
-                <div key={item.key}
-                  onClick={() => canEdit && toggleCheck(item.key)}
-                  style={{
-                    display: "flex", gap: S.md, alignItems: "flex-start",
-                    padding: `${S.md}px 0`,
-                    borderBottom: i < items.length - 1 ? `1px solid ${C.bg}` : "none",
-                    cursor: canEdit ? "pointer" : "default",
-                  }}>
-                  <div style={{
-                    width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1,
-                    background: checklist[item.key] ? C.brand : C.surface,
-                    border: `2px solid ${checklist[item.key] ? C.brand : C.bgWarm}`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "#fff", fontSize: 12, fontWeight: 900,
-                  }}>
-                    {checklist[item.key] ? "✓" : ""}
-                  </div>
-                  <span style={{ fontSize: 13, color: C.text1, lineHeight: 1.7 }}>{item.label}</span>
-                </div>
-              ))}
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text1, marginBottom: S.md }}>
+              아래 항목을 확인해주세요
             </div>
+            <div style={{ marginBottom: S.xl }}>
+              {items.map((label, i) => {
+                const checked = !!checklist[String(i)];
+                return (
+                  <div key={i}
+                    onClick={() => canEdit && toggleCheck(i)}
+                    style={{
+                      display: "flex", gap: S.md, alignItems: "flex-start",
+                      padding: `${S.md}px 0`,
+                      borderBottom: i < items.length - 1 ? `1px solid ${C.bg}` : "none",
+                      cursor: canEdit ? "pointer" : "default",
+                    }}>
+                    <div style={{
+                      width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginTop: 1,
+                      background: checked ? C.brand : C.surface,
+                      border: `2px solid ${checked ? C.brand : C.bgWarm}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: "#fff", fontSize: 12, fontWeight: 900,
+                    }}>
+                      {checked ? "✓" : ""}
+                    </div>
+                    <span style={{ fontSize: 13, color: C.text1, lineHeight: 1.7 }}>{label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Consent text */}
+            {template.consentText && (
+              <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg,
+                fontSize: 12, color: C.text3, fontStyle: "italic", marginBottom: S.xl,
+                border: `1px solid ${C.bgWarm}` }}>
+                "{template.consentText}"
+              </div>
+            )}
+
             {canEdit && (
               <button onClick={handleSubmitChecklist} disabled={!allChecked || saving}
                 style={{
@@ -236,7 +305,7 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
                 }}>
                 {saving
                   ? "제출 중..."
-                  : `✅ 모두 동의하고 제출 (${items.filter(i => checklist[i.key]).length}/${items.length})`}
+                  : `✅ 모두 동의하고 제출 (${items.filter((_, i) => checklist[String(i)]).length}/${items.length})`}
               </button>
             )}
             {!canEdit && status === "approved" && (
@@ -245,6 +314,15 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
               </div>
             )}
           </>
+        )}
+
+        {/* Consent text for upload types */}
+        {isUpload && template.consentText && status !== "draft" && (
+          <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg,
+            fontSize: 12, color: C.text3, fontStyle: "italic", marginTop: S.xl,
+            border: `1px solid ${C.bgWarm}` }}>
+            "{template.consentText}"
+          </div>
         )}
 
         <button onClick={onClose}

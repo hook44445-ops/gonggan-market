@@ -1,4 +1,5 @@
 import { C, R, S } from "../constants";
+import { DOCUMENT_TEMPLATES } from "../constants/documentTemplates";
 
 const STATUS_META = {
   draft:     { label: "미작성",   color: C.text4,  bg: C.bg      },
@@ -7,30 +8,17 @@ const STATUS_META = {
   approved:  { label: "승인완료", color: C.green,  bg: C.greenL  },
   held:      { label: "보류",     color: C.gold,   bg: "#FBF5E8" },
   rejected:  { label: "반려",     color: C.red,    bg: "#FEF0F0" },
-};
-
-const CHECKLIST_ITEMS = {
-  operation_pledge: [
-    { key: "no_fraud", label: "부정 경쟁 및 뒷거래 금지 서약" },
-    { key: "privacy",  label: "고객 개인정보 보호 서약" },
-    { key: "as_duty",  label: "하자보수 AS 의무 이행 동의" },
-    { key: "quality",  label: "품질 관리 및 안전 수칙 준수 동의" },
-    { key: "policy",   label: "공간마켓 운영 정책 준수 동의" },
-  ],
-  escrow_agreement: [
-    { key: "phase_structure", label: "에스크로 단계별 정산 구조 이해" },
-    { key: "phase_delay",     label: "단계 미완료 시 정산 지연 동의" },
-    { key: "dispute",         label: "분쟁 발생 시 공간마켓 중재 동의" },
-    { key: "final_approval",  label: "고객 최종 승인 후 정산 동의" },
-  ],
+  pending:   { label: "검토중",   color: C.gold,   bg: "#FBF5E8" },
+  on_hold:   { label: "보류",     color: C.gold,   bg: "#FBF5E8" },
 };
 
 export default function DocumentChecklistCard({ doc, onClick }) {
   const status = doc?.review_status ?? "draft";
   const meta = STATUS_META[status] ?? STATUS_META.draft;
-  const items = CHECKLIST_ITEMS[doc.document_type] ?? [];
+  const template = DOCUMENT_TEMPLATES.find(t => t.type === doc.document_type);
+  const items = template?.checklist ?? [];
   const checklist = doc?.checklist ?? {};
-  const checkedCount = items.filter(i => checklist[i.key]).length;
+  const checkedCount = items.filter((_, i) => checklist[String(i)]).length;
 
   return (
     <div onClick={onClick}

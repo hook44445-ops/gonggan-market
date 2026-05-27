@@ -7,6 +7,8 @@ const STATUS_META = {
   approved:  { label: "승인완료", color: C.green,  bg: C.greenL  },
   held:      { label: "보류",     color: C.gold,   bg: "#FBF5E8" },
   rejected:  { label: "반려",     color: C.red,    bg: "#FEF0F0" },
+  pending:   { label: "검토중",   color: C.gold,   bg: "#FBF5E8" },
+  on_hold:   { label: "보류",     color: C.gold,   bg: "#FBF5E8" },
 };
 
 export default function DocumentUploadCard({ doc, onClick }) {
