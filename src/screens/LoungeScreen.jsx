@@ -384,7 +384,9 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
     );
     return extraPosts.filter(p => p.category === category);
   })();
-  const allPosts = [...filteredExtra, ...posts].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i);
+  const allPosts = [...filteredExtra, ...posts]
+    .filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
+    .filter(p => p.is_deleted !== true && p.is_hidden !== true);
 
   const handleWriteClick = () => {
     if (isGuest) { onRequireLogin?.(); return; }
@@ -392,7 +394,9 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
   };
 
   const mergedStories = [...extraStories, ...stories].filter((s, i, arr) => arr.findIndex(x => x.id === s.id) === i);
-  const mergedPosts   = [...extraPosts,   ...posts  ].filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i);
+  const mergedPosts   = [...extraPosts,   ...posts  ]
+    .filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
+    .filter(p => p.is_deleted !== true && p.is_hidden !== true);
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 90 }}>

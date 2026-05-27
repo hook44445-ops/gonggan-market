@@ -1331,7 +1331,28 @@ export const softDeleteLoungePost = (postId, userId) =>
     .from("lounge_posts")
     .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
     .eq("id", postId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("id, is_deleted")
+    .single();
+
+export const adminSoftDeleteLoungePost = async (postId, adminId) => {
+  const { data, error } = await supabase
+    .from("lounge_posts")
+    .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: adminId })
+    .eq("id", postId)
+    .select("id, is_deleted")
+    .single();
+  if (!error && data?.is_deleted) {
+    await supabase.from("admin_logs").insert({
+      admin_id:    adminId || null,
+      action:      "DELETE_LOUNGE_POST",
+      target_type: "lounge_post",
+      target_id:   postId,
+      after_val:   { is_deleted: true },
+    });
+  }
+  return { data, error };
+};
 
 export const getLoungeStories = () =>
   supabase

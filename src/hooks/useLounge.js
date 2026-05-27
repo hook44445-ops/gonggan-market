@@ -79,7 +79,8 @@ export function useLounge(category = 'all') {
 
       const realPosts = postsRes.data ?? [];
       const seeds     = (seedsRes.data ?? []).map(adaptSeedPost);
-      const merged    = buildFeed(realPosts, seeds);
+      const merged    = buildFeed(realPosts, seeds)
+        .filter(p => p.is_deleted !== true && p.is_hidden !== true);
       setPosts(merged);
       setStories(storiesRes.data ?? []);
       setStoriesError(storiesRes.error ?? null);

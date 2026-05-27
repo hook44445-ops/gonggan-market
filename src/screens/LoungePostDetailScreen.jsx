@@ -20,7 +20,7 @@ import {
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
-import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification } from '../lib/supabase';
+import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification, supabase } from '../lib/supabase';
 
 // ── 삭제 확인 다이얼로그 ───────────────────────────────
 function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
@@ -290,20 +290,54 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   };
 
   const handleDelete = async () => {
+    if (!post?.id || !user?.id) return;
     setDeleting(true);
+
+    if (import.meta.env.DEV) {
+      const authRes = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      console.log('[handleDelete] DEV info:', {
+        currentUserId:    user.id,
+        supabaseAuthUid:  authRes?.data?.user?.id ?? null,
+        postUserId:       post.user_id,
+        isOwner:          post.user_id === user.id,
+        postId:           post.id,
+      });
+    }
+
     if (IS_SUPABASE_READY) {
-      await softDeleteLoungePost(post.id, user.id);
+      const { data, error: deleteErr } = await softDeleteLoungePost(post.id, user.id);
+
+      if (import.meta.env.DEV) {
+        console.log('[handleDelete] result:', {
+          delete_ok:     !deleteErr && data?.is_deleted === true,
+          delete_err:    deleteErr?.message ?? null,
+          affected_rows: data ? 1 : 0,
+          data,
+        });
+      }
+
+      if (deleteErr || data?.is_deleted !== true) {
+        setDeleting(false);
+        showToast('❌ 삭제에 실패했어요');
+        return;
+      }
+
+      showToast('삭제됐어요');
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+      onDeletePost?.(post.id);
+      onBack?.();
     } else {
       try {
         const key = 'lounge_offline_posts';
         const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
         localStorage.setItem(key, JSON.stringify(prev.filter(p => p.id !== post.id)));
       } catch {}
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+      onDeletePost?.(post.id);
+      onBack?.();
     }
-    setDeleting(false);
-    setShowDeleteConfirm(false);
-    onDeletePost?.(post.id);
-    onBack?.();
   };
 
   if (loading && !post) {
