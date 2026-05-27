@@ -102,6 +102,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting,    setDeleting]          = useState(false);
   const [deleteDevInfo, setDeleteDevInfo] = useState(null);
+  const [imgViewer, setImgViewer]         = useState(null); // { urls, index }
   const inputRef = useRef(null);
 
   const isGuest    = user?.isGuest === true;
@@ -303,17 +304,17 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           postUserId:    post?.user_id,
           isOwner:       post?.user_id === user?.id,
           postId:        post?.id,
-          delete_ok:     !deleteErr && data?.is_deleted === true,
+          delete_ok:     !deleteErr && data === true,
           delete_err:    deleteErr?.message ?? null,
-          affected_rows: data ? 1 : 0,
+          rpc_returned:  data,
         });
       }
 
-      if (deleteErr || data?.is_deleted !== true) {
+      if (deleteErr || data !== true) {
         setDeleting(false);
-        const errMsg = deleteErr?.message ?? deleteErr?.code
-          ? `삭제 실패: ${deleteErr?.message ?? deleteErr?.code}`
-          : '삭제 실패: is_deleted 미반영 (migration 미실행 또는 RLS 차단)';
+        const errMsg = deleteErr?.message
+          ? `삭제 실패: ${deleteErr.message}`
+          : '삭제 실패: 본인 글만 삭제할 수 있어요 (migration 미실행 확인)';
         showToast(errMsg);
         return;
       }
@@ -403,7 +404,13 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         {post.image_urls && post.image_urls.length > 0 && (
           <div style={{ display: 'flex', gap: 6, marginBottom: S.lg, overflowX: 'auto', scrollbarWidth: 'none' }}>
             {post.image_urls.map((url, i) => (
-              <img key={i} src={url} alt="" style={{ width: 120, height: 120, borderRadius: R.md, objectFit: 'cover', flexShrink: 0 }} />
+              <img
+                key={i}
+                src={url}
+                alt=""
+                onClick={() => setImgViewer({ urls: post.image_urls, index: i })}
+                style={{ width: 120, height: 120, borderRadius: R.md, objectFit: 'cover', flexShrink: 0, cursor: 'pointer' }}
+              />
             ))}
           </div>
         )}
@@ -566,6 +573,54 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
         />
+      )}
+
+      {imgViewer && (
+        <div
+          onClick={() => setImgViewer(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {/* 닫기 */}
+          <button
+            onClick={() => setImgViewer(null)}
+            style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 20, width: 36, height: 36, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
+          >✕</button>
+
+          {/* 이미지 */}
+          <img
+            src={imgViewer.urls[imgViewer.index]}
+            alt=""
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '92vw', maxHeight: '78vh', objectFit: 'contain', borderRadius: R.lg }}
+          />
+
+          {/* 인디케이터 */}
+          {imgViewer.urls.length > 1 && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
+              {imgViewer.urls.map((_, i) => (
+                <div
+                  key={i}
+                  onClick={e => { e.stopPropagation(); setImgViewer(v => ({ ...v, index: i })); }}
+                  style={{ width: i === imgViewer.index ? 18 : 6, height: 6, borderRadius: 3, background: i === imgViewer.index ? '#fff' : 'rgba(255,255,255,0.35)', cursor: 'pointer', transition: 'width 0.15s' }}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* 좌우 버튼 */}
+          {imgViewer.index > 0 && (
+            <button
+              onClick={e => { e.stopPropagation(); setImgViewer(v => ({ ...v, index: v.index - 1 })); }}
+              style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 22, width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >‹</button>
+          )}
+          {imgViewer.index < imgViewer.urls.length - 1 && (
+            <button
+              onClick={e => { e.stopPropagation(); setImgViewer(v => ({ ...v, index: v.index + 1 })); }}
+              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 22, width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >›</button>
+          )}
+        </div>
       )}
 
       {toast && (
