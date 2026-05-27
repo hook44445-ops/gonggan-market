@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge, Stars, Divider } from "../components/common";
 import ReviewModal from "../components/ReviewModal";
+import ImageViewerModal from "../components/ImageViewerModal";
 import { calcTempDelta, clampTemp } from "../utils/calculations";
 import { getReviews, createReview, createReviewReward, updateCompanyTemp } from "../lib/supabase";
 
@@ -23,6 +24,7 @@ const normalizeReview = (row) => ({
 
 function ReviewCard({ rv, isNew }) {
   const [showBefore, setShowBefore] = useState(false);
+  const [viewer, setViewer] = useState(null);
 
   const hasAfter  = rv.afterImageUrls.length  > 0;
   const hasBefore = rv.beforeImageUrls.length > 0;
@@ -30,6 +32,7 @@ function ReviewCard({ rv, isNew }) {
   const hasPhotos = hasAfter || hasBefore || hasLegacy;
 
   const displayUrls = showBefore ? rv.beforeImageUrls : (hasAfter ? rv.afterImageUrls : rv.imageUrls);
+  const IS_DEBUG = true;
 
   return (
     <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.md,
@@ -107,12 +110,32 @@ function ReviewCard({ rv, isNew }) {
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {displayUrls.slice(0, 5).map((url, i) => (
               <img key={i} src={url} alt={`review-${i}`}
+                onClick={() => setViewer({ images: displayUrls, index: i })}
                 style={{ width:80, height:80, objectFit:"cover", borderRadius:R.md,
-                  border:`1px solid ${C.bgWarm}` }}
+                  border:`1px solid ${C.bgWarm}`, cursor:"pointer" }}
                 onError={e => { e.target.style.display = "none"; }} />
             ))}
           </div>
+
+          {IS_DEBUG && viewer && (
+            <div style={{ marginTop:8, padding:"6px 10px", background:"rgba(0,0,0,0.88)",
+              color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
+              [DEV:review-viewer]<br/>
+              <span style={{ color:"#4ff" }}>review_id: {String(rv.id).slice(0,8)}</span><br/>
+              image_count: {displayUrls.length} | modal_open: {String(!!viewer)}<br/>
+              current_index: {viewer.index}<br/>
+              <span style={{ color:"#ff0" }}>image_url: …{(viewer.images?.[viewer.index] ?? "").slice(-28)}</span>
+            </div>
+          )}
         </div>
+      )}
+
+      {viewer && (
+        <ImageViewerModal
+          images={viewer.images}
+          startIndex={viewer.index}
+          onClose={() => setViewer(null)}
+        />
       )}
 
       {rv.reply && (
