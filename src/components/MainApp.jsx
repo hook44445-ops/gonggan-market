@@ -486,22 +486,24 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         fetchError: error?.message ?? null,
         rawCount: data?.length ?? 0,
         statuses: (data ?? []).map(b => ({
-          id: b.id,
-          req_status: b.requests?.status ?? "?",
-          escrow_tx: (Array.isArray(b.requests?.escrow_payments)
-            ? b.requests.escrow_payments[0]
-            : b.requests?.escrow_payments)?.transaction_status ?? "none",
+          id: b.id?.slice?.(0, 8),
+          selected: b.selected,
+          req_status: b.requests?.status ?? "null",
+          request_id: b.request_id ? "ok" : "null",
         })),
       }));
       if (error || !data) return;
-      const EXCLUDED_TX_STATUSES = new Set(["SETTLED", "COMPLETED", "CANCELLED", "REFUNDED"]);
+      // Exclude only explicitly terminal statuses; null/unknown → treat as active
+      const EXCLUDED_REQ_STATUSES = new Set([
+        "completed", "settled", "cancelled", "refunded", "rejected",
+        "done", "finished", "closed",
+      ]);
       const jobs = data
         .filter(b => {
           if (!b.selected) return false;
-          if (b.requests?.status !== "in_progress") return false;
-          const ep = b.requests?.escrow_payments;
-          const escrow = Array.isArray(ep) ? ep[0] : ep;
-          if (escrow && EXCLUDED_TX_STATUSES.has(escrow.transaction_status)) return false;
+          if (!b.request_id) return false;
+          const reqStatus = (b.requests?.status ?? "").toLowerCase();
+          if (reqStatus && EXCLUDED_REQ_STATUSES.has(reqStatus)) return false;
           return true;
         })
         .map(b => ({

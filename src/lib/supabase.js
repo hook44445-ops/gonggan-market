@@ -1828,7 +1828,7 @@ export const getEscrowByRequest = (requestId) =>
 export const getCompanyBids = (userId) =>
   supabase
     .from("bids")
-    .select("*, requests(*, escrow_payments(id, transaction_status))")
+    .select("*, requests(*)")
     .eq("company_id", userId)
     .order("created_at", { ascending: false });
 
