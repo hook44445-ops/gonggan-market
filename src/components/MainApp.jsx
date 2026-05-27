@@ -17,6 +17,8 @@ import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
 import TokenStoreScreen from "../screens/TokenStoreScreen";
 import TokenHistoryScreen from "../screens/TokenHistoryScreen";
 import DocumentCenterScreen from "../screens/DocumentCenterScreen";
+import TermsModal from "./TermsModal";
+import ConsentGate, { hasConsented } from "./ConsentGate";
 import BidCard from "./BidCard";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
@@ -275,6 +277,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [activeJobs, setActiveJobs] = useState([]);
   const [siteVisitJob, setSiteVisitJob] = useState(null);
   const [estimateJob, setEstimateJob] = useState(null);
+  const [termsDocType, setTermsDocType] = useState(null);
+  const [consentGateConfig, setConsentGateConfig] = useState(null);
 
   // Admin hidden entry
   const [adminTapCount, setAdminTapCount] = useState(0);
@@ -738,10 +742,21 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     return { type: "HARD_BLOCK", activeReq: active };
   };
 
+  const CONSUMER_CONSENT_TYPES = ["service_terms", "privacy_policy", "location_terms", "customer_transaction_notice"];
+  const LOUNGE_CONSENT_TYPES   = ["lounge_policy", "chat_policy", "report_block_policy"];
+
   const handleOpenNewReq = async () => {
     const block = await checkRequestBlock();
-    if (!block) { setShowReq(true); return; }
-    setReqBlock(block);
+    if (block) { setReqBlock(block); return; }
+    if (!hasConsented(user?.id, CONSUMER_CONSENT_TYPES)) {
+      setConsentGateConfig({
+        types: CONSUMER_CONSENT_TYPES,
+        title: "견적 요청 전 약관 동의",
+        onComplete: () => { setConsentGateConfig(null); setShowReq(true); },
+      });
+      return;
+    }
+    setShowReq(true);
   };
 
   const addBid = async (request, bidData) => {
@@ -1774,8 +1789,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             extraPosts={localLoungePosts}
             extraStories={localLoungeStories}
             onPostClick={(post) => { setLoungePost(post); go("lounge-detail"); }}
-            onWrite={() => requireAuth(() => go("lounge-write"))}
-            onStoryUpload={() => requireAuth(() => go("lounge-story"))}
+            onWrite={() => requireAuth(() => {
+              if (!hasConsented(user?.id, LOUNGE_CONSENT_TYPES)) {
+                setConsentGateConfig({ types: LOUNGE_CONSENT_TYPES, title: "라운지 이용 전 약관 동의", onComplete: () => { setConsentGateConfig(null); go("lounge-write"); } });
+                return;
+              }
+              go("lounge-write");
+            })}
+            onStoryUpload={() => requireAuth(() => {
+              if (!hasConsented(user?.id, LOUNGE_CONSENT_TYPES)) {
+                setConsentGateConfig({ types: LOUNGE_CONSENT_TYPES, title: "라운지 이용 전 약관 동의", onComplete: () => { setConsentGateConfig(null); go("lounge-story"); } });
+                return;
+              }
+              go("lounge-story");
+            })}
             onRequireLogin={() => setShowLoginRequired(true)}
             onGoMyPage={() => setScreen("my")}
             onDeleteStory={(id) => setLocalLoungeStories(prev => prev.filter(s => s.id !== id))}
@@ -2099,13 +2126,15 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.text3, marginBottom: S.sm }}>앱 정보</div>
               {[
-                { label: "이용약관", icon: "📄" },
-                { label: "개인정보처리방침", icon: "🔒" },
-                { label: "위치기반서비스 이용약관", icon: "📍" },
-                { label: "문의하기", icon: "💌" },
-              ].map(({ label, icon }) => (
+                { label: "이용약관",                icon: "📄", docType: "service_terms" },
+                { label: "개인정보처리방침",         icon: "🔒", docType: "privacy_policy" },
+                { label: "위치기반서비스 이용약관",   icon: "📍", docType: "location_terms" },
+                { label: "고객 거래 유의사항",        icon: "📋", docType: "customer_transaction_notice" },
+                ...(activeRole === "company" ? [{ label: "업체 운영 준수서약", icon: "📝", docType: "operation_pledge" }] : []),
+                { label: "문의하기",                icon: "💌", docType: null },
+              ].map(({ label, icon, docType }) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bg}`, cursor: "pointer" }}
-                  onClick={() => showToast("준비 중입니다")}>
+                  onClick={() => docType ? setTermsDocType(docType) : showToast("준비 중입니다")}>
                   <span style={{ fontSize: 14, color: C.text2 }}>{icon} {label}</span>
                   <span style={{ fontSize: 16, color: C.text3 }}>›</span>
                 </div>
@@ -2594,6 +2623,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             </div>
           </div>
         </div>
+      )}
+
+      {termsDocType && <TermsModal docType={termsDocType} onClose={() => setTermsDocType(null)} />}
+      {consentGateConfig && (
+        <ConsentGate
+          requiredTypes={consentGateConfig.types}
+          userId={user?.id}
+          title={consentGateConfig.title}
+          onComplete={consentGateConfig.onComplete}
+          onClose={() => setConsentGateConfig(null)}
+        />
       )}
 
       {IS_DEBUG && (
