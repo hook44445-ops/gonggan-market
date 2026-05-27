@@ -1719,3 +1719,35 @@ export const uploadLoungeSeedImage = async (file) => {
   const { data } = supabase.storage.from('lounge-images').getPublicUrl(path);
   return { data, error: null };
 };
+
+// ── Seed Lounge Posts (새 테이블: seed_lounge_posts) ──────────────────────────
+
+export const getSeedLoungePosts = (category = 'all') => {
+  let q = supabase.from('seed_lounge_posts').select('*')
+    .eq('is_active', true).order('sort_order', { ascending: true });
+  if (category !== 'all' && category !== 'popular') q = q.eq('category', category);
+  return q;
+};
+
+export const adminGetSeedLoungePosts = () =>
+  supabase.from('seed_lounge_posts').select('*')
+    .order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+
+export const createSeedLoungePost = (data) =>
+  supabase.from('seed_lounge_posts').insert(data).select().single();
+
+export const updateSeedLoungePost = (id, data) =>
+  supabase.from('seed_lounge_posts').update(data).eq('id', id).select().single();
+
+export const deleteSeedLoungePost = (id) =>
+  supabase.from('seed_lounge_posts').delete().eq('id', id);
+
+export const uploadSeedLoungeImage = async (file) => {
+  const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const name = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await supabase.storage.from('seed-lounge-images')
+    .upload(name, file, { upsert: false, contentType: file.type });
+  if (error) return { data: null, error };
+  const { data } = supabase.storage.from('seed-lounge-images').getPublicUrl(name);
+  return { data, error: null };
+};
