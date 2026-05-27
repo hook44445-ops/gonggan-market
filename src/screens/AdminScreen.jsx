@@ -4,7 +4,7 @@ import { BADGES } from "../constants/badges";
 import { COMPANY_STATUS_META } from "../constants";
 import {
   supabase,
-  getCompanies, getUsers,
+  getCompanies, getUsers, getUser, getUserByPhone,
   adminReviewCompany, adminSetCompanyStatus,
   createNotification, getUserNotifications,
   getAdminLogs, getOpsConfig, updateOpsConfig,
@@ -69,12 +69,22 @@ function ReportList({ reports, label, hiddenIds, onToggleHide }) {
 }
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
-function LoungeManagementTab({ loungePosts = [], loungeErr = null }) {
+function LoungeManagementTab({ loungePosts = [], loungeErr = null, showToast, adminUserId }) {
   const allReports = (() => { try { return JSON.parse(localStorage.getItem("lounge_reports") ?? "[]"); } catch { return []; } })();
   const allBlocks  = (() => { try { return JSON.parse(localStorage.getItem("lounge_blocks")  ?? "[]"); } catch { return []; } })();
   const [hiddenIds, setHiddenIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem("lounge_hidden") ?? "[]"); } catch { return []; }
   });
+
+  const [tokenTarget, setTokenTarget] = useState("");
+  const [tokenAmount, setTokenAmount] = useState("");
+  const [tokenReason, setTokenReason] = useState("");
+  const [tokenLoading, setTokenLoading] = useState(false);
+
+  const [tempTarget, setTempTarget] = useState("");
+  const [tempDelta, setTempDelta]   = useState("");
+  const [tempReason, setTempReason] = useState("");
+  const [tempLoading, setTempLoading] = useState(false);
 
   const toggleHide = (id) => {
     setHiddenIds(prev => {
@@ -82,6 +92,69 @@ function LoungeManagementTab({ loungePosts = [], loungeErr = null }) {
       try { localStorage.setItem("lounge_hidden", JSON.stringify(next)); } catch {}
       return next;
     });
+  };
+
+  const lookupUser = async (input) => {
+    const val = input.trim();
+    if (!val) return null;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+    const { data } = isUUID ? await getUser(val) : await getUserByPhone(val);
+    return data ?? null;
+  };
+
+  const handleTokenAdjust = async (isGrant) => {
+    const amount = Number(tokenAmount);
+    if (!tokenTarget.trim() || !amount || amount <= 0) {
+      showToast?.("사용자 ID/전화번호와 토큰 수를 입력하세요", false);
+      return;
+    }
+    setTokenLoading(true);
+    try {
+      const targetUser = await lookupUser(tokenTarget);
+      if (!targetUser) {
+        showToast?.("사용자를 찾을 수 없습니다", false);
+        return;
+      }
+      const delta = isGrant ? amount : -amount;
+      const { error } = await adminAdjustUserTokens(targetUser.id, adminUserId, delta, tokenReason || null);
+      if (error) {
+        showToast?.(error.message ?? "처리 실패", false);
+      } else {
+        showToast?.(isGrant ? `+${amount} 토큰 지급 완료` : `-${amount} 토큰 회수 완료`);
+        setTokenTarget(""); setTokenAmount(""); setTokenReason("");
+      }
+    } finally {
+      setTokenLoading(false);
+    }
+  };
+
+  const handleTempAdjust = async () => {
+    const delta = Number(tempDelta);
+    if (!tempTarget.trim() || !delta) {
+      showToast?.("사용자 ID/전화번호와 변경값을 입력하세요", false);
+      return;
+    }
+    if (!tempReason.trim()) {
+      showToast?.("변경 사유를 입력하세요", false);
+      return;
+    }
+    setTempLoading(true);
+    try {
+      const targetUser = await lookupUser(tempTarget);
+      if (!targetUser) {
+        showToast?.("사용자를 찾을 수 없습니다", false);
+        return;
+      }
+      const { error } = await adminAdjustSpaceTemp(targetUser.id, adminUserId, delta, tempReason);
+      if (error) {
+        showToast?.(error.message ?? "처리 실패", false);
+      } else {
+        showToast?.("공간온도 조정 완료");
+        setTempTarget(""); setTempDelta(""); setTempReason("");
+      }
+    } finally {
+      setTempLoading(false);
+    }
   };
 
   const postReports    = allReports.filter(r => r.type === "post");
@@ -124,16 +197,33 @@ function LoungeManagementTab({ loungePosts = [], loungeErr = null }) {
 
       <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>💰 공간토큰 수동 관리</div>
-        <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.md, border: `1px solid ${C.brandM}` }}>
-          <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>ℹ️ 사용자 ID 기반 수동 지급/회수는 Supabase 대시보드에서 직접 처리하세요.</div>
-        </div>
-        <div style={{ display: "flex", gap: S.sm }}>
-          <input placeholder="사용자 ID 또는 전화번호" style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-          <input placeholder="토큰 수" type="number" style={{ width: 90, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-        </div>
-        <div style={{ display: "flex", gap: S.sm, marginTop: S.sm }}>
-          <button style={{ flex: 1, padding: "10px", background: C.brandL, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>+ 지급</button>
-          <button style={{ flex: 1, padding: "10px", background: "#FEF0F0", color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>- 회수</button>
+        <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
+          <div style={{ display: "flex", gap: S.sm }}>
+            <input
+              value={tokenTarget} onChange={e => setTokenTarget(e.target.value)}
+              placeholder="사용자 ID 또는 전화번호"
+              style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+            <input
+              value={tokenAmount} onChange={e => setTokenAmount(e.target.value)}
+              placeholder="토큰 수" type="number" min="1"
+              style={{ width: 90, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          </div>
+          <input
+            value={tokenReason} onChange={e => setTokenReason(e.target.value)}
+            placeholder="지급/회수 사유 (선택)"
+            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <div style={{ display: "flex", gap: S.sm }}>
+            <button
+              onClick={() => handleTokenAdjust(true)} disabled={tokenLoading}
+              style={{ flex: 1, padding: "10px", background: tokenLoading ? C.bgWarm : C.brandL, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: tokenLoading ? "not-allowed" : "pointer" }}>
+              {tokenLoading ? "처리중…" : "+ 지급"}
+            </button>
+            <button
+              onClick={() => handleTokenAdjust(false)} disabled={tokenLoading}
+              style={{ flex: 1, padding: "10px", background: tokenLoading ? C.bgWarm : "#FEF0F0", color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: tokenLoading ? "not-allowed" : "pointer" }}>
+              {tokenLoading ? "처리중…" : "- 회수"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -143,10 +233,23 @@ function LoungeManagementTab({ loungePosts = [], loungeErr = null }) {
           <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>변경 사유를 반드시 입력하세요. 변경 기록은 adminLogs에 자동 저장됩니다.</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
-          <input placeholder="사용자 ID" style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-          <input placeholder="변경값 (+0.1 또는 -0.5)" type="number" step="0.1" style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-          <input placeholder="변경 사유 (필수)" style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-          <button style={{ padding: "12px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: "pointer", boxShadow: `0 4px 14px ${C.brand}44` }}>공간온도 조정하기</button>
+          <input
+            value={tempTarget} onChange={e => setTempTarget(e.target.value)}
+            placeholder="사용자 ID 또는 전화번호"
+            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <input
+            value={tempDelta} onChange={e => setTempDelta(e.target.value)}
+            placeholder="변경값 (+0.1 또는 -0.5)" type="number" step="0.1"
+            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <input
+            value={tempReason} onChange={e => setTempReason(e.target.value)}
+            placeholder="변경 사유 (필수)"
+            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <button
+            onClick={handleTempAdjust} disabled={tempLoading}
+            style={{ padding: "12px", background: tempLoading ? C.bgWarm : C.brand, color: tempLoading ? C.text3 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: tempLoading ? "not-allowed" : "pointer", boxShadow: tempLoading ? "none" : `0 4px 14px ${C.brand}44` }}>
+            {tempLoading ? "처리중…" : "공간온도 조정하기"}
+          </button>
         </div>
       </div>
     </div>
@@ -1279,7 +1382,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
             {/* ── Lounge Management ── */}
             {mainTab === "lounge" && (
-              <LoungeManagementTab loungePosts={loungePosts} loungeErr={loungeErr} />
+              <LoungeManagementTab loungePosts={loungePosts} loungeErr={loungeErr} showToast={showToast} adminUserId={user?.id} />
             )}
 
             {/* ── Lounge Seeding ── */}
