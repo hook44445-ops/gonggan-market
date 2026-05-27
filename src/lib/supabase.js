@@ -1586,13 +1586,10 @@ export const updateLoungePost = (postId, userId, updates) =>
     .single();
 
 export const softDeleteLoungePost = (postId, userId) =>
-  supabase
-    .from("lounge_posts")
-    .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
-    .eq("id", postId)
-    .eq("user_id", userId)
-    .select("id, is_deleted")
-    .single();
+  supabase.rpc("soft_delete_lounge_post", {
+    p_post_id: postId,
+    p_user_id: userId,
+  });
 
 export const getLoungeStories = () =>
   supabase

@@ -303,17 +303,17 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           postUserId:    post?.user_id,
           isOwner:       post?.user_id === user?.id,
           postId:        post?.id,
-          delete_ok:     !deleteErr && data?.is_deleted === true,
+          delete_ok:     !deleteErr && data === true,
           delete_err:    deleteErr?.message ?? null,
-          affected_rows: data ? 1 : 0,
+          rpc_returned:  data,
         });
       }
 
-      if (deleteErr || data?.is_deleted !== true) {
+      if (deleteErr || data !== true) {
         setDeleting(false);
-        const errMsg = deleteErr?.message ?? deleteErr?.code
-          ? `삭제 실패: ${deleteErr?.message ?? deleteErr?.code}`
-          : '삭제 실패: is_deleted 미반영 (migration 미실행 또는 RLS 차단)';
+        const errMsg = deleteErr?.message
+          ? `삭제 실패: ${deleteErr.message}`
+          : '삭제 실패: 본인 글만 삭제할 수 있어요 (migration 미실행 확인)';
         showToast(errMsg);
         return;
       }
