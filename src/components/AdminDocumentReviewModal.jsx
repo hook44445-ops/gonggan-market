@@ -200,29 +200,41 @@ export default function AdminDocumentReviewModal({ docs, company, adminUser, onC
                     style={{ padding: "12px 0", background: "#27AE60", color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                     ✅ 승인
                   </button>
-                  <button onClick={() => handleReview("held")} disabled={loading}
-                    style={{ padding: "12px 0", background: "#FFF7E6", color: "#C07000", border: "1px solid #C07000", borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                  <button onClick={() => handleReview("held")} disabled={loading || !reviewReason.trim()}
+                    title={!reviewReason.trim() ? "보류 사유를 입력하세요" : ""}
+                    style={{ padding: "12px 0", background: reviewReason.trim() ? "#FFF7E6" : C.bg, color: reviewReason.trim() ? "#C07000" : C.text4, border: `1px solid ${reviewReason.trim() ? "#C07000" : C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: reviewReason.trim() ? "pointer" : "not-allowed" }}>
                     ⏸ 보류
                   </button>
-                  <button onClick={() => handleReview("rejected")} disabled={loading}
-                    style={{ padding: "12px 0", background: "#FEF0F0", color: C.red, border: `1px solid ${C.red}`, borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                  <button onClick={() => handleReview("rejected")} disabled={loading || !reviewReason.trim()}
+                    title={!reviewReason.trim() ? "반려 사유를 입력하세요" : ""}
+                    style={{ padding: "12px 0", background: reviewReason.trim() ? "#FEF0F0" : C.bg, color: reviewReason.trim() ? C.red : C.text4, border: `1px solid ${reviewReason.trim() ? C.red : C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: reviewReason.trim() ? "pointer" : "not-allowed" }}>
                     ✗ 반려
                   </button>
                 </div>
               </>
             )}
 
-            {currentStatus === "rejected" && (
-              <button onClick={() => handleReview("reviewing")} disabled={loading}
-                style={{
-                  width: "100%", padding: S.lg,
-                  background: C.brandL, color: C.brand,
-                  border: `1px solid ${C.brandM}`,
-                  borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer",
-                  marginTop: S.sm,
-                }}>
-                🔄 재검토 요청
-              </button>
+            {["rejected", "held"].includes(currentStatus) && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S.sm, marginTop: S.sm }}>
+                <button onClick={() => handleReview("reviewing")} disabled={loading}
+                  style={{
+                    padding: S.lg,
+                    background: C.brandL, color: C.brand,
+                    border: `1px solid ${C.brandM}`,
+                    borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer",
+                  }}>
+                  🔄 재검토
+                </button>
+                <button onClick={() => handleReview("draft")} disabled={loading}
+                  style={{
+                    padding: S.lg,
+                    background: "#FFF7E6", color: "#C07000",
+                    border: "1px solid #C07000",
+                    borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer",
+                  }}>
+                  ↩ 재제출 요청
+                </button>
+              </div>
             )}
           </>
         )}
