@@ -1779,6 +1779,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onRequireLogin={() => setShowLoginRequired(true)}
             onGoMyPage={() => setScreen("my")}
             onDeleteStory={(id) => setLocalLoungeStories(prev => prev.filter(s => s.id !== id))}
+            refreshKey={loungeRefreshKey}
           />
         )}
 
@@ -1806,6 +1807,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               setEditingLoungePost(null);
               showToast("✅ 글이 수정됐어요!");
               if (editOriginScreen === 'my') setMyPostsRefreshKey(k => k + 1);
+              setLoungeRefreshKey(k => k + 1);
               setScreen(editOriginScreen);
             }}
           />
