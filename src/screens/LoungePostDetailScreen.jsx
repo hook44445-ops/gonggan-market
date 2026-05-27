@@ -293,32 +293,36 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     if (!post?.id || !user?.id) return;
     setDeleting(true);
 
-    if (import.meta.env.DEV) {
-      const authRes = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      console.log('[handleDelete] DEV info:', {
-        currentUserId:    user.id,
-        supabaseAuthUid:  authRes?.data?.user?.id ?? null,
-        postUserId:       post.user_id,
-        isOwner:          post.user_id === user.id,
-        postId:           post.id,
-      });
-    }
+    const authRes = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+    const authUid = authRes?.data?.user?.id ?? null;
+    const isOwner = post.user_id === user.id;
+
+    console.log('[handleDelete] pre-delete info:', {
+      postId:          post.id,
+      postUserId:      post.user_id,
+      currentUserId:   user.id,
+      supabaseAuthUid: authUid,
+      isOwner,
+      admin_authed:    user?.admin_authed ?? false,
+    });
 
     if (IS_SUPABASE_READY) {
       const { data, error: deleteErr } = await softDeleteLoungePost(post.id, user.id);
 
-      if (import.meta.env.DEV) {
-        console.log('[handleDelete] result:', {
-          delete_ok:     !deleteErr && data?.is_deleted === true,
-          delete_err:    deleteErr?.message ?? null,
-          affected_rows: data ? 1 : 0,
-          data,
-        });
-      }
+      console.log('[handleDelete] result:', {
+        delete_ok:     !deleteErr && data?.is_deleted === true,
+        delete_err_msg:  deleteErr?.message ?? null,
+        delete_err_code: deleteErr?.code    ?? null,
+        affected_rows: data ? 1 : 0,
+        data,
+      });
 
       if (deleteErr || data?.is_deleted !== true) {
         setDeleting(false);
-        showToast('❌ 삭제에 실패했어요');
+        const errMsg = deleteErr?.message ?? deleteErr?.code
+          ? `삭제 실패: ${deleteErr.message ?? deleteErr.code}`
+          : '삭제 실패: is_deleted 미반영 (migration 미실행 또는 RLS 차단)';
+        showToast(errMsg);
         return;
       }
 
@@ -570,7 +574,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: C.brand, color: '#fff', borderRadius: R.full, padding: '12px 22px', fontSize: 13, fontWeight: 700, boxShadow: `0 8px 24px ${C.brand}44`, zIndex: 200, whiteSpace: 'nowrap' }}>
+        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: C.brand, color: '#fff', borderRadius: R.lg, padding: '12px 22px', fontSize: 12, fontWeight: 700, boxShadow: `0 8px 24px ${C.brand}44`, zIndex: 200, maxWidth: '85vw', wordBreak: 'break-all', textAlign: 'center' }}>
           {toast}
         </div>
       )}
