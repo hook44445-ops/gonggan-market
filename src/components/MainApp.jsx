@@ -20,6 +20,7 @@ import DocumentCenterScreen from "../screens/DocumentCenterScreen";
 import TermsModal from "./TermsModal";
 import ConsentGate, { hasConsented } from "./ConsentGate";
 import BidCard from "./BidCard";
+import ImageViewerModal from "./ImageViewerModal";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
@@ -275,6 +276,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const { temperature } = useSpaceTemperature(user?.id);
 
   const [activeJobs, setActiveJobs] = useState([]);
+  const [homeReviewViewer, setHomeReviewViewer] = useState(null);
   const [siteVisitJob, setSiteVisitJob] = useState(null);
   const [estimateJob, setEstimateJob] = useState(null);
   const [termsDocType, setTermsDocType] = useState(null);
@@ -1018,21 +1020,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                   <>
                                     <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff" }}>
                                       <img src={beforeThumb} alt=""
-                                        style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                        onClick={() => setHomeReviewViewer({ images:[beforeThumb,afterThumb].filter(Boolean), index:0 })}
+                                        style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", cursor:"pointer" }}
                                         onError={e => { e.target.style.display="none"; }} />
                                       <span style={{ position:"absolute", bottom:4, left:4,
                                         background:"rgba(58,95,204,0.82)", color:"#fff",
-                                        borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                        borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800,
+                                        pointerEvents:"none" }}>
                                         BEFORE
                                       </span>
                                     </div>
                                     <div style={{ flex:1, position:"relative" }}>
                                       <img src={afterThumb} alt=""
-                                        style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                        onClick={() => setHomeReviewViewer({ images:[beforeThumb,afterThumb].filter(Boolean), index:1 })}
+                                        style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", cursor:"pointer" }}
                                         onError={e => { e.target.style.display="none"; }} />
                                       <span style={{ position:"absolute", bottom:4, right:4,
                                         background:"rgba(0,0,0,0.55)", color:"#fff",
-                                        borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                        borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800,
+                                        pointerEvents:"none" }}>
                                         AFTER
                                       </span>
                                     </div>
@@ -1040,12 +1046,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                 ) : (
                                   <div style={{ flex:1, position:"relative" }}>
                                     <img src={afterThumb ?? beforeThumb} alt=""
-                                      style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+                                      onClick={() => setHomeReviewViewer({ images:[afterThumb ?? beforeThumb].filter(Boolean), index:0 })}
+                                      style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", cursor:"pointer" }}
                                       onError={e => { e.target.style.display="none"; }} />
                                     <span style={{ position:"absolute", bottom:4, left:4,
                                       background: afterThumb ? "rgba(0,0,0,0.55)" : "rgba(58,95,204,0.82)",
                                       color:"#fff", borderRadius:R.full,
-                                      padding:"2px 6px", fontSize:9, fontWeight:800 }}>
+                                      padding:"2px 6px", fontSize:9, fontWeight:800,
+                                      pointerEvents:"none" }}>
                                       {afterThumb ? "AFTER" : "BEFORE"}
                                     </span>
                                   </div>
@@ -2647,6 +2655,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           title={consentGateConfig.title}
           onComplete={consentGateConfig.onComplete}
           onClose={() => setConsentGateConfig(null)}
+        />
+      )}
+
+      {homeReviewViewer && (
+        <ImageViewerModal
+          images={homeReviewViewer.images}
+          startIndex={homeReviewViewer.index}
+          onClose={() => setHomeReviewViewer(null)}
         />
       )}
 
