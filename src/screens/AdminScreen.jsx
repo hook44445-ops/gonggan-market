@@ -103,6 +103,12 @@ function LoungeManagementTab({ loungePosts = [], loungeErr = null }) {
         ))}
       </div>
 
+      {loungeErr && (
+        <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+          <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ 라운지 데이터 로드 실패</div>
+          <div style={{ fontSize: 11, color: C.red, marginTop: 4, opacity: 0.8 }}>{loungeErr}</div>
+        </div>
+      )}
       {import.meta.env.DEV && (
         <div style={{ background: "rgba(0,0,0,0.88)", color: "#0f0", borderRadius: 8, padding: "8px 12px", marginBottom: S.md, fontSize: 11, lineHeight: 1.8, fontFamily: "monospace" }}>
           [DEV] lounge_posts_count: {loungePosts.length}<br/>
@@ -148,7 +154,7 @@ function LoungeManagementTab({ loungePosts = [], loungeErr = null }) {
 }
 
 // ── 라운지 시딩 탭 ────────────────────────────────────────
-function LoungeSeedingTab({ seeds = [], loading = false, onReload }) {
+function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onReload }) {
   const [view,       setView]       = useState("list");
   const [editTarget, setEditTarget] = useState(null);
   const [form,       setForm]       = useState(BLANK_LOUNGE_SEED);
@@ -237,6 +243,13 @@ function LoungeSeedingTab({ seeds = [], loading = false, onReload }) {
 
       {view === "list" && (
         <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
+          {fetchErr && (
+            <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+              <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ seed_lounge_posts 로드 실패</div>
+              <div style={{ fontSize: 11, color: C.red, marginTop: 4, opacity: 0.8 }}>{fetchErr}</div>
+              {import.meta.env.DEV && <div style={{ fontSize: 10, color: C.text4, marginTop: 4 }}>테이블 미생성 시 supabase/migrations/004_seed_lounge_posts.sql 실행 필요</div>}
+            </div>
+          )}
           {loading ? (
             <div style={{ textAlign: "center", padding: "30px 0", color: C.text3, fontSize: 13 }}>불러오는 중...</div>
           ) : seeds.length === 0 ? (
@@ -452,8 +465,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [loungePosts, setLoungePosts]   = useState([]);
   const [loungeReports, setLoungeReports] = useState([]);
   const [loungeErr, setLoungeErr]       = useState(null);
-  const [seedingPosts, setSeedingPosts] = useState([]);
+  const [seedingPosts, setSeedingPosts]   = useState([]);
   const [seedingLoading, setSeedingLoading] = useState(false);
+  const [seedingErr, setSeedingErr]       = useState(null);
   const [reports, setReports]           = useState([]);
   const [reviewRewards, setReviewRewards] = useState([]);
   const [hiddenRequests, setHiddenRequests] = useState([]);
@@ -525,21 +539,37 @@ export default function AdminScreen({ onBack, onHome, user }) {
       });
     }
     if (mainTab === "lounge") {
-      Promise.all([
-        adminGetLoungePosts().catch(() => ({ data: null, error: { message: "fetch failed" } })),
-        getLoungeReports().catch(() => ({ data: [] })),
-      ]).then(([postsRes, { data: r }]) => {
-        setLoungePosts(postsRes.data ?? []);
-        setLoungeReports(r ?? []);
-        setLoungeErr(postsRes.error?.message ?? null);
-      });
+      (async () => {
+        try {
+          const [postsRes, reportsRes] = await Promise.all([
+            adminGetLoungePosts(),
+            getLoungeReports(),
+          ]);
+          setLoungePosts(postsRes.data ?? []);
+          setLoungeReports(reportsRes.data ?? []);
+          setLoungeErr(postsRes.error?.message ?? null);
+        } catch (err) {
+          setLoungeErr(err?.message ?? String(err));
+          setLoungePosts([]);
+          setLoungeReports([]);
+        }
+      })();
     }
     if (mainTab === "lounge_seeding") {
       setSeedingLoading(true);
-      adminGetSeedLoungePosts()
-        .then(({ data }) => setSeedingPosts(data ?? []))
-        .catch(() => setSeedingPosts([]))
-        .finally(() => setSeedingLoading(false));
+      setSeedingErr(null);
+      (async () => {
+        try {
+          const { data, error } = await adminGetSeedLoungePosts();
+          if (error) throw error;
+          setSeedingPosts(data ?? []);
+        } catch (err) {
+          setSeedingErr(err?.message ?? String(err));
+          setSeedingPosts([]);
+        } finally {
+          setSeedingLoading(false);
+        }
+      })();
     }
     if (mainTab === "reports") {
       getCustomerReports().then(({ data }) => setReports(data ?? [])).catch(() => setReports([]));
@@ -1257,12 +1287,20 @@ export default function AdminScreen({ onBack, onHome, user }) {
               <LoungeSeedingTab
                 seeds={seedingPosts}
                 loading={seedingLoading}
-                onReload={() => {
+                fetchErr={seedingErr}
+                onReload={async () => {
                   setSeedingLoading(true);
-                  adminGetSeedLoungePosts()
-                    .then(({ data }) => setSeedingPosts(data ?? []))
-                    .catch(() => setSeedingPosts([]))
-                    .finally(() => setSeedingLoading(false));
+                  setSeedingErr(null);
+                  try {
+                    const { data, error } = await adminGetSeedLoungePosts();
+                    if (error) throw error;
+                    setSeedingPosts(data ?? []);
+                  } catch (err) {
+                    setSeedingErr(err?.message ?? String(err));
+                    setSeedingPosts([]);
+                  } finally {
+                    setSeedingLoading(false);
+                  }
                 }}
               />
             )}
