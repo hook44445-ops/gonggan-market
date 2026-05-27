@@ -1199,7 +1199,7 @@ export const adminAdjustSpaceTemp = async (userId, adminId, delta, reason) => {
   if (!error) {
     await supabase.from("admin_logs").insert({
       admin_id:    adminId || null,
-      action:      "ADJUST_SPACE_TEMP",
+      action:      "TEMP_ADJUST",
       target_type: "user",
       target_id:   userId,
       before_val:  { space_temp: prev },
@@ -1221,7 +1221,7 @@ export const adminAdjustUserTokens = async (userId, adminId, delta, reason) => {
   if (!error) {
     await supabase.from("admin_logs").insert({
       admin_id:    adminId || null,
-      action:      delta > 0 ? "AWARD_TOKENS" : "REVOKE_TOKENS",
+      action:      delta > 0 ? "TOKEN_GRANT" : "TOKEN_REVOKE",
       target_type: "user",
       target_id:   userId,
       before_val:  { space_tokens: prev },

@@ -10,8 +10,30 @@ import {
   likeLoungePost,
 } from '../lib/supabase';
 
-const FEED_MIN_TARGET = 5;
-const SEED_LIMIT_WHEN_PLENTY = 3;
+// real < 5  → fill to 5 by interleaving seeds
+// real 5-9  → append 2 seeds at back
+// real >= 10 → append 3 seeds at back
+function buildFeed(real, seeds) {
+  if (real.length >= 10) {
+    return [...real, ...seeds.slice(0, 3)];
+  }
+  if (real.length >= 5) {
+    return [...real, ...seeds.slice(0, 2)];
+  }
+  const seedsToUse = seeds.slice(0, Math.max(0, 5 - real.length));
+  if (real.length === 0) return seedsToUse;
+  if (seedsToUse.length === 0) return real;
+
+  const result = [];
+  let si = 0;
+  const step = Math.max(1, Math.ceil(real.length / seedsToUse.length));
+  real.forEach((post, idx) => {
+    result.push(post);
+    if (si < seedsToUse.length && (idx + 1) % step === 0) result.push(seedsToUse[si++]);
+  });
+  while (si < seedsToUse.length) result.push(seedsToUse[si++]);
+  return result;
+}
 
 function adaptSeedPost(s) {
   return {
@@ -57,23 +79,18 @@ export function useLounge(category = 'all') {
 
       const realPosts = postsRes.data ?? [];
       const seeds     = (seedsRes.data ?? []).map(adaptSeedPost);
-
-      const needed = realPosts.length >= 20
-        ? SEED_LIMIT_WHEN_PLENTY
-        : Math.max(0, FEED_MIN_TARGET - realPosts.length);
-      const seedsToShow = seeds.slice(0, needed);
-
-      // 실제 글 먼저, seed 글은 뒤
-      const merged = [...realPosts, ...seedsToShow];
+      const merged    = buildFeed(realPosts, seeds);
       setPosts(merged);
       setStories(storiesRes.data ?? []);
       setStoriesError(storiesRes.error ?? null);
 
       if (import.meta.env.DEV) {
         const first = realPosts[0];
+        const seedsVisible = merged.filter(p => p.is_seed).length;
         setDevInfo({
           raw_posts_count:     realPosts.length,
-          seeds_count:         seeds.length,
+          seeds_total:         seeds.length,
+          seeds_visible:       seedsVisible,
           visible_posts_count: merged.length,
           fetch_err:           postsRes.error?.message ?? null,
           first_id:            first?.id?.slice(0, 8) ?? null,
