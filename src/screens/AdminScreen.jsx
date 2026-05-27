@@ -1297,6 +1297,25 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [infoEditForm, setInfoEditForm] = useState({});
   const [infoEditSaving, setInfoEditSaving] = useState(false);
 
+  const [editingCustomerId, setEditingCustomerId] = useState(null);
+  const [customerEditForm, setCustomerEditForm] = useState({});
+  const [customerEditSaving, setCustomerEditSaving] = useState(false);
+
+  // DEV panel: admin action tracking
+  const [lastAdminAction, setLastAdminAction] = useState(null);
+  const [lastAdminTarget, setLastAdminTarget] = useState(null);
+  const [lastAdminError, setLastAdminError]   = useState(null);
+  const [adminLogOk, setAdminLogOk]           = useState(null);
+  const [affectedRows, setAffectedRows]       = useState(null);
+
+  const trackAdmin = (action, target, error = null, logOk = null, rows = null) => {
+    setLastAdminAction(action);
+    setLastAdminTarget(target);
+    setLastAdminError(error);
+    setAdminLogOk(logOk);
+    setAffectedRows(rows);
+  };
+
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 2500);
@@ -1487,6 +1506,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
           relatedType: "company",
         });
       }
+      trackAdmin(`SET_COMPANY_STATUS_${newStatus}`, company.id, null, true, 1);
+    } else {
+      trackAdmin(`SET_COMPANY_STATUS_${newStatus}`, company.id, error.message, false, 0);
     }
     setActionLoading(false);
     setShowStatusModal(false);
@@ -1604,6 +1626,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
       </div>
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 90px` }}>
+
+        {import.meta.env.DEV && (
+          <div style={{ background: "rgba(0,0,0,0.88)", color: "#0f0", borderRadius: 8, padding: "8px 12px", marginBottom: S.md, fontSize: 11, lineHeight: 1.8, fontFamily: "monospace" }}>
+            [DEV] admin_authed: <span style={{ color: "#0f0" }}>true</span> | active_admin_tab: <span style={{ color: "#ff0" }}>{mainTab}</span><br/>
+            last_admin_action: <span style={{ color: lastAdminAction ? "#ff0" : "#666" }}>{lastAdminAction ?? "—"}</span> | target: <span style={{ color: "#0ff" }}>{lastAdminTarget ?? "—"}</span><br/>
+            last_admin_error: <span style={{ color: lastAdminError ? "#f66" : "#0f0" }}>{lastAdminError ?? "none"}</span><br/>
+            admin_log_ok: <span style={{ color: adminLogOk === null ? "#666" : adminLogOk ? "#0f0" : "#f66" }}>{adminLogOk === null ? "—" : String(adminLogOk)}</span> | affected_rows: <span style={{ color: "#0ff" }}>{affectedRows ?? "—"}</span>
+          </div>
+        )}
 
         {loading && (
           <div style={{ textAlign: "center", padding: "60px 0", color: C.text3, fontSize: 14 }}>
@@ -1776,18 +1807,61 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       <div style={{ textAlign: "center", padding: "60px 0", color: C.text3, fontSize: 14 }}>
                         등록된 고객이 없습니다
                       </div>
-                    ) : customers.map(customer => (
-                      <div key={customer.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
-                        marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.sm }}>
-                          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{customer.name}</div>
-                          <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full,
-                            padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>견적 {customer.requests}건</span>
+                    ) : customers.map(customer => {
+                      const isEditing = editingCustomerId === customer.id;
+                      return (
+                        <div key={customer.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                          marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.sm }}>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{customer.name}</div>
+                            <div style={{ display: "flex", gap: S.xs, alignItems: "center" }}>
+                              <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full,
+                                padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>견적 {customer.requests}건</span>
+                              <button onClick={() => {
+                                if (isEditing) { setEditingCustomerId(null); return; }
+                                setEditingCustomerId(customer.id);
+                                setCustomerEditForm({ name: customer.name, phone: customer.phone, region: customer.region });
+                              }} style={{ padding: "4px 10px", borderRadius: R.full, border: `1px solid ${C.bgWarm}`,
+                                background: isEditing ? C.surface2 : C.surface, color: C.text3, fontSize: 11, cursor: "pointer" }}>
+                                {isEditing ? "취소" : "수정"}
+                              </button>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 12, color: C.text3 }}>📱 {customer.phone} · 📍 {customer.region}</div>
+                          <div style={{ fontSize: 11, color: C.text4, marginTop: 4 }}>가입일: {customer.joinedAt}</div>
+                          {isEditing && (
+                            <div style={{ marginTop: S.md, background: C.surface2, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
+                              {[["name","이름"],["phone","전화번호"],["region","지역"]].map(([key,label]) => (
+                                <div key={key} style={{ marginBottom: S.sm }}>
+                                  <div style={{ fontSize: 11, color: C.text3, marginBottom: 3 }}>{label}</div>
+                                  <input value={customerEditForm[key] ?? ""} onChange={e => setCustomerEditForm(p => ({ ...p, [key]: e.target.value }))}
+                                    style={{ width: "100%", padding: "8px 12px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
+                                      fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit", background: "#fff" }} />
+                                </div>
+                              ))}
+                              <button disabled={customerEditSaving} onClick={async () => {
+                                setCustomerEditSaving(true);
+                                const { data, error } = await adminUpdateUserInfo(customer.id, customerEditForm, user?.id ?? null);
+                                if (error) {
+                                  showToast(error.message ?? "수정 실패", false);
+                                  trackAdmin("UPDATE_CUSTOMER", customer.id, error.message, false, 0);
+                                } else {
+                                  showToast("고객 정보 수정 완료");
+                                  trackAdmin("UPDATE_CUSTOMER", customer.id, null, true, 1);
+                                  setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, ...customerEditForm } : c));
+                                  setEditingCustomerId(null);
+                                }
+                                setCustomerEditSaving(false);
+                              }} style={{ width: "100%", padding: "9px", background: customerEditSaving ? C.bgWarm : C.brand,
+                                color: customerEditSaving ? C.text3 : "#fff", border: "none", borderRadius: R.lg,
+                                fontWeight: 700, fontSize: 13, cursor: customerEditSaving ? "not-allowed" : "pointer" }}>
+                                {customerEditSaving ? "저장중…" : "저장"}
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <div style={{ fontSize: 12, color: C.text3 }}>📱 {customer.phone} · 📍 {customer.region}</div>
-                        <div style={{ fontSize: 11, color: C.text4, marginTop: 4 }}>가입일: {customer.joinedAt}</div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </>
                 )}
               </div>
@@ -2012,7 +2086,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
                                   if (!error) {
                                     setDisputes(prev => prev.map(x => x.id === d.id ? { ...x, dispute_status: st } : x));
                                     showToast("상태 변경 완료");
-                                  } else { showToast("처리 실패", false); }
+                                    trackAdmin(`DISPUTE_${st}`, d.id, null, true, 1);
+                                  } else {
+                                    showToast("처리 실패", false);
+                                    trackAdmin(`DISPUTE_${st}`, d.id, error.message, false, 0);
+                                  }
                                 },
                               })}
                               style={{ flex: 1, padding: "9px", background: m.bg, color: m.color,
