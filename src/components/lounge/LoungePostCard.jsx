@@ -30,6 +30,13 @@ export default function LoungePostCard({ post, onClick }) {
         }}>
           {catLabel}
         </span>
+        {post.is_seed && (
+          <span style={{
+            background: C.bgWarm, color: C.text3,
+            borderRadius: R.full, padding: '2px 7px',
+            fontSize: 10, fontWeight: 600,
+          }}>운영</span>
+        )}
         {post.region    && <span style={{ fontSize: 11, color: C.text4 }}>· {post.region}</span>}
         {post.age_group && <span style={{ fontSize: 11, color: C.text4 }}>· {post.age_group}</span>}
         <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>
