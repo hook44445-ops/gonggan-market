@@ -21,6 +21,10 @@ import {
   getReviewRewardsPending, updateReviewReward,
   adminGetHiddenRequests, adminRestoreRequest,
   getSeedReviews, createSeedReview, updateSeedReview, deleteSeedReview, uploadSeedReviewImage,
+  adminGetReviews, adminUpdateReview, adminHideReview, adminSoftDeleteReview, adminRestoreReview,
+  adminUpdateLoungePost, adminSoftDeleteLoungePost, adminRestoreLoungePost,
+  adminGetLoungeComments, adminSoftDeleteLoungeComment, adminRestoreLoungeComment,
+  adminUpdateCompanyInfo, adminUpdateUserInfo,
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
@@ -40,6 +44,240 @@ const SEED_CATEGORIES = [
 ];
 
 const BLANK_LOUNGE_SEED = { category: 'interior', title: '', content: '', author_name: '공간마켓', sort_order: 0, is_active: true };
+
+// ── 리뷰 어드민 탭 ────────────────────────────────────────
+function ReviewAdminTab({ adminUserId, showToast }) {
+  const [reviews,    setReviews]    = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [fetchErr,   setFetchErr]   = useState(null);
+  const [filter,     setFilter]     = useState("all"); // all | hidden | deleted
+  const [editId,     setEditId]     = useState(null);
+  const [editForm,   setEditForm]   = useState({});
+  const [reasonId,   setReasonId]   = useState(null);
+  const [reason,     setReason]     = useState("");
+  const [acting,     setActing]     = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data, error } = await adminGetReviews({ limit: 150 });
+      setReviews(data ?? []);
+      setFetchErr(error?.message ?? null);
+      setLoading(false);
+    })();
+  }, []);
+
+  const reload = async () => {
+    setLoading(true);
+    const { data, error } = await adminGetReviews({ limit: 150 });
+    setReviews(data ?? []);
+    setFetchErr(error?.message ?? null);
+    setLoading(false);
+  };
+
+  const visible = reviews.filter(r => {
+    if (filter === "hidden")  return r.is_hidden && !r.is_deleted;
+    if (filter === "deleted") return r.is_deleted;
+    return !r.is_deleted;
+  });
+
+  const doHide = async (r) => {
+    if (!r.is_hidden && !reason.trim()) {
+      showToast?.("숨김 사유를 입력하세요", false); return;
+    }
+    setActing(true);
+    const { error } = await adminHideReview(r.id, adminUserId, !r.is_hidden, reason || null);
+    if (error) { showToast?.(error.message ?? "처리 실패", false); }
+    else {
+      showToast?.(r.is_hidden ? "숨김 해제 완료" : "숨김 처리 완료");
+      setReviews(prev => prev.map(x => x.id === r.id ? { ...x, is_hidden: !r.is_hidden } : x));
+      setReasonId(null); setReason("");
+    }
+    setActing(false);
+  };
+
+  const doDelete = async (r) => {
+    if (!reason.trim()) { showToast?.("삭제 사유를 입력하세요", false); return; }
+    setActing(true);
+    const { error } = await adminSoftDeleteReview(r.id, adminUserId, reason);
+    if (error) { showToast?.(error.message ?? "처리 실패", false); }
+    else {
+      showToast?.("삭제(숨김) 처리 완료");
+      setReviews(prev => prev.map(x => x.id === r.id ? { ...x, is_deleted: true } : x));
+      setReasonId(null); setReason("");
+    }
+    setActing(false);
+  };
+
+  const doRestore = async (r) => {
+    setActing(true);
+    const { error } = await adminRestoreReview(r.id, adminUserId);
+    if (error) { showToast?.(error.message ?? "처리 실패", false); }
+    else {
+      showToast?.("복구 완료");
+      setReviews(prev => prev.map(x => x.id === r.id ? { ...x, is_deleted: false, is_hidden: false } : x));
+    }
+    setActing(false);
+  };
+
+  const doEdit = async (r) => {
+    setActing(true);
+    const { error } = await adminUpdateReview(r.id, editForm, adminUserId);
+    if (error) { showToast?.(error.message ?? "수정 실패", false); }
+    else {
+      showToast?.("수정 완료");
+      setReviews(prev => prev.map(x => x.id === r.id ? { ...x, ...editForm } : x));
+      setEditId(null); setEditForm({});
+    }
+    setActing(false);
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>⭐ 리뷰 어드민</div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg }}>실제 작성된 리뷰를 수정·숨김·삭제·복구합니다</div>
+
+      {import.meta.env.DEV && (
+        <div style={{ background: "rgba(0,0,0,0.88)", color: "#0f0", borderRadius: 8, padding: "8px 12px", marginBottom: S.md, fontSize: 11, lineHeight: 1.8, fontFamily: "monospace" }}>
+          [DEV] reviews_loaded: {reviews.length} | filter: {filter} | visible: {visible.length}<br/>
+          fetch_err: <span style={{ color: fetchErr ? "#f66" : "#0f0" }}>{fetchErr ?? "none"}</span><br/>
+          hidden: {reviews.filter(r => r.is_hidden).length} | deleted: {reviews.filter(r => r.is_deleted).length}
+        </div>
+      )}
+
+      {fetchErr && (
+        <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+          <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ 리뷰 로드 실패: {fetchErr}</div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: S.sm, marginBottom: S.lg, alignItems: "center" }}>
+        {[["all","전체"],["hidden","숨김"],["deleted","삭제됨"]].map(([v,l]) => (
+          <button key={v} onClick={() => setFilter(v)}
+            style={{ padding: "7px 14px", borderRadius: R.full, border: `1.5px solid ${filter===v ? C.brand : C.bgWarm}`,
+              background: filter===v ? C.brandL : C.surface, color: filter===v ? C.brand : C.text3,
+              fontWeight: filter===v ? 800 : 500, fontSize: 12, cursor: "pointer" }}>{l}</button>
+        ))}
+        <button onClick={reload} disabled={loading}
+          style={{ marginLeft: "auto", padding: "7px 14px", borderRadius: R.full, border: `1px solid ${C.bgWarm}`,
+            background: C.surface, color: C.text3, fontSize: 12, cursor: "pointer" }}>
+          {loading ? "로드중…" : "새로고침"}
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "40px 0", color: C.text3, fontSize: 14 }}>불러오는 중…</div>
+      ) : visible.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "40px 0", color: C.text3, fontSize: 14 }}>해당 리뷰가 없습니다</div>
+      ) : visible.map(r => {
+        const isEditing = editId === r.id;
+        const showReason = reasonId === r.id;
+        const co = r.companies;
+        return (
+          <div key={r.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm,
+            border: `1.5px solid ${r.is_deleted ? C.red+"33" : r.is_hidden ? C.gold+"44" : C.bgWarm}`,
+            opacity: r.is_deleted ? 0.65 : 1 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>
+                  {"★".repeat(r.rating ?? 0)}
+                  {r.is_hidden && <span style={{ marginLeft: 6, fontSize: 11, color: C.gold, fontWeight: 700 }}>숨김</span>}
+                  {r.is_deleted && <span style={{ marginLeft: 6, fontSize: 11, color: C.red, fontWeight: 700 }}>삭제됨</span>}
+                </div>
+                <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+                  {r.user_name ?? "—"} · {co?.name ?? r.company_id?.slice?.(0,8)} · {r.region ?? ""} · {r.created_at?.slice(0,10)}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: S.xs }}>
+                {!r.is_deleted && (
+                  <button onClick={() => { setEditId(isEditing ? null : r.id); setEditForm({ content: r.content, rating: r.rating, status: r.status }); }}
+                    style={{ padding: "5px 10px", borderRadius: R.full, border: `1px solid ${C.brandM}`, background: C.brandL, color: C.brand, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    {isEditing ? "취소" : "수정"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {isEditing ? (
+              <div style={{ marginBottom: S.sm }}>
+                <textarea value={editForm.content ?? ""} onChange={e => setEditForm(p => ({ ...p, content: e.target.value }))}
+                  style={{ width: "100%", padding: S.sm, borderRadius: R.md, border: `1.5px solid ${C.bgWarm}`, fontSize: 12,
+                    resize: "vertical", minHeight: 70, outline: "none", boxSizing: "border-box", fontFamily: "inherit", color: C.text1 }} />
+                <div style={{ display: "flex", gap: S.sm, marginTop: S.sm }}>
+                  <select value={editForm.rating ?? 5} onChange={e => setEditForm(p => ({ ...p, rating: Number(e.target.value) }))}
+                    style={{ padding: "6px 10px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`, fontSize: 12, outline: "none" }}>
+                    {[5,4,3,2,1].map(n => <option key={n} value={n}>{"★".repeat(n)} {n}점</option>)}
+                  </select>
+                  <select value={editForm.status ?? "APPROVED"} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}
+                    style={{ padding: "6px 10px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`, fontSize: 12, outline: "none" }}>
+                    {["APPROVED","PENDING","REJECTED","HIDDEN"].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button onClick={() => doEdit(r)} disabled={acting}
+                    style={{ flex: 1, padding: "7px", background: C.brand, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                    저장
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.sm }}>
+                {r.content?.slice(0,120)}{(r.content?.length ?? 0) > 120 ? "…" : ""}
+              </div>
+            )}
+
+            {showReason ? (
+              <div style={{ marginTop: S.sm }}>
+                <input value={reason} onChange={e => setReason(e.target.value)}
+                  placeholder="처리 사유 입력 (필수)"
+                  style={{ width: "100%", padding: "8px 12px", borderRadius: R.md, border: `1.5px solid ${C.bgWarm}`,
+                    fontSize: 12, outline: "none", boxSizing: "border-box", marginBottom: S.sm, fontFamily: "inherit" }} />
+                <div style={{ display: "flex", gap: S.sm }}>
+                  <button onClick={() => { setReasonId(null); setReason(""); }}
+                    style={{ flex: 1, padding: "8px", background: C.surface2, color: C.text3, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 12, cursor: "pointer" }}>
+                    취소
+                  </button>
+                  {!r.is_hidden && !r.is_deleted && (
+                    <button onClick={() => doHide(r)} disabled={acting}
+                      style={{ flex: 1, padding: "8px", background: "#FBF5E8", color: C.gold, border: `1px solid ${C.gold}44`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      숨김
+                    </button>
+                  )}
+                  {!r.is_deleted && (
+                    <button onClick={() => doDelete(r)} disabled={acting}
+                      style={{ flex: 1, padding: "8px", background: "#FFF0F0", color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      삭제
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: S.sm, marginTop: S.xs }}>
+                {r.is_deleted ? (
+                  <button onClick={() => doRestore(r)} disabled={acting}
+                    style={{ flex: 1, padding: "7px", background: C.brandL, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                    복구
+                  </button>
+                ) : (
+                  <>
+                    {r.is_hidden && (
+                      <button onClick={() => doHide(r)} disabled={acting}
+                        style={{ flex: 1, padding: "7px", background: C.brandL, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                        숨김해제
+                      </button>
+                    )}
+                    <button onClick={() => { setReasonId(r.id); setReason(""); }}
+                      style={{ flex: 1, padding: "7px", background: "#FEF0F0", color: C.red, border: `1px solid ${C.red}22`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      {r.is_hidden ? "삭제" : "숨김/삭제"}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // ── 리포트 목록 (모듈 레벨 — LoungeManagementTab 외부) ────
 function ReportList({ reports, label, hiddenIds, onToggleHide }) {
@@ -70,9 +308,14 @@ function ReportList({ reports, label, hiddenIds, onToggleHide }) {
 }
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
-function LoungeManagementTab({ loungePosts = [], loungeErr = null, showToast, adminUserId }) {
+function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, showToast, adminUserId }) {
   const allReports = (() => { try { return JSON.parse(localStorage.getItem("lounge_reports") ?? "[]"); } catch { return []; } })();
   const allBlocks  = (() => { try { return JSON.parse(localStorage.getItem("lounge_blocks")  ?? "[]"); } catch { return []; } })();
+  const [posts, setPosts] = useState(initPosts);
+  const [postFilter, setPostFilter] = useState("all"); // all | hidden | deleted
+  const [postReasonId, setPostReasonId] = useState(null);
+  const [postReason, setPostReason] = useState("");
+  const [postActing, setPostActing] = useState(false);
   const [hiddenIds, setHiddenIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem("lounge_hidden") ?? "[]"); } catch { return []; }
   });
@@ -185,12 +428,118 @@ function LoungeManagementTab({ loungePosts = [], loungeErr = null, showToast, ad
       )}
       {import.meta.env.DEV && (
         <div style={{ background: "rgba(0,0,0,0.88)", color: "#0f0", borderRadius: 8, padding: "8px 12px", marginBottom: S.md, fontSize: 11, lineHeight: 1.8, fontFamily: "monospace" }}>
-          [DEV] lounge_posts_count: {loungePosts.length}<br/>
+          [DEV] lounge_posts_count: {posts.length}<br/>
           lounge_fetch_err: <span style={{ color: loungeErr ? "#f66" : "#0f0" }}>{loungeErr ?? "none"}</span><br/>
-          first_post_id: {loungePosts[0]?.id?.slice(0,8) ?? "—"}<br/>
-          first_is_deleted: {String(loungePosts[0]?.is_deleted ?? null)} | first_is_hidden: {String(loungePosts[0]?.is_hidden ?? null)}
+          first_post_id: {posts[0]?.id?.slice(0,8) ?? "—"}<br/>
+          first_is_deleted: {String(posts[0]?.is_deleted ?? null)} | first_is_hidden: {String(posts[0]?.is_hidden ?? null)}
         </div>
       )}
+
+      {/* ── Post List ── */}
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📝 게시글 관리</div>
+        <div style={{ display: "flex", gap: S.xs, marginBottom: S.md }}>
+          {[["all","전체"],["hidden","숨김"],["deleted","삭제됨"]].map(([v,l]) => (
+            <button key={v} onClick={() => setPostFilter(v)}
+              style={{ padding: "5px 12px", borderRadius: R.full, border: `1px solid ${postFilter===v ? C.brand : C.bgWarm}`,
+                background: postFilter===v ? C.brandL : "transparent", color: postFilter===v ? C.brand : C.text3,
+                fontWeight: postFilter===v ? 800 : 500, fontSize: 11, cursor: "pointer" }}>{l}</button>
+          ))}
+        </div>
+        {(() => {
+          const fp = posts.filter(p => {
+            if (postFilter === "hidden")  return p.is_hidden && !p.is_deleted;
+            if (postFilter === "deleted") return p.is_deleted;
+            return !p.is_deleted;
+          });
+          if (fp.length === 0) return <div style={{ textAlign: "center", padding: "20px 0", color: C.text3, fontSize: 12 }}>해당 게시글이 없습니다</div>;
+          return fp.slice(0,30).map(p => {
+            const showReason = postReasonId === p.id;
+            return (
+              <div key={p.id} style={{ borderBottom: `1px solid ${C.bg}`, paddingBottom: S.sm, marginBottom: S.sm, opacity: p.is_deleted ? 0.6 : 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: C.text1, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.title || p.content?.slice(0,40) || "—"}
+                      {p.is_hidden && <span style={{ marginLeft: 4, fontSize: 10, color: C.gold, fontWeight: 700 }}>숨김</span>}
+                      {p.is_deleted && <span style={{ marginLeft: 4, fontSize: 10, color: C.red, fontWeight: 700 }}>삭제됨</span>}
+                    </div>
+                    <div style={{ fontSize: 10, color: C.text4 }}>{p.id?.slice(0,8)} · {p.created_at?.slice(0,10)}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0, marginLeft: S.sm }}>
+                    {p.is_deleted ? (
+                      <button onClick={async () => {
+                        setPostActing(true);
+                        const { error } = await adminRestoreLoungePost(p.id, adminUserId);
+                        if (error) showToast?.(error.message ?? "복구 실패", false);
+                        else { showToast?.("복구 완료"); setPosts(prev => prev.map(x => x.id === p.id ? { ...x, is_deleted: false, is_hidden: false } : x)); }
+                        setPostActing(false);
+                      }} disabled={postActing}
+                        style={{ padding: "4px 8px", borderRadius: R.full, border: `1px solid ${C.brandM}`, background: C.brandL, color: C.brand, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                        복구
+                      </button>
+                    ) : (
+                      <>
+                        {p.is_hidden && (
+                          <button onClick={async () => {
+                            setPostActing(true);
+                            const { error } = await adminHideContent("lounge_posts", p.id, adminUserId, false, null);
+                            if (error) showToast?.(error.message ?? "처리 실패", false);
+                            else { showToast?.("숨김 해제"); setPosts(prev => prev.map(x => x.id === p.id ? { ...x, is_hidden: false } : x)); }
+                            setPostActing(false);
+                          }} disabled={postActing}
+                            style={{ padding: "4px 8px", borderRadius: R.full, border: `1px solid ${C.brandM}`, background: C.brandL, color: C.brand, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                            해제
+                          </button>
+                        )}
+                        <button onClick={() => { setPostReasonId(showReason ? null : p.id); setPostReason(""); }}
+                          style={{ padding: "4px 8px", borderRadius: R.full, border: `1px solid ${C.red}22`, background: "#FFF0F0", color: C.red, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          {p.is_hidden ? "삭제" : "숨김/삭제"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {showReason && (
+                  <div style={{ display: "flex", gap: S.xs, marginTop: 4 }}>
+                    <input value={postReason} onChange={e => setPostReason(e.target.value)}
+                      placeholder="처리 사유 (필수)"
+                      style={{ flex: 1, padding: "6px 10px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`, fontSize: 11, outline: "none", fontFamily: "inherit" }} />
+                    {!p.is_hidden && (
+                      <button onClick={async () => {
+                        if (!postReason.trim()) { showToast?.("사유를 입력하세요", false); return; }
+                        setPostActing(true);
+                        const { error } = await adminHideContent("lounge_posts", p.id, adminUserId, true, postReason);
+                        if (error) showToast?.(error.message ?? "처리 실패", false);
+                        else { showToast?.("숨김 처리 완료"); setPosts(prev => prev.map(x => x.id === p.id ? { ...x, is_hidden: true } : x)); setPostReasonId(null); setPostReason(""); }
+                        setPostActing(false);
+                      }} disabled={postActing}
+                        style={{ padding: "6px 10px", borderRadius: R.md, background: "#FBF5E8", color: C.gold, border: `1px solid ${C.gold}44`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                        숨김
+                      </button>
+                    )}
+                    <button onClick={async () => {
+                      if (!postReason.trim()) { showToast?.("사유를 입력하세요", false); return; }
+                      setPostActing(true);
+                      const { error } = await adminSoftDeleteLoungePost(p.id, adminUserId, postReason);
+                      if (error) showToast?.(error.message ?? "처리 실패", false);
+                      else { showToast?.("삭제 처리 완료"); setPosts(prev => prev.map(x => x.id === p.id ? { ...x, is_deleted: true } : x)); setPostReasonId(null); setPostReason(""); }
+                      setPostActing(false);
+                    }} disabled={postActing}
+                      style={{ padding: "6px 10px", borderRadius: R.md, background: "#FFF0F0", color: C.red, border: `1px solid ${C.red}33`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                      삭제
+                    </button>
+                    <button onClick={() => { setPostReasonId(null); setPostReason(""); }}
+                      style={{ padding: "6px 8px", borderRadius: R.md, background: C.surface2, color: C.text3, border: `1px solid ${C.bgWarm}`, fontSize: 11, cursor: "pointer" }}>
+                      취소
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          });
+        })()}
+      </div>
 
       <ReportList reports={postReports}    label="📋 신고된 게시글" hiddenIds={hiddenIds} onToggleHide={toggleHide} />
       <ReportList reports={commentReports} label="💬 신고된 댓글"  hiddenIds={hiddenIds} onToggleHide={toggleHide} />
@@ -538,6 +887,7 @@ function SeedReviewTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState({ before: false, after: false });
+  const [uploadDiag, setUploadDiag] = useState(null);
   const [editId, setEditId] = useState(null);
   const [toast, setToast] = useState(null);
   const emptyForm = {
@@ -580,9 +930,15 @@ function SeedReviewTab() {
 
   const handleUpload = async (file, slot) => {
     setUploading(p => ({ ...p, [slot]: true }));
-    const { url, error } = await uploadSeedReviewImage(file, slot);
+    setUploadDiag(null);
+    const { url, error, _diag } = await uploadSeedReviewImage(file, slot);
     setUploading(p => ({ ...p, [slot]: false }));
-    if (error) { showToast("업로드 실패", false); return; }
+    if (error) {
+      setUploadDiag(_diag ?? { upload_error: String(error) });
+      showToast("업로드 실패: " + (_diag?.upload_error ?? "unknown"), false);
+      return;
+    }
+    setUploadDiag(null);
     setForm(p => ({ ...p, [slot === "before" ? "before_image_url" : "after_image_url"]: url }));
     showToast("업로드 완료");
   };
@@ -671,6 +1027,33 @@ function SeedReviewTab() {
         CREATE POLICY "admin_all" ON seed_reviews USING (true) WITH CHECK (true);<br/>
         -- Storage 버킷: seed-review-images (public)
       </div>
+
+      {/* Storage INSERT policy (이미지 업로드 실패 시 실행) */}
+      <div style={{ background: "#1a2e1a", color: "#ffdd88", borderRadius: R.md,
+        padding: "10px 14px", fontSize: 10, fontFamily: "monospace", marginBottom: S.lg,
+        lineHeight: 1.7, border: "1px solid #c07000" }}>
+        <span style={{ color: "#ff6644", fontWeight: 700 }}>⚠️ 이미지 업로드 실패 시 — Storage INSERT policy SQL:</span><br/>
+        DROP POLICY IF EXISTS "seed-review-images 1l8aott_0" ON storage.objects;<br/>
+        <br/>
+        CREATE POLICY "seed_review_images_insert_public"<br/>
+        ON storage.objects FOR INSERT TO public<br/>
+        WITH CHECK (bucket_id = 'seed-review-images');
+      </div>
+
+      {/* 업로드 실패 DEV 진단 패널 */}
+      {uploadDiag && (
+        <div style={{ background: "#111", color: "#ff4444", borderRadius: R.md,
+          padding: "8px 12px", fontSize: 10, fontFamily: "monospace", marginBottom: S.lg,
+          lineHeight: 1.9, border: "1px solid #ff4444" }}>
+          <span style={{ color: "#ff0", fontWeight: 700 }}>── upload 실패 진단 ──</span><br/>
+          upload_bucket: {uploadDiag.upload_bucket ?? "—"}<br/>
+          upload_path: {uploadDiag.upload_path ?? "—"}<br/>
+          upload_error: {uploadDiag.upload_error ?? "—"}<br/>
+          current_supabase_user_id: {uploadDiag.current_supabase_user_id ?? "null (비로그인)"}<br/>
+          auth_role: {uploadDiag.auth_role ?? "—"}<br/>
+          <span style={{ color: "#aaa" }}>※ auth_role=anon 이면 Storage INSERT policy를 public으로 변경하세요 (위 SQL 참조)</span>
+        </div>
+      )}
 
       {/* 등록/수정 폼 */}
       <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
@@ -910,6 +1293,28 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [hiddenRequests, setHiddenRequests] = useState([]);
   const [hiddenLoading, setHiddenLoading] = useState(false);
   const [restoring, setRestoring] = useState(null);
+  const [showInfoEdit, setShowInfoEdit] = useState(false);
+  const [infoEditForm, setInfoEditForm] = useState({});
+  const [infoEditSaving, setInfoEditSaving] = useState(false);
+
+  const [editingCustomerId, setEditingCustomerId] = useState(null);
+  const [customerEditForm, setCustomerEditForm] = useState({});
+  const [customerEditSaving, setCustomerEditSaving] = useState(false);
+
+  // DEV panel: admin action tracking
+  const [lastAdminAction, setLastAdminAction] = useState(null);
+  const [lastAdminTarget, setLastAdminTarget] = useState(null);
+  const [lastAdminError, setLastAdminError]   = useState(null);
+  const [adminLogOk, setAdminLogOk]           = useState(null);
+  const [affectedRows, setAffectedRows]       = useState(null);
+
+  const trackAdmin = (action, target, error = null, logOk = null, rows = null) => {
+    setLastAdminAction(action);
+    setLastAdminTarget(target);
+    setLastAdminError(error);
+    setAdminLogOk(logOk);
+    setAffectedRows(rows);
+  };
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok });
@@ -1101,6 +1506,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
           relatedType: "company",
         });
       }
+      trackAdmin(`SET_COMPANY_STATUS_${newStatus}`, company.id, null, true, 1);
+    } else {
+      trackAdmin(`SET_COMPANY_STATUS_${newStatus}`, company.id, error.message, false, 0);
     }
     setActionLoading(false);
     setShowStatusModal(false);
@@ -1165,6 +1573,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["disputes",       "분쟁관리"],
     ["settlements",    "정산관리"],
     ["reviews",        "리뷰관리"],
+    ["review_admin",   "리뷰 어드민"],
     ["seed",           "포토후기 시딩"],
     ["lounge",         "라운지관리"],
     ["lounge_seeding", "라운지 시딩"],
@@ -1217,6 +1626,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
       </div>
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 90px` }}>
+
+        {import.meta.env.DEV && (
+          <div style={{ background: "rgba(0,0,0,0.88)", color: "#0f0", borderRadius: 8, padding: "8px 12px", marginBottom: S.md, fontSize: 11, lineHeight: 1.8, fontFamily: "monospace" }}>
+            [DEV] admin_authed: <span style={{ color: "#0f0" }}>true</span> | active_admin_tab: <span style={{ color: "#ff0" }}>{mainTab}</span><br/>
+            last_admin_action: <span style={{ color: lastAdminAction ? "#ff0" : "#666" }}>{lastAdminAction ?? "—"}</span> | target: <span style={{ color: "#0ff" }}>{lastAdminTarget ?? "—"}</span><br/>
+            last_admin_error: <span style={{ color: lastAdminError ? "#f66" : "#0f0" }}>{lastAdminError ?? "none"}</span><br/>
+            admin_log_ok: <span style={{ color: adminLogOk === null ? "#666" : adminLogOk ? "#0f0" : "#f66" }}>{adminLogOk === null ? "—" : String(adminLogOk)}</span> | affected_rows: <span style={{ color: "#0ff" }}>{affectedRows ?? "—"}</span>
+          </div>
+        )}
 
         {loading && (
           <div style={{ textAlign: "center", padding: "60px 0", color: C.text3, fontSize: 14 }}>
@@ -1389,18 +1807,61 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       <div style={{ textAlign: "center", padding: "60px 0", color: C.text3, fontSize: 14 }}>
                         등록된 고객이 없습니다
                       </div>
-                    ) : customers.map(customer => (
-                      <div key={customer.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
-                        marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.sm }}>
-                          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{customer.name}</div>
-                          <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full,
-                            padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>견적 {customer.requests}건</span>
+                    ) : customers.map(customer => {
+                      const isEditing = editingCustomerId === customer.id;
+                      return (
+                        <div key={customer.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                          marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.sm }}>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{customer.name}</div>
+                            <div style={{ display: "flex", gap: S.xs, alignItems: "center" }}>
+                              <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full,
+                                padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>견적 {customer.requests}건</span>
+                              <button onClick={() => {
+                                if (isEditing) { setEditingCustomerId(null); return; }
+                                setEditingCustomerId(customer.id);
+                                setCustomerEditForm({ name: customer.name, phone: customer.phone, region: customer.region });
+                              }} style={{ padding: "4px 10px", borderRadius: R.full, border: `1px solid ${C.bgWarm}`,
+                                background: isEditing ? C.surface2 : C.surface, color: C.text3, fontSize: 11, cursor: "pointer" }}>
+                                {isEditing ? "취소" : "수정"}
+                              </button>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 12, color: C.text3 }}>📱 {customer.phone} · 📍 {customer.region}</div>
+                          <div style={{ fontSize: 11, color: C.text4, marginTop: 4 }}>가입일: {customer.joinedAt}</div>
+                          {isEditing && (
+                            <div style={{ marginTop: S.md, background: C.surface2, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
+                              {[["name","이름"],["phone","전화번호"],["region","지역"]].map(([key,label]) => (
+                                <div key={key} style={{ marginBottom: S.sm }}>
+                                  <div style={{ fontSize: 11, color: C.text3, marginBottom: 3 }}>{label}</div>
+                                  <input value={customerEditForm[key] ?? ""} onChange={e => setCustomerEditForm(p => ({ ...p, [key]: e.target.value }))}
+                                    style={{ width: "100%", padding: "8px 12px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
+                                      fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit", background: "#fff" }} />
+                                </div>
+                              ))}
+                              <button disabled={customerEditSaving} onClick={async () => {
+                                setCustomerEditSaving(true);
+                                const { data, error } = await adminUpdateUserInfo(customer.id, customerEditForm, user?.id ?? null);
+                                if (error) {
+                                  showToast(error.message ?? "수정 실패", false);
+                                  trackAdmin("UPDATE_CUSTOMER", customer.id, error.message, false, 0);
+                                } else {
+                                  showToast("고객 정보 수정 완료");
+                                  trackAdmin("UPDATE_CUSTOMER", customer.id, null, true, 1);
+                                  setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, ...customerEditForm } : c));
+                                  setEditingCustomerId(null);
+                                }
+                                setCustomerEditSaving(false);
+                              }} style={{ width: "100%", padding: "9px", background: customerEditSaving ? C.bgWarm : C.brand,
+                                color: customerEditSaving ? C.text3 : "#fff", border: "none", borderRadius: R.lg,
+                                fontWeight: 700, fontSize: 13, cursor: customerEditSaving ? "not-allowed" : "pointer" }}>
+                                {customerEditSaving ? "저장중…" : "저장"}
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        <div style={{ fontSize: 12, color: C.text3 }}>📱 {customer.phone} · 📍 {customer.region}</div>
-                        <div style={{ fontSize: 11, color: C.text4, marginTop: 4 }}>가입일: {customer.joinedAt}</div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </>
                 )}
               </div>
@@ -1621,12 +2082,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
                                 msg: `분쟁 상태를 변경합니다.`,
                                 needsReason: st === "RESOLVED" || st === "REFUNDED",
                                 onConfirm: async (reason) => {
-                                  const { error } = await supabase.from("escrow_payments")
-                                    .update({ dispute_status: st }).eq("id", d.id);
+                                  const { error } = await adminResolveDispute(d.id, user?.id ?? null, st, reason ?? null);
                                   if (!error) {
                                     setDisputes(prev => prev.map(x => x.id === d.id ? { ...x, dispute_status: st } : x));
                                     showToast("상태 변경 완료");
-                                  } else { showToast("처리 실패", false); }
+                                    trackAdmin(`DISPUTE_${st}`, d.id, null, true, 1);
+                                  } else {
+                                    showToast("처리 실패", false);
+                                    trackAdmin(`DISPUTE_${st}`, d.id, error.message, false, 0);
+                                  }
                                 },
                               })}
                               style={{ flex: 1, padding: "9px", background: m.bg, color: m.color,
@@ -1894,6 +2358,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
               </div>
             )}
 
+            {mainTab === "review_admin" && <ReviewAdminTab adminUserId={user?.id} showToast={showToast} />}
+
             {mainTab === "seed" && <SeedReviewTab />}
 
             {mainTab === "notifications" && (
@@ -2027,6 +2493,44 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       );
                     })}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Company Info Edit ── */}
+            <div style={{ marginBottom: S.xl }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.sm }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text2 }}>업체 정보 수정</div>
+                <button onClick={() => { setShowInfoEdit(v => !v); setInfoEditForm({ name: selected.name, phone: selected.phone, region: selected.region }); }}
+                  style={{ fontSize: 11, color: C.brand, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>
+                  {showInfoEdit ? "닫기" : "수정 ▾"}
+                </button>
+              </div>
+              {showInfoEdit && (
+                <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
+                  {[["name","업체명"],["phone","전화번호"],["region","지역"]].map(([key,label]) => (
+                    <div key={key} style={{ marginBottom: S.sm }}>
+                      <div style={{ fontSize: 11, color: C.text3, marginBottom: 3 }}>{label}</div>
+                      <input value={infoEditForm[key] ?? ""} onChange={e => setInfoEditForm(p => ({ ...p, [key]: e.target.value }))}
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
+                          fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit", background: "#fff" }} />
+                    </div>
+                  ))}
+                  <button disabled={infoEditSaving} onClick={async () => {
+                    setInfoEditSaving(true);
+                    const { error } = await adminUpdateCompanyInfo(selected.id, infoEditForm, user?.id ?? null);
+                    if (error) { showToast(error.message ?? "수정 실패", false); }
+                    else {
+                      showToast("업체 정보 수정 완료");
+                      setCompanies(prev => prev.map(c => c.id === selected.id ? { ...c, ...infoEditForm } : c));
+                      setSelected(prev => ({ ...prev, ...infoEditForm }));
+                      setShowInfoEdit(false);
+                    }
+                    setInfoEditSaving(false);
+                  }} style={{ width: "100%", padding: "10px", background: infoEditSaving ? C.bgWarm : C.brand, color: infoEditSaving ? C.text3 : "#fff",
+                    border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: infoEditSaving ? "not-allowed" : "pointer" }}>
+                    {infoEditSaving ? "저장중…" : "저장"}
+                  </button>
                 </div>
               )}
             </div>
