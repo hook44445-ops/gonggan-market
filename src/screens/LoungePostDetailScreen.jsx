@@ -291,23 +291,30 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   };
 
   const handleDelete = async () => {
+    if (!post?.id || !user?.id) return;
     setDeleting(true);
+
     if (IS_SUPABASE_READY) {
-      const { data, error } = await softDeleteLoungePost(post.id, user.id);
+      const { data, error: deleteErr } = await softDeleteLoungePost(post.id, user.id);
+
       if (import.meta.env.DEV) {
         setDeleteDevInfo({
           currentUserId: user?.id,
           postUserId:    post?.user_id,
           isOwner:       post?.user_id === user?.id,
           postId:        post?.id,
-          delete_ok:     !error,
-          delete_err:    error?.message ?? null,
+          delete_ok:     !deleteErr && data?.is_deleted === true,
+          delete_err:    deleteErr?.message ?? null,
           affected_rows: data ? 1 : 0,
         });
       }
-      if (error) {
+
+      if (deleteErr || data?.is_deleted !== true) {
         setDeleting(false);
-        showToast('삭제에 실패했습니다');
+        const errMsg = deleteErr?.message ?? deleteErr?.code
+          ? `삭제 실패: ${deleteErr?.message ?? deleteErr?.code}`
+          : '삭제 실패: is_deleted 미반영 (migration 미실행 또는 RLS 차단)';
+        showToast(errMsg);
         return;
       }
     } else {
@@ -317,6 +324,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         localStorage.setItem(key, JSON.stringify(prev.filter(p => p.id !== post.id)));
       } catch {}
     }
+    showToast('삭제됐어요');
     setDeleting(false);
     setShowDeleteConfirm(false);
     onDeletePost?.(post.id);
@@ -561,7 +569,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: C.brand, color: '#fff', borderRadius: R.full, padding: '12px 22px', fontSize: 13, fontWeight: 700, boxShadow: `0 8px 24px ${C.brand}44`, zIndex: 200, whiteSpace: 'nowrap' }}>
+        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: C.brand, color: '#fff', borderRadius: R.lg, padding: '12px 22px', fontSize: 12, fontWeight: 700, boxShadow: `0 8px 24px ${C.brand}44`, zIndex: 200, maxWidth: '85vw', wordBreak: 'break-all', textAlign: 'center' }}>
           {toast}
         </div>
       )}

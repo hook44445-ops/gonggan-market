@@ -308,7 +308,7 @@ function ReportList({ reports, label, hiddenIds, onToggleHide }) {
 }
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
-function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, showToast, adminUserId }) {
+function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, showToast, adminUserId, onReload }) {
   const allReports = (() => { try { return JSON.parse(localStorage.getItem("lounge_reports") ?? "[]"); } catch { return []; } })();
   const allBlocks  = (() => { try { return JSON.parse(localStorage.getItem("lounge_blocks")  ?? "[]"); } catch { return []; } })();
   const [posts, setPosts] = useState(initPosts);
@@ -602,6 +602,40 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
           </button>
         </div>
       </div>
+
+      {loungePosts.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginTop: S.lg, border: `1px solid ${C.bgWarm}` }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📝 게시글 목록 (총 {loungePosts.length}개)</div>
+          {loungePosts.slice(0, 30).map(p => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: S.sm, padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bg}` }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: C.text2, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.title ?? p.content?.slice(0, 40)}
+                </div>
+                <div style={{ fontSize: 11, color: C.text3 }}>
+                  {p.anonymous_nickname} · {p.category}
+                  {p.is_deleted && <span style={{ color: C.red, marginLeft: 4, fontWeight: 700 }}>삭제됨</span>}
+                  {p.is_hidden  && <span style={{ color: C.gold, marginLeft: 4, fontWeight: 700 }}>숨김</span>}
+                </div>
+              </div>
+              <button
+                disabled={!!p.is_deleted}
+                onClick={async () => {
+                  if (!window.confirm(`이 게시글을 삭제할까요?\n"${(p.title ?? p.content)?.slice(0, 30)}"`)) return;
+                  const { error } = await adminSoftDeleteLoungePost(p.id, adminUserId);
+                  if (error) showToast?.("삭제 실패: " + (error.message ?? ""), false);
+                  else { showToast?.("게시글 삭제 완료"); onReload?.(); }
+                }}
+                style={{ padding: "5px 10px", borderRadius: R.full, border: "none", fontSize: 11, fontWeight: 700,
+                  cursor: p.is_deleted ? "not-allowed" : "pointer",
+                  background: p.is_deleted ? C.bgWarm : "#FEF0F0",
+                  color: p.is_deleted ? C.text4 : C.red }}>
+                {p.is_deleted ? "삭제됨" : "삭제"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -2181,7 +2215,22 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
             {/* ── Lounge Management ── */}
             {mainTab === "lounge" && (
-              <LoungeManagementTab loungePosts={loungePosts} loungeErr={loungeErr} showToast={showToast} adminUserId={user?.id} />
+              <LoungeManagementTab
+                loungePosts={loungePosts}
+                loungeErr={loungeErr}
+                showToast={showToast}
+                adminUserId={user?.id}
+                onReload={async () => {
+                  try {
+                    const [postsRes, reportsRes] = await Promise.all([adminGetLoungePosts(), getLoungeReports()]);
+                    setLoungePosts(postsRes.data ?? []);
+                    setLoungeReports(reportsRes.data ?? []);
+                    setLoungeErr(postsRes.error?.message ?? null);
+                  } catch (err) {
+                    setLoungeErr(err?.message ?? String(err));
+                  }
+                }}
+              />
             )}
 
             {/* ── Lounge Seeding ── */}
