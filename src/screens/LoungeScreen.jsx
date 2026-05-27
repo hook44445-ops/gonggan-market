@@ -336,7 +336,7 @@ function StoryDevPanel({ stories, storiesError }) {
 }
 
 // ── 메인 스크린 ────────────────────────────────────────
-export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage, onDeleteStory }) {
+export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage, onDeleteStory, refreshKey = 0 }) {
   const [category,        setCategory]        = useState('all');
   const [showWriteOptions, setShowWriteOptions] = useState(false);
   const [searchOpen,      setSearchOpen]       = useState(false);
@@ -346,7 +346,11 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
   const [notifsError,     setNotifsError]      = useState(null);
   const [notifCount,      setNotifCount]       = useState(0);
 
-  const { posts, stories, loading, storiesError, devInfo } = useLounge(category);
+  const { posts, stories, loading, storiesError, devInfo, refetch } = useLounge(category);
+
+  useEffect(() => {
+    if (refreshKey > 0) refetch();
+  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
@@ -534,7 +538,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
       {import.meta.env.DEV && (
         <div style={{ margin: '12px 16px 90px', background: 'rgba(0,0,0,0.92)', color: '#0f0', borderRadius: 8, padding: '10px 12px', fontSize: 11, lineHeight: 2, fontFamily: 'monospace', maxHeight: 460, overflowY: 'auto' }}>
           [DEV] lounge feed — {new Date().toLocaleTimeString('ko-KR')}<br/>
-          user: {user?.id?.slice(0, 8) ?? 'null'} | category: {category} | feed_err: {fetchError ?? 'none'}<br/>
+          user: {user?.id?.slice(0, 8) ?? 'null'} | category: {category} | refreshKey: {refreshKey}<br/>
           posts: db={posts.length} extra={extraPosts.length} merged={mergedPosts.length}<br/>
           stories: db={stories.length} extra={extraStories.length} merged={mergedStories.length}<br/>
           <span style={{ color: '#ff0' }}>── 조회 진단 ──</span><br/>
@@ -547,22 +551,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
             is_deleted={String(devInfo.first_is_deleted)} is_hidden={String(devInfo.first_is_hidden)}<br/>
           </>}
           <span style={{ color: '#ff0' }}>── DB actual (lounge_posts 최신 5개) ──</span><br/>
-          {dbDiag == null && <span>loading...</span>}
-          {dbDiag?.error && <span style={{ color: '#f66' }}>db_err: {dbDiag.error}</span>}
-          {(dbDiag?.rows ?? []).map((r, i) => {
-            const imgs = r.image_urls ?? [];
-            const isBlob    = imgs.some(u => u.startsWith('blob:'));
-            const isStorage = imgs.some(u => u.includes('/storage/'));
-            const tag = imgs.length === 0 ? '❌EMPTY' : isBlob ? '❌BLOB' : isStorage ? '✅OK' : '⚠️?';
-            return (
-              <span key={r.id} style={{ display: 'block' }}>
-                [{i}] {r.id.slice(0, 8)} story:{String(r.is_story)} imgs:{imgs.length} {tag}<br/>
-                <span style={{ paddingLeft: 16, color: imgs.length > 0 ? '#8f8' : '#f88' }}>
-                  {imgs.length > 0 ? imgs[0].slice(0, 72) : 'image_urls = []'}
-                </span>
-              </span>
-            );
-          })}
+          seeds_count: {devInfo?.seeds_count ?? devInfo?.seeds_total ?? '…'}<br/>
           <span style={{ color: '#ff0' }}>── 피드 렌더 (merged) ──</span><br/>
           {mergedPosts.slice(0, 3).map(p => (
             <span key={p.id} style={{ display: 'block' }}>

@@ -20,7 +20,7 @@ import {
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
-import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification, supabase } from '../lib/supabase';
+import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification } from '../lib/supabase';
 
 // ── 삭제 확인 다이얼로그 ───────────────────────────────
 function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
@@ -101,6 +101,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [showMenu,    setShowMenu]          = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting,    setDeleting]          = useState(false);
+  const [deleteDevInfo, setDeleteDevInfo] = useState(null);
   const inputRef = useRef(null);
 
   const isGuest    = user?.isGuest === true;
@@ -293,55 +294,41 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     if (!post?.id || !user?.id) return;
     setDeleting(true);
 
-    const authRes = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-    const authUid = authRes?.data?.user?.id ?? null;
-    const isOwner = post.user_id === user.id;
-
-    console.log('[handleDelete] pre-delete info:', {
-      postId:          post.id,
-      postUserId:      post.user_id,
-      currentUserId:   user.id,
-      supabaseAuthUid: authUid,
-      isOwner,
-      admin_authed:    user?.admin_authed ?? false,
-    });
-
     if (IS_SUPABASE_READY) {
       const { data, error: deleteErr } = await softDeleteLoungePost(post.id, user.id);
 
-      console.log('[handleDelete] result:', {
-        delete_ok:     !deleteErr && data?.is_deleted === true,
-        delete_err_msg:  deleteErr?.message ?? null,
-        delete_err_code: deleteErr?.code    ?? null,
-        affected_rows: data ? 1 : 0,
-        data,
-      });
+      if (import.meta.env.DEV) {
+        setDeleteDevInfo({
+          currentUserId: user?.id,
+          postUserId:    post?.user_id,
+          isOwner:       post?.user_id === user?.id,
+          postId:        post?.id,
+          delete_ok:     !deleteErr && data?.is_deleted === true,
+          delete_err:    deleteErr?.message ?? null,
+          affected_rows: data ? 1 : 0,
+        });
+      }
 
       if (deleteErr || data?.is_deleted !== true) {
         setDeleting(false);
         const errMsg = deleteErr?.message ?? deleteErr?.code
-          ? `삭제 실패: ${deleteErr.message ?? deleteErr.code}`
+          ? `삭제 실패: ${deleteErr?.message ?? deleteErr?.code}`
           : '삭제 실패: is_deleted 미반영 (migration 미실행 또는 RLS 차단)';
         showToast(errMsg);
         return;
       }
-
-      showToast('삭제됐어요');
-      setDeleting(false);
-      setShowDeleteConfirm(false);
-      onDeletePost?.(post.id);
-      onBack?.();
     } else {
       try {
         const key = 'lounge_offline_posts';
         const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
         localStorage.setItem(key, JSON.stringify(prev.filter(p => p.id !== post.id)));
       } catch {}
-      setDeleting(false);
-      setShowDeleteConfirm(false);
-      onDeletePost?.(post.id);
-      onBack?.();
     }
+    showToast('삭제됐어요');
+    setDeleting(false);
+    setShowDeleteConfirm(false);
+    onDeletePost?.(post.id);
+    onBack?.();
   };
 
   if (loading && !post) {
@@ -458,6 +445,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           [DEV] lounge_comments<br/>
           post.id: {post?.id?.slice(0,8) ?? 'NULL ⚠️'}<br/>
           user.id: {user?.id?.slice(0,8) ?? 'NULL ⚠️'}<br/>
+          isOwner: {String(isOwn)} | post.user_id: {post?.user_id?.slice(0,8) ?? 'null'}<br/>
           comments.length: {comments.length} | fetch_err: {commentsFetchError ?? 'none'}<br/>
           ids: {comments.slice(0,3).map(c => c.id?.slice(0,6)).join(', ') || '(empty)'}<br/>
           {devCommentInfo && <>
@@ -469,6 +457,13 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 ? <span style={{color:'#0f0'}}>insert_ok: id={devCommentInfo.insertResult.id?.slice(0,8)} post_id={devCommentInfo.insertResult.post_id?.slice(0,8)}<br/></span>
                 : null
             }
+          </>}
+          {deleteDevInfo && <>
+            --- last delete ---<br/>
+            currentUser.id: {deleteDevInfo.currentUserId?.slice(0,8)}<br/>
+            post.user_id: {deleteDevInfo.postUserId?.slice(0,8)} | isOwner: {String(deleteDevInfo.isOwner)}<br/>
+            delete_ok: <span style={{color: deleteDevInfo.delete_ok ? '#0f0' : '#f66'}}>{String(deleteDevInfo.delete_ok)}</span> | err: {deleteDevInfo.delete_err ?? 'null'}<br/>
+            affected_rows: {deleteDevInfo.affected_rows}<br/>
           </>}
         </div>
       )}

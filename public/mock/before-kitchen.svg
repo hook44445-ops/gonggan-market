@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d4c8a0"/>
+      <stop offset="100%" stop-color="#c0b488"/>
+    </linearGradient>
+    <linearGradient id="cab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8a6840"/>
+      <stop offset="100%" stop-color="#7a5830"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="#c0b488"/>
+  <rect width="400" height="30" fill="#a89870"/>
+  <!-- wall -->
+  <rect x="0" y="30" width="400" height="190" fill="url(#wall)"/>
+  <!-- upper cabinets (old, brown) -->
+  <rect x="0" y="45" width="390" height="80" fill="url(#cab)" rx="2"/>
+  <rect x="4" y="49" width="90" height="72" fill="#9a7850" rx="1"/>
+  <rect x="98" y="49" width="90" height="72" fill="#9a7850" rx="1"/>
+  <rect x="192" y="49" width="90" height="72" fill="#9a7850" rx="1"/>
+  <rect x="286" y="49" width="100" height="72" fill="#9a7850" rx="1"/>
+  <!-- cabinet handles (old knobs) -->
+  <circle cx="40" cy="90" r="5" fill="#6a5030"/>
+  <circle cx="140" cy="90" r="5" fill="#6a5030"/>
+  <circle cx="235" cy="90" r="5" fill="#6a5030"/>
+  <circle cx="330" cy="90" r="5" fill="#6a5030"/>
+  <!-- backsplash — old tiles -->
+  <rect x="0" y="175" width="400" height="40" fill="#c8b880"/>
+  <g stroke="#b0a068" stroke-width="1" opacity="0.7">
+    <line x1="0" y1="195" x2="400" y2="195"/>
+    <line x1="50" y1="175" x2="50" y2="215"/>
+    <line x1="100" y1="175" x2="100" y2="215"/>
+    <line x1="150" y1="175" x2="150" y2="215"/>
+    <line x1="200" y1="175" x2="200" y2="215"/>
+    <line x1="250" y1="175" x2="250" y2="215"/>
+    <line x1="300" y1="175" x2="300" y2="215"/>
+    <line x1="350" y1="175" x2="350" y2="215"/>
+  </g>
+  <!-- countertop (old, stained) -->
+  <rect x="0" y="165" width="400" height="15" fill="#b89a60"/>
+  <ellipse cx="180" cy="170" rx="30" ry="5" fill="#a08848" opacity="0.4"/>
+  <!-- lower cabinets -->
+  <rect x="0" y="180" width="400" height="120" fill="url(#cab)"/>
+  <rect x="4" y="184" width="90" height="110" fill="#9a7850" rx="1"/>
+  <rect x="98" y="184" width="90" height="110" fill="#9a7850" rx="1"/>
+  <rect x="192" y="184" width="90" height="110" fill="#9a7850" rx="1"/>
+  <rect x="286" y="184" width="110" height="110" fill="#9a7850" rx="1"/>
+  <circle cx="40" cy="240" r="5" fill="#6a5030"/>
+  <circle cx="140" cy="240" r="5" fill="#6a5030"/>
+  <circle cx="235" cy="240" r="5" fill="#6a5030"/>
+  <circle cx="335" cy="240" r="5" fill="#6a5030"/>
+  <!-- old sink -->
+  <rect x="130" y="168" width="100" height="20" fill="#8a9090" rx="2"/>
+  <!-- floor -->
+  <rect x="0" y="220" width="400" height="80" fill="#8a7858"/>
+  <!-- label -->
+  <rect x="8" y="8" width="100" height="26" fill="rgba(0,0,0,0.65)" rx="13"/>
+  <text x="58" y="25" fill="#e8d0a0" font-family="sans-serif" font-size="13" font-weight="700" text-anchor="middle">주방 시공 전</text>
+</svg>

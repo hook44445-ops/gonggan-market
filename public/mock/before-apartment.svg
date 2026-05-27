@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7a6e60"/>
+      <stop offset="100%" stop-color="#5a5048"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a3e32"/>
+      <stop offset="100%" stop-color="#3a2e24"/>
+    </linearGradient>
+  </defs>
+  <!-- sky/ceiling -->
+  <rect width="400" height="300" fill="#4a4238"/>
+  <!-- wall -->
+  <rect x="0" y="40" width="400" height="180" fill="url(#wall)"/>
+  <!-- floor -->
+  <rect x="0" y="220" width="400" height="80" fill="url(#floor)"/>
+  <!-- floor cracks -->
+  <line x1="20" y1="230" x2="80" y2="240" stroke="#2a1e14" stroke-width="1" opacity="0.6"/>
+  <line x1="120" y1="225" x2="200" y2="235" stroke="#2a1e14" stroke-width="1" opacity="0.5"/>
+  <line x1="250" y1="228" x2="340" y2="238" stroke="#2a1e14" stroke-width="1" opacity="0.6"/>
+  <!-- old window -->
+  <rect x="60" y="70" width="100" height="90" fill="#6a8a9a" rx="2"/>
+  <rect x="62" y="72" width="96" height="86" fill="#8ab4c4" opacity="0.5"/>
+  <line x1="111" y1="72" x2="111" y2="158" stroke="#5a4a3c" stroke-width="3"/>
+  <line x1="62" y1="115" x2="158" y2="115" stroke="#5a4a3c" stroke-width="3"/>
+  <!-- window grime overlay -->
+  <rect x="60" y="70" width="100" height="90" fill="#3a3028" opacity="0.35" rx="2"/>
+  <!-- old radiator -->
+  <rect x="240" y="170" width="80" height="50" fill="#5a5048" rx="4"/>
+  <line x1="255" y1="172" x2="255" y2="218" stroke="#4a4038" stroke-width="2"/>
+  <line x1="270" y1="172" x2="270" y2="218" stroke="#4a4038" stroke-width="2"/>
+  <line x1="285" y1="172" x2="285" y2="218" stroke="#4a4038" stroke-width="2"/>
+  <line x1="300" y1="172" x2="300" y2="218" stroke="#4a4038" stroke-width="2"/>
+  <!-- wall stains -->
+  <ellipse cx="160" cy="120" rx="18" ry="12" fill="#6a5e50" opacity="0.5"/>
+  <ellipse cx="330" cy="90" rx="12" ry="8" fill="#6a5e50" opacity="0.4"/>
+  <!-- label -->
+  <rect x="8" y="8" width="110" height="26" fill="rgba(0,0,0,0.65)" rx="13"/>
+  <text x="63" y="25" fill="#e8d0a0" font-family="sans-serif" font-size="13" font-weight="700" text-anchor="middle">아파트 시공 전</text>
+</svg>

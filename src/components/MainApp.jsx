@@ -57,7 +57,7 @@ import {
   getActiveRequestByUser,
   archiveRequestAuto,
   getTopReviews,
-  getRawReviewsDiag,
+  getSeedReviews,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -172,63 +172,7 @@ const maskCompanyName = (name) => {
   return name.slice(0, Math.min(Math.ceil(len / 2), 4)) + "***";
 };
 
-// ── 홈 리뷰 목업 풀 — 카테고리별 시공 전/후 Unsplash 사진 ──────────────────
-// BEFORE: 공사 전/구형/철거 느낌 / AFTER: 최신 완성 인테리어
-const MOCK_REVIEW_POOL = [
-  {
-    id: "mr1", isMock: true, rating: 5,
-    content: "입주 전 낡고 어두운 분위기였는데 시공 후 완전히 달라졌어요. 단계마다 사진으로 확인하면서 진행돼 믿음이 갔습니다.",
-    space_type: "32평 아파트 전체", region: "강남구", user_name: "김○○", maskedName: "공간○○",
-    // BEFORE: 공사 전 낡은 내부 / AFTER: 모던 미니멀 거실
-    beforeImage: "https://images.unsplash.com/photo-yyMtJ9h0N7w?w=400&h=300&fit=crop&q=75",
-    afterImage:  "https://images.unsplash.com/photo-4r9OKorlcTk?w=400&h=300&fit=crop&q=75",
-  },
-  {
-    id: "mr2", isMock: true, rating: 5,
-    content: "카페 개업 전 리모델링인데 일정을 딱 맞게 끝내줬어요. 중간 점검 사진도 꼼꼼하게 보내줘서 안심됐습니다.",
-    space_type: "카페 리모델링", region: "마포구", user_name: "이○○", maskedName: "홍○시공",
-    // BEFORE: 빈 구형 카페 / AFTER: 밝은 모던 카페
-    beforeImage: "https://images.unsplash.com/photo-ucZv4gn94VE?w=400&h=300&fit=crop&q=75",
-    afterImage:  "https://images.unsplash.com/photo-J8YEvimZMZ4?w=400&h=300&fit=crop&q=75",
-  },
-  {
-    id: "mr3", isMock: true, rating: 5,
-    content: "욕실 전체를 바꿨는데 타일 선택부터 완료까지 기록이 다 남아서 나중에 확인하기도 좋았어요.",
-    space_type: "욕실 리모델링", region: "송파구", user_name: "박○○", maskedName: "우리○시공",
-    // BEFORE: 낡은 욕실 / AFTER: 호텔식 모던 욕실
-    beforeImage: "https://images.unsplash.com/photo-fRZTgGnGuN0?w=400&h=300&fit=crop&q=75",
-    afterImage:  "https://images.unsplash.com/photo-VCUbsNJdZpQ?w=400&h=300&fit=crop&q=75",
-  },
-  {
-    id: "mr4", isMock: true, rating: 5,
-    content: "낡은 주방을 전면 교체했어요. 자재 반입부터 마감까지 사진으로 공유해줘서 진행 상황을 확인할 수 있었습니다.",
-    space_type: "주방 전면 교체", region: "수원 영통", user_name: "최○○", maskedName: "공간***",
-    // BEFORE: 구형 주방 / AFTER: 화이트 모던 주방
-    beforeImage: "https://images.unsplash.com/photo-UiGsP8TvOJQ?w=400&h=300&fit=crop&q=75",
-    afterImage:  "https://images.unsplash.com/photo-EWa9IuheEWo?w=400&h=300&fit=crop&q=75",
-  },
-  {
-    id: "mr5", isMock: true, rating: 5,
-    content: "오피스 이전에 맞춰 인테리어를 진행했는데 공사 범위를 계약서로 명확히 정해두니 추가 비용 없이 마무리됐습니다.",
-    space_type: "오피스 인테리어", region: "중구", user_name: "정○○", maskedName: "홍***",
-    // BEFORE: 빈 구형 사무실 / AFTER: 최신 오피스
-    beforeImage: "https://images.unsplash.com/photo-pU0XbVsDBzw?w=400&h=300&fit=crop&q=75",
-    afterImage:  "https://images.unsplash.com/photo-ieDXimQcLeM?w=400&h=300&fit=crop&q=75",
-  },
-];
-
-const _REVIEW_SEED = Date.now() & 0xffff;
-function shuffleMockReviews(arr) {
-  const a = [...arr];
-  let s = _REVIEW_SEED;
-  for (let i = a.length - 1; i > 0; i--) {
-    s = (Math.imul(s, 1664525) + 1013904223) & 0xffffffff;
-    const j = Math.abs(s) % (i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-const SHUFFLED_MOCK_REVIEWS = shuffleMockReviews(MOCK_REVIEW_POOL);
+// ── (mock code removed — replaced by seed_reviews DB table) ─────────────────
 
 // Compute customer-facing stage from request + escrow/payout data
 const computeCustomerStage = (r, escrowData) => {
@@ -320,6 +264,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   // ── 라운지 상태 ──────────────────────────────────────────────────────────────
   const [loungePost, setLoungePost]               = useState(null);
   const [editingLoungePost, setEditingLoungePost] = useState(null);
+  const [loungeRefreshKey, setLoungeRefreshKey] = useState(0);
   const [editOriginScreen, setEditOriginScreen]   = useState('lounge-detail');
   const [myPostsRefreshKey, setMyPostsRefreshKey] = useState(0);
   const [localLoungePosts, setLocalLoungePosts]   = useState([]);
@@ -454,22 +399,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   const [reviewFetchErr, setReviewFetchErr] = useState(null);
-  const [rawReviewsDiag, setRawReviewsDiag] = useState([]);
+  const [seedReviews, setSeedReviews] = useState([]);
+  const [seedFetchErr, setSeedFetchErr] = useState(null);
 
-  // Load top reviews once on mount (consumer home hero section)
+  // Load top reviews + seed reviews once on mount
   useEffect(() => {
-    // 진단용 raw 쿼리 (status 조건 없음)
-    getRawReviewsDiag({ limit: 10 }).then(({ data }) => {
-      if (data) setRawReviewsDiag(data);
-    }).catch(() => {});
-
     getTopReviews({ limit: 12 }).then(({ data, error }) => {
       if (error) { setReviewFetchErr(error.message ?? "fetch_err"); return; }
-      if (data) {
-        // 이미지 없어도 일단 전부 포함 (이미지 매핑에서 처리)
-        setTopReviews(data.slice(0, 5));
-      }
+      if (data) setTopReviews(data.slice(0, 5));
     }).catch(e => setReviewFetchErr(String(e)));
+
+    getSeedReviews({ limit: 10, activeOnly: true }).then(({ data, error }) => {
+      if (error) setSeedFetchErr(error.message ?? "seed_err");
+      else if (data) setSeedReviews(data);
+    }).catch(e => setSeedFetchErr(String(e)));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load requests on mount
@@ -988,15 +931,36 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               })()}
             </div>
 
-            {/* ── 믿고 맡긴 후기 — 실제 + 목업 혼합, 항상 렌더 ── */}
+            {/* ── 믿고 맡긴 후기 — 실제 우선, 부족분은 seed_reviews로 채움 ── */}
             {(() => {
-              const realCount  = topReviews.length;
-              const mockNeeded = realCount >= 3 ? 0 : Math.max(0, 5 - realCount);
+              const seedNeeded = Math.max(0, 5 - topReviews.length);
               const displayReviews = [
-                ...topReviews.map(r => ({ ...r, isMock: false })),
-                ...SHUFFLED_MOCK_REVIEWS.slice(0, mockNeeded),
+                ...topReviews.map(r => {
+                  const beforeImgs = r.before_image_urls?.length ? r.before_image_urls
+                    : r.image_urls?.length ? [r.image_urls[0]] : [];
+                  const afterImgs = r.after_image_urls?.length ? r.after_image_urls
+                    : r.image_urls?.length > 1 ? [r.image_urls[1]]
+                    : r.image_urls?.length ? [r.image_urls[0]] : [];
+                  return {
+                    id: r.id, isSeed: false,
+                    rating: r.rating, content: r.content,
+                    user_name: r.user_name ?? "익명",
+                    space_type: r.space_type ?? r.region ?? "시공",
+                    companyName: maskCompanyName(r.companies?.name ?? null),
+                    beforeThumb: beforeImgs[0] ?? null,
+                    afterThumb: afterImgs[0] ?? null,
+                  };
+                }),
+                ...seedReviews.slice(0, seedNeeded).map(s => ({
+                  id: s.id, isSeed: true,
+                  rating: s.rating, content: s.content,
+                  user_name: s.user_name ?? "익명",
+                  space_type: s.space_type ?? s.region ?? "시공",
+                  companyName: s.masked_company_name ?? "공간○○",
+                  beforeThumb: s.before_image_url ?? null,
+                  afterThumb: s.after_image_url ?? null,
+                })),
               ].slice(0, 5);
-              const firstReal = topReviews[0] ?? null;
 
               return (
                 <>
@@ -1010,87 +974,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     <div style={{ display:"flex", gap:S.md, overflowX:"auto", paddingBottom:S.sm,
                       scrollbarWidth:"none", msOverflowStyle:"none" }}>
                       {displayReviews.map(rv => {
-                        /* ── 목업 카드 ── */
-                        if (rv.isMock) {
-                          return (
-                            <div key={rv.id}
-                              style={{ flexShrink:0, width:228, background:C.surface,
-                                borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
-                                overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
-                                cursor:"default" }}>
-                              {/* BEFORE / AFTER 이미지 */}
-                              <div style={{ display:"flex", height:116, overflow:"hidden" }}>
-                                <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff",
-                                  background:"#9a9088" }}>
-                                  <img src={rv.beforeImage} alt=""
-                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
-                                    onError={e => { e.target.style.opacity="0"; }} />
-                                  <span style={{ position:"absolute", bottom:4, left:4,
-                                    background:"rgba(58,95,204,0.82)", color:"#fff",
-                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
-                                    BEFORE
-                                  </span>
-                                </div>
-                                <div style={{ flex:1, position:"relative", background:"#e8d8c0" }}>
-                                  <img src={rv.afterImage} alt=""
-                                    style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
-                                    onError={e => { e.target.style.opacity="0"; }} />
-                                  <span style={{ position:"absolute", bottom:4, right:4,
-                                    background:"rgba(0,0,0,0.45)", color:"#fff",
-                                    borderRadius:R.full, padding:"2px 6px", fontSize:9, fontWeight:800 }}>
-                                    AFTER
-                                  </span>
-                                </div>
-                              </div>
-                              <div style={{ padding:"10px 12px 12px" }}>
-                                <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:6 }}>
-                                  <span style={{ background:C.bgWarm, color:C.text4,
-                                    borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:700 }}>
-                                    샘플
-                                  </span>
-                                  <span style={{ background:"#FFF8EC", color:"#8A5C00",
-                                    borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:800,
-                                    border:"1px solid #F5D97A" }}>
-                                    📷 포토리뷰
-                                  </span>
-                                </div>
-                                <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:5 }}>
-                                  {[1,2,3,4,5].map(s => (
-                                    <span key={s} style={{ fontSize:12, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
-                                  ))}
-                                  <span style={{ fontSize:10, color:C.text4, marginLeft:2 }}>{rv.rating}.0</span>
-                                </div>
-                                <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:6,
-                                  overflow:"hidden", display:"-webkit-box",
-                                  WebkitLineClamp:3, WebkitBoxOrient:"vertical" }}>
-                                  {rv.content}
-                                </div>
-                                <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
-                                  {rv.user_name} · {rv.space_type}
-                                </div>
-                                <div style={{ fontSize:11, fontWeight:700, color:C.text3 }}>
-                                  🏠 {rv.maskedName}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        /* ── 실제 리뷰 카드 — fallback 이미지 매핑 ── */
-                        const beforeImgs = rv.before_image_urls?.length
-                          ? rv.before_image_urls
-                          : rv.image_urls?.length ? [rv.image_urls[0]] : [];
-                        const afterImgs = rv.after_image_urls?.length
-                          ? rv.after_image_urls
-                          : rv.image_urls?.length > 1
-                            ? [rv.image_urls[1]]
-                            : rv.image_urls?.length ? [rv.image_urls[0]] : [];
-                        const beforeThumb = beforeImgs[0] ?? null;
-                        const afterThumb  = afterImgs[0]  ?? null;
-                        const hasBefore = !!beforeThumb;
-                        const hasAfter  = !!afterThumb;
-                        const hasPhoto  = hasBefore || hasAfter;
-                        const showSplit = hasBefore && hasAfter;
+                        const { beforeThumb, afterThumb } = rv;
+                        const showSplit = !!beforeThumb && !!afterThumb;
+                        const hasPhoto  = !!beforeThumb || !!afterThumb;
                         return (
                           <div key={rv.id}
                             style={{ flexShrink:0, width:228, background:C.surface,
@@ -1128,10 +1014,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                       style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
                                       onError={e => { e.target.style.display="none"; }} />
                                     <span style={{ position:"absolute", bottom:4, left:4,
-                                      background: hasAfter ? "rgba(0,0,0,0.55)" : "rgba(58,95,204,0.82)",
+                                      background: afterThumb ? "rgba(0,0,0,0.55)" : "rgba(58,95,204,0.82)",
                                       color:"#fff", borderRadius:R.full,
                                       padding:"2px 6px", fontSize:9, fontWeight:800 }}>
-                                      {hasAfter ? "AFTER" : "BEFORE"}
+                                      {afterThumb ? "AFTER" : "BEFORE"}
                                     </span>
                                   </div>
                                 )}
@@ -1157,10 +1043,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                                 {rv.content}
                               </div>
                               <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
-                                {rv.user_name ?? "익명"} · {rv.space_type ?? rv.region ?? "시공"}
+                                {rv.user_name} · {rv.space_type}
                               </div>
                               <div style={{ fontSize:11, fontWeight:700, color:C.text3 }}>
-                                🏠 {maskCompanyName(rv.companies?.name ?? null)}
+                                🏠 {rv.companyName}
                               </div>
                             </div>
                           </div>
@@ -1170,37 +1056,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   </div>
 
                   {/* DEV panel */}
-                  {true && (() => {
-                    const raw0 = rawReviewsDiag[0] ?? null;
-                    return (
-                      <div style={{ marginBottom:S.md, padding:"8px 10px", background:"#111",
-                        color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
-                        <span style={{ color:"#ff0", fontWeight:700 }}>── getTopReviews ──</span><br/>
-                        real_reviews_count: {realCount}<br/>
-                        mock_reviews_count: {displayReviews.filter(r => r.isMock).length}<br/>
-                        rendered_reviews_count: {displayReviews.length}<br/>
-                        first_real_review_id: {firstReal?.id ?? "—"}<br/>
-                        first_real_status: {firstReal?.status ?? "—"}<br/>
-                        first_real_rating: {firstReal?.rating ?? "—"}<br/>
-                        first_real_before_count: {firstReal?.before_image_urls?.length ?? 0}<br/>
-                        first_real_after_count: {firstReal?.after_image_urls?.length ?? 0}<br/>
-                        first_real_image_count: {firstReal?.image_urls?.length ?? 0}<br/>
-                        review_fetch_err: {reviewFetchErr ?? "—"}<br/>
-                        <span style={{ color:"#ff0", fontWeight:700 }}>── raw diag (no status filter) ──</span><br/>
-                        raw_reviews_count: {rawReviewsDiag.length}<br/>
-                        first_raw_review_id: {raw0?.id ?? "—"}<br/>
-                        first_raw_status: {raw0?.status ?? "—"}<br/>
-                        first_raw_rating: {raw0?.rating ?? "—"}<br/>
-                        first_raw_is_hidden: {String(raw0?.is_hidden ?? "null")}<br/>
-                        first_raw_before_count: {raw0?.before_image_urls?.length ?? 0}<br/>
-                        first_raw_after_count: {raw0?.after_image_urls?.length ?? 0}<br/>
-                        first_raw_image_count: {raw0?.image_urls?.length ?? 0}<br/>
-                        first_raw_company_id: {raw0?.company_id ?? "—"}<br/>
-                        first_raw_contract_id: {raw0?.contract_id ?? "—"}<br/>
-                        first_raw_created_at: {raw0?.created_at?.slice(0,10) ?? "—"}
-                      </div>
-                    );
-                  })()}
+                  {true && (
+                    <div style={{ marginBottom:S.md, padding:"8px 10px", background:"#111",
+                      color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
+                      <span style={{ color:"#ff0", fontWeight:700 }}>── review panel ──</span><br/>
+                      real_reviews_count: {topReviews.length}<br/>
+                      seed_reviews_count: {seedReviews.length}<br/>
+                      rendered_reviews_count: {displayReviews.length}<br/>
+                      first_real_review_id: {topReviews[0]?.id ?? "—"}<br/>
+                      first_seed_review_id: {seedReviews[0]?.id ?? "—"}<br/>
+                      review_fetch_err: {reviewFetchErr ?? "—"}<br/>
+                      seed_fetch_err: {seedFetchErr ?? "—"}
+                    </div>
+                  )}
                 </>
               );
             })()}
@@ -1911,6 +1779,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onRequireLogin={() => setShowLoginRequired(true)}
             onGoMyPage={() => setScreen("my")}
             onDeleteStory={(id) => setLocalLoungeStories(prev => prev.filter(s => s.id !== id))}
+            refreshKey={loungeRefreshKey}
           />
         )}
 
@@ -1938,6 +1807,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               setEditingLoungePost(null);
               showToast("✅ 글이 수정됐어요!");
               if (editOriginScreen === 'my') setMyPostsRefreshKey(k => k + 1);
+              setLoungeRefreshKey(k => k + 1);
               setScreen(editOriginScreen);
             }}
           />
@@ -1957,6 +1827,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onDeletePost={(id) => {
               setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
               setLoungePost(null);
+              setLoungeRefreshKey(k => k + 1);
             }}
           />
         )}

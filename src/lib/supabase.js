@@ -292,6 +292,265 @@ export const getRawReviewsDiag = ({ limit = 10 } = {}) =>
     .order("created_at", { ascending: false })
     .limit(limit);
 
+// 완전 무조건 raw — RLS 진단 (필터 0개, is_hidden 포함 모든 행)
+export const getRawReviewsAll = ({ limit = 10 } = {}) =>
+  supabase
+    .from("reviews")
+    .select("id, status, is_hidden, rating, before_image_urls, after_image_urls, image_urls, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+// ── Seed Reviews ─────────────────────────────────────────────────────────────
+
+export const getSeedReviews = ({ limit = 20, activeOnly = true } = {}) => {
+  let q = supabase
+    .from("seed_reviews")
+    .select("id, category, space_type, region, user_name, masked_company_name, content, rating, before_image_url, after_image_url, sort_order, is_active, created_at")
+    .order("sort_order", { ascending: true })
+    .limit(limit);
+  if (activeOnly) q = q.eq("is_active", true);
+  return q;
+};
+
+export const createSeedReview = (row) =>
+  supabase.from("seed_reviews").insert(row).select().single();
+
+export const updateSeedReview = (id, updates) =>
+  supabase.from("seed_reviews").update(updates).eq("id", id).select().single();
+
+export const deleteSeedReview = (id) =>
+  supabase.from("seed_reviews").delete().eq("id", id);
+
+export const uploadSeedReviewImage = async (file, slot) => {
+  const bucket = "seed-review-images";
+  const ext = file.name.split(".").pop().toLowerCase();
+  const path = `${slot}_${Date.now()}.${ext}`;
+
+  // collect auth diagnostics — anon client has no session, service role bypasses RLS
+  const { data: { session } } = await supabase.auth.getSession();
+  const _diag = {
+    upload_bucket: bucket,
+    upload_path: path,
+    current_supabase_user_id: session?.user?.id ?? null,
+    auth_role: session?.user?.role ?? (session ? "authenticated" : "anon"),
+  };
+
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, { upsert: true });
+  if (error) return { error, _diag: { ..._diag, upload_error: error.message ?? String(error) } };
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return { url: data.publicUrl, _diag };
+};
+
+// ── Admin Reviews ─────────────────────────────────────────────────────────────
+
+export const adminGetReviews = ({ limit = 100 } = {}) =>
+  supabase
+    .from("reviews")
+    .select("id, company_id, rating, status, is_hidden, is_deleted, content, user_name, region, space_type, image_urls, before_image_urls, after_image_urls, created_at, companies(name)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+export const adminUpdateReview = async (id, updates, adminId) => {
+  const { data, error } = await supabase
+    .from("reviews")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id, rating, status, is_hidden, content")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "UPDATE_REVIEW",
+      target_type: "review", target_id: id, after_val: updates,
+    });
+  }
+  return { data, error };
+};
+
+export const adminHideReview = async (id, adminId, hidden, reason = null) => {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("reviews")
+    .update({
+      is_hidden: hidden,
+      ...(hidden ? { hidden_at: now, hidden_reason: reason } : { hidden_at: null, hidden_reason: null }),
+    })
+    .eq("id", id)
+    .select("id, is_hidden")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null,
+      action: hidden ? "HIDE_REVIEW" : "UNHIDE_REVIEW",
+      target_type: "review", target_id: id,
+      before_val: { is_hidden: !hidden }, after_val: { is_hidden: hidden },
+      reason,
+    });
+  }
+  return { data, error };
+};
+
+export const adminSoftDeleteReview = async (id, adminId, reason) => {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("reviews")
+    .update({ is_deleted: true, deleted_at: now, deleted_by: adminId || null })
+    .eq("id", id)
+    .select("id")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "DELETE_REVIEW",
+      target_type: "review", target_id: id, reason,
+    });
+  }
+  return { data, error };
+};
+
+export const adminRestoreReview = async (id, adminId) => {
+  const { data, error } = await supabase
+    .from("reviews")
+    .update({ is_deleted: false, deleted_at: null, deleted_by: null, is_hidden: false, hidden_at: null })
+    .eq("id", id)
+    .select("id")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "RESTORE_REVIEW",
+      target_type: "review", target_id: id,
+    });
+  }
+  return { data, error };
+};
+
+// ── Admin Lounge Posts ────────────────────────────────────────────────────────
+
+export const adminUpdateLoungePost = async (id, updates, adminId) => {
+  const { data, error } = await supabase
+    .from("lounge_posts")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id, is_hidden, is_deleted, category, content")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "UPDATE_LOUNGE_POST",
+      target_type: "lounge_post", target_id: id, after_val: updates,
+    });
+  }
+  return { data, error };
+};
+
+export const adminSoftDeleteLoungePost = async (id, adminId, reason) => {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("lounge_posts")
+    .update({ is_deleted: true, deleted_at: now, deleted_by: adminId || null })
+    .eq("id", id)
+    .select("id")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "DELETE_LOUNGE_POST",
+      target_type: "lounge_post", target_id: id, reason,
+    });
+  }
+  return { data, error };
+};
+
+export const adminRestoreLoungePost = async (id, adminId) => {
+  const { data, error } = await supabase
+    .from("lounge_posts")
+    .update({ is_deleted: false, deleted_at: null, deleted_by: null, is_hidden: false, hidden_at: null, hidden_reason: null })
+    .eq("id", id)
+    .select("id")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "RESTORE_LOUNGE_POST",
+      target_type: "lounge_post", target_id: id,
+    });
+  }
+  return { data, error };
+};
+
+// ── Admin Lounge Comments ─────────────────────────────────────────────────────
+
+export const adminGetLoungeComments = ({ limit = 200 } = {}) =>
+  supabase
+    .from("lounge_comments")
+    .select("id, post_id, user_id, content, is_hidden, is_deleted, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+export const adminSoftDeleteLoungeComment = async (id, adminId, reason) => {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("lounge_comments")
+    .update({ is_deleted: true, deleted_at: now, deleted_by: adminId || null })
+    .eq("id", id)
+    .select("id")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "DELETE_LOUNGE_COMMENT",
+      target_type: "lounge_comment", target_id: id, reason,
+    });
+  }
+  return { data, error };
+};
+
+export const adminRestoreLoungeComment = async (id, adminId) => {
+  const { data, error } = await supabase
+    .from("lounge_comments")
+    .update({ is_deleted: false, deleted_at: null, deleted_by: null, is_hidden: false })
+    .eq("id", id)
+    .select("id")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "RESTORE_LOUNGE_COMMENT",
+      target_type: "lounge_comment", target_id: id,
+    });
+  }
+  return { data, error };
+};
+
+// ── Admin Company / User Info Edit ────────────────────────────────────────────
+
+export const adminUpdateCompanyInfo = async (id, fields, adminId) => {
+  const { data, error } = await supabase
+    .from("companies")
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id, name, region, company_status")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "UPDATE_COMPANY_INFO",
+      target_type: "company", target_id: id, after_val: fields,
+    });
+  }
+  return { data, error };
+};
+
+export const adminUpdateUserInfo = async (id, fields, adminId) => {
+  const { data, error } = await supabase
+    .from("users")
+    .update({ ...fields })
+    .eq("id", id)
+    .select("id, name, phone, region")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "UPDATE_USER_INFO",
+      target_type: "user", target_id: id, after_val: fields,
+    });
+  }
+  return { data, error };
+};
+
 // ── Fee Config ────────────────────────────────────────────────────────────────
 
 export const getFeeConfig = () =>
@@ -1334,25 +1593,6 @@ export const softDeleteLoungePost = (postId, userId) =>
     .eq("user_id", userId)
     .select("id, is_deleted")
     .single();
-
-export const adminSoftDeleteLoungePost = async (postId, adminId) => {
-  const { data, error } = await supabase
-    .from("lounge_posts")
-    .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: adminId })
-    .eq("id", postId)
-    .select("id, is_deleted")
-    .single();
-  if (!error && data?.is_deleted) {
-    await supabase.from("admin_logs").insert({
-      admin_id:    adminId || null,
-      action:      "DELETE_LOUNGE_POST",
-      target_type: "lounge_post",
-      target_id:   postId,
-      after_val:   { is_deleted: true },
-    });
-  }
-  return { data, error };
-};
 
 export const getLoungeStories = () =>
   supabase
