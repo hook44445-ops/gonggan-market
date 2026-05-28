@@ -477,7 +477,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     });
   }, [currentUser?.id, activeRole]);
 
-  // Load company's own awarded/in-progress jobs — 3-step fetch, no FK join dependency
+  // Load company's own awarded/in-progress jobs — multi-path fetch with payment_orders fallback
   useEffect(() => {
     if (activeRole !== "company" || !user?.id) return;
 
@@ -489,54 +489,105 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       ].filter(Boolean))];
 
       const dev = {
-        auth_user_id:     user.id?.slice(0, 8) ?? "null",
-        currentUser_id:   currentUser?.id?.slice(0, 8) ?? "null",
-        company_owner_id: currentUser?.ownerId?.slice(0, 8) ?? "null",
-        candidateIds:     candidateIds.map(id => id.slice(0, 8)).join(", "),
-        raw_bids:         0,
-        matched_bids:     0,
-        selected_count:   0,
-        request_count:    0,
-        contract_count:   0,
-        escrow_count:     0,
-        displayed_jobs:   0,
-        request_ids:      "—",
-        statuses:         "—",
-        bid_err:          "none",
-        req_err:          "none",
-        caught_err:       null,
+        auth_user_id:              user.id?.slice(0, 8) ?? "null",
+        currentUser_id:            currentUser?.id?.slice(0, 8) ?? "null",
+        company_owner_id:          currentUser?.ownerId?.slice(0, 8) ?? "null",
+        candidateIds:              candidateIds.map(id => id.slice(0, 8)).join(", "),
+        raw_bids:                  0,
+        selected_count:            0,
+        request_id_present_count:  0,
+        request_id_null_count:     0,
+        join_mode:                 "none",
+        payment_orders_found:      0,
+        escrow_direct_found:       0,
+        request_count:             0,
+        contract_count:            0,
+        escrow_count:              0,
+        displayed_jobs:            0,
+        request_ids:               "—",
+        statuses:                  "—",
+        bid_err:                   "none",
+        req_err:                   "none",
+        caught_err:                null,
+        bid_details:               "—",
       };
 
-      // Step A: ALL bids where company_id ∈ candidateIds (no selected filter)
+      // ── Path A: bids WHERE company_id ∈ candidateIds ─────────────────────────
       const { data: bids, error: bidErr } = await supabase
         .from("bids")
         .select("*")
         .in("company_id", candidateIds);
 
-      dev.bid_err       = bidErr?.message ?? "none";
-      dev.raw_bids      = bids?.length ?? 0;
-      dev.selected_count = (bids ?? []).filter(b => b.selected).length;
+      dev.bid_err            = bidErr?.message ?? "none";
+      dev.raw_bids           = bids?.length ?? 0;
+      dev.selected_count     = (bids ?? []).filter(b => b.selected).length;
 
-      // Use ALL bids that have a request_id (not just selected=true)
-      const bidsWithRequest = (bids ?? []).filter(b => b.request_id != null);
-      dev.matched_bids = bidsWithRequest.length;
+      const allBids = bids ?? [];
+      dev.request_id_present_count = allBids.filter(b => b.request_id != null).length;
+      dev.request_id_null_count    = allBids.filter(b => b.request_id == null).length;
+      dev.bid_details = allBids.slice(0, 5).map(b =>
+        `id:${b.id?.slice(0,8)} cid:${b.company_id?.slice(0,8)} rid:${b.request_id?.slice(0,8) ?? "NULL"} sel:${b.selected}`
+      ).join(" | ") || "none";
 
-      const requestIds = [...new Set(bidsWithRequest.map(b => b.request_id))];
-      dev.request_ids = requestIds.length > 0
-        ? requestIds.map(id => id.slice(0, 8)).join(", ")
+      const bidIds = allBids.map(b => b.id).filter(Boolean);
+
+      // Collect request_id → bid mapping; start with bids that have request_id
+      const bidRequestMap = {}; // bid.id → request_id
+      for (const b of allBids) {
+        if (b.request_id != null) bidRequestMap[b.id] = b.request_id;
+      }
+
+      // ── Path B: payment_orders fallback (when bids.request_id is NULL) ───────
+      if (bidIds.length > 0) {
+        const { data: payOrders } = await supabase
+          .from("payment_orders")
+          .select("bid_id, request_id, contract_id")
+          .in("bid_id", bidIds);
+
+        dev.payment_orders_found = payOrders?.length ?? 0;
+        for (const po of payOrders ?? []) {
+          if (po.bid_id && po.request_id && !bidRequestMap[po.bid_id]) {
+            bidRequestMap[po.bid_id] = po.request_id;
+          }
+        }
+      }
+
+      // ── Path C: escrow_payments WHERE company_id ∈ candidateIds (direct) ─────
+      const { data: escrowsDirect } = await supabase
+        .from("escrow_payments")
+        .select("id, request_id, company_id, transaction_status")
+        .in("company_id", candidateIds);
+
+      dev.escrow_direct_found = escrowsDirect?.length ?? 0;
+
+      // Merge request_ids: from bids (path A+B) + from escrow direct (path C)
+      const requestIdsFromBids = new Set(Object.values(bidRequestMap));
+      const requestIdsFromEscrow = new Set(
+        (escrowsDirect ?? []).map(e => e.request_id).filter(Boolean)
+      );
+      const allRequestIds = [...new Set([...requestIdsFromBids, ...requestIdsFromEscrow])];
+
+      if (allRequestIds.length > 0) {
+        dev.join_mode = requestIdsFromBids.size > 0 && requestIdsFromEscrow.size > 0
+          ? "bid+escrow_direct"
+          : requestIdsFromBids.size > 0 ? "bid_only" : "escrow_direct_only";
+      }
+
+      dev.request_ids = allRequestIds.length > 0
+        ? allRequestIds.map(id => id.slice(0, 8)).join(", ")
         : "none";
 
-      if (bidErr || requestIds.length === 0) {
+      if (allRequestIds.length === 0) {
         setCompanyJobs([]);
         setCompanyJobsDebug(dev);
         return;
       }
 
-      // Step B: requests
+      // ── Fetch requests ────────────────────────────────────────────────────────
       const { data: reqs, error: reqErr } = await supabase
         .from("requests")
         .select("*")
-        .in("id", requestIds);
+        .in("id", allRequestIds);
 
       dev.req_err       = reqErr?.message ?? "none";
       dev.request_count = reqs?.length ?? 0;
@@ -544,37 +595,64 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
       const requestMap = Object.fromEntries((reqs ?? []).map(r => [r.id, r]));
 
-      // Step C: escrow_payments (contract proxy)
-      const { data: escrows } = await supabase
+      // ── Fetch escrow_payments by request_id ───────────────────────────────────
+      const { data: escrowsByReq } = await supabase
         .from("escrow_payments")
         .select("id, request_id, transaction_status")
-        .in("request_id", requestIds);
+        .in("request_id", allRequestIds);
 
-      dev.escrow_count   = escrows?.length ?? 0;
-      dev.contract_count = escrows?.length ?? 0;
-      const escrowMap = Object.fromEntries((escrows ?? []).map(e => [e.request_id, e]));
+      // Merge escrow data: by request_id (covers both path B lookup and path C direct)
+      const escrowByRequestId = {};
+      for (const e of escrowsDirect ?? []) {
+        if (e.request_id) escrowByRequestId[e.request_id] = e;
+      }
+      for (const e of escrowsByReq ?? []) {
+        if (e.request_id) escrowByRequestId[e.request_id] = e;
+      }
+
+      dev.escrow_count   = Object.keys(escrowByRequestId).length;
+      dev.contract_count = dev.escrow_count;
 
       const EXCL_REQ  = new Set(["completed","settled","cancelled","refunded","rejected","done","finished","closed"]);
       const EXCL_TX   = new Set(["SETTLED","COMPLETED","CANCELLED","REFUNDED"]);
       const ACTIVE_REQ = new Set(["contracted","in_progress","escrow","working","contract_signed","material_paid","started"]);
 
-      // Deduplicate: one job per request_id (prefer selected bid, else latest)
+      // Build synthetic bid entries for request_ids discovered via escrow direct (no bid row)
+      const escrowOnlyRequestIds = [...requestIdsFromEscrow].filter(rid => !requestIdsFromBids.has(rid));
+      const syntheticBids = escrowOnlyRequestIds.map(rid => ({
+        id: null,
+        request_id: rid,
+        company_id: candidateIds[0],
+        selected: false,
+        price: null,
+        period_days: null,
+        material_note: "",
+        comment: "",
+        created_at: null,
+        _synthetic: true,
+      }));
+
+      // Reverse map: request_id → bid (from allBids using bidRequestMap, plus synthetics)
       const jobsByRequestId = {};
-      for (const b of bidsWithRequest) {
-        const existing = jobsByRequestId[b.request_id];
-        if (!existing || b.selected || b.created_at > (existing.created_at ?? "")) {
-          jobsByRequestId[b.request_id] = b;
+      for (const b of allBids) {
+        const rid = bidRequestMap[b.id] ?? b.request_id;
+        if (!rid) continue;
+        const existing = jobsByRequestId[rid];
+        if (!existing || b.selected || (b.created_at ?? "") > (existing.created_at ?? "")) {
+          jobsByRequestId[rid] = { ...b, request_id: rid };
         }
+      }
+      for (const sb of syntheticBids) {
+        if (!jobsByRequestId[sb.request_id]) jobsByRequestId[sb.request_id] = sb;
       }
 
       const jobs = Object.values(jobsByRequestId)
         .filter(b => {
           const reqStatus = (requestMap[b.request_id]?.status ?? "").toLowerCase();
           if (reqStatus && EXCL_REQ.has(reqStatus)) return false;
-          const txStatus = escrowMap[b.request_id]?.transaction_status;
+          const txStatus = escrowByRequestId[b.request_id]?.transaction_status;
           if (txStatus && EXCL_TX.has(txStatus)) return false;
-          // Show if escrow/contract exists, OR request in active status, OR bid selected
-          return !!escrowMap[b.request_id] || ACTIVE_REQ.has(reqStatus) || b.selected === true;
+          return !!escrowByRequestId[b.request_id] || ACTIVE_REQ.has(reqStatus) || b.selected === true;
         })
         .map(b => ({
           bid: {
