@@ -477,7 +477,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     });
   }, [currentUser?.id, activeRole]);
 
-  // Load company's own awarded/in-progress jobs — 2-step fetch to avoid FK join failures
+  // Load company's own awarded/in-progress jobs — 3-step fetch, no FK join dependency
   useEffect(() => {
     if (activeRole !== "company" || !user?.id) return;
 
@@ -489,38 +489,42 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       ].filter(Boolean))];
 
       const dev = {
-        auth_user_id:      user.id?.slice(0, 8) ?? "null",
-        currentUser_id:    currentUser?.id?.slice(0, 8) ?? "null",
-        company_owner_id:  currentUser?.ownerId?.slice(0, 8) ?? "null",
-        candidateIds:      candidateIds.map(id => id.slice(0, 8)).join(", "),
-        raw_bids_count:    0,
-        bid_company_ids:   "—",
-        selected_bids_count: 0,
-        request_ids:       "—",
-        requests_count:    0,
-        request_statuses:  "—",
-        escrow_count:      0,
-        active_displayed:  0,
-        bid_err:           "none",
-        req_err:           "none",
-        caught_err:        null,
+        auth_user_id:     user.id?.slice(0, 8) ?? "null",
+        currentUser_id:   currentUser?.id?.slice(0, 8) ?? "null",
+        company_owner_id: currentUser?.ownerId?.slice(0, 8) ?? "null",
+        candidateIds:     candidateIds.map(id => id.slice(0, 8)).join(", "),
+        raw_bids:         0,
+        matched_bids:     0,
+        selected_count:   0,
+        request_count:    0,
+        contract_count:   0,
+        escrow_count:     0,
+        displayed_jobs:   0,
+        request_ids:      "—",
+        statuses:         "—",
+        bid_err:          "none",
+        req_err:          "none",
+        caught_err:       null,
       };
 
-      // Step A: all bids where company_id ∈ candidateIds
+      // Step A: ALL bids where company_id ∈ candidateIds (no selected filter)
       const { data: bids, error: bidErr } = await supabase
         .from("bids")
         .select("*")
         .in("company_id", candidateIds);
 
       dev.bid_err       = bidErr?.message ?? "none";
-      dev.raw_bids_count = bids?.length ?? 0;
-      dev.bid_company_ids = (bids ?? []).map(b => b.company_id?.slice(0, 8)).join(", ") || "none";
+      dev.raw_bids      = bids?.length ?? 0;
+      dev.selected_count = (bids ?? []).filter(b => b.selected).length;
 
-      const selectedBids = (bids ?? []).filter(b => b.selected === true);
-      dev.selected_bids_count = selectedBids.length;
+      // Use ALL bids that have a request_id (not just selected=true)
+      const bidsWithRequest = (bids ?? []).filter(b => b.request_id != null);
+      dev.matched_bids = bidsWithRequest.length;
 
-      const requestIds = [...new Set(selectedBids.map(b => b.request_id).filter(Boolean))];
-      dev.request_ids = requestIds.map(id => id.slice(0, 8)).join(", ") || "none";
+      const requestIds = [...new Set(bidsWithRequest.map(b => b.request_id))];
+      dev.request_ids = requestIds.length > 0
+        ? requestIds.map(id => id.slice(0, 8)).join(", ")
+        : "none";
 
       if (bidErr || requestIds.length === 0) {
         setCompanyJobs([]);
@@ -528,39 +532,49 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         return;
       }
 
-      // Step B: fetch requests for those IDs
+      // Step B: requests
       const { data: reqs, error: reqErr } = await supabase
         .from("requests")
         .select("*")
         .in("id", requestIds);
 
-      dev.req_err         = reqErr?.message ?? "none";
-      dev.requests_count  = reqs?.length ?? 0;
-      dev.request_statuses = (reqs ?? []).map(r => `${r.id.slice(0,8)}:${r.status ?? "null"}`).join(", ") || "none";
+      dev.req_err       = reqErr?.message ?? "none";
+      dev.request_count = reqs?.length ?? 0;
+      dev.statuses = (reqs ?? []).map(r => `${r.id.slice(0,8)}:${r.status ?? "null"}`).join(", ") || "none";
 
       const requestMap = Object.fromEntries((reqs ?? []).map(r => [r.id, r]));
 
-      // Step C: escrow statuses (for excluding settled contracts)
+      // Step C: escrow_payments (contract proxy)
       const { data: escrows } = await supabase
         .from("escrow_payments")
         .select("id, request_id, transaction_status")
         .in("request_id", requestIds);
 
-      dev.escrow_count = escrows?.length ?? 0;
+      dev.escrow_count   = escrows?.length ?? 0;
+      dev.contract_count = escrows?.length ?? 0;
       const escrowMap = Object.fromEntries((escrows ?? []).map(e => [e.request_id, e]));
 
-      // Filter: exclude only explicit terminal statuses
-      const EXCL_REQ = new Set(["completed","settled","cancelled","refunded","rejected","done","finished","closed"]);
-      const EXCL_TX  = new Set(["SETTLED","COMPLETED","CANCELLED","REFUNDED"]);
+      const EXCL_REQ  = new Set(["completed","settled","cancelled","refunded","rejected","done","finished","closed"]);
+      const EXCL_TX   = new Set(["SETTLED","COMPLETED","CANCELLED","REFUNDED"]);
+      const ACTIVE_REQ = new Set(["contracted","in_progress","escrow","working","contract_signed","material_paid","started"]);
 
-      const jobs = selectedBids
+      // Deduplicate: one job per request_id (prefer selected bid, else latest)
+      const jobsByRequestId = {};
+      for (const b of bidsWithRequest) {
+        const existing = jobsByRequestId[b.request_id];
+        if (!existing || b.selected || b.created_at > (existing.created_at ?? "")) {
+          jobsByRequestId[b.request_id] = b;
+        }
+      }
+
+      const jobs = Object.values(jobsByRequestId)
         .filter(b => {
-          if (!b.request_id) return false;
           const reqStatus = (requestMap[b.request_id]?.status ?? "").toLowerCase();
           if (reqStatus && EXCL_REQ.has(reqStatus)) return false;
           const txStatus = escrowMap[b.request_id]?.transaction_status;
           if (txStatus && EXCL_TX.has(txStatus)) return false;
-          return true;
+          // Show if escrow/contract exists, OR request in active status, OR bid selected
+          return !!escrowMap[b.request_id] || ACTIVE_REQ.has(reqStatus) || b.selected === true;
         })
         .map(b => ({
           bid: {
@@ -572,13 +586,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             material: b.material_note ?? "",
             comment: b.comment ?? "",
             createdAt: b.created_at,
-            status: "selected",
+            status: b.selected ? "selected" : "pending",
             company: { id: b.company_id, name: user.name ?? "업체", temp: 70, ownerId: user.id },
           },
           request: requestMap[b.request_id] ? normalizeRequest(requestMap[b.request_id]) : null,
         }));
 
-      dev.active_displayed = jobs.length;
+      dev.displayed_jobs = jobs.length;
       setCompanyJobs(jobs);
       setCompanyJobsDebug(dev);
     };
@@ -1802,19 +1816,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   <span key={r.id} style={{display:"block", color:"#8ff"}}>{r.id} {r.type} {r.size} status:{r.status}</span>
                 ))}
                 <span style={{color:"#ff0"}}>── companyJobs fetch ──</span><br/>
-                <span style={{color:"#4ff"}}>auth_user: {companyJobsDebug?.auth_user_id ?? "?"} | cu: {companyJobsDebug?.currentUser_id ?? "?"} | owner: {companyJobsDebug?.company_owner_id ?? "?"}</span><br/>
+                <span style={{color:"#4ff"}}>auth: {companyJobsDebug?.auth_user_id ?? "?"} cu: {companyJobsDebug?.currentUser_id ?? "?"} owner: {companyJobsDebug?.company_owner_id ?? "?"}</span><br/>
                 candidateIds: [{companyJobsDebug?.candidateIds ?? "?"}]<br/>
-                <span style={{color: (companyJobsDebug?.raw_bids_count ?? 0) > 0 ? "#0f0" : "#f66"}}>
-                  raw_bids: {companyJobsDebug?.raw_bids_count ?? "?"} | selected: {companyJobsDebug?.selected_bids_count ?? "?"}
+                <span style={{color: (companyJobsDebug?.raw_bids ?? 0) > 0 ? "#0f0" : "#f66"}}>
+                  raw_bids: {companyJobsDebug?.raw_bids ?? "?"} | selected: {companyJobsDebug?.selected_count ?? "?"} | matched(req_id≠null): {companyJobsDebug?.matched_bids ?? "?"}
                 </span><br/>
-                bid_company_ids: [{companyJobsDebug?.bid_company_ids ?? "?"}]<br/>
                 request_ids: [{companyJobsDebug?.request_ids ?? "?"}]<br/>
-                <span style={{color: (companyJobsDebug?.requests_count ?? 0) > 0 ? "#0f0" : "#f88"}}>
-                  requests: {companyJobsDebug?.requests_count ?? "?"} | statuses: {companyJobsDebug?.request_statuses ?? "?"}
+                <span style={{color: (companyJobsDebug?.request_count ?? 0) > 0 ? "#0f0" : "#f88"}}>
+                  request_count: {companyJobsDebug?.request_count ?? "?"} | statuses: {companyJobsDebug?.statuses ?? "?"}
                 </span><br/>
-                escrow_count: {companyJobsDebug?.escrow_count ?? "?"}<br/>
-                <span style={{color: (companyJobsDebug?.active_displayed ?? 0) > 0 ? "#0f0" : "#f88"}}>
-                  active_displayed: {companyJobsDebug?.active_displayed ?? companyJobsDebug?.jobCount ?? "?"}
+                contract_count: {companyJobsDebug?.contract_count ?? "?"} | escrow_count: {companyJobsDebug?.escrow_count ?? "?"}<br/>
+                <span style={{color: (companyJobsDebug?.displayed_jobs ?? 0) > 0 ? "#0f0" : "#f88"}}>
+                  displayed_jobs: {companyJobsDebug?.displayed_jobs ?? "?"}
                 </span><br/>
                 <span style={{color: companyJobsDebug?.bid_err !== "none" ? "#f66" : "#888"}}>bid_err: {companyJobsDebug?.bid_err ?? "?"}</span> | <span style={{color: companyJobsDebug?.req_err !== "none" ? "#f66" : "#888"}}>req_err: {companyJobsDebug?.req_err ?? "?"}</span><br/>
                 {companyJobsDebug?.caught_err && <span style={{color:"#f66"}}>caught: {companyJobsDebug.caught_err}<br/></span>}
