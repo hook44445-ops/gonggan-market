@@ -352,29 +352,33 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   // Sources (in priority order): payout.APPROVED > phase_photos presence > txStatus/current_step
   // IMPORTANT: txStatus SETTLED shortcut is DISABLED when derivedFromRecovery=true.
   // Recovery paths (phase_photo/payout by company) may resolve a DIFFERENT (completed) escrow.
-  // In that case, SETTLED would incorrectly mark all stages done for an in-progress contract.
+  // When derivedFromRecovery=true, dbPayoutMap AND dbPhotos are loaded from that wrong escrow's
+  // contract_id — they cannot be trusted. Only contractData (fetched by request_id) is reliable.
   useEffect(() => {
     if (!dbLoaded) return;
     const txStatus = contractData?.transaction_status ?? "CONTRACTED";
-    const p2 = dbPayoutMap[2]; // 착공 payout
-    const p3 = dbPayoutMap[3]; // 중간점검 payout
-    const p4 = dbPayoutMap[4]; // 완료 payout
-
     const curStep = contractData?.current_step ?? 0;
+
+    // Guard: when derivedFromRecovery, resolvedContractId may point to a settled old escrow.
+    // Its payout records (all APPROVED) and phase photos would falsely mark all stages done.
+    // Nullify them — stage status will be driven solely by contractData (request-level truth).
+    const p2 = derivedFromRecovery ? null : dbPayoutMap[2];
+    const p3 = derivedFromRecovery ? null : dbPayoutMap[3];
+    const p4 = derivedFromRecovery ? null : dbPayoutMap[4];
+    const ph = derivedFromRecovery ? {} : dbPhotos;
+
     const ns = { 1: "done", 2: "done", 3: "company_todo", 4: "locked", 5: "locked" };
     const reasons = [];
 
     // Stage 3: 착공
     // Done: payout APPROVED OR curStep>=3 (customer called advanceStage(3) → nextStep=3)
-    // Using curStep>=3 as a fallback so that if approveEscrowPayoutByStage fails silently,
-    // the stage still shows "done" after the customer approved (advanceContractStep succeeded).
     if (p2?.status === "APPROVED" || curStep >= 3) {
       ns[3] = "done";
       if (p2?.status === "APPROVED") reasons.push("착공payout=APPROVED");
       else reasons.push(`curStep≥3(${curStep})`);
-    } else if (txStatus === "STARTED" || curStep === 2 || (dbPhotos[1]?.length ?? 0) > 0) {
+    } else if (txStatus === "STARTED" || curStep === 2 || (ph[1]?.length ?? 0) > 0) {
       ns[3] = "pending_customer";
-      if ((dbPhotos[1]?.length ?? 0) > 0) reasons.push("착공photo=present");
+      if ((ph[1]?.length ?? 0) > 0) reasons.push("착공photo=present");
       else reasons.push(`txStatus=${txStatus}|step=${curStep}`);
     }
 
@@ -384,7 +388,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         ns[4] = "done";
         if (p3?.status === "APPROVED") reasons.push("중간payout=APPROVED");
         else reasons.push(`curStep≥4(${curStep})`);
-      } else if ((dbPhotos[2]?.length ?? 0) > 0) {
+      } else if ((ph[2]?.length ?? 0) > 0) {
         ns[4] = "pending_customer";
         reasons.push("중간photo=present");
       } else {
@@ -393,16 +397,16 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     }
 
     // Stage 5: 완료
-    // SETTLED shortcut guarded by !derivedFromRecovery to prevent wrong-escrow completion
+    // SETTLED shortcut also guarded by !derivedFromRecovery
     if (ns[4] === "done") {
       if (p4?.status === "APPROVED" || curStep >= 5 || (txStatus === "SETTLED" && !derivedFromRecovery)) {
         ns[5] = "done";
         if (p4?.status === "APPROVED") reasons.push("완료payout=APPROVED");
         else if (curStep >= 5) reasons.push(`curStep≥5(${curStep})`);
         else reasons.push("txStatus=SETTLED(verified)");
-      } else if ((dbPhotos[3]?.length ?? 0) > 0 || txStatus === "COMPLETED") {
+      } else if ((ph[3]?.length ?? 0) > 0 || txStatus === "COMPLETED") {
         ns[5] = "pending_customer";
-        if ((dbPhotos[3]?.length ?? 0) > 0) reasons.push("완료photo=present");
+        if ((ph[3]?.length ?? 0) > 0) reasons.push("완료photo=present");
         else reasons.push(`txStatus=${txStatus}`);
       } else {
         ns[5] = "company_todo";
@@ -415,17 +419,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       reasons.push("SETTLED_override");
     }
 
-    if (derivedFromRecovery) reasons.push("⚠️ recovery_path — SETTLED_override disabled");
+    if (derivedFromRecovery) reasons.push("⚠️ recovery_path — payouts/photos untrusted");
 
     setStageStatus(ns);
     setStageStatusSource(reasons.join("|") || "contract_defaults");
 
-    // Populate stagePhotos from DB so customer sees company's uploaded photos
+    // Only populate stagePhotos from trusted photo data (not from recovery path's wrong contract)
     setStagePhotos(prev => ({
       ...prev,
-      ...(dbPhotos[1]?.length > 0 ? { 3: dbPhotos[1] } : {}),
-      ...(dbPhotos[2]?.length > 0 ? { 4: dbPhotos[2] } : {}),
-      ...(dbPhotos[3]?.length > 0 ? { 5: dbPhotos[3] } : {}),
+      ...(ph[1]?.length > 0 ? { 3: ph[1] } : {}),
+      ...(ph[2]?.length > 0 ? { 4: ph[2] } : {}),
+      ...(ph[3]?.length > 0 ? { 5: ph[3] } : {}),
     }));
   }, [dbLoaded, contractData, dbPayoutMap, dbPhotos, derivedFromRecovery]); // eslint-disable-line react-hooks/exhaustive-deps
 
