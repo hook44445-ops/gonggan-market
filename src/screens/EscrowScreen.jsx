@@ -63,6 +63,15 @@ const STAGE_META = [
   { id: 5, label: "완료 확인",    sub: "완료 사진을 확인하고 승인하면 잔금 30% 지급",      icon: "✅", pct: 30, confirmLabel: "완료 확인하기",    timelineLabel: "완료 확인 · 정산 완료" },
 ];
 
+// Customer-facing display: simpler, action-oriented copy (no professional jargon)
+const CUSTOMER_DISPLAY = {
+  1: { label: "결제 완료",       sub: "공사비를 공간마켓이 안전하게 보관합니다",             confirmLabel: null },
+  2: { label: "자재비 지급",      sub: "계약 완료 후 자재비가 업체에 먼저 지급됩니다",         confirmLabel: null },
+  3: { label: "공사 시작 확인",   sub: "업체가 사진을 올리면 확인하고 승인해주세요",           confirmLabel: "공사 시작 승인" },
+  4: { label: "중간 확인",        sub: "중간 공사 사진을 확인하고 승인해주세요",                confirmLabel: "중간 확인 승인" },
+  5: { label: "공사 완료 확인",   sub: "완료 사진을 확인하고 승인하면 공사가 마무리됩니다",     confirmLabel: "완료 승인" },
+};
+
 const TIMELINE_ICONS = {
   contract: "📝",
   photo:    "📸",
@@ -71,10 +80,15 @@ const TIMELINE_ICONS = {
 };
 
 export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview }) {
-  const IS_DEBUG = true;
+  // Debug panel: visible in dev/preview; hidden in production build automatically
+  const IS_DEBUG = import.meta.env.MODE !== "production";
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
   const [escrowDebug, setEscrowDebug] = useState(null);
+  // derivedFromRecovery: true when contractId came from phase_photo/payout lookup (not from
+  // payment_orders or direct escrow_payments query). Prevents wrong escrow tainting stageStatus.
+  const [derivedFromRecovery, setDerivedFromRecovery] = useState(false);
+  const [stageStatusSource, setStageStatusSource] = useState("unloaded");
 
   // Self-fetch: restore selectedBid via 3-level fallback
   // 1. payment_orders → bid_id → bids
@@ -150,12 +164,14 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           return;
         }
 
-        // Level 3b: phase_photos by uploader → recover contract_id
-        const { data: compPhotos } = await getPhasePhotosByUploader(row.company_id);
+        // Level 3b: phase_photos by uploader (after bid created_at) → recover contract_id
+        // afterDate filter prevents matching photos from OLD completed jobs by the same company
+        const { data: compPhotos } = await getPhasePhotosByUploader(row.company_id, row.created_at);
         const recoveredCid = compPhotos?.[0]?.contract_id;
         if (recoveredCid) {
           setResolvedContractId(recoveredCid);
-          setEscrowDebug({ src: "phase_photo_recovery", restored: true, contractId: recoveredCid, bidId: row.id, photoCount: compPhotos.length });
+          setDerivedFromRecovery(true);
+          setEscrowDebug({ src: "phase_photo_recovery", restored: true, contractId: recoveredCid, bidId: row.id, photoCount: compPhotos.length, afterBidDate: row.created_at });
           return;
         }
 
@@ -164,6 +180,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         const escrowId3c = payouts3c?.[0]?.escrow_id;
         if (escrowId3c) {
           setResolvedContractId(escrowId3c);
+          setDerivedFromRecovery(true);
           setEscrowDebug({ src: "escrow_payout_company", restored: true, escrowId: escrowId3c, bidId: row.id });
           return;
         }
@@ -225,12 +242,12 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       // Path 3: escrow_payments by company_id + request_id
       const { data: escrow3 } = await getEscrowByCompanyAndRequest(reqId, companyId);
       if (escrow3?.id) { setResolvedContractId(escrow3.id); return; }
-      // Path 4: phase_photos by uploader → contract_id
-      const { data: photos4 } = await getPhasePhotosByUploader(companyId);
-      if (photos4?.[0]?.contract_id) { setResolvedContractId(photos4[0].contract_id); return; }
+      // Path 4: phase_photos by uploader → contract_id (afterDate = bid's createdAt)
+      const { data: photos4 } = await getPhasePhotosByUploader(companyId, resolvedBid?.createdAt ?? null);
+      if (photos4?.[0]?.contract_id) { setDerivedFromRecovery(true); setResolvedContractId(photos4[0].contract_id); return; }
       // Path 5: escrow_payouts by company_id → escrow_id
       const { data: payouts5 } = await getEscrowPayoutsByCompanyId(companyId);
-      if (payouts5?.[0]?.escrow_id) { setResolvedContractId(payouts5[0].escrow_id); }
+      if (payouts5?.[0]?.escrow_id) { setDerivedFromRecovery(true); setResolvedContractId(payouts5[0].escrow_id); }
     };
     resolve().catch(() => {});
   }, [resolvedBid?.requestId, resolvedBid?.companyId, request?.id, resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -332,7 +349,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   }, [resolvedContractId, dbRefreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive stageStatus + populate customer photo previews from DB state
-  // Priority: payout.APPROVED > phase_photos presence > transaction_status
+  // Sources (in priority order): payout.APPROVED > phase_photos presence > txStatus/current_step
+  // IMPORTANT: txStatus SETTLED shortcut is DISABLED when derivedFromRecovery=true.
+  // Recovery paths (phase_photo/payout by company) may resolve a DIFFERENT (completed) escrow.
+  // In that case, SETTLED would incorrectly mark all stages done for an in-progress contract.
   useEffect(() => {
     if (!dbLoaded) return;
     const txStatus = contractData?.transaction_status ?? "CONTRACTED";
@@ -341,43 +361,60 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const p4 = dbPayoutMap[4]; // 완료 payout
 
     const ns = { 1: "done", 2: "done", 3: "company_todo", 4: "locked", 5: "locked" };
+    const reasons = [];
 
     // Stage 3: 착공
     if (p2?.status === "APPROVED") {
       ns[3] = "done";
+      reasons.push("착공payout=APPROVED");
     } else if (
       txStatus === "STARTED" ||
       (contractData?.current_step ?? 0) >= 2 ||
       (dbPhotos[1]?.length ?? 0) > 0
     ) {
       ns[3] = "pending_customer";
+      if ((dbPhotos[1]?.length ?? 0) > 0) reasons.push("착공photo=present");
+      else reasons.push(`txStatus=${txStatus}|step=${contractData?.current_step}`);
     }
 
     // Stage 4: 중간점검
     if (ns[3] === "done") {
       if (p3?.status === "APPROVED") {
         ns[4] = "done";
+        reasons.push("중간payout=APPROVED");
       } else if ((dbPhotos[2]?.length ?? 0) > 0) {
         ns[4] = "pending_customer";
+        reasons.push("중간photo=present");
       } else {
         ns[4] = "company_todo";
       }
     }
 
     // Stage 5: 완료
+    // SETTLED shortcut guarded by !derivedFromRecovery to prevent wrong-escrow completion
     if (ns[4] === "done") {
-      if (p4?.status === "APPROVED" || txStatus === "SETTLED") {
+      if (p4?.status === "APPROVED" || (txStatus === "SETTLED" && !derivedFromRecovery)) {
         ns[5] = "done";
+        if (p4?.status === "APPROVED") reasons.push("완료payout=APPROVED");
+        else reasons.push("txStatus=SETTLED(verified)");
       } else if ((dbPhotos[3]?.length ?? 0) > 0) {
         ns[5] = "pending_customer";
+        reasons.push("완료photo=present");
       } else {
         ns[5] = "company_todo";
       }
     }
 
-    if (txStatus === "SETTLED") { ns[3] = "done"; ns[4] = "done"; ns[5] = "done"; }
+    // Global SETTLED shortcut: only when contract is reliably resolved (not from recovery path)
+    if (txStatus === "SETTLED" && !derivedFromRecovery) {
+      ns[3] = "done"; ns[4] = "done"; ns[5] = "done";
+      reasons.push("SETTLED_override");
+    }
+
+    if (derivedFromRecovery) reasons.push("⚠️ recovery_path — SETTLED_override disabled");
 
     setStageStatus(ns);
+    setStageStatusSource(reasons.join("|") || "contract_defaults");
 
     // Populate stagePhotos from DB so customer sees company's uploaded photos
     setStagePhotos(prev => ({
@@ -386,7 +423,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       ...(dbPhotos[2]?.length > 0 ? { 4: dbPhotos[2] } : {}),
       ...(dbPhotos[3]?.length > 0 ? { 5: dbPhotos[3] } : {}),
     }));
-  }, [dbLoaded, contractData, dbPayoutMap, dbPhotos]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dbLoaded, contractData, dbPayoutMap, dbPhotos, derivedFromRecovery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Modals
   const [confirmStage, setConfirmStage] = useState(null);
@@ -636,7 +673,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
   const headerSub = resolvedBid
     ? `${resolvedBid.company?.name ?? "—"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
-    : "에스크로 안전 정산";
+    : isConsumer ? "공사 안전 결제" : "에스크로 안전 정산";
 
   const statusColor = (sid) => {
     const st = stageStatus[sid];
@@ -661,7 +698,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, position: "sticky", top: 0, zIndex: 10, display: "flex", alignItems: "center", gap: S.md }}>
         <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>에스크로 안전 정산</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
           <div style={{ fontSize: 12, color: C.text3 }}>{headerSub}</div>
         </div>
         <div style={{ marginLeft: "auto", background: C.navyL, borderRadius: R.full, padding: "4px 12px", fontSize: 12, fontWeight: 700, color: C.navy }}>🛡 보호중</div>
@@ -703,6 +740,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                 approve_button_visible(착공): {String(approveVisible)}
               </span><br/>
               stageStatus: {JSON.stringify(stageStatus)}<br/>
+              <span style={{color: derivedFromRecovery ? "#f90" : "#0f0"}}>
+                derived_from_recovery_only: {String(derivedFromRecovery)}
+              </span><br/>
+              <span style={{color: stageStatusSource.includes("recovery") ? "#f90" : "#888"}}>
+                stage_status_source: {stageStatusSource}
+              </span><br/>
+              completion_reason: {stageStatusSource.includes("SETTLED") || stageStatusSource.includes("APPROVED") ? stageStatusSource : "none"}<br/>
               {!isConsumer && companyReportDebug && (<>
                 <span style={{color:"#ff0"}}>── company report result ──</span><br/>
                 <span style={{color: companyReportDebug.send_ok ? "#0f0" : companyReportDebug.send_err ? "#f66" : "#888"}}>
@@ -815,7 +859,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <span style={{ fontSize: 16 }}>{isConsumer ? "👤" : "🏗"}</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: isConsumer ? C.brand : C.text2 }}>
             {isConsumer
-              ? "🔒 각 단계 사진을 확인한 후 승인해야 업체에 지급됩니다"
+              ? "🔒 사진을 확인하고 승인하면 공사비가 업체에 지급됩니다"
               : "단계별로 완료 신고 후 고객 확인 시 입금됩니다"}
           </span>
         </div>
@@ -824,9 +868,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         <div style={{ background: `linear-gradient(135deg,${C.navy},${C.navyM})`, borderRadius: R.xl, padding: S.xxl, marginBottom: S.xl, color: "#fff" }}>
           {isConsumer ? (
             <>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>총 예치 금액 (시공비 + 안전거래 수수료 3%, VAT 별도)</div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>총 결제 금액 (시공비 + 안전거래 수수료 3%)</div>
               <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(customerTotal)}</div>
-              <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>고객 예치 완료 · 단계별로 업체에 지급됩니다</div>
+              <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>공간마켓이 보관 중 · 사진 확인 후 단계별로 업체에 지급됩니다</div>
             </>
           ) : (
             <>
@@ -839,14 +883,14 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ width: `${paid}%`, height: "100%", background: C.brand, borderRadius: R.full, transition: "width 0.6s ease", boxShadow: `0 0 8px ${C.brand}88` }} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, opacity: 0.7 }}>
-            <span>업체 지급 완료 {paid}%</span>
+            <span>{isConsumer ? "업체에 지급됨" : "업체 지급 완료"} {paid}%</span>
             {bidAmount > 0 && <span>보관 중 {fmtMoney(Math.round(bidAmount * (100 - paid) / 100))}</span>}
           </div>
         </div>
 
         {/* Stage steps */}
         <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.xl }}>정산 단계</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.xl }}>{isConsumer ? "공사 진행 단계" : "정산 단계"}</div>
           {STAGE_META.map((s, i) => {
             const status = stageStatus[s.id];
             // stages[0..3] correspond to STAGE_META ids 2..5 (id 1 is deposit, no payment)
@@ -880,7 +924,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                 {/* Content */}
                 <div style={{ flex: 1, paddingTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: done ? C.green : active ? C.brand : C.text3 }}>{s.label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: done ? C.green : active ? C.brand : C.text3 }}>{isConsumer ? (CUSTOMER_DISPLAY[s.id]?.label ?? s.label) : s.label}</div>
                     {stage && (
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: done ? C.green : active ? C.brand : C.text4 }}>
@@ -897,7 +941,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       </div>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5, marginBottom: active ? S.md : 0 }}>{s.sub}</div>
+                  <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5, marginBottom: active ? S.md : 0 }}>{isConsumer ? (CUSTOMER_DISPLAY[s.id]?.sub ?? s.sub) : s.sub}</div>
 
                   {/* ── Company action buttons (stages 2, 3, 4) ── */}
                   {!isConsumer && status === "company_todo" && s.id >= 2 && (
@@ -991,9 +1035,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   {isConsumer && status === "pending_customer" && (
                     <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.brandM}`, marginTop: S.sm }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: C.brand, marginBottom: S.sm }}>
-                        {s.id === 3 && "🏗 업체가 착공을 시작했습니다"}
-                        {s.id === 4 && "📸 중간 점검 사진을 확인하고 승인해주세요"}
-                        {s.id === 5 && "🏁 업체가 시공 완료를 신고했습니다"}
+                        {s.id === 3 && "🏗 업체가 공사를 시작했습니다"}
+                        {s.id === 4 && "📸 중간 공사 사진을 확인하고 승인해주세요"}
+                        {s.id === 5 && "🏁 업체가 공사 완료 사진을 올렸습니다"}
                       </div>
                       {deadline && <CountdownTimer deadlineMs={deadline} />}
                       {photos.length > 0 && (
@@ -1007,8 +1051,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       )}
                       {s.id !== 4 && (
                         <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
-                          {s.id === 3 && <>착공금 <b>{stage ? fmtMoney(stage.amount) : "20%"}</b>을 업체에 지급하시겠습니까?</>}
-                          {s.id === 5 && <>잔금 <b>{stage ? fmtMoney(stage.amount) : "30%"}</b>을 업체에 지급하시겠습니까?</>}
+                          {s.id === 3 && <>공사 시작 확인 후 <b>{stage ? fmtMoney(stage.amount) : "20%"}</b>이 업체에 지급됩니다</>}
+                          {s.id === 5 && <>완료 확인 후 잔금 <b>{stage ? fmtMoney(stage.amount) : "30%"}</b>이 업체에 지급됩니다</>}
                         </div>
                       )}
                       <div style={{ display: "flex", gap: S.sm }}>
@@ -1019,7 +1063,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                           onClick={() => !disputeSubmitted && setConfirmStage(s.id)}
                           disabled={disputeSubmitted}
                           style={{ flex: 2, padding: "11px", background: disputeSubmitted ? C.bgWarm : C.brand, color: disputeSubmitted ? C.text4 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: disputeSubmitted ? "not-allowed" : "pointer", boxShadow: disputeSubmitted ? "none" : `0 4px 14px ${C.brand}44` }}>
-                          {disputeSubmitted ? "🔒 분쟁 동결 중" : `✅ ${s.confirmLabel}`}
+                          {disputeSubmitted ? "🔒 분쟁 동결 중" : `✅ ${(isConsumer ? CUSTOMER_DISPLAY[s.id]?.confirmLabel : null) ?? s.confirmLabel}`}
                         </button>
                       </div>
                     </div>
@@ -1081,7 +1125,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, display: "flex", gap: S.md, alignItems: "flex-start", marginBottom: S.lg }}>
           <div style={{ fontSize: 24, flexShrink: 0 }}>🛡</div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: 4 }}>하자보수 보증 안내</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: 4 }}>{isConsumer ? "공사 후 A/S 안내" : "하자보수 보증 안내"}</div>
             <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7 }}>완료 확인 후 <b style={{ color: C.navy }}>1년간 무상 AS</b> 보장</div>
           </div>
         </div>
@@ -1121,7 +1165,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
         {/* Deposit info */}
         <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🏦 예치금 보관 안내</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>{isConsumer ? "🏦 결제 보관 안내" : "🏦 예치금 보관 안내"}</div>
           {[["보관", "공간마켓 법인 신탁 계좌"], ["환급", "탈퇴 7일 내 전액"], ["분쟁", "중재 후 판정 지급"], ["향후", "은행 신탁 연계 예정"]].map(([k, v]) => (
             <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: `${S.xs}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
               <span style={{ fontSize: 12, color: C.text3 }}>{k}</span>
@@ -1139,9 +1183,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ textAlign: "center", marginBottom: S.xxl }}>
               <div style={{ fontSize: 44, marginBottom: 10 }}>💸</div>
               <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6 }}>
-                {confirmStage === 3 && "업체에게 착공금을 지급할까요?"}
-                {confirmStage === 4 && "업체에게 중도금을 지급할까요?"}
-                {confirmStage === 5 && "업체에게 잔금을 지급할까요?"}
+                {confirmStage === 3 && "공사 시작을 확인하고 업체에 지급할까요?"}
+                {confirmStage === 4 && "중간 공사를 확인하고 업체에 지급할까요?"}
+                {confirmStage === 5 && "공사 완료를 확인하고 업체에 잔금을 지급할까요?"}
               </div>
               <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
                 공간마켓이 보관 중인 금액에서<br />
@@ -1161,7 +1205,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ display: "flex", gap: S.sm }}>
               <button onClick={() => setConfirmStage(null)} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>취소</button>
               <button onClick={() => advanceStage(confirmStage)} style={{ flex: 2, padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
-                ✅ {STAGE_META.find(x => x.id === confirmStage)?.confirmLabel ?? "승인하고 지급"}
+                ✅ {(isConsumer ? CUSTOMER_DISPLAY[confirmStage]?.confirmLabel : null) ?? STAGE_META.find(x => x.id === confirmStage)?.confirmLabel ?? "승인하고 지급"}
               </button>
             </div>
           </div>

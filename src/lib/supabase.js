@@ -1846,13 +1846,14 @@ export const getEscrowByCompanyAndRequest = (requestId, companyId) =>
 
 // Recover contract_id from phase_photos when escrow_payments RLS blocks customer
 // (phase_photos.uploaded_by = company userId; contract_id = escrow_payments.id)
-export const getPhasePhotosByUploader = (uploadedBy, step = null) => {
+// afterDate: only photos uploaded AFTER this ISO string — prevents matching old completed jobs
+export const getPhasePhotosByUploader = (uploadedBy, afterDate = null) => {
   let q = supabase.from("phase_photos")
     .select("contract_id, step, photos, created_at")
     .eq("uploaded_by", uploadedBy)
     .order("created_at", { ascending: false })
     .limit(5);
-  if (step !== null) q = q.eq("step", step);
+  if (afterDate) q = q.gte("created_at", afterDate);
   return q;
 };
 
