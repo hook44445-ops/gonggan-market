@@ -1,0 +1,10 @@
+# Android build outputs
+.gradle/
+build/
+app/build/
+local.properties
+
+# Do NOT ignore the keystore — it is intentionally included so the CI/CD
+# chain can build and sign APKs from this repo. Store this repo private.
+# If you move to a public repo, remove the keystore and manage it via
+# CI secrets (ANDROID_KEYSTORE base64, ANDROID_KEY_ALIAS, ANDROID_STORE_PASSWORD).
