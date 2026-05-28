@@ -477,33 +477,89 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     });
   }, [currentUser?.id, activeRole]);
 
-  // Load company's own awarded/in-progress jobs
+  // Load company's own awarded/in-progress jobs — 2-step fetch to avoid FK join failures
   useEffect(() => {
     if (activeRole !== "company" || !user?.id) return;
-    getCompanyBids(user.id).then(({ data, error }) => {
-      setCompanyJobsDebug(d => ({
-        ...d,
-        fetchError: error?.message ?? null,
-        rawCount: data?.length ?? 0,
-        statuses: (data ?? []).map(b => ({
-          id: b.id?.slice?.(0, 8),
-          selected: b.selected,
-          req_status: b.requests?.status ?? "null",
-          request_id: b.request_id ? "ok" : "null",
-        })),
-      }));
-      if (error || !data) return;
-      // Exclude only explicitly terminal statuses; null/unknown → treat as active
-      const EXCLUDED_REQ_STATUSES = new Set([
-        "completed", "settled", "cancelled", "refunded", "rejected",
-        "done", "finished", "closed",
-      ]);
-      const jobs = data
+
+    const loadJobs = async () => {
+      const candidateIds = [...new Set([
+        user.id,
+        currentUser?.id,
+        currentUser?.ownerId,
+      ].filter(Boolean))];
+
+      const dev = {
+        auth_user_id:      user.id?.slice(0, 8) ?? "null",
+        currentUser_id:    currentUser?.id?.slice(0, 8) ?? "null",
+        company_owner_id:  currentUser?.ownerId?.slice(0, 8) ?? "null",
+        candidateIds:      candidateIds.map(id => id.slice(0, 8)).join(", "),
+        raw_bids_count:    0,
+        bid_company_ids:   "—",
+        selected_bids_count: 0,
+        request_ids:       "—",
+        requests_count:    0,
+        request_statuses:  "—",
+        escrow_count:      0,
+        active_displayed:  0,
+        bid_err:           "none",
+        req_err:           "none",
+        caught_err:        null,
+      };
+
+      // Step A: all bids where company_id ∈ candidateIds
+      const { data: bids, error: bidErr } = await supabase
+        .from("bids")
+        .select("*")
+        .in("company_id", candidateIds);
+
+      dev.bid_err       = bidErr?.message ?? "none";
+      dev.raw_bids_count = bids?.length ?? 0;
+      dev.bid_company_ids = (bids ?? []).map(b => b.company_id?.slice(0, 8)).join(", ") || "none";
+
+      const selectedBids = (bids ?? []).filter(b => b.selected === true);
+      dev.selected_bids_count = selectedBids.length;
+
+      const requestIds = [...new Set(selectedBids.map(b => b.request_id).filter(Boolean))];
+      dev.request_ids = requestIds.map(id => id.slice(0, 8)).join(", ") || "none";
+
+      if (bidErr || requestIds.length === 0) {
+        setCompanyJobs([]);
+        setCompanyJobsDebug(dev);
+        return;
+      }
+
+      // Step B: fetch requests for those IDs
+      const { data: reqs, error: reqErr } = await supabase
+        .from("requests")
+        .select("*")
+        .in("id", requestIds);
+
+      dev.req_err         = reqErr?.message ?? "none";
+      dev.requests_count  = reqs?.length ?? 0;
+      dev.request_statuses = (reqs ?? []).map(r => `${r.id.slice(0,8)}:${r.status ?? "null"}`).join(", ") || "none";
+
+      const requestMap = Object.fromEntries((reqs ?? []).map(r => [r.id, r]));
+
+      // Step C: escrow statuses (for excluding settled contracts)
+      const { data: escrows } = await supabase
+        .from("escrow_payments")
+        .select("id, request_id, transaction_status")
+        .in("request_id", requestIds);
+
+      dev.escrow_count = escrows?.length ?? 0;
+      const escrowMap = Object.fromEntries((escrows ?? []).map(e => [e.request_id, e]));
+
+      // Filter: exclude only explicit terminal statuses
+      const EXCL_REQ = new Set(["completed","settled","cancelled","refunded","rejected","done","finished","closed"]);
+      const EXCL_TX  = new Set(["SETTLED","COMPLETED","CANCELLED","REFUNDED"]);
+
+      const jobs = selectedBids
         .filter(b => {
-          if (!b.selected) return false;
           if (!b.request_id) return false;
-          const reqStatus = (b.requests?.status ?? "").toLowerCase();
-          if (reqStatus && EXCLUDED_REQ_STATUSES.has(reqStatus)) return false;
+          const reqStatus = (requestMap[b.request_id]?.status ?? "").toLowerCase();
+          if (reqStatus && EXCL_REQ.has(reqStatus)) return false;
+          const txStatus = escrowMap[b.request_id]?.transaction_status;
+          if (txStatus && EXCL_TX.has(txStatus)) return false;
           return true;
         })
         .map(b => ({
@@ -519,12 +575,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             status: "selected",
             company: { id: b.company_id, name: user.name ?? "업체", temp: 70, ownerId: user.id },
           },
-          request: b.requests ? normalizeRequest(b.requests) : null,
+          request: requestMap[b.request_id] ? normalizeRequest(requestMap[b.request_id]) : null,
         }));
+
+      dev.active_displayed = jobs.length;
       setCompanyJobs(jobs);
-      setCompanyJobsDebug(d => ({ ...d, jobCount: jobs.length }));
-    }).catch(() => {});
-  }, [activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+      setCompanyJobsDebug(dev);
+    };
+
+    loadJobs().catch(err => {
+      setCompanyJobsDebug(d => ({ ...(d ?? {}), caught_err: err?.message ?? String(err) }));
+    });
+  }, [activeRole, user?.id, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load escrow+payouts for consumer in_progress requests
   useEffect(() => {
@@ -1739,13 +1801,23 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 {customerRequests.filter(r=>r.isActive).map(r=>(
                   <span key={r.id} style={{display:"block", color:"#8ff"}}>{r.id} {r.type} {r.size} status:{r.status}</span>
                 ))}
-                <span style={{color:"#ff0"}}>── companyJobs (in_progress) ──</span><br/>
-                <span style={{color: companyJobsDebug?.fetchError ? "#f66" : "#0f0"}}>jobs_err:{companyJobsDebug?.fetchError ?? "none"}</span> raw:{companyJobsDebug?.rawCount ?? "?"} jobs:{companyJobsDebug?.jobCount ?? "?"}<br/>
-                {(companyJobsDebug?.statuses ?? []).map((s, i) => (
-                  <span key={s.id} style={{display:"block", color: s.req_status === "in_progress" ? "#0f0" : "#8ff"}}>
-                    [{i}] bid:{s.id?.slice(0,8)} req_status:{s.req_status}
-                  </span>
-                ))}
+                <span style={{color:"#ff0"}}>── companyJobs fetch ──</span><br/>
+                <span style={{color:"#4ff"}}>auth_user: {companyJobsDebug?.auth_user_id ?? "?"} | cu: {companyJobsDebug?.currentUser_id ?? "?"} | owner: {companyJobsDebug?.company_owner_id ?? "?"}</span><br/>
+                candidateIds: [{companyJobsDebug?.candidateIds ?? "?"}]<br/>
+                <span style={{color: (companyJobsDebug?.raw_bids_count ?? 0) > 0 ? "#0f0" : "#f66"}}>
+                  raw_bids: {companyJobsDebug?.raw_bids_count ?? "?"} | selected: {companyJobsDebug?.selected_bids_count ?? "?"}
+                </span><br/>
+                bid_company_ids: [{companyJobsDebug?.bid_company_ids ?? "?"}]<br/>
+                request_ids: [{companyJobsDebug?.request_ids ?? "?"}]<br/>
+                <span style={{color: (companyJobsDebug?.requests_count ?? 0) > 0 ? "#0f0" : "#f88"}}>
+                  requests: {companyJobsDebug?.requests_count ?? "?"} | statuses: {companyJobsDebug?.request_statuses ?? "?"}
+                </span><br/>
+                escrow_count: {companyJobsDebug?.escrow_count ?? "?"}<br/>
+                <span style={{color: (companyJobsDebug?.active_displayed ?? 0) > 0 ? "#0f0" : "#f88"}}>
+                  active_displayed: {companyJobsDebug?.active_displayed ?? companyJobsDebug?.jobCount ?? "?"}
+                </span><br/>
+                <span style={{color: companyJobsDebug?.bid_err !== "none" ? "#f66" : "#888"}}>bid_err: {companyJobsDebug?.bid_err ?? "?"}</span> | <span style={{color: companyJobsDebug?.req_err !== "none" ? "#f66" : "#888"}}>req_err: {companyJobsDebug?.req_err ?? "?"}</span><br/>
+                {companyJobsDebug?.caught_err && <span style={{color:"#f66"}}>caught: {companyJobsDebug.caught_err}<br/></span>}
                 {companyJobs.map((j, i) => (
                   <span key={j.bid.id} style={{display:"block", color:"#aff"}}>
                     job[{i}] bid:{j.bid.id?.slice(0,8)} req:{j.request?.id?.slice(0,8)} {j.request?.type} {j.request?.status}
