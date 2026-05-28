@@ -2345,7 +2345,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   }
                 }}
                 style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
-                공간마켓 v1.0.0 · 베타
+                공간마켓 v1.0.0
               </div>
             </div>
 
