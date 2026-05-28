@@ -360,28 +360,30 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const p3 = dbPayoutMap[3]; // 중간점검 payout
     const p4 = dbPayoutMap[4]; // 완료 payout
 
+    const curStep = contractData?.current_step ?? 0;
     const ns = { 1: "done", 2: "done", 3: "company_todo", 4: "locked", 5: "locked" };
     const reasons = [];
 
     // Stage 3: 착공
-    if (p2?.status === "APPROVED") {
+    // Done: payout APPROVED OR curStep>=3 (customer called advanceStage(3) → nextStep=3)
+    // Using curStep>=3 as a fallback so that if approveEscrowPayoutByStage fails silently,
+    // the stage still shows "done" after the customer approved (advanceContractStep succeeded).
+    if (p2?.status === "APPROVED" || curStep >= 3) {
       ns[3] = "done";
-      reasons.push("착공payout=APPROVED");
-    } else if (
-      txStatus === "STARTED" ||
-      (contractData?.current_step ?? 0) >= 2 ||
-      (dbPhotos[1]?.length ?? 0) > 0
-    ) {
+      if (p2?.status === "APPROVED") reasons.push("착공payout=APPROVED");
+      else reasons.push(`curStep≥3(${curStep})`);
+    } else if (txStatus === "STARTED" || curStep === 2 || (dbPhotos[1]?.length ?? 0) > 0) {
       ns[3] = "pending_customer";
       if ((dbPhotos[1]?.length ?? 0) > 0) reasons.push("착공photo=present");
-      else reasons.push(`txStatus=${txStatus}|step=${contractData?.current_step}`);
+      else reasons.push(`txStatus=${txStatus}|step=${curStep}`);
     }
 
     // Stage 4: 중간점검
     if (ns[3] === "done") {
-      if (p3?.status === "APPROVED") {
+      if (p3?.status === "APPROVED" || curStep >= 4) {
         ns[4] = "done";
-        reasons.push("중간payout=APPROVED");
+        if (p3?.status === "APPROVED") reasons.push("중간payout=APPROVED");
+        else reasons.push(`curStep≥4(${curStep})`);
       } else if ((dbPhotos[2]?.length ?? 0) > 0) {
         ns[4] = "pending_customer";
         reasons.push("중간photo=present");
@@ -393,13 +395,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     // Stage 5: 완료
     // SETTLED shortcut guarded by !derivedFromRecovery to prevent wrong-escrow completion
     if (ns[4] === "done") {
-      if (p4?.status === "APPROVED" || (txStatus === "SETTLED" && !derivedFromRecovery)) {
+      if (p4?.status === "APPROVED" || curStep >= 5 || (txStatus === "SETTLED" && !derivedFromRecovery)) {
         ns[5] = "done";
         if (p4?.status === "APPROVED") reasons.push("완료payout=APPROVED");
+        else if (curStep >= 5) reasons.push(`curStep≥5(${curStep})`);
         else reasons.push("txStatus=SETTLED(verified)");
-      } else if ((dbPhotos[3]?.length ?? 0) > 0) {
+      } else if ((dbPhotos[3]?.length ?? 0) > 0 || txStatus === "COMPLETED") {
         ns[5] = "pending_customer";
-        reasons.push("완료photo=present");
+        if ((dbPhotos[3]?.length ?? 0) > 0) reasons.push("완료photo=present");
+        else reasons.push(`txStatus=${txStatus}`);
       } else {
         ns[5] = "company_todo";
       }
@@ -427,12 +431,14 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
   // Modals
   const [confirmStage, setConfirmStage] = useState(null);
+  const [approvalError, setApprovalError] = useState(null);
   const [showDispute, setShowDispute] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const [disputeSubmitted, setDisputeSubmitted] = useState(false);
 
   const advanceStage = async (stageId) => {
     const s = STAGE_META.find(x => x.id === stageId);
+    setApprovalError(null);
     // Optimistic UI
     setStageStatus(prev => ({
       ...prev,
@@ -448,9 +454,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       // 1. Approve payout: UI stage 3→DB payout 2, 4→3, 5→4
       const uiToPayoutStage = { 3: 2, 4: 3, 5: 4 };
       const payoutStage = uiToPayoutStage[stageId];
+      let payoutFailed = false;
       if (payoutStage) {
         const { error: pe } = await approveEscrowPayoutByStage(resolvedContractId, payoutStage, userId ?? null);
         log.payout = pe?.message ?? "ok";
+        if (pe) payoutFailed = true;
       }
 
       // 2. Advance escrow_payments: stepN_approved_at + current_step + txStatus
@@ -459,6 +467,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         4: { dbStep: 3, nextStep: 4, txStatus: null },
         5: { dbStep: 4, nextStep: 5, txStatus: "SETTLED" },
       }[stageId];
+      let stepFailed = false;
       if (stepConfig) {
         const { error: se } = await advanceContractStep(
           resolvedContractId,
@@ -467,6 +476,18 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           stepConfig.txStatus
         );
         log.step = se?.message ?? "ok";
+        if (se) stepFailed = true;
+      }
+
+      // Both DB writes failed: revert optimistic UI + show error
+      if (payoutFailed && stepFailed) {
+        setStageStatus(prev => ({
+          ...prev,
+          [stageId]: "pending_customer",
+          ...(stageId < 5 ? { [stageId + 1]: "locked" } : {}),
+        }));
+        setApprovalError("승인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        log.failed = true;
       }
 
       setApprovalLog(log);
@@ -724,13 +745,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                 transaction_status: {contractData?.transaction_status ?? "—"}
               </span><br/>
               current_step: {contractData?.current_step ?? "—"}<br/>
-              stage2_status(착공 payout): {dbPayoutMap[2]?.status ?? "—"}<br/>
-              <span style={{color: (dbPhotos[1]?.length ?? 0) > 0 ? "#0f0" : "#f66"}}>
-                phase_photo_step1_count: {dbPhotos[1]?.length ?? 0}
+              payout2(착공):{dbPayoutMap[2]?.status ?? "—"} | payout3(중간):{dbPayoutMap[3]?.status ?? "—"} | payout4(완료):{dbPayoutMap[4]?.status ?? "—"}<br/>
+              <span style={{color: (dbPhotos[1]?.length ?? 0) > 0 ? "#0f0" : "#888"}}>
+                photos step1(착공):{dbPhotos[1]?.length ?? 0} step2(중간):{dbPhotos[2]?.length ?? 0} step3(완료):{dbPhotos[3]?.length ?? 0}
               </span><br/>
               {(dbPhotos[1]?.length ?? 0) > 0 && (
                 <span style={{color:"#4ff"}}>
-                  phase_photo_step1_urls: {(dbPhotos[1] ?? []).slice(0,2).map(u => "…" + u.slice(-18)).join(", ")}<br/>
+                  착공url: {(dbPhotos[1] ?? []).slice(0,1).map(u => "…" + u.slice(-20)).join(", ")}<br/>
                 </span>
               )}
               <span style={{color: approvalRequired ? "#ff0" : "#888"}}>
@@ -787,8 +808,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               {isConsumer && (() => {
                 const waiting = stageStatus[3] === "pending_customer" || stageStatus[4] === "pending_customer" || stageStatus[5] === "pending_customer";
                 const totalPhotoCount = Object.values(dbPhotos).reduce((a, b) => a + (b?.length ?? 0), 0);
-                // CTA visible: stage says pending OR there are loaded DB photos with a valid contract_id
-                const ctaVisible = (waiting || (totalPhotoCount > 0 && !!resolvedContractId)) && !disputeSubmitted;
+                // ctaVisible matches actual JSX condition: stageStatus=pending_customer AND !disputeSubmitted
+                const ctaVisible = waiting && !disputeSubmitted;
                 const startU = (stagePhotos[3] ?? [])[0];
                 const midU   = (stagePhotos[4] ?? [])[0];
                 const compU  = (stagePhotos[5] ?? [])[0];
@@ -807,12 +828,12 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   <span style={{color: totalPhotoCount > 0 ? "#0f0" : "#888"}}>
                     phase_photo_count: {totalPhotoCount} (db steps: {Object.keys(dbPhotos).join(",") || "none"})
                   </span><br/>
-                  dbLoaded: {String(dbLoaded)}<br/>
-                  <span style={{color: startU ? "#4ff" : "#888"}}>start_photo_url: {startU ? "…"+String(startU).slice(-18) : "none"}</span><br/>
-                  <span style={{color: midU ? "#4ff" : "#888"}}>mid_photo_url: {midU ? "…"+String(midU).slice(-18) : "none"}</span><br/>
-                  <span style={{color: compU ? "#4ff" : "#888"}}>completion_photo_url: {compU ? "…"+String(compU).slice(-18) : "none"}</span><br/>
+                  dbLoaded: {String(dbLoaded)} | txStatus: {contractData?.transaction_status ?? "—"} | curStep: {contractData?.current_step ?? "—"}<br/>
+                  <span style={{color: startU ? "#4ff" : "#888"}}>착공_photo_url: {startU ? "…"+String(startU).slice(-18) : "none"}</span><br/>
+                  <span style={{color: midU ? "#4ff" : "#888"}}>중간_photo_url: {midU ? "…"+String(midU).slice(-18) : "none"}</span><br/>
+                  <span style={{color: compU ? "#4ff" : "#888"}}>완료_photo_url: {compU ? "…"+String(compU).slice(-18) : "none"}</span><br/>
                   <span style={{color: waiting ? "#ff0" : "#888"}}>waiting_customer_confirm: {String(waiting)}</span><br/>
-                  <span style={{color: ctaVisible ? "#0f0" : "#f66"}}>approve_cta_visible: {String(ctaVisible)}</span><br/>
+                  <span style={{color: ctaVisible ? "#0f0" : "#f66"}}>approve_cta_visible: {String(ctaVisible)} (matches stageStatus=pending_customer)</span><br/>
                 </>);
               })()}
               {isConsumer && approvalLog && (<>
@@ -1202,8 +1223,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                 ))}
               </div>
             )}
+            {approvalError && (
+              <div style={{ marginBottom: S.lg, padding: "10px 14px", background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.md, fontSize: 13, color: C.red }}>
+                {approvalError}
+              </div>
+            )}
             <div style={{ display: "flex", gap: S.sm }}>
-              <button onClick={() => setConfirmStage(null)} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>취소</button>
+              <button onClick={() => { setConfirmStage(null); setApprovalError(null); }} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>취소</button>
               <button onClick={() => advanceStage(confirmStage)} style={{ flex: 2, padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
                 ✅ {(isConsumer ? CUSTOMER_DISPLAY[confirmStage]?.confirmLabel : null) ?? STAGE_META.find(x => x.id === confirmStage)?.confirmLabel ?? "승인하고 지급"}
               </button>
