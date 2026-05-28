@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getBidById, getCompanyByOwnerId, getEscrowByRequest, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 
 // Stage status values:
@@ -91,7 +91,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         createdAt: bid.created_at, status: bid.selected ? "selected" : "pending",
       });
 
-      // ── Level 1: payment_orders ──────────────────────────────
+      // ── Level 1: payment_orders (PAID) ───────────────────────
       const { data: order } = await getPaymentOrderByRequest(request.id);
       if (order) {
         if (order.contract_id) setResolvedContractId(order.contract_id);
@@ -99,12 +99,26 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           const { data: bid, error: bidErr } = await getBidById(order.bid_id);
           if (bid) {
             setResolvedBid(buildRestored(bid));
-            setEscrowDebug({ src: "payment_order", restored: true, bidId: bid.id, orderId: order.id, contractId: order.contract_id });
+            setEscrowDebug({ src: "payment_order_paid", restored: true, bidId: bid.id, orderId: order.id, contractId: order.contract_id });
             return;
           }
-          setEscrowDebug({ src: "payment_order", err: bidErr?.message ?? "bid not found" });
+          setEscrowDebug({ src: "payment_order_paid", err: bidErr?.message ?? "bid not found" });
         }
         return;
+      }
+
+      // ── Level 1b: payment_orders (any status) ────────────────
+      const { data: orderAny } = await getPaymentOrderByRequestAny(request.id);
+      if (orderAny) {
+        if (orderAny.contract_id) setResolvedContractId(orderAny.contract_id);
+        if (orderAny.bid_id) {
+          const { data: bid2 } = await getBidById(orderAny.bid_id);
+          if (bid2) {
+            setResolvedBid(buildRestored(bid2));
+            setEscrowDebug({ src: "payment_order_any", restored: true, bidId: bid2.id, orderId: orderAny.id, contractId: orderAny.contract_id, status: orderAny.status });
+            return;
+          }
+        }
       }
 
       // ── Level 2: escrow_payments → bids ─────────────────────
@@ -115,23 +129,50 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         const row = bidsData?.find(b => b.selected) ?? bidsData?.[0] ?? null;
         if (row) {
           setResolvedBid(buildRestored(row));
-          setEscrowDebug({ src: "escrow_fallback", restored: true, escrowId: escrow.id, bidId: row.id });
+          setEscrowDebug({ src: "escrow_by_request", restored: true, escrowId: escrow.id, bidId: row.id });
         } else {
-          setEscrowDebug({ src: "escrow_fallback", err: "no bids", escrowId: escrow.id });
+          setEscrowDebug({ src: "escrow_by_request", err: "no bids", escrowId: escrow.id });
         }
         return;
       }
 
-      // ── Level 3: bids only (no escrow row yet) ───────────────
+      // ── Level 3: bids → escrow (multi-path recovery) ────────
       const { data: bidsData } = await getBidsForRequest(request.id);
       const row = bidsData?.find(b => b.selected) ?? bidsData?.[0] ?? null;
       if (row) {
         setResolvedBid(buildRestored(row));
-        setEscrowDebug({ src: "bids_only_fallback", restored: true, bidId: row.id, note: "no escrow row" });
+
+        // Level 3a: escrow_payments by company_id + request_id
+        const { data: escrow3a } = await getEscrowByCompanyAndRequest(request.id, row.company_id);
+        if (escrow3a?.id) {
+          setResolvedContractId(escrow3a.id);
+          setEscrowDebug({ src: "escrow_company_request", restored: true, escrowId: escrow3a.id, bidId: row.id });
+          return;
+        }
+
+        // Level 3b: phase_photos by uploader → recover contract_id
+        const { data: compPhotos } = await getPhasePhotosByUploader(row.company_id);
+        const recoveredCid = compPhotos?.[0]?.contract_id;
+        if (recoveredCid) {
+          setResolvedContractId(recoveredCid);
+          setEscrowDebug({ src: "phase_photo_recovery", restored: true, contractId: recoveredCid, bidId: row.id, photoCount: compPhotos.length });
+          return;
+        }
+
+        // Level 3c: escrow_payouts by company_id → escrow_id
+        const { data: payouts3c } = await getEscrowPayoutsByCompanyId(row.company_id);
+        const escrowId3c = payouts3c?.[0]?.escrow_id;
+        if (escrowId3c) {
+          setResolvedContractId(escrowId3c);
+          setEscrowDebug({ src: "escrow_payout_company", restored: true, escrowId: escrowId3c, bidId: row.id });
+          return;
+        }
+
+        setEscrowDebug({ src: "bids_only_fallback_ok", restored: true, bidId: row.id, note: "escrow not found — awaiting company send", l3a: "tried", l3b: "tried", l3c: "tried" });
         return;
       }
 
-      setEscrowDebug({ src: "self_fetch", err: "no order, no escrow, no bids", requestId: request.id });
+      setEscrowDebug({ src: "self_fetch_exhausted", err: "no order, no escrow, no bids", requestId: request.id });
     };
     fetchContract();
   }, [request?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -163,19 +204,36 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   }, [resolvedBid?.companyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Contract ID fetch: if resolvedBid is known but contractId is still missing
+  // Priority: payment_orders(PAID) → payment_orders(any) → escrow_payments(request)
+  //         → escrow_payments(company+request) → phase_photos(uploader) → escrow_payouts(company)
   useEffect(() => {
     if (resolvedContractId) return;
-    const reqId = request?.id ?? resolvedBid?.requestId;
+    const reqId     = request?.id ?? resolvedBid?.requestId;
+    const companyId = resolvedBid?.companyId;
     if (!reqId) return;
     const resolve = async () => {
+      // Path 1: payment_orders PAID
       const { data: order } = await getPaymentOrderByRequest(reqId);
       if (order?.contract_id) { setResolvedContractId(order.contract_id); return; }
-      // Fallback: try escrow_payments directly
-      const { data: escrow } = await getEscrowByRequest(reqId);
-      if (escrow?.id) setResolvedContractId(escrow.id);
+      // Path 1b: payment_orders any status
+      const { data: orderAny } = await getPaymentOrderByRequestAny(reqId);
+      if (orderAny?.contract_id) { setResolvedContractId(orderAny.contract_id); return; }
+      // Path 2: escrow_payments by request_id
+      const { data: escrow2 } = await getEscrowByRequest(reqId);
+      if (escrow2?.id) { setResolvedContractId(escrow2.id); return; }
+      if (!companyId) return;
+      // Path 3: escrow_payments by company_id + request_id
+      const { data: escrow3 } = await getEscrowByCompanyAndRequest(reqId, companyId);
+      if (escrow3?.id) { setResolvedContractId(escrow3.id); return; }
+      // Path 4: phase_photos by uploader → contract_id
+      const { data: photos4 } = await getPhasePhotosByUploader(companyId);
+      if (photos4?.[0]?.contract_id) { setResolvedContractId(photos4[0].contract_id); return; }
+      // Path 5: escrow_payouts by company_id → escrow_id
+      const { data: payouts5 } = await getEscrowPayoutsByCompanyId(companyId);
+      if (payouts5?.[0]?.escrow_id) { setResolvedContractId(payouts5[0].escrow_id); }
     };
     resolve().catch(() => {});
-  }, [resolvedBid?.requestId, request?.id, resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [resolvedBid?.requestId, resolvedBid?.companyId, request?.id, resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isConsumer = activeRole === "consumer";
   const bidAmount   = resolvedBid?.price ?? 0;
@@ -684,13 +742,28 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               </>)}
               {isConsumer && (() => {
                 const waiting = stageStatus[3] === "pending_customer" || stageStatus[4] === "pending_customer" || stageStatus[5] === "pending_customer";
-                const ctaVisible = waiting && !disputeSubmitted;
+                const totalPhotoCount = Object.values(dbPhotos).reduce((a, b) => a + (b?.length ?? 0), 0);
+                // CTA visible: stage says pending OR there are loaded DB photos with a valid contract_id
+                const ctaVisible = (waiting || (totalPhotoCount > 0 && !!resolvedContractId)) && !disputeSubmitted;
                 const startU = (stagePhotos[3] ?? [])[0];
                 const midU   = (stagePhotos[4] ?? [])[0];
                 const compU  = (stagePhotos[5] ?? [])[0];
+                const contractLookupSource = escrowDebug?.src ?? "—";
+                const escrowFoundCount = escrowDebug?.escrowId || escrowDebug?.contractId ? 1 : resolvedContractId ? 1 : 0;
                 return (<>
                   <span style={{color:"#ff0"}}>── customer escrow view ──</span><br/>
-                  contract_id/escrow_id: {resolvedContractId?.slice(0,8) ?? "null"}<br/>
+                  <span style={{color: resolvedContractId ? "#0f0" : "#f66"}}>
+                    resolvedContractId: {resolvedContractId?.slice(0,8) ?? "null ⚠️"}
+                  </span><br/>
+                  resolvedEscrowId: {contractData?.id?.slice(0,8) ?? "null"}<br/>
+                  <span style={{color: contractLookupSource.includes("fallback_ok") || contractLookupSource.includes("exhausted") ? "#f66" : "#0f0"}}>
+                    contract_lookup_source: {contractLookupSource}
+                  </span><br/>
+                  contracts_found_count: {resolvedContractId ? 1 : 0} | escrow_found_count: {escrowFoundCount}<br/>
+                  <span style={{color: totalPhotoCount > 0 ? "#0f0" : "#888"}}>
+                    phase_photo_count: {totalPhotoCount} (db steps: {Object.keys(dbPhotos).join(",") || "none"})
+                  </span><br/>
+                  dbLoaded: {String(dbLoaded)}<br/>
                   <span style={{color: startU ? "#4ff" : "#888"}}>start_photo_url: {startU ? "…"+String(startU).slice(-18) : "none"}</span><br/>
                   <span style={{color: midU ? "#4ff" : "#888"}}>mid_photo_url: {midU ? "…"+String(midU).slice(-18) : "none"}</span><br/>
                   <span style={{color: compU ? "#4ff" : "#888"}}>completion_photo_url: {compU ? "…"+String(compU).slice(-18) : "none"}</span><br/>
