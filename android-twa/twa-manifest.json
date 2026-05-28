@@ -1,0 +1,40 @@
+{
+  "packageId": "com.gongganmarket.app",
+  "host": "gonggan-market.vercel.app",
+  "name": "공간마켓",
+  "launcherName": "공간마켓",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#2E5F4B",
+  "navigationColor": "#2E5F4B",
+  "navigationColorDark": "#1D3D2F",
+  "navigationDividerColor": "#F5F1EA",
+  "navigationDividerColorDark": "#F5F1EA",
+  "backgroundColor": "#F5F1EA",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://gonggan-market.vercel.app/icons/icon-512.svg",
+  "maskableIconUrl": "https://gonggan-market.vercel.app/icons/icon-512.svg",
+  "monochromeIconUrl": "",
+  "splashScreenFadeOutDuration": 300,
+  "signing": {
+    "keystore": "gonggan-release.keystore",
+    "keyAlias": "gonggan-market",
+    "keyFullName": "CN=GongganMarket,OU=Mobile,O=GongganMarket,L=Seoul,ST=Seoul,C=KR"
+  },
+  "appVersionCode": 1,
+  "appVersionName": "1.0.0",
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://gonggan-market.vercel.app/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 19,
+  "targetSdkVersion": 34
+}

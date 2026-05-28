@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="108" fill="#2E5F4B"/>
+  <!-- left wall -->
+  <rect x="104" y="116" width="22" height="300" rx="11" fill="#F5F1EA"/>
+  <!-- floor -->
+  <rect x="104" y="394" width="304" height="22" rx="11" fill="#F5F1EA"/>
+  <!-- window frame -->
+  <rect x="168" y="168" width="96" height="128" rx="14" fill="none" stroke="#F5F1EA" stroke-width="16"/>
+  <!-- window cross-bar -->
+  <line x1="168" y1="232" x2="264" y2="232" stroke="#F5F1EA" stroke-width="10" stroke-linecap="round"/>
+  <line x1="216" y1="168" x2="216" y2="296" stroke="#F5F1EA" stroke-width="10" stroke-linecap="round"/>
+  <!-- plant pot -->
+  <ellipse cx="352" cy="296" rx="40" ry="52" fill="#B5D4C5"/>
+  <rect x="340" y="342" width="24" height="44" rx="12" fill="#B5D4C5"/>
+  <!-- small decorative dot / brand mark -->
+  <circle cx="356" cy="176" r="24" fill="none" stroke="#F5F1EA" stroke-width="12"/>
+  <circle cx="356" cy="176" r="6" fill="#F5F1EA"/>
+</svg>

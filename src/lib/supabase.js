@@ -1804,11 +1804,21 @@ export const acceptLoungeChat = (chatId, participantId) =>
 
 // ── Payment / Contract restore helpers ───────────────────────────────────────
 
+// Primary: PAID orders only (used for payment confirmation flow)
 export const getPaymentOrderByRequest = (requestId) =>
   supabase.from("payment_orders")
     .select("*")
     .eq("request_id", requestId)
     .eq("status", "PAID")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+// Fallback: any status — catches DEPOSITED / PENDING orders that also carry contract_id
+export const getPaymentOrderByRequestAny = (requestId) =>
+  supabase.from("payment_orders")
+    .select("*")
+    .eq("request_id", requestId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -1823,6 +1833,37 @@ export const getEscrowByRequest = (requestId) =>
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+// Two-dimension lookup: request_id + company_id (works when RLS allows by company)
+export const getEscrowByCompanyAndRequest = (requestId, companyId) =>
+  supabase.from("escrow_payments")
+    .select("*")
+    .eq("request_id", requestId)
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+// Recover contract_id from phase_photos when escrow_payments RLS blocks customer
+// (phase_photos.uploaded_by = company userId; contract_id = escrow_payments.id)
+// afterDate: only photos uploaded AFTER this ISO string — prevents matching old completed jobs
+export const getPhasePhotosByUploader = (uploadedBy, afterDate = null) => {
+  let q = supabase.from("phase_photos")
+    .select("contract_id, step, photos, created_at")
+    .eq("uploaded_by", uploadedBy)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  if (afterDate) q = q.gte("created_at", afterDate);
+  return q;
+};
+
+// Recover escrow_id from escrow_payouts by company_id (alternative path if above fails)
+export const getEscrowPayoutsByCompanyId = (companyId) =>
+  supabase.from("escrow_payouts")
+    .select("escrow_id, stage, status, created_at")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false })
+    .limit(4);
 
 // ── Company: my submitted bids with request data ──────────────────────────────
 export const getCompanyBids = (userId) =>

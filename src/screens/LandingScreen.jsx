@@ -27,27 +27,27 @@ const WHY_CARDS = [
   {
     side: "의뢰인에게",
     items: [
-      { icon: "🔒", title: "내 돈 단계별 보호",   desc: "공사비를 바로 보내지 않아요" },
-      { icon: "📋", title: "기록이 남는 계약",     desc: "계약 범위, 사진, 대화가 저장됩니다" },
-      { icon: "✅", title: "검증된 업체 연결",     desc: "서류+보험+이력 확인된 업체만" },
+      { icon: "🔒", title: "내 돈 단계별 보호",   desc: "단계 확인 후에만 정산되는 안전한 구조" },
+      { icon: "📋", title: "기록이 남는 계약",     desc: "계약 범위, 사진, 대화 모두 저장됩니다" },
+      { icon: "✅", title: "검증된 업체 연결",     desc: "서류·보험·시공 이력 확인 업체만 연결" },
     ],
   },
   {
     side: "업체에게",
     items: [
-      { icon: "💰", title: "미수금 걱정 없음",     desc: "단계마다 정산됩니다" },
-      { icon: "📸", title: "기록이 나를 지킴",     desc: "억울한 분쟁에서 내 기록이 증거됩니다" },
-      { icon: "👤", title: "진짜 고객만 연결",     desc: "에스크로 결제한 진짜 의뢰인만 옵니다" },
+      { icon: "💰", title: "단계마다 안정 정산",   desc: "착공·중간·완료 단계별로 정산됩니다" },
+      { icon: "📸", title: "기록이 나를 지킴",     desc: "시공 사진·기록이 분쟁 시 증거가 됩니다" },
+      { icon: "👤", title: "진짜 고객만 연결",     desc: "에스크로 예치한 검증된 의뢰인만 옵니다" },
     ],
   },
 ];
 
 const STEPS = [
-  { num: 1, label: "견적 요청",    desc: "공사 정보 입력 → 검증 업체 자동 전달" },
-  { num: 2, label: "업체 비교",    desc: "견적 + 리뷰 + 포트폴리오 비교" },
-  { num: 3, label: "계약 확인",    desc: "계약 범위 기록 + 공사비 에스크로 예치" },
-  { num: 4, label: "단계별 확인",  desc: "착공 → 중간점검 → 완료 사진 확인 후 승인" },
-  { num: 5, label: "완료 후 정산", desc: "완료 확인 후 업체 지급 / 분쟁 시 관리자 개입" },
+  { num: 1, label: "견적 요청",    desc: "공사 정보를 입력하면 검증된 업체에 자동 전달됩니다" },
+  { num: 2, label: "업체 비교",    desc: "견적·리뷰·포트폴리오를 비교하고 업체를 선택하세요" },
+  { num: 3, label: "계약 확인",    desc: "계약 범위를 기록하고 공사비를 안전하게 예치합니다" },
+  { num: 4, label: "단계별 확인",  desc: "착공→중간→완료, 사진으로 확인하고 단계마다 승인합니다" },
+  { num: 5, label: "완료 후 정산", desc: "고객 확인 완료 후 업체에 정산. 분쟁 시 관리자가 함께합니다" },
 ];
 
 export default function LandingScreen({ onSelectRole, onAdminTap }) {
@@ -74,10 +74,10 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
     }}>
       {/* DEPLOY CHECK — 배포 확인용 */}
       <div style={{ background:"#1a1a1a", color:"#00ff88", textAlign:"center", padding:"4px 0", fontSize:10, fontFamily:"monospace", letterSpacing:"0.5px" }}>
-        ▶ DEPLOY 2026-05-25 sha:{typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "?"} ◀
+        ▶ DEPLOY 2026-05-28 sha:{typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "?"} ◀
         &nbsp;|&nbsp;landing_footer_rendered:true
-        &nbsp;|&nbsp;review_card_v2_enabled:true
-        &nbsp;|&nbsp;live_hybrid_enabled:true
+        &nbsp;|&nbsp;pwa_enabled:true
+        &nbsp;|&nbsp;identity_v2:true
         &nbsp;|&nbsp;MODE:{import.meta.env.MODE}
       </div>
 
@@ -113,7 +113,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             letterSpacing: "0.06em", marginBottom: 28,
             ...fadeStyle(heroVisible, 0),
           }}>
-            공간마켓
+            공간마켓 · 공간 사이의 감성
           </div>
 
           {/* main copy */}
@@ -122,7 +122,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             lineHeight: 1.3, marginBottom: 14, whiteSpace: "pre-line",
             ...fadeStyle(heroVisible, 0.08),
           }}>
-            {"의뢰인도, 업체도\n안심하는 거래"}
+            {"공간 사이의 감성을\n당신의 공간에 담습니다"}
           </div>
 
           {/* sub copy */}
@@ -131,7 +131,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             lineHeight: 1.6, marginBottom: 36,
             ...fadeStyle(heroVisible, 0.16),
           }}>
-            공간마켓은 양쪽이 모두 고객입니다
+            기록이 남는 계약 · 단계별 확인 정산 · 검증된 업체
           </div>
 
           {/* buttons */}
@@ -168,7 +168,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             textAlign: "center", marginBottom: 28,
             ...fadeStyle(sec1Visible, 0),
           }}>
-            왜 양쪽 모두 안심할 수 있나요?
+            기록이 당신의 공간을 지킵니다
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -269,7 +269,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             lineHeight: 1.4, marginBottom: 8, whiteSpace: "pre-line",
             ...fadeStyle(sec3Visible, 0),
           }}>
-            {"양쪽이 믿을 수 있는\n인테리어 거래를 시작하세요"}
+            {"공간 사이의 감성,\n지금 당신의 공간에서"}
           </div>
 
           <div style={{
@@ -277,7 +277,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             marginBottom: 32,
             ...fadeStyle(sec3Visible, 0.08),
           }}>
-            공간마켓은 의뢰인도 업체도 안심합니다
+            믿을 수 있는 기록, 단계마다 확인하는 공정
           </div>
 
           <div style={{ ...fadeStyle(sec3Visible, 0.16) }}>
@@ -332,7 +332,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             letterSpacing: "0.03em",
             fontWeight: 500,
           }}>
-          공간마켓 v0.1.0
+          공간마켓 v1.0.0
         </div>
       </div>
     </div>

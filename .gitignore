@@ -1,3 +1,7 @@
 node_modules
 dist
 .env.local
+# Android build artifacts (keystore intentionally tracked — this is a private repo)
+android-twa/.gradle/
+android-twa/build/
+android-twa/app/build/

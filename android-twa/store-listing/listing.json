@@ -1,0 +1,30 @@
+{
+  "language": "ko-KR",
+  "title": "공간마켓 - 인테리어 에스크로 플랫폼",
+  "short_description": "공간 사이의 감성을 잇는 인테리어 플랫폼. 단계별 에스크로 결제.",
+  "full_description": "공간마켓은 고객과 인테리어 업체를 안전하게 연결하는 중개 플랫폼입니다.\n\n■ 의뢰인에게\n• 검증된 업체(서류·보험·시공 이력 확인)에게만 견적 요청\n• 공사비는 단계 확인 후에만 정산되는 에스크로 구조\n• 계약 범위, 시공 사진, 대화 기록이 모두 저장됩니다\n\n■ 업체에게\n• 에스크로로 예치된 검증된 의뢰인만 연결\n• 착공·중간·완료 단계마다 안정적으로 정산\n• 시공 기록이 분쟁 시 증거 자료가 됩니다\n\n■ 단계별 에스크로 정산\n1단계(착공) 10% → 2단계(중간) 20% → 3단계(완료) 40% → 4단계(정산) 30%\n\n공간마켓은 양쪽이 모두 고객입니다.",
+  "category": "LIFESTYLE",
+  "content_rating": "Everyone",
+  "privacy_policy_url": "https://gonggan-market.vercel.app/privacy",
+  "website_url": "https://gonggan-market.vercel.app",
+  "email": "support@gongganmarket.com",
+  "phone": "",
+  "screenshots_required": {
+    "phone": "최소 2장, 최대 8장 (16:9 또는 9:16 비율 권장)",
+    "tablet_7": "선택사항",
+    "tablet_10": "선택사항"
+  },
+  "feature_graphic": {
+    "size": "1024x500px",
+    "description": "히어로 이미지 — 브랜드 그린 배경 + 공간마켓 로고 + '공간 사이의 감성' 카피"
+  },
+  "app_icon": {
+    "size": "512x512px",
+    "file": "../../public/icons/icon-512.svg"
+  },
+  "version": {
+    "versionCode": 1,
+    "versionName": "1.0.0",
+    "release_notes_ko": "• 공간마켓 첫 출시\n• 단계별 에스크로 결제\n• 검증 업체 연결\n• 기록 기반 계약"
+  }
+}

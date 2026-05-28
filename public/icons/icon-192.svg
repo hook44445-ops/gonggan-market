@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="40" fill="#2E5F4B"/>
+  <!-- Stylized room / space: floor line + two walls suggesting an interior corner -->
+  <rect x="40" y="104" width="112" height="52" rx="6" fill="#F5F1EA" opacity="0.15"/>
+  <!-- left wall -->
+  <rect x="40" y="44" width="8" height="112" rx="4" fill="#F5F1EA"/>
+  <!-- floor -->
+  <rect x="40" y="148" width="112" height="8" rx="4" fill="#F5F1EA"/>
+  <!-- window / door frame suggesting space -->
+  <rect x="64" y="64" width="36" height="48" rx="6" fill="none" stroke="#F5F1EA" stroke-width="6"/>
+  <!-- plant / organic shape for warmth -->
+  <ellipse cx="136" cy="112" rx="16" ry="20" fill="#B5D4C5"/>
+  <rect x="132" y="128" width="8" height="16" rx="4" fill="#B5D4C5"/>
+  <!-- 공 character hint — small circle mark -->
+  <circle cx="140" cy="68" r="10" fill="none" stroke="#F5F1EA" stroke-width="4"/>
+  <line x1="140" y1="58" x2="140" y2="78" stroke="#F5F1EA" stroke-width="4" stroke-linecap="round"/>
+</svg>

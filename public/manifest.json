@@ -1,0 +1,30 @@
+{
+  "name": "공간마켓",
+  "short_name": "공간마켓",
+  "description": "공간 사이의 감성을 잇는 인테리어 플랫폼",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2E5F4B",
+  "background_color": "#F5F1EA",
+  "lang": "ko",
+  "categories": ["lifestyle", "shopping", "house & home"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

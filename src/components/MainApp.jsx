@@ -185,8 +185,8 @@ const computeCustomerStage = (r, escrowData) => {
   if (!escrow) {
     if (r.status === "in_progress") return {
       badge: "계약중", badgeBg: C.brandL, badgeFg: C.brand,
-      label: "계약 진행중", sub: "에스크로 정산 진행 중",
-      action: "escrow", cta: "에스크로 확인하기",
+      label: "계약 진행중", sub: "안전 결제 진행 중",
+      action: "escrow", cta: "공사 현황 보기",
     };
     if (r.bidCount > 0) return {
       badge: "입찰중", badgeBg: C.brandL, badgeFg: C.brand,
@@ -1281,7 +1281,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               {[
                 { step:"1", icon:"📋", title:"견적 요청", sub:"공사 내용 입력하면\n인근 검증 업체에 자동 전달" },
                 { step:"2", icon:"💰", title:"입찰 비교", sub:"업체들이 금액·기간 제출\n공간온도 보고 비교 선택" },
-                { step:"3", icon:"🛡", title:"에스크로 정산", sub:"고객 돈은 공간마켓 보관\n단계 확인 후 업체에 지급" },
+                { step:"3", icon:"🛡", title:"안전 결제", sub:"고객 돈은 공간마켓 보관\n단계 확인 후 업체에 지급" },
               ].map((item, i, arr) => (
                 <div key={item.step} style={{ display:"flex", gap:S.md, alignItems:"flex-start",
                   marginBottom: i < arr.length-1 ? S.lg : 0 }}>
@@ -2345,7 +2345,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   }
                 }}
                 style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
-                공간마켓 v1.0.0 · 베타
+                공간마켓 v1.0.0
               </div>
             </div>
 
