@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getBidById, getCompanyByOwnerId, getEscrowByRequest, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getBidById, getCompanyByOwnerId, getEscrowByRequest, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 
 // Stage status values:
@@ -407,15 +407,22 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
     const { dbStep, txStatus, currentStep, payoutStage } = phaseConfig;
     const photos = stagePhotos[stageId] ?? [];
-    const cid = resolvedContractId;
+    const reqId = request?.id ?? resolvedBid?.requestId ?? null;
+    let cid = resolvedContractId;
 
     const debug = {
       contract_id:          cid ?? "NULL",
-      request_id:           request?.id ?? resolvedBid?.requestId ?? "NULL",
+      escrow_id:            cid ?? "NULL",
+      request_id:           reqId ?? "NULL",
       company_id:           resolvedBid?.companyId ?? userId ?? "NULL",
       current_status:       contractData?.transaction_status ?? "—",
       current_phase:        stageId,
       uploaded_photo_url:   photos[0] ?? null,
+      send_clicked:         true,
+      send_ok:              null,
+      send_err:             null,
+      status_update_table:  "escrow_payments",
+      customer_visible_status: txStatus,
       upload_ok:            null,
       upload_err:           null,
       status_update_ok:     null,
@@ -427,18 +434,54 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       caught_err:           null,
     };
 
-    if (!cid) {
-      debug.upload_err = "resolvedContractId is null — DB writes skipped";
-      setCompanyReportDebug(debug);
-      setReportError("계약 정보를 아직 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
-      setReportingStage(null);
-      return;
-    }
-
     try {
+      // ── 0. contract_id(=escrow_payments.id) 확보 ────────────────────────────
+      // contract 정보가 없다고 전송을 막지 않습니다.
+      // 고객 화면은 request_id 기준으로 동일 row를 읽으므로 request_id 연결이 핵심입니다.
+      // 순서: ① resolvedContractId → ② request_id로 escrow 조회 → ③ 없으면 생성
+      // TODO: 추후 service role Edge Function으로 이전 (RLS 우회 / 원자적 생성)
+      if (!cid && reqId) {
+        const { data: existing, error: exErr } = await getEscrowByRequest(reqId);
+        if (existing?.id) {
+          cid = existing.id;
+          debug.status_update_table = "escrow_payments(existing)";
+          debug.contract_reload_ok = true;
+        } else {
+          if (exErr) debug.contract_reload_err = exErr.message;
+          const total     = resolvedBid?.price ?? 0;
+          const companyId = resolvedBid?.companyId ?? userId ?? null;
+          const { data: created, error: createErr } = await createEscrowRecord({
+            requestId:   reqId,
+            companyId,
+            totalAmount: total,
+          });
+          if (created?.id) {
+            cid = created.id;
+            debug.status_update_table = "escrow_payments(created)";
+            debug.contract_reload_ok = true;
+            // 단계별 payout 4건 생성 (setEscrowPayoutReady가 동작하도록)
+            await createEscrowPayoutsForContract(cid, companyId, total, 0.04, 0.1).catch(() => {});
+          } else {
+            debug.contract_reload_err = createErr?.message ?? "create failed";
+          }
+        }
+        if (cid) setResolvedContractId(cid);
+        debug.contract_id = cid ?? "NULL";
+        debug.escrow_id   = cid ?? "NULL";
+      }
+
+      if (!cid) {
+        debug.send_ok  = false;
+        debug.send_err = reqId
+          ? "계약(escrow) 생성 실패 — 잠시 후 다시 시도해주세요"
+          : "request_id가 없어 전송할 수 없습니다";
+        setReportError(debug.send_err);
+        return; // finally에서 버튼/로딩 원복
+      }
+
       // 1. Insert phase_photos
       if (photos.length > 0) {
-        const { data: photoRow, error: photoErr } = await addPhasePhotos({
+        const { error: photoErr } = await addPhasePhotos({
           contractId:   cid,
           step:         dbStep,
           photos,
@@ -463,6 +506,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       debug.payout_update_ok  = !payoutErr;
       debug.payout_update_err = payoutErr?.message ?? null;
 
+      // 전송 성공 판정: 단계 상태 업데이트(escrow_payments)가 핵심
+      debug.send_ok  = !escrowErr;
+      debug.send_err = escrowErr?.message ?? null;
+
       // Optimistic UI update (DB will confirm on re-fetch)
       if (!escrowErr) {
         setStageStatus(prev => ({ ...prev, [stageId]: "pending_customer" }));
@@ -484,6 +531,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
     } catch (err) {
       debug.caught_err = err?.message ?? String(err);
+      debug.send_ok    = false;
+      debug.send_err   = debug.caught_err;
       setReportError(`오류가 발생했습니다: ${debug.caught_err}`);
     } finally {
       setCompanyReportDebug(debug);
@@ -598,8 +647,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               stageStatus: {JSON.stringify(stageStatus)}<br/>
               {!isConsumer && companyReportDebug && (<>
                 <span style={{color:"#ff0"}}>── company report result ──</span><br/>
+                <span style={{color: companyReportDebug.send_ok ? "#0f0" : companyReportDebug.send_err ? "#f66" : "#888"}}>
+                  send_clicked: {String(companyReportDebug.send_clicked ?? "—")} | send_ok: {String(companyReportDebug.send_ok ?? "—")}
+                </span><br/>
+                {companyReportDebug.send_err && (
+                  <span style={{color:"#f66"}}>send_err: {companyReportDebug.send_err}<br/></span>
+                )}
+                <span style={{color:"#aaa"}}>
+                  status_update_table: {companyReportDebug.status_update_table ?? "—"} | customer_visible_status: {companyReportDebug.customer_visible_status ?? "—"}
+                </span><br/>
                 <span style={{color: companyReportDebug.contract_id && companyReportDebug.contract_id !== "NULL" ? "#0f0" : "#f66"}}>
-                  contract_id: {companyReportDebug.contract_id?.slice?.(0,8) ?? companyReportDebug.contract_id}
+                  contract_id/escrow_id: {companyReportDebug.contract_id?.slice?.(0,8) ?? companyReportDebug.contract_id}
                 </span><br/>
                 <span style={{color:"#aaa"}}>
                   request_id: {companyReportDebug.request_id?.slice?.(0,8) ?? companyReportDebug.request_id} | company_id: {companyReportDebug.company_id?.slice?.(0,8) ?? companyReportDebug.company_id}
@@ -624,6 +682,22 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   <span style={{color:"#f66"}}>caught_err: {companyReportDebug.caught_err}<br/></span>
                 )}
               </>)}
+              {isConsumer && (() => {
+                const waiting = stageStatus[3] === "pending_customer" || stageStatus[4] === "pending_customer" || stageStatus[5] === "pending_customer";
+                const ctaVisible = waiting && !disputeSubmitted;
+                const startU = (stagePhotos[3] ?? [])[0];
+                const midU   = (stagePhotos[4] ?? [])[0];
+                const compU  = (stagePhotos[5] ?? [])[0];
+                return (<>
+                  <span style={{color:"#ff0"}}>── customer escrow view ──</span><br/>
+                  contract_id/escrow_id: {resolvedContractId?.slice(0,8) ?? "null"}<br/>
+                  <span style={{color: startU ? "#4ff" : "#888"}}>start_photo_url: {startU ? "…"+String(startU).slice(-18) : "none"}</span><br/>
+                  <span style={{color: midU ? "#4ff" : "#888"}}>mid_photo_url: {midU ? "…"+String(midU).slice(-18) : "none"}</span><br/>
+                  <span style={{color: compU ? "#4ff" : "#888"}}>completion_photo_url: {compU ? "…"+String(compU).slice(-18) : "none"}</span><br/>
+                  <span style={{color: waiting ? "#ff0" : "#888"}}>waiting_customer_confirm: {String(waiting)}</span><br/>
+                  <span style={{color: ctaVisible ? "#0f0" : "#f66"}}>approve_cta_visible: {String(ctaVisible)}</span><br/>
+                </>);
+              })()}
               {isConsumer && approvalLog && (<>
                 <span style={{color:"#ff0"}}>── customer approval result ──</span><br/>
                 stage: {approvalLog.stageId} | cid: {approvalLog.contractId}<br/>
