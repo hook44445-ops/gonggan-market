@@ -1165,8 +1165,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 인테리어는 어디서?
               </div>
               <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6 }}>집, 상가, 리모델링까지</div>
-                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6 }}>비교하고 확인하세요</div>
+                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6, marginBottom:6 }}>집, 상가, 리모델링까지</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.65 }}>인테리어, 아무에게나 맡길 수 없으니까</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.65 }}>부담 없이 비교하고 시작하세요</div>
               </div>
               {(() => {
                 const hasActive = myRequests.some(r => r.isActive);
