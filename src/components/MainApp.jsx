@@ -278,7 +278,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [myPostsRefreshKey, setMyPostsRefreshKey] = useState(0);
   const [localLoungePosts, setLocalLoungePosts]   = useState([]);
   const [localLoungeStories, setLocalLoungeStories] = useState([]);
-  const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
+  const { balance: tokenBalance, logs: tokenLogs, missionStats: tokenMissionStats, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
   const { temperature } = useSpaceTemperature(user?.id);
 
   const [activeJobs, setActiveJobs] = useState([]);
@@ -2122,6 +2122,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onPublish={(story) => {
               if (story) setLocalLoungeStories(prev => [story, ...prev]);
               showToast("📸 스토리가 공유됐어요! (24시간)");
+              earnToken("first_story");
               setScreen("lounge");
             }}
           />
@@ -2132,8 +2133,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             user={user}
             balance={tokenBalance}
             logs={tokenLogs}
+            missionStats={tokenMissionStats}
             onBack={() => setScreen(prevScreen || "my")}
-            onEarnToken={(action) => earnToken(action)}
+            onEarnToken={async (action) => earnToken(action)}
             onHistory={() => go("token-history")}
           />
         )}
@@ -2884,6 +2886,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             setCustomerRequests(prev => prev.map(replace));
           }
         }
+        earnToken("first_quote_request");
       }} />}
 
       {bidAlert && (

@@ -1681,6 +1681,25 @@ export const getSpaceTokenLogs = (userId, limit = 50) =>
     .order("created_at", { ascending: false })
     .limit(limit);
 
+export const getUserMissionStats = async (userId) => {
+  if (!userId) return null;
+  const [postsRes, commentsRes, storiesRes, likesRes, requestsRes] = await Promise.all([
+    supabase.from("lounge_posts").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("is_story", false).eq("is_deleted", false),
+    supabase.from("lounge_comments").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("is_deleted", false),
+    supabase.from("lounge_posts").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("is_story", true).eq("is_deleted", false),
+    supabase.from("lounge_posts").select("like_count").eq("user_id", userId).eq("is_deleted", false),
+    supabase.from("requests").select("id", { count: "exact", head: true }).eq("user_id", userId),
+  ]);
+  const likesReceived = (likesRes.data ?? []).reduce((sum, r) => sum + (r.like_count ?? 0), 0);
+  return {
+    posts:          postsRes.count      ?? 0,
+    comments:       commentsRes.count   ?? 0,
+    stories:        storiesRes.count    ?? 0,
+    likes_received: likesReceived,
+    requests:       requestsRes.count   ?? 0,
+  };
+};
+
 // ── STEP SYNC-4: Lounge Likes ─────────────────────────────────────────────────
 
 export const checkLoungePostLiked = (postId, userId) =>
