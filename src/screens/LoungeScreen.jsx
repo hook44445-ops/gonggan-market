@@ -406,9 +406,10 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 90 }}>
       {/* 헤더 */}
       <div style={{ background: C.surface, position: 'sticky', top: 0, zIndex: 10, borderBottom: `1px solid ${C.bgWarm}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `14px ${S.xl}px 0` }}>
-          <div style={{ fontSize: 22, fontWeight: 900, color: C.text1, letterSpacing: '-0.5px' }}>
-            <span style={{ borderBottom: `2px solid ${C.brand}`, paddingBottom: 1 }}>라운지</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: `14px ${S.xl}px 0` }}>
+          <div>
+            <div style={{ fontSize: 11, color: C.text3, marginBottom: 2, letterSpacing: '0.3px' }}>공간사이</div>
+            <div style={{ fontSize: 21, fontWeight: 800, color: C.text1, letterSpacing: '-0.5px' }}>라운지</div>
           </div>
           <div style={{ display: 'flex', gap: S.md }}>
             <button
@@ -437,7 +438,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         </div>
         {/* 커뮤니티 서브 배너 */}
         <div style={{ background: `linear-gradient(150deg, ${C.brandL}, ${C.bgWarm})`, padding: `10px ${S.xl}px`, marginTop: 10 }}>
-          <span style={{ fontSize: 12, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>공간사이 커뮤니티 · 익명 자유 소통</span>
+          <span style={{ fontSize: 12, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>잠깐 쉬어가는 공간 · 편하게 말 걸어보세요</span>
         </div>
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
@@ -459,9 +460,9 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
       />
 
       {isPopular && (
-        <div style={{ background: C.brandL, borderLeft: `3px solid ${C.brand}`, padding: `${S.sm}px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.sm }}>
-          <span style={{ fontSize: 14 }}>🔥</span>
-          <span style={{ fontSize: 12, color: C.brand, fontWeight: 600 }}>조회수·관심 순 인기 글 모음 — 읽기·댓글·관심만 가능해요</span>
+        <div style={{ background: C.brandL, borderLeft: `3px solid ${C.brandM}`, padding: `${S.sm}px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.sm }}>
+          <span style={{ fontSize: 13 }}>🌿</span>
+          <span style={{ fontSize: 12, color: C.brand, fontWeight: 600 }}>많이 읽힌 이야기 모음 — 읽기·댓글·관심만 가능해요</span>
         </div>
       )}
 
