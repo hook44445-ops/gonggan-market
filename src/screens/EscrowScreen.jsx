@@ -99,7 +99,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const fetchContract = async () => {
       const buildRestored = (bid) => ({
         id: bid.id, requestId: bid.request_id, companyId: bid.company_id,
-        company: { id: bid.company_id, name: "업체", temp: 70 },
+        company: { id: bid.company_id, name: "업체", temp: 36.5 },
         price: bid.price, period: bid.period_days,
         material: bid.material_note ?? "", comment: bid.comment ?? "",
         createdAt: bid.created_at, status: bid.selected ? "selected" : "pending",
@@ -215,7 +215,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       if (!data) return;
       setResolvedBid(prev => prev ? {
         ...prev,
-        company: { id: data.id, ownerId: data.owner_id, name: data.name ?? "업체", temp: data.temp ?? 70 },
+        company: { id: data.id, ownerId: data.owner_id, name: data.name ?? "업체", temp: data.temp ?? 36.5 },
       } : prev);
     }).catch(() => {});
   }, [resolvedBid?.companyId]); // eslint-disable-line react-hooks/exhaustive-deps

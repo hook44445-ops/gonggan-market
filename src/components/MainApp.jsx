@@ -72,7 +72,7 @@ const normalizeCompany = (row) => ({
   id:            row.id,
   ownerId:       row.owner_id ?? null,
   name:          row.name ?? "업체",
-  temp:          row.temp ?? 70,
+  temp:          row.temp ?? 36.5,
   verified:      row.verified ?? false,
   badge:         row.badge ?? "basic",
   hasInsurance:  row.has_insurance ?? false,
@@ -232,6 +232,23 @@ const computeCustomerStage = (r, escrowData) => {
     action: "escrow", cta: "시공 진행 확인하기",
   };
 };
+
+// 관심 — 조용한 갤러리 톤의 빈 상태
+function FavEmptyState({ title, desc, onGo }) {
+  return (
+    <div style={{ textAlign:"center", padding:"56px 24px 24px" }}>
+      <div style={{ width:56, height:56, borderRadius:R.full, background:C.brandL,
+        display:"flex", alignItems:"center", justifyContent:"center",
+        margin:"0 auto 16px", fontSize:22, color:C.brand }}>♥</div>
+      <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>{title}</div>
+      <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl, whiteSpace:"pre-line" }}>{desc}</div>
+      <button onClick={onGo} style={{ padding:"11px 26px", background:C.surface, color:C.brand,
+        border:`1px solid ${C.brandM}`, borderRadius:R.full, fontWeight:700, fontSize:14, cursor:"pointer" }}>
+        라운지 둘러보기
+      </button>
+    </div>
+  );
+}
 
 export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
@@ -723,7 +740,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             comment: b.comment ?? "",
             createdAt: b.created_at,
             status: b.selected ? "selected" : "pending",
-            company: { id: b.company_id, name: user.name ?? "업체", temp: 70, ownerId: user.id },
+            company: { id: b.company_id, name: user.name ?? "업체", temp: 36.5, ownerId: user.id },
           },
           request: requestMap[b.request_id] ? normalizeRequest(requestMap[b.request_id]) : null,
           escrow: escrowByRequestId[b.request_id] ?? null,
@@ -852,7 +869,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       if (bid) {
         const restoredBid = {
           id: bid.id, requestId: bid.request_id, companyId: bid.company_id,
-          company: { id: bid.company_id, name: pending.companyName ?? "업체", temp: 70, ownerId: pending.companyOwnerId },
+          company: { id: bid.company_id, name: pending.companyName ?? "업체", temp: 36.5, ownerId: pending.companyOwnerId },
           price: bid.price, period: bid.period_days,
           material: bid.material_note ?? "", comment: bid.comment ?? "",
           createdAt: bid.created_at, status: "selected",
@@ -1029,7 +1046,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       return;
     }
     // actor: display info only (name, temp, badge). DO NOT use actor.id for FK.
-    const actor = currentUser ?? { id: null, ownerId: null, name: user.name ?? "업체", temp: 70 };
+    const actor = currentUser ?? { id: null, ownerId: null, name: user.name ?? "업체", temp: 36.5 };
     // bids.company_id FK → users.id, so always use auth user.id
     const bidCompanyId = user.id;
     if (!bidCompanyId || typeof bidCompanyId !== "string" || !bidCompanyId.includes("-")) {
@@ -1138,11 +1155,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       {(screen==="home"||screen==="map") && (
         <div style={{ background:C.surface, padding:"14px 20px 0", borderBottom:`1px solid ${C.bgWarm}`, position:"sticky", top:0, zIndex:10 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <div style={{ width:30, height:30, borderRadius:R.md, background:C.brand,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:15, boxShadow:`0 2px 8px ${C.brand}44` }}>🏠</div>
-              <div style={{ fontSize:20, fontWeight:900, color:C.text1, letterSpacing:"-0.5px" }}>공간마켓</div>
+            <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+              <div style={{ width:32, height:32, borderRadius:R.md, background:C.brandL,
+                display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}>🏡</div>
+              <div>
+                <div style={{ fontSize:15, fontWeight:800, color:C.brandD, letterSpacing:"-0.3px", lineHeight:1.15 }}>공간사이</div>
+                <div style={{ fontSize:9, color:C.text3, letterSpacing:"0.4px", lineHeight:1 }}>공간마켓</div>
+              </div>
             </div>
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
               <button onClick={onLogout} style={{ fontSize:11, color:C.text4, background:"none", border:"none", cursor:"pointer" }}>로그아웃</button>
@@ -1174,16 +1193,15 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 borderRadius:"50%", background:`${C.brand}12` }} />
               <div style={{ position:"absolute", right:14, bottom:-18, width:64, height:64,
                 borderRadius:"50%", background:`${C.brand}08` }} />
-              <div style={{ fontSize:12, color:C.brand, fontWeight:700, marginBottom:6 }}>
-                📍 {user.region} · {user.name}님 안녕하세요
+              <div style={{ fontSize:12, color:C.brand, fontWeight:600, marginBottom:8 }}>
+                {user.region} · {user.name}님 안녕하세요
               </div>
-              <div style={{ fontSize:24, fontWeight:900, color:C.text1, marginBottom:8, lineHeight:1.3, letterSpacing:"-0.4px" }}>
+              <div style={{ fontSize:23, fontWeight:800, color:C.text1, marginBottom:10, lineHeight:1.35, letterSpacing:"-0.4px" }}>
                 인테리어는 어디서?
               </div>
               <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6, marginBottom:6 }}>집, 상가, 리모델링까지</div>
-                <div style={{ fontSize:12, color:C.text3, lineHeight:1.65 }}>인테리어, 아무에게나 맡길 수 없으니까</div>
-                <div style={{ fontSize:12, color:C.text3, lineHeight:1.65 }}>부담 없이 비교하고 시작하세요</div>
+                <div style={{ fontSize:13, color:C.text2, lineHeight:1.7, marginBottom:3 }}>집, 상가, 리모델링까지</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.7 }}>믿고 맡길 수 있는 공간을 함께 찾아요</div>
               </div>
               {(() => {
                 const hasActive = myRequests.some(r => r.isActive);
@@ -1196,12 +1214,34 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 ) : (
                   <button onClick={handleOpenNewReq}
                     style={{ background:C.brand, color:"#fff", border:"none",
-                      borderRadius:R.full, padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer",
-                      boxShadow:`0 4px 16px ${C.brand}44` }}>
+                      borderRadius:R.full, padding:"12px 24px", fontWeight:700, fontSize:14, cursor:"pointer",
+                      boxShadow:`0 4px 14px ${C.brand}33` }}>
                     견적 시작하기
                   </button>
                 );
               })()}
+            </div>
+
+            {/* 공간사이의 약속 */}
+            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
+              marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize:12, fontWeight:700, color:C.text3, marginBottom:S.md,
+                letterSpacing:"0.3px" }}>공간사이의 약속</div>
+              <div style={{ display:"flex" }}>
+                {[
+                  { icon:"🛡", title:"안전한 거래", sub:"에스크로 보호" },
+                  { icon:"✓",  title:"신뢰 파트너", sub:"검증된 업체" },
+                  { icon:"🤝", title:"따뜻한 연결", sub:"사람과 공간 사이" },
+                ].map((item, i, arr) => (
+                  <div key={item.title} style={{ flex:1, textAlign:"center",
+                    borderRight:i<arr.length-1?`1px solid ${C.bgWarm}`:"none",
+                    padding:`0 ${S.sm}px` }}>
+                    <div style={{ fontSize:16, marginBottom:5, color:C.brand }}>{item.icon}</div>
+                    <div style={{ fontSize:12, fontWeight:700, color:C.text1 }}>{item.title}</div>
+                    <div style={{ fontSize:10, color:C.text3, marginTop:2 }}>{item.sub}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* ── 믿고 맡긴 후기 — 실제 우선, 부족분은 seed_reviews로 채움 ── */}
@@ -1703,8 +1743,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             {(() => {
               const totalJobs = companies.reduce((s, c) => s + (c.completedJobs ?? 0), 0);
               const avgTemp = companies.length > 0
-                ? Math.round(companies.reduce((s, c) => s + (c.temp ?? 70), 0) / companies.length)
-                : 70;
+                ? Math.round(companies.reduce((s, c) => s + (c.temp ?? 36.5), 0) / companies.length)
+                : 36.5;
               return (
             <div style={{ display:"flex", gap:S.sm, marginBottom:S.xl }}>
               {[["🏘","인근 업체",`${companies.length}곳`],["🌡","평균 공간온도",`${avgTemp}°`],["✅","누적 완료",`${totalJobs}건`]].map(([icon,label,val]) => (
@@ -1747,9 +1787,26 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               )}
               <button onClick={() => setScreen("lounge")}
-                style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand}44` }}>
-                라운지 들어가기 →
+                style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand}33` }}>
+                라운지 들어가기
               </button>
+            </div>
+
+            {/* 공간사이 브랜드 무드 카드 */}
+            <div style={{ display:"flex", gap:S.sm, marginTop:S.xl, marginBottom:S.sm, overflowX:"auto", paddingBottom:4, scrollbarWidth:"none" }}>
+              {[
+                { bg:C.brandD, color:"rgba(255,255,255,0.92)", text:"자연의 숨결,\n감사의 마음으로\n공간을 함께\n만들어갑니다." },
+                { bg:"#DFABC6", color:"#6B3355", text:"오늘도,\n함께 웃는\n하루 되세요! ☺" },
+                { bg:"#686E57", color:"rgba(255,255,255,0.9)", text:"공간을 넘어\n가치 있는 경험을\n전합니다." },
+              ].map((card, i) => (
+                <div key={i} style={{ flexShrink:0, width:150, background:card.bg, borderRadius:R.xl,
+                  padding:`${S.xl}px ${S.lg}px`, minHeight:110,
+                  display:"flex", alignItems:"flex-end" }}>
+                  <div style={{ fontSize:12, color:card.color, lineHeight:1.65, whiteSpace:"pre-line", fontWeight:500 }}>
+                    {card.text}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1776,9 +1833,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               borderRadius:R.xl, padding:S.xxl, marginBottom:S.xl, color:"#fff" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.xl }}>
                 <div>
-                  <div style={{ fontSize:20, fontWeight:900, marginBottom:8 }}>{user.name}</div>
+                  <div style={{ fontSize:10, opacity:0.7, marginBottom:5, letterSpacing:"0.2px" }}>
+                    안녕하세요, 공간사이 파트너님
+                  </div>
+                  <div style={{ fontSize:20, fontWeight:800, marginBottom:4 }}>{user.name}</div>
+                  <div style={{ fontSize:11, opacity:0.65, marginBottom:8 }}>오늘도 공간을 빛내주셔서 감사합니다</div>
                   <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                    <TempBadge temp={97} lg />
+                    <TempBadge temp={currentUser?.temp ?? 36.5} lg />
                     <CertBadge type="platform" />
                   </div>
                 </div>
@@ -2286,106 +2347,110 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
         {screen==="favorites" && (
           <div>
-            <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:S.xl }}>관심</div>
+            <div style={{ marginBottom:S.xl }}>
+              <div style={{ fontSize:11, color:C.text3, marginBottom:2, letterSpacing:"0.3px" }}>공간사이</div>
+              <div style={{ fontSize:20, fontWeight:800, color:C.text1 }}>관심</div>
+              <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>다시 보고 싶은 공간과 이야기를 모았어요</div>
+            </div>
 
             {/* 4탭 */}
             <div style={{ display:"flex", background:C.bg, borderRadius:R.lg, padding:4, marginBottom:S.xl, gap:2 }}>
-              {[["받은❤️","received"],["보낸❤️","sent"],["📸스토리","stories"],["🔖저장","saved"]].map(([label,id]) => (
-                <button key={id} onClick={() => setFavTab(id)} style={{ flex:1, padding:"9px 2px", border:"none", borderRadius:R.md, background:favTab===id?C.surface:"transparent", color:favTab===id?C.brand:C.text3, fontWeight:favTab===id?800:500, fontSize:11, cursor:"pointer", transition:"background 0.15s", whiteSpace:"nowrap" }}>
+              {[["받은 ♥","received"],["보낸 ♥","sent"],["스토리","stories"],["저장","saved"]].map(([label,id]) => (
+                <button key={id} onClick={() => setFavTab(id)} style={{ flex:1, padding:"9px 2px", border:"none", borderRadius:R.md, background:favTab===id?C.surface:"transparent", color:favTab===id?C.brand:C.text3, fontWeight:favTab===id?700:500, fontSize:12, cursor:"pointer", transition:"background 0.15s", whiteSpace:"nowrap" }}>
                   {label}
                 </button>
               ))}
             </div>
 
             {favTab === "received" && (
-              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
-                <div style={{ fontSize:52, marginBottom:12 }}>📬</div>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>받은 하트글이 없어요</div>
-                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
-                  내 게시글에 ❤️를 받으면<br/>여기서 확인할 수 있어요
-                </div>
-                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
-                  라운지 가기
-                </button>
-              </div>
+              <FavEmptyState
+                title="아직 받은 마음이 없어요"
+                desc={"내 이야기에 마음을 받으면\n여기 조용히 모여요"}
+                onGo={() => setScreen("lounge")}
+              />
             )}
 
             {favTab === "sent" && (
-              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
-                <div style={{ fontSize:52, marginBottom:12 }}>❤️</div>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>보낸 하트글이 없어요</div>
-                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
-                  라운지 글에 ❤️를 누르면<br/>여기서 모아볼 수 있어요
-                </div>
-                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
-                  라운지 가기
-                </button>
-              </div>
+              <FavEmptyState
+                title="아직 담아둔 이야기가 없어요"
+                desc={"마음이 가는 글에 ♥를 누르면\n여기서 다시 볼 수 있어요"}
+                onGo={() => setScreen("lounge")}
+              />
             )}
 
             {favTab === "stories" && (
-              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
-                <div style={{ fontSize:52, marginBottom:12 }}>📸</div>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>하트한 스토리가 없어요</div>
-                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
-                  스토리에 ❤️를 누르면<br/>24시간 동안 여기서 볼 수 있어요
-                </div>
-                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
-                  라운지 가기
-                </button>
-              </div>
+              <FavEmptyState
+                title="담아둔 스토리가 없어요"
+                desc={"스토리에 마음을 누르면\n24시간 동안 여기 머물러요"}
+                onGo={() => setScreen("lounge")}
+              />
             )}
 
             {favTab === "saved" && (
-              <div style={{ textAlign:"center", padding:"48px 0 20px" }}>
-                <div style={{ fontSize:52, marginBottom:12 }}>🔖</div>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>저장한 글이 없어요</div>
-                <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl }}>
-                  게시글 상세에서 📄 저장을 누르면<br/>여기서 모아볼 수 있어요
-                </div>
-                <button onClick={() => setScreen("lounge")} style={{ padding:"12px 28px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
-                  라운지 가기
-                </button>
-              </div>
+              <FavEmptyState
+                title="저장한 공간이 없어요"
+                desc={"다시 보고 싶은 글을 저장하면\n조용한 갤러리처럼 모여요"}
+                onGo={() => setScreen("lounge")}
+              />
             )}
           </div>
         )}
 
         {screen==="my" && (
           <div>
-            <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:S.xl }}>마이페이지</div>
-            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl,
-              marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, textAlign:"center" }}>
-              <div style={{ width:72, height:72, borderRadius:R.full, background:C.brandL,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:28, fontWeight:900, color:C.brand, margin:"0 auto 14px" }}>{user.name?.[0] ?? "?"}</div>
-              <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>{user.name}</div>
-              <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>📍 {user.region} · {activeRole==="consumer"?"의뢰인":"검증 업체"}</div>
-              {activeRole === "consumer" && (() => {
-                const grade = calcCustomerGrade(user.completedJobs ?? 0);
-                return (
-                  <div style={{ display:"inline-flex", alignItems:"center", gap:6,
-                    background:C.brandL, borderRadius:R.full, padding:"4px 12px",
-                    border:`1px solid ${C.brandM}`, marginBottom:S.xl }}>
-                    <span style={{ fontSize:16 }}>{grade.icon}</span>
-                    <span style={{ fontSize:12, fontWeight:800, color:C.brand }}>{grade.label}</span>
-                  </div>
-                );
-              })()}
-              <div style={{ display:"flex", gap:0, marginBottom:S.xl, borderTop:`1px solid ${C.bgWarm}`, paddingTop:S.xl }}>
-                {(activeRole==="consumer"
-                  ? [[`${myRequests.length}`,"견적 요청"],["0","진행중"],["0","완료"]]
-                  : [[" 3","낙찰"],["84","후기"],["97°","공간온도"]]
-                ).map(([v,l],i,arr) => (
-                  <div key={l} style={{ flex:1, borderRight:i<arr.length-1?`1px solid ${C.bgWarm}`:"none" }}>
-                    <div style={{ fontSize:22, fontWeight:900, color:C.brand }}>{v}</div>
-                    <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>{l}</div>
-                  </div>
-                ))}
+            <div style={{ marginBottom:S.xl }}>
+              <div style={{ fontSize:11, color:C.text3, marginBottom:2 }}>공간사이</div>
+              <div style={{ fontSize:20, fontWeight:800, color:C.text1 }}>마이페이지</div>
+            </div>
+            {/* 신뢰 여권 카드 */}
+            <div style={{ background:C.surface, borderRadius:R.xl, overflow:"hidden",
+              marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
+              {/* 여권 헤더 띠 */}
+              <div style={{ background:`linear-gradient(135deg,${C.brand},${C.brandD})`,
+                padding:`${S.md}px ${S.xl}px`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.85)", fontWeight:600, letterSpacing:"0.5px" }}>
+                  공간사이 신뢰 기록
+                </div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.65)" }}>
+                  {activeRole==="consumer"?"공간사이 회원":"공간사이 파트너"}
+                </div>
               </div>
-              <button onClick={onLogout} style={{ background:C.bg, color:C.text2,
-                border:`1px solid ${C.bgWarm}`, borderRadius:R.full,
-                padding:"11px 28px", fontWeight:700, fontSize:14, cursor:"pointer" }}>로그아웃</button>
+
+              <div style={{ padding:S.xxl, textAlign:"center" }}>
+                <div style={{ width:72, height:72, borderRadius:R.full, background:C.brandL,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:28, fontWeight:800, color:C.brand, margin:"0 auto 14px" }}>{user.name?.[0] ?? "?"}</div>
+                <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>{user.name}</div>
+                <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>{user.region} · {activeRole==="consumer"?"의뢰인":"검증 업체"}</div>
+                {activeRole === "consumer" && (() => {
+                  const grade = calcCustomerGrade(user.completedJobs ?? 0);
+                  return (
+                    <div style={{ display:"inline-flex", alignItems:"center", gap:6,
+                      background:C.brandL, borderRadius:R.full, padding:"4px 12px",
+                      border:`1px solid ${C.brandM}`, marginBottom:S.xl }}>
+                      <span style={{ fontSize:16 }}>{grade.icon}</span>
+                      <span style={{ fontSize:12, fontWeight:700, color:C.brand }}>{grade.label}</span>
+                    </div>
+                  );
+                })()}
+                <div style={{ display:"flex", gap:0, marginBottom:S.xl, borderTop:`1px solid ${C.bgWarm}`, paddingTop:S.xl }}>
+                  {(activeRole==="consumer"
+                    ? [[`${myRequests.length}`,"견적 요청"],["0","진행중"],["0","완료"]]
+                    : [[" 3","낙찰"],["84","후기"],[`${currentUser?.temp ?? 36.5}°`,"공간온도"]]
+                  ).map(([v,l],i,arr) => (
+                    <div key={l} style={{ flex:1, borderRight:i<arr.length-1?`1px solid ${C.bgWarm}`:"none" }}>
+                      <div style={{ fontSize:22, fontWeight:800, color:C.brand }}>{v}</div>
+                      <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize:11, color:C.text4, marginBottom:S.lg }}>
+                  사람과 공간 사이, 신뢰가 쌓이는 기록
+                </div>
+                <button onClick={onLogout} style={{ background:C.bg, color:C.text2,
+                  border:`1px solid ${C.bgWarm}`, borderRadius:R.full,
+                  padding:"11px 28px", fontWeight:600, fontSize:14, cursor:"pointer" }}>로그아웃</button>
+              </div>
             </div>
 
             {activeRole === "company" && user.isEarlyPartner && user.earlyPartnerBenefitUntil && (
@@ -3019,14 +3084,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       )}
 
       {!FULL && (
-        <div style={{ position:"fixed", bottom:0, left:0, right:0, background:C.surface, borderTop:`1px solid ${C.bgWarm}`, display:"flex", zIndex:10 }}>
-          {NAV.map(([icon,label,target]) => (
-            <button key={target} onClick={() => setScreen(target)}
-              style={{ flex:1, background:"none", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"10px 0 14px" }}>
-              <div style={{ fontSize:22 }}>{icon}</div>
-              <div style={{ fontSize:10, fontWeight:screen===target?800:500, color:screen===target?C.brand:C.text3 }}>{label}</div>
-            </button>
-          ))}
+        <div style={{ position:"fixed", bottom:0, left:0, right:0, background:C.surface,
+          borderTop:`1px solid ${C.bgWarm}`, display:"flex", zIndex:10 }}>
+          {NAV.map(([icon,label,target]) => {
+            const active = screen === target;
+            return (
+              <button key={target} onClick={() => setScreen(target)}
+                style={{ flex:1, background:"none", border:"none", cursor:"pointer",
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                  padding:"10px 0 14px", position:"relative" }}>
+                {active && (
+                  <div style={{ position:"absolute", top:0, left:"50%", transform:"translateX(-50%)",
+                    width:24, height:2, background:C.brand, borderRadius:"0 0 2px 2px" }} />
+                )}
+                <div style={{ fontSize:21, opacity:active?1:0.65 }}>{icon}</div>
+                <div style={{ fontSize:10, fontWeight:active?700:400,
+                  color:active?C.brand:C.text3 }}>{label}</div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

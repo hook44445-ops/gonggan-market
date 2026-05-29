@@ -29,7 +29,7 @@ function MockMap({ companies, userRegion, onPinClick }) {
       {companies.slice(0, 5).map((c, i) => {
         const positions = [{x:28,y:40},{x:57,y:28},{x:71,y:57},{x:42,y:70},{x:62,y:36}];
         const pos = positions[i] ?? {x:50,y:50};
-        const g = GRADE(c.temp ?? 70);
+        const g = GRADE(c.temp ?? 36.5);
         return (
           <div key={c.id} onClick={() => onPinClick?.(c)}
             style={{ position:"absolute", left:`${pos.x}%`, top:`${pos.y}%`, transform:"translate(-50%,-100%)", cursor:"pointer", zIndex:10 }}>
@@ -93,7 +93,7 @@ function RealMap({ companies, userRegion, onPinClick }) {
     companies.forEach(c => {
       if (!c.lat || !c.lng) return;
       const pos = new maps.LatLng(c.lat, c.lng);
-      const g = GRADE(c.temp ?? 70);
+      const g = GRADE(c.temp ?? 36.5);
       const content = `<div style="background:${g.bar};color:#fff;border-radius:20px;padding:5px 10px;font-size:11px;font-weight:800;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,0.2);">🏠 ${(c.name ?? "?").slice(0,4)}</div>`;
       const overlay = new maps.CustomOverlay({ map, position: pos, content, yAnchor: 1 });
       maps.event.addListener(overlay, "click", () => onPinClick?.(c));

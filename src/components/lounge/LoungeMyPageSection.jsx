@@ -643,23 +643,20 @@ export default function LoungeMyPageSection({
 
       {/* 공간온도 */}
       <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.brandM}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: S.sm }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: S.md }}>
           <div>
-            <div style={{ fontSize: 13, color: C.text3, marginBottom: 4 }}>공간온도 🌡️</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: C.brand }}>{temp.toFixed(1)}°C</div>
+            <div style={{ fontSize: 11, color: C.text3, marginBottom: 4, letterSpacing: '0.2px' }}>공간온도</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: C.brand, letterSpacing: '-0.5px' }}>{temp.toFixed(1)}°</div>
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 20 }}>{level.icon}</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.brand, marginTop: 4 }}>{level.label}</div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.brand }}>{level.label}</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: S.md, marginTop: S.sm }}>
-          {[['98%','후기 신뢰도'], ['92%','재계약률'], ['빠름','응답속도']].map(([v, l]) => (
-            <div key={l} style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{v}</div>
-              <div style={{ fontSize: 10, color: C.text3 }}>{l}</div>
-            </div>
-          ))}
+        <div style={{ background: `${C.brand}20`, borderRadius: R.full, height: 4 }}>
+          <div style={{
+            width: `${Math.min(100, Math.max(0, (temp - 36.5) / (99 - 36.5) * 100))}%`,
+            height: '100%', background: C.brand, borderRadius: R.full,
+          }} />
         </div>
       </div>
 

@@ -4,7 +4,7 @@ import { getActiveCompanies } from "../lib/supabase";
 const normalizeRow = (row) => ({
   id:                     row.id,
   name:                   row.name ?? "업체",
-  temp:                   row.temp ?? 70,
+  temp:                   row.temp ?? 36.5,
   reviews:                row.reviews ?? 0,
   years:                  row.years ?? 0,
   distance:               row.distance ?? "",
