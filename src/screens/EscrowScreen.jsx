@@ -279,6 +279,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [dbPhotos, setDbPhotos]     = useState({});    // { [dbStep]: string[] }
   const [dbLoaded, setDbLoaded]     = useState(false);
   const [dbRefreshKey, setDbRefreshKey] = useState(0); // increment to force re-fetch
+  const [stalePhotoCount, setStalePhotoCount] = useState(0); // DEV: blob: URLs filtered from DB
   const [companyReportDebug, setCompanyReportDebug] = useState(null);
   const [approvalLog, setApprovalLog] = useState(null);
   const [reviewedForContract, setReviewedForContract] = useState(false);
@@ -358,12 +359,20 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       (payouts ?? []).forEach(p => { pm[p.stage] = p; });
       setDbPayoutMap(pm);
       // phase photos { dbStep → [url,...] }
+      // blob:/data: URLs from past failed uploads are dead links — filter them out so
+      // they don't show as broken thumbnails or falsely drive stageStatus.
       const { data: photos } = await getPhasePhotos(resolvedContractId);
       const ph = {};
+      let skipped = 0;
       (photos ?? []).forEach(p => {
-        const urls = Array.isArray(p.photos) ? p.photos : (p.photos ? [p.photos] : []);
-        ph[p.step] = [...(ph[p.step] ?? []), ...urls];
+        const rawUrls = Array.isArray(p.photos) ? p.photos : (p.photos ? [p.photos] : []);
+        const validUrls = rawUrls.filter(u => typeof u === "string" && /^https?:\/\//.test(u));
+        skipped += rawUrls.length - validUrls.length;
+        if (validUrls.length > 0) {
+          ph[p.step] = [...(ph[p.step] ?? []), ...validUrls];
+        }
       });
+      setStalePhotoCount(skipped);
       setDbPhotos(ph);
       setDbLoaded(true);
     };
@@ -813,6 +822,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               <span style={{color: (dbPhotos[1]?.length ?? 0) > 0 ? "#0f0" : "#888"}}>
                 photos step1(착공):{dbPhotos[1]?.length ?? 0} step2(중간):{dbPhotos[2]?.length ?? 0} step3(완료):{dbPhotos[3]?.length ?? 0}
               </span><br/>
+              {stalePhotoCount > 0 && (
+                <span style={{color:"#f90"}}>
+                  ⚠️ stale_blob_urls_filtered: {stalePhotoCount} (DB에 저장된 blob: URL — 이전 업로드 실패)<br/>
+                </span>
+              )}
               {(dbPhotos[1]?.length ?? 0) > 0 && (
                 <span style={{color:"#4ff"}}>
                   착공url: {(dbPhotos[1] ?? []).slice(0,1).map(u => "…" + u.slice(-20)).join(", ")}<br/>
