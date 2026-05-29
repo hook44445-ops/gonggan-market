@@ -72,7 +72,7 @@ const normalizeCompany = (row) => ({
   id:            row.id,
   ownerId:       row.owner_id ?? null,
   name:          row.name ?? "업체",
-  temp:          row.temp ?? 70,
+  temp:          row.temp ?? 36.5,
   verified:      row.verified ?? false,
   badge:         row.badge ?? "basic",
   hasInsurance:  row.has_insurance ?? false,
@@ -723,7 +723,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             comment: b.comment ?? "",
             createdAt: b.created_at,
             status: b.selected ? "selected" : "pending",
-            company: { id: b.company_id, name: user.name ?? "업체", temp: 70, ownerId: user.id },
+            company: { id: b.company_id, name: user.name ?? "업체", temp: 36.5, ownerId: user.id },
           },
           request: requestMap[b.request_id] ? normalizeRequest(requestMap[b.request_id]) : null,
           escrow: escrowByRequestId[b.request_id] ?? null,
@@ -852,7 +852,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       if (bid) {
         const restoredBid = {
           id: bid.id, requestId: bid.request_id, companyId: bid.company_id,
-          company: { id: bid.company_id, name: pending.companyName ?? "업체", temp: 70, ownerId: pending.companyOwnerId },
+          company: { id: bid.company_id, name: pending.companyName ?? "업체", temp: 36.5, ownerId: pending.companyOwnerId },
           price: bid.price, period: bid.period_days,
           material: bid.material_note ?? "", comment: bid.comment ?? "",
           createdAt: bid.created_at, status: "selected",
@@ -1029,7 +1029,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       return;
     }
     // actor: display info only (name, temp, badge). DO NOT use actor.id for FK.
-    const actor = currentUser ?? { id: null, ownerId: null, name: user.name ?? "업체", temp: 70 };
+    const actor = currentUser ?? { id: null, ownerId: null, name: user.name ?? "업체", temp: 36.5 };
     // bids.company_id FK → users.id, so always use auth user.id
     const bidCompanyId = user.id;
     if (!bidCompanyId || typeof bidCompanyId !== "string" || !bidCompanyId.includes("-")) {
@@ -1703,8 +1703,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             {(() => {
               const totalJobs = companies.reduce((s, c) => s + (c.completedJobs ?? 0), 0);
               const avgTemp = companies.length > 0
-                ? Math.round(companies.reduce((s, c) => s + (c.temp ?? 70), 0) / companies.length)
-                : 70;
+                ? Math.round(companies.reduce((s, c) => s + (c.temp ?? 36.5), 0) / companies.length)
+                : 36.5;
               return (
             <div style={{ display:"flex", gap:S.sm, marginBottom:S.xl }}>
               {[["🏘","인근 업체",`${companies.length}곳`],["🌡","평균 공간온도",`${avgTemp}°`],["✅","누적 완료",`${totalJobs}건`]].map(([icon,label,val]) => (

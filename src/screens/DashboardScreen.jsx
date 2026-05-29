@@ -161,7 +161,7 @@ export default function DashboardScreen({
   const thisMonthRevenue = activeJobs.reduce((sum, j) => sum + Math.round(j.total * j.paid / 100), 0);
   const pendingAmount    = activeJobs.reduce((sum, j) => sum + Math.round(j.total * (100 - j.paid) / 100), 0);
 
-  const temp   = currentUser?.temp ?? 70;
+  const temp   = currentUser?.temp ?? 36.5;
   // Stats: prefer real DB data; fall back to companies table columns (legacy mock fields)
   const completedCount  = statsData?.completed_count  ?? currentUser?.completedJobs  ?? 0;
   const recontractRate  = statsData?.repeat_rate       ?? currentUser?.recontractRate ?? 0;

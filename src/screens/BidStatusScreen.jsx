@@ -20,7 +20,7 @@ const TOSS_METHOD_MAP = { CARD: "카드", TRANSFER: "계좌이체", VIRTUAL_ACCO
 const DEFAULT_COMPANY = { id: null, name: "—", temp: 0, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
 
 const normalizeCompany = (row) => ({
-  id: row.id, name: row.name ?? "업체", temp: row.temp ?? 70,
+  id: row.id, name: row.name ?? "업체", temp: row.temp ?? 36.5,
   verified: row.verified ?? false, badge: row.badge ?? "basic",
   completedJobs: row.completed_jobs ?? 0, recontractRate: row.recontract_rate ?? 0,
   asRate: row.as_rate ?? 0, region: row.region ?? "", online: row.online ?? false,

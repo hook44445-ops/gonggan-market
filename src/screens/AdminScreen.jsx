@@ -894,7 +894,7 @@ const normalizeCompany = (row) => ({
   id:            row.id,
   name:          row.name ?? "업체",
   badge:         row.badge ?? "basic",
-  temp:          row.temp ?? 70,
+  temp:          row.temp ?? 36.5,
   phone:         row.phone ?? "",
   ownerId:       row.owner_id ?? null,
   companyStatus: row.company_status ?? "PENDING",
