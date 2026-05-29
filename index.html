@@ -38,8 +38,19 @@
     <script type="module" src="/src/main.jsx"></script>
     <script>
       if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/sw.js").catch(() => {});
+        // If an OLD service worker is already controlling this page, a new SW
+        // taking over (skipWaiting + clients.claim) means the shell may have
+        // changed — reload once so freshly-hashed assets load (white-screen fix).
+        var __hadController = !!navigator.serviceWorker.controller;
+        var __reloaded = false;
+        navigator.serviceWorker.addEventListener("controllerchange", function () {
+          if (__hadController && !__reloaded) {
+            __reloaded = true;
+            window.location.reload();
+          }
+        });
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("/sw.js").catch(function () {});
         });
       }
     </script>

@@ -1,23 +1,32 @@
 // 공간마켓 Service Worker
-// Minimal SW for PWA installability — cache-first for shell, network-first for API.
+// Minimal SW for PWA installability.
+// Navigations: NETWORK-FIRST (freshly deployed index.html with current asset
+//   hashes always wins) — cache only as an offline fallback.
+// Hashed static assets: cache-first (filename changes per build, so safe).
 
-const CACHE_VERSION = "gonggan-v1";
-const SHELL_ASSETS = ["/", "/index.html"];
+// ⚠️ Bump CACHE_VERSION on every deploy that must purge a stale shell.
+// v1 served index.html cache-first, which pinned old asset hashes and caused a
+// white screen after a new build. v2 fixes this.
+const CACHE_VERSION = "gonggan-v2";
 
 self.addEventListener("install", (e) => {
+  // Best-effort precache of the app root for offline; non-fatal if it fails.
   e.waitUntil(
-    caches.open(CACHE_VERSION).then((c) => c.addAll(SHELL_ASSETS))
+    caches.open(CACHE_VERSION).then((c) => c.add("/").catch(() => {}))
   );
+  // Take over immediately so the stale v1 shell is replaced ASAP.
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)))
-    )
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)))
+      )
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (e) => {
@@ -35,10 +44,19 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Navigation: serve cached shell, fall back to network.
+  // Navigation: NETWORK-FIRST. Fetch fresh index.html so the current asset
+  // hashes resolve; fall back to cached shell only when offline.
   if (request.mode === "navigate") {
     e.respondWith(
-      caches.match("/index.html").then((cached) => cached || fetch(request))
+      fetch(request)
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(CACHE_VERSION).then((c) => c.put("/index.html", clone));
+          return res;
+        })
+        .catch(() =>
+          caches.match("/index.html").then((c) => c || caches.match("/"))
+        )
     );
     return;
   }

@@ -77,7 +77,7 @@ export default function App() {
 
   if (user) {
     return (
-      <ErrorBoundary onLogout={handleLogout}>
+      <ErrorBoundary onLogout={handleLogout} activeRole={user.activeRole ?? user.role ?? "consumer"}>
         <MainApp
           user={user}
           onLogout={handleLogout}
@@ -107,7 +107,7 @@ export default function App() {
 
   if (!pendingRole) {
     return (
-      <ErrorBoundary onLogout={handleLogout}>
+      <ErrorBoundary onLogout={handleLogout} activeRole="visitor">
         <LandingScreen
           onSelectRole={handleRoleSelect}
           onAdminTap={() => {
@@ -167,7 +167,7 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary onLogout={handleLogout}>
+    <ErrorBoundary onLogout={handleLogout} activeRole={pendingRole ?? "visitor"}>
       <LoginScreen onLogin={handleLogin} initialRole={pendingRole} />
     </ErrorBoundary>
   );

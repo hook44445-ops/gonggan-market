@@ -244,6 +244,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   });
   const [prevScreen, setPrevScreen] = useState("home");
   const [selCo, setSelCo] = useState(null);
+
+  // Expose current screen + role for ErrorBoundary diagnostics (white-screen triage).
+  useEffect(() => {
+    try { window.__GG_ROUTE__ = `${activeRole}/${screen}`; } catch {}
+  }, [screen, activeRole]);
   const [toast, setToast] = useState(null);
   const [showReq, setShowReq] = useState(false);
   const [reqBlock, setReqBlock] = useState(null);   // null | { type, activeReq, remainingMs }

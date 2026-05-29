@@ -1,6 +1,9 @@
 import { Component } from "react";
 import { C, R, S } from "../constants";
 
+// Build-time git sha (injected via vite define). Falls back to "unknown".
+const DEPLOY_SHA = typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "unknown";
+
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -13,6 +16,29 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error("[ErrorBoundary] Rendering crash caught:", error, info.componentStack);
+  }
+
+  // Best-effort context for diagnostics — never throws.
+  getDiag() {
+    let route = "unknown";
+    let activeRole = this.props.activeRole ?? "unknown";
+    try {
+      route =
+        (typeof window !== "undefined" && window.__GG_ROUTE__) ||
+        (typeof window !== "undefined" && window.location
+          ? window.location.pathname + window.location.hash
+          : "unknown");
+    } catch {}
+    try {
+      if (activeRole === "unknown" && typeof localStorage !== "undefined") {
+        const raw = localStorage.getItem("gonggan_user");
+        if (raw) {
+          const u = JSON.parse(raw);
+          activeRole = u?.activeRole ?? u?.role ?? "unknown";
+        }
+      }
+    } catch {}
+    return { route, activeRole };
   }
 
   render() {
@@ -58,6 +84,26 @@ export default class ErrorBoundary extends Component {
               로그아웃
             </button>
           )}
+
+          {/* Temporary production-safe diagnostics — aids white-screen / crash triage.
+              TODO: gate behind a debug flag or remove once prod is stable. */}
+          {(() => {
+            const { route, activeRole } = this.getDiag();
+            const msg = this.state.error?.message ?? String(this.state.error ?? "unknown");
+            return (
+              <div style={{
+                marginTop: S.xxl, maxWidth: 360, width: "100%",
+                background: "#111", color: "#0f0", borderRadius: R.md,
+                padding: "10px 12px", fontSize: 10.5, lineHeight: 1.8,
+                fontFamily: "monospace", wordBreak: "break-all", textAlign: "left",
+              }}>
+                <div>error: {msg}</div>
+                <div>route: {route}</div>
+                <div>activeRole: {String(activeRole)}</div>
+                <div>sha: {DEPLOY_SHA}</div>
+              </div>
+            );
+          })()}
         </div>
       );
     }
