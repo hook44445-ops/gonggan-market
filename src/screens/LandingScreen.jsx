@@ -141,7 +141,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
               집, 상가, 리모델링까지
             </div>
             <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", lineHeight: 1.6, marginBottom: 10 }}>
-              비교하고 확인하고 안전하게
+              비교하고 확인하세요
             </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
               공간마켓은 연결과 안전을 생각합니다.
@@ -291,7 +291,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             marginBottom: 32,
             ...fadeStyle(sec3Visible, 0.08),
           }}>
-            집, 상가, 리모델링까지 비교하고 안전하게
+            집, 상가, 리모델링까지 — 비교하고 확인하세요
           </div>
 
           <div style={{ ...fadeStyle(sec3Visible, 0.16) }}>

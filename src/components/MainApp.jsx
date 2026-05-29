@@ -1163,7 +1163,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               </div>
               <div style={{ marginBottom:S.xl }}>
                 <div style={{ fontSize:13, color:C.text2, lineHeight:1.6 }}>집, 상가, 리모델링까지</div>
-                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6, marginBottom:6 }}>비교하고 확인하고 안전하게</div>
+                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6, marginBottom:6 }}>비교하고 확인하세요</div>
                 <div style={{ fontSize:11, color:C.text4, lineHeight:1.6 }}>공간마켓은 연결과 안전을 생각합니다.</div>
               </div>
               {(() => {
