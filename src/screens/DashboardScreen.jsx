@@ -126,6 +126,10 @@ export default function DashboardScreen({ onBack, onEscrow, onOpenJob, companyJo
                 request_ids: [{companyJobsDebug?.request_ids ?? "?"}]<br/>
                 request_statuses: {companyJobsDebug?.request_statuses ?? companyJobsDebug?.statuses ?? "?"}<br/>
                 join_mode: {companyJobsDebug?.join_mode ?? "?"} | escrow_direct: {companyJobsDebug?.escrow_direct_found ?? "?"} | pay_orders: {companyJobsDebug?.payment_orders_found ?? "?"}<br/>
+                <span style={{color:"#9cf"}}>
+                  raw_count: {companyJobsDebug?.raw_count ?? "?"} → deduped_count: {companyJobsDebug?.deduped_count ?? "?"} → displayed: {companyJobsDebug?.displayed_dashboard_count ?? "?"}
+                </span><br/>
+                excluded_reason: <span style={{color:"#fc8"}}>{companyJobsDebug?.excluded_reason ?? "?"}</span><br/>
                 <span style={{color: (companyJobsDebug?.displayed_jobs ?? 0) > 0 ? "#0f0" : "#f88"}}>
                   active_jobs_count(home): {companyJobsDebug?.displayed_jobs ?? "?"}
                 </span><br/>

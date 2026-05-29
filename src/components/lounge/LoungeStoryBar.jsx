@@ -440,8 +440,8 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
   );
 }
 
-// ── 스토리 원형 미니어처 ──────────────────────────────
-function StoryCircle({ story, seen, onClick }) {
+// ── 스토리 카드형 썸네일 (세로 카드, 닉네임 하단 오버레이) ──
+function StoryCard({ story, seen, onClick }) {
   const { emoji, color } = getAnonymousAvatarByNickname(story.anonymous_nickname);
   const imageUrls = Array.isArray(story.image_urls)
     ? story.image_urls
@@ -453,32 +453,56 @@ function StoryCircle({ story, seen, onClick }) {
   const showThumb = thumb && !imgFailed;
 
   return (
-    <div onClick={onClick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0, cursor: 'pointer' }}>
+    <div onClick={onClick} style={{
+      position: 'relative', width: 68, height: 92, flexShrink: 0, cursor: 'pointer',
+      borderRadius: R.lg, overflow: 'hidden',
+      border: `2px solid ${seen ? C.bgWarm : color}`,
+      boxShadow: seen ? 'none' : `0 2px 10px ${color}44`,
+      opacity: seen ? 0.6 : 1,
+      transition: 'all 0.2s',
+    }}>
+      {/* 배경: 이미지 꽉 차게 / 없거나 깨지면 그라데이션 + 아바타 */}
+      {showThumb ? (
+        <img
+          src={thumb}
+          alt=""
+          loading="lazy"
+          onError={() => setImgFailed(true)}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `linear-gradient(155deg, ${color}66, ${color}dd)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30,
+        }}>
+          {emoji}
+        </div>
+      )}
+
+      {/* 상단 아바타 링 */}
       <div style={{
-        width: 56, height: 56, borderRadius: R.full,
-        background: seen ? C.bg : (showThumb ? '#111' : color),
-        border: `2.5px solid ${seen ? C.bgWarm : color}`,
-        overflow: 'hidden',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 26,
-        opacity: seen ? 0.5 : 1,
-        boxShadow: seen ? 'none' : `0 2px 8px ${color}55`,
-        transition: 'all 0.2s',
-        flexShrink: 0,
+        position: 'absolute', top: 4, left: 4,
+        width: 20, height: 20, borderRadius: '50%',
+        background: color, border: '1.5px solid rgba(255,255,255,0.85)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11,
       }}>
-        {showThumb ? (
-          <img
-            src={thumb}
-            alt=""
-            onError={() => setImgFailed(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        ) : (
-          emoji
-        )}
+        {emoji}
       </div>
-      <div style={{ fontSize: 10, color: seen ? C.text4 : C.text3, maxWidth: 56, textAlign: 'center', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-        {story.anonymous_nickname}
+
+      {/* 하단 그라데이션 + 닉네임 */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        padding: '12px 5px 4px',
+        background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+      }}>
+        <div style={{
+          fontSize: 9.5, fontWeight: 700, color: '#fff',
+          textAlign: 'center', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+        }}>
+          {story.anonymous_nickname}
+        </div>
       </div>
     </div>
   );
@@ -509,9 +533,9 @@ export default function LoungeStoryBar({ stories, onStoryClick, user, onStoryDel
     <>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.bgWarm}`, padding: `${S.md}px ${S.xl}px` }}>
         <div style={{ fontSize: 12, color: C.text3, fontWeight: 700, marginBottom: S.sm }}>📸 실시간 스토리</div>
-        <div style={{ display: 'flex', gap: S.lg, overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div style={{ display: 'flex', gap: S.sm, overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none', paddingBottom: 2 }}>
           {localStories.map((story, i) => (
-            <StoryCircle
+            <StoryCard
               key={story.id}
               story={story}
               seen={!!seen[story.id]}

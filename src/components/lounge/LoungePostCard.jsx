@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────────────
-// 공간마켓 라운지 시스템
+// 공간마켓 라운지 시스템 — 게시글 카드 (리스트형)
 // ─────────────────────────────────────────────────────
 
+import { useState, useEffect } from 'react';
 import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 import { CATEGORY_LABEL } from '../../constants/lounge';
@@ -11,7 +12,13 @@ export default function LoungePostCard({ post, onClick }) {
   const avatar     = getAnonymousAvatarByNickname(post.anonymous_nickname);
   const hasImage   = post.image_urls?.length > 0;
   const thumbUrl   = hasImage ? post.image_urls[0] : null;
+  const imgCount   = hasImage ? post.image_urls.length : 0;
   const hasTitle   = !!post.title;
+
+  // 썸네일 로드 실패 시 검은/빈 화면 대신 아바타 그라데이션 폴백.
+  const [thumbFailed, setThumbFailed] = useState(false);
+  useEffect(() => { setThumbFailed(false); }, [thumbUrl]);
+  const showThumb = thumbUrl && !thumbFailed;
 
   return (
     <div onClick={onClick} style={{
@@ -21,7 +28,7 @@ export default function LoungePostCard({ post, onClick }) {
       cursor: 'pointer',
     }}>
 
-      {/* Row 1: 카테고리 · 지역 · 연령 ··· 시간 */}
+      {/* Row 1: 카테고리 pill · 지역 · 연령 ··· 시간 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <span style={{
           background: C.brandL, color: C.brand,
@@ -45,7 +52,7 @@ export default function LoungePostCard({ post, onClick }) {
       </div>
 
       {/* Row 2 + 3: 제목 · 본문 (왼쪽) + 썸네일 (오른쪽) */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* 제목 */}
           {hasTitle && (
@@ -53,6 +60,7 @@ export default function LoungePostCard({ post, onClick }) {
               fontSize: 15, fontWeight: 800, color: C.text1,
               lineHeight: 1.4, letterSpacing: '-0.3px',
               marginBottom: 4,
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
             }}>
               {post.title}
             </div>
@@ -69,19 +77,40 @@ export default function LoungePostCard({ post, onClick }) {
           </div>
         </div>
 
-        {/* 썸네일 */}
-        {thumbUrl && (
-          <img
-            src={thumbUrl}
-            alt=""
-            style={{
-              width: 80, height: 80,
-              borderRadius: R.md,
-              objectFit: 'cover',
-              flexShrink: 0,
-              display: 'block',
-            }}
-          />
+        {/* 썸네일 — 있으면 꽉 차게, 깨지면 폴백, 여러 장이면 카운트 배지 */}
+        {hasImage && (
+          <div style={{
+            position: 'relative', width: 84, height: 84, flexShrink: 0,
+            borderRadius: R.md, overflow: 'hidden',
+            border: `1px solid ${C.bgWarm}`,
+          }}>
+            {showThumb ? (
+              <img
+                src={thumbUrl}
+                alt=""
+                loading="lazy"
+                onError={() => setThumbFailed(true)}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+            ) : (
+              <div style={{
+                width: '100%', height: '100%',
+                background: `linear-gradient(145deg, ${avatar.color}33, ${avatar.color}88)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30,
+              }}>
+                {avatar.emoji}
+              </div>
+            )}
+            {imgCount > 1 && (
+              <span style={{
+                position: 'absolute', right: 4, bottom: 4,
+                background: 'rgba(0,0,0,0.6)', color: '#fff',
+                borderRadius: R.sm, padding: '1px 6px', fontSize: 10, fontWeight: 700,
+              }}>
+                +{imgCount - 1}
+              </span>
+            )}
+          </div>
         )}
       </div>
 
