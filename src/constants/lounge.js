@@ -51,12 +51,16 @@ export const TOKEN_COSTS = {
 };
 
 export const TOKEN_EARN = {
-  SIGNUP:               20,
-  PROFILE_COMPLETE:     20,
-  FIRST_POST:           10,
-  FIRST_COMMENT:        5,
-  WEEKLY_ACTIVITY:      30,
-  CONSTRUCTION_REVIEW:  15,
+  SIGNUP:                20,
+  PROFILE_COMPLETE:      15,
+  FIRST_POST:            10,
+  FIRST_COMMENT:          5,
+  FIRST_STORY:            5,
+  LIKES_RECEIVED_20:      5,
+  COMMENTS_WRITTEN_10:    5,
+  POSTS_WRITTEN_3:        5,
+  CONSTRUCTION_REVIEW:   15,
+  FIRST_QUOTE_REQUEST:   10,
 };
 
 export const SPACE_TEMPERATURE_BASE = 36.5;

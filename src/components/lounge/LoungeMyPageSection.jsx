@@ -309,15 +309,19 @@ function ChatHistoryScreen({ onBack }) {
 
 // ── 커뮤니티 미션 ────────────────────────────────────
 const MISSIONS = [
-  { key: 'FIRST_POST',           label: '첫 글 작성',         desc: '라운지에 첫 게시글을 올려보세요',    reward: TOKEN_EARN.FIRST_POST,           icon: '📝', once: true },
-  { key: 'FIRST_COMMENT',        label: '첫 댓글 작성',        desc: '다른 사람 글에 첫 댓글을 남겨보세요', reward: TOKEN_EARN.FIRST_COMMENT,         icon: '💬', once: true },
-  { key: 'PROFILE_COMPLETE',     label: '프로필 완성',         desc: '이름·지역 정보를 완성해보세요',       reward: TOKEN_EARN.PROFILE_COMPLETE,      icon: '✅', once: true },
-  { key: 'WEEKLY_ACTIVITY',      label: '이번 주 활동 미션',   desc: '이번 주 라운지에 3번 이상 활동하기', reward: TOKEN_EARN.WEEKLY_ACTIVITY,       icon: '🔥', once: false },
-  { key: 'CONSTRUCTION_REVIEW',  label: '공사 후기 작성',      desc: '완료된 공사 후기를 남겨보세요',       reward: TOKEN_EARN.CONSTRUCTION_REVIEW,   icon: '🏗', once: true },
+  { key: 'first_post',           label: '첫 글 작성',            desc: '라운지에 첫 게시글을 올려보세요',         reward: TOKEN_EARN.FIRST_POST,            icon: '📝' },
+  { key: 'first_comment',        label: '첫 댓글 작성',           desc: '다른 사람 글에 첫 댓글을 남겨보세요',      reward: TOKEN_EARN.FIRST_COMMENT,          icon: '💬' },
+  { key: 'first_story',          label: '첫 스토리 올리기',        desc: '24시간 스토리를 처음 공유해보세요',        reward: TOKEN_EARN.FIRST_STORY,            icon: '📸' },
+  { key: 'profile_complete',     label: '프로필 완성',            desc: '이름·지역 정보를 완성해보세요',            reward: TOKEN_EARN.PROFILE_COMPLETE,       icon: '✅' },
+  { key: 'likes_received_20',    label: '좋아요/하트 20개 받기',   desc: '내 글에 좋아요를 20개 받아보세요',         reward: TOKEN_EARN.LIKES_RECEIVED_20,      icon: '❤️' },
+  { key: 'comments_written_10',  label: '댓글 10개 작성',          desc: '라운지에서 댓글을 10개 작성해보세요',      reward: TOKEN_EARN.COMMENTS_WRITTEN_10,    icon: '🗨️' },
+  { key: 'posts_written_3',      label: '게시글 3개 작성',         desc: '라운지에 게시글을 3개 이상 올려보세요',    reward: TOKEN_EARN.POSTS_WRITTEN_3,        icon: '📋' },
+  { key: 'construction_review',  label: '인테리어 후기 작성',      desc: '완료된 공사 인테리어 후기를 남겨보세요',   reward: TOKEN_EARN.CONSTRUCTION_REVIEW,    icon: '🏗️' },
+  { key: 'first_quote_request',  label: '첫 견적 요청',            desc: '인테리어 견적을 처음 요청해보세요',        reward: TOKEN_EARN.FIRST_QUOTE_REQUEST,    icon: '📩' },
 ];
 
 function MissionsScreen({ tokenLogs, onBack }) {
-  const completed = new Set((tokenLogs ?? []).map(l => l.action?.toUpperCase()));
+  const completed = new Set((tokenLogs ?? []).filter(l => l.type === 'earn').map(l => l.action));
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg }}>
@@ -330,7 +334,7 @@ function MissionsScreen({ tokenLogs, onBack }) {
           </div>
         </div>
         {MISSIONS.map(m => {
-          const done = m.once && completed.has(m.key);
+          const done = completed.has(m.key);
           return (
             <div key={m.key} style={{ background: C.surface, borderRadius: R.lg, padding: S.xl, marginBottom: S.sm, border: `1px solid ${done ? C.brandM : C.bgWarm}`, display: 'flex', alignItems: 'center', gap: S.md, opacity: done ? 0.7 : 1 }}>
               <div style={{ width: 48, height: 48, borderRadius: R.lg, background: done ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>
@@ -343,7 +347,6 @@ function MissionsScreen({ tokenLogs, onBack }) {
               <div style={{ textAlign: 'center', flexShrink: 0 }}>
                 <div style={{ fontSize: 16, fontWeight: 900, color: done ? C.text4 : C.brand }}>+{m.reward}</div>
                 <div style={{ fontSize: 10, color: C.text4 }}>토큰</div>
-                {!m.once && <div style={{ fontSize: 9, color: C.gold, fontWeight: 700 }}>매주</div>}
               </div>
             </div>
           );

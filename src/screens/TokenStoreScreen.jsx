@@ -10,7 +10,7 @@ import TokenBalance from '../components/token/TokenBalance';
 import TokenPackageCard from '../components/token/TokenPackageCard';
 import MissionList from '../components/token/MissionList';
 
-export default function TokenStoreScreen({ user, balance, logs, onBack, onBuy, onEarnToken, onHistory }) {
+export default function TokenStoreScreen({ user, balance, logs, missionStats, onBack, onBuy, onEarnToken, onHistory }) {
   const [tab, setTab]   = useState('store');
   const [toast, setToast] = useState(null);
 
@@ -65,11 +65,17 @@ export default function TokenStoreScreen({ user, balance, logs, onBack, onBuy, o
           <>
             <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>🎯 무료 토큰 미션</div>
             <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
-              <MissionList logs={logs ?? []} onComplete={(action) => {
-                const earned = onEarnToken?.(action);
-                if (earned) showToast('✅ 토큰이 적립됐어요!');
-                else showToast('이미 완료한 미션입니다');
-              }} />
+              <MissionList
+                logs={logs ?? []}
+                missionStats={missionStats ?? null}
+                balance={balance}
+                onComplete={async (action) => {
+                  const earned = await onEarnToken?.(action);
+                  if (earned) showToast('✅ 토큰이 적립됐어요!');
+                  else showToast('이미 완료한 미션입니다');
+                  return earned;
+                }}
+              />
             </div>
           </>
         )}

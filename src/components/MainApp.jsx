@@ -278,7 +278,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [myPostsRefreshKey, setMyPostsRefreshKey] = useState(0);
   const [localLoungePosts, setLocalLoungePosts]   = useState([]);
   const [localLoungeStories, setLocalLoungeStories] = useState([]);
-  const { balance: tokenBalance, logs: tokenLogs, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
+  const { balance: tokenBalance, logs: tokenLogs, missionStats: tokenMissionStats, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
   const { temperature } = useSpaceTemperature(user?.id);
 
   const [activeJobs, setActiveJobs] = useState([]);
@@ -1165,8 +1165,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 인테리어는 어디서?
               </div>
               <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6 }}>집, 상가, 리모델링까지</div>
-                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6 }}>비교하고 확인하세요</div>
+                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6, marginBottom:6 }}>집, 상가, 리모델링까지</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.65 }}>인테리어, 아무에게나 맡길 수 없으니까</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.65 }}>부담 없이 비교하고 시작하세요</div>
               </div>
               {(() => {
                 const hasActive = myRequests.some(r => r.isActive);
@@ -2122,6 +2123,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onPublish={(story) => {
               if (story) setLocalLoungeStories(prev => [story, ...prev]);
               showToast("📸 스토리가 공유됐어요! (24시간)");
+              earnToken("first_story");
               setScreen("lounge");
             }}
           />
@@ -2132,8 +2134,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             user={user}
             balance={tokenBalance}
             logs={tokenLogs}
+            missionStats={tokenMissionStats}
             onBack={() => setScreen(prevScreen || "my")}
-            onEarnToken={(action) => earnToken(action)}
+            onEarnToken={async (action) => earnToken(action)}
             onHistory={() => go("token-history")}
           />
         )}
@@ -2884,6 +2887,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             setCustomerRequests(prev => prev.map(replace));
           }
         }
+        earnToken("first_quote_request");
       }} />}
 
       {bidAlert && (

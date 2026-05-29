@@ -177,12 +177,16 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
       {/* ── SECTION 1: 왜 양쪽 모두 안심할 수 있나요? ──────────────── */}
       <div style={{ padding: "44px 20px", background: C.bg }}>
         <div ref={sec1Ref} style={{ maxWidth: 480, margin: "0 auto" }}>
-          <div style={{
-            fontSize: 18, fontWeight: 900, color: C.text1,
-            textAlign: "center", marginBottom: 28,
-            ...fadeStyle(sec1Visible, 0),
-          }}>
-            기록이 당신의 공간을 지킵니다
+          <div style={{ textAlign: "center", marginBottom: 28, ...fadeStyle(sec1Visible, 0) }}>
+            <div style={{
+              fontSize: 18, fontWeight: 900, color: C.text1,
+              lineHeight: 1.4, marginBottom: 6,
+            }}>
+              인테리어, 아무에게나 맡길 수 없으니까
+            </div>
+            <div style={{ fontSize: 13, color: C.text3, fontWeight: 500 }}>
+              부담 없이 비교하고 시작하세요
+            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
