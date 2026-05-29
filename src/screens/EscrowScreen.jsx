@@ -280,6 +280,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [dbLoaded, setDbLoaded]     = useState(false);
   const [dbRefreshKey, setDbRefreshKey] = useState(0); // increment to force re-fetch
   const [stalePhotoCount, setStalePhotoCount] = useState(0); // DEV: blob: URLs filtered from DB
+  const [uploadDiag, setUploadDiag] = useState(null); // always-visible upload error detail
   const [companyReportDebug, setCompanyReportDebug] = useState(null);
   const [approvalLog, setApprovalLog] = useState(null);
   const [reviewedForContract, setReviewedForContract] = useState(false);
@@ -728,17 +729,29 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     if (!files.length) return;
     setUploadingStage(stageId);
     setReportError(null);
+    setUploadDiag(null);
     let anyFailed = false;
+    const diagEntries = [];
     try {
       const urls = await Promise.all(
         files.map(async (file) => {
           const path = `escrow/${stageId}/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
           try {
-            return await uploadFile("documents", path, file);
-          } catch {
-            // Storage upload failed — keep a local preview, but flag it so we can
-            // warn the company. blob: URLs are filtered out before persisting.
+            const url = await uploadFile("documents", path, file);
+            diagEntries.push({ ok: true, path, type: file.type, size: file.size });
+            return url;
+          } catch (err) {
             anyFailed = true;
+            diagEntries.push({
+              ok: false,
+              msg:    err?.message     ?? String(err),
+              status: err?.statusCode  ?? err?.status ?? "—",
+              bucket: "documents",
+              path,
+              type:   file.type,
+              size:   file.size,
+              uid:    userId ?? "null",
+            });
             return URL.createObjectURL(file);
           }
         })
@@ -748,7 +761,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         [stageId]: [...(prev[stageId] || []), ...urls].slice(0, 6),
       }));
       if (anyFailed) {
-        setReportError("일부 사진을 서버에 저장하지 못했어요(스토리지 오류). 미리보기는 보이지만 전송하려면 다시 업로드해주세요.");
+        setUploadDiag(diagEntries.filter(d => !d.ok));
+        setReportError("사진을 서버에 저장하지 못했어요. 아래 오류 정보를 확인해주세요.");
       }
     } finally {
       setUploadingStage(null);
@@ -1096,6 +1110,19 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                         {reportError && (
                           <div style={{ marginTop: S.sm, padding: "8px 12px", background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.md, fontSize: 12, color: C.red }}>
                             {reportError}
+                          </div>
+                        )}
+                        {uploadDiag && uploadDiag.length > 0 && (
+                          <div style={{ marginTop: 4, padding: "8px 10px", background: "#111", borderRadius: R.md, fontSize: 10, color: "#f93", fontFamily: "monospace", lineHeight: 1.8, wordBreak: "break-all" }}>
+                            {uploadDiag.map((d, i) => (
+                              <div key={i}>
+                                msg: {d.msg}<br/>
+                                status: {d.status} | bucket: {d.bucket}<br/>
+                                path: …{d.path.slice(-40)}<br/>
+                                type: {d.type} | size: {d.size}B<br/>
+                                uid: {d.uid}
+                              </div>
+                            ))}
                           </div>
                         )}
                         <input ref={fileInputRefs[s.id]} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => handleFileChange(e, s.id)} />
