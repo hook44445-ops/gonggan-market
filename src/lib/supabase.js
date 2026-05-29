@@ -211,10 +211,11 @@ export const disputeEscrowStep = (paymentId, step, reason) =>
 // ── Storage ───────────────────────────────────────────────────────────────────
 
 export const uploadFile = async (bucket, path, file) => {
-  const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
   if (error) throw error;
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-  return data.publicUrl;
+  // Use data.path (canonical path returned by storage) for getPublicUrl
+  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(data?.path ?? path);
+  return urlData.publicUrl;
 };
 
 // ── Portfolios ────────────────────────────────────────────────────────────────
