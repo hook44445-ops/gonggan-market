@@ -565,7 +565,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     if (!phaseConfig) { setReportingStage(null); return; }
 
     const { dbStep, txStatus, currentStep, payoutStage } = phaseConfig;
-    const photos = stagePhotos[stageId] ?? [];
+    const allPhotos = stagePhotos[stageId] ?? [];
+    // Only http(s) URLs survive a reload and are viewable by the customer.
+    // blob:/data: URLs come from a FAILED storage upload (uploadFile threw →
+    // local createObjectURL fallback). Persisting them saves dead links that
+    // render as broken images for everyone — never write them to the DB.
+    const photos = allPhotos.filter(u => typeof u === "string" && /^https?:\/\//.test(u));
+    if (allPhotos.length > 0 && photos.length === 0) {
+      setReportError("사진 저장(스토리지 업로드)에 실패했어요. 네트워크 확인 후 다시 시도해주세요.");
+      setReportingStage(null);
+      return;
+    }
     const reqId = request?.id ?? resolvedBid?.requestId ?? null;
     // Write to the request-canonical escrow row (= what the customer reads via
     // getEscrowByRequest). Falls back to resolvedContractId when contractData
@@ -708,6 +718,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const files = Array.from(e.target.files);
     if (!files.length) return;
     setUploadingStage(stageId);
+    setReportError(null);
+    let anyFailed = false;
     try {
       const urls = await Promise.all(
         files.map(async (file) => {
@@ -715,6 +727,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           try {
             return await uploadFile("documents", path, file);
           } catch {
+            // Storage upload failed — keep a local preview, but flag it so we can
+            // warn the company. blob: URLs are filtered out before persisting.
+            anyFailed = true;
             return URL.createObjectURL(file);
           }
         })
@@ -723,6 +738,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         ...prev,
         [stageId]: [...(prev[stageId] || []), ...urls].slice(0, 6),
       }));
+      if (anyFailed) {
+        setReportError("일부 사진을 서버에 저장하지 못했어요(스토리지 오류). 미리보기는 보이지만 전송하려면 다시 업로드해주세요.");
+      }
     } finally {
       setUploadingStage(null);
       e.target.value = "";
