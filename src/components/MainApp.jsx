@@ -942,7 +942,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   };
 
   const ACTIVE_STATUSES = ["open", "in_progress", "contracting", "escrow_pending"];
-  const COOLDOWN_MS = 6 * 24 * 60 * 60 * 1000; // 144h — applied after manual override
+  const COOLDOWN_MS = 6 * 24 * 60 * 60 * 1000; // 144h — applied after manual hide
+  const QUOTE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — quote comparison protection window
   const OVERRIDE_LS_KEY = "gm_req_override_ts";
 
   const fmtCooldown = (ms) => {
@@ -966,7 +967,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       localStorage.removeItem(OVERRIDE_LS_KEY);
     }
 
-    // 2. Active request check (open/in_progress/escrow → hard block)
+    // 2. Active request check
     let active = myRequests.find(r =>
       ACTIVE_STATUSES.includes(r.status) && !r.is_hidden && !r.is_deleted
     ) ?? null;
@@ -978,6 +979,21 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       setReqCheckDebug({ active_count: 0, active_request_status: "none", cooldown_remaining_hours: 0, blocked_reason: "none" });
       return null;
     }
+
+    // 3. open 상태: 업체 견적서 발급 보호 — 7일 이내에는 새 요청 불가
+    if (active.status === "open") {
+      const createdAt = new Date(active.created_at).getTime();
+      const remainingMs = Math.max(0, QUOTE_COOLDOWN_MS - (Date.now() - createdAt));
+      if (remainingMs > 0) {
+        setReqCheckDebug({ active_count: 1, active_request_status: "open", cooldown_remaining_hours: Math.ceil(remainingMs / 3600000), blocked_reason: "QUOTE_COMPARISON_BLOCK" });
+        return { type: "QUOTE_COMPARISON_BLOCK", activeReq: active, remainingMs };
+      }
+      // 7일 경과: 견적 비교 기간 만료 → 새 요청 허용
+      setReqCheckDebug({ active_count: 1, active_request_status: "open_expired", cooldown_remaining_hours: 0, blocked_reason: "OPEN_ALLOW" });
+      return null;
+    }
+
+    // 4. in_progress/contracting/escrow_pending: 계약 진행 중 → 하드 블록
     setReqCheckDebug({ active_count: 1, active_request_status: active.status, cooldown_remaining_hours: 0, blocked_reason: "HARD_BLOCK" });
     return { type: "HARD_BLOCK", activeReq: active };
   };
@@ -2749,11 +2765,50 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       {reqBlock && (() => {
         const isHard = reqBlock.type === "HARD_BLOCK";
         const isCooldown = reqBlock.type === "COOLDOWN_BLOCK";
+        const isQuoteBlock = reqBlock.type === "QUOTE_COMPARISON_BLOCK";
         return (
           <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:500 }}>
             <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"28px 24px 40px" }}>
               <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
-              <div style={{ fontSize:22, textAlign:"center", marginBottom:12 }}>{isCooldown ? "⏳" : "📋"}</div>
+              <div style={{ fontSize:22, textAlign:"center", marginBottom:12 }}>{isCooldown ? "⏳" : isQuoteBlock ? "🛡" : "📋"}</div>
+
+              {isQuoteBlock && (<>
+                <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
+                  견적 비교 중
+                </div>
+                <div style={{ fontSize:13, color:C.text3, textAlign:"center", lineHeight:1.7, marginBottom:S.md }}>
+                  업체의 견적서 발급을 보호하기 위해<br/>견적 비교 기간 중에는 새 요청을 등록할 수 없습니다.
+                </div>
+                {reqBlock.remainingMs > 0 && (
+                  <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
+                    marginBottom:S.xl, textAlign:"center", border:`1px solid ${C.brandM}` }}>
+                    <div style={{ fontSize:12, color:C.text3, marginBottom:4 }}>새 요청 가능까지</div>
+                    <div style={{ fontSize:16, fontWeight:900, color:C.brand }}>
+                      {fmtCooldown(reqBlock.remainingMs)} 남았습니다
+                    </div>
+                    <div style={{ fontSize:11, color:C.text4, marginTop:4 }}>또는 진행 중인 견적을 종료하면 바로 새 요청 가능</div>
+                  </div>
+                )}
+                <button
+                  onClick={() => { setReqBlock(null); setScreen("home"); }}
+                  style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff", border:"none",
+                    borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
+                    boxShadow:`0 4px 16px ${C.brand}44`, marginBottom:10 }}>
+                  진행 중 견적 보기
+                </button>
+                {reqBlock.activeReq?.id && (
+                  <button
+                    onClick={async () => {
+                      await archiveRequestAuto(reqBlock.activeReq.id, "manual_override").catch(() => {});
+                      setMyRequests(prev => prev.filter(r => r.id !== reqBlock.activeReq.id));
+                      setReqBlock(null);
+                    }}
+                    style={{ width:"100%", padding:"12px", background:C.surface2, color:C.red,
+                      border:`1px solid ${C.red}33`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:10 }}>
+                    견적 종료하고 새 요청 등록
+                  </button>
+                )}
+              </>)}
 
               {isHard && (<>
                 <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
@@ -2829,8 +2884,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           const { data: dup } = await getActiveRequestByUser(user.id);
           if (dup) {
             setShowReq(false);
-            setReqBlock({ type: "HARD_BLOCK", activeReq: dup });
-            return;
+            if (dup.status === "open") {
+              const remainingMs = Math.max(0, QUOTE_COOLDOWN_MS - (Date.now() - new Date(dup.created_at).getTime()));
+              if (remainingMs > 0) {
+                setReqBlock({ type: "QUOTE_COMPARISON_BLOCK", activeReq: dup, remainingMs });
+                return;
+              }
+              // 7일 경과 — 허용
+            } else {
+              setReqBlock({ type: "HARD_BLOCK", activeReq: dup });
+              return;
+            }
           }
         }
 
