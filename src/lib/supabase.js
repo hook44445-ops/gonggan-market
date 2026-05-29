@@ -348,9 +348,13 @@ export const uploadSeedReviewImage = async (file, slot) => {
 export const adminGetReviews = ({ limit = 100 } = {}) =>
   supabase
     .from("reviews")
-    .select("id, company_id, rating, status, is_hidden, is_deleted, content, user_name, region, space_type, image_urls, before_image_urls, after_image_urls, created_at, companies(name)")
+    .select("id, company_id, rating, status, is_hidden, is_deleted, content, user_name, region, space_type, image_urls, before_image_urls, after_image_urls, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
+
+// Lookup companies by owner_id (reviews.company_id → users.id → companies.owner_id)
+export const getCompaniesByOwnerIds = (ownerIds) =>
+  supabase.from("companies").select("id, owner_id, name").in("owner_id", ownerIds);
 
 export const adminUpdateReview = async (id, updates, adminId) => {
   const { data, error } = await supabase
@@ -2009,4 +2013,48 @@ export const uploadSeedLoungeImage = async (file) => {
   if (error) return { data: null, error };
   const { data } = supabase.storage.from('seed-lounge-images').getPublicUrl(name);
   return { data, error: null };
+};
+
+// ── Identity Verification (mock — no real KYC; TODO: replace with service-role Edge Function) ──
+
+export const requestMockIdentityVerification = async (userId) => {
+  const now = new Date().toISOString();
+  return supabase
+    .from("users")
+    .update({
+      is_identity_verified: true,
+      identity_verified_at: now,
+      identity_provider: "mock",
+      identity_verification_status: "verified",
+    })
+    .eq("id", userId)
+    .select("id, is_identity_verified, identity_verified_at, identity_provider, identity_verification_status")
+    .single();
+};
+
+export const adminVerifyUserIdentity = async (userId, adminId, status = "verified") => {
+  const now = new Date().toISOString();
+  const isVerified = status === "verified";
+  const { data, error } = await supabase
+    .from("users")
+    .update({
+      is_identity_verified: isVerified,
+      identity_verified_at: isVerified ? now : null,
+      identity_provider: isVerified ? "admin_manual" : null,
+      identity_verification_status: status,
+    })
+    .eq("id", userId)
+    .select("id, is_identity_verified, identity_verified_at, identity_provider, identity_verification_status")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null,
+      action: isVerified ? "VERIFY_IDENTITY" : "REVOKE_IDENTITY",
+      target_type: "user",
+      target_id: userId,
+      after_val: { identity_verification_status: status, is_identity_verified: isVerified },
+      reason: `Admin ${isVerified ? "수동 인증" : "인증 취소"}`,
+    });
+  }
+  return { data, error };
 };

@@ -419,6 +419,18 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       reasons.push("SETTLED_override");
     }
 
+    // Belt-and-suspenders safety lock: curStep from contractData is request_id-scoped and always reliable.
+    // Prevent stage 4/5 from showing "done" if contractData confirms the request hasn't reached those steps.
+    // This guards against any edge case where payout/photo data from a wrong contract slips through.
+    if (curStep < 4 && ns[4] === "done") {
+      ns[4] = ns[3] === "done" ? "company_todo" : "locked";
+      reasons.push("⛔safety:ns4_clamped(step=" + curStep + ")");
+    }
+    if (curStep < 5 && ns[5] === "done") {
+      ns[5] = ns[4] === "done" ? "company_todo" : "locked";
+      reasons.push("⛔safety:ns5_clamped(step=" + curStep + ")");
+    }
+
     if (derivedFromRecovery) reasons.push("⚠️ recovery_path — payouts/photos untrusted");
 
     setStageStatus(ns);
