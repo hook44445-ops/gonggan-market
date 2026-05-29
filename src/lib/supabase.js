@@ -879,7 +879,15 @@ export const getCompanyEscrowJobs = (companyId) =>
     .not("status", "eq", "completed")
     .order("created_at", { ascending: false });
 
-// ── Admin: update company doc_status with audit log ───────────────────────────
+// Returns SETTLED/COMPLETED escrow rows for the 완료 tab (company_id = users.id)
+export const getCompletedEscrowByCompany = (companyId) =>
+  supabase
+    .from("escrow_payments")
+    .select("id, request_id, total_amount, transaction_status, created_at, current_step, requests(area, space_type, type, size)")
+    .eq("company_id", companyId)
+    .in("transaction_status", ["SETTLED", "COMPLETED"])
+    .order("created_at", { ascending: false });
+
 
 export const adminReviewCompany = async (companyId, adminId, docStatus, rejectNote = null) => {
   const { data: prev } = await supabase
