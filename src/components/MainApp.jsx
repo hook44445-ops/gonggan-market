@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S, GRADE, calcCustomerGrade } from "../constants";
-import { TempBadge, CertBadge, Divider } from "./common";
+import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
 import LiveFeed from "./LiveFeed";
 import CompanyCard from "./CompanyCard";
 import PortfolioScreen from "../screens/PortfolioScreen";
@@ -1155,14 +1155,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       {(screen==="home"||screen==="map") && (
         <div style={{ background:C.surface, padding:"14px 20px 0", borderBottom:`1px solid ${C.bgWarm}`, position:"sticky", top:0, zIndex:10 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:9 }}>
-              <div style={{ width:32, height:32, borderRadius:R.md, background:C.brandL,
-                display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}>🏡</div>
-              <div>
-                <div style={{ fontSize:15, fontWeight:800, color:C.brandD, letterSpacing:"-0.3px", lineHeight:1.15 }}>공간사이</div>
-                <div style={{ fontSize:9, color:C.text3, letterSpacing:"0.4px", lineHeight:1 }}>공간마켓</div>
-              </div>
-            </div>
+            <BrandLockup size={32} />
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
               <button onClick={onLogout} style={{ fontSize:11, color:C.text4, background:"none", border:"none", cursor:"pointer" }}>로그아웃</button>
             </div>
@@ -1190,9 +1183,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               border:`1.5px solid ${C.brandM}`,
               position:"relative", overflow:"hidden" }}>
               <div style={{ position:"absolute", right:-28, top:-28, width:110, height:110,
-                borderRadius:"50%", background:`${C.brand}12` }} />
-              <div style={{ position:"absolute", right:14, bottom:-18, width:64, height:64,
-                borderRadius:"50%", background:`${C.brand}08` }} />
+                borderRadius:"50%", background:`${C.brand}10` }} />
+              <LeafSprig size={120} color={C.brand} opacity={0.1}
+                style={{ position:"absolute", right:-10, bottom:-24, transform:"rotate(-18deg)" }} />
               <div style={{ fontSize:12, color:C.brand, fontWeight:600, marginBottom:8 }}>
                 {user.region} · {user.name}님 안녕하세요
               </div>
@@ -1829,9 +1822,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   padding:"8px 14px", fontSize:13, fontWeight:800 }}>등록 →</div>
               </div>
             )}
-            <div style={{ background:`linear-gradient(135deg,${C.brand},${C.brandD})`,
-              borderRadius:R.xl, padding:S.xxl, marginBottom:S.xl, color:"#fff" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.xl }}>
+            <div style={{ position:"relative", background:`linear-gradient(135deg,${C.brand},${C.brandD})`,
+              borderRadius:R.xl, padding:S.xxl, marginBottom:S.xl, color:"#fff", overflow:"hidden" }}>
+              <LeafSprig size={130} color="#fff" opacity={0.08}
+                style={{ position:"absolute", right:-16, bottom:-28, transform:"rotate(-12deg)" }} />
+              <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.xl }}>
                 <div>
                   <div style={{ fontSize:10, opacity:0.7, marginBottom:5, letterSpacing:"0.2px" }}>
                     안녕하세요, 공간사이 파트너님
@@ -2347,10 +2342,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
         {screen==="favorites" && (
           <div>
-            <div style={{ marginBottom:S.xl }}>
-              <div style={{ fontSize:11, color:C.text3, marginBottom:2, letterSpacing:"0.3px" }}>공간사이</div>
-              <div style={{ fontSize:20, fontWeight:800, color:C.text1 }}>관심</div>
-              <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>다시 보고 싶은 공간과 이야기를 모았어요</div>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
+              <LogoMark size={34} />
+              <div>
+                <div style={{ fontSize:11, color:C.text3, marginBottom:2, letterSpacing:"0.3px" }}>공간사이</div>
+                <div style={{ fontSize:20, fontWeight:800, color:C.text1 }}>관심</div>
+                <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>다시 보고 싶은 공간과 이야기를 모았어요</div>
+              </div>
             </div>
 
             {/* 4탭 */}
@@ -2398,18 +2396,26 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
         {screen==="my" && (
           <div>
-            <div style={{ marginBottom:S.xl }}>
-              <div style={{ fontSize:11, color:C.text3, marginBottom:2 }}>공간사이</div>
-              <div style={{ fontSize:20, fontWeight:800, color:C.text1 }}>마이페이지</div>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
+              <LogoMark size={34} />
+              <div>
+                <div style={{ fontSize:11, color:C.text3, marginBottom:2, letterSpacing:"0.3px" }}>공간사이</div>
+                <div style={{ fontSize:20, fontWeight:800, color:C.text1 }}>마이페이지</div>
+              </div>
             </div>
             {/* 신뢰 여권 카드 */}
             <div style={{ background:C.surface, borderRadius:R.xl, overflow:"hidden",
               marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
               {/* 여권 헤더 띠 */}
-              <div style={{ background:`linear-gradient(135deg,${C.brand},${C.brandD})`,
-                padding:`${S.md}px ${S.xl}px`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                <div style={{ fontSize:11, color:"rgba(255,255,255,0.85)", fontWeight:600, letterSpacing:"0.5px" }}>
-                  공간사이 신뢰 기록
+              <div style={{ position:"relative", background:`linear-gradient(135deg,${C.brand},${C.brandD})`,
+                padding:`${S.md}px ${S.xl}px`, display:"flex", justifyContent:"space-between", alignItems:"center", overflow:"hidden" }}>
+                <LeafSprig size={70} color="#fff" opacity={0.1}
+                  style={{ position:"absolute", right:60, top:-14, transform:"rotate(8deg)" }} />
+                <div style={{ position:"relative", display:"flex", alignItems:"center", gap:7 }}>
+                  <LogoMark size={20} />
+                  <span style={{ fontSize:11, color:"rgba(255,255,255,0.9)", fontWeight:600, letterSpacing:"0.5px" }}>
+                    공간사이 신뢰 기록
+                  </span>
                 </div>
                 <div style={{ fontSize:10, color:"rgba(255,255,255,0.65)" }}>
                   {activeRole==="consumer"?"공간사이 회원":"공간사이 파트너"}

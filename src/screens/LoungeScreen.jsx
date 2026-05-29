@@ -407,9 +407,12 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
       {/* 헤더 */}
       <div style={{ background: C.surface, position: 'sticky', top: 0, zIndex: 10, borderBottom: `1px solid ${C.bgWarm}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: `14px ${S.xl}px 0` }}>
-          <div>
-            <div style={{ fontSize: 11, color: C.text3, marginBottom: 2, letterSpacing: '0.3px' }}>공간사이</div>
-            <div style={{ fontSize: 21, fontWeight: 800, color: C.text1, letterSpacing: '-0.5px' }}>라운지</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <LogoMark size={30} />
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 2, letterSpacing: '0.3px' }}>공간사이</div>
+              <div style={{ fontSize: 19, fontWeight: 800, color: C.text1, letterSpacing: '-0.5px' }}>라운지</div>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: S.md }}>
             <button
