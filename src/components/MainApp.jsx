@@ -641,8 +641,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       dev.escrow_count   = Object.keys(escrowByRequestId).length;
       dev.contract_count = dev.escrow_count;
 
+      // Terminal / closed request states — never "진행중".
+      // NOTE: do NOT hard-exclude open/expired/bidding here — a stale request.status
+      // with an ACTIVE escrow is still in progress (escrow is source of truth).
       const EXCL_REQ  = new Set(["completed","settled","cancelled","refunded","rejected","done","finished","closed"]);
-      const EXCL_TX   = new Set(["SETTLED","COMPLETED","CANCELLED","REFUNDED"]);
+      const EXCL_TX   = new Set(["SETTLED","CANCELLED","REFUNDED","DISPUTE_RESOLVED"]);
+      // Active construction phases on the escrow state machine.
+      const ACTIVE_TX = new Set(["CONTRACTED","STARTED","MID_INSPECTION","COMPLETED","DISPUTE"]);
       const ACTIVE_REQ = new Set(["contracted","in_progress","escrow","working","contract_signed","material_paid","started"]);
 
       // Build synthetic bid entries for request_ids discovered via escrow direct (no bid row)
@@ -674,13 +679,35 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         if (!jobsByRequestId[sb.request_id]) jobsByRequestId[sb.request_id] = sb;
       }
 
-      const jobs = Object.values(jobsByRequestId)
+      // request_id-level dedupe already done by jobsByRequestId; this is the candidate set.
+      const dedupedCandidates = Object.values(jobsByRequestId);
+      const excludedReasons = [];
+
+      const jobs = dedupedCandidates
         .filter(b => {
+          const rid8 = (b.request_id ?? "").slice(0, 8);
           const reqStatus = (requestMap[b.request_id]?.status ?? "").toLowerCase();
-          if (reqStatus && EXCL_REQ.has(reqStatus)) return false;
-          const txStatus = escrowByRequestId[b.request_id]?.transaction_status;
-          if (txStatus && EXCL_TX.has(txStatus)) return false;
-          return !!escrowByRequestId[b.request_id] || ACTIVE_REQ.has(reqStatus) || b.selected === true;
+          const esc = escrowByRequestId[b.request_id];
+          const txStatus = esc?.transaction_status ?? null;
+
+          // Hard exclude terminal / closed states (req-level or escrow-level).
+          if (reqStatus && EXCL_REQ.has(reqStatus)) { excludedReasons.push(`${rid8}:req=${reqStatus}`); return false; }
+          if (txStatus && EXCL_TX.has(txStatus))    { excludedReasons.push(`${rid8}:tx=${txStatus}`);  return false; }
+
+          // Include ONLY real, in-progress contracts:
+          //  • escrow exists AND its tx is an active construction phase, OR
+          //  • escrow exists with unknown tx but request status is active, OR
+          //  • request status is explicitly in_progress (escrow row not yet linked).
+          // A merely-selected bid with no escrow is "낙찰" (awaiting contract), NOT 진행중.
+          const include =
+            (esc && txStatus && ACTIVE_TX.has(txStatus)) ||
+            (esc && !txStatus && ACTIVE_REQ.has(reqStatus)) ||
+            (!esc && reqStatus === "in_progress");
+
+          if (!include) {
+            excludedReasons.push(`${rid8}:not_active(req=${reqStatus || "∅"},tx=${txStatus || "∅"},escrow=${!!esc},sel=${b.selected === true})`);
+          }
+          return include;
         })
         .map(b => ({
           bid: {
@@ -700,6 +727,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         }));
 
       dev.displayed_jobs = jobs.length;
+      // ── In-progress dedupe diagnostics (per request) ──
+      dev.raw_count               = allBids.length + syntheticBids.length; // pre-dedupe candidate rows
+      dev.deduped_count           = dedupedCandidates.length;              // after request_id dedupe
+      dev.displayed_dashboard_count = jobs.length;                          // after active-only filter
+      dev.excluded_reason         = excludedReasons.length ? excludedReasons.join(" | ") : "none";
       // request_statuses for dashboard DEV (id:status)
       dev.request_statuses = (reqs ?? [])
         .map(r => `${r.id.slice(0,8)}:${r.status ?? "null"}`)
