@@ -279,6 +279,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [dbPhotos, setDbPhotos]     = useState({});    // { [dbStep]: string[] }
   const [dbLoaded, setDbLoaded]     = useState(false);
   const [dbRefreshKey, setDbRefreshKey] = useState(0); // increment to force re-fetch
+  const [stalePhotoCount, setStalePhotoCount] = useState(0); // DEV: blob: URLs filtered from DB
+  const [uploadDiag, setUploadDiag] = useState(null); // always-visible upload error detail
   const [companyReportDebug, setCompanyReportDebug] = useState(null);
   const [approvalLog, setApprovalLog] = useState(null);
   const [reviewedForContract, setReviewedForContract] = useState(false);
@@ -358,12 +360,20 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       (payouts ?? []).forEach(p => { pm[p.stage] = p; });
       setDbPayoutMap(pm);
       // phase photos { dbStep → [url,...] }
+      // blob:/data: URLs from past failed uploads are dead links — filter them out so
+      // they don't show as broken thumbnails or falsely drive stageStatus.
       const { data: photos } = await getPhasePhotos(resolvedContractId);
       const ph = {};
+      let skipped = 0;
       (photos ?? []).forEach(p => {
-        const urls = Array.isArray(p.photos) ? p.photos : (p.photos ? [p.photos] : []);
-        ph[p.step] = [...(ph[p.step] ?? []), ...urls];
+        const rawUrls = Array.isArray(p.photos) ? p.photos : (p.photos ? [p.photos] : []);
+        const validUrls = rawUrls.filter(u => typeof u === "string" && /^https?:\/\//.test(u));
+        skipped += rawUrls.length - validUrls.length;
+        if (validUrls.length > 0) {
+          ph[p.step] = [...(ph[p.step] ?? []), ...validUrls];
+        }
       });
+      setStalePhotoCount(skipped);
       setDbPhotos(ph);
       setDbLoaded(true);
     };
@@ -719,17 +729,29 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     if (!files.length) return;
     setUploadingStage(stageId);
     setReportError(null);
+    setUploadDiag(null);
     let anyFailed = false;
+    const diagEntries = [];
     try {
       const urls = await Promise.all(
         files.map(async (file) => {
           const path = `escrow/${stageId}/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
           try {
-            return await uploadFile("documents", path, file);
-          } catch {
-            // Storage upload failed — keep a local preview, but flag it so we can
-            // warn the company. blob: URLs are filtered out before persisting.
+            const url = await uploadFile("documents", path, file);
+            diagEntries.push({ ok: true, path, type: file.type, size: file.size });
+            return url;
+          } catch (err) {
             anyFailed = true;
+            diagEntries.push({
+              ok: false,
+              msg:    err?.message     ?? String(err),
+              status: err?.statusCode  ?? err?.status ?? "—",
+              bucket: "documents",
+              path,
+              type:   file.type,
+              size:   file.size,
+              uid:    userId ?? "null",
+            });
             return URL.createObjectURL(file);
           }
         })
@@ -739,7 +761,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         [stageId]: [...(prev[stageId] || []), ...urls].slice(0, 6),
       }));
       if (anyFailed) {
-        setReportError("일부 사진을 서버에 저장하지 못했어요(스토리지 오류). 미리보기는 보이지만 전송하려면 다시 업로드해주세요.");
+        setUploadDiag(diagEntries.filter(d => !d.ok));
+        setReportError("사진을 서버에 저장하지 못했어요. 아래 오류 정보를 확인해주세요.");
       }
     } finally {
       setUploadingStage(null);
@@ -813,6 +836,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               <span style={{color: (dbPhotos[1]?.length ?? 0) > 0 ? "#0f0" : "#888"}}>
                 photos step1(착공):{dbPhotos[1]?.length ?? 0} step2(중간):{dbPhotos[2]?.length ?? 0} step3(완료):{dbPhotos[3]?.length ?? 0}
               </span><br/>
+              {stalePhotoCount > 0 && (
+                <span style={{color:"#f90"}}>
+                  ⚠️ stale_blob_urls_filtered: {stalePhotoCount} (DB에 저장된 blob: URL — 이전 업로드 실패)<br/>
+                </span>
+              )}
               {(dbPhotos[1]?.length ?? 0) > 0 && (
                 <span style={{color:"#4ff"}}>
                   착공url: {(dbPhotos[1] ?? []).slice(0,1).map(u => "…" + u.slice(-20)).join(", ")}<br/>
@@ -1082,6 +1110,19 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                         {reportError && (
                           <div style={{ marginTop: S.sm, padding: "8px 12px", background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.md, fontSize: 12, color: C.red }}>
                             {reportError}
+                          </div>
+                        )}
+                        {uploadDiag && uploadDiag.length > 0 && (
+                          <div style={{ marginTop: 4, padding: "8px 10px", background: "#111", borderRadius: R.md, fontSize: 10, color: "#f93", fontFamily: "monospace", lineHeight: 1.8, wordBreak: "break-all" }}>
+                            {uploadDiag.map((d, i) => (
+                              <div key={i}>
+                                msg: {d.msg}<br/>
+                                status: {d.status} | bucket: {d.bucket}<br/>
+                                path: …{d.path.slice(-40)}<br/>
+                                type: {d.type} | size: {d.size}B<br/>
+                                uid: {d.uid}
+                              </div>
+                            ))}
                           </div>
                         )}
                         <input ref={fileInputRefs[s.id]} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => handleFileChange(e, s.id)} />
