@@ -275,7 +275,7 @@ export const updateReviewReward = (id, status) =>
 export const getTopReviews = ({ limit = 12 } = {}) =>
   supabase
     .from("reviews")
-    .select("id, company_id, rating, content, status, image_urls, before_image_urls, after_image_urls, created_at, user_name, region, tags, space_type, companies(name)")
+    .select("id, company_id, rating, content, status, image_urls, before_image_urls, after_image_urls, created_at, user_name, region, tags, space_type")
     .gte("rating", 1)
     // DEV: status 조건 완화 (published/approved/pending/null 모두 허용)
     // .in("status", ["published", "approved"])
