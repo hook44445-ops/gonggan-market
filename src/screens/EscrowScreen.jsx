@@ -314,9 +314,20 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         const a = row.action ?? "";
         const type = a.includes("DISPUTE") ? "dispute" : a.includes("PHOTO") ? "photo" : a.includes("STEP") ? "confirm" : "contract";
         const label = (row.metadata?.label) ?? a.replace(/_/g, " ");
-        return { id: row.id, type, label, ts: new Date(row.created_at).getTime() };
+        const stage = row.metadata?.stage ?? null;
+        return { id: row.id, type, label, stage, ts: new Date(row.created_at).getTime() };
       });
-      setTimeline(mapped);
+      // Dedupe: the same stage event can be logged repeatedly (e.g. company re-sends
+      // a 착공 photo). Collapse to ONE entry per stage event (keyed by stage+type,
+      // falling back to label), keeping the latest — no more pile of identical rows.
+      const byKey = new Map();
+      for (const m of mapped) {
+        const key = `${m.type}|${m.stage ?? m.label}`;
+        const ex = byKey.get(key);
+        if (!ex || m.ts > ex.ts) byKey.set(key, m);
+      }
+      const deduped = [...byKey.values()].sort((a, b) => a.ts - b.ts);
+      setTimeline(deduped);
     }).catch(() => {});
   }, [resolvedContractId]);
 
@@ -328,7 +339,18 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       const reqId = request?.id ?? resolvedBid?.requestId;
       if (reqId) {
         const { data: ep } = await getEscrowByRequest(reqId);
-        if (ep) setContractData(ep);
+        if (ep) {
+          setContractData(ep);
+          // Canonical escrow row = the one resolved by request_id. BOTH the company
+          // (reportComplete) and the customer (this read) must target the SAME row,
+          // otherwise the company writes STARTED/photos to one row while the customer
+          // reads another → "전송했는데 승인 CTA가 안 뜸". Unify resolvedContractId to
+          // the request-scoped row so phase_photos/payouts/timeline/writes all align.
+          // Skip during recovery (ep may be from RLS-blocked/null path).
+          if (ep.id && !derivedFromRecovery && ep.id !== resolvedContractId) {
+            setResolvedContractId(ep.id);
+          }
+        }
       }
       // payouts
       const { data: payouts } = await getEscrowPayouts(resolvedContractId);
@@ -525,6 +547,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   };
 
   const reportComplete = async (stageId) => {
+    // Guard: ignore re-entry while a send is already in flight, and ignore stages
+    // that already moved past company_todo — prevents duplicate phase_photos /
+    // timeline rows from rapid or repeated clicks.
+    if (reportingStage !== null) return;
+    if (stageStatus[stageId] === "pending_customer" || stageStatus[stageId] === "done") return;
     const s = STAGE_META.find(x => x.id === stageId);
     setReportingStage(stageId);
     setReportError(null);
@@ -540,7 +567,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const { dbStep, txStatus, currentStep, payoutStage } = phaseConfig;
     const photos = stagePhotos[stageId] ?? [];
     const reqId = request?.id ?? resolvedBid?.requestId ?? null;
-    let cid = resolvedContractId;
+    // Write to the request-canonical escrow row (= what the customer reads via
+    // getEscrowByRequest). Falls back to resolvedContractId when contractData
+    // hasn't loaded yet. Prevents writing STARTED/photos to a stale duplicate row.
+    let cid = contractData?.id ?? resolvedContractId;
 
     const debug = {
       contract_id:          cid ?? "NULL",
