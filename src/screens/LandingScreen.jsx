@@ -108,30 +108,44 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
 
         <div ref={heroRef} style={{ maxWidth: 480, margin: "0 auto" }}>
           {/* brand */}
-          <div style={{
-            fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.65)",
-            letterSpacing: "0.06em", marginBottom: 28,
-            ...fadeStyle(heroVisible, 0),
-          }}>
-            공간마켓 · 공간 사이의 감성
+          <div style={{ ...fadeStyle(heroVisible, 0), marginBottom: 28 }}>
+            <div style={{
+              fontSize: 22, fontWeight: 900, color: "#fff",
+              letterSpacing: "-0.3px", lineHeight: 1.2, marginBottom: 4,
+            }}>
+              공간마켓
+            </div>
+            <div style={{
+              fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.5)",
+              letterSpacing: "0.04em",
+            }}>
+              사람과 공간이 연결되는 곳
+            </div>
           </div>
 
           {/* main copy */}
           <div style={{
-            fontSize: 32, fontWeight: 900, color: "#fff",
-            lineHeight: 1.3, marginBottom: 14, whiteSpace: "pre-line",
+            fontSize: 36, fontWeight: 900, color: "#fff",
+            lineHeight: 1.25, marginBottom: 16, letterSpacing: "-0.5px",
             ...fadeStyle(heroVisible, 0.08),
           }}>
-            {"공간 사이의 감성을\n당신의 공간에 담습니다"}
+            인테리어는 어디서?
           </div>
 
           {/* sub copy */}
           <div style={{
-            fontSize: 15, color: "rgba(255,255,255,0.75)",
-            lineHeight: 1.6, marginBottom: 36,
+            marginBottom: 36,
             ...fadeStyle(heroVisible, 0.16),
           }}>
-            기록이 남는 계약 · 단계별 확인 정산 · 검증된 업체
+            <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", lineHeight: 1.6, marginBottom: 2 }}>
+              집, 상가, 리모델링까지
+            </div>
+            <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", lineHeight: 1.6, marginBottom: 10 }}>
+              비교하고 확인하세요
+            </div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
+              공간마켓은 연결과 안전을 생각합니다.
+            </div>
           </div>
 
           {/* buttons */}
@@ -144,7 +158,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
                 color: C.brand,
                 border: "none",
               }}>
-              🏠 의뢰인으로 시작
+              견적 시작하기
             </button>
             <button
               onClick={() => onSelectRole("company")}
@@ -154,7 +168,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
                 color: "#fff",
                 border: "1.5px solid rgba(255,255,255,0.6)",
               }}>
-              🔨 업체로 시작
+              업체로 시작
             </button>
           </div>
         </div>
@@ -269,7 +283,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             lineHeight: 1.4, marginBottom: 8, whiteSpace: "pre-line",
             ...fadeStyle(sec3Visible, 0),
           }}>
-            {"공간 사이의 감성,\n지금 당신의 공간에서"}
+            인테리어는 어디서?
           </div>
 
           <div style={{
@@ -277,7 +291,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             marginBottom: 32,
             ...fadeStyle(sec3Visible, 0.08),
           }}>
-            믿을 수 있는 기록, 단계마다 확인하는 공정
+            집, 상가, 리모델링까지 — 비교하고 확인하세요
           </div>
 
           <div style={{ ...fadeStyle(sec3Visible, 0.16) }}>
@@ -293,7 +307,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
                 boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
                 marginBottom: 16,
               }}>
-              안전하게 시작하기
+              견적 시작하기
             </button>
           </div>
 
