@@ -1158,11 +1158,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <div style={{ fontSize:12, color:C.brand, fontWeight:700, marginBottom:6 }}>
                 📍 {user.region} · {user.name}님 안녕하세요
               </div>
-              <div style={{ fontSize:21, fontWeight:900, color:C.text1, marginBottom:8, lineHeight:1.4 }}>
-                안심하고 맡기는 공사<br/>기록과 확인이 함께합니다
+              <div style={{ fontSize:24, fontWeight:900, color:C.text1, marginBottom:8, lineHeight:1.3, letterSpacing:"-0.4px" }}>
+                인테리어는 어디서?
               </div>
-              <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl, lineHeight:1.6 }}>
-                검증된 인근 업체에게 견적을 받아보세요
+              <div style={{ marginBottom:S.xl }}>
+                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6 }}>집, 상가, 리모델링까지</div>
+                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6, marginBottom:6 }}>비교하고 확인하고 안전하게</div>
+                <div style={{ fontSize:11, color:C.text4, lineHeight:1.6 }}>공간마켓은 연결과 안전을 생각합니다.</div>
               </div>
               {(() => {
                 const hasActive = myRequests.some(r => r.isActive);
@@ -1177,7 +1179,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     style={{ background:C.brand, color:"#fff", border:"none",
                       borderRadius:R.full, padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer",
                       boxShadow:`0 4px 16px ${C.brand}44` }}>
-                    안전하게 견적 시작하기
+                    견적 시작하기
                   </button>
                 );
               })()}
