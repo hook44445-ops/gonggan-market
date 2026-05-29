@@ -1138,11 +1138,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       {(screen==="home"||screen==="map") && (
         <div style={{ background:C.surface, padding:"14px 20px 0", borderBottom:`1px solid ${C.bgWarm}`, position:"sticky", top:0, zIndex:10 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <div style={{ width:30, height:30, borderRadius:R.md, background:C.brand,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:15, boxShadow:`0 2px 8px ${C.brand}44` }}>🏠</div>
-              <div style={{ fontSize:20, fontWeight:900, color:C.text1, letterSpacing:"-0.5px" }}>공간마켓</div>
+            <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+              <div style={{ width:32, height:32, borderRadius:R.md, background:C.brandL,
+                display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}>🏡</div>
+              <div>
+                <div style={{ fontSize:15, fontWeight:800, color:C.brandD, letterSpacing:"-0.3px", lineHeight:1.15 }}>공간사이</div>
+                <div style={{ fontSize:9, color:C.text3, letterSpacing:"0.4px", lineHeight:1 }}>공간마켓</div>
+              </div>
             </div>
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
               <button onClick={onLogout} style={{ fontSize:11, color:C.text4, background:"none", border:"none", cursor:"pointer" }}>로그아웃</button>
@@ -1174,16 +1176,15 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 borderRadius:"50%", background:`${C.brand}12` }} />
               <div style={{ position:"absolute", right:14, bottom:-18, width:64, height:64,
                 borderRadius:"50%", background:`${C.brand}08` }} />
-              <div style={{ fontSize:12, color:C.brand, fontWeight:700, marginBottom:6 }}>
-                📍 {user.region} · {user.name}님 안녕하세요
+              <div style={{ fontSize:12, color:C.brand, fontWeight:600, marginBottom:8 }}>
+                {user.region} · {user.name}님 안녕하세요
               </div>
-              <div style={{ fontSize:24, fontWeight:900, color:C.text1, marginBottom:8, lineHeight:1.3, letterSpacing:"-0.4px" }}>
+              <div style={{ fontSize:23, fontWeight:800, color:C.text1, marginBottom:10, lineHeight:1.35, letterSpacing:"-0.4px" }}>
                 인테리어는 어디서?
               </div>
               <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:13, color:C.text2, lineHeight:1.6, marginBottom:6 }}>집, 상가, 리모델링까지</div>
-                <div style={{ fontSize:12, color:C.text3, lineHeight:1.65 }}>인테리어, 아무에게나 맡길 수 없으니까</div>
-                <div style={{ fontSize:12, color:C.text3, lineHeight:1.65 }}>부담 없이 비교하고 시작하세요</div>
+                <div style={{ fontSize:13, color:C.text2, lineHeight:1.7, marginBottom:3 }}>집, 상가, 리모델링까지</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.7 }}>믿고 맡길 수 있는 공간을 함께 찾아요</div>
               </div>
               {(() => {
                 const hasActive = myRequests.some(r => r.isActive);
@@ -1196,12 +1197,34 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 ) : (
                   <button onClick={handleOpenNewReq}
                     style={{ background:C.brand, color:"#fff", border:"none",
-                      borderRadius:R.full, padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer",
-                      boxShadow:`0 4px 16px ${C.brand}44` }}>
+                      borderRadius:R.full, padding:"12px 24px", fontWeight:700, fontSize:14, cursor:"pointer",
+                      boxShadow:`0 4px 14px ${C.brand}33` }}>
                     견적 시작하기
                   </button>
                 );
               })()}
+            </div>
+
+            {/* 공간사이의 약속 */}
+            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
+              marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize:12, fontWeight:700, color:C.text3, marginBottom:S.md,
+                letterSpacing:"0.3px" }}>공간사이의 약속</div>
+              <div style={{ display:"flex" }}>
+                {[
+                  { icon:"🛡", title:"안전한 거래", sub:"에스크로 보호" },
+                  { icon:"✓",  title:"신뢰 파트너", sub:"검증된 업체" },
+                  { icon:"🤝", title:"따뜻한 연결", sub:"사람과 공간 사이" },
+                ].map((item, i, arr) => (
+                  <div key={item.title} style={{ flex:1, textAlign:"center",
+                    borderRight:i<arr.length-1?`1px solid ${C.bgWarm}`:"none",
+                    padding:`0 ${S.sm}px` }}>
+                    <div style={{ fontSize:16, marginBottom:5, color:C.brand }}>{item.icon}</div>
+                    <div style={{ fontSize:12, fontWeight:700, color:C.text1 }}>{item.title}</div>
+                    <div style={{ fontSize:10, color:C.text3, marginTop:2 }}>{item.sub}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* ── 믿고 맡긴 후기 — 실제 우선, 부족분은 seed_reviews로 채움 ── */}
@@ -1747,9 +1770,26 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               )}
               <button onClick={() => setScreen("lounge")}
-                style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand}44` }}>
-                라운지 들어가기 →
+                style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand}33` }}>
+                라운지 들어가기
               </button>
+            </div>
+
+            {/* 공간사이 브랜드 무드 카드 */}
+            <div style={{ display:"flex", gap:S.sm, marginTop:S.xl, marginBottom:S.sm, overflowX:"auto", paddingBottom:4, scrollbarWidth:"none" }}>
+              {[
+                { bg:C.brandD, color:"rgba(255,255,255,0.92)", text:"자연의 숨결,\n감사의 마음으로\n공간을 함께\n만들어갑니다." },
+                { bg:"#DFABC6", color:"#6B3355", text:"오늘도,\n함께 웃는\n하루 되세요! ☺" },
+                { bg:"#686E57", color:"rgba(255,255,255,0.9)", text:"공간을 넘어\n가치 있는 경험을\n전합니다." },
+              ].map((card, i) => (
+                <div key={i} style={{ flexShrink:0, width:150, background:card.bg, borderRadius:R.xl,
+                  padding:`${S.xl}px ${S.lg}px`, minHeight:110,
+                  display:"flex", alignItems:"flex-end" }}>
+                  <div style={{ fontSize:12, color:card.color, lineHeight:1.65, whiteSpace:"pre-line", fontWeight:500 }}>
+                    {card.text}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1776,7 +1816,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               borderRadius:R.xl, padding:S.xxl, marginBottom:S.xl, color:"#fff" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.xl }}>
                 <div>
-                  <div style={{ fontSize:20, fontWeight:800, marginBottom:8 }}>{user.name}</div>
+                  <div style={{ fontSize:10, opacity:0.7, marginBottom:5, letterSpacing:"0.2px" }}>
+                    안녕하세요, 공간사이 파트너님
+                  </div>
+                  <div style={{ fontSize:20, fontWeight:800, marginBottom:4 }}>{user.name}</div>
+                  <div style={{ fontSize:11, opacity:0.65, marginBottom:8 }}>오늘도 공간을 빛내주셔서 감사합니다</div>
                   <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                     <TempBadge temp={currentUser?.temp ?? 36.5} lg />
                     <CertBadge type="platform" />
@@ -2353,14 +2397,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
         {screen==="my" && (
           <div>
-            <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:S.xl }}>마이페이지</div>
+            <div style={{ marginBottom:S.xl }}>
+              <div style={{ fontSize:11, color:C.text3, marginBottom:2 }}>공간사이</div>
+              <div style={{ fontSize:20, fontWeight:800, color:C.text1 }}>마이페이지</div>
+            </div>
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl,
               marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, textAlign:"center" }}>
               <div style={{ width:72, height:72, borderRadius:R.full, background:C.brandL,
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontSize:28, fontWeight:900, color:C.brand, margin:"0 auto 14px" }}>{user.name?.[0] ?? "?"}</div>
               <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>{user.name}</div>
-              <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>📍 {user.region} · {activeRole==="consumer"?"의뢰인":"검증 업체"}</div>
+              <div style={{ fontSize:13, color:C.text3, marginBottom:S.md }}>{user.region} · {activeRole==="consumer"?"의뢰인":"검증 업체"}</div>
               {activeRole === "consumer" && (() => {
                 const grade = calcCustomerGrade(user.completedJobs ?? 0);
                 return (
@@ -2375,7 +2422,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <div style={{ display:"flex", gap:0, marginBottom:S.xl, borderTop:`1px solid ${C.bgWarm}`, paddingTop:S.xl }}>
                 {(activeRole==="consumer"
                   ? [[`${myRequests.length}`,"견적 요청"],["0","진행중"],["0","완료"]]
-                  : [[" 3","낙찰"],["84","후기"],["97°","공간온도"]]
+                  : [[" 3","낙찰"],["84","후기"],[`${currentUser?.temp ?? 36.5}°`,"공간온도"]]
                 ).map(([v,l],i,arr) => (
                   <div key={l} style={{ flex:1, borderRight:i<arr.length-1?`1px solid ${C.bgWarm}`:"none" }}>
                     <div style={{ fontSize:22, fontWeight:900, color:C.brand }}>{v}</div>
@@ -3019,14 +3066,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       )}
 
       {!FULL && (
-        <div style={{ position:"fixed", bottom:0, left:0, right:0, background:C.surface, borderTop:`1px solid ${C.bgWarm}`, display:"flex", zIndex:10 }}>
-          {NAV.map(([icon,label,target]) => (
-            <button key={target} onClick={() => setScreen(target)}
-              style={{ flex:1, background:"none", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"10px 0 14px" }}>
-              <div style={{ fontSize:22 }}>{icon}</div>
-              <div style={{ fontSize:10, fontWeight:screen===target?800:500, color:screen===target?C.brand:C.text3 }}>{label}</div>
-            </button>
-          ))}
+        <div style={{ position:"fixed", bottom:0, left:0, right:0, background:C.surface,
+          borderTop:`1px solid ${C.bgWarm}`, display:"flex", zIndex:10 }}>
+          {NAV.map(([icon,label,target]) => {
+            const active = screen === target;
+            return (
+              <button key={target} onClick={() => setScreen(target)}
+                style={{ flex:1, background:"none", border:"none", cursor:"pointer",
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:2,
+                  padding:"10px 0 14px", position:"relative" }}>
+                {active && (
+                  <div style={{ position:"absolute", top:0, left:"50%", transform:"translateX(-50%)",
+                    width:24, height:2, background:C.brand, borderRadius:"0 0 2px 2px" }} />
+                )}
+                <div style={{ fontSize:21, opacity:active?1:0.65 }}>{icon}</div>
+                <div style={{ fontSize:10, fontWeight:active?700:400,
+                  color:active?C.brand:C.text3 }}>{label}</div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

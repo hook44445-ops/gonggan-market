@@ -437,7 +437,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         </div>
         {/* 커뮤니티 서브 배너 */}
         <div style={{ background: `linear-gradient(150deg, ${C.brandL}, ${C.bgWarm})`, padding: `10px ${S.xl}px`, marginTop: 10 }}>
-          <span style={{ fontSize: 12, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>공간마켓 커뮤니티 · 익명 자유 소통</span>
+          <span style={{ fontSize: 12, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>공간사이 커뮤니티 · 익명 자유 소통</span>
         </div>
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
