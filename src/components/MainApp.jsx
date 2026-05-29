@@ -61,6 +61,7 @@ import {
   archiveRequestAuto,
   getTopReviews,
   getSeedReviews,
+  requestMockIdentityVerification,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -383,6 +384,28 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [topReviews, setTopReviews] = useState([]);
   const [hidingId, setHidingId] = useState(null);     // requestId currently being hidden
   const [hideDebug, setHideDebug] = useState(null);   // DEV panel
+
+  // Identity verification state (mock, no real KYC)
+  // Required DB columns: is_identity_verified, identity_verified_at, identity_provider, identity_verification_status
+  const [idVerified,   setIdVerified]   = useState(user?.is_identity_verified ?? false);
+  const [idVerifiedAt, setIdVerifiedAt] = useState(user?.identity_verified_at ?? null);
+  const [idStatus,     setIdStatus]     = useState(user?.identity_verification_status ?? null);
+  const [idVerifying,  setIdVerifying]  = useState(false);
+
+  const handleMockIdVerify = async () => {
+    if (!user?.id || idVerifying) return;
+    setIdVerifying(true);
+    const { data, error } = await requestMockIdentityVerification(user.id);
+    if (error) {
+      showToast("인증 처리 중 오류가 발생했습니다", false);
+    } else if (data) {
+      setIdVerified(true);
+      setIdVerifiedAt(data.identity_verified_at ?? null);
+      setIdStatus("verified");
+      showToast("본인인증이 완료됐습니다");
+    }
+    setIdVerifying(false);
+  };
 
   const applyExpiry = (rows) => {
     const normalized = rows.map(normalizeRequest);
@@ -2396,6 +2419,46 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   </div>
                   <div style={{ fontSize:11, color:C.text3, marginTop:S.sm }}>
                     완료 {user.completedJobs ?? 0}건 · 새집 → 우리집(1건) → 드림하우스(3건) → 홈마스터(5건)
+                  </div>
+                </div>
+              );
+            })()}
+
+            {activeRole === "consumer" && (() => {
+              const statusColor = idVerified ? C.green : idStatus === "required" ? C.gold : C.text4;
+              const statusLabel = idVerified ? "인증 완료" : idStatus === "required" ? "인증 필요" : "미인증";
+              const statusIcon  = idVerified ? "✓" : idStatus === "required" ? "⚠️" : "—";
+              return (
+                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+                  marginBottom: S.lg, border: `1px solid ${idStatus === "required" ? C.gold + "66" : C.bgWarm}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>🔐 본인인증</div>
+                      <div style={{ fontSize: 11, color: statusColor, fontWeight: 700, marginTop: 3 }}>
+                        {statusIcon} {statusLabel}
+                        {idVerified && idVerifiedAt && (
+                          <span style={{ fontWeight: 400, color: C.text4, marginLeft: 6 }}>
+                            {new Date(idVerifiedAt).toLocaleDateString("ko-KR")}
+                          </span>
+                        )}
+                      </div>
+                      {!idVerified && (
+                        <div style={{ fontSize: 11, color: C.text3, marginTop: 4, lineHeight: 1.5 }}>
+                          {idStatus === "required"
+                            ? "인증이 필요한 서비스입니다. 아래 버튼을 눌러 인증을 완료해주세요."
+                            : "본인인증으로 더 안전한 거래를 시작하세요."}
+                        </div>
+                      )}
+                    </div>
+                    {!idVerified && (
+                      <button onClick={handleMockIdVerify} disabled={idVerifying}
+                        style={{ padding: "8px 14px", background: idVerifying ? C.bgWarm : C.brand,
+                          color: idVerifying ? C.text3 : "#fff", border: "none", borderRadius: R.full,
+                          fontWeight: 700, fontSize: 12, cursor: idVerifying ? "not-allowed" : "pointer",
+                          flexShrink: 0, marginLeft: S.md }}>
+                        {idVerifying ? "처리중…" : "본인인증하기"}
+                      </button>
+                    )}
                   </div>
                 </div>
               );

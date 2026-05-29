@@ -199,6 +199,7 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
   const [showMore,     setShowMore]     = useState(false);
   const [bannerClosed, setBannerClosed] = useState(false);
   const [devOpen,      setDevOpen]      = useState(false);
+  const [bgImgFailed,  setBgImgFailed]  = useState(false);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
 
@@ -207,6 +208,10 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
   const isFirst = index === 0;
   const isLast  = index === stories.length - 1;
   const isOwner = !!(user?.id && story.user_id && user.id === story.user_id);
+
+  useEffect(() => {
+    setBgImgFailed(false);
+  }, [story?.id]);
 
   useEffect(() => {
     if (!story?.id) return;
@@ -277,10 +282,11 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
       style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 400, userSelect: 'none', overflow: 'hidden' }}>
 
       {/* ── 배경 이미지 (풀스크린) ── */}
-      {hasImage ? (
+      {hasImage && !bgImgFailed ? (
         <img
           src={imageUrls[0]}
           alt=""
+          onError={() => setBgImgFailed(true)}
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
       ) : (

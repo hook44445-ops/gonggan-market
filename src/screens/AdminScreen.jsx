@@ -25,6 +25,8 @@ import {
   adminUpdateLoungePost, adminSoftDeleteLoungePost, adminRestoreLoungePost,
   adminGetLoungeComments, adminSoftDeleteLoungeComment, adminRestoreLoungeComment,
   adminUpdateCompanyInfo, adminUpdateUserInfo,
+  getCompaniesByOwnerIds,
+  adminVerifyUserIdentity,
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
@@ -57,23 +59,28 @@ function ReviewAdminTab({ adminUserId, showToast }) {
   const [reason,     setReason]     = useState("");
   const [acting,     setActing]     = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const { data, error } = await adminGetReviews({ limit: 150 });
-      setReviews(data ?? []);
-      setFetchErr(error?.message ?? null);
-      setLoading(false);
-    })();
-  }, []);
-
-  const reload = async () => {
+  const loadReviews = async () => {
     setLoading(true);
     const { data, error } = await adminGetReviews({ limit: 150 });
-    setReviews(data ?? []);
+    if (data && data.length > 0) {
+      // Two-step: load companies by owner_id separately (reviews.company_id → users.id)
+      const ownerIds = [...new Set(data.map(r => r.company_id).filter(Boolean))];
+      let coMap = {};
+      if (ownerIds.length > 0) {
+        const { data: cos } = await getCompaniesByOwnerIds(ownerIds);
+        (cos ?? []).forEach(c => { coMap[c.owner_id] = c.name; });
+      }
+      setReviews(data.map(r => ({ ...r, companies: { name: coMap[r.company_id] ?? null } })));
+    } else {
+      setReviews(data ?? []);
+    }
     setFetchErr(error?.message ?? null);
     setLoading(false);
   };
+
+  useEffect(() => { loadReviews(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const reload = loadReviews;
 
   const visible = reviews.filter(r => {
     if (filter === "hidden")  return r.is_hidden && !r.is_deleted;
@@ -312,6 +319,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
   const allReports = (() => { try { return JSON.parse(localStorage.getItem("lounge_reports") ?? "[]"); } catch { return []; } })();
   const allBlocks  = (() => { try { return JSON.parse(localStorage.getItem("lounge_blocks")  ?? "[]"); } catch { return []; } })();
   const [posts, setPosts] = useState(initPosts);
+  useEffect(() => { setPosts(initPosts); }, [initPosts]); // eslint-disable-line react-hooks/exhaustive-deps
   const [postFilter, setPostFilter] = useState("all"); // all | hidden | deleted
   const [postReasonId, setPostReasonId] = useState(null);
   const [postReason, setPostReason] = useState("");
@@ -603,10 +611,10 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
         </div>
       </div>
 
-      {loungePosts.length > 0 && (
+      {posts.length > 0 && (
         <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginTop: S.lg, border: `1px solid ${C.bgWarm}` }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📝 게시글 목록 (총 {loungePosts.length}개)</div>
-          {loungePosts.slice(0, 30).map(p => (
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📝 게시글 목록 (총 {posts.length}개)</div>
+          {posts.slice(0, 30).map(p => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: S.sm, padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bg}` }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, color: C.text2, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1863,6 +1871,37 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           </div>
                           <div style={{ fontSize: 12, color: C.text3 }}>📱 {customer.phone} · 📍 {customer.region}</div>
                           <div style={{ fontSize: 11, color: C.text4, marginTop: 4 }}>가입일: {customer.joinedAt}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
+                            {customer.is_identity_verified ? (
+                              <>
+                                <span style={{ fontSize: 11, color: C.green, fontWeight: 700 }}>✓ 본인인증 완료</span>
+                                <span style={{ fontSize: 10, color: C.text4 }}>
+                                  {customer.identity_verified_at ? new Date(customer.identity_verified_at).toLocaleDateString("ko-KR") : ""}
+                                  {customer.identity_provider ? ` (${customer.identity_provider})` : ""}
+                                </span>
+                                <button onClick={async () => {
+                                  const { error } = await adminVerifyUserIdentity(customer.id, user?.id, "revoked");
+                                  if (error) showToast(error.message ?? "처리 실패", false);
+                                  else { showToast("인증 취소 완료"); setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, is_identity_verified: false, identity_verified_at: null, identity_provider: null, identity_verification_status: "revoked" } : c)); }
+                                }} style={{ padding: "3px 8px", borderRadius: R.full, border: `1px solid ${C.red}33`, background: "#FFF0F0", color: C.red, fontSize: 10, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
+                                  취소
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span style={{ fontSize: 11, color: customer.identity_verification_status === "required" ? C.gold : C.text4, fontWeight: customer.identity_verification_status === "required" ? 700 : 400 }}>
+                                  {customer.identity_verification_status === "required" ? "⚠️ 인증 필요" : "미인증"}
+                                </span>
+                                <button onClick={async () => {
+                                  const { error } = await adminVerifyUserIdentity(customer.id, user?.id, "verified");
+                                  if (error) showToast(error.message ?? "처리 실패", false);
+                                  else { showToast("본인인증 처리 완료"); setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, is_identity_verified: true, identity_verified_at: new Date().toISOString(), identity_provider: "admin_manual", identity_verification_status: "verified" } : c)); }
+                                }} style={{ padding: "3px 8px", borderRadius: R.full, border: `1px solid ${C.brandM}`, background: C.brandL, color: C.brand, fontSize: 10, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
+                                  수동 인증
+                                </button>
+                              </>
+                            )}
+                          </div>
                           {isEditing && (
                             <div style={{ marginTop: S.md, background: C.surface2, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
                               {[["name","이름"],["phone","전화번호"],["region","지역"]].map(([key,label]) => (
