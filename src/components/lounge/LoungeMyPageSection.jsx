@@ -313,8 +313,7 @@ const MISSIONS = [
   { key: 'FIRST_COMMENT',        label: '첫 댓글 작성',        desc: '다른 사람 글에 첫 댓글을 남겨보세요', reward: TOKEN_EARN.FIRST_COMMENT,         icon: '💬', once: true },
   { key: 'PROFILE_COMPLETE',     label: '프로필 완성',         desc: '이름·지역 정보를 완성해보세요',       reward: TOKEN_EARN.PROFILE_COMPLETE,      icon: '✅', once: true },
   { key: 'WEEKLY_ACTIVITY',      label: '이번 주 활동 미션',   desc: '이번 주 라운지에 3번 이상 활동하기', reward: TOKEN_EARN.WEEKLY_ACTIVITY,       icon: '🔥', once: false },
-  { key: 'CONSTRUCTION_REVIEW',  label: '시공 후기 작성',      desc: '완료된 시공의 후기를 작성해보세요',   reward: TOKEN_EARN.CONSTRUCTION_REVIEW,   icon: '🏗', once: true },
-  { key: 'QUOTE_REVIEW',         label: '견적 상세 후기 작성', desc: '상세 견적 후기를 작성해보세요',       reward: TOKEN_EARN.QUOTE_REVIEW,          icon: '📊', once: true },
+  { key: 'CONSTRUCTION_REVIEW',  label: '공사 후기 작성',      desc: '완료된 공사 후기를 남겨보세요',       reward: TOKEN_EARN.CONSTRUCTION_REVIEW,   icon: '🏗', once: true },
 ];
 
 function MissionsScreen({ tokenLogs, onBack }) {

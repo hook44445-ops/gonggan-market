@@ -647,7 +647,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       const EXCL_REQ  = new Set(["completed","settled","cancelled","refunded","rejected","done","finished","closed"]);
       const EXCL_TX   = new Set(["SETTLED","CANCELLED","REFUNDED","DISPUTE_RESOLVED"]);
       // Active construction phases on the escrow state machine.
-      const ACTIVE_TX = new Set(["CONTRACTED","STARTED","MID_INSPECTION","COMPLETED","DISPUTE"]);
+      // NOTE: "COMPLETED"(=완료대기, 공사 완료 보고 후 고객 최종 승인/정산 대기)는 진행중에서 제외합니다.
+      // 고객 화면 "진행중" 기준(정산되면 빠짐)과 업체 대시보드 카운트를 일치시키기 위함.
+      // 완료대기 건은 별도 완료/정산 영역에서 다루며, 진행중(업체가 지금 진행해야 할 일)에는 넣지 않습니다.
+      const ACTIVE_TX = new Set(["CONTRACTED","STARTED","MID_INSPECTION","DISPUTE"]);
       const ACTIVE_REQ = new Set(["contracted","in_progress","escrow","working","contract_signed","material_paid","started"]);
 
       // Build synthetic bid entries for request_ids discovered via escrow direct (no bid row)
@@ -2016,7 +2019,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         )}
 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
-        {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} />}
+        {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} onEarnToken={earnToken} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} />}
         {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} />}
