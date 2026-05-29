@@ -583,7 +583,9 @@ export const setEarlyPartner = (companyId, joinedAt) => {
 
 // ── STEP 19: Transaction State Machine ───────────────────────────────────────
 
-export const updateTransactionStatus = (paymentId, transactionStatus) =>
+// async 래퍼: PostgREST 빌더는 thenable이지만 .catch가 없어 호출부에서 .catch 체이닝 시
+// "X.catch is not a function" 오류가 납니다. async로 감싸 실제 Promise를 반환합니다.
+export const updateTransactionStatus = async (paymentId, transactionStatus) =>
   supabase
     .from("escrow_payments")
     .update({ transaction_status: transactionStatus })
@@ -599,7 +601,9 @@ export const getContractByTransactionStatus = (transactionStatus) =>
 
 // ── STEP 20: Activity Logs ────────────────────────────────────────────────────
 
-export const logActivity = ({ userId, role, action, targetType, targetId, metadata = {} }) =>
+// async: 호출부에서 fire-and-forget으로 .catch(()=>{})를 거는 곳이 많습니다.
+// 빌더 그대로 반환하면 .catch가 없어 오류 → async로 실제 Promise 반환 + 실행 보장.
+export const logActivity = async ({ userId, role, action, targetType, targetId, metadata = {} }) =>
   supabase.from("activity_logs").insert({
     user_id:     userId ?? null,
     role,
@@ -630,7 +634,7 @@ export const getContractTimeline = (contractId) =>
 
 // ── STEP 21: Notifications ────────────────────────────────────────────────────
 
-export const createNotification = ({ userId, type, title, message, relatedId, relatedType, priority = "NORMAL" }) =>
+export const createNotification = async ({ userId, type, title, message, relatedId, relatedType, priority = "NORMAL" }) =>
   supabase.from("notifications").insert({
     user_id:      userId,
     type,
@@ -720,7 +724,7 @@ export const updateCompanyKpi = (companyId, kpi) =>
 
 // ── STEP 25: Dispute Status ───────────────────────────────────────────────────
 
-export const updateDisputeStatus = (paymentId, disputeStatus) =>
+export const updateDisputeStatus = async (paymentId, disputeStatus) =>
   supabase
     .from("escrow_payments")
     .update({ dispute_status: disputeStatus })
@@ -1094,7 +1098,7 @@ export const createEscrowPayoutsForContract = async (escrowId, companyId, totalA
 };
 
 // Hold all non-final payouts when a dispute is filed
-export const holdAllPayoutsForEscrow = (escrowId) =>
+export const holdAllPayoutsForEscrow = async (escrowId) =>
   supabase.from("escrow_payouts")
     .update({ status: "HELD" })
     .eq("escrow_id", escrowId)

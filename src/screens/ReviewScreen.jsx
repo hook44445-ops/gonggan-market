@@ -149,7 +149,7 @@ function ReviewCard({ rv, isNew }) {
   );
 }
 
-export default function ReviewScreen({ company, onBack, currentUser, requestId, contractId }) {
+export default function ReviewScreen({ company, onBack, currentUser, requestId, contractId, onEarnToken }) {
   const [reviews,          setReviews]          = useState(company?.reviewList ?? []);
   const [showModal,        setShowModal]        = useState(false);
   const [newId,            setNewId]            = useState(null);
@@ -227,6 +227,13 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
       if (reviewRow) {
         setAlreadyReviewed(true);
         await updateCompanyTemp(company.id, delta).catch(() => {});
+
+        // 공사 후기 작성 미션 — 실제 공간토큰 지급(+15). 중복방지는 useSpaceToken.earn이
+        // logs에서 동일 action 존재 여부로 처리하므로 1회만 지급됩니다.
+        try {
+          const granted = await onEarnToken?.("construction_review", "공사 후기 작성");
+          log.reward_ok = log.reward_ok || !!granted;
+        } catch {}
 
         if (hasPhotos) {
           const { error: rewardErr } = await createReviewReward({

@@ -25,8 +25,7 @@ export function getEarnDescription(action) {
     first_post:           '첫 글 작성',
     first_comment:        '첫 댓글 작성',
     weekly_activity:      '7일 연속 활동',
-    construction_review:  '시공 후기 작성',
-    quote_review:         '견적 완료 후기 작성',
+    construction_review:  '공사 후기 작성',
   };
   return map[action] ?? action;
 }
@@ -50,7 +49,6 @@ export function getMissionList(logs = []) {
     { action: 'first_post',          label: '첫 글 작성',        reward: TOKEN_EARN.FIRST_POST,          done: completed.has('first_post') },
     { action: 'first_comment',       label: '첫 댓글 작성',      reward: TOKEN_EARN.FIRST_COMMENT,       done: completed.has('first_comment') },
     { action: 'weekly_activity',     label: '7일 연속 활동',     reward: TOKEN_EARN.WEEKLY_ACTIVITY,     done: completed.has('weekly_activity') },
-    { action: 'construction_review', label: '시공 후기 작성',    reward: TOKEN_EARN.CONSTRUCTION_REVIEW, done: completed.has('construction_review') },
-    { action: 'quote_review',        label: '견적 완료 후기 작성', reward: TOKEN_EARN.QUOTE_REVIEW,      done: completed.has('quote_review') },
+    { action: 'construction_review', label: '공사 후기 작성',    reward: TOKEN_EARN.CONSTRUCTION_REVIEW, done: completed.has('construction_review') },
   ];
 }

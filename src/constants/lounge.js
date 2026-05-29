@@ -56,8 +56,7 @@ export const TOKEN_EARN = {
   FIRST_POST:           10,
   FIRST_COMMENT:        5,
   WEEKLY_ACTIVITY:      30,
-  CONSTRUCTION_REVIEW:  30,
-  QUOTE_REVIEW:         50,
+  CONSTRUCTION_REVIEW:  15,
 };
 
 export const SPACE_TEMPERATURE_BASE = 36.5;
