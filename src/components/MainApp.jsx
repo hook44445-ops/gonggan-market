@@ -699,13 +699,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
           // Include ONLY real, in-progress contracts:
           //  • escrow exists AND its tx is an active construction phase, OR
-          //  • escrow exists with unknown tx but request status is active, OR
-          //  • request status is explicitly in_progress (escrow row not yet linked).
+          //  • escrow exists with unknown tx but request status is active.
+          // A request with NO escrow row is NOT a paid/contracted job (no payment was
+          // made) — a stale request.status="in_progress" without escrow is excluded.
           // A merely-selected bid with no escrow is "낙찰" (awaiting contract), NOT 진행중.
           const include =
             (esc && txStatus && ACTIVE_TX.has(txStatus)) ||
-            (esc && !txStatus && ACTIVE_REQ.has(reqStatus)) ||
-            (!esc && reqStatus === "in_progress");
+            (esc && !txStatus && ACTIVE_REQ.has(reqStatus));
 
           if (!include) {
             excludedReasons.push(`${rid8}:not_active(req=${reqStatus || "∅"},tx=${txStatus || "∅"},escrow=${!!esc},sel=${b.selected === true})`);
