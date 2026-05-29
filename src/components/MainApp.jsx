@@ -1776,9 +1776,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               borderRadius:R.xl, padding:S.xxl, marginBottom:S.xl, color:"#fff" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.xl }}>
                 <div>
-                  <div style={{ fontSize:20, fontWeight:900, marginBottom:8 }}>{user.name}</div>
+                  <div style={{ fontSize:20, fontWeight:800, marginBottom:8 }}>{user.name}</div>
                   <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                    <TempBadge temp={97} lg />
+                    <TempBadge temp={currentUser?.temp ?? 36.5} lg />
                     <CertBadge type="platform" />
                   </div>
                 </div>

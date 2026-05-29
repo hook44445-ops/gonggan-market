@@ -57,24 +57,24 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
         <div style={{ padding: S.xl }}>
           {/* Request header */}
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:S.sm }}>
-            <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{r.type} · {r.size}</div>
+            <div style={{ fontSize:15, fontWeight:700, color:C.text1 }}>{r.type} · {r.size}</div>
             <div style={{ display:"flex", gap:6 }}>
               {r.urgent && (
                 <span style={{ background:"#FFF0F0", color:C.red, borderRadius:R.full, padding:"2px 8px", fontSize:11, fontWeight:700 }}>급구</span>
               )}
               {submitted
-                ? <span style={{ background:C.greenL, color:C.green, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>✓ 입찰완료</span>
+                ? <span style={{ background:C.greenL, color:C.green, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>입찰완료</span>
                 : isClosed
-                ? <span style={{ background:"#F0EDE8", color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>마감됨</span>
-                : <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>입찰중</span>
+                ? <span style={{ background:"#F0EDE8", color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:600 }}>마감됨</span>
+                : <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:600 }}>입찰중</span>
               }
             </div>
           </div>
 
-          <div style={{ fontSize:13, color:C.text3, marginBottom:6 }}>
-            📍 {r.area}{r.style ? ` · ${r.style}` : r.distance ? ` · ${r.distance}` : ""}
+          <div style={{ fontSize:12, color:C.text3, marginBottom:6 }}>
+            {r.area}{r.style ? ` · ${r.style}` : r.distance ? ` · ${r.distance}` : ""}
           </div>
-          <div style={{ fontSize:13, color:C.text2, marginBottom:S.lg, lineHeight:1.55 }}>{r.desc}</div>
+          <div style={{ fontSize:13, color:C.text2, marginBottom:S.lg, lineHeight:1.6 }}>{r.desc}</div>
 
           {/* Submitted: success summary */}
           {submitted ? (
