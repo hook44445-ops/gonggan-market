@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S, GRADE, calcCustomerGrade } from "../constants";
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
+import { SHOW_DEBUG_UI } from "../constants/release";
 import LiveFeed from "./LiveFeed";
 import CompanyCard from "./CompanyCard";
 import PortfolioScreen from "../screens/PortfolioScreen";
@@ -1144,13 +1145,15 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
 
-      <div style={{ background:"#1a1a1a", color:"#00ff88", textAlign:"center", padding:"4px 0", fontSize:10, fontFamily:"monospace", letterSpacing:"0.5px", position:"sticky", top:0, zIndex:999 }}>
-        ▶ DEPLOY 2026-05-25 sha:{typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "?"} ◀
-        &nbsp;|&nbsp;landing_footer_rendered:true
-        &nbsp;|&nbsp;review_card_v2_enabled:true
-        &nbsp;|&nbsp;live_hybrid_enabled:true
-        &nbsp;|&nbsp;MODE:{import.meta.env.MODE}
-      </div>
+      {SHOW_DEBUG_UI && (
+        <div style={{ background:"#1a1a1a", color:"#00ff88", textAlign:"center", padding:"4px 0", fontSize:10, fontFamily:"monospace", letterSpacing:"0.5px", position:"sticky", top:0, zIndex:999 }}>
+          ▶ DEPLOY 2026-05-25 sha:{typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "?"} ◀
+          &nbsp;|&nbsp;landing_footer_rendered:true
+          &nbsp;|&nbsp;review_card_v2_enabled:true
+          &nbsp;|&nbsp;live_hybrid_enabled:true
+          &nbsp;|&nbsp;MODE:{import.meta.env.MODE}
+        </div>
+      )}
 
       {(screen==="home"||screen==="map") && (
         <div style={{ background:C.surface, padding:"14px 20px 0", borderBottom:`1px solid ${C.bgWarm}`, position:"sticky", top:0, zIndex:10 }}>
