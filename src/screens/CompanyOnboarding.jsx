@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { C, R, S, ALL_REGIONS, SPECIALTIES } from "../constants";
+import { C, R, S, CITY_DISTRICTS, SPECIALTIES } from "../constants";
 import { BADGES } from "../constants/badges";
 import { Divider } from "../components/common";
 import { upsertUserByPhone, upsertCompany, uploadFile, upsertCompanyDocument } from "../lib/supabase";
@@ -20,6 +20,8 @@ export default function CompanyOnboarding({ phone, onDone }) {
   const [submitted, setSubmitted] = useState(null);
   const [uploadingBiz, setUploadingBiz] = useState(false);
   const [uploadingIns, setUploadingIns] = useState(false);
+  const [mainCity, setMainCity] = useState("");   // 주활동 시/도 선택 중간 상태
+  const [subCity, setSubCity] = useState("서울"); // 이동가능 지역 탭
   const bizDocRef = useRef(null);
   const insDocRef = useRef(null);
   const set = (k,v) => setForm(f => ({...f,[k]:v}));
@@ -231,33 +233,102 @@ export default function CompanyOnboarding({ phone, onDone }) {
       </>}
 
       {step===2 && <>
-        <button onClick={() => setStep(1)} style={{ background:"none", border:"none", fontSize:14, cursor:"pointer", color:C.text3, marginBottom:20, fontWeight:600 }}>← 뒤로</button>
+        <button onClick={() => { setStep(1); setMainCity(""); set("mainRegion",""); set("subRegions",[]); }}
+          style={{ background:"none", border:"none", fontSize:14, cursor:"pointer", color:C.text3, marginBottom:20, fontWeight:600 }}>← 뒤로</button>
         <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>활동 지역 설정</div>
-        <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>주활동 구역과 이동 가능 지역을 선택해주세요</div>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>주활동 구 (1개)</div>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:S.xl }}>
-          {ALL_REGIONS.map(r => (
-            <button key={r} onClick={() => set("mainRegion",r)}
-              style={{ padding:"8px 14px", borderRadius:R.full, fontSize:13, fontWeight:600,
-                border:`1.5px solid ${form.mainRegion===r?C.brand:C.bgWarm}`,
-                background:form.mainRegion===r?C.brandL:C.surface,
-                color:form.mainRegion===r?C.brand:C.text2, cursor:"pointer" }}>{r}</button>
-          ))}
-        </div>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>
-          이동 가능 구 (복수 선택)
-          <span style={{ fontSize:11, color:C.text3, fontWeight:500, marginLeft:6 }}>선택 안 해도 됩니다</span>
-        </div>
-        <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:S.xl }}>
-          {ALL_REGIONS.filter(r=>r!==form.mainRegion).map(r => (
-            <button key={r} onClick={() => toggleArr("subRegions",r)}
-              style={{ padding:"8px 14px", borderRadius:R.full, fontSize:13, fontWeight:600,
-                border:`1.5px solid ${form.subRegions.includes(r)?C.brand:C.bgWarm}`,
-                background:form.subRegions.includes(r)?C.brandL:C.surface,
-                color:form.subRegions.includes(r)?C.brand:C.text2, cursor:"pointer" }}>{r}</button>
-          ))}
-        </div>
-        <button onClick={() => form.mainRegion&&setStep(3)}
+        <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>주활동 지역과 이동 가능 지역을 선택해주세요</div>
+
+        {/* ── 주활동 지역 2단계 선택 ── */}
+        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>주활동 지역 (1개)</div>
+        {form.mainRegion ? (
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:S.xl }}>
+            <div style={{ background:C.brandL, border:`1.5px solid ${C.brand}`, borderRadius:R.full,
+              padding:"8px 16px", fontSize:14, fontWeight:700, color:C.brand }}>
+              📍 {form.mainRegion}
+            </div>
+            <button onClick={() => { set("mainRegion",""); setMainCity(""); }}
+              style={{ background:"none", border:`1px solid ${C.bgWarm}`, borderRadius:R.full,
+                padding:"8px 14px", fontSize:12, color:C.text3, cursor:"pointer", fontWeight:600 }}>
+              변경
+            </button>
+          </div>
+        ) : !mainCity ? (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:S.xl }}>
+            {Object.keys(CITY_DISTRICTS).map(city => (
+              <button key={city} onClick={() => setMainCity(city)}
+                style={{ padding:"18px 8px", background:C.surface, border:`1.5px solid ${C.bgWarm}`,
+                  borderRadius:R.lg, fontSize:15, fontWeight:800, color:C.text1,
+                  cursor:"pointer", textAlign:"center", boxShadow:"0 2px 8px rgba(28,23,18,0.06)" }}>
+                {city}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <>
+            <button onClick={() => setMainCity("")}
+              style={{ background:"none", border:"none", fontSize:13, color:C.text3,
+                cursor:"pointer", marginBottom:S.md, fontWeight:600 }}>← {mainCity}</button>
+            <div style={{ fontSize:13, color:C.brand, fontWeight:700, marginBottom:S.sm }}>📍 {mainCity} · 구/시를 선택해주세요</div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8, maxHeight:240, overflowY:"auto", marginBottom:S.xl }}>
+              {CITY_DISTRICTS[mainCity].map(d => {
+                const val = `${mainCity} ${d}`;
+                return (
+                  <button key={d} onClick={() => { set("mainRegion", val); setMainCity(""); }}
+                    style={{ padding:"13px 10px", background:C.surface, border:`1.5px solid ${C.bgWarm}`,
+                      borderRadius:R.md, fontSize:14, fontWeight:700, color:C.text1,
+                      cursor:"pointer", textAlign:"center" }}>
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* ── 이동 가능 지역 (주활동 지역 선택 후 표시) ── */}
+        {form.mainRegion && (
+          <>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.xs }}>
+              이동 가능 지역 (복수 선택)
+              <span style={{ fontSize:11, color:C.text3, fontWeight:500, marginLeft:6 }}>선택 안 해도 됩니다</span>
+            </div>
+            {form.subRegions.length > 0 && (
+              <div style={{ fontSize:11, color:C.brand, fontWeight:600, marginBottom:S.xs }}>
+                {form.subRegions.length}개 선택됨
+              </div>
+            )}
+            {/* 시/도 탭 */}
+            <div style={{ display:"flex", gap:6, marginBottom:S.sm }}>
+              {Object.keys(CITY_DISTRICTS).map(city => (
+                <button key={city} onClick={() => setSubCity(city)}
+                  style={{ padding:"7px 16px", borderRadius:R.full, fontSize:13, fontWeight:700,
+                    border:`1.5px solid ${subCity===city?C.brand:C.bgWarm}`,
+                    background:subCity===city?C.brandL:C.surface,
+                    color:subCity===city?C.brand:C.text2, cursor:"pointer" }}>
+                  {city}
+                </button>
+              ))}
+            </div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6, maxHeight:200, overflowY:"auto", marginBottom:S.xl }}>
+              {CITY_DISTRICTS[subCity].map(d => {
+                const val = `${subCity} ${d}`;
+                if (val === form.mainRegion) return null;
+                const on = form.subRegions.includes(val);
+                return (
+                  <button key={d} onClick={() => toggleArr("subRegions", val)}
+                    style={{ padding:"7px 13px", borderRadius:R.full, fontSize:13, fontWeight:600,
+                      border:`1.5px solid ${on?C.brand:C.bgWarm}`,
+                      background:on?C.brandL:C.surface,
+                      color:on?C.brand:C.text2, cursor:"pointer" }}>
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <button onClick={() => form.mainRegion && setStep(3)}
           style={{ width:"100%", padding:S.xl, background:form.mainRegion?C.brand:"#E8E4DC",
             color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer" }}>
           다음 →
