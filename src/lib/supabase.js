@@ -39,6 +39,12 @@ export const upsertUserByPhone = (profile) =>
 export const getUser = (id) =>
   supabase.from("users").select("*").eq("id", id).maybeSingle();
 
+// 활동지역(activity_regions jsonb) 업데이트 — region text(primary)도 함께 동기화
+export const updateUserActivityRegions = (id, activityRegions, regionText) =>
+  supabase.from("users")
+    .update({ activity_regions: activityRegions, ...(regionText ? { region: regionText } : {}) })
+    .eq("id", id).select().maybeSingle();
+
 export const getUserByPhone = (phone) =>
   supabase.from("users").select("*").eq("phone", phone).maybeSingle();
 
@@ -55,6 +61,12 @@ export const getCompanyByOwnerId = (ownerId) =>
 
 export const upsertCompany = (data) =>
   supabase.from("companies").upsert(data, { onConflict: "owner_id" }).select().single();
+
+// 영업지역(service_regions jsonb) 업데이트 — region text(primary)도 함께 동기화
+export const updateCompanyServiceRegions = (id, serviceRegions, regionText) =>
+  supabase.from("companies")
+    .update({ service_regions: serviceRegions, ...(regionText ? { region: regionText } : {}) })
+    .eq("id", id).select().maybeSingle();
 
 // Atomically adjust a company's 공간온도 by delta, clamped to 0–99
 export const updateCompanyTemp = async (companyId, delta) => {
