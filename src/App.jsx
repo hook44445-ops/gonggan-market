@@ -93,7 +93,12 @@ export default function App() {
   }
 
   const handleAdminLogin = () => {
-    if (adminId === "admin" && adminPw === "44445") {
+    const adminCode = import.meta.env.VITE_ADMIN_CODE;
+    if (!adminCode) {
+      setAdminLoginErr("관리자 접근이 구성되지 않았습니다");
+      return;
+    }
+    if (adminId === "admin" && adminPw === adminCode) {
       localStorage.setItem("admin_authed", "true");
       setShowAdminLogin(false);
       setAdminId("");

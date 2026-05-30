@@ -4,6 +4,7 @@ import { BADGES } from "../constants/badges";
 import { LogoMark, LeafSprig } from "../components/common";
 import CompanyOnboarding from "./CompanyOnboarding";
 import { upsertUserByPhone, getUserByPhone } from "../lib/supabase";
+import { SHOW_DEBUG_UI } from "../constants/release";
 
 // Same-device phone bypass keys (STEP F)
 const PHONE_KEY = { consumer: "gonggan_ph_c", company: "gonggan_ph_co" };
@@ -139,11 +140,15 @@ export default function LoginScreen({ onLogin, initialRole }) {
   };
 
   const handleAdminCode = () => {
-    if (adminCode === "admin1234") {
+    const envCode = import.meta.env.VITE_ADMIN_CODE;
+    if (!envCode) {
+      setAdminCodeError("관리자 접근이 구성되지 않았습니다");
+      return;
+    }
+    if (adminCode === envCode) {
       setShowAdminModal(false);
       setAdminCode("");
       setAdminCodeError("");
-      // STEP A: Skip SMS — admin enters directly after code
       onLogin({ role: "admin", activeRole: "admin", name: "관리자", id: null, phone: "", verified: true });
     } else {
       setAdminCodeError("관리자 코드가 올바르지 않습니다");
@@ -170,7 +175,9 @@ export default function LoginScreen({ onLogin, initialRole }) {
   };
 
   const handleBypassLogin = async () => {
-    if (bypassCode !== "admin1234") {
+    if (!SHOW_DEBUG_UI) return; // bypass 완전 차단 (production)
+    const envCode = import.meta.env.VITE_ADMIN_CODE;
+    if (!envCode || bypassCode !== envCode) {
       setBypassCodeError("코드가 올바르지 않습니다");
       return;
     }
@@ -386,6 +393,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
           <div style={{ textAlign: "center", marginTop: 32 }}>
             <div
               onClick={() => {
+                if (!SHOW_DEBUG_UI) return;
                 const next = step2TapCount + 1;
                 setStep2TapCount(next);
                 if (next >= 5) { setStep2TapCount(0); setShowBypassModal(true); }
@@ -766,8 +774,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
         </div>
       )}
 
-      {/* Bypass modal (step 2) */}
-      {showBypassModal && step === 2 && (
+      {/* Bypass modal (step 2) — DEV only, never shown in production */}
+      {SHOW_DEBUG_UI && showBypassModal && step === 2 && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 20 }}>
           <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 340 }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6 }}>
