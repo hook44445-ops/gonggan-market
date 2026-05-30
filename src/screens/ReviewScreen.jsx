@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TempBadge, Stars, Divider } from "../components/common";
@@ -156,6 +156,9 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
   const [localTemp,        setLocalTemp]        = useState(company?.temp ?? 36.5);
   const [alreadyReviewed,  setAlreadyReviewed]  = useState(false);
   const [submitDebug,      setSubmitDebug]      = useState(null);
+  // C-2: 중복 제출 가드 + optimistic ID 충돌 방지용 카운터
+  const submittingRef = useRef(false);
+  const tmpSeqRef     = useRef(0);
 
   const avg = reviews.length > 0
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : "0.0";
@@ -175,9 +178,15 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
   }, [company?.id, contractId]);
 
   const handleSubmit = async (data) => {
+    // C-2: 빠른 연속 제출 차단 (이미 처리 중이면 무시)
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     const now = new Date();
+    // C-2: Date.now() 단독 사용 시 같은 ms에 충돌 가능 → 시퀀스 카운터 결합으로 유니크 보장
+    const tmpId = `tmp-review-${Date.now()}-${tmpSeqRef.current++}`;
     const nr = {
-      id:              Date.now(),
+      id:              tmpId,
       user:            currentUser?.name  ?? "나",
       region:          currentUser?.region ?? "—",
       rating:          data.rating,
@@ -201,7 +210,15 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
 
     const log = { company_id: company?.id?.slice(0, 8), contract_id: contractId?.slice(0, 8) ?? null, db_ok: false, db_err: null, reward_ok: false };
 
-    if (company?.id) {
+    if (!company?.id) {
+      // 회사 정보가 없으면 저장할 수 없으므로 낙관적 업데이트 롤백
+      setReviews(r => r.filter(rv => rv.id !== tmpId));
+      setLocalTemp(t => clampTemp(t - delta));
+      submittingRef.current = false;
+      return;
+    }
+
+    try {
       const { data: reviewRow, error: reviewErr } = await createReview({
         company_id:        company.id,
         user_id:           currentUser?.id    ?? null,
@@ -248,9 +265,17 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
         }
       } else {
         // DB 저장 실패 — 낙관적 업데이트 롤백
-        setReviews(r => r.filter(rv => rv.id !== nr.id));
+        setReviews(r => r.filter(rv => rv.id !== tmpId));
         setLocalTemp(t => clampTemp(t - delta));
       }
+    } catch (e) {
+      // 네트워크 등 예외로 throw된 경우에도 낙관적 업데이트 롤백
+      log.db_err = e?.message ?? "submit_exception";
+      setSubmitDebug({ ...log });
+      setReviews(r => r.filter(rv => rv.id !== tmpId));
+      setLocalTemp(t => clampTemp(t - delta));
+    } finally {
+      submittingRef.current = false;
     }
   };
 
