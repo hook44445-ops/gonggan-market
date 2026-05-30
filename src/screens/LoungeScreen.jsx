@@ -4,6 +4,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
+import { SHOW_DEBUG_UI } from '../constants/release';
 import { useLounge } from '../hooks/useLounge';
 import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead, createLoungeNotification } from '../lib/supabase';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
@@ -446,7 +447,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
 
-      {import.meta.env.DEV && (
+      {SHOW_DEBUG_UI && (
         <>
           <NotifsDevPanel notifs={notifs} notifsLoading={notifsLoading} notifsError={notifsError} userId={user?.id} />
           <StoryDevPanel
@@ -539,7 +540,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         />
       )}
 
-      {import.meta.env.DEV && (
+      {SHOW_DEBUG_UI && (
         <div style={{ margin: '12px 16px 90px', background: 'rgba(0,0,0,0.92)', color: '#0f0', borderRadius: 8, padding: '10px 12px', fontSize: 11, lineHeight: 2, fontFamily: 'monospace', maxHeight: 460, overflowY: 'auto' }}>
           [DEV] lounge feed — {new Date().toLocaleTimeString('ko-KR')}<br/>
           user: {user?.id?.slice(0, 8) ?? 'null'} | category: {category} | refreshKey: {refreshKey}<br/>

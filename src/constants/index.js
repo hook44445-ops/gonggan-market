@@ -52,7 +52,7 @@ export const GRADE = t => {
   if(t>=96) return { label:"최우수", color:"#1D3D2F", bg:"#E8F0EC", bar:"#2E5F4B", icon:"🏆" };
   if(t>=90) return { label:"신뢰",   color:"#2E5F4B", bg:"#EAF2EE", bar:"#3A7A5C", icon:"✅" };
   if(t>=84) return { label:"양호",   color:"#B08040", bg:"#FBF5E8", bar:"#C8A15A", icon:"👍" };
-  return           { label:"신규",   color:"#7A8A7E", bg:"#F0EDE8", bar:"#B0BAB4", icon:"🆕" };
+  return           { label:"신규",   color:"#6B3355", bg:"#FBEEF3", bar:"#DFABC6", icon:"🌱" };
 };
 
 export const PHOTOS = {

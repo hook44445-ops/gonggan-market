@@ -1,4 +1,4 @@
-import { C, R, S, GRADE } from "../constants";
+import { C, R, S, GRADE, SHADOW } from "../constants";
 import { BADGES } from "../constants/badges";
 import { TempBadge, CertBadge, LeafSprig } from "./common";
 
@@ -40,7 +40,7 @@ export default function CompanyCard({ company, onClick, isLoggedIn = false }) {
       display: "flex", background: C.surface, borderRadius: R.xl,
       marginBottom: S.sm, cursor: "pointer",
       border: `1px solid ${C.bgWarm}`,
-      boxShadow: "0 1px 4px rgba(28,23,18,0.04)", overflow: "hidden",
+      boxShadow: SHADOW.card, overflow: "hidden",
     }}>
       {/* Grade accent */}
       <div style={{ width: 4, background: g.bar, flexShrink: 0 }} />
