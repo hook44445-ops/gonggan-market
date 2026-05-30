@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" preserveAspectRatio="xMidYMid slice">
+  <!--
+    공간마켓 Landing Hero 배경 — 자연광 인테리어 (고정 내부 asset, 외부/Unsplash 미사용)
+    무드: 우측 창가 + 우드 체어 + 화분/식물 + 자연광 + 아이보리/샌드 톤
+    좌측은 밝고 비어 있어 텍스트가 올라갑니다.
+  -->
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F8F3EA"/>
+      <stop offset="1" stop-color="#F0E8D7"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="1" y1="0" x2="0.1" y2="0.75">
+      <stop offset="0" stop-color="#FCF6E6" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#FBF2DE" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#FBF2DE" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#DCC6A0"/>
+      <stop offset="1" stop-color="#CBB084"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FCF8EE"/>
+      <stop offset="1" stop-color="#F2ECDD"/>
+    </linearGradient>
+    <linearGradient id="curtain" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#FBF6EC" stop-opacity="0.72"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 벽 -->
+  <rect width="1200" height="800" fill="url(#wall)"/>
+
+  <!-- 우측 창문 -->
+  <g>
+    <rect x="772" y="64" width="412" height="566" rx="6" fill="#FBF7EF"/>
+    <rect x="788" y="80" width="380" height="534" rx="4" fill="url(#glass)"/>
+    <!-- 창 너머 은은한 초록(정원/자연) -->
+    <rect x="788" y="360" width="380" height="254" fill="#E2E6CF" opacity="0.55"/>
+    <circle cx="980" cy="290" r="120" fill="#EFE9C9" opacity="0.5"/>
+    <!-- 창틀 멀리언 -->
+    <g fill="#FBF7EF">
+      <rect x="966" y="80" width="14" height="534"/>
+      <rect x="788" y="340" width="380" height="12"/>
+    </g>
+    <!-- 시어 커튼 (좌측 절반) -->
+    <g fill="url(#curtain)">
+      <path d="M788 80 q14 268 0 534 l36 0 q-12 -268 0 -534 Z"/>
+      <path d="M850 80 q14 268 0 534 l36 0 q-12 -268 0 -534 Z" opacity="0.8"/>
+    </g>
+  </g>
+
+  <!-- 자연광 글로우 -->
+  <rect width="1200" height="800" fill="url(#sun)"/>
+
+  <!-- 우드 플로어 -->
+  <rect x="0" y="628" width="1200" height="172" fill="url(#floor)"/>
+  <rect x="0" y="628" width="1200" height="12" fill="#C6A877"/>
+  <g stroke="#C2A472" stroke-width="2" opacity="0.5">
+    <line x1="180" y1="640" x2="120" y2="800"/>
+    <line x1="430" y1="640" x2="400" y2="800"/>
+    <line x1="700" y1="640" x2="720" y2="800"/>
+    <line x1="980" y1="640" x2="1040" y2="800"/>
+  </g>
+
+  <!-- 우드 라운지 체어 (심플) — 창 앞 우측 -->
+  <g>
+    <path d="M872 388 q150 -28 250 16 q26 12 22 70 l-18 152 q-2 26 -28 26 l-196 0 q-26 0 -28 -26 l-18 -152 q-4 -42 22 -56 Z" fill="#EFE6D2"/>
+    <path d="M888 406 q140 -24 220 14 l-8 60 q-110 -34 -204 -10 Z" fill="#E4D8BE" opacity="0.8"/>
+    <rect x="860" y="556" width="280" height="74" rx="24" fill="#E7DCC4"/>
+    <rect x="850" y="468" width="20" height="156" rx="8" fill="#B98C58"/>
+    <rect x="1130" y="468" width="20" height="156" rx="8" fill="#B98C58"/>
+    <rect x="866" y="614" width="16" height="16" fill="#A9743F"/>
+    <rect x="1118" y="614" width="16" height="16" fill="#A9743F"/>
+  </g>
+
+  <!-- 화분 + 올리브 나무 — 창 옆(가운데-우측) -->
+  <g>
+    <path d="M706 558 C698 458 694 378 712 296" stroke="#9A7B53" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <path d="M712 356 C730 326 760 314 782 316" stroke="#9A7B53" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M704 418 C682 396 654 390 636 396" stroke="#9A7B53" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <g fill="#7C9A66">
+      <ellipse cx="710" cy="286" rx="58" ry="40"/>
+      <ellipse cx="770" cy="314" rx="46" ry="32" transform="rotate(18 770 314)"/>
+      <ellipse cx="642" cy="390" rx="44" ry="30" transform="rotate(-22 642 390)"/>
+      <ellipse cx="760" cy="246" rx="40" ry="28" transform="rotate(12 760 246)"/>
+      <ellipse cx="666" cy="316" rx="42" ry="30" transform="rotate(-12 666 316)"/>
+    </g>
+    <g fill="#8DAA77" opacity="0.85">
+      <ellipse cx="730" cy="266" rx="34" ry="22"/>
+      <ellipse cx="686" cy="348" rx="30" ry="20"/>
+      <ellipse cx="748" cy="296" rx="28" ry="18"/>
+    </g>
+    <path d="M670 558 L754 558 L742 634 Q740 646 728 646 L696 646 Q684 646 682 634 Z" fill="#DAC6A4"/>
+    <rect x="666" y="546" width="92" height="18" rx="6" fill="#E2D1B2"/>
+  </g>
+</svg>
