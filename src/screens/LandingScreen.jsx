@@ -92,7 +92,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
       <div style={{
         backgroundColor: C.bg,
         backgroundImage:
-          `linear-gradient(115deg, rgba(245,241,234,0.95) 0%, rgba(245,241,234,0.84) 40%, rgba(245,241,234,0.42) 68%, rgba(245,241,234,0.10) 100%), url('${HERO_BG}')`,
+          `linear-gradient(100deg, rgba(245,241,234,0.82) 0%, rgba(245,241,234,0.55) 26%, rgba(245,241,234,0.14) 48%, rgba(245,241,234,0) 66%), url('${HERO_BG}')`,
         backgroundSize: "cover, cover",
         backgroundPosition: "center, right center",
         backgroundRepeat: "no-repeat, no-repeat",
