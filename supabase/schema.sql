@@ -268,6 +268,19 @@ create table if not exists public.reviews (
   user_name   text,
   region      text,
   reply       text,
+  -- 어드민 숨김/소프트삭제 (migration 008 참고)
+  is_hidden     boolean not null default false,
+  hidden_at     timestamptz,
+  hidden_reason text,
+  is_deleted    boolean not null default false,
+  deleted_at    timestamptz,
+  deleted_by    uuid,
+  status        text,
+  updated_at    timestamptz default now(),
+  -- 사진 후기
+  image_urls         text[],
+  before_image_urls  text[],
+  after_image_urls   text[],
   created_at  timestamptz not null default now()
 );
 

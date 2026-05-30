@@ -346,12 +346,39 @@ export const uploadSeedReviewImage = async (file, slot) => {
 
 // ── Admin Reviews ─────────────────────────────────────────────────────────────
 
-export const adminGetReviews = ({ limit = 100 } = {}) =>
-  supabase
+// 스키마에 항상 존재하는 기본 컬럼 (migration 008 미적용 환경 fallback용)
+const REVIEW_BASE_COLS = "id, company_id, rating, content, user_name, region, space_type, created_at";
+const REVIEW_FULL_COLS = "id, company_id, rating, status, is_hidden, is_deleted, content, user_name, region, space_type, image_urls, before_image_urls, after_image_urls, created_at";
+
+// 어드민 리뷰 조회 — migration 008(숨김/소프트삭제 컬럼) 적용 여부와 무관하게 항상 로드되도록 방어적 처리.
+// 1차: 전체 컬럼 조회 → 실패(컬럼 없음) 시 2차: 기본 컬럼만 조회 후 누락 필드를 기본값으로 합성.
+export const adminGetReviews = async ({ limit = 100 } = {}) => {
+  const full = await supabase
     .from("reviews")
-    .select("id, company_id, rating, status, is_hidden, is_deleted, content, user_name, region, space_type, image_urls, before_image_urls, after_image_urls, created_at")
+    .select(REVIEW_FULL_COLS)
     .order("created_at", { ascending: false })
     .limit(limit);
+  if (!full.error) return full;
+
+  // fallback: 컬럼 미적용 환경 — 기본 컬럼만 조회하고 누락 필드 기본값 합성
+  const base = await supabase
+    .from("reviews")
+    .select(REVIEW_BASE_COLS)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (base.error) return base;
+  const data = (base.data ?? []).map(r => ({
+    ...r,
+    status: r.status ?? null,
+    is_hidden: false,
+    is_deleted: false,
+    image_urls: r.image_urls ?? [],
+    before_image_urls: r.before_image_urls ?? [],
+    after_image_urls: r.after_image_urls ?? [],
+    _schemaFallback: true, // migration 008 미적용 — 숨김/삭제 액션 불가
+  }));
+  return { data, error: null, _schemaFallback: true };
+};
 
 // Lookup companies by owner_id (reviews.company_id → users.id → companies.owner_id)
 export const getCompaniesByOwnerIds = (ownerIds) =>
