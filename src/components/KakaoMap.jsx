@@ -3,14 +3,20 @@ import { C, R, GRADE } from "../constants";
 
 const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
 
-// ── 진단 로그 — production 콘솔에서 mock/real 판별용 (UI 노출 없음) ──
+// ── 진단 로그 — production 콘솔에서 step-by-step 판별용 (UI 노출 없음) ──
 function mapLog(...args) {
   // eslint-disable-next-line no-console
   console.log("[KakaoMap]", ...args);
 }
 
-// 키 존재 여부만 1회 보고 (키 값 자체는 노출하지 않음)
-mapLog("env VITE_KAKAO_MAP_KEY:", KAKAO_API_KEY ? `present(len=${String(KAKAO_API_KEY).length})` : "MISSING → mock fallback");
+// 모듈 초기화 시 1회 — 키 앞 4자리 출력(디버그용, 보안상 나머지 마스킹)
+mapLog(
+  "INIT — VITE_KAKAO_MAP_KEY:",
+  KAKAO_API_KEY
+    ? `present (len=${String(KAKAO_API_KEY).length}, prefix=${String(KAKAO_API_KEY).slice(0, 4)}...)`
+    : "⛔ MISSING → mock fallback immediately. Vercel env 'VITE_KAKAO_MAP_KEY' 설정 확인 후 재배포 필요."
+);
+mapLog("INIT — window.kakao at module load:", typeof window !== "undefined" ? !!window.kakao : "N/A");
 
 // 서울시청 — geolocation 실패 시 fallback 중심
 const SEOUL = { lat: 37.5665, lng: 126.9780 };
@@ -37,46 +43,76 @@ function withCoords(companies, center) {
 
 function loadKakaoScript(apiKey) {
   return new Promise((resolve, reject) => {
-    if (!apiKey) { reject(new Error("no-api-key")); return; }
-    if (window.kakao?.maps) { mapLog("SDK already present (window.kakao.maps OK)"); resolve(); return; }
+    // STEP 1 — key guard
+    if (!apiKey) {
+      mapLog("STEP1 FAIL: apiKey is empty/undefined → mock fallback");
+      reject(new Error("no-api-key")); return;
+    }
+    mapLog("STEP1 OK: apiKey present");
 
-    // 타임아웃 — SDK가 끝내 로드되지 않으면 fallback 으로 넘긴다
+    // STEP 2 — already loaded?
+    if (window.kakao?.maps) {
+      mapLog("STEP2 OK: window.kakao.maps already present — resolving immediately ✅");
+      resolve(); return;
+    }
+    mapLog("STEP2: window.kakao.maps not yet present — will load SDK");
+
+    // 타임아웃 — maps.load() 콜백이 끝내 안 오면 fallback
+    // (도메인 미등록/잘못된 키일 때 onerror 없이 콜백만 안 옴)
     let settled = false;
     const done = (fn, arg) => { if (settled) return; settled = true; clearTimeout(timer); fn(arg); };
     const timer = setTimeout(() => {
-      mapLog("SDK load TIMEOUT (>", SDK_TIMEOUT_MS, "ms) → mock fallback");
+      mapLog(`TIMEOUT: maps.load() callback never fired within ${SDK_TIMEOUT_MS}ms.`,
+        "원인 후보: ① Kakao Developers 도메인 미등록",
+        "② 잘못된 appkey",
+        "③ 네트워크 차단 (CSP / ad-blocker)",
+        "→ mock fallback 사용");
       done(reject, new Error("sdk-timeout"));
     }, SDK_TIMEOUT_MS);
 
     const finishOk = () => {
-      // window.kakao.maps.load 는 maps 네임스페이스 준비 후 콜백 실행
-      if (window.kakao?.maps) {
-        window.kakao.maps.load(() => { mapLog("SDK ready (window.kakao.maps loaded)"); done(resolve); });
+      mapLog("STEP3: script onload fired — window.kakao:", !!window.kakao,
+        "| window.kakao.maps:", !!window.kakao?.maps,
+        "| typeof maps.load:", typeof window.kakao?.maps?.load);
+
+      if (window.kakao?.maps && typeof window.kakao.maps.load === "function") {
+        mapLog("STEP4: calling window.kakao.maps.load() — waiting for auth callback...");
+        window.kakao.maps.load(() => {
+          mapLog("STEP5 ✅ maps.load() callback FIRED — SDK fully ready. Real Kakao map will render.");
+          done(resolve);
+        });
+      } else if (window.kakao && !window.kakao?.maps) {
+        mapLog("STEP3 FAIL: window.kakao exists but window.kakao.maps is undefined — appkey invalid or SDK version issue");
+        done(reject, new Error("kakao-maps-undefined"));
       } else {
-        mapLog("script loaded but window.kakao missing → mock fallback");
+        mapLog("STEP3 FAIL: window.kakao missing after script load");
         done(reject, new Error("kakao-undefined"));
       }
     };
 
+    // 이미 삽입된 script 태그가 있는 경우
     const existing = document.getElementById("kakao-map-sdk");
     if (existing) {
-      // 이미 삽입된 스크립트가 로드 완료됐을 수도 있으므로 폴링으로도 확인
-      mapLog("SDK script tag exists — waiting/polling for window.kakao.maps");
+      mapLog("STEP2b: SDK script tag already in DOM — polling for window.kakao.maps");
       existing.addEventListener("load", finishOk);
-      existing.addEventListener("error", () => done(reject, new Error("sdk-load-error")));
+      existing.addEventListener("error", () => { mapLog("STEP2b FAIL: existing script onerror"); done(reject, new Error("sdk-load-error")); });
       const poll = setInterval(() => {
         if (settled) { clearInterval(poll); return; }
-        if (window.kakao?.maps) { clearInterval(poll); finishOk(); }
+        if (window.kakao?.maps) { clearInterval(poll); mapLog("STEP2b poll: window.kakao.maps appeared"); finishOk(); }
       }, 200);
       return;
     }
 
-    mapLog("injecting Kakao SDK script:", `//dapi.kakao.com/v2/maps/sdk.js?appkey=***&autoload=false`);
+    // 신규 script 삽입
+    mapLog("STEP2c: injecting new SDK script tag (appkey prefix:", apiKey.slice(0, 4), "...)");
     const s = document.createElement("script");
     s.id = "kakao-map-sdk";
     s.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false`;
     s.onload = finishOk;
-    s.onerror = () => { mapLog("SDK script onerror → mock fallback (도메인 미등록/네트워크 확인)"); done(reject, new Error("sdk-load-error")); };
+    s.onerror = () => {
+      mapLog("STEP3 FAIL: SDK script onerror — 네트워크 오류 또는 dapi.kakao.com 차단. 도메인 등록 확인.");
+      done(reject, new Error("sdk-load-error"));
+    };
     document.head.appendChild(s);
   });
 }
@@ -272,8 +308,9 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
 
 export default function KakaoMap({ companies = [], userRegion = "", onPinClick, selectedId = null, center = null, onRequestLocation, gpsLoading = false }) {
   if (!KAKAO_API_KEY) {
-    mapLog("render: MOCK map (no API key) — Vercel 환경변수 VITE_KAKAO_MAP_KEY 확인 필요");
+    mapLog("RENDER: MOCK map — VITE_KAKAO_MAP_KEY absent in this build bundle. Vercel 환경변수 설정 후 재배포 필요.");
     return <MockMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} onRequestLocation={onRequestLocation} gpsLoading={gpsLoading} />;
   }
+  mapLog("RENDER: attempting RealMap (key present)");
   return <RealMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} center={center} onRequestLocation={onRequestLocation} gpsLoading={gpsLoading} />;
 }

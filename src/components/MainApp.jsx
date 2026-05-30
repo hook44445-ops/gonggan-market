@@ -8,7 +8,7 @@ import RegionSelectSheet from "./RegionSelectSheet";
 import { useGPS } from "../hooks/useGPS";
 import { resolveMapCenter } from "../hooks/useMapCenter";
 import { getActivityRegions, getPrimaryRegion, regionKey } from "../constants/regions";
-import { filterCompaniesByRegion } from "../utils/regionMatching";
+import { getMatchedCompaniesWithTier } from "../utils/regionMatching";
 import { updateUserActivityRegions } from "../lib/supabase";
 import CompanyCard from "./CompanyCard";
 import PortfolioScreen from "../screens/PortfolioScreen";
@@ -373,7 +373,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     [activityRegions, user?.region, activeRegion, gpsCenter]
   );
 
-  const onSelectRegionTab = (r) => { clearGps(); setActiveRegion(r); };
+  const [mapLocalOnly, setMapLocalOnly] = useState(false);
+
+  const onSelectRegionTab = (r) => { clearGps(); setActiveRegion(r); setMapLocalOnly(false); };
   const onRequestMapLocation = () => { setActiveRegion(null); requestCurrentLocation(); };
 
   const onSaveRegions = async (entries) => {
@@ -1041,12 +1043,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   const { companies } = useCompanyList();
 
-  // 지도 노출 업체 — 활성 지역(없으면 전체 활동지역)으로 필터, 매칭 0건이면 전체 노출
-  const mapCompanies = useMemo(() => {
-    if (activeRegion?.city) {
-      return filterCompaniesByRegion(companies, null, { city: activeRegion.city, district: activeRegion.district });
-    }
-    return filterCompaniesByRegion(companies, { activity_regions: activityRegions, region: user?.region });
+  // 지도 노출 업체 — 단계별(exact→legacy→city→all) 매칭, fallback 시 배너/배지 표시
+  const { mapCompanies, mapLocalMatches, mapFallbackTier, mapIsFallback } = useMemo(() => {
+    const activeFilter = activeRegion?.city
+      ? { city: activeRegion.city, district: activeRegion.district }
+      : null;
+    const result = getMatchedCompaniesWithTier(
+      companies,
+      { activity_regions: activityRegions, region: user?.region },
+      activeFilter
+    );
+    return { mapCompanies: result.matched, mapLocalMatches: result.localMatches, mapFallbackTier: result.tier, mapIsFallback: result.isFallback };
   }, [companies, activeRegion, activityRegions, user?.region]);
 
   const updateChat = (companyId, msgs) =>
@@ -2253,7 +2260,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             />
             <div style={{ marginBottom:S.xl }}>
               <KakaoMap
-                companies={mapCompanies}
+                companies={mapLocalOnly ? mapLocalMatches : mapCompanies}
                 userRegion={(activeRegion ? regionKey(activeRegion.city, activeRegion.district) : user.region) ?? ""}
                 selectedId={mapSelectedId}
                 center={mapCenter}
@@ -2266,16 +2273,74 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 }}
               />
             </div>
-            <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>인근 업체 <span style={{ color:C.brand }}>{mapCompanies.length}곳</span></div>
-            {mapCompanies.map(c => (
+
+            {/* ── 초기 런칭 fallback 배너 (tier city/all) ── */}
+            {mapIsFallback && (
+              <div style={{ background:"#FFF8F0", border:`1px solid ${C.brandM}`, borderRadius:R.lg,
+                padding:"10px 14px", marginBottom:S.md, display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+                <div style={{ fontSize:12, color:C.text2, lineHeight:1.55 }}>
+                  📍 아직 이 지역 등록 업체가 적어,{" "}
+                  {mapFallbackTier === "city" ? "같은 시/도" : "전국"} 업체도 함께 보여드려요
+                </div>
+                <button onClick={() => setMapLocalOnly(v => !v)}
+                  style={{ flexShrink:0, padding:"5px 10px", borderRadius:R.full, border:`1px solid ${C.brand}`,
+                    background: mapLocalOnly ? C.brand : "transparent", color: mapLocalOnly ? "#fff" : C.brand,
+                    fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+                  {mapLocalOnly ? "전체 보기" : "내 지역만"}
+                </button>
+              </div>
+            )}
+
+            {/* 업체 수 헤더 */}
+            {(() => {
+              const list = mapLocalOnly ? mapLocalMatches : mapCompanies;
+              return (
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>
+                  인근 업체 <span style={{ color:C.brand }}>{list.length}곳</span>
+                  {mapIsFallback && !mapLocalOnly && mapFallbackTier === "city" &&
+                    <span style={{ fontSize:11, color:C.text3, fontWeight:500, marginLeft:6 }}>시/도 확장</span>}
+                  {mapIsFallback && !mapLocalOnly && mapFallbackTier === "all" &&
+                    <span style={{ fontSize:11, color:C.text3, fontWeight:500, marginLeft:6 }}>전국 기준</span>}
+                </div>
+              );
+            })()}
+
+            {/* 업체 카드 목록 */}
+            {(mapLocalOnly ? mapLocalMatches : mapCompanies).map(c => (
               <div key={c.id} ref={el => { mapCardRefs.current[c.id] = el; }}
                 onMouseEnter={() => setMapSelectedId(c.id)}
                 style={{ borderRadius:R.xl,
                   outline: mapSelectedId===c.id ? `2px solid ${C.brand}` : "2px solid transparent",
                   outlineOffset: 2, transition:"outline-color 0.2s", marginBottom:S.sm }}>
+                {/* 지역 확장 배지 — fallback 업체에만 */}
+                {mapIsFallback && !mapLocalOnly && (
+                  <div style={{ marginBottom:3, paddingLeft:2 }}>
+                    <span style={{ display:"inline-block", background:"#FFF3E0", border:"1px solid #FFCC80",
+                      borderRadius:R.full, padding:"2px 8px", fontSize:10, color:"#E65100", fontWeight:700 }}>
+                      {mapFallbackTier === "city" ? "📌 지역 확장" : "📌 추천"}
+                    </span>
+                  </div>
+                )}
                 <CompanyCard company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />
               </div>
             ))}
+
+            {/* 내 지역만 보기 + 결과 0건 empty state */}
+            {mapLocalOnly && mapLocalMatches.length === 0 && (
+              <div style={{ textAlign:"center", padding:"32px 0", color:C.text3 }}>
+                <div style={{ fontSize:32, marginBottom:10 }}>🔍</div>
+                <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:6 }}>이 지역 등록 업체가 아직 없어요</div>
+                <div style={{ fontSize:12, lineHeight:1.6 }}>
+                  활동지역을 변경하거나<br />"전체 보기"로 인근 업체를 확인해보세요
+                </div>
+                <button onClick={() => setMapLocalOnly(false)}
+                  style={{ marginTop:16, padding:"10px 20px", background:C.brand, color:"#fff",
+                    border:"none", borderRadius:R.full, fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                  전체 보기
+                </button>
+              </div>
+            )}
+
             <RegionSelectSheet
               open={regionSheetOpen}
               onClose={() => setRegionSheetOpen(false)}
