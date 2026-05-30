@@ -809,15 +809,22 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     try { localStorage.removeItem("pg_pending"); } catch {}
 
     const processTossReturn = async () => {
-      // Optional: server-side confirm
+      // C-3: server-side payment verification — abort if Toss rejects
       if (paymentKey && orderId && amount) {
         try {
-          await fetch("/api/confirm-payment", {
+          const confirmRes = await fetch("/api/confirm-payment", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentKey, orderId, amount }),
           });
-        } catch {}
+          if (!confirmRes.ok) {
+            showToast("결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+            return;
+          }
+        } catch {
+          showToast("결제 서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+          return;
+        }
       }
 
       // DB writes
@@ -2825,7 +2832,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               autoComplete="off"
               onKeyDown={e => {
                 if (e.key === "Enter") {
-                  if (adminIdInput === "admin" && adminCodeInput === "44445") {
+                  const _ac = import.meta.env.VITE_ADMIN_CODE;
+                  if (_ac && adminIdInput === "admin" && adminCodeInput === _ac) {
                     localStorage.setItem("admin_authed", "true");
                     setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError("");
                     onLogin({ ...user, role:"admin", activeRole:"admin" }); setScreen("admin");
@@ -2841,7 +2849,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 취소
               </button>
               <button onClick={() => {
-                if (adminIdInput === "admin" && adminCodeInput === "44445") {
+                const _ac = import.meta.env.VITE_ADMIN_CODE;
+                if (_ac && adminIdInput === "admin" && adminCodeInput === _ac) {
                   localStorage.setItem("admin_authed", "true");
                   setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError("");
                   onLogin({ ...user, role:"admin", activeRole:"admin" }); setScreen("admin");
@@ -2991,21 +3000,26 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           }
           localStorage.removeItem(OVERRIDE_LS_KEY);
         }
-        if (user?.id) {
-          const { data: dup } = await getActiveRequestByUser(user.id);
-          if (dup) {
-            setShowReq(false);
-            if (dup.status === "open") {
-              const remainingMs = Math.max(0, QUOTE_COOLDOWN_MS - (Date.now() - new Date(dup.created_at).getTime()));
-              if (remainingMs > 0) {
-                setReqBlock({ type: "QUOTE_COMPARISON_BLOCK", activeReq: dup, remainingMs });
-                return;
-              }
-              // 7일 경과 — 허용
-            } else {
-              setReqBlock({ type: "HARD_BLOCK", activeReq: dup });
+        // C-6: block guests before any optimistic update
+        if (!user?.id) {
+          setShowReq(false);
+          showToast("견적 요청은 로그인 후 이용할 수 있어요");
+          return;
+        }
+
+        const { data: dup } = await getActiveRequestByUser(user.id);
+        if (dup) {
+          setShowReq(false);
+          if (dup.status === "open") {
+            const remainingMs = Math.max(0, QUOTE_COOLDOWN_MS - (Date.now() - new Date(dup.created_at).getTime()));
+            if (remainingMs > 0) {
+              setReqBlock({ type: "QUOTE_COMPARISON_BLOCK", activeReq: dup, remainingMs });
               return;
             }
+            // 7일 경과 — 허용
+          } else {
+            setReqBlock({ type: "HARD_BLOCK", activeReq: dup });
+            return;
           }
         }
 
@@ -3054,15 +3068,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             _note: "신규 견적 요청",
           });
           if (error) {
-            void error;
+            // C-5: rollback optimistic UI + toast on failure
+            setMyRequests(prev => prev.filter(r => r.id !== optimistic.id));
+            setCustomerRequests(prev => prev.filter(r => r.id !== optimistic.id));
+            showToast("❌ 견적 요청 저장에 실패했어요. 다시 시도해주세요.");
           } else if (data) {
             const saved = normalizeRequest(data);
             const replace = r => r.id === optimistic.id ? saved : r;
             setMyRequests(prev => prev.map(replace));
             setCustomerRequests(prev => prev.map(replace));
+            earnToken("first_quote_request");
           }
         }
-        earnToken("first_quote_request");
       }} />}
 
       {bidAlert && (

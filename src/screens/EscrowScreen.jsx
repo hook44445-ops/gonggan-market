@@ -528,14 +528,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         if (se) stepFailed = true;
       }
 
-      // Both DB writes failed: revert optimistic UI + show error
-      if (payoutFailed && stepFailed) {
+      // C-4: ANY DB write failed → revert optimistic UI to prevent UI-DB mismatch
+      if (payoutFailed || stepFailed) {
         setStageStatus(prev => ({
           ...prev,
           [stageId]: "pending_customer",
           ...(stageId < 5 ? { [stageId + 1]: "locked" } : {}),
         }));
-        setApprovalError("승인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        const detail = payoutFailed && stepFailed ? "두 단계 모두 실패"
+          : payoutFailed ? "정산 승인 실패"
+          : "단계 진행 실패";
+        setApprovalError(`승인 처리 중 오류가 발생했습니다 (${detail}). 잠시 후 다시 시도해주세요.`);
         log.failed = true;
       }
 
