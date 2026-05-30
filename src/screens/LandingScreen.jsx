@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
+import { SHOW_DEBUG_UI } from "../constants/release";
 
 function useVisible(threshold = 0.12) {
   const ref = useRef(null);
@@ -72,14 +73,15 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
       background: C.bg,
       fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif",
     }}>
-      {/* DEPLOY CHECK — 배포 확인용 */}
-      <div style={{ background:"#1a1a1a", color:"#00ff88", textAlign:"center", padding:"4px 0", fontSize:10, fontFamily:"monospace", letterSpacing:"0.5px" }}>
-        ▶ DEPLOY 2026-05-28 sha:{typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "?"} ◀
-        &nbsp;|&nbsp;landing_footer_rendered:true
-        &nbsp;|&nbsp;pwa_enabled:true
-        &nbsp;|&nbsp;identity_v2:true
-        &nbsp;|&nbsp;MODE:{import.meta.env.MODE}
-      </div>
+      {SHOW_DEBUG_UI && (
+        <div style={{ background:"#1a1a1a", color:"#00ff88", textAlign:"center", padding:"4px 0", fontSize:10, fontFamily:"monospace", letterSpacing:"0.5px" }}>
+          ▶ DEPLOY 2026-05-28 sha:{typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "?"} ◀
+          &nbsp;|&nbsp;landing_footer_rendered:true
+          &nbsp;|&nbsp;pwa_enabled:true
+          &nbsp;|&nbsp;identity_v2:true
+          &nbsp;|&nbsp;MODE:{import.meta.env.MODE}
+        </div>
+      )}
 
       {/* ── HERO ──────────────────────────────────────────────────── */}
       <div style={{

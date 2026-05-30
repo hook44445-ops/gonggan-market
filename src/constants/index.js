@@ -26,16 +26,33 @@ export const C = {
   trust:    "#1F2A24",
   trustL:   "#EAF2EE",
   trustM:   "#B5D4C5",
+
+  // ── 공간사이 아이덴티티 확장 톤 (자연·감사·생기) ──
+  ivory:    "#FBF7EF",   // 따뜻한 웜화이트 (surface 대체용 부드러운 면)
+  sand:     "#F2EBDA",   // 샌드 베이지 — 섹션 배경
+  pink:     "#DFABC6",   // 라이트 핑크 — 은은한 생기 포인트 (badge/divider/accent 전용)
+  pinkL:    "#FBEEF3",   // 라이트 핑크 배경
+  pinkD:    "#6B3355",   // 라이트 핑크 위 텍스트
+  leaf:     "#6B8E5A",   // 올리브 잎 톤 (보타니컬 장식)
+  sun:      "#F6DDAA",   // 포근 옐로우 — 따뜻한 강조
 };
 
-export const R = { xs:4, sm:8, md:12, lg:16, xl:20, xxl:24, full:999 };
+export const R = { xs:4, sm:8, md:12, lg:16, xl:20, xxl:24, pill:28, full:999 };
 export const S = { xs:4, sm:8, md:12, lg:16, xl:20, xxl:28 };
+
+// 카드 깊이/레이어 — 숨쉬는 느낌의 부드러운 그림자
+export const SHADOW = {
+  soft:  "0 2px 10px rgba(28,23,18,0.05)",
+  card:  "0 4px 16px rgba(28,23,18,0.07)",
+  lift:  "0 8px 28px rgba(28,23,18,0.10)",
+  brand: "0 6px 20px rgba(46,95,75,0.18)",
+};
 
 export const GRADE = t => {
   if(t>=96) return { label:"최우수", color:"#1D3D2F", bg:"#E8F0EC", bar:"#2E5F4B", icon:"🏆" };
   if(t>=90) return { label:"신뢰",   color:"#2E5F4B", bg:"#EAF2EE", bar:"#3A7A5C", icon:"✅" };
   if(t>=84) return { label:"양호",   color:"#B08040", bg:"#FBF5E8", bar:"#C8A15A", icon:"👍" };
-  return           { label:"신규",   color:"#7A8A7E", bg:"#F0EDE8", bar:"#B0BAB4", icon:"🆕" };
+  return           { label:"신규",   color:"#6B3355", bg:"#FBEEF3", bar:"#DFABC6", icon:"🌱" };
 };
 
 export const PHOTOS = {

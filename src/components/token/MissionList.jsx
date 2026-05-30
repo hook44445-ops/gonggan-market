@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { C, R, S } from '../../constants';
+import { SHOW_DEBUG_UI } from '../../constants/release';
 import { getMissionList } from '../../utils/tokenCalculator';
 
 function ProgressBar({ current, total }) {
@@ -88,7 +89,7 @@ export default function MissionList({ logs = [], missionStats = null, balance = 
         </div>
       ))}
 
-      {import.meta.env.DEV && <DevMissionPanel missions={missions} balance={balance} />}
+      {SHOW_DEBUG_UI && <DevMissionPanel missions={missions} balance={balance} />}
     </div>
   );
 }

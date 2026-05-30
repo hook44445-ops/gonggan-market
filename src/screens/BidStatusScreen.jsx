@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
+import { SHOW_DEBUG_UI } from "../constants/release";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, createNotification, logActivity, getPaymentOrderByRequest } from "../lib/supabase";
@@ -48,7 +49,6 @@ function BidScreenHeader({ title, sub, onBack }) {
   );
 }
 
-const IS_DEBUG = true; // 디버깅 중 — 항상 표시
 
 export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
   const [localBids, setLocalBids] = useState(propBids ?? []);
@@ -66,7 +66,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   useEffect(() => {
     if (!request?.id) { setLocalBids(propBids ?? []); return; }
     getBidsForRequest(request.id).then(({ data, error }) => {
-      if (IS_DEBUG) setBidScreenDebug({ src: "bidscreen_effect", req_id: request.id, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
+      if (SHOW_DEBUG_UI) setBidScreenDebug({ src: "bidscreen_effect", req_id: request.id, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
       if (error) return;
       if (data) setLocalBids(data.map(normalizeBid));
     });
@@ -399,13 +399,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
             <span>🛡</span><span>예치금은 공간마켓이 안전하게 보관하며 단계별 확인 후 업체에 지급됩니다</span>
           </div>
 
-          {SAFE_MODE && (
+          {SHOW_DEBUG_UI && SAFE_MODE && (
             <div style={{ background:"#FBF5E8", borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`, marginBottom:S.md, fontSize:12, color:"#B08040", fontWeight:700, textAlign:"center" }}>
               🔧 SAFE_MODE: 실제 결제 비활성 (테스트 모드)
             </div>
           )}
 
-          {!SAFE_MODE && IS_DEBUG && (
+          {!SAFE_MODE && SHOW_DEBUG_UI && (
             <div style={{ background:"#F0F4FF", borderRadius:R.lg, padding:S.md, marginBottom:S.lg, fontSize:11, color:"#4466CC" }}>
               🧪 테스트 모드 · 실제 결제가 발생하지 않습니다
             </div>
@@ -433,7 +433,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   if ((step==="done" || step==="done_direct") && selBid) return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:S.xxl }}>
       <div style={{ width:"100%", maxWidth:390, textAlign:"center" }}>
-        {IS_DEBUG && dbWriteLog && (
+        {SHOW_DEBUG_UI && dbWriteLog && (
           <div style={{ marginBottom:16, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", textAlign:"left" }}>
             [DEV:db_writes]<br/>
             {Object.entries(dbWriteLog).map(([k,v]) => (
@@ -457,7 +457,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
     <div style={{ minHeight:"100vh", background:C.bg }}>
       <BidScreenHeader title="업체 비교하기" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
-        {IS_DEBUG && (
+        {SHOW_DEBUG_UI && (
           <div style={{ marginBottom:12, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:400, overflowY:"auto" }}>
             [DEV:bidscreen]<br/>
             <span style={{color:"#4ff"}}>request.id (full): {request?.id ?? "null ⚠️"}</span><br/>

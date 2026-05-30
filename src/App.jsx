@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { SHOW_DEBUG_UI } from "./constants/release";
 import MainApp from "./components/MainApp";
 import LoginScreen from "./screens/LoginScreen";
 import LandingScreen from "./screens/LandingScreen";
@@ -40,7 +41,6 @@ function clearSession() {
   localStorage.removeItem(SESSION_TS_KEY);
 }
 
-const IS_DEBUG = true;
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -153,7 +153,7 @@ export default function App() {
                   로그인
                 </button>
               </div>
-              {IS_DEBUG && (
+              {SHOW_DEBUG_UI && (
                 <div style={{ marginTop: 16, padding: "8px 10px", background: "#111", color: "#0f0", borderRadius: 6, fontSize: 10, fontFamily: "monospace", lineHeight: 1.8 }}>
                   admin_authed: {localStorage.getItem("admin_authed") ?? "null"}<br/>
                   admin_login_err: {adminLoginErr || "—"}

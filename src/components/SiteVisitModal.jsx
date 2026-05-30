@@ -143,7 +143,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
             value={schedDate}
             onChange={e => setSchedDate(e.target.value)}
             min={new Date().toISOString().slice(0, 10)}
-            style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
+            style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:15, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
           />
         </div>
         <div style={{ marginBottom:S.xxl }}>
@@ -152,7 +152,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
             type="time"
             value={schedTime}
             onChange={e => setSchedTime(e.target.value)}
-            style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
+            style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:15, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
           />
         </div>
         <div style={{ display:"flex", gap:S.sm }}>
@@ -216,7 +216,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
             value={fieldAmount}
             onChange={e => setFieldAmount(e.target.value)}
             placeholder="예) 450"
-            style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
+            style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:15, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
           />
         </div>
         <div style={{ marginBottom:S.xxl }}>
@@ -226,7 +226,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
             onChange={e => setFieldNote(e.target.value)}
             placeholder="현장 상태, 특이사항 등 메모"
             rows={4}
-            style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }}
+            style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }}
           />
         </div>
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, fontSize:12, color:C.brand }}>

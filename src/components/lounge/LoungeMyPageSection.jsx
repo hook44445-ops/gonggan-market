@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { C, R, S } from '../../constants';
+import { SHOW_DEBUG_UI } from '../../constants/release';
 import { SPACE_TEMPERATURE_BASE, TOKEN_EARN, CATEGORY_LABEL } from '../../constants/lounge';
 import { formatRelativeTime } from '../../utils/anonymousNickname';
 import {
@@ -118,7 +119,7 @@ function MyPostsScreen({ posts, loading, devInfo, onBack, onEdit, onDelete }) {
     <div style={{ minHeight: '100vh', background: C.bg }}>
       <SubHeader title="내가 쓴 글" onBack={onBack} />
 
-      {import.meta.env.DEV && <DevPanel info={devInfo} />}
+      {SHOW_DEBUG_UI && <DevPanel info={devInfo} />}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>

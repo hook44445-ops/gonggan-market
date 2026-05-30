@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { C, R, S } from "../constants";
-import { TempBadge } from "../components/common";
+import { C, R, S, SHADOW } from "../constants";
+import { SHOW_DEBUG_UI } from "../constants/release";
+import { TempBadge, LeafSprig } from "../components/common";
 import BidCard from "../components/BidCard";
 import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews } from "../lib/supabase";
 
@@ -20,7 +21,6 @@ const STEP_INFO = {
   4: { label: "완료대기", color: "#27AE60", paid: 70 },
 };
 
-const IS_DEBUG = import.meta.env.MODE !== "production";
 
 const normalizeEscrowRow = (row) => {
   const step   = Math.min(4, Math.max(1, row.current_step ?? 1));
@@ -194,7 +194,7 @@ export default function DashboardScreen({
         {/* ── 진행중 ──────────────────────────────────────────── */}
         {tab === "active" && (
           <div>
-            {IS_DEBUG && (
+            {SHOW_DEBUG_UI && (
               <div style={{ margin:"0 0 12px", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.9, fontFamily:"monospace", maxHeight:320, overflowY:"auto" }}>
                 [DEV:dashboard]<br/>
                 <span style={{color: jobsSource === "companyJobs" ? "#0f0" : "#ff0"}}>source: {jobsSource}</span><br/>
@@ -251,7 +251,7 @@ export default function DashboardScreen({
               <div key={job.id} onClick={() => job.bid && onOpenJob ? onOpenJob(job.bid) : onEscrow()}
                 style={{ display:"flex", background:C.surface, borderRadius:R.xl, overflow:"hidden",
                   marginBottom:S.md, border:`1px solid ${C.bgWarm}`,
-                  boxShadow:"0 1px 4px rgba(28,23,18,0.04)", cursor:"pointer" }}>
+                  boxShadow:SHADOW.card, cursor:"pointer" }}>
                 <div style={{ width:4, background:job.statusColor, flexShrink:0 }} />
                 <div style={{ flex:1, padding:S.xl }}>
                   <div style={{ display:"flex", gap:S.md, alignItems:"flex-start" }}>
@@ -309,7 +309,7 @@ export default function DashboardScreen({
         {/* ── 통계 ──────────────────────────────────────────────── */}
         {tab === "stats" && (
           <div>
-            {IS_DEBUG && statsData && (
+            {SHOW_DEBUG_UI && statsData && (
               <div style={{ margin:"0 0 12px", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.9, fontFamily:"monospace" }}>
                 [DEV:stats]<br/>
                 completed_count: {statsData.completed_count}<br/>
@@ -321,8 +321,10 @@ export default function DashboardScreen({
             )}
 
             {/* 공간온도 카드 */}
-            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
-              marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
+            <div style={{ position:"relative", background:C.ivory, borderRadius:R.xl, padding:S.xl,
+              marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, boxShadow:SHADOW.soft, overflow:"hidden" }}>
+              <LeafSprig size={80} color={C.brand} opacity={0.06}
+                style={{ position:"absolute", right:-12, bottom:-16, transform:"rotate(-20deg)" }} />
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.lg }}>
                 <div style={{ fontSize:14, fontWeight:700, color:C.text2 }}>공간온도</div>
                 <TempBadge temp={temp} lg />

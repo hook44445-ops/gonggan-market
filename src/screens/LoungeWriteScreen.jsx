@@ -194,13 +194,13 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         <div style={{ marginBottom: S.lg }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>제목 (선택)</div>
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="제목을 입력하세요" maxLength={100}
-            style={{ width: '100%', padding: '14px 16px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 15, outline: 'none', boxSizing: 'border-box', background: C.surface, color: C.text1, fontFamily: 'inherit' }} />
+            style={{ width: '100%', padding: '14px 16px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 15, outline: 'none', boxSizing: 'border-box', background: C.surface, color: C.text1, fontFamily: 'inherit' }} />
         </div>
 
         <div style={{ marginBottom: S.lg }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>내용 <span style={{ color: C.red }}>*</span></div>
           <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="무슨 이야기를 나눠볼까요?" rows={8}
-            style={{ width: '100%', padding: '14px 16px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box', background: C.surface, color: C.text1, fontFamily: 'inherit', lineHeight: 1.6 }} />
+            style={{ width: '100%', padding: '14px 16px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box', background: C.surface, color: C.text1, fontFamily: 'inherit', lineHeight: 1.6 }} />
         </div>
 
         {/* 이미지 업로드 */}
@@ -229,14 +229,14 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         <div style={{ display: 'flex', gap: S.sm, marginBottom: S.lg, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 120 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: S.xs }}>지역 (선택)</div>
-            <select value={region} onChange={e => setRegion(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, background: C.surface, color: region ? C.text1 : C.text3, fontFamily: 'inherit', outline: 'none' }}>
+            <select value={region} onChange={e => setRegion(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 13, background: C.surface, color: region ? C.text1 : C.text3, fontFamily: 'inherit', outline: 'none' }}>
               <option value="">선택 안함</option>
               {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
           <div style={{ flex: 1, minWidth: 100 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: S.xs }}>성별 (선택)</div>
-            <select value={gender} onChange={e => setGender(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, background: C.surface, color: gender ? C.text1 : C.text3, fontFamily: 'inherit', outline: 'none' }}>
+            <select value={gender} onChange={e => setGender(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 13, background: C.surface, color: gender ? C.text1 : C.text3, fontFamily: 'inherit', outline: 'none' }}>
               <option value="">비공개</option>
               <option value="male">남</option>
               <option value="female">여</option>
@@ -244,7 +244,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
           </div>
           <div style={{ flex: 1, minWidth: 100 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: S.xs }}>나이대 (선택)</div>
-            <select value={ageGroup} onChange={e => setAgeGroup(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, background: C.surface, color: ageGroup ? C.text1 : C.text3, fontFamily: 'inherit', outline: 'none' }}>
+            <select value={ageGroup} onChange={e => setAgeGroup(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 13, background: C.surface, color: ageGroup ? C.text1 : C.text3, fontFamily: 'inherit', outline: 'none' }}>
               <option value="">비공개</option>
               {['20대','30대','40대','50대+'].map(a => <option key={a} value={a}>{a}</option>)}
             </select>

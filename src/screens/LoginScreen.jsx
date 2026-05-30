@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import { BADGES } from "../constants/badges";
+import { LogoMark, LeafSprig } from "../components/common";
 import CompanyOnboarding from "./CompanyOnboarding";
 import { upsertUserByPhone, getUserByPhone } from "../lib/supabase";
 
@@ -54,7 +55,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
 
   const iS = {
     width: "100%", padding: "14px 16px", border: `1.5px solid ${C.bgWarm}`,
-    borderRadius: R.md, fontSize: 15, outline: "none", boxSizing: "border-box",
+    borderRadius: R.lg, fontSize: 15, outline: "none", boxSizing: "border-box",
     marginBottom: 14, fontFamily: "inherit", color: C.text1, background: C.surface,
   };
 
@@ -244,13 +245,14 @@ export default function LoginScreen({ onLogin, initialRole }) {
         <div style={{ width: "100%", maxWidth: 390 }}>
           <div style={{ textAlign: "center", marginBottom: 36 }}>
             <div style={{
-              width: 68, height: 68, borderRadius: R.xl, margin: "0 auto 14px",
-              background: `linear-gradient(135deg,${C.brand},${C.brandD})`,
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32,
-              boxShadow: `0 8px 24px ${C.brand}44`,
-            }}>🏠</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: C.text1, letterSpacing: "-0.5px" }}>공간마켓</div>
-            <div style={{ fontSize: 14, color: C.text3, marginTop: 6 }}>우리 동네 믿을 수 있는 시공 업체</div>
+              width: 80, height: 80, borderRadius: 26, margin: "0 auto 14px",
+              background: C.surface,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: `0 10px 30px ${C.brand}22`, border: `1px solid ${C.bgWarm}`,
+            }}><LogoMark size={52} bare /></div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: C.brandD, letterSpacing: "-0.5px" }}>공간사이</div>
+            <div style={{ fontSize: 12, color: C.text3, marginTop: 4, letterSpacing: "1px" }}>공간마켓</div>
+            <div style={{ fontSize: 13, color: C.text3, marginTop: 8 }}>사람과 공간 사이, 믿을 수 있는 연결</div>
           </div>
 
           <div style={{ display: "flex", gap: S.sm, marginBottom: S.xxl }}>
@@ -518,8 +520,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
           {/* 헤더 */}
           <div style={{ background: C.surface, borderBottom: `1px solid ${C.bgWarm}`, padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 28, height: 28, borderRadius: R.md, background: C.brand, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🏠</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>공간마켓 둘러보기</div>
+              <LogoMark size={28} />
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>공간사이 둘러보기</div>
             </div>
             <button onClick={() => setShowBrowse(false)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: C.text3, padding: "0 4px", lineHeight: 1 }}>×</button>
           </div>

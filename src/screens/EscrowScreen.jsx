@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
+import { SHOW_DEBUG_UI } from "../constants/release";
+import { LeafSprig } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
@@ -80,8 +82,7 @@ const TIMELINE_ICONS = {
 };
 
 export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview }) {
-  // Debug panel: visible in dev/preview; hidden in production build automatically
-  const IS_DEBUG = import.meta.env.MODE !== "production";
+  const IS_DEBUG = SHOW_DEBUG_UI;
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
   const [escrowDebug, setEscrowDebug] = useState(null);
@@ -1002,7 +1003,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         </div>
 
         {/* Stage steps */}
-        <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
+        <div style={{ position:"relative", background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}`, overflow:"hidden" }}>
+          <LeafSprig size={72} color={C.brand} opacity={0.05}
+            style={{ position:"absolute", right:-10, top:-8, transform:"rotate(-15deg)" }} />
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.xl }}>{isConsumer ? "공사 진행 단계" : "정산 단계"}</div>
           {STAGE_META.map((s, i) => {
             const status = stageStatus[s.id];

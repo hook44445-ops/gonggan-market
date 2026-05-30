@@ -4,6 +4,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
+import { SHOW_DEBUG_UI } from '../constants/release';
 import { CATEGORY_LABEL } from '../constants/lounge';
 import { useLoungePost } from '../hooks/useLounge';
 import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname } from '../utils/anonymousNickname';
@@ -447,7 +448,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       )}
 
       {/* DEV 패널 */}
-      {import.meta.env.DEV && (
+      {SHOW_DEBUG_UI && (
         <div style={{ background: 'rgba(0,0,0,0.9)', color: '#0f0', margin: `0 0 ${S.sm}px`, padding: '8px 14px', fontSize: 10.5, lineHeight: 1.85, fontFamily: 'monospace' }}>
           [DEV] lounge_comments<br/>
           post.id: {post?.id?.slice(0,8) ?? 'NULL ⚠️'}<br/>
