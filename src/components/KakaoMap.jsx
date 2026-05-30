@@ -61,7 +61,7 @@ function DebugBadge({ env, sdk, windowKakao, kakaoMaps, mode, reason }) {
       <div>window.kakao: {String(windowKakao)}</div>
       <div>kakao.maps: {String(kakaoMaps)}</div>
       <div>mode: {mode}</div>
-      {reason && <div style={{ color: "#FF6B6B" }}>reason: {reason}</div>}
+      {reason && <div style={{ color: "#FF6B6B" }}>fallback_reason: {reason}</div>}
     </div>
   );
 }

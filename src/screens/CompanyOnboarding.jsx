@@ -285,6 +285,8 @@ export default function CompanyOnboarding({ phone, onDone }) {
           onClose={() => setRegionSheetOpen(false)}
           selectedRegions={form.serviceRegions}
           maxCount={2}
+          title="영업지역 설정"
+          subtitle="영업하실 지역을 최대 2곳까지 설정할 수 있어요"
           onSave={(entries) => { set("serviceRegions", entries); setRegionSheetOpen(false); }}
         />
 

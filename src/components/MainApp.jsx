@@ -7,7 +7,7 @@ import RegionSelectorBar from "./RegionSelectorBar";
 import RegionSelectSheet from "./RegionSelectSheet";
 import { useGPS } from "../hooks/useGPS";
 import { resolveMapCenter } from "../hooks/useMapCenter";
-import { getActivityRegions, getPrimaryRegion, regionKey } from "../constants/regions";
+import { getActivityRegions, getServiceRegions, getPrimaryRegion, regionKey } from "../constants/regions";
 import { getMatchedCompaniesWithTier } from "../utils/regionMatching";
 import { updateUserActivityRegions } from "../lib/supabase";
 import CompanyCard from "./CompanyCard";
@@ -70,6 +70,7 @@ import {
   getTopReviews,
   getSeedReviews,
   requestMockIdentityVerification,
+  updateCompanyServiceRegions,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
@@ -88,6 +89,7 @@ const normalizeCompany = (row) => ({
   recontractRate: row.recontract_rate ?? 0,
   asRate:        row.as_rate ?? 0,
   region:        row.region ?? "",
+  service_regions: Array.isArray(row.service_regions) ? row.service_regions : null,
   online:        row.online ?? false,
   specialties:   row.specialties ?? [],
   companyStatus: row.company_status ?? "PENDING",
@@ -388,6 +390,35 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (user?.id) {
       try { await updateUserActivityRegions(user.id, entries, primaryText); }
       catch (e) { console.warn("[region] save failed", e?.message); } // eslint-disable-line no-console
+    }
+  };
+
+  // ── Phase C: 업체 영업지역(service_regions, 최대 2) — 마이페이지에서 수정 ──
+  const [companyServiceRegions, setCompanyServiceRegions] = useState([]);
+  const [companyRegionSheetOpen, setCompanyRegionSheetOpen] = useState(false);
+
+  // 업체 프로필 로드/변경 시 영업지역 동기화 (없으면 legacy region text fallback)
+  useEffect(() => {
+    setCompanyServiceRegions(getServiceRegions(currentUser));
+  }, [currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onSaveServiceRegions = async (entries) => {
+    const primary = getPrimaryRegion(entries);
+    const primaryText = primary ? regionKey(primary.city, primary.district) : null;
+    setCompanyServiceRegions(entries);
+    setCompanyRegionSheetOpen(false);
+    // 로컬 업체 상태 즉시 반영 (primary 는 legacy region text 로도 미러링)
+    setCurrentUser(prev => prev
+      ? { ...prev, service_regions: entries, region: primaryText ?? prev.region }
+      : prev);
+    if (currentUser?.id) {
+      try {
+        await updateCompanyServiceRegions(currentUser.id, entries.length ? entries : null, primaryText);
+        showToast("✅ 영업지역이 저장됐어요");
+      } catch (e) {
+        console.warn("[service-region] save failed", e?.message); // eslint-disable-line no-console
+        showToast("영업지역 저장에 실패했어요. 잠시 후 다시 시도해주세요.");
+      }
     }
   };
 
@@ -2793,6 +2824,44 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     <span style={{ fontSize:16, color:C.text3 }}>›</span>
                   </div>
                 </div>
+
+                {/* Phase C: 영업지역 관리 (최대 2곳) */}
+                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.md, border:`1px solid ${C.bgWarm}` }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
+                    <span style={{ fontSize:14, color:C.text1, fontWeight:800 }}>📍 영업지역</span>
+                    <span style={{ fontSize:11, color:C.text3 }}>최대 2곳</span>
+                  </div>
+                  {companyServiceRegions.length > 0 ? (
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:S.md }}>
+                      {companyServiceRegions.map((r, i) => (
+                        <span key={regionKey(r.city, r.district) || i}
+                          style={{ display:"inline-flex", alignItems:"center", gap:4, background:C.brandL, color:C.brand,
+                            borderRadius:R.full, padding:"5px 12px", fontSize:12, fontWeight:800, border:`1px solid ${C.brandM}` }}>
+                          📍 {regionKey(r.city, r.district)}{r.is_primary ? " · 기본" : ""}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize:12, color:C.text3, marginBottom:S.md }}>
+                      아직 영업지역이 설정되지 않았어요. 영업지역을 설정하면 해당 지역 고객에게 우선 노출돼요.
+                    </div>
+                  )}
+                  <button onClick={() => setCompanyRegionSheetOpen(true)}
+                    style={{ width:"100%", padding:"11px 0", borderRadius:R.lg, cursor:"pointer",
+                      border:`1.5px dashed ${C.brandM}`, background:C.brandL, color:C.brand, fontSize:13, fontWeight:800 }}>
+                    {companyServiceRegions.length ? "✏️ 영업지역 수정" : "+ 영업지역 설정"}
+                  </button>
+                </div>
+
+                <RegionSelectSheet
+                  open={companyRegionSheetOpen}
+                  onClose={() => setCompanyRegionSheetOpen(false)}
+                  selectedRegions={companyServiceRegions}
+                  maxCount={2}
+                  title="영업지역 설정"
+                  subtitle="영업하실 지역을 최대 2곳까지 설정할 수 있어요"
+                  onSave={onSaveServiceRegions}
+                />
               </div>
             )}
 
