@@ -12,7 +12,7 @@ export default function RequestModal({ onClose, onDone, initialData = null, isEd
   });
   const set = (k,v) => setForm(f => ({...f,[k]:v}));
   const iS = { width:"100%", padding:"14px 16px", border:`1.5px solid ${C.bgWarm}`,
-    borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box",
+    borderRadius:R.lg, fontSize:15, outline:"none", boxSizing:"border-box",
     marginBottom:14, fontFamily:"inherit", color:C.text1, background:C.surface };
 
   return (

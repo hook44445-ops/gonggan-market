@@ -55,7 +55,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
 
   const iS = {
     width: "100%", padding: "14px 16px", border: `1.5px solid ${C.bgWarm}`,
-    borderRadius: R.md, fontSize: 15, outline: "none", boxSizing: "border-box",
+    borderRadius: R.lg, fontSize: 15, outline: "none", boxSizing: "border-box",
     marginBottom: 14, fontFamily: "inherit", color: C.text1, background: C.surface,
   };
 
