@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SHOW_DEBUG_UI } from "./constants/release";
+import { supabase } from "./lib/supabase";
 import MainApp from "./components/MainApp";
 import LoginScreen from "./screens/LoginScreen";
 import LandingScreen from "./screens/LandingScreen";
@@ -51,10 +52,32 @@ export default function App() {
   const [adminPw, setAdminPw] = useState("");
   const [adminLoginErr, setAdminLoginErr] = useState("");
 
+  // 리스너 클로저에서 최신 user를 참조하기 위한 ref (재구독 방지)
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
+
   useEffect(() => {
     const saved = loadSavedSession();
     if (saved) setUser(saved);
     setLoading(false);
+  }, []);
+
+  // C-5: Supabase 세션 만료/로그아웃 감지 → RLS 403 무음 실패 방지
+  // 게스트/관리자(isGuest)는 Supabase 인증 세션과 무관하므로 영향 주지 않는다.
+  // SIGNED_OUT(만료 포함)일 때만 안전하게 로그인 화면으로 복구한다.
+  // INITIAL_SESSION / SIGNED_IN / TOKEN_REFRESHED 는 localStorage 세션을 건드리지 않는다.
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        const cur = userRef.current;
+        if (cur && !cur.isGuest) {
+          clearSession();
+          setUser(null);
+          setPendingRole(null);
+        }
+      }
+    });
+    return () => data?.subscription?.unsubscribe();
   }, []);
 
   const handleLogin = (u) => {
@@ -73,7 +96,23 @@ export default function App() {
     setPendingRole(role);
   };
 
-  if (loading) return null;
+  // C-4: 초기 세션 복원 중 빈 흰 화면 대신 브랜드 로딩 화면 표시
+  if (loading) {
+    return (
+      <div style={{
+        position: "fixed", inset: 0, background: "#2E5F4B",
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        gap: 18, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif",
+      }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", letterSpacing: "-0.5px" }}>공간마켓</div>
+        <div style={{
+          width: 28, height: 28, border: "3px solid rgba(255,255,255,0.3)",
+          borderTopColor: "#fff", borderRadius: "50%", animation: "ggLoadSpin 0.8s linear infinite",
+        }} />
+        <style>{`@keyframes ggLoadSpin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
 
   if (user) {
     return (

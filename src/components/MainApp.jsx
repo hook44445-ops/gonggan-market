@@ -88,6 +88,21 @@ const normalizeCompany = (row) => ({
 
 const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// C-1: RequestModal은 예산을 "2,500~3,000만원" 같은 단일 문자열로 수집한다.
+// DB는 budget_min/budget_max(만원 단위 정수)로 저장하므로 문자열에서 숫자를 안전하게 파싱한다.
+// - 숫자 2개: [min, max]   - 숫자 1개: [n, n]   - 숫자 없음(협의 등): [0, 0]
+// 기존 데이터는 이미 budget_min/max 정수로 저장되어 있어 영향 없음.
+const parseBudgetRange = (str) => {
+  if (!str || typeof str !== "string") return { min: 0, max: 0 };
+  const nums = (str.match(/\d[\d,]*/g) ?? [])
+    .map(s => parseInt(s.replace(/,/g, ""), 10))
+    .filter(n => Number.isFinite(n) && n > 0);
+  if (nums.length === 0) return { min: 0, max: 0 };
+  if (nums.length === 1) return { min: nums[0], max: nums[0] };
+  const sorted = [...nums].sort((a, b) => a - b);
+  return { min: sorted[0], max: sorted[sorted.length - 1] };
+};
+
 const normalizeRequest = (row) => {
   const createdAt  = row.created_at ? new Date(row.created_at) : new Date();
   const expiresAt  = row.expires_at
@@ -3102,6 +3117,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
         // INSERT to Supabase
         if (user.id) {
+          // C-1: form.budget 단일 문자열을 budget_min/budget_max 정수로 파싱
+          const { min: budgetMin, max: budgetMax } = parseBudgetRange(form.budget);
           const { data, error } = await createRequest({
             user_id:     user.id,
             status:      'open',
@@ -3110,8 +3127,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             size:        form.size,
             style:       form.style,
             description: form.desc ?? "",
-            budget_min:  form.budget_min ?? 0,
-            budget_max:  form.budget_max ?? 0,
+            budget_min:  budgetMin,
+            budget_max:  budgetMax,
             expires_at:  new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
           });
           setReqCreateDebug({

@@ -58,6 +58,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const payingRef = useRef(false); // H-1: 동기 더블서브밋 가드 (setState는 비동기라 즉시 차단 불가)
+  const selectBidRef = useRef(false); // C-3: selectBid 동기 더블클릭 가드
   const [bidScreenDebug, setBidScreenDebug] = useState(null);
   const [dbWriteLog, setDbWriteLog] = useState(null);
   const [localToast, setLocalToast] = useState(null);
@@ -95,11 +96,19 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   }, [request?.id]);
 
   const selectBid = (bid) => {
+    // C-3: 빠른 연속 클릭 시 selBid 중복 설정 방지 (list로 돌아오면 해제)
+    if (selectBidRef.current) return;
+    selectBidRef.current = true;
     const safeBid = { ...bid, company: bid.company ?? { ...DEFAULT_COMPANY, id: bid.companyId } };
     setSelBid(safeBid);
     if (setSelectedBid) setSelectedBid(safeBid);
     setStep("confirm");
   };
+
+  // C-3: list 단계로 돌아오면 selectBid 가드 해제 (다른 업체 재선택 허용)
+  useEffect(() => {
+    if (step === "list") selectBidRef.current = false;
+  }, [step]);
 
   const goBack = () => step === "list" ? onBack() : setStep("list");
 
