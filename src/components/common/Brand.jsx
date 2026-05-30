@@ -1,22 +1,34 @@
 import { C } from "../../constants";
 
 // ─────────────────────────────────────────────────────
-// 공간사이 브랜드 마크 — 둥근 집 + 잎사귀
+// 공간마켓 브랜드 마크 — 01 공간·연결형
+// 원형 연결(링) + 집(공간) + 창문 + 잎(자연)
+// 모든 브랜드 아이콘(앱/파비콘/PWA/헤더/스플래시)의 단일 소스.
+// 좌표는 48 그리드 기준으로 정의되어 모든 에셋과 동일하게 유지됩니다.
 // ─────────────────────────────────────────────────────
-export function LogoMark({ size = 32, rounded = true, bare = false }) {
+export function LogoMark({ size = 32, rounded = true, bare = false, tone = "brand" }) {
+  // tone="brand": 딥그린 단색 (밝은 배경/헤더용)
+  // tone="light": 아이보리 + 세이지 잎 (딥그린 배경/히어로용)
+  const mark = tone === "light" ? "#FFFFFF" : C.brand;
+  const leaf = tone === "light" ? C.brandM : C.brand;
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       {!bare && <rect width="48" height="48" rx={rounded ? 13 : 0} fill={C.brandL} />}
-      {/* 집 외곽 */}
-      <path d="M24 11.5 L35 20 V34.5 a1.5 1.5 0 0 1 -1.5 1.5 H14.5 A1.5 1.5 0 0 1 13 34.5 V20 Z"
-        fill="none" stroke={C.brand} strokeWidth="2.6" strokeLinejoin="round" strokeLinecap="round" />
-      {/* 문 */}
-      <path d="M21 36 V27.5 a3 3 0 0 1 6 0 V36"
-        fill="none" stroke={C.brand} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
-      {/* 잎사귀 */}
-      <path d="M30.5 13.5 c3.2 -0.4 5.6 -2.4 6.4 -5.2 c-3.2 0.2 -5.8 1.9 -6.7 4.6"
-        fill={C.brand} />
-      <path d="M31 9.5 c1.8 0.4 3.6 0.1 5 -1" fill="none" stroke={C.brandL} strokeWidth="1" strokeLinecap="round" />
+      {/* 원형 연결 링 */}
+      <circle cx="24" cy="24" r="20" fill="none" stroke={mark} strokeWidth="2.2" />
+      {/* 집 외곽 (공간) */}
+      <path d="M13.8 21.6 L24 12.4 L34.2 21.6 L34.2 30.6 Q34.2 32.6 32.2 32.6 L15.8 32.6 Q13.8 32.6 13.8 30.6 Z"
+        fill="none" stroke={mark} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
+      {/* 창문 2×2 */}
+      <g fill={mark}>
+        <rect x="18.0" y="17.8" width="3.0" height="3.0" rx="0.5" />
+        <rect x="22.0" y="17.8" width="3.0" height="3.0" rx="0.5" />
+        <rect x="18.0" y="21.8" width="3.0" height="3.0" rx="0.5" />
+        <rect x="22.0" y="21.8" width="3.0" height="3.0" rx="0.5" />
+      </g>
+      {/* 잎 (자연·새싹) */}
+      <path d="M27 32 C23 31 21.2 28 22 25.6 C25 26.6 27.2 29 27 32 Z" fill={leaf} />
+      <path d="M27 32 C31 31 32.8 28 32 25.6 C29 26.6 26.8 29 27 32 Z" fill={leaf} />
     </svg>
   );
 }

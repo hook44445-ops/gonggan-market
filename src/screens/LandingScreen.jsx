@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
+import { LogoMark } from "../components/common";
 
 function useVisible(threshold = 0.12) {
   const ref = useRef(null);
@@ -109,8 +110,11 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
         }} />
 
         <div ref={heroRef} style={{ maxWidth: 480, margin: "0 auto" }}>
-          {/* brand */}
+          {/* brand — 01 공간·연결형 아이콘 + 워드마크 (여백 중심) */}
           <div style={{ ...fadeStyle(heroVisible, 0), marginBottom: 28 }}>
+            <div style={{ marginBottom: 14 }}>
+              <LogoMark size={48} bare tone="light" />
+            </div>
             <div style={{
               fontSize: 22, fontWeight: 900, color: "#fff",
               letterSpacing: "-0.3px", lineHeight: 1.2, marginBottom: 4,
@@ -121,7 +125,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
               fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.5)",
               letterSpacing: "0.04em",
             }}>
-              사람과 공간이 연결되는 곳
+              공간이 연결되는 곳, 믿을 수 있는 거래
             </div>
           </div>
 
