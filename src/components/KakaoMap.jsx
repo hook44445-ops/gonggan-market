@@ -46,6 +46,7 @@ function loadKakaoScript(apiKey) {
 // ── Mock fallback (API 키 없거나 SDK 로드 실패 시) ──
 function MockMap({ companies, userRegion, onPinClick, selectedId }) {
   const positioned = withCoords(companies, SEOUL).slice(0, 6);
+  const empty = companies.length === 0;
   return (
     <div style={{ position:"relative", background:"linear-gradient(145deg,#E4EBE0,#D4E2CC,#DCE8D0)",
       borderRadius:R.xl, height:250, overflow:"hidden", border:"1px solid #C4D8BC" }}>
@@ -56,7 +57,7 @@ function MockMap({ companies, userRegion, onPinClick, selectedId }) {
       {/* 반경 3km 표시 원 */}
       <div style={{ position:"absolute", left:"50%", top:"50%", transform:"translate(-50%,-50%)",
         width:180, height:180, borderRadius:"50%", border:`2px dashed ${C.brand}55`, background:`${C.brand}0d` }} />
-      {positioned.map((c, i) => {
+      {!empty && positioned.map((c, i) => {
         const positions = [{x:28,y:40},{x:57,y:28},{x:71,y:57},{x:42,y:70},{x:62,y:36},{x:34,y:58}];
         const pos = positions[i] ?? {x:50,y:50};
         const g = GRADE(c.temp ?? 36.5);
@@ -78,8 +79,15 @@ function MockMap({ companies, userRegion, onPinClick, selectedId }) {
       <div style={{ position:"absolute", left:"50%", top:"50%", transform:"translate(-50%,-50%)" }}>
         <div style={{ width:14, height:14, borderRadius:"50%", background:C.brand, border:"3px solid #fff", boxShadow:`0 0 0 8px ${C.brand}22` }} />
       </div>
+      {empty && (
+        <div style={{ position:"absolute", left:"50%", top:"58%", transform:"translate(-50%,-50%)",
+          background:"rgba(255,255,255,0.92)", borderRadius:R.md, padding:"8px 16px",
+          fontSize:12, color:C.text2, fontWeight:600, textAlign:"center", whiteSpace:"nowrap" }}>
+          현재 등록된 업체를 준비 중입니다
+        </div>
+      )}
       <div style={{ position:"absolute", bottom:10, right:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:600 }}>
-        📍 {userRegion} · 반경 3km
+        📍 {userRegion || "서울·경기·인천"} · 반경 3km
       </div>
       {!KAKAO_API_KEY && (
         <div style={{ position:"absolute", top:8, left:12, background:"rgba(0,0,0,0.5)", color:"#fff", borderRadius:R.sm, padding:"3px 8px", fontSize:10 }}>
@@ -198,8 +206,15 @@ function RealMap({ companies, userRegion, onPinClick, selectedId }) {
           지도 로딩 중...
         </div>
       )}
+      {ready && companies.length === 0 && (
+        <div style={{ position:"absolute", left:"50%", top:"62%", transform:"translate(-50%,-50%)",
+          background:"rgba(255,255,255,0.92)", borderRadius:R.md, padding:"8px 16px",
+          fontSize:12, color:C.text2, fontWeight:600, whiteSpace:"nowrap", pointerEvents:"none" }}>
+          현재 등록된 업체를 준비 중입니다
+        </div>
+      )}
       <div style={{ position:"absolute", bottom:10, right:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:600 }}>
-        📍 {userRegion} · 반경 3km
+        📍 {userRegion || "서울·경기·인천"} · 반경 3km
       </div>
     </div>
   );
