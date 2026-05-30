@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect } from 'react';
-import { C, R, S } from '../constants';
+import { C, R, S, SHADOW } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
 import { useLounge } from '../hooks/useLounge';
 import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead, createLoungeNotification } from '../lib/supabase';
@@ -442,7 +442,9 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
           </div>
         </div>
         {/* 커뮤니티 서브 배너 */}
-        <div style={{ background: `linear-gradient(150deg, ${C.brandL}, ${C.bgWarm})`, padding: `10px ${S.xl}px`, marginTop: 10 }}>
+        <div style={{ background: `linear-gradient(150deg, ${C.ivory}, ${C.brandL})`,
+          padding: `10px ${S.xl}px`, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 11, lineHeight: 1 }}>🌿</span>
           <span style={{ fontSize: 12, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>잠깐 쉬어가는 공간 · 편하게 말 걸어보세요</span>
         </div>
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
@@ -477,14 +479,19 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
           <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
         </div>
       ) : allPosts.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.text2, marginBottom: 8 }}>아직 게시글이 없어요</div>
-          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6, marginBottom: S.xl }}>
-            이 카테고리에 첫 이야기를 시작해보세요
+        <div style={{ margin: `${S.xl}px ${S.xl}px 0`, background: C.ivory, borderRadius: R.xl,
+          padding: '44px 24px 36px', textAlign: 'center',
+          border: `1px solid ${C.bgWarm}`, boxShadow: SHADOW.soft }}>
+          <div style={{ width: 64, height: 64, borderRadius: R.full,
+            background: `linear-gradient(135deg,${C.brandL},${C.bgWarm})`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 18px', fontSize: 26, border: `1.5px solid ${C.brandM}` }}>🌿</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 8, letterSpacing: '-0.3px' }}>아직 이야기가 없어요</div>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8, marginBottom: S.xl }}>
+            이 공간에 첫 이야기를 꺼내보세요
           </div>
           {isLoggedIn && !isPopular && (
-            <button onClick={() => onWrite?.('post')} style={{ padding: '12px 28px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: `0 4px 14px ${C.brand}44` }}>
+            <button onClick={() => onWrite?.('post')} style={{ padding: '12px 28px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: SHADOW.brand }}>
               첫 글 작성하기
             </button>
           )}
