@@ -758,10 +758,29 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   };
 
   const handleFileChange = async (e, stageId) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
+    const allFiles = Array.from(e.target.files);
+    if (!allFiles.length) return;
+
+    // ── 파일 용량/타입 검증 (안정화: 잘못된 파일은 업로드 전 차단) ──
+    const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
+    const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "image/heif"];
+    const rejected = [];
+    const files = allFiles.filter((f) => {
+      const typeOk = f.type ? ALLOWED_TYPES.includes(f.type.toLowerCase()) : /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name);
+      const sizeOk = f.size <= MAX_FILE_BYTES;
+      if (!typeOk) { rejected.push(`${f.name}: 이미지 형식만 업로드할 수 있어요 (JPG, PNG, WebP)`); return false; }
+      if (!sizeOk) { rejected.push(`${f.name}: 파일이 너무 커요 (최대 10MB)`); return false; }
+      return true;
+    });
+
+    if (!files.length) {
+      setReportError(rejected.join(" / ") || "업로드할 수 있는 사진이 없어요.");
+      e.target.value = "";
+      return;
+    }
+
     setUploadingStage(stageId);
-    setReportError(null);
+    setReportError(rejected.length ? rejected.join(" / ") : null);
     setUploadDiag(null);
     let anyFailed = false;
     const diagEntries = [];
