@@ -3,6 +3,11 @@ import { C, R, GRADE } from "../constants";
 
 const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
 
+// 환경변수 요약 문자열 (DebugBadge 표시용)
+const ENV_INFO = KAKAO_API_KEY
+  ? `present(len=${String(KAKAO_API_KEY).length},prefix=${String(KAKAO_API_KEY).slice(0, 4)}...)`
+  : "MISSING";
+
 // ── 진단 로그 — production 콘솔에서 step-by-step 판별용 (UI 노출 없음) ──
 function mapLog(...args) {
   // eslint-disable-next-line no-console
@@ -39,6 +44,26 @@ function withCoords(companies, center) {
     const pos = hasReal ? { lat: c.lat, lng: c.lng } : scatterPosition(center, i);
     return { ...c, _lat: pos.lat, _lng: pos.lng };
   });
+}
+
+// ── 온스크린 진단 배지 — 모바일 콘솔 대체 ──
+function DebugBadge({ env, sdk, windowKakao, kakaoMaps, mode, reason }) {
+  return (
+    <div style={{
+      position: "absolute", top: 6, left: 6, right: 6,
+      background: "rgba(0,0,0,0.88)", color: "#4AFF91",
+      borderRadius: 8, padding: "8px 12px", fontSize: 10,
+      fontFamily: "monospace", lineHeight: 1.9, zIndex: 200, pointerEvents: "none",
+    }}>
+      <div style={{ color: "#FFD700", fontWeight: 700 }}>[KakaoMap Debug]</div>
+      <div>env: {env}</div>
+      <div>sdk: {sdk}</div>
+      <div>window.kakao: {String(windowKakao)}</div>
+      <div>kakao.maps: {String(kakaoMaps)}</div>
+      <div>mode: {mode}</div>
+      {reason && <div style={{ color: "#FF6B6B" }}>reason: {reason}</div>}
+    </div>
+  );
 }
 
 function loadKakaoScript(apiKey) {
@@ -118,12 +143,13 @@ function loadKakaoScript(apiKey) {
 }
 
 // ── Mock fallback (API 키 없거나 SDK 로드 실패 시) ──
-function MockMap({ companies, userRegion, onPinClick, selectedId, onRequestLocation, gpsLoading }) {
+function MockMap({ companies, userRegion, onPinClick, selectedId, onRequestLocation, gpsLoading, debugInfo }) {
   const positioned = withCoords(companies, SEOUL).slice(0, 6);
   const empty = companies.length === 0;
   return (
     <div style={{ position:"relative", background:"linear-gradient(145deg,#E4EBE0,#D4E2CC,#DCE8D0)",
       borderRadius:R.xl, height:250, overflow:"hidden", border:"1px solid #C4D8BC" }}>
+      {debugInfo && <DebugBadge {...debugInfo} />}
       {[...Array(7)].map((_,i) => <div key={i} style={{ position:"absolute", left:`${i*18}%`, top:0, bottom:0, borderLeft:"1px solid rgba(0,0,0,0.04)" }} />)}
       {[...Array(6)].map((_,i) => <div key={i} style={{ position:"absolute", top:`${i*20}%`, left:0, right:0, borderTop:"1px solid rgba(0,0,0,0.04)" }} />)}
       <div style={{ position:"absolute", left:"44%", top:0, bottom:0, width:4, background:"rgba(255,255,255,0.65)" }} />
@@ -189,6 +215,7 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
   const overlaysRef = useRef([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [sdkInfo, setSdkInfo] = useState({ sdk: "loading", windowKakao: false, kakaoMaps: false, reason: null });
   // 중심은 부모가 제어(controlled). 자동 geolocation 없음 — GPS 정책 준수.
   const center = centerProp ?? SEOUL;
 
@@ -196,8 +223,25 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
   useEffect(() => {
     let alive = true;
     loadKakaoScript(KAKAO_API_KEY)
-      .then(() => { if (alive) { setReady(true); mapLog("render: REAL Kakao map"); } })
-      .catch((e) => { if (alive) { setLoadError(true); mapLog("render: MOCK map (SDK 실패:", e?.message, ")"); } });
+      .then(() => {
+        if (alive) {
+          setReady(true);
+          setSdkInfo({ sdk: "loaded", windowKakao: !!window.kakao, kakaoMaps: !!window.kakao?.maps, reason: null });
+          mapLog("render: REAL Kakao map");
+        }
+      })
+      .catch((e) => {
+        if (alive) {
+          setLoadError(true);
+          setSdkInfo({
+            sdk: e?.message === "sdk-timeout" ? "timeout" : "failed",
+            windowKakao: !!window.kakao,
+            kakaoMaps: !!window.kakao?.maps,
+            reason: e?.message ?? "unknown",
+          });
+          mapLog("render: MOCK map (SDK 실패:", e?.message, ")");
+        }
+      });
     return () => { alive = false; };
   }, []);
 
@@ -272,10 +316,24 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
     circleRef.current?.setMap(null);
   }, []);
 
-  if (loadError) return <MockMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} onRequestLocation={onRequestLocation} gpsLoading={gpsLoading} />;
+  if (loadError) return (
+    <MockMap
+      companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId}
+      onRequestLocation={onRequestLocation} gpsLoading={gpsLoading}
+      debugInfo={{ env: ENV_INFO, sdk: sdkInfo.sdk, windowKakao: sdkInfo.windowKakao, kakaoMaps: sdkInfo.kakaoMaps, mode: "fallback", reason: sdkInfo.reason }}
+    />
+  );
 
   return (
     <div style={{ position:"relative", borderRadius:R.xl, overflow:"hidden", height:250, border:`1px solid ${C.bgWarm}` }}>
+      <DebugBadge
+        env={ENV_INFO}
+        sdk={sdkInfo.sdk}
+        windowKakao={sdkInfo.windowKakao}
+        kakaoMaps={sdkInfo.kakaoMaps}
+        mode={ready ? "real" : "loading"}
+        reason={sdkInfo.reason}
+      />
       <div ref={containerRef} style={{ width:"100%", height:"100%" }} />
       {!ready && (
         <div style={{ position:"absolute", inset:0, background:C.bgWarm, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:C.text3 }}>
@@ -290,7 +348,7 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
         </div>
       )}
       {/* 활동지역 라벨 (좌상단) */}
-      <div style={{ position:"absolute", top:10, left:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:700, pointerEvents:"none" }}>
+      <div style={{ position:"absolute", bottom:38, left:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:700, pointerEvents:"none" }}>
         내 활동지역: {userRegion || "서울·경기·인천"} · 반경 3km
       </div>
       {/* 현재 위치로 보기 — 클릭 시에만 GPS 요청 (정책 준수) */}
@@ -309,7 +367,13 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
 export default function KakaoMap({ companies = [], userRegion = "", onPinClick, selectedId = null, center = null, onRequestLocation, gpsLoading = false }) {
   if (!KAKAO_API_KEY) {
     mapLog("RENDER: MOCK map — VITE_KAKAO_MAP_KEY absent in this build bundle. Vercel 환경변수 설정 후 재배포 필요.");
-    return <MockMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} onRequestLocation={onRequestLocation} gpsLoading={gpsLoading} />;
+    return (
+      <MockMap
+        companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId}
+        onRequestLocation={onRequestLocation} gpsLoading={gpsLoading}
+        debugInfo={{ env: ENV_INFO, sdk: "n/a", windowKakao: !!window.kakao, kakaoMaps: !!window.kakao?.maps, mode: "fallback", reason: "no-api-key" }}
+      />
+    );
   }
   mapLog("RENDER: attempting RealMap (key present)");
   return <RealMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} center={center} onRequestLocation={onRequestLocation} gpsLoading={gpsLoading} />;
