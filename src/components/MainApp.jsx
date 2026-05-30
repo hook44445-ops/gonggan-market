@@ -1,8 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import LiveFeed from "./LiveFeed";
+import RegionSelectorBar from "./RegionSelectorBar";
+import RegionSelectSheet from "./RegionSelectSheet";
+import { useGPS } from "../hooks/useGPS";
+import { resolveMapCenter } from "../hooks/useMapCenter";
+import { getActivityRegions, getPrimaryRegion, regionKey } from "../constants/regions";
+import { filterCompaniesByRegion } from "../utils/regionMatching";
+import { updateUserActivityRegions } from "../lib/supabase";
 import CompanyCard from "./CompanyCard";
 import PortfolioScreen from "../screens/PortfolioScreen";
 import ReviewScreen from "../screens/ReviewScreen";
@@ -346,6 +353,41 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   const [mapSelectedId, setMapSelectedId] = useState(null);
   const mapCardRefs = useRef({});
+
+  // ── 지역 정책: 활동지역(최대 2) — 지도에서 직접 설정 ──
+  const [activityRegions, setActivityRegions] = useState(() => getActivityRegions(user));
+  const [activeRegion, setActiveRegion] = useState(() => getPrimaryRegion(getActivityRegions(user)));
+  const [regionSheetOpen, setRegionSheetOpen] = useState(false);
+  const { gpsCenter, loading: gpsLoading, requestCurrentLocation, clearGps } = useGPS();
+
+  // user prop 변경(재로그인 등) 시 활동지역 재동기화
+  useEffect(() => {
+    const regs = getActivityRegions(user);
+    setActivityRegions(regs);
+    setActiveRegion(getPrimaryRegion(regs));
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 지도 중심 — activeRegion > GPS > 저장 primary > fallback
+  const mapCenter = useMemo(
+    () => resolveMapCenter({ user: { activity_regions: activityRegions, region: user?.region }, activeRegion, gpsCenter }),
+    [activityRegions, user?.region, activeRegion, gpsCenter]
+  );
+
+  const onSelectRegionTab = (r) => { clearGps(); setActiveRegion(r); };
+  const onRequestMapLocation = () => { setActiveRegion(null); requestCurrentLocation(); };
+
+  const onSaveRegions = async (entries) => {
+    const primary = getPrimaryRegion(entries);
+    const primaryText = primary ? regionKey(primary.city, primary.district) : null;
+    setActivityRegions(entries);
+    setActiveRegion(primary);
+    setRegionSheetOpen(false);
+    clearGps();
+    if (user?.id) {
+      try { await updateUserActivityRegions(user.id, entries, primaryText); }
+      catch (e) { console.warn("[region] save failed", e?.message); } // eslint-disable-line no-console
+    }
+  };
 
   const handleCloseRequest = async (requestId) => {
     const markClosed = r => r.id === requestId
@@ -998,6 +1040,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   }, [bidViewRequestId]);
 
   const { companies } = useCompanyList();
+
+  // 지도 노출 업체 — 활성 지역(없으면 전체 활동지역)으로 필터, 매칭 0건이면 전체 노출
+  const mapCompanies = useMemo(() => {
+    if (activeRegion?.city) {
+      return filterCompaniesByRegion(companies, null, { city: activeRegion.city, district: activeRegion.district });
+    }
+    return filterCompaniesByRegion(companies, { activity_regions: activityRegions, region: user?.region });
+  }, [companies, activeRegion, activityRegions, user?.region]);
 
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
@@ -2194,11 +2244,21 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {/* 지도 — STEP 15: 카카오맵 SDK 연동 */}
         {screen==="map" && (
           <div>
+            {/* 활동지역 선택 바 — 지도에서 직접 설정 (당근 방식) */}
+            <RegionSelectorBar
+              regions={activityRegions}
+              activeKey={activeRegion ? regionKey(activeRegion.city, activeRegion.district) : null}
+              onSelect={onSelectRegionTab}
+              onAdd={() => setRegionSheetOpen(true)}
+            />
             <div style={{ marginBottom:S.xl }}>
               <KakaoMap
-                companies={companies}
-                userRegion={user.region ?? ""}
+                companies={mapCompanies}
+                userRegion={(activeRegion ? regionKey(activeRegion.city, activeRegion.district) : user.region) ?? ""}
                 selectedId={mapSelectedId}
+                center={mapCenter}
+                onRequestLocation={onRequestMapLocation}
+                gpsLoading={gpsLoading}
                 onPinClick={c => {
                   setMapSelectedId(c.id);
                   const el = mapCardRefs.current[c.id];
@@ -2206,8 +2266,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 }}
               />
             </div>
-            <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>인근 업체 <span style={{ color:C.brand }}>{companies.length}곳</span></div>
-            {companies.map(c => (
+            <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>인근 업체 <span style={{ color:C.brand }}>{mapCompanies.length}곳</span></div>
+            {mapCompanies.map(c => (
               <div key={c.id} ref={el => { mapCardRefs.current[c.id] = el; }}
                 onMouseEnter={() => setMapSelectedId(c.id)}
                 style={{ borderRadius:R.xl,
@@ -2216,6 +2276,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <CompanyCard company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />
               </div>
             ))}
+            <RegionSelectSheet
+              open={regionSheetOpen}
+              onClose={() => setRegionSheetOpen(false)}
+              selectedRegions={activityRegions}
+              maxCount={2}
+              onSave={onSaveRegions}
+            />
           </div>
         )}
 

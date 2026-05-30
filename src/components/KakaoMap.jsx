@@ -82,7 +82,7 @@ function loadKakaoScript(apiKey) {
 }
 
 // ── Mock fallback (API 키 없거나 SDK 로드 실패 시) ──
-function MockMap({ companies, userRegion, onPinClick, selectedId }) {
+function MockMap({ companies, userRegion, onPinClick, selectedId, onRequestLocation, gpsLoading }) {
   const positioned = withCoords(companies, SEOUL).slice(0, 6);
   const empty = companies.length === 0;
   return (
@@ -124,11 +124,19 @@ function MockMap({ companies, userRegion, onPinClick, selectedId }) {
           현재 등록된 업체를 준비 중입니다
         </div>
       )}
-      <div style={{ position:"absolute", bottom:10, right:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:600 }}>
-        📍 {userRegion || "서울·경기·인천"} · 반경 3km
+      <div style={{ position:"absolute", top:10, left:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:700, pointerEvents:"none" }}>
+        내 활동지역: {userRegion || "서울·경기·인천"} · 반경 3km
       </div>
+      {onRequestLocation && (
+        <button onClick={onRequestLocation} disabled={gpsLoading}
+          style={{ position:"absolute", bottom:10, right:12, background:"rgba(255,255,255,0.95)", border:`1px solid ${C.bgWarm}`,
+            borderRadius:R.full, padding:"7px 13px", fontSize:11, color:C.brand, fontWeight:800,
+            cursor: gpsLoading ? "default" : "pointer", boxShadow:"0 2px 8px rgba(0,0,0,0.12)" }}>
+          {gpsLoading ? "위치 확인 중..." : "📍 현재 위치로 보기"}
+        </button>
+      )}
       {!KAKAO_API_KEY && (
-        <div style={{ position:"absolute", top:8, left:12, background:"rgba(0,0,0,0.5)", color:"#fff", borderRadius:R.sm, padding:"3px 8px", fontSize:10 }}>
+        <div style={{ position:"absolute", bottom:10, left:12, background:"rgba(0,0,0,0.5)", color:"#fff", borderRadius:R.sm, padding:"3px 8px", fontSize:10 }}>
           목업 지도
         </div>
       )}
@@ -137,7 +145,7 @@ function MockMap({ companies, userRegion, onPinClick, selectedId }) {
 }
 
 // ── 실제 카카오 지도 ──
-function RealMap({ companies, userRegion, onPinClick, selectedId }) {
+function RealMap({ companies, userRegion, onPinClick, selectedId, center: centerProp, onRequestLocation, gpsLoading }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const circleRef = useRef(null);
@@ -145,7 +153,8 @@ function RealMap({ companies, userRegion, onPinClick, selectedId }) {
   const overlaysRef = useRef([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [center, setCenter] = useState(SEOUL);
+  // 중심은 부모가 제어(controlled). 자동 geolocation 없음 — GPS 정책 준수.
+  const center = centerProp ?? SEOUL;
 
   // SDK 로드
   useEffect(() => {
@@ -156,7 +165,7 @@ function RealMap({ companies, userRegion, onPinClick, selectedId }) {
     return () => { alive = false; };
   }, []);
 
-  // 지도 1회 생성 + geolocation
+  // 지도 1회 생성 (자동 위치요청 제거 — '현재 위치로 보기' 버튼에서만 GPS 요청)
   useEffect(() => {
     if (!ready || !containerRef.current || mapRef.current) return;
     const { maps } = window.kakao;
@@ -173,15 +182,6 @@ function RealMap({ companies, userRegion, onPinClick, selectedId }) {
         new maps.Size(24, 35)
       ),
     });
-
-    // geolocation — 성공 시 중심 갱신, 실패 시 서울 유지
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {},
-        { timeout: 5000 }
-      );
-    }
   }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // center 변경 시 지도 이동 + 내 위치 마커 갱신
@@ -236,7 +236,7 @@ function RealMap({ companies, userRegion, onPinClick, selectedId }) {
     circleRef.current?.setMap(null);
   }, []);
 
-  if (loadError) return <MockMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} />;
+  if (loadError) return <MockMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} onRequestLocation={onRequestLocation} gpsLoading={gpsLoading} />;
 
   return (
     <div style={{ position:"relative", borderRadius:R.xl, overflow:"hidden", height:250, border:`1px solid ${C.bgWarm}` }}>
@@ -253,17 +253,27 @@ function RealMap({ companies, userRegion, onPinClick, selectedId }) {
           현재 등록된 업체를 준비 중입니다
         </div>
       )}
-      <div style={{ position:"absolute", bottom:10, right:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:600 }}>
-        📍 {userRegion || "서울·경기·인천"} · 반경 3km
+      {/* 활동지역 라벨 (좌상단) */}
+      <div style={{ position:"absolute", top:10, left:12, background:"rgba(255,255,255,0.92)", borderRadius:R.full, padding:"4px 12px", fontSize:11, color:C.text2, fontWeight:700, pointerEvents:"none" }}>
+        내 활동지역: {userRegion || "서울·경기·인천"} · 반경 3km
       </div>
+      {/* 현재 위치로 보기 — 클릭 시에만 GPS 요청 (정책 준수) */}
+      {onRequestLocation && (
+        <button onClick={onRequestLocation} disabled={gpsLoading}
+          style={{ position:"absolute", bottom:10, right:12, background:"rgba(255,255,255,0.95)", border:`1px solid ${C.bgWarm}`,
+            borderRadius:R.full, padding:"7px 13px", fontSize:11, color:C.brand, fontWeight:800,
+            cursor: gpsLoading ? "default" : "pointer", boxShadow:"0 2px 8px rgba(0,0,0,0.12)", display:"flex", alignItems:"center", gap:4 }}>
+          {gpsLoading ? "위치 확인 중..." : "📍 현재 위치로 보기"}
+        </button>
+      )}
     </div>
   );
 }
 
-export default function KakaoMap({ companies = [], userRegion = "", onPinClick, selectedId = null }) {
+export default function KakaoMap({ companies = [], userRegion = "", onPinClick, selectedId = null, center = null, onRequestLocation, gpsLoading = false }) {
   if (!KAKAO_API_KEY) {
     mapLog("render: MOCK map (no API key) — Vercel 환경변수 VITE_KAKAO_MAP_KEY 확인 필요");
-    return <MockMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} />;
+    return <MockMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} onRequestLocation={onRequestLocation} gpsLoading={gpsLoading} />;
   }
-  return <RealMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} />;
+  return <RealMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} center={center} onRequestLocation={onRequestLocation} gpsLoading={gpsLoading} />;
 }
