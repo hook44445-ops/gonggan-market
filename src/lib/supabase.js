@@ -37,7 +37,7 @@ export const upsertUserByPhone = (profile) =>
   supabase.from("users").upsert(profile, { onConflict: "phone" }).select().single();
 
 export const getUser = (id) =>
-  supabase.from("users").select("*").eq("id", id).single();
+  supabase.from("users").select("*").eq("id", id).maybeSingle();
 
 export const getUserByPhone = (phone) =>
   supabase.from("users").select("*").eq("phone", phone).maybeSingle();
@@ -48,7 +48,7 @@ export const getCompanies = () =>
   supabase.from("companies").select("*").order("temp", { ascending: false });
 
 export const getCompany = (id) =>
-  supabase.from("companies").select("*").eq("id", id).single();
+  supabase.from("companies").select("*").eq("id", id).maybeSingle();
 
 export const getCompanyByOwnerId = (ownerId) =>
   supabase.from("companies").select("*").eq("owner_id", ownerId).maybeSingle();
@@ -62,7 +62,7 @@ export const updateCompanyTemp = async (companyId, delta) => {
     .from("companies")
     .select("temp")
     .eq("id", companyId)
-    .single();
+    .maybeSingle();
   if (error) return { error };
   const current = typeof data?.temp === "number" ? data.temp : 36.5;
   const next    = Math.round(Math.min(99, Math.max(0, current + delta)) * 10) / 10;
@@ -93,7 +93,7 @@ export const getRequests = () =>
     .order("created_at", { ascending: false });
 
 export const getRequest = (id) =>
-  supabase.from("requests").select("*").eq("id", id).single();
+  supabase.from("requests").select("*").eq("id", id).maybeSingle();
 
 export const getUserRequests = (userId) =>
   supabase
@@ -185,7 +185,7 @@ export const subscribeToBidInserts = (requestId, callback) =>
 // ── Escrow Payments ───────────────────────────────────────────────────────────
 
 export const getEscrowPayment = (requestId) =>
-  supabase.from("escrow_payments").select("*").eq("request_id", requestId).single();
+  supabase.from("escrow_payments").select("*").eq("request_id", requestId).maybeSingle();
 
 export const createEscrowPayment = (data) =>
   supabase.from("escrow_payments").insert(data).select().single();
@@ -586,7 +586,7 @@ export const adminUpdateUserInfo = async (id, fields, adminId) => {
 // ── Fee Config ────────────────────────────────────────────────────────────────
 
 export const getFeeConfig = () =>
-  supabase.from("fee_config").select("*").single();
+  supabase.from("fee_config").select("*").maybeSingle();
 
 // ── Admin Logs ────────────────────────────────────────────────────────────────
 

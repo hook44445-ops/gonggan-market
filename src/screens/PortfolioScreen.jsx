@@ -270,7 +270,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
               <div style={{ width:64, height:64, borderRadius:R.lg, flexShrink:0,
                 background:C.brandL,
                 display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:26, fontWeight:900, color:C.brand }}>{company.name[0]}</div>
+                fontSize:26, fontWeight:900, color:C.brand }}>{(company.name ?? "?")[0]}</div>
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:8 }}>{company.name}</div>
                 <TempBadge temp={company.temp} lg />

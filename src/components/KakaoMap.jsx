@@ -3,9 +3,19 @@ import { C, R, GRADE } from "../constants";
 
 const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
 
+// ── 진단 로그 — production 콘솔에서 mock/real 판별용 (UI 노출 없음) ──
+function mapLog(...args) {
+  // eslint-disable-next-line no-console
+  console.log("[KakaoMap]", ...args);
+}
+
+// 키 존재 여부만 1회 보고 (키 값 자체는 노출하지 않음)
+mapLog("env VITE_KAKAO_MAP_KEY:", KAKAO_API_KEY ? `present(len=${String(KAKAO_API_KEY).length})` : "MISSING → mock fallback");
+
 // 서울시청 — geolocation 실패 시 fallback 중심
 const SEOUL = { lat: 37.5665, lng: 126.9780 };
 const RADIUS_M = 3000; // 반경 3km
+const SDK_TIMEOUT_MS = 8000; // SDK 로드 타임아웃 → 초과 시 mock fallback
 
 // 좌표 없는 업체를 중심 주변 3km 내에 결정적으로 산포
 // (같은 업체는 항상 같은 위치 → 새로고침해도 안정적)
@@ -27,18 +37,46 @@ function withCoords(companies, center) {
 
 function loadKakaoScript(apiKey) {
   return new Promise((resolve, reject) => {
-    if (window.kakao?.maps) { resolve(); return; }
+    if (!apiKey) { reject(new Error("no-api-key")); return; }
+    if (window.kakao?.maps) { mapLog("SDK already present (window.kakao.maps OK)"); resolve(); return; }
+
+    // 타임아웃 — SDK가 끝내 로드되지 않으면 fallback 으로 넘긴다
+    let settled = false;
+    const done = (fn, arg) => { if (settled) return; settled = true; clearTimeout(timer); fn(arg); };
+    const timer = setTimeout(() => {
+      mapLog("SDK load TIMEOUT (>", SDK_TIMEOUT_MS, "ms) → mock fallback");
+      done(reject, new Error("sdk-timeout"));
+    }, SDK_TIMEOUT_MS);
+
+    const finishOk = () => {
+      // window.kakao.maps.load 는 maps 네임스페이스 준비 후 콜백 실행
+      if (window.kakao?.maps) {
+        window.kakao.maps.load(() => { mapLog("SDK ready (window.kakao.maps loaded)"); done(resolve); });
+      } else {
+        mapLog("script loaded but window.kakao missing → mock fallback");
+        done(reject, new Error("kakao-undefined"));
+      }
+    };
+
     const existing = document.getElementById("kakao-map-sdk");
     if (existing) {
-      existing.addEventListener("load", () => window.kakao.maps.load(resolve));
-      existing.addEventListener("error", reject);
+      // 이미 삽입된 스크립트가 로드 완료됐을 수도 있으므로 폴링으로도 확인
+      mapLog("SDK script tag exists — waiting/polling for window.kakao.maps");
+      existing.addEventListener("load", finishOk);
+      existing.addEventListener("error", () => done(reject, new Error("sdk-load-error")));
+      const poll = setInterval(() => {
+        if (settled) { clearInterval(poll); return; }
+        if (window.kakao?.maps) { clearInterval(poll); finishOk(); }
+      }, 200);
       return;
     }
+
+    mapLog("injecting Kakao SDK script:", `//dapi.kakao.com/v2/maps/sdk.js?appkey=***&autoload=false`);
     const s = document.createElement("script");
     s.id = "kakao-map-sdk";
     s.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false`;
-    s.onload = () => { window.kakao.maps.load(resolve); };
-    s.onerror = reject;
+    s.onload = finishOk;
+    s.onerror = () => { mapLog("SDK script onerror → mock fallback (도메인 미등록/네트워크 확인)"); done(reject, new Error("sdk-load-error")); };
     document.head.appendChild(s);
   });
 }
@@ -113,8 +151,8 @@ function RealMap({ companies, userRegion, onPinClick, selectedId }) {
   useEffect(() => {
     let alive = true;
     loadKakaoScript(KAKAO_API_KEY)
-      .then(() => { if (alive) setReady(true); })
-      .catch(() => { if (alive) setLoadError(true); });
+      .then(() => { if (alive) { setReady(true); mapLog("render: REAL Kakao map"); } })
+      .catch((e) => { if (alive) { setLoadError(true); mapLog("render: MOCK map (SDK 실패:", e?.message, ")"); } });
     return () => { alive = false; };
   }, []);
 
@@ -125,6 +163,8 @@ function RealMap({ companies, userRegion, onPinClick, selectedId }) {
     const c = new maps.LatLng(center.lat, center.lng);
     const map = new maps.Map(containerRef.current, { center: c, level: 6 });
     mapRef.current = map;
+    // 줌 컨트롤 — 실제 카카오 지도임을 시각적으로 확인 가능
+    try { map.addControl(new maps.ZoomControl(), maps.ControlPosition.RIGHT); } catch { /* SDK 버전 차이 무시 */ }
 
     myMarkerRef.current = new maps.Marker({
       map, position: c,
@@ -222,6 +262,7 @@ function RealMap({ companies, userRegion, onPinClick, selectedId }) {
 
 export default function KakaoMap({ companies = [], userRegion = "", onPinClick, selectedId = null }) {
   if (!KAKAO_API_KEY) {
+    mapLog("render: MOCK map (no API key) — Vercel 환경변수 VITE_KAKAO_MAP_KEY 확인 필요");
     return <MockMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} />;
   }
   return <RealMap companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId} />;

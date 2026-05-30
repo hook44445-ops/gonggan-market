@@ -1345,6 +1345,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [seedingLoading, setSeedingLoading] = useState(false);
   const [seedingErr, setSeedingErr]       = useState(null);
   const [reports, setReports]           = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsErr, setReportsErr]     = useState(null);
   const [reviewRewards, setReviewRewards] = useState([]);
   const [hiddenRequests, setHiddenRequests] = useState([]);
   const [hiddenLoading, setHiddenLoading] = useState(false);
@@ -1470,7 +1472,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
       })();
     }
     if (mainTab === "reports") {
-      getCustomerReports().then(({ data }) => setReports(data ?? [])).catch(() => setReports([]));
+      setReportsLoading(true);
+      setReportsErr(null);
+      getCustomerReports()
+        .then(({ data, error }) => {
+          if (error) { setReportsErr(error.message ?? "신고 목록을 불러오지 못했습니다."); setReports([]); }
+          else setReports(data ?? []);
+        })
+        .catch((err) => { setReportsErr(err?.message ?? String(err)); setReports([]); })
+        .finally(() => setReportsLoading(false));
     }
     if (mainTab === "reviews") {
       getReviewRewardsPending().then(({ data }) => setReviewRewards(data ?? [])).catch(() => setReviewRewards([]));
@@ -2315,32 +2325,42 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
                   신고 <span style={{ color: C.red }}>{reports.length}건</span>
                 </div>
-                {reports.length === 0 ? (
+                {reportsLoading ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", fontSize: 14, color: C.text3 }}>불러오는 중…</div>
+                ) : reportsErr ? (
+                  <div style={{ textAlign: "center", padding: "40px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
+                    <div style={{ fontSize: 14, color: C.red, marginBottom: 4 }}>신고 목록을 불러오지 못했습니다</div>
+                    <div style={{ fontSize: 12, color: C.text3 }}>{reportsErr}</div>
+                  </div>
+                ) : reports.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
                     <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
                     <div style={{ fontSize: 14, color: C.text3 }}>신고 내역 없음</div>
                   </div>
-                ) : reports.map(r => (
+                ) : reports.map(r => {
+                  const isResolved = r.status === "RESOLVED";
+                  return (
                   <div key={r.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{r.subject ?? "신고"}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{r.report_type ?? "신고"}</div>
                         <div style={{ fontSize: 11, color: C.text3 }}>{r.created_at ? new Date(r.created_at).toLocaleDateString("ko-KR") : ""}</div>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: r.status === "resolved" ? C.green : C.gold,
-                        background: r.status === "resolved" ? C.greenL : "#FBF5E8",
+                      <span style={{ fontSize: 11, fontWeight: 700, color: isResolved ? C.green : C.gold,
+                        background: isResolved ? C.greenL : "#FBF5E8",
                         borderRadius: R.full, padding: "3px 10px" }}>
-                        {r.status === "resolved" ? "처리완료" : "검토중"}
+                        {isResolved ? "처리완료" : "검토중"}
                       </span>
                     </div>
                     <div style={{ fontSize: 12, color: C.text2, marginBottom: S.sm }}>{r.description ?? ""}</div>
-                    {r.status !== "resolved" && (
+                    {!isResolved && (
                       <button
                         disabled={actionLoading}
                         onClick={() => {
                           setActionLoading(true);
-                          updateCustomerReportStatus(r.id, "resolved").then(({ error }) => {
-                            if (!error) setReports(prev => prev.map(x => x.id === r.id ? { ...x, status: "resolved" } : x));
+                          updateCustomerReportStatus(r.id, "RESOLVED").then(({ error }) => {
+                            if (!error) setReports(prev => prev.map(x => x.id === r.id ? { ...x, status: "RESOLVED" } : x));
                             else showToast("처리 실패", false);
                             setActionLoading(false);
                           });
@@ -2351,7 +2371,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       </button>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

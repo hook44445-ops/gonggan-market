@@ -1893,7 +1893,23 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               ].map((card, i) => (
                 <div key={i} style={{ flexShrink:0, width:150, background:card.bg, borderRadius:R.xl,
                   padding:`${S.xl}px ${S.lg}px`, minHeight:110,
-                  display:"flex", alignItems:"flex-end" }}>
+                  display:"flex", alignItems:"flex-end", position:"relative", overflow:"hidden" }}>
+                  {i===0 && <LeafSprig size={62} color="#fff" opacity={0.18} style={{ position:"absolute", right:-8, top:2, transform:"rotate(15deg)" }} />}
+                  {i===1 && (
+                    <svg width={58} height={58} viewBox="0 0 100 100" fill="none"
+                      style={{ position:"absolute", right:-6, top:2, opacity:0.18, pointerEvents:"none" }} aria-hidden="true">
+                      <circle cx="50" cy="50" r="44" stroke="#6B3355" strokeWidth="6" />
+                      <circle cx="36" cy="43" r="6" fill="#6B3355" />
+                      <circle cx="64" cy="43" r="6" fill="#6B3355" />
+                      <path d="M32 62 Q50 76 68 62" stroke="#6B3355" strokeWidth="5.5" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  {i===2 && (
+                    <svg width={58} height={58} viewBox="0 0 100 100" fill="none"
+                      style={{ position:"absolute", right:-6, top:2, opacity:0.18, pointerEvents:"none" }} aria-hidden="true">
+                      <polygon points="50,8 94,50 80,50 80,92 58,92 58,68 42,68 42,92 20,92 20,50 6,50" fill="#fff" />
+                    </svg>
+                  )}
                   <div style={{ fontSize:12, color:card.color, lineHeight:1.65, whiteSpace:"pre-line", fontWeight:500 }}>
                     {card.text}
                   </div>
