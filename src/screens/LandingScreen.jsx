@@ -3,8 +3,8 @@ import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { LogoMark } from "../components/common";
 
-// Hero 배경 — 프로젝트 내부 고정 asset (자연광 우드/식물 인테리어, 외부/Unsplash 미사용)
-const HERO_BG = "/images/landing-hero-interior.svg";
+// Hero 배경 — 프로젝트 내부 고정 실사 asset (자연광 우드/식물 인테리어, 외부/Unsplash 미사용)
+const HERO_BG = "/images/landing-hero-interior.jpg";
 
 function useVisible(threshold = 0.12) {
   const ref = useRef(null);
@@ -92,9 +92,9 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
       <div style={{
         backgroundColor: C.bg,
         backgroundImage:
-          `linear-gradient(100deg, rgba(245,241,234,0.90) 0%, rgba(245,241,234,0.62) 26%, rgba(245,241,234,0.18) 46%, rgba(245,241,234,0) 62%), url('${HERO_BG}')`,
+          `linear-gradient(100deg, rgba(245,241,234,0.86) 0%, rgba(245,241,234,0.50) 30%, rgba(245,241,234,0.10) 52%, rgba(245,241,234,0) 66%), url('${HERO_BG}')`,
         backgroundSize: "cover, cover",
-        backgroundPosition: "center, right center",
+        backgroundPosition: "center, center",
         backgroundRepeat: "no-repeat, no-repeat",
         paddingTop: 56,
         paddingBottom: 40,
