@@ -302,6 +302,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const fileInputRef4 = useRef(null);
   const fileInputRef5 = useRef(null);
   const fileInputRefs = { 3: fileInputRef3, 4: fileInputRef4, 5: fileInputRef5 };
+  // H-C: reportComplete 동기 재진입 가드 — reportingStage state보다 먼저 검사 (setState는 비동기)
+  const reportingRef = useRef(false);
 
   // Timeline — start with local entry; DB entries loaded when contractId present
   const [timeline, setTimeline] = useState([
@@ -573,11 +575,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   };
 
   const reportComplete = async (stageId) => {
+    // H-C: ref 기반 동기 가드를 state 가드보다 먼저 확인
+    // (reportingStage setState는 비동기라 두 클릭이 모두 통과할 수 있음)
+    if (reportingRef.current) return;
     // Guard: ignore re-entry while a send is already in flight, and ignore stages
     // that already moved past company_todo — prevents duplicate phase_photos /
     // timeline rows from rapid or repeated clicks.
     if (reportingStage !== null) return;
     if (stageStatus[stageId] === "pending_customer" || stageStatus[stageId] === "done") return;
+    reportingRef.current = true;
     const s = STAGE_META.find(x => x.id === stageId);
     setReportingStage(stageId);
     setReportError(null);
@@ -745,6 +751,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     } finally {
       setCompanyReportDebug(debug);
       setReportingStage(null);
+      reportingRef.current = false; // H-C: 동기 가드 해제
       // Always re-fetch to sync DB state
       setDbRefreshKey(k => k + 1);
     }

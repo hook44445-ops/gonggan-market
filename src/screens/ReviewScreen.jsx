@@ -165,7 +165,9 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
 
   useEffect(() => {
     if (!company?.id) return;
+    let alive = true; // H-F: 언마운트 후 도착한 stale 응답이 state를 덮어쓰는 것 방지
     getReviews(company.id).then(({ data, error }) => {
+      if (!alive) return;
       if (error) return;
       if (data && data.length > 0) {
         const normalized = data.map(normalizeReview);
@@ -175,6 +177,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
         }
       }
     });
+    return () => { alive = false; };
   }, [company?.id, contractId]);
 
   const handleSubmit = async (data) => {

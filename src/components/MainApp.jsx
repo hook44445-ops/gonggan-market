@@ -283,6 +283,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [prevScreen, setPrevScreen] = useState("home");
   const [selCo, setSelCo] = useState(null);
 
+  // H-A: realtime closure에서 최신 screen 값을 동기적으로 읽기 위한 ref
+  // (useState는 closure에서 stale하게 캡처되므로 ref로 항상 최신 값 참조)
+  const screenRef = useRef(screen);
+  useEffect(() => { screenRef.current = screen; }, [screen]);
+
+  // H-B: review 화면으로 진입했는데 selCo가 없으면 홈으로 복구 (blank screen 방지)
+  useEffect(() => {
+    if (screen === "review" && !selCo) setScreen("home");
+  }, [screen, selCo]);
+
   // Expose current screen + role for ErrorBoundary diagnostics (white-screen triage).
   useEffect(() => {
     try { window.__GG_ROUTE__ = `${activeRole}/${screen}`; } catch {}
@@ -964,13 +974,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         if (!alive || !data) return; // 구독 해제 후 도착한 이벤트 무시
         const normalized = data.map(normalizeBid);
         setSubmittedBids(normalized);
-        const request = customerRequests.find(r => r.id === bidViewRequestId) ?? myRequests.find(r => r.id === bidViewRequestId);
-        setBidAlert({
-          count: normalized.length,
-          requestType: request?.type ?? "",
-          requestId: bidViewRequestId,
-          companies: normalized.map(b => b.company).filter(Boolean),
-        });
+        // H-A: 에스크로/결제/리뷰/관리자 화면에서는 팝업 금지
+        // 입찰 알림은 홈·입찰목록·타임라인 같이 알림이 맥락에 맞는 화면에서만 표시한다.
+        const SAFE_ALERT_SCREENS = new Set(["home", "bidstatus", "timeline", "my"]);
+        if (SAFE_ALERT_SCREENS.has(screenRef.current)) {
+          const request = customerRequests.find(r => r.id === bidViewRequestId) ?? myRequests.find(r => r.id === bidViewRequestId);
+          setBidAlert({
+            count: normalized.length,
+            requestType: request?.type ?? "",
+            requestId: bidViewRequestId,
+            companies: normalized.map(b => b.company).filter(Boolean),
+          });
+        }
       })
       .subscribe();
 
@@ -2198,6 +2213,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             onBack={() => setScreen("home")}
             onChat={c => go("chat",c)}
             onEscrow={(bid) => { setSelectedBid(bid); if (bid?.contractId) setContractId(bid.contractId); go("escrow"); }}
+            onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }}
             bids={bidViewRequestId ? submittedBids.filter(b => b.requestId === bidViewRequestId) : []}
             submittedBids={submittedBids}
             request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null}
