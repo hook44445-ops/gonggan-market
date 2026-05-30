@@ -1,6 +1,6 @@
 import { C, R, S, GRADE } from "../constants";
 import { BADGES } from "../constants/badges";
-import { TempBadge, CertBadge } from "./common";
+import { TempBadge, CertBadge, LeafSprig } from "./common";
 
 function KpiRow({ isLoggedIn, company }) {
   if (isLoggedIn) {
@@ -45,7 +45,9 @@ export default function CompanyCard({ company, onClick, isLoggedIn = false }) {
       {/* Grade accent */}
       <div style={{ width: 4, background: g.bar, flexShrink: 0 }} />
 
-      <div style={{ flex: 1, padding: S.xl }}>
+      <div style={{ position: "relative", flex: 1, padding: S.xl }}>
+        <LeafSprig size={64} color={C.brand} opacity={0.05}
+          style={{ position: "absolute", right: -8, bottom: -10, transform: "rotate(-12deg)" }} />
         <div style={{ display: "flex", gap: S.md, alignItems: "flex-start" }}>
           {/* Avatar */}
           <div style={{

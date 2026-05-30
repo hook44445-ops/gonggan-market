@@ -3,10 +3,10 @@ import { C } from "../../constants";
 // ─────────────────────────────────────────────────────
 // 공간사이 브랜드 마크 — 둥근 집 + 잎사귀
 // ─────────────────────────────────────────────────────
-export function LogoMark({ size = 32, rounded = true }) {
+export function LogoMark({ size = 32, rounded = true, bare = false }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect width="48" height="48" rx={rounded ? 13 : 0} fill={C.brandL} />
+      {!bare && <rect width="48" height="48" rx={rounded ? 13 : 0} fill={C.brandL} />}
       {/* 집 외곽 */}
       <path d="M24 11.5 L35 20 V34.5 a1.5 1.5 0 0 1 -1.5 1.5 H14.5 A1.5 1.5 0 0 1 13 34.5 V20 Z"
         fill="none" stroke={C.brand} strokeWidth="2.6" strokeLinejoin="round" strokeLinecap="round" />
