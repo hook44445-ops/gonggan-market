@@ -3,12 +3,15 @@ import { C, R, S, CITY_DISTRICTS, SPECIALTIES } from "../constants";
 import { BADGES } from "../constants/badges";
 import { Divider } from "../components/common";
 import { upsertUserByPhone, upsertCompany, uploadFile, upsertCompanyDocument } from "../lib/supabase";
+import RegionSelectSheet from "../components/RegionSelectSheet";
+import { getPrimaryRegion, regionKey } from "../constants/regions";
 
 export default function CompanyOnboarding({ phone, onDone }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name:"", bizName:"", bizNumber:"", bizVerified:false,
-    mainRegion:"", subRegions:[],
+    mainRegion:"", subRegions:[],     // legacy fields — kept for fallback compat
+    serviceRegions:[],                // 신규: RegionEntry[] 최대 2곳
     specialties:[], portfolioDesc:"",
     hasBizDoc:false, hasInsurance:false,
     bizDocFile:null, insuranceFile:null,
@@ -20,8 +23,9 @@ export default function CompanyOnboarding({ phone, onDone }) {
   const [submitted, setSubmitted] = useState(null);
   const [uploadingBiz, setUploadingBiz] = useState(false);
   const [uploadingIns, setUploadingIns] = useState(false);
-  const [mainCity, setMainCity] = useState("");   // 주활동 시/도 선택 중간 상태
-  const [subCity, setSubCity] = useState("서울"); // 이동가능 지역 탭
+  const [mainCity, setMainCity] = useState("");    // 레거시 — step 2 UI 잔류
+  const [subCity, setSubCity] = useState("서울");  // 레거시 — step 2 UI 잔류
+  const [regionSheetOpen, setRegionSheetOpen] = useState(false);
   const bizDocRef = useRef(null);
   const insDocRef = useRef(null);
   const set = (k,v) => setForm(f => ({...f,[k]:v}));
@@ -152,13 +156,19 @@ export default function CompanyOnboarding({ phone, onDone }) {
         </div>
       </div>
       <button onClick={async () => {
-          const profile = { name: form.name, role: "company", region: form.mainRegion, phone };
+          // 신규 serviceRegions → primary 를 region text 로 미러링, 없으면 legacy mainRegion 유지
+          const primarySR = getPrimaryRegion(form.serviceRegions);
+          const mainRegionText = primarySR
+            ? regionKey(primarySR.city, primarySR.district)
+            : (form.mainRegion || "서울 마포구");
+          const profile = { name: form.name, role: "company", region: mainRegionText, phone };
           const { data: userRow } = await upsertUserByPhone(profile);
           const { data: companyRow } = await upsertCompany({
             owner_id: userRow?.id ?? null,
             name: form.bizName,
             phone,
-            region: form.mainRegion,
+            region: mainRegionText,
+            service_regions: form.serviceRegions.length ? form.serviceRegions : null,
             specialties: form.specialties,
             badge: form.badge,
             has_insurance: form.hasInsurance,
@@ -233,103 +243,54 @@ export default function CompanyOnboarding({ phone, onDone }) {
       </>}
 
       {step===2 && <>
-        <button onClick={() => { setStep(1); setMainCity(""); set("mainRegion",""); set("subRegions",[]); }}
+        <button onClick={() => { setStep(1); set("serviceRegions",[]); setRegionSheetOpen(false); }}
           style={{ background:"none", border:"none", fontSize:14, cursor:"pointer", color:C.text3, marginBottom:20, fontWeight:600 }}>← 뒤로</button>
-        <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>활동 지역 설정</div>
-        <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>주활동 지역과 이동 가능 지역을 선택해주세요</div>
+        <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>영업 지역 설정</div>
+        <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>서비스 가능한 지역을 선택해주세요 (최대 2곳)</div>
 
-        {/* ── 주활동 지역 2단계 선택 ── */}
-        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>주활동 지역 (1개)</div>
-        {form.mainRegion ? (
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:S.xl }}>
-            <div style={{ background:C.brandL, border:`1.5px solid ${C.brand}`, borderRadius:R.full,
-              padding:"8px 16px", fontSize:14, fontWeight:700, color:C.brand }}>
-              📍 {form.mainRegion}
-            </div>
-            <button onClick={() => { set("mainRegion",""); setMainCity(""); }}
-              style={{ background:"none", border:`1px solid ${C.bgWarm}`, borderRadius:R.full,
-                padding:"8px 14px", fontSize:12, color:C.text3, cursor:"pointer", fontWeight:600 }}>
-              변경
-            </button>
-          </div>
-        ) : !mainCity ? (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:S.xl }}>
-            {Object.keys(CITY_DISTRICTS).map(city => (
-              <button key={city} onClick={() => setMainCity(city)}
-                style={{ padding:"18px 8px", background:C.surface, border:`1.5px solid ${C.bgWarm}`,
-                  borderRadius:R.lg, fontSize:15, fontWeight:800, color:C.text1,
-                  cursor:"pointer", textAlign:"center", boxShadow:"0 2px 8px rgba(28,23,18,0.06)" }}>
-                {city}
-              </button>
+        {/* 선택된 영업지역 칩 */}
+        {form.serviceRegions.length > 0 && (
+          <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:S.lg }}>
+            {form.serviceRegions.map((r, i) => (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:6,
+                background:i===0?C.brandL:C.surface,
+                border:`1.5px solid ${i===0?C.brand:C.bgWarm}`, borderRadius:R.full, padding:"8px 14px" }}>
+                <span style={{ fontSize:14, fontWeight:700, color:i===0?C.brand:C.text1 }}>
+                  {i===0?"📍 ":""}
+                  {r.district || r.city}
+                  {i===0?" (기본)":""}
+                </span>
+                <button onClick={() => set("serviceRegions", form.serviceRegions.filter((_,j)=>j!==i))}
+                  style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, color:C.text3, padding:0, lineHeight:1 }}>×</button>
+              </div>
             ))}
           </div>
-        ) : (
-          <>
-            <button onClick={() => setMainCity("")}
-              style={{ background:"none", border:"none", fontSize:13, color:C.text3,
-                cursor:"pointer", marginBottom:S.md, fontWeight:600 }}>← {mainCity}</button>
-            <div style={{ fontSize:13, color:C.brand, fontWeight:700, marginBottom:S.sm }}>📍 {mainCity} · 구/시를 선택해주세요</div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8, maxHeight:240, overflowY:"auto", marginBottom:S.xl }}>
-              {CITY_DISTRICTS[mainCity].map(d => {
-                const val = `${mainCity} ${d}`;
-                return (
-                  <button key={d} onClick={() => { set("mainRegion", val); setMainCity(""); }}
-                    style={{ padding:"13px 10px", background:C.surface, border:`1.5px solid ${C.bgWarm}`,
-                      borderRadius:R.md, fontSize:14, fontWeight:700, color:C.text1,
-                      cursor:"pointer", textAlign:"center" }}>
-                    {d}
-                  </button>
-                );
-              })}
-            </div>
-          </>
         )}
 
-        {/* ── 이동 가능 지역 (주활동 지역 선택 후 표시) ── */}
-        {form.mainRegion && (
-          <>
-            <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.xs }}>
-              이동 가능 지역 (복수 선택)
-              <span style={{ fontSize:11, color:C.text3, fontWeight:500, marginLeft:6 }}>선택 안 해도 됩니다</span>
-            </div>
-            {form.subRegions.length > 0 && (
-              <div style={{ fontSize:11, color:C.brand, fontWeight:600, marginBottom:S.xs }}>
-                {form.subRegions.length}개 선택됨
-              </div>
-            )}
-            {/* 시/도 탭 */}
-            <div style={{ display:"flex", gap:6, marginBottom:S.sm }}>
-              {Object.keys(CITY_DISTRICTS).map(city => (
-                <button key={city} onClick={() => setSubCity(city)}
-                  style={{ padding:"7px 16px", borderRadius:R.full, fontSize:13, fontWeight:700,
-                    border:`1.5px solid ${subCity===city?C.brand:C.bgWarm}`,
-                    background:subCity===city?C.brandL:C.surface,
-                    color:subCity===city?C.brand:C.text2, cursor:"pointer" }}>
-                  {city}
-                </button>
-              ))}
-            </div>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:6, maxHeight:200, overflowY:"auto", marginBottom:S.xl }}>
-              {CITY_DISTRICTS[subCity].map(d => {
-                const val = `${subCity} ${d}`;
-                if (val === form.mainRegion) return null;
-                const on = form.subRegions.includes(val);
-                return (
-                  <button key={d} onClick={() => toggleArr("subRegions", val)}
-                    style={{ padding:"7px 13px", borderRadius:R.full, fontSize:13, fontWeight:600,
-                      border:`1.5px solid ${on?C.brand:C.bgWarm}`,
-                      background:on?C.brandL:C.surface,
-                      color:on?C.brand:C.text2, cursor:"pointer" }}>
-                    {d}
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
+        {/* 지역 추가 / 수정 버튼 */}
+        <button onClick={() => setRegionSheetOpen(true)}
+          style={{ width:"100%", padding:"16px", marginBottom:S.xl,
+            background:C.surface,
+            border:`1.5px dashed ${form.serviceRegions.length < 2 ? C.brandM : C.bgWarm}`,
+            borderRadius:R.lg, color:form.serviceRegions.length < 2 ? C.brand : C.text3,
+            fontSize:14, fontWeight:700, cursor:"pointer" }}>
+          {form.serviceRegions.length === 0 && "+ 영업지역 선택"}
+          {form.serviceRegions.length === 1 && "+ 영업지역 추가 (1/2)"}
+          {form.serviceRegions.length >= 2 && "✏️ 영업지역 수정"}
+        </button>
 
-        <button onClick={() => form.mainRegion && setStep(3)}
-          style={{ width:"100%", padding:S.xl, background:form.mainRegion?C.brand:"#E8E4DC",
+        {/* 지역 선택 바텀시트 */}
+        <RegionSelectSheet
+          open={regionSheetOpen}
+          onClose={() => setRegionSheetOpen(false)}
+          selectedRegions={form.serviceRegions}
+          maxCount={2}
+          onSave={(entries) => { set("serviceRegions", entries); setRegionSheetOpen(false); }}
+        />
+
+        <button onClick={() => form.serviceRegions.length > 0 && setStep(3)}
+          style={{ width:"100%", padding:S.xl,
+            background:form.serviceRegions.length > 0 ? C.brand : "#E8E4DC",
             color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer" }}>
           다음 →
         </button>
