@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TempBadge } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, createNotification, logActivity, getPaymentOrderByRequest } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest } from "../lib/supabase";
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 import { calcCustomerFee } from "../utils/calculations";
@@ -57,6 +57,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
   const [selBid, setSelBid] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const payingRef = useRef(false); // H-1: 동기 더블서브밋 가드 (setState는 비동기라 즉시 차단 불가)
   const [bidScreenDebug, setBidScreenDebug] = useState(null);
   const [dbWriteLog, setDbWriteLog] = useState(null);
   const [localToast, setLocalToast] = useState(null);
@@ -181,6 +182,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
 
     const handlePay = async () => {
       if (!selectedMethod && !SAFE_MODE) return;
+      if (payingRef.current) return; // H-1: 이미 처리 중이면 재진입 차단 (이중 결제/계약 방지)
+      payingRef.current = true;
       setPaymentLoading(true);
       const feeSnapshot = { customerFeeRate: 0.03, companyFeeRate: 0.04, vatRate: 0.1, snapshotAt: new Date().toISOString() };
 
@@ -208,7 +211,17 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
           const { error: payoutsErr } = await createEscrowPayoutsForContract(
             escrowData.id, selBid.companyId, selBid.price, 0.04, 0.1
           );
-          log.payouts = payoutsErr ? payoutsErr.message : "ok(4 rows)";
+          // H-6: payout 생성 실패 시 escrow를 롤백하고 중단.
+          // payout 없는 escrow로 결제/계약을 진행하면 단계 표시가 깨지고
+          // 업체에게 잘못된 계약 알림이 가므로, 여기서 멈추고 사용자에게 재시도를 유도.
+          if (payoutsErr) {
+            log.payouts = `FAILED:${payoutsErr.message} → 롤백`;
+            await deleteEscrowRecord(escrowData.id).catch(() => {});
+            setDbWriteLog({ ...log });
+            showLocalToast("결제 처리 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.");
+            return; // payment_orders/알림 등 후속 단계 진행 금지
+          }
+          log.payouts = "ok(4 rows)";
           setDbWriteLog({ ...log });
 
           // ── 3. payment_orders ───────────────────────────────────
@@ -284,6 +297,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
           if (onEscrow) onEscrow({ ...selBid, contractId }); else setStep("done");
         } finally {
           setPaymentLoading(false);
+          payingRef.current = false; // H-1: 가드 해제 (성공/실패/abort 모두)
         }
       };
 

@@ -1104,6 +1104,11 @@ export const createEscrowRecord = (data) =>
     step1_deposited_at:  new Date().toISOString(),
   }).select().single();
 
+// H-6: 단계별 payout 생성 실패 시 방금 만든 escrow를 되돌리기 위한 롤백 헬퍼.
+// (payout 없는 escrow는 단계 표시가 깨지므로 고아 레코드를 남기지 않음)
+export const deleteEscrowRecord = (id) =>
+  supabase.from("escrow_payments").delete().eq("id", id);
+
 // STEP M: Create all 4 escrow payout records for a contract (with fee_snapshot)
 export const createEscrowPayoutsForContract = async (escrowId, companyId, totalAmount, feeRate = 0.04, vatRate = 0.1) => {
   const feeSnapshot = { companyFeeRate: feeRate, vatRate, snapshotAt: new Date().toISOString() };

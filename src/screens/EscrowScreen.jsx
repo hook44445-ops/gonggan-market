@@ -3,7 +3,7 @@ import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { LeafSprig } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 
 // Stage status values:
@@ -166,24 +166,36 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         }
 
         // Level 3b: phase_photos by uploader (after bid created_at) → recover contract_id
-        // afterDate filter prevents matching photos from OLD completed jobs by the same company
+        // afterDate filter prevents matching photos from OLD completed jobs by the same company.
+        // H-3: 업체가 동시에 여러 건을 진행하면 사진의 contract_id가 섞여 '엉뚱한 계약'을
+        //      복구할 수 있다. 후보 contract_id가 정확히 1개일 때만(명확할 때만) 사용하고,
+        //      2개 이상이면 추정하지 않고 건너뛴다(잘못된 contract 연결 방지).
         const { data: compPhotos } = await getPhasePhotosByUploader(row.company_id, row.created_at);
-        const recoveredCid = compPhotos?.[0]?.contract_id;
-        if (recoveredCid) {
+        const photoCids = [...new Set((compPhotos ?? []).map(p => p.contract_id).filter(Boolean))];
+        if (photoCids.length === 1) {
+          const recoveredCid = photoCids[0];
           setResolvedContractId(recoveredCid);
           setDerivedFromRecovery(true);
           setEscrowDebug({ src: "phase_photo_recovery", restored: true, contractId: recoveredCid, bidId: row.id, photoCount: compPhotos.length, afterBidDate: row.created_at });
           return;
         }
+        if (photoCids.length > 1 && SHOW_DEBUG_UI) {
+          setEscrowDebug({ src: "phase_photo_ambiguous", skipped: true, distinctContracts: photoCids.length, bidId: row.id });
+        }
 
         // Level 3c: escrow_payouts by company_id → escrow_id
+        // H-3: 동일하게, 후보 escrow_id가 1개로 명확할 때만 사용한다.
         const { data: payouts3c } = await getEscrowPayoutsByCompanyId(row.company_id);
-        const escrowId3c = payouts3c?.[0]?.escrow_id;
-        if (escrowId3c) {
+        const escrowIds3c = [...new Set((payouts3c ?? []).map(p => p.escrow_id).filter(Boolean))];
+        if (escrowIds3c.length === 1) {
+          const escrowId3c = escrowIds3c[0];
           setResolvedContractId(escrowId3c);
           setDerivedFromRecovery(true);
           setEscrowDebug({ src: "escrow_payout_company", restored: true, escrowId: escrowId3c, bidId: row.id });
           return;
+        }
+        if (escrowIds3c.length > 1 && SHOW_DEBUG_UI) {
+          setEscrowDebug({ src: "escrow_payout_ambiguous", skipped: true, distinctEscrows: escrowIds3c.length, bidId: row.id });
         }
 
         setEscrowDebug({ src: "bids_only_fallback_ok", restored: true, bidId: row.id, note: "escrow not found — awaiting company send", l3a: "tried", l3b: "tried", l3c: "tried" });
@@ -646,7 +658,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             debug.status_update_table = "escrow_payments(created)";
             debug.contract_reload_ok = true;
             // 단계별 payout 4건 생성 (setEscrowPayoutReady가 동작하도록)
-            await createEscrowPayoutsForContract(cid, companyId, total, 0.04, 0.1).catch(() => {});
+            // H-6: 실패를 조용히 삼키지 않는다. payout 없는 escrow는 단계 표시가 깨지므로
+            //      방금 만든 escrow를 롤백하고 cid를 비워, 아래 !cid 분기에서 재시도를 유도.
+            const { error: payoutErr } = await createEscrowPayoutsForContract(cid, companyId, total, 0.04, 0.1);
+            if (payoutErr) {
+              await deleteEscrowRecord(cid).catch(() => {});
+              cid = null;
+              debug.contract_reload_ok = false;
+              debug.contract_reload_err = `payout_failed:${payoutErr.message} → 롤백`;
+            } else {
+              debug.payouts_created = true;
+            }
           } else {
             debug.contract_reload_err = createErr?.message ?? "create failed";
           }
