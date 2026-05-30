@@ -593,8 +593,14 @@ export const getFeeConfig = () =>
 export const createAdminLog = (log) =>
   supabase.from("admin_logs").insert(log).select().single();
 
-export const getAdminLogs = () =>
-  supabase.from("admin_logs").select("*").order("created_at", { ascending: false });
+// H-D: admin_logs는 관리자 전용 테이블.
+// 서버 방어: Supabase RLS에 "auth.jwt()->>'role' = 'admin'" 정책 필요.
+// 클라이언트 방어: admin_authed 세션이 없으면 빈 배열 반환(불필요한 DB 조회 차단).
+export const getAdminLogs = () => {
+  const isAdmin = typeof window !== "undefined" && localStorage.getItem("admin_authed") === "true";
+  if (!isAdmin) return Promise.resolve({ data: [], error: null });
+  return supabase.from("admin_logs").select("*").order("created_at", { ascending: false });
+};
 
 // ── Early Partner ─────────────────────────────────────────────────────────────
 

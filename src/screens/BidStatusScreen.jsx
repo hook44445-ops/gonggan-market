@@ -50,7 +50,7 @@ function BidScreenHeader({ title, sub, onBack }) {
 }
 
 
-export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
+export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
   const [localBids, setLocalBids] = useState(propBids ?? []);
   const bids = localBids.length > 0 ? localBids : (propBids ?? []);
   const [step, setStep] = useState("list");
@@ -337,15 +337,21 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
 
         const tossOrderId = `order_${Date.now()}`;
         try {
-          // Load Toss v1 SDK dynamically
-          await new Promise((resolve, reject) => {
-            if (window.TossPayments) { resolve(); return; }
-            const s = document.createElement("script");
-            s.src = "https://js.tosspayments.com/v1/payment";
-            s.onload = resolve;
-            s.onerror = () => reject(new Error("Toss SDK load failed"));
-            document.head.appendChild(s);
-          });
+          // H-E: SDK 로드 타임아웃(15초) — onload가 영원히 오지 않을 때 payingRef 영구 잠금 방지.
+          // 타임아웃/오류 시 catch로 fallback → runDBWrites 시뮬레이션 실행 → payingRef 해제.
+          await Promise.race([
+            new Promise((resolve, reject) => {
+              if (window.TossPayments) { resolve(); return; }
+              const s = document.createElement("script");
+              s.src = "https://js.tosspayments.com/v1/payment";
+              s.onload = resolve;
+              s.onerror = () => reject(new Error("Toss SDK load failed"));
+              document.head.appendChild(s);
+            }),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Toss SDK load timeout (15s)")), 15000)
+            ),
+          ]);
           const tossPayments = window.TossPayments(clientKey);
           const tossMethod = TOSS_METHOD_MAP[selectedMethod] ?? "카드";
           // This will redirect to Toss — return value is never reached
@@ -360,7 +366,11 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
           // If requestPayment didn't redirect (e.g. popup mode), fall through to DB writes
           await runDBWrites();
         } catch (err) {
-          // Toss SDK error or load failure — fall back to simulation
+          // H-E: SDK 로드 타임아웃·오류 → 사용자에게 알리고 시뮬레이션으로 fallback
+          // payingRef는 runDBWrites의 finally 블록에서 해제된다.
+          if (err?.message?.includes("timeout")) {
+            showLocalToast("결제 서버 연결이 지연됩니다. 잠시 후 재시도해주세요.");
+          }
           await runDBWrites();
         }
       } else {
@@ -470,6 +480,10 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, bids: propBi
         <div style={{ fontSize:22, fontWeight:900, color:C.text1, marginBottom:8 }}>예약 완료!</div>
         <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>{step==="done" ? "에스크로 예치 완료. 착공 확인 후 업체에 지급됩니다." : "직거래로 예약됐어요. 업체와 채팅으로 결제 조율하세요."}</div>
         <button onClick={() => onChat(selBid.company ?? { id: selBid.companyId, name: "업체" })} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44`, marginBottom:S.sm }}>💬 {selBid.company?.name ?? "업체"}와 채팅하기</button>
+        {/* H-B: 직거래(done_direct) 완료 후 리뷰 작성 경로 보장. 에스크로는 EscrowScreen.onReview에서 처리. */}
+        {step === "done_direct" && onReview && selBid.company && (
+          <button onClick={() => onReview(selBid.company)} style={{ width:"100%", padding:S.lg, background:"none", color:C.brand, border:`1px solid ${C.brand}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:S.sm }}>⭐ 시공 후기 작성하기</button>
+        )}
         <button onClick={onBack} style={{ width:"100%", padding:S.lg, background:"none", color:C.text3, border:"none", fontWeight:600, fontSize:14, cursor:"pointer" }}>홈으로</button>
       </div>
     </div>
