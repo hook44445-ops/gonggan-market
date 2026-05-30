@@ -1,17 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
-  <rect width="192" height="192" rx="40" fill="#2E5F4B"/>
-  <!-- Stylized room / space: floor line + two walls suggesting an interior corner -->
-  <rect x="40" y="104" width="112" height="52" rx="6" fill="#F5F1EA" opacity="0.15"/>
-  <!-- left wall -->
-  <rect x="40" y="44" width="8" height="112" rx="4" fill="#F5F1EA"/>
-  <!-- floor -->
-  <rect x="40" y="148" width="112" height="8" rx="4" fill="#F5F1EA"/>
-  <!-- window / door frame suggesting space -->
-  <rect x="64" y="64" width="36" height="48" rx="6" fill="none" stroke="#F5F1EA" stroke-width="6"/>
-  <!-- plant / organic shape for warmth -->
-  <ellipse cx="136" cy="112" rx="16" ry="20" fill="#B5D4C5"/>
-  <rect x="132" y="128" width="8" height="16" rx="4" fill="#B5D4C5"/>
-  <!-- 공 character hint — small circle mark -->
-  <circle cx="140" cy="68" r="10" fill="none" stroke="#F5F1EA" stroke-width="4"/>
-  <line x1="140" y1="58" x2="140" y2="78" stroke="#F5F1EA" stroke-width="4" stroke-linecap="round"/>
+  <!-- 공간마켓 01 공간·연결형 — rounded badge (any / apple-touch) -->
+  <rect width="192" height="192" rx="42" fill="#2E5F4B"/>
+  <!-- mark: 48-grid geometry scaled with padding -->
+  <g transform="translate(2.4 2.4) scale(3.9)" fill="none" stroke="#F7F3E9" stroke-width="2.2">
+    <!-- 원형 연결 링 -->
+    <circle cx="24" cy="24" r="20"/>
+    <!-- 집 외곽 -->
+    <path d="M13.8 21.6 L24 12.4 L34.2 21.6 L34.2 30.6 Q34.2 32.6 32.2 32.6 L15.8 32.6 Q13.8 32.6 13.8 30.6 Z"
+      stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- 창문 2×2 -->
+    <g fill="#F7F3E9" stroke="none">
+      <rect x="18.0" y="17.8" width="3.0" height="3.0" rx="0.5"/>
+      <rect x="22.0" y="17.8" width="3.0" height="3.0" rx="0.5"/>
+      <rect x="18.0" y="21.8" width="3.0" height="3.0" rx="0.5"/>
+      <rect x="22.0" y="21.8" width="3.0" height="3.0" rx="0.5"/>
+    </g>
+    <!-- 잎 -->
+    <g fill="#6C9E6B" stroke="none">
+      <path d="M27 32 C23 31 21.2 28 22 25.6 C25 26.6 27.2 29 27 32 Z"/>
+      <path d="M27 32 C31 31 32.8 28 32 25.6 C29 26.6 26.8 29 27 32 Z"/>
+    </g>
+  </g>
 </svg>
