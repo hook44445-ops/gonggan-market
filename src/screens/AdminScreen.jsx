@@ -58,10 +58,12 @@ function ReviewAdminTab({ adminUserId, showToast }) {
   const [reasonId,   setReasonId]   = useState(null);
   const [reason,     setReason]     = useState("");
   const [acting,     setActing]     = useState(false);
+  const [schemaFallback, setSchemaFallback] = useState(false);
 
   const loadReviews = async () => {
     setLoading(true);
-    const { data, error } = await adminGetReviews({ limit: 150 });
+    const { data, error, _schemaFallback } = await adminGetReviews({ limit: 150 });
+    setSchemaFallback(!!_schemaFallback);
     if (data && data.length > 0) {
       // Two-step: load companies by owner_id separately (reviews.company_id → users.id)
       const ownerIds = [...new Set(data.map(r => r.company_id).filter(Boolean))];
@@ -89,6 +91,7 @@ function ReviewAdminTab({ adminUserId, showToast }) {
   });
 
   const doHide = async (r) => {
+    if (schemaFallback) { showToast?.("DB 마이그레이션(008) 적용 후 사용 가능합니다", false); return; }
     if (!r.is_hidden && !reason.trim()) {
       showToast?.("숨김 사유를 입력하세요", false); return;
     }
@@ -104,6 +107,7 @@ function ReviewAdminTab({ adminUserId, showToast }) {
   };
 
   const doDelete = async (r) => {
+    if (schemaFallback) { showToast?.("DB 마이그레이션(008) 적용 후 사용 가능합니다", false); return; }
     if (!reason.trim()) { showToast?.("삭제 사유를 입력하세요", false); return; }
     setActing(true);
     const { error } = await adminSoftDeleteReview(r.id, adminUserId, reason);
@@ -117,6 +121,7 @@ function ReviewAdminTab({ adminUserId, showToast }) {
   };
 
   const doRestore = async (r) => {
+    if (schemaFallback) { showToast?.("DB 마이그레이션(008) 적용 후 사용 가능합니다", false); return; }
     setActing(true);
     const { error } = await adminRestoreReview(r.id, adminUserId);
     if (error) { showToast?.(error.message ?? "처리 실패", false); }
@@ -155,6 +160,15 @@ function ReviewAdminTab({ adminUserId, showToast }) {
       {fetchErr && (
         <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
           <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ 리뷰 로드 실패: {fetchErr}</div>
+        </div>
+      )}
+
+      {schemaFallback && (
+        <div style={{ background: "#FFF8E8", border: `1px solid ${C.amber ?? "#E0A53A"}44`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+          <div style={{ fontSize: 12, color: C.text2, fontWeight: 700, marginBottom: 2 }}>ℹ️ 숨김·삭제 기능 준비 안 됨</div>
+          <div style={{ fontSize: 11, color: C.text3, lineHeight: 1.6 }}>
+            리뷰는 정상 표시되지만, 숨김·삭제·복구는 DB 마이그레이션(008_reviews_admin_columns.sql) 적용 후 사용할 수 있어요. 적용 전까지 해당 버튼은 동작하지 않습니다.
+          </div>
         </div>
       )}
 
