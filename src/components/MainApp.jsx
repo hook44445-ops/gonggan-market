@@ -318,6 +318,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [adminCodeInput, setAdminCodeInput] = useState("");
   const [adminCodeError, setAdminCodeError] = useState("");
 
+  const [mapSelectedId, setMapSelectedId] = useState(null);
+  const mapCardRefs = useRef({});
+
   const handleCloseRequest = async (requestId) => {
     const markClosed = r => r.id === requestId
       ? { ...r, status: "closed", isActive: false, isClosed: true, daysLeft: 0 }
@@ -2109,11 +2112,24 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <KakaoMap
                 companies={companies}
                 userRegion={user.region ?? ""}
-                onPinClick={c => go("portfolio", c)}
+                selectedId={mapSelectedId}
+                onPinClick={c => {
+                  setMapSelectedId(c.id);
+                  const el = mapCardRefs.current[c.id];
+                  if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
+                }}
               />
             </div>
             <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>인근 업체 <span style={{ color:C.brand }}>{companies.length}곳</span></div>
-            {companies.map(c => <CompanyCard key={c.id} company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />)}
+            {companies.map(c => (
+              <div key={c.id} ref={el => { mapCardRefs.current[c.id] = el; }}
+                onMouseEnter={() => setMapSelectedId(c.id)}
+                style={{ borderRadius:R.xl,
+                  outline: mapSelectedId===c.id ? `2px solid ${C.brand}` : "2px solid transparent",
+                  outlineOffset: 2, transition:"outline-color 0.2s", marginBottom:S.sm }}>
+                <CompanyCard company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />
+              </div>
+            ))}
           </div>
         )}
 
