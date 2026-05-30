@@ -289,6 +289,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
+  const bidSubmitGuardRef = useRef(false); // H-2: 입찰 동시 더블서브밋 가드
 
   // ── 관심 탭 ──────────────────────────────────────────────────────────────────
   const [favTab, setFavTab] = useState("received");
@@ -921,8 +922,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   // Load bids + subscribe to realtime when viewing a request's bid status
   useEffect(() => {
     if (!bidViewRequestId) return;
+    let alive = true; // H-4: 언마운트/요청 변경 후 늦게 도착한 응답이 최신 상태를 덮어쓰는 것 방지
+
+    // H-4: 이전 채널이 남아 있으면 먼저 정리해 중복 구독을 막는다
+    if (bidRealtimeRef.current) {
+      supabase.removeChannel(bidRealtimeRef.current);
+      bidRealtimeRef.current = null;
+    }
 
     getBidsForRequest(bidViewRequestId).then(({ data, error }) => {
+      if (!alive) return; // stale 응답 무시
       if (SHOW_DEBUG_UI) setBidFetchDebug({ src: "mainapp_effect", req_id: bidViewRequestId, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
       if (error) return;
       if (data) setSubmittedBids(data.map(normalizeBid));
@@ -937,22 +946,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       }, async (payload) => {
         // Fetch the full row with company join so we have company data
         const { data } = await getBidsForRequest(bidViewRequestId);
-        if (data) {
-          const normalized = data.map(normalizeBid);
-          setSubmittedBids(normalized);
-          const request = customerRequests.find(r => r.id === bidViewRequestId) ?? myRequests.find(r => r.id === bidViewRequestId);
-          setBidAlert({
-            count: normalized.length,
-            requestType: request?.type ?? "",
-            requestId: bidViewRequestId,
-            companies: normalized.map(b => b.company).filter(Boolean),
-          });
-        }
+        if (!alive || !data) return; // 구독 해제 후 도착한 이벤트 무시
+        const normalized = data.map(normalizeBid);
+        setSubmittedBids(normalized);
+        const request = customerRequests.find(r => r.id === bidViewRequestId) ?? myRequests.find(r => r.id === bidViewRequestId);
+        setBidAlert({
+          count: normalized.length,
+          requestType: request?.type ?? "",
+          requestId: bidViewRequestId,
+          companies: normalized.map(b => b.company).filter(Boolean),
+        });
       })
       .subscribe();
 
     bidRealtimeRef.current = channel;
-    return () => { supabase.removeChannel(channel); bidRealtimeRef.current = null; };
+    return () => {
+      alive = false;
+      supabase.removeChannel(channel);
+      bidRealtimeRef.current = null;
+    };
   }, [bidViewRequestId]);
 
   const { companies } = useCompanyList();
@@ -1069,6 +1081,21 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       showToast("로그인 정보를 확인할 수 없습니다");
       return;
     }
+
+    // H-2: 중복 입찰 방지 — 이미 이 요청에 저장된(비-임시) 입찰이 있으면 차단.
+    // DB에는 unique(request_id, company_id) 제약이 있지만, 클라이언트에서 먼저 막아
+    // optimistic 중복/제약 위반 오류 노출을 예방한다.
+    const alreadyBid = submittedBids.some(
+      b => b.requestId === request.id && b.companyId === bidCompanyId && !String(b.id).startsWith("tmp-")
+    );
+    if (alreadyBid) {
+      showToast("이미 이 견적에 입찰하셨습니다");
+      return;
+    }
+    // H-2: 동시 더블서브밋 가드 (빠른 연타로 두 번 insert 되는 것 방지)
+    if (bidSubmitGuardRef.current) return;
+    bidSubmitGuardRef.current = true;
+
     const optimistic = {
       id: `tmp-${Date.now()}`,
       requestId: request.id,
@@ -1085,43 +1112,56 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     // Optimistic update so the UI responds immediately
     setSubmittedBids(prev => [...prev, optimistic]);
 
-    // INSERT to Supabase — company_id must be users.id (FK target)
-    const { data, error } = await createBid({
-      request_id:    request.id,
-      company_id:    bidCompanyId,   // users.id ← FK
-      price:         bidData.price,
-      period_days:   bidData.period,
-      material_note: bidData.material,
-      comment:       bidData.comment,
-    });
-    if (error) {
-      setBidDebug({
-        payload_company_id: bidCompanyId,
-        expected_fk_target: "users.id",
-        companyProfile_id:  currentUser?.id ?? null,
-        companyProfile_ownerId: currentUser?.ownerId ?? null,
-        request_id:   request.id,
-        insertResult: null,
-        insertError:  error.message,
+    let insertOk = false;
+    try {
+      // INSERT to Supabase — company_id must be users.id (FK target)
+      const { data, error } = await createBid({
+        request_id:    request.id,
+        company_id:    bidCompanyId,   // users.id ← FK
+        price:         bidData.price,
+        period_days:   bidData.period,
+        material_note: bidData.material,
+        comment:       bidData.comment,
       });
-      showToast(`입찰 저장 실패: ${error.message}`);
-    } else if (data) {
-      setSubmittedBids(prev =>
-        prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
-      );
-      // Post-insert verification: confirm bid is in DB with correct request_id
-      const { data: verifyData } = await getBidsForRequest(request.id);
-      setBidDebug({
-        payload_company_id: bidCompanyId,
-        expected_fk_target: "users.id",
-        companyProfile_id:  currentUser?.id ?? null,
-        companyProfile_ownerId: currentUser?.ownerId ?? null,
-        request_id:   request.id,
-        insertResult: { id: data.id, request_id: data.request_id },
-        insertError:  null,
-        verifyCount:  verifyData?.length ?? 0,
-      });
+      if (error) {
+        // H-2: 실패 시 optimistic 입찰을 롤백 (중복 키 위반 포함)
+        setSubmittedBids(prev => prev.filter(b => b.id !== optimistic.id));
+        setBidDebug({
+          payload_company_id: bidCompanyId,
+          expected_fk_target: "users.id",
+          companyProfile_id:  currentUser?.id ?? null,
+          companyProfile_ownerId: currentUser?.ownerId ?? null,
+          request_id:   request.id,
+          insertResult: null,
+          insertError:  error.message,
+        });
+        const dup = /duplicate|unique/i.test(error.message ?? "");
+        showToast(dup ? "이미 이 견적에 입찰하셨습니다" : `입찰 저장 실패: ${error.message}`);
+        return;
+      }
+      if (data) {
+        insertOk = true;
+        setSubmittedBids(prev =>
+          prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
+        );
+        // Post-insert verification: confirm bid is in DB with correct request_id
+        const { data: verifyData } = await getBidsForRequest(request.id);
+        setBidDebug({
+          payload_company_id: bidCompanyId,
+          expected_fk_target: "users.id",
+          companyProfile_id:  currentUser?.id ?? null,
+          companyProfile_ownerId: currentUser?.ownerId ?? null,
+          request_id:   request.id,
+          insertResult: { id: data.id, request_id: data.request_id },
+          insertError:  null,
+          verifyCount:  verifyData?.length ?? 0,
+        });
+      }
+    } finally {
+      bidSubmitGuardRef.current = false;
     }
+
+    if (!insertOk) return; // 실패/롤백 시 알림 갱신 생략
 
     setSubmittedBids(prev => {
       const forRequest = prev.filter(b => b.requestId === request.id);
