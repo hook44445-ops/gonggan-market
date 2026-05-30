@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { C, R, S, GRADE, calcCustomerGrade } from "../constants";
+import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import LiveFeed from "./LiveFeed";
@@ -237,14 +237,19 @@ const computeCustomerStage = (r, escrowData) => {
 // 관심 — 조용한 갤러리 톤의 빈 상태
 function FavEmptyState({ title, desc, onGo }) {
   return (
-    <div style={{ textAlign:"center", padding:"56px 24px 24px" }}>
-      <div style={{ width:56, height:56, borderRadius:R.full, background:C.brandL,
-        display:"flex", alignItems:"center", justifyContent:"center",
-        margin:"0 auto 16px", fontSize:22, color:C.brand }}>♥</div>
-      <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:8 }}>{title}</div>
-      <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, marginBottom:S.xl, whiteSpace:"pre-line" }}>{desc}</div>
-      <button onClick={onGo} style={{ padding:"11px 26px", background:C.surface, color:C.brand,
-        border:`1px solid ${C.brandM}`, borderRadius:R.full, fontWeight:700, fontSize:14, cursor:"pointer" }}>
+    <div style={{ background:C.ivory, borderRadius:R.xl, padding:"44px 24px 36px",
+      border:`1px solid ${C.bgWarm}`, boxShadow:SHADOW.soft, textAlign:"center", marginTop:S.sm }}>
+      <div style={{ position:"relative", width:64, height:64, margin:"0 auto 18px" }}>
+        <div style={{ width:64, height:64, borderRadius:R.full, background:`linear-gradient(135deg,${C.brandL},${C.bgWarm})`,
+          display:"flex", alignItems:"center", justifyContent:"center", border:`1.5px solid ${C.brandM}` }}>
+          <span style={{ fontSize:26, lineHeight:1 }}>🌿</span>
+        </div>
+      </div>
+      <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:8, letterSpacing:"-0.3px" }}>{title}</div>
+      <div style={{ fontSize:13, color:C.text3, lineHeight:1.8, marginBottom:S.xl, whiteSpace:"pre-line" }}>{desc}</div>
+      <button onClick={onGo} style={{ padding:"11px 28px", background:C.brand, color:"#fff",
+        border:"none", borderRadius:R.full, fontWeight:700, fontSize:13, cursor:"pointer",
+        boxShadow:SHADOW.brand }}>
         라운지 둘러보기
       </button>
     </div>
@@ -1155,7 +1160,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       )}
 
       {(screen==="home"||screen==="map") && (
-        <div style={{ background:C.surface, padding:"14px 20px 0", borderBottom:`1px solid ${C.bgWarm}`, position:"sticky", top:0, zIndex:10 }}>
+        <div style={{ background:C.ivory, padding:"14px 20px 0",
+          borderBottom:`1px solid ${C.bgWarm}`, position:"sticky", top:0, zIndex:10,
+          boxShadow:"0 2px 12px rgba(46,95,75,0.06)" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
             <BrandLockup size={32} />
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
@@ -1168,8 +1175,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 style={{ flex:1, padding:"10px 0", border:"none", background:"transparent",
                   fontWeight:screen===v?800:500, fontSize:14,
                   color:screen===v?C.brand:C.text3,
-                  borderBottom:`2.5px solid ${screen===v?C.brand:"transparent"}`,
-                  cursor:"pointer" }}>{l}</button>
+                  borderBottom:`3px solid ${screen===v?C.brand:"transparent"}`,
+                  cursor:"pointer", transition:"color 0.2s" }}>{l}</button>
             ))}
           </div>
         </div>
@@ -1180,37 +1187,37 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {/* 의뢰인 홈 */}
         {screen==="home" && mode==="consumer" && (
           <div>
-            <div style={{ background:`linear-gradient(150deg,${C.brandL} 0%,${C.bgWarm} 100%)`,
+            <div style={{ background:`linear-gradient(145deg,${C.ivory} 0%,${C.brandL} 55%,${C.bgWarm} 100%)`,
               borderRadius:R.xl, padding:S.xxl, marginBottom:S.lg,
-              border:`1.5px solid ${C.brandM}`,
-              position:"relative", overflow:"hidden" }}>
-              <div style={{ position:"absolute", right:-28, top:-28, width:110, height:110,
-                borderRadius:"50%", background:`${C.brand}10` }} />
-              <LeafSprig size={120} color={C.brand} opacity={0.1}
-                style={{ position:"absolute", right:-10, bottom:-24, transform:"rotate(-18deg)" }} />
-              <div style={{ fontSize:12, color:C.brand, fontWeight:600, marginBottom:8 }}>
+              border:`1px solid ${C.brandM}`,
+              position:"relative", overflow:"hidden", boxShadow:SHADOW.card }}>
+              <LeafSprig size={130} color={C.brand} opacity={0.08}
+                style={{ position:"absolute", right:-14, bottom:-28, transform:"rotate(-15deg)" }} />
+              <div style={{ fontSize:12, color:C.brand, fontWeight:700, marginBottom:8,
+                display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:5, height:5, borderRadius:"50%", background:C.brand, display:"inline-block" }} />
                 {user.region} · {user.name}님 안녕하세요
               </div>
               <div style={{ fontSize:23, fontWeight:800, color:C.text1, marginBottom:10, lineHeight:1.35, letterSpacing:"-0.4px" }}>
                 인테리어는 어디서?
               </div>
               <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:13, color:C.text2, lineHeight:1.7, marginBottom:3 }}>집, 상가, 리모델링까지</div>
-                <div style={{ fontSize:12, color:C.text3, lineHeight:1.7 }}>믿고 맡길 수 있는 공간을 함께 찾아요</div>
+                <div style={{ fontSize:13, color:C.text2, lineHeight:1.75, marginBottom:2 }}>집, 상가, 리모델링까지</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.75 }}>믿고 맡길 수 있는 공간을 함께 찾아요</div>
               </div>
               {(() => {
                 const hasActive = myRequests.some(r => r.isActive);
                 return hasActive ? (
-                  <div style={{ background:"rgba(255,255,255,0.18)", borderRadius:R.full,
-                    padding:"12px 24px", fontSize:13, fontWeight:700, color:"#fff",
-                    border:"1.5px solid rgba(255,255,255,0.4)", display:"inline-block" }}>
+                  <div style={{ background:`${C.brand}22`, borderRadius:R.full,
+                    padding:"11px 22px", fontSize:13, fontWeight:700, color:C.brand,
+                    border:`1.5px solid ${C.brand}44`, display:"inline-block" }}>
                     📋 진행 중인 견적이 있습니다
                   </div>
                 ) : (
                   <button onClick={handleOpenNewReq}
                     style={{ background:C.brand, color:"#fff", border:"none",
-                      borderRadius:R.full, padding:"12px 24px", fontWeight:700, fontSize:14, cursor:"pointer",
-                      boxShadow:`0 4px 14px ${C.brand}33` }}>
+                      borderRadius:R.full, padding:"13px 26px", fontWeight:800, fontSize:14, cursor:"pointer",
+                      boxShadow:SHADOW.brand, letterSpacing:"-0.2px" }}>
                     견적 시작하기
                   </button>
                 );
@@ -1218,10 +1225,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             </div>
 
             {/* 공간사이의 약속 */}
-            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
-              marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize:12, fontWeight:700, color:C.text3, marginBottom:S.md,
-                letterSpacing:"0.3px" }}>공간사이의 약속</div>
+            <div style={{ background:C.ivory, borderRadius:R.xl, padding:S.xl,
+              marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, boxShadow:SHADOW.soft,
+              position:"relative", overflow:"hidden" }}>
+              <LeafSprig size={80} color={C.brand} opacity={0.05}
+                style={{ position:"absolute", right:-10, top:-14, transform:"rotate(10deg)" }} />
+              <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:S.md }}>
+                <LogoMark size={16} bare />
+                <span style={{ fontSize:11, fontWeight:800, color:C.brand,
+                  letterSpacing:"0.5px", textTransform:"uppercase" }}>공간사이의 약속</span>
+              </div>
               <div style={{ display:"flex" }}>
                 {[
                   { icon:"🛡", title:"안전한 거래", sub:"에스크로 보호" },
@@ -1231,9 +1244,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   <div key={item.title} style={{ flex:1, textAlign:"center",
                     borderRight:i<arr.length-1?`1px solid ${C.bgWarm}`:"none",
                     padding:`0 ${S.sm}px` }}>
-                    <div style={{ fontSize:16, marginBottom:5, color:C.brand }}>{item.icon}</div>
-                    <div style={{ fontSize:12, fontWeight:700, color:C.text1 }}>{item.title}</div>
-                    <div style={{ fontSize:10, color:C.text3, marginTop:2 }}>{item.sub}</div>
+                    <div style={{ width:36, height:36, borderRadius:R.full, background:C.brandL,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      margin:"0 auto 8px", fontSize:15, border:`1px solid ${C.brandM}` }}>
+                      {item.icon}
+                    </div>
+                    <div style={{ fontSize:12, fontWeight:700, color:C.text1, marginBottom:2 }}>{item.title}</div>
+                    <div style={{ fontSize:10, color:C.text3, lineHeight:1.5 }}>{item.sub}</div>
                   </div>
                 ))}
               </div>
@@ -2225,7 +2242,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
         {screen==="chatlist" && (
           <div>
-            <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:S.xl }}>채팅</div>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
+              <LogoMark size={34} />
+              <div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
+                <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>대화</div>
+                <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>파트너와 나눈 이야기</div>
+              </div>
+            </div>
             {companies.map(c => (
               <div key={c.id} onClick={() => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)}
                 style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
@@ -2347,16 +2371,22 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
               <div>
-                <div style={{ fontSize:11, color:C.text3, marginBottom:2, letterSpacing:"0.3px" }}>공간사이</div>
-                <div style={{ fontSize:20, fontWeight:800, color:C.text1 }}>관심</div>
-                <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>다시 보고 싶은 공간과 이야기를 모았어요</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
+                <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>관심</div>
+                <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>마음이 머문 공간과 이야기를 모았어요</div>
               </div>
             </div>
 
             {/* 4탭 */}
-            <div style={{ display:"flex", background:C.bg, borderRadius:R.lg, padding:4, marginBottom:S.xl, gap:2 }}>
+            <div style={{ display:"flex", background:C.bg, borderRadius:R.xl, padding:4, marginBottom:S.xl, gap:2,
+              border:`1px solid ${C.bgWarm}` }}>
               {[["받은 ♥","received"],["보낸 ♥","sent"],["스토리","stories"],["저장","saved"]].map(([label,id]) => (
-                <button key={id} onClick={() => setFavTab(id)} style={{ flex:1, padding:"9px 2px", border:"none", borderRadius:R.md, background:favTab===id?C.surface:"transparent", color:favTab===id?C.brand:C.text3, fontWeight:favTab===id?700:500, fontSize:12, cursor:"pointer", transition:"background 0.15s", whiteSpace:"nowrap" }}>
+                <button key={id} onClick={() => setFavTab(id)} style={{ flex:1, padding:"9px 2px", border:"none",
+                  borderRadius:R.lg, background:favTab===id?C.ivory:"transparent",
+                  color:favTab===id?C.brand:C.text3, fontWeight:favTab===id?700:500, fontSize:12,
+                  cursor:"pointer", transition:"all 0.18s",
+                  boxShadow:favTab===id?"0 2px 8px rgba(46,95,75,0.10)":"none",
+                  whiteSpace:"nowrap" }}>
                   {label}
                 </button>
               ))}
@@ -2401,8 +2431,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
               <div>
-                <div style={{ fontSize:11, color:C.text3, marginBottom:2, letterSpacing:"0.3px" }}>공간사이</div>
-                <div style={{ fontSize:20, fontWeight:800, color:C.text1 }}>마이페이지</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
+                <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>마이페이지</div>
+                <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>나의 공간 여정을 한눈에</div>
               </div>
             </div>
             {/* 신뢰 여권 카드 */}
@@ -2623,11 +2654,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               <div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>내 견적 이력</div>
                 {myRequests.length === 0 ? (
-                  <div style={{ background:C.surface, borderRadius:R.xl, padding:"40px 20px", textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
-                    <div style={{ fontSize:32, marginBottom:10 }}>📋</div>
-                    <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>아직 견적 요청이 없어요</div>
+                  <div style={{ background:C.ivory, borderRadius:R.xl, padding:"40px 20px",
+                    textAlign:"center", border:`1px solid ${C.bgWarm}`, boxShadow:SHADOW.soft }}>
+                    <div style={{ width:56, height:56, borderRadius:R.full,
+                      background:`linear-gradient(135deg,${C.brandL},${C.bgWarm})`,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      margin:"0 auto 14px", fontSize:22, border:`1px solid ${C.brandM}` }}>🏠</div>
+                    <div style={{ fontSize:14, fontWeight:700, color:C.text1, marginBottom:6 }}>아직 견적 요청이 없어요</div>
+                    <div style={{ fontSize:12, color:C.text3, marginBottom:S.xl, lineHeight:1.7 }}>공간사이에서 첫 공간 여정을 시작해보세요</div>
                     <button onClick={() => { setScreen("home"); handleOpenNewReq(); }}
-                      style={{ padding:"12px 24px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer" }}>
+                      style={{ padding:"12px 26px", background:C.brand, color:"#fff", border:"none",
+                        borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer",
+                        boxShadow:SHADOW.brand }}>
                       첫 견적 시작하기
                     </button>
                   </div>
@@ -3092,22 +3130,27 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       )}
 
       {!FULL && (
-        <div style={{ position:"fixed", bottom:0, left:0, right:0, background:C.surface,
-          borderTop:`1px solid ${C.bgWarm}`, display:"flex", zIndex:10 }}>
+        <div style={{ position:"fixed", bottom:0, left:0, right:0, background:C.ivory,
+          borderTop:`1px solid ${C.bgWarm}`, display:"flex", zIndex:10,
+          boxShadow:"0 -2px 16px rgba(46,95,75,0.07)" }}>
           {NAV.map(([icon,label,target]) => {
             const active = screen === target;
             return (
               <button key={target} onClick={() => setScreen(target)}
                 style={{ flex:1, background:"none", border:"none", cursor:"pointer",
-                  display:"flex", flexDirection:"column", alignItems:"center", gap:2,
-                  padding:"10px 0 14px", position:"relative" }}>
-                {active && (
-                  <div style={{ position:"absolute", top:0, left:"50%", transform:"translateX(-50%)",
-                    width:24, height:2, background:C.brand, borderRadius:"0 0 2px 2px" }} />
-                )}
-                <div style={{ fontSize:21, opacity:active?1:0.65 }}>{icon}</div>
-                <div style={{ fontSize:10, fontWeight:active?700:400,
-                  color:active?C.brand:C.text3 }}>{label}</div>
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+                  padding:"8px 0 14px", position:"relative" }}>
+                <div style={{
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+                  padding:"6px 14px 4px",
+                  borderRadius:R.lg,
+                  background:active?C.brandL:"transparent",
+                  transition:"background 0.2s" }}>
+                  <div style={{ fontSize:20, opacity:active?1:0.55,
+                    transform:active?"scale(1.08)":"scale(1)", transition:"transform 0.2s" }}>{icon}</div>
+                  <div style={{ fontSize:10, fontWeight:active?800:400,
+                    color:active?C.brand:C.text3, letterSpacing:active?"-0.2px":"0" }}>{label}</div>
+                </div>
               </button>
             );
           })}
