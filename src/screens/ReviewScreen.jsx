@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
+import { SHOW_DEBUG_UI } from "../constants/release";
 import { TempBadge, Stars, Divider } from "../components/common";
 import ReviewModal from "../components/ReviewModal";
 import ImageViewerModal from "../components/ImageViewerModal";
@@ -32,7 +33,6 @@ function ReviewCard({ rv, isNew }) {
   const hasPhotos = hasAfter || hasBefore || hasLegacy;
 
   const displayUrls = showBefore ? rv.beforeImageUrls : (hasAfter ? rv.afterImageUrls : rv.imageUrls);
-  const IS_DEBUG = true;
 
   return (
     <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.md,
@@ -117,7 +117,7 @@ function ReviewCard({ rv, isNew }) {
             ))}
           </div>
 
-          {IS_DEBUG && viewer && (
+          {SHOW_DEBUG_UI && viewer && (
             <div style={{ marginTop:8, padding:"6px 10px", background:"rgba(0,0,0,0.88)",
               color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
               [DEV:review-viewer]<br/>

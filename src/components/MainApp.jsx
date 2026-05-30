@@ -395,7 +395,6 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     }
   };
 
-  const IS_DEBUG = true; // 디버깅 중 — 항상 표시
   const [reqDebug, setReqDebug] = useState(null);
   const [reqCreateDebug, setReqCreateDebug] = useState(null);
   const [bidFetchDebug, setBidFetchDebug] = useState(null);
@@ -909,7 +908,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (!bidViewRequestId) return;
 
     getBidsForRequest(bidViewRequestId).then(({ data, error }) => {
-      if (IS_DEBUG) setBidFetchDebug({ src: "mainapp_effect", req_id: bidViewRequestId, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
+      if (SHOW_DEBUG_UI) setBidFetchDebug({ src: "mainapp_effect", req_id: bidViewRequestId, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
       if (error) return;
       if (data) setSubmittedBids(data.map(normalizeBid));
     });
@@ -1371,7 +1370,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   </div>
 
                   {/* DEV panel */}
-                  {true && (
+                  {SHOW_DEBUG_UI && (
                     <div style={{ marginBottom:S.md, padding:"8px 10px", background:"#111",
                       color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
                       <span style={{ color:"#ff0", fontWeight:700 }}>── review panel ──</span><br/>
@@ -1659,7 +1658,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               ) : null;
             })()}
 
-            {IS_DEBUG && (
+            {SHOW_DEBUG_UI && (
               <div style={{ marginBottom:S.xl, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:600, overflowY:"auto" }}>
                 [DEV:consumer] screen:{screen}<br/>
                 user.id: {(user?.id ?? "null").slice(0,8)} | activeRole: {activeRole}<br/>
@@ -2018,7 +2017,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               ))
             )}
 
-            {IS_DEBUG && (
+            {SHOW_DEBUG_UI && (
               <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:600, overflowY:"auto" }}>
                 [DEV:company] screen:{screen}<br/>
                 user.id: {user?.id ?? "null"}<br/>
@@ -2816,7 +2815,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 로그인
               </button>
             </div>
-            {IS_DEBUG && (
+            {SHOW_DEBUG_UI && (
               <div style={{ marginTop:S.lg, padding:"8px 10px", background:"#111", color:"#0f0", borderRadius:6, fontSize:10, fontFamily:"monospace", lineHeight:1.8 }}>
                 admin_authed: {localStorage.getItem("admin_authed") ?? "null"}<br/>
                 activeRole: {activeRole}<br/>
@@ -3082,7 +3081,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         />
       )}
 
-      {IS_DEBUG && (
+      {SHOW_DEBUG_UI && (
         <div style={{ position:"fixed", top:8, right:8, background:"rgba(0,0,0,0.82)", color:"#0f0", borderRadius:8, padding:"8px 10px", fontSize:10, zIndex:9999, lineHeight:1.9, fontFamily:"monospace", maxWidth:200, pointerEvents:"none" }}>
           activeRole: {activeRole}<br/>
           dbRole: {user.role ?? "—"}<br/>

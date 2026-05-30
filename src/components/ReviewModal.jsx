@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { C, R, S, REVIEW_TAGS } from "../constants";
+import { SHOW_DEBUG_UI } from "../constants/release";
 import { Stars } from "./common";
 import { calcTempDelta } from "../utils/calculations";
 import { uploadFile } from "../lib/supabase";
@@ -59,7 +60,6 @@ function PhotoSection({ label, badge, badgeColor, badgeBg, photos, onAdd, onRemo
 }
 
 const REVIEW_BUCKET = "review-images";
-const IS_DEBUG = true;
 
 export default function ReviewModal({
   onClose, onSubmit,
@@ -337,7 +337,7 @@ export default function ReviewModal({
             </div>
           )}
 
-          {IS_DEBUG && uploadDebug && (
+          {SHOW_DEBUG_UI && uploadDebug && (
             <div style={{ background:"rgba(0,0,0,0.90)", color:"#0f0", borderRadius:8,
               padding:"8px 12px", fontSize:10, lineHeight:1.8, fontFamily:"monospace",
               marginBottom:S.md, overflowX:"auto" }}>

@@ -4,6 +4,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../../constants';
+import { SHOW_DEBUG_UI } from '../../constants/release';
 import { getAnonymousAvatarByNickname, getAnonymousNickname } from '../../utils/anonymousNickname';
 import {
   getLoungeComments,
@@ -416,7 +417,7 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
       )}
 
       {/* ── DEV 패널 (접이식) ── */}
-      {import.meta.env.DEV && (
+      {SHOW_DEBUG_UI && (
         <div style={{ position: 'absolute', top: 56, left: 4, zIndex: 20 }}>
           <button
             onClick={() => setDevOpen(v => !v)}
@@ -544,7 +545,7 @@ export default function LoungeStoryBar({ stories, onStoryClick, user, onStoryDel
           ))}
         </div>
 
-        {import.meta.env.DEV && (
+        {SHOW_DEBUG_UI && (
           <div style={{ marginTop: 6, background: 'rgba(0,0,0,0.88)', color: '#0f0', borderRadius: 6, padding: '4px 8px', fontSize: 9.5, lineHeight: 1.7, fontFamily: 'monospace', maxHeight: 130, overflowY: 'auto' }}>
             [DEV] story bar | count: {localStories.length}<br/>
             {localStories.slice(0, 4).map(s => {
