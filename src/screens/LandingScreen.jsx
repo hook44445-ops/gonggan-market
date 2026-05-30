@@ -3,6 +3,10 @@ import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { LogoMark } from "../components/common";
 
+// Hero 배경 — 자연광이 드는 따뜻한 우드/식물 인테리어 (공간사이 무드)
+const HERO_BG =
+  "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=1400&q=80&auto=format&fit=crop";
+
 function useVisible(threshold = 0.12) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
@@ -85,8 +89,14 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
       )}
 
       {/* ── HERO ──────────────────────────────────────────────────── */}
+      {/* 자연광 인테리어 배경 사진 + 좌측 밝은 아이보리 그라데이션 오버레이 (공간사이 무드) */}
       <div style={{
-        background: C.brand,
+        backgroundColor: C.bg,
+        backgroundImage:
+          `linear-gradient(118deg, rgba(245,241,234,0.97) 0%, rgba(245,241,234,0.90) 42%, rgba(245,241,234,0.58) 72%, rgba(245,241,234,0.28) 100%), url('${HERO_BG}')`,
+        backgroundSize: "cover, cover",
+        backgroundPosition: "center, right center",
+        backgroundRepeat: "no-repeat, no-repeat",
         paddingTop: 56,
         paddingBottom: 40,
         paddingLeft: 24,
@@ -95,34 +105,20 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
         overflow: "hidden",
         flexShrink: 0,
       }}>
-        {/* decorative circle */}
-        <div style={{
-          position: "absolute", top: -60, right: -60,
-          width: 200, height: 200, borderRadius: "50%",
-          background: "rgba(255,255,255,0.06)",
-          pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", bottom: -40, left: -40,
-          width: 140, height: 140, borderRadius: "50%",
-          background: "rgba(255,255,255,0.04)",
-          pointerEvents: "none",
-        }} />
-
         <div ref={heroRef} style={{ maxWidth: 480, margin: "0 auto" }}>
           {/* brand — 01 공간·연결형 아이콘 + 워드마크 (여백 중심) */}
           <div style={{ ...fadeStyle(heroVisible, 0), marginBottom: 28 }}>
             <div style={{ marginBottom: 14 }}>
-              <LogoMark size={48} bare tone="light" />
+              <LogoMark size={48} bare tone="brand" />
             </div>
             <div style={{
-              fontSize: 22, fontWeight: 900, color: "#fff",
+              fontSize: 22, fontWeight: 900, color: C.brandD,
               letterSpacing: "-0.3px", lineHeight: 1.2, marginBottom: 4,
             }}>
               공간마켓
             </div>
             <div style={{
-              fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.5)",
+              fontSize: 11, fontWeight: 500, color: C.text3,
               letterSpacing: "0.04em",
             }}>
               공간이 연결되는 곳, 믿을 수 있는 거래
@@ -131,7 +127,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
 
           {/* main copy */}
           <div style={{
-            fontSize: 36, fontWeight: 900, color: "#fff",
+            fontSize: 36, fontWeight: 900, color: C.text1,
             lineHeight: 1.25, marginBottom: 16, letterSpacing: "-0.5px",
             ...fadeStyle(heroVisible, 0.08),
           }}>
@@ -143,13 +139,13 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
             marginBottom: 36,
             ...fadeStyle(heroVisible, 0.16),
           }}>
-            <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", lineHeight: 1.6, marginBottom: 2 }}>
+            <div style={{ fontSize: 15, color: C.text2, lineHeight: 1.6, marginBottom: 2 }}>
               집, 상가, 리모델링까지
             </div>
-            <div style={{ fontSize: 15, color: "rgba(255,255,255,0.85)", lineHeight: 1.6, marginBottom: 10 }}>
+            <div style={{ fontSize: 15, color: C.text2, lineHeight: 1.6, marginBottom: 10 }}>
               비교하고 확인하세요
             </div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6 }}>
               공간마켓은 연결과 안전을 생각합니다.
             </div>
           </div>
@@ -160,9 +156,10 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
               onClick={() => onSelectRole("consumer")}
               style={{
                 ...btnBase,
-                background: "#fff",
-                color: C.brand,
+                background: C.brand,
+                color: "#fff",
                 border: "none",
+                boxShadow: "0 8px 24px rgba(46,95,75,0.22)",
               }}>
               견적 시작하기
             </button>
@@ -170,9 +167,9 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
               onClick={() => onSelectRole("company")}
               style={{
                 ...btnBase,
-                background: "transparent",
-                color: "#fff",
-                border: "1.5px solid rgba(255,255,255,0.6)",
+                background: "rgba(255,255,255,0.85)",
+                color: C.brand,
+                border: `1.5px solid ${C.brandM}`,
               }}>
               업체로 시작
             </button>
