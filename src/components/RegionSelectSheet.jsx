@@ -9,7 +9,11 @@ import { REGION_CITIES, districtsOf, regionKey, makeRegionEntry } from "../const
 //   - 저장 시 RegionEntry[] 반환 (첫 번째가 is_primary)
 // ─────────────────────────────────────────────────────
 
-export default function RegionSelectSheet({ open, onClose, selectedRegions = [], maxCount = 2, onSave }) {
+export default function RegionSelectSheet({
+  open, onClose, selectedRegions = [], maxCount = 2, onSave,
+  title = "내 활동지역 설정",
+  subtitle,
+}) {
   const [activeCity, setActiveCity] = useState(REGION_CITIES[0] ?? "서울");
   // 작업용 선택 목록: [{ city, district }] (순서 = 우선순위)
   const [picked, setPicked] = useState([]);
@@ -61,8 +65,8 @@ export default function RegionSelectSheet({ open, onClose, selectedRegions = [],
         {/* 핸들 */}
         <div style={{ width:40, height:4, borderRadius:R.full, background:C.bgWarm, margin:"0 auto 14px" }} />
 
-        <div style={{ fontSize:17, fontWeight:900, color:C.text1, marginBottom:4 }}>내 활동지역 설정</div>
-        <div style={{ fontSize:12, color:C.text3, marginBottom:S.lg }}>최대 {maxCount}곳까지 설정할 수 있어요</div>
+        <div style={{ fontSize:17, fontWeight:900, color:C.text1, marginBottom:4 }}>{title}</div>
+        <div style={{ fontSize:12, color:C.text3, marginBottom:S.lg }}>{subtitle ?? `최대 ${maxCount}곳까지 설정할 수 있어요`}</div>
 
         {/* 시/도 탭 */}
         <div style={{ display:"flex", gap:6, marginBottom:S.md }}>
