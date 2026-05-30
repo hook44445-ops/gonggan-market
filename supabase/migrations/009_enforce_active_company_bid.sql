@@ -7,18 +7,31 @@
 --
 --  설계 원칙 (기존 정상 플로우 손상 금지):
 --    - companies 테이블의 public read 정책은 그대로 둔다.
---      (관리자 승인 대시보드가 PENDING 업체를 읽어야 하므로 RLS를 조이지 않음)
 --    - 강제는 bids INSERT 시점의 트리거로만 한다.
 --    - bids.company_id 는 실제로 '소유자 users.id' 를 담는다(코드 기준).
 --      companies.owner_id 와 매칭해 상태를 조회한다.
 --    - ⚠️ fail-open: 매칭되는 업체 레코드가 없으면(시드/예외 데이터 등) 통과시킨다.
---      → 정상 ACTIVE 업체와 매핑 불명확 케이스는 절대 막지 않는다.
 --    - fail-closed: 업체 레코드가 존재하고 상태가 명시적으로 'ACTIVE' 가 아닐 때만 차단.
+--
+--  실행 전 확인: 아래 쿼리로 실제 입찰 테이블명을 먼저 확인하세요.
+--    SELECT table_schema, table_name
+--    FROM information_schema.tables
+--    WHERE table_name ILIKE '%bid%' OR table_name ILIKE '%estimate%' OR table_name ILIKE '%proposal%'
+--    ORDER BY table_schema, table_name;
+--
+--  ⚠️  실제 테이블명이 'bids'가 아니면 아래 두 줄을 수정하세요:
+--      DROP TRIGGER IF EXISTS ... ON public.XXX;
+--      CREATE TRIGGER ... BEFORE INSERT ON public.XXX
 -- ============================================================
 
+set search_path = public, extensions;
+
+-- STEP 1: 트리거 함수 생성 (테이블명과 무관하게 항상 성공)
 create or replace function public.enforce_active_company_bid()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   v_status text;
@@ -41,11 +54,28 @@ begin
 end;
 $$;
 
+-- STEP 2: 실제 입찰 테이블에 트리거 등록
+--         ↓↓ 실제 테이블명이 다르면 이 두 줄의 'bids'를 교체하세요 ↓↓
 drop trigger if exists trg_enforce_active_company_bid on public.bids;
 
 create trigger trg_enforce_active_company_bid
   before insert on public.bids
   for each row
   execute function public.enforce_active_company_bid();
+
+-- STEP 3: 등록 확인
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.triggers
+    where trigger_name = 'trg_enforce_active_company_bid'
+  ) then
+    raise notice '✅ 트리거 등록 성공: trg_enforce_active_company_bid';
+  else
+    raise warning '⚠️ 트리거 등록 실패 — 테이블명을 확인하세요';
+  end if;
+end;
+$$;
 
 notify pgrst, 'reload schema';
