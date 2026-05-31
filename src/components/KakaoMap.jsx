@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { C, R, GRADE } from "../constants";
+import { SHOW_DEBUG_UI } from "../constants/release";
 
 const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
 
@@ -8,8 +9,9 @@ const ENV_INFO = KAKAO_API_KEY
   ? `present(len=${String(KAKAO_API_KEY).length},prefix=${String(KAKAO_API_KEY).slice(0, 4)}...)`
   : "MISSING";
 
-// ── 진단 로그 — production 콘솔에서 step-by-step 판별용 (UI 노출 없음) ──
+// ── 진단 로그 — 개발 환경에서만 출력 (production 에서는 no-op) ──
 function mapLog(...args) {
+  if (!SHOW_DEBUG_UI) return;
   // eslint-disable-next-line no-console
   console.log("[KakaoMap]", ...args);
 }
@@ -26,7 +28,7 @@ mapLog("INIT — window.kakao at module load:", typeof window !== "undefined" ? 
 // 서울시청 — geolocation 실패 시 fallback 중심
 const SEOUL = { lat: 37.5665, lng: 126.9780 };
 const RADIUS_M = 3000; // 반경 3km
-const SDK_TIMEOUT_MS = 8000; // SDK 로드 타임아웃 → 초과 시 mock fallback
+const SDK_TIMEOUT_MS = 3000; // SDK 로드 타임아웃 → 초과 시 fallback UI
 
 // 좌표 없는 업체를 중심 주변 3km 내에 결정적으로 산포
 // (같은 업체는 항상 같은 위치 → 새로고침해도 안정적)
@@ -174,13 +176,13 @@ function loadKakaoScript(apiKey) {
 }
 
 // ── Mock fallback (API 키 없거나 SDK 로드 실패 시) ──
-function MockMap({ companies, userRegion, onPinClick, selectedId, onRequestLocation, gpsLoading, debugInfo }) {
+function MockMap({ companies, userRegion, onPinClick, selectedId, onRequestLocation, gpsLoading, debugInfo, loadFailed }) {
   const positioned = withCoords(companies, SEOUL).slice(0, 6);
   const empty = companies.length === 0;
   return (
     <div style={{ position:"relative", background:"linear-gradient(145deg,#E4EBE0,#D4E2CC,#DCE8D0)",
       borderRadius:R.xl, height:250, overflow:"hidden", border:"1px solid #C4D8BC" }}>
-      {debugInfo && <DebugBadge {...debugInfo} />}
+      {SHOW_DEBUG_UI && debugInfo && <DebugBadge {...debugInfo} />}
       {[...Array(7)].map((_,i) => <div key={i} style={{ position:"absolute", left:`${i*18}%`, top:0, bottom:0, borderLeft:"1px solid rgba(0,0,0,0.04)" }} />)}
       {[...Array(6)].map((_,i) => <div key={i} style={{ position:"absolute", top:`${i*20}%`, left:0, right:0, borderTop:"1px solid rgba(0,0,0,0.04)" }} />)}
       <div style={{ position:"absolute", left:"44%", top:0, bottom:0, width:4, background:"rgba(255,255,255,0.65)" }} />
@@ -231,6 +233,21 @@ function MockMap({ companies, userRegion, onPinClick, selectedId, onRequestLocat
       {!KAKAO_API_KEY && (
         <div style={{ position:"absolute", bottom:10, left:12, background:"rgba(0,0,0,0.5)", color:"#fff", borderRadius:R.sm, padding:"3px 8px", fontSize:10 }}>
           목업 지도
+        </div>
+      )}
+      {/* 카카오맵 SDK 로드 실패/타임아웃 시 사용자 안내 + 새로고침 */}
+      {loadFailed && (
+        <div style={{ position:"absolute", inset:0, zIndex:60, background:"rgba(245,241,234,0.96)",
+          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+          gap:8, textAlign:"center", padding:20 }}>
+          <div style={{ fontSize:30 }}>📍</div>
+          <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>지도를 불러오지 못했어요</div>
+          <div style={{ fontSize:12, color:C.text3 }}>잠시 후 새로고침 해주세요</div>
+          <button onClick={() => window.location.reload()}
+            style={{ marginTop:6, padding:"8px 20px", borderRadius:R.full, border:"none",
+              background:C.brand, color:"#fff", fontSize:13, fontWeight:800, cursor:"pointer" }}>
+            새로고침
+          </button>
         </div>
       )}
     </div>
@@ -357,12 +374,14 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
     <MockMap
       companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId}
       onRequestLocation={onRequestLocation} gpsLoading={gpsLoading}
+      loadFailed={!!KAKAO_API_KEY}
       debugInfo={{ env: ENV_INFO, sdk: sdkInfo.sdk, windowKakao: sdkInfo.windowKakao, kakaoMaps: sdkInfo.kakaoMaps, mode: "fallback", reason: sdkInfo.reason, src: SDK_SRC_MASKED, inserted: sdkInfo.inserted, online: sdkInfo.online }}
     />
   );
 
   return (
     <div style={{ position:"relative", borderRadius:R.xl, overflow:"hidden", height:250, border:`1px solid ${C.bgWarm}` }}>
+      {SHOW_DEBUG_UI && (
       <DebugBadge
         env={ENV_INFO}
         sdk={sdkInfo.sdk}
@@ -374,6 +393,7 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
         inserted={sdkInfo.inserted}
         online={sdkInfo.online}
       />
+      )}
       <div ref={containerRef} style={{ width:"100%", height:"100%" }} />
       {!ready && (
         <div style={{ position:"absolute", inset:0, background:C.bgWarm, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, color:C.text3 }}>

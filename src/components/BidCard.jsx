@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
+import { MIN_BID_MANWON, isValidBidManwon } from "../utils/calculations";
 import { BADGES } from "../constants/badges";
 import { TempBadge } from "./common";
 

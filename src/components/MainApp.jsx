@@ -1334,7 +1334,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
             <BrandLockup size={32} />
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
-              <button onClick={onLogout} style={{ fontSize:11, color:C.text4, background:"none", border:"none", cursor:"pointer" }}>로그아웃</button>
+              {/* 로그아웃 버튼은 실수 터치 방지를 위해 마이페이지(내정보)로 이동됨 */}
             </div>
           </div>
           <div style={{ display:"flex" }}>
@@ -2168,7 +2168,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     </div>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div style={{ fontSize:15, fontWeight:900, color:C.brand }}>
-                        {bid.price ? `${(bid.price / 10000).toLocaleString()}만원` : "금액 미정"}
+                        {bid.price ? `${Math.round(Number(bid.price)).toLocaleString()}만원` : "금액 미정"}
                       </div>
                       <button
                         onClick={() => {
@@ -2200,10 +2200,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             {customerRequests.filter(r => r.isActive).length === 0 ? (
               <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
                 <div style={{ fontSize:32, marginBottom:12 }}>📭</div>
-                <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:6 }}>활성 견적 요청이 없습니다</div>
-                <div style={{ fontSize:12, color:C.text3, lineHeight:1.6 }}>
-                  의뢰인이 요청을 등록하면 이곳에 표시됩니다<br/>
-                  {`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}
+                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6 }}>아직 새 요청이 없어요 🏠</div>
+                <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>
+                  의뢰인이 요청을 등록하면 이곳에 표시됩니다
+                  {SHOW_DEBUG_UI && <><br/>{`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}</>}
                 </div>
               </div>
             ) : (
@@ -2289,18 +2289,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               onSelect={onSelectRegionTab}
               onAdd={() => setRegionSheetOpen(true)}
             />
-            {/* ── 지역 매칭 진단 badge (모바일 콘솔 대체 — tier-4 원인 추적) ── */}
-            <div style={{
-              background:"rgba(0,0,0,0.85)", color:"#4AFF91", borderRadius:8,
-              padding:"6px 10px", marginBottom:8, fontSize:10, fontFamily:"monospace",
-              lineHeight:1.7, wordBreak:"break-all",
-            }}>
-              <span style={{ color:"#FFD700", fontWeight:700 }}>[region_debug] </span>
-              customer: {(activityRegions?.length || (user?.region ? 1 : 0)) ? "ok" : "empty"}
-              {" · "}company: {mapCompanies.length ? (mapFallbackTier === "exact" || mapFallbackTier === "legacy" ? "ok" : "fallback") : "empty"}
-              {" · "}tier: {mapFallbackTier}
-              {mapFallbackReason && <span style={{ color:"#FF6B6B" }}>{" · "}reason: {mapFallbackReason}</span>}
-            </div>
+            {/* ── 지역 매칭 진단 badge (개발 환경에서만 — production 미노출) ── */}
+            {SHOW_DEBUG_UI && (
+              <div style={{
+                background:"rgba(0,0,0,0.85)", color:"#4AFF91", borderRadius:8,
+                padding:"6px 10px", marginBottom:8, fontSize:10, fontFamily:"monospace",
+                lineHeight:1.7, wordBreak:"break-all",
+              }}>
+                <span style={{ color:"#FFD700", fontWeight:700 }}>[region_debug] </span>
+                customer: {(activityRegions?.length || (user?.region ? 1 : 0)) ? "ok" : "empty"}
+                {" · "}company: {mapCompanies.length ? (mapFallbackTier === "exact" || mapFallbackTier === "legacy" ? "ok" : "fallback") : "empty"}
+                {" · "}tier: {mapFallbackTier}
+                {mapFallbackReason && <span style={{ color:"#FF6B6B" }}>{" · "}reason: {mapFallbackReason}</span>}
+              </div>
+            )}
             <div style={{ marginBottom:S.xl }}>
               <KakaoMap
                 companies={mapLocalOnly ? mapLocalMatches : mapCompanies}
@@ -3370,7 +3372,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         setMyRequests(prev => [optimistic, ...prev]);
         setCustomerRequests(prev => [optimistic, ...prev]);
         setShowReq(false);
-        showToast("✅ 인근 업체들에게 전달됐어요!");
+        showToast("✅ 요청이 접수됐어요 · 검증된 업체가 보통 2~4시간 내에 연락드려요. 대화 탭에서 확인하세요.");
 
         // INSERT to Supabase
         if (user.id) {
