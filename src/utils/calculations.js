@@ -2,8 +2,15 @@ const feeConfig = { customerRate: 0.03, companyRate: 0.04, vatRate: 0.1 };
 
 export const fmtMoney = (amount) => {
   if (amount == null || isNaN(amount)) return "—";
-  const rounded = Math.round(amount * 10) / 10;
-  return `${rounded.toLocaleString()}만원`;
+  // 만원 단위, 천 단위 콤마, 소수점 없이 정수만
+  return `${Math.round(Number(amount)).toLocaleString()}만원`;
+};
+
+// 견적/입찰 최소 금액 — 10만원(=100,000원). 입력값은 만원 단위.
+export const MIN_BID_MANWON = 10;
+export const isValidBidManwon = (manwon) => {
+  const n = Number(manwon);
+  return Number.isFinite(n) && n >= MIN_BID_MANWON;
 };
 
 // Customer pays bid amount + 3% safety transaction fee (VAT inclusive)

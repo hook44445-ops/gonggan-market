@@ -9,6 +9,7 @@ import { useGPS } from "../hooks/useGPS";
 import { resolveMapCenter } from "../hooks/useMapCenter";
 import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegionId, regionKey, makeRegionEntry } from "../constants/regions";
 import { getMatchedCompaniesWithTier } from "../utils/regionMatching";
+import { isJunkText } from "../utils/dataHygiene";
 import { updateUserActivityRegions } from "../lib/supabase";
 import CompanyCard from "./CompanyCard";
 import PortfolioScreen from "../screens/PortfolioScreen";

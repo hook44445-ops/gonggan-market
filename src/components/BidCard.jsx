@@ -17,7 +17,9 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
   const maxBidAmount = companyBadge.maxAmount;
   const bidPrice = parseInt(bidForm.price, 10);
   const overLimit = !!bidForm.price && bidPrice > maxBidAmount;
-  const canSubmit = bidForm.price && bidForm.period && !overLimit;
+  const underMin = !!bidForm.price && (!Number.isFinite(bidPrice) || bidPrice < MIN_BID_MANWON);
+  const invalidPrice = overLimit || underMin;
+  const canSubmit = bidForm.price && bidForm.period && !invalidPrice;
 
   const iS = {
     width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`,
@@ -158,10 +160,20 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
             <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:6 }}>견적 금액 (만원) <span style={{color:C.red}}>*</span></div>
             <input value={bidForm.price} onChange={e => setBF("price", e.target.value)}
               placeholder="예: 2800" type="number"
-              style={{ ...iS, borderColor: overLimit ? C.red : undefined }} />
+              style={{ ...iS, borderColor: invalidPrice ? C.red : undefined }} />
             {overLimit && (
               <div style={{ fontSize:12, color:C.red, marginTop:-10, marginBottom:10, fontWeight:600 }}>
                 ⚠️ {companyBadge.label} 등급 최대 {companyBadge.maxAmount.toLocaleString()}만원을 초과했습니다
+              </div>
+            )}
+            {underMin && !overLimit && (
+              <div style={{ fontSize:12, color:C.red, marginTop:-10, marginBottom:10, fontWeight:600 }}>
+                ⚠️ 최소 견적 금액은 {MIN_BID_MANWON}만원(100,000원)입니다
+              </div>
+            )}
+            {underMin && !overLimit && (
+              <div style={{ fontSize:12, color:C.red, marginTop:-10, marginBottom:10, fontWeight:600 }}>
+                ⚠️ 최소 견적 금액은 {MIN_BID_MANWON}만원(100,000원)입니다
               </div>
             )}
 

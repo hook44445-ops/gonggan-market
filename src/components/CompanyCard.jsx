@@ -70,7 +70,7 @@ export default function CompanyCard({ company, onClick, isLoggedIn = false }) {
             {/* Name + TempBadge */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 5 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: C.text1 }}>{company.name}</span>
-              <TempBadge temp={company.temp} />
+              <TempBadge temp={company.temp} info />
             </div>
 
             {/* Cert badges */}
