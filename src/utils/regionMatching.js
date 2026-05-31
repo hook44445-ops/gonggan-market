@@ -85,13 +85,38 @@ export function getMatchedCompaniesWithTier(companies, user, activeFilter = null
 
   const localMatches = list.filter((c) => exactIds.has(c.id) || legacyIds.has(c.id));
 
+  // ── 진단: 업체 영업지역 세트가 모두 비었는지(=company-region-empty) 판단 ──
+  const companiesWithRegion = list.filter((c) => getServiceRegions(c).length > 0).length;
+
+  // fallback 원인 분류 — tier-4 로 떨어지는 실제 이유
+  const computeFallbackReason = () => {
+    if (!list.length) return "fetch-missing";          // 업체 fetch 자체가 비어있음
+    if (!customerRegions.length && !userRegionText) return "customer-region-empty";
+    if (companiesWithRegion === 0 && !list.some((c) => c.region)) return "company-region-empty";
+    return "no-intersection";                          // 양쪽 다 있으나 겹치는 구/시 없음
+  };
+
+  // 진단 로그 — tier 1/2/3/4 중 어디로 떨어지는지
+  const log = (tier, isFallback, reason) => {
+    // eslint-disable-next-line no-console
+    console.log("[RegionMatch]", {
+      customer_regions: customerRegions.map((r) => entryKey(r) || r?.city).filter(Boolean),
+      company_regions_count: companiesWithRegion,
+      company_total: list.length,
+      intersection: localMatches.map((c) => c.id),
+      matched: tier === "exact" || tier === "legacy" ? localMatches.length
+        : tier === "city" ? "(city-expanded)" : tier === "all" ? list.length : 0,
+      tier,
+      isFallback,
+      fallback_reason: reason,
+    });
+  };
+
   if (localMatches.length > 0) {
-    return {
-      matched: localMatches,
-      localMatches,
-      tier: exactIds.size > 0 ? "exact" : "legacy",
-      isFallback: false,
-    };
+    const tier = exactIds.size > 0 ? "exact" : "legacy";
+    const reason = tier === "legacy" ? "legacy-region-used" : null;
+    log(tier, false, reason);
+    return { matched: localMatches, localMatches, tier, isFallback: false, fallbackReason: reason };
   }
 
   // Tier 3: same city expansion (초기 런칭 fallback)
@@ -103,12 +128,16 @@ export function getMatchedCompaniesWithTier(companies, user, activeFilter = null
       return false;
     });
     if (cityMatch.length > 0) {
-      return { matched: cityMatch, localMatches: [], tier: "city", isFallback: true };
+      const reason = computeFallbackReason();
+      log("city", true, reason);
+      return { matched: cityMatch, localMatches: [], tier: "city", isFallback: true, fallbackReason: reason };
     }
   }
 
   // Tier 4: all companies (최후 fallback)
-  return { matched: list, localMatches: [], tier: "all", isFallback: true };
+  const reason = computeFallbackReason();
+  log("all", true, reason);
+  return { matched: list, localMatches: [], tier: "all", isFallback: true, fallbackReason: reason };
 }
 
 // 하위 호환 래퍼 — 기존 호출부 호환 유지

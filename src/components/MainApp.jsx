@@ -1075,7 +1075,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const { companies } = useCompanyList();
 
   // 지도 노출 업체 — 단계별(exact→legacy→city→all) 매칭, fallback 시 배너/배지 표시
-  const { mapCompanies, mapLocalMatches, mapFallbackTier, mapIsFallback } = useMemo(() => {
+  const { mapCompanies, mapLocalMatches, mapFallbackTier, mapIsFallback, mapFallbackReason } = useMemo(() => {
     const activeFilter = activeRegion?.city
       ? { city: activeRegion.city, district: activeRegion.district }
       : null;
@@ -1084,7 +1084,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       { activity_regions: activityRegions, region: user?.region },
       activeFilter
     );
-    return { mapCompanies: result.matched, mapLocalMatches: result.localMatches, mapFallbackTier: result.tier, mapIsFallback: result.isFallback };
+    return { mapCompanies: result.matched, mapLocalMatches: result.localMatches, mapFallbackTier: result.tier, mapIsFallback: result.isFallback, mapFallbackReason: result.fallbackReason };
   }, [companies, activeRegion, activityRegions, user?.region]);
 
   const updateChat = (companyId, msgs) =>
@@ -2289,6 +2289,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               onSelect={onSelectRegionTab}
               onAdd={() => setRegionSheetOpen(true)}
             />
+            {/* ── 지역 매칭 진단 badge (모바일 콘솔 대체 — tier-4 원인 추적) ── */}
+            <div style={{
+              background:"rgba(0,0,0,0.85)", color:"#4AFF91", borderRadius:8,
+              padding:"6px 10px", marginBottom:8, fontSize:10, fontFamily:"monospace",
+              lineHeight:1.7, wordBreak:"break-all",
+            }}>
+              <span style={{ color:"#FFD700", fontWeight:700 }}>[region_debug] </span>
+              customer: {(activityRegions?.length || (user?.region ? 1 : 0)) ? "ok" : "empty"}
+              {" · "}company: {mapCompanies.length ? (mapFallbackTier === "exact" || mapFallbackTier === "legacy" ? "ok" : "fallback") : "empty"}
+              {" · "}tier: {mapFallbackTier}
+              {mapFallbackReason && <span style={{ color:"#FF6B6B" }}>{" · "}reason: {mapFallbackReason}</span>}
+            </div>
             <div style={{ marginBottom:S.xl }}>
               <KakaoMap
                 companies={mapLocalOnly ? mapLocalMatches : mapCompanies}
