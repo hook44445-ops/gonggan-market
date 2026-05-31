@@ -7,7 +7,7 @@ import RegionSelectorBar from "./RegionSelectorBar";
 import RegionSelectSheet from "./RegionSelectSheet";
 import { useGPS } from "../hooks/useGPS";
 import { resolveMapCenter } from "../hooks/useMapCenter";
-import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegionId, regionKey } from "../constants/regions";
+import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegionId, regionKey, makeRegionEntry } from "../constants/regions";
 import { getMatchedCompaniesWithTier } from "../utils/regionMatching";
 import { updateUserActivityRegions } from "../lib/supabase";
 import CompanyCard from "./CompanyCard";
@@ -2863,6 +2863,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                       border:`1.5px dashed ${C.brandM}`, background:C.brandL, color:C.brand, fontSize:13, fontWeight:800 }}>
                     {companyServiceRegions.length ? "✏️ 영업지역 수정" : "+ 영업지역 설정"}
                   </button>
+                  {/* DEV 전용 — 테스트 업체 영업지역 즉시 주입(강서구·영등포구) → RegionRefetch + region_debug 재검증용 */}
+                  {SHOW_DEBUG_UI && currentUser?.id && (
+                    <button onClick={() => onSaveServiceRegions([
+                        makeRegionEntry("서울", "강서구", true),
+                        makeRegionEntry("서울", "영등포구", false),
+                      ])}
+                      style={{ width:"100%", marginTop:8, padding:"10px 0", borderRadius:R.lg, cursor:"pointer",
+                        border:`1px solid ${C.bgWarm}`, background:"#1a1a1a", color:"#4AFF91",
+                        fontSize:12, fontWeight:700, fontFamily:"monospace" }}>
+                      🧪 DEV 주입: 강서구 · 영등포구 (company_id={currentUser.id})
+                    </button>
+                  )}
                 </div>
 
                 <RegionSelectSheet
