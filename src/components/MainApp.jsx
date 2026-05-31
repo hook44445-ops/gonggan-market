@@ -1658,6 +1658,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                         const escrowData = myRequestsEscrow[r.id] ?? null;
                         const stage = computeCustomerStage(r, escrowData);
                         const hasEscrow = !!escrowData?.escrow;
+                        if (SHOW_DEBUG_UI) {
+                          // eslint-disable-next-line no-console
+                          console.log("[ContractMapping]", {
+                            screen: "consumer_home", role: activeRole,
+                            request_id: r.id, contract_id: escrowData?.escrow?.id ?? null,
+                            bid_id: null, company_id: escrowData?.escrow?.company_id ?? null,
+                            consumer_id: user?.id ?? null, title: r.type, region: r.area, amount: r.budget,
+                            request_status: r.status, contract_status: escrowData?.escrow?.transaction_status ?? null,
+                            escrow_status: escrowData?.escrow?.transaction_status ?? null, source: "myRequestsEscrow[r.id]",
+                          });
+                        }
                         const urgentDays = r.daysLeft <= 1;
                         const warningDays = r.daysLeft <= 3;
                         const borderColor = stage?.badge === "확인 필요" ? "#C07000" : hasEscrow ? C.brandM : r.bidCount > 0 ? C.brandM : C.bgWarm;
@@ -3068,13 +3079,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   const b = consumerStatusBadge(r, escrowData);
                   if (SHOW_DEBUG_UI) {
                     // eslint-disable-next-line no-console
-                    console.log("[StatusSync]", {
-                      screen: "history",
-                      request_id: r.id,
-                      contract_id: escrowData?.escrow?.id ?? null,
-                      request_status: r.status,
-                      contract_status: escrowData?.escrow?.transaction_status ?? null,
-                      escrow_phase: escrowData?.escrow?.current_step ?? null,
+                    console.log("[ContractMapping]", {
+                      screen: "consumer_history", role: activeRole,
+                      request_id: r.id, contract_id: escrowData?.escrow?.id ?? null,
+                      bid_id: null, company_id: escrowData?.escrow?.company_id ?? null,
+                      consumer_id: user?.id ?? null, title: r.type, region: r.area, amount: r.budget,
+                      request_status: r.status, contract_status: escrowData?.escrow?.transaction_status ?? null,
+                      escrow_status: escrowData?.escrow?.transaction_status ?? null, source: "myRequestsEscrow[r.id]",
                     });
                   }
                   return (

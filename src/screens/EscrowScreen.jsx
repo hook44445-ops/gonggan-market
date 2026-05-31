@@ -91,6 +91,28 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [derivedFromRecovery, setDerivedFromRecovery] = useState(false);
   const [stageStatusSource, setStageStatusSource] = useState("unloaded");
 
+  // [ContractMapping] 진단 — 화면 간 동일 계약 매핑 검증 (production 미노출)
+  useEffect(() => {
+    if (!SHOW_DEBUG_UI) return;
+    // eslint-disable-next-line no-console
+    console.log("[ContractMapping]", {
+      screen: "escrow",
+      role: activeRole,
+      request_id: request?.id ?? resolvedBid?.requestId ?? null,
+      contract_id: resolvedContractId ?? null,
+      bid_id: resolvedBid?.id ?? null,
+      company_id: resolvedBid?.companyId ?? null,
+      consumer_id: userId ?? null,
+      title: request?.type ?? null,
+      region: request?.area ?? null,
+      amount: resolvedBid?.price ?? null,
+      request_status: request?.status ?? null,
+      contract_status: null,
+      escrow_status: escrowDebug?.src ?? null,
+      source: escrowDebug?.src ?? "prop",
+    });
+  }, [activeRole, request?.id, resolvedContractId, resolvedBid?.id, escrowDebug, userId, request?.status, request?.type, request?.area, resolvedBid?.requestId, resolvedBid?.companyId, resolvedBid?.price]);
+
   // Self-fetch: restore selectedBid via 3-level fallback
   // 1. payment_orders → bid_id → bids
   // 2. escrow_payments → bids (selected) — for cases where payment_order missing
@@ -141,19 +163,21 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       if (escrow) {
         setResolvedContractId(escrow.id);
         const { data: bidsData } = await getBidsForRequest(request.id);
-        const row = bidsData?.find(b => b.selected) ?? bidsData?.[0] ?? null;
+        // 명시 매칭만: selected bid → 후보가 정확히 1개일 때만 사용. 임의 first-row 금지.
+        const row = bidsData?.find(b => b.selected) ?? ((bidsData?.length === 1) ? bidsData[0] : null);
         if (row) {
           setResolvedBid(buildRestored(row));
           setEscrowDebug({ src: "escrow_by_request", restored: true, escrowId: escrow.id, bidId: row.id });
         } else {
-          setEscrowDebug({ src: "escrow_by_request", err: "no bids", escrowId: escrow.id });
+          setEscrowDebug({ src: "escrow_by_request", err: bidsData?.length ? "ambiguous bids (no selected)" : "no bids", escrowId: escrow.id, bidCount: bidsData?.length ?? 0 });
         }
         return;
       }
 
       // ── Level 3: bids → escrow (multi-path recovery) ────────
       const { data: bidsData } = await getBidsForRequest(request.id);
-      const row = bidsData?.find(b => b.selected) ?? bidsData?.[0] ?? null;
+      // 명시 매칭만: selected bid → 후보가 정확히 1개일 때만. 임의 first-row 금지.
+      const row = bidsData?.find(b => b.selected) ?? ((bidsData?.length === 1) ? bidsData[0] : null);
       if (row) {
         setResolvedBid(buildRestored(row));
 
@@ -850,6 +874,25 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   };
 
   const isActive = (sid) => stageStatus[sid] === "company_todo" || stageStatus[sid] === "pending_customer";
+
+  // 계약/요청 식별자가 전혀 없으면(임의 매칭 금지) 명시적으로 안내한다.
+  const unresolvedContract = !request?.id && !resolvedBid?.requestId && !resolvedContractId;
+  if (unresolvedContract) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
+          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+        </div>
+        <div style={{ padding: "60px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 12 }}>🔍</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 6 }}>계약 정보를 불러올 수 없습니다</div>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>잠시 후 다시 시도해주세요</div>
+          <button onClick={onBack} style={{ marginTop: 20, padding: "10px 22px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
