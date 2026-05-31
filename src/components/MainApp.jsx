@@ -291,6 +291,22 @@ function consumerStatusBadge(r, escrowData) {
   };
 }
 
+// 완료/정산완료 판정 — 단일 소스(에스크로). "내 견적 요청"(active 슬롯)에서 제외하고
+// 새 견적 생성 카운트에서도 빼는 기준. computeCustomerStage 의 "완료" 배지와 일치
+// (escrow SETTLED 또는 완료 단계 payout 승인). request.status 단독 사용 금지.
+function isRequestSettled(r, escrowData) {
+  const escrow = escrowData?.escrow ?? null;
+  if (escrow) {
+    const tx = escrow.transaction_status;
+    if (tx === "SETTLED") return true;
+    const payout4 = (escrowData?.payouts ?? []).find(p => p.stage === 4);
+    if (payout4?.status === "APPROVED") return true;
+  }
+  // 에스크로 미적재 상태에서도 raw status 가 명시적 완료면 active 에서 제외
+  if (r?.status === "completed" || r?.status === "settled") return true;
+  return false;
+}
+
 // 관심 — 조용한 갤러리 톤의 빈 상태
 function FavEmptyState({ title, desc, onGo }) {
   return (
@@ -1163,13 +1179,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       localStorage.removeItem(OVERRIDE_LS_KEY);
     }
 
-    // 2. Active request check
+    // 2. Active request check — 완료/정산완료(에스크로 기준)는 active 에서 제외.
+    //    request.status 가 in_progress 로 남아있어도 escrow SETTLED 면 새 견적 허용.
     let active = myRequests.find(r =>
       ACTIVE_STATUSES.includes(r.status) && !r.is_hidden && !r.is_deleted
+      && !isRequestSettled(r, myRequestsEscrow[r.id] ?? null)
     ) ?? null;
     if (!active && user?.id) {
       const { data } = await getActiveRequestByUser(user.id);
-      active = data ?? null;
+      // 서버 조회분도 로컬 에스크로 맵으로 정산완료 여부 재확인
+      if (data && !isRequestSettled(data, myRequestsEscrow[data.id] ?? null)) active = data;
+      else active = null;
     }
     if (!active) {
       setReqCheckDebug({ active_count: 0, active_request_status: "none", cooldown_remaining_hours: 0, blocked_reason: "none" });
@@ -1642,8 +1662,28 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             </div>
 
             {(() => {
-              const activeReqs  = myRequests.filter(r => r.isActive || r.status === "in_progress");
-              const historyReqs = myRequests.filter(r => r.isClosed || r.status === "completed");
+              // 완료/정산완료(에스크로 기준)는 active 에서 제외 → 견적 이력으로.
+              const isSettled = (r) => isRequestSettled(r, myRequestsEscrow[r.id] ?? null);
+              const activeReqs  = myRequests.filter(r => (r.isActive || r.status === "in_progress") && !isSettled(r));
+              const historyReqs = myRequests.filter(r => r.isClosed || r.status === "completed" || isSettled(r));
+              if (SHOW_DEBUG_UI) {
+                myRequests.forEach(r => {
+                  const ed = myRequestsEscrow[r.id] ?? null;
+                  const settled = isSettled(r);
+                  const included = (r.isActive || r.status === "in_progress") && !settled;
+                  // eslint-disable-next-line no-console
+                  console.log("[ActiveRequestFilter]", {
+                    request_id: r.id,
+                    contract_id: ed?.escrow?.id ?? null,
+                    request_status: r.status,
+                    contract_status: ed?.escrow?.transaction_status ?? null,
+                    escrow_status: ed?.escrow?.transaction_status ?? null,
+                    customer_stage: computeCustomerStage(r, ed)?.badge ?? null,
+                    included_in_active: included,
+                    reason: settled ? "settled→history" : (r.isActive || r.status === "in_progress") ? "active" : "closed/other",
+                  });
+                });
+              }
               return myRequests.length > 0 ? (
                 <div style={{ marginBottom:S.xl }}>
                   {/* ── Active requests ── */}
