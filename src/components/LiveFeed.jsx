@@ -1,17 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { getLiveRequests } from "../lib/supabase";
-
-const MOCK_POOL = [
-  { id:"m1", area:"강남구",      spaceType:"오피스 인테리어", stage:"착공 진행중", pct:65 },
-  { id:"m2", area:"마포구",      spaceType:"카페 리모델링",   stage:"마감 단계",   pct:80 },
-  { id:"m3", area:"송파구",      spaceType:"욕실 리모델링",   stage:"착공 진행중", pct:40 },
-  { id:"m4", area:"중구",        spaceType:"상가 인테리어",   stage:"중간 점검",   pct:55 },
-  { id:"m5", area:"수원 영통",   spaceType:"주방 교체",       stage:"자재 반입",   pct:25 },
-  { id:"m6", area:"인천 서구",   spaceType:"아파트 전체",     stage:"중간 점검",   pct:50 },
-  { id:"m7", area:"부산 해운대", spaceType:"부분 도배",       stage:"착공 진행중", pct:70 },
-  { id:"m8", area:"일산 서구",   spaceType:"거실 마루 교체",  stage:"마감 단계",   pct:90 },
-];
 
 const STAGE_MAP = {
   in_progress:    { label:"착공 진행중", pct:60 },
@@ -19,39 +8,23 @@ const STAGE_MAP = {
   escrow_pending: { label:"결제 준비중", pct:30 },
 };
 
-const SESSION_SEED = Date.now() & 0xffff;
-function seededShuffle(arr, seed) {
-  const a = [...arr];
-  let s = seed;
-  for (let i = a.length - 1; i > 0; i--) {
-    s = (Math.imul(s, 1664525) + 1013904223) & 0xffffffff;
-    const j = Math.abs(s) % (i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 const TOTAL = 5;
 
 export default function LiveFeed() {
   const [realItems, setRealItems] = useState([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     getLiveRequests({ limit: 5 }).then(({ data }) => {
       if (data && data.length > 0) setRealItems(data);
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => setLoaded(true));
   }, []);
 
-  const shuffledMock = useMemo(() => seededShuffle(MOCK_POOL, SESSION_SEED), []);
-
-  const realCount  = realItems.length;
-  const mockNeeded = realCount >= 3 ? 0 : TOTAL - realCount;
-  const mockItems  = shuffledMock.slice(0, mockNeeded);
-
-  const items = [
-    ...realItems.slice(0, TOTAL).map(r => ({ ...r, _real: true })),
-    ...mockItems.map(m => ({ ...m, _real: false })),
-  ].slice(0, TOTAL);
+  // 실데이터만 노출 — 샘플/테스트 항목(is_sample/is_test/상태 "샘플") 제외, 더미 미표시
+  const items = realItems
+    .filter(r => !r.is_sample && !r.is_test && r.status !== "샘플")
+    .slice(0, TOTAL)
+    .map(r => ({ ...r, _real: true }));
 
   return (
     <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
@@ -67,7 +40,14 @@ export default function LiveFeed() {
         </div>
       </div>
 
-      {/* Items */}
+      {/* 실데이터 0건 — 빈 상태 */}
+      {loaded && items.length === 0 && (
+        <div style={{ textAlign:"center", padding:"16px 0", color:C.text3, fontSize:13 }}>
+          아직 이 지역 시공 현황이 없어요
+        </div>
+      )}
+
+      {/* Items (실데이터만) */}
       {items.map((item, i) => {
         const isLast = i === items.length - 1;
 

@@ -176,7 +176,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
                 style={{ padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
               />
               <div style={{ fontSize:12, fontWeight:700, color:C.brand, textAlign:"right" }}>
-                {((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)).toLocaleString()}만
+                {Math.round((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)).toLocaleString()}만
               </div>
             </div>
           </div>
@@ -190,7 +190,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
 
       <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <div style={{ fontSize:14, fontWeight:800, color:C.brand }}>총 견적 금액</div>
-        <div style={{ fontSize:20, fontWeight:900, color:C.brand }}>{totalPrice.toLocaleString()}만원</div>
+        <div style={{ fontSize:20, fontWeight:900, color:C.brand }}>{Math.round(totalPrice).toLocaleString()}만원</div>
       </div>
 
       <div style={{ marginBottom:S.lg }}>
