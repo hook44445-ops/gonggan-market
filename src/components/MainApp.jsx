@@ -7,7 +7,7 @@ import RegionSelectorBar from "./RegionSelectorBar";
 import RegionSelectSheet from "./RegionSelectSheet";
 import { useGPS } from "../hooks/useGPS";
 import { resolveMapCenter } from "../hooks/useMapCenter";
-import { getActivityRegions, getServiceRegions, getPrimaryRegion, regionKey } from "../constants/regions";
+import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegionId, regionKey } from "../constants/regions";
 import { getMatchedCompaniesWithTier } from "../utils/regionMatching";
 import { updateUserActivityRegions } from "../lib/supabase";
 import CompanyCard from "./CompanyCard";
@@ -388,7 +388,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     setRegionSheetOpen(false);
     clearGps();
     if (user?.id) {
-      try { await updateUserActivityRegions(user.id, entries, primaryText); }
+      try { await updateUserActivityRegions(user.id, entries, primaryText, getPrimaryRegionId(entries)); }
       catch (e) { console.warn("[region] save failed", e?.message); } // eslint-disable-line no-console
     }
   };
@@ -413,7 +413,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       : prev);
     if (currentUser?.id) {
       try {
-        await updateCompanyServiceRegions(currentUser.id, entries.length ? entries : null, primaryText);
+        await updateCompanyServiceRegions(currentUser.id, entries, primaryText, getPrimaryRegionId(entries));
         showToast("✅ 영업지역이 저장됐어요");
       } catch (e) {
         console.warn("[service-region] save failed", e?.message); // eslint-disable-line no-console

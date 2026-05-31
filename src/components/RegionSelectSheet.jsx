@@ -99,6 +99,14 @@ export default function RegionSelectSheet({
           })}
         </div>
 
+        {/* 최대 개수 도달 안내 */}
+        {picked.length >= maxCount && (
+          <div style={{ fontSize:12, color:C.brand, background:C.brandL, border:`1px solid ${C.brandM}`,
+            borderRadius:R.md, padding:"8px 12px", marginTop:S.sm, fontWeight:700 }}>
+            최대 {maxCount}곳까지 선택할 수 있어요. 다른 지역을 추가하려면 기존 지역을 먼저 해제하세요.
+          </div>
+        )}
+
         {/* 선택 요약 + 저장 */}
         <div style={{ paddingTop:S.md, borderTop:`1px solid ${C.bgWarm}`, marginTop:S.sm }}>
           <div style={{ fontSize:12, color:C.text2, marginBottom:S.md, minHeight:18 }}>

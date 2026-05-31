@@ -121,8 +121,20 @@ export function regionCenter(city, district) {
 }
 
 // RegionEntry 생성
+// 신규 스키마 필드(id/sido/sigungu/label/lat/lng/radiusKm)와
+// legacy 호환 필드(city/district/is_primary/added_at)를 함께 담는다.
+// → 매칭/지도 코드는 city/district 를, 저장/식별은 id/label 을 사용.
 export function makeRegionEntry(city, district, isPrimary = false) {
-  return { city, district: district ?? "", is_primary: !!isPrimary, added_at: new Date().toISOString() };
+  const d = district ?? "";
+  const label = regionKey(city, d);
+  const center = regionCenter(city, d);
+  return {
+    id: label,                 // 안정적 식별자 (default_*_region_id 매칭용)
+    sido: city, sigungu: d, label,
+    lat: center.lat, lng: center.lng, radiusKm: 3,
+    // ── legacy 호환 ──
+    city, district: d, is_primary: !!isPrimary, added_at: new Date().toISOString(),
+  };
 }
 
 // jsonb activity_regions(없으면 legacy region text) → RegionEntry[]
@@ -145,6 +157,14 @@ export function getServiceRegions(company) {
 export function getPrimaryRegion(regions) {
   if (!Array.isArray(regions) || !regions.length) return null;
   return regions.find(r => r?.is_primary) ?? regions[0];
+}
+
+// 기본 지역 식별자 — default_activity_region_id / default_service_region_id 컬럼 값
+// (구버전 엔트리에 id 가 없으면 city/district 로 키 생성)
+export function getPrimaryRegionId(regions) {
+  const p = getPrimaryRegion(regions);
+  if (!p) return null;
+  return p.id ?? regionKey(p.city, p.district);
 }
 
 // 시/도 목록 (UI 탭용)
