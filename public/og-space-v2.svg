@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- 카카오/OG 공유 썸네일 1200x630 — 따뜻한 아이보리 + 딥그린 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FBF7EF"/>
+      <stop offset="1" stop-color="#F2EBDA"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- 은은한 보타니컬 장식 (우상단) -->
+  <g opacity="0.10" transform="translate(980,40)">
+    <path d="M60 240 C60 160 60 90 80 20" stroke="#2E5F4B" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <path d="M66 160 C26 146 4 110 2 70 C44 76 70 110 66 160 Z" fill="#2E5F4B"/>
+    <path d="M70 110 C112 96 134 60 136 20 C94 26 68 60 70 110 Z" fill="#2E5F4B"/>
+  </g>
+
+  <!-- 브랜드 아이콘 (01 공간·연결형) -->
+  <g transform="translate(120,175)">
+    <rect width="280" height="280" rx="64" fill="#2E5F4B"/>
+    <g transform="translate(140,140) scale(0.5) translate(-256,-256)">
+      <circle cx="256" cy="256" r="150" fill="none" stroke="#F5F1EA" stroke-width="20" stroke-opacity="0.4"/>
+      <circle cx="106" cy="256" r="20" fill="#B5D4C5"/>
+      <circle cx="406" cy="256" r="20" fill="#B5D4C5"/>
+      <g stroke="#F5F1EA" stroke-width="22" stroke-linejoin="round" stroke-linecap="round" fill="none">
+        <path d="M256 150 L350 226 V330 a14 14 0 0 1 -14 14 H176 A14 14 0 0 1 162 330 V226 Z"/>
+        <path d="M226 344 V286 a30 30 0 0 1 60 0 V344"/>
+      </g>
+      <path d="M300 150 c34 -6 58 -30 64 -64 c-34 4 -60 22 -68 54 c-2 8 -1 10 4 10 Z" fill="#9DC8AE"/>
+    </g>
+  </g>
+
+  <!-- 텍스트 블록 -->
+  <text x="460" y="278" font-family="'Pretendard','Apple SD Gothic Neo',sans-serif" font-size="92" font-weight="800" fill="#1D3D2F" letter-spacing="-2">공간마켓</text>
+  <text x="463" y="345" font-family="'Pretendard','Apple SD Gothic Neo',sans-serif" font-size="34" font-weight="600" fill="#2E5F4B" letter-spacing="2">공간사이 · Gonggan Market</text>
+  <line x1="464" y1="386" x2="700" y2="386" stroke="#C8A15A" stroke-width="4" stroke-linecap="round"/>
+  <text x="460" y="448" font-family="'Pretendard','Apple SD Gothic Neo',sans-serif" font-size="40" font-weight="700" fill="#3A4A3E">공간이 연결되는 곳, 믿을 수 있는 거래</text>
+</svg>

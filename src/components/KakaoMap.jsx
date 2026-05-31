@@ -46,14 +46,24 @@ function withCoords(companies, center) {
   });
 }
 
+// SDK script src — 명시적 https (protocol-relative '//' 는 일부 webview/CSP에서 차단됨)
+const SDK_SRC = KAKAO_API_KEY
+  ? `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_API_KEY}&autoload=false`
+  : "";
+// debug 표시용 — appkey 마스킹한 src
+const SDK_SRC_MASKED = KAKAO_API_KEY
+  ? `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${String(KAKAO_API_KEY).slice(0, 4)}...&autoload=false`
+  : "(no key)";
+
 // ── 온스크린 진단 배지 — 모바일 콘솔 대체 ──
-function DebugBadge({ env, sdk, windowKakao, kakaoMaps, mode, reason }) {
+function DebugBadge({ env, sdk, windowKakao, kakaoMaps, mode, reason, src, inserted, online }) {
   return (
     <div style={{
       position: "absolute", top: 6, left: 6, right: 6,
       background: "rgba(0,0,0,0.88)", color: "#4AFF91",
       borderRadius: 8, padding: "8px 12px", fontSize: 10,
-      fontFamily: "monospace", lineHeight: 1.9, zIndex: 200, pointerEvents: "none",
+      fontFamily: "monospace", lineHeight: 1.8, zIndex: 200, pointerEvents: "none",
+      wordBreak: "break-all",
     }}>
       <div style={{ color: "#FFD700", fontWeight: 700 }}>[KakaoMap Debug]</div>
       <div>env: {env}</div>
@@ -61,6 +71,9 @@ function DebugBadge({ env, sdk, windowKakao, kakaoMaps, mode, reason }) {
       <div>window.kakao: {String(windowKakao)}</div>
       <div>kakao.maps: {String(kakaoMaps)}</div>
       <div>mode: {mode}</div>
+      {typeof inserted !== "undefined" && <div>script_inserted: {String(inserted)}</div>}
+      {typeof online !== "undefined" && <div>navigator.online: {String(online)}</div>}
+      {src && <div style={{ color: "#9AD0FF" }}>src: {src}</div>}
       {reason && <div style={{ color: "#FF6B6B" }}>fallback_reason: {reason}</div>}
     </div>
   );
@@ -115,12 +128,21 @@ function loadKakaoScript(apiKey) {
       }
     };
 
+    // onerror 상세 reason 생성 — script src / 네트워크 / blocked 여부
+    const errorReason = (label) => {
+      const online = typeof navigator !== "undefined" ? navigator.onLine : "n/a";
+      return `${label} (online=${online})`;
+    };
+
     // 이미 삽입된 script 태그가 있는 경우
     const existing = document.getElementById("kakao-map-sdk");
     if (existing) {
       mapLog("STEP2b: SDK script tag already in DOM — polling for window.kakao.maps");
       existing.addEventListener("load", finishOk);
-      existing.addEventListener("error", () => { mapLog("STEP2b FAIL: existing script onerror"); done(reject, new Error("sdk-load-error")); });
+      existing.addEventListener("error", () => {
+        mapLog("STEP2b FAIL: existing script onerror");
+        done(reject, new Error(errorReason("sdk-load-error[existing]")));
+      });
       const poll = setInterval(() => {
         if (settled) { clearInterval(poll); return; }
         if (window.kakao?.maps) { clearInterval(poll); mapLog("STEP2b poll: window.kakao.maps appeared"); finishOk(); }
@@ -128,17 +150,26 @@ function loadKakaoScript(apiKey) {
       return;
     }
 
-    // 신규 script 삽입
-    mapLog("STEP2c: injecting new SDK script tag (appkey prefix:", apiKey.slice(0, 4), "...)");
+    // 신규 script 삽입 — 명시적 https (protocol-relative '//' 차단 회피)
+    mapLog("STEP2c: injecting new SDK script tag, src:", SDK_SRC_MASKED);
     const s = document.createElement("script");
     s.id = "kakao-map-sdk";
-    s.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${apiKey}&autoload=false`;
+    s.async = true;
+    s.src = SDK_SRC;
+    // NOTE: crossOrigin 미설정 — dapi.kakao.com CDN 이 CORS 헤더를 보장하지 않아
+    // 'anonymous' 설정 시 오히려 로드가 실패할 수 있음.
     s.onload = finishOk;
-    s.onerror = () => {
-      mapLog("STEP3 FAIL: SDK script onerror — 네트워크 오류 또는 dapi.kakao.com 차단. 도메인 등록 확인.");
-      done(reject, new Error("sdk-load-error"));
+    s.onerror = (ev) => {
+      // ev.type / blocked 여부 — 콘솔 없이 badge 로 전달
+      const t = ev?.type || "error";
+      mapLog("STEP3 FAIL: SDK script onerror — type:", t,
+        "| src:", SDK_SRC_MASKED,
+        "| navigator.onLine:", typeof navigator !== "undefined" ? navigator.onLine : "n/a",
+        "→ 네트워크 오류/차단(CSP·adblock·webview) 또는 dapi.kakao.com 도달 실패. 도메인 등록 확인.");
+      done(reject, new Error(errorReason(`sdk-load-error[onerror:${t}]`)));
     };
     document.head.appendChild(s);
+    mapLog("STEP2c: script appended to <head> — DOM inserted ✅");
   });
 }
 
@@ -215,18 +246,22 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
   const overlaysRef = useRef([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [sdkInfo, setSdkInfo] = useState({ sdk: "loading", windowKakao: false, kakaoMaps: false, reason: null });
+  const [sdkInfo, setSdkInfo] = useState({ sdk: "loading", windowKakao: false, kakaoMaps: false, reason: null, inserted: false, online: typeof navigator !== "undefined" ? navigator.onLine : undefined });
   // 중심은 부모가 제어(controlled). 자동 geolocation 없음 — GPS 정책 준수.
   const center = centerProp ?? SEOUL;
 
   // SDK 로드
   useEffect(() => {
     let alive = true;
+    const scriptInserted = () => !!document.getElementById("kakao-map-sdk");
     loadKakaoScript(KAKAO_API_KEY)
       .then(() => {
         if (alive) {
           setReady(true);
-          setSdkInfo({ sdk: "loaded", windowKakao: !!window.kakao, kakaoMaps: !!window.kakao?.maps, reason: null });
+          setSdkInfo({
+            sdk: "loaded", windowKakao: !!window.kakao, kakaoMaps: !!window.kakao?.maps, reason: null,
+            inserted: scriptInserted(), online: typeof navigator !== "undefined" ? navigator.onLine : undefined,
+          });
           mapLog("render: REAL Kakao map");
         }
       })
@@ -234,10 +269,12 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
         if (alive) {
           setLoadError(true);
           setSdkInfo({
-            sdk: e?.message === "sdk-timeout" ? "timeout" : "failed",
+            sdk: e?.message?.startsWith("sdk-timeout") ? "timeout" : "failed",
             windowKakao: !!window.kakao,
             kakaoMaps: !!window.kakao?.maps,
             reason: e?.message ?? "unknown",
+            inserted: scriptInserted(),
+            online: typeof navigator !== "undefined" ? navigator.onLine : undefined,
           });
           mapLog("render: MOCK map (SDK 실패:", e?.message, ")");
         }
@@ -320,7 +357,7 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
     <MockMap
       companies={companies} userRegion={userRegion} onPinClick={onPinClick} selectedId={selectedId}
       onRequestLocation={onRequestLocation} gpsLoading={gpsLoading}
-      debugInfo={{ env: ENV_INFO, sdk: sdkInfo.sdk, windowKakao: sdkInfo.windowKakao, kakaoMaps: sdkInfo.kakaoMaps, mode: "fallback", reason: sdkInfo.reason }}
+      debugInfo={{ env: ENV_INFO, sdk: sdkInfo.sdk, windowKakao: sdkInfo.windowKakao, kakaoMaps: sdkInfo.kakaoMaps, mode: "fallback", reason: sdkInfo.reason, src: SDK_SRC_MASKED, inserted: sdkInfo.inserted, online: sdkInfo.online }}
     />
   );
 
@@ -333,6 +370,9 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
         kakaoMaps={sdkInfo.kakaoMaps}
         mode={ready ? "real" : "loading"}
         reason={sdkInfo.reason}
+        src={SDK_SRC_MASKED}
+        inserted={sdkInfo.inserted}
+        online={sdkInfo.online}
       />
       <div ref={containerRef} style={{ width:"100%", height:"100%" }} />
       {!ready && (
