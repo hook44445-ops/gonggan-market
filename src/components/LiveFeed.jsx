@@ -23,8 +23,7 @@ export default function LiveFeed() {
   // 실데이터만 노출 — 샘플/테스트 항목(is_sample/is_test/상태 "샘플") 제외, 더미 미표시
   const items = realItems
     .filter(r => !r.is_sample && !r.is_test && r.status !== "샘플")
-    .slice(0, TOTAL)
-    .map(r => ({ ...r, _real: true }));
+    .slice(0, TOTAL);
 
   return (
     <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
@@ -50,69 +49,35 @@ export default function LiveFeed() {
       {/* Items (실데이터만) */}
       {items.map((item, i) => {
         const isLast = i === items.length - 1;
-
-        if (item._real) {
-          const stage = STAGE_MAP[item.status] ?? { label:"진행중", pct:50 };
-          return (
-            <div key={item.id}
-              style={{ display:"flex", alignItems:"center", gap:S.sm,
-                paddingBottom: isLast ? 0 : S.sm, marginBottom: isLast ? 0 : S.sm,
-                borderBottom: isLast ? "none" : `1px solid ${C.bgWarm}` }}>
-              <div style={{ width:28, height:28, borderRadius:R.sm, flexShrink:0,
-                background:`${C.green}15`, display:"flex", alignItems:"center",
-                justifyContent:"center", fontSize:13 }}>
-                🔨
-              </div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:12, fontWeight:700, color:C.text1, marginBottom:2,
-                  overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
-                  <span style={{ color:C.brand }}>{item.area ?? "—"}</span>
-                  {" · "}{item.space_type ?? "인테리어"}
-                </div>
-                <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                  <span style={{ fontSize:10, color:C.text3, flexShrink:0 }}>{stage.label}</span>
-                  <div style={{ flex:1, height:3, background:C.bgWarm,
-                    borderRadius:R.full, overflow:"hidden", maxWidth:56 }}>
-                    <div style={{ width:`${stage.pct}%`, height:"100%",
-                      background:C.green, borderRadius:R.full }} />
-                  </div>
-                  <span style={{ fontSize:9, color:C.text4, flexShrink:0 }}>{stage.pct}%</span>
-                </div>
-              </div>
-              <span style={{ fontSize:9, fontWeight:800, color:C.green,
-                flexShrink:0, letterSpacing:"0.03em" }}>LIVE</span>
-            </div>
-          );
-        }
-
+        const stage = STAGE_MAP[item.status] ?? { label:"진행중", pct:50 };
         return (
           <div key={item.id}
             style={{ display:"flex", alignItems:"center", gap:S.sm,
               paddingBottom: isLast ? 0 : S.sm, marginBottom: isLast ? 0 : S.sm,
               borderBottom: isLast ? "none" : `1px solid ${C.bgWarm}` }}>
             <div style={{ width:28, height:28, borderRadius:R.sm, flexShrink:0,
-              background:"#F0EDE8", display:"flex", alignItems:"center",
+              background:`${C.green}15`, display:"flex", alignItems:"center",
               justifyContent:"center", fontSize:13 }}>
-              🏠
+              🔨
             </div>
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:C.text3, marginBottom:2,
+              <div style={{ fontSize:12, fontWeight:700, color:C.text1, marginBottom:2,
                 overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
-                {item.area}{" · "}{item.spaceType}
+                <span style={{ color:C.brand }}>{item.area ?? "—"}</span>
+                {" · "}{item.space_type ?? "인테리어"}
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                <span style={{ fontSize:10, color:C.text4, flexShrink:0 }}>{item.stage}</span>
+                <span style={{ fontSize:10, color:C.text3, flexShrink:0 }}>{stage.label}</span>
                 <div style={{ flex:1, height:3, background:C.bgWarm,
                   borderRadius:R.full, overflow:"hidden", maxWidth:56 }}>
-                  <div style={{ width:`${item.pct}%`, height:"100%",
-                    background:"#C8C4BA", borderRadius:R.full }} />
+                  <div style={{ width:`${stage.pct}%`, height:"100%",
+                    background:C.green, borderRadius:R.full }} />
                 </div>
-                <span style={{ fontSize:9, color:C.text4, flexShrink:0 }}>{item.pct}%</span>
+                <span style={{ fontSize:9, color:C.text4, flexShrink:0 }}>{stage.pct}%</span>
               </div>
             </div>
-            <span style={{ fontSize:9, fontWeight:700, color:C.text4,
-              background:C.bgWarm, borderRadius:R.full, padding:"1px 5px",
-              flexShrink:0 }}>샘플</span>
+            <span style={{ fontSize:9, fontWeight:800, color:C.green,
+              flexShrink:0, letterSpacing:"0.03em" }}>LIVE</span>
           </div>
         );
       })}

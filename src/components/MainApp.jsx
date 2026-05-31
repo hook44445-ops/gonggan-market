@@ -1454,7 +1454,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   beforeThumb: s.before_image_url ?? null,
                   afterThumb: s.after_image_url ?? null,
                 })),
-              ].slice(0, 5);
+              ].filter(rv => !isJunkText(rv.content)).slice(0, 5);
 
               return (
                 <>
@@ -2788,6 +2788,28 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               </div>
             )}
+
+            {/* 도움말 — 에스크로/분쟁/환불 안내 (고객센터) */}
+            <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text3, marginBottom: S.sm }}>도움말 · 고객센터</div>
+              {[
+                { q: "에스크로 결제란 무엇인가요?",
+                  a: "공사비를 공간마켓이 안전하게 보관하고, 착공·중간·완료 단계를 확인할 때마다 업체에 나눠 지급하는 안전결제 방식입니다. 고객은 단계별로 직접 승인합니다." },
+                { q: "시공에 문제가 생기면 어떻게 하나요?",
+                  a: "각 단계 승인 화면에서 ‘이의 제기’로 보류할 수 있어요. 사진·대화·계약 기록이 모두 저장되며, 분쟁 시 관리자가 검토해 중재합니다." },
+                { q: "환불은 어떻게 받나요?",
+                  a: "아직 지급되지 않은 예치금은 환불 대상입니다. 단계 미승인 상태의 잔여 금액은 관리자 검토 후 결제 수단으로 환불됩니다." },
+                { q: "고객센터 연락처",
+                  a: "문의하기(아래 ‘문의하기’) 또는 이메일 help@gonggan.market 으로 연락주시면 순차적으로 도와드립니다." },
+              ].map(({ q, a }) => (
+                <details key={q} style={{ borderBottom: `1px solid ${C.bg}`, padding: `${S.sm}px 0` }}>
+                  <summary style={{ fontSize: 14, color: C.text2, cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>❔ {q}</span><span style={{ fontSize: 16, color: C.text3 }}>›</span>
+                  </summary>
+                  <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7, marginTop: S.sm, paddingLeft: 2 }}>{a}</div>
+                </details>
+              ))}
+            </div>
 
             {/* 앱 정보 / 약관 */}
             <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
