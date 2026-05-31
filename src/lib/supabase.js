@@ -48,15 +48,35 @@ export const updateUserActivityRegions = async (id, activityRegions, regionText,
     ...(regionText ? { region: regionText } : {}),
   };
   const res = await supabase.from("users").update(full).eq("id", id).select().maybeSingle();
+  // eslint-disable-next-line no-console
+  console.log("[RegionSave]", { table: "users", field: "activity_regions", payload: full, error: res.error?.code ?? null, message: res.error?.message ?? null });
   if (res.error) {
     // eslint-disable-next-line no-console
     console.warn("[region] users.activity_regions 저장 실패 → region text fallback:", res.error?.message);
     if (regionText) {
-      return supabase.from("users").update({ region: regionText }).eq("id", id).select().maybeSingle();
+      const fb = await supabase.from("users").update({ region: regionText }).eq("id", id).select().maybeSingle();
+      await refetchRegionDebug("users", id);
+      return fb;
     }
   }
+  await refetchRegionDebug("users", id);
   return res;
 };
+
+// 저장 직후 실제 DB 값 재조회 진단 — tier-4 fallback 원인 추적용
+async function refetchRegionDebug(table, id) {
+  try {
+    const cols = table === "users"
+      ? "id, region, activity_regions, default_activity_region_id"
+      : "id, region, service_regions, default_service_region_id";
+    const { data, error } = await supabase.from(table).select(cols).eq("id", id).maybeSingle();
+    // eslint-disable-next-line no-console
+    console.log("[RegionRefetch]", { table, error: error?.message ?? null, row: data ?? null });
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn("[RegionRefetch] failed", e?.message);
+  }
+}
 
 export const getUserByPhone = (phone) =>
   supabase.from("users").select("*").eq("phone", phone).maybeSingle();
@@ -84,13 +104,18 @@ export const updateCompanyServiceRegions = async (id, serviceRegions, regionText
     ...(regionText ? { region: regionText } : {}),
   };
   const res = await supabase.from("companies").update(full).eq("id", id).select().maybeSingle();
+  // eslint-disable-next-line no-console
+  console.log("[RegionSave]", { table: "companies", field: "service_regions", payload: full, error: res.error?.code ?? null, message: res.error?.message ?? null });
   if (res.error) {
     // eslint-disable-next-line no-console
     console.warn("[region] companies.service_regions 저장 실패 → region text fallback:", res.error?.message);
     if (regionText) {
-      return supabase.from("companies").update({ region: regionText }).eq("id", id).select().maybeSingle();
+      const fb = await supabase.from("companies").update({ region: regionText }).eq("id", id).select().maybeSingle();
+      await refetchRegionDebug("companies", id);
+      return fb;
     }
   }
+  await refetchRegionDebug("companies", id);
   return res;
 };
 
