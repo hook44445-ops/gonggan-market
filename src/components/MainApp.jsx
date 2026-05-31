@@ -259,6 +259,38 @@ const computeCustomerStage = (r, escrowData) => {
   };
 };
 
+// ── 의뢰인 상태 배지 — 단일 소스(SSOT) ──────────────────────────────
+// 홈 / 마이 / 견적 이력 모두 이 함수로 라벨·색을 도출해 상태가 100% 일치하게 한다.
+// 계약(에스크로) 라이프사이클에 들어간 요청은 computeCustomerStage(에스크로 기준)를
+// 따르고, 아직 계약 전(open)인 요청만 마감일 기반 라벨을 쓴다.
+// request.status 단독 사용 금지 — 에스크로/정산 단계가 우선.
+function consumerStatusBadge(r, escrowData) {
+  const hasEscrow = !!escrowData?.escrow;
+  const inContractLifecycle = hasEscrow || r.status === "in_progress" || r.status === "completed";
+
+  if (inContractLifecycle) {
+    const cs = computeCustomerStage(r, escrowData);
+    return {
+      label: cs?.badge ?? "진행중",
+      color: cs?.badgeFg ?? C.brand,
+      bg:    cs?.badgeBg ?? C.brandL,
+      // 정산완료/완료 또는 만료·취소된 요청만 closed 로 본다.
+      closed: cs?.badge === "완료" || r.isClosed === true,
+    };
+  }
+
+  // 계약 전(open) — 마감일 기반 라벨 유지
+  if (r.isClosed) {
+    return { label: r.isExpiredByTime ? "기간만료" : "마감됨", color: C.text4, bg: C.bg, closed: true };
+  }
+  return {
+    label: `마감 ${r.daysLeft}일 전`,
+    color: r.daysLeft <= 1 ? C.red : r.daysLeft <= 3 ? "#C07000" : C.brand,
+    bg:    r.daysLeft <= 1 ? "#FFF0F0" : r.daysLeft <= 3 ? "#FFF7E6" : C.brandL,
+    closed: false,
+  };
+}
+
 // 관심 — 조용한 갤러리 톤의 빈 상태
 function FavEmptyState({ title, desc, onGo }) {
   return (
@@ -875,12 +907,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     });
   }, [activeRole, user?.id, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load escrow+payouts for consumer in_progress requests
+  // Load escrow+payouts for consumer requests that entered a contract lifecycle.
+  // in_progress + completed 모두 포함 — 홈/마이/이력이 동일 contract 상태를 보도록.
   useEffect(() => {
     if (activeRole !== "consumer") return;
-    const inProgress = myRequests.filter(r => r.status === "in_progress");
-    if (inProgress.length === 0) return;
-    inProgress.forEach(r => {
+    const contracted = myRequests.filter(r => r.status === "in_progress" || r.status === "completed");
+    if (contracted.length === 0) return;
+    contracted.forEach(r => {
       getEscrowWithPayouts(r.id).then(({ data }) => {
         setMyRequestsEscrow(prev => ({ ...prev, [r.id]: data ?? null }));
       }).catch(() => {});
@@ -3030,20 +3063,22 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     </button>
                   </div>
                 ) : myRequests.map(r => {
-                  const closed = r.isClosed || r.status === "completed";
-                  const dLabel = r.isClosed
-                    ? (r.isExpiredByTime ? "기간만료" : "마감됨")
-                    : r.status === "in_progress" ? "진행중"
-                    : r.status === "completed"   ? "완료"
-                    : `마감 ${r.daysLeft}일 전`;
-                  const dColor = r.isClosed ? C.text4
-                    : r.status === "in_progress" ? C.brand
-                    : r.status === "completed"   ? C.green
-                    : r.daysLeft <= 1 ? C.red : r.daysLeft <= 3 ? "#C07000" : C.brand;
-                  const dBg = r.isClosed ? C.bg
-                    : r.daysLeft <= 1 ? "#FFF0F0" : r.daysLeft <= 3 ? "#FFF7E6" : C.brandL;
+                  // SSOT: 홈/마이와 동일하게 에스크로 기준 상태를 사용 (request.status 단독 사용 금지)
+                  const escrowData = myRequestsEscrow[r.id] ?? null;
+                  const b = consumerStatusBadge(r, escrowData);
+                  if (SHOW_DEBUG_UI) {
+                    // eslint-disable-next-line no-console
+                    console.log("[StatusSync]", {
+                      screen: "history",
+                      request_id: r.id,
+                      contract_id: escrowData?.escrow?.id ?? null,
+                      request_status: r.status,
+                      contract_status: escrowData?.escrow?.transaction_status ?? null,
+                      escrow_phase: escrowData?.escrow?.current_step ?? null,
+                    });
+                  }
                   return (
-                    <ConsumerRequestCard key={r.id} r={r} closed={closed} dLabel={dLabel} dColor={dColor} dBg={dBg} onOpen={() => !closed && setScreen("timeline")} />
+                    <ConsumerRequestCard key={r.id} r={r} closed={b.closed} dLabel={b.label} dColor={b.color} dBg={b.bg} onOpen={() => !b.closed && setScreen("timeline")} />
                   );
                 })}
               </div>
