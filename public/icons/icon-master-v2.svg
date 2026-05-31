@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- 01 공간·연결형 — 원형 연결 + 집 + 잎 -->
+  <rect width="512" height="512" rx="112" fill="#2E5F4B"/>
+
+  <!-- 연결 원 (공간과 공간 사이를 잇는 링) -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#F5F1EA" stroke-width="20" stroke-opacity="0.4"/>
+  <!-- 연결 노드 (좌우 두 공간) -->
+  <circle cx="106" cy="256" r="20" fill="#B5D4C5"/>
+  <circle cx="406" cy="256" r="20" fill="#B5D4C5"/>
+
+  <!-- 집 (공간) -->
+  <g stroke="#F5F1EA" stroke-width="22" stroke-linejoin="round" stroke-linecap="round" fill="none">
+    <!-- 지붕+벽 외곽 -->
+    <path d="M256 150 L350 226 V330 a14 14 0 0 1 -14 14 H176 A14 14 0 0 1 162 330 V226 Z"/>
+    <!-- 문 -->
+    <path d="M226 344 V286 a30 30 0 0 1 60 0 V344"/>
+  </g>
+
+  <!-- 잎 (자연·신뢰) — 지붕 위 새싹 -->
+  <path d="M300 150 c34 -6 58 -30 64 -64 c-34 4 -60 22 -68 54 c-2 8 -1 10 4 10 Z" fill="#9DC8AE"/>
+  <path d="M300 124 c18 4 36 1 50 -10" fill="none" stroke="#2E5F4B" stroke-width="6" stroke-linecap="round"/>
+</svg>
