@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
-import { supabase, getChatMessages, sendMessage } from "../lib/supabase";
+import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword } from "../lib/supabase";
+import { detectDirectDealKeywords } from "../constants/directDeal";
 
 const WELCOME = "안녕하세요! 공간마켓 파트너 업체입니다 😊 견적 관련해서 궁금한 점 편하게 물어보세요!";
 
@@ -22,6 +23,7 @@ export default function ChatScreen({ company, user, onBack }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+  const [directDealWarn, setDirectDealWarn] = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
@@ -70,7 +72,20 @@ export default function ChatScreen({ company, user, onBack }) {
     const text = input.trim();
     setInput("");
     setTyping(true);
+
+    // 직거래 유도 키워드 감지 — 메시지는 그대로 전송(증거 보존), 경고만 표시
+    if (detectDirectDealKeywords(text).length > 0) setDirectDealWarn(true);
+
     await sendMessage(roomId, user?.id ?? "guest", "user", text);
+
+    // 감지/기록은 백그라운드 — 전송 흐름을 막지 않음
+    checkDirectDealKeyword(text, {
+      companyId: company?.id ?? null,
+      customerId: user?.id ?? null,
+      senderId: user?.id ?? null,
+      senderRole: "consumer",
+    }).catch(() => {});
+
     // typing indicator disappears once realtime delivers the reply (or after timeout)
     setTimeout(() => setTyping(false), 3000);
   };
@@ -138,6 +153,16 @@ export default function ChatScreen({ company, user, onBack }) {
         )}
         <div ref={bottomRef} />
       </div>
+
+      {directDealWarn && (
+        <div style={{ background:"#FFF0F0", borderTop:`1px solid ${C.red}`,
+          padding:"10px 16px", display:"flex", gap:S.sm, alignItems:"flex-start" }}>
+          <span style={{ flexShrink:0 }}>⚠️</span>
+          <span style={{ fontSize:12, color:C.red, fontWeight:600, lineHeight:1.5 }}>
+            직거래 유도는 공간마켓 이용약관 위반입니다. 적발 시 계정이 정지될 수 있습니다. 이 대화는 기록됩니다.
+          </span>
+        </div>
+      )}
 
       <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`,
         padding:`${S.sm}px ${S.lg}px ${S.lg}px`, display:"flex", gap:S.sm, alignItems:"flex-end" }}>
