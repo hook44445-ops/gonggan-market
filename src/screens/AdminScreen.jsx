@@ -1783,10 +1783,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, marginBottom: S.lg }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: S.md }}>🛡 공간마켓 운영 현황</div>
                   {[
-                    ["플랫폼 수수료 (고객)", "3% (VAT 별도)"],
-                    ["플랫폼 수수료 (업체)", "4% (VAT 별도)"],
+                    ["공간안전결제 에스크로 수수료 (고객)", "3.7% (VAT 포함, 고정)"],
+                    ["공간멤버십파트너 수수료 (업체)", "0% → 2.2% → 4.4% (가입일 기준)"],
                     ["에스크로 구조",        "10/20/40/30"],
-                    ["초기 파트너 혜택",     "수수료 동일 · 배지 우선"],
+                    ["초기 파트너 혜택",     "가입 1개월 수수료 0% · 배지 우선"],
                   ].map(([k, v]) => (
                     <div key={k} style={{ display: "flex", justifyContent: "space-between",
                       padding: `${S.xs}px 0`, borderBottom: `1px solid ${C.trustM}` }}>

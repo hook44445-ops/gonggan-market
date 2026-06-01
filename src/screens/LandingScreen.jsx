@@ -326,6 +326,50 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
         </div>
       </div>
 
+      {/* ── 수수료 안내 섹션 ──────────────────────────────────────── */}
+      <div style={{ padding: "40px 20px", background: C.bg }}>
+        <div style={{ maxWidth: 480, margin: "0 auto" }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: C.text1, textAlign: "center", marginBottom: 6 }}>
+            수수료 안내
+          </div>
+          <div style={{ fontSize: 13, color: C.text3, textAlign: "center", marginBottom: 20 }}>
+            투명한 구조 · 숨은 비용 없음
+          </div>
+
+          {/* 고객 */}
+          <div style={{ background: C.surface, borderRadius: 16, padding: 18, marginBottom: 12, border: `1px solid ${C.bgWarm}` }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.brand, marginBottom: 6 }}>
+              👤 고객 · 공간안전결제 에스크로 수수료 3.7%
+            </div>
+            <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
+              토스페이먼츠가 내 돈을 보호합니다.<br/>
+              공사 완료 확인 후 업체에 지급됩니다. (VAT 포함 · 고정)
+            </div>
+          </div>
+
+          {/* 업체 */}
+          <div style={{ background: C.surface, borderRadius: 16, padding: 18, border: `1px solid ${C.bgWarm}` }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.brand, marginBottom: 10 }}>
+              🤝 업체 · 공간멤버십파트너 수수료
+            </div>
+            {[
+              ["가입 후 1개월", "0% 🎉 무료"],
+              ["가입 후 2개월", "2.2%"],
+              ["가입 후 3개월~", "4.4%"],
+            ].map(([label, rate]) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between",
+                padding: "5px 0", fontSize: 13, color: C.text2 }}>
+                <span>{label}</span><span style={{ fontWeight: 800 }}>{rate}</span>
+              </div>
+            ))}
+            <div style={{ fontSize: 11.5, color: C.text3, marginTop: 10, lineHeight: 1.6 }}>
+              공사규모에 따른 보증금 별도 (공간멤버쉽파트너뱃지 제공)<br/>
+              보증금은 수수료가 아니며 공사 완료 시 100% 반환됩니다.
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* ── Footer version ───────────────────────────────────────── */}
       <div style={{
         marginTop: "auto",

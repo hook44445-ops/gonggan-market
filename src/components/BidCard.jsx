@@ -211,10 +211,11 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
             <div style={{ background:C.surface2, borderRadius:R.lg, padding:S.md,
               marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize:12, color:C.text3, lineHeight:1.8 }}>
-                💡 낙찰 시 플랫폼 수수료 안내<br/>
-                • 직거래 낙찰 → 견적금액의 <b style={{color:C.text2}}>5%</b><br/>
-                • 에스크로(안심결제) 낙찰 → 견적금액의 <b style={{color:C.text2}}>4%</b><br/>
-                <span style={{color:C.text4}}>* 의뢰인 부담 없음. 업체 수령액에서 자동 차감</span>
+                💡 낙찰 시 공간멤버십파트너 수수료 안내<br/>
+                • 가입 후 1개월 → <b style={{color:C.text2}}>0% 🎉 무료</b><br/>
+                • 가입 후 2개월 → <b style={{color:C.text2}}>2.2%</b><br/>
+                • 가입 후 3개월~ → <b style={{color:C.text2}}>4.4%</b><br/>
+                <span style={{color:C.text4}}>* 의뢰인 부담 없음. 업체 수령액에서 자동 차감 · 공사규모에 따른 보증금 별도</span>
               </div>
             </div>
 
