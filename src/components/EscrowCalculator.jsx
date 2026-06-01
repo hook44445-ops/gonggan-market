@@ -8,7 +8,8 @@ export default function EscrowCalculator() {
   const customerTotal = amount > 0 ? calculateCustomerTotal(amount) : 0;
   const escrowFee    = amount > 0 ? Math.round((customerTotal - amount) * 10) / 10 : 0;
   const stages       = amount > 0 ? calculateStagePayments(amount) : [];
-  const companyTotal = amount > 0 ? Math.round(amount * 0.96 * 10) / 10 : 0;
+  // 멤버십 최고요율(4.4%) 기준 예시 — 가입 초기엔 0%로 더 유리
+  const companyTotal = amount > 0 ? Math.round(amount * (1 - 0.044) * 10) / 10 : 0;
 
   return (
     <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
@@ -39,7 +40,7 @@ export default function EscrowCalculator() {
             </div>
             {[
               ["시공비",              fmtMoney(amount),      C.text2],
-              ["에스크로 이용료 (3%)", `+${fmtMoney(escrowFee)}`, C.brand],
+              ["공간안전결제 에스크로 수수료 (3.7%)", `+${fmtMoney(escrowFee)}`, C.brand],
             ].map(([k, v, vc]) => (
               <div key={k} style={{ display:"flex", justifyContent:"space-between",
                 fontSize:12, marginBottom:4 }}>
@@ -66,7 +67,7 @@ export default function EscrowCalculator() {
                 borderBottom:`1px solid ${C.bgWarm}` }}>
                 <div>
                   <div style={{ fontSize:12, fontWeight:700, color:C.text2 }}>{name} ({percent}%)</div>
-                  <div style={{ fontSize:10, color:C.text4 }}>업체 수수료 4% 차감 후 수령액</div>
+                  <div style={{ fontSize:10, color:C.text4 }}>공간멤버십파트너 수수료 차감 후 수령액 (가입 3개월~ 4.4% 기준)</div>
                 </div>
                 <div style={{ textAlign:"right" }}>
                   <div style={{ fontSize:12, color:C.text3 }}>{fmtMoney(sa)}</div>
@@ -80,11 +81,11 @@ export default function EscrowCalculator() {
           <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.lg,
             border:`1px solid ${C.trustM}` }}>
             <div style={{ fontSize:12, fontWeight:800, color:C.navy, marginBottom:S.sm }}>
-              🏢 업체 최종 수령액 (수수료 4% 차감)
+              🏢 업체 최종 수령액 (공간멤버십파트너 수수료 차감 · 가입 3개월~ 4.4% 기준)
             </div>
             <div style={{ display:"flex", justifyContent:"space-between" }}>
               <span style={{ fontSize:12, color:C.text3 }}>
-                {fmtMoney(amount)} × 96%
+                {fmtMoney(amount)} × 95.6%
               </span>
               <span style={{ fontSize:16, fontWeight:900, color:C.navy }}>{fmtMoney(companyTotal)}</span>
             </div>

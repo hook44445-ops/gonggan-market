@@ -128,8 +128,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
             <div style={{ fontSize:13, color:C.text2, marginBottom:S.md }}>{selBid.material}</div>
             <div style={{ background:C.brandL, borderRadius:R.md, padding:S.md, border:`1px solid ${C.brandM}` }}>
-              <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs }}>💰 안전거래 수수료 안내 (고객 부담)</div>
-              {[["시공비", fmtMoney(selBid.price)], ["안전거래 수수료 3% (VAT 별도)", `+${fmtMoney(escrowFee)}`]].map(([k, v]) => (
+              <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs }}>💰 공간안전결제 에스크로 수수료 안내 (고객 부담)</div>
+              {[["시공비", fmtMoney(selBid.price)], ["공간안전결제 에스크로 수수료 3.7% (VAT 포함)", `+${fmtMoney(escrowFee)}`]].map(([k, v]) => (
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.text2, marginBottom:2 }}>
                   <span>{k}</span><span style={{ fontWeight:700 }}>{v}</span>
                 </div>
@@ -194,7 +194,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       if (payingRef.current) return; // H-1: 이미 처리 중이면 재진입 차단 (이중 결제/계약 방지)
       payingRef.current = true;
       setPaymentLoading(true);
-      const feeSnapshot = { customerFeeRate: 0.03, companyFeeRate: 0.04, vatRate: 0.1, snapshotAt: new Date().toISOString() };
+      const feeSnapshot = { customerFeeRate: 0.037, companyFeeRate: 0.044, vatRate: 0.1, snapshotAt: new Date().toISOString() };
 
       const runDBWrites = async (pgPaymentKey = null) => {
         let contractId = null;
@@ -385,7 +385,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           {/* Amount summary */}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:4 }}>예치 금액 (시공비 + 에스크로 수수료 3%, VAT 별도)</div>
+            <div style={{ fontSize:13, color:C.text3, marginBottom:4 }}>예치 금액 (시공비 + 공간안전결제 에스크로 수수료 3.7%, VAT 포함)</div>
             <div style={{ fontSize:32, fontWeight:900, color:C.text1, marginBottom:4 }}>{fmtMoney(customerTotal)}</div>
             <div style={{ fontSize:11, color:C.text4, marginBottom:S.md }}>시공비 {fmtMoney(selBid.price)} + 수수료 {fmtMoney(fee)}</div>
             {stages.map(({ name, percent, amount }) => (

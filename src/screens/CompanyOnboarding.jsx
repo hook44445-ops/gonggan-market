@@ -217,6 +217,32 @@ export default function CompanyOnboarding({ phone, onDone }) {
       </div>
 
       {step===1 && <>
+        {/* 공간멤버십파트너 수수료 — 멤버십 단계 배너 */}
+        <div style={{ background:`linear-gradient(135deg, ${C.brand}, ${C.brandD ?? C.brand})`,
+          borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, color:"#fff",
+          boxShadow:"0 6px 20px rgba(46,95,75,0.25)" }}>
+          <div style={{ fontSize:12, fontWeight:700, opacity:0.9, marginBottom:6 }}>🤝 공간멤버십파트너</div>
+          <div style={{ fontSize:16, fontWeight:900, marginBottom:14, lineHeight:1.4 }}>
+            1개월 무료 → 2개월 2.2% → 3개월~ 4.4%
+          </div>
+          <div style={{ background:"rgba(255,255,255,0.14)", borderRadius:R.lg, padding:S.md }}>
+            {[
+              ["가입 후 1개월", "0%", "🎉 무료"],
+              ["가입 후 2개월", "2.2%", ""],
+              ["가입 후 3개월~", "4.4%", ""],
+            ].map(([label, rate, note]) => (
+              <div key={label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                padding:"5px 0", fontSize:13 }}>
+                <span style={{ opacity:0.92 }}>{label}</span>
+                <span style={{ fontWeight:800 }}>{rate}{note ? ` ${note}` : ""}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize:11, opacity:0.85, marginTop:10, lineHeight:1.6 }}>
+            공사규모에 따른 보증금 별도 (공간멤버쉽파트너뱃지 제공)<br/>
+            보증금은 수수료가 아니며 공사 완료 시 100% 반환됩니다.
+          </div>
+        </div>
         <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>업체 기본 정보</div>
         <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>대표자 정보를 입력해주세요</div>
         <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:8 }}>대표자명</div>

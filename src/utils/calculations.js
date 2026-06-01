@@ -1,4 +1,14 @@
-const feeConfig = { customerRate: 0.03, companyRate: 0.04, vatRate: 0.1 };
+// 수수료 정책 (최종 확정)
+//  · 고객: "공간안전결제 에스크로 수수료" 3.7% (VAT 포함, 고정) — 토스페이먼츠 에스크로
+//  · 업체: "공간멤버십파트너 수수료" — 가입일(companies.created_at) 기준 단계형
+//          0~30일 0% → 31~60일 2.2% → 61일~ 4.4%
+const feeConfig = {
+  customerRate: 0.037,   // VAT 포함, 고정
+  vatRate: 0.1,          // (legacy 계산 호환용)
+};
+
+// 고객 에스크로 수수료율(고정 3.7%)
+export const CUSTOMER_ESCROW_RATE = 0.037;
 
 export const fmtMoney = (amount) => {
   if (amount == null || isNaN(amount)) return "—";
@@ -13,10 +23,41 @@ export const isValidBidManwon = (manwon) => {
   return Number.isFinite(n) && n >= MIN_BID_MANWON;
 };
 
-// Customer pays bid amount + 3% safety transaction fee (VAT inclusive)
+// ── 공간멤버십파트너 수수료 (업체) — 가입일 기준 단계형 ───────────────────────
+// created_at 으로부터 경과 일수 (UTC 기준, NaN/타임존 안전). fallback: 0일(무료 구간).
+export const daysSinceJoin = (createdAt) => {
+  if (!createdAt) return 0;
+  const joined = new Date(createdAt);
+  const t = joined.getTime();
+  if (!Number.isFinite(t)) return 0;
+  const diffMs = Date.now() - t;
+  if (!Number.isFinite(diffMs) || diffMs < 0) return 0;
+  return Math.floor(diffMs / 86400000); // ms → day
+};
+
+// 경과 일수 → 멤버십 수수료율(%) : 0~30=0, 31~60=2.2, 61~=4.4
+export const getMembershipRate = (days) => {
+  const d = Number(days);
+  if (!Number.isFinite(d) || d <= 30) return 0;
+  if (d <= 60) return 2.2;
+  return 4.4;
+};
+
+// companies.created_at → 멤버십 수수료율(%) (편의 래퍼)
+export const getMembershipRateByCreatedAt = (createdAt) =>
+  getMembershipRate(daysSinceJoin(createdAt));
+
+// 멤버십 단계 메타 (배너/안내용)
+export const MEMBERSHIP_TIERS = [
+  { label: "가입 후 1개월",  range: "0~30일",  rate: 0,   note: "🎉 무료" },
+  { label: "가입 후 2개월",  range: "31~60일", rate: 2.2, note: "" },
+  { label: "가입 후 3개월~", range: "61일~",   rate: 4.4, note: "" },
+];
+
+// Customer pays bid amount + 3.7% escrow fee (VAT 포함, 고정)
 export const calculateCustomerTotal = (bidAmount) => {
   if (!bidAmount || isNaN(bidAmount)) return 0;
-  const fee = Math.round(bidAmount * feeConfig.customerRate * (1 + feeConfig.vatRate) * 10) / 10;
+  const fee = Math.round(bidAmount * CUSTOMER_ESCROW_RATE * 10) / 10;
   return Math.round((bidAmount + fee) * 10) / 10;
 };
 
@@ -24,8 +65,11 @@ export const calculateCustomerTotal = (bidAmount) => {
 // 플랫폼은 법적 중재자가 아닌 구조적 신뢰 제공자입니다.
 // 신뢰는 아래 구조로 해결됩니다:
 // - 단계별 승인 / 업로드 기록 / 에스크로 보관 / 지급 조건 / 진행 기록
-export const calculateStagePayments = (bidAmount) => {
+// companyCreatedAt 전달 시 멤버십 수수료(0/2.2/4.4%)로 수령액 계산.
+// 미전달(unknown) 시 보수적으로 최고요율(4.4%) 적용 — 과대 표기 방지.
+export const calculateStagePayments = (bidAmount, companyCreatedAt = undefined) => {
   if (!bidAmount || isNaN(bidAmount)) return [];
+  const rate = (companyCreatedAt === undefined ? 4.4 : getMembershipRateByCreatedAt(companyCreatedAt)) / 100;
   const defs = [
     { name: "자재비 선지급", percent: 10, autoRelease: true },
     { name: "착공 확인",    percent: 20, autoRelease: false },
@@ -39,27 +83,27 @@ export const calculateStagePayments = (bidAmount) => {
       percent,
       amount,
       autoRelease,
-      companyReceiveAmount: Math.round(amount * (1 - feeConfig.companyRate * (1 + feeConfig.vatRate)) * 10) / 10,
+      companyReceiveAmount: Math.round(amount * (1 - rate) * 10) / 10,
       released: false,
     };
   });
 };
 
-// Company receives stage amount minus 4% platform fee (VAT inclusive)
-export const calculateCompanyReceive = (stageAmount) => {
-  return Math.round(stageAmount * (1 - feeConfig.companyRate * (1 + feeConfig.vatRate)) * 10) / 10;
+// Company receives stage amount minus 공간멤버십파트너 수수료(0/2.2/4.4%).
+export const calculateCompanyReceive = (stageAmount, companyCreatedAt = undefined) => {
+  const rate = (companyCreatedAt === undefined ? 4.4 : getMembershipRateByCreatedAt(companyCreatedAt)) / 100;
+  return Math.round(stageAmount * (1 - rate) * 10) / 10;
 };
 
+// 고객 에스크로 수수료(3.7%, VAT 포함, 고정)
 export const calcCustomerFee = (amount) => {
-  const rate = feeConfig.customerRate;
-  const vat = rate * feeConfig.vatRate;
-  return Math.round(amount * (rate + vat) * 10) / 10;
+  return Math.round(amount * CUSTOMER_ESCROW_RATE * 10) / 10;
 };
 
-export const calcCompanyFee = (amount) => {
-  const rate = feeConfig.companyRate;
-  const vat = rate * feeConfig.vatRate;
-  return Math.round(amount * (rate + vat) * 10) / 10;
+// 업체 멤버십 수수료(가입일 기준). companyCreatedAt 미전달 시 최고요율(4.4%).
+export const calcCompanyFee = (amount, companyCreatedAt = undefined) => {
+  const rate = (companyCreatedAt === undefined ? 4.4 : getMembershipRateByCreatedAt(companyCreatedAt)) / 100;
+  return Math.round(amount * rate * 10) / 10;
 };
 
 // Deposit required for a given badge tier, with optional insurance discount (30% → 20%)

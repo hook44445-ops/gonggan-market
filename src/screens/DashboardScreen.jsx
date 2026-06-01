@@ -3,6 +3,7 @@ import { C, R, S, SHADOW } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TempBadge, LeafSprig } from "../components/common";
 import BidCard from "../components/BidCard";
+import { getMembershipRateByCreatedAt } from "../utils/calculations";
 import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews } from "../lib/supabase";
 
 const PAID_BY_STEP = { 1: 10, 2: 10, 3: 30, 4: 70, 5: 100 };
@@ -159,6 +160,8 @@ export default function DashboardScreen({
   const recontractRate  = statsData?.repeat_rate       ?? currentUser?.recontractRate ?? 0;
   const avgRating       = statsData?.avg_rating;
   const reviewCount     = statsData?.review_count      ?? 0;
+  // 공간멤버십파트너 수수료율 — companies.created_at 기준 (0/2.2/4.4%)
+  const membershipRate  = getMembershipRateByCreatedAt(currentUser?.created_at);
 
   const tabs = [["active","진행중"],["bids","입찰"],["stats","통계"],["completed","완료"]];
 
@@ -405,9 +408,9 @@ export default function DashboardScreen({
               marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:S.md }}>수수료 구조</div>
               {[
-                ["에스크로 이용료", "고객 3% (VAT 별도)", "고객 예치금에 포함"],
-                ["플랫폼 수수료",   "업체 4% (VAT 별도)", "정산 시 자동 차감"],
-                ["보증금 비율",     "보험 미가입 30%",    "보험 가입 시 20%"],
+                ["공간안전결제 에스크로 수수료", "고객 3.7% (VAT 포함, 고정)", "고객 예치금에 포함"],
+                ["공간멤버십파트너 수수료",      `현재 ${membershipRate}%${membershipRate === 0 ? " 🎉 무료" : ""}`, "가입 1개월 0% → 2개월 2.2% → 3개월~ 4.4% · 정산 시 자동 차감"],
+                ["보증금",                      "공사규모에 따라 별도",       "수수료 아님 · 공사 완료 시 100% 반환 (공간멤버쉽파트너뱃지 제공)"],
               ].map(([label, val, sub]) => (
                 <div key={label} style={{ display:"flex", justifyContent:"space-between",
                   alignItems:"center", padding:`${S.sm}px 0`,

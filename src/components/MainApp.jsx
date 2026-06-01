@@ -91,6 +91,7 @@ const normalizeCompany = (row) => ({
   asRate:        row.as_rate ?? 0,
   region:        row.region ?? "",
   service_regions: Array.isArray(row.service_regions) ? row.service_regions : null,
+  created_at:    row.created_at ?? null,   // 공간멤버십파트너 수수료 계산 기준
   online:        row.online ?? false,
   specialties:   row.specialties ?? [],
   companyStatus: row.company_status ?? "PENDING",
