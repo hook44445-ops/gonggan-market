@@ -406,11 +406,10 @@ export default function DashboardScreen({
             {/* 수수료 구조 */}
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
               marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:S.md }}>수수료 구조</div>
+              <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:S.md }}>공간멤버십파트너 수수료</div>
               {[
-                ["공간안전결제 에스크로 수수료", "고객 3.7% (VAT 포함, 고정)", "고객 예치금에 포함"],
-                ["공간멤버십파트너 수수료",      `현재 ${membershipRate}%${membershipRate === 0 ? " 🎉 무료" : ""}`, "가입 1개월 0% → 2개월 2.2% → 3개월~ 4.4% · 정산 시 자동 차감"],
-                ["보증금",                      "공사규모에 따라 별도",       "수수료 아님 · 공사 완료 시 100% 반환 (공간멤버쉽파트너뱃지 제공)"],
+                ["현재 적용 수수료",  `${membershipRate}%${membershipRate === 0 ? " 🎉 무료" : ""}`, "가입 1개월 0% → 2개월 2.2% → 3개월~ 4.4% · 정산 시 자동 차감"],
+                ["보증금",          "공사규모에 따라 별도",       "수수료 아님 · 공사 완료 시 100% 반환 (공간멤버쉽파트너뱃지 제공)"],
               ].map(([label, val, sub]) => (
                 <div key={label} style={{ display:"flex", justifyContent:"space-between",
                   alignItems:"center", padding:`${S.sm}px 0`,

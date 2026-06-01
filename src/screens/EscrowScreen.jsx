@@ -1342,7 +1342,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           ))}
         </div>
 
-        <EscrowCalculator />
+        <EscrowCalculator role={isConsumer ? "consumer" : "company"} />
 
         {/* Warranty info */}
         <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, display: "flex", gap: S.md, alignItems: "flex-start", marginBottom: S.lg }}>
