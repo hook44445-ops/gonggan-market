@@ -1,6 +1,7 @@
 -- ============================================================
 -- 013_ai_training_data.sql
 -- AI 학습용 데이터 구조 추가
+--   · site_visits / estimates 테이블 생성 (코드 전용이었던 테이블 정식 migration)
 --   · requests / estimates / escrow_payouts / reviews 컬럼 추가
 --   · ai_training_snapshots / space_price_index 테이블 생성
 --   · 에스크로 완료 시 가격 인덱스 자동 집계 트리거
@@ -10,7 +11,68 @@
 --     ai_budget_min / ai_budget_max 로 분리 (기존 컬럼과 충돌 방지)
 --   · estimates.total_price 신규 추가 (트리거 집계에 필요)
 --   · 트리거 WHEN 절: transaction_status 체크 제약은 대문자 'COMPLETED' 사용
+--   · 트리거 실행 전 site_visits / estimates 테이블 선행 생성 필요
+--     → Supabase 에서 42P01 오류 발생으로 추가 (실제 적용 SQL 기준)
 -- ============================================================
+
+-- ─────────────────────────────────────────────────────────────
+-- 0. site_visits 테이블 생성 (estimates 의 FK 대상)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.site_visits (
+  id                    uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  bid_id                uuid        REFERENCES public.bids(id)      ON DELETE SET NULL,
+  request_id            uuid        REFERENCES public.requests(id)  ON DELETE SET NULL,
+  company_id            uuid        REFERENCES public.companies(id) ON DELETE SET NULL,
+  checked_in_at         timestamptz,
+  gps_lat               numeric,
+  gps_lng               numeric,
+  photos                text[]      DEFAULT '{}',
+  field_estimate_amount bigint,
+  field_estimate_note   text,
+  completed_at          timestamptz,
+  estimate_due_at       timestamptz,
+  status                text        NOT NULL DEFAULT 'created'
+    CHECK (status IN ('created','checked_in','completed','estimate_submitted','cancelled')),
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  updated_at            timestamptz NOT NULL DEFAULT now()
+);
+
+comment on table public.site_visits is '업체 현장 실측 방문 기록 — GPS 체크인·공사사진·현장견적 연결';
+
+ALTER TABLE public.site_visits ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "site_visits: parties read" ON public.site_visits
+  FOR SELECT USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "site_visits: company write" ON public.site_visits
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.companies c
+            WHERE c.id = company_id AND auth.uid() = c.owner_id)
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- 0-B. estimates 테이블 생성
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.estimates (
+  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_visit_id uuid        REFERENCES public.site_visits(id) ON DELETE SET NULL,
+  request_id    uuid        REFERENCES public.requests(id)    ON DELETE SET NULL,
+  status        text        NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','submitted','accepted')),
+  submitted_at  timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
+
+comment on table public.estimates is '현장 실측 후 업체가 제출하는 공식 견적서';
+
+ALTER TABLE public.estimates ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "estimates: parties read" ON public.estimates
+  FOR SELECT USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "estimates: company write" ON public.estimates
+  FOR ALL USING (auth.uid() IS NOT NULL);
 
 -- ─────────────────────────────────────────────────────────────
 -- 1. requests — AI 분석용 컬럼 추가
