@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { detectDirectDealKeywords } from "../constants/directDeal";
 
 const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -2191,3 +2192,213 @@ export const adminVerifyUserIdentity = async (userId, adminId, status = "verifie
   }
   return { data, error };
 };
+
+// ── STEP 28: 직거래 감지 / 추적 ────────────────────────────────────────────────
+//   채팅 키워드 자동 감지 + 실측 후 미계약 추적 → direct_deal_reports 기록.
+//   기록은 증거 보존 목적이므로 원문 마스킹하지 않음.
+
+// 관리자 전원에게 알림 발송 (notifications 는 user 단위라 admin 들에게 fan-out)
+async function notifyAdmins({ type, title, message, relatedId = null, relatedType = null, priority = "HIGH" }) {
+  const { data: admins } = await supabase.from("users").select("id").eq("role", "admin");
+  if (!admins || admins.length === 0) return;
+  await Promise.all(
+    admins.map((a) =>
+      createNotification({ userId: a.id, type, title, message, relatedId, relatedType, priority })
+    )
+  );
+}
+
+// 해당 request+company 에 계약(escrow_payments)이 존재하는지
+export async function checkContractExists(requestId, companyId) {
+  let q = supabase.from("escrow_payments").select("id", { count: "exact", head: true });
+  if (requestId) q = q.eq("request_id", requestId);
+  if (companyId) q = q.eq("company_id", companyId);
+  const { count } = await q;
+  return (count ?? 0) > 0;
+}
+
+// 채팅 메시지 직거래 키워드 감지 → 감지 시 기록 + 관리자 알림. 감지된 키워드 배열 반환.
+export async function checkDirectDealKeyword(messageText, { requestId = null, companyId = null, customerId = null, senderId = null, senderRole = null } = {}) {
+  const detected = detectDirectDealKeywords(messageText);
+  if (detected.length === 0) return [];
+
+  await supabase.from("direct_deal_reports").insert({
+    request_id:  requestId,
+    company_id:  companyId,
+    customer_id: customerId,
+    trigger_type: "keyword_detected",
+    trigger_detail: {
+      keywords: detected,
+      message: messageText,
+      sender_id: senderId,
+      sender_role: senderRole,
+    },
+  });
+
+  await notifyAdmins({
+    type: "DIRECT_DEAL_DETECTED",
+    title: "직거래 의심 키워드 감지",
+    message: `직거래 의심 키워드 감지: ${detected.join(", ")}`,
+    relatedId: requestId,
+    relatedType: "request",
+    priority: "HIGH",
+  });
+
+  return detected;
+}
+
+// 직거래 의심 목록 조회 (관리자)
+export const getDirectDealReports = ({ status = null, triggerType = null, limit = 100 } = {}) => {
+  let q = supabase.from("direct_deal_reports").select("*").order("detected_at", { ascending: false }).limit(limit);
+  if (status)      q = q.eq("status", status);
+  if (triggerType) q = q.eq("trigger_type", triggerType);
+  return q;
+};
+
+// 직거래 의심 상태 변경 (pending → investigating → confirmed/dismissed)
+export const updateDirectDealReportStatus = (id, status, adminNote = null) => {
+  const patch = { status };
+  if (adminNote != null) patch.admin_note = adminNote;
+  if (status === "confirmed" || status === "dismissed") patch.resolved_at = new Date().toISOString();
+  return supabase.from("direct_deal_reports").update(patch).eq("id", id).select().single();
+};
+
+// 실측 후 미계약 자동 추적 — 관리자 수동 실행 또는 cron 으로 호출.
+//   48h 경과 + 견적서 미제출  → 업체에 기한 임박 알림
+//   72h 경과 + 견적서 미제출  → 매칭 취소 + 업체 공간온도 -3 + 의심 플래그
+//   7d  경과 + 견적서 제출 + 계약 없음 → 양측 문의 + 의심 플래그
+export async function checkSiteVisitFollowUp() {
+  const now = Date.now();
+  const h48 = new Date(now - 48 * 60 * 60 * 1000).toISOString();
+  const h72 = new Date(now - 72 * 60 * 60 * 1000).toISOString();
+  const d7  = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const summary = { reminded: 0, cancelled: 0, flagged: 0, inquired: 0 };
+
+  // 이미 플래그된 site_visit 은 중복 처리하지 않기 위해 기존 기록 수집
+  const { data: existing } = await supabase
+    .from("direct_deal_reports")
+    .select("trigger_type, trigger_detail")
+    .in("trigger_type", ["no_estimate_72h", "no_contract_7d"]);
+  const flaggedKey = new Set(
+    (existing ?? []).map((r) => `${r.trigger_type}:${r.trigger_detail?.site_visit_id ?? ""}`)
+  );
+
+  // 회사 owner_id 캐시 (알림 발송용)
+  const ownerCache = {};
+  const ownerOf = async (companyId) => {
+    if (!companyId) return null;
+    if (ownerCache[companyId] !== undefined) return ownerCache[companyId];
+    const { data } = await supabase.from("companies").select("owner_id, name").eq("id", companyId).maybeSingle();
+    ownerCache[companyId] = data ?? null;
+    return ownerCache[companyId];
+  };
+
+  // ── 48h 경과 + 견적서 미제출 → 기한 임박 알림 (still 'completed' = 미제출) ──
+  const { data: due48 } = await supabase
+    .from("site_visits").select("*")
+    .eq("status", "completed")
+    .lt("completed_at", h48).gte("completed_at", h72);
+  for (const v of due48 ?? []) {
+    const owner = await ownerOf(v.company_id);
+    if (owner?.owner_id) {
+      await createNotification({
+        userId: owner.owner_id,
+        type: "ESTIMATE_DUE_SOON",
+        title: "견적서 제출 기한 임박",
+        message: "실측 후 견적서 제출 기한이 임박했습니다. 기한 내 미제출 시 매칭이 자동 취소됩니다.",
+        relatedId: v.request_id ?? null,
+        relatedType: "request",
+        priority: "HIGH",
+      });
+      summary.reminded += 1;
+    }
+  }
+
+  // ── 72h 경과 + 견적서 미제출 → 매칭 취소 + 온도 -3 + 플래그 ──
+  const { data: overdue } = await supabase
+    .from("site_visits").select("*")
+    .eq("status", "completed")
+    .lt("completed_at", h72);
+  for (const v of overdue ?? []) {
+    const key = `no_estimate_72h:${v.id}`;
+    if (flaggedKey.has(key)) continue;
+    await supabase.from("direct_deal_reports").insert({
+      request_id: v.request_id ?? null,
+      company_id: v.company_id ?? null,
+      trigger_type: "no_estimate_72h",
+      trigger_detail: { site_visit_id: v.id, completed_at: v.completed_at },
+    });
+    await supabase.from("site_visits").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", v.id);
+    if (v.company_id) await updateCompanyTemp(v.company_id, -3);
+    await notifyAdmins({
+      type: "DIRECT_DEAL_DETECTED",
+      title: "실측 후 견적 미제출 (72h)",
+      message: "실측 완료 후 72시간 내 견적서 미제출 — 매칭 자동 취소 및 업체 공간온도 -3 적용.",
+      relatedId: v.request_id ?? null,
+      relatedType: "request",
+    });
+    flaggedKey.add(key);
+    summary.cancelled += 1;
+    summary.flagged += 1;
+  }
+
+  // ── 7d 경과 + 견적서 제출 + 계약 없음 → 양측 문의 + 플래그 ──
+  const { data: submitted } = await supabase
+    .from("site_visits").select("*")
+    .eq("status", "estimate_submitted")
+    .lt("completed_at", d7);
+  for (const v of submitted ?? []) {
+    const key = `no_contract_7d:${v.id}`;
+    if (flaggedKey.has(key)) continue;
+    const hasContract = await checkContractExists(v.request_id, v.company_id);
+    if (hasContract) continue;
+
+    await supabase.from("direct_deal_reports").insert({
+      request_id: v.request_id ?? null,
+      company_id: v.company_id ?? null,
+      trigger_type: "no_contract_7d",
+      trigger_detail: { site_visit_id: v.id, completed_at: v.completed_at },
+    });
+
+    // 고객 문의
+    const { data: req } = await supabase.from("requests").select("user_id").eq("id", v.request_id).maybeSingle();
+    if (req?.user_id) {
+      await createNotification({
+        userId: req.user_id,
+        type: "CONTRACT_FOLLOWUP",
+        title: "계약은 어떻게 진행되고 있나요?",
+        message: "실측·견적 이후 계약 진행 상태를 알려주세요. 공간마켓 안전결제로 진행하시면 보호받을 수 있습니다.",
+        relatedId: v.request_id ?? null,
+        relatedType: "request",
+        priority: "NORMAL",
+      });
+      summary.inquired += 1;
+    }
+    // 업체 문의
+    const owner = await ownerOf(v.company_id);
+    if (owner?.owner_id) {
+      await createNotification({
+        userId: owner.owner_id,
+        type: "CONTRACT_FOLLOWUP",
+        title: "계약은 어떻게 진행되고 있나요?",
+        message: "견적 제출 이후 계약 진행 상태를 알려주세요. 안전결제 외 직거래는 약관 위반입니다.",
+        relatedId: v.request_id ?? null,
+        relatedType: "request",
+        priority: "NORMAL",
+      });
+      summary.inquired += 1;
+    }
+
+    await notifyAdmins({
+      type: "DIRECT_DEAL_DETECTED",
+      title: "견적 제출 후 7일 미계약",
+      message: "견적서 제출 후 7일간 계약 미체결 — 직거래 의심 플래그.",
+      relatedId: v.request_id ?? null,
+      relatedType: "request",
+    });
+    flaggedKey.add(key);
+    summary.flagged += 1;
+  }
+
+  return summary;
+}

@@ -27,6 +27,7 @@ import {
   adminUpdateCompanyInfo, adminUpdateUserInfo,
   getCompaniesByOwnerIds,
   adminVerifyUserIdentity,
+  getDirectDealReports, updateDirectDealReportStatus, checkSiteVisitFollowUp,
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
@@ -1359,6 +1360,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [customerEditForm, setCustomerEditForm] = useState({});
   const [customerEditSaving, setCustomerEditSaving] = useState(false);
 
+  const [directDealReports, setDirectDealReports] = useState([]);
+  const [ddrFilter, setDdrFilter] = useState("all"); // all | keyword_detected | no_estimate_72h | no_contract_7d | manual_report
+  const [ddrLoading, setDdrLoading] = useState(false);
+  const [ddrRunning, setDdrRunning] = useState(false);
+
   // DEV panel: admin action tracking
   const [lastAdminAction, setLastAdminAction] = useState(null);
   const [lastAdminTarget, setLastAdminTarget] = useState(null);
@@ -1488,6 +1494,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
     if (mainTab === "hidden") {
       setHiddenLoading(true);
       adminGetHiddenRequests().then(({ data }) => setHiddenRequests(data ?? [])).catch(() => setHiddenRequests([])).finally(() => setHiddenLoading(false));
+    }
+    if (mainTab === "direct_deal") {
+      setDdrLoading(true);
+      getDirectDealReports().then(({ data }) => setDirectDealReports(data ?? [])).catch(() => setDirectDealReports([])).finally(() => setDdrLoading(false));
     }
   }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1644,8 +1654,46 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["lounge",         "라운지관리"],
     ["lounge_seeding", "라운지 시딩"],
     ["reports",        "신고관리"],
+    ["direct_deal",    "직거래감지"],
     ["notifications",  "알림"],
   ];
+
+  const DDR_TRIGGER_META = {
+    keyword_detected: { label: "키워드 감지", color: C.red },
+    no_estimate_72h:  { label: "견적 미제출(72h)", color: C.gold },
+    no_contract_7d:   { label: "미계약(7일)", color: C.gold },
+    chat_blackout:    { label: "대화 중단", color: C.text3 },
+    manual_report:    { label: "수동 신고", color: C.text2 },
+  };
+  const DDR_STATUS_META = {
+    pending:       { label: "대기", color: C.gold,  bg: "#FBF5E8" },
+    investigating: { label: "조사중", color: "#9B59B6", bg: "#F5EEF8" },
+    confirmed:     { label: "확정", color: C.red,   bg: "#FFF0F0" },
+    dismissed:     { label: "기각", color: C.text3, bg: C.bgWarm },
+  };
+  const filteredDdr = ddrFilter === "all"
+    ? directDealReports
+    : directDealReports.filter((r) => r.trigger_type === ddrFilter);
+
+  const runFollowUp = async () => {
+    setDdrRunning(true);
+    try {
+      const summary = await checkSiteVisitFollowUp();
+      showToast(`추적 완료 · 알림 ${summary.reminded + summary.inquired} / 취소 ${summary.cancelled} / 플래그 ${summary.flagged}`);
+      const { data } = await getDirectDealReports();
+      setDirectDealReports(data ?? []);
+    } catch (err) {
+      showToast("추적 실행 실패", false);
+    } finally {
+      setDdrRunning(false);
+    }
+  };
+
+  const setDdrStatus = async (id, status) => {
+    const { error } = await updateDirectDealReportStatus(id, status);
+    if (!error) setDirectDealReports((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    else showToast("상태 변경 실패", false);
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
@@ -2371,6 +2419,89 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       </button>
                     )}
                   </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {mainTab === "direct_deal" && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.md }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>
+                    직거래 의심 <span style={{ color: C.red }}>{directDealReports.length}건</span>
+                  </div>
+                  <button
+                    disabled={ddrRunning}
+                    onClick={runFollowUp}
+                    style={{ padding: "7px 14px", borderRadius: R.lg, background: ddrRunning ? C.bgWarm : C.brand,
+                      color: ddrRunning ? C.text3 : "#fff", border: "none", fontSize: 12, fontWeight: 700,
+                      cursor: ddrRunning ? "default" : "pointer" }}>
+                    {ddrRunning ? "실행중…" : "실측 미계약 추적 실행"}
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, marginBottom: S.md, overflowX: "auto" }}>
+                  {[["all", "전체"], ["keyword_detected", "키워드"], ["no_estimate_72h", "미제출72h"],
+                    ["no_contract_7d", "미계약7d"], ["manual_report", "수동"]].map(([v, l]) => (
+                    <button key={v} onClick={() => setDdrFilter(v)}
+                      style={{ padding: "5px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
+                        whiteSpace: "nowrap", cursor: "pointer", border: "none",
+                        background: ddrFilter === v ? C.brand : C.bgWarm,
+                        color: ddrFilter === v ? "#fff" : C.text2 }}>{l}</button>
+                  ))}
+                </div>
+
+                {ddrLoading ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", fontSize: 14, color: C.text3 }}>불러오는 중…</div>
+                ) : filteredDdr.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>🕵️</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>직거래 의심 기록 없음</div>
+                  </div>
+                ) : filteredDdr.map((r) => {
+                  const tm = DDR_TRIGGER_META[r.trigger_type] ?? { label: r.trigger_type, color: C.text2 };
+                  const sm = DDR_STATUS_META[r.status] ?? { label: r.status, color: C.text2, bg: C.bgWarm };
+                  const kws = r.trigger_detail?.keywords;
+                  return (
+                    <div key={r.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                        <div>
+                          <span style={{ fontSize: 12, fontWeight: 800, color: tm.color }}>{tm.label}</span>
+                          <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+                            {r.detected_at ? new Date(r.detected_at).toLocaleString("ko-KR") : ""}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: sm.color, background: sm.bg,
+                          borderRadius: R.full, padding: "3px 10px" }}>{sm.label}</span>
+                      </div>
+
+                      {Array.isArray(kws) && kws.length > 0 && (
+                        <div style={{ fontSize: 12, color: C.red, fontWeight: 700, marginBottom: 4 }}>
+                          감지 키워드: {kws.join(", ")}
+                        </div>
+                      )}
+                      {r.trigger_detail?.message && (
+                        <div style={{ fontSize: 12, color: C.text2, marginBottom: S.sm, wordBreak: "break-all",
+                          background: C.bg, borderRadius: R.md, padding: "8px 10px" }}>
+                          “{r.trigger_detail.message}”
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: C.text4, marginBottom: S.sm }}>
+                        {r.request_id ? `request: ${String(r.request_id).slice(0, 8)}… ` : ""}
+                        {r.company_id ? `company: ${String(r.company_id).slice(0, 8)}…` : ""}
+                      </div>
+
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {[["investigating", "조사중"], ["confirmed", "확정"], ["dismissed", "기각"]].map(([v, l]) => (
+                          <button key={v} disabled={r.status === v} onClick={() => setDdrStatus(r.id, v)}
+                            style={{ padding: "6px 14px", borderRadius: R.lg, fontSize: 12, fontWeight: 700,
+                              border: `1px solid ${r.status === v ? C.brand : C.bgWarm}`,
+                              background: r.status === v ? C.brand : "#fff",
+                              color: r.status === v ? "#fff" : C.text2,
+                              cursor: r.status === v ? "default" : "pointer" }}>{l}</button>
+                        ))}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
