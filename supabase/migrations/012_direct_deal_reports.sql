@@ -36,6 +36,11 @@ create index if not exists idx_ddr_request    on public.direct_deal_reports (req
 
 alter table public.direct_deal_reports enable row level security;
 
+-- 멱등 적용: 재실행/부분 적용 후에도 안전하도록 기존 정책 제거 후 재생성
+drop policy if exists "ddr: authenticated insert" on public.direct_deal_reports;
+drop policy if exists "ddr: admin read"          on public.direct_deal_reports;
+drop policy if exists "ddr: admin update"        on public.direct_deal_reports;
+
 -- 인증된 사용자(거래 당사자)는 의심 기록 생성 가능 — 증거 보존 목적
 create policy "ddr: authenticated insert" on public.direct_deal_reports
   for insert with check (auth.uid() is not null);
