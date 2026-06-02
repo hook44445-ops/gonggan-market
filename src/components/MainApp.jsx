@@ -123,8 +123,11 @@ const normalizeRequest = (row) => {
   const daysLeft   = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
   const status     = row.status ?? "open";
   const isExpiredByTime = daysLeft <= 0;
-  const isActive   = status === "open" && !isExpiredByTime;
-  const isClosed   = status === "closed" || status === "cancelled" ||
+  // 삭제/숨김 처리된 요청은 어떤 목록에도 "진행중"으로 노출되면 안 됨.
+  const isDeleted  = row.is_deleted === true || row.is_hidden === true;
+  const isActive   = status === "open" && !isExpiredByTime && !isDeleted;
+  const isClosed   = isDeleted ||
+                     status === "closed" || status === "cancelled" ||
                      status === "expired" ||
                      (status === "open" && isExpiredByTime);
   return {
@@ -146,6 +149,7 @@ const normalizeRequest = (row) => {
     expiresAt: expiresAt.toISOString(),
     daysLeft: Math.max(0, daysLeft),
     isExpiredByTime,
+    isDeleted,
     isActive,
     isClosed,
   };
@@ -865,9 +869,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       const jobs = dedupedCandidates
         .filter(b => {
           const rid8 = (b.request_id ?? "").slice(0, 8);
-          const reqStatus = (requestMap[b.request_id]?.status ?? "").toLowerCase();
+          const reqRow = requestMap[b.request_id];
+          const reqStatus = (reqRow?.status ?? "").toLowerCase();
           const esc = escrowByRequestId[b.request_id];
           const txStatus = esc?.transaction_status ?? null;
+
+          // 삭제/숨김된 요청은 진행중에서 제외 (소프트 삭제 반영).
+          if (reqRow?.is_deleted === true || reqRow?.is_hidden === true) { excludedReasons.push(`${rid8}:req_deleted`); return false; }
+          // 요청 행이 사라진(하드 삭제) 경우 — fetch 성공했는데도 없으면 제외.
+          // (fetch 에러 시에는 제외하지 않아 정상 진행건이 사라지지 않도록 함)
+          if (!reqRow && !reqErr) { excludedReasons.push(`${rid8}:req_missing`); return false; }
 
           // Hard exclude terminal / closed states (req-level or escrow-level).
           if (reqStatus && EXCL_REQ.has(reqStatus)) { excludedReasons.push(`${rid8}:req=${reqStatus}`); return false; }
@@ -1665,8 +1676,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             {(() => {
               // 완료/정산완료(에스크로 기준)는 active 에서 제외 → 견적 이력으로.
               const isSettled = (r) => isRequestSettled(r, myRequestsEscrow[r.id] ?? null);
-              const activeReqs  = myRequests.filter(r => (r.isActive || r.status === "in_progress") && !isSettled(r));
-              const historyReqs = myRequests.filter(r => r.isClosed || r.status === "completed" || isSettled(r));
+              const activeReqs  = myRequests.filter(r => !r.isDeleted && (r.isActive || r.status === "in_progress") && !isSettled(r));
+              const historyReqs = myRequests.filter(r => !r.isDeleted && (r.isClosed || r.status === "completed" || isSettled(r)));
               if (SHOW_DEBUG_UI) {
                 myRequests.forEach(r => {
                   const ed = myRequestsEscrow[r.id] ?? null;

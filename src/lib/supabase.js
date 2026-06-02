@@ -165,6 +165,7 @@ export const getUserRequests = (userId) =>
     .select("*, bids(id, company_id, price, status)")
     .eq("user_id", userId)
     .or("is_hidden.is.null,is_hidden.eq.false")
+    .or("is_deleted.is.null,is_deleted.eq.false")
     .order("created_at", { ascending: false });
 
 export const getLiveRequests = ({ limit = 5 } = {}) =>
