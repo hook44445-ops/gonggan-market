@@ -2134,7 +2134,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   <div style={{ fontSize:20, fontWeight:800, marginBottom:4 }}>{user.name}</div>
                   <div style={{ fontSize:11, opacity:0.65, marginBottom:8 }}>오늘도 공간을 빛내주셔서 감사합니다</div>
                   <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                    <TempBadge temp={currentUser?.temp ?? 36.5} lg />
+                    <TempBadge temp={currentUser?.temp ?? 36.5} lg info />
                     <CertBadge type="platform" />
                   </div>
                 </div>

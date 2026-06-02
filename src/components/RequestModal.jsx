@@ -106,6 +106,11 @@ export default function RequestModal({ onClose, onDone, initialData = null, isEd
             <button onClick={() => setStep(2)} style={{ flex:0.5, padding:S.xl, background:C.bg, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>← 이전</button>
             <button onClick={() => form.desc&&onDone(form)} style={{ flex:1, padding:S.xl, background:form.desc?C.brand:"#E8E4DC", color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:form.desc?"pointer":"not-allowed" }}>{isEdit ? "✅ 수정 완료" : "🚀 견적 요청하기"}</button>
           </div>
+          {!isEdit && (
+            <div style={{ textAlign:"center", fontSize:12, color:C.text3, marginTop:S.md }}>
+              보통 2~4시간 내 연락드립니다.
+            </div>
+          )}
         </>}
       </div>
     </div>

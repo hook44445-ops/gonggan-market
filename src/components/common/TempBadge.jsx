@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { GRADE, R, C } from "../../constants";
 
-const TEMP_INFO = "공간온도는 거래 신뢰도를 나타냅니다. 완료된 거래, 후기, 재계약이 쌓일수록 올라가요.";
+const TEMP_INFO = "공간온도는 거래, 후기, 응답 등을 기반으로 형성되는 신뢰 지수입니다.";
 
 export default function TempBadge({ temp, lg, info }) {
   const g     = GRADE(temp ?? 0);

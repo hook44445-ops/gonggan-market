@@ -237,7 +237,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const companyId = resolvedBid?.companyId;
     if (!companyId) return;
     const existingName = resolvedBid?.company?.name;
-    if (existingName && existingName !== "—" && existingName !== "업체") return;
+    const haveCreatedAt = !!resolvedBid?.company?.created_at;
+    // 이름이 이미 있어도 created_at(멤버십 수수료 계산 기준)이 없으면 조회.
+    if (existingName && existingName !== "—" && existingName !== "업체" && haveCreatedAt) return;
     getCompanyByOwnerId(companyId).then(({ data, error }) => {
       setEscrowDebug(prev => ({
         ...prev,
@@ -252,7 +254,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       if (!data) return;
       setResolvedBid(prev => prev ? {
         ...prev,
-        company: { id: data.id, ownerId: data.owner_id, name: data.name ?? "업체", temp: data.temp ?? 36.5 },
+        company: { id: data.id, ownerId: data.owner_id, name: data.name ?? "업체", temp: data.temp ?? 36.5, created_at: data.created_at },
       } : prev);
     }).catch(() => {});
   }, [resolvedBid?.companyId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1342,7 +1344,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           ))}
         </div>
 
-        <EscrowCalculator role={isConsumer ? "consumer" : "company"} />
+        <EscrowCalculator role={isConsumer ? "consumer" : "company"} companyCreatedAt={resolvedBid?.company?.created_at} />
 
         {/* Warranty info */}
         <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, display: "flex", gap: S.md, alignItems: "flex-start", marginBottom: S.lg }}>

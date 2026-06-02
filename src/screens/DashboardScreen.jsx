@@ -364,7 +364,7 @@ export default function DashboardScreen({
                 style={{ position:"absolute", right:-12, bottom:-16, transform:"rotate(-20deg)" }} />
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.lg }}>
                 <div style={{ fontSize:14, fontWeight:700, color:C.text2 }}>공간온도</div>
-                <TempBadge temp={temp} lg />
+                <TempBadge temp={temp} lg info />
               </div>
 
               {/* Temperature progress bar */}
