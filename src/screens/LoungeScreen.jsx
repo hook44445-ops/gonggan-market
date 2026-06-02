@@ -445,7 +445,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <div style={{ background: `linear-gradient(150deg, ${C.ivory}, ${C.brandL})`,
           padding: `10px ${S.xl}px`, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 11, lineHeight: 1 }}>🌿</span>
-          <span style={{ fontSize: 12, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>잠깐 쉬어가는 공간 · 편하게 말 걸어보세요</span>
+          <span style={{ fontSize: 14, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>우리 동네 인테리어 이야기</span>
         </div>
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>

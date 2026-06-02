@@ -4,12 +4,12 @@
 
 import { useState } from 'react';
 import { C, R, S } from '../../constants';
-import { LOUNGE_CATEGORIES } from '../../constants/lounge';
+import { LOUNGE_CATEGORIES, LOUNGE_PREVIEW_COUNT } from '../../constants/lounge';
 
 const ALL_CATS = LOUNGE_CATEGORIES;
-// 기본 한 줄에 보여줄 카테고리 (all, popular 포함 처음 8개)
-const PREVIEW_CATS = ALL_CATS.slice(0, 8);
-const EXTRA_CATS   = ALL_CATS.slice(8);
+// 더보기 접힘 기준 — 집꾸미기까지 노출, 이사입주부터 접힘
+const PREVIEW_CATS = ALL_CATS.slice(0, LOUNGE_PREVIEW_COUNT);
+const EXTRA_CATS   = ALL_CATS.slice(LOUNGE_PREVIEW_COUNT);
 
 function CatChip({ cat, selected, onChange }) {
   const active = selected === cat.id;

@@ -84,7 +84,7 @@ export default function CompanyCard({ company, onClick, isLoggedIn = false }) {
                   {bm.icon} 공간보증 {bm.label}
                 </span>
               ) : (
-                <span style={{ background: C.surface2, color: C.text3, borderRadius: R.full, padding: "2px 9px", fontSize: 11, fontWeight: 600 }}>직거래</span>
+                <span style={{ background: C.surface2, color: C.text3, borderRadius: R.full, padding: "2px 9px", fontSize: 11, fontWeight: 600 }}>공간보증 준비중</span>
               )}
               {company.insurance && <CertBadge type="insurance" />}
               {company.bizCert   && <CertBadge type="biz" />}

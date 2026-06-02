@@ -10,6 +10,7 @@ import {
   likeLoungePost,
 } from '../lib/supabase';
 import { isDisplayableLoungePost } from '../utils/dataHygiene';
+import { LOUNGE_INACTIVE_CATEGORIES } from '../constants/lounge';
 
 // real < 5  → fill to 5 by interleaving seeds
 // real 5-9  → append 2 seeds at back
@@ -82,6 +83,8 @@ export function useLounge(category = 'all') {
       const seeds     = (seedsRes.data ?? []).map(adaptSeedPost);
       const merged    = buildFeed(realPosts, seeds)
         .filter(p => p.is_deleted !== true && p.is_hidden !== true)
+        // 비활성 카테고리(게임/반려동물/여행/대화해요) 글 노출 제외 — 전체 탭 포함
+        .filter(p => p.is_visible !== false && !LOUNGE_INACTIVE_CATEGORIES.includes(p.category))
         // 테스트/더미 글 제외 — is_test/is_sample 플래그 + 제목 "11" 같은 깨진/무의미 제목
         .filter(p => p.is_seed || isDisplayableLoungePost(p));
       setPosts(merged);
