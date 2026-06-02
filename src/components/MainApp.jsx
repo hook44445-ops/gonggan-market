@@ -152,9 +152,14 @@ const normalizeRequest = (row) => {
   const daysLeft   = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
   const status     = row.status ?? "open";
   const isExpiredByTime = daysLeft <= 0;
+  // bids relation 기준 단일 산정 (legacy row.bid_count 사용 금지)
+  const bidCount   = row.bids?.length || 0;
+  const hasBids    = bidCount > 0;
   // 삭제/숨김 처리된 요청은 어떤 목록에도 "진행중"으로 노출되면 안 됨.
   const isDeleted  = row.is_deleted === true || row.is_hidden === true;
-  const isActive   = status === "open" && !isExpiredByTime && !isDeleted;
+  // open 상태이면서 (만료/삭제 아님) 활성. 입찰이 들어오면(hasBids) 진행중으로 노출되어야 함.
+  const isActive   = (status === "open" || hasBids) && !isExpiredByTime && !isDeleted
+                     && status !== "completed" && status !== "cancelled" && status !== "expired" && status !== "closed";
   const isClosed   = isDeleted ||
                      status === "closed" || status === "cancelled" ||
                      status === "expired" ||
@@ -169,8 +174,8 @@ const normalizeRequest = (row) => {
     desc: row.description ?? row.desc ?? "",
     area: row.area ?? "",
     user: "의뢰인",
-    bids: 0,
-    bidCount: (row.bids ?? []).length,
+    bids: bidCount,
+    bidCount,
     time: new Date(row.created_at).toLocaleString("ko-KR", { month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" }),
     status,
     urgent: row.urgent ?? false,

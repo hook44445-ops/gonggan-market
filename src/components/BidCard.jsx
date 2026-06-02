@@ -115,7 +115,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
                 <div style={{ fontSize:12, color:C.text3 }}>💰 {r.budget}</div>
-                <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>경쟁 입찰 {r.bids || 0}개</div>
+                <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>경쟁 입찰 {r.bidCount ?? r.bids ?? 0}개</div>
               </div>
               <button
                 onClick={handleBidButtonClick}
