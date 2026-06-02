@@ -346,6 +346,19 @@ function isRequestSettled(r, escrowData) {
   return false;
 }
 
+// 의뢰인 "진행중" 판정 — 정책: 계약 전이라도 입찰이 1개 이상이거나
+// 진행 상태이면 진행중에 포함. 완료/취소/만료/삭제만 제외.
+//   status ∈ ('open','bidding','quoted','contracting','in_progress')  OR  bids.length > 0
+const IN_PROGRESS_STATUSES = new Set(["open", "bidding", "quoted", "contracting", "in_progress"]);
+function isRequestInProgress(r, escrowData) {
+  if (!r) return false;
+  if (r.isDeleted === true || r.isExpiredByTime === true) return false;
+  if (["completed", "cancelled", "expired", "closed", "settled"].includes(r.status)) return false;
+  if (isRequestSettled(r, escrowData)) return false;
+  const hasBids = (r.bidCount ?? r.bids ?? 0) > 0;
+  return IN_PROGRESS_STATUSES.has(r.status) || hasBids;
+}
+
 // 관심 — 조용한 갤러리 톤의 빈 상태
 function FavEmptyState({ title, desc, onGo }) {
   return (
@@ -3028,7 +3041,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 })()}
                 <div style={{ display:"flex", gap:0, marginBottom:S.xl, borderTop:`1px solid ${C.bgWarm}`, paddingTop:S.xl }}>
                   {(activeRole==="consumer"
-                    ? [[`${myRequests.length}`,"견적 요청"],["0","진행중"],["0","완료"]]
+                    ? (() => {
+                        const inProgress = myRequests.filter(r => isRequestInProgress(r, myRequestsEscrow[r.id] ?? null)).length;
+                        const completed  = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null)).length;
+                        return [[`${myRequests.length}`,"견적 요청"],[`${inProgress}`,"진행중"],[`${completed}`,"완료"]];
+                      })()
                     : [[" 3","낙찰"],["84","후기"],[`${currentUser?.temp ?? 36.5}°`,"공간온도"]]
                   ).map(([v,l],i,arr) => (
                     <div key={l} style={{ flex:1, borderRight:i<arr.length-1?`1px solid ${C.bgWarm}`:"none" }}>
