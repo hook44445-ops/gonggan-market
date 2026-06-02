@@ -28,7 +28,7 @@ mapLog("INIT — window.kakao at module load:", typeof window !== "undefined" ? 
 // 서울시청 — geolocation 실패 시 fallback 중심
 const SEOUL = { lat: 37.5665, lng: 126.9780 };
 const RADIUS_M = 3000; // 반경 3km
-const SDK_TIMEOUT_MS = 3000; // SDK 로드 타임아웃 → 초과 시 fallback UI
+const SDK_TIMEOUT_MS = 6000; // SDK 로드 타임아웃 → 초과 시 fallback UI (모바일 저속망 고려)
 
 // 좌표 없는 업체를 중심 주변 3km 내에 결정적으로 산포
 // (같은 업체는 항상 같은 위치 → 새로고침해도 안정적)
@@ -243,6 +243,12 @@ function MockMap({ companies, userRegion, onPinClick, selectedId, onRequestLocat
           <div style={{ fontSize:30 }}>📍</div>
           <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>지도를 불러오지 못했어요</div>
           <div style={{ fontSize:12, color:C.text3 }}>잠시 후 새로고침 해주세요</div>
+          {/* 진단용 — production 에서도 실패 사유 표시 (모바일 콘솔 대체). reason 으로 도메인 미등록/키오류 구분 */}
+          {debugInfo?.reason && (
+            <div style={{ fontSize:10, color:C.text4, fontFamily:"monospace", marginTop:2, wordBreak:"break-all", maxWidth:280 }}>
+              {debugInfo.reason} · key:{debugInfo.env}
+            </div>
+          )}
           <button onClick={() => window.location.reload()}
             style={{ marginTop:6, padding:"8px 20px", borderRadius:R.full, border:"none",
               background:C.brand, color:"#fff", fontSize:13, fontWeight:800, cursor:"pointer" }}>
@@ -293,6 +299,11 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
             inserted: scriptInserted(),
             online: typeof navigator !== "undefined" ? navigator.onLine : undefined,
           });
+          // 진단용 — production 에서도 항상 출력. sdk-timeout 이면 Kakao Developers
+          // Web 플랫폼 도메인 미등록 또는 JS 키 아님(REST 키)이 가장 유력.
+          // eslint-disable-next-line no-console
+          console.warn("[KakaoMap] SDK load failed:", e?.message ?? "unknown",
+            "| key:", ENV_INFO, "| online:", typeof navigator !== "undefined" ? navigator.onLine : "n/a");
           mapLog("render: MOCK map (SDK 실패:", e?.message, ")");
         }
       });
