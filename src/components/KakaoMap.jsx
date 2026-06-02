@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { C, R, GRADE } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 
-const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
+// trim — Vercel env 에 줄바꿈/공백이 섞여 들어오면 SDK URL 이 깨져 onerror 가 남.
+const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_MAP_KEY?.trim();
 
 // 환경변수 요약 문자열 (DebugBadge 표시용)
 const ENV_INFO = KAKAO_API_KEY
@@ -49,12 +50,15 @@ function withCoords(companies, center) {
 }
 
 // SDK script src — 명시적 https (protocol-relative '//' 는 일부 webview/CSP에서 차단됨)
+// · appkey 는 encodeURIComponent 로 안전하게 (공백/특수문자가 남아도 URL 깨짐 방지)
+// · libraries=services,clusterer,drawing — 장소검색/클러스터/드로잉 사용 대비
+const SDK_LIBS = "services,clusterer,drawing";
 const SDK_SRC = KAKAO_API_KEY
-  ? `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_API_KEY}&autoload=false`
+  ? `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(KAKAO_API_KEY)}&autoload=false&libraries=${SDK_LIBS}`
   : "";
 // debug 표시용 — appkey 마스킹한 src
 const SDK_SRC_MASKED = KAKAO_API_KEY
-  ? `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${String(KAKAO_API_KEY).slice(0, 4)}...&autoload=false`
+  ? `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${String(KAKAO_API_KEY).slice(0, 4)}...&autoload=false&libraries=${SDK_LIBS}`
   : "(no key)";
 
 // ── 온스크린 진단 배지 — 모바일 콘솔 대체 ──
@@ -136,12 +140,25 @@ function loadKakaoScript(apiKey) {
       return `${label} (online=${online})`;
     };
 
-    // 이미 삽입된 script 태그가 있는 경우
+    // onerror 원인 상세 로그 — event.target.src / network / currentScript (item 3)
+    const logScriptError = (ev, label) => {
+      const tgtSrc = ev?.target?.src || "";
+      // eslint-disable-next-line no-console
+      console.warn("[KakaoMap] script onerror:", label,
+        "| event.target.src:", tgtSrc || "(none)",
+        "| key_len:", KAKAO_API_KEY ? String(KAKAO_API_KEY).length : 0,
+        "| navigator.onLine:", typeof navigator !== "undefined" ? navigator.onLine : "n/a",
+        "| document.currentScript:", typeof document !== "undefined" ? !!document.currentScript : "n/a",
+        "→ 네트워크/adblock/in-app webview 차단 또는 appkey 형식 오류(공백·줄바꿈) 의심");
+    };
+
+    // 이미 삽입된 script 태그가 있는 경우 (SSOT — 중복 inject 금지)
     const existing = document.getElementById("kakao-map-sdk");
     if (existing) {
       mapLog("STEP2b: SDK script tag already in DOM — polling for window.kakao.maps");
       existing.addEventListener("load", finishOk);
-      existing.addEventListener("error", () => {
+      existing.addEventListener("error", (ev) => {
+        logScriptError(ev, "existing");
         mapLog("STEP2b FAIL: existing script onerror");
         done(reject, new Error(errorReason("sdk-load-error[existing]")));
       });
@@ -162,8 +179,9 @@ function loadKakaoScript(apiKey) {
     // 'anonymous' 설정 시 오히려 로드가 실패할 수 있음.
     s.onload = finishOk;
     s.onerror = (ev) => {
-      // ev.type / blocked 여부 — 콘솔 없이 badge 로 전달
+      // ev.type / blocked 여부 — 콘솔 + badge 양쪽으로 전달
       const t = ev?.type || "error";
+      logScriptError(ev, "new");
       mapLog("STEP3 FAIL: SDK script onerror — type:", t,
         "| src:", SDK_SRC_MASKED,
         "| navigator.onLine:", typeof navigator !== "undefined" ? navigator.onLine : "n/a",
@@ -173,6 +191,22 @@ function loadKakaoScript(apiKey) {
     document.head.appendChild(s);
     mapLog("STEP2c: script appended to <head> — DOM inserted ✅");
   });
+}
+
+// ── SSOT 단일 로더 ──────────────────────────────────────────────
+// loadKakaoScript 를 모듈 단위 1회 Promise 로 메모이즈.
+// RealMap 이 여러 번 마운트돼도 SDK 스크립트는 단 한 번만 로드된다.
+// 실패 시 promise 를 비워 다음 시도(새로고침)에서 재로드 가능하게 함.
+let kakaoLoadPromise = null;
+function loadKakaoScriptOnce(apiKey) {
+  if (typeof window !== "undefined" && window.kakao?.maps) return Promise.resolve();
+  if (!kakaoLoadPromise) {
+    kakaoLoadPromise = loadKakaoScript(apiKey).catch((e) => {
+      kakaoLoadPromise = null; // 실패 시 캐시 무효화 → 재시도 허용
+      throw e;
+    });
+  }
+  return kakaoLoadPromise;
 }
 
 // ── Mock fallback (API 키 없거나 SDK 로드 실패 시) ──
@@ -277,7 +311,7 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
   useEffect(() => {
     let alive = true;
     const scriptInserted = () => !!document.getElementById("kakao-map-sdk");
-    loadKakaoScript(KAKAO_API_KEY)
+    loadKakaoScriptOnce(KAKAO_API_KEY)
       .then(() => {
         if (alive) {
           setReady(true);
