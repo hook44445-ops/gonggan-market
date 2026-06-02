@@ -1679,6 +1679,7 @@ export const getLoungePosts = async (category = "all") => {
     .eq("is_story", false)
     .or("is_deleted.is.null,is_deleted.eq.false")
     .or("is_hidden.is.null,is_hidden.eq.false")
+    .or("is_visible.is.null,is_visible.eq.true")   // 014 비활성 카테고리 soft-hide 반영 (null=레거시 노출)
     .order("is_seed", { ascending: true });   // real 글 먼저
 
   if (category === "popular") {
@@ -1718,6 +1719,7 @@ export const getLoungeStories = () =>
     .eq("is_story", true)
     .or("is_deleted.is.null,is_deleted.eq.false")
     .or("is_hidden.is.null,is_hidden.eq.false")
+    .or("is_visible.is.null,is_visible.eq.true")   // 014 soft-hide 반영
     .gt("story_expires_at", new Date().toISOString())
     .order("created_at", { ascending: false });
 
