@@ -165,7 +165,6 @@ export const getUserRequests = (userId) =>
     .select("*, bids(id, company_id, price, status)")
     .eq("user_id", userId)
     .or("is_hidden.is.null,is_hidden.eq.false")
-    .or("is_deleted.is.null,is_deleted.eq.false")
     .order("created_at", { ascending: false });
 
 export const getLiveRequests = ({ limit = 5 } = {}) =>
@@ -174,7 +173,6 @@ export const getLiveRequests = ({ limit = 5 } = {}) =>
     .select("id, space_type, area, size, status, created_at, last_activity_at")
     .in("status", ["in_progress", "contracting", "escrow_pending"])
     .or("is_hidden.is.null,is_hidden.eq.false")
-    .or("is_deleted.is.null,is_deleted.eq.false")
     .order("last_activity_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -186,7 +184,6 @@ export const getActiveRequestByUser = (userId) =>
     .eq("user_id", userId)
     .in("status", ["open", "in_progress", "contracting", "escrow_pending"])
     .or("is_hidden.is.null,is_hidden.eq.false")
-    .or("is_deleted.is.null,is_deleted.eq.false")
     .limit(1)
     .maybeSingle();
 
