@@ -338,8 +338,8 @@ function StoryDevPanel({ stories, storiesError }) {
 }
 
 // ── 메인 스크린 ────────────────────────────────────────
-export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage, onDeleteStory, refreshKey = 0 }) {
-  const [category,        setCategory]        = useState('all');
+export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage, onDeleteStory, refreshKey = 0, initialCategory = null }) {
+  const [category,        setCategory]        = useState(initialCategory || 'all');
   const [showWriteOptions, setShowWriteOptions] = useState(false);
   const [searchOpen,      setSearchOpen]       = useState(false);
   const [notifOpen,       setNotifOpen]        = useState(false);
