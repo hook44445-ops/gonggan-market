@@ -22,6 +22,7 @@ import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
 import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification } from '../lib/supabase';
+import { buildPostMeta } from '../utils/loungeSeo';
 
 // ── 삭제 확인 다이얼로그 ───────────────────────────────
 function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
@@ -121,6 +122,40 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       if (saveRes.data) setSaved(true);
     }).catch(() => {});
   }, [postId, user?.id, isGuest, isSeedPost]);
+
+  // ── SEO: 글 상세 진입 시 메타태그 동적 갱신 (언마운트 시 복원) ──
+  useEffect(() => {
+    if (!post || isSeedPost) return undefined;
+    const meta = buildPostMeta(post);
+    const prevTitle = document.title;
+    document.title = meta.title;
+
+    const upsert = (selector, create) => {
+      let el = document.head.querySelector(selector);
+      const created = !el;
+      if (!el) { el = create(); document.head.appendChild(el); }
+      const prev = created ? null : el.getAttribute('content');
+      return { el, created, prev };
+    };
+    const ogImage = meta.imagePath?.startsWith('http')
+      ? meta.imagePath
+      : `${window.location.origin}${meta.imagePath}`;
+    const targets = [
+      { ...upsert('meta[name="description"]', () => { const m = document.createElement('meta'); m.setAttribute('name', 'description'); return m; }), val: meta.description },
+      { ...upsert('meta[property="og:title"]', () => { const m = document.createElement('meta'); m.setAttribute('property', 'og:title'); return m; }), val: meta.title },
+      { ...upsert('meta[property="og:description"]', () => { const m = document.createElement('meta'); m.setAttribute('property', 'og:description'); return m; }), val: meta.description },
+      { ...upsert('meta[property="og:image"]', () => { const m = document.createElement('meta'); m.setAttribute('property', 'og:image'); return m; }), val: ogImage },
+    ];
+    targets.forEach(t => t.el.setAttribute('content', t.val));
+
+    return () => {
+      document.title = prevTitle;
+      targets.forEach(t => {
+        if (t.created) t.el.remove();
+        else if (t.prev != null) t.el.setAttribute('content', t.prev);
+      });
+    };
+  }, [post?.id, post?.title, post?.content, isSeedPost]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showToast = (msg) => {
     setToast(msg);

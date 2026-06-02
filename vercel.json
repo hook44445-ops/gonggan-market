@@ -1,3 +1,18 @@
 {
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
+    { "source": "/robots.txt", "destination": "/api/robots" },
+    {
+      "source": "/lounge/:path*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([Bb][Oo][Tt]|[Cc]rawl|[Ss]pider|[Ss]lurp|facebookexternalhit|Facebot|WhatsApp|kakaotalk|kakaostory|[Yy]eti|Daum|Pinterest|vkShare|Embedly|Quora|W3C_Validator|ia_archiver).*"
+        }
+      ],
+      "destination": "/api/prerender?path=:path*"
+    },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }

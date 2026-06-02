@@ -23,6 +23,7 @@ import LoungeScreen from "../screens/LoungeScreen";
 import LoungeWriteScreen from "../screens/LoungeWriteScreen";
 import LoungePostDetailScreen from "../screens/LoungePostDetailScreen";
 import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
+import { buildPostPath, seoSlugToCategoryId } from "../utils/loungeSeo";
 import TokenStoreScreen from "../screens/TokenStoreScreen";
 import TokenHistoryScreen from "../screens/TokenHistoryScreen";
 import DocumentCenterScreen from "../screens/DocumentCenterScreen";
@@ -411,6 +412,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   // ── 라운지 상태 ──────────────────────────────────────────────────────────────
   const [loungePost, setLoungePost]               = useState(null);
+  const [loungeInitialCategory, setLoungeInitialCategory] = useState(null);
   const [editingLoungePost, setEditingLoungePost] = useState(null);
   const [loungeRefreshKey, setLoungeRefreshKey] = useState(0);
   const [editOriginScreen, setEditOriginScreen]   = useState('lounge-detail');
@@ -1447,6 +1449,39 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     if (screen === "dashboard" && activeRole !== "company") setScreen("home");
   }, [screen, activeRole]);
 
+  // ── 라운지 SEO 딥링크 라우팅 ─────────────────────────────
+  // /lounge/posts/:id/:slug · /lounge/category/:seoSlug · /lounge/region/:slug
+  // 봇은 vercel.json rewrite 로 /api/prerender 가 처리하고, 사람(SPA)은 여기서 해당 화면으로 진입.
+  const applyLoungeRoute = (pathname) => {
+    const m = pathname.match(/^\/lounge(?:\/(.*))?$/);
+    if (!m) return false;
+    const parts = (m[1] || "")
+      .split("/")
+      .filter(Boolean)
+      .map((s) => { try { return decodeURIComponent(s); } catch { return s; } });
+    if (parts[0] === "posts" && parts[1]) {
+      setLoungePost({ id: parts[1], _deeplink: true });
+      setScreen("lounge-detail");
+    } else if (parts[0] === "category" && parts[1]) {
+      setLoungeInitialCategory(seoSlugToCategoryId(parts[1]) || "all");
+      setScreen("lounge");
+    } else {
+      setScreen("lounge");
+    }
+    return true;
+  };
+
+  useEffect(() => {
+    applyLoungeRoute(window.location.pathname);
+    const onPop = () => {
+      const handled = applyLoungeRoute(window.location.pathname);
+      if (!handled && screenRef.current?.startsWith?.("lounge")) setScreen("home");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NAV = mode === "admin"
@@ -2122,7 +2157,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               {localLoungePosts.slice(0,3).length > 0 ? (
                 <div style={{ display:"flex", flexDirection:"column", gap:S.sm, marginBottom:S.lg }}>
                   {localLoungePosts.slice(0,3).map(post => (
-                    <div key={post.id} onClick={() => { setLoungePost(post); go("lounge-detail"); }}
+                    <div key={post.id} onClick={() => { setLoungePost(post); go("lounge-detail"); try { window.history.pushState({}, "", buildPostPath(post)); } catch {} }}
                       style={{ background:C.bg, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
                       <div style={{ flex:1, minWidth:0, marginRight:S.md }}>
                         <div style={{ fontSize:13, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
@@ -2638,7 +2673,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             user={user}
             extraPosts={localLoungePosts}
             extraStories={localLoungeStories}
-            onPostClick={(post) => { setLoungePost(post); go("lounge-detail"); }}
+            onPostClick={(post) => { setLoungePost(post); go("lounge-detail"); try { window.history.pushState({}, "", buildPostPath(post)); } catch {} }}
+            initialCategory={loungeInitialCategory}
             onWrite={() => requireAuth(() => {
               if (!hasConsented(user?.id, LOUNGE_CONSENT_TYPES)) {
                 setConsentGateConfig({ types: LOUNGE_CONSENT_TYPES, title: "라운지 이용 전 약관 동의", onComplete: () => { setConsentGateConfig(null); go("lounge-write"); } });
@@ -2693,7 +2729,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {screen==="lounge-detail" && loungePost && (
           <LoungePostDetailScreen
             postId={loungePost.id}
-            initialPost={loungePost}
+            initialPost={loungePost._deeplink ? null : loungePost}
             user={user}
             tokenBalance={tokenBalance}
             onBack={() => setScreen("lounge")}
