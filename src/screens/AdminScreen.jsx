@@ -1654,7 +1654,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["lounge",         "라운지관리"],
     ["lounge_seeding", "라운지 시딩"],
     ["reports",        "신고관리"],
-    ["direct_deal",    "직거래감지"],
+    ["direct_deal",    "직거래 의심"],
     ["notifications",  "알림"],
   ];
 
@@ -2428,7 +2428,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
               <div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.md }}>
                   <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>
-                    직거래 의심 <span style={{ color: C.red }}>{directDealReports.length}건</span>
+                    직거래 의심 <span style={{ color: C.brand }}>{directDealReports.length}건</span>
                   </div>
                   <button
                     disabled={ddrRunning}
@@ -2476,7 +2476,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       </div>
 
                       {Array.isArray(kws) && kws.length > 0 && (
-                        <div style={{ fontSize: 12, color: C.red, fontWeight: 700, marginBottom: 4 }}>
+                        <div style={{ fontSize: 12, color: C.brand, fontWeight: 700, marginBottom: 4 }}>
                           감지 키워드: {kws.join(", ")}
                         </div>
                       )}

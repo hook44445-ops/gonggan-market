@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { C, R, S } from '../../constants';
 import { SHOW_DEBUG_UI } from '../../constants/release';
-import { SPACE_TEMPERATURE_BASE, TOKEN_EARN, CATEGORY_LABEL } from '../../constants/lounge';
+import { SPACE_TEMPERATURE_BASE, TOKEN_EARN, CATEGORY_LABEL, LOUNGE_CATEGORIES, LOUNGE_INACTIVE_CATEGORIES } from '../../constants/lounge';
 import { formatRelativeTime } from '../../utils/anonymousNickname';
 import {
   IS_SUPABASE_READY,
@@ -455,16 +455,10 @@ function NotifSettings() {
   const [permStatus, setPermStatus] = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'default');
   const [toast,      setToast]    = useState(null);
 
-  const CATS = [
-    { id: 'interior', label: '인테리어' }, { id: 'room_deco', label: '집꾸미기' },
-    { id: 'worry', label: '고민' },        { id: 'daily', label: '생활' },
-    { id: 'chat', label: '대화해요' },      { id: 'realestate', label: '부동산' },
-    { id: 'stock', label: '주식' },        { id: 'humor', label: '유머' },
-    { id: 'pet', label: '반려동물' },       { id: 'exercise', label: '운동' },
-    { id: 'startup', label: '창업' },      { id: 'travel', label: '여행' },
-    { id: 'game', label: '게임' },         { id: 'local', label: '동네' },
-    { id: 'food', label: '맛집' },
-  ];
+  // 글쓰기 카테고리 — SSOT(LOUNGE_CATEGORIES)에서 all/popular 제외 + 비활성 카테고리 제외
+  const CATS = LOUNGE_CATEGORIES
+    .filter(c => c.id !== 'all' && c.id !== 'popular' && !LOUNGE_INACTIVE_CATEGORIES.includes(c.id))
+    .map(c => ({ id: c.id, label: c.label.replace(/^[^가-힣a-zA-Z]+\s*/, '') }));
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 

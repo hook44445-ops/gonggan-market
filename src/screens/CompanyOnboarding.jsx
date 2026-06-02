@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { C, R, S, CITY_DISTRICTS, SPECIALTIES } from "../constants";
 import { BADGES } from "../constants/badges";
 import { Divider } from "../components/common";
+import ProtectionNotice from "../components/ProtectionNotice";
 import { upsertUserByPhone, upsertCompany, uploadFile, upsertCompanyDocument } from "../lib/supabase";
 import RegionSelectSheet from "../components/RegionSelectSheet";
 import { getPrimaryRegion, regionKey } from "../constants/regions";
@@ -512,12 +513,15 @@ export default function CompanyOnboarding({ phone, onDone }) {
         })}
 
         <div style={{ background:C.surface2, borderRadius:R.lg, padding:S.md,
-          marginBottom:S.xl, marginTop:S.md }}>
-          <div style={{ fontSize:12, color:C.text3, lineHeight:1.8 }}>
-            • 배지 없이도 2,000만원 이하 직거래 가능<br/>
+          marginBottom:S.md, marginTop:S.md }}>
+          <div style={{ fontSize:14, color:C.text3, lineHeight:1.8 }}>
+            • 공간안전결제가 기본 거래 경로입니다<br/>
             • 보증금은 탈퇴 시 30일 내 환급<br/>
-            • 먹튀 발생 시 보증금으로 고객 즉시 배상
+            • 보증금은 고객 보호장치로 안전하게 보관됩니다
           </div>
+        </div>
+        <div style={{ marginBottom:S.xl }}>
+          <ProtectionNotice variant="short" />
         </div>
 
         <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.sm }}>📝 운영 서약서</div>
