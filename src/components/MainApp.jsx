@@ -754,7 +754,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     }
   }, [activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load company profile from Supabase for authenticated company users
+  // 업체: 내가 제출한 입찰을 mount 시 로드 → 새로고침해도 입찰 유지(누락 방지).
+  // (이전엔 getCompanyBids 가 호출되지 않아 입찰이 optimistic 으로만 보이고 사라졌음)
+  useEffect(() => {
+    if (activeRole !== "company" || !user?.id) return;
+    getCompanyBids(user.id).then(({ data, error }) => {
+      if (error || !data) return;
+      setSubmittedBids(data.map(normalizeBid));
+    }).catch(() => {});
+  }, [activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-creates a row if none exists yet
   useEffect(() => {
     if (activeRole !== "company" || !user?.id) return;
@@ -2443,15 +2452,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               </div>
             ) : (
-              customerRequests.filter(r => r.isActive).map(r => (
-                <BidCard
-                  key={r.id}
-                  r={r}
-                  currentUser={currentUser}
-                  onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
-                  onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
-                />
-              ))
+              customerRequests.filter(r => r.isActive).map(r => {
+                const myBid = submittedBids.find(b => b.requestId === r.id && !String(b.id).startsWith("tmp-"));
+                return (
+                  <BidCard
+                    key={r.id}
+                    r={r}
+                    currentUser={currentUser}
+                    alreadyBid={!!myBid}
+                    myBid={myBid ?? null}
+                    onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
+                    onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
+                  />
+                );
+              })
             )}
 
             {SHOW_DEBUG_UI && (
