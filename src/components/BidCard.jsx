@@ -4,8 +4,9 @@ import { MIN_BID_MANWON, isValidBidManwon } from "../utils/calculations";
 import { BADGES } from "../constants/badges";
 import { TempBadge } from "./common";
 
-export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth }) {
-  const [submitted, setSubmitted] = useState(false);
+export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, alreadyBid = false, myBid = null }) {
+  // 이미 입찰한 요청이면 새로고침 후에도 '입찰완료' 상태 유지
+  const [submitted, setSubmitted] = useState(alreadyBid);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [bidForm, setBidForm] = useState({ price:"", period:"", material:"", comment:"" });
@@ -89,14 +90,14 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth })
               </div>
               <div style={{ display:"flex", gap:S.sm, flexWrap:"wrap", marginBottom:S.sm }}>
                 <span style={{ background:C.surface, borderRadius:R.sm, padding:"4px 10px", fontSize:13, fontWeight:800, color:C.brand }}>
-                  💰 {parseInt(bidForm.price).toLocaleString()}만원
+                  💰 {parseInt(bidForm.price || myBid?.price || 0).toLocaleString()}만원
                 </span>
                 <span style={{ background:C.surface, borderRadius:R.sm, padding:"4px 10px", fontSize:13, fontWeight:700, color:C.text2 }}>
-                  📅 {bidForm.period}일
+                  📅 {bidForm.period || myBid?.period || "-"}일
                 </span>
               </div>
-              {bidForm.material && (
-                <div style={{ fontSize:12, color:C.text3, marginBottom:3 }}>🔨 {bidForm.material}</div>
+              {(bidForm.material || myBid?.material) && (
+                <div style={{ fontSize:12, color:C.text3, marginBottom:3 }}>🔨 {bidForm.material || myBid?.material}</div>
               )}
               <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>의뢰인이 검토 중입니다</div>
             </div>
