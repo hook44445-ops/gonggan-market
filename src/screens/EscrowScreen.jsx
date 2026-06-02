@@ -5,6 +5,8 @@ import { LeafSprig } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
+import ProtectionNotice from "../components/ProtectionNotice";
+import DisputeNotice from "../components/DisputeNotice";
 
 // Stage status values:
 // 'done'           — payment released
@@ -1388,6 +1390,12 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           </div>
         )}
 
+        {/* 보호/분쟁 안내 — 계약 상세 (경고 톤 금지) */}
+        <div style={{ display: "flex", flexDirection: "column", gap: S.md, marginBottom: S.lg }}>
+          <ProtectionNotice variant="short" />
+          <DisputeNotice variant="short" />
+        </div>
+
         {/* Deposit info */}
         <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>{isConsumer ? "🏦 결제 보관 안내" : "🏦 예치금 보관 안내"}</div>
@@ -1449,7 +1457,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ background: C.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 480, padding: "24px 24px 40px" }}>
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 20px" }} />
             <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6 }}>⚠️ 이의 신청</div>
-            <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6, marginBottom: S.xl }}>시공 상태가 계약 내용과 다를 경우 이의를 신청하세요.<br />공간마켓 중재팀이 검토 후 연락드립니다.</div>
+            <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6, marginBottom: S.md }}>시공 상태가 계약 내용과 다를 경우 이의를 신청하세요.<br />공간마켓 중재팀이 검토 후 연락드립니다.</div>
+            <div style={{ marginBottom: S.lg }}>
+              <DisputeNotice variant="full" />
+            </div>
             <textarea value={disputeReason} onChange={e => setDisputeReason(e.target.value)}
               placeholder="이의 사유를 입력하세요 (예: 타일 줄눈 마감이 계약서 기준 미달)"
               style={{ width: "100%", padding: S.lg, borderRadius: R.lg, border: `1px solid ${C.bgWarm}`, background: C.surface2, fontSize: 13, color: C.text1, resize: "none", height: 100, boxSizing: "border-box", marginBottom: S.xl, outline: "none", fontFamily: "inherit", lineHeight: 1.6 }} />
