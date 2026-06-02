@@ -468,13 +468,24 @@ function NotifSettings() {
     localStorage.setItem('lounge_notif_cats', JSON.stringify(next));
   };
 
+  // 인앱 브라우저(카카오/인스타/네이버 등) 감지 — 알림 API 차단 환경
+  const isInApp = (() => {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    return /KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\/|DaumApps|everytimeApp/i.test(ua);
+  })();
+  const notifUnsupported = typeof window !== 'undefined' && !('Notification' in window);
+
   const handleToggle = async () => {
     if (!enabled && permStatus !== 'granted') {
-      if (!('Notification' in window)) { showToast('이 브라우저는 알림을 지원하지 않아요'); return; }
-      if (permStatus === 'denied') { showToast('브라우저 설정에서 알림을 허용해주세요'); return; }
+      if (notifUnsupported) {
+        if (isInApp) { showToast('카카오톡·인스타 등 앱 안에서는 알림이 막혀요. 우측 상단 ⋯ → 다른 브라우저로 열어주세요'); return; }
+        showToast('이 브라우저는 알림을 지원하지 않아요'); return;
+      }
+      if (permStatus === 'denied') { showToast('브라우저 주소창의 자물쇠🔒 → 알림 → 허용으로 바꿔주세요'); return; }
       const perm = await Notification.requestPermission();
       setPermStatus(perm);
-      if (perm !== 'granted') { showToast('알림 권한이 거부됐어요'); return; }
+      if (perm !== 'granted') { showToast('알림 권한이 거부됐어요. 주소창 자물쇠🔒에서 허용으로 바꿀 수 있어요'); return; }
     }
     const next = !enabled;
     setEnabled(next);
@@ -482,19 +493,32 @@ function NotifSettings() {
     showToast(next ? '✅ 알림을 켰어요!' : '알림을 껐어요');
   };
 
+  // 권한이 막힌 상태 안내 문구(인라인 배너용)
+  const blockedHelp = notifUnsupported && isInApp
+    ? '카카오톡·인스타 등 앱 안에서는 알림을 켤 수 없어요. 우측 상단 ⋯ 메뉴 → "다른 브라우저로 열기"로 접속하면 켤 수 있어요.'
+    : permStatus === 'denied'
+    ? '브라우저에서 알림이 차단돼 있어요. 주소창의 자물쇠🔒 아이콘 → 알림 → "허용"으로 바꾸면 켤 수 있어요.'
+    : null;
+
   return (
     <div style={{ background: C.bg, borderRadius: R.lg, padding: S.lg, marginBottom: S.lg }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.md }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>📱 새 글 알림</div>
-          <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
-            {permStatus === 'denied' ? '브라우저에서 알림 차단됨' : enabled ? '선택한 카테고리 새 글 알림 중' : '알림을 켜보세요'}
+          <div style={{ fontSize: 14, color: C.text3, marginTop: 2, lineHeight: 1.8 }}>
+            {blockedHelp ? '알림이 차단돼 있어요' : enabled ? '선택한 카테고리 새 글 알림 중' : '알림을 켜보세요'}
           </div>
         </div>
         <div onClick={handleToggle} style={{ width: 48, height: 26, borderRadius: 13, background: enabled ? C.brand : C.bgWarm, cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
           <div style={{ position: 'absolute', top: 3, left: enabled ? 25 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
         </div>
       </div>
+      {blockedHelp && (
+        <div style={{ background: C.ivory ?? '#F5F0E8', border: `1px solid ${C.bgWarm}`, borderRadius: 12, padding: '12px 14px', marginBottom: S.md, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <span style={{ flexShrink: 0 }}>💡</span>
+          <span style={{ fontSize: 14, color: C.text2, lineHeight: 1.8 }}>{blockedHelp}</span>
+        </div>
+      )}
       <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: S.sm }}>관심 카테고리 선택</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {CATS.map(cat => {
