@@ -71,7 +71,12 @@ export default function PushNotificationSettings({ user }) {
     setPrefs(next);
     if (IS_SUPABASE_READY && user?.id) {
       const { push_enabled, push_local_news, push_interior_news, push_estimate_news, push_company_recommend, push_lounge_activity, push_chat, push_escrow } = next;
-      await upsertPushPreferences(user.id, { push_enabled, push_local_news, push_interior_news, push_estimate_news, push_company_recommend, push_lounge_activity, push_chat, push_escrow });
+      // 테이블 미생성(migration 미실행) 등에서도 UI가 멈추지 않도록 방어
+      try {
+        await upsertPushPreferences(user.id, { push_enabled, push_local_news, push_interior_news, push_estimate_news, push_company_recommend, push_lounge_activity, push_chat, push_escrow });
+      } catch {
+        setNote("설정 저장에 실패했어요. 잠시 후 다시 시도해주세요.");
+      }
     }
   };
 
