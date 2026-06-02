@@ -76,6 +76,33 @@ import {
 import { useCompanyList } from "../hooks/useCompanyList";
 import KakaoMap from "./KakaoMap";
 
+// ── 시/도 표기 정규화: 카카오 region_1depth("인천광역시") → 앱 city("인천") ──
+function normalizeSido(s) {
+  if (!s) return "";
+  return String(s)
+    .replace(/특별자치도$|특별자치시$|특별시$|광역시$/, "")
+    .replace(/도$/, "")
+    .trim();
+}
+
+// ── reverse geocoding: lat/lng → { sido, sigungu } (kakao.maps.services) ──
+// 버튼 클릭으로 받은 GPS 좌표 1회 변환에만 사용. 자동/반복 호출 없음.
+function reverseGeocode(lat, lng) {
+  return new Promise((resolve, reject) => {
+    const services = typeof window !== "undefined" ? window.kakao?.maps?.services : null;
+    if (!services?.Geocoder) { reject(new Error("geocoder-unavailable")); return; }
+    const geocoder = new services.Geocoder();
+    geocoder.coord2RegionCode(lng, lat, (result, status) => {
+      if (status === services.Status.OK && Array.isArray(result) && result.length) {
+        const r = result.find((x) => x.region_type === "H") ?? result[0];
+        resolve({ rawSido: r.region_1depth_name, sigungu: r.region_2depth_name });
+      } else {
+        reject(new Error("geocode-failed"));
+      }
+    });
+  });
+}
+
 // ── normalizers: DB row → local shape ─────────────────────────────────────────
 
 const normalizeCompany = (row) => ({
@@ -414,7 +441,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [activityRegions, setActivityRegions] = useState(() => getActivityRegions(user));
   const [activeRegion, setActiveRegion] = useState(() => getPrimaryRegion(getActivityRegions(user)));
   const [regionSheetOpen, setRegionSheetOpen] = useState(false);
-  const { gpsCenter, loading: gpsLoading, requestCurrentLocation, clearGps } = useGPS();
+  const { gpsCenter, gpsErrorCode, gpsTick, loading: gpsLoading, requestCurrentLocation, clearGps } = useGPS();
+  // GPS 사용 목적: 'view'(지도 이동) | 'add'(현재 위치로 지역 추가)
+  const gpsModeRef = useRef("view");
+  const [regionChooserOpen, setRegionChooserOpen] = useState(false); // + 지역 추가 선택 시트
+  const [gpsPendingRegion, setGpsPendingRegion] = useState(null);    // 저장 확인 대기 { rawSido, sido, sigungu, lat, lng }
 
   // user prop 변경(재로그인 등) 시 활동지역 재동기화
   useEffect(() => {
@@ -432,7 +463,51 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [mapLocalOnly, setMapLocalOnly] = useState(false);
 
   const onSelectRegionTab = (r) => { clearGps(); setActiveRegion(r); setMapLocalOnly(false); };
-  const onRequestMapLocation = () => { setActiveRegion(null); requestCurrentLocation(); };
+  // "현재 위치로 보기" — 버튼 클릭 시에만 GPS 1회 요청 (자동 호출 없음)
+  const onRequestMapLocation = () => { gpsModeRef.current = "view"; setActiveRegion(null); requestCurrentLocation(); };
+
+  // "+ 지역 추가" → 선택 시트 (① 현재 위치로 ② 직접 선택)
+  const openRegionChooser = () => setRegionChooserOpen(true);
+  // 시트 ① — 현재 위치로 지역 추가: GPS 1회 → reverse geocoding (effect 에서 처리)
+  const onAddRegionByGps = () => { gpsModeRef.current = "add"; setRegionChooserOpen(false); requestCurrentLocation(); };
+  // 시트 ② — 직접 지역 선택
+  const onAddRegionManual = () => { setRegionChooserOpen(false); setRegionSheetOpen(true); };
+
+  // GPS 응답 처리 — 버튼 클릭으로만 trigger 됨(gpsTick). mode 에 따라 분기.
+  useEffect(() => {
+    if (gpsTick === 0) return; // 최초 mount 무시 (자동 요청 없음)
+    if (gpsErrorCode) {
+      if (gpsErrorCode === "denied") showToast("위치 권한이 꺼져 있어요. 직접 지역을 선택해주세요.");
+      else showToast("현재 위치를 불러오지 못했어요. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    if (!gpsCenter) return;
+    if (gpsModeRef.current === "view") {
+      showToast("현재 위치로 지도를 이동했어요.");
+    } else if (gpsModeRef.current === "add") {
+      reverseGeocode(gpsCenter.lat, gpsCenter.lng)
+        .then(({ rawSido, sigungu }) => {
+          setGpsPendingRegion({ rawSido, sido: normalizeSido(rawSido), sigungu, lat: gpsCenter.lat, lng: gpsCenter.lng });
+        })
+        .catch(() => showToast("현재 위치의 지역을 확인하지 못했어요. 직접 선택해주세요."));
+    }
+  }, [gpsTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 현재 위치 지역 저장 확인 → activity_regions 에 추가 (최대 2곳)
+  const confirmSaveGpsRegion = () => {
+    const p = gpsPendingRegion;
+    if (!p) return;
+    if (activityRegions.length >= 2) {
+      showToast("활동지역은 최대 2곳까지 설정할 수 있어요.");
+      setGpsPendingRegion(null);
+      return;
+    }
+    const base = makeRegionEntry(p.sido, p.sigungu, activityRegions.length === 0);
+    const entry = { ...base, lat: p.lat, lng: p.lng, source: "gps" };
+    setGpsPendingRegion(null);
+    onSaveRegions([...activityRegions, entry]);
+    showToast("✅ 현재 위치로 활동지역이 저장됐어요");
+  };
 
   const onSaveRegions = async (entries) => {
     const primary = getPrimaryRegion(entries);
@@ -2384,7 +2459,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               regions={activityRegions}
               activeKey={activeRegion ? regionKey(activeRegion.city, activeRegion.district) : null}
               onSelect={onSelectRegionTab}
-              onAdd={() => setRegionSheetOpen(true)}
+              onAdd={openRegionChooser}
             />
             {/* ── 지역 매칭 진단 badge (개발 환경에서만 — production 미노출) ── */}
             {SHOW_DEBUG_UI && (
@@ -2490,6 +2565,49 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               maxCount={2}
               onSave={onSaveRegions}
             />
+
+            {/* "+ 지역 추가" 선택 시트 — ① 현재 위치 ② 직접 선택 */}
+            {regionChooserOpen && (
+              <div onClick={() => setRegionChooserOpen(false)}
+                style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:1000, display:"flex", alignItems:"flex-end" }}>
+                <div onClick={e => e.stopPropagation()}
+                  style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, margin:"0 auto", padding:"20px 20px 36px" }}>
+                  <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.lg }}>지역 추가</div>
+                  <button onClick={onAddRegionByGps} disabled={gpsLoading}
+                    style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, fontSize:14, fontWeight:800, color:C.brand, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
+                    📍 {gpsLoading ? "현재 위치 확인 중..." : "현재 위치로 지역 추가"}
+                  </button>
+                  <button onClick={onAddRegionManual}
+                    style={{ width:"100%", padding:S.xl, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
+                    🗺 직접 지역 선택
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 현재 위치 지역 저장 확인 */}
+            {gpsPendingRegion && (
+              <div onClick={() => setGpsPendingRegion(null)}
+                style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:1001, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+                <div onClick={e => e.stopPropagation()}
+                  style={{ background:C.surface, borderRadius:R.xl, width:"100%", maxWidth:360, padding:"24px 22px" }}>
+                  <div style={{ fontSize:30, textAlign:"center", marginBottom:10 }}>📍</div>
+                  <div style={{ fontSize:13, color:C.text3, textAlign:"center", marginBottom:4 }}>현재 위치</div>
+                  <div style={{ fontSize:17, fontWeight:800, color:C.text1, textAlign:"center", marginBottom:S.lg }}>
+                    {gpsPendingRegion.rawSido} {gpsPendingRegion.sigungu}
+                  </div>
+                  <div style={{ fontSize:13, color:C.text2, textAlign:"center", marginBottom:S.xl }}>
+                    이 지역을 내 활동지역으로 저장할까요?
+                  </div>
+                  <div style={{ display:"flex", gap:S.sm }}>
+                    <button onClick={() => setGpsPendingRegion(null)}
+                      style={{ flex:0.5, padding:S.lg, background:C.bg, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>취소</button>
+                    <button onClick={confirmSaveGpsRegion}
+                      style={{ flex:1, padding:S.lg, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>이 지역 저장하기</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
