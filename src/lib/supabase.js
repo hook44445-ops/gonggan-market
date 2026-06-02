@@ -1925,6 +1925,38 @@ export const createLoungeNotification = ({ userId, type, title, message, related
     related_type: relatedType,
     is_read:      false,
   });
+
+// ── Push Notifications (FCM tokens / preferences / queue) ────────────────────
+
+// 기기 토큰 등록(동일 토큰 upsert, 동일 유저 여러 기기 허용)
+export const upsertFcmToken = ({ userId, token, platform = "web", deviceInfo = null }) =>
+  supabase
+    .from("fcm_tokens")
+    .upsert(
+      { user_id: userId, token, platform, device_info: deviceInfo, is_active: true, updated_at: new Date().toISOString(), last_used_at: new Date().toISOString() },
+      { onConflict: "token" }
+    )
+    .select("id")
+    .maybeSingle();
+
+export const deactivateFcmToken = (token) =>
+  supabase.from("fcm_tokens").update({ is_active: false, updated_at: new Date().toISOString() }).eq("token", token);
+
+// 수신 설정 조회/저장 (유저당 1행, 기본 전체 OFF)
+export const getPushPreferences = (userId) =>
+  supabase.from("push_preferences").select("*").eq("user_id", userId).maybeSingle();
+
+export const upsertPushPreferences = (userId, prefs) =>
+  supabase
+    .from("push_preferences")
+    .upsert({ user_id: userId, ...prefs, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
+    .select("*")
+    .maybeSingle();
+
+// 라운지 글 등록 시 적격 수신자 큐잉 (SECURITY DEFINER RPC)
+export const enqueueLoungePostPush = (postId) =>
+  supabase.rpc("enqueue_lounge_post_push", { p_post_id: postId });
+
 // ── STEP SYNC-4: Lounge Chat Requests ────────────────────────────────────────
 
 export const createLoungeChat = (data) =>

@@ -6,7 +6,7 @@ import { useState, useRef } from 'react';
 import { C, R, S, REGIONS } from '../constants';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
-import { IS_SUPABASE_READY, createLoungePost, updateLoungePost, uploadLoungeImage } from '../lib/supabase';
+import { IS_SUPABASE_READY, createLoungePost, updateLoungePost, uploadLoungeImage, enqueueLoungePostPush } from '../lib/supabase';
 
 const WRITABLE_CATS = LOUNGE_CATEGORIES.filter(c => c.group !== null);
 const MAX_IMAGES    = 5;
@@ -145,6 +145,8 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         const { data, error: err } = await createLoungePost(newPost);
         setSubmitting(false);
         if (err) { setError('등록 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
+        // 적격 수신자에게 푸시 큐잉(작성자 제외·지역/카테고리 매칭·중복 방지는 RPC 내부 처리) — 실패해도 등록 흐름엔 영향 없음
+        if (!isEdit && data?.id) { try { await enqueueLoungePostPush(data.id); } catch {} }
         onPublish?.(data ?? newPost);
       } else {
         try {
