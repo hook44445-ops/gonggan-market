@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TempBadge } from "../components/common";
+import ProtectionNotice from "../components/ProtectionNotice";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest } from "../lib/supabase";
 
@@ -166,6 +167,9 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             <div><div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{selBid.company?.name ?? "—"}</div><div style={{ fontSize:13, color:C.text3 }}>{fmtMoney(selBid.price)} · {selBid.period}일</div></div>
           </div>
           <div style={{ background:C.brandL, borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`, fontSize:13, color:C.brand, fontWeight:700, textAlign:"center" }}>🎉 예약 확정 완료 · 결제 방식 선택</div>
+        </div>
+        <div style={{ marginBottom:S.md }}>
+          <ProtectionNotice variant="short" />
         </div>
         <div onClick={() => setStep("done_direct")} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.md, border:`1.5px solid ${C.bgWarm}`, cursor:"pointer" }}>
           <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:4 }}>직거래</div>
@@ -396,6 +400,11 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             ))}
           </div>
 
+          {/* 보호 범위 안내 (강제 체크박스 없음) */}
+          <div style={{ marginBottom:S.lg }}>
+            <ProtectionNotice variant="full" />
+          </div>
+
           {/* Payment method selection */}
           <div style={{ background:C.surface, borderRadius:R.xl, overflow:"hidden", marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             {PAYMENT_METHODS.map((m, idx) => {
@@ -524,9 +533,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             ))}
           </div>
         )}
-        <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, border:`1px solid ${C.brandM}` }}>
+        <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.brand }}>💡 업체 금액은 선택 전까지 서로 모릅니다</div>
           <div style={{ fontSize:12, color:C.brand, marginTop:4, opacity:0.8 }}>기록과 리뷰를 보고 안심하고 선택하세요</div>
+        </div>
+        <div style={{ marginBottom:S.xl }}>
+          <ProtectionNotice variant="short" />
         </div>
 
         {bids.length === 0 ? (
