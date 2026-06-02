@@ -24,6 +24,7 @@ import LoungeWriteScreen from "../screens/LoungeWriteScreen";
 import LoungePostDetailScreen from "../screens/LoungePostDetailScreen";
 import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
 import { buildPostPath, seoSlugToCategoryId } from "../utils/loungeSeo";
+import PushNotificationSettings from "./PushNotificationSettings";
 import TokenStoreScreen from "../screens/TokenStoreScreen";
 import TokenHistoryScreen from "../screens/TokenHistoryScreen";
 import DocumentCenterScreen from "../screens/DocumentCenterScreen";
@@ -1471,10 +1472,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     return true;
   };
 
+  // 푸시 클릭 딥링크: /requests/:id · /contracts/:id (라운지 외)
+  const applyPushDeepLink = (pathname) => {
+    const req = pathname.match(/^\/requests\/([^/]+)/);
+    if (req) { setBidViewRequestId(decodeURIComponent(req[1])); go("bidstatus"); return true; }
+    const con = pathname.match(/^\/contracts\/([^/]+)/);
+    if (con) { setContractId(decodeURIComponent(con[1])); go("escrow"); return true; }
+    return false;
+  };
+
   useEffect(() => {
-    applyLoungeRoute(window.location.pathname);
+    const route = (p) => applyLoungeRoute(p) || applyPushDeepLink(p);
+    route(window.location.pathname);
     const onPop = () => {
-      const handled = applyLoungeRoute(window.location.pathname);
+      const handled = route(window.location.pathname);
       if (!handled && screenRef.current?.startsWith?.("lounge")) setScreen("home");
     };
     window.addEventListener("popstate", onPop);
@@ -3038,6 +3049,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               </div>
             )}
+
+            {/* 푸시 알림 설정 */}
+            <PushNotificationSettings user={user} />
 
             {/* 도움말 — 에스크로/분쟁/환불 안내 (고객센터) */}
             <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
