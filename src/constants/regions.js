@@ -137,10 +137,20 @@ export function makeRegionEntry(city, district, isPrimary = false) {
   };
 }
 
+// RegionEntry 정규화 — city/district 가 비어도 sido/sigungu/label 에서 복원.
+// (저장 데이터 형태가 섞여 있어도 칩 선택/지도중심/필터가 일관 동작하도록 보장)
+export function normalizeRegionEntry(e) {
+  if (!e || typeof e !== "object") return e;
+  const fromLabel = typeof e.label === "string" ? e.label.trim().split(/\s+/) : [];
+  const city = e.city || e.sido || fromLabel[0] || "";
+  const district = e.district || e.sigungu || (fromLabel.length > 1 ? fromLabel.slice(1).join(" ") : "");
+  return { ...e, city, district };
+}
+
 // jsonb activity_regions(없으면 legacy region text) → RegionEntry[]
 export function getActivityRegions(user) {
   const arr = Array.isArray(user?.activity_regions) ? user.activity_regions : [];
-  if (arr.length) return arr;
+  if (arr.length) return arr.map(normalizeRegionEntry);
   const parsed = parseRegionText(user?.region);
   return parsed ? [makeRegionEntry(parsed.city, parsed.district, true)] : [];
 }
@@ -148,7 +158,7 @@ export function getActivityRegions(user) {
 // jsonb service_regions(없으면 legacy region text) → RegionEntry[]
 export function getServiceRegions(company) {
   const arr = Array.isArray(company?.service_regions) ? company.service_regions : [];
-  if (arr.length) return arr;
+  if (arr.length) return arr.map(normalizeRegionEntry);
   const parsed = parseRegionText(company?.region);
   return parsed ? [makeRegionEntry(parsed.city, parsed.district, true)] : [];
 }
