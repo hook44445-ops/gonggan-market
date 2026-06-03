@@ -262,7 +262,7 @@ const computeCustomerStage = (r, escrowData) => {
     };
     return {
       badge: "접수완료", badgeBg: C.bgWarm, badgeFg: C.text3,
-      label: "접수완료", sub: "업체가 견적을 검토 중입니다",
+      label: "접수완료", sub: "검증된 업체들이 견적을 검토 중입니다 · 보통 2~4시간 내 응답이 와요 ⏱️",
       action: null, cta: null,
     };
   }
@@ -298,6 +298,43 @@ const computeCustomerStage = (r, escrowData) => {
     action: "escrow", cta: "시공 진행 확인하기",
   };
 };
+
+// ── 진행감(Progress) 계산 — 에스크로 단계 기준 ──────────────────────────
+// 진행률: 착공완료 25 → 중간완료 50 → 마감완료 75 → 최종완료 100
+// (계약 직후/예치만 된 상태는 시작 전 0%)
+// 반환: { percent, stepNo, totalSteps, nextActionText, isWaiting } | null
+function computeProgress(r, escrowData) {
+  const escrow = escrowData?.escrow ?? null;
+  if (!escrow) return null;
+  const payouts = escrowData?.payouts ?? [];
+  const tx = escrow.transaction_status ?? "CONTRACTED";
+  const approved = (stage) => payouts.find(p => p.stage === stage)?.status === "APPROVED";
+
+  // 단계 라벨/번호(전체 4단계: 착공·중간·마감·완료확인)
+  let percent = 0, stepNo = 1, nextActionText = "", isWaiting = false;
+
+  if (tx === "SETTLED" || approved(4)) {
+    percent = 100; stepNo = 4;
+    nextActionText = "모든 공사가 완료됐어요 · 후기를 남겨주세요";
+  } else if (tx === "COMPLETED") {
+    percent = 75; stepNo = 4; isWaiting = true;
+    nextActionText = "완료 사진 확인 후 잔금 30%가 업체에 지급됩니다";
+  } else if (tx === "MID_INSPECTION") {
+    percent = 50; stepNo = 3; isWaiting = true;
+    nextActionText = "중간 검수 확인 후 40%가 업체에 지급됩니다";
+  } else if (tx === "STARTED") {
+    percent = approved(2) ? 25 : 25; stepNo = 2; isWaiting = !approved(2);
+    nextActionText = approved(2)
+      ? "다음은 중간 검수 단계입니다"
+      : "착공 사진 확인 후 20%가 업체에 지급됩니다";
+  } else {
+    // CONTRACTED/예치 등 — 착공 전
+    percent = 0; stepNo = 1; isWaiting = true;
+    nextActionText = "업체가 착공을 준비하고 있습니다";
+  }
+
+  return { percent, stepNo, totalSteps: 4, nextActionText, isWaiting };
+}
 
 // ── 의뢰인 상태 배지 — 단일 소스(SSOT) ──────────────────────────────
 // 홈 / 마이 / 견적 이력 모두 이 함수로 라벨·색을 도출해 상태가 100% 일치하게 한다.
@@ -667,6 +704,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [companyJobs, setCompanyJobs] = useState([]);
   const [companyJobsDebug, setCompanyJobsDebug] = useState(null);
   const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
+  const prevTxStatusRef = useRef({}); // { [requestId]: transaction_status } — 단계 전환 토스트용
   const [escrowRefreshTrigger, setEscrowRefreshTrigger] = useState(0);
   const [topReviews, setTopReviews] = useState([]);
   const [hidingId, setHidingId] = useState(null);     // requestId currently being hidden
@@ -1058,6 +1096,25 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       }).catch(() => {});
     });
   }, [myRequests, escrowRefreshTrigger, activeRole]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 단계 전환 안내 토스트 — 에스크로 transaction_status 가 바뀌면 1회 표시.
+  // (최초 로드는 baseline 으로 기록만 하고 토스트는 띄우지 않음)
+  useEffect(() => {
+    if (activeRole !== "consumer") return;
+    const MSG = {
+      STARTED:        "🎉 착공이 시작됐습니다 · 30%가 업체에 안전하게 지급됐어요. 다음 정산은 중간 완료 후입니다",
+      MID_INSPECTION: "✅ 중간 단계가 확인됐습니다 · 40%가 업체에 지급됐어요. 이제 마무리 단계입니다",
+      COMPLETED:      "🛠 마무리 단계입니다 · 완료 사진 확인 후 잔금이 지급됩니다",
+      SETTLED:        "🎉 모든 공사가 완료됐습니다 · 총 거래가 안전하게 마무리됐어요. 후기를 남겨주세요",
+    };
+    Object.entries(myRequestsEscrow).forEach(([rid, ed]) => {
+      const tx = ed?.escrow?.transaction_status;
+      if (!tx) return;
+      const prev = prevTxStatusRef.current[rid];
+      if (prev !== undefined && prev !== tx && MSG[tx]) showToast(MSG[tx]);
+      prevTxStatusRef.current[rid] = tx;
+    });
+  }, [myRequestsEscrow, activeRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load recent lounge posts for home preview (consumer home section)
   useEffect(() => {
@@ -1655,6 +1712,43 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {/* 의뢰인 홈 */}
         {screen==="home" && mode==="consumer" && (
           <div>
+            {/* ── 진행감 카드 — 진행 중인 계약(에스크로)이 있을 때만 최상단 노출 ── */}
+            {(() => {
+              const progRow = myRequests.find(r => {
+                const ed = myRequestsEscrow[r.id] ?? null;
+                return ed?.escrow && !isRequestSettled(r, ed);
+              });
+              if (!progRow) return null;
+              const ed = myRequestsEscrow[progRow.id] ?? null;
+              const prog = computeProgress(progRow, ed);
+              if (!prog) return null;
+              const title = `${progRow.area || ""} ${progRow.type || "시공"}`.trim();
+              return (
+                <div style={{ background:C.ivory, borderRadius:R.xl, padding:S.xxl, marginBottom:S.lg,
+                  border:`1px solid ${C.brandM}`, boxShadow:SHADOW.card }}>
+                  <div style={{ fontSize:14, fontWeight:800, color:C.brandD, marginBottom:6, lineHeight:1.8 }}>
+                    🏗️ 현재 시공 진행 중
+                  </div>
+                  <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md, lineHeight:1.8 }}>{title}</div>
+                  {/* 진행바 */}
+                  <div style={{ height:10, borderRadius:R.full, background:C.bgWarm, overflow:"hidden", marginBottom:6 }}>
+                    <div style={{ width:`${prog.percent}%`, height:"100%", background:C.brandD, borderRadius:R.full, transition:"width 0.4s ease" }} />
+                  </div>
+                  <div style={{ fontSize:14, color:C.text2, lineHeight:1.8, marginBottom:S.md }}>
+                    {prog.stepNo}단계 / 전체 {prog.totalSteps}단계 · <b style={{ color:C.brandD }}>{prog.percent}%</b>
+                  </div>
+                  <div style={{ fontSize:14, color:C.text2, lineHeight:1.8, marginBottom:S.lg }}>
+                    다음: {prog.nextActionText}
+                  </div>
+                  <button onClick={() => { setBidViewRequestId(progRow.id); go("escrow"); }}
+                    style={{ background:C.brandD, color:"#fff", border:"none", borderRadius:R.full,
+                      padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer" }}>
+                    계약 확인 →
+                  </button>
+                </div>
+              );
+            })()}
+
             <div style={{ background:`linear-gradient(145deg,${C.ivory} 0%,${C.brandL} 55%,${C.bgWarm} 100%)`,
               borderRadius:R.xl, padding:S.xxl, marginBottom:S.lg,
               border:`1px solid ${C.brandM}`,

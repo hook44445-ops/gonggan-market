@@ -792,6 +792,15 @@ export const updateTransactionStatus = async (paymentId, transactionStatus) =>
     .select("id, transaction_status")
     .single();
 
+// 예상 완공일 — 업체가 계약 진행 화면에서 입력 (migration 015)
+export const updateEscrowExpectedEndDate = async (paymentId, expectedEndDate) =>
+  supabase
+    .from("escrow_payments")
+    .update({ expected_end_date: expectedEndDate })
+    .eq("id", paymentId)
+    .select("id, expected_end_date")
+    .single();
+
 export const getContractByTransactionStatus = (transactionStatus) =>
   supabase
     .from("escrow_payments")
