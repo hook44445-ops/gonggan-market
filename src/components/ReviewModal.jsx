@@ -96,6 +96,10 @@ export default function ReviewModal({
   const [hover,        setHover]        = useState(0);
   const [content,      setContent]      = useState("");
   const [tags,         setTags]         = useState([]);
+  // 구조화 후기 — 항목별 점수 + 재계약 의향
+  const [scores,       setScores]       = useState({ budget:0, schedule:0, communication:0, quality:0 });
+  const [recontract,   setRecontract]   = useState(null);
+  const setScore = (k, v) => setScores(s => ({ ...s, [k]: v }));
   const [beforePhotos, setBeforePhotos] = useState([]); // { id, file, preview }
   const [afterPhotos,  setAfterPhotos]  = useState([]); // { id, file, preview }
   const [uploading,    setUploading]    = useState(false);
@@ -177,6 +181,11 @@ export default function ReviewModal({
         beforeImageUrls: beforeUrls,
         afterImageUrls:  afterUrls,
         imageUrls:       [...beforeUrls, ...afterUrls],
+        budgetScore:        scores.budget || null,
+        scheduleScore:      scores.schedule || null,
+        communicationScore: scores.communication || null,
+        qualityScore:       scores.quality || null,
+        wouldRecontract:    recontract,
       });
       setStep(3);
     } catch (e) {
@@ -261,6 +270,34 @@ export default function ReviewModal({
                 {tags.includes(t) ? "✓ " : ""}{t}
               </button>
             ))}
+          </div>
+
+          {/* 세부 평가 — 항목별 점수(선택) */}
+          <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>세부 평가 (선택)</div>
+          <div style={{ background:C.surface2, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
+            {[["budget","예산 준수"],["schedule","일정 준수"],["communication","소통 만족도"],["quality","마감 품질"]].map(([k,label]) => (
+              <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                <span style={{ fontSize:13, color:C.text2, fontWeight:600 }}>{label}</span>
+                <div style={{ display:"flex", gap:3 }}>
+                  {[1,2,3,4,5].map(s => (
+                    <span key={s} onClick={() => setScore(k, s)}
+                      style={{ fontSize:20, cursor:"pointer", color: s <= scores[k] ? C.gold : "#E8E4DC" }}>★</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10, paddingTop:10, borderTop:`1px solid ${C.bgWarm}` }}>
+              <span style={{ fontSize:13, color:C.text2, fontWeight:600 }}>재계약 의향</span>
+              <div style={{ display:"flex", gap:6 }}>
+                {[[true,"예"],[false,"아니오"]].map(([v,label]) => (
+                  <button key={label} onClick={() => setRecontract(v)}
+                    style={{ padding:"5px 14px", borderRadius:R.full, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                      border:"none", background: recontract === v ? C.brand : C.bgWarm, color: recontract === v ? "#fff" : C.text2 }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>후기 내용</div>

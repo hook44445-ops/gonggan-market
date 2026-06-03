@@ -10,7 +10,7 @@ import { resolveMapCenter } from "../hooks/useMapCenter";
 import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegionId, regionKey, makeRegionEntry } from "../constants/regions";
 import { getMatchedCompaniesWithTier } from "../utils/regionMatching";
 import { isJunkText } from "../utils/dataHygiene";
-import { updateUserActivityRegions } from "../lib/supabase";
+import { updateUserActivityRegions, getSavedCompanyIds, getSavedCompanies, saveCompany, unsaveCompany, getCustomerTrust } from "../lib/supabase";
 import CompanyCard from "./CompanyCard";
 import PortfolioScreen from "../screens/PortfolioScreen";
 import ReviewScreen from "../screens/ReviewScreen";
@@ -1242,6 +1242,39 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   const { companies } = useCompanyList();
 
+  // 관심 업체(위시리스트)
+  const [savedCompanyIds, setSavedCompanyIds] = useState([]);
+  const [savedCompanies, setSavedCompanies] = useState([]);
+  useEffect(() => {
+    if (activeRole === "consumer" && user?.id) {
+      getSavedCompanyIds(user.id).then(setSavedCompanyIds).catch(() => {});
+    }
+  }, [activeRole, user?.id]);
+  const toggleSaveCompany = async (company) => {
+    if (!user?.id || !company?.id) return;
+    const isSaved = savedCompanyIds.includes(company.id);
+    // optimistic
+    setSavedCompanyIds(prev => isSaved ? prev.filter(id => id !== company.id) : [...prev, company.id]);
+    try {
+      if (isSaved) await unsaveCompany(user.id, company.id);
+      else await saveCompany(user.id, company.id);
+    } catch { /* 실패 시 다음 로드에서 동기화 */ }
+  };
+  useEffect(() => {
+    if (activeRole !== "consumer" || !user?.id) { setSavedCompanies([]); return; }
+    getSavedCompanies(user.id).then(({ data }) => {
+      setSavedCompanies((data ?? []).map(r => r.companies).filter(Boolean).map(normalizeCompany));
+    }).catch(() => {});
+  }, [activeRole, user?.id, savedCompanyIds.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 고객 신뢰도 지수 (업체들이 남긴 평가 평균)
+  const [customerTrust, setCustomerTrust] = useState(null);
+  useEffect(() => {
+    if (activeRole === "consumer" && user?.id) {
+      getCustomerTrust(user.id).then(setCustomerTrust).catch(() => {});
+    }
+  }, [activeRole, user?.id]);
+
   // 업체 목록 정렬 — 추천순(공간온도+후기) / 후기많은순 / 응답빠른순 / 최근활동순
   const [companySort, setCompanySort] = useState("recommend");
   const sortedCompanies = useMemo(() => {
@@ -2263,7 +2296,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               })}
             </div>
 
-            {sortedCompanies.map(c => <CompanyCard key={c.id} company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />)}
+            {sortedCompanies.map(c => <CompanyCard key={c.id} company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} saved={savedCompanyIds.includes(c.id)} onToggleSave={user?.id ? toggleSaveCompany : null} />)}
 
             {/* 라운지 섹션 — 둘러보기 하단 */}
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.xl, border:`1px solid ${C.bgWarm}` }}>
@@ -3144,6 +3177,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     </div>
                   ))}
                 </div>
+                {activeRole === "consumer" && customerTrust?.score != null && (
+                  <div style={{ background:C.brandL, borderRadius:R.lg, padding:`${S.sm}px ${S.lg}px`, marginBottom:S.lg,
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:8, border:`1px solid ${C.brandM}` }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:C.brand }}>🤝 신뢰도 지수</span>
+                    <span style={{ fontSize:15, fontWeight:900, color:C.brand }}>{customerTrust.score.toFixed(1)}</span>
+                    <span style={{ fontSize:11, color:C.text3 }}>업체 평가 {customerTrust.count}건</span>
+                  </div>
+                )}
                 <div style={{ fontSize:11, color:C.text4, marginBottom:S.lg }}>
                   사람과 공간 사이, 신뢰가 쌓이는 기록
                 </div>
@@ -3152,6 +3193,28 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   padding:"11px 28px", fontWeight:600, fontSize:14, cursor:"pointer" }}>로그아웃</button>
               </div>
             </div>
+
+            {/* 저장한 업체 (위시리스트) — 고객 전용 */}
+            {activeRole === "consumer" && (
+              <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.lg, border:`1px solid ${C.bgWarm}` }}>
+                <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}>
+                  ♥ 저장한 업체
+                  <span style={{ fontSize:13, fontWeight:600, color:C.brand }}>{savedCompanies.length}</span>
+                </div>
+                {savedCompanies.length === 0 ? (
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.6, textAlign:"center", padding:"16px 0" }}>
+                    관심 있는 업체를 ♥ 로 저장해보세요
+                  </div>
+                ) : (
+                  savedCompanies.map(c => (
+                    <CompanyCard key={c.id} company={c} isLoggedIn={!!user?.id}
+                      onClick={() => go("portfolio", c)}
+                      saved={savedCompanyIds.includes(c.id)}
+                      onToggleSave={toggleSaveCompany} />
+                  ))
+                )}
+              </div>
+            )}
 
             {activeRole === "company" && user.isEarlyPartner && user.earlyPartnerBenefitUntil && (
               <div style={{ background: C.brandL, borderRadius: R.xl, padding: S.xl, marginTop: S.lg, border: `1px solid ${C.brandM}` }}>

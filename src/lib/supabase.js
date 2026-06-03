@@ -308,8 +308,112 @@ export const getReviews = (companyId) =>
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
 
-export const createReview = (data) =>
-  supabase.from("reviews").insert(data).select().single();
+// Part2 확장 컬럼 — 마이그레이션 017 미적용 환경에서도 후기 저장이 깨지지 않도록
+// (컬럼 없으면 해당 필드만 제거하고 재시도)
+const REVIEW_EXT_FIELDS = [
+  "reviewer_role", "target_role", "target_user_id", "contract_compliance",
+  "response_score", "dispute_history", "budget_score", "schedule_score",
+  "communication_score", "quality_score", "would_recontract", "review_photos",
+];
+
+export const createReview = async (data) => {
+  let res = await supabase.from("reviews").insert(data).select().single();
+  if (res.error && /column|schema cache|does not exist|PGRST204|42703/i.test(res.error.message ?? res.error.code ?? "")) {
+    const base = { ...data };
+    for (const f of REVIEW_EXT_FIELDS) delete base[f];
+    res = await supabase.from("reviews").insert(base).select().single();
+  }
+  return res;
+};
+
+// 업체 → 고객 신뢰평가 (계약이행도/응답성/분쟁이력)
+export const createCustomerEvaluation = ({ companyId, customerId, requestId = null, contractId = null, contractCompliance, responseScore, disputeHistory = false, content = "" }) =>
+  createReview({
+    company_id: companyId,
+    user_id: companyId,           // 작성자(업체 소유자 auth id)
+    customer_id: customerId,
+    target_user_id: customerId,
+    request_id: requestId,
+    contract_id: contractId,
+    reviewer_role: "company",
+    target_role: "customer",
+    contract_compliance: contractCompliance,
+    response_score: responseScore,
+    dispute_history: !!disputeHistory,
+    rating: Math.round(((contractCompliance ?? 0) + (responseScore ?? 0)) / 2) || 5,
+    content: content || "업체가 작성한 고객 신뢰평가",
+    status: "published",
+  });
+
+// 고객 신뢰도 지수 — 업체들이 남긴 평가 평균 (계약이행도/응답성)
+export const getCustomerTrust = async (customerId) => {
+  if (!customerId) return { count: 0, compliance: null, response: null, score: null, disputes: 0 };
+  const { data } = await supabase
+    .from("reviews")
+    .select("contract_compliance, response_score, dispute_history")
+    .eq("target_user_id", customerId)
+    .eq("target_role", "customer");
+  const rows = data ?? [];
+  if (!rows.length) return { count: 0, compliance: null, response: null, score: null, disputes: 0 };
+  const avg = (k) => {
+    const vals = rows.map(r => r[k]).filter(v => typeof v === "number");
+    return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+  };
+  const compliance = avg("contract_compliance");
+  const response = avg("response_score");
+  const both = [compliance, response].filter(v => v != null);
+  return {
+    count: rows.length,
+    compliance,
+    response,
+    score: both.length ? both.reduce((s, v) => s + v, 0) / both.length : null,
+    disputes: rows.filter(r => r.dispute_history).length,
+  };
+};
+
+// 업체 항목별 후기 평균 (예산/일정/소통/마감)
+export const getCompanyReviewScores = async (companyId) => {
+  if (!companyId) return null;
+  const { data } = await supabase
+    .from("reviews")
+    .select("budget_score, schedule_score, communication_score, quality_score, would_recontract")
+    .eq("company_id", companyId)
+    .or("target_role.is.null,target_role.eq.company");
+  const rows = data ?? [];
+  if (!rows.length) return null;
+  const avg = (k) => {
+    const vals = rows.map(r => r[k]).filter(v => typeof v === "number");
+    return vals.length ? Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10 : null;
+  };
+  const recontractVals = rows.map(r => r.would_recontract).filter(v => typeof v === "boolean");
+  return {
+    budget: avg("budget_score"),
+    schedule: avg("schedule_score"),
+    communication: avg("communication_score"),
+    quality: avg("quality_score"),
+    recontractRate: recontractVals.length ? Math.round(recontractVals.filter(Boolean).length / recontractVals.length * 100) : null,
+  };
+};
+
+// ── 관심 업체(위시리스트) ─────────────────────────────────────────────────────
+export const getSavedCompanies = (customerId) =>
+  supabase
+    .from("saved_companies")
+    .select("company_id, created_at, companies(*)")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
+
+export const getSavedCompanyIds = async (customerId) => {
+  if (!customerId) return [];
+  const { data } = await supabase.from("saved_companies").select("company_id").eq("customer_id", customerId);
+  return (data ?? []).map(r => r.company_id);
+};
+
+export const saveCompany = (customerId, companyId) =>
+  supabase.from("saved_companies").insert({ customer_id: customerId, company_id: companyId }).select().maybeSingle();
+
+export const unsaveCompany = (customerId, companyId) =>
+  supabase.from("saved_companies").delete().eq("customer_id", customerId).eq("company_id", companyId);
 
 export const replyToReview = (reviewId, reply) =>
   supabase.from("reviews").update({ reply }).eq("id", reviewId);
