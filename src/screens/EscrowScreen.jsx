@@ -3,7 +3,7 @@ import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { LeafSprig } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
@@ -301,6 +301,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
   // DB-loaded contract state
   const [contractData, setContractData] = useState(null);
+  const [expectedEndInput, setExpectedEndInput] = useState(""); // 업체 예상 완공일 입력
+  const [expectedEndSaving, setExpectedEndSaving] = useState(false);
   const [dbPayoutMap, setDbPayoutMap] = useState({});  // { [stage]: payout row }
   const [dbPhotos, setDbPhotos]     = useState({});    // { [dbStep]: string[] }
   const [dbLoaded, setDbLoaded]     = useState(false);
@@ -1105,6 +1107,47 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             {bidAmount > 0 && <span>보관 중 {fmtMoney(Math.round(bidAmount * (100 - paid) / 100))}</span>}
           </div>
         </div>
+
+        {/* 예상 완공일 — 표시(공통) + 입력(업체) */}
+        {(() => {
+          const dateStr = contractData?.expected_end_date ?? null;
+          const fmtDate = (d) => {
+            const dt = new Date(d);
+            if (!Number.isFinite(dt.getTime())) return null;
+            return `${dt.getFullYear()}년 ${dt.getMonth() + 1}월 ${dt.getDate()}일`;
+          };
+          const saveExpectedEnd = async () => {
+            if (!resolvedContractId || !expectedEndInput) return;
+            setExpectedEndSaving(true);
+            const { data } = await updateEscrowExpectedEndDate(resolvedContractId, expectedEndInput);
+            setExpectedEndSaving(false);
+            if (data) { setContractData(prev => prev ? { ...prev, expected_end_date: data.expected_end_date } : prev); }
+          };
+          if (dateStr) {
+            return (
+              <div style={{ background: C.ivory, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, lineHeight: 1.8 }}>📅 예상 완공일</div>
+                <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.8 }}>{fmtDate(dateStr) ?? dateStr}</div>
+              </div>
+            );
+          }
+          if (!isConsumer && resolvedContractId) {
+            return (
+              <div style={{ background: C.ivory, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.sm, lineHeight: 1.8 }}>📅 예상 완공일 입력</div>
+                <div style={{ display: "flex", gap: S.sm }}>
+                  <input type="date" value={expectedEndInput} onChange={e => setExpectedEndInput(e.target.value)}
+                    style={{ flex: 1, padding: "11px 14px", borderRadius: R.lg, border: `1px solid ${C.bgWarm}`, fontSize: 14, color: C.text1, background: C.surface, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={saveExpectedEnd} disabled={!expectedEndInput || expectedEndSaving}
+                    style={{ padding: "11px 18px", borderRadius: R.lg, border: "none", background: expectedEndInput ? C.brandD : C.bgWarm, color: expectedEndInput ? "#fff" : C.text4, fontWeight: 800, fontSize: 14, cursor: expectedEndInput ? "pointer" : "not-allowed" }}>
+                    {expectedEndSaving ? "저장 중" : "저장"}
+                  </button>
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         {/* Stage steps */}
         <div style={{ position:"relative", background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}`, overflow:"hidden" }}>
