@@ -44,6 +44,12 @@ export default function LoungePostCard({ post, onClick }) {
             fontSize: 10, fontWeight: 600,
           }}>운영</span>
         )}
+        {post.is_expert && (
+          <span style={{
+            background: '#C4A96A22', color: '#8A6D2A', border: '1px solid #C4A96A',
+            borderRadius: R.full, padding: '2px 7px', fontSize: 10, fontWeight: 700,
+          }}>전문가</span>
+        )}
         {post.region    && <span style={{ fontSize: 11, color: C.text4 }}>· {post.region}</span>}
         {post.age_group && <span style={{ fontSize: 11, color: C.text4 }}>· {post.age_group}</span>}
         <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>

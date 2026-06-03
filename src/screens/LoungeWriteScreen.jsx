@@ -130,6 +130,9 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         comment_count:      0,
         created_at:         new Date().toISOString(),
         has_badge:          !!(user?.badge && user.badge !== 'basic'),
+        // 전문가(업체) 글 — 프로필 카드 자동 연결 + 상단 노출 우선
+        is_expert:          (user?.role === 'company' || user?.activeRole === 'company'),
+        expert_company_name: (user?.role === 'company' || user?.activeRole === 'company') ? (user?.companyName ?? user?.name ?? null) : null,
       };
 
       if (useSupabase) {
