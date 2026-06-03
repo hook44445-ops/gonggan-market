@@ -40,6 +40,12 @@ export default function RegionSelectorBar({ regions = [], activeKey, onSelect })
           </button>
         );
       })}
+      {/* 지역 추가/둘러보기 진입 — 칩 탭은 즉시 지역 전환이므로 별도 진입점 제공 */}
+      <button onClick={() => onSelect?.(null)}
+        style={{ flexShrink:0, padding:"7px 12px", borderRadius:R.full, cursor:"pointer",
+          border:`1px dashed ${C.brandM}`, background:C.brandL, color:C.brand, fontSize:13, fontWeight:800 }}>
+        + 지역
+      </button>
     </div>
   );
 }
