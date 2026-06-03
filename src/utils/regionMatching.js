@@ -98,18 +98,6 @@ export function getMatchedCompaniesWithTier(companies, user, activeFilter = null
 
   // 진단 로그 — tier 1/2/3/4 중 어디로 떨어지는지
   const log = (tier, isFallback, reason) => {
-    // eslint-disable-next-line no-console
-    console.log("[RegionMatch]", {
-      customer_regions: customerRegions.map((r) => entryKey(r) || r?.city).filter(Boolean),
-      company_regions_count: companiesWithRegion,
-      company_total: list.length,
-      intersection: localMatches.map((c) => c.id),
-      matched: tier === "exact" || tier === "legacy" ? localMatches.length
-        : tier === "city" ? "(city-expanded)" : tier === "all" ? list.length : 0,
-      tier,
-      isFallback,
-      fallback_reason: reason,
-    });
   };
 
   if (localMatches.length > 0) {

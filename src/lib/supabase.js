@@ -49,8 +49,6 @@ export const updateUserActivityRegions = async (id, activityRegions, regionText,
     ...(regionText ? { region: regionText } : {}),
   };
   const res = await supabase.from("users").update(full).eq("id", id).select().maybeSingle();
-  // eslint-disable-next-line no-console
-  console.log("[RegionSave]", { table: "users", field: "activity_regions", payload: full, error: res.error?.code ?? null, message: res.error?.message ?? null });
   if (res.error) {
     // eslint-disable-next-line no-console
     console.warn("[region] users.activity_regions 저장 실패 → region text fallback:", res.error?.message);
@@ -71,8 +69,6 @@ async function refetchRegionDebug(table, id) {
       ? "id, region, activity_regions, default_activity_region_id"
       : "id, region, service_regions, default_service_region_id";
     const { data, error } = await supabase.from(table).select(cols).eq("id", id).maybeSingle();
-    // eslint-disable-next-line no-console
-    console.log("[RegionRefetch]", { table, error: error?.message ?? null, row: data ?? null });
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn("[RegionRefetch] failed", e?.message);
@@ -105,8 +101,6 @@ export const updateCompanyServiceRegions = async (id, serviceRegions, regionText
     ...(regionText ? { region: regionText } : {}),
   };
   const res = await supabase.from("companies").update(full).eq("id", id).select().maybeSingle();
-  // eslint-disable-next-line no-console
-  console.log("[RegionSave]", { table: "companies", field: "service_regions", payload: full, error: res.error?.code ?? null, message: res.error?.message ?? null });
   if (res.error) {
     // eslint-disable-next-line no-console
     console.warn("[region] companies.service_regions 저장 실패 → region text fallback:", res.error?.message);

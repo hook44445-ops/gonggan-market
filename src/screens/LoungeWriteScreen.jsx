@@ -91,15 +91,6 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
       if (useSupabase) {
         const { data, error: err } = await updateLoungePost(editPost.id, user.id, updates);
         if (import.meta.env.DEV) {
-          console.log('[DEV] lounge update', {
-            currentUserId: user?.id,
-            postUserId: editPost?.user_id,
-            isOwner: editPost?.user_id === user?.id,
-            postId: editPost?.id,
-            update_ok: !err,
-            update_err: err?.message ?? null,
-            affected_rows: data ? 1 : 0,
-          });
         }
         setSubmitting(false);
         if (err) { setError('수정에 실패했습니다. RLS 정책을 확인하세요 (005_lounge_owner_update.sql 실행 필요)'); return; }
