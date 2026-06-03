@@ -420,6 +420,15 @@ export const getReviewByContract = (contractId) =>
     .eq("contract_id", contractId)
     .maybeSingle();
 
+// 의뢰(request) 단위 후기 존재 여부 — 후기 요청 알림 중복 방지용
+export const getReviewByRequest = (requestId) =>
+  supabase
+    .from("reviews")
+    .select("id")
+    .eq("request_id", requestId)
+    .limit(1)
+    .maybeSingle();
+
 export const createReviewReward = (data) =>
   supabase.from("review_rewards").insert(data).select().single();
 

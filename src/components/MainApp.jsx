@@ -43,6 +43,7 @@ import { useSpaceToken } from "../hooks/useSpaceToken";
 import { useSpaceTemperature } from "../hooks/useSpaceTemperature";
 import {
   supabase,
+  IS_SUPABASE_READY,
   getRequests,
   getUserRequests,
   createRequest,
@@ -76,8 +77,11 @@ import {
   getSeedReviews,
   requestMockIdentityVerification,
   updateCompanyServiceRegions,
+  getNotifications,
+  getReviewByRequest,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
+import { sendTieredNotification } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
 
 // ── 시/도 표기 정규화: 카카오 region_1depth("인천광역시") → 앱 city("인천") ──
@@ -1117,6 +1121,74 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     });
   }, [myRequestsEscrow, activeRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── 진행 알림 자동화(1단계) + 후기 요청 알림(2단계) ───────────────────────
+  // 에스크로 단계가 바뀌면 알림 탭에 히스토리로 영구 기록(토스트는 일회성).
+  // dedupe(type+related_id)로 새로고침/재방문해도 중복 생성되지 않음.
+  useEffect(() => {
+    if (activeRole !== "consumer" || !user?.id || user.isGuest || !IS_SUPABASE_READY) return;
+    const entries = Object.entries(myRequestsEscrow);
+    if (entries.length === 0) return;
+
+    // 단계 → 알림 정의 (진행 알림: 즉시·무제한)
+    const STAGE_NOTIF = {
+      CONTRACTED:     { type: "CONTRACT_CREATED",     title: "계약 생성", message: "계약서가 생성됐습니다 📄 내용을 확인해보세요" },
+      STARTED:        { type: "CONSTRUCTION_STARTED", title: "착공 시작", message: "착공이 시작됐어요 🏗️ 30%가 업체에 안전하게 지급됐습니다" },
+      MID_INSPECTION: { type: "ESCROW_MID_CHECK",     title: "중간 점검", message: "중간 단계가 확인됐어요 · 40%가 안전하게 지급됐습니다" },
+      COMPLETED:      { type: "CONSTRUCTION_DONE",    title: "공사 완료", message: "공사가 완료됐습니다 🎉 완료 확인 후 잔금이 지급됩니다" },
+      SETTLED:        { type: "SETTLEMENT_DONE",      title: "정산 완료", message: "최종 정산이 완료됐어요 🎉 거래가 안전하게 마무리됐습니다" },
+    };
+
+    let cancelled = false;
+    (async () => {
+      const { data: existing } = await getNotifications(user.id);
+      if (cancelled) return;
+      const notifs = existing ?? [];
+
+      for (const [rid, ed] of entries) {
+        const esc = ed?.escrow;
+        const tx  = esc?.transaction_status;
+        if (!tx) continue;
+        const req = myRequests.find(r => r.id === rid) ?? null;
+
+        // (1) 현재 단계 진행 알림 — dedupe 로 단계당 1회만
+        const stage = STAGE_NOTIF[tx];
+        if (stage) {
+          await sendTieredNotification({
+            userId: user.id, type: stage.type, title: stage.title, message: stage.message,
+            relatedId: rid, relatedType: "escrow", existing: notifs, dedupe: true,
+          });
+        }
+
+        // (2) 후기 요청 알림 — 완료 24h 후 1회 + 48h 후 미작성 시 1회(최대 2회)
+        if (tx === "COMPLETED" || tx === "SETTLED") {
+          const doneAt = esc.step4_approved_at || esc.updated_at || esc.created_at;
+          const hours  = doneAt ? (Date.now() - new Date(doneAt).getTime()) / 3600000 : 0;
+          if (hours >= 24) {
+            const { data: review } = await getReviewByRequest(rid);
+            if (!review) {
+              const label = [req?.area, req?.type].filter(Boolean).join(" ") || "이번 시공";
+              const hasFirst = notifs.some(n => n.type === "REVIEW_REQUEST" && n.related_id === rid);
+              if (!hasFirst) {
+                await sendTieredNotification({
+                  userId: user.id, type: "REVIEW_REQUEST", title: "후기를 남겨주세요",
+                  message: `${label} 어떠셨나요? 후기를 남겨주시면 업체에게 큰 힘이 됩니다 ⭐`,
+                  relatedId: rid, relatedType: "escrow", existing: notifs, dedupe: true,
+                });
+              } else if (hours >= 48) {
+                await sendTieredNotification({
+                  userId: user.id, type: "REVIEW_REQUEST_FOLLOWUP", title: "후기를 남겨주세요",
+                  message: "아직 후기를 남기지 않으셨어요. 1분이면 작성 가능합니다 ⭐",
+                  relatedId: rid, relatedType: "escrow", existing: notifs, dedupe: true,
+                });
+              }
+            }
+          }
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [myRequestsEscrow, activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load recent lounge posts for home preview (consumer home section)
   useEffect(() => {
     getLoungePosts("all", 3).then(({ data }) => {
@@ -1509,6 +1581,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
     let okFlag = false;
     let didInsert = false;
+    let bidCountAfter = 0;
     try {
       // 한 업체당 1입찰 정책 — DB에서 이 업체의 기존 입찰을 확인(로컬 state 누락/새로고침 대비).
       // 이미 입찰했으면 새로 만들지 않고 수정(update)한다.
@@ -1592,6 +1665,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         );
         // Post-insert verification: confirm bid is in DB with correct request_id
         const { data: verifyData } = await getBidsForRequest(request.id);
+        bidCountAfter = verifyData?.length ?? 0;
         setBidDebug({
           payload_company_id: bidCompanyId,
           expected_fk_target: "users.id",
@@ -1608,6 +1682,23 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     }
 
     if (!okFlag || !didInsert) return; // 수정이거나 실패면 신규 입찰 알림 생략
+
+    // ── 진행 알림(1단계): 의뢰인에게 "견적 도착" 알림 ──
+    // 견적 요청 주인(consumer)에게 즉시 알림. 진행 알림이라 야간/한도 제한 없음.
+    if (request.user_id && request.user_id !== bidCompanyId) {
+      const n = bidCountAfter || 1;
+      const allIn = n >= 3;
+      sendTieredNotification({
+        userId:      request.user_id,
+        type:        allIn ? "BID_ALL_IN" : "BID_RECEIVED",
+        title:       "견적 도착",
+        message:     allIn
+          ? `업체 ${n}곳이 견적을 보냈어요 📋 지금 비교해보세요`
+          : `업체 ${n}곳이 견적을 보냈어요 📋`,
+        relatedId:   request.id,
+        relatedType: "request",
+      }).catch(() => {});
+    }
 
     setSubmittedBids(prev => {
       const forRequest = prev.filter(b => b.requestId === request.id);
@@ -2985,6 +3076,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             })}
             onRequireLogin={() => setShowLoginRequired(true)}
             onGoMyPage={() => setScreen("my")}
+            onNotifNavigate={(target) => {
+              if (!target) return;
+              if (target.screen === "lounge-detail" && target.id) {
+                setLoungePost({ id: target.id, _deeplink: true }); go("lounge-detail");
+              } else if (target.screen) {
+                setScreen(target.screen);
+              }
+            }}
             onDeleteStory={(id) => setLocalLoungeStories(prev => prev.filter(s => s.id !== id))}
             refreshKey={loungeRefreshKey}
           />
