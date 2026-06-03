@@ -12,6 +12,19 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
   const [bidForm, setBidForm] = useState({ price:"", period:"", material:"", comment:"" });
   const setBF = (k, v) => setBidForm(f => ({ ...f, [k]:v }));
   const isGuest  = !onBidSubmit && !!onRequiresAuth;
+  // 새로고침 후에도 입찰완료 상태 유지 — DB의 기존 입찰(myBid) 반영
+  const hasBid = submitted || !!myBid;
+  // 수정 폼 열기 — 기존 입찰값으로 프리필
+  const openEdit = () => {
+    const src = myBid ?? {};
+    setBidForm({
+      price:    src.price != null ? String(src.price) : (bidForm.price || ""),
+      period:   src.period != null ? String(src.period) : (bidForm.period || ""),
+      material: src.material ?? bidForm.material ?? "",
+      comment:  src.comment ?? bidForm.comment ?? "",
+    });
+    setShowForm(true);
+  };
   const isClosed = r.isActive === false && r.isActive !== undefined;
   const company = currentUser;
   const companyBadge = BADGES[company?.badge ?? "basic"] ?? BADGES.basic;
@@ -66,7 +79,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
               {r.urgent && (
                 <span style={{ background:"#FFF0F0", color:C.red, borderRadius:R.full, padding:"2px 8px", fontSize:11, fontWeight:700 }}>급구</span>
               )}
-              {submitted
+              {hasBid
                 ? <span style={{ background:C.greenL, color:C.green, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>입찰완료</span>
                 : isClosed
                 ? <span style={{ background:"#F0EDE8", color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:600 }}>마감됨</span>
@@ -81,7 +94,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
           <div style={{ fontSize:13, color:C.text2, marginBottom:S.lg, lineHeight:1.6 }}>{r.desc}</div>
 
           {/* Submitted: success summary */}
-          {submitted ? (
+          {hasBid ? (
             <div style={{ background:C.greenL, borderRadius:R.lg, padding:S.lg,
               border:`1px solid ${C.green}33` }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.sm }}>
@@ -90,16 +103,25 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
               </div>
               <div style={{ display:"flex", gap:S.sm, flexWrap:"wrap", marginBottom:S.sm }}>
                 <span style={{ background:C.surface, borderRadius:R.sm, padding:"4px 10px", fontSize:13, fontWeight:800, color:C.brand }}>
-                  💰 {parseInt(bidForm.price || myBid?.price || 0).toLocaleString()}만원
+                  💰 {Number(bidForm.price || myBid?.price || 0).toLocaleString()}만원
                 </span>
                 <span style={{ background:C.surface, borderRadius:R.sm, padding:"4px 10px", fontSize:13, fontWeight:700, color:C.text2 }}>
-                  📅 {bidForm.period || myBid?.period || "-"}일
+                  📅 {bidForm.period || myBid?.period || "—"}일
                 </span>
               </div>
               {(bidForm.material || myBid?.material) && (
                 <div style={{ fontSize:12, color:C.text3, marginBottom:3 }}>🔨 {bidForm.material || myBid?.material}</div>
               )}
-              <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>의뢰인이 검토 중입니다</div>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
+                <div style={{ fontSize:12, color:C.text3 }}>의뢰인이 검토 중입니다</div>
+                {!isClosed && !isGuest && (
+                  <button onClick={openEdit}
+                    style={{ background:C.surface, color:C.brand, border:`1px solid ${C.brandM}`,
+                      borderRadius:R.full, padding:"5px 14px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                    ✏️ 입찰 수정
+                  </button>
+                )}
+              </div>
             </div>
           ) : isClosed ? (
             /* Closed: no bidding allowed */
@@ -143,7 +165,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
             maxHeight:"88vh", overflowY:"auto" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 16px" }} />
 
-            <div style={{ fontSize:18, fontWeight:900, color:C.text1, marginBottom:3 }}>안심 견적 제출하기</div>
+            <div style={{ fontSize:18, fontWeight:900, color:C.text1, marginBottom:3 }}>{hasBid ? "입찰 수정하기" : "안심 견적 제출하기"}</div>
             <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>
               {r.type} · {r.size} · {r.area}
             </div>
@@ -238,7 +260,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
                   boxShadow: canSubmit ? `0 4px 16px ${C.brand}44` : "none",
                   transition:"all 0.2s"
                 }}>
-                {submitting ? "제출 중..." : "안심 견적 제출하기"}
+                {submitting ? "제출 중..." : hasBid ? "입찰 수정하기" : "안심 견적 제출하기"}
               </button>
             </div>
           </div>
