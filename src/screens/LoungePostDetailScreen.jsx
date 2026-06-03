@@ -109,6 +109,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [chatSending, setChatSending]       = useState(false);
   const [chatSent,    setChatSent]          = useState(false);
   const [toast,       setToast]             = useState(null);
+  // 운영글(seed) 가벼운 공감 — DB 미기록(읽기 전용 매거진 콘텐츠), 로컬 피드백만
+  const [seedLiked,   setSeedLiked]         = useState(false);
+  const [helpful,     setHelpful]           = useState(false);
   const [reportTarget, setReportTarget]     = useState(null);
   const [showMenu,    setShowMenu]          = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -203,6 +206,35 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     } else {
       await removeLoungeSave(postId, user.id);
     }
+  };
+
+  // 공유 — Web Share 우선, 미지원 시 링크 복사 (DB 불필요, 모든 글 공통)
+  const handleShare = async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: post?.title || '공간마켓 라운지', text: post?.title || '공간마켓 라운지', url });
+        return;
+      }
+    } catch { return; } // 사용자가 공유 취소
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('🔗 링크를 복사했어요');
+    } catch {
+      showToast('이 환경에서는 공유를 지원하지 않아요');
+    }
+  };
+
+  // 운영글 가벼운 공감 — 로컬 피드백만(읽기 전용 콘텐츠)
+  const handleSeedLike = () => {
+    if (seedLiked) return;
+    setSeedLiked(true);
+    showToast('❤️ 공감해주셔서 고마워요');
+  };
+  const handleHelpful = () => {
+    if (helpful) return;
+    setHelpful(true);
+    showToast('피드백 감사합니다 🙏');
   };
 
   const handleComment = async () => {
@@ -484,8 +516,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           </div>
         )}
 
-        {/* STEP1: 카테고리별 거래 연결 CTA */}
-        {LOUNGE_CTA[post.category] && (
+        {/* 카테고리별 거래 연결 CTA — 운영글(seed)에는 노출하지 않음(광고형 지양·체류 우선) */}
+        {!isSeedPost && LOUNGE_CTA[post.category] && (
           <button
             onClick={() => onNavigate?.({ target: LOUNGE_CTA[post.category].target, companyId: post.is_expert ? post.user_id : null })}
             style={{ width: '100%', padding: '14px 0', marginBottom: S.lg, borderRadius: 12, border: 'none',
@@ -494,20 +526,45 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           </button>
         )}
 
-        <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bgWarm}`, background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
-          <span style={{ fontSize: 12, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
-          <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
-            {liked ? '❤️' : '🤍'} {(post.like_count ?? 0) + (liked ? 1 : 0)}
-          </button>
-          <button onClick={handleSave} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
-            {saved ? '🔖' : '📄'} {saved ? '저장됨' : '저장'}
-          </button>
-          {!isOwn && (
-            <button onClick={() => setReportTarget({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
-              신고
+        {isSeedPost ? (
+          /* 운영글 가벼운 하단 — 견적 CTA 없이 공감/공유/도움됐나요만 (매거진형) */
+          <div style={{ background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
+            <div style={{ display: 'flex', gap: S.xl, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
+              <button onClick={handleSeedLike} style={{ background: 'none', border: 'none', cursor: seedLiked ? 'default' : 'pointer', fontSize: 13, color: seedLiked ? '#E53E3E' : C.text3, fontWeight: seedLiked ? 800 : 500, padding: 0 }}>
+                {seedLiked ? '❤️' : '🤍'} 공감
+              </button>
+              <button onClick={handleShare} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.text3, padding: 0 }}>
+                🔗 공유
+              </button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginTop: S.md, paddingTop: S.md, borderTop: `1px solid ${C.bgWarm}` }}>
+              <span style={{ fontSize: 12, color: C.text3 }}>이 글이 도움이 됐나요?</span>
+              <button onClick={handleHelpful} disabled={helpful}
+                style={{ marginLeft: 'auto', background: helpful ? C.brandL : C.surface, border: `1px solid ${helpful ? C.brandM : C.bgWarm}`, borderRadius: R.full, padding: '5px 12px', fontSize: 12, fontWeight: 700, color: helpful ? C.brand : C.text2, cursor: helpful ? 'default' : 'pointer' }}>
+                {helpful ? '👍 고마워요' : '👍 도움됐어요'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bgWarm}`, background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
+            <span style={{ fontSize: 12, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
+            <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
+              {liked ? '❤️' : '🤍'} {(post.like_count ?? 0) + (liked ? 1 : 0)}
             </button>
-          )}
-        </div>
+            <button onClick={handleSave} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
+              {saved ? '🔖' : '📄'} {saved ? '저장됨' : '저장'}
+            </button>
+            <button onClick={handleShare} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.text3, padding: 0 }}>
+              🔗 공유
+            </button>
+            {!isOwn && (
+              <button onClick={() => setReportTarget({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
+                신고
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 대화 신청 버튼 — 본인 글, seed 글에는 숨김 */}
