@@ -35,6 +35,7 @@ import ImageViewerModal from "./ImageViewerModal";
 import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
+import OwnershipHistory from "./OwnershipHistory";
 import SiteVisitModal from "./SiteVisitModal";
 import PlatformEstimateModal from "./PlatformEstimateModal";
 import CompanyActiveJobCard from "./CompanyActiveJobCard";
@@ -3552,6 +3553,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 if (loungePost?.id === id) setLoungePost(null);
               }}
             />
+
+            {activeRole==="consumer" && (
+              <OwnershipHistory
+                userId={user?.id}
+                myRequests={myRequests}
+                myRequestsEscrow={myRequestsEscrow}
+                savedCompanies={savedCompanies}
+                onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }}
+                onOpenCompany={(co) => go("portfolio", co)}
+              />
+            )}
 
             {activeRole==="consumer" && (
               <div>
