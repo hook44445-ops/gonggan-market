@@ -5,6 +5,22 @@ import PortfolioCard from "../components/PortfolioCard";
 import PhotoModal from "../components/PhotoModal";
 import { getPortfolios, createPortfolio, uploadFile, getReviews } from "../lib/supabase";
 
+const GOLD = "#C4A96A";
+
+// 신뢰 배지 — 기존 업체 지표에서 도출(추가 DB 없음). 골드 칩으로 표시.
+function computeTrustBadges(company) {
+  const out = [];
+  const done = company?.completedJobs ?? 0;
+  const recon = company?.recontractRate ?? 0;
+  const respH = company?.avgResponseHours ?? null;
+  const disputeRate = company?.disputeRate ?? 0;
+  if (done >= 10) out.push({ icon: "🥇", label: `${done}건 완료` });
+  if (done >= 2 && disputeRate === 0) out.push({ icon: "🛡️", label: "분쟁 없음" });
+  if (respH != null && respH > 0 && respH <= 1) out.push({ icon: "⚡", label: "빠른 응답" });
+  if (recon >= 30) out.push({ icon: "🔄", label: "재계약 우수" });
+  return out;
+}
+
 const normalizePortfolio = (row) => {
   const beforePhotos = row.before_photos ?? [];
   const afterPhotos  = row.after_photos  ?? [];
@@ -292,6 +308,13 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
               {company.platformCert && <CertBadge type="platform" />}
               {company.insurance && <CertBadge type="insurance" />}
               {company.bizCert && <CertBadge type="biz" />}
+              {computeTrustBadges(company).map(b => (
+                <span key={b.label} style={{ display:"inline-flex", alignItems:"center", gap:4,
+                  background:`${GOLD}22`, color:"#8A6D2A", border:`1px solid ${GOLD}`,
+                  borderRadius:R.full, padding:"4px 11px", fontSize:14, fontWeight:700, lineHeight:1.8 }}>
+                  {b.icon} {b.label}
+                </span>
+              ))}
             </div>
 
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:S.sm, marginBottom:S.lg }}>

@@ -916,6 +916,23 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         <div style={{ marginLeft: "auto", background: C.navyL, borderRadius: R.full, padding: "4px 12px", fontSize: 12, fontWeight: 700, color: C.navy }}>🛡 보호중</div>
       </div>
 
+      {/* ── STEP1: 현재 보호 금액 배너 (탭 시 금액 카드로 스크롤) ── */}
+      {bidAmount > 0 && paid < 100 && (
+        <div
+          onClick={() => { const el = document.getElementById("escrow-amount-card"); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }}
+          style={{ background: "#1E3D2F", color: "#fff", padding: "12px 20px", cursor: "pointer",
+            display: "flex", flexDirection: "column", gap: 2 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.8 }}>
+            🛡️ 현재 {fmtMoney(Math.round(bidAmount * (100 - paid) / 100))} 보호 중
+          </div>
+          <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.8 }}>
+            {paid > 0
+              ? `토스페이먼츠 에스크로 · ${fmtMoney(Math.round(bidAmount * paid / 100))}이 단계 확인 후 지급됐어요`
+              : "토스페이먼츠 에스크로"}
+          </div>
+        </div>
+      )}
+
       <div style={{ padding: `${S.xl}px ${S.xl}px 40px` }}>
 
         {/* 공간보호 — 안전거래 보호 중 + 직거래 경고 */}
@@ -1085,7 +1102,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         </div>
 
         {/* Amount card */}
-        <div style={{ background: `linear-gradient(135deg,${C.navy},${C.navyM})`, borderRadius: R.xl, padding: S.xxl, marginBottom: S.xl, color: "#fff" }}>
+        <div id="escrow-amount-card" style={{ background: `linear-gradient(135deg,${C.navy},${C.navyM})`, borderRadius: R.xl, padding: S.xxl, marginBottom: S.xl, color: "#fff" }}>
           {isConsumer ? (
             <>
               <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>총 결제 금액 (시공비 + 공간안전결제 에스크로 수수료 3.7%)</div>
@@ -1407,6 +1424,22 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         </div>
 
         {/* Review CTA — shown to consumer when SETTLED/completed */}
+        {/* ── STEP4: 완료 축하 카드 ── */}
+        {isConsumer && (stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
+          <div style={{ background: "#1E3D2F", color: "#fff", borderRadius: R.xl, padding: S.xxl, marginBottom: S.lg }}>
+            <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.8, marginBottom: 4 }}>🎉 공사가 완료됐습니다!</div>
+            <div style={{ fontSize: 14, opacity: 0.92, lineHeight: 1.8, marginBottom: S.md }}>
+              {request?.area ? `${request.area} ` : ""}{request?.space_type ?? "시공"}
+              {bidAmount > 0 ? ` · ${fmtMoney(bidAmount)}이 안전하게 완료됐어요.` : "이 안전하게 완료됐어요."}
+            </div>
+            <div style={{ fontSize: 14, lineHeight: 1.9 }}>
+              <div>✅ 에스크로 보호 완료</div>
+              <div>✅ 거래 기록 보관됨</div>
+              <div>✅ 공간온도 상승</div>
+            </div>
+          </div>
+        )}
+
         {isConsumer && (stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
           <div style={{ background: reviewedForContract ? C.brandL : "#FFF8EC",
             borderRadius: R.xl, padding: S.xl, marginBottom: S.lg,
