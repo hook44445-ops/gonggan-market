@@ -3139,6 +3139,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <LoungePostDetailScreen
             postId={loungePost.id}
             initialPost={loungePost._deeplink ? null : loungePost}
+            onOpenPost={(p) => { setLoungePost(p); try { window.history.pushState({}, "", buildPostPath(p)); } catch {} window.scrollTo({ top: 0 }); }}
             user={user}
             tokenBalance={tokenBalance}
             onBack={() => setScreen("lounge")}
