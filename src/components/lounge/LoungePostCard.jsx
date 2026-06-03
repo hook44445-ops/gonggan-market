@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 import { CATEGORY_LABEL } from '../../constants/lounge';
+import { plainExcerpt } from '../../utils/richText';
 
 export default function LoungePostCard({ post, onClick }) {
   const catLabel   = CATEGORY_LABEL[post.category] ?? post.category;
@@ -79,7 +80,7 @@ export default function LoungePostCard({ post, onClick }) {
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
           }}>
-            {post.content}
+            {plainExcerpt(post.content)}
           </div>
         </div>
 

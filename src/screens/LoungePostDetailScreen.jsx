@@ -23,6 +23,7 @@ import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
 import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification } from '../lib/supabase';
 import { buildPostMeta } from '../utils/loungeSeo';
+import { RichContent } from '../utils/richText';
 
 // ── 삭제 확인 다이얼로그 ───────────────────────────────
 function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
@@ -477,7 +478,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         {post.title && (
           <div style={{ fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: S.md, lineHeight: 1.4 }}>{post.title}</div>
         )}
-        <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.8, marginBottom: S.xl, whiteSpace: 'pre-wrap' }}>{post.content}</div>
+        <div style={{ marginBottom: S.xl }}><RichContent content={post.content} baseSize={14} /></div>
 
         {post.image_urls && post.image_urls.length > 0 && (
           <div style={{ display: 'flex', gap: 6, marginBottom: S.lg, overflowX: 'auto', scrollbarWidth: 'none' }}>
