@@ -1876,6 +1876,31 @@ export const getLoungeComments = (postId) =>
 export const createLoungeComment = (data) =>
   supabase.from("lounge_comments").insert(data).select().single();
 
+// 관련글 — SEO 내부링크용. 같은 카테고리 인기글 우선, 부족분은 최신글로 보강.
+export const getRelatedLoungePosts = async (category, excludeId, limit = 4) => {
+  const cols = "id, title, category, image_urls, view_count, like_count, comment_count, is_seed, is_expert, created_at";
+  const base = () =>
+    supabase
+      .from("lounge_posts")
+      .select(cols)
+      .neq("id", excludeId)
+      .eq("is_deleted", false)
+      .eq("is_story", false)
+      .or("is_hidden.is.null,is_hidden.eq.false");
+
+  const sameCat = await base().eq("category", category).order("view_count", { ascending: false }).limit(limit);
+  let rows = sameCat.data ?? [];
+  if (rows.length < limit) {
+    const seen = new Set(rows.map(r => r.id));
+    const more = await base().order("view_count", { ascending: false }).limit(limit * 2);
+    for (const r of more.data ?? []) {
+      if (rows.length >= limit) break;
+      if (!seen.has(r.id)) { rows.push(r); seen.add(r.id); }
+    }
+  }
+  return { data: rows.slice(0, limit), error: sameCat.error ?? null };
+};
+
 export const softDeleteLoungeComment = (commentId, userId) =>
   supabase
     .from("lounge_comments")

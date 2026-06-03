@@ -10,6 +10,7 @@ import { useLoungePost } from '../hooks/useLounge';
 import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname } from '../utils/anonymousNickname';
 import {
   createLoungeComment,
+  getRelatedLoungePosts,
   likeLoungePost,
   unlikeLoungePost,
   addLoungePostLike,
@@ -94,7 +95,7 @@ const LOUNGE_CTA = {
   room_deco:   { label: "무료 견적 받기 →",          target: "quote" },
 };
 
-export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost, onNavigate }) {
+export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost, onNavigate, onOpenPost }) {
   const { post: foundPost, comments, loading, commentsFetchError, addComment, likeComment, refetchComments } = useLoungePost(postId, initialPost);
   const post = foundPost ?? initialPost ?? null;
   // is_seed(운영글)는 매거진형(견적 CTA·대화신청만 숨김)이고 상호작용은 일반 글과 동일.
@@ -119,6 +120,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [chatSent,    setChatSent]          = useState(false);
   const [toast,       setToast]             = useState(null);
   const [reportTarget, setReportTarget]     = useState(null);
+  const [relatedPosts, setRelatedPosts]     = useState([]);
   const [showMenu,    setShowMenu]          = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting,    setDeleting]          = useState(false);
@@ -197,6 +199,16 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       });
     };
   }, [post?.id, post?.title, post?.content, isSynthSeed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 관련글(SEO 내부링크) — 같은 카테고리 인기글 우선. seed/일반 글 공통.
+  useEffect(() => {
+    if (!IS_SUPABASE_READY || !post?.id || !post?.category) { setRelatedPosts([]); return; }
+    let cancelled = false;
+    getRelatedLoungePosts(post.category, post.id, 4)
+      .then(({ data }) => { if (!cancelled) setRelatedPosts(data ?? []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [post?.id, post?.category]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -501,7 +513,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         </div>
 
         {post.title && (
-          <div style={{ fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: S.md, lineHeight: 1.4 }}>{post.title}</div>
+          /* SEO: 글 제목은 의미상 H1 (스타일은 동일 유지) */
+          <h1 style={{ fontSize: 18, fontWeight: 900, color: C.text1, margin: `0 0 ${S.md}px`, lineHeight: 1.4 }}>{post.title}</h1>
         )}
         <div style={{ marginBottom: S.xl }}><RichContent content={post.content} baseSize={14} /></div>
 
@@ -511,7 +524,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               <img
                 key={i}
                 src={url}
-                alt=""
+                /* SEO: 제목 기반 alt — 이미지도 콘텐츠의 일부 */
+                alt={post.title ? `${post.title}${post.image_urls.length > 1 ? ` (${i + 1})` : ''}` : '공간마켓 라운지 이미지'}
+                loading="lazy"
                 onClick={() => setImgViewer({ urls: post.image_urls, index: i })}
                 style={{ width: 120, height: 120, borderRadius: R.md, objectFit: 'cover', flexShrink: 0, cursor: 'pointer' }}
               />
@@ -658,6 +673,43 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           </div>
         )}
       </div>
+
+      {/* 관련글 — SEO 내부링크 + 체류. seed 운영글은 광고형 CTA 대신 관련글/지역 링크. */}
+      {relatedPosts.length > 0 && (
+        <div style={{ background: C.surface, padding: `${S.xl}px ${S.xl}px 96px`, marginTop: S.sm }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>관련글</div>
+          {relatedPosts.map((rp) => (
+            <button
+              key={rp.id}
+              onClick={() => onOpenPost?.(rp)}
+              style={{ display: 'flex', gap: S.md, alignItems: 'center', width: '100%', textAlign: 'left',
+                background: 'none', border: 'none', cursor: 'pointer', padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bg}` }}>
+              {rp.image_urls?.[0] && (
+                <img src={rp.image_urls[0]} alt={rp.title || '관련글 이미지'} loading="lazy"
+                  style={{ width: 52, height: 52, borderRadius: R.md, objectFit: 'cover', flexShrink: 0, border: `1px solid ${C.bgWarm}` }} />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, lineHeight: 1.4,
+                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {rp.title || '제목 없음'}
+                </div>
+                <div style={{ fontSize: 12, color: C.text4, marginTop: 2 }}>
+                  {CATEGORY_LABEL[rp.category] ?? rp.category} · 👁 {(rp.view_count ?? 0).toLocaleString()} · 💬 {rp.comment_count ?? 0}
+                </div>
+              </div>
+            </button>
+          ))}
+          {/* seed 운영글: 광고형 견적 CTA 대신 소프트 지역 링크만 */}
+          {isSeedPost && (
+            <button
+              onClick={() => onNavigate?.({ target: 'map' })}
+              style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: S.md,
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.brand, padding: S.sm }}>
+              📍 내 지역 업체 보기
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 댓글 입력 바 */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.surface, borderTop: `1px solid ${C.bgWarm}`, padding: `${S.sm}px ${S.xl}px`, paddingBottom: 'env(safe-area-inset-bottom, 8px)', zIndex: 10 }}>
