@@ -53,6 +53,7 @@ import {
   archiveRequest,
   getLoungePosts,
   createBid,
+  updateBid,
   getBidsForRequest,
   getCompanyByOwnerId,
   getCompanyActiveJobs,
@@ -1371,38 +1372,62 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       return;
     }
 
-    // H-2: 중복 입찰 방지 — 이미 이 요청에 저장된(비-임시) 입찰이 있으면 차단.
-    // DB에는 unique(request_id, company_id) 제약이 있지만, 클라이언트에서 먼저 막아
-    // optimistic 중복/제약 위반 오류 노출을 예방한다.
-    const alreadyBid = submittedBids.some(
-      b => b.requestId === request.id && b.companyId === bidCompanyId && !String(b.id).startsWith("tmp-")
-    );
-    if (alreadyBid) {
-      showToast("이미 이 견적에 입찰하셨습니다");
-      return;
-    }
     // H-2: 동시 더블서브밋 가드 (빠른 연타로 두 번 insert 되는 것 방지)
     if (bidSubmitGuardRef.current) return;
     bidSubmitGuardRef.current = true;
 
-    const optimistic = {
-      id: `tmp-${Date.now()}`,
-      requestId: request.id,
-      companyId: bidCompanyId,
-      company: actor,
-      price: bidData.price,
-      period: bidData.period,
-      material: bidData.material,
-      comment: bidData.comment,
-      createdAt: new Date().toISOString(),
-      status: "pending",
-    };
-
-    // Optimistic update so the UI responds immediately
-    setSubmittedBids(prev => [...prev, optimistic]);
-
-    let insertOk = false;
+    let okFlag = false;
+    let didInsert = false;
     try {
+      // 한 업체당 1입찰 정책 — DB에서 이 업체의 기존 입찰을 확인(로컬 state 누락/새로고침 대비).
+      // 이미 입찰했으면 새로 만들지 않고 수정(update)한다.
+      let existingId = null;
+      const { data: existingBids } = await getBidsForRequest(request.id);
+      const mine = (existingBids ?? []).find(b => b.company_id === bidCompanyId);
+      if (mine) existingId = mine.id;
+      else {
+        const localMine = submittedBids.find(
+          b => b.requestId === request.id && b.companyId === bidCompanyId && !String(b.id).startsWith("tmp-")
+        );
+        if (localMine) existingId = localMine.id;
+      }
+
+      if (existingId) {
+        // ── 수정 경로 — 기존 입찰 내용 갱신 ──
+        const { data: upd, error: updErr } = await updateBid(existingId, {
+          price:         bidData.price,
+          period_days:   bidData.period,
+          material_note: bidData.material,
+          comment:       bidData.comment,
+        });
+        if (updErr) { showToast(`입찰 수정 실패: ${updErr.message}`); return; }
+        if (upd) {
+          okFlag = true;
+          setSubmittedBids(prev => {
+            const others = prev.filter(b => b.id !== existingId);
+            return [...others, { ...normalizeBid(upd), company: actor }];
+          });
+          showToast("입찰 내용을 수정했어요");
+        }
+        return;
+      }
+
+      // ── 신규 입찰 경로 ──
+      const optimistic = {
+        id: `tmp-${Date.now()}`,
+        requestId: request.id,
+        companyId: bidCompanyId,
+        company: actor,
+        price: bidData.price,
+        period: bidData.period,
+        material: bidData.material,
+        comment: bidData.comment,
+        createdAt: new Date().toISOString(),
+        status: "pending",
+      };
+      // Optimistic update so the UI responds immediately
+      setSubmittedBids(prev => [...prev, optimistic]);
+
       // INSERT to Supabase — company_id must be users.id (FK target)
       const { data, error } = await createBid({
         request_id:    request.id,
@@ -1425,11 +1450,12 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           insertError:  error.message,
         });
         const dup = /duplicate|unique/i.test(error.message ?? "");
-        showToast(dup ? "이미 이 견적에 입찰하셨습니다" : `입찰 저장 실패: ${error.message}`);
+        showToast(dup ? "이미 입찰한 요청이에요. 입찰 수정으로 변경해주세요." : `입찰 저장 실패: ${error.message}`);
         return;
       }
       if (data) {
-        insertOk = true;
+        okFlag = true;
+        didInsert = true;
         setSubmittedBids(prev =>
           prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
         );
@@ -1450,7 +1476,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       bidSubmitGuardRef.current = false;
     }
 
-    if (!insertOk) return; // 실패/롤백 시 알림 갱신 생략
+    if (!okFlag || !didInsert) return; // 수정이거나 실패면 신규 입찰 알림 생략
 
     setSubmittedBids(prev => {
       const forRequest = prev.filter(b => b.requestId === request.id);
@@ -2453,14 +2479,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               </div>
             ) : (
               customerRequests.filter(r => r.isActive).map(r => {
-                const myBid = submittedBids.find(b => b.requestId === r.id && !String(b.id).startsWith("tmp-"));
+                const myBid = submittedBids.find(b => b.requestId === r.id && b.companyId === user?.id && !String(b.id).startsWith("tmp-")) ?? null;
                 return (
                   <BidCard
                     key={r.id}
                     r={r}
                     currentUser={currentUser}
                     alreadyBid={!!myBid}
-                    myBid={myBid ?? null}
+                    myBid={myBid}
                     onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
                     onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
                   />

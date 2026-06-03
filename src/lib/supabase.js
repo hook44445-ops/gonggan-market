@@ -213,6 +213,10 @@ export const getBidsForRequest = (requestId) =>
 export const selectBid = (bidId) =>
   supabase.from("bids").update({ selected: true }).eq("id", bidId);
 
+// 업체 입찰 내용 수정 — 한 요청당 1입찰 정책에서 재제출은 수정으로 처리
+export const updateBid = (id, data) =>
+  supabase.from("bids").update(data).eq("id", id).select().single();
+
 // ── Chats ─────────────────────────────────────────────────────────────────────
 
 export const getChatMessages = (roomId) =>

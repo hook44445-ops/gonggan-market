@@ -53,7 +53,16 @@ function BidScreenHeader({ title, sub, onBack }) {
 
 export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
   const [localBids, setLocalBids] = useState(propBids ?? []);
-  const bids = localBids.length > 0 ? localBids : (propBids ?? []);
+  // 한 업체당 1입찰 정책 — 혹시 중복 입찰이 남아 있어도 업체별 최신 1건만 노출
+  const rawBids = localBids.length > 0 ? localBids : (propBids ?? []);
+  const bids = Object.values(
+    rawBids.reduce((acc, b) => {
+      const key = b.companyId ?? b.id;
+      const prev = acc[key];
+      if (!prev || new Date(b.createdAt ?? 0) > new Date(prev.createdAt ?? 0)) acc[key] = b;
+      return acc;
+    }, {})
+  );
   const [step, setStep] = useState("list");
   const [selBid, setSelBid] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
