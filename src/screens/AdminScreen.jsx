@@ -14,7 +14,7 @@ import {
   adminSetUserStatus, adminAdjustSpaceTemp, adminAdjustUserTokens,
   adminGetLoungePosts, getLoungeReports,
   adminHideContent, adminUpdateLoungeReport,
-  adminGetSeedLoungePosts, createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage,
+  createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage,
   getCustomerReports, updateCustomerReportStatus,
   holdAllPayoutsForEscrow,
   getCompanyDocuments, adminReviewDocument,
@@ -29,7 +29,9 @@ import {
   adminVerifyUserIdentity,
   getDirectDealReports, updateDirectDealReportStatus, checkSiteVisitFollowUp, checkDirectDealSchedules,
   getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
+  fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
 } from "../lib/supabase";
+import { CATEGORY_LABEL } from "../constants/lounge";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
 const SEED_CATEGORIES = [
@@ -939,6 +941,129 @@ const normalizeCustomer = (row) => ({
     : "",
 });
 
+// ── 라운지 운영(seed) 글 관리 탭 — lounge_posts.is_seed=true 전체 관리 ─────────
+// 새 글 생성 화면이 아니라, 이미 등록된 운영 seed 글의 노출/추천/숨김을 관리한다.
+function SeedPostsManagerTab({ posts = [], loading = false, fetchErr = null, adminUserId, showToast, onReload }) {
+  const [busyId, setBusyId]     = useState(null);
+  const [expandId, setExpandId] = useState(null);
+  const [prioDraft, setPrioDraft] = useState({}); // { [id]: number }
+
+  const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit" }) : "";
+  const catLabel = (id) => CATEGORY_LABEL[id] ?? id;
+
+  const run = async (id, fn, okMsg) => {
+    if (busyId) return;
+    setBusyId(id);
+    try {
+      const { error } = await fn();
+      if (error) { showToast?.(`실패: ${error.message ?? error}`, false); }
+      else { showToast?.(okMsg); await onReload?.(); }
+    } catch (e) {
+      showToast?.(`실패: ${e?.message ?? e}`, false);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const toggleVisible = (p) => run(p.id, () => setSeedPostVisible(p.id, !(p.is_visible !== false)),
+    (p.is_visible !== false) ? "비활성(숨김 노출) 처리했어요" : "활성(노출) 처리했어요");
+  const toggleHot = (p) => run(p.id, () => rpcSetPostHot(p.id, !p.is_hot, p.hot_priority ?? 0, adminUserId),
+    p.is_hot ? "추천 해제했어요" : "추천글로 등록했어요");
+  const savePriority = (p) => {
+    const v = Number(prioDraft[p.id] ?? p.hot_priority ?? 0) || 0;
+    return run(p.id, () => rpcSetPostHot(p.id, p.is_hot, v, adminUserId), `우선순위 ${v} 저장했어요`);
+  };
+  const toggleHidden = (p) => run(p.id, () => rpcSetPostHidden(p.id, !p.is_hidden, adminUserId),
+    p.is_hidden ? "복구했어요" : "숨김 처리했어요");
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.lg }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>🌱 라운지 운영글 관리 <span style={{ color: C.brand, fontSize: 14 }}>{posts.length}</span></div>
+        <button onClick={() => onReload?.()}
+          style={{ padding: "8px 14px", background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+          새로고침
+        </button>
+      </div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.md, lineHeight: 1.6 }}>
+        lounge_posts 의 운영글(is_seed=true)을 관리합니다. 활성/비활성·추천·우선순위·숨김/복구를 처리할 수 있어요.
+      </div>
+
+      {fetchErr && (
+        <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+          <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ 운영글 목록 로드 실패</div>
+          <div style={{ fontSize: 11, color: C.red, marginTop: 4, opacity: 0.85, wordBreak: "break-all" }}>{fetchErr}</div>
+          <div style={{ fontSize: 10, color: C.text4, marginTop: 4 }}>
+            /api/admin/seed-posts (service role) 연동 또는 SUPABASE_SERVICE_ROLE_KEY 설정을 확인하세요.
+          </div>
+        </div>
+      )}
+
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "30px 0", color: C.text3, fontSize: 13 }}>불러오는 중...</div>
+        ) : posts.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🌱</div>
+            <div style={{ fontSize: 14, color: C.text3 }}>운영글(is_seed=true)이 없습니다</div>
+            <div style={{ fontSize: 12, color: C.text4, marginTop: 6 }}>019~021 시드 마이그레이션 적용 여부를 확인하세요</div>
+          </div>
+        ) : posts.map(p => {
+          const visible = p.is_visible !== false;
+          const busy = busyId === p.id;
+          return (
+            <div key={p.id} style={{ padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bg}` }}>
+              <div style={{ display: "flex", gap: S.xs, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: C.brand, background: C.brandL, borderRadius: R.sm, padding: "1px 7px" }}>{catLabel(p.category)}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: visible && !p.is_hidden ? "#27AE60" : C.text4 }}>{visible && !p.is_hidden ? "활성" : "비활성"}</span>
+                {p.is_hidden && <span style={{ fontSize: 10, fontWeight: 700, color: C.red, background: "#FEF0F0", borderRadius: R.sm, padding: "1px 6px" }}>숨김</span>}
+                {p.is_hot && <span style={{ fontSize: 10, fontWeight: 700, color: "#B8860B", background: "#FFF6DC", borderRadius: R.sm, padding: "1px 6px" }}>★추천 p{p.hot_priority ?? 0}</span>}
+                <span style={{ fontSize: 10, color: C.text4, marginLeft: "auto" }}>{fmtDate(p.created_at)}</span>
+              </div>
+              {p.title && <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 2 }}>{p.title}</div>}
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 6 }}>
+                👁 {(p.view_count ?? 0).toLocaleString()} · ❤️ {p.like_count ?? 0} · 💬 {p.comment_count ?? 0}
+              </div>
+
+              {expandId === p.id && (
+                <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.7, background: C.bg, borderRadius: R.md, padding: S.md, marginBottom: 8, whiteSpace: "pre-wrap", maxHeight: 260, overflow: "auto" }}>
+                  {(p.content ?? "").slice(0, 1500)}{(p.content ?? "").length > 1500 ? "…" : ""}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                <button onClick={() => toggleVisible(p)} disabled={busy}
+                  style={{ padding: "5px 10px", background: visible ? "#FEF0F0" : "#EAF7EE", color: visible ? C.red : "#27AE60", border: "none", borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}>
+                  {visible ? "비활성" : "활성"}
+                </button>
+                <button onClick={() => toggleHot(p)} disabled={busy}
+                  style={{ padding: "5px 10px", background: p.is_hot ? "#F3EFE0" : "#FFF6DC", color: "#B8860B", border: "none", borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}>
+                  {p.is_hot ? "추천해제" : "추천등록"}
+                </button>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                  <input type="number" value={prioDraft[p.id] ?? p.hot_priority ?? 0}
+                    onChange={e => setPrioDraft(d => ({ ...d, [p.id]: e.target.value }))}
+                    style={{ width: 46, padding: "4px 6px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 11, color: C.text1, background: "#fff" }} />
+                  <button onClick={() => savePriority(p)} disabled={busy}
+                    style={{ padding: "5px 8px", background: C.brandL, color: C.brand, border: "none", borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}>순위저장</button>
+                </span>
+                <button onClick={() => toggleHidden(p)} disabled={busy}
+                  style={{ padding: "5px 10px", background: p.is_hidden ? "#EAF7EE" : "#FEF0F0", color: p.is_hidden ? "#27AE60" : C.red, border: "none", borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}>
+                  {p.is_hidden ? "복구" : "숨김"}
+                </button>
+                <button onClick={() => setExpandId(expandId === p.id ? null : p.id)}
+                  style={{ padding: "5px 10px", background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
+                  {expandId === p.id ? "닫기" : "상세"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── 포토후기 시딩 탭 ──────────────────────────────────────────────────────────
 function SeedReviewTab() {
   const [seeds, setSeeds] = useState([]);
@@ -1330,10 +1455,14 @@ function OperatorSettingTab({ adminUserId, showToast }) {
     setBusy(false);
     if (error) {
       const m = error.message || "";
-      const msg = m.includes("ADMIN_ONLY") ? "관리자만 등록할 수 있어요"
-        : m.includes("USER_NOT_FOUND") ? "해당 전화번호의 사용자를 찾을 수 없어요"
-        : m.includes("CANNOT_MODIFY_ADMIN") ? "관리자 계정은 변경할 수 없어요"
-        : "등록에 실패했어요";
+      let msg;
+      if (m.includes("ADMIN_ONLY")) msg = "관리자(role=admin) 계정만 등록할 수 있어요";
+      else if (m.includes("USER_NOT_FOUND")) msg = "해당 전화번호의 사용자를 찾을 수 없어요 (가입된 번호인지 확인)";
+      else if (m.includes("CANNOT_MODIFY_ADMIN")) msg = "관리자 계정은 변경할 수 없어요";
+      else if (m.includes("PRIVILEGED_ROLE_CHANGE_BLOCKED")) msg = "권한 변경 차단(트리거) — 마이그레이션 025 적용 여부를 확인하세요";
+      else if (/Could not find the function|does not exist|schema cache|PGRST202/i.test(m)) msg = "RPC 없음 — 025_operator_role_lounge_moderation.sql 적용 필요";
+      else if (/violates check constraint|users_role_check/i.test(m)) msg = "role 제약에 operator 미포함 — 025 마이그레이션 적용 필요";
+      else msg = `등록 실패: ${m || "알 수 없는 오류"}`;
       showToast?.(msg, false);
       return;
     }
@@ -1396,6 +1525,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [companies, setCompanies]       = useState([]);
   const [customers, setCustomers]       = useState([]);
   const [customersErr, setCustomersErr] = useState(false);
+  const [customersErrMsg, setCustomersErrMsg] = useState(null);
   const [loading, setLoading]           = useState(true);
   const [mainTab, setMainTab]           = useState("dashboard");
   const [companyTab, setCompanyTab]     = useState("pending");
@@ -1480,12 +1610,19 @@ export default function AdminScreen({ onBack, onHome, user }) {
           .filter(c => c.doc_status !== "draft")
           .map(normalizeCompany))
       ),
-      getUsers({ role: "consumer" }).then(({ data, error }) => {
-        if (error || !data) { setCustomersErr(true); return; }
+      // 고객 목록은 service role 서버 API 로 조회(RLS 우회). admin 만 성공.
+      fetchAdminCustomers(user?.id).then(({ data, error }) => {
+        if (error || !data) {
+          setCustomersErr(true);
+          setCustomersErrMsg(error?.message ?? null);
+          return;
+        }
+        setCustomersErr(false);
+        setCustomersErrMsg(null);
         setCustomers(data.map(normalizeCustomer));
       }),
     ]).finally(() => setLoading(false));
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1553,8 +1690,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
       setSeedingErr(null);
       (async () => {
         try {
-          const { data, error } = await adminGetSeedLoungePosts();
-          if (error) throw error;
+          // 실제 운영(seed) 글: lounge_posts.is_seed=true 전체(숨김/비활성 포함)를 service role API 로 조회
+          const { data, error } = await fetchAdminSeedPosts(user?.id);
+          if (error) throw new Error(error.message ?? "load failed");
           setSeedingPosts(data ?? []);
         } catch (err) {
           setSeedingErr(err?.message ?? String(err));
@@ -1996,11 +2134,19 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl,
                     textAlign: "center", border: `1px solid ${C.bgWarm}` }}>
                     <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 8 }}>서비스 권한 필요</div>
-                    <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7 }}>
-                      고객 목록 조회는 서버 측 관리자 권한이 필요합니다.<br/>
-                      Supabase 서비스 롤 키를 통한 API 연동이 필요합니다.
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 8 }}>
+                      {/ADMIN_ONLY|403/.test(customersErrMsg ?? "") ? "관리자 전용" : "고객 목록을 불러올 수 없어요"}
                     </div>
+                    <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7 }}>
+                      {/ADMIN_ONLY|403/.test(customersErrMsg ?? "")
+                        ? <>고객관리는 관리자(role=admin)만 접근할 수 있습니다.<br/>운영자·일반 사용자는 이용할 수 없습니다.</>
+                        : /SERVICE_NOT_CONFIGURED|500/.test(customersErrMsg ?? "")
+                          ? <>서버에 <b>SUPABASE_SERVICE_ROLE_KEY</b> 환경변수 설정이 필요합니다.<br/>(Vercel 프로젝트 환경변수)</>
+                          : <>서버 API(/api/admin/users) 연동을 확인해주세요.</>}
+                    </div>
+                    {customersErrMsg && (
+                      <div style={{ fontSize: 10, color: C.text4, marginTop: 10, wordBreak: "break-all" }}>상세: {customersErrMsg}</div>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -2434,18 +2580,20 @@ export default function AdminScreen({ onBack, onHome, user }) {
               />
             )}
 
-            {/* ── Lounge Seeding ── */}
+            {/* ── Lounge Seeding (운영 seed 글 관리: lounge_posts.is_seed=true) ── */}
             {mainTab === "lounge_seeding" && (
-              <LoungeSeedingTab
-                seeds={seedingPosts}
+              <SeedPostsManagerTab
+                posts={seedingPosts}
                 loading={seedingLoading}
                 fetchErr={seedingErr}
+                adminUserId={user?.id ?? null}
+                showToast={showToast}
                 onReload={async () => {
                   setSeedingLoading(true);
                   setSeedingErr(null);
                   try {
-                    const { data, error } = await adminGetSeedLoungePosts();
-                    if (error) throw error;
+                    const { data, error } = await fetchAdminSeedPosts(user?.id);
+                    if (error) throw new Error(error.message ?? "load failed");
                     setSeedingPosts(data ?? []);
                   } catch (err) {
                     setSeedingErr(err?.message ?? String(err));
