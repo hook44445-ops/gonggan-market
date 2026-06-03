@@ -563,20 +563,29 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     }
   }, [gpsTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 현재 위치 지역 저장 확인 → activity_regions 에 추가 (최대 2곳)
+  // 현재 위치 지역 확인 → 현재 보는 지역(activeRegion) 즉시 변경 + 관심지역(최대 2곳) 저장.
+  //  · activeRegion(현재 보는 지역) 변경은 제한 없음 — 2곳이 꽉 차도 막지 않는다.
+  //  · 관심지역(activityRegions)은 최대 2곳만 저장한다.
   const confirmSaveGpsRegion = () => {
     const p = gpsPendingRegion;
     if (!p) return;
-    if (activityRegions.length >= 2) {
-      showToast("활동지역은 최대 2곳까지 설정할 수 있어요.");
-      setGpsPendingRegion(null);
-      return;
-    }
     const base = makeRegionEntry(p.sido, p.sigungu, activityRegions.length === 0);
     const entry = { ...base, lat: p.lat, lng: p.lng, source: "gps" };
     setGpsPendingRegion(null);
-    onSaveRegions([...activityRegions, entry]);
-    showToast("✅ 현재 위치로 활동지역이 저장됐어요");
+
+    const dup = activityRegions.some(r => regionKey(r.city, r.district) === regionKey(entry.city, entry.district));
+    if (!dup && activityRegions.length < 2) {
+      // 관심지역 저장 + 방금 고른 지역을 현재 보는 지역으로 전환
+      onSaveRegions([...activityRegions, entry]);
+      setActiveRegion(entry);
+      showToast("✅ 관심지역으로 저장하고 이 지역으로 이동했어요");
+    } else {
+      // 저장 한도(2곳) 초과 또는 이미 저장된 지역 → 저장 없이 현재 지역만 전환
+      onPickCurrentRegion(entry);
+      showToast(dup
+        ? "✅ 이 지역으로 이동했어요"
+        : "✅ 이 지역으로 이동했어요 · 관심지역은 최대 2곳까지 저장돼요");
+    }
   };
 
   const onSaveRegions = async (entries) => {
@@ -2862,7 +2871,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <RegionSelectorBar
                   regions={chips}
                   activeKey={activeKey}
-                  onSelect={openRegionChooser}
+                  onSelect={(r) => {
+                    // 칩 탭 → 현재 보는 지역(activeRegion) 즉시 변경 (제한 없음).
+                    //  · r 없음(+ 지역 / 지역 설정) 또는 이미 보고 있는 칩 → 관리 시트 오픈
+                    if (!r) { openRegionChooser(); return; }
+                    const key = regionKey(r.city, r.district);
+                    if (key === activeKey) { openRegionChooser(); return; }
+                    onPickCurrentRegion(r);
+                  }}
                 />
               );
             })()}
