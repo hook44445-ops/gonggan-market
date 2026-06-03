@@ -11,6 +11,7 @@ import { REGION_CITIES, districtsOf, regionKey, makeRegionEntry } from "../const
 
 export default function RegionSelectSheet({
   open, onClose, selectedRegions = [], maxCount = 2, onSave,
+  onPick, // 제공 시: 지역 탭하면 즉시 현재 보기 변경(저장과 무관, 개수 제한 없음)
   title = "내 활동지역 설정",
   subtitle,
 }) {
@@ -36,6 +37,12 @@ export default function RegionSelectSheet({
     picked.some((p) => p.city === city && p.district === district);
 
   const toggle = (city, district) => {
+    // onPick 모드(현재지역 보기): 개수 제한 없이 즉시 현재 보기만 변경
+    if (onPick) {
+      onPick(makeRegionEntry(city, district, false));
+      onClose?.();
+      return;
+    }
     setPicked((prev) => {
       const exists = prev.some((p) => p.city === city && p.district === district);
       if (exists) return prev.filter((p) => !(p.city === city && p.district === district));
@@ -84,8 +91,8 @@ export default function RegionSelectSheet({
         {/* 구/시 목록 */}
         <div style={{ flex:1, overflowY:"auto", margin:`0 -${S.xl}px`, padding:`0 ${S.xl}px` }}>
           {districtsOf(activeCity).map((district) => {
-            const on = isPicked(activeCity, district);
-            const full = picked.length >= maxCount && !on;
+            const on = !onPick && isPicked(activeCity, district);
+            const full = !onPick && picked.length >= maxCount && !on;
             return (
               <button key={district} onClick={() => toggle(activeCity, district)} disabled={full}
                 style={{ width:"100%", display:"flex", alignItems:"center", gap:8, padding:"12px 4px",
@@ -99,28 +106,30 @@ export default function RegionSelectSheet({
           })}
         </div>
 
-        {/* 최대 개수 도달 안내 */}
-        {picked.length >= maxCount && (
+        {/* 최대 개수 도달 안내 (저장 모드에서만) */}
+        {!onPick && picked.length >= maxCount && (
           <div style={{ fontSize:12, color:C.brand, background:C.brandL, border:`1px solid ${C.brandM}`,
             borderRadius:R.md, padding:"8px 12px", marginTop:S.sm, fontWeight:700 }}>
             최대 {maxCount}곳까지 선택할 수 있어요. 다른 지역을 추가하려면 기존 지역을 먼저 해제하세요.
           </div>
         )}
 
-        {/* 선택 요약 + 저장 */}
-        <div style={{ paddingTop:S.md, borderTop:`1px solid ${C.bgWarm}`, marginTop:S.sm }}>
-          <div style={{ fontSize:12, color:C.text2, marginBottom:S.md, minHeight:18 }}>
-            {picked.length
-              ? <>선택됨: <b style={{ color:C.text1 }}>{picked.map((p) => regionKey(p.city, p.district)).join(" · ")}</b> ({picked.length}/{maxCount})</>
-              : <span style={{ color:C.text4 }}>지역을 선택해주세요</span>}
+        {/* 선택 요약 + 저장 (저장 모드에서만 — onPick 탐색 모드는 탭 즉시 적용) */}
+        {!onPick && (
+          <div style={{ paddingTop:S.md, borderTop:`1px solid ${C.bgWarm}`, marginTop:S.sm }}>
+            <div style={{ fontSize:12, color:C.text2, marginBottom:S.md, minHeight:18 }}>
+              {picked.length
+                ? <>선택됨: <b style={{ color:C.text1 }}>{picked.map((p) => regionKey(p.city, p.district)).join(" · ")}</b> ({picked.length}/{maxCount})</>
+                : <span style={{ color:C.text4 }}>지역을 선택해주세요</span>}
+            </div>
+            <button onClick={handleSave} disabled={saving || !picked.length}
+              style={{ width:"100%", padding:"14px 0", borderRadius:R.lg, border:"none",
+                background: picked.length ? C.brand : C.bgWarm, color: picked.length ? "#fff" : C.text4,
+                fontSize:15, fontWeight:800, cursor: picked.length && !saving ? "pointer" : "not-allowed" }}>
+              {saving ? "저장 중..." : "저장하기"}
+            </button>
           </div>
-          <button onClick={handleSave} disabled={saving || !picked.length}
-            style={{ width:"100%", padding:"14px 0", borderRadius:R.lg, border:"none",
-              background: picked.length ? C.brand : C.bgWarm, color: picked.length ? "#fff" : C.text4,
-              fontSize:15, fontWeight:800, cursor: picked.length && !saving ? "pointer" : "not-allowed" }}>
-            {saving ? "저장 중..." : "저장하기"}
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
