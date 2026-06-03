@@ -230,7 +230,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
           />
         </div>
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, fontSize:12, color:C.brand }}>
-          실측 완료 후 24시간 내에 플랫폼 견적서를 제출해야 합니다.
+          실측 완료 후 72시간(3일) 내에 플랫폼 견적서를 제출해야 합니다.
         </div>
         <div style={{ display:"flex", gap:S.sm }}>
           <button onClick={onClose} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>닫기</button>

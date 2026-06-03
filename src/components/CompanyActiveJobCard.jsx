@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
+import { formatDueRemaining } from "../constants/policy";
 
 const STEPS = ["실측예약", "GPS체크인", "현장견적", "플랫폼견적서"];
 
@@ -13,13 +14,9 @@ function getStepIndex(siteVisit) {
   return -1;
 }
 
+// [정책] 현장견적 카운트다운: 72h (constants/policy.js · 2026.06)
 function useDueCountdown(dueAt) {
-  if (!dueAt) return null;
-  const ms = new Date(dueAt).getTime() - Date.now();
-  if (ms <= 0) return { text: "기한 초과", overdue: true };
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  return { text: `${h}시간 ${m}분 남음`, overdue: false };
+  return formatDueRemaining(dueAt);
 }
 
 export default function CompanyActiveJobCard({ job, onAction }) {

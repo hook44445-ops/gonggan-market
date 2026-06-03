@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { createEstimate, updateEstimate, submitEstimate } from "../lib/supabase";
+import { formatDueRemaining } from "../constants/policy";
 
 function Backdrop({ onClose, children }) {
   return (
@@ -21,16 +22,14 @@ function Backdrop({ onClose, children }) {
 
 const emptyItem = () => ({ id: Date.now() + Math.random(), name: "", material: "", qty: "", unitPrice: "" });
 
+// [정책] 현장견적 카운트다운: 72h (constants/policy.js · 2026.06)
 function useDueCountdown(dueAt) {
   const [text, setText] = useState("");
   useEffect(() => {
     if (!dueAt) return;
     const tick = () => {
-      const ms = new Date(dueAt).getTime() - Date.now();
-      if (ms <= 0) { setText("기한 초과"); return; }
-      const h = Math.floor(ms / 3600000);
-      const m = Math.floor((ms % 3600000) / 60000);
-      setText(`제출 기한 ${h}시간 ${m}분 남음`);
+      const r = formatDueRemaining(dueAt, { prefix: "제출 기한" });
+      setText(r ? r.text : "");
     };
     tick();
     const id = setInterval(tick, 30000);
