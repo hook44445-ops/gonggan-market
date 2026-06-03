@@ -57,7 +57,6 @@ export default function MissionList({ logs = [], missionStats = null, balance = 
     const walletAfter = walletBefore + (granted ? reward : 0);
     setGrantLog(prev => ({ ...prev, [action]: { reward_granted: !!granted, token_delta: reward, wallet_before: walletBefore, wallet_after: walletAfter } }));
     if (import.meta.env.DEV) {
-      console.log('[MissionList]', { mission_id: action, earned: true, reward_granted: !!granted, token_delta: reward, wallet_before: walletBefore, wallet_after: walletAfter });
     }
   };
 

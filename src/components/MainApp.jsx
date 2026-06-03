@@ -1912,17 +1912,6 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   const ed = myRequestsEscrow[r.id] ?? null;
                   const settled = isSettled(r);
                   const included = (r.isActive || r.status === "in_progress") && !settled;
-                  // eslint-disable-next-line no-console
-                  console.log("[ActiveRequestFilter]", {
-                    request_id: r.id,
-                    contract_id: ed?.escrow?.id ?? null,
-                    request_status: r.status,
-                    contract_status: ed?.escrow?.transaction_status ?? null,
-                    escrow_status: ed?.escrow?.transaction_status ?? null,
-                    customer_stage: computeCustomerStage(r, ed)?.badge ?? null,
-                    included_in_active: included,
-                    reason: settled ? "settled→history" : (r.isActive || r.status === "in_progress") ? "active" : "closed/other",
-                  });
                 });
               }
               return myRequests.length > 0 ? (
@@ -1940,15 +1929,6 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                         const stage = computeCustomerStage(r, escrowData);
                         const hasEscrow = !!escrowData?.escrow;
                         if (SHOW_DEBUG_UI) {
-                          // eslint-disable-next-line no-console
-                          console.log("[ContractMapping]", {
-                            screen: "consumer_home", role: activeRole,
-                            request_id: r.id, contract_id: escrowData?.escrow?.id ?? null,
-                            bid_id: null, company_id: escrowData?.escrow?.company_id ?? null,
-                            consumer_id: user?.id ?? null, title: r.type, region: r.area, amount: r.budget,
-                            request_status: r.status, contract_status: escrowData?.escrow?.transaction_status ?? null,
-                            escrow_status: escrowData?.escrow?.transaction_status ?? null, source: "myRequestsEscrow[r.id]",
-                          });
                         }
                         const urgentDays = r.daysLeft <= 1;
                         const warningDays = r.daysLeft <= 3;
@@ -3473,15 +3453,6 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   const escrowData = myRequestsEscrow[r.id] ?? null;
                   const b = consumerStatusBadge(r, escrowData);
                   if (SHOW_DEBUG_UI) {
-                    // eslint-disable-next-line no-console
-                    console.log("[ContractMapping]", {
-                      screen: "consumer_history", role: activeRole,
-                      request_id: r.id, contract_id: escrowData?.escrow?.id ?? null,
-                      bid_id: null, company_id: escrowData?.escrow?.company_id ?? null,
-                      consumer_id: user?.id ?? null, title: r.type, region: r.area, amount: r.budget,
-                      request_status: r.status, contract_status: escrowData?.escrow?.transaction_status ?? null,
-                      escrow_status: escrowData?.escrow?.transaction_status ?? null, source: "myRequestsEscrow[r.id]",
-                    });
                   }
                   return (
                     <ConsumerRequestCard key={r.id} r={r} closed={b.closed} dLabel={b.label} dColor={b.color} dBg={b.bg} onOpen={() => !b.closed && setScreen("timeline")} />

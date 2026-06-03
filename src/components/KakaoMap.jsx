@@ -13,8 +13,6 @@ const ENV_INFO = KAKAO_API_KEY
 // ── 진단 로그 — 개발 환경에서만 출력 (production 에서는 no-op) ──
 function mapLog(...args) {
   if (!SHOW_DEBUG_UI) return;
-  // eslint-disable-next-line no-console
-  console.log("[KakaoMap]", ...args);
 }
 
 // 모듈 초기화 시 1회 — 키 앞 4자리 출력(디버그용, 보안상 나머지 마스킹)

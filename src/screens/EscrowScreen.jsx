@@ -98,23 +98,6 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   // [ContractMapping] 진단 — 화면 간 동일 계약 매핑 검증 (production 미노출)
   useEffect(() => {
     if (!SHOW_DEBUG_UI) return;
-    // eslint-disable-next-line no-console
-    console.log("[ContractMapping]", {
-      screen: "escrow",
-      role: activeRole,
-      request_id: request?.id ?? resolvedBid?.requestId ?? null,
-      contract_id: resolvedContractId ?? null,
-      bid_id: resolvedBid?.id ?? null,
-      company_id: resolvedBid?.companyId ?? null,
-      consumer_id: userId ?? null,
-      title: request?.type ?? null,
-      region: request?.area ?? null,
-      amount: resolvedBid?.price ?? null,
-      request_status: request?.status ?? null,
-      contract_status: null,
-      escrow_status: escrowDebug?.src ?? null,
-      source: escrowDebug?.src ?? "prop",
-    });
   }, [activeRole, request?.id, resolvedContractId, resolvedBid?.id, escrowDebug, userId, request?.status, request?.type, request?.area, resolvedBid?.requestId, resolvedBid?.companyId, resolvedBid?.price]);
 
   // Self-fetch: restore selectedBid via 3-level fallback

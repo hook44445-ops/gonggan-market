@@ -169,33 +169,8 @@ export default function DashboardScreen({
   useEffect(() => {
     if (!SHOW_DEBUG_UI) return;
     (jobsFromHome ?? []).forEach(j => {
-      // eslint-disable-next-line no-console
-      console.log("[ContractMapping]", {
-        screen: "company_active", role: "company",
-        request_id: j.request?.id ?? j.bid?.requestId ?? null,
-        contract_id: j.escrow?.id ?? null,
-        bid_id: j.bid?.id ?? null,
-        company_id: j.bid?.companyId ?? j.bid?.company_id ?? j.escrow?.company_id ?? null,
-        consumer_id: j.request?.user_id ?? null,
-        title: j.request?.type ?? j.request?.space_type ?? null,
-        region: j.request?.area ?? null,
-        amount: j.escrow?.total_amount ?? j.bid?.price ?? null,
-        request_status: j.request?.status ?? null,
-        contract_status: j.escrow?.transaction_status ?? null,
-        escrow_status: j.escrow?.transaction_status ?? null,
-        source: "companyJobs(bid.request_id join)",
-      });
     });
     completedEscrow.forEach(job => {
-      // eslint-disable-next-line no-console
-      console.log("[ContractMapping]", {
-        screen: "company_completed", role: "company",
-        request_id: job.requestId ?? null, contract_id: job.id ?? null,
-        bid_id: null, company_id: null, consumer_id: null,
-        title: job.type ?? null, region: job.area ?? null, amount: job.total ?? null,
-        request_status: null, contract_status: job.txStatus ?? null,
-        escrow_status: job.txStatus ?? null, source: "getCompletedEscrowByCompany(escrow.request_id)",
-      });
     });
   }, [jobsFromHome, completedEscrow]);
 
