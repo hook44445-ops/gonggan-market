@@ -1124,6 +1124,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     }).catch(() => {});
   }, []);
 
+  // STEP2: 인기 콘텐츠 큐레이션 — 조회수+좋아요 기준 상위 3건(시공후기 우선)
+  const [popularPosts, setPopularPosts] = useState([]);
+  useEffect(() => {
+    getLoungePosts("all").then(({ data }) => {
+      const list = (data ?? [])
+        .filter(p => p.is_deleted !== true && p.is_hidden !== true && p.is_visible !== false)
+        .map(p => ({ ...p, _score: (p.view_count ?? 0) + (p.like_count ?? 0) * 3 + (p.category === "review" ? 50 : 0) }))
+        .sort((a, b) => b._score - a._score)
+        .slice(0, 3);
+      setPopularPosts(list);
+    }).catch(() => {});
+  }, []);
+
   // Handle TossPayments redirect return
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1968,6 +1981,30 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             })()}
 
             <LiveFeed />
+
+            {/* STEP2: 이번 주 인기 콘텐츠 — 조회수+좋아요 기준 상위 3건 */}
+            {popularPosts.length > 0 && (
+              <div style={{ background:C.ivory, borderRadius:12, padding:S.xl, marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
+                <div style={{ fontSize:16, fontWeight:800, color:"#1E3D2F", marginBottom:S.md, lineHeight:1.8 }}>🔥 이번 주 인기</div>
+                {popularPosts.map(post => {
+                  const thumb = post.image_urls?.[0] ?? null;
+                  return (
+                    <div key={post.id}
+                      onClick={() => { setLoungePost(post); go("lounge-detail"); try { window.history.pushState({}, "", buildPostPath(post)); } catch {} }}
+                      style={{ display:"flex", gap:S.md, alignItems:"center", padding:`${S.sm}px 0`, cursor:"pointer", borderBottom:`1px solid ${C.bgWarm}` }}>
+                      {thumb && <img src={thumb} alt="" loading="lazy" style={{ width:56, height:56, borderRadius:R.md, objectFit:"cover", flexShrink:0, border:`1px solid ${C.bgWarm}` }} />}
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:14, fontWeight:700, color:C.text1, lineHeight:1.8, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                          {post.is_expert ? "🛡️ " : ""}{post.title ?? post.content?.slice(0,30)}
+                        </div>
+                        <div style={{ fontSize:13, color:C.text3, lineHeight:1.8 }}>👁 {(post.view_count ?? 0).toLocaleString()} · ❤️ {post.like_count ?? 0}</div>
+                      </div>
+                      <span style={{ fontSize:13, color:"#1E3D2F", fontWeight:800, flexShrink:0 }}>읽기 →</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
               marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
@@ -2998,6 +3035,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
               setLoungePost(null);
               setLoungeRefreshKey(k => k + 1);
+            }}
+            onNavigate={({ target, companyId }) => {
+              // 라운지 → 거래 연결 CTA 라우팅
+              if (target === "quote") { if (activeRole === "consumer") { setScreen("home"); handleOpenNewReq(); } else setScreen("home"); return; }
+              if (target === "map") { setScreen("home"); setScreen("map"); return; }
+              if ((target === "company" || target === "company_or_quote" || target === "company_or_map") && companyId) {
+                const co = companies.find(c => c.id === companyId || c.ownerId === companyId);
+                if (co) { go("portfolio", co); return; }
+              }
+              // 폴백: 견적 요청
+              if (activeRole === "consumer") { setScreen("home"); handleOpenNewReq(); } else setScreen("map");
             }}
           />
         )}

@@ -80,7 +80,17 @@ function PostMenuSheet({ isOwn, onEdit, onDelete, onReport, onBlock, onClose }) 
   );
 }
 
-export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost }) {
+// 카테고리별 거래 연결 CTA — 라운지를 거래로 잇는 핵심
+const LOUNGE_CTA = {
+  review:      { label: "이 업체에게 견적 받기 →", target: "company_or_quote" },
+  quote_worry: { label: "지금 바로 견적 요청하기 →", target: "quote" },
+  recommend:   { label: "추천 업체 프로필 보기 →",   target: "company_or_map" },
+  move_in:     { label: "내 지역 업체 찾기 →",       target: "map" },
+  interior:    { label: "무료 견적 받기 →",          target: "quote" },
+  room_deco:   { label: "무료 견적 받기 →",          target: "quote" },
+};
+
+export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost, onNavigate }) {
   const { post: foundPost, comments, loading, commentsFetchError, addComment, likeComment, refetchComments } = useLoungePost(postId, initialPost);
   const post = foundPost ?? initialPost ?? null;
   const isSeedPost = post?.is_seed === true;
@@ -449,6 +459,39 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               />
             ))}
           </div>
+        )}
+
+        {/* STEP3: 전문가(업체) 글 — 작성자 프로필 카드 자동 연결 */}
+        {post.is_expert && (
+          <div style={{ background: C.ivory, border: `1px solid ${C.bgWarm}`, borderRadius: 12, padding: '14px 16px', marginBottom: S.lg }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#8A6D2A', lineHeight: 1.8 }}>
+              <span style={{ background: '#C4A96A22', border: '1px solid #C4A96A', borderRadius: R.full, padding: '2px 9px', fontSize: 13, marginRight: 6 }}>전문가</span>
+              🛡️ 공간마켓 파트너
+            </div>
+            <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.8, marginTop: 4 }}>
+              {post.expert_company_name ?? post.anonymous_nickname}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button onClick={() => onNavigate?.({ target: 'company', companyId: post.user_id })}
+                style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
+                프로필 보기
+              </button>
+              <button onClick={() => onNavigate?.({ target: 'quote', companyId: post.user_id })}
+                style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
+                견적 요청하기
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP1: 카테고리별 거래 연결 CTA */}
+        {LOUNGE_CTA[post.category] && (
+          <button
+            onClick={() => onNavigate?.({ target: LOUNGE_CTA[post.category].target, companyId: post.is_expert ? post.user_id : null })}
+            style={{ width: '100%', padding: '14px 0', marginBottom: S.lg, borderRadius: 12, border: 'none',
+              background: '#1E3D2F', color: '#F5F0E8', fontSize: 15, fontWeight: 800, cursor: 'pointer', lineHeight: 1.8 }}>
+            {LOUNGE_CTA[post.category].label}
+          </button>
         )}
 
         <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bgWarm}`, background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>

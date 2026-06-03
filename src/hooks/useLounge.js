@@ -87,6 +87,8 @@ export function useLounge(category = 'all') {
         .filter(p => p.is_visible !== false && !LOUNGE_INACTIVE_CATEGORIES.includes(p.category))
         // 테스트/더미 글 제외 — is_test/is_sample 플래그 + 제목 "11" 같은 깨진/무의미 제목
         .filter(p => p.is_seed || isDisplayableLoungePost(p));
+      // 전문가(업체) 글 상단 우선 노출 (그 외 순서 유지)
+      merged.sort((a, b) => (b.is_expert === true ? 1 : 0) - (a.is_expert === true ? 1 : 0));
       setPosts(merged);
       setStories(storiesRes.data ?? []);
       setStoriesError(storiesRes.error ?? null);
