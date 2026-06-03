@@ -31,7 +31,7 @@ function KpiRow({ isLoggedIn, company }) {
   );
 }
 
-export default function CompanyCard({ company, onClick, isLoggedIn = false }) {
+export default function CompanyCard({ company, onClick, isLoggedIn = false, saved = false, onToggleSave }) {
   if (!company) return null;
   const g  = GRADE(company.temp ?? 0);
   const bm = company.badge ? (BADGES[company.badge] ?? BADGES.basic) : null;
@@ -71,7 +71,17 @@ export default function CompanyCard({ company, onClick, isLoggedIn = false }) {
             {/* Name + TempBadge */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 5 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: C.text1 }}>{company.name}</span>
-              <TempBadge temp={company.temp} info />
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <TempBadge temp={company.temp} info />
+                {onToggleSave && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onToggleSave(company); }}
+                    aria-label={saved ? "관심 업체 해제" : "관심 업체 저장"}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0, color: saved ? C.red : C.text4 }}>
+                    {saved ? "♥" : "♡"}
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Cert badges */}

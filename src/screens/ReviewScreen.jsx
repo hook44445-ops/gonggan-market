@@ -238,6 +238,15 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
         region:            currentUser?.region  ?? null,
         space_type:        company.type         ?? null,
         status:            "published",
+        // Part2 — 양방향 역할 + 구조화 점수
+        reviewer_role:       "customer",
+        target_role:         "company",
+        budget_score:        data.budgetScore        ?? null,
+        schedule_score:      data.scheduleScore      ?? null,
+        communication_score: data.communicationScore ?? null,
+        quality_score:       data.qualityScore       ?? null,
+        would_recontract:    data.wouldRecontract    ?? null,
+        review_photos:       data.imageUrls          ?? [],
       });
 
       log.db_ok  = !!reviewRow;

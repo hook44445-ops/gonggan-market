@@ -242,6 +242,17 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
     ? (reviews.reduce((s, r) => s + (r.rating ?? 0), 0) / reviews.length).toFixed(1)
     : null;
   const photoReviewCount = reviews.filter(r => (r.image_urls?.length ?? 0) > 0).length;
+  // 항목별 후기 평균 (예산/일정/소통/마감)
+  const itemAvg = (k) => {
+    const vals = reviews.map(r => r[k]).filter(v => typeof v === "number");
+    return vals.length ? (vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1) : null;
+  };
+  const itemScores = [
+    ["예산 준수", itemAvg("budget_score")],
+    ["일정 준수", itemAvg("schedule_score")],
+    ["소통 만족도", itemAvg("communication_score")],
+    ["마감 품질", itemAvg("quality_score")],
+  ].filter(([, v]) => v != null);
 
   const handlePortfolioSaved = (row) => {
     setPortfolio(prev => [normalizePortfolio(row), ...prev]);
@@ -296,6 +307,18 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
                 </div>
               ))}
             </div>
+
+            {/* 항목별 후기 점수 — 구조화 후기 평균 */}
+            {itemScores.length > 0 && (
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:S.lg }}>
+                {itemScores.map(([label, val]) => (
+                  <span key={label} style={{ background:C.brandL, color:C.brand, borderRadius:R.full,
+                    padding:"4px 11px", fontSize:12, fontWeight:700 }}>
+                    {label} {val}
+                  </span>
+                ))}
+              </div>
+            )}
 
             <div style={{ background:company.online?C.greenL:C.bgWarm, borderRadius:R.lg,
               padding:`${S.sm}px ${S.lg}px`, marginBottom:S.lg,

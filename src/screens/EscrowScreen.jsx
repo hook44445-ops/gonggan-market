@@ -3,11 +3,12 @@ import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { LeafSprig } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation } from "../lib/supabase";
 import EscrowCalculator from "../components/EscrowCalculator";
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
+import CustomerEvaluationModal from "../components/CustomerEvaluationModal";
 
 // Stage status values:
 // 'done'           — payment released
@@ -326,6 +327,24 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [companyReportDebug, setCompanyReportDebug] = useState(null);
   const [approvalLog, setApprovalLog] = useState(null);
   const [reviewedForContract, setReviewedForContract] = useState(false);
+  // 업체 → 고객 신뢰평가
+  const [showCustEval, setShowCustEval] = useState(false);
+  const [custEvalDone, setCustEvalDone] = useState(false);
+  const [custEvalSubmitting, setCustEvalSubmitting] = useState(false);
+  const submitCustomerEvaluation = async (payload) => {
+    if (custEvalSubmitting) return;
+    setCustEvalSubmitting(true);
+    const companyId = resolvedBid?.companyId ?? null;
+    const customerId = request?.user_id ?? null;
+    const { error } = await createCustomerEvaluation({
+      companyId, customerId,
+      requestId: request?.id ?? null,
+      contractId: resolvedContractId ?? contractId ?? null,
+      ...payload,
+    });
+    setCustEvalSubmitting(false);
+    if (!error) { setCustEvalDone(true); setShowCustEval(false); }
+  };
 
   const fileInputRef3 = useRef(null);
   const fileInputRef4 = useRef(null);
@@ -1394,6 +1413,28 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           </div>
         )}
 
+        {/* 업체 → 고객 신뢰평가 CTA — 정산 완료 시 업체에게 노출 */}
+        {!isConsumer && (stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
+          <div style={{ background: custEvalDone ? C.brandL : C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${custEvalDone ? C.brandM : C.bgWarm}` }}>
+            {custEvalDone ? (
+              <div style={{ display:"flex", alignItems:"center", gap:S.md }}>
+                <div style={{ fontSize:24, flexShrink:0 }}>✅</div>
+                <div style={{ fontSize:13, fontWeight:700, color:C.brand }}>고객 신뢰평가를 완료했어요</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:2 }}>고객 신뢰평가</div>
+                <div style={{ fontSize:12, color:C.text3, lineHeight:1.6, marginBottom:S.md }}>이번 거래 고객을 평가해 신뢰 기록을 남겨주세요.</div>
+                <button onClick={() => setShowCustEval(true)}
+                  style={{ width:"100%", padding:S.lg, background:C.brand, color:"#fff", border:"none",
+                    borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>
+                  고객 평가하기
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* 보호/분쟁 안내 — 계약 상세 (경고 톤 금지) */}
         <div style={{ display: "flex", flexDirection: "column", gap: S.md, marginBottom: S.lg }}>
           <ProtectionNotice variant="short" />
@@ -1506,6 +1547,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             </div>
           </div>
         </div>
+      )}
+
+      {/* 업체 → 고객 신뢰평가 모달 */}
+      {showCustEval && (
+        <CustomerEvaluationModal
+          submitting={custEvalSubmitting}
+          onClose={() => setShowCustEval(false)}
+          onSubmit={submitCustomerEvaluation}
+        />
       )}
     </div>
   );
