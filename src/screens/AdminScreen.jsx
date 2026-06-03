@@ -27,7 +27,7 @@ import {
   adminUpdateCompanyInfo, adminUpdateUserInfo,
   getCompaniesByOwnerIds,
   adminVerifyUserIdentity,
-  getDirectDealReports, updateDirectDealReportStatus, checkSiteVisitFollowUp,
+  getDirectDealReports, updateDirectDealReportStatus, checkSiteVisitFollowUp, checkDirectDealSchedules,
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
@@ -1679,7 +1679,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setDdrRunning(true);
     try {
       const summary = await checkSiteVisitFollowUp();
-      showToast(`추적 완료 · 알림 ${summary.reminded + summary.inquired} / 취소 ${summary.cancelled} / 플래그 ${summary.flagged}`);
+      const sched = await checkDirectDealSchedules();
+      const schedTotal = sched.no_estimate_72h + sched.no_contract_7d + sched.chat_blackout;
+      showToast(`추적 완료 · 알림 ${summary.reminded + summary.inquired} / 취소 ${summary.cancelled} / 플래그 ${summary.flagged + schedTotal}`);
       const { data } = await getDirectDealReports();
       setDirectDealReports(data ?? []);
     } catch (err) {

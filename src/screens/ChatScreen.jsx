@@ -2,7 +2,15 @@ import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
-import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword } from "../lib/supabase";
+import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal } from "../lib/supabase";
+
+const REPORT_REASONS = [
+  "외부 연락처(카톡/전화) 요구",
+  "계좌이체·현금 직거래 유도",
+  "플랫폼 밖 거래 제안",
+  "수수료 회피 제안",
+  "기타 부적절한 행위",
+];
 
 const WELCOME = "안녕하세요! 공간마켓 파트너 업체입니다 😊 견적 관련해서 궁금한 점 편하게 물어보세요!";
 
@@ -23,6 +31,8 @@ export default function ChatScreen({ company, user, onBack }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportDone, setReportDone] = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
@@ -72,7 +82,7 @@ export default function ChatScreen({ company, user, onBack }) {
     setInput("");
     setTyping(true);
 
-    await sendMessage(roomId, user?.id ?? "guest", "user", text);
+    const { data: sent } = await sendMessage(roomId, user?.id ?? "guest", "user", text).catch(() => ({ data: null }));
 
     // 감지/기록은 백그라운드 — 전송 흐름을 막지 않음
     checkDirectDealKeyword(text, {
@@ -80,6 +90,7 @@ export default function ChatScreen({ company, user, onBack }) {
       customerId: user?.id ?? null,
       senderId: user?.id ?? null,
       senderRole: "consumer",
+      chatMessageId: sent?.id ?? null,
     }).catch(() => {});
 
     // typing indicator disappears once realtime delivers the reply (or after timeout)
@@ -103,8 +114,55 @@ export default function ChatScreen({ company, user, onBack }) {
             {company?.online ? `활동중 · ${company.lastActive}` : company?.responseTime ?? ""}
           </div>
         </div>
-        <div style={{ marginLeft:"auto" }}><TempBadge temp={company?.temp ?? 0} /></div>
+        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:S.sm }}>
+          <TempBadge temp={company?.temp ?? 0} />
+          <button onClick={() => { setReportDone(false); setReportOpen(true); }} aria-label="신고"
+            style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, color:C.text3, padding:"2px 4px", lineHeight:1 }}>
+            🚩
+          </button>
+        </div>
       </div>
+
+      {reportOpen && (
+        <div onClick={() => setReportOpen(false)}
+          style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.55)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"20px 20px 28px" }}>
+            <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 16px" }} />
+            {reportDone ? (
+              <div style={{ textAlign:"center", padding:"20px 0" }}>
+                <div style={{ fontSize:40, marginBottom:12 }}>🛡️</div>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:6 }}>신고가 접수됐어요</div>
+                <div style={{ fontSize:14, color:C.text3, lineHeight:1.7 }}>공간마켓이 대화 기록을 토대로 확인 후 조치합니다. 안전한 거래를 위해 견적·계약은 공간마켓 안에서 진행해주세요.</div>
+                <button onClick={() => setReportOpen(false)}
+                  style={{ width:"100%", marginTop:20, padding:"13px", background:C.brand, border:"none", borderRadius:R.lg, color:"#fff", fontWeight:700, fontSize:14, cursor:"pointer" }}>확인</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:4 }}>🚩 직거래·부적절 신고</div>
+                <div style={{ fontSize:14, color:C.text3, lineHeight:1.7, marginBottom:16 }}>신고 사유를 선택해주세요. 이 대화는 기록되어 검토됩니다.</div>
+                {REPORT_REASONS.map((reason) => (
+                  <button key={reason}
+                    onClick={async () => {
+                      await reportDirectDeal({
+                        companyId: company?.id ?? null,
+                        customerId: user?.id ?? null,
+                        reporterId: user?.id ?? null,
+                        reportReason: reason,
+                      }).catch(() => {});
+                      setReportDone(true);
+                    }}
+                    style={{ display:"block", width:"100%", textAlign:"left", padding:"14px 16px", marginBottom:8, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, color:C.text1, fontWeight:600, cursor:"pointer", lineHeight:1.6 }}>
+                    {reason}
+                  </button>
+                ))}
+                <button onClick={() => setReportOpen(false)}
+                  style={{ width:"100%", marginTop:8, padding:"13px", background:C.bg, border:"none", borderRadius:R.lg, color:C.text3, fontWeight:700, fontSize:14, cursor:"pointer" }}>취소</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.bgWarm}`, background:C.bg }}>
         <ProtectionNotice variant="short" />

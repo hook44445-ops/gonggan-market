@@ -7,11 +7,17 @@
 export const DIRECT_DEAL_KEYWORDS = [
   "따로 연락", "개인 연락", "직접 연락",
   "현금으로", "현금 결제", "현금 할인",
-  "플랫폼 말고", "앱 말고", "여기 말고",
-  "계좌로 보내", "계좌이체", "통장으로",
-  "카카오로", "문자로", "전화로 해요",
+  "플랫폼 말고", "앱 말고", "여기 말고", "플랫폼 밖", "플랫폼 외",
+  "계좌로 보내", "계좌이체", "통장으로", "계좌번호",
+  "카카오로", "카톡", "카카오톡", "문자로", "전화로 해요", "전화번호",
   "수수료 아깝", "수수료 빼고",
   "직접 계약", "따로 계약", "사이트 말고",
+];
+
+// 계좌번호/전화번호 등 외부 연락·송금 유도 숫자 패턴 (숫자-숫자-숫자 형태)
+const NUMBER_PATTERNS = [
+  // 계좌/전화: 3묶음 이상 숫자(2자리+)를 - 또는 공백으로 연결 (예: 110-123-456789, 010 1234 5678)
+  { key: "계좌/전화번호 패턴", re: /\d{2,}[\s-]\d{2,}[\s-]\d{2,}/ },
 ];
 
 // 채팅창 경고 배너 문구
@@ -21,5 +27,9 @@ export const DIRECT_DEAL_WARNING =
 // 메시지에서 감지된 키워드 배열 반환 (없으면 빈 배열)
 export function detectDirectDealKeywords(text) {
   if (!text || typeof text !== "string") return [];
-  return DIRECT_DEAL_KEYWORDS.filter((kw) => text.includes(kw));
+  const hits = DIRECT_DEAL_KEYWORDS.filter((kw) => text.includes(kw));
+  for (const p of NUMBER_PATTERNS) {
+    if (p.re.test(text)) hits.push(p.key);
+  }
+  return hits;
 }

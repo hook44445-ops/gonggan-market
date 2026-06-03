@@ -51,7 +51,7 @@ export default function TermsModal({ docType, onClose }) {
             </div>
             {open[i] && (
               <div style={{ background:C.bg, borderRadius:R.md, padding:S.lg,
-                fontSize:13, color:C.text2, lineHeight:1.8, border:`1px solid ${C.bgWarm}` }}>
+                fontSize:13, color:C.text2, lineHeight:1.8, border:`1px solid ${C.bgWarm}`, whiteSpace:"pre-line" }}>
                 {sec.body}
               </div>
             )}
