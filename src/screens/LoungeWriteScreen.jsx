@@ -166,6 +166,19 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
       </div>
 
       <div style={{ padding: S.xl }}>
+        {!isEdit && (user?.role === 'company' || user?.activeRole === 'company') && (
+          <div style={{ background: '#C4A96A14', border: '1px solid #C4A96A', borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#8A6D2A', marginBottom: 4 }}>
+              <span style={{ background: '#C4A96A22', border: '1px solid #C4A96A', borderRadius: R.full, padding: '2px 8px', fontSize: 11, marginRight: 6 }}>전문가 글</span>
+              이 글은 전문가(업체) 글로 등록돼요
+            </div>
+            <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.7 }}>
+              시공 전후 이야기, 자재 선택 팁, 견적 실수 방지, 욕실·주방·도배 노하우, 현장 경험처럼
+              도움이 되는 콘텐츠일수록 신뢰가 쌓여요. 광고·전화 유도·직거래는 지양해주세요.
+            </div>
+          </div>
+        )}
+
         {!isEdit && (
           <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.xl, border: `1px solid ${C.brandM}` }}>
             <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>
