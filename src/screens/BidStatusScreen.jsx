@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
+import DisputeNotice from "../components/DisputeNotice";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest } from "../lib/supabase";
 
