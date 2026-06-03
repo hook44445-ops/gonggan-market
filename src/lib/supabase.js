@@ -227,7 +227,7 @@ export const sendMessage = (roomId, senderId, senderType, text) =>
     sender_id: senderId,
     sender_type: senderType,
     text,
-  });
+  }).select("id").maybeSingle();
 
 export const subscribeToChatRoom = (roomId, callback) =>
   supabase
@@ -2372,7 +2372,7 @@ export async function checkContractExists(requestId, companyId) {
 }
 
 // 채팅 메시지 직거래 키워드 감지 → 감지 시 기록 + 관리자 알림. 감지된 키워드 배열 반환.
-export async function checkDirectDealKeyword(messageText, { requestId = null, companyId = null, customerId = null, senderId = null, senderRole = null } = {}) {
+export async function checkDirectDealKeyword(messageText, { requestId = null, companyId = null, customerId = null, senderId = null, senderRole = null, chatMessageId = null } = {}) {
   const detected = detectDirectDealKeywords(messageText);
   if (detected.length === 0) return [];
 
@@ -2386,6 +2386,7 @@ export async function checkDirectDealKeyword(messageText, { requestId = null, co
       message: messageText,
       sender_id: senderId,
       sender_role: senderRole,
+      chat_message_id: chatMessageId,
     },
   });
 
@@ -2553,6 +2554,137 @@ export async function checkSiteVisitFollowUp() {
     });
     flaggedKey.add(key);
     summary.flagged += 1;
+  }
+
+  return summary;
+}
+
+// ── 직거래 수동 신고 (트리거 5: manual_report) ────────────────────────────────
+// 채팅 화면 신고 버튼 → 사유 선택 후 insert. 중복 신고는 허용(증거 누적).
+export async function reportDirectDeal({ requestId = null, companyId = null, customerId = null, reporterId = null, reportReason = null } = {}) {
+  const { error } = await supabase.from("direct_deal_reports").insert({
+    request_id:  requestId,
+    company_id:  companyId,
+    customer_id: customerId,
+    trigger_type: "manual_report",
+    trigger_detail: {
+      reporter_id: reporterId,
+      report_reason: reportReason,
+    },
+  });
+  if (!error) {
+    await notifyAdmins({
+      type: "DIRECT_DEAL_DETECTED",
+      title: "직거래 수동 신고 접수",
+      message: `사용자 신고: ${reportReason ?? "사유 미기재"}`,
+      relatedId: requestId,
+      relatedType: "request",
+      priority: "HIGH",
+    });
+  }
+  return { error };
+}
+
+// ── 직거래 스케줄 트리거 (2: no_estimate_72h · 3: no_contract_7d · 4: chat_blackout) ──
+// 메시지/입찰/계약 기준의 보조 추적. 관리자 수동 실행 또는 cron 으로 주기 호출.
+// 모든 insert 는 (trigger_type+request_id+company_id+customer_id) 로 중복 방지.
+export async function checkDirectDealSchedules() {
+  const now = Date.now();
+  const H72 = 72 * 60 * 60 * 1000;
+  const D7  = 7  * 24 * 60 * 60 * 1000;
+  const D5  = 5  * 24 * 60 * 60 * 1000;
+  const summary = { no_estimate_72h: 0, no_contract_7d: 0, chat_blackout: 0 };
+  const isUuid = (s) => typeof s === "string" && /^[0-9a-f-]{36}$/i.test(s);
+
+  // 기존 플래그 — 중복 방지
+  const { data: existing } = await supabase
+    .from("direct_deal_reports")
+    .select("trigger_type, request_id, company_id, customer_id")
+    .in("trigger_type", ["no_estimate_72h", "no_contract_7d", "chat_blackout"]);
+  const seen = new Set(
+    (existing ?? []).map((r) => `${r.trigger_type}:${r.request_id ?? ""}:${r.company_id ?? ""}:${r.customer_id ?? ""}`)
+  );
+  const flag = async (trigger_type, { requestId = null, companyId = null, customerId = null, detail = {} }) => {
+    const key = `${trigger_type}:${requestId ?? ""}:${companyId ?? ""}:${customerId ?? ""}`;
+    if (seen.has(key)) return false;
+    const { error } = await supabase.from("direct_deal_reports").insert({
+      request_id: requestId, company_id: companyId, customer_id: customerId,
+      trigger_type, trigger_detail: detail,
+    });
+    if (error) return false;
+    seen.add(key);
+    return true;
+  };
+
+  // 데이터 수집 (소규모 운영 기준 일괄 조회)
+  const [{ data: chats }, { data: requests }, { data: bids }, { data: escrows }] = await Promise.all([
+    supabase.from("chats").select("room_id, created_at").order("created_at", { ascending: true }),
+    supabase.from("requests").select("id, user_id, created_at"),
+    supabase.from("bids").select("request_id, company_id, created_at"),
+    supabase.from("escrow_payments").select("request_id, company_id, transaction_status, updated_at"),
+  ]);
+
+  // 채팅방 집계 — room_id = `${customerId}_${companyId}` (uuid 는 '_' 없음)
+  const rooms = {};
+  for (const c of chats ?? []) {
+    const idx = c.room_id.indexOf("_");
+    if (idx < 0) continue;
+    const customerId = c.room_id.slice(0, idx);
+    const companyId  = c.room_id.slice(idx + 1);
+    if (!isUuid(customerId) || !isUuid(companyId)) continue; // guest 등 제외
+    const r = rooms[c.room_id] ?? (rooms[c.room_id] = { customerId, companyId, first: c.created_at, last: c.created_at });
+    r.last = c.created_at;
+  }
+
+  // 인덱스
+  const reqsByUser = {};
+  for (const rq of requests ?? []) (reqsByUser[rq.user_id] ??= []).push(rq);
+  const bidSet = new Set((bids ?? []).map((b) => `${b.request_id}:${b.company_id}`));
+  const bidByReqCompany = {};
+  for (const b of bids ?? []) bidByReqCompany[`${b.request_id}:${b.company_id}`] = b;
+  const escrowSet = new Set((escrows ?? []).map((e) => `${e.request_id}:${e.company_id}`));
+
+  // 트리거 2: no_estimate_72h — 대화 있음 + 해당 업체 입찰 없음 + 첫 대화 72h 경과
+  for (const room of Object.values(rooms)) {
+    if (now - new Date(room.first).getTime() < H72) continue;
+    const custReqs = reqsByUser[room.customerId] ?? [];
+    const hasBid = custReqs.some((rq) => bidSet.has(`${rq.id}:${room.companyId}`));
+    if (hasBid) continue;
+    const relReq = custReqs[0]?.id ?? null;
+    if (await flag("no_estimate_72h", { requestId: relReq, companyId: room.companyId, customerId: room.customerId, detail: { first_message_at: room.first } }))
+      summary.no_estimate_72h += 1;
+  }
+
+  // 트리거 3: no_contract_7d — 입찰 있음 + 계약(escrow) 없음 + 입찰 7d 경과
+  for (const [key, bid] of Object.entries(bidByReqCompany)) {
+    if (now - new Date(bid.created_at).getTime() < D7) continue;
+    if (escrowSet.has(key)) continue;
+    const [requestId, companyId] = key.split(":");
+    const req = (requests ?? []).find((r) => r.id === requestId);
+    if (await flag("no_contract_7d", { requestId, companyId, customerId: req?.user_id ?? null, detail: { bid_created_at: bid.created_at } }))
+      summary.no_contract_7d += 1;
+  }
+
+  // 트리거 4: chat_blackout — 계약 진행 중 + 마지막 채팅 5d 경과 + 에스크로 미완료
+  const IN_PROGRESS = new Set(["CONTRACTED", "STARTED", "MID_INSPECTION"]);
+  for (const e of escrows ?? []) {
+    if (!IN_PROGRESS.has(e.transaction_status)) continue;
+    const req = (requests ?? []).find((r) => r.id === e.request_id);
+    const customerId = req?.user_id ?? null;
+    if (!customerId) continue;
+    const room = rooms[`${customerId}_${e.company_id}`];
+    if (!room) continue;
+    if (now - new Date(room.last).getTime() < D5) continue;
+    if (await flag("chat_blackout", { requestId: e.request_id, companyId: e.company_id, customerId, detail: { last_chat_at: room.last, transaction_status: e.transaction_status } })) {
+      await notifyAdmins({
+        type: "DIRECT_DEAL_DETECTED",
+        title: "계약 진행 중 연락 두절 (5일+)",
+        message: "계약 진행 중 5일 이상 채팅이 없습니다 — 직거래 의심 플래그.",
+        relatedId: e.request_id,
+        relatedType: "request",
+      });
+      summary.chat_blackout += 1;
+    }
   }
 
   return summary;

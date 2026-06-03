@@ -36,6 +36,8 @@ import CompanyDepositCard from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
 import OwnershipHistory from "./OwnershipHistory";
+import ProtectionNotice from "./ProtectionNotice";
+import DisputeNotice from "./DisputeNotice";
 import SiteVisitModal from "./SiteVisitModal";
 import PlatformEstimateModal from "./PlatformEstimateModal";
 import CompanyActiveJobCard from "./CompanyActiveJobCard";
@@ -3490,14 +3492,27 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   a: "각 단계 승인 화면에서 ‘이의 제기’로 보류할 수 있어요. 사진·대화·계약 기록이 모두 저장되며, 분쟁 시 관리자가 검토해 중재합니다." },
                 { q: "환불은 어떻게 받나요?",
                   a: "아직 지급되지 않은 예치금은 환불 대상입니다. 단계 미승인 상태의 잔여 금액은 관리자 검토 후 결제 수단으로 환불됩니다." },
+                { q: "공간마켓 보호 범위가 무엇인가요?",
+                  a: "공간안전결제로 진행하시면 토스페이먼츠 에스크로 보호, 단계별 정산, 계약서 보관, 분쟁 중재 지원이 모두 적용됩니다. 플랫폼 밖 거래는 보호 범위에 포함되지 않습니다.",
+                  extra: <ProtectionNotice variant="full" /> },
+                { q: "분쟁이 생기면 어떻게 되나요?",
+                  a: "공간마켓이 기록을 토대로 원만한 해결을 도와드립니다. 단, 공간마켓은 법적 판단을 내리는 기관이 아닙니다.",
+                  extra: <DisputeNotice variant="full" /> },
+                { q: "강제로 환불받을 수 있나요?",
+                  a: "공간마켓은 강제 환불을 집행하는 기관이 아닙니다. 양측 합의를 통한 환불 협의를 도와드립니다. 에스크로 정산 보류는 가능합니다." },
+                { q: "공사 품질이 마음에 안 들어요.",
+                  a: "공간마켓은 공사 품질을 전문적으로 감정하는 기관이 아닙니다. 계약서와 시공 사진 기록을 토대로 업체와 협의를 도와드립니다." },
+                { q: "직접 업체와 거래하면 안 되나요?",
+                  a: "거래 방식은 전적으로 고객님의 선택입니다. 다만 공간마켓의 보호와 기록은 공간안전결제를 통한 거래에서만 제공됩니다." },
                 { q: "고객센터 연락처",
                   a: "문의하기(아래 ‘문의하기’) 또는 이메일 help@gonggan.market 으로 연락주시면 순차적으로 도와드립니다." },
-              ].map(({ q, a }) => (
+              ].map(({ q, a, extra }) => (
                 <details key={q} style={{ borderBottom: `1px solid ${C.bg}`, padding: `${S.sm}px 0` }}>
                   <summary style={{ fontSize: 14, color: C.text2, cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>❔ {q}</span><span style={{ fontSize: 16, color: C.text3 }}>›</span>
                   </summary>
-                  <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7, marginTop: S.sm, paddingLeft: 2 }}>{a}</div>
+                  <div style={{ fontSize: 14, color: C.text3, lineHeight: 1.7, marginTop: S.sm, paddingLeft: 2 }}>{a}</div>
+                  {extra && <div style={{ marginTop: S.sm }}>{extra}</div>}
                 </details>
               ))}
             </div>
