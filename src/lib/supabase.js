@@ -1879,6 +1879,35 @@ export const rpcSetPostHidden = (postId, hidden, actorId) =>
 export const rpcSetCommentHidden = (commentId, hidden, actorId) =>
   supabase.rpc("op_set_comment_hidden", { p_comment_id: commentId, p_hidden: hidden, p_actor_id: actorId });
 
+// ── 서버(service role) 관리자 API ─────────────────────────────────────────────
+// service role key 는 프론트에 절대 노출하지 않고, /api/admin/* serverless 함수에서만 사용.
+async function adminApiGet(path, adminId) {
+  const sep = path.includes("?") ? "&" : "?";
+  const url = `${path}${sep}adminId=${encodeURIComponent(adminId ?? "")}`;
+  try {
+    const res = await fetch(url, { headers: { "Content-Type": "application/json" } });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { data: null, error: { message: json?.error || `HTTP ${res.status}`, status: res.status } };
+    return { data: json?.data ?? [], error: null };
+  } catch (e) {
+    return { data: null, error: { message: e?.message || "NETWORK_ERROR" } };
+  }
+}
+
+// 고객 목록(role=consumer 등) — admin 만. RLS 우회는 서버 service role 이 담당.
+export const fetchAdminCustomers = (adminId, role = "consumer") =>
+  adminApiGet(`/api/admin/users?role=${encodeURIComponent(role)}`, adminId);
+
+// 라운지 운영(seed) 글 전체(숨김/비활성 포함) — admin/operator.
+export const fetchAdminSeedPosts = (adminId) =>
+  adminApiGet("/api/admin/seed-posts", adminId);
+
+// is_seed 운영글 노출(활성/비활성) — is_visible 토글 (anon update 정책 허용)
+export const setSeedPostVisible = (postId, visible) =>
+  supabase.from("lounge_posts")
+    .update({ is_visible: visible, updated_at: new Date().toISOString() })
+    .eq("id", postId).select("id, is_visible").single();
+
 export const createLoungePost = (data) =>
   supabase.from("lounge_posts").insert(data).select().single();
 
