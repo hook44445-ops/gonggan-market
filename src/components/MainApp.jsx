@@ -529,11 +529,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   const [mapLocalOnly, setMapLocalOnly] = useState(false);
 
-  const onSelectRegionTab = (r) => { clearGps(); setActiveRegion(r); setMapLocalOnly(false); };
   // "현재 위치로 보기" — 버튼 클릭 시에만 GPS 1회 요청 (자동 호출 없음)
   const onRequestMapLocation = () => { gpsModeRef.current = "view"; setActiveRegion(null); requestCurrentLocation(); };
 
-  // "+ 지역 추가" → 선택 시트 (① 현재 위치로 ② 직접 선택)
+  // 지역 칩 클릭 → 선택 시트 (① 둘러보기 ② 현재 위치로 ③ 관심지역 저장)
   const openRegionChooser = () => setRegionChooserOpen(true);
   // 시트 ① — 현재 위치로 지역 추가: GPS 1회 → reverse geocoding (effect 에서 처리)
   const onAddRegionByGps = () => { gpsModeRef.current = "add"; setRegionChooserOpen(false); requestCurrentLocation(); };
@@ -2863,8 +2862,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <RegionSelectorBar
                   regions={chips}
                   activeKey={activeKey}
-                  onSelect={onSelectRegionTab}
-                  onAdd={openRegionChooser}
+                  onSelect={openRegionChooser}
                 />
               );
             })()}
@@ -2984,7 +2982,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               onPick={onPickCurrentRegion}
             />
 
-            {/* "+ 지역 추가" 선택 시트 — ① 현재 위치 ② 직접 선택 */}
+            {/* 지역 칩 클릭 시 열리는 선택 시트 — ① 둘러보기 ② 현재 위치 ③ 관심지역 저장 */}
             {regionChooserOpen && (
               <div onClick={() => setRegionChooserOpen(false)}
                 style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:1000, display:"flex", alignItems:"flex-end" }}>
