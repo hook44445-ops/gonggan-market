@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { detectDirectDealKeywords } from "../constants/directDeal";
+import { SITE_VISIT_ESTIMATE_MS, SITE_VISIT_WARN_MS } from "../constants/policy";
 
 const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1197,9 +1198,10 @@ export const gpsCheckin = (id, { lat, lng, photos }) =>
     updated_at: new Date().toISOString(),
   }).eq("id", id).select().single();
 
+// [정책] 현장견적 카운트다운: 72h (constants/policy.js · 2026.06)
 export const completeSiteVisit = (id, { fieldAmount, fieldNote }) => {
   const completedAt = new Date().toISOString();
-  const estimateDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const estimateDueAt = new Date(Date.now() + SITE_VISIT_ESTIMATE_MS).toISOString();
   return supabase.from("site_visits").update({
     completed_at: completedAt,
     estimate_due_at: estimateDueAt,
@@ -2397,14 +2399,15 @@ export const updateDirectDealReportStatus = (id, status, adminNote = null) => {
   return supabase.from("direct_deal_reports").update(patch).eq("id", id).select().single();
 };
 
+// [정책] 현장견적 카운트다운: 72h (constants/policy.js · 2026.06)
 // 실측 후 미계약 자동 추적 — 관리자 수동 실행 또는 cron 으로 호출.
-//   48h 경과 + 견적서 미제출  → 업체에 기한 임박 알림
-//   72h 경과 + 견적서 미제출  → 매칭 취소 + 업체 공간온도 -3 + 의심 플래그
+//   48h(경고) 경과 + 견적서 미제출  → 업체에 기한 임박 알림
+//   72h(취소) 경과 + 견적서 미제출  → 매칭 취소 + 업체 공간온도 -3 + 의심 플래그
 //   7d  경과 + 견적서 제출 + 계약 없음 → 양측 문의 + 의심 플래그
 export async function checkSiteVisitFollowUp() {
   const now = Date.now();
-  const h48 = new Date(now - 48 * 60 * 60 * 1000).toISOString();
-  const h72 = new Date(now - 72 * 60 * 60 * 1000).toISOString();
+  const h48 = new Date(now - SITE_VISIT_WARN_MS).toISOString();
+  const h72 = new Date(now - SITE_VISIT_ESTIMATE_MS).toISOString();
   const d7  = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
   const summary = { reminded: 0, cancelled: 0, flagged: 0, inquired: 0 };
 

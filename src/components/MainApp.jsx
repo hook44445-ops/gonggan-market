@@ -2974,7 +2974,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 if (txStatus === "MID_INSPECTION") return "중간 점검 사진 확인 대기";
                 if (txStatus === "COMPLETED") return "완료 사진 확인 대기";
                 if (hasEscrow) return "착공 대기 · 에스크로 보관 중";
-                if (r.status === "in_progress") return "실측 방문 3일 내 · 견적서 24시간 내 등록";
+                if (r.status === "in_progress") return "실측 방문 3일 내 · 견적서 72시간(3일) 내 등록";
                 return "착공 ~ 중간점검";
               })();
 
@@ -3023,7 +3023,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                           )}
                           {step.escrowStep && r.status === "in_progress" && !hasEscrow && (
                             <div style={{ marginTop:S.sm, background:C.brandL, borderRadius:R.md, padding:"8px 12px", fontSize:11, color:C.brand }}>
-                              💬 상세 견적서는 실측 후 24시간 내 플랫폼에 등록됩니다
+                              💬 상세 견적서는 실측 후 72시간(3일) 내 플랫폼에 등록됩니다
                             </div>
                           )}
                         </div>
