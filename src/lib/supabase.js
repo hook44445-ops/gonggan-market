@@ -1825,6 +1825,60 @@ export const incrementLoungeView = async (postId) => {
     .eq("id", postId);
 };
 
+// ── 추천글(🔥) + 운영자(operator) 관리 ───────────────────────────────────────
+// 추천글: 운영자가 수동 등록(is_hot). 자동 알고리즘 없음. 최대 limit 개.
+export const getHotLoungePosts = (limit = 5) =>
+  supabase
+    .from("lounge_posts")
+    .select("*")
+    .eq("is_hot", true)
+    .eq("is_story", false)
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .order("hot_priority", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+// 운영자 게시판 관리용 — 숨김 글 포함(삭제 제외) 최근 글.
+export const getModeratorLoungePosts = (limit = 60) =>
+  supabase
+    .from("lounge_posts")
+    .select("id, title, content, category, anonymous_nickname, image_urls, is_hot, hot_priority, is_hidden, is_seed, view_count, like_count, comment_count, created_at")
+    .eq("is_story", false)
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+// 운영자 게시판 관리용 — 숨김 댓글 포함(삭제 제외).
+export const getModeratorLoungeComments = (postId) =>
+  supabase
+    .from("lounge_comments")
+    .select("id, post_id, anonymous_nickname, content, is_hidden, created_at")
+    .eq("post_id", postId)
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .order("created_at", { ascending: true });
+
+// 운영자 목록(역할 operator)
+export const getOperators = () =>
+  supabase.from("users").select("id, name, phone, role, created_at").eq("role", "operator").order("created_at", { ascending: false });
+
+// 역할 변경 — 반드시 RPC 경유(직접 update 금지). admin 만 호출 성공.
+export const rpcSetOperatorByPhone = (phone, adminId) =>
+  supabase.rpc("set_user_operator_by_phone", { p_phone: phone, p_admin_id: adminId });
+
+export const rpcUnsetOperator = (userId, adminId) =>
+  supabase.rpc("unset_user_operator", { p_user_id: userId, p_admin_id: adminId });
+
+// 라운지 운영(operator/admin) — soft 처리 + 서버 로그
+export const rpcSetPostHot = (postId, hot, priority, actorId) =>
+  supabase.rpc("op_set_post_hot", { p_post_id: postId, p_hot: hot, p_priority: priority ?? 0, p_actor_id: actorId });
+
+export const rpcSetPostHidden = (postId, hidden, actorId) =>
+  supabase.rpc("op_set_post_hidden", { p_post_id: postId, p_hidden: hidden, p_actor_id: actorId });
+
+export const rpcSetCommentHidden = (commentId, hidden, actorId) =>
+  supabase.rpc("op_set_comment_hidden", { p_comment_id: commentId, p_hidden: hidden, p_actor_id: actorId });
+
 export const createLoungePost = (data) =>
   supabase.from("lounge_posts").insert(data).select().single();
 

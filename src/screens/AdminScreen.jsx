@@ -28,6 +28,7 @@ import {
   getCompaniesByOwnerIds,
   adminVerifyUserIdentity,
   getDirectDealReports, updateDirectDealReportStatus, checkSiteVisitFollowUp, checkDirectDealSchedules,
+  getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
 } from "../lib/supabase";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 
@@ -1305,6 +1306,92 @@ function SeedReviewTab() {
   );
 }
 
+// ── 운영자 설정 탭 (admin 전용) — 전화번호로 운영자 등록/해제 + 목록 ──
+function OperatorSettingTab({ adminUserId, showToast }) {
+  const [phone, setPhone]       = useState("");
+  const [operators, setOps]     = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [busy, setBusy]         = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await getOperators();
+    setOps(data ?? []);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const register = async () => {
+    const val = phone.trim();
+    if (!val) { showToast?.("전화번호를 입력하세요", false); return; }
+    if (!adminUserId) { showToast?.("관리자(DB role=admin) 계정으로 로그인해야 등록할 수 있어요", false); return; }
+    setBusy(true);
+    const { data, error } = await rpcSetOperatorByPhone(val, adminUserId);
+    setBusy(false);
+    if (error) {
+      const m = error.message || "";
+      const msg = m.includes("ADMIN_ONLY") ? "관리자만 등록할 수 있어요"
+        : m.includes("USER_NOT_FOUND") ? "해당 전화번호의 사용자를 찾을 수 없어요"
+        : m.includes("CANNOT_MODIFY_ADMIN") ? "관리자 계정은 변경할 수 없어요"
+        : "등록에 실패했어요";
+      showToast?.(msg, false);
+      return;
+    }
+    showToast?.("운영자로 등록했어요");
+    setPhone("");
+    load();
+  };
+
+  const unregister = async (op) => {
+    if (!adminUserId) { showToast?.("관리자 계정으로 로그인해야 해제할 수 있어요", false); return; }
+    setBusy(true);
+    const { error } = await rpcUnsetOperator(op.id, adminUserId);
+    setBusy(false);
+    if (error) { showToast?.("해제에 실패했어요", false); return; }
+    showToast?.("운영자에서 해제했어요");
+    load();
+  };
+
+  return (
+    <div style={{ padding: "8px 4px" }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 6 }}>운영자 설정</div>
+      <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 12 }}>
+        전화번호로 사용자를 검색해 운영자로 등록/해제합니다. 운영자는 라운지 게시판 관리(추천글·숨김)만 가능합니다.
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <input value={phone} onChange={e => setPhone(e.target.value)}
+          placeholder="전화번호 (예: 01027406030)"
+          onKeyDown={e => { if (e.key === "Enter") register(); }}
+          style={{ flex: 1, padding: "11px 14px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 14, outline: "none", color: C.text1, background: C.surface, fontFamily: "inherit" }} />
+        <button disabled={busy} onClick={register}
+          style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, padding: "0 18px", fontSize: 14, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+          운영자 등록
+        </button>
+      </div>
+
+      <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 8 }}>현재 운영자 ({operators.length})</div>
+      {loading ? (
+        <div style={{ color: C.text3, fontSize: 13, padding: "12px 0" }}>불러오는 중...</div>
+      ) : operators.length === 0 ? (
+        <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>등록된 운영자가 없습니다</div>
+      ) : (
+        operators.map(op => (
+          <div key={op.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, marginBottom: 6 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{op.name || "이름없음"} <span style={{ fontSize: 11, color: C.text4, fontWeight: 500 }}>· operator</span></div>
+              <div style={{ fontSize: 12, color: C.text3 }}>{op.phone}</div>
+            </div>
+            <button disabled={busy} onClick={() => unregister(op)}
+              style={{ background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+              해제
+            </button>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 export default function AdminScreen({ onBack, onHome, user }) {
   const [companies, setCompanies]       = useState([]);
   const [customers, setCustomers]       = useState([]);
@@ -1655,6 +1742,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["lounge_seeding", "라운지 시딩"],
     ["reports",        "신고관리"],
     ["direct_deal",    "직거래 의심"],
+    ["operator_setting", "운영자 설정"],
     ["notifications",  "알림"],
   ];
 
@@ -2617,6 +2705,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {mainTab === "review_admin" && <ReviewAdminTab adminUserId={user?.id} showToast={showToast} />}
 
             {mainTab === "seed" && <SeedReviewTab />}
+
+            {mainTab === "operator_setting" && (
+              <OperatorSettingTab adminUserId={user?.id ?? null} showToast={showToast} />
+            )}
 
             {mainTab === "notifications" && (
               <div>

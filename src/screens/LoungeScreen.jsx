@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 import { C, R, S, SHADOW } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
 import { useLounge } from '../hooks/useLounge';
-import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead, createLoungeNotification } from '../lib/supabase';
+import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead, createLoungeNotification, getHotLoungePosts } from '../lib/supabase';
 import { NOTIF_META as NOTIF_TAXONOMY, notifNavTarget } from '../utils/notify';
 import { LogoMark } from '../components/common';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
@@ -353,11 +353,19 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
   const [notifsError,     setNotifsError]      = useState(null);
   const [notifCount,      setNotifCount]       = useState(0);
 
+  const [hotPosts, setHotPosts] = useState([]);
+
   const { posts, stories, loading, storiesError, devInfo, refetch } = useLounge(category);
 
   useEffect(() => {
     if (refreshKey > 0) refetch();
   }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 🔥 추천글 — 운영자가 수동 등록한 글(is_hot). 자동 알고리즘 없음.
+  useEffect(() => {
+    if (!IS_SUPABASE_READY) return;
+    getHotLoungePosts(5).then(({ data }) => setHotPosts(data ?? [])).catch(() => {});
+  }, [refreshKey]);
 
   const isGuest    = user?.isGuest === true;
   const isLoggedIn = !isGuest;
@@ -475,6 +483,30 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <div style={{ background: C.brandL, borderLeft: `3px solid ${C.brandM}`, padding: `${S.sm}px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.sm }}>
           <span style={{ fontSize: 13 }}>🌿</span>
           <span style={{ fontSize: 12, color: C.brand, fontWeight: 600 }}>많이 읽힌 이야기 모음 — 읽기·댓글·관심만 가능해요</span>
+        </div>
+      )}
+
+      {/* 🔥 추천글 — 운영자 수동 등록(최대 5). 과하지 않게 작게. (전체 탭 상단) */}
+      {category === 'all' && hotPosts.length > 0 && (
+        <div style={{ padding: `${S.md}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}` }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🔥 추천글</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {hotPosts.map(p => (
+              <button key={p.id} onClick={() => onPostClick?.(p)}
+                style={{ display: 'flex', alignItems: 'center', gap: S.sm, width: '100%', textAlign: 'left',
+                  background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, padding: '8px 10px', cursor: 'pointer' }}>
+                {p.image_urls?.[0] && (
+                  <img src={p.image_urls[0]} alt={p.title || '추천글'} loading="lazy"
+                    style={{ width: 36, height: 36, borderRadius: R.sm, objectFit: 'cover', flexShrink: 0 }} />
+                )}
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700, color: C.text1,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {p.title || (p.content ?? '').slice(0, 30)}
+                </span>
+                <span style={{ fontSize: 11, color: C.text4, flexShrink: 0 }}>👁 {(p.view_count ?? 0).toLocaleString()}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
