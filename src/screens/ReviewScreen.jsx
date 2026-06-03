@@ -6,6 +6,7 @@ import ReviewModal from "../components/ReviewModal";
 import ImageViewerModal from "../components/ImageViewerModal";
 import { calcTempDelta, clampTemp } from "../utils/calculations";
 import { getReviews, createReview, createReviewReward, updateCompanyTemp } from "../lib/supabase";
+import { sendTieredNotification } from "../utils/notify";
 
 const normalizeReview = (row) => ({
   id:              row.id,
@@ -256,6 +257,20 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
       if (reviewRow) {
         setAlreadyReviewed(true);
         await updateCompanyTemp(company.id, delta).catch(() => {});
+
+        // 신뢰 알림(3단계): 업체에 "후기 등록 · 공간온도 상승" 알림
+        const ownerId = company.ownerId ?? company.owner_id ?? null;
+        if (ownerId) {
+          sendTieredNotification({
+            userId:      ownerId,
+            type:        "TEMP_UP",
+            title:       "공간온도가 올랐어요",
+            message:     `새 후기가 등록돼 공간온도가 올랐어요 🌡️ +${Number(delta || 0).toFixed(1)}°`,
+            relatedId:   reviewRow.id,
+            relatedType: "review",
+            dedupe:      true,
+          }).catch(() => {});
+        }
 
         // 공사 후기 작성 미션 — 실제 공간토큰 지급(+15). 중복방지는 useSpaceToken.earn이
         // logs에서 동일 action 존재 여부로 처리하므로 1회만 지급됩니다.

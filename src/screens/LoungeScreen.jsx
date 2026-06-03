@@ -7,6 +7,7 @@ import { C, R, S, SHADOW } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
 import { useLounge } from '../hooks/useLounge';
 import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead, createLoungeNotification } from '../lib/supabase';
+import { NOTIF_META as NOTIF_TAXONOMY, notifNavTarget } from '../utils/notify';
 import { LogoMark } from '../components/common';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
@@ -106,7 +107,7 @@ function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
 }
 
 // ── 알림 패널 ──────────────────────────────────────────
-function NotifPanel({ notifs, loading, onClose, onGoSettings }) {
+function NotifPanel({ notifs, loading, onClose, onGoSettings, onNavigate }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 300 }} onClick={onClose}>
       <div style={{ background: C.surface, borderRadius: '24px 24px 0 0', width: '100%', maxWidth: 480, maxHeight: '75vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
@@ -134,15 +135,19 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings }) {
             </div>
           ) : (
             notifs.map(n => {
-              const icon = NOTIF_META[n.type]?.icon ?? '🔔';
+              const icon = NOTIF_META[n.type]?.icon ?? NOTIF_TAXONOMY[n.type]?.icon ?? '🔔';
+              const target = notifNavTarget(n);
+              const handleTap = () => {
+                if (target && onNavigate) { onClose?.(); onNavigate(target); }
+              };
               return (
-                <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: S.md, padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bg}`, background: !n.is_read ? `${C.brandL}88` : C.surface }}>
+                <div key={n.id} onClick={handleTap} style={{ display: 'flex', alignItems: 'center', gap: S.md, padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bg}`, background: !n.is_read ? `${C.brandL}88` : C.surface, cursor: target ? 'pointer' : 'default' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: !n.is_read ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
                     {icon}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: C.text1, fontWeight: !n.is_read ? 700 : 500, lineHeight: 1.4 }}>{n.message}</div>
-                    <div style={{ fontSize: 11, color: C.text4, marginTop: 3 }}>{relTime(n.created_at)}</div>
+                    <div style={{ fontSize: 14, color: C.text1, fontWeight: !n.is_read ? 700 : 500, lineHeight: 1.4 }}>{n.message}</div>
+                    <div style={{ fontSize: 12, color: C.text4, marginTop: 3 }}>{relTime(n.created_at)}</div>
                   </div>
                   {!n.is_read && (
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.brand, flexShrink: 0 }} />
@@ -338,7 +343,7 @@ function StoryDevPanel({ stories, storiesError }) {
 }
 
 // ── 메인 스크린 ────────────────────────────────────────
-export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage, onDeleteStory, refreshKey = 0, initialCategory = null }) {
+export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage, onNotifNavigate, onDeleteStory, refreshKey = 0, initialCategory = null }) {
   const [category,        setCategory]        = useState(initialCategory || 'all');
   const [showWriteOptions, setShowWriteOptions] = useState(false);
   const [searchOpen,      setSearchOpen]       = useState(false);
@@ -545,6 +550,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
           loading={notifsLoading}
           onClose={() => setNotifOpen(false)}
           onGoSettings={() => { setNotifOpen(false); }}
+          onNavigate={onNotifNavigate}
         />
       )}
 
