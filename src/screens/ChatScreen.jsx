@@ -108,6 +108,9 @@ export default function ChatScreen({ company, user, onBack }) {
 
       <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.bgWarm}`, background:C.bg }}>
         <ProtectionNotice variant="short" />
+        <div style={{ marginTop:8, fontSize:12, color:C.text3, lineHeight:1.6, textAlign:"center" }}>
+          견적과 계약은 공간마켓 안에서 진행해야 보호받을 수 있어요.
+        </div>
       </div>
 
       <div style={{ flex:1, overflowY:"auto", padding:S.xl, background:C.bg }}>
