@@ -11,12 +11,15 @@ import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname 
 import {
   createLoungeComment,
   likeLoungePost,
+  unlikeLoungePost,
   addLoungePostLike,
+  removeLoungePostLike,
   checkLoungePostLiked,
   addLoungeSave,
   removeLoungeSave,
   checkLoungeSaved,
   createLoungeChat,
+  incrementLoungeView,
 } from '../lib/supabase';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
@@ -94,12 +97,17 @@ const LOUNGE_CTA = {
 export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost, onNavigate }) {
   const { post: foundPost, comments, loading, commentsFetchError, addComment, likeComment, refetchComments } = useLoungePost(postId, initialPost);
   const post = foundPost ?? initialPost ?? null;
-  const isSeedPost = post?.is_seed === true;
+  // is_seed(운영글)는 매거진형(견적 CTA·대화신청만 숨김)이고 상호작용은 일반 글과 동일.
+  // 단, seed_lounge_posts 합성 글(id 'seed_' 접두 · DB 미존재)은 읽기 전용.
+  const isSynthSeed = typeof postId === 'string' && postId.startsWith('seed_');
+  const isSeedPost  = post?.is_seed === true;
   const [commentText, setCommentText]       = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [devCommentInfo, setDevCommentInfo] = useState(null);
   const [replyTo,     setReplyTo]           = useState(null);
   const [liked,       setLiked]             = useState(false);
+  const [likeCount,   setLikeCount]         = useState(post?.like_count ?? 0);
+  const [viewCount,   setViewCount]         = useState(post?.view_count ?? 0);
   const [saved,       setSaved]             = useState(() => {
     try {
       const saves = JSON.parse(localStorage.getItem('lounge_saved_posts') ?? '[]');
@@ -110,9 +118,6 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [chatSending, setChatSending]       = useState(false);
   const [chatSent,    setChatSent]          = useState(false);
   const [toast,       setToast]             = useState(null);
-  // 운영글(seed) 가벼운 공감 — DB 미기록(읽기 전용 매거진 콘텐츠), 로컬 피드백만
-  const [seedLiked,   setSeedLiked]         = useState(false);
-  const [helpful,     setHelpful]           = useState(false);
   const [reportTarget, setReportTarget]     = useState(null);
   const [showMenu,    setShowMenu]          = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -125,9 +130,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const isLoggedIn = !isGuest;
   const isOwn      = isLoggedIn && post?.user_id && user?.id && post.user_id === user.id;
 
-  // Load initial like/save state from DB (skip for seed posts — not in lounge_posts)
+  // 좋아요/조회수 카운트는 항상 DB 값 기준으로 동기화 (하드코딩 금지)
   useEffect(() => {
-    if (!user?.id || !postId || isGuest || isSeedPost) return;
+    setLikeCount(post?.like_count ?? 0);
+    setViewCount(post?.view_count ?? 0);
+  }, [post?.id, post?.like_count, post?.view_count]);
+
+  // Load initial like/save state from DB (skip synthetic seed — not in lounge_posts)
+  useEffect(() => {
+    if (!user?.id || !postId || isGuest || isSynthSeed) return;
     Promise.all([
       checkLoungePostLiked(postId, user.id),
       checkLoungeSaved(postId, user.id),
@@ -135,11 +146,27 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       if (likeRes.data) setLiked(true);
       if (saveRes.data) setSaved(true);
     }).catch(() => {});
-  }, [postId, user?.id, isGuest, isSeedPost]);
+  }, [postId, user?.id, isGuest, isSynthSeed]);
+
+  // 상세 진입 시 조회수 +1 (합성 seed 제외) · 같은 글은 하루 1회만 (로컬 중복 방지)
+  useEffect(() => {
+    if (!postId || isSynthSeed || !IS_SUPABASE_READY) return;
+    let cancelled = false;
+    try {
+      const key = `lounge_viewed_${postId}`;
+      const today = new Date().toISOString().slice(0, 10);
+      if (localStorage.getItem(key) === today) return;
+      localStorage.setItem(key, today);
+    } catch { /* localStorage 불가 환경 — 그대로 진행 */ }
+    incrementLoungeView(postId)
+      .then(() => { if (!cancelled) setViewCount(v => v + 1); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [postId, isSynthSeed]);
 
   // ── SEO: 글 상세 진입 시 메타태그 동적 갱신 (언마운트 시 복원) ──
   useEffect(() => {
-    if (!post || isSeedPost) return undefined;
+    if (!post || isSynthSeed) return undefined;
     const meta = buildPostMeta(post);
     const prevTitle = document.title;
     document.title = meta.title;
@@ -169,37 +196,47 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         else if (t.prev != null) t.el.setAttribute('content', t.prev);
       });
     };
-  }, [post?.id, post?.title, post?.content, isSeedPost]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [post?.id, post?.title, post?.content, isSynthSeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2200);
   };
 
+  // 좋아요 토글 — 다시 누르면 취소(감소). lounge_post_likes + like_count 동기화.
   const handleLike = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
-    if (liked || isSeedPost) return;
-    setLiked(true);
-    showToast('❤️ 좋아요를 눌렀어요');
-    await Promise.all([
-      addLoungePostLike(postId, user.id),
-      likeLoungePost(postId),
-    ]);
-    if (IS_SUPABASE_READY && post?.user_id && user?.id && post.user_id !== user.id) {
-      createLoungeNotification({
-        userId:      post.user_id,
-        type:        'post_like',
-        title:       '좋아요',
-        message:     '내 글에 좋아요가 달렸어요',
-        relatedId:   post.id,
-        relatedType: 'lounge_post',
-      });
+    if (isSynthSeed) return;
+    const next = !liked;
+    setLiked(next);
+    setLikeCount(c => Math.max(0, c + (next ? 1 : -1)));
+    if (next) {
+      showToast('❤️ 좋아요를 눌렀어요');
+      await Promise.all([
+        addLoungePostLike(postId, user.id),
+        likeLoungePost(postId),
+      ]);
+      if (IS_SUPABASE_READY && post?.user_id && user?.id && post.user_id !== user.id) {
+        createLoungeNotification({
+          userId:      post.user_id,
+          type:        'post_like',
+          title:       '좋아요',
+          message:     '내 글에 좋아요가 달렸어요',
+          relatedId:   post.id,
+          relatedType: 'lounge_post',
+        });
+      }
+    } else {
+      await Promise.all([
+        removeLoungePostLike(postId, user.id),
+        unlikeLoungePost(postId),
+      ]);
     }
   };
 
   const handleSave = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
-    if (isSeedPost) return;
+    if (isSynthSeed) return;
     const next = !saved;
     setSaved(next);
     if (next) {
@@ -226,21 +263,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     }
   };
 
-  // 운영글 가벼운 공감 — 로컬 피드백만(읽기 전용 콘텐츠)
-  const handleSeedLike = () => {
-    if (seedLiked) return;
-    setSeedLiked(true);
-    showToast('❤️ 공감해주셔서 고마워요');
-  };
-  const handleHelpful = () => {
-    if (helpful) return;
-    setHelpful(true);
-    showToast('피드백 감사합니다 🙏');
-  };
-
   const handleComment = async () => {
     if (isGuest) { onRequireLogin?.(); return; }
-    if (commentSubmitting || isSeedPost) return;
+    if (commentSubmitting || isSynthSeed) return;
 
     const content = commentText.trim();
 
@@ -527,31 +552,20 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           </button>
         )}
 
-        {isSeedPost ? (
-          /* 운영글 가벼운 하단 — 견적 CTA 없이 공감/공유/도움됐나요만 (매거진형) */
-          <div style={{ background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
-            <div style={{ display: 'flex', gap: S.xl, alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
-              <button onClick={handleSeedLike} style={{ background: 'none', border: 'none', cursor: seedLiked ? 'default' : 'pointer', fontSize: 13, color: seedLiked ? '#E53E3E' : C.text3, fontWeight: seedLiked ? 800 : 500, padding: 0 }}>
-                {seedLiked ? '❤️' : '🤍'} 공감
-              </button>
-              <button onClick={handleShare} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.text3, padding: 0 }}>
-                🔗 공유
-              </button>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginTop: S.md, paddingTop: S.md, borderTop: `1px solid ${C.bgWarm}` }}>
-              <span style={{ fontSize: 12, color: C.text3 }}>이 글이 도움이 됐나요?</span>
-              <button onClick={handleHelpful} disabled={helpful}
-                style={{ marginLeft: 'auto', background: helpful ? C.brandL : C.surface, border: `1px solid ${helpful ? C.brandM : C.bgWarm}`, borderRadius: R.full, padding: '5px 12px', fontSize: 12, fontWeight: 700, color: helpful ? C.brand : C.text2, cursor: helpful ? 'default' : 'pointer' }}>
-                {helpful ? '👍 고마워요' : '👍 도움됐어요'}
-              </button>
-            </div>
+        {isSynthSeed ? (
+          /* 합성 seed(DB 미존재) — 읽기 전용: 조회수/공유만 */
+          <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
+            <span style={{ fontSize: 12, color: C.text3 }}>👁 {viewCount.toLocaleString()}</span>
+            <button onClick={handleShare} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.text3, padding: 0 }}>
+              🔗 공유
+            </button>
           </div>
         ) : (
+          /* 일반 글·운영글(seed) 공통 상호작용 — 조회/좋아요(토글)/저장/공유/신고 */
           <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bgWarm}`, background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
-            <span style={{ fontSize: 12, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
-            <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
-              {liked ? '❤️' : '🤍'} {(post.like_count ?? 0) + (liked ? 1 : 0)}
+            <span style={{ fontSize: 12, color: C.text3 }}>👁 {viewCount.toLocaleString()}</span>
+            <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
+              {liked ? '❤️' : '🤍'} {likeCount}
             </button>
             <button onClick={handleSave} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
               {saved ? '🔖' : '📄'} {saved ? '저장됨' : '저장'}
@@ -653,7 +667,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: C.text3, padding: 0 }}>✕</button>
           </div>
         )}
-        {isSeedPost ? (
+        {isSynthSeed ? (
           <div style={{ textAlign: 'center', padding: '10px 0', color: C.text4, fontSize: 13 }}>
             이 게시글에는 댓글을 달 수 없어요
           </div>

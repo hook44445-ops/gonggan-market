@@ -1813,6 +1813,18 @@ export const getLoungePosts = async (category = "all") => {
 export const getLoungePost = (postId) =>
   supabase.from("lounge_posts").select("*").eq("id", postId).single();
 
+// 조회수 +1 — RPC(원자적) 우선, 미배포 시 read-modify-write 폴백.
+export const incrementLoungeView = async (postId) => {
+  if (!postId || String(postId).startsWith("seed_")) return;
+  const { error } = await supabase.rpc("increment_lounge_view", { p_post_id: postId });
+  if (!error) return;
+  const { data } = await supabase.from("lounge_posts").select("view_count").eq("id", postId).single();
+  await supabase
+    .from("lounge_posts")
+    .update({ view_count: (data?.view_count ?? 0) + 1 })
+    .eq("id", postId);
+};
+
 export const createLoungePost = (data) =>
   supabase.from("lounge_posts").insert(data).select().single();
 
