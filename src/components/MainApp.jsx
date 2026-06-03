@@ -467,6 +467,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   // GPS 사용 목적: 'view'(지도 이동) | 'add'(현재 위치로 지역 추가)
   const gpsModeRef = useRef("view");
   const [regionChooserOpen, setRegionChooserOpen] = useState(false); // + 지역 추가 선택 시트
+  const [regionExploreOpen, setRegionExploreOpen] = useState(false); // 다른 지역 둘러보기(현재지역 변경 전용, 저장 안 함)
   const [gpsPendingRegion, setGpsPendingRegion] = useState(null);    // 저장 확인 대기 { rawSido, sido, sigungu, lat, lng }
 
   // user prop 변경(재로그인 등) 시 활동지역 재동기화
@@ -492,8 +493,12 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const openRegionChooser = () => setRegionChooserOpen(true);
   // 시트 ① — 현재 위치로 지역 추가: GPS 1회 → reverse geocoding (effect 에서 처리)
   const onAddRegionByGps = () => { gpsModeRef.current = "add"; setRegionChooserOpen(false); requestCurrentLocation(); };
-  // 시트 ② — 직접 지역 선택
+  // 시트 ② — 직접 지역 선택(관심지역 저장, 최대 2)
   const onAddRegionManual = () => { setRegionChooserOpen(false); setRegionSheetOpen(true); };
+  // 시트 ③ — 다른 지역 둘러보기(현재지역만 변경, 저장/제한 없음)
+  const onExploreRegion = () => { setRegionChooserOpen(false); setRegionExploreOpen(true); };
+  // 현재지역(selectedRegion) 즉시 변경 — 저장(savedRegions)과 무관, 개수 제한 없음
+  const onPickCurrentRegion = (entry) => { clearGps(); setActiveRegion(entry); setMapLocalOnly(false); };
 
   // GPS 응답 처리 — 버튼 클릭으로만 trigger 됨(gpsTick). mode 에 따라 분기.
   useEffect(() => {
@@ -2621,13 +2626,23 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {/* 지도 — STEP 15: 카카오맵 SDK 연동 */}
         {screen==="map" && (
           <div>
-            {/* 활동지역 선택 바 — 지도에서 직접 설정 (당근 방식) */}
-            <RegionSelectorBar
-              regions={activityRegions}
-              activeKey={activeRegion ? regionKey(activeRegion.city, activeRegion.district) : null}
-              onSelect={onSelectRegionTab}
-              onAdd={openRegionChooser}
-            />
+            {/* 지역 선택 바 — 저장된 관심지역 칩 + 현재 보고 있는 지역(미저장 포함) */}
+            {(() => {
+              // 현재지역(activeRegion)이 저장 목록에 없으면 칩에 임시로 함께 표시
+              const activeKey = activeRegion ? regionKey(activeRegion.city, activeRegion.district) : null;
+              const inSaved = activityRegions.some(r => regionKey(r.city, r.district) === activeKey);
+              const chips = (activeRegion && !inSaved)
+                ? [...activityRegions, activeRegion]
+                : activityRegions;
+              return (
+                <RegionSelectorBar
+                  regions={chips}
+                  activeKey={activeKey}
+                  onSelect={onSelectRegionTab}
+                  onAdd={openRegionChooser}
+                />
+              );
+            })()}
             {/* ── 지역 매칭 진단 badge (개발 환경에서만 — production 미노출) ── */}
             {SHOW_DEBUG_UI && (
               <div style={{
@@ -2730,7 +2745,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               onClose={() => setRegionSheetOpen(false)}
               selectedRegions={activityRegions}
               maxCount={2}
+              title="관심지역 저장"
+              subtitle="관심지역은 최대 2곳까지 저장할 수 있어요"
               onSave={onSaveRegions}
+            />
+
+            {/* 다른 지역 둘러보기 — 현재지역(지도 중심·업체 필터)만 변경, 저장/제한 없음 */}
+            <RegionSelectSheet
+              open={regionExploreOpen}
+              onClose={() => setRegionExploreOpen(false)}
+              title="다른 지역 둘러보기"
+              subtitle="지역을 선택하면 지도와 업체 목록이 해당 지역으로 바뀌어요"
+              onPick={onPickCurrentRegion}
             />
 
             {/* "+ 지역 추가" 선택 시트 — ① 현재 위치 ② 직접 선택 */}
@@ -2739,14 +2765,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:1000, display:"flex", alignItems:"flex-end" }}>
                 <div onClick={e => e.stopPropagation()}
                   style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, margin:"0 auto", padding:"20px 20px 36px" }}>
-                  <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.lg }}>지역 추가</div>
-                  <button onClick={onAddRegionByGps} disabled={gpsLoading}
+                  <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.lg }}>지역 선택</div>
+                  <button onClick={onExploreRegion}
                     style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, fontSize:14, fontWeight:800, color:C.brand, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
-                    📍 {gpsLoading ? "현재 위치 확인 중..." : "현재 위치로 지역 추가"}
+                    🔎 다른 지역 둘러보기
+                  </button>
+                  <button onClick={onAddRegionByGps} disabled={gpsLoading}
+                    style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
+                    📍 {gpsLoading ? "현재 위치 확인 중..." : "현재 위치로 관심지역 추가"}
                   </button>
                   <button onClick={onAddRegionManual}
                     style={{ width:"100%", padding:S.xl, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
-                    🗺 직접 지역 선택
+                    ⭐ 관심지역으로 저장 (최대 2곳)
                   </button>
                 </div>
               </div>
