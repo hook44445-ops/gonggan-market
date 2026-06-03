@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { LogoMark } from "../components/common";
+import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 
 // Hero 배경 — 프로젝트 내부 고정 실사 asset (자연광 우드/식물 인테리어, 외부/Unsplash 미사용)
 const HERO_BG = "/images/landing-hero-interior.jpg";
@@ -121,6 +122,10 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
               letterSpacing: "0.04em",
             }}>
               공간이 연결되는 곳, 믿을 수 있는 거래
+            </div>
+            {/* 공간보호 상시 노출 */}
+            <div style={{ marginTop: 12 }}>
+              <SpaceProtectionBadge variant="badge" />
             </div>
           </div>
 

@@ -7,6 +7,7 @@ import { uploadFile, updateTransactionStatus, logActivity, updateDisputeStatus, 
 import EscrowCalculator from "../components/EscrowCalculator";
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
+import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 
 // Stage status values:
 // 'done'           — payment released
@@ -912,6 +913,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       </div>
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 40px` }}>
+
+        {/* 공간보호 — 안전거래 보호 중 + 직거래 경고 */}
+        <SpaceProtectionBadge variant="escrow" />
 
         {IS_DEBUG && (() => {
           const approveVisible = stageStatus[3] === "pending_customer";

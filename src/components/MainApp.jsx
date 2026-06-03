@@ -1242,6 +1242,28 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   const { companies } = useCompanyList();
 
+  // 업체 목록 정렬 — 추천순(공간온도+후기) / 후기많은순 / 응답빠른순 / 최근활동순
+  const [companySort, setCompanySort] = useState("recommend");
+  const sortedCompanies = useMemo(() => {
+    const list = [...(companies ?? [])];
+    const respHours = (c) => (c.avgResponseHours > 0 ? c.avgResponseHours : Infinity);
+    switch (companySort) {
+      case "reviews":
+        return list.sort((a, b) => (b.reviews ?? 0) - (a.reviews ?? 0));
+      case "response":
+        return list.sort((a, b) => respHours(a) - respHours(b));
+      case "recent":
+        return list.sort((a, b) => (b.online ? 1 : 0) - (a.online ? 1 : 0) || (b.temp ?? 0) - (a.temp ?? 0));
+      case "recommend":
+      default:
+        // 공간온도 + 후기 평점 + 후기 수 가중
+        return list.sort((a, b) =>
+          ((b.temp ?? 0) + (b.rating ?? 0) * 2 + (b.reviews ?? 0) * 0.1) -
+          ((a.temp ?? 0) + (a.rating ?? 0) * 2 + (a.reviews ?? 0) * 0.1)
+        );
+    }
+  }, [companies, companySort]);
+
   // 지도 노출 업체 — 단계별(exact→legacy→city→all) 매칭, fallback 시 배너/배지 표시
   const { mapCompanies, mapLocalMatches, mapFallbackTier, mapIsFallback, mapFallbackReason } = useMemo(() => {
     const activeFilter = activeRegion?.city
@@ -2209,11 +2231,39 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             </div>
               ); })()}
 
+            {/* 탐색 카테고리 칩 — 검색→탐색→신뢰 형성 동선 */}
+            <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:4, marginBottom:S.md, scrollbarWidth:"none" }}>
+              {[["all","전체"],["review","시공후기"],["recommend","업체추천"],["quote_worry","견적고민"],["room_deco","집꾸미기"],["move_in","이사입주"]].map(([cat,label]) => (
+                <button key={cat}
+                  onClick={() => { if (cat === "all") { setScreen("home"); } else { setLoungeInitialCategory(cat); setScreen("lounge"); } }}
+                  style={{ flexShrink:0, padding:"7px 14px", borderRadius:R.full, cursor:"pointer",
+                    border:`1px solid ${C.bgWarm}`, background:C.surface, color:C.text2, fontSize:13, fontWeight:700, fontFamily:"inherit" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
               <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>인근 업체</div>
               <button onClick={() => setScreen("map")} style={{ fontSize:13, background:"none", border:"none", cursor:"pointer", color:C.brand, fontWeight:700 }}>지도로 보기 →</button>
             </div>
-            {companies.map(c => <CompanyCard key={c.id} company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />)}
+
+            {/* 정렬 옵션 */}
+            <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:4, marginBottom:S.md, scrollbarWidth:"none" }}>
+              {[["recommend","추천순"],["reviews","후기 많은 순"],["response","응답 빠른 순"],["recent","최근 활동 순"]].map(([key,label]) => {
+                const active = companySort === key;
+                return (
+                  <button key={key} onClick={() => setCompanySort(key)}
+                    style={{ flexShrink:0, padding:"6px 12px", borderRadius:R.full, cursor:"pointer", fontFamily:"inherit",
+                      border:"none", background: active ? C.brand : C.bgWarm,
+                      color: active ? "#fff" : C.text2, fontSize:12, fontWeight:700 }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {sortedCompanies.map(c => <CompanyCard key={c.id} company={c} isLoggedIn={!!user?.id} onClick={() => go("portfolio",c)} />)}
 
             {/* 라운지 섹션 — 둘러보기 하단 */}
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.xl, border:`1px solid ${C.bgWarm}` }}>

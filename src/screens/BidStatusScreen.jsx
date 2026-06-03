@@ -4,6 +4,7 @@ import { SHOW_DEBUG_UI } from "../constants/release";
 import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
+import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest } from "../lib/supabase";
 
@@ -179,10 +180,17 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           <div style={{ background:C.brandL, borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`, fontSize:13, color:C.brand, fontWeight:700, textAlign:"center" }}>🎉 예약 확정 완료</div>
         </div>
         <div style={{ marginBottom:S.md }}>
+          <SpaceProtectionBadge variant="list" />
+        </div>
+        <div style={{ marginBottom:S.md }}>
           <ProtectionNotice variant="short" />
         </div>
-        <div style={{ marginBottom:S.xl }}>
+        <div style={{ marginBottom:S.md }}>
           <DisputeNotice variant="short" />
+        </div>
+        {/* 직거래 경고 — 계약 화면 */}
+        <div style={{ marginBottom:S.xl, fontSize:12, color:C.text3, lineHeight:1.7, textAlign:"center" }}>
+          직거래 시 에스크로 보호, 분쟁지원, 공간보증이 모두 사라집니다.
         </div>
         <div onClick={() => setStep("payment")} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`2px solid ${C.brand}`, cursor:"pointer" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>

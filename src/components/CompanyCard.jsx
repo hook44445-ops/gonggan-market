@@ -1,6 +1,7 @@
 import { C, R, S, GRADE, SHADOW } from "../constants";
 import { BADGES } from "../constants/badges";
 import { TempBadge, CertBadge, LeafSprig } from "./common";
+import CompanyVerificationBadges from "./CompanyVerificationBadges";
 
 function KpiRow({ isLoggedIn, company }) {
   if (isLoggedIn) {
@@ -122,6 +123,9 @@ export default function CompanyCard({ company, onClick, isLoggedIn = false }) {
             {company.distance && <span>{company.distance} · </span>}{company.desc}
           </div>
         )}
+
+        {/* 신뢰 스크리닝 — 검증 항목 시각화 */}
+        <CompanyVerificationBadges company={company} style={{ marginTop: S.sm, paddingLeft: 4 }} />
       </div>
     </div>
   );
