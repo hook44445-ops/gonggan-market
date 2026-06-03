@@ -72,7 +72,10 @@ export default function LoginScreen({ onLogin, initialRole }) {
         const { data: existingUser } = await getUserByPhone(toE164(stored));
         if (existingUser) {
           setLoading(false);
-          onLogin({ ...existingUser, role, activeRole: role });
+          // operator/admin 은 DB 역할을 우선(선택한 역할 무시)
+          const dbRole = existingUser.role;
+          const priv = dbRole === "operator" || dbRole === "admin";
+          onLogin({ ...existingUser, role: priv ? dbRole : role, activeRole: priv ? dbRole : role });
           return;
         }
       } catch {}
@@ -125,8 +128,11 @@ export default function LoginScreen({ onLogin, initialRole }) {
       // STEP F: Save verified phone for same-device bypass
       setStoredPhone(pendingRole, phone);
       if (data.user) {
-        const userRole = pendingRole || data.user.role || "consumer";
-        onLogin({ ...data.user, role: userRole, activeRole: pendingRole });
+        // operator/admin 은 DB 역할을 우선(선택한 역할 무시)
+        const dbRole = data.user.role;
+        const priv = dbRole === "operator" || dbRole === "admin";
+        const userRole = priv ? dbRole : (pendingRole || dbRole || "consumer");
+        onLogin({ ...data.user, role: userRole, activeRole: priv ? dbRole : pendingRole });
       } else {
         // New user: go to onboarding with pendingRole
         setStep(3);

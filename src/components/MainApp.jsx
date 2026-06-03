@@ -22,6 +22,7 @@ import AdminScreen from "../screens/AdminScreen";
 import LoungeScreen from "../screens/LoungeScreen";
 import LoungeWriteScreen from "../screens/LoungeWriteScreen";
 import LoungePostDetailScreen from "../screens/LoungePostDetailScreen";
+import OperatorBoardScreen from "../screens/OperatorBoardScreen";
 import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
 import { buildPostPath, seoSlugToCategoryId } from "../utils/loungeSeo";
 import PushNotificationSettings from "./PushNotificationSettings";
@@ -429,6 +430,9 @@ function FavEmptyState({ title, desc, onGo }) {
 export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
   const mode = activeRole === "company" ? "company" : activeRole === "admin" ? "admin" : "consumer";
+  // 운영자/관리자 — 라운지 운영(추천글·숨김) 권한
+  const isModerator = activeRole === "admin" || activeRole === "operator"
+    || user.role === "admin" || user.role === "operator";
   const [screen, setScreen] = useState(() => {
     if (activeRole === "admin") return "admin";
     if (activeRole === "company") return "dashboard";
@@ -3067,6 +3071,13 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           />
         )}
         {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} onHome={() => setScreen("home")} user={user} />}
+        {screen==="operator-board" && isModerator && (
+          <OperatorBoardScreen
+            user={user}
+            onBack={() => setScreen("my")}
+            onOpenPost={(p) => { setLoungePost(p); go("lounge-detail"); try { window.history.pushState({}, "", buildPostPath(p)); } catch {} }}
+          />
+        )}
         {screen==="document-center" && <DocumentCenterScreen company={currentUser} user={user} onBack={() => setScreen("my")} />}
 
         {screen==="lounge" && (
@@ -3492,6 +3503,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   혜택 만료일: {new Date(user.earlyPartnerBenefitUntil).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
                 </div>
               </div>
+            )}
+
+            {/* 운영자 진입 — operator/admin 만 노출 (일반 사용자 미노출) */}
+            {isModerator && (
+              <button onClick={() => setScreen("operator-board")}
+                style={{ width: "100%", background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.brandM}`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: S.md, fontFamily: "inherit" }}>
+                <span style={{ fontSize: 20 }}>🛡️</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>운영자 게시판 관리</div>
+                  <div style={{ fontSize: 12, color: C.text3 }}>추천글 등록 · 글/댓글 숨김</div>
+                </div>
+                <span style={{ fontSize: 16, color: C.text3 }}>›</span>
+              </button>
             )}
 
             {/* 푸시 알림 설정 */}
