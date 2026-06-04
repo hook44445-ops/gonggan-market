@@ -522,6 +522,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [regionChooserOpen, setRegionChooserOpen] = useState(false); // + 지역 추가 선택 시트
   const [regionExploreOpen, setRegionExploreOpen] = useState(false); // 다른 지역 둘러보기(현재지역 변경 전용, 저장 안 함)
   const [gpsPendingRegion, setGpsPendingRegion] = useState(null);    // 저장 확인 대기 { rawSido, sido, sigungu, lat, lng }
+  // 교체 모드 — 저장된 칩(index)을 누르면 그 슬롯을 새 지역으로 교체. null = 추가/둘러보기 모드.
+  const [editingRegionIndex, setEditingRegionIndex] = useState(null);
 
   // user prop 변경(재로그인 등) 시 활동지역 재동기화
   useEffect(() => {
@@ -572,9 +574,34 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     }
   }, [gpsTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 현재 위치 지역 확인 → 현재 보는 지역(activeRegion) 즉시 변경 + 관심지역(최대 2곳) 저장.
-  //  · activeRegion(현재 보는 지역) 변경은 제한 없음 — 2곳이 꽉 차도 막지 않는다.
-  //  · 관심지역(activityRegions)은 최대 2곳만 저장한다.
+  // 저장된 칩 슬롯(index)을 새 지역으로 교체. 중복 방지 + 지도/필터 즉시 반영.
+  const replaceSavedRegion = (index, entry) => {
+    setEditingRegionIndex(null);
+    if (index == null || index < 0 || index >= activityRegions.length) { onPickCurrentRegion(entry); return; }
+    const key = regionKey(entry.city, entry.district);
+    const dupIdx = activityRegions.findIndex((r, i) => i !== index && regionKey(r.city, r.district) === key);
+    if (dupIdx !== -1) {
+      // 이미 다른 슬롯에 저장된 지역 → 중복 추가하지 않고 해당 지역으로 이동만
+      onPickCurrentRegion(entry);
+      showToast("이미 저장된 지역이에요. 해당 지역으로 이동했어요");
+      return;
+    }
+    const slot = activityRegions[index];
+    const newEntry = { ...entry, is_primary: slot?.is_primary ?? entry.is_primary ?? false };
+    const next = activityRegions.map((r, i) => (i === index ? newEntry : r));
+    onSaveRegions(next);
+    setActiveRegion(newEntry);
+    showToast("✅ 지역을 교체했어요");
+  };
+
+  // 둘러보기 시트에서 지역 선택 — 교체 모드면 슬롯 교체, 아니면 현재지역(activeRegion)만 변경.
+  const handleExplorePick = (entry) => {
+    setRegionExploreOpen(false);
+    if (editingRegionIndex !== null) replaceSavedRegion(editingRegionIndex, entry);
+    else onPickCurrentRegion(entry);
+  };
+
+  // 현재 위치 지역 확인 → 교체 모드면 그 슬롯 교체, 아니면 관심지역(최대 2곳) 추가/이동.
   const confirmSaveGpsRegion = () => {
     const p = gpsPendingRegion;
     if (!p) return;
@@ -582,18 +609,22 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     const entry = { ...base, lat: p.lat, lng: p.lng, source: "gps" };
     setGpsPendingRegion(null);
 
+    if (editingRegionIndex !== null) {
+      replaceSavedRegion(editingRegionIndex, entry);
+      return;
+    }
     const dup = activityRegions.some(r => regionKey(r.city, r.district) === regionKey(entry.city, entry.district));
-    if (!dup && activityRegions.length < 2) {
-      // 관심지역 저장 + 방금 고른 지역을 현재 보는 지역으로 전환
+    if (dup) {
+      onPickCurrentRegion(entry);
+      showToast("✅ 이 지역으로 이동했어요");
+    } else if (activityRegions.length < 2) {
       onSaveRegions([...activityRegions, entry]);
       setActiveRegion(entry);
       showToast("✅ 관심지역으로 저장하고 이 지역으로 이동했어요");
     } else {
-      // 저장 한도(2곳) 초과 또는 이미 저장된 지역 → 저장 없이 현재 지역만 전환
+      // 2곳이 꽉 참 — 추가 불가(교체는 칩을 눌러 교체 모드로 진입해야 함)
       onPickCurrentRegion(entry);
-      showToast(dup
-        ? "✅ 이 지역으로 이동했어요"
-        : "✅ 이 지역으로 이동했어요 · 관심지역은 최대 2곳까지 저장돼요");
+      showToast("활동지역은 최대 2곳까지 설정할 수 있어요. 기존 칩을 눌러 교체해주세요.");
     }
   };
 
@@ -2874,25 +2905,20 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {/* 지도 — STEP 15: 카카오맵 SDK 연동 */}
         {screen==="map" && (
           <div>
-            {/* 지역 선택 바 — 저장된 관심지역 칩 + 현재 보고 있는 지역(미저장 포함) */}
+            {/* 지역 선택 바 — 저장된 관심지역 칩(최대 2)만 노출. 임시 3번째 칩 없음. */}
             {(() => {
-              // 현재지역(activeRegion)이 저장 목록에 없으면 칩에 임시로 함께 표시
               const activeKey = activeRegion ? regionKey(activeRegion.city, activeRegion.district) : null;
-              const inSaved = activityRegions.some(r => regionKey(r.city, r.district) === activeKey);
-              const chips = (activeRegion && !inSaved)
-                ? [...activityRegions, activeRegion]
-                : activityRegions;
               return (
                 <RegionSelectorBar
-                  regions={chips}
+                  regions={activityRegions}
                   activeKey={activeKey}
                   onSelect={(r) => {
-                    // 칩 탭 → 현재 보는 지역(activeRegion) 즉시 변경 (제한 없음).
-                    //  · r 없음(+ 지역 / 지역 설정) 또는 이미 보고 있는 칩 → 관리 시트 오픈
-                    if (!r) { openRegionChooser(); return; }
-                    const key = regionKey(r.city, r.district);
-                    if (key === activeKey) { openRegionChooser(); return; }
-                    onPickCurrentRegion(r);
+                    // r 없음(+ 지역 / 지역 설정) → 추가 모드로 선택 시트 오픈
+                    if (!r) { setEditingRegionIndex(null); openRegionChooser(); return; }
+                    // 저장된 칩 탭 → 그 슬롯 교체 모드 + 지도 이동 + 선택 시트 오픈
+                    const idx = activityRegions.findIndex(s => regionKey(s.city, s.district) === regionKey(r.city, r.district));
+                    if (idx !== -1) { setEditingRegionIndex(idx); setActiveRegion(r); openRegionChooser(); return; }
+                    setEditingRegionIndex(null); onPickCurrentRegion(r);
                   }}
                 />
               );
@@ -2996,49 +3022,62 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
             <RegionSelectSheet
               open={regionSheetOpen}
-              onClose={() => setRegionSheetOpen(false)}
+              onClose={() => { setRegionSheetOpen(false); setEditingRegionIndex(null); }}
               selectedRegions={activityRegions}
               maxCount={2}
               title="관심지역 저장"
               subtitle="관심지역은 최대 2곳까지 저장할 수 있어요"
-              onSave={onSaveRegions}
+              onSave={(entries) => { setEditingRegionIndex(null); onSaveRegions(entries); }}
             />
 
-            {/* 다른 지역 둘러보기 — 현재지역(지도 중심·업체 필터)만 변경, 저장/제한 없음 */}
+            {/* 지역 선택 — 교체 모드면 슬롯 교체, 아니면 현재지역만 변경 */}
             <RegionSelectSheet
               open={regionExploreOpen}
-              onClose={() => setRegionExploreOpen(false)}
-              title="다른 지역 둘러보기"
-              subtitle="지역을 선택하면 지도와 업체 목록이 해당 지역으로 바뀌어요"
-              onPick={onPickCurrentRegion}
+              onClose={() => { setRegionExploreOpen(false); setEditingRegionIndex(null); }}
+              title={editingRegionIndex !== null ? "이 칩을 다른 지역으로 교체" : "다른 지역 둘러보기"}
+              subtitle={editingRegionIndex !== null
+                ? "지역을 선택하면 현재 칩이 해당 지역으로 교체돼요"
+                : "지역을 선택하면 지도와 업체 목록이 해당 지역으로 바뀌어요"}
+              onPick={handleExplorePick}
             />
 
-            {/* 지역 칩 클릭 시 열리는 선택 시트 — ① 둘러보기 ② 현재 위치 ③ 관심지역 저장 */}
-            {regionChooserOpen && (
-              <div onClick={() => setRegionChooserOpen(false)}
+            {/* 지역 칩 클릭 시 열리는 선택 시트 — 교체 모드/추가 모드 분기 */}
+            {regionChooserOpen && (() => {
+              const editing = editingRegionIndex !== null;
+              const editLabel = editing ? (activityRegions[editingRegionIndex]?.district || activityRegions[editingRegionIndex]?.city || "이 지역") : "";
+              return (
+              <div onClick={() => { setRegionChooserOpen(false); setEditingRegionIndex(null); }}
                 style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:1000, display:"flex", alignItems:"flex-end" }}>
                 <div onClick={e => e.stopPropagation()}
                   style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, margin:"0 auto", padding:"20px 20px 36px" }}>
-                  <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.lg }}>지역 선택</div>
+                  <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:editing ? 4 : S.lg }}>
+                    {editing ? `${editLabel} 교체` : "지역 선택"}
+                  </div>
+                  {editing && (
+                    <div style={{ fontSize:12, color:C.text3, marginBottom:S.lg }}>새 지역을 선택하면 이 칩이 교체돼요</div>
+                  )}
                   <button onClick={onExploreRegion}
                     style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, fontSize:14, fontWeight:800, color:C.brand, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
-                    🔎 다른 지역 둘러보기
+                    🔎 {editing ? "다른 지역 선택해 교체하기" : "다른 지역 둘러보기"}
                   </button>
                   <button onClick={onAddRegionByGps} disabled={gpsLoading}
                     style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
-                    📍 {gpsLoading ? "현재 위치 확인 중..." : "현재 위치로 관심지역 추가"}
+                    📍 {gpsLoading ? "현재 위치 확인 중..." : (editing ? "현재 위치로 교체하기" : "현재 위치로 관심지역 추가")}
                   </button>
-                  <button onClick={onAddRegionManual}
-                    style={{ width:"100%", padding:S.xl, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
-                    ⭐ 관심지역으로 저장 (최대 2곳)
-                  </button>
+                  {!editing && (
+                    <button onClick={onAddRegionManual}
+                      style={{ width:"100%", padding:S.xl, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
+                      ⭐ 관심지역으로 저장 (최대 2곳)
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
+              );
+            })()}
 
-            {/* 현재 위치 지역 저장 확인 */}
+            {/* 현재 위치 지역 저장/교체 확인 */}
             {gpsPendingRegion && (
-              <div onClick={() => setGpsPendingRegion(null)}
+              <div onClick={() => { setGpsPendingRegion(null); setEditingRegionIndex(null); }}
                 style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:1001, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
                 <div onClick={e => e.stopPropagation()}
                   style={{ background:C.surface, borderRadius:R.xl, width:"100%", maxWidth:360, padding:"24px 22px" }}>
@@ -3048,13 +3087,17 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     {gpsPendingRegion.rawSido} {gpsPendingRegion.sigungu}
                   </div>
                   <div style={{ fontSize:13, color:C.text2, textAlign:"center", marginBottom:S.xl }}>
-                    이 지역을 내 활동지역으로 저장할까요?
+                    {editingRegionIndex !== null
+                      ? `${activityRegions[editingRegionIndex]?.district || activityRegions[editingRegionIndex]?.city || "현재 칩"}을(를) 이 지역으로 교체할까요?`
+                      : "이 지역을 내 활동지역으로 저장할까요?"}
                   </div>
                   <div style={{ display:"flex", gap:S.sm }}>
-                    <button onClick={() => setGpsPendingRegion(null)}
+                    <button onClick={() => { setGpsPendingRegion(null); setEditingRegionIndex(null); }}
                       style={{ flex:0.5, padding:S.lg, background:C.bg, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>취소</button>
                     <button onClick={confirmSaveGpsRegion}
-                      style={{ flex:1, padding:S.lg, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>이 지역 저장하기</button>
+                      style={{ flex:1, padding:S.lg, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>
+                      {editingRegionIndex !== null ? "이 지역으로 교체하기" : "이 지역 저장하기"}
+                    </button>
                   </div>
                 </div>
               </div>
