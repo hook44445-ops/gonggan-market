@@ -1204,6 +1204,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     candidates.forEach(r => {
       getEscrowWithPayouts(r.id).then(({ data }) => {
         setMyRequestsEscrow(prev => ({ ...prev, [r.id]: data ?? null }));
+        // self-heal: 에스크로(계약)가 있는데 requests.status 가 아직 'open' 이면 in_progress 로 전이.
+        // 업체 입찰 목록(status='open' 기준)에서도 즉시 제외되어 이중 노출이 해소된다.
+        if (data?.escrow && data.escrow.transaction_status !== "SETTLED" && r.status === "open") {
+          setRequestInProgress(r.id).catch(() => {});
+          setMyRequests(prev => prev.map(x => x.id === r.id
+            ? { ...x, status: "in_progress", isActive: false, isClosed: false }
+            : x));
+        }
       }).catch(() => {});
     });
   }, [myRequests, escrowRefreshTrigger, activeRole]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1925,17 +1933,14 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           <div>
             {/* ── 진행감 카드 — 진행 중인 계약(에스크로)이 있을 때만 최상단 노출 ── */}
             {(() => {
-              const progRow = myRequests.find(r => {
-                const ed = myRequestsEscrow[r.id] ?? null;
-                return ed?.escrow && !isRequestSettled(r, ed);
-              });
-              if (!progRow) return null;
+              const progRows = myRequests.filter(r => isRequestInProgress(r, myRequestsEscrow[r.id] ?? null));
+              if (progRows.length === 0) return null;
+              return progRows.map(progRow => {
               const ed = myRequestsEscrow[progRow.id] ?? null;
-              const prog = computeProgress(progRow, ed);
-              if (!prog) return null;
+              const prog = computeProgress(progRow, ed) ?? { percent: 0, stepNo: 1, totalSteps: 4, nextActionText: "업체가 착공을 준비하고 있습니다" };
               const title = `${progRow.area || ""} ${progRow.type || "시공"}`.trim();
               return (
-                <div style={{ background:C.ivory, borderRadius:R.xl, padding:S.xxl, marginBottom:S.lg,
+                <div key={progRow.id} style={{ background:C.ivory, borderRadius:R.xl, padding:S.xxl, marginBottom:S.lg,
                   border:`1px solid ${C.brandM}`, boxShadow:SHADOW.card }}>
                   <div style={{ fontSize:14, fontWeight:800, color:C.brandD, marginBottom:6, lineHeight:1.8 }}>
                     🏗️ 현재 시공 진행 중
@@ -1958,6 +1963,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   </button>
                 </div>
               );
+              });
             })()}
 
             <div style={{ background:`linear-gradient(145deg,${C.ivory} 0%,${C.brandL} 55%,${C.bgWarm} 100%)`,
@@ -2240,7 +2246,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               // 완료/정산완료(에스크로 기준)는 active 에서 제외.
               // 마감/완료/만료된 요청은 홈에 노출하지 않음(이력은 마이페이지에서 확인).
               const isSettled = (r) => isRequestSettled(r, myRequestsEscrow[r.id] ?? null);
-              const activeReqs  = myRequests.filter(r => !r.isDeleted && (r.isActive || r.status === "in_progress") && !isSettled(r));
+              // "내 견적 요청" = open(견적 단계)만. 진행중(에스크로/계약)은 상단 진행 배너에서 다룸 → 이중 노출 방지.
+              const activeReqs  = myRequests.filter(r => isRequestOpenForQuotes(r, myRequestsEscrow[r.id] ?? null));
               return activeReqs.length > 0 ? (
                 <div style={{ marginBottom:S.xl }}>
                   {/* ── Active requests ── */}
@@ -3325,6 +3332,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               </div>
             ) : myRequests.map(r => {
               const escData = myRequestsEscrow[r.id] ?? null;
+              // 진행 현황 = 계약(에스크로) 진입 건만. open 견적요청·시드 제외(과다표시/이중 노출 방지).
+              if (!isRequestInProgress(r, escData) && !isRequestSettled(r, escData)) return null;
               const { escrow: esc } = escData ?? {};
               const txStatus = esc?.transaction_status ?? null;
               const hasEscrow = !!esc;
