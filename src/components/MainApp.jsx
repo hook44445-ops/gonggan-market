@@ -951,8 +951,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   useEffect(() => {
     if (activeRole !== "company" || !currentUser?.id) return;
+    // 현장방문 견적 단계(결제 전)만 activeJobs 로 — 에스크로 계약 진입 후(in_progress 등)는
+    // companyJobs(에스크로 기준)에서 다뤄 이중 노출을 막는다.
+    const SITE_VISIT_PHASES = new Set(["open", "site_visit", "final_quote_submitted", "escrow_pending"]);
     getCompanyActiveJobs(currentUser.id).then(({ data }) => {
-      if (data) setActiveJobs(data);
+      if (data) setActiveJobs(data.filter(j => SITE_VISIT_PHASES.has((j.request?.status ?? "").toLowerCase())));
     });
   }, [currentUser?.id, activeRole]);
 
@@ -1103,10 +1106,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       // 완료대기 건은 별도 완료/정산 영역에서 다루며, 진행중(업체가 지금 진행해야 할 일)에는 넣지 않습니다.
       const ACTIVE_TX = new Set(["CONTRACTED","STARTED","MID_INSPECTION","DISPUTE"]);
       const ACTIVE_REQ = new Set(["contracted","in_progress","escrow","working","contract_signed","material_paid","started"]);
-      // 현장방문 견적 흐름(에스크로 이전) — 선택된 업체가 진행해야 할 단계.
-      //  site_visit: 현장방문 견적 요청 / final_quote_submitted: 최종견적 검토중 / escrow_pending: 결제 대기.
-      //  의뢰인이 업체를 선택하면 입찰이 selected 되고 request.status 가 위 단계로 전이된다.
-      const SITE_VISIT_REQ = new Set(["site_visit","final_quote_submitted","escrow_pending"]);
+      // 현장방문 견적 단계(site_visit/final_quote_submitted/escrow_pending, 결제 전)는 companyJobs 가
+      // 아니라 activeJobs(CompanyActiveJobCard)에서 다룬다 — 이중 노출 방지. companyJobs 는 에스크로 계약만.
 
       // Build synthetic bid entries for request_ids discovered via escrow direct (no bid row)
       const escrowOnlyRequestIds = [...requestIdsFromEscrow].filter(rid => !requestIdsFromBids.has(rid));
@@ -1167,9 +1168,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           // A merely-selected bid with no escrow is "낙찰" (awaiting contract), NOT 진행중.
           const include =
             (esc && txStatus && ACTIVE_TX.has(txStatus)) ||
-            (esc && !txStatus && ACTIVE_REQ.has(reqStatus)) ||
-            // 현장방문 견적 단계 — 에스크로 이전이라도 '선택된' 입찰은 진행중으로 노출.
-            (SITE_VISIT_REQ.has(reqStatus) && b.selected === true);
+            (esc && !txStatus && ACTIVE_REQ.has(reqStatus));
 
           if (!include) {
             excludedReasons.push(`${rid8}:not_active(req=${reqStatus || "∅"},tx=${txStatus || "∅"},escrow=${!!esc},sel=${b.selected === true})`);
@@ -2777,28 +2776,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
             <LiveFeed />
 
-            {activeJobs.length > 0 && (
-              <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🔨 진행중 작업 ({activeJobs.length})</div>
-                {activeJobs.map((job) => (
-                  <CompanyActiveJobCard
-                    key={job.bid.id}
-                    job={job}
-                    onAction={(actionType, j) => {
-                      if (actionType === "schedule" || actionType === "checkin" || actionType === "field_estimate") {
-                        setSiteVisitJob(j);
-                      } else if (actionType === "platform_estimate") {
-                        setEstimateJob(j);
-                      } else if (actionType === "escrow") {
-                        go("escrow");
-                      }
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* ── 진행중 작업 ─────────────────────────────────────────── */}
+            {/* ── 진행중 작업(에스크로 계약) ─────────────────────────────── */}
             {companyJobs.length > 0 && (
               <div style={{ marginBottom:S.xl }}>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>
@@ -3164,6 +3142,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             selectedBid={selectedBid}
             setSelectedBid={setSelectedBid}
             setEscrowContracts={setEscrowContracts}
+            userId={user?.id}
           />
         )}
         {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} onHome={() => setScreen("home")} user={user} />}

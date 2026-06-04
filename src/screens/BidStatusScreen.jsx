@@ -6,7 +6,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, selectBid as selectBidDB, markRequestSiteVisit, approveFinalQuote } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, markRequestSiteVisit, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 import { calcCustomerFee } from "../utils/calculations";
@@ -53,7 +53,7 @@ function BidScreenHeader({ title, sub, onBack }) {
 }
 
 
-export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts }) {
+export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts, userId }) {
   const [localBids, setLocalBids] = useState(propBids ?? []);
   // 한 업체당 1입찰 정책 — 혹시 중복 입찰이 남아 있어도 업체별 최신 1건만 노출
   const rawBids = localBids.length > 0 ? localBids : (propBids ?? []);
@@ -77,13 +77,31 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   const reqStatus = request?.status ?? "open";
   const isQuotePhase = reqStatus === "final_quote_submitted" || reqStatus === "escrow_pending";
 
+  // 최종 견적서(현장방문 후 업체 제출) — 의뢰인 확인용. 견적 단계에서만 조회.
+  const [finalEstimate, setFinalEstimate] = useState(null);
+  useEffect(() => {
+    if (!isQuotePhase || !request?.id) { setFinalEstimate(null); return; }
+    let alive = true;
+    getEstimateForRequest(request.id)
+      .then(({ data }) => { if (alive) setFinalEstimate(data ?? null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [isQuotePhase, request?.id]);
+
+  // 최종견적 단계 진입 시 선택된 업체로 바로 견적 확인(confirm) 단계로 이동.
+  useEffect(() => {
+    if (!isQuotePhase || selBid || step !== "list") return;
+    const chosen = bids.find(b => b.status === "selected") ?? (bids.length === 1 ? bids[0] : null);
+    if (chosen) { setSelBid(chosen); setStep("confirm"); }
+  }, [isQuotePhase, bids, selBid, step]);
+
   // 업체 선택 → 현장방문 견적 요청(에스크로 생성 X)
   const handleRequestSiteVisit = async () => {
     if (siteVisitRef.current || !selBid) return;
     siteVisitRef.current = true;
     try {
-      if (selBid.id && !String(selBid.id).startsWith("tmp-")) await selectBidDB(selBid.id).catch(() => {});
-      if (request?.id) await markRequestSiteVisit(request.id, { bidId: selBid.id, companyId: selBid.companyId });
+      // 입찰 selected 단일화·요청 전이는 request_mark_site_visit RPC 내부에서 처리(consumer 직접 쓰기는 RLS 차단).
+      if (request?.id) await markRequestSiteVisit(request.id, { bidId: selBid.id, companyId: selBid.companyId, actorId: userId });
       const ownerId = selBid.company?.ownerId ?? null;
       if (ownerId) {
         createNotification({
@@ -173,8 +191,39 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     const escrowFee = Math.round((customerTotal - selBid.price) * 10) / 10;
     return (
       <div style={{ minHeight:"100vh", background:C.bg }}>
-        <BidScreenHeader title="예약 확인" onBack={goBack} />
+        <BidScreenHeader title={isQuotePhase ? "최종 견적서 확인" : "예약 확인"} onBack={goBack} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
+          {isQuotePhase && finalEstimate && (
+            <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
+              <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:S.md }}>📋 업체가 보낸 최종 견적서</div>
+              {Array.isArray(finalEstimate.items) && finalEstimate.items.length > 0 && (
+                <div style={{ marginBottom:S.md }}>
+                  {finalEstimate.items.map((it, i) => (
+                    <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
+                      <div style={{ flex:1, paddingRight:S.sm }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{it.name || "공정"}</div>
+                        <div style={{ fontSize:11, color:C.text3 }}>{[it.material, (it.qty != null ? `${it.qty}개` : null)].filter(Boolean).join(" · ")}</div>
+                      </div>
+                      <div style={{ fontSize:13, fontWeight:700, color:C.text2, whiteSpace:"nowrap" }}>{fmtMoney(it.amount ?? (Number(it.qty)||0)*(Number(it.unit_price)||0))}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:C.brandL, borderRadius:R.md, padding:S.md, marginBottom:finalEstimate.note || finalEstimate.warranty_note || finalEstimate.duration_days ? S.md : 0 }}>
+                <span style={{ fontSize:13, fontWeight:800, color:C.brand }}>총 견적 금액</span>
+                <span style={{ fontSize:18, fontWeight:900, color:C.brand }}>{fmtMoney(finalEstimate.total_price ?? 0)}</span>
+              </div>
+              {finalEstimate.duration_days != null && (
+                <div style={{ fontSize:12, color:C.text2, marginBottom:S.xs }}>⏱ 예상 공사기간 <b>{finalEstimate.duration_days}일</b></div>
+              )}
+              {finalEstimate.note && (
+                <div style={{ fontSize:12, color:C.text2, lineHeight:1.7, marginTop:S.xs }}><b>견적 메모</b><br/>{finalEstimate.note}</div>
+              )}
+              {finalEstimate.warranty_note && (
+                <div style={{ fontSize:12, color:C.text2, lineHeight:1.7, marginTop:S.sm }}><b>하자보수 조건</b><br/>{finalEstimate.warranty_note}</div>
+              )}
+            </div>
+          )}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.lg }}>
               <div style={{ width:48, height:48, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand }}>{(selBid.company?.name ?? "?")[0]}</div>
@@ -207,7 +256,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           </div>
           <button
             onClick={isQuotePhase
-              ? () => { if (reqStatus === "final_quote_submitted" && request?.id) approveFinalQuote(request.id).catch(() => {}); setStep("reserved"); }
+              ? () => { if (reqStatus === "final_quote_submitted" && request?.id) approveFinalQuote(request.id, userId).catch(() => {}); setStep("reserved"); }
               : handleRequestSiteVisit}
             style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>
             {isQuotePhase ? "예약 확정하고 결제 진행 ✅" : "현장방문 견적 요청하기 →"}

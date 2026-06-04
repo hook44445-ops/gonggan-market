@@ -209,21 +209,17 @@ export const getBidsForRequest = (requestId) =>
 export const selectBid = (bidId) =>
   supabase.from("bids").update({ selected: true }).eq("id", bidId);
 
-// 현장방문 견적 흐름(1차) — 상태 전이 헬퍼.
-// 업체 선택 → site_visit(에스크로 생성 X). 선택 업체/입찰 기록.
-export const markRequestSiteVisit = async (requestId, { bidId = null, companyId = null } = {}) => {
-  const now = new Date().toISOString();
-  const res = await supabase.from("requests").update({
-    status: "site_visit", selected_bid_id: bidId, selected_company_id: companyId, updated_at: now,
-  }).eq("id", requestId);
-  // selected_* 컬럼 미존재(029 미적용) 대비 — status 만이라도 전이
-  if (res.error) return supabase.from("requests").update({ status: "site_visit", updated_at: now }).eq("id", requestId);
-  return res;
-};
+// 현장방문 견적 흐름 — 상태 전이 RPC (security definer, 내부에서 actor 검증).
+// OTP 커스텀 인증(auth.uid()=null)이라 requests 직접 UPDATE 는 RLS 에 막힌다 → RPC 경유.
+// 업체 선택(의뢰인) → site_visit. 선택 입찰/업체 기록 + bids.selected 단일화는 RPC 내부 처리.
+export const markRequestSiteVisit = (requestId, { bidId = null, companyId = null, actorId = null } = {}) =>
+  supabase.rpc("request_mark_site_visit", {
+    p_request_id: requestId, p_bid_id: bidId, p_company_id: companyId, p_actor_id: actorId,
+  });
 
-// 의뢰인 최종 견적 승인 → escrow_pending (결제 단계로 진입).
-export const approveFinalQuote = (requestId) =>
-  supabase.from("requests").update({ status: "escrow_pending", updated_at: new Date().toISOString() }).eq("id", requestId);
+// 의뢰인 최종 견적 승인 → escrow_pending (+ 제출 견적서 accepted). RPC 가 의뢰인 소유 검증.
+export const approveFinalQuote = (requestId, actorId = null) =>
+  supabase.rpc("request_approve_final_quote", { p_request_id: requestId, p_actor_id: actorId });
 
 // 업체 입찰 내용 수정 — 한 요청당 1입찰 정책에서 재제출은 수정으로 처리
 export const updateBid = (id, data) =>
@@ -1174,8 +1170,17 @@ export const adminSetCompanyStatus = async (companyId, adminId, companyStatus, r
   return { data, error };
 };
 
-export const createSiteVisit = (data) =>
-  supabase.from("site_visits").insert({ ...data, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select().single();
+// 현장방문/견적 쓰기는 모두 security-definer RPC 경유(분쟁·정산 증빙 데이터, anon 직접 쓰기 금지).
+// RPC 내부에서 p_actor_id(=업체 소유자 user.id) 기준으로 선택된 업체 여부를 검증한다.
+// 반환은 RPC 의 jsonb(row) → { data, error } 형태로 기존 호출부와 호환.
+export const createSiteVisit = (data, actorId = null) =>
+  supabase.rpc("site_visit_create", {
+    p_actor_id: actorId,
+    p_bid_id: data.bid_id ?? null,
+    p_request_id: data.request_id ?? null,
+    p_company_id: data.company_id ?? null,
+    p_scheduled_at: data.scheduled_at ?? null,
+  });
 
 export const getSiteVisitForBid = (bidId) =>
   supabase.from("site_visits").select("*").eq("bid_id", bidId).order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -1186,31 +1191,35 @@ export const getSiteVisitsByCompany = (companyId) =>
 export const updateSiteVisit = (id, data) =>
   supabase.from("site_visits").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
 
-export const gpsCheckin = (id, { lat, lng, photos }) =>
-  supabase.from("site_visits").update({
-    checked_in_at: new Date().toISOString(),
-    gps_lat: lat, gps_lng: lng,
-    photos: photos ?? [],
-    status: "checked_in",
-    updated_at: new Date().toISOString(),
-  }).eq("id", id).select().single();
+// GPS 체크인 — 버튼 클릭 시점 1회 위치 기록(실시간 추적 아님). RPC 가 현장방문 소유자 검증.
+export const gpsCheckin = (id, { lat, lng, photos }, actorId = null) =>
+  supabase.rpc("site_visit_checkin", {
+    p_actor_id: actorId, p_id: id, p_lat: lat ?? null, p_lng: lng ?? null, p_photos: photos ?? [],
+  });
 
-// [정책] 현장견적 카운트다운: 72h (constants/policy.js · 2026.06)
-export const completeSiteVisit = (id, { fieldAmount, fieldNote }) => {
-  const completedAt = new Date().toISOString();
-  const estimateDueAt = new Date(Date.now() + SITE_VISIT_ESTIMATE_MS).toISOString();
-  return supabase.from("site_visits").update({
-    completed_at: completedAt,
-    estimate_due_at: estimateDueAt,
-    field_estimate_amount: fieldAmount ?? null,
-    field_estimate_note: fieldNote ?? null,
-    status: "completed",
-    updated_at: new Date().toISOString(),
-  }).eq("id", id).select().single();
-};
+// [정책] 현장견적 카운트다운: 72h — RPC 내부에서 now()+72h 로 estimate_due_at 설정.
+export const completeSiteVisit = (id, { fieldAmount, fieldNote }, actorId = null) =>
+  supabase.rpc("site_visit_complete", {
+    p_actor_id: actorId, p_id: id,
+    p_field_amount: fieldAmount != null ? Math.round(fieldAmount) : null, p_field_note: fieldNote ?? null,
+  });
 
-export const createEstimate = (data) =>
-  supabase.from("estimates").insert({ ...data, status: "draft", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }).select().single();
+// 견적서 매핑 — 작성 폼 payload(snake_case) → RPC 파라미터.
+const estimateRpcParams = (data) => ({
+  p_bid_id: data.bid_id ?? null,
+  p_request_id: data.request_id ?? null,
+  p_site_visit_id: data.site_visit_id ?? null,
+  p_company_id: data.company_id ?? null,
+  p_items: data.items ?? [],
+  p_total_price: data.total_price != null ? Math.round(data.total_price) : null,
+  p_duration_days: data.duration_days != null ? Math.round(data.duration_days) : null,
+  p_note: data.note ?? null,
+  p_warranty_note: data.warranty_note ?? null,
+});
+
+// 견적서 생성(draft) — RPC 가 업체 소유자 검증.
+export const createEstimate = (data, actorId = null) =>
+  supabase.rpc("estimate_upsert", { p_actor_id: actorId, p_estimate_id: null, ...estimateRpcParams(data) });
 
 export const getEstimateForSiteVisit = (siteVisitId) =>
   supabase.from("estimates").select("*").eq("site_visit_id", siteVisitId).order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -1218,21 +1227,17 @@ export const getEstimateForSiteVisit = (siteVisitId) =>
 export const getEstimateForRequest = (requestId) =>
   supabase.from("estimates").select("*").eq("request_id", requestId).order("created_at", { ascending: false }).limit(1).maybeSingle();
 
-export const updateEstimate = (id, data) =>
-  supabase.from("estimates").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+// 견적서 수정(draft) — RPC 가 업체 소유자 검증.
+export const updateEstimate = (id, data, actorId = null) =>
+  supabase.rpc("estimate_upsert", { p_actor_id: actorId, p_estimate_id: id, ...estimateRpcParams(data) });
 
-export const submitEstimate = async (id, siteVisitId, requestId) => {
-  const now = new Date().toISOString();
-  const { data, error } = await supabase.from("estimates")
-    .update({ status: "submitted", submitted_at: now, updated_at: now })
-    .eq("id", id).select().single();
-  if (!error) {
-    if (siteVisitId) await supabase.from("site_visits").update({ status: "estimate_submitted", updated_at: now }).eq("id", siteVisitId);
-    // 최종 견적서 제출 → 의뢰인 승인 대기 상태(final_quote_submitted).
-    if (requestId) await supabase.from("requests").update({ status: "final_quote_submitted", updated_at: now }).eq("id", requestId);
-  }
-  return { data, error };
-};
+// 견적서 제출 — estimate submitted + site_visit estimate_submitted + request final_quote_submitted
+// 세 갱신을 RPC 한 번에 원자적으로 처리(직접 UPDATE 는 RLS 차단). RPC 가 업체 소유자 검증.
+export const submitEstimate = (id, siteVisitId, requestId, actorId = null) =>
+  supabase.rpc("estimate_submit", {
+    p_actor_id: actorId, p_estimate_id: id,
+    p_site_visit_id: siteVisitId ?? null, p_request_id: requestId ?? null,
+  });
 
 export const getCompanyActiveJobs = async (companyId) => {
   const { data: bids, error } = await supabase
