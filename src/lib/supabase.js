@@ -559,77 +559,39 @@ export const adminGetReviews = async ({ limit = 100 } = {}) => {
 export const getCompaniesByOwnerIds = (ownerIds) =>
   supabase.from("companies").select("id, owner_id, name").in("owner_id", ownerIds);
 
-export const adminUpdateReview = async (id, updates, adminId) => {
-  const { data, error } = await supabase
-    .from("reviews")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select("id, rating, status, is_hidden, content")
-    .single();
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id: adminId || null, action: "UPDATE_REVIEW",
-      target_type: "review", target_id: id, after_val: updates,
-    });
-  }
-  return { data, error };
-};
+// 리뷰 어드민 수정·숨김·삭제·복구 — security definer RPC(migration 029)로 처리.
+// 이 앱은 전화번호 OTP 커스텀 인증이라 auth.uid() 가 null → reviews 직접 UPDATE 는 RLS 에 막혀
+// 저장이 반영되지 않았다. RPC 는 p_admin_id 의 role='admin' 을 내부 검증하고 RLS 를 우회한다.
+// 반환 형태 { data, error } 는 기존 호출부와 호환.
+export const adminUpdateReview = (id, updates, adminId) =>
+  supabase.rpc("admin_update_review", {
+    p_review_id: id,
+    p_admin_id:  adminId ?? null,
+    p_rating:    updates?.rating  ?? null,
+    p_content:   updates?.content ?? null,
+    p_status:    updates?.status  ?? null,
+  });
 
-export const adminHideReview = async (id, adminId, hidden, reason = null) => {
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("reviews")
-    .update({
-      is_hidden: hidden,
-      ...(hidden ? { hidden_at: now, hidden_reason: reason } : { hidden_at: null, hidden_reason: null }),
-    })
-    .eq("id", id)
-    .select("id, is_hidden")
-    .single();
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id: adminId || null,
-      action: hidden ? "HIDE_REVIEW" : "UNHIDE_REVIEW",
-      target_type: "review", target_id: id,
-      before_val: { is_hidden: !hidden }, after_val: { is_hidden: hidden },
-      reason,
-    });
-  }
-  return { data, error };
-};
+export const adminHideReview = (id, adminId, hidden, reason = null) =>
+  supabase.rpc("admin_set_review_hidden", {
+    p_review_id: id,
+    p_admin_id:  adminId ?? null,
+    p_hidden:    hidden,
+    p_reason:    reason ?? null,
+  });
 
-export const adminSoftDeleteReview = async (id, adminId, reason) => {
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("reviews")
-    .update({ is_deleted: true, deleted_at: now, deleted_by: adminId || null })
-    .eq("id", id)
-    .select("id")
-    .single();
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id: adminId || null, action: "DELETE_REVIEW",
-      target_type: "review", target_id: id, reason,
-    });
-  }
-  return { data, error };
-};
+export const adminSoftDeleteReview = (id, adminId, reason) =>
+  supabase.rpc("admin_soft_delete_review", {
+    p_review_id: id,
+    p_admin_id:  adminId ?? null,
+    p_reason:    reason ?? null,
+  });
 
-export const adminRestoreReview = async (id, adminId) => {
-  const { data, error } = await supabase
-    .from("reviews")
-    .update({ is_deleted: false, deleted_at: null, deleted_by: null, is_hidden: false, hidden_at: null })
-    .eq("id", id)
-    .select("id")
-    .single();
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id: adminId || null, action: "RESTORE_REVIEW",
-      target_type: "review", target_id: id,
-    });
-  }
-  return { data, error };
-};
+export const adminRestoreReview = (id, adminId) =>
+  supabase.rpc("admin_restore_review", {
+    p_review_id: id,
+    p_admin_id:  adminId ?? null,
+  });
 
 // ── Admin Lounge Posts ────────────────────────────────────────────────────────
 
