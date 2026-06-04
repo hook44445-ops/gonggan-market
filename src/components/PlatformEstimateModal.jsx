@@ -88,9 +88,9 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
     setSaving(true);
     let result;
     if (estimateId) {
-      result = await updateEstimate(estimateId, buildPayload());
+      result = await updateEstimate(estimateId, buildPayload(), userId);
     } else {
-      result = await createEstimate(buildPayload());
+      result = await createEstimate(buildPayload(), userId);
     }
     setSaving(false);
     if (result.error) { alert("저장 실패: " + result.error.message); return; }
@@ -106,14 +106,14 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
     setSaving(true);
     let id = estimateId;
     if (!id) {
-      const { data, error } = await createEstimate(buildPayload());
+      const { data, error } = await createEstimate(buildPayload(), userId);
       if (error) { setSaving(false); alert("저장 실패: " + error.message); return; }
       id = data.id;
       setEstimateId(id);
     } else {
-      await updateEstimate(id, buildPayload());
+      await updateEstimate(id, buildPayload(), userId);
     }
-    const { data, error } = await submitEstimate(id, job.siteVisit?.id ?? null, job.bid.request_id);
+    const { data, error } = await submitEstimate(id, job.siteVisit?.id ?? null, job.bid.request_id, userId);
     setSaving(false);
     if (error) { alert("제출 실패: " + error.message); return; }
     const updated = { ...job, estimate: data, siteVisit: job.siteVisit ? { ...job.siteVisit, status: "estimate_submitted" } : job.siteVisit };

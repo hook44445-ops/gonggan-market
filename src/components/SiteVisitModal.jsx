@@ -69,9 +69,8 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
       bid_id: job.bid.id,
       request_id: job.bid.request_id,
       company_id: companyId,
-      status: "scheduled",
       scheduled_at: scheduledAt,
-    });
+    }, userId);
     setSaving(false);
     if (error) { alert("저장 실패: " + error.message); return; }
     notifyCustomer("SITE_VISIT_SCHEDULED", "실측 일정이 등록되었습니다", `${schedDate} ${schedTime}에 실측 방문 예정입니다`, data.id);
@@ -101,7 +100,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
   const handleCheckin = async () => {
     setSaving(true);
     const doCheckin = async (lat, lng) => {
-      const { data, error } = await gpsCheckin(job.siteVisit.id, { lat, lng, photos });
+      const { data, error } = await gpsCheckin(job.siteVisit.id, { lat, lng, photos }, userId);
       setSaving(false);
       if (error) { alert("저장 실패: " + error.message); return; }
       notifyCustomer("GPS_CHECKIN", "업체가 GPS 체크인했습니다", "실측 담당자가 현장에 도착했습니다", data.id);
@@ -120,7 +119,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
     const { data, error } = await completeSiteVisit(job.siteVisit.id, {
       fieldAmount: fieldAmount ? Number(fieldAmount) : null,
       fieldNote,
-    });
+    }, userId);
     setSaving(false);
     if (error) { alert("저장 실패: " + error.message); return; }
     notifyCustomer("FIELD_ESTIMATE", "현장견적이 입력되었습니다", "실측이 완료되어 현장 견적이 등록되었습니다", data.id);
