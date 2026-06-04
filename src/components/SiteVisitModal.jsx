@@ -6,7 +6,9 @@ import {
   completeSiteVisit,
   createNotification,
   uploadFile,
+  saveProjectCheckpoint,
 } from "../lib/supabase";
+import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 
 function Backdrop({ onClose, children }) {
   return (
@@ -99,19 +101,25 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
 
   const handleCheckin = async () => {
     setSaving(true);
-    const doCheckin = async (lat, lng) => {
-      const { data, error } = await gpsCheckin(job.siteVisit.id, { lat, lng, photos }, userId);
-      setSaving(false);
-      if (error) { alert("저장 실패: " + error.message); return; }
-      notifyCustomer("GPS_CHECKIN", "업체가 GPS 체크인했습니다", "실측 담당자가 현장에 도착했습니다", data.id);
-      const updated = { ...job, siteVisit: data };
-      onChange(updated);
-      setStep("field_estimate");
-    };
-    navigator.geolocation.getCurrentPosition(
-      pos => doCheckin(pos.coords.latitude, pos.coords.longitude),
-      () => doCheckin(37.5665, 126.9780)
-    );
+    // 버튼 클릭 1회 위치 캡처 + 역지오코딩(도로명/지번). 거부/실패 시 서울시청 폴백으로 흐름 유지.
+    const loc = await captureCheckpointLocation();
+    const lat = loc?.lat ?? 37.5665;
+    const lng = loc?.lng ?? 126.9780;
+    const { data, error } = await gpsCheckin(job.siteVisit.id, { lat, lng, photos }, userId);
+    setSaving(false);
+    if (error) { alert("저장 실패: " + error.message); return; }
+    // 현장방문 체크포인트(좌표+주소) 저장 — 실제 위치를 받은 경우에만.
+    if (loc) {
+      saveProjectCheckpoint({
+        actorId: userId, requestId: job.bid.request_id, siteVisitId: job.siteVisit.id,
+        type: "site_visit", lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
+        roadAddress: loc.road_address, jibunAddress: loc.jibun_address, photos,
+      }).catch(() => {});
+    }
+    notifyCustomer("GPS_CHECKIN", "업체가 GPS 체크인했습니다", "실측 담당자가 현장에 도착했습니다", data.id);
+    const updated = { ...job, siteVisit: data };
+    onChange(updated);
+    setStep("field_estimate");
   };
 
   const handleFieldEstimate = async () => {

@@ -1239,6 +1239,23 @@ export const submitEstimate = (id, siteVisitId, requestId, actorId = null) =>
     p_site_visit_id: siteVisitId ?? null, p_request_id: requestId ?? null,
   });
 
+// ── GPS 체크포인트(3차) — 현장방문/착공/중간점검/완료 4회. 버튼 클릭 1회 캡처. ──
+// 좌표 + 정확도 + 도로명/지번 주소를 함께 저장. security-definer RPC 가 actor(업체) 검증.
+export const saveProjectCheckpoint = ({
+  actorId = null, requestId = null, contractId = null, siteVisitId = null,
+  type, lat = null, lng = null, accuracy = null,
+  roadAddress = null, jibunAddress = null, photos = [], note = null,
+} = {}) =>
+  supabase.rpc("project_checkpoint_save", {
+    p_actor_id: actorId, p_request_id: requestId, p_contract_id: contractId, p_site_visit_id: siteVisitId,
+    p_type: type, p_lat: lat, p_lng: lng, p_accuracy: accuracy,
+    p_road_address: roadAddress, p_jibun_address: jibunAddress, p_photos: photos ?? [], p_note: note,
+  });
+
+// 요청 단위 체크포인트 조회(관리자/프로젝트 상세 공용).
+export const getProjectCheckpoints = (requestId) =>
+  supabase.rpc("project_checkpoints_for_request", { p_request_id: requestId });
+
 export const getCompanyActiveJobs = async (companyId) => {
   const { data: bids, error } = await supabase
     .from("bids")

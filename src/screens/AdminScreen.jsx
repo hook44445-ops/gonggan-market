@@ -30,6 +30,7 @@ import {
   getDirectDealReports, updateDirectDealReportStatus, checkSiteVisitFollowUp, checkDirectDealSchedules,
   getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
   fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
+  getProjectCheckpoints,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
@@ -901,6 +902,35 @@ const DISPUTE_STATUS_META = {
   REFUNDED:         { label: "환불처리",     color: C.text4,   bg: C.bg      },
   PARTIAL_REFUND:   { label: "일부환불",     color: C.text3,   bg: C.bg      },
 };
+
+// GPS 체크포인트(현장방문/착공/중간/완료) — 분쟁 증빙용. 좌표가 아니라 주소로 노출.
+const CHECKPOINT_LABEL = {
+  site_visit: "현장방문", construction_start: "착공", mid_inspection: "중간점검", completion: "완료",
+};
+function DisputeCheckpoints({ requestId }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => {
+    if (!requestId) return;
+    let alive = true;
+    getProjectCheckpoints(requestId)
+      .then(({ data }) => { if (alive && Array.isArray(data)) setRows(data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [requestId]);
+  if (rows.length === 0) return null;
+  return (
+    <div style={{ background: C.bg, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+      <div style={{ fontSize: 11, fontWeight: 800, color: C.text2, marginBottom: 6 }}>📍 현장 체크포인트(주소)</div>
+      {rows.map(cp => (
+        <div key={cp.id} style={{ fontSize: 11, color: C.text3, marginBottom: 4, lineHeight: 1.6 }}>
+          <b style={{ color: C.text2 }}>{CHECKPOINT_LABEL[cp.checkpoint_type] ?? cp.checkpoint_type}</b>
+          {" · "}{cp.road_address || cp.jibun_address || "주소 미확인"}
+          {cp.road_address && cp.jibun_address ? <span style={{ color: C.text4 }}>{` (지번 ${cp.jibun_address})`}</span> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const STATUS_MAP = {
   pending:  { label: "대기중", color: C.gold,  bg: "#FBF5E8" },
@@ -2448,6 +2478,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       <div style={{ fontSize: 12, color: C.text2, marginBottom: S.md }}>
                         분쟁사유: {d.dispute_reason ?? "—"}
                       </div>
+                      <DisputeCheckpoints requestId={d.request_id} />
                       <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, marginBottom: S.md }}>
                         총 금액: {(d.total_amount ?? 0).toLocaleString()}만원
                       </div>
