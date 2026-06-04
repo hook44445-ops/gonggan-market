@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { LeafSprig } from "../components/common";
+import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, saveProjectCheckpoint, getProjectCheckpoints } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
@@ -1509,6 +1510,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         )}
 
         <EscrowCalculator role={isConsumer ? "consumer" : "company"} companyCreatedAt={resolvedBid?.company?.created_at} />
+
+        {/* ── 추가견적(Change Order) — 예외 흐름. 계약 성립 후에만 노출 ── */}
+        {resolvedContractId && (
+          <ChangeOrderPanel
+            contractId={resolvedContractId}
+            actorId={userId}
+            role={isConsumer ? "consumer" : "company"}
+            customerId={request?.user_id ?? null}
+            companyOwnerId={resolvedBid?.company?.ownerId ?? null}
+          />
+        )}
 
         {/* Warranty info */}
         <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, display: "flex", gap: S.md, alignItems: "flex-start", marginBottom: S.lg }}>
