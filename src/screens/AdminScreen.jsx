@@ -35,6 +35,7 @@ import {
 import { CATEGORY_LABEL } from "../constants/lounge";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 import AdminChangeOrderHistory from "../components/AdminChangeOrderHistory";
+import AdminContractDetail from "../components/AdminContractDetail";
 
 const SEED_CATEGORIES = [
   { id: 'interior',   label: '인테리어' },
@@ -1601,6 +1602,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [customersErrMsg, setCustomersErrMsg] = useState(null);
   const [loading, setLoading]           = useState(true);
   const [mainTab, setMainTab]           = useState("dashboard");
+  const [detailTarget, setDetailTarget] = useState(null); // 계약 통합 상세 {requestId, contractId}
   const [companyTab, setCompanyTab]     = useState("pending");
   const [selected, setSelected]         = useState(null);
   const [rejectMode, setRejectMode]     = useState(false);
@@ -1998,6 +2000,16 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+
+      {/* 계약 통합 상세(원계약·추가견적 결제/정산/GPS/분쟁) */}
+      {detailTarget && (
+        <AdminContractDetail
+          requestId={detailTarget.requestId ?? null}
+          contractId={detailTarget.contractId ?? null}
+          adminId={user?.id ?? null}
+          onClose={() => setDetailTarget(null)}
+        />
+      )}
 
       {/* Header */}
       <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`,
@@ -2452,6 +2464,12 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         {order.contract_id && order.payment_source !== "change_order" && (
                           <AdminChangeOrderHistory contractId={order.contract_id} adminId={user?.id ?? null} />
                         )}
+                        {(order.request_id || order.contract_id) && (
+                          <button onClick={() => setDetailTarget({ requestId: order.request_id ?? null, contractId: order.contract_id ?? null })}
+                            style={{ width: "100%", padding: "9px", marginBottom: S.sm, background: C.navyL, color: C.navy, border: `1px solid ${C.trustM}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                            📋 계약 통합 상세 보기
+                          </button>
+                        )}
                         <div style={{ display: "flex", gap: S.sm }}>
                           {order.status !== "REFUNDED" && order.status !== "CANCELLED" && (
                             <button onClick={() => setConfirm({
@@ -2528,6 +2546,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       </div>
                       <AdminCheckpoints requestId={d.request_id} adminUserId={user?.id ?? null} />
                       <AdminChangeOrderHistory contractId={d.id} adminId={user?.id ?? null} title="추가견적 이력 (분쟁 참고)" />
+                      <button onClick={() => setDetailTarget({ requestId: d.request_id ?? null, contractId: d.id ?? null })}
+                        style={{ width: "100%", padding: "9px", marginBottom: S.md, background: C.navyL, color: C.navy, border: `1px solid ${C.trustM}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                        📋 계약 통합 상세 보기
+                      </button>
                       <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, marginBottom: S.md }}>
                         총 금액: {(d.total_amount ?? 0).toLocaleString()}만원
                       </div>
@@ -2596,6 +2618,12 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         총액 {(p.amount ?? 0).toLocaleString()} · 수수료 {(p.platform_fee ?? 0).toLocaleString()} · VAT {(p.vat ?? 0).toLocaleString()}
                       </div>
                       {p.escrow_id && <AdminChangeOrderHistory contractId={p.escrow_id} adminId={user?.id ?? null} title="추가견적 이력 (정산 참고)" />}
+                      {p.escrow_id && (
+                        <button onClick={() => setDetailTarget({ contractId: p.escrow_id })}
+                          style={{ width: "100%", padding: "9px", marginBottom: S.sm, background: C.navyL, color: C.navy, border: `1px solid ${C.trustM}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                          📋 계약 통합 상세 보기
+                        </button>
+                      )}
                       <div style={{ display: "flex", gap: S.sm }}>
                         {p.status !== "HELD" && p.status !== "PAID_MANUALLY" && p.status !== "CANCELLED" && (
                           <button onClick={() => setConfirm({

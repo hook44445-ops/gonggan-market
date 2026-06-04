@@ -1008,6 +1008,13 @@ export const getChangeOrderPaymentOrder = (changeOrderId) =>
 export const adminGetChangeOrders = (contractId, adminId) =>
   supabase.rpc("admin_change_orders_for_contract", { p_admin_id: adminId ?? null, p_contract_id: contractId });
 
+// 관리자 계약 통합 상세(원계약·추가견적 결제/정산/GPS/분쟁) — role=admin 검증 RPC, operator 차단.
+// requestId 또는 contractId 중 하나로 조회. migration 035.
+export const getAdminContractDetail = ({ requestId = null, contractId = null, adminId }) =>
+  supabase.rpc("admin_contract_detail", {
+    p_admin_id: adminId ?? null, p_request_id: requestId, p_contract_id: contractId,
+  });
+
 // ── STEP 26-2: Contract Scope ─────────────────────────────────────────────────
 
 export const upsertContractScope = (data) =>
