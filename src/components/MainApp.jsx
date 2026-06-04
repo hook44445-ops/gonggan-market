@@ -48,6 +48,7 @@ import {
   supabase,
   IS_SUPABASE_READY,
   getRequests,
+  getNonBiddableRequestIds,
   getUserRequests,
   createRequest,
   closeRequest,
@@ -769,10 +770,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
 
   const loadCompanyRequests = async () => {
     const { data, error } = await getRequests();
-    setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: data?.length ?? 0, companyData: data ?? [] }));
     setLastFetchAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-    if (error) return;
-    if (data) setCustomerRequests(applyExpiry(data));
+    if (error) {
+      setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: 0, companyData: [] }));
+      return;
+    }
+    // 계약(escrow)·선정(selected)된 요청은 입찰 목록에서 제외 — status 동기화 누락 대비.
+    const nonBiddable = await getNonBiddableRequestIds().catch(() => new Set());
+    const open = (data ?? []).filter(r => !nonBiddable.has(r.id));
+    setReqDebug(d => ({ ...d, companyFetchError: null, companyRows: open.length, companyData: open, excludedContracted: (data?.length ?? 0) - open.length }));
+    setCustomerRequests(applyExpiry(open));
   };
 
   const [reviewFetchErr, setReviewFetchErr] = useState(null);

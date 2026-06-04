@@ -154,6 +154,20 @@ export const getRequests = () =>
 export const getRequest = (id) =>
   supabase.from("requests").select("*").eq("id", id).maybeSingle();
 
+// 업체 입찰 목록에서 제외해야 할 request_id 집합 —
+// 계약(escrow) 생성됐거나 업체가 선정(selected)된 요청은 더 이상 '입찰 가능'이 아니다.
+// requests.status 가 'open' 으로 남아있어도(동기화 누락) 안전하게 걸러낸다.
+export const getNonBiddableRequestIds = async () => {
+  const ids = new Set();
+  const [esc, sel] = await Promise.all([
+    supabase.from("escrow_payments").select("request_id").not("request_id", "is", null),
+    supabase.from("bids").select("request_id").eq("selected", true).not("request_id", "is", null),
+  ]);
+  (esc.data ?? []).forEach((r) => r.request_id && ids.add(r.request_id));
+  (sel.data ?? []).forEach((r) => r.request_id && ids.add(r.request_id));
+  return ids;
+};
+
 export const getUserRequests = (userId) =>
   supabase
     .from("requests")
