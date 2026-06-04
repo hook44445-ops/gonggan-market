@@ -926,37 +926,41 @@ export const updateDisputeStatus = async (paymentId, disputeStatus) =>
 
 // ── STEP 26-1: Change Orders ──────────────────────────────────────────────────
 
-export const createChangeOrder = ({ contractId, requestedBy, requestedByRole, description, amount }) =>
-  supabase.from("change_orders").insert({
-    contract_id:       contractId,
-    requested_by:      requestedBy,
-    requested_by_role: requestedByRole,
-    description,
-    amount,
-  }).select().single();
+// ── 추가견적(Change Order) — 예외 흐름. 모든 쓰기는 security-definer RPC(actor 검증). ──
+// role: 'company' | 'consumer'. 생성은 양방향, 승인/결제는 의뢰인, 완료는 업체.
+export const createChangeOrder = ({ contractId, actorId, role, reasonType, description, amount = 0, photos = [] }) =>
+  supabase.rpc("change_order_create", {
+    p_actor_id: actorId, p_contract_id: contractId, p_role: role,
+    p_reason_type: reasonType, p_description: description,
+    p_amount: amount != null ? Math.round(amount) : 0, p_photos: photos ?? [],
+  });
 
 export const getChangeOrders = (contractId) =>
-  supabase
-    .from("change_orders")
-    .select("*")
-    .eq("contract_id", contractId)
-    .order("created_at", { ascending: false });
+  supabase.rpc("change_orders_for_contract", { p_contract_id: contractId });
 
-export const approveChangeOrder = (changeOrderId) =>
-  supabase
-    .from("change_orders")
-    .update({ status: "APPROVED", approved_by_customer: true, approved_at: new Date().toISOString() })
-    .eq("id", changeOrderId)
-    .select()
-    .single();
+// 업체가 고객 변경요청에 금액/내용 보정(requested 단계)
+export const setChangeOrderAmount = (id, { actorId, amount, description = null, photos = null }) =>
+  supabase.rpc("change_order_set_amount", {
+    p_actor_id: actorId, p_id: id,
+    p_amount: amount != null ? Math.round(amount) : null, p_description: description, p_photos: photos,
+  });
 
-export const rejectChangeOrder = (changeOrderId, rejectReason) =>
-  supabase
-    .from("change_orders")
-    .update({ status: "REJECTED", reject_reason: rejectReason })
-    .eq("id", changeOrderId)
-    .select()
-    .single();
+export const approveChangeOrder = (id, actorId) =>
+  supabase.rpc("change_order_approve", { p_actor_id: actorId, p_id: id });
+
+export const rejectChangeOrder = (id, actorId, rejectReason = null) =>
+  supabase.rpc("change_order_reject", { p_actor_id: actorId, p_id: id, p_reason: rejectReason });
+
+// 추가 결제 완료(고객) → paid. MVP: PG 연동 전 결제 성공 시점 호출(별도 결제).
+export const markChangeOrderPaid = (id, actorId) =>
+  supabase.rpc("change_order_mark_paid", { p_actor_id: actorId, p_id: id });
+
+// 추가공사 완료(업체) → completed + 100% 정산 마커(원계약과 분리).
+export const completeChangeOrder = (id, actorId) =>
+  supabase.rpc("change_order_complete", { p_actor_id: actorId, p_id: id });
+
+export const cancelChangeOrder = (id, actorId) =>
+  supabase.rpc("change_order_cancel", { p_actor_id: actorId, p_id: id });
 
 // ── STEP 26-2: Contract Scope ─────────────────────────────────────────────────
 
