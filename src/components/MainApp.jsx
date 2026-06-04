@@ -392,17 +392,17 @@ function isRequestSettled(r, escrowData) {
   return false;
 }
 
-// 의뢰인 "진행중" 판정 — 정책: 계약 전이라도 입찰이 1개 이상이거나
-// 진행 상태이면 진행중에 포함. 완료/취소/만료/삭제만 제외.
-//   status ∈ ('open','bidding','quoted','contracting','in_progress')  OR  bids.length > 0
-const IN_PROGRESS_STATUSES = new Set(["open", "bidding", "quoted", "contracting", "in_progress"]);
+// 의뢰인 "진행중" 판정 — 단일 기준: 계약(escrow) 존재 OR status ∈ (contracted, in_progress).
+//   open/입찰중(escrow 없음)은 "견적요청"이지 진행중이 아니다(이중 노출 방지).
+//   완료/정산은 진행중에서 제외(완료 영역).
+const IN_PROGRESS_STATUSES = new Set(["contracted", "contracting", "in_progress"]);
 function isRequestInProgress(r, escrowData) {
   if (!r) return false;
-  if (r.isDeleted === true || r.isExpiredByTime === true) return false;
+  if (r.isDeleted === true) return false;
   if (["completed", "cancelled", "expired", "closed", "settled"].includes(r.status)) return false;
   if (isRequestSettled(r, escrowData)) return false;
-  const hasBids = (r.bidCount ?? r.bids ?? 0) > 0;
-  return IN_PROGRESS_STATUSES.has(r.status) || hasBids;
+  if (escrowData?.escrow) return true;              // 계약(에스크로) 존재 → 진행중
+  return IN_PROGRESS_STATUSES.has(r.status);
 }
 
 // 관심 — 조용한 갤러리 톤의 빈 상태
@@ -1143,15 +1143,24 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     });
   }, [activeRole, user?.id, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load escrow+payouts for consumer requests that entered a contract lifecycle.
-  // in_progress + completed 모두 포함 — 홈/마이/이력이 동일 contract 상태를 보도록.
+  // Load escrow+payouts for any request that could have a contract.
+  // requests.status 동기화가 누락돼 'open' 으로 남은 계약 건도 포착해야 하므로
+  // (status in_progress 만 보지 말고) 입찰이 있거나 비-open 인 요청 전부 조회한다.
+  // escrow 존재 = 진행중 판정의 단일 기준. status='open' 인데 escrow 가 있으면 self-heal.
   useEffect(() => {
     if (activeRole !== "consumer") return;
-    const contracted = myRequests.filter(r => r.status === "in_progress" || r.status === "completed");
-    if (contracted.length === 0) return;
-    contracted.forEach(r => {
+    const candidates = myRequests.filter(r => !r.isDeleted && ((r.bidCount ?? 0) > 0 || r.status !== "open"));
+    if (candidates.length === 0) return;
+    candidates.forEach(r => {
       getEscrowWithPayouts(r.id).then(({ data }) => {
         setMyRequestsEscrow(prev => ({ ...prev, [r.id]: data ?? null }));
+        // self-heal: escrow 가 있는데 requests.status 가 아직 open 이면 in_progress 로 전이
+        if (data?.escrow && r.status === "open") {
+          setRequestInProgress(r.id).catch(() => {});
+          setMyRequests(prev => prev.map(x => x.id === r.id
+            ? { ...x, status: "in_progress", isActive: false, isClosed: false }
+            : x));
+        }
       }).catch(() => {});
     });
   }, [myRequests, escrowRefreshTrigger, activeRole]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1871,19 +1880,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
         {/* 의뢰인 홈 */}
         {screen==="home" && mode==="consumer" && (
           <div>
-            {/* ── 진행감 카드 — 진행 중인 계약(에스크로)이 있을 때만 최상단 노출 ── */}
+            {/* ── 진행감 카드 — 진행 중인 계약(에스크로) 전부 최상단 노출 ── */}
             {(() => {
-              const progRow = myRequests.find(r => {
+              const progRows = myRequests.filter(r => {
                 const ed = myRequestsEscrow[r.id] ?? null;
-                return ed?.escrow && !isRequestSettled(r, ed);
+                return isRequestInProgress(r, ed);
               });
-              if (!progRow) return null;
-              const ed = myRequestsEscrow[progRow.id] ?? null;
-              const prog = computeProgress(progRow, ed);
-              if (!prog) return null;
-              const title = `${progRow.area || ""} ${progRow.type || "시공"}`.trim();
-              return (
-                <div style={{ background:C.ivory, borderRadius:R.xl, padding:S.xxl, marginBottom:S.lg,
+              if (progRows.length === 0) return null;
+              return progRows.map(progRow => {
+                const ed = myRequestsEscrow[progRow.id] ?? null;
+                const prog = computeProgress(progRow, ed) ?? { percent: 0, stepNo: 1, totalSteps: 4, nextActionText: "업체가 착공을 준비하고 있습니다" };
+                const title = `${progRow.area || ""} ${progRow.type || "시공"}`.trim();
+                return (
+                <div key={progRow.id} style={{ background:C.ivory, borderRadius:R.xl, padding:S.xxl, marginBottom:S.lg,
                   border:`1px solid ${C.brandM}`, boxShadow:SHADOW.card }}>
                   <div style={{ fontSize:14, fontWeight:800, color:C.brandD, marginBottom:6, lineHeight:1.8 }}>
                     🏗️ 현재 시공 진행 중
@@ -1905,7 +1914,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                     계약 확인 →
                   </button>
                 </div>
-              );
+                );
+              });
             })()}
 
             <div style={{ background:`linear-gradient(145deg,${C.ivory} 0%,${C.brandL} 55%,${C.bgWarm} 100%)`,
@@ -2188,7 +2198,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               // 완료/정산완료(에스크로 기준)는 active 에서 제외.
               // 마감/완료/만료된 요청은 홈에 노출하지 않음(이력은 마이페이지에서 확인).
               const isSettled = (r) => isRequestSettled(r, myRequestsEscrow[r.id] ?? null);
-              const activeReqs  = myRequests.filter(r => !r.isDeleted && (r.isActive || r.status === "in_progress") && !isSettled(r));
+              // "내 견적 요청" = open 견적요청만. 진행중(에스크로/계약)은 상단 진행 배너에서 다룸(이중 노출 방지).
+              const activeReqs  = myRequests.filter(r => {
+                const ed = myRequestsEscrow[r.id] ?? null;
+                return !r.isDeleted && !isRequestInProgress(r, ed) && !isSettled(r) && (r.isActive || r.status === "open");
+              });
               return activeReqs.length > 0 ? (
                 <div style={{ marginBottom:S.xl }}>
                   {/* ── Active requests ── */}
@@ -3273,6 +3287,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
               </div>
             ) : myRequests.map(r => {
               const escData = myRequestsEscrow[r.id] ?? null;
+              // 진행 현황 = 계약(에스크로) 진입 건만. open 견적요청·시드는 제외(이중 노출/과다집계 방지).
+              if (!isRequestInProgress(r, escData) && !isRequestSettled(r, escData)) return null;
               const { escrow: esc } = escData ?? {};
               const txStatus = esc?.transaction_status ?? null;
               const hasEscrow = !!esc;
@@ -3459,9 +3475,15 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <div style={{ display:"flex", gap:0, marginBottom:S.xl, borderTop:`1px solid ${C.bgWarm}`, paddingTop:S.xl }}>
                   {(activeRole==="consumer"
                     ? (() => {
-                        const inProgress = myRequests.filter(r => isRequestInProgress(r, myRequestsEscrow[r.id] ?? null)).length;
-                        const completed  = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null)).length;
-                        return [[`${myRequests.length}`,"견적 요청"],[`${inProgress}`,"진행중"],[`${completed}`,"완료"]];
+                        const ed = (r) => myRequestsEscrow[r.id] ?? null;
+                        // 상호배타 집계: 견적요청=open&에스크로없음 / 진행중=에스크로or계약 / 완료=정산
+                        const inProgress = myRequests.filter(r => isRequestInProgress(r, ed(r))).length;
+                        const completed  = myRequests.filter(r => isRequestSettled(r, ed(r))).length;
+                        const openCount  = myRequests.filter(r =>
+                          !r.isDeleted && r.status === "open" && !ed(r)?.escrow
+                          && !isRequestInProgress(r, ed(r)) && !isRequestSettled(r, ed(r))
+                        ).length;
+                        return [[`${openCount}`,"견적 요청"],[`${inProgress}`,"진행중"],[`${completed}`,"완료"]];
                       })()
                     : [[" 3","낙찰"],["84","후기"],[`${currentUser?.temp ?? 36.5}°`,"공간온도"]]
                   ).map(([v,l],i,arr) => (
