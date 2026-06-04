@@ -432,6 +432,25 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     load().catch(() => {});
   }, [resolvedContractId, dbRefreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 고객 화면 자동 새로고침: 업체가 사진을 올린 뒤 고객이 화면에 머물러 있어도
+  // 검토 사진/승인 CTA가 즉시 뜨도록 주기적 재조회 + 포그라운드 복귀 시 재조회.
+  // (기존엔 mount 시 1회만 로드 → 업체 업로드가 고객 화면에 반영되지 않던 문제 보강)
+  // 정산 완료(stage 5 done) 이후에는 더 조회할 게 없으므로 폴링을 멈춘다.
+  useEffect(() => {
+    if (!resolvedContractId) return;
+    if (stageStatus?.[5] === "done") return;
+    const bump = () => setDbRefreshKey(k => k + 1);
+    const intervalId = setInterval(bump, 15000);
+    const onVisible = () => { if (document.visibilityState === "visible") bump(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", bump);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", bump);
+    };
+  }, [resolvedContractId, stageStatus?.[5]]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Derive stageStatus + populate customer photo previews from DB state
   // Sources (in priority order): payout.APPROVED > phase_photos presence > txStatus/current_step
   // IMPORTANT: txStatus SETTLED shortcut is DISABLED when derivedFromRecovery=true.
@@ -777,6 +796,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         setStageStatus(prev => ({ ...prev, [stageId]: "pending_customer" }));
         setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
         if (s?.label) addTimeline("photo", s.label);
+        // 단계 사진 전송 성공 = 업체가 실제 시공 중. 요청을 in_progress 로 확정 전환해
+        // 업체 "새 견적 요청"(status=open) 입찰 목록에서 제거한다(이중 노출 방지).
+        // 위 생성 분기(escrow 신규 생성)뿐 아니라 기존 escrow 재사용 경로까지 모두 커버하도록
+        // 보고 성공 시점에 한 번 더 보강한다(멱등).
+        if (reqId) setRequestInProgress(reqId).catch(() => {});
       } else {
         setReportError(`단계 상태 업데이트 실패: ${escrowErr.message}`);
       }
