@@ -309,14 +309,20 @@ export default function DashboardScreen({
         )}
 
         {/* ── 입찰 ──────────────────────────────────────────────── */}
-        {tab === "bids" && (
-          <div>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>
-              오늘 견적 요청 <b style={{ color:C.brand }}>{allRequests.length}건</b>
+        {tab === "bids" && (() => {
+          // 입찰 목록은 status='open' 이고 활성(미마감·미계약)인 요청만 노출.
+          const biddable = allRequests.filter(r =>
+            (r.status === "open") && r.isActive !== false && r.isClosed !== true
+          );
+          return (
+            <div>
+              <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>
+                오늘 견적 요청 <b style={{ color:C.brand }}>{biddable.length}건</b>
+              </div>
+              {biddable.map(r => <BidCard key={r.id} r={r} currentUser={currentUser} />)}
             </div>
-            {allRequests.map(r => <BidCard key={r.id} r={r} currentUser={currentUser} />)}
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── 통계 ──────────────────────────────────────────────── */}
         {tab === "stats" && (
