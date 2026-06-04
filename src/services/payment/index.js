@@ -2,3 +2,4 @@
 export * from "./constants";
 export * from "./fees";
 export { getProvider, getActiveProvider } from "./paymentService";
+export { payChangeOrder } from "./changeOrderPayment";

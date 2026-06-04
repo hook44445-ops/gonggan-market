@@ -1516,6 +1516,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         {resolvedContractId && (
           <ChangeOrderPanel
             contractId={resolvedContractId}
+            requestId={request?.id ?? null}
             actorId={userId}
             role={isConsumer ? "consumer" : "company"}
             customerId={request?.user_id ?? null}
