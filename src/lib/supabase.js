@@ -2214,6 +2214,43 @@ export const acceptLoungeChat = (chatId, participantId) =>
     .select()
     .single();
 
+// ── 댓글 작성자 대화 신청 (lounge_chat_requests, migration 027) ───────────────
+
+// 요청 생성: 중복/자기자신/시드 검사 포함 RPC (idempotent)
+export const requestCommentChat = (requesterId, targetId, postId, commentId) =>
+  supabase.rpc("request_comment_chat", {
+    p_requester_id: requesterId,
+    p_target_id:    targetId,
+    p_post_id:      postId,
+    p_comment_id:   commentId,
+  });
+
+// 수락: 요청자 20토큰 차감 + status=accepted (idempotent, security definer)
+export const acceptLoungeChatRequest = (requestId, acceptorId) =>
+  supabase.rpc("accept_lounge_chat", {
+    p_request_id:  requestId,
+    p_acceptor_id: acceptorId,
+  });
+
+// 내가 보낸 대화 신청 목록
+export const fetchMyChatRequests = (userId, limit = 50) =>
+  supabase
+    .from("lounge_chat_requests")
+    .select("id, post_id, target_id, status, token_charged, created_at, accepted_at, source_comment_id, lounge_posts(title, anonymous_nickname)")
+    .eq("requester_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+// 내가 받은 대화 신청 목록 (pending)
+export const fetchReceivedChatRequests = (userId, limit = 50) =>
+  supabase
+    .from("lounge_chat_requests")
+    .select("id, post_id, requester_id, status, token_charged, created_at, source_comment_id, lounge_posts(title, anonymous_nickname), lounge_comments(anonymous_nickname, content)")
+    .eq("target_id", userId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
 // ── Payment / Contract restore helpers ───────────────────────────────────────
 
 // Primary: PAID orders only (used for payment confirmation flow)

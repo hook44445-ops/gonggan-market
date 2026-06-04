@@ -21,6 +21,7 @@ import {
   checkLoungeSaved,
   createLoungeChat,
   incrementLoungeView,
+  requestCommentChat,
 } from '../lib/supabase';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
@@ -28,6 +29,72 @@ import ReportModal from '../components/lounge/ReportModal';
 import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification } from '../lib/supabase';
 import { buildPostMeta } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
+
+// ── 댓글 작성자 액션시트 ─────────────────────────────────
+function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, onReport, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 500, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: C.surface, borderRadius: `${R.xl}px ${R.xl}px 0 0`, padding: '20px 0 calc(20px + env(safe-area-inset-bottom, 0px)) 0' }}
+      >
+        {/* 작성자 정보 헤더 */}
+        <div style={{ padding: '0 20px 16px', borderBottom: `1px solid ${C.bgWarm}`, marginBottom: 8 }}>
+          <div style={{ fontSize: 13, color: C.text3, marginBottom: 2 }}>
+            {isOwn ? '내 댓글' : '댓글 작성자'}
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>
+            {comment.anonymous_nickname}
+          </div>
+          {comment.content && (
+            <div style={{ fontSize: 12, color: C.text4, marginTop: 4, lineHeight: 1.5,
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              "{comment.content}"
+            </div>
+          )}
+        </div>
+
+        {/* 액션 목록 */}
+        {!isOwn && (
+          <button
+            onClick={alreadySent ? undefined : onChat}
+            disabled={busy || alreadySent}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '15px 20px',
+              background: 'none', border: 'none', cursor: (busy || alreadySent) ? 'default' : 'pointer',
+              fontSize: 15, color: alreadySent ? C.text4 : C.text1, fontWeight: 600, textAlign: 'left',
+              opacity: busy ? 0.6 : 1 }}
+          >
+            <span style={{ fontSize: 20 }}>{alreadySent ? '✅' : '💬'}</span>
+            {alreadySent ? '이미 대화 신청을 보냈어요' : busy ? '처리 중...' : '이 작성자에게 대화 신청하기'}
+          </button>
+        )}
+
+        <button
+          onClick={onReport}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '15px 20px',
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 15, color: C.text1, fontWeight: 600, textAlign: 'left' }}
+        >
+          <span style={{ fontSize: 20 }}>🚩</span>
+          댓글 신고하기
+        </button>
+
+        <div style={{ height: 1, background: C.bgWarm, margin: '8px 0' }} />
+
+        <button
+          onClick={onClose}
+          style={{ width: '100%', padding: '15px 20px', background: 'none', border: 'none',
+            cursor: 'pointer', fontSize: 15, color: C.text3, fontWeight: 600 }}
+        >
+          취소
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ── 삭제 확인 다이얼로그 ───────────────────────────────
 function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
@@ -120,6 +187,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [chatSent,    setChatSent]          = useState(false);
   const [toast,       setToast]             = useState(null);
   const [reportTarget, setReportTarget]     = useState(null);
+  // 댓글 작성자 클릭 → 액션시트
+  const [commentAuthorSheet, setCommentAuthorSheet] = useState(null); // { comment }
+  const [chatRequestBusy,    setChatRequestBusy]    = useState(false);
+  // 이미 신청 보낸 댓글 userId Set (UI 표시용)
+  const [sentChatTargets,    setSentChatTargets]    = useState(() => new Set());
   const [relatedPosts, setRelatedPosts]     = useState([]);
   const [showMenu,    setShowMenu]          = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -393,6 +465,49 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setReportTarget({ type: 'post', targetId: post.id });
   };
 
+  // 댓글 작성자 클릭 → 액션시트 표시
+  const handleCommentAuthorClick = (comment) => {
+    if (!isLoggedIn) { onRequireLogin?.(); return; }
+    setCommentAuthorSheet({ comment });
+  };
+
+  // 댓글 신고
+  const handleCommentReportFromSheet = (commentId) => {
+    setCommentAuthorSheet(null);
+    setReportTarget({ type: 'comment', targetId: commentId });
+  };
+
+  // 대화 신청 (댓글 작성자에게)
+  const handleCommentChatRequest = async (comment) => {
+    if (chatRequestBusy) return;
+    if (!isLoggedIn || !user?.id) { onRequireLogin?.(); return; }
+    setCommentAuthorSheet(null);
+    setChatRequestBusy(true);
+    try {
+      const { data, error } = await requestCommentChat(
+        user.id,
+        comment.user_id,
+        postId,
+        comment.id,
+      );
+      const status = data?.status;
+      if (error) {
+        showToast(`대화 신청 실패: ${error.message}`);
+      } else if (status === 'already_accepted') {
+        showToast('이미 대화 중인 상대예요 💬');
+      } else if (status === 'already_pending') {
+        showToast('이미 대화 신청을 보냈어요');
+      } else if (data?.error === 'SELF_REQUEST') {
+        showToast('본인에게는 신청할 수 없어요');
+      } else {
+        setSentChatTargets(prev => new Set([...prev, comment.user_id]));
+        showToast('💬 대화 신청을 보냈어요!\n상대가 수락하면 20토큰이 차감됩니다.');
+      }
+    } finally {
+      setChatRequestBusy(false);
+    }
+  };
+
   const handleBlock = () => {
     setShowMenu(false);
     if (!post?.user_id) return;
@@ -651,17 +766,21 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           <div key={comment.id}>
             <LoungeCommentItem
               comment={comment}
+              currentUserId={user?.id}
               onLike={likeComment}
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
               onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
+              onAuthorClick={handleCommentAuthorClick}
             />
             {replyComs.filter(r => r.parent_id === comment.id).map(reply => (
               <LoungeCommentItem
                 key={reply.id}
                 comment={reply}
                 isReply
+                currentUserId={user?.id}
                 onLike={likeComment}
                 onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
+                onAuthorClick={handleCommentAuthorClick}
               />
             ))}
           </div>
@@ -756,6 +875,18 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           targetId={reportTarget.targetId}
           onClose={() => setReportTarget(null)}
           onReport={() => showToast('신고가 접수됐어요')}
+        />
+      )}
+
+      {commentAuthorSheet && (
+        <CommentAuthorActionSheet
+          comment={commentAuthorSheet.comment}
+          alreadySent={sentChatTargets.has(commentAuthorSheet.comment.user_id)}
+          busy={chatRequestBusy}
+          isOwn={commentAuthorSheet.comment.user_id === user?.id}
+          onChat={() => handleCommentChatRequest(commentAuthorSheet.comment)}
+          onReport={() => handleCommentReportFromSheet(commentAuthorSheet.comment.id)}
+          onClose={() => setCommentAuthorSheet(null)}
         />
       )}
 

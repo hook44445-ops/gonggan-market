@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 
-export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply }) {
+export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, currentUserId }) {
   const avatar  = getAnonymousAvatarByNickname(comment.anonymous_nickname);
   const [liked, setLiked] = useState(false);
 
@@ -14,6 +14,15 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
     if (liked) return;
     setLiked(true);
     onLike?.(comment.id);
+  };
+
+  // 대화 신청 가능: user_id 있음(비시드) + 본인 아님 + 운영글 전문가 답변 아님
+  const canChat = comment.user_id != null
+    && comment.user_id !== currentUserId
+    && !comment.is_expert_reply;
+
+  const handleAuthorClick = () => {
+    if (canChat) onAuthorClick?.(comment);
   };
 
   const expertWrap = comment.is_expert_reply
@@ -37,15 +46,25 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
       borderLeft: !comment.is_expert_reply && isReply ? `2px solid ${C.bgWarm}` : 'none',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: S.xs }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: '50%',
-          background: avatar.color,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 16, flexShrink: 0,
-        }}>
+        <div
+          onClick={handleAuthorClick}
+          style={{
+            width: 30, height: 30, borderRadius: '50%',
+            background: avatar.color,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 16, flexShrink: 0,
+            cursor: canChat ? 'pointer' : 'default',
+          }}
+        >
           {avatar.emoji}
         </div>
-        <span style={{ fontWeight: 800, fontSize: 13, color: C.text1 }}>{comment.anonymous_nickname}</span>
+        <span
+          onClick={handleAuthorClick}
+          style={{
+            fontWeight: 800, fontSize: 13, color: C.text1,
+            cursor: canChat ? 'pointer' : 'default',
+          }}
+        >{comment.anonymous_nickname}</span>
         {comment.is_expert_reply && (
           <span style={{ background: C.brand, color: '#fff', borderRadius: R.full, padding: '2px 8px', fontSize: 10, fontWeight: 800 }}>
             🏆 전문가 답변
