@@ -2156,18 +2156,11 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             </div>
 
             {(() => {
-              // 완료/정산완료(에스크로 기준)는 active 에서 제외 → 견적 이력으로.
+              // 완료/정산완료(에스크로 기준)는 active 에서 제외.
+              // 마감/완료/만료된 요청은 홈에 노출하지 않음(이력은 마이페이지에서 확인).
               const isSettled = (r) => isRequestSettled(r, myRequestsEscrow[r.id] ?? null);
               const activeReqs  = myRequests.filter(r => !r.isDeleted && (r.isActive || r.status === "in_progress") && !isSettled(r));
-              const historyReqs = myRequests.filter(r => !r.isDeleted && (r.isClosed || r.status === "completed" || isSettled(r)));
-              if (SHOW_DEBUG_UI) {
-                myRequests.forEach(r => {
-                  const ed = myRequestsEscrow[r.id] ?? null;
-                  const settled = isSettled(r);
-                  const included = (r.isActive || r.status === "in_progress") && !settled;
-                });
-              }
-              return myRequests.length > 0 ? (
+              return activeReqs.length > 0 ? (
                 <div style={{ marginBottom:S.xl }}>
                   {/* ── Active requests ── */}
                   {activeReqs.length > 0 && (
@@ -2365,37 +2358,6 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                           </div>
                         );
                       })}
-                    </>
-                  )}
-
-                  {/* ── Closed / history ── */}
-                  {historyReqs.length > 0 && (
-                    <>
-                      <div style={{ fontSize:14, fontWeight:800, color:C.text3, marginBottom:S.sm, marginTop: activeReqs.length > 0 ? S.lg : 0 }}>
-                        마감된 요청 · {historyReqs.length}건
-                      </div>
-                      {historyReqs.map(r => (
-                        <div key={r.id} style={{ background:C.surface, borderRadius:R.xl,
-                          marginBottom:S.sm, border:`1px solid ${C.bgWarm}`, overflow:"hidden" }}>
-                          <div style={{ padding:`${S.lg}px ${S.xl}px`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                            <div style={{ opacity:0.65 }}>
-                              <div style={{ fontSize:14, fontWeight:700, color:C.text2 }}>{r.type} · {r.size}</div>
-                              <div style={{ fontSize:12, color:C.text3, marginTop:2 }}>📍 {r.area} · {r.time}</div>
-                            </div>
-                            <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:5, flexShrink:0 }}>
-                              <span style={{ background:C.bg, color:C.text4, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>
-                                {r.status === "expired" || r.isExpiredByTime ? "기간만료" : "마감됨"}
-                              </span>
-                              {(r.status === "expired" || r.isExpiredByTime) && (
-                                <button onClick={() => handleRepost(r.id)}
-                                  style={{ background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.full, padding:"4px 12px", fontSize:11, fontWeight:800, cursor:"pointer" }}>
-                                  🔄 다시 올리기
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
                     </>
                   )}
                 </div>

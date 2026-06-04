@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { SHOW_DEBUG_UI } from "./constants/release";
-import { supabase } from "./lib/supabase";
 import MainApp from "./components/MainApp";
 import LoginScreen from "./screens/LoginScreen";
 import LandingScreen from "./screens/LandingScreen";
@@ -31,6 +30,13 @@ function saveSession(user) {
       region:     user.region     ?? "",
       badge:      user.badge      ?? "basic",
       isGuest:    user.isGuest    ?? false,
+      // 운영자/식별 필드 보존 — 새로고침 후에도 권한/프로필 유지
+      isOperator:  user.isOperator  ?? user.is_operator ?? false,
+      is_operator: user.is_operator ?? user.isOperator ?? false,
+      ownerId:     user.ownerId     ?? null,
+      interests:   user.interests   ?? [],
+      avatar_url:  user.avatar_url  ?? null,
+      created_at:  user.created_at  ?? null,
     };
     localStorage.setItem(SESSION_USER_KEY, JSON.stringify(slim));
     localStorage.setItem(SESSION_TS_KEY, Date.now().toString());
@@ -52,33 +58,18 @@ export default function App() {
   const [adminPw, setAdminPw] = useState("");
   const [adminLoginErr, setAdminLoginErr] = useState("");
 
-  // 리스너 클로저에서 최신 user를 참조하기 위한 ref (재구독 방지)
-  const userRef = useRef(user);
-  useEffect(() => { userRef.current = user; }, [user]);
-
   useEffect(() => {
     const saved = loadSavedSession();
     if (saved) setUser(saved);
     setLoading(false);
   }, []);
 
-  // C-5: Supabase 세션 만료/로그아웃 감지 → RLS 403 무음 실패 방지
-  // 게스트/관리자(isGuest)는 Supabase 인증 세션과 무관하므로 영향 주지 않는다.
-  // SIGNED_OUT(만료 포함)일 때만 안전하게 로그인 화면으로 복구한다.
-  // INITIAL_SESSION / SIGNED_IN / TOKEN_REFRESHED 는 localStorage 세션을 건드리지 않는다.
-  useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") {
-        const cur = userRef.current;
-        if (cur && !cur.isGuest) {
-          clearSession();
-          setUser(null);
-          setPendingRole(null);
-        }
-      }
-    });
-    return () => data?.subscription?.unsubscribe();
-  }, []);
+  // 로그인 세션 유지 — 이 앱의 사용자 식별은 전화번호 OTP(서버 API) 기반의
+  // localStorage 세션(gonggan_user)이며 supabase.auth 세션과 독립적이다.
+  // 과거에는 supabase.auth 의 SIGNED_OUT(빈 세션/만료 토큰 포함)에 반응해
+  // 커스텀 세션까지 지워 "로그인이 유지되지 않는" 문제가 있었으므로,
+  // 명시적 로그아웃(handleLogout)에서만 세션을 제거하도록 변경한다.
+  // (supabase.auth 이벤트로는 커스텀 전화번호 세션을 건드리지 않음)
 
   const handleLogin = (u) => {
     if (!u.isGuest) saveSession(u);
