@@ -391,6 +391,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         const { data: ep } = await getEscrowByRequest(reqId);
         if (ep) {
           setContractData(ep);
+          // 분쟁 상태는 새로고침 후에도 유지 — 로컬 플래그가 풀려 재승인되는 것 방지.
+          if (ep.transaction_status === "DISPUTE" || ep.dispute_status === "DISPUTE_OPEN") {
+            setDisputeSubmitted(true);
+          }
           // Canonical escrow row = the one resolved by request_id. BOTH the company
           // (reportComplete) and the customer (this read) must target the SAME row,
           // otherwise the company writes STARTED/photos to one row while the customer
@@ -533,6 +537,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [disputeSubmitted, setDisputeSubmitted] = useState(false);
 
   const advanceStage = async (stageId) => {
+    // 분쟁 진행 중에는 단계 승인 차단(새로고침으로 로컬 플래그가 풀려도 DB 기준으로 막음).
+    if (disputeSubmitted || contractData?.transaction_status === "DISPUTE") {
+      setApprovalError("분쟁 처리 중에는 단계를 승인할 수 없어요.");
+      return;
+    }
     const s = STAGE_META.find(x => x.id === stageId);
     setApprovalError(null);
     // Optimistic UI
@@ -627,7 +636,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       5: { dbStep: 3, txStatus: "COMPLETED",      currentStep: 4, payoutStage: 4 },
     }[stageId];
 
-    if (!phaseConfig) { setReportingStage(null); return; }
+    if (!phaseConfig) { setReportingStage(null); reportingRef.current = false; return; }
 
     const { dbStep, txStatus, currentStep, payoutStage } = phaseConfig;
     const allPhotos = stagePhotos[stageId] ?? [];
@@ -636,9 +645,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     // local createObjectURL fallback). Persisting them saves dead links that
     // render as broken images for everyone — never write them to the DB.
     const photos = allPhotos.filter(u => typeof u === "string" && /^https?:\/\//.test(u));
-    if (allPhotos.length > 0 && photos.length === 0) {
-      setReportError("사진 저장(스토리지 업로드)에 실패했어요. 네트워크 확인 후 다시 시도해주세요.");
+    // 핑퐁 정합: 의뢰인이 검토할 사진 없이 단계 전송 금지(빈 단계 승인 방지).
+    if (photos.length === 0) {
+      setReportError(allPhotos.length > 0
+        ? "사진 저장(스토리지 업로드)에 실패했어요. 네트워크 확인 후 다시 시도해주세요."
+        : "사진을 1장 이상 업로드한 뒤 고객에게 전송해주세요.");
       setReportingStage(null);
+      reportingRef.current = false; // H-C: 동기 가드 해제 (조기 반환에서 락 누수 방지)
       return;
     }
     const reqId = request?.id ?? resolvedBid?.requestId ?? null;
