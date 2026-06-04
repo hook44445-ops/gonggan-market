@@ -1459,9 +1459,8 @@ function OperatorSettingTab({ adminUserId, showToast }) {
       if (m.includes("ADMIN_ONLY")) msg = "관리자(role=admin) 계정만 등록할 수 있어요";
       else if (m.includes("USER_NOT_FOUND")) msg = "해당 전화번호의 사용자를 찾을 수 없어요 (가입된 번호인지 확인)";
       else if (m.includes("CANNOT_MODIFY_ADMIN")) msg = "관리자 계정은 변경할 수 없어요";
-      else if (m.includes("PRIVILEGED_ROLE_CHANGE_BLOCKED")) msg = "권한 변경 차단(트리거) — 마이그레이션 025 적용 여부를 확인하세요";
-      else if (/Could not find the function|does not exist|schema cache|PGRST202/i.test(m)) msg = "RPC 없음 — 025_operator_role_lounge_moderation.sql 적용 필요";
-      else if (/violates check constraint|users_role_check/i.test(m)) msg = "role 제약에 operator 미포함 — 025 마이그레이션 적용 필요";
+      else if (/column .*is_operator|is_operator/i.test(m)) msg = "is_operator 컬럼 없음 — 028_operator_flag_split.sql 적용 필요";
+      else if (/Could not find the function|does not exist|schema cache|PGRST202/i.test(m)) msg = "RPC 없음 — 028_operator_flag_split.sql 적용 필요";
       else msg = `등록 실패: ${m || "알 수 없는 오류"}`;
       showToast?.(msg, false);
       return;
@@ -1485,7 +1484,7 @@ function OperatorSettingTab({ adminUserId, showToast }) {
     <div style={{ padding: "8px 4px" }}>
       <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 6 }}>운영자 설정</div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 12 }}>
-        전화번호로 사용자를 검색해 운영자로 등록/해제합니다. 운영자는 라운지 게시판 관리(추천글·숨김)만 가능합니다.
+        전화번호로 사용자를 검색해 운영자 권한을 부여/해제합니다. 운영자는 부가 권한으로, 기존 사용자 유형(업체/의뢰인)은 그대로 유지되며 라운지 게시판 관리(추천글·숨김)만 추가됩니다.
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <input value={phone} onChange={e => setPhone(e.target.value)}
@@ -1507,7 +1506,7 @@ function OperatorSettingTab({ adminUserId, showToast }) {
         operators.map(op => (
           <div key={op.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, marginBottom: 6 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{op.name || "이름없음"} <span style={{ fontSize: 11, color: C.text4, fontWeight: 500 }}>· operator</span></div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{op.name || "이름없음"} <span style={{ fontSize: 11, color: C.text4, fontWeight: 500 }}>· {op.role === "company" ? "업체" : op.role === "consumer" ? "의뢰인" : op.role} + 운영자</span></div>
               <div style={{ fontSize: 12, color: C.text3 }}>{op.phone}</div>
             </div>
             <button disabled={busy} onClick={() => unregister(op)}
