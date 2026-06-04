@@ -3,7 +3,8 @@ import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { LeafSprig } from "../components/common";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, saveProjectCheckpoint, getProjectCheckpoints } from "../lib/supabase";
+import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import EscrowCalculator from "../components/EscrowCalculator";
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
@@ -83,6 +84,14 @@ const TIMELINE_ICONS = {
   photo:    "📸",
   confirm:  "✅",
   dispute:  "⚠️",
+};
+
+// GPS 체크포인트 단계 라벨 (좌표가 아니라 주소로 노출)
+const CHECKPOINT_META = {
+  site_visit:         { label: "현장방문",   icon: "📐" },
+  construction_start: { label: "착공",       icon: "🏗" },
+  mid_inspection:     { label: "중간점검",   icon: "🔍" },
+  completion:         { label: "완료",       icon: "✅" },
 };
 
 export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview }) {
@@ -346,6 +355,18 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const addTimeline = (type, label) => {
     setTimeline(prev => [...prev, { id: Date.now(), type, label, ts: Date.now() }]);
   };
+
+  // GPS 체크포인트(현장방문/착공/중간/완료) — 좌표가 아니라 주소로 노출.
+  const [checkpoints, setCheckpoints] = useState([]);
+  useEffect(() => {
+    const reqId = request?.id ?? resolvedBid?.requestId ?? null;
+    if (!reqId) { setCheckpoints([]); return; }
+    let alive = true;
+    getProjectCheckpoints(reqId)
+      .then(({ data }) => { if (alive && Array.isArray(data)) setCheckpoints(data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [request?.id, resolvedBid?.requestId, timeline.length]);
 
   // Load review status for this contract (consumer only)
   useEffect(() => {
@@ -796,6 +817,19 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         setStageStatus(prev => ({ ...prev, [stageId]: "pending_customer" }));
         setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
         if (s?.label) addTimeline("photo", s.label);
+        // GPS 체크포인트(착공/중간/완료) — 전송 버튼 클릭 시점 1회 위치 캡처+역지오코딩 후 저장.
+        // 비동기 fire-and-forget(위치 권한 거부/실패해도 단계 보고는 정상 완료).
+        const cpType = { 3: "construction_start", 4: "mid_inspection", 5: "completion" }[stageId];
+        if (cpType) {
+          captureCheckpointLocation().then(loc => {
+            if (!loc) return;
+            saveProjectCheckpoint({
+              actorId: userId, requestId: reqId, contractId: cid, type: cpType,
+              lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
+              roadAddress: loc.road_address, jibunAddress: loc.jibun_address, photos,
+            }).catch(() => {});
+          }).catch(() => {});
+        }
         // 단계 사진 전송 성공 = 업체가 실제 시공 중. 요청을 in_progress 로 확정 전환해
         // 업체 "새 견적 요청"(status=open) 입찰 목록에서 제거한다(이중 노출 방지).
         // 위 생성 분기(escrow 신규 생성)뿐 아니라 기존 escrow 재사용 경로까지 모두 커버하도록
@@ -1450,6 +1484,29 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             </div>
           ))}
         </div>
+
+        {/* ── GPS 체크포인트 — 단계별 현장 주소(좌표 아님) ── */}
+        {checkpoints.length > 0 && (
+          <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>📍 현장 체크포인트</div>
+            {checkpoints.map((cp, idx) => {
+              const meta = CHECKPOINT_META[cp.checkpoint_type] ?? { label: cp.checkpoint_type, icon: "📍" };
+              return (
+                <div key={cp.id} style={{ display: "flex", gap: S.md, marginBottom: idx < checkpoints.length - 1 ? S.lg : 0 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: R.full, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{meta.icon}</div>
+                  <div style={{ flex: 1, paddingTop: 2 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{meta.label}</div>
+                    <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>{cp.road_address || cp.jibun_address || "주소 미확인"}</div>
+                    {cp.road_address && cp.jibun_address && (
+                      <div style={{ fontSize: 11, color: C.text4, marginTop: 1 }}>지번 {cp.jibun_address}</div>
+                    )}
+                    <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>{fmtTs(new Date(cp.captured_at).getTime())}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <EscrowCalculator role={isConsumer ? "consumer" : "company"} companyCreatedAt={resolvedBid?.company?.created_at} />
 
