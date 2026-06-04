@@ -89,10 +89,10 @@ const TIMELINE_ICONS = {
 
 // GPS 체크포인트 단계 라벨 (좌표가 아니라 주소로 노출)
 const CHECKPOINT_META = {
-  site_visit:         { label: "현장방문",   icon: "📐" },
-  construction_start: { label: "착공",       icon: "🏗" },
-  mid_inspection:     { label: "중간점검",   icon: "🔍" },
-  completion:         { label: "완료",       icon: "✅" },
+  site_visit: { label: "현장방문 견적", icon: "📐" },
+  start:      { label: "착공 확인",     icon: "🏗" },
+  middle:     { label: "중간점검",     icon: "🔍" },
+  complete:   { label: "완료 확인",     icon: "✅" },
 };
 
 export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview }) {
@@ -363,7 +363,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const reqId = request?.id ?? resolvedBid?.requestId ?? null;
     if (!reqId) { setCheckpoints([]); return; }
     let alive = true;
-    getProjectCheckpoints(reqId)
+    getProjectCheckpoints(reqId, userId)
       .then(({ data }) => { if (alive && Array.isArray(data)) setCheckpoints(data); })
       .catch(() => {});
     return () => { alive = false; };
@@ -820,14 +820,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         if (s?.label) addTimeline("photo", s.label);
         // GPS 체크포인트(착공/중간/완료) — 전송 버튼 클릭 시점 1회 위치 캡처+역지오코딩 후 저장.
         // 비동기 fire-and-forget(위치 권한 거부/실패해도 단계 보고는 정상 완료).
-        const cpType = { 3: "construction_start", 4: "mid_inspection", 5: "completion" }[stageId];
+        const cpType = { 3: "start", 4: "middle", 5: "complete" }[stageId];
         if (cpType) {
           captureCheckpointLocation().then(loc => {
             if (!loc) return;
             saveProjectCheckpoint({
               actorId: userId, requestId: reqId, contractId: cid, type: cpType,
               lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
-              roadAddress: loc.road_address, jibunAddress: loc.jibun_address, photos,
+              roadAddress: loc.road_address, jibunAddress: loc.jibun_address, addressFull: loc.address_full,
+              sido: loc.sido, sigungu: loc.sigungu, dong: loc.dong, bunji: loc.bunji, photos,
             }).catch(() => {});
           }).catch(() => {});
         }

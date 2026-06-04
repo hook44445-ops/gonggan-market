@@ -903,31 +903,74 @@ const DISPUTE_STATUS_META = {
   PARTIAL_REFUND:   { label: "일부환불",     color: C.text3,   bg: C.bg      },
 };
 
-// GPS 체크포인트(현장방문/착공/중간/완료) — 분쟁 증빙용. 좌표가 아니라 주소로 노출.
+// GPS 체크포인트(현장방문/착공/중간/완료) — 관리자 분쟁/계약 증빙. admin 은 좌표까지 조회.
 const CHECKPOINT_LABEL = {
-  site_visit: "현장방문", construction_start: "착공", mid_inspection: "중간점검", completion: "완료",
+  site_visit: "현장방문 견적", start: "착공 확인", middle: "중간점검", complete: "완료 확인",
 };
-function DisputeCheckpoints({ requestId }) {
+const fmtCpTs = (ts) => { try { return new Date(ts).toLocaleString("ko-KR"); } catch { return "-"; } };
+const copyText = (t) => { try { navigator.clipboard?.writeText(t); } catch { /* noop */ } };
+
+// 관리자 현장 기록 — 유형/시간/업로더/전체·도로명·지번 주소/행정구역/좌표/정확도/사진/메모 + 복사·지도.
+function AdminCheckpoints({ requestId, adminUserId }) {
   const [rows, setRows] = useState([]);
   useEffect(() => {
     if (!requestId) return;
     let alive = true;
-    getProjectCheckpoints(requestId)
+    getProjectCheckpoints(requestId, adminUserId)
       .then(({ data }) => { if (alive && Array.isArray(data)) setRows(data); })
       .catch(() => {});
     return () => { alive = false; };
-  }, [requestId]);
+  }, [requestId, adminUserId]);
   if (rows.length === 0) return null;
+  const mini = { fontSize: 10, fontWeight: 700, color: C.brand, background: C.brandL, border: "none", borderRadius: R.sm, padding: "3px 7px", cursor: "pointer" };
   return (
     <div style={{ background: C.bg, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
-      <div style={{ fontSize: 11, fontWeight: 800, color: C.text2, marginBottom: 6 }}>📍 현장 체크포인트(주소)</div>
-      {rows.map(cp => (
-        <div key={cp.id} style={{ fontSize: 11, color: C.text3, marginBottom: 4, lineHeight: 1.6 }}>
-          <b style={{ color: C.text2 }}>{CHECKPOINT_LABEL[cp.checkpoint_type] ?? cp.checkpoint_type}</b>
-          {" · "}{cp.road_address || cp.jibun_address || "주소 미확인"}
-          {cp.road_address && cp.jibun_address ? <span style={{ color: C.text4 }}>{` (지번 ${cp.jibun_address})`}</span> : null}
-        </div>
-      ))}
+      <div style={{ fontSize: 12, fontWeight: 800, color: C.text2, marginBottom: 8 }}>📍 현장 기록 (GPS 체크포인트)</div>
+      {rows.map((cp) => {
+        const addr = cp.address_full || cp.road_address || cp.jibun_address || "주소 미확인";
+        const hasCoord = cp.lat != null && cp.lng != null;
+        const lowAcc = cp.accuracy != null && cp.accuracy > 30;
+        return (
+          <div key={cp.id} style={{ borderTop: `1px solid ${C.bgWarm}`, paddingTop: 8, marginTop: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.text1, marginBottom: 2 }}>
+              {CHECKPOINT_LABEL[cp.checkpoint_type] ?? cp.checkpoint_type}
+            </div>
+            <div style={{ fontSize: 12, color: C.text2 }}>📍 {addr}</div>
+            {(cp.road_address || cp.jibun_address) && (
+              <div style={{ fontSize: 10, color: C.text4, lineHeight: 1.6 }}>
+                {cp.road_address ? `도로명 ${cp.road_address}` : ""}{cp.road_address && cp.jibun_address ? " · " : ""}{cp.jibun_address ? `지번 ${cp.jibun_address}` : ""}
+              </div>
+            )}
+            <div style={{ fontSize: 10, color: C.text4, marginTop: 2 }}>
+              {[cp.sido, cp.sigungu, cp.dong, cp.bunji].filter(Boolean).join(" ")}
+            </div>
+            <div style={{ fontSize: 10, color: C.text4, marginTop: 2 }}>
+              {fmtCpTs(cp.captured_at)}
+              {cp.accuracy != null ? ` · 정확도 ${Math.round(cp.accuracy)}m` : ""}
+              {lowAcc ? " ⚠️" : ""}
+              {Array.isArray(cp.photos) && cp.photos.length ? ` · 사진 ${cp.photos.length}장` : ""}
+            </div>
+            {hasCoord && (
+              <div style={{ fontSize: 10, color: C.text4, marginTop: 2 }}>좌표 {Number(cp.lat).toFixed(6)}, {Number(cp.lng).toFixed(6)}</div>
+            )}
+            {cp.note && <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>메모: {cp.note}</div>}
+            {Array.isArray(cp.photos) && cp.photos.length > 0 && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                {cp.photos.map((u, i) => (
+                  <a key={i} href={u} target="_blank" rel="noreferrer" style={{ display: "block", width: 48, height: 48, borderRadius: R.sm, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
+                    <img src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </a>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+              {addr !== "주소 미확인" && <button style={mini} onClick={() => copyText(addr)}>주소 복사</button>}
+              {hasCoord && <button style={mini} onClick={() => copyText(`${cp.lat},${cp.lng}`)}>좌표 복사</button>}
+              {hasCoord && <a style={{ ...mini, textDecoration: "none" }} href={`https://map.kakao.com/link/map/${encodeURIComponent(addr)},${cp.lat},${cp.lng}`} target="_blank" rel="noreferrer">지도에서 보기</a>}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2404,6 +2447,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                             <div style={{ fontSize: 11, color: C.text3, fontStyle: "italic", maxWidth: 120, textAlign: "right" }}>{order.admin_note}</div>
                           )}
                         </div>
+                        {order.request_id && <AdminCheckpoints requestId={order.request_id} adminUserId={user?.id ?? null} />}
                         <div style={{ display: "flex", gap: S.sm }}>
                           {order.status !== "REFUNDED" && order.status !== "CANCELLED" && (
                             <button onClick={() => setConfirm({
@@ -2478,7 +2522,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       <div style={{ fontSize: 12, color: C.text2, marginBottom: S.md }}>
                         분쟁사유: {d.dispute_reason ?? "—"}
                       </div>
-                      <DisputeCheckpoints requestId={d.request_id} />
+                      <AdminCheckpoints requestId={d.request_id} adminUserId={user?.id ?? null} />
                       <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, marginBottom: S.md }}>
                         총 금액: {(d.total_amount ?? 0).toLocaleString()}만원
                       </div>

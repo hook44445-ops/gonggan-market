@@ -101,8 +101,13 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
 
   const handleCheckin = async () => {
     setSaving(true);
-    // 버튼 클릭 1회 위치 캡처 + 역지오코딩(도로명/지번). 거부/실패 시 서울시청 폴백으로 흐름 유지.
+    // 버튼 클릭 1회 위치 캡처 + 역지오코딩(도로명/지번/행정주소). 거부/실패 시 서울시청 폴백으로 흐름 유지.
     const loc = await captureCheckpointLocation();
+    // GPS 정확도 경고(30m 초과) — 안내 후에도 계속 진행하면 저장(정확도 값은 보관).
+    if (loc && loc.accuracy != null && loc.accuracy > 30) {
+      const go = window.confirm("GPS 정확도가 낮습니다(약 " + Math.round(loc.accuracy) + "m). 실외 또는 창가에서 다시 시도해 주세요.\n\n그대로 진행할까요?");
+      if (!go) { setSaving(false); return; }
+    }
     const lat = loc?.lat ?? 37.5665;
     const lng = loc?.lng ?? 126.9780;
     const { data, error } = await gpsCheckin(job.siteVisit.id, { lat, lng, photos }, userId);
@@ -113,8 +118,13 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
       saveProjectCheckpoint({
         actorId: userId, requestId: job.bid.request_id, siteVisitId: job.siteVisit.id,
         type: "site_visit", lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
-        roadAddress: loc.road_address, jibunAddress: loc.jibun_address, photos,
+        roadAddress: loc.road_address, jibunAddress: loc.jibun_address, addressFull: loc.address_full,
+        sido: loc.sido, sigungu: loc.sigungu, dong: loc.dong, bunji: loc.bunji, photos,
       }).catch(() => {});
+      // 역지오코딩 실패해도 좌표는 저장됨 — 사용자 안내.
+      if (!loc.address_full && !loc.road_address && !loc.jibun_address) {
+        alert("주소 변환은 실패했지만 위치 좌표는 저장되었습니다.");
+      }
     }
     notifyCustomer("GPS_CHECKIN", "업체가 GPS 체크인했습니다", "실측 담당자가 현장에 도착했습니다", data.id);
     const updated = { ...job, siteVisit: data };

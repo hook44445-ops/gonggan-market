@@ -1248,17 +1248,22 @@ export const submitEstimate = (id, siteVisitId, requestId, actorId = null) =>
 export const saveProjectCheckpoint = ({
   actorId = null, requestId = null, contractId = null, siteVisitId = null,
   type, lat = null, lng = null, accuracy = null,
-  roadAddress = null, jibunAddress = null, photos = [], note = null,
+  roadAddress = null, jibunAddress = null, addressFull = null,
+  sido = null, sigungu = null, dong = null, bunji = null,
+  photos = [], note = null,
 } = {}) =>
   supabase.rpc("project_checkpoint_save", {
     p_actor_id: actorId, p_request_id: requestId, p_contract_id: contractId, p_site_visit_id: siteVisitId,
     p_type: type, p_lat: lat, p_lng: lng, p_accuracy: accuracy,
-    p_road_address: roadAddress, p_jibun_address: jibunAddress, p_photos: photos ?? [], p_note: note,
+    p_address_full: addressFull, p_road_address: roadAddress, p_jibun_address: jibunAddress,
+    p_sido: sido, p_sigungu: sigungu, p_dong: dong, p_bunji: bunji,
+    p_photos: photos ?? [], p_note: note,
   });
 
-// 요청 단위 체크포인트 조회(관리자/프로젝트 상세 공용).
-export const getProjectCheckpoints = (requestId) =>
-  supabase.rpc("project_checkpoints_for_request", { p_request_id: requestId });
+// 요청 단위 체크포인트 조회(관리자/프로젝트 상세 공용). actorId 로 당사자/admin 검증.
+// 좌표(lat/lng/accuracy)는 admin 만, 일반 당사자는 주소 수준만 반환(RPC 에서 마스킹).
+export const getProjectCheckpoints = (requestId, actorId = null) =>
+  supabase.rpc("project_checkpoints_for_request", { p_request_id: requestId, p_actor_id: actorId });
 
 export const getCompanyActiveJobs = async (companyId) => {
   const { data: bids, error } = await supabase

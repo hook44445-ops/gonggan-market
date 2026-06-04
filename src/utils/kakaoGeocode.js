@@ -39,8 +39,10 @@ function loadServices() {
   return sdkPromise;
 }
 
-// 좌표 → { road_address(도로명), jibun_address(지번) }. 실패 시 둘 다 null.
+// 좌표 → 주소 세트. 실패 시 모든 주소 필드 null(좌표만 저장하도록 호출측에서 처리).
+//   { road_address, jibun_address, address_full, sido, sigungu, dong, bunji }
 export async function reverseGeocodeAddress(lat, lng) {
+  const EMPTY = { road_address: null, jibun_address: null, address_full: null, sido: null, sigungu: null, dong: null, bunji: null };
   try {
     await loadServices();
     const services = window.kakao.maps.services;
@@ -49,17 +51,29 @@ export async function reverseGeocodeAddress(lat, lng) {
       geocoder.coord2Address(lng, lat, (result, status) => {
         if (status === services.Status.OK && Array.isArray(result) && result.length) {
           const r = result[0];
+          const a = r.address ?? null;          // 지번
+          const road = r.road_address ?? null;  // 도로명
+          const jibun = a?.address_name ?? null;
+          const roadName = road?.address_name ?? null;
+          const bunji = a?.main_address_no
+            ? `${a.main_address_no}${a.sub_address_no ? "-" + a.sub_address_no : ""}`
+            : null;
           resolve({
-            road_address: r.road_address?.address_name ?? null,
-            jibun_address: r.address?.address_name ?? null,
+            road_address: roadName,
+            jibun_address: jibun,
+            address_full: jibun ?? roadName,           // 전체주소(지번 우선)
+            sido: a?.region_1depth_name ?? road?.region_1depth_name ?? null,
+            sigungu: a?.region_2depth_name ?? road?.region_2depth_name ?? null,
+            dong: a?.region_3depth_name ?? road?.region_3depth_name ?? null,
+            bunji,
           });
         } else {
-          resolve({ road_address: null, jibun_address: null });
+          resolve({ ...EMPTY });
         }
       });
     });
   } catch {
-    return { road_address: null, jibun_address: null };
+    return { ...EMPTY };
   }
 }
 
