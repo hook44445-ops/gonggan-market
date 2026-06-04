@@ -737,6 +737,10 @@ export const adminUpdateUserInfo = async (id, fields, adminId) => {
 export const getFeeConfig = () =>
   supabase.from("fee_config").select("*").maybeSingle();
 
+// 결제수단별 수수료 규칙(migration 031) — 3.7% 하드코딩 대신 DB 규칙에서 요율 조회.
+export const getPaymentFeeRules = () =>
+  supabase.from("payment_fee_rules").select("*").eq("is_active", true);
+
 // ── Admin Logs ────────────────────────────────────────────────────────────────
 
 export const createAdminLog = (log) =>

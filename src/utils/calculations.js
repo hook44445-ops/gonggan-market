@@ -7,7 +7,10 @@ const feeConfig = {
   vatRate: 0.1,          // (legacy 계산 호환용)
 };
 
-// 고객 에스크로 수수료율(고정 3.7%)
+// 고객 에스크로 수수료율 — 폴백 기본값(3.7%).
+// ⚠️ 실제 결제 요율의 source of truth 는 DB(payment_fee_rules, migration 031)이며
+//    결제 화면은 services/payment 로 규칙에서 요율을 조회한다. 이 상수는 규칙 미조회 시
+//    폴백 및 표시용 계산기(EscrowCalculator 등)의 기본값으로만 사용한다.
 export const CUSTOMER_ESCROW_RATE = 0.037;
 
 export const fmtMoney = (amount) => {

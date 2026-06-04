@@ -5,21 +5,14 @@ import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
-import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
+import { fmtMoney, calculateStagePayments } from "../utils/calculations";
 import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, markRequestSiteVisit, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
+import {
+  PAYMENT_METHODS, COMING_SOON_MESSAGE, ACTIVE_PROVIDER, getMethodMeta,
+  loadFeeRules, feeRateFromRules, computeFeeWithRate, getProvider,
+} from "../services/payment";
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
-import { calcCustomerFee } from "../utils/calculations";
-
-const PAYMENT_METHODS = [
-  { id: "CARD",            icon: "💳", label: "신용/체크카드",  desc: "TossPayments 안전결제",  available: true  },
-  { id: "TRANSFER",        icon: "🏦", label: "계좌이체",       desc: "실시간 계좌이체",         available: true  },
-  { id: "VIRTUAL_ACCOUNT", icon: "📋", label: "가상계좌",       desc: "24시간 무통장입금",       available: true  },
-  { id: "KAKAO_PAY",       icon: "💛", label: "카카오페이",     desc: "심사 후 제공 예정",       available: false },
-  { id: "NAVER_PAY",       icon: "💚", label: "네이버페이",     desc: "심사 후 제공 예정",       available: false },
-];
-
-const TOSS_METHOD_MAP = { CARD: "카드", TRANSFER: "계좌이체", VIRTUAL_ACCOUNT: "가상계좌" };
 
 const DEFAULT_COMPANY = { id: null, name: "—", temp: 0, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
 
@@ -120,6 +113,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   const [localToast, setLocalToast] = useState(null);
   const showLocalToast = (msg) => { setLocalToast(msg); setTimeout(() => setLocalToast(null), 3000); };
 
+  // 수수료 규칙(payment_fee_rules) — 3.7% 하드코딩 대신 DB 규칙에서 요율 조회.
+  // 미조회 시 service 의 폴백 요율 사용(시드값과 동일 → 동작 보존).
+  const [feeRules, setFeeRules] = useState(null);
+  useEffect(() => { loadFeeRules().then(setFeeRules).catch(() => {}); }, []);
+  // 결제수단별 요율(만원 단위 금액 기준). 수단 미선택 시 CARD 기준으로 미리보기.
+  const rateFor = (method) => feeRateFromRules(feeRules, method ?? "CARD", ACTIVE_PROVIDER);
+
   // SELECT bids when screen loads (or request changes)
   useEffect(() => {
     if (!request?.id) { setLocalBids(propBids ?? []); return; }
@@ -187,8 +187,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
   if (step==="confirm" && selBid) {
     const stages = calculateStagePayments(selBid.price);
-    const customerTotal = calculateCustomerTotal(selBid.price);
-    const escrowFee = Math.round((customerTotal - selBid.price) * 10) / 10;
+    const { feeAmount: escrowFee, total: customerTotal } = computeFeeWithRate(selBid.price, rateFor(selectedMethod));
     return (
       <div style={{ minHeight:"100vh", background:C.bg }}>
         <BidScreenHeader title={isQuotePhase ? "최종 견적서 확인" : "예약 확인"} onBack={goBack} />
@@ -303,8 +302,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   );
 
   if (step==="payment" && selBid) {
-    const customerTotal = calculateCustomerTotal(selBid.price);
-    const fee = Math.round((customerTotal - selBid.price) * 10) / 10;
+    const feeRate = rateFor(selectedMethod);
+    const { feeAmount: fee, total: customerTotal } = computeFeeWithRate(selBid.price, feeRate);
     const stages = calculateStagePayments(selBid.price);
 
     const handlePay = async () => {
@@ -312,7 +311,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       if (payingRef.current) return; // H-1: 이미 처리 중이면 재진입 차단 (이중 결제/계약 방지)
       payingRef.current = true;
       setPaymentLoading(true);
-      const feeSnapshot = { customerFeeRate: 0.037, companyFeeRate: 0.044, vatRate: 0.1, snapshotAt: new Date().toISOString() };
+      const feeSnapshot = { provider: ACTIVE_PROVIDER, paymentMethod: selectedMethod, customerFeeRate: feeRate, companyFeeRate: 0.044, vatRate: 0.1, snapshotAt: new Date().toISOString() };
 
       const runDBWrites = async (pgPaymentKey = null) => {
         let contractId = null;
@@ -360,11 +359,15 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               bid_id:         selBid.id,
               request_id:     request.id,
               contract_id:    escrowData.id,
+              provider:       ACTIVE_PROVIDER,
               amount:         selBid.price,
+              fee_amount:     fee,
+              net_amount:     selBid.price,
               customer_fee:   fee,
               vat:            Math.round(fee * 0.1),
               total_amount:   customerTotal,
               payment_method: selectedMethod ?? "CARD",
+              payment_source: "original",
               fee_snapshot:   feeSnapshot,
               status:         "PAID",
             });
@@ -380,6 +383,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           if (paymentOrderId) {
             const { error: txErr } = await createPaymentTransaction({
               payment_order_id: paymentOrderId,
+              provider:         ACTIVE_PROVIDER,
+              payment_method:   selectedMethod ?? "CARD",
               pg_provider:      "toss",
               pg_payment_key:   pgPaymentKey ?? `test_${Date.now()}`,
               method:           selectedMethod ?? "CARD",
@@ -455,25 +460,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
         const tossOrderId = `order_${Date.now()}`;
         try {
-          // H-E: SDK 로드 타임아웃(15초) — onload가 영원히 오지 않을 때 payingRef 영구 잠금 방지.
-          // 타임아웃/오류 시 catch로 fallback → runDBWrites 시뮬레이션 실행 → payingRef 해제.
-          await Promise.race([
-            new Promise((resolve, reject) => {
-              if (window.TossPayments) { resolve(); return; }
-              const s = document.createElement("script");
-              s.src = "https://js.tosspayments.com/v1/payment";
-              s.onload = resolve;
-              s.onerror = () => reject(new Error("Toss SDK load failed"));
-              document.head.appendChild(s);
-            }),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("Toss SDK load timeout (15s)")), 15000)
-            ),
-          ]);
-          const tossPayments = window.TossPayments(clientKey);
-          const tossMethod = TOSS_METHOD_MAP[selectedMethod] ?? "카드";
+          // H-E: SDK 로드 타임아웃(15초)은 provider(tossProvider) 내부에서 처리 →
+          // onload가 영원히 오지 않아도 payingRef 영구 잠금 방지. 타임아웃/오류 시
+          // catch로 fallback → runDBWrites 시뮬레이션 실행 → payingRef 해제.
+          const tossMethod = getMethodMeta(selectedMethod)?.tossMethod ?? "카드";
           // This will redirect to Toss — return value is never reached
-          await tossPayments.requestPayment(tossMethod, {
+          await getProvider(ACTIVE_PROVIDER).requestPayment({
+            clientKey,
+            tossMethod,
             amount: customerTotal,
             orderId: tossOrderId,
             orderName: `공간마켓 시공비 에스크로 (${request?.type ?? "시공"})`,
@@ -525,19 +519,22 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               const isSelected = selectedMethod === m.id;
               return (
                 <div key={m.id}
-                  onClick={() => m.available && setSelectedMethod(m.id)}
+                  onClick={() => m.available ? setSelectedMethod(m.id) : showLocalToast(COMING_SOON_MESSAGE)}
                   style={{
                     display:"flex", alignItems:"center", gap:S.md, padding:S.xl,
                     borderBottom: idx < PAYMENT_METHODS.length - 1 ? `1px solid ${C.bgWarm}` : "none",
-                    cursor: m.available ? "pointer" : "default",
+                    cursor: "pointer",
                     background: isSelected ? C.brandL : C.surface,
                     opacity: m.available ? 1 : 0.5,
                   }}>
                   <span style={{ fontSize:22, width:32, textAlign:"center" }}>{m.icon}</span>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontSize:14, fontWeight:700, color:C.text1 }}>{m.label}</div>
+                    <div style={{ fontSize:14, fontWeight:700, color:C.text1 }}>
+                      {m.label}
+                      {!m.available && <span style={{ marginLeft:6, fontSize:10, fontWeight:700, color:C.red, background:C.bgWarm, borderRadius:R.full, padding:"1px 7px" }}>준비중</span>}
+                    </div>
                     <div style={{ fontSize:11, color: m.available ? C.text3 : C.red }}>
-                      {m.available ? m.desc : "준비중 · 가맹점 심사 후 제공"}
+                      {m.available ? m.desc : "준비중 · 가맹 승인 후 제공"}
                     </div>
                   </div>
                   <div style={{ width:20, height:20, borderRadius:"50%",
