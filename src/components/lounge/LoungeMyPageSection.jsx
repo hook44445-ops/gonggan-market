@@ -12,6 +12,9 @@ import {
   getMyLoungePosts,
   softDeleteLoungePost,
   supabase,
+  fetchMyChatRequests,
+  fetchReceivedChatRequests,
+  acceptLoungeChatRequest,
 } from '../../lib/supabase';
 
 // ── 로컬스토리지 헬퍼 ──────────────────────────────────
@@ -266,14 +269,57 @@ function MyCommentsScreen({ onBack }) {
   );
 }
 
-// ── 대화 신청 내역 ─────────────────────────────────
-function ChatHistoryScreen({ onBack }) {
-  const requests = readLS('lounge_chat_requests');
+// ── 대화 신청 내역 (DB 기반) ──────────────────────────
+function ChatHistoryScreen({ userId, onBack }) {
+  const [sent,     setSent]     = useState([]);
+  const [received, setReceived] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [toast,    setToast]    = useState(null);
+  const [busyId,   setBusyId]   = useState(null);
+  const [tab,      setTab]      = useState('received'); // 'received' | 'sent'
 
-  const statusLabel = (req) => {
-    const ms = Date.now() - new Date(req.sentAt).getTime();
-    if (ms < 5 * 60 * 1000) return { label: '대기중', color: C.gold };
-    if (ms < 24 * 60 * 60 * 1000 && Math.random() > 0.5) return { label: '수락됨', color: C.brand };
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  useEffect(() => {
+    if (!userId || !IS_SUPABASE_READY) { setLoading(false); return; }
+    (async () => {
+      const [sentRes, recvRes] = await Promise.all([
+        fetchMyChatRequests(userId),
+        fetchReceivedChatRequests(userId),
+      ]);
+      setSent(sentRes.data ?? []);
+      setReceived(recvRes.data ?? []);
+      setLoading(false);
+    })();
+  }, [userId]);
+
+  const handleAccept = async (req) => {
+    if (busyId) return;
+    setBusyId(req.id);
+    const { data, error } = await acceptLoungeChatRequest(req.id, userId);
+    setBusyId(null);
+    if (error) {
+      showToast(`수락 실패: ${error.message}`);
+      return;
+    }
+    const status = data?.status;
+    if (status === 'already_accepted') {
+      showToast('이미 수락된 대화예요');
+    } else if (data?.error === 'INSUFFICIENT_TOKENS') {
+      showToast(`토큰이 부족해요 (상대방 잔액: ${data.balance ?? 0}토큰)`);
+    } else {
+      showToast('✅ 대화가 시작됐어요!');
+      setReceived(prev => prev.filter(r => r.id !== req.id));
+    }
+  };
+
+  const statusLabel = (status) => {
+    if (status === 'accepted') return { label: '수락됨', color: C.brand };
+    if (status === 'rejected') return { label: '거절됨', color: C.text4 };
+    if (status === 'expired')  return { label: '만료됨', color: C.text4 };
     return { label: '대기중', color: C.gold };
   };
 
@@ -281,27 +327,87 @@ function ChatHistoryScreen({ onBack }) {
     <div style={{ minHeight: '100vh', background: C.bg }}>
       <SubHeader title="대화 신청 내역" onBack={onBack} />
       <div style={{ background: C.brandL, padding: `${S.sm}px ${S.xl}px`, borderBottom: `1px solid ${C.brandM}` }}>
-        <div style={{ fontSize: 11, color: C.brand }}>💬 상대방 수락 시 20토큰이 차감됩니다</div>
+        <div style={{ fontSize: 11, color: C.brand }}>💬 수락 시 신청자의 20토큰이 차감됩니다</div>
       </div>
-      {requests.length === 0 ? (
-        <EmptyState icon="💬" title="보낸 대화 신청이 없어요" desc={'라운지 게시글에서 대화를 신청하면\n여기서 진행 상황을 확인할 수 있어요'} />
-      ) : (
-        <div style={{ background: C.surface }}>
-          {requests.map((r, i) => {
-            const st = statusLabel(r);
-            return (
-              <div key={i} style={{ padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}`, display: 'flex', alignItems: 'center', gap: S.md }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.brandL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>💬</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 2 }}>
-                    {r.postTitle ?? '게시글'}
+
+      {/* 탭 */}
+      <div style={{ display: 'flex', background: C.surface, borderBottom: `1px solid ${C.bgWarm}` }}>
+        {[['received', `받은 신청 ${received.length > 0 ? `(${received.length})` : ''}`], ['sent', '보낸 신청']].map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)}
+            style={{ flex: 1, padding: '12px 0', background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 14, fontWeight: tab === key ? 800 : 500,
+              color: tab === key ? C.brand : C.text3,
+              borderBottom: `3px solid ${tab === key ? C.brand : 'transparent'}` }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: C.text4, fontSize: 13 }}>불러오는 중...</div>
+      ) : tab === 'received' ? (
+        received.length === 0
+          ? <EmptyState icon="📭" title="받은 대화 신청이 없어요" desc="다른 사람이 내 댓글을 보고 신청하면 여기에 표시돼요" />
+          : (
+            <div style={{ background: C.surface }}>
+              {received.map(r => (
+                <div key={r.id} style={{ padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}`, display: 'flex', alignItems: 'center', gap: S.md }}>
+                  <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.brandL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>💬</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                      {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? '게시글'}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.text3 }}>
+                      {r.lounge_comments?.anonymous_nickname ?? '익명'} · {formatRelativeTime(r.created_at)}
+                    </div>
+                    {r.lounge_comments?.content && (
+                      <div style={{ fontSize: 11, color: C.text4, marginTop: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                        "{r.lounge_comments.content}"
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 11, color: C.text3 }}>{formatRelativeTime(r.sentAt)} · {r.nickname ?? '익명'}</div>
+                  <button
+                    onClick={() => handleAccept(r)}
+                    disabled={busyId === r.id}
+                    style={{ padding: '8px 14px', background: C.brand, color: '#fff', border: 'none',
+                      borderRadius: R.full, fontWeight: 700, fontSize: 13, cursor: busyId === r.id ? 'not-allowed' : 'pointer',
+                      opacity: busyId === r.id ? 0.6 : 1, flexShrink: 0 }}
+                  >
+                    {busyId === r.id ? '...' : '수락'}
+                  </button>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: st.color, background: `${st.color}18`, padding: '4px 10px', borderRadius: R.full }}>{st.label}</div>
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          )
+      ) : (
+        sent.length === 0
+          ? <EmptyState icon="💬" title="보낸 대화 신청이 없어요" desc={'라운지 댓글 작성자를 클릭하면\n대화를 신청할 수 있어요'} />
+          : (
+            <div style={{ background: C.surface }}>
+              {sent.map(r => {
+                const st = statusLabel(r.status);
+                return (
+                  <div key={r.id} style={{ padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}`, display: 'flex', alignItems: 'center', gap: S.md }}>
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.brandL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>💬</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                        {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? '게시글'}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.text3 }}>{formatRelativeTime(r.created_at)}</div>
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: st.color, background: `${st.color}18`, padding: '4px 10px', borderRadius: R.full, flexShrink: 0 }}>{st.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.8)', color: '#fff', borderRadius: R.lg,
+          padding: '10px 18px', fontSize: 13, zIndex: 100, whiteSpace: 'pre-line', textAlign: 'center' }}>
+          {toast}
         </div>
       )}
     </div>
@@ -635,7 +741,7 @@ export default function LoungeMyPageSection({
 
   const savedCount   = readLS('lounge_saved_posts').length;
   const commentCount = readLS('lounge_my_comments').length;
-  const chatCount    = readLS('lounge_chat_requests').length;
+  const chatCount    = 0; // DB 기반으로 ChatHistoryScreen 내부에서 로드
   const blocksCount  = readLS('lounge_blocks').length;
 
   // 서브스크린 처리
@@ -651,7 +757,7 @@ export default function LoungeMyPageSection({
   );
   if (subScreen === 'my-saves')     return <MySavesScreen    onBack={() => setSubScreen(null)} onPost={null} />;
   if (subScreen === 'my-comments')  return <MyCommentsScreen onBack={() => setSubScreen(null)} />;
-  if (subScreen === 'chat-history') return <ChatHistoryScreen onBack={() => setSubScreen(null)} />;
+  if (subScreen === 'chat-history') return <ChatHistoryScreen userId={user?.id} onBack={() => setSubScreen(null)} />;
   if (subScreen === 'missions')     return <MissionsScreen   tokenLogs={tokenLogs} onBack={() => setSubScreen(null)} />;
   if (subScreen === 'privacy')      return <PrivacyScreen    onBack={() => setSubScreen(null)} />;
   if (subScreen === 'blocks')       return <BlocksScreen     onBack={() => setSubScreen(null)} />;
