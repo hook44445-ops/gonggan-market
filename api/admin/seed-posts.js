@@ -25,9 +25,11 @@ export default async function handler(req, res) {
   const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
   const { data: me, error: meErr } = await db
-    .from("users").select("id, role").eq("id", adminId).maybeSingle();
+    .from("users").select("id, role, is_operator").eq("id", adminId).maybeSingle();
   if (meErr) return res.status(500).json({ error: meErr.message });
-  if (!me || (me.role !== "admin" && me.role !== "operator")) {
+  // operator 는 부가 권한(is_operator). 레거시 role='operator' 도 호환.
+  const isMod = me && (me.role === "admin" || me.is_operator === true || me.role === "operator");
+  if (!isMod) {
     return res.status(403).json({ error: "MODERATOR_ONLY" });
   }
 

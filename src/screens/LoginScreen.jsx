@@ -72,10 +72,12 @@ export default function LoginScreen({ onLogin, initialRole }) {
         const { data: existingUser } = await getUserByPhone(toE164(stored));
         if (existingUser) {
           setLoading(false);
-          // operator/admin 은 DB 역할을 우선(선택한 역할 무시)
+          // admin 만 DB 역할을 우선. operator 는 부가 권한(플래그)일 뿐 사용자 유형을 바꾸지 않음.
           const dbRole = existingUser.role;
-          const priv = dbRole === "operator" || dbRole === "admin";
-          onLogin({ ...existingUser, role: priv ? dbRole : role, activeRole: priv ? dbRole : role });
+          const isAdmin = dbRole === "admin";
+          const isOperator = existingUser.is_operator === true || dbRole === "operator";
+          const effRole = isAdmin ? "admin" : role;
+          onLogin({ ...existingUser, role: effRole, activeRole: effRole, isOperator });
           return;
         }
       } catch {}
@@ -128,11 +130,12 @@ export default function LoginScreen({ onLogin, initialRole }) {
       // STEP F: Save verified phone for same-device bypass
       setStoredPhone(pendingRole, phone);
       if (data.user) {
-        // operator/admin 은 DB 역할을 우선(선택한 역할 무시)
+        // admin 만 DB 역할을 우선. operator 는 부가 권한(플래그)일 뿐 사용자 유형을 바꾸지 않음.
         const dbRole = data.user.role;
-        const priv = dbRole === "operator" || dbRole === "admin";
-        const userRole = priv ? dbRole : (pendingRole || dbRole || "consumer");
-        onLogin({ ...data.user, role: userRole, activeRole: priv ? dbRole : pendingRole });
+        const isAdmin = dbRole === "admin";
+        const isOperator = data.user.is_operator === true || dbRole === "operator";
+        const userRole = isAdmin ? "admin" : (pendingRole || dbRole || "consumer");
+        onLogin({ ...data.user, role: userRole, activeRole: userRole, isOperator });
       } else {
         // New user: go to onboarding with pendingRole
         setStep(3);

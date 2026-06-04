@@ -430,9 +430,13 @@ function FavEmptyState({ title, desc, onGo }) {
 export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
   const mode = activeRole === "company" ? "company" : activeRole === "admin" ? "admin" : "consumer";
-  // 운영자/관리자 — 라운지 운영(추천글·숨김) 권한
-  const isModerator = activeRole === "admin" || activeRole === "operator"
-    || user.role === "admin" || user.role === "operator";
+  // 운영자/관리자 — 라운지 운영(추천글·숨김) 권한.
+  // operator 는 부가 권한(is_operator 플래그)이며 사용자 유형(company/consumer)을 바꾸지 않음.
+  const isModerator = activeRole === "admin"
+    || user.role === "admin"
+    || user.isOperator === true
+    || user.is_operator === true
+    || user.role === "operator";   // 레거시(028 마이그레이션 전) 호환
   const [screen, setScreen] = useState(() => {
     if (activeRole === "admin") return "admin";
     if (activeRole === "company") return "dashboard";

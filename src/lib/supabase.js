@@ -1858,9 +1858,9 @@ export const getModeratorLoungeComments = (postId) =>
     .or("is_deleted.is.null,is_deleted.eq.false")
     .order("created_at", { ascending: true });
 
-// 운영자 목록(역할 operator)
+// 운영자 목록(is_operator=true) — role 은 본래 유형(company/consumer) 유지
 export const getOperators = () =>
-  supabase.from("users").select("id, name, phone, role, created_at").eq("role", "operator").order("created_at", { ascending: false });
+  supabase.from("users").select("id, name, phone, role, is_operator, created_at").eq("is_operator", true).order("created_at", { ascending: false });
 
 // 역할 변경 — 반드시 RPC 경유(직접 update 금지). admin 만 호출 성공.
 export const rpcSetOperatorByPhone = (phone, adminId) =>
