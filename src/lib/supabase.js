@@ -1237,8 +1237,11 @@ export const getCompanyActiveJobs = async (companyId) => {
 
 // ── STEP B: Update request status (in_progress) ───────────────────────────────
 
+// 요청 상태 전이(open → in_progress). anon 직접 UPDATE 는 RLS(auth.uid()=user_id, 커스텀 OTP라
+// null)에 막혀 반영되지 않으므로 security definer RPC(migration 030)로 처리. 실제 활성 에스크로가
+// 있을 때만 전이된다(RPC 내부 검증). 반환 { data, error } — 기존 호출부 호환.
 export const setRequestInProgress = (requestId) =>
-  supabase.from("requests").update({ status: "in_progress" }).eq("id", requestId);
+  supabase.rpc("request_mark_in_progress", { p_request_id: requestId });
 
 // ── STEP B: Get company status ────────────────────────────────────────────────
 

@@ -392,17 +392,37 @@ function isRequestSettled(r, escrowData) {
   return false;
 }
 
-// 의뢰인 "진행중" 판정 — 정책: 계약 전이라도 입찰이 1개 이상이거나
-// 진행 상태이면 진행중에 포함. 완료/취소/만료/삭제만 제외.
-//   status ∈ ('open','bidding','quoted','contracting','in_progress')  OR  bids.length > 0
-const IN_PROGRESS_STATUSES = new Set(["open", "bidding", "quoted", "contracting", "in_progress"]);
+// 활성(정산 전) 에스크로 계약이 존재하는가 — 진행중 판정의 1차 기준(상태 무관).
+// 업체가 착공/단계 사진을 올려 계약이 생기면 escrow row 가 존재한다. status 가 stale 'open'
+// 이어도 이 escrow 가 곧 "진행중"의 근거다.
+function hasActiveEscrow(escrowData) {
+  const escrow = escrowData?.escrow ?? null;
+  if (!escrow) return false;
+  if (escrow.transaction_status === "SETTLED") return false; // 정산 완료 = 진행중 아님
+  return true;
+}
+
+// 의뢰인 "진행중" 판정 — 정책: 실제 계약(에스크로)이 생겼거나 명시적 진행 상태일 때만.
+// ⚠️ 단순 'open' 이나 입찰 존재만으로는 진행중이 아니다(아직 견적/선택 단계 = 견적 요청).
+//   진행중 = 활성 에스크로 존재  OR  status ∈ ('contracted','contracting','in_progress')
+//   (완료/취소/만료/삭제/정산완료 제외)
+const IN_PROGRESS_STATUSES = new Set(["contracted", "contracting", "in_progress"]);
 function isRequestInProgress(r, escrowData) {
   if (!r) return false;
   if (r.isDeleted === true || r.isExpiredByTime === true) return false;
   if (["completed", "cancelled", "expired", "closed", "settled"].includes(r.status)) return false;
   if (isRequestSettled(r, escrowData)) return false;
-  const hasBids = (r.bidCount ?? r.bids ?? 0) > 0;
-  return IN_PROGRESS_STATUSES.has(r.status) || hasBids;
+  return hasActiveEscrow(escrowData) || IN_PROGRESS_STATUSES.has(r.status);
+}
+
+// 의뢰인 "새 견적 요청"(open) 판정 — 진행중/완료/마감이 아닌, 아직 업체 선택 전 open 요청.
+// 진행중과 상호배타: 활성 에스크로가 있으면 견적 요청이 아니다(이중 노출 방지).
+function isRequestOpenForQuotes(r, escrowData) {
+  if (!r) return false;
+  if (r.isDeleted === true || r.isExpiredByTime === true) return false;
+  if (isRequestInProgress(r, escrowData)) return false;
+  if (isRequestSettled(r, escrowData)) return false;
+  return r.status === "open";
 }
 
 // 관심 — 조용한 갤러리 톤의 빈 상태
@@ -867,7 +887,21 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     } else {
       loadCompanyRequests();
     }
-  }, [activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeRole, user?.id, escrowRefreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 앱 포그라운드 복귀(focus/visibility) 시 요청·에스크로·사진 재조회.
+  // escrowRefreshTrigger 를 올리면 (1) 위 요청 fetch (2) 에스크로 fetch 가 함께 재실행된다.
+  // 업체가 사진을 올린 뒤 의뢰인이 앱으로 돌아오면 진행중/사진 상태가 즉시 갱신되도록 한다.
+  useEffect(() => {
+    const refresh = () => setEscrowRefreshTrigger(t => t + 1);
+    const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
 
   // 업체: 내가 제출한 입찰을 mount 시 로드 → 새로고침해도 입찰 유지(누락 방지).
   // (이전엔 getCompanyBids 가 호출되지 않아 입찰이 optimistic 으로만 보이고 사라졌음)
@@ -1155,13 +1189,19 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
     });
   }, [activeRole, user?.id, currentUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load escrow+payouts for consumer requests that entered a contract lifecycle.
-  // in_progress + completed 모두 포함 — 홈/마이/이력이 동일 contract 상태를 보도록.
+  // Load escrow+payouts for consumer requests.
+  // ⚠️ status 단독으로 판단하지 않는다: 업체가 착공/단계 사진을 올려 에스크로 계약이 생겼어도
+  //    requests.status 가 stale 'open' 으로 남아있는 경우가 있다(상태 전이 UPDATE 가 반영 안 된 구건).
+  //    그 경우에도 에스크로/사진을 읽어 "진행중"으로 분류하고 사진 검토 UI 로 진입할 수 있어야 하므로,
+  //    삭제/만료가 아닌(=잠재적으로 진행 가능한) 모든 요청에 대해 에스크로를 조회한다.
   useEffect(() => {
     if (activeRole !== "consumer") return;
-    const contracted = myRequests.filter(r => r.status === "in_progress" || r.status === "completed");
-    if (contracted.length === 0) return;
-    contracted.forEach(r => {
+    const candidates = myRequests.filter(r =>
+      !r.isDeleted && !r.isExpiredByTime &&
+      !["cancelled", "closed", "expired"].includes(r.status)
+    );
+    if (candidates.length === 0) return;
+    candidates.forEach(r => {
       getEscrowWithPayouts(r.id).then(({ data }) => {
         setMyRequestsEscrow(prev => ({ ...prev, [r.id]: data ?? null }));
       }).catch(() => {});
@@ -3471,9 +3511,12 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <div style={{ display:"flex", gap:0, marginBottom:S.xl, borderTop:`1px solid ${C.bgWarm}`, paddingTop:S.xl }}>
                   {(activeRole==="consumer"
                     ? (() => {
+                        // 상호배타 분류: 견적요청(open) / 진행중(에스크로 or 계약상태) / 완료(정산)
+                        // 견적요청은 진행중·완료를 제외한 순수 open 만 — 진행중 건이 견적요청에 중복 집계되지 않게 한다.
+                        const openCount  = myRequests.filter(r => isRequestOpenForQuotes(r, myRequestsEscrow[r.id] ?? null)).length;
                         const inProgress = myRequests.filter(r => isRequestInProgress(r, myRequestsEscrow[r.id] ?? null)).length;
                         const completed  = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null)).length;
-                        return [[`${myRequests.length}`,"견적 요청"],[`${inProgress}`,"진행중"],[`${completed}`,"완료"]];
+                        return [[`${openCount}`,"견적 요청"],[`${inProgress}`,"진행중"],[`${completed}`,"완료"]];
                       })()
                     : [[" 3","낙찰"],["84","후기"],[`${currentUser?.temp ?? 36.5}°`,"공간온도"]]
                   ).map(([v,l],i,arr) => (
