@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import {
   getChangeOrders, createChangeOrder, setChangeOrderAmount,
-  approveChangeOrder, rejectChangeOrder, markChangeOrderPaid,
+  approveChangeOrder, rejectChangeOrder,
   completeChangeOrder, cancelChangeOrder, createNotification, uploadFile,
 } from "../lib/supabase";
+import { payChangeOrder } from "../services/payment";
 
 // 추가견적은 예외 흐름 — 일반 기능처럼 보이지 않도록 업체 화면에선 "문제 발생" 안에 접어 둔다.
 const REASONS = [
@@ -42,7 +43,7 @@ function Backdrop({ onClose, children }) {
   );
 }
 
-export default function ChangeOrderPanel({ contractId, actorId, role, customerId, companyOwnerId, onChanged }) {
+export default function ChangeOrderPanel({ contractId, requestId = null, actorId, role, customerId, companyOwnerId, onChanged }) {
   const isCompany = role === "company";
   const [orders, setOrders] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -116,9 +117,13 @@ export default function ChangeOrderPanel({ contractId, actorId, role, customerId
                   <button disabled={busy} onClick={() => runAction(() => rejectChangeOrder(o.id, actorId), null, [companyOwnerId, "CHANGE_ORDER_RESULT", "추가견적 거절", "고객이 추가견적을 거절했습니다."])} style={btnGhost()}>거절</button>
                 </>
               )}
-              {/* 고객: approved → 추가 결제 */}
-              {!isCompany && o.status === "approved" && (
-                <button disabled={busy} onClick={() => runAction(() => markChangeOrderPaid(o.id, actorId), null, [companyOwnerId, "CHANGE_ORDER_RESULT", "추가견적 결제 완료", "고객이 추가 결제를 완료했습니다. 추가 공사를 진행해 주세요."])} style={btn(C.brand, "#fff")}>추가 결제하기</button>
+              {/* 고객: approved/payment_pending → 추가 결제(원계약과 분리된 결제주문 생성) */}
+              {!isCompany && (o.status === "approved" || o.status === "payment_pending") && (
+                <button disabled={busy} onClick={() => runAction(
+                  () => payChangeOrder({ order: o, contractId, requestId, userId: actorId, paymentMethod: "CARD" }),
+                  null,
+                  [companyOwnerId, "CHANGE_ORDER_RESULT", "추가견적 결제 완료", "고객이 추가 결제를 완료했습니다. 추가 공사를 진행해 주세요."]
+                )} style={btn(C.brand, "#fff")}>추가 결제하기</button>
               )}
               {/* 업체: 고객 변경요청 requested → 금액 제시 */}
               {isCompany && o.status === "requested" && mineCompanyReq && (

@@ -34,6 +34,7 @@ import {
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
+import AdminChangeOrderHistory from "../components/AdminChangeOrderHistory";
 
 const SEED_CATEGORIES = [
   { id: 'interior',   label: '인테리어' },
@@ -2448,6 +2449,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           )}
                         </div>
                         {order.request_id && <AdminCheckpoints requestId={order.request_id} adminUserId={user?.id ?? null} />}
+                        {order.contract_id && order.payment_source !== "change_order" && (
+                          <AdminChangeOrderHistory contractId={order.contract_id} adminId={user?.id ?? null} />
+                        )}
                         <div style={{ display: "flex", gap: S.sm }}>
                           {order.status !== "REFUNDED" && order.status !== "CANCELLED" && (
                             <button onClick={() => setConfirm({
@@ -2523,6 +2527,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         분쟁사유: {d.dispute_reason ?? "—"}
                       </div>
                       <AdminCheckpoints requestId={d.request_id} adminUserId={user?.id ?? null} />
+                      <AdminChangeOrderHistory contractId={d.id} adminId={user?.id ?? null} title="추가견적 이력 (분쟁 참고)" />
                       <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, marginBottom: S.md }}>
                         총 금액: {(d.total_amount ?? 0).toLocaleString()}만원
                       </div>
@@ -2590,6 +2595,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       <div style={{ fontSize: 12, color: C.text4, marginBottom: S.md }}>
                         총액 {(p.amount ?? 0).toLocaleString()} · 수수료 {(p.platform_fee ?? 0).toLocaleString()} · VAT {(p.vat ?? 0).toLocaleString()}
                       </div>
+                      {p.escrow_id && <AdminChangeOrderHistory contractId={p.escrow_id} adminId={user?.id ?? null} title="추가견적 이력 (정산 참고)" />}
                       <div style={{ display: "flex", gap: S.sm }}>
                         {p.status !== "HELD" && p.status !== "PAID_MANUALLY" && p.status !== "CANCELLED" && (
                           <button onClick={() => setConfirm({

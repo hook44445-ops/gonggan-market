@@ -966,6 +966,48 @@ export const completeChangeOrder = (id, actorId) =>
 export const cancelChangeOrder = (id, actorId) =>
   supabase.rpc("change_order_cancel", { p_actor_id: actorId, p_id: id });
 
+// ── 추가견적 전용 결제주문(원계약 escrow 결제와 분리) ──────────────────────────
+// payment_source='change_order' + change_order_id 로 원계약 payment_order 와 구분.
+// 추가견적 금액을 원계약 escrow 원금에 섞지 않는다.
+export const createChangeOrderPaymentOrder = ({
+  contractId, requestId = null, userId = null, changeOrderId, amount,
+  feeAmount = 0, paymentMethod = "CARD", provider = "TOSS", status = "PENDING", rawResponse = null,
+}) =>
+  supabase.from("payment_orders").insert({
+    contract_id:     contractId,
+    request_id:      requestId,
+    user_id:         userId,
+    change_order_id: changeOrderId,
+    payment_source:  "change_order",
+    provider,
+    payment_method:  paymentMethod,
+    amount,
+    fee_amount:      feeAmount,
+    net_amount:      amount,
+    total_amount:    amount,
+    status,
+    raw_response:    rawResponse,
+  }).select().single();
+
+export const updateChangeOrderPaymentOrder = (id, { status, rawResponse = null, paidAt = null }) =>
+  supabase.from("payment_orders").update({
+    status,
+    ...(rawResponse != null && { raw_response: rawResponse }),
+    ...(paidAt && { paid_at: paidAt }),
+  }).eq("id", id).select().single();
+
+export const getChangeOrderPaymentOrder = (changeOrderId) =>
+  supabase.from("payment_orders")
+    .select("*")
+    .eq("change_order_id", changeOrderId)
+    .eq("payment_source", "change_order")
+    .order("created_at", { ascending: false })
+    .maybeSingle();
+
+// 관리자 전용 추가견적 조회(role=admin 검증 RPC, operator 차단) — migration 034.
+export const adminGetChangeOrders = (contractId, adminId) =>
+  supabase.rpc("admin_change_orders_for_contract", { p_admin_id: adminId ?? null, p_contract_id: contractId });
+
 // ── STEP 26-2: Contract Scope ─────────────────────────────────────────────────
 
 export const upsertContractScope = (data) =>
