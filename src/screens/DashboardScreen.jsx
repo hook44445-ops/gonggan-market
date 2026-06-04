@@ -15,6 +15,13 @@ const TX_META = {
   DISPUTE:       { label: "분쟁중",   color: "#E74C3C", bucket: "in_progress",   nextAction: "분쟁 처리 중" },
 };
 
+// 에스크로 이전(현장방문 견적 흐름) 단계 — request.status 기반 라벨.
+const REQ_STATUS_META = {
+  site_visit:            { label: "현장방문 견적 요청", color: C.brand,   bucket: "in_progress", nextAction: "현장방문 후 최종 견적서 제출" },
+  final_quote_submitted: { label: "최종견적 검토중",    color: "#9B59B6", bucket: "in_progress", nextAction: "의뢰인 승인 대기" },
+  escrow_pending:        { label: "결제 대기",          color: "#E8A51B", bucket: "in_progress", nextAction: "의뢰인 에스크로 결제 대기" },
+};
+
 const STEP_INFO = {
   1: { label: "착공대기", color: "#E8A51B", paid: 10 },
   2: { label: "착공진행", color: C.brand,   paid: 10 },
@@ -47,9 +54,12 @@ const normalizeEscrowRow = (row) => {
 };
 
 const normalizeCompanyJob = ({ bid, request, escrow }) => {
-  const txStatus = escrow?.transaction_status ?? "CONTRACTED";
+  const reqStatus = (request?.status ?? "").toLowerCase();
+  // 에스크로가 아직 없는 현장방문 견적 단계는 request.status 로 라벨을 도출한다.
+  const reqMeta  = !escrow ? REQ_STATUS_META[reqStatus] : null;
+  const txStatus = escrow?.transaction_status ?? (reqMeta ? null : "CONTRACTED");
   const step     = Math.min(4, Math.max(1, escrow?.current_step ?? 1));
-  const txMeta   = TX_META[txStatus] ?? STEP_INFO[step];
+  const txMeta   = reqMeta ?? TX_META[txStatus] ?? STEP_INFO[step];
   const createdAt = escrow?.created_at ?? bid?.createdAt ?? Date.now();
   const daysElapsed = Math.floor((Date.now() - new Date(createdAt)) / 864e5);
   const total = escrow?.total_amount ?? bid?.price ?? 0;
@@ -61,10 +71,10 @@ const normalizeCompanyJob = ({ bid, request, escrow }) => {
     type:        request?.type || request?.space_type || "인테리어",
     status:      txMeta.label,
     statusColor: txMeta.color,
-    paid:        PAID_BY_STEP[step] ?? txMeta.paid ?? 10,
+    paid:        reqMeta ? 0 : (PAID_BY_STEP[step] ?? txMeta.paid ?? 10),
     dDay:        Math.max(0, 30 - daysElapsed),
     total,
-    txStatus,
+    txStatus:    txStatus ?? reqStatus.toUpperCase(),
     dashboardBucket: txMeta.bucket ?? "in_progress",
     nextAction:  txMeta.nextAction ?? "에스크로 상세 →",
   };

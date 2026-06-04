@@ -209,6 +209,22 @@ export const getBidsForRequest = (requestId) =>
 export const selectBid = (bidId) =>
   supabase.from("bids").update({ selected: true }).eq("id", bidId);
 
+// 현장방문 견적 흐름(1차) — 상태 전이 헬퍼.
+// 업체 선택 → site_visit(에스크로 생성 X). 선택 업체/입찰 기록.
+export const markRequestSiteVisit = async (requestId, { bidId = null, companyId = null } = {}) => {
+  const now = new Date().toISOString();
+  const res = await supabase.from("requests").update({
+    status: "site_visit", selected_bid_id: bidId, selected_company_id: companyId, updated_at: now,
+  }).eq("id", requestId);
+  // selected_* 컬럼 미존재(029 미적용) 대비 — status 만이라도 전이
+  if (res.error) return supabase.from("requests").update({ status: "site_visit", updated_at: now }).eq("id", requestId);
+  return res;
+};
+
+// 의뢰인 최종 견적 승인 → escrow_pending (결제 단계로 진입).
+export const approveFinalQuote = (requestId) =>
+  supabase.from("requests").update({ status: "escrow_pending", updated_at: new Date().toISOString() }).eq("id", requestId);
+
 // 업체 입찰 내용 수정 — 한 요청당 1입찰 정책에서 재제출은 수정으로 처리
 export const updateBid = (id, data) =>
   supabase.from("bids").update(data).eq("id", id).select().single();
@@ -1212,7 +1228,8 @@ export const submitEstimate = async (id, siteVisitId, requestId) => {
     .eq("id", id).select().single();
   if (!error) {
     if (siteVisitId) await supabase.from("site_visits").update({ status: "estimate_submitted", updated_at: now }).eq("id", siteVisitId);
-    if (requestId) await supabase.from("requests").update({ status: "contracting", updated_at: now }).eq("id", requestId);
+    // 최종 견적서 제출 → 의뢰인 승인 대기 상태(final_quote_submitted).
+    if (requestId) await supabase.from("requests").update({ status: "final_quote_submitted", updated_at: now }).eq("id", requestId);
   }
   return { data, error };
 };

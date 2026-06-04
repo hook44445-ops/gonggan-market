@@ -6,7 +6,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, selectBid as selectBidDB, markRequestSiteVisit, approveFinalQuote } from "../lib/supabase";
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 import { calcCustomerFee } from "../utils/calculations";
@@ -71,6 +71,32 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   const [paymentLoading, setPaymentLoading] = useState(false);
   const payingRef = useRef(false); // H-1: 동기 더블서브밋 가드 (setState는 비동기라 즉시 차단 불가)
   const selectBidRef = useRef(false); // C-3: selectBid 동기 더블클릭 가드
+  const siteVisitRef = useRef(false); // 현장방문 요청 동기 가드
+  // 현장방문 견적 흐름 단계: open(최초 선택) → site_visit → final_quote_submitted → escrow_pending
+  // final_quote_submitted/escrow_pending 에서만 에스크로 결제로 진행한다.
+  const reqStatus = request?.status ?? "open";
+  const isQuotePhase = reqStatus === "final_quote_submitted" || reqStatus === "escrow_pending";
+
+  // 업체 선택 → 현장방문 견적 요청(에스크로 생성 X)
+  const handleRequestSiteVisit = async () => {
+    if (siteVisitRef.current || !selBid) return;
+    siteVisitRef.current = true;
+    try {
+      if (selBid.id && !String(selBid.id).startsWith("tmp-")) await selectBidDB(selBid.id).catch(() => {});
+      if (request?.id) await markRequestSiteVisit(request.id, { bidId: selBid.id, companyId: selBid.companyId });
+      const ownerId = selBid.company?.ownerId ?? null;
+      if (ownerId) {
+        createNotification({
+          userId: ownerId, type: "SITE_VISIT_REQUESTED", title: "현장방문 견적 요청",
+          message: `${request?.space_type ?? request?.type ?? "시공"} 요청에서 선택되었어요. 현장방문 후 최종 견적서를 보내주세요.`,
+          relatedId: request?.id ?? null, relatedType: "request", priority: "HIGH",
+        }).catch(() => {});
+      }
+      setStep("siteVisitDone");
+    } finally {
+      siteVisitRef.current = false;
+    }
+  };
   const [bidScreenDebug, setBidScreenDebug] = useState(null);
   const [dbWriteLog, setDbWriteLog] = useState(null);
   const [localToast, setLocalToast] = useState(null);
@@ -124,6 +150,23 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
   const goBack = () => step === "list" ? onBack() : setStep("list");
 
+  if (step==="siteVisitDone") return (
+    <div style={{ minHeight:"100vh", background:C.bg }}>
+      <BidScreenHeader title="현장방문 견적 요청" onBack={onBack} />
+      <div style={{ padding:`${S.xxl}px ${S.xl}px`, textAlign:"center" }}>
+        <div style={{ fontSize:44, marginBottom:14 }}>📍</div>
+        <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:10 }}>현장방문 견적을 요청했어요</div>
+        <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:28 }}>
+          선택하신 업체가 현장을 방문해 확인한 뒤<br/>최종 견적서를 보내드립니다.<br/>
+          최종 견적서가 도착하면 확인 후 안전결제로 진행할 수 있어요.
+        </div>
+        <button onClick={onBack} style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer" }}>
+          확인
+        </button>
+      </div>
+    </div>
+  );
+
   if (step==="confirm" && selBid) {
     const stages = calculateStagePayments(selBid.price);
     const customerTotal = calculateCustomerTotal(selBid.price);
@@ -162,7 +205,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               </div>
             ))}
           </div>
-          <button onClick={() => setStep("reserved")} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>예약 확정하기 ✅</button>
+          <button
+            onClick={isQuotePhase
+              ? () => { if (reqStatus === "final_quote_submitted" && request?.id) approveFinalQuote(request.id).catch(() => {}); setStep("reserved"); }
+              : handleRequestSiteVisit}
+            style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>
+            {isQuotePhase ? "예약 확정하고 결제 진행 ✅" : "현장방문 견적 요청하기 →"}
+          </button>
         </div>
       </div>
     );
