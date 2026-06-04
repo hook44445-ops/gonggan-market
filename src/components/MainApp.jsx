@@ -257,6 +257,23 @@ const computeCustomerStage = (r, escrowData) => {
   if (!r) return null;
   const { escrow = null, payouts = [] } = escrowData ?? {};
 
+  // 현장방문 견적 흐름(에스크로 생성 전) — requests.status 기준
+  if (r.status === "site_visit") return {
+    badge: "현장방문", badgeBg: C.brandL, badgeFg: C.brand,
+    label: "현장방문 견적 진행중", sub: "선택한 업체가 현장 방문 후 최종 견적서를 보내드려요",
+    action: "escrow", cta: "진행 상황 보기",
+  };
+  if (r.status === "final_quote_submitted") return {
+    badge: "견적 도착", badgeBg: C.sand, badgeFg: "#7A5C1E",
+    label: "최종 견적서 확인", sub: "업체가 최종 견적서를 보냈어요 · 확인 후 안전결제로 진행하세요",
+    action: "bids", cta: "최종 견적서 확인하기",
+  };
+  if (r.status === "escrow_pending") return {
+    badge: "결제 대기", badgeBg: C.brandL, badgeFg: C.brand,
+    label: "에스크로 결제 대기", sub: "최종 견적을 승인했어요 · 안전결제를 진행해주세요",
+    action: "bids", cta: "에스크로 결제하기",
+  };
+
   if (!escrow) {
     if (r.status === "in_progress") return {
       badge: "계약중", badgeBg: C.brandL, badgeFg: C.brand,
@@ -406,7 +423,7 @@ function hasActiveEscrow(escrowData) {
 // ⚠️ 단순 'open' 이나 입찰 존재만으로는 진행중이 아니다(아직 견적/선택 단계 = 견적 요청).
 //   진행중 = 활성 에스크로 존재  OR  status ∈ ('contracted','contracting','in_progress')
 //   (완료/취소/만료/삭제/정산완료 제외)
-const IN_PROGRESS_STATUSES = new Set(["contracted", "contracting", "in_progress"]);
+const IN_PROGRESS_STATUSES = new Set(["site_visit", "final_quote_submitted", "escrow_pending", "contracted", "contracting", "in_progress"]);
 function isRequestInProgress(r, escrowData) {
   if (!r) return false;
   if (r.isDeleted === true || r.isExpiredByTime === true) return false;
@@ -1086,6 +1103,10 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
       // 완료대기 건은 별도 완료/정산 영역에서 다루며, 진행중(업체가 지금 진행해야 할 일)에는 넣지 않습니다.
       const ACTIVE_TX = new Set(["CONTRACTED","STARTED","MID_INSPECTION","DISPUTE"]);
       const ACTIVE_REQ = new Set(["contracted","in_progress","escrow","working","contract_signed","material_paid","started"]);
+      // 현장방문 견적 흐름(에스크로 이전) — 선택된 업체가 진행해야 할 단계.
+      //  site_visit: 현장방문 견적 요청 / final_quote_submitted: 최종견적 검토중 / escrow_pending: 결제 대기.
+      //  의뢰인이 업체를 선택하면 입찰이 selected 되고 request.status 가 위 단계로 전이된다.
+      const SITE_VISIT_REQ = new Set(["site_visit","final_quote_submitted","escrow_pending"]);
 
       // Build synthetic bid entries for request_ids discovered via escrow direct (no bid row)
       const escrowOnlyRequestIds = [...requestIdsFromEscrow].filter(rid => !requestIdsFromBids.has(rid));
@@ -1146,7 +1167,9 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
           // A merely-selected bid with no escrow is "낙찰" (awaiting contract), NOT 진행중.
           const include =
             (esc && txStatus && ACTIVE_TX.has(txStatus)) ||
-            (esc && !txStatus && ACTIVE_REQ.has(reqStatus));
+            (esc && !txStatus && ACTIVE_REQ.has(reqStatus)) ||
+            // 현장방문 견적 단계 — 에스크로 이전이라도 '선택된' 입찰은 진행중으로 노출.
+            (SITE_VISIT_REQ.has(reqStatus) && b.selected === true);
 
           if (!include) {
             excludedReasons.push(`${rid8}:not_active(req=${reqStatus || "∅"},tx=${txStatus || "∅"},escrow=${!!esc},sel=${b.selected === true})`);
