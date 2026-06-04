@@ -757,6 +757,18 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   const [lastFetchAt, setLastFetchAt] = useState(null);
   const [companyJobs, setCompanyJobs] = useState([]);
   const [companyJobsDebug, setCompanyJobsDebug] = useState(null);
+
+  // 입찰 가능 목록(새 견적 요청): OPEN 상태만 노출.
+  // 이미 "내 시공 진행중"(활성 에스크로 계약)에 잡힌 요청은 입찰 목록에서 제외한다.
+  // request.status가 stale("open")이어도 진행중 계약이 있으면 입찰 대상이 아니다 → 이중 노출 방지.
+  const inProgressRequestIds = useMemo(
+    () => new Set(companyJobs.map(j => j.request?.id).filter(Boolean)),
+    [companyJobs]
+  );
+  const biddableRequests = useMemo(
+    () => customerRequests.filter(r => r.isActive && !inProgressRequestIds.has(r.id)),
+    [customerRequests, inProgressRequestIds]
+  );
   const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
   const prevTxStatusRef = useRef({}); // { [requestId]: transaction_status } — 단계 전환 토스트용
   const [escrowRefreshTrigger, setEscrowRefreshTrigger] = useState(0);
@@ -2766,16 +2778,16 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
               <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>
                 📋 새 견적 요청
-                {customerRequests.filter(r => r.isActive).length > 0 && (
+                {biddableRequests.length > 0 && (
                   <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
-                    {customerRequests.filter(r => r.isActive).length}건
+                    {biddableRequests.length}건
                   </span>
                 )}
               </div>
               <button onClick={loadCompanyRequests} style={{ fontSize:13, background:C.brandL, border:`1px solid ${C.brandM}`, color:C.brand, borderRadius:R.full, padding:"6px 14px", fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>🔄 새로고침</button>
             </div>
 
-            {customerRequests.filter(r => r.isActive).length === 0 ? (
+            {biddableRequests.length === 0 ? (
               <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
                 <div style={{ fontSize:32, marginBottom:12 }}>📭</div>
                 <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6 }}>아직 새 요청이 없어요 🏠</div>
@@ -2785,7 +2797,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 </div>
               </div>
             ) : (
-              customerRequests.filter(r => r.isActive).map(r => {
+              biddableRequests.map(r => {
                 const myBid = submittedBids.find(b => b.requestId === r.id && b.companyId === user?.id && !String(b.id).startsWith("tmp-")) ?? null;
                 return (
                   <BidCard
@@ -2809,7 +2821,7 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 selectedBid.id: {selectedBid?.id ?? "null"} | requestId: {selectedBid?.requestId ?? "null"}<br/>
                 contractId: {contractId ?? "null"}<br/>
                 <span style={{color: reqDebug?.companyFetchError ? "#f66" : "#0f0"}}>fetch_err: {reqDebug?.companyFetchError ?? "none"}</span><br/>
-                last_fetch: {lastFetchAt ?? "—"} | db_rows: {reqDebug?.companyRows ?? "?"} | active_displayed: {customerRequests.filter(r=>r.isActive).length}<br/>
+                last_fetch: {lastFetchAt ?? "—"} | db_rows: {reqDebug?.companyRows ?? "?"} | active: {customerRequests.filter(r=>r.isActive).length} | biddable: {biddableRequests.length} | in_progress_excluded: {inProgressRequestIds.size}<br/>
                 <span style={{color:"#ff0"}}>── DB open requests (full id) ──</span><br/>
                 {(reqDebug?.companyData ?? []).map((r, i) => (
                   <span key={r.id} style={{display:"block", color:"#8ff"}}>
@@ -2817,8 +2829,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                   </span>
                 ))}
                 {(reqDebug?.companyData ?? []).length === 0 && reqDebug != null && <span style={{color:"#f88"}}>⚠️ DB rows: 0 — fetch_err 확인<br/></span>}
-                <span style={{color:"#ff0"}}>── displayed active (full id) ──</span><br/>
-                {customerRequests.filter(r=>r.isActive).map(r=>(
+                <span style={{color:"#ff0"}}>── displayed biddable (full id) ──</span><br/>
+                {biddableRequests.map(r=>(
                   <span key={r.id} style={{display:"block", color:"#8ff"}}>{r.id} {r.type} {r.size} status:{r.status}</span>
                 ))}
                 <span style={{color:"#ff0"}}>── companyJobs fetch ──</span><br/>
