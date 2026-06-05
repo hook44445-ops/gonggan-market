@@ -66,8 +66,10 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pendingRole, setPendingRole] = useState(null);
-  // 기기 인증된 계정이 있어도 "다른 번호로 로그인"을 누르면 랜딩/인증으로 보낸다.
-  const [forceLanding, setForceLanding] = useState(false);
+  // 명시적 전화번호 인증 의도 — "다른 번호로 로그인"/"이 기기 인증 삭제 후"/업체 온보딩.
+  // 이 플래그가 true 일 때만 LoginScreen(전화번호 인증)으로 진입한다. 일반 CTA/role 선택은
+  // 기기 인증된 기기에서는 절대 전화번호 인증을 띄우지 않고 AccountPicker 로 보낸다.
+  const [phoneAuthMode, setPhoneAuthMode] = useState(false);
   const [pickBusyId, setPickBusyId] = useState(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminId, setAdminId] = useState("");
@@ -96,7 +98,7 @@ export default function App() {
     }
     setUser(u);
     setPendingRole(null);
-    setForceLanding(false);
+    setPhoneAuthMode(false);
   };
 
   // 일반 로그아웃 — 현재 세션만 종료. 기기 인증/계정 목록은 보존한다.
@@ -105,7 +107,7 @@ export default function App() {
     clearSession();
     setUser(null);
     setPendingRole(null);
-    setForceLanding(false);
+    setPhoneAuthMode(false);
   };
 
   // 완전 로그아웃 / 이 기기 인증 삭제 — 기기 인증·계정 목록까지 모두 제거.
@@ -115,7 +117,7 @@ export default function App() {
     clearSession();
     setUser(null);
     setPendingRole(null);
-    setForceLanding(true);
+    setPhoneAuthMode(true);
   };
 
   // 저장된 계정 카드 클릭 → OTP/전화번호 인증 없이 즉시 세션 복원.
@@ -171,9 +173,11 @@ export default function App() {
           onForgetDevice={handleForgetDevice}
           onLogin={handleLogin}
           onStartOnboarding={() => {
+            // 업체 온보딩은 새 전화번호 인증/가입이 필요한 명시적 흐름.
             clearSession();
             setUser(null);
             setPendingRole("company");
+            setPhoneAuthMode(true);
           }}
         />
       </ErrorBoundary>
@@ -198,9 +202,20 @@ export default function App() {
     }
   };
 
-  // 기기 인증 + 저장된 계정이 있으면(그리고 "다른 번호로 로그인"을 누르지 않았으면)
-  // 전화번호 인증 화면 대신 계정 선택 화면으로 진입한다.
-  if (!pendingRole && !forceLanding && isDeviceVerified()) {
+  // 1) 명시적 전화번호 인증 의도("다른 번호로 로그인"/기기 인증 삭제 후/업체 온보딩)에서만
+  //    LoginScreen(전화번호 인증)으로 진입한다.
+  if (phoneAuthMode) {
+    return (
+      <ErrorBoundary onLogout={handleLogout} activeRole={pendingRole ?? "visitor"}>
+        <LoginScreen onLogin={handleLogin} initialRole={pendingRole} />
+      </ErrorBoundary>
+    );
+  }
+
+  // 2) 기기 인증 + 저장된 계정이 있으면 — 모든 일반 진입(CTA/role 선택/재진입/로그아웃 후)을
+  //    전화번호 인증이 아니라 계정 선택(AccountPicker)으로 보낸다. pendingRole 이 설정돼 있어도
+  //    이 분기가 우선하므로, 인증된 기기에서는 phoneAuthMode 없이 LoginScreen 에 닿지 않는다.
+  if (isDeviceVerified()) {
     const knownUsers = getKnownUsers();
     if (knownUsers.length > 0) {
       return (
@@ -209,7 +224,7 @@ export default function App() {
             users={knownUsers}
             busyId={pickBusyId}
             onPick={handlePickUser}
-            onAddAccount={() => setForceLanding(true)}
+            onAddAccount={() => { setPendingRole(null); setPhoneAuthMode(true); }}
             onForgetDevice={handleForgetDevice}
           />
         </ErrorBoundary>
@@ -217,6 +232,7 @@ export default function App() {
     }
   }
 
+  // 3) 최초(미인증) 기기 — role 선택 전 랜딩.
   if (!pendingRole) {
     return (
       <ErrorBoundary onLogout={handleLogout} activeRole="visitor">
