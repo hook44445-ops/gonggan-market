@@ -66,8 +66,10 @@ export function rememberUser(u = {}) {
     const userId = u.id ?? u.userId ?? null;
     const now = Date.now();
     const users = getKnownUsers();
+    // 같은 사용자(userId)라도 역할(의뢰인/업체)이 다르면 별도 계정으로 보존한다.
+    // → 한 번호로 의뢰인·업체를 모두 쓰는 경우 AccountPicker 에 둘 다 표시(역할 덮어쓰기 금지).
     const idx = users.findIndex(x =>
-      (userId && x.userId === userId) ||
+      (userId && x.userId === userId && x.role === role) ||
       (!userId && x.phone === phone && x.role === role));
     const entry = {
       userId,
@@ -78,6 +80,7 @@ export function rememberUser(u = {}) {
       badge:      u.badge ?? "basic",
       isOperator: u.isOperator ?? u.is_operator ?? false,
       ownerId:    u.ownerId ?? null,
+      companyId:  u.companyId ?? null,
       avatar_url: u.avatar_url ?? null,
       interests:  Array.isArray(u.interests) ? u.interests : [],
       created_at: u.created_at ?? null,
@@ -109,6 +112,7 @@ export function knownUserToSession(ku) {
     isOperator:  ku.isOperator ?? false,
     is_operator: ku.isOperator ?? false,
     ownerId:     ku.ownerId ?? null,
+    companyId:   ku.companyId ?? null,
     interests:   Array.isArray(ku.interests) ? ku.interests : [],
     avatar_url:  ku.avatar_url ?? null,
     created_at:  ku.created_at ?? null,

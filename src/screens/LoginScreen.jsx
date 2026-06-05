@@ -91,9 +91,18 @@ export default function LoginScreen({ onLogin, initialRole }) {
   const sendCode = async () => {
     if (phone.replace(/-/g, "").length < 10) return setMsg("올바른 전화번호를 입력해주세요");
     // 동일 번호(이미 이 기기에서 인증된 계정) → SMS 재발송 없이 즉시 세션 복원.
-    // 다른(신규) 번호만 정상적으로 1회 SMS 인증을 진행한다.
+    // 단, '선택한 역할(pendingRole)'을 우선한다. 같은 번호로 의뢰인/업체를 모두 쓸 수 있어야
+    // 하므로, 선택 역할 계정이 이미 있으면 그걸 복원하고, 없으면 같은 번호 기준으로 역할만 바꿔
+    // 즉시 세션을 구성한다(SMS 생략, 업체 계정 최초 생성도 이 경로로 처리).
     const known = findKnownByPhone(phone);
-    if (known) { onLogin(knownUserToSession(known)); return; }
+    if (known) {
+      const targetRole = pendingRole || known.role;
+      const target = phoneDigits(toE164(phone));
+      const exact = getKnownUsers().find(k => phoneDigits(k.phone) === target && k.role === targetRole);
+      if (exact) { onLogin(knownUserToSession(exact)); return; }
+      onLogin({ ...knownUserToSession(known), role: targetRole, activeRole: targetRole });
+      return;
+    }
     setLoading(true); setMsg("");
     try {
       const res = await fetch("/api/send-otp", {
