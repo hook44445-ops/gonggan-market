@@ -427,16 +427,15 @@ function hasActiveEscrow(escrowData) {
 // ⚠️ 단순 'open' 이나 입찰 존재만으로는 진행중이 아니다(아직 견적/선택 단계 = 견적 요청).
 //   진행중 = 활성 에스크로 존재  OR  status ∈ ('contracted','contracting','in_progress')
 //   (완료/취소/만료/삭제/정산완료 제외)
-const IN_PROGRESS_STATUSES = new Set(["site_visit", "final_quote_submitted", "escrow_pending", "contracted", "contracting", "in_progress"]);
 function isRequestInProgress(r, escrowData) {
   if (!r) return false;
   if (r.isDeleted === true || r.isExpiredByTime === true) return false;
   if (["completed", "cancelled", "expired", "closed", "settled"].includes(r.status)) return false;
   if (isRequestSettled(r, escrowData)) return false;
+  // 진행중의 유일한 근거: 활성 에스크로 OR 의뢰인이 업체를 선택(selected_company_id/bid_id).
+  // ⚠️ status='in_progress' 만으로는 진행중 아님 — selection/escrow 없는 유령 row 차단.
   if (hasActiveEscrow(escrowData)) return true;
-  if (IN_PROGRESS_STATUSES.has(r.status)) return true;
-  // stale 'open' 이어도 업체가 선택됐으면(현장방문 단계) 진행건으로 분류.
-  if (r.selectedBidId && r.selectedCompanyId) return true;
+  if (r.selectedCompanyId || r.selectedBidId) return true;
   return false;
 }
 
