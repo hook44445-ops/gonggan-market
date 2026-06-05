@@ -6,10 +6,8 @@ import CompanyOnboarding from "./CompanyOnboarding";
 import { upsertUserByPhone, getUserByPhone } from "../lib/supabase";
 import { SHOW_DEBUG_UI } from "../constants/release";
 
-// Same-device phone bypass keys (STEP F)
-const PHONE_KEY = { consumer: "gonggan_ph_c", company: "gonggan_ph_co" };
-const getStoredPhone = (role) => PHONE_KEY[role] ? localStorage.getItem(PHONE_KEY[role]) : null;
-const setStoredPhone = (role, phone) => { if (PHONE_KEY[role]) localStorage.setItem(PHONE_KEY[role], phone); };
+// 기기 인증 후 OTP 없는 재로그인은 App 의 AccountPicker(기기 인증)가 담당한다.
+// LoginScreen 은 항상 전화번호 인증 화면(최초 1회 / 다른 번호로 로그인)으로 동작.
 
 const toE164 = (phone) => {
   const digits = phone.replace(/\D/g, "");
@@ -62,28 +60,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
 
   const initialRoleFired = useRef(false);
 
-  const chooseRole = async (role) => {
+  const chooseRole = (role) => {
     setPendingRole(role);
-    // STEP F: Same-device bypass — if phone verified before, skip SMS
-    const stored = getStoredPhone(role);
-    if (stored) {
-      setLoading(true);
-      try {
-        const { data: existingUser } = await getUserByPhone(toE164(stored));
-        if (existingUser) {
-          setLoading(false);
-          // admin 만 DB 역할을 우선. operator 는 부가 권한(플래그)일 뿐 사용자 유형을 바꾸지 않음.
-          const dbRole = existingUser.role;
-          const isAdmin = dbRole === "admin";
-          const isOperator = existingUser.is_operator === true || dbRole === "operator";
-          const effRole = isAdmin ? "admin" : role;
-          onLogin({ ...existingUser, role: effRole, activeRole: effRole, isOperator });
-          return;
-        }
-      } catch {}
-      setLoading(false);
-      setPhone(stored); // Pre-fill the stored phone
-    }
     setStep(2);
   };
 
@@ -127,8 +105,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "인증에 실패했습니다");
 
-      // STEP F: Save verified phone for same-device bypass
-      setStoredPhone(pendingRole, phone);
+      // 인증 성공 — 기기 인증/계정 기억은 App.handleLogin(onLogin) 에서 일괄 처리한다.
       if (data.user) {
         // admin 만 DB 역할을 우선. operator 는 부가 권한(플래그)일 뿐 사용자 유형을 바꾸지 않음.
         const dbRole = data.user.role;

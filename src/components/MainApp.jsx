@@ -464,7 +464,7 @@ function FavEmptyState({ title, desc, onGo }) {
   );
 }
 
-export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) {
+export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
   const mode = activeRole === "company" ? "company" : activeRole === "admin" ? "admin" : "consumer";
   // 운영자/관리자 — 라운지 운영(추천글·숨김) 권한.
@@ -482,6 +482,8 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
   });
   const [prevScreen, setPrevScreen] = useState("home");
   const [selCo, setSelCo] = useState(null);
+  // 마이페이지: "이 기기 인증 삭제(완전 로그아웃)" 확인 토글
+  const [showForgetConfirm, setShowForgetConfirm] = useState(false);
 
   // H-A: realtime closure에서 최신 screen 값을 동기적으로 읽기 위한 ref
   // (useState는 closure에서 stale하게 캡처되므로 ref로 항상 최신 값 참조)
@@ -3551,6 +3553,36 @@ export default function MainApp({ user, onLogout, onLogin, onStartOnboarding }) 
                 <button onClick={onLogout} style={{ background:C.bg, color:C.text2,
                   border:`1px solid ${C.bgWarm}`, borderRadius:R.full,
                   padding:"11px 28px", fontWeight:600, fontSize:14, cursor:"pointer" }}>로그아웃</button>
+                {/* 로그아웃은 기기 인증을 유지(재진입 시 계정 선택). 기기 인증 자체를
+                    지우려면 아래 "이 기기 인증 삭제"(완전 로그아웃)를 사용한다. */}
+                {onForgetDevice && (
+                  <div style={{ marginTop:S.lg }}>
+                    {!showForgetConfirm ? (
+                      <button onClick={() => setShowForgetConfirm(true)}
+                        style={{ background:"none", border:"none", color:C.text4, fontSize:12,
+                          fontWeight:600, cursor:"pointer", textDecoration:"underline" }}>
+                        이 기기 인증 삭제 (완전 로그아웃)
+                      </button>
+                    ) : (
+                      <div style={{ background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, padding:S.lg, maxWidth:300, margin:"0 auto" }}>
+                        <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:10 }}>
+                          이 기기에 저장된 계정 목록과 전화번호 인증이 삭제됩니다.<br/>
+                          다음 로그인 시 전화번호 인증을 다시 진행해야 합니다.
+                        </div>
+                        <div style={{ display:"flex", gap:8 }}>
+                          <button onClick={() => setShowForgetConfirm(false)}
+                            style={{ flex:1, padding:"10px", background:C.surface, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.md, fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                            취소
+                          </button>
+                          <button onClick={() => { setShowForgetConfirm(false); onForgetDevice(); }}
+                            style={{ flex:1, padding:"10px", background:C.red, color:"#fff", border:"none", borderRadius:R.md, fontWeight:800, fontSize:13, cursor:"pointer" }}>
+                            삭제하고 로그아웃
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
