@@ -1082,7 +1082,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // ── Path C: escrow_payments WHERE company_id ∈ candidateIds (direct) ─────
       const { data: escrowsDirect } = await supabase
         .from("escrow_payments")
-        .select("id, request_id, company_id, transaction_status")
+        .select("id, request_id, company_id, transaction_status, total_amount")
         .in("company_id", candidateIds);
 
       dev.escrow_direct_found = escrowsDirect?.length ?? 0;
@@ -1125,7 +1125,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // ── Fetch escrow_payments by request_id ───────────────────────────────────
       const { data: escrowsByReq } = await supabase
         .from("escrow_payments")
-        .select("id, request_id, company_id, transaction_status")
+        .select("id, request_id, company_id, transaction_status, total_amount")
         .in("request_id", allRequestIds);
 
       // SSOT: "진행중 계약" 은 이 업체(candidateIds)의 escrow 만 인정한다.
@@ -1208,25 +1208,29 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           if (reqStatus && EXCL_REQ.has(reqStatus)) { excludedReasons.push(`${rid8}:req=${reqStatus}`); return false; }
           if (txStatus && EXCL_TX.has(txStatus))    { excludedReasons.push(`${rid8}:tx=${txStatus}`);  return false; }
 
-          // SSOT: requests.selected_company_id 가 유일한 진실. 의뢰인이 "이 업체"를 선택한
-          // 요청만 진행건이다. 다른 업체를 선택했거나(타 업체 id) 아예 선택이 없는데
-          // escrow 도 이 업체 것이 아니면 진행중에서 제외(유령 진행건 차단).
+          // SSOT: 진행중의 유일한 근거는 "의뢰인이 이 업체를 선택" 또는 "실제 에스크로(금액>0)".
+          //   · 다른 업체를 선택했으면 제외(타 업체 id).
+          //   · 선택(selected_company_id/selected_bid_id/입찰 selected)도 없고, 실제 에스크로
+          //     (total_amount>0)도 없으면 유령 진행건 → 제외. status='in_progress' 단독 금지.
+          //   · total_amount=null/0 인 불완전 에스크로 row 는 실계약으로 인정하지 않음.
           const selCid = reqRow?.selected_company_id ?? null;
           if (selCid && !candidateIdSet.has(selCid)) { excludedReasons.push(`${rid8}:selected_other`); return false; }
-          if (!selCid && !esc) { excludedReasons.push(`${rid8}:no_selection_no_escrow`); return false; }
 
-          // Include ONLY real, in-progress contracts:
-          //  • escrow exists AND its tx is an active construction phase, OR
-          //  • escrow exists with unknown tx but request status is active.
-          // A request with NO escrow row is NOT a paid/contracted job (no payment was
-          // made) — a stale request.status="in_progress" without escrow is excluded.
-          // A merely-selected bid with no escrow is "낙찰" (awaiting contract), NOT 진행중.
+          const realEscrow  = !!esc && Number(esc.total_amount ?? 0) > 0;
+          const hasSelection = (selCid && candidateIdSet.has(selCid)) || !!reqRow?.selected_bid_id || b.selected === true;
+          if (!hasSelection && !realEscrow) {
+            excludedReasons.push(`${rid8}:ghost(no_selection,no_real_escrow,tx=${txStatus || "∅"})`);
+            return false;
+          }
+
+          // Include 진행중: 실제 에스크로의 활성 단계 OR 이 업체가 선택된 진행 상태.
           const include =
-            (esc && txStatus && ACTIVE_TX.has(txStatus)) ||
-            (esc && !txStatus && ACTIVE_REQ.has(reqStatus));
+            (realEscrow && txStatus && ACTIVE_TX.has(txStatus)) ||
+            (realEscrow && !txStatus && ACTIVE_REQ.has(reqStatus)) ||
+            (hasSelection && ACTIVE_REQ.has(reqStatus));
 
           if (!include) {
-            excludedReasons.push(`${rid8}:not_active(req=${reqStatus || "∅"},tx=${txStatus || "∅"},escrow=${!!esc},sel=${b.selected === true})`);
+            excludedReasons.push(`${rid8}:not_active(req=${reqStatus || "∅"},tx=${txStatus || "∅"},realEscrow=${realEscrow},sel=${hasSelection})`);
           }
           return include;
         })
