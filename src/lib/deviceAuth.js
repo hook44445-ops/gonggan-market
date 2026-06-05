@@ -53,22 +53,34 @@ export function getLastUser() {
 
 // 로그인 성공 시 호출 — 기기 인증 표시 + 계정 목록 멱등 upsert.
 // 게스트/전화번호 없는 계정(관리자 코드 진입 등)은 기억하지 않는다.
-export function rememberUser({ userId, phone, role, name } = {}) {
+// 카드 클릭만으로 OTP 없이 세션을 복원할 수 있도록, 라우팅/표시에 필요한
+// 최소 스냅샷(userId·phone·role·name·region·badge·ownerId 등)을 함께 저장한다.
+export function rememberUser(u = {}) {
   try {
+    const phone = u.phone;
     if (!phone) return;
     localStorage.setItem(K.verified, "true");
     localStorage.setItem(K.phone, phone);
 
+    const role   = u.activeRole ?? u.role ?? "consumer";
+    const userId = u.id ?? u.userId ?? null;
     const now = Date.now();
     const users = getKnownUsers();
-    const idx = users.findIndex(u =>
-      (userId && u.userId === userId) ||
-      (!userId && u.phone === phone && u.role === role));
+    const idx = users.findIndex(x =>
+      (userId && x.userId === userId) ||
+      (!userId && x.phone === phone && x.role === role));
     const entry = {
-      userId: userId ?? null,
+      userId,
       phone,
-      role: role ?? "consumer",
-      name: name ?? "",
+      role,
+      name:       u.name ?? "",
+      region:     u.region ?? "",
+      badge:      u.badge ?? "basic",
+      isOperator: u.isOperator ?? u.is_operator ?? false,
+      ownerId:    u.ownerId ?? null,
+      avatar_url: u.avatar_url ?? null,
+      interests:  Array.isArray(u.interests) ? u.interests : [],
+      created_at: u.created_at ?? null,
       lastLoginAt: now,
     };
     if (idx >= 0) users[idx] = { ...users[idx], ...entry };
@@ -78,6 +90,29 @@ export function rememberUser({ userId, phone, role, name } = {}) {
     if (userId) localStorage.setItem(K.lastUser, userId);
     if (role)   localStorage.setItem(K.lastRole, role);
   } catch {}
+}
+
+// known_user 엔트리 → 세션 복원용 user 객체. 서버 조회/ OTP 없이 즉시 로그인에 사용.
+export function knownUserToSession(ku) {
+  if (!ku) return null;
+  const role = ku.role || "consumer";
+  return {
+    id:          ku.userId ?? null,
+    role,
+    activeRole:  role,
+    phone:       ku.phone ?? "",
+    name:        ku.name ?? "",
+    region:      ku.region ?? "",
+    badge:       ku.badge ?? "basic",
+    verified:    true,
+    isGuest:     false,
+    isOperator:  ku.isOperator ?? false,
+    is_operator: ku.isOperator ?? false,
+    ownerId:     ku.ownerId ?? null,
+    interests:   Array.isArray(ku.interests) ? ku.interests : [],
+    avatar_url:  ku.avatar_url ?? null,
+    created_at:  ku.created_at ?? null,
+  };
 }
 
 export function setLastUser(userId, role) {
