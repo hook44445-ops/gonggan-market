@@ -1111,16 +1111,19 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // ── Fetch escrow_payments by request_id ───────────────────────────────────
       const { data: escrowsByReq } = await supabase
         .from("escrow_payments")
-        .select("id, request_id, transaction_status")
+        .select("id, request_id, company_id, transaction_status")
         .in("request_id", allRequestIds);
 
-      // Merge escrow data: by request_id (covers both path B lookup and path C direct)
+      // SSOT: "진행중 계약" 은 이 업체(candidateIds)의 escrow 만 인정한다.
+      // 의뢰인이 다른 업체를 선택해 결제한 escrow(타 업체 계약)는 이 업체 진행중이 아니다
+      // → 단순 입찰만 한 요청에 타 업체 escrow 가 붙어 '유령 진행건'으로 잡히던 문제 제거.
+      const candidateIdSet = new Set(candidateIds);
       const escrowByRequestId = {};
       for (const e of escrowsDirect ?? []) {
-        if (e.request_id) escrowByRequestId[e.request_id] = e;
+        if (e.request_id && candidateIdSet.has(e.company_id)) escrowByRequestId[e.request_id] = e;
       }
       for (const e of escrowsByReq ?? []) {
-        if (e.request_id) escrowByRequestId[e.request_id] = e;
+        if (e.request_id && candidateIdSet.has(e.company_id)) escrowByRequestId[e.request_id] = e;
       }
 
       dev.escrow_count   = Object.keys(escrowByRequestId).length;
@@ -1190,6 +1193,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           // Hard exclude terminal / closed states (req-level or escrow-level).
           if (reqStatus && EXCL_REQ.has(reqStatus)) { excludedReasons.push(`${rid8}:req=${reqStatus}`); return false; }
           if (txStatus && EXCL_TX.has(txStatus))    { excludedReasons.push(`${rid8}:tx=${txStatus}`);  return false; }
+
+          // SSOT: requests.selected_company_id 가 유일한 진실. 의뢰인이 "이 업체"를 선택한
+          // 요청만 진행건이다. 다른 업체를 선택했거나(타 업체 id) 아예 선택이 없는데
+          // escrow 도 이 업체 것이 아니면 진행중에서 제외(유령 진행건 차단).
+          const selCid = reqRow?.selected_company_id ?? null;
+          if (selCid && !candidateIdSet.has(selCid)) { excludedReasons.push(`${rid8}:selected_other`); return false; }
+          if (!selCid && !esc) { excludedReasons.push(`${rid8}:no_selection_no_escrow`); return false; }
 
           // Include ONLY real, in-progress contracts:
           //  • escrow exists AND its tx is an active construction phase, OR
@@ -2824,7 +2834,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   </span>
                 </div>
                 {companyJobs.map(({ bid, request }) => (
-                  <div key={bid.id} style={{
+                  <div key={bid.id ?? request?.id} style={{
                     background:C.surface, borderRadius:R.xl, padding:S.xl,
                     marginBottom:S.md, border:`1.5px solid ${C.brandM}`,
                     boxShadow:`0 2px 12px ${C.brand}18`,
@@ -2843,8 +2853,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       </div>
                     </div>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <div style={{ fontSize:15, fontWeight:900, color:C.brand }}>
-                        {bid.price ? `${Math.round(Number(bid.price)).toLocaleString()}만원` : "금액 미정"}
+                      <div>
+                        <div style={{ fontSize:11, color:C.text4, fontWeight:700 }}>계약 금액 (내 입찰가)</div>
+                        <div style={{ fontSize:15, fontWeight:900, color:C.brand }}>
+                          {bid.price ? `${Math.round(Number(bid.price)).toLocaleString()}만원` : "금액 미정"}
+                        </div>
                       </div>
                       <button
                         onClick={() => {

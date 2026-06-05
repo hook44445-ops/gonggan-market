@@ -103,7 +103,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
               </div>
               <div style={{ display:"flex", gap:S.sm, flexWrap:"wrap", marginBottom:S.sm }}>
                 <span style={{ background:C.surface, borderRadius:R.sm, padding:"4px 10px", fontSize:13, fontWeight:800, color:C.brand }}>
-                  💰 {Number(bidForm.price || myBid?.price || 0).toLocaleString()}만원
+                  💰 내 입찰가 {Number(bidForm.price || myBid?.price || 0).toLocaleString()}만원
                 </span>
                 <span style={{ background:C.surface, borderRadius:R.sm, padding:"4px 10px", fontSize:13, fontWeight:700, color:C.text2 }}>
                   📅 {bidForm.period || myBid?.period || "—"}일
@@ -137,7 +137,7 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
             /* Bottom row: budget info + bid button */
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
-                <div style={{ fontSize:12, color:C.text3 }}>💰 {r.budget}</div>
+                <div style={{ fontSize:12, color:C.text3 }}>💰 고객 예산 {r.budget}</div>
                 <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>경쟁 입찰 {r.bidCount ?? r.bids ?? 0}개</div>
               </div>
               <button

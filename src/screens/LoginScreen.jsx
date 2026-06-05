@@ -4,15 +4,30 @@ import { BADGES } from "../constants/badges";
 import { LogoMark, LeafSprig } from "../components/common";
 import CompanyOnboarding from "./CompanyOnboarding";
 import { upsertUserByPhone, getUserByPhone } from "../lib/supabase";
+import { getKnownUsers, knownUserToSession } from "../lib/deviceAuth";
 import { SHOW_DEBUG_UI } from "../constants/release";
 
 // 기기 인증 후 OTP 없는 재로그인은 App 의 AccountPicker(기기 인증)가 담당한다.
-// LoginScreen 은 항상 전화번호 인증 화면(최초 1회 / 다른 번호로 로그인)으로 동작.
+// LoginScreen 은 전화번호 인증 화면(최초 1회 / 다른 번호로 로그인)이지만, 입력 번호가
+// 이미 이 기기에서 인증된 계정이면 SMS 없이 즉시 복원한다(동일 번호 반복 인증 방지).
 
 const toE164 = (phone) => {
   const digits = phone.replace(/\D/g, "");
   if (digits.startsWith("0")) return "+82" + digits.slice(1);
   return "+" + digits;
+};
+
+// 전화번호 비교용 — 국가코드/구분자 차이를 흡수해 끝 10자리(0 제외)로 비교.
+const phoneDigits = (p) => {
+  let d = String(p ?? "").replace(/\D/g, "");
+  if (d.startsWith("82")) d = d.slice(2);
+  if (d.startsWith("0")) d = d.slice(1);
+  return d;
+};
+const findKnownByPhone = (p) => {
+  const target = phoneDigits(toE164(p));
+  if (target.length < 8) return null;
+  return getKnownUsers().find(k => phoneDigits(k.phone) === target) ?? null;
 };
 
 const SERVICE_ICONS = {
@@ -75,6 +90,10 @@ export default function LoginScreen({ onLogin, initialRole }) {
 
   const sendCode = async () => {
     if (phone.replace(/-/g, "").length < 10) return setMsg("올바른 전화번호를 입력해주세요");
+    // 동일 번호(이미 이 기기에서 인증된 계정) → SMS 재발송 없이 즉시 세션 복원.
+    // 다른(신규) 번호만 정상적으로 1회 SMS 인증을 진행한다.
+    const known = findKnownByPhone(phone);
+    if (known) { onLogin(knownUserToSession(known)); return; }
     setLoading(true); setMsg("");
     try {
       const res = await fetch("/api/send-otp", {
