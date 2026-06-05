@@ -155,13 +155,26 @@ export const getRequests = () =>
 export const getRequest = (id) =>
   supabase.from("requests").select("*").eq("id", id).maybeSingle();
 
-export const getUserRequests = (userId) =>
-  supabase
+export const getUserRequests = async (userId) => {
+  const res = await supabase
     .from("requests")
     .select("*, bids(id, company_id, price, status)")
     .eq("user_id", userId)
     .or("is_hidden.is.null,is_hidden.eq.false")
     .order("created_at", { ascending: false });
+  try {
+    console.log("[GONGGAN_DEBUG][getUserRequests]", {
+      userId, count: res.data?.length ?? 0, error: res.error?.message ?? null,
+      rows: (res.data ?? []).map(r => ({
+        id: r.id, status: r.status,
+        selected_company_id: r.selected_company_id ?? null, selected_bid_id: r.selected_bid_id ?? null,
+        budget_min: r.budget_min ?? null, budget_max: r.budget_max ?? null,
+        bids: (r.bids ?? []).map(b => ({ id: b.id, company_id: b.company_id, price: b.price, status: b.status })),
+      })),
+    });
+  } catch {}
+  return res;
+};
 
 export const getLiveRequests = ({ limit = 5 } = {}) =>
   supabase
@@ -206,8 +219,11 @@ export const getBidsForRequest = (requestId) =>
     .eq("request_id", requestId)
     .order("price", { ascending: true });
 
-export const selectBid = (bidId) =>
-  supabase.from("bids").update({ selected: true }).eq("id", bidId);
+export const selectBid = async (bidId) => {
+  const res = await supabase.from("bids").update({ selected: true }).eq("id", bidId);
+  try { console.log("[GONGGAN_DEBUG][selectBid]", { bidId, error: res.error?.message ?? null }); } catch {}
+  return res;
+};
 
 // 현장방문 견적 흐름 — 상태 전이 RPC (security definer, 내부에서 actor 검증).
 // OTP 커스텀 인증(auth.uid()=null)이라 requests 직접 UPDATE 는 RLS 에 막힌다 → RPC 경유.
@@ -1384,6 +1400,18 @@ export const getCompanyActiveJobs = async (companyId, extraIds = []) => {
     return { bid: bid ?? null, request, siteVisit: sv, estimate: est };
   }));
 
+  try {
+    console.log("[GONGGAN_DEBUG][getCompanyJobs]", {
+      candidateIds, selectedBids: bids?.length ?? 0, selReqs: selReqs?.length ?? 0, escrows: escrows?.length ?? 0,
+      jobs: jobs.map(j => ({
+        request_id: j.request?.id, status: j.request?.status,
+        selected_company_id: j.request?.selected_company_id ?? null, selected_bid_id: j.request?.selected_bid_id ?? null,
+        bid_id: j.bid?.id ?? null, bid_company_id: j.bid?.company_id ?? null, bid_price: j.bid?.price ?? null,
+        budget_min: j.request?.budget_min ?? null, budget_max: j.request?.budget_max ?? null,
+        siteVisit: j.siteVisit?.status ?? null,
+      })),
+    });
+  } catch {}
   return { data: jobs, error: null };
 };
 
@@ -1402,8 +1430,9 @@ export const getCompanyStatus = (companyId) =>
 
 // ── STEP B: Escrow record creation ────────────────────────────────────────────
 
-export const createEscrowRecord = (data) =>
-  supabase.from("escrow_payments").insert({
+export const createEscrowRecord = async (data) => {
+  console.log("[GONGGAN_DEBUG][createEscrow]", { requestId: data.requestId ?? null, companyId: data.companyId ?? null, totalAmount: data.totalAmount });
+  const res = await supabase.from("escrow_payments").insert({
     request_id:          data.requestId ?? null,
     company_id:          data.companyId ?? null,
     total_amount:        data.totalAmount,
@@ -1411,6 +1440,9 @@ export const createEscrowRecord = (data) =>
     status:              "deposited",
     step1_deposited_at:  new Date().toISOString(),
   }).select().single();
+  try { console.log("[GONGGAN_DEBUG][createEscrow:result]", { id: res.data?.id ?? null, request_id: res.data?.request_id ?? null, company_id: res.data?.company_id ?? null, total_amount: res.data?.total_amount ?? null, error: res.error?.message ?? null }); } catch {}
+  return res;
+};
 
 // H-6: 단계별 payout 생성 실패 시 방금 만든 escrow를 되돌리기 위한 롤백 헬퍼.
 // (payout 없는 escrow는 단계 표시가 깨지므로 고아 레코드를 남기지 않음)
