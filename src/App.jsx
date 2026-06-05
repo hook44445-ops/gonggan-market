@@ -70,6 +70,8 @@ export default function App() {
   // 이 플래그가 true 일 때만 LoginScreen(전화번호 인증)으로 진입한다. 일반 CTA/role 선택은
   // 기기 인증된 기기에서는 절대 전화번호 인증을 띄우지 않고 AccountPicker 로 보낸다.
   const [phoneAuthMode, setPhoneAuthMode] = useState(false);
+  // 계정 선택(AccountPicker)은 LandingScreen 의 '다시 오셨네요' CTA 로만 진입한다(직행 금지).
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [pickBusyId, setPickBusyId] = useState(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminId, setAdminId] = useState("");
@@ -107,15 +109,17 @@ export default function App() {
     setUser(u);
     setPendingRole(null);
     setPhoneAuthMode(false);
+    setShowAccountPicker(false);
   };
 
   // 일반 로그아웃 — 현재 세션만 종료. 기기 인증/계정 목록은 보존한다.
-  // 재진입 시 전화번호 인증 화면이 아니라 계정 선택(AccountPicker)으로 진입.
+  // 재진입 시 전화번호 인증/계정선택 직행이 아니라 LandingScreen 으로 진입한다.
   const handleLogout = () => {
     clearSession();
     setUser(null);
     setPendingRole(null);
     setPhoneAuthMode(false);
+    setShowAccountPicker(false);
   };
 
   // 완전 로그아웃 / 이 기기 인증 삭제 — 기기 인증·계정 목록까지 모두 제거.
@@ -126,6 +130,7 @@ export default function App() {
     setUser(null);
     setPendingRole(null);
     setPhoneAuthMode(true);
+    setShowAccountPicker(false);
   };
 
   // 저장된 계정 카드 클릭 → OTP/전화번호 인증 없이 즉시 세션 복원.
@@ -162,7 +167,14 @@ export default function App() {
   };
 
   const handleRoleSelect = (role) => {
+    // 인증된 기기 + 저장 계정이 있으면 전화번호 인증 대신 계정 선택(AccountPicker)으로.
+    // 신규/미인증 기기에서만 전화번호 인증(LoginScreen)으로 진입.
+    if (isDeviceVerified() && getKnownUsers().length > 0) {
+      setShowAccountPicker(true);
+      return;
+    }
     setPendingRole(role);
+    setPhoneAuthMode(true);
   };
 
   // C-4: 초기 세션 복원 중 빈 흰 화면 대신 브랜드 로딩 화면 표시
@@ -183,16 +195,19 @@ export default function App() {
     );
   }
 
+  // userId 없는 게스트는 '둘러보기'(startAt) 의도일 때만 MainApp 허용. 그 외 null-id 진입 금지.
+  const canEnterApp = !!user && (!!user.id || !!user.startAt);
+  const hasSavedAccounts = isDeviceVerified() && getKnownUsers().length > 0;
+
   {
-    let _path = "LoginScreen(pendingRole)";
-    if (user) _path = "MainApp";
+    let _path = "Landing";
+    if (canEnterApp) _path = "MainApp";
     else if (phoneAuthMode) _path = "LoginScreen(phoneAuthMode)";
-    else if (isDeviceVerified() && getKnownUsers().length > 0) _path = "AccountPicker";
-    else if (!pendingRole) _path = "Landing";
-    console.log("[GONGGAN_DEBUG][App:route]", { path: _path, currentUserId: user?.id ?? null, currentRole: user?.activeRole ?? user?.role ?? null, pendingRole, phoneAuthMode, deviceVerified: isDeviceVerified() });
+    else if (showAccountPicker && hasSavedAccounts) _path = "AccountPicker";
+    console.log("[GONGGAN_DEBUG][App:route]", { path: _path, currentUserId: user?.id ?? null, currentRole: user?.activeRole ?? user?.role ?? null, isGuest: user?.isGuest ?? false, pendingRole, phoneAuthMode, showAccountPicker, deviceVerified: isDeviceVerified() });
   }
 
-  if (user) {
+  if (canEnterApp) {
     return (
       <ErrorBoundary onLogout={handleLogout} activeRole={user.activeRole ?? user.role ?? "consumer"}>
         <MainApp
@@ -240,31 +255,29 @@ export default function App() {
     );
   }
 
-  // 2) 기기 인증 + 저장된 계정이 있으면 — 모든 일반 진입(CTA/role 선택/재진입/로그아웃 후)을
-  //    전화번호 인증이 아니라 계정 선택(AccountPicker)으로 보낸다. pendingRole 이 설정돼 있어도
-  //    이 분기가 우선하므로, 인증된 기기에서는 phoneAuthMode 없이 LoginScreen 에 닿지 않는다.
-  if (isDeviceVerified()) {
-    const knownUsers = getKnownUsers();
-    if (knownUsers.length > 0) {
-      return (
-        <ErrorBoundary onLogout={handleForgetDevice} activeRole="visitor">
-          <AccountPicker
-            users={knownUsers}
-            busyId={pickBusyId}
-            onPick={handlePickUser}
-            onAddAccount={() => { setPendingRole(null); setPhoneAuthMode(true); }}
-            onForgetDevice={handleForgetDevice}
-          />
-        </ErrorBoundary>
-      );
-    }
+  // 2) 계정 선택(AccountPicker)은 LandingScreen 의 '다시 오셨네요' CTA 로만 진입한다(직행 금지).
+  if (showAccountPicker && hasSavedAccounts) {
+    return (
+      <ErrorBoundary onLogout={handleForgetDevice} activeRole="visitor">
+        <AccountPicker
+          users={getKnownUsers()}
+          busyId={pickBusyId}
+          onPick={handlePickUser}
+          onAddAccount={() => { setShowAccountPicker(false); setPendingRole(null); setPhoneAuthMode(true); }}
+          onForgetDevice={handleForgetDevice}
+          onBack={() => setShowAccountPicker(false)}
+        />
+      </ErrorBoundary>
+    );
   }
 
-  // 3) 최초(미인증) 기기 — role 선택 전 랜딩.
-  if (!pendingRole) {
+  // 3) 그 외 모든 진입은 항상 LandingScreen. 기기 인증+저장 계정이 있으면 '다시 오셨네요' CTA 노출.
+  {
     return (
       <ErrorBoundary onLogout={handleLogout} activeRole="visitor">
         <LandingScreen
+          hasSavedAccounts={hasSavedAccounts}
+          onResume={() => setShowAccountPicker(true)}
           onSelectRole={handleRoleSelect}
           onAdminTap={() => {
             setAdminId("");
@@ -321,10 +334,4 @@ export default function App() {
       </ErrorBoundary>
     );
   }
-
-  return (
-    <ErrorBoundary onLogout={handleLogout} activeRole={pendingRole ?? "visitor"}>
-      <LoginScreen onLogin={handleLogin} initialRole={pendingRole} />
-    </ErrorBoundary>
-  );
 }

@@ -1208,31 +1208,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           if (reqStatus && EXCL_REQ.has(reqStatus)) { excludedReasons.push(`${rid8}:req=${reqStatus}`); return false; }
           if (txStatus && EXCL_TX.has(txStatus))    { excludedReasons.push(`${rid8}:tx=${txStatus}`);  return false; }
 
-          // SSOT: 진행중의 유일한 근거는 "의뢰인이 이 업체를 선택" 또는 "실제 에스크로(금액>0)".
-          //   · 다른 업체를 선택했으면 제외(타 업체 id).
-          //   · 선택(selected_company_id/selected_bid_id/입찰 selected)도 없고, 실제 에스크로
-          //     (total_amount>0)도 없으면 유령 진행건 → 제외. status='in_progress' 단독 금지.
-          //   · total_amount=null/0 인 불완전 에스크로 row 는 실계약으로 인정하지 않음.
+          // SSOT(유일 기준): requests.selected_company_id === '이 업체'.
+          //   · selected_company_id 가 null 이면 escrow(금액>0 포함)가 있어도 유령으로 간주, 제외.
+          //   · 다른 업체를 선택했으면 제외.
+          //   · status='in_progress' 단독으로는 절대 진행중 아님.
           const selCid = reqRow?.selected_company_id ?? null;
-          if (selCid && !candidateIdSet.has(selCid)) { excludedReasons.push(`${rid8}:selected_other`); return false; }
+          if (!selCid) { excludedReasons.push(`${rid8}:no_selected_company(ghost)`); return false; }
+          if (!candidateIdSet.has(selCid)) { excludedReasons.push(`${rid8}:selected_other`); return false; }
 
-          const realEscrow  = !!esc && Number(esc.total_amount ?? 0) > 0;
-          const hasSelection = (selCid && candidateIdSet.has(selCid)) || !!reqRow?.selected_bid_id || b.selected === true;
-          if (!hasSelection && !realEscrow) {
-            excludedReasons.push(`${rid8}:ghost(no_selection,no_real_escrow,tx=${txStatus || "∅"})`);
-            return false;
-          }
+          // 현장방문 견적 단계(결제 전)는 activeJobs(CompanyActiveJobCard)에서 다룸 → companyJobs 제외(이중 노출 방지).
+          const PRE_ESCROW = new Set(["site_visit", "final_quote_submitted", "escrow_pending"]);
+          if (PRE_ESCROW.has(reqStatus)) { excludedReasons.push(`${rid8}:pre_escrow(activeJobs)`); return false; }
 
-          // Include 진행중: 실제 에스크로의 활성 단계 OR 이 업체가 선택된 진행 상태.
-          const include =
-            (realEscrow && txStatus && ACTIVE_TX.has(txStatus)) ||
-            (realEscrow && !txStatus && ACTIVE_REQ.has(reqStatus)) ||
-            (hasSelection && ACTIVE_REQ.has(reqStatus));
-
-          if (!include) {
-            excludedReasons.push(`${rid8}:not_active(req=${reqStatus || "∅"},tx=${txStatus || "∅"},realEscrow=${realEscrow},sel=${hasSelection})`);
-          }
-          return include;
+          // 여기 도달 = 이 업체가 선택된 계약 + 종료/현장방문단계 아님 → 진행중.
+          return true;
         })
         .map(b => ({
           bid: {
