@@ -90,8 +90,6 @@ export default function App() {
   // (supabase.auth 이벤트로는 커스텀 전화번호 세션을 건드리지 않음)
 
   const handleLogin = (u) => {
-    // [auth-debug] 진단용 — 계정 선택/로그인 경로 추적. 진단 후 제거 예정.
-    console.log("[auth] handleLogin called", { userId: u?.id ?? null, isGuest: u?.isGuest ?? false, role: u?.role ?? null, prevPhoneAuthMode: phoneAuthMode });
     if (!u.isGuest) {
       saveSession(u);
       // 기기 인증 유지 — 전화번호 기반 계정만 기억(게스트/번호없는 관리자 제외).
@@ -126,12 +124,9 @@ export default function App() {
   // 1) localStorage 스냅샷으로 바로 복원(서버 의존 X). 2) 베스트-에포트 서버 조회로
   //    최신 정보 보강(실패해도 전화번호 인증으로 보내지 않는다 — 절대 OTP 재요구 X).
   const handlePickUser = async (ku) => {
-    // [auth-debug] 진단용 — 계정 카드 클릭 경로 추적. 진단 후 제거 예정.
-    console.log("[auth] handlePickUser:start", { selectedUserId: ku?.userId ?? null, phone: ku?.phone ?? null, role: ku?.role ?? null, phoneAuthMode });
     const key = ku.userId || `${ku.phone}-${ku.role}`;
     setPickBusyId(key);
     const base = knownUserToSession(ku);
-    console.log("[auth] knownUserToSession ran", { ranKnownUserToSession: true, baseId: base?.id ?? null, baseRole: base?.role ?? null, baseIsNull: base == null });
     let fresh = null;
     try {
       const { data } = await getUserByPhone(toE164(ku.phone));
@@ -142,11 +137,8 @@ export default function App() {
         const effRole = isAdmin ? "admin" : (ku.role || dbRole || "consumer");
         fresh = { ...data, role: effRole, activeRole: effRole, isOperator };
       }
-    } catch (e) {
-      console.log("[auth] handlePickUser:getUserByPhone error", { error: e?.message ?? String(e) });
-    }
+    } catch {}
     setPickBusyId(null);
-    console.log("[auth] handlePickUser:calling handleLogin", { willCallHandleLogin: true, using: fresh ? "fresh" : "base", id: (fresh ?? base)?.id ?? null, phoneAuthMode });
     handleLogin(fresh ?? base);
   };
 
@@ -170,18 +162,6 @@ export default function App() {
         <style>{`@keyframes ggLoadSpin{to{transform:rotate(360deg)}}`}</style>
       </div>
     );
-  }
-
-  // [auth-debug] 렌더 경로 추적 — '배포 미반영' vs '라우팅 충돌' 판별용. 진단 후 제거 예정.
-  // 이 로그가 실기기 콘솔에 안 보이면 = 구버전 배포(미반영). 보이는데 path 가
-  // LoginScreen 이면 = 라우팅/플래그 문제.
-  {
-    let _path = "LoginScreen(pendingRole)";
-    if (user) _path = "MainApp";
-    else if (phoneAuthMode) _path = "LoginScreen(phoneAuthMode)";
-    else if (isDeviceVerified() && getKnownUsers().length > 0) _path = "AccountPicker";
-    else if (!pendingRole) _path = "Landing";
-    console.log("[auth] render path", { build: "v-accountpicker", path: _path, hasUser: !!user, phoneAuthMode, pendingRole, deviceVerified: isDeviceVerified(), knownUsers: getKnownUsers().length });
   }
 
   if (user) {
@@ -244,7 +224,7 @@ export default function App() {
             users={knownUsers}
             busyId={pickBusyId}
             onPick={handlePickUser}
-            onAddAccount={() => { console.log("[auth] onAddAccount → phoneAuthMode=true (LoginScreen)"); setPendingRole(null); setPhoneAuthMode(true); }}
+            onAddAccount={() => { setPendingRole(null); setPhoneAuthMode(true); }}
             onForgetDevice={handleForgetDevice}
           />
         </ErrorBoundary>
