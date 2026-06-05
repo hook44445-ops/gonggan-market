@@ -56,7 +56,7 @@ const STEPS = [
   { num: 5, label: "완료 후 정산", desc: "고객 확인 완료 후 업체에 정산. 분쟁 시 관리자가 함께합니다" },
 ];
 
-export default function LandingScreen({ onSelectRole, onAdminTap }) {
+export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccounts = false, onResume }) {
   const [heroRef, heroVisible]     = useVisible(0.05);
   const [sec1Ref, sec1Visible]     = useVisible(0.1);
   const [sec2Ref, sec2Visible]     = useVisible(0.1);
@@ -86,6 +86,20 @@ export default function LandingScreen({ onSelectRole, onAdminTap }) {
           &nbsp;|&nbsp;identity_v2:true
           &nbsp;|&nbsp;MODE:{import.meta.env.MODE}
         </div>
+      )}
+
+      {/* ── 다시 오셨네요 — 기기 인증 + 저장 계정이 있을 때만 (저장 계정으로 바로 시작) ── */}
+      {hasSavedAccounts && (
+        <button
+          onClick={() => onResume?.()}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            margin: "12px 16px 0", padding: "13px 16px", borderRadius: R.full,
+            background: C.brand, color: "#fff", border: "none", fontSize: 15, fontWeight: 800,
+            cursor: "pointer", fontFamily: "inherit", boxShadow: `0 6px 18px ${C.brand}33`,
+          }}>
+          👋 다시 오셨네요 · 저장된 계정으로 시작
+        </button>
       )}
 
       {/* ── HERO ──────────────────────────────────────────────────── */}

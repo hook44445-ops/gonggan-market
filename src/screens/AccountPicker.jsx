@@ -29,7 +29,7 @@ const fmtAgo = (ts) => {
   return new Date(ts).toLocaleDateString("ko-KR");
 };
 
-export default function AccountPicker({ users = [], busyId = null, onPick, onAddAccount, onForgetDevice }) {
+export default function AccountPicker({ users = [], busyId = null, onPick, onAddAccount, onForgetDevice, onBack }) {
   const [confirmReset, setConfirmReset] = useState(false);
 
   return (
@@ -39,6 +39,12 @@ export default function AccountPicker({ users = [], busyId = null, onPick, onAdd
       padding: "24px 20px", fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif",
     }}>
       <div style={{ width: "100%", maxWidth: 390 }}>
+        {onBack && (
+          <button onClick={() => onBack()} disabled={!!busyId}
+            style={{ background: "none", border: "none", color: C.text3, fontSize: 14, fontWeight: 700, cursor: "pointer", padding: 0, marginBottom: 8 }}>
+            ← 처음으로
+          </button>
+        )}
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{
             width: 72, height: 72, borderRadius: 24, margin: "0 auto 12px",
