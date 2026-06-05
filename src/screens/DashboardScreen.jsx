@@ -320,9 +320,10 @@ export default function DashboardScreen({
 
         {/* ── 입찰 ──────────────────────────────────────────────── */}
         {tab === "bids" && (() => {
-          // 입찰 목록은 status='open' 이고 활성(미마감·미계약)인 요청만 노출.
+          // 입찰 목록은 status='open' 이고 활성(미마감·미계약·업체 미선택)인 요청만 노출.
           const biddable = allRequests.filter(r =>
             (r.status === "open") && r.isActive !== false && r.isClosed !== true
+            && !r.selectedBidId && !r.selectedCompanyId
           );
           return (
             <div>

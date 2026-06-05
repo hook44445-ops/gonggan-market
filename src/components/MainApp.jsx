@@ -72,6 +72,7 @@ import {
   createPaymentTransaction,
   createNotification,
   setRequestInProgress,
+  markRequestSiteVisit,
   getCompanyBids,
   getEscrowWithPayouts,
   getActiveRequestByUser,
@@ -195,6 +196,9 @@ const normalizeRequest = (row) => {
     isDeleted,
     isActive,
     isClosed,
+    // 업체 선택 추적 — stale 'open' 진행건 판정/이중 노출 방지에 사용.
+    selectedBidId:     row.selected_bid_id ?? null,
+    selectedCompanyId: row.selected_company_id ?? null,
   };
 };
 
@@ -429,7 +433,11 @@ function isRequestInProgress(r, escrowData) {
   if (r.isDeleted === true || r.isExpiredByTime === true) return false;
   if (["completed", "cancelled", "expired", "closed", "settled"].includes(r.status)) return false;
   if (isRequestSettled(r, escrowData)) return false;
-  return hasActiveEscrow(escrowData) || IN_PROGRESS_STATUSES.has(r.status);
+  if (hasActiveEscrow(escrowData)) return true;
+  if (IN_PROGRESS_STATUSES.has(r.status)) return true;
+  // stale 'open' 이어도 업체가 선택됐으면(현장방문 단계) 진행건으로 분류.
+  if (r.selectedBidId && r.selectedCompanyId) return true;
+  return false;
 }
 
 // 의뢰인 "새 견적 요청"(open) 판정 — 진행중/완료/마감이 아닌, 아직 업체 선택 전 open 요청.
@@ -439,6 +447,8 @@ function isRequestOpenForQuotes(r, escrowData) {
   if (r.isDeleted === true || r.isExpiredByTime === true) return false;
   if (isRequestInProgress(r, escrowData)) return false;
   if (isRequestSettled(r, escrowData)) return false;
+  // 업체 미선택(selected_bid/company 없음)인 순수 open 요청만 '새 견적 요청'.
+  if (r.selectedBidId || r.selectedCompanyId) return false;
   return r.status === "open";
 }
 
@@ -804,9 +814,27 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     () => new Set(companyJobs.map(j => j.request?.id).filter(Boolean)),
     [companyJobs]
   );
+  // 현장방문 단계(activeJobs) 의 request id — 입찰 목록 dedupe 에 사용.
+  const activeJobRequestIds = useMemo(
+    () => new Set(activeJobs.map(j => j.request?.id).filter(Boolean)),
+    [activeJobs]
+  );
+  // 진행중(에스크로) 요청과 겹치는 현장방문 잡은 화면에서 제외(이중 노출 방지).
+  const siteVisitJobs = useMemo(
+    () => activeJobs.filter(j => j.request?.id && !inProgressRequestIds.has(j.request.id)),
+    [activeJobs, inProgressRequestIds]
+  );
+  // 새 견적 요청(biddable): 순수 open + 업체 미선택 + 에스크로/진행/현장방문 모두 아님.
+  // request.id 기준으로 진행중·현장방문과 dedupe → 같은 건이 양쪽에 동시 노출되지 않음.
   const biddableRequests = useMemo(
-    () => customerRequests.filter(r => r.isActive && !inProgressRequestIds.has(r.id)),
-    [customerRequests, inProgressRequestIds]
+    () => customerRequests.filter(r =>
+      r.status === "open"
+      && !r.selectedBidId && !r.selectedCompanyId
+      && !inProgressRequestIds.has(r.id)
+      && !activeJobRequestIds.has(r.id)
+      && r.isActive
+    ),
+    [customerRequests, inProgressRequestIds, activeJobRequestIds]
   );
   const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
   const prevTxStatusRef = useRef({}); // { [requestId]: transaction_status } — 단계 전환 토스트용
@@ -955,11 +983,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (activeRole !== "company" || !currentUser?.id) return;
     // 현장방문 견적 단계(결제 전)만 activeJobs 로 — 에스크로 계약 진입 후(in_progress 등)는
     // companyJobs(에스크로 기준)에서 다뤄 이중 노출을 막는다.
+    // bids.company_id 는 소유자 user.id 로 저장되므로 company.id 와 user.id 를 함께 후보로 넘긴다.
     const SITE_VISIT_PHASES = new Set(["open", "site_visit", "final_quote_submitted", "escrow_pending"]);
-    getCompanyActiveJobs(currentUser.id).then(({ data }) => {
+    getCompanyActiveJobs(currentUser.id, [user?.id, currentUser?.ownerId]).then(({ data }) => {
       if (data) setActiveJobs(data.filter(j => SITE_VISIT_PHASES.has((j.request?.status ?? "").toLowerCase())));
     });
-  }, [currentUser?.id, activeRole]);
+  }, [currentUser?.id, activeRole, user?.id]);
 
   // Load company's own awarded/in-progress jobs — multi-path fetch with payment_orders fallback
   useEffect(() => {
@@ -1234,6 +1263,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           setRequestInProgress(r.id).catch(() => {});
           setMyRequests(prev => prev.map(x => x.id === r.id
             ? { ...x, status: "in_progress", isActive: false, isClosed: false }
+            : x));
+        } else if (!data?.escrow && r.status === "open" && r.selectedBidId && r.selectedCompanyId) {
+          // self-heal: 에스크로는 없지만 업체가 선택된(현장방문 단계) stale 'open' → site_visit 전이.
+          // 의뢰인(요청 소유자)이 actor — RPC 내부에서 소유 검증. 선택 입찰/업체는 coalesce 로 보존.
+          markRequestSiteVisit(r.id, { actorId: user.id }).catch(() => {});
+          setMyRequests(prev => prev.map(x => x.id === r.id
+            ? { ...x, status: "site_visit", isActive: false, isClosed: false }
             : x));
         }
       }).catch(() => {});
@@ -2755,12 +2791,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               ))}
             </div>
 
-            {activeJobs.length > 0 && (
+            {siteVisitJobs.length > 0 && (
               <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🔨 진행중 작업 ({activeJobs.length})</div>
-                {activeJobs.map((job) => (
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🔨 진행중 작업 ({siteVisitJobs.length})</div>
+                {siteVisitJobs.map((job) => (
                   <CompanyActiveJobCard
-                    key={job.bid.id}
+                    key={job.bid?.id ?? job.request?.id}
                     job={job}
                     onAction={(actionType, j) => {
                       if (actionType === "schedule" || actionType === "checkin" || actionType === "field_estimate") {

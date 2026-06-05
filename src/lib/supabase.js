@@ -1318,19 +1318,70 @@ export const saveProjectCheckpoint = ({
 export const getProjectCheckpoints = (requestId, actorId = null) =>
   supabase.rpc("project_checkpoints_for_request", { p_request_id: requestId, p_actor_id: actorId });
 
-export const getCompanyActiveJobs = async (companyId) => {
-  const { data: bids, error } = await supabase
+// 업체 진행건(현장방문 견적 단계) 조회 — "선택된 업체"인 요청만 반환한다.
+// 매칭 기준(셋 중 하나라도 candidateIds 에 포함되면 해당 업체의 진행건):
+//   ① 선택된 입찰(bids.selected=true) 의 company_id
+//   ② requests.selected_company_id
+//   ③ escrow_payments.company_id (계약 업체)
+// bids.company_id 는 소유자 users.id(=auth user.id)로 저장되므로, company.id 와 owner
+// user.id 를 모두 후보(candidateIds)로 받아 매칭한다 — 불일치로 진행건이 누락되던 문제 수정.
+// 결과는 request.id 기준으로 dedupe 한다(같은 요청이 여러 경로로 잡혀도 1건).
+export const getCompanyActiveJobs = async (companyId, extraIds = []) => {
+  const candidateIds = [...new Set([companyId, ...(extraIds ?? [])].filter(Boolean))];
+  if (candidateIds.length === 0) return { data: [], error: null };
+
+  // ① 선택된 입찰
+  const { data: bids, error: bidErr } = await supabase
     .from("bids")
     .select("*, requests(*)")
-    .eq("company_id", companyId)
+    .in("company_id", candidateIds)
     .eq("selected", true)
     .order("created_at", { ascending: false });
-  if (error || !bids) return { data: [], error };
+  if (bidErr) return { data: [], error: bidErr };
 
-  const jobs = await Promise.all(bids.map(async (bid) => {
-    const { data: sv } = await supabase.from("site_visits").select("*").eq("bid_id", bid.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    const { data: est } = sv ? await supabase.from("estimates").select("*").eq("site_visit_id", sv.id).order("created_at", { ascending: false }).limit(1).maybeSingle() : { data: null };
-    return { bid, request: bid.requests ?? null, siteVisit: sv ?? null, estimate: est ?? null };
+  // ② requests.selected_company_id (입찰행 누락/selected 플래그 미반영 보강)
+  const { data: selReqs } = await supabase
+    .from("requests")
+    .select("*")
+    .in("selected_company_id", candidateIds);
+
+  // ③ escrow 직접 연결(계약 업체) → request_id 확보
+  const { data: escrows } = await supabase
+    .from("escrow_payments")
+    .select("request_id, company_id")
+    .in("company_id", candidateIds);
+
+  // request.id 기준 병합/dedupe
+  const byReq = {};
+  for (const b of bids ?? []) {
+    const req = b.requests ?? null;
+    const rid = req?.id ?? b.request_id;
+    if (!rid) continue;
+    byReq[rid] = { request: req, bid: b };
+  }
+  for (const r of selReqs ?? []) {
+    if (!byReq[r.id]) byReq[r.id] = { request: r, bid: null };
+    else if (!byReq[r.id].request) byReq[r.id].request = r;
+  }
+  const escrowReqIds = [...new Set((escrows ?? []).map(e => e.request_id).filter(Boolean))];
+  const missingReqIds = escrowReqIds.filter(rid => !byReq[rid]);
+  if (missingReqIds.length > 0) {
+    const { data: escReqs } = await supabase.from("requests").select("*").in("id", missingReqIds);
+    for (const r of escReqs ?? []) if (!byReq[r.id]) byReq[r.id] = { request: r, bid: null };
+  }
+
+  const entries = Object.values(byReq).filter(e => e.request);
+  const jobs = await Promise.all(entries.map(async ({ request, bid }) => {
+    let sv = null, est = null;
+    if (bid?.id) {
+      const { data: svRow } = await supabase.from("site_visits").select("*").eq("bid_id", bid.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      sv = svRow ?? null;
+      if (sv) {
+        const { data: estRow } = await supabase.from("estimates").select("*").eq("site_visit_id", sv.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        est = estRow ?? null;
+      }
+    }
+    return { bid: bid ?? null, request, siteVisit: sv, estimate: est };
   }));
 
   return { data: jobs, error: null };
