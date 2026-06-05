@@ -7,7 +7,7 @@ import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { getUserByPhone } from "./lib/supabase";
 import {
-  isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth,
+  isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
 } from "./lib/deviceAuth";
 
 const SESSION_TS_KEY   = "gonggan_login_at";
@@ -91,14 +91,8 @@ export default function App() {
     if (!u.isGuest) {
       saveSession(u);
       // 기기 인증 유지 — 전화번호 기반 계정만 기억(게스트/번호없는 관리자 제외).
-      if (u.phone) {
-        rememberUser({
-          userId: u.id ?? null,
-          phone:  u.phone,
-          role:   u.activeRole ?? u.role ?? "consumer",
-          name:   u.name ?? "",
-        });
-      }
+      // 카드 클릭 복원에 필요한 스냅샷(region 등 포함)을 통째로 넘긴다.
+      if (u.phone) rememberUser(u);
     }
     setUser(u);
     setPendingRole(null);
@@ -124,25 +118,26 @@ export default function App() {
     setForceLanding(true);
   };
 
-  // 저장된 계정으로 재로그인 — OTP 없이 전화번호로 서버 조회 후 진입.
+  // 저장된 계정 카드 클릭 → OTP/전화번호 인증 없이 즉시 세션 복원.
+  // 1) localStorage 스냅샷으로 바로 복원(서버 의존 X). 2) 베스트-에포트 서버 조회로
+  //    최신 정보 보강(실패해도 전화번호 인증으로 보내지 않는다 — 절대 OTP 재요구 X).
   const handlePickUser = async (ku) => {
     const key = ku.userId || `${ku.phone}-${ku.role}`;
     setPickBusyId(key);
+    const base = knownUserToSession(ku);
+    let fresh = null;
     try {
-      const { data: existing } = await getUserByPhone(toE164(ku.phone));
-      if (existing) {
-        const dbRole = existing.role;
+      const { data } = await getUserByPhone(toE164(ku.phone));
+      if (data) {
+        const dbRole = data.role;
         const isAdmin = dbRole === "admin";
-        const isOperator = existing.is_operator === true || dbRole === "operator";
+        const isOperator = data.is_operator === true || dbRole === "operator";
         const effRole = isAdmin ? "admin" : (ku.role || dbRole || "consumer");
-        handleLogin({ ...existing, role: effRole, activeRole: effRole, isOperator });
-        return;
+        fresh = { ...data, role: effRole, activeRole: effRole, isOperator };
       }
     } catch {}
-    // 조회 실패/계정 없음 → 전화번호 인증 흐름으로 폴백.
     setPickBusyId(null);
-    setForceLanding(true);
-    setPendingRole(ku.role || "consumer");
+    handleLogin(fresh ?? base);
   };
 
   const handleRoleSelect = (role) => {
