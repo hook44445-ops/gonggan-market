@@ -63,6 +63,16 @@ const normalizeCompanyJob = ({ bid, request, escrow }) => {
   const createdAt = escrow?.created_at ?? bid?.createdAt ?? Date.now();
   const daysElapsed = Math.floor((Date.now() - new Date(createdAt)) / 864e5);
   const total = escrow?.total_amount ?? bid?.price ?? 0;
+  try {
+    console.log("[GONGGAN_DEBUG][EscrowAmount]", {
+      request_id: request?.id ?? null, status: reqStatus,
+      displayAmount: total,
+      source: escrow?.total_amount != null ? "escrow.total_amount" : bid?.price != null ? "bid.price" : "0(none)",
+      escrow_total_amount: escrow?.total_amount ?? null, escrow_company_id: escrow?.company_id ?? null,
+      bid_price: bid?.price ?? null, bid_company_id: bid?.companyId ?? bid?.company_id ?? null,
+      budget_min: request?.budget_min ?? request?.budgetMin ?? null, budget_max: request?.budget_max ?? request?.budgetMax ?? null,
+    });
+  } catch {}
   return {
     id:          bid?.id ?? escrow?.id ?? request?.id,
     bid,
