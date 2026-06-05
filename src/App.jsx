@@ -3,10 +3,23 @@ import { SHOW_DEBUG_UI } from "./constants/release";
 import MainApp from "./components/MainApp";
 import LoginScreen from "./screens/LoginScreen";
 import LandingScreen from "./screens/LandingScreen";
+import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { getUserByPhone } from "./lib/supabase";
+import {
+  isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth,
+} from "./lib/deviceAuth";
 
 const SESSION_TS_KEY   = "gonggan_login_at";
 const SESSION_USER_KEY = "gonggan_user";
+
+const toE164 = (phone) => {
+  if (!phone) return "";
+  if (String(phone).startsWith("+")) return String(phone);
+  const digits = String(phone).replace(/\D/g, "");
+  if (digits.startsWith("0")) return "+82" + digits.slice(1);
+  return "+" + digits;
+};
 
 function loadSavedSession() {
   try {
@@ -53,6 +66,9 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pendingRole, setPendingRole] = useState(null);
+  // 기기 인증된 계정이 있어도 "다른 번호로 로그인"을 누르면 랜딩/인증으로 보낸다.
+  const [forceLanding, setForceLanding] = useState(false);
+  const [pickBusyId, setPickBusyId] = useState(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminId, setAdminId] = useState("");
   const [adminPw, setAdminPw] = useState("");
@@ -72,15 +88,61 @@ export default function App() {
   // (supabase.auth 이벤트로는 커스텀 전화번호 세션을 건드리지 않음)
 
   const handleLogin = (u) => {
-    if (!u.isGuest) saveSession(u);
+    if (!u.isGuest) {
+      saveSession(u);
+      // 기기 인증 유지 — 전화번호 기반 계정만 기억(게스트/번호없는 관리자 제외).
+      if (u.phone) {
+        rememberUser({
+          userId: u.id ?? null,
+          phone:  u.phone,
+          role:   u.activeRole ?? u.role ?? "consumer",
+          name:   u.name ?? "",
+        });
+      }
+    }
     setUser(u);
     setPendingRole(null);
+    setForceLanding(false);
   };
 
+  // 일반 로그아웃 — 현재 세션만 종료. 기기 인증/계정 목록은 보존한다.
+  // 재진입 시 전화번호 인증 화면이 아니라 계정 선택(AccountPicker)으로 진입.
   const handleLogout = () => {
     clearSession();
     setUser(null);
     setPendingRole(null);
+    setForceLanding(false);
+  };
+
+  // 완전 로그아웃 / 이 기기 인증 삭제 — 기기 인증·계정 목록까지 모두 제거.
+  // 이후에는 전화번호 인증 화면부터 다시 시작한다.
+  const handleForgetDevice = () => {
+    clearDeviceAuth();
+    clearSession();
+    setUser(null);
+    setPendingRole(null);
+    setForceLanding(true);
+  };
+
+  // 저장된 계정으로 재로그인 — OTP 없이 전화번호로 서버 조회 후 진입.
+  const handlePickUser = async (ku) => {
+    const key = ku.userId || `${ku.phone}-${ku.role}`;
+    setPickBusyId(key);
+    try {
+      const { data: existing } = await getUserByPhone(toE164(ku.phone));
+      if (existing) {
+        const dbRole = existing.role;
+        const isAdmin = dbRole === "admin";
+        const isOperator = existing.is_operator === true || dbRole === "operator";
+        const effRole = isAdmin ? "admin" : (ku.role || dbRole || "consumer");
+        handleLogin({ ...existing, role: effRole, activeRole: effRole, isOperator });
+        return;
+      }
+    } catch {}
+    // 조회 실패/계정 없음 → 전화번호 인증 흐름으로 폴백.
+    setPickBusyId(null);
+    setForceLanding(true);
+    setPendingRole(ku.role || "consumer");
   };
 
   const handleRoleSelect = (role) => {
@@ -111,6 +173,7 @@ export default function App() {
         <MainApp
           user={user}
           onLogout={handleLogout}
+          onForgetDevice={handleForgetDevice}
           onLogin={handleLogin}
           onStartOnboarding={() => {
             clearSession();
@@ -139,6 +202,25 @@ export default function App() {
       setAdminLoginErr("아이디 또는 비밀번호가 올바르지 않습니다");
     }
   };
+
+  // 기기 인증 + 저장된 계정이 있으면(그리고 "다른 번호로 로그인"을 누르지 않았으면)
+  // 전화번호 인증 화면 대신 계정 선택 화면으로 진입한다.
+  if (!pendingRole && !forceLanding && isDeviceVerified()) {
+    const knownUsers = getKnownUsers();
+    if (knownUsers.length > 0) {
+      return (
+        <ErrorBoundary onLogout={handleForgetDevice} activeRole="visitor">
+          <AccountPicker
+            users={knownUsers}
+            busyId={pickBusyId}
+            onPick={handlePickUser}
+            onAddAccount={() => setForceLanding(true)}
+            onForgetDevice={handleForgetDevice}
+          />
+        </ErrorBoundary>
+      );
+    }
+  }
 
   if (!pendingRole) {
     return (
