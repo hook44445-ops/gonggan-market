@@ -130,12 +130,20 @@ export default function App() {
     let fresh = null;
     try {
       const { data } = await getUserByPhone(toE164(ku.phone));
-      if (data) {
+      // 같은 전화번호에 역할이 다른 복수 계정(의뢰인/업체)이 있을 수 있으므로, 선택한 계정과
+      // 동일 userId 일 때만 서버 정보로 보강한다. 불일치 시 선택 스냅샷(base)을 그대로 사용한다.
+      // → 업체 카드를 골랐는데 의뢰인 레코드로 덮어써져 역할/소유자(ownerId)가 깨지고
+      //   엉뚱한 화면으로 진입하던 계정 전환 role 복원 오류 방지.
+      if (data && (!ku.userId || data.id === ku.userId)) {
         const dbRole = data.role;
         const isAdmin = dbRole === "admin";
         const isOperator = data.is_operator === true || dbRole === "operator";
+        // 역할은 '선택한 계정' 기준 우선(로그인 시 선택값이라 DB role 과 다를 수 있음).
         const effRole = isAdmin ? "admin" : (ku.role || dbRole || "consumer");
-        fresh = { ...data, role: effRole, activeRole: effRole, isOperator };
+        fresh = {
+          ...data, role: effRole, activeRole: effRole, isOperator,
+          ownerId: data.owner_id ?? ku.ownerId ?? null,
+        };
       }
     } catch {}
     setPickBusyId(null);
