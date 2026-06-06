@@ -14,6 +14,11 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
   const isGuest  = !onBidSubmit && !!onRequiresAuth;
   // 새로고침 후에도 입찰완료 상태 유지 — DB의 기존 입찰(myBid) 반영
   const hasBid = submitted || !!myBid;
+  // 업체 선정/현장견적 요청 이후에는 '검토 중/입찰 수정'을 더 이상 보여주지 않는다.
+  // (selected_bid_id/selected_company_id 채워짐, request.status 가 open 이 아님, 또는 내 입찰이 selected)
+  const isSelectedAway = !!(r?.selectedBidId || r?.selectedCompanyId)
+    || (!!r?.status && r.status !== "open")
+    || myBid?.status === "selected";
   // 수정 폼 열기 — 기존 입찰값으로 프리필
   const openEdit = () => {
     const src = myBid ?? {};
@@ -113,8 +118,11 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
                 <div style={{ fontSize:12, color:C.text3, marginBottom:3 }}>🔨 {bidForm.material || myBid?.material}</div>
               )}
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
-                <div style={{ fontSize:12, color:C.text3 }}>의뢰인이 검토 중입니다</div>
-                {!isClosed && !isGuest && (
+                <div style={{ fontSize:12, color: isSelectedAway ? C.brand : C.text3, fontWeight: isSelectedAway ? 700 : 400 }}>
+                  {isSelectedAway ? "🎉 업체로 선정됐어요 · 진행중 탭에서 확인하세요" : "의뢰인이 검토 중입니다"}
+                </div>
+                {/* 업체 선정 이후에는 입찰 수정 버튼 숨김 */}
+                {!isSelectedAway && !isClosed && !isGuest && (
                   <button onClick={openEdit}
                     style={{ background:C.surface, color:C.brand, border:`1px solid ${C.brandM}`,
                       borderRadius:R.full, padding:"5px 14px", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
