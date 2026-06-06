@@ -838,31 +838,46 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   );
   // 새 견적 요청(biddable): 순수 open + 업체 미선택 + 에스크로/진행/현장방문 모두 아님.
   // request.id 기준으로 진행중·현장방문과 dedupe → 같은 건이 양쪽에 동시 노출되지 않음.
-  const biddableRequests = useMemo(
-    () => customerRequests.filter(r =>
+  // submittedBids(requestId) 기반으로 이미 입찰한 요청도 제외.
+  const biddableRequests = useMemo(() => {
+    const bidSubmittedIds = new Set(submittedBids.map(b => b.requestId).filter(Boolean));
+    return customerRequests.filter(r =>
       r.status === "open"
       && !r.selectedBidId && !r.selectedCompanyId
       && !inProgressRequestIds.has(r.id)
       && !activeJobRequestIds.has(r.id)
       && r.isActive
-    ),
-    [customerRequests, inProgressRequestIds, activeJobRequestIds]
-  );
+      && !bidSubmittedIds.has(r.id)
+    );
+  }, [customerRequests, inProgressRequestIds, activeJobRequestIds, submittedBids]);
+  // 동일 결과의 중복 로그를 막기 위한 ref — key 가 바뀔 때만 출력.
+  const lastBiddableLogKeyRef = useRef("");
   useEffect(() => {
     if (activeRole !== "company") return;
+    const companyId = currentUser?.id ?? null;
+    const ownerId   = user?.id ?? null;
+    const key = [companyId, ownerId, customerRequests.length, biddableRequests.map(r => r.id).join(",")].join("|");
+    if (key === lastBiddableLogKeyRef.current) return;
+    lastBiddableLogKeyRef.current = key;
     try {
+      const bidSubmittedIds = new Set(submittedBids.map(b => b.requestId).filter(Boolean));
       console.log("[GONGGAN_DEBUG][biddableRequests]", {
-        currentCompanyId: currentUser?.id ?? null, ownerId: user?.id ?? null,
+        currentCompanyId: companyId, ownerId,
         customerRequestsTotal: customerRequests.length,
         inProgressIds: [...inProgressRequestIds], activeJobIds: [...activeJobRequestIds],
         biddable: biddableRequests.map(r => ({ id: r.id, status: r.status, selected_company_id: r.selectedCompanyId ?? null, selected_bid_id: r.selectedBidId ?? null, budget_min: r.budgetMin ?? null, budget_max: r.budgetMax ?? null })),
         excluded: customerRequests.filter(r => !biddableRequests.includes(r)).map(r => ({
           id: r.id, status: r.status, selected_company_id: r.selectedCompanyId ?? null,
-          reason: r.status !== "open" ? `status=${r.status}` : (r.selectedBidId || r.selectedCompanyId) ? "selected" : inProgressRequestIds.has(r.id) ? "inProgress(escrow)" : activeJobRequestIds.has(r.id) ? "activeJob(siteVisit)" : !r.isActive ? "inactive/expired" : "?",
+          reason: r.status !== "open" ? `status=${r.status}`
+            : (r.selectedBidId || r.selectedCompanyId) ? "selected"
+            : inProgressRequestIds.has(r.id) ? "inProgress(escrow)"
+            : activeJobRequestIds.has(r.id) ? "activeJob(siteVisit)"
+            : bidSubmittedIds.has(r.id) ? "already_bid"
+            : !r.isActive ? "inactive/expired" : "?",
         })),
       });
     } catch {}
-  }, [activeRole, biddableRequests, customerRequests, inProgressRequestIds, activeJobRequestIds, currentUser?.id, user?.id]);
+  }, [activeRole, biddableRequests, submittedBids, customerRequests, inProgressRequestIds, activeJobRequestIds, currentUser?.id, user?.id]);
   const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
   const prevTxStatusRef = useRef({}); // { [requestId]: transaction_status } — 단계 전환 토스트용
   const loadReqInFlightRef = useRef(false); // loadCompanyRequests 중복 호출 가드
@@ -3438,20 +3453,27 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               <button onClick={() => setScreen("home")} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
               <div style={{ fontSize:17, fontWeight:800, color:C.text1 }}>시공 진행 현황</div>
             </div>
-            {myRequests.length === 0 ? (
-              <div style={{ textAlign:"center", padding:"60px 0" }}>
-                <div style={{ fontSize:40, marginBottom:12 }}>📋</div>
-                <div style={{ fontSize:14, color:C.text3 }}>아직 견적 요청이 없어요</div>
-                <button onClick={() => { setScreen("home"); handleOpenNewReq(); }}
-                  style={{ marginTop:S.xl, padding:"12px 24px", background:C.brand,
-                    color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer" }}>
-                  안전하게 견적 시작하기
-                </button>
-              </div>
-            ) : myRequests.map(r => {
-              const escData = myRequestsEscrow[r.id] ?? null;
-              // 진행 현황 = 계약(에스크로) 진입 건만. open 견적요청·시드 제외(과다표시/이중 노출 방지).
-              if (!isRequestInProgress(r, escData) && !isRequestSettled(r, escData)) return null;
+            {(() => {
+              // 계약 진입 건만 사전 필터 — null-map 백지 방어.
+              const progressRows = myRequests
+                .map(r => ({ r, escData: myRequestsEscrow[r.id] ?? null }))
+                .filter(({ r, escData }) => isRequestInProgress(r, escData) || isRequestSettled(r, escData));
+              if (myRequests.length === 0 || progressRows.length === 0) return (
+                <div style={{ textAlign:"center", padding:"60px 0" }}>
+                  <div style={{ fontSize:40, marginBottom:12 }}>{myRequests.length === 0 ? "📋" : "🏗"}</div>
+                  <div style={{ fontSize:14, color:C.text3 }}>
+                    {myRequests.length === 0 ? "아직 견적 요청이 없어요" : "현재 진행 중인 시공 현황이 없습니다."}
+                  </div>
+                  {myRequests.length === 0 && (
+                    <button onClick={() => { setScreen("home"); handleOpenNewReq(); }}
+                      style={{ marginTop:S.xl, padding:"12px 24px", background:C.brand,
+                        color:"#fff", border:"none", borderRadius:R.full, fontWeight:800, fontSize:14, cursor:"pointer" }}>
+                      안전하게 견적 시작하기
+                    </button>
+                  )}
+                </div>
+              );
+              return progressRows.map(({ r, escData }) => {
               const { escrow: esc } = escData ?? {};
               const txStatus = esc?.transaction_status ?? null;
               const hasEscrow = !!esc;
@@ -3525,7 +3547,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   </div>
                 </div>
               );
-            })}
+            }); })()}
           </div>
         )}
 
