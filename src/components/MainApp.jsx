@@ -838,18 +838,23 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   );
   // 새 견적 요청(biddable): 순수 open + 업체 미선택 + 에스크로/진행/현장방문 모두 아님.
   // request.id 기준으로 진행중·현장방문과 dedupe → 같은 건이 양쪽에 동시 노출되지 않음.
-  // submittedBids(requestId) 기반으로 이미 입찰한 요청도 제외.
+  // submittedBids(requestId) + DB bids(company_id) 양쪽으로 이미 입찰한 요청 제외.
+  // DB bids 체크: companies.id(신규) 또는 ownerId(기존 데이터 호환) 모두 already_bid 로 처리.
   const biddableRequests = useMemo(() => {
+    const companyIdMe = currentUser?.id ?? null;
+    const ownerIdMe = user?.id ?? null;
     const bidSubmittedIds = new Set(submittedBids.map(b => b.requestId).filter(Boolean));
-    return customerRequests.filter(r =>
-      r.status === "open"
-      && !r.selectedBidId && !r.selectedCompanyId
-      && !inProgressRequestIds.has(r.id)
-      && !activeJobRequestIds.has(r.id)
-      && r.isActive
-      && !bidSubmittedIds.has(r.id)
-    );
-  }, [customerRequests, inProgressRequestIds, activeJobRequestIds, submittedBids]);
+    return customerRequests.filter(r => {
+      if (r.status !== "open") return false;
+      if (r.selectedBidId || r.selectedCompanyId) return false;
+      if (inProgressRequestIds.has(r.id)) return false;
+      if (activeJobRequestIds.has(r.id)) return false;
+      if (!r.isActive) return false;
+      if (bidSubmittedIds.has(r.id)) return false;
+      if (r.bids?.some(b => b?.company_id === companyIdMe || b?.company_id === ownerIdMe)) return false;
+      return true;
+    });
+  }, [customerRequests, inProgressRequestIds, activeJobRequestIds, submittedBids, currentUser?.id, user?.id]);
   // 동일 결과의 중복 로그를 막기 위한 ref — key 가 바뀔 때만 출력.
   const lastBiddableLogKeyRef = useRef("");
   useEffect(() => {
@@ -872,7 +877,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             : (r.selectedBidId || r.selectedCompanyId) ? "selected"
             : inProgressRequestIds.has(r.id) ? "inProgress(escrow)"
             : activeJobRequestIds.has(r.id) ? "activeJob(siteVisit)"
-            : bidSubmittedIds.has(r.id) ? "already_bid"
+            : bidSubmittedIds.has(r.id) ? "already_bid(local)"
+            : r.bids?.some(b => b?.company_id === companyId || b?.company_id === ownerId) ? "already_bid(db)"
             : !r.isActive ? "inactive/expired" : "?",
         })),
       });
@@ -1816,10 +1822,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     }
     // actor: display info only (name, temp, badge). DO NOT use actor.id for FK.
     const actor = currentUser ?? { id: null, ownerId: null, name: user.name ?? "업체", temp: 36.5 };
-    // bids.company_id FK → users.id, so always use auth user.id
-    const bidCompanyId = user.id;
+    // bids.company_id → companies.id(currentUser.id) 우선. user.id(ownerId) 는 fallback only.
+    const bidCompanyId = currentUser?.id ?? user.id;
     if (!bidCompanyId || typeof bidCompanyId !== "string" || !bidCompanyId.includes("-")) {
-      setBidDebug({ request_id: request.id, payload_company_id: null, insertError: "user.id null — 로그인 필요" });
+      setBidDebug({ request_id: request.id, payload_company_id: null, insertError: "company id null — 로그인 필요" });
       showToast("로그인 정보를 확인할 수 없습니다");
       return;
     }
@@ -1833,14 +1839,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     let bidCountAfter = 0;
     try {
       // 한 업체당 1입찰 정책 — DB에서 이 업체의 기존 입찰을 확인(로컬 state 누락/새로고침 대비).
-      // 이미 입찰했으면 새로 만들지 않고 수정(update)한다.
+      // 기존 데이터 호환: bids.company_id 가 ownerId(user.id)로 저장된 경우도 같은 업체로 인식.
       let existingId = null;
       const { data: existingBids } = await getBidsForRequest(request.id);
-      const mine = (existingBids ?? []).find(b => b.company_id === bidCompanyId);
+      const mine = (existingBids ?? []).find(b => b.company_id === bidCompanyId || b.company_id === user.id);
       if (mine) existingId = mine.id;
       else {
         const localMine = submittedBids.find(
-          b => b.requestId === request.id && b.companyId === bidCompanyId && !String(b.id).startsWith("tmp-")
+          b => b.requestId === request.id && (b.companyId === bidCompanyId || b.companyId === user.id) && !String(b.id).startsWith("tmp-")
         );
         if (localMine) existingId = localMine.id;
       }
@@ -2976,7 +2982,21 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 </div>
               ) : (
                 biddableRequests.map(r => {
-                  const myBid = submittedBids.find(b => b.requestId === r.id && b.companyId === user?.id && !String(b.id).startsWith("tmp-")) ?? null;
+                  const _compId = currentUser?.id;
+                  const _ownId  = user?.id;
+                  const myBidFromState = submittedBids.find(b =>
+                    b.requestId === r.id &&
+                    (b.companyId === _compId || b.companyId === _ownId) &&
+                    !String(b.id).startsWith("tmp-")
+                  ) ?? null;
+                  const myBidFromDb = !myBidFromState
+                    ? (() => {
+                        const db = r.bids?.find(b => b?.company_id === _compId || b?.company_id === _ownId);
+                        if (!db) return null;
+                        return { id: db.id, requestId: r.id, companyId: db.company_id, price: db.price ?? 0, status: db.status ?? "pending" };
+                      })()
+                    : null;
+                  const myBid = myBidFromState ?? myBidFromDb;
                   return (
                     <BidCard
                       key={r.id}

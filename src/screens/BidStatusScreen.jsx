@@ -6,7 +6,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
 import {
   PAYMENT_METHODS, COMING_SOON_MESSAGE, ACTIVE_PROVIDER, getMethodMeta,
   loadFeeRules, feeRateFromRules, computeFeeWithRate, getProvider,
@@ -102,8 +102,11 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     if (!request?.id) { showLocalToast("요청 정보를 찾을 수 없어요"); return; }
     siteVisitRef.current = true;
     try {
+      // bid.company_id 가 ownerId(users.id)로 저장된 기존 데이터 호환 — companies.id 로 resolve.
+      // site_visit_request/respond RPC 는 companies.id 기준으로 동작하므로 반드시 변환 필요.
+      const resolvedCompanyId = await resolveCompanyId(selBid.companyId);
       const { data, error } = await requestSiteVisit({
-        requestId: request.id, bidId: selBid.id, companyId: selBid.companyId, actorId: userId,
+        requestId: request.id, bidId: selBid.id, companyId: resolvedCompanyId, actorId: userId,
       });
 
       // [진단·개발 전용] 현장견적요청 클릭 시 site_visits 생성/요청 전이 결과 확인.
@@ -113,7 +116,9 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           .eq("id", request.id).maybeSingle();
         const diag = {
           action: "site_visit_request",
-          sent_request_id: request.id, sent_bid_id: selBid.id, sent_company_id: selBid.companyId, sent_actor_id: userId,
+          sent_request_id: request.id, sent_bid_id: selBid.id,
+          raw_company_id: selBid.companyId, resolved_company_id: resolvedCompanyId,
+          sent_actor_id: userId,
           created_site_visit_id: data?.id ?? null, created_status: data?.status ?? null,
           rpc_error: error?.message ?? null,
           after_status: after?.status ?? null,

@@ -1255,6 +1255,19 @@ export const createSiteVisit = (data, actorId = null) =>
     p_scheduled_at: data.scheduled_at ?? null,
   });
 
+// bid.company_id 가 ownerId(users.id)로 저장된 기존 데이터 호환 — companies.id 로 resolve.
+// id 로 직접 매칭되면 그대로 반환, 아니면 owner_id 로 조회해 companies.id 반환.
+export const resolveCompanyId = async (companyIdOrOwnerId) => {
+  if (!companyIdOrOwnerId) return null;
+  const { data } = await supabase
+    .from("companies")
+    .select("id")
+    .or(`id.eq.${companyIdOrOwnerId},owner_id.eq.${companyIdOrOwnerId}`)
+    .limit(1)
+    .maybeSingle();
+  return data?.id ?? companyIdOrOwnerId;
+};
+
 // 의뢰인 현장견적 요청 → site_visits(status='requested') 생성 + 요청 전이(RPC, actor=의뢰인 검증).
 export const requestSiteVisit = ({ requestId, bidId, companyId, actorId = null } = {}) =>
   supabase.rpc("site_visit_request", {
