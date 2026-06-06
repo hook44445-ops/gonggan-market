@@ -98,16 +98,18 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       if (request?.id) rpcRes = await markRequestSiteVisit(request.id, { bidId: selBid.id, companyId: selBid.companyId, actorId: userId });
 
       // [진단·개발 전용] 현장견적요청 클릭 시 requests 의 어떤 컬럼이 실제로 UPDATE 됐는지 확인.
-      // request_mark_site_visit 는 status in ('open','site_visit') 일 때만 전이하며 새 status 를 반환한다.
-      //   · rpc_returned_status='site_visit' + after_selected_company_id 채워짐 → 정상 전이.
-      //   · rpc_returned_status=null → 가드에 막혀 0행(이미 in_progress 등) → selected_* 미기록 → 업체 단계 미노출 원인.
+      // request_mark_site_visit(038) 반환:
+      //   · 'site_visit'        → open/site_visit 에서 정상 전이
+      //   · v_req.status(기타)  → in_progress 등 status 불변, selected_* backfill 만 수행
+      //   · error               → NOT_REQUEST_OWNER / COMPANY_MISMATCH / TERMINAL_STATUS 중 하나
       if (SHOW_DEBUG_UI && request?.id) {
         const { data: after } = await supabase
           .from("requests").select("status, selected_company_id, selected_bid_id")
           .eq("id", request.id).maybeSingle();
+        const returned = rpcRes?.data ?? null;
         const diag = {
           action:                    "request_mark_site_visit",
-          rpc_returned_status:       rpcRes?.data ?? null,
+          rpc_returned_status:       returned,
           rpc_error:                 rpcRes?.error?.message ?? null,
           sent_request_id:           request.id,
           sent_bid_id:               selBid.id,
@@ -116,7 +118,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           after_status:              after?.status ?? null,
           after_selected_company_id: after?.selected_company_id ?? null,
           after_selected_bid_id:     after?.selected_bid_id ?? null,
-          transitioned:              rpcRes?.data === "site_visit",
+          // site_visit 전이 or in_progress 상태에서 backfill 성공 모두 OK
+          transitioned:              returned === "site_visit" || (!!returned && !!after?.selected_company_id),
         };
         console.log("[SITE_VISIT_REQUEST]", diag);
         setDbWriteLog(diag);
