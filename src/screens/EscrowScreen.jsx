@@ -292,6 +292,18 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const bidAmount   = resolvedBid?.price ?? 0;
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
   const stages      = bidAmount > 0 ? calculateStagePayments(bidAmount) : [];
+  useEffect(() => {
+    try {
+      console.log("[GONGGAN_DEBUG][EscrowScreen]", {
+        role: activeRole, request_id: request?.id ?? resolvedBid?.requestId ?? null,
+        resolvedContractId, contract_request_id: contractData?.request_id ?? null, contract_company_id: contractData?.company_id ?? null,
+        bid_id: resolvedBid?.id ?? null, bid_company_id: resolvedBid?.companyId ?? null,
+        bidAmount, customerTotal, escrow_total_amount: contractData?.total_amount ?? null, tx: contractData?.transaction_status ?? null,
+        displayAmount: isConsumer ? customerTotal : bidAmount, source: "resolvedBid.price→calculateCustomerTotal",
+      });
+    } catch {}
+  }, [activeRole, request?.id, resolvedBid?.id, resolvedContractId, contractData?.id, bidAmount, customerTotal]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Dynamic stage flow
   const [stageStatus, setStageStatus] = useState({
     1: "done",

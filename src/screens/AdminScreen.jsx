@@ -31,6 +31,7 @@ import {
   getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
   fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
   getProjectCheckpoints,
+  adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
@@ -973,6 +974,84 @@ function AdminCheckpoints({ requestId, adminUserId }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// 관리자 운영 도구 — 테스트/꼬인 거래 강제 정리(soft_cancel 기본 / hard_delete 옵션).
+// role='admin' 만 RPC 통과. 모든 실행은 admin_logs 기록.
+function AdminCleanupTool({ adminUserId, showToast }) {
+  const [reqId, setReqId]   = useState("");
+  const [userId, setUserId] = useState("");
+  const [coId, setCoId]     = useState("");
+  const [mode, setMode]     = useState("soft_cancel");
+  const [busy, setBusy]     = useState(false);
+  const [result, setResult] = useState(null);
+  const [confirmHard, setConfirmHard] = useState(null);
+
+  const run = async (fn, label) => {
+    setBusy(true); setResult(null);
+    const { data, error } = await fn();
+    setBusy(false);
+    if (error) { showToast?.(`정리 실패: ${error.message ?? ""}`, false); setResult({ error: error.message }); return; }
+    setResult({ label, data });
+    showToast?.(`${label} 완료`);
+  };
+  const guard = (fn, label) => {
+    if (mode === "hard_delete_test_only") { setConfirmHard({ run: () => run(fn, label), label }); return; }
+    run(fn, label);
+  };
+
+  const inp = { width: "100%", padding: "11px 13px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 8, fontFamily: "inherit", color: C.text1, background: C.surface };
+  const btn = (bg, fg, disabled) => ({ flex: 1, minWidth: 130, padding: "11px", background: disabled ? C.bgWarm : bg, color: disabled ? C.text4 : fg, border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: disabled ? "not-allowed" : "pointer" });
+
+  return (
+    <div>
+      <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.lg }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🧹 데이터 정리 / 운영 도구</div>
+        <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: S.lg }}>
+          테스트/꼬인 거래를 강제 정리합니다. 기본은 <b>화면 숨김/취소(soft)</b>이며, hard delete 는 테스트 데이터에만 사용하세요.
+        </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: S.lg }}>
+          {[["soft_cancel", "A. 숨김/취소(권장)"], ["hard_delete_test_only", "B. 완전삭제(테스트)"]].map(([v, l]) => (
+            <button key={v} onClick={() => setMode(v)}
+              style={{ flex: 1, padding: "9px", borderRadius: R.md, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                background: mode === v ? (v === "hard_delete_test_only" ? "#7A1F1F" : C.brand) : C.bg,
+                color: mode === v ? "#fff" : C.text2, border: `1px solid ${mode === v ? "transparent" : C.bgWarm}` }}>{l}</button>
+          ))}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.text2, marginBottom: 4 }}>request_id</div>
+        <input value={reqId} onChange={e => setReqId(e.target.value.trim())} placeholder="요청 UUID" style={inp} />
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.text2, marginBottom: 4 }}>user_id (의뢰인)</div>
+        <input value={userId} onChange={e => setUserId(e.target.value.trim())} placeholder="사용자 UUID" style={inp} />
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.text2, marginBottom: 4 }}>company_id</div>
+        <input value={coId} onChange={e => setCoId(e.target.value.trim())} placeholder="업체 UUID" style={{ ...inp, marginBottom: S.lg }} />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button disabled={busy || !reqId} onClick={() => guard(() => adminCleanupRequest(adminUserId, reqId, mode), "request 정리")} style={btn(C.brand, "#fff", busy || !reqId)}>꼬인 진행건/Request 정리</button>
+          <button disabled={busy || !userId} onClick={() => guard(() => adminCleanupUserTestData(adminUserId, userId, mode), "user 정리")} style={btn(C.brand, "#fff", busy || !userId)}>user 단위 정리</button>
+          <button disabled={busy || !coId} onClick={() => guard(() => adminCleanupCompanyTestData(adminUserId, coId, mode), "company 정리")} style={btn(C.brand, "#fff", busy || !coId)}>company 단위 정리</button>
+        </div>
+        {result && (
+          <div style={{ marginTop: S.lg, background: C.bg, borderRadius: R.md, padding: S.md, fontSize: 11, color: C.text2, fontFamily: "monospace", lineHeight: 1.7, wordBreak: "break-all" }}>
+            {result.error ? `❌ ${result.error}` : `✅ ${result.label}: ${JSON.stringify(result.data)}`}
+          </div>
+        )}
+      </div>
+      {confirmHard && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 18, padding: 24, width: "100%", maxWidth: 360 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#7A1F1F", marginBottom: 8 }}>완전 삭제 확인</div>
+            <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7, marginBottom: 18 }}>
+              이 작업은 <b>테스트 데이터만 정리</b>합니다. 실제 운영 데이터에는 사용하지 마세요.<br />
+              ({confirmHard.label} · hard delete)
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setConfirmHard(null)} style={{ flex: 1, padding: "11px", background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>취소</button>
+              <button onClick={() => { const r = confirmHard.run; setConfirmHard(null); r(); }} style={{ flex: 1, padding: "11px", background: "#7A1F1F", color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>삭제 진행</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1956,6 +2035,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["reports",        "신고관리"],
     ["direct_deal",    "직거래 의심"],
     ["operator_setting", "운영자 설정"],
+    ["tools",          "정리도구"],
     ["notifications",  "알림"],
   ];
 
@@ -2964,6 +3044,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
             {mainTab === "operator_setting" && (
               <OperatorSettingTab adminUserId={user?.id ?? null} showToast={showToast} />
+            )}
+
+            {mainTab === "tools" && (
+              <AdminCleanupTool adminUserId={user?.id ?? null} showToast={showToast} />
             )}
 
             {mainTab === "notifications" && (

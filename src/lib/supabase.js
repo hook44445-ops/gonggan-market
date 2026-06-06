@@ -162,6 +162,17 @@ export const getUserRequests = async (userId) => {
     .eq("user_id", userId)
     .or("is_hidden.is.null,is_hidden.eq.false")
     .order("created_at", { ascending: false });
+  try {
+    console.log("[GONGGAN_DEBUG][getUserRequests]", {
+      userId, count: res.data?.length ?? 0, error: res.error?.message ?? null,
+      rows: (res.data ?? []).map(r => ({
+        id: r.id, status: r.status,
+        selected_company_id: r.selected_company_id ?? null, selected_bid_id: r.selected_bid_id ?? null,
+        budget_min: r.budget_min ?? null, budget_max: r.budget_max ?? null,
+        bids: (r.bids ?? []).map(b => ({ id: b.id, company_id: b.company_id, price: b.price, status: b.status })),
+      })),
+    });
+  } catch {}
   return res;
 };
 
@@ -208,8 +219,11 @@ export const getBidsForRequest = (requestId) =>
     .eq("request_id", requestId)
     .order("price", { ascending: true });
 
-export const selectBid = async (bidId) =>
-  supabase.from("bids").update({ selected: true }).eq("id", bidId);
+export const selectBid = async (bidId) => {
+  const res = await supabase.from("bids").update({ selected: true }).eq("id", bidId);
+  try { console.log("[GONGGAN_DEBUG][selectBid]", { bidId, error: res.error?.message ?? null }); } catch {}
+  return res;
+};
 
 // 현장방문 견적 흐름 — 상태 전이 RPC (security definer, 내부에서 actor 검증).
 // OTP 커스텀 인증(auth.uid()=null)이라 requests 직접 UPDATE 는 RLS 에 막힌다 → RPC 경유.
@@ -1386,6 +1400,18 @@ export const getCompanyActiveJobs = async (companyId, extraIds = []) => {
     return { bid: bid ?? null, request, siteVisit: sv, estimate: est };
   }));
 
+  try {
+    console.log("[GONGGAN_DEBUG][getCompanyJobs]", {
+      candidateIds, selectedBids: bids?.length ?? 0, selReqs: selReqs?.length ?? 0, escrows: escrows?.length ?? 0,
+      jobs: jobs.map(j => ({
+        request_id: j.request?.id, status: j.request?.status,
+        selected_company_id: j.request?.selected_company_id ?? null, selected_bid_id: j.request?.selected_bid_id ?? null,
+        bid_id: j.bid?.id ?? null, bid_company_id: j.bid?.company_id ?? null, bid_price: j.bid?.price ?? null,
+        budget_min: j.request?.budget_min ?? null, budget_max: j.request?.budget_max ?? null,
+        siteVisit: j.siteVisit?.status ?? null,
+      })),
+    });
+  } catch {}
   return { data: jobs, error: null };
 };
 
@@ -1404,8 +1430,9 @@ export const getCompanyStatus = (companyId) =>
 
 // ── STEP B: Escrow record creation ────────────────────────────────────────────
 
-export const createEscrowRecord = (data) =>
-  supabase.from("escrow_payments").insert({
+export const createEscrowRecord = async (data) => {
+  console.log("[GONGGAN_DEBUG][createEscrow]", { requestId: data.requestId ?? null, companyId: data.companyId ?? null, totalAmount: data.totalAmount });
+  const res = await supabase.from("escrow_payments").insert({
     request_id:          data.requestId ?? null,
     company_id:          data.companyId ?? null,
     total_amount:        data.totalAmount,
@@ -1413,6 +1440,9 @@ export const createEscrowRecord = (data) =>
     status:              "deposited",
     step1_deposited_at:  new Date().toISOString(),
   }).select().single();
+  try { console.log("[GONGGAN_DEBUG][createEscrow:result]", { id: res.data?.id ?? null, request_id: res.data?.request_id ?? null, company_id: res.data?.company_id ?? null, total_amount: res.data?.total_amount ?? null, error: res.error?.message ?? null }); } catch {}
+  return res;
+};
 
 // 멱등 에스크로 확보 — 같은 request_id 에 활성(취소/정산 아님) 에스크로가 있으면 재사용,
 // 없을 때만 1건 생성. 결제/현장방문/재진입 경로의 중복 escrow_payments insert 를 차단한다.
@@ -1659,6 +1689,15 @@ export const getPendingPayouts = () =>
 
 
 // ── Admin: Dispute management ─────────────────────────────────────────────────
+
+// ── 관리자 강제 정리(테스트/꼬인 거래) — security-definer RPC. role='admin' 만 실행. ──
+// mode: 'soft_cancel' | 'hard_delete_test_only'. before/after 스냅샷은 admin_logs 에 기록.
+export const adminCleanupRequest = (adminId, requestId, mode = "soft_cancel") =>
+  supabase.rpc("admin_cleanup_request", { p_admin_id: adminId, p_request_id: requestId, p_mode: mode });
+export const adminCleanupUserTestData = (adminId, userId, mode = "soft_cancel") =>
+  supabase.rpc("admin_cleanup_user_test_data", { p_admin_id: adminId, p_user_id: userId, p_mode: mode });
+export const adminCleanupCompanyTestData = (adminId, companyId, mode = "soft_cancel") =>
+  supabase.rpc("admin_cleanup_company_test_data", { p_admin_id: adminId, p_company_id: companyId, p_mode: mode });
 
 export const adminResolveDispute = async (paymentId, adminId, resolution, reason = null) => {
   const { data: prev } = await supabase
