@@ -865,6 +865,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   }, [activeRole, biddableRequests, customerRequests, inProgressRequestIds, activeJobRequestIds, currentUser?.id, user?.id]);
   const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
   const prevTxStatusRef = useRef({}); // { [requestId]: transaction_status } — 단계 전환 토스트용
+  const loadReqInFlightRef = useRef(false); // loadCompanyRequests 중복 호출 가드
+  const loadReqLastAtRef = useRef(0);       // loadCompanyRequests 디바운스(1초)
   const [escrowRefreshTrigger, setEscrowRefreshTrigger] = useState(0);
   const [topReviews, setTopReviews] = useState([]);
   const [hidingId, setHidingId] = useState(null);     // requestId currently being hidden
@@ -905,16 +907,26 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   };
 
   const loadCompanyRequests = async () => {
-    // requests.status 단일 기준 — getRequests 가 status='open' 만 반환.
-    // (계약/선정 시 status 가 in_progress 로 전이되므로 별도 cross-ref 불필요)
-    const { data, error } = await getRequests();
-    setLastFetchAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-    if (error) {
-      setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: 0, companyData: [] }));
-      return;
+    // 디바운스/중복호출 가드 — 1초 내 재호출(포커스 복귀·새로고침 버튼 연타·effect 재실행) 차단.
+    const now = Date.now();
+    if (loadReqInFlightRef.current) return;
+    if (now - loadReqLastAtRef.current < 1000) return;
+    loadReqInFlightRef.current = true;
+    loadReqLastAtRef.current = now;
+    try {
+      // requests.status 단일 기준 — getRequests 가 status='open' 만 반환.
+      // (계약/선정 시 status 가 in_progress 로 전이되므로 별도 cross-ref 불필요)
+      const { data, error } = await getRequests();
+      setLastFetchAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      if (error) {
+        setReqDebug(d => ({ ...d, companyFetchError: error?.message ?? null, companyRows: 0, companyData: [] }));
+        return;
+      }
+      setReqDebug(d => ({ ...d, companyFetchError: null, companyRows: data?.length ?? 0, companyData: data ?? [] }));
+      setCustomerRequests(applyExpiry(data ?? []));
+    } finally {
+      loadReqInFlightRef.current = false;
     }
-    setReqDebug(d => ({ ...d, companyFetchError: null, companyRows: data?.length ?? 0, companyData: data ?? [] }));
-    setCustomerRequests(applyExpiry(data ?? []));
   };
 
   const [reviewFetchErr, setReviewFetchErr] = useState(null);
