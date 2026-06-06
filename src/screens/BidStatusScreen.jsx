@@ -94,7 +94,37 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     siteVisitRef.current = true;
     try {
       // 입찰 selected 단일화·요청 전이는 request_mark_site_visit RPC 내부에서 처리(consumer 직접 쓰기는 RLS 차단).
-      if (request?.id) await markRequestSiteVisit(request.id, { bidId: selBid.id, companyId: selBid.companyId, actorId: userId });
+      let rpcRes = null;
+      if (request?.id) rpcRes = await markRequestSiteVisit(request.id, { bidId: selBid.id, companyId: selBid.companyId, actorId: userId });
+
+      // [진단·개발 전용] 현장견적요청 클릭 시 requests 의 어떤 컬럼이 실제로 UPDATE 됐는지 확인.
+      // request_mark_site_visit(038) 반환:
+      //   · 'site_visit'        → open/site_visit 에서 정상 전이
+      //   · v_req.status(기타)  → in_progress 등 status 불변, selected_* backfill 만 수행
+      //   · error               → NOT_REQUEST_OWNER / COMPANY_MISMATCH / TERMINAL_STATUS 중 하나
+      if (SHOW_DEBUG_UI && request?.id) {
+        const { data: after } = await supabase
+          .from("requests").select("status, selected_company_id, selected_bid_id")
+          .eq("id", request.id).maybeSingle();
+        const returned = rpcRes?.data ?? null;
+        const diag = {
+          action:                    "request_mark_site_visit",
+          rpc_returned_status:       returned,
+          rpc_error:                 rpcRes?.error?.message ?? null,
+          sent_request_id:           request.id,
+          sent_bid_id:               selBid.id,
+          sent_company_id:           selBid.companyId,
+          sent_actor_id:             userId,
+          after_status:              after?.status ?? null,
+          after_selected_company_id: after?.selected_company_id ?? null,
+          after_selected_bid_id:     after?.selected_bid_id ?? null,
+          // site_visit 전이 or in_progress 상태에서 backfill 성공 모두 OK
+          transitioned:              returned === "site_visit" || (!!returned && !!after?.selected_company_id),
+        };
+        console.log("[SITE_VISIT_REQUEST]", diag);
+        setDbWriteLog(diag);
+      }
+
       const ownerId = selBid.company?.ownerId ?? null;
       if (ownerId) {
         createNotification({
