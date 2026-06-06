@@ -68,14 +68,16 @@ export default function DebugOverlay() {
       <button
         onClick={() => setOpen((o) => !o)}
         style={{
-          position: "fixed", right: 12, bottom: 88, zIndex: 2147483647,
-          width: 52, height: 52, borderRadius: 26, border: "2px solid #fff",
-          background: "#1E3D2F", color: "#fff", fontSize: 12, fontWeight: 800,
-          boxShadow: "0 4px 14px rgba(0,0,0,0.4)", cursor: "pointer", lineHeight: 1.1,
+          position: "fixed", right: 12, bottom: 96, zIndex: 2147483647,
+          minWidth: 64, height: 64, padding: "0 10px", borderRadius: 16, border: "2px solid #fff",
+          background: "#2563EB", color: "#fff", fontSize: 11, fontWeight: 900,
+          boxShadow: "0 6px 18px rgba(0,0,0,0.5)", cursor: "pointer", lineHeight: 1.15,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         }}
         aria-label="debug logs"
       >
-        🐞<br />{BUF.length}
+        <span style={{ fontSize: 18 }}>🐞</span>
+        <span>DEBUG {BUF.length}</span>
       </button>
 
       {open && (
