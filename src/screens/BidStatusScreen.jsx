@@ -6,7 +6,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, markRequestSiteVisit, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, markRequestSiteVisit, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
 import {
   PAYMENT_METHODS, COMING_SOON_MESSAGE, ACTIVE_PROVIDER, getMethodMeta,
   loadFeeRules, feeRateFromRules, computeFeeWithRate, getProvider,
@@ -321,33 +321,38 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           log.guard = guardOk ? "ok" : `SKIP bid=${selBid.id} co=${selBid.companyId} req=${request?.id}`;
           if (!guardOk) { setDbWriteLog(log); return; }
 
-          // ── 1. escrow_payments ──────────────────────────────────
-          const { data: escrowData, error: escrowErr } = await createEscrowRecord({
+          // ── 1. escrow_payments (멱등 — 중복 생성 방지) ──────────
+          const { data: escrowData, created: escrowCreated, error: escrowErr } = await getOrCreateEscrow({
             requestId:   request.id,
             companyId:   selBid.companyId,
             totalAmount: selBid.price,
           });
-          log.escrow = escrowData ? escrowData.id.slice(0, 8) : (escrowErr?.message ?? "null");
+          log.escrow = escrowData ? `${escrowData.id.slice(0, 8)}${escrowCreated ? "" : "(reuse)"}` : (escrowErr?.message ?? "null");
           setDbWriteLog({ ...log });
 
           if (!escrowData) { setDbWriteLog(log); return; }
           contractId = escrowData.id;
 
-          // ── 2. escrow_payouts (10/20/40/30%) ────────────────────
-          const { error: payoutsErr } = await createEscrowPayoutsForContract(
-            escrowData.id, selBid.companyId, selBid.price, 0.04, 0.1
-          );
-          // H-6: payout 생성 실패 시 escrow를 롤백하고 중단.
-          // payout 없는 escrow로 결제/계약을 진행하면 단계 표시가 깨지고
-          // 업체에게 잘못된 계약 알림이 가므로, 여기서 멈추고 사용자에게 재시도를 유도.
-          if (payoutsErr) {
-            log.payouts = `FAILED:${payoutsErr.message} → 롤백`;
-            await deleteEscrowRecord(escrowData.id).catch(() => {});
-            setDbWriteLog({ ...log });
-            showLocalToast("결제 처리 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.");
-            return; // payment_orders/알림 등 후속 단계 진행 금지
+          // ── 2. escrow_payouts (10/20/40/30%) — 신규 에스크로에만 생성 ──
+          // 기존 에스크로 재사용 시 payout 이 이미 존재하므로 중복 생성하지 않는다.
+          if (escrowCreated) {
+            const { error: payoutsErr } = await createEscrowPayoutsForContract(
+              escrowData.id, selBid.companyId, selBid.price, 0.04, 0.1
+            );
+            // H-6: payout 생성 실패 시 방금 만든 escrow를 롤백하고 중단.
+            // payout 없는 escrow로 결제/계약을 진행하면 단계 표시가 깨지고
+            // 업체에게 잘못된 계약 알림이 가므로, 여기서 멈추고 사용자에게 재시도를 유도.
+            if (payoutsErr) {
+              log.payouts = `FAILED:${payoutsErr.message} → 롤백`;
+              await deleteEscrowRecord(escrowData.id).catch(() => {});
+              setDbWriteLog({ ...log });
+              showLocalToast("결제 처리 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.");
+              return; // payment_orders/알림 등 후속 단계 진행 금지
+            }
+            log.payouts = "ok(4 rows)";
+          } else {
+            log.payouts = "reuse(existing escrow)";
           }
-          log.payouts = "ok(4 rows)";
           setDbWriteLog({ ...log });
 
           // ── 3. payment_orders ───────────────────────────────────
