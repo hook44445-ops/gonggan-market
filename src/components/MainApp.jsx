@@ -167,9 +167,10 @@ const normalizeRequest = (row) => {
   const hasBids    = bidCount > 0;
   // 삭제/숨김 처리된 요청은 어떤 목록에도 "진행중"으로 노출되면 안 됨.
   const isDeleted  = row.is_deleted === true || row.is_hidden === true;
-  // open 상태이면서 (만료/삭제 아님) 활성. 입찰이 들어오면(hasBids) 진행중으로 노출되어야 함.
-  const isActive   = (status === "open" || hasBids) && !isExpiredByTime && !isDeleted
-                     && status !== "completed" && status !== "cancelled" && status !== "expired" && status !== "closed";
+  // 순수 open(아직 계약 전) 상태만 활성 슬롯으로 본다. in_progress/site_visit 등 계약 진입
+  // 후 상태가 (hasBids 로) 활성 슬롯으로 잘못 잡혀 activeOwn>1 오감지 → 정상 요청 자동 만료되던
+  // 버그 방지(#210). 진행중 판정은 isRequestInProgress(에스크로/선택 기준)가 담당한다.
+  const isActive   = status === "open" && !isExpiredByTime && !isDeleted;
   const isClosed   = isDeleted ||
                      status === "closed" || status === "cancelled" ||
                      status === "expired" ||
@@ -2893,31 +2894,34 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               <button onClick={loadCompanyRequests} style={{ fontSize:13, background:C.brandL, border:`1px solid ${C.brandM}`, color:C.brand, borderRadius:R.full, padding:"6px 14px", fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>🔄 새로고침</button>
             </div>
 
-            {biddableRequests.length === 0 ? (
-              <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
-                <div style={{ fontSize:32, marginBottom:12 }}>📭</div>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6 }}>아직 새 요청이 없어요 🏠</div>
-                <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>
-                  의뢰인이 요청을 등록하면 이곳에 표시됩니다
-                  {SHOW_DEBUG_UI && <><br/>{`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}</>}
+            {/* 안정적인 div 래퍼 — siteVisitJobs 섹션이 동시에 추가/제거될 때 React 재조정 오류 방지(#210) */}
+            <div>
+              {biddableRequests.length === 0 ? (
+                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
+                  <div style={{ fontSize:32, marginBottom:12 }}>📭</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6 }}>아직 새 요청이 없어요 🏠</div>
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>
+                    의뢰인이 요청을 등록하면 이곳에 표시됩니다
+                    {SHOW_DEBUG_UI && <><br/>{`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}</>}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              biddableRequests.map(r => {
-                const myBid = submittedBids.find(b => b.requestId === r.id && b.companyId === user?.id && !String(b.id).startsWith("tmp-")) ?? null;
-                return (
-                  <BidCard
-                    key={r.id}
-                    r={r}
-                    currentUser={currentUser}
-                    alreadyBid={!!myBid}
-                    myBid={myBid}
-                    onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
-                    onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
-                  />
-                );
-              })
-            )}
+              ) : (
+                biddableRequests.map(r => {
+                  const myBid = submittedBids.find(b => b.requestId === r.id && b.companyId === user?.id && !String(b.id).startsWith("tmp-")) ?? null;
+                  return (
+                    <BidCard
+                      key={r.id}
+                      r={r}
+                      currentUser={currentUser}
+                      alreadyBid={!!myBid}
+                      myBid={myBid}
+                      onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
+                      onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
+                    />
+                  );
+                })
+              )}
+            </div>
 
             {SHOW_DEBUG_UI && (
               <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:600, overflowY:"auto" }}>
@@ -2956,7 +2960,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <span style={{color: companyJobsDebug?.bid_err !== "none" ? "#f66" : "#888"}}>bid_err: {companyJobsDebug?.bid_err ?? "?"}</span> | <span style={{color: companyJobsDebug?.req_err !== "none" ? "#f66" : "#888"}}>req_err: {companyJobsDebug?.req_err ?? "?"}</span><br/>
                 {companyJobsDebug?.caught_err && <span style={{color:"#f66"}}>caught: {companyJobsDebug.caught_err}<br/></span>}
                 {companyJobs.map((j, i) => (
-                  <span key={j.bid.id} style={{display:"block", color:"#aff"}}>
+                  <span key={j.bid.id ?? j.request?.id ?? i} style={{display:"block", color:"#aff"}}>
                     job[{i}] bid:{j.bid.id?.slice(0,8)} req:{j.request?.id?.slice(0,8)} {j.request?.type} {j.request?.status}
                   </span>
                 ))}
