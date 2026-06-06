@@ -543,6 +543,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const bidRealtimeRef = useRef(null);
   const bidSubmitGuardRef = useRef(false); // H-2: 입찰 동시 더블서브밋 가드
 
+  // API 중복 호출 방지 — 1초 이내 재진입 차단 (focus/visibility 이벤트 연속 발화 대응)
+  const companyReqTsRef   = useRef(0); // loadCompanyRequests
+  const companyBidsTsRef  = useRef(0); // getCompanyBids
+  const activeJobsTsRef   = useRef(0); // getCompanyActiveJobs
+  const companyJobsTsRef  = useRef(0); // loadJobs (companyJobs)
+
   // ── 관심 탭 ──────────────────────────────────────────────────────────────────
   const [favTab, setFavTab] = useState("received");
 
@@ -974,7 +980,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   // Load requests on mount
   // Consumer: server-side filter by userId; Company/Admin: load all open requests for bidding
   useEffect(() => {
-    if (activeRole === "consumer" && user.id) {
+    if (!user?.id) return;
+    if (activeRole === "consumer") {
       getUserRequests(user.id).then(({ data, error }) => {
         setReqDebug(d => ({ ...d, consumerFetchError: error?.message ?? null, consumerRows: data?.length ?? 0, consumerData: data ?? [] }));
         if (error) return;
@@ -1024,6 +1031,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   // (이전엔 getCompanyBids 가 호출되지 않아 입찰이 optimistic 으로만 보이고 사라졌음)
   useEffect(() => {
     if (activeRole !== "company" || !user?.id) return;
+    const _now = Date.now();
+    if (_now - companyBidsTsRef.current < 1000) return;
+    companyBidsTsRef.current = _now;
     getCompanyBids(user.id).then(({ data, error }) => {
       if (error || !data) return;
       setSubmittedBids(data.map(normalizeBid));
@@ -1050,7 +1060,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   }, [user?.id, activeRole]);
 
   useEffect(() => {
-    if (activeRole !== "company" || !currentUser?.id) return;
+    if (activeRole !== "company") return;
+    if (!currentUser?.id) return;
+    if (!user?.id) return;
+    const _now = Date.now();
+    if (_now - activeJobsTsRef.current < 1000) return;
+    activeJobsTsRef.current = _now;
     // 현장방문 견적 단계(결제 전)만 activeJobs 로 — 에스크로 계약 진입 후(in_progress 등)는
     // companyJobs(에스크로 기준)에서 다뤄 이중 노출을 막는다.
     // bids.company_id 는 소유자 user.id 로 저장되므로 company.id 와 user.id 를 함께 후보로 넘긴다.
@@ -1065,6 +1080,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (activeRole !== "company" || !user?.id) return;
 
     const loadJobs = async () => {
+      const _now = Date.now();
+      if (_now - companyJobsTsRef.current < 1000) return;
+      companyJobsTsRef.current = _now;
       const candidateIds = [...new Set([
         user.id,
         currentUser?.id,
@@ -3002,6 +3020,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       })()
                     : null;
                   const myBid = myBidFromState ?? myBidFromDb;
+                  const siteVisitForBid = siteVisitJobs.find(j => j.request?.id === r.id)?.siteVisit ?? null;
                   return (
                     <BidCard
                       key={r.id}
@@ -3009,6 +3028,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       currentUser={currentUser}
                       alreadyBid={!!myBid}
                       myBid={myBid}
+                      siteVisit={siteVisitForBid}
                       onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
                       onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
                     />
