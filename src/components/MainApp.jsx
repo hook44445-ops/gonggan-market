@@ -179,7 +179,17 @@ const normalizeRequest = (row) => {
     user_id: row.user_id,
     type: row.space_type ?? "",
     size: row.size ?? "",
-    budget: [row.budget_min, row.budget_max].filter(Boolean).map(n => `${n}만원`).join("~") || "협의",
+    // 고객 예산 — DB budget_min/max(만원) 그대로. 하드코딩 fallback 없음.
+    //   값 없음(null/0) → "협의", min==max → 단일 표시, 범위 → "a~b만원".
+    budgetMin: Number.isFinite(row.budget_min) && row.budget_min > 0 ? row.budget_min : null,
+    budgetMax: Number.isFinite(row.budget_max) && row.budget_max > 0 ? row.budget_max : null,
+    budget: (() => {
+      const lo = Number.isFinite(row.budget_min) && row.budget_min > 0 ? row.budget_min : null;
+      const hi = Number.isFinite(row.budget_max) && row.budget_max > 0 ? row.budget_max : null;
+      if (lo == null && hi == null) return "협의";
+      const a = lo ?? hi, b = hi ?? lo;
+      return a === b ? `${a}만원` : `${a}~${b}만원`;
+    })(),
     style: row.style ?? "",
     desc: row.description ?? row.desc ?? "",
     area: row.area ?? "",

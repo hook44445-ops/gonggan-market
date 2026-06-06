@@ -147,7 +147,7 @@ export const createRequest = (data) =>
 export const getRequests = () =>
   supabase
     .from("requests")
-    .select("*")
+    .select("*, bids(id, company_id, price, status)")
     .eq("status", "open")
     .or("is_hidden.is.null,is_hidden.eq.false")
     .order("created_at", { ascending: false });
