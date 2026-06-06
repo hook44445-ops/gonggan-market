@@ -66,7 +66,7 @@ import {
   getBidById,
   getPaymentOrderByRequest,
   getEscrowByRequest,
-  createEscrowRecord,
+  getOrCreateEscrow,
   createEscrowPayoutsForContract,
   createPaymentOrder,
   createPaymentTransaction,
@@ -424,19 +424,20 @@ function hasActiveEscrow(escrowData) {
   return true;
 }
 
-// 의뢰인 "진행중" 판정 — 정책: 실제 계약(에스크로)이 생겼거나 명시적 진행 상태일 때만.
+// 의뢰인 "진행중" 판정 — 정책: 실제 계약(에스크로)이 생겼거나 업체 선택값이 확정됐을 때만.
 // ⚠️ 단순 'open' 이나 입찰 존재만으로는 진행중이 아니다(아직 견적/선택 단계 = 견적 요청).
-//   진행중 = 활성 에스크로 존재  OR  status ∈ ('contracted','contracting','in_progress')
-//   (완료/취소/만료/삭제/정산완료 제외)
+//   진행중 = 활성 에스크로 존재  OR  selected_company_id/selected_bid_id 존재
+//   (완료/취소/만료/삭제/정산완료 제외, selected·escrow 모두 없는 broken in_progress 제외)
 function isRequestInProgress(r, escrowData) {
   if (!r) return false;
   if (r.isDeleted === true || r.isExpiredByTime === true) return false;
   if (["completed", "cancelled", "expired", "closed", "settled"].includes(r.status)) return false;
   if (isRequestSettled(r, escrowData)) return false;
-  // 진행중의 유일한 근거: 활성 에스크로 OR 의뢰인이 업체를 선택(selected_company_id/bid_id).
-  // ⚠️ status='in_progress' 만으로는 진행중 아님 — selection/escrow 없는 유령 row 차단.
+  // SSOT 진행건 판정: 활성 에스크로 OR 선택 업체/입찰(selected_company_id/selected_bid_id) 존재.
+  // ⚠️ status 만 in_progress/site_visit 이고 selected 값·에스크로가 모두 없는 건은 broken request
+  //    (escrow 중복/선택값 누락으로 깨진 데이터) → 진행중으로 인정하지 않아 화면에서 제외.
   if (hasActiveEscrow(escrowData)) return true;
-  if (r.selectedCompanyId || r.selectedBidId) return true;
+  if (r.selectedBidId || r.selectedCompanyId) return true;
   return false;
 }
 
@@ -1439,8 +1440,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         }
       }
 
-      // DB writes
-      const { data: escrowData } = await createEscrowRecord({
+      // DB writes — 멱등 에스크로 확보(중복 escrow_payments 생성 방지)
+      const { data: escrowData, created: escrowCreated } = await getOrCreateEscrow({
         requestId:   pending.requestId,
         companyId:   pending.companyId,
         totalAmount: pending.bidPrice,
@@ -1448,7 +1449,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       let pgContractId = escrowData?.id ?? null;
 
       if (pgContractId) {
-        await createEscrowPayoutsForContract(pgContractId, pending.companyId, pending.bidPrice, 0.04, 0.1);
+        // 신규 생성된 에스크로에만 payout 4건 생성(기존 재사용 시 중복 생성 금지)
+        if (escrowCreated) {
+          await createEscrowPayoutsForContract(pgContractId, pending.companyId, pending.bidPrice, 0.04, 0.1);
+        }
         const { data: newOrder } = await createPaymentOrder({
           user_id:        pending.requestUserId ?? null,
           bid_id:         pending.bidId,

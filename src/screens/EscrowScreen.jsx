@@ -4,7 +4,7 @@ import { SHOW_DEBUG_UI } from "../constants/release";
 import { LeafSprig } from "../components/common";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, createEscrowRecord, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, saveProjectCheckpoint, getProjectCheckpoints } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, saveProjectCheckpoint, getProjectCheckpoints } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import EscrowCalculator from "../components/EscrowCalculator";
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -752,27 +752,33 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           if (exErr) debug.contract_reload_err = exErr.message;
           const total     = resolvedBid?.price ?? 0;
           const companyId = resolvedBid?.companyId ?? userId ?? null;
-          const { data: created, error: createErr } = await createEscrowRecord({
+          // 멱등 확보 — 동시 진입/재시도에도 같은 request_id 로 중복 escrow 생성하지 않음.
+          const { data: created, created: escrowCreated, error: createErr } = await getOrCreateEscrow({
             requestId:   reqId,
             companyId,
             totalAmount: total,
           });
           if (created?.id) {
             cid = created.id;
-            debug.status_update_table = "escrow_payments(created)";
+            debug.status_update_table = `escrow_payments(${escrowCreated ? "created" : "reuse"})`;
             debug.contract_reload_ok = true;
-            // 단계별 payout 4건 생성 (setEscrowPayoutReady가 동작하도록)
-            // H-6: 실패를 조용히 삼키지 않는다. payout 없는 escrow는 단계 표시가 깨지므로
-            //      방금 만든 escrow를 롤백하고 cid를 비워, 아래 !cid 분기에서 재시도를 유도.
-            const { error: payoutErr } = await createEscrowPayoutsForContract(cid, companyId, total, 0.04, 0.1);
-            if (payoutErr) {
-              await deleteEscrowRecord(cid).catch(() => {});
-              cid = null;
-              debug.contract_reload_ok = false;
-              debug.contract_reload_err = `payout_failed:${payoutErr.message} → 롤백`;
+            if (escrowCreated) {
+              // 단계별 payout 4건 생성 (setEscrowPayoutReady가 동작하도록)
+              // H-6: 실패를 조용히 삼키지 않는다. payout 없는 escrow는 단계 표시가 깨지므로
+              //      방금 만든 escrow를 롤백하고 cid를 비워, 아래 !cid 분기에서 재시도를 유도.
+              const { error: payoutErr } = await createEscrowPayoutsForContract(cid, companyId, total, 0.04, 0.1);
+              if (payoutErr) {
+                await deleteEscrowRecord(cid).catch(() => {});
+                cid = null;
+                debug.contract_reload_ok = false;
+                debug.contract_reload_err = `payout_failed:${payoutErr.message} → 롤백`;
+              } else {
+                debug.payouts_created = true;
+                // requests.status 단일 기준 유지 — 계약 생성 시 status 를 in_progress 로 전이.
+                if (reqId) await setRequestInProgress(reqId).catch(() => {});
+              }
             } else {
-              debug.payouts_created = true;
-              // requests.status 단일 기준 유지 — 계약 생성 시 status 를 in_progress 로 전이.
+              // 기존 에스크로 재사용 — payout 재생성 금지. 진행 상태만 보강.
               if (reqId) await setRequestInProgress(reqId).catch(() => {});
             }
           } else {

@@ -1444,6 +1444,43 @@ export const createEscrowRecord = async (data) => {
   return res;
 };
 
+// 멱등 에스크로 확보 — 같은 request_id 에 활성(취소/정산 아님) 에스크로가 있으면 재사용,
+// 없을 때만 1건 생성. 결제/현장방문/재진입 경로의 중복 escrow_payments insert 를 차단한다.
+// 반환: { data, created, error }
+//   · created=true  → 신규 생성(후속 payout 생성 필요)
+//   · created=false → 기존 재사용(payout 재생성 금지 — 중복 방지)
+// 우선 escrow_get_or_create RPC(advisory lock + select-then-insert)를 시도하고,
+// 미배포/실패 시 클라이언트 폴백(active 조회 → 없으면 createEscrowRecord, 충돌 시 재조회).
+export const getOrCreateEscrow = async ({ requestId, companyId, totalAmount }) => {
+  if (!requestId) return { data: null, created: false, error: { message: "no request_id" } };
+
+  const rpc = await supabase.rpc("escrow_get_or_create", {
+    p_request_id: requestId, p_company_id: companyId ?? null, p_total_amount: totalAmount ?? 0,
+  });
+  if (!rpc.error && rpc.data?.row) {
+    return { data: rpc.data.row, created: rpc.data.created === true, error: null };
+  }
+
+  // ── 폴백(RPC 미배포 환경) ──────────────────────────────────────────
+  const findActive = async () => {
+    const { data } = await supabase.from("escrow_payments").select("*")
+      .eq("request_id", requestId)
+      .not("transaction_status", "in", "(CANCELLED,SETTLED)")
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    return data ?? null;
+  };
+  const existing = await findActive();
+  if (existing?.id) return { data: existing, created: false, error: null };
+
+  const { data: created, error } = await createEscrowRecord({ requestId, companyId, totalAmount });
+  if (created?.id) return { data: created, created: true, error: null };
+
+  // partial unique index 충돌 등으로 insert 실패 → 동시 생성된 기존 행 재조회.
+  const retry = await findActive();
+  if (retry?.id) return { data: retry, created: false, error: null };
+  return { data: null, created: false, error: error ?? { message: "escrow create failed" } };
+};
+
 // H-6: 단계별 payout 생성 실패 시 방금 만든 escrow를 되돌리기 위한 롤백 헬퍼.
 // (payout 없는 escrow는 단계 표시가 깨지므로 고아 레코드를 남기지 않음)
 export const deleteEscrowRecord = (id) =>
