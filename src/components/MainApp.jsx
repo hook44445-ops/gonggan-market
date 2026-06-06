@@ -62,6 +62,7 @@ import {
   getBidsForRequest,
   getCompanyByOwnerId,
   getCompanyActiveJobs,
+  respondSiteVisit,
   upsertCompany,
   getBidById,
   getPaymentOrderByRequest,
@@ -1020,7 +1021,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     getCompanyActiveJobs(currentUser.id, [user?.id, currentUser?.ownerId]).then(({ data }) => {
       if (data) setActiveJobs(data.filter(j => SITE_VISIT_PHASES.has((j.request?.status ?? "").toLowerCase())));
     });
-  }, [currentUser?.id, activeRole, user?.id]);
+  }, [currentUser?.id, activeRole, user?.id, escrowRefreshTrigger]);
 
   // Load company's own awarded/in-progress jobs — multi-path fetch with payment_orders fallback
   useEffect(() => {
@@ -2852,6 +2853,18 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         setEstimateJob(j);
                       } else if (actionType === "escrow") {
                         go("escrow");
+                      } else if (actionType === "accept" || actionType === "reject") {
+                        // 현장견적 요청 수락/거절 → site_visit_respond RPC + 목록 새로고침
+                        const svId = j.siteVisit?.id;
+                        if (!svId) { showToast("현장견적 요청 정보를 찾을 수 없어요", false); return; }
+                        respondSiteVisit(svId, actionType === "accept" ? "accept" : "reject", user?.id ?? null)
+                          .then(({ error }) => {
+                            if (SHOW_DEBUG_UI) console.log("[GONGGAN_DEBUG][siteVisitRespond]", { svId, action: actionType, error: error?.message ?? null });
+                            if (error) { showToast("처리 실패: " + error.message, false); return; }
+                            showToast(actionType === "accept" ? "현장견적을 수락했어요" : "현장견적을 거절했어요");
+                            setEscrowRefreshTrigger(t => t + 1);
+                          })
+                          .catch(e => showToast("오류: " + (e?.message ?? String(e)), false));
                       }
                     }}
                   />

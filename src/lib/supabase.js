@@ -1255,6 +1255,16 @@ export const createSiteVisit = (data, actorId = null) =>
     p_scheduled_at: data.scheduled_at ?? null,
   });
 
+// 의뢰인 현장견적 요청 → site_visits(status='requested') 생성 + 요청 전이(RPC, actor=의뢰인 검증).
+export const requestSiteVisit = ({ requestId, bidId, companyId, actorId = null } = {}) =>
+  supabase.rpc("site_visit_request", {
+    p_actor_id: actorId, p_request_id: requestId, p_bid_id: bidId ?? null, p_company_id: companyId ?? null,
+  });
+
+// 업체 현장견적 요청 수락/거절. action: 'accept' | 'reject'. RPC 가 업체 소유자 검증.
+export const respondSiteVisit = (siteVisitId, action, actorId = null) =>
+  supabase.rpc("site_visit_respond", { p_actor_id: actorId, p_id: siteVisitId, p_action: action });
+
 export const getSiteVisitForBid = (bidId) =>
   supabase.from("site_visits").select("*").eq("bid_id", bidId).order("created_at", { ascending: false }).limit(1).maybeSingle();
 

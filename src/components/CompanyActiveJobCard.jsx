@@ -34,6 +34,9 @@ export default function CompanyActiveJobCard({ job, onAction }) {
   const statusLabel = () => {
     if (!siteVisit) return { label: "실측 미예약", color: C.text3, bg: C.bg };
     const s = siteVisit.status;
+    if (s === "requested") return { label: "현장견적 요청 도착", color: "#7A5C1E", bg: C.sand ?? "#F2EBDA" };
+    if (s === "accepted")  return { label: "요청 수락됨", color: C.brand, bg: C.brandL };
+    if (s === "rejected")  return { label: "요청 거절됨", color: C.text4, bg: C.bg };
     if (s === "scheduled") return { label: "실측 예약됨", color: C.brand, bg: C.brandL };
     if (s === "checked_in") return { label: "GPS 체크인 완료", color: "#B08040", bg: "#FBF5E8" };
     if (s === "completed") return { label: "현장견적 완료", color: C.brand, bg: C.brandL };
@@ -53,6 +56,38 @@ export default function CompanyActiveJobCard({ job, onAction }) {
       );
     }
     const s = siteVisit.status;
+    if (s === "requested") {
+      return (
+        <div>
+          <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>의뢰인이 현장견적을 요청했어요. 수락 후 실측 일정을 잡아주세요.</div>
+          <div style={{ display:"flex", gap:S.sm }}>
+            <button onClick={() => onAction("accept", job)}
+              style={{ flex:2, padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+              ✅ 현장견적 수락
+            </button>
+            <button onClick={() => onAction("reject", job)}
+              style={{ flex:1, padding:"12px", background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>
+              거절
+            </button>
+          </div>
+        </div>
+      );
+    }
+    if (s === "accepted") {
+      return (
+        <button onClick={() => onAction("schedule", job)}
+          style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+          📅 실측 일정 잡기
+        </button>
+      );
+    }
+    if (s === "rejected") {
+      return (
+        <div style={{ background:C.bg, borderRadius:R.lg, padding:"12px", fontSize:13, fontWeight:700, color:C.text4, textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
+          현장견적 요청을 거절했습니다
+        </div>
+      );
+    }
     if (s === "scheduled") {
       return (
         <div>

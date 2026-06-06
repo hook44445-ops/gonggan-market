@@ -6,7 +6,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, markRequestSiteVisit, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
 import {
   PAYMENT_METHODS, COMING_SOON_MESSAGE, ACTIVE_PROVIDER, getMethodMeta,
   loadFeeRules, feeRateFromRules, computeFeeWithRate, getProvider,
@@ -88,52 +88,52 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     if (chosen) { setSelBid(chosen); setStep("confirm"); }
   }, [isQuotePhase, bids, selBid, step]);
 
-  // 업체 선택 → 현장방문 견적 요청(에스크로 생성 X)
+  // 업체 선택 → 현장견적 요청: site_visits(status='requested') 실제 생성 + 요청 전이/입찰 선택.
+  // 성공(실제 row 생성) 시에만 완료 화면으로 전환. 실패 시 토스트로 에러 노출(성공처럼 표시 X).
   const handleRequestSiteVisit = async () => {
     if (siteVisitRef.current || !selBid) return;
+    if (!request?.id) { showLocalToast("요청 정보를 찾을 수 없어요"); return; }
     siteVisitRef.current = true;
     try {
-      // 입찰 selected 단일화·요청 전이는 request_mark_site_visit RPC 내부에서 처리(consumer 직접 쓰기는 RLS 차단).
-      let rpcRes = null;
-      if (request?.id) rpcRes = await markRequestSiteVisit(request.id, { bidId: selBid.id, companyId: selBid.companyId, actorId: userId });
+      const { data, error } = await requestSiteVisit({
+        requestId: request.id, bidId: selBid.id, companyId: selBid.companyId, actorId: userId,
+      });
 
-      // [진단·개발 전용] 현장견적요청 클릭 시 requests 의 어떤 컬럼이 실제로 UPDATE 됐는지 확인.
-      // request_mark_site_visit(038) 반환:
-      //   · 'site_visit'        → open/site_visit 에서 정상 전이
-      //   · v_req.status(기타)  → in_progress 등 status 불변, selected_* backfill 만 수행
-      //   · error               → NOT_REQUEST_OWNER / COMPANY_MISMATCH / TERMINAL_STATUS 중 하나
-      if (SHOW_DEBUG_UI && request?.id) {
+      // [진단·개발 전용] 현장견적요청 클릭 시 site_visits 생성/요청 전이 결과 확인.
+      if (SHOW_DEBUG_UI) {
         const { data: after } = await supabase
           .from("requests").select("status, selected_company_id, selected_bid_id")
           .eq("id", request.id).maybeSingle();
-        const returned = rpcRes?.data ?? null;
         const diag = {
-          action:                    "request_mark_site_visit",
-          rpc_returned_status:       returned,
-          rpc_error:                 rpcRes?.error?.message ?? null,
-          sent_request_id:           request.id,
-          sent_bid_id:               selBid.id,
-          sent_company_id:           selBid.companyId,
-          sent_actor_id:             userId,
-          after_status:              after?.status ?? null,
+          action: "site_visit_request",
+          sent_request_id: request.id, sent_bid_id: selBid.id, sent_company_id: selBid.companyId, sent_actor_id: userId,
+          created_site_visit_id: data?.id ?? null, created_status: data?.status ?? null,
+          rpc_error: error?.message ?? null,
+          after_status: after?.status ?? null,
           after_selected_company_id: after?.selected_company_id ?? null,
-          after_selected_bid_id:     after?.selected_bid_id ?? null,
-          // site_visit 전이 or in_progress 상태에서 backfill 성공 모두 OK
-          transitioned:              returned === "site_visit" || (!!returned && !!after?.selected_company_id),
+          after_selected_bid_id: after?.selected_bid_id ?? null,
         };
-        console.log("[SITE_VISIT_REQUEST]", diag);
+        console.log("[GONGGAN_DEBUG][siteVisitRequest]", diag);
         setDbWriteLog(diag);
+      }
+
+      // 실패: site_visits row 미생성 → 성공 화면으로 넘어가지 않음.
+      if (error || !data?.id) {
+        showLocalToast("현장견적 요청 실패: " + (error?.message ?? "잠시 후 다시 시도해 주세요"));
+        return;
       }
 
       const ownerId = selBid.company?.ownerId ?? null;
       if (ownerId) {
         createNotification({
-          userId: ownerId, type: "SITE_VISIT_REQUESTED", title: "현장방문 견적 요청",
-          message: `${request?.space_type ?? request?.type ?? "시공"} 요청에서 선택되었어요. 현장방문 후 최종 견적서를 보내주세요.`,
+          userId: ownerId, type: "SITE_VISIT_REQUESTED", title: "현장견적 요청 도착",
+          message: `${request?.space_type ?? request?.type ?? "시공"} 요청에서 선택되었어요. 현장견적 요청을 확인해 주세요.`,
           relatedId: request?.id ?? null, relatedType: "request", priority: "HIGH",
         }).catch(() => {});
       }
       setStep("siteVisitDone");
+    } catch (e) {
+      showLocalToast("현장견적 요청 오류: " + (e?.message ?? String(e)));
     } finally {
       siteVisitRef.current = false;
     }
