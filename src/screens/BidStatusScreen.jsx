@@ -94,7 +94,34 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     siteVisitRef.current = true;
     try {
       // 입찰 selected 단일화·요청 전이는 request_mark_site_visit RPC 내부에서 처리(consumer 직접 쓰기는 RLS 차단).
-      if (request?.id) await markRequestSiteVisit(request.id, { bidId: selBid.id, companyId: selBid.companyId, actorId: userId });
+      let rpcRes = null;
+      if (request?.id) rpcRes = await markRequestSiteVisit(request.id, { bidId: selBid.id, companyId: selBid.companyId, actorId: userId });
+
+      // [진단·개발 전용] 현장견적요청 클릭 시 requests 의 어떤 컬럼이 실제로 UPDATE 됐는지 확인.
+      // request_mark_site_visit 는 status in ('open','site_visit') 일 때만 전이하며 새 status 를 반환한다.
+      //   · rpc_returned_status='site_visit' + after_selected_company_id 채워짐 → 정상 전이.
+      //   · rpc_returned_status=null → 가드에 막혀 0행(이미 in_progress 등) → selected_* 미기록 → 업체 단계 미노출 원인.
+      if (SHOW_DEBUG_UI && request?.id) {
+        const { data: after } = await supabase
+          .from("requests").select("status, selected_company_id, selected_bid_id")
+          .eq("id", request.id).maybeSingle();
+        const diag = {
+          action:                    "request_mark_site_visit",
+          rpc_returned_status:       rpcRes?.data ?? null,
+          rpc_error:                 rpcRes?.error?.message ?? null,
+          sent_request_id:           request.id,
+          sent_bid_id:               selBid.id,
+          sent_company_id:           selBid.companyId,
+          sent_actor_id:             userId,
+          after_status:              after?.status ?? null,
+          after_selected_company_id: after?.selected_company_id ?? null,
+          after_selected_bid_id:     after?.selected_bid_id ?? null,
+          transitioned:              rpcRes?.data === "site_visit",
+        };
+        console.log("[SITE_VISIT_REQUEST]", diag);
+        setDbWriteLog(diag);
+      }
+
       const ownerId = selBid.company?.ownerId ?? null;
       if (ownerId) {
         createNotification({
