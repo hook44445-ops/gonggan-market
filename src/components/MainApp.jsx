@@ -847,21 +847,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     ),
     [customerRequests, inProgressRequestIds, activeJobRequestIds]
   );
-  useEffect(() => {
-    if (activeRole !== "company") return;
-    try {
-      console.log("[GONGGAN_DEBUG][biddableRequests]", {
-        currentCompanyId: currentUser?.id ?? null, ownerId: user?.id ?? null,
-        customerRequestsTotal: customerRequests.length,
-        inProgressIds: [...inProgressRequestIds], activeJobIds: [...activeJobRequestIds],
-        biddable: biddableRequests.map(r => ({ id: r.id, status: r.status, selected_company_id: r.selectedCompanyId ?? null, selected_bid_id: r.selectedBidId ?? null, budget_min: r.budgetMin ?? null, budget_max: r.budgetMax ?? null })),
-        excluded: customerRequests.filter(r => !biddableRequests.includes(r)).map(r => ({
-          id: r.id, status: r.status, selected_company_id: r.selectedCompanyId ?? null,
-          reason: r.status !== "open" ? `status=${r.status}` : (r.selectedBidId || r.selectedCompanyId) ? "selected" : inProgressRequestIds.has(r.id) ? "inProgress(escrow)" : activeJobRequestIds.has(r.id) ? "activeJob(siteVisit)" : !r.isActive ? "inactive/expired" : "?",
-        })),
-      });
-    } catch {}
-  }, [activeRole, biddableRequests, customerRequests, inProgressRequestIds, activeJobRequestIds, currentUser?.id, user?.id]);
   const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
   const prevTxStatusRef = useRef({}); // { [requestId]: transaction_status } — 단계 전환 토스트용
   const [escrowRefreshTrigger, setEscrowRefreshTrigger] = useState(0);
@@ -3618,17 +3603,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         const openCount  = myRequests.filter(r => isRequestOpenForQuotes(r, myRequestsEscrow[r.id] ?? null)).length;
                         const inProgress = myRequests.filter(r => isRequestInProgress(r, myRequestsEscrow[r.id] ?? null)).length;
                         const completed  = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null)).length;
-                        try {
-                          console.log("[GONGGAN_DEBUG][getUserRequests:classify]", {
-                            counts: { 견적요청: openCount, 진행중: inProgress, 완료: completed }, total: myRequests.length,
-                            rows: myRequests.map(r => {
-                              const ed = myRequestsEscrow[r.id] ?? null;
-                              return { id: r.id, status: r.status, selected_company_id: r.selectedCompanyId ?? null, selected_bid_id: r.selectedBidId ?? null,
-                                escrow_company_id: ed?.escrow?.company_id ?? null, escrow_tx: ed?.escrow?.transaction_status ?? null,
-                                cls: isRequestSettled(r, ed) ? "완료" : isRequestInProgress(r, ed) ? "진행중" : isRequestOpenForQuotes(r, ed) ? "견적요청" : "기타" };
-                            }),
-                          });
-                        } catch {}
                         return [[`${openCount}`,"견적 요청"],[`${inProgress}`,"진행중"],[`${completed}`,"완료"]];
                       })()
                     : [[" 3","낙찰"],["84","후기"],[`${currentUser?.temp ?? 36.5}°`,"공간온도"]]

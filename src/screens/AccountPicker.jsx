@@ -62,7 +62,7 @@ export default function AccountPicker({ users = [], busyId = null, onPick, onAdd
             const key = u.userId || `${u.phone}-${u.role}`;
             const busy = busyId && busyId === key;
             return (
-              <button key={key} onClick={() => { console.log("[GONGGAN_DEBUG][AccountPicker:click]", { userId: u?.userId ?? null, role: u?.role ?? null, phone: u?.phone ?? null, ownerId: u?.ownerId ?? null }); onPick?.(u); }} disabled={!!busyId}
+              <button key={key} onClick={() => onPick?.(u)} disabled={!!busyId}
                 style={{
                   background: C.surface, border: `1.5px solid ${C.bgWarm}`, borderRadius: R.xl,
                   padding: "16px 18px", display: "flex", alignItems: "center", gap: 14,
