@@ -15,9 +15,12 @@ export default function LiveFeed() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    getLiveRequests({ limit: 5 }).then(({ data }) => {
-      if (data && data.length > 0) setRealItems(data);
-    }).catch(() => {}).finally(() => setLoaded(true));
+    let alive = true;
+    getLiveRequests({ limit: 5 })
+      .then(({ data }) => { if (alive && data && data.length > 0) setRealItems(data); })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoaded(true); });
+    return () => { alive = false; };
   }, []);
 
   // 실데이터만 노출 — 샘플/테스트 항목(is_sample/is_test/상태 "샘플") 제외, 더미 미표시
