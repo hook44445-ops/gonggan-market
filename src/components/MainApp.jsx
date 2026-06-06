@@ -944,17 +944,23 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const withExpiry = applyExpiry(data);
           const activeOwn = withExpiry.filter(r => r.isActive)
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-          if (activeOwn.length > 1) {
-            activeOwn.slice(1).forEach(r => expireRequest(r.id));
-            const keepId = activeOwn[0].id;
-            setMyRequests(withExpiry.map(r =>
-              r.isActive && r.id !== keepId
-                ? { ...r, status: "expired", isActive: false, isClosed: true }
-                : r
-            ));
-          } else {
-            setMyRequests(withExpiry);
-          }
+          const next = (activeOwn.length > 1)
+            ? (() => {
+                activeOwn.slice(1).forEach(r => expireRequest(r.id));
+                const keepId = activeOwn[0].id;
+                return withExpiry.map(r =>
+                  r.isActive && r.id !== keepId
+                    ? { ...r, status: "expired", isActive: false, isClosed: true }
+                    : r
+                );
+              })()
+            : withExpiry;
+          // E: 동일 데이터면 같은 참조를 유지해 불필요한 리렌더·에스크로 재조회 루프를 끊는다.
+          // (focus/visibility 로 fetch 가 반복돼도 내용이 같으면 myRequests 참조가 바뀌지 않음)
+          const sig = (a) => a.map(r =>
+            `${r.id}:${r.status}:${r.bidCount ?? 0}:${r.selectedBidId ?? ""}:${r.selectedCompanyId ?? ""}:${r.isActive}`
+          ).join("|");
+          setMyRequests(prev => (sig(prev) === sig(next) ? prev : next));
         }
       });
     } else {
@@ -1285,7 +1291,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (candidates.length === 0) return;
     candidates.forEach(r => {
       getEscrowWithPayouts(r.id).then(({ data }) => {
-        setMyRequestsEscrow(prev => ({ ...prev, [r.id]: data ?? null }));
+        // E: 에스크로 내용(에스크로 id·거래상태·payout 수)이 그대로면 setState 를 건너뛰어
+        //    새 객체 참조로 인한 불필요한 리렌더를 막는다.
+        setMyRequestsEscrow(prev => {
+          const old = prev[r.id];
+          const same = (old !== undefined)
+            && (old?.escrow?.id ?? null) === (data?.escrow?.id ?? null)
+            && (old?.escrow?.transaction_status ?? null) === (data?.escrow?.transaction_status ?? null)
+            && (old?.payouts?.length ?? 0) === (data?.payouts?.length ?? 0);
+          return same ? prev : { ...prev, [r.id]: data ?? null };
+        });
         // self-heal: 에스크로(계약)가 있는데 requests.status 가 아직 'open' 이면 in_progress 로 전이.
         // 업체 입찰 목록(status='open' 기준)에서도 즉시 제외되어 이중 노출이 해소된다.
         if (data?.escrow && data.escrow.transaction_status !== "SETTLED" && r.status === "open") {
