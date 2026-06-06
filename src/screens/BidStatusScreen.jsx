@@ -14,7 +14,7 @@ import {
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 
-const DEFAULT_COMPANY = { id: null, name: "—", temp: 0, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
+const DEFAULT_COMPANY = { id: null, name: "선택된 파트너", temp: 36.5, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
 
 const normalizeCompany = (row) => ({
   id: row.id, name: row.name ?? "업체", temp: row.temp ?? 36.5,
@@ -69,6 +69,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   // final_quote_submitted/escrow_pending 에서만 에스크로 결제로 진행한다.
   const reqStatus = request?.status ?? "open";
   const isQuotePhase = reqStatus === "final_quote_submitted" || reqStatus === "escrow_pending";
+  // 이미 업체가 선정된(또는 계약 진행) 상태인가 — 선정 후에는 '현장견적 요청' 대신
+  // 곧바로 에스크로 결제/예약 확정 단계로 진입한다(중복 site_visit 생성 방지).
+  const isAwarded =
+    reqStatus === "in_progress" || reqStatus === "selected" ||
+    !!request?.selected_bid_id || !!request?.selected_company_id;
+  // 선정 후 → 에스크로 결제 및 예약 확정 단계로 이동(reserved → payment).
+  const handleEscrowPaymentStart = () => setStep("reserved");
 
   // 최종 견적서(현장방문 후 업체 제출) — 의뢰인 확인용. 견적 단계에서만 조회.
   const [finalEstimate, setFinalEstimate] = useState(null);
@@ -256,7 +263,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.lg }}>
               <div style={{ width:48, height:48, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand }}>{(selBid.company?.name ?? "?")[0]}</div>
-              <div style={{ flex:1 }}><div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>{selBid.company?.name ?? "—"}</div><TempBadge temp={selBid.company?.temp ?? 0} /></div>
+              <div style={{ flex:1 }}><div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>{selBid.company?.name ?? "선택된 파트너"}</div><TempBadge temp={selBid.company?.temp ?? 36.5} /></div>
               <div style={{ textAlign:"right" }}><div style={{ fontSize:20, fontWeight:900, color:C.brand }}>{fmtMoney(selBid.price)}</div><div style={{ fontSize:12, color:C.text3 }}>{selBid.period}일</div></div>
             </div>
             <div style={{ fontSize:13, color:C.text2, marginBottom:S.md }}>{selBid.material}</div>
@@ -286,9 +293,15 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           <button
             onClick={isQuotePhase
               ? () => { if (reqStatus === "final_quote_submitted" && request?.id) approveFinalQuote(request.id, userId).catch(() => {}); setStep("reserved"); }
+              : isAwarded
+              ? handleEscrowPaymentStart
               : handleRequestSiteVisit}
             style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>
-            {isQuotePhase ? "예약 확정하고 결제 진행 ✅" : "현장방문 견적 요청하기 →"}
+            {isQuotePhase
+              ? "예약 확정하고 결제 진행 ✅"
+              : isAwarded
+              ? "위 내용으로 에스크로 결제 및 예약 확정하기 →"
+              : "현장방문 견적 요청하기 →"}
           </button>
         </div>
       </div>
@@ -302,7 +315,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
           <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.md }}>
             <div style={{ width:44, height:44, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:900, color:C.brand }}>{(selBid.company?.name ?? "?")[0]}</div>
-            <div><div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{selBid.company?.name ?? "—"}</div><div style={{ fontSize:13, color:C.text3 }}>{fmtMoney(selBid.price)} · {selBid.period}일</div></div>
+            <div><div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{selBid.company?.name ?? "선택된 파트너"}</div><div style={{ fontSize:13, color:C.text3 }}>{fmtMoney(selBid.price)} · {selBid.period}일</div></div>
           </div>
           <div style={{ background:C.brandL, borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`, fontSize:13, color:C.brand, fontWeight:700, textAlign:"center" }}>🎉 예약 확정 완료</div>
         </div>
@@ -704,7 +717,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               <div style={{ padding:S.xl }}>
                 <div style={{ display:"flex", gap:S.md, alignItems:"flex-start", marginBottom:S.lg }}>
                   <div style={{ width:44, height:44, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:900, color:C.brand }}>{(bid.company?.name ?? "?")[0]}</div>
-                  <div style={{ flex:1 }}><div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{bid.company?.name ?? "—"}</div><TempBadge temp={bid.company?.temp ?? 0} /></div>
+                  <div style={{ flex:1 }}><div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{bid.company?.name ?? "파트너"}</div><TempBadge temp={bid.company?.temp ?? 36.5} /></div>
                   <div style={{ textAlign:"right" }}><div style={{ fontSize:20, fontWeight:900, color:C.brand }}>{fmtMoney(bid.price)}</div><div style={{ fontSize:11, color:C.text3 }}>{bid.period}일</div></div>
                 </div>
                 <div style={{ fontSize:13, color:C.text2, marginBottom:S.md, fontStyle:"italic" }}>{bid.comment}</div>

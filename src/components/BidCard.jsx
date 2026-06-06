@@ -19,6 +19,15 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
   const isSelectedAway = !!(r?.selectedBidId || r?.selectedCompanyId)
     || (!!r?.status && r.status !== "open")
     || myBid?.status === "selected";
+  // 내 입찰이 선정됐는가 / 다른 업체가 선정됐는가 — 카드 문구 분기용.
+  const myBidId     = myBid?.id ?? null;
+  const myCompanyId = myBid?.companyId ?? currentUser?.id ?? null;
+  const mineSelected =
+    myBid?.status === "selected" ||
+    (!!r?.selectedBidId && r.selectedBidId === myBidId) ||
+    (!!r?.selectedCompanyId && r.selectedCompanyId === myCompanyId) ||
+    r?.status === "in_progress" || r?.status === "selected";
+  const otherSelected = isSelectedAway && !mineSelected;
   // 수정 폼 열기 — 기존 입찰값으로 프리필
   const openEdit = () => {
     const src = myBid ?? {};
@@ -118,8 +127,12 @@ export default function BidCard({ r, currentUser, onBidSubmit, onRequiresAuth, a
                 <div style={{ fontSize:12, color:C.text3, marginBottom:3 }}>🔨 {bidForm.material || myBid?.material}</div>
               )}
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
-                <div style={{ fontSize:12, color: isSelectedAway ? C.brand : C.text3, fontWeight: isSelectedAway ? 700 : 400 }}>
-                  {isSelectedAway ? "🎉 업체로 선정됐어요 · 진행중 탭에서 확인하세요" : "의뢰인이 검토 중입니다"}
+                <div style={{ fontSize:12, color: mineSelected ? C.brand : otherSelected ? C.text4 : C.text3, fontWeight: mineSelected ? 700 : 400 }}>
+                  {mineSelected
+                    ? "🎉 [2단계] 계약 진행 및 착공 준비 중 · 진행중 탭에서 확인하세요"
+                    : otherSelected
+                    ? "다른 업체가 선정되었어요"
+                    : "의뢰인이 검토 중입니다"}
                 </div>
                 {/* 업체 선정 이후에는 입찰 수정 버튼 숨김 */}
                 {!isSelectedAway && !isClosed && !isGuest && (
