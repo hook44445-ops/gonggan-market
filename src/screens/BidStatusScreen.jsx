@@ -100,6 +100,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   // 직접 UPDATE + .select().maybeSingle() 검증 — RLS 우회를 위해 SECURITY DEFINER RPC 시도 후 fallback.
   // DB 업데이트 성공 확인 후에만 siteVisitDone으로 전환 (낙관적 UI 업데이트 금지).
   const handleRequestSiteVisit = async () => {
+    // 클릭 즉시 로그 — 가드 이전에 찍어 버튼이 실제로 눌렸는지 확인
+    console.log('[SITE_VISIT_BUTTON_CLICK]', {
+      requestId: request?.id,
+      bidId: selBid?.id,
+      bidCompanyId: selBid?.companyId,
+    });
     if (siteVisitRef.current || !selBid) return;
     if (!request?.id) { showLocalToast("요청 정보를 찾을 수 없어요"); return; }
     siteVisitRef.current = true;
@@ -273,7 +279,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     getBidsForRequest(request.id).then(({ data, error }) => {
       if (SHOW_DEBUG_UI) setBidScreenDebug({ src: "bidscreen_effect", req_id: request.id, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
       if (error) return;
-      if (data) setLocalBids(data.map(normalizeBid));
+      // 빈 배열이면 propBids 초기값을 덮어쓰지 않음 — RLS 차단(0건 반환)으로 기존 데이터 소실 방지.
+      if (data && data.length > 0) setLocalBids(data.map(normalizeBid));
     });
   }, [request?.id]);
 
