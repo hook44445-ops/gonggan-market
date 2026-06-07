@@ -31,6 +31,7 @@ export default function BidCard({
   const myCompanyId = myBid?.companyId ?? currentUser?.id ?? null;
   const mineSelected =
     myBid?.status === "selected" ||
+    myBid?.status === "site_visiting" ||
     (!!r?.selectedBidId && r.selectedBidId === myBidId) ||
     (!!r?.selectedCompanyId && r.selectedCompanyId === myCompanyId) ||
     r?.status === "in_progress" || r?.status === "selected";
