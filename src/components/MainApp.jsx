@@ -1844,8 +1844,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     }
     // actor: display info only (name, temp, badge). DO NOT use actor.id for FK.
     const actor = currentUser ?? { id: null, ownerId: null, name: user.name ?? "업체", temp: 36.5 };
-    // bids.company_id → companies.id(currentUser.id) 우선. user.id(ownerId) 는 fallback only.
-    const bidCompanyId = currentUser?.id ?? user.id;
+    // bids.company_id FK → users.id (NOT companies.id). Always use user?.id.
+    const bidCompanyId = user?.id;
     if (!bidCompanyId || typeof bidCompanyId !== "string" || !bidCompanyId.includes("-")) {
       setBidDebug({ request_id: request.id, payload_company_id: null, insertError: "company id null — 로그인 필요" });
       showToast("로그인 정보를 확인할 수 없습니다");
@@ -1881,7 +1881,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           material_note: bidData.material,
           comment:       bidData.comment,
         });
-        if (updErr) { showToast(`입찰 수정 실패: ${updErr.message}`); return; }
+        if (updErr) { showToast(`입찰 수정 실패: ${updErr.message}`); return false; }
         if (upd) {
           okFlag = true;
           setSubmittedBids(prev => {
@@ -1889,8 +1889,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             return [...others, { ...normalizeBid(upd), company: actor }];
           });
           showToast("입찰 내용을 수정했어요");
+          return true;
         }
-        return;
+        return false;
       }
 
       // ── 신규 입찰 경로 ──
@@ -1970,6 +1971,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       });
       return prev;
     });
+    return true;
   };
   const isGuestCompany = false;
   const go = (s, co=null) => {
