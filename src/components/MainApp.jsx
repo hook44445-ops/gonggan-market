@@ -1894,21 +1894,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       }
 
       // ── 신규 입찰 경로 ──
-      const optimistic = {
-        id: `tmp-${Date.now()}`,
-        requestId: request.id,
-        companyId: bidCompanyId,
-        company: actor,
-        price: bidData.price,
-        period: bidData.period,
-        material: bidData.material,
-        comment: bidData.comment,
-        createdAt: new Date().toISOString(),
-        status: "pending",
-      };
-      // Optimistic update so the UI responds immediately
-      setSubmittedBids(prev => [...prev, optimistic]);
-
+      // Optimistic add 생략 — DB insert 실패 시 flip-flop 방지.
       // INSERT to Supabase — company_id must be users.id (FK target)
       const { data, error } = await createBid({
         request_id:    request.id,
@@ -1919,8 +1905,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         comment:       bidData.comment,
       });
       if (error) {
-        // H-2: 실패 시 optimistic 입찰을 롤백 (중복 키 위반 포함)
-        setSubmittedBids(prev => prev.filter(b => b.id !== optimistic.id));
         setBidDebug({
           payload_company_id: bidCompanyId,
           expected_fk_target: "users.id",
@@ -1937,9 +1921,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       if (data) {
         okFlag = true;
         didInsert = true;
-        setSubmittedBids(prev =>
-          prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
-        );
+        // DB 성공 이후에만 local state 추가 (flip-flop 방지)
+        setSubmittedBids(prev => [...prev, { ...normalizeBid(data), company: actor }]);
         // Post-insert verification: confirm bid is in DB with correct request_id
         const { data: verifyData } = await getBidsForRequest(request.id);
         bidCountAfter = verifyData?.length ?? 0;

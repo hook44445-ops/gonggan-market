@@ -99,6 +99,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const IS_DEBUG = SHOW_DEBUG_UI;
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
+  // bidFetchDone: true when self-fetch useEffect completes (or bid was passed directly)
+  const [bidFetchDone, setBidFetchDone] = useState(!!selectedBid);
   const [escrowDebug, setEscrowDebug] = useState(null);
   // derivedFromRecovery: true when contractId came from phase_photo/payout lookup (not from
   // payment_orders or direct escrow_payments query). Prevents wrong escrow tainting stageStatus.
@@ -225,7 +227,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
       setEscrowDebug({ src: "self_fetch_exhausted", err: "no order, no escrow, no bids", requestId: request.id });
     };
-    fetchContract();
+    fetchContract().catch(() => {}).finally(() => setBidFetchDone(true));
   }, [request?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Company fetch: always run when companyId is known but name is missing/default
@@ -995,6 +997,58 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     );
   }
 
+  // 로딩: self-fetch가 아직 진행 중
+  if (!bidFetchDone) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
+          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+        </div>
+        <div style={{ padding: "60px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 12 }}>⏳</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text2 }}>시공 현황을 불러오는 중입니다...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // 에러: fetch 완료됐지만 입찰/계약 정보 없음
+  if (!resolvedBid) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
+          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+        </div>
+        <div style={{ padding: "60px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 12 }}>😢</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 6 }}>시공 현황을 불러오지 못했습니다.</div>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>다시 시도해 주세요.</div>
+          <button onClick={onBack} style={{ marginTop: 20, padding: "10px 22px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
+        </div>
+      </div>
+    );
+  }
+
+  // 빈 상태: 진행 중인 시공 없음 (resolvedBid는 있지만 계약 데이터 0건)
+  if (bidFetchDone && dbLoaded && !resolvedContractId && bidAmount === 0) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
+          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+        </div>
+        <div style={{ padding: "60px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 12 }}>🏠</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 6 }}>현재 진행 중인 시공 현황이 없습니다.</div>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>계약이 완료되면 이곳에서 진행 현황을 확인할 수 있어요.</div>
+          <button onClick={onBack} style={{ marginTop: 20, padding: "10px 22px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
 
@@ -1326,7 +1380,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                         {photos.length > 0 && (
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm, marginBottom: S.md }}>
                             {photos.map((src, pi) => (
-                              <div key={pi} style={{ position: "relative", aspectRatio: "1", borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
+                              <div key={src} style={{ position: "relative", aspectRatio: "1", borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
                                 <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                                 <button onClick={() => removePhoto(s.id, pi)} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "rgba(0,0,0,0.55)", color: "#fff", border: "none", borderRadius: R.full, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
                               </div>
@@ -1395,7 +1449,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       {photos.length > 0 && (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm, marginBottom: S.sm }}>
                           {photos.map((src, pi) => (
-                            <div key={pi} style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}`, aspectRatio: "1" }}>
+                            <div key={src} style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}`, aspectRatio: "1" }}>
                               <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                             </div>
                           ))}
@@ -1428,7 +1482,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       {photos.length > 0 && (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.md }}>
                           {photos.map((src, pi) => (
-                            <div key={pi} style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.brandM}`, aspectRatio: "4/3" }}>
+                            <div key={src} style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.brandM}`, aspectRatio: "4/3" }}>
                               <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                             </div>
                           ))}
