@@ -1070,7 +1070,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // 현장방문 견적 단계(결제 전)만 activeJobs 로 — 에스크로 계약 진입 후(in_progress 등)는
     // companyJobs(에스크로 기준)에서 다뤄 이중 노출을 막는다.
     // bids.company_id 는 소유자 user.id 로 저장되므로 company.id 와 user.id 를 함께 후보로 넘긴다.
-    const SITE_VISIT_PHASES = new Set(["open", "site_visit", "final_quote_submitted", "escrow_pending"]);
+    const SITE_VISIT_PHASES = new Set(["open", "site_visit", "site_visiting", "visit_requested", "final_quote_submitted", "escrow_pending"]);
     getCompanyActiveJobs(currentUser.id, [user?.id, currentUser?.ownerId]).then(({ data }) => {
       if (data) setActiveJobs(data.filter(j => SITE_VISIT_PHASES.has((j.request?.status ?? "").toLowerCase())));
     });
@@ -1292,6 +1292,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           if (!candidateIdSet.has(selCid)) { excludedReasons.push(`${rid8}:selected_other`); return false; }
 
           // 현장방문 견적 단계(결제 전)는 activeJobs(CompanyActiveJobCard)에서 다룸 → companyJobs 제외(이중 노출 방지).
+          // site_visiting/visit_requested 는 selected_company_id 가 이미 설정된 상태이므로
+          // companyJobs 에도 포함 허용 → DashboardScreen "진행중" 탭에 노출.
           const PRE_ESCROW = new Set(["site_visit", "final_quote_submitted", "escrow_pending"]);
           if (PRE_ESCROW.has(reqStatus)) { excludedReasons.push(`${rid8}:pre_escrow(activeJobs)`); return false; }
 
