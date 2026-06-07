@@ -96,31 +96,62 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   }, [isQuotePhase, bids, selBid, step]);
 
   // 업체 선택 → 현장견적 요청: site_visits(status='requested') 실제 생성 + 요청 전이/입찰 선택.
-  // 성공(실제 row 생성) 시에만 완료 화면으로 전환. 실패 시 토스트로 에러 노출(성공처럼 표시 X).
+  // RPC(site_visit_request) 대신 직접 DB 업데이트 — OTP 커스텀 인증에서 auth.uid()=null 문제 우회.
+  // 성공(requests 업데이트 확인) 시에만 완료 화면으로 전환. 실패 시 토스트로 에러 노출.
   const handleRequestSiteVisit = async () => {
     if (siteVisitRef.current || !selBid) return;
     if (!request?.id) { showLocalToast("요청 정보를 찾을 수 없어요"); return; }
     siteVisitRef.current = true;
     try {
-      // bid.company_id 가 ownerId(users.id)로 저장된 기존 데이터 호환 — companies.id 로 resolve.
-      // site_visit_request/respond RPC 는 companies.id 기준으로 동작하므로 반드시 변환 필요.
-      const resolvedCompanyId = await resolveCompanyId(selBid.companyId);
-      const { data, error } = await requestSiteVisit({
-        requestId: request.id, bidId: selBid.id, companyId: resolvedCompanyId, actorId: userId,
-      });
+      // 1. bid.company_id(ownerId) → companies.id 변환
+      const { data: companyData } = await getCompanyByOwnerId(selBid.companyId);
+      const resolvedCompanyId = companyData?.id ?? null;
+      if (!resolvedCompanyId) {
+        showLocalToast("업체 정보를 찾을 수 없습니다.");
+        return;
+      }
 
-      // [진단·개발 전용] 현장견적요청 클릭 시 site_visits 생성/요청 전이 결과 확인.
+      // 2. requests 업데이트 — status, selected_bid_id, selected_company_id
+      const { error: reqErr } = await supabase
+        .from("requests")
+        .update({
+          status: "site_visiting",
+          selected_bid_id: selBid.id,
+          selected_company_id: resolvedCompanyId,
+        })
+        .eq("id", request.id);
+      if (reqErr) {
+        showLocalToast("요청 상태 업데이트 실패: " + reqErr.message);
+        return;
+      }
+
+      // 3. bids 업데이트 — status: site_visiting
+      await supabase.from("bids").update({ status: "site_visiting" }).eq("id", selBid.id);
+
+      // 4. site_visits: 중복 방지 — 기존 row 재사용, 없으면 생성
+      const { data: existingSv } = await supabase
+        .from("site_visits").select("id")
+        .eq("request_id", request.id).eq("bid_id", selBid.id).eq("company_id", resolvedCompanyId)
+        .maybeSingle();
+      let siteVisitId = existingSv?.id ?? null;
+      if (!siteVisitId) {
+        const { data: newSv, error: svErr } = await supabase
+          .from("site_visits")
+          .insert({ request_id: request.id, bid_id: selBid.id, company_id: resolvedCompanyId, status: "requested" })
+          .select("id").single();
+        if (svErr) { console.error("[siteVisit] insert error:", svErr.message); }
+        else { siteVisitId = newSv?.id ?? null; }
+      }
+
       if (SHOW_DEBUG_UI) {
         const { data: after } = await supabase
           .from("requests").select("status, selected_company_id, selected_bid_id")
           .eq("id", request.id).maybeSingle();
         const diag = {
-          action: "site_visit_request",
-          sent_request_id: request.id, sent_bid_id: selBid.id,
+          action: "site_visit_request_direct",
+          request_id: request.id, bid_id: selBid.id,
           raw_company_id: selBid.companyId, resolved_company_id: resolvedCompanyId,
-          sent_actor_id: userId,
-          created_site_visit_id: data?.id ?? null, created_status: data?.status ?? null,
-          rpc_error: error?.message ?? null,
+          site_visit_id: siteVisitId,
           after_status: after?.status ?? null,
           after_selected_company_id: after?.selected_company_id ?? null,
           after_selected_bid_id: after?.selected_bid_id ?? null,
@@ -129,16 +160,11 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         setDbWriteLog(diag);
       }
 
-      // 실패: site_visits row 미생성 → 성공 화면으로 넘어가지 않음.
-      if (error || !data?.id) {
-        showLocalToast("현장견적 요청 실패: " + (error?.message ?? "잠시 후 다시 시도해 주세요"));
-        return;
-      }
-
-      const ownerId = selBid.company?.ownerId ?? null;
-      if (ownerId) {
+      // 5. 알림 — 업체 owner에게 현장견적 요청 도착 알림
+      const companyOwnerId = companyData?.owner_id ?? selBid.company?.ownerId ?? null;
+      if (companyOwnerId) {
         createNotification({
-          userId: ownerId, type: "SITE_VISIT_REQUESTED", title: "현장견적 요청 도착",
+          userId: companyOwnerId, type: "SITE_VISIT_REQUESTED", title: "현장견적 요청 도착",
           message: `${request?.space_type ?? request?.type ?? "시공"} 요청에서 선택되었어요. 현장견적 요청을 확인해 주세요.`,
           relatedId: request?.id ?? null, relatedType: "request", priority: "HIGH",
         }).catch(() => {});
