@@ -211,6 +211,9 @@ const normalizeRequest = (row) => {
     // 업체 선택 추적 — stale 'open' 진행건 판정/이중 노출 방지에 사용.
     selectedBidId:     row.selected_bid_id ?? null,
     selectedCompanyId: row.selected_company_id ?? null,
+    // raw bids 배열(원본). 주의: 위 `bids`/`bidCount` 는 개수(숫자)이므로 배열 메서드 호출 금지.
+    // 이미입찰(already_bid) 판정 등 company_id 검사는 반드시 이 bidsRaw(배열) 를 사용한다.
+    bidsRaw: Array.isArray(row.bids) ? row.bids : [],
   };
 };
 
@@ -851,7 +854,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       if (activeJobRequestIds.has(r.id)) return false;
       if (!r.isActive) return false;
       if (bidSubmittedIds.has(r.id)) return false;
-      if (r.bids?.some(b => b?.company_id === companyIdMe || b?.company_id === ownerIdMe)) return false;
+      const rawBids = Array.isArray(r.bidsRaw) ? r.bidsRaw : [];
+      if (rawBids.some(b => b?.company_id === companyIdMe || b?.company_id === ownerIdMe)) return false;
       return true;
     });
   }, [customerRequests, inProgressRequestIds, activeJobRequestIds, submittedBids, currentUser?.id, user?.id]);
@@ -878,7 +882,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             : inProgressRequestIds.has(r.id) ? "inProgress(escrow)"
             : activeJobRequestIds.has(r.id) ? "activeJob(siteVisit)"
             : bidSubmittedIds.has(r.id) ? "already_bid(local)"
-            : r.bids?.some(b => b?.company_id === companyId || b?.company_id === ownerId) ? "already_bid(db)"
+            : (Array.isArray(r.bidsRaw) ? r.bidsRaw : []).some(b => b?.company_id === companyId || b?.company_id === ownerId) ? "already_bid(db)"
             : !r.isActive ? "inactive/expired" : "?",
         })),
       });
@@ -2991,7 +2995,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   ) ?? null;
                   const myBidFromDb = !myBidFromState
                     ? (() => {
-                        const db = r.bids?.find(b => b?.company_id === _compId || b?.company_id === _ownId);
+                        const rawBids = Array.isArray(r.bidsRaw) ? r.bidsRaw : [];
+                        const db = rawBids.find(b => b?.company_id === _compId || b?.company_id === _ownId);
                         if (!db) return null;
                         return { id: db.id, requestId: r.id, companyId: db.company_id, price: db.price ?? 0, status: db.status ?? "pending" };
                       })()
