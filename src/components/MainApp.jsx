@@ -852,6 +852,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const biddableRequests = useMemo(() => {
     const companyIdMe = currentUser?.id ?? null;
     const ownerIdMe = user?.id ?? null;
+    if (!ownerIdMe) return [];  // auth user 미로드 시 계산 생략
     const bidSubmittedIds = new Set(submittedBids.map(b => b.requestId).filter(Boolean));
     return customerRequests.filter(r => {
       if (r.status !== "open") return false;
