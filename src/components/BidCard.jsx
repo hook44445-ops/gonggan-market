@@ -35,6 +35,19 @@ export default function BidCard({
     (!!r?.selectedCompanyId && r.selectedCompanyId === myCompanyId) ||
     r?.status === "in_progress" || r?.status === "selected";
   const otherSelected = isSelectedAway && !mineSelected;
+  // siteVisit 상태 파생 — 선정 이후 현장견적 단계 UI 분기용
+  const siteVisitStatus = siteVisit?.status ?? null;
+  const isSiteVisitRequested =
+    siteVisitStatus === "requested" ||
+    siteVisitStatus === "site_visiting" ||
+    siteVisitStatus === "visit_requested" ||
+    r?.status === "site_visiting" ||
+    r?.status === "visit_requested";
+  const isSiteVisitAccepted =
+    siteVisitStatus === "accepted" ||
+    siteVisitStatus === "in_progress" ||
+    siteVisitStatus === "visit_accepted";
+  const isChosen = mineSelected;
   // 수정 폼 열기 — 기존 입찰값으로 프리필
   const openEdit = () => {
     const src = myBid ?? {};
