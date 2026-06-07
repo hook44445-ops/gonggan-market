@@ -543,6 +543,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const bidRealtimeRef = useRef(null);
   const bidSubmitGuardRef = useRef(false); // H-2: 입찰 동시 더블서브밋 가드
 
+  // API 중복 호출 방지 — 1초 이내 재진입 차단 (focus/visibility 이벤트 연속 발화 대응)
+  const companyReqTsRef   = useRef(0); // loadCompanyRequests
+  const companyBidsTsRef  = useRef(0); // getCompanyBids
+  const activeJobsTsRef   = useRef(0); // getCompanyActiveJobs
+  const companyJobsTsRef  = useRef(0); // loadJobs (companyJobs)
+
   // ── 관심 탭 ──────────────────────────────────────────────────────────────────
   const [favTab, setFavTab] = useState("received");
 
@@ -974,7 +980,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   // Load requests on mount
   // Consumer: server-side filter by userId; Company/Admin: load all open requests for bidding
   useEffect(() => {
-    if (activeRole === "consumer" && user.id) {
+    if (!user?.id) return;
+    if (activeRole === "consumer") {
       getUserRequests(user.id).then(({ data, error }) => {
         setReqDebug(d => ({ ...d, consumerFetchError: error?.message ?? null, consumerRows: data?.length ?? 0, consumerData: data ?? [] }));
         if (error) return;
@@ -1024,6 +1031,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   // (이전엔 getCompanyBids 가 호출되지 않아 입찰이 optimistic 으로만 보이고 사라졌음)
   useEffect(() => {
     if (activeRole !== "company" || !user?.id) return;
+    const _now = Date.now();
+    if (_now - companyBidsTsRef.current < 1000) return;
+    companyBidsTsRef.current = _now;
     getCompanyBids(user.id).then(({ data, error }) => {
       if (error || !data) return;
       setSubmittedBids(data.map(normalizeBid));
@@ -1050,7 +1060,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   }, [user?.id, activeRole]);
 
   useEffect(() => {
-    if (activeRole !== "company" || !currentUser?.id) return;
+    if (activeRole !== "company") return;
+    if (!currentUser?.id) return;
+    if (!user?.id) return;
+    const _now = Date.now();
+    if (_now - activeJobsTsRef.current < 1000) return;
+    activeJobsTsRef.current = _now;
     // 현장방문 견적 단계(결제 전)만 activeJobs 로 — 에스크로 계약 진입 후(in_progress 등)는
     // companyJobs(에스크로 기준)에서 다뤄 이중 노출을 막는다.
     // bids.company_id 는 소유자 user.id 로 저장되므로 company.id 와 user.id 를 함께 후보로 넘긴다.
@@ -1065,6 +1080,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (activeRole !== "company" || !user?.id) return;
 
     const loadJobs = async () => {
+      const _now = Date.now();
+      if (_now - companyJobsTsRef.current < 1000) return;
+      companyJobsTsRef.current = _now;
       const candidateIds = [...new Set([
         user.id,
         currentUser?.id,
@@ -1876,21 +1894,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       }
 
       // ── 신규 입찰 경로 ──
-      const optimistic = {
-        id: `tmp-${Date.now()}`,
-        requestId: request.id,
-        companyId: bidCompanyId,
-        company: actor,
-        price: bidData.price,
-        period: bidData.period,
-        material: bidData.material,
-        comment: bidData.comment,
-        createdAt: new Date().toISOString(),
-        status: "pending",
-      };
-      // Optimistic update so the UI responds immediately
-      setSubmittedBids(prev => [...prev, optimistic]);
-
+      // Optimistic add 생략 — DB insert 실패 시 flip-flop 방지.
       // INSERT to Supabase — company_id must be users.id (FK target)
       const { data, error } = await createBid({
         request_id:    request.id,
@@ -1901,8 +1905,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         comment:       bidData.comment,
       });
       if (error) {
-        // H-2: 실패 시 optimistic 입찰을 롤백 (중복 키 위반 포함)
-        setSubmittedBids(prev => prev.filter(b => b.id !== optimistic.id));
         setBidDebug({
           payload_company_id: bidCompanyId,
           expected_fk_target: "users.id",
@@ -1919,9 +1921,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       if (data) {
         okFlag = true;
         didInsert = true;
-        setSubmittedBids(prev =>
-          prev.map(b => b.id === optimistic.id ? { ...normalizeBid(data), company: actor } : b)
-        );
+        // DB 성공 이후에만 local state 추가 (flip-flop 방지)
+        setSubmittedBids(prev => [...prev, { ...normalizeBid(data), company: actor }]);
         // Post-insert verification: confirm bid is in DB with correct request_id
         const { data: verifyData } = await getBidsForRequest(request.id);
         bidCountAfter = verifyData?.length ?? 0;
@@ -3002,6 +3003,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       })()
                     : null;
                   const myBid = myBidFromState ?? myBidFromDb;
+                  const siteVisitForBid = siteVisitJobs.find(j => j.request?.id === r.id)?.siteVisit ?? null;
                   return (
                     <BidCard
                       key={r.id}
@@ -3009,6 +3011,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       currentUser={currentUser}
                       alreadyBid={!!myBid}
                       myBid={myBid}
+                      siteVisit={siteVisitForBid}
                       onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
                       onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
                     />

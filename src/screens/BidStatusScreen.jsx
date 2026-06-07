@@ -150,6 +150,36 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       siteVisitRef.current = false;
     }
   };
+  // selBid 회사 정보 enrichment — getBidsForRequest 가 companies join을 못 했을 때 보정
+  useEffect(() => {
+    if (!selBid?.companyId) return;
+    const hasRealName = selBid.company?.name &&
+      selBid.company.name !== "선택된 파트너" &&
+      selBid.company.name !== "—" &&
+      selBid.company.name !== "업체";
+    if (hasRealName) return;
+    let alive = true;
+    getCompanyByOwnerId(selBid.companyId).then(({ data }) => {
+      if (!alive || !data) return;
+      setSelBid(prev => prev ? {
+        ...prev,
+        company: {
+          id: data.id, ownerId: data.owner_id,
+          name: data.name ?? "선택된 파트너",
+          temp: data.temp ?? 36.5,
+          verified: data.verified ?? false,
+          badge: data.badge ?? "basic",
+          completedJobs: data.completed_jobs ?? 0,
+          recontractRate: data.recontract_rate ?? 0,
+          asRate: data.as_rate ?? 0,
+          region: data.region ?? "",
+          online: data.online ?? false,
+        },
+      } : prev);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [selBid?.companyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [bidScreenDebug, setBidScreenDebug] = useState(null);
   const [dbWriteLog, setDbWriteLog] = useState(null);
   const [localToast, setLocalToast] = useState(null);
@@ -240,7 +270,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               {Array.isArray(finalEstimate.items) && finalEstimate.items.length > 0 && (
                 <div style={{ marginBottom:S.md }}>
                   {finalEstimate.items.map((it, i) => (
-                    <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
+                    <div key={it.name ?? i} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
                       <div style={{ flex:1, paddingRight:S.sm }}>
                         <div style={{ fontSize:13, fontWeight:700, color:C.text1 }}>{it.name || "공정"}</div>
                         <div style={{ fontSize:11, color:C.text3 }}>{[it.material, (it.qty != null ? `${it.qty}개` : null)].filter(Boolean).join(" · ")}</div>
