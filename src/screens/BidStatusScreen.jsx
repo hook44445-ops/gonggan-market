@@ -62,6 +62,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   const [selBid, setSelBid] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [siteVisitLoading, setSiteVisitLoading] = useState(false);
   const payingRef = useRef(false); // H-1: 동기 더블서브밋 가드 (setState는 비동기라 즉시 차단 불가)
   const selectBidRef = useRef(false); // C-3: selectBid 동기 더블클릭 가드
   const siteVisitRef = useRef(false); // 현장방문 요청 동기 가드
@@ -95,13 +96,15 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     if (chosen) { setSelBid(chosen); setStep("confirm"); }
   }, [isQuotePhase, bids, selBid, step]);
 
-  // 업체 선택 → 현장견적 요청: site_visits(status='requested') 실제 생성 + 요청 전이/입찰 선택.
-  // RPC(site_visit_request) 대신 직접 DB 업데이트 — OTP 커스텀 인증에서 auth.uid()=null 문제 우회.
-  // 성공(requests 업데이트 확인) 시에만 완료 화면으로 전환. 실패 시 토스트로 에러 노출.
+  // 업체 선택 → 현장견적 요청: site_visits(status='requested') 생성 + 요청 상태 전이.
+  // 1차: RPC(SECURITY DEFINER) — OTP 커스텀 인증에서 auth.uid()=null RLS 우회.
+  // 2차: 직접 UPDATE + .select().maybeSingle() 검증 — RPC 실패 시 fallback.
+  // DB 업데이트가 실제로 반영됐을 때만 siteVisitDone으로 전환 (낙관적 UI 업데이트 금지).
   const handleRequestSiteVisit = async () => {
     if (siteVisitRef.current || !selBid) return;
     if (!request?.id) { showLocalToast("요청 정보를 찾을 수 없어요"); return; }
     siteVisitRef.current = true;
+    setSiteVisitLoading(true);
     try {
       // 1. bid.company_id(ownerId) → companies.id 변환
       const { data: companyData } = await getCompanyByOwnerId(selBid.companyId);
@@ -111,24 +114,46 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         return;
       }
 
-      // 2. requests 업데이트 — status, selected_bid_id, selected_company_id
-      const { error: reqErr } = await supabase
+      // 2. RPC(SECURITY DEFINER) — auth.uid()=null 환경에서 RLS 정책을 우회
+      const { error: rpcErr } = await requestSiteVisit({
+        requestId: request.id,
+        bidId: selBid.id,
+        companyId: resolvedCompanyId,
+        actorId: userId ?? null,
+      });
+
+      // 3. DB 반영 검증 — RPC 성공 여부와 무관하게 실제 행이 업데이트됐는지 확인
+      const { data: verifiedReq } = await supabase
         .from("requests")
-        .update({
-          status: "site_visiting",
-          selected_bid_id: selBid.id,
-          selected_company_id: resolvedCompanyId,
-        })
-        .eq("id", request.id);
-      if (reqErr) {
-        showLocalToast("요청 상태 업데이트 실패: " + reqErr.message);
-        return;
+        .select("id, status, selected_bid_id, selected_company_id")
+        .eq("id", request.id)
+        .maybeSingle();
+
+      const dbUpdated =
+        verifiedReq?.status === "site_visiting" ||
+        !!verifiedReq?.selected_bid_id ||
+        !!verifiedReq?.selected_company_id;
+
+      if (!dbUpdated) {
+        // RPC 미반영 → 직접 UPDATE fallback (.select().maybeSingle()로 0행 차단 감지)
+        const { data: directRow, error: directErr } = await supabase
+          .from("requests")
+          .update({ status: "site_visiting", selected_bid_id: selBid.id, selected_company_id: resolvedCompanyId })
+          .eq("id", request.id)
+          .select("id, status")
+          .maybeSingle();
+
+        if (directErr || !directRow) {
+          const reason = directErr?.message ?? (rpcErr?.message ?? "권한이 없거나 요청을 찾을 수 없습니다");
+          showLocalToast("현장견적 요청 실패: " + reason);
+          return;
+        }
       }
 
-      // 3. bids 업데이트 — status: site_visiting
+      // 4. bids 업데이트 — 선택된 입찰 status 전환
       await supabase.from("bids").update({ status: "site_visiting" }).eq("id", selBid.id);
 
-      // 4. site_visits: 중복 방지 — 기존 row 재사용, 없으면 생성
+      // 5. site_visits: 중복 방지 — 기존 row 재사용, 없으면 생성
       const { data: existingSv } = await supabase
         .from("site_visits").select("id")
         .eq("request_id", request.id).eq("bid_id", selBid.id).eq("company_id", resolvedCompanyId)
@@ -148,7 +173,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           .from("requests").select("status, selected_company_id, selected_bid_id")
           .eq("id", request.id).maybeSingle();
         const diag = {
-          action: "site_visit_request_direct",
+          action: "site_visit_request",
+          rpc_ok: !rpcErr,
           request_id: request.id, bid_id: selBid.id,
           raw_company_id: selBid.companyId, resolved_company_id: resolvedCompanyId,
           site_visit_id: siteVisitId,
@@ -160,7 +186,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         setDbWriteLog(diag);
       }
 
-      // 5. 알림 — 업체 owner에게 현장견적 요청 도착 알림
+      // 6. 알림 — 업체 owner에게 현장견적 요청 도착 알림
       const companyOwnerId = companyData?.owner_id ?? selBid.company?.ownerId ?? null;
       if (companyOwnerId) {
         createNotification({
@@ -169,11 +195,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           relatedId: request?.id ?? null, relatedType: "request", priority: "HIGH",
         }).catch(() => {});
       }
+
+      // 7. DB 업데이트 완료 확인 후 UI 전환 (낙관적 업데이트 금지)
       setStep("siteVisitDone");
     } catch (e) {
       showLocalToast("현장견적 요청 오류: " + (e?.message ?? String(e)));
     } finally {
       siteVisitRef.current = false;
+      setSiteVisitLoading(false);
     }
   };
   // selBid 회사 정보 enrichment — getBidsForRequest 가 companies join을 못 했을 때 보정
@@ -357,11 +386,19 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               : isAwarded
               ? handleEscrowPaymentStart
               : handleRequestSiteVisit}
-            style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>
+            disabled={!isQuotePhase && !isAwarded && siteVisitLoading}
+            style={{ width:"100%", padding:S.xxl,
+              background: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.bgWarm : C.brand,
+              color: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.text4 : "#fff",
+              border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16,
+              cursor: (!isQuotePhase && !isAwarded && siteVisitLoading) ? "not-allowed" : "pointer",
+              boxShadow: (!isQuotePhase && !isAwarded && siteVisitLoading) ? "none" : `0 6px 20px ${C.brand}44` }}>
             {isQuotePhase
               ? "예약 확정하고 결제 진행 ✅"
               : isAwarded
               ? "위 내용으로 에스크로 결제 및 예약 확정하기 →"
+              : siteVisitLoading
+              ? "처리 중..."
               : "현장방문 견적 요청하기 →"}
           </button>
         </div>
