@@ -68,20 +68,20 @@ export default function BidCard({
     else setShowForm(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
-    setTimeout(() => {
-      onBidSubmit?.({
-        price:    parseInt(bidForm.price, 10),
-        period:   parseInt(bidForm.period, 10),
-        material: bidForm.material,
-        comment:  bidForm.comment,
-      });
+    const ok = await onBidSubmit?.({
+      price:    parseInt(bidForm.price, 10),
+      period:   parseInt(bidForm.period, 10),
+      material: bidForm.material,
+      comment:  bidForm.comment,
+    });
+    setSubmitting(false);
+    if (ok) {
       setShowForm(false);
       setSubmitted(true);
-      setSubmitting(false);
-    }, 800);
+    }
   };
 
   // ── 선정 이후 상태 배지 ─────────────────────────────────────────────────
