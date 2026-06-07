@@ -18,6 +18,8 @@ const TX_META = {
 // 에스크로 이전(현장방문 견적 흐름) 단계 — request.status 기반 라벨.
 const REQ_STATUS_META = {
   site_visit:            { label: "현장방문 견적 요청", color: C.brand,   bucket: "in_progress", nextAction: "현장방문 후 최종 견적서 제출" },
+  site_visiting:         { label: "현장방문 견적 요청", color: C.brand,   bucket: "in_progress", nextAction: "📅 현장실측 후 추가견적/금액확정" },
+  visit_requested:       { label: "현장방문 견적 요청", color: C.brand,   bucket: "in_progress", nextAction: "현장방문 후 최종 견적서 제출" },
   final_quote_submitted: { label: "최종견적 검토중",    color: "#9B59B6", bucket: "in_progress", nextAction: "의뢰인 승인 대기" },
   escrow_pending:        { label: "결제 대기",          color: "#E8A51B", bucket: "in_progress", nextAction: "의뢰인 에스크로 결제 대기" },
 };
@@ -330,17 +332,20 @@ export default function DashboardScreen({
 
         {/* ── 입찰 ──────────────────────────────────────────────── */}
         {tab === "bids" && (() => {
-          // 입찰 목록은 status='open' 이고 활성(미마감·미계약·업체 미선택)인 요청만 노출.
+          // 입찰 목록: status='open' + 미선택 + 미마감 + 미제출(hasSubmitted=false)인 요청만 노출.
+          // site_visiting/selected 등 이미 업체 선정된 요청은 이중 노출 방지.
+          const submittedSet = new Set((submittedBids ?? []).map(b => b.requestId ?? b.request_id));
           const biddable = allRequests.filter(r =>
-            (r.status === "open") && r.isActive !== false && r.isClosed !== true
+            r.status === "open" && r.isActive !== false && r.isClosed !== true
             && !r.selectedBidId && !r.selectedCompanyId
+            && !submittedSet.has(r.id)
           );
           return (
             <div>
               <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>
                 오늘 견적 요청 <b style={{ color:C.brand }}>{biddable.length}건</b>
               </div>
-              {biddable.map(r => <BidCard key={r.id} r={r} currentUser={currentUser} />)}
+              {biddable.map(r => <BidCard key={r.id} r={r} currentUser={currentUser} submittedBids={submittedBids} />)}
             </div>
           );
         })()}

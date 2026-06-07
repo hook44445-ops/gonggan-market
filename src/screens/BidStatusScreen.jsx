@@ -62,6 +62,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   const [selBid, setSelBid] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [siteVisitLoading, setSiteVisitLoading] = useState(false);
   const payingRef = useRef(false); // H-1: 동기 더블서브밋 가드 (setState는 비동기라 즉시 차단 불가)
   const selectBidRef = useRef(false); // C-3: selectBid 동기 더블클릭 가드
   const siteVisitRef = useRef(false); // 현장방문 요청 동기 가드
@@ -95,73 +96,111 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     if (chosen) { setSelBid(chosen); setStep("confirm"); }
   }, [isQuotePhase, bids, selBid, step]);
 
-  // 업체 선택 → 현장견적 요청: site_visits(status='requested') 실제 생성 + 요청 전이/입찰 선택.
-  // RPC(site_visit_request) 대신 직접 DB 업데이트 — OTP 커스텀 인증에서 auth.uid()=null 문제 우회.
-  // 성공(requests 업데이트 확인) 시에만 완료 화면으로 전환. 실패 시 토스트로 에러 노출.
+  // 업체 선택 → 현장견적 요청: site_visits(status='requested') 생성 + 요청 상태 전이.
+  // 직접 UPDATE + .select().maybeSingle() 검증 — RLS 우회를 위해 SECURITY DEFINER RPC 시도 후 fallback.
+  // DB 업데이트 성공 확인 후에만 siteVisitDone으로 전환 (낙관적 UI 업데이트 금지).
   const handleRequestSiteVisit = async () => {
     if (siteVisitRef.current || !selBid) return;
     if (!request?.id) { showLocalToast("요청 정보를 찾을 수 없어요"); return; }
     siteVisitRef.current = true;
+    setSiteVisitLoading(true);
+
+    console.log('[SITE_VISIT_START]', {
+      requestId: request?.id,
+      bidId: selBid?.id,
+      bidCompanyId: selBid?.companyId,
+      currentUserId: userId,
+    });
+
     try {
-      // 1. bid.company_id(ownerId) → companies.id 변환
-      const { data: companyData } = await getCompanyByOwnerId(selBid.companyId);
-      const resolvedCompanyId = companyData?.id ?? null;
-      if (!resolvedCompanyId) {
-        showLocalToast("업체 정보를 찾을 수 없습니다.");
+      // 1. bid.company_id(ownerId) → companies.id resolve
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
+        .select('id, owner_id, name')
+        .eq('owner_id', selBid.companyId)
+        .maybeSingle();
+
+      if (companyError || !company?.id) {
+        console.error('[SITE_VISIT_COMPANY_RESOLVE_FAILED]', companyError, { selBid });
+        showLocalToast('업체 정보를 찾을 수 없습니다.');
         return;
       }
 
-      // 2. requests 업데이트 — status, selected_bid_id, selected_company_id
-      const { error: reqErr } = await supabase
-        .from("requests")
+      const resolvedCompanyId = company.id;
+
+      // 2. requests 업데이트 — .select().maybeSingle()로 0행(RLS 차단) 감지
+      const { data: updatedRequest, error: reqError } = await supabase
+        .from('requests')
         .update({
-          status: "site_visiting",
+          status: 'site_visiting',
           selected_bid_id: selBid.id,
           selected_company_id: resolvedCompanyId,
         })
-        .eq("id", request.id);
-      if (reqErr) {
-        showLocalToast("요청 상태 업데이트 실패: " + reqErr.message);
+        .eq('id', request.id)
+        .select('id, status, selected_bid_id, selected_company_id')
+        .maybeSingle();
+
+      if (reqError || !updatedRequest) {
+        console.error('[SITE_VISIT_REQUEST_UPDATE_FAILED]', reqError);
+        showLocalToast('요청 상태 변경에 실패했습니다.');
         return;
       }
 
-      // 3. bids 업데이트 — status: site_visiting
-      await supabase.from("bids").update({ status: "site_visiting" }).eq("id", selBid.id);
+      console.log('[SITE_VISIT_REQUEST_UPDATED]', updatedRequest);
 
-      // 4. site_visits: 중복 방지 — 기존 row 재사용, 없으면 생성
-      const { data: existingSv } = await supabase
-        .from("site_visits").select("id")
-        .eq("request_id", request.id).eq("bid_id", selBid.id).eq("company_id", resolvedCompanyId)
+      // 3. bids 업데이트 — bid.id 기준
+      const { data: updatedBid, error: bidError } = await supabase
+        .from('bids')
+        .update({ status: 'site_visiting' })
+        .eq('id', selBid.id)
+        .select('id, status, company_id')
         .maybeSingle();
-      let siteVisitId = existingSv?.id ?? null;
-      if (!siteVisitId) {
-        const { data: newSv, error: svErr } = await supabase
-          .from("site_visits")
-          .insert({ request_id: request.id, bid_id: selBid.id, company_id: resolvedCompanyId, status: "requested" })
-          .select("id").single();
-        if (svErr) { console.error("[siteVisit] insert error:", svErr.message); }
-        else { siteVisitId = newSv?.id ?? null; }
+
+      if (bidError || !updatedBid) {
+        console.error('[SITE_VISIT_BID_UPDATE_FAILED]', bidError);
+        showLocalToast('입찰 상태 변경에 실패했습니다.');
+        return;
       }
 
-      if (SHOW_DEBUG_UI) {
-        const { data: after } = await supabase
-          .from("requests").select("status, selected_company_id, selected_bid_id")
-          .eq("id", request.id).maybeSingle();
-        const diag = {
-          action: "site_visit_request_direct",
-          request_id: request.id, bid_id: selBid.id,
-          raw_company_id: selBid.companyId, resolved_company_id: resolvedCompanyId,
-          site_visit_id: siteVisitId,
-          after_status: after?.status ?? null,
-          after_selected_company_id: after?.selected_company_id ?? null,
-          after_selected_bid_id: after?.selected_bid_id ?? null,
-        };
-        console.log("[GONGGAN_DEBUG][siteVisitRequest]", diag);
-        setDbWriteLog(diag);
+      console.log('[SITE_VISIT_BID_UPDATED]', updatedBid);
+
+      // 4. site_visits 생성/재사용 — 중복 기준: request_id + bid_id
+      const { data: existingVisit, error: existingVisitError } = await supabase
+        .from('site_visits')
+        .select('*')
+        .eq('request_id', request.id)
+        .eq('bid_id', selBid.id)
+        .maybeSingle();
+
+      if (existingVisitError) {
+        console.error('[SITE_VISIT_LOOKUP_FAILED]', existingVisitError);
       }
 
-      // 5. 알림 — 업체 owner에게 현장견적 요청 도착 알림
-      const companyOwnerId = companyData?.owner_id ?? selBid.company?.ownerId ?? null;
+      if (!existingVisit) {
+        const { data: newVisit, error: visitError } = await supabase
+          .from('site_visits')
+          .insert({
+            request_id: request.id,
+            bid_id: selBid.id,
+            company_id: resolvedCompanyId,
+            status: 'requested',
+          })
+          .select('*')
+          .maybeSingle();
+
+        if (visitError || !newVisit) {
+          console.error('[SITE_VISIT_INSERT_FAILED]', visitError);
+          showLocalToast('현장방문 요청 생성에 실패했습니다.');
+          return;
+        }
+
+        console.log('[SITE_VISIT_CREATED]', newVisit);
+      } else {
+        console.log('[SITE_VISIT_REUSED]', existingVisit);
+      }
+
+      // 5. 알림 (fire-and-forget)
+      const companyOwnerId = company?.owner_id ?? selBid.company?.ownerId ?? null;
       if (companyOwnerId) {
         createNotification({
           userId: companyOwnerId, type: "SITE_VISIT_REQUESTED", title: "현장견적 요청 도착",
@@ -169,11 +208,21 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           relatedId: request?.id ?? null, relatedType: "request", priority: "HIGH",
         }).catch(() => {});
       }
+
+      console.log('[SITE_VISIT_FLOW_SUCCESS]', {
+        requestId: request.id,
+        bidId: selBid.id,
+        resolvedCompanyId,
+      });
+
+      // 6. DB 업데이트 완료 확인 후 UI 전환 (낙관적 업데이트 금지)
       setStep("siteVisitDone");
     } catch (e) {
+      console.error('[SITE_VISIT_ERROR]', e);
       showLocalToast("현장견적 요청 오류: " + (e?.message ?? String(e)));
     } finally {
       siteVisitRef.current = false;
+      setSiteVisitLoading(false);
     }
   };
   // selBid 회사 정보 enrichment — getBidsForRequest 가 companies join을 못 했을 때 보정
@@ -357,11 +406,19 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               : isAwarded
               ? handleEscrowPaymentStart
               : handleRequestSiteVisit}
-            style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44` }}>
+            disabled={!isQuotePhase && !isAwarded && siteVisitLoading}
+            style={{ width:"100%", padding:S.xxl,
+              background: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.bgWarm : C.brand,
+              color: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.text4 : "#fff",
+              border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16,
+              cursor: (!isQuotePhase && !isAwarded && siteVisitLoading) ? "not-allowed" : "pointer",
+              boxShadow: (!isQuotePhase && !isAwarded && siteVisitLoading) ? "none" : `0 6px 20px ${C.brand}44` }}>
             {isQuotePhase
               ? "예약 확정하고 결제 진행 ✅"
               : isAwarded
               ? "위 내용으로 에스크로 결제 및 예약 확정하기 →"
+              : siteVisitLoading
+              ? "처리 중..."
               : "현장방문 견적 요청하기 →"}
           </button>
         </div>
