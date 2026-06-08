@@ -1162,12 +1162,29 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
       dev.escrow_direct_found = escrowsDirect?.length ?? 0;
 
-      // Merge request_ids: from bids (path A+B) + from escrow direct (path C)
+      // ── Path D: requests.selected_company_id ∈ candidateIds ──────────────────
+      // 의뢰인이 이 업체를 선택한 모든 요청(현장방문 site_visiting 포함)을 bid/escrow 연결
+      // 여부와 무관하게 진행중 후보로 확보한다. (bids.request_id 누락 등으로 Path A 가 놓치는
+      // site_visiting 건이 진행중 탭에 안 뜨던 문제 보강 — selected_company_id = companies.id.)
+      const { data: selCompanyReqs } = await supabase
+        .from("requests")
+        .select("id, selected_company_id")
+        .in("selected_company_id", candidateIds);
+
+      const requestIdsFromSelectedCompany = new Set(
+        (selCompanyReqs ?? []).map(r => r.id).filter(Boolean)
+      );
+
+      // Merge request_ids: from bids (path A+B) + from escrow direct (path C) + selected_company (path D)
       const requestIdsFromBids = new Set(Object.values(bidRequestMap));
       const requestIdsFromEscrow = new Set(
         (escrowsDirect ?? []).map(e => e.request_id).filter(Boolean)
       );
-      const allRequestIds = [...new Set([...requestIdsFromBids, ...requestIdsFromEscrow])];
+      const allRequestIds = [...new Set([
+        ...requestIdsFromBids,
+        ...requestIdsFromEscrow,
+        ...requestIdsFromSelectedCompany,
+      ])];
 
       if (allRequestIds.length > 0) {
         dev.join_mode = requestIdsFromBids.size > 0 && requestIdsFromEscrow.size > 0
@@ -1232,9 +1249,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // 현장방문 견적 단계(site_visit/final_quote_submitted/escrow_pending, 결제 전)는 companyJobs 가
       // 아니라 activeJobs(CompanyActiveJobCard)에서 다룬다 — 이중 노출 방지. companyJobs 는 에스크로 계약만.
 
-      // Build synthetic bid entries for request_ids discovered via escrow direct (no bid row)
-      const escrowOnlyRequestIds = [...requestIdsFromEscrow].filter(rid => !requestIdsFromBids.has(rid));
-      const syntheticBids = escrowOnlyRequestIds.map(rid => ({
+      // Build synthetic bid entries for request_ids discovered via escrow direct OR
+      // selected_company (path D) that have no bid row in path A — 그래야 진행중 후보로 흐른다.
+      const noBidRequestIds = [...new Set([...requestIdsFromEscrow, ...requestIdsFromSelectedCompany])]
+        .filter(rid => !requestIdsFromBids.has(rid));
+      const syntheticBids = noBidRequestIds.map(rid => ({
         id: null,
         request_id: rid,
         company_id: candidateIds[0],
