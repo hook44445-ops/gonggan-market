@@ -1124,7 +1124,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // 의뢰인이 이 업체(selected_company_id ∈ candidateIds)를 선택한 진행성 요청은 bids/escrow
       // 연결·디바운스 타이밍과 무관하게 반드시 companyJobs 에 포함한다.
       // (현장방문 RPC/insert/classify 미변경 — requests 조회만 추가.)
-      const FORCE_STATUS = ["site_visiting","visit_requested","site_visit","selected","in_progress","deposit_pending","escrow_pending","contracted","active"];
+      // 진행중 포함 status — 최종견적 전송(final_quote_submitted)·착공 계열 포함(목록에서 사라짐 방지).
+      const FORCE_STATUS = ["site_visiting","visit_requested","site_visit","final_quote_submitted","construction_confirmed","started","mid_inspection","selected","in_progress","deposit_pending","escrow_pending","contracted","active"];
       // 정산/종료된 escrow 가 붙은 요청은 강제포함에서 제외(완료건이 진행중 유령으로 남는 것 방지).
       const FORCED_EXCL_TX = new Set(["SETTLED","COMPLETED","CANCELLED","REFUNDED","DISPUTE_RESOLVED"]);
       let forcedJobs = [];
@@ -1398,7 +1399,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           // 현장방문 견적 단계(결제 전)는 activeJobs(CompanyActiveJobCard)에서 다룸 → companyJobs 제외(이중 노출 방지).
           // site_visiting/visit_requested 는 selected_company_id 가 이미 설정된 상태이므로
           // companyJobs 에도 포함 허용 → DashboardScreen "진행중" 탭에 노출.
-          const PRE_ESCROW = new Set(["site_visit", "final_quote_submitted", "escrow_pending"]);
+          // final_quote_submitted 는 진행중으로 포함(multipath 에서도 제외하지 않음) → 목록 유지.
+          const PRE_ESCROW = new Set(["site_visit", "escrow_pending"]);
           if (PRE_ESCROW.has(reqStatus)) { excludedReasons.push(`${rid8}:pre_escrow(activeJobs)`); return false; }
 
           // 여기 도달 = 이 업체가 선택된 계약 + 종료/현장방문단계 아님 → 진행중.
