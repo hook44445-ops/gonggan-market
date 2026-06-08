@@ -148,7 +148,8 @@ export const getRequests = () =>
   supabase
     .from("requests")
     .select("*, bids(id, company_id, price, status)")
-    .eq("status", "open")
+    .eq("status", "open")                          // open 만 — cancelled/canceled 자동 제외
+    .not("status", "in", "(cancelled,canceled)")   // 명시적 방어(이중)
     .or("is_hidden.is.null,is_hidden.eq.false")
     .or("is_deleted.is.null,is_deleted.eq.false")
     .order("created_at", { ascending: false });
@@ -161,6 +162,7 @@ export const getUserRequests = async (userId) => {
     .from("requests")
     .select("*, bids(id, company_id, price, status)")
     .eq("user_id", userId)
+    .not("status", "in", "(cancelled,canceled)")   // 취소건은 쿼리 레벨에서 제외
     .or("is_hidden.is.null,is_hidden.eq.false")
     .or("is_deleted.is.null,is_deleted.eq.false")
     .order("created_at", { ascending: false });
