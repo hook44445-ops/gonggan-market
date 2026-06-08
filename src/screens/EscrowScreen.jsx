@@ -11,6 +11,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import CustomerEvaluationModal from "../components/CustomerEvaluationModal";
+import PlatformEstimateModal from "../components/PlatformEstimateModal";
 
 // Stage status values:
 // 'done'           — payment released
@@ -95,7 +96,7 @@ const CHECKPOINT_META = {
   complete:   { label: "완료 확인",     icon: "✅" },
 };
 
-export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview }) {
+export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview, currentUser }) {
   const IS_DEBUG = SHOW_DEBUG_UI;
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
@@ -1061,8 +1062,37 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   // contractId prop 이 넘어오는 계약 단계에서는 resolvedContractId 가 채워져 이 분기를 타지 않는다.
   const escrowResolveDone = bidFetchDone && !resolvedContractId;
   const noStatusButNoEscrow = (request == null || !request?.status) && escrowResolveDone;
-  // 결제 전(현장견적 단계) + 실제 에스크로 없음 → 착공확인/사진업로드/전송 UI 전부 숨기고 안내만.
+  // 결제 전(현장견적 단계) + 실제 에스크로 없음 → 착공확인/사진업로드/전송 UI 전부 숨김.
   if (!hasRealEscrow && (isPreEscrowPhase || noStatusButNoEscrow)) {
+    // 업체: 최종 견적서 작성 폼(검증된 PlatformEstimateModal 재사용 — createEstimate/submitEstimate).
+    //   submitEstimate 가 request.status → final_quote_submitted 로 원자 전이. site_visit_id 는 null 허용.
+    //   착공확인/사진업로드는 노출하지 않는다(이 분기 자체가 결제 전 가드).
+    if (!isConsumer && resolvedBid?.id && resolvedBid?.requestId) {
+      return (
+        <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+          <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
+            <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>최종 견적서 작성</div>
+          </div>
+          <div style={{ padding: "20px 24px", fontSize: 13, color: C.text3, lineHeight: 1.7 }}>
+            현장방문 후 최종 견적 금액을 작성해 의뢰인에게 보내주세요. 의뢰인이 에스크로 결제를 완료하면 착공 단계가 열립니다.
+          </div>
+          <PlatformEstimateModal
+            job={{
+              bid: { id: resolvedBid.id, request_id: resolvedBid.requestId },
+              request: request ?? { id: resolvedBid.requestId },
+              siteVisit: null,
+              estimate: null,
+            }}
+            companyId={currentUser?.id ?? resolvedBid.companyId}
+            userId={userId}
+            onClose={onBack}
+            onChange={() => {}}
+          />
+        </div>
+      );
+    }
+    // 의뢰인: 업체 최종 견적 발행 대기 안내.
     return (
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
         <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
@@ -1072,12 +1102,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         <div style={{ padding: "56px 24px", textAlign: "center" }}>
           <div style={{ fontSize: 34, marginBottom: 12 }}>📋</div>
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
-            {isConsumer ? "최종 견적을 기다리고 있어요" : "현장방문 후 최종 견적을 작성해주세요"}
+            최종 견적을 기다리고 있어요
           </div>
           <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8 }}>
-            {isConsumer
-              ? "선택하신 업체가 현장방문 후 최종 견적서를 보낼 예정입니다.\n최종 견적을 받으면 에스크로 결제를 진행할 수 있어요.\n결제가 완료되어야 착공 단계가 열립니다."
-              : "아직 결제(에스크로) 전 단계입니다.\n현장방문 후 최종 견적서를 작성해 의뢰인에게 보내주세요.\n의뢰인이 에스크로 결제를 완료하면 착공 확인 단계가 열립니다."}
+            선택하신 업체가 현장방문 후 최종 견적서를 보낼 예정입니다.{"\n"}최종 견적을 받으면 에스크로 결제를 진행할 수 있어요.{"\n"}결제가 완료되어야 착공 단계가 열립니다.
           </div>
           <button onClick={onBack} style={{ marginTop: 24, padding: "11px 24px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
         </div>
