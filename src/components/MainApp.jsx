@@ -1102,6 +1102,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // 연결·디바운스 타이밍과 무관하게 반드시 companyJobs 에 포함한다.
       // (현장방문 RPC/insert/classify 미변경 — requests 조회만 추가.)
       const FORCE_STATUS = ["site_visiting","visit_requested","site_visit","selected","in_progress","deposit_pending","escrow_pending","contracted","active"];
+      // 정산/종료된 escrow 가 붙은 요청은 강제포함에서 제외(완료건이 진행중 유령으로 남는 것 방지).
+      const FORCED_EXCL_TX = new Set(["SETTLED","COMPLETED","CANCELLED","REFUNDED","DISPUTE_RESOLVED"]);
       let forcedJobs = [];
       try {
         const { data: selectedRequests, error: selectedError } = await supabase
@@ -1110,8 +1112,25 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           .in("selected_company_id", candidateIds)
           .in("status", FORCE_STATUS);
         if (selectedError) { try { console.error("[DASHBOARD_SELECTED_REQUESTS_FAILED]", selectedError); } catch {} }
+        // 선택건들의 escrow 상태 조회 — SETTLED 등 종료건은 진행중에서 빼야 함.
+        const selIds = (selectedRequests ?? []).map(r => r.id).filter(Boolean);
+        let txByReq = {};
+        if (selIds.length > 0) {
+          const { data: selEsc } = await supabase
+            .from("escrow_payments")
+            .select("request_id, transaction_status")
+            .in("request_id", selIds);
+          for (const e of selEsc ?? []) {
+            if (!e.request_id) continue;
+            // 종료 상태가 하나라도 있으면 종료로 간주(가장 진행된 상태 우선).
+            if (FORCED_EXCL_TX.has(e.transaction_status) || !txByReq[e.request_id]) {
+              txByReq[e.request_id] = e.transaction_status;
+            }
+          }
+        }
         forcedJobs = (selectedRequests ?? [])
           .filter(req => req?.id && req.is_deleted !== true && req.is_hidden !== true)
+          .filter(req => !FORCED_EXCL_TX.has(txByReq[req.id]))   // SETTLED/종료 escrow 제외
           .map(req => {
             const rawBids = Array.isArray(req.bids) ? req.bids : [];
             const selectedBid = rawBids.find(b => b.id === req.selected_bid_id) || rawBids[0] || null;

@@ -104,6 +104,8 @@ const normalizeCompletedJob = (row) => {
     txStatus:  row.transaction_status,
     date:      row.created_at,
     requestId: row.request_id,
+    companyId: row.company_id ?? null,
+    contractId: row.id,
   };
 };
 
@@ -491,7 +493,14 @@ export default function DashboardScreen({
                       </div>
                       <div style={{ fontSize:11, color:C.text4 }}>{dateStr}</div>
                     </div>
-                    <button onClick={() => onEscrow()}
+                    <button onClick={() => {
+                        // 완료 상세는 반드시 request_id 를 넘긴다(없으면 EscrowScreen 이 계약 미해결로 에러).
+                        if (job.requestId && onOpenJob) {
+                          onOpenJob({ id: job.bidId ?? null, requestId: job.requestId, companyId: job.companyId, price: job.total, createdAt: job.date });
+                        } else {
+                          onEscrow();
+                        }
+                      }}
                       style={{ width:"100%", padding:"9px", background:C.surface2,
                         color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
                         fontWeight:600, fontSize:13, cursor:"pointer" }}>

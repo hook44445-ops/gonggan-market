@@ -4,7 +4,7 @@ import { SHOW_DEBUG_UI } from "../constants/release";
 import { LeafSprig } from "../components/common";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, saveProjectCheckpoint, getProjectCheckpoints } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, getProjectCheckpoints } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import EscrowCalculator from "../components/EscrowCalculator";
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -657,6 +657,20 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
       setApprovalLog(log);
       setDbRefreshKey(k => k + 1);
+
+      // 정산 완료(stage5=SETTLED) 시 requests.status 도 'completed' 로 동기화 — 진행중 유령 제거.
+      // RLS 우회 RPC(migration 041). 실패해도 프론트 분류는 escrow SETTLED 기준 완료라 best-effort.
+      if (stageId === 5 && !stepFailed) {
+        const completedReqId = request?.id ?? resolvedBid?.requestId ?? contractData?.request_id ?? null;
+        if (completedReqId) {
+          try {
+            await setRequestCompleted(completedReqId);
+            console.log("[REQUEST_MARKED_COMPLETED]", { requestId: completedReqId });
+          } catch (e) {
+            console.warn("[REQUEST_MARK_COMPLETED_FAILED]", e?.message ?? e);
+          }
+        }
+      }
 
       if (stageId === 5 && resolvedBid?.companyId) {
         updateCompanyTemp(resolvedBid.companyId, 2.5).catch(() => {});
