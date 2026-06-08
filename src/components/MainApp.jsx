@@ -1097,6 +1097,38 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       companyJobsTsRef.current = _now;
       companyJobsKeyRef.current = candidateKey;
 
+      // ── 강제 포함(Path D 직접조회) — 표시 전용, 멀티패스/타이밍 누락 방어 ──────────────
+      // 의뢰인이 이 업체(selected_company_id ∈ candidateIds)를 선택한 진행성 요청은 bids/escrow
+      // 연결·디바운스 타이밍과 무관하게 반드시 companyJobs 에 포함한다.
+      // (현장방문 RPC/insert/classify 미변경 — requests 조회만 추가.)
+      const FORCE_STATUS = ["site_visiting","visit_requested","site_visit","selected","in_progress","deposit_pending","escrow_pending","contracted","active"];
+      let forcedJobs = [];
+      try {
+        const { data: selectedRequests, error: selectedError } = await supabase
+          .from("requests")
+          .select("*, bids(id, price, status, company_id, period_days, material_note, comment, created_at, selected)")
+          .in("selected_company_id", candidateIds)
+          .in("status", FORCE_STATUS);
+        if (selectedError) { try { console.error("[DASHBOARD_SELECTED_REQUESTS_FAILED]", selectedError); } catch {} }
+        forcedJobs = (selectedRequests ?? [])
+          .filter(req => req?.id && req.is_deleted !== true && req.is_hidden !== true)
+          .map(req => {
+            const rawBids = Array.isArray(req.bids) ? req.bids : [];
+            const selectedBid = rawBids.find(b => b.id === req.selected_bid_id) || rawBids[0] || null;
+            return {
+              bid: selectedBid ? {
+                id: selectedBid.id, requestId: req.id, companyId: selectedBid.company_id,
+                price: selectedBid.price, period: selectedBid.period_days,
+                material: selectedBid.material_note ?? "", comment: selectedBid.comment ?? "",
+                createdAt: selectedBid.created_at, status: selectedBid.selected ? "selected" : "pending",
+                company: { id: req.selected_company_id, name: user.name ?? "업체", temp: 36.5, ownerId: user.id },
+              } : null,
+              request: normalizeRequest(req),
+              escrow: null,
+            };
+          });
+      } catch (e) { try { console.error("[DASHBOARD_SELECTED_REQUESTS_FAILED]", e); } catch {} }
+
       const dev = {
         auth_user_id:              user.id?.slice(0, 8) ?? "null",
         currentUser_id:            currentUser?.id?.slice(0, 8) ?? "null",
@@ -1204,7 +1236,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         : "none";
 
       if (allRequestIds.length === 0) {
-        setCompanyJobs([]);
+        // 멀티패스가 비어도 강제포함(selected_company_id) 진행건은 노출.
+        dev.forced_jobs = forcedJobs.length;
+        dev.realInProgressIds = forcedJobs.map(j => j.request?.id).filter(Boolean).join(", ") || "none";
+        try { console.log("[GONGGAN_DEBUG][realInProgressIds]", { source: "forced_only", ids: forcedJobs.map(j => j.request?.id).filter(Boolean) }); } catch {}
+        setCompanyJobs(forcedJobs);
         setCompanyJobsDebug(dev);
         return;
       }
@@ -1343,17 +1379,24 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           escrow: escrowByRequestId[b.request_id] ?? null,
         }));
 
-      dev.displayed_jobs = jobs.length;
+      // 강제포함(selected_company_id) 진행건을 멀티패스 결과에 병합(중복 request 제거).
+      const jobReqIds = new Set(jobs.map(j => j.request?.id).filter(Boolean));
+      const mergedJobs = [...jobs, ...forcedJobs.filter(fj => fj.request?.id && !jobReqIds.has(fj.request.id))];
+
+      dev.displayed_jobs = mergedJobs.length;
       // ── In-progress dedupe diagnostics (per request) ──
       dev.raw_count               = allBids.length + syntheticBids.length; // pre-dedupe candidate rows
       dev.deduped_count           = dedupedCandidates.length;              // after request_id dedupe
-      dev.displayed_dashboard_count = jobs.length;                          // after active-only filter
+      dev.displayed_dashboard_count = mergedJobs.length;                   // after active-only filter + forced
+      dev.forced_jobs             = forcedJobs.length;
+      dev.realInProgressIds       = mergedJobs.map(j => j.request?.id).filter(Boolean).join(", ") || "none";
       dev.excluded_reason         = excludedReasons.length ? excludedReasons.join(" | ") : "none";
       // request_statuses for dashboard DEV (id:status)
       dev.request_statuses = (reqs ?? [])
         .map(r => `${r.id.slice(0,8)}:${r.status ?? "null"}`)
         .join(", ") || "none";
-      setCompanyJobs(jobs);
+      try { console.log("[GONGGAN_DEBUG][realInProgressIds]", { source: "merged", multipath: jobs.map(j => j.request?.id).filter(Boolean), forced: forcedJobs.map(j => j.request?.id).filter(Boolean), merged: mergedJobs.map(j => j.request?.id).filter(Boolean) }); } catch {}
+      setCompanyJobs(mergedJobs);
       setCompanyJobsDebug(dev);
     };
 
