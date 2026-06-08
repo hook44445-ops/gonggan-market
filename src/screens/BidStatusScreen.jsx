@@ -117,7 +117,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       const { data: company, error: companyError } = await supabase
         .from('companies')
         .select('id, owner_id, name')
-        .eq('owner_id', selBid.companyId)
+        .or(`id.eq.${selBid.companyId},owner_id.eq.${selBid.companyId}`)
         .maybeSingle();
 
       if (companyError || !company?.id) {
@@ -273,7 +273,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     getBidsForRequest(request.id).then(({ data, error }) => {
       if (SHOW_DEBUG_UI) setBidScreenDebug({ src: "bidscreen_effect", req_id: request.id, count: data?.length ?? 0, err: error?.message ?? null, req_ids: (data ?? []).map(b => b.request_id) });
       if (error) return;
-      if (data) setLocalBids(data.map(normalizeBid));
+      // 빈 배열이면 propBids 초기값을 덮어쓰지 않음 — RLS 차단(0건 반환)으로 기존 데이터 소실 방지.
+      if (data && data.length > 0) setLocalBids(data.map(normalizeBid));
     });
   }, [request?.id]);
 
@@ -401,12 +402,25 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             ))}
           </div>
           <button
+            type="button"
             onClick={isQuotePhase
               ? () => { if (reqStatus === "final_quote_submitted" && request?.id) approveFinalQuote(request.id, userId).catch(() => {}); setStep("reserved"); }
               : isAwarded
               ? handleEscrowPaymentStart
-              : handleRequestSiteVisit}
-            disabled={!isQuotePhase && !isAwarded && siteVisitLoading}
+              : () => {
+                  console.log('[SITE_VISIT_BUTTON_CLICK]', {
+                    requestId: request?.id,
+                    bidId: selBid?.id,
+                    bidCompanyId: selBid?.companyId,
+                  });
+                  handleRequestSiteVisit();
+                }}
+            disabled={isQuotePhase || isAwarded ? false : (
+              !(request?.status === 'open' &&
+                !request?.selected_company_id && !request?.selectedCompanyId &&
+                !request?.selected_bid_id && !request?.selectedBidId &&
+                !!selBid?.id) || siteVisitLoading
+            )}
             style={{ width:"100%", padding:S.xxl,
               background: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.bgWarm : C.brand,
               color: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.text4 : "#fff",

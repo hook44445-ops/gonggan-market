@@ -3300,7 +3300,19 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             onChat={c => go("chat",c)}
             onEscrow={(bid) => { setSelectedBid(bid); if (bid?.contractId) setContractId(bid.contractId); go("escrow"); }}
             onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }}
-            bids={bidViewRequestId ? submittedBids.filter(b => b.requestId === bidViewRequestId) : []}
+            bids={(() => {
+              if (!bidViewRequestId) return [];
+              // 소비자 세션에서는 submittedBids가 비어 있어도 request.bidsRaw(getUserRequests 반환값)를
+              // 초기 bids로 넘겨 BidStatusScreen이 즉시 "이 업체로 선택하기" 버튼을 렌더링하도록 함.
+              // getBidsForRequest가 RLS로 차단돼 빈 배열을 반환해도 버튼이 사라지지 않는다.
+              const req = [...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId);
+              const fromRaw = (req?.bidsRaw ?? []).map(b => normalizeBid({ ...b, request_id: b.request_id ?? bidViewRequestId }));
+              const fromSubmitted = submittedBids.filter(b => b.requestId === bidViewRequestId);
+              // submittedBids(최신, company 정보 포함)가 있으면 덮어씀
+              const byId = Object.fromEntries(fromRaw.map(b => [b.id, b]));
+              for (const b of fromSubmitted) { if (b.id) byId[b.id] = b; }
+              return Object.values(byId);
+            })()}
             submittedBids={submittedBids}
             request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null}
             selectedBid={selectedBid}
