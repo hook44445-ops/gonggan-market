@@ -625,6 +625,17 @@ export const adminRestoreReview = (id, adminId) =>
     p_admin_id:  adminId ?? null,
   });
 
+// 아이디/비밀번호(게스트) 관리자 로그인용 — 실제 DB의 admin 유저 UUID 1건을 조회한다.
+// 모든 어드민 RPC(admin_*)는 p_admin_id 가 users(role='admin')의 실제 UUID 여야 통과하며
+// (security definer 내부 role 검증), 문자열 "admin" 은 uuid 캐스팅 자체가 실패해
+// 'invalid input syntax for type uuid: "admin"' 오류를 낸다. 로그인 시 실제 UUID로 해석한다.
+export const getAnyAdminId = async () => {
+  const { data, error } = await supabase
+    .from("users").select("id").eq("role", "admin").order("created_at", { ascending: true })
+    .limit(1).maybeSingle();
+  return { data: data?.id ?? null, error };
+};
+
 // ── Admin Lounge Posts ────────────────────────────────────────────────────────
 
 export const adminUpdateLoungePost = async (id, updates, adminId) => {

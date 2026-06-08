@@ -90,6 +90,14 @@ function ReviewAdminTab({ adminUserId, showToast }) {
 
   useEffect(() => { loadReviews(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 리뷰 어드민 RPC(admin_*)에 전달되는 관리자 식별자 확인용 — uuid 여야 한다.
+  // (문자열 "admin" 이면 'invalid input syntax for type uuid: "admin"' 발생)
+  useEffect(() => {
+    console.log("[GONGGAN_DEBUG][ReviewAdmin:adminUserId]", {
+      adminUserId, type: typeof adminUserId,
+    });
+  }, [adminUserId]);
+
   const reload = loadReviews;
 
   const visible = reviews.filter(r => {

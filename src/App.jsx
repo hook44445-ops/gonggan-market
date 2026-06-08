@@ -5,7 +5,7 @@ import LoginScreen from "./screens/LoginScreen";
 import LandingScreen from "./screens/LandingScreen";
 import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { getUserByPhone } from "./lib/supabase";
+import { getUserByPhone, getAnyAdminId } from "./lib/supabase";
 import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
 } from "./lib/deviceAuth";
@@ -227,19 +227,31 @@ export default function App() {
     );
   }
 
-  const handleAdminLogin = () => {
+  const handleAdminLogin = async () => {
     const adminCode = import.meta.env.VITE_ADMIN_CODE;
     if (!adminCode) {
       setAdminLoginErr("관리자 접근이 구성되지 않았습니다");
       return;
     }
     if (adminId === "admin" && adminPw === adminCode) {
+      // 어드민 RPC(p_admin_id uuid, 내부 role='admin' 검증)는 실제 DB admin UUID 가 필요하다.
+      // 과거엔 id:"admin"(문자열)을 세션에 넣어 리뷰 숨김/삭제 등에서
+      // 'invalid input syntax for type uuid: "admin"' 오류가 났다. 실제 UUID 로 해석한다.
+      const { data: realAdminId, error: adminIdErr } = await getAnyAdminId();
+      console.log("[GONGGAN_DEBUG][App:adminLogin]", {
+        resolvedAdminId: realAdminId ?? null,
+        lookupError: adminIdErr?.message ?? null,
+      });
+      if (!realAdminId) {
+        setAdminLoginErr("관리자 DB 계정(role=admin)을 찾을 수 없습니다");
+        return;
+      }
       localStorage.setItem("admin_authed", "true");
       setShowAdminLogin(false);
       setAdminId("");
       setAdminPw("");
       setAdminLoginErr("");
-      handleLogin({ id: "admin", role: "admin", activeRole: "admin", name: "관리자", isGuest: true });
+      handleLogin({ id: realAdminId, role: "admin", activeRole: "admin", name: "관리자", isGuest: true });
     } else {
       setAdminLoginErr("아이디 또는 비밀번호가 올바르지 않습니다");
     }
