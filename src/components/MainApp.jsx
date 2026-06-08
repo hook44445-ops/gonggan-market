@@ -1833,6 +1833,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   };
 
   const addBid = async (request, bidData) => {
+    console.log('[BID_SUBMIT_BUTTON_CLICK]', {
+      requestId: request?.id,
+      ownerId: user?.id,
+      currentUserId: currentUser?.id,
+      currentCompanyId: currentUser?.id,
+      price: bidData?.price,
+    });
     if (currentUser?.companyStatus && currentUser.companyStatus !== "ACTIVE") {
       showToast("현재 업체 상태에서는 입찰할 수 없습니다. 관리자 승인 후 이용 가능합니다.");
       return;
@@ -1847,13 +1854,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     }
     // actor: display info only (name, temp, badge). DO NOT use actor.id for FK.
     const actor = currentUser ?? { id: null, ownerId: null, name: user.name ?? "업체", temp: 36.5 };
-    // bids.company_id = companies.id (업체 UUID). currentUser?.id 사용.
-    const bidCompanyId = currentUser?.id;
-    if (!bidCompanyId || typeof bidCompanyId !== "string" || !bidCompanyId.includes("-")) {
-      setBidDebug({ request_id: request.id, payload_company_id: null, insertError: "company id null — 로그인 필요" });
-      showToast("로그인 정보를 확인할 수 없습니다");
+    // bids.company_id FK → users.id. ownerId(user.id) 사용. companies.id는 FK 에러 유발.
+    const finalBidCompanyId = user?.id;
+    const realCompanyId = currentUser?.id;  // companies.id — selected_company_id/site_visits 전용
+    if (!finalBidCompanyId || typeof finalBidCompanyId !== "string" || !finalBidCompanyId.includes("-")) {
+      alert('오류: 업체 소유자 ID를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
       return;
     }
+    console.log('[BID_SUBMIT_IDS]', { finalBidCompanyId, realCompanyId });
 
     // H-2: 동시 더블서브밋 가드 (빠른 연타로 두 번 insert 되는 것 방지)
     if (bidSubmitGuardRef.current) return;
@@ -1867,11 +1875,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // 기존 데이터 호환: bids.company_id 가 ownerId(user.id)로 저장된 경우도 같은 업체로 인식.
       let existingId = null;
       const { data: existingBids } = await getBidsForRequest(request.id);
-      const mine = (existingBids ?? []).find(b => b.company_id === bidCompanyId || b.company_id === user.id);
+      const mine = (existingBids ?? []).find(b => b.company_id === finalBidCompanyId || b.company_id === user.id);
       if (mine) existingId = mine.id;
       else {
         const localMine = submittedBids.find(
-          b => b.requestId === request.id && (b.companyId === bidCompanyId || b.companyId === user.id) && !String(b.id).startsWith("tmp-")
+          b => b.requestId === request.id && (b.companyId === finalBidCompanyId || b.companyId === user.id) && !String(b.id).startsWith("tmp-")
         );
         if (localMine) existingId = localMine.id;
       }
@@ -1902,15 +1910,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // INSERT to Supabase — company_id must be users.id (FK target)
       const { data, error } = await createBid({
         request_id:    request.id,
-        company_id:    bidCompanyId,   // users.id ← FK
+        company_id:    finalBidCompanyId,  // users.id ← FK (companies.id 금지)
         price:         bidData.price,
         period_days:   bidData.period,
         material_note: bidData.material,
         comment:       bidData.comment,
       });
       if (error) {
+        console.error('[BID_SUBMIT_FAILED]', error);
         setBidDebug({
-          payload_company_id: bidCompanyId,
+          payload_company_id: finalBidCompanyId,
           expected_fk_target: "users.id",
           companyProfile_id:  currentUser?.id ?? null,
           companyProfile_ownerId: currentUser?.ownerId ?? null,
@@ -1920,18 +1929,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         });
         const dup = /duplicate|unique/i.test(error.message ?? "");
         showToast(dup ? "이미 입찰한 요청이에요. 입찰 수정으로 변경해주세요." : `입찰 저장 실패: ${error.message}`);
+        alert('입찰 저장 실패: ' + error.message);
         return;
       }
       if (data) {
         okFlag = true;
         didInsert = true;
+        console.log('[BID_SUBMIT_SUCCESS]', data);
         // DB 성공 이후에만 local state 추가 (flip-flop 방지)
         setSubmittedBids(prev => [...prev, { ...normalizeBid(data), company: actor }]);
         // Post-insert verification: confirm bid is in DB with correct request_id
         const { data: verifyData } = await getBidsForRequest(request.id);
         bidCountAfter = verifyData?.length ?? 0;
         setBidDebug({
-          payload_company_id: bidCompanyId,
+          payload_company_id: finalBidCompanyId,
           expected_fk_target: "users.id",
           companyProfile_id:  currentUser?.id ?? null,
           companyProfile_ownerId: currentUser?.ownerId ?? null,
@@ -1949,7 +1960,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
     // ── 진행 알림(1단계): 의뢰인에게 "견적 도착" 알림 ──
     // 견적 요청 주인(consumer)에게 즉시 알림. 진행 알림이라 야간/한도 제한 없음.
-    if (request.user_id && request.user_id !== bidCompanyId) {
+    if (request.user_id && request.user_id !== finalBidCompanyId) {
       const n = bidCountAfter || 1;
       const allIn = n >= 3;
       sendTieredNotification({
