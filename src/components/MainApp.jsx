@@ -2231,7 +2231,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   <div style={{ fontSize:14, color:C.text2, lineHeight:1.8, marginBottom:S.lg }}>
                     다음: {prog.nextActionText}
                   </div>
-                  <button onClick={() => { setBidViewRequestId(progRow.id); go("escrow"); }}
+                  <button onClick={() => {
+                    setBidViewRequestId(progRow.id);
+                    const s = (progRow.status ?? "").toLowerCase();
+                    if (s === "final_quote_submitted" || s === "escrow_pending") setScreen("bidstatus");
+                    else go("escrow");
+                  }}
                     style={{ background:C.brandD, color:"#fff", border:"none", borderRadius:R.full,
                       padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer" }}>
                     계약 확인 →
