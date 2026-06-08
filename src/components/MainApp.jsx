@@ -1847,8 +1847,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     }
     // actor: display info only (name, temp, badge). DO NOT use actor.id for FK.
     const actor = currentUser ?? { id: null, ownerId: null, name: user.name ?? "업체", temp: 36.5 };
-    // bids.company_id FK → users.id (NOT companies.id). Always use user?.id.
-    const bidCompanyId = user?.id;
+    // bids.company_id = companies.id (업체 UUID). currentUser?.id 사용.
+    const bidCompanyId = currentUser?.id;
     if (!bidCompanyId || typeof bidCompanyId !== "string" || !bidCompanyId.includes("-")) {
       setBidDebug({ request_id: request.id, payload_company_id: null, insertError: "company id null — 로그인 필요" });
       showToast("로그인 정보를 확인할 수 없습니다");
