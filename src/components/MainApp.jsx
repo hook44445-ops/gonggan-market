@@ -3092,8 +3092,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <span style={{color: companyJobsDebug?.bid_err !== "none" ? "#f66" : "#888"}}>bid_err: {companyJobsDebug?.bid_err ?? "?"}</span> | <span style={{color: companyJobsDebug?.req_err !== "none" ? "#f66" : "#888"}}>req_err: {companyJobsDebug?.req_err ?? "?"}</span><br/>
                 {companyJobsDebug?.caught_err && <span style={{color:"#f66"}}>caught: {companyJobsDebug.caught_err}<br/></span>}
                 {companyJobs.map((j, i) => (
-                  <span key={j.bid.id ?? j.request?.id ?? i} style={{display:"block", color:"#aff"}}>
-                    job[{i}] bid:{j.bid.id?.slice(0,8)} req:{j.request?.id?.slice(0,8)} {j.request?.type} {j.request?.status}
+                  <span key={j.bid?.id ?? j.request?.id ?? i} style={{display:"block", color:"#aff"}}>
+                    job[{i}] bid:{j.bid?.id?.slice(0,8)} req:{j.request?.id?.slice(0,8)} {j.request?.type} {j.request?.status}
                   </span>
                 ))}
                 {bidDebug && (
