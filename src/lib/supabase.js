@@ -1315,6 +1315,7 @@ const estimateRpcParams = (data) => ({
   p_duration_days: data.duration_days != null ? Math.round(data.duration_days) : null,
   p_note: data.note ?? null,
   p_warranty_note: data.warranty_note ?? null,
+  p_photo_urls: Array.isArray(data.photo_urls) ? data.photo_urls : [],
 });
 
 // 견적서 생성(draft) — RPC 가 업체 소유자 검증.

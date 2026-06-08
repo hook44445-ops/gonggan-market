@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { createEstimate, updateEstimate, submitEstimate } from "../lib/supabase";
+import { createEstimate, updateEstimate, submitEstimate, uploadFile } from "../lib/supabase";
 import { formatDueRemaining } from "../constants/policy";
 
 function Backdrop({ onClose, children }) {
@@ -46,6 +46,52 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
   const [estimateId, setEstimateId] = useState(job.estimate?.id ?? null);
   const [saving, setSaving] = useState(false);
 
+  // 현장 실측 사진(최대 5장). 업로드 경로는 request_id 기준 고정.
+  const MAX_PHOTOS = 5;
+  const [photoUrls, setPhotoUrls] = useState(() =>
+    Array.isArray(job.estimate?.final_quote_photo_urls) ? job.estimate.final_quote_photo_urls : []
+  );
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
+  const requestIdForPhotos = job.bid?.request_id ?? job.request?.id ?? null;
+
+  const handlePhotoSelect = async (e) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // 같은 파일 재선택 허용
+    if (files.length === 0) return;
+    if (!requestIdForPhotos) { setPhotoError("요청 정보를 찾을 수 없어 업로드할 수 없어요."); return; }
+    const room = MAX_PHOTOS - photoUrls.length;
+    if (room <= 0) { setPhotoError(`사진은 최대 ${MAX_PHOTOS}장까지 첨부할 수 있어요.`); return; }
+    setUploadingPhoto(true);
+    setPhotoError(null);
+    const ALLOWED = ["image/jpeg","image/jpg","image/png","image/webp","image/heic","image/heif"];
+    const MAX_BYTES = 10 * 1024 * 1024;
+    const uploaded = [];
+    try {
+      for (let i = 0; i < Math.min(files.length, room); i++) {
+        const file = files[i];
+        const typeOk = file.type ? ALLOWED.includes(file.type.toLowerCase()) : /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
+        if (!typeOk) { setPhotoError(`${file.name}: 이미지 형식만 첨부할 수 있어요 (JPG, PNG, WebP)`); continue; }
+        if (file.size > MAX_BYTES) { setPhotoError(`${file.name}: 파일이 너무 커요 (최대 10MB)`); continue; }
+        // 업로드 경로는 request_id 기준 고정 — synthetic/contract/company 단독 id 사용 금지.
+        const path = `final-quote/${requestIdForPhotos}/${Date.now()}_${i}.jpg`;
+        try {
+          const url = await uploadFile("documents", path, file);
+          if (url) uploaded.push(url);
+          else setPhotoError("사진 업로드에 실패했어요. 잠시 후 다시 시도해주세요.");
+        } catch (err) {
+          console.error("[FINAL_QUOTE_PHOTO_UPLOAD_FAILED]", err);
+          setPhotoError("사진 업로드 실패: " + (err?.message ?? "네트워크 확인 후 다시 시도해주세요."));
+        }
+      }
+      if (uploaded.length > 0) setPhotoUrls(prev => [...prev, ...uploaded].slice(0, MAX_PHOTOS));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const removePhoto = (idx) => setPhotoUrls(prev => prev.filter((_, i) => i !== idx));
+
   const dueAt = job.siteVisit?.estimate_due_at ?? null;
   const countdown = useDueCountdown(dueAt);
   const isOverdue = dueAt ? Date.now() > new Date(dueAt).getTime() : false;
@@ -82,6 +128,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
     duration_days: durationDays ? Number(durationDays) : null,
     note: note || null,
     warranty_note: warrantyNote || null,
+    photo_urls: photoUrls,
   });
 
   const handleSave = async () => {
@@ -223,6 +270,35 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
           rows={2}
           style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }}
         />
+      </div>
+
+      {/* 현장 실측 사진 첨부 (최대 5장) — 의뢰인이 결제 전 확인용. 기존 금액/제출 로직과 독립. */}
+      <div style={{ marginBottom:S.xxl }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>
+          현장 실측 사진 <span style={{ color:C.text4, fontWeight:600 }}>({photoUrls.length}/{MAX_PHOTOS})</span>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:S.sm }}>
+          {photoUrls.map((url, i) => (
+            <div key={url + i} style={{ position:"relative", paddingTop:"100%", borderRadius:R.md, overflow:"hidden", border:`1px solid ${C.bgWarm}` }}>
+              <img src={url} alt={`현장사진 ${i+1}`} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
+              <button onClick={() => removePhoto(i)} aria-label="사진 삭제"
+                style={{ position:"absolute", top:4, right:4, width:22, height:22, borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:13, lineHeight:1, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+            </div>
+          ))}
+          {photoUrls.length < MAX_PHOTOS && (
+            <label style={{ position:"relative", paddingTop:"100%", borderRadius:R.md, border:`2px dashed ${C.bgWarm}`, cursor: uploadingPhoto ? "wait" : "pointer", background:C.bg }}>
+              <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", color:C.text3, fontSize:12, fontWeight:700, gap:2 }}>
+                <span style={{ fontSize:20 }}>{uploadingPhoto ? "⏳" : "📷"}</span>
+                {uploadingPhoto ? "업로드중" : "사진 추가"}
+              </div>
+              <input type="file" accept="image/*" multiple disabled={uploadingPhoto} onChange={handlePhotoSelect}
+                style={{ position:"absolute", inset:0, opacity:0, width:"100%", height:"100%", cursor:"pointer" }} />
+            </label>
+          )}
+        </div>
+        {photoError && (
+          <div style={{ marginTop:S.sm, fontSize:12, color:C.red, lineHeight:1.6 }}>{photoError}</div>
+        )}
       </div>
 
       <div style={{ display:"flex", gap:S.sm }}>

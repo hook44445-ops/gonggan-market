@@ -329,6 +329,21 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               {finalEstimate.warranty_note && (
                 <div style={{ fontSize:12, color:C.text2, lineHeight:1.7, marginTop:S.sm }}><b>하자보수 조건</b><br/>{finalEstimate.warranty_note}</div>
               )}
+              {/* 업체가 첨부한 현장 실측 사진 — 있을 때만 그리드 표시(없으면 기존 화면 유지). */}
+              {Array.isArray(finalEstimate.final_quote_photo_urls) && finalEstimate.final_quote_photo_urls.length > 0 && (
+                <div style={{ marginTop:S.md }}>
+                  <div style={{ fontSize:12, fontWeight:800, color:C.text2, marginBottom:S.xs }}>📷 현장 실측 사진</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:S.sm }}>
+                    {finalEstimate.final_quote_photo_urls.map((url, i) => (
+                      <a key={url + i} href={url} target="_blank" rel="noreferrer"
+                        style={{ position:"relative", paddingTop:"100%", borderRadius:R.md, overflow:"hidden", border:`1px solid ${C.bgWarm}`, display:"block" }}>
+                        <img src={url} alt={`현장 실측 사진 ${i+1}`} loading="lazy"
+                          style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
