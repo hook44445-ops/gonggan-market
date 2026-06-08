@@ -61,7 +61,8 @@ const normalizeCompanyJob = ({ bid, request, escrow }) => {
   const reqMeta  = !escrow ? REQ_STATUS_META[reqStatus] : null;
   const txStatus = escrow?.transaction_status ?? (reqMeta ? null : "CONTRACTED");
   const step     = Math.min(4, Math.max(1, escrow?.current_step ?? 1));
-  const txMeta   = reqMeta ?? TX_META[txStatus] ?? STEP_INFO[step];
+  // 안전 fallback — 매핑되지 않은 status 라도 undefined 접근(렌더 크래시)이 없도록 보장.
+  const txMeta   = reqMeta ?? TX_META[txStatus] ?? STEP_INFO[step] ?? { label: "진행중", color: C.brand, bucket: "in_progress", nextAction: "상세 →", paid: 10 };
   const createdAt = escrow?.created_at ?? bid?.createdAt ?? Date.now();
   const daysElapsed = Math.floor((Date.now() - new Date(createdAt)) / 864e5);
   const total = escrow?.total_amount ?? bid?.price ?? 0;
@@ -169,9 +170,11 @@ export default function DashboardScreen({
     }).catch(() => {});
   }, [userId, currentUser?.id, currentUser?.ownerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activeJobs = jobsFromHome.length > 0
-    ? jobsFromHome.map(normalizeCompanyJob)
-    : escrowJobs;
+  // 잡 정규화 중 예외가 나도 대시보드 전체가 흰 화면/에러 화면으로 죽지 않도록 방어.
+  const activeJobs = (jobsFromHome.length > 0
+    ? jobsFromHome.map(j => { try { return normalizeCompanyJob(j); } catch { return null; } })
+    : escrowJobs
+  ).filter(Boolean);
   const jobsSource = jobsFromHome.length > 0 ? "companyJobs" : "dashboardLocal";
 
   const thisMonthRevenue = activeJobs.reduce((sum, j) => sum + Math.round(j.total * j.paid / 100), 0);
