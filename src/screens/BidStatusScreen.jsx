@@ -46,7 +46,7 @@ function BidScreenHeader({ title, sub, onBack }) {
 }
 
 
-export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts, userId }) {
+export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bids: propBids, submittedBids, request, selectedBid, setSelectedBid, setEscrowContracts, userId, onRefresh }) {
   const [localBids, setLocalBids] = useState(propBids ?? []);
   // 한 업체당 1입찰 정책 — 혹시 중복 입찰이 남아 있어도 업체별 최신 1건만 노출
   const rawBids = localBids.length > 0 ? localBids : (propBids ?? []);
@@ -134,76 +134,22 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
       const resolvedCompanyId = company.id;
 
-      // 3. requests 업데이트 — .select().maybeSingle()로 0행(RLS 차단) 감지
-      const { data: updatedRequest, error: reqError } = await supabase
-        .from('requests')
-        .update({
-          status: 'site_visiting',
-          selected_bid_id: selBid.id,
-          selected_company_id: resolvedCompanyId,
-        })
-        .eq('id', request.id)
-        .select('id, status, selected_bid_id, selected_company_id')
-        .maybeSingle();
+      // 3. 상태 전이는 RPC(SECURITY DEFINER)로 일괄 처리 — 프론트 직접 update 는
+      //    OTP 커스텀 인증(auth.uid()=null)으로 RLS 에 막힘. RPC 가 RLS 우회.
+      //    requests.update + bids.update + site_visits.insert 를 서버에서 원자적으로 수행.
+      const { data: rpcData, error: rpcError } = await supabase.rpc('request_site_visit', {
+        p_request_id: request.id,
+        p_bid_id: selBid.id,
+        p_company_id: resolvedCompanyId,
+      });
 
-      if (reqError || !updatedRequest) {
-        console.error('[SITE_VISIT_REQUEST_UPDATE_FAILED]', reqError);
+      if (rpcError || !rpcData?.ok) {
+        console.error('[SITE_VISIT_RPC_FAILED]', rpcError, rpcData);
         alert('요청 상태 변경 실패');
         return;
       }
 
-      console.log('[SITE_VISIT_REQUEST_UPDATED]', updatedRequest);
-
-      // 4. bids 업데이트 — bid.id 기준만
-      const { data: updatedBid, error: bidError } = await supabase
-        .from('bids')
-        .update({ status: 'site_visiting' })
-        .eq('id', selBid.id)
-        .select('id, status, company_id')
-        .maybeSingle();
-
-      if (bidError || !updatedBid) {
-        console.error('[SITE_VISIT_BID_UPDATE_FAILED]', bidError);
-        alert('입찰 상태 변경 실패');
-        return;
-      }
-
-      console.log('[SITE_VISIT_BID_UPDATED]', updatedBid);
-
-      // 5. site_visits 생성/재사용 — 중복 기준: request_id + bid_id, company_id=resolvedCompanyId
-      const { data: existingVisit, error: existingVisitError } = await supabase
-        .from('site_visits')
-        .select('*')
-        .eq('request_id', request.id)
-        .eq('bid_id', selBid.id)
-        .maybeSingle();
-
-      if (existingVisitError) {
-        console.error('[SITE_VISIT_LOOKUP_FAILED]', existingVisitError);
-      }
-
-      if (!existingVisit) {
-        const { data: newVisit, error: visitError } = await supabase
-          .from('site_visits')
-          .insert({
-            request_id: request.id,
-            bid_id: selBid.id,
-            company_id: resolvedCompanyId,
-            status: 'requested',
-          })
-          .select('*')
-          .maybeSingle();
-
-        if (visitError || !newVisit) {
-          console.error('[SITE_VISIT_INSERT_FAILED]', visitError);
-          alert('현장방문 요청 생성 실패');
-          return;
-        }
-
-        console.log('[SITE_VISIT_CREATED]', newVisit);
-      } else {
-        console.log('[SITE_VISIT_REUSED]', existingVisit);
-      }
+      console.log('[SITE_VISIT_RPC_SUCCESS]', rpcData);
 
       // 6. 알림 (fire-and-forget)
       const companyOwnerId = company?.owner_id ?? selBid.company?.ownerId ?? null;
@@ -221,7 +167,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         resolvedCompanyId,
       });
 
-      // 7. DB 업데이트 완료(성공) 확인 후에만 UI 전환 (낙관적 업데이트 금지)
+      // 7. RPC 성공 후에만: getUserRequests refetch(기존 트리거 재사용) + 화면 이동
+      onRefresh?.();
       setStep("siteVisitDone");
     } catch (e) {
       console.error('[SITE_VISIT_ERROR]', e);

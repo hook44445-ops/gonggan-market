@@ -3330,6 +3330,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             setSelectedBid={setSelectedBid}
             setEscrowContracts={setEscrowContracts}
             userId={user?.id}
+            onRefresh={() => setEscrowRefreshTrigger(t => t + 1)}
           />
         )}
         {screen==="admin" && <AdminScreen onBack={() => setScreen("my")} onHome={() => setScreen("home")} user={user} />}
