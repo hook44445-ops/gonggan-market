@@ -2234,19 +2234,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   <button onClick={() => {
                     setBidViewRequestId(progRow.id);
                     const s = (progRow.status ?? "").toLowerCase();
-                    const route = (s === "final_quote_submitted" || s === "escrow_pending") ? "bidstatus" : "escrow";
-                    // ── [DIAG] 진행중 배너 navigate 분기 추적 (원인 보고용 임시 로그) ──
-                    try {
-                      console.log("[GONGGAN_DIAG][progressBanner:nav]", {
-                        requestId: progRow.id, rawStatus: progRow.status, normStatus: s,
-                        selectedBidId: progRow.selectedBidId ?? null,
-                        selectedCompanyId: progRow.selectedCompanyId ?? null,
-                        bidCount: progRow.bidCount ?? 0,
-                        hasEscrow: !!(myRequestsEscrow[progRow.id]?.escrow),
-                        route,
-                      });
-                    } catch {}
-                    if (route === "bidstatus") setScreen("bidstatus");
+                    if (s === "final_quote_submitted" || s === "escrow_pending") setScreen("bidstatus");
                     else go("escrow");
                   }}
                     style={{ background:C.brandD, color:"#fff", border:"none", borderRadius:R.full,
