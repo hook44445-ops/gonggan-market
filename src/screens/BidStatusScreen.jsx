@@ -97,9 +97,18 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     : (selBid?.price ?? 0);
 
   // 최종견적 단계 진입 시 선택된 업체로 바로 견적 확인(confirm) 단계로 이동.
+  // [결제 진입 validation 완화] request.status 가 final_quote_submitted/escrow_pending(isQuotePhase)
+  // 이면 입찰 status 가 stale(site_visiting 등)이어도 결제 진입을 막지 않는다.
+  // 우선순위: request.selected_bid_id 매칭 → status==='selected' → 단일 입찰.
+  // (bids/status DB 전이·estimates RPC/RLS·렌더링 로직은 미변경 — 선택 게이트만 status-tolerant.)
   useEffect(() => {
     if (!isQuotePhase || selBid || step !== "list") return;
-    const chosen = bids.find(b => b.status === "selected") ?? (bids.length === 1 ? bids[0] : null);
+    // request 는 정규화(myRequests=selectedBidId) 또는 raw(selected_bid_id) 둘 다 올 수 있어 양쪽 매칭.
+    const selBidId = request?.selected_bid_id ?? request?.selectedBidId ?? null;
+    const chosen =
+      (selBidId ? bids.find(b => b.id === selBidId) : null) ??
+      bids.find(b => b.status === "selected") ??
+      (bids.length === 1 ? bids[0] : null);
     if (chosen) { setSelBid(chosen); setStep("confirm"); }
   }, [isQuotePhase, bids, selBid, step]);
 
