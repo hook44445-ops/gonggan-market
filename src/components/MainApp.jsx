@@ -548,6 +548,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const companyBidsTsRef  = useRef(0); // getCompanyBids
   const activeJobsTsRef   = useRef(0); // getCompanyActiveJobs
   const companyJobsTsRef  = useRef(0); // loadJobs (companyJobs)
+  const companyJobsKeyRef = useRef(""); // loadJobs candidateIds 시그니처 — 후보 변경 시 디바운스 우회
 
   // ── 관심 탭 ──────────────────────────────────────────────────────────────────
   const [favTab, setFavTab] = useState("received");
@@ -1082,13 +1083,19 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
     const loadJobs = async () => {
       const _now = Date.now();
-      if (_now - companyJobsTsRef.current < 1000) return;
-      companyJobsTsRef.current = _now;
       const candidateIds = [...new Set([
         user.id,
         currentUser?.id,
         currentUser?.ownerId,
       ].filter(Boolean))];
+      // 디바운스는 "동일 candidateIds 로의 1초 내 재호출"만 차단한다. currentUser(companies.id)가
+      // 첫 렌더 직후 로드되면 candidateIds 가 바뀌므로 즉시 재조회해야 한다 — 이 우회가 없으면
+      // 첫 호출(ownerId 만)에서 디바운스가 걸려, selected_company_id=companies.id 로 잡히는
+      // site_visiting 진행건(Path D)이 영영 누락된다.
+      const candidateKey = candidateIds.join(",");
+      if (candidateKey === companyJobsKeyRef.current && _now - companyJobsTsRef.current < 1000) return;
+      companyJobsTsRef.current = _now;
+      companyJobsKeyRef.current = candidateKey;
 
       const dev = {
         auth_user_id:              user.id?.slice(0, 8) ?? "null",
