@@ -170,7 +170,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
 
   return (
     <Backdrop onClose={onClose}>
-      <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:S.sm }}>📋 플랫폼 견적서 작성</div>
+      <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:S.sm }}>📋 최종 견적서 작성</div>
 
       {countdown && (
         <div style={{ background: isOverdue ? "#FFF0F0" : C.brandL, borderRadius:R.lg, padding:"10px 14px", marginBottom:S.lg, fontSize:12, fontWeight:700, color: isOverdue ? C.red : C.brand }}>
@@ -275,7 +275,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
       {/* 현장 실측 사진 첨부 (최대 5장) — 의뢰인이 결제 전 확인용. 기존 금액/제출 로직과 독립. */}
       <div style={{ marginBottom:S.xxl }}>
         <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>
-          현장 실측 사진 <span style={{ color:C.text4, fontWeight:600 }}>({photoUrls.length}/{MAX_PHOTOS})</span>
+          현장 확인 사진 첨부 <span style={{ color:C.text4, fontWeight:600 }}>({photoUrls.length}/{MAX_PHOTOS})</span>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:S.sm }}>
           {photoUrls.map((url, i) => (
@@ -306,7 +306,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
           임시저장
         </button>
         <button onClick={handleSubmit} disabled={saving} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44`, opacity:saving?0.7:1 }}>
-          {saving ? "처리중..." : "제출하기"}
+          {saving ? "처리중..." : "최종 견적서 전송하기"}
         </button>
       </div>
     </Backdrop>
