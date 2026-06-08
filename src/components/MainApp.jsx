@@ -927,8 +927,18 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     setIdVerifying(false);
   };
 
+  // 취소/숨김/삭제 상태는 소비자(myRequests)·업체(customerRequests→biddableRequests) 양쪽
+  // 어디에도 노출하지 않는다. (budget 등 값 기반 하드코딩 필터 금지 — 상태 기준 방어만.)
+  // normalizeRequest 가 is_hidden/is_deleted 를 isDeleted 로 통합하므로 그것 + status 로 판정.
+  const isHardExcludedRequest = (r) =>
+    !r ||
+    r.isDeleted === true ||
+    r.status === "cancelled" || r.status === "canceled" || r.status === "deleted";
+
   const applyExpiry = (rows) => {
-    const normalized = rows.map(normalizeRequest);
+    const normalized = rows.map(normalizeRequest)
+      // 방어 필터: cancelled/canceled/hidden/deleted 는 정규화 후 즉시 제거.
+      .filter(r => !isHardExcludedRequest(r));
     normalized
       .filter(r => r.status === "open" && r.isExpiredByTime)
       .forEach(r => expireRequest(r.id));
