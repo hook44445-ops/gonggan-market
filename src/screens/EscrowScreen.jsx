@@ -1054,8 +1054,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     VALID_ESCROW_TX.has(escrowTxStatus);
   const PRE_ESCROW_PHASES = new Set(["site_visit", "site_visiting", "visit_requested", "final_quote_submitted", "escrow_pending"]);
   const isPreEscrowPhase = PRE_ESCROW_PHASES.has((request?.status ?? "").toLowerCase());
-  // 결제 전 단계 + 실제 에스크로 없음 → 착공 UI 대신 단계별 안내만 노출.
-  if (isPreEscrowPhase && !hasRealEscrow) {
+  // 업체측에서는 customerRequests(getRequests=open 만)에 site_visiting 요청이 없어 request prop 이
+  // null 이라 request.status 로는 판정 불가 → 'request-scoped 계약이 resolve 되지 않음(결제 전)'을
+  // 보조 신호로 사용한다. (resolvedContractId 는 #245 에서 request_id 로 강하게 잠겨 있으므로,
+  // 값이 없다 = 현재 요청에 매칭되는 실제 에스크로가 없다 = 결제 전.)
+  // contractId prop 이 넘어오는 계약 단계에서는 resolvedContractId 가 채워져 이 분기를 타지 않는다.
+  const escrowResolveDone = bidFetchDone && !resolvedContractId;
+  const noStatusButNoEscrow = (request == null || !request?.status) && escrowResolveDone;
+  // 결제 전(현장견적 단계) + 실제 에스크로 없음 → 착공확인/사진업로드/전송 UI 전부 숨기고 안내만.
+  if (!hasRealEscrow && (isPreEscrowPhase || noStatusButNoEscrow)) {
     return (
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
         <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
