@@ -1437,7 +1437,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   {!isConsumer && status === "company_todo" && s.id >= 2 && (
                     <div style={{ marginTop: S.sm }}>
                       <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📸 사진 업로드</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📸 {s.id === 3 ? "착공 사진 등록" : "사진 업로드"}</div>
                         <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: S.md }}>
                           고객이 사진을 확인하면 {stage ? fmtMoney(stage.amount) : `${s.pct}%`} 지급 승인이 진행됩니다.
                         </div>
@@ -1481,6 +1481,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                             {disputeSubmitted ? "🔒 분쟁 동결 중"
                               : reportingStage === s.id ? "전송 중..."
                               : isUploadingThis ? "업로드 중..."
+                              : s.id === 3 ? "착공 완료 및 공사 시작"
                               : "고객에게 전송하기"}
                           </button>
                         </div>
