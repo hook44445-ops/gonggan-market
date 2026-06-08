@@ -180,7 +180,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       if (row) {
         setResolvedBid(buildRestored(row));
 
-        // Level 3a: escrow_payments by company_id + request_id
+        // Level 3a: escrow_payments by company_id + request_id (request-scoped — 유일하게 허용)
         const { data: escrow3a } = await getEscrowByCompanyAndRequest(request.id, row.company_id);
         if (escrow3a?.id) {
           setResolvedContractId(escrow3a.id);
@@ -188,40 +188,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           return;
         }
 
-        // Level 3b: phase_photos by uploader (after bid created_at) → recover contract_id
-        // afterDate filter prevents matching photos from OLD completed jobs by the same company.
-        // H-3: 업체가 동시에 여러 건을 진행하면 사진의 contract_id가 섞여 '엉뚱한 계약'을
-        //      복구할 수 있다. 후보 contract_id가 정확히 1개일 때만(명확할 때만) 사용하고,
-        //      2개 이상이면 추정하지 않고 건너뛴다(잘못된 contract 연결 방지).
-        const { data: compPhotos } = await getPhasePhotosByUploader(row.company_id, row.created_at);
-        const photoCids = [...new Set((compPhotos ?? []).map(p => p.contract_id).filter(Boolean))];
-        if (photoCids.length === 1) {
-          const recoveredCid = photoCids[0];
-          setResolvedContractId(recoveredCid);
-          setDerivedFromRecovery(true);
-          setEscrowDebug({ src: "phase_photo_recovery", restored: true, contractId: recoveredCid, bidId: row.id, photoCount: compPhotos.length, afterBidDate: row.created_at });
-          return;
-        }
-        if (photoCids.length > 1 && SHOW_DEBUG_UI) {
-          setEscrowDebug({ src: "phase_photo_ambiguous", skipped: true, distinctContracts: photoCids.length, bidId: row.id });
-        }
-
-        // Level 3c: escrow_payouts by company_id → escrow_id
-        // H-3: 동일하게, 후보 escrow_id가 1개로 명확할 때만 사용한다.
-        const { data: payouts3c } = await getEscrowPayoutsByCompanyId(row.company_id);
-        const escrowIds3c = [...new Set((payouts3c ?? []).map(p => p.escrow_id).filter(Boolean))];
-        if (escrowIds3c.length === 1) {
-          const escrowId3c = escrowIds3c[0];
-          setResolvedContractId(escrowId3c);
-          setDerivedFromRecovery(true);
-          setEscrowDebug({ src: "escrow_payout_company", restored: true, escrowId: escrowId3c, bidId: row.id });
-          return;
-        }
-        if (escrowIds3c.length > 1 && SHOW_DEBUG_UI) {
-          setEscrowDebug({ src: "escrow_payout_ambiguous", skipped: true, distinctEscrows: escrowIds3c.length, bidId: row.id });
-        }
-
-        setEscrowDebug({ src: "bids_only_fallback_ok", restored: true, bidId: row.id, note: "escrow not found — awaiting company send", l3a: "tried", l3b: "tried", l3c: "tried" });
+        // ⚠️ company_id 단독(request_id 무관) 복구(phase_photos / escrow_payouts)는
+        //    과거 계약 ID 가 새 요청에 재사용되는 프로세스 스킵 버그의 원인이므로 제거.
+        //    request-scoped 에스크로가 없으면 '업체 최종견적 발송 대기' 상태로 둔다(계약 미연결).
+        setEscrowDebug({ src: "bids_only_fallback_ok", restored: true, bidId: row.id, note: "escrow not found — awaiting company send (request-scoped only)" });
         return;
       }
 
@@ -280,12 +250,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       // Path 3: escrow_payments by company_id + request_id
       const { data: escrow3 } = await getEscrowByCompanyAndRequest(reqId, companyId);
       if (escrow3?.id) { setResolvedContractId(escrow3.id); return; }
-      // Path 4: phase_photos by uploader → contract_id (afterDate = bid's createdAt)
-      const { data: photos4 } = await getPhasePhotosByUploader(companyId, resolvedBid?.createdAt ?? null);
-      if (photos4?.[0]?.contract_id) { setDerivedFromRecovery(true); setResolvedContractId(photos4[0].contract_id); return; }
-      // Path 5: escrow_payouts by company_id → escrow_id
-      const { data: payouts5 } = await getEscrowPayoutsByCompanyId(companyId);
-      if (payouts5?.[0]?.escrow_id) { setDerivedFromRecovery(true); setResolvedContractId(payouts5[0].escrow_id); }
+      // ⚠️ company_id 단독(request_id 무관) 복구 경로(과거 phase_photos / escrow_payouts)는
+      //    과거 계약 ID 가 새 요청에 재사용되는 프로세스 스킵 버그의 원인이므로 제거했다.
+      //    resolvedContractId 는 반드시 현재 request_id 에 매칭되는 계약에서만 산출한다(강한 잠금).
     };
     resolve().catch(() => {});
   }, [resolvedBid?.requestId, resolvedBid?.companyId, request?.id, resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1069,6 +1036,43 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 6 }}>현재 진행 중인 시공 현황이 없습니다.</div>
           <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>계약이 완료되면 이곳에서 진행 현황을 확인할 수 있어요.</div>
           <button onClick={onBack} style={{ marginTop: 20, padding: "10px 22px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 결제(에스크로) 전 단계 가드 ────────────────────────────────────────────
+  // 착공확인/사진업로드(stage UI)는 "현재 request 에 매칭되는 실제 에스크로 계약"이
+  // CONTRACTED/PAID 이상이고 status 가 계약/진행 계열일 때만 열어야 한다.
+  // site_visiting 등 결제 전 상태에서 과거 계약 ID 가 잘못 잡혀 착공 UI 가 노출되던
+  // 프로세스 스킵 버그를 차단한다. (resolvedContractId 는 위에서 request_id 로 강하게 잠금)
+  const VALID_ESCROW_TX = new Set(["CONTRACTED", "PAID", "STARTED", "MID_INSPECTION", "COMPLETED", "SETTLED", "DISPUTE"]);
+  const escrowTxStatus = contractData?.transaction_status ?? null;
+  const hasRealEscrow =
+    !!contractData &&
+    (contractData.request_id == null || contractData.request_id === (request?.id ?? resolvedBid?.requestId)) &&
+    VALID_ESCROW_TX.has(escrowTxStatus);
+  const PRE_ESCROW_PHASES = new Set(["site_visit", "site_visiting", "visit_requested", "final_quote_submitted", "escrow_pending"]);
+  const isPreEscrowPhase = PRE_ESCROW_PHASES.has((request?.status ?? "").toLowerCase());
+  // 결제 전 단계 + 실제 에스크로 없음 → 착공 UI 대신 단계별 안내만 노출.
+  if (isPreEscrowPhase && !hasRealEscrow) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
+          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+        </div>
+        <div style={{ padding: "56px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
+            {isConsumer ? "최종 견적을 기다리고 있어요" : "현장방문 후 최종 견적을 작성해주세요"}
+          </div>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8 }}>
+            {isConsumer
+              ? "선택하신 업체가 현장방문 후 최종 견적서를 보낼 예정입니다.\n최종 견적을 받으면 에스크로 결제를 진행할 수 있어요.\n결제가 완료되어야 착공 단계가 열립니다."
+              : "아직 결제(에스크로) 전 단계입니다.\n현장방문 후 최종 견적서를 작성해 의뢰인에게 보내주세요.\n의뢰인이 에스크로 결제를 완료하면 착공 확인 단계가 열립니다."}
+          </div>
+          <button onClick={onBack} style={{ marginTop: 24, padding: "11px 24px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
         </div>
       </div>
     );
