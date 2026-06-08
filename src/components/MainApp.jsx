@@ -855,12 +855,21 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     const ownerIdMe = user?.id ?? null;
     if (!ownerIdMe) return [];  // auth user 미로드 시 계산 생략
     const bidSubmittedIds = new Set(submittedBids.map(b => b.requestId).filter(Boolean));
+    // 소비자 classify 와 동일한 만료/삭제 판정 — 의뢰인단에서 expired/기타로 분류되는 요청은
+    // 업체 입찰 목록에도 절대 노출되지 않도록 통일한다. (status='open' 으로 남아 있어도 시간만료 제외)
+    const isExpiredReq = (r) =>
+      r.status === "expired" || r.isExpiredByTime === true || r.isClosed === true;
+    const isDeletedOrHidden = (r) =>
+      r.isDeleted === true || r.is_deleted === true || r.is_hidden === true ||
+      r.status === "cancelled" || r.status === "canceled" || r.status === "deleted" ||
+      r.status === "closed" || r.status === "completed" || r.status === "settled";
     return customerRequests.filter(r => {
-      if (r.status !== "open") return false;
-      if (r.selectedBidId || r.selectedCompanyId) return false;
+      if (r.status !== "open") return false;                     // not_open
+      if (r.selectedBidId || r.selectedCompanyId) return false;  // selected
+      if (isExpiredReq(r)) return false;                         // expired
+      if (isDeletedOrHidden(r)) return false;                    // deleted_or_hidden
       if (inProgressRequestIds.has(r.id)) return false;
       if (activeJobRequestIds.has(r.id)) return false;
-      if (!r.isActive) return false;
       if (bidSubmittedIds.has(r.id)) return false;
       const rawBids = Array.isArray(r.bidsRaw) ? r.bidsRaw : [];
       if (rawBids.some(b => b?.company_id === companyIdMe || b?.company_id === ownerIdMe)) return false;
@@ -885,13 +894,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         biddable: biddableRequests.map(r => ({ id: r.id, status: r.status, selected_company_id: r.selectedCompanyId ?? null, selected_bid_id: r.selectedBidId ?? null, budget_min: r.budgetMin ?? null, budget_max: r.budgetMax ?? null })),
         excluded: customerRequests.filter(r => !biddableRequests.includes(r)).map(r => ({
           id: r.id, status: r.status, selected_company_id: r.selectedCompanyId ?? null,
-          reason: r.status !== "open" ? `status=${r.status}`
+          reason: r.status !== "open" ? "not_open"
             : (r.selectedBidId || r.selectedCompanyId) ? "selected"
+            : (r.status === "expired" || r.isExpiredByTime === true || r.isClosed === true) ? "expired"
+            : (r.isDeleted === true || r.is_deleted === true || r.is_hidden === true
+                || r.status === "cancelled" || r.status === "canceled" || r.status === "deleted"
+                || r.status === "closed" || r.status === "completed" || r.status === "settled") ? "deleted_or_hidden"
             : inProgressRequestIds.has(r.id) ? "inProgress(escrow)"
             : activeJobRequestIds.has(r.id) ? "activeJob(siteVisit)"
             : bidSubmittedIds.has(r.id) ? "already_bid(local)"
             : (Array.isArray(r.bidsRaw) ? r.bidsRaw : []).some(b => b?.company_id === companyId || b?.company_id === ownerId) ? "already_bid(db)"
-            : !r.isActive ? "inactive/expired" : "?",
+            : "?",
         })),
       });
     } catch {}
