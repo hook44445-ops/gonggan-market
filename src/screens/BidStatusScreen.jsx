@@ -100,6 +100,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   // 직접 UPDATE + .select().maybeSingle() 검증 — RLS 우회를 위해 SECURITY DEFINER RPC 시도 후 fallback.
   // DB 업데이트 성공 확인 후에만 siteVisitDone으로 전환 (낙관적 UI 업데이트 금지).
   const handleRequestSiteVisit = async () => {
+    // 1. 버튼 클릭 로그 — 가드 이전 맨 첫 줄에서 실행(클릭 실제 발생 확인용)
+    console.log('[SITE_VISIT_BUTTON_CLICK]', {
+      requestId: request?.id,
+      bidId: selBid?.id,
+      bidCompanyId: selBid?.companyId,
+    });
     if (siteVisitRef.current || !selBid) return;
     if (!request?.id) { showLocalToast("요청 정보를 찾을 수 없어요"); return; }
     siteVisitRef.current = true;
@@ -113,7 +119,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     });
 
     try {
-      // 1. bid.company_id(ownerId) → companies.id resolve
+      // 2. bid.company_id(owner_id/user_id) → companies.id resolve (id/owner_id 양쪽 허용)
       const { data: company, error: companyError } = await supabase
         .from('companies')
         .select('id, owner_id, name')
@@ -121,14 +127,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         .maybeSingle();
 
       if (companyError || !company?.id) {
-        console.error('[SITE_VISIT_COMPANY_RESOLVE_FAILED]', companyError, { selBid });
-        showLocalToast('업체 정보를 찾을 수 없습니다.');
+        console.error('[SITE_VISIT_COMPANY_RESOLVE_FAILED]', companyError, selBid);
+        alert('업체 정보를 찾을 수 없습니다.');
         return;
       }
 
       const resolvedCompanyId = company.id;
 
-      // 2. requests 업데이트 — .select().maybeSingle()로 0행(RLS 차단) 감지
+      // 3. requests 업데이트 — .select().maybeSingle()로 0행(RLS 차단) 감지
       const { data: updatedRequest, error: reqError } = await supabase
         .from('requests')
         .update({
@@ -142,13 +148,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
       if (reqError || !updatedRequest) {
         console.error('[SITE_VISIT_REQUEST_UPDATE_FAILED]', reqError);
-        showLocalToast('요청 상태 변경에 실패했습니다.');
+        alert('요청 상태 변경 실패');
         return;
       }
 
       console.log('[SITE_VISIT_REQUEST_UPDATED]', updatedRequest);
 
-      // 3. bids 업데이트 — bid.id 기준
+      // 4. bids 업데이트 — bid.id 기준만
       const { data: updatedBid, error: bidError } = await supabase
         .from('bids')
         .update({ status: 'site_visiting' })
@@ -158,13 +164,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
       if (bidError || !updatedBid) {
         console.error('[SITE_VISIT_BID_UPDATE_FAILED]', bidError);
-        showLocalToast('입찰 상태 변경에 실패했습니다.');
+        alert('입찰 상태 변경 실패');
         return;
       }
 
       console.log('[SITE_VISIT_BID_UPDATED]', updatedBid);
 
-      // 4. site_visits 생성/재사용 — 중복 기준: request_id + bid_id
+      // 5. site_visits 생성/재사용 — 중복 기준: request_id + bid_id, company_id=resolvedCompanyId
       const { data: existingVisit, error: existingVisitError } = await supabase
         .from('site_visits')
         .select('*')
@@ -190,7 +196,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
         if (visitError || !newVisit) {
           console.error('[SITE_VISIT_INSERT_FAILED]', visitError);
-          showLocalToast('현장방문 요청 생성에 실패했습니다.');
+          alert('현장방문 요청 생성 실패');
           return;
         }
 
@@ -199,7 +205,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         console.log('[SITE_VISIT_REUSED]', existingVisit);
       }
 
-      // 5. 알림 (fire-and-forget)
+      // 6. 알림 (fire-and-forget)
       const companyOwnerId = company?.owner_id ?? selBid.company?.ownerId ?? null;
       if (companyOwnerId) {
         createNotification({
@@ -215,7 +221,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         resolvedCompanyId,
       });
 
-      // 6. DB 업데이트 완료 확인 후 UI 전환 (낙관적 업데이트 금지)
+      // 7. DB 업데이트 완료(성공) 확인 후에만 UI 전환 (낙관적 업데이트 금지)
       setStep("siteVisitDone");
     } catch (e) {
       console.error('[SITE_VISIT_ERROR]', e);
@@ -407,20 +413,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               ? () => { if (reqStatus === "final_quote_submitted" && request?.id) approveFinalQuote(request.id, userId).catch(() => {}); setStep("reserved"); }
               : isAwarded
               ? handleEscrowPaymentStart
-              : () => {
-                  console.log('[SITE_VISIT_BUTTON_CLICK]', {
-                    requestId: request?.id,
-                    bidId: selBid?.id,
-                    bidCompanyId: selBid?.companyId,
-                  });
-                  handleRequestSiteVisit();
-                }}
-            disabled={isQuotePhase || isAwarded ? false : (
-              !(request?.status === 'open' &&
-                !request?.selected_company_id && !request?.selectedCompanyId &&
-                !request?.selected_bid_id && !request?.selectedBidId &&
-                !!selBid?.id) || siteVisitLoading
-            )}
+              : handleRequestSiteVisit}
+            disabled={isQuotePhase || isAwarded ? false : (!selBid?.id || siteVisitLoading)}
             style={{ width:"100%", padding:S.xxl,
               background: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.bgWarm : C.brand,
               color: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.text4 : "#fff",
