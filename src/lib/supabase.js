@@ -1328,20 +1328,8 @@ export const getEstimateForSiteVisit = (siteVisitId) =>
 // 최종 견적서 조회 — OTP(anon) 세션은 estimates RLS(auth.uid() IS NOT NULL)에 막혀
 // 직접 SELECT 시 row 가 있어도 data:null 이 된다. SECURITY DEFINER RPC(046)로 우회 조회.
 // 반환 형태는 기존 .maybeSingle() 과 동일(단일 row 객체 또는 null).
-export const getEstimateForRequest = async (requestId) => {
-  const res = await supabase.rpc("estimate_get_for_request", { p_request_id: requestId });
-  try {
-    console.log("[GONGGAN_DIAG][getEstimateForRequest]", {
-      requestId,
-      hasData: !!res.data,
-      status: res.data?.status ?? null,
-      itemCount: Array.isArray(res.data?.items) ? res.data.items.length : null,
-      photoCount: Array.isArray(res.data?.final_quote_photo_urls) ? res.data.final_quote_photo_urls.length : null,
-      error: res.error?.message ?? null,
-    });
-  } catch {}
-  return res;
-};
+export const getEstimateForRequest = (requestId) =>
+  supabase.rpc("estimate_get_for_request", { p_request_id: requestId });
 
 // 견적서 수정(draft) — RPC 가 업체 소유자 검증.
 export const updateEstimate = (id, data, actorId = null) =>
