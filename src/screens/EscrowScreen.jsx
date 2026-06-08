@@ -1080,6 +1080,28 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const escrowResolveDone = bidFetchDone && !resolvedContractId;
   const noStatusButNoEscrow = (request == null || !request?.status) && escrowResolveDone;
 
+  // ── [DIAG] EscrowScreen 진입 분기 추적 (원인 보고용 임시 로그) ──
+  try {
+    console.log("[GONGGAN_DIAG][EscrowScreen:branch]", {
+      activeRole,
+      isConsumer,
+      requestId: request?.id ?? null,
+      requestStatus: (request?.status ?? null),
+      resolvedBidId: resolvedBid?.id ?? null,
+      resolvedBidRequestId: resolvedBid?.requestId ?? null,
+      resolvedContractId: resolvedContractId ?? null,
+      escrowTxStatus,
+      hasRealEscrow,
+      isPreEscrowPhase,
+      noStatusButNoEscrow,
+      finalQuoteSent,
+      willRender:
+        (!isConsumer && !hasRealEscrow) ? "company(form/wait)"
+        : (isConsumer && !hasRealEscrow && (isPreEscrowPhase || noStatusButNoEscrow)) ? "consumer:최종견적대기"
+        : "main(escrow/payment)",
+    });
+  } catch {}
+
   // ── 결제(에스크로) 전 단계 — 업체/의뢰인 화면 완전 분리(한 화면에 두 폼 동시 노출 금지) ──
   // 착공확인/사진업로드(메인 렌더)는 "현재 request 에 매칭되는 실제 에스크로(VALID tx)"가
   // 있을 때만 노출한다. status / resolvedContractId 기준으로 각 단계를 독립 return 처리.
