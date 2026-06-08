@@ -1446,6 +1446,11 @@ export const getCompanyActiveJobs = async (companyId, extraIds = []) => {
 export const setRequestInProgress = (requestId) =>
   supabase.rpc("request_mark_in_progress", { p_request_id: requestId });
 
+// 정산 완료(escrow SETTLED) 시 requests.status 를 'completed' 로 동기화(SECURITY DEFINER RPC).
+// requests 직접 UPDATE 는 RLS(auth.uid()=null)에 막히므로 RPC 경유. migration 041 필요.
+export const setRequestCompleted = (requestId) =>
+  supabase.rpc("request_mark_completed", { p_request_id: requestId });
+
 // ── STEP B: Get company status ────────────────────────────────────────────────
 
 export const getCompanyStatus = (companyId) =>
