@@ -4,7 +4,7 @@ import { SHOW_DEBUG_UI } from "../constants/release";
 import { LeafSprig } from "../components/common";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, getProjectCheckpoints } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, getProjectCheckpoints, getEstimateForRequest } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import EscrowCalculator from "../components/EscrowCalculator";
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -277,6 +277,23 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       });
     } catch {}
   }, [activeRole, request?.id, resolvedBid?.id, resolvedContractId, contractData?.id, bidAmount, customerTotal]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 업체 최종견적 발송 여부 — 발송 완료(final_quote_submitted / estimate submitted)면
+  // 업체 화면은 '작성 폼'이 아니라 '의뢰인 결제 대기'를 보여줘야 한다(결제 전이라 계약 row 없음).
+  // request.status 가 있으면 즉시 판정, 업체측은 request prop 이 null 이라 estimate 로 확인(읽기 전용).
+  // (undefined=확인중, false=미발송, true=발송완료)
+  const [finalQuoteSent, setFinalQuoteSent] = useState(undefined);
+  useEffect(() => {
+    const rs = (request?.status ?? "").toLowerCase();
+    if (rs === "final_quote_submitted") { setFinalQuoteSent(true); return; }
+    const reqId = resolvedBid?.requestId ?? request?.id ?? null;
+    if (isConsumer || !reqId) { setFinalQuoteSent(false); return; }
+    let alive = true;
+    getEstimateForRequest(reqId)
+      .then(({ data }) => { if (alive) setFinalQuoteSent(data?.status === "submitted"); })
+      .catch(() => { if (alive) setFinalQuoteSent(false); });
+    return () => { alive = false; };
+  }, [isConsumer, resolvedBid?.requestId, request?.id, request?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Dynamic stage flow
   const [stageStatus, setStageStatus] = useState({
@@ -1071,8 +1088,18 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   //   1) resolvedContractId 없음(계약 미연결) → '최종 견적서 작성'만.
   //   2) resolvedContractId 있음(계약 row 존재, 결제 전) → '의뢰인 결제 대기'만.
   if (!isConsumer && !hasRealEscrow) {
-    // 1) 최종 견적서 작성 (FinalQuoteForm) — 착공 사진/버튼 절대 미노출.
-    if (!resolvedContractId && resolvedBid?.id && resolvedBid?.requestId) {
+    // 최종견적 작성 가능 후보(계약 미연결 + bid 확보). 단, 이미 발송됐으면 폼 대신 결제 대기.
+    const canWriteQuote = !resolvedContractId && resolvedBid?.id && resolvedBid?.requestId;
+    // 발송 여부 확인 중 → 작성 폼 플래시 방지(이미 보낸 건이 잠깐 폼으로 보이지 않도록).
+    if (canWriteQuote && finalQuoteSent === undefined) {
+      return (
+        <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+          <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중…</div>
+        </div>
+      );
+    }
+    // 1) 최종 견적서 작성 (FinalQuoteForm) — 미발송 상태에서만. 착공 사진/버튼 절대 미노출.
+    if (canWriteQuote && finalQuoteSent === false) {
       return (
         <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
           <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
@@ -1097,7 +1124,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         </div>
       );
     }
-    // 2) 의뢰인 결제 대기 (WaitingForPayment) — 최종견적 폼/착공 폼 모두 미노출.
+    // 2) 의뢰인 결제 대기 (WaitingForPayment) — 최종견적 발송 완료(finalQuoteSent) 또는
+    //    계약 row 존재(결제 전). 최종견적 폼/착공 폼 모두 미노출.
     return (
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
         <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
