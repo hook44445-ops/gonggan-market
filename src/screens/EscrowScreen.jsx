@@ -686,6 +686,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const s = STAGE_META.find(x => x.id === stageId);
     setReportingStage(stageId);
     setReportError(null);
+    try { console.log("[PHOTO_SEND_START]", { stageId, requestId: request?.id ?? resolvedBid?.requestId ?? null, contractId: contractData?.id ?? resolvedContractId ?? null, photoCount: (stagePhotos[stageId] ?? []).length }); } catch {}
 
     const phaseConfig = {
       3: { dbStep: 1, txStatus: "STARTED",       currentStep: 2, payoutStage: 2 },
@@ -773,18 +774,20 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               //      방금 만든 escrow를 롤백하고 cid를 비워, 아래 !cid 분기에서 재시도를 유도.
               const { error: payoutErr } = await createEscrowPayoutsForContract(cid, companyId, total, 0.04, 0.1);
               if (payoutErr) {
-                await deleteEscrowRecord(cid).catch(() => {});
+                // deleteEscrowRecord 는 supabase 빌더(Promise 아님) → .catch 금지. await + try/catch.
+                try { await deleteEscrowRecord(cid); } catch { /* 롤백 실패 무시 */ }
                 cid = null;
                 debug.contract_reload_ok = false;
                 debug.contract_reload_err = `payout_failed:${payoutErr.message} → 롤백`;
               } else {
                 debug.payouts_created = true;
                 // requests.status 단일 기준 유지 — 계약 생성 시 status 를 in_progress 로 전이.
-                if (reqId) await setRequestInProgress(reqId).catch(() => {});
+                // setRequestInProgress 는 supabase 빌더(Promise 아님) → .catch 금지.
+                if (reqId) { try { await setRequestInProgress(reqId); } catch { /* 전이 실패 무시 */ } }
               }
             } else {
               // 기존 에스크로 재사용 — payout 재생성 금지. 진행 상태만 보강.
-              if (reqId) await setRequestInProgress(reqId).catch(() => {});
+              if (reqId) { try { await setRequestInProgress(reqId); } catch { /* 전이 실패 무시 */ } }
             }
           } else {
             debug.contract_reload_err = createErr?.message ?? "create failed";
@@ -817,6 +820,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         debug.upload_ok  = !photoErr;
         debug.upload_err = photoErr?.message ?? null;
         debug.uploaded_photo_url = photos[0];
+        if (!photoErr) { try { console.log("[PHOTO_UPLOAD_SUCCESS]", { contractId: cid, requestId: reqId, step: dbStep, photoCount: photos.length, firstUrl: photos[0] }); } catch {} }
       } else {
         debug.upload_err = "no photos in state";
       }
@@ -844,21 +848,25 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         // 비동기 fire-and-forget(위치 권한 거부/실패해도 단계 보고는 정상 완료).
         const cpType = { 3: "start", 4: "middle", 5: "complete" }[stageId];
         if (cpType) {
-          captureCheckpointLocation().then(loc => {
-            if (!loc) return;
-            saveProjectCheckpoint({
-              actorId: userId, requestId: reqId, contractId: cid, type: cpType,
-              lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
-              roadAddress: loc.road_address, jibunAddress: loc.jibun_address, addressFull: loc.address_full,
-              sido: loc.sido, sigungu: loc.sigungu, dong: loc.dong, bunji: loc.bunji, photos,
-            }).catch(() => {});
-          }).catch(() => {});
+          // GPS 체크포인트 — fire-and-forget. saveProjectCheckpoint 는 supabase 빌더(Promise
+          // 아님)라 .catch 금지 → async IIFE + try/catch 로 처리(위치 실패해도 단계 보고는 정상).
+          (async () => {
+            try {
+              const loc = await captureCheckpointLocation();
+              if (!loc) return;
+              await saveProjectCheckpoint({
+                actorId: userId, requestId: reqId, contractId: cid, type: cpType,
+                lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
+                roadAddress: loc.road_address, jibunAddress: loc.jibun_address, addressFull: loc.address_full,
+                sido: loc.sido, sigungu: loc.sigungu, dong: loc.dong, bunji: loc.bunji, photos,
+              });
+            } catch { /* GPS 체크포인트 실패 무시 */ }
+          })();
         }
         // 단계 사진 전송 성공 = 업체가 실제 시공 중. 요청을 in_progress 로 확정 전환해
         // 업체 "새 견적 요청"(status=open) 입찰 목록에서 제거한다(이중 노출 방지).
-        // 위 생성 분기(escrow 신규 생성)뿐 아니라 기존 escrow 재사용 경로까지 모두 커버하도록
-        // 보고 성공 시점에 한 번 더 보강한다(멱등).
-        if (reqId) setRequestInProgress(reqId).catch(() => {});
+        // setRequestInProgress 는 supabase 빌더(Promise 아님) → .catch 금지. await + try/catch.
+        if (reqId) { try { await setRequestInProgress(reqId); } catch { /* 전이 실패 무시 */ } }
       } else {
         setReportError(`단계 상태 업데이트 실패: ${escrowErr.message}`);
       }
