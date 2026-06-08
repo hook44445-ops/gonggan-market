@@ -1062,12 +1062,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   // contractId prop 이 넘어오는 계약 단계에서는 resolvedContractId 가 채워져 이 분기를 타지 않는다.
   const escrowResolveDone = bidFetchDone && !resolvedContractId;
   const noStatusButNoEscrow = (request == null || !request?.status) && escrowResolveDone;
-  // 결제 전(현장견적 단계) + 실제 에스크로 없음 → 착공확인/사진업로드/전송 UI 전부 숨김.
-  if (!hasRealEscrow && (isPreEscrowPhase || noStatusButNoEscrow)) {
-    // 업체: 최종 견적서 작성 폼(검증된 PlatformEstimateModal 재사용 — createEstimate/submitEstimate).
-    //   submitEstimate 가 request.status → final_quote_submitted 로 원자 전이. site_visit_id 는 null 허용.
-    //   착공확인/사진업로드는 노출하지 않는다(이 분기 자체가 결제 전 가드).
-    if (!isConsumer && resolvedBid?.id && resolvedBid?.requestId) {
+
+  // ── 결제(에스크로) 전 단계 — 업체/의뢰인 화면 완전 분리(한 화면에 두 폼 동시 노출 금지) ──
+  // 착공확인/사진업로드(메인 렌더)는 "현재 request 에 매칭되는 실제 에스크로(VALID tx)"가
+  // 있을 때만 노출한다. status / resolvedContractId 기준으로 각 단계를 독립 return 처리.
+
+  // [업체] 실제 에스크로(결제 완료) 없음 → 절대 착공 화면을 보여주지 않는다.
+  //   1) resolvedContractId 없음(계약 미연결) → '최종 견적서 작성'만.
+  //   2) resolvedContractId 있음(계약 row 존재, 결제 전) → '의뢰인 결제 대기'만.
+  if (!isConsumer && !hasRealEscrow) {
+    // 1) 최종 견적서 작성 (FinalQuoteForm) — 착공 사진/버튼 절대 미노출.
+    if (!resolvedContractId && resolvedBid?.id && resolvedBid?.requestId) {
       return (
         <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
           <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
@@ -1092,12 +1097,34 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         </div>
       );
     }
-    // 의뢰인: 업체 최종 견적 발행 대기 안내.
+    // 2) 의뢰인 결제 대기 (WaitingForPayment) — 최종견적 폼/착공 폼 모두 미노출.
     return (
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
         <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
           <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>에스크로 안전 정산</div>
+        </div>
+        <div style={{ padding: "56px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 12 }}>⏳</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
+            의뢰인의 에스크로 결제를 기다리고 있습니다
+          </div>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8 }}>
+            최종 견적서를 보냈어요.{"\n"}의뢰인이 에스크로 결제를 완료하면 착공 단계가 열립니다.
+          </div>
+          <button onClick={onBack} style={{ marginTop: 24, padding: "11px 24px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
+        </div>
+      </div>
+    );
+  }
+
+  // [의뢰인] 결제 전(현장견적 단계) + 실제 에스크로 없음 → '최종 견적 대기' 안내만.
+  if (isConsumer && !hasRealEscrow && (isPreEscrowPhase || noStatusButNoEscrow)) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
+          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>공사 안전 결제</div>
         </div>
         <div style={{ padding: "56px 24px", textAlign: "center" }}>
           <div style={{ fontSize: 34, marginBottom: 12 }}>📋</div>
