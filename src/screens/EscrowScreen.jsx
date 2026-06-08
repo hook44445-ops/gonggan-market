@@ -294,6 +294,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const bidAmount   = resolvedBid?.price ?? 0;
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
   const stages      = bidAmount > 0 ? calculateStagePayments(bidAmount) : [];
+  // ⚠️ TDZ 방지: 아래 진단 useEffect 의 deps([... contractData?.id])는 렌더 중 평가되므로
+  // contractData 선언이 반드시 그 위에 있어야 한다(선언 전 접근 시 "Cannot access 'contractData'
+  // before initialization" 크래시). DB-loaded contract 상태이지만 선언만 끌어올린다.
+  const [contractData, setContractData] = useState(null);
   useEffect(() => {
     try {
       console.log("[GONGGAN_DEBUG][EscrowScreen]", {
@@ -322,8 +326,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [reportError, setReportError] = useState(null);
   const [stageDeadlines, setStageDeadlines] = useState({});
 
-  // DB-loaded contract state
-  const [contractData, setContractData] = useState(null);
+  // DB-loaded contract state (contractData 는 TDZ 방지를 위해 상단으로 선언 이동됨)
   const [expectedEndInput, setExpectedEndInput] = useState(""); // 업체 예상 완공일 입력
   const [expectedEndSaving, setExpectedEndSaving] = useState(false);
   const [dbPayoutMap, setDbPayoutMap] = useState({});  // { [stage]: payout row }
