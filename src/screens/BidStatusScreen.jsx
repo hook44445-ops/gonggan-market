@@ -100,12 +100,6 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   // 직접 UPDATE + .select().maybeSingle() 검증 — RLS 우회를 위해 SECURITY DEFINER RPC 시도 후 fallback.
   // DB 업데이트 성공 확인 후에만 siteVisitDone으로 전환 (낙관적 UI 업데이트 금지).
   const handleRequestSiteVisit = async () => {
-    // 클릭 즉시 로그 — 가드 이전에 찍어 버튼이 실제로 눌렸는지 확인
-    console.log('[SITE_VISIT_BUTTON_CLICK]', {
-      requestId: request?.id,
-      bidId: selBid?.id,
-      bidCompanyId: selBid?.companyId,
-    });
     if (siteVisitRef.current || !selBid) return;
     if (!request?.id) { showLocalToast("요청 정보를 찾을 수 없어요"); return; }
     siteVisitRef.current = true;
@@ -123,7 +117,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       const { data: company, error: companyError } = await supabase
         .from('companies')
         .select('id, owner_id, name')
-        .eq('owner_id', selBid.companyId)
+        .or(`id.eq.${selBid.companyId},owner_id.eq.${selBid.companyId}`)
         .maybeSingle();
 
       if (companyError || !company?.id) {
@@ -408,12 +402,25 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             ))}
           </div>
           <button
+            type="button"
             onClick={isQuotePhase
               ? () => { if (reqStatus === "final_quote_submitted" && request?.id) approveFinalQuote(request.id, userId).catch(() => {}); setStep("reserved"); }
               : isAwarded
               ? handleEscrowPaymentStart
-              : handleRequestSiteVisit}
-            disabled={!isQuotePhase && !isAwarded && siteVisitLoading}
+              : () => {
+                  console.log('[SITE_VISIT_BUTTON_CLICK]', {
+                    requestId: request?.id,
+                    bidId: selBid?.id,
+                    bidCompanyId: selBid?.companyId,
+                  });
+                  handleRequestSiteVisit();
+                }}
+            disabled={isQuotePhase || isAwarded ? false : (
+              !(request?.status === 'open' &&
+                !request?.selected_company_id && !request?.selectedCompanyId &&
+                !request?.selected_bid_id && !request?.selectedBidId &&
+                !!selBid?.id) || siteVisitLoading
+            )}
             style={{ width:"100%", padding:S.xxl,
               background: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.bgWarm : C.brand,
               color: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.text4 : "#fff",
