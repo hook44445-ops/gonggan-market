@@ -25,13 +25,13 @@ if (typeof window !== "undefined" && !window.__GG_DEBUG_PATCHED__) {
     orig(...args);
     try {
       const first = args[0];
-      if (typeof first === "string" && first.indexOf("[GONGGAN_DEBUG]") !== -1) {
+      if (typeof first === "string" && (first.indexOf("[GONGGAN_DEBUG]") !== -1 || first.indexOf("[GONGGAN_DIAG]") !== -1)) {
         const body = args.slice(1).map((a) => {
           if (typeof a === "string") return a;
           try { return JSON.stringify(a); } catch { return String(a); }
         }).join(" ");
         const ts = new Date().toLocaleTimeString("ko-KR", { hour12: false });
-        pushLine(`${ts} ${first.replace("[GONGGAN_DEBUG]", "").trim()} ${body}`.trim());
+        pushLine(`${ts} ${first.replace("[GONGGAN_DEBUG]", "").replace("[GONGGAN_DIAG]", "").trim()} ${body}`.trim());
       }
     } catch { /* noop */ }
   };
