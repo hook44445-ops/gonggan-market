@@ -259,13 +259,36 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   }, [resolvedBid?.requestId, resolvedBid?.companyId, request?.id, resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isConsumer = activeRole === "consumer";
-  const bidAmount   = resolvedBid?.price ?? 0;
-  const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
-  const stages      = bidAmount > 0 ? calculateStagePayments(bidAmount) : [];
   // ⚠️ TDZ 방지: 아래 진단 useEffect 의 deps([... contractData?.id])는 렌더 중 평가되므로
   // contractData 선언이 반드시 그 위에 있어야 한다(선언 전 접근 시 "Cannot access 'contractData'
   // before initialization" 크래시). DB-loaded contract 상태이지만 선언만 끌어올린다.
   const [contractData, setContractData] = useState(null);
+  // 금액 표시 안전 해석 — resolvedBid.price 누락 시 정산/계약 화면이 0원으로 보이던 버그 방어.
+  // 우선순위: 입찰가 → 실제 예치액(contractData.total_amount) → budget_min → budget_max → 0.
+  // crash-safe(Number 변환 후 NaN/0 스킵). 에스크로 단계/전이/지급 로직·표시 외 값은 미변경.
+  const _posAmt = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+  const _amtPick = [
+    ["bid.price",             _posAmt(resolvedBid?.price)],
+    ["contract.total_amount", _posAmt(contractData?.total_amount)],
+    ["request.budget_min",    _posAmt(request?.budget_min ?? request?.budgetMin)],
+    ["request.budget_max",    _posAmt(request?.budget_max ?? request?.budgetMax)],
+  ].find(([, v]) => v != null);
+  const bidAmount     = _amtPick ? _amtPick[1] : 0;
+  const _amountSource = _amtPick ? _amtPick[0] : "0(none)";
+  const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
+  const stages        = bidAmount > 0 ? calculateStagePayments(bidAmount) : [];
+  if (_amountSource !== "bid.price") {
+    try { console.log("[GONGGAN_DIAG][amountFallback]", {
+      requestId: request?.id ?? resolvedBid?.requestId ?? null,
+      status: request?.status ?? null,
+      selectedBidId: request?.selected_bid_id ?? request?.selectedBidId ?? resolvedBid?.id ?? null,
+      matchedBidPrice: resolvedBid?.price ?? null,
+      firstBidPrice: null, // EscrowScreen 은 단일 resolvedBid 만 보유(bids 배열 없음)
+      budgetMin: request?.budget_min ?? request?.budgetMin ?? null,
+      budgetMax: request?.budget_max ?? request?.budgetMax ?? null,
+      finalDisplayAmount: bidAmount, source: _amountSource,
+    }); } catch {}
+  }
   useEffect(() => {
     try {
       console.log("[GONGGAN_DEBUG][EscrowScreen]", {
