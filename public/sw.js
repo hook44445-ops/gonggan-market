@@ -7,7 +7,11 @@
 // ⚠️ Bump CACHE_VERSION on every deploy that must purge a stale shell.
 // v1 served index.html cache-first, which pinned old asset hashes and caused a
 // white screen after a new build. v2 fixes this.
-const CACHE_VERSION = "gonggan-v5";
+// v6: force-purge stale 07c86c6 bundle still pinned in old SW caches on user
+//     devices (production already serves fed61ad). activate() below deletes all
+//     non-current caches, skipWaiting()+clients.claim() take over immediately,
+//     and index.html's controllerchange handler reloads once into the fresh shell.
+const CACHE_VERSION = "gonggan-v6";
 
 self.addEventListener("install", (e) => {
   // Best-effort precache of the app root for offline; non-fatal if it fails.
