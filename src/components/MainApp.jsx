@@ -2594,11 +2594,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                     {stage?.cta ?? "에스크로 확인하기"} →
                                   </button>
                                 </div>
-                              ) : r.bidCount > 0 ? (
+                              ) : (stage?.action === "bids" || r.bidCount > 0) ? (
+                                // 결제 대기 단계(final_quote_submitted/escrow_pending, action="bids")는
+                                // bids 배열이 비어 bidCount=0 이어도 반드시 BidStatusScreen 으로 진입한다.
+                                // (기존 버그: bidCount>0 일 때만 버튼 노출 → "검토 중"에 갇혀 결제 화면 도달 불가)
                                 <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
                                   marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
                                   <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:S.sm }}>
-                                    🔔 업체 {r.bidCount}곳이 입찰했어요
+                                    {r.bidCount > 0 ? `🔔 업체 ${r.bidCount}곳이 입찰했어요` : `📋 ${stage?.label ?? "최종 견적서 확인"}`}
                                   </div>
                                   {reqBids.length > 0 && (
                                     <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
@@ -2613,11 +2616,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                       ))}
                                     </div>
                                   )}
-                                  <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
+                                  <button onClick={() => { console.log("[GONGGAN_DIAG][homeCard:nav]", { reqId: r.id, status: r.status, action: stage?.action ?? null, bidCount: r.bidCount ?? 0, to: "bidstatus" }); setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                                     style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff",
                                       border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer",
                                       boxShadow:`0 3px 12px ${C.brand}44` }}>
-                                    💰 견적 비교하고 업체 선택하기 →
+                                    {stage?.cta ?? "견적 비교하고 업체 선택하기"} →
                                   </button>
                                 </div>
                               ) : (
@@ -2656,7 +2659,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                       fontWeight:700, fontSize:13, cursor:"pointer" }}>
                                     🏗 에스크로 보기
                                   </button>
-                                ) : r.bidCount > 0 ? (
+                                ) : (stage?.action === "bids" || r.bidCount > 0) ? (
                                   <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
