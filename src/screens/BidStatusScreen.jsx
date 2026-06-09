@@ -397,9 +397,17 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
                 finalQuote: finalEstimate?.total_price ?? null, effectivePrice, customerTotal,
               });
               if (isQuotePhase) {
-                console.log("[GONGGAN_DIAG][confirmBtn]", { branch: "isQuotePhase", willApprove: reqStatus === "final_quote_submitted" && !!request?.id, next: "reserved" });
-                if (reqStatus === "final_quote_submitted" && request?.id) approveFinalQuote(request.id, userId).catch(() => {});
-                setStep("reserved");
+                console.log("[GONGGAN_DIAG][confirmBtn]", { branch: "isQuotePhase", willApprove: reqStatus === "final_quote_submitted" && !!request?.id, next: "payment" });
+                // 예약확정 RPC(기존 함수) 호출 — 실패 시 원인을 handlePay:error 로 노출(이전엔 무음 swallow).
+                if (reqStatus === "final_quote_submitted" && request?.id) {
+                  approveFinalQuote(request.id, userId)
+                    .then(({ error } = {}) => { if (error) console.log("[GONGGAN_DIAG][handlePay:error]", { stage: "approveFinalQuote", msg: error.message ?? String(error) }); })
+                    .catch((e) => console.log("[GONGGAN_DIAG][handlePay:error]", { stage: "approveFinalQuote", msg: e?.message ?? String(e) }));
+                }
+                // 중간 'reserved' 카드(추가 탭 필요)를 건너뛰고 결제 화면으로 직접 연결 →
+                // confirmBtn → payment(결제수단 선택) → handlePay:enter 체인이 끊기지 않게 한다.
+                console.log("[GONGGAN_DIAG][confirmBtn:nav]", { from: "confirm", to: "payment" });
+                setStep("payment");
               } else if (isAwarded) {
                 console.log("[GONGGAN_DIAG][confirmBtn]", { branch: "isAwarded", next: "reserved" });
                 handleEscrowPaymentStart();
