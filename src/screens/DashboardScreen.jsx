@@ -65,12 +65,36 @@ const normalizeCompanyJob = ({ bid, request, escrow }) => {
   const txMeta   = reqMeta ?? TX_META[txStatus] ?? STEP_INFO[step] ?? { label: "진행중", color: C.brand, bucket: "in_progress", nextAction: "상세 →", paid: 10 };
   const createdAt = escrow?.created_at ?? bid?.createdAt ?? Date.now();
   const daysElapsed = Math.floor((Date.now() - new Date(createdAt)) / 864e5);
-  const total = escrow?.total_amount ?? bid?.price ?? 0;
+  // 금액 안전 해석 — bid.company_id 불일치/누락으로 금액이 undefined/NaN 이어도
+  // 렌더가 멈추지 않도록 우선순위 fallback (정상값 → bid → bids[0] → budget_min → budget_max → 0).
+  const _bidsArr = Array.isArray(request?.bids) ? request.bids
+    : Array.isArray(request?.bidsRaw) ? request.bidsRaw : [];
+  const _posNum = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+  const _amtCandidates = [
+    ["escrow.total_amount", _posNum(escrow?.total_amount)],
+    ["bid.price",           _posNum(bid?.price)],
+    ["bids[0].price",       _posNum(_bidsArr[0]?.price)],
+    ["request.budget_min",  _posNum(request?.budget_min ?? request?.budgetMin)],
+    ["request.budget_max",  _posNum(request?.budget_max ?? request?.budgetMax)],
+  ];
+  const _picked = _amtCandidates.find(([, v]) => v != null);
+  const total = _picked ? _picked[1] : 0;
+  const _amountSource = _picked ? _picked[0] : "0(none)";
+  // fallback(정상 금액 미사용) 발생 시 console.warn 만 — 렌더링은 절대 중단하지 않음.
+  if (_amountSource !== "escrow.total_amount") {
+    try { console.warn("[GONGGAN_WARN][EscrowAmount] amount fallback (정상 금액 미사용)", {
+      request_id: request?.id ?? null, source: _amountSource, total,
+      escrow_total_amount: escrow?.total_amount ?? null, bid_price: bid?.price ?? null,
+      bids0_price: _bidsArr[0]?.price ?? null,
+      budget_min: request?.budget_min ?? request?.budgetMin ?? null,
+      budget_max: request?.budget_max ?? request?.budgetMax ?? null,
+    }); } catch {}
+  }
   try {
     console.log("[GONGGAN_DEBUG][EscrowAmount]", {
       request_id: request?.id ?? null, status: reqStatus,
       displayAmount: total,
-      source: escrow?.total_amount != null ? "escrow.total_amount" : bid?.price != null ? "bid.price" : "0(none)",
+      source: _amountSource,
       escrow_total_amount: escrow?.total_amount ?? null, escrow_company_id: escrow?.company_id ?? null,
       bid_price: bid?.price ?? null, bid_company_id: bid?.companyId ?? bid?.company_id ?? null,
       budget_min: request?.budget_min ?? request?.budgetMin ?? null, budget_max: request?.budget_max ?? request?.budgetMax ?? null,
