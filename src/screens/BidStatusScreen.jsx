@@ -108,7 +108,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     const chosen =
       (selBidId ? bids.find(b => b.id === selBidId) : null) ??
       bids.find(b => b.status === "selected") ??
-      (bids.length === 1 ? bids[0] : null);
+      (bids[0] ?? null); // #5: 견적단계(isQuotePhase)에선 selected_bid_id 미매칭이어도 첫 입찰로 진입 — 결제 무반응 방지
     if (chosen) { setSelBid(chosen); setStep("confirm"); }
   }, [isQuotePhase, bids, selBid, step]);
 
@@ -387,31 +387,27 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           </div>
           <button
             type="button"
-            onClick={isQuotePhase
-              ? () => {
-                  console.log("[GONGGAN_DIAG][payChain:confirmBtn]", {
-                    branch: "isQuotePhase", reqStatus, requestStatus: request?.status ?? null, requestId: request?.id ?? null,
-                    selBidId: selBid?.id ?? null, selBidStatus: selBid?.status ?? null,
-                    willApprove: reqStatus === "final_quote_submitted" && !!request?.id, next: "reserved",
-                  });
-                  if (reqStatus === "final_quote_submitted" && request?.id) approveFinalQuote(request.id, userId).catch(() => {});
-                  setStep("reserved");
-                }
-              : isAwarded
-              ? () => {
-                  console.log("[GONGGAN_DIAG][payChain:confirmBtn]", {
-                    branch: "isAwarded", requestStatus: request?.status ?? null,
-                    selBidId: selBid?.id ?? null, selBidStatus: selBid?.status ?? null, next: "reserved",
-                  });
-                  handleEscrowPaymentStart();
-                }
-              : () => {
-                  console.log("[GONGGAN_DIAG][payChain:confirmBtn]", {
-                    branch: "else(siteVisit)", requestStatus: request?.status ?? null,
-                    selBidId: selBid?.id ?? null, selBidStatus: selBid?.status ?? null,
-                  });
-                  handleRequestSiteVisit();
-                }}
+            onClick={() => {
+              // ⚠️ 무조건 첫 줄(가드/분기 이전): 버튼 클릭이 실제로 발생했는지 확정.
+              // 결제 가능 판단은 bid.status 가 아니라 request.status(isQuotePhase) 기준.
+              console.log("[GONGGAN_DIAG][payClick]", {
+                isQuotePhase, isAwarded, reqStatus, requestStatus: request?.status ?? null, step,
+                selectedBidId: request?.selected_bid_id ?? request?.selectedBidId ?? null,
+                chosenBidId: selBid?.id ?? null, bidStatus: selBid?.status ?? null,
+                finalQuote: finalEstimate?.total_price ?? null, effectivePrice, customerTotal,
+              });
+              if (isQuotePhase) {
+                console.log("[GONGGAN_DIAG][payChain:confirmBtn]", { branch: "isQuotePhase", willApprove: reqStatus === "final_quote_submitted" && !!request?.id, next: "reserved" });
+                if (reqStatus === "final_quote_submitted" && request?.id) approveFinalQuote(request.id, userId).catch(() => {});
+                setStep("reserved");
+              } else if (isAwarded) {
+                console.log("[GONGGAN_DIAG][payChain:confirmBtn]", { branch: "isAwarded", next: "reserved" });
+                handleEscrowPaymentStart();
+              } else {
+                console.log("[GONGGAN_DIAG][payChain:confirmBtn]", { branch: "else(siteVisit)" });
+                handleRequestSiteVisit();
+              }
+            }}
             disabled={isQuotePhase || isAwarded ? false : (!selBid?.id || siteVisitLoading)}
             style={{ width:"100%", padding:S.xxl,
               background: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.bgWarm : C.brand,
@@ -474,11 +470,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     const stages = calculateStagePayments(effectivePrice);
 
     const handlePay = async () => {
-      console.log("[GONGGAN_DIAG][payChain:handlePay:enter]", {
-        selBidId: selBid?.id ?? null, selBidStatus: selBid?.status ?? null,
+      console.log("[GONGGAN_DIAG][handlePay:enter]", {
         requestStatus: request?.status ?? null, reqStatus,
+        selectedBidId: request?.selected_bid_id ?? request?.selectedBidId ?? null,
+        chosenBidId: selBid?.id ?? null, bidStatus: selBid?.status ?? null,
+        finalQuote: finalEstimate?.total_price ?? null, effectivePrice, customerTotal,
         selectedMethod: selectedMethod ?? null, SAFE_MODE, paying: payingRef.current,
-        effectivePrice, customerTotal,
       });
       if (!selectedMethod && !SAFE_MODE) { console.log("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "no_method_and_not_safe_mode" }); return; }
       if (payingRef.current) { console.log("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "already_paying(payingRef)" }); return; }
