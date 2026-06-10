@@ -263,21 +263,31 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   // contractData 선언이 반드시 그 위에 있어야 한다(선언 전 접근 시 "Cannot access 'contractData'
   // before initialization" 크래시). DB-loaded contract 상태이지만 선언만 끌어올린다.
   const [contractData, setContractData] = useState(null);
-  // 금액 표시 안전 해석 — resolvedBid.price 누락 시 정산/계약 화면이 0원으로 보이던 버그 방어.
-  // 우선순위: 입찰가 → 실제 예치액(contractData.total_amount) → budget_min → budget_max → 0.
-  // crash-safe(Number 변환 후 NaN/0 스킵). 에스크로 단계/전이/지급 로직·표시 외 값은 미변경.
+  // 금액 표시 기준 통일 — 한 화면에 초기예산(444)·입찰가·예치액(333)이 섞이지 않도록
+  // 마스터 금액 우선순위를 고정한다(crash-safe: Number 변환 후 NaN/0 스킵).
+  //   1. contract.total_amount — 에스크로 계약이 존재하면(결제 완료) 실제 예치액이 마스터.
+  //      현장 최종견적(333)이 초기 입찰가(444)와 달라도 결제된 금액이 항상 기준.
+  //   2. bid.price — 계약 전(견적 확인 단계) 표시용.
+  //   3. budget_min/max — 견적 요청 단계에서만 허용. 최종견적 확정(final_quote_submitted)
+  //      이후나 계약 존재 시에는 예산 fallback 을 쓰지 않는다(잘못된 금액 노출 방지).
+  // 에스크로 단계/전이/지급 로직·표시 외 값은 미변경.
   const _posAmt = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+  const _postQuote = !!contractData ||
+    ["final_quote_submitted", "escrow_pending", "in_progress", "completed", "settled"]
+      .includes((request?.status ?? "").toLowerCase());
   const _amtPick = [
-    ["bid.price",             _posAmt(resolvedBid?.price)],
     ["contract.total_amount", _posAmt(contractData?.total_amount)],
-    ["request.budget_min",    _posAmt(request?.budget_min ?? request?.budgetMin)],
-    ["request.budget_max",    _posAmt(request?.budget_max ?? request?.budgetMax)],
+    ["bid.price",             _posAmt(resolvedBid?.price)],
+    ...(_postQuote ? [] : [
+      ["request.budget_min",  _posAmt(request?.budget_min ?? request?.budgetMin)],
+      ["request.budget_max",  _posAmt(request?.budget_max ?? request?.budgetMax)],
+    ]),
   ].find(([, v]) => v != null);
   const bidAmount     = _amtPick ? _amtPick[1] : 0;
   const _amountSource = _amtPick ? _amtPick[0] : "0(none)";
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
   const stages        = bidAmount > 0 ? calculateStagePayments(bidAmount) : [];
-  if (_amountSource !== "bid.price") {
+  if (_amountSource !== "contract.total_amount") {
     try { console.log("[GONGGAN_DIAG][amountFallback]", {
       requestId: request?.id ?? resolvedBid?.requestId ?? null,
       status: request?.status ?? null,
