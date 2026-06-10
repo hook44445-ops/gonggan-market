@@ -1378,6 +1378,19 @@ export const saveProjectCheckpoint = ({
 export const getProjectCheckpoints = (requestId, actorId = null) =>
   supabase.rpc("project_checkpoints_for_request", { p_request_id: requestId, p_actor_id: actorId });
 
+// 관리자 GPS 흐름관리(현장흐름 관리) — 11단계 진행상황 통합 조회(읽기 전용).
+// migration 047 의 admin_project_flow_list RPC. adminId 는 코드관리자 'admin'(sentinel)
+// 또는 실제 admin uuid. 검색/상태/기간/limit 옵션은 서버에서 처리, 세부 필터는 화면 계산.
+export const getAdminProjectFlow = (adminId, opts = {}) =>
+  supabase.rpc("admin_project_flow_list", {
+    p_admin_id:  adminId,
+    p_search:    opts.search ?? null,
+    p_status:    opts.status ?? null,
+    p_date_from: opts.dateFrom ?? null,
+    p_date_to:   opts.dateTo ?? null,
+    p_limit:     opts.limit ?? 200,
+  });
+
 // 업체 진행건(현장방문 견적 단계) 조회 — "선택된 업체"인 요청만 반환한다.
 // 매칭 기준(셋 중 하나라도 candidateIds 에 포함되면 해당 업체의 진행건):
 //   ① 선택된 입찰(bids.selected=true) 의 company_id

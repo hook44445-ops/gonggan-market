@@ -30,7 +30,7 @@ import {
   getDirectDealReports, updateDirectDealReportStatus, checkSiteVisitFollowUp, checkDirectDealSchedules,
   getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
   fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
-  getProjectCheckpoints,
+  getProjectCheckpoints, getAdminProjectFlow,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
@@ -1702,6 +1702,285 @@ function OperatorSettingTab({ adminUserId, showToast }) {
   );
 }
 
+// ── GPS 흐름관리(현장흐름 관리) 탭 — admin_project_flow_list(047) 조회 전용 ──
+// 11단계(요청→입찰→현장실측→최종견적→계약→에스크로→착공→중간점검→완료→정산→리뷰)
+// 진행상황 통합 조회 + 검색/필터. GPS 좌표/주소/사진은 상세 타임라인에서 노출.
+const FLOW_STAGE_META = {
+  REQUESTED:           { label: "요청",     color: C.text3 },
+  BID_SUBMITTED:       { label: "입찰",     color: "#2980B9" },
+  SITE_VISIT:          { label: "현장실측", color: "#16A085" },
+  FINAL_QUOTE:         { label: "최종견적", color: "#16A085" },
+  CONTRACTED:          { label: "계약확정", color: C.brand },
+  ESCROW_STARTED:      { label: "착공",     color: "#E67E22" },
+  MID_INSPECTION:      { label: "중간점검", color: "#E67E22" },
+  COMPLETED:           { label: "완료확인", color: "#27AE60" },
+  SETTLED_OR_REVIEWED: { label: "정산/리뷰", color: "#27AE60" },
+};
+const FLOW_STAGE_INDEX = {
+  REQUESTED: 0, BID_SUBMITTED: 1, SITE_VISIT: 2, FINAL_QUOTE: 3, CONTRACTED: 4,
+  ESCROW_STARTED: 5, MID_INSPECTION: 6, COMPLETED: 7, SETTLED_OR_REVIEWED: 8,
+};
+
+// 체크포인트 type(구/신 명칭) 매칭 헬퍼
+const cpFind = (cps, types) => (cps || []).find(c => types.includes(c.checkpoint_type)) || null;
+
+// 한 행의 분석 플래그(GPS 누락 / 사진 누락 / 단계 누락 / 직거래 의심) 계산.
+// GPS 필수 단계(착공/중간점검/완료)에 한해 좌표·사진·체크포인트 존재 여부를 본다.
+function deriveFlowFlags(row) {
+  const cps = row.checkpoints || [];
+  const si  = FLOW_STAGE_INDEX[row.flow_stage] ?? 0;
+  const cpStart = cpFind(cps, ["start", "construction_start"]);
+  const cpMid   = cpFind(cps, ["middle", "mid_inspection"]);
+  const cpComp  = cpFind(cps, ["complete", "completion"]);
+
+  const expected = [];
+  if (si >= FLOW_STAGE_INDEX.ESCROW_STARTED)  expected.push(cpStart);
+  if (si >= FLOW_STAGE_INDEX.MID_INSPECTION)  expected.push(cpMid);
+  if (si >= FLOW_STAGE_INDEX.COMPLETED)       expected.push(cpComp);
+
+  const stageMissing = expected.some(cp => !cp);
+  const gpsMissing   = expected.some(cp => cp && (cp.lat == null || cp.lng == null));
+  const photoMissing = expected.some(cp => cp && (!cp.photos || cp.photos.length === 0));
+  const ddrSuspect   = (row.direct_deal_reports || []).length > 0;
+  return { stageMissing, gpsMissing, photoMissing, ddrSuspect };
+}
+
+const isFlowCompleted = (row) =>
+  row.flow_stage === "SETTLED_OR_REVIEWED" || row.status === "completed";
+
+function ProjectFlowTab({ adminUserId, showToast }) {
+  const [rows, setRows]       = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [errMsg, setErrMsg]   = useState(null);
+  const [search, setSearch]   = useState("");
+  const [statusFilter, setStatusFilter]     = useState("all");   // all | ongoing | completed
+  const [analysisFilter, setAnalysisFilter] = useState("all");   // all | ddr | gps_missing | photo_missing | stage_missing
+  const [selected, setSelected] = useState(null);
+
+  const load = async (searchVal) => {
+    setLoading(true);
+    setErrMsg(null);
+    const { data, error } = await getAdminProjectFlow(adminUserId, { search: searchVal ?? null, limit: 300 });
+    if (error) {
+      setErrMsg(error.message || "조회 실패");
+      setRows([]);
+      console.log("[GONGGAN_DEBUG][ProjectFlow] error", error.message);
+    } else {
+      const list = Array.isArray(data) ? data : [];
+      setRows(list);
+      console.log("[GONGGAN_DEBUG][ProjectFlow] count", list.length);
+    }
+    setLoading(false);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [adminUserId]);
+
+  const filtered = rows.filter(row => {
+    if (statusFilter === "completed" && !isFlowCompleted(row)) return false;
+    if (statusFilter === "ongoing"   &&  isFlowCompleted(row)) return false;
+    if (analysisFilter !== "all") {
+      const f = deriveFlowFlags(row);
+      if (analysisFilter === "ddr"           && !f.ddrSuspect)   return false;
+      if (analysisFilter === "gps_missing"   && !f.gpsMissing)   return false;
+      if (analysisFilter === "photo_missing" && !f.photoMissing) return false;
+      if (analysisFilter === "stage_missing" && !f.stageMissing) return false;
+    }
+    return true;
+  });
+
+  const Chip = ({ active, onClick, children }) => (
+    <button onClick={onClick}
+      style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
+        border: `1px solid ${active ? C.brand : C.bgWarm}`, cursor: "pointer", whiteSpace: "nowrap",
+        background: active ? C.brand : C.surface, color: active ? "#fff" : C.text2 }}>
+      {children}
+    </button>
+  );
+
+  return (
+    <div style={{ padding: "8px 4px" }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 6 }}>GPS 흐름관리 (현장흐름 관리)</div>
+      <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 12 }}>
+        견적요청부터 정산·리뷰까지 11단계 진행상황을 한 화면에서 조회합니다. 착공·중간점검·완료 단계의 GPS 좌표/주소/사진 증빙은 상세에서 확인할 수 있어요. (읽기 전용)
+      </div>
+
+      {/* 검색 */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="고객명 · 업체명 · 전화번호 · request_id · 지역"
+          onKeyDown={e => { if (e.key === "Enter") load(search.trim() || null); }}
+          style={{ flex: 1, padding: "11px 14px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 14, outline: "none", color: C.text1, background: C.surface, fontFamily: "inherit" }} />
+        <button onClick={() => load(search.trim() || null)}
+          style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, padding: "0 18px", fontSize: 14, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+          검색
+        </button>
+      </div>
+
+      {/* 진행중/완료 */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto" }}>
+        <Chip active={statusFilter === "all"}       onClick={() => setStatusFilter("all")}>전체</Chip>
+        <Chip active={statusFilter === "ongoing"}   onClick={() => setStatusFilter("ongoing")}>진행중</Chip>
+        <Chip active={statusFilter === "completed"} onClick={() => setStatusFilter("completed")}>완료</Chip>
+      </div>
+      {/* 분석 필터 */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto" }}>
+        <Chip active={analysisFilter === "all"}           onClick={() => setAnalysisFilter("all")}>전체</Chip>
+        <Chip active={analysisFilter === "ddr"}           onClick={() => setAnalysisFilter("ddr")}>직거래 의심</Chip>
+        <Chip active={analysisFilter === "gps_missing"}   onClick={() => setAnalysisFilter("gps_missing")}>GPS 누락</Chip>
+        <Chip active={analysisFilter === "photo_missing"} onClick={() => setAnalysisFilter("photo_missing")}>사진 누락</Chip>
+        <Chip active={analysisFilter === "stage_missing"} onClick={() => setAnalysisFilter("stage_missing")}>단계 누락</Chip>
+      </div>
+
+      {errMsg && (
+        <div style={{ background: "#FFF0F0", color: C.red, border: `1px solid #F5C6C6`, borderRadius: R.lg, padding: "10px 12px", fontSize: 12, marginBottom: 12, lineHeight: 1.6 }}>
+          조회 실패: {errMsg}
+          {/(Could not find the function|does not exist|schema cache|PGRST202)/i.test(errMsg) && <><br/>RPC 없음 — 047_admin_project_flow_list.sql 적용 필요</>}
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 8 }}>
+        결과 {loading ? "…" : filtered.length}건 {!loading && rows.length !== filtered.length && <span style={{ color: C.text4, fontWeight: 500 }}>/ 전체 {rows.length}</span>}
+      </div>
+
+      {loading ? (
+        <div style={{ color: C.text3, fontSize: 13, padding: "12px 0" }}>불러오는 중...</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>해당 조건의 흐름이 없습니다</div>
+      ) : (
+        filtered.map(row => {
+          const meta = FLOW_STAGE_META[row.flow_stage] || { label: row.flow_stage, color: C.text3 };
+          const f = deriveFlowFlags(row);
+          return (
+            <div key={row.request_id} onClick={() => setSelected(row)}
+              style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: 8, cursor: "pointer" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ background: `${meta.color}1A`, color: meta.color, borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>{meta.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{row.area || "지역 미상"}</span>
+                <span style={{ fontSize: 12, color: C.text3 }}>· {row.space_type || "—"}</span>
+                {isFlowCompleted(row) && <span style={{ marginLeft: "auto", fontSize: 11, color: "#27AE60", fontWeight: 700 }}>완료</span>}
+              </div>
+              <div style={{ fontSize: 12, color: C.text3, marginBottom: 6 }}>
+                고객 {row.customer?.name || "—"} · 업체 {row.company?.name || "미배정"} · 입찰 {row.bids_count ?? 0}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {f.ddrSuspect   && <span style={{ background: "#FFF0F0", color: C.red,  borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>직거래 의심</span>}
+                {f.gpsMissing   && <span style={{ background: "#FBF5E8", color: C.gold, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>GPS 누락</span>}
+                {f.photoMissing && <span style={{ background: "#FBF5E8", color: C.gold, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>사진 누락</span>}
+                {f.stageMissing && <span style={{ background: C.bgWarm,  color: C.text3, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>단계 누락</span>}
+                <span style={{ marginLeft: "auto", fontSize: 10, color: C.text4 }}>{row.request_id?.slice(0, 8)}</span>
+              </div>
+            </div>
+          );
+        })
+      )}
+
+      {selected && <ProjectFlowDetail row={selected} onClose={() => setSelected(null)} />}
+    </div>
+  );
+}
+
+// 상세 — 11단계 타임라인 + GPS(위도/경도/도로명주소/정확도/사진).
+function ProjectFlowDetail({ row, onClose }) {
+  const cps    = row.checkpoints || [];
+  const esc    = row.escrow || null;
+  const sv     = row.site_visit || null;
+  const cpVisit = cpFind(cps, ["site_visit"]);
+  const cpStart = cpFind(cps, ["start", "construction_start"]);
+  const cpMid   = cpFind(cps, ["middle", "mid_inspection"]);
+  const cpComp  = cpFind(cps, ["complete", "completion"]);
+  const fmt = (t) => t ? new Date(t).toLocaleString("ko-KR", { year: "2-digit", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }) : null;
+
+  // 11단계 정의 — reached(도달 여부), at(시각), cp(GPS 체크포인트, 있으면 좌표 블록 표시)
+  const steps = [
+    { key: "request",  label: "요청",     reached: true,                                             at: row.created_at },
+    { key: "bid",      label: "입찰",     reached: (row.bids_count ?? 0) > 0,                        at: row.selected_bid?.created_at },
+    { key: "visit",    label: "현장실측", reached: !!sv || !!cpVisit,                                 at: cpVisit?.captured_at || sv?.checked_in_at, cp: cpVisit },
+    { key: "quote",    label: "최종견적", reached: row.status === "final_quote_submitted" || sv?.status === "estimate_submitted" || !!sv?.field_estimate_amount, at: null },
+    { key: "contract", label: "계약",     reached: !!row.selected_bid || !!esc || ["CONTRACTED","COMPANY_SELECTED","STARTED","MID_INSPECTION","COMPLETED","SETTLED"].includes(esc?.transaction_status), at: null },
+    { key: "escrow",   label: "에스크로(전액예치)", reached: !!esc?.step1_deposited_at || !!esc, at: esc?.step1_deposited_at || esc?.created_at },
+    { key: "start",    label: "착공",     reached: !!cpStart || esc?.transaction_status === "STARTED", at: cpStart?.captured_at, cp: cpStart },
+    { key: "mid",      label: "중간점검", reached: !!cpMid   || esc?.transaction_status === "MID_INSPECTION", at: cpMid?.captured_at, cp: cpMid },
+    { key: "complete", label: "완료",     reached: !!cpComp  || esc?.transaction_status === "COMPLETED" || !!esc?.step4_approved_at, at: cpComp?.captured_at || esc?.step4_approved_at, cp: cpComp },
+    { key: "settle",   label: "정산",     reached: esc?.transaction_status === "SETTLED", at: null },
+    { key: "review",   label: "리뷰",     reached: (row.review_count ?? 0) > 0, at: null },
+  ];
+
+  const kakaoUrl = (lat, lng) => `https://map.kakao.com/link/map/현장,${lat},${lng}`;
+
+  const GpsBlock = ({ cp }) => (
+    <div style={{ marginTop: 6, background: C.bg, borderRadius: R.md, padding: "8px 10px", fontSize: 11, color: C.text2, lineHeight: 1.7 }}>
+      <div>📍 도로명: {cp.road_address || cp.jibun_address || "주소 미상"}</div>
+      {cp.jibun_address && cp.road_address && <div>지번: {cp.jibun_address}</div>}
+      <div>위도 {cp.lat ?? "—"} · 경도 {cp.lng ?? "—"} · 정확도 {cp.accuracy != null ? `${cp.accuracy}m` : "—"}</div>
+      {cp.lat != null && cp.lng != null && (
+        <a href={kakaoUrl(cp.lat, cp.lng)} target="_blank" rel="noreferrer"
+          style={{ display: "inline-block", marginTop: 4, color: C.brand, fontWeight: 700, textDecoration: "none" }}>카카오맵 보기 →</a>
+      )}
+      {Array.isArray(cp.photos) && cp.photos.length > 0 && (
+        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+          {cp.photos.map((p, i) => (
+            <a key={i} href={p} target="_blank" rel="noreferrer">
+              <img src={p} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: R.sm, border: `1px solid ${C.bgWarm}` }} />
+            </a>
+          ))}
+        </div>
+      )}
+      {(!cp.photos || cp.photos.length === 0) && <div style={{ color: C.gold }}>사진 없음</div>}
+    </div>
+  );
+
+  return (
+    <div onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: C.surface, width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto",
+          borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, padding: "18px 18px 40px" }}>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>현장 흐름 상세</div>
+          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text3 }}>×</button>
+        </div>
+
+        <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.8, marginBottom: 14, background: C.bg, borderRadius: R.md, padding: "10px 12px" }}>
+          <div><b style={{ color: C.text1 }}>{row.area || "지역 미상"}</b> · {row.space_type || "—"} {row.size ? `· ${row.size}` : ""}</div>
+          <div>고객: {row.customer?.name || "—"} ({row.customer?.phone || "—"})</div>
+          <div>업체: {row.company?.name || "미배정"} {row.company?.phone ? `(${row.company.phone})` : ""}</div>
+          {row.selected_bid?.price != null && <div>계약 견적: {row.selected_bid.price}만원</div>}
+          {esc?.total_amount != null && <div>에스크로 금액: {esc.total_amount}만원 · 상태 {esc.transaction_status || "—"}</div>}
+          {(row.direct_deal_reports || []).length > 0 && <div style={{ color: C.red }}>직거래 의심 신고 {row.direct_deal_reports.length}건</div>}
+          <div style={{ color: C.text4 }}>request_id: {row.request_id}</div>
+        </div>
+
+        {/* 타임라인 */}
+        <div style={{ position: "relative" }}>
+          {steps.map((st, i) => {
+            const isLast = i === steps.length - 1;
+            return (
+              <div key={st.key} style={{ display: "flex", gap: 10, paddingBottom: isLast ? 0 : 14 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
+                    background: st.reached ? C.brand : C.bgWarm, border: `2px solid ${st.reached ? C.brand : C.bgWarm}` }} />
+                  {!isLast && <div style={{ width: 2, flex: 1, background: st.reached ? C.brandM : C.bgWarm, minHeight: 18 }} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: st.reached ? C.text1 : C.text4 }}>{st.label}</span>
+                    {st.at && <span style={{ fontSize: 11, color: C.text4 }}>{fmt(st.at)}</span>}
+                    {!st.reached && <span style={{ fontSize: 10, color: C.text4 }}>미도달</span>}
+                  </div>
+                  {st.cp && st.reached && <GpsBlock cp={st.cp} />}
+                  {/* GPS 필수 단계인데 체크포인트 없음 표시 */}
+                  {["start","mid","complete"].includes(st.key) && st.reached && !st.cp && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: C.gold }}>GPS 체크포인트 없음</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminScreen({ onBack, onHome, user }) {
   const [companies, setCompanies]       = useState([]);
   const [customers, setCustomers]       = useState([]);
@@ -2070,6 +2349,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["reports",        "신고관리"],
     ["direct_deal",    "직거래 의심"],
     ["operator_setting", "운영자 설정"],
+    ["project_flow",   "GPS 흐름관리"],
     ["tools",          "정리도구"],
     ["notifications",  "알림"],
   ];
@@ -3079,6 +3359,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
             {mainTab === "operator_setting" && (
               <OperatorSettingTab adminUserId={user?.id ?? null} showToast={showToast} />
+            )}
+
+            {mainTab === "project_flow" && (
+              <ProjectFlowTab adminUserId={user?.id ?? null} showToast={showToast} />
             )}
 
             {mainTab === "tools" && (
