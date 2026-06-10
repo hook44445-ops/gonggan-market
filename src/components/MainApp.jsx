@@ -39,6 +39,7 @@ import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
 import OwnershipHistory from "./OwnershipHistory";
 import ProtectionNotice from "./ProtectionNotice";
 import DisputeNotice from "./DisputeNotice";
+import AppFooter from "./AppFooter";
 import SiteVisitModal from "./SiteVisitModal";
 import PlatformEstimateModal from "./PlatformEstimateModal";
 import CompanyActiveJobCard from "./CompanyActiveJobCard";
@@ -4040,6 +4041,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 공간마켓 v1.0.0
               </div>
             </div>
+
+            {/* 사업자 정보 푸터 — 토스 PG 심사용(로그인 후 메인 하단에도 노출) */}
+            <AppFooter />
 
             {activeRole==="company" && (
               <div>

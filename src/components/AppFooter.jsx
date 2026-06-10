@@ -23,6 +23,16 @@ export default function AppFooter() {
           </div>
         ))}
       </div>
+      {/* 법적고지 링크 — 토스 PG 심사용. 앱 내부 라우트(/privacy, /terms). */}
+      <div style={{ marginTop: 10, fontSize: 11, color: "#9a9183" }}>
+        <a href="/privacy" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>
+          개인정보처리방침
+        </a>
+        <span style={{ color: "#c4bcae", margin: "0 8px" }}>·</span>
+        <a href="/terms" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>
+          이용약관
+        </a>
+      </div>
     </div>
   );
 }
