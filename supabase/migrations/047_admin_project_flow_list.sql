@@ -160,8 +160,12 @@ begin
       select count(*) as bids_count from public.bids b where b.request_id = r.id
     ) bc on true
     left join lateral (
+      -- 1순위: r.selected_bid_id 매칭, 2순위: b.selected=true (과거 데이터 selected 누락 보정).
       select b.* from public.bids b
-       where b.request_id = r.id and b.selected = true
+       where b.request_id = r.id
+         and (b.id = r.selected_bid_id or b.selected = true)
+       order by case when b.id = r.selected_bid_id then 0 else 1 end,
+                b.selected desc, b.created_at desc
        limit 1
     ) sb on true
     left join lateral (
