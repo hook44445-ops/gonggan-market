@@ -981,16 +981,26 @@ CREATE TABLE IF NOT EXISTS public.company_documents (
 
 ALTER TABLE public.company_documents ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "company_documents: owner read" ON public.company_documents
-  FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "company_documents: owner insert" ON public.company_documents
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "company_documents: owner update" ON public.company_documents
-  FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "company_documents: admin all" ON public.company_documents
-  FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin')
-  );
+-- 이 앱은 anon key + Twilio OTP 구조라 auth.uid()=NULL (048/052 참조).
+-- auth.uid() 기반 정책은 anon 클라 읽기/쓰기를 막아 서류센터가 동작하지 않는다.
+-- companies(public read) 와 동일하게 anon 접근을 허용한다. (migration 054 와 일치)
+CREATE INDEX IF NOT EXISTS idx_company_documents_company_id    ON public.company_documents (company_id);
+CREATE INDEX IF NOT EXISTS idx_company_documents_user_id       ON public.company_documents (user_id);
+CREATE INDEX IF NOT EXISTS idx_company_documents_review_status ON public.company_documents (review_status);
+
+DROP POLICY IF EXISTS "company_documents: owner read"   ON public.company_documents;
+DROP POLICY IF EXISTS "company_documents: owner insert" ON public.company_documents;
+DROP POLICY IF EXISTS "company_documents: owner update" ON public.company_documents;
+DROP POLICY IF EXISTS "company_documents: admin all"    ON public.company_documents;
+
+CREATE POLICY "company_documents: anon read" ON public.company_documents
+  FOR SELECT USING (true);
+CREATE POLICY "company_documents: anon insert" ON public.company_documents
+  FOR INSERT WITH CHECK (true);
+CREATE POLICY "company_documents: anon update" ON public.company_documents
+  FOR UPDATE USING (true) WITH CHECK (true);
+
+GRANT SELECT, INSERT, UPDATE ON public.company_documents TO anon, authenticated;
 
 -- ── extend admin_logs target_type for all domains ────────────────────────────
 ALTER TABLE public.admin_logs DROP CONSTRAINT IF EXISTS admin_logs_target_type_check;
