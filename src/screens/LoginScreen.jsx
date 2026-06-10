@@ -184,7 +184,18 @@ export default function LoginScreen({ onLogin, initialRole }) {
     };
     const { data, error } = await upsertUserByPhone(profile);
     setLoading(false);
-    if (error) return setMsg("❌ 프로필 저장에 실패했습니다");
+    if (error) {
+      // [GONGGAN_DEBUG] 신규 가입 저장 실패 원인 확정용 임시 진단 로그(1회 확인 후 제거 예정).
+      // 실제 error.code / message / details / hint 를 콘솔 + 화면에 노출(기존엔 삼키고 있었음).
+      console.error("[GONGGAN_DEBUG][saveConsumer] users upsert FAILED", {
+        code: error.code, message: error.message, details: error.details, hint: error.hint,
+        table: "public.users", op: "upsert(onConflict=phone)",
+        payload: { name: profile.name, role: profile.role, region: profile.region,
+                   phone: profile.phone, interestsLen: profile.interests?.length ?? 0 },
+      });
+      return setMsg(`❌ 저장 실패 [${error.code ?? "?"}] ${error.message ?? ""}`
+        + `${error.details ? " · " + error.details : ""}${error.hint ? " · " + error.hint : ""}`);
+    }
     onLogin(data ? { ...data, activeRole: "consumer" } : { ...profile, activeRole: "consumer" });
   };
 
