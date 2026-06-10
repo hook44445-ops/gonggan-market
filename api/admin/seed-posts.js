@@ -24,12 +24,24 @@ export default async function handler(req, res) {
 
   const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-  const { data: me, error: meErr } = await db
-    .from("users").select("id, role, is_operator").eq("id", adminId).maybeSingle();
-  if (meErr) return res.status(500).json({ error: meErr.message });
-  // operator 는 부가 권한(is_operator). 레거시 role='operator' 도 호환.
-  const isMod = me && (me.role === "admin" || me.is_operator === true || me.role === "operator");
-  if (!isMod) {
+  // uuid → DB role 검증 / 'admin' sentinel → 코드 관리자(x-admin-code 검증).
+  // 기존엔 'admin' 이 uuid 캐스트 에러(500)로 떨어져 코드 관리자가 항상 실패했다.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (UUID_RE.test(adminId)) {
+    const { data: me, error: meErr } = await db
+      .from("users").select("id, role, is_operator").eq("id", adminId).maybeSingle();
+    if (meErr) return res.status(500).json({ error: meErr.message });
+    // operator 는 부가 권한(is_operator). 레거시 role='operator' 도 호환.
+    const isMod = me && (me.role === "admin" || me.is_operator === true || me.role === "operator");
+    if (!isMod) {
+      return res.status(403).json({ error: "MODERATOR_ONLY" });
+    }
+  } else if (adminId === "admin") {
+    const expected = process.env.ADMIN_CODE || process.env.VITE_ADMIN_CODE || "";
+    if (!expected) return res.status(500).json({ error: "ADMIN_CODE_NOT_CONFIGURED" });
+    const got = String(req.headers["x-admin-code"] ?? "");
+    if (got !== expected) return res.status(403).json({ error: "MODERATOR_ONLY" });
+  } else {
     return res.status(403).json({ error: "MODERATOR_ONLY" });
   }
 

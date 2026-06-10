@@ -24,11 +24,26 @@ export default async function handler(req, res) {
 
   const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-  // 관리자(role=admin) 본인 확인 — admin 외 접근 차단
-  const { data: me, error: meErr } = await db
-    .from("users").select("id, role").eq("id", adminId).maybeSingle();
-  if (meErr) return res.status(500).json({ error: meErr.message });
-  if (!me || me.role !== "admin") return res.status(403).json({ error: "ADMIN_ONLY" });
+  // 관리자 본인 확인 — admin 외 접근 차단.
+  // · uuid → users.role='admin' 검증 (전화번호 OTP 관리자)
+  // · 'admin' sentinel → 코드 관리자(가상 계정, DB row 없음). x-admin-code 헤더를
+  //   서버 ADMIN_CODE 와 대조해 검증 (migration 040/046 의 sentinel 패턴과 동일).
+  //   ⚠️ 기존엔 'admin' 이 uuid 캐스트 에러(500)로 떨어져 코드 관리자의 고객 목록이
+  //   항상 실패했다 — 이 분기가 그 버그 수정.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (UUID_RE.test(adminId)) {
+    const { data: me, error: meErr } = await db
+      .from("users").select("id, role").eq("id", adminId).maybeSingle();
+    if (meErr) return res.status(500).json({ error: meErr.message });
+    if (!me || me.role !== "admin") return res.status(403).json({ error: "ADMIN_ONLY" });
+  } else if (adminId === "admin") {
+    const expected = process.env.ADMIN_CODE || process.env.VITE_ADMIN_CODE || "";
+    if (!expected) return res.status(500).json({ error: "ADMIN_CODE_NOT_CONFIGURED" });
+    const got = String(req.headers["x-admin-code"] ?? "");
+    if (got !== expected) return res.status(403).json({ error: "ADMIN_ONLY" });
+  } else {
+    return res.status(403).json({ error: "ADMIN_ONLY" });
+  }
 
   const role = String(req.query.role ?? "consumer");
   const { data, error } = await db
