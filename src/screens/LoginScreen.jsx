@@ -3,7 +3,7 @@ import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import { BADGES } from "../constants/badges";
 import { LogoMark, LeafSprig } from "../components/common";
 import CompanyOnboarding from "./CompanyOnboarding";
-import { upsertUserByPhone, getUserByPhone } from "../lib/supabase";
+import { upsertUserByPhone, signupUserByPhone, getUserByPhone } from "../lib/supabase";
 import { getKnownUsers, knownUserToSession } from "../lib/deviceAuth";
 import { SHOW_DEBUG_UI } from "../constants/release";
 
@@ -182,14 +182,14 @@ export default function LoginScreen({ onLogin, initialRole }) {
       interests: selectedServices,
       phone: toE164(phone),
     };
-    const { data, error } = await upsertUserByPhone(profile);
+    // 가입은 security-definer RPC 경유(migration 048). 클라 직접 users upsert 는
+    // auth.uid()=NULL + WITH CHECK(auth.uid()=id) 로 42501 거부되므로 사용하지 않는다.
+    const { data, error } = await signupUserByPhone(profile);
     setLoading(false);
     if (error) {
-      // [GONGGAN_DEBUG] 신규 가입 저장 실패 원인 확정용 임시 진단 로그(1회 확인 후 제거 예정).
-      // 실제 error.code / message / details / hint 를 콘솔 + 화면에 노출(기존엔 삼키고 있었음).
-      console.error("[GONGGAN_DEBUG][saveConsumer] users upsert FAILED", {
+      console.error("[GONGGAN_DEBUG][saveConsumer] signup RPC FAILED", {
         code: error.code, message: error.message, details: error.details, hint: error.hint,
-        table: "public.users", op: "upsert(onConflict=phone)",
+        rpc: "signup_user_by_phone",
         payload: { name: profile.name, role: profile.role, region: profile.region,
                    phone: profile.phone, interestsLen: profile.interests?.length ?? 0 },
       });

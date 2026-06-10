@@ -38,6 +38,16 @@ export const upsertUser = (profile) =>
 export const upsertUserByPhone = (profile) =>
   supabase.from("users").upsert(profile, { onConflict: "phone" }).select().single();
 
+// 신규 회원가입 — security-definer RPC(migration 048) 경유.
+// 이 앱은 Twilio OTP + anon key 라 auth.uid()=NULL → users INSERT 정책
+// WITH CHECK(auth.uid()=id) 에 막혀(42501) 클라 직접 upsert 가 불가하다.
+// OTP 검증을 통과한 가입 흐름에서만 호출한다. role 은 consumer/company 만 허용.
+export const signupUserByPhone = ({ phone, name, role, region = null, interests = null }) =>
+  supabase.rpc("signup_user_by_phone", {
+    p_phone: phone, p_name: name, p_role: role,
+    p_region: region, p_interests: interests ?? [],
+  });
+
 export const getUser = (id) =>
   supabase.from("users").select("*").eq("id", id).maybeSingle();
 
