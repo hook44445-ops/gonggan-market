@@ -276,18 +276,21 @@ const computeCustomerStage = (r, escrowData) => {
   if (!r) return null;
   const { escrow = null, payouts = [] } = escrowData ?? {};
 
-  // 현장방문 견적 흐름(에스크로 생성 전) — requests.status 기준
-  if (r.status === "site_visit") return {
+  // 현장방문 견적 흐름(에스크로 생성 전) — requests.status 기준.
+  // ⚠️ 활성 에스크로 계약이 이미 있으면(결제 완료/tx 진행) request.status 가 stale(site_visit/
+  //    final_quote_submitted/escrow_pending)이어도 결제 전 화면(action:"bids")으로 회귀시키지 않는다.
+  //    → `&& !escrow` 로 가드해 아래 에스크로 진행 단계 계산(txStatus)으로 fall-through 시킨다.
+  if (r.status === "site_visit" && !escrow) return {
     badge: "현장방문", badgeBg: C.brandL, badgeFg: C.brand,
     label: "현장방문 견적 진행중", sub: "선택한 업체가 현장 방문 후 최종 견적서를 보내드려요",
     action: "escrow", cta: "진행 상황 보기",
   };
-  if (r.status === "final_quote_submitted") return {
+  if (r.status === "final_quote_submitted" && !escrow) return {
     badge: "견적 도착", badgeBg: C.sand, badgeFg: "#7A5C1E",
     label: "최종 견적서 확인", sub: "업체가 최종 견적서를 보냈어요 · 확인 후 안전결제로 진행하세요",
     action: "bids", cta: "최종 견적서 확인하기",
   };
-  if (r.status === "escrow_pending") return {
+  if (r.status === "escrow_pending" && !escrow) return {
     badge: "결제 대기", badgeBg: C.brandL, badgeFg: C.brand,
     label: "에스크로 결제 대기", sub: "최종 견적을 승인했어요 · 안전결제를 진행해주세요",
     action: "bids", cta: "에스크로 결제하기",
@@ -2233,9 +2236,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   </div>
                   <button onClick={() => {
                     setBidViewRequestId(progRow.id);
-                    const s = (progRow.status ?? "").toLowerCase();
-                    if (s === "final_quote_submitted" || s === "escrow_pending") setScreen("bidstatus");
-                    else go("escrow");
+                    // 이 진행 카드는 활성 에스크로(prog!=null)일 때만 렌더되므로, request.status 가
+                    // stale(final_quote_submitted/escrow_pending)이어도 결제 전 화면(bidstatus)이
+                    // 아니라 공사 진행(escrow)으로 보낸다 — escrow 존재가 status 보다 우선.
+                    go("escrow");
                   }}
                     style={{ background:C.brandD, color:"#fff", border:"none", borderRadius:R.full,
                       padding:"12px 24px", fontWeight:800, fontSize:14, cursor:"pointer" }}>
