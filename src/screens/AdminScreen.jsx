@@ -1285,6 +1285,12 @@ function SeedReviewTab() {
       after_image_url: s.after_image_url ?? "", sort_order: s.sort_order ?? 0,
       is_active: s.is_active ?? true,
     });
+    // 수정 폼은 목록 위(상단)에 있어 카드에서 누르면 화면 변화가 안 보임 → 폼으로 스크롤 + 안내.
+    showToast("✏️ 수정 모드 — 상단 폼에서 편집 후 [수정 저장]을 눌러주세요");
+    try {
+      document.getElementById("seed-review-edit-form")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {}
   };
 
   const handleUpload = async (file, slot) => {
@@ -1414,8 +1420,8 @@ function SeedReviewTab() {
         </div>
       )}
 
-      {/* 등록/수정 폼 */}
-      <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
+      {/* 등록/수정 폼 — 카드의 [수정] 클릭 시 여기로 스크롤(id 고정) */}
+      <div id="seed-review-edit-form" style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
         border: `1.5px solid ${editId ? C.brand : C.bgWarm}`, marginBottom: S.xl }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: S.md }}>
           {editId ? "✏️ 수정" : "➕ 새 시딩 후기 등록"}
