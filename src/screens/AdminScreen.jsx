@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { BADGES } from "../constants/badges";
+import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
 import { COMPANY_STATUS_META } from "../constants";
 import {
   supabase,
@@ -32,6 +32,7 @@ import {
   fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
   getProjectCheckpoints, getAdminProjectFlow,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
+  adminSetCompanyBadge,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
@@ -1103,6 +1104,7 @@ const normalizeCompany = (row) => ({
     { label: "대표자 신분증",   submitted: !!row.id_card_url },
   ],
   deposit:    row.deposit_amount ?? 0,
+  hasInsurance: !!row.insurance_url || !!row.has_insurance,
   rejectNote: row.reject_note ?? "",
 });
 
@@ -2284,6 +2286,24 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setStatusReason("");
   };
 
+  // 공간보증 배지 등급 변경 — RPC(053) 경유. admin_logs·notifications 는 RPC 내부에서 기록.
+  // badge 컬럼만 변경(표시/관리값). 실제 입·출금/정산 처리 없음.
+  const handleSetBadge = async (company, newBadge) => {
+    if (!company?.id) return;
+    setActionLoading(true);
+    const { error } = await adminSetCompanyBadge(company.id, user?.id ?? "admin", newBadge, null);
+    if (!error) {
+      const applied = newBadge === "none" ? null : newBadge;
+      setCompanies(prev => prev.map(c => c.id === company.id ? { ...c, badge: applied } : c));
+      if (selected?.id === company.id) setSelected(prev => ({ ...prev, badge: applied }));
+      trackAdmin("SET_COMPANY_BADGE", company.id, null, true, 1);
+    } else {
+      trackAdmin("SET_COMPANY_BADGE", company.id, error.message, false, 0);
+      alert("배지 변경 실패: " + (error.message ?? ""));
+    }
+    setActionLoading(false);
+  };
+
   const openDetail = (company) => {
     setSelected(company);
     setRejectMode(false);
@@ -2587,7 +2607,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                             <span style={{ background: bm.bg, color: bm.color, borderRadius: R.full,
                               padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{bm.icon} {bm.label}</span>
                             <span style={{ background: C.surface2, color: C.text3, borderRadius: R.full,
-                              padding: "2px 8px", fontSize: 11 }}>보증금 {company.deposit.toLocaleString()}만원</span>
+                              padding: "2px 8px", fontSize: 11 }}>보증예치금 {requiredDeposit(company.badge, company.hasInsurance).toLocaleString()}만원</span>
                           </div>
                         </div>
                         <span style={{ background: sm.bg, color: sm.color, borderRadius: R.full,
@@ -3447,9 +3467,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     <div style={{ fontSize: 12, color: C.text4 }}>📞 {selected.phone}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: C.navy }}>{selected.deposit.toLocaleString()}만원</div>
-                    <div style={{ fontSize: 11, color: C.text4 }}>납부 보증금</div>
-                    <div style={{ fontSize: 11, color: bm.color, fontWeight: 700, marginTop: 2 }}>최대 {bm.maxJob} 수주</div>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: C.navy }}>{requiredDeposit(selected.badge, selected.hasInsurance).toLocaleString()}만원</div>
+                    <div style={{ fontSize: 11, color: C.text4 }}>필요 보증예치금 ({depositRatePct(selected.hasInsurance)}%)</div>
+                    <div style={{ fontSize: 11, color: bm.color, fontWeight: 700, marginTop: 2 }}>수주 한도 {bm.maxJob}</div>
                     <button onClick={() => setDocModal("badge")}
                       style={{ fontSize: 11, color: C.brand, background: "none", border: "none", cursor: "pointer", fontWeight: 700, marginTop: 4, textDecoration: "underline" }}>
                       배지 상세 ›
@@ -3802,16 +3822,18 @@ export default function AdminScreen({ onBack, onHome, user }) {
           <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 360 }}
             onClick={e => e.stopPropagation()}>
             {(() => {
-              const bm2 = BADGES[selected.badge] || BADGES.basic;
+              const bm2 = selected.badge ? (BADGES[selected.badge] || BADGES.basic) : null;
+              const ins = selected.hasInsurance;
               return (
                 <>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>🏆 공간보증 배지</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>🛡️ 공간보증 배지</div>
                   {[
-                    ["배지 등급",      `${bm2.icon} ${bm2.label}`],
-                    ["가능 공사 금액", bm2.maxJob],
-                    ["필요 보증금",    `${selected.deposit.toLocaleString()}만원`],
-                    ["보험 제출 여부", selected.docs[1]?.submitted ? "✓ 제출" : "✗ 미제출"],
-                    ["승인 상태",      selected.status === "approved" ? "✓ 승인" : selected.status === "rejected" ? "✗ 반려" : "검토 중"],
+                    ["현재 등급",        bm2 ? `${bm2.icon} ${bm2.label}` : "없음"],
+                    ["수주 한도",        bm2 ? bm2.maxJob : "—"],
+                    ["시공보험 가입",    ins ? "✓ 가입" : "✗ 미가입"],
+                    ["보증예치 비율",    `${depositRatePct(ins)}%`],
+                    ["필요 보증예치금",  bm2 ? `${requiredDeposit(selected.badge, ins).toLocaleString()}만원` : "—"],
+                    ["승인 상태",        selected.status === "approved" ? "✓ 승인" : selected.status === "rejected" ? "✗ 반려" : "검토 중"],
                   ].map(([k, v]) => (
                     <div key={k} style={{ display: "flex", justifyContent: "space-between",
                       padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
@@ -3819,6 +3841,27 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       <span style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{v}</span>
                     </div>
                   ))}
+
+                  {/* 등급 변경 — RPC(053) 경유. 클릭 즉시 적용 + admin_logs·notifications */}
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginTop: S.lg, marginBottom: S.sm }}>등급 변경</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {[["none", "없음", ""], ...BADGE_ORDER.map(k => [k, BADGES[k].label, BADGES[k].icon])].map(([key, label, icon]) => {
+                      const active = (selected.badge ?? "none") === key;
+                      return (
+                        <button key={key} disabled={actionLoading}
+                          onClick={() => handleSetBadge(selected, key)}
+                          style={{ padding: "7px 11px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
+                            border: `1.5px solid ${active ? C.brand : C.bgWarm}`,
+                            background: active ? C.brandL : C.surface, color: active ? C.brand : C.text2,
+                            cursor: actionLoading ? "wait" : "pointer" }}>
+                          {icon} {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.text4, marginTop: S.sm, lineHeight: 1.6 }}>
+                    ※ 표시·관리값만 변경됩니다. 실제 입·출금/정산은 처리되지 않습니다.
+                  </div>
                 </>
               );
             })()}

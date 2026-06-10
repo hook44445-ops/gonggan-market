@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { C, R, S, CITY_DISTRICTS, SPECIALTIES } from "../constants";
-import { BADGES } from "../constants/badges";
+import { BADGES, requiredDeposit, depositRatePct } from "../constants/badges";
 import { Divider } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import { upsertUserByPhone, upsertCompany, uploadFile, upsertCompanyDocument } from "../lib/supabase";
@@ -55,20 +55,22 @@ export default function CompanyOnboarding({ phone, onDone }) {
   const pledgeAllChecked = PLEDGE_ITEMS.every(i => form.pledgeChecklist[i.key]);
   const escrowAllChecked = ESCROW_ITEMS.every(i => form.escrowChecklist[i.key]);
   const BADGE_INFO = {
-    basic:      { ...BADGES.basic,      range:"~500만원",   dep20:100,  dep30:150 },
-    standard:   { ...BADGES.standard,   range:"~1,000만원", dep20:200,  dep30:300 },
-    premium:    { ...BADGES.premium,    range:"~2,000만원", dep20:400,  dep30:600 },
-    enterprise: { ...BADGES.enterprise, range:"~5,000만원", dep20:1000, dep30:1500 },
-    signature:  { ...BADGES.signature,  range:"~1억원",     dep20:2000, dep30:3000 },
+    basic:      { ...BADGES.basic,      range:"~500만원"   },
+    standard:   { ...BADGES.standard,   range:"~1,000만원" },
+    premium:    { ...BADGES.premium,    range:"~2,000만원" },
+    enterprise: { ...BADGES.enterprise, range:"~5,000만원" },
+    signature:  { ...BADGES.signature,  range:"~1억원"     },
   };
   const badge = BADGE_INFO[form.badge] || BADGE_INFO.standard;
-  const depositAmt = form.hasInsurance ? badge.dep20 : badge.dep30;
+  // 보증예치금 — 수주한도 × 비율(보험 10% / 미가입 20%). 단일 소스(badges.js).
+  const depositAmt = requiredDeposit(form.badge, form.hasInsurance);
+  const ratePct = depositRatePct(form.hasInsurance);
 
   if(submitted === "payment") return (
     <div style={{ width:"100%", maxWidth:390 }}>
-      <div style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:4 }}>보증금 결제</div>
+      <div style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:4 }}>보증예치금 등록</div>
       <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>
-        공간보증 배지 활성화를 위한 보증금을 납부해주세요
+        공간보증 배지 활성화를 위한 보증예치금을 등록해주세요
       </div>
       <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
         marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
@@ -85,10 +87,10 @@ export default function CompanyOnboarding({ phone, onDone }) {
         <Divider />
         <div style={{ marginTop:S.md }}>
           {[
-            ["보증금 비율", form.hasInsurance?"20% (보험 할인)":"30%"],
-            ["납부 금액", `${depositAmt.toLocaleString()}만원`],
-            ["환급 조건", "탈퇴 시 30일 내 전액 환급"],
-            ["먹튀 발생 시", "고객 즉시 배상 후 법적 대응"],
+            ["보증예치 비율", `${ratePct}%${form.hasInsurance?" (시공보험 가입)":" (시공보험 미가입)"}`],
+            ["보증예치금", `${depositAmt.toLocaleString()}만원`],
+            ["환급 조건", "분쟁 없을 시 정해진 조건에 따라 반환"],
+            ["보관 방식", "회사 운영비와 분리 보관"],
           ].map(([k,v]) => (
             <div key={k} style={{ display:"flex", justifyContent:"space-between",
               padding:`${S.sm}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
@@ -114,13 +116,13 @@ export default function CompanyOnboarding({ phone, onDone }) {
         marginBottom:S.xl, fontSize:12, color:C.navy, lineHeight:1.7,
         display:"flex", gap:S.sm }}>
         <span>🛡</span>
-        <span>보증금은 공간마켓 신탁 계좌에 안전하게 보관되며 업무에 사용되지 않습니다</span>
+        <span>보증예치금은 회사 운영비와 분리되어 공간마켓 신탁 계좌에 보관되며 업무에 사용되지 않습니다</span>
       </div>
       <button onClick={() => setSubmitted("done")}
         style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff",
           border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
           boxShadow:`0 6px 20px ${C.brand}44` }}>
-        💳 {depositAmt.toLocaleString()}만원 보증금 납부하기
+        💳 {depositAmt.toLocaleString()}만원 보증예치금 등록하기
       </button>
     </div>
   );
@@ -130,13 +132,13 @@ export default function CompanyOnboarding({ phone, onDone }) {
       <div style={{ fontSize:64, marginBottom:16 }}>🎉</div>
       <div style={{ fontSize:22, fontWeight:900, color:C.text1, marginBottom:8 }}>신청 완료!</div>
       <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>
-        보증금 납부 완료.<br/>서류 검토 후 1~2일 내<br/>🛡 공간마켓 인증 배지가 부여됩니다
+        보증예치금 등록 완료.<br/>서류 검토 후 1~2일 내<br/>🛡 공간마켓 인증 배지가 부여됩니다
       </div>
       <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
         marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, textAlign:"left" }}>
         {[["배지 등급", `${badge.icon} ${badge.label}`],
           ["공사 규모", badge.range],
-          ["보증금 납부", `${depositAmt.toLocaleString()}만원 ✅`],
+          ["보증예치금", `${depositAmt.toLocaleString()}만원 ✅`],
           ["보험 가입", form.hasInsurance?"✅ 가입":"미가입"],
           ["심사 기간","1~2일"]].map(([k,v]) => (
           <div key={k} style={{ display:"flex", justifyContent:"space-between",
@@ -240,8 +242,8 @@ export default function CompanyOnboarding({ phone, onDone }) {
             ))}
           </div>
           <div style={{ fontSize:11, opacity:0.85, marginTop:10, lineHeight:1.6 }}>
-            공사규모에 따른 보증금 별도 (공간멤버쉽파트너뱃지 제공)<br/>
-            보증금은 수수료가 아니며 공사 완료 시 100% 반환됩니다.
+            공사규모에 따른 보증예치금 별도 (공간멤버쉽파트너뱃지 제공)<br/>
+            보증예치금은 수수료가 아니며 분쟁 없을 시 정해진 조건에 따라 반환됩니다.
           </div>
         </div>
         <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>업체 기본 정보</div>
@@ -407,7 +409,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
             <div style={{ flex:1 }}>
               <div style={{ fontSize:14, fontWeight:800, color:C.text1 }}>시공보험 증서</div>
               <div style={{ fontSize:12, color:form.hasInsurance?C.green:C.text3 }}>
-                {uploadingIns ? "업로드 중..." : form.insuranceFile ? `✅ ${form.insuranceFile}` : "선택 · 보증금 할인 혜택"}
+                {uploadingIns ? "업로드 중..." : form.insuranceFile ? `✅ ${form.insuranceFile}` : "선택 · 보증예치 비율 10% 적용"}
               </div>
             </div>
             {form.hasInsurance && <span style={{ fontSize:18, color:C.green }}>✓</span>}
@@ -444,15 +446,15 @@ export default function CompanyOnboarding({ phone, onDone }) {
           <div style={{ background:form.hasInsurance?C.greenL:C.brandL, borderRadius:R.lg,
             padding:S.md, border:`1px solid ${form.hasInsurance?C.green+"44":C.brandM}` }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-              <span style={{ fontSize:12, color:C.text3 }}>보험 미가입 시 보증금</span>
+              <span style={{ fontSize:12, color:C.text3 }}>보험 미가입 시 보증예치 비율</span>
               <span style={{ fontSize:12, fontWeight:700,
                 color:form.hasInsurance?C.text4:C.red,
-                textDecoration:form.hasInsurance?"line-through":"none" }}>공사금액의 30%</span>
+                textDecoration:form.hasInsurance?"line-through":"none" }}>수주 한도의 20%</span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between" }}>
-              <span style={{ fontSize:12, color:C.text3 }}>보험 가입 시 보증금</span>
+              <span style={{ fontSize:12, color:C.text3 }}>보험 가입 시 보증예치 비율</span>
               <span style={{ fontSize:12, fontWeight:800,
-                color:form.hasInsurance?C.green:C.text3 }}>공사금액의 20% ✓</span>
+                color:form.hasInsurance?C.green:C.text3 }}>수주 한도의 10% ✓</span>
             </div>
           </div>
         </div>
@@ -477,7 +479,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
         </div>
 
         {Object.entries(BADGE_INFO).map(([key, b]) => {
-          const dep = form.hasInsurance ? b.dep20 : b.dep30;
+          const dep = requiredDeposit(key, form.hasInsurance);
           const selected = form.badge === key;
           return (
             <div key={key} onClick={() => set("badge", key)}
@@ -498,14 +500,14 @@ export default function CompanyOnboarding({ phone, onDone }) {
                     {dep.toLocaleString()}만원
                   </div>
                   <div style={{ fontSize:10, color:C.text3 }}>
-                    보증금 {form.hasInsurance?"20%":"30%"}
+                    보증예치 {ratePct}%
                   </div>
                 </div>
               </div>
               {selected && form.hasInsurance && (
                 <div style={{ marginTop:S.sm, background:C.greenL, borderRadius:R.sm,
                   padding:"4px 10px", fontSize:11, color:C.green, fontWeight:700 }}>
-                  🔒 보험 가입 할인 적용 · {(b.dep30-b.dep20).toLocaleString()}만원 절감
+                  🔒 시공보험 가입 적용 · {(requiredDeposit(key,false)-requiredDeposit(key,true)).toLocaleString()}만원 절감
                 </div>
               )}
             </div>
@@ -516,8 +518,10 @@ export default function CompanyOnboarding({ phone, onDone }) {
           marginBottom:S.md, marginTop:S.md }}>
           <div style={{ fontSize:14, color:C.text3, lineHeight:1.8 }}>
             • 공간안전결제가 기본 거래 경로입니다<br/>
-            • 보증금은 탈퇴 시 30일 내 환급<br/>
-            • 보증금은 고객 보호장치로 안전하게 보관됩니다
+            • 보증예치금은 회사 운영비와 분리 보관됩니다<br/>
+            • 시공보험 가입 10% · 미가입 20% (수주 한도 기준)<br/>
+            • 분쟁이 없을 경우 정해진 조건에 따라 반환됩니다<br/>
+            <span style={{ color:C.text4, fontSize:12 }}>※ 실제 입금/출금은 아직 처리되지 않습니다</span>
           </div>
         </div>
         <div style={{ marginBottom:S.xl }}>
@@ -563,7 +567,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
           { key:"agreeTerms",  title:"이용약관 동의", sub:"업체 파트너 이용약관 (필수)" },
           { key:"agreeEscrow", title:"에스크로 정산 동의", sub:"단계별 안전 정산 방식 동의 (필수)" },
           { key:"agreeAs",     title:"하자보수 AS 의무 동의", sub:"완료 후 1년간 무상 AS 제공 (필수)" },
-          { key:"agreeDeposit",title:"보증금 납부 동의", sub:"선택 배지 보증금 납부 및 환급 조건 동의 (필수)" },
+          { key:"agreeDeposit",title:"보증예치금 등록 동의", sub:"선택 배지 보증예치금 등록 및 환급 조건 동의 (필수)" },
         ].map(item => (
           <div key={item.key} onClick={() => set(item.key, !form[item.key])}
             style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm,

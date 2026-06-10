@@ -1270,6 +1270,17 @@ export const adminSetCompanyStatus = async (companyId, adminId, companyStatus, r
   return { data, error };
 };
 
+// 관리자 공간보증 배지 등급 변경 — security-definer RPC(migration 053).
+// p_badge='none' 이면 배지 해제. admin sentinel('admin')도 허용(RPC 내부에서 NULL 처리).
+// badge 컬럼만 갱신 + admin_logs + notifications. 실제 입·출금 없음.
+export const adminSetCompanyBadge = (companyId, adminId, badge, reason = null) =>
+  supabase.rpc("admin_set_company_badge", {
+    p_admin_id: adminId ?? "admin",
+    p_company_id: companyId,
+    p_badge: badge,
+    p_reason: reason,
+  });
+
 // 현장방문/견적 쓰기는 모두 security-definer RPC 경유(분쟁·정산 증빙 데이터, anon 직접 쓰기 금지).
 // RPC 내부에서 p_actor_id(=업체 소유자 user.id) 기준으로 선택된 업체 여부를 검증한다.
 // 반환은 RPC 의 jsonb(row) → { data, error } 형태로 기존 호출부와 호환.
