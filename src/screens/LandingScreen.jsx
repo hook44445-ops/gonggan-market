@@ -385,8 +385,8 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               </div>
             ))}
             <div style={{ fontSize: 11.5, color: C.text3, marginTop: 10, lineHeight: 1.6 }}>
-              공사규모에 따른 보증금 별도 (공간멤버쉽파트너뱃지 제공)<br/>
-              보증금은 수수료가 아니며 공사 완료 시 100% 반환됩니다.
+              공사규모에 따른 보증예치금 별도 (공간멤버쉽파트너뱃지 제공)<br/>
+              보증예치금은 수수료가 아니며 공사 완료 및 정산 완료 시 100% 반환됩니다.
             </div>
           </div>
         </div>
