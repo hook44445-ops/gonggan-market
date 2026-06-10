@@ -113,11 +113,16 @@ function ReviewAdminTab({ adminUserId, showToast }) {
     }
     setActing(true);
     const { error } = await adminHideReview(r.id, adminUserId, !r.is_hidden, reason || null);
-    if (error) { showToast?.(error.message ?? "처리 실패", false); }
-    else {
+    if (error) {
+      console.error("[GONGGAN_DIAG][reviewAdmin:hide]", { reviewId: r.id, adminUserId, error: error.message ?? error });
+      showToast?.(error.message ?? "처리 실패", false);
+    } else {
       showToast?.(r.is_hidden ? "숨김 해제 완료" : "숨김 처리 완료");
       setReviews(prev => prev.map(x => x.id === r.id ? { ...x, is_hidden: !r.is_hidden } : x));
       setReasonId(null); setReason("");
+      // DB 재조회(authoritative) — RPC 가 실제로 반영됐는지 화면이 DB 상태를 따르게 한다.
+      // (옵티미스틱 갱신만 하면 미반영(phantom success)이 새로고침 전까지 안 보임.)
+      loadReviews();
     }
     setActing(false);
   };
@@ -127,11 +132,14 @@ function ReviewAdminTab({ adminUserId, showToast }) {
     if (!reason.trim()) { showToast?.("삭제 사유를 입력하세요", false); return; }
     setActing(true);
     const { error } = await adminSoftDeleteReview(r.id, adminUserId, reason);
-    if (error) { showToast?.(error.message ?? "처리 실패", false); }
-    else {
+    if (error) {
+      console.error("[GONGGAN_DIAG][reviewAdmin:delete]", { reviewId: r.id, adminUserId, error: error.message ?? error });
+      showToast?.(error.message ?? "처리 실패", false);
+    } else {
       showToast?.("삭제(숨김) 처리 완료");
       setReviews(prev => prev.map(x => x.id === r.id ? { ...x, is_deleted: true } : x));
       setReasonId(null); setReason("");
+      loadReviews();
     }
     setActing(false);
   };
@@ -140,10 +148,13 @@ function ReviewAdminTab({ adminUserId, showToast }) {
     if (schemaFallback) { showToast?.("DB 마이그레이션(008) 적용 후 사용 가능합니다", false); return; }
     setActing(true);
     const { error } = await adminRestoreReview(r.id, adminUserId);
-    if (error) { showToast?.(error.message ?? "처리 실패", false); }
-    else {
+    if (error) {
+      console.error("[GONGGAN_DIAG][reviewAdmin:restore]", { reviewId: r.id, adminUserId, error: error.message ?? error });
+      showToast?.(error.message ?? "처리 실패", false);
+    } else {
       showToast?.("복구 완료");
       setReviews(prev => prev.map(x => x.id === r.id ? { ...x, is_deleted: false, is_hidden: false } : x));
+      loadReviews();
     }
     setActing(false);
   };
@@ -151,11 +162,14 @@ function ReviewAdminTab({ adminUserId, showToast }) {
   const doEdit = async (r) => {
     setActing(true);
     const { error } = await adminUpdateReview(r.id, editForm, adminUserId);
-    if (error) { showToast?.(error.message ?? "수정 실패", false); }
-    else {
+    if (error) {
+      console.error("[GONGGAN_DIAG][reviewAdmin:edit]", { reviewId: r.id, adminUserId, error: error.message ?? error });
+      showToast?.(error.message ?? "수정 실패", false);
+    } else {
       showToast?.("수정 완료");
       setReviews(prev => prev.map(x => x.id === r.id ? { ...x, ...editForm } : x));
       setEditId(null); setEditForm({});
+      loadReviews();
     }
     setActing(false);
   };

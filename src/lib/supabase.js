@@ -2117,8 +2117,12 @@ export const rpcSetCommentHidden = (commentId, hidden, actorId) =>
 async function adminApiGet(path, adminId) {
   const sep = path.includes("?") ? "&" : "?";
   const url = `${path}${sep}adminId=${encodeURIComponent(adminId ?? "")}`;
+  // 코드 관리자(가상 'admin' sentinel)는 DB row 가 없어 서버가 role 검증을 못 하므로
+  // 관리자 코드를 헤더로 전달해 서버(ADMIN_CODE)와 대조한다. uuid 관리자는 기존 그대로.
+  const headers = { "Content-Type": "application/json" };
+  if (adminId === "admin") headers["x-admin-code"] = import.meta.env.VITE_ADMIN_CODE ?? "";
   try {
-    const res = await fetch(url, { headers: { "Content-Type": "application/json" } });
+    const res = await fetch(url, { headers });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) return { data: null, error: { message: json?.error || `HTTP ${res.status}`, status: res.status } };
     return { data: json?.data ?? [], error: null };
