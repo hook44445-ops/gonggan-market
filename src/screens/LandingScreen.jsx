@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { LogoMark } from "../components/common";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
+import AppFooter from "../components/AppFooter";
 
 // Hero 배경 — 프로젝트 내부 고정 실사 asset (자연광 우드/식물 인테리어, 외부/Unsplash 미사용)
 const HERO_BG = "/images/landing-hero-interior.jpg";
@@ -389,7 +390,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         </div>
       </div>
 
-      {/* ── Footer version ───────────────────────────────────────── */}
+      {/* ── Footer: 사업자 정보 + 버전 ───────────────────────────── */}
       <div style={{
         marginTop: "auto",
         padding: "20px 20px 36px",
@@ -398,6 +399,8 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         textAlign: "center",
         flexShrink: 0,
       }}>
+        <AppFooter />
+        <div style={{ height: 1, background: "#d6d0c8", margin: "12px auto 14px", maxWidth: 260, opacity: 0.7 }} />
         <div
           onClick={() => {
             const next = versionTapCount + 1;

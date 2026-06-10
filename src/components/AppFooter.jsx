@@ -1,0 +1,28 @@
+// 사업자 정보 푸터 (토스 PG 승인용) — LandingScreen 하단 정보 영역에 배치.
+// 작은 서브텍스트 · 회색 톤 · 비강조. 기존 공간마켓 스타일(차분한 베이지/그레이)에 맞춘다.
+const BIZ_ROWS = [
+  ["상호", "공간사이"],
+  ["대표자", "김태웅"],
+  ["사업자등록번호", "270-53-00885"],
+  ["통신판매업신고번호", "신고 준비 중"],
+  ["주소", "경기도 성남시 성남대로1151번길 5, 2층 202호"],
+  ["고객센터", "010-2740-6030"],
+  ["이메일", "gongganmarket.biz@gmail.com"],
+];
+
+export default function AppFooter() {
+  return (
+    <div style={{ padding: "2px 8px 14px", textAlign: "center", lineHeight: 1.75 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#8a8275", marginBottom: 6, letterSpacing: "0.02em" }}>
+        공간사이 사업자 정보
+      </div>
+      <div style={{ fontSize: 11, color: "#9a9183", letterSpacing: "0.01em" }}>
+        {BIZ_ROWS.map(([label, value]) => (
+          <div key={label}>
+            <span style={{ color: "#b3a99b" }}>{label}</span>{" "}{value}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
