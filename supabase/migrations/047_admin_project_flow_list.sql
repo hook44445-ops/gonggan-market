@@ -153,8 +153,13 @@ begin
     left join public.users u    on u.id = r.user_id
     left join public.companies comp on comp.id = coalesce(
       r.selected_company_id,
+      -- selected_bid 와 동일 보정 — 1순위 r.selected_bid_id, 2순위 b.selected=true.
       (select b.company_id from public.bids b
-        where b.request_id = r.id and b.selected = true limit 1)
+        where b.request_id = r.id
+          and (b.id = r.selected_bid_id or b.selected = true)
+        order by case when b.id = r.selected_bid_id then 0 else 1 end,
+                 b.selected desc, b.created_at desc
+        limit 1)
     )
     left join lateral (
       select count(*) as bids_count from public.bids b where b.request_id = r.id
