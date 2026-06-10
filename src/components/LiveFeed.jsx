@@ -3,9 +3,11 @@ import { C, R, S } from "../constants";
 import { getLiveRequests } from "../lib/supabase";
 
 const STAGE_MAP = {
-  in_progress:    { label:"착공 진행중", pct:60 },
-  contracting:    { label:"계약 단계",   pct:20 },
-  escrow_pending: { label:"결제 준비중", pct:30 },
+  site_visit:            { label:"현장 실측",   pct:15 },
+  final_quote_submitted: { label:"최종견적 검토", pct:30 },
+  escrow_pending:        { label:"결제 준비중", pct:45 },
+  contracting:           { label:"계약 단계",   pct:50 },
+  in_progress:           { label:"착공 진행중", pct:70 },
 };
 
 const TOTAL = 5;
