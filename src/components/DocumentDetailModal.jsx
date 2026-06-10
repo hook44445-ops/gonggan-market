@@ -28,30 +28,49 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
   const [checklist, setChecklist]   = useState(doc?.checklist ?? {});
   const [docId, setDocId]           = useState(doc?.id ?? null);
   const [saving, setSaving]         = useState(false);
+  const [errorMsg, setErrorMsg]     = useState(null);
   const [sectionsOpen, setSectionsOpen] = useState({});
   const fileRef = useRef(null);
 
   const items     = template.checklist ?? [];
   const allChecked = items.length > 0 && items.every((_, i) => checklist[String(i)]);
 
+  // 모바일 DEBUG 오버레이([GONGGAN_DEBUG] 캡처)로 실서버 실패 원인을 그대로 확인할 수 있게 로깅.
+  const dlog = (...a) => { try { console.log("[GONGGAN_DEBUG]", "[doc]", doc.document_type, ...a); } catch { /* noop */ } };
+
+  // 행 생성/갱신 후 id 를 반환. 실패 시 throw 하여 호출부에서 사용자에게 표면화한다.
+  // (기존엔 upsert 실패가 조용히 무시돼 docId 가 null 로 남고 → 제출이 무효화되던 문제 보강)
+  const ensureRow = async (extra) => {
+    const { data, error } = await upsertCompanyDocument({
+      ...(docId ? { id: docId } : {}),
+      company_id: companyId, user_id: userId,
+      document_type: doc.document_type,
+      ...extra,
+    });
+    if (error) { dlog("upsert error", error.code ?? "", error.message ?? ""); throw new Error(error.message ?? "저장에 실패했습니다."); }
+    if (data?.id && !docId) setDocId(data.id);
+    return data;
+  };
+
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!companyId) { setErrorMsg("업체 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요."); e.target.value = ""; return; }
     setUploading(true);
+    setErrorMsg(null);
     try {
       const path = `company-docs/${companyId}/${doc.document_type}/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
       const url  = await uploadFile("documents", path, file).catch(() => URL.createObjectURL(file));
-      const { data } = await upsertCompanyDocument({
-        ...(docId ? { id: docId } : {}),
-        company_id: companyId, user_id: userId,
-        document_type: doc.document_type,
+      const data = await ensureRow({
         file_name: file.name, file_url: url,
         file_size: file.size, mime_type: file.type,
         review_status: "draft",
       });
-      if (data?.id && !docId) setDocId(data.id);
       setFileInfo({ name: file.name, url });
       onChange?.(data);
+    } catch (err) {
+      dlog("upload fail", err.message);
+      setErrorMsg(err.message ?? "업로드에 실패했습니다.");
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -59,12 +78,25 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
   };
 
   const handleSubmitUpload = async () => {
-    if (!docId || !fileInfo.url) return;
+    if (!fileInfo.url) return;
+    if (!companyId) { setErrorMsg("업체 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요."); return; }
     setSaving(true);
+    setErrorMsg(null);
     try {
-      const { data } = await submitCompanyDocument(docId);
+      // docId 가 없으면(이전 업로드 upsert 실패 등) 현재 파일 정보로 행을 먼저 만든 뒤 제출.
+      let id = docId;
+      if (!id) {
+        const row = await ensureRow({ file_name: fileInfo.name, file_url: fileInfo.url, review_status: "draft" });
+        id = row?.id;
+      }
+      if (!id) throw new Error("문서 저장에 실패했습니다. 다시 시도해주세요.");
+      const { data, error } = await submitCompanyDocument(id);
+      if (error) { dlog("submit error", error.code ?? "", error.message ?? ""); throw new Error(error.message ?? "제출에 실패했습니다."); }
       onChange?.(data);
       onClose?.();
+    } catch (err) {
+      dlog("submit upload fail", err.message);
+      setErrorMsg(err.message ?? "제출에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -72,26 +104,40 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
 
   const toggleCheck = async (idx) => {
     if (!canEdit) return;
+    if (!companyId) { setErrorMsg("업체 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요."); return; }
     const key  = String(idx);
     const next = { ...checklist, [key]: !checklist[key] };
-    setChecklist(next);
-    const { data } = await upsertCompanyDocument({
-      ...(docId ? { id: docId } : {}),
-      company_id: companyId, user_id: userId,
-      document_type: doc.document_type,
-      checklist: next, review_status: "draft",
-    });
-    if (data?.id && !docId) setDocId(data.id);
-    onChange?.(data);
+    setChecklist(next);          // 낙관적 갱신 — 화면은 즉시 토글
+    setErrorMsg(null);
+    try {
+      const data = await ensureRow({ checklist: next, review_status: "draft" });
+      onChange?.(data);
+    } catch (err) {
+      dlog("toggle persist fail", err.message);
+      setErrorMsg("동의 항목 저장에 실패했습니다. 네트워크 확인 후 다시 시도해주세요.");
+    }
   };
 
   const handleSubmitChecklist = async () => {
-    if (!docId || !allChecked) return;
+    if (!allChecked) return;
+    if (!companyId) { setErrorMsg("업체 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요."); return; }
     setSaving(true);
+    setErrorMsg(null);
     try {
-      const { data } = await submitCompanyDocument(docId);
+      // docId 가 없으면(토글 upsert 실패 등) 현재 체크 상태로 행을 먼저 만든 뒤 제출.
+      let id = docId;
+      if (!id) {
+        const row = await ensureRow({ checklist, review_status: "draft" });
+        id = row?.id;
+      }
+      if (!id) throw new Error("동의 내용 저장에 실패했습니다. 다시 시도해주세요.");
+      const { data, error } = await submitCompanyDocument(id);
+      if (error) { dlog("submit error", error.code ?? "", error.message ?? ""); throw new Error(error.message ?? "제출에 실패했습니다."); }
       onChange?.(data);
       onClose?.();
+    } catch (err) {
+      dlog("submit checklist fail", err.message);
+      setErrorMsg(err.message ?? "제출에 실패했습니다.");
     } finally {
       setSaving(false);
     }
@@ -126,6 +172,16 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
         {template.purpose && (
           <div style={{ fontSize: 12, color: C.text3, marginBottom: S.xl, paddingLeft: 2 }}>
             📌 {template.purpose}
+          </div>
+        )}
+
+        {/* Error banner — 실패가 조용히 묻히지 않도록 표면화 */}
+        {errorMsg && (
+          <div style={{
+            background: "#FEF0F0", borderRadius: R.lg, padding: S.lg, marginBottom: S.xl,
+            border: `1px solid ${C.red}33`, fontSize: 12, color: C.red, lineHeight: 1.6,
+          }}>
+            ⚠️ {errorMsg}
           </div>
         )}
 

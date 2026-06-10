@@ -12,10 +12,23 @@ const STATUS_META = {
 };
 
 const DOC_TYPE_LABELS = {
+  // 업로드 서류
   business_license:      "사업자등록증",
   insurance_certificate: "시공보험 증서",
-  operation_pledge:      "운영 서약서",
-  escrow_agreement:      "에스크로 동의서",
+  bankbook_copy:         "통장사본",
+  qualification_license: "자격증/면허증",
+  portfolio:             "포트폴리오/시공사진",
+  // 동의·서약 서류
+  operation_pledge:      "업체 운영 준수서약",
+  escrow_agreement:      "에스크로 및 정산 동의서",
+  service_terms:         "서비스 이용약관",
+  privacy_policy:        "개인정보 수집·이용 동의",
+  location_terms:        "위치기반서비스 이용 동의",
+  contract_scope_confirmation: "계약 범위 확인서",
+  lounge_policy:         "라운지 운영정책",
+  chat_policy:           "대화 연결 정책",
+  report_block_policy:   "신고 및 차단 정책",
+  badge_application:     "공간보증 배지 신청서",
 };
 
 const CHECKLIST_LABELS = {
