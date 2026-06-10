@@ -359,7 +359,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           {/* 고객 */}
           <div style={{ background: C.surface, borderRadius: 16, padding: 18, marginBottom: 12, border: `1px solid ${C.bgWarm}` }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: C.brand, marginBottom: 6 }}>
-              👤 고객 · 공간안전결제 에스크로 수수료 3.7%
+              👤 고객 · 토스페이먼츠 안전결제 수수료
             </div>
             <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
               토스페이먼츠가 내 돈을 보호합니다.<br/>
