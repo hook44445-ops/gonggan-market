@@ -62,7 +62,7 @@ export default function EscrowCalculator({ role = "consumer", companyCreatedAt }
             <span style={{ fontSize:15, fontWeight:900, color:C.brand }}>{fmtMoney(customerTotal)}</span>
           </div>
           <div style={{ fontSize:11, color:C.text4, marginTop:S.sm, lineHeight:1.6 }}>
-            토스페이먼츠가 공사대금을 보호합니다 · 공사 완료 확인 후 업체에 지급
+            토스페이먼츠가 공사대금을 안전하게 보호합니다 · 공사 완료 후 최종 지급
           </div>
         </div>
       )}
