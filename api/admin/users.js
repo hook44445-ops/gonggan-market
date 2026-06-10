@@ -46,13 +46,36 @@ export default async function handler(req, res) {
   }
 
   const role = String(req.query.role ?? "consumer");
+  const authKind = UUID_RE.test(adminId) ? "uuid" : adminId;
   const { data, error } = await db
     .from("users")
     .select("*")
     .eq("role", role)
     .order("created_at", { ascending: false })
     .limit(1000);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    // 요구사항 6) 조회 실패 원인 로그
+    console.error("[admin/users] query FAILED", { authKind, role, message: error.message });
+    return res.status(500).json({ error: error.message });
+  }
+
+  // 요구사항 4) count 로그 / 5) rows 로그(민감정보 제외 — id·role·name 만)
+  const count = data?.length ?? 0;
+  console.log("[admin/users] ok", { authKind, role, count });
+  console.log("[admin/users] rows", (data ?? []).slice(0, 10).map(u => ({ id: u.id, role: u.role, name: u.name })));
+
+  // 진단: role 필터가 0건이면 실제 users 의 role 분포를 로그(서버 전용) — consumer 의 실제
+  // role 값(consumer/null/기타)을 드러내 "0명" 원인을 특정한다.
+  if (count === 0) {
+    const { data: sample, error: sErr } = await db.from("users").select("id, role").limit(100);
+    if (sErr) {
+      console.error("[admin/users] empty — role distribution lookup failed", sErr.message);
+    } else {
+      const dist = {};
+      (sample ?? []).forEach(u => { const k = u.role ?? "(null)"; dist[k] = (dist[k] || 0) + 1; });
+      console.log("[admin/users] EMPTY for role=" + role + " — actual role distribution(sample<=100):", dist, "sample_total:", sample?.length ?? 0);
+    }
+  }
 
   return res.status(200).json({ data: data ?? [] });
 }

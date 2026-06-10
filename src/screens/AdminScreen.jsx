@@ -1794,6 +1794,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
       ),
       // 고객 목록은 service role 서버 API 로 조회(RLS 우회). admin 만 성공.
       fetchAdminCustomers(user?.id).then(({ data, error }) => {
+        // 요구사항 4/5/6) count·rows·실패원인 로그 (sentinel/uuid 관리자 모두)
+        console.log("[GONGGAN_DEBUG][AdminCustomers]", {
+          adminId: user?.id ?? null,
+          count: data?.length ?? 0,
+          error: error?.message ?? null,
+          rows: (data ?? []).slice(0, 5).map(u => ({ id: u.id, role: u.role, name: u.name, phone: u.phone })),
+        });
         if (error || !data) {
           setCustomersErr(true);
           setCustomersErrMsg(error?.message ?? null);
