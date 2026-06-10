@@ -3488,25 +3488,41 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   서류 검토 ›
                 </button>
               </div>
-              {selected.docs.map((doc, i) => (
+              {selected.docs.map((doc, i) => {
+                // 제출 판정 — 기존 companies.*_url(doc.submitted) 에 더해, 서류센터 업로드가
+                // 저장되는 company_documents(review_status: submitted/reviewing/approved)도 OR 로 본다.
+                // (업체 서류센터 제출이 companies.*_url 을 갱신하지 않아 미제출로 보이던 문제 해소)
+                const DOC_TYPE_BY_INDEX = ["business_license", "insurance_certificate", "bankbook_copy", null];
+                const SUBMITTED_STATES = ["submitted", "reviewing", "approved"];
+                const dt = DOC_TYPE_BY_INDEX[i];
+                const fromDocs = dt
+                  ? companyDocuments.some(d => d.document_type === dt && SUBMITTED_STATES.includes(d.review_status))
+                  : false;
+                const submitted = doc.submitted || fromDocs;
+                // 이미지 상세(biz/insurance) 모달은 companies.*_url 을 읽으므로, URL 이 있는
+                // 경우(doc.submitted)에만 클릭 가능. company_documents 로만 제출된 파일은
+                // "서류 검토 ›"(AdminDocumentReviewModal) 에서 확인한다.
+                const canOpenImage = doc.submitted && i < 2;
+                return (
                 <div key={i}
                   onClick={() => {
-                    if (!doc.submitted) return;
+                    if (!canOpenImage) return;
                     if (i === 0) setDocModal("biz");
                     if (i === 1) setDocModal("insurance");
                   }}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                     padding: `${S.sm}px 0`,
                     borderBottom: i < selected.docs.length - 1 ? `1px solid ${C.bgWarm}` : "none",
-                    cursor: doc.submitted && i < 2 ? "pointer" : "default" }}>
+                    cursor: canOpenImage ? "pointer" : "default" }}>
                   <span style={{ fontSize: 13, color: C.text2 }}>
-                    {doc.label} {doc.submitted && i < 2 ? "›" : ""}
+                    {doc.label} {canOpenImage ? "›" : ""}
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: doc.submitted ? C.green : C.red }}>
-                    {doc.submitted ? "✓ 제출" : "✗ 미제출"}
+                  <span style={{ fontSize: 12, fontWeight: 700, color: submitted ? C.green : C.red }}>
+                    {submitted ? "✓ 제출" : "✗ 미제출"}
                   </span>
                 </div>
-              ))}
+                );
+              })}
               {companyDocuments.length > 0 && (
                 <div style={{ marginTop: S.sm, paddingTop: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
                   <div style={{ fontSize: 11, color: C.text3, marginBottom: S.xs }}>서류 관리 시스템</div>
