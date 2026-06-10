@@ -335,6 +335,11 @@ export const getReviews = (companyId) =>
     .from("reviews")
     .select("*")
     .eq("company_id", companyId)
+    // 어드민 숨김/소프트삭제 리뷰는 업체 후기 노출에서 제외 (리뷰 어드민과 동일 기준).
+    // status 는 null(구데이터) 허용 — REJECTED/HIDDEN 만 차단 (NOT IN 단독은 null 까지 떨어뜨림).
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .or("status.is.null,status.not.in.(REJECTED,HIDDEN,rejected,hidden)")
     .order("created_at", { ascending: false });
 
 // Part2 확장 컬럼 — 마이그레이션 017 미적용 환경에서도 후기 저장이 깨지지 않도록
@@ -488,7 +493,11 @@ export const getTopReviews = ({ limit = 12 } = {}) =>
     .gte("rating", 1)
     // DEV: status 조건 완화 (published/approved/pending/null 모두 허용)
     // .in("status", ["published", "approved"])
+    // 어드민 숨김/소프트삭제 리뷰는 홈 '믿고 맡긴 후기'(포토후기 포함)에서 제외.
+    // status 는 null(구데이터) 허용 — REJECTED/HIDDEN 만 차단 (NOT IN 단독은 null 까지 떨어뜨림).
     .or("is_hidden.is.null,is_hidden.eq.false")
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .or("status.is.null,status.not.in.(REJECTED,HIDDEN,rejected,hidden)")
     .order("created_at", { ascending: false })
     .limit(limit);
 
