@@ -160,7 +160,7 @@ export const getRequest = (id) =>
 export const getUserRequests = async (userId) => {
   const res = await supabase
     .from("requests")
-    .select("*, bids(id, company_id, price, status)")
+    .select("*, bids(id, company_id, price, status), reviews(id)")
     .eq("user_id", userId)
     .not("status", "in", "(cancelled,canceled)")   // 취소건은 쿼리 레벨에서 제외
     .or("is_hidden.is.null,is_hidden.eq.false")
@@ -174,6 +174,7 @@ export const getUserRequests = async (userId) => {
         selected_company_id: r.selected_company_id ?? null, selected_bid_id: r.selected_bid_id ?? null,
         budget_min: r.budget_min ?? null, budget_max: r.budget_max ?? null,
         bids: (r.bids ?? []).map(b => ({ id: b.id, company_id: b.company_id, price: b.price, status: b.status })),
+        reviews: r.reviews?.length ?? 0,
       })),
     });
   } catch {}

@@ -214,6 +214,8 @@ const normalizeRequest = (row) => {
     // raw bids 배열(원본). 주의: 위 `bids`/`bidCount` 는 개수(숫자)이므로 배열 메서드 호출 금지.
     // 이미입찰(already_bid) 판정 등 company_id 검사는 반드시 이 bidsRaw(배열) 를 사용한다.
     bidsRaw: Array.isArray(row.bids) ? row.bids : [],
+    // 리뷰 존재 = 플로우 종결 신호. status/escrow_tx 가 stale 이어도 완료 분류 최우선 근거.
+    hasReview: Array.isArray(row.reviews) && row.reviews.length > 0,
   };
 };
 
@@ -419,14 +421,21 @@ function consumerStatusBadge(r, escrowData) {
 // 새 견적 생성 카운트에서도 빼는 기준. computeCustomerStage 의 "완료" 배지와 일치
 // (escrow SETTLED 또는 완료 단계 payout 승인). request.status 단독 사용 금지.
 function isRequestSettled(r, escrowData) {
+  // [상태 우선순위] 완료 신호가 하나라도 있으면 requests.status/bids.status/escrow_tx 가
+  // 과거 단계값으로 stale 해도 completed 로 분류한다(분류만 — 결제/단계 전이 로직 무관).
+  // 1) 리뷰 존재 = 플로우 종결(리뷰는 완료 이후에만 작성됨) → 최우선 완료.
+  if (r?.hasReview === true) return true;
   const escrow = escrowData?.escrow ?? null;
   if (escrow) {
     const tx = escrow.transaction_status;
-    if (tx === "SETTLED") return true;
+    // 2) 정산 완료(SETTLED) 또는 완료 보고(COMPLETED) → 완료.
+    if (tx === "SETTLED" || tx === "COMPLETED") return true;
+    // 완료 기록: 완료 단계(stage4) payout 승인 → 완료.
     const payout4 = (escrowData?.payouts ?? []).find(p => p.stage === 4);
     if (payout4?.status === "APPROVED") return true;
+    // 3·4) MID_INSPECTION/STARTED 는 완료 아님 → isRequestInProgress(hasActiveEscrow)가 진행중 분류.
   }
-  // 에스크로 미적재 상태에서도 raw status 가 명시적 완료면 active 에서 제외
+  // 5) 그 외 raw status 가 명시적 완료면 active 에서 제외
   if (r?.status === "completed" || r?.status === "settled") return true;
   return false;
 }
