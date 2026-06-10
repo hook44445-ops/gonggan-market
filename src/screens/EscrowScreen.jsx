@@ -1403,7 +1403,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         <div id="escrow-amount-card" style={{ background: `linear-gradient(135deg,${C.navy},${C.navyM})`, borderRadius: R.xl, padding: S.xxl, marginBottom: S.xl, color: "#fff" }}>
           {isConsumer ? (
             <>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>총 결제 금액 (시공비 + 공간안전결제 에스크로 수수료 3.7%)</div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>총 결제 금액 (시공비 + 토스페이먼츠 안전결제 수수료)</div>
               <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(customerTotal)}</div>
               <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>공간마켓이 보관 중 · 사진 확인 후 단계별로 업체에 지급됩니다</div>
             </>

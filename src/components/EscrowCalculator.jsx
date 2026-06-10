@@ -44,11 +44,11 @@ export default function EscrowCalculator({ role = "consumer", companyCreatedAt }
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg,
           border:`1px solid ${C.brandM}` }}>
           <div style={{ fontSize:12, fontWeight:800, color:C.brand, marginBottom:S.sm }}>
-            👤 고객 부담
+            💰 결제 금액
           </div>
           {[
             ["시공비",              fmtMoney(amount),      C.text2],
-            ["공간안전결제 에스크로 수수료 (3.7%)", `+${fmtMoney(escrowFee)}`, C.brand],
+            ["토스페이먼츠 안전결제 수수료 (VAT 포함)", `+${fmtMoney(escrowFee)}`, C.brand],
           ].map(([k, v, vc]) => (
             <div key={k} style={{ display:"flex", justifyContent:"space-between",
               fontSize:12, marginBottom:4 }}>
