@@ -4047,7 +4047,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
             {activeRole==="company" && (
               <div>
-                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🏦 보증금 현황</div>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🛡️ 보증예치금 현황</div>
                 <CompanyDepositCard
                   badge={currentUser?.badge ?? user.badge ?? "standard"}
                   hasInsurance={currentUser?.hasInsurance ?? user.insurance ?? false}

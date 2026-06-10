@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
-import { BADGES } from "../constants/badges";
+import { BADGES, requiredDeposit, depositRatePct } from "../constants/badges";
 
 export default function CompanyDepositCard({ badge = "standard", hasInsurance = false, onUpgrade }) {
   const BADGE_LEVELS = [
@@ -12,10 +12,16 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
   ];
   const [showUpgradeSheet, setShowUpgradeSheet] = useState(false);
 
+  // 보증예치금 = 수주한도 × 비율(보험 10% / 미가입 20%) — 단일 소스(badges.js).
+  const depositOf = (key) => requiredDeposit(key, hasInsurance);
+  const ratePct = depositRatePct(hasInsurance);
+
   const current = BADGE_LEVELS.find(b => b.key === badge) || BADGE_LEVELS[1];
   const currentIdx = BADGE_LEVELS.findIndex(b => b.key === badge);
   const next = BADGE_LEVELS[currentIdx + 1] || null;
-  const additionalNeeded = next ? next.deposit - current.deposit : 0;
+  const currentDeposit = depositOf(current.key);
+  const nextDeposit = next ? depositOf(next.key) : 0;
+  const additionalNeeded = next ? nextDeposit - currentDeposit : 0;
 
   const badgeColor = { grad: (BADGES[badge] ?? BADGES.standard).grad };
 
@@ -29,9 +35,9 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
         <div style={{ background:badgeColor.grad, padding:S.xxl, color:"#fff" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.xl }}>
             <div>
-              <div style={{ fontSize:12, opacity:0.75, marginBottom:4 }}>납부한 보증금</div>
+              <div style={{ fontSize:12, opacity:0.75, marginBottom:4 }}>보증예치금</div>
               <div style={{ fontSize:34, fontWeight:900, marginBottom:8 }}>
-                {current.deposit.toLocaleString()}만원
+                {currentDeposit.toLocaleString()}만원
               </div>
               <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                 <span style={{ background:"rgba(255,255,255,0.18)", borderRadius:R.full,
@@ -40,7 +46,7 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
                 </span>
                 <span style={{ background:"rgba(255,255,255,0.18)", borderRadius:R.full,
                   padding:"3px 11px", fontSize:12, fontWeight:700 }}>
-                  최대 {current.maxJob === 99999 ? "무제한" : `${current.maxJob.toLocaleString()}만원`}
+                  수주 한도 {current.maxJob === 99999 ? "무제한" : `${current.maxJob.toLocaleString()}만원`}
                 </span>
               </div>
             </div>
@@ -82,10 +88,10 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
         <div style={{ padding:S.xl }}>
           {[
             ["보관 방식",  "공간마켓 법인 신탁 계좌"],
-            ["납부일",     "2026.05.13"],
-            ["보증금 비율",`20%${hasInsurance ? " (시공보험 할인 적용)" : ""}`],
-            ["환급 조건",  "탈퇴 신청 7일 내 전액 환급"],
-            ["현재 상태",  "✅ 정상 보관 중"],
+            ["수주 한도",  current.maxJob === 99999 ? "무제한" : `${current.maxJob.toLocaleString()}만원`],
+            ["보증예치 비율",`${ratePct}%${hasInsurance ? " (시공보험 가입)" : " (시공보험 미가입)"}`],
+            ["환급 조건",  "분쟁 없을 시 정해진 조건에 따라 반환"],
+            ["현재 상태",  "✅ 정상 관리 중"],
           ].map(([k, v], i, arr) => (
             <div key={k} style={{ display:"flex", justifyContent:"space-between",
               alignItems:"center", padding:`${S.sm}px 0`,
@@ -109,10 +115,10 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
               padding:"2px 9px", fontSize:11, fontWeight:700 }}>+{additionalNeeded}만원</span>
           </div>
           <div style={{ fontSize:13, color:C.text2, lineHeight:1.7, marginBottom:S.md }}>
-            추가 보증금 <b style={{color:C.brand}}>{additionalNeeded}만원</b>으로<br/>
-            최대 <b style={{color:C.brand}}>{next.maxJob === 99999 ? "무제한" : `${next.maxJob.toLocaleString()}만원`}</b> 규모 공사까지 수주 가능
+            보증예치금 추가 등록 시<br/>
+            상위 등급(수주 한도 <b style={{color:C.brand}}>{next.maxJob === 99999 ? "무제한" : `${next.maxJob.toLocaleString()}만원`}</b>)으로 승급할 수 있습니다.
             {!hasInsurance && next.insurance && (
-              <><br/><span style={{color:C.green, fontWeight:700}}>🛡 시공보험 할인 혜택 포함</span></>
+              <><br/><span style={{color:C.green, fontWeight:700}}>🛡 시공보험 가입 시 예치 비율 10% 적용</span></>
             )}
           </div>
           <button onClick={() => setShowUpgradeSheet(true)}
@@ -128,14 +134,13 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
       <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
         border:`1px solid ${C.bgWarm}`, marginBottom:S.lg }}>
         <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.md }}>
-          🛡 보증금이 안전한 이유
+          🛡️ 보증예치금 보호 정책
         </div>
         {[
-          "법인 전용 신탁 계좌 분리 보관",
-          "회사 운영비와 절대 혼용 없음",
-          "탈퇴 시 7일 내 전액 환급 약정",
-          "환급 보증 약정서 발급",
-          "향후 은행 신탁 기관 연계 예정",
+          "보증예치금은 회사 운영비와 분리 보관됩니다.",
+          "분쟁이 없을 경우 전액 반환됩니다.",
+          "시공보험 가입 업체는 10%, 미가입 업체는 20% 예치가 적용됩니다.",
+          "고객 보호와 신뢰 거래를 위한 제도입니다.",
         ].map(t => (
           <div key={t} style={{ display:"flex", gap:S.sm, alignItems:"center",
             padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
@@ -160,16 +165,16 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
                 {next.label} 업그레이드
               </div>
               <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>
-                추가 보증금 <b style={{color:C.brand}}>{additionalNeeded}만원</b>을 납부하면<br/>
-                즉시 {next.label} 등급이 활성화됩니다
+                보증예치금 <b style={{color:C.brand}}>{additionalNeeded}만원</b>을 추가 등록하면<br/>
+                {next.label} 등급으로 승급됩니다
               </div>
             </div>
 
             <div style={{ background:C.surface2, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl }}>
               {[
-                [`현재 ${current.label}`, `${current.deposit.toLocaleString()}만원`],
-                [`추가 납부`, `+${additionalNeeded.toLocaleString()}만원`],
-                [`${next.label} 총 보증금`, `${next.deposit.toLocaleString()}만원`],
+                [`현재 ${current.label}`, `${currentDeposit.toLocaleString()}만원`],
+                [`추가 등록`, `+${additionalNeeded.toLocaleString()}만원`],
+                [`${next.label} 총 보증예치금`, `${nextDeposit.toLocaleString()}만원`],
               ].map(([k, v], i, arr) => (
                 <div key={k} style={{ display:"flex", justifyContent:"space-between",
                   padding:`${S.sm}px 0`,
