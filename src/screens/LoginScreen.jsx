@@ -3,7 +3,7 @@ import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import { BADGES } from "../constants/badges";
 import { LogoMark, LeafSprig } from "../components/common";
 import CompanyOnboarding from "./CompanyOnboarding";
-import { upsertUserByPhone, getUserByPhone } from "../lib/supabase";
+import { upsertUserByPhone, signupUserByPhone, getUserByPhone } from "../lib/supabase";
 import { getKnownUsers, knownUserToSession } from "../lib/deviceAuth";
 import { SHOW_DEBUG_UI } from "../constants/release";
 
@@ -182,9 +182,20 @@ export default function LoginScreen({ onLogin, initialRole }) {
       interests: selectedServices,
       phone: toE164(phone),
     };
-    const { data, error } = await upsertUserByPhone(profile);
+    // 가입은 security-definer RPC 경유(migration 048). 클라 직접 users upsert 는
+    // auth.uid()=NULL + WITH CHECK(auth.uid()=id) 로 42501 거부되므로 사용하지 않는다.
+    const { data, error } = await signupUserByPhone(profile);
     setLoading(false);
-    if (error) return setMsg("❌ 프로필 저장에 실패했습니다");
+    if (error) {
+      console.error("[GONGGAN_DEBUG][saveConsumer] signup RPC FAILED", {
+        code: error.code, message: error.message, details: error.details, hint: error.hint,
+        rpc: "signup_user_by_phone",
+        payload: { name: profile.name, role: profile.role, region: profile.region,
+                   phone: profile.phone, interestsLen: profile.interests?.length ?? 0 },
+      });
+      return setMsg(`❌ 저장 실패 [${error.code ?? "?"}] ${error.message ?? ""}`
+        + `${error.details ? " · " + error.details : ""}${error.hint ? " · " + error.hint : ""}`);
+    }
     onLogin(data ? { ...data, activeRole: "consumer" } : { ...profile, activeRole: "consumer" });
   };
 
