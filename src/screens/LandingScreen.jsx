@@ -364,7 +364,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
               토스페이먼츠 안전결제 기반<br/>
               토스페이먼츠가 공사대금을 안전하게 보호합니다.<br/>
-              공사 완료 확인 후 업체에 지급됩니다.<br/>
+              단계별 안전정산 후 공사 완료 시 최종 지급됩니다.<br/>
               <span style={{ fontSize: 11.5, color: C.text3 }}>🏆 가상계좌 이용 시 이용료 660원 (VAT 포함)</span>
             </div>
           </div>
