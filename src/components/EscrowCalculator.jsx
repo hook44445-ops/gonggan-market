@@ -48,7 +48,7 @@ export default function EscrowCalculator({ role = "consumer", companyCreatedAt }
           </div>
           {[
             ["시공비",              fmtMoney(amount),      C.text2],
-            ["토스페이먼츠 안전결제 수수료 (VAT 포함)", `+${fmtMoney(escrowFee)}`, C.brand],
+            ["공간안전결제 이용료", `+${fmtMoney(escrowFee)}`, C.brand],
           ].map(([k, v, vc]) => (
             <div key={k} style={{ display:"flex", justifyContent:"space-between",
               fontSize:12, marginBottom:4 }}>
@@ -62,7 +62,7 @@ export default function EscrowCalculator({ role = "consumer", companyCreatedAt }
             <span style={{ fontSize:15, fontWeight:900, color:C.brand }}>{fmtMoney(customerTotal)}</span>
           </div>
           <div style={{ fontSize:11, color:C.text4, marginTop:S.sm, lineHeight:1.6 }}>
-            토스페이먼츠가 내 돈을 보호합니다 · 공사 완료 확인 후 업체에 지급
+            토스페이먼츠가 공사대금을 보호합니다 · 공사 완료 확인 후 업체에 지급
           </div>
         </div>
       )}

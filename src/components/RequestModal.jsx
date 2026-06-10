@@ -92,9 +92,9 @@ export default function RequestModal({ onClose, onDone, initialData = null, isEd
             style={{ ...iS, resize:"none", lineHeight:1.7, marginBottom:S.sm }} />
           <div style={{ background:C.surface2, borderRadius:R.md, padding:"10px 14px",
             marginBottom:S.sm, fontSize:12, color:C.text3, lineHeight:1.8 }}>
-            💰 <b style={{color:C.brand}}>토스페이먼츠 안전결제 수수료</b>가 추가됩니다 (VAT 포함)<br/>
-            토스페이먼츠가 내 돈을 보호합니다 · 공사 완료 확인 후 업체에 지급<br/>
-            예시: 시공비 3,000만 → 총 예치 3,111만원 (수수료 111만원)
+            🔒 <b style={{color:C.brand}}>공간안전결제</b> — 토스페이먼츠가 공사대금을 보호합니다<br/>
+            공사 완료 확인 후 업체에 지급 · 가상계좌 이용 시 이용료 660원<br/>
+            예시: 시공비 3,000만 → 총 예치 3,111만원
           </div>
           <div style={{ background:C.navyL, borderRadius:R.md, padding:"10px 14px",
             marginBottom:S.xl, fontSize:13, color:C.navy, fontWeight:600,

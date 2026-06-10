@@ -359,11 +359,13 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           {/* 고객 */}
           <div style={{ background: C.surface, borderRadius: 16, padding: 18, marginBottom: 12, border: `1px solid ${C.bgWarm}` }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: C.brand, marginBottom: 6 }}>
-              👤 고객 · 토스페이먼츠 안전결제 수수료
+              👤 고객 · 공간안전결제
             </div>
             <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
-              토스페이먼츠가 내 돈을 보호합니다.<br/>
-              공사 완료 확인 후 업체에 지급됩니다. (VAT 포함 · 고정)
+              토스페이먼츠 안전결제 기반<br/>
+              토스페이먼츠가 공사대금을 안전하게 보호합니다.<br/>
+              공사 완료 확인 후 업체에 지급됩니다.<br/>
+              <span style={{ fontSize: 11.5, color: C.text3 }}>🏆 가상계좌 이용 시 이용료 660원 (VAT 포함)</span>
             </div>
           </div>
 
