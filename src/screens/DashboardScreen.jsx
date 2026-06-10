@@ -66,16 +66,22 @@ const normalizeCompanyJob = ({ bid, request, escrow }) => {
   const createdAt = escrow?.created_at ?? bid?.createdAt ?? Date.now();
   const daysElapsed = Math.floor((Date.now() - new Date(createdAt)) / 864e5);
   // 금액 안전 해석 — bid.company_id 불일치/누락으로 금액이 undefined/NaN 이어도
-  // 렌더가 멈추지 않도록 우선순위 fallback (정상값 → bid → bids[0] → budget_min → budget_max → 0).
+  // 렌더가 멈추지 않도록 우선순위 fallback (마스터: escrow.total_amount → bid → bids[0]).
+  // budget_min/max 는 견적 요청 단계에서만 허용 — 최종견적 확정 이후/에스크로 존재 시
+  // 초기 예산이 결제·정산 금액과 섞여 표시되는 것을 방지(금액 표시 기준 통일).
   const _bidsArr = Array.isArray(request?.bids) ? request.bids
     : Array.isArray(request?.bidsRaw) ? request.bidsRaw : [];
   const _posNum = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+  const _postQuote = !!escrow ||
+    ["final_quote_submitted", "escrow_pending", "in_progress", "completed", "settled"].includes(reqStatus);
   const _amtCandidates = [
     ["escrow.total_amount", _posNum(escrow?.total_amount)],
     ["bid.price",           _posNum(bid?.price)],
     ["bids[0].price",       _posNum(_bidsArr[0]?.price)],
-    ["request.budget_min",  _posNum(request?.budget_min ?? request?.budgetMin)],
-    ["request.budget_max",  _posNum(request?.budget_max ?? request?.budgetMax)],
+    ...(_postQuote ? [] : [
+      ["request.budget_min", _posNum(request?.budget_min ?? request?.budgetMin)],
+      ["request.budget_max", _posNum(request?.budget_max ?? request?.budgetMax)],
+    ]),
   ];
   const _picked = _amtCandidates.find(([, v]) => v != null);
   const total = _picked ? _picked[1] : 0;
