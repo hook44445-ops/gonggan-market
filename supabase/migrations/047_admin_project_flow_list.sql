@@ -20,9 +20,15 @@
 --       - 'admin'(코드 관리자 가상 계정) 이면 허용(클라이언트 게이트 신뢰).
 --       - 그 외 거부(ADMIN_ONLY).
 --   · 반환은 jsonb 배열 — request 1건당 고객/업체/입찰/현장방문/에스크로/GPS
---     체크포인트(배열)/리뷰개수/직거래의심 신고(배열)를 한 번에 포함.
---     세부 단계 매핑·필터(GPS 누락/사진 누락/낮은 정확도/직거래 의심 분석 등)는
---     화면(JS)에서 이 원본 데이터로 계산 — SQL 은 단순 조회만 담당(최소 범위).
+--     체크포인트(배열)/리뷰개수/직거래의심 신고(배열) + 계산된 flow_stage 포함.
+--     세부 필터(GPS 누락/사진 누락/낮은 정확도/직거래 의심 분석 등)는 화면(JS)에서
+--     이 원본 데이터로 계산 — SQL 은 조회 + 단계 계산만 담당(최소 범위).
+--
+-- 컬럼 검증(실행 실패 방지):
+--   · requests.last_activity_at 는 스키마에 없어 사용하지 않음(정렬은 updated_at/created_at).
+--   · project_checkpoints.address_full 은 034 의존이라 미사용(road/jibun 만 노출).
+--   · checkpoint_type 은 구(construction_start/mid_inspection/completion)·
+--     신(start/middle/complete) 명칭 모두 처리.
 --
 -- 멱등 · 추가 전용 · 물리 삭제 없음. Supabase SQL Editor 에서 1회 실행(046 이후).
 -- ════════════════════════════════════════════════════════════════════
@@ -66,7 +72,7 @@ begin
   v_limit  := least(greatest(coalesce(p_limit, 200), 1), 1000);
   v_search := nullif(trim(coalesce(p_search, '')), '');
 
-  select coalesce(jsonb_agg(flow_row), '[]'::jsonb) into v_result
+  select coalesce(jsonb_agg(flow_row order by sort_key desc), '[]'::jsonb) into v_result
   from (
     select jsonb_build_object(
       'request_id',      r.id,
@@ -77,7 +83,31 @@ begin
       'urgent',          r.urgent,
       'created_at',      r.created_at,
       'updated_at',      r.updated_at,
-      'last_activity_at',r.last_activity_at,
+
+      -- 계산된 현재 단계 — 도달한 최고 마일스톤(escrow 상태 + 체크포인트 + 마일스톤).
+      'flow_stage', case
+        when esc.transaction_status = 'SETTLED'
+          or coalesce(rev.review_count, 0) > 0
+          or r.status = 'completed'                                   then 'SETTLED_OR_REVIEWED'
+        when esc.transaction_status = 'COMPLETED'
+          or esc.step4_approved_at is not null
+          or cpf.has_complete                                         then 'COMPLETED'
+        when esc.transaction_status = 'MID_INSPECTION'
+          or cpf.has_middle                                          then 'MID_INSPECTION'
+        when esc.transaction_status = 'STARTED'
+          or cpf.has_start                                           then 'ESCROW_STARTED'
+        when esc.id is not null
+          or esc.transaction_status in ('CONTRACTED','COMPANY_SELECTED')
+          or r.status in ('escrow_pending','contracting','in_progress') then 'CONTRACTED'
+        when r.status = 'final_quote_submitted'
+          or sv.status = 'estimate_submitted'                        then 'FINAL_QUOTE'
+        when sv.id is not null
+          or r.status in ('site_visit','site_visiting')
+          or cpf.has_site_visit                                      then 'SITE_VISIT'
+        when coalesce(bc.bids_count, 0) > 0
+          or sb.id is not null                                       then 'BID_SUBMITTED'
+        else 'REQUESTED'
+      end,
 
       'customer', jsonb_build_object(
         'id', u.id, 'name', u.name, 'phone', u.phone
@@ -117,7 +147,7 @@ begin
       'review_count',         coalesce(rev.review_count, 0),
       'direct_deal_reports',  coalesce(ddr.reports, '[]'::jsonb)
     ) as flow_row,
-    coalesce(r.last_activity_at, r.updated_at, r.created_at) as sort_key
+    coalesce(r.updated_at, r.created_at) as sort_key
 
     from public.requests r
     left join public.users u    on u.id = r.user_id
@@ -144,16 +174,31 @@ begin
        where e.request_id = r.id
        order by e.created_at desc limit 1
     ) esc on true
+    -- 체크포인트 단계 도달 플래그(구/신 명칭 모두) — flow_stage 계산용.
+    left join lateral (
+      select
+        bool_or(cp.checkpoint_type = 'site_visit')                                as has_site_visit,
+        bool_or(cp.checkpoint_type in ('start','construction_start'))             as has_start,
+        bool_or(cp.checkpoint_type in ('middle','mid_inspection'))               as has_middle,
+        bool_or(cp.checkpoint_type in ('complete','completion'))                  as has_complete
+      from public.project_checkpoints cp
+       where cp.request_id = r.id
+    ) cpf on true
     left join lateral (
       select jsonb_agg(jsonb_build_object(
                'id', cp.id, 'checkpoint_type', cp.checkpoint_type,
                'lat', cp.lat, 'lng', cp.lng, 'accuracy', cp.accuracy,
-               'address_full', cp.address_full, 'road_address', cp.road_address,
-               'jibun_address', cp.jibun_address, 'photos', cp.photos,
-               'captured_by', cp.captured_by, 'captured_at', cp.captured_at
+               'road_address', cp.road_address, 'jibun_address', cp.jibun_address,
+               'photos', cp.photos, 'captured_by', cp.captured_by, 'captured_at', cp.captured_at
              ) order by case cp.checkpoint_type
-                          when 'site_visit' then 1 when 'start' then 2
-                          when 'middle' then 3 when 'complete' then 4 else 5 end,
+                          when 'site_visit'        then 1
+                          when 'start'             then 2
+                          when 'construction_start' then 2
+                          when 'middle'            then 3
+                          when 'mid_inspection'    then 3
+                          when 'complete'          then 4
+                          when 'completion'        then 4
+                          else 5 end,
                         cp.captured_at) as checkpoints
         from public.project_checkpoints cp
        where cp.request_id = r.id
@@ -176,11 +221,11 @@ begin
       and (p_status    is null or r.status = p_status or esc.transaction_status = p_status)
       and (
         v_search is null
-        or u.name    ilike '%' || v_search || '%'
-        or u.phone   ilike '%' || v_search || '%'
-        or comp.name ilike '%' || v_search || '%'
+        or u.name     ilike '%' || v_search || '%'
+        or u.phone    ilike '%' || v_search || '%'
+        or comp.name  ilike '%' || v_search || '%'
         or comp.phone ilike '%' || v_search || '%'
-        or r.area    ilike '%' || v_search || '%'
+        or r.area     ilike '%' || v_search || '%'
         or r.id::text = v_search
       )
     order by sort_key desc
