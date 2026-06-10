@@ -1951,6 +1951,34 @@ function ProjectFlowDetail({ row, onClose }) {
           <div style={{ color: C.text4 }}>request_id: {row.request_id}</div>
         </div>
 
+        {/* 증빙 체크리스트 (additive) — 현장방문/실측·최종계약·착공·중간점검·완료 */}
+        {(() => {
+          const evid = [
+            { label: "현장방문/실측", reached: !!sv || !!cpVisit, cp: cpVisit },
+            { label: "최종계약",       reached: !!row.selected_bid || !!esc || ["CONTRACTED","COMPANY_SELECTED","STARTED","MID_INSPECTION","COMPLETED","SETTLED"].includes(esc?.transaction_status), cp: null },
+            { label: "착공",           reached: !!cpStart || esc?.transaction_status === "STARTED", cp: cpStart },
+            { label: "중간점검",       reached: !!cpMid || esc?.transaction_status === "MID_INSPECTION", cp: cpMid },
+            { label: "완료",           reached: !!cpComp || esc?.transaction_status === "COMPLETED" || !!esc?.step4_approved_at, cp: cpComp },
+          ];
+          return (
+            <div style={{ marginBottom: 14, background: C.bg, borderRadius: R.md, padding: "10px 12px" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.text1, marginBottom: 8 }}>📋 증빙 체크리스트</div>
+              {evid.map((e) => (
+                <div key={e.label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0", fontSize: 12, color: e.reached ? C.text1 : C.text4 }}>
+                  <span>{e.reached ? "✅" : "⬜"}</span>
+                  <span style={{ fontWeight: e.reached ? 700 : 500 }}>{e.label}</span>
+                  {e.cp && (
+                    <span style={{ marginLeft: "auto", display: "flex", gap: 8, fontSize: 10 }}>
+                      <span style={{ color: e.cp.lat != null ? C.green : C.gold }}>📍{e.cp.lat != null ? "GPS" : "좌표없음"}</span>
+                      <span style={{ color: (e.cp.photos?.length ?? 0) > 0 ? C.green : C.gold }}>📷{e.cp.photos?.length ?? 0}</span>
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* 타임라인 */}
         <div style={{ position: "relative" }}>
           {steps.map((st, i) => {

@@ -50,6 +50,9 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
   const [fieldAmount, setFieldAmount] = useState("");
   const [fieldNote, setFieldNote] = useState("");
 
+  // 현장방문/실측 체크포인트 메모(현장 상태/특이사항/예상 공사범위) — additive.
+  const [checkpointNote, setCheckpointNote] = useState("");
+
   const notifyCustomer = (type, title, message, relatedId) => {
     if (!job.request?.user_id) return;
     createNotification({
@@ -120,6 +123,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
         type: "site_visit", lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
         roadAddress: loc.road_address, jibunAddress: loc.jibun_address, addressFull: loc.address_full,
         sido: loc.sido, sigungu: loc.sigungu, dong: loc.dong, bunji: loc.bunji, photos,
+        note: checkpointNote.trim() || null,
       }).catch(() => {});
       // 역지오코딩 실패해도 좌표는 저장됨 — 사용자 안내.
       if (!loc.address_full && !loc.road_address && !loc.jibun_address) {
@@ -186,14 +190,26 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
     const svData = job.siteVisit;
     return (
       <Backdrop onClose={onClose}>
-        <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:S.sm }}>📍 GPS 체크인</div>
+        <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:2 }}>📍 GPS 체크인</div>
+        <div style={{ fontSize:12, fontWeight:700, color:C.text3, marginBottom:S.sm }}>현장방문/실측</div>
         {svData?.scheduled_at && (
           <div style={{ fontSize:13, color:C.brand, marginBottom:S.xl, fontWeight:700 }}>
             예정: {new Date(svData.scheduled_at).toLocaleString("ko-KR", { month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" })}
           </div>
         )}
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, fontSize:13, color:C.brand }}>
+          <div style={{ fontWeight:800, marginBottom:4 }}>🏠 인테리어 공사예정 현장에 도착하면 눌러주세요.</div>
           현장 도착 후 GPS 체크인을 눌러주세요. 현재 위치가 자동으로 기록됩니다.
+        </div>
+        <div style={{ marginBottom:S.xl }}>
+          <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>현장 상태 / 특이사항 <span style={{ color:C.text4, fontWeight:500 }}>(선택)</span></div>
+          <textarea
+            value={checkpointNote}
+            onChange={e => setCheckpointNote(e.target.value)}
+            placeholder="예: 현장 상태, 특이사항, 예상 공사범위"
+            rows={3}
+            style={{ width:"100%", padding:"12px 14px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }}
+          />
         </div>
         <div style={{ marginBottom:S.xl }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>현장 사진 (최대 3장)</div>
