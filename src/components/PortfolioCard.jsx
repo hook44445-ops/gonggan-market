@@ -98,13 +98,19 @@ export default function PortfolioCard({ work, onExpand }) {
         )}
 
         <div style={{ flex:1 }}>
-          <div style={{ display:"flex", gap:S.sm, marginBottom:4, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", gap:S.sm, marginBottom:4, flexWrap:"wrap", alignItems:"center" }}>
             {work.budget && (
               <span style={{ fontSize:12, color:C.text2, fontWeight:600 }}>💰 {work.budget}</span>
             )}
             {work.type && (
               <span style={{ background:C.bgWarm, color:C.text3, borderRadius:R.full,
                 padding:"2px 9px", fontSize:11, fontWeight:600 }}>{work.type}</span>
+            )}
+            {work.area && (
+              <span style={{ fontSize:11, color:C.text3, fontWeight:600 }}>📍 {work.area}</span>
+            )}
+            {work.size && (
+              <span style={{ fontSize:11, color:C.text3, fontWeight:600 }}>📐 {work.size}</span>
             )}
           </div>
           <div style={{ display:"flex", gap:6 }}>

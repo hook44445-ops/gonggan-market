@@ -5,7 +5,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
-import { CATEGORY_LABEL } from '../constants/lounge';
+import { CATEGORY_LABEL, TOKEN_COSTS } from '../constants/lounge';
 import { useLoungePost } from '../hooks/useLounge';
 import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname } from '../utils/anonymousNickname';
 import {
@@ -428,6 +428,14 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setCommentSubmitting(false);
   };
 
+  // 대화 신청 전 토큰 확인 — 부족하면 토큰 스토어로 이동 (차감 정책 자체는 기존 유지: 수락 시 신청자 차감)
+  const ensureChatTokens = () => {
+    if ((tokenBalance ?? 0) >= TOKEN_COSTS.CHAT_REQUEST) return true;
+    showToast(`대화를 신청하려면 ${TOKEN_COSTS.CHAT_REQUEST}토큰이 필요합니다.\n토큰 충전 후 다시 시도해주세요.`);
+    setTimeout(() => onTokenStore?.(), 1200);
+    return false;
+  };
+
   const handleChatRequest = async () => {
     if (chatSending || chatSent) return;
     setChatSending(true);
@@ -481,6 +489,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const handleCommentChatRequest = async (comment) => {
     if (chatRequestBusy) return;
     if (!isLoggedIn || !user?.id) { onRequireLogin?.(); return; }
+    if (!ensureChatTokens()) { setCommentAuthorSheet(null); return; }
     setCommentAuthorSheet(null);
     setChatRequestBusy(true);
     try {
@@ -716,7 +725,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       {!isOwn && !isSeedPost && (
         <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm, borderRadius: R.xl, margin: `0 8px ${S.sm}px` }}>
           <button
-            onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent) setShowChat(true); }}
+            onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent && ensureChatTokens()) setShowChat(true); }}
             disabled={chatSent}
             style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand}44`, transition: 'background 0.2s' }}>
             {isGuest ? '💬 대화 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 대화 신청하기'}

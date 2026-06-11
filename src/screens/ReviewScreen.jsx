@@ -272,10 +272,11 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
           }).catch(() => {});
         }
 
-        // 공사 후기 작성 미션 — 실제 공간토큰 지급(+15). 중복방지는 useSpaceToken.earn이
-        // logs에서 동일 action 존재 여부로 처리하므로 1회만 지급됩니다.
+        // 공사 후기 작성 보상 — 완료된 계약 1건당 1회 지급(+15). 중복방지는 useSpaceToken.earn이
+        // 동일 action+description(계약 식별 포함) 존재 여부로 처리합니다.
         try {
-          const granted = await onEarnToken?.("construction_review", "공사 후기 작성");
+          const rewardDesc = contractId ? `공사 후기 작성 · 계약 ${contractId}` : "공사 후기 작성";
+          const granted = await onEarnToken?.("construction_review", rewardDesc);
           log.reward_ok = log.reward_ok || !!granted;
         } catch {}
 

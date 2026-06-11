@@ -163,7 +163,7 @@ export default function PhotoModal({ work, onClose }) {
           {work.desc && (
             <div style={{ fontSize:13, color:C.text2, lineHeight:1.6, marginBottom:S.lg }}>{work.desc}</div>
           )}
-          {(work.budget || work.type || work.size) && (
+          {(work.budget || work.type || work.size || work.area) && (
             <div style={{ display:"flex", gap:S.lg, marginBottom:S.lg, flexWrap:"wrap" }}>
               {work.budget && (
                 <div style={{ textAlign:"center" }}>
@@ -177,12 +177,23 @@ export default function PhotoModal({ work, onClose }) {
                   <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginTop:2 }}>{work.type}</div>
                 </div>
               )}
+              {work.area && (
+                <div style={{ textAlign:"center" }}>
+                  <div style={{ fontSize:12, color:C.text3 }}>📍</div>
+                  <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginTop:2 }}>{work.area}</div>
+                </div>
+              )}
               {work.size && (
                 <div style={{ textAlign:"center" }}>
                   <div style={{ fontSize:12, color:C.text3 }}>📐</div>
                   <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginTop:2 }}>{work.size}</div>
                 </div>
               )}
+            </div>
+          )}
+          {work.companyName && (
+            <div style={{ fontSize:12, color:C.text3, marginBottom:S.lg }}>
+              시공: <span style={{ fontWeight:700, color:C.text2 }}>{work.companyName}</span>
             </div>
           )}
           <button onClick={onClose}

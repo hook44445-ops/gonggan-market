@@ -44,6 +44,13 @@ export function getSpendDescription(action) {
   return map[action] ?? action;
 }
 
+// 매일 반복 미션: 마지막 획득 후 24시간 지나면 다시 도전 가능 (useSpaceToken 재지급 정책과 동일)
+const REPEAT_WINDOW_MS = 24 * 3600000;
+const earnedWithin24h = (logs, action) => {
+  const last = logs.find(l => l.type === 'earn' && l.action === action);
+  return !!last && Date.now() - new Date(last.created_at).getTime() < REPEAT_WINDOW_MS;
+};
+
 export function getMissionList(logs = [], stats = null) {
   const completed = new Set(logs.filter(l => l.type === 'earn').map(l => l.action));
   const s = stats ?? {};
@@ -81,21 +88,24 @@ export function getMissionList(logs = [], stats = null) {
       action: 'likes_received_20',
       label: '좋아요/하트 20개 받기',
       reward: TOKEN_EARN.LIKES_RECEIVED_20,
-      done: completed.has('likes_received_20'),
+      done: earnedWithin24h(logs, 'likes_received_20'),
+      repeat: true,
       progress: stats ? { current: Math.min(s.likes_received ?? 0, 20), total: 20 } : null,
     },
     {
       action: 'comments_written_10',
       label: '댓글 10개 작성',
       reward: TOKEN_EARN.COMMENTS_WRITTEN_10,
-      done: completed.has('comments_written_10'),
+      done: earnedWithin24h(logs, 'comments_written_10'),
+      repeat: true,
       progress: stats ? { current: Math.min(s.comments ?? 0, 10), total: 10 } : null,
     },
     {
       action: 'posts_written_3',
       label: '게시글 3개 작성',
       reward: TOKEN_EARN.POSTS_WRITTEN_3,
-      done: completed.has('posts_written_3'),
+      done: earnedWithin24h(logs, 'posts_written_3'),
+      repeat: true,
       progress: stats ? { current: Math.min(s.posts ?? 0, 3), total: 3 } : null,
     },
     {
