@@ -22,7 +22,11 @@ import {
   createLoungeChat,
   incrementLoungeView,
   requestCommentChat,
+  getUser,
+  getCompanyByOwnerId,
+  getReviews,
 } from '../lib/supabase';
+import { BADGES } from '../constants/badges';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
@@ -31,7 +35,7 @@ import { buildPostMeta } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
 
 // ── 댓글 작성자 액션시트 ─────────────────────────────────
-function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, onReport, onClose }) {
+function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, onReport, onClose, roleLabel = '댓글 작성자', profile = null }) {
   return (
     <div
       onClick={onClose}
@@ -44,13 +48,31 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
         {/* 작성자 정보 헤더 */}
         <div style={{ padding: '0 20px 16px', borderBottom: `1px solid ${C.bgWarm}`, marginBottom: 8 }}>
           <div style={{ fontSize: 13, color: C.text3, marginBottom: 2 }}>
-            {isOwn ? '내 댓글' : '댓글 작성자'}
+            {isOwn ? `내 ${roleLabel === '댓글 작성자' ? '댓글' : '글'}` : roleLabel}
           </div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>
             {comment.anonymous_nickname}
           </div>
+          {/* 공간온도 · 관심카테고리 · 최근활동 (조회 실패 시 표시 생략) */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {profile?.spaceTemp != null && (
+              <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
+                🌡️ 공간온도 {Number(profile.spaceTemp).toFixed(1)}°
+              </span>
+            )}
+            {(profile?.interests ?? []).slice(0, 3).map(it => (
+              <span key={it} style={{ background: C.bg, color: C.text3, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 600 }}>
+                #{it}
+              </span>
+            ))}
+            {comment.created_at && (
+              <span style={{ fontSize: 11, color: C.text4 }}>
+                🕐 최근활동 {formatRelativeTime(comment.created_at)}
+              </span>
+            )}
+          </div>
           {comment.content && (
-            <div style={{ fontSize: 12, color: C.text4, marginTop: 4, lineHeight: 1.5,
+            <div style={{ fontSize: 12, color: C.text4, marginTop: 8, lineHeight: 1.5,
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               "{comment.content}"
             </div>
@@ -79,7 +101,7 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
             fontSize: 15, color: C.text1, fontWeight: 600, textAlign: 'left' }}
         >
           <span style={{ fontSize: 20 }}>🚩</span>
-          댓글 신고하기
+          {roleLabel === '게시글 작성자' ? '게시글 신고하기' : '댓글 신고하기'}
         </button>
 
         <div style={{ height: 1, background: C.bgWarm, margin: '8px 0' }} />
@@ -209,6 +231,38 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setLikeCount(post?.like_count ?? 0);
     setViewCount(post?.view_count ?? 0);
   }, [post?.id, post?.like_count, post?.view_count]);
+
+  // 작성자 바텀시트 — 공간온도/관심카테고리 조회 (실패 시 표시만 생략, 시트 동작 영향 없음)
+  const [authorProfile, setAuthorProfile] = useState(null);
+  useEffect(() => {
+    setAuthorProfile(null);
+    const uid = commentAuthorSheet?.comment?.user_id;
+    if (!uid || !IS_SUPABASE_READY) return;
+    let cancelled = false;
+    getUser(uid).then(({ data }) => {
+      if (!cancelled && data) {
+        setAuthorProfile({ spaceTemp: data.space_temp ?? 36.5, interests: data.interests ?? [] });
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [commentAuthorSheet]);
+
+  // 전문가(업체) 글 — 업체 미니카드용 업체 정보/후기 수 조회 (실패 시 기존 카드 그대로)
+  const [expertCompany, setExpertCompany] = useState(null);
+  const [expertReviewCount, setExpertReviewCount] = useState(null);
+  useEffect(() => {
+    setExpertCompany(null);
+    setExpertReviewCount(null);
+    if (!post?.is_expert || !post?.user_id || !IS_SUPABASE_READY) return;
+    let cancelled = false;
+    getCompanyByOwnerId(post.user_id).then(async ({ data: co }) => {
+      if (cancelled || !co) return;
+      setExpertCompany(co);
+      const { data: revs } = await getReviews(co.id).catch(() => ({ data: null }));
+      if (!cancelled) setExpertReviewCount(revs?.length ?? null);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [post?.is_expert, post?.user_id]);
 
   // Load initial like/save state from DB (skip synthetic seed — not in lounge_posts)
   useEffect(() => {
@@ -479,6 +533,21 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setCommentAuthorSheet({ comment });
   };
 
+  // 게시글 작성자 클릭 → 동일 액션시트 (전문가 글은 업체 카드가 별도 존재, 시드 글 제외)
+  const handlePostAuthorClick = () => {
+    if (!post?.user_id || post.is_expert || isSeedPost) return;
+    if (!isLoggedIn) { onRequireLogin?.(); return; }
+    setCommentAuthorSheet({
+      comment: {
+        user_id:            post.user_id,
+        anonymous_nickname: post.anonymous_nickname,
+        content:            post.title ?? post.content?.slice(0, 50),
+        created_at:         post.created_at,
+      },
+      isPostAuthor: true,
+    });
+  };
+
   // 댓글 신고
   const handleCommentReportFromSheet = (commentId) => {
     setCommentAuthorSheet(null);
@@ -622,12 +691,16 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       {/* 본문 */}
       <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: S.md, flexWrap: 'wrap' }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: postAvatar.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, boxShadow: `0 2px 8px ${postAvatar.color}55` }}>
-            {postAvatar.emoji}
-          </div>
-          <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>
-            {hasBadge && <span style={{ fontSize: 13, marginRight: 3 }}>🛡️</span>}
-            {post.anonymous_nickname}
+          <span onClick={handlePostAuthorClick}
+            style={{ display: 'flex', alignItems: 'center', gap: S.sm,
+              cursor: (!post.is_expert && !isSeedPost && post.user_id) ? 'pointer' : 'default' }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: postAvatar.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, boxShadow: `0 2px 8px ${postAvatar.color}55` }}>
+              {postAvatar.emoji}
+            </div>
+            <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>
+              {hasBadge && <span style={{ fontSize: 13, marginRight: 3 }}>🛡️</span>}
+              {post.anonymous_nickname}
+            </span>
           </span>
           <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{catLabel}</span>
           {post.region && <span style={{ fontSize: 11, color: C.text3 }}>📍 {post.region}</span>}
@@ -668,13 +741,39 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.8, marginTop: 4 }}>
               {post.expert_company_name ?? post.anonymous_nickname}
             </div>
+            {/* 업체 미니카드 — 공간보증 배지 · 공간온도 · 영업지역 · 후기 수 (조회 실패 시 표시 생략) */}
+            {expertCompany && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                {(() => {
+                  const bm = expertCompany.badge ? (BADGES[expertCompany.badge] ?? BADGES.basic) : null;
+                  return bm ? (
+                    <span style={{ background: bm.bg, color: bm.color, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
+                      {bm.icon} 공간보증 {bm.label}
+                    </span>
+                  ) : null;
+                })()}
+                <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
+                  🌡️ 공간온도 {expertCompany.temp ?? 0}°
+                </span>
+                {expertCompany.region && (
+                  <span style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>📍 {expertCompany.region}</span>
+                )}
+                {expertReviewCount != null && (
+                  <span style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>⭐ 후기 {expertReviewCount}개</span>
+                )}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <button onClick={() => onNavigate?.({ target: 'company', companyId: post.user_id })}
-                style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
-                프로필 보기
+                style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+                포트폴리오 보기
+              </button>
+              <button onClick={() => onNavigate?.({ target: 'chat', companyId: post.user_id })}
+                style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+                대화하기
               </button>
               <button onClick={() => onNavigate?.({ target: 'quote', companyId: post.user_id })}
-                style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
+                style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                 견적 요청하기
               </button>
             </div>
@@ -890,11 +989,17 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       {commentAuthorSheet && (
         <CommentAuthorActionSheet
           comment={commentAuthorSheet.comment}
-          alreadySent={sentChatTargets.has(commentAuthorSheet.comment.user_id)}
+          roleLabel={commentAuthorSheet.isPostAuthor ? '게시글 작성자' : '댓글 작성자'}
+          profile={authorProfile}
+          alreadySent={commentAuthorSheet.isPostAuthor ? chatSent : sentChatTargets.has(commentAuthorSheet.comment.user_id)}
           busy={chatRequestBusy}
           isOwn={commentAuthorSheet.comment.user_id === user?.id}
-          onChat={() => handleCommentChatRequest(commentAuthorSheet.comment)}
-          onReport={() => handleCommentReportFromSheet(commentAuthorSheet.comment.id)}
+          onChat={commentAuthorSheet.isPostAuthor
+            ? () => { setCommentAuthorSheet(null); if (!chatSent && ensureChatTokens()) setShowChat(true); }
+            : () => handleCommentChatRequest(commentAuthorSheet.comment)}
+          onReport={commentAuthorSheet.isPostAuthor
+            ? () => { setCommentAuthorSheet(null); setReportTarget({ type: 'post', targetId: post.id }); }
+            : () => handleCommentReportFromSheet(commentAuthorSheet.comment.id)}
           onClose={() => setCommentAuthorSheet(null)}
         />
       )}

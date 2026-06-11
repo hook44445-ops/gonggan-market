@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
+import { detectDirectDealKeywords } from "../constants/directDeal";
 import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal } from "../lib/supabase";
 
 const REPORT_REASONS = [
@@ -26,7 +27,7 @@ const normalizeMsg = (row) => ({
   time: fmtTime(row.created_at),
 });
 
-export default function ChatScreen({ company, user, onBack }) {
+export default function ChatScreen({ company, user, onBack, onQuoteRequest }) {
   const roomId = `${user?.id ?? "guest"}_${company?.id ?? "0"}`;
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -34,6 +35,13 @@ export default function ChatScreen({ company, user, onBack }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDone, setReportDone] = useState(false);
   const bottomRef = useRef(null);
+
+  // 직거래 의심 키워드 반복 감지 — 클라이언트 표시 전용(차단/제재 없음, 기록은 기존 checkDirectDealKeyword가 수행)
+  const directDealHits = useMemo(
+    () => messages.reduce((n, m) => n + (detectDirectDealKeywords(m.text).length > 0 ? 1 : 0), 0),
+    [messages]
+  );
+  const showConvertBanner = !!onQuoteRequest && directDealHits >= 2;
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
 
@@ -115,6 +123,13 @@ export default function ChatScreen({ company, user, onBack }) {
           </div>
         </div>
         <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:S.sm }}>
+          {onQuoteRequest && (
+            <button onClick={onQuoteRequest}
+              style={{ background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`,
+                borderRadius:R.full, padding:"6px 12px", fontSize:12, fontWeight:800, cursor:"pointer", whiteSpace:"nowrap" }}>
+              📋 견적요청
+            </button>
+          )}
           <TempBadge temp={company?.temp ?? 0} />
           <button onClick={() => { setReportDone(false); setReportOpen(true); }} aria-label="신고"
             style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, color:C.text3, padding:"2px 4px", lineHeight:1 }}>
@@ -122,6 +137,23 @@ export default function ChatScreen({ company, user, onBack }) {
           </button>
         </div>
       </div>
+
+      {/* 직거래 의심 반복 감지 → 견적 전환 유도 배너 (감지만, 차단 없음) */}
+      {showConvertBanner && (
+        <div style={{ background:C.navyL, borderBottom:`1px solid ${C.trustM}`, padding:"10px 16px",
+          display:"flex", alignItems:"center", gap:S.md }}>
+          <div style={{ fontSize:20, flexShrink:0 }}>🛡</div>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:12.5, fontWeight:800, color:C.navy }}>견적요청으로 전환하기</div>
+            <div style={{ fontSize:11, color:C.text3, lineHeight:1.5 }}>에스크로 보호 · GPS 증빙 · 분쟁 보호 혜택을 받을 수 있습니다.</div>
+          </div>
+          <button onClick={onQuoteRequest}
+            style={{ flexShrink:0, background:C.navy, color:"#fff", border:"none", borderRadius:R.full,
+              padding:"8px 14px", fontSize:12, fontWeight:800, cursor:"pointer", whiteSpace:"nowrap" }}>
+            견적요청하기
+          </button>
+        </div>
+      )}
 
       {reportOpen && (
         <div onClick={() => setReportOpen(false)}
