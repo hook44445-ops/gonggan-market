@@ -194,13 +194,13 @@ export const getUserRequests = async (userId) => {
 export const getLiveRequests = ({ limit = 5 } = {}) =>
   supabase
     .from("requests")
-    .select("id, space_type, area, size, status, created_at, last_activity_at")
-    // 진행 중 파이프라인 전체 노출 — 현장실측(site_visit)·최종견적(final_quote_submitted)·
-    // 결제대기(escrow_pending)·계약(contracting)·착공(in_progress). 완료/취소/종료/SETTLED 제외.
-    // (기존엔 in_progress/contracting/escrow_pending 3개만 → 실측·최종견적 단계가 LIVE 에 안 떴음)
-    .in("status", ["site_visit", "final_quote_submitted", "escrow_pending", "contracting", "in_progress"])
+    .select("id, space_type, area, size, status, created_at")
+    // 진행 중 파이프라인 전체 노출 — 견적요청(open)·현장실측(site_visit/site_visiting)·
+    // 최종견적(final_quote_submitted)·결제대기(escrow_pending)·계약(contracting/selected)·착공(in_progress).
+    // 완료/취소/종료/SETTLED 제외. (last_activity_at 은 운영 스키마에 없어 정렬은 created_at 만 사용)
+    .in("status", ["open", "site_visit", "site_visiting", "final_quote_submitted", "escrow_pending", "contracting", "selected", "in_progress"])
     .or("is_hidden.is.null,is_hidden.eq.false")
-    .order("last_activity_at", { ascending: false, nullsFirst: false })
+    .or("is_deleted.is.null,is_deleted.eq.false")
     .order("created_at", { ascending: false })
     .limit(limit);
 

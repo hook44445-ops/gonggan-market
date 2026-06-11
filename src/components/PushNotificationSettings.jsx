@@ -84,25 +84,27 @@ export default function PushNotificationSettings({ user }) {
     if (busy) return;
     setNote(null);
     if (prefs.push_enabled) {
-      // 끄기
+      // 끄기 — 환경설정 OFF 저장(+ 가능 시 푸시 토큰 해제 best-effort).
       setBusy(true);
-      await disablePush();
+      try { await disablePush(); } catch {}
       await persist({ ...DEFAULTS });
       setBusy(false);
       return;
     }
-    // 켜기 — 권한 요청 + 토큰 발급
-    if (!isPushSupported()) { setNote("이 브라우저는 푸시 알림을 지원하지 않아요."); return; }
-    if (!isPushConfigured()) { setNote("푸시 설정이 준비 중이에요. 잠시 후 다시 시도해주세요."); return; }
+    // 켜기 — 환경설정은 항상 저장한다(알림 수신 동의). 실제 푸시 토큰 발급은
+    // 지원/구성된 환경에서만 best-effort 로 시도하되, 미구성이어도 설정 저장은 막지 않는다.
     setBusy(true);
-    const res = await enablePush(user?.id);
-    setBusy(false);
-    if (!res.ok) {
-      setNote(res.reason === "permission_denied" ? "브라우저 알림 권한이 거부됐어요. 설정에서 허용해주세요." : "알림을 켜지 못했어요. 잠시 후 다시 시도해주세요.");
-      return;
-    }
-    // 기본적으로 동네/인테리어/견적 ON 으로 시작
+    try {
+      if (isPushSupported() && isPushConfigured()) {
+        const res = await enablePush(user?.id);
+        if (res && !res.ok && res.reason === "permission_denied") {
+          setNote("브라우저 알림 권한이 거부됐어요. 설정에서 허용하면 푸시도 함께 받을 수 있어요.");
+        }
+      }
+    } catch {}
+    // 기본적으로 동네/인테리어/견적 ON 으로 시작.
     await persist({ ...prefs, push_enabled: true, push_local_news: true, push_interior_news: true, push_estimate_news: true, push_company_recommend: true });
+    setBusy(false);
   };
 
   const handleSub = async (key) => {
