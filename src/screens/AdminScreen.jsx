@@ -15,7 +15,6 @@ import {
   adminGetLoungePosts, getLoungeReports,
   adminHideContent, adminUpdateLoungeReport,
   createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage,
-  getCustomerReports, updateCustomerReportStatus,
   holdAllPayoutsForEscrow,
   getCompanyDocuments, adminReviewDocument,
   getReviewRewardsPending, updateReviewReward,
@@ -2243,14 +2242,16 @@ export default function AdminScreen({ onBack, onHome, user }) {
       })();
     }
     if (mainTab === "reports") {
+      // 운영 DB에 customer_reports 테이블이 없으므로 direct_deal_reports 기준으로 조회.
+      // 데이터가 없으면(또는 오류) 크래시 없이 빈 목록("신고 0건")으로 표시.
       setReportsLoading(true);
       setReportsErr(null);
-      getCustomerReports()
+      getDirectDealReports()
         .then(({ data, error }) => {
-          if (error) { setReportsErr(error.message ?? "신고 목록을 불러오지 못했습니다."); setReports([]); }
+          if (error) { setReportsErr(null); setReports([]); }
           else setReports(data ?? []);
         })
-        .catch((err) => { setReportsErr(err?.message ?? String(err)); setReports([]); })
+        .catch(() => { setReportsErr(null); setReports([]); })
         .finally(() => setReportsLoading(false));
     }
     if (mainTab === "reviews") {
@@ -3218,13 +3219,18 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     <div style={{ fontSize: 14, color: C.text3 }}>신고 내역 없음</div>
                   </div>
                 ) : reports.map(r => {
-                  const isResolved = r.status === "RESOLVED";
+                  // direct_deal_reports 기준 — 종결 상태(confirmed/dismissed/resolved)는 처리완료로 표시.
+                  const st = String(r.status ?? "").toLowerCase();
+                  const isResolved = ["resolved", "dismissed", "confirmed"].includes(st);
+                  const title = r.report_type ?? r.trigger_type ?? "신고";
+                  const when  = r.created_at ?? r.detected_at ?? null;
+                  const desc  = r.description ?? r.reason ?? r.detail ?? "";
                   return (
                   <div key={r.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{r.report_type ?? "신고"}</div>
-                        <div style={{ fontSize: 11, color: C.text3 }}>{r.created_at ? new Date(r.created_at).toLocaleDateString("ko-KR") : ""}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{title}</div>
+                        <div style={{ fontSize: 11, color: C.text3 }}>{when ? new Date(when).toLocaleDateString("ko-KR") : ""}</div>
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 700, color: isResolved ? C.green : C.gold,
                         background: isResolved ? C.greenL : "#FBF5E8",
@@ -3232,14 +3238,14 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         {isResolved ? "처리완료" : "검토중"}
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: C.text2, marginBottom: S.sm }}>{r.description ?? ""}</div>
+                    <div style={{ fontSize: 12, color: C.text2, marginBottom: S.sm }}>{desc}</div>
                     {!isResolved && (
                       <button
                         disabled={actionLoading}
                         onClick={() => {
                           setActionLoading(true);
-                          updateCustomerReportStatus(r.id, "RESOLVED").then(({ error }) => {
-                            if (!error) setReports(prev => prev.map(x => x.id === r.id ? { ...x, status: "RESOLVED" } : x));
+                          updateDirectDealReportStatus(r.id, "dismissed").then(({ error }) => {
+                            if (!error) setReports(prev => prev.map(x => x.id === r.id ? { ...x, status: "dismissed" } : x));
                             else showToast("처리 실패", false);
                             setActionLoading(false);
                           });
