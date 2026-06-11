@@ -1,12 +1,14 @@
 import { useState, useCallback } from "react";
 
 // ─────────────────────────────────────────────────────
-// GPS 정책 — 엄격 준수
-//   ❌ 앱/지도 진입 시 자동 위치 권한 요청 금지
+// GPS 정책 — 엄격 준수 (베타: 지도=현재위치 우선)
+//   ❌ 자동 권한요청(프롬프트) 금지 — 권한이 'prompt'/'denied' 면 아무것도 안 함
 //   ❌ watchPosition / 백그라운드 추적 금지
-//   ✅ requestCurrentLocation() (버튼 클릭) 시에만 1회 요청
-//   ✅ 권한 거부 시 앱 정상 동작 — 호출측은 fallback 중심 유지
-//   ✅ 위치값은 지도 중심 이동 용도로만 사용
+//   ✅ requestCurrentLocation() (버튼 클릭) 시 1회 요청 (필요 시 프롬프트)
+//   ✅ autoLocateIfGranted() (진입 시) — 권한이 '이미 허용(granted)' 인 경우에만
+//      프롬프트 없이 1회 조회해 현재 위치를 지도에 표시. 미허용이면 no-op.
+//   ✅ 권한 거부 시 앱 정상 동작 — 호출측은 활동지역/서울시청 fallback 유지
+//   ✅ 위치값은 지도 중심 표시 용도로만 사용(저장 안 함 — 체크포인트 저장과 무관)
 // ─────────────────────────────────────────────────────
 
 export function useGPS() {
@@ -51,8 +53,19 @@ export function useGPS() {
     );
   }, []);
 
+  // 진입 시 현재 위치 표시 — 단, 권한이 '이미 허용(granted)' 일 때만 프롬프트 없이 1회 조회.
+  // 권한이 'prompt'(미결정)/'denied' 이거나 Permissions API 미지원이면 아무것도 하지 않는다
+  // (자동 권한요청 금지 정책 유지). 호출측은 fallback(활동지역/서울시청)을 그대로 쓴다.
+  const autoLocateIfGranted = useCallback(() => {
+    if (!navigator.geolocation || !navigator.permissions?.query) return;
+    navigator.permissions
+      .query({ name: "geolocation" })
+      .then((res) => { if (res.state === "granted") requestCurrentLocation(); })
+      .catch(() => {});
+  }, [requestCurrentLocation]);
+
   // 외부에서 GPS 중심을 비울 수 있도록 (예: 저장 지역 탭 클릭 시)
   const clearGps = useCallback(() => { setGpsCenter(null); setGpsError(null); setGpsErrorCode(null); }, []);
 
-  return { gpsCenter, gpsError, gpsErrorCode, gpsTick, loading, requestCurrentLocation, clearGps };
+  return { gpsCenter, gpsError, gpsErrorCode, gpsTick, loading, requestCurrentLocation, autoLocateIfGranted, clearGps };
 }

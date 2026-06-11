@@ -599,7 +599,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [activityRegions, setActivityRegions] = useState(() => getActivityRegions(user));
   const [activeRegion, setActiveRegion] = useState(() => getPrimaryRegion(getActivityRegions(user)));
   const [regionSheetOpen, setRegionSheetOpen] = useState(false);
-  const { gpsCenter, gpsErrorCode, gpsTick, loading: gpsLoading, requestCurrentLocation, clearGps } = useGPS();
+  const { gpsCenter, gpsErrorCode, gpsTick, loading: gpsLoading, requestCurrentLocation, autoLocateIfGranted, clearGps } = useGPS();
   // GPS 사용 목적: 'view'(지도 이동) | 'add'(현재 위치로 지역 추가)
   const gpsModeRef = useRef("view");
   const [regionChooserOpen, setRegionChooserOpen] = useState(false); // + 지역 추가 선택 시트
@@ -615,7 +615,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     setActiveRegion(getPrimaryRegion(regs));
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 지도 중심 — activeRegion > GPS > 저장 primary > fallback
+  // 지도 중심 — GPS(현재위치) > activeRegion(선택지역) > 저장 primary > fallback(서울시청).
+  // 지역 선택은 매칭 기준일 뿐 GPS 가 있으면 지도를 강제 이동시키지 않는다.
   const mapCenter = useMemo(
     () => resolveMapCenter({ user: { activity_regions: activityRegions, region: user?.region }, activeRegion, gpsCenter }),
     [activityRegions, user?.region, activeRegion, gpsCenter]
@@ -623,8 +624,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
   const [mapLocalOnly, setMapLocalOnly] = useState(false);
 
-  // "현재 위치로 보기" — 버튼 클릭 시에만 GPS 1회 요청 (자동 호출 없음)
-  const onRequestMapLocation = () => { gpsModeRef.current = "view"; setActiveRegion(null); requestCurrentLocation(); };
+  // 진입 시 1회: 위치 권한이 '이미 허용' 인 경우에만(프롬프트 없이) 현재 위치 표시(정책 ①).
+  // 미허용(prompt)/거부면 no-op → 활동지역/서울시청 fallback. 'view-auto' 는 토스트 없이 조용히.
+  useEffect(() => {
+    gpsModeRef.current = "view-auto";
+    autoLocateIfGranted();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // "현재 위치로 보기" — 버튼 클릭 시 GPS 1회 요청. GPS 가 최우선이라 activeRegion 을 비우지 않아도
+  // 지도는 현재 위치로 이동한다(매칭 필터는 유지).
+  const onRequestMapLocation = () => { gpsModeRef.current = "view"; requestCurrentLocation(); };
 
   // 지역 칩 클릭 → 선택 시트 (① 둘러보기 ② 현재 위치로 ③ 관심지역 저장)
   const openRegionChooser = () => setRegionChooserOpen(true);
@@ -641,6 +650,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   useEffect(() => {
     if (gpsTick === 0) return; // 최초 mount 무시 (자동 요청 없음)
     if (gpsErrorCode) {
+      // 진입 자동 표시(view-auto)는 권한 허용된 경우에만 호출되므로 오류 토스트를 띄우지 않는다.
+      if (gpsModeRef.current === "view-auto") return;
       if (gpsErrorCode === "denied") showToast("위치 권한이 꺼져 있어요. 직접 지역을 선택해주세요.");
       else showToast("현재 위치를 불러오지 못했어요. 잠시 후 다시 시도해주세요.");
       return;
@@ -648,6 +659,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (!gpsCenter) return;
     if (gpsModeRef.current === "view") {
       showToast("현재 위치로 지도를 이동했어요.");
+    } else if (gpsModeRef.current === "view-auto") {
+      // 진입 시 자동 표시 — 토스트 없이 조용히 지도 중심만 현재 위치로.
     } else if (gpsModeRef.current === "add") {
       reverseGeocode(gpsCenter.lat, gpsCenter.lng)
         .then(({ rawSido, sigungu }) => {
@@ -717,7 +730,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     setActivityRegions(entries);
     setActiveRegion(primary);
     setRegionSheetOpen(false);
-    clearGps();
+    // ⚠️ 활동지역 저장은 '매칭 기준' 변경일 뿐 — GPS 현재 위치를 비우지 않는다.
+    //    (clearGps 하면 지도가 저장 지역으로 강제 이동 → 정책 위반.) 지도는 GPS 유지.
     if (user?.id) {
       try { await updateUserActivityRegions(user.id, entries, primaryText, getPrimaryRegionId(entries)); }
       catch (e) { console.warn("[region] save failed", e?.message); } // eslint-disable-line no-console
