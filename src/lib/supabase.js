@@ -886,8 +886,8 @@ export const getContractTimeline = (contractId) =>
 
 // ── STEP 21: Notifications ────────────────────────────────────────────────────
 
-export const createNotification = async ({ userId, type, title, message, relatedId, relatedType, priority = "NORMAL" }) =>
-  supabase.from("notifications").insert({
+export const createNotification = async ({ userId, type, title, message, relatedId, relatedType, priority = "NORMAL" }) => {
+  const result = await supabase.from("notifications").insert({
     user_id:      userId,
     type,
     title,
@@ -896,6 +896,18 @@ export const createNotification = async ({ userId, type, title, message, related
     related_type: relatedType ?? null,
     priority,
   });
+
+  // FCM 큐 연결(Phase 1) — best-effort. 실패해도 위 알림 생성 결과에는 영향 없음.
+  if (!result.error) {
+    fetch("/api/push/enqueue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, type, title, message, relatedId, relatedType }),
+    }).catch((err) => console.warn("[push] enqueue failed", err));
+  }
+
+  return result;
+};
 
 export const getUserNotifications = (userId, { unreadOnly = false, limit = 30 } = {}) => {
   let q = supabase
