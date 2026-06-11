@@ -1726,25 +1726,63 @@ const FLOW_STAGE_INDEX = {
 // 체크포인트 type(구/신 명칭) 매칭 헬퍼
 const cpFind = (cps, types) => (cps || []).find(c => types.includes(c.checkpoint_type)) || null;
 
-// 한 행의 분석 플래그(GPS 누락 / 사진 누락 / 단계 누락 / 직거래 의심) 계산.
-// GPS 필수 단계(착공/중간점검/완료)에 한해 좌표·사진·체크포인트 존재 여부를 본다.
+// 한 행의 흐름 분석 — 카드 뱃지/필터/상세 증빙 체크리스트가 '동일 로직'으로 쓰는 단일 소스.
+// 기준: project_checkpoints(site_visit/start/middle/complete) + 에스크로 상태 + flow_stage.
 function deriveFlowFlags(row) {
   const cps = row.checkpoints || [];
+  const esc = row.escrow || null;
+  const sv  = row.site_visit || null;
   const si  = FLOW_STAGE_INDEX[row.flow_stage] ?? 0;
+  const ts  = esc?.transaction_status;
+
+  const cpVisit = cpFind(cps, ["site_visit"]);
   const cpStart = cpFind(cps, ["start", "construction_start"]);
   const cpMid   = cpFind(cps, ["middle", "mid_inspection"]);
   const cpComp  = cpFind(cps, ["complete", "completion"]);
 
-  const expected = [];
-  if (si >= FLOW_STAGE_INDEX.ESCROW_STARTED)  expected.push(cpStart);
-  if (si >= FLOW_STAGE_INDEX.MID_INSPECTION)  expected.push(cpMid);
-  if (si >= FLOW_STAGE_INDEX.COMPLETED)       expected.push(cpComp);
+  const hasGps = (cp) => !!cp && cp.lat != null && cp.lng != null;
+  const photoN = (cp) => (Array.isArray(cp?.photos) ? cp.photos.length : 0);
 
-  const stageMissing = expected.some(cp => !cp);
-  const gpsMissing   = expected.some(cp => cp && (cp.lat == null || cp.lng == null));
-  const photoMissing = expected.some(cp => cp && (!cp.photos || cp.photos.length === 0));
-  const ddrSuspect   = (row.direct_deal_reports || []).length > 0;
-  return { stageMissing, gpsMissing, photoMissing, ddrSuspect };
+  // 단계 도달(expected) — flow_stage 진행 + 상태/체크포인트 보강.
+  const contractReached = !!row.selected_bid || !!esc
+    || ["CONTRACTED","COMPANY_SELECTED","STARTED","MID_INSPECTION","COMPLETED","SETTLED"].includes(ts);
+  const startReached    = si >= FLOW_STAGE_INDEX.ESCROW_STARTED || ts === "STARTED"         || !!cpStart;
+  const middleReached   = si >= FLOW_STAGE_INDEX.MID_INSPECTION  || ts === "MID_INSPECTION"  || !!cpMid;
+  const completeReached = si >= FLOW_STAGE_INDEX.COMPLETED       || ts === "COMPLETED"       || !!esc?.step4_approved_at || !!cpComp;
+
+  // 카드/상세 공통 단계 증빙(site_visit/contract/start/middle/complete).
+  const stages = [
+    { key:"site_visit", label:"현장방문/실측", reached: !!sv || !!cpVisit, cp: cpVisit, gpsStage:false },
+    { key:"contract",   label:"최종계약",       reached: contractReached,   cp: null,    gpsStage:false },
+    { key:"start",      label:"착공",           reached: startReached,      cp: cpStart, gpsStage:true  },
+    { key:"middle",     label:"중간점검",       reached: middleReached,     cp: cpMid,   gpsStage:true  },
+    { key:"complete",   label:"완료",           reached: completeReached,   cp: cpComp,  gpsStage:true  },
+  ];
+
+  // 단계(체크포인트) 누락 — 도달했는데 GPS 체크포인트가 없음.
+  const startMissing    = startReached    && !cpStart;
+  const middleMissing   = middleReached   && !cpMid;
+  const completeMissing = completeReached && !cpComp;
+
+  // GPS 누락 — 완료 도달인데 GPS 좌표 없음(체크포인트 부재 포함) + 도달한 GPS 단계 좌표 누락.
+  const gpsMissing =
+    (completeReached && !hasGps(cpComp)) ||
+    stages.some(s => s.gpsStage && s.reached && s.cp && !hasGps(s.cp));
+
+  // 사진 누락 — 도달한 GPS 단계 체크포인트에 사진 없음.
+  const photoMissing = stages.some(s => s.gpsStage && s.reached && s.cp && photoN(s.cp) === 0);
+
+  const ddrSuspect = (row.direct_deal_reports || []).length > 0;
+
+  // 개수(목록 카드 표시용).
+  const gpsCount   = cps.filter(c => c.lat != null && c.lng != null).length;
+  const photoCount = cps.reduce((n, c) => n + photoN(c), 0);
+
+  return {
+    stages, cpVisit, cpStart, cpMid, cpComp,
+    startMissing, middleMissing, completeMissing,
+    gpsMissing, photoMissing, ddrSuspect, gpsCount, photoCount,
+  };
 }
 
 const isFlowCompleted = (row) =>
@@ -1784,7 +1822,6 @@ function ProjectFlowTab({ adminUserId, showToast }) {
       if (analysisFilter === "ddr"           && !f.ddrSuspect)   return false;
       if (analysisFilter === "gps_missing"   && !f.gpsMissing)   return false;
       if (analysisFilter === "photo_missing" && !f.photoMissing) return false;
-      if (analysisFilter === "stage_missing" && !f.stageMissing) return false;
     }
     return true;
   });
@@ -1829,7 +1866,6 @@ function ProjectFlowTab({ adminUserId, showToast }) {
         <Chip active={analysisFilter === "ddr"}           onClick={() => setAnalysisFilter("ddr")}>직거래 의심</Chip>
         <Chip active={analysisFilter === "gps_missing"}   onClick={() => setAnalysisFilter("gps_missing")}>GPS 누락</Chip>
         <Chip active={analysisFilter === "photo_missing"} onClick={() => setAnalysisFilter("photo_missing")}>사진 누락</Chip>
-        <Chip active={analysisFilter === "stage_missing"} onClick={() => setAnalysisFilter("stage_missing")}>단계 누락</Chip>
       </div>
 
       {errMsg && (
@@ -1863,11 +1899,17 @@ function ProjectFlowTab({ adminUserId, showToast }) {
               <div style={{ fontSize: 12, color: C.text3, marginBottom: 6 }}>
                 고객 {row.customer?.name || "—"} · 업체 {row.company?.name || "미배정"} · 입찰 {row.bids_count ?? 0}
               </div>
+              {/* GPS/사진 개수 */}
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 6 }}>
+                📍 GPS {f.gpsCount} · 📷 사진 {f.photoCount}
+              </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {f.ddrSuspect   && <span style={{ background: "#FFF0F0", color: C.red,  borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>직거래 의심</span>}
-                {f.gpsMissing   && <span style={{ background: "#FBF5E8", color: C.gold, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>GPS 누락</span>}
-                {f.photoMissing && <span style={{ background: "#FBF5E8", color: C.gold, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>사진 누락</span>}
-                {f.stageMissing && <span style={{ background: C.bgWarm,  color: C.text3, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>단계 누락</span>}
+                {f.ddrSuspect      && <span style={{ background: "#FFF0F0", color: C.red,  borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>직거래 의심</span>}
+                {f.startMissing    && <span style={{ background: C.bgWarm,  color: C.text3, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>착공 누락</span>}
+                {f.middleMissing   && <span style={{ background: C.bgWarm,  color: C.text3, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>중간점검 누락</span>}
+                {f.completeMissing && <span style={{ background: C.bgWarm,  color: C.text3, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>완료 누락</span>}
+                {f.gpsMissing      && <span style={{ background: "#FBF5E8", color: C.gold, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>GPS 누락</span>}
+                {f.photoMissing    && <span style={{ background: "#FBF5E8", color: C.gold, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>사진 누락</span>}
                 <span style={{ marginLeft: "auto", fontSize: 10, color: C.text4 }}>{row.request_id?.slice(0, 8)}</span>
               </div>
             </div>
@@ -1882,6 +1924,7 @@ function ProjectFlowTab({ adminUserId, showToast }) {
 
 // 상세 — 11단계 타임라인 + GPS(위도/경도/도로명주소/정확도/사진).
 function ProjectFlowDetail({ row, onClose }) {
+  const ff     = deriveFlowFlags(row);  // 카드/필터와 동일 로직 — 증빙 체크리스트 공통 사용
   const cps    = row.checkpoints || [];
   const esc    = row.escrow || null;
   const sv     = row.site_visit || null;
@@ -1951,22 +1994,20 @@ function ProjectFlowDetail({ row, onClose }) {
           <div style={{ color: C.text4 }}>request_id: {row.request_id}</div>
         </div>
 
-        {/* 증빙 체크리스트 (additive) — 현장방문/실측·최종계약·착공·중간점검·완료 */}
+        {/* 증빙 체크리스트 — 카드/필터와 '동일 로직'(deriveFlowFlags) 사용 */}
         {(() => {
-          const evid = [
-            { label: "현장방문/실측", reached: !!sv || !!cpVisit, cp: cpVisit },
-            { label: "최종계약",       reached: !!row.selected_bid || !!esc || ["CONTRACTED","COMPANY_SELECTED","STARTED","MID_INSPECTION","COMPLETED","SETTLED"].includes(esc?.transaction_status), cp: null },
-            { label: "착공",           reached: !!cpStart || esc?.transaction_status === "STARTED", cp: cpStart },
-            { label: "중간점검",       reached: !!cpMid || esc?.transaction_status === "MID_INSPECTION", cp: cpMid },
-            { label: "완료",           reached: !!cpComp || esc?.transaction_status === "COMPLETED" || !!esc?.step4_approved_at, cp: cpComp },
-          ];
+          const evid = ff.stages;  // site_visit/contract/start/middle/complete
           return (
             <div style={{ marginBottom: 14, background: C.bg, borderRadius: R.md, padding: "10px 12px" }}>
               <div style={{ fontSize: 12, fontWeight: 800, color: C.text1, marginBottom: 8 }}>📋 증빙 체크리스트</div>
-              {evid.map((e) => (
-                <div key={e.label} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0", fontSize: 12, color: e.reached ? C.text1 : C.text4 }}>
-                  <span>{e.reached ? "✅" : "⬜"}</span>
+              {evid.map((e) => {
+                // 도달했는데 GPS 단계 체크포인트 없음 → 단계 누락 표시(카드 뱃지와 동일 기준)
+                const missing = e.gpsStage && e.reached && !e.cp;
+                return (
+                <div key={e.key} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0", fontSize: 12, color: e.reached ? C.text1 : C.text4 }}>
+                  <span>{e.reached ? (missing ? "⚠️" : "✅") : "⬜"}</span>
                   <span style={{ fontWeight: e.reached ? 700 : 500 }}>{e.label}</span>
+                  {missing && <span style={{ fontSize: 10, color: C.gold, fontWeight: 700 }}>누락</span>}
                   {e.cp && (
                     <span style={{ marginLeft: "auto", display: "flex", gap: 8, fontSize: 10 }}>
                       <span style={{ color: e.cp.lat != null ? C.green : C.gold }}>📍{e.cp.lat != null ? "GPS" : "좌표없음"}</span>
@@ -1974,7 +2015,8 @@ function ProjectFlowDetail({ row, onClose }) {
                     </span>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           );
         })()}
