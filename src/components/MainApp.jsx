@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
 import { SHOW_DEBUG_UI } from "../constants/release";
+import { TOKEN_COSTS } from "../constants/lounge";
 import LiveFeed from "./LiveFeed";
 import RegionSelectorBar from "./RegionSelectorBar";
 import RegionSelectSheet from "./RegionSelectSheet";
@@ -73,6 +74,7 @@ import {
   createPaymentOrder,
   createPaymentTransaction,
   createNotification,
+  createLoungeChat,
   setRequestInProgress,
   markRequestSiteVisit,
   getCompanyBids,
@@ -3453,7 +3455,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} onEarnToken={earnToken} />}
-        {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")} />}
+        {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")}
+          onQuoteRequest={activeRole === "consumer" ? () => { setScreen("home"); handleOpenNewReq(); } : undefined} />}
         {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id} />}
         {screen==="bidstatus" && (
@@ -3507,6 +3510,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 return;
               }
               go("lounge-write");
+            })}
+            onStoryAuthorChat={(story) => requireAuth(async () => {
+              // 스토리 작성자 대화 신청 — 기존 라운지 대화 정책 그대로(수락 시 신청자 20토큰 차감).
+              if (!story?.user_id || story.user_id === user?.id) return;
+              if ((tokenBalance ?? 0) < TOKEN_COSTS.CHAT_REQUEST) {
+                showToast(`대화를 신청하려면 ${TOKEN_COSTS.CHAT_REQUEST}토큰이 필요합니다. 토큰 충전 후 다시 시도해주세요.`);
+                setTimeout(() => go("token-store"), 1200);
+                return;
+              }
+              await createLoungeChat({ post_id: story.id, requester_id: user.id, post_user_id: story.user_id }).catch(() => {});
+              showToast("💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.");
             })}
             onStoryUpload={() => requireAuth(() => {
               if (!hasConsented(user?.id, LOUNGE_CONSENT_TYPES)) {
@@ -3581,6 +3595,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               // 라운지 → 거래 연결 CTA 라우팅
               if (target === "quote") { if (activeRole === "consumer") { setScreen("home"); handleOpenNewReq(); } else setScreen("home"); return; }
               if (target === "map") { setScreen("home"); setScreen("map"); return; }
+              if (target === "chat" && companyId) {
+                const co = companies.find(c => c.id === companyId || c.ownerId === companyId);
+                if (co) { requireAuth(() => go("chat", co)); return; }
+              }
               if ((target === "company" || target === "company_or_quote" || target === "company_or_map") && companyId) {
                 const co = companies.find(c => c.id === companyId || c.ownerId === companyId);
                 if (co) { go("portfolio", co); return; }

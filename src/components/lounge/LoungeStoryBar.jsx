@@ -5,7 +5,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../../constants';
 import { SHOW_DEBUG_UI } from '../../constants/release';
-import { getAnonymousAvatarByNickname, getAnonymousNickname } from '../../utils/anonymousNickname';
+import { getAnonymousAvatarByNickname, getAnonymousNickname, formatRelativeTime } from '../../utils/anonymousNickname';
 import {
   getLoungeComments,
   createLoungeComment,
@@ -15,6 +15,8 @@ import {
   removeLoungePostLike,
   likeLoungePost,
   unlikeLoungePost,
+  getUser,
+  IS_SUPABASE_READY,
 } from '../../lib/supabase';
 
 // ── 댓글 바텀시트 (화이트) ────────────────────────────
@@ -189,7 +191,7 @@ function MoreSheet({ isOwner, onDelete, onReport, onClose }) {
 }
 
 // ── 스토리 뷰어 (풀스크린, 블릿 레이아웃) ────────────
-function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
+function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user, onAuthorChat }) {
   const [index,        setIndex]        = useState(startIndex);
   const [comments,     setComments]     = useState([]);
   const [isLiked,      setIsLiked]      = useState(false);
@@ -201,6 +203,8 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
   const [bannerClosed, setBannerClosed] = useState(false);
   const [devOpen,      setDevOpen]      = useState(false);
   const [bgImgFailed,  setBgImgFailed]  = useState(false);
+  const [profileOpen,  setProfileOpen]  = useState(false);
+  const [authorProfile, setAuthorProfile] = useState(null);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
 
@@ -212,7 +216,21 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
 
   useEffect(() => {
     setBgImgFailed(false);
+    setProfileOpen(false);
   }, [story?.id]);
+
+  // 작성자 프로필 시트 — 공간온도/관심카테고리 조회 (실패 시 표시만 생략)
+  useEffect(() => {
+    setAuthorProfile(null);
+    if (!profileOpen || !story?.user_id || !IS_SUPABASE_READY) return;
+    let cancelled = false;
+    getUser(story.user_id).then(({ data }) => {
+      if (!cancelled && data) {
+        setAuthorProfile({ spaceTemp: data.space_temp ?? 36.5, interests: data.interests ?? [] });
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [profileOpen, story?.user_id]);
 
   useEffect(() => {
     if (!story?.id) return;
@@ -343,7 +361,8 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
 
       {/* ── 좌하단: 유저정보 + 내용 ── */}
       <div style={{ position: 'absolute', bottom: 24, left: 16, right: 70, zIndex: 8, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <div onClick={() => { if (story.user_id) setProfileOpen(true); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: story.user_id ? 'pointer' : 'default' }}>
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: avatar.color, border: '2px solid rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
             {avatar.emoji}
           </div>
@@ -437,6 +456,44 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user }) {
           )}
         </div>
       )}
+
+      {/* ── 작성자 프로필 시트 (공간온도·관심·최근활동 + 대화 신청) ── */}
+      {profileOpen && (
+        <div onClick={() => setProfileOpen(false)}
+          style={{ position: 'absolute', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.45)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px calc(20px + env(safe-area-inset-bottom, 0px))' }}>
+            <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: '0 auto 16px' }} />
+            <div style={{ fontSize: 13, color: C.text3, marginBottom: 2 }}>{isOwner ? '내 스토리' : '스토리 작성자'}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{story.anonymous_nickname}</div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {authorProfile?.spaceTemp != null && (
+                <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
+                  🌡️ 공간온도 {Number(authorProfile.spaceTemp).toFixed(1)}°
+                </span>
+              )}
+              {(authorProfile?.interests ?? []).slice(0, 3).map(it => (
+                <span key={it} style={{ background: C.bg, color: C.text3, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 600 }}>
+                  #{it}
+                </span>
+              ))}
+              {story.created_at && (
+                <span style={{ fontSize: 11, color: C.text4 }}>🕐 최근활동 {formatRelativeTime(story.created_at)}</span>
+              )}
+            </div>
+            {!isOwner && onAuthorChat && (
+              <button onClick={() => { setProfileOpen(false); onAuthorChat(story); }}
+                style={{ width: '100%', marginTop: 16, padding: '13px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+                💬 이 작성자에게 대화 신청하기
+              </button>
+            )}
+            <button onClick={() => setProfileOpen(false)}
+              style={{ width: '100%', marginTop: 8, padding: '13px', background: C.bg, color: C.text3, border: 'none', borderRadius: R.lg, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -510,7 +567,7 @@ function StoryCard({ story, seen, onClick }) {
 }
 
 // ── 메인 스토리바 ──────────────────────────────────────
-export default function LoungeStoryBar({ stories, onStoryClick, user, onStoryDeleted }) {
+export default function LoungeStoryBar({ stories, onStoryClick, user, onStoryDeleted, onAuthorChat }) {
   const [viewerIndex,  setViewerIndex]  = useState(null);
   const [seen,         setSeen]         = useState({});
   const [localStories, setLocalStories] = useState(stories ?? []);
@@ -568,6 +625,7 @@ export default function LoungeStoryBar({ stories, onStoryClick, user, onStoryDel
           onClose={() => setViewerIndex(null)}
           onStoryDeleted={handleStoryDeleted}
           user={user}
+          onAuthorChat={onAuthorChat}
         />
       )}
     </>
