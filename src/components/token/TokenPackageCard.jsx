@@ -33,6 +33,11 @@ export default function TokenPackageCard({ pkg, onBuy }) {
               총 {(pkg.tokens + pkg.bonus).toLocaleString()} 토큰
             </div>
           )}
+          {pkg.perk && (
+            <div style={{ display: 'inline-block', marginTop: 6, background: isPopular ? 'rgba(255,255,255,0.22)' : C.brandL, color: isPopular ? '#fff' : C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 800 }}>
+              {pkg.perk}
+            </div>
+          )}
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 18, fontWeight: 900, color: isPopular ? '#fff' : C.brand }}>

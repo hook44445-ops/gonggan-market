@@ -43,13 +43,14 @@ export const LOUNGE_PREVIEW_COUNT = 7;
 // 삭제 대상은 명시된 4개만: 게임/반려동물/여행/대화해요.
 export const LOUNGE_INACTIVE_CATEGORIES = ['game', 'pet', 'travel', 'chat'];
 
+// perk: 25토큰(체험용) 대비 추가 수량 강조 문구 — UI 표시용. 가격/토큰 수량 정책 불변.
 export const TOKEN_PACKAGES = [
-  { tokens: 25,   bonus: 0, price: 8900,   badge: null },
-  { tokens: 45,   bonus: 0, price: 13900,  badge: null },
-  { tokens: 100,  bonus: 0, price: 25900,  badge: null },
-  { tokens: 200,  bonus: 0, price: 45900,  badge: '인기' },
-  { tokens: 600,  bonus: 0, price: 128900, badge: null },
-  { tokens: 1100, bonus: 0, price: 228900, badge: '실속' },
+  { tokens: 25,   bonus: 0, price: 8900,   badge: null,   perk: '체험용' },
+  { tokens: 45,   bonus: 0, price: 13900,  badge: null,   perk: '🎁 20토큰 추가' },
+  { tokens: 100,  bonus: 0, price: 25900,  badge: null,   perk: '🎁 75토큰 추가' },
+  { tokens: 200,  bonus: 0, price: 45900,  badge: '인기', perk: '🔥 175토큰 추가' },
+  { tokens: 600,  bonus: 0, price: 128900, badge: null,   perk: '🔥 575토큰 추가' },
+  { tokens: 1100, bonus: 0, price: 228900, badge: '실속', perk: '👑 1075토큰 추가' },
 ];
 
 export const TOKEN_COSTS = {

@@ -43,6 +43,22 @@ const normalizePortfolio = (row) => {
 
 const MAX_PHOTOS = 10;
 
+// 포트폴리오 유형 필터 — space_type/제목/태그/설명 키워드 매칭 (DB 변경 없음)
+const PORTFOLIO_FILTERS = [
+  { id: "all",     label: "전체",     keywords: [] },
+  { id: "home",    label: "주거",     keywords: ["아파트", "빌라", "주택", "주거", "오피스텔", "원룸", "투룸"] },
+  { id: "shop",    label: "상가",     keywords: ["상가", "매장", "카페", "사무실", "점포", "상업", "식당", "오피스"] },
+  { id: "partial", label: "부분시공", keywords: ["부분", "도배", "장판", "타일", "조명", "샷시", "창호", "페인트", "필름", "마루"] },
+  { id: "bath",    label: "욕실",     keywords: ["욕실", "화장실", "바스"] },
+  { id: "kitchen", label: "주방",     keywords: ["주방", "싱크", "키친"] },
+];
+
+const matchesPortfolioFilter = (work, filter) => {
+  if (!filter || filter.id === "all") return true;
+  const hay = [work.type, work.title, work.desc, ...(work.tags ?? [])].filter(Boolean).join(" ");
+  return filter.keywords.some(k => hay.includes(k));
+};
+
 function PhotoUploadSection({ label, hint, files, onAdd, onRemove, inputRef }) {
   return (
     <div style={{ marginBottom: S.xl }}>
@@ -241,6 +257,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
   const [photoWork, setPhotoWork] = useState(null);
   const [showWriteModal, setShowWriteModal] = useState(false);
   const [portfolio, setPortfolio] = useState(company?.portfolio ?? []);
+  const [pfFilter, setPfFilter] = useState("all");
   const [reviews, setReviews] = useState(company?.reviewList ?? []);
 
   useEffect(() => {
@@ -406,9 +423,40 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
             + 추가
           </button>
         </div>
-        {portfolio.map(work => (
-          <PortfolioCard key={work.id} work={work} onExpand={setPhotoWork} />
-        ))}
+        {/* 유형 필터 칩 (전체/주거/상가/부분시공/욕실/주방) */}
+        <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:S.md, WebkitOverflowScrolling:"touch" }}>
+          {PORTFOLIO_FILTERS.map(f => {
+            const active = pfFilter === f.id;
+            return (
+              <button key={f.id} onClick={() => setPfFilter(f.id)}
+                style={{ flexShrink:0, background: active ? C.brand : C.surface,
+                  color: active ? "#fff" : C.text3,
+                  border:`1px solid ${active ? C.brand : C.bgWarm}`,
+                  borderRadius:R.full, padding:"6px 14px", fontSize:12,
+                  fontWeight: active ? 800 : 600, cursor:"pointer", whiteSpace:"nowrap" }}>
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+        {(() => {
+          const f = PORTFOLIO_FILTERS.find(x => x.id === pfFilter);
+          const filtered = portfolio.filter(w => matchesPortfolioFilter(w, f));
+          if (filtered.length === 0) {
+            return (
+              <div style={{ background:C.surface, borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
+                padding:`${S.xl * 2}px ${S.xl}px`, textAlign:"center", marginBottom:S.md }}>
+                <div style={{ fontSize:32, marginBottom:8 }}>🏠</div>
+                <div style={{ fontSize:13, color:C.text3 }}>
+                  {pfFilter === "all" ? "등록된 포트폴리오가 없어요" : "해당 유형의 포트폴리오가 없어요"}
+                </div>
+              </div>
+            );
+          }
+          return filtered.map(work => (
+            <PortfolioCard key={work.id} work={work} onExpand={setPhotoWork} />
+          ));
+        })()}
 
         <button onClick={() => onChat(company)}
           style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff",
@@ -425,7 +473,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
         </button>
       </div>
 
-      {photoWork && <PhotoModal work={photoWork} onClose={() => setPhotoWork(null)} />}
+      {photoWork && <PhotoModal work={{ ...photoWork, companyName: company.name }} onClose={() => setPhotoWork(null)} />}
       {showWriteModal && (
         <PortfolioWriteModal
           companyId={company.id}

@@ -14,13 +14,22 @@ const THRESHOLD_MISSIONS = [
   { action: 'posts_written_3',     key: 'posts',          threshold: 3  },
 ];
 
+// 매일 반복 미션(좋아요20/댓글10/게시글3) — 마지막 획득 후 24시간 지나면 재지급
+const REPEAT_WINDOW_MS = 24 * 3600000;
+const REPEAT_24H_ACTIONS = new Set(THRESHOLD_MISSIONS.map(m => m.action));
+
+export function earnedWithinWindow(logs, action, now = Date.now()) {
+  const last = logs.find(l => l.type === 'earn' && l.action === action);
+  return !!last && now - new Date(last.created_at).getTime() < REPEAT_WINDOW_MS;
+}
+
 async function grantThresholds(userId, balance, logs, stats) {
   if (!stats) return { balance, logs };
   let cur = balance;
   let curLogs = logs;
   for (const { action, key, threshold } of THRESHOLD_MISSIONS) {
     if ((stats[key] ?? 0) < threshold) continue;
-    const already = curLogs.some(l => l.type === 'earn' && l.action === action);
+    const already = earnedWithinWindow(curLogs, action);
     if (already) continue;
     const amount = TOKEN_EARN[action.toUpperCase()] ?? TOKEN_EARN[action] ?? 0;
     if (!amount) continue;
@@ -67,7 +76,17 @@ export function useSpaceToken(userId) {
     const amount = TOKEN_EARN[action.toUpperCase()] ?? TOKEN_EARN[action] ?? 0;
     if (!amount) return false;
 
-    const alreadyEarned = logsRef.current.some(l => l.type === 'earn' && l.action === action);
+    let alreadyEarned;
+    if (REPEAT_24H_ACTIONS.has(action)) {
+      // 매일 반복 미션: 24시간 이내 재지급 차단
+      alreadyEarned = earnedWithinWindow(logsRef.current, action);
+    } else if (action === 'construction_review') {
+      // 후기 보상: 완료된 계약 1건당 1회 — description(계약 식별 포함) 단위로 중복 차단
+      alreadyEarned = logsRef.current.some(l => l.type === 'earn' && l.action === action
+        && (l.description ?? null) === (description ?? null));
+    } else {
+      alreadyEarned = logsRef.current.some(l => l.type === 'earn' && l.action === action);
+    }
     if (alreadyEarned) return false;
 
     const newBalance = balanceRef.current + amount;

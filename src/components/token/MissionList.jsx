@@ -70,7 +70,7 @@ export default function MissionList({ logs = [], missionStats = null, balance = 
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: m.done ? C.text3 : C.text1 }}>{m.label}</div>
-              <div style={{ fontSize: 11, color: C.brand, fontWeight: 700, marginTop: 2 }}>+{m.reward} 토큰</div>
+              <div style={{ fontSize: 11, color: C.brand, fontWeight: 700, marginTop: 2 }}>+{m.reward} 토큰{m.repeat ? ' · 매일 반복' : ''}</div>
               {m.progress && !m.done && <ProgressBar current={m.progress.current} total={m.progress.total} />}
             </div>
           </div>
