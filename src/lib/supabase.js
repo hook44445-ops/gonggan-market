@@ -268,6 +268,19 @@ export const getChatMessages = (roomId) =>
     .eq("room_id", roomId)
     .order("created_at", { ascending: true });
 
+// 관리자 증빙 열람용(읽기 전용) — 한 프로젝트의 채팅을 고객×업체 room 후보로 조회.
+// room_id = `${customerUserId}_${companyId}` 규칙. 업체는 companies.id/owner_id 둘 다 후보로 본다
+// (과거 bids.company_id 가 owner_id 였던 케이스 보정). 데이터 없으면 빈 배열.
+export const getChatsForProject = ({ customerId, companyId, ownerId } = {}) => {
+  const rooms = [companyId, ownerId].filter(Boolean).map((cid) => `${customerId}_${cid}`);
+  if (!customerId || rooms.length === 0) return Promise.resolve({ data: [], error: null });
+  return supabase
+    .from("chats")
+    .select("*")
+    .in("room_id", rooms)
+    .order("created_at", { ascending: true });
+};
+
 export const sendMessage = (roomId, senderId, senderType, text) =>
   supabase.from("chats").insert({
     room_id: roomId,

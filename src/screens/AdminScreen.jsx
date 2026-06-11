@@ -30,6 +30,7 @@ import {
   getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
   fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
   getProjectCheckpoints, getAdminProjectFlow,
+  getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge,
 } from "../lib/supabase";
@@ -1921,7 +1922,17 @@ function ProjectFlowTab({ adminUserId, showToast }) {
   );
 }
 
-// 상세 — 11단계 타임라인 + GPS(위도/경도/도로명주소/정확도/사진).
+// 직거래 의심 키워드(읽기 전용 표시용 — 자동 제재 없음).
+const DDR_KEYWORDS = ["전화번호","계좌번호","카카오톡","카톡","오픈채팅","문자주세요","직접 연락","현금","따로 거래","수수료 빼고","계좌이체 직접"];
+const DDR_PHONE_RE = /01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/;
+function detectDdrHits(text) {
+  if (!text) return [];
+  const hits = DDR_KEYWORDS.filter(k => text.includes(k));
+  if (DDR_PHONE_RE.test(text)) hits.push("전화번호");
+  return Array.from(new Set(hits));
+}
+
+// 프로젝트 증빙관리 상세 — 요약 + 11단계 타임라인 + 단계별 증빙 모달 + 채팅 증빙(읽기 전용).
 function ProjectFlowDetail({ row, onClose }) {
   const ff     = deriveFlowFlags(row);  // 카드/필터와 동일 로직 — 증빙 체크리스트 공통 사용
   const cps    = row.checkpoints || [];
@@ -1932,6 +1943,28 @@ function ProjectFlowDetail({ row, onClose }) {
   const cpMid   = cpFind(cps, ["middle", "mid_inspection"]);
   const cpComp  = cpFind(cps, ["complete", "completion"]);
   const fmt = (t) => t ? new Date(t).toLocaleString("ko-KR", { year: "2-digit", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }) : null;
+
+  // 채팅 증빙(읽기 전용) — 고객×업체 room 조회.
+  const [chatMsgs, setChatMsgs] = useState([]);
+  const [chatLoading, setChatLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    setChatLoading(true);
+    getChatsForProject({ customerId: row.customer?.id, companyId: row.company?.id, ownerId: row.company?.owner_id })
+      .then(({ data }) => { if (alive) setChatMsgs(Array.isArray(data) ? data : []); })
+      .catch(() => { if (alive) setChatMsgs([]); })
+      .finally(() => { if (alive) setChatLoading(false); });
+    return () => { alive = false; };
+  }, [row.request_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 단계별 증빙 모달(클릭 시).
+  const [stageModal, setStageModal] = useState(null); // { label, reached, cp, key }
+
+  const chatCount = chatMsgs.length;
+  const lastChatAt = chatCount > 0 ? chatMsgs[chatMsgs.length - 1].created_at : null;
+  const chatDdrCount = chatMsgs.reduce((n, m) => n + (detectDdrHits(m.text).length > 0 ? 1 : 0), 0);
+  const ddrSuspect = (row.direct_deal_reports || []).length > 0 || chatDdrCount > 0;
+  const stageLabel = (FLOW_STAGE_META[row.flow_stage] || {}).label || row.flow_stage || "—";
 
   // 11단계 정의 — reached(도달 여부), at(시각), cp(GPS 체크포인트, 있으면 좌표 블록 표시)
   const steps = [
@@ -1973,24 +2006,41 @@ function ProjectFlowDetail({ row, onClose }) {
   );
 
   return (
+   <>
     <div onClick={onClose}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div onClick={e => e.stopPropagation()}
         style={{ background: C.surface, width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto",
           borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, padding: "18px 18px 40px" }}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>현장 흐름 상세</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>프로젝트 증빙관리 상세</div>
           <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text3 }}>×</button>
         </div>
 
-        <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.8, marginBottom: 14, background: C.bg, borderRadius: R.md, padding: "10px 12px" }}>
+        {/* 상단 요약 */}
+        <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.8, marginBottom: 12, background: C.bg, borderRadius: R.md, padding: "10px 12px" }}>
           <div><b style={{ color: C.text1 }}>{row.area || "지역 미상"}</b> · {row.space_type || "—"} {row.size ? `· ${row.size}` : ""}</div>
           <div>고객: {row.customer?.name || "—"} ({row.customer?.phone || "—"})</div>
-          <div>업체: {row.company?.name || "미배정"} {row.company?.phone ? `(${row.company.phone})` : ""}</div>
+          <div>업체: {row.company?.name || "미배정"}</div>
+          <div>현재 단계: <b style={{ color: C.text1 }}>{stageLabel}</b></div>
           {row.selected_bid?.price != null && <div>계약 견적: {row.selected_bid.price}만원</div>}
-          {esc?.total_amount != null && <div>에스크로 금액: {esc.total_amount}만원 · 상태 {esc.transaction_status || "—"}</div>}
-          {(row.direct_deal_reports || []).length > 0 && <div style={{ color: C.red }}>직거래 의심 신고 {row.direct_deal_reports.length}건</div>}
+          <div>에스크로: {esc?.total_amount != null ? `${esc.total_amount}만원 · ` : ""}상태 {esc?.transaction_status || "—"}</div>
           <div style={{ color: C.text4 }}>request_id: {row.request_id}</div>
+          {ddrSuspect && (
+            <div style={{ color: C.red, fontWeight: 700 }}>
+              🚩 직거래 의심 {(row.direct_deal_reports || []).length > 0 ? `· 신고 ${row.direct_deal_reports.length}건` : ""}{chatDdrCount > 0 ? ` · 채팅 키워드 ${chatDdrCount}건` : ""}
+            </div>
+          )}
+        </div>
+
+        {/* 카운트 요약 */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          {[["📍 GPS", ff.gpsCount], ["📷 사진", ff.photoCount], ["💬 채팅", chatLoading ? "…" : chatCount]].map(([label, n]) => (
+            <div key={label} style={{ flex: 1, background: C.bg, borderRadius: R.md, padding: "8px 6px", textAlign: "center" }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: C.text1 }}>{n}</div>
+              <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
         </div>
 
         {/* 증빙 체크리스트 — 카드/필터와 '동일 로직'(deriveFlowFlags) 사용 */}
@@ -2032,10 +2082,12 @@ function ProjectFlowDetail({ row, onClose }) {
                   {!isLast && <div style={{ width: 2, flex: 1, background: st.reached ? C.brandM : C.bgWarm, minHeight: 18 }} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div onClick={() => setStageModal({ label: st.label, reached: st.reached, cp: st.cp || null, key: st.key, at: st.at })}
+                    style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: st.reached ? C.text1 : C.text4 }}>{st.label}</span>
                     {st.at && <span style={{ fontSize: 11, color: C.text4 }}>{fmt(st.at)}</span>}
                     {!st.reached && <span style={{ fontSize: 10, color: C.text4 }}>미도달</span>}
+                    <span style={{ marginLeft: "auto", fontSize: 11, color: C.brand, fontWeight: 700 }}>증빙 ›</span>
                   </div>
                   {st.cp && st.reached && <GpsBlock cp={st.cp} />}
                   {/* GPS 필수 단계인데 체크포인트 없음 표시 */}
@@ -2047,8 +2099,91 @@ function ProjectFlowDetail({ row, onClose }) {
             );
           })}
         </div>
+
+        {/* 채팅 증빙(읽기 전용) */}
+        <div style={{ marginTop: 16, background: C.bg, borderRadius: R.md, padding: "10px 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.text1 }}>💬 채팅 증빙</div>
+            <span style={{ fontSize: 11, color: C.text3 }}>
+              {chatLoading ? "불러오는 중…" : `${chatCount}건${lastChatAt ? ` · 마지막 ${fmt(lastChatAt)}` : ""}`}
+            </span>
+            {chatDdrCount > 0 && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: C.red, background: "#FFF0F0", borderRadius: R.sm, padding: "2px 7px" }}>직거래 의심 {chatDdrCount}</span>}
+          </div>
+          {!chatLoading && chatCount === 0 && <div style={{ fontSize: 12, color: C.text4 }}>채팅 내역 없음</div>}
+          {!chatLoading && chatCount > 0 && (
+            <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+              {chatMsgs.map((m) => {
+                const isCompany = m.sender_type === "company";
+                const hits = detectDdrHits(m.text);
+                const img = m.image_url ?? m.image ?? null;
+                return (
+                  <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: isCompany ? "flex-start" : "flex-end" }}>
+                    <div style={{ fontSize: 9, color: C.text4, marginBottom: 1 }}>{isCompany ? "업체" : "고객"} · {fmt(m.created_at)}</div>
+                    <div style={{ maxWidth: "82%", background: isCompany ? C.surface : C.brandL, color: C.text1,
+                      border: `1px solid ${hits.length > 0 ? C.red : C.bgWarm}`, borderRadius: R.md, padding: "6px 9px", fontSize: 12, lineHeight: 1.5, wordBreak: "break-word" }}>
+                      {m.text}
+                      {img && <div style={{ marginTop: 4 }}><a href={img} target="_blank" rel="noreferrer"><img src={img} alt="" style={{ maxWidth: 120, borderRadius: R.sm, border: `1px solid ${C.bgWarm}` }} /></a></div>}
+                      {hits.length > 0 && <div style={{ marginTop: 3, fontSize: 9, color: C.red, fontWeight: 700 }}>🚩 {hits.join(", ")}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ fontSize: 10, color: C.text4, marginTop: 8, lineHeight: 1.5 }}>※ 읽기 전용 증빙입니다. 자동 제재·삭제·수정은 수행하지 않습니다.</div>
+        </div>
       </div>
     </div>
+
+    {/* 단계별 증빙 상세 모달 */}
+    {stageModal && (
+      <div onClick={() => setStageModal(null)}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+        <div onClick={e => e.stopPropagation()}
+          style={{ background: C.surface, width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto",
+            borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, padding: "18px 18px 36px" }}>
+          <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{stageModal.label} 증빙</div>
+            <span style={{ marginLeft: 10, fontSize: 11, fontWeight: 700, color: stageModal.reached ? C.green : C.text4 }}>{stageModal.reached ? "도달" : "미도달"}</span>
+            <button onClick={() => setStageModal(null)} style={{ marginLeft: "auto", background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text3 }}>×</button>
+          </div>
+          {(() => {
+            const cp = stageModal.cp;
+            if (!cp) {
+              return <div style={{ fontSize: 13, color: C.gold, padding: "10px 0" }}>📍 GPS 체크포인트 없음</div>;
+            }
+            const photos = Array.isArray(cp.photos) ? cp.photos : [];
+            return (
+              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.9 }}>
+                <div>📍 도로명: <b style={{ color: C.text1 }}>{cp.road_address || "—"}</b></div>
+                <div>지번: {cp.jibun_address || "—"}</div>
+                <div>위도 {cp.lat ?? "—"} · 경도 {cp.lng ?? "—"} · 정확도 {cp.accuracy != null ? `${cp.accuracy}m` : "—"}</div>
+                <div>기록 시간: {cp.captured_at ? fmt(cp.captured_at) : "—"}</div>
+                <div>기록자: {cp.captured_by || "—"}</div>
+                {(cp.note ?? cp.memo) && <div>메모: {cp.note ?? cp.memo}</div>}
+                {cp.lat != null && cp.lng != null && (
+                  <a href={`https://map.kakao.com/link/map/현장,${cp.lat},${cp.lng}`} target="_blank" rel="noreferrer"
+                    style={{ display: "inline-block", marginTop: 6, color: C.brand, fontWeight: 700, textDecoration: "none" }}>카카오맵 보기 →</a>
+                )}
+                <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: C.text1 }}>사진 {photos.length}장</div>
+                {photos.length === 0 ? (
+                  <div style={{ fontSize: 12, color: C.gold }}>사진 없음</div>
+                ) : (
+                  <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                    {photos.map((p, i) => (
+                      <a key={i} href={p} target="_blank" rel="noreferrer">
+                        <img src={p} alt="" style={{ width: 84, height: 84, objectFit: "cover", borderRadius: R.sm, border: `1px solid ${C.bgWarm}` }} />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+    )}
+   </>
   );
 }
 
