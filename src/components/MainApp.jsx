@@ -580,6 +580,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
   const [activeJobs, setActiveJobs] = useState([]);
   const [homeReviewViewer, setHomeReviewViewer] = useState(null);
+  const [homeReviewDetail, setHomeReviewDetail] = useState(null);
   const [siteVisitJob, setSiteVisitJob] = useState(null);
   const [estimateJob, setEstimateJob] = useState(null);
   const [termsDocType, setTermsDocType] = useState(null);
@@ -2391,17 +2392,18 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         const hasPhoto  = !!beforeThumb || !!afterThumb;
                         return (
                           <div key={rv.id}
+                            onClick={() => setHomeReviewDetail(rv)}
                             style={{ flexShrink:0, width:228, background:C.surface,
                               borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
                               overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
-                              cursor:"default" }}>
+                              cursor:"pointer" }}>
                             {hasPhoto && (
                               <div style={{ display:"flex", height:116, overflow:"hidden" }}>
                                 {showSplit ? (
                                   <>
                                     <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff" }}>
                                       <img src={beforeThumb} alt=""
-                                        onClick={() => setHomeReviewViewer({ images:[beforeThumb,afterThumb].filter(Boolean), index:0 })}
+                                        onClick={(e) => { e.stopPropagation(); setHomeReviewViewer({ images:[beforeThumb,afterThumb].filter(Boolean), index:0 }); }}
                                         style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", cursor:"pointer" }}
                                         onError={e => { e.target.style.display="none"; }} />
                                       <span style={{ position:"absolute", bottom:4, left:4,
@@ -2413,7 +2415,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                     </div>
                                     <div style={{ flex:1, position:"relative" }}>
                                       <img src={afterThumb} alt=""
-                                        onClick={() => setHomeReviewViewer({ images:[beforeThumb,afterThumb].filter(Boolean), index:1 })}
+                                        onClick={(e) => { e.stopPropagation(); setHomeReviewViewer({ images:[beforeThumb,afterThumb].filter(Boolean), index:1 }); }}
                                         style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", cursor:"pointer" }}
                                         onError={e => { e.target.style.display="none"; }} />
                                       <span style={{ position:"absolute", bottom:4, right:4,
@@ -2427,7 +2429,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                 ) : (
                                   <div style={{ flex:1, position:"relative" }}>
                                     <img src={afterThumb ?? beforeThumb} alt=""
-                                      onClick={() => setHomeReviewViewer({ images:[afterThumb ?? beforeThumb].filter(Boolean), index:0 })}
+                                      onClick={(e) => { e.stopPropagation(); setHomeReviewViewer({ images:[afterThumb ?? beforeThumb].filter(Boolean), index:0 }); }}
                                       style={{ width:"100%", height:"100%", objectFit:"cover", display:"block", cursor:"pointer" }}
                                       onError={e => { e.target.style.display="none"; }} />
                                     <span style={{ position:"absolute", bottom:4, left:4,
@@ -4707,6 +4709,52 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           onClose={() => setHomeReviewViewer(null)}
         />
       )}
+
+      {/* 믿고 맡긴 후기 — 상세(읽기 전용 바텀시트). 카드/제목/본문 클릭 시 진입 */}
+      {homeReviewDetail && (() => {
+        const rv = homeReviewDetail;
+        const imgs = [rv.beforeThumb, rv.afterThumb].filter(Boolean);
+        return (
+          <div onClick={() => setHomeReviewDetail(null)}
+            style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)", zIndex:520,
+              display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background:C.surface, width:"100%", maxWidth:480, maxHeight:"86vh", overflowY:"auto",
+                borderRadius:"24px 24px 0 0", padding:"20px 22px 36px" }}>
+              <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 18px" }} />
+              <div style={{ display:"flex", alignItems:"center", marginBottom:12 }}>
+                <div style={{ fontSize:16, fontWeight:900, color:C.text1 }}>믿고 맡긴 후기</div>
+                <button onClick={() => setHomeReviewDetail(null)}
+                  style={{ marginLeft:"auto", background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text3 }}>×</button>
+              </div>
+              {imgs.length > 0 && (
+                <div style={{ display:"flex", gap:8, marginBottom:14, overflowX:"auto" }}>
+                  {imgs.map((src, i) => (
+                    <img key={i} src={src} alt=""
+                      onClick={() => setHomeReviewViewer({ images: imgs, index: i })}
+                      style={{ width: imgs.length > 1 ? "47%" : "100%", flexShrink:0, height:180, objectFit:"cover",
+                        borderRadius:R.lg, border:`1px solid ${C.bgWarm}`, cursor:"pointer" }}
+                      onError={e => { e.target.style.display="none"; }} />
+                  ))}
+                </div>
+              )}
+              <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:10 }}>
+                {[1,2,3,4,5].map(s => (
+                  <span key={s} style={{ fontSize:16, color: s <= rv.rating ? C.gold : "#E8E4DC" }}>★</span>
+                ))}
+                <span style={{ fontSize:12, color:C.text4, marginLeft:4 }}>{rv.rating}.0</span>
+              </div>
+              <div style={{ fontSize:14, color:C.text1, lineHeight:1.8, marginBottom:16, whiteSpace:"pre-line" }}>
+                {rv.content}
+              </div>
+              <div style={{ borderTop:`1px solid ${C.bg}`, paddingTop:12, fontSize:13, color:C.text3, lineHeight:1.8 }}>
+                <div>👤 {rv.user_name} · {rv.space_type}</div>
+                <div>🏠 {rv.companyName}</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {SHOW_DEBUG_UI && (
         <div style={{ position:"fixed", top:8, right:8, background:"rgba(0,0,0,0.82)", color:"#0f0", borderRadius:8, padding:"8px 10px", fontSize:10, zIndex:9999, lineHeight:1.9, fontFamily:"monospace", maxWidth:200, pointerEvents:"none" }}>

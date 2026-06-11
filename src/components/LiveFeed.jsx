@@ -3,11 +3,27 @@ import { C, R, S } from "../constants";
 import { getLiveRequests } from "../lib/supabase";
 
 const STAGE_MAP = {
+  open:                  { label:"견적 요청",   pct:10 },
   site_visit:            { label:"현장 실측",   pct:15 },
+  site_visiting:         { label:"현장 실측",   pct:15 },
   final_quote_submitted: { label:"최종견적 검토", pct:30 },
   escrow_pending:        { label:"결제 준비중", pct:45 },
   contracting:           { label:"계약 단계",   pct:50 },
+  selected:              { label:"계약 단계",   pct:50 },
   in_progress:           { label:"착공 진행중", pct:70 },
+};
+
+// 상대 시간 표기 — "방금" / "N분 전" / "N시간 전" / "N일 전".
+const timeAgo = (ts) => {
+  if (!ts) return "";
+  const diff = Date.now() - new Date(ts).getTime();
+  if (!Number.isFinite(diff) || diff < 0) return "방금";
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "방금";
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
 };
 
 const TOTAL = 5;
@@ -70,6 +86,7 @@ export default function LiveFeed() {
                 overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
                 <span style={{ color:C.brand }}>{item.area ?? "—"}</span>
                 {" · "}{item.space_type ?? "인테리어"}
+                {item.created_at && <span style={{ color:C.text4, fontWeight:500 }}>{" · "}{timeAgo(item.created_at)}</span>}
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:4 }}>
                 <span style={{ fontSize:10, color:C.text3, flexShrink:0 }}>{stage.label}</span>
