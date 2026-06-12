@@ -16,6 +16,7 @@ import {
   fetchReceivedChatRequests,
   fetchAcceptedReceivedChatRequests,
   acceptLoungeChatRequest,
+  createNotification,
 } from '../../lib/supabase';
 
 // ── 로컬스토리지 헬퍼 ──────────────────────────────────
@@ -330,6 +331,15 @@ function ChatHistoryScreen({ userId, onBack, onOpenChat }) {
       setReceived(prev => prev.filter(r => r.id !== req.id));
       setAcceptedRecv(prev => [{ ...req, status: 'accepted' }, ...prev]);
       openChat(req, req.requester_id);
+      // B단계: 대화 수락 알림(인앱 + 푸시 enqueue) — 토큰차감/대화방 RPC 그대로, 알림만 추가.
+      createNotification({
+        userId:      req.requester_id,
+        type:        'LOUNGE_CHAT_ACCEPTED',
+        title:       '대화 신청 수락',
+        message:     '상대가 대화 신청을 수락했어요. 대화를 시작해 보세요!',
+        relatedId:   req.post_id ?? req.id ?? null,
+        relatedType: 'lounge',
+      }).catch(() => {});
     }
   };
 

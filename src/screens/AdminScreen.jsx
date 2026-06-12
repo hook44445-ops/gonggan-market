@@ -3767,6 +3767,37 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
                   알림 <span style={{ color: C.brand }}>{notifications.length}건</span>
                 </div>
+
+                {/* ADMIN ONLY 테스트 발송 — 본인에게 알림 1건 생성(notifications 저장 + /api/push/enqueue 큐 등록).
+                    실발송 검증은 env 설정 후 별도 진행 → 여기선 큐 등록/생성 확인까지만. dispatch/enqueue 구조 무변경. */}
+                {(user?.role === "admin" || import.meta.env.DEV) && (
+                  <div style={{ background: C.surface, border: `1px dashed ${C.brandM}`, borderRadius: R.lg, padding: S.lg, marginBottom: S.md }}>
+                    <div style={{ fontSize: 12, color: C.text3, marginBottom: 8, fontWeight: 700 }}>🧪 푸시 검증용 (관리자 전용)</div>
+                    <button
+                      onClick={async () => {
+                        if (!user?.id) return;
+                        try {
+                          await createNotification({
+                            userId:      user.id,
+                            type:        "ADMIN_TEST_PUSH",
+                            title:       "테스트 알림",
+                            message:     `관리자 테스트 발송 · ${new Date().toLocaleString("ko-KR")}`,
+                            relatedType: "admin",
+                          });
+                          const { data } = await getUserNotifications(user.id, { limit: 50 });
+                          if (data) setNotifications(data);
+                          showToast("테스트 알림 생성됨 — notifications 저장 + enqueue 큐 등록");
+                        } catch {
+                          showToast("테스트 알림 생성 실패", false);
+                        }
+                      }}
+                      style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.md,
+                        padding: "10px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+                      테스트 알림 발송
+                    </button>
+                  </div>
+                )}
+
                 {notifications.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
                     <div style={{ fontSize: 36, marginBottom: 12 }}>🔔</div>

@@ -28,6 +28,7 @@ import OperatorBoardScreen from "../screens/OperatorBoardScreen";
 import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
 import { buildPostPath, seoSlugToCategoryId } from "../utils/loungeSeo";
 import PushNotificationSettings from "./PushNotificationSettings";
+import NotificationInbox from "./NotificationInbox";
 import TokenStoreScreen from "../screens/TokenStoreScreen";
 import TokenHistoryScreen from "../screens/TokenHistoryScreen";
 import DocumentCenterScreen from "../screens/DocumentCenterScreen";
@@ -4027,6 +4028,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <span style={{ fontSize: 16, color: C.text3 }}>›</span>
               </button>
             )}
+
+            {/* 통합 알림함 — notifications 조회 전용(B단계) */}
+            <NotificationInbox user={user} />
 
             {/* 푸시 알림 설정 */}
             <PushNotificationSettings user={user} />
