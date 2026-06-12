@@ -1150,8 +1150,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           owner_id:       user.id,
           name:           user.name ?? "업체",
           region:         user.region ?? "",
-          company_status: "ACTIVE",
           online:         true,
+          // 온보딩 브릿지 경로(claimLeadId)에서는 company_status 를 ACTIVE 로 자동 설정하지 않는다.
+          //   입찰 게이트(company_status='ACTIVE')는 기존 업체 승인 프로세스로 분리 유지(068 원칙:
+          //   guarantee_status ≠ company_status). 비-온보딩 일반 최초 로그인은 기존대로 ACTIVE.
+          //   (CompanyOnboarding 도 company_status 미설정 → DB 기본값 사용, insert 안전.)
+          ...(claimLeadId ? {} : { company_status: "ACTIVE" }),
           ...leadExtra,
         });
         if (created) {
