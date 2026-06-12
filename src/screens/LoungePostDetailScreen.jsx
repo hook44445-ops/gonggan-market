@@ -30,7 +30,7 @@ import { BADGES } from '../constants/badges';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
-import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification } from '../lib/supabase';
+import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification, createNotification } from '../lib/supabase';
 import { buildPostMeta } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
 
@@ -580,6 +580,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       } else {
         setSentChatTargets(prev => new Set([...prev, comment.user_id]));
         showToast('💬 대화 신청을 보냈어요!\n상대가 수락하면 20토큰이 차감됩니다.');
+        // B단계: 대화 신청 알림(인앱 + 푸시 enqueue) — 토큰/대화방 로직은 위 RPC 그대로, 알림만 추가.
+        createNotification({
+          userId:      comment.user_id,
+          type:        'LOUNGE_CHAT_REQUEST',
+          title:       '새 대화 신청',
+          message:     '회원님의 댓글에 누군가 대화를 신청했어요.',
+          relatedId:   postId,
+          relatedType: 'lounge',
+        }).catch(() => {});
       }
     } finally {
       setChatRequestBusy(false);
