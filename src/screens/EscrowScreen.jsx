@@ -4,7 +4,7 @@ import { SHOW_DEBUG_UI } from "../constants/release";
 import { LeafSprig } from "../components/common";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, getProjectCheckpoints, getEstimateForRequest } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import EscrowCalculator from "../components/EscrowCalculator";
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -259,6 +259,33 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   }, [resolvedBid?.requestId, resolvedBid?.companyId, request?.id, resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isConsumer = activeRole === "consumer";
+
+  // C-1: 최종계약 GPS — 고객이 에스크로(계약) 화면에 진입하면 위치 1회 캡처+저장.
+  // fire-and-forget: 위치 권한 거부/주소 변환 실패/RPC 실패 모두 무시한다(계약·에스크로·
+  // 결제 진행을 절대 막지 않음). RPC 멱등 + ref 가드로 중복 저장 방지. 업체 GPS(착공/중간/
+  // 완료) 및 기존 project_checkpoint_save 와 완전히 분리(신규 RPC saveContractCheckpoint).
+  const contractGpsFiredRef = useRef(false);
+  useEffect(() => {
+    if (contractGpsFiredRef.current) return;
+    if (!isConsumer || !userId || !resolvedContractId) return;
+    const reqId = request?.id ?? resolvedBid?.requestId ?? null;
+    if (!reqId) return;
+    contractGpsFiredRef.current = true;
+    (async () => {
+      try {
+        const loc = await captureCheckpointLocation();
+        if (!loc) return;
+        await saveContractCheckpoint({
+          actorId: userId, requestId: reqId, contractId: resolvedContractId,
+          lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
+          roadAddress: loc.road_address, jibunAddress: loc.jibun_address, addressFull: loc.address_full,
+          sido: loc.sido, sigungu: loc.sigungu, dong: loc.dong, bunji: loc.bunji,
+        });
+      } catch { /* 계약 GPS 실패 무시 — 진행 차단 금지 */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConsumer, userId, resolvedContractId, request?.id]);
+
   // ⚠️ TDZ 방지: 아래 진단 useEffect 의 deps([... contractData?.id])는 렌더 중 평가되므로
   // contractData 선언이 반드시 그 위에 있어야 한다(선언 전 접근 시 "Cannot access 'contractData'
   // before initialization" 크래시). DB-loaded contract 상태이지만 선언만 끌어올린다.

@@ -1452,6 +1452,22 @@ export const saveProjectCheckpoint = ({
     p_photos: photos ?? [], p_note: note,
   });
 
+// C-1: 최종계약 GPS — 고객(요청 소유자) 전용 체크포인트 저장(migration 067).
+// 기존 project_checkpoint_save(업체 actor 전용)와 분리된 신규 RPC. 멱등(같은 request 에
+// contract 체크포인트 있으면 기존 행 반환). 실패해도 계약/에스크로 진행과 무관(graceful).
+export const saveContractCheckpoint = ({
+  actorId = null, requestId = null, contractId = null,
+  lat = null, lng = null, accuracy = null,
+  roadAddress = null, jibunAddress = null, addressFull = null,
+  sido = null, sigungu = null, dong = null, bunji = null, note = null,
+} = {}) =>
+  supabase.rpc("project_contract_checkpoint_save", {
+    p_actor_id: actorId, p_request_id: requestId, p_contract_id: contractId,
+    p_lat: lat, p_lng: lng, p_accuracy: accuracy,
+    p_address_full: addressFull, p_road_address: roadAddress, p_jibun_address: jibunAddress,
+    p_sido: sido, p_sigungu: sigungu, p_dong: dong, p_bunji: bunji, p_note: note,
+  });
+
 // 요청 단위 체크포인트 조회(관리자/프로젝트 상세 공용). actorId 로 당사자/admin 검증.
 // 좌표(lat/lng/accuracy)는 admin 만, 일반 당사자는 주소 수준만 반환(RPC 에서 마스킹).
 export const getProjectCheckpoints = (requestId, actorId = null) =>

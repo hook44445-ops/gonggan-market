@@ -1736,7 +1736,8 @@ function deriveFlowFlags(row) {
   const si  = FLOW_STAGE_INDEX[row.flow_stage] ?? 0;
   const ts  = esc?.transaction_status;
 
-  const cpVisit = cpFind(cps, ["site_visit"]);
+  const cpVisit    = cpFind(cps, ["site_visit"]);
+  const cpContract = cpFind(cps, ["contract"]); // C-1: 최종계약 GPS(고객 캡처)
   const cpStart = cpFind(cps, ["start", "construction_start"]);
   const cpMid   = cpFind(cps, ["middle", "mid_inspection"]);
   const cpComp  = cpFind(cps, ["complete", "completion"]);
@@ -1754,7 +1755,7 @@ function deriveFlowFlags(row) {
   // 카드/상세 공통 단계 증빙(site_visit/contract/start/middle/complete).
   const stages = [
     { key:"site_visit", label:"현장방문/실측", reached: !!sv || !!cpVisit, cp: cpVisit, gpsStage:false },
-    { key:"contract",   label:"최종계약",       reached: contractReached,   cp: null,    gpsStage:false },
+    { key:"contract",   label:"최종계약",       reached: contractReached,   cp: cpContract, gpsStage:false },
     { key:"start",      label:"착공",           reached: startReached,      cp: cpStart, gpsStage:true  },
     { key:"middle",     label:"중간점검",       reached: middleReached,     cp: cpMid,   gpsStage:true  },
     { key:"complete",   label:"완료",           reached: completeReached,   cp: cpComp,  gpsStage:true  },
@@ -1939,7 +1940,8 @@ function ProjectFlowDetail({ row, onClose }) {
   const cps    = row.checkpoints || [];
   const esc    = row.escrow || null;
   const sv     = row.site_visit || null;
-  const cpVisit = cpFind(cps, ["site_visit"]);
+  const cpVisit    = cpFind(cps, ["site_visit"]);
+  const cpContract = cpFind(cps, ["contract"]); // C-1: 최종계약 GPS(고객 캡처)
   const cpStart = cpFind(cps, ["start", "construction_start"]);
   const cpMid   = cpFind(cps, ["middle", "mid_inspection"]);
   const cpComp  = cpFind(cps, ["complete", "completion"]);
@@ -1973,7 +1975,7 @@ function ProjectFlowDetail({ row, onClose }) {
     { key: "bid",      label: "입찰",     reached: (row.bids_count ?? 0) > 0,                        at: row.selected_bid?.created_at },
     { key: "visit",    label: "현장실측", reached: !!sv || !!cpVisit,                                 at: cpVisit?.captured_at || sv?.checked_in_at, cp: cpVisit },
     { key: "quote",    label: "최종견적", reached: row.status === "final_quote_submitted" || sv?.status === "estimate_submitted" || !!sv?.field_estimate_amount, at: null },
-    { key: "contract", label: "계약",     reached: !!row.selected_bid || !!esc || ["CONTRACTED","COMPANY_SELECTED","STARTED","MID_INSPECTION","COMPLETED","SETTLED"].includes(esc?.transaction_status), at: null },
+    { key: "contract", label: "계약",     reached: !!row.selected_bid || !!esc || ["CONTRACTED","COMPANY_SELECTED","STARTED","MID_INSPECTION","COMPLETED","SETTLED"].includes(esc?.transaction_status), at: cpContract?.captured_at ?? null, cp: cpContract },
     { key: "escrow",   label: "에스크로(전액예치)", reached: !!esc?.step1_deposited_at || !!esc, at: esc?.step1_deposited_at || esc?.created_at },
     { key: "start",    label: "착공",     reached: !!cpStart || esc?.transaction_status === "STARTED", at: cpStart?.captured_at, cp: cpStart },
     { key: "mid",      label: "중간점검", reached: !!cpMid   || esc?.transaction_status === "MID_INSPECTION", at: cpMid?.captured_at, cp: cpMid },
