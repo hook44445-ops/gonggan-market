@@ -90,6 +90,20 @@ export default function App() {
       });
     } catch {}
     if (saved) setUser(saved);
+    // /partner 의 '업체 로그인' 진입 — 기존 업체 로그인/가입 경로(handleRoleSelect("company"))를
+    // 그대로 재사용한다. 새 로그인 로직을 만들지 않고, /?login=company 파라미터만 읽어 분기한다.
+    try {
+      const _params = new URLSearchParams(window.location.search);
+      if (_params.get("login") === "company") {
+        window.history.replaceState({}, "", "/");
+        if (isDeviceVerified() && getKnownUsers().length > 0) {
+          setShowAccountPicker(true);
+        } else {
+          setPendingRole("company");
+          setPhoneAuthMode(true);
+        }
+      }
+    } catch {}
     setLoading(false);
   }, []);
 

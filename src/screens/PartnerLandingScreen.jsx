@@ -109,7 +109,10 @@ const PARTNER_TYPES = [
 ];
 
 // ── Consultation form ──────────────────────────────────────────────────────────
-const EMPTY_FORM = { name: "", phone: "", company: "", type: "", message: "" };
+const EMPTY_FORM = {
+  company: "", owner: "", phone: "", bizNo: "",
+  region: "", field: "", insurance: "", message: "",
+};
 
 function ConsultForm() {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -119,11 +122,17 @@ function ConsultForm() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.name || !form.phone) {
-      alert("담당자명과 연락처는 필수입니다.");
+    const required = [
+      ["company", "업체명"], ["owner", "대표자명"], ["phone", "연락처"],
+      ["bizNo", "사업자등록번호"], ["region", "시공지역"], ["field", "전문분야"],
+    ];
+    const missing = required.filter(([k]) => !form[k]?.trim()).map(([, label]) => label);
+    if (missing.length) {
+      alert(`다음 필수 항목을 입력해 주세요:\n${missing.join(", ")}`);
       return;
     }
-    console.log("[PartnerLanding] 파트너 상담 신청:", form);
+    // 1차: DB 저장/자동 발송 없이 콘솔 기록만. 실제 접수는 관리자 안내(전화/문자)로 진행.
+    console.log("[PartnerLanding] 공간파트너 가입상담 신청:", form);
     setSubmitted(true);
   };
 
@@ -134,6 +143,10 @@ function ConsultForm() {
     background: WHITE, color: NAVY, outline: "none",
     boxSizing: "border-box",
   };
+  const labelStyle = {
+    fontSize: 12, fontWeight: 700, color: TEXT2, marginBottom: 6, display: "block",
+  };
+  const req = <span style={{ color: GOLDD }}> *</span>;
 
   if (submitted) {
     return (
@@ -143,28 +156,57 @@ function ConsultForm() {
       }}>
         <div style={{ fontSize: 32, marginBottom: 10 }}>✅</div>
         <div style={{ fontSize: 17, fontWeight: 900, color: NAVY, marginBottom: 8 }}>
-          상담 신청이 접수되었습니다
+          가입상담 신청이 접수되었습니다
         </div>
         <div style={{ fontSize: 14, color: TEXT2, lineHeight: 1.6 }}>
-          영업일 기준 1~2일 내 담당자가 연락드립니다.<br />
-          감사합니다!
+          담당자가 서류 검토 후 영업일 기준 1~2일 내<br />
+          전화 또는 문자로 가입 절차를 안내드립니다.
         </div>
       </div>
     );
   }
 
+  // 필드는 인라인으로 렌더(렌더 함수 내부 컴포넌트 정의 시 매 입력마다 리마운트→포커스 유실 방지).
+  const field = (k, label, { required = false, placeholder = "", inputMode } = {}) => (
+    <div>
+      <label style={labelStyle}>{label}{required && req}</label>
+      <input style={inputStyle} placeholder={placeholder} value={form[k]} onChange={set(k)} inputMode={inputMode} />
+    </div>
+  );
+
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <input style={inputStyle} placeholder="담당자명 *" value={form.name} onChange={set("name")} />
-      <input style={inputStyle} placeholder="연락처 (휴대폰) *" value={form.phone} onChange={set("phone")} inputMode="tel" />
-      <input style={inputStyle} placeholder="업체명" value={form.company} onChange={set("company")} />
-      <input style={inputStyle} placeholder="주요 업종 (예: 인테리어, 도배, 전기)" value={form.type} onChange={set("type")} />
-      <textarea
-        style={{ ...inputStyle, height: 100, padding: "12px 14px", resize: "none" }}
-        placeholder="문의 내용 (선택)"
-        value={form.message}
-        onChange={set("message")}
-      />
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {field("company", "업체명",        { required: true, placeholder: "예: 공간인테리어" })}
+      {field("owner",   "대표자명",      { required: true, placeholder: "대표자 성함" })}
+      {field("phone",   "연락처",        { required: true, placeholder: "휴대폰 번호", inputMode: "tel" })}
+      {field("bizNo",   "사업자등록번호", { required: true, placeholder: "000-00-00000", inputMode: "numeric" })}
+      {field("region",  "시공지역",      { required: true, placeholder: "예: 서울 전역, 경기 남부" })}
+      {field("field",   "전문분야",      { required: true, placeholder: "예: 주거 리모델링, 상업 인테리어" })}
+
+      <div>
+        <label style={labelStyle}>시공보험 가입 여부</label>
+        <select
+          style={{ ...inputStyle, appearance: "none", color: form.insurance ? NAVY : TEXT3 }}
+          value={form.insurance}
+          onChange={set("insurance")}
+        >
+          <option value="">선택 안 함</option>
+          <option value="가입">가입</option>
+          <option value="미가입">미가입</option>
+          <option value="확인필요">확인 필요</option>
+        </select>
+      </div>
+
+      <div>
+        <label style={labelStyle}>문의사항</label>
+        <textarea
+          style={{ ...inputStyle, height: 100, padding: "12px 14px", resize: "none" }}
+          placeholder="추가로 전달하실 내용이 있다면 입력해 주세요 (선택)"
+          value={form.message}
+          onChange={set("message")}
+        />
+      </div>
+
       <button
         type="submit"
         style={{
@@ -173,8 +215,12 @@ function ConsultForm() {
           fontFamily: SANS, letterSpacing: "-0.2px",
           boxShadow: `0 6px 20px rgba(201,168,76,0.35)`,
         }}>
-        파트너 상담 신청하기
+        공간파트너 가입상담 신청
       </button>
+      <div style={{ fontSize: 12, color: TEXT3, textAlign: "center", lineHeight: 1.6 }}>
+        신청 후 관리자 검토를 거쳐 가입 절차를 안내드립니다.<br />
+        자동 문자·이메일은 발송되지 않습니다.
+      </div>
     </form>
   );
 }
@@ -187,6 +233,9 @@ export default function PartnerLandingScreen() {
     const el = document.getElementById("partner-consult-form");
     if (el) el.scrollIntoView({ behavior: "smooth" });
   };
+
+  // 기존 업체 로그인/가입 경로로 연결 — 새 로직 없이 홈(App)에서 handleRoleSelect("company") 재사용.
+  const goCompanyLogin = () => { window.location.href = "/?login=company"; };
 
   return (
     <div style={{ fontFamily: SANS, background: OFF, minHeight: "100vh" }}>
@@ -252,7 +301,7 @@ export default function PartnerLandingScreen() {
             ))}
           </div>
 
-          {/* CTA */}
+          {/* CTA — 신규 업체(가입상담) / 기존 승인 업체(로그인) 분리 */}
           <div style={{ ...fade(heroVis, 0.2), display: "flex", flexDirection: "column", gap: 10 }}>
             <button
               onClick={scrollToForm}
@@ -261,17 +310,21 @@ export default function PartnerLandingScreen() {
                 background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900,
                 fontFamily: SANS, boxShadow: `0 8px 28px rgba(201,168,76,0.45)`,
               }}>
-              파트너 상담 신청하기
+              공간파트너 가입상담 신청
             </button>
             <button
-              onClick={() => { window.location.href = "/"; }}
+              onClick={goCompanyLogin}
               style={{
-                height: 44, borderRadius: 12, cursor: "pointer", fontFamily: SANS,
-                background: "transparent", border: "1px solid rgba(255,255,255,0.25)",
-                color: "rgba(255,255,255,0.7)", fontSize: 14, fontWeight: 600,
+                height: 50, borderRadius: 12, cursor: "pointer", fontFamily: SANS,
+                background: "rgba(255,255,255,0.08)", border: `1.5px solid ${GOLD}`,
+                color: GOLD, fontSize: 15, fontWeight: 800,
               }}>
-              ← 공간마켓 홈으로
+              업체 로그인
             </button>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 1.6 }}>
+              이미 승인된 공간파트너만 이용할 수 있습니다.<br />
+              승인 전 업체는 가입상담 신청 후 안내를 받아주세요.
+            </div>
           </div>
         </div>
       </div>
@@ -359,11 +412,14 @@ export default function PartnerLandingScreen() {
                 <div style={{
                   width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0,
                 }} />
-                <span style={{ fontSize: 14, fontWeight: 800, color: WHITE }}>{name}</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: WHITE }}>{name}</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>예치보증금 {deposit}</div>
+                </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 15, fontWeight: 900, color: GOLD }}>{deposit}</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>{limit} 수주 가능</div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: GOLD, lineHeight: 1.1 }}>{limit}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>수주 가능</div>
               </div>
             </div>
           ))}
@@ -462,11 +518,31 @@ export default function PartnerLandingScreen() {
         </div>
       </Section>
 
-      {/* ── CONSULTATION FORM ────────────────────────────────────── */}
-      <Section id="partner-consult-form" bg={WHITE}>
-        <div id="partner-consult-form" />
-        <SectionTitle label="파트너 상담 신청" sub="지금 신청하면 1~2 영업일 내 연락드립니다" />
+      {/* ── CONSULTATION FORM (신규 업체) ────────────────────────── */}
+      <Section bg={WHITE}>
+        <div id="partner-consult-form" style={{ scrollMarginTop: 16 }} />
+        <SectionTitle label="신규 업체 · 가입상담 신청" sub="지금 신청하면 1~2 영업일 내 연락드립니다" />
         <ConsultForm />
+
+        {/* 기존 승인 업체 → 업체 로그인 분리 */}
+        <div style={{
+          marginTop: 28, paddingTop: 24, borderTop: `1px solid #E4EAF3`, textAlign: "center",
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: NAVY, marginBottom: 4 }}>
+            이미 승인된 공간파트너이신가요?
+          </div>
+          <div style={{ fontSize: 12, color: TEXT3, marginBottom: 14, lineHeight: 1.6 }}>
+            관리자 승인을 받은 업체만 로그인할 수 있습니다.
+          </div>
+          <button
+            onClick={goCompanyLogin}
+            style={{
+              height: 50, width: "100%", borderRadius: 12, cursor: "pointer", fontFamily: SANS,
+              background: NAVY, color: WHITE, fontSize: 15, fontWeight: 800, border: "none",
+            }}>
+            업체 로그인
+          </button>
+        </div>
       </Section>
 
       {/* ── FOOTER ───────────────────────────────────────────────── */}
