@@ -30,13 +30,14 @@ import {
   getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
   fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
   getProjectCheckpoints, getAdminProjectFlow,
-  getPartnerLeads, setPartnerLeadStatus,
+  getPartnerLeads, setPartnerLeadStatus, setPartnerLeadOnboarding,
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
 import { GUARANTEE_GRADE_MAP, GUARANTEE_STATUS_META, wonFromManwon } from "../constants/guarantee";
+import { ONBOARDING_GRADE_MAP, ONBOARDING_STATUS_META } from "../constants/partnerOnboarding";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 import AdminChangeOrderHistory from "../components/AdminChangeOrderHistory";
 import AdminContractDetail from "../components/AdminContractDetail";
@@ -2699,6 +2700,32 @@ export default function AdminScreen({ onBack, onHome, user }) {
     showToast("상태가 변경됐어요");
   };
 
+  // V2 무인 온보딩(069) — 입금확인/승인/반려 전이. company 생성은 하지 않음(최초 로그인 시 브릿지).
+  const changePartnerOnboarding = async (lead, action) => {
+    let data, error;
+    try {
+      ({ data, error } = await setPartnerLeadOnboarding(user?.id ?? null, lead.id, action));
+    } catch (err) {
+      console.error("[partner_lead_onboarding_set] 예외:", err);
+      error = err;
+    }
+    if (error || data?.error) {
+      showToast("온보딩 처리 실패" + (error?.message ? `: ${error.message}` : ""), false);
+      return;
+    }
+    setPartnerLeads((prev) => prev.map((l) => l.id === lead.id ? {
+      ...l,
+      onboarding_status:    data?.onboarding_status ?? l.onboarding_status,
+      status:               data?.status ?? l.status,
+      deposit_confirmed_at: data?.deposit_confirmed_at ?? l.deposit_confirmed_at,
+      approved_at:          data?.approved_at ?? l.approved_at,
+      processed_at:         data?.processed_at ?? l.processed_at,
+      processed_by:         data?.processed_by ?? l.processed_by,
+    } : l));
+    showToast(action === "APPROVE" ? "승인 완료 — 신청자 최초 로그인 시 업체 활성화"
+      : action === "CONFIRM_DEPOSIT" ? "입금 확인 처리됨" : "반려 처리됨");
+  };
+
   const PARTNER_LEAD_STATUS_META = {
     PENDING:   { label: "접수",   color: C.gold,  bg: "#FBF5E8" },
     CONTACTED: { label: "검토중", color: "#9B59B6", bg: "#F5EEF8" },
@@ -2990,6 +3017,51 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           문의: “{l.memo}”
                         </div>
                       )}
+
+                      {/* V2 무인 온보딩(069) — 공간보증 신청 진행상태 + 입금확인/승인/반려 */}
+                      {(l.guarantee_grade || (l.onboarding_status && l.onboarding_status !== "PENDING_DOCS")) && (() => {
+                        const og = ONBOARDING_GRADE_MAP[l.guarantee_grade];
+                        const om = ONBOARDING_STATUS_META[l.onboarding_status] ?? { label: l.onboarding_status, color: C.text2, bg: C.bgWarm };
+                        return (
+                          <div style={{ background: "#F7F4EC", border: `1px solid ${C.gold}`, borderRadius: R.md,
+                            padding: "10px 12px", marginBottom: S.sm }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                              <span style={{ fontSize: 12, fontWeight: 800, color: C.text1 }}>공간보증 신청</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: om.color, background: om.bg,
+                                borderRadius: R.full, padding: "3px 10px" }}>{om.label}</span>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 12px", fontSize: 12, color: C.text2 }}>
+                              <div>등급: <b>{og ? `${og.emoji} ${og.label}` : "—"}</b></div>
+                              <div>예치금: <b>{l.guarantee_amount != null ? wonFromManwon(l.guarantee_amount) : "—"}</b></div>
+                              <div>보험: <b>{l.insurance_yn == null ? "—" : (l.insurance_yn ? "가입" : "미가입(2배)")}</b></div>
+                              <div>주문번호: <b style={{ fontSize: 11 }}>{l.order_id || "—"}</b></div>
+                              {l.deposit_confirmed_at && <div>입금확인: <b>{new Date(l.deposit_confirmed_at).toLocaleDateString("ko-KR")}</b></div>}
+                              {l.approved_at && <div>승인일: <b>{new Date(l.approved_at).toLocaleDateString("ko-KR")}</b></div>}
+                              {l.company_id && <div style={{ gridColumn: "1 / -1", color: C.green }}>✅ 업체 활성화됨</div>}
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                              <button disabled={l.onboarding_status !== "PENDING_DEPOSIT"}
+                                onClick={() => changePartnerOnboarding(l, "CONFIRM_DEPOSIT")}
+                                style={{ padding: "6px 12px", borderRadius: R.lg, fontSize: 12, fontWeight: 700, border: `1px solid ${C.bgWarm}`,
+                                  background: l.onboarding_status === "PENDING_DEPOSIT" ? "#fff" : C.bgWarm,
+                                  color: l.onboarding_status === "PENDING_DEPOSIT" ? C.text1 : C.text4,
+                                  cursor: l.onboarding_status === "PENDING_DEPOSIT" ? "pointer" : "default" }}>입금확인</button>
+                              <button disabled={l.onboarding_status !== "AWAITING_APPROVAL"}
+                                onClick={() => changePartnerOnboarding(l, "APPROVE")}
+                                style={{ padding: "6px 12px", borderRadius: R.lg, fontSize: 12, fontWeight: 700, border: "none",
+                                  background: l.onboarding_status === "AWAITING_APPROVAL" ? C.green : C.bgWarm,
+                                  color: l.onboarding_status === "AWAITING_APPROVAL" ? "#fff" : C.text4,
+                                  cursor: l.onboarding_status === "AWAITING_APPROVAL" ? "pointer" : "default" }}>승인</button>
+                              <button disabled={l.onboarding_status === "APPROVED" || l.onboarding_status === "REJECTED"}
+                                onClick={() => changePartnerOnboarding(l, "REJECT")}
+                                style={{ padding: "6px 12px", borderRadius: R.lg, fontSize: 12, fontWeight: 700, border: `1px solid ${C.bgWarm}`,
+                                  background: "#fff", color: C.red,
+                                  cursor: (l.onboarding_status === "APPROVED" || l.onboarding_status === "REJECTED") ? "default" : "pointer",
+                                  opacity: (l.onboarding_status === "APPROVED" || l.onboarding_status === "REJECTED") ? 0.5 : 1 }}>반려</button>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {(l.processed_at || l.processed_by) && (
                         <div style={{ fontSize: 11, color: C.text4, marginBottom: S.sm }}>

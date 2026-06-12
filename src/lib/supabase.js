@@ -1540,6 +1540,34 @@ export const checkPartnerApproved = (phone, businessNumber) =>
     p_business_number: businessNumber ?? null,
   });
 
+// ── 무인 온보딩 FSM v2 — migration 069 ────────────────────────────────────────
+// STEP2: 공간보증 등급 선택(비로그인 신청자). 예치금=등급기본액×(보험가입?1:2). PENDING_DEPOSIT 전환.
+export const selectPartnerLeadGrade = (leadId, grade, insuranceYn = null) =>
+  supabase.rpc("partner_lead_select_grade", {
+    p_lead_id:      leadId,
+    p_grade:        grade,
+    p_insurance_yn: insuranceYn,
+  });
+
+// STEP4~5: 관리자 온보딩 전이. action: 'CONFIRM_DEPOSIT' | 'APPROVE' | 'REJECT'.
+export const setPartnerLeadOnboarding = (adminId, leadId, action) =>
+  supabase.rpc("partner_lead_onboarding_set", {
+    p_admin_id: adminId,
+    p_lead_id:  leadId,
+    p_action:   action,
+  });
+
+// 최초 로그인 브릿지 — phone 일치 APPROVED & 미클레임 lead 의 guarantee/insurance 조회(없으면 null).
+export const claimPartnerLeadForCompany = (phone) =>
+  supabase.rpc("partner_lead_claim_for_company", { p_phone: phone ?? null });
+
+// 클레임 확정 — company 생성/복사 완료 후 company_id 기록(중복 복사 차단, idempotent).
+export const markPartnerLeadClaimed = (leadId, companyId) =>
+  supabase.rpc("partner_lead_mark_claimed", {
+    p_lead_id:    leadId,
+    p_company_id: companyId,
+  });
+
 // 업체 진행건(현장방문 견적 단계) 조회 — "선택된 업체"인 요청만 반환한다.
 // 매칭 기준(셋 중 하나라도 candidateIds 에 포함되면 해당 업체의 진행건):
 //   ① 선택된 입찰(bids.selected=true) 의 company_id

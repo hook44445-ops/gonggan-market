@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { submitPartnerLead, checkPartnerApproved } from "../lib/supabase";
 import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
+import PartnerOnboarding from "../components/PartnerOnboarding";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#0B1D3A";
@@ -120,6 +121,8 @@ function ConsultForm() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  // V2 무인 온보딩: 제출 성공 시 생성된 lead 정보를 보관해 STEP2~4 로 이어준다.
+  const [lead, setLead] = useState(null); // { id, phone, insuranceYn }
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
@@ -159,6 +162,12 @@ function ConsultForm() {
         return;
       }
       console.log("[partner_lead_submit] 4) 성공 → submitted=true");
+      // V2: 생성된 lead id 로 STEP2~4(등급선택→입금→대기) 진행. 보험가입 여부 전달(미가입 예치금 2배).
+      setLead({
+        id: data?.id ?? null,
+        phone: form.phone,
+        insuranceYn: form.insurance === "가입",
+      });
       setSubmitted(true);
     } catch (err) {
       console.error("[partner_lead_submit] 예외:", err);
@@ -182,6 +191,11 @@ function ConsultForm() {
   const req = <span style={{ color: GOLDD }}> *</span>;
 
   if (submitted) {
+    // V2: lead id 가 있으면 무인 온보딩(STEP2~4)으로 이어간다.
+    // id 가 없으면(구버전/조회 실패) 기존 정적 접수완료 안내로 폴백.
+    if (lead?.id) {
+      return <PartnerOnboarding leadId={lead.id} phone={lead.phone} insuranceYn={lead.insuranceYn} />;
+    }
     return (
       <div style={{
         background: GOLDB, border: `1.5px solid ${GOLD}`, borderRadius: 14,
