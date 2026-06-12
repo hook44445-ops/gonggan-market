@@ -135,23 +135,31 @@ function ConsultForm() {
       return;
     }
     // V1.1: partner_leads 저장(관리자 상담관리에서 승인 처리). 문자/이메일/토스 발송 없음.
+    // supabase rpc 빌더는 then만 구현(.catch 없음) → try/catch + finally 로 처리.
     setSaving(true);
-    const { data, error } = await submitPartnerLead({
-      companyName:     form.company,
-      ownerName:       form.owner,
-      phone:           form.phone,
-      businessNumber:  form.bizNo,
-      serviceArea:     form.region,
-      specialty:       form.field,
-      insuranceStatus: form.insurance,
-      memo:            form.message,
-    }).catch((err) => ({ error: err }));
-    setSaving(false);
-    if (error || data?.error) {
-      alert("신청 접수에 실패했어요. 잠시 후 다시 시도해 주세요.");
-      return;
+    try {
+      const { data, error } = await submitPartnerLead({
+        companyName:     form.company,
+        ownerName:       form.owner,
+        phone:           form.phone,
+        businessNumber:  form.bizNo,
+        serviceArea:     form.region,
+        specialty:       form.field,
+        insuranceStatus: form.insurance,
+        memo:            form.message,
+      });
+      if (error || data?.error) {
+        console.error("[partner_lead_submit] 실패:", error ?? data?.error);
+        alert("신청 접수에 실패했어요. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      setSubmitted(true);
+    } catch (err) {
+      console.error("[partner_lead_submit] 예외:", err);
+      alert("신청 접수 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setSaving(false);
     }
-    setSubmitted(true);
   };
 
   const inputStyle = {

@@ -2649,8 +2649,14 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
   const changePartnerLeadStatus = async (lead, status) => {
     const note = partnerNoteDraft[lead.id];
-    const { data, error } = await setPartnerLeadStatus(user?.id ?? null, lead.id, status, note ?? null)
-      .catch((err) => ({ error: err }));
+    // supabase rpc 빌더는 then만 구현(.catch 없음) → try/catch 로 처리.
+    let data, error;
+    try {
+      ({ data, error } = await setPartnerLeadStatus(user?.id ?? null, lead.id, status, note ?? null));
+    } catch (err) {
+      console.error("[partner_lead_set_status] 예외:", err);
+      error = err;
+    }
     if (error || data?.error) { showToast("상태 변경 실패", false); return; }
     // 낙관적 반영 — 승인/반려는 처리일시·담당자도 갱신
     const isFinal = status === "APPROVED" || status === "REJECTED";
