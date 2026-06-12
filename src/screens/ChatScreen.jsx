@@ -4,7 +4,7 @@ import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import { detectDirectDealKeywords } from "../constants/directDeal";
 import { BADGES } from "../constants/badges";
-import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId } from "../lib/supabase";
+import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId, markChatRoomRead } from "../lib/supabase";
 
 const REPORT_REASONS = [
   "외부 연락처(카톡/전화) 요구",
@@ -105,6 +105,8 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       if (!cancelled) {
         setMessages(rows.map(mapRow));
         setHasMore(rows.length >= PAGE_SIZE);
+        // C-4: 방 진입 시 읽음 처리(내가 안 보낸 안읽음만). 실패해도 채팅엔 영향 없음.
+        if (user?.id) markChatRoomRead(roomId, user.id).catch(() => {});
       }
     }
 

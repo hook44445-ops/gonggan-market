@@ -299,6 +299,29 @@ export const sendMessage = (roomId, senderId, senderType, text) =>
     text,
   }).select("id").maybeSingle();
 
+// ── 채팅 읽음 처리(C-4) — migration 066 RPC ─────────────────────────────────
+// 방 진입 시 '내가 안 보낸' 안읽음 메시지를 읽음 처리(SECURITY DEFINER, RLS 우회).
+// 실패해도 채팅 송수신엔 영향 없음(호출부에서 graceful 처리).
+export const markChatRoomRead = (roomId, readerId) =>
+  supabase.rpc("chat_mark_room_read", { p_room_id: roomId, p_reader_id: readerId });
+
+// 여러 방의 안읽음 개수(읽기 전용) — 한 번의 조회로 room_id별 집계.
+// 안읽음 = read_at IS NULL && sender_id != reader(본인 메시지/널 sender 제외).
+export const getUnreadChatCounts = async (roomIds, readerId) => {
+  const ids = (roomIds ?? []).filter(Boolean);
+  if (ids.length === 0 || !readerId) return { data: {}, error: null };
+  const { data, error } = await supabase
+    .from("chats")
+    .select("room_id")
+    .in("room_id", ids)
+    .is("read_at", null)
+    .neq("sender_id", readerId);
+  if (error) return { data: {}, error };
+  const counts = {};
+  for (const r of data ?? []) counts[r.room_id] = (counts[r.room_id] ?? 0) + 1;
+  return { data: counts, error: null };
+};
+
 export const subscribeToChatRoom = (roomId, callback) =>
   supabase
     .channel(`chat:${roomId}`)
