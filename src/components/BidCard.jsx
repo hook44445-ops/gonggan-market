@@ -318,11 +318,11 @@ export default function BidCard({
 
             <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.md, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.8 }}>
-                💡 낙찰 시 공간멤버십파트너 수수료 안내<br />
-                • 가입 후 1개월 → <b style={{ color: C.text2 }}>0% 🎉 무료</b><br />
-                • 가입 후 2개월 → <b style={{ color: C.text2 }}>2.2%</b><br />
-                • 가입 후 3개월~ → <b style={{ color: C.text2 }}>4.4%</b><br />
-                <span style={{ color: C.text4 }}>* 의뢰인 부담 없음. 업체 수령액에서 자동 차감 · 공사규모에 따른 보증금 별도</span>
+                💡 공간멤버십파트너 이용수수료 안내<br />
+                • 견적 발송은 <b style={{ color: C.text2 }}>무료</b>입니다<br />
+                • <b style={{ color: C.text2 }}>계약 성사 시에만</b> 이용수수료 <b style={{ color: C.text2 }}>4.4% (VAT 포함)</b>가 발생합니다<br />
+                • 정산 시 자동 차감 · 지급되지 않은 금액에는 부과되지 않습니다<br />
+                <span style={{ color: C.text4 }}>* 의뢰인 부담 없음 · 공간뱃지예치보증금은 수수료가 아닙니다</span>
               </div>
             </div>
 

@@ -3,6 +3,7 @@ import { C, R, S, SHADOW } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TempBadge, LeafSprig } from "../components/common";
 import BidCard from "../components/BidCard";
+import EscrowCalculator from "../components/EscrowCalculator";
 import { getMembershipRateByCreatedAt } from "../utils/calculations";
 import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews } from "../lib/supabase";
 
@@ -448,10 +449,11 @@ export default function DashboardScreen({
             {/* 수수료 구조 */}
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
               marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:S.md }}>공간멤버십파트너 수수료</div>
+              <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:S.md }}>공간멤버십파트너 이용수수료</div>
               {[
-                ["현재 적용 수수료",  `${membershipRate}%${membershipRate === 0 ? " 🎉 무료" : ""}`, "가입 1개월 0% → 2개월 2.2% → 3개월~ 4.4% · 정산 시 자동 차감"],
-                ["보증금",          "공사규모에 따라 별도",       "수수료 아님 · 공사 완료 시 100% 반환 (공간멤버쉽파트너뱃지 제공)"],
+                ["이용수수료",  "4.4% (VAT 포함)", "계약 성사 시에만 발생 · 정산 시 자동 차감"],
+                ["미지급 금액", "수수료 없음",      "지급되지 않은 금액에는 수수료가 부과되지 않습니다"],
+                ["공간뱃지예치보증금", "수수료 아님",  "신뢰 파트너 인증 예치보증금 · 기준 충족 시 환급 가능"],
               ].map(([label, val, sub]) => (
                 <div key={label} style={{ display:"flex", justifyContent:"space-between",
                   alignItems:"center", padding:`${S.sm}px 0`,
@@ -460,17 +462,20 @@ export default function DashboardScreen({
                     <div style={{ fontSize:13, color:C.text2, fontWeight:600 }}>{label}</div>
                     <div style={{ fontSize:11, color:C.text4 }}>{sub}</div>
                   </div>
-                  <span style={{ fontSize:13, fontWeight:700, color:C.brand }}>{val}</span>
+                  <span style={{ fontSize:13, fontWeight:700, color:C.brand, flexShrink:0, marginLeft:8 }}>{val}</span>
                 </div>
               ))}
-              <div style={{ marginTop:S.sm, fontSize:11, color:C.text4 }}>* VAT 10% 별도</div>
+              <div style={{ marginTop:S.sm, fontSize:11, color:C.text4 }}>가입비 · 광고비 · 월 사용료 · 견적비 없음</div>
               {thisMonthRevenue > 0 && (
                 <div style={{ marginTop:S.sm, background:C.brandL, borderRadius:R.md,
                   padding:`${S.sm}px ${S.md}px`, fontSize:12, color:C.brand, fontWeight:600 }}>
-                  이번 달 수수료 추산: {Math.round(thisMonthRevenue * 0.044).toLocaleString()}만원 차감 (VAT 포함)
+                  이번 달 이용수수료 추산: {Math.round(thisMonthRevenue * 0.044).toLocaleString()}만원 차감 (VAT 포함)
                 </div>
               )}
             </div>
+
+            {/* 정산 예시 계산기 — 이용수수료 4.4% 고정 기준 (기존 컴포넌트 재사용) */}
+            <EscrowCalculator role="company" />
           </div>
         )}
 

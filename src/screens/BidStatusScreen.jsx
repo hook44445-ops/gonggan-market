@@ -697,6 +697,16 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             ))}
           </div>
 
+          {/* 결제 직전 — 에스크로 안전 보관 + 기록 저장 안내 */}
+          <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg,
+            marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
+            <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:6 }}>🔒 업체에게 바로 돈이 지급되지 않습니다</div>
+            <div style={{ fontSize:12, color:C.text2, lineHeight:1.8 }}>
+              결제금은 공간마켓이 안전하게 보관하며, 고객 확인 후 단계별로 지급됩니다.<br/>
+              💬 채팅 · 📷 사진 · 📍 GPS 기록이 저장되며 분쟁 발생 시 기록을 기준으로 검토합니다.
+            </div>
+          </div>
+
           {/* 보호 범위 안내 (강제 체크박스 없음) */}
           <div style={{ marginBottom:S.lg }}>
             <ProtectionNotice variant="full" />

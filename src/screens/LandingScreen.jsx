@@ -372,12 +372,18 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           {/* 업체 */}
           <div style={{ background: C.surface, borderRadius: 16, padding: 18, border: `1px solid ${C.bgWarm}` }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: C.brand, marginBottom: 10 }}>
-              🤝 업체 · 공간멤버십파트너 수수료
+              🤝 업체 · 공간멤버십파트너 이용수수료
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+              {["가입비 없음", "광고비 없음", "월 사용료 없음", "견적비 없음"].map(t => (
+                <span key={t} style={{ background: C.brandL, color: C.brand, borderRadius: 999,
+                  padding: "3px 9px", fontSize: 11, fontWeight: 700 }}>{t}</span>
+              ))}
             </div>
             {[
-              ["가입 후 1개월", "0% 🎉 무료"],
-              ["가입 후 2개월", "2.2%"],
-              ["가입 후 3개월~", "4.4%"],
+              ["이용수수료", "4.4% (VAT 포함)"],
+              ["발생 시점", "계약 성사 시에만"],
+              ["차감 방식", "정산 시 자동 차감"],
             ].map(([label, rate]) => (
               <div key={label} style={{ display: "flex", justifyContent: "space-between",
                 padding: "5px 0", fontSize: 13, color: C.text2 }}>
@@ -385,8 +391,8 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               </div>
             ))}
             <div style={{ fontSize: 11.5, color: C.text3, marginTop: 10, lineHeight: 1.6 }}>
-              공사규모에 따른 보증예치금 별도 (공간멤버쉽파트너뱃지 제공)<br/>
-              보증예치금은 수수료가 아니며 공사 완료 및 정산 완료 시 100% 반환됩니다.
+              지급되지 않은 금액에는 수수료가 부과되지 않습니다.<br/>
+              공간뱃지예치보증금은 수수료가 아니며, 신뢰 파트너 인증을 위한 예치보증금입니다. 일정 기준 충족 시 환급 가능합니다.
             </div>
           </div>
         </div>

@@ -62,15 +62,15 @@ export default function CompanyOnboarding({ phone, onDone }) {
     signature:  { ...BADGES.signature,  range:"~1억원"     },
   };
   const badge = BADGE_INFO[form.badge] || BADGE_INFO.standard;
-  // 보증예치금 — 수주한도 × 비율(보험 10% / 미가입 20%). 단일 소스(badges.js).
+  // 공간뱃지예치보증금 — 수주한도 × 비율(보험 10% / 미가입 20%). 단일 소스(badges.js).
   const depositAmt = requiredDeposit(form.badge, form.hasInsurance);
   const ratePct = depositRatePct(form.hasInsurance);
 
   if(submitted === "payment") return (
     <div style={{ width:"100%", maxWidth:390 }}>
-      <div style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:4 }}>보증예치금 등록</div>
+      <div style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:4 }}>공간뱃지예치보증금 등록</div>
       <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>
-        공간보증 배지 활성화를 위한 보증예치금을 등록해주세요
+        공간보증 배지 활성화를 위한 공간뱃지예치보증금을 등록해주세요
       </div>
       <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
         marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
@@ -88,7 +88,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
         <div style={{ marginTop:S.md }}>
           {[
             ["보증예치 비율", `${ratePct}%${form.hasInsurance?" (시공보험 가입)":" (시공보험 미가입)"}`],
-            ["보증예치금", `${depositAmt.toLocaleString()}만원`],
+            ["공간뱃지예치보증금", `${depositAmt.toLocaleString()}만원`],
             ["환급 조건", "분쟁 없을 시 정해진 조건에 따라 반환"],
             ["보관 방식", "회사 운영비와 분리 보관"],
           ].map(([k,v]) => (
@@ -116,13 +116,13 @@ export default function CompanyOnboarding({ phone, onDone }) {
         marginBottom:S.xl, fontSize:12, color:C.navy, lineHeight:1.7,
         display:"flex", gap:S.sm }}>
         <span>🛡</span>
-        <span>보증예치금은 회사 운영비와 분리되어 공간마켓 신탁 계좌에 보관되며 업무에 사용되지 않습니다</span>
+        <span>공간뱃지예치보증금은 회사 운영비와 분리되어 공간마켓 신탁 계좌에 보관되며 업무에 사용되지 않습니다</span>
       </div>
       <button onClick={() => setSubmitted("done")}
         style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff",
           border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
           boxShadow:`0 6px 20px ${C.brand}44` }}>
-        💳 {depositAmt.toLocaleString()}만원 보증예치금 등록하기
+        💳 {depositAmt.toLocaleString()}만원 공간뱃지예치보증금 등록하기
       </button>
     </div>
   );
@@ -132,13 +132,13 @@ export default function CompanyOnboarding({ phone, onDone }) {
       <div style={{ fontSize:64, marginBottom:16 }}>🎉</div>
       <div style={{ fontSize:22, fontWeight:900, color:C.text1, marginBottom:8 }}>신청 완료!</div>
       <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>
-        보증예치금 등록 완료.<br/>서류 검토 후 1~2일 내<br/>🛡 공간마켓 인증 배지가 부여됩니다
+        공간뱃지예치보증금 등록 완료.<br/>서류 검토 후 1~2일 내<br/>🛡 공간마켓 인증 배지가 부여됩니다
       </div>
       <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
         marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, textAlign:"left" }}>
         {[["배지 등급", `${badge.icon} ${badge.label}`],
           ["공사 규모", badge.range],
-          ["보증예치금", `${depositAmt.toLocaleString()}만원 ✅`],
+          ["공간뱃지예치보증금", `${depositAmt.toLocaleString()}만원 ✅`],
           ["보험 가입", form.hasInsurance?"✅ 가입":"미가입"],
           ["심사 기간","1~2일"]].map(([k,v]) => (
           <div key={k} style={{ display:"flex", justifyContent:"space-between",
@@ -220,30 +220,37 @@ export default function CompanyOnboarding({ phone, onDone }) {
       </div>
 
       {step===1 && <>
-        {/* 공간멤버십파트너 수수료 — 멤버십 단계 배너 */}
+        {/* 공간멤버십파트너 이용수수료 — 4무 + 성사 시에만 배너 */}
         <div style={{ background:`linear-gradient(135deg, ${C.brand}, ${C.brandD ?? C.brand})`,
           borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, color:"#fff",
           boxShadow:"0 6px 20px rgba(46,95,75,0.25)" }}>
           <div style={{ fontSize:12, fontWeight:700, opacity:0.9, marginBottom:6 }}>🤝 공간멤버십파트너</div>
-          <div style={{ fontSize:16, fontWeight:900, marginBottom:14, lineHeight:1.4 }}>
-            1개월 무료 → 2개월 2.2% → 3개월~ 4.4%
+          <div style={{ fontSize:16, fontWeight:900, marginBottom:12, lineHeight:1.4 }}>
+            계약 성사 시에만 이용수수료 4.4%
+          </div>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
+            {["가입비 없음","광고비 없음","월 사용료 없음","견적비 없음"].map(t => (
+              <span key={t} style={{ background:"rgba(255,255,255,0.18)", borderRadius:R.full,
+                padding:"3px 10px", fontSize:11, fontWeight:700 }}>{t}</span>
+            ))}
           </div>
           <div style={{ background:"rgba(255,255,255,0.14)", borderRadius:R.lg, padding:S.md }}>
             {[
-              ["가입 후 1개월", "0%", "🎉 무료"],
-              ["가입 후 2개월", "2.2%", ""],
-              ["가입 후 3개월~", "4.4%", ""],
-            ].map(([label, rate, note]) => (
+              ["이용수수료", "4.4% (VAT 포함)"],
+              ["발생 시점", "계약 성사 시에만"],
+              ["차감 방식", "정산 시 자동 차감"],
+              ["미지급 금액", "수수료 없음"],
+            ].map(([label, rate]) => (
               <div key={label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
                 padding:"5px 0", fontSize:13 }}>
                 <span style={{ opacity:0.92 }}>{label}</span>
-                <span style={{ fontWeight:800 }}>{rate}{note ? ` ${note}` : ""}</span>
+                <span style={{ fontWeight:800 }}>{rate}</span>
               </div>
             ))}
           </div>
           <div style={{ fontSize:11, opacity:0.85, marginTop:10, lineHeight:1.6 }}>
-            공사규모에 따른 보증예치금 별도 (공간멤버쉽파트너뱃지 제공)<br/>
-            보증예치금은 수수료가 아니며 분쟁 없을 시 정해진 조건에 따라 반환됩니다.
+            공간뱃지예치보증금은 수수료가 아니며, 신뢰 파트너 인증을 위한 예치보증금입니다.<br/>
+            일정 기준 충족 시 환급 가능합니다.
           </div>
         </div>
         <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:4 }}>업체 기본 정보</div>
@@ -518,7 +525,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
           marginBottom:S.md, marginTop:S.md }}>
           <div style={{ fontSize:14, color:C.text3, lineHeight:1.8 }}>
             • 공간안전결제가 기본 거래 경로입니다<br/>
-            • 보증예치금은 회사 운영비와 분리 보관됩니다<br/>
+            • 공간뱃지예치보증금은 회사 운영비와 분리 보관됩니다<br/>
             • 시공보험 가입 10% · 미가입 20% (수주 한도 기준)<br/>
             • 분쟁이 없을 경우 정해진 조건에 따라 반환됩니다<br/>
             <span style={{ color:C.text4, fontSize:12 }}>※ 실제 입금/출금은 아직 처리되지 않습니다</span>
@@ -567,7 +574,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
           { key:"agreeTerms",  title:"이용약관 동의", sub:"업체 파트너 이용약관 (필수)" },
           { key:"agreeEscrow", title:"에스크로 정산 동의", sub:"단계별 안전 정산 방식 동의 (필수)" },
           { key:"agreeAs",     title:"하자보수 AS 의무 동의", sub:"완료 후 1년간 무상 AS 제공 (필수)" },
-          { key:"agreeDeposit",title:"보증예치금 등록 동의", sub:"선택 배지 보증예치금 등록 및 환급 조건 동의 (필수)" },
+          { key:"agreeDeposit",title:"공간뱃지예치보증금 등록 동의", sub:"선택 배지 공간뱃지예치보증금 등록 및 환급 조건 동의 (필수)" },
         ].map(item => (
           <div key={item.key} onClick={() => set(item.key, !form[item.key])}
             style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm,
