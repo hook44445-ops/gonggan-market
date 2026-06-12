@@ -135,7 +135,7 @@ const normalizeCompany = (row) => ({
   asRate:        row.as_rate ?? 0,
   region:        row.region ?? "",
   service_regions: Array.isArray(row.service_regions) ? row.service_regions : null,
-  created_at:    row.created_at ?? null,   // 공간멤버십파트너 수수료 계산 기준
+  created_at:    row.created_at ?? null,   // 공간멤버십파트너 이용수수료 표기 기준
   online:        row.online ?? false,
   specialties:   row.specialties ?? [],
   companyStatus: row.company_status ?? "PENDING",
@@ -587,6 +587,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [activeJobs, setActiveJobs] = useState([]);
   const [homeReviewViewer, setHomeReviewViewer] = useState(null);
   const [homeReviewDetail, setHomeReviewDetail] = useState(null);
+  const [reqDoneNotice, setReqDoneNotice] = useState(false); // 견적 요청 완료 직후 안전 보관 안내 카드
   const [siteVisitJob, setSiteVisitJob] = useState(null);
   const [estimateJob, setEstimateJob] = useState(null);
   const [termsDocType, setTermsDocType] = useState(null);
@@ -4040,6 +4041,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   a: "각 단계 승인 화면에서 ‘이의 제기’로 보류할 수 있어요. 사진·대화·계약 기록이 모두 저장되며, 분쟁 시 관리자가 검토해 중재합니다." },
                 { q: "환불은 어떻게 받나요?",
                   a: "아직 지급되지 않은 예치금은 환불 대상입니다. 단계 미승인 상태의 잔여 금액은 관리자 검토 후 결제 수단으로 환불됩니다." },
+                { q: "공사가 중단되면 어떻게 되나요?",
+                  a: "지급되지 않은 금액은 분쟁 검토 후 환불 또는 정산 처리됩니다. 채팅·사진·GPS 기록을 기준으로 검토합니다." },
                 { q: "공간마켓 보호 범위가 무엇인가요?",
                   a: "공간안전결제로 진행하시면 토스페이먼츠 에스크로 보호, 단계별 정산, 계약서 보관, 분쟁 중재 지원이 모두 적용됩니다. 플랫폼 밖 거래는 보호 범위에 포함되지 않습니다.",
                   extra: <ProtectionNotice variant="full" /> },
@@ -4105,7 +4108,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
             {activeRole==="company" && (
               <div>
-                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🛡️ 보증예치금 현황</div>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🛡️ 공간뱃지예치보증금 현황</div>
                 <CompanyDepositCard
                   badge={currentUser?.badge ?? user.badge ?? "standard"}
                   hasInsurance={currentUser?.hasInsurance ?? user.insurance ?? false}
@@ -4671,6 +4674,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         setCustomerRequests(prev => [optimistic, ...prev]);
         setShowReq(false);
         showToast("✅ 요청이 접수됐어요 · 검증된 업체가 보통 2~4시간 내에 연락드려요. 대화 탭에서 확인하세요.");
+        setReqDoneNotice(true); // 완료 직후 — 에스크로 안전 보관 안내 카드 노출
 
         // INSERT to Supabase
         if (user.id) {
@@ -4764,6 +4768,37 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           startIndex={homeReviewViewer.index}
           onClose={() => setHomeReviewViewer(null)}
         />
+      )}
+
+      {/* 견적 요청 완료 직후 — 에스크로 안전 보관 안내 카드 */}
+      {reqDoneNotice && (
+        <div onClick={() => setReqDoneNotice(false)}
+          style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)", zIndex:510,
+            display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:C.surface, width:"100%", maxWidth:480,
+              borderRadius:"24px 24px 0 0", padding:"22px 24px 36px" }}>
+            <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 18px" }} />
+            <div style={{ fontSize:34, textAlign:"center", marginBottom:10 }}>🔒</div>
+            <div style={{ fontSize:18, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:8 }}>
+              안전하게 보호됩니다
+            </div>
+            <div style={{ fontSize:14, color:C.text2, lineHeight:1.8, textAlign:"center", marginBottom:14 }}>
+              업체에게 바로 돈이 지급되지 않습니다.<br/>
+              결제금은 공간마켓이 안전하게 보관하며<br/>
+              고객 확인 후 단계별로 지급됩니다.
+            </div>
+            <div style={{ background:C.bg, borderRadius:R.lg, padding:"10px 14px",
+              fontSize:12, color:C.text3, lineHeight:1.7, textAlign:"center", marginBottom:16 }}>
+              💬 채팅 · 📷 사진 · 📍 GPS 기록이 저장되며<br/>분쟁 발생 시 기록을 기준으로 검토합니다.
+            </div>
+            <button onClick={() => setReqDoneNotice(false)}
+              style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff",
+                border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer" }}>
+              확인했어요
+            </button>
+          </div>
+        </div>
       )}
 
       {/* 믿고 맡긴 후기 — 상세(읽기 전용 바텀시트). 카드/제목/본문 클릭 시 진입 */}

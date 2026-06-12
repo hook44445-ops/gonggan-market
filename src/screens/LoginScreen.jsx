@@ -612,7 +612,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
             {/* 3. 공간보증 배지 */}
             <div style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간보증 배지</div>
-              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 14 }}>보증금 예치로 신뢰를 증명해요</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 14 }}>공간뱃지예치보증금으로 신뢰를 증명해요</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {Object.entries(BADGES).map(([key, b]) => (
                   <div key={key} style={{ background: C.surface, borderRadius: R.lg, padding: `${S.md}px ${S.xl}px`, border: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.lg }}>
@@ -622,7 +622,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                         <span style={{ fontSize: 14, fontWeight: 800, color: b.color }}>{b.label}</span>
                         <span style={{ fontSize: 12, color: C.text3, fontWeight: 600 }}>최대 {b.maxJob}</span>
                       </div>
-                      <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>보증금 {b.deposit.toLocaleString()}만원 예치</div>
+                      <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>공간뱃지예치보증금 예치 파트너</div>
                     </div>
                   </div>
                 ))}

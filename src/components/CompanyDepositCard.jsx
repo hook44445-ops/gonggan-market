@@ -12,7 +12,7 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
   ];
   const [showUpgradeSheet, setShowUpgradeSheet] = useState(false);
 
-  // 보증예치금 = 수주한도 × 비율(보험 10% / 미가입 20%) — 단일 소스(badges.js).
+  // 공간뱃지예치보증금 = 수주한도 × 비율(보험 10% / 미가입 20%) — 단일 소스(badges.js).
   const depositOf = (key) => requiredDeposit(key, hasInsurance);
   const ratePct = depositRatePct(hasInsurance);
 
@@ -35,7 +35,7 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
         <div style={{ background:badgeColor.grad, padding:S.xxl, color:"#fff" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.xl }}>
             <div>
-              <div style={{ fontSize:12, opacity:0.75, marginBottom:4 }}>보증예치금</div>
+              <div style={{ fontSize:12, opacity:0.75, marginBottom:4 }}>공간뱃지예치보증금</div>
               <div style={{ fontSize:34, fontWeight:900, marginBottom:8 }}>
                 {currentDeposit.toLocaleString()}만원
               </div>
@@ -115,7 +115,7 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
               padding:"2px 9px", fontSize:11, fontWeight:700 }}>+{additionalNeeded}만원</span>
           </div>
           <div style={{ fontSize:13, color:C.text2, lineHeight:1.7, marginBottom:S.md }}>
-            보증예치금 추가 등록 시<br/>
+            공간뱃지예치보증금 추가 등록 시<br/>
             상위 등급(수주 한도 <b style={{color:C.brand}}>{next.maxJob === 99999 ? "무제한" : `${next.maxJob.toLocaleString()}만원`}</b>)으로 승급할 수 있습니다.
             {!hasInsurance && next.insurance && (
               <><br/><span style={{color:C.green, fontWeight:700}}>🛡 시공보험 가입 시 예치 비율 10% 적용</span></>
@@ -134,10 +134,10 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
       <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
         border:`1px solid ${C.bgWarm}`, marginBottom:S.lg }}>
         <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.md }}>
-          🛡️ 보증예치금 보호 정책
+          🛡️ 공간뱃지예치보증금 보호 정책
         </div>
         {[
-          "보증예치금은 회사 운영비와 분리 보관됩니다.",
+          "공간뱃지예치보증금은 회사 운영비와 분리 보관됩니다.",
           "분쟁이 없을 경우 전액 반환됩니다.",
           "시공보험 가입 업체는 10%, 미가입 업체는 20% 예치가 적용됩니다.",
           "고객 보호와 신뢰 거래를 위한 제도입니다.",
@@ -165,7 +165,7 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
                 {next.label} 업그레이드
               </div>
               <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>
-                보증예치금 <b style={{color:C.brand}}>{additionalNeeded}만원</b>을 추가 등록하면<br/>
+                공간뱃지예치보증금 <b style={{color:C.brand}}>{additionalNeeded}만원</b>을 추가 등록하면<br/>
                 {next.label} 등급으로 승급됩니다
               </div>
             </div>
@@ -174,7 +174,7 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
               {[
                 [`현재 ${current.label}`, `${currentDeposit.toLocaleString()}만원`],
                 [`추가 등록`, `+${additionalNeeded.toLocaleString()}만원`],
-                [`${next.label} 총 보증예치금`, `${nextDeposit.toLocaleString()}만원`],
+                [`${next.label} 총 공간뱃지예치보증금`, `${nextDeposit.toLocaleString()}만원`],
               ].map(([k, v], i, arr) => (
                 <div key={k} style={{ display:"flex", justifyContent:"space-between",
                   padding:`${S.sm}px 0`,

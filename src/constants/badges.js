@@ -6,7 +6,7 @@ export const BADGES = {
   signature:  { label: "시그니처",     icon: "👑", maxAmount: 10000, depositBase: 3000, deposit: 3000, maxJob: "1억원",     color: "#7C3AED", bg: "#F5F0FF", grad: "linear-gradient(135deg,#7C3AED,#5B21B6)" },
 };
 
-// ── 보증예치금 정책 (단일 소스) ───────────────────────────────────────────────
+// ── 공간뱃지예치보증금 정책 (단일 소스) ───────────────────────────────────────────────
 // 수주 한도(BADGES.maxAmount, 만원) 대비:
 //   · 시공보험 가입 업체  → 10%
 //   · 시공보험 미가입 업체 → 20%
@@ -17,7 +17,7 @@ export const DEPOSIT_RATE_UNINSURED = 0.20;
 // 보증예치 비율(%) — 보험 가입 여부 기준.
 export const depositRatePct = (hasInsurance) => (hasInsurance ? 10 : 20);
 
-// 필요 보증예치금(만원) — 등급 수주한도 × 비율. badge 미지정 시 basic.
+// 필요 공간뱃지예치보증금(만원) — 등급 수주한도 × 비율. badge 미지정 시 basic.
 export const requiredDeposit = (badge, hasInsurance) => {
   const b = BADGES[badge] ?? BADGES.basic;
   const rate = hasInsurance ? DEPOSIT_RATE_INSURED : DEPOSIT_RATE_UNINSURED;

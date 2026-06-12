@@ -2718,7 +2718,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: S.md }}>🛡 공간마켓 운영 현황</div>
                   {[
                     ["공간안전결제 에스크로 수수료 (고객)", "3.7% (VAT 포함, 고정)"],
-                    ["공간멤버십파트너 수수료 (업체)", "0% → 2.2% → 4.4% (가입일 기준)"],
+                    ["공간멤버십파트너 이용수수료 (업체)", "4.4% (VAT 포함 · 계약 성사 시에만)"],
                     ["에스크로 구조",        "10/20/40/30"],
                     ["초기 파트너 혜택",     "가입 1개월 수수료 0% · 배지 우선"],
                   ].map(([k, v]) => (
@@ -2813,7 +2813,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                             <span style={{ background: bm.bg, color: bm.color, borderRadius: R.full,
                               padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{bm.icon} {bm.label}</span>
                             <span style={{ background: C.surface2, color: C.text3, borderRadius: R.full,
-                              padding: "2px 8px", fontSize: 11 }}>보증예치금 {requiredDeposit(company.badge, company.hasInsurance).toLocaleString()}만원</span>
+                              padding: "2px 8px", fontSize: 11 }}>공간뱃지예치보증금 {requiredDeposit(company.badge, company.hasInsurance).toLocaleString()}만원</span>
                           </div>
                         </div>
                         <span style={{ background: sm.bg, color: sm.color, borderRadius: R.full,
@@ -3679,7 +3679,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 22, fontWeight: 900, color: C.navy }}>{requiredDeposit(selected.badge, selected.hasInsurance).toLocaleString()}만원</div>
-                    <div style={{ fontSize: 11, color: C.text4 }}>필요 보증예치금 ({depositRatePct(selected.hasInsurance)}%)</div>
+                    <div style={{ fontSize: 11, color: C.text4 }}>필요 공간뱃지예치보증금 ({depositRatePct(selected.hasInsurance)}%)</div>
                     <div style={{ fontSize: 11, color: bm.color, fontWeight: 700, marginTop: 2 }}>수주 한도 {bm.maxJob}</div>
                     <button onClick={() => setDocModal("badge")}
                       style={{ fontSize: 11, color: C.brand, background: "none", border: "none", cursor: "pointer", fontWeight: 700, marginTop: 4, textDecoration: "underline" }}>
@@ -4021,7 +4021,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {[
               ["업체명",   selected.name],
               ["보험 가입", selected.docs[1]?.submitted ? "✓ 가입 완료" : "✗ 미가입"],
-              ["보증금 할인", selected.docs[1]?.submitted ? "20% 적용" : "미적용 (30% 기준)"],
+              ["공간뱃지예치보증금 비율", selected.docs[1]?.submitted ? "10% (시공보험 가입)" : "20% (시공보험 미가입)"],
               ["검토 상태", selected.status === "approved" ? "승인" : selected.status === "rejected" ? "반려" : "검토 대기"],
             ].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between",
@@ -4059,7 +4059,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     ["수주 한도",        bm2 ? bm2.maxJob : "—"],
                     ["시공보험 가입",    ins ? "✓ 가입" : "✗ 미가입"],
                     ["보증예치 비율",    `${depositRatePct(ins)}%`],
-                    ["필요 보증예치금",  bm2 ? `${requiredDeposit(selected.badge, ins).toLocaleString()}만원` : "—"],
+                    ["필요 공간뱃지예치보증금",  bm2 ? `${requiredDeposit(selected.badge, ins).toLocaleString()}만원` : "—"],
                     ["승인 상태",        selected.status === "approved" ? "✓ 승인" : selected.status === "rejected" ? "✗ 반려" : "검토 중"],
                   ].map(([k, v]) => (
                     <div key={k} style={{ display: "flex", justifyContent: "space-between",
