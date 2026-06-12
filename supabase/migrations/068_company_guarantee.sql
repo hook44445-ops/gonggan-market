@@ -124,6 +124,17 @@ begin
     raise exception 'INVALID_STATUS: %', p_status;
   end if;
 
+  -- ACTIVE 전환 가드: 등급/예치금 없이 ACTIVE 금지(잘못된 배지 활성화 방지).
+  --   guarantee_grade / guarantee_amount 는 admin_set_guarantee 가 바꾸지 않으므로
+  --   현재 companies 행 값으로 검증한다.
+  if p_status = 'ACTIVE' then
+    select * into v_row from public.companies where id = p_company_id;
+    if v_row.id is null then raise exception 'COMPANY_NOT_FOUND: %', p_company_id; end if;
+    if v_row.guarantee_grade is null or v_row.guarantee_amount is null then
+      raise exception 'GUARANTEE_REQUIRES_GRADE_AND_AMOUNT';
+    end if;
+  end if;
+
   v_visible := p_badge_visible;
   if v_visible is null and p_status = 'ACTIVE' then v_visible := true;  end if;
   if v_visible is null and p_status = 'NONE'   then v_visible := false; end if;
@@ -137,11 +148,18 @@ begin
 
   if v_row.id is null then raise exception 'COMPANY_NOT_FOUND: %', p_company_id; end if;
 
-  -- 감사 로그(있을 때만, best-effort 구조와 동일 컬럼).
-  insert into public.admin_logs (admin_id, action, target_type, target_id, after_val, reason)
-  values (v_admin_uuid, 'SET_GUARANTEE', 'company', p_company_id,
-          jsonb_build_object('guarantee_status', v_row.guarantee_status,
-                             'guarantee_badge_visible', v_row.guarantee_badge_visible), null);
+  -- 감사 로그 — best-effort. admin_logs insert 실패가 guarantee 상태변경 자체를
+  --   rollback 시키지 않도록 서브트랜잭션으로 격리한다(본 처리 보호).
+  --   컬럼/타입은 기존 admin_logs 구조와 동일(admin_id uuid 는 sentinel 'admin' 일 때
+  --   NULL — 053 패턴과 일치, nullable).
+  begin
+    insert into public.admin_logs (admin_id, action, target_type, target_id, after_val, reason)
+    values (v_admin_uuid, 'SET_GUARANTEE', 'company', p_company_id,
+            jsonb_build_object('guarantee_status', v_row.guarantee_status,
+                               'guarantee_badge_visible', v_row.guarantee_badge_visible), null);
+  exception when others then
+    null; -- 로그 실패는 무시
+  end;
 
   return to_jsonb(v_row);
 end; $fn$;
