@@ -572,18 +572,27 @@ export default function LoginScreen({ onLogin, initialRole }) {
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", opacity: 0.85, marginBottom: 10, letterSpacing: "0.02em" }}>
                   공간마켓 신뢰거래 플랫폼
                 </div>
-                <div style={{ fontSize: 23, fontWeight: 900, color: "#fff", lineHeight: 1.35, marginBottom: 16, letterSpacing: "-0.3px" }}>
+                <div style={{ fontSize: 23, fontWeight: 900, color: "#fff", lineHeight: 1.35, marginBottom: 18, letterSpacing: "-0.3px" }}>
                   공간마켓,<br/>안전한 인테리어 거래의 시작
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-                  {["승인업체", "에스크로 결제", "GPS 현장 인증", "프로젝트 증빙관리"].map(t => (
-                    <span key={t} style={{
-                      background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.32)",
-                      borderRadius: R.full, padding: "5px 12px", fontSize: 11.5, fontWeight: 700, color: "#fff",
-                    }}>{t}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+                  {[
+                    { icon: "🏅", t: "승인 업체만 활동" },
+                    { icon: "🔒", t: "에스크로 안전결제" },
+                    { icon: "📍", t: "GPS 현장인증" },
+                    { icon: "📋", t: "프로젝트 증빙관리" },
+                  ].map(({ icon, t }) => (
+                    <div key={t} style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.42)",
+                      borderRadius: R.lg, padding: "10px 11px",
+                    }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 800, color: "#fff", letterSpacing: "-0.2px", lineHeight: 1.2 }}>{t}</span>
+                    </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.82)", lineHeight: 1.6 }}>
+                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.85)", lineHeight: 1.6 }}>
                   네 가지 안전장치 기반의 신뢰거래 플랫폼이에요.
                 </div>
               </div>
@@ -611,22 +620,28 @@ export default function LoginScreen({ onLogin, initialRole }) {
 
             {/* ═══ 3. 인테리어 진행 과정 (가장 강조) ═══ */}
             <div style={{ background: C.brandL, borderRadius: R.xl, padding: "22px 18px", marginBottom: 28, border: `1px solid ${C.brandM}` }}>
-              <div style={{ fontSize: 13, color: C.brandD, fontWeight: 700, marginBottom: 6 }}>인테리어 진행 과정</div>
-              <div style={{ fontSize: 19, fontWeight: 900, color: C.text1, marginBottom: 16 }}>견적부터 리뷰까지, 한 흐름으로</div>
-              <div style={{ display: "flex", alignItems: "stretch", gap: 6, overflowX: "auto", paddingBottom: 6, WebkitOverflowScrolling: "touch" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <div style={{ fontSize: 13, color: C.brandD, fontWeight: 700 }}>인테리어 진행 과정</div>
+                <div style={{ fontSize: 11, color: C.brand, fontWeight: 700, opacity: 0.85 }}>옆으로 넘겨보세요 ›</div>
+              </div>
+              <div style={{ fontSize: 19, fontWeight: 900, color: C.text1, marginBottom: 16 }}>견적부터 리뷰까지, 전 과정 한 흐름으로</div>
+              <div style={{ display: "flex", alignItems: "stretch", gap: 6, overflowX: "auto", paddingBottom: 8, WebkitOverflowScrolling: "touch" }}>
                 {[
-                  { icon: "📝", label: "견적요청" },
-                  { icon: "🚪", label: "현장방문" },
-                  { icon: "📄", label: "최종견적" },
-                  { icon: "🔒", label: "에스크로 결제" },
-                  { icon: "🏗", label: "공사진행" },
-                  { icon: "✅", label: "고객승인" },
-                  { icon: "⭐", label: "리뷰작성" },
-                ].map(({ icon, label }, i, arr) => (
+                  { n: 1, icon: "📝", label: "견적요청" },
+                  { n: 2, icon: "🚪", label: "현장방문" },
+                  { n: 3, icon: "📄", label: "최종견적" },
+                  { n: 4, icon: "🤝", label: "계약" },
+                  { n: 5, icon: "🔒", label: "에스크로" },
+                  { n: 6, icon: "🏗", label: "착공" },
+                  { n: 7, icon: "🔍", label: "중간점검" },
+                  { n: 8, icon: "🎉", label: "완료" },
+                  { n: 9, icon: "⭐", label: "리뷰" },
+                ].map(({ n, icon, label }, i, arr) => (
                   <div key={label} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
-                    <div style={{ width: 76, background: C.surface, borderRadius: R.lg, border: `1px solid ${C.brandM}`, padding: "12px 6px", textAlign: "center" }}>
-                      <div style={{ fontSize: 22, marginBottom: 6 }}>{icon}</div>
-                      <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text1, lineHeight: 1.3 }}>{label}</div>
+                    <div style={{ width: 72, background: C.surface, borderRadius: R.lg, border: `1px solid ${C.brandM}`, padding: "10px 6px 12px", textAlign: "center", position: "relative" }}>
+                      <div style={{ position: "absolute", top: 6, left: 6, width: 16, height: 16, borderRadius: R.full, background: C.brand, color: "#fff", fontSize: 9.5, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</div>
+                      <div style={{ fontSize: 22, margin: "4px 0 6px" }}>{icon}</div>
+                      <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text1, lineHeight: 1.3, whiteSpace: "nowrap" }}>{label}</div>
                     </div>
                     {i < arr.length - 1 && (
                       <div style={{ color: C.brand, fontSize: 16, fontWeight: 900, padding: "0 2px" }}>›</div>
@@ -667,18 +682,16 @@ export default function LoginScreen({ onLogin, initialRole }) {
                 ].map(c => {
                   const b = BADGES[c.badge] ?? BADGES.basic;
                   return (
-                    <div key={c.name} style={{ flexShrink: 0, width: 156, background: C.surface, borderRadius: R.xl, border: `1px solid ${C.bgWarm}`, overflow: "hidden" }}>
-                      <div style={{ height: 84, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 38, position: "relative" }}>
+                    <div key={c.name} style={{ flexShrink: 0, width: 172, background: C.surface, borderRadius: R.xl, border: `1px solid ${C.bgWarm}`, overflow: "hidden", boxShadow: "0 2px 10px rgba(28,23,18,0.06)" }}>
+                      <div style={{ height: 124, background: `linear-gradient(135deg, ${C.brandL} 0%, ${C.surface2} 100%)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56, position: "relative" }}>
                         {c.photo}
-                        <span style={{ position: "absolute", top: 8, left: 8, background: b.bg, color: b.color, borderRadius: R.full, padding: "2px 9px", fontSize: 10, fontWeight: 800 }}>{b.label}</span>
+                        <span style={{ position: "absolute", top: 10, left: 10, background: b.bg, color: b.color, borderRadius: R.full, padding: "3px 10px", fontSize: 10.5, fontWeight: 800, boxShadow: "0 1px 4px rgba(28,23,18,0.12)" }}>{b.label}</span>
+                        <span style={{ position: "absolute", top: 10, right: 10, background: "rgba(255,255,255,0.92)", color: c.temp >= 90 ? C.brand : C.gold, borderRadius: R.full, padding: "3px 9px", fontSize: 12, fontWeight: 900, boxShadow: "0 1px 4px rgba(28,23,18,0.12)" }}>{c.temp}°</span>
                       </div>
-                      <div style={{ padding: "12px 12px 14px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                          <span style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>{c.name}</span>
-                          <span style={{ fontSize: 14, fontWeight: 900, color: c.temp >= 90 ? C.brand : C.gold }}>{c.temp}°</span>
-                        </div>
-                        <div style={{ fontSize: 11.5, color: C.text3, marginBottom: 8 }}>📍 {c.region}</div>
-                        <span style={{ display: "inline-block", background: C.surface2, color: C.text2, borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 600, border: `1px solid ${C.bgWarm}` }}>{c.spec}</span>
+                      <div style={{ padding: "13px 13px 15px" }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{c.name}</div>
+                        <div style={{ fontSize: 11.5, color: C.text3, marginBottom: 9 }}>📍 {c.region}</div>
+                        <span style={{ display: "inline-block", background: C.surface2, color: C.text2, borderRadius: R.full, padding: "4px 11px", fontSize: 11, fontWeight: 600, border: `1px solid ${C.bgWarm}` }}>{c.spec}</span>
                       </div>
                     </div>
                   );
