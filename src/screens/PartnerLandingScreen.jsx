@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { submitPartnerLead } from "../lib/supabase";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#0B1D3A";
@@ -117,11 +118,13 @@ const EMPTY_FORM = {
 function ConsultForm() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
     const required = [
       ["company", "업체명"], ["owner", "대표자명"], ["phone", "연락처"],
       ["bizNo", "사업자등록번호"], ["region", "시공지역"], ["field", "전문분야"],
@@ -131,8 +134,23 @@ function ConsultForm() {
       alert(`다음 필수 항목을 입력해 주세요:\n${missing.join(", ")}`);
       return;
     }
-    // 1차: DB 저장/자동 발송 없이 콘솔 기록만. 실제 접수는 관리자 안내(전화/문자)로 진행.
-    console.log("[PartnerLanding] 공간파트너 가입상담 신청:", form);
+    // V1.1: partner_leads 저장(관리자 상담관리에서 승인 처리). 문자/이메일/토스 발송 없음.
+    setSaving(true);
+    const { data, error } = await submitPartnerLead({
+      companyName:     form.company,
+      ownerName:       form.owner,
+      phone:           form.phone,
+      businessNumber:  form.bizNo,
+      serviceArea:     form.region,
+      specialty:       form.field,
+      insuranceStatus: form.insurance,
+      memo:            form.message,
+    }).catch((err) => ({ error: err }));
+    setSaving(false);
+    if (error || data?.error) {
+      alert("신청 접수에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
     setSubmitted(true);
   };
 
@@ -209,13 +227,14 @@ function ConsultForm() {
 
       <button
         type="submit"
+        disabled={saving}
         style={{
-          height: 52, borderRadius: 12, border: "none", cursor: "pointer",
+          height: 52, borderRadius: 12, border: "none", cursor: saving ? "default" : "pointer",
           background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900,
-          fontFamily: SANS, letterSpacing: "-0.2px",
+          fontFamily: SANS, letterSpacing: "-0.2px", opacity: saving ? 0.7 : 1,
           boxShadow: `0 6px 20px rgba(201,168,76,0.35)`,
         }}>
-        공간파트너 가입상담 신청
+        {saving ? "접수 중..." : "공간파트너 가입상담 신청"}
       </button>
       <div style={{ fontSize: 12, color: TEXT3, textAlign: "center", lineHeight: 1.6 }}>
         신청 후 관리자 검토를 거쳐 가입 절차를 안내드립니다.<br />

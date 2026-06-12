@@ -1447,6 +1447,36 @@ export const getAdminProjectFlow = (adminId, opts = {}) =>
     p_limit:     opts.limit ?? 200,
   });
 
+// ── Partner Leads (파트너 랜딩 상담신청 + 승인 프로세스) — migration 065 ───────
+// 제출: 비로그인 업체가 /partner 에서 호출(anon). 조회/상태변경: admin sentinel('admin')
+// 또는 DB role=admin uuid. 신규 테이블 partner_leads + 3 RPC. 기존 기능 무관.
+export const submitPartnerLead = (lead = {}) =>
+  supabase.rpc("partner_lead_submit", {
+    p_company_name:     lead.companyName ?? null,
+    p_phone:            lead.phone ?? null,
+    p_owner_name:       lead.ownerName ?? null,
+    p_business_number:  lead.businessNumber ?? null,
+    p_service_area:     lead.serviceArea ?? null,
+    p_specialty:        lead.specialty ?? null,
+    p_insurance_status: lead.insuranceStatus ?? null,
+    p_memo:             lead.memo ?? null,
+  });
+
+export const getPartnerLeads = (adminId, { status = null, limit = 300 } = {}) =>
+  supabase.rpc("partner_leads_list", {
+    p_admin_id: adminId,
+    p_status:   status,
+    p_limit:    limit,
+  });
+
+export const setPartnerLeadStatus = (adminId, leadId, status, adminNote = null) =>
+  supabase.rpc("partner_lead_set_status", {
+    p_admin_id:   adminId,
+    p_lead_id:    leadId,
+    p_status:     status,
+    p_admin_note: adminNote,
+  });
+
 // 업체 진행건(현장방문 견적 단계) 조회 — "선택된 업체"인 요청만 반환한다.
 // 매칭 기준(셋 중 하나라도 candidateIds 에 포함되면 해당 업체의 진행건):
 //   ① 선택된 입찰(bids.selected=true) 의 company_id
