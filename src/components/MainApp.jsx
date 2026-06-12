@@ -1137,6 +1137,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             leadExtra = {
               name:                    claim.company_name ?? (user.name ?? "업체"),
               has_insurance:           claim.insurance_yn ?? false,
+              // V1.3: 가입상담 업로드 서류를 company 로 복사(기존 companies 서류 컬럼 재사용).
+              biz_cert_url:            claim.business_license_url ?? null,
+              insurance_url:           claim.insurance_file_url ?? null,
               guarantee_grade:         claim.guarantee_grade ?? null,
               guarantee_amount:        claim.guarantee_amount ?? null,
               guarantee_status:        "ACTIVE",
