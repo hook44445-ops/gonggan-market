@@ -69,6 +69,7 @@ import {
   getCompanyActiveJobs,
   respondSiteVisit,
   upsertCompany,
+  claimPartnerLeadForCompany, markPartnerLeadClaimed,
   getBidById,
   getPaymentOrderByRequest,
   getEscrowByRequest,
@@ -1124,14 +1125,48 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         setCurrentUser(normalizeCompany(data));
         setMyCompanyRow(data);
       } else {
+        // V2 무인 온보딩 브릿지(069): 승인된 가입상담(partner_leads.APPROVED & 미클레임)이 있으면
+        // 그 등급/예치금/보험을 새 company 에 복사한다. company 선생성 없이 "최초 로그인 시점 1회"만 생성.
+        // lead 없으면 기존 동작 그대로(회귀 0). 068 guarantee_* 컬럼에 복사하여 GuaranteeCard 가 활성화됨.
+        let leadExtra = {};
+        let claimLeadId = null;
+        try {
+          const { data: claim } = await claimPartnerLeadForCompany(user.phone ?? "");
+          if (claim?.lead_id) {
+            claimLeadId = claim.lead_id;
+            leadExtra = {
+              name:                    claim.company_name ?? (user.name ?? "업체"),
+              has_insurance:           claim.insurance_yn ?? false,
+              guarantee_grade:         claim.guarantee_grade ?? null,
+              guarantee_amount:        claim.guarantee_amount ?? null,
+              guarantee_status:        "ACTIVE",
+              guarantee_badge_visible: true,
+              guarantee_updated_at:    new Date().toISOString(),
+            };
+          }
+        } catch (e) { console.warn("[partner_lead_claim] skip:", e); }
+
         const { data: created } = await upsertCompany({
           owner_id:       user.id,
           name:           user.name ?? "업체",
           region:         user.region ?? "",
-          company_status: "ACTIVE",
           online:         true,
+          // 온보딩 브릿지 경로(claimLeadId)에서는 company_status 를 ACTIVE 로 자동 설정하지 않는다.
+          //   입찰 게이트(company_status='ACTIVE')는 기존 업체 승인 프로세스로 분리 유지(068 원칙:
+          //   guarantee_status ≠ company_status). 비-온보딩 일반 최초 로그인은 기존대로 ACTIVE.
+          //   (CompanyOnboarding 도 company_status 미설정 → DB 기본값 사용, insert 안전.)
+          ...(claimLeadId ? {} : { company_status: "ACTIVE" }),
+          ...leadExtra,
         });
-        if (created) { setCurrentUser(normalizeCompany(created)); setMyCompanyRow(created); }
+        if (created) {
+          setCurrentUser(normalizeCompany(created));
+          setMyCompanyRow(created);
+          // 복사 완료 후 lead 클레임 확정(중복 복사 차단, idempotent).
+          if (claimLeadId) {
+            try { await markPartnerLeadClaimed(claimLeadId, created.id); }
+            catch (e) { console.warn("[partner_lead_mark_claimed] skip:", e); }
+          }
+        }
       }
     }).catch(() => {});
   }, [user?.id, activeRole]);
