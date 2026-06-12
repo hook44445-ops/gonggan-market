@@ -22,9 +22,9 @@ set search_path = public, extensions;
 create table if not exists public.partner_leads (
   id                uuid primary key default gen_random_uuid(),
   company_name      text not null,
-  owner_name        text,
+  owner_name        text not null,
   phone             text not null,
-  business_number   text,
+  business_number   text not null,
   service_area      text,
   specialty         text,
   insurance_status  text,                       -- '가입'/'미가입'/'확인필요' 등 자유값(표시용)
@@ -32,16 +32,17 @@ create table if not exists public.partner_leads (
   status            text not null default 'PENDING'
                       check (status in ('PENDING','CONTACTED','APPROVED','REJECTED')),
   admin_note        text,                        -- 관리자 메모
-  approved_at       timestamptz,                 -- 승인(또는 최종 상태) 처리 일시
-  approved_by       text,                        -- 처리 담당 관리자(uuid 또는 'admin' sentinel)
+  processed_at      timestamptz,                 -- 승인/반려 등 최종 상태 처리 일시
+  processed_by      text,                        -- 처리 담당 관리자(uuid 또는 'admin' sentinel)
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
 
 comment on table public.partner_leads is '파트너(업체) 랜딩 상담신청 리드 + 승인 상태 — Partner Landing v1.1';
 
-create index if not exists idx_partner_leads_status  on public.partner_leads (status, created_at desc);
-create index if not exists idx_partner_leads_created on public.partner_leads (created_at desc);
+create index if not exists idx_partner_leads_status       on public.partner_leads (status, created_at desc);
+create index if not exists idx_partner_leads_created      on public.partner_leads (created_at desc);
+create index if not exists idx_partner_leads_phone_status on public.partner_leads (phone, status); -- V1.2 승인업체 로그인(gating) 대비
 
 -- ── 2. RLS ───────────────────────────────────────────────────────────
 alter table public.partner_leads enable row level security;
@@ -79,15 +80,21 @@ begin
   if nullif(trim(coalesce(p_phone, '')), '') is null then
     return jsonb_build_object('error', 'PHONE_REQUIRED');
   end if;
+  if nullif(trim(coalesce(p_owner_name, '')), '') is null then
+    return jsonb_build_object('error', 'OWNER_NAME_REQUIRED');
+  end if;
+  if nullif(trim(coalesce(p_business_number, '')), '') is null then
+    return jsonb_build_object('error', 'BUSINESS_NUMBER_REQUIRED');
+  end if;
 
   insert into public.partner_leads (
     company_name, owner_name, phone, business_number,
     service_area, specialty, insurance_status, memo
   ) values (
     trim(p_company_name),
-    nullif(trim(coalesce(p_owner_name, '')), ''),
+    trim(p_owner_name),
     trim(p_phone),
-    nullif(trim(coalesce(p_business_number, '')), ''),
+    trim(p_business_number),
     nullif(trim(coalesce(p_service_area, '')), ''),
     nullif(trim(coalesce(p_specialty, '')), ''),
     nullif(trim(coalesce(p_insurance_status, '')), ''),
@@ -153,8 +160,8 @@ begin
       'memo',             l.memo,
       'status',           l.status,
       'admin_note',       l.admin_note,
-      'approved_at',      l.approved_at,
-      'approved_by',      l.approved_by,
+      'processed_at',     l.processed_at,
+      'processed_by',     l.processed_by,
       'created_at',       l.created_at,
       'updated_at',       l.updated_at
     ) as row_json, l.created_at
@@ -200,11 +207,11 @@ begin
   v_is_final := p_status in ('APPROVED','REJECTED');
 
   update public.partner_leads
-     set status      = p_status,
-         admin_note  = coalesce(nullif(trim(coalesce(p_admin_note, '')), ''), admin_note),
-         approved_at = case when v_is_final then now() else approved_at end,
-         approved_by = case when v_is_final then p_admin_id else approved_by end,
-         updated_at  = now()
+     set status       = p_status,
+         admin_note   = coalesce(nullif(trim(coalesce(p_admin_note, '')), ''), admin_note),
+         processed_at = case when v_is_final then now() else processed_at end,
+         processed_by = case when v_is_final then p_admin_id else processed_by end,
+         updated_at   = now()
    where id = p_lead_id;
 
   if not found then

@@ -2656,9 +2656,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
     const isFinal = status === "APPROVED" || status === "REJECTED";
     setPartnerLeads((prev) => prev.map((l) => l.id === lead.id ? {
       ...l, status,
-      admin_note:  (note && note.trim()) ? note.trim() : l.admin_note,
-      approved_at: isFinal ? new Date().toISOString() : l.approved_at,
-      approved_by: isFinal ? (user?.id ?? l.approved_by) : l.approved_by,
+      admin_note:   (note && note.trim()) ? note.trim() : l.admin_note,
+      processed_at: isFinal ? new Date().toISOString() : l.processed_at,
+      processed_by: isFinal ? (user?.id ?? l.processed_by) : l.processed_by,
     } : l));
     showToast("상태가 변경됐어요");
   };
@@ -2955,10 +2955,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         </div>
                       )}
 
-                      {(l.approved_at || l.approved_by) && (
+                      {(l.processed_at || l.processed_by) && (
                         <div style={{ fontSize: 11, color: C.text4, marginBottom: S.sm }}>
-                          처리: {l.approved_at ? new Date(l.approved_at).toLocaleString("ko-KR") : ""}
-                          {l.approved_by ? ` · 담당 ${String(l.approved_by).slice(0, 8)}` : ""}
+                          처리: {l.processed_at ? new Date(l.processed_at).toLocaleString("ko-KR") : ""}
+                          {l.processed_by ? ` · 담당 ${String(l.processed_by).slice(0, 8)}` : ""}
                         </div>
                       )}
 
