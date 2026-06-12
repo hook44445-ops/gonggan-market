@@ -261,24 +261,34 @@ export const updateBid = (id, data) =>
 
 // ── Chats ─────────────────────────────────────────────────────────────────────
 
-export const getChatMessages = (roomId) =>
-  supabase
+// 최신 limit개만 내림차순으로 조회 후 시간순(asc)으로 되돌려 반환 — 기존 호출부와 동일한
+// 반환 형태/정렬 유지. before(created_at) 커서를 주면 그 이전 메시지를 추가 로딩(더보기).
+export const getChatMessages = async (roomId, { limit = 50, before = null } = {}) => {
+  let q = supabase
     .from("chats")
     .select("*")
     .eq("room_id", roomId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (before) q = q.lt("created_at", before);
+  const { data, error } = await q;
+  return { data: data ? [...data].reverse() : data, error };
+};
 
 // 관리자 증빙 열람용(읽기 전용) — 한 프로젝트의 채팅을 고객×업체 room 후보로 조회.
 // room_id = `${customerUserId}_${companyId}` 규칙. 업체는 companies.id/owner_id 둘 다 후보로 본다
 // (과거 bids.company_id 가 owner_id 였던 케이스 보정). 데이터 없으면 빈 배열.
-export const getChatsForProject = ({ customerId, companyId, ownerId } = {}) => {
+// 성능: 최근 limit개만 조회(전체 일괄 로딩 금지) — 반환 정렬은 기존과 동일(asc).
+export const getChatsForProject = async ({ customerId, companyId, ownerId, limit = 50 } = {}) => {
   const rooms = [companyId, ownerId].filter(Boolean).map((cid) => `${customerId}_${cid}`);
-  if (!customerId || rooms.length === 0) return Promise.resolve({ data: [], error: null });
-  return supabase
+  if (!customerId || rooms.length === 0) return { data: [], error: null };
+  const { data, error } = await supabase
     .from("chats")
     .select("*")
     .in("room_id", rooms)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return { data: data ? [...data].reverse() : data, error };
 };
 
 export const sendMessage = (roomId, senderId, senderType, text) =>
@@ -2557,6 +2567,16 @@ export const fetchReceivedChatRequests = (userId, limit = 50) =>
     .eq("target_id", userId)
     .eq("status", "pending")
     .order("created_at", { ascending: false })
+    .limit(limit);
+
+// 내가 받은 대화 신청 중 수락된 목록 — 라운지 채팅방 재진입용 (additive, 기존 pending 조회 무변경)
+export const fetchAcceptedReceivedChatRequests = (userId, limit = 50) =>
+  supabase
+    .from("lounge_chat_requests")
+    .select("id, post_id, requester_id, status, created_at, accepted_at, lounge_posts(title, anonymous_nickname)")
+    .eq("target_id", userId)
+    .eq("status", "accepted")
+    .order("accepted_at", { ascending: false })
     .limit(limit);
 
 // ── Payment / Contract restore helpers ───────────────────────────────────────

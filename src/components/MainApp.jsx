@@ -3,6 +3,7 @@ import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TOKEN_COSTS } from "../constants/lounge";
+import { getAnonymousNickname } from "../utils/anonymousNickname";
 import LiveFeed from "./LiveFeed";
 import RegionSelectorBar from "./RegionSelectorBar";
 import RegionSelectSheet from "./RegionSelectSheet";
@@ -541,6 +542,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   }, [screen, activeRole]);
   const [toast, setToast] = useState(null);
   const [showReq, setShowReq] = useState(false);
+  const [reqPrefill, setReqPrefill] = useState(null);          // 라운지 채팅 → 견적요청 시 desc 초기값
+  const [loungeChat, setLoungeChat] = useState(null);          // { roomId, partner } — 라운지 1:1 채팅
+  useEffect(() => { if (!showReq) setReqPrefill(null); }, [showReq]); // 모달 닫히면 prefill 초기화(다음 일반 견적요청 오염 방지)
   const [reqBlock, setReqBlock] = useState(null);   // null | { type, activeReq, remainingMs }
   const [reqCheckDebug, setReqCheckDebug] = useState(null);
   const [myRequests, setMyRequests] = useState([]);
@@ -3457,6 +3461,26 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} onEarnToken={earnToken} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")}
           onQuoteRequest={activeRole === "consumer" ? () => { setScreen("home"); handleOpenNewReq(); } : undefined} />}
+        {screen==="lounge-chat" && loungeChat && (
+          <ChatScreen
+            mode="lounge"
+            roomId={loungeChat.roomId}
+            partner={loungeChat.partner}
+            user={user}
+            onBack={() => setScreen("my")}
+            onQuoteRequest={activeRole === "consumer" ? () => {
+              if (loungeChat.partner?.postTitle) {
+                setReqPrefill({ desc: `라운지 글 "${loungeChat.partner.postTitle}" 관련 상담에서 이어진 견적 요청입니다.\n` });
+              }
+              setScreen("home"); handleOpenNewReq();
+            } : undefined}
+            onOpenSource={(postId) => { setLoungePost({ id: postId, _deeplink: true }); go("lounge-detail"); }}
+            onOpenPortfolio={(ownerId) => {
+              const co = companies.find(c => c.ownerId === ownerId || c.id === ownerId);
+              if (co) go("portfolio", co);
+            }}
+          />
+        )}
         {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id} />}
         {screen==="bidstatus" && (
@@ -4232,6 +4256,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 if (target === "token-store")        { requireAuth(() => go("token-store")); }
                 else if (target === "token-history") { requireAuth(() => go("token-history")); }
               }}
+              onOpenLoungeChat={(req) => requireAuth(() => {
+                // room_id = lounge_{lounge_chat_request_id} — 기존 chats 재사용 (신규 테이블 없음)
+                setLoungeChat({
+                  roomId: `lounge_${req.requestId}`,
+                  partner: {
+                    userId:    req.partnerId,
+                    nickname:  getAnonymousNickname(req.partnerId, req.postId),
+                    postId:    req.postId,
+                    postTitle: req.postTitle,
+                    requestId: req.requestId,
+                  },
+                });
+                go("lounge-chat");
+              })}
               onEditPost={(post) => {
                 setEditingLoungePost(post);
                 setEditOriginScreen('my');
@@ -4578,7 +4616,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         );
       })()}
 
-      {showReq && <RequestModal onClose={() => setShowReq(false)} onDone={async (form) => {
+      {showReq && <RequestModal initialData={reqPrefill} onClose={() => { setShowReq(false); setReqPrefill(null); }} onDone={async (form) => {
         // Pre-insert server-side duplicate guard
         const overrideTsInsert = localStorage.getItem(OVERRIDE_LS_KEY);
         if (overrideTsInsert) {

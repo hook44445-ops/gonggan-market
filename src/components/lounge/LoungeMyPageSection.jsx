@@ -14,6 +14,7 @@ import {
   supabase,
   fetchMyChatRequests,
   fetchReceivedChatRequests,
+  fetchAcceptedReceivedChatRequests,
   acceptLoungeChatRequest,
 } from '../../lib/supabase';
 
@@ -270,9 +271,10 @@ function MyCommentsScreen({ onBack }) {
 }
 
 // ── 대화 신청 내역 (DB 기반) ──────────────────────────
-function ChatHistoryScreen({ userId, onBack }) {
+function ChatHistoryScreen({ userId, onBack, onOpenChat }) {
   const [sent,     setSent]     = useState([]);
   const [received, setReceived] = useState([]);
+  const [acceptedRecv, setAcceptedRecv] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [toast,    setToast]    = useState(null);
   const [busyId,   setBusyId]   = useState(null);
@@ -286,15 +288,27 @@ function ChatHistoryScreen({ userId, onBack }) {
   useEffect(() => {
     if (!userId || !IS_SUPABASE_READY) { setLoading(false); return; }
     (async () => {
-      const [sentRes, recvRes] = await Promise.all([
+      const [sentRes, recvRes, acceptedRes] = await Promise.all([
         fetchMyChatRequests(userId),
         fetchReceivedChatRequests(userId),
+        fetchAcceptedReceivedChatRequests(userId),
       ]);
       setSent(sentRes.data ?? []);
       setReceived(recvRes.data ?? []);
+      setAcceptedRecv(acceptedRes.data ?? []);
       setLoading(false);
     })();
   }, [userId]);
+
+  // 라운지 채팅방 진입 — room_id = lounge_{request_id}. partnerId: 내가 수락자면 requester, 내가 신청자면 target.
+  const openChat = (req, partnerId) => {
+    onOpenChat?.({
+      requestId: req.id,
+      postId:    req.post_id,
+      postTitle: req.lounge_posts?.title ?? null,
+      partnerId,
+    });
+  };
 
   const handleAccept = async (req) => {
     if (busyId) return;
@@ -308,11 +322,14 @@ function ChatHistoryScreen({ userId, onBack }) {
     const status = data?.status;
     if (status === 'already_accepted') {
       showToast('이미 수락된 대화예요');
+      openChat(req, req.requester_id);
     } else if (data?.error === 'INSUFFICIENT_TOKENS') {
       showToast(`토큰이 부족해요 (상대방 잔액: ${data.balance ?? 0}토큰)`);
     } else {
       showToast('✅ 대화가 시작됐어요!');
       setReceived(prev => prev.filter(r => r.id !== req.id));
+      setAcceptedRecv(prev => [{ ...req, status: 'accepted' }, ...prev]);
+      openChat(req, req.requester_id);
     }
   };
 
@@ -346,8 +363,31 @@ function ChatHistoryScreen({ userId, onBack }) {
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: C.text4, fontSize: 13 }}>불러오는 중...</div>
       ) : tab === 'received' ? (
-        received.length === 0
-          ? <EmptyState icon="📭" title="받은 대화 신청이 없어요" desc="다른 사람이 내 댓글을 보고 신청하면 여기에 표시돼요" />
+        <>
+        {/* 수락된 대화 — 채팅방 재진입 */}
+        {acceptedRecv.length > 0 && (
+          <div style={{ background: C.surface, borderBottom: `8px solid ${C.bg}` }}>
+            <div style={{ padding: `${S.md}px ${S.xl}px 0`, fontSize: 12, fontWeight: 800, color: C.text3 }}>💬 대화 중</div>
+            {acceptedRecv.map(r => (
+              <div key={r.id} style={{ padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}`, display: 'flex', alignItems: 'center', gap: S.md }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.brandL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>💬</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                    {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? '게시글'}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.text3 }}>{formatRelativeTime(r.accepted_at ?? r.created_at)} 수락</div>
+                </div>
+                <button onClick={() => openChat(r, r.requester_id)}
+                  style={{ padding: '8px 14px', background: C.brandL, color: C.brand, border: `1px solid ${C.brandM}`,
+                    borderRadius: R.full, fontWeight: 700, fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>
+                  채팅방 입장
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {received.length === 0
+          ? (acceptedRecv.length === 0 ? <EmptyState icon="📭" title="받은 대화 신청이 없어요" desc="다른 사람이 내 댓글을 보고 신청하면 여기에 표시돼요" /> : null)
           : (
             <div style={{ background: C.surface }}>
               {received.map(r => (
@@ -378,7 +418,8 @@ function ChatHistoryScreen({ userId, onBack }) {
                 </div>
               ))}
             </div>
-          )
+          )}
+        </>
       ) : (
         sent.length === 0
           ? <EmptyState icon="💬" title="보낸 대화 신청이 없어요" desc={'라운지 댓글 작성자를 클릭하면\n대화를 신청할 수 있어요'} />
@@ -395,7 +436,15 @@ function ChatHistoryScreen({ userId, onBack }) {
                       </div>
                       <div style={{ fontSize: 11, color: C.text3 }}>{formatRelativeTime(r.created_at)}</div>
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: st.color, background: `${st.color}18`, padding: '4px 10px', borderRadius: R.full, flexShrink: 0 }}>{st.label}</div>
+                    {r.status === 'accepted' ? (
+                      <button onClick={() => openChat(r, r.target_id)}
+                        style={{ padding: '8px 14px', background: C.brandL, color: C.brand, border: `1px solid ${C.brandM}`,
+                          borderRadius: R.full, fontWeight: 700, fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>
+                        채팅방 입장
+                      </button>
+                    ) : (
+                      <div style={{ fontSize: 11, fontWeight: 700, color: st.color, background: `${st.color}18`, padding: '4px 10px', borderRadius: R.full, flexShrink: 0 }}>{st.label}</div>
+                    )}
                   </div>
                 );
               })}
@@ -659,7 +708,7 @@ function Row({ label, icon, count, onClick }) {
 // ── 메인 섹션 ──────────────────────────────────────────
 export default function LoungeMyPageSection({
   user, temperature, balance, tokenLogs, myPosts,
-  onNavigate, onEditPost, onDeletePost, refreshKey = 0,
+  onNavigate, onEditPost, onDeletePost, onOpenLoungeChat, refreshKey = 0,
 }) {
   const temp   = temperature ?? SPACE_TEMPERATURE_BASE;
   const isComp = user?.role === 'company';
@@ -757,7 +806,7 @@ export default function LoungeMyPageSection({
   );
   if (subScreen === 'my-saves')     return <MySavesScreen    onBack={() => setSubScreen(null)} onPost={null} />;
   if (subScreen === 'my-comments')  return <MyCommentsScreen onBack={() => setSubScreen(null)} />;
-  if (subScreen === 'chat-history') return <ChatHistoryScreen userId={user?.id} onBack={() => setSubScreen(null)} />;
+  if (subScreen === 'chat-history') return <ChatHistoryScreen userId={user?.id} onBack={() => setSubScreen(null)} onOpenChat={onOpenLoungeChat} />;
   if (subScreen === 'missions')     return <MissionsScreen   tokenLogs={tokenLogs} onBack={() => setSubScreen(null)} />;
   if (subScreen === 'privacy')      return <PrivacyScreen    onBack={() => setSubScreen(null)} />;
   if (subScreen === 'blocks')       return <BlocksScreen     onBack={() => setSubScreen(null)} />;
