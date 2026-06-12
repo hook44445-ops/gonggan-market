@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { submitPartnerLead } from "../lib/supabase";
+import { submitPartnerLead, checkPartnerApproved } from "../lib/supabase";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#0B1D3A";
@@ -258,20 +258,139 @@ function ConsultForm() {
   );
 }
 
+// ── Company login gate(V1.2) ─────────────────────────────────────────────────
+// 관리자 승인(partner_leads.status='APPROVED') 업체만 기존 업체 로그인 플로우로
+// 진입시키는 게이트. 통과 시 기존 "/?login=company" 리다이렉트(App.jsx 분기)는
+// 그대로 사용 — 로그인 로직 자체는 수정하지 않는다.
+function CompanyLoginGate({ onClose }) {
+  const [phone, setPhone] = useState("");
+  const [bizNo, setBizNo] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [denied, setDenied] = useState(false);
+
+  const handleCheck = async (e) => {
+    e.preventDefault();
+    if (checking) return;
+    if (!phone.trim() || !bizNo.trim()) {
+      alert("연락처와 사업자등록번호를 입력해 주세요.");
+      return;
+    }
+    setChecking(true);
+    setDenied(false);
+    try {
+      const { data, error } = await checkPartnerApproved(phone, bizNo);
+      console.log("[partner_lead_check_approved]", { data, error });
+      if (error || !data?.approved) {
+        setDenied(true);
+        return;
+      }
+      window.location.href = "/?login=company";
+    } catch (err) {
+      console.error("[partner_lead_check_approved] 예외:", err);
+      setDenied(true);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const inputStyle = {
+    width: "100%", height: 48, borderRadius: 10,
+    border: `1.5px solid #DDE3EC`,
+    padding: "0 14px", fontSize: 15, fontFamily: SANS,
+    background: WHITE, color: NAVY, outline: "none",
+    boxSizing: "border-box",
+  };
+  const labelStyle = {
+    fontSize: 12, fontWeight: 700, color: TEXT2, marginBottom: 6, display: "block",
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(11,29,58,0.55)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 20, zIndex: 1000,
+      }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: WHITE, borderRadius: 16, padding: 28,
+          maxWidth: 380, width: "100%", fontFamily: SANS,
+          boxSizing: "border-box",
+        }}>
+        <div style={{ fontSize: 17, fontWeight: 900, color: NAVY, marginBottom: 6 }}>
+          업체 로그인
+        </div>
+        <div style={{ fontSize: 12, color: TEXT3, marginBottom: 18, lineHeight: 1.6 }}>
+          관리자 승인을 받은 공간파트너만 로그인할 수 있습니다.<br />
+          연락처와 사업자등록번호를 입력해 주세요.
+        </div>
+        <form onSubmit={handleCheck} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <label style={labelStyle}>연락처</label>
+            <input
+              style={inputStyle} placeholder="휴대폰 번호" inputMode="tel"
+              value={phone} onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>사업자등록번호</label>
+            <input
+              style={inputStyle} placeholder="000-00-00000" inputMode="numeric"
+              value={bizNo} onChange={(e) => setBizNo(e.target.value)}
+            />
+          </div>
+          {denied && (
+            <div style={{
+              fontSize: 12.5, color: GOLDD, background: GOLDB,
+              border: `1px solid ${GOLD}`, borderRadius: 10,
+              padding: "10px 12px", lineHeight: 1.6,
+            }}>
+              아직 승인되지 않은 업체입니다.<br />
+              가입상담 신청 후 관리자 승인 완료 시 이용하실 수 있습니다.
+            </div>
+          )}
+          <button
+            type="submit" disabled={checking}
+            style={{
+              height: 48, borderRadius: 12, border: "none",
+              cursor: checking ? "default" : "pointer",
+              background: NAVY, color: WHITE, fontSize: 15, fontWeight: 800,
+              fontFamily: SANS, opacity: checking ? 0.7 : 1,
+            }}>
+            {checking ? "확인 중..." : "확인하고 로그인"}
+          </button>
+          <button
+            type="button" onClick={onClose}
+            style={{
+              height: 40, borderRadius: 12, border: "none", background: "transparent",
+              color: TEXT3, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: SANS,
+            }}>
+            닫기
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function PartnerLandingScreen() {
   const [heroRef, heroVis] = useVisible(0.05);
+  const [showLoginGate, setShowLoginGate] = useState(false);
 
   const scrollToForm = () => {
     const el = document.getElementById("partner-consult-form");
     if (el) el.scrollIntoView({ behavior: "smooth" });
   };
 
-  // 기존 업체 로그인/가입 경로로 연결 — 새 로직 없이 홈(App)에서 handleRoleSelect("company") 재사용.
-  const goCompanyLogin = () => { window.location.href = "/?login=company"; };
+  // V1.2: 승인업체 로그인 게이트 — 통과 시 기존 경로(handleRoleSelect("company")) 그대로 사용.
+  const goCompanyLogin = () => setShowLoginGate(true);
 
   return (
     <div style={{ fontFamily: SANS, background: OFF, minHeight: "100vh" }}>
+      {showLoginGate && <CompanyLoginGate onClose={() => setShowLoginGate(false)} />}
 
       {/* ── HERO ───────────────────────────────────────────────────── */}
       <div style={{

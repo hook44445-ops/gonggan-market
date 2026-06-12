@@ -1477,6 +1477,14 @@ export const setPartnerLeadStatus = (adminId, leadId, status, adminNote = null) 
     p_admin_note: adminNote,
   });
 
+// 승인업체 로그인 게이트(읽기 전용) — migration 066. 전화번호+사업자등록번호로
+// status='APPROVED' 리드 존재 여부만 확인(boolean). anon 호출 가능, 행 데이터는 노출 안 함.
+export const checkPartnerApproved = (phone, businessNumber) =>
+  supabase.rpc("partner_lead_check_approved", {
+    p_phone:           phone ?? null,
+    p_business_number: businessNumber ?? null,
+  });
+
 // 업체 진행건(현장방문 견적 단계) 조회 — "선택된 업체"인 요청만 반환한다.
 // 매칭 기준(셋 중 하나라도 candidateIds 에 포함되면 해당 업체의 진행건):
 //   ① 선택된 입찰(bids.selected=true) 의 company_id
