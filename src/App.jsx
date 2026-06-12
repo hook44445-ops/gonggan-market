@@ -4,6 +4,7 @@ import MainApp from "./components/MainApp";
 import LoginScreen from "./screens/LoginScreen";
 import LandingScreen from "./screens/LandingScreen";
 import LegalScreen from "./screens/LegalScreen";
+import PartnerLandingScreen from "./screens/PartnerLandingScreen";
 import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { getUserByPhone } from "./lib/supabase";
@@ -178,16 +179,23 @@ export default function App() {
     setPhoneAuthMode(true);
   };
 
-  // 공개 법적고지 페이지(/privacy, /terms) — 토스 PG 심사용. 로그인/세션과 무관하게
-  // 가장 먼저 분기한다(라우터 미사용 SPA — Vercel catch-all rewrite 로 index.html 서빙).
+  // 공개 정적 페이지(/privacy, /terms, /partner) — 로그인/세션과 무관하게 가장 먼저 분기.
+  // 라우터 미사용 SPA — Vercel catch-all rewrite 로 index.html 서빙.
   {
-    const _legalPath = (typeof window !== "undefined" ? window.location.pathname : "")
+    const _staticPath = (typeof window !== "undefined" ? window.location.pathname : "")
       .replace(/\/+$/, "")
       .toLowerCase();
-    if (_legalPath === "/privacy" || _legalPath === "/terms") {
+    if (_staticPath === "/privacy" || _staticPath === "/terms") {
       return (
         <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
-          <LegalScreen type={_legalPath === "/terms" ? "terms" : "privacy"} />
+          <LegalScreen type={_staticPath === "/terms" ? "terms" : "privacy"} />
+        </ErrorBoundary>
+      );
+    }
+    if (_staticPath === "/partner") {
+      return (
+        <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
+          <PartnerLandingScreen />
         </ErrorBoundary>
       );
     }
