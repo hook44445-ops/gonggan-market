@@ -14,5 +14,8 @@
       "destination": "/api/prerender?path=:path*"
     },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/push/dispatch", "schedule": "*/10 * * * *" }
   ]
 }
