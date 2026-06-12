@@ -3,7 +3,8 @@ import { C, R, S } from "../constants";
 import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import { detectDirectDealKeywords } from "../constants/directDeal";
-import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal } from "../lib/supabase";
+import { BADGES } from "../constants/badges";
+import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId } from "../lib/supabase";
 
 const REPORT_REASONS = [
   "외부 연락처(카톡/전화) 요구",
@@ -25,16 +26,52 @@ const normalizeMsg = (row) => ({
   from: row.sender_type === "company" ? "company" : "user",
   text: row.text,
   time: fmtTime(row.created_at),
+  createdAt: row.created_at,
 });
 
-export default function ChatScreen({ company, user, onBack, onQuoteRequest }) {
-  const roomId = `${user?.id ?? "guest"}_${company?.id ?? "0"}`;
+const PAGE_SIZE = 50;
+const LOUNGE_SYSTEM_HELLO = "라운지 대화가 시작되었습니다.";
+
+export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode, partner, roomId: roomIdProp, onOpenSource, onOpenPortfolio }) {
+  // 라운지 모드: room_id = lounge_{lounge_chat_request_id} (호출부에서 전달) — 기존 견적/업체 채팅 규칙 무변경
+  const isLounge = mode === "lounge";
+  const roomId = roomIdProp ?? `${user?.id ?? "guest"}_${company?.id ?? "0"}`;
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDone, setReportDone] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [partnerProfile, setPartnerProfile] = useState(null); // 라운지: { spaceTemp, interests }
+  const [partnerCompany, setPartnerCompany] = useState(null); // 라운지: 상대가 업체면 업체 정보
   const bottomRef = useRef(null);
+
+  // 라운지: 같은 consumer 타입끼리 대화하므로 sender_id 기준으로 내/상대 구분
+  const mapRow = (row) => isLounge
+    ? {
+        id: row.id,
+        from: row.sender_type === "system" ? "system" : (row.sender_id === user?.id ? "user" : "company"),
+        text: row.text,
+        time: fmtTime(row.created_at),
+        createdAt: row.created_at,
+      }
+    : normalizeMsg(row);
+
+  // 라운지: 상대 공간온도/관심 + 업체 여부 조회 (실패 시 표시만 생략)
+  useEffect(() => {
+    setPartnerProfile(null);
+    setPartnerCompany(null);
+    if (!isLounge || !partner?.userId) return;
+    let cancelled = false;
+    getUser(partner.userId).then(({ data }) => {
+      if (!cancelled && data) setPartnerProfile({ spaceTemp: data.space_temp ?? 36.5, interests: data.interests ?? [] });
+    }).catch(() => {});
+    getCompanyByOwnerId(partner.userId).then(({ data }) => {
+      if (!cancelled && data) setPartnerCompany(data);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [isLounge, partner?.userId]);
 
   // 직거래 의심 키워드 반복 감지 — 클라이언트 표시 전용(차단/제재 없음, 기록은 기존 checkDirectDealKeyword가 수행)
   const directDealHits = useMemo(
@@ -55,12 +92,20 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest }) {
 
       let rows = data ?? [];
       if (rows.length === 0) {
-        // Insert welcome message from company, then re-fetch to get real DB id
-        await sendMessage(roomId, String(company?.id ?? "company"), "company", WELCOME);
+        if (isLounge) {
+          // 라운지 대화 시작 system 메시지 1개 — 방이 비어있을 때만(중복 생성 방지)
+          await sendMessage(roomId, user?.id ?? null, "system", LOUNGE_SYSTEM_HELLO);
+        } else {
+          // Insert welcome message from company, then re-fetch to get real DB id
+          await sendMessage(roomId, String(company?.id ?? "company"), "company", WELCOME);
+        }
         const { data: after } = await getChatMessages(roomId);
         if (!cancelled) rows = after ?? [];
       }
-      if (!cancelled) setMessages(rows.map(normalizeMsg));
+      if (!cancelled) {
+        setMessages(rows.map(mapRow));
+        setHasMore(rows.length >= PAGE_SIZE);
+      }
     }
 
     init();
@@ -73,7 +118,7 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest }) {
       }, (payload) => {
         setMessages(prev => {
           if (prev.some(m => m.id === payload.new.id)) return prev;
-          return [...prev, normalizeMsg(payload.new)];
+          return [...prev, mapRow(payload.new)];
         });
       })
       .subscribe();
@@ -84,17 +129,32 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest }) {
     };
   }, [roomId]);
 
+  // 이전 메시지 더보기 — 가장 오래된 메시지 이전 PAGE_SIZE개 추가 로딩(created_at 커서)
+  const loadOlder = async () => {
+    if (loadingMore || messages.length === 0) return;
+    setLoadingMore(true);
+    const oldest = messages[0]?.createdAt;
+    const { data } = await getChatMessages(roomId, { before: oldest }).catch(() => ({ data: null }));
+    const rows = data ?? [];
+    setMessages(prev => {
+      const seen = new Set(prev.map(m => m.id));
+      return [...rows.map(mapRow).filter(m => !seen.has(m.id)), ...prev];
+    });
+    setHasMore(rows.length >= PAGE_SIZE);
+    setLoadingMore(false);
+  };
+
   const send = async () => {
     if (!input.trim()) return;
     const text = input.trim();
     setInput("");
-    setTyping(true);
+    if (!isLounge) setTyping(true);
 
     const { data: sent } = await sendMessage(roomId, user?.id ?? "guest", "user", text).catch(() => ({ data: null }));
 
-    // 감지/기록은 백그라운드 — 전송 흐름을 막지 않음
+    // 감지/기록은 백그라운드 — 전송 흐름을 막지 않음 (라운지: 상대가 업체면 업체 id 연결)
     checkDirectDealKeyword(text, {
-      companyId: company?.id ?? null,
+      companyId: isLounge ? (partnerCompany?.id ?? null) : (company?.id ?? null),
       customerId: user?.id ?? null,
       senderId: user?.id ?? null,
       senderRole: "consumer",
@@ -102,7 +162,7 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest }) {
     }).catch(() => {});
 
     // typing indicator disappears once realtime delivers the reply (or after timeout)
-    setTimeout(() => setTyping(false), 3000);
+    if (!isLounge) setTimeout(() => setTyping(false), 3000);
   };
 
   return (
@@ -113,16 +173,40 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest }) {
         <div style={{ width:40, height:40, borderRadius:R.full, flexShrink:0,
           background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center",
           fontSize:18, fontWeight:900, color:C.brand, position:"relative" }}>
-          {(company?.name ?? "?")[0]}
-          {company?.online && <div style={{ position:"absolute", bottom:0, right:0, width:10, height:10, borderRadius:"50%", background:C.green, border:"2px solid #fff" }} />}
+          {isLounge ? (partner?.nickname ?? "?")[0] : (company?.name ?? "?")[0]}
+          {!isLounge && company?.online && <div style={{ position:"absolute", bottom:0, right:0, width:10, height:10, borderRadius:"50%", background:C.green, border:"2px solid #fff" }} />}
         </div>
-        <div>
-          <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{company?.name ?? "—"}</div>
-          <div style={{ fontSize:11, color:company?.online?C.green:C.text3, fontWeight:600 }}>
-            {company?.online ? `활동중 · ${company.lastActive}` : company?.responseTime ?? ""}
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize:15, fontWeight:800, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            {isLounge ? (partnerCompany?.name ?? partner?.nickname ?? "—") : (company?.name ?? "—")}
           </div>
+          {isLounge ? (
+            <div style={{ display:"flex", gap:5, alignItems:"center", flexWrap:"wrap" }}>
+              {partnerProfile?.spaceTemp != null && (
+                <span style={{ fontSize:10.5, color:C.brand, fontWeight:700 }}>🌡️ {Number(partnerProfile.spaceTemp).toFixed(1)}°</span>
+              )}
+              {(partnerProfile?.interests ?? []).slice(0, 2).map(it => (
+                <span key={it} style={{ fontSize:10.5, color:C.text3 }}>#{it}</span>
+              ))}
+              {partnerCompany && (() => {
+                const bm = partnerCompany.badge ? (BADGES[partnerCompany.badge] ?? BADGES.basic) : null;
+                return bm ? <span style={{ fontSize:10.5, color:bm.color, fontWeight:700 }}>{bm.icon} 공간보증 {bm.label}</span> : null;
+              })()}
+            </div>
+          ) : (
+            <div style={{ fontSize:11, color:company?.online?C.green:C.text3, fontWeight:600 }}>
+              {company?.online ? `활동중 · ${company.lastActive}` : company?.responseTime ?? ""}
+            </div>
+          )}
         </div>
-        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:S.sm }}>
+        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:S.sm, flexShrink:0 }}>
+          {isLounge && partnerCompany && onOpenPortfolio && (
+            <button onClick={() => onOpenPortfolio(partner?.userId)}
+              style={{ background:C.surface, color:C.text2, border:`1px solid ${C.bgWarm}`,
+                borderRadius:R.full, padding:"6px 10px", fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+              포트폴리오
+            </button>
+          )}
           {onQuoteRequest && (
             <button onClick={onQuoteRequest}
               style={{ background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`,
@@ -130,13 +214,23 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest }) {
               📋 견적요청
             </button>
           )}
-          <TempBadge temp={company?.temp ?? 0} />
+          {!isLounge && <TempBadge temp={company?.temp ?? 0} />}
           <button onClick={() => { setReportDone(false); setReportOpen(true); }} aria-label="신고"
             style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, color:C.text3, padding:"2px 4px", lineHeight:1 }}>
             🚩
           </button>
         </div>
       </div>
+
+      {/* 라운지: 원본 글/댓글/스토리 링크 */}
+      {isLounge && partner?.postId && (
+        <div onClick={() => onOpenSource?.(partner.postId)}
+          style={{ background:C.bg, borderBottom:`1px solid ${C.bgWarm}`, padding:"8px 16px",
+            fontSize:12, color:C.text3, cursor:onOpenSource ? "pointer" : "default",
+            whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+          📝 원본 글: <span style={{ color:C.brand, fontWeight:700 }}>{partner.postTitle ?? "라운지 게시글"}</span> {onOpenSource ? "›" : ""}
+        </div>
+      )}
 
       {/* 직거래 의심 반복 감지 → 견적 전환 유도 배너 (감지만, 차단 없음) */}
       {showConvertBanner && (
@@ -207,13 +301,28 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest }) {
         {messages.length === 0 && (
           <div style={{ textAlign:"center", fontSize:13, color:C.text3, marginTop:60 }}>로딩 중...</div>
         )}
-        {messages.map((msg) => (
+        {hasMore && messages.length > 0 && (
+          <div style={{ textAlign:"center", marginBottom:S.md }}>
+            <button onClick={loadOlder} disabled={loadingMore}
+              style={{ background:C.surface, color:C.text3, border:`1px solid ${C.bgWarm}`,
+                borderRadius:R.full, padding:"7px 16px", fontSize:12, fontWeight:700,
+                cursor:loadingMore ? "default" : "pointer" }}>
+              {loadingMore ? "불러오는 중..." : "이전 메시지 더보기"}
+            </button>
+          </div>
+        )}
+        {messages.map((msg) => msg.from === "system" ? (
+          <div key={msg.id} style={{ textAlign:"center", margin:`${S.md}px 0` }}>
+            <span style={{ background:C.bgWarm, color:C.text3, borderRadius:R.full,
+              padding:"5px 14px", fontSize:11.5, fontWeight:600 }}>{msg.text}</span>
+          </div>
+        ) : (
           <div key={msg.id} style={{ display:"flex", justifyContent:msg.from==="user"?"flex-end":"flex-start",
             marginBottom:S.md, alignItems:"flex-end", gap:6 }}>
             {msg.from === "company" && (
               <div style={{ width:32, height:32, borderRadius:R.full, background:C.brandL,
                 display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:13, fontWeight:900, color:C.brand, flexShrink:0 }}>{(company?.name ?? "?")[0]}</div>
+                fontSize:13, fontWeight:900, color:C.brand, flexShrink:0 }}>{isLounge ? (partner?.nickname ?? "?")[0] : (company?.name ?? "?")[0]}</div>
             )}
             <div>
               <div style={{ background:msg.from==="user"?C.brand:C.surface,
