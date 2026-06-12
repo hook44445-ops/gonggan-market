@@ -562,193 +562,200 @@ export default function LoginScreen({ onLogin, initialRole }) {
           {/* 스크롤 본문 */}
           <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 120px" }}>
 
-            {/* 1. 신뢰 지표 */}
+            {/* ═══ 1. HERO — 신뢰거래 플랫폼 소개 ═══ */}
+            <div style={{
+              position: "relative", borderRadius: R.xl, overflow: "hidden", marginBottom: 28,
+              backgroundImage: `linear-gradient(135deg, rgba(29,61,47,0.94) 0%, rgba(46,95,75,0.80) 44%, rgba(46,95,75,0.34) 100%), url('/images/landing-hero-interior.jpg')`,
+              backgroundSize: "cover", backgroundPosition: "center",
+            }}>
+              <div style={{ padding: "30px 22px 26px" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", opacity: 0.85, marginBottom: 10, letterSpacing: "0.02em" }}>
+                  공간마켓 신뢰거래 플랫폼
+                </div>
+                <div style={{ fontSize: 23, fontWeight: 900, color: "#fff", lineHeight: 1.35, marginBottom: 18, letterSpacing: "-0.3px" }}>
+                  공간마켓,<br/>안전한 인테리어 거래의 시작
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+                  {[
+                    { icon: "🏅", t: "승인 업체만 활동" },
+                    { icon: "🔒", t: "에스크로 안전결제" },
+                    { icon: "📍", t: "GPS 현장인증" },
+                    { icon: "📋", t: "프로젝트 증빙관리" },
+                  ].map(({ icon, t }) => (
+                    <div key={t} style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.42)",
+                      borderRadius: R.lg, padding: "10px 11px",
+                    }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 800, color: "#fff", letterSpacing: "-0.2px", lineHeight: 1.2 }}>{t}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.85)", lineHeight: 1.6 }}>
+                  네 가지 안전장치 기반의 신뢰거래 플랫폼이에요.
+                </div>
+              </div>
+            </div>
+
+            {/* ═══ 2. 공간마켓이 지키는 기준 (4 카드) ═══ */}
             <div style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간마켓 신뢰 지표</div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: C.text1, marginBottom: 14 }}>숫자로 증명하는 플랫폼</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간마켓이 지키는 기준</div>
+              <div style={{ fontSize: 19, fontWeight: 900, color: C.text1, marginBottom: 14 }}>실제 구조로 안전을 지켜요</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 {[
-                  { icon: "✅", value: "1,247건", label: "누적 완료 공사" },
-                  { icon: "⭐", value: "4.9점",   label: "평균 만족도" },
-                  { icon: "🛡", value: "89곳",    label: "공간보증 업체" },
-                  { icon: "🌡", value: "91°",     label: "평균 공간온도" },
-                ].map(({ icon, value, label }) => (
-                  <div key={label} style={{ background: C.surface, borderRadius: R.lg, padding: S.xl, border: `1px solid ${C.bgWarm}`, textAlign: "center" }}>
-                    <div style={{ fontSize: 22, marginBottom: 4 }}>{icon}</div>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: C.brand }}>{value}</div>
-                    <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{label}</div>
+                  { icon: "🏅", title: "승인 업체만 활동",   desc: "서류·보험 검증을 통과한 업체만 활동해요" },
+                  { icon: "🔒", title: "에스크로 안전보관", desc: "공사비는 단계 확인 전까지 안전하게 보관" },
+                  { icon: "📍", title: "GPS 현장기록",     desc: "현장방문·시공 단계마다 위치를 인증해요" },
+                  { icon: "📋", title: "프로젝트 증빙보관", desc: "사진·계약·대화 전 과정을 기록·보관해요" },
+                ].map(({ icon, title, desc }) => (
+                  <div key={title} style={{ background: C.surface, borderRadius: R.lg, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
+                    <div style={{ width: 40, height: 40, borderRadius: R.md, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, marginBottom: 10 }}>{icon}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{title}</div>
+                    <div style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.55 }}>{desc}</div>
                   </div>
                 ))}
               </div>
-              <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.brandM}`, textAlign: "center" }}>
-                <div style={{ fontSize: 22, fontWeight: 900, color: C.brand }}>48억원+</div>
-                <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>총 안전 거래액 (에스크로 보호)</div>
+            </div>
+
+            {/* ═══ 3. 인테리어 진행 과정 (가장 강조) ═══ */}
+            <div style={{ background: C.brandL, borderRadius: R.xl, padding: "22px 18px", marginBottom: 28, border: `1px solid ${C.brandM}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <div style={{ fontSize: 13, color: C.brandD, fontWeight: 700 }}>인테리어 진행 과정</div>
+                <div style={{ fontSize: 11, color: C.brand, fontWeight: 700, opacity: 0.85 }}>옆으로 넘겨보세요 ›</div>
+              </div>
+              <div style={{ fontSize: 19, fontWeight: 900, color: C.text1, marginBottom: 16 }}>견적부터 리뷰까지, 전 과정 한 흐름으로</div>
+              <div style={{ display: "flex", alignItems: "stretch", gap: 6, overflowX: "auto", paddingBottom: 8, WebkitOverflowScrolling: "touch" }}>
+                {[
+                  { n: 1, icon: "📝", label: "견적요청" },
+                  { n: 2, icon: "🚪", label: "현장방문" },
+                  { n: 3, icon: "📄", label: "최종견적" },
+                  { n: 4, icon: "🤝", label: "계약" },
+                  { n: 5, icon: "🔒", label: "에스크로" },
+                  { n: 6, icon: "🏗", label: "착공" },
+                  { n: 7, icon: "🔍", label: "중간점검" },
+                  { n: 8, icon: "🎉", label: "완료" },
+                  { n: 9, icon: "⭐", label: "리뷰" },
+                ].map(({ n, icon, label }, i, arr) => (
+                  <div key={label} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+                    <div style={{ width: 72, background: C.surface, borderRadius: R.lg, border: `1px solid ${C.brandM}`, padding: "10px 6px 12px", textAlign: "center", position: "relative" }}>
+                      <div style={{ position: "absolute", top: 6, left: 6, width: 16, height: 16, borderRadius: R.full, background: C.brand, color: "#fff", fontSize: 9.5, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</div>
+                      <div style={{ fontSize: 22, margin: "4px 0 6px" }}>{icon}</div>
+                      <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text1, lineHeight: 1.3, whiteSpace: "nowrap" }}>{label}</div>
+                    </div>
+                    {i < arr.length - 1 && (
+                      <div style={{ color: C.brand, fontSize: 16, fontWeight: 900, padding: "0 2px" }}>›</div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* 2. 에스크로 구조 */}
-            <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: 28, border: `1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>에스크로 안전 정산</div>
-              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 14 }}>공사비는 공간마켓이 보관해요</div>
-              {[
-                { icon: "📝", step: "계약",      desc: "고객이 총 공사비를 공간마켓에 예치" },
-                { icon: "🏗",  step: "단계 승인", desc: "착공·중간점검·완료 단계별 고객 확인" },
-                { icon: "💰", step: "안전 정산", desc: "고객 확인 완료 후 업체에 단계별 지급" },
-                { icon: "🎉", step: "공사 완료", desc: "리뷰 작성·공간온도 반영 · AS 보장" },
-              ].map(({ icon, step, desc }, i, arr) => (
-                <div key={step} style={{ display: "flex", gap: S.md, marginBottom: i < arr.length - 1 ? S.lg : 0 }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: R.full, background: C.brandL, border: `1.5px solid ${C.brandM}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{icon}</div>
-                    {i < arr.length - 1 && <div style={{ width: 2, height: 20, background: C.bgWarm, marginTop: 4 }} />}
-                  </div>
-                  <div style={{ paddingTop: 6 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 2 }}>{step}</div>
-                    <div style={{ fontSize: 12, color: C.text3 }}>{desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* 3. 공간보증 배지 */}
+            {/* ═══ 4. 공간보증 배지 ═══ */}
             <div style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간보증 배지</div>
-              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 14 }}>공간뱃지예치보증금으로 신뢰를 증명해요</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 19, fontWeight: 900, color: C.text1, marginBottom: 4 }}>신뢰를 증명하는 인증 배지</div>
+              <div style={{ fontSize: 12.5, color: C.text3, lineHeight: 1.6, marginBottom: 14 }}>
+                공간보증 예치보증금으로 신뢰를 증명하는 인증 배지예요.
+              </div>
+              <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 6, WebkitOverflowScrolling: "touch" }}>
                 {Object.entries(BADGES).map(([key, b]) => (
-                  <div key={key} style={{ background: C.surface, borderRadius: R.lg, padding: `${S.md}px ${S.xl}px`, border: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.lg }}>
-                    <div style={{ width: 40, height: 40, borderRadius: R.md, background: b.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{b.icon}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 14, fontWeight: 800, color: b.color }}>{b.label}</span>
-                        <span style={{ fontSize: 12, color: C.text3, fontWeight: 600 }}>최대 {b.maxJob}</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>공간뱃지예치보증금 예치 파트너</div>
-                    </div>
+                  <div key={key} style={{ flexShrink: 0, width: 104, background: C.surface, borderRadius: R.lg, border: `1px solid ${C.bgWarm}`, padding: "16px 10px", textAlign: "center" }}>
+                    <div style={{ width: 44, height: 44, borderRadius: R.full, background: b.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 10px" }}>{b.icon}</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: b.color, marginBottom: 4 }}>{b.label}</div>
+                    <div style={{ fontSize: 10.5, color: C.text3 }}>최대 {b.maxJob}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* 4. 완료 후기 미리보기 */}
+            {/* ═══ 5. 공간보증 인증업체 (가로 카드) ═══ */}
             <div style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>완료 후기</div>
-              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 14 }}>실제 고객 후기를 확인하세요</div>
-              {[
-                { photo: "🏠", stars: 5, text: "에스크로 덕분에 걱정 없이 진행했어요. 마감도 깔끔하고 일정도 정확히 지켜줬어요.", region: "서울 마포구", type: "아파트 전체", co: "홍익시공", temp: 97 },
-                { photo: "🛋", stars: 5, text: "중간보고를 꼼꼼히 해줘서 신뢰가 갔어요. 공간온도 이유를 알겠더라고요.", region: "서울 연남동", type: "거실·주방", co: "공간설계소", temp: 91 },
-                { photo: "🚿", stars: 4, text: "욕실 시공 퀄리티 정말 만족해요. 추가금 없이 견적 그대로 완료!", region: "경기 수원시", type: "욕실 시공", co: "우리집시공단", temp: 86 },
-              ].map((r, i) => (
-                <div key={i} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
-                    <div style={{ display: "flex", gap: S.sm, alignItems: "center" }}>
-                      <div style={{ width: 44, height: 44, borderRadius: R.md, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{r.photo}</div>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{r.co}</div>
-                        <div style={{ fontSize: 11, color: C.text3 }}>{r.region} · {r.type}</div>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간보증 인증업체</div>
+              <div style={{ fontSize: 19, fontWeight: 900, color: C.text1, marginBottom: 14 }}>인증 업체를 만나보세요</div>
+              <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6, WebkitOverflowScrolling: "touch" }}>
+                {[
+                  { photo: "🏠", name: "홍익시공",    badge: "premium",  region: "서울 마포",  spec: "아파트 전체", temp: 97 },
+                  { photo: "🛋", name: "공간설계소",  badge: "standard", region: "서울 서대문", spec: "거실·주방",   temp: 91 },
+                  { photo: "🚿", name: "우리집시공단", badge: "basic",    region: "경기 성남",  spec: "욕실 시공",   temp: 86 },
+                  { photo: "🏢", name: "더공간",      badge: "enterprise", region: "서울 강남", spec: "상업 인테리어", temp: 95 },
+                ].map(c => {
+                  const b = BADGES[c.badge] ?? BADGES.basic;
+                  return (
+                    <div key={c.name} style={{ flexShrink: 0, width: 172, background: C.surface, borderRadius: R.xl, border: `1px solid ${C.bgWarm}`, overflow: "hidden", boxShadow: "0 2px 10px rgba(28,23,18,0.06)" }}>
+                      <div style={{ height: 124, background: `linear-gradient(135deg, ${C.brandL} 0%, ${C.surface2} 100%)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56, position: "relative" }}>
+                        {c.photo}
+                        <span style={{ position: "absolute", top: 10, left: 10, background: b.bg, color: b.color, borderRadius: R.full, padding: "3px 10px", fontSize: 10.5, fontWeight: 800, boxShadow: "0 1px 4px rgba(28,23,18,0.12)" }}>{b.label}</span>
+                        <span style={{ position: "absolute", top: 10, right: 10, background: "rgba(255,255,255,0.92)", color: c.temp >= 90 ? C.brand : C.gold, borderRadius: R.full, padding: "3px 9px", fontSize: 12, fontWeight: 900, boxShadow: "0 1px 4px rgba(28,23,18,0.12)" }}>{c.temp}°</span>
+                      </div>
+                      <div style={{ padding: "13px 13px 15px" }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{c.name}</div>
+                        <div style={{ fontSize: 11.5, color: C.text3, marginBottom: 9 }}>📍 {c.region}</div>
+                        <span style={{ display: "inline-block", background: C.surface2, color: C.text2, borderRadius: R.full, padding: "4px 11px", fontSize: 11, fontWeight: 600, border: `1px solid ${C.bgWarm}` }}>{c.spec}</span>
                       </div>
                     </div>
-                    <div style={{ fontSize: 13, color: "#C8A15A", letterSpacing: 1 }}>{"★".repeat(r.stars)}</div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ═══ 6. 실제 고객 후기 ═══ */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>실제 고객 후기</div>
+              <div style={{ fontSize: 19, fontWeight: 900, color: C.text1, marginBottom: 14 }}>완료 고객의 후기를 확인하세요</div>
+              {[
+                { photo: "🏠", stars: 5, text: "에스크로 덕분에 걱정 없이 진행했어요. 마감도 깔끔하고 일정도 정확히 지켜줬어요.", co: "홍익시공",    type: "아파트 전체" },
+                { photo: "🛋", stars: 5, text: "중간보고를 꼼꼼히 해줘서 신뢰가 갔어요. 단계별로 확인하니 안심이 됐어요.",   co: "공간설계소",  type: "거실·주방" },
+                { photo: "🚿", stars: 4, text: "욕실 시공 퀄리티 정말 만족해요. 추가금 없이 견적 그대로 완료했어요!",       co: "우리집시공단", type: "욕실 시공" },
+              ].map((r, i) => (
+                <div key={i} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ display: "flex", gap: S.sm, alignItems: "center" }}>
+                      <div style={{ width: 40, height: 40, borderRadius: R.md, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{r.photo}</div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>{r.co}</div>
+                        <div style={{ fontSize: 11, color: C.text3 }}>{r.type}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 13, color: C.gold, letterSpacing: 1 }}>{"★".repeat(r.stars)}{"☆".repeat(5 - r.stars)}</div>
                   </div>
                   <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6 }}>"{r.text}"</div>
                 </div>
               ))}
             </div>
 
-            {/* 5. 업체 카드 미리보기 */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>검증 업체</div>
-              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 14 }}>공간보증 인증 업체들</div>
-              {[
-                { name: "홍익시공",    temp: 97, badge: "premium",    jobs: 84, reviews: 4.9, region: "서울 마포", specs: ["아파트 전체","주방","욕실"] },
-                { name: "공간설계소",  temp: 91, badge: "standard",   jobs: 52, reviews: 4.8, region: "서울 서대문", specs: ["인테리어","오피스","카페"] },
-                { name: "우리집시공단",temp: 86, badge: "basic",      jobs: 31, reviews: 4.7, region: "경기 성남", specs: ["아파트 부분","바닥/도배"] },
-              ].map(c => {
-                const b = BADGES[c.badge] ?? BADGES.basic;
-                return (
-                  <div key={c.name} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
-                      <div style={{ display: "flex", gap: S.md, alignItems: "center" }}>
-                        <div style={{ width: 44, height: 44, borderRadius: R.md, background: b.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, color: b.color }}>{b.icon}</div>
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{c.name}</span>
-                            <span style={{ background: b.bg, color: b.color, borderRadius: R.full, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>{b.label}</span>
-                          </div>
-                          <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>📍 {c.region}</div>
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: c.temp >= 90 ? C.brand : "#C8A15A" }}>{c.temp}°</div>
-                        <div style={{ fontSize: 10, color: C.text4 }}>공간온도</div>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: S.sm, marginBottom: S.sm }}>
-                      {c.specs.map(s => (
-                        <span key={s} style={{ background: C.surface2, color: C.text3, borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 600, border: `1px solid ${C.bgWarm}` }}>{s}</span>
-                      ))}
-                    </div>
-                    <div style={{ display: "flex", gap: S.xl, fontSize: 12, color: C.text3 }}>
-                      <span>✅ 완료 {c.jobs}건</span>
-                      <span>⭐ {c.reviews}점</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* 6. 공간마켓 라운지 소개 */}
-            <div style={{ marginTop: 36 }}>
-              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간마켓 라운지</div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: C.text1, marginBottom: 6 }}>놀다가 거래되는 구조</div>
-              <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7, marginBottom: 20 }}>
-                익명 커뮤니티에서 자유롭게 소통하다가<br/>자연스럽게 신뢰가 쌓이고, 거래로 이어져요.
-              </div>
-
-              {/* 흐름 */}
-              <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: 16, border: `1px solid ${C.bgWarm}` }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>라운지 → 신뢰 → 거래</div>
+            {/* ═══ 7. 에스크로 안전정산 (단계형) ═══ */}
+            <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: 28, border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>에스크로 안전정산</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 16 }}>공사비는 공간마켓이 보관해요</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 {[
-                  { icon: "💬", step: "라운지 입장",  desc: "익명으로 이웃과 자유롭게 소통" },
-                  { icon: "🤝", step: "신뢰 형성",    desc: "인테리어 후기·질문·전문가 답변" },
-                  { icon: "📩", step: "대화 연결",    desc: "관심 있는 상대와 1:1 대화 신청" },
-                ].map(({ icon, step, desc }, i, arr) => (
-                  <div key={step} style={{ display: "flex", gap: S.md, marginBottom: i < arr.length - 1 ? S.lg : 0 }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: R.full, background: C.brandL, border: `1.5px solid ${C.brandM}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{icon}</div>
-                      {i < arr.length - 1 && <div style={{ width: 2, height: 20, background: C.bgWarm, marginTop: 4 }} />}
+                  { icon: "📝", step: "계약" },
+                  { icon: "🛠", step: "단계승인" },
+                  { icon: "💰", step: "안전정산" },
+                  { icon: "🎉", step: "공사완료" },
+                ].map(({ icon, step }, i, arr) => (
+                  <div key={step} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+                    <div style={{ flex: 1, textAlign: "center" }}>
+                      <div style={{ width: 44, height: 44, borderRadius: R.full, background: C.brandL, border: `1.5px solid ${C.brandM}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, margin: "0 auto 8px" }}>{icon}</div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: C.text1 }}>{step}</div>
                     </div>
-                    <div style={{ paddingTop: 6 }}>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 2 }}>{step}</div>
-                      <div style={{ fontSize: 12, color: C.text3 }}>{desc}</div>
-                    </div>
+                    {i < arr.length - 1 && <div style={{ color: C.brandM, fontSize: 16, fontWeight: 900, flexShrink: 0 }}>›</div>}
                   </div>
                 ))}
               </div>
+            </div>
 
-              {/* 카테고리 */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>이런 이야기들이 오가요</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {["🏠 인테리어 후기","🔨 시공 전/후","💬 견적 질문","📈 부동산","🌿 자취·집꾸미기","😊 동네 일상","🍜 맛집","🏦 주식·경제","🐾 반려동물","🚗 차·오토바이"].map(tag => (
-                    <span key={tag} style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "5px 12px", fontSize: 12, color: C.text2, fontWeight: 600 }}>{tag}</span>
-                  ))}
-                </div>
+            {/* ═══ 8. 공간마켓 라운지 (보조 서비스 · 축소) ═══ */}
+            <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: 18 }}>💬</span>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>공간마켓 라운지</div>
+                <span style={{ background: C.surface2, color: C.text3, borderRadius: R.full, padding: "2px 9px", fontSize: 10.5, fontWeight: 700, border: `1px solid ${C.bgWarm}` }}>보조 서비스</span>
               </div>
-
-              {/* 익명·토큰 안내 */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
-                {[
-                  { icon: "🛡", title: "완전 익명", desc: "닉네임은 자동 배정 · 실명·연락처 절대 비공개" },
-                  { icon: "💰", title: "공간토큰", desc: "가입만 해도 20 토큰 지급 · 대화 신청에 사용" },
-                  { icon: "⭐", title: "전문가 답변", desc: "인증 업체가 직접 답변 · 배지로 구분" },
-                ].map(({ icon, title, desc }) => (
-                  <div key={title} style={{ background: C.surface, borderRadius: R.lg, padding: `${S.md}px ${S.lg}px`, border: `1px solid ${C.bgWarm}`, display: "flex", gap: S.md, alignItems: "center" }}>
-                    <div style={{ width: 36, height: 36, borderRadius: R.full, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{icon}</div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>{title}</div>
-                      <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>{desc}</div>
-                    </div>
-                  </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {["후기 공유", "질문하기", "전문가 답변", "대화 연결"].map(t => (
+                  <span key={t} style={{ background: C.brandL, color: C.brandD, borderRadius: R.full, padding: "6px 13px", fontSize: 12, fontWeight: 700 }}>{t}</span>
                 ))}
               </div>
             </div>
