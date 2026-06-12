@@ -183,7 +183,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               견적 시작하기
             </button>
             <button
-              onClick={() => onSelectRole("company")}
+              onClick={() => { window.location.href = "/partner"; }}
               style={{
                 ...btnBase,
                 background: "rgba(255,255,255,0.85)",

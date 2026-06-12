@@ -30,6 +30,7 @@ import {
   getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
   fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
   getProjectCheckpoints, getAdminProjectFlow,
+  getPartnerLeads, setPartnerLeadStatus,
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge,
@@ -2247,6 +2248,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [directDealReports, setDirectDealReports] = useState([]);
   const [ddrFilter, setDdrFilter] = useState("all"); // all | keyword_detected | no_estimate_72h | no_contract_7d | manual_report
   const [ddrLoading, setDdrLoading] = useState(false);
+
+  // 파트너 상담관리(partner_leads) — Partner Landing v1.1
+  const [partnerLeads, setPartnerLeads] = useState([]);
+  const [partnerLeadsLoading, setPartnerLeadsLoading] = useState(false);
+  const [partnerLeadsFilter, setPartnerLeadsFilter] = useState("all"); // all | PENDING | CONTACTED | APPROVED | REJECTED
+  const [partnerLeadsErr, setPartnerLeadsErr] = useState(null);
+  const [partnerNoteDraft, setPartnerNoteDraft] = useState({}); // { [leadId]: text }
   const [ddrRunning, setDdrRunning] = useState(false);
 
   // DEV panel: admin action tracking
@@ -2399,6 +2407,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
     if (mainTab === "direct_deal") {
       setDdrLoading(true);
       getDirectDealReports().then(({ data }) => setDirectDealReports(data ?? [])).catch(() => setDirectDealReports([])).finally(() => setDdrLoading(false));
+    }
+    if (mainTab === "partner_leads") {
+      loadPartnerLeads();
     }
   }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2562,6 +2573,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const MAIN_TABS = [
     ["dashboard",      "대시보드"],
     ["companies",      "업체관리"],
+    ["partner_leads",  "파트너 상담관리"],
     ["customers",      "고객관리"],
     ["hidden",         "숨김요청관리"],
     ["payments",       "결제관리"],
@@ -2618,6 +2630,54 @@ export default function AdminScreen({ onBack, onHome, user }) {
     if (!error) setDirectDealReports((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
     else showToast("상태 변경 실패", false);
   };
+
+  // ── 파트너 상담관리(partner_leads) — 조회/상태변경 ──
+  async function loadPartnerLeads() {
+    setPartnerLeadsLoading(true);
+    setPartnerLeadsErr(null);
+    try {
+      const { data, error } = await getPartnerLeads(user?.id ?? null);
+      if (error) { setPartnerLeadsErr(error.message ?? "load failed"); setPartnerLeads([]); }
+      else setPartnerLeads(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setPartnerLeadsErr(err?.message ?? String(err));
+      setPartnerLeads([]);
+    } finally {
+      setPartnerLeadsLoading(false);
+    }
+  }
+
+  const changePartnerLeadStatus = async (lead, status) => {
+    const note = partnerNoteDraft[lead.id];
+    // supabase rpc 빌더는 then만 구현(.catch 없음) → try/catch 로 처리.
+    let data, error;
+    try {
+      ({ data, error } = await setPartnerLeadStatus(user?.id ?? null, lead.id, status, note ?? null));
+    } catch (err) {
+      console.error("[partner_lead_set_status] 예외:", err);
+      error = err;
+    }
+    if (error || data?.error) { showToast("상태 변경 실패", false); return; }
+    // 낙관적 반영 — 승인/반려는 처리일시·담당자도 갱신
+    const isFinal = status === "APPROVED" || status === "REJECTED";
+    setPartnerLeads((prev) => prev.map((l) => l.id === lead.id ? {
+      ...l, status,
+      admin_note:   (note && note.trim()) ? note.trim() : l.admin_note,
+      processed_at: isFinal ? new Date().toISOString() : l.processed_at,
+      processed_by: isFinal ? (user?.id ?? l.processed_by) : l.processed_by,
+    } : l));
+    showToast("상태가 변경됐어요");
+  };
+
+  const PARTNER_LEAD_STATUS_META = {
+    PENDING:   { label: "접수",   color: C.gold,  bg: "#FBF5E8" },
+    CONTACTED: { label: "검토중", color: "#9B59B6", bg: "#F5EEF8" },
+    APPROVED:  { label: "승인",   color: C.green, bg: C.greenL },
+    REJECTED:  { label: "반려",   color: C.red,   bg: "#FFF0F0" },
+  };
+  const filteredPartnerLeads = partnerLeadsFilter === "all"
+    ? partnerLeads
+    : partnerLeads.filter((l) => l.status === partnerLeadsFilter);
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
@@ -2826,6 +2886,108 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         )}
                         <span style={{ fontSize: 11, color: C.text4 }}>제출 {company.submittedAt}</span>
                         <span style={{ marginLeft: "auto", fontSize: 11, color: C.brand, fontWeight: 700 }}>상세 보기 →</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── 파트너 상담관리 (partner_leads · Partner Landing v1.1) ── */}
+            {mainTab === "partner_leads" && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.md }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>
+                    파트너 상담관리 <span style={{ color: C.brand }}>{partnerLeads.length}건</span>
+                  </div>
+                  <button onClick={loadPartnerLeads}
+                    style={{ padding: "7px 14px", borderRadius: R.lg, background: C.bgWarm, color: C.text2,
+                      border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                    새로고침
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, marginBottom: S.md, overflowX: "auto" }}>
+                  {[["all", "전체"], ["PENDING", "접수"], ["CONTACTED", "검토중"], ["APPROVED", "승인"], ["REJECTED", "반려"]].map(([v, l]) => (
+                    <button key={v} onClick={() => setPartnerLeadsFilter(v)}
+                      style={{ padding: "5px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
+                        whiteSpace: "nowrap", cursor: "pointer", border: "none",
+                        background: partnerLeadsFilter === v ? C.brand : C.bgWarm,
+                        color: partnerLeadsFilter === v ? "#fff" : C.text2 }}>
+                      {l}{v !== "all" ? ` ${partnerLeads.filter((x) => x.status === v).length}` : ""}
+                    </button>
+                  ))}
+                </div>
+
+                {partnerLeadsErr && (
+                  <div style={{ fontSize: 12, color: C.red, marginBottom: S.sm }}>조회 오류: {partnerLeadsErr}</div>
+                )}
+
+                {partnerLeadsLoading ? (
+                  <div style={{ textAlign: "center", padding: "60px 0", fontSize: 14, color: C.text3 }}>불러오는 중…</div>
+                ) : filteredPartnerLeads.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 0" }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+                    <div style={{ fontSize: 14, color: C.text3 }}>상담 신청 없음</div>
+                  </div>
+                ) : filteredPartnerLeads.map((l) => {
+                  const sm = PARTNER_LEAD_STATUS_META[l.status] ?? { label: l.status, color: C.text2, bg: C.bgWarm };
+                  return (
+                    <div key={l.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
+                        <div>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{l.company_name}</span>
+                          <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+                            신청일 {l.created_at ? new Date(l.created_at).toLocaleString("ko-KR") : "—"}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: sm.color, background: sm.bg,
+                          borderRadius: R.full, padding: "3px 10px" }}>{sm.label}</span>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px", fontSize: 12, color: C.text2, marginBottom: S.sm }}>
+                        <div>대표자: <b>{l.owner_name || "—"}</b></div>
+                        <div>연락처: <b>{l.phone || "—"}</b></div>
+                        <div>사업자번호: <b>{l.business_number || "—"}</b></div>
+                        <div>보험: <b>{l.insurance_status || "—"}</b></div>
+                        <div>시공지역: <b>{l.service_area || "—"}</b></div>
+                        <div>전문분야: <b>{l.specialty || "—"}</b></div>
+                      </div>
+
+                      {l.memo && (
+                        <div style={{ fontSize: 12, color: C.text2, marginBottom: S.sm, wordBreak: "break-all",
+                          background: C.bg, borderRadius: R.md, padding: "8px 10px" }}>
+                          문의: “{l.memo}”
+                        </div>
+                      )}
+
+                      {(l.processed_at || l.processed_by) && (
+                        <div style={{ fontSize: 11, color: C.text4, marginBottom: S.sm }}>
+                          처리: {l.processed_at ? new Date(l.processed_at).toLocaleString("ko-KR") : ""}
+                          {l.processed_by ? ` · 담당 ${String(l.processed_by).slice(0, 8)}` : ""}
+                        </div>
+                      )}
+
+                      {/* 관리자 메모 입력 — 상태 변경 시 함께 저장 */}
+                      <textarea
+                        value={partnerNoteDraft[l.id] ?? (l.admin_note ?? "")}
+                        onChange={(e) => setPartnerNoteDraft((p) => ({ ...p, [l.id]: e.target.value }))}
+                        placeholder="관리자 메모 (상태 변경 시 함께 저장)"
+                        rows={2}
+                        style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${C.bgWarm}`, borderRadius: R.md,
+                          padding: "8px 10px", fontSize: 12, fontFamily: "inherit", color: C.text1, background: C.bg,
+                          resize: "none", outline: "none", marginBottom: S.sm }}
+                      />
+
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {[["CONTACTED", "검토중"], ["APPROVED", "승인"], ["REJECTED", "반려"], ["PENDING", "접수로"]].map(([v, lb]) => (
+                          <button key={v} disabled={l.status === v} onClick={() => changePartnerLeadStatus(l, v)}
+                            style={{ padding: "6px 14px", borderRadius: R.lg, fontSize: 12, fontWeight: 700,
+                              border: `1px solid ${l.status === v ? C.brand : C.bgWarm}`,
+                              background: l.status === v ? C.brand : "#fff",
+                              color: l.status === v ? "#fff" : C.text2,
+                              cursor: l.status === v ? "default" : "pointer" }}>{lb}</button>
+                        ))}
                       </div>
                     </div>
                   );
