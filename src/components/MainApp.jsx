@@ -29,6 +29,7 @@ import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
 import { buildPostPath, seoSlugToCategoryId } from "../utils/loungeSeo";
 import PushNotificationSettings from "./PushNotificationSettings";
 import NotificationInbox from "./NotificationInbox";
+import GuaranteeCard from "./GuaranteeCard";
 import TokenStoreScreen from "../screens/TokenStoreScreen";
 import TokenHistoryScreen from "../screens/TokenHistoryScreen";
 import DocumentCenterScreen from "../screens/DocumentCenterScreen";
@@ -141,6 +142,12 @@ const normalizeCompany = (row) => ({
   online:        row.online ?? false,
   specialties:   row.specialties ?? [],
   companyStatus: row.company_status ?? "PENDING",
+  // 공간보증(068) — 표시용 pass-through(기존 필드 무변경, 배지 노출 판정에 사용).
+  guarantee_grade:         row.guarantee_grade ?? null,
+  guarantee_amount:        row.guarantee_amount ?? null,
+  guarantee_status:        row.guarantee_status ?? "NONE",
+  guarantee_badge_visible: row.guarantee_badge_visible ?? false,
+  guarantee_updated_at:    row.guarantee_updated_at ?? null,
 });
 
 const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -1103,11 +1110,19 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   }, [activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-creates a row if none exists yet
+  // myCompanyRow: 공간보증 카드용 raw company 행(normalizeCompany 는 guarantee 전체 보존 안 함).
+  const [myCompanyRow, setMyCompanyRow] = useState(null);
+  const reloadMyCompany = async () => {
+    if (!user?.id) return;
+    const { data } = await getCompanyByOwnerId(user.id).catch(() => ({ data: null }));
+    if (data) setMyCompanyRow(data);
+  };
   useEffect(() => {
     if (activeRole !== "company" || !user?.id) return;
     getCompanyByOwnerId(user.id).then(async ({ data }) => {
       if (data) {
         setCurrentUser(normalizeCompany(data));
+        setMyCompanyRow(data);
       } else {
         const { data: created } = await upsertCompany({
           owner_id:       user.id,
@@ -1116,7 +1131,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           company_status: "ACTIVE",
           online:         true,
         });
-        if (created) setCurrentUser(normalizeCompany(created));
+        if (created) { setCurrentUser(normalizeCompany(created)); setMyCompanyRow(created); }
       }
     }).catch(() => {});
   }, [user?.id, activeRole]);
@@ -4152,6 +4167,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     <span style={{ fontSize:16, color:C.text3 }}>›</span>
                   </div>
                 </div>
+
+                {/* 공간보증 현황(068) — 등급 선택/입금/승인/배지 활성 FSM */}
+                {activeRole === "company" && myCompanyRow && (
+                  <div style={{ marginTop:S.md }}>
+                    <GuaranteeCard company={myCompanyRow} actorId={user?.id} onChange={reloadMyCompany} />
+                  </div>
+                )}
 
                 {/* Phase C: 영업지역 관리 (최대 2곳) */}
                 <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.md, border:`1px solid ${C.bgWarm}` }}>

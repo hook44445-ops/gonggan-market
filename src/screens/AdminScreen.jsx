@@ -33,9 +33,10 @@ import {
   getPartnerLeads, setPartnerLeadStatus,
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
-  adminSetCompanyBadge,
+  adminSetCompanyBadge, adminSetGuarantee,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
+import { GUARANTEE_GRADE_MAP, GUARANTEE_STATUS_META, wonFromManwon } from "../constants/guarantee";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 import AdminChangeOrderHistory from "../components/AdminChangeOrderHistory";
 import AdminContractDetail from "../components/AdminContractDetail";
@@ -1107,6 +1108,12 @@ const normalizeCompany = (row) => ({
   deposit:    row.deposit_amount ?? 0,
   hasInsurance: !!row.insurance_url || !!row.has_insurance,
   rejectNote: row.reject_note ?? "",
+  // 공간보증(068) — 표시/관리용 pass-through.
+  guarantee_grade:         row.guarantee_grade ?? null,
+  guarantee_amount:        row.guarantee_amount ?? null,
+  guarantee_status:        row.guarantee_status ?? "NONE",
+  guarantee_badge_visible: row.guarantee_badge_visible ?? false,
+  guarantee_updated_at:    row.guarantee_updated_at ?? null,
 });
 
 const normalizeCustomer = (row) => ({
@@ -2450,6 +2457,27 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setActionLoading(false);
     setSelected(null);
     setConfirm(null);
+  };
+
+  // 공간보증(068) 상태/배지 변경 — company_status(입찰 게이트)와 무관(독립).
+  const handleGuarantee = async (company, { status = null, badgeVisible = null }) => {
+    setActionLoading(true);
+    const { data, error } = await adminSetGuarantee(user?.id ?? null, company.id, { status, badgeVisible });
+    if (!error) {
+      const patch = {
+        guarantee_status:        data?.guarantee_status ?? status ?? company.guarantee_status,
+        guarantee_badge_visible: data?.guarantee_badge_visible ?? (badgeVisible ?? company.guarantee_badge_visible),
+        guarantee_grade:         data?.guarantee_grade ?? company.guarantee_grade,
+        guarantee_amount:        data?.guarantee_amount ?? company.guarantee_amount,
+        guarantee_updated_at:    data?.guarantee_updated_at ?? new Date().toISOString(),
+      };
+      setCompanies(prev => prev.map(c => c.id === company.id ? { ...c, ...patch } : c));
+      setSelected(prev => prev && prev.id === company.id ? { ...prev, ...patch } : prev);
+      showToast("공간보증 상태가 변경됐어요");
+    } else {
+      showToast("공간보증 변경 실패", false);
+    }
+    setActionLoading(false);
   };
 
   const handleReject = async (company, note) => {
@@ -3881,6 +3909,49 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       배지 상세 ›
                     </button>
                   </div>
+                </div>
+              );
+            })()}
+
+            {/* ── 공간보증(068) 관리 — company_status 게이트와 독립 ── */}
+            {(() => {
+              const gs = selected.guarantee_status ?? "NONE";
+              const gm = GUARANTEE_STATUS_META[gs] ?? GUARANTEE_STATUS_META.NONE;
+              const gg = selected.guarantee_grade ? GUARANTEE_GRADE_MAP[selected.guarantee_grade] : null;
+              const gAmt = selected.guarantee_amount;
+              const NEXT = { PENDING_DEPOSIT: "DEPOSIT_CONFIRMED", DEPOSIT_CONFIRMED: "AWAITING_APPROVAL", AWAITING_APPROVAL: "ACTIVE" };
+              const nextStatus = NEXT[gs];
+              const nextLabel = { DEPOSIT_CONFIRMED: "입금 확인", AWAITING_APPROVAL: "승인 대기로", ACTIVE: "승인(활성화)" }[nextStatus];
+              return (
+                <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.sm }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>🛡 공간보증</div>
+                    <span style={{ background: gm.bg, color: gm.color, borderRadius: R.full, padding: "3px 10px", fontSize: 12, fontWeight: 800 }}>{gm.label}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: C.text2, marginBottom: S.md }}>
+                    {gg ? `${gg.emoji} ${gg.label}` : "등급 미선택"} · 예치금 {gAmt != null ? wonFromManwon(gAmt) : "—"}
+                    {selected.guarantee_badge_visible ? " · 배지 노출 ON" : " · 배지 OFF"}
+                  </div>
+                  {gs === "NONE" ? (
+                    <div style={{ fontSize: 12, color: C.text3 }}>업체가 등급을 선택하면 입금 확인부터 진행할 수 있어요.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {nextStatus && (
+                        <button disabled={actionLoading} onClick={() => handleGuarantee(selected, { status: nextStatus })}
+                          style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.md, padding: "9px 14px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+                          {nextLabel} →
+                        </button>
+                      )}
+                      <button disabled={actionLoading} onClick={() => handleGuarantee(selected, { badgeVisible: !selected.guarantee_badge_visible })}
+                        style={{ background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, padding: "9px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                        {selected.guarantee_badge_visible ? "배지 숨김" : "배지 노출"}
+                      </button>
+                      <button disabled={actionLoading} onClick={() => handleGuarantee(selected, { status: "NONE" })}
+                        style={{ background: C.surface, color: C.red ?? "#D63030", border: `1px solid ${C.bgWarm}`, borderRadius: R.md, padding: "9px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                        출금/해제(NONE)
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })()}
