@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { MIN_BID_MANWON, isValidBidManwon } from "../utils/calculations";
 import { BADGES } from "../constants/badges";
 import { TempBadge } from "./common";
+import GuaranteeBadge from "./GuaranteeBadge";
 
 export default function BidCard({
   r,
@@ -312,6 +313,8 @@ export default function BidCard({
                   <div style={{ fontSize: 11, color: companyBadge.color, fontWeight: 700, marginTop: 3 }}>
                     {companyBadge.icon} {companyBadge.label}
                   </div>
+                  {/* 공간보증 배지(068) — badge_visible && ACTIVE 일 때만 */}
+                  <div style={{ marginTop: 4 }}><GuaranteeBadge company={company} /></div>
                 </div>
               </div>
             )}

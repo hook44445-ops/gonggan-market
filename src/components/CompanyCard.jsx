@@ -2,6 +2,7 @@ import { C, R, S, GRADE, SHADOW } from "../constants";
 import { BADGES } from "../constants/badges";
 import { TempBadge, CertBadge, LeafSprig } from "./common";
 import CompanyVerificationBadges from "./CompanyVerificationBadges";
+import GuaranteeBadge from "./GuaranteeBadge";
 
 function KpiRow({ isLoggedIn, company }) {
   if (isLoggedIn) {
@@ -133,6 +134,9 @@ export default function CompanyCard({ company, onClick, isLoggedIn = false, save
             {company.distance && <span>{company.distance} · </span>}{company.desc}
           </div>
         )}
+
+        {/* 공간보증 배지(068) — badge_visible && ACTIVE 일 때만 */}
+        <div style={{ marginTop: S.sm, paddingLeft: 4 }}><GuaranteeBadge company={company} /></div>
 
         {/* 신뢰 스크리닝 — 검증 항목 시각화 */}
         <CompanyVerificationBadges company={company} style={{ marginTop: S.sm, paddingLeft: 4 }} />

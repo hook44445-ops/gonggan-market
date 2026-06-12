@@ -147,6 +147,22 @@ export const reviewCompany = (id, status, rejectNote = null) =>
     .update({ doc_status: status, reject_note: rejectNote, reviewed_at: new Date().toISOString() })
     .eq("id", id);
 
+// ── 공간보증(Guarantee) — migration 068 ──────────────────────────────────────
+// company_status(입찰 게이트)·doc_status·badge·deposit_amount 와 독립.
+// 업체 등급 선택(소유자) — 예치금은 서버에서 자동 계산, status→PENDING_DEPOSIT.
+export const selectCompanyGuarantee = (actorId, companyId, grade) =>
+  supabase.rpc("company_guarantee_select", {
+    p_actor_id: actorId, p_company_id: companyId, p_grade: grade,
+  });
+
+// 관리자 상태변경(입금확인/승인/배지숨김/출금=NONE) — admin sentinel.
+// status 또는 badgeVisible 중 필요한 것만 전달(미지정은 유지, ACTIVE→true/NONE→false 자동).
+export const adminSetGuarantee = (adminId, companyId, { status = null, badgeVisible = null } = {}) =>
+  supabase.rpc("admin_set_guarantee", {
+    p_admin_id: adminId, p_company_id: companyId,
+    p_status: status, p_badge_visible: badgeVisible,
+  });
+
 // ── Requests ──────────────────────────────────────────────────────────────────
 
 export const createRequest = (data) =>
