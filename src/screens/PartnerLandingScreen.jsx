@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { submitPartnerLead, checkPartnerApproved } from "../lib/supabase";
+import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadFiles } from "../lib/supabase";
 import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 
@@ -121,6 +121,9 @@ function ConsultForm() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  // V1.3 서류 업로드: 사업자등록증(승인 필수) / 시공보험증권(선택, 예치금 할인 기준).
+  const [bizFile, setBizFile] = useState(null);
+  const [insFile, setInsFile] = useState(null);
   // V2 무인 온보딩: 제출 성공 시 생성된 lead 정보를 보관해 STEP2~4 로 이어준다.
   const [lead, setLead] = useState(null); // { id, phone, insuranceYn }
 
@@ -162,11 +165,23 @@ function ConsultForm() {
         return;
       }
       console.log("[partner_lead_submit] 4) 성공 → submitted=true");
-      // V2: 생성된 lead id 로 STEP2~4(등급선택→입금→대기) 진행. 보험가입 여부 전달(미가입 예치금 2배).
+      // V1.3: 생성된 lead 에 서류 업로드(documents 버킷) 후 url 첨부. 보험판정은 파일 기준.
+      // 업로드 실패는 신청 자체를 막지 않는다(사업자등록증 없으면 승인 단계에서 차단).
+      const leadId = data?.id ?? null;
+      let insUrl = null;
+      if (leadId) {
+        try {
+          let bizUrl = null;
+          if (bizFile) bizUrl = await uploadFile("documents", `partner_leads/${leadId}/biz_${Date.now()}_${bizFile.name}`, bizFile);
+          if (insFile) insUrl = await uploadFile("documents", `partner_leads/${leadId}/ins_${Date.now()}_${insFile.name}`, insFile);
+          if (bizUrl || insUrl) await attachPartnerLeadFiles(leadId, { businessLicenseUrl: bizUrl, insuranceFileUrl: insUrl });
+        } catch (e) { console.warn("[partner files] 업로드 실패(신청은 계속):", e); }
+      }
+      // V2: 생성된 lead id 로 STEP2~4(등급선택→입금→대기) 진행. 보험여부 = 보험증권 파일 존재.
       setLead({
-        id: data?.id ?? null,
+        id: leadId,
         phone: form.phone,
-        insuranceYn: form.insurance === "가입",
+        insuranceYn: !!insUrl,
       });
       setSubmitted(true);
     } catch (err) {
@@ -229,6 +244,27 @@ function ConsultForm() {
       {field("bizNo",   "사업자등록번호", { required: true, placeholder: "000-00-00000", inputMode: "numeric" })}
       {field("region",  "시공지역",      { required: true, placeholder: "예: 서울 전역, 경기 남부" })}
       {field("field",   "전문분야",      { required: true, placeholder: "예: 주거 리모델링, 상업 인테리어" })}
+
+      {/* V1.3 서류 업로드 — 사업자등록증(승인 필수) / 시공보험증권(선택·예치금 할인 기준) */}
+      <div>
+        <label style={labelStyle}>사업자등록증 <span style={{ color: GOLDD }}>(승인 필수)</span></label>
+        <label style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: bizFile ? NAVY : TEXT3 }}>
+          <span>📎</span>
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bizFile ? bizFile.name : "파일 선택 (PDF/이미지)"}</span>
+          <input type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => setBizFile(e.target.files?.[0] ?? null)} />
+        </label>
+      </div>
+      <div>
+        <label style={labelStyle}>시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(선택 · 제출 시 예치금 할인)</span></label>
+        <label style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: insFile ? NAVY : TEXT3 }}>
+          <span>📎</span>
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{insFile ? insFile.name : "파일 선택 (PDF/이미지)"}</span>
+          <input type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => setInsFile(e.target.files?.[0] ?? null)} />
+        </label>
+        <div style={{ fontSize: 11, color: TEXT3, marginTop: 5, lineHeight: 1.5 }}>
+          보험증권 미제출 시 공간보증 예치금이 2배로 책정됩니다.
+        </div>
+      </div>
 
       <div>
         <label style={labelStyle}>시공보험 가입 여부</label>

@@ -1549,6 +1549,15 @@ export const selectPartnerLeadGrade = (leadId, grade, insuranceYn = null) =>
     p_insurance_yn: insuranceYn,
   });
 
+// V1.3: 가입상담 제출 직후 업로드한 서류 url 저장(사업자등록증 필수/보험증권 선택).
+// insurance_yn 은 RPC가 보험증권 파일 존재 기준으로 동기화한다(070).
+export const attachPartnerLeadFiles = (leadId, { businessLicenseUrl = null, insuranceFileUrl = null } = {}) =>
+  supabase.rpc("partner_lead_attach_files", {
+    p_lead_id:              leadId,
+    p_business_license_url: businessLicenseUrl,
+    p_insurance_file_url:   insuranceFileUrl,
+  });
+
 // STEP4~5: 관리자 온보딩 전이. action: 'CONFIRM_DEPOSIT' | 'APPROVE' | 'REJECT'.
 export const setPartnerLeadOnboarding = (adminId, leadId, action) =>
   supabase.rpc("partner_lead_onboarding_set", {

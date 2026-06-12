@@ -3018,6 +3018,34 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         </div>
                       )}
 
+                      {/* V1.3 제출 서류 — 사업자등록증/보험증권 새창 보기 */}
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: S.sm }}>
+                        {l.business_license_url ? (
+                          <a href={l.business_license_url} target="_blank" rel="noreferrer"
+                            style={{ fontSize: 12, fontWeight: 700, color: C.brand, background: C.brandL,
+                              borderRadius: R.lg, padding: "6px 12px", textDecoration: "none", border: `1px solid ${C.brandM}` }}>
+                            📄 사업자등록증 보기
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: C.red, background: "#FFF0F0",
+                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7" }}>
+                            사업자등록증 미제출 (승인 불가)
+                          </span>
+                        )}
+                        {l.insurance_file_url ? (
+                          <a href={l.insurance_file_url} target="_blank" rel="noreferrer"
+                            style={{ fontSize: 12, fontWeight: 700, color: C.brand, background: C.brandL,
+                              borderRadius: R.lg, padding: "6px 12px", textDecoration: "none", border: `1px solid ${C.brandM}` }}>
+                            📄 보험증권 보기
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 12, color: C.text3, background: C.bg,
+                            borderRadius: R.lg, padding: "6px 12px", border: `1px solid ${C.bgWarm}` }}>
+                            보험증권 미제출 (예치금 2배)
+                          </span>
+                        )}
+                      </div>
+
                       {/* V2 무인 온보딩(069) — 공간보증 신청 진행상태 + 입금확인/승인/반려 */}
                       {(l.guarantee_grade || (l.onboarding_status && l.onboarding_status !== "PENDING_DOCS")) && (() => {
                         const og = ONBOARDING_GRADE_MAP[l.guarantee_grade];
