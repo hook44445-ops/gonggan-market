@@ -89,6 +89,7 @@ import {
   updateCompanyServiceRegions,
   getNotifications,
   getReviewByRequest,
+  getUnreadChatCounts,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import { sendTieredNotification } from "../utils/notify";
@@ -1889,6 +1890,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
   const updateChat = (companyId, msgs) =>
     setChatLogs(prev => ({ ...prev, [companyId]: msgs }));
+
+  // C-4: 채팅 안읽음 개수(room_id별). roomId = `${user.id}_${companyId}` (ChatScreen 규칙과 동일).
+  const [unreadByRoom, setUnreadByRoom] = useState({});
+  const refreshUnreadChats = async () => {
+    if (!user?.id || user?.isGuest) { setUnreadByRoom({}); return; }
+    const roomIds = (companies ?? []).map(c => `${user.id}_${c.id}`);
+    const { data } = await getUnreadChatCounts(roomIds, user.id);
+    setUnreadByRoom(data ?? {});
+  };
+  // 진입/대화목록 전환/채팅방 이탈 시 갱신(과도한 폴링 없음).
+  useEffect(() => {
+    if (!user?.id || user?.isGuest) return;
+    if (screen === "chatlist" || screen === "home") refreshUnreadChats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, user?.id, companies?.length]);
+  const unreadTotal = Object.values(unreadByRoom).reduce((a, b) => a + (b || 0), 0);
 
   const [showLoginRequired, setShowLoginRequired] = useState(false);
 
@@ -3694,6 +3711,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     {(() => { const logs = chatLogs[c.id] ?? []; return logs.length > 0 ? (logs[logs.length-1]?.text ?? "채팅을 시작해보세요") : "채팅을 시작해보세요"; })()}
                   </div>
                 </div>
+                {(() => {
+                  const unread = unreadByRoom[`${user?.id}_${c.id}`] ?? 0;
+                  return unread > 0 ? (
+                    <div style={{ flexShrink:0, minWidth:20, height:20, padding:"0 6px", borderRadius:R.full,
+                      background:C.brand, color:"#fff", fontSize:11, fontWeight:800,
+                      display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      {unread > 99 ? "99+" : unread}
+                    </div>
+                  ) : null;
+                })()}
               </div>
             ))}
           </div>
@@ -4883,6 +4910,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   <div style={{ fontSize:10, fontWeight:active?800:400,
                     color:active?C.brand:C.text3, letterSpacing:active?"-0.2px":"0" }}>{label}</div>
                 </div>
+                {target === "chatlist" && unreadTotal > 0 && (
+                  <div style={{ position:"absolute", top:4, right:"50%", marginRight:-22,
+                    minWidth:16, height:16, padding:"0 4px", borderRadius:R.full,
+                    background:C.red ?? "#D63030", color:"#fff", fontSize:9, fontWeight:800,
+                    display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    {unreadTotal > 99 ? "99+" : unreadTotal}
+                  </div>
+                )}
               </button>
             );
           })}
