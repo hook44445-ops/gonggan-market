@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { submitPartnerLead, checkPartnerApproved } from "../lib/supabase";
+import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#0B1D3A";
@@ -386,7 +387,18 @@ export default function PartnerLandingScreen() {
   };
 
   // V1.2: 승인업체 로그인 게이트 — 통과 시 기존 경로(handleRoleSelect("company")) 그대로 사용.
-  const goCompanyLogin = () => setShowLoginGate(true);
+  // V1.2.2: 일반 로그아웃 후에도 기기 인증 + 저장된 업체 계정이 남아있으면 Gate 재요구 없이
+  //   기존 업체 로그인 복구 흐름(/?login=company → AccountPicker)으로 직행한다.
+  //   완전 로그아웃(clearDeviceAuth) 시에는 저장 계정/기기 인증이 모두 사라져 Gate 부터 다시 표시.
+  const goCompanyLogin = () => {
+    try {
+      if (isDeviceVerified() && getKnownUsers().some((u) => u.role === "company")) {
+        window.location.href = "/?login=company";
+        return;
+      }
+    } catch { /* localStorage 접근 불가 시 안전하게 Gate 표시 */ }
+    setShowLoginGate(true);
+  };
 
   return (
     <div style={{ fontFamily: SANS, background: OFF, minHeight: "100vh" }}>
