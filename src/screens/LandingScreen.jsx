@@ -259,7 +259,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             </button>
             {/* 업체 micro badge — 낮은 시각 우선순위(고객 CTA 방해 금지) */}
             <div style={{ fontSize: 11, color: C.text3, textAlign: "center", marginTop: -4, fontWeight: 500, letterSpacing: "-0.1px" }}>
-              광고비 없음 · 월 사용료 없음 · 계약 성사 시 4.4%
+              검증된 업체만 참여합니다
             </div>
           </div>
 
