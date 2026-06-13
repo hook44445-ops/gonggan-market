@@ -54,8 +54,70 @@ const STEPS = [
   { num: 2, label: "업체 비교",    desc: "견적·리뷰·포트폴리오를 비교하고 업체를 선택하세요" },
   { num: 3, label: "계약 확인",    desc: "계약 범위를 기록하고 공사비를 안전하게 예치합니다" },
   { num: 4, label: "단계별 확인",  desc: "착공→중간→완료, 사진으로 확인하고 단계마다 승인합니다" },
-  { num: 5, label: "완료 후 정산", desc: "고객 확인 완료 후 업체에 정산. 분쟁 시 관리자가 함께합니다" },
+  { num: 5, label: "완료 후 정산", desc: "고객 확인 완료 후 업체에 정산. 분쟁 발생 시 프로젝트 기록을 확인할 수 있습니다" },
 ];
+
+// ── CRO V2 데이터 ──────────────────────────────────────────────────────────────
+// Hero 신뢰 배지 (CTA 아래)
+const HERO_TRUST = [
+  { icon: "🛡️", text: "사업자·시공이력 검증" },
+  { icon: "📝", text: "계약·채팅·사진 자동 기록" },
+  { icon: "💸", text: "단계별 안전정산" },
+  { icon: "🔎", text: "분쟁 시 기록 확인 가능" },
+];
+// 기록보호 섹션 항목
+const RECORD_ITEMS = [
+  { icon: "📍", title: "GPS 기록",  desc: "현장 방문·진행 위치가 기록됩니다" },
+  { icon: "💬", title: "채팅 기록",  desc: "업체와의 모든 대화가 저장됩니다" },
+  { icon: "📷", title: "사진 기록",  desc: "착공·중간·완료 시공 사진이 남습니다" },
+  { icon: "📄", title: "계약 기록",  desc: "계약 범위와 변경 내역이 보관됩니다" },
+];
+// 업체 검증 섹션 항목
+const VERIFY_ITEMS = [
+  { icon: "🏢", title: "사업자 확인",   desc: "사업자등록 정보를 확인합니다" },
+  { icon: "🛡️", title: "보험 확인",     desc: "시공 보험 가입 여부를 확인합니다" },
+  { icon: "🧱", title: "시공 이력 검증", desc: "실제 시공 이력과 서류를 검증합니다" },
+];
+// 왜 공간마켓인가 — 4카드
+const WHY_GM = [
+  { icon: "📊", title: "비교견적",     desc: "내 조건에 맞는 검증 업체 견적 비교" },
+  { icon: "🔒", title: "공간안전결제", desc: "공사 완료 전까지 대금 보호" },
+  { icon: "🗂️", title: "기록보호",     desc: "계약부터 시공까지 자동 저장" },
+  { icon: "✅", title: "검증업체",     desc: "서류와 보험이 확인된 업체만 연결" },
+];
+// FAQ
+const FAQ_ITEMS = [
+  { q: "견적 요청은 무료인가요?", a: "네. 견적 요청과 업체 비교는 무료입니다." },
+  { q: "공간안전결제는 무엇인가요?", a: "공사비를 바로 지급하지 않고 단계 확인 후 안전하게 정산하는 구조입니다." },
+  { q: "업체는 어떻게 검증되나요?", a: "사업자 정보, 시공 이력, 서류 확인을 거친 업체만 연결됩니다." },
+  { q: "분쟁이 생기면 어떻게 하나요?", a: "계약, 채팅, 사진, 진행기록이 저장되어 프로젝트 기록을 확인할 수 있습니다." },
+];
+
+// CRO V2 — FAQ 아코디언 행
+function FaqRow({ q, a }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, overflow: "hidden" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 12, padding: "15px 16px", background: "transparent", border: "none",
+          cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+        }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: C.text1, lineHeight: 1.4 }}>Q. {q}</span>
+        <span style={{
+          fontSize: 15, color: C.brand, flexShrink: 0,
+          transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s",
+        }}>⌄</span>
+      </button>
+      {open && (
+        <div style={{ padding: "0 16px 15px", fontSize: 13, color: C.text2, lineHeight: 1.65 }}>{a}</div>
+      )}
+    </div>
+  );
+}
 
 export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccounts = false, onResume }) {
   const [heroRef, heroVisible]     = useVisible(0.05);
@@ -180,7 +242,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
                 border: "none",
                 boxShadow: "0 8px 24px rgba(46,95,75,0.22)",
               }}>
-              견적 시작하기
+              무료 비교견적 받기
             </button>
             <button
               onClick={() => { window.location.href = "/partner"; }}
@@ -192,6 +254,24 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               }}>
               업체로 시작
             </button>
+            {/* 업체 micro badge — 낮은 시각 우선순위(고객 CTA 방해 금지) */}
+            <div style={{ fontSize: 11, color: C.text3, textAlign: "center", marginTop: -4, fontWeight: 500, letterSpacing: "-0.1px" }}>
+              광고비 없음 · 월 사용료 없음 · 계약 성사 시 4.4%
+            </div>
+          </div>
+
+          {/* CRO V2 — Hero 신뢰 배지 (CTA 아래) */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 22, ...fadeStyle(heroVisible, 0.32) }}>
+            {HERO_TRUST.map((b) => (
+              <div key={b.text} style={{
+                display: "flex", alignItems: "center", gap: 7,
+                background: "rgba(255,255,255,0.78)", border: `1px solid ${C.bgWarm}`,
+                borderRadius: R.lg, padding: "9px 11px",
+              }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>{b.icon}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: C.text2, lineHeight: 1.25 }}>{b.text}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -301,6 +381,74 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         </div>
       </div>
 
+      {/* ── CRO V2: 기록보호 ───────────────────────────────────────── */}
+      <div style={{ padding: "44px 20px", background: C.bg }}>
+        <div style={{ maxWidth: 480, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: 6 }}>기록이 남는 계약</div>
+            <div style={{ fontSize: 13, color: C.text3, fontWeight: 500 }}>계약·채팅·사진·진행기록이 자동 저장됩니다</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {RECORD_ITEMS.map((it) => (
+              <div key={it.title} style={{ background: C.surface, borderRadius: R.xl, padding: "16px 14px", border: `1px solid ${C.bgWarm}` }}>
+                <div style={{ fontSize: 22, marginBottom: 8 }}>{it.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{it.title}</div>
+                <div style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.5 }}>{it.desc}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ textAlign: "center", marginTop: 16, fontSize: 12.5, color: C.brand, fontWeight: 700 }}>
+            모든 프로젝트 기록은 자동 저장됩니다.
+          </div>
+        </div>
+      </div>
+
+      {/* ── CRO V2: 업체 검증 ───────────────────────────────────────── */}
+      <div style={{ padding: "44px 20px", background: C.surface }}>
+        <div style={{ maxWidth: 480, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: 6 }}>검증된 업체만 연결합니다</div>
+            <div style={{ fontSize: 13, color: C.text3, fontWeight: 500 }}>서류·보험·시공 이력을 확인합니다</div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {VERIFY_ITEMS.map((it) => (
+              <div key={it.title} style={{ display: "flex", alignItems: "flex-start", gap: 12, background: C.bg, borderRadius: R.xl, padding: "14px 14px", border: `1px solid ${C.bgWarm}` }}>
+                <span style={{ fontSize: 20, flexShrink: 0 }}>{it.icon}</span>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text1, marginBottom: 3 }}>{it.title}</div>
+                  <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>{it.desc}</div>
+                </div>
+              </div>
+            ))}
+            {/* 입점 제한 카드 */}
+            <div style={{ background: C.brandD, borderRadius: R.xl, padding: "16px 14px" }}>
+              <div style={{ fontSize: 13.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>
+                🚫 무면허·불법·서류 미비 업체 입점 제한
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.78)", lineHeight: 1.5 }}>
+                검증 완료 업체만 활동할 수 있습니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CRO V2: 왜 공간마켓인가 ─────────────────────────────────── */}
+      <div style={{ padding: "44px 20px", background: C.bg }}>
+        <div style={{ maxWidth: 480, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: 24 }}>왜 공간마켓인가</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {WHY_GM.map((it) => (
+              <div key={it.title} style={{ background: C.surface, borderRadius: R.xl, padding: "16px 14px", border: `1px solid ${C.bgWarm}` }}>
+                <div style={{ fontSize: 22, marginBottom: 8 }}>{it.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{it.title}</div>
+                <div style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.5 }}>{it.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* ── SECTION 3: CTA ────────────────────────────────────────── */}
       <div style={{ padding: "44px 20px 60px", background: C.brand }}>
         <div ref={sec3Ref} style={{ maxWidth: 480, margin: "0 auto", textAlign: "center" }}>
@@ -314,10 +462,18 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
 
           <div style={{
             fontSize: 14, color: "rgba(255,255,255,0.65)",
-            marginBottom: 32,
+            marginBottom: 18,
             ...fadeStyle(sec3Visible, 0.08),
           }}>
             집, 상가, 리모델링까지 — 비교하고 확인하세요
+          </div>
+
+          {/* CRO V2 — 최종 CTA 강화 문구 */}
+          <div style={{
+            fontSize: 13.5, color: "#fff", fontWeight: 700, lineHeight: 1.5,
+            marginBottom: 24, ...fadeStyle(sec3Visible, 0.12),
+          }}>
+            사업자·시공이력 검증 업체와 안전하게 비교하세요
           </div>
 
           <div style={{ ...fadeStyle(sec3Visible, 0.16) }}>
@@ -333,7 +489,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
                 boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
                 marginBottom: 16,
               }}>
-              견적 시작하기
+              무료 비교견적 받기
             </button>
           </div>
 
@@ -367,6 +523,9 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               단계별 안전정산 후 공사 완료 시 최종 지급됩니다.<br/>
               <span style={{ fontSize: 11.5, color: C.text3 }}>🏆 가상계좌 이용 시 이용료 660원 (VAT 포함)</span>
             </div>
+            <div style={{ fontSize: 11.5, color: C.brand, fontWeight: 700, marginTop: 10, lineHeight: 1.6 }}>
+              공간안전결제 기반으로 공사 완료 전까지 대금이 안전하게 보호됩니다.
+            </div>
           </div>
 
           {/* 업체 */}
@@ -394,6 +553,28 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               지급되지 않은 금액에는 수수료가 부과되지 않습니다.<br/>
               공간뱃지예치보증금은 수수료가 아니며, 신뢰 파트너 인증을 위한 예치보증금입니다. 일정 기준 충족 시 환급 가능합니다.
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CRO V2: FAQ ────────────────────────────────────────────── */}
+      <div style={{ padding: "44px 20px", background: C.surface }}>
+        <div style={{ maxWidth: 480, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: 24 }}>자주 묻는 질문</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {FAQ_ITEMS.map((f) => <FaqRow key={f.q} q={f.q} a={f.a} />)}
+          </div>
+          {/* 신뢰 칩 (무료 상담 · 가입 강요 없음 · 1~2 영업일 내 연락) */}
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: 24 }}>
+            {[["💬", "무료 상담"], ["🙆", "가입 강요 없음"], ["⏱️", "1~2 영업일 내 연락"]].map(([ic, t]) => (
+              <span key={t} style={{
+                display: "inline-flex", alignItems: "center", gap: 5,
+                background: C.brandL, color: C.brand, borderRadius: R.full,
+                padding: "6px 12px", fontSize: 12, fontWeight: 700,
+              }}>
+                <span>{ic}</span>{t}
+              </span>
+            ))}
           </div>
         </div>
       </div>
