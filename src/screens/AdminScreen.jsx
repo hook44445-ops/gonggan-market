@@ -2264,6 +2264,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [partnerLeadsLoading, setPartnerLeadsLoading] = useState(false);
   const [partnerLeadsFilter, setPartnerLeadsFilter] = useState("all"); // all | PENDING | CONTACTED | APPROVED | REJECTED
   const [partnerLeadsErr, setPartnerLeadsErr] = useState(null);
+  // V1.4: 통합 검색 + 토글 필터(사업자등록증/보험증권/공간보증 신청).
+  const [partnerSearch, setPartnerSearch] = useState("");
+  const [pfDocBiz, setPfDocBiz]   = useState(false);
+  const [pfDocIns, setPfDocIns]   = useState(false);
+  const [pfGuarantee, setPfGuarantee] = useState(false);
   const [partnerNoteDraft, setPartnerNoteDraft] = useState({}); // { [leadId]: text }
   const [ddrRunning, setDdrRunning] = useState(false);
 
@@ -2732,9 +2737,25 @@ export default function AdminScreen({ onBack, onHome, user }) {
     APPROVED:  { label: "승인",   color: C.green, bg: C.greenL },
     REJECTED:  { label: "반려",   color: C.red,   bg: "#FFF0F0" },
   };
-  const filteredPartnerLeads = partnerLeadsFilter === "all"
-    ? partnerLeads
-    : partnerLeads.filter((l) => l.status === partnerLeadsFilter);
+  // V1.4: 상태 + 토글 필터 + 통합검색(업체명/대표자명/연락처/사업자번호 부분검색).
+  const _pq        = partnerSearch.trim().toLowerCase();
+  const _pqDigits  = _pq.replace(/\D/g, "");
+  const filteredPartnerLeads = partnerLeads.filter((l) => {
+    if (partnerLeadsFilter !== "all" && l.status !== partnerLeadsFilter) return false;
+    if (pfDocBiz && !l.business_license_url) return false;
+    if (pfDocIns && !l.insurance_file_url) return false;
+    if (pfGuarantee && !l.guarantee_grade) return false;
+    if (_pq) {
+      const name  = String(l.company_name ?? "").toLowerCase();
+      const owner = String(l.owner_name   ?? "").toLowerCase();
+      const phone = String(l.phone ?? "").replace(/\D/g, "");
+      const biz   = String(l.business_number ?? "").replace(/\D/g, "");
+      const textHit = name.includes(_pq) || owner.includes(_pq);
+      const numHit  = _pqDigits.length > 0 && (phone.includes(_pqDigits) || biz.includes(_pqDigits));
+      if (!textHit && !numHit) return false;
+    }
+    return true;
+  });
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
@@ -2976,6 +2997,38 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   ))}
                 </div>
 
+                {/* V1.4 통합 검색 — 업체명/대표자명/연락처/사업자번호 부분검색 */}
+                <div style={{ position: "relative", marginBottom: S.sm }}>
+                  <input
+                    value={partnerSearch}
+                    onChange={(e) => setPartnerSearch(e.target.value)}
+                    placeholder="🔍 업체명·대표자명·연락처·사업자번호 검색"
+                    style={{ width: "100%", height: 40, borderRadius: R.lg, border: `1px solid ${C.bgWarm}`,
+                      padding: "0 36px 0 12px", fontSize: 13, color: C.text1, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+                  {partnerSearch && (
+                    <button onClick={() => setPartnerSearch("")}
+                      style={{ position: "absolute", right: 8, top: 8, width: 24, height: 24, borderRadius: "50%",
+                        border: "none", background: C.bgWarm, color: C.text2, cursor: "pointer", fontSize: 13 }}>×</button>
+                  )}
+                </div>
+
+                {/* V1.4 토글 필터 — 사업자등록증/보험증권/공간보증 신청 */}
+                <div style={{ display: "flex", gap: 6, marginBottom: S.md, flexWrap: "wrap" }}>
+                  {[["biz", "사업자등록증 제출", pfDocBiz, setPfDocBiz],
+                    ["ins", "보험증권 제출", pfDocIns, setPfDocIns],
+                    ["grt", "공간보증 신청", pfGuarantee, setPfGuarantee]].map(([k, label, on, setOn]) => (
+                    <button key={k} onClick={() => setOn((v) => !v)}
+                      style={{ padding: "5px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                        border: `1px solid ${on ? C.brand : C.bgWarm}`,
+                        background: on ? C.brand : C.surface, color: on ? "#fff" : C.text2 }}>
+                      {on ? "✓ " : ""}{label}
+                    </button>
+                  ))}
+                  {(partnerSearch || pfDocBiz || pfDocIns || pfGuarantee) && (
+                    <span style={{ fontSize: 12, color: C.text3, alignSelf: "center" }}>· {filteredPartnerLeads.length}건</span>
+                  )}
+                </div>
+
                 {partnerLeadsErr && (
                   <div style={{ fontSize: 12, color: C.red, marginBottom: S.sm }}>조회 오류: {partnerLeadsErr}</div>
                 )}
@@ -3018,30 +3071,34 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         </div>
                       )}
 
-                      {/* V1.3 제출 서류 — 사업자등록증/보험증권 새창 보기 */}
+                      {/* V1.4 제출 서류 — 제출됨(초록)+보기 / 미제출(빨강) 구분 표시 */}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: S.sm }}>
                         {l.business_license_url ? (
-                          <a href={l.business_license_url} target="_blank" rel="noreferrer"
-                            style={{ fontSize: 12, fontWeight: 700, color: C.brand, background: C.brandL,
-                              borderRadius: R.lg, padding: "6px 12px", textDecoration: "none", border: `1px solid ${C.brandM}` }}>
-                            📄 사업자등록증 보기
-                          </a>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 사업자등록증 제출됨</span>
+                            <a href={l.business_license_url} target="_blank" rel="noreferrer"
+                              style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green,
+                                borderRadius: R.lg, padding: "6px 12px", textDecoration: "none" }}>📄 보기</a>
+                          </span>
                         ) : (
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.red, background: "#FFF0F0",
                             borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7" }}>
-                            사업자등록증 미제출 (승인 불가)
+                            ⛔ 사업자등록증 미제출 (승인 불가)
                           </span>
                         )}
                         {l.insurance_file_url ? (
-                          <a href={l.insurance_file_url} target="_blank" rel="noreferrer"
-                            style={{ fontSize: 12, fontWeight: 700, color: C.brand, background: C.brandL,
-                              borderRadius: R.lg, padding: "6px 12px", textDecoration: "none", border: `1px solid ${C.brandM}` }}>
-                            📄 보험증권 보기
-                          </a>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 보험증권 제출됨</span>
+                            <a href={l.insurance_file_url} target="_blank" rel="noreferrer"
+                              style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green,
+                                borderRadius: R.lg, padding: "6px 12px", textDecoration: "none" }}>📄 보기</a>
+                          </span>
                         ) : (
-                          <span style={{ fontSize: 12, color: C.text3, background: C.bg,
-                            borderRadius: R.lg, padding: "6px 12px", border: `1px solid ${C.bgWarm}` }}>
-                            보험증권 미제출 (예치금 2배)
+                          <span style={{ fontSize: 12, fontWeight: 700, color: C.red, background: "#FFF0F0",
+                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7" }}>
+                            ⛔ 보험증권 미제출 (예치금 2배)
                           </span>
                         )}
                       </div>
