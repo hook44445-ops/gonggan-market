@@ -287,15 +287,17 @@ function ConsultForm() {
         </label>
       </div>
       <div>
-        <label style={labelStyle}>시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(선택 · 제출 시 예치금 할인)</span></label>
+        <label style={labelStyle}>
+          시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(선택) · 우수 파트너 우대 혜택</span>
+        </label>
         <label style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: insFile ? NAVY : TEXT3 }}>
           <span>📎</span>
           <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{insFile ? insFile.name : "파일 선택 (PDF/이미지)"}</span>
           <input type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => setInsFile(e.target.files?.[0] ?? null)} />
         </label>
-        <div style={{ fontSize: 11, color: TEXT3, marginTop: 5, lineHeight: 1.5 }}>
-          시공보험증권 제출 시 예치보증금 할인 혜택이 적용됩니다.<br />
-          보험증권 미제출 시에는 리스크 기준에 따라 예치금이 2배 적용됩니다.
+        <div style={{ fontSize: 11, color: TEXT3, marginTop: 5, lineHeight: 1.6 }}>
+          시공보험증권 제출 업체는 우수 파트너 우대정책에 따라 신뢰보증금 할인 혜택이 적용됩니다.<br />
+          공간마켓은 무면허·불법·서류 미비 업체의 활동을 제한하며, 검증된 파트너에게 우대 혜택을 제공합니다.
         </div>
       </div>
 
@@ -334,9 +336,9 @@ function ConsultForm() {
         }}>
         {saving ? "접수 중..." : "공간파트너 가입 신청"}
       </button>
-      {/* V1.5 신청폼 하단 안심 문구 — 상담비 무료 / 가입 강요 없음 / 1~2영업일 내 연락 */}
+      {/* V1.5/V1.6 신청폼 하단 안심 문구 */}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6 }}>
-        {["상담비 무료", "가입 강요 없음", "1~2영업일 내 연락"].map((t) => (
+        {["무료 상담", "가입 강요 없음", "1~2 영업일 내 연락", "검토 후 승인 진행"].map((t) => (
           <span key={t} style={{
             fontSize: 11.5, fontWeight: 700, color: GOLDD,
             background: GOLDB, border: `1px solid ${GOLD}`,
@@ -702,6 +704,38 @@ export default function PartnerLandingScreen() {
         </div>
       </Section>
 
+      {/* ── 우수 파트너 검증 카드 (V1.6) ────────────────────────── */}
+      <Section bg={OFF}>
+        <div style={{
+          background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY3} 100%)`,
+          borderRadius: 16, padding: "24px 20px",
+        }}>
+          <div style={{ fontSize: 16, fontWeight: 900, color: WHITE, marginBottom: 16, textAlign: "center" }}>
+            검증된 파트너만 활동할 수 있습니다
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+            {[
+              "사업자 확인",
+              "시공 이력 확인",
+              "보험 서류 확인",
+              "무면허·불법 업체 제한",
+            ].map((t) => (
+              <div key={t} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ color: GOLD, fontWeight: 900, fontSize: 13 }}>✓</span>
+                <span style={{ fontSize: 14, color: "rgba(255,255,255,0.88)", fontWeight: 600 }}>{t}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{
+            fontSize: 12.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.65,
+            textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 14,
+          }}>
+            고객은 더 안심하고 계약할 수 있고,<br />
+            파트너는 더 신뢰받는 환경에서 활동할 수 있습니다.
+          </div>
+        </div>
+      </Section>
+
       {/* ── 고객 검증 · 안심거래 · 입점 제한 (V1.5) ──────────────── */}
       <Section bg={OFF}>
         <SectionTitle label="검증된 연결" sub="허위 고객·미지급 위험을 구조로 줄입니다" />
@@ -753,11 +787,11 @@ export default function PartnerLandingScreen() {
       <Section bg={`linear-gradient(160deg, ${NAVY} 0%, ${NAVY3} 100%)`}>
         <SectionTitle
           label="공간뱃지예치보증금 등급"
-          sub={<span style={{ color: WHITE }}>예치 금액이 신뢰도를 증명합니다</span>}
+          sub={<span style={{ color: WHITE }}>신뢰 등급이 높을수록{"\n"}더 큰 규모의 프로젝트에 참여할 수 있습니다</span>}
         />
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", textAlign: "center", marginTop: -14, marginBottom: 20, lineHeight: 1.6 }}>
-          등급이 높을수록 더 큰 프로젝트를 수주할 수 있습니다.<br />
-          보증금은 탈퇴 시 환불 대상입니다.
+          등급에 따라 수주 가능한 프로젝트 규모가 달라집니다.<br />
+          신뢰도와 책임 범위를 기반으로 운영됩니다.
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {GRADES.map(({ name, deposit, limit, color }) => (
@@ -790,22 +824,25 @@ export default function PartnerLandingScreen() {
             예치보증금은 가입비가 아닙니다
           </div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", fontWeight: 600, lineHeight: 1.6 }}>
-            파트너 활동 중 안전하게 보관되며,<br />
-            공간파트너 활동 종료 시 100% 환급 가능합니다.
+            공간마켓은 광고비와 월 사용료를 받지 않습니다.<br />
+            예치보증금은 파트너 활동 종료 시 100% 환급 가능합니다.
           </div>
+        </div>
+        {/* 등급표 하단 신뢰 문구 (V1.6) */}
+        <div style={{ marginTop: 12, fontSize: 11.5, color: "rgba(255,255,255,0.45)", textAlign: "center", lineHeight: 1.65 }}>
+          예치보증금은 수수료가 아닌 신뢰 파트너 인증을 위한 보증금입니다.<br />
+          프로젝트 규모에 따라 참여 가능한 범위가 달라질 수 있습니다.
         </div>
       </Section>
 
       {/* ── FEE ─────────────────────────────────────────────────── */}
       <Section bg={OFF}>
-        <SectionTitle label="수수료 안내" sub="계약 성사 시에만 단 4.4%" />
+        <SectionTitle label="수수료 안내" sub={"계약이 성사된 프로젝트에만\n4.4% 이용수수료가 발생합니다"} />
         <div style={{
           background: WHITE, borderRadius: 16, padding: "24px 20px",
           boxShadow: "0 2px 16px rgba(11,29,58,0.08)",
         }}>
-          <div style={{
-            textAlign: "center", marginBottom: 20,
-          }}>
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
             <span style={{ fontSize: 42, fontWeight: 900, color: GOLD }}>4.4</span>
             <span style={{ fontSize: 20, fontWeight: 700, color: GOLD }}>%</span>
             <div style={{ fontSize: 12, color: TEXT3, marginTop: 4 }}>VAT 포함 · 공간멤버십파트너 이용수수료</div>
@@ -822,6 +859,14 @@ export default function PartnerLandingScreen() {
                 <span style={{ fontSize: 14, color: ok ? NAVY : TEXT2, fontWeight: ok ? 600 : 400 }}>{label}</span>
               </div>
             ))}
+          </div>
+          {/* V1.6 보조 문구 — 매칭 실패/견적 미채택/수주 실패 시 비용 없음 */}
+          <div style={{
+            marginTop: 16, padding: "12px 14px",
+            background: OFF, borderRadius: 10, fontSize: 12, color: TEXT3, lineHeight: 1.65,
+          }}>
+            매칭 실패 · 견적 미채택 · 수주 실패 시<br />
+            <span style={{ fontWeight: 700, color: TEXT2 }}>비용은 발생하지 않습니다.</span>
           </div>
         </div>
       </Section>
