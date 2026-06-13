@@ -226,8 +226,11 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             <div style={{ fontSize: 15, color: C.text2, lineHeight: 1.6, marginBottom: 10 }}>
               비교하고 확인하세요
             </div>
-            <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6 }}>
-              공간마켓은 연결과 안전을 생각합니다.
+            <div style={{
+              fontSize: 16, color: "rgba(44,62,50,0.75)", lineHeight: 1.6,
+              letterSpacing: "-0.2px", fontWeight: 500,
+            }}>
+              좋은 공간은 좋은 만남에서 시작됩니다
             </div>
           </div>
 
