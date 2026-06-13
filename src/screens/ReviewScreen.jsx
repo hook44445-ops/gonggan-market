@@ -406,6 +406,17 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
         )}
       </div>
 
+      {/* 브랜드 클로징 문구 — 리뷰 작성 전 (공간사이 철학, 앱 내 3회 중 1회) */}
+      {!alreadyReviewed && (
+        <div style={{ padding:"0 20px 100px", textAlign:"center" }}>
+          <div style={{ fontSize:13, color:"rgba(44,62,50,0.55)", letterSpacing:"-0.2px",
+            fontWeight:500, lineHeight:1.7 }}>
+            좋은 공간은 좋은 만남에서 시작됩니다.<br />
+            함께해 주셔서 감사합니다.
+          </div>
+        </div>
+      )}
+
       {!alreadyReviewed && (
         <div style={{ position:"fixed", bottom:20, left:"50%", transform:"translateX(-50%)",
           width:"calc(100% - 40px)", maxWidth:440, zIndex:10 }}>

@@ -13,6 +13,9 @@ const BIZ_ROWS = [
 export default function AppFooter() {
   return (
     <div style={{ padding: "2px 8px 14px", textAlign: "center", lineHeight: 1.75 }}>
+      <div style={{ fontSize: 13, color: "rgba(44,62,50,0.6)", letterSpacing: "-0.2px", fontWeight: 500, marginBottom: 10, lineHeight: 1.6 }}>
+        좋은 공간은 좋은 만남에서 시작됩니다
+      </div>
       <div style={{ fontSize: 11, fontWeight: 700, color: "#8a8275", marginBottom: 6, letterSpacing: "0.02em" }}>
         공간사이 사업자 정보
       </div>
