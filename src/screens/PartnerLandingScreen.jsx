@@ -39,6 +39,37 @@ const fade = (v, delay = 0) => ({
   transition: `opacity 0.45s ease-out ${delay}s, transform 0.45s ease-out ${delay}s`,
 });
 
+// ── GA4 전환 이벤트 (V1.5) ──────────────────────────────────────────────────────
+// gtag 가 로드된 환경에서만 발화하고, 없으면 무해하게 무시한다(분석 미설정 시 영향 0).
+// partner_join_click / partner_join_submit / partner_login_click
+function track(event, params = {}) {
+  try {
+    if (typeof window !== "undefined" && typeof window.gtag === "function") {
+      window.gtag("event", event, params);
+    }
+  } catch { /* analytics 실패는 전환 흐름에 영향 주지 않음 */ }
+}
+
+// ── FAQ (V1.5) ──────────────────────────────────────────────────────────────────
+const FAQS = [
+  {
+    q: "가입할 때 비용이 드나요?",
+    a: "가입비는 없습니다. 광고비·월정액도 없으며, 견적 요청 수신도 무료입니다. 비용은 계약이 실제로 성사된 프로젝트에만 발생합니다.",
+  },
+  {
+    q: "수수료는 얼마인가요?",
+    a: "계약이 성사된 프로젝트에 한해 4.4%(VAT 포함)의 이용수수료만 부과됩니다. 그 외 어떤 명목의 비용도 없습니다.",
+  },
+  {
+    q: "수주에 실패하면 비용이 나가나요?",
+    a: "아니요. 견적이 채택되지 않거나 수주에 실패한 경우에는 어떤 비용도 청구되지 않습니다. 부담 없이 견적에 참여하세요.",
+  },
+  {
+    q: "예치보증금은 돌려받을 수 있나요?",
+    a: "예치보증금은 가입비가 아니라 신뢰를 보증하는 예치금입니다. 공간파트너 활동 종료 시 100% 환급 가능합니다.",
+  },
+];
+
 // ── Section wrapper ────────────────────────────────────────────────────────────
 function Section({ children, bg = OFF, py = 56 }) {
   const [ref, vis] = useVisible();
@@ -183,6 +214,7 @@ function ConsultForm() {
         phone: form.phone,
         insuranceYn: !!insUrl,
       });
+      track("partner_join_submit", { has_insurance: !!insUrl }); // V1.5 전환 이벤트
       setSubmitted(true);
     } catch (err) {
       console.error("[partner_lead_submit] 예외:", err);
@@ -218,7 +250,7 @@ function ConsultForm() {
       }}>
         <div style={{ fontSize: 32, marginBottom: 10 }}>✅</div>
         <div style={{ fontSize: 17, fontWeight: 900, color: NAVY, marginBottom: 8 }}>
-          가입상담 신청이 접수되었습니다
+          가입 신청이 접수되었습니다
         </div>
         <div style={{ fontSize: 14, color: TEXT2, lineHeight: 1.6 }}>
           담당자가 서류 검토 후 영업일 기준 1~2일 내<br />
@@ -262,7 +294,8 @@ function ConsultForm() {
           <input type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => setInsFile(e.target.files?.[0] ?? null)} />
         </label>
         <div style={{ fontSize: 11, color: TEXT3, marginTop: 5, lineHeight: 1.5 }}>
-          보험증권 미제출 시 공간보증 예치금이 2배로 책정됩니다.
+          시공보험증권 제출 시 예치보증금 할인 혜택이 적용됩니다.<br />
+          보험증권 미제출 시에는 리스크 기준에 따라 예치금이 2배 적용됩니다.
         </div>
       </div>
 
@@ -299,8 +332,20 @@ function ConsultForm() {
           fontFamily: SANS, letterSpacing: "-0.2px", opacity: saving ? 0.7 : 1,
           boxShadow: `0 6px 20px rgba(201,168,76,0.35)`,
         }}>
-        {saving ? "접수 중..." : "공간파트너 가입상담 신청"}
+        {saving ? "접수 중..." : "공간파트너 가입 신청"}
       </button>
+      {/* V1.5 신청폼 하단 안심 문구 — 상담비 무료 / 가입 강요 없음 / 1~2영업일 내 연락 */}
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6 }}>
+        {["상담비 무료", "가입 강요 없음", "1~2영업일 내 연락"].map((t) => (
+          <span key={t} style={{
+            fontSize: 11.5, fontWeight: 700, color: GOLDD,
+            background: GOLDB, border: `1px solid ${GOLD}`,
+            borderRadius: 99, padding: "4px 11px",
+          }}>
+            ✓ {t}
+          </span>
+        ))}
+      </div>
       <div style={{ fontSize: 12, color: TEXT3, textAlign: "center", lineHeight: 1.6 }}>
         신청 후 관리자 검토를 거쳐 가입 절차를 안내드립니다.<br />
         자동 문자·이메일은 발송되지 않습니다.
@@ -399,7 +444,7 @@ function CompanyLoginGate({ onClose }) {
               padding: "10px 12px", lineHeight: 1.6,
             }}>
               아직 승인되지 않은 업체입니다.<br />
-              가입상담 신청 후 관리자 승인 완료 시 이용하실 수 있습니다.
+              가입 신청 후 관리자 승인 완료 시 이용하실 수 있습니다.
             </div>
           )}
           <button
@@ -426,12 +471,47 @@ function CompanyLoginGate({ onClose }) {
   );
 }
 
+// ── FAQ section(V1.5) ──────────────────────────────────────────────────────────
+function FaqItem({ q, a }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{
+      background: WHITE, border: `1px solid #E4EAF3`, borderRadius: 12,
+      overflow: "hidden",
+    }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 12, padding: "16px 16px", background: "transparent", border: "none",
+          cursor: "pointer", fontFamily: SANS, textAlign: "left",
+        }}>
+        <span style={{ fontSize: 14.5, fontWeight: 800, color: NAVY, lineHeight: 1.45 }}>Q. {q}</span>
+        <span style={{
+          fontSize: 16, color: GOLD, flexShrink: 0,
+          transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s ease",
+        }}>⌄</span>
+      </button>
+      {open && (
+        <div style={{
+          padding: "0 16px 16px", fontSize: 13.5, color: TEXT2, lineHeight: 1.65,
+          borderTop: `1px solid #F0F3F8`, paddingTop: 14,
+        }}>
+          {a}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function PartnerLandingScreen() {
   const [heroRef, heroVis] = useVisible(0.05);
   const [showLoginGate, setShowLoginGate] = useState(false);
 
-  const scrollToForm = () => {
+  const scrollToForm = (source = "hero") => {
+    track("partner_join_click", { source }); // V1.5 전환 이벤트
     const el = document.getElementById("partner-consult-form");
     if (el) el.scrollIntoView({ behavior: "smooth" });
   };
@@ -441,6 +521,7 @@ export default function PartnerLandingScreen() {
   //   기존 업체 로그인 복구 흐름(/?login=company → AccountPicker)으로 직행한다.
   //   완전 로그아웃(clearDeviceAuth) 시에는 저장 계정/기기 인증이 모두 사라져 Gate 부터 다시 표시.
   const goCompanyLogin = () => {
+    track("partner_login_click"); // V1.5 전환 이벤트
     try {
       if (isDeviceVerified() && getKnownUsers().some((u) => u.role === "company")) {
         window.location.href = "/?login=company";
@@ -495,16 +576,32 @@ export default function PartnerLandingScreen() {
               광고비 없이<br />
               <span style={{ color: GOLD }}>수주하는 공간파트너</span>
             </h1>
-            <p style={{ margin: "0 0 28px", fontSize: 15, color: "rgba(255,255,255,0.75)", lineHeight: 1.7 }}>
+            <p style={{ margin: "0 0 20px", fontSize: 15, color: "rgba(255,255,255,0.75)", lineHeight: 1.7 }}>
               검증된 의뢰인이 먼저 예치하고 연결됩니다.<br />
               광고비·중개비·플랫폼 수수료 걱정 없이<br />
               시공에만 집중하세요.
             </p>
+            {/* V1.5 핵심 가치제안 — 광고비 0원 / 월정액 0원 / 계약 성사 시에만 4.4% / 검증된 고객만 연결 */}
+            <div style={{
+              background: "rgba(201,168,76,0.1)", border: `1px solid rgba(201,168,76,0.35)`,
+              borderRadius: 12, padding: "14px 16px", marginBottom: 24,
+            }}>
+              {[
+                "광고비 0원 · 월정액 0원",
+                "계약 성사 시에만 4.4%",
+                "검증된 고객만 연결받으세요",
+              ].map((t) => (
+                <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
+                  <span style={{ color: GOLD, fontSize: 13, fontWeight: 900 }}>✓</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: WHITE, letterSpacing: "-0.2px" }}>{t}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* 4무 badges */}
+          {/* 가치 badges (V1.5) */}
           <div style={{ ...fade(heroVis, 0.14), display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
-            {["광고비 무료", "초기 비용 無", "허위 의뢰 無", "플랫폼 수수료 無"].map((t) => (
+            {["광고비 없음", "월정액 없음", "견적 수신 무료", "계약 성사 시에만 4.4%"].map((t) => (
               <div key={t} style={{
                 background: GOLDB, border: `1px solid ${GOLD}`,
                 borderRadius: 99, padding: "5px 14px",
@@ -515,16 +612,16 @@ export default function PartnerLandingScreen() {
             ))}
           </div>
 
-          {/* CTA — 신규 업체(가입상담) / 기존 승인 업체(로그인) 분리 */}
+          {/* CTA — 신규 업체(가입 신청) / 기존 승인 업체(로그인) 분리 */}
           <div style={{ ...fade(heroVis, 0.2), display: "flex", flexDirection: "column", gap: 10 }}>
             <button
-              onClick={scrollToForm}
+              onClick={() => scrollToForm("hero")}
               style={{
                 height: 54, borderRadius: 12, border: "none", cursor: "pointer",
                 background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900,
                 fontFamily: SANS, boxShadow: `0 8px 28px rgba(201,168,76,0.45)`,
               }}>
-              공간파트너 가입상담 신청
+              공간파트너 가입 신청
             </button>
             <button
               onClick={goCompanyLogin}
@@ -537,7 +634,7 @@ export default function PartnerLandingScreen() {
             </button>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 1.6 }}>
               이미 승인된 공간파트너만 이용할 수 있습니다.<br />
-              승인 전 업체는 가입상담 신청 후 안내를 받아주세요.
+              승인 전 업체는 가입 신청 후 안내를 받아주세요.
             </div>
           </div>
         </div>
@@ -605,6 +702,53 @@ export default function PartnerLandingScreen() {
         </div>
       </Section>
 
+      {/* ── 고객 검증 · 안심거래 · 입점 제한 (V1.5) ──────────────── */}
+      <Section bg={OFF}>
+        <SectionTitle label="검증된 연결" sub="허위 고객·미지급 위험을 구조로 줄입니다" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* #5 고객 검증 시스템 */}
+          <div style={{
+            background: WHITE, borderRadius: 14, padding: "18px 16px",
+            boxShadow: "0 2px 12px rgba(11,29,58,0.06)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 20 }}>👤</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>검증된 고객만 연결</span>
+            </div>
+            <div style={{ fontSize: 13.5, color: TEXT2, lineHeight: 1.65 }}>
+              모든 고객은 연락처 인증, 주소 확인, 계약서 작성, 에스크로 예치 후 업체와 연결됩니다.
+            </div>
+          </div>
+
+          {/* #6 안심거래 결과 중심 */}
+          <div style={{
+            background: WHITE, borderRadius: 14, padding: "18px 16px",
+            boxShadow: "0 2px 12px rgba(11,29,58,0.06)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 20 }}>🛡️</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>대금 미지급 위험 감소</span>
+            </div>
+            <div style={{ fontSize: 13.5, color: TEXT2, lineHeight: 1.65 }}>
+              공사 완료 후 대금 미지급 위험을 줄입니다. 분쟁 발생 시 GPS, 사진, 채팅 기록이 증빙으로 남습니다.
+            </div>
+          </div>
+
+          {/* #7 입점 제한 안내 */}
+          <div style={{
+            background: NAVY, borderRadius: 14, padding: "18px 16px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 20 }}>🚫</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: WHITE }}>검증된 업체만 입점</span>
+            </div>
+            <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.78)", lineHeight: 1.65 }}>
+              공간마켓은 무면허 업체, 불법 업체, 서류 미비 업체의 입점을 제한합니다. 정식 사업자와 검증 완료 업체만 공간파트너로 활동할 수 있습니다.
+            </div>
+          </div>
+        </div>
+      </Section>
+
       {/* ── DEPOSIT GRADES ───────────────────────────────────────── */}
       <Section bg={`linear-gradient(160deg, ${NAVY} 0%, ${NAVY3} 100%)`}>
         <SectionTitle
@@ -640,11 +784,14 @@ export default function PartnerLandingScreen() {
         </div>
         <div style={{
           marginTop: 16, background: GOLDB, border: `1px solid ${GOLD}`,
-          borderRadius: 12, padding: "12px 14px", textAlign: "center",
+          borderRadius: 12, padding: "14px 16px", textAlign: "center",
         }}>
-          <div style={{ fontSize: 12, color: GOLD, fontWeight: 700, lineHeight: 1.6 }}>
-            예치 보증금은 파트너 활동 중 안전하게 보관되며<br />
-            계약 완료 시 자동 지급되지 않습니다
+          <div style={{ fontSize: 13, color: GOLD, fontWeight: 800, lineHeight: 1.6, marginBottom: 6 }}>
+            예치보증금은 가입비가 아닙니다
+          </div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", fontWeight: 600, lineHeight: 1.6 }}>
+            파트너 활동 중 안전하게 보관되며,<br />
+            공간파트너 활동 종료 시 100% 환급 가능합니다.
           </div>
         </div>
       </Section>
@@ -732,10 +879,18 @@ export default function PartnerLandingScreen() {
         </div>
       </Section>
 
+      {/* ── FAQ (V1.5) ───────────────────────────────────────────── */}
+      <Section bg={OFF}>
+        <SectionTitle label="자주 묻는 질문" sub="가입 전에 궁금한 점을 확인하세요" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {FAQS.map((f) => <FaqItem key={f.q} q={f.q} a={f.a} />)}
+        </div>
+      </Section>
+
       {/* ── CONSULTATION FORM (신규 업체) ────────────────────────── */}
       <Section bg={WHITE}>
         <div id="partner-consult-form" style={{ scrollMarginTop: 16 }} />
-        <SectionTitle label="신규 업체 · 가입상담 신청" sub="지금 신청하면 1~2 영업일 내 연락드립니다" />
+        <SectionTitle label="신규 업체 · 가입 신청" sub="지금 신청하면 1~2 영업일 내 연락드립니다" />
         <ConsultForm />
 
         {/* 기존 승인 업체 → 업체 로그인 분리 */}
@@ -784,6 +939,30 @@ export default function PartnerLandingScreen() {
             © 2026 공간마켓. All rights reserved.
           </div>
         </div>
+      </div>
+
+      {/* ── 모바일 플로팅 CTA (V1.5) — 모바일 하단 고정, 클릭 시 신청폼으로 스크롤 ── */}
+      <style>{`
+        @media (max-width: 640px) {
+          .gm-partner-floating-cta { display: block !important; }
+        }
+        .gm-partner-floating-cta { display: none; }
+      `}</style>
+      <div className="gm-partner-floating-cta" style={{
+        position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 900,
+        padding: "10px 16px calc(10px + env(safe-area-inset-bottom, 0px))",
+        background: "rgba(11,29,58,0.92)", backdropFilter: "blur(6px)",
+        borderTop: `1px solid rgba(201,168,76,0.3)`,
+      }}>
+        <button
+          onClick={() => scrollToForm("floating")}
+          style={{
+            width: "100%", height: 50, borderRadius: 12, border: "none", cursor: "pointer",
+            background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900, fontFamily: SANS,
+            boxShadow: `0 6px 20px rgba(201,168,76,0.4)`,
+          }}>
+          공간파트너 가입 신청
+        </button>
       </div>
 
     </div>
