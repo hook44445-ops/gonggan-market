@@ -307,6 +307,21 @@ export const getChatsForProject = async ({ customerId, companyId, ownerId, limit
   return { data: data ? [...data].reverse() : data, error };
 };
 
+// 관리자 증빙관리(V2.3) — 한 프로젝트의 채팅 요약(건수/마지막/최근 50건). 읽기 전용.
+// room_id = `${customerId}_${companyId|ownerId}` 후보. 기존 chats 조회만 사용(미수정).
+export const getProjectChatSummary = async ({ customerId, companyId, ownerId } = {}) => {
+  const rooms = [companyId, ownerId].filter(Boolean).map((cid) => `${customerId}_${cid}`);
+  if (!customerId || rooms.length === 0) return { count: 0, last: null, recent: [], error: null };
+  const { data, error, count } = await supabase
+    .from("chats")
+    .select("text, created_at, sender_type", { count: "exact" })
+    .in("room_id", rooms)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  const recent = data ? [...data] : [];
+  return { count: count ?? recent.length, last: recent[0]?.created_at ?? null, recent, error };
+};
+
 export const sendMessage = (roomId, senderId, senderType, text) =>
   supabase.from("chats").insert({
     room_id: roomId,
