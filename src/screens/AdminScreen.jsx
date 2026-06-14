@@ -44,6 +44,7 @@ import AdminChangeOrderHistory from "../components/AdminChangeOrderHistory";
 import AdminContractDetail from "../components/AdminContractDetail";
 import TransactionManagement from "../components/TransactionManagement";
 import FinanceDashboard from "../components/FinanceDashboard";
+import { toE164KR } from "../lib/testAccounts";
 
 const SEED_CATEGORIES = [
   { id: 'interior',   label: '인테리어' },
@@ -1741,7 +1742,9 @@ function TestAccountSection({ adminUserId, showToast }) {
     if (!val) { showToast?.("전화번호를 입력하세요", false); return; }
     if (!adminUserId) { showToast?.("관리자(role=admin) 계정으로 로그인해야 등록할 수 있어요", false); return; }
     setBusy(true);
-    const { error } = await rpcSetTestAccountByPhone(val, adminUserId);
+    // 입력 변형(0/82/+82) → DB 저장형(+8210...)으로 정규화 후 RPC 호출.
+    const e164 = toE164KR(val) || val;
+    const { error } = await rpcSetTestAccountByPhone(e164, adminUserId);
     setBusy(false);
     if (error) {
       const m = error.message || "";
