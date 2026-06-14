@@ -41,6 +41,8 @@ import { ONBOARDING_GRADE_MAP, ONBOARDING_STATUS_META } from "../constants/partn
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 import AdminChangeOrderHistory from "../components/AdminChangeOrderHistory";
 import AdminContractDetail from "../components/AdminContractDetail";
+import TransactionManagement from "../components/TransactionManagement";
+import FinanceDashboard from "../components/FinanceDashboard";
 
 const SEED_CATEGORIES = [
   { id: 'interior',   label: '인테리어' },
@@ -2612,9 +2614,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["partner_leads",  "파트너 상담관리"],
     ["customers",      "고객관리"],
     ["hidden",         "숨김요청관리"],
+    ["transactions",   "거래관리"],
     ["payments",       "결제관리"],
     ["disputes",       "분쟁관리"],
     ["settlements",    "정산관리"],
+    ["finance",        "재무대시보드"],
     ["reviews",        "리뷰관리"],
     ["review_admin",   "리뷰 어드민"],
     ["seed",           "포토후기 시딩"],
@@ -3943,6 +3947,14 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
             {mainTab === "project_flow" && (
               <ProjectFlowTab adminUserId={user?.id ?? null} showToast={showToast} />
+            )}
+
+            {mainTab === "transactions" && (
+              <TransactionManagement adminUserId={user?.id ?? null} showToast={showToast} />
+            )}
+
+            {mainTab === "finance" && (
+              <FinanceDashboard adminUserId={user?.id ?? null} showToast={showToast} />
             )}
 
             {mainTab === "tools" && (
