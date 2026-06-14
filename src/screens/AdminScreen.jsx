@@ -45,6 +45,7 @@ import AdminContractDetail from "../components/AdminContractDetail";
 import TransactionManagement from "../components/TransactionManagement";
 import FinanceDashboard from "../components/FinanceDashboard";
 import SettlementManagement from "../components/SettlementManagement";
+import ProjectEvidenceManagement from "../components/ProjectEvidenceManagement";
 import { toE164KR } from "../lib/testAccounts";
 
 const SEED_CATEGORIES = [
@@ -2330,6 +2331,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [settlements, setSettlements]       = useState([]);
   // 정산관리 뷰 전환 — contract(거래별 정산 V2.2 신규) / stage(단계별 지급 기존 보존)
   const [settleView, setSettleView]         = useState("contract");
+  // GPS 흐름관리 뷰 전환 — evidence(프로젝트 증빙관리 V2.3 신규) / gps(기존 GPS 흐름 보존)
+  const [flowView, setFlowView]             = useState("evidence");
   const [tabLoaded, setTabLoaded]           = useState({});
   const [toast, setToast]                   = useState(null);
   const [companyDocuments, setCompanyDocuments] = useState([]);
@@ -4066,7 +4069,24 @@ export default function AdminScreen({ onBack, onHome, user }) {
             )}
 
             {mainTab === "project_flow" && (
-              <ProjectFlowTab adminUserId={user?.id ?? null} showToast={showToast} />
+              <div>
+                {/* 뷰 전환 — 프로젝트 증빙관리(신규 V2.3) / GPS 흐름(기존 보존) */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                  {[["evidence", "프로젝트 증빙관리"], ["gps", "GPS 흐름(기존)"]].map(([v, l]) => (
+                    <button key={v} onClick={() => setFlowView(v)}
+                      style={{ padding: "7px 14px", borderRadius: R.full, fontSize: 12.5, fontWeight: 700,
+                        border: `1px solid ${flowView === v ? C.brand : C.bgWarm}`, cursor: "pointer",
+                        background: flowView === v ? C.brand : C.surface, color: flowView === v ? "#fff" : C.text2 }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                {flowView === "evidence" ? (
+                  <ProjectEvidenceManagement adminUserId={user?.id ?? null} showToast={showToast} />
+                ) : (
+                  <ProjectFlowTab adminUserId={user?.id ?? null} showToast={showToast} />
+                )}
+              </div>
             )}
 
             {mainTab === "transactions" && (
