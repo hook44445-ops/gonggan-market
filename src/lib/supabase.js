@@ -2324,6 +2324,22 @@ export const rpcSetTestAccountByPhone = (phone, adminId) =>
 export const rpcUnsetTestAccount = (userId, adminId) =>
   supabase.rpc("unset_user_test_account", { p_user_id: userId, p_admin_id: adminId });
 
+// 정산관리 고도화(072) — 거래(계약=escrow_payments.id) 단위 정산 관리상태 + 메모.
+// 표시/상태/메모만 저장(실제 송금/환불/PG 출금 없음). admin 만 호출 성공.
+export const getSettlementAdminState = (adminId) =>
+  supabase.rpc("settlement_admin_list", { p_admin_id: adminId });
+
+export const setSettlementStatus = (adminId, contractId, status, reason = null) =>
+  supabase.rpc("settlement_admin_set_status", {
+    p_admin_id: adminId, p_contract_id: contractId, p_status: status, p_reason: reason,
+  });
+
+export const saveSettlementMemo = (adminId, contractId, holdReason, paidMemo, internalMemo) =>
+  supabase.rpc("settlement_admin_save_memo", {
+    p_admin_id: adminId, p_contract_id: contractId,
+    p_hold_reason: holdReason, p_paid_memo: paidMemo, p_internal_memo: internalMemo,
+  });
+
 // 라운지 운영(operator/admin) — soft 처리 + 서버 로그
 export const rpcSetPostHot = (postId, hot, priority, actorId) =>
   supabase.rpc("op_set_post_hot", { p_post_id: postId, p_hot: hot, p_priority: priority ?? 0, p_actor_id: actorId });
