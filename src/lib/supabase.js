@@ -2328,6 +2328,31 @@ export const rpcSetOperatorByPhone = (phone, adminId) =>
 export const rpcUnsetOperator = (userId, adminId) =>
   supabase.rpc("unset_user_operator", { p_user_id: userId, p_admin_id: adminId });
 
+// 운영자 권한 시스템(073) — 대분류(운영/거래/프로젝트증빙/콘텐츠/시스템) 권한 + PIN.
+// SUPER_ADMIN(role=admin)만 호출 성공. 평문 PIN 은 등록/재발급 시 1회만 반환.
+export const adminListOperators = (adminId) =>
+  supabase.rpc("admin_list_operators", { p_admin_id: adminId });
+
+export const adminRegisterOperator = (adminId, phone, perms = {}) =>
+  supabase.rpc("admin_register_operator", {
+    p_admin_id: adminId, p_phone: phone,
+    p_ops: !!perms.ops, p_tx: !!perms.tx, p_proof: !!perms.proof,
+    p_contents: !!perms.contents, p_system: !!perms.system,
+  });
+
+export const adminUpdatePermissions = (adminId, userId, perms = {}) =>
+  supabase.rpc("admin_update_permissions", {
+    p_admin_id: adminId, p_user_id: userId,
+    p_ops: !!perms.ops, p_tx: !!perms.tx, p_proof: !!perms.proof,
+    p_contents: !!perms.contents, p_system: !!perms.system,
+  });
+
+export const adminResetPin = (adminId, userId) =>
+  supabase.rpc("admin_reset_pin", { p_admin_id: adminId, p_user_id: userId });
+
+export const adminUnregisterOperator = (adminId, userId) =>
+  supabase.rpc("admin_unregister_operator", { p_admin_id: adminId, p_user_id: userId });
+
 // 테스트 계정(071) — 대표/QA/개발/테스트 업체 계정을 실거래 통계에서 분리.
 // role 불변, is_test_account 플래그만 토글. admin 만 호출 성공.
 export const getTestAccounts = (adminId) =>
