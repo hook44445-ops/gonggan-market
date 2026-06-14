@@ -14,6 +14,17 @@ export function normalizePhone(p) {
   return d;
 }
 
+// 입력 전화번호를 DB 저장형(E.164, +8210...)으로 정규화.
+// 01027406030 → +821027406030 / 821027406030 → +821027406030 / +821027406030 → 그대로
+// RPC 호출 전 프론트에서 적용해 입력 변형(0/82/+82) 모두 동일 사용자로 매칭되게 한다.
+export function toE164KR(p) {
+  const d = String(p ?? "").replace(/\D/g, "");
+  if (!d) return "";
+  if (d.startsWith("82")) return "+" + d;       // 821027406030 → +821027406030
+  if (d.startsWith("0"))  return "+82" + d.slice(1); // 01027406030 → +821027406030
+  return "+82" + d;                              // 1027406030 → +821027406030
+}
+
 // list 는 [{ id, name, phone, role, ... }]
 export function buildTestAccountSet(list) {
   const ids = new Set();
