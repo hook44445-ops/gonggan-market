@@ -44,12 +44,15 @@ const COUNTED_ESCROW = new Set([
 export function aggregateFinance(rows) {
   const acc = {
     contractCount: 0,   // 계약(에스크로) 성립 건수
+    paidCount: 0,       // 결제(전액예치) 완료 건수
+    settledCount: 0,    // 정산 완료 건수
     gmv: 0,             // 총 거래액(원)
     feeTotal: 0,        // 플랫폼 수수료 총액(4.4%)
     revenue: 0,         // 플랫폼 매출 공급가액(4.0%)
     feeVat: 0,          // 수수료 부가세(0.4%)
+    expectedPayout: 0,  // 예상 정산액(업체 정산예정금 합계)
     settleReady: 0,     // 정산 대기금액(업체 정산예정금 기준)
-    settleDone: 0,      // 정산 완료금액
+    settleDone: 0,      // 정산 완료금액(지급완료액)
     settleHeld: 0,      // 정산 보류금액(분쟁/DISPUTE)
   };
   for (const r of rows || []) {
@@ -58,18 +61,60 @@ export function aggregateFinance(rows) {
     const gmv = manwonToWon(esc.total_amount);
     const f = contractFinance(gmv);
     acc.contractCount += 1;
+    if (esc.step1_deposited_at ||
+        ["CONTRACTED","STARTED","MID_INSPECTION","COMPLETED","SETTLED"].includes(esc.transaction_status))
+      acc.paidCount += 1;
+    if (esc.transaction_status === "SETTLED") acc.settledCount += 1;
     acc.gmv      += f.gmv;
     acc.feeTotal += f.feeTotal;
     acc.revenue  += f.revenue;
     acc.feeVat   += f.feeVat;
+    acc.expectedPayout += f.companyPayout;
 
     const held = esc.transaction_status === "DISPUTE" || esc.dispute_status != null;
     if (esc.transaction_status === "SETTLED")      acc.settleDone += f.companyPayout;
     else if (held)                                  acc.settleHeld += f.companyPayout;
     else                                            acc.settleReady += f.companyPayout;
   }
+  acc.unsettled     = acc.settleReady + acc.settleHeld; // 미정산금액
   // 예상 부가세 / 순매출 (토큰·PG 는 1차에서 미연동 → escrow 기준만)
   acc.expectedVat   = acc.feeVat;
   acc.expectedNet   = acc.revenue;
   return acc;
+}
+
+// ── 시계열 집계 (일별/주별/월별 GMV·건수) ───────────────────────────────
+// period: 'day' | 'week' | 'month'. created_at 기준 버킷, 최근 limit 버킷 반환.
+function bucketKey(d, period) {
+  const y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+  if (period === "month") return `${y}-${String(m + 1).padStart(2, "0")}`;
+  if (period === "week") {
+    // ISO 주 시작(월요일) 기준
+    const t = new Date(Date.UTC(y, m, day));
+    const dow = (t.getUTCDay() + 6) % 7; // 월=0
+    t.setUTCDate(t.getUTCDate() - dow);
+    return `${t.getUTCFullYear()}-W${String(t.getUTCMonth() + 1).padStart(2, "0")}${String(t.getUTCDate()).padStart(2, "0")}`;
+  }
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+function bucketLabel(d, period) {
+  if (period === "month") return `${d.getMonth() + 1}월`;
+  if (period === "week")  return `${d.getMonth() + 1}/${d.getDate()}`;
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+export function buildTimeSeries(rows, period = "day", limit = 14) {
+  const map = new Map(); // key -> {label, gmv, count, ts}
+  for (const r of rows || []) {
+    const esc = r.escrow;
+    if (!esc || !COUNTED_ESCROW.has(esc.transaction_status)) continue;
+    if (!r.created_at) continue;
+    const d = new Date(r.created_at);
+    const key = bucketKey(d, period);
+    const cur = map.get(key) || { label: bucketLabel(d, period), gmv: 0, count: 0, ts: d.getTime() };
+    cur.gmv += manwonToWon(esc.total_amount);
+    cur.count += 1;
+    map.set(key, cur);
+  }
+  return [...map.values()].sort((a, b) => a.ts - b.ts).slice(-limit);
 }
