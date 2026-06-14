@@ -28,6 +28,7 @@ import {
   adminVerifyUserIdentity,
   getDirectDealReports, updateDirectDealReportStatus, checkSiteVisitFollowUp, checkDirectDealSchedules,
   getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
+  adminListOperators, adminRegisterOperator, adminUpdatePermissions, adminResetPin, adminUnregisterOperator,
   getTestAccounts, rpcSetTestAccountByPhone, rpcUnsetTestAccount,
   fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
   getProjectCheckpoints, getAdminProjectFlow,
@@ -46,6 +47,7 @@ import TransactionManagement from "../components/TransactionManagement";
 import FinanceDashboard from "../components/FinanceDashboard";
 import SettlementManagement from "../components/SettlementManagement";
 import ProjectEvidenceManagement from "../components/ProjectEvidenceManagement";
+import AdminCategoryNav from "../components/AdminCategoryNav";
 import { toE164KR } from "../lib/testAccounts";
 
 const SEED_CATEGORIES = [
@@ -1632,60 +1634,128 @@ function SeedReviewTab() {
 
 // ── 운영자 설정 탭 (admin 전용) — 전화번호로 운영자 등록/해제 + 목록 ──
 function OperatorSettingTab({ adminUserId, showToast }) {
+  const PERM_DEFS = [
+    ["ops", "운영", "can_operations"], ["tx", "거래", "can_transactions"],
+    ["proof", "프로젝트증빙", "can_project_proof"], ["contents", "콘텐츠", "can_contents"],
+    ["system", "시스템", "can_system"],
+  ];
+  const EMPTY_PERMS = { ops: false, tx: false, proof: false, contents: false, system: false };
+
   const [phone, setPhone]       = useState("");
+  const [perms, setPerms]       = useState(EMPTY_PERMS);
   const [operators, setOps]     = useState([]);
   const [loading, setLoading]   = useState(true);
   const [busy, setBusy]         = useState(false);
+  const [pinModal, setPinModal] = useState(null); // { phone, pin }
+  const [editing, setEditing]   = useState(null);  // user_id
+  const [editPerms, setEditPerms] = useState(EMPTY_PERMS);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await getOperators();
-    setOps(data ?? []);
+    const { data, error } = await adminListOperators(adminUserId);
+    if (error) {
+      // 073 미적용 등 — 레거시 목록으로 폴백(권한 표시는 비어있음).
+      const { data: legacy } = await getOperators();
+      setOps((legacy ?? []).map(o => ({ user_id: o.id, name: o.name, phone: o.phone, role: o.role })));
+    } else {
+      setOps(data ?? []);
+    }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  const errMsg = (m) =>
+    m.includes("ADMIN_ONLY") ? "관리자(role=admin) 계정만 가능해요"
+    : m.includes("USER_NOT_FOUND") ? "해당 전화번호의 사용자를 찾을 수 없어요 (가입된 번호인지 확인)"
+    : m.includes("CANNOT_MODIFY_ADMIN") ? "관리자 계정은 변경할 수 없어요"
+    : /Could not find the function|does not exist|schema cache|PGRST202|admin_permissions/i.test(m) ? "RPC/테이블 없음 — 073_admin_permissions.sql 적용 필요"
+    : `실패: ${m || "알 수 없는 오류"}`;
 
   const register = async () => {
     const val = phone.trim();
     if (!val) { showToast?.("전화번호를 입력하세요", false); return; }
     if (!adminUserId) { showToast?.("관리자(DB role=admin) 계정으로 로그인해야 등록할 수 있어요", false); return; }
     setBusy(true);
-    const { data, error } = await rpcSetOperatorByPhone(val, adminUserId);
+    const { data, error } = await adminRegisterOperator(adminUserId, toE164KR(val) || val, perms);
     setBusy(false);
-    if (error) {
-      const m = error.message || "";
-      let msg;
-      if (m.includes("ADMIN_ONLY")) msg = "관리자(role=admin) 계정만 등록할 수 있어요";
-      else if (m.includes("USER_NOT_FOUND")) msg = "해당 전화번호의 사용자를 찾을 수 없어요 (가입된 번호인지 확인)";
-      else if (m.includes("CANNOT_MODIFY_ADMIN")) msg = "관리자 계정은 변경할 수 없어요";
-      else if (/column .*is_operator|is_operator/i.test(m)) msg = "is_operator 컬럼 없음 — 028_operator_flag_split.sql 적용 필요";
-      else if (/Could not find the function|does not exist|schema cache|PGRST202/i.test(m)) msg = "RPC 없음 — 028_operator_flag_split.sql 적용 필요";
-      else msg = `등록 실패: ${m || "알 수 없는 오류"}`;
-      showToast?.(msg, false);
-      return;
-    }
+    if (error) { showToast?.(errMsg(error.message || ""), false); return; }
+    setPhone(""); setPerms(EMPTY_PERMS);
+    if (data?.pin) setPinModal({ phone: val, pin: data.pin });
     showToast?.("운영자로 등록했어요");
-    setPhone("");
     load();
   };
 
+  const startEdit = (op) => {
+    setEditing(op.user_id);
+    setEditPerms({ ops: !!op.can_operations, tx: !!op.can_transactions, proof: !!op.can_project_proof, contents: !!op.can_contents, system: !!op.can_system });
+  };
+  const savePerms = async (op) => {
+    setBusy(true);
+    const { error } = await adminUpdatePermissions(adminUserId, op.user_id, editPerms);
+    setBusy(false);
+    if (error) { showToast?.(errMsg(error.message || ""), false); return; }
+    setEditing(null);
+    showToast?.("권한을 수정했어요");
+    load();
+  };
+  const resetPin = async (op) => {
+    setBusy(true);
+    const { data, error } = await adminResetPin(adminUserId, op.user_id);
+    setBusy(false);
+    if (error) { showToast?.(errMsg(error.message || ""), false); return; }
+    if (data?.pin) setPinModal({ phone: op.phone, pin: data.pin });
+    showToast?.("PIN 을 재발급했어요");
+  };
   const unregister = async (op) => {
     if (!adminUserId) { showToast?.("관리자 계정으로 로그인해야 해제할 수 있어요", false); return; }
     setBusy(true);
-    const { error } = await rpcUnsetOperator(op.id, adminUserId);
+    const { error } = await adminUnregisterOperator(adminUserId, op.user_id);
     setBusy(false);
-    if (error) { showToast?.("해제에 실패했어요", false); return; }
+    if (error) { showToast?.(errMsg(error.message || ""), false); return; }
     showToast?.("운영자에서 해제했어요");
     load();
   };
 
+  const PermChecks = ({ value, onChange }) => (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {PERM_DEFS.map(([k, l]) => (
+        <label key={k} style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer",
+          background: value[k] ? C.brandL : C.surface, border: `1px solid ${value[k] ? C.brand : C.bgWarm}`,
+          borderRadius: R.full, padding: "5px 11px", fontSize: 12, fontWeight: 700, color: value[k] ? C.brand : C.text3 }}>
+          <input type="checkbox" checked={value[k]} onChange={e => onChange({ ...value, [k]: e.target.checked })}
+            style={{ width: 14, height: 14, accentColor: C.brand, cursor: "pointer" }} />
+          {l}
+        </label>
+      ))}
+    </div>
+  );
+
   return (
     <div style={{ padding: "8px 4px" }}>
+      {pinModal && (
+        <div onClick={() => setPinModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: C.surface, borderRadius: R.xl, padding: "24px 22px", maxWidth: 340, width: "100%", textAlign: "center" }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: C.text1, marginBottom: 6 }}>초기 PIN 발급</div>
+            <div style={{ fontSize: 12, color: C.text3, marginBottom: 14 }}>{pinModal.phone} 운영자</div>
+            <div style={{ fontSize: 38, fontWeight: 900, letterSpacing: "0.18em", color: C.brand, fontFamily: "monospace", marginBottom: 12 }}>{pinModal.pin}</div>
+            <div style={{ fontSize: 12.5, color: C.red, fontWeight: 700, lineHeight: 1.6, marginBottom: 16 }}>
+              지금만 표시됩니다.<br />운영자에게 전달하세요.
+            </div>
+            <button onClick={() => setPinModal(null)}
+              style={{ width: "100%", padding: "11px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 6 }}>운영자 설정</div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 12 }}>
-        전화번호로 사용자를 검색해 운영자 권한을 부여/해제합니다. 운영자는 부가 권한으로, 기존 사용자 유형(업체/의뢰인)은 그대로 유지되며 라운지 게시판 관리(추천글·숨김)만 추가됩니다.
+        전화번호로 사용자를 검색해 운영자 권한을 부여합니다. 대분류(운영/거래/프로젝트증빙/콘텐츠/시스템) 단위로 복수 선택할 수 있고, 등록 시 6자리 PIN 이 1회 발급됩니다. 사용자 유형(업체/의뢰인)은 그대로 유지됩니다.
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
         <input value={phone} onChange={e => setPhone(e.target.value)}
           placeholder="전화번호 (예: 01027406030)"
           onKeyDown={e => { if (e.key === "Enter") register(); }}
@@ -1695,6 +1765,10 @@ function OperatorSettingTab({ adminUserId, showToast }) {
           운영자 등록
         </button>
       </div>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: C.text3, marginBottom: 6 }}>권한 (복수 선택)</div>
+        <PermChecks value={perms} onChange={setPerms} />
+      </div>
 
       <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 8 }}>현재 운영자 ({operators.length})</div>
       {loading ? (
@@ -1703,15 +1777,46 @@ function OperatorSettingTab({ adminUserId, showToast }) {
         <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>등록된 운영자가 없습니다</div>
       ) : (
         operators.map(op => (
-          <div key={op.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, marginBottom: 6 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{op.name || "이름없음"} <span style={{ fontSize: 11, color: C.text4, fontWeight: 500 }}>· {op.role === "company" ? "업체" : op.role === "consumer" ? "의뢰인" : op.role} + 운영자</span></div>
-              <div style={{ fontSize: 12, color: C.text3 }}>{op.phone}</div>
+          <div key={op.user_id} style={{ padding: "11px 12px", background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, marginBottom: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>
+                  {op.name || "이름없음"}
+                  <span style={{ fontSize: 11, color: C.text4, fontWeight: 500 }}> · {op.role === "company" ? "업체" : op.role === "consumer" ? "의뢰인" : op.role}</span>
+                  {op.has_pin && <span style={{ fontSize: 10, color: "#27AE60", fontWeight: 700 }}> · PIN 발급됨</span>}
+                </div>
+                <div style={{ fontSize: 12, color: C.text3 }}>{op.phone}</div>
+              </div>
+              <button disabled={busy} onClick={() => unregister(op)}
+                style={{ background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                해제
+              </button>
             </div>
-            <button disabled={busy} onClick={() => unregister(op)}
-              style={{ background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-              해제
-            </button>
+            {/* 권한 표시 / 편집 */}
+            {editing === op.user_id ? (
+              <div style={{ marginTop: 10 }}>
+                <PermChecks value={editPerms} onChange={setEditPerms} />
+                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                  <button disabled={busy} onClick={() => savePerms(op)}
+                    style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.md, padding: "7px 14px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>저장</button>
+                  <button onClick={() => setEditing(null)}
+                    style={{ background: C.surface, color: C.text3, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, padding: "7px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>취소</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", flex: 1 }}>
+                  {PERM_DEFS.filter(([, , col]) => op[col]).map(([k, l]) => (
+                    <span key={k} style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: "2px 9px", fontSize: 11, fontWeight: 700 }}>{l}</span>
+                  ))}
+                  {PERM_DEFS.every(([, , col]) => !op[col]) && <span style={{ fontSize: 11.5, color: C.text4 }}>권한 없음</span>}
+                </div>
+                <button onClick={() => startEdit(op)}
+                  style={{ background: C.surface, color: C.brand, border: `1px solid ${C.brandM ?? C.bgWarm}`, borderRadius: R.full, padding: "5px 11px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>권한수정</button>
+                <button disabled={busy} onClick={() => resetPin(op)}
+                  style={{ background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "5px 11px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>PIN 재발급</button>
+              </div>
+            )}
           </div>
         ))
       )}
@@ -2737,6 +2842,35 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["notifications",  "알림"],
   ];
 
+  // ── 관리자 IA 대분류(5) — 기존 21개 탭을 그룹핑(탭 추가/삭제 없음) ──────────
+  // 권한: SUPER_ADMIN(role=admin)=전체 / 운영자=admin_permissions 카테고리만(Phase 3 연동).
+  // 소분류 label 은 [key, 커스텀라벨?] — 생략 시 MAIN_TABS 라벨 사용.
+  const TAB_LABEL = Object.fromEntries(MAIN_TABS);
+  const CATEGORIES_DEF = [
+    { key: "operations",    label: "운영",         icon: "🏢", perm: "can_operations",
+      tabs: [["dashboard"], ["companies"], ["customers"], ["partner_leads", "파트너상담"], ["hidden"]] },
+    { key: "transactions",  label: "거래",         icon: "💳", perm: "can_transactions",
+      tabs: [["transactions"], ["payments"], ["settlements"], ["disputes"]] },
+    { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
+      tabs: [["project_flow", "프로젝트증빙관리"], ["direct_deal", "직거래 의심"]] },
+    { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
+      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_seeding"], ["reports"]] },
+    { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
+      tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"]] },
+  ];
+  const isSuperAdmin = user?.role === "admin";
+  const myPerms = null; // 운영자 본인 권한 — Phase 3(PIN 게이트)에서 주입. 현재 진입자는 SUPER_ADMIN.
+  const SUPER_ONLY_TABS = new Set(["operator_setting"]); // 일반 운영자 접근 불가
+  const adminCategories = CATEGORIES_DEF
+    .filter(c => isSuperAdmin || (myPerms && myPerms[c.perm]))
+    .map(c => ({
+      key: c.key, label: c.label, icon: c.icon,
+      tabs: c.tabs
+        .filter(([tk]) => isSuperAdmin || !SUPER_ONLY_TABS.has(tk))
+        .map(([tk, lbl]) => ({ key: tk, label: lbl || TAB_LABEL[tk] || tk })),
+    }))
+    .filter(c => c.tabs.length > 0);
+
   const DDR_TRIGGER_META = {
     keyword_detected: { label: "키워드 감지", color: C.red },
     no_estimate_72h:  { label: "견적 미제출(72h)", color: C.gold },
@@ -2906,19 +3040,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
         </div>
       </div>
 
-      {/* Main Tabs */}
-      <div style={{ background: C.surface, borderBottom: `1px solid ${C.bgWarm}`, overflowX: "auto" }}>
-        <div style={{ display: "flex", minWidth: "max-content", padding: "0 16px" }}>
-          {MAIN_TABS.map(([v, l]) => (
-            <button key={v} onClick={() => setMainTab(v)}
-              style={{ padding: "12px 14px", border: "none", background: "transparent",
-                fontWeight: mainTab === v ? 800 : 500, fontSize: 13,
-                color: mainTab === v ? C.brand : C.text3,
-                borderBottom: `2.5px solid ${mainTab === v ? C.brand : "transparent"}`,
-                cursor: "pointer", whiteSpace: "nowrap" }}>{l}</button>
-          ))}
-        </div>
-      </div>
+      {/* Main Tabs — 대분류(운영/거래/프로젝트증빙/콘텐츠/시스템) + 소분류 */}
+      <AdminCategoryNav categories={adminCategories} mainTab={mainTab} onSelect={setMainTab} />
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 90px` }}>
 
