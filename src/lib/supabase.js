@@ -2313,6 +2313,17 @@ export const rpcSetOperatorByPhone = (phone, adminId) =>
 export const rpcUnsetOperator = (userId, adminId) =>
   supabase.rpc("unset_user_operator", { p_user_id: userId, p_admin_id: adminId });
 
+// 테스트 계정(071) — 대표/QA/개발/테스트 업체 계정을 실거래 통계에서 분리.
+// role 불변, is_test_account 플래그만 토글. admin 만 호출 성공.
+export const getTestAccounts = (adminId) =>
+  supabase.rpc("list_test_accounts", { p_admin_id: adminId });
+
+export const rpcSetTestAccountByPhone = (phone, adminId) =>
+  supabase.rpc("set_user_test_account_by_phone", { p_phone: phone, p_admin_id: adminId });
+
+export const rpcUnsetTestAccount = (userId, adminId) =>
+  supabase.rpc("unset_user_test_account", { p_user_id: userId, p_admin_id: adminId });
+
 // 라운지 운영(operator/admin) — soft 처리 + 서버 로그
 export const rpcSetPostHot = (postId, hot, priority, actorId) =>
   supabase.rpc("op_set_post_hot", { p_post_id: postId, p_hot: hot, p_priority: priority ?? 0, p_actor_id: actorId });

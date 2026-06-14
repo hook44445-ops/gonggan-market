@@ -28,6 +28,7 @@ import {
   adminVerifyUserIdentity,
   getDirectDealReports, updateDirectDealReportStatus, checkSiteVisitFollowUp, checkDirectDealSchedules,
   getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
+  getTestAccounts, rpcSetTestAccountByPhone, rpcUnsetTestAccount,
   fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
   getProjectCheckpoints, getAdminProjectFlow,
   getPartnerLeads, setPartnerLeadStatus, setPartnerLeadOnboarding,
@@ -1705,6 +1706,101 @@ function OperatorSettingTab({ adminUserId, showToast }) {
               <div style={{ fontSize: 12, color: C.text3 }}>{op.phone}</div>
             </div>
             <button disabled={busy} onClick={() => unregister(op)}
+              style={{ background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+              해제
+            </button>
+          </div>
+        ))
+      )}
+
+      {/* ── 테스트 계정 관리(071) — 실거래 통계에서 제외할 계정 ─────────── */}
+      <div style={{ height: 1, background: C.bgWarm, margin: "22px 0 18px" }} />
+      <TestAccountSection adminUserId={adminUserId} showToast={showToast} />
+    </div>
+  );
+}
+
+// 테스트 계정 관리 — 대표/QA/개발/테스트 업체 계정을 전화번호로 등록/해제.
+// role 불변, is_test_account 플래그만 토글. 재무·거래 통계에서 분리된다.
+function TestAccountSection({ adminUserId, showToast }) {
+  const [phone, setPhone]   = useState("");
+  const [list, setList]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy]     = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await getTestAccounts(adminUserId);
+    setList(Array.isArray(data) ? data : []);
+    setLoading(false);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [adminUserId]);
+
+  const register = async () => {
+    const val = phone.trim();
+    if (!val) { showToast?.("전화번호를 입력하세요", false); return; }
+    if (!adminUserId) { showToast?.("관리자(role=admin) 계정으로 로그인해야 등록할 수 있어요", false); return; }
+    setBusy(true);
+    const { error } = await rpcSetTestAccountByPhone(val, adminUserId);
+    setBusy(false);
+    if (error) {
+      const m = error.message || "";
+      let msg;
+      if (m.includes("ADMIN_ONLY")) msg = "관리자(role=admin) 계정만 등록할 수 있어요";
+      else if (m.includes("USER_NOT_FOUND")) msg = "해당 전화번호의 사용자를 찾을 수 없어요 (가입된 번호인지 확인)";
+      else if (m.includes("CANNOT_MODIFY_ADMIN")) msg = "관리자 계정은 변경할 수 없어요";
+      else if (/is_test_account/i.test(m)) msg = "is_test_account 컬럼 없음 — 071_test_account_flag.sql 적용 필요";
+      else if (/Could not find the function|does not exist|schema cache|PGRST202/i.test(m)) msg = "RPC 없음 — 071_test_account_flag.sql 적용 필요";
+      else msg = `등록 실패: ${m || "알 수 없는 오류"}`;
+      showToast?.(msg, false);
+      return;
+    }
+    showToast?.("테스트 계정으로 등록했어요");
+    setPhone("");
+    load();
+  };
+
+  const unregister = async (u) => {
+    if (!adminUserId) { showToast?.("관리자 계정으로 로그인해야 해제할 수 있어요", false); return; }
+    setBusy(true);
+    const { error } = await rpcUnsetTestAccount(u.id, adminUserId);
+    setBusy(false);
+    if (error) { showToast?.("해제에 실패했어요", false); return; }
+    showToast?.("테스트 계정에서 해제했어요");
+    load();
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 6 }}>테스트 계정 관리</div>
+      <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 12 }}>
+        대표·QA·개발·테스트 업체 계정을 등록하면 해당 거래가 재무대시보드(기본값)와 거래관리 통계에서 분리됩니다. 사용자 유형(업체/의뢰인)은 그대로 유지되고 거래 자체는 삭제되지 않습니다.
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <input value={phone} onChange={e => setPhone(e.target.value)}
+          placeholder="전화번호 (예: 01027406030)"
+          onKeyDown={e => { if (e.key === "Enter") register(); }}
+          style={{ flex: 1, padding: "11px 14px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 14, outline: "none", color: C.text1, background: C.surface, fontFamily: "inherit" }} />
+        <button disabled={busy} onClick={register}
+          style={{ background: "#8A5C00", color: "#fff", border: "none", borderRadius: R.lg, padding: "0 18px", fontSize: 14, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+          테스트 등록
+        </button>
+      </div>
+
+      <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 8 }}>현재 테스트 계정 ({list.length})</div>
+      {loading ? (
+        <div style={{ color: C.text3, fontSize: 13, padding: "12px 0" }}>불러오는 중...</div>
+      ) : list.length === 0 ? (
+        <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>등록된 테스트 계정이 없습니다</div>
+      ) : (
+        list.map(u => (
+          <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, marginBottom: 6 }}>
+            <span style={{ background: "#8A5C00", color: "#fff", borderRadius: R.sm, padding: "1px 6px", fontSize: 10, fontWeight: 800, flexShrink: 0 }}>TEST</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{u.name || "이름없음"} <span style={{ fontSize: 11, color: C.text4, fontWeight: 500 }}>· {u.role === "company" ? "업체" : u.role === "consumer" ? "의뢰인" : u.role}</span></div>
+              <div style={{ fontSize: 12, color: C.text3 }}>{u.phone}</div>
+            </div>
+            <button disabled={busy} onClick={() => unregister(u)}
               style={{ background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
               해제
             </button>

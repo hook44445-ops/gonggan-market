@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { getAdminProjectFlow } from "../lib/supabase";
+import { getAdminProjectFlow, getTestAccounts } from "../lib/supabase";
 import { manwonToWon, formatWon, contractFinance } from "../lib/financeUtils";
+import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
 import {
   flowStageLabel, paymentStatus, settlementStatus, escrowStatusLabel,
   isTxCompleted, shortId, fmtDate, txMatchesFilter, txMatchesSearch,
@@ -22,10 +23,18 @@ export default function TransactionManagement({ adminUserId, showToast }) {
   const [errMsg, setErrMsg]   = useState(null);
   const [search, setSearch]   = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [testFilter, setTestFilter] = useState("all"); // all | real | test
+  const [testSet, setTestSet] = useState(null);
   const [selected, setSelected] = useState(null);
 
   const load = async () => {
     setLoading(true); setErrMsg(null);
+    // 테스트 계정 목록(배지/필터용) — 실패해도 거래 조회는 계속.
+    try {
+      const { data: ta } = await getTestAccounts(adminUserId);
+      setTestSet(buildTestAccountSet(Array.isArray(ta) ? ta : []));
+    } catch { setTestSet(buildTestAccountSet([])); }
+
     // 검색은 클라이언트에서 처리(contract_id 포함) → 전량 조회.
     const { data, error } = await getAdminProjectFlow(adminUserId, { limit: 1000 });
     if (error) {
@@ -42,7 +51,13 @@ export default function TransactionManagement({ adminUserId, showToast }) {
 
   // 계약(에스크로) 성립 거래만 거래관리 대상. (취소 포함 — 취소 필터에서 조회)
   const txRows = rows.filter(r => r.escrow);
-  const filtered = txRows.filter(row => txMatchesFilter(row, statusFilter) && txMatchesSearch(row, search));
+  const matchesTest = (row) => {
+    if (testFilter === "all") return true;
+    const t = isTestRow(row, testSet);
+    return testFilter === "test" ? t : !t;
+  };
+  const filtered = txRows.filter(row =>
+    txMatchesFilter(row, statusFilter) && txMatchesSearch(row, search) && matchesTest(row));
 
   const Chip = ({ active, onClick, children }) => (
     <button onClick={onClick}
@@ -83,9 +98,16 @@ export default function TransactionManagement({ adminUserId, showToast }) {
         )}
       </div>
 
-      <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto" }}>
         {FILTERS.map(([v, l]) => (
           <Chip key={v} active={statusFilter === v} onClick={() => setStatusFilter(v)}>{l}</Chip>
+        ))}
+      </div>
+
+      {/* 실거래/테스트 거래 필터 */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto" }}>
+        {[["all", "전체"], ["real", "실거래"], ["test", "테스트거래"]].map(([v, l]) => (
+          <Chip key={v} active={testFilter === v} onClick={() => setTestFilter(v)}>{l}</Chip>
         ))}
       </div>
 
@@ -127,11 +149,15 @@ export default function TransactionManagement({ adminUserId, showToast }) {
                 const actualPayout = st === "SETTLED" ? fin.companyPayout : null;
                 const paidAt = esc?.step1_deposited_at;
                 const settledAt = st === "SETTLED" ? (esc?.updated_at || esc?.step4_approved_at) : null;
+                const isTest = isTestRow(row, testSet);
                 return (
                   <tr key={row.request_id} onClick={() => setSelected(row)}
                     style={{ borderBottom: i === filtered.length - 1 ? "none" : `1px solid ${C.bgWarm}`,
-                      cursor: "pointer", background: C.surface }}>
-                    <Td mono>{shortId(row.request_id)}</Td>
+                      cursor: "pointer", background: isTest ? "#FFFBEF" : C.surface }}>
+                    <Td mono>
+                      {isTest && <span style={{ background: "#8A5C00", color: "#fff", borderRadius: R.sm, padding: "1px 6px", fontSize: 10, fontWeight: 800, marginRight: 6 }}>TEST</span>}
+                      {shortId(row.request_id)}
+                    </Td>
                     <Td>{row.customer?.name || "—"}</Td>
                     <Td>{row.company?.name || "미배정"}</Td>
                     <Td>{flowStageLabel(row.flow_stage)}</Td>

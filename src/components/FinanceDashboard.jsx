@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { getAdminProjectFlow } from "../lib/supabase";
+import { getAdminProjectFlow, getTestAccounts } from "../lib/supabase";
 import { aggregateFinance, buildTimeSeries, formatWon } from "../lib/financeUtils";
+import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
 
 // ── 재무대시보드 — 대표 운영용 KPI(조회/집계 전용) ─────────────────────────
 // 데이터 소스: admin_project_flow_list(배포 완료) 의 escrow(total_amount/상태/일자).
@@ -16,9 +17,18 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg]   = useState(null);
   const [period, setPeriod]   = useState("day");
+  // 테스트 거래 제외(기본 true). 토글로 포함 가능.
+  const [excludeTest, setExcludeTest] = useState(true);
+  const [testSet, setTestSet] = useState(null);
 
   const load = async () => {
     setLoading(true); setErrMsg(null);
+    // 테스트 계정 목록 — 실패해도 재무 조회는 계속(제외 0건으로 동작).
+    try {
+      const { data: ta } = await getTestAccounts(adminUserId);
+      setTestSet(buildTestAccountSet(Array.isArray(ta) ? ta : []));
+    } catch { setTestSet(buildTestAccountSet([])); }
+
     const { data, error } = await getAdminProjectFlow(adminUserId, { limit: 1000 });
     if (error) {
       setErrMsg(error.message || "조회 실패"); setRows([]);
@@ -32,8 +42,11 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [adminUserId]);
 
-  const f = aggregateFinance(rows);
-  const series = buildTimeSeries(rows, period, PERIOD_LIMIT[period]);
+  // 집계 입력 행만 필터(계산식 미변경). 기본: 테스트 거래 제외.
+  const testCount = rows.filter(r => isTestRow(r, testSet)).length;
+  const calcRows = excludeTest ? rows.filter(r => !isTestRow(r, testSet)) : rows;
+  const f = aggregateFinance(calcRows);
+  const series = buildTimeSeries(calcRows, period, PERIOD_LIMIT[period]);
   const maxGmv = Math.max(1, ...series.map(s => s.gmv));
 
   const Card = ({ label, value, sub, accent }) => (
@@ -64,9 +77,19 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
         <button onClick={load} disabled={loading}
           style={{ marginLeft: "auto", background: C.bgWarm, color: C.text2, border: "none", borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>새로고침</button>
       </div>
-      <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 14 }}>
+      <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 10 }}>
         에스크로 성립 거래 기준 돈 흐름 요약입니다. 수수료 4.4%(매출 4.0% + 부가세 0.4%) 기준. {loading ? "" : `집계 거래 ${f.contractCount}건.`}
       </div>
+
+      {/* 테스트 거래 제외 토글 — 기본 제외(실거래 기준 통계) */}
+      <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 14, cursor: "pointer",
+        background: C.surface, border: `1px solid ${excludeTest ? C.brand : C.bgWarm}`, borderRadius: R.lg, padding: "8px 12px" }}>
+        <input type="checkbox" checked={excludeTest} onChange={e => setExcludeTest(e.target.checked)}
+          style={{ width: 16, height: 16, accentColor: C.brand, cursor: "pointer" }} />
+        <span style={{ fontSize: 12, fontWeight: 700, color: C.text2 }}>
+          테스트 거래 제외 {!loading && testCount > 0 && <span style={{ color: C.text4, fontWeight: 500 }}>({testCount}건)</span>}
+        </span>
+      </label>
 
       {errMsg && (
         <div style={{ background: "#FFF0F0", color: C.red, border: `1px solid #F5C6C6`, borderRadius: R.lg, padding: "10px 12px", fontSize: 12, marginBottom: 12, lineHeight: 1.6 }}>
