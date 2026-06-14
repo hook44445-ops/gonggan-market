@@ -44,6 +44,7 @@ import AdminChangeOrderHistory from "../components/AdminChangeOrderHistory";
 import AdminContractDetail from "../components/AdminContractDetail";
 import TransactionManagement from "../components/TransactionManagement";
 import FinanceDashboard from "../components/FinanceDashboard";
+import SettlementManagement from "../components/SettlementManagement";
 import { toE164KR } from "../lib/testAccounts";
 
 const SEED_CATEGORIES = [
@@ -2327,6 +2328,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [paymentFilter, setPaymentFilter]   = useState("all");
   const [disputes, setDisputes]             = useState([]);
   const [settlements, setSettlements]       = useState([]);
+  // 정산관리 뷰 전환 — contract(거래별 정산 V2.2 신규) / stage(단계별 지급 기존 보존)
+  const [settleView, setSettleView]         = useState("contract");
   const [tabLoaded, setTabLoaded]           = useState({});
   const [toast, setToast]                   = useState(null);
   const [companyDocuments, setCompanyDocuments] = useState([]);
@@ -3664,6 +3667,22 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── Settlement Management ── */}
             {mainTab === "settlements" && (
               <div>
+                {/* 정산관리 뷰 전환 — 거래별 정산(신규 V2.2) / 단계별 지급(기존 보존) */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                  {[["contract", "거래별 정산"], ["stage", "단계별 지급(기존)"]].map(([v, l]) => (
+                    <button key={v} onClick={() => setSettleView(v)}
+                      style={{ padding: "7px 14px", borderRadius: R.full, fontSize: 12.5, fontWeight: 700,
+                        border: `1px solid ${settleView === v ? C.brand : C.bgWarm}`, cursor: "pointer",
+                        background: settleView === v ? C.brand : C.surface, color: settleView === v ? "#fff" : C.text2 }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+
+                {settleView === "contract" ? (
+                  <SettlementManagement adminUserId={user?.id ?? null} showToast={showToast} />
+                ) : (
+                <div>
                 {settlements.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
                     <div style={{ fontSize: 36, marginBottom: 12 }}>💰</div>
@@ -3738,6 +3757,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     </div>
                   );
                 })}
+                </div>
+                )}
               </div>
             )}
 
