@@ -1,24 +1,27 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { getAdminProjectFlow } from "../lib/supabase";
-import { aggregateFinance, formatWon } from "../lib/financeUtils";
+import { aggregateFinance, buildTimeSeries, formatWon } from "../lib/financeUtils";
 
-// ── 재무대시보드 — 대표용 돈 흐름 요약(조회/집계 전용) ───────────────────────
-// 데이터 소스: admin_project_flow_list(배포 완료) 의 escrow(total_amount/상태).
+// ── 재무대시보드 — 대표 운영용 KPI(조회/집계 전용) ─────────────────────────
+// 데이터 소스: admin_project_flow_list(배포 완료) 의 escrow(total_amount/상태/일자).
 // 신규 migration 없음. 수수료 4.4%(매출 4.0% + 부가세 0.4%) 기준 집계.
 // 토큰 매출 / PG 수수료는 payment_orders RLS 로 코드관리자 직접조회 불가 →
 // 1차에서는 미연동(2차 전용 RPC 예정)으로 명시.
+const PERIODS = [["day", "일별"], ["week", "주별"], ["month", "월별"]];
+const PERIOD_LIMIT = { day: 14, week: 12, month: 12 };
+
 export default function FinanceDashboard({ adminUserId, showToast }) {
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg]   = useState(null);
+  const [period, setPeriod]   = useState("day");
 
   const load = async () => {
     setLoading(true); setErrMsg(null);
     const { data, error } = await getAdminProjectFlow(adminUserId, { limit: 1000 });
     if (error) {
-      setErrMsg(error.message || "조회 실패");
-      setRows([]);
+      setErrMsg(error.message || "조회 실패"); setRows([]);
       console.log("[GONGGAN_DEBUG][Finance] error", error.message);
     } else {
       const list = Array.isArray(data) ? data : [];
@@ -30,6 +33,8 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [adminUserId]);
 
   const f = aggregateFinance(rows);
+  const series = buildTimeSeries(rows, period, PERIOD_LIMIT[period]);
+  const maxGmv = Math.max(1, ...series.map(s => s.gmv));
 
   const Card = ({ label, value, sub, accent }) => (
     <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg,
@@ -44,6 +49,12 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
       <div style={{ fontSize: 12, fontWeight: 800, color: C.text2, marginBottom: 8 }}>{title}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{children}</div>
     </div>
+  );
+  const Chip = ({ active, onClick, children }) => (
+    <button onClick={onClick}
+      style={{ padding: "5px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
+        border: `1px solid ${active ? C.brand : C.bgWarm}`, cursor: "pointer",
+        background: active ? C.brand : C.surface, color: active ? "#fff" : C.text2 }}>{children}</button>
   );
 
   return (
@@ -67,23 +78,62 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
         <div style={{ color: C.text3, fontSize: 13, padding: "12px 0" }}>집계 중...</div>
       ) : (
         <>
-          <Group title="거래 / 매출">
-            <Card label="총 거래액 GMV"        value={formatWon(f.gmv)}     accent={C.brand} />
+          <Group title="핵심 지표">
+            <Card label="총 거래액 GMV" value={formatWon(f.gmv)} accent={C.brand} />
+            <Card label="총 계약건수"   value={`${f.contractCount}건`} />
+            <Card label="총 결제건수"   value={`${f.paidCount}건`} />
+            <Card label="총 정산건수"   value={`${f.settledCount}건`} />
+          </Group>
+
+          <Group title="매출 / 수수료">
             <Card label="플랫폼 수수료 총액(4.4%)" value={formatWon(f.feeTotal)} />
             <Card label="매출 공급가액(4.0%)"   value={formatWon(f.revenue)} accent="#27AE60" />
             <Card label="수수료 부가세(0.4%)"   value={formatWon(f.feeVat)} />
+            <Card label="순매출"               value={formatWon(f.expectedNet)} accent="#27AE60" />
           </Group>
 
           <Group title="정산">
-            <Card label="정산 대기금액" value={formatWon(f.settleReady)} accent="#E67E22" sub="업체 정산예정금" />
-            <Card label="정산 완료금액" value={formatWon(f.settleDone)}  accent="#27AE60" />
-            <Card label="정산 보류금액" value={formatWon(f.settleHeld)}  accent="#E74C3C" sub="분쟁/보류" />
+            <Card label="예상 정산액"   value={formatWon(f.expectedPayout)} sub="업체 정산예정금 합계" />
+            <Card label="지급완료액"   value={formatWon(f.settleDone)}    accent="#27AE60" />
+            <Card label="미정산금액"   value={formatWon(f.unsettled)}     accent="#E67E22" sub="대기+보류" />
+            <Card label="정산 보류금액" value={formatWon(f.settleHeld)}    accent="#E74C3C" sub="분쟁/보류" />
           </Group>
 
-          <Group title="예상 세무">
-            <Card label="예상 VAT"   value={formatWon(f.expectedVat)} sub="수수료 부가세 기준" />
-            <Card label="예상 순매출" value={formatWon(f.expectedNet)} accent="#27AE60" sub="매출 공급가액 기준" />
+          <Group title="세무">
+            <Card label="예상 VAT" value={formatWon(f.expectedVat)} sub="수수료 부가세 기준" />
           </Group>
+
+          {/* GMV 추이 차트 */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.text2 }}>거래액(GMV) 추이</div>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                {PERIODS.map(([v, l]) => (
+                  <Chip key={v} active={period === v} onClick={() => setPeriod(v)}>{l}</Chip>
+                ))}
+              </div>
+            </div>
+            {series.length === 0 ? (
+              <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>표시할 데이터가 없습니다</div>
+            ) : (
+              <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "16px 12px" }}>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 140 }}>
+                  {series.map((s, i) => (
+                    <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 0 }}>
+                      <div style={{ fontSize: 9, color: C.text4, whiteSpace: "nowrap" }}>{s.count}</div>
+                      <div title={formatWon(s.gmv)}
+                        style={{ width: "70%", maxWidth: 28, height: `${Math.round((s.gmv / maxGmv) * 100)}%`,
+                          minHeight: 2, background: C.brand, borderRadius: 3 }} />
+                      <div style={{ fontSize: 9, color: C.text4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 10, color: C.text4, marginTop: 8, textAlign: "right" }}>
+                  최대 {formatWon(maxGmv)} · 막대 위 숫자 = 건수
+                </div>
+              </div>
+            )}
+          </div>
 
           <Group title="토큰 / PG (2차 연동 예정)">
             <Card label="토큰 매출"   value="—" sub="payment_orders RPC 연동 예정" />
@@ -92,7 +142,7 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
           </Group>
 
           <div style={{ fontSize: 11, color: C.text4, lineHeight: 1.6, marginTop: 4 }}>
-            ※ GMV/수수료/정산은 에스크로(total_amount·상태) 기준 집계입니다. 토큰 매출·PG 수수료는 payment_orders 가 RLS(auth.uid) 로 코드관리자 직접조회 불가하여 2차(security-definer RPC) 연동 시 표기됩니다. 고객부담 PG 결제수수료·가상계좌 수수료·업체 시공대금·부가세·에스크로 보관금은 플랫폼 매출에서 제외합니다.
+            ※ GMV/수수료/정산은 에스크로(total_amount·상태·일자) 기준 집계입니다. 토큰 매출·PG 수수료는 payment_orders 가 RLS(auth.uid)로 코드관리자 직접조회 불가하여 2차(security-definer RPC) 연동 시 표기됩니다. 고객부담 PG 결제수수료·가상계좌 수수료·업체 시공대금·부가세·에스크로 보관금은 플랫폼 매출에서 제외합니다.
           </div>
         </>
       )}
