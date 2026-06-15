@@ -2859,7 +2859,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"]] },
   ];
   const isSuperAdmin = user?.role === "admin";
-  const myPerms = null; // 운영자 본인 권한 — Phase 3(PIN 게이트)에서 주입. 현재 진입자는 SUPER_ADMIN.
+  // 운영자(role='operator')는 로그인 시 주입된 permissions(can_*)로 대분류 노출 제한.
+  const myPerms = user?.permissions ?? null;
   const SUPER_ONLY_TABS = new Set(["operator_setting"]); // 일반 운영자 접근 불가
   const adminCategories = CATEGORIES_DEF
     .filter(c => isSuperAdmin || (myPerms && myPerms[c.perm]))

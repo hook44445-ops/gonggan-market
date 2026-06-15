@@ -7,7 +7,7 @@ import LegalScreen from "./screens/LegalScreen";
 import PartnerLandingScreen from "./screens/PartnerLandingScreen";
 import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { getUserByPhone } from "./lib/supabase";
+import { getUserByPhone, verifyOperatorPin } from "./lib/supabase";
 import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
 } from "./lib/deviceAuth";
@@ -265,26 +265,59 @@ export default function App() {
     );
   }
 
-  const handleAdminLogin = () => {
+  const handleAdminLogin = async () => {
     const adminCode = import.meta.env.VITE_ADMIN_CODE;
-    if (!adminCode) {
-      setAdminLoginErr("관리자 접근이 구성되지 않았습니다");
+
+    // 1) 대표 관리자코드 로그인(기존 유지) — adminId='admin' 일 때만.
+    if (adminId === "admin") {
+      if (adminCode && adminPw === adminCode) {
+        // 코드 관리자 = 가상 'admin' 계정. DB users 행이 아니라 VITE_ADMIN_CODE 게이트로 인증한다.
+        // 어드민 RPC 는 p_admin_id 가 'admin' sentinel 이면 허용(migration 040/046 패턴) — 실제 DB
+        // admin UUID 가 없어도 동작한다. (uuid 컬럼에는 RPC 내부에서 NULL 로 저장)
+        console.log("[GONGGAN_DEBUG][App:adminLogin]", { userId: "admin", role: "admin", note: "virtual code admin (sentinel)" });
+        localStorage.setItem("admin_authed", "true");
+        setShowAdminLogin(false);
+        setAdminId("");
+        setAdminPw("");
+        setAdminLoginErr("");
+        handleLogin({ id: "admin", role: "admin", activeRole: "admin", name: "관리자", isGuest: true });
+      } else {
+        setAdminLoginErr("아이디 또는 비밀번호가 올바르지 않습니다");
+      }
       return;
     }
-    if (adminId === "admin" && adminPw === adminCode) {
-      // 코드 관리자 = 가상 'admin' 계정. DB users 행이 아니라 VITE_ADMIN_CODE 게이트로 인증한다.
-      // 어드민 RPC 는 p_admin_id 가 'admin' sentinel 이면 허용(migration 040/046 패턴) — 실제 DB
-      // admin UUID 가 없어도 동작한다. (uuid 컬럼에는 RPC 내부에서 NULL 로 저장)
-      console.log("[GONGGAN_DEBUG][App:adminLogin]", { userId: "admin", role: "admin", note: "virtual code admin (sentinel)" });
-      localStorage.setItem("admin_authed", "true");
-      setShowAdminLogin(false);
-      setAdminId("");
-      setAdminPw("");
-      setAdminLoginErr("");
-      handleLogin({ id: "admin", role: "admin", activeRole: "admin", name: "관리자", isGuest: true });
-    } else {
-      setAdminLoginErr("아이디 또는 비밀번호가 올바르지 않습니다");
+
+    // 2) 운영자 PIN 로그인 — 전화번호(adminId) + PIN(adminPw). 대표 코드 경로와 독립.
+    //    admin_verify_operator_pin(076) 이 crypt 로 PIN 검증 후 권한을 반환한다.
+    try {
+      const { data, error } = await verifyOperatorPin(adminId, adminPw);
+      const op = Array.isArray(data) ? data[0] : null;
+      if (!error && op?.user_id) {
+        console.log("[GONGGAN_DEBUG][App:operatorLogin]", { userId: op.user_id, role: "operator" });
+        localStorage.setItem("admin_authed", "true");
+        setShowAdminLogin(false);
+        setAdminId("");
+        setAdminPw("");
+        setAdminLoginErr("");
+        // role='operator' 로 구분, activeRole='admin' 은 관리자 콘솔 라우팅용(MainApp 무수정).
+        // AdminScreen 은 role!=='admin' → permissions 기반으로 메뉴(대분류)를 제한한다.
+        handleLogin({
+          id: op.user_id, role: "operator", activeRole: "admin",
+          name: op.name, phone: op.phone, isGuest: true,
+          permissions: {
+            can_operations:    op.can_operations,
+            can_transactions:  op.can_transactions,
+            can_project_proof: op.can_project_proof,
+            can_contents:      op.can_contents,
+            can_system:        op.can_system,
+          },
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn("[operatorLogin] 검증 오류:", e);
     }
+    setAdminLoginErr("아이디 또는 비밀번호가 올바르지 않습니다");
   };
 
   // 1) 명시적 전화번호 인증 의도("다른 번호로 로그인"/기기 인증 삭제 후/업체 온보딩)에서만
@@ -332,12 +365,12 @@ export default function App() {
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
             <div style={{ background: "#fff", borderRadius: 20, padding: 28, width: "100%", maxWidth: 340 }}>
               <div style={{ fontSize: 18, fontWeight: 800, color: "#1a1a1a", marginBottom: 6 }}>관리자 로그인</div>
-              <div style={{ fontSize: 13, color: "#999", marginBottom: 20 }}>관리자 계정으로 로그인하세요</div>
+              <div style={{ fontSize: 13, color: "#999", marginBottom: 20 }}>관리자 코드 또는 운영자(전화번호+PIN)로 로그인하세요</div>
               <input
                 value={adminId}
                 onChange={e => { setAdminId(e.target.value); setAdminLoginErr(""); }}
                 type="text"
-                placeholder="아이디"
+                placeholder="아이디 또는 전화번호"
                 autoComplete="off"
                 onKeyDown={e => e.key === "Enter" && handleAdminLogin()}
                 style={{ width: "100%", padding: "13px 14px", border: "1.5px solid #e0e0e0", borderRadius: 10, fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: 10, fontFamily: "inherit", color: "#1a1a1a" }}
@@ -346,7 +379,7 @@ export default function App() {
                 value={adminPw}
                 onChange={e => { setAdminPw(e.target.value); setAdminLoginErr(""); }}
                 type="password"
-                placeholder="비밀번호"
+                placeholder="비밀번호 또는 PIN"
                 autoComplete="off"
                 onKeyDown={e => e.key === "Enter" && handleAdminLogin()}
                 style={{ width: "100%", padding: "13px 14px", border: "1.5px solid #e0e0e0", borderRadius: 10, fontSize: 15, outline: "none", boxSizing: "border-box", marginBottom: adminLoginErr ? 8 : 20, fontFamily: "inherit", color: "#1a1a1a" }}
