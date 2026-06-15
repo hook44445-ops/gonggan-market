@@ -1653,9 +1653,18 @@ function OperatorSettingTab({ adminUserId, showToast }) {
   const load = async () => {
     setLoading(true);
     const { data, error } = await adminListOperators(adminUserId);
+    console.log("[GONGGAN_DEBUG][operators:list]", {
+      adminUserId,
+      via: error ? "fallback(getOperators)" : "admin_list_operators",
+      count: Array.isArray(data) ? data.length : (data === null ? "null" : typeof data),
+      error: error?.message ?? null,
+    });
     if (error) {
-      // 073 미적용 등 — 레거시 목록으로 폴백(권한 표시는 비어있음).
-      const { data: legacy } = await getOperators();
+      // 073 미적용/스키마캐시 등 — 레거시 목록으로 폴백(권한 표시는 비어있음).
+      const { data: legacy, error: legErr } = await getOperators();
+      console.log("[GONGGAN_DEBUG][operators:fallback]", {
+        count: Array.isArray(legacy) ? legacy.length : null, error: legErr?.message ?? null,
+      });
       setOps((legacy ?? []).map(o => ({ user_id: o.id, name: o.name, phone: o.phone, role: o.role })));
     } else {
       setOps(data ?? []);
