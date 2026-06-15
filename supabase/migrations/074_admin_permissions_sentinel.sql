@@ -25,6 +25,13 @@ drop function if exists public.admin_reset_pin(uuid, uuid);
 drop function if exists public.admin_list_operators(uuid);
 drop function if exists public.admin_unregister_operator(uuid, uuid);
 
+-- (멱등) 텍스트 시그니처가 이미 있으면 제거 후 재생성 — 부분 재실행/오버로드 방지
+drop function if exists public.admin_register_operator(text, text, boolean, boolean, boolean, boolean, boolean);
+drop function if exists public.admin_update_permissions(text, uuid, boolean, boolean, boolean, boolean, boolean);
+drop function if exists public.admin_reset_pin(text, uuid);
+drop function if exists public.admin_list_operators(text);
+drop function if exists public.admin_unregister_operator(text, uuid);
+
 -- ── 1) 운영자 등록 + 권한 + PIN (sentinel 허용) ───────────────────────
 create or replace function public.admin_register_operator(
   p_admin_id text, p_phone text,
