@@ -32,6 +32,12 @@ drop function if exists public.admin_reset_pin(text, uuid);
 drop function if exists public.admin_list_operators(text);
 drop function if exists public.admin_unregister_operator(text, uuid);
 
+-- (안전) PIN 생성 헬퍼 — 073 에서 생성되나, 074 단독 실행 대비 재정의(멱등).
+create or replace function public._gen_admin_pin()
+returns text language sql volatile as $$
+  select lpad((floor(random() * 1000000))::int::text, 6, '0');
+$$;
+
 -- ── 1) 운영자 등록 + 권한 + PIN (sentinel 허용) ───────────────────────
 create or replace function public.admin_register_operator(
   p_admin_id text, p_phone text,
