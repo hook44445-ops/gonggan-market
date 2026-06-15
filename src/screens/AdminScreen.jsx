@@ -48,6 +48,7 @@ import FinanceDashboard from "../components/FinanceDashboard";
 import SettlementManagement from "../components/SettlementManagement";
 import ProjectEvidenceManagement from "../components/ProjectEvidenceManagement";
 import AdminCategoryNav from "../components/AdminCategoryNav";
+import AdminLogView from "../components/AdminLogView";
 import { toE164KR } from "../lib/testAccounts";
 
 const SEED_CATEGORIES = [
@@ -2840,6 +2841,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["project_flow",   "GPS 흐름관리"],
     ["tools",          "정리도구"],
     ["notifications",  "알림"],
+    ["admin_logs",     "관리자로그"],
   ];
 
   // ── 관리자 IA 대분류(5) — 기존 21개 탭을 그룹핑(탭 추가/삭제 없음) ──────────
@@ -2856,7 +2858,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
       tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_seeding"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
-      tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"]] },
+      tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
   const isSuperAdmin = user?.role === "admin";
   // 운영자(role='operator')는 로그인 시 주입된 permissions(can_*)로 대분류 노출 제한.
@@ -4224,6 +4226,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {mainTab === "tools" && (
               <AdminCleanupTool adminUserId={user?.id ?? null} showToast={showToast} />
             )}
+
+            {mainTab === "admin_logs" && <AdminLogView />}
 
             {mainTab === "notifications" && (
               <div>
