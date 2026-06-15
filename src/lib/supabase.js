@@ -2353,6 +2353,11 @@ export const adminResetPin = (adminId, userId) =>
 export const adminUnregisterOperator = (adminId, userId) =>
   supabase.rpc("admin_unregister_operator", { p_admin_id: adminId, p_user_id: userId });
 
+// 운영자 PIN 로그인 검증(076) — 전화번호+PIN → crypt 검증 후 운영자 정보/권한 반환.
+// 성공 시 1행, 실패(사용자 없음/대표 계정/PIN 불일치/미발급) 시 0행.
+export const verifyOperatorPin = (phone, pin) =>
+  supabase.rpc("admin_verify_operator_pin", { p_phone: phone, p_pin: pin });
+
 // 테스트 계정(071) — 대표/QA/개발/테스트 업체 계정을 실거래 통계에서 분리.
 // role 불변, is_test_account 플래그만 토글. admin 만 호출 성공.
 export const getTestAccounts = (adminId) =>
