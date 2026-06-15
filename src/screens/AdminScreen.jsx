@@ -50,6 +50,7 @@ import ProjectEvidenceManagement from "../components/ProjectEvidenceManagement";
 import AdminCategoryNav from "../components/AdminCategoryNav";
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
+import AdminGlobalSearch from "../components/AdminGlobalSearch";
 import { toE164KR } from "../lib/testAccounts";
 
 const SEED_CATEGORIES = [
@@ -3043,6 +3044,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
           )}
         </div>
       </div>
+
+      {/* 전역 통합검색(읽기 전용) — 클릭 시 해당 탭 이동(+업체 상세) */}
+      <AdminGlobalSearch
+        adminUserId={user?.id ?? null}
+        customers={customers}
+        companies={companies}
+        onNavigate={(tab) => setMainTab(tab)}
+        onOpenCompany={(co) => { if (co) openDetail(co); }}
+      />
 
       {/* Main Tabs — 대분류(운영/거래/프로젝트증빙/콘텐츠/시스템) + 소분류 */}
       <AdminCategoryNav categories={adminCategories} mainTab={mainTab} onSelect={setMainTab} />
