@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { getAdminProjectFlow, getTestAccounts } from "../lib/supabase";
 import { aggregateFinance, buildTimeSeries, formatWon } from "../lib/financeUtils";
 import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
+import { downloadCsv, csvStamp } from "../utils/exportCsv";
 
 // ── 재무대시보드 — 대표 운영용 KPI(조회/집계 전용) ─────────────────────────
 // 데이터 소스: admin_project_flow_list(배포 완료) 의 escrow(total_amount/상태/일자).
@@ -49,6 +50,31 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
   const series = buildTimeSeries(calcRows, period, PERIOD_LIMIT[period]);
   const maxGmv = Math.max(1, ...series.map(s => s.gmv));
 
+  // CSV 다운로드 — 현재 집계(KPI 요약 + 기간별 추이). 테스트 제외 토글 상태 반영, 계산 로직 미변경.
+  const exportCsv = () => {
+    const summary = [
+      { 지표: "총 거래액 GMV(원)", 값: f.gmv },
+      { 지표: "총 계약건수", 값: f.contractCount },
+      { 지표: "총 결제건수", 값: f.paidCount },
+      { 지표: "총 정산건수", 값: f.settledCount },
+      { 지표: "플랫폼 수수료 총액(원)", 값: f.feeTotal },
+      { 지표: "매출 공급가액(원)", 값: f.revenue },
+      { 지표: "수수료 부가세(원)", 값: f.feeVat },
+      { 지표: "순매출(원)", 값: f.expectedNet },
+      { 지표: "예상 정산액(원)", 값: f.expectedPayout },
+      { 지표: "지급완료액(원)", 값: f.settleDone },
+      { 지표: "미정산금액(원)", 값: f.unsettled },
+      { 지표: "정산 보류금액(원)", 값: f.settleHeld },
+      { 지표: "예상 VAT(원)", 값: f.expectedVat },
+    ];
+    downloadCsv(`재무대시보드_요약_${csvStamp()}.csv`, summary, [
+      { label: "지표", key: "지표" }, { label: "값", key: "값" },
+    ]);
+    downloadCsv(`재무대시보드_추이_${csvStamp()}.csv`, series, [
+      { label: "기간", key: "label" }, { label: "거래건수", key: "count" }, { label: "거래액(원)", key: "gmv" },
+    ]);
+  };
+
   const Card = ({ label, value, sub, accent }) => (
     <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg,
       padding: "14px 16px", flex: "1 1 150px", minWidth: 150 }}>
@@ -74,8 +100,10 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>재무대시보드</div>
+        <button onClick={exportCsv} disabled={loading}
+          style={{ marginLeft: "auto", background: C.brandL, color: C.brand, border: `1px solid ${C.brandM ?? C.bgWarm}`, borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>CSV 다운로드</button>
         <button onClick={load} disabled={loading}
-          style={{ marginLeft: "auto", background: C.bgWarm, color: C.text2, border: "none", borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>새로고침</button>
+          style={{ background: C.bgWarm, color: C.text2, border: "none", borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>새로고침</button>
       </div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 10 }}>
         에스크로 성립 거래 기준 돈 흐름 요약입니다. 수수료 4.4%(매출 4.0% + 부가세 0.4%) 기준. {loading ? "" : `집계 거래 ${f.contractCount}건.`}

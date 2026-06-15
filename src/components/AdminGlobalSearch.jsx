@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { C, R } from "../constants";
-import { getCompanies, getAdminProjectFlow, getPaymentOrders } from "../lib/supabase";
+import { getCompanies, getAdminProjectFlow, getPaymentOrders, getPartnerLeads } from "../lib/supabase";
 
 // ── 관리자 전역 통합검색(ADMIN FINISH PACK · 2차) — 읽기 전용 ──────────────────
 // 검색 대상: 고객명/업체명/전화번호/사업자번호/request_id/contract_id/order_id/대표자명
@@ -36,15 +36,17 @@ export default function AdminGlobalSearch({ adminUserId, customers = [], compani
   const ensureData = async () => {
     if (cache.current) return cache.current;
     setLoading(true);
-    const [coRes, flowRes, payRes] = await Promise.all([
+    const [coRes, flowRes, payRes, leadRes] = await Promise.all([
       getCompanies().catch(() => ({ data: [] })),
       getAdminProjectFlow(adminUserId, { limit: 1000 }).catch(() => ({ data: [] })),
       getPaymentOrders({ limit: 300 }).catch(() => ({ data: [] })),
+      getPartnerLeads(adminUserId, { limit: 500 }).catch(() => ({ data: [] })),
     ]);
     cache.current = {
       companiesRaw: Array.isArray(coRes.data) ? coRes.data : [],
       flow:         Array.isArray(flowRes.data) ? flowRes.data : [],
       payments:     Array.isArray(payRes.data) ? payRes.data : [],
+      leads:        Array.isArray(leadRes.data) ? leadRes.data : [],
     };
     setLoading(false);
     return cache.current;
@@ -68,11 +70,13 @@ export default function AdminGlobalSearch({ adminUserId, customers = [], compani
     const requests = flowMatch.filter((r) => !r.escrow).slice(0, MAX_PER_CAT);
     const contracts = flowMatch.filter((r) => r.escrow).slice(0, MAX_PER_CAT);
     const pays = data.payments.filter((p) => rowMatch(p, qLower, qDigits)).slice(0, MAX_PER_CAT);
+    // 업체(상담) — 사업자번호/대표자명은 companies 에 없고 partner_leads 에 존재.
+    const leads = data.leads.filter((l) => rowMatch(l, qLower, qDigits)).slice(0, MAX_PER_CAT);
 
-    setRes({ customers: cust, companies: comp, requests, contracts, payments: pays });
+    setRes({ customers: cust, companies: comp, requests, contracts, payments: pays, leads });
   };
 
-  const total = res ? (res.customers.length + res.companies.length + res.requests.length + res.contracts.length + res.payments.length) : 0;
+  const total = res ? (res.customers.length + res.companies.length + res.requests.length + res.contracts.length + res.payments.length + (res.leads?.length ?? 0)) : 0;
 
   const go = (tabKey, extra) => {
     setOpen(false);
@@ -153,6 +157,13 @@ export default function AdminGlobalSearch({ adminUserId, customers = [], compani
                 <Item key={"py" + (p.id || p.order_id)} title={p.order_id || shortId(p.id)}
                   sub={[p.status, p.amount != null ? `${Number(p.amount).toLocaleString()}원` : null].filter(Boolean).join(" · ")}
                   onClick={() => go("payments")} />
+              ))}
+            </Group>
+            <Group label="업체(상담)" color="#9B59B6" count={res.leads?.length ?? 0}>
+              {(res.leads ?? []).map((l) => (
+                <Item key={"ld" + l.id} title={l.company_name || "상담 업체"}
+                  sub={[l.owner_name, l.business_number, l.phone].filter(Boolean).join(" · ")}
+                  onClick={() => go("partner_leads")} />
               ))}
             </Group>
           </>
