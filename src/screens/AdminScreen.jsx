@@ -76,6 +76,7 @@ function ReviewAdminTab({ adminUserId, showToast }) {
   const [loading,    setLoading]    = useState(true);
   const [fetchErr,   setFetchErr]   = useState(null);
   const [filter,     setFilter]     = useState("all"); // all | hidden | deleted
+  const [photoOnly,  setPhotoOnly]  = useState(false); // 포토후기(이미지 있는 리뷰)만
   const [editId,     setEditId]     = useState(null);
   const [editForm,   setEditForm]   = useState({});
   const [reasonId,   setReasonId]   = useState(null);
@@ -115,10 +116,15 @@ function ReviewAdminTab({ adminUserId, showToast }) {
 
   const reload = loadReviews;
 
+  // 포토후기 = before/after/legacy 이미지가 하나라도 있는 리뷰
+  const reviewHasPhotos = (r) =>
+    (r.before_image_urls?.length ?? 0) + (r.after_image_urls?.length ?? 0) + (r.image_urls?.length ?? 0) > 0;
   const visible = reviews.filter(r => {
-    if (filter === "hidden")  return r.is_hidden && !r.is_deleted;
-    if (filter === "deleted") return r.is_deleted;
-    return !r.is_deleted;
+    let base;
+    if (filter === "hidden")  base = r.is_hidden && !r.is_deleted;
+    else if (filter === "deleted") base = r.is_deleted;
+    else base = !r.is_deleted;
+    return base && (!photoOnly || reviewHasPhotos(r));
   });
 
   const doHide = async (r) => {
@@ -224,6 +230,10 @@ function ReviewAdminTab({ adminUserId, showToast }) {
               background: filter===v ? C.brandL : C.surface, color: filter===v ? C.brand : C.text3,
               fontWeight: filter===v ? 800 : 500, fontSize: 12, cursor: "pointer" }}>{l}</button>
         ))}
+        <button onClick={() => setPhotoOnly(v => !v)}
+          style={{ padding: "7px 14px", borderRadius: R.full, border: `1.5px solid ${photoOnly ? C.brand : C.bgWarm}`,
+            background: photoOnly ? C.brandL : C.surface, color: photoOnly ? C.brand : C.text3,
+            fontWeight: photoOnly ? 800 : 500, fontSize: 12, cursor: "pointer" }}>📷 포토후기</button>
         <button onClick={reload} disabled={loading}
           style={{ marginLeft: "auto", padding: "7px 14px", borderRadius: R.full, border: `1px solid ${C.bgWarm}`,
             background: C.surface, color: C.text3, fontSize: 12, cursor: "pointer" }}>

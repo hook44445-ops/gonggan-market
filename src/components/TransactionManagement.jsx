@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { getAdminProjectFlow, getTestAccounts } from "../lib/supabase";
 import { manwonToWon, formatWon, contractFinance } from "../lib/financeUtils";
 import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
+import { downloadCsv, csvStamp } from "../utils/exportCsv";
 import {
   flowStageLabel, paymentStatus, settlementStatus, escrowStatusLabel,
   isTxCompleted, shortId, fmtDate, txMatchesFilter, txMatchesSearch,
@@ -59,6 +60,26 @@ export default function TransactionManagement({ adminUserId, showToast }) {
   const filtered = txRows.filter(row =>
     txMatchesFilter(row, statusFilter) && txMatchesSearch(row, search) && matchesTest(row));
 
+  // CSV 다운로드 — 현재 필터링된 거래 목록(읽기 전용, 계산 로직 미변경)
+  const exportCsv = () => {
+    const cols = [
+      { label: "거래번호", get: (r) => shortId(r.request_id) },
+      { label: "계약번호", get: (r) => shortId(r.escrow?.id) },
+      { label: "고객", get: (r) => r.customer?.name ?? "" },
+      { label: "업체", get: (r) => r.company?.name ?? "" },
+      { label: "진행단계", get: (r) => flowStageLabel(r.flow_stage) },
+      { label: "계약금액(원)", get: (r) => manwonToWon(r.escrow?.total_amount) },
+      { label: "플랫폼수수료(원)", get: (r) => contractFinance(manwonToWon(r.escrow?.total_amount)).feeTotal },
+      { label: "정산예정금(원)", get: (r) => contractFinance(manwonToWon(r.escrow?.total_amount)).companyPayout },
+      { label: "결제상태", get: (r) => paymentStatus(r.escrow).label },
+      { label: "정산상태", get: (r) => settlementStatus(r.escrow).label },
+      { label: "분쟁", get: (r) => (r.escrow?.transaction_status === "DISPUTE" || r.escrow?.dispute_status != null) ? "Y" : "N" },
+      { label: "테스트", get: (r) => isTestRow(r, testSet) ? "Y" : "N" },
+      { label: "결제일", get: (r) => fmtDate(r.escrow?.step1_deposited_at) },
+    ];
+    downloadCsv(`거래관리_${csvStamp()}.csv`, filtered, cols);
+  };
+
   const Chip = ({ active, onClick, children }) => (
     <button onClick={onClick}
       style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
@@ -81,8 +102,10 @@ export default function TransactionManagement({ adminUserId, showToast }) {
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>거래관리</div>
+        <button onClick={exportCsv} disabled={loading || filtered.length === 0}
+          style={{ marginLeft: "auto", background: C.brandL, color: C.brand, border: `1px solid ${C.brandM ?? C.bgWarm}`, borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>CSV 다운로드</button>
         <button onClick={load} disabled={loading}
-          style={{ marginLeft: "auto", background: C.bgWarm, color: C.text2, border: "none", borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>새로고침</button>
+          style={{ background: C.bgWarm, color: C.text2, border: "none", borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>새로고침</button>
       </div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 12 }}>
         견적요청부터 정산까지 전체 거래 흐름을 한 화면에서 관리합니다. 계약(에스크로) 성립 거래 기준이며, 결제·정산 상태/금액은 에스크로 단계값에서 파생합니다. (읽기 전용)
