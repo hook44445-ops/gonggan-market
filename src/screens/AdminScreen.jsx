@@ -49,6 +49,7 @@ import SettlementManagement from "../components/SettlementManagement";
 import ProjectEvidenceManagement from "../components/ProjectEvidenceManagement";
 import AdminCategoryNav from "../components/AdminCategoryNav";
 import AdminLogView from "../components/AdminLogView";
+import AdminKpiPanel from "../components/AdminKpiPanel";
 import { toE164KR } from "../lib/testAccounts";
 
 const SEED_CATEGORIES = [
@@ -3068,6 +3069,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── Dashboard ── */}
             {mainTab === "dashboard" && (
               <div>
+                <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📊 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
                   {[
