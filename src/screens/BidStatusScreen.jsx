@@ -623,7 +623,11 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       showLocalToast("🧪 테스트 모드입니다. 실제 결제는 발생하지 않습니다.");
 
       const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
-      console.log("[GONGGAN_DIAG][payChain:branch]", { hasClientKey: !!clientKey, selectedMethod: selectedMethod ?? null, path: (clientKey && selectedMethod) ? "toss_requestPayment" : "no_key_or_method→runDBWrites(simulate)" });
+      // P0: 라이브 키(live_*) 환경에서는 결제 실패/취소/리다이렉트 미발생 시
+      // 토스 승인 검증 없이 PAID 주문이 생성되지 않도록 시뮬레이션 fallback 을 차단한다.
+      // (정상 성공 경로는 successUrl 리다이렉트 → MainApp processTossReturn 이라 무관)
+      const isLiveKey = String(clientKey ?? "").startsWith("live_");
+      console.log("[GONGGAN_DIAG][payChain:branch]", { hasClientKey: !!clientKey, isLiveKey, selectedMethod: selectedMethod ?? null, path: (clientKey && selectedMethod) ? "toss_requestPayment" : "no_key_or_method→runDBWrites(simulate)" });
       if (clientKey && selectedMethod) {
         // Save pending payment info for recovery after Toss redirect
         try {
@@ -661,13 +665,23 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             successUrl: window.location.origin + "/?pg_success=1",
             failUrl:    window.location.origin + "/?pg_fail=1",
           });
-          // If requestPayment didn't redirect (e.g. popup mode), fall through to DB writes
+          // If requestPayment didn't redirect (e.g. popup mode), fall through to DB writes.
+          // P0: 라이브 키 환경에서는 토스 승인 검증 없이 PAID 생성 금지 — fallback 차단.
+          if (isLiveKey) { setPaymentLoading(false); payingRef.current = false; return; }
           await runDBWrites();
         } catch (err) {
           // H-E: SDK 로드 타임아웃·오류 → 사용자에게 알리고 시뮬레이션으로 fallback
           // payingRef는 runDBWrites의 finally 블록에서 해제된다.
           console.log("[GONGGAN_DIAG][payChain:toss:catch]", { msg: err?.message ?? String(err) });
           console.log("[GONGGAN_DIAG][handlePay:error]", { stage: "toss", msg: err?.message ?? String(err) });
+          // P0: 라이브 키 환경에서는 결제 실패/취소 시 PAID 주문을 생성하지 않는다.
+          // (test 키 환경에서만 기존 시뮬레이션 fallback 유지)
+          if (isLiveKey) {
+            showLocalToast("결제가 완료되지 않았습니다. 다시 시도해주세요.");
+            setPaymentLoading(false);
+            payingRef.current = false;
+            return;
+          }
           if (err?.message?.includes("timeout")) {
             showLocalToast("결제 서버 연결이 지연됩니다. 잠시 후 재시도해주세요.");
           }
