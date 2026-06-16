@@ -12,6 +12,79 @@ const WRITABLE_CATS = LOUNGE_CATEGORIES.filter(c => c.group !== null);
 const MAX_IMAGES    = 5;
 const MAX_SIZE_MB   = 5;
 
+// ─────────────────────────────────────────────────────
+// 글쓰기 안내 가이드 (LOUNGE-WRITE-GUIDE-v1.0)
+//  · 카테고리별 작성 양식 = textarea placeholder. 입력 시작 시 자동 소멸, 본문으로 저장되지 않음.
+//  · 카테고리 변경 시 placeholder만 교체 — 사용자가 입력한 본문(content)은 그대로 유지.
+//  · 안내 문구는 helper text/placeholder로만 동작. SEO·검색·키워드 등 용어는 화면에 노출하지 않음.
+// ─────────────────────────────────────────────────────
+
+// 빈 화면 방지용 기본 공통 양식 (미선택 또는 자유/생활/동네/유머 등 일반 글)
+const DEFAULT_CONTENT_GUIDE = `무슨 이야기를 나눠볼까요?
+
+예)
+오늘 있었던 일:
+궁금한 점:
+다른 분들 의견을 듣고 싶은 부분:`;
+
+// 카테고리별 본문 작성 양식 (placeholder)
+const CONTENT_GUIDE = {
+  interior:    `예)\n지역:\n평수:\n공간:\n고민되는 부분:\n궁금한 점:\n사진이 있다면 함께 올려주세요.`,
+  review:      `예)\n지역:\n공사 종류:\n공사 범위:\n좋았던 점:\n아쉬웠던 점:\n사진이 있다면 함께 올려주세요.`,
+  quote_worry: `예)\n지역:\n평수:\n공사 종류:\n예상 예산:\n견적이 궁금한 부분:\n사진이 있다면 함께 올려주세요.`,
+  room_deco:   `예)\n공간:\n원하는 분위기:\n현재 고민:\n참고하고 싶은 스타일:\n사진이 있다면 함께 올려주세요.`,
+  move_in:     `예)\n지역:\n입주/이사 예정일:\n준비 중인 것:\n고민되는 부분:\n도움받고 싶은 내용:`,
+  realestate:  `예)\n지역:\n매매/전세/월세:\n실거주/투자:\n고민되는 부분:\n궁금한 점:`,
+  health:      `예)\n현재 고민:\n생활 습관:\n궁금한 점:\n도움받고 싶은 부분:`,
+  stock:       `예)\n관심 종목/분야:\n투자 기간:\n고민되는 부분:\n궁금한 점:`,
+  ai:          `예)\n사용 중인 도구:\n궁금한 기능:\n업무/생활에서 활용하고 싶은 부분:\n도움받고 싶은 내용:`,
+  jobs:        `예)\n직무/분야:\n현재 상황:\n고민되는 부분:\n궁금한 점:`,
+  pet:         `예)\n반려동물 종류:\n현재 고민:\n생활 환경:\n궁금한 점:\n사진이 있다면 함께 올려주세요.`,
+  exercise:    `예)\n운동 목표:\n현재 운동 습관:\n궁금한 점:\n도움받고 싶은 부분:`,
+  startup:     `예)\n업종/아이템:\n현재 단계:\n고민되는 부분:\n궁금한 점:`,
+  travel:      `예)\n여행지:\n일정:\n예산:\n궁금한 점:\n추천받고 싶은 내용:`,
+  restaurant:  `예)\n지역:\n음식 종류:\n방문 목적:\n추천받고 싶은 조건:`,
+};
+
+// 카테고리별 제목 입력 예시 (placeholder)
+const TITLE_GUIDE = {
+  interior:    '예) 부천 24평 아파트 인테리어 고민',
+  review:      '예) 강서구 도배 시공 후기',
+  quote_worry: '예) 32평 욕실 리모델링 견적이 궁금합니다',
+  realestate:  '예) 구축 아파트 매매 전 확인할 점',
+  health:      '예) 수면 습관 어떻게 바꾸면 좋을까요?',
+  ai:          '예) ChatGPT 업무 활용법 질문',
+};
+
+// 카테고리별 본문 위 부드러운 안내(자연 유도) — SEO 용어 비노출
+const CONTENT_HELPER = {
+  quote_worry: '지역, 평수, 공사 종류를 적어주시면 업체가 더 정확하게 안내할 수 있어요.',
+  review:      '지역과 공사 내용을 함께 적으면 같은 고민을 가진 분들에게 도움이 됩니다.',
+  interior:    '현재 공간과 고민을 함께 적어주시면 더 다양한 의견을 받을 수 있어요.',
+  room_deco:   '원하는 분위기와 현재 사진이 있으면 더 많은 아이디어를 받을 수 있어요.',
+  realestate:  '지역과 상황을 함께 적으면 비슷한 경험을 가진 분들이 쉽게 의견을 남길 수 있어요.',
+  health:      '현재 고민과 생활 습관을 함께 적으면 더 공감되는 답변을 받을 수 있어요.',
+  stock:       '관심 종목이나 투자 고민을 적으면 비슷한 상황의 사람들이 쉽게 답할 수 있어요.',
+  ai:          '사용 중인 도구나 궁금한 기능을 적으면 더 정확한 답변을 받을 수 있어요.',
+  jobs:        '직무, 현재 상황, 고민을 적으면 경험자들이 답하기 쉬워요.',
+};
+const CONTENT_HELPER_DEFAULT = '어떤 상황인지 조금만 자세히 적어주시면 더 좋은 답변을 받을 수 있어요.';
+
+// 제목 아래 공통 안내 — 부드럽게(검색/SEO 용어 없이)
+const TITLE_HELPER = '지역이나 상황을 함께 적으면 비슷한 경험을 가진 분들이 더 쉽게 답변할 수 있어요.';
+
+// 사진 안내 문구 — 견적고민/시공후기/인테리어/집꾸미기에서 특히 노출
+const PHOTO_HELPER_CATS = ['quote_worry', 'review', 'interior', 'room_deco'];
+const PHOTO_HELPER = '사진을 함께 올리면 상황을 이해하기 쉬워 더 정확한 답변을 받을 수 있어요.';
+
+// 등록 직전 부드러운 안내 기준 — 차단하지 않고 안내만 표시
+const SHORT_CONTENT_LEN = 15;
+const SHORT_CONTENT_HELPER = '조금만 더 자세히 적어주시면 더 많은 분들이 도움을 드릴 수 있어요.';
+
+const contentGuideFor = (cat) => CONTENT_GUIDE[cat] ?? DEFAULT_CONTENT_GUIDE;
+const titleGuideFor   = (cat) => TITLE_GUIDE[cat] ?? '제목을 입력하세요';
+const contentHelperFor = (cat) => CONTENT_HELPER[cat] ?? CONTENT_HELPER_DEFAULT;
+
 // editPost: existing post object when editing, null when creating new
 export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = null }) {
   const isEdit = !!editPost;
@@ -202,14 +275,19 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
 
         <div style={{ marginBottom: S.lg }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>제목 (선택)</div>
-          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="제목을 입력하세요" maxLength={100}
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder={titleGuideFor(category)} maxLength={100}
             style={{ width: '100%', padding: '14px 16px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 15, outline: 'none', boxSizing: 'border-box', background: C.surface, color: C.text1, fontFamily: 'inherit' }} />
+          <div style={{ fontSize: 11.5, color: C.text4, marginTop: 6, lineHeight: 1.5 }}>{TITLE_HELPER}</div>
         </div>
 
         <div style={{ marginBottom: S.lg }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>내용 <span style={{ color: C.red }}>*</span></div>
-          <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="무슨 이야기를 나눠볼까요?" rows={8}
+          <div style={{ fontSize: 11.5, color: C.text4, marginBottom: S.xs, lineHeight: 1.5 }}>{contentHelperFor(category)}</div>
+          <textarea value={content} onChange={e => setContent(e.target.value)} placeholder={contentGuideFor(category)} rows={8}
             style={{ width: '100%', padding: '14px 16px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box', background: C.surface, color: C.text1, fontFamily: 'inherit', lineHeight: 1.6 }} />
+          {content.trim().length > 0 && content.trim().length < SHORT_CONTENT_LEN && (
+            <div style={{ fontSize: 11.5, color: C.text3, marginTop: 6, lineHeight: 1.5 }}>{SHORT_CONTENT_HELPER}</div>
+          )}
         </div>
 
         {/* 이미지 업로드 */}
@@ -217,6 +295,9 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>
             사진 (선택, 최대 {MAX_IMAGES}장)
           </div>
+          {PHOTO_HELPER_CATS.includes(category) && (
+            <div style={{ fontSize: 11.5, color: C.text4, marginBottom: S.sm, lineHeight: 1.5 }}>{PHOTO_HELPER}</div>
+          )}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {images.map((img, i) => (
               <div key={i} style={{ position: 'relative' }}>
