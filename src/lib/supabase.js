@@ -3110,23 +3110,22 @@ export const updateDirectDealReportStatus = (id, status, adminNote = null) => {
 // 즉시 삭제 없음(soft) — 관리자 검토 대기(status='pending'). 이미지 자체 숨김은 범위 외.
 
 // 업체 라운지 활동 통계(LOUNGE-ENGAGEMENT-v3.2) — count 조회 기반(읽기 전용, migration 없음).
-// 전문가 답변 수 / 도움됐어요 합계(전문가 댓글 like_count) / 작성글 수 / 댓글 수 / 최근 활동.
+// 작성글 수 / 댓글 수 / 최근 활동(최신 글·댓글 기준). 좋아요 재표기 지표는 미사용(v4.0 영속화 예정).
 export const getCompanyLoungeStats = async (userId) => {
-  const empty = { postCount: 0, commentCount: 0, expertAnswerCount: 0, helpfulSum: 0, lastActivity: null };
+  const empty = { postCount: 0, commentCount: 0, lastActivity: null };
   if (!userId) return empty;
   try {
-    const [posts, comments, expert] = await Promise.all([
+    const [posts, comments, lastPost, lastComment] = await Promise.all([
       supabase.from("lounge_posts").select("id", { count: "exact", head: true }).eq("user_id", userId),
       supabase.from("lounge_comments").select("id", { count: "exact", head: true }).eq("user_id", userId),
-      supabase.from("lounge_comments").select("like_count, created_at").eq("user_id", userId).eq("is_expert_reply", true).order("created_at", { ascending: false }).limit(500),
+      supabase.from("lounge_posts").select("created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(1),
+      supabase.from("lounge_comments").select("created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(1),
     ]);
-    const exRows = Array.isArray(expert.data) ? expert.data : [];
+    const dates = [lastPost.data?.[0]?.created_at, lastComment.data?.[0]?.created_at].filter(Boolean);
     return {
-      postCount:         posts.count ?? 0,
-      commentCount:      comments.count ?? 0,
-      expertAnswerCount: exRows.length,
-      helpfulSum:        exRows.reduce((s, r) => s + (r.like_count ?? 0), 0),
-      lastActivity:      exRows[0]?.created_at ?? null,
+      postCount:    posts.count ?? 0,
+      commentCount: comments.count ?? 0,
+      lastActivity: dates.length ? dates.sort((a, b) => new Date(b) - new Date(a))[0] : null,
     };
   } catch { return empty; }
 };

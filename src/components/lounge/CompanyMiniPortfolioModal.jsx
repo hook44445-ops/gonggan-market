@@ -109,20 +109,8 @@ export default function CompanyMiniPortfolioModal({
             </div>
 
             {/* 전문가 라운지 활동(count 기반) — 없는 값은 표시 생략 */}
-            {stats && (stats.expertAnswerCount > 0 || stats.postCount > 0 || stats.commentCount > 0) && (
+            {stats && (stats.postCount > 0 || stats.commentCount > 0) && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-                {stats.expertAnswerCount > 0 && (
-                  <div style={{ background: C.brandL, borderRadius: R.md, padding: '7px 11px' }}>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: C.brand }}>{stats.expertAnswerCount}</div>
-                    <div style={{ fontSize: 10, color: C.text3 }}>전문가 답변</div>
-                  </div>
-                )}
-                {stats.helpfulSum > 0 && (
-                  <div style={{ background: C.surface2 ?? C.bgWarm, borderRadius: R.md, padding: '7px 11px' }}>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text1 }}>{stats.helpfulSum}</div>
-                    <div style={{ fontSize: 10, color: C.text3 }}>도움됐어요</div>
-                  </div>
-                )}
                 {stats.postCount > 0 && (
                   <div style={{ background: C.surface2 ?? C.bgWarm, borderRadius: R.md, padding: '7px 11px' }}>
                     <div style={{ fontSize: 14, fontWeight: 900, color: C.text1 }}>{stats.postCount}</div>
