@@ -7,14 +7,16 @@ import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { createPortfolioReport } from '../../lib/supabase';
 
+// 신고 사유 (COMPANY-PORTFOLIO-POLICY-v1.0 ⑥) — 직거래 유도 가능한 연락 정보 중심.
 const REASONS = [
-  '연락처가 노출되어 있어요',
+  '전화·휴대폰 번호가 보여요',
   '카카오톡 ID가 보여요',
-  '계좌번호가 보여요',
-  'QR코드/외부 링크가 있어요',
+  'QR코드가 포함되어 있어요',
+  'SNS 링크가 포함되어 있어요',
+  '홈페이지·블로그 주소가 보여요',
+  '명함이 노출되어 있어요',
   '직거래를 유도해요',
-  '허위 시공사례 같아요',
-  '부적절한 이미지예요',
+  '광고성 게시물이에요',
   '기타',
 ];
 
