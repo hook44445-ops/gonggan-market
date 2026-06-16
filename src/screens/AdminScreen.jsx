@@ -15,7 +15,7 @@ import {
   adminSetUserStatus, adminAdjustSpaceTemp, adminAdjustUserTokens,
   adminGetLoungePosts, getLoungeReports,
   adminHideContent, adminUpdateLoungeReport,
-  createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage,
+  createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage, adminGetSeedLoungePosts,
   holdAllPayoutsForEscrow,
   getCompanyDocuments, adminReviewDocument,
   getReviewRewardsPending, updateReviewReward,
@@ -2608,6 +2608,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [seedingPosts, setSeedingPosts]   = useState([]);
   const [seedingLoading, setSeedingLoading] = useState(false);
   const [seedingErr, setSeedingErr]       = useState(null);
+  // 신규 시딩(seed_lounge_posts) 등록/수정용 — 운영글(is_seed) 관리와 별도 소스
+  const [seedLoungeRows, setSeedLoungeRows]       = useState([]);
+  const [seedLoungeLoading, setSeedLoungeLoading] = useState(false);
+  const [seedLoungeErr, setSeedLoungeErr]         = useState(null);
   const [reports, setReports]           = useState([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsErr, setReportsErr]     = useState(null);
@@ -2764,6 +2768,21 @@ export default function AdminScreen({ onBack, onHome, user }) {
           setSeedingPosts([]);
         } finally {
           setSeedingLoading(false);
+        }
+      })();
+      // 신규 시딩(seed_lounge_posts) 목록 로드 — 등록/수정 폼 영역용
+      setSeedLoungeLoading(true);
+      setSeedLoungeErr(null);
+      (async () => {
+        try {
+          const { data, error } = await adminGetSeedLoungePosts();
+          if (error) throw new Error(error.message ?? "load failed");
+          setSeedLoungeRows(data ?? []);
+        } catch (err) {
+          setSeedLoungeErr(err?.message ?? String(err));
+          setSeedLoungeRows([]);
+        } finally {
+          setSeedLoungeLoading(false);
         }
       })();
     }
@@ -4076,29 +4095,51 @@ export default function AdminScreen({ onBack, onHome, user }) {
               />
             )}
 
-            {/* ── Lounge Seeding (운영 seed 글 관리: lounge_posts.is_seed=true) ── */}
+            {/* ── Lounge Seeding 탭 (A안) ── 상단: 신규 시딩 등록/수정(seed_lounge_posts) · 하단: 기존 운영글 관리(lounge_posts.is_seed) ── */}
             {mainTab === "lounge_seeding" && (
-              <SeedPostsManagerTab
-                posts={seedingPosts}
-                loading={seedingLoading}
-                fetchErr={seedingErr}
-                adminUserId={user?.id ?? null}
-                showToast={showToast}
-                onReload={async () => {
-                  setSeedingLoading(true);
-                  setSeedingErr(null);
-                  try {
-                    const { data, error } = await fetchAdminSeedPosts(user?.id);
-                    if (error) throw new Error(error.message ?? "load failed");
-                    setSeedingPosts(data ?? []);
-                  } catch (err) {
-                    setSeedingErr(err?.message ?? String(err));
-                    setSeedingPosts([]);
-                  } finally {
-                    setSeedingLoading(false);
-                  }
-                }}
-              />
+              <>
+                <LoungeSeedingTab
+                  seeds={seedLoungeRows}
+                  loading={seedLoungeLoading}
+                  fetchErr={seedLoungeErr}
+                  onReload={async () => {
+                    setSeedLoungeLoading(true);
+                    setSeedLoungeErr(null);
+                    try {
+                      const { data, error } = await adminGetSeedLoungePosts();
+                      if (error) throw new Error(error.message ?? "load failed");
+                      setSeedLoungeRows(data ?? []);
+                    } catch (err) {
+                      setSeedLoungeErr(err?.message ?? String(err));
+                      setSeedLoungeRows([]);
+                    } finally {
+                      setSeedLoungeLoading(false);
+                    }
+                  }}
+                />
+                <div style={{ height: 1, background: C.bgWarm, margin: `${S.xl}px 0` }} />
+                <SeedPostsManagerTab
+                  posts={seedingPosts}
+                  loading={seedingLoading}
+                  fetchErr={seedingErr}
+                  adminUserId={user?.id ?? null}
+                  showToast={showToast}
+                  onReload={async () => {
+                    setSeedingLoading(true);
+                    setSeedingErr(null);
+                    try {
+                      const { data, error } = await fetchAdminSeedPosts(user?.id);
+                      if (error) throw new Error(error.message ?? "load failed");
+                      setSeedingPosts(data ?? []);
+                    } catch (err) {
+                      setSeedingErr(err?.message ?? String(err));
+                      setSeedingPosts([]);
+                    } finally {
+                      setSeedingLoading(false);
+                    }
+                  }}
+                />
+              </>
             )}
 
             {/* ── Customer Reports ── */}
