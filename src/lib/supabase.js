@@ -2962,14 +2962,20 @@ export const uploadLoungeSeedImage = async (file) => {
 
 export const getSeedLoungePosts = (category = 'all') => {
   let q = supabase.from('seed_lounge_posts').select('*')
-    .eq('is_active', true).order('sort_order', { ascending: true });
+    .eq('is_active', true)
+    // 추천 우선 → 순서 → 최신 (추천 여부와 순서를 분리해 관리, 077)
+    .order('is_recommended', { ascending: false })
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: false });
   if (category !== 'all' && category !== 'popular') q = q.eq('category', category);
   return q;
 };
 
 export const adminGetSeedLoungePosts = () =>
   supabase.from('seed_lounge_posts').select('*')
-    .order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+    .order('is_recommended', { ascending: false })
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: false });
 
 export const createSeedLoungePost = (data) =>
   supabase.from('seed_lounge_posts').insert(data).select().single();
