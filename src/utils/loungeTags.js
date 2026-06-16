@@ -53,31 +53,36 @@ const regionBase = (region) => {
  */
 export function extractLoungeTags(post, { max = 6 } = {}) {
   if (!post) return [];
-  const text = `${post.title ?? ''} ${post.content ?? ''}`;
-  const tags = [];
-  const push = (t) => { if (t && !tags.includes(t)) tags.push(t); };
+  // 태그 생성 실패가 게시글 렌더/등록/조회에 절대 영향 주지 않도록 안전망(빈 배열 fallback).
+  try {
+    const text = `${post.title ?? ''} ${post.content ?? ''}`;
+    const tags = [];
+    const push = (t) => { if (t && !tags.includes(t)) tags.push(t); };
 
-  // 1) 명시적 지역 필드 우선
-  if (post.region) push(regionBase(post.region));
+    // 1) 명시적 지역 필드 우선
+    if (post.region) push(regionBase(post.region));
 
-  // 2) 본문 내 지역 토큰 (최대 2개)
-  let regionHits = 0;
-  for (const r of REGION_TOKENS) {
-    if (regionHits >= 2) break;
-    if (text.includes(r)) { push(r); regionHits++; }
+    // 2) 본문 내 지역 토큰 (최대 2개)
+    let regionHits = 0;
+    for (const r of REGION_TOKENS) {
+      if (regionHits >= 2) break;
+      if (text.includes(r)) { push(r); regionHits++; }
+    }
+
+    // 3) 공간/공사/주제 키워드
+    for (const k of KEYWORD_TOKENS) {
+      if (tags.length >= max) break;
+      if (text.includes(k)) push(k);
+    }
+
+    // 4) 카테고리 라벨 (마지막 보강)
+    const cat = cleanLabel(CATEGORY_LABEL[post.category]);
+    if (cat) push(cat);
+
+    return tags.slice(0, max);
+  } catch {
+    return [];
   }
-
-  // 3) 공간/공사/주제 키워드
-  for (const k of KEYWORD_TOKENS) {
-    if (tags.length >= max) break;
-    if (text.includes(k)) push(k);
-  }
-
-  // 4) 카테고리 라벨 (마지막 보강)
-  const cat = cleanLabel(CATEGORY_LABEL[post.category]);
-  if (cat) push(cat);
-
-  return tags.slice(0, max);
 }
 
 /**
@@ -107,13 +112,21 @@ export function loungePopularityScore(post) {
 export function matchesLoungeSearch(post, query) {
   const q = String(query ?? '').trim().toLowerCase();
   if (!post || !q) return false;
-  const hay = [
-    post.title,
-    post.content,
-    post.anonymous_nickname,
-    post.region,
-    post.expert_company_name,
-    ...extractLoungeTags(post),
-  ].filter(Boolean).join(' ').toLowerCase();
-  return hay.includes(q);
+  // 기존 제목/내용/닉네임 검색은 그대로 유지(toLowerCase는 한글 무영향 · 영문은 결과 확대만).
+  // 지역/업체명/자동 태그는 추가 매칭 → 결과가 줄어들 수 없음(상위집합).
+  try {
+    const hay = [
+      post.title,
+      post.content,
+      post.anonymous_nickname,
+      post.region,
+      post.expert_company_name,
+      ...extractLoungeTags(post),
+    ].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  } catch {
+    // 만일의 예외에도 기존 기본 검색은 보장
+    return [post.title, post.content, post.anonymous_nickname]
+      .filter(Boolean).join(' ').toLowerCase().includes(q);
+  }
 }

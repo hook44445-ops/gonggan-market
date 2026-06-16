@@ -2,7 +2,7 @@
 // 공간마켓 라운지 시스템 — 게시글 카드 (리스트형)
 // ─────────────────────────────────────────────────────
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 import { CATEGORY_LABEL } from '../../constants/lounge';
@@ -17,7 +17,11 @@ export default function LoungePostCard({ post, onClick }) {
   const imgCount   = hasImage ? post.image_urls.length : 0;
   const hasTitle   = !!post.title;
   // 자동 태그(표시 전용) — 제목/내용/지역/카테고리에서 실시간 도출, 저장 없음. 카드에는 최대 3개.
-  const autoTags   = extractLoungeTags(post, { max: 3 });
+  // useMemo로 리렌더(썸네일 상태 변화 등) 시 불필요한 재계산 방지.
+  const autoTags   = useMemo(
+    () => extractLoungeTags(post, { max: 3 }),
+    [post?.id, post?.title, post?.content, post?.region, post?.category],
+  );
 
   // 썸네일 로드 실패 시 검은/빈 화면 대신 아바타 그라데이션 폴백.
   const [thumbFailed, setThumbFailed] = useState(false);
