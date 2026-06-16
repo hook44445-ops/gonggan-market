@@ -70,8 +70,18 @@ const CONTENT_HELPER = {
 };
 const CONTENT_HELPER_DEFAULT = '어떤 상황인지 조금만 자세히 적어주시면 더 좋은 답변을 받을 수 있어요.';
 
-// 제목 아래 공통 안내 — 부드럽게(검색/SEO 용어 없이)
-const TITLE_HELPER = '지역이나 상황을 함께 적으면 비슷한 경험을 가진 분들이 더 쉽게 답변할 수 있어요.';
+// 제목 아래 공통 안내 — 검색·발견이 쉬운 제목 유도 (Write UI SEO Optimization v1.0)
+const TITLE_HELPER = '💡 사람들이 검색할 만한 단어(지역명, 업체명, 제품명, 서비스명, 가격 등)를 함께 적으면 더 많은 사람들이 글을 찾고 답변을 받을 수 있어요.';
+
+// 제목 예시 카드 — 검색에 잘 잡히는 제목 샘플 (등록 내용에는 영향 없음, 안내 전용)
+const TITLE_EXAMPLES = [
+  '부천 인테리어 업체 추천 부탁드립니다',
+  '신혼집 인테리어 견적 봐주세요',
+  '셀프도배 비용 얼마나 들까요?',
+  '소개팅 장소 추천 부탁드립니다',
+  '송도 맛집 추천해주세요',
+  '누수 공사 경험 있으신가요?',
+];
 
 // 사진 안내 문구 — 견적고민/시공후기/인테리어/집꾸미기에서 특히 노출
 const PHOTO_HELPER_CATS = ['quote_worry', 'review', 'interior', 'room_deco'];
@@ -82,7 +92,7 @@ const SHORT_CONTENT_LEN = 15;
 const SHORT_CONTENT_HELPER = '조금만 더 자세히 적어주시면 더 많은 분들이 도움을 드릴 수 있어요.';
 
 const contentGuideFor = (cat) => CONTENT_GUIDE[cat] ?? DEFAULT_CONTENT_GUIDE;
-const titleGuideFor   = (cat) => TITLE_GUIDE[cat] ?? '제목을 입력하세요';
+const titleGuideFor   = (cat) => TITLE_GUIDE[cat] ?? '검색하기 쉬운 제목을 적어보세요  ·  예) 부천 인테리어 업체 추천';
 const contentHelperFor = (cat) => CONTENT_HELPER[cat] ?? CONTENT_HELPER_DEFAULT;
 
 // editPost: existing post object when editing, null when creating new
@@ -278,6 +288,19 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder={titleGuideFor(category)} maxLength={100}
             style={{ width: '100%', padding: '14px 16px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 15, outline: 'none', boxSizing: 'border-box', background: C.surface, color: C.text1, fontFamily: 'inherit' }} />
           <div style={{ fontSize: 11.5, color: C.text4, marginTop: 6, lineHeight: 1.5 }}>{TITLE_HELPER}</div>
+
+          {/* 제목 예시 카드 — 연베이지 카드 + 체크. 안내 전용(등록값 영향 없음) */}
+          <div style={{ background: C.sand, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: `${S.md}px ${S.lg}px`, marginTop: S.sm }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text3, marginBottom: 8 }}>이런 제목이 좋아요</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {TITLE_EXAMPLES.map(ex => (
+                <div key={ex} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12.5, color: C.text2, lineHeight: 1.5 }}>
+                  <span style={{ color: C.brand, fontWeight: 900, flexShrink: 0 }}>✔</span>
+                  <span>{ex}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div style={{ marginBottom: S.lg }}>

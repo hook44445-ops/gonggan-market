@@ -30,6 +30,8 @@ export const LOUNGE_CATEGORIES = [
   { id: 'room_deco',   label: '집꾸미기',     group: '공간' },
   { id: 'move_in',     label: '🏠 이사입주',  group: '공간' },
   { id: 'realestate',  label: '부동산',       group: '경제' },
+  { id: 'marriage',    label: '💍 결혼',      group: '일상' },
+  { id: 'dating',      label: '❤️ 연애',      group: '일상' },
   { id: 'health',      label: '건강',        group: '일상' },
   { id: 'stock',       label: '주식',        group: '경제' },
   { id: 'ai',          label: 'IT·AI',      group: '일상' },
