@@ -7,6 +7,7 @@ import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 import { CATEGORY_LABEL } from '../../constants/lounge';
 import { plainExcerpt } from '../../utils/richText';
+import { extractLoungeTags } from '../../utils/loungeTags';
 
 export default function LoungePostCard({ post, onClick }) {
   const catLabel   = CATEGORY_LABEL[post.category] ?? post.category;
@@ -15,6 +16,8 @@ export default function LoungePostCard({ post, onClick }) {
   const thumbUrl   = hasImage ? post.image_urls[0] : null;
   const imgCount   = hasImage ? post.image_urls.length : 0;
   const hasTitle   = !!post.title;
+  // 자동 태그(표시 전용) — 제목/내용/지역/카테고리에서 실시간 도출, 저장 없음. 카드에는 최대 3개.
+  const autoTags   = extractLoungeTags(post, { max: 3 });
 
   // 썸네일 로드 실패 시 검은/빈 화면 대신 아바타 그라데이션 폴백.
   const [thumbFailed, setThumbFailed] = useState(false);
@@ -120,6 +123,20 @@ export default function LoungePostCard({ post, onClick }) {
           </div>
         )}
       </div>
+
+      {/* Row 3.5: 자동 태그 칩 (표시 전용) */}
+      {autoTags.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+          {autoTags.map(t => (
+            <span key={t} style={{
+              fontSize: 10.5, color: C.text3, background: C.bg,
+              border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: '1px 8px', fontWeight: 600,
+            }}>
+              #{t}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Row 4: 아바타 · 닉네임 · 성별 ··· 조회 · 좋아요 · 댓글 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
