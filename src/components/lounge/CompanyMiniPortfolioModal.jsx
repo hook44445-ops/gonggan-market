@@ -6,7 +6,17 @@
 import { useEffect, useState } from 'react';
 import { C, R, S } from '../../constants';
 import { BADGES } from '../../constants/badges';
-import { getCompanyByOwnerId, getReviews, getPortfolios } from '../../lib/supabase';
+import { getCompanyByOwnerId, getReviews, getPortfolios, getCompanyLoungeStats } from '../../lib/supabase';
+
+const daysAgoLabel = (iso) => {
+  if (!iso) return null;
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (d <= 0) return '오늘';
+  if (d === 1) return '어제';
+  if (d < 30) return `${d}일 전`;
+  if (d < 365) return `${Math.floor(d / 30)}개월 전`;
+  return `${Math.floor(d / 365)}년 전`;
+};
 
 const firstPhoto = (p) => {
   const arr = p?.after_photos ?? p?.afterPhotos ?? p?.before_photos ?? p?.beforePhotos ?? p?.image_urls ?? [];
@@ -22,12 +32,14 @@ export default function CompanyMiniPortfolioModal({
   const [company, setCompany] = useState(null);
   const [reviewCount, setReviewCount] = useState(null);
   const [photos, setPhotos] = useState([]);
+  const [stats, setStats] = useState(null); // 라운지 활동(전문가 답변/도움됐어요/작성글/댓글/최근활동)
 
   useEffect(() => {
     let alive = true;
     (async () => {
       setLoading(true);
       try {
+        getCompanyLoungeStats(ownerId).then((s) => { if (alive) setStats(s); }).catch(() => {});
         const { data: co } = await getCompanyByOwnerId(ownerId);
         if (!alive) return;
         setCompany(co ?? null);
@@ -95,6 +107,30 @@ export default function CompanyMiniPortfolioModal({
                 )}
               </div>
             </div>
+
+            {/* 전문가 라운지 활동(count 기반) — 없는 값은 표시 생략 */}
+            {stats && (stats.postCount > 0 || stats.commentCount > 0) && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+                {stats.postCount > 0 && (
+                  <div style={{ background: C.surface2 ?? C.bgWarm, borderRadius: R.md, padding: '7px 11px' }}>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text1 }}>{stats.postCount}</div>
+                    <div style={{ fontSize: 10, color: C.text3 }}>작성글</div>
+                  </div>
+                )}
+                {stats.commentCount > 0 && (
+                  <div style={{ background: C.surface2 ?? C.bgWarm, borderRadius: R.md, padding: '7px 11px' }}>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text1 }}>{stats.commentCount}</div>
+                    <div style={{ fontSize: 10, color: C.text3 }}>댓글</div>
+                  </div>
+                )}
+                {daysAgoLabel(stats.lastActivity) && (
+                  <div style={{ background: C.surface2 ?? C.bgWarm, borderRadius: R.md, padding: '7px 11px' }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1 }}>{daysAgoLabel(stats.lastActivity)}</div>
+                    <div style={{ fontSize: 10, color: C.text3 }}>최근 활동</div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 대표 시공사례 / 최근 포트폴리오 사진 */}
             {photos.length > 0 ? (
