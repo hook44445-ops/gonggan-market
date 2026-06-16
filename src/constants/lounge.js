@@ -86,7 +86,15 @@ export const TOKEN_EARN = {
 
 export const SPACE_TEMPERATURE_BASE = 36.5;
 
+// 레거시(노출 중단) 카테고리 라벨 — 칩/필터/작성에는 없지만, 기존 글 배지 표시용으로만 매핑 보존.
+// recommend(업체추천): 카테고리 탭 재생성·필터·신규 작성 없음. 기존 category='recommend' 글의
+// 배지를 원문 'recommend'가 아닌 '업체추천'으로 표시하기 위한 표시 전용 매핑(회귀 방지). DB·SEO·slug 불변.
+const LEGACY_CATEGORY_LABELS = {
+  recommend: '🛡️ 업체추천',
+};
+
+// 활성 카테고리 라벨이 우선, 레거시 라벨은 충돌 없는 항목만 보존(표시 전용)
 export const CATEGORY_LABEL = LOUNGE_CATEGORIES.reduce((acc, c) => {
   acc[c.id] = c.label;
   return acc;
-}, {});
+}, { ...LEGACY_CATEGORY_LABELS });
