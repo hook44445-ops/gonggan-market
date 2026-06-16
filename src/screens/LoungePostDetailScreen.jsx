@@ -207,6 +207,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   });
   const [showChat,    setShowChat]          = useState(false);
   const [miniModal,   setMiniModal]         = useState(null); // 업체 미니 포트폴리오 { ownerId, nickname }
+  const [commentSort, setCommentSort]       = useState('expert'); // expert | popular | latest
   const [chatSending, setChatSending]       = useState(false);
   const [chatSent,    setChatSent]          = useState(false);
   const [toast,       setToast]             = useState(null);
@@ -689,8 +690,20 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   const catLabel    = CATEGORY_LABEL[post.category] ?? post.category;
   const postAvatar  = getAnonymousAvatarByNickname(post.anonymous_nickname);
-  const topComments = comments.filter(c => !c.parent_id);
+  // 댓글 정렬(LOUNGE-ENGAGEMENT-v3.2) — 전문가순(기본)/인기순/최신순. 기존 데이터만 사용.
+  const sortComments = (list) => {
+    const arr = [...list];
+    if (commentSort === 'latest') return arr.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    if (commentSort === 'popular') return arr.sort((a, b) => (b.like_count ?? 0) - (a.like_count ?? 0) || new Date(b.created_at) - new Date(a.created_at));
+    // expert(기본): 전문가 → 좋아요 많은 → 최신
+    return arr.sort((a, b) =>
+      (b.is_expert_reply ? 1 : 0) - (a.is_expert_reply ? 1 : 0)
+      || (b.like_count ?? 0) - (a.like_count ?? 0)
+      || new Date(b.created_at) - new Date(a.created_at));
+  };
+  const topComments = sortComments(comments.filter(c => !c.parent_id));
   const replyComs   = comments.filter(c => !!c.parent_id);
+  const isCompanyUser = user?.role === 'company' || user?.activeRole === 'company';
   const hasBadge    = post.has_badge === true;
 
   return (
@@ -882,8 +895,18 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
       {/* 댓글 */}
       <div style={{ background: C.surface, padding: `${S.xl}px ${S.xl}px 0` }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
-          댓글 {comments.length}개
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: S.md, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>댓글 {comments.length}개</div>
+          {comments.length > 1 && (
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+              {[['expert', '전문가순'], ['popular', '인기순'], ['latest', '최신순']].map(([v, l]) => (
+                <button key={v} onClick={() => setCommentSort(v)}
+                  style={{ padding: '4px 10px', borderRadius: R.full, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    border: `1px solid ${commentSort === v ? C.brand : C.bgWarm}`,
+                    background: commentSort === v ? C.brandL : C.surface, color: commentSort === v ? C.brand : C.text3 }}>{l}</button>
+              ))}
+            </div>
+          )}
         </div>
 
         {topComments.map(comment => (
@@ -913,8 +936,16 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         ))}
 
         {comments.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '30px 0', color: C.text3, fontSize: 13 }}>
-            첫 댓글을 남겨보세요 💬
+          <div style={{ textAlign: 'center', padding: '28px 0 24px' }}>
+            <div style={{ color: C.text3, fontSize: 13, marginBottom: isCompanyUser ? 12 : 0 }}>
+              {isCompanyUser ? '아직 답변이 없어요. 전문가로 첫 답변을 남겨보세요.' : '첫 답변을 남겨보세요 💬'}
+            </div>
+            {isCompanyUser && (
+              <button onClick={() => { if (isGuest) { onRequireLogin?.(); return; } inputRef.current?.focus(); }}
+                style={{ padding: '10px 20px', borderRadius: R.lg, border: 'none', background: C.brand, color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+                🏅 전문가로 답변하기
+              </button>
+            )}
           </div>
         )}
       </div>
