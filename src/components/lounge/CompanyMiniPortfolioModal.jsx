@@ -1,0 +1,131 @@
+// ─────────────────────────────────────────────────────
+// 공간마켓 라운지 — 업체 미니 포트폴리오 모달 (LOUNGE-CONVERSION-v3.1)
+// 라운지 글/댓글의 "업체" 작성자 클릭 시 노출. 기존 데이터(companies/portfolios/
+// reviews)만 조회한다. 전화번호/카톡/계좌/외부링크 등 직접 연락 정보는 노출 금지.
+// ─────────────────────────────────────────────────────
+import { useEffect, useState } from 'react';
+import { C, R, S } from '../../constants';
+import { BADGES } from '../../constants/badges';
+import { getCompanyByOwnerId, getReviews, getPortfolios } from '../../lib/supabase';
+
+const firstPhoto = (p) => {
+  const arr = p?.after_photos ?? p?.afterPhotos ?? p?.before_photos ?? p?.beforePhotos ?? p?.image_urls ?? [];
+  const v = Array.isArray(arr) ? arr[0] : arr;
+  return typeof v === 'string' ? v : v?.url ?? null;
+};
+
+export default function CompanyMiniPortfolioModal({
+  ownerId, anonymousNickname = '업체', currentUserId,
+  onClose, onRequestChat, onViewPortfolio, onRequestQuote,
+}) {
+  const [loading, setLoading] = useState(true);
+  const [company, setCompany] = useState(null);
+  const [reviewCount, setReviewCount] = useState(null);
+  const [photos, setPhotos] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data: co } = await getCompanyByOwnerId(ownerId);
+        if (!alive) return;
+        setCompany(co ?? null);
+        if (co?.id) {
+          const [{ data: revs }, { data: pfs }] = await Promise.all([
+            getReviews(co.id).catch(() => ({ data: null })),
+            getPortfolios(co.id).catch(() => ({ data: null })),
+          ]);
+          if (!alive) return;
+          setReviewCount(revs?.length ?? 0);
+          setPhotos((pfs ?? []).map(firstPhoto).filter(Boolean).slice(0, 6));
+        }
+      } catch { /* graceful */ }
+      if (alive) setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [ownerId]);
+
+  const bm = company ? (BADGES[company.badge] || null) : null;
+  const isSelf = currentUserId && company?.owner_id === currentUserId;
+
+  const Btn = ({ label, primary, onClick, disabled }) => (
+    <button onClick={onClick} disabled={disabled}
+      style={{ flex: 1, padding: '11px', borderRadius: R.lg, border: primary ? 'none' : `1.5px solid ${C.bgWarm}`,
+        background: primary ? C.brand : C.surface, color: primary ? '#fff' : C.text2,
+        fontWeight: 800, fontSize: 13, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1 }}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 600, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ background: C.surface, borderRadius: `${R.xl}px ${R.xl}px 0 0`, padding: '20px 20px calc(20px + env(safe-area-inset-bottom, 0px))', maxHeight: '85vh', overflowY: 'auto' }}>
+        <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: '0 auto 16px' }} />
+
+        {loading ? (
+          <div style={{ padding: '30px 0', textAlign: 'center', color: C.text3, fontSize: 13 }}>불러오는 중...</div>
+        ) : !company ? (
+          <div style={{ padding: '24px 0', textAlign: 'center' }}>
+            <div style={{ fontSize: 14, color: C.text3, marginBottom: 14 }}>업체 정보가 없습니다</div>
+            <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: R.lg, border: 'none', background: C.bgWarm, color: C.text2, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>닫기</button>
+          </div>
+        ) : (
+          <>
+            {/* 헤더: 익명닉네임 + 배지/온도/지역 */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 6 }}>
+                {hasGuaranteeBadge(company) && <span style={{ marginRight: 4 }}>🛡️</span>}
+                {anonymousNickname}
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                {bm && (
+                  <span style={{ background: bm.bg, color: bm.color, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{bm.icon} {bm.label}</span>
+                )}
+                {company.temp != null && (
+                  <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>🌡️ 공간온도 {Number(company.temp).toFixed(1)}°</span>
+                )}
+                {company.region && (
+                  <span style={{ background: C.surface2 ?? C.bgWarm, color: C.text3, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 600 }}>📍 {company.region}</span>
+                )}
+                {reviewCount != null && (
+                  <span style={{ color: C.text3, fontSize: 11, fontWeight: 600 }}>후기 {reviewCount}</span>
+                )}
+              </div>
+            </div>
+
+            {/* 대표 시공사례 / 최근 포트폴리오 사진 */}
+            {photos.length > 0 ? (
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginBottom: 16, scrollbarWidth: 'none' }}>
+                {photos.map((src, i) => (
+                  <img key={i} src={src} alt="" loading="lazy"
+                    style={{ width: 110, height: 110, borderRadius: R.lg, objectFit: 'cover', flexShrink: 0, border: `1px solid ${C.bgWarm}` }} />
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12.5, color: C.text4, marginBottom: 16 }}>등록된 시공사례 사진이 없습니다</div>
+            )}
+
+            {/* 버튼: 포트폴리오 보기 / 대화 신청 / 견적 요청 */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+              <Btn label="포트폴리오 보기" onClick={() => onViewPortfolio?.(company)} />
+              <Btn label="대화 신청" primary disabled={isSelf} onClick={() => onRequestChat?.(company)} />
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <Btn label="견적 요청" onClick={() => onRequestQuote?.(company)} />
+            </div>
+            <div style={{ fontSize: 11, color: C.text4, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
+              대화 신청 후 업체가 수락하면 20토큰이 차감되고 대화방이 열립니다.
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function hasGuaranteeBadge(co) {
+  return co?.guarantee_badge_visible === true && co?.guarantee_status === 'ACTIVE';
+}

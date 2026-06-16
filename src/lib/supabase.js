@@ -3105,6 +3105,21 @@ export const updateDirectDealReportStatus = (id, status, adminNote = null) => {
   return supabase.from("direct_deal_reports").update(patch).eq("id", id).select().single();
 };
 
+// 포트폴리오 이미지 신고(LOUNGE-CONVERSION-v3.1) — 기존 direct_deal_reports 재사용.
+// migration 없음. trigger_type='manual_report', trigger_detail.kind='portfolio_image'.
+// 즉시 삭제 없음(soft) — 관리자 검토 대기(status='pending'). 이미지 자체 숨김은 범위 외.
+export const createPortfolioReport = ({ companyId = null, reporterId = null, imageUrl = null, reason = null, postId = null, portfolioId = null } = {}) =>
+  supabase.from("direct_deal_reports").insert({
+    company_id:   companyId,
+    trigger_type: "manual_report",
+    status:       "pending",
+    trigger_detail: {
+      kind: "portfolio_image",
+      reason, image_url: imageUrl,
+      post_id: postId, portfolio_id: portfolioId, reporter_id: reporterId,
+    },
+  }).select().single();
+
 // [정책] 현장견적 카운트다운: 72h (constants/policy.js · 2026.06)
 // 실측 후 미계약 자동 추적 — 관리자 수동 실행 또는 cron 으로 호출.
 //   48h(경고) 경과 + 견적서 미제출  → 업체에 기한 임박 알림
