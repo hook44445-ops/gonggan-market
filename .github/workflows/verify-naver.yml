@@ -1,0 +1,19 @@
+name: verify-naver
+on:
+  push:
+    branches: [claude/verify-naver-check]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: curl production naver file
+        run: |
+          U="https://gongganmarket.com/naverdd7f227f04689ae77e06293315940389.html"
+          echo "==== curl -I (HEAD) ===="
+          curl -I -sS --max-time 30 "$U" || true
+          echo "==== summary (default UA) ===="
+          curl -sS -o /tmp/b -w "HTTP %{http_code} | content-type=%{content_type} | size=%{size_download} | redirect=%{num_redirects}\n" --max-time 30 "$U" || true
+          echo "---- body ----"; wc -c /tmp/b; cat /tmp/b; echo
+          echo "==== Yeti (Naver bot) UA ===="
+          curl -sS -A "Mozilla/5.0 (compatible; Yeti/1.1; +http://naver.me/spd)" -o /tmp/y -w "HTTP %{http_code} | content-type=%{content_type}\n" --max-time 30 "$U" || true
+          echo "---- body(yeti) ----"; cat /tmp/y; echo
