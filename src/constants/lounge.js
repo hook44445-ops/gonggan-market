@@ -13,35 +13,45 @@
 // 공간온도 = 쌓인 신뢰의 증명
 // ─────────────────────────────────────────────────────
 
-// 카테고리 최종 정리 (2026.06)
-//  · 추가: 시공후기/견적고민/업체추천/이사입주
-//  · 비활성(is_active=false): 게임/반려동물/여행/대화해요 — 게시글은 is_visible=false 로 숨김(soft)
-//  · PREVIEW_COUNT(7)까지 노출, 그 이후(이사입주~)는 "더보기"로 접힘
+// 카테고리 정리 (LOUNGE-CATEGORY-v2.0, 2026.06)
+//  · 추가: 건강(health)/IT·AI(ai)/취업(jobs)/맛집(restaurant)
+//  · 재활성화: 반려동물(pet)/여행(travel) — 비활성 목록에서 제거(기존 글의 DB is_visible 상태는 그대로 유지)
+//  · 노출 중단: 업체추천(recommend) — 칩/필터/라벨 목록에서 제외. id·기존 글·데이터·SEO·CTA는 보존(숨김·삭제·Migration 없음).
+//    업체 발견은 카테고리가 아닌 시공후기/견적고민/인테리어 글 내부 업체 프로필 연결로 대체 예정.
+//  · 기존 id 불변: 부동산(realestate)/생활(daily) — DB·SEO·관리자 호환 위해 기존 slug 유지(rename·Migration 없음).
+//  · 이사입주(move_in) 유지: 집꾸미기 다음 배치, 기존 글·SEO·CTA 보존.
+//  · PREVIEW_COUNT(7)까지 노출, 그 이후는 "더보기"로 접힘.
 export const LOUNGE_CATEGORIES = [
   { id: 'all',         label: '전체',        group: null },
   { id: 'popular',     label: '🔥 인기',     group: null },
   { id: 'interior',    label: '인테리어',     group: '공간' },
   { id: 'review',      label: '📸 시공후기',  group: '공간' },
   { id: 'quote_worry', label: '💬 견적고민',  group: '공간' },
-  { id: 'recommend',   label: '🛡️ 업체추천', group: '공간' },
   { id: 'room_deco',   label: '집꾸미기',     group: '공간' },
   { id: 'move_in',     label: '🏠 이사입주',  group: '공간' },
   { id: 'realestate',  label: '부동산',       group: '경제' },
-  { id: 'startup',     label: '창업',        group: '경제' },
-  { id: 'local',       label: '동네',        group: '일상' },
-  { id: 'daily',       label: '생활',        group: '일상' },
+  { id: 'health',      label: '건강',        group: '일상' },
   { id: 'stock',       label: '주식',        group: '경제' },
+  { id: 'ai',          label: 'IT·AI',      group: '일상' },
+  { id: 'jobs',        label: '취업',        group: '경제' },
+  { id: 'pet',         label: '반려동물',     group: '일상' },
   { id: 'exercise',    label: '운동',        group: '취미' },
+  { id: 'startup',     label: '창업',        group: '경제' },
+  { id: 'travel',      label: '여행',        group: '취미' },
+  { id: 'restaurant',  label: '맛집',        group: '일상' },
+  { id: 'daily',       label: '생활',        group: '일상' },
+  { id: 'local',       label: '동네',        group: '일상' },
   { id: 'humor',       label: '유머',        group: '일상' },
   { id: 'free',        label: '자유',        group: '일상' },
 ];
 
-// "더보기" 접힘 기준 — 집꾸미기(index 6)까지 노출, 이사입주부터 접힘
+// "더보기" 접힘 기준 — 이사입주(index 6)까지 노출, 부동산부터 접힘
 export const LOUNGE_PREVIEW_COUNT = 7;
 
 // 비활성 카테고리 id — 게시글 노출 제외(soft, is_visible=false). 복구 시 이 목록에서 제거.
-// 삭제 대상은 명시된 4개만: 게임/반려동물/여행/대화해요.
-export const LOUNGE_INACTIVE_CATEGORIES = ['game', 'pet', 'travel', 'chat'];
+// 반려동물(pet)·여행(travel)은 재활성화로 제거. 게임/대화해요만 비활성 유지.
+// 업체추천(recommend)은 칩에서만 내리고 기존 글은 계속 노출해야 하므로 여기 포함하지 않음.
+export const LOUNGE_INACTIVE_CATEGORIES = ['game', 'chat'];
 
 // perk: 25토큰(체험용) 대비 추가 수량 강조 문구 — UI 표시용. 가격/토큰 수량 정책 불변.
 export const TOKEN_PACKAGES = [
