@@ -8,6 +8,7 @@ import { SHOW_DEBUG_UI } from '../constants/release';
 import { useLounge } from '../hooks/useLounge';
 import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead, createLoungeNotification, getHotLoungePosts } from '../lib/supabase';
 import { NOTIF_META as NOTIF_TAXONOMY, notifNavTarget } from '../utils/notify';
+import { matchesLoungeSearch, loungePopularityScore } from '../utils/loungeTags';
 import { LogoMark } from '../components/common';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
@@ -38,19 +39,43 @@ function relTime(isoStr) {
 }
 
 // ── 검색 오버레이 ──────────────────────────────────────
+const RECENT_SEARCH_KEY = 'lounge_recent_searches';
+const SUGGESTED_SEARCHES = ['부천 인테리어', '신혼집', '도배', '누수', '욕실 리모델링', '맛집'];
+
+function loadRecentSearches() {
+  try { const v = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) ?? '[]'); return Array.isArray(v) ? v : []; }
+  catch { return []; }
+}
+function persistRecentSearches(list) {
+  try { localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(list.slice(0, 8))); } catch {}
+}
+
 function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
   const [query, setQuery] = useState('');
+  const [recent, setRecent] = useState(loadRecentSearches);
   const inputRef = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
+  const commitTerm = (term) => {
+    const t = String(term ?? '').trim();
+    if (!t) return;
+    const next = [t, ...recent.filter(r => r !== t)].slice(0, 8);
+    setRecent(next); persistRecentSearches(next);
+  };
+  const applyTerm   = (t) => { setQuery(t); commitTerm(t); };
+  const removeRecent = (t) => { const next = recent.filter(r => r !== t); setRecent(next); persistRecentSearches(next); };
+
+  // 자동 태그·지역·업체명까지 통합 매칭 (검색 고도화 + 지역 기반 검색)
   const results = query.trim().length >= 1
-    ? allPosts.filter(p =>
-        p.title?.includes(query) ||
-        p.content?.includes(query) ||
-        p.anonymous_nickname?.includes(query)
-      )
+    ? allPosts.filter(p => matchesLoungeSearch(p, query))
     : [];
+
+  const chipStyle = {
+    flexShrink: 0, background: C.bg, border: `1px solid ${C.bgWarm}`, color: C.text2,
+    borderRadius: R.full, padding: '6px 12px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 200, display: 'flex', flexDirection: 'column' }}>
@@ -61,7 +86,8 @@ function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="글 제목, 내용, 닉네임 검색..."
+            onKeyDown={e => { if (e.key === 'Enter') commitTerm(query); }}
+            placeholder="부천 인테리어, 신혼집, 도배, 누수..."
             style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 14, color: C.text1, fontFamily: 'inherit' }}
           />
           {query && (
@@ -75,10 +101,35 @@ function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {query.trim().length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
-            <div style={{ fontSize: 14, color: C.text3 }}>검색어를 입력하세요</div>
-            <div style={{ fontSize: 12, color: C.text4, marginTop: 6 }}>제목, 내용, 닉네임으로 검색할 수 있어요</div>
+          <div style={{ padding: `${S.xl}px` }}>
+            {recent.length > 0 && (
+              <div style={{ marginBottom: S.xl }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.md }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: C.text2 }}>최근 검색어</span>
+                  <button onClick={() => { setRecent([]); persistRecentSearches([]); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, fontWeight: 600 }}>전체 삭제</button>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {recent.map(t => (
+                    <span key={t} style={chipStyle} onClick={() => applyTerm(t)}>
+                      {t}
+                      <span onClick={(e) => { e.stopPropagation(); removeRecent(t); }} style={{ color: C.text4, fontSize: 13, lineHeight: 1 }}>✕</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text2, marginBottom: S.md }}>추천 검색어</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {SUGGESTED_SEARCHES.map(t => (
+                  <span key={t} style={chipStyle} onClick={() => applyTerm(t)}>🔍 {t}</span>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: C.text4, marginTop: S.lg, lineHeight: 1.6 }}>
+                제목·내용·닉네임은 물론 지역·업체명·태그로도 검색할 수 있어요
+              </div>
+            </div>
           </div>
         ) : results.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -96,7 +147,7 @@ function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
               <LoungePostCard
                 key={post.id}
                 post={post}
-                onClick={() => { onClose(); onPostClick?.(post); }}
+                onClick={() => { commitTerm(query); onClose(); onPostClick?.(post); }}
               />
             ))}
           </div>
@@ -396,16 +447,17 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
   // extraPosts를 카테고리별로 필터 후 hook 데이터와 병합
   const filteredExtra = (() => {
     if (category === 'all')     return extraPosts;
-    if (category === 'popular') return [...extraPosts].sort((a, b) =>
-      (b.view_count ?? 0) !== (a.view_count ?? 0)
-        ? (b.view_count ?? 0) - (a.view_count ?? 0)
-        : (b.like_count ?? 0) - (a.like_count ?? 0)
-    );
+    if (category === 'popular') return extraPosts;   // 인기 정렬은 병합 후 일괄 적용
     return extraPosts.filter(p => p.category === category);
   })();
-  const allPosts = [...filteredExtra, ...posts]
-    .filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
-    .filter(p => p.is_deleted !== true && p.is_hidden !== true);
+  const allPosts = (() => {
+    const merged = [...filteredExtra, ...posts]
+      .filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
+      .filter(p => p.is_deleted !== true && p.is_hidden !== true);
+    // 🔥 인기글 알고리즘 — 조회·좋아요·댓글·최신성 합성 점수로 전체 재정렬
+    if (isPopular) return [...merged].sort((a, b) => loungePopularityScore(b) - loungePopularityScore(a));
+    return merged;
+  })();
 
   const handleWriteClick = () => {
     if (isGuest) { onRequireLogin?.(); return; }
