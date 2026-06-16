@@ -6,14 +6,19 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: curl production naver file
+      - name: curl all URL variants
         run: |
-          U="https://gongganmarket.com/naverdd7f227f04689ae77e06293315940389.html"
-          echo "==== curl -I (HEAD) ===="
-          curl -I -sS --max-time 30 "$U" || true
-          echo "==== summary (default UA) ===="
-          curl -sS -o /tmp/b -w "HTTP %{http_code} | content-type=%{content_type} | size=%{size_download} | redirect=%{num_redirects}\n" --max-time 30 "$U" || true
-          echo "---- body ----"; wc -c /tmp/b; cat /tmp/b; echo
-          echo "==== Yeti (Naver bot) UA ===="
-          curl -sS -A "Mozilla/5.0 (compatible; Yeti/1.1; +http://naver.me/spd)" -o /tmp/y -w "HTTP %{http_code} | content-type=%{content_type}\n" --max-time 30 "$U" || true
-          echo "---- body(yeti) ----"; cat /tmp/y; echo
+          P="naverdd7f227f04689ae77e06293315940389.html"
+          for U in \
+            "https://gongganmarket.com/$P" \
+            "https://www.gongganmarket.com/$P" \
+            "http://gongganmarket.com/$P" \
+            "http://www.gongganmarket.com/$P"; do
+            echo "================ $U ================"
+            curl -sS -o /tmp/b -w "final_url=%{url_effective}\nHTTP %{http_code} | type=%{content_type} | redirects=%{num_redirects} | size=%{size_download}\n" --max-time 30 -L "$U" 2>&1 || true
+            echo "---- body ----"; cat /tmp/b; echo; echo
+          done
+          echo "================ Yeti UA, no-follow (네이버 봇이 보는 그대로) ================"
+          curl -sS -o /tmp/y -w "HTTP %{http_code} | type=%{content_type} | redirects=%{num_redirects}\n" --max-time 30 \
+            -A "Mozilla/5.0 (compatible; Yeti/1.1; +http://naver.me/spd)" "http://gongganmarket.com/$P" 2>&1 || true
+          echo "---- body(yeti http, no -L) ----"; cat /tmp/y; echo
