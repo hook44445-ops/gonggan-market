@@ -30,8 +30,9 @@ import { BADGES } from '../constants/badges';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
+import CompanyMiniPortfolioModal from '../components/lounge/CompanyMiniPortfolioModal';
 import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification, createNotification } from '../lib/supabase';
-import { buildPostMeta } from '../utils/loungeSeo';
+import { buildPostMeta, buildPostPath } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
 
 // ── 댓글 작성자 액션시트 ─────────────────────────────────
@@ -205,6 +206,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     } catch { return false; }
   });
   const [showChat,    setShowChat]          = useState(false);
+  const [miniModal,   setMiniModal]         = useState(null); // 업체 미니 포트폴리오 { ownerId, nickname }
   const [chatSending, setChatSending]       = useState(false);
   const [chatSent,    setChatSent]          = useState(false);
   const [toast,       setToast]             = useState(null);
@@ -386,7 +388,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   // 공유 — Web Share 우선, 미지원 시 링크 복사 (DB 불필요, 모든 글 공통)
   const handleShare = async () => {
-    const url = typeof window !== 'undefined' ? window.location.href : '';
+    // 공유 URL은 정규 경로(/lounge/posts/{id}/{slug}) 사용 — 기존 OG/SEO 구조 그대로.
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const url = post?.id ? `${origin}${buildPostPath(post)}` : (typeof window !== 'undefined' ? window.location.href : '');
     try {
       if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({ title: post?.title || '공간마켓 라운지', text: post?.title || '공간마켓 라운지', url });
@@ -420,7 +424,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       user_id:            user.id,
       anonymous_nickname: nickname,
       content,
-      is_expert_reply:    false,
+      // 업체(role=company) 작성 댓글은 전문가 답변으로 표시(시각 구분 + 미니 포트폴리오 연결)
+      is_expert_reply:    (user?.role === 'company' || user?.activeRole === 'company'),
       ...(replyTo?.id ? { parent_id: replyTo.id } : {}),
     };
 
@@ -535,7 +540,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   // 게시글 작성자 클릭 → 동일 액션시트 (전문가 글은 업체 카드가 별도 존재, 시드 글 제외)
   const handlePostAuthorClick = () => {
-    if (!post?.user_id || post.is_expert || isSeedPost) return;
+    if (!post?.user_id || isSeedPost) return;
+    // 업체(전문가) 글 작성자 → 미니 포트폴리오 모달
+    if (post.is_expert) { setMiniModal({ ownerId: post.user_id, nickname: post.anonymous_nickname }); return; }
     if (!isLoggedIn) { onRequireLogin?.(); return; }
     setCommentAuthorSheet({
       comment: {
@@ -702,7 +709,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: S.md, flexWrap: 'wrap' }}>
           <span onClick={handlePostAuthorClick}
             style={{ display: 'flex', alignItems: 'center', gap: S.sm,
-              cursor: (!post.is_expert && !isSeedPost && post.user_id) ? 'pointer' : 'default' }}>
+              cursor: ((post.is_expert || !isSeedPost) && post.user_id && !isSeedPost) ? 'pointer' : 'default' }}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: postAvatar.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, boxShadow: `0 2px 8px ${postAvatar.color}55` }}>
               {postAvatar.emoji}
             </div>
@@ -888,6 +895,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
               onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
               onAuthorClick={handleCommentAuthorClick}
+              onCompanyClick={(c) => setMiniModal({ ownerId: c.user_id, nickname: c.anonymous_nickname })}
             />
             {replyComs.filter(r => r.parent_id === comment.id).map(reply => (
               <LoungeCommentItem
@@ -898,6 +906,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 onLike={likeComment}
                 onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
                 onAuthorClick={handleCommentAuthorClick}
+                onCompanyClick={(c) => setMiniModal({ ownerId: c.user_id, nickname: c.anonymous_nickname })}
               />
             ))}
           </div>
@@ -983,6 +992,18 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           balance={tokenBalance ?? 0}
           onConfirm={handleChatRequest}
           onCancel={() => setShowChat(false)}
+        />
+      )}
+
+      {miniModal && (
+        <CompanyMiniPortfolioModal
+          ownerId={miniModal.ownerId}
+          anonymousNickname={miniModal.nickname}
+          currentUserId={user?.id}
+          onClose={() => setMiniModal(null)}
+          onViewPortfolio={() => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'company', companyId: id }); }}
+          onRequestChat={() => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'chat', companyId: id }); }}
+          onRequestQuote={() => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'quote', companyId: id }); }}
         />
       )}
 

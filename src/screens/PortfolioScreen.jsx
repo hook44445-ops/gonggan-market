@@ -3,6 +3,7 @@ import { C, R, S, GRADE } from "../constants";
 import { TempBadge, CertBadge } from "../components/common";
 import PortfolioCard from "../components/PortfolioCard";
 import PhotoModal from "../components/PhotoModal";
+import PortfolioReportModal from "../components/lounge/PortfolioReportModal";
 import { getPortfolios, createPortfolio, uploadFile, getReviews } from "../lib/supabase";
 
 const GOLD = "#C4A96A";
@@ -255,6 +256,7 @@ function PortfolioWriteModal({ companyId, onClose, onSaved }) {
 export default function PortfolioScreen({ company, onChat, onReview, onBack, onEscrow }) {
   const g = GRADE(company?.temp ?? 0);
   const [photoWork, setPhotoWork] = useState(null);
+  const [reportImg, setReportImg] = useState(null); // 시공사례 이미지 신고 { imageUrl, portfolioId }
   const [showWriteModal, setShowWriteModal] = useState(false);
   const [portfolio, setPortfolio] = useState(company?.portfolio ?? []);
   const [pfFilter, setPfFilter] = useState("all");
@@ -454,7 +456,16 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
             );
           }
           return filtered.map(work => (
-            <PortfolioCard key={work.id} work={work} onExpand={setPhotoWork} />
+            <div key={work.id} style={{ position: "relative" }}>
+              <PortfolioCard work={work} onExpand={setPhotoWork} />
+              <button
+                onClick={() => setReportImg({ imageUrl: work.after ?? work.before ?? null, portfolioId: work.id })}
+                title="시공사례 이미지 신고"
+                style={{ position: "absolute", top: 8, right: 8, zIndex: 2, background: "rgba(0,0,0,0.55)", color: "#fff",
+                  border: "none", borderRadius: R.full, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                🚩 신고
+              </button>
+            </div>
           ));
         })()}
 
@@ -474,6 +485,15 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
       </div>
 
       {photoWork && <PhotoModal work={{ ...photoWork, companyName: company.name }} onClose={() => setPhotoWork(null)} />}
+      {reportImg && (
+        <PortfolioReportModal
+          companyId={company.id}
+          imageUrl={reportImg.imageUrl}
+          portfolioId={reportImg.portfolioId}
+          onClose={() => setReportImg(null)}
+          onSubmitted={(ok) => { if (ok) setReportImg(null); }}
+        />
+      )}
       {showWriteModal && (
         <PortfolioWriteModal
           companyId={company.id}

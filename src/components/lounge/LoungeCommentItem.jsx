@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 
-export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, currentUserId }) {
+export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId }) {
   const avatar  = getAnonymousAvatarByNickname(comment.anonymous_nickname);
   const [liked, setLiked] = useState(false);
 
@@ -20,9 +20,15 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
   const canChat = comment.user_id != null
     && comment.user_id !== currentUserId
     && !comment.is_expert_reply;
+  // 업체(전문가 답변) 작성자 → 미니 포트폴리오 모달로 연결(본인 제외)
+  const isCompanyAuthor = comment.is_expert_reply === true
+    && comment.user_id != null
+    && comment.user_id !== currentUserId;
+  const clickableAuthor = canChat || isCompanyAuthor;
 
   const handleAuthorClick = () => {
-    if (canChat) onAuthorClick?.(comment);
+    if (isCompanyAuthor) onCompanyClick?.(comment);
+    else if (canChat) onAuthorClick?.(comment);
   };
 
   const expertWrap = comment.is_expert_reply
@@ -53,7 +59,7 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
             background: avatar.color,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 16, flexShrink: 0,
-            cursor: canChat ? 'pointer' : 'default',
+            cursor: clickableAuthor ? 'pointer' : 'default',
           }}
         >
           {avatar.emoji}
@@ -62,7 +68,7 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
           onClick={handleAuthorClick}
           style={{
             fontWeight: 800, fontSize: 13, color: C.text1,
-            cursor: canChat ? 'pointer' : 'default',
+            cursor: clickableAuthor ? 'pointer' : 'default',
           }}
         >{comment.anonymous_nickname}</span>
         {comment.is_expert_reply && (
