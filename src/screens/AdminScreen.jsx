@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
 import { COMPANY_STATUS_META } from "../constants";
+import { LOUNGE_CATEGORIES } from "../constants/lounge";
 import {
   supabase,
   getCompanies, getUsers, getUser, getUserByPhone,
@@ -53,22 +54,54 @@ import AdminKpiPanel from "../components/AdminKpiPanel";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
 import { toE164KR } from "../lib/testAccounts";
 
-const SEED_CATEGORIES = [
-  { id: 'interior',   label: '인테리어' },
-  { id: 'room_deco',  label: '집꾸미기' },
-  { id: 'worry',      label: '고민' },
-  { id: 'daily',      label: '생활' },
-  { id: 'chat',       label: '대화해요' },
-  { id: 'realestate', label: '부동산' },
-  { id: 'startup',    label: '창업' },
-  { id: 'travel',     label: '여행' },
-  { id: 'humor',      label: '유머' },
-  { id: 'pet',        label: '반려동물' },
-  { id: 'exercise',   label: '운동' },
-  { id: 'food',       label: '맛집' },
+// 라운지 시딩 카테고리 — 통합 Category Master(LOUNGE_CATEGORIES) 기준. 작성 가능 카테고리만 사용.
+// 관리자/사용자/글쓰기/라운지피드가 동일 마스터를 공유(오래된 slug worry/food/chat 제거).
+const SEED_CATEGORIES = LOUNGE_CATEGORIES
+  .filter(c => c.group !== null)
+  .map(c => ({ id: c.id, label: c.label }));
+
+// 작성자/글 유형 (seed_type) — text 저장(enum 아님, 확장 대비). 업체/전문가는 전문가 표시.
+const SEED_TYPES = [
+  { id: '운영',   label: '운영',       expert: false },
+  { id: '의뢰인', label: '의뢰인 예시', expert: false },
+  { id: '업체',   label: '업체 예시',   expert: true  },
+  { id: '전문가', label: '전문가 예시', expert: true  },
 ];
 
-const BLANK_LOUNGE_SEED = { category: 'interior', title: '', content: '', author_name: '공간마켓', sort_order: 0, is_active: true };
+// 카테고리별 시딩 글 유형 힌트(⑥) — 작성 보조용(표시 전용)
+const SEED_TYPE_HINTS = {
+  interior:    '비용 설명 · 자재 선택 · 공간별 팁 · 업체 선택 기준',
+  review:      'Before/After 후기 · 공사 과정 · 만족/아쉬운 점 · 비용 차이 사례',
+  quote_worry: '20·30평 견적 고민 · 욕실/주방/도배/장판 비용 · 업체별 견적 차이 · 예산 조정',
+  room_deco:   '조명 · 수납 · 색상 · 가구 배치 · 홈스타일링',
+  move_in:     '입주 전 체크리스트 · 입주청소 · 하자 점검 · 이사 전 인테리어',
+  realestate:  '구축 아파트 · 신축 입주 · 전세/매매 전 확인 · 집 상태 점검',
+  health:      '수면 환경 · 실내 공기 · 홈트 공간 · 생활 습관',
+  stock:       '초보 투자 고민 · 월급 관리 · 투자 공부 · 리스크 관리',
+  ai:          'ChatGPT 활용 · AI 업무 자동화 · 앱 추천 · 생산성 도구',
+  jobs:        '이직 고민 · 면접 · 연봉 · 직장생활',
+  pet:         '미끄럼 방지 바닥 · 냄새 관리 · 반려동물 공간 · 안전한 집',
+  daily:       '생활 팁 · 청소 · 정리 · 살림',
+  local:       '지역 이야기 · 동네 정보 · 주변 생활',
+  humor:       '가벼운 이야기 · 일상 · 질문',
+  free:        '가벼운 이야기 · 일상 · 질문',
+};
+
+// 검색 유입용 작성 가이드(⑦) — 화면에 'SEO' 미노출
+const SEED_WRITE_GUIDE = '지역, 공간, 고민을 함께 적으면 더 많은 사람이 참고하기 좋아요.';
+const SEED_TITLE_EXAMPLES = [
+  '강서구 32평 리모델링 비용이 왜 다를까?',
+  '부천 욕실 공사 전에 확인할 것',
+  '구축 아파트 입주 전 체크리스트',
+  '반려동물 있는 집 바닥재 고르는 법',
+];
+
+const BLANK_LOUNGE_SEED = {
+  category: 'interior', seed_type: '운영', title: '', content: '',
+  region: '', author_name: '공간마켓',
+  expert_company_name: '', expert_badge: '', expert_job: '',
+  sort_order: 0, is_recommended: false, is_active: true,
+};
 
 // ── 리뷰 어드민 탭 ────────────────────────────────────────
 function ReviewAdminTab({ adminUserId, showToast }) {
@@ -741,7 +774,20 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
 
   const openEdit = (s) => {
     setEditTarget(s);
-    setForm({ category: s.category ?? 'interior', title: s.title ?? '', content: s.content, author_name: s.author_name ?? '공간마켓', sort_order: s.sort_order ?? 0, is_active: s.is_active ?? true });
+    setForm({
+      category: s.category ?? 'interior',
+      seed_type: s.seed_type ?? '운영',
+      title: s.title ?? '',
+      content: s.content,
+      region: s.region ?? '',
+      author_name: s.author_name ?? '공간마켓',
+      expert_company_name: s.expert_company_name ?? '',
+      expert_badge: s.expert_badge ?? '',
+      expert_job: s.expert_job ?? '',
+      sort_order: s.sort_order ?? 0,
+      is_recommended: s.is_recommended ?? false,
+      is_active: s.is_active ?? true,
+    });
     setImages(Array.isArray(s.image_urls) ? s.image_urls : []);
     setSaveErr(null);
     setView("form");
@@ -762,7 +808,23 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
     if (!form.content.trim()) { setSaveErr("내용을 입력하세요"); return; }
     setSaving(true);
     setSaveErr(null);
-    const payload = { ...form, image_urls: images, sort_order: Number(form.sort_order) || 0 };
+    const isExpert = !!SEED_TYPES.find(t => t.id === form.seed_type)?.expert;
+    const payload = {
+      category:            form.category,
+      seed_type:           form.seed_type || '운영',
+      title:               form.title,
+      content:             form.content,
+      region:              form.region?.trim() || null,
+      author_name:         form.author_name?.trim() || '공간마켓',
+      image_urls:          images,
+      sort_order:          Number(form.sort_order) || 0,
+      is_recommended:      !!form.is_recommended,
+      is_active:           !!form.is_active,
+      is_expert:           isExpert,
+      expert_company_name: isExpert ? (form.expert_company_name?.trim() || null) : null,
+      expert_badge:        isExpert ? (form.expert_badge?.trim() || null) : null,
+      expert_job:          isExpert ? (form.expert_job?.trim() || null) : null,
+    };
     const { error } = editTarget
       ? await updateSeedLoungePost(editTarget.id, payload)
       : await createSeedLoungePost(payload);
@@ -830,8 +892,11 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
                     {catLabel(s.category)}
                   </span>
                   <span style={{ fontSize: 10, fontWeight: 700, color: s.is_active ? "#27AE60" : C.text4 }}>
-                    {s.is_active ? "활성" : "비활성"}
+                    {s.is_active ? "활성" : "숨김"}
                   </span>
+                  {s.is_recommended && <span style={{ fontSize: 10, fontWeight: 700, color: "#8A6D2A", background: "#C4A96A22", border: "1px solid #C4A96A", borderRadius: R.sm, padding: "0 5px" }}>추천</span>}
+                  {s.seed_type && s.seed_type !== '운영' && <span style={{ fontSize: 10, color: C.text3 }}>· {s.seed_type}</span>}
+                  {s.region && <span style={{ fontSize: 10, color: C.text4 }}>· {s.region}</span>}
                   <span style={{ fontSize: 10, color: C.text4 }}>순서:{s.sort_order}</span>
                 </div>
                 {s.title && <div style={{ fontSize: 12, fontWeight: 700, color: C.text1, marginBottom: 2 }}>{s.title}</div>}
@@ -863,13 +928,35 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
             {editTarget ? "시딩 글 수정" : "새 시딩 글 등록"}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: S.md }}>
-            <div>
-              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>카테고리</div>
-              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }}>
-                {SEED_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-              </select>
+            {/* 작성 가이드(⑦) — 화면에 'SEO' 미노출 */}
+            <div style={{ background: C.brandL, border: `1px solid ${C.brandM}`, borderRadius: R.md, padding: `${S.sm}px ${S.md}px` }}>
+              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6 }}>💡 {SEED_WRITE_GUIDE}</div>
+              <div style={{ fontSize: 11, color: C.text3, marginTop: 4, lineHeight: 1.6 }}>
+                예) {SEED_TITLE_EXAMPLES.join(' / ')}
+              </div>
             </div>
+
+            <div style={{ display: "flex", gap: S.sm }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>카테고리</div>
+                <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }}>
+                  {SEED_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>글 유형 (작성자)</div>
+                <select value={form.seed_type} onChange={e => setForm(f => ({ ...f, seed_type: e.target.value }))}
+                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }}>
+                  {SEED_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+              </div>
+            </div>
+            {SEED_TYPE_HINTS[form.category] && (
+              <div style={{ fontSize: 11, color: C.text3, marginTop: -4, lineHeight: 1.6 }}>
+                추천 소재: {SEED_TYPE_HINTS[form.category]}
+              </div>
+            )}
             <div>
               <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>제목 (선택)</div>
               <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -882,20 +969,57 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
                 placeholder="게시글 내용을 입력하세요" rows={6}
                 style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", resize: "vertical", boxSizing: "border-box" }} />
             </div>
-            <div>
-              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>작성자명</div>
-              <input value={form.author_name} onChange={e => setForm(f => ({ ...f, author_name: e.target.value }))}
-                placeholder="공간마켓"
-                style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
+            <div style={{ display: "flex", gap: S.sm }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>지역 (선택)</div>
+                <input value={form.region} onChange={e => setForm(f => ({ ...f, region: e.target.value }))}
+                  placeholder="예: 부천시, 강서구"
+                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>작성자 표시명</div>
+                <input value={form.author_name} onChange={e => setForm(f => ({ ...f, author_name: e.target.value }))}
+                  placeholder="공간마켓"
+                  style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
+              </div>
             </div>
+
+            {/* 업체/전문가 유형일 때만 전문가 표시 확장 필드 노출 */}
+            {!!SEED_TYPES.find(t => t.id === form.seed_type)?.expert && (
+              <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>업체/전문가명</div>
+                  <input value={form.expert_company_name} onChange={e => setForm(f => ({ ...f, expert_company_name: e.target.value }))}
+                    placeholder="예: 공간사이 인테리어"
+                    style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 100 }}>
+                  <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>배지 (선택)</div>
+                  <input value={form.expert_badge} onChange={e => setForm(f => ({ ...f, expert_badge: e.target.value }))}
+                    placeholder="예: 공간사이 추천"
+                    style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 100 }}>
+                  <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>직군/업종 (선택)</div>
+                  <input value={form.expert_job} onChange={e => setForm(f => ({ ...f, expert_job: e.target.value }))}
+                    placeholder="예: 욕실 전문"
+                    style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
+                </div>
+              </div>
+            )}
+
             <div>
               <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>노출 순서 (낮을수록 먼저)</div>
               <input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}
                 style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
             </div>
             <label style={{ display: "flex", alignItems: "center", gap: S.xs, cursor: "pointer", fontSize: 13, color: C.text1 }}>
+              <input type="checkbox" checked={form.is_recommended} onChange={e => setForm(f => ({ ...f, is_recommended: e.target.checked }))} />
+              추천글 (피드 상단 우선 노출 · 순서와 별개)
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: S.xs, cursor: "pointer", fontSize: 13, color: C.text1 }}>
               <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
-              활성 (라운지에 노출)
+              활성 (라운지에 노출) · 끄면 숨김
             </label>
             <div>
               <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>이미지 ({images.length}개)</div>
@@ -912,6 +1036,26 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
                 {uploading ? "업로드 중..." : "📷 이미지 추가"}
                 <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} style={{ display: "none" }} />
               </label>
+            </div>
+            {/* 미리보기(⑪) — 사용자 피드 카드 형태로 확인 */}
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>미리보기</div>
+              <div style={{ background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: S.md }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: C.brand, background: C.brandL, borderRadius: R.sm, padding: "1px 7px" }}>{catLabel(form.category)}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: C.text3, background: C.surface2, borderRadius: R.sm, padding: "1px 7px" }}>운영</span>
+                  {form.is_recommended && <span style={{ fontSize: 10, fontWeight: 700, color: "#8A6D2A", background: "#C4A96A22", border: "1px solid #C4A96A", borderRadius: R.sm, padding: "1px 7px" }}>추천</span>}
+                  {!!SEED_TYPES.find(t => t.id === form.seed_type)?.expert && <span style={{ fontSize: 10, fontWeight: 700, color: "#8A6D2A", background: "#C4A96A22", border: "1px solid #C4A96A", borderRadius: R.sm, padding: "1px 7px" }}>전문가</span>}
+                  {form.region?.trim() && <span style={{ fontSize: 10, color: C.text4 }}>· {form.region.trim()}</span>}
+                </div>
+                {form.title?.trim() && <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 2 }}>{form.title.trim()}</div>}
+                <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5, whiteSpace: "pre-wrap", maxHeight: 60, overflow: "hidden" }}>{(form.content ?? '').trim() || '내용 미리보기'}</div>
+                <div style={{ fontSize: 10, color: C.text4, marginTop: 4 }}>
+                  by {form.author_name?.trim() || '공간마켓'}
+                  {!!SEED_TYPES.find(t => t.id === form.seed_type)?.expert && form.expert_company_name?.trim() && ` · ${form.expert_company_name.trim()}`}
+                  {!!SEED_TYPES.find(t => t.id === form.seed_type)?.expert && form.expert_badge?.trim() && ` · ${form.expert_badge.trim()}`}
+                </div>
+              </div>
             </div>
             {saveErr && <div style={{ fontSize: 12, color: C.red, background: "#FEF0F0", borderRadius: R.sm, padding: S.sm }}>{saveErr}</div>}
             <button onClick={handleSave} disabled={saving}
