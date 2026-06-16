@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 
-export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, currentUserId }) {
+export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId }) {
   const avatar  = getAnonymousAvatarByNickname(comment.anonymous_nickname);
   const [liked, setLiked] = useState(false);
 
@@ -20,17 +20,25 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
   const canChat = comment.user_id != null
     && comment.user_id !== currentUserId
     && !comment.is_expert_reply;
+  // 업체(전문가 답변) 작성자 → 미니 포트폴리오 모달로 연결(본인 제외)
+  const isCompanyAuthor = comment.is_expert_reply === true
+    && comment.user_id != null
+    && comment.user_id !== currentUserId;
+  const clickableAuthor = canChat || isCompanyAuthor;
 
   const handleAuthorClick = () => {
-    if (canChat) onAuthorClick?.(comment);
+    if (isCompanyAuthor) onCompanyClick?.(comment);
+    else if (canChat) onAuthorClick?.(comment);
   };
 
+  // 전문가(업체) 답변 강조 — 일반 댓글과 명확히 구분(배경/테두리/배지)
   const expertWrap = comment.is_expert_reply
     ? {
         background: C.brandL,
-        borderRadius: R.md,
-        padding: 8,
-        borderLeft: `3px solid ${C.brand}`,
+        borderRadius: R.lg,
+        padding: 10,
+        border: `1.5px solid ${C.brand}`,
+        boxShadow: `0 2px 10px ${C.brand}22`,
         marginBottom: S.sm,
       }
     : {};
@@ -53,7 +61,7 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
             background: avatar.color,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 16, flexShrink: 0,
-            cursor: canChat ? 'pointer' : 'default',
+            cursor: clickableAuthor ? 'pointer' : 'default',
           }}
         >
           {avatar.emoji}
@@ -62,12 +70,12 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
           onClick={handleAuthorClick}
           style={{
             fontWeight: 800, fontSize: 13, color: C.text1,
-            cursor: canChat ? 'pointer' : 'default',
+            cursor: clickableAuthor ? 'pointer' : 'default',
           }}
         >{comment.anonymous_nickname}</span>
         {comment.is_expert_reply && (
-          <span style={{ background: C.brand, color: '#fff', borderRadius: R.full, padding: '2px 8px', fontSize: 10, fontWeight: 800 }}>
-            🏆 전문가 답변
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.brand, color: '#fff', borderRadius: R.full, padding: '2px 9px', fontSize: 10, fontWeight: 800 }}>
+            🏅 공간보증 · 전문가 답변
           </span>
         )}
         <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>
@@ -88,9 +96,16 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
       )}
 
       <div style={{ display: 'flex', gap: S.lg, alignItems: 'center', paddingLeft: 38 }}>
-        <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 700 : 400, padding: 0 }}>
-          {liked ? '❤️' : '🤍'} {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
-        </button>
+        {comment.is_expert_reply ? (
+          // 전문가 답변 — "도움이 되었어요"(기존 좋아요 재사용, 문구만 변경)
+          <button onClick={handleLike} style={{ background: liked ? C.brand : 'none', border: `1px solid ${liked ? C.brand : C.bgWarm}`, borderRadius: R.full, cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#fff' : C.text2, fontWeight: 700, padding: '4px 12px' }}>
+            👍 도움이 되었어요 {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
+          </button>
+        ) : (
+          <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 700 : 400, padding: 0 }}>
+            {liked ? '❤️' : '🤍'} {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
+          </button>
+        )}
         {!isReply && (
           <button onClick={() => onReply?.(comment)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text3, padding: 0 }}>
             답글

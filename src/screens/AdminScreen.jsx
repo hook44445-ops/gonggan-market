@@ -4082,6 +4082,22 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           “{r.trigger_detail.message}”
                         </div>
                       )}
+                      {/* 포트폴리오 이미지 신고(LOUNGE-CONVERSION-v3.1) — 신고 사유 + 대상 이미지 */}
+                      {r.trigger_detail?.kind === "portfolio_image" && (
+                        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: S.sm,
+                          background: "#FFF6F6", border: "1px solid #F5C6C6", borderRadius: R.md, padding: "8px 10px" }}>
+                          {r.trigger_detail.image_url && (
+                            <img src={r.trigger_detail.image_url} alt="" style={{ width: 56, height: 56, borderRadius: R.sm, objectFit: "cover", flexShrink: 0 }} />
+                          )}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.red, marginBottom: 2 }}>🚩 포트폴리오 이미지 신고</div>
+                            <div style={{ fontSize: 12, color: C.text2 }}>{r.trigger_detail.reason || "사유 미기재"}</div>
+                            {r.trigger_detail.portfolio_id && (
+                              <div style={{ fontSize: 10.5, color: C.text4, marginTop: 2 }}>portfolio: {String(r.trigger_detail.portfolio_id).slice(0, 8)}…</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <div style={{ fontSize: 11, color: C.text4, marginBottom: S.sm }}>
                         {r.request_id ? `request: ${String(r.request_id).slice(0, 8)}… ` : ""}
                         {r.company_id ? `company: ${String(r.company_id).slice(0, 8)}…` : ""}
