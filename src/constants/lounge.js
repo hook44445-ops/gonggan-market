@@ -14,7 +14,8 @@
 // ─────────────────────────────────────────────────────
 
 // 카테고리 정리 (LOUNGE-CATEGORY-v2.0, 2026.06)
-//  · 추가: 건강(health)/IT·AI(ai)/취업(jobs)/맛집(restaurant)
+//  · 추가: 건강(health)/취업(jobs)/맛집(restaurant)
+//  · 제거: IT·AI(ai) — 칩/필터/작성/시딩에서 제외. 기존 글은 보존하고 '자유' 라벨로 표시만 매핑(아래 LEGACY_CATEGORY_LABELS).
 //  · 재활성화: 반려동물(pet)/여행(travel) — 비활성 목록에서 제거(기존 글의 DB is_visible 상태는 그대로 유지)
 //  · 노출 중단: 업체추천(recommend) — 칩/필터/라벨 목록에서 제외. id·기존 글·데이터·SEO·CTA는 보존(숨김·삭제·Migration 없음).
 //    업체 발견은 카테고리가 아닌 시공후기/견적고민/인테리어 글 내부 업체 프로필 연결로 대체 예정.
@@ -34,7 +35,6 @@ export const LOUNGE_CATEGORIES = [
   { id: 'dating',      label: '❤️ 연애',      group: '일상' },
   { id: 'health',      label: '건강',        group: '일상' },
   { id: 'stock',       label: '주식',        group: '경제' },
-  { id: 'ai',          label: 'IT·AI',      group: '일상' },
   { id: 'jobs',        label: '취업',        group: '경제' },
   { id: 'pet',         label: '반려동물',     group: '일상' },
   { id: 'exercise',    label: '운동',        group: '취미' },
@@ -93,6 +93,8 @@ export const SPACE_TEMPERATURE_BASE = 36.5;
 // 배지를 원문 'recommend'가 아닌 '업체추천'으로 표시하기 위한 표시 전용 매핑(회귀 방지). DB·SEO·slug 불변.
 const LEGACY_CATEGORY_LABELS = {
   recommend: '🛡️ 업체추천',
+  // IT·AI(ai) 카테고리 제거(2026.06) — 기존 category='ai' 글은 삭제하지 않고 '자유'로 표시만 매핑(DB·Migration 없음).
+  ai: '자유',
 };
 
 // 활성 카테고리 라벨이 우선, 레거시 라벨은 충돌 없는 항목만 보존(표시 전용)
