@@ -125,7 +125,7 @@ const TRUST = [
 
 // ── Onboarding steps ───────────────────────────────────────────────────────────
 const ONBOARDING = [
-  { num: 1, title: "파트너 상담 신청",      desc: "아래 양식으로 신청하시면 1~2 영업일 내 연락드립니다" },
+  { num: 1, title: "파트너 신청",      desc: "아래 양식으로 신청하시면 1~2 영업일 내 연락드립니다" },
   { num: 2, title: "서류 검토 및 가입 승인", desc: "사업자·보험·이력 서류 확인 후 계정이 활성화됩니다" },
   { num: 3, title: "보증금 예치 등급 설정",  desc: "예치 금액에 따라 수주 가능 금액 한도가 결정됩니다" },
   { num: 4, title: "프로필·포트폴리오 작성", desc: "시공 사례, 전문 분야, 자격 정보를 등록합니다" },
@@ -877,7 +877,7 @@ export default function PartnerLandingScreen() {
 
       {/* ── ONBOARDING STEPS ────────────────────────────────────── */}
       <Section bg={WHITE}>
-        <SectionTitle label="파트너 입점 6단계" sub="가입부터 첫 수주까지" />
+        <SectionTitle label="파트너 입점 6단계" sub="파트너 신청부터 첫 수주까지" />
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
           {ONBOARDING.map(({ num, title, desc }, i) => (
             <div key={num} style={{

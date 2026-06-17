@@ -33,11 +33,11 @@ export default function SpaceActivityRecord({
   useEffect(() => {
     let alive = true;
     if (!ownerId && !companyId) { setRec({ loaded: true, isEmpty: true }); return; }
-    getSpaceActivityRecord({ ownerId, companyId })
+    getSpaceActivityRecord({ ownerId, companyId, countsOnly: compact })
       .then((r) => { if (alive) setRec(r); })
       .catch(() => { if (alive) setRec({ loaded: true, isEmpty: true }); });
     return () => { alive = false; };
-  }, [ownerId, companyId]);
+  }, [ownerId, companyId, compact]);
 
   // ── compact(입찰 카드 요약) ────────────────────────────────────────────────
   if (compact) {
@@ -88,9 +88,10 @@ export default function SpaceActivityRecord({
   const metrics = [
     ["프로젝트 완료", rec.projectsCompleted, "건"],
     ["견적 응답",     rec.bidResponses,      "회"],
-    ["라운지 답변",   rec.loungeAnswers,     "개"],
-    ["시공사례",      rec.constructionCases, "건"],
     ["리뷰",          rec.reviews,           "개"],
+    ["시공사례",      rec.constructionCases, "건"],
+    ["라운지 답변",   rec.loungeAnswers,     "개"],
+    ["라운지 게시글", rec.loungePosts ?? 0,  "개"],
   ];
 
   return (

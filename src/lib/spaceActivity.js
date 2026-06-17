@@ -8,10 +8,26 @@
 // ════════════════════════════════════════════════════════════════════════════
 import { supabase } from "./supabase";
 
+// 향후 확장(설계만 — 지금은 집계에만 사용, 기능 추가 없음): 활동 타입 식별자.
+// 고객/전문가/관리자 공용 Activity 구조로 확장 시 사용 예정.
+export const ACTIVITY_TYPES = Object.freeze({
+  BID_RESPONSE:     "BID_RESPONSE",      // 견적 응답 (bids)
+  PROJECT_COMPLETE: "PROJECT_COMPLETE",  // 프로젝트 완료 (escrow_payments SETTLED/COMPLETED)
+  REVIEW_RECEIVED:  "REVIEW_RECEIVED",   // 리뷰 (reviews)
+  LOUNGE_POST:      "LOUNGE_POST",       // 라운지 게시글 (lounge_posts)
+  LOUNGE_COMMENT:   "LOUNGE_COMMENT",    // 라운지 답변 (lounge_comments)
+  PROJECT_PHOTO:    "PROJECT_PHOTO",     // (향후) 시공 사진
+  CUSTOMER_RECOMMEND: "CUSTOMER_RECOMMEND", // (향후) 고객 추천
+});
+
 const cnt = async (builder) => {
   try { const { count } = await builder; return count ?? 0; }
   catch { return 0; }
 };
+
+// 세션 메모 캐시 — 동일 업체가 여러 입찰 카드에 반복 노출돼도 중복 쿼리를 막는다.
+// 읽기 전용 집계라 세션 내 약간의 staleness 는 허용. 키: companyId|ownerId|countsOnly.
+const _cache = new Map();
 
 // 최근 활동(베스트-에포트) — 타입별 최신 몇 건을 합쳐 created_at 내림차순 상위 5.
 async function buildRecent({ ownerId, companyId }) {
@@ -61,11 +77,12 @@ async function buildRecent({ ownerId, companyId }) {
 }
 
 // 공간 활동기록 집계. 반환: { projectsCompleted, bidResponses, loungeAnswers,
-//   constructionCases, reviews, recent[], total, isEmpty, loaded }.
-export async function getSpaceActivityRecord({ ownerId = null, companyId = null } = {}) {
+//   constructionCases, loungePosts, reviews, recent[], total, isEmpty, loaded }.
+// countsOnly=true 면 최근 활동 조회를 생략(요약/입찰 카드용 — 쿼리 최소화).
+async function _compute({ ownerId = null, companyId = null, countsOnly = false }) {
   const r = {
     projectsCompleted: 0, bidResponses: 0, loungeAnswers: 0,
-    constructionCases: 0, reviews: 0, recent: [], total: 0, isEmpty: true, loaded: false,
+    constructionCases: 0, loungePosts: 0, reviews: 0, recent: [], total: 0, isEmpty: true, loaded: false,
   };
   const jobs = [];
   if (companyId) {
@@ -88,11 +105,27 @@ export async function getSpaceActivityRecord({ ownerId = null, companyId = null 
       .eq("user_id", ownerId).eq("is_story", true)
       .or("is_deleted.is.null,is_deleted.eq.false").or("is_hidden.is.null,is_hidden.eq.false"))
       .then((n) => { r.constructionCases = n; }));
+    jobs.push(cnt(supabase.from("lounge_posts").select("id", { count: "exact", head: true })
+      .eq("user_id", ownerId).eq("is_story", false)
+      .or("is_deleted.is.null,is_deleted.eq.false").or("is_hidden.is.null,is_hidden.eq.false"))
+      .then((n) => { r.loungePosts = n; }));
   }
   await Promise.all(jobs);
-  r.recent = await buildRecent({ ownerId, companyId }).catch(() => []);
-  r.total = r.projectsCompleted + r.bidResponses + r.loungeAnswers + r.constructionCases + r.reviews;
+  if (!countsOnly) r.recent = await buildRecent({ ownerId, companyId }).catch(() => []);
+  r.total = r.projectsCompleted + r.bidResponses + r.loungeAnswers
+    + r.constructionCases + r.loungePosts + r.reviews;
   r.isEmpty = r.total === 0;
   r.loaded = true;
   return r;
+}
+
+export function getSpaceActivityRecord({ ownerId = null, companyId = null, countsOnly = false } = {}) {
+  const key = `${companyId ?? ""}|${ownerId ?? ""}|${countsOnly ? 1 : 0}`;
+  if (_cache.has(key)) return _cache.get(key);
+  const p = _compute({ ownerId, companyId, countsOnly }).catch((e) => {
+    _cache.delete(key); // 실패는 캐시하지 않음(다음 호출에서 재시도)
+    throw e;
+  });
+  _cache.set(key, p);
+  return p;
 }
