@@ -582,6 +582,44 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         </div>
       </div>
 
+      {/* ── 공간마켓 소개 (Additive · FAQ 아래 / Footer 위) ─────────── */}
+      <div style={{ padding: "44px 20px", background: C.bg }}>
+        <div style={{ maxWidth: 480, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", fontSize: 22, fontWeight: 900, color: C.brand, marginBottom: 16 }}>공간마켓</div>
+          <p style={{ fontSize: 14, lineHeight: 1.8, color: C.text2, margin: "0 0 12px" }}>
+            공간마켓은 우리 동네 인테리어 업체를 쉽고 편하게 비교하고 상담할 수 있는 플랫폼입니다.
+          </p>
+          <p style={{ fontSize: 14, lineHeight: 1.8, color: C.text2, margin: "0 0 24px" }}>
+            도배, 장판, 욕실, 주방, 리모델링, 상업공간, 부분시공 등 다양한 공사에 맞는 업체를 찾아 견적을 비교하고 상담할 수 있습니다.
+          </p>
+
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 12 }}>주요 기능</div>
+          <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 9 }}>
+            {[
+              "무료 견적 요청",
+              "여러 업체 비교",
+              "실시간 채팅 상담",
+              "프로젝트 진행 관리",
+              "시공 사진 및 진행 과정 확인",
+              "업체 리뷰 및 평점 확인",
+              "안전한 결제 시스템",
+            ].map((f) => (
+              <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 14, lineHeight: 1.6, color: C.text2 }}>
+                <span style={{ color: C.brand, fontWeight: 900, flexShrink: 0 }}>•</span>
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+
+          <p style={{ fontSize: 14, lineHeight: 1.8, color: C.text2, margin: "0 0 12px" }}>
+            공간마켓은 단순히 업체를 연결하는 것을 넘어 고객과 업체 모두가 안심하고 거래할 수 있는 환경을 만들어갑니다.
+          </p>
+          <p style={{ fontSize: 14, lineHeight: 1.8, color: C.text2, margin: 0 }}>
+            검증된 정보와 투명한 진행 과정을 통해 더 좋은 공간을 만드는 경험을 제공합니다.
+          </p>
+        </div>
+      </div>
+
       {/* ── Footer: 사업자 정보 + 버전 ───────────────────────────── */}
       <div style={{
         marginTop: "auto",

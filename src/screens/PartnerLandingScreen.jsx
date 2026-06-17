@@ -877,7 +877,7 @@ export default function PartnerLandingScreen() {
 
       {/* ── ONBOARDING STEPS ────────────────────────────────────── */}
       <Section bg={WHITE}>
-        <SectionTitle label="파트너 입점 6단계" sub="파트너 신청부터 첫 수주까지" />
+        <SectionTitle label="파트너 입점 가이드" sub="파트너 신청부터 첫 수주까지" />
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
           {ONBOARDING.map(({ num, title, desc }, i) => (
             <div key={num} style={{
