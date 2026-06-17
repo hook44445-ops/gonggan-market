@@ -2,6 +2,7 @@ import { useState } from "react";
 import { C, R, S } from "../constants";
 import { MIN_BID_MANWON, isValidBidManwon } from "../utils/calculations";
 import { BADGES } from "../constants/badges";
+import SpaceActivityRecord from "./SpaceActivityRecord"; // v5.5: 공간 활동기록 요약(Add Only)
 import { TempBadge } from "./common";
 import GuaranteeBadge from "./GuaranteeBadge";
 
@@ -279,6 +280,11 @@ export default function BidCard({
               <span style={{ fontSize: 12, color: companyBadge.color, fontWeight: 700 }}>
                 {companyBadge.label} · 최대 {companyBadge.maxAmount.toLocaleString()}만원까지 입찰 가능
               </span>
+            </div>
+
+            {/* v5.5: 공간 활동기록 요약(④ 입찰 카드) — 실데이터만, 기록 없으면 미표시 */}
+            <div style={{ marginBottom: S.md }}>
+              <SpaceActivityRecord compact companyId={company?.id ?? null} ownerId={company?.ownerId ?? null} />
             </div>
 
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 6 }}>견적 금액 (만원) <span style={{ color: C.red }}>*</span></div>

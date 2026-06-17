@@ -4,6 +4,7 @@ import { TempBadge, CertBadge } from "../components/common";
 import PortfolioCard from "../components/PortfolioCard";
 import PhotoModal from "../components/PhotoModal";
 import PortfolioReportModal from "../components/lounge/PortfolioReportModal";
+import SpaceActivityRecord from "../components/SpaceActivityRecord"; // v5.4.0: 공간 활동기록(Add Only)
 import { getPortfolios, createPortfolio, uploadFile, getReviews } from "../lib/supabase";
 
 const GOLD = "#C4A96A";
@@ -399,6 +400,9 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
             </div>
           </div>
         </div>
+
+        {/* v5.4.0: 회사 소개 아래 — 공간 활동기록(실데이터, Add Only) */}
+        <SpaceActivityRecord companyId={company.id} ownerId={company.ownerId} />
 
         <button onClick={onReview} style={{ width:"100%", background:C.surface,
           border:`1px solid ${C.bgWarm}`, borderRadius:R.xl, padding:S.xl,
