@@ -6,19 +6,27 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: curl all URL variants
+      - name: Yeti UA full response + edge cache
         run: |
           P="naverdd7f227f04689ae77e06293315940389.html"
-          for U in \
-            "https://gongganmarket.com/$P" \
-            "https://www.gongganmarket.com/$P" \
-            "http://gongganmarket.com/$P" \
-            "http://www.gongganmarket.com/$P"; do
-            echo "================ $U ================"
-            curl -sS -o /tmp/b -w "final_url=%{url_effective}\nHTTP %{http_code} | type=%{content_type} | redirects=%{num_redirects} | size=%{size_download}\n" --max-time 30 -L "$U" 2>&1 || true
-            echo "---- body ----"; cat /tmp/b; echo; echo
+          YETI="Mozilla/5.0 (compatible; Yeti/1.1; +http://naver.me/spd)"
+          echo "################ 1) HTTPS + Yeti UA : 헤더 전문 + 본문 ################"
+          curl -sS -D - -A "$YETI" "https://gongganmarket.com/$P"
+          echo; echo
+          echo "################ 2) HTTPS + Yeti UA : 캐시 우회(?_=ts) ################"
+          curl -sS -D - -A "$YETI" "https://gongganmarket.com/$P?_=$(date +%s)" | grep -iE "HTTP/|x-vercel-cache|age:|content-type|etag|x-vercel-id|<meta"
+          echo
+          echo "################ 3) 일반 UA vs Yeti UA 본문 바이트 동일성 ################"
+          curl -sS -A "$YETI" "https://gongganmarket.com/$P" -o /tmp/yeti
+          curl -sS -A "Mozilla/5.0" "https://gongganmarket.com/$P" -o /tmp/normal
+          echo "yeti  sha: $(sha256sum /tmp/yeti | cut -d' ' -f1)  size=$(wc -c </tmp/yeti)"
+          echo "normal sha: $(sha256sum /tmp/normal | cut -d' ' -f1)  size=$(wc -c </tmp/normal)"
+          diff <(cat /tmp/yeti) <(cat /tmp/normal) && echo "=> 본문 동일(UA 무관)" || echo "=> 본문 다름!"
+          echo
+          echo "################ 4) 3회 연속 요청 캐시 상태 추이 ################"
+          for n in 1 2 3; do
+            curl -sS -D - -o /dev/null -A "$YETI" "https://gongganmarket.com/$P" | grep -iE "x-vercel-cache|age:|x-vercel-id" | tr '\n' ' '; echo " (req $n)"
           done
-          echo "================ Yeti UA, no-follow (네이버 봇이 보는 그대로) ================"
-          curl -sS -o /tmp/y -w "HTTP %{http_code} | type=%{content_type} | redirects=%{num_redirects}\n" --max-time 30 \
-            -A "Mozilla/5.0 (compatible; Yeti/1.1; +http://naver.me/spd)" "http://gongganmarket.com/$P" 2>&1 || true
-          echo "---- body(yeti http, no -L) ----"; cat /tmp/y; echo
+          echo
+          echo "################ 5) Yeti UA 본문 hexdump(앞 120바이트, 숨은 문자 확인) ################"
+          head -c 120 /tmp/yeti | xxd
