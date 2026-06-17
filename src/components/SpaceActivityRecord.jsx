@@ -25,6 +25,13 @@ const daysAgoLabel = (iso) => {
   return `${Math.floor(d / 365)}년 전`;
 };
 
+const ymdLabel = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+};
+
 export default function SpaceActivityRecord({
   ownerId = null, companyId = null, title = "공간 활동기록", selfView = false, compact = false,
 }) {
@@ -92,16 +99,50 @@ export default function SpaceActivityRecord({
     ["시공사례",      rec.constructionCases, "건"],
     ["라운지 답변",   rec.loungeAnswers,     "개"],
     ["라운지 게시글", rec.loungePosts ?? 0,  "개"],
+    ["받은 좋아요",   rec.likesReceived ?? 0, "개"],
   ];
+
+  // 전문가(업체) 부가 정보 — 전문가 계정(companyId)일 때, 실데이터가 있을 때만 표시.
+  const hasExpertInfo = (rec.avgRating != null) || ((rec.specialties?.length ?? 0) > 0);
+  // 공통 메타 — 가입일/최근 활동일(실데이터 있을 때만)
+  const metaBits = [];
+  if (rec.joinedAt) metaBits.push(`가입 ${ymdLabel(rec.joinedAt)}`);
+  if (rec.lastActivityAt) metaBits.push(`최근 활동 ${daysAgoLabel(rec.lastActivityAt)}`);
 
   return (
     <div style={wrap}>
       <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>📌 {title}</div>
-      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.md, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: metaBits.length ? 4 : S.md, lineHeight: 1.6 }}>
         {selfView
           ? "성실한 활동이 기록으로 쌓이고, 더 많은 상담과 프로젝트로 이어집니다."
           : "순위가 아닌 활동 기록입니다. 성실한 활동이 신뢰가 됩니다."}
       </div>
+      {metaBits.length > 0 && (
+        <div style={{ fontSize: 11.5, color: C.text4, marginBottom: S.md }}>{metaBits.join(" · ")}</div>
+      )}
+
+      {/* 전문가 추가 정보 — 평균 평점 · 전문분야 (실데이터만, 전문가 계정 한정) */}
+      {hasExpertInfo && (
+        <div style={{
+          display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6,
+          background: C.brandL, borderRadius: R.lg, padding: `${S.sm}px ${S.md}px`, marginBottom: S.md,
+        }}>
+          {rec.avgRating != null && (
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: C.brand }}>
+              ⭐ 평균 {rec.avgRating.toFixed(1)}점
+            </span>
+          )}
+          {(rec.specialties?.length ?? 0) > 0 && rec.avgRating != null && (
+            <span style={{ fontSize: 11, color: C.text4 }}>·</span>
+          )}
+          {(rec.specialties ?? []).slice(0, 4).map((s) => (
+            <span key={s} style={{
+              fontSize: 11, fontWeight: 700, color: C.text2, background: C.surface,
+              border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "2px 9px",
+            }}>#{s}</span>
+          ))}
+        </div>
+      )}
 
       {/* 지표 타일 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.sm, marginBottom: S.md }}>
