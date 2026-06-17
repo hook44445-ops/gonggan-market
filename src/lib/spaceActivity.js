@@ -83,6 +83,8 @@ async function _compute({ ownerId = null, companyId = null, countsOnly = false }
   const r = {
     projectsCompleted: 0, bidResponses: 0, loungeAnswers: 0,
     constructionCases: 0, loungePosts: 0, reviews: 0, recent: [], total: 0, isEmpty: true, loaded: false,
+    // v5.7(Additive): 공통/전문가 부가 실데이터. 빈 값은 null/0/[] 그대로(가공 금지).
+    likesReceived: 0, joinedAt: null, lastActivityAt: null, avgRating: null, specialties: [],
   };
   const jobs = [];
   if (companyId) {
@@ -111,7 +113,45 @@ async function _compute({ ownerId = null, companyId = null, countsOnly = false }
       .then((n) => { r.loungePosts = n; }));
   }
   await Promise.all(jobs);
-  if (!countsOnly) r.recent = await buildRecent({ ownerId, companyId }).catch(() => []);
+
+  // ── 부가 실데이터(가입일/받은 좋아요/평균 평점/전문분야) — 전체 보기에서만 조회 ──────
+  //   compact(입찰 카드)는 기존처럼 카운트만 사용(쿼리/동작 무변경).
+  //   total/isEmpty 산식에는 포함하지 않음 → 빈 상태 판정 기존과 동일(Regression 0).
+  if (!countsOnly) {
+    const extra = [];
+    if (companyId) {
+      extra.push(
+        supabase.from("reviews").select("rating").eq("company_id", companyId)
+          .or("is_hidden.is.null,is_hidden.eq.false").or("is_deleted.is.null,is_deleted.eq.false")
+          .then(({ data }) => {
+            const rs = (data ?? []).map((x) => x.rating).filter((n) => typeof n === "number");
+            r.avgRating = rs.length ? Math.round((rs.reduce((a, b) => a + b, 0) / rs.length) * 10) / 10 : null;
+          }).catch(() => {})
+      );
+      extra.push(
+        supabase.from("companies").select("specialties").eq("id", companyId).maybeSingle()
+          .then(({ data }) => { r.specialties = Array.isArray(data?.specialties) ? data.specialties : []; })
+          .catch(() => {})
+      );
+    }
+    if (ownerId) {
+      extra.push(
+        supabase.from("lounge_posts").select("like_count").eq("user_id", ownerId)
+          .or("is_deleted.is.null,is_deleted.eq.false").or("is_hidden.is.null,is_hidden.eq.false")
+          .then(({ data }) => { r.likesReceived = (data ?? []).reduce((s, x) => s + (x.like_count || 0), 0); })
+          .catch(() => {})
+      );
+      extra.push(
+        supabase.from("users").select("created_at").eq("id", ownerId).maybeSingle()
+          .then(({ data }) => { r.joinedAt = data?.created_at ?? null; })
+          .catch(() => {})
+      );
+    }
+    const [recent] = await Promise.all([buildRecent({ ownerId, companyId }).catch(() => []), ...extra]);
+    r.recent = recent;
+    r.lastActivityAt = r.recent[0]?.at ?? null;
+  }
+
   r.total = r.projectsCompleted + r.bidResponses + r.loungeAnswers
     + r.constructionCases + r.loungePosts + r.reviews;
   r.isEmpty = r.total === 0;
