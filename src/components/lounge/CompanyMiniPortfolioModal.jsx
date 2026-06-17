@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { C, R, S } from '../../constants';
 import { BADGES } from '../../constants/badges';
 import { getCompanyByOwnerId, getReviews, getPortfolios, getCompanyLoungeStats } from '../../lib/supabase';
+import SpaceActivityRecord from '../SpaceActivityRecord'; // v5.4.0: 공간 활동기록(Add Only)
 
 const daysAgoLabel = (iso) => {
   if (!iso) return null;
@@ -131,6 +132,9 @@ export default function CompanyMiniPortfolioModal({
                 )}
               </div>
             )}
+
+            {/* v5.4.0: 공간 활동기록 — 실데이터 집계(없으면 빈 상태 안내) */}
+            <SpaceActivityRecord ownerId={ownerId} companyId={company.id} />
 
             {/* 대표 시공사례 / 최근 포트폴리오 사진 */}
             {photos.length > 0 ? (
