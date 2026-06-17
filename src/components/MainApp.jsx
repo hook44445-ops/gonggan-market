@@ -4169,7 +4169,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   <span style={{ fontSize: 16, color: C.text3 }}>›</span>
                 </div>
               ))}
-              <div style={{ fontSize: 11, color: C.text4, marginTop: S.sm }}>토큰 결제는 준비 중이며 현재 테스트 운영 중입니다.</div>
+              <div style={{ fontSize: 11, color: C.text4, marginTop: S.sm }}>토큰 결제는 준비 중입니다.</div>
             </div>
 
             <div style={{ textAlign: "center", marginTop: S.lg }}>
