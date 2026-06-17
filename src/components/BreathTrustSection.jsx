@@ -22,24 +22,27 @@ const TEXT3 = "#7A8EA8";
 const SANS  = "'Pretendard','Apple SD Gothic Neo',sans-serif";
 
 // ── Mock data (UI 전용 — DB/API 미연결) ──────────────────────────────────────
-// 기능 칩: 라운지에서 일어나는 활동들.
+// 활동 예시: 콘텐츠 작성만이 아니라 "모든 성실한 행동"이 활동이다.
 const ACTIVITIES = [
-  "노하우 공유", "질문 답변", "시공사례", "댓글 소통", "팔로우", "활동 배지", "상담 연결",
+  "성실한 견적", "빠른 응답", "프로젝트 완료", "좋은 리뷰", "질문 답변", "시공사례", "노하우 공유",
 ];
 
-// 신뢰가 쌓이는 흐름 — 작은 호흡 → 신뢰 → 프로젝트.
+// 신뢰가 쌓이는 흐름 — 성실한 활동 → 신뢰 → 상담 → 프로젝트.
 const FLOW = [
-  "노하우 공유", "질문 답변", "시공사례", "댓글 소통", "팔로우", "신뢰", "상담", "프로젝트",
+  "성실한 견적", "빠른 응답", "프로젝트 완료", "좋은 리뷰", "신뢰", "상담", "프로젝트",
 ];
 
-// 함께 호흡하는 공간파트너 — 랭킹이 아닌 활동 기록(Mock).
+// 함께 호흡하는 공간파트너 — 랭킹이 아닌 활동 기록(Mock). 노하우 작성은 선택 활동.
 const PARTNERS = [
   { emoji: "👷", name: "김○○ 대표", field: "주거 리모델링", region: "서울 전역",
-    badges: ["성실 활동", "노하우 공유"], note: "노하우 12 · 답변 48 · 사례 9" },
+    badges: ["성실 활동", "신뢰 파트너"],
+    note: "견적 응답 142 · 프로젝트 완료 78 · 좋은 리뷰 54 · 질문 답변 21 · 시공사례 9 · 노하우 4" },
   { emoji: "🎨", name: "이○○ 실장", field: "상업 인테리어", region: "경기 남부",
-    badges: ["신뢰 파트너", "공간 멘토"],  note: "노하우 21 · 답변 73 · 사례 15" },
+    badges: ["전문 파트너", "공간 멘토"],
+    note: "견적 응답 96 · 프로젝트 완료 51 · 좋은 리뷰 38 · 질문 답변 73 · 시공사례 15 · 노하우 11" },
   { emoji: "🛠️", name: "박○○ 소장", field: "도장·도배 전문", region: "인천·부천",
-    badges: ["전문 파트너", "성실 활동"],  note: "노하우 8 · 답변 35 · 사례 6" },
+    badges: ["성실 활동", "전문 파트너"],
+    note: "견적 응답 64 · 프로젝트 완료 33 · 좋은 리뷰 27 · 질문 답변 12 · 시공사례 18 · 노하우 2" },
 ];
 
 // 인기 콘텐츠 — 최근 노하우/질문/시공사례(Mock).
@@ -93,7 +96,7 @@ export default function BreathTrustSection() {
             호흡과 신뢰
           </div>
           <div style={{ fontSize: 14, fontWeight: 700, color: TEXT2, lineHeight: 1.6 }}>
-            함께 호흡하며 신뢰를 만들어가는 공간 전문가
+            모든 성실한 활동은 신뢰가 되고, 더 많은 기회로 이어집니다.
           </div>
         </div>
 
@@ -103,10 +106,9 @@ export default function BreathTrustSection() {
           borderRadius: 16, padding: "22px 20px", marginBottom: 18,
           fontSize: 14.5, color: "rgba(255,255,255,0.9)", lineHeight: 1.85, textAlign: "center",
         }}>
-          라운지에서 노하우를 나누고, 질문에 답하며,<br />
-          시공사례를 공유하고, 고객과 꾸준히 소통합니다.<br />
-          <span style={{ color: GOLD, fontWeight: 800 }}>작은 호흡들이 쌓여 신뢰가 되고,</span><br />
-          신뢰는 결국 좋은 프로젝트로 이어집니다.
+          성실한 견적도, 빠른 응답도, 좋은 시공도, 좋은 리뷰도 모두 활동입니다.<br />
+          글을 많이 쓰지 않아도 성실하게 일한 기록은<br />
+          <span style={{ color: GOLD, fontWeight: 800 }}>신뢰가 되고, 더 많은 상담과 프로젝트로 이어집니다.</span>
         </div>
 
         {/* ── 기능 칩 ── */}
@@ -150,7 +152,7 @@ export default function BreathTrustSection() {
           함께 호흡하는 공간파트너
         </div>
         <div style={{ fontSize: 12, color: TEXT3, marginBottom: 12, lineHeight: 1.6 }}>
-          순위가 아닌 활동 기록입니다. 꾸준히 호흡하는 전문가를 소개합니다.
+          순위가 아닌 활동 기록입니다. 견적·응답·시공·리뷰 — 모든 성실한 활동을 동일한 가치로 남기며, 노하우 공유는 선택 활동입니다.
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
           {PARTNERS.map((p) => (
@@ -208,20 +210,14 @@ export default function BreathTrustSection() {
           ))}
         </div>
 
-        {/* ── CTA ── */}
-        <button
-          type="button"
-          onClick={() => { window.location.href = "/lounge"; }}
-          style={{
-            width: "100%", height: 52, borderRadius: 12, border: `1.5px solid ${GOLD}`,
-            background: WHITE, color: GOLDD, fontSize: 15, fontWeight: 800,
-            cursor: "pointer", fontFamily: SANS,
-          }}>
-          라운지 둘러보기 ›
-        </button>
-        <div style={{ fontSize: 11.5, color: TEXT3, textAlign: "center", marginTop: 10, lineHeight: 1.6 }}>
+        {/* ── 마무리 메시지 (CTA 버튼 제거 — 가입 전환 방해 방지) ── */}
+        <div style={{ fontSize: 14, fontWeight: 800, color: GOLDD, textAlign: "center", marginTop: 4, marginBottom: 10 }}>
+          오늘의 활동이 내일의 프로젝트가 됩니다.
+        </div>
+        <div style={{ fontSize: 12.5, color: TEXT2, textAlign: "center", lineHeight: 1.75 }}>
           공간마켓은 업체를 경쟁시키지 않습니다.<br />
-          함께 호흡하며 고객과 전문가가 같이 성장합니다.
+          모든 성실한 활동을 가치 있는 기록으로 남깁니다.<br />
+          호흡과 신뢰를 함께 쌓아가며 더 좋은 프로젝트를 만들어갑니다.
         </div>
       </div>
     </div>
