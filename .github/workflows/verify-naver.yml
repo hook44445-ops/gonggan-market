@@ -6,19 +6,12 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: verify naver meta tag on homepage (Yeti UA)
+      - name: actual /robots.txt served in production
         run: |
-          YETI="Mozilla/5.0 (compatible; Yeti/1.1; +http://naver.me/spd)"
-          echo "################ 홈페이지 / (Yeti UA) 상태/헤더 ################"
-          curl -sS -D - -o /tmp/home -A "$YETI" "https://gongganmarket.com/" \
-            -w "STATUS: HTTP %{http_code} | type=%{content_type} | size=%{size_download}\n" \
-            | grep -iE "HTTP/|content-type|x-vercel-cache|STATUS:"
+          echo "################ GET https://gongganmarket.com/robots.txt ################"
+          curl -sS -D - "https://gongganmarket.com/robots.txt" \
+            -w "\nSTATUS: HTTP %{http_code} | type=%{content_type} | size=%{size_download}\n" \
+            | grep -iE "HTTP/|content-type|x-vercel-cache|x-matched-path|STATUS:|^User-agent|^Allow|^Disallow|^Sitemap|^$" || true
           echo
-          echo "################ <head> 내 naver-site-verification 메타 검출 ################"
-          grep -o '<meta name="naver-site-verification"[^>]*>' /tmp/home || echo "❌ 메타태그 없음"
-          echo
-          echo "################ 코드값 일치 확인 ################"
-          grep -q '0b2e655f5bb483edebab3e18bc7faf4712328734' /tmp/home && echo "=> 코드 일치 ✅" || echo "=> 불일치 ❌"
-          echo
-          echo "################ 캐시 우회(?_=ts)로 재확인 ################"
-          curl -sS -A "$YETI" "https://gongganmarket.com/?_=$(date +%s)" | grep -o '<meta name="naver-site-verification"[^>]*>' || echo "(우회 요청에서 미검출)"
+          echo "################ 본문 전문 ################"
+          curl -sS "https://gongganmarket.com/robots.txt"
