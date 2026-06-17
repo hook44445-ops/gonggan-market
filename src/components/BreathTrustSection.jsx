@@ -32,14 +32,17 @@ const FLOW = [
   "성실한 견적", "빠른 응답", "프로젝트 완료", "좋은 리뷰", "신뢰", "상담", "프로젝트",
 ];
 
-// 함께 호흡하는 공간파트너 — 랭킹이 아닌 활동 기록(Mock). 노하우 작성은 필수가 아니다.
+// 함께 호흡하는 공간파트너 — 랭킹이 아닌 활동 기록(Mock). 노하우 작성은 선택 활동.
 const PARTNERS = [
   { emoji: "👷", name: "김○○ 대표", field: "주거 리모델링", region: "서울 전역",
-    badges: ["성실 활동", "신뢰 파트너"], note: "견적 응답 142회 · 프로젝트 완료 78건 · 리뷰 54" },
+    badges: ["성실 활동", "신뢰 파트너"],
+    note: "견적 응답 142 · 프로젝트 완료 78 · 좋은 리뷰 54 · 질문 답변 21 · 시공사례 9 · 노하우 4" },
   { emoji: "🎨", name: "이○○ 실장", field: "상업 인테리어", region: "경기 남부",
-    badges: ["전문 파트너", "공간 멘토"], note: "견적 응답 96회 · 프로젝트 완료 51건 · 질문 답변 73" },
+    badges: ["전문 파트너", "공간 멘토"],
+    note: "견적 응답 96 · 프로젝트 완료 51 · 좋은 리뷰 38 · 질문 답변 73 · 시공사례 15 · 노하우 11" },
   { emoji: "🛠️", name: "박○○ 소장", field: "도장·도배 전문", region: "인천·부천",
-    badges: ["성실 활동", "전문 파트너"], note: "견적 응답 64회 · 프로젝트 완료 33건 · 시공사례 18" },
+    badges: ["성실 활동", "전문 파트너"],
+    note: "견적 응답 64 · 프로젝트 완료 33 · 좋은 리뷰 27 · 질문 답변 12 · 시공사례 18 · 노하우 2" },
 ];
 
 // 인기 콘텐츠 — 최근 노하우/질문/시공사례(Mock).
@@ -103,10 +106,9 @@ export default function BreathTrustSection() {
           borderRadius: 16, padding: "22px 20px", marginBottom: 18,
           fontSize: 14.5, color: "rgba(255,255,255,0.9)", lineHeight: 1.85, textAlign: "center",
         }}>
-          성실한 견적도, 빠른 응답도, 좋은 시공과 리뷰도 모두 활동입니다.<br />
-          글을 쓰지 않아도 좋은 업체가 될 수 있습니다.<br />
-          <span style={{ color: GOLD, fontWeight: 800 }}>성실한 활동이 쌓여 신뢰가 되고,</span><br />
-          신뢰는 더 많은 상담과 프로젝트로 이어집니다.
+          성실한 견적도, 빠른 응답도, 좋은 시공도, 좋은 리뷰도 모두 활동입니다.<br />
+          글을 많이 쓰지 않아도 성실하게 일한 기록은<br />
+          <span style={{ color: GOLD, fontWeight: 800 }}>신뢰가 되고, 더 많은 상담과 프로젝트로 이어집니다.</span>
         </div>
 
         {/* ── 기능 칩 ── */}
@@ -150,7 +152,7 @@ export default function BreathTrustSection() {
           함께 호흡하는 공간파트너
         </div>
         <div style={{ fontSize: 12, color: TEXT3, marginBottom: 12, lineHeight: 1.6 }}>
-          순위가 아닌 활동 기록입니다. 견적·응답·시공·리뷰 — 모든 성실한 활동을 동일한 가치로 남깁니다.
+          순위가 아닌 활동 기록입니다. 견적·응답·시공·리뷰 — 모든 성실한 활동을 동일한 가치로 남기며, 노하우 공유는 선택 활동입니다.
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
           {PARTNERS.map((p) => (
