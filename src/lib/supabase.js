@@ -1185,6 +1185,25 @@ export const getPhasePhotos = (contractId, step = null) => {
   return q;
 };
 
+// 공간 이력(Space History) 전용 — 여러 계약의 대표 시공사진 1장을 한 번에 조회(읽기 전용).
+// 기존 phase_photos 테이블만 사용. 반환: { [contractId]: 대표사진URL } (없으면 키 없음).
+export const getRepresentativePhotosByContracts = async (contractIds = []) => {
+  const ids = (contractIds ?? []).filter(Boolean);
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase
+    .from("phase_photos")
+    .select("contract_id, photos, created_at")
+    .in("contract_id", ids)
+    .order("created_at", { ascending: false });
+  if (error || !data) return {};
+  const map = {};
+  for (const row of data) {
+    const url = Array.isArray(row.photos) ? row.photos.find(Boolean) : null;
+    if (url && !map[row.contract_id]) map[row.contract_id] = url;
+  }
+  return map;
+};
+
 // ── STEP 27: Contract Notes (양방향 기록) ────────────────────────────────────
 
 export const addContractNote = ({ contractId, authorId, authorRole, type, content, images = [] }) =>

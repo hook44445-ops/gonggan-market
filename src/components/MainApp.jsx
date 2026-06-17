@@ -18,6 +18,7 @@ import PortfolioScreen from "../screens/PortfolioScreen";
 import ReviewScreen from "../screens/ReviewScreen";
 import ChatScreen from "../screens/ChatScreen";
 import EscrowScreen from "../screens/EscrowScreen";
+import SpaceHistoryScreen from "../screens/SpaceHistoryScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import BidStatusScreen from "../screens/BidStatusScreen";
 import AdminScreen from "../screens/AdminScreen";
@@ -3554,6 +3555,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           />
         )}
         {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} />}
+        {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
@@ -4384,6 +4386,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }}
                 onOpenCompany={(co) => go("portfolio", co)}
               />
+            )}
+
+            {/* 공간 이력(Space History) — 완료 프로젝트 시공 이력 타임라인(읽기 전용 진입) */}
+            {activeRole==="consumer" && (
+              <button onClick={() => go("space-history")}
+                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%",
+                  background:C.surface, borderRadius:R.xl, padding:"16px 18px", marginBottom:S.lg,
+                  border:`1px solid ${C.bgWarm}`, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
+                <span>
+                  <span style={{ display:"block", fontSize:15, fontWeight:800, color:C.text1 }}>🗂️ 공간 이력</span>
+                  <span style={{ display:"block", fontSize:12, color:C.text3, marginTop:2 }}>완료된 공사가 공간의 기억으로 쌓입니다</span>
+                </span>
+                <span style={{ fontSize:18, color:C.text3, flexShrink:0 }}>→</span>
+              </button>
             )}
 
             {activeRole==="consumer" && (
