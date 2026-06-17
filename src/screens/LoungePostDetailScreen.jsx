@@ -457,10 +457,10 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       const isExpert = user.role === 'company';
       const isReply  = !!replyTo?.id;
 
-      // 원글 작성자에게 알림 (본인 글 제외)
+      // 원글 작성자에게 알림 (본인 글 제외) — createNotification: 앱 내 알림 저장 + FCM 푸시 큐잉(best-effort)
       if (post?.user_id && post.user_id !== user.id) {
         const type = isExpert ? 'expert_answer' : 'post_comment';
-        createLoungeNotification({
+        createNotification({
           userId:      post.user_id,
           type,
           title:       isExpert ? '전문가 답변' : '새 댓글',
@@ -469,9 +469,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           relatedType: 'lounge_post',
         });
       }
-      // 답글 대상 댓글 작성자에게 알림 (본인 댓글 제외)
+      // 답글 대상 댓글 작성자에게 알림 (본인 댓글 제외) — 동일하게 푸시 큐잉
       if (isReply && replyTo.user_id && replyTo.user_id !== user.id) {
-        createLoungeNotification({
+        createNotification({
           userId:      replyTo.user_id,
           type:        'comment_reply',
           title:       '답글',
