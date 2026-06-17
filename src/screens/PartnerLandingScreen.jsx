@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadFiles } from "../lib/supabase";
 import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
+import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#0B1D3A";
@@ -703,6 +704,9 @@ export default function PartnerLandingScreen() {
           ))}
         </div>
       </Section>
+
+      {/* ── ⭐ NEW: 호흡과 신뢰 (Landing Page Upgrade v2.0 · Add Only) ── */}
+      <BreathTrustSection />
 
       {/* ── 우수 파트너 검증 카드 (V1.6) ────────────────────────── */}
       <Section bg={OFF}>
