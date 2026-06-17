@@ -6,12 +6,18 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: actual /robots.txt served in production
+      - name: enumerate public URLs
         run: |
-          echo "################ GET https://gongganmarket.com/robots.txt ################"
-          curl -sS -D - "https://gongganmarket.com/robots.txt" \
-            -w "\nSTATUS: HTTP %{http_code} | type=%{content_type} | size=%{size_download}\n" \
-            | grep -iE "HTTP/|content-type|x-vercel-cache|x-matched-path|STATUS:|^User-agent|^Allow|^Disallow|^Sitemap|^$" || true
+          echo "################ /sitemap.xml (실제 서빙) ################"
+          curl -sS -w "\n[STATUS %{http_code} | %{content_type} | size=%{size_download}]\n" "https://gongganmarket.com/sitemap.xml"
           echo
-          echo "################ 본문 전문 ################"
-          curl -sS "https://gongganmarket.com/robots.txt"
+          echo "################ /api/sitemap (동적 전체: 카테고리+글+지역) ################"
+          curl -sS -w "\n[STATUS %{http_code} | %{content_type} | size=%{size_download}]\n" "https://gongganmarket.com/api/sitemap"
+          echo
+          echo "################ 고정 페이지 HEAD 상태 (SPA라 200 index.html 예상) ################"
+          for p in "/" "/lounge" "/request" "/company" "/login" "/mypage" \
+                   "/lounge/category/interior" "/lounge/category/estimate" "/lounge/category/review" \
+                   "/lounge/category/company" "/lounge/category/moving"; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" "https://gongganmarket.com$p")
+            echo "$code  $p"
+          done
