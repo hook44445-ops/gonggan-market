@@ -452,59 +452,6 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         </div>
       </div>
 
-      {/* ── SECTION 3: CTA ────────────────────────────────────────── */}
-      <div style={{ padding: "44px 20px 60px", background: C.brand }}>
-        <div ref={sec3Ref} style={{ maxWidth: 480, margin: "0 auto", textAlign: "center" }}>
-          <div style={{
-            fontSize: 22, fontWeight: 900, color: "#fff",
-            lineHeight: 1.4, marginBottom: 8, whiteSpace: "pre-line",
-            ...fadeStyle(sec3Visible, 0),
-          }}>
-            인테리어는 어디서?
-          </div>
-
-          <div style={{
-            fontSize: 14, color: "rgba(255,255,255,0.65)",
-            marginBottom: 18,
-            ...fadeStyle(sec3Visible, 0.08),
-          }}>
-            집, 상가, 리모델링까지 — 비교하고 확인하세요
-          </div>
-
-          {/* CRO V2 — 최종 CTA 강화 문구 */}
-          <div style={{
-            fontSize: 13.5, color: "#fff", fontWeight: 700, lineHeight: 1.5,
-            marginBottom: 24, ...fadeStyle(sec3Visible, 0.12),
-          }}>
-            사업자·시공이력 검증 업체와 안전하게 비교하세요
-          </div>
-
-          <div style={{ ...fadeStyle(sec3Visible, 0.16) }}>
-            <button
-              onClick={() => onSelectRole("consumer")}
-              style={{
-                ...btnBase,
-                background: "#fff",
-                color: C.brand,
-                border: "none",
-                fontSize: 17,
-                height: 56,
-                boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-                marginBottom: 16,
-              }}>
-              무료 비교견적 받기
-            </button>
-          </div>
-
-          <div style={{
-            fontSize: 12, color: "rgba(255,255,255,0.5)",
-            ...fadeStyle(sec3Visible, 0.24),
-          }}>
-            가입비 없음 · 견적 무료 · 단계별 안전정산
-          </div>
-        </div>
-      </div>
-
       {/* ── 수수료 안내 섹션 ──────────────────────────────────────── */}
       <div style={{ padding: "40px 20px", background: C.bg }}>
         <div style={{ maxWidth: 480, margin: "0 auto" }}>
@@ -617,6 +564,59 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <p style={{ fontSize: 14, lineHeight: 1.8, color: C.text2, margin: 0 }}>
             검증된 정보와 투명한 진행 과정을 통해 더 좋은 공간을 만드는 경험을 제공합니다.
           </p>
+        </div>
+      </div>
+
+      {/* ── SECTION 3: CTA (전환율 최적화 — 소개 아래·Footer 위로 이동) ── */}
+      <div style={{ padding: "44px 20px 60px", background: C.brand }}>
+        <div ref={sec3Ref} style={{ maxWidth: 480, margin: "0 auto", textAlign: "center" }}>
+          <div style={{
+            fontSize: 22, fontWeight: 900, color: "#fff",
+            lineHeight: 1.4, marginBottom: 8, whiteSpace: "pre-line",
+            ...fadeStyle(sec3Visible, 0),
+          }}>
+            인테리어는 어디서?
+          </div>
+
+          <div style={{
+            fontSize: 14, color: "rgba(255,255,255,0.65)",
+            marginBottom: 18,
+            ...fadeStyle(sec3Visible, 0.08),
+          }}>
+            집, 상가, 리모델링까지 — 비교하고 확인하세요
+          </div>
+
+          {/* CRO V2 — 최종 CTA 강화 문구 */}
+          <div style={{
+            fontSize: 13.5, color: "#fff", fontWeight: 700, lineHeight: 1.5,
+            marginBottom: 24, ...fadeStyle(sec3Visible, 0.12),
+          }}>
+            사업자·시공이력 검증 업체와 안전하게 비교하세요
+          </div>
+
+          <div style={{ ...fadeStyle(sec3Visible, 0.16) }}>
+            <button
+              onClick={() => onSelectRole("consumer")}
+              style={{
+                ...btnBase,
+                background: "#fff",
+                color: C.brand,
+                border: "none",
+                fontSize: 17,
+                height: 56,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+                marginBottom: 16,
+              }}>
+              무료 비교견적 받기
+            </button>
+          </div>
+
+          <div style={{
+            fontSize: 12, color: "rgba(255,255,255,0.5)",
+            ...fadeStyle(sec3Visible, 0.24),
+          }}>
+            가입비 없음 · 견적 무료 · 단계별 안전정산
+          </div>
         </div>
       </div>
 
