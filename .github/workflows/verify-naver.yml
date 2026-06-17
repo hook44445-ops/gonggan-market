@@ -6,22 +6,18 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: verify NEW naver file (Yeti UA)
+      - name: verify BOTH naver files (Yeti UA)
         run: |
-          NEW="naver0b2e655f5bb483edebab3e18bc7faf4712328734.html"
-          OLD="naverdd7f227f04689ae77e06293315940389.html"
           YETI="Mozilla/5.0 (compatible; Yeti/1.1; +http://naver.me/spd)"
-          echo "################ 1) 신규 파일 HTTPS + Yeti UA : 헤더 전문 + 본문 ################"
-          curl -sS -D - -A "$YETI" "https://gongganmarket.com/$NEW"
-          echo; echo
-          echo "################ 2) 신규 파일 캐시 우회(?_=ts) ################"
-          curl -sS -D - -A "$YETI" "https://gongganmarket.com/$NEW?_=$(date +%s)" | grep -iE "HTTP/|x-vercel-cache|age:|content-type|<meta"
-          echo
-          echo "################ 3) 구 파일은 이제 어떻게 응답하나(404 or SPA) ################"
-          curl -sS -o /tmp/o -w "OLD => HTTP %{http_code} | type=%{content_type} | size=%{size_download}\n" -A "$YETI" "https://gongganmarket.com/$OLD"
-          echo "---- old body 앞 200자 ----"; head -c 200 /tmp/o; echo
-          echo
-          echo "################ 4) 신규 파일 본문 정확성 ################"
-          B=$(curl -sS -A "$YETI" "https://gongganmarket.com/$NEW")
-          echo "본문: $B"
-          echo "$B" | grep -q '0b2e655f5bb483edebab3e18bc7faf4712328734' && echo "=> 신규 코드 일치 ✅" || echo "=> 불일치 ❌"
+          for F in \
+            "naverdd7f227f04689ae77e06293315940389.html:dd7f227f04689ae77e06293315940389" \
+            "naver0b2e655f5bb483edebab3e18bc7faf4712328734.html:0b2e655f5bb483edebab3e18bc7faf4712328734"; do
+            FILE="${F%%:*}"; CODE="${F##*:}"
+            echo "################ $FILE ################"
+            curl -sS -D - -A "$YETI" "https://gongganmarket.com/$FILE" -o /tmp/body \
+              -w "STATUS: HTTP %{http_code} | type=%{content_type} | size=%{size_download} | redirects=%{num_redirects}\n" \
+              | grep -iE "HTTP/|content-type|content-disposition|x-vercel-cache|content-length|STATUS:"
+            echo "본문: $(cat /tmp/body)"
+            grep -q "$CODE" /tmp/body && echo "=> 코드 일치 ✅" || echo "=> 불일치 ❌"
+            echo
+          done
