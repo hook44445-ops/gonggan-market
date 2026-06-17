@@ -457,14 +457,29 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       const isExpert = user.role === 'company';
       const isReply  = !!replyTo?.id;
 
+      // 푸시/앱 내 알림 문구 규칙
+      //  · 제목 = 게시글 본문 첫 줄(없으면 "공간마켓 라운지", 45자 초과 시 말줄임)
+      //  · 본문 = 댓글 내용(60자 초과 시 말줄임 / 사진만 있으면 안내문구 / 비어있으면 기본문구)
+      const firstLine = (post?.content ?? '')
+        .split('\n')
+        .map((s) => s.trim())
+        .find(Boolean) ?? '';
+      const notifTitle = firstLine
+        ? (firstLine.length > 45 ? `${firstLine.slice(0, 45)}…` : firstLine)
+        : '공간마켓 라운지';
+      const hasCommentImage = Array.isArray(data?.image_urls) && data.image_urls.length > 0;
+      const notifBody = content
+        ? (content.length > 60 ? `${content.slice(0, 60)}…` : content)
+        : (hasCommentImage ? '사진 댓글을 남겼습니다.' : '댓글을 남겼습니다.');
+
       // 원글 작성자에게 알림 (본인 글 제외) — createNotification: 앱 내 알림 저장 + FCM 푸시 큐잉(best-effort)
       if (post?.user_id && post.user_id !== user.id) {
         const type = isExpert ? 'expert_answer' : 'post_comment';
         createNotification({
           userId:      post.user_id,
           type,
-          title:       isExpert ? '전문가 답변' : '새 댓글',
-          message:     isExpert ? '전문가가 내 글에 답변했어요' : '내 글에 댓글이 달렸어요',
+          title:       notifTitle,
+          message:     notifBody,
           relatedId:   post.id,
           relatedType: 'lounge_post',
         });
@@ -474,8 +489,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         createNotification({
           userId:      replyTo.user_id,
           type:        'comment_reply',
-          title:       '답글',
-          message:     '내 댓글에 답글이 달렸어요',
+          title:       notifTitle,
+          message:     notifBody,
           relatedId:   post.id,
           relatedType: 'lounge_post',
         });
