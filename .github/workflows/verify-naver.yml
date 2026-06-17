@@ -6,18 +6,19 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: verify BOTH naver files (Yeti UA)
+      - name: verify naver meta tag on homepage (Yeti UA)
         run: |
           YETI="Mozilla/5.0 (compatible; Yeti/1.1; +http://naver.me/spd)"
-          for F in \
-            "naverdd7f227f04689ae77e06293315940389.html:dd7f227f04689ae77e06293315940389" \
-            "naver0b2e655f5bb483edebab3e18bc7faf4712328734.html:0b2e655f5bb483edebab3e18bc7faf4712328734"; do
-            FILE="${F%%:*}"; CODE="${F##*:}"
-            echo "################ $FILE ################"
-            curl -sS -D - -A "$YETI" "https://gongganmarket.com/$FILE" -o /tmp/body \
-              -w "STATUS: HTTP %{http_code} | type=%{content_type} | size=%{size_download} | redirects=%{num_redirects}\n" \
-              | grep -iE "HTTP/|content-type|content-disposition|x-vercel-cache|content-length|STATUS:"
-            echo "본문: $(cat /tmp/body)"
-            grep -q "$CODE" /tmp/body && echo "=> 코드 일치 ✅" || echo "=> 불일치 ❌"
-            echo
-          done
+          echo "################ 홈페이지 / (Yeti UA) 상태/헤더 ################"
+          curl -sS -D - -o /tmp/home -A "$YETI" "https://gongganmarket.com/" \
+            -w "STATUS: HTTP %{http_code} | type=%{content_type} | size=%{size_download}\n" \
+            | grep -iE "HTTP/|content-type|x-vercel-cache|STATUS:"
+          echo
+          echo "################ <head> 내 naver-site-verification 메타 검출 ################"
+          grep -o '<meta name="naver-site-verification"[^>]*>' /tmp/home || echo "❌ 메타태그 없음"
+          echo
+          echo "################ 코드값 일치 확인 ################"
+          grep -q '0b2e655f5bb483edebab3e18bc7faf4712328734' /tmp/home && echo "=> 코드 일치 ✅" || echo "=> 불일치 ❌"
+          echo
+          echo "################ 캐시 우회(?_=ts)로 재확인 ################"
+          curl -sS -A "$YETI" "https://gongganmarket.com/?_=$(date +%s)" | grep -o '<meta name="naver-site-verification"[^>]*>' || echo "(우회 요청에서 미검출)"
