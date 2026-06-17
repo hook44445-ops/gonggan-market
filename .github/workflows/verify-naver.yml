@@ -6,27 +6,22 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Yeti UA full response + edge cache
+      - name: verify NEW naver file (Yeti UA)
         run: |
-          P="naverdd7f227f04689ae77e06293315940389.html"
+          NEW="naver0b2e655f5bb483edebab3e18bc7faf4712328734.html"
+          OLD="naverdd7f227f04689ae77e06293315940389.html"
           YETI="Mozilla/5.0 (compatible; Yeti/1.1; +http://naver.me/spd)"
-          echo "################ 1) HTTPS + Yeti UA : 헤더 전문 + 본문 ################"
-          curl -sS -D - -A "$YETI" "https://gongganmarket.com/$P"
+          echo "################ 1) 신규 파일 HTTPS + Yeti UA : 헤더 전문 + 본문 ################"
+          curl -sS -D - -A "$YETI" "https://gongganmarket.com/$NEW"
           echo; echo
-          echo "################ 2) HTTPS + Yeti UA : 캐시 우회(?_=ts) ################"
-          curl -sS -D - -A "$YETI" "https://gongganmarket.com/$P?_=$(date +%s)" | grep -iE "HTTP/|x-vercel-cache|age:|content-type|etag|x-vercel-id|<meta"
+          echo "################ 2) 신규 파일 캐시 우회(?_=ts) ################"
+          curl -sS -D - -A "$YETI" "https://gongganmarket.com/$NEW?_=$(date +%s)" | grep -iE "HTTP/|x-vercel-cache|age:|content-type|<meta"
           echo
-          echo "################ 3) 일반 UA vs Yeti UA 본문 바이트 동일성 ################"
-          curl -sS -A "$YETI" "https://gongganmarket.com/$P" -o /tmp/yeti
-          curl -sS -A "Mozilla/5.0" "https://gongganmarket.com/$P" -o /tmp/normal
-          echo "yeti  sha: $(sha256sum /tmp/yeti | cut -d' ' -f1)  size=$(wc -c </tmp/yeti)"
-          echo "normal sha: $(sha256sum /tmp/normal | cut -d' ' -f1)  size=$(wc -c </tmp/normal)"
-          diff <(cat /tmp/yeti) <(cat /tmp/normal) && echo "=> 본문 동일(UA 무관)" || echo "=> 본문 다름!"
+          echo "################ 3) 구 파일은 이제 어떻게 응답하나(404 or SPA) ################"
+          curl -sS -o /tmp/o -w "OLD => HTTP %{http_code} | type=%{content_type} | size=%{size_download}\n" -A "$YETI" "https://gongganmarket.com/$OLD"
+          echo "---- old body 앞 200자 ----"; head -c 200 /tmp/o; echo
           echo
-          echo "################ 4) 3회 연속 요청 캐시 상태 추이 ################"
-          for n in 1 2 3; do
-            curl -sS -D - -o /dev/null -A "$YETI" "https://gongganmarket.com/$P" | grep -iE "x-vercel-cache|age:|x-vercel-id" | tr '\n' ' '; echo " (req $n)"
-          done
-          echo
-          echo "################ 5) Yeti UA 본문 hexdump(앞 120바이트, 숨은 문자 확인) ################"
-          head -c 120 /tmp/yeti | xxd
+          echo "################ 4) 신규 파일 본문 정확성 ################"
+          B=$(curl -sS -A "$YETI" "https://gongganmarket.com/$NEW")
+          echo "본문: $B"
+          echo "$B" | grep -q '0b2e655f5bb483edebab3e18bc7faf4712328734' && echo "=> 신규 코드 일치 ✅" || echo "=> 불일치 ❌"
