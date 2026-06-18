@@ -3623,7 +3623,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           </div>
         )}
 
-        {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
+        {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} canManage={activeRole === "admin" || (activeRole === "company" && (currentUser?.id === selCo?.id || (currentUser?.ownerId != null && currentUser?.ownerId === selCo?.ownerId)))} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} onEarnToken={earnToken} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen("chatlist")}
           onQuoteRequest={activeRole === "consumer" ? () => { setScreen("home"); handleOpenNewReq(); } : undefined} />}

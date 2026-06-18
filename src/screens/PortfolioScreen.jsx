@@ -264,7 +264,7 @@ function PortfolioWriteModal({ companyId, onClose, onSaved }) {
   );
 }
 
-export default function PortfolioScreen({ company, onChat, onReview, onBack, onEscrow }) {
+export default function PortfolioScreen({ company, onChat, onReview, onBack, onEscrow, canManage = false }) {
   const g = GRADE(company?.temp ?? 0);
   const [photoWork, setPhotoWork] = useState(null);
   const [reportImg, setReportImg] = useState(null); // 시공사례 이미지 신고 { imageUrl, portfolioId }
@@ -428,6 +428,27 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
           <span style={{ color:C.text4, fontSize:20 }}>›</span>
         </button>
 
+        {/* 완료 프로젝트 리뷰(시공 후기) 미리보기 — 의뢰인이 작성한 완료 리뷰가 업체 상세에 표시됨 */}
+        {reviews.length > 0 && (
+          <div style={{ marginBottom:S.lg }}>
+            {reviews.slice(0, 2).map(rv => (
+              <div key={rv.id} onClick={onReview}
+                style={{ background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, marginBottom:6, cursor:"pointer" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                  <span style={{ fontSize:12.5, fontWeight:700, color:C.text1 }}>
+                    {"⭐".repeat(Math.min(5, Math.max(1, Math.round(rv.rating ?? 0))))}{rv.space_type ? ` · ${rv.space_type}` : ""}
+                  </span>
+                  <span style={{ fontSize:11, color:C.text4 }}>{rv.created_at?.slice(0,10).replace(/-/g,".") ?? ""}</span>
+                </div>
+                <div style={{ fontSize:12.5, color:C.text2, lineHeight:1.55,
+                  display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>
+                  {rv.content}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
           <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>
             시공 포트폴리오
@@ -435,11 +456,14 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
               {portfolio.length}건
             </span>
           </div>
-          <button onClick={() => setShowWriteModal(true)}
-            style={{ background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`,
-              borderRadius:R.full, padding:"6px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-            + 추가
-          </button>
+          {/* 포트폴리오 등록은 업체 본인(또는 관리자)만 — 의뢰인은 보기 전용 */}
+          {canManage && (
+            <button onClick={() => setShowWriteModal(true)}
+              style={{ background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`,
+                borderRadius:R.full, padding:"6px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              + 추가
+            </button>
+          )}
         </div>
         {/* 유형 필터 칩 (전체/주거/상가/부분시공/욕실/주방) */}
         <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:S.md, WebkitOverflowScrolling:"touch" }}>
