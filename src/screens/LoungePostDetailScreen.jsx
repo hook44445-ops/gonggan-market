@@ -32,11 +32,18 @@ import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
 import CompanyMiniPortfolioModal from '../components/lounge/CompanyMiniPortfolioModal';
+import LoungeProfilePopover from '../components/lounge/LoungeProfilePopover';
 import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification, createNotification } from '../lib/supabase';
 import { buildPostMeta, buildPostPath } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
 import { resolveCompanyIdentity, resolveConsumerIdentity } from '../utils/identityResolver';
 import SpaceActivityRecord from '../components/SpaceActivityRecord'; // 일반 의뢰인 활동기록 요약(재사용 · 업체버튼 없음)
+
+// 클릭한 닉네임/아바타 요소의 화면 위치(앵커) — 초미니 팝오버 위치 보정용
+const rectOf = (e) => {
+  const r = e?.currentTarget?.getBoundingClientRect?.();
+  return r ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null;
+};
 
 // 가입기간 라벨 — 신뢰 프로필 헤더용(가입일 기준 경과기간, 실데이터만)
 const joinPeriodLabel = (iso) => {
@@ -617,18 +624,24 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setReportTarget({ type: 'post', targetId: post.id });
   };
 
-  // 댓글 작성자 클릭 → 액션시트 표시
-  const handleCommentAuthorClick = (comment) => {
+  // 댓글 작성자 클릭 → 닉네임 옆 초미니 팝오버(앵커 위치 전달)
+  const handleCommentAuthorClick = (comment, e) => {
     if (!isLoggedIn) { onRequireLogin?.(); return; }
-    setCommentAuthorSheet({ comment });
+    setMiniModal(null);
+    setCommentAuthorSheet({ comment, anchor: rectOf(e) });
   };
 
-  // 게시글 작성자 클릭 → 동일 액션시트 (전문가 글은 업체 카드가 별도 존재, 시드 글 제외)
-  const handlePostAuthorClick = () => {
+  // 게시글 작성자 클릭 → 전문가 글은 업체 팝오버 / 그 외는 의뢰인 팝오버 (시드 글 제외)
+  const handlePostAuthorClick = (e) => {
     if (!post?.user_id || isSeedPost) return;
-    // 업체(전문가) 글 작성자 → 미니 포트폴리오 모달
-    if (post.is_expert) { setMiniModal({ ownerId: post.user_id, nickname: companyDisplayName(post.user_id, expertCompany) }); return; }
+    setCommentAuthorSheet(null);
+    // 업체(전문가) 글 작성자 → 업체 미니 팝오버
+    if (post.is_expert) {
+      setMiniModal({ ownerId: post.user_id, nickname: companyDisplayName(post.user_id, expertCompany), anchor: rectOf(e), report: { type: 'post', targetId: post.id } });
+      return;
+    }
     if (!isLoggedIn) { onRequireLogin?.(); return; }
+    setMiniModal(null);
     setCommentAuthorSheet({
       comment: {
         user_id:            post.user_id,
@@ -637,6 +650,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         created_at:         post.created_at,
       },
       isPostAuthor: true,
+      anchor: rectOf(e),
     });
   };
 
@@ -1003,7 +1017,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
               onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
               onAuthorClick={handleCommentAuthorClick}
-              onCompanyClick={(c) => setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id) })}
+              onCompanyClick={(c, e) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor: rectOf(e), report: { type: 'comment', targetId: c.id } }); }}
             />
             {replyComs.filter(r => r.parent_id === comment.id).map(reply => (
               <LoungeCommentItem
@@ -1015,7 +1029,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 onLike={likeComment}
                 onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
                 onAuthorClick={handleCommentAuthorClick}
-                onCompanyClick={(c) => setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id) })}
+                onCompanyClick={(c, e) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor: rectOf(e), report: { type: 'comment', targetId: c.id } }); }}
               />
             ))}
           </div>
@@ -1113,14 +1127,17 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       )}
 
       {miniModal && (
-        <CompanyMiniPortfolioModal
+        <LoungeProfilePopover
+          role="company"
+          anchor={miniModal.anchor}
           ownerId={miniModal.ownerId}
-          anonymousNickname={miniModal.nickname}
+          displayName={miniModal.nickname}
           currentUserId={user?.id}
           onClose={() => setMiniModal(null)}
-          onViewPortfolio={(co) => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'company', companyId: id, company: co }); }}
-          onRequestChat={(co) => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'chat', companyId: id, company: co }); }}
-          onRequestQuote={(co) => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'quote', companyId: id, company: co }); }}
+          onViewPortfolio={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'company', companyId: id, company: co }); }}
+          onRequestChat={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'chat', companyId: id, company: co }); }}
+          onRequestQuote={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'quote', companyId: id, company: co }); }}
+          onReport={() => setReportTarget({ type: miniModal.report?.type ?? 'comment', targetId: miniModal.report?.targetId })}
         />
       )}
 
@@ -1134,18 +1151,21 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       )}
 
       {commentAuthorSheet && (
-        <CommentAuthorActionSheet
-          comment={commentAuthorSheet.comment}
-          roleLabel={commentAuthorSheet.isPostAuthor ? '게시글 작성자' : '댓글 작성자'}
-          profile={authorProfile}
+        <LoungeProfilePopover
+          role="consumer"
+          anchor={commentAuthorSheet.anchor}
+          ownerId={commentAuthorSheet.comment.user_id}
+          displayName={resolveConsumerIdentity(commentAuthorSheet.comment)}
+          consumerProfile={authorProfile}
+          currentUserId={user?.id}
+          isOwn={commentAuthorSheet.comment.user_id === user?.id}
           alreadySent={commentAuthorSheet.isPostAuthor ? chatSent : sentChatTargets.has(commentAuthorSheet.comment.user_id)}
           busy={chatRequestBusy}
-          isOwn={commentAuthorSheet.comment.user_id === user?.id}
           onChat={commentAuthorSheet.isPostAuthor
-            ? () => { setCommentAuthorSheet(null); if (!chatSent && ensureChatTokens()) setShowChat(true); }
+            ? () => { if (!chatSent && ensureChatTokens()) setShowChat(true); }
             : () => handleCommentChatRequest(commentAuthorSheet.comment)}
           onReport={commentAuthorSheet.isPostAuthor
-            ? () => { setCommentAuthorSheet(null); setReportTarget({ type: 'post', targetId: post.id }); }
+            ? () => setReportTarget({ type: 'post', targetId: post.id })
             : () => handleCommentReportFromSheet(commentAuthorSheet.comment.id)}
           onClose={() => setCommentAuthorSheet(null)}
         />
