@@ -31,13 +31,13 @@ export default function LoungePostCard({ post, onClick }) {
   return (
     <div onClick={onClick} style={{
       background: C.surface,
-      padding: `14px ${S.xl}px`,
+      padding: `11px ${S.xl}px`,
       borderBottom: `1px solid ${C.bgWarm}`,
       cursor: 'pointer',
     }}>
 
       {/* Row 1: 카테고리 pill · 지역 · 연령 ··· 시간 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
         <span style={{
           background: C.brandL, color: C.brand,
           borderRadius: R.full, padding: '2px 9px',
@@ -66,14 +66,14 @@ export default function LoungePostCard({ post, onClick }) {
       </div>
 
       {/* Row 2 + 3: 제목 · 본문 (왼쪽) + 썸네일 (오른쪽) */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 6 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* 제목 */}
           {hasTitle && (
             <div style={{
               fontSize: 15, fontWeight: 800, color: C.text1,
               lineHeight: 1.4, letterSpacing: '-0.3px',
-              marginBottom: 4,
+              marginBottom: 3,
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
             }}>
               {post.title}
@@ -130,7 +130,7 @@ export default function LoungePostCard({ post, onClick }) {
 
       {/* Row 3.5: 자동 태그 칩 (표시 전용) */}
       {autoTags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 6 }}>
           {autoTags.map(t => (
             <span key={t} style={{
               fontSize: 10.5, color: C.text3, background: C.bg,

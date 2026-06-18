@@ -37,29 +37,20 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
     else if (canOpenConsumer) onAuthorClick?.(comment, anchor);
   };
 
-  // 전문가(업체) 답변 강조 — 일반 댓글과 명확히 구분(배경/테두리/배지)
-  const expertWrap = comment.is_expert_reply
-    ? {
-        background: C.brandL,
-        borderRadius: R.lg,
-        padding: 10,
-        border: `1.5px solid ${C.brand}`,
-        boxShadow: `0 2px 10px ${C.brand}22`,
-        marginBottom: S.sm,
-      }
-    : {};
+  // 전문가 댓글 배경 제거 — 일반 댓글과 동일하게 흰색. 전문가 여부는 작은 배지로만 표시.
+  const expertWrap = {};
 
   return (
     <div style={{
-      marginLeft: isReply ? 28 : 0,
-      marginBottom: comment.is_expert_reply ? 0 : S.sm,
+      marginLeft: isReply ? 22 : 0,
+      marginBottom: 6,
       ...expertWrap,
     }}>
     <div style={{
-      padding: `${S.md}px ${S.lg}px`,
-      borderLeft: !comment.is_expert_reply && isReply ? `2px solid ${C.bgWarm}` : 'none',
+      padding: `8px 13px`,
+      borderLeft: isReply ? `2px solid ${C.bgWarm}` : 'none',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: S.xs }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: 3 }}>
         <div
           onClick={handleAuthorClick}
           style={{
@@ -95,19 +86,19 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
         </span>
       </div>
 
-      <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6, marginBottom: S.sm, paddingLeft: 38 }}>
+      <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6, marginBottom: 6, paddingLeft: 30 }}>
         {comment.content}
       </div>
 
       {comment.image_urls && comment.image_urls.length > 0 && (
-        <div style={{ display: 'flex', gap: S.sm, marginBottom: S.sm, paddingLeft: 38, overflowX: 'auto', scrollbarWidth: 'none' }}>
+        <div style={{ display: 'flex', gap: S.sm, marginBottom: 6, paddingLeft: 30, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {comment.image_urls.map((url, i) => (
             <img key={i} src={url} alt="" style={{ width: 72, height: 72, borderRadius: R.md, objectFit: 'cover', flexShrink: 0 }} />
           ))}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: S.lg, alignItems: 'center', paddingLeft: 38 }}>
+      <div style={{ display: 'flex', gap: S.lg, alignItems: 'center', paddingLeft: 30 }}>
         {comment.is_expert_reply ? (
           // 전문가 답변 — 좋아요(기존 like_count/onLike 재사용, 문구만 통일)
           <button onClick={handleLike} style={{ background: liked ? C.brand : 'none', border: `1px solid ${liked ? C.brand : C.bgWarm}`, borderRadius: R.full, cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#fff' : C.text2, fontWeight: 700, padding: '4px 12px' }}>
