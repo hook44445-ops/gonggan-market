@@ -2738,24 +2738,6 @@ export const upsertPushPreferences = (userId, prefs) =>
 export const enqueueLoungePostPush = (postId) =>
   supabase.rpc("enqueue_lounge_post_push", { p_post_id: postId });
 
-// ── STEP SYNC-4: Lounge Chat Requests ────────────────────────────────────────
-
-export const createLoungeChat = (data) =>
-  supabase
-    .from("lounge_chats")
-    .upsert(data, { onConflict: "post_id,requester_id", ignoreDuplicates: true })
-    .select()
-    .single();
-
-export const acceptLoungeChat = (chatId, participantId) =>
-  supabase
-    .from("lounge_chats")
-    .update({ status: "accepted", token_charged: true })
-    .eq("id", chatId)
-    .or(`requester_id.eq.${participantId},post_user_id.eq.${participantId}`)
-    .select()
-    .single();
-
 // ── 댓글 작성자 대화 신청 (lounge_chat_requests, migration 027) ───────────────
 
 // 요청 생성: 중복/자기자신/시드 검사 포함 RPC (idempotent)
