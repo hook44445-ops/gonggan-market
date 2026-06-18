@@ -6,7 +6,9 @@ import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 
-export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId }) {
+export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId, companyName = null }) {
+  // 업체(전문가) 댓글은 의뢰인 익명닉네임 대신 업체명으로 표시. 일반 댓글은 기존 익명닉네임 유지.
+  const displayName = companyName || comment.anonymous_nickname;
   const avatar  = getAnonymousAvatarByNickname(comment.anonymous_nickname);
   const [liked, setLiked] = useState(false);
 
@@ -72,7 +74,7 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
             fontWeight: 800, fontSize: 13, color: C.text1,
             cursor: clickableAuthor ? 'pointer' : 'default',
           }}
-        >{comment.anonymous_nickname}</span>
+        >{displayName}</span>
         {comment.is_expert_reply && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.brand, color: '#fff', borderRadius: R.full, padding: '2px 9px', fontSize: 10, fontWeight: 800 }}>
             🏅 공간보증 · 전문가 답변
