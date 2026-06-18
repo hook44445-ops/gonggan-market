@@ -624,10 +624,10 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   };
 
   // 댓글 작성자 클릭 → 닉네임 옆 초미니 팝오버(앵커 위치 전달)
-  const handleCommentAuthorClick = (comment, e) => {
+  const handleCommentAuthorClick = (comment, anchor) => {
     if (!isLoggedIn) { onRequireLogin?.(); return; }
     setMiniModal(null);
-    setCommentAuthorSheet({ comment, anchor: rectOf(e) });
+    setCommentAuthorSheet({ comment, anchor: anchor ?? null });
   };
 
   // 게시글 작성자 클릭 → 전문가 글은 업체 팝오버 / 그 외는 의뢰인 팝오버 (시드 글 제외)
@@ -1016,7 +1016,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
               onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
               onAuthorClick={handleCommentAuthorClick}
-              onCompanyClick={(c, e) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor: rectOf(e), report: { type: 'comment', targetId: c.id } }); }}
+              onCompanyClick={(c, anchor) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor: anchor ?? null, report: { type: 'comment', targetId: c.id } }); }}
             />
             {replyComs.filter(r => r.parent_id === comment.id).map(reply => (
               <LoungeCommentItem
@@ -1028,7 +1028,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 onLike={likeComment}
                 onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
                 onAuthorClick={handleCommentAuthorClick}
-                onCompanyClick={(c, e) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor: rectOf(e), report: { type: 'comment', targetId: c.id } }); }}
+                onCompanyClick={(c, anchor) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor: anchor ?? null, report: { type: 'comment', targetId: c.id } }); }}
               />
             ))}
           </div>
