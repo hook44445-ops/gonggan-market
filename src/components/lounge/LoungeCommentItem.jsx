@@ -31,8 +31,13 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
   const clickableAuthor = canChat || isCompanyAuthor;
 
   const handleAuthorClick = (e) => {
-    if (isCompanyAuthor) onCompanyClick?.(comment, e);
-    else if (canChat) onAuthorClick?.(comment, e);
+    // 클릭 발생 지점에서 직접 anchor rect 계산(상위로 이벤트 전달 시 currentTarget 소실 방지)
+    // + 카드/답글/좋아요/신고 등 다른 클릭과 충돌 방지.
+    e.stopPropagation();
+    const r = e.currentTarget?.getBoundingClientRect?.();
+    const anchor = r ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null;
+    if (isCompanyAuthor) onCompanyClick?.(comment, anchor);
+    else if (canChat) onAuthorClick?.(comment, anchor);
   };
 
   // 전문가(업체) 답변 강조 — 일반 댓글과 명확히 구분(배경/테두리/배지)
