@@ -11,6 +11,9 @@
           "value": ".*([Bb][Oo][Tt]|[Cc]rawl|[Ss]pider|[Ss]lurp|facebookexternalhit|Facebot|WhatsApp|kakaotalk|kakaostory|[Yy]eti|Daum|Pinterest|vkShare|Embedly|Quora|W3C_Validator|ia_archiver).*"
         }
       ],
+      "missing": [
+        { "type": "query", "key": "app" }
+      ],
       "destination": "/api/prerender?path=:path*"
     },
     { "source": "/((?!api/|naver0b2e655f5bb483edebab3e18bc7faf4712328734\\.html|naverdd7f227f04689ae77e06293315940389\\.html).*)", "destination": "/index.html" }

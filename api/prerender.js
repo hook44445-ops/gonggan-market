@@ -73,6 +73,7 @@ function htmlShell({ site, canonical, robots, title, description, ogImage, ogTyp
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>(function(){try{var u=navigator.userAgent||"";/* 카카오/라인/인스타/페북/네이버/다음 등 인앱 웹뷰(사람)만 앱(SPA) 라우트로 전환. 검색봇은 JS 미실행 → OG/미리보기·색인 유지 */if(/kakaotalk|kakaostory|naver\\(inapp|line\\/|instagram|fban|fbav|daumapps/i.test(u)){var q=location.search?location.search+"&app=1":"?app=1";location.replace(location.pathname+q);}}catch(e){}})();</script>
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}" />
 <meta name="robots" content="${esc(robots)}" />
