@@ -265,7 +265,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [imgViewer, setImgViewer]         = useState(null); // { urls, index }
   const inputRef = useRef(null);
 
-  const isGuest    = user?.isGuest === true;
+  // 게스트(딥링크 등) 읽기 전용 보강 — isGuest 플래그가 누락돼도 실제 user.id 없으면 비로그인 취급.
+  // → 게시글/댓글 수정·삭제·작성·좋아요·저장·메시지·신고는 모두 비활성/차단(아래 핸들러 가드와 이중화).
+  const isGuest    = user?.isGuest === true || !user?.id;
   const isLoggedIn = !isGuest;
   const isOwn      = isLoggedIn && post?.user_id && user?.id && post.user_id === user.id;
 
@@ -582,24 +584,26 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   const handleChatRequest = async () => {
     if (chatSending || chatSent) return;
+    if (isGuest) { setShowChat(false); onRequireLogin?.(); return; }
+    if (!user?.id || !post?.user_id) { setShowChat(false); showToast('상대 정보를 불러오는 중이에요'); return; }
     setChatSending(true);
-    if (user?.id) {
-      await createLoungeChat({
-        post_id:      postId,
-        requester_id: user.id,
-        post_user_id: post?.user_id ?? null,
-      });
-    }
+    // 라운지 메시지 요청 = lounge_chat_requests 생성(댓글 경로와 동일 · Phase2 인박스/익명 Waiting Accept).
+    // 정확한 상대(post.user_id)에게 요청을 만들고, 즉시 채팅방으로 이동하지 않는다.
+    const { data, error } = await requestCommentChat(user.id, post.user_id, postId, null).catch(() => ({ data: null, error: true }));
     setChatSending(false);
-    setChatSent(true);
     setShowChat(false);
+    if (error) { showToast('신청에 실패했어요. 잠시 후 다시 시도해주세요.'); return; }
+    if (data?.error === 'SELF_REQUEST') { showToast('본인에게는 신청할 수 없어요'); return; }
+    setChatSent(true);
     try {
       const key = 'lounge_chat_requests';
       const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
       prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), nickname: post?.anonymous_nickname, sentAt: new Date().toISOString() });
       localStorage.setItem(key, JSON.stringify(prev.slice(0, 50)));
     } catch {}
-    showToast('💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.');
+    if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
+    if (data?.status === 'already_pending') { showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
+    showToast('💬 메시지를 보냈어요! 대화 탭에서 확인할 수 있어요. 수락 시 20토큰이 차감됩니다.');
   };
 
   const handleCommentSubmit = (text) => {
@@ -885,7 +889,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 style={{ flex: 1, height: 28, borderRadius: 8, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
                 포트폴리오
               </button>
-              <button onClick={() => onNavigate?.({ target: 'chat', companyId: post.user_id, company: expertCompany })}
+              <button onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent && ensureChatTokens()) setShowChat(true); }}
                 style={{ flex: 1, height: 28, borderRadius: 8, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
                 메시지
               </button>
@@ -1130,7 +1134,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           currentUserId={user?.id}
           onClose={() => setMiniModal(null)}
           onViewPortfolio={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'company', companyId: id, company: co }); }}
-          onRequestChat={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'chat', companyId: id, company: co }); }}
+          onRequestChat={() => {
+            // 메시지: 즉시 채팅방 생성 금지 → 메시지 요청(lounge_chat_requests) 생성. 정확한 상대에게 전송.
+            if (isGuest) { onRequireLogin?.(); return; }
+            if (miniModal.report?.type === 'comment' && miniModal.ownerId && miniModal.report?.targetId) {
+              handleCommentChatRequest({ user_id: miniModal.ownerId, id: miniModal.report.targetId });
+            } else if (!chatSent && ensureChatTokens()) {
+              setShowChat(true);
+            }
+          }}
           onRequestQuote={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'quote', companyId: id, company: co }); }}
           onReport={() => openReport({ type: miniModal.report?.type ?? 'comment', targetId: miniModal.report?.targetId })}
         />
