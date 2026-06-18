@@ -153,6 +153,7 @@ export default function LoungeProfilePopover({
           {chip(C.brand, '#fff', '🏅 전문가', 'exp')}
           {bm && chip(bm.bg, bm.color, `${bm.icon} ${bm.label}`, 'badge')}
           {company?.temp != null && chip(C.brandL, C.brand, `🌡️ ${Number(company.temp).toFixed(1)}°`, 'temp')}
+          {company?.region && chip(C.bg, C.text3, `📍 ${company.region}`, 'region')}
         </div>
         {specialties.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
