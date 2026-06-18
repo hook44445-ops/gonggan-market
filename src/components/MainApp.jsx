@@ -98,6 +98,7 @@ import {
   fetchAcceptedReceivedChatRequests,
   acceptLoungeChatRequest,
   rejectLoungeChatRequest,
+  leaveLoungeChat,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import { sendTieredNotification } from "../utils/notify";
@@ -2024,6 +2025,18 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     setLoungeReceivedReqs(prev => prev.filter(r => r.id !== req.id));
   };
 
+  // 대화 목록 카드 더보기 메뉴(열린 카드 key) + 라운지 대화 나가기(soft-hide, 메시지 hard delete 없음)
+  const [inboxMenu, setInboxMenu] = useState(null);
+  const handleInboxLeaveLounge = async (req) => {
+    setInboxMenu(null);
+    if (!req?.id || !user?.id) return;
+    await leaveLoungeChat(req.id, user.id).catch(() => {});
+    // 나간 사용자 목록에서 즉시 제거(상대 목록은 유지 — soft-hide)
+    setLoungeAcceptedReqs(prev => prev.filter(r => r.id !== req.id));
+    setLoungeSentReqs(prev => prev.filter(r => r.id !== req.id));
+    showToast("대화 목록에서 나갔어요");
+  };
+
   const [showLoginRequired, setShowLoginRequired] = useState(false);
 
   const showToast = msg => {
@@ -3595,7 +3608,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
         {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} onEarnToken={earnToken} />}
-        {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"portfolio")}
+        {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen("chatlist")}
           onQuoteRequest={activeRole === "consumer" ? () => { setScreen("home"); handleOpenNewReq(); } : undefined} />}
         {screen==="lounge-chat" && loungeChat && (
           <ChatScreen
@@ -3603,7 +3616,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             roomId={loungeChat.roomId}
             partner={loungeChat.partner}
             user={user}
-            onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"my")}
+            onBack={() => setScreen("chatlist")}
             onLeft={() => { setLoungeReceivedReqs(prev => prev.filter(r => r.id !== loungeChat.partner?.requestId)); setLoungeSentReqs(prev => prev.filter(r => r.id !== loungeChat.partner?.requestId)); setLoungeAcceptedReqs(prev => prev.filter(r => r.id !== loungeChat.partner?.requestId)); }}
             onQuoteRequest={activeRole === "consumer" ? () => {
               if (loungeChat.partner?.postTitle) {
@@ -3817,6 +3830,26 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const sectionTitle = (label) => (
             <div style={{ fontSize:13, fontWeight:800, color:C.text2, margin:`${S.xl}px 0 ${S.sm}px` }}>{label}</div>
           );
+          // 카드 우측 더보기(⋯) 메뉴 — 라운지: 대화 나가기 / 계약·견적: 삭제 불가 안내
+          const renderCardMenu = (menuKey, kind, req) => (
+            <div style={{ position:"relative", flexShrink:0 }} onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setInboxMenu(inboxMenu === menuKey ? null : menuKey)}
+                style={{ background:"none", border:"none", color:C.text3, fontSize:20, cursor:"pointer", padding:"2px 4px", lineHeight:1 }}>⋯</button>
+              {inboxMenu === menuKey && (
+                <>
+                  <div onClick={() => setInboxMenu(null)} style={{ position:"fixed", inset:0, zIndex:40 }} />
+                  <div style={{ position:"absolute", top:26, right:0, background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, boxShadow:SHADOW.soft, zIndex:41, minWidth:150, overflow:"hidden" }}>
+                    {kind === "lounge" ? (
+                      <button onClick={() => handleInboxLeaveLounge(req)}
+                        style={{ width:"100%", padding:"12px 14px", background:"none", border:"none", textAlign:"left", fontSize:13, fontWeight:700, color:C.red ?? "#E53E3E", cursor:"pointer" }}>대화 나가기</button>
+                    ) : (
+                      <div style={{ padding:"12px 14px", fontSize:12, color:C.text3, lineHeight:1.6 }}>거래 기록 보호를 위해<br/>삭제할 수 없어요.</div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          );
           return (
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
@@ -3861,8 +3894,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   </div>
                 ))}
                 {pendingSent.map(r => (
-                  <div key={`sent_${r.id}`} onClick={() => requireAuth(() => openLoungeChatRoom(r, r.target_id))}
-                    style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
+                  <div key={`sent_${r.id}`}
+                    style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
                     <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>💬</div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:14, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
@@ -3889,6 +3922,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       </div>
                       <div style={{ fontSize:11, color:C.text3 }}>{formatRelativeTime(r.accepted_at ?? r.created_at)} 수락</div>
                     </div>
+                    {renderCardMenu(`acc_recv_${r.id}`, "lounge", r)}
                   </div>
                 ))}
                 {loungeSentReqs.filter(r => r.status === "accepted").map(r => (
@@ -3901,6 +3935,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       </div>
                       <div style={{ fontSize:11, color:C.text3 }}>{formatRelativeTime(r.accepted_at ?? r.created_at)} 수락</div>
                     </div>
+                    {renderCardMenu(`acc_sent_${r.id}`, "lounge", r)}
                   </div>
                 ))}
               </>
@@ -3935,6 +3970,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         </div>
                       ) : null;
                     })()}
+                    {renderCardMenu(`co_${c.id}`, "company")}
                   </div>
                 ))}
               </>
