@@ -5,6 +5,7 @@ import { TempBadge, LeafSprig } from "../components/common";
 import BidCard from "../components/BidCard";
 import EscrowCalculator from "../components/EscrowCalculator";
 import SpaceActivityRecord from "../components/SpaceActivityRecord"; // v5.4.0: 공간 활동기록(Add Only)
+import PortfolioManagePanel from "../components/PortfolioManagePanel"; // 시공사례 등록·관리(Add Only)
 import { getMembershipRateByCreatedAt } from "../utils/calculations";
 import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews } from "../lib/supabase";
 
@@ -222,7 +223,7 @@ export default function DashboardScreen({
   // 공간멤버십파트너 수수료율 — companies.created_at 기준 (0/2.2/4.4%)
   const membershipRate  = getMembershipRateByCreatedAt(currentUser?.created_at);
 
-  const tabs = [["active","진행중"],["bids","입찰"],["stats","통계"],["completed","완료"],["activity","활동기록"]];
+  const tabs = [["active","진행중"],["bids","입찰"],["stats","통계"],["portfolio","포트폴리오"],["completed","완료"],["activity","활동기록"]];
 
   // [ContractMapping] 진단 — 업체 진행중/완료 계약 매핑 (production 미노출)
   useEffect(() => {
@@ -547,6 +548,11 @@ export default function DashboardScreen({
               );
             })}
           </div>
+        )}
+
+        {/* 시공사례(포트폴리오) 등록·관리 — 기존 portfolios/uploadFile 재사용 */}
+        {tab === "portfolio" && (
+          <PortfolioManagePanel companyId={currentUser?.id ?? null} />
         )}
 
         {/* v5.4.0: 공간 활동기록(본인) — 실데이터 집계, 없으면 빈 상태 안내 */}

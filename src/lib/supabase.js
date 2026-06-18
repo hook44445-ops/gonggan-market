@@ -415,6 +415,9 @@ export const getPortfolios = (companyId) =>
 export const createPortfolio = (data) =>
   supabase.from("portfolios").insert(data).select().single();
 
+export const updatePortfolio = (id, data) =>
+  supabase.from("portfolios").update(data).eq("id", id).select().single();
+
 export const deletePortfolio = (id) =>
   supabase.from("portfolios").delete().eq("id", id);
 
