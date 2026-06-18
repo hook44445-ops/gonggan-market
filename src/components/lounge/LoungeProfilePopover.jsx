@@ -144,7 +144,12 @@ export default function LoungeProfilePopover({
         <Divider />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Row icon="📁" label="포트폴리오" onClick={() => act(onViewPortfolio, company)} />
-          <Row icon="💬" label="메시지" disabled={self} onClick={() => !self && act(onRequestChat, company)} />
+          <Row icon="💬" label="메시지" disabled={self} onClick={() => {
+            console.log('[CHAT DEBUG] message button clicked', {
+              source: 'mini-popover(company)', targetUserId: ownerId, currentUserId, isSelf: self, disabled: self,
+            });
+            if (!self) act(onRequestChat, company);
+          }} />
           {onReport && <Row icon="🚩" label="신고" danger onClick={() => act(onReport)} />}
         </div>
       </>
@@ -152,6 +157,17 @@ export default function LoungeProfilePopover({
   };
 
   const renderConsumer = () => {
+    // 댓글 작성자 팝오버 — 메시지(대화 신청) 버튼 비활성 원인 진단용 로그.
+    console.log('[CHAT DEBUG] disabled reason', {
+      source:       'comment-author-popover(render)',
+      isSelf:       isOwn,
+      loading:      busy,
+      alreadySent,
+      currentUser:  !!currentUserId,
+      targetUserId: ownerId,
+      hidden:       isOwn,            // isOwn 이면 메시지 행 자체가 렌더되지 않음
+      disabled:     busy || alreadySent,
+    });
     const avatar = getAnonymousAvatarByNickname(displayName);
     const jl = joinPeriod(consumerProfile?.joinedAt);
     const metaBits = [
@@ -171,7 +187,13 @@ export default function LoungeProfilePopover({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {!isOwn && (
             <Row icon="💬" label={alreadySent ? '신청 보냄' : busy ? '처리 중...' : '메시지 신청'}
-              disabled={busy || alreadySent} onClick={() => !(busy || alreadySent) && act(onChat)} />
+              disabled={busy || alreadySent} onClick={() => {
+                console.log('[CHAT DEBUG] message button clicked', {
+                  source: 'comment-author-popover', targetUserId: ownerId, currentUserId,
+                  isSelf: isOwn, alreadySent, loading: busy, disabled: busy || alreadySent,
+                });
+                if (!(busy || alreadySent)) act(onChat);
+              }} />
           )}
           {onReport && <Row icon="🚩" label="신고" danger onClick={() => act(onReport)} />}
         </div>

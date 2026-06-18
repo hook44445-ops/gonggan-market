@@ -591,30 +591,53 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     const text = (messageText ?? '').trim();
     if (!text) { showToast('메시지를 입력해주세요'); return; }
     if (!ensureChatTokens()) { setShowChat(false); return; }
+
+    console.log('[CHAT DEBUG] submit start', { source: 'bottom-cta/handleChatRequest' });
+    console.log('[CHAT DEBUG] rpc input', {
+      currentUserId: user.id,
+      targetUserId:  post.user_id,
+      postId,
+      commentId:     null,
+      tokenBalance,
+    });
+
     setChatSending(true);
-    // 라운지 메시지 요청 = lounge_chat_requests 생성(댓글 경로와 동일 · Phase2 인박스/익명 Waiting Accept).
-    // 정확한 상대(post.user_id)에게 요청을 만들고, 즉시 채팅방으로 이동하지 않는다.
-    const { data, error } = await requestCommentChat(user.id, post.user_id, postId, null).catch(() => ({ data: null, error: true }));
-    setChatSending(false);
-    setShowChat(false);
-    if (error) { showToast('신청에 실패했어요. 잠시 후 다시 시도해주세요.'); return; }
-    if (data?.error === 'SELF_REQUEST') { showToast('본인에게는 신청할 수 없어요'); return; }
-    setChatSent(true);
-    onChatRequested?.(); // 대화 탭 수락대기(Waiting Accept) 목록 즉시 갱신
+    // ⚠️ Supabase 빌더(PostgrestBuilder)는 PromiseLike(then만 존재) — .catch()가 없어 .catch 체이닝은
+    //    동기 TypeError를 던진다. 과거 `requestCommentChat(...).catch(...)`가 setChatSending(false) 이전에
+    //    던져져 "보내는 중..."에서 멈췄다. → try/catch/finally로 전환(반드시 loading 해제 + 실패 toast).
     try {
-      const key = 'lounge_chat_requests';
-      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
-      prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), nickname: post?.anonymous_nickname, sentAt: new Date().toISOString() });
-      localStorage.setItem(key, JSON.stringify(prev.slice(0, 50)));
-    } catch {}
-    if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
-    if (data?.status === 'already_pending') { showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
-    // 작성한 메시지를 방의 첫 메시지로 전송 (room_id = lounge_{request_id}, MainApp.openLoungeChatRoom과 동일 규칙)
-    const requestId = data?.request_id;
-    if (requestId) {
-      await sendMessage(`lounge_${requestId}`, user.id, 'user', text).catch(() => {});
+      // 라운지 메시지 요청 = lounge_chat_requests 생성(댓글 경로와 동일). 정확한 상대(post.user_id)에게 요청.
+      const { data, error } = await requestCommentChat(user.id, post.user_id, postId, null);
+      console.log('[CHAT DEBUG] rpc result', {
+        data, error, code: error?.code, message: error?.message, details: error?.details,
+      });
+      if (error) { showToast('대화 신청에 실패했습니다. 다시 시도해주세요.'); return; }
+      if (data?.error === 'SELF_REQUEST') { showToast('본인에게는 신청할 수 없어요'); return; }
+      setChatSent(true);
+      onChatRequested?.(); // 대화 탭 수락대기(Waiting Accept) 목록 즉시 갱신
+      try {
+        const key = 'lounge_chat_requests';
+        const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+        prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), nickname: post?.anonymous_nickname, sentAt: new Date().toISOString() });
+        localStorage.setItem(key, JSON.stringify(prev.slice(0, 50)));
+      } catch {}
+      if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
+      if (data?.status === 'already_pending') { showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
+      // 작성한 메시지를 방의 첫 메시지로 전송 (room_id = lounge_{request_id}, MainApp.openLoungeChatRoom과 동일 규칙)
+      const requestId = data?.request_id;
+      if (requestId) {
+        const { error: msgErr } = await sendMessage(`lounge_${requestId}`, user.id, 'user', text);
+        if (msgErr) console.log('[CHAT DEBUG] first message send error', msgErr);
+      }
+      showToast('💬 메시지를 보냈어요! 대화 탭에서 확인할 수 있어요. 수락 시 20토큰이 차감됩니다.');
+    } catch (e) {
+      console.log('[CHAT DEBUG] rpc result', { data: null, error: e, code: e?.code, message: e?.message, details: e?.details });
+      showToast('대화 신청에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      console.log('[CHAT DEBUG] submit end - loading false');
+      setChatSending(false);
+      setShowChat(false);
     }
-    showToast('💬 메시지를 보냈어요! 대화 탭에서 확인할 수 있어요. 수락 시 20토큰이 차감됩니다.');
   };
 
   const handleCommentSubmit = (text) => {
@@ -676,18 +699,43 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   // 대화 신청 (댓글 작성자에게)
   const handleCommentChatRequest = async (comment) => {
+    console.log('[CHAT DEBUG] message button clicked', {
+      source: 'comment-author-popover',
+      targetUserId:  comment?.user_id,
+      currentUserId: user?.id,
+      postId,
+      commentId:     comment?.id,
+      role:          user?.activeRole ?? user?.role,
+      chatRequestBusy,
+    });
+    console.log('[CHAT DEBUG] disabled reason', {
+      isGuest,
+      loading:      chatRequestBusy,
+      currentUser:  !!user?.id,
+      targetUserId: comment?.user_id,
+      isSelf:       comment?.user_id === user?.id,
+      hasToken:     (tokenBalance ?? 0) >= TOKEN_COSTS.CHAT_REQUEST,
+      tokenBalance,
+    });
     if (chatRequestBusy) return;
     if (!isLoggedIn || !user?.id) { onRequireLogin?.(); return; }
     if (!ensureChatTokens()) { setCommentAuthorSheet(null); return; }
     setCommentAuthorSheet(null);
     setChatRequestBusy(true);
+    console.log('[CHAT DEBUG] submit start', { source: 'comment-author-popover' });
     try {
+      console.log('[CHAT DEBUG] rpc input', {
+        currentUserId: user.id, targetUserId: comment.user_id, postId, commentId: comment.id, tokenBalance,
+      });
       const { data, error } = await requestCommentChat(
         user.id,
         comment.user_id,
         postId,
         comment.id,
       );
+      console.log('[CHAT DEBUG] rpc result', {
+        data, error, code: error?.code, message: error?.message, details: error?.details,
+      });
       const status = data?.status;
       if (error) {
         showToast(`대화 신청 실패: ${error.message}`);
@@ -712,6 +760,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         }).catch(() => {});
       }
     } finally {
+      console.log('[CHAT DEBUG] submit end - loading false', { source: 'comment-author-popover' });
       setChatRequestBusy(false);
     }
   };
@@ -900,7 +949,14 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 style={{ flex: 1, height: 28, borderRadius: 8, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
                 포트폴리오
               </button>
-              <button onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent) setShowChat(true); }}
+              <button onClick={() => {
+                  console.log('[CHAT DEBUG] message button clicked', {
+                    source: 'expert-card-cta', targetUserId: post.user_id, currentUserId: user?.id,
+                    postId, commentId: null, role: user?.activeRole ?? user?.role, disabled: chatSent, isGuest,
+                  });
+                  if (isGuest) { onRequireLogin?.(); return; }
+                  if (!chatSent) setShowChat(true);
+                }}
                 style={{ flex: 1, height: 28, borderRadius: 8, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
                 메시지
               </button>
@@ -945,7 +1001,14 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       {!isOwn && !isSeedPost && (
         <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm, borderRadius: R.xl, margin: `0 8px ${S.sm}px` }}>
           <button
-            onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent) setShowChat(true); }}
+            onClick={() => {
+              console.log('[CHAT DEBUG] message button clicked', {
+                source: 'bottom-cta', targetUserId: post.user_id, currentUserId: user?.id,
+                postId, commentId: null, role: user?.activeRole ?? user?.role, disabled: chatSent, isGuest,
+              });
+              if (isGuest) { onRequireLogin?.(); return; }
+              if (!chatSent) setShowChat(true);
+            }}
             disabled={chatSent}
             style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand}44`, transition: 'background 0.2s' }}>
             {isGuest ? '💬 메시지 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 메시지 신청하기'}
