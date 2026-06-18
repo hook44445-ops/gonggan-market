@@ -51,13 +51,23 @@ export function resolveCompanyIdentity(company) {
   return COMPANY_FALLBACK;
 }
 
-// 의뢰인 표시명 우선순위: anonymous_name → anonymous_nickname → '공간이웃'
+// 의뢰인 익명 코드 — 예: 익명 E421 (영문 1자 + 숫자 3자리). user_id 기준 결정론적.
+// 같은 작성자는 항상 같은 코드를 반환한다(없으면 anonymous_nickname/id 를 seed 로 폴백).
+export function getConsumerAnonCode(seed) {
+  const h = _hash(seed == null ? '' : String(seed));
+  const letter = String.fromCharCode(65 + (h % 26)); // A~Z
+  const num = String(h % 1000).padStart(3, '0');      // 000~999
+  return `익명 ${letter}${num}`;
+}
+
+// 의뢰인 표시명 — 라운지 익명 정책: 작성자 닉네임 대신 '익명 코드'로 표시한다.
+//   seed 우선순위: anonymous_nickname → user_id → id
+//   ※ anonymous_nickname 은 (작성자, 글) 단위로 결정되어 저장되므로, 이를 seed 로 쓰면
+//     기존 익명 경계(같은 글 내 동일 · 다른 글 간 상이)를 그대로 유지하면서 표기만 코드로 바꾼다.
 export function resolveConsumerIdentity(consumer) {
-  return (
-    consumer?.anonymous_name
-    || consumer?.anonymous_nickname
-    || CONSUMER_FALLBACK
-  );
+  const seed = consumer?.anonymous_nickname ?? consumer?.user_id ?? consumer?.id ?? null;
+  if (seed == null) return CONSUMER_FALLBACK;
+  return getConsumerAnonCode(seed);
 }
 
 // 통합 진입점 — role 에 따라 적절한 익명 Identity 표시명을 반환한다.

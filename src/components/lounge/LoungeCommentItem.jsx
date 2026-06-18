@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { C, R, S } from '../../constants';
-import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
+import { formatLoungeRelativeTime, getAnonymousAvatarByNickname, getGenderEmoji } from '../../utils/anonymousNickname';
 import { resolveConsumerIdentity } from '../../utils/identityResolver';
 
 export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId, companyName = null, isAuthor = false }) {
@@ -43,14 +43,14 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
   return (
     <div style={{
       marginLeft: isReply ? 22 : 0,
-      marginBottom: 6,
+      marginBottom: 5,
       ...expertWrap,
     }}>
     <div style={{
-      padding: `8px 13px`,
+      padding: `6px 11px`,
       borderLeft: isReply ? `2px solid ${C.bgWarm}` : 'none',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: 3 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: 2 }}>
         <div
           onClick={handleAuthorClick}
           style={{
@@ -61,7 +61,7 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
             cursor: clickableAuthor ? 'pointer' : 'default',
           }}
         >
-          {avatar.emoji}
+          {getGenderEmoji(comment.gender)}
         </div>
         <span
           onClick={handleAuthorClick}
@@ -82,11 +82,11 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
           </span>
         )}
         <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>
-          {formatRelativeTime(comment.created_at)}
+          {formatLoungeRelativeTime(comment.created_at)}
         </span>
       </div>
 
-      <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6, marginBottom: 6, paddingLeft: 30 }}>
+      <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6, marginBottom: 5, paddingLeft: 30 }}>
         {comment.content}
       </div>
 

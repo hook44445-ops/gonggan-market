@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { C, R, S } from '../../constants';
-import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
+import { formatLoungeRelativeTime, getAnonymousAvatarByNickname, getGenderEmoji } from '../../utils/anonymousNickname';
 import { CATEGORY_LABEL } from '../../constants/lounge';
 import { plainExcerpt } from '../../utils/richText';
 import { extractLoungeTags } from '../../utils/loungeTags';
@@ -31,13 +31,13 @@ export default function LoungePostCard({ post, onClick }) {
   return (
     <div onClick={onClick} style={{
       background: C.surface,
-      padding: `11px ${S.xl}px`,
+      padding: `9px ${S.xl}px`,
       borderBottom: `1px solid ${C.bgWarm}`,
       cursor: 'pointer',
     }}>
 
       {/* Row 1: 카테고리 pill · 지역 · 연령 ··· 시간 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
         <span style={{
           background: C.brandL, color: C.brand,
           borderRadius: R.full, padding: '2px 9px',
@@ -61,12 +61,12 @@ export default function LoungePostCard({ post, onClick }) {
         {post.region    && <span style={{ fontSize: 11, color: C.text4 }}>· {post.region}</span>}
         {post.age_group && <span style={{ fontSize: 11, color: C.text4 }}>· {post.age_group}</span>}
         <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>
-          {formatRelativeTime(post.created_at)}
+          {formatLoungeRelativeTime(post.created_at)}
         </span>
       </div>
 
       {/* Row 2 + 3: 제목 · 본문 (왼쪽) + 썸네일 (오른쪽) */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 6 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 5 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* 제목 */}
           {hasTitle && (
@@ -112,7 +112,7 @@ export default function LoungePostCard({ post, onClick }) {
                 background: `linear-gradient(145deg, ${avatar.color}33, ${avatar.color}88)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30,
               }}>
-                {avatar.emoji}
+                {getGenderEmoji(post.gender)}
               </div>
             )}
             {imgCount > 1 && (
@@ -130,7 +130,7 @@ export default function LoungePostCard({ post, onClick }) {
 
       {/* Row 3.5: 자동 태그 칩 (표시 전용) */}
       {autoTags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 6 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 5 }}>
           {autoTags.map(t => (
             <span key={t} style={{
               fontSize: 10.5, color: C.text3, background: C.bg,
@@ -142,30 +142,11 @@ export default function LoungePostCard({ post, onClick }) {
         </div>
       )}
 
-      {/* Row 4: 아바타 · 닉네임 · 성별 ··· 조회 · 좋아요 · 댓글 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div style={{
-          width: 20, height: 20, borderRadius: '50%',
-          background: avatar.color,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, flexShrink: 0,
-        }}>
-          {avatar.emoji}
-        </div>
-        <span style={{ fontSize: 12, color: C.text3, fontWeight: 600 }}>
-          {post.has_badge && <span style={{ fontSize: 11, marginRight: 2 }}>🛡️</span>}
-          {post.anonymous_nickname}
-        </span>
-        {post.gender && (
-          <span style={{ fontSize: 11, color: C.text4 }}>
-            · {post.gender === 'male' ? '남' : '여'}
-          </span>
-        )}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-          <span style={{ fontSize: 11, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
-          <span style={{ fontSize: 11, color: C.text3 }}>❤️ {post.like_count ?? 0}</span>
-          <span style={{ fontSize: 11, color: C.text3 }}>💬 {post.comment_count ?? 0}</span>
-        </div>
+      {/* Row 4: 조회 · 좋아요 · 댓글 (리스트에서는 작성자 익명닉네임을 노출하지 않는다 — 지역·시간은 Row 1) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 11, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
+        <span style={{ fontSize: 11, color: C.text3 }}>❤️ {post.like_count ?? 0}</span>
+        <span style={{ fontSize: 11, color: C.text3 }}>💬 {post.comment_count ?? 0}</span>
       </div>
     </div>
   );
