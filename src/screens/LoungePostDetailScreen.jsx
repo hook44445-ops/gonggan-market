@@ -859,48 +859,39 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
         {/* STEP3: 전문가(업체) 글 — 작성자 프로필 카드 자동 연결 */}
         {post.is_expert && (
-          <div style={{ background: C.ivory, border: `1px solid ${C.bgWarm}`, borderRadius: 12, padding: '14px 16px', marginBottom: S.lg }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#8A6D2A', lineHeight: 1.8 }}>
-              <span style={{ background: '#C4A96A22', border: '1px solid #C4A96A', borderRadius: R.full, padding: '2px 9px', fontSize: 13, marginRight: 6 }}>전문가</span>
-              🛡️ 공간마켓 파트너
+          <div style={{ background: C.ivory, border: `1px solid ${C.bgWarm}`, borderRadius: 10, padding: 8, marginBottom: S.md }}>
+            {/* 배지 + 닉네임 한 줄 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ background: '#C4A96A22', color: '#8A6D2A', border: '1px solid #C4A96A', borderRadius: R.full, padding: '1px 7px', fontSize: 10.5, fontWeight: 800 }}>⭐ 전문가</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                {companyDisplayName(post.user_id, expertCompany ?? (post.expert_company_name ? { name: post.expert_company_name } : null))}
+              </span>
             </div>
-            <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.8, marginTop: 4 }}>
-              {companyDisplayName(post.user_id, expertCompany ?? (post.expert_company_name ? { name: post.expert_company_name } : null))}
-            </div>
-            {/* 업체 미니카드 — 공간보증 배지 · 공간온도 · 영업지역 · 후기 수 (조회 실패 시 표시 생략) */}
+            {/* 공간보증 · 공간온도 · 지역 · 후기 — 한 줄 메타 */}
             {expertCompany && (
-              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4, fontSize: 11, color: C.text3, fontWeight: 600 }}>
                 {(() => {
                   const bm = expertCompany.badge ? (BADGES[expertCompany.badge] ?? BADGES.basic) : null;
-                  return bm ? (
-                    <span style={{ background: bm.bg, color: bm.color, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
-                      {bm.icon} 공간보증 {bm.label}
-                    </span>
-                  ) : null;
+                  return bm ? <span style={{ color: bm.color }}>{bm.icon} 공간보증 {bm.label}</span> : null;
                 })()}
-                <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
-                  🌡️ 공간온도 {expertCompany.temp ?? 0}°
-                </span>
-                {expertCompany.region && (
-                  <span style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>📍 {expertCompany.region}</span>
-                )}
-                {expertReviewCount != null && (
-                  <span style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>⭐ 후기 {expertReviewCount}개</span>
-                )}
+                <span style={{ color: C.brand }}>🌡 {expertCompany.temp ?? 0}°</span>
+                {expertCompany.region && <span>· 📍 {expertCompany.region}</span>}
+                {expertReviewCount != null && <span>· ⭐ 후기 {expertReviewCount}</span>}
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            {/* 버튼 3개 한 줄 (28px) */}
+            <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
               <button onClick={() => onNavigate?.({ target: 'company', companyId: post.user_id, company: expertCompany })}
-                style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                포트폴리오 보기
+                style={{ flex: 1, height: 28, borderRadius: 8, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+                포트폴리오
               </button>
               <button onClick={() => onNavigate?.({ target: 'chat', companyId: post.user_id, company: expertCompany })}
-                style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                대화하기
+                style={{ flex: 1, height: 28, borderRadius: 8, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+                대화
               </button>
               <button onClick={() => onNavigate?.({ target: 'quote', companyId: post.user_id, company: expertCompany })}
-                style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                견적 요청하기
+                style={{ flex: 1, height: 28, borderRadius: 8, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+                견적
               </button>
             </div>
           </div>
