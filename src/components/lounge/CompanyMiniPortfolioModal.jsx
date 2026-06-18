@@ -8,6 +8,7 @@ import { C, R, S } from '../../constants';
 import { BADGES } from '../../constants/badges';
 import { getCompanyByOwnerId, getReviews, getPortfolios, getCompanyLoungeStats } from '../../lib/supabase';
 import SpaceActivityRecord from '../SpaceActivityRecord'; // v5.4.0: 공간 활동기록(Add Only)
+import { resolveCompanyIdentity } from '../../utils/identityResolver';
 
 const daysAgoLabel = (iso) => {
   if (!iso) return null;
@@ -91,8 +92,8 @@ export default function CompanyMiniPortfolioModal({
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 6 }}>
                 {hasGuaranteeBadge(company) && <span style={{ marginRight: 4 }}>🛡️</span>}
-                {/* 업체 표시명 우선순위: company.name → company.anonymous_nickname → 전달된 표시명 → '공간파트너' */}
-                {company?.name || company?.anonymous_nickname || anonymousNickname || '공간파트너'}
+                {/* 업체 표시명은 Identity Resolver 로 결정(display_name → anonymous_name → name → '공간파트너'). */}
+                {resolveCompanyIdentity(company) || anonymousNickname}
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 {bm && (
