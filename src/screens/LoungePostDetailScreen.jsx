@@ -621,9 +621,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     } catch {}
   };
 
+  // 신고 트리거 공통 가드 — 게스트(읽기 전용)는 로그인 유도, 로그인 사용자는 기존과 동일하게 모달 오픈.
+  const openReport = (target) => {
+    if (isGuest) { onRequireLogin?.(); return; }
+    setReportTarget(target);
+  };
+
   const handleReport = () => {
     setShowMenu(false);
-    setReportTarget({ type: 'post', targetId: post.id });
+    openReport({ type: 'post', targetId: post.id });
   };
 
   // 댓글 작성자 클릭 → 닉네임 옆 초미니 팝오버(앵커는 클릭 지점에서 계산되어 전달됨)
@@ -659,7 +665,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   // 댓글 신고
   const handleCommentReportFromSheet = (commentId) => {
     setCommentAuthorSheet(null);
-    setReportTarget({ type: 'comment', targetId: commentId });
+    openReport({ type: 'comment', targetId: commentId });
   };
 
   // 대화 신청 (댓글 작성자에게)
@@ -932,7 +938,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               🔗 공유
             </button>
             {!isOwn && (
-              <button onClick={() => setReportTarget({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
+              <button onClick={() => openReport({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
                 신고
               </button>
             )}
@@ -1014,7 +1020,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               companyName={comment.is_expert_reply ? companyDisplayName(comment.user_id) : null}
               onLike={likeComment}
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
-              onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
+              onReport={(id) => openReport({ type: 'comment', targetId: id })}
               onAuthorClick={handleCommentAuthorClick}
               onCompanyClick={(c, anchor) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor, report: { type: 'comment', targetId: c.id } }); }}
             />
@@ -1035,7 +1041,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 isAuthor={!!reply.user_id && reply.user_id === post.user_id}
                 companyName={reply.is_expert_reply ? companyDisplayName(reply.user_id) : null}
                 onLike={likeComment}
-                onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
+                onReport={(id) => openReport({ type: 'comment', targetId: id })}
                 onAuthorClick={handleCommentAuthorClick}
                 onCompanyClick={(c, anchor) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor, report: { type: 'comment', targetId: c.id } }); }}
               />
@@ -1153,7 +1159,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           onViewPortfolio={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'company', companyId: id, company: co }); }}
           onRequestChat={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'chat', companyId: id, company: co }); }}
           onRequestQuote={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'quote', companyId: id, company: co }); }}
-          onReport={() => setReportTarget({ type: miniModal.report?.type ?? 'comment', targetId: miniModal.report?.targetId })}
+          onReport={() => openReport({ type: miniModal.report?.type ?? 'comment', targetId: miniModal.report?.targetId })}
         />
       )}
 
@@ -1181,7 +1187,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             ? () => { if (!chatSent && ensureChatTokens()) setShowChat(true); }
             : () => handleCommentChatRequest(commentAuthorSheet.comment)}
           onReport={commentAuthorSheet.isPostAuthor
-            ? () => setReportTarget({ type: 'post', targetId: post.id })
+            ? () => openReport({ type: 'post', targetId: post.id })
             : () => handleCommentReportFromSheet(commentAuthorSheet.comment.id)}
           onClose={() => setCommentAuthorSheet(null)}
         />

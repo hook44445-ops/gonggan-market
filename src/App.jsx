@@ -14,6 +14,27 @@ import {
 
 const SESSION_TS_KEY   = "gonggan_login_at";
 const SESSION_USER_KEY = "gonggan_user";
+const GUEST_ID_KEY     = "gonggan_guest_id";
+
+// 공유 URL(Deep Link) 게스트용 — localStorage 기반 guest_xxx 식별자(회원 DB 생성 없음).
+// user.id 에는 절대 넣지 않는다(uuid 타입 쿼리 보호) — 추적/세션 연속성 용도로만 보관.
+function ensureGuestId() {
+  try {
+    let g = localStorage.getItem(GUEST_ID_KEY);
+    if (!g) {
+      g = "guest_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+      localStorage.setItem(GUEST_ID_KEY, g);
+    }
+    return g;
+  } catch {
+    return "guest_" + Math.random().toString(36).slice(2, 10);
+  }
+}
+
+// 라운지 공유 URL(Deep Link) 여부 — /lounge, /lounge/posts/:id, /lounge/category|region/... 등.
+function isLoungeDeepLink(pathname) {
+  return /^\/lounge(\/|$)/i.test(String(pathname || ""));
+}
 
 const toE164 = (phone) => {
   if (!phone) return "";
@@ -89,7 +110,25 @@ export default function App() {
         restored_currentUser: saved ? { id: saved.id, role: saved.role, activeRole: saved.activeRole, ownerId: saved.ownerId ?? null, isGuest: saved.isGuest } : null,
       });
     } catch {}
-    if (saved) setUser(saved);
+    if (saved) {
+      setUser(saved);
+    } else {
+      // ── Deep Link + Guest Mode ──────────────────────────────────────────────
+      // 공유 URL(/lounge/...)로 비회원이 들어오면 Landing(로그인 벽)으로 보내지 않고
+      // 게스트 세션을 자동 생성해 게시글을 바로 연다. 회원 DB 생성 없음(localStorage 세션),
+      // 읽기 전용(기존 isGuest/requireAuth 게이트 그대로). 게시글 진입은 MainApp 의
+      // applyLoungeRoute(window.location.pathname) 가 처리한다. (홈/랜딩 Redirect 안 함)
+      try {
+        const _params = new URLSearchParams(window.location.search);
+        if (isLoungeDeepLink(window.location.pathname) && _params.get("login") !== "company") {
+          setUser({
+            id: null, role: "consumer", activeRole: "consumer",
+            name: "게스트", region: "", isGuest: true,
+            startAt: "lounge", guestId: ensureGuestId(),
+          });
+        }
+      } catch {}
+    }
     // /partner 의 '업체 로그인' 진입 — 기존 업체 로그인/가입 경로(handleRoleSelect("company"))를
     // 그대로 재사용한다. 새 로그인 로직을 만들지 않고, /?login=company 파라미터만 읽어 분기한다.
     try {
