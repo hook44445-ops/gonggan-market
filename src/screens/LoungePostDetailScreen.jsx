@@ -890,15 +890,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button onClick={() => onNavigate?.({ target: 'company', companyId: post.user_id })}
+              <button onClick={() => onNavigate?.({ target: 'company', companyId: post.user_id, company: expertCompany })}
                 style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                 포트폴리오 보기
               </button>
-              <button onClick={() => onNavigate?.({ target: 'chat', companyId: post.user_id })}
+              <button onClick={() => onNavigate?.({ target: 'chat', companyId: post.user_id, company: expertCompany })}
                 style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                 대화하기
               </button>
-              <button onClick={() => onNavigate?.({ target: 'quote', companyId: post.user_id })}
+              <button onClick={() => onNavigate?.({ target: 'quote', companyId: post.user_id, company: expertCompany })}
                 style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                 견적 요청하기
               </button>
