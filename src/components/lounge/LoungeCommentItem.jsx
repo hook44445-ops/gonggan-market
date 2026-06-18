@@ -30,9 +30,9 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
     && comment.user_id !== currentUserId;
   const clickableAuthor = canChat || isCompanyAuthor;
 
-  const handleAuthorClick = () => {
-    if (isCompanyAuthor) onCompanyClick?.(comment);
-    else if (canChat) onAuthorClick?.(comment);
+  const handleAuthorClick = (e) => {
+    if (isCompanyAuthor) onCompanyClick?.(comment, e);
+    else if (canChat) onAuthorClick?.(comment, e);
   };
 
   // 전문가(업체) 답변 강조 — 일반 댓글과 명확히 구분(배경/테두리/배지)
