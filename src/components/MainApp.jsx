@@ -3894,14 +3894,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   </div>
                 ))}
                 {pendingSent.map(r => (
-                  <div key={`sent_${r.id}`}
-                    style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
+                  <div key={`sent_${r.id}`} onClick={() => requireAuth(() => openLoungeChatRoom(r, r.target_id))}
+                    style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
                     <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>💬</div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:14, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
                         {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? "게시글"}
                       </div>
-                      <div style={{ fontSize:11, color:C.text3 }}>{formatRelativeTime(r.created_at)}</div>
+                      <div style={{ fontSize:11, color:C.text3 }}>🔒 익명 · 메시지 보내기 · {formatRelativeTime(r.created_at)}</div>
                     </div>
                     <div style={{ fontSize:11, fontWeight:700, color:C.gold, background:`${C.gold}18`, padding:"4px 10px", borderRadius:R.full, flexShrink:0 }}>수락 대기중</div>
                   </div>

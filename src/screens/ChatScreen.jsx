@@ -47,12 +47,20 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
   const [partnerProfile, setPartnerProfile] = useState(null); // 라운지: { spaceTemp, interests }
   const [partnerCompany, setPartnerCompany] = useState(null); // 라운지: 상대가 업체면 업체 정보
   const [reqStatus, setReqStatus] = useState(null); // 라운지: lounge_chat_requests.status (수락 전 입력 게이트용)
+  const [reqRequesterId, setReqRequesterId] = useState(null); // 라운지: 신청자(요청 보낸 사람) id — 익명/입력 권한 판별
   const [menuOpen, setMenuOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const bottomRef = useRef(null);
 
-  // 라운지: 수락 전(pending/rejected/expired) → 입력 비활성화. status 미확인(null)이면 게이트하지 않음.
-  const isPendingLounge = isLounge && reqStatus != null && reqStatus !== "accepted";
+  // 라운지 익명 대화 요청 상태 기반 플래그 (Phase 2 — 블릿형 익명 메시지 요청)
+  //  · pending(Waiting Accept): 신청자만 익명 채팅방에서 입력 가능. 상대는 요청함에서 수락/거절(방에 들어오지 않음).
+  //  · accepted: 일반 채팅 + 프로필/닉네임 공개.   rejected/expired: 종료(양쪽 입력 불가, 재사용 안 함).
+  //  · status 미확인(null·회사채팅): 기존과 동일하게 입력 허용 + (회사채팅은) 실명 노출.
+  const isRequester     = isLounge && reqRequesterId != null && reqRequesterId === user?.id;
+  const isWaitingAccept = isLounge && reqStatus === "pending";
+  const isTerminated    = isLounge && (reqStatus === "rejected" || reqStatus === "expired");
+  const revealIdentity  = !isLounge || reqStatus === "accepted";       // 수락 후에만 실프로필/실명 공개
+  const canType         = !isLounge || reqStatus == null || reqStatus === "accepted" || (isWaitingAccept && isRequester);
 
   // 라운지: 같은 consumer 타입끼리 대화하므로 sender_id 기준으로 내/상대 구분
   const mapRow = (row) => isLounge
@@ -66,10 +74,12 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
     : normalizeMsg(row);
 
   // 라운지: 상대 공간온도/관심 + 업체 여부 조회 (실패 시 표시만 생략)
+  //  · 수락 전(pending/종료)에는 상대 실프로필을 조회/노출하지 않는다(익명 유지). 수락 시점에 reqStatus 변화로 재실행.
   useEffect(() => {
     setPartnerProfile(null);
     setPartnerCompany(null);
     if (!isLounge || !partner?.userId) return;
+    if (reqStatus !== "accepted") return; // 익명 단계: 상대 실프로필 비공개
     let cancelled = false;
     getUser(partner.userId).then(({ data }) => {
       if (!cancelled && data) setPartnerProfile({ spaceTemp: data.space_temp ?? 36.5, interests: data.interests ?? [] });
@@ -78,7 +88,7 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       if (!cancelled && data) setPartnerCompany(data);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [isLounge, partner?.userId]);
+  }, [isLounge, partner?.userId, reqStatus]);
 
   // 직거래 의심 키워드 반복 감지 — 클라이언트 표시 전용(차단/제재 없음, 기록은 기존 checkDirectDealKeyword가 수행)
   const directDealHits = useMemo(
@@ -93,18 +103,20 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
     let cancelled = false;
     setLoaded(false);
     setReqStatus(null);
+    setReqRequesterId(null);
 
     async function init() {
       let pending = false;
       if (isLounge && partner?.requestId) {
         const { data: reqRow } = await supabase
           .from("lounge_chat_requests")
-          .select("status")
+          .select("status, requester_id, target_id")
           .eq("id", partner.requestId)
           .maybeSingle();
         if (cancelled) return;
         const st = reqRow?.status ?? null;
         setReqStatus(st);
+        setReqRequesterId(reqRow?.requester_id ?? null);
         pending = st != null && st !== "accepted";
       }
 
@@ -234,9 +246,12 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
         </div>
         <div style={{ minWidth:0 }}>
           <div style={{ fontSize:15, fontWeight:800, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-            {isLounge ? (partnerCompany?.name ?? partner?.nickname ?? "—") : (company?.name ?? "—")}
+            {isLounge ? (revealIdentity ? (partnerCompany?.name ?? partner?.nickname ?? "—") : (partner?.nickname ?? "익명")) : (company?.name ?? "—")}
           </div>
           {isLounge ? (
+            !revealIdentity ? (
+              <div style={{ fontSize:10.5, color:C.text3, fontWeight:600 }}>🔒 익명 · {isTerminated ? "종료됨" : "수락 전"}</div>
+            ) : (
             <div style={{ display:"flex", gap:5, alignItems:"center", flexWrap:"wrap" }}>
               {partnerProfile?.spaceTemp != null && (
                 <span style={{ fontSize:10.5, color:C.brand, fontWeight:700 }}>🌡️ {Number(partnerProfile.spaceTemp).toFixed(1)}°</span>
@@ -249,6 +264,7 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
                 return bm ? <span style={{ fontSize:10.5, color:bm.color, fontWeight:700 }}>{bm.icon} 공간보증 {bm.label}</span> : null;
               })()}
             </div>
+            )
           ) : (
             <div style={{ fontSize:11, color:company?.online?C.green:C.text3, fontWeight:600 }}>
               {company?.online
@@ -258,7 +274,7 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
           )}
         </div>
         <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:S.sm, flexShrink:0 }}>
-          {isLounge && partnerCompany && onOpenPortfolio && (
+          {isLounge && revealIdentity && partnerCompany && onOpenPortfolio && (
             <button onClick={() => onOpenPortfolio(partner?.userId)}
               style={{ background:C.surface, color:C.text2, border:`1px solid ${C.bgWarm}`,
                 borderRadius:R.full, padding:"6px 10px", fontSize:11, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
@@ -391,8 +407,11 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
           <div style={{ textAlign:"center", marginTop:64, padding:"0 24px" }}>
             <div style={{ fontSize:36, marginBottom:10 }}>💬</div>
             <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:6 }}>아직 주고받은 메시지가 없어요</div>
-            <div style={{ fontSize:12.5, color:C.text3, lineHeight:1.6 }}>
-              {isPendingLounge ? "수락 대기중이에요. 수락 후 채팅을 시작할 수 있어요." : "첫 메시지를 보내 대화를 시작해보세요."}
+            <div style={{ fontSize:12.5, color:C.text3, lineHeight:1.6, whiteSpace:"pre-line" }}>
+              {isTerminated ? "종료된 대화예요."
+                : (isWaitingAccept && isRequester) ? "익명으로 첫 메시지를 보내보세요.\n상대가 수락하면 프로필이 공개되고 대화가 이어져요."
+                : isWaitingAccept ? "수락 대기중이에요. 수락 후 채팅을 시작할 수 있어요."
+                : "첫 메시지를 보내 대화를 시작해보세요."}
             </div>
           </div>
         )}
@@ -452,13 +471,20 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       </div>
 
 
-      {isPendingLounge ? (
+      {!canType ? (
         <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0,
           padding:`${S.lg}px ${S.xl}px calc(${S.lg}px + env(safe-area-inset-bottom))`,
           textAlign:"center", fontSize:13, color:C.text3, fontWeight:600 }}>
-          {reqStatus === "rejected" ? "상대가 대화 신청을 거절했어요." : "업체가 대화를 수락하면 채팅이 시작됩니다."}
+          {isTerminated ? "종료된 대화예요. 다시 연결하려면 새로 신청해 주세요." : "상대가 수락하면 채팅이 시작됩니다."}
         </div>
       ) : (
+        <>
+        {isWaitingAccept && isRequester && (
+          <div style={{ background:C.brandL, borderTop:`1px solid ${C.brandM}`, color:C.brandD, flexShrink:0,
+            padding:"8px 16px", fontSize:11.5, fontWeight:600, textAlign:"center", lineHeight:1.5 }}>
+            🔒 수락 대기중 · 익명 — 상대가 수락하면 프로필이 공개되고 대화가 이어져요
+          </div>
+        )}
         <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0,
           padding:`${S.sm}px ${S.md}px calc(${S.sm}px + env(safe-area-inset-bottom))`,
           display:"flex", gap:S.sm, alignItems:"flex-end", boxShadow:"0 -2px 10px rgba(28,23,18,0.04)" }}>
@@ -476,6 +502,7 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
               transition:"background .15s ease, box-shadow .15s ease",
               display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>➤</button>
         </div>
+        </>
       )}
       <style>{`@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}`}</style>
     </div>
