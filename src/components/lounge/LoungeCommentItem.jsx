@@ -78,7 +78,10 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
           }}
         >{displayName}</span>
         {comment.is_expert_reply && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.brand, color: '#fff', borderRadius: R.full, padding: '2px 9px', fontSize: 10, fontWeight: 800 }}>
+          <span
+            onClick={isCompanyAuthor ? handleAuthorClick : undefined}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.brand, color: '#fff', borderRadius: R.full, padding: '2px 9px', fontSize: 10, fontWeight: 800,
+              cursor: isCompanyAuthor ? 'pointer' : 'default' }}>
             🏅 공간보증 · 전문가 답변
           </span>
         )}
