@@ -38,8 +38,24 @@ import { RichContent } from '../utils/richText';
 import { resolveCompanyIdentity, resolveConsumerIdentity } from '../utils/identityResolver';
 import SpaceActivityRecord from '../components/SpaceActivityRecord'; // 일반 의뢰인 활동기록 요약(재사용 · 업체버튼 없음)
 
+// 가입기간 라벨 — 신뢰 프로필 헤더용(가입일 기준 경과기간, 실데이터만)
+const joinPeriodLabel = (iso) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (days < 1) return '오늘 가입';
+  if (days < 30) return `가입 ${days}일째`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `가입 ${months}개월째`;
+  return `가입 ${Math.floor(days / 365)}년째`;
+};
+
 // ── 댓글 작성자 액션시트 ─────────────────────────────────
 function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, onReport, onClose, roleLabel = '댓글 작성자', profile = null }) {
+  // 신뢰 프로필 — 익명 아바타 + 가입기간(헤더). 일반 의뢰인 전용(업체 정보/버튼 없음).
+  const avatar = getAnonymousAvatarByNickname(comment.anonymous_nickname);
+  const joinLabel = joinPeriodLabel(profile?.joinedAt);
   return (
     <div
       onClick={onClose}
@@ -49,19 +65,32 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
         onClick={e => e.stopPropagation()}
         style={{ background: C.surface, borderRadius: `${R.xl}px ${R.xl}px 0 0`, padding: '20px 0 calc(20px + env(safe-area-inset-bottom, 0px)) 0' }}
       >
-        {/* 작성자 정보 헤더 */}
+        {/* 작성자 정보 헤더 — 신뢰 프로필(익명 아바타 · 닉네임 · 공간온도 · 가입기간) */}
         <div style={{ padding: '0 20px 16px', borderBottom: `1px solid ${C.bgWarm}`, marginBottom: 8 }}>
-          <div style={{ fontSize: 13, color: C.text3, marginBottom: 2 }}>
-            {isOwn ? `내 ${roleLabel === '댓글 작성자' ? '댓글' : '글'}` : roleLabel}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: avatar.color, flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
+              {avatar.emoji}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: C.text3, marginBottom: 2 }}>
+                {isOwn ? `내 ${roleLabel === '댓글 작성자' ? '댓글' : '글'}` : roleLabel}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>
+                {resolveConsumerIdentity(comment)}
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>
-            {resolveConsumerIdentity(comment)}
-          </div>
-          {/* 공간온도 · 관심카테고리 · 최근활동 (조회 실패 시 표시 생략) */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* 공간온도 · 가입기간 · 관심카테고리 · 최근활동 (조회 실패 시 표시 생략) */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             {profile?.spaceTemp != null && (
               <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
                 🌡️ 공간온도 {Number(profile.spaceTemp).toFixed(1)}°
+              </span>
+            )}
+            {joinLabel && (
+              <span style={{ background: C.bg, color: C.text3, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 600 }}>
+                🗓️ {joinLabel}
               </span>
             )}
             {(profile?.interests ?? []).slice(0, 3).map(it => (
@@ -254,7 +283,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     let cancelled = false;
     getUser(uid).then(({ data }) => {
       if (!cancelled && data) {
-        setAuthorProfile({ spaceTemp: data.space_temp ?? 36.5, interests: data.interests ?? [] });
+        setAuthorProfile({ spaceTemp: data.space_temp ?? 36.5, interests: data.interests ?? [], joinedAt: data.created_at ?? null });
       }
     }).catch(() => {});
     return () => { cancelled = true; };
