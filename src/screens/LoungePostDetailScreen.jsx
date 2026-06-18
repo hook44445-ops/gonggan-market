@@ -35,6 +35,7 @@ import CompanyMiniPortfolioModal from '../components/lounge/CompanyMiniPortfolio
 import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification, createNotification } from '../lib/supabase';
 import { buildPostMeta, buildPostPath } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
+import { resolveCompanyIdentity, resolveConsumerIdentity } from '../utils/identityResolver';
 
 // ── 댓글 작성자 액션시트 ─────────────────────────────────
 function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, onReport, onClose, roleLabel = '댓글 작성자', profile = null }) {
@@ -53,7 +54,7 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
             {isOwn ? `내 ${roleLabel === '댓글 작성자' ? '댓글' : '글'}` : roleLabel}
           </div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>
-            {comment.anonymous_nickname}
+            {resolveConsumerIdentity(comment)}
           </div>
           {/* 공간온도 · 관심카테고리 · 최근활동 (조회 실패 시 표시 생략) */}
           <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -288,9 +289,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     return () => { cancelled = true; };
   }, [comments, post?.is_expert, post?.user_id]);
 
-  // 업체 표시명 우선순위: company.name → '공간파트너' (의뢰인 익명닉네임을 우선 사용하지 않음)
-  const companyDisplayName = (ownerId, fallbackCoName = null) =>
-    companyNameMap[ownerId] || fallbackCoName || '공간파트너';
+  // 업체 표시명 — 모든 결정은 Identity Resolver 한 곳에서. 향후 company.display_name/
+  // anonymous_name 컬럼이 추가되면(fullCompany 전달 시) UI 수정 없이 자동 우선 적용된다.
+  //   fullCompany(객체) 우선 → 없으면 배치 조회된 업체명(companyNameMap)으로 폴백.
+  const companyDisplayName = (ownerId, fullCompany = null) =>
+    resolveCompanyIdentity(
+      (fullCompany && typeof fullCompany === 'object')
+        ? fullCompany
+        : { name: companyNameMap[ownerId] }
+    );
 
   // Load initial like/save state from DB (skip synthetic seed — not in lounge_posts)
   useEffect(() => {
@@ -583,7 +590,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const handlePostAuthorClick = () => {
     if (!post?.user_id || isSeedPost) return;
     // 업체(전문가) 글 작성자 → 미니 포트폴리오 모달
-    if (post.is_expert) { setMiniModal({ ownerId: post.user_id, nickname: companyDisplayName(post.user_id, expertCompany?.name) }); return; }
+    if (post.is_expert) { setMiniModal({ ownerId: post.user_id, nickname: companyDisplayName(post.user_id, expertCompany) }); return; }
     if (!isLoggedIn) { onRequireLogin?.(); return; }
     setCommentAuthorSheet({
       comment: {
@@ -768,7 +775,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             </div>
             <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>
               {hasBadge && <span style={{ fontSize: 13, marginRight: 3 }}>🛡️</span>}
-              {post.is_expert ? companyDisplayName(post.user_id, expertCompany?.name) : post.anonymous_nickname}
+              {post.is_expert ? companyDisplayName(post.user_id, expertCompany) : resolveConsumerIdentity(post)}
             </span>
           </span>
           <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{catLabel}</span>
@@ -808,7 +815,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               🛡️ 공간마켓 파트너
             </div>
             <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.8, marginTop: 4 }}>
-              {post.expert_company_name ?? post.anonymous_nickname}
+              {companyDisplayName(post.user_id, expertCompany ?? (post.expert_company_name ? { name: post.expert_company_name } : null))}
             </div>
             {/* 업체 미니카드 — 공간보증 배지 · 공간온도 · 영업지역 · 후기 수 (조회 실패 시 표시 생략) */}
             {expertCompany && (

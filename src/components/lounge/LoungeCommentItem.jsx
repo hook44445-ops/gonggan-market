@@ -5,10 +5,12 @@
 import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
+import { resolveConsumerIdentity } from '../../utils/identityResolver';
 
 export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId, companyName = null }) {
-  // 업체(전문가) 댓글은 의뢰인 익명닉네임 대신 업체명으로 표시. 일반 댓글은 기존 익명닉네임 유지.
-  const displayName = companyName || comment.anonymous_nickname;
+  // 표시명은 Identity Resolver 로 결정. 업체(전문가) 댓글은 상위에서 업체 표시명(companyName)을
+  // 내려주고, 그 외 의뢰인 댓글은 의뢰인 Identity(anonymous_name → anonymous_nickname → 공간이웃).
+  const displayName = companyName || resolveConsumerIdentity(comment);
   const avatar  = getAnonymousAvatarByNickname(comment.anonymous_nickname);
   const [liked, setLiked] = useState(false);
 
