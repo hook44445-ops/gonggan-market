@@ -24,6 +24,7 @@ import {
   requestCommentChat,
   getUser,
   getCompanyByOwnerId,
+  getCompaniesByOwnerIds,
   getReviews,
 } from '../lib/supabase';
 import { BADGES } from '../constants/badges';
@@ -266,6 +267,30 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [post?.is_expert, post?.user_id]);
+
+  // 의뢰인/업체 익명 표시명 분리 — 업체(전문가) 작성자는 의뢰인 익명닉네임 대신 업체명으로 표시.
+  // 전문가 글/댓글 작성자(user_id)들의 업체명을 한 번에 조회(읽기 전용). 매핑: { [owner_id]: 업체명 }
+  const [companyNameMap, setCompanyNameMap] = useState({});
+  useEffect(() => {
+    if (!IS_SUPABASE_READY) return;
+    const ids = new Set();
+    if (post?.is_expert && post?.user_id) ids.add(post.user_id);
+    (comments ?? []).forEach((c) => { if (c.is_expert_reply && c.user_id) ids.add(c.user_id); });
+    const list = [...ids];
+    if (list.length === 0) { setCompanyNameMap({}); return; }
+    let cancelled = false;
+    getCompaniesByOwnerIds(list).then(({ data }) => {
+      if (cancelled || !data) return;
+      const m = {};
+      data.forEach((co) => { if (co.owner_id && co.name) m[co.owner_id] = co.name; });
+      setCompanyNameMap(m);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [comments, post?.is_expert, post?.user_id]);
+
+  // 업체 표시명 우선순위: company.name → '공간파트너' (의뢰인 익명닉네임을 우선 사용하지 않음)
+  const companyDisplayName = (ownerId, fallbackCoName = null) =>
+    companyNameMap[ownerId] || fallbackCoName || '공간파트너';
 
   // Load initial like/save state from DB (skip synthetic seed — not in lounge_posts)
   useEffect(() => {
@@ -558,7 +583,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const handlePostAuthorClick = () => {
     if (!post?.user_id || isSeedPost) return;
     // 업체(전문가) 글 작성자 → 미니 포트폴리오 모달
-    if (post.is_expert) { setMiniModal({ ownerId: post.user_id, nickname: post.anonymous_nickname }); return; }
+    if (post.is_expert) { setMiniModal({ ownerId: post.user_id, nickname: companyDisplayName(post.user_id, expertCompany?.name) }); return; }
     if (!isLoggedIn) { onRequireLogin?.(); return; }
     setCommentAuthorSheet({
       comment: {
@@ -743,7 +768,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             </div>
             <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>
               {hasBadge && <span style={{ fontSize: 13, marginRight: 3 }}>🛡️</span>}
-              {post.anonymous_nickname}
+              {post.is_expert ? companyDisplayName(post.user_id, expertCompany?.name) : post.anonymous_nickname}
             </span>
           </span>
           <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{catLabel}</span>
@@ -929,11 +954,12 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             <LoungeCommentItem
               comment={comment}
               currentUserId={user?.id}
+              companyName={comment.is_expert_reply ? companyDisplayName(comment.user_id) : null}
               onLike={likeComment}
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
               onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
               onAuthorClick={handleCommentAuthorClick}
-              onCompanyClick={(c) => setMiniModal({ ownerId: c.user_id, nickname: c.anonymous_nickname })}
+              onCompanyClick={(c) => setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id) })}
             />
             {replyComs.filter(r => r.parent_id === comment.id).map(reply => (
               <LoungeCommentItem
@@ -941,10 +967,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 comment={reply}
                 isReply
                 currentUserId={user?.id}
+                companyName={reply.is_expert_reply ? companyDisplayName(reply.user_id) : null}
                 onLike={likeComment}
                 onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
                 onAuthorClick={handleCommentAuthorClick}
-                onCompanyClick={(c) => setMiniModal({ ownerId: c.user_id, nickname: c.anonymous_nickname })}
+                onCompanyClick={(c) => setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id) })}
               />
             ))}
           </div>
@@ -1047,9 +1074,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           anonymousNickname={miniModal.nickname}
           currentUserId={user?.id}
           onClose={() => setMiniModal(null)}
-          onViewPortfolio={() => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'company', companyId: id }); }}
-          onRequestChat={() => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'chat', companyId: id }); }}
-          onRequestQuote={() => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'quote', companyId: id }); }}
+          onViewPortfolio={(co) => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'company', companyId: id, company: co }); }}
+          onRequestChat={(co) => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'chat', companyId: id, company: co }); }}
+          onRequestQuote={(co) => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'quote', companyId: id, company: co }); }}
         />
       )}
 

@@ -91,7 +91,8 @@ export default function CompanyMiniPortfolioModal({
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 6 }}>
                 {hasGuaranteeBadge(company) && <span style={{ marginRight: 4 }}>🛡️</span>}
-                {anonymousNickname}
+                {/* 업체 표시명 우선순위: company.name → company.anonymous_nickname → 전달된 표시명 → '공간파트너' */}
+                {company?.name || company?.anonymous_nickname || anonymousNickname || '공간파트너'}
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 {bm && (
