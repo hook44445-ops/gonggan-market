@@ -20,15 +20,14 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
     onLike?.(comment.id);
   };
 
-  // 대화 신청 가능: user_id 있음(비시드) + 본인 아님 + 운영글 전문가 답변 아님
-  const canChat = comment.user_id != null
-    && comment.user_id !== currentUserId
-    && !comment.is_expert_reply;
   // 업체(전문가 답변) 작성자 → 미니 포트폴리오 모달로 연결(본인 제외)
   const isCompanyAuthor = comment.is_expert_reply === true
     && comment.user_id != null
     && comment.user_id !== currentUserId;
-  const clickableAuthor = canChat || isCompanyAuthor;
+  // 일반(비전문가) 작성자 → 게시글 작성자와 동일한 의뢰인 팝오버. 본인 댓글도 열림(시드/익명 user_id 없음만 비활성).
+  // 버그수정: 기존엔 본인/시드를 제외해 댓글·대댓글 닉네임 클릭 시 팝오버가 안 떴음.
+  const canOpenConsumer = !comment.is_expert_reply && comment.user_id != null;
+  const clickableAuthor = isCompanyAuthor || canOpenConsumer;
 
   const handleAuthorClick = (e) => {
     // 클릭 발생 지점에서 직접 anchor rect 계산(상위로 이벤트 전달 시 currentTarget 소실 방지)
@@ -37,7 +36,7 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
     const r = e.currentTarget?.getBoundingClientRect?.();
     const anchor = r ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null;
     if (isCompanyAuthor) onCompanyClick?.(comment, anchor);
-    else if (canChat) onAuthorClick?.(comment, anchor);
+    else if (canOpenConsumer) onAuthorClick?.(comment, anchor);
   };
 
   // 전문가(업체) 답변 강조 — 일반 댓글과 명확히 구분(배경/테두리/배지)

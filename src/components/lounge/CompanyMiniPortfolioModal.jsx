@@ -150,16 +150,13 @@ export default function CompanyMiniPortfolioModal({
               <div style={{ fontSize: 12.5, color: C.text4, marginBottom: 16 }}>등록된 시공사례 사진이 없습니다</div>
             )}
 
-            {/* 버튼: 포트폴리오 보기 / 대화 신청 / 견적 요청 */}
+            {/* 버튼: 포트폴리오 보기 / 메시지 신청 — 견적 CTA 제거(라운지는 메시지 우선, 견적은 대화 내부에서 유도) */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
               <Btn label="포트폴리오 보기" onClick={() => onViewPortfolio?.(company)} />
-              <Btn label="대화 신청" primary disabled={isSelf} onClick={() => onRequestChat?.(company)} />
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <Btn label="견적 요청" onClick={() => onRequestQuote?.(company)} />
+              <Btn label="메시지 신청" primary disabled={isSelf} onClick={() => onRequestChat?.(company)} />
             </div>
             <div style={{ fontSize: 11, color: C.text4, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
-              대화 신청 후 업체가 수락하면 20토큰이 차감되고 대화방이 열립니다.
+              메시지 신청 후 업체가 수락하면 20토큰이 차감되고 대화방이 열립니다.
             </div>
           </>
         )}

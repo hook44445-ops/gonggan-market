@@ -222,15 +222,6 @@ function PostMenuSheet({ isOwn, onEdit, onDelete, onReport, onBlock, onClose }) 
 }
 
 // 카테고리별 거래 연결 CTA — 라운지를 거래로 잇는 핵심
-const LOUNGE_CTA = {
-  review:      { label: "이 업체에게 견적 받기 →", target: "company_or_quote" },
-  quote_worry: { label: "지금 바로 견적 요청하기 →", target: "quote" },
-  recommend:   { label: "추천 업체 프로필 보기 →",   target: "company_or_map" },
-  move_in:     { label: "내 지역 업체 찾기 →",       target: "map" },
-  interior:    { label: "무료 견적 받기 →",          target: "quote" },
-  room_deco:   { label: "무료 견적 받기 →",          target: "quote" },
-};
-
 export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost, onNavigate, onOpenPost }) {
   const { post: foundPost, comments, loading, commentsFetchError, addComment, likeComment, refetchComments } = useLoungePost(postId, initialPost);
   const post = foundPost ?? initialPost ?? null;
@@ -253,7 +244,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   });
   const [showChat,    setShowChat]          = useState(false);
   const [miniModal,   setMiniModal]         = useState(null); // 업체 미니 포트폴리오 { ownerId, nickname }
-  const [commentSort, setCommentSort]       = useState('expert'); // expert | popular | latest
+  const [commentSort] = useState('latest'); // 최신순 고정(전문가순·인기순 정렬 제거)
   const [chatSending, setChatSending]       = useState(false);
   const [chatSent,    setChatSent]          = useState(false);
   const [toast,       setToast]             = useState(null);
@@ -888,33 +879,22 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 {expertReviewCount != null && <span>· ⭐ 후기 {expertReviewCount}</span>}
               </div>
             )}
-            {/* 버튼 3개 한 줄 (28px) */}
+            {/* 버튼 2개 한 줄 (28px) — 견적 CTA 제거(라운지는 대화→메시지 우선, 견적은 대화 내부에서만 유도) */}
             <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
               <button onClick={() => onNavigate?.({ target: 'company', companyId: post.user_id, company: expertCompany })}
                 style={{ flex: 1, height: 28, borderRadius: 8, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
                 포트폴리오
               </button>
               <button onClick={() => onNavigate?.({ target: 'chat', companyId: post.user_id, company: expertCompany })}
-                style={{ flex: 1, height: 28, borderRadius: 8, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-                대화
-              </button>
-              <button onClick={() => onNavigate?.({ target: 'quote', companyId: post.user_id, company: expertCompany })}
                 style={{ flex: 1, height: 28, borderRadius: 8, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
-                견적
+                메시지
               </button>
             </div>
           </div>
         )}
 
-        {/* 카테고리별 거래 연결 CTA — 운영글(seed)에는 노출하지 않음(광고형 지양·체류 우선) */}
-        {!isSeedPost && LOUNGE_CTA[post.category] && (
-          <button
-            onClick={() => onNavigate?.({ target: LOUNGE_CTA[post.category].target, companyId: post.is_expert ? post.user_id : null })}
-            style={{ width: '100%', padding: '14px 0', marginBottom: S.lg, borderRadius: 12, border: 'none',
-              background: '#1E3D2F', color: '#F5F0E8', fontSize: 15, fontWeight: 800, cursor: 'pointer', lineHeight: 1.8 }}>
-            {LOUNGE_CTA[post.category].label}
-          </button>
-        )}
+        {/* 카테고리별 견적 CTA 제거(Lounge CTA Simplification) — 라운지 상세에서 견적을 직접 노출하지 않고
+            대화(메시지) → 대화 내부에서 견적 상담으로 유도한다. */}
 
         {isSynthSeed ? (
           /* 합성 seed(DB 미존재) — 읽기 전용: 조회수/공유만 */
@@ -946,14 +926,14 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         )}
       </div>
 
-      {/* 대화 신청 버튼 — 본인 글, seed 글에는 숨김 */}
+      {/* 메시지 신청 버튼 — 본인 글, seed 글에는 숨김 (라운지는 메시지 우선 흐름) */}
       {!isOwn && !isSeedPost && (
         <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm, borderRadius: R.xl, margin: `0 8px ${S.sm}px` }}>
           <button
             onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent && ensureChatTokens()) setShowChat(true); }}
             disabled={chatSent}
             style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand}44`, transition: 'background 0.2s' }}>
-            {isGuest ? '💬 대화 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 대화 신청하기'}
+            {isGuest ? '💬 메시지 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 메시지 신청하기'}
           </button>
           <div style={{ textAlign: 'center', marginTop: S.sm, fontSize: 11, color: C.text4 }}>
             {chatSent ? '상대방이 수락하면 20토큰이 차감되고 대화방이 열려요' : '신청은 무료 · 상대방 수락 시 20토큰 차감'}
@@ -995,14 +975,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: S.md, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>댓글 {comments.length}개</div>
           {comments.length > 1 && (
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-              {[['expert', '전문가순'], ['popular', '인기순'], ['latest', '최신순']].map(([v, l]) => (
-                <button key={v} onClick={() => setCommentSort(v)}
-                  style={{ padding: '4px 10px', borderRadius: R.full, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                    border: `1px solid ${commentSort === v ? C.brand : C.bgWarm}`,
-                    background: commentSort === v ? C.brandL : C.surface, color: commentSort === v ? C.brand : C.text3 }}>{l}</button>
-              ))}
-            </div>
+            <div style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: C.text3 }}>최신순</div>
           )}
         </div>
 
