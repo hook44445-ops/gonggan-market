@@ -251,7 +251,9 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
             </div>
           ) : (
             <div style={{ fontSize:11, color:company?.online?C.green:C.text3, fontWeight:600 }}>
-              {company?.online ? `활동중 · ${company.lastActive}` : company?.responseTime ?? ""}
+              {company?.online
+                ? (company.lastActive ? `활동중 · ${company.lastActive}` : "활동중")
+                : (company?.responseTime ?? "")}
             </div>
           )}
         </div>

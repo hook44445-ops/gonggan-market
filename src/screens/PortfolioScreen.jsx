@@ -380,9 +380,11 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
                 background:company.online?C.green:C.text4,
                 boxShadow:company.online?`0 0 0 3px ${C.green}33`:"none" }} />
               <span style={{ fontSize:13, fontWeight:700, color:company.online?C.green:C.text3 }}>
-                {company.online?`지금 활동중 · ${company.lastActive}` : `마지막 활동: ${company.lastActive}`}
+                {company.online
+                  ? (company.lastActive ? `지금 활동중 · ${company.lastActive}` : "지금 활동중")
+                  : (company.lastActive ? `마지막 활동: ${company.lastActive}` : "")}
               </span>
-              <span style={{ fontSize:12, color:C.text3, marginLeft:"auto" }}>{company.responseTime}</span>
+              <span style={{ fontSize:12, color:C.text3, marginLeft:"auto" }}>{company.responseTime ?? ""}</span>
             </div>
 
             <div style={{ background:C.navyL, borderRadius:R.lg,
