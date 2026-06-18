@@ -333,14 +333,13 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     return () => { cancelled = true; };
   }, [comments, post?.is_expert, post?.user_id]);
 
-  // 업체 표시명 — 모든 결정은 Identity Resolver 한 곳에서. 향후 company.display_name/
-  // anonymous_name 컬럼이 추가되면(fullCompany 전달 시) UI 수정 없이 자동 우선 적용된다.
-  //   fullCompany(객체) 우선 → 없으면 배치 조회된 업체명(companyNameMap)으로 폴백.
+  // 업체 표시명 — 라운지 익명 정책. 실업체명 대신 owner_id 기반 결정론적 익명닉네임(공간○○NN).
+  // 댓글/게시글/미니팝오버 모두 동일 키(owner_id)로 해석되어 같은 업체는 같은 익명닉네임을 유지한다.
   const companyDisplayName = (ownerId, fullCompany = null) =>
     resolveCompanyIdentity(
       (fullCompany && typeof fullCompany === 'object')
         ? fullCompany
-        : { name: companyNameMap[ownerId] }
+        : { owner_id: ownerId }
     );
 
   // Load initial like/save state from DB (skip synthetic seed — not in lounge_posts)

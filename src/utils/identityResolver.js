@@ -17,14 +17,38 @@ export const IDENTITY_ROLE = Object.freeze({ CONSUMER: 'consumer', COMPANY: 'com
 const COMPANY_FALLBACK  = '공간파트너';
 const CONSUMER_FALLBACK = '공간이웃';
 
-// 업체 표시명 우선순위: display_name → anonymous_name → name → '공간파트너'
+// 업체 전용 익명닉네임 풀 — 소비자(anonymousNickname.js)와 독립적으로 관리.
+// 라운지에서는 업체 실명을 노출하지 않고 이 익명닉네임을 사용한다(실명은 대화 성사/견적 이후 공개).
+const COMPANY_WORDS = [
+  '별빛', '공감', '숲', '하늘', '노을', '햇살', '바람', '나무', '정원', '온기',
+  '뜰', '물결', '달빛', '새벽', '구름', '이음', '담소', '채움', '빛터', '쉼표',
+  '도담', '나래', '소담', '한울', '오름', '여울', '청아', '단아', '미르', '윤슬',
+];
+
+function _hash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+// 동일 업체(키)는 항상 동일 익명닉네임을 반환한다(결정론적). 예: 공간별빛24
+export function getCompanyAnonNickname(key) {
+  if (key == null || key === '') return COMPANY_FALLBACK;
+  const h = _hash(String(key));
+  const word = COMPANY_WORDS[h % COMPANY_WORDS.length];
+  const num = String(h % 100).padStart(2, '0');
+  return `공간${word}${num}`;
+}
+
+// 업체 표시명 우선순위(라운지 익명 정책):
+//   display_name(향후) → anonymous_name(향후) → 업체 전용 익명닉네임(owner_id/id 기반) → '공간파트너'
+//   ※ 업체 실명(name)은 라운지에서 노출하지 않는다.
 export function resolveCompanyIdentity(company) {
-  return (
-    company?.display_name
-    || company?.anonymous_name
-    || company?.name
-    || COMPANY_FALLBACK
-  );
+  if (company?.display_name) return company.display_name;
+  if (company?.anonymous_name) return company.anonymous_name;
+  const key = company?.owner_id ?? company?.ownerId ?? company?.id ?? null;
+  if (key != null) return getCompanyAnonNickname(key);
+  return COMPANY_FALLBACK;
 }
 
 // 의뢰인 표시명 우선순위: anonymous_name → anonymous_nickname → '공간이웃'
