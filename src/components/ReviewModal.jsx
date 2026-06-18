@@ -202,8 +202,13 @@ export default function ReviewModal({
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)",
       display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:200 }}>
-      <div style={{ background:C.surface, borderRadius:"24px 24px 0 0",
+      <div style={{ position:"relative", background:C.surface, borderRadius:"24px 24px 0 0",
         width:"100%", maxWidth:480, padding:"20px 24px 40px", maxHeight:"92vh", overflowY:"auto" }}>
+        {/* 우측 상단 닫기(X) — 시공후기/상세후기 작성 어느 단계에서든 작성 취소 가능 */}
+        <button onClick={onClose} aria-label="닫기"
+          style={{ position:"absolute", top:14, right:16, width:32, height:32, borderRadius:R.full,
+            border:"none", background:C.bg, color:C.text2, fontSize:18, lineHeight:1, cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center", padding:0, zIndex:1 }}>✕</button>
         <div style={{ width:36, height:4, borderRadius:R.full, background:C.bgWarm, margin:"0 auto 20px" }} />
 
         {/* ── STEP 1: Star rating ── */}

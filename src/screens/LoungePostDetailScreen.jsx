@@ -222,7 +222,7 @@ function PostMenuSheet({ isOwn, onEdit, onDelete, onReport, onBlock, onClose }) 
 }
 
 // 카테고리별 거래 연결 CTA — 라운지를 거래로 잇는 핵심
-export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost, onNavigate, onOpenPost }) {
+export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost, onNavigate, onOpenPost, onChatRequested }) {
   const { post: foundPost, comments, loading, commentsFetchError, addComment, likeComment, refetchComments } = useLoungePost(postId, initialPost);
   const post = foundPost ?? initialPost ?? null;
   // is_seed(운영글)는 매거진형(견적 CTA·대화신청만 숨김)이고 상호작용은 일반 글과 동일.
@@ -595,6 +595,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     if (error) { showToast('신청에 실패했어요. 잠시 후 다시 시도해주세요.'); return; }
     if (data?.error === 'SELF_REQUEST') { showToast('본인에게는 신청할 수 없어요'); return; }
     setChatSent(true);
+    onChatRequested?.(); // 대화 탭 수락대기(Waiting Accept) 목록 즉시 갱신
     try {
       const key = 'lounge_chat_requests';
       const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
@@ -688,6 +689,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         showToast('본인에게는 신청할 수 없어요');
       } else {
         setSentChatTargets(prev => new Set([...prev, comment.user_id]));
+        onChatRequested?.(); // 대화 탭 수락대기 목록 즉시 갱신
         showToast('💬 대화 신청을 보냈어요!\n상대가 수락하면 20토큰이 차감됩니다.');
         // B단계: 대화 신청 알림(인앱 + 푸시 enqueue) — 토큰/대화방 로직은 위 RPC 그대로, 알림만 추가.
         createNotification({
