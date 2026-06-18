@@ -1,8 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, R, S, SPACE_TYPES, STYLES } from "../constants";
 
 export default function RequestModal({ onClose, onDone, initialData = null, isEdit = false }) {
   const [step, setStep] = useState(1);
+  // Android/웹뷰 뒤로가기 처리용 — popstate 핸들러에서 최신 step 참조(stale closure 방지)
+  const stepRef = useRef(step);
+  useEffect(() => { stepRef.current = step; }, [step]);
+  // 뒤로가기로 닫혔는지 표시 — true면 cleanup에서 history 정리 생략(이미 pop됨)
+  const closedByBackRef = useRef(false);
+
+  // 모달이 열려 있는 동안에만 적용: 뒤로가기 시 앱/웹뷰 종료·브라우저 이동 대신 모달 단계만 제어.
+  useEffect(() => {
+    window.history.pushState({ gmRequestModal: true }, "");
+    const onPop = () => {
+      if (stepRef.current > 1) {
+        // 2단계 이상: 이전 단계로 이동하고, 다음 뒤로가기를 위해 트랩 항목을 다시 추가.
+        setStep((s) => Math.max(1, s - 1));
+        window.history.pushState({ gmRequestModal: true }, "");
+      } else {
+        // 첫 단계: 모달만 닫기(앱 종료/페이지 이동 없음).
+        closedByBackRef.current = true;
+        onClose?.();
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      // X/완료 등 뒤로가기 외 경로로 닫힌 경우, 추가했던 history 트랩 항목 1개를 정리(같은 URL 내 pop).
+      if (!closedByBackRef.current) window.history.back();
+    };
+  }, []);
   const [form, setForm] = useState({
     type:   initialData?.type   ?? "",
     size:   initialData?.size   ?? "",
@@ -18,8 +45,13 @@ export default function RequestModal({ onClose, onDone, initialData = null, isEd
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)",
       display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:100 }}>
-      <div style={{ background:C.surface, borderRadius:"24px 24px 0 0",
+      <div style={{ position:"relative", background:C.surface, borderRadius:"24px 24px 0 0",
         width:"100%", maxWidth:480, padding:"20px 24px 40px" }}>
+        {/* 우측 상단 닫기(X) — 클릭 시 견적요청 모달만 닫힘(앱 화면 유지) */}
+        <button onClick={() => onClose?.()} aria-label="닫기"
+          style={{ position:"absolute", top:14, right:16, width:32, height:32, borderRadius:R.full,
+            border:"none", background:C.bg, color:C.text2, fontSize:18, lineHeight:1, cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center", padding:0, zIndex:1 }}>✕</button>
         <div style={{ width:36, height:4, borderRadius:R.full, background:C.bgWarm, margin:"0 auto 20px" }} />
         <div style={{ display:"flex", gap:6, marginBottom:S.xxl }}>
           {[1,2,3].map(s => <div key={s} style={{ flex:1, height:4, borderRadius:R.full, background:step>=s?C.brand:C.bgWarm, transition:"background 0.3s" }} />)}

@@ -5,8 +5,12 @@
 import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
+import { resolveConsumerIdentity } from '../../utils/identityResolver';
 
-export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId }) {
+export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId, companyName = null }) {
+  // 표시명은 Identity Resolver 로 결정. 업체(전문가) 댓글은 상위에서 업체 표시명(companyName)을
+  // 내려주고, 그 외 의뢰인 댓글은 의뢰인 Identity(anonymous_name → anonymous_nickname → 공간이웃).
+  const displayName = companyName || resolveConsumerIdentity(comment);
   const avatar  = getAnonymousAvatarByNickname(comment.anonymous_nickname);
   const [liked, setLiked] = useState(false);
 
@@ -26,9 +30,9 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
     && comment.user_id !== currentUserId;
   const clickableAuthor = canChat || isCompanyAuthor;
 
-  const handleAuthorClick = () => {
-    if (isCompanyAuthor) onCompanyClick?.(comment);
-    else if (canChat) onAuthorClick?.(comment);
+  const handleAuthorClick = (e) => {
+    if (isCompanyAuthor) onCompanyClick?.(comment, e);
+    else if (canChat) onAuthorClick?.(comment, e);
   };
 
   // 전문가(업체) 답변 강조 — 일반 댓글과 명확히 구분(배경/테두리/배지)
@@ -72,9 +76,12 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
             fontWeight: 800, fontSize: 13, color: C.text1,
             cursor: clickableAuthor ? 'pointer' : 'default',
           }}
-        >{comment.anonymous_nickname}</span>
+        >{displayName}</span>
         {comment.is_expert_reply && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.brand, color: '#fff', borderRadius: R.full, padding: '2px 9px', fontSize: 10, fontWeight: 800 }}>
+          <span
+            onClick={isCompanyAuthor ? handleAuthorClick : undefined}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.brand, color: '#fff', borderRadius: R.full, padding: '2px 9px', fontSize: 10, fontWeight: 800,
+              cursor: isCompanyAuthor ? 'pointer' : 'default' }}>
             🏅 공간보증 · 전문가 답변
           </span>
         )}

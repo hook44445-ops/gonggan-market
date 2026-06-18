@@ -24,6 +24,7 @@ import {
   requestCommentChat,
   getUser,
   getCompanyByOwnerId,
+  getCompaniesByOwnerIds,
   getReviews,
 } from '../lib/supabase';
 import { BADGES } from '../constants/badges';
@@ -31,12 +32,37 @@ import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
 import CompanyMiniPortfolioModal from '../components/lounge/CompanyMiniPortfolioModal';
+import LoungeProfilePopover from '../components/lounge/LoungeProfilePopover';
 import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification, createNotification } from '../lib/supabase';
 import { buildPostMeta, buildPostPath } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
+import { resolveCompanyIdentity, resolveConsumerIdentity } from '../utils/identityResolver';
+import SpaceActivityRecord from '../components/SpaceActivityRecord'; // 일반 의뢰인 활동기록 요약(재사용 · 업체버튼 없음)
+
+// 클릭한 닉네임/아바타 요소의 화면 위치(앵커) — 초미니 팝오버 위치 보정용
+const rectOf = (e) => {
+  const r = e?.currentTarget?.getBoundingClientRect?.();
+  return r ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null;
+};
+
+// 가입기간 라벨 — 신뢰 프로필 헤더용(가입일 기준 경과기간, 실데이터만)
+const joinPeriodLabel = (iso) => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (days < 1) return '오늘 가입';
+  if (days < 30) return `가입 ${days}일째`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `가입 ${months}개월째`;
+  return `가입 ${Math.floor(days / 365)}년째`;
+};
 
 // ── 댓글 작성자 액션시트 ─────────────────────────────────
 function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, onReport, onClose, roleLabel = '댓글 작성자', profile = null }) {
+  // 신뢰 프로필 — 익명 아바타 + 가입기간(헤더). 일반 의뢰인 전용(업체 정보/버튼 없음).
+  const avatar = getAnonymousAvatarByNickname(comment.anonymous_nickname);
+  const joinLabel = joinPeriodLabel(profile?.joinedAt);
   return (
     <div
       onClick={onClose}
@@ -46,19 +72,32 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
         onClick={e => e.stopPropagation()}
         style={{ background: C.surface, borderRadius: `${R.xl}px ${R.xl}px 0 0`, padding: '20px 0 calc(20px + env(safe-area-inset-bottom, 0px)) 0' }}
       >
-        {/* 작성자 정보 헤더 */}
+        {/* 작성자 정보 헤더 — 신뢰 프로필(익명 아바타 · 닉네임 · 공간온도 · 가입기간) */}
         <div style={{ padding: '0 20px 16px', borderBottom: `1px solid ${C.bgWarm}`, marginBottom: 8 }}>
-          <div style={{ fontSize: 13, color: C.text3, marginBottom: 2 }}>
-            {isOwn ? `내 ${roleLabel === '댓글 작성자' ? '댓글' : '글'}` : roleLabel}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: avatar.color, flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
+              {avatar.emoji}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: C.text3, marginBottom: 2 }}>
+                {isOwn ? `내 ${roleLabel === '댓글 작성자' ? '댓글' : '글'}` : roleLabel}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>
+                {resolveConsumerIdentity(comment)}
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>
-            {comment.anonymous_nickname}
-          </div>
-          {/* 공간온도 · 관심카테고리 · 최근활동 (조회 실패 시 표시 생략) */}
-          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* 공간온도 · 가입기간 · 관심카테고리 · 최근활동 (조회 실패 시 표시 생략) */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             {profile?.spaceTemp != null && (
               <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
                 🌡️ 공간온도 {Number(profile.spaceTemp).toFixed(1)}°
+              </span>
+            )}
+            {joinLabel && (
+              <span style={{ background: C.bg, color: C.text3, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 600 }}>
+                🗓️ {joinLabel}
               </span>
             )}
             {(profile?.interests ?? []).slice(0, 3).map(it => (
@@ -79,6 +118,13 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
             </div>
           )}
         </div>
+
+        {/* 일반 의뢰인 활동기록 요약 — 작성글/댓글/받은 좋아요/최근 활동(ownerId만 전달 → 업체용 버튼 없음) */}
+        {comment.user_id && (
+          <div style={{ padding: '12px 20px 0' }}>
+            <SpaceActivityRecord ownerId={comment.user_id} title="활동 기록" />
+          </div>
+        )}
 
         {/* 액션 목록 */}
         {!isOwn && (
@@ -244,7 +290,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     let cancelled = false;
     getUser(uid).then(({ data }) => {
       if (!cancelled && data) {
-        setAuthorProfile({ spaceTemp: data.space_temp ?? 36.5, interests: data.interests ?? [] });
+        setAuthorProfile({ spaceTemp: data.space_temp ?? 36.5, interests: data.interests ?? [], joinedAt: data.created_at ?? null });
       }
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -266,6 +312,35 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [post?.is_expert, post?.user_id]);
+
+  // 의뢰인/업체 익명 표시명 분리 — 업체(전문가) 작성자는 의뢰인 익명닉네임 대신 업체명으로 표시.
+  // 전문가 글/댓글 작성자(user_id)들의 업체명을 한 번에 조회(읽기 전용). 매핑: { [owner_id]: 업체명 }
+  const [companyNameMap, setCompanyNameMap] = useState({});
+  useEffect(() => {
+    if (!IS_SUPABASE_READY) return;
+    const ids = new Set();
+    if (post?.is_expert && post?.user_id) ids.add(post.user_id);
+    (comments ?? []).forEach((c) => { if (c.is_expert_reply && c.user_id) ids.add(c.user_id); });
+    const list = [...ids];
+    if (list.length === 0) { setCompanyNameMap({}); return; }
+    let cancelled = false;
+    getCompaniesByOwnerIds(list).then(({ data }) => {
+      if (cancelled || !data) return;
+      const m = {};
+      data.forEach((co) => { if (co.owner_id && co.name) m[co.owner_id] = co.name; });
+      setCompanyNameMap(m);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [comments, post?.is_expert, post?.user_id]);
+
+  // 업체 표시명 — 라운지 익명 정책. 실업체명 대신 owner_id 기반 결정론적 익명닉네임(공간○○NN).
+  // 댓글/게시글/미니팝오버 모두 동일 키(owner_id)로 해석되어 같은 업체는 같은 익명닉네임을 유지한다.
+  const companyDisplayName = (ownerId, fullCompany = null) =>
+    resolveCompanyIdentity(
+      (fullCompany && typeof fullCompany === 'object')
+        ? fullCompany
+        : { owner_id: ownerId }
+    );
 
   // Load initial like/save state from DB (skip synthetic seed — not in lounge_posts)
   useEffect(() => {
@@ -457,14 +532,29 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       const isExpert = user.role === 'company';
       const isReply  = !!replyTo?.id;
 
+      // 푸시/앱 내 알림 문구 규칙
+      //  · 제목 = 게시글 본문 첫 줄(없으면 "공간마켓 라운지", 45자 초과 시 말줄임)
+      //  · 본문 = 댓글 내용(60자 초과 시 말줄임 / 사진만 있으면 안내문구 / 비어있으면 기본문구)
+      const firstLine = (post?.content ?? '')
+        .split('\n')
+        .map((s) => s.trim())
+        .find(Boolean) ?? '';
+      const notifTitle = firstLine
+        ? (firstLine.length > 45 ? `${firstLine.slice(0, 45)}…` : firstLine)
+        : '공간마켓 라운지';
+      const hasCommentImage = Array.isArray(data?.image_urls) && data.image_urls.length > 0;
+      const notifBody = content
+        ? (content.length > 60 ? `${content.slice(0, 60)}…` : content)
+        : (hasCommentImage ? '사진 댓글을 남겼습니다.' : '댓글을 남겼습니다.');
+
       // 원글 작성자에게 알림 (본인 글 제외) — createNotification: 앱 내 알림 저장 + FCM 푸시 큐잉(best-effort)
       if (post?.user_id && post.user_id !== user.id) {
         const type = isExpert ? 'expert_answer' : 'post_comment';
         createNotification({
           userId:      post.user_id,
           type,
-          title:       isExpert ? '전문가 답변' : '새 댓글',
-          message:     isExpert ? '전문가가 내 글에 답변했어요' : '내 글에 댓글이 달렸어요',
+          title:       notifTitle,
+          message:     notifBody,
           relatedId:   post.id,
           relatedType: 'lounge_post',
         });
@@ -474,8 +564,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         createNotification({
           userId:      replyTo.user_id,
           type:        'comment_reply',
-          title:       '답글',
-          message:     '내 댓글에 답글이 달렸어요',
+          title:       notifTitle,
+          message:     notifBody,
           relatedId:   post.id,
           relatedType: 'lounge_post',
         });
@@ -533,18 +623,24 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setReportTarget({ type: 'post', targetId: post.id });
   };
 
-  // 댓글 작성자 클릭 → 액션시트 표시
-  const handleCommentAuthorClick = (comment) => {
+  // 댓글 작성자 클릭 → 닉네임 옆 초미니 팝오버(앵커 위치 전달)
+  const handleCommentAuthorClick = (comment, e) => {
     if (!isLoggedIn) { onRequireLogin?.(); return; }
-    setCommentAuthorSheet({ comment });
+    setMiniModal(null);
+    setCommentAuthorSheet({ comment, anchor: rectOf(e) });
   };
 
-  // 게시글 작성자 클릭 → 동일 액션시트 (전문가 글은 업체 카드가 별도 존재, 시드 글 제외)
-  const handlePostAuthorClick = () => {
+  // 게시글 작성자 클릭 → 전문가 글은 업체 팝오버 / 그 외는 의뢰인 팝오버 (시드 글 제외)
+  const handlePostAuthorClick = (e) => {
     if (!post?.user_id || isSeedPost) return;
-    // 업체(전문가) 글 작성자 → 미니 포트폴리오 모달
-    if (post.is_expert) { setMiniModal({ ownerId: post.user_id, nickname: post.anonymous_nickname }); return; }
+    setCommentAuthorSheet(null);
+    // 업체(전문가) 글 작성자 → 업체 미니 팝오버
+    if (post.is_expert) {
+      setMiniModal({ ownerId: post.user_id, nickname: companyDisplayName(post.user_id, expertCompany), anchor: rectOf(e), report: { type: 'post', targetId: post.id } });
+      return;
+    }
     if (!isLoggedIn) { onRequireLogin?.(); return; }
+    setMiniModal(null);
     setCommentAuthorSheet({
       comment: {
         user_id:            post.user_id,
@@ -553,6 +649,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         created_at:         post.created_at,
       },
       isPostAuthor: true,
+      anchor: rectOf(e),
     });
   };
 
@@ -728,7 +825,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             </div>
             <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>
               {hasBadge && <span style={{ fontSize: 13, marginRight: 3 }}>🛡️</span>}
-              {post.anonymous_nickname}
+              {post.is_expert ? companyDisplayName(post.user_id, expertCompany) : resolveConsumerIdentity(post)}
             </span>
           </span>
           <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{catLabel}</span>
@@ -768,7 +865,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               🛡️ 공간마켓 파트너
             </div>
             <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.8, marginTop: 4 }}>
-              {post.expert_company_name ?? post.anonymous_nickname}
+              {companyDisplayName(post.user_id, expertCompany ?? (post.expert_company_name ? { name: post.expert_company_name } : null))}
             </div>
             {/* 업체 미니카드 — 공간보증 배지 · 공간온도 · 영업지역 · 후기 수 (조회 실패 시 표시 생략) */}
             {expertCompany && (
@@ -793,15 +890,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button onClick={() => onNavigate?.({ target: 'company', companyId: post.user_id })}
+              <button onClick={() => onNavigate?.({ target: 'company', companyId: post.user_id, company: expertCompany })}
                 style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                 포트폴리오 보기
               </button>
-              <button onClick={() => onNavigate?.({ target: 'chat', companyId: post.user_id })}
+              <button onClick={() => onNavigate?.({ target: 'chat', companyId: post.user_id, company: expertCompany })}
                 style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                 대화하기
               </button>
-              <button onClick={() => onNavigate?.({ target: 'quote', companyId: post.user_id })}
+              <button onClick={() => onNavigate?.({ target: 'quote', companyId: post.user_id, company: expertCompany })}
                 style={{ flex: 1, padding: '11px 0', borderRadius: R.lg, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                 견적 요청하기
               </button>
@@ -914,11 +1011,12 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             <LoungeCommentItem
               comment={comment}
               currentUserId={user?.id}
+              companyName={comment.is_expert_reply ? companyDisplayName(comment.user_id) : null}
               onLike={likeComment}
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
               onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
               onAuthorClick={handleCommentAuthorClick}
-              onCompanyClick={(c) => setMiniModal({ ownerId: c.user_id, nickname: c.anonymous_nickname })}
+              onCompanyClick={(c, e) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor: rectOf(e), report: { type: 'comment', targetId: c.id } }); }}
             />
             {replyComs.filter(r => r.parent_id === comment.id).map(reply => (
               <LoungeCommentItem
@@ -926,10 +1024,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 comment={reply}
                 isReply
                 currentUserId={user?.id}
+                companyName={reply.is_expert_reply ? companyDisplayName(reply.user_id) : null}
                 onLike={likeComment}
                 onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
                 onAuthorClick={handleCommentAuthorClick}
-                onCompanyClick={(c) => setMiniModal({ ownerId: c.user_id, nickname: c.anonymous_nickname })}
+                onCompanyClick={(c, e) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor: rectOf(e), report: { type: 'comment', targetId: c.id } }); }}
               />
             ))}
           </div>
@@ -1027,14 +1126,17 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       )}
 
       {miniModal && (
-        <CompanyMiniPortfolioModal
+        <LoungeProfilePopover
+          role="company"
+          anchor={miniModal.anchor}
           ownerId={miniModal.ownerId}
-          anonymousNickname={miniModal.nickname}
+          displayName={miniModal.nickname}
           currentUserId={user?.id}
           onClose={() => setMiniModal(null)}
-          onViewPortfolio={() => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'company', companyId: id }); }}
-          onRequestChat={() => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'chat', companyId: id }); }}
-          onRequestQuote={() => { const id = miniModal.ownerId; setMiniModal(null); onNavigate?.({ target: 'quote', companyId: id }); }}
+          onViewPortfolio={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'company', companyId: id, company: co }); }}
+          onRequestChat={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'chat', companyId: id, company: co }); }}
+          onRequestQuote={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'quote', companyId: id, company: co }); }}
+          onReport={() => setReportTarget({ type: miniModal.report?.type ?? 'comment', targetId: miniModal.report?.targetId })}
         />
       )}
 
@@ -1048,18 +1150,21 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       )}
 
       {commentAuthorSheet && (
-        <CommentAuthorActionSheet
-          comment={commentAuthorSheet.comment}
-          roleLabel={commentAuthorSheet.isPostAuthor ? '게시글 작성자' : '댓글 작성자'}
-          profile={authorProfile}
+        <LoungeProfilePopover
+          role="consumer"
+          anchor={commentAuthorSheet.anchor}
+          ownerId={commentAuthorSheet.comment.user_id}
+          displayName={resolveConsumerIdentity(commentAuthorSheet.comment)}
+          consumerProfile={authorProfile}
+          currentUserId={user?.id}
+          isOwn={commentAuthorSheet.comment.user_id === user?.id}
           alreadySent={commentAuthorSheet.isPostAuthor ? chatSent : sentChatTargets.has(commentAuthorSheet.comment.user_id)}
           busy={chatRequestBusy}
-          isOwn={commentAuthorSheet.comment.user_id === user?.id}
           onChat={commentAuthorSheet.isPostAuthor
-            ? () => { setCommentAuthorSheet(null); if (!chatSent && ensureChatTokens()) setShowChat(true); }
+            ? () => { if (!chatSent && ensureChatTokens()) setShowChat(true); }
             : () => handleCommentChatRequest(commentAuthorSheet.comment)}
           onReport={commentAuthorSheet.isPostAuthor
-            ? () => { setCommentAuthorSheet(null); setReportTarget({ type: 'post', targetId: post.id }); }
+            ? () => setReportTarget({ type: 'post', targetId: post.id })
             : () => handleCommentReportFromSheet(commentAuthorSheet.comment.id)}
           onClose={() => setCommentAuthorSheet(null)}
         />

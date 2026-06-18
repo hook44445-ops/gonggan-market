@@ -18,6 +18,7 @@ import PortfolioScreen from "../screens/PortfolioScreen";
 import ReviewScreen from "../screens/ReviewScreen";
 import ChatScreen from "../screens/ChatScreen";
 import EscrowScreen from "../screens/EscrowScreen";
+import SpaceHistoryScreen from "../screens/SpaceHistoryScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import BidStatusScreen from "../screens/BidStatusScreen";
 import AdminScreen from "../screens/AdminScreen";
@@ -3554,6 +3555,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           />
         )}
         {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} />}
+        {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
@@ -3687,16 +3689,21 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               setLoungePost(null);
               setLoungeRefreshKey(k => k + 1);
             }}
-            onNavigate={({ target, companyId }) => {
-              // 라운지 → 거래 연결 CTA 라우팅
+            onNavigate={({ target, companyId, company }) => {
+              // 라운지 → 거래 연결 CTA 라우팅 (버튼별 동작 분리: 포트폴리오/대화/견적이 서로 섞이지 않음)
+              // 미니프로필이 이미 로드한 업체 객체(company)를 폴백으로 사용 → 로드된 목록에 없는 업체도 정확히 라우팅.
+              const resolveCo = () =>
+                companies.find(c => c.id === companyId || c.ownerId === companyId)
+                || (company ? normalizeCompany(company) : null);
               if (target === "quote") { if (activeRole === "consumer") { setScreen("home"); handleOpenNewReq(); } else setScreen("home"); return; }
               if (target === "map") { setScreen("home"); setScreen("map"); return; }
-              if (target === "chat" && companyId) {
-                const co = companies.find(c => c.id === companyId || c.ownerId === companyId);
-                if (co) { requireAuth(() => go("chat", co)); return; }
-              }
-              if ((target === "company" || target === "company_or_quote" || target === "company_or_map") && companyId) {
-                const co = companies.find(c => c.id === companyId || c.ownerId === companyId);
+              // 대화하기 — 업체 상세 채팅으로만 이동(견적신청으로 새지 않음). 토큰 차감은 기존 대화신청/수락 로직 유지.
+              if (target === "chat") { const co = resolveCo(); if (co) requireAuth(() => go("chat", co)); return; }
+              // 포트폴리오 보기 — 업체 상세로만 이동(견적신청으로 새지 않음).
+              if (target === "company") { const co = resolveCo(); if (co) go("portfolio", co); return; }
+              // 게시글 하단 CTA(업체 우선, 없으면 견적/지도) — 기존 폴백 의미 유지.
+              if ((target === "company_or_quote" || target === "company_or_map") && companyId) {
+                const co = resolveCo();
                 if (co) { go("portfolio", co); return; }
               }
               // 폴백: 견적 요청
@@ -4169,7 +4176,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   <span style={{ fontSize: 16, color: C.text3 }}>›</span>
                 </div>
               ))}
-              <div style={{ fontSize: 11, color: C.text4, marginTop: S.sm }}>토큰 결제는 준비 중이며 현재 테스트 운영 중입니다.</div>
+              <div style={{ fontSize: 11, color: C.text4, marginTop: S.sm }}>토큰 결제는 준비 중입니다.</div>
             </div>
 
             <div style={{ textAlign: "center", marginTop: S.lg }}>
@@ -4384,6 +4391,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }}
                 onOpenCompany={(co) => go("portfolio", co)}
               />
+            )}
+
+            {/* 공간 이력(Space History) — 완료 프로젝트 시공 이력 타임라인(읽기 전용 진입) */}
+            {activeRole==="consumer" && (
+              <button onClick={() => go("space-history")}
+                style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%",
+                  background:C.surface, borderRadius:R.xl, padding:"16px 18px", marginBottom:S.lg,
+                  border:`1px solid ${C.bgWarm}`, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
+                <span>
+                  <span style={{ display:"block", fontSize:15, fontWeight:800, color:C.text1 }}>🗂️ 공간 이력</span>
+                  <span style={{ display:"block", fontSize:12, color:C.text3, marginTop:2 }}>완료된 공사가 공간의 기억으로 쌓입니다</span>
+                </span>
+                <span style={{ fontSize:18, color:C.text3, flexShrink:0 }}>→</span>
+              </button>
             )}
 
             {activeRole==="consumer" && (

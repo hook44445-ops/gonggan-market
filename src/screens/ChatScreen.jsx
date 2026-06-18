@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { C, R, S } from "../constants";
+import { C, R, S, SHADOW } from "../constants";
 import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import { detectDirectDealKeywords } from "../constants/directDeal";
@@ -43,6 +43,7 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
   const [reportDone, setReportDone] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loaded, setLoaded] = useState(false); // 최초 로딩 완료 여부 (무한로딩/빈화면 방어용 UI 플래그)
   const [partnerProfile, setPartnerProfile] = useState(null); // 라운지: { spaceTemp, interests }
   const [partnerCompany, setPartnerCompany] = useState(null); // 라운지: 상대가 업체면 업체 정보
   const bottomRef = useRef(null);
@@ -84,11 +85,12 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
 
   useEffect(() => {
     let cancelled = false;
+    setLoaded(false);
 
     async function init() {
       const { data, error } = await getChatMessages(roomId);
       if (cancelled) return;
-      if (error) return;
+      if (error) { setLoaded(true); return; }
 
       let rows = data ?? [];
       if (rows.length === 0) {
@@ -105,6 +107,7 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       if (!cancelled) {
         setMessages(rows.map(mapRow));
         setHasMore(rows.length >= PAGE_SIZE);
+        setLoaded(true);
         // C-4: 방 진입 시 읽음 처리(내가 안 보낸 안읽음만). 실패해도 채팅엔 영향 없음.
         if (user?.id) markChatRoomRead(roomId, user.id).catch(() => {});
       }
@@ -168,10 +171,12 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
   };
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100vh", fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
-      <div style={{ background:C.surface, borderBottom:`1px solid ${C.bgWarm}`, padding:"12px 16px",
-        display:"flex", alignItems:"center", gap:S.md, position:"sticky", top:0, zIndex:10 }}>
-        <button onClick={onBack} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
+    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", maxHeight:"100dvh", background:C.ivory, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+      <div style={{ background:C.surface, borderBottom:`1px solid ${C.bgWarm}`,
+        padding:`max(env(safe-area-inset-top),10px) 14px 11px`, boxShadow:SHADOW.soft,
+        display:"flex", alignItems:"center", gap:S.sm, position:"sticky", top:0, zIndex:10 }}>
+        <button onClick={onBack} aria-label="뒤로가기"
+          style={{ background:"none", border:"none", fontSize:24, cursor:"pointer", color:C.text1, padding:"2px 6px 2px 0", lineHeight:1, flexShrink:0 }}>←</button>
         <div style={{ width:40, height:40, borderRadius:R.full, flexShrink:0,
           background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center",
           fontSize:18, fontWeight:900, color:C.brand, position:"relative" }}>
@@ -299,9 +304,22 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
         </div>
       </div>
 
-      <div style={{ flex:1, overflowY:"auto", padding:S.xl, background:C.bg }}>
-        {messages.length === 0 && (
-          <div style={{ textAlign:"center", fontSize:13, color:C.text3, marginTop:60 }}>로딩 중...</div>
+      <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", overscrollBehavior:"contain",
+        padding:`${S.lg}px ${S.lg}px ${S.md}px`, background:"transparent" }}>
+        {messages.length === 0 && !loaded && (
+          <div style={{ textAlign:"center", fontSize:13, color:C.text3, marginTop:64 }}>
+            <div style={{ display:"inline-flex", gap:5 }}>
+              {[0,1,2].map(i => <div key={i} style={{ width:7, height:7, borderRadius:"50%", background:C.brandM, animation:`bounce 1.2s ${i*0.2}s infinite` }} />)}
+            </div>
+            <div style={{ marginTop:12 }}>대화를 불러오는 중이에요…</div>
+          </div>
+        )}
+        {messages.length === 0 && loaded && (
+          <div style={{ textAlign:"center", marginTop:64, padding:"0 24px" }}>
+            <div style={{ fontSize:36, marginBottom:10 }}>💬</div>
+            <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:6 }}>아직 주고받은 메시지가 없어요</div>
+            <div style={{ fontSize:12.5, color:C.text3, lineHeight:1.6 }}>첫 메시지를 보내 대화를 시작해보세요.</div>
+          </div>
         )}
         {hasMore && messages.length > 0 && (
           <div style={{ textAlign:"center", marginBottom:S.md }}>
@@ -314,35 +332,41 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
           </div>
         )}
         {messages.map((msg) => msg.from === "system" ? (
-          <div key={msg.id} style={{ textAlign:"center", margin:`${S.md}px 0` }}>
-            <span style={{ background:C.bgWarm, color:C.text3, borderRadius:R.full,
-              padding:"5px 14px", fontSize:11.5, fontWeight:600 }}>{msg.text}</span>
+          <div key={msg.id} style={{ display:"flex", justifyContent:"center", margin:`${S.lg}px 0` }}>
+            <div style={{ maxWidth:"80%", background:C.brandL, color:C.brandD,
+              border:`1px solid ${C.brandM}`, borderRadius:R.lg,
+              padding:"9px 16px", fontSize:12, fontWeight:600, lineHeight:1.6,
+              textAlign:"center", whiteSpace:"pre-wrap", wordBreak:"break-word" }}>{msg.text}</div>
           </div>
         ) : (
           <div key={msg.id} style={{ display:"flex", justifyContent:msg.from==="user"?"flex-end":"flex-start",
-            marginBottom:S.md, alignItems:"flex-end", gap:6 }}>
+            marginBottom:S.sm, alignItems:"flex-end", gap:6 }}>
             {msg.from === "company" && (
-              <div style={{ width:32, height:32, borderRadius:R.full, background:C.brandL,
+              <div style={{ width:30, height:30, borderRadius:R.full, background:C.brandL,
                 display:"flex", alignItems:"center", justifyContent:"center",
                 fontSize:13, fontWeight:900, color:C.brand, flexShrink:0 }}>{isLounge ? (partner?.nickname ?? "?")[0] : (company?.name ?? "?")[0]}</div>
             )}
-            <div>
+            <div style={{ maxWidth:"76%", display:"flex", flexDirection:"column",
+              alignItems:msg.from==="user"?"flex-end":"flex-start" }}>
               <div style={{ background:msg.from==="user"?C.brand:C.surface,
                 color:msg.from==="user"?"#fff":C.text1,
-                borderRadius:msg.from==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",
-                padding:"11px 15px", maxWidth:240, fontSize:14, lineHeight:1.6,
-                boxShadow:"0 1px 4px rgba(28,23,18,0.08)" }}>{msg.text}</div>
-              <div style={{ fontSize:10, color:C.text4, marginTop:3, textAlign:msg.from==="user"?"right":"left" }}>{msg.time}</div>
+                borderRadius:msg.from==="user"?"18px 18px 5px 18px":"18px 18px 18px 5px",
+                padding:"10px 14px", fontSize:14, lineHeight:1.55,
+                whiteSpace:"pre-wrap", wordBreak:"break-word", overflowWrap:"anywhere",
+                border:msg.from==="user"?"none":`1px solid ${C.bgWarm}`,
+                boxShadow:msg.from==="user"?SHADOW.brand:SHADOW.soft }}>{msg.text}</div>
+              <div style={{ fontSize:10, color:C.text4, marginTop:3,
+                padding:"0 2px", textAlign:msg.from==="user"?"right":"left" }}>{msg.time}</div>
             </div>
           </div>
         ))}
         {typing && (
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:S.md }}>
-            <div style={{ width:32, height:32, borderRadius:R.full, background:C.brandL,
+            <div style={{ width:30, height:30, borderRadius:R.full, background:C.brandL,
               display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:13, fontWeight:900, color:C.brand }}>{(company?.name ?? "?")[0]}</div>
-            <div style={{ background:C.surface, borderRadius:"18px 18px 18px 4px",
-              padding:"12px 16px", boxShadow:"0 1px 4px rgba(28,23,18,0.08)" }}>
+              fontSize:13, fontWeight:900, color:C.brand, flexShrink:0 }}>{(company?.name ?? "?")[0]}</div>
+            <div style={{ background:C.surface, borderRadius:"18px 18px 18px 5px",
+              padding:"12px 16px", border:`1px solid ${C.bgWarm}`, boxShadow:SHADOW.soft }}>
               <div style={{ display:"flex", gap:5 }}>
                 {[0,1,2].map(i => <div key={i} style={{ width:7, height:7, borderRadius:"50%", background:C.bgWarm, animation:`bounce 1.2s ${i*0.2}s infinite` }} />)}
               </div>
@@ -353,17 +377,21 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       </div>
 
 
-      <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`,
-        padding:`${S.sm}px ${S.lg}px ${S.lg}px`, display:"flex", gap:S.sm, alignItems:"flex-end" }}>
+      <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0,
+        padding:`${S.sm}px ${S.md}px calc(${S.sm}px + env(safe-area-inset-bottom))`,
+        display:"flex", gap:S.sm, alignItems:"flex-end", boxShadow:"0 -2px 10px rgba(28,23,18,0.04)" }}>
         <input value={input} onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()} placeholder="메시지를 입력하세요"
-          style={{ flex:1, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.full,
-            padding:"11px 18px", fontSize:14, outline:"none", fontFamily:"inherit",
-            background:C.bg, color:C.text1 }} />
-        <button onClick={send}
-          style={{ width:44, height:44, borderRadius:R.full,
-            background:input.trim()?C.brand:"#E8E4DC", border:"none",
+          style={{ flex:1, minWidth:0, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.pill,
+            padding:"12px 18px", fontSize:15, outline:"none", fontFamily:"inherit",
+            background:C.surface2, color:C.text1 }} />
+        <button onClick={send} aria-label="전송" disabled={!input.trim()}
+          style={{ width:46, height:46, flexShrink:0, borderRadius:R.full,
+            background:input.trim()?C.brand:C.bgWarm, border:"none",
+            color:input.trim()?"#fff":C.text4,
             cursor:input.trim()?"pointer":"default",
+            boxShadow:input.trim()?SHADOW.brand:"none",
+            transition:"background .15s ease, box-shadow .15s ease",
             display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>➤</button>
       </div>
       <style>{`@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}`}</style>
