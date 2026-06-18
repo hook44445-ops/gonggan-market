@@ -12,7 +12,7 @@ import { getSpaceActivityRecord } from '../../lib/spaceActivity';
 import { getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 import { resolveCompanyIdentity } from '../../utils/identityResolver';
 
-const W = 232; // 초미니 팝오버 폭(220~240px · 카카오/당근 닉네임 팝업 느낌)
+const W = 190; // 초미니 팝오버 폭 — 닉네임 확인용(추가 축소: 232→190)
 
 const joinPeriod = (iso) => {
   if (!iso) return null;
@@ -103,55 +103,51 @@ export default function LoungeProfilePopover({
   const act = (fn, arg) => { onClose?.(); fn?.(arg); };
 
   const chip = (bg, color, children, key) => (
-    <span key={key} style={{ background: bg, color, borderRadius: R.full, padding: '2px 8px', fontSize: 10.5, fontWeight: 700 }}>{children}</span>
+    <span key={key} style={{ background: bg, color, borderRadius: R.full, padding: '2px 7px', fontSize: 11, fontWeight: 700 }}>{children}</span>
   );
 
-  const Btn = ({ label, primary, disabled, onClick }) => (
+  // 얇은 리스트형 행(버튼) — 큰 박스 버튼 금지. 높이 30 · 아이콘 + 라벨.
+  const Row = ({ icon, label, onClick, disabled, danger }) => (
     <button onClick={onClick} disabled={disabled}
-      style={{ flex: 1, height: 34, padding: '0 6px', borderRadius: R.lg, border: primary ? 'none' : `1.5px solid ${C.bgWarm}`,
-        background: primary ? C.brand : C.surface, color: primary ? '#fff' : C.text2,
-        fontWeight: 800, fontSize: 12, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1, whiteSpace: 'nowrap' }}>
-      {label}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: 30, padding: '0 6px',
+        background: 'none', border: 'none', borderRadius: 8, textAlign: 'left',
+        color: danger ? C.text4 : C.text2, fontWeight: 700, fontSize: 13,
+        cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
+      <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>{icon}</span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
     </button>
   );
 
-  const Divider = () => <div style={{ height: 1, background: C.bgWarm, margin: '10px 0' }} />;
+  const Divider = () => <div style={{ height: 1, background: C.bgWarm, margin: '8px 0' }} />;
 
-  const reportLink = (
-    <button onClick={() => act(onReport)}
-      style={{ width: '100%', marginTop: 6, background: 'none', border: 'none', cursor: 'pointer',
-        fontSize: 11.5, color: C.text4, fontWeight: 600, padding: '2px 0' }}>
-      🚩 신고
-    </button>
-  );
-
-  // 닉네임(15px Bold) — v2 공통
-  const nameStyle = { fontSize: 15, fontWeight: 800, color: C.text1, lineHeight: 1.3,
+  // 닉네임(14px Bold)
+  const nameStyle = { fontSize: 14, fontWeight: 800, color: C.text1, lineHeight: 1.3,
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 
   const renderCompany = () => {
     const name = resolveCompanyIdentity(company) || displayName;
     const self = currentUserId && company?.owner_id === currentUserId;
+    const metaBits = [
+      company?.temp != null ? `🌡 ${Number(company.temp).toFixed(1)}°` : null,
+      company?.region ? `📍 ${company.region}` : null,
+    ].filter(Boolean);
     return (
       <>
-        <div style={{ ...nameStyle, marginBottom: 6 }}>🛠 {name}</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 6 }}>
-          {hasGuaranteeBadge(company) && chip(C.brandL, C.brand, '🏅 공간보증', 'guarantee')}
+        <div style={{ ...nameStyle, marginBottom: 5 }}>🛠 {name}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: metaBits.length ? 4 : 0 }}>
           {chip(C.brand, '#fff', '⭐ 전문가', 'exp')}
+          {hasGuaranteeBadge(company) && chip(C.brandL, C.brand, '🏅 공간보증', 'guarantee')}
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          {company?.temp != null && chip(C.brandL, C.brand, `🌡 ${Number(company.temp).toFixed(1)}°`, 'temp')}
-          {company?.region && chip(C.bg, C.text3, `📍 ${company.region}`, 'region')}
-        </div>
+        {metaBits.length > 0 && (
+          <div style={{ fontSize: 11.5, color: C.text3, fontWeight: 600 }}>{metaBits.join(' · ')}</div>
+        )}
         <Divider />
-        <div style={{ display: 'flex', gap: 6 }}>
-          <Btn label="📂 포트폴리오" onClick={() => act(onViewPortfolio, company)} />
-          <Btn label="💬 대화 신청" primary disabled={self} onClick={() => !self && act(onRequestChat, company)} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Row icon="📁" label="포트폴리오" onClick={() => act(onViewPortfolio, company)} />
+          <Row icon="💬" label="대화" disabled={self} onClick={() => !self && act(onRequestChat, company)} />
+          <Row icon="📝" label="견적" onClick={() => act(onRequestQuote, company)} />
+          {onReport && <Row icon="🚩" label="신고" danger onClick={() => act(onReport)} />}
         </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-          <Btn label="📝 견적 요청" onClick={() => act(onRequestQuote, company)} />
-        </div>
-        {onReport && reportLink}
       </>
     );
   };
@@ -159,27 +155,27 @@ export default function LoungeProfilePopover({
   const renderConsumer = () => {
     const avatar = getAnonymousAvatarByNickname(displayName);
     const jl = joinPeriod(consumerProfile?.joinedAt);
+    const metaBits = [
+      consumerProfile?.spaceTemp != null ? `🌡 ${Number(consumerProfile.spaceTemp).toFixed(1)}°` : null,
+      jl ? `🗓 ${jl}` : null,
+      `📝 ${rec?.loungePosts ?? 0} · 💬 ${rec?.loungeAnswers ?? 0}`,
+    ].filter(Boolean);
     return (
       <>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 7 }}>
-          <div style={{ width: 34, height: 34, borderRadius: '50%', background: avatar.color, flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{avatar.emoji}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: avatar.color, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{avatar.emoji}</div>
           <div style={{ ...nameStyle, minWidth: 0 }}>{displayName}</div>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 7 }}>
-          {consumerProfile?.spaceTemp != null && chip(C.brandL, C.brand, `🌡 ${Number(consumerProfile.spaceTemp).toFixed(1)}°`, 'temp')}
-          {jl && chip(C.bg, C.text3, `🗓 ${jl}`, 'join')}
-        </div>
-        <div style={{ display: 'flex', gap: 14, fontSize: 12, color: C.text2, fontWeight: 600 }}>
-          <span>게시글 <b style={{ color: C.text1 }}>{rec?.loungePosts ?? 0}</b></span>
-          <span>댓글 <b style={{ color: C.text1 }}>{rec?.loungeAnswers ?? 0}</b></span>
-        </div>
+        <div style={{ fontSize: 11.5, color: C.text3, fontWeight: 600 }}>{metaBits.join(' · ')}</div>
         <Divider />
-        {!isOwn && (
-          <Btn label={alreadySent ? '✅ 신청 보냄' : busy ? '처리 중...' : '💬 대화 신청'} primary
-            disabled={busy || alreadySent} onClick={() => !(busy || alreadySent) && act(onChat)} />
-        )}
-        {onReport && reportLink}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {!isOwn && (
+            <Row icon="💬" label={alreadySent ? '신청 보냄' : busy ? '처리 중...' : '대화 신청'}
+              disabled={busy || alreadySent} onClick={() => !(busy || alreadySent) && act(onChat)} />
+          )}
+          {onReport && <Row icon="🚩" label="신고" danger onClick={() => act(onReport)} />}
+        </div>
       </>
     );
   };
@@ -188,9 +184,9 @@ export default function LoungeProfilePopover({
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'transparent' }}>
       <div ref={cardRef} onClick={(e) => e.stopPropagation()}
         style={{ position: 'fixed', left: pos?.left ?? -9999, top: pos?.top ?? -9999, width: W,
-          opacity: pos ? 1 : 0, transition: 'opacity 0.1s', background: C.surface, borderRadius: 14,
-          boxShadow: '0 4px 16px rgba(31,42,36,0.13)', border: `1px solid ${C.bgWarm}`,
-          padding: 13, maxHeight: '50vh', overflowY: 'auto' }}>
+          opacity: pos ? 1 : 0, transition: 'opacity 0.1s', background: C.surface, borderRadius: 12,
+          boxShadow: '0 2px 10px rgba(31,42,36,0.09)', border: `1px solid ${C.bgWarm}`,
+          padding: 9, maxHeight: '50vh', overflowY: 'auto' }}>
         {pos && (
           <div style={{ position: 'absolute', left: pos.arrowLeft, width: 12, height: 12,
             [pos.arrow === 'up' ? 'top' : 'bottom']: -6, background: C.surface,
