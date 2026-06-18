@@ -20,12 +20,10 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
     onLike?.(comment.id);
   };
 
-  // 업체(전문가 답변) 작성자 → 미니 포트폴리오 모달로 연결(본인 제외)
+  // 업체(전문가 답변) 작성자 → 업체 팝오버(본인 포함). 의뢰인/업체는 role 기준 분기(본인·타인 구분으로 막지 않음).
   const isCompanyAuthor = comment.is_expert_reply === true
-    && comment.user_id != null
-    && comment.user_id !== currentUserId;
+    && comment.user_id != null;
   // 일반(비전문가) 작성자 → 게시글 작성자와 동일한 의뢰인 팝오버. 본인 댓글도 열림(시드/익명 user_id 없음만 비활성).
-  // 버그수정: 기존엔 본인/시드를 제외해 댓글·대댓글 닉네임 클릭 시 팝오버가 안 떴음.
   const canOpenConsumer = !comment.is_expert_reply && comment.user_id != null;
   const clickableAuthor = isCompanyAuthor || canOpenConsumer;
 
