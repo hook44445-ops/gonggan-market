@@ -261,6 +261,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   // 댓글 작성자 클릭 → 액션시트
   const [commentAuthorSheet, setCommentAuthorSheet] = useState(null); // { comment }
   const [chatRequestBusy,    setChatRequestBusy]    = useState(false);
+  // 답글 묶음(블릿 UX) — 펼친 댓글 id Set
+  const [expandedReplies, setExpandedReplies] = useState(() => new Set());
+  const toggleReplies = (id) => setExpandedReplies(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   // 이미 신청 보낸 댓글 userId Set (UI 표시용)
   const [sentChatTargets,    setSentChatTargets]    = useState(() => new Set());
   const [relatedPosts, setRelatedPosts]     = useState([]);
@@ -997,11 +1000,17 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           )}
         </div>
 
-        {topComments.map(comment => (
+        {topComments.map(comment => {
+          const replies = replyComs.filter(r => r.parent_id === comment.id);
+          const COLLAPSE = 2;
+          const collapsed = replies.length > COLLAPSE && !expandedReplies.has(comment.id);
+          const shownReplies = collapsed ? [] : replies;
+          return (
           <div key={comment.id}>
             <LoungeCommentItem
               comment={comment}
               currentUserId={user?.id}
+              isAuthor={!!comment.user_id && comment.user_id === post.user_id}
               companyName={comment.is_expert_reply ? companyDisplayName(comment.user_id) : null}
               onLike={likeComment}
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
@@ -1009,12 +1018,21 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               onAuthorClick={handleCommentAuthorClick}
               onCompanyClick={(c, anchor) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor, report: { type: 'comment', targetId: c.id } }); }}
             />
-            {replyComs.filter(r => r.parent_id === comment.id).map(reply => (
+            {collapsed && (
+              <button onClick={() => toggleReplies(comment.id)}
+                style={{ marginLeft: 28, marginBottom: S.sm, background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 12.5, fontWeight: 700, color: C.brand, padding: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 16, height: 1, background: C.bgWarm, display: 'inline-block' }} />
+                답글 {replies.length}개 더보기
+              </button>
+            )}
+            {shownReplies.map(reply => (
               <LoungeCommentItem
                 key={reply.id}
                 comment={reply}
                 isReply
                 currentUserId={user?.id}
+                isAuthor={!!reply.user_id && reply.user_id === post.user_id}
                 companyName={reply.is_expert_reply ? companyDisplayName(reply.user_id) : null}
                 onLike={likeComment}
                 onReport={(id) => setReportTarget({ type: 'comment', targetId: id })}
@@ -1022,8 +1040,16 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 onCompanyClick={(c, anchor) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor, report: { type: 'comment', targetId: c.id } }); }}
               />
             ))}
+            {!collapsed && replies.length > COLLAPSE && (
+              <button onClick={() => toggleReplies(comment.id)}
+                style={{ marginLeft: 28, marginBottom: S.sm, background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 12.5, fontWeight: 700, color: C.text3, padding: '4px 0' }}>
+                답글 접기
+              </button>
+            )}
           </div>
-        ))}
+          );
+        })}
 
         {comments.length === 0 && (
           <div style={{ textAlign: 'center', padding: '28px 0 24px' }}>

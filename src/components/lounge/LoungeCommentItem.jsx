@@ -7,7 +7,7 @@ import { C, R, S } from '../../constants';
 import { formatRelativeTime, getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 import { resolveConsumerIdentity } from '../../utils/identityResolver';
 
-export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId, companyName = null }) {
+export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId, companyName = null, isAuthor = false }) {
   // 표시명은 Identity Resolver 로 결정. 업체(전문가) 댓글은 상위에서 업체 표시명(companyName)을
   // 내려주고, 그 외 의뢰인 댓글은 의뢰인 Identity(anonymous_name → anonymous_nickname → 공간이웃).
   const displayName = companyName || resolveConsumerIdentity(comment);
@@ -82,6 +82,9 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
             cursor: clickableAuthor ? 'pointer' : 'default',
           }}
         >{displayName}</span>
+        {isAuthor && (
+          <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '1px 7px', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>작성자</span>
+        )}
         {comment.is_expert_reply && (
           <span
             onClick={isCompanyAuthor ? handleAuthorClick : undefined}
@@ -109,9 +112,9 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
 
       <div style={{ display: 'flex', gap: S.lg, alignItems: 'center', paddingLeft: 38 }}>
         {comment.is_expert_reply ? (
-          // 전문가 답변 — "도움이 되었어요"(기존 좋아요 재사용, 문구만 변경)
+          // 전문가 답변 — 좋아요(기존 like_count/onLike 재사용, 문구만 통일)
           <button onClick={handleLike} style={{ background: liked ? C.brand : 'none', border: `1px solid ${liked ? C.brand : C.bgWarm}`, borderRadius: R.full, cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#fff' : C.text2, fontWeight: 700, padding: '4px 12px' }}>
-            👍 도움이 되었어요 {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
+            👍 좋아요 {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
           </button>
         ) : (
           <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 700 : 400, padding: 0 }}>
