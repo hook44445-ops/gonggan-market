@@ -2774,22 +2774,38 @@ export const acceptLoungeChatRequest = (requestId, acceptorId) =>
     p_acceptor_id: acceptorId,
   });
 
-// 내가 보낸 대화 신청 목록
+// 거절: target만 가능, 토큰 차감 없음 (idempotent, security definer, migration 078)
+export const rejectLoungeChatRequest = (requestId, rejectorId) =>
+  supabase.rpc("reject_lounge_chat", {
+    p_request_id:  requestId,
+    p_rejector_id: rejectorId,
+  });
+
+// 나가기: 내 목록에서만 숨김(soft) — 메시지/행 hard delete 없음 (idempotent, migration 078)
+export const leaveLoungeChat = (requestId, userId) =>
+  supabase.rpc("leave_lounge_chat", {
+    p_request_id: requestId,
+    p_user_id:    userId,
+  });
+
+// 내가 보낸 대화 신청 목록 (내가 나간 건 제외)
 export const fetchMyChatRequests = (userId, limit = 50) =>
   supabase
     .from("lounge_chat_requests")
     .select("id, post_id, target_id, status, token_charged, created_at, accepted_at, source_comment_id, lounge_posts(title, anonymous_nickname)")
     .eq("requester_id", userId)
+    .is("requester_left_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
 
-// 내가 받은 대화 신청 목록 (pending)
+// 내가 받은 대화 신청 목록 (pending, 내가 나간 건 제외)
 export const fetchReceivedChatRequests = (userId, limit = 50) =>
   supabase
     .from("lounge_chat_requests")
     .select("id, post_id, requester_id, status, token_charged, created_at, source_comment_id, lounge_posts(title, anonymous_nickname), lounge_comments(anonymous_nickname, content)")
     .eq("target_id", userId)
     .eq("status", "pending")
+    .is("target_left_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -2800,6 +2816,7 @@ export const fetchAcceptedReceivedChatRequests = (userId, limit = 50) =>
     .select("id, post_id, requester_id, status, created_at, accepted_at, lounge_posts(title, anonymous_nickname)")
     .eq("target_id", userId)
     .eq("status", "accepted")
+    .is("target_left_at", null)
     .order("accepted_at", { ascending: false })
     .limit(limit);
 
