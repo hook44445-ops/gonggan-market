@@ -2037,6 +2037,23 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     showToast("대화 목록에서 나갔어요");
   };
 
+  // 회사(계약/견적) 채팅 나가기 — chats 테이블/메시지 hard delete 없이 '내 기기 목록에서만' 숨김(soft-hide).
+  // 거래기록(chats)은 그대로 보존하고, 새로고침 후에도 다시 보이지 않도록 localStorage 에 영구 저장.
+  const HIDDEN_CO_CHATS_KEY = "gonggan_hidden_company_chats";
+  const [hiddenCompanyChats, setHiddenCompanyChats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(HIDDEN_CO_CHATS_KEY) ?? "[]"); } catch { return []; }
+  });
+  const handleHideCompanyChat = (co) => {
+    setInboxMenu(null);
+    if (!co?.id) return;
+    setHiddenCompanyChats(prev => {
+      const next = prev.includes(co.id) ? prev : [...prev, co.id];
+      try { localStorage.setItem(HIDDEN_CO_CHATS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    showToast("대화 목록에서 나갔어요");
+  };
+
   const [showLoginRequired, setShowLoginRequired] = useState(false);
 
   const showToast = msg => {
@@ -3826,7 +3843,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const pendingSent = loungeSentReqs.filter(r => r.status === "pending");
           const totalLoungeRequests = loungeReceivedReqs.length + pendingSent.length;
           const totalLoungeOngoing = loungeAcceptedReqs.length + loungeSentReqs.filter(r => r.status === "accepted").length;
-          const isAllEmpty = totalLoungeRequests === 0 && totalLoungeOngoing === 0 && companies.length === 0;
+          // 회사 채팅: 내 목록에서 나간(숨긴) 업체 제외(soft-hide)
+          const visibleCompanies = companies.filter(c => !hiddenCompanyChats.includes(c.id));
+          const isAllEmpty = totalLoungeRequests === 0 && totalLoungeOngoing === 0 && visibleCompanies.length === 0;
           const sectionTitle = (label) => (
             <div style={{ fontSize:13, fontWeight:800, color:C.text2, margin:`${S.xl}px 0 ${S.sm}px` }}>{label}</div>
           );
@@ -3843,7 +3862,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       <button onClick={() => handleInboxLeaveLounge(req)}
                         style={{ width:"100%", padding:"12px 14px", background:"none", border:"none", textAlign:"left", fontSize:13, fontWeight:700, color:C.red ?? "#E53E3E", cursor:"pointer" }}>대화 나가기</button>
                     ) : (
-                      <div style={{ padding:"12px 14px", fontSize:12, color:C.text3, lineHeight:1.6 }}>거래 기록 보호를 위해<br/>삭제할 수 없어요.</div>
+                      <>
+                        <button onClick={() => handleHideCompanyChat(req)}
+                          style={{ width:"100%", padding:"12px 14px", background:"none", border:"none", textAlign:"left", fontSize:13, fontWeight:700, color:C.red ?? "#E53E3E", cursor:"pointer" }}>대화 나가기</button>
+                        <div style={{ padding:"0 14px 10px", fontSize:11, color:C.text4, lineHeight:1.5 }}>거래 기록은 보존되며, 내 목록에서만 사라져요.</div>
+                      </>
                     )}
                   </div>
                 </>
@@ -3941,10 +3964,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               </>
             )}
 
-            {companies.length > 0 && (
+            {visibleCompanies.length > 0 && (
               <>
                 {sectionTitle("🏗 계약/견적채팅")}
-                {companies.map(c => (
+                {visibleCompanies.map(c => (
                   <div key={c.id} onClick={() => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)}
                     style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
                     <div style={{ width:48, height:48, borderRadius:R.full, flexShrink:0, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand, position:"relative" }}>
@@ -3970,7 +3993,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         </div>
                       ) : null;
                     })()}
-                    {renderCardMenu(`co_${c.id}`, "company")}
+                    {renderCardMenu(`co_${c.id}`, "company", c)}
                   </div>
                 ))}
               </>
