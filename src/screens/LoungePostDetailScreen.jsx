@@ -36,6 +36,7 @@ import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification, crea
 import { buildPostMeta, buildPostPath } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
 import { resolveCompanyIdentity, resolveConsumerIdentity } from '../utils/identityResolver';
+import SpaceActivityRecord from '../components/SpaceActivityRecord'; // 일반 의뢰인 활동기록 요약(재사용 · 업체버튼 없음)
 
 // ── 댓글 작성자 액션시트 ─────────────────────────────────
 function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, onReport, onClose, roleLabel = '댓글 작성자', profile = null }) {
@@ -81,6 +82,13 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
             </div>
           )}
         </div>
+
+        {/* 일반 의뢰인 활동기록 요약 — 작성글/댓글/받은 좋아요/최근 활동(ownerId만 전달 → 업체용 버튼 없음) */}
+        {comment.user_id && (
+          <div style={{ padding: '12px 20px 0' }}>
+            <SpaceActivityRecord ownerId={comment.user_id} title="활동 기록" />
+          </div>
+        )}
 
         {/* 액션 목록 */}
         {!isOwn && (
