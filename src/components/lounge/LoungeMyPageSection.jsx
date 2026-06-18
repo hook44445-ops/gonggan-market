@@ -16,6 +16,7 @@ import {
   fetchReceivedChatRequests,
   fetchAcceptedReceivedChatRequests,
   acceptLoungeChatRequest,
+  rejectLoungeChatRequest,
   createNotification,
 } from '../../lib/supabase';
 
@@ -343,6 +344,23 @@ function ChatHistoryScreen({ userId, onBack, onOpenChat }) {
     }
   };
 
+  const handleReject = async (req) => {
+    if (busyId) return;
+    setBusyId(req.id);
+    const { data, error } = await rejectLoungeChatRequest(req.id, userId);
+    setBusyId(null);
+    if (error) {
+      showToast(`거절 실패: ${error.message}`);
+      return;
+    }
+    if (data?.error === 'ALREADY_ACCEPTED') {
+      showToast('이미 수락된 대화는 거절할 수 없어요');
+      return;
+    }
+    showToast('대화 신청을 거절했어요');
+    setReceived(prev => prev.filter(r => r.id !== req.id));
+  };
+
   const statusLabel = (status) => {
     if (status === 'accepted') return { label: '수락됨', color: C.brand };
     if (status === 'rejected') return { label: '거절됨', color: C.text4 };
@@ -416,15 +434,26 @@ function ChatHistoryScreen({ userId, onBack, onOpenChat }) {
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleAccept(r)}
-                    disabled={busyId === r.id}
-                    style={{ padding: '8px 14px', background: C.brand, color: '#fff', border: 'none',
-                      borderRadius: R.full, fontWeight: 700, fontSize: 13, cursor: busyId === r.id ? 'not-allowed' : 'pointer',
-                      opacity: busyId === r.id ? 0.6 : 1, flexShrink: 0 }}
-                  >
-                    {busyId === r.id ? '...' : '수락'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button
+                      onClick={() => handleReject(r)}
+                      disabled={busyId === r.id}
+                      style={{ padding: '8px 12px', background: 'none', color: C.text3, border: `1px solid ${C.bgWarm}`,
+                        borderRadius: R.full, fontWeight: 700, fontSize: 13, cursor: busyId === r.id ? 'not-allowed' : 'pointer',
+                        opacity: busyId === r.id ? 0.6 : 1 }}
+                    >
+                      거절
+                    </button>
+                    <button
+                      onClick={() => handleAccept(r)}
+                      disabled={busyId === r.id}
+                      style={{ padding: '8px 14px', background: C.brand, color: '#fff', border: 'none',
+                        borderRadius: R.full, fontWeight: 700, fontSize: 13, cursor: busyId === r.id ? 'not-allowed' : 'pointer',
+                        opacity: busyId === r.id ? 0.6 : 1 }}
+                    >
+                      {busyId === r.id ? '...' : '수락'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

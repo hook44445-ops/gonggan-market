@@ -3,7 +3,7 @@ import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TOKEN_COSTS } from "../constants/lounge";
-import { getAnonymousNickname } from "../utils/anonymousNickname";
+import { getAnonymousNickname, formatRelativeTime } from "../utils/anonymousNickname";
 import LiveFeed from "./LiveFeed";
 import RegionSelectorBar from "./RegionSelectorBar";
 import RegionSelectSheet from "./RegionSelectSheet";
@@ -93,6 +93,11 @@ import {
   getNotifications,
   getReviewByRequest,
   getUnreadChatCounts,
+  fetchMyChatRequests,
+  fetchReceivedChatRequests,
+  fetchAcceptedReceivedChatRequests,
+  acceptLoungeChatRequest,
+  rejectLoungeChatRequest,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import { sendTieredNotification } from "../utils/notify";
@@ -1961,6 +1966,64 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   }, [screen, user?.id, companies?.length]);
   const unreadTotal = Object.values(unreadByRoom).reduce((a, b) => a + (b || 0), 0);
 
+  // ── 통합 대화 탭: 라운지 대화 요청(보낸/받은/수락됨) — chats(회사채팅)는 무변경 ──────
+  const [loungeSentReqs, setLoungeSentReqs] = useState([]);
+  const [loungeReceivedReqs, setLoungeReceivedReqs] = useState([]);
+  const [loungeAcceptedReqs, setLoungeAcceptedReqs] = useState([]);
+  const [loungeInboxBusyId, setLoungeInboxBusyId] = useState(null);
+  const refreshLoungeChatInbox = async () => {
+    if (!user?.id || user?.isGuest) { setLoungeSentReqs([]); setLoungeReceivedReqs([]); setLoungeAcceptedReqs([]); return; }
+    const [sentRes, recvRes, acceptedRes] = await Promise.all([
+      fetchMyChatRequests(user.id),
+      fetchReceivedChatRequests(user.id),
+      fetchAcceptedReceivedChatRequests(user.id),
+    ]);
+    setLoungeSentReqs(sentRes.data ?? []);
+    setLoungeReceivedReqs(recvRes.data ?? []);
+    setLoungeAcceptedReqs(acceptedRes.data ?? []);
+  };
+  useEffect(() => {
+    if (screen === "chatlist") refreshLoungeChatInbox();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, user?.id]);
+
+  const openLoungeChatRoom = (req, partnerId) => {
+    setLoungeChat({
+      roomId: `lounge_${req.requestId ?? req.id}`,
+      partner: {
+        userId:    partnerId,
+        nickname:  getAnonymousNickname(partnerId, req.postId ?? req.post_id),
+        postId:    req.postId ?? req.post_id,
+        postTitle: req.postTitle ?? req.lounge_posts?.title ?? req.lounge_posts?.anonymous_nickname,
+        requestId: req.requestId ?? req.id,
+      },
+    });
+    go("lounge-chat");
+  };
+
+  const handleLoungeInboxAccept = async (req) => {
+    if (loungeInboxBusyId) return;
+    setLoungeInboxBusyId(req.id);
+    const { data, error } = await acceptLoungeChatRequest(req.id, user.id);
+    setLoungeInboxBusyId(null);
+    if (error) { showToast(`수락 실패: ${error.message}`); return; }
+    if (data?.error === "INSUFFICIENT_TOKENS") { showToast(`상대방 토큰이 부족해요 (잔액 ${data.balance ?? 0})`); return; }
+    showToast("✅ 대화가 시작됐어요!");
+    setLoungeReceivedReqs(prev => prev.filter(r => r.id !== req.id));
+    setLoungeAcceptedReqs(prev => [{ ...req, status: "accepted" }, ...prev]);
+  };
+
+  const handleLoungeInboxReject = async (req) => {
+    if (loungeInboxBusyId) return;
+    setLoungeInboxBusyId(req.id);
+    const { data, error } = await rejectLoungeChatRequest(req.id, user.id);
+    setLoungeInboxBusyId(null);
+    if (error) { showToast(`거절 실패: ${error.message}`); return; }
+    if (data?.error === "ALREADY_ACCEPTED") { showToast("이미 수락된 대화는 거절할 수 없어요"); return; }
+    showToast("대화 신청을 거절했어요");
+    setLoungeReceivedReqs(prev => prev.filter(r => r.id !== req.id));
+  };
+
   const [showLoginRequired, setShowLoginRequired] = useState(false);
 
   const showToast = msg => {
@@ -3540,7 +3603,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             roomId={loungeChat.roomId}
             partner={loungeChat.partner}
             user={user}
-            onBack={() => setScreen("my")}
+            onBack={() => setScreen(prevScreen==="chatlist"?"chatlist":"my")}
+            onLeft={() => { setLoungeReceivedReqs(prev => prev.filter(r => r.id !== loungeChat.partner?.requestId)); setLoungeSentReqs(prev => prev.filter(r => r.id !== loungeChat.partner?.requestId)); setLoungeAcceptedReqs(prev => prev.filter(r => r.id !== loungeChat.partner?.requestId)); }}
             onQuoteRequest={activeRole === "consumer" ? () => {
               if (loungeChat.partner?.postTitle) {
                 setReqPrefill({ desc: `라운지 글 "${loungeChat.partner.postTitle}" 관련 상담에서 이어진 견적 요청입니다.\n` });
@@ -3745,7 +3809,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           />
         )}
 
-        {screen==="chatlist" && (
+        {screen==="chatlist" && (() => {
+          const pendingSent = loungeSentReqs.filter(r => r.status === "pending");
+          const totalLoungeRequests = loungeReceivedReqs.length + pendingSent.length;
+          const totalLoungeOngoing = loungeAcceptedReqs.length + loungeSentReqs.filter(r => r.status === "accepted").length;
+          const isAllEmpty = totalLoungeRequests === 0 && totalLoungeOngoing === 0 && companies.length === 0;
+          const sectionTitle = (label) => (
+            <div style={{ fontSize:13, fontWeight:800, color:C.text2, margin:`${S.xl}px 0 ${S.sm}px` }}>{label}</div>
+          );
+          return (
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
@@ -3755,36 +3827,121 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>파트너와 나눈 이야기</div>
               </div>
             </div>
-            {companies.map(c => (
-              <div key={c.id} onClick={() => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)}
-                style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
-                <div style={{ width:48, height:48, borderRadius:R.full, flexShrink:0, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand, position:"relative" }}>
-                  {(c.name ?? "?")[0]}
-                  {c.online && <div style={{ position:"absolute", bottom:0, right:0, width:12, height:12, borderRadius:"50%", background:C.green, border:"2px solid #fff" }} />}
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
-                    <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{c.name}</div>
-                    <TempBadge temp={c.temp} />
-                  </div>
-                  <div style={{ fontSize:13, color:C.text3, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
-                    {(() => { const logs = chatLogs[c.id] ?? []; return logs.length > 0 ? (logs[logs.length-1]?.text ?? "채팅을 시작해보세요") : "채팅을 시작해보세요"; })()}
-                  </div>
-                </div>
-                {(() => {
-                  const unread = unreadByRoom[`${user?.id}_${c.id}`] ?? 0;
-                  return unread > 0 ? (
-                    <div style={{ flexShrink:0, minWidth:20, height:20, padding:"0 6px", borderRadius:R.full,
-                      background:C.brand, color:"#fff", fontSize:11, fontWeight:800,
-                      display:"flex", alignItems:"center", justifyContent:"center" }}>
-                      {unread > 99 ? "99+" : unread}
-                    </div>
-                  ) : null;
-                })()}
+
+            {isAllEmpty && (
+              <div style={{ textAlign:"center", padding:"60px 20px" }}>
+                <div style={{ fontSize:40, marginBottom:12 }}>💬</div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text2, marginBottom:6 }}>아직 주고받은 메시지가 없어요</div>
+                <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>대화를 신청하거나 수락하면 이곳에 표시됩니다.</div>
               </div>
-            ))}
+            )}
+
+            {totalLoungeRequests > 0 && (
+              <>
+                {sectionTitle(`📨 대화 요청 (${totalLoungeRequests})`)}
+                {loungeReceivedReqs.map(r => (
+                  <div key={`recv_${r.id}`}
+                    style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
+                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>💬</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:C.gold, marginBottom:2 }}>대화 요청이 도착했어요</div>
+                      <div style={{ fontSize:14, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                        {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? "게시글"}
+                      </div>
+                      <div style={{ fontSize:11, color:C.text3 }}>{formatRelativeTime(r.created_at)}</div>
+                    </div>
+                    <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                      <button onClick={() => handleLoungeInboxReject(r)} disabled={loungeInboxBusyId === r.id}
+                        style={{ padding:"8px 12px", background:"none", color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.full, fontWeight:700, fontSize:13, cursor:loungeInboxBusyId===r.id?"not-allowed":"pointer", opacity:loungeInboxBusyId===r.id?0.6:1 }}>거절</button>
+                      <button onClick={() => handleLoungeInboxAccept(r)} disabled={loungeInboxBusyId === r.id}
+                        style={{ padding:"8px 14px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:13, cursor:loungeInboxBusyId===r.id?"not-allowed":"pointer", opacity:loungeInboxBusyId===r.id?0.6:1 }}>
+                        {loungeInboxBusyId === r.id ? "..." : "수락"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {pendingSent.map(r => (
+                  <div key={`sent_${r.id}`} onClick={() => requireAuth(() => openLoungeChatRoom(r, r.target_id))}
+                    style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
+                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>💬</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                        {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? "게시글"}
+                      </div>
+                      <div style={{ fontSize:11, color:C.text3 }}>{formatRelativeTime(r.created_at)}</div>
+                    </div>
+                    <div style={{ fontSize:11, fontWeight:700, color:C.gold, background:`${C.gold}18`, padding:"4px 10px", borderRadius:R.full, flexShrink:0 }}>수락 대기중</div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {totalLoungeOngoing > 0 && (
+              <>
+                {sectionTitle("💬 진행중인 라운지대화")}
+                {loungeAcceptedReqs.map(r => (
+                  <div key={`acc_recv_${r.id}`} onClick={() => openLoungeChatRoom(r, r.requester_id)}
+                    style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
+                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>💬</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                        {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? "게시글"}
+                      </div>
+                      <div style={{ fontSize:11, color:C.text3 }}>{formatRelativeTime(r.accepted_at ?? r.created_at)} 수락</div>
+                    </div>
+                  </div>
+                ))}
+                {loungeSentReqs.filter(r => r.status === "accepted").map(r => (
+                  <div key={`acc_sent_${r.id}`} onClick={() => openLoungeChatRoom(r, r.target_id)}
+                    style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
+                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>💬</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                        {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? "게시글"}
+                      </div>
+                      <div style={{ fontSize:11, color:C.text3 }}>{formatRelativeTime(r.accepted_at ?? r.created_at)} 수락</div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {companies.length > 0 && (
+              <>
+                {sectionTitle("🏗 계약/견적채팅")}
+                {companies.map(c => (
+                  <div key={c.id} onClick={() => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)}
+                    style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
+                    <div style={{ width:48, height:48, borderRadius:R.full, flexShrink:0, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand, position:"relative" }}>
+                      {(c.name ?? "?")[0]}
+                      {c.online && <div style={{ position:"absolute", bottom:0, right:0, width:12, height:12, borderRadius:"50%", background:C.green, border:"2px solid #fff" }} />}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                        <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{c.name}</div>
+                        <TempBadge temp={c.temp} />
+                      </div>
+                      <div style={{ fontSize:13, color:C.text3, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+                        {(() => { const logs = chatLogs[c.id] ?? []; return logs.length > 0 ? (logs[logs.length-1]?.text ?? "채팅을 시작해보세요") : "채팅을 시작해보세요"; })()}
+                      </div>
+                    </div>
+                    {(() => {
+                      const unread = unreadByRoom[`${user?.id}_${c.id}`] ?? 0;
+                      return unread > 0 ? (
+                        <div style={{ flexShrink:0, minWidth:20, height:20, padding:"0 6px", borderRadius:R.full,
+                          background:C.brand, color:"#fff", fontSize:11, fontWeight:800,
+                          display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          {unread > 99 ? "99+" : unread}
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                ))}
+              </>
+            )}
           </div>
-        )}
+          );
+        })()}
 
         {screen==="timeline" && (
           <div>

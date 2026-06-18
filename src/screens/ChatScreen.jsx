@@ -4,7 +4,7 @@ import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import { detectDirectDealKeywords } from "../constants/directDeal";
 import { BADGES } from "../constants/badges";
-import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId, markChatRoomRead } from "../lib/supabase";
+import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId, markChatRoomRead, leaveLoungeChat } from "../lib/supabase";
 
 const REPORT_REASONS = [
   "외부 연락처(카톡/전화) 요구",
@@ -32,7 +32,7 @@ const normalizeMsg = (row) => ({
 const PAGE_SIZE = 50;
 const LOUNGE_SYSTEM_HELLO = "라운지 대화가 시작되었습니다.";
 
-export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode, partner, roomId: roomIdProp, onOpenSource, onOpenPortfolio }) {
+export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode, partner, roomId: roomIdProp, onOpenSource, onOpenPortfolio, onLeft }) {
   // 라운지 모드: room_id = lounge_{lounge_chat_request_id} (호출부에서 전달) — 기존 견적/업체 채팅 규칙 무변경
   const isLounge = mode === "lounge";
   const roomId = roomIdProp ?? `${user?.id ?? "guest"}_${company?.id ?? "0"}`;
@@ -46,7 +46,13 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
   const [loaded, setLoaded] = useState(false); // 최초 로딩 완료 여부 (무한로딩/빈화면 방어용 UI 플래그)
   const [partnerProfile, setPartnerProfile] = useState(null); // 라운지: { spaceTemp, interests }
   const [partnerCompany, setPartnerCompany] = useState(null); // 라운지: 상대가 업체면 업체 정보
+  const [reqStatus, setReqStatus] = useState(null); // 라운지: lounge_chat_requests.status (수락 전 입력 게이트용)
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const bottomRef = useRef(null);
+
+  // 라운지: 수락 전(pending/rejected/expired) → 입력 비활성화. status 미확인(null)이면 게이트하지 않음.
+  const isPendingLounge = isLounge && reqStatus != null && reqStatus !== "accepted";
 
   // 라운지: 같은 consumer 타입끼리 대화하므로 sender_id 기준으로 내/상대 구분
   const mapRow = (row) => isLounge
@@ -86,8 +92,22 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
   useEffect(() => {
     let cancelled = false;
     setLoaded(false);
+    setReqStatus(null);
 
     async function init() {
+      let pending = false;
+      if (isLounge && partner?.requestId) {
+        const { data: reqRow } = await supabase
+          .from("lounge_chat_requests")
+          .select("status")
+          .eq("id", partner.requestId)
+          .maybeSingle();
+        if (cancelled) return;
+        const st = reqRow?.status ?? null;
+        setReqStatus(st);
+        pending = st != null && st !== "accepted";
+      }
+
       const { data, error } = await getChatMessages(roomId);
       if (cancelled) return;
       if (error) { setLoaded(true); return; }
@@ -95,14 +115,18 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       let rows = data ?? [];
       if (rows.length === 0) {
         if (isLounge) {
-          // 라운지 대화 시작 system 메시지 1개 — 방이 비어있을 때만(중복 생성 방지)
-          await sendMessage(roomId, user?.id ?? null, "system", LOUNGE_SYSTEM_HELLO);
+          // 라운지 대화 시작 system 메시지 1개 — 수락 후, 방이 비어있을 때만(중복 생성 방지)
+          if (!pending) {
+            await sendMessage(roomId, user?.id ?? null, "system", LOUNGE_SYSTEM_HELLO);
+            const { data: after } = await getChatMessages(roomId);
+            if (!cancelled) rows = after ?? [];
+          }
         } else {
           // Insert welcome message from company, then re-fetch to get real DB id
           await sendMessage(roomId, String(company?.id ?? "company"), "company", WELCOME);
+          const { data: after } = await getChatMessages(roomId);
+          if (!cancelled) rows = after ?? [];
         }
-        const { data: after } = await getChatMessages(roomId);
-        if (!cancelled) rows = after ?? [];
       }
       if (!cancelled) {
         setMessages(rows.map(mapRow));
@@ -128,11 +152,36 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       })
       .subscribe();
 
+    // 라운지: 보고 있는 동안 상대가 수락/거절하면 입력 게이트를 즉시 갱신
+    let reqChannel = null;
+    if (isLounge && partner?.requestId) {
+      reqChannel = supabase
+        .channel(`lounge_chat_request:${partner.requestId}`)
+        .on("postgres_changes", {
+          event: "UPDATE", schema: "public", table: "lounge_chat_requests",
+          filter: `id=eq.${partner.requestId}`,
+        }, (payload) => {
+          setReqStatus(payload.new?.status ?? null);
+        })
+        .subscribe();
+    }
+
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
+      if (reqChannel) supabase.removeChannel(reqChannel);
     };
-  }, [roomId]);
+  }, [roomId, isLounge, partner?.requestId]);
+
+  const handleLeave = async () => {
+    if (!isLounge || !partner?.requestId || !user?.id || leaving) return;
+    setLeaving(true);
+    await leaveLoungeChat(partner.requestId, user.id).catch(() => {});
+    setLeaving(false);
+    setMenuOpen(false);
+    onLeft?.(partner.requestId);
+    onBack?.();
+  };
 
   // 이전 메시지 더보기 — 가장 오래된 메시지 이전 PAGE_SIZE개 추가 로딩(created_at 커서)
   const loadOlder = async () => {
@@ -226,6 +275,28 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
             style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, color:C.text3, padding:"2px 4px", lineHeight:1 }}>
             🚩
           </button>
+          {isLounge && partner?.requestId && (
+            <div style={{ position:"relative" }}>
+              <button onClick={() => setMenuOpen(v => !v)} aria-label="메뉴"
+                style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, color:C.text3, padding:"2px 4px", lineHeight:1 }}>
+                ⋯
+              </button>
+              {menuOpen && (
+                <>
+                  <div onClick={() => setMenuOpen(false)} style={{ position:"fixed", inset:0, zIndex:19 }} />
+                  <div style={{ position:"absolute", right:0, top:"calc(100% + 4px)", zIndex:20,
+                    background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.md,
+                    boxShadow:SHADOW.soft, minWidth:96, overflow:"hidden" }}>
+                    <button onClick={handleLeave} disabled={leaving}
+                      style={{ display:"block", width:"100%", padding:"10px 14px", background:"none", border:"none",
+                        textAlign:"left", fontSize:13, fontWeight:700, color:C.text2, cursor:leaving?"default":"pointer", whiteSpace:"nowrap" }}>
+                      {leaving ? "나가는 중..." : "나가기"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -318,7 +389,9 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
           <div style={{ textAlign:"center", marginTop:64, padding:"0 24px" }}>
             <div style={{ fontSize:36, marginBottom:10 }}>💬</div>
             <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:6 }}>아직 주고받은 메시지가 없어요</div>
-            <div style={{ fontSize:12.5, color:C.text3, lineHeight:1.6 }}>첫 메시지를 보내 대화를 시작해보세요.</div>
+            <div style={{ fontSize:12.5, color:C.text3, lineHeight:1.6 }}>
+              {isPendingLounge ? "수락 대기중이에요. 수락 후 채팅을 시작할 수 있어요." : "첫 메시지를 보내 대화를 시작해보세요."}
+            </div>
           </div>
         )}
         {hasMore && messages.length > 0 && (
@@ -377,23 +450,31 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       </div>
 
 
-      <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0,
-        padding:`${S.sm}px ${S.md}px calc(${S.sm}px + env(safe-area-inset-bottom))`,
-        display:"flex", gap:S.sm, alignItems:"flex-end", boxShadow:"0 -2px 10px rgba(28,23,18,0.04)" }}>
-        <input value={input} onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && send()} placeholder="메시지를 입력하세요"
-          style={{ flex:1, minWidth:0, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.pill,
-            padding:"12px 18px", fontSize:15, outline:"none", fontFamily:"inherit",
-            background:C.surface2, color:C.text1 }} />
-        <button onClick={send} aria-label="전송" disabled={!input.trim()}
-          style={{ width:46, height:46, flexShrink:0, borderRadius:R.full,
-            background:input.trim()?C.brand:C.bgWarm, border:"none",
-            color:input.trim()?"#fff":C.text4,
-            cursor:input.trim()?"pointer":"default",
-            boxShadow:input.trim()?SHADOW.brand:"none",
-            transition:"background .15s ease, box-shadow .15s ease",
-            display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>➤</button>
-      </div>
+      {isPendingLounge ? (
+        <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0,
+          padding:`${S.lg}px ${S.xl}px calc(${S.lg}px + env(safe-area-inset-bottom))`,
+          textAlign:"center", fontSize:13, color:C.text3, fontWeight:600 }}>
+          {reqStatus === "rejected" ? "상대가 대화 신청을 거절했어요." : "업체가 대화를 수락하면 채팅이 시작됩니다."}
+        </div>
+      ) : (
+        <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0,
+          padding:`${S.sm}px ${S.md}px calc(${S.sm}px + env(safe-area-inset-bottom))`,
+          display:"flex", gap:S.sm, alignItems:"flex-end", boxShadow:"0 -2px 10px rgba(28,23,18,0.04)" }}>
+          <input value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && send()} placeholder="메시지를 입력하세요"
+            style={{ flex:1, minWidth:0, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.pill,
+              padding:"12px 18px", fontSize:15, outline:"none", fontFamily:"inherit",
+              background:C.surface2, color:C.text1 }} />
+          <button onClick={send} aria-label="전송" disabled={!input.trim()}
+            style={{ width:46, height:46, flexShrink:0, borderRadius:R.full,
+              background:input.trim()?C.brand:C.bgWarm, border:"none",
+              color:input.trim()?"#fff":C.text4,
+              cursor:input.trim()?"pointer":"default",
+              boxShadow:input.trim()?SHADOW.brand:"none",
+              transition:"background .15s ease, box-shadow .15s ease",
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>➤</button>
+        </div>
+      )}
       <style>{`@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}`}</style>
     </div>
   );
