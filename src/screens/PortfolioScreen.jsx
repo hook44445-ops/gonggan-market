@@ -406,6 +406,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
         {/* v5.4.0: 회사 소개 아래 — 공간 활동기록(실데이터, Add Only) */}
         <SpaceActivityRecord companyId={company.id} ownerId={company.ownerId} />
 
+        {reviews.length === 0 && (
         <button onClick={onReview} style={{ width:"100%", background:C.surface,
           border:`1px solid ${C.bgWarm}`, borderRadius:R.xl, padding:S.xl,
           marginBottom:S.lg, cursor:"pointer",
@@ -427,25 +428,38 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
           </div>
           <span style={{ color:C.text4, fontSize:20 }}>›</span>
         </button>
+        )}
 
-        {/* 완료 프로젝트 리뷰(시공 후기) 미리보기 — 의뢰인이 작성한 완료 리뷰가 업체 상세에 표시됨 */}
+        {/* 시공후기 = 업체 공식 평판 데이터(완료 프로젝트에서 의뢰인이 작성한 리뷰 · getReviews 단일 소스) */}
         {reviews.length > 0 && (
-          <div style={{ marginBottom:S.lg }}>
+          <div style={{ background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:S.md }}>
+              <span style={{ fontSize:14, color:C.gold, letterSpacing:1 }}>
+                {"★".repeat(Math.min(5, Math.max(1, Math.round(Number(avgRating) || 0))))}
+                <span style={{ color:"#E8E4DC" }}>{"★".repeat(5 - Math.min(5, Math.max(1, Math.round(Number(avgRating) || 0))))}</span>
+              </span>
+              <span style={{ fontSize:14, fontWeight:800, color:C.text1 }}>시공후기 {reviews.length}</span>
+              {avgRating && <span style={{ fontSize:12.5, color:C.text3 }}>평균 {avgRating}점</span>}
+            </div>
             {reviews.slice(0, 2).map(rv => (
               <div key={rv.id} onClick={onReview}
-                style={{ background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, marginBottom:6, cursor:"pointer" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-                  <span style={{ fontSize:12.5, fontWeight:700, color:C.text1 }}>
-                    {"⭐".repeat(Math.min(5, Math.max(1, Math.round(rv.rating ?? 0))))}{rv.space_type ? ` · ${rv.space_type}` : ""}
-                  </span>
-                  <span style={{ fontSize:11, color:C.text4 }}>{rv.created_at?.slice(0,10).replace(/-/g,".") ?? ""}</span>
+                style={{ borderTop:`1px solid ${C.bg}`, padding:`${S.md}px 0`, cursor:"pointer" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+                  <span style={{ fontSize:12, color:C.gold }}>{"★".repeat(Math.min(5, Math.max(1, Math.round(rv.rating ?? 0))))}</span>
+                  <span style={{ fontSize:12.5, fontWeight:700, color:C.text1 }}>{rv.user_name ?? "익명"}</span>
+                  {rv.space_type && <span style={{ fontSize:11, color:C.text4 }}>· {rv.space_type}</span>}
                 </div>
-                <div style={{ fontSize:12.5, color:C.text2, lineHeight:1.55,
-                  display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden" }}>
-                  {rv.content}
+                <div style={{ fontSize:12.5, color:C.text2, lineHeight:1.5,
+                  display:"-webkit-box", WebkitLineClamp:1, WebkitBoxOrient:"vertical", overflow:"hidden" }}>
+                  “{rv.content}”
                 </div>
               </div>
             ))}
+            <button onClick={onReview}
+              style={{ width:"100%", marginTop:S.md, padding:"10px", background:C.bg, border:`1px solid ${C.bgWarm}`,
+                borderRadius:R.lg, fontSize:13, fontWeight:800, color:C.text2, cursor:"pointer" }}>
+              전체보기 ({reviews.length}) →
+            </button>
           </div>
         )}
 

@@ -3777,6 +3777,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             onSpendToken={(action, amount, desc) => spendToken(action, amount, desc)}
             onTokenStore={() => requireAuth(() => go("token-store"))}
             onRequireLogin={() => setShowLoginRequired(true)}
+            onChatRequested={() => { refreshLoungeChatInbox(); }}
             onEditPost={(post) => { setEditingLoungePost(post); setEditOriginScreen('lounge-detail'); go("lounge-edit"); }}
             onDeletePost={(id) => {
               setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
