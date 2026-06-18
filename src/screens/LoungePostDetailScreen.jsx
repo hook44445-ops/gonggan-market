@@ -19,9 +19,9 @@ import {
   addLoungeSave,
   removeLoungeSave,
   checkLoungeSaved,
-  createLoungeChat,
   incrementLoungeView,
   requestCommentChat,
+  sendMessage,
   getUser,
   getCompanyByOwnerId,
   getCompaniesByOwnerIds,
@@ -582,10 +582,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     return false;
   };
 
-  const handleChatRequest = async () => {
+  // 메시지 작성 BottomSheet의 "보내기" 클릭 시에만 호출된다 — 절대 즉시 채팅방을 만들지 않는다.
+  // 보내기 → 토큰 확인(부족 시 토큰 스토어 이동) → 메시지 요청 생성 → 첫 메시지 전송 순서.
+  const handleChatRequest = async (messageText) => {
     if (chatSending || chatSent) return;
     if (isGuest) { setShowChat(false); onRequireLogin?.(); return; }
     if (!user?.id || !post?.user_id) { setShowChat(false); showToast('상대 정보를 불러오는 중이에요'); return; }
+    const text = (messageText ?? '').trim();
+    if (!text) { showToast('메시지를 입력해주세요'); return; }
+    if (!ensureChatTokens()) { setShowChat(false); return; }
     setChatSending(true);
     // 라운지 메시지 요청 = lounge_chat_requests 생성(댓글 경로와 동일 · Phase2 인박스/익명 Waiting Accept).
     // 정확한 상대(post.user_id)에게 요청을 만들고, 즉시 채팅방으로 이동하지 않는다.
@@ -604,6 +609,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     } catch {}
     if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
     if (data?.status === 'already_pending') { showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
+    // 작성한 메시지를 방의 첫 메시지로 전송 (room_id = lounge_{request_id}, MainApp.openLoungeChatRoom과 동일 규칙)
+    const requestId = data?.request_id;
+    if (requestId) {
+      await sendMessage(`lounge_${requestId}`, user.id, 'user', text).catch(() => {});
+    }
     showToast('💬 메시지를 보냈어요! 대화 탭에서 확인할 수 있어요. 수락 시 20토큰이 차감됩니다.');
   };
 
@@ -721,7 +731,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   };
 
   const handleDelete = async () => {
-    if (!post?.id || !user?.id) return;
+    if (isGuest || !isOwn || !post?.id || !user?.id) return;
     setDeleting(true);
 
     if (IS_SUPABASE_READY) {
@@ -891,7 +901,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 style={{ flex: 1, height: 28, borderRadius: 8, border: `1px solid ${C.brandM}`, background: C.surface, color: '#1E3D2F', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
                 포트폴리오
               </button>
-              <button onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent && ensureChatTokens()) setShowChat(true); }}
+              <button onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent) setShowChat(true); }}
                 style={{ flex: 1, height: 28, borderRadius: 8, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
                 메시지
               </button>
@@ -936,7 +946,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       {!isOwn && !isSeedPost && (
         <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm, borderRadius: R.xl, margin: `0 8px ${S.sm}px` }}>
           <button
-            onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent && ensureChatTokens()) setShowChat(true); }}
+            onClick={isGuest ? () => onRequireLogin?.() : () => { if (!chatSent) setShowChat(true); }}
             disabled={chatSent}
             style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand}44`, transition: 'background 0.2s' }}>
             {isGuest ? '💬 메시지 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 메시지 신청하기'}
@@ -997,7 +1007,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               currentUserId={user?.id}
               isAuthor={!!comment.user_id && comment.user_id === post.user_id}
               companyName={comment.is_expert_reply ? companyDisplayName(comment.user_id) : null}
-              onLike={likeComment}
+              onLike={(id) => { if (isGuest) { onRequireLogin?.(); return; } likeComment(id); }}
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
               onReport={(id) => openReport({ type: 'comment', targetId: id })}
               onAuthorClick={handleCommentAuthorClick}
@@ -1019,7 +1029,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 currentUserId={user?.id}
                 isAuthor={!!reply.user_id && reply.user_id === post.user_id}
                 companyName={reply.is_expert_reply ? companyDisplayName(reply.user_id) : null}
-                onLike={likeComment}
+                onLike={(id) => { if (isGuest) { onRequireLogin?.(); return; } likeComment(id); }}
                 onReport={(id) => openReport({ type: 'comment', targetId: id })}
                 onAuthorClick={handleCommentAuthorClick}
                 onCompanyClick={(c, anchor) => { setCommentAuthorSheet(null); setMiniModal({ ownerId: c.user_id, nickname: companyDisplayName(c.user_id), anchor, report: { type: 'comment', targetId: c.id } }); }}
@@ -1122,6 +1132,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       {showChat && (
         <ChatRequestModal
           balance={tokenBalance ?? 0}
+          sending={chatSending}
           onConfirm={handleChatRequest}
           onCancel={() => setShowChat(false)}
         />
@@ -1183,8 +1194,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       {showMenu && (
         <PostMenuSheet
           isOwn={isOwn}
-          onEdit={() => { setShowMenu(false); onEditPost?.(post); }}
-          onDelete={() => { setShowMenu(false); setShowDeleteConfirm(true); }}
+          onEdit={() => { setShowMenu(false); if (!isOwn) return; onEditPost?.(post); }}
+          onDelete={() => { setShowMenu(false); if (!isOwn) return; setShowDeleteConfirm(true); }}
           onReport={handleReport}
           onBlock={handleBlock}
           onClose={() => setShowMenu(false)}

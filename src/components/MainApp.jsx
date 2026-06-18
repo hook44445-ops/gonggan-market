@@ -79,7 +79,7 @@ import {
   createPaymentOrder,
   createPaymentTransaction,
   createNotification,
-  createLoungeChat,
+  requestCommentChat,
   setRequestInProgress,
   markRequestSiteVisit,
   getCompanyBids,
@@ -3704,14 +3704,19 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               go("lounge-write");
             })}
             onStoryAuthorChat={(story) => requireAuth(async () => {
-              // 스토리 작성자 대화 신청 — 기존 라운지 대화 정책 그대로(수락 시 신청자 20토큰 차감).
+              // 스토리 작성자 대화 신청 — 댓글 작성자 대화 신청과 동일한 실제 RPC(request_comment_chat) 사용.
+              // 기존 라운지 대화 정책 그대로(수락 시 신청자 20토큰 차감).
               if (!story?.user_id || story.user_id === user?.id) return;
               if ((tokenBalance ?? 0) < TOKEN_COSTS.CHAT_REQUEST) {
                 showToast(`대화를 신청하려면 ${TOKEN_COSTS.CHAT_REQUEST}토큰이 필요합니다. 토큰 충전 후 다시 시도해주세요.`);
                 setTimeout(() => go("token-store"), 1200);
                 return;
               }
-              await createLoungeChat({ post_id: story.id, requester_id: user.id, post_user_id: story.user_id }).catch(() => {});
+              const { data, error } = await requestCommentChat(user.id, story.user_id, story.id, null).catch(() => ({ data: null, error: null }));
+              if (error) { showToast(`대화 신청 실패: ${error.message}`); return; }
+              if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
+              if (data?.status === 'already_pending')  { showToast('이미 대화 신청을 보냈어요'); return; }
+              refreshLoungeChatInbox?.();
               showToast("💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.");
             })}
             onStoryUpload={() => requireAuth(() => {
