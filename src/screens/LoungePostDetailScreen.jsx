@@ -7,7 +7,7 @@ import { C, R, S } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
 import { CATEGORY_LABEL, TOKEN_COSTS } from '../constants/lounge';
 import { useLoungePost } from '../hooks/useLounge';
-import { getAnonymousNickname, formatRelativeTime, getAnonymousAvatarByNickname } from '../utils/anonymousNickname';
+import { getAnonymousNickname, formatLoungeRelativeTime, getAnonymousAvatarByNickname, getGenderEmoji } from '../utils/anonymousNickname';
 import {
   createLoungeComment,
   getRelatedLoungePosts,
@@ -77,7 +77,7 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: avatar.color, flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
-              {avatar.emoji}
+              {getGenderEmoji(comment.gender)}
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, color: C.text3, marginBottom: 2 }}>
@@ -105,9 +105,9 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
                 #{it}
               </span>
             ))}
-            {comment.created_at && (
+            {comment.created_at && formatLoungeRelativeTime(comment.created_at) && (
               <span style={{ fontSize: 11, color: C.text4 }}>
-                🕐 최근활동 {formatRelativeTime(comment.created_at)}
+                🕐 최근활동 {formatLoungeRelativeTime(comment.created_at)}
               </span>
             )}
           </div>
@@ -837,7 +837,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             style={{ display: 'flex', alignItems: 'center', gap: S.sm,
               cursor: ((post.is_expert || !isSeedPost) && post.user_id && !isSeedPost) ? 'pointer' : 'default' }}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: postAvatar.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, boxShadow: `0 2px 8px ${postAvatar.color}55` }}>
-              {postAvatar.emoji}
+              {getGenderEmoji(post.gender)}
             </div>
             <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>
               {hasBadge && <span style={{ fontSize: 13, marginRight: 3 }}>🛡️</span>}
@@ -845,10 +845,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             </span>
           </span>
           <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{catLabel}</span>
-          {post.region && <span style={{ fontSize: 11, color: C.text3 }}>📍 {post.region}</span>}
-          {post.gender && <span style={{ fontSize: 11, color: C.text4 }}>{post.gender === 'male' ? '남' : '여'}</span>}
-          {post.age_group && <span style={{ fontSize: 11, color: C.text4 }}>{post.age_group}</span>}
-          <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>{formatRelativeTime(post.created_at)}</span>
+          {post.region && <span style={{ fontSize: 11, color: C.text4 }}>· {post.region}</span>}
+          {post.age_group && <span style={{ fontSize: 11, color: C.text4 }}>· {post.age_group}</span>}
+          <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>{formatLoungeRelativeTime(post.created_at)}</span>
         </div>
 
         {post.title && (

@@ -128,3 +128,25 @@ export function formatRelativeTime(isoString) {
   if (days < 7)  return `${days}일 전`;
   return new Date(isoString).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
 }
+
+// 라운지 전용 상대시간 — N분/N시간/N일 전. 5일이 지난 글은 시간을 표시하지 않는다(빈 문자열).
+// (채팅/토큰 등 다른 화면의 formatRelativeTime 동작은 변경하지 않기 위해 별도 함수로 분리)
+export function formatLoungeRelativeTime(isoString) {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return '방금';
+  if (mins < 60) return `${mins}분 전`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}시간 전`;
+  const days = Math.floor(hrs / 24);
+  if (days <= 5) return `${days}일 전`;
+  return ''; // 5일이 지난 게시글은 시간 미표시
+}
+
+// 성별 기준 사람 이모티콘 — 남성 👨 / 여성 👩 / 미등록(없음) 🧑.
+// 라운지 작성자·댓글 식별 이모티콘으로 사용(동물 이모티콘 대체).
+export function getGenderEmoji(gender) {
+  if (gender === 'male'   || gender === 'M' || gender === '남') return '👨';
+  if (gender === 'female' || gender === 'F' || gender === '여') return '👩';
+  return '🧑';
+}
