@@ -12,7 +12,7 @@ import { getSpaceActivityRecord } from '../../lib/spaceActivity';
 import { getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 import { resolveCompanyIdentity } from '../../utils/identityResolver';
 
-const W = 190; // 초미니 팝오버 폭 — 닉네임 확인용(추가 축소: 232→190)
+const W = 155; // 초미니 팝오버 폭 — 모바일 최종 압축(190→155)
 
 const joinPeriod = (iso) => {
   if (!iso) return null;
@@ -103,25 +103,25 @@ export default function LoungeProfilePopover({
   const act = (fn, arg) => { onClose?.(); fn?.(arg); };
 
   const chip = (bg, color, children, key) => (
-    <span key={key} style={{ background: bg, color, borderRadius: R.full, padding: '2px 7px', fontSize: 11, fontWeight: 700 }}>{children}</span>
+    <span key={key} style={{ background: bg, color, borderRadius: R.full, padding: '1px 6px', fontSize: 10.5, fontWeight: 700 }}>{children}</span>
   );
 
-  // 얇은 리스트형 행(버튼) — 큰 박스 버튼 금지. 높이 30 · 아이콘 + 라벨.
+  // 얇은 리스트형 행(메뉴) — 버튼처럼 보이지 않게. 높이 24 · 아이콘 + 라벨.
   const Row = ({ icon, label, onClick, disabled, danger }) => (
     <button onClick={onClick} disabled={disabled}
-      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: 30, padding: '0 6px',
-        background: 'none', border: 'none', borderRadius: 8, textAlign: 'left',
-        color: danger ? C.text4 : C.text2, fontWeight: 700, fontSize: 13,
+      style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', height: 24, padding: '0 4px',
+        background: 'none', border: 'none', borderRadius: 7, textAlign: 'left',
+        color: danger ? C.text4 : C.text2, fontWeight: 700, fontSize: 12,
         cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
-      <span style={{ fontSize: 14, width: 16, textAlign: 'center' }}>{icon}</span>
+      <span style={{ fontSize: 13, width: 15, textAlign: 'center' }}>{icon}</span>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
     </button>
   );
 
-  const Divider = () => <div style={{ height: 1, background: C.bgWarm, margin: '8px 0' }} />;
+  const Divider = () => <div style={{ height: 1, background: C.bgWarm, margin: '6px 0' }} />;
 
-  // 닉네임(14px Bold)
-  const nameStyle = { fontSize: 14, fontWeight: 800, color: C.text1, lineHeight: 1.3,
+  // 닉네임(13px Bold)
+  const nameStyle = { fontSize: 13, fontWeight: 800, color: C.text1, lineHeight: 1.3,
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 
   const renderCompany = () => {
@@ -133,13 +133,13 @@ export default function LoungeProfilePopover({
     ].filter(Boolean);
     return (
       <>
-        <div style={{ ...nameStyle, marginBottom: 5 }}>🛠 {name}</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: metaBits.length ? 4 : 0 }}>
+        <div style={{ ...nameStyle, marginBottom: 4 }}>🛠 {name}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: metaBits.length ? 3 : 0 }}>
           {chip(C.brand, '#fff', '⭐ 전문가', 'exp')}
           {hasGuaranteeBadge(company) && chip(C.brandL, C.brand, '🏅 공간보증', 'guarantee')}
         </div>
         {metaBits.length > 0 && (
-          <div style={{ fontSize: 11.5, color: C.text3, fontWeight: 600 }}>{metaBits.join(' · ')}</div>
+          <div style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>{metaBits.join(' · ')}</div>
         )}
         <Divider />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -162,12 +162,12 @@ export default function LoungeProfilePopover({
     ].filter(Boolean);
     return (
       <>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: avatar.color, flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{avatar.emoji}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <div style={{ width: 24, height: 24, borderRadius: '50%', background: avatar.color, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{avatar.emoji}</div>
           <div style={{ ...nameStyle, minWidth: 0 }}>{displayName}</div>
         </div>
-        <div style={{ fontSize: 11.5, color: C.text3, fontWeight: 600 }}>{metaBits.join(' · ')}</div>
+        <div style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>{metaBits.join(' · ')}</div>
         <Divider />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {!isOwn && (
@@ -184,9 +184,9 @@ export default function LoungeProfilePopover({
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 600, background: 'transparent' }}>
       <div ref={cardRef} onClick={(e) => e.stopPropagation()}
         style={{ position: 'fixed', left: pos?.left ?? -9999, top: pos?.top ?? -9999, width: W,
-          opacity: pos ? 1 : 0, transition: 'opacity 0.1s', background: C.surface, borderRadius: 12,
-          boxShadow: '0 2px 10px rgba(31,42,36,0.09)', border: `1px solid ${C.bgWarm}`,
-          padding: 9, maxHeight: '50vh', overflowY: 'auto' }}>
+          opacity: pos ? 1 : 0, transition: 'opacity 0.1s', background: C.surface, borderRadius: 10,
+          boxShadow: '0 1px 6px rgba(31,42,36,0.07)', border: `1px solid ${C.bgWarm}`,
+          padding: 6, maxHeight: '50vh', overflowY: 'auto' }}>
         {pos && (
           <div style={{ position: 'absolute', left: pos.arrowLeft, width: 12, height: 12,
             [pos.arrow === 'up' ? 'top' : 'bottom']: -6, background: C.surface,
