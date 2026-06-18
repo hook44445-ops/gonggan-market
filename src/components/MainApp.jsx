@@ -3871,7 +3871,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
             {totalLoungeRequests > 0 && (
               <>
-                {sectionTitle(`📨 대화 요청 (${totalLoungeRequests})`)}
+                {sectionTitle(`📨 메시지 요청 (${totalLoungeRequests})`)}
                 {loungeReceivedReqs.map(r => (
                   <div key={`recv_${r.id}`}
                     style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
