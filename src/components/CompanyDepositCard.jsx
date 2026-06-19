@@ -97,25 +97,30 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
         </div>
       </div>
 
-      {/* Safety info */}
-      <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
-        border:`1px solid ${C.bgWarm}`, marginBottom:S.lg }}>
-        <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.md }}>
-          🛡️ 공간뱃지예치보증금 보호 정책
-        </div>
-        {[
-          "공간뱃지예치보증금은 회사 운영비와 분리 보관됩니다.",
-          "분쟁이 없을 경우 전액 반환됩니다.",
-          "시공보험 가입 업체는 10%, 미가입 업체는 20% 예치가 적용됩니다.",
-          "고객 보호와 신뢰 거래를 위한 제도입니다.",
-        ].map(t => (
-          <div key={t} style={{ display:"flex", gap:S.sm, alignItems:"center",
-            padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
-            <span style={{ color:C.green, fontWeight:900, fontSize:14 }}>✓</span>
-            <span style={{ fontSize:13, color:C.text2 }}>{t}</span>
-          </div>
-        ))}
-      </div>
     </>
+  );
+}
+
+// 공간뱃지예치보증금 보호 정책 카드 — 내정보 화면 카드 순서 조정을 위해 분리(표시 전용, 내용 동일).
+export function DepositPolicyCard() {
+  return (
+    <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
+      border:`1px solid ${C.bgWarm}`, marginBottom:S.lg }}>
+      <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.md }}>
+        🛡️ 공간뱃지예치보증금 보호 정책
+      </div>
+      {[
+        "공간뱃지예치보증금은 회사 운영비와 분리 보관됩니다.",
+        "분쟁이 없을 경우 전액 반환됩니다.",
+        "시공보험 가입 업체는 10%, 미가입 업체는 20% 예치가 적용됩니다.",
+        "고객 보호와 신뢰 거래를 위한 제도입니다.",
+      ].map(t => (
+        <div key={t} style={{ display:"flex", gap:S.sm, alignItems:"center",
+          padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
+          <span style={{ color:C.green, fontWeight:900, fontSize:14 }}>✓</span>
+          <span style={{ fontSize:13, color:C.text2 }}>{t}</span>
+        </div>
+      ))}
+    </div>
   );
 }
