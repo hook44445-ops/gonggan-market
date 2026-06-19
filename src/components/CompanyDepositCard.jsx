@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { C, R, S } from "../constants";
 import { BADGES, requiredDeposit, depositRatePct } from "../constants/badges";
 
-export default function CompanyDepositCard({ badge = "standard", hasInsurance = false, onUpgrade }) {
+export default function CompanyDepositCard({ badge = "standard", hasInsurance = false }) {
   const BADGE_LEVELS = [
     { key:"basic",      ...BADGES.basic,      maxJob:500,   desc:"소규모 부분 공사",       insurance:false },
     { key:"standard",   ...BADGES.standard,   maxJob:1000,  desc:"중형 아파트 시공",        insurance:false },
@@ -10,18 +9,13 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
     { key:"enterprise", ...BADGES.enterprise, maxJob:5000,  desc:"대규모·상업 공간",        insurance:true  },
     { key:"signature",  ...BADGES.signature,  maxJob:99999, desc:"최상위 VIP 파트너십",     insurance:true  },
   ];
-  const [showUpgradeSheet, setShowUpgradeSheet] = useState(false);
-
   // 공간뱃지예치보증금 = 수주한도 × 비율(보험 10% / 미가입 20%) — 단일 소스(badges.js).
   const depositOf = (key) => requiredDeposit(key, hasInsurance);
   const ratePct = depositRatePct(hasInsurance);
 
   const current = BADGE_LEVELS.find(b => b.key === badge) || BADGE_LEVELS[1];
   const currentIdx = BADGE_LEVELS.findIndex(b => b.key === badge);
-  const next = BADGE_LEVELS[currentIdx + 1] || null;
   const currentDeposit = depositOf(current.key);
-  const nextDeposit = next ? depositOf(next.key) : 0;
-  const additionalNeeded = next ? nextDeposit - currentDeposit : 0;
 
   const badgeColor = { grad: (BADGES[badge] ?? BADGES.standard).grad };
 
@@ -103,33 +97,6 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
         </div>
       </div>
 
-      {/* Upgrade CTA */}
-      {next && (
-        <div style={{ background:C.brandL, borderRadius:R.xl, padding:S.xl,
-          marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.sm }}>
-            <div style={{ fontSize:15, fontWeight:800, color:C.brand }}>
-              {next.icon} {next.label}으로 업그레이드
-            </div>
-            <span style={{ background:C.brand, color:"#fff", borderRadius:R.full,
-              padding:"2px 9px", fontSize:11, fontWeight:700 }}>+{additionalNeeded}만원</span>
-          </div>
-          <div style={{ fontSize:13, color:C.text2, lineHeight:1.7, marginBottom:S.md }}>
-            공간뱃지예치보증금 추가 등록 시<br/>
-            상위 등급(수주 한도 <b style={{color:C.brand}}>{next.maxJob === 99999 ? "무제한" : `${next.maxJob.toLocaleString()}만원`}</b>)으로 승급할 수 있습니다.
-            {!hasInsurance && next.insurance && (
-              <><br/><span style={{color:C.green, fontWeight:700}}>🛡 시공보험 가입 시 예치 비율 10% 적용</span></>
-            )}
-          </div>
-          <button onClick={() => setShowUpgradeSheet(true)}
-            style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff",
-              border:"none", borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer",
-              boxShadow:`0 3px 12px ${C.brand}44` }}>
-            업그레이드 신청하기 →
-          </button>
-        </div>
-      )}
-
       {/* Safety info */}
       <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
         border:`1px solid ${C.bgWarm}`, marginBottom:S.lg }}>
@@ -149,60 +116,6 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
           </div>
         ))}
       </div>
-
-      {/* Upgrade bottom sheet */}
-      {showUpgradeSheet && next && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)",
-          display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:300 }}
-          onClick={e => { if (e.target === e.currentTarget) setShowUpgradeSheet(false); }}>
-          <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%",
-            maxWidth:480, padding:"24px 24px 40px" }}>
-            <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
-
-            <div style={{ textAlign:"center", marginBottom:S.xxl }}>
-              <div style={{ fontSize:48, marginBottom:10 }}>{next.icon}</div>
-              <div style={{ fontSize:19, fontWeight:900, color:C.text1, marginBottom:6 }}>
-                {next.label} 업그레이드
-              </div>
-              <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>
-                공간뱃지예치보증금 <b style={{color:C.brand}}>{additionalNeeded}만원</b>을 추가 등록하면<br/>
-                {next.label} 등급으로 승급됩니다
-              </div>
-            </div>
-
-            <div style={{ background:C.surface2, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl }}>
-              {[
-                [`현재 ${current.label}`, `${currentDeposit.toLocaleString()}만원`],
-                [`추가 등록`, `+${additionalNeeded.toLocaleString()}만원`],
-                [`${next.label} 총 공간뱃지예치보증금`, `${nextDeposit.toLocaleString()}만원`],
-              ].map(([k, v], i, arr) => (
-                <div key={k} style={{ display:"flex", justifyContent:"space-between",
-                  padding:`${S.sm}px 0`,
-                  borderBottom: i < arr.length - 1 ? `1px solid ${C.bgWarm}` : "none",
-                  fontWeight: i === arr.length - 1 ? 800 : 600,
-                  color: i === arr.length - 1 ? C.brand : C.text2 }}>
-                  <span style={{ fontSize:13 }}>{k}</span>
-                  <span style={{ fontSize:13 }}>{v}</span>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display:"flex", gap:S.sm }}>
-              <button onClick={() => setShowUpgradeSheet(false)}
-                style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2,
-                  border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>
-                나중에
-              </button>
-              <button onClick={() => { setShowUpgradeSheet(false); onUpgrade && onUpgrade(next); }}
-                style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff",
-                  border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
-                  boxShadow:`0 4px 16px ${C.brand}44` }}>
-                신청하기 →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
