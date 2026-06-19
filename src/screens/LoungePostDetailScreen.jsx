@@ -595,6 +595,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     if (chatSent)    { console.warn('[CHAT DEBUG] blocked: chatSent(이미 신청)'); setShowChat(false); showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
     if (isGuest) { console.warn('[CHAT DEBUG] blocked: guest'); setShowChat(false); onRequireLogin?.(); return; }
     if (!user?.id || !post?.user_id) { console.warn('[CHAT DEBUG] blocked: missing id', { userId: user?.id, target: post?.user_id }); setShowChat(false); showToast('상대 정보를 불러오는 중이에요'); return; }
+    // 게시글 본인 판정 — post.user_id === currentUser.id (directive ①: 각 경로별 작성자 id로만 self 판정)
+    if (post.user_id === user.id) { console.warn('[CHAT DEBUG] blocked: self(post.user_id===me)'); setShowChat(false); showToast('본인 글에는 메시지를 보낼 수 없어요'); return; }
     const text = (messageText ?? '').trim();
     if (!text) { console.warn('[CHAT DEBUG] blocked: empty text'); showToast('메시지를 입력해주세요'); return; }
     if (!ensureChatTokens()) { console.warn('[CHAT DEBUG] blocked: insufficient tokens', { tokenBalance }); setShowChat(false); return; }
@@ -706,26 +708,24 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
   // 대화 신청 (댓글 작성자에게)
   const handleCommentChatRequest = async (comment) => {
+    // directive ①: 댓글/대댓글은 '댓글 작성자 user_id'(comment.user_id) 기준으로만 self 판정.
+    // (post.user_id / company.owner_id / displayName 으로 판정 금지)
+    const isSelf = comment?.user_id != null && comment.user_id === user?.id;
     console.log('[CHAT DEBUG] message button clicked', {
-      source: 'comment-author-popover',
-      targetUserId:  comment?.user_id,
+      source:        'comment-author-popover',
       currentUserId: user?.id,
-      postId,
+      targetUserId:  comment?.user_id,
+      commentUserId: comment?.user_id,   // 댓글/대댓글 작성자 user_id (대댓글도 reply.user_id가 그대로 들어옴)
+      isSelf,
+      isOwn:         isSelf,
+      disabledReason: chatRequestBusy ? 'busy' : isSelf ? 'self(author===me)' : null,
       commentId:     comment?.id,
       role:          user?.activeRole ?? user?.role,
-      chatRequestBusy,
-    });
-    console.log('[CHAT DEBUG] disabled reason', {
-      isGuest,
-      loading:      chatRequestBusy,
-      currentUser:  !!user?.id,
-      targetUserId: comment?.user_id,
-      isSelf:       comment?.user_id === user?.id,
-      hasToken:     (tokenBalance ?? 0) >= TOKEN_COSTS.CHAT_REQUEST,
-      tokenBalance,
     });
     if (chatRequestBusy) return;
     if (!isLoggedIn || !user?.id) { onRequireLogin?.(); return; }
+    // 자기 댓글만 차단(directive ①). 업체 댓글(타인)은 정상 진행되어야 한다.
+    if (isSelf) { console.warn('[CHAT DEBUG] blocked: self(comment.user_id===me)'); setCommentAuthorSheet(null); showToast('본인에게는 신청할 수 없어요'); return; }
     if (!ensureChatTokens()) { setCommentAuthorSheet(null); return; }
     setCommentAuthorSheet(null);
     setChatRequestBusy(true);
@@ -858,7 +858,6 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   }
 
   const catLabel    = CATEGORY_LABEL[post.category] ?? post.category;
-  const postAvatar  = getAnonymousAvatarByNickname(post.anonymous_nickname);
   // 댓글 정렬(LOUNGE-ENGAGEMENT-v3.2) — 전문가순(기본)/인기순/최신순. 기존 데이터만 사용.
   const sortComments = (list) => {
     const arr = [...list];
@@ -890,11 +889,10 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: S.md, flexWrap: 'wrap' }}>
           <span onClick={handlePostAuthorClick}
-            style={{ display: 'flex', alignItems: 'center', gap: S.sm,
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
               cursor: ((post.is_expert || !isSeedPost) && post.user_id && !isSeedPost) ? 'pointer' : 'default' }}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: postAvatar.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, boxShadow: `0 2px 8px ${postAvatar.color}55` }}>
-              {getGenderEmoji(post.gender)}
-            </div>
+            {/* 익명 사람 이모티콘 — 닉네임 글씨 크기와 동일(인라인·세로 가운데). 아이콘처럼 튀지 않게(directive ②) */}
+            <span style={{ fontSize: 14, lineHeight: 1, display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>{getGenderEmoji(post.gender)}</span>
             <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>
               {hasBadge && <span style={{ fontSize: 13, marginRight: 3 }}>🛡️</span>}
               {post.is_expert ? companyDisplayName(post.user_id, expertCompany) : resolveConsumerIdentity(post)}
