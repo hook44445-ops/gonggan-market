@@ -4435,7 +4435,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <CompanyDepositCard
                   badge={currentUser?.badge ?? user.badge ?? "standard"}
                   hasInsurance={currentUser?.hasInsurance ?? user.insurance ?? false}
-                  onUpgrade={(next) => showToast(`${next.label} 업그레이드 신청이 접수됐어요!`)}
                 />
                 <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.md, border:`1px solid ${C.bgWarm}` }}>
                   <div onClick={() => setScreen("document-center")}
