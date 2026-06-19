@@ -34,6 +34,9 @@ export const XP_PER_COMPLETED_PROJECT =
 export const MAX_LEVEL = 10;
 export const PROGRESS_BLOCKS = 10;
 
+// 업체 메인카드 '성실기록' 지표 라벨 — 추후 "신뢰기록" 등으로 변경 가능하도록 상수화.
+export const RECORD_METRIC_LABEL = "성실기록";
+
 // LV(n) 도달에 필요한 누적 XP. index 0 = LV1(0). 완만한 성장 곡선.
 //   LV1: 0~999 / … / LV10: 27000+  (Phase 2 단계 XP 상향에 맞춘 재보정)
 export const LEVEL_THRESHOLDS = [0, 900, 2100, 3600, 5700, 8400, 11700, 15900, 21000, 27000];
