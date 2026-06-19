@@ -16,3 +16,11 @@ export const CLEAN_RELEASE_MODE = isProd ? true : explicit === "true";
 // 디버그 UI/로그 노출 여부 — production 에서는 무조건 false.
 // dev 에서는 기본 노출, VITE_CLEAN_RELEASE="true" 로 끌 수 있음.
 export const SHOW_DEBUG_UI = !isProd && explicit !== "true";
+
+// ─────────────────────────────────────────────────────
+// UX 편의성 고도화 Beta (Layout & Convenience Only) — 즉시 롤백용 스위치.
+//   true  : 개선된 베타 UI 사용(기능/로직/데이터 동일, 표현만 개선).
+//   false : 기존 UI 로 즉시 복구(원본 컴포넌트는 보존되어 있음).
+// ※ UI/레이아웃 전용 플래그. 비즈니스 로직/라우팅/State 구조와 무관.
+export const UX_BETA = true;
+
