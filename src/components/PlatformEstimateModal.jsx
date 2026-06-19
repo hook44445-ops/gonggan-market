@@ -55,6 +55,58 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
   const [photoError, setPhotoError] = useState(null);
   const requestIdForPhotos = job.bid?.request_id ?? job.request?.id ?? null;
 
+  // ──────────────────────────────────────────────────────────────────────
+  // Space OS Base 확장(전부 선택 입력) — 자재기록 / 특이사항 / 시공참고 / 계약특약.
+  //   · 프로젝트 ID(request_id) 기준으로 연결되는 '공식 기준 문서'의 확장 슬롯.
+  //   · 기존 견적 제출(RPC/금액/에스크로)에는 영향 없음(payload 무변경) → Regression 방지.
+  //   · DB 스키마 미변경(Migration 금지) → 현재는 request_id 기준 localStorage 에 구조적으로 보관.
+  //     (향후 estimates 확장 컬럼/Project 테이블 생기면 이 구조 그대로 동기화 가능 — AI/Digital Twin 확장 대비)
+  //   · 자재는 공통 강제항목(두께/규격) 없이 자유입력만(자재마다 필요한 정보가 다름 → 향후 AI 자동추천).
+  const SOS_KEY = `final_quote_sos_${requestIdForPhotos ?? "unknown"}`;
+  const _sos0 = (() => { try { return JSON.parse(localStorage.getItem(SOS_KEY) ?? "null"); } catch { return null; } })();
+  const emptyMaterial = () => ({ id: Date.now() + Math.random(), name: "", record: "", memo: "", photos: [] });
+  const [materials, setMaterials]               = useState(() => Array.isArray(_sos0?.materials) ? _sos0.materials : []);
+  const [specialNote, setSpecialNote]           = useState(() => _sos0?.specialNote ?? "");
+  const [constructionNote, setConstructionNote] = useState(() => _sos0?.constructionNote ?? "");
+  const [contractSpecial, setContractSpecial]   = useState(() => _sos0?.contractSpecial ?? "");
+  const [matUploadingId, setMatUploadingId]     = useState(null);
+
+  // 변경 시 request_id 기준 구조적 보관(확장 가능 구조). 실패해도 무시.
+  useEffect(() => {
+    try {
+      localStorage.setItem(SOS_KEY, JSON.stringify({
+        version: 1, request_id: requestIdForPhotos,
+        materials, specialNote, constructionNote, contractSpecial,
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch {}
+  }, [materials, specialNote, constructionNote, contractSpecial]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addMaterial    = () => { if (materials.length >= 20) return; setMaterials(prev => [...prev, emptyMaterial()]); };
+  const updateMaterial = (id, field, val) => setMaterials(prev => prev.map(m => m.id === id ? { ...m, [field]: val } : m));
+  const removeMaterial = (id) => setMaterials(prev => prev.filter(m => m.id !== id));
+
+  const addMaterialPhotos = async (id, fileList) => {
+    const files = Array.from(fileList ?? []);
+    if (files.length === 0) return;
+    if (!requestIdForPhotos) { setPhotoError("요청 정보를 찾을 수 없어 사진을 첨부할 수 없어요."); return; }
+    setMatUploadingId(id);
+    try {
+      const target = materials.find(m => m.id === id);
+      const room = Math.max(0, 5 - (target?.photos?.length ?? 0));
+      const uploaded = [];
+      for (let i = 0; i < Math.min(files.length, room); i++) {
+        const file = files[i];
+        if (file.size > 10 * 1024 * 1024) { setPhotoError(`${file.name}: 파일이 너무 커요 (최대 10MB)`); continue; }
+        const path = `final-quote/${requestIdForPhotos}/material/${Date.now()}_${i}.jpg`;
+        try { const url = await uploadFile("documents", path, file); if (url) uploaded.push(url); }
+        catch (err) { console.error("[MATERIAL_PHOTO_UPLOAD_FAILED]", err); setPhotoError("자재 사진 업로드 실패: " + (err?.message ?? "")); }
+      }
+      if (uploaded.length > 0) setMaterials(prev => prev.map(m => m.id === id ? { ...m, photos: [...(m.photos ?? []), ...uploaded].slice(0, 5) } : m));
+    } finally { setMatUploadingId(null); }
+  };
+  const removeMaterialPhoto = (id, idx) => setMaterials(prev => prev.map(m => m.id === id ? { ...m, photos: (m.photos ?? []).filter((_, i) => i !== idx) } : m));
+
   const handlePhotoSelect = async (e) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = ""; // 같은 파일 재선택 허용
@@ -182,6 +234,25 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
         {job.request?.space_type ?? ""} {job.request?.size ?? ""} · {job.request?.area ?? ""}
       </div>
 
+      {/* ① 프로젝트 기본정보 — 프로젝트의 공식 기준(Source of Truth). request_id 로 모든 기록이 연결된다. */}
+      <div style={{ background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.md, padding:S.md, marginBottom:S.xl }}>
+        <div style={{ fontSize:13, fontWeight:800, color:C.text1, marginBottom:S.sm }}>📁 프로젝트 기본정보</div>
+        {[
+          ["프로젝트명", `${job.request?.space_type ?? ""} ${job.request?.size ?? ""}`.trim() || "인테리어 프로젝트"],
+          ["프로젝트 ID", requestIdForPhotos ?? "—"],
+          ["고객", job.request?.area ? `의뢰인 · ${job.request.area}` : "의뢰인"],
+          ["업체", "내 업체"],
+          ["주소", job.request?.area ?? "결제 후 공개"],
+          ["공사기간", durationDays ? `${durationDays}일` : "—"],
+          ["작성일", (job.estimate?.created_at ? new Date(job.estimate.created_at) : new Date()).toLocaleDateString("ko-KR")],
+        ].map(([k, v]) => (
+          <div key={k} style={{ display:"flex", justifyContent:"space-between", gap:S.md, fontSize:12, padding:"3px 0" }}>
+            <span style={{ color:C.text3, flexShrink:0 }}>{k}</span>
+            <span style={{ color:C.text1, fontWeight:600, textAlign:"right", wordBreak:"break-all" }}>{v}</span>
+          </div>
+        ))}
+      </div>
+
       <div style={{ marginBottom:S.xl }}>
         <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.md }}>공정 내역</div>
         {items.map((it, idx) => (
@@ -299,6 +370,73 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
         {photoError && (
           <div style={{ marginTop:S.sm, fontSize:12, color:C.red, lineHeight:1.6 }}>{photoError}</div>
         )}
+      </div>
+
+      {/* ③ 자재 기록 (선택) — 자재 다중 등록. 공통 강제항목(두께/규격) 없이 자유입력만. */}
+      <div style={{ marginBottom:S.xl }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>자재 기록 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
+          <span style={{ fontSize:11, color:C.text4 }}>{materials.length}건</span>
+        </div>
+        <div style={{ fontSize:11, color:C.text4, lineHeight:1.6, marginBottom:S.sm }}>
+          자재마다 필요한 정보가 달라요. 자유롭게 기록하세요. (향후 AI가 자재명으로 입력항목을 자동 추천)
+        </div>
+        {materials.map((m, idx) => (
+          <div key={m.id} style={{ background:C.bg, borderRadius:R.md, padding:S.md, marginBottom:S.sm, border:`1px solid ${C.bgWarm}` }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.sm }}>
+              <span style={{ fontSize:12, fontWeight:700, color:C.text3 }}>자재 {idx + 1}</span>
+              <button onClick={() => removeMaterial(m.id)} style={{ background:"none", border:"none", color:C.text4, fontSize:16, cursor:"pointer", padding:0, lineHeight:1 }}>✕</button>
+            </div>
+            <input value={m.name} onChange={e => updateMaterial(m.id, "name", e.target.value)} placeholder="자재명 (예: 단열재 · 타일 · 창호 · 방수재 · 도장 · 전선 · 배관 · 마루 · 기타)"
+              style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", marginBottom:S.sm }} />
+            <textarea value={m.record} onChange={e => updateMaterial(m.id, "record", e.target.value)} placeholder="기록내용 (자유입력 — 자재에 맞게: 두께/규격/난연등급/색상/KS규격/모델명/유리사양 등)" rows={2}
+              style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none", marginBottom:S.sm }} />
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:6, marginBottom:S.sm }}>
+              {(m.photos ?? []).map((url, i) => (
+                <div key={url + i} style={{ position:"relative", paddingTop:"100%", borderRadius:R.sm, overflow:"hidden", border:`1px solid ${C.bgWarm}` }}>
+                  <img src={url} alt={`자재사진 ${i+1}`} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
+                  <button onClick={() => removeMaterialPhoto(m.id, i)} aria-label="사진 삭제"
+                    style={{ position:"absolute", top:2, right:2, width:18, height:18, borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:11, lineHeight:1, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+                </div>
+              ))}
+              {(m.photos?.length ?? 0) < 5 && (
+                <label style={{ position:"relative", paddingTop:"100%", borderRadius:R.sm, border:`2px dashed ${C.bgWarm}`, cursor: matUploadingId === m.id ? "wait" : "pointer", background:C.surface }}>
+                  <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", color:C.text3, fontSize:16 }}>{matUploadingId === m.id ? "⏳" : "📷"}</div>
+                  <input type="file" accept="image/*" multiple disabled={matUploadingId === m.id} onChange={e => { const fl = e.target.files; e.target.value = ""; addMaterialPhotos(m.id, fl); }}
+                    style={{ position:"absolute", inset:0, opacity:0, width:"100%", height:"100%", cursor:"pointer" }} />
+                </label>
+              )}
+            </div>
+            <input value={m.memo} onChange={e => updateMaterial(m.id, "memo", e.target.value)} placeholder="메모 (선택)"
+              style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }} />
+          </div>
+        ))}
+        {materials.length < 20 && (
+          <button onClick={addMaterial} style={{ width:"100%", padding:"11px", border:`2px dashed ${C.bgWarm}`, borderRadius:R.md, background:"none", color:C.text3, fontWeight:700, fontSize:13, cursor:"pointer" }}>
+            + 자재 기록 추가
+          </button>
+        )}
+      </div>
+
+      {/* ⑤ 특이사항 (선택) */}
+      <div style={{ marginBottom:S.lg }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>특이사항 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
+        <textarea value={specialNote} onChange={e => setSpecialNote(e.target.value)} placeholder="현장/프로젝트 특이사항 메모" rows={2}
+          style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }} />
+      </div>
+
+      {/* ⑥ 시공 참고사항 (선택) */}
+      <div style={{ marginBottom:S.lg }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>시공 참고사항 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
+        <textarea value={constructionNote} onChange={e => setConstructionNote(e.target.value)} placeholder="주의사항 · 고객 요청사항 등" rows={2}
+          style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }} />
+      </div>
+
+      {/* ⑦ 계약 특약 (선택) */}
+      <div style={{ marginBottom:S.xxl }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>계약 특약 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
+        <textarea value={contractSpecial} onChange={e => setContractSpecial(e.target.value)} placeholder="계약 특약 사항" rows={2}
+          style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }} />
       </div>
 
       <div style={{ display:"flex", gap:S.sm }}>
