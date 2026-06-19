@@ -283,6 +283,7 @@ export default function DashboardScreen({
         <GrowthCard
           level={growth.level}
           filledBlocks={growth.filledBlocks}
+          totalXp={growth.totalXp}
           xpToNext={growth.xpToNext}
           isMax={growth.isMax}
           onClick={() => setShowGrowth(true)}
@@ -589,7 +590,8 @@ export default function DashboardScreen({
       </div>
 
       <GrowthModal open={showGrowth} onClose={() => setShowGrowth(false)}
-        level={growth.level} totalXp={growth.totalXp} xpToNext={growth.xpToNext} isMax={growth.isMax} />
+        level={growth.level} totalXp={growth.totalXp} xpToNext={growth.xpToNext}
+        filledBlocks={growth.filledBlocks} isMax={growth.isMax} />
     </div>
   );
 }

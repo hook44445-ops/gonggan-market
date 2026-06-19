@@ -3,7 +3,7 @@
 //   카드 클릭 시 성장 안내 모달(onClick)을 연다.
 import XpProgressBar from "./XpProgressBar";
 
-export default function GrowthCard({ level = 1, filledBlocks = 0, xpToNext = 0, isMax = false, onClick }) {
+export default function GrowthCard({ level = 1, filledBlocks = 0, totalXp = 0, xpToNext = 0, isMax = false, onClick }) {
   return (
     <div
       onClick={onClick}
@@ -40,12 +40,16 @@ export default function GrowthCard({ level = 1, filledBlocks = 0, xpToNext = 0, 
       {/* 진행도 — SVG 블록 10칸 */}
       <XpProgressBar filled={filledBlocks} />
 
-      {/* 하단: 다음 LV까지 남은 XP */}
-      <div style={{ marginTop: 14, display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{isMax ? "최고 레벨" : "다음 LV까지"}</span>
-        <span style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>
-          {isMax ? "MAX" : `${Number(xpToNext).toLocaleString()} XP`}
-        </span>
+      {/* 하단: 경험치 바 아래 — 현재 XP / 다음 LV까지 만 표시 */}
+      <div style={{ marginTop: 14, display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 3 }}>현재 XP</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>{Number(totalXp).toLocaleString()} XP</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 3 }}>{isMax ? "최고 레벨" : "다음 LV까지"}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#fff" }}>{isMax ? "MAX" : `${Number(xpToNext).toLocaleString()} XP`}</div>
+        </div>
       </div>
 
       {/* Space OS 한 줄 — 기록은 결국 나를 지켜준다 */}
