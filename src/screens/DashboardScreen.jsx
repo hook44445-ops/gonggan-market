@@ -248,11 +248,12 @@ export default function DashboardScreen({
           </div>
           <TempBadge temp={temp} />
         </div>
-        <div style={{ display:"flex" }}>
+        {/* 탭: 한 줄 가로 스크롤 · 동일 최소너비 · 줄바꿈 금지(포트폴리오 한 줄 유지) */}
+        <div style={{ display:"flex", overflowX:"auto", scrollbarWidth:"none", msOverflowStyle:"none", WebkitOverflowScrolling:"touch" }}>
           {tabs.map(([v, l]) => (
             <button key={v} onClick={() => setTab(v)}
-              style={{ flex:1, padding:"10px 0", border:"none", background:"transparent",
-                fontWeight: tab === v ? 700 : 500, fontSize:13,
+              style={{ flex:"1 0 auto", minWidth:58, padding:"10px 12px", border:"none", background:"transparent",
+                fontWeight: tab === v ? 700 : 500, fontSize:13, whiteSpace:"nowrap",
                 color: tab === v ? C.brand : C.text3,
                 borderBottom:`2.5px solid ${tab === v ? C.brand : "transparent"}`,
                 cursor:"pointer" }}>{l}
@@ -261,7 +262,7 @@ export default function DashboardScreen({
         </div>
       </div>
 
-      <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
+      <div style={{ padding:`${S.lg}px ${S.xl}px 40px` }}>
 
         {/* ── 진행중 ──────────────────────────────────────────── */}
         {tab === "active" && (
@@ -290,19 +291,21 @@ export default function DashboardScreen({
               </div>
             )}
 
-            {/* Revenue card */}
+            {/* Revenue card — 제목/금액/하단 2열(진행 좌 · 입금 예정 우) */}
             <div style={{ background:`linear-gradient(150deg,${C.brand},${C.brandD})`,
-              borderRadius:R.xl, padding:S.xxl, marginBottom:S.xl, color:"#fff" }}>
+              borderRadius:R.xl, padding:`${S.xl}px`, marginBottom:S.lg, color:"#fff" }}>
               <div style={{ fontSize:11, opacity:0.7, letterSpacing:"0.3px", marginBottom:6 }}>
                 이번 달 정산 수익
               </div>
-              <div style={{ fontSize:32, fontWeight:800, marginBottom:6, letterSpacing:"-0.5px" }}>
+              <div style={{ fontSize:32, fontWeight:800, marginBottom:10, letterSpacing:"-0.5px" }}>
                 {thisMonthRevenue > 0 ? `${thisMonthRevenue.toLocaleString()}만원` : "—"}
               </div>
-              <div style={{ display:"flex", gap:S.md, fontSize:12, opacity:0.75 }}>
-                <span>진행 {activeJobs.length}건</span>
-                <span>·</span>
-                <span>입금 예정 {pendingAmount > 0 ? `${pendingAmount.toLocaleString()}만원` : "—"}</span>
+              <div style={{ display:"flex", alignItems:"baseline", gap:S.md, fontSize:12, opacity:0.82,
+                paddingTop:S.sm, borderTop:"1px solid rgba(255,255,255,0.18)" }}>
+                <span style={{ flex:1, whiteSpace:"nowrap" }}>진행 {activeJobs.length}건</span>
+                <span style={{ flex:1, textAlign:"right", whiteSpace:"nowrap" }}>
+                  입금 예정 {pendingAmount > 0 ? `${pendingAmount.toLocaleString()}만원` : "—"}
+                </span>
               </div>
             </div>
 
@@ -311,9 +314,9 @@ export default function DashboardScreen({
             )}
 
             {!jobsLoading && activeJobs.length === 0 && (
-              <div style={{ background:C.surface, borderRadius:R.xl, padding:"40px 20px",
+              <div style={{ background:C.surface, borderRadius:R.xl, padding:"26px 20px",
                 textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
-                <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginBottom:6 }}>진행 중인 공사가 없습니다</div>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginBottom:5 }}>진행 중인 공사가 없습니다</div>
                 <div style={{ fontSize:12, color:C.text3 }}>새로운 견적 요청을 확인해보세요</div>
               </div>
             )}
