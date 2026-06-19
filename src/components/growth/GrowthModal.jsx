@@ -24,10 +24,20 @@ export default function GrowthModal({ open, onClose }) {
         <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", textAlign: "center", marginBottom: 14 }}>
           성장은 경쟁이 아닙니다
         </div>
-        <div style={{ fontSize: 14, lineHeight: 1.9, color: "rgba(255,255,255,0.72)", textAlign: "center", marginBottom: 24 }}>
+        <div style={{ fontSize: 14, lineHeight: 1.9, color: "rgba(255,255,255,0.72)", textAlign: "center", marginBottom: 20 }}>
           공간사이는<br />성실과 정직을<br />데이터로 기록합니다.<br /><br />
           프로젝트를 성실하게 수행할수록<br />Space OS가<br />여러분의 노력을 XP로 인정합니다.<br /><br />
           XP는<br />업체의 꾸준한 성장 기록이며,<br />절대 감소하지 않습니다.
+        </div>
+
+        {/* 앱 전체 기준 문장 */}
+        <div style={{
+          background: "rgba(91,157,249,0.08)", border: "1px solid rgba(91,157,249,0.18)",
+          borderRadius: 14, padding: "14px 16px", marginBottom: 24,
+          fontSize: 13, lineHeight: 1.8, color: "rgba(255,255,255,0.82)", textAlign: "center",
+        }}>
+          기록은 사람을 감시하기 위해 존재하지 않습니다.<br />
+          기록은 <span style={{ color: "#9FE3BE", fontWeight: 700 }}>성실한 사람을 보호</span>하기 위해 존재합니다.
         </div>
 
         {/* 왜 기록을 남기나요? */}

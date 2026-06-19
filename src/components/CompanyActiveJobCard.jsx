@@ -38,7 +38,7 @@ export default function CompanyActiveJobCard({ job, onAction }) {
     if (s === "accepted")  return { label: "요청 수락됨", color: C.brand, bg: C.brandL };
     if (s === "rejected")  return { label: "요청 거절됨", color: C.text4, bg: C.bg };
     if (s === "scheduled") return { label: "실측 예약됨", color: C.brand, bg: C.brandL };
-    if (s === "checked_in") return { label: "GPS 체크인 완료", color: "#B08040", bg: "#FBF5E8" };
+    if (s === "checked_in") return { label: "현장 기록 완료", color: "#B08040", bg: "#FBF5E8" };
     if (s === "completed") return { label: "현장견적 완료", color: C.brand, bg: C.brandL };
     if (s === "estimate_submitted") return { label: "견적서 제출완료", color: C.green, bg: "#EAF2EE" };
     return { label: s, color: C.text3, bg: C.bg };
@@ -96,7 +96,7 @@ export default function CompanyActiveJobCard({ job, onAction }) {
           </div>
           <button onClick={() => onAction("checkin", job)}
             style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
-            📍 GPS 체크인
+            📍 현장 기록 남기기
           </button>
         </div>
       );
