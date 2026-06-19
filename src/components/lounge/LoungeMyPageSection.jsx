@@ -660,18 +660,22 @@ function NotifSettings({ user }) {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
-  // 라운지 관심 카테고리 → push_preferences 서브토글 매핑(서버 enqueue 함수가 매칭하는 5종 중 지원분).
-  //   interior→push_interior_news / review·quote_worry→push_estimate_news / local→push_local_news
-  //   (그 외 카테고리는 서버 푸시 타입이 없어 매칭되지 않음 — 부분 upsert라 chat/escrow 등은 보존)
+  // 라운지 관심 카테고리 → push_preferences 매핑(서버 RPC enqueue_lounge_post_push 와 동일 규칙, 전 카테고리 연결).
+  //   local→push_local_news / interior·room_deco·move_in→push_interior_news / review·quote_worry→push_estimate_news
+  //   그 외 모든 카테고리(결혼·연애·주식·취업·여행·맛집·생활·유머·자유 등) → push_lounge_activity
+  //   (부분 upsert라 chat/escrow 등 다른 토글은 보존)
+  const SPACE_CATS = ['interior', 'room_deco', 'move_in', 'review', 'quote_worry', 'local'];
   const mapPushPrefs = (on, cats) => {
-    // 관심 카테고리 미선택 시 지원되는 라운지 푸시 타입 전체 수신(켜도 아무것도 안 오는 상황 방지).
+    // 관심 카테고리 미선택 시 라운지 전 카테고리 수신(켜도 아무것도 안 오는 상황 방지).
     const noneSelected = !cats || cats.length === 0;
     const has = (id) => noneSelected || cats.includes(id);
+    const hasOther = noneSelected || cats.some(id => !SPACE_CATS.includes(id));
     return {
-      push_enabled:       on,
-      push_interior_news: on && has('interior'),
-      push_estimate_news: on && (has('review') || has('quote_worry')),
-      push_local_news:    on && has('local'),
+      push_enabled:         on,
+      push_interior_news:   on && (has('interior') || has('room_deco') || has('move_in')),
+      push_estimate_news:   on && (has('review') || has('quote_worry')),
+      push_local_news:      on && has('local'),
+      push_lounge_activity: on && hasOther,
     };
   };
 
@@ -760,11 +764,11 @@ function NotifSettings({ user }) {
     : null;
 
   return (
-    <div style={{ background: C.bg, borderRadius: R.lg, padding: S.lg, marginBottom: S.lg }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.md }}>
-        <div>
+    <div style={{ background: C.bg, borderRadius: R.lg, padding: S.xl, marginBottom: S.lg }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.lg }}>
+        <div style={{ flex: 1, minWidth: 0, marginRight: S.md }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>📱 새 글 알림</div>
-          <div style={{ fontSize: 14, color: C.text3, marginTop: 2, lineHeight: 1.8 }}>
+          <div style={{ fontSize: 12, color: C.text3, marginTop: 3, lineHeight: 1.5 }}>
             {blockedHelp ? '알림이 차단돼 있어요' : enabled ? '선택한 카테고리 새 글 알림 중' : '알림을 켜보세요'}
           </div>
         </div>
@@ -799,12 +803,11 @@ function NotifSettings({ user }) {
 // ── Row 컴포넌트 ──────────────────────────────────────
 function Row({ label, icon, count, onClick }) {
   return (
-    <div onClick={onClick} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `${S.lg}px 0`, borderBottom: `1px solid ${C.bg}`, cursor: onClick ? 'pointer' : 'default' }}>
-      <span style={{ fontSize: 14, color: C.text2 }}>{icon} {label}</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: S.sm }}>
-        {count !== undefined && <span style={{ fontSize: 12, color: C.text4 }}>{count}</span>}
-        {onClick && <span style={{ fontSize: 16, color: C.text3 }}>›</span>}
-      </div>
+    <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', height: 48, borderBottom: `1px solid ${C.bg}`, cursor: onClick ? 'pointer' : 'default' }}>
+      <span style={{ width: 22, fontSize: 15, flexShrink: 0, textAlign: 'center', lineHeight: 1 }}>{icon}</span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: C.text2, marginLeft: S.sm, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      {count !== undefined && <span style={{ fontSize: 12, color: C.text4, marginRight: S.sm, flexShrink: 0 }}>{count}</span>}
+      {onClick && <span style={{ fontSize: 16, color: C.text3, flexShrink: 0 }}>›</span>}
     </div>
   );
 }

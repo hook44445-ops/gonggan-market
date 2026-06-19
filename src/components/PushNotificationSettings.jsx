@@ -8,11 +8,12 @@ import { IS_SUPABASE_READY, getPushPreferences, upsertPushPreferences } from "..
 import { enablePush, disablePush, isPushSupported, isPushConfigured } from "../lib/push";
 
 const SUB_TOGGLES = [
-  { key: "push_local_news",    label: "동네 소식",        desc: "우리 동네 새 공간 이야기" },
-  { key: "push_interior_news", label: "인테리어 소식",     desc: "새 리모델링·시공 이야기" },
-  { key: "push_estimate_news", label: "견적 / 시공 후기",  desc: "견적 고민과 실제 후기" },
-  { key: "push_chat",          label: "대화 알림",        desc: "대화 신청·수락" },
-  { key: "push_escrow",        label: "계약 / 안전결제",   desc: "착공·중간·완료 확인" },
+  { key: "push_local_news",      label: "동네 소식",        desc: "우리 동네 새 공간 이야기" },
+  { key: "push_interior_news",   label: "인테리어 소식",     desc: "새 리모델링·시공 이야기" },
+  { key: "push_estimate_news",   label: "견적 / 시공 후기",  desc: "견적 고민과 실제 후기" },
+  { key: "push_lounge_activity", label: "라운지 새 글",      desc: "그 외 관심 카테고리 새 글" },
+  { key: "push_chat",            label: "대화 알림",        desc: "대화 신청·수락" },
+  { key: "push_escrow",          label: "계약 / 안전결제",   desc: "착공·중간·완료 확인" },
 ];
 
 const DEFAULTS = {
@@ -102,8 +103,8 @@ export default function PushNotificationSettings({ user }) {
         }
       }
     } catch {}
-    // 기본적으로 동네/인테리어/견적 ON 으로 시작.
-    await persist({ ...prefs, push_enabled: true, push_local_news: true, push_interior_news: true, push_estimate_news: true, push_company_recommend: true });
+    // 기본적으로 동네/인테리어/견적 + 라운지 새 글(전 카테고리) ON 으로 시작.
+    await persist({ ...prefs, push_enabled: true, push_local_news: true, push_interior_news: true, push_estimate_news: true, push_company_recommend: true, push_lounge_activity: true });
     setBusy(false);
   };
 
