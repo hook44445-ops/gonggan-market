@@ -1072,7 +1072,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             <LoungeCommentItem
               comment={comment}
               currentUserId={user?.id}
-              isAuthor={!!comment.user_id && comment.user_id === post.user_id}
+              postUserId={post?.user_id ?? null}
               companyName={comment.is_expert_reply ? companyDisplayName(comment.user_id) : null}
               onLike={(id) => { if (isGuest) { onRequireLogin?.(); return; } likeComment(id); }}
               onReply={(c) => { setReplyTo(c); inputRef.current?.focus(); }}
@@ -1094,7 +1094,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                 comment={reply}
                 isReply
                 currentUserId={user?.id}
-                isAuthor={!!reply.user_id && reply.user_id === post.user_id}
+                postUserId={post?.user_id ?? null}
                 companyName={reply.is_expert_reply ? companyDisplayName(reply.user_id) : null}
                 onLike={(id) => { if (isGuest) { onRequireLogin?.(); return; } likeComment(id); }}
                 onReport={(id) => openReport({ type: 'comment', targetId: id })}
