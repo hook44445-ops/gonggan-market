@@ -7,11 +7,27 @@ import { C, R, S } from '../../constants';
 import { formatLoungeRelativeTime, getGenderEmoji } from '../../utils/anonymousNickname';
 import { resolveConsumerIdentity } from '../../utils/identityResolver';
 
-export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId, companyName = null, isAuthor = false }) {
+export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId, postUserId = null, companyName = null }) {
   // 표시명은 Identity Resolver 로 결정. 업체(전문가) 댓글은 상위에서 업체 표시명(companyName)을
   // 내려주고, 그 외 의뢰인 댓글은 의뢰인 Identity(anonymous_name → anonymous_nickname → 공간이웃).
   const displayName = companyName || resolveConsumerIdentity(comment);
   const [liked, setLiked] = useState(false);
+
+  // ── 작성자 배지 / 본인 판정 — 반드시 분리(directive) ─────────────────────────
+  //   · isPostAuthor : '게시글 작성자 댓글'에만 작성자 배지. 기준 = comment.user_id === post.user_id
+  //   · isSelf       : 메시지 차단(본인) 전용. 기준 = comment.user_id === currentUser.id
+  //   둘은 절대 공유하지 않는다. (displayName/anonymousNickname/role/company 여부로 판단 금지)
+  const isPostAuthor = comment.user_id != null && comment.user_id === postUserId;
+  const isSelf       = comment.user_id != null && comment.user_id === currentUserId;
+  console.log('[COMMENT DEBUG]', {
+    commentId:     comment.id,
+    commentUserId: comment.user_id,
+    postUserId,
+    currentUserId,
+    displayName,
+    isPostAuthor,
+    isSelf,
+  });
 
   const handleLike = () => {
     if (liked) return;
@@ -68,7 +84,7 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
             cursor: clickableAuthor ? 'pointer' : 'default',
           }}
         >{displayName}</span>
-        {isAuthor && (
+        {isPostAuthor && (
           <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '1px 7px', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>작성자</span>
         )}
         {comment.is_expert_reply && (
