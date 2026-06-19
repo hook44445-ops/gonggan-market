@@ -691,6 +691,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setCommentAuthorSheet({
       comment: {
         user_id:            post.user_id,
+        post_id:            post.id,
         anonymous_nickname: post.anonymous_nickname,
         content:            post.title ?? post.content?.slice(0, 50),
         created_at:         post.created_at,

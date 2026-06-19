@@ -61,13 +61,20 @@ export function getConsumerAnonCode(seed) {
 }
 
 // 의뢰인 표시명 — 라운지 익명 정책: 작성자 닉네임 대신 '익명 코드'로 표시한다.
-//   seed 우선순위: anonymous_nickname → user_id → id
-//   ※ anonymous_nickname 은 (작성자, 글) 단위로 결정되어 저장되므로, 이를 seed 로 쓰면
-//     기존 익명 경계(같은 글 내 동일 · 다른 글 간 상이)를 그대로 유지하면서 표기만 코드로 바꾼다.
+//   seed = `${user_id}::${post_id}` (원래 익명 시스템과 동일 기준).
+//   · 같은 작성자·같은 글  → 동일 코드
+//   · 다른 작성자          → 다른 코드
+//   · 다른 글             → 다른 코드
+//   ※ 과거엔 anonymous_nickname(40개 풀)을 seed로 써서 서로 다른 작성자/글이 같은 코드로
+//     충돌(예: 모두 "익명 U794")하는 문제가 있었다. user_id+post_id 직접 해싱으로 충돌 제거.
+//   ※ user_id 가 없는 시드/익명 댓글만 저장된 anonymous_nickname 을 seed 로 폴백.
 export function resolveConsumerIdentity(consumer) {
-  const seed = consumer?.anonymous_nickname ?? consumer?.user_id ?? consumer?.id ?? null;
-  if (seed == null) return CONSUMER_FALLBACK;
-  return getConsumerAnonCode(seed);
+  if (consumer?.user_id != null) {
+    const pid = consumer?.post_id ?? consumer?.id ?? '';
+    return getConsumerAnonCode(`${consumer.user_id}::${pid}`);
+  }
+  if (consumer?.anonymous_nickname) return getConsumerAnonCode(consumer.anonymous_nickname);
+  return CONSUMER_FALLBACK;
 }
 
 // 통합 진입점 — role 에 따라 적절한 익명 Identity 표시명을 반환한다.
