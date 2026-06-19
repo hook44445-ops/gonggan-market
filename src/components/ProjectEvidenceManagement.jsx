@@ -281,16 +281,21 @@ function EvidenceDetail({ row, chat: chatPreloaded, onClose }) {
   };
   useEffect(() => { if (tab === "chat") loadChat(); /* eslint-disable-next-line */ }, [tab]);
 
+  // Project Timeline(Digital Twin 권장 순서) — 견적 → 프로젝트 채팅 → 현장방문(GPS) → 계약 →
+  // 에스크로 결제 → 착공 → 중간점검 → 완료 → 리뷰 → 사진/첨부 → 정산. (읽기 전용, 기존 데이터 파생)
   const TIMELINE = [
-    { key: "request",  label: "견적요청", on: true },
-    { key: "bid",      label: "입찰",     on: (row.bids_count ?? 0) > 0 },
-    { key: "contract", label: "계약",     on: !!esc },
-    { key: "pay",      label: "결제",     on: !!esc?.step1_deposited_at },
-    { key: "start",    label: "착공",     on: ev.cpStart != null || esc?.transaction_status === "STARTED" },
-    { key: "mid",      label: "중간점검", on: ev.cpMid != null || esc?.transaction_status === "MID_INSPECTION" },
-    { key: "complete", label: "완료",     on: ev.completed },
-    { key: "review",   label: "리뷰",     on: ev.reviewed },
-    { key: "settle",   label: "정산",     on: esc?.transaction_status === "SETTLED" },
+    { key: "request",  label: "견적요청",        on: true },
+    { key: "bid",      label: "입찰",            on: (row.bids_count ?? 0) > 0 },
+    { key: "chat",     label: "프로젝트 채팅",   on: !!(chat?.count) },
+    { key: "gps",      label: "현장방문(GPS)",   on: ev.gpsCount > 0 },
+    { key: "contract", label: "계약",            on: !!esc },
+    { key: "pay",      label: "에스크로 결제",   on: !!esc?.step1_deposited_at },
+    { key: "start",    label: "착공",            on: ev.cpStart != null || esc?.transaction_status === "STARTED" },
+    { key: "mid",      label: "중간점검",        on: ev.cpMid != null || esc?.transaction_status === "MID_INSPECTION" },
+    { key: "complete", label: "완료",            on: ev.completed },
+    { key: "review",   label: "리뷰",            on: ev.reviewed },
+    { key: "photo",    label: "사진/첨부 증빙",  on: ev.photoCount > 0 },
+    { key: "settle",   label: "정산",            on: esc?.transaction_status === "SETTLED" },
   ];
   const TABS = [
     ["timeline", "타임라인"], ["gps", `GPS ${ev.gpsCount}`], ["photo", `사진 ${ev.photoCount}`],
