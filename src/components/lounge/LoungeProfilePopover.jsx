@@ -38,6 +38,9 @@ export default function LoungeProfilePopover({
   onReport,                                         // 공통 신고
 }) {
   const cardRef = useRef(null);
+  // 내부 액션(포트폴리오/메시지/신고 등)으로 닫힐 때는 history.back()을 호출하지 않는다.
+  // (back() → popstate → 상위 라우터가 라운지 상세로 되돌려 포트폴리오 이동을 취소시키는 버그 방지)
+  const actedRef = useRef(false);
   const [company, setCompany] = useState(null);
   const [rec, setRec] = useState(null);
   const [pos, setPos] = useState(null);
@@ -74,7 +77,7 @@ export default function LoungeProfilePopover({
     return () => {
       window.removeEventListener('popstate', onPop);
       window.removeEventListener('scroll', onScroll, true);
-      if (!closedByBack) window.history.back(); // 뒤로가기 외 경로로 닫히면 트랩 정리
+      if (!closedByBack && !actedRef.current) window.history.back(); // 뒤로가기/내부액션 외 경로로 닫히면 트랩 정리
     };
   }, []);
 
@@ -100,7 +103,7 @@ export default function LoungeProfilePopover({
   }, [anchor, company, rec, role]);
 
   // 내부 버튼 클릭 시 자동 닫힘 후 동작 실행
-  const act = (fn, arg) => { onClose?.(); fn?.(arg); };
+  const act = (fn, arg) => { actedRef.current = true; onClose?.(); fn?.(arg); };
 
   const chip = (bg, color, children, key) => (
     <span key={key} style={{ background: bg, color, borderRadius: R.full, padding: '1px 5px', fontSize: 9, fontWeight: 700 }}>{children}</span>
