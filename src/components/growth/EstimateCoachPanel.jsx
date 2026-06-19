@@ -25,6 +25,11 @@ export default function EstimateCoachPanel({ form }) {
         </div>
       </div>
 
+      {/* 보호/신뢰 안내 (제안형) */}
+      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.62)", lineHeight: 1.6, marginBottom: 12 }}>
+        자세한 기록은 분쟁보다 신뢰를 먼저 만들고, 나중에는 업체 자신도 지켜줍니다.
+      </div>
+
       {/* 성실도 진행 바 */}
       <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.1)", overflow: "hidden", marginBottom: 12 }}>
         <div style={{

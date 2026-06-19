@@ -40,18 +40,20 @@ export default function EstimateAnalysisResult({ result, onClose }) {
           </div>
         </div>
 
-        {/* 잘 작성한 항목 */}
+        {/* 인정받은 기록 — 왜 XP가 지급되었는지 행동 단위로 표시 */}
         {strongItems.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.55)", marginBottom: 9 }}>잘 작성한 항목</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.55)", marginBottom: 10 }}>인정받은 기록</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
               {strongItems.map((it) => (
-                <span key={it.key} style={{
-                  fontSize: 12.5, color: "#9FE3BE", background: "rgba(127,208,168,0.12)",
-                  border: "1px solid rgba(127,208,168,0.25)", borderRadius: 999, padding: "5px 11px",
-                }}>
-                  ✔ {it.label}
-                </span>
+                <div key={it.key} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ flexShrink: 0, fontSize: 13, fontWeight: 900, color: "#7FD0A8", minWidth: 56 }}>
+                    +{it.earnedXp} XP
+                  </span>
+                  <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.82)", lineHeight: 1.55 }}>
+                    {it.reason}
+                  </span>
+                </div>
               ))}
             </div>
           </div>

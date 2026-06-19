@@ -28,26 +28,32 @@ const lenScore = (v, full = 40) => clamp01(len(v) / full);
 const filledRatio = (a, b) => (b > 0 ? clamp01(a / b) : 0);
 
 // ── 분석 항목 정의 (weight 합 = 100) ────────────────────────────────
-//   각 항목: quality(form) → 0~1 (구체성/완성도). coach 는 보완 제안(제안형).
+//   각 항목: quality(form) → 0~1 (구체성/완성도).
+//   coach  : 보완 제안(제안형 · 보호/신뢰 언어).
+//   reason : XP 가 지급된 이유(행동 단위 · 과거형 · "기록/증명" 언어).
 export const ESTIMATE_CRITERIA = [
   {
     key: "workScope", label: "공사범위", weight: 12,
-    coach: "공사범위(공정명)를 구체적으로 적어주시면 고객이 작업 범위를 더 명확히 이해할 수 있어요.",
+    coach: "공사범위를 적어두면 나중에 업체 자신도 지켜주는 기록이 됩니다.",
+    reason: "공사범위를 명확하게 정리했습니다.",
     quality: (f) => filledRatio(arr(f.items).filter(i => len(i.name) > 0).length, Math.max(1, arr(f.items).length)),
   },
   {
     key: "quantity", label: "수량", weight: 8,
-    coach: "공정별 수량을 적어주시면 견적의 근거가 더 분명해집니다.",
+    coach: "수량을 남겨두면 견적의 근거가 오래 남는 기록이 됩니다.",
+    reason: "수량을 꼼꼼하게 기록했습니다.",
     quality: (f) => filledRatio(arr(f.items).filter(i => Number(i.qty) > 0).length, Math.max(1, arr(f.items).length)),
   },
   {
     key: "unitPrice", label: "단가", weight: 8,
-    coach: "단가를 적어주시면 고객이 금액 구성을 투명하게 이해할 수 있어요.",
+    coach: "단가를 투명하게 남기면 고객과의 신뢰를 먼저 만듭니다.",
+    reason: "단가를 투명하게 남겼습니다.",
     quality: (f) => filledRatio(arr(f.items).filter(i => Number(i.unitPrice) > 0).length, Math.max(1, arr(f.items).length)),
   },
   {
     key: "materialName", label: "자재정보", weight: 10,
-    coach: "사용 자재명을 적어주시면 고객이 시공 품질을 더 신뢰할 수 있어요.",
+    coach: "자재명을 기록하면 시공 품질이 신뢰로 오래 남습니다.",
+    reason: "자재 정보를 자세히 기록했습니다.",
     quality: (f) => {
       const fromItems = arr(f.items).some(i => len(i.material) > 0) ? 0.6 : 0;
       const fromMats  = arr(f.materials).filter(m => len(m.name) > 0).length;
@@ -56,7 +62,8 @@ export const ESTIMATE_CRITERIA = [
   },
   {
     key: "materialSpec", label: "자재 규격·브랜드", weight: 10,
-    coach: "자재 규격·브랜드를 함께 기록하면 고객이 자재를 더 신뢰할 수 있어요.",
+    coach: "자재 규격·브랜드를 함께 남기면 분쟁보다 신뢰가 먼저 쌓입니다.",
+    reason: "자재 규격·브랜드를 함께 남겼습니다.",
     quality: (f) => {
       const mats = arr(f.materials);
       if (mats.length === 0) return 0;
@@ -66,32 +73,38 @@ export const ESTIMATE_CRITERIA = [
   },
   {
     key: "processNote", label: "공정·시공 설명", weight: 12,
-    coach: "공정 설명을 조금 더 구체적으로 작성하면 신뢰도가 높아집니다.",
+    coach: "공정 순서를 설명하면 고객의 이해를 돕고 업체의 성실함을 증명합니다.",
+    reason: "공정 순서를 명확하게 설명했습니다.",
     quality: (f) => lenScore(f.constructionNote, 60),
   },
   {
     key: "schedule", label: "공사 일정", weight: 6,
-    coach: "공사 일정을 적어주시면 고객이 일정을 예상하기 더 쉬워요.",
+    coach: "공사 일정을 남기면 고객이 일정을 함께 예상할 수 있어요.",
+    reason: "공사 일정을 안내했습니다.",
     quality: (f) => (Number(f.durationDays) > 0 ? 1 : 0),
   },
   {
     key: "customerExplain", label: "고객 설명", weight: 10,
-    coach: "고객 설명을 덧붙이면 견적의 이해도가 한층 높아집니다.",
+    coach: "고객 설명을 덧붙이면 견적이 고객을 더 잘 이해시킵니다.",
+    reason: "고객 설명을 충실히 남겼습니다.",
     quality: (f) => lenScore(f.note, 50),
   },
   {
     key: "warranty", label: "A/S 내용", weight: 8,
-    coach: "A/S 조건을 안내하면 고객이 더 안심하고 결정할 수 있어요.",
+    coach: "A/S 범위를 기록하면 책임 있는 마무리가 신뢰로 남습니다.",
+    reason: "A/S 범위를 기록했습니다.",
     quality: (f) => lenScore(f.warrantyNote, 30),
   },
   {
     key: "specialNote", label: "특이사항", weight: 8,
-    coach: "특이사항을 조금 더 작성하면 고객이 더욱 이해하기 쉬운 견적이 됩니다.",
+    coach: "특이사항을 남기면 고객 이해를 돕고 나중에 업체 자신도 지켜줍니다.",
+    reason: "특이사항을 남겨 고객 이해를 도왔습니다.",
     quality: (f) => lenScore(f.specialNote, 30),
   },
   {
     key: "sitePhotos", label: "현장 사진", weight: 8,
-    coach: "사진을 추가하면 시공 내용을 더욱 명확하게 전달할 수 있습니다.",
+    coach: "현장 사진은 시공 내용을 증명하는 든든한 보호자료가 됩니다.",
+    reason: "현장 사진으로 시공 내용을 증명했습니다.",
     quality: (f) => {
       const main = arr(f.photoUrls).length;
       const mat  = arr(f.materials).reduce((s, m) => s + arr(m.photos).length, 0);
@@ -102,26 +115,50 @@ export const ESTIMATE_CRITERIA = [
 
 // ── 분석 실행 ───────────────────────────────────────────────────────
 //   반환: { score(0~100), gainedXp, tier, items[], strongItems[], improveItems[] }
+//   items[i]: { key, label, weight, quality, coach, reason, potentialXp, earnedXp }
+//     · earnedXp: 이 행동이 실제로 인정받은 XP(과정 가치 — "왜 XP를 주는가"의 근거).
 export function analyzeEstimate(form = {}) {
-  const items = ESTIMATE_CRITERIA.map((c) => {
+  const raw = ESTIMATE_CRITERIA.map((c) => {
     const q = clamp01(c.quality(form));
-    // 이 항목을 더 채우면 얻을 수 있는 추가 XP (정직한 marginal 값).
-    const potentialXp = Math.round(XP_SPAN * (c.weight / 100) * (1 - q));
-    return { key: c.key, label: c.label, weight: c.weight, quality: q, coach: c.coach, potentialXp };
+    const potentialXp = Math.round(XP_SPAN * (c.weight / 100) * (1 - q)); // 더 채우면 얻을 XP
+    const contribution = c.weight * q;                                    // score 기여분
+    return { key: c.key, label: c.label, weight: c.weight, quality: q, coach: c.coach, reason: c.reason, potentialXp, contribution };
   });
 
-  const score = Math.round(items.reduce((s, it) => s + it.weight * it.quality, 0)); // 0~100
-  const gainedXp = Math.round(ESTIMATE_MIN + (score / 100) * XP_SPAN);              // 30~150
+  const score = Math.round(raw.reduce((s, it) => s + it.contribution, 0)); // 0~100
+  const gainedXp = Math.round(ESTIMATE_MIN + (score / 100) * XP_SPAN);      // 30~150
+
+  // 획득 XP 를 행동(항목)별로 정직하게 배분 — 기여도 비례. 합 ≈ gainedXp.
+  const totalContribution = raw.reduce((s, it) => s + it.contribution, 0) || 1;
+  const items = raw.map((it) => ({
+    ...it,
+    earnedXp: Math.round(gainedXp * (it.contribution / totalContribution)),
+  }));
 
   const tier =
     score >= 85 ? "매우 성실한 견적" :
     score >= 65 ? "성실견적" :
     score >= 35 ? "보통 견적" : "간단 견적";
 
-  const strongItems  = items.filter((it) => it.quality >= 0.7);
+  const strongItems  = items.filter((it) => it.quality >= 0.7 && it.earnedXp > 0)
+    .sort((a, b) => b.earnedXp - a.earnedXp);
   const improveItems = items
     .filter((it) => it.quality < 0.6 && it.potentialXp > 0)
     .sort((a, b) => b.potentialXp - a.potentialXp);
 
   return { score, gainedXp, tier, items, strongItems, improveItems };
 }
+
+// ── 프로젝트 단계 XP 지급 사유 (행동 단위 · 과정 가치) ──────────────
+//   결과/매출이 아니라 "성실하게 남긴 과정"에 XP 를 인정한다.
+export const STAGE_XP_REASON = {
+  site_visit:  { xp: 30, reason: "현장 기록을 남겨 성실함을 증명했습니다." },
+  measurement: { xp: 30, reason: "실측 정보를 꼼꼼하게 기록했습니다." },
+  contract:    { xp: 50, reason: "서로를 보호하는 약속을 남겼습니다." },
+  escrow:      { xp: 40, reason: "안전한 거래 약속을 함께 지켰습니다." },
+  start:       { xp: 40, reason: "착공 기록을 남겨 과정을 투명하게 했습니다." },
+  mid:         { xp: 40, reason: "중간 기록으로 진행을 정직하게 남겼습니다." },
+  complete:    { xp: 50, reason: "고객과의 약속을 끝까지 완료했습니다." },
+  review:      { xp: 30, reason: "고객의 이야기를 신뢰로 남겼습니다." },
+  as:          { xp: 40, reason: "책임 있는 마무리를 남겼습니다." },
+};

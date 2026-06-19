@@ -318,6 +318,14 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
         </div>
       </div>
 
+      {/* Space OS · 프로젝트 대화 보호 안내 */}
+      {!isLounge && (
+        <div style={{ background:C.bg, borderBottom:`1px solid ${C.bgWarm}`, padding:"8px 16px",
+          fontSize:11.5, color:C.text3, lineHeight:1.6 }}>
+          🛡 프로젝트 대화는 서로의 약속을 보호하기 위해 안전하게 보관됩니다.
+        </div>
+      )}
+
       {/* 라운지: 원본 글/댓글/스토리 링크 */}
       {isLounge && partner?.postId && (
         <div onClick={() => onOpenSource?.(partner.postId)}
