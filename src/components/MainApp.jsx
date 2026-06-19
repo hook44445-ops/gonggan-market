@@ -13,7 +13,11 @@ import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegi
 import { getMatchedCompaniesWithTier } from "../utils/regionMatching";
 import { isJunkText } from "../utils/dataHygiene";
 import { updateUserActivityRegions, getSavedCompanyIds, getSavedCompanies, saveCompany, unsaveCompany, getCustomerTrust } from "../lib/supabase";
-import CompanyCard from "./CompanyCard";
+import CompanyCardOriginal from "./CompanyCard";
+import CompanyCardBeta from "./CompanyCardBeta";
+import { UX_BETA } from "../constants/release";
+// UX 편의성 고도화 Beta — 표현만 개선(props/로직 동일). UX_BETA=false 면 원본 즉시 복구.
+const CompanyCard = UX_BETA ? CompanyCardBeta : CompanyCardOriginal;
 import PortfolioScreen from "../screens/PortfolioScreen";
 import ReviewScreen from "../screens/ReviewScreen";
 import ChatScreen from "../screens/ChatScreen";
