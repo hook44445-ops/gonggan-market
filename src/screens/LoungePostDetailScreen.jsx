@@ -1213,6 +1213,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           ownerId={miniModal.ownerId}
           displayName={miniModal.nickname}
           currentUserId={user?.id}
+          busy={chatRequestBusy}
+          alreadySent={miniModal.ownerId ? sentChatTargets.has(miniModal.ownerId) : false}
           onClose={() => setMiniModal(null)}
           onViewPortfolio={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'company', companyId: id, company: co }); }}
           onRequestChat={() => {

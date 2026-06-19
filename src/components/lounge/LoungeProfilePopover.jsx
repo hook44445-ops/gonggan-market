@@ -126,19 +126,27 @@ export default function LoungeProfilePopover({
 
   const renderCompany = () => {
     const name = resolveCompanyIdentity(company) || displayName;
-    // 본인 판정 — 반드시 '작성자 user_id'(ownerId = 댓글/게시글 작성자 user_id) 기준.
-    // company.owner_id(비동기 로드·불일치 가능)로 판단하면 의뢰인이 업체 댓글에 메시지 시
-    // self 오판 → RPC SELF_REQUEST("본인에게는 신청할 수 없어요") 발생. (directive ①)
-    const self = currentUserId != null && ownerId != null && ownerId === currentUserId;
-    console.log('[CHAT DEBUG]', {
-      source:        'mini-popover(company)/render',
+    // 메시지 대상 = ownerId (업체 작성자 user_id = requestCommentChat 의 target).
+    // 비활성(disabled) 사유는 오직 busy/alreadySent/대상없음. 본인(self)은 비활성 사유에서 제외하고,
+    // 클릭 시 메시지 핸들러가 '본인에게는 신청할 수 없어요'로 처리한다.
+    // 금지: company.owner_id / displayName / anonymousNickname / post.user_id / role / isPostAuthor 로 판정.
+    const targetUserId = ownerId ?? null;
+    const isSelf   = targetUserId != null && currentUserId != null && targetUserId === currentUserId;
+    const disabled = !!busy || !!alreadySent || !targetUserId;
+    const disabledReason = !targetUserId ? 'no-target' : busy ? 'busy' : alreadySent ? 'alreadySent' : null;
+    console.log('[POPOVER MESSAGE DEBUG]', {
       currentUserId,
-      targetUserId:  ownerId,
-      commentUserId: ownerId,         // 업체 댓글 작성자 user_id (miniModal.ownerId)
-      companyOwnerId: company?.owner_id ?? null,
-      isSelf:        self,
-      isOwn:         self,
-      disabledReason: self ? 'self(author===me)' : (alreadySent ? 'alreadySent' : busy ? 'busy' : null),
+      targetUserId,
+      ownerId,
+      profileUserId: company?.owner_id ?? null,
+      commentUserId: ownerId,
+      role: 'company',
+      isSelf,
+      isOwn: isSelf,
+      alreadySent: !!alreadySent,
+      busy: !!busy,
+      disabled,
+      disabledReason,
     });
     const metaBits = [
       company?.temp != null ? `🌡 ${Number(company.temp).toFixed(1)}°` : null,
@@ -157,12 +165,11 @@ export default function LoungeProfilePopover({
         <Divider />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Row icon="📁" label="포트폴리오" onClick={() => act(onViewPortfolio, company)} />
-          <Row icon="💬" label="메시지" disabled={self} onClick={() => {
-            console.log('[CHAT DEBUG] message button clicked', {
-              source: 'mini-popover(company)', targetUserId: ownerId, currentUserId, isSelf: self, disabled: self,
-            });
-            if (!self) act(onRequestChat, company);
-          }} />
+          <Row icon="💬" label={alreadySent ? '신청 보냄' : busy ? '처리 중...' : '메시지'}
+            disabled={disabled} onClick={() => {
+              if (disabled) return;
+              act(onRequestChat, company); // self는 메시지 핸들러가 '본인에게는 신청할 수 없어요'로 처리
+            }} />
           {onReport && <Row icon="🚩" label="신고" danger onClick={() => act(onReport)} />}
         </div>
       </>
@@ -170,16 +177,25 @@ export default function LoungeProfilePopover({
   };
 
   const renderConsumer = () => {
-    // 댓글 작성자 팝오버 — 메시지(대화 신청) 버튼 비활성 원인 진단용 로그.
-    console.log('[CHAT DEBUG] disabled reason', {
-      source:       'comment-author-popover(render)',
-      isSelf:       isOwn,
-      loading:      busy,
-      alreadySent,
-      currentUser:  !!currentUserId,
-      targetUserId: ownerId,
-      hidden:       isOwn,            // isOwn 이면 메시지 행 자체가 렌더되지 않음
-      disabled:     busy || alreadySent,
+    // 메시지 대상 = ownerId (의뢰인 작성자 user_id = requestCommentChat 의 target).
+    // 비활성 사유는 오직 busy/alreadySent/대상없음. 본인(self)은 클릭 시 핸들러가 토스트로 처리.
+    const targetUserId = ownerId ?? null;
+    const isSelf   = targetUserId != null && currentUserId != null && targetUserId === currentUserId;
+    const disabled = !!busy || !!alreadySent || !targetUserId;
+    const disabledReason = !targetUserId ? 'no-target' : busy ? 'busy' : alreadySent ? 'alreadySent' : null;
+    console.log('[POPOVER MESSAGE DEBUG]', {
+      currentUserId,
+      targetUserId,
+      ownerId,
+      profileUserId: ownerId,
+      commentUserId: ownerId,
+      role: 'consumer',
+      isSelf,
+      isOwn,
+      alreadySent: !!alreadySent,
+      busy: !!busy,
+      disabled,
+      disabledReason,
     });
     const avatar = getAnonymousAvatarByNickname(displayName);
     const jl = joinPeriod(consumerProfile?.joinedAt);
@@ -198,16 +214,11 @@ export default function LoungeProfilePopover({
         <div style={{ fontSize: 9.5, color: C.text3, fontWeight: 600 }}>{metaBits.join(' · ')}</div>
         <Divider />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {!isOwn && (
-            <Row icon="💬" label={alreadySent ? '신청 보냄' : busy ? '처리 중...' : '메시지 신청'}
-              disabled={busy || alreadySent} onClick={() => {
-                console.log('[CHAT DEBUG] message button clicked', {
-                  source: 'comment-author-popover', targetUserId: ownerId, currentUserId,
-                  isSelf: isOwn, alreadySent, loading: busy, disabled: busy || alreadySent,
-                });
-                if (!(busy || alreadySent)) act(onChat);
-              }} />
-          )}
+          <Row icon="💬" label={alreadySent ? '신청 보냄' : busy ? '처리 중...' : '메시지 신청'}
+            disabled={disabled} onClick={() => {
+              if (disabled) return;
+              act(onChat); // self는 메시지 핸들러가 '본인에게는 신청할 수 없어요'로 처리
+            }} />
           {onReport && <Row icon="🚩" label="신고" danger onClick={() => act(onReport)} />}
         </div>
       </>
