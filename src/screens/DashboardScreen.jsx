@@ -588,7 +588,8 @@ export default function DashboardScreen({
         )}
       </div>
 
-      <GrowthModal open={showGrowth} onClose={() => setShowGrowth(false)} />
+      <GrowthModal open={showGrowth} onClose={() => setShowGrowth(false)}
+        level={growth.level} totalXp={growth.totalXp} xpToNext={growth.xpToNext} isMax={growth.isMax} />
     </div>
   );
 }
