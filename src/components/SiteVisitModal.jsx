@@ -201,7 +201,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
           <div style={{ fontWeight:800, marginBottom:4 }}>🏠 현장 기록 남기기</div>
           현장에 도착하면 눌러주세요. 현재 위치가 함께 기록됩니다.
           <div style={{ marginTop:6, fontSize:12, color:C.text3, lineHeight:1.6 }}>
-            🛡 현장 기록은 업체의 성실함을 증명하는 보호자료가 됩니다.
+            🛡 기록은 업체를 감시하기 위한 것이 아닙니다. 스스로를 보호하는 증거입니다.
           </div>
         </div>
         <div style={{ marginBottom:S.xl }}>
