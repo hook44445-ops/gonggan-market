@@ -39,6 +39,7 @@ import ConsentGate, { hasConsented } from "./ConsentGate";
 import BidCard from "./BidCard";
 import ImageViewerModal from "./ImageViewerModal";
 import CompanyDepositCard, { DepositPolicyCard } from "./CompanyDepositCard";
+import { computeCompanyXp, levelInfo, RECORD_METRIC_LABEL } from "../constants/growth"; // 업체 메인 성장지표(표시 전용)
 import RequestModal from "./RequestModal";
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
 import OwnershipHistory from "./OwnershipHistory";
@@ -3161,15 +3162,31 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <div style={{ fontSize:12, opacity:0.65 }}>오늘도 공간을 빛내주셔서 감사합니다</div>
               </div>
 
-              {/* 2) 통계 3칸 — 동일 너비/높이/라운드, 숫자·라벨 중앙 정렬 */}
-              <div style={{ position:"relative", display:"flex", gap:S.sm, marginBottom:S.lg }}>
-                {[["3","낙찰"],["84","후기"],["68%","재계약"]].map(([v,l]) => (
-                  <div key={l} style={{ flex:1, minWidth:0, textAlign:"center", background:"rgba(255,255,255,0.15)", borderRadius:R.lg, padding:"12px 6px" }}>
-                    <div style={{ fontSize:18, fontWeight:900, lineHeight:1.1 }}>{v}</div>
-                    <div style={{ fontSize:11, opacity:0.75, marginTop:3, whiteSpace:"nowrap" }}>{l}</div>
+              {/* 2) 성장 3칸 — 성과(낙찰/후기/재계약)보다 성장(LV/공간온도/성실기록)을 먼저
+                     보여준다. 성과 데이터는 대시보드 '통계' 탭에서 확인. (Space OS · Phase 8)
+                     ※ XP/레벨/공간온도 계산 로직은 변경하지 않음 — 표시 전용. */}
+              {(() => {
+                const _co = companies?.[0] ?? {};
+                const _completed = _co.completedJobs ?? currentUser?.completedJobs ?? 0;
+                const _temp = currentUser?.temp ?? _co.temp ?? 36.5;
+                const _hasG = _co.guarantee_status === "ACTIVE" || !!_co.guarantee_grade;
+                const _lv = levelInfo(computeCompanyXp({ completedCount: _completed, hasGuarantee: _hasG })).level;
+                const growthStats = [
+                  [`LV.${_lv}`,            "성장레벨"],
+                  [`${Math.round(_temp)}°`, "공간온도"],
+                  [`${_completed}회`,       RECORD_METRIC_LABEL],
+                ];
+                return (
+                  <div style={{ position:"relative", display:"flex", gap:S.sm, marginBottom:S.lg }}>
+                    {growthStats.map(([v,l]) => (
+                      <div key={l} style={{ flex:1, minWidth:0, textAlign:"center", background:"rgba(255,255,255,0.15)", borderRadius:R.lg, padding:"12px 6px" }}>
+                        <div style={{ fontSize:18, fontWeight:900, lineHeight:1.1 }}>{v}</div>
+                        <div style={{ fontSize:11, opacity:0.75, marginTop:3, whiteSpace:"nowrap" }}>{l}</div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
 
               {/* 3) 공간온도 / 인증 — 한 줄 묶음 */}
               <div style={{ position:"relative", display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:S.lg }}>
