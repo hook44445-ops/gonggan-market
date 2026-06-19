@@ -198,8 +198,11 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
           </div>
         )}
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, fontSize:13, color:C.brand }}>
-          <div style={{ fontWeight:800, marginBottom:4 }}>🏠 인테리어 공사예정 현장에 도착하면 눌러주세요.</div>
-          현장 도착 후 GPS 체크인을 눌러주세요. 현재 위치가 자동으로 기록됩니다.
+          <div style={{ fontWeight:800, marginBottom:4 }}>🏠 현장 기록 남기기</div>
+          현장에 도착하면 눌러주세요. 현재 위치가 함께 기록됩니다.
+          <div style={{ marginTop:6, fontSize:12, color:C.text3, lineHeight:1.6 }}>
+            🛡 현장 기록은 업체의 성실함을 증명하는 보호자료가 됩니다.
+          </div>
         </div>
         <div style={{ marginBottom:S.xl }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>현장 상태 / 특이사항 <span style={{ color:C.text4, fontWeight:500 }}>(선택)</span></div>
