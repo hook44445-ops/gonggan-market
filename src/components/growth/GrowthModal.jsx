@@ -25,9 +25,9 @@ export default function GrowthModal({ open, onClose }) {
           성장은 경쟁이 아닙니다
         </div>
         <div style={{ fontSize: 14, lineHeight: 1.9, color: "rgba(255,255,255,0.72)", textAlign: "center", marginBottom: 24 }}>
-          성장은 경쟁이 아니라<br />성실과 정직에서 시작됩니다.<br /><br />
-          프로젝트를 성실하게 수행할수록<br />경험치(XP)가 쌓이고 레벨이 성장합니다.<br /><br />
-          레벨은 업체의 꾸준한 활동을 나타내며<br />절대 감소하지 않습니다.
+          공간사이는<br />성실과 정직을<br />데이터로 기록합니다.<br /><br />
+          프로젝트를 성실하게 수행할수록<br />Space OS가<br />여러분의 노력을 XP로 인정합니다.<br /><br />
+          XP는<br />업체의 꾸준한 성장 기록이며,<br />절대 감소하지 않습니다.
         </div>
         <button
           onClick={onClose}

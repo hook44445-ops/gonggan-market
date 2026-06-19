@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { createEstimate, updateEstimate, submitEstimate, uploadFile } from "../lib/supabase";
 import { formatDueRemaining } from "../constants/policy";
+import EstimateCoachPanel from "./growth/EstimateCoachPanel";       // Space OS · AI 코치(라이브, Add Only)
+import EstimateAnalysisResult from "./growth/EstimateAnalysisResult"; // Space OS · 성실견적 분석 결과(제출 후)
+import { analyzeEstimate } from "../constants/spaceOs";
 
 function Backdrop({ onClose, children }) {
   return (
@@ -45,6 +48,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
   const [warrantyNote, setWarrantyNote] = useState("");
   const [estimateId, setEstimateId] = useState(job.estimate?.id ?? null);
   const [saving, setSaving] = useState(false);
+  const [analysis, setAnalysis] = useState(null); // Space OS 성실견적 분석 결과(제출 후 표시)
 
   // 현장 실측 사진(최대 5장). 업로드 경로는 request_id 기준 고정.
   const MAX_PHOTOS = 5;
@@ -154,6 +158,12 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
     return sum + qty * up;
   }, 0);
 
+  // Space OS 성실견적 분석 입력(라이브 코치용) — 기존 제출 payload 와 무관(분석 전용).
+  const analysisForm = {
+    items, durationDays, note, warrantyNote, photoUrls,
+    materials, specialNote, constructionNote, contractSpecial,
+  };
+
   const updateItem = (id, field, val) =>
     setItems(prev => prev.map(it => it.id === id ? { ...it, [field]: val } : it));
 
@@ -217,7 +227,11 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
     if (error) { alert("제출 실패: " + error.message); return; }
     const updated = { ...job, estimate: data, siteVisit: job.siteVisit ? { ...job.siteVisit, status: "estimate_submitted" } : job.siteVisit };
     onChange(updated);
-    onClose();
+    // Space OS 성실견적 분석 결과 표시(제출/RPC/금액 로직은 위에서 이미 완료 — 분석은 표시 전용).
+    // 결과 모달의 '확인'(onClose)으로 모달을 닫는다.
+    try {
+      setAnalysis(analyzeEstimate({ items, durationDays, note, warrantyNote, photoUrls, materials, specialNote, constructionNote, contractSpecial }));
+    } catch { onClose(); }
   };
 
   return (
@@ -439,6 +453,9 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
           style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }} />
       </div>
 
+      {/* Space OS · AI 코치 — 작성 중 보완 제안(제안형). 분석/표시 전용. */}
+      <EstimateCoachPanel form={analysisForm} />
+
       <div style={{ display:"flex", gap:S.sm }}>
         <button onClick={handleSave} disabled={saving} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", opacity:saving?0.7:1 }}>
           임시저장
@@ -447,6 +464,9 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
           {saving ? "처리중..." : "최종 견적서 전송하기"}
         </button>
       </div>
+
+      {/* 제출 후 Space OS 분석 결과 — '확인' 시 onClose 로 모달 종료 */}
+      {analysis && <EstimateAnalysisResult result={analysis} onClose={onClose} />}
     </Backdrop>
   );
 }
