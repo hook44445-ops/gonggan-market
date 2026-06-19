@@ -127,6 +127,10 @@ export default function LoungeProfilePopover({
   const renderCompany = () => {
     const name = resolveCompanyIdentity(company) || displayName;
     const self = currentUserId && company?.owner_id === currentUserId;
+    console.log('[CHAT DEBUG] disabled reason', {
+      source: 'company-popover', currentUserId, targetOwnerId: company?.owner_id ?? ownerId,
+      isSelf: !!self, loading: company == null,
+    });
     const metaBits = [
       company?.temp != null ? `🌡 ${Number(company.temp).toFixed(1)}°` : null,
       company?.region ? `📍 ${company.region}` : null,
@@ -154,6 +158,10 @@ export default function LoungeProfilePopover({
   const renderConsumer = () => {
     const avatar = getAnonymousAvatarByNickname(displayName);
     const jl = joinPeriod(consumerProfile?.joinedAt);
+    console.log('[CHAT DEBUG] disabled reason', {
+      source: 'consumer-popover', currentUserId, targetUserId: ownerId,
+      isOwn, alreadySent, busy,
+    });
     const metaBits = [
       consumerProfile?.spaceTemp != null ? `🌡 ${Number(consumerProfile.spaceTemp).toFixed(1)}°` : null,
       jl ? `🗓 ${jl}` : null,

@@ -583,28 +583,48 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   };
 
   const handleChatRequest = async () => {
-    if (chatSending || chatSent) return;
-    if (isGuest) { setShowChat(false); onRequireLogin?.(); return; }
-    if (!user?.id || !post?.user_id) { setShowChat(false); showToast('상대 정보를 불러오는 중이에요'); return; }
+    console.log('[CHAT DEBUG] handleChatRequest clicked', { chatSending, chatSent, isGuest, currentUserId: user?.id, targetUserId: post?.user_id, tokenBalance });
+    // disabled/차단 조건 점검 — 무한 로딩/무반응 원인 추적용
+    if (chatSending) { console.warn('[CHAT DEBUG] blocked: chatSending(처리 중)'); return; }
+    if (chatSent)    { console.warn('[CHAT DEBUG] blocked: chatSent(이미 완료)'); setShowChat(false); showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
+    if (isGuest)     { console.warn('[CHAT DEBUG] blocked: guest'); setShowChat(false); onRequireLogin?.(); return; }
+    if (!user?.id || !post?.user_id) {
+      console.warn('[CHAT DEBUG] blocked: missing id', { currentUserId: user?.id, targetUserId: post?.user_id });
+      setShowChat(false); showToast('상대 정보를 불러오지 못했어요. 다시 시도해주세요.'); return;
+    }
     setChatSending(true);
-    // 라운지 메시지 요청 = lounge_chat_requests 생성(댓글 경로와 동일 · Phase2 인박스/익명 Waiting Accept).
-    // 정확한 상대(post.user_id)에게 요청을 만들고, 즉시 채팅방으로 이동하지 않는다.
-    const { data, error } = await requestCommentChat(user.id, post.user_id, postId, null).catch(() => ({ data: null, error: true }));
-    setChatSending(false);
-    setShowChat(false);
-    if (error) { showToast('신청에 실패했어요. 잠시 후 다시 시도해주세요.'); return; }
-    if (data?.error === 'SELF_REQUEST') { showToast('본인에게는 신청할 수 없어요'); return; }
-    setChatSent(true);
-    onChatRequested?.(); // 대화 탭 수락대기(Waiting Accept) 목록 즉시 갱신
+    // ⚠️ Supabase 빌더에 .catch() 직접 부착 금지 → try/catch/finally 로 처리(무한 로딩 방지)
+    console.log('[CHAT DEBUG] rpc input', {
+      currentUserId: user.id, targetUserId: post.user_id, postId, commentId: null, tokenBalance,
+    });
     try {
-      const key = 'lounge_chat_requests';
-      const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
-      prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), nickname: post?.anonymous_nickname, sentAt: new Date().toISOString() });
-      localStorage.setItem(key, JSON.stringify(prev.slice(0, 50)));
-    } catch {}
-    if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
-    if (data?.status === 'already_pending') { showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
-    showToast('💬 메시지를 보냈어요! 대화 탭에서 확인할 수 있어요. 수락 시 20토큰이 차감됩니다.');
+      const { data, error } = await requestCommentChat(user.id, post.user_id, postId, null);
+      console.log('[CHAT DEBUG] rpc result', {
+        data, error, code: error?.code, message: error?.message, details: error?.details,
+      });
+      if (error) throw error;
+      if (data?.error === 'SELF_REQUEST') { setShowChat(false); showToast('본인에게는 신청할 수 없어요'); return; }
+      if (data?.error === 'SEED_TARGET')  { setShowChat(false); showToast('이 글에는 메시지를 보낼 수 없어요'); return; }
+      // 성공
+      setShowChat(false);
+      setChatSent(true);
+      onChatRequested?.();                 // 대화 탭 수락대기(Waiting Accept) 목록 즉시 갱신
+      try {
+        const key = 'lounge_chat_requests';
+        const prev = JSON.parse(localStorage.getItem(key) ?? '[]');
+        prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), nickname: post?.anonymous_nickname, sentAt: new Date().toISOString() });
+        localStorage.setItem(key, JSON.stringify(prev.slice(0, 50)));
+      } catch {}
+      if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
+      if (data?.status === 'already_pending')  { showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
+      showToast('메시지 요청을 보냈습니다. 대화 탭에서 확인할 수 있어요.');
+    } catch (error) {
+      console.error('[CHAT DEBUG] chat request failed', error);
+      showToast('대화 신청에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setChatSending(false);
+      console.log('[CHAT DEBUG] submit end - loading false');
+    }
   };
 
   const handleCommentSubmit = (text) => {
@@ -671,6 +691,10 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     if (!ensureChatTokens()) { setCommentAuthorSheet(null); return; }
     setCommentAuthorSheet(null);
     setChatRequestBusy(true);
+    // 댓글/대댓글 작성자에게 메시지 신청 → 반드시 comment.user_id / comment.id 사용(게시글 작성자와 분리)
+    console.log('[CHAT DEBUG] rpc input', {
+      source: 'comment', currentUserId: user.id, targetUserId: comment.user_id, postId, commentId: comment.id, tokenBalance,
+    });
     try {
       const { data, error } = await requestCommentChat(
         user.id,
@@ -678,6 +702,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         postId,
         comment.id,
       );
+      console.log('[CHAT DEBUG] rpc result', {
+        data, error, code: error?.code, message: error?.message, details: error?.details,
+      });
       const status = data?.status;
       if (error) {
         showToast(`대화 신청 실패: ${error.message}`);
@@ -701,8 +728,12 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           relatedType: 'lounge',
         }).catch(() => {});
       }
+    } catch (error) {
+      console.error('[CHAT DEBUG] comment chat request failed', error);
+      showToast('대화 신청에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setChatRequestBusy(false);
+      console.log('[CHAT DEBUG] comment submit end - busy false');
     }
   };
 
