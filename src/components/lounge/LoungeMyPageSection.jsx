@@ -18,7 +18,10 @@ import {
   acceptLoungeChatRequest,
   rejectLoungeChatRequest,
   createNotification,
+  getPushPreferences,
+  upsertPushPreferences,
 } from '../../lib/supabase';
+import { enablePush, disablePush } from '../../lib/push';
 
 // ── 로컬스토리지 헬퍼 ──────────────────────────────────
 const readLS = (key, fallback = []) => {
@@ -641,13 +644,14 @@ function BlocksScreen({ onBack }) {
 }
 
 // ── 알림 설정 ─────────────────────────────────────────
-function NotifSettings() {
+function NotifSettings({ user }) {
   const load = (key, def) => { try { return JSON.parse(localStorage.getItem(key) ?? JSON.stringify(def)); } catch { return def; } };
 
   const [enabled,    setEnabled]  = useState(() => load('lounge_notif_enabled', false));
   const [selected,   setSelected] = useState(() => load('lounge_notif_cats', []));
   const [permStatus, setPermStatus] = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'default');
   const [toast,      setToast]    = useState(null);
+  const [busy,       setBusy]     = useState(false);
 
   // 글쓰기 카테고리 — SSOT(LOUNGE_CATEGORIES)에서 all/popular 제외 + 비활성 카테고리 제외
   const CATS = LOUNGE_CATEGORIES
@@ -656,10 +660,47 @@ function NotifSettings() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
-  const toggleCat = (id) => {
+  // 라운지 관심 카테고리 → push_preferences 서브토글 매핑(서버 enqueue 함수가 매칭하는 5종 중 지원분).
+  //   interior→push_interior_news / review·quote_worry→push_estimate_news / local→push_local_news
+  //   (그 외 카테고리는 서버 푸시 타입이 없어 매칭되지 않음 — 부분 upsert라 chat/escrow 등은 보존)
+  const mapPushPrefs = (on, cats) => {
+    // 관심 카테고리 미선택 시 지원되는 라운지 푸시 타입 전체 수신(켜도 아무것도 안 오는 상황 방지).
+    const noneSelected = !cats || cats.length === 0;
+    const has = (id) => noneSelected || cats.includes(id);
+    return {
+      push_enabled:       on,
+      push_interior_news: on && has('interior'),
+      push_estimate_news: on && (has('review') || has('quote_worry')),
+      push_local_news:    on && has('local'),
+    };
+  };
+
+  // DB에 수신 선호 저장(다른 기기에서도 유지). 권한/브라우저와 무관하게 '선호'는 항상 저장한다.
+  const persistPrefs = async (on, cats) => {
+    if (!IS_SUPABASE_READY || !user?.id) return { updatePayload: null, updateResult: null, error: 'no-user-or-supabase' };
+    const updatePayload = mapPushPrefs(on, cats);
+    const { data, error } = await upsertPushPreferences(user.id, updatePayload);
+    return { updatePayload, updateResult: data ?? null, error: error ?? null };
+  };
+
+  // 초기값 — DB 우선(다른 기기에서도 유지), 없으면 localStorage 유지.
+  useEffect(() => {
+    if (!IS_SUPABASE_READY || !user?.id) return;
+    let alive = true;
+    getPushPreferences(user.id).then(({ data }) => {
+      if (!alive || !data) return;
+      setEnabled(!!data.push_enabled);
+      localStorage.setItem('lounge_notif_enabled', JSON.stringify(!!data.push_enabled));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [user?.id]);
+
+  const toggleCat = async (id) => {
     const next = selected.includes(id) ? selected.filter(c => c !== id) : [...selected, id];
     setSelected(next);
     localStorage.setItem('lounge_notif_cats', JSON.stringify(next));
+    // 알림이 켜져 있으면 카테고리 변경도 DB에 반영
+    if (enabled) { const r = await persistPrefs(true, next); console.log('[NOTIFICATION DEBUG] category change', { currentUserId: user?.id ?? null, ...r }); }
   };
 
   // 인앱 브라우저(카카오/인스타/네이버 등) 감지 — 알림 API 차단 환경
@@ -671,27 +712,51 @@ function NotifSettings() {
   const notifUnsupported = typeof window !== 'undefined' && !('Notification' in window);
 
   const handleToggle = async () => {
-    if (!enabled && permStatus !== 'granted') {
-      if (notifUnsupported) {
-        if (isInApp) { showToast('카카오톡·인스타 등 앱 안에서는 알림이 막혀요. 우측 상단 ⋯ → 다른 브라우저로 열어주세요'); return; }
-        showToast('이 브라우저는 알림을 지원하지 않아요'); return;
-      }
-      if (permStatus === 'denied') { showToast('브라우저 주소창의 자물쇠🔒 → 알림 → 허용으로 바꿔주세요'); return; }
-      const perm = await Notification.requestPermission();
-      setPermStatus(perm);
-      if (perm !== 'granted') { showToast('알림 권한이 거부됐어요. 주소창 자물쇠🔒에서 허용으로 바꿀 수 있어요'); return; }
-    }
+    if (busy) return;
+    const beforeValue = enabled;
     const next = !enabled;
+    setBusy(true);
+
+    // 1) 권한/브라우저와 무관하게 '선호'는 즉시 반영 + 저장(토글이 안 켜지던 핵심 버그 수정).
     setEnabled(next);
     localStorage.setItem('lounge_notif_enabled', JSON.stringify(next));
-    showToast(next ? '✅ 알림을 켰어요!' : '알림을 껐어요');
+
+    // 2) DB 저장(다른 기기에서도 유지)
+    const { updatePayload, updateResult, error } = await persistPrefs(next, selected);
+
+    // 3) 켤 때만 — 기기 FCM 토큰 등록 시도(가능한 브라우저에서만). 실패해도 선호는 유지된다.
+    let pushResult = null;
+    if (next) {
+      pushResult = await enablePush(user?.id);
+      if (pushResult?.ok) setPermStatus('granted');
+    } else {
+      await disablePush();
+    }
+
+    console.log('[NOTIFICATION DEBUG]', {
+      currentUserId: user?.id ?? null,
+      beforeValue, nextValue: next,
+      updatePayload, updateResult, error,
+      pushResult,
+      permStatus: (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported',
+      isInApp, notifUnsupported,
+    });
+
+    setBusy(false);
+
+    // 4) 안내
+    if (!next) { showToast('알림을 껐어요'); return; }
+    if (pushResult?.ok) { showToast('✅ 알림을 켰어요!'); return; }
+    if (notifUnsupported || isInApp) { showToast('알림 설정을 저장했어요. 기기 푸시는 우측 상단 ⋯ → 다른 브라우저로 열면 받을 수 있어요'); return; }
+    if (pushResult?.reason === 'permission_denied') { showToast('알림 설정은 저장됐어요. 기기 푸시는 주소창 자물쇠🔒 → 알림 허용으로 받을 수 있어요'); return; }
+    showToast('✅ 알림 설정을 저장했어요!');
   };
 
   // 권한이 막힌 상태 안내 문구(인라인 배너용)
   const blockedHelp = notifUnsupported && isInApp
-    ? '카카오톡·인스타 등 앱 안에서는 알림을 켤 수 없어요. 우측 상단 ⋯ 메뉴 → "다른 브라우저로 열기"로 접속하면 켤 수 있어요.'
+    ? '카카오톡·인스타 등 앱 안에서는 기기 푸시를 받을 수 없어요. 우측 상단 ⋯ 메뉴 → "다른 브라우저로 열기"로 접속하면 받을 수 있어요. (알림 설정 자체는 저장돼요)'
     : permStatus === 'denied'
-    ? '브라우저에서 알림이 차단돼 있어요. 주소창의 자물쇠🔒 아이콘 → 알림 → "허용"으로 바꾸면 켤 수 있어요.'
+    ? '브라우저에서 기기 푸시가 차단돼 있어요. 주소창의 자물쇠🔒 아이콘 → 알림 → "허용"으로 바꾸면 받을 수 있어요. (알림 설정 자체는 저장돼요)'
     : null;
 
   return (
@@ -887,7 +952,7 @@ export default function LoungeMyPageSection({
       {/* 알림 설정 */}
       <div style={{ borderTop: `1px solid ${C.bg}`, paddingTop: S.md, marginBottom: S.sm }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: S.sm }}>알림 설정</div>
-        <NotifSettings />
+        <NotifSettings user={user} />
       </div>
 
       {/* 내 활동 */}
