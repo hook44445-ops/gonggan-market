@@ -3149,36 +3149,46 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             )}
             <div style={{ position:"relative", background:`linear-gradient(135deg,${C.brand},${C.brandD})`,
               borderRadius:R.xl, padding:S.xxl, marginBottom:S.xl, color:"#fff", overflow:"hidden" }}>
-              <LeafSprig size={130} color="#fff" opacity={0.08}
-                style={{ position:"absolute", right:-16, bottom:-28, transform:"rotate(-12deg)" }} />
-              <div style={{ position:"relative", display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.xl }}>
-                <div>
-                  <div style={{ fontSize:10, opacity:0.7, marginBottom:5, letterSpacing:"0.2px" }}>
-                    안녕하세요, 공간사이 파트너님
-                  </div>
-                  <div style={{ fontSize:20, fontWeight:800, marginBottom:4 }}>{user.name}</div>
-                  <div style={{ fontSize:11, opacity:0.65, marginBottom:8 }}>오늘도 공간을 빛내주셔서 감사합니다</div>
-                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                    <TempBadge temp={currentUser?.temp ?? 36.5} lg info />
-                    <CertBadge type="platform" />
-                  </div>
+              <LeafSprig size={120} color="#fff" opacity={0.06}
+                style={{ position:"absolute", right:-22, bottom:-30, transform:"rotate(-12deg)", pointerEvents:"none" }} />
+
+              {/* 1) 인사말 / 업체명 / 소개 */}
+              <div style={{ position:"relative", marginBottom:S.lg }}>
+                <div style={{ fontSize:11, opacity:0.7, marginBottom:5, letterSpacing:"0.2px" }}>
+                  안녕하세요, 공간사이 파트너님
                 </div>
-                <div style={{ display:"flex", gap:S.sm }}>
-                  {[["3","낙찰"],["84","후기"],["68%","재계약"]].map(([v,l]) => (
-                    <div key={l} style={{ textAlign:"center", background:"rgba(255,255,255,0.15)", borderRadius:R.lg, padding:"10px 12px" }}>
-                      <div style={{ fontSize:16, fontWeight:900 }}>{v}</div>
-                      <div style={{ fontSize:10, opacity:0.7, marginTop:2 }}>{l}</div>
-                    </div>
-                  ))}
+                <div style={{ fontSize:22, fontWeight:800, marginBottom:4 }}>{user.name}</div>
+                <div style={{ fontSize:12, opacity:0.65 }}>오늘도 공간을 빛내주셔서 감사합니다</div>
+              </div>
+
+              {/* 2) 통계 3칸 — 동일 너비/높이/라운드, 숫자·라벨 중앙 정렬 */}
+              <div style={{ position:"relative", display:"flex", gap:S.sm, marginBottom:S.lg }}>
+                {[["3","낙찰"],["84","후기"],["68%","재계약"]].map(([v,l]) => (
+                  <div key={l} style={{ flex:1, minWidth:0, textAlign:"center", background:"rgba(255,255,255,0.15)", borderRadius:R.lg, padding:"12px 6px" }}>
+                    <div style={{ fontSize:18, fontWeight:900, lineHeight:1.1 }}>{v}</div>
+                    <div style={{ fontSize:11, opacity:0.75, marginTop:3, whiteSpace:"nowrap" }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 3) 공간온도 / 인증 — 한 줄 묶음 */}
+              <div style={{ position:"relative", display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:S.lg }}>
+                <TempBadge temp={currentUser?.temp ?? 36.5} lg info />
+                <CertBadge type="platform" />
+              </div>
+
+              {/* 4) 활동 상태 pill — 내용 폭 */}
+              <div style={{ position:"relative", marginBottom:S.lg }}>
+                <div style={{ display:"inline-flex", alignItems:"center", gap:S.sm, background:"rgba(255,255,255,0.12)", borderRadius:R.full, padding:"7px 14px" }}>
+                  <div style={{ width:8, height:8, borderRadius:"50%", background:C.green, boxShadow:"0 0 0 3px rgba(255,255,255,0.3)", flexShrink:0 }} />
+                  <span style={{ fontSize:13, opacity:0.92, lineHeight:1 }}>활동중 · 평균 응답 5분</span>
                 </div>
               </div>
-              <div style={{ background:"rgba(255,255,255,0.12)", borderRadius:R.lg, padding:`${S.sm}px ${S.lg}px`, marginBottom:S.lg, display:"flex", alignItems:"center", gap:S.sm }}>
-                <div style={{ width:8, height:8, borderRadius:"50%", background:C.green, boxShadow:"0 0 0 3px rgba(255,255,255,0.3)" }} />
-                <span style={{ fontSize:13, opacity:0.9 }}>지금 활동중 · 평균 5분 내 응답</span>
-              </div>
-              <div style={{ display:"flex", gap:S.sm }}>
-                <button onClick={() => go("dashboard")} style={{ background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>📊 대시보드 →</button>
-                <button onClick={() => go("portfolio",companies[0])} style={{ background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>포트폴리오</button>
+
+              {/* 5) 버튼 2개 — 동일 너비/높이/라운드 */}
+              <div style={{ position:"relative", display:"flex", gap:S.sm }}>
+                <button onClick={() => go("dashboard")} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}>📊 대시보드 →</button>
+                <button onClick={() => go("portfolio",companies[0])} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}>포트폴리오</button>
               </div>
             </div>
 
