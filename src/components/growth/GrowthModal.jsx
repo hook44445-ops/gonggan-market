@@ -52,6 +52,32 @@ export default function GrowthModal({ open, onClose }) {
           </div>
         </div>
 
+        {/* A · S 점수 철학 — 사람됨(기본) 위에 실력(보너스) */}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 22, marginBottom: 24 }}>
+          <div style={{ fontSize: 15, fontWeight: 900, color: "#fff", textAlign: "center", marginBottom: 4 }}>
+            우리는 기술보다 먼저 사람을 봅니다
+          </div>
+          <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.6)", textAlign: "center", lineHeight: 1.7, marginBottom: 16 }}>
+            실력은 성실과 정직 위에서 더욱 빛납니다.
+          </div>
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            <div style={{ flex: 1, background: "rgba(127,208,168,0.08)", border: "1px solid rgba(127,208,168,0.2)", borderRadius: 12, padding: "12px" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#9FE3BE", marginBottom: 4 }}>A · 사람됨</div>
+              <div style={{ fontSize: 19, fontWeight: 900, color: "#fff" }}>기본 100</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4, lineHeight: 1.5 }}>성실 · 정직 · 책임 · 기록</div>
+            </div>
+            <div style={{ flex: 1, background: "rgba(91,157,249,0.08)", border: "1px solid rgba(91,157,249,0.2)", borderRadius: 12, padding: "12px" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#7FA8E0", marginBottom: 4 }}>S · 실력</div>
+              <div style={{ fontSize: 19, fontWeight: 900, color: "#fff" }}>보너스 +20</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4, lineHeight: 1.5 }}>품질 · 기술 · 완성도</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.9, color: "rgba(255,255,255,0.72)", textAlign: "center" }}>
+            성실과 정직은 기본입니다.<br />실력은 그 위에 더해지는 보너스입니다.<br /><br />
+            아무리 실력이 뛰어나도<br />성실함이 없으면 추천업체가 될 수 없습니다.
+          </div>
+        </div>
+
         {/* 추천업체는 어떻게 정해지나요 */}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 22, marginBottom: 24 }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", textAlign: "center", marginBottom: 12 }}>
@@ -80,7 +106,9 @@ export default function GrowthModal({ open, onClose }) {
             ))}
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.8, color: "rgba(255,255,255,0.7)", textAlign: "center", marginTop: 18 }}>
-            공간사이는 사람을 통제하지 않습니다.<br />성실한 사람이 보호받는 구조를 만듭니다.
+            공간사이는 사람을 통제하지 않습니다.<br />성실한 사람이 보호받는 구조를 만듭니다.<br /><br />
+            좋은 기술자는 많지만,<br />신뢰받는 전문가는 드뭅니다.<br />
+            공간사이는 그 신뢰를 기록하고 성장시킵니다.
           </div>
         </div>
 
