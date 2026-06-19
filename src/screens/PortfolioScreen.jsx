@@ -523,19 +523,8 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
           ));
         })()}
 
-        <button onClick={() => onChat(company)}
-          style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff",
-            border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16,
-            cursor:"pointer", marginTop:S.sm,
-            boxShadow:`0 6px 20px ${C.brand}44` }}>
-          💬 {company.name} 견적 문의하기
-        </button>
-        <button onClick={() => onEscrow && onEscrow()}
-          style={{ width:"100%", padding:S.lg, background:C.navyL, color:C.navy,
-            border:`1px solid ${C.trustM}`, borderRadius:R.lg, fontWeight:700, fontSize:14,
-            cursor:"pointer", marginTop:S.sm }}>
-          🛡 에스크로 정산 현황 보기
-        </button>
+        {/* 업체 공개(누구나 열람) 페이지 — 견적 문의/에스크로 정산 CTA 제거.
+            업체 정보·시공 후기·시공 포트폴리오·최근 활동 등 공개 신뢰 정보만 노출한다. */}
       </div>
 
       {photoWork && <PhotoModal work={{ ...photoWork, companyName: company.name }} onClose={() => setPhotoWork(null)} />}

@@ -51,29 +51,46 @@ export function resolveCompanyIdentity(company) {
   return COMPANY_FALLBACK;
 }
 
-// 의뢰인 익명 코드 — 예: 익명 E421 (영문 1자 + 숫자 3자리). user_id 기준 결정론적.
-// 같은 작성자는 항상 같은 코드를 반환한다(없으면 anonymous_nickname/id 를 seed 로 폴백).
-export function getConsumerAnonCode(seed) {
-  const h = _hash(seed == null ? '' : String(seed));
-  const letter = String.fromCharCode(65 + (h % 26)); // A~Z
-  const num = String(h % 1000).padStart(3, '0');      // 000~999
-  return `익명 ${letter}${num}`;
+// 의뢰인 익명 닉네임 Pool — 공간/홈/리빙/인테리어/생활 테마(100개+). 실명·코드·번호 없음.
+const LOUNGE_ANONYMOUS_NAMES = [
+  '공간러', '공간메이트', '공간친구', '공간연구원', '공간탐험가',
+  '공간지킴이', '공간마스터', '공간애호가', '공간매니아', '공간크리에이터',
+  '홈러버', '홈스타일러', '홈플래너', '홈메이커', '홈디자이너',
+  '홈케어러', '홈감성러', '홈꾸미러', '홈수리러', '홈생활러',
+  '리빙러', '리빙메이트', '리빙플래너', '리빙크루', '리빙스타일러',
+  '리빙디자이너', '리빙연구원', '리빙매니아', '리빙친구', '리빙러버',
+  '집꾸미러', '집수리러', '집사랑러', '집연구원', '집마스터',
+  '집메이트', '집생활러', '집케어러', '우리집러', '우리집친구',
+  '인테리어러', '인테리어메이트', '인테리어친구', '인테리어플래너', '인테리어연구원',
+  '인테리어마스터', '인테리어감성러', '인테리어매니아', '인테리어크루', '인테리어러버',
+  '리모델러', 'DIY러', '목공러', '타일러', '도배러',
+  '페인트러', '조명러', '수납러', '정리러', '셀프인테리어러',
+  '감성러', '감성메이커', '감성공간러', '감성디자이너', '감성플래너',
+  '감성메이트', '감성라이프', '감성홈러', '감성빌더', '감성크루',
+  '정리왕', '수납왕', '생활고수', '공간고수', '집꾸미기고수',
+  '생활메이트', '생활연구원', '생활디자이너', '생활플래너', '생활러',
+  '새집꿈나무', '공간꿈나무', '우리동네러', '동네메이트', '동네생활러',
+  '공간서포터', '공간빌더', '공간파트너', '공간가이드', '공간브릿지',
+  '따뜻한공간', '행복한공간', '포근한집', '햇살가득', '아늑한집',
+  '오늘도정리', '오늘도리빙', '오늘도공간', '우리집이야기', '공간이좋아',
+];
+
+// 의뢰인 익명 닉네임 — user_id+post_id 를 seed 로 Pool 에서 선택(결정론적).
+//   · 같은 글·같은 작성자 → 동일 닉네임 / 다른 글 → 다른 닉네임
+export function getConsumerNickname(seed) {
+  return LOUNGE_ANONYMOUS_NAMES[_hash(seed == null ? '' : String(seed)) % LOUNGE_ANONYMOUS_NAMES.length];
 }
 
-// 의뢰인 표시명 — 라운지 익명 정책: 작성자 닉네임 대신 '익명 코드'로 표시한다.
-//   seed = `${user_id}::${post_id}` (원래 익명 시스템과 동일 기준).
-//   · 같은 작성자·같은 글  → 동일 코드
-//   · 다른 작성자          → 다른 코드
-//   · 다른 글             → 다른 코드
-//   ※ 과거엔 anonymous_nickname(40개 풀)을 seed로 써서 서로 다른 작성자/글이 같은 코드로
-//     충돌(예: 모두 "익명 U794")하는 문제가 있었다. user_id+post_id 직접 해싱으로 충돌 제거.
+// 의뢰인 표시명 — 라운지 익명 정책: 실명/저장 닉네임 대신 Pool 랜덤 닉네임으로 표시한다.
+//   seed = `${user_id}:${post_id}` (같은 글 동일 · 다른 글 상이).
+//   ※ '익명 K548' 같은 코드/번호/‘익명’ 텍스트는 사용하지 않는다.
 //   ※ user_id 가 없는 시드/익명 댓글만 저장된 anonymous_nickname 을 seed 로 폴백.
 export function resolveConsumerIdentity(consumer) {
   if (consumer?.user_id != null) {
     const pid = consumer?.post_id ?? consumer?.id ?? '';
-    return getConsumerAnonCode(`${consumer.user_id}::${pid}`);
+    return getConsumerNickname(`${consumer.user_id}:${pid}`);
   }
-  if (consumer?.anonymous_nickname) return getConsumerAnonCode(consumer.anonymous_nickname);
+  if (consumer?.anonymous_nickname) return getConsumerNickname(consumer.anonymous_nickname);
   return CONSUMER_FALLBACK;
 }
 
