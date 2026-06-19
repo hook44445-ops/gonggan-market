@@ -6,6 +6,9 @@ import BidCard from "../components/BidCard";
 import EscrowCalculator from "../components/EscrowCalculator";
 import SpaceActivityRecord from "../components/SpaceActivityRecord"; // v5.4.0: 공간 활동기록(Add Only)
 import PortfolioManagePanel from "../components/PortfolioManagePanel"; // 시공사례 등록·관리(Add Only)
+import GrowthCard from "../components/growth/GrowthCard";   // 업체 성장(Level+XP) — 표시 전용(Add Only)
+import GrowthModal from "../components/growth/GrowthModal";
+import { computeCompanyXp, levelInfo } from "../constants/growth";
 import { getMembershipRateByCreatedAt } from "../utils/calculations";
 import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews } from "../lib/supabase";
 
@@ -152,6 +155,7 @@ export default function DashboardScreen({
   const allRequests  = allRequestsProp ?? [];
   const jobsFromHome = companyJobs ?? [];
   const [tab, setTab]                     = useState("active");
+  const [showGrowth, setShowGrowth]       = useState(false);
   const [escrowJobs, setEscrowJobs]       = useState([]);
   const [completedEscrow, setCompletedEscrow] = useState([]);
   const [statsData, setStatsData]         = useState(null);
@@ -223,6 +227,17 @@ export default function DashboardScreen({
   // 공간멤버십파트너 수수료율 — companies.created_at 기준 (0/2.2/4.4%)
   const membershipRate  = getMembershipRateByCreatedAt(currentUser?.created_at);
 
+  // 업체 성장(Level+XP) — 표시 전용. 대시보드가 이미 보유한 집계에서 XP 파생(DB 쓰기 없음).
+  //   공간온도/추천업체 로직과 완전 분리. XP/레벨은 감소하지 않는다.
+  const hasGuarantee = currentUser?.guarantee_status === "ACTIVE" || !!currentUser?.guarantee_grade;
+  const companyXp = computeCompanyXp({
+    completedCount,
+    reviewCount,
+    activeCount: activeJobs.length,
+    hasGuarantee,
+  });
+  const growth = levelInfo(companyXp);
+
   const tabs = [["active","진행중"],["bids","입찰"],["stats","통계"],["portfolio","포트폴리오"],["completed","완료"],["activity","활동기록"]];
 
   // [ContractMapping] 진단 — 업체 진행중/완료 계약 매핑 (production 미노출)
@@ -263,6 +278,15 @@ export default function DashboardScreen({
       </div>
 
       <div style={{ padding:`${S.lg}px ${S.xl}px 40px` }}>
+
+        {/* ── 업체 성장(Level+XP) — 대시보드 상단 · 표시 전용 ───── */}
+        <GrowthCard
+          level={growth.level}
+          filledBlocks={growth.filledBlocks}
+          xpToNext={growth.xpToNext}
+          isMax={growth.isMax}
+          onClick={() => setShowGrowth(true)}
+        />
 
         {/* ── 진행중 ──────────────────────────────────────────── */}
         {tab === "active" && (
@@ -563,6 +587,8 @@ export default function DashboardScreen({
           <SpaceActivityRecord companyId={currentUser?.id ?? null} ownerId={currentUser?.ownerId ?? null} title="공간 활동기록" selfView />
         )}
       </div>
+
+      <GrowthModal open={showGrowth} onClose={() => setShowGrowth(false)} />
     </div>
   );
 }
