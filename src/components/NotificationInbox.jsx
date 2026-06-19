@@ -103,40 +103,35 @@ export default function NotificationInbox({ user }) {
         </div>
       ) : (
         <>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {visible.map(n => {
               const icon = NOTIF_META[n.type]?.icon ?? "🔔";
               return (
                 <div key={n.id} onClick={() => handleTap(n)}
                   style={{
-                    display: "flex", gap: S.md, alignItems: "flex-start",
-                    padding: `${S.md}px ${S.md}px`, borderRadius: R.lg,
+                    display: "flex", gap: S.sm, alignItems: "center",
+                    padding: `${S.sm}px ${S.md}px`, borderRadius: R.lg,
                     background: n.is_read ? C.surface2 : C.brandL,
                     border: `1px solid ${n.is_read ? C.bgWarm : C.brandM}`,
                     cursor: n.is_read ? "default" : "pointer",
                   }}>
-                  <div style={{ width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+                  <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
                     background: n.is_read ? C.bg : C.surface,
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 }}>
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
                     {icon}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 13.5, fontWeight: n.is_read ? 600 : 800, color: C.text1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <span style={{ fontSize: 13, fontWeight: n.is_read ? 600 : 800, color: C.text1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {n.title || "알림"}
                       </span>
                       <span style={{ fontSize: 11, color: C.text4, flexShrink: 0 }}>{relTime(n.created_at)}</span>
                     </div>
                     {n.message && (
-                      <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.5, marginTop: 2 }}>{n.message}</div>
-                    )}
-                    {n.type && (
-                      <span style={{ display: "inline-block", marginTop: 5, background: C.bg, color: C.text4, borderRadius: R.full, padding: "1px 8px", fontSize: 10, fontWeight: 700 }}>
-                        {n.type}
-                      </span>
+                      <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.4, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.message}</div>
                     )}
                   </div>
-                  {!n.is_read && <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.brand, flexShrink: 0, marginTop: 6 }} />}
+                  {!n.is_read && <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.brand, flexShrink: 0 }} />}
                 </div>
               );
             })}
