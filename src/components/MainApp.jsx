@@ -38,7 +38,7 @@ import TermsModal from "./TermsModal";
 import ConsentGate, { hasConsented } from "./ConsentGate";
 import BidCard from "./BidCard";
 import ImageViewerModal from "./ImageViewerModal";
-import CompanyDepositCard from "./CompanyDepositCard";
+import CompanyDepositCard, { DepositPolicyCard } from "./CompanyDepositCard";
 import RequestModal from "./RequestModal";
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
 import OwnershipHistory from "./OwnershipHistory";
@@ -4450,6 +4450,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     <GuaranteeCard company={myCompanyRow} actorId={user?.id} onChange={reloadMyCompany} />
                   </div>
                 )}
+
+                {/* 보호 정책 — 공간보증 현황 바로 아래로 위치 조정 */}
+                <DepositPolicyCard />
 
                 {/* Phase C: 영업지역 관리 (최대 2곳) */}
                 <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.md, border:`1px solid ${C.bgWarm}` }}>
