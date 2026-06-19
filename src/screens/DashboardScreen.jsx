@@ -8,7 +8,14 @@ import SpaceActivityRecord from "../components/SpaceActivityRecord"; // v5.4.0: 
 import PortfolioManagePanel from "../components/PortfolioManagePanel"; // 시공사례 등록·관리(Add Only)
 import GrowthCard from "../components/growth/GrowthCard";   // 업체 성장(Level+XP) — 표시 전용(Add Only)
 import GrowthModal from "../components/growth/GrowthModal";
+import StreakCard from "../components/growth/StreakCard";          // Phase 10 — 연속 활동(Add Only)
+import LevelUpOverlay from "../components/growth/LevelUpOverlay";  // Phase 11 — 레벨업 연출(Add Only)
+import AchievementToast from "../components/growth/AchievementToast"; // Phase 12 — 업적 토스트(Add Only)
+import AchievementGrid from "../components/growth/AchievementGrid";   // Phase 12 — 업적 현황(Add Only)
+import GrowthStatsPanel from "../components/growth/GrowthStatsPanel"; // Phase 13 — 성장 통계(Add Only)
 import { computeCompanyXp, levelInfo } from "../constants/growth";
+import { earnedAchievements, ACHIEVEMENTS } from "../constants/growthPlus";
+import { getStreak, getSeenAchievements, markAchievementsSeen, getLastSeenLevel, setLastSeenLevel } from "../utils/growthStore";
 import { getMembershipRateByCreatedAt } from "../utils/calculations";
 import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews } from "../lib/supabase";
 
@@ -160,6 +167,10 @@ export default function DashboardScreen({
   const [completedEscrow, setCompletedEscrow] = useState([]);
   const [statsData, setStatsData]         = useState(null);
   const [jobsLoading, setJobsLoading]     = useState(false);
+  // Phase 10~12 — 연속 활동 / 레벨업 연출 / 업적 토스트 (클라이언트 표시 전용)
+  const [streak, setStreak]               = useState({ current: 0, longest: 0 });
+  const [levelUp, setLevelUp]             = useState(null);   // { from, to }
+  const [achQueue, setAchQueue]           = useState([]);     // 업적 토스트 큐
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -238,6 +249,45 @@ export default function DashboardScreen({
   });
   const growth = levelInfo(companyXp);
 
+  // 업적 판정용 집계 — 기존 데이터에서 파생(읽기 전용). 집계 없는 지표는 미달성 유지.
+  const growthStats = {
+    completedCount,
+    reviewCount,
+    recontractCount: statsData?.repeat_customer_count ?? 0,
+    recordCount:     completedCount,   // 현재 데이터 모델: 성실기록 = 완료 건수
+    disputeCount:    0,                // 분쟁 시스템 없음 — 분쟁 0건
+    activeCount:     activeJobs.length,
+  };
+  const earnedIds = earnedAchievements(growthStats).map((a) => a.id);
+
+  // 연속 활동 로드 — 클라이언트 로컬 기록(로그인이 아니라 활동 기준으로 갱신됨).
+  useEffect(() => {
+    if (currentUser?.id) setStreak(getStreak(currentUser.id));
+  }, [currentUser?.id]);
+
+  // 레벨업 / 신규 업적 감지 — 실데이터(statsData) 로드 후에만 동작(오탐 방지).
+  useEffect(() => {
+    const cid = currentUser?.id;
+    if (!cid || !statsData) return;
+    const prevLevel = getLastSeenLevel(cid);
+    if (prevLevel === null) {
+      // 최초 진입 = 기준선 설정(연출/토스트 없이 현재 상태를 '본 것'으로 기록).
+      markAchievementsSeen(cid, earnedIds);
+      setLastSeenLevel(cid, growth.level);
+      return;
+    }
+    if (growth.level > prevLevel) setLevelUp({ from: prevLevel, to: growth.level });
+    if (growth.level !== prevLevel) setLastSeenLevel(cid, growth.level);
+
+    const seen = getSeenAchievements(cid);
+    const fresh = earnedIds.filter((id) => !seen.has(id));
+    if (fresh.length) {
+      const items = ACHIEVEMENTS.filter((a) => fresh.includes(a.id));
+      setAchQueue((q) => [...q, ...items]);
+      markAchievementsSeen(cid, fresh);
+    }
+  }, [currentUser?.id, statsData, growth.level, earnedIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const tabs = [["active","진행중"],["bids","입찰"],["stats","통계"],["portfolio","포트폴리오"],["completed","완료"],["activity","활동기록"]];
 
   // [ContractMapping] 진단 — 업체 진행중/완료 계약 매핑 (production 미노출)
@@ -288,6 +338,9 @@ export default function DashboardScreen({
           isMax={growth.isMax}
           onClick={() => setShowGrowth(true)}
         />
+
+        {/* ── 연속 활동(Streak) — 꾸준한 성장 장려 · 표시 전용 ───── */}
+        <StreakCard streak={streak.current} longest={streak.longest} />
 
         {/* ── 진행중 ──────────────────────────────────────────── */}
         {tab === "active" && (
@@ -419,6 +472,10 @@ export default function DashboardScreen({
         {/* ── 통계 ──────────────────────────────────────────────── */}
         {tab === "stats" && (
           <div>
+            {/* Phase 13 — 성장 분석 + 업적 현황 (분석 화면 · 철학 설명 없음) */}
+            <GrowthStatsPanel growth={growth} streak={streak} completedCount={completedCount} temp={temp} />
+            <AchievementGrid earnedIds={earnedIds} />
+
             {SHOW_DEBUG_UI && statsData && (
               <div style={{ margin:"0 0 12px", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:1.9, fontFamily:"monospace" }}>
                 [DEV:stats]<br/>
@@ -592,6 +649,13 @@ export default function DashboardScreen({
       <GrowthModal open={showGrowth} onClose={() => setShowGrowth(false)}
         level={growth.level} totalXp={growth.totalXp} xpToNext={growth.xpToNext}
         filledBlocks={growth.filledBlocks} isMax={growth.isMax} />
+
+      {/* Phase 11 — 레벨업 연출 */}
+      <LevelUpOverlay open={!!levelUp} from={levelUp?.from ?? growth.level - 1} to={levelUp?.to ?? growth.level}
+        onClose={() => setLevelUp(null)} />
+
+      {/* Phase 12 — 업적 토스트(큐 선두 1개) */}
+      <AchievementToast item={achQueue[0] ?? null} onDone={() => setAchQueue((q) => q.slice(1))} />
     </div>
   );
 }
