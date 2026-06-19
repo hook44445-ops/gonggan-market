@@ -1263,6 +1263,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         {/* Space OS · 보호의 약속 안내 */}
         <div style={{ background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: S.lg, fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
           🤝 계약과 에스크로는 서로를 통제하기 위한 장치가 아니라, 서로를 보호하기 위한 약속입니다.
+          <div style={{ marginTop: 5, color: C.text3 }}>에스크로는 돈을 묶는 시스템이 아니라, 약속을 지키기 위한 보호장치입니다.</div>
         </div>
 
         {/* 공간보호 — 안전거래 보호 중 + 직거래 경고 */}

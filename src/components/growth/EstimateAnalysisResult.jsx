@@ -36,7 +36,7 @@ export default function EstimateAnalysisResult({ result, onClose }) {
             display: "inline-block", marginTop: 14, padding: "8px 18px", borderRadius: 999,
             background: "linear-gradient(135deg,#5B9DF9,#3D7FE0)", color: "#fff", fontSize: 16, fontWeight: 900,
           }}>
-            획득 +{gainedXp} XP
+            기록 인정 +{gainedXp} XP
           </div>
         </div>
 
@@ -73,6 +73,10 @@ export default function EstimateAnalysisResult({ result, onClose }) {
             </div>
           </div>
         )}
+
+        <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, textAlign: "center", marginBottom: 16 }}>
+          기록은 사람을 감시하기 위해 존재하지 않습니다.<br />성실한 사람을 보호하기 위해 존재합니다.
+        </div>
 
         <button
           onClick={onClose}

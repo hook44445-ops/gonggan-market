@@ -130,7 +130,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
         alert("주소 변환은 실패했지만 위치 좌표는 저장되었습니다.");
       }
     }
-    notifyCustomer("GPS_CHECKIN", "업체가 GPS 체크인했습니다", "실측 담당자가 현장에 도착했습니다", data.id);
+    notifyCustomer("GPS_CHECKIN", "현장 기록이 등록되었습니다", "실측 담당자가 현장에 도착했습니다", data.id);
     const updated = { ...job, siteVisit: data };
     onChange(updated);
     setStep("field_estimate");
@@ -190,7 +190,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
     const svData = job.siteVisit;
     return (
       <Backdrop onClose={onClose}>
-        <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:2 }}>📍 GPS 체크인</div>
+        <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:2 }}>📍 현장 기록 남기기</div>
         <div style={{ fontSize:12, fontWeight:700, color:C.text3, marginBottom:S.sm }}>현장방문/실측</div>
         {svData?.scheduled_at && (
           <div style={{ fontSize:13, color:C.brand, marginBottom:S.xl, fontWeight:700 }}>
@@ -234,7 +234,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
         <div style={{ display:"flex", gap:S.sm }}>
           <button onClick={onClose} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>닫기</button>
           <button onClick={handleCheckin} disabled={saving} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", opacity:saving?0.7:1 }}>
-            {saving ? "위치 확인중..." : "📍 GPS 체크인"}
+            {saving ? "위치 확인중..." : "📍 현장 기록 남기기"}
           </button>
         </div>
       </Backdrop>
