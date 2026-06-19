@@ -9,6 +9,7 @@ import {
   saveProjectCheckpoint,
 } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
+import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
 
 function Backdrop({ onClose, children }) {
   return (
@@ -131,6 +132,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
       }
     }
     notifyCustomer("GPS_CHECKIN", "현장 기록이 등록되었습니다", "실측 담당자가 현장에 도착했습니다", data.id);
+    try { recordCompanyActivity(companyId); } catch { /* 표시 보조 — 실패 무시 */ }
     const updated = { ...job, siteVisit: data };
     onChange(updated);
     setStep("field_estimate");

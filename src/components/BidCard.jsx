@@ -5,6 +5,7 @@ import { BADGES } from "../constants/badges";
 import SpaceActivityRecord from "./SpaceActivityRecord"; // v5.5: 공간 활동기록 요약(Add Only)
 import { TempBadge } from "./common";
 import GuaranteeBadge from "./GuaranteeBadge";
+import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
 
 export default function BidCard({
   r,
@@ -97,6 +98,7 @@ export default function BidCard({
     if (ok) {
       setShowForm(false);
       setSubmitted(true);
+      try { recordCompanyActivity(currentUser?.id); } catch { /* 표시 보조 — 실패 무시 */ }
     }
   };
 
