@@ -585,12 +585,19 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   // 메시지 작성 BottomSheet의 "보내기" 클릭 시에만 호출된다 — 절대 즉시 채팅방을 만들지 않는다.
   // 보내기 → 토큰 확인(부족 시 토큰 스토어 이동) → 메시지 요청 생성 → 첫 메시지 전송 순서.
   const handleChatRequest = async (messageText) => {
-    if (chatSending || chatSent) return;
-    if (isGuest) { setShowChat(false); onRequireLogin?.(); return; }
-    if (!user?.id || !post?.user_id) { setShowChat(false); showToast('상대 정보를 불러오는 중이에요'); return; }
+    // 진단: 핸들러 실행 여부 + disabled/차단 조건(무반응 원인 추적)
+    console.log('[CHAT DEBUG] handleChatRequest called', {
+      chatSending, chatSent, isGuest,
+      currentUserId: user?.id ?? null, targetUserId: post?.user_id ?? null,
+      postId, hasText: !!(messageText ?? '').trim(), tokenBalance,
+    });
+    if (chatSending) { console.warn('[CHAT DEBUG] blocked: chatSending(처리 중)'); return; }
+    if (chatSent)    { console.warn('[CHAT DEBUG] blocked: chatSent(이미 신청)'); setShowChat(false); showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
+    if (isGuest) { console.warn('[CHAT DEBUG] blocked: guest'); setShowChat(false); onRequireLogin?.(); return; }
+    if (!user?.id || !post?.user_id) { console.warn('[CHAT DEBUG] blocked: missing id', { userId: user?.id, target: post?.user_id }); setShowChat(false); showToast('상대 정보를 불러오는 중이에요'); return; }
     const text = (messageText ?? '').trim();
-    if (!text) { showToast('메시지를 입력해주세요'); return; }
-    if (!ensureChatTokens()) { setShowChat(false); return; }
+    if (!text) { console.warn('[CHAT DEBUG] blocked: empty text'); showToast('메시지를 입력해주세요'); return; }
+    if (!ensureChatTokens()) { console.warn('[CHAT DEBUG] blocked: insufficient tokens', { tokenBalance }); setShowChat(false); return; }
 
     console.log('[CHAT DEBUG] submit start', { source: 'bottom-cta/handleChatRequest' });
     console.log('[CHAT DEBUG] rpc input', {

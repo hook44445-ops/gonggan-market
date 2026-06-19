@@ -13,7 +13,10 @@ export default function ChatRequestModal({ balance, sending = false, onConfirm, 
   const [text, setText] = useState('');
 
   const handleSend = () => {
-    if (sending || !text.trim()) return;
+    // 버튼 클릭은 항상 로그로 확인(무반응/disabled 추적용). 조용히 return 금지.
+    console.log('[CHAT DEBUG] 보내기 clicked', { sending, hasText: !!text.trim(), len: text.trim().length, balance, cost });
+    if (sending) { console.warn('[CHAT DEBUG] blocked: sending(처리 중)'); return; }
+    // text 비어 있어도 onConfirm 호출 → 상위 handleChatRequest가 '메시지를 입력해주세요' toast 안내(무반응 방지)
     onConfirm?.(text);
   };
 
@@ -65,8 +68,9 @@ export default function ChatRequestModal({ balance, sending = false, onConfirm, 
           <button onClick={onCancel} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
             취소
           </button>
-          <button onClick={handleSend} disabled={sending || !text.trim()}
-            style={{ flex: 2, padding: S.xl, background: (sending || !text.trim()) ? C.text4 : C.brand, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: (sending || !text.trim()) ? 'default' : 'pointer', boxShadow: (sending || !text.trim()) ? 'none' : `0 4px 16px ${C.brand}44` }}>
+          {/* sending(처리 중)일 때만 비활성 — 빈 텍스트는 클릭 시 toast 안내(silent 무반응 방지) */}
+          <button onClick={handleSend} disabled={sending}
+            style={{ flex: 2, padding: S.xl, background: sending ? C.text4 : (text.trim() ? C.brand : C.brandM ?? C.brand), color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: sending ? 'default' : 'pointer', opacity: (!sending && !text.trim()) ? 0.7 : 1, boxShadow: sending ? 'none' : `0 4px 16px ${C.brand}44` }}>
             {sending ? '보내는 중...' : '보내기'}
           </button>
         </div>
