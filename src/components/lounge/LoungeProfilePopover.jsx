@@ -126,7 +126,20 @@ export default function LoungeProfilePopover({
 
   const renderCompany = () => {
     const name = resolveCompanyIdentity(company) || displayName;
-    const self = currentUserId && company?.owner_id === currentUserId;
+    // 본인 판정 — 반드시 '작성자 user_id'(ownerId = 댓글/게시글 작성자 user_id) 기준.
+    // company.owner_id(비동기 로드·불일치 가능)로 판단하면 의뢰인이 업체 댓글에 메시지 시
+    // self 오판 → RPC SELF_REQUEST("본인에게는 신청할 수 없어요") 발생. (directive ①)
+    const self = currentUserId != null && ownerId != null && ownerId === currentUserId;
+    console.log('[CHAT DEBUG]', {
+      source:        'mini-popover(company)/render',
+      currentUserId,
+      targetUserId:  ownerId,
+      commentUserId: ownerId,         // 업체 댓글 작성자 user_id (miniModal.ownerId)
+      companyOwnerId: company?.owner_id ?? null,
+      isSelf:        self,
+      isOwn:         self,
+      disabledReason: self ? 'self(author===me)' : (alreadySent ? 'alreadySent' : busy ? 'busy' : null),
+    });
     const metaBits = [
       company?.temp != null ? `🌡 ${Number(company.temp).toFixed(1)}°` : null,
       company?.region ? `📍 ${company.region}` : null,

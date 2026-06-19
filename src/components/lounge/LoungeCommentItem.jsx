@@ -4,14 +4,13 @@
 
 import { useState } from 'react';
 import { C, R, S } from '../../constants';
-import { formatLoungeRelativeTime, getAnonymousAvatarByNickname, getGenderEmoji } from '../../utils/anonymousNickname';
+import { formatLoungeRelativeTime, getGenderEmoji } from '../../utils/anonymousNickname';
 import { resolveConsumerIdentity } from '../../utils/identityResolver';
 
 export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId, companyName = null, isAuthor = false }) {
   // 표시명은 Identity Resolver 로 결정. 업체(전문가) 댓글은 상위에서 업체 표시명(companyName)을
   // 내려주고, 그 외 의뢰인 댓글은 의뢰인 Identity(anonymous_name → anonymous_nickname → 공간이웃).
   const displayName = companyName || resolveConsumerIdentity(comment);
-  const avatar  = getAnonymousAvatarByNickname(comment.anonymous_nickname);
   const [liked, setLiked] = useState(false);
 
   const handleLike = () => {
@@ -51,18 +50,17 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
       borderLeft: isReply ? `2px solid ${C.bgWarm}` : 'none',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: S.sm, marginBottom: 2 }}>
-        <div
+        {/* 익명 사람 이모티콘 — 닉네임 글씨 크기와 동일(인라인·세로 가운데). 아이콘처럼 튀지 않게(directive ②) */}
+        <span
           onClick={handleAuthorClick}
           style={{
-            width: 30, height: 30, borderRadius: '50%',
-            background: avatar.color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16, flexShrink: 0,
+            fontSize: 13, lineHeight: 1,
+            display: 'inline-flex', alignItems: 'center', flexShrink: 0,
             cursor: clickableAuthor ? 'pointer' : 'default',
           }}
         >
           {getGenderEmoji(comment.gender)}
-        </div>
+        </span>
         <span
           onClick={handleAuthorClick}
           style={{
