@@ -4295,8 +4295,33 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   if (ip) return { label: "진행 중인 프로젝트", title: ip.type ?? ip.area ?? "시공", sub: "진행중 · 단계를 확인하세요", cta: { label: "진행 상황 보기", onClick: () => setScreen("timeline") } };
                   const op = myRequests.find(r => isRequestOpenForQuotes(r, esc(r)));
                   if (op) return { label: "최근 견적", title: op.type ?? op.area ?? "시공", sub: (op.bidCount > 0 ? `견적 ${op.bidCount}건 도착 · 비교 중` : "업체들이 검토 중입니다"), cta: { label: op.bidCount > 0 ? "견적 비교하기" : "진행 상황 보기", onClick: () => setScreen("timeline") } };
-                  const dn = myRequests.find(r => isRequestSettled(r, esc(r)));
-                  if (dn) return { label: "최근 완료", title: dn.type ?? dn.area ?? "시공", sub: "공사가 완료되었어요", cta: { label: "리뷰 작성하기", onClick: () => setScreen("timeline") } };
+                  // 완료(정산/완료) 프로젝트 — 가장 최근 1건(완료 시각 DESC). 리뷰 버튼은
+                  // 진행현황(timeline)이 아니라 업체 리뷰 작성 화면(ReviewScreen)으로 직접 이동한다.
+                  const dn = myRequests
+                    .filter(r => isRequestSettled(r, esc(r)))
+                    .sort((a, b) => {
+                      const ta = new Date(esc(a)?.escrow?.created_at ?? a.createdAt ?? 0).getTime();
+                      const tb = new Date(esc(b)?.escrow?.created_at ?? b.createdAt ?? 0).getTime();
+                      return tb - ta;
+                    })[0];
+                  if (dn) {
+                    const escrow = esc(dn)?.escrow ?? null;
+                    const companyId = escrow?.company_id ?? dn.selectedCompanyId ?? null;
+                    // 업체 식별자는 escrow.company_id 가 companies.id 또는 소유자 user.id 일 수 있어
+                    // 두 후보로 매칭한다(포트폴리오 리뷰 진입과 동일한 companies.id 로 정규화).
+                    const reviewCo = companies.find(c => c.id === companyId || c.ownerId === companyId)
+                      ?? { id: companyId, name: dn.type ?? "업체", temp: 36.5 };
+                    const openReview = () => {
+                      setSelCo(reviewCo);
+                      setBidViewRequestId(dn.id);
+                      setContractId(escrow?.id ?? null);
+                      setScreen("review");
+                    };
+                    const title = dn.type ?? dn.area ?? "시공";
+                    return dn.hasReview
+                      ? { label: "최근 완료", title, sub: "리뷰 작성 완료 · 감사합니다", cta: { label: "리뷰 보기", onClick: openReview } }
+                      : { label: "최근 완료", title, sub: "공사가 완료되었어요 · 후기를 남겨주세요", cta: { label: "리뷰 작성하기", onClick: openReview } };
+                  }
                   return null;
                 })()}
                 analysis={activeRole !== "company" ? null : (() => {
