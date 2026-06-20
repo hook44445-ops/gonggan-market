@@ -106,6 +106,8 @@ export default function CustomerReviewHistoryScreen({ currentUser, companies = [
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => { console.log("[REVIEW_NAV] CustomerReviewHistoryScreen mounted (내 리뷰 목록) · user =", currentUser?.id ?? null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!currentUser?.id) { setLoading(false); return; }
     let alive = true;

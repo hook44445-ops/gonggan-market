@@ -2429,6 +2429,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // [REVIEW_NAV] 진단 — 화면 전환 추적. 빌드 SHA 와 함께 실제 screen 값을 출력해
+  // '내 리뷰 보기' → my-reviews 라우팅이 런타임에서 동작하는지 확인용.
+  useEffect(() => {
+    console.log("[REVIEW_NAV] screen =", screen, "| build sha =", (typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "?"));
+  }, [screen]);
+
   const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NAV = mode === "admin"
@@ -4346,7 +4352,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     // 업체 공개 후기 화면(ReviewScreen)을 재사용하지 않는다.
                     // '리뷰 작성하기'(미작성)는 기존대로 작성 화면(ReviewScreen)으로 이동.
                     return reviewed
-                      ? { label: "최근 완료", title, sub: "리뷰 작성이 완료되었습니다.", cta: { label: "내 리뷰 보기", onClick: () => setScreen("my-reviews") } }
+                      ? { label: "최근 완료", title, sub: "리뷰 작성이 완료되었습니다.", cta: { label: "내 리뷰 보기", onClick: () => { console.log("[REVIEW_NAV] '내 리뷰 보기' clicked → setScreen('my-reviews')"); setScreen("my-reviews"); } } }
                       : { label: "최근 완료", title, sub: "아직 리뷰를 작성하지 않았습니다.", cta: { label: "리뷰 작성하기", onClick: openReview } };
                   }
                   return null;

@@ -164,6 +164,8 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
   const avg = reviews.length > 0
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : "0.0";
 
+  useEffect(() => { console.log("[REVIEW_NAV] ReviewScreen mounted (업체 공개 후기) · company =", company?.name ?? null); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!company?.id) return;
     let alive = true; // H-F: 언마운트 후 도착한 stale 응답이 state를 덮어쓰는 것 방지
