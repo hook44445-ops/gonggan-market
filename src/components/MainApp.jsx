@@ -4654,7 +4654,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ background: "transparent", padding: `${S.md}px 4px 0`, marginBottom: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.text4, margin: `${S.md}px 0 2px` }}>앱 정보</div>
               {[
-                { label: "문의하기",                onClick: () => showToast("준비 중입니다") },
+                { label: "문의하기",                onClick: () => { window.location.href = "mailto:gongganmarket.biz@gmail.com?subject=" + encodeURIComponent("[공간마켓] 문의"); } },
                 { label: "개인정보처리방침",         onClick: () => setTermsDocType("privacy_policy") },
                 { label: "이용약관",                onClick: () => setTermsDocType("service_terms") },
                 { label: "위치기반서비스 이용약관",   onClick: () => setTermsDocType("location_terms") },
