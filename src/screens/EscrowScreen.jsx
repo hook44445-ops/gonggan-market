@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
+import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { LeafSprig } from "../components/common";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
@@ -315,7 +316,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
   const stages        = bidAmount > 0 ? calculateStagePayments(bidAmount) : [];
   if (_amountSource !== "contract.total_amount") {
-    try { console.log("[GONGGAN_DIAG][amountFallback]", {
+    try { dlog("[GONGGAN_DIAG][amountFallback]", {
       requestId: request?.id ?? resolvedBid?.requestId ?? null,
       status: request?.status ?? null,
       selectedBidId: request?.selected_bid_id ?? request?.selectedBidId ?? resolvedBid?.id ?? null,

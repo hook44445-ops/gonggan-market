@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI, UX_BETA } from "../constants/release";
+import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge } from "../components/common";
 import BidCompareCard from "../components/BidCompareCard"; // UX Beta 입찰 비교 카드(Add Only)
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -118,7 +119,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   // DB 업데이트 성공 확인 후에만 siteVisitDone으로 전환 (낙관적 UI 업데이트 금지).
   const handleRequestSiteVisit = async () => {
     // 1. 버튼 클릭 로그 — 가드 이전 맨 첫 줄에서 실행(클릭 실제 발생 확인용)
-    console.log('[SITE_VISIT_BUTTON_CLICK]', {
+    dlog('[SITE_VISIT_BUTTON_CLICK]', {
       requestId: request?.id,
       bidId: selBid?.id,
       bidCompanyId: selBid?.companyId,
@@ -128,7 +129,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     siteVisitRef.current = true;
     setSiteVisitLoading(true);
 
-    console.log('[SITE_VISIT_START]', {
+    dlog('[SITE_VISIT_START]', {
       requestId: request?.id,
       bidId: selBid?.id,
       bidCompanyId: selBid?.companyId,
@@ -166,7 +167,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         return;
       }
 
-      console.log('[SITE_VISIT_RPC_SUCCESS]', rpcData);
+      dlog('[SITE_VISIT_RPC_SUCCESS]', rpcData);
 
       // 6. 알림 (fire-and-forget)
       const companyOwnerId = company?.owner_id ?? selBid.company?.ownerId ?? null;
@@ -178,7 +179,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         }).catch(() => {});
       }
 
-      console.log('[SITE_VISIT_FLOW_SUCCESS]', {
+      dlog('[SITE_VISIT_FLOW_SUCCESS]', {
         requestId: request.id,
         bidId: selBid.id,
         resolvedCompanyId,
@@ -391,29 +392,29 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             onClick={() => {
               // ⚠️ 무조건 첫 줄(가드/분기 이전): 버튼 클릭이 실제로 발생했는지 확정.
               // 결제 가능 판단은 bid.status 가 아니라 request.status(isQuotePhase) 기준.
-              console.log("[GONGGAN_DIAG][payClick]", {
+              dlog("[GONGGAN_DIAG][payClick]", {
                 isQuotePhase, isAwarded, reqStatus, requestStatus: request?.status ?? null, step,
                 selectedBidId: request?.selected_bid_id ?? request?.selectedBidId ?? null,
                 chosenBidId: selBid?.id ?? null, bidStatus: selBid?.status ?? null,
                 finalQuote: finalEstimate?.total_price ?? null, effectivePrice, customerTotal,
               });
               if (isQuotePhase) {
-                console.log("[GONGGAN_DIAG][confirmBtn]", { branch: "isQuotePhase", willApprove: reqStatus === "final_quote_submitted" && !!request?.id, next: "payment" });
+                dlog("[GONGGAN_DIAG][confirmBtn]", { branch: "isQuotePhase", willApprove: reqStatus === "final_quote_submitted" && !!request?.id, next: "payment" });
                 // 예약확정 RPC(기존 함수) 호출 — 실패 시 원인을 handlePay:error 로 노출(이전엔 무음 swallow).
                 if (reqStatus === "final_quote_submitted" && request?.id) {
                   approveFinalQuote(request.id, userId)
-                    .then(({ error } = {}) => { if (error) console.log("[GONGGAN_DIAG][handlePay:error]", { stage: "approveFinalQuote", msg: error.message ?? String(error) }); })
-                    .catch((e) => console.log("[GONGGAN_DIAG][handlePay:error]", { stage: "approveFinalQuote", msg: e?.message ?? String(e) }));
+                    .then(({ error } = {}) => { if (error) dlog("[GONGGAN_DIAG][handlePay:error]", { stage: "approveFinalQuote", msg: error.message ?? String(error) }); })
+                    .catch((e) => dlog("[GONGGAN_DIAG][handlePay:error]", { stage: "approveFinalQuote", msg: e?.message ?? String(e) }));
                 }
                 // 중간 'reserved' 카드(추가 탭 필요)를 건너뛰고 결제 화면으로 직접 연결 →
                 // confirmBtn → payment(결제수단 선택) → handlePay:enter 체인이 끊기지 않게 한다.
-                console.log("[GONGGAN_DIAG][confirmBtn:nav]", { from: "confirm", to: "payment" });
+                dlog("[GONGGAN_DIAG][confirmBtn:nav]", { from: "confirm", to: "payment" });
                 setStep("payment");
               } else if (isAwarded) {
-                console.log("[GONGGAN_DIAG][confirmBtn]", { branch: "isAwarded", next: "reserved" });
+                dlog("[GONGGAN_DIAG][confirmBtn]", { branch: "isAwarded", next: "reserved" });
                 handleEscrowPaymentStart();
               } else {
-                console.log("[GONGGAN_DIAG][confirmBtn]", { branch: "else(siteVisit)" });
+                dlog("[GONGGAN_DIAG][confirmBtn]", { branch: "else(siteVisit)" });
                 handleRequestSiteVisit();
               }
             }}
@@ -461,7 +462,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         <div style={{ marginBottom:S.xl, fontSize:12, color:C.text3, lineHeight:1.7, textAlign:"center" }}>
           직거래 시 에스크로 보호, 분쟁지원, 공간보증이 모두 사라집니다.
         </div>
-        <div onClick={() => { console.log("[GONGGAN_DIAG][reservedCard]", { selBidId: selBid?.id ?? null, selBidStatus: selBid?.status ?? null, requestStatus: request?.status ?? null, next: "payment" }); setStep("payment"); }} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`2px solid ${C.brand}`, cursor:"pointer" }}>
+        <div onClick={() => { dlog("[GONGGAN_DIAG][reservedCard]", { selBidId: selBid?.id ?? null, selBidStatus: selBid?.status ?? null, requestStatus: request?.status ?? null, next: "payment" }); setStep("payment"); }} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`2px solid ${C.brand}`, cursor:"pointer" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
             <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>공간안전결제로 진행</div>
             <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>🛡 보호</span>
@@ -479,15 +480,15 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     const stages = calculateStagePayments(effectivePrice);
 
     const handlePay = async () => {
-      console.log("[GONGGAN_DIAG][handlePay:enter]", {
+      dlog("[GONGGAN_DIAG][handlePay:enter]", {
         requestStatus: request?.status ?? null, reqStatus,
         selectedBidId: request?.selected_bid_id ?? request?.selectedBidId ?? null,
         chosenBidId: selBid?.id ?? null, bidStatus: selBid?.status ?? null,
         finalQuote: finalEstimate?.total_price ?? null, effectivePrice, customerTotal,
         selectedMethod: selectedMethod ?? null, SAFE_MODE, paying: payingRef.current,
       });
-      if (!selectedMethod && !SAFE_MODE) { console.log("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "no_method_and_not_safe_mode" }); return; }
-      if (payingRef.current) { console.log("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "already_paying(payingRef)" }); return; }
+      if (!selectedMethod && !SAFE_MODE) { dlog("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "no_method_and_not_safe_mode" }); return; }
+      if (payingRef.current) { dlog("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "already_paying(payingRef)" }); return; }
       payingRef.current = true;
       setPaymentLoading(true);
       const feeSnapshot = { provider: ACTIVE_PROVIDER, paymentMethod: selectedMethod, customerFeeRate: feeRate, companyFeeRate: 0.044, vatRate: 0.1, snapshotAt: new Date().toISOString() };
@@ -498,8 +499,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         try {
           const guardOk = selBid.id && !String(selBid.id).startsWith("tmp-") && selBid.companyId && request?.id;
           log.guard = guardOk ? "ok" : `SKIP bid=${selBid.id} co=${selBid.companyId} req=${request?.id}`;
-          console.log("[GONGGAN_DIAG][payChain:runDBWrites:guard]", { guardOk, selBidId: selBid?.id ?? null, companyId: selBid?.companyId ?? null, requestId: request?.id ?? null });
-          if (!guardOk) { console.log("[GONGGAN_DIAG][payChain:runDBWrites:return]", { reason: "guard_failed" }); setDbWriteLog(log); return; }
+          dlog("[GONGGAN_DIAG][payChain:runDBWrites:guard]", { guardOk, selBidId: selBid?.id ?? null, companyId: selBid?.companyId ?? null, requestId: request?.id ?? null });
+          if (!guardOk) { dlog("[GONGGAN_DIAG][payChain:runDBWrites:return]", { reason: "guard_failed" }); setDbWriteLog(log); return; }
 
           // ── 1. escrow_payments (멱등 — 중복 생성 방지) ──────────
           const { data: escrowData, created: escrowCreated, error: escrowErr } = await getOrCreateEscrow({
@@ -618,7 +619,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         }
       };
 
-      if (SAFE_MODE) { console.log("[GONGGAN_DIAG][payChain:branch]", { path: "SAFE_MODE→runDBWrites(simulate)" }); await runDBWrites(); return; }
+      if (SAFE_MODE) { dlog("[GONGGAN_DIAG][payChain:branch]", { path: "SAFE_MODE→runDBWrites(simulate)" }); await runDBWrites(); return; }
 
       // Test mode: show toast
       showLocalToast("🧪 테스트 모드입니다. 실제 결제는 발생하지 않습니다.");
@@ -628,7 +629,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       // 토스 승인 검증 없이 PAID 주문이 생성되지 않도록 시뮬레이션 fallback 을 차단한다.
       // (정상 성공 경로는 successUrl 리다이렉트 → MainApp processTossReturn 이라 무관)
       const isLiveKey = String(clientKey ?? "").startsWith("live_");
-      console.log("[GONGGAN_DIAG][payChain:branch]", { hasClientKey: !!clientKey, isLiveKey, selectedMethod: selectedMethod ?? null, path: (clientKey && selectedMethod) ? "toss_requestPayment" : "no_key_or_method→runDBWrites(simulate)" });
+      dlog("[GONGGAN_DIAG][payChain:branch]", { hasClientKey: !!clientKey, isLiveKey, selectedMethod: selectedMethod ?? null, path: (clientKey && selectedMethod) ? "toss_requestPayment" : "no_key_or_method→runDBWrites(simulate)" });
       if (clientKey && selectedMethod) {
         // Save pending payment info for recovery after Toss redirect
         try {
@@ -654,7 +655,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           // onload가 영원히 오지 않아도 payingRef 영구 잠금 방지. 타임아웃/오류 시
           // catch로 fallback → runDBWrites 시뮬레이션 실행 → payingRef 해제.
           const tossMethod = getMethodMeta(selectedMethod)?.tossMethod ?? "카드";
-          console.log("[GONGGAN_DIAG][payChain:toss:beforeRequest]", { provider: ACTIVE_PROVIDER, tossMethod, amount: customerTotal, orderId: tossOrderId });
+          dlog("[GONGGAN_DIAG][payChain:toss:beforeRequest]", { provider: ACTIVE_PROVIDER, tossMethod, amount: customerTotal, orderId: tossOrderId });
           // This will redirect to Toss — return value is never reached
           await getProvider(ACTIVE_PROVIDER).requestPayment({
             clientKey,
@@ -673,8 +674,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         } catch (err) {
           // H-E: SDK 로드 타임아웃·오류 → 사용자에게 알리고 시뮬레이션으로 fallback
           // payingRef는 runDBWrites의 finally 블록에서 해제된다.
-          console.log("[GONGGAN_DIAG][payChain:toss:catch]", { msg: err?.message ?? String(err) });
-          console.log("[GONGGAN_DIAG][handlePay:error]", { stage: "toss", msg: err?.message ?? String(err) });
+          dlog("[GONGGAN_DIAG][payChain:toss:catch]", { msg: err?.message ?? String(err) });
+          dlog("[GONGGAN_DIAG][handlePay:error]", { stage: "toss", msg: err?.message ?? String(err) });
           // P0: 라이브 키 환경에서는 결제 실패/취소 시 PAID 주문을 생성하지 않는다.
           // (test 키 환경에서만 기존 시뮬레이션 fallback 유지)
           if (isLiveKey) {
@@ -690,7 +691,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         }
       } else {
         // No Toss key — simulate
-        console.log("[GONGGAN_DIAG][payChain:branch]", { path: "else→runDBWrites(simulate)" });
+        dlog("[GONGGAN_DIAG][payChain:branch]", { path: "else→runDBWrites(simulate)" });
         await runDBWrites();
       }
     };
@@ -780,7 +781,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           )}
 
           <button
-            onClick={() => { try { Promise.resolve(handlePay()).catch((err) => console.log("[GONGGAN_DIAG][handlePay:error]", { msg: err?.message ?? String(err) })); } catch (err) { console.log("[GONGGAN_DIAG][handlePay:error]", { msg: err?.message ?? String(err) }); } }}
+            onClick={() => { try { Promise.resolve(handlePay()).catch((err) => dlog("[GONGGAN_DIAG][handlePay:error]", { msg: err?.message ?? String(err) })); } catch (err) { dlog("[GONGGAN_DIAG][handlePay:error]", { msg: err?.message ?? String(err) }); } }}
             disabled={(!selectedMethod && !SAFE_MODE) || paymentLoading}
             style={{ width:"100%", padding:S.xxl, background: (selectedMethod || SAFE_MODE) && !paymentLoading ? C.brand : C.bgWarm,
               color: (selectedMethod || SAFE_MODE) && !paymentLoading ? "#fff" : C.text4, border:"none", borderRadius:R.lg,
