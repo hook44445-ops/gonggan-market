@@ -242,10 +242,11 @@ export default function DashboardScreen({
   // 업체 성장(Level+XP) — 표시 전용. 대시보드가 이미 보유한 집계에서 XP 파생(DB 쓰기 없음).
   //   공간온도/추천업체 로직과 완전 분리. XP/레벨은 감소하지 않는다.
   const hasGuarantee = currentUser?.guarantee_status === "ACTIVE" || !!currentUser?.guarantee_grade;
+  // P-XP-01 화면 정합: 업체카드/업체상세/마이페이지/메인 성장카드와 '동일 입력 기준'
+  //   (완료 건수 + 공간보증)으로 통일 → 같은 사용자가 화면마다 동일한 Lv/XP/Progress 를 본다.
+  //   ⚠️ 계산식(computeCompanyXp)·레벨식·XP 지급 정책·DB 무변경 — 입력 집합만 표준에 맞춤.
   const companyXp = computeCompanyXp({
     completedCount,
-    reviewCount,
-    activeCount: activeJobs.length,
     hasGuarantee,
   });
   const growth = levelInfo(companyXp);

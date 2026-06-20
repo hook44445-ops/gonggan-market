@@ -560,7 +560,7 @@ const FAQ_ITEMS = [
   { q: "직접 업체와 거래하면 안 되나요?",
     a: "거래 방식은 전적으로 고객님의 선택입니다. 다만 공간마켓의 보호와 기록은 공간안전결제를 통한 거래에서만 제공됩니다." },
   { q: "고객센터 연락처",
-    a: "문의하기(아래 ‘문의하기’) 또는 이메일 help@gonggan.market 으로 연락주시면 순차적으로 도와드립니다." },
+    a: "문의하기(아래 ‘문의하기’) 또는 이메일 gongganmarket.biz@gmail.com 으로 연락주시면 순차적으로 도와드립니다." },
 ];
 
 export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding }) {
