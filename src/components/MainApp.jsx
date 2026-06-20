@@ -4499,21 +4499,21 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               ))}
             </div>
 
-            {/* 앱 정보 / 약관 */}
-            <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.text3, marginBottom: S.sm }}>앱 정보</div>
+            {/* 앱 정보 / 약관 — 경량 Footer (Apple Settings 느낌 · 문의→개인정보→약관 순) */}
+            <div style={{ background: "transparent", padding: `${S.md}px 4px 0`, marginBottom: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.text4, margin: `${S.md}px 0 2px` }}>앱 정보</div>
               {[
-                { label: "이용약관",                icon: "📄", docType: "service_terms" },
-                { label: "개인정보처리방침",         icon: "🔒", docType: "privacy_policy" },
-                { label: "위치기반서비스 이용약관",   icon: "📍", docType: "location_terms" },
-                { label: "고객 거래 유의사항",        icon: "📋", docType: "customer_transaction_notice" },
-                ...(activeRole === "company" ? [{ label: "업체 운영 준수서약", icon: "📝", docType: "operation_pledge" }] : []),
-                { label: "문의하기",                icon: "💌", docType: null },
-              ].map(({ label, icon, docType }) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bg}`, cursor: "pointer" }}
+                { label: "문의하기",                docType: null },
+                { label: "개인정보처리방침",         docType: "privacy_policy" },
+                { label: "이용약관",                docType: "service_terms" },
+                { label: "위치기반서비스 이용약관",   docType: "location_terms" },
+                { label: "고객 거래 유의사항",        docType: "customer_transaction_notice" },
+                ...(activeRole === "company" ? [{ label: "업체 운영 준수서약", docType: "operation_pledge" }] : []),
+              ].map(({ label, docType }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.bg}`, cursor: "pointer" }}
                   onClick={() => docType ? setTermsDocType(docType) : showToast("준비 중입니다")}>
-                  <span style={{ fontSize: 14, color: C.text2 }}>{icon} {label}</span>
-                  <span style={{ fontSize: 16, color: C.text3 }}>›</span>
+                  <span style={{ fontSize: 13, color: C.text3 }}>{label}</span>
+                  <span style={{ fontSize: 15, color: C.text4 }}>›</span>
                 </div>
               ))}
               <div style={{ fontSize: 11, color: C.text4, marginTop: S.sm }}>토큰 결제는 준비 중입니다.</div>
