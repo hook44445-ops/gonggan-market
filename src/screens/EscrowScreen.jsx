@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { LeafSprig } from "../components/common";
+import NotificationBell from "../components/NotificationBell";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
@@ -1244,7 +1245,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
           <div style={{ fontSize: 12, color: C.text3 }}>{headerSub}</div>
         </div>
-        <div style={{ marginLeft: "auto", background: C.navyL, borderRadius: R.full, padding: "4px 12px", fontSize: 12, fontWeight: 700, color: C.navy }}>🛡 보호중</div>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: S.sm }}>
+          {userId && <NotificationBell user={{ id: userId }} />}
+          <div style={{ background: C.navyL, borderRadius: R.full, padding: "4px 12px", fontSize: 12, fontWeight: 700, color: C.navy }}>🛡 보호중</div>
+        </div>
       </div>
 
       {/* ── STEP1: 현재 보호 금액 배너 (탭 시 금액 카드로 스크롤) ── */}

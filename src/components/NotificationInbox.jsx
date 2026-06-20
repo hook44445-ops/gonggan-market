@@ -36,7 +36,7 @@ function relTime(iso) {
 
 const PREVIEW_COUNT = 2; // 마이페이지 알림함 미리보기 2개(나머지는 '더보기'). UI 표시 전용.
 
-export default function NotificationInbox({ user }) {
+export default function NotificationInbox({ user, onRead }) {
   const userId = user?.id ?? null;
   const [items, setItems]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,12 +63,14 @@ export default function NotificationInbox({ user }) {
     if (n.is_read) return;
     setItems(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x));
     try { await markNotificationRead(n.id); } catch {}
+    onRead?.();
   };
 
   const handleAllRead = async () => {
     if (unread === 0) return;
     setItems(prev => prev.map(x => ({ ...x, is_read: true })));
     try { await markAllNotificationsRead(userId); } catch {}
+    onRead?.();
   };
 
   const visible = expanded ? items : items.slice(0, PREVIEW_COUNT);

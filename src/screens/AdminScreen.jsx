@@ -3049,6 +3049,18 @@ export default function AdminScreen({ onBack, onHome, user }) {
     }))
     .filter(c => c.tabs.length > 0);
 
+  // H-4: 본문(탭 콘텐츠) 접근도 메뉴와 동일 권한으로 게이트한다. 진입 경로(대시보드 카드·글로벌검색·
+  //      알림 클릭 등)와 무관하게 forbidden 탭 본문/액션 노출을 차단(superAdmin 예외 유지).
+  const TAB_PERM = {};
+  CATEGORIES_DEF.forEach(c => c.tabs.forEach(([tk]) => { TAB_PERM[tk] = c.perm; }));
+  const canAccessTab = (tk) => {
+    if (isSuperAdmin) return true;
+    if (SUPER_ONLY_TABS.has(tk)) return false;
+    const perm = TAB_PERM[tk];
+    if (!perm) return true;
+    return !!myPerms && !!myPerms[perm];
+  };
+
   const DDR_TRIGGER_META = {
     keyword_detected: { label: "키워드 감지", color: C.red },
     no_estimate_72h:  { label: "견적 미제출(72h)", color: C.gold },
@@ -3247,7 +3259,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
           </div>
         )}
 
-        {!loading && (
+        {!loading && !canAccessTab(mainTab) && (
+          <div style={{ textAlign: "center", padding: "60px 20px", color: C.text3 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 6 }}>접근 권한이 없습니다</div>
+            <div style={{ fontSize: 13, lineHeight: 1.7 }}>이 메뉴는 부여된 운영자 권한 범위에 포함되어 있지 않습니다.<br/>좌측 상단 메뉴에서 접근 가능한 항목을 선택해주세요.</div>
+          </div>
+        )}
+
+        {!loading && canAccessTab(mainTab) && (
           <>
             {/* ── Dashboard ── */}
             {mainTab === "dashboard" && (

@@ -74,6 +74,8 @@ function saveSession(user) {
       interests:   user.interests   ?? [],
       avatar_url:  user.avatar_url  ?? null,
       created_at:  user.created_at  ?? null,
+      // H-5: 운영자(operator) 세션 복원 시 권한(can_*)도 함께 보존 — 새로고침 후 본문 권한 게이팅 유지.
+      permissions: user.permissions ?? null,
     };
     localStorage.setItem(SESSION_USER_KEY, JSON.stringify(slim));
     localStorage.setItem(SESSION_TS_KEY, Date.now().toString());
@@ -161,6 +163,10 @@ export default function App() {
       // 기기 인증 유지 — 전화번호 기반 계정만 기억(게스트/번호없는 관리자 제외).
       // 카드 클릭 복원에 필요한 스냅샷(region 등 포함)을 통째로 넘긴다.
       if (u.phone) rememberUser(u);
+    } else if (u.role === "operator") {
+      // H-5: 운영자 세션만 새로고침/앱 재실행 후 복원되도록 저장(권한 포함). 기기 계정목록
+      //      (rememberUser)에는 추가하지 않아 AccountPicker 직행을 막는다. 코드 admin 정책은 불변.
+      saveSession(u);
     }
     setUser(u);
     setPendingRole(null);

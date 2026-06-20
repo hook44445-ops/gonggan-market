@@ -47,12 +47,20 @@ export default function AdminDocumentReviewModal({ docs, company, adminUser, onC
   const [selected, setSelected] = useState(docs?.[0] ?? null);
   const [reviewReason, setReviewReason] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
 
   const handleReview = async (reviewStatus) => {
     if (!selected?.id) return;
     setLoading(true);
+    setErrMsg("");
     try {
-      const { data } = await adminReviewDocument(selected.id, adminUser?.id, reviewStatus, reviewReason || null);
+      // H-3: RPC 성공(error 없음)일 때만 알림/UI 성공 처리. error 존재 시 절대 성공처리·알림 금지.
+      const { data, error } = await adminReviewDocument(selected.id, adminUser?.id, reviewStatus, reviewReason || null);
+      if (error) {
+        console.warn("[AdminDocumentReviewModal] 서류 검토 실패:", error);
+        setErrMsg("검토 처리에 실패했습니다. 권한 또는 네트워크를 확인한 뒤 다시 시도해주세요.");
+        return; // 알림/성공 UI 미실행 — finally 에서 loading 해제
+      }
       if (company?.ownerId) {
         const docLabel = DOC_TYPE_LABELS[selected.document_type] ?? selected.document_type;
         const statusLabel = STATUS_META[reviewStatus]?.label ?? reviewStatus;
@@ -250,6 +258,12 @@ export default function AdminDocumentReviewModal({ docs, company, adminUser, onC
               </div>
             )}
           </>
+        )}
+
+        {errMsg && (
+          <div style={{ marginTop: S.md, padding: "10px 12px", background: "#FEF0F0", border: `1px solid ${C.red}`, borderRadius: R.md, fontSize: 12, fontWeight: 700, color: C.red }}>
+            ⚠️ {errMsg}
+          </div>
         )}
 
         <button onClick={onClose}

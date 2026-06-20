@@ -39,6 +39,7 @@ import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
 import { buildPostPath, seoSlugToCategoryId } from "../utils/loungeSeo";
 import PushNotificationSettings from "./PushNotificationSettings";
 import NotificationInbox from "./NotificationInbox";
+import NotificationBell from "./NotificationBell";
 import GuaranteeCard from "./GuaranteeCard";
 import TokenStoreScreen from "../screens/TokenStoreScreen";
 import TokenHistoryScreen from "../screens/TokenHistoryScreen";
@@ -50,7 +51,7 @@ import ConsentGate, { hasConsented } from "./ConsentGate";
 import BidCard from "./BidCard";
 import ImageViewerModal from "./ImageViewerModal";
 import CompanyDepositCard, { DepositPolicyCard } from "./CompanyDepositCard";
-import { computeCompanyXp, levelInfo, RECORD_METRIC_LABEL } from "../constants/growth"; // 업체 메인 성장지표(표시 전용)
+import { RECORD_METRIC_LABEL } from "../constants/growth"; // 업체 메인 성장지표(표시 전용)
 import RequestModalOriginal from "./RequestModal";
 import RequestModalBeta from "./RequestModalBeta";
 // UX 편의성 고도화 Beta — 견적요청 표현만 개선(History/Popstate/Validation/onDone 동일). UX_BETA=false 면 원본.
@@ -2465,6 +2466,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <BrandLockup size={32} />
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
               {/* 로그아웃 버튼은 실수 터치 방지를 위해 마이페이지(내정보)로 이동됨 */}
+              <NotificationBell user={user} />
             </div>
           </div>
           <div style={{ display:"flex" }}>
@@ -3232,11 +3234,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                      보여준다. 성과 데이터는 대시보드 '통계' 탭에서 확인. (Space OS · Phase 8)
                      ※ XP/레벨/공간온도 계산 로직은 변경하지 않음 — 표시 전용. */}
               {(() => {
-                const _co = companies?.[0] ?? {};
-                const _completed = _co.completedJobs ?? currentUser?.completedJobs ?? 0;
-                const _temp = currentUser?.temp ?? _co.temp ?? 36.5;
-                const _hasG = _co.guarantee_status === "ACTIVE" || !!_co.guarantee_grade;
-                const _lv = levelInfo(computeCompanyXp({ completedCount: _completed, hasGuarantee: _hasG })).level;
+                // H-1: 본인 업체(currentUser) 단일 소스. H-2: 레벨은 공유 deriveLevel 로 통일(카드/상세/마이페이지 동일 입력).
+                const _co = currentUser ?? {};
+                const _completed = _co.completedJobs ?? 0;
+                const _temp = _co.temp ?? 36.5;
+                const _lv = deriveLevel(_co).level;
                 const growthStats = [
                   [`LV.${_lv}`,            "성장레벨"],
                   [`${Math.round(_temp)}°`, "공간온도"],
@@ -3271,7 +3273,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               {/* 5) 버튼 2개 — 동일 너비/높이/라운드 */}
               <div style={{ position:"relative", display:"flex", gap:S.sm }}>
                 <button onClick={() => go("dashboard")} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}>📊 대시보드 →</button>
-                <button onClick={() => go("portfolio",companies[0])} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}>포트폴리오</button>
+                <button onClick={() => go("portfolio",currentUser)} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}>포트폴리오</button>
               </div>
             </div>
 
@@ -3986,11 +3988,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
-              <div>
+              <div style={{ flex:1 }}>
                 <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>대화</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>파트너와 나눈 이야기</div>
               </div>
+              <NotificationBell user={user} />
             </div>
 
             {isAllEmpty && (
@@ -4277,6 +4280,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
         {screen==="my" && (
           <div>
+            <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:4 }}>
+              <NotificationBell user={user} />
+            </div>
             {UX_BETA ? (
               <MyPageTopBeta
                 name={user.name}
@@ -4286,7 +4292,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 profileBadges={activeRole === "consumer"
                   ? (() => { const gr = calcCustomerGrade(user.completedJobs ?? 0); return [{ icon: "⭐", label: gr.label }]; })()
                   : (() => {
-                      const co = companies?.[0] ?? currentUser ?? {};
+                      // H-1: 업체 마이페이지는 반드시 본인 업체(currentUser, 소유자 기준 정규화 행)를
+                      //      단일 소스로 사용한다. companies[0](시장 온도 1위 업체) 참조 금지 — 남의 데이터 표시 방지.
+                      const co = currentUser ?? {};
                       const t = co.temp ?? currentUser?.temp ?? 36.5;
                       const hasG = co.guarantee_status === "ACTIVE" || co.guarantee_grade || co.badge;
                       return [
@@ -4295,7 +4303,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         { icon: "🌡", label: `${Math.round(t)}°` },
                       ];
                     })()}
-                levelCompany={activeRole === "company" ? (companies?.[0] ?? currentUser) : currentUser}
+                levelCompany={currentUser}
                 activity={activeRole === "consumer"
                   ? (() => {
                       const o = myRequests.filter(r => isRequestOpenForQuotes(r, myRequestsEscrow[r.id] ?? null)).length;
@@ -4303,7 +4311,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       const c = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null)).length;
                       return [{ icon: "📝", label: "견적요청", value: `${o}` }, { icon: "📦", label: "진행중", value: `${p}` }, { icon: "✅", label: "완료", value: `${c}` }, { icon: "❤️", label: "저장", value: `${savedCompanies.length}` }];
                     })()
-                  : (() => { const co = companies?.[0] ?? {}; return [{ icon: "🏗", label: "시공", value: `${co.completedJobs ?? 0}` }, { icon: "⭐", label: "후기", value: `${co.reviews ?? 0}` }, { icon: "★", label: "평균평점", value: co.rating > 0 ? co.rating.toFixed(1) : "—" }, { icon: "⚡", label: "응답속도", value: responseValue(co) }]; })()}
+                  : (() => { const co = currentUser ?? {}; return [{ icon: "🏗", label: "시공", value: `${co.completedJobs ?? 0}` }, { icon: "⭐", label: "후기", value: `${co.reviews ?? 0}` }, { icon: "★", label: "평균평점", value: co.rating > 0 ? co.rating.toFixed(1) : "—" }, { icon: "⚡", label: "응답속도", value: responseValue(co) }]; })()}
                 myActivity={activeRole === "consumer"
                   ? [
                       { icon: "📋", label: "내 견적", onClick: () => setScreen("timeline") },
@@ -4312,7 +4320,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       { icon: "✏️", label: "내가 쓴 글", onClick: () => go("lounge") },
                     ]
                   : [
-                      { icon: "🏢", label: "업체 관리", onClick: () => (companies?.[0] ? go("portfolio", companies[0]) : go("dashboard")) },
+                      { icon: "🏢", label: "업체 관리", onClick: () => (currentUser ? go("portfolio", currentUser) : go("dashboard")) },
                       { icon: "📊", label: "대시보드", onClick: () => go("dashboard") },
                       { icon: "📝", label: "라운지", onClick: () => go("lounge") },
                       { icon: "✏️", label: "내가 쓴 글", onClick: () => go("lounge") },
@@ -4359,7 +4367,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   return null;
                 })()}
                 analysis={activeRole !== "company" ? null : (() => {
-                  const co = companies?.[0] ?? {}; const t = co.temp ?? 36.5;
+                  const co = currentUser ?? {}; const t = co.temp ?? 36.5; // H-1: 본인 업체 단일 소스
                   return { title: "내 업체 리포트",
                     headlineIcon: "🏆", headlineText: `${GRADE(t).label} 등급 · 성장 레벨 Lv.${deriveLevel(co).level}`,
                     rows: [

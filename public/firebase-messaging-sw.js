@@ -24,7 +24,8 @@ if (cfg.apiKey && cfg.projectId) {
     const data = payload.data || {};
     self.registration.showNotification(n.title || '공간마켓', {
       body: n.body || '',
-      icon: '/mock-reviews/after-cafe.svg',
+      icon: '/icons/icon-192-v2.png',
+      badge: '/icons/icon-192-v2.png',
       data: { target_url: data.target_url || '/' },
     });
   });
