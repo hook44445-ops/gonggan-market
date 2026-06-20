@@ -366,15 +366,20 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             <div style={{ fontSize:13, color:C.text2, marginBottom:S.md }}>{selBid.material}</div>
             <div style={{ background:C.brandL, borderRadius:R.md, padding:S.md, border:`1px solid ${C.brandM}` }}>
               <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs }}>🔒 공간안전결제 — 토스페이먼츠가 공사대금을 안전하게 보호합니다</div>
-              {[["시공비", fmtMoney(effectivePrice)], ["공간안전결제 이용료", `+${fmtMoney(escrowFee)}`]].map(([k, v]) => (
+              {/* 결제수단 미선택(현장방문 요청 등 결제 전 단계)에서는 수수료를 확정 금액처럼 표시하지 않는다. */}
+              {[
+                ["시공비", fmtMoney(effectivePrice)],
+                ["공간안전결제 이용료", selectedMethod ? `+${fmtMoney(escrowFee)}` : "결제수단에 따라 달라집니다"],
+              ].map(([k, v]) => (
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.text2, marginBottom:2 }}>
-                  <span>{k}</span><span style={{ fontWeight:700 }}>{v}</span>
+                  <span>{k}</span>
+                  <span style={{ fontWeight:700, color: (k === "공간안전결제 이용료" && !selectedMethod) ? C.text3 : C.text2 }}>{v}</span>
                 </div>
               ))}
               <div style={{ height:1, background:C.brandM, margin:`${S.xs}px 0` }} />
               <div style={{ display:"flex", justifyContent:"space-between" }}>
                 <span style={{ fontSize:13, fontWeight:800, color:C.text1 }}>총 예치 금액</span>
-                <span style={{ fontSize:14, fontWeight:900, color:C.brand }}>{fmtMoney(customerTotal)}</span>
+                <span style={{ fontSize:14, fontWeight:900, color:C.brand }}>{selectedMethod ? fmtMoney(customerTotal) : "결제수단 선택 시 확정"}</span>
               </div>
             </div>
           </div>
