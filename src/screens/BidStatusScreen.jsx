@@ -621,14 +621,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
       if (SAFE_MODE) { dlog("[GONGGAN_DIAG][payChain:branch]", { path: "SAFE_MODE→runDBWrites(simulate)" }); await runDBWrites(); return; }
 
-      // Test mode: show toast
-      showLocalToast("🧪 테스트 모드입니다. 실제 결제는 발생하지 않습니다.");
-
       const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
       // P0: 라이브 키(live_*) 환경에서는 결제 실패/취소/리다이렉트 미발생 시
       // 토스 승인 검증 없이 PAID 주문이 생성되지 않도록 시뮬레이션 fallback 을 차단한다.
       // (정상 성공 경로는 successUrl 리다이렉트 → MainApp processTossReturn 이라 무관)
       const isLiveKey = String(clientKey ?? "").startsWith("live_");
+      // 안내 문구: 라이브 키 환경(실제 결제)에서는 '테스트 모드' 토스트를 표시하지 않는다.
+      if (!isLiveKey) showLocalToast("🧪 테스트 모드입니다. 실제 결제는 발생하지 않습니다.");
       dlog("[GONGGAN_DIAG][payChain:branch]", { hasClientKey: !!clientKey, isLiveKey, selectedMethod: selectedMethod ?? null, path: (clientKey && selectedMethod) ? "toss_requestPayment" : "no_key_or_method→runDBWrites(simulate)" });
       if (clientKey && selectedMethod) {
         // Save pending payment info for recovery after Toss redirect
