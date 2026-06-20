@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
+import { loungeChatDbg } from "../utils/loungeChatDebug"; // 라운지 대화 신청/수신 신원 진단(플래그 시에만 출력)
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TOKEN_COSTS } from "../constants/lounge";
@@ -2053,6 +2054,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       fetchReceivedChatRequests(user.id),
       fetchAcceptedReceivedChatRequests(user.id),
     ]);
+    // 진단(기본 무출력): "받은 목록 안 뜸" 추적 — 조회에 쓰인 내 user.id/activeRole 과
+    // 실제 반환된 행을 함께 남긴다. target_id 는 쿼리 조건이라 반환행은 모두 일치하므로,
+    // 핵심은 '내 id로 받은 행이 0건인가' + 신청자가 저장한 target_id 와 내 id 가 같은가다.
+    loungeChatDbg("받은목록 조회(received-list query)", {
+      queryUserId: user.id,
+      activeRole,
+      ownerCompanyId: currentUser?.id ?? null,
+      sentCount: (sentRes.data ?? []).length,
+      receivedCount: (recvRes.data ?? []).length,
+      acceptedCount: (acceptedRes.data ?? []).length,
+      receivedRequesterIds: (recvRes.data ?? []).map(r => r.requester_id),
+      sentTargetIds: (sentRes.data ?? []).map(r => r.target_id),
+      recvError: recvRes.error?.message ?? null,
+    });
     setLoungeSentReqs(sentRes.data ?? []);
     setLoungeReceivedReqs(recvRes.data ?? []);
     setLoungeAcceptedReqs(acceptedRes.data ?? []);
