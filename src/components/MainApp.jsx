@@ -44,7 +44,10 @@ import BidCard from "./BidCard";
 import ImageViewerModal from "./ImageViewerModal";
 import CompanyDepositCard, { DepositPolicyCard } from "./CompanyDepositCard";
 import { computeCompanyXp, levelInfo, RECORD_METRIC_LABEL } from "../constants/growth"; // 업체 메인 성장지표(표시 전용)
-import RequestModal from "./RequestModal";
+import RequestModalOriginal from "./RequestModal";
+import RequestModalBeta from "./RequestModalBeta";
+// UX 편의성 고도화 Beta — 견적요청 표현만 개선(History/Popstate/Validation/onDone 동일). UX_BETA=false 면 원본.
+const RequestModal = UX_BETA ? RequestModalBeta : RequestModalOriginal;
 import LoungeMyPageSection from "./lounge/LoungeMyPageSection";
 import OwnershipHistory from "./OwnershipHistory";
 import ProtectionNotice from "./ProtectionNotice";
