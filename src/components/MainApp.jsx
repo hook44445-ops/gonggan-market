@@ -39,6 +39,7 @@ import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
 import { buildPostPath, seoSlugToCategoryId } from "../utils/loungeSeo";
 import PushNotificationSettings from "./PushNotificationSettings";
 import NotificationInbox from "./NotificationInbox";
+import NotificationBell from "./NotificationBell";
 import GuaranteeCard from "./GuaranteeCard";
 import TokenStoreScreen from "../screens/TokenStoreScreen";
 import TokenHistoryScreen from "../screens/TokenHistoryScreen";
@@ -2465,6 +2466,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <BrandLockup size={32} />
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
               {/* 로그아웃 버튼은 실수 터치 방지를 위해 마이페이지(내정보)로 이동됨 */}
+              <NotificationBell user={user} />
             </div>
           </div>
           <div style={{ display:"flex" }}>
@@ -3986,11 +3988,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
-              <div>
+              <div style={{ flex:1 }}>
                 <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>대화</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>파트너와 나눈 이야기</div>
               </div>
+              <NotificationBell user={user} />
             </div>
 
             {isAllEmpty && (
@@ -4277,6 +4280,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
         {screen==="my" && (
           <div>
+            <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:4 }}>
+              <NotificationBell user={user} />
+            </div>
             {UX_BETA ? (
               <MyPageTopBeta
                 name={user.name}

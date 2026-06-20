@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI, UX_BETA } from "../constants/release";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge } from "../components/common";
+import NotificationBell from "../components/NotificationBell";
 import BidCompareCard from "../components/BidCompareCard"; // UX Beta 입찰 비교 카드(Add Only)
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
@@ -35,14 +36,15 @@ const normalizeBid = (row) => ({
 });
 
 // Hoisted outside the component so it is never in a TDZ when used in early returns
-function BidScreenHeader({ title, sub, onBack }) {
+function BidScreenHeader({ title, sub, onBack, userId }) {
   return (
     <div style={{ background:C.surface, padding:"14px 20px", borderBottom:`1px solid ${C.bgWarm}`, display:"flex", alignItems:"center", gap:S.md }}>
       <button onClick={onBack} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
-      <div>
+      <div style={{ flex:1 }}>
         <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>{title}</div>
         {sub && <div style={{ fontSize:12, color:C.text3 }}>{sub}</div>}
       </div>
+      {userId && <NotificationBell user={{ id: userId }} />}
     </div>
   );
 }
@@ -289,7 +291,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
   if (step==="siteVisitDone") return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      <BidScreenHeader title="현장방문 견적 요청" onBack={onBack} />
+      <BidScreenHeader title="현장방문 견적 요청" onBack={onBack} userId={userId} />
       <div style={{ padding:`${S.xxl}px ${S.xl}px`, textAlign:"center" }}>
         <div style={{ fontSize:44, marginBottom:14 }}>📍</div>
         <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:10 }}>현장방문 견적을 요청했어요</div>
@@ -309,7 +311,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     const { feeAmount: escrowFee, total: customerTotal } = computeFeeWithRate(effectivePrice, rateFor(selectedMethod));
     return (
       <div style={{ minHeight:"100vh", background:C.bg }}>
-        <BidScreenHeader title={isQuotePhase ? "최종 견적서 확인" : "예약 확인"} onBack={goBack} />
+        <BidScreenHeader title={isQuotePhase ? "최종 견적서 확인" : "예약 확인"} onBack={goBack} userId={userId} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           {isQuotePhase && finalEstimate && (
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
@@ -445,7 +447,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
   if (step==="reserved" && selBid) return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      <BidScreenHeader title="안전결제로 시작하기" onBack={goBack} />
+      <BidScreenHeader title="안전결제로 시작하기" onBack={goBack} userId={userId} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
         <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
           <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.md }}>
@@ -702,7 +704,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
     return (
       <div style={{ minHeight:"100vh", background:C.bg }}>
-        <BidScreenHeader title="결제 수단 선택" onBack={goBack} />
+        <BidScreenHeader title="결제 수단 선택" onBack={goBack} userId={userId} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           {/* Amount summary */}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
@@ -832,7 +834,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   // Bid list — empty state maintains container layout
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      <BidScreenHeader title="업체 비교하기" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} />
+      <BidScreenHeader title="업체 비교하기" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} userId={userId} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
         {SHOW_DEBUG_UI && (
           <div style={{ marginBottom:12, background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:400, overflowY:"auto" }}>
