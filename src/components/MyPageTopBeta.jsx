@@ -32,6 +32,7 @@ export default function MyPageTopBeta({
   name, avatarChar, verified, metaText, profileBadges = [],
   levelCompany, activity = [], myActivity = [], analysis, recentProject,
   onLogout, onForgetDevice, showForgetConfirm, setShowForgetConfirm,
+  showSettings = true,
 }) {
   const [toast, setToast] = useState(null);
   const headlineNum = analysis?.headlineNumber;
@@ -93,11 +94,11 @@ export default function MyPageTopBeta({
         <div style={{ display: "flex", gap: S.sm, marginBottom: GAP }}>
           {activity.map((a, i) => (
             <div key={i} style={{ flex: "1 1 0", minWidth: 0, textAlign: "center", background: C.surface,
-              border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 4px" }}>
-              <div style={{ fontSize: 12, marginBottom: 3 }}>{a.icon}</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, lineHeight: 1.05,
+              border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "14px 4px" }}>
+              <div style={{ fontSize: 11, marginBottom: 4 }}>{a.icon}</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: C.text1, lineHeight: 1.05,
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.value}</div>
-              <div style={{ fontSize: 10, color: C.text3, marginTop: 3, whiteSpace: "nowrap" }}>{a.label}</div>
+              <div style={{ fontSize: 12, color: C.text3, marginTop: 4, whiteSpace: "nowrap" }}>{a.label}</div>
             </div>
           ))}
         </div>
@@ -137,12 +138,13 @@ export default function MyPageTopBeta({
         <Card style={{ padding: S.xl, marginBottom: GAP }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.md }}>
             <span style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{analysis.title}</span>
-            <button onClick={share} aria-label="공유" style={{ display: "inline-flex", alignItems: "center", gap: 4,
-              background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "5px 12px",
-              fontSize: 12, fontWeight: 700, color: C.text2, cursor: "pointer", fontFamily: "inherit" }}>↗ 공유</button>
+            <button onClick={share} aria-label="공유" style={{ display: "inline-flex", alignItems: "center",
+              justifyContent: "center", height: 32, minWidth: 72, padding: "0 10px",
+              background: "transparent", border: `1px solid ${C.bgWarm}`, borderRadius: R.md,
+              fontSize: 12, fontWeight: 600, color: C.text3, cursor: "pointer", fontFamily: "inherit" }}>공유</button>
           </div>
           {analysis.headlineText && (
-            <div style={{ background: C.brandL, borderRadius: R.lg, padding: `${S.md}px ${S.lg}px`, marginBottom: S.md,
+            <div style={{ background: C.brandL, borderRadius: R.lg, padding: "10px 13px", marginBottom: S.md,
               fontSize: 13.5, fontWeight: 700, color: C.brand, lineHeight: 1.5 }}>
               {analysis.headlineIcon} {headlineNum != null ? `${shownHeadline}${analysis.headlineSuffix ?? ""} · ` : ""}{analysis.headlineText}
             </div>
@@ -158,34 +160,36 @@ export default function MyPageTopBeta({
       )}
 
       {/* 6) 설정 — 로그아웃 / 기기 인증 삭제 (기능 보존) */}
-      <Card style={{ overflow: "hidden" }}>
-        <button onClick={onLogout} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: `${S.lg}px ${S.xl}px`, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-          <span style={{ fontSize: 14, color: C.text2 }}>↩ 로그아웃</span>
-          <span style={{ fontSize: 16, color: C.text3 }}>›</span>
-        </button>
-        {onForgetDevice && (
-          <div style={{ borderTop: `1px solid ${C.bg}` }}>
-            {!showForgetConfirm ? (
-              <button onClick={() => setShowForgetConfirm(true)} style={{ width: "100%", textAlign: "left",
-                padding: `${S.md}px ${S.xl}px`, background: "none", border: "none", cursor: "pointer",
-                fontFamily: "inherit", fontSize: 12, color: C.text4 }}>이 기기 인증 삭제 (완전 로그아웃)</button>
-            ) : (
-              <div style={{ padding: S.lg }}>
-                <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: 10 }}>
-                  이 기기에 저장된 계정 목록과 전화번호 인증이 삭제됩니다.<br />다음 로그인 시 전화번호 인증을 다시 진행해야 합니다.
+      {showSettings && (
+        <Card style={{ overflow: "hidden" }}>
+          <button onClick={onLogout} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: `${S.lg}px ${S.xl}px`, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+            <span style={{ fontSize: 14, color: C.text2 }}>↩ 로그아웃</span>
+            <span style={{ fontSize: 16, color: C.text3 }}>›</span>
+          </button>
+          {onForgetDevice && (
+            <div style={{ borderTop: `1px solid ${C.bg}` }}>
+              {!showForgetConfirm ? (
+                <button onClick={() => setShowForgetConfirm(true)} style={{ width: "100%", textAlign: "left",
+                  padding: `${S.md}px ${S.xl}px`, background: "none", border: "none", cursor: "pointer",
+                  fontFamily: "inherit", fontSize: 12, color: C.text4 }}>이 기기 인증 삭제 (완전 로그아웃)</button>
+              ) : (
+                <div style={{ padding: S.lg }}>
+                  <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: 10 }}>
+                    이 기기에 저장된 계정 목록과 전화번호 인증이 삭제됩니다.<br />다음 로그인 시 전화번호 인증을 다시 진행해야 합니다.
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setShowForgetConfirm(false)} style={{ flex: 1, padding: "10px", background: C.surface,
+                      color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>취소</button>
+                    <button onClick={() => { setShowForgetConfirm(false); onForgetDevice(); }} style={{ flex: 1, padding: "10px",
+                      background: C.red, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>삭제하고 로그아웃</button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => setShowForgetConfirm(false)} style={{ flex: 1, padding: "10px", background: C.surface,
-                    color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>취소</button>
-                  <button onClick={() => { setShowForgetConfirm(false); onForgetDevice(); }} style={{ flex: 1, padding: "10px",
-                    background: C.red, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>삭제하고 로그아웃</button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
 
       {toast && (
         <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", background: "rgba(0,0,0,0.82)",
