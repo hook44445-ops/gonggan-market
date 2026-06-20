@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
 import { LogoMark } from "../components/common";
 
@@ -62,7 +63,7 @@ export default function AccountPicker({ users = [], busyId = null, onPick, onAdd
             const key = u.userId || `${u.phone}-${u.role}`;
             const busy = busyId && busyId === key;
             return (
-              <button key={key} onClick={() => { console.log("[GONGGAN_DEBUG][AccountPicker:click]", { userId: u?.userId ?? null, role: u?.role ?? null, phone: u?.phone ?? null, ownerId: u?.ownerId ?? null }); onPick?.(u); }} disabled={!!busyId}
+              <button key={key} onClick={() => { dlog("[GONGGAN_DEBUG][AccountPicker:click]", { userId: u?.userId ?? null, role: u?.role ?? null, phone: u?.phone ?? null, ownerId: u?.ownerId ?? null }); onPick?.(u); }} disabled={!!busyId}
                 style={{
                   background: C.surface, border: `1.5px solid ${C.bgWarm}`, borderRadius: R.xl,
                   padding: "16px 18px", display: "flex", alignItems: "center", gap: 14,

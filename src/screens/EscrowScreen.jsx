@@ -329,7 +329,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   }
   useEffect(() => {
     try {
-      console.log("[GONGGAN_DEBUG][EscrowScreen]", {
+      dlog("[GONGGAN_DEBUG][EscrowScreen]", {
         role: activeRole, request_id: request?.id ?? resolvedBid?.requestId ?? null,
         resolvedContractId, contract_request_id: contractData?.request_id ?? null, contract_company_id: contractData?.company_id ?? null,
         bid_id: resolvedBid?.id ?? null, bid_company_id: resolvedBid?.companyId ?? null,

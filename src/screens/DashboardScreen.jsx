@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S, SHADOW } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TempBadge, LeafSprig } from "../components/common";
@@ -110,7 +111,7 @@ const normalizeCompanyJob = ({ bid, request, escrow }) => {
     }); } catch {}
   }
   try {
-    console.log("[GONGGAN_DEBUG][EscrowAmount]", {
+    dlog("[GONGGAN_DEBUG][EscrowAmount]", {
       request_id: request?.id ?? null, status: reqStatus,
       displayAmount: total,
       source: _amountSource,

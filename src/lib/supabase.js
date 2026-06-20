@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { detectDirectDealKeywords } from "../constants/directDeal";
 import { SITE_VISIT_ESTIMATE_MS, SITE_VISIT_WARN_MS } from "../constants/policy";
 
@@ -193,7 +194,7 @@ export const getUserRequests = async (userId) => {
     .or("is_deleted.is.null,is_deleted.eq.false")
     .order("created_at", { ascending: false });
   try {
-    console.log("[GONGGAN_DEBUG][getUserRequests]", {
+    dlog("[GONGGAN_DEBUG][getUserRequests]", {
       userId, count: res.data?.length ?? 0, error: res.error?.message ?? null,
       rows: (res.data ?? []).map(r => ({
         id: r.id, status: r.status,
@@ -255,7 +256,7 @@ export const getBidsForRequest = (requestId) =>
 
 export const selectBid = async (bidId) => {
   const res = await supabase.from("bids").update({ selected: true }).eq("id", bidId);
-  try { console.log("[GONGGAN_DEBUG][selectBid]", { bidId, error: res.error?.message ?? null }); } catch {}
+  try { dlog("[GONGGAN_DEBUG][selectBid]", { bidId, error: res.error?.message ?? null }); } catch {}
   return res;
 };
 
@@ -1692,7 +1693,7 @@ export const getCompanyActiveJobs = async (companyId, extraIds = []) => {
   }));
 
   try {
-    console.log("[GONGGAN_DEBUG][getCompanyJobs]", {
+    dlog("[GONGGAN_DEBUG][getCompanyJobs]", {
       candidateIds, selectedBids: bids?.length ?? 0, selReqs: selReqs?.length ?? 0, escrows: escrows?.length ?? 0,
       jobs: jobs.map(j => ({
         request_id: j.request?.id, status: j.request?.status,
@@ -1727,7 +1728,7 @@ export const getCompanyStatus = (companyId) =>
 // ── STEP B: Escrow record creation ────────────────────────────────────────────
 
 export const createEscrowRecord = async (data) => {
-  console.log("[GONGGAN_DEBUG][createEscrow]", { requestId: data.requestId ?? null, companyId: data.companyId ?? null, totalAmount: data.totalAmount });
+  dlog("[GONGGAN_DEBUG][createEscrow]", { requestId: data.requestId ?? null, companyId: data.companyId ?? null, totalAmount: data.totalAmount });
   const res = await supabase.from("escrow_payments").insert({
     request_id:          data.requestId ?? null,
     company_id:          data.companyId ?? null,
@@ -1736,7 +1737,7 @@ export const createEscrowRecord = async (data) => {
     status:              "deposited",
     step1_deposited_at:  new Date().toISOString(),
   }).select().single();
-  try { console.log("[GONGGAN_DEBUG][createEscrow:result]", { id: res.data?.id ?? null, request_id: res.data?.request_id ?? null, company_id: res.data?.company_id ?? null, total_amount: res.data?.total_amount ?? null, error: res.error?.message ?? null }); } catch {}
+  try { dlog("[GONGGAN_DEBUG][createEscrow:result]", { id: res.data?.id ?? null, request_id: res.data?.request_id ?? null, company_id: res.data?.company_id ?? null, total_amount: res.data?.total_amount ?? null, error: res.error?.message ?? null }); } catch {}
   return res;
 };
 

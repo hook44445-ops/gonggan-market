@@ -985,7 +985,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     lastBiddableLogKeyRef.current = key;
     try {
       const bidSubmittedIds = new Set(submittedBids.map(b => b.requestId).filter(Boolean));
-      console.log("[GONGGAN_DEBUG][biddableRequests]", {
+      dlog("[GONGGAN_DEBUG][biddableRequests]", {
         currentCompanyId: companyId, ownerId,
         customerRequestsTotal: customerRequests.length,
         inProgressIds: [...inProgressRequestIds], activeJobIds: [...activeJobRequestIds],
@@ -1430,7 +1430,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         // 멀티패스가 비어도 강제포함(selected_company_id) 진행건은 노출.
         dev.forced_jobs = forcedJobs.length;
         dev.realInProgressIds = forcedJobs.map(j => j.request?.id).filter(Boolean).join(", ") || "none";
-        try { console.log("[GONGGAN_DEBUG][realInProgressIds]", { source: "forced_only", ids: forcedJobs.map(j => j.request?.id).filter(Boolean) }); } catch {}
+        try { dlog("[GONGGAN_DEBUG][realInProgressIds]", { source: "forced_only", ids: forcedJobs.map(j => j.request?.id).filter(Boolean) }); } catch {}
         setCompanyJobs(forcedJobs);
         setCompanyJobsDebug(dev);
         return;
@@ -1587,7 +1587,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       dev.request_statuses = (reqs ?? [])
         .map(r => `${r.id.slice(0,8)}:${r.status ?? "null"}`)
         .join(", ") || "none";
-      try { console.log("[GONGGAN_DEBUG][realInProgressIds]", { source: "merged", multipath: jobs.map(j => j.request?.id).filter(Boolean), forced: forcedJobs.map(j => j.request?.id).filter(Boolean), merged: mergedJobs.map(j => j.request?.id).filter(Boolean) }); } catch {}
+      try { dlog("[GONGGAN_DEBUG][realInProgressIds]", { source: "merged", multipath: jobs.map(j => j.request?.id).filter(Boolean), forced: forcedJobs.map(j => j.request?.id).filter(Boolean), merged: mergedJobs.map(j => j.request?.id).filter(Boolean) }); } catch {}
       setCompanyJobs(mergedJobs);
       setCompanyJobsDebug(dev);
     };
@@ -3329,7 +3329,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         if (!svId) { showToast("현장견적 요청 정보를 찾을 수 없어요", false); return; }
                         respondSiteVisit(svId, actionType === "accept" ? "accept" : "reject", user?.id ?? null)
                           .then(({ error }) => {
-                            if (SHOW_DEBUG_UI) console.log("[GONGGAN_DEBUG][siteVisitRespond]", { svId, action: actionType, error: error?.message ?? null });
+                            if (SHOW_DEBUG_UI) dlog("[GONGGAN_DEBUG][siteVisitRespond]", { svId, action: actionType, error: error?.message ?? null });
                             if (error) { showToast("처리 실패: " + error.message, false); return; }
                             showToast(actionType === "accept" ? "현장견적을 수락했어요" : "현장견적을 거절했어요");
                             setEscrowRefreshTrigger(t => t + 1);
@@ -4432,7 +4432,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         const inProgress = myRequests.filter(r => isRequestInProgress(r, myRequestsEscrow[r.id] ?? null)).length;
                         const completed  = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null)).length;
                         try {
-                          console.log("[GONGGAN_DEBUG][getUserRequests:classify]", {
+                          dlog("[GONGGAN_DEBUG][getUserRequests:classify]", {
                             counts: { 견적요청: openCount, 진행중: inProgress, 완료: completed }, total: myRequests.length,
                             rows: myRequests.map(r => {
                               const ed = myRequestsEscrow[r.id] ?? null;
