@@ -4582,6 +4582,43 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               )}
             </div>
 
+            {/* 라운지 — 공간온도 · 토큰 · 알림설정 (FAQ 다음, 로그아웃 이전으로 위치 조정) */}
+            <LoungeMyPageSection
+              user={user}
+              temperature={temperature}
+              balance={tokenBalance}
+              tokenLogs={tokenLogs}
+              myPosts={localLoungePosts}
+              refreshKey={myPostsRefreshKey}
+              onNavigate={(target) => {
+                if (target === "token-store")        { requireAuth(() => go("token-store")); }
+                else if (target === "token-history") { requireAuth(() => go("token-history")); }
+              }}
+              onOpenLoungeChat={(req) => requireAuth(() => {
+                // room_id = lounge_{lounge_chat_request_id} — 기존 chats 재사용 (신규 테이블 없음)
+                setLoungeChat({
+                  roomId: `lounge_${req.requestId}`,
+                  partner: {
+                    userId:    req.partnerId,
+                    nickname:  getAnonymousNickname(req.partnerId, req.postId),
+                    postId:    req.postId,
+                    postTitle: req.postTitle,
+                    requestId: req.requestId,
+                  },
+                });
+                go("lounge-chat");
+              })}
+              onEditPost={(post) => {
+                setEditingLoungePost(post);
+                setEditOriginScreen('my');
+                go("lounge-edit");
+              }}
+              onDeletePost={(id) => {
+                setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
+                if (loungePost?.id === id) setLoungePost(null);
+              }}
+            />
+
             {/* 설정 — 로그아웃 / 기기 인증 삭제 (도움말 다음, 앱 정보 이전 — 중요도 하향) */}
             <div style={{ background: C.bg, borderRadius: R.xl, overflow: "hidden", marginBottom: S.lg }}>
               <button onClick={onLogout} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -4773,42 +4810,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 </div>
               );
             })()}
-
-            <LoungeMyPageSection
-              user={user}
-              temperature={temperature}
-              balance={tokenBalance}
-              tokenLogs={tokenLogs}
-              myPosts={localLoungePosts}
-              refreshKey={myPostsRefreshKey}
-              onNavigate={(target) => {
-                if (target === "token-store")        { requireAuth(() => go("token-store")); }
-                else if (target === "token-history") { requireAuth(() => go("token-history")); }
-              }}
-              onOpenLoungeChat={(req) => requireAuth(() => {
-                // room_id = lounge_{lounge_chat_request_id} — 기존 chats 재사용 (신규 테이블 없음)
-                setLoungeChat({
-                  roomId: `lounge_${req.requestId}`,
-                  partner: {
-                    userId:    req.partnerId,
-                    nickname:  getAnonymousNickname(req.partnerId, req.postId),
-                    postId:    req.postId,
-                    postTitle: req.postTitle,
-                    requestId: req.requestId,
-                  },
-                });
-                go("lounge-chat");
-              })}
-              onEditPost={(post) => {
-                setEditingLoungePost(post);
-                setEditOriginScreen('my');
-                go("lounge-edit");
-              }}
-              onDeletePost={(id) => {
-                setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
-                if (loungePost?.id === id) setLoungePost(null);
-              }}
-            />
 
             {activeRole==="consumer" && (
               <OwnershipHistory
