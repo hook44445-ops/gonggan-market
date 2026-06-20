@@ -561,6 +561,17 @@ export const getReviewByRequest = (requestId) =>
     .limit(1)
     .maybeSingle();
 
+// 의뢰인이 '작성한' 후기 목록 — 작성자(user_id) 기준으로 조회한다.
+// (업체 공개 후기 getReviews(company_id) 와 달리, 조회 대상은 '내가 쓴 리뷰'이다.)
+// 업체명/프로젝트명 표시를 위해 companies·requests 를 임베드한다. 소프트삭제분 제외.
+export const getReviewsByUser = (userId) =>
+  supabase
+    .from("reviews")
+    .select("*, companies(name, owner_id), requests(space_type, area, size)")
+    .eq("user_id", userId)
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .order("created_at", { ascending: false });
+
 export const createReviewReward = (data) =>
   supabase.from("review_rewards").insert(data).select().single();
 
