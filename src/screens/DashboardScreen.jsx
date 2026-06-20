@@ -13,7 +13,7 @@ import LevelUpOverlay from "../components/growth/LevelUpOverlay";  // Phase 11 �
 import AchievementToast from "../components/growth/AchievementToast"; // Phase 12 — 업적 토스트(Add Only)
 import AchievementGrid from "../components/growth/AchievementGrid";   // Phase 12 — 업적 현황(Add Only)
 import GrowthStatsPanel from "../components/growth/GrowthStatsPanel"; // Phase 13 — 성장 통계(Add Only)
-import { computeCompanyXp, levelInfo } from "../constants/growth";
+import { deriveLevel } from "../components/company/CompanyMetrics";
 import { earnedAchievements, ACHIEVEMENTS } from "../constants/growthPlus";
 import { getStreak, getSeenAchievements, markAchievementsSeen, getLastSeenLevel, setLastSeenLevel } from "../utils/growthStore";
 import { getMembershipRateByCreatedAt } from "../utils/calculations";
@@ -238,16 +238,10 @@ export default function DashboardScreen({
   // 공간멤버십파트너 수수료율 — companies.created_at 기준 (0/2.2/4.4%)
   const membershipRate  = getMembershipRateByCreatedAt(currentUser?.created_at);
 
-  // 업체 성장(Level+XP) — 표시 전용. 대시보드가 이미 보유한 집계에서 XP 파생(DB 쓰기 없음).
-  //   공간온도/추천업체 로직과 완전 분리. XP/레벨은 감소하지 않는다.
-  const hasGuarantee = currentUser?.guarantee_status === "ACTIVE" || !!currentUser?.guarantee_grade;
-  const companyXp = computeCompanyXp({
-    completedCount,
-    reviewCount,
-    activeCount: activeJobs.length,
-    hasGuarantee,
-  });
-  const growth = levelInfo(companyXp);
+  // 업체 성장(Level+XP) — 표시 전용. 공간온도/추천업체 로직과 완전 분리. XP/레벨은 감소하지 않는다.
+  //   H-2: 레벨 입력 통일 — 업체카드/상세/마이페이지와 동일하게 공유 deriveLevel(본인 업체) 사용.
+  //   (계산식 변경 없음 · computeCompanyXp 입력만 단일화. 업적 판정용 growthStats 는 기존 집계 유지.)
+  const growth = deriveLevel(currentUser ?? {});
 
   // 업적 판정용 집계 — 기존 데이터에서 파생(읽기 전용). 집계 없는 지표는 미달성 유지.
   const growthStats = {
