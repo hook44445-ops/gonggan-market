@@ -4352,7 +4352,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     // 업체 공개 후기 화면(ReviewScreen)을 재사용하지 않는다.
                     // '리뷰 작성하기'(미작성)는 기존대로 작성 화면(ReviewScreen)으로 이동.
                     return reviewed
-                      ? { label: "최근 완료", title, sub: "리뷰 작성이 완료되었습니다.", cta: { label: "내 리뷰 보기", onClick: () => { console.log("[REVIEW_NAV] '내 리뷰 보기' clicked → setScreen('my-reviews')"); setScreen("my-reviews"); } } }
+                      ? { label: "최근 완료", title, cta: { label: "내 리뷰 보기", onClick: () => { console.log("[REVIEW_NAV] '내 리뷰 보기' clicked → setScreen('my-reviews')"); setScreen("my-reviews"); } } }
                       : { label: "최근 완료", title, sub: "아직 리뷰를 작성하지 않았습니다.", cta: { label: "리뷰 작성하기", onClick: openReview } };
                   }
                   return null;
