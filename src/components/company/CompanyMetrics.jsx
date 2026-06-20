@@ -20,16 +20,17 @@ export function deriveLevel(company = {}) {
 }
 
 // 비교 핵심 지표 3종 — 아이콘/숫자/라벨 크기·위치·높이 완전 통일.
-export function CompanyKpiTiles({ company = {}, marginTop = S.lg }) {
+//   tiles 를 넘기면 해당 항목을 그대로 렌더(상세 Hero 등에서 재사용 · 스타일 동일).
+export function CompanyKpiTiles({ company = {}, marginTop = S.lg, tiles }) {
   const rating = company.rating > 0 ? company.rating.toFixed(1) : "0.0";
-  const tiles = [
+  const resolved = tiles ?? [
     { icon: "⭐", value: rating,                          label: "후기" },
     { icon: "🏗", value: `${company.completedJobs ?? 0}`, label: "시공" },
     { icon: "⚡", value: responseValue(company),           label: "응답" },
   ];
   return (
     <div style={{ display: "flex", gap: S.sm, marginTop }}>
-      {tiles.map((t, i) => (
+      {resolved.map((t, i) => (
         <div key={i} style={{
           flex: "1 1 0", minWidth: 0, height: 66, boxSizing: "border-box",
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
