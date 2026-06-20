@@ -20,6 +20,7 @@ import { UX_BETA } from "../constants/release";
 const CompanyCard = UX_BETA ? CompanyCardBeta : CompanyCardOriginal;
 import PortfolioScreen from "../screens/PortfolioScreen";
 import PortfolioScreenBeta from "../screens/PortfolioScreenBeta"; // UX Beta 업체 상세(공개/고객 뷰 · Add Only)
+import MyPageTopBeta from "./MyPageTopBeta"; // UX Beta 마이페이지 상단(Add Only)
 import ReviewScreen from "../screens/ReviewScreen";
 import ChatScreen from "../screens/ChatScreen";
 import EscrowScreen from "../screens/EscrowScreen";
@@ -4218,6 +4219,41 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
         {screen==="my" && (
           <div>
+            {UX_BETA ? (
+              <MyPageTopBeta
+                name={user.name}
+                avatarChar={user.name?.[0] ?? "?"}
+                metaText={`${user.region ?? ""} · ${activeRole === "consumer" ? "의뢰인" : "검증 업체"}`}
+                roleLabel={activeRole === "consumer" ? "공간사이 회원" : "공간사이 파트너"}
+                verified={!!user.verified}
+                gradeChip={activeRole === "consumer" ? (() => { const gr = calcCustomerGrade(user.completedJobs ?? 0); return { icon: gr.icon, label: gr.label }; })() : null}
+                stats={activeRole === "consumer"
+                  ? (() => {
+                      const o = myRequests.filter(r => isRequestOpenForQuotes(r, myRequestsEscrow[r.id] ?? null)).length;
+                      const p = myRequests.filter(r => isRequestInProgress(r, myRequestsEscrow[r.id] ?? null)).length;
+                      const c = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null)).length;
+                      return [[`${o}`, "견적 요청"], [`${p}`, "진행중"], [`${c}`, "완료"]];
+                    })()
+                  : [["3", "낙찰"], ["84", "후기"], [`${currentUser?.temp ?? 36.5}°`, "공간온도"]]}
+                trust={activeRole === "consumer" && customerTrust?.score != null ? customerTrust : null}
+                cards={activeRole === "consumer"
+                  ? [
+                      { icon: "📋", label: "내 견적", onClick: () => setScreen("timeline") },
+                      { icon: "♥", label: "저장 업체", onClick: () => setScreen("favorites") },
+                      { icon: "📝", label: "라운지", onClick: () => go("lounge") },
+                    ]
+                  : [
+                      { icon: "📊", label: "대시보드", onClick: () => go("dashboard") },
+                      { icon: "📝", label: "라운지", onClick: () => go("lounge") },
+                      { icon: "⭐", label: "내 업체", onClick: () => (companies?.[0] ? go("portfolio", companies[0]) : go("dashboard")) },
+                    ]}
+                onLogout={onLogout}
+                onForgetDevice={onForgetDevice}
+                showForgetConfirm={showForgetConfirm}
+                setShowForgetConfirm={setShowForgetConfirm}
+              />
+            ) : (
+            <>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
               <div>
@@ -4337,6 +4373,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 )}
               </div>
             </div>
+            </>
+            )}
 
             {/* 저장한 업체 (위시리스트) — 고객 전용 */}
             {activeRole === "consumer" && (
