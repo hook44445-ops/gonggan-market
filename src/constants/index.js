@@ -104,7 +104,7 @@ export const CUSTOMER_GRADES = [
   { id:"새집",      icon:"🏠", label:"새집",      minJobs:0, benefits:["견적 요청 무제한","업체 채팅 가능","리뷰 작성 가능"] },
   { id:"우리집",    icon:"🏡", label:"우리집",    minJobs:1, benefits:["우선 알림 서비스","리뷰 가중치 +10%","재계약 업체 즐겨찾기"] },
   { id:"드림하우스",icon:"🏰", label:"드림하우스",minJobs:3, benefits:["전담 매니저 배정","긴급 요청 우선 처리","인증 리뷰어 배지"] },
-  { id:"홈마스터",  icon:"👑", label:"홈마스터",  minJobs:5, benefits:["VIP 상단 노출","공간멤버십파트너 이용수수료 우대","전용 고객 채널"] },
+  { id:"홈스타일러",icon:"👑", label:"홈스타일러",minJobs:5, benefits:["VIP 상단 노출","공간멤버십파트너 이용수수료 우대","전용 고객 채널"] },
 ];
 
 export const calcCustomerGrade = (completedJobs = 0) => {
