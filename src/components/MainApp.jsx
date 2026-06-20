@@ -2068,6 +2068,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       sentTargetIds: (sentRes.data ?? []).map(r => r.target_id),
       recvError: recvRes.error?.message ?? null,
     });
+    // 조용한 빈 목록 방지(승인된 surface 처리) — 쿼리 에러(스키마 컬럼 누락/RLS/네트워크)는
+    // 항상 콘솔에 표면화한다. 과거에는 error 를 빈 배열로 흡수해 "받은 신청 0건"으로만 보였다.
+    if (sentRes.error || recvRes.error || acceptedRes.error) {
+      console.error("[LOUNGE_CHAT] 대화 목록 조회 오류 — 빈 목록은 데이터 없음이 아니라 쿼리 실패일 수 있음", {
+        sent:     sentRes.error?.message ?? null,
+        received: recvRes.error?.message ?? null,
+        accepted: acceptedRes.error?.message ?? null,
+      });
+    }
     setLoungeSentReqs(sentRes.data ?? []);
     setLoungeReceivedReqs(recvRes.data ?? []);
     setLoungeAcceptedReqs(acceptedRes.data ?? []);
