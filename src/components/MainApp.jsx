@@ -533,6 +533,32 @@ function FavEmptyState({ title, desc, onGo }) {
   );
 }
 
+// 마이페이지 "도움말 · 고객센터" FAQ — 기본 5개만 노출(faqExpanded=false), "더보기"로 전체 노출
+const FAQ_ITEMS = [
+  { q: "에스크로 결제란 무엇인가요?",
+    a: "공사비를 공간마켓이 안전하게 보관하고, 착공·중간·완료 단계를 확인할 때마다 업체에 나눠 지급하는 안전결제 방식입니다. 고객은 단계별로 직접 승인합니다." },
+  { q: "시공에 문제가 생기면 어떻게 하나요?",
+    a: "각 단계 승인 화면에서 ‘이의 제기’로 보류할 수 있어요. 사진·대화·계약 기록이 모두 저장되며, 분쟁 시 관리자가 검토해 중재합니다." },
+  { q: "환불은 어떻게 받나요?",
+    a: "아직 지급되지 않은 예치금은 환불 대상입니다. 단계 미승인 상태의 잔여 금액은 관리자 검토 후 결제 수단으로 환불됩니다." },
+  { q: "공사가 중단되면 어떻게 되나요?",
+    a: "지급되지 않은 금액은 분쟁 검토 후 환불 또는 정산 처리됩니다. 채팅·사진·GPS 기록을 기준으로 검토합니다." },
+  { q: "공간마켓 보호 범위가 무엇인가요?",
+    a: "공간안전결제로 진행하시면 토스페이먼츠 에스크로 보호, 단계별 정산, 계약서 보관, 분쟁 중재 지원이 모두 적용됩니다. 플랫폼 밖 거래는 보호 범위에 포함되지 않습니다.",
+    extra: <ProtectionNotice variant="full" /> },
+  { q: "분쟁이 생기면 어떻게 되나요?",
+    a: "공간마켓이 기록을 토대로 원만한 해결을 도와드립니다. 단, 공간마켓은 법적 판단을 내리는 기관이 아닙니다.",
+    extra: <DisputeNotice variant="full" /> },
+  { q: "강제로 환불받을 수 있나요?",
+    a: "공간마켓은 강제 환불을 집행하는 기관이 아닙니다. 양측 합의를 통한 환불 협의를 도와드립니다. 에스크로 정산 보류는 가능합니다." },
+  { q: "공사 품질이 마음에 안 들어요.",
+    a: "공간마켓은 공사 품질을 전문적으로 감정하는 기관이 아닙니다. 계약서와 시공 사진 기록을 토대로 업체와 협의를 도와드립니다." },
+  { q: "직접 업체와 거래하면 안 되나요?",
+    a: "거래 방식은 전적으로 고객님의 선택입니다. 다만 공간마켓의 보호와 기록은 공간안전결제를 통한 거래에서만 제공됩니다." },
+  { q: "고객센터 연락처",
+    a: "문의하기(아래 ‘문의하기’) 또는 이메일 help@gonggan.market 으로 연락주시면 순차적으로 도와드립니다." },
+];
+
 export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
   const mode = activeRole === "company" ? "company" : activeRole === "admin" ? "admin" : "consumer";
@@ -620,6 +646,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [estimateJob, setEstimateJob] = useState(null);
   const [termsDocType, setTermsDocType] = useState(null);
   const [consentGateConfig, setConsentGateConfig] = useState(null);
+
+  // 마이페이지 도움말 FAQ — 기본 5개만 노출, "더보기"로 전체 펼침
+  const [faqExpanded, setFaqExpanded] = useState(false);
 
   // Admin hidden entry
   const [adminTapCount, setAdminTapCount] = useState(0);
@@ -4272,7 +4301,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 })()}
                 analysis={activeRole !== "company" ? null : (() => {
                   const co = companies?.[0] ?? {}; const t = co.temp ?? 36.5;
-                  return { title: "AI 업체 리포트",
+                  return { title: "내 업체 리포트",
                     headlineIcon: "🏆", headlineText: `${GRADE(t).label} 등급 · 성장 레벨 Lv.${deriveLevel(co).level}`,
                     rows: [
                       { icon: "★", label: "평균 평점", value: co.rating > 0 ? co.rating.toFixed(1) : "—" },
@@ -4287,6 +4316,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 onForgetDevice={onForgetDevice}
                 showForgetConfirm={showForgetConfirm}
                 setShowForgetConfirm={setShowForgetConfirm}
+                showSettings={false}
               />
             ) : (
             <>
@@ -4412,6 +4442,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </>
             )}
 
+            {/* 공간뱃지 예치보증 — 내 업체 리포트 바로 아래(업체 핵심 신뢰 정보는 상단에서 확인) */}
+            {activeRole === "company" && (
+              <div style={{ marginBottom: S.lg }}>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🛡️ 공간뱃지예치보증금 현황</div>
+                <CompanyDepositCard
+                  badge={currentUser?.badge ?? user.badge ?? "standard"}
+                  hasInsurance={currentUser?.hasInsurance ?? user.insurance ?? false}
+                />
+              </div>
+            )}
+
             {/* 저장한 업체 (위시리스트) — 고객 전용. UX_BETA 에선 상단 '저장 업체'와 중복이라 숨김 */}
             {!UX_BETA && activeRole === "consumer" && (
               <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.lg, border:`1px solid ${C.bgWarm}` }}>
@@ -4465,30 +4506,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {/* 도움말 — 에스크로/분쟁/환불 안내 (고객센터) */}
             <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.text3, marginBottom: S.sm }}>도움말 · 고객센터</div>
-              {[
-                { q: "에스크로 결제란 무엇인가요?",
-                  a: "공사비를 공간마켓이 안전하게 보관하고, 착공·중간·완료 단계를 확인할 때마다 업체에 나눠 지급하는 안전결제 방식입니다. 고객은 단계별로 직접 승인합니다." },
-                { q: "시공에 문제가 생기면 어떻게 하나요?",
-                  a: "각 단계 승인 화면에서 ‘이의 제기’로 보류할 수 있어요. 사진·대화·계약 기록이 모두 저장되며, 분쟁 시 관리자가 검토해 중재합니다." },
-                { q: "환불은 어떻게 받나요?",
-                  a: "아직 지급되지 않은 예치금은 환불 대상입니다. 단계 미승인 상태의 잔여 금액은 관리자 검토 후 결제 수단으로 환불됩니다." },
-                { q: "공사가 중단되면 어떻게 되나요?",
-                  a: "지급되지 않은 금액은 분쟁 검토 후 환불 또는 정산 처리됩니다. 채팅·사진·GPS 기록을 기준으로 검토합니다." },
-                { q: "공간마켓 보호 범위가 무엇인가요?",
-                  a: "공간안전결제로 진행하시면 토스페이먼츠 에스크로 보호, 단계별 정산, 계약서 보관, 분쟁 중재 지원이 모두 적용됩니다. 플랫폼 밖 거래는 보호 범위에 포함되지 않습니다.",
-                  extra: <ProtectionNotice variant="full" /> },
-                { q: "분쟁이 생기면 어떻게 되나요?",
-                  a: "공간마켓이 기록을 토대로 원만한 해결을 도와드립니다. 단, 공간마켓은 법적 판단을 내리는 기관이 아닙니다.",
-                  extra: <DisputeNotice variant="full" /> },
-                { q: "강제로 환불받을 수 있나요?",
-                  a: "공간마켓은 강제 환불을 집행하는 기관이 아닙니다. 양측 합의를 통한 환불 협의를 도와드립니다. 에스크로 정산 보류는 가능합니다." },
-                { q: "공사 품질이 마음에 안 들어요.",
-                  a: "공간마켓은 공사 품질을 전문적으로 감정하는 기관이 아닙니다. 계약서와 시공 사진 기록을 토대로 업체와 협의를 도와드립니다." },
-                { q: "직접 업체와 거래하면 안 되나요?",
-                  a: "거래 방식은 전적으로 고객님의 선택입니다. 다만 공간마켓의 보호와 기록은 공간안전결제를 통한 거래에서만 제공됩니다." },
-                { q: "고객센터 연락처",
-                  a: "문의하기(아래 ‘문의하기’) 또는 이메일 help@gonggan.market 으로 연락주시면 순차적으로 도와드립니다." },
-              ].map(({ q, a, extra }) => (
+              {(faqExpanded ? FAQ_ITEMS : FAQ_ITEMS.slice(0, 5)).map(({ q, a, extra }) => (
                 <details key={q} style={{ borderBottom: `1px solid ${C.bg}`, padding: `${S.sm}px 0` }}>
                   <summary style={{ fontSize: 14, color: C.text2, cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>❔ {q}</span><span style={{ fontSize: 16, color: C.text3 }}>›</span>
@@ -4497,6 +4515,43 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   {extra && <div style={{ marginTop: S.sm }}>{extra}</div>}
                 </details>
               ))}
+              {!faqExpanded && FAQ_ITEMS.length > 5 && (
+                <button onClick={() => setFaqExpanded(true)} style={{ width: "100%", marginTop: S.sm, padding: "10px 0",
+                  background: "none", border: "none", cursor: "pointer", fontFamily: "inherit",
+                  fontSize: 13, fontWeight: 700, color: C.text3 }}>
+                  더보기 ⌵
+                </button>
+              )}
+            </div>
+
+            {/* 설정 — 로그아웃 / 기기 인증 삭제 (도움말 다음, 앱 정보 이전 — 중요도 하향) */}
+            <div style={{ background: C.bg, borderRadius: R.xl, overflow: "hidden", marginBottom: S.lg }}>
+              <button onClick={onLogout} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: `${S.md}px ${S.lg}px`, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                <span style={{ fontSize: 13, color: C.text3 }}>↩ 로그아웃</span>
+                <span style={{ fontSize: 15, color: C.text4 }}>›</span>
+              </button>
+              {onForgetDevice && (
+                <div style={{ borderTop: `1px solid ${C.bgWarm}` }}>
+                  {!showForgetConfirm ? (
+                    <button onClick={() => setShowForgetConfirm(true)} style={{ width: "100%", textAlign: "left",
+                      padding: `${S.sm}px ${S.lg}px`, background: "none", border: "none", cursor: "pointer",
+                      fontFamily: "inherit", fontSize: 11.5, color: C.text4 }}>이 기기 인증 삭제 (완전 로그아웃)</button>
+                  ) : (
+                    <div style={{ padding: S.lg }}>
+                      <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: 10 }}>
+                        이 기기에 저장된 계정 목록과 전화번호 인증이 삭제됩니다.<br />다음 로그인 시 전화번호 인증을 다시 진행해야 합니다.
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => setShowForgetConfirm(false)} style={{ flex: 1, padding: "10px", background: C.surface,
+                          color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>취소</button>
+                        <button onClick={() => { setShowForgetConfirm(false); onForgetDevice(); }} style={{ flex: 1, padding: "10px",
+                          background: C.red, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>삭제하고 로그아웃</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 앱 정보 / 약관 — 경량 Footer (Apple Settings 느낌 · 문의→개인정보→약관 순) */}
@@ -4519,32 +4574,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               <div style={{ fontSize: 11, color: C.text4, marginTop: S.sm }}>토큰 결제는 준비 중입니다.</div>
             </div>
 
-            <div style={{ textAlign: "center", marginTop: S.lg }}>
-              <div
-                onClick={() => {
-                  const next = adminTapCount + 1;
-                  setAdminTapCount(next);
-                  if (next >= 5) {
-                    setAdminTapCount(0);
-                    setShowAdminCodeModal(true);
-                  }
-                }}
-                style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
-                공간마켓 v1.0.0
-              </div>
-            </div>
-
-            {/* 사업자 정보 푸터 — 토스 PG 심사용(로그인 후 메인 하단에도 노출) */}
-            <AppFooter />
-
             {activeRole==="company" && (
               <div>
-                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🛡️ 공간뱃지예치보증금 현황</div>
-                <CompanyDepositCard
-                  badge={currentUser?.badge ?? user.badge ?? "standard"}
-                  hasInsurance={currentUser?.hasInsurance ?? user.insurance ?? false}
-                />
-                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.md, border:`1px solid ${C.bgWarm}` }}>
+                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, border:`1px solid ${C.bgWarm}` }}>
                   <div onClick={() => setScreen("document-center")}
                     style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer" }}>
                     <span style={{ fontSize:14, color:C.text1, fontWeight:600 }}>📁 서류 관리</span>
@@ -4780,6 +4812,23 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 })}
               </div>
             )}
+
+            {/* 앱 버전 · 사업자 정보 — 법적 정보이므로 마이페이지 최하단에 배치 */}
+            <div style={{ textAlign: "center", marginTop: 40, marginBottom: 32 }}>
+              <div
+                onClick={() => {
+                  const next = adminTapCount + 1;
+                  setAdminTapCount(next);
+                  if (next >= 5) {
+                    setAdminTapCount(0);
+                    setShowAdminCodeModal(true);
+                  }
+                }}
+                style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
+                공간마켓 v1.0.0
+              </div>
+            </div>
+            <AppFooter />
           </div>
         )}
       </div>
