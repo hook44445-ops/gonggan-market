@@ -4319,8 +4319,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     };
                     const title = dn.type ?? dn.area ?? "시공";
                     return dn.hasReview
-                      ? { label: "최근 완료", title, sub: "리뷰 작성 완료 · 감사합니다", cta: { label: "리뷰 보기", onClick: openReview } }
-                      : { label: "최근 완료", title, sub: "공사가 완료되었어요 · 후기를 남겨주세요", cta: { label: "리뷰 작성하기", onClick: openReview } };
+                      ? { label: "최근 완료", title, sub: "리뷰를 작성해주셔서 감사합니다.", cta: { label: "내 리뷰 보기", onClick: openReview } }
+                      : { label: "최근 완료", title, sub: "아직 리뷰를 작성하지 않았습니다.", cta: { label: "리뷰 작성하기", onClick: openReview } };
                   }
                   return null;
                 })()}
