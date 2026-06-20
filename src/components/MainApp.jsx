@@ -42,6 +42,8 @@ import TokenStoreScreen from "../screens/TokenStoreScreen";
 import TokenHistoryScreen from "../screens/TokenHistoryScreen";
 import DocumentCenterScreen from "../screens/DocumentCenterScreen";
 import TermsModal from "./TermsModal";
+import BusinessInfoModal from "./BusinessInfoModal";
+import AppInfoModal from "./AppInfoModal";
 import ConsentGate, { hasConsented } from "./ConsentGate";
 import BidCard from "./BidCard";
 import ImageViewerModal from "./ImageViewerModal";
@@ -645,6 +647,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [siteVisitJob, setSiteVisitJob] = useState(null);
   const [estimateJob, setEstimateJob] = useState(null);
   const [termsDocType, setTermsDocType] = useState(null);
+  const [showBusinessInfo, setShowBusinessInfo] = useState(false);
+  const [showAppInfo, setShowAppInfo] = useState(false);
   const [consentGateConfig, setConsentGateConfig] = useState(null);
 
   // 마이페이지 도움말 FAQ — 기본 5개만 노출, "더보기"로 전체 펼침
@@ -4583,15 +4587,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ background: "transparent", padding: `${S.md}px 4px 0`, marginBottom: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.text4, margin: `${S.md}px 0 2px` }}>앱 정보</div>
               {[
-                { label: "문의하기",                docType: null },
-                { label: "개인정보처리방침",         docType: "privacy_policy" },
-                { label: "이용약관",                docType: "service_terms" },
-                { label: "위치기반서비스 이용약관",   docType: "location_terms" },
-                { label: "고객 거래 유의사항",        docType: "customer_transaction_notice" },
-                ...(activeRole === "company" ? [{ label: "업체 운영 준수서약", docType: "operation_pledge" }] : []),
-              ].map(({ label, docType }) => (
+                { label: "문의하기",                onClick: () => showToast("준비 중입니다") },
+                { label: "개인정보처리방침",         onClick: () => setTermsDocType("privacy_policy") },
+                { label: "이용약관",                onClick: () => setTermsDocType("service_terms") },
+                { label: "위치기반서비스 이용약관",   onClick: () => setTermsDocType("location_terms") },
+                { label: "고객 거래 유의사항",        onClick: () => setTermsDocType("customer_transaction_notice") },
+                ...(activeRole === "company" ? [{ label: "업체 운영 준수서약", onClick: () => setTermsDocType("operation_pledge") }] : []),
+                { label: "사업자정보",              onClick: () => setShowBusinessInfo(true) },
+                { label: "앱 정보",                 onClick: () => setShowAppInfo(true) },
+              ].map(({ label, onClick }) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.bg}`, cursor: "pointer" }}
-                  onClick={() => docType ? setTermsDocType(docType) : showToast("준비 중입니다")}>
+                  onClick={onClick}>
                   <span style={{ fontSize: 13, color: C.text3 }}>{label}</span>
                   <span style={{ fontSize: 15, color: C.text4 }}>›</span>
                 </div>
@@ -4683,12 +4689,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       <span style={{ fontSize:11, color:C.text3 }}>다음 등급까지 {nextGrade - (user.completedJobs ?? 0)}건</span>
                     )}
                   </div>
-                  <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:S.md }}>
-                    {grade.benefits.map(b => (
-                      <span key={b} style={{ background:C.brandL, color:C.brand, borderRadius:R.full,
-                        padding:"3px 10px", fontSize:11, fontWeight:700 }}>✓ {b}</span>
-                    ))}
-                  </div>
                   <div style={{ display:"flex", gap:4 }}>
                     {[0,1,3,5].map((threshold, i) => {
                       const done = (user.completedJobs ?? 0) >= threshold || threshold === 0;
@@ -4699,7 +4699,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     })}
                   </div>
                   <div style={{ fontSize:11, color:C.text3, marginTop:S.sm }}>
-                    완료 {user.completedJobs ?? 0}건 · 새집 → 우리집(1건) → 드림하우스(3건) → 홈마스터(5건)
+                    완료 {user.completedJobs ?? 0}건 · 새집 → 우리집(1건) → 드림하우스(3건) → 홈스타일러(5건)
                   </div>
                 </div>
               );
@@ -5280,6 +5280,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       )}
 
       {termsDocType && <TermsModal docType={termsDocType} onClose={() => setTermsDocType(null)} />}
+      {showBusinessInfo && <BusinessInfoModal onClose={() => setShowBusinessInfo(false)} />}
+      {showAppInfo && <AppInfoModal onClose={() => setShowAppInfo(false)} />}
       {consentGateConfig && (
         <ConsentGate
           requiredTypes={consentGateConfig.types}
