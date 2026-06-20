@@ -4,6 +4,7 @@ import { SHOW_DEBUG_UI } from "../constants/release";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { LeafSprig } from "../components/common";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
+import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
@@ -367,6 +368,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
   // Per-stage photo upload
   const [stagePhotos, setStagePhotos] = useState({ 3: [], 4: [], 5: [] });
+  const [photoViewer, setPhotoViewer] = useState(null); // QA: 단계 사진 확대보기 { images, index }
   const [uploadingStage, setUploadingStage] = useState(null);
   const [reportingStage, setReportingStage] = useState(null);
   const [reportError, setReportError] = useState(null);
@@ -1189,6 +1191,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     //    계약 row 존재(결제 전). 최종견적 폼/착공 폼 모두 미노출.
     return (
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+        {photoViewer && (
+          <ImageViewerModal images={photoViewer.images} startIndex={photoViewer.index} onClose={() => setPhotoViewer(null)} />
+        )}
         <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
           <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>에스크로 안전 정산</div>
@@ -1636,7 +1641,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       {photos.length > 0 && (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm, marginBottom: S.sm }}>
                           {photos.map((src, pi) => (
-                            <div key={src} style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}`, aspectRatio: "1" }}>
+                            <div key={src} onClick={() => setPhotoViewer({ images: photos, index: pi })}
+                              style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}`, aspectRatio: "1", cursor: "zoom-in" }}>
                               <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                             </div>
                           ))}
@@ -1669,7 +1675,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       {photos.length > 0 && (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.md }}>
                           {photos.map((src, pi) => (
-                            <div key={src} style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.brandM}`, aspectRatio: "4/3" }}>
+                            <div key={src} onClick={() => setPhotoViewer({ images: photos, index: pi })}
+                              style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.brandM}`, aspectRatio: "4/3", cursor: "zoom-in" }}>
                               <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                             </div>
                           ))}
