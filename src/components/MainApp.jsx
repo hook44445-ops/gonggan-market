@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
+import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TOKEN_COSTS } from "../constants/lounge";
@@ -2896,7 +2897,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                       ))}
                                     </div>
                                   )}
-                                  <button onClick={() => { console.log("[GONGGAN_DIAG][homeCard:nav]", { reqId: r.id, status: r.status, action: stage?.action ?? null, bidCount: r.bidCount ?? 0, to: "bidstatus" }); setBidViewRequestId(r.id); setScreen("bidstatus"); }}
+                                  <button onClick={() => { dlog("[GONGGAN_DIAG][homeCard:nav]", { reqId: r.id, status: r.status, action: stage?.action ?? null, bidCount: r.bidCount ?? 0, to: "bidstatus" }); setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                                     style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff",
                                       border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer",
                                       boxShadow:`0 3px 12px ${C.brand}44` }}>
