@@ -34,7 +34,7 @@ function relTime(iso) {
   } catch { return ""; }
 }
 
-const PREVIEW_COUNT = 5;
+const PREVIEW_COUNT = 2; // 마이페이지 알림함 미리보기 2개(나머지는 '더보기'). UI 표시 전용.
 
 export default function NotificationInbox({ user }) {
   const userId = user?.id ?? null;
