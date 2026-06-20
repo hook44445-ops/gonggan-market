@@ -19,6 +19,7 @@ import { UX_BETA } from "../constants/release";
 // UX 편의성 고도화 Beta — 표현만 개선(props/로직 동일). UX_BETA=false 면 원본 즉시 복구.
 const CompanyCard = UX_BETA ? CompanyCardBeta : CompanyCardOriginal;
 import PortfolioScreen from "../screens/PortfolioScreen";
+import PortfolioScreenBeta from "../screens/PortfolioScreenBeta"; // UX Beta 업체 상세(공개/고객 뷰 · Add Only)
 import ReviewScreen from "../screens/ReviewScreen";
 import ChatScreen from "../screens/ChatScreen";
 import EscrowScreen from "../screens/EscrowScreen";
@@ -3657,7 +3658,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           </div>
         )}
 
-        {screen==="portfolio" && selCo && <PortfolioScreen company={selCo} canManage={activeRole === "admin" || (activeRole === "company" && (currentUser?.id === selCo?.id || (currentUser?.ownerId != null && currentUser?.ownerId === selCo?.ownerId)))} onChat={c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c)} onReview={() => go("review",selCo)} onBack={() => setScreen("home")} onEscrow={() => go("escrow")} />}
+        {screen==="portfolio" && selCo && (() => {
+          const canManage = activeRole === "admin" || (activeRole === "company" && (currentUser?.id === selCo?.id || (currentUser?.ownerId != null && currentUser?.ownerId === selCo?.ownerId)));
+          const onChat = c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c);
+          const onReview = () => go("review",selCo);
+          const onBack = () => setScreen("home");
+          // UX Beta: 공개/고객 뷰는 프리미엄 상세, 업체 본인/관리자는 기존 관리 화면 유지.
+          return (UX_BETA && !canManage)
+            ? <PortfolioScreenBeta company={selCo} onChat={onChat} onReview={onReview} onBack={onBack} />
+            : <PortfolioScreen company={selCo} canManage={canManage} onChat={onChat} onReview={onReview} onBack={onBack} onEscrow={() => go("escrow")} />;
+        })()}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} onEarnToken={earnToken} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen("chatlist")}
           onQuoteRequest={activeRole === "consumer" ? () => { setScreen("home"); handleOpenNewReq(); } : undefined} />}
