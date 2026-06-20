@@ -23,6 +23,7 @@ import PortfolioScreenBeta from "../screens/PortfolioScreenBeta"; // UX Beta 업
 import MyPageTopBeta from "./MyPageTopBeta"; // UX Beta 마이페이지 상단(Add Only)
 import { deriveLevel, responseValue } from "./company/CompanyMetrics"; // UX Beta 마이페이지 — Lv/응답 표시 파생(읽기 전용)
 import ReviewScreen from "../screens/ReviewScreen";
+import CustomerReviewHistoryScreen from "../screens/CustomerReviewHistoryScreen";
 import ChatScreen from "../screens/ChatScreen";
 import EscrowScreen from "../screens/EscrowScreen";
 import SpaceHistoryScreen from "../screens/SpaceHistoryScreen";
@@ -3719,6 +3720,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             : <PortfolioScreen company={selCo} canManage={canManage} onChat={onChat} onReview={onReview} onBack={onBack} onEscrow={() => go("escrow")} />;
         })()}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} onEarnToken={earnToken} />}
+        {screen==="my-reviews" && <CustomerReviewHistoryScreen currentUser={currentUser} companies={companies} onBack={() => setScreen("my")} />}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen("chatlist")}
           onQuoteRequest={activeRole === "consumer" ? () => { setScreen("home"); handleOpenNewReq(); } : undefined} />}
         {screen==="lounge-chat" && loungeChat && (
@@ -4340,8 +4342,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     // 리뷰 작성 여부는 공사 완료가 아니라 실제 리뷰 존재(request_id 기준)로만 판단.
                     // 확인 전(undefined)에는 '미작성' 으로 안전 기본값 처리.
                     const reviewed = reviewedByRequest[dn.id] === true;
+                    // '내 리뷰 보기'는 의뢰인이 '작성한' 리뷰 목록(my-reviews)으로 이동한다.
+                    // 업체 공개 후기 화면(ReviewScreen)을 재사용하지 않는다.
+                    // '리뷰 작성하기'(미작성)는 기존대로 작성 화면(ReviewScreen)으로 이동.
                     return reviewed
-                      ? { label: "최근 완료", title, sub: "리뷰 작성이 완료되었습니다.", cta: { label: "내 리뷰 보기", onClick: openReview } }
+                      ? { label: "최근 완료", title, sub: "리뷰 작성이 완료되었습니다.", cta: { label: "내 리뷰 보기", onClick: () => setScreen("my-reviews") } }
                       : { label: "최근 완료", title, sub: "아직 리뷰를 작성하지 않았습니다.", cta: { label: "리뷰 작성하기", onClick: openReview } };
                   }
                   return null;
