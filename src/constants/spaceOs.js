@@ -187,14 +187,30 @@ export const STAGE_XP_REASON = {
 export const SPACE_OS_SCORE_MODEL = Object.freeze({
   A: Object.freeze({
     key: "attitude", label: "A · 사람됨(Attitude)", max: 100, role: "base",
-    criteria: ["성실", "정직", "책임감", "기록 충실도", "약속 이행", "투명성", "꾸준함", "원칙", "양심"],
+    criteria: ["성실", "정직", "책임감", "기록 충실도", "약속 이행", "투명성", "꾸준함", "원칙", "양심", "응답 성실도", "견적 완성도", "A/S 책임"],
   }),
   S: Object.freeze({
     key: "skill", label: "S · 실력(Skill)", max: 20, role: "bonus",
-    criteria: ["시공 품질", "기술력", "문제 해결", "완성도", "A/S 품질"],
+    criteria: ["시공 품질", "기술력", "문제 해결", "완성도", "A/S 품질", "포트폴리오", "시공 경험", "고객 만족도"],
   }),
-  // 프리미엄 추천 가능 최소 A (설계 기준 — 추천 로직 미연결).
+  // Phase 3 (v3.0) — C · 공동체(Community) 보너스. 라운지 건전 기여(최대 +20).
+  C: Object.freeze({
+    key: "community", label: "C · 공동체(Community)", max: 20, role: "bonus",
+    criteria: ["도움되는 게시글", "댓글 활동", "답변 채택", "인기글", "좋아요", "신고 없는 건전 활동", "커뮤니티 기여"],
+  }),
+  // 추천 가능 최소 A (절대 기준 — S/C 로 대체 불가). 프리미엄은 더 높은 A 요구.
+  RECOMMEND_MIN_A: 70,
   PREMIUM_MIN_A: 90,
+});
+
+// C(공동체) 보너스 — 라운지 건전 활동 누적(최대 +20). 운영 점수 전용(사용자 비노출).
+export const C_BONUS_EVENTS = Object.freeze({
+  FIRST_POST: 2,        // 첫 글 작성
+  HELPFUL_POST: 3,      // 도움되는 글(답변 채택 등)
+  WELL_LIKED_POST: 3,   // 좋아요 많이 받은 글
+  POPULAR_POST: 5,      // 인기글 선정
+  HEALTHY_30D: 5,       // 30일 건전 활동(신고 0)
+  MAX: 20,
 });
 
 // Space OS 최종 철학 문구 — 안내/표시용(Add Only).
