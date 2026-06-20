@@ -1006,6 +1006,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     } catch {}
   }, [activeRole, biddableRequests, submittedBids, customerRequests, inProgressRequestIds, activeJobRequestIds, currentUser?.id, user?.id]);
   const [myRequestsEscrow, setMyRequestsEscrow] = useState({}); // { [requestId]: { escrow, payouts } }
+  // 최근 완료 카드 — 리뷰 작성 여부는 '공사 완료'가 아니라 '실제 리뷰 존재'로만 판단한다.
+  // requests 의 embedded reviews(id) 조인(=request.hasReview)은 숨김/반려/타업체 리뷰까지 포함해
+  // 거짓양성을 만들 수 있으므로, 후기요청 알림과 동일한 권위 소스(getReviewByRequest · request_id 기준)로
+  // 완료건의 리뷰 존재 여부를 재확인한다. (리뷰 DB/조회 API/완료 로직은 변경하지 않음 — 판정 신호만 교체)
+  const [reviewedByRequest, setReviewedByRequest] = useState({}); // { [requestId]: boolean }
   const prevTxStatusRef = useRef({}); // { [requestId]: transaction_status } — 단계 전환 토스트용
   const loadReqInFlightRef = useRef(false); // loadCompanyRequests 중복 호출 가드
   const loadReqLastAtRef = useRef(0);       // loadCompanyRequests 디바운스(1초)
@@ -1719,6 +1724,28 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     })();
     return () => { cancelled = true; };
   }, [myRequestsEscrow, activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 완료건 리뷰 작성 여부 재확인 — request_id 기준 권위 소스(getReviewByRequest)로
+  // { [requestId]: boolean } 맵을 채운다. 미확인 상태는 false(미작성) 로 안전 기본값 처리.
+  useEffect(() => {
+    if (activeRole !== "consumer" || !IS_SUPABASE_READY) { setReviewedByRequest({}); return; }
+    const settled = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null));
+    if (settled.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(settled.map(async (r) => {
+        try { const { data } = await getReviewByRequest(r.id); return [r.id, !!data]; }
+        catch { return [r.id, false]; }
+      }));
+      if (cancelled) return;
+      setReviewedByRequest(prev => {
+        const next = { ...prev };
+        for (const [id, has] of entries) next[id] = has;
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [myRequests, myRequestsEscrow, activeRole]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load recent lounge posts for home preview (consumer home section)
   useEffect(() => {
@@ -4322,8 +4349,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       setScreen("review");
                     };
                     const title = dn.type ?? dn.area ?? "시공";
-                    return dn.hasReview
-                      ? { label: "최근 완료", title, sub: "리뷰를 작성해주셔서 감사합니다.", cta: { label: "내 리뷰 보기", onClick: openReview } }
+                    // 리뷰 작성 여부는 공사 완료가 아니라 실제 리뷰 존재(request_id 기준)로만 판단.
+                    // 확인 전(undefined)에는 '미작성' 으로 안전 기본값 처리.
+                    const reviewed = reviewedByRequest[dn.id] === true;
+                    return reviewed
+                      ? { label: "최근 완료", title, sub: "리뷰 작성이 완료되었습니다.", cta: { label: "내 리뷰 보기", onClick: openReview } }
                       : { label: "최근 완료", title, sub: "아직 리뷰를 작성하지 않았습니다.", cta: { label: "리뷰 작성하기", onClick: openReview } };
                   }
                   return null;
