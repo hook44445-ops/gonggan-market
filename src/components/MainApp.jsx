@@ -3103,18 +3103,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </div>
               ); })()}
 
-            {/* 탐색 카테고리 칩 — 검색→탐색→신뢰 형성 동선 */}
-            <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:4, marginBottom:S.md, scrollbarWidth:"none" }}>
-              {[["all","전체"],["review","시공후기"],["recommend","업체추천"],["quote_worry","견적고민"],["room_deco","집꾸미기"],["move_in","이사입주"]].map(([cat,label]) => (
-                <button key={cat}
-                  onClick={() => { if (cat === "all") { setScreen("home"); } else { setLoungeInitialCategory(cat); setScreen("lounge"); } }}
-                  style={{ flexShrink:0, padding:"7px 14px", borderRadius:R.full, cursor:"pointer",
-                    border:`1px solid ${C.bgWarm}`, background:C.surface, color:C.text2, fontSize:13, fontWeight:700, fontFamily:"inherit" }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
               <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>인근 업체</div>
               <button onClick={() => setScreen("map")} style={{ fontSize:13, background:"none", border:"none", cursor:"pointer", color:C.brand, fontWeight:700 }}>지도로 보기 →</button>
