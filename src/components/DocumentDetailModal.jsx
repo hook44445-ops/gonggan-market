@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { C, R, S } from "../constants";
+import { SHOW_DEBUG_UI } from "../constants/release"; // 프로덕션 디버그 로그 게이팅
 import { DOCUMENT_TEMPLATES, UPLOAD_DOCUMENT_TEMPLATES } from "../constants/documentTemplates";
 import { uploadFile, upsertCompanyDocument, submitCompanyDocument } from "../lib/supabase";
 
@@ -36,7 +37,7 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
   const allChecked = items.length > 0 && items.every((_, i) => checklist[String(i)]);
 
   // 모바일 DEBUG 오버레이([GONGGAN_DEBUG] 캡처)로 실서버 실패 원인을 그대로 확인할 수 있게 로깅.
-  const dlog = (...a) => { try { console.log("[GONGGAN_DEBUG]", "[doc]", doc.document_type, ...a); } catch { /* noop */ } };
+  const dlog = (...a) => { if (!SHOW_DEBUG_UI) return; try { console.log("[GONGGAN_DEBUG]", "[doc]", doc.document_type, ...a); } catch { /* noop */ } };
 
   // 행 생성/갱신 후 id 를 반환. 실패 시 throw 하여 호출부에서 사용자에게 표면화한다.
   // (기존엔 upsert 실패가 조용히 무시돼 docId 가 null 로 남고 → 제출이 무효화되던 문제 보강)
