@@ -27,6 +27,7 @@ import {
   getCompaniesByOwnerIds,
   getReviews,
 } from '../lib/supabase';
+import { loungeChatDbg } from '../utils/loungeChatDebug'; // 대화 신청 신원 진단(플래그 시에만 출력)
 import { BADGES } from '../constants/badges';
 import LoungeCommentItem from '../components/lounge/LoungeCommentItem';
 import ChatRequestModal from '../components/lounge/ChatRequestModal';
@@ -620,6 +621,17 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       console.log('[CHAT DEBUG] rpc result', {
         data, error, code: error?.code, message: error?.message, details: error?.details,
       });
+      // 진단: 신청자(나) 신원 + 저장 대상 + 반환 request_id 를 한 줄로 — 회사 받은목록 로그의
+      // request_id 와 대조해 '저장된 target_id 와 회사 user.id 일치 여부'를 확인하기 위함.
+      loungeChatDbg("대화신청 전송(post author)", {
+        requesterId: user.id,
+        activeRole:  user?.activeRole ?? user?.role,
+        targetId:    post.user_id,
+        postId,
+        requestId:   data?.request_id ?? null,
+        status:      data?.status ?? null,
+        rpcError:    error?.message ?? data?.error ?? null,
+      });
       if (error) { showToast('대화 신청에 실패했습니다. 다시 시도해주세요.'); return; }
       if (data?.error === 'SELF_REQUEST') { showToast('본인에게는 신청할 수 없어요'); return; }
       setChatSent(true);
@@ -743,6 +755,17 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       );
       console.log('[CHAT DEBUG] rpc result', {
         data, error, code: error?.code, message: error?.message, details: error?.details,
+      });
+      // 진단: 신청자(나) 신원 + 저장 대상(댓글 작성자) + 반환 request_id (회사 받은목록 로그와 대조용).
+      loungeChatDbg("대화신청 전송(comment author)", {
+        requesterId: user.id,
+        activeRole:  user?.activeRole ?? user?.role,
+        targetId:    comment.user_id,
+        postId,
+        commentId:   comment.id,
+        requestId:   data?.request_id ?? null,
+        status:      data?.status ?? null,
+        rpcError:    error?.message ?? data?.error ?? null,
       });
       const status = data?.status;
       if (error) {
