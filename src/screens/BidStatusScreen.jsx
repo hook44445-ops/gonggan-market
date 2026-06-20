@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
-import { SHOW_DEBUG_UI } from "../constants/release";
+import { SHOW_DEBUG_UI, UX_BETA } from "../constants/release";
 import { TempBadge } from "../components/common";
+import BidCompareCard from "../components/BidCompareCard"; // UX Beta 입찰 비교 카드(Add Only)
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
@@ -878,7 +879,15 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
           </div>
         ) : (
-          bids.map(bid => (
+          bids.map(bid => UX_BETA ? (
+            <BidCompareCard
+              key={bid.id}
+              bid={bid}
+              selected={bid.status === "selected" || selectedBid?.id === bid.id}
+              onChat={() => onChat(bid.company ?? { id: bid.companyId, name: "업체" })}
+              onSelect={() => selectBid(bid)}
+            />
+          ) : (
             <div key={bid.id} style={{ background:C.surface, borderRadius:R.xl, marginBottom:S.md, border:`1px solid ${C.bgWarm}`, overflow:"hidden" }}>
               <div style={{ padding:S.xl }}>
                 <div style={{ display:"flex", gap:S.md, alignItems:"flex-start", marginBottom:S.lg }}>
