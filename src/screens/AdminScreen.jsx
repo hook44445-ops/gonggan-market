@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
 import { COMPANY_STATUS_META } from "../constants";
@@ -141,7 +142,7 @@ function ReviewAdminTab({ adminUserId, showToast }) {
   // 리뷰 어드민 RPC(admin_*)에 전달되는 관리자 식별자 확인용 — uuid 여야 한다.
   // (문자열 "admin" 이면 'invalid input syntax for type uuid: "admin"' 발생)
   useEffect(() => {
-    console.log("[GONGGAN_DEBUG][ReviewAdmin:adminUserId]", {
+    dlog("[GONGGAN_DEBUG][ReviewAdmin:adminUserId]", {
       adminUserId, type: typeof adminUserId,
     });
   }, [adminUserId]);
@@ -2178,11 +2179,11 @@ function ProjectFlowTab({ adminUserId, showToast }) {
     if (error) {
       setErrMsg(error.message || "조회 실패");
       setRows([]);
-      console.log("[GONGGAN_DEBUG][ProjectFlow] error", error.message);
+      dlog("[GONGGAN_DEBUG][ProjectFlow] error", error.message);
     } else {
       const list = Array.isArray(data) ? data : [];
       setRows(list);
-      console.log("[GONGGAN_DEBUG][ProjectFlow] count", list.length);
+      dlog("[GONGGAN_DEBUG][ProjectFlow] count", list.length);
     }
     setLoading(false);
   };
@@ -2675,7 +2676,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
       // 고객 목록은 service role 서버 API 로 조회(RLS 우회). admin 만 성공.
       fetchAdminCustomers(user?.id).then(({ data, error }) => {
         // 요구사항 4/5/6) count·rows·실패원인 로그 (sentinel/uuid 관리자 모두)
-        console.log("[GONGGAN_DEBUG][AdminCustomers]", {
+        dlog("[GONGGAN_DEBUG][AdminCustomers]", {
           adminId: user?.id ?? null,
           count: data?.length ?? 0,
           error: error?.message ?? null,

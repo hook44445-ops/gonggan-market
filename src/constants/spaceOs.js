@@ -187,128 +187,31 @@ export const STAGE_XP_REASON = {
 export const SPACE_OS_SCORE_MODEL = Object.freeze({
   A: Object.freeze({
     key: "attitude", label: "A · 사람됨(Attitude)", max: 100, role: "base",
-    criteria: ["성실", "정직", "책임감", "기록 충실도", "약속 이행", "투명성", "꾸준함", "원칙", "양심"],
+    criteria: ["성실", "정직", "책임감", "기록 충실도", "약속 이행", "투명성", "꾸준함", "원칙", "양심", "응답 성실도", "견적 완성도", "A/S 책임"],
   }),
   S: Object.freeze({
     key: "skill", label: "S · 실력(Skill)", max: 20, role: "bonus",
-    criteria: ["시공 품질", "기술력", "문제 해결", "완성도", "A/S 품질"],
+    criteria: ["시공 품질", "기술력", "문제 해결", "완성도", "A/S 품질", "포트폴리오", "시공 경험", "고객 만족도"],
   }),
-  // Phase 3(v3.0) 추가 — 공동체(Community) 보너스.
+  // Phase 3 (v3.0) — C · 공동체(Community) 보너스. 라운지 건전 기여(최대 +20).
   C: Object.freeze({
     key: "community", label: "C · 공동체(Community)", max: 20, role: "bonus",
-    criteria: ["도움이 되는 게시글", "댓글 활동", "인기글", "좋아요", "신고 없는 활동", "30일 건전 활동"],
+    criteria: ["도움되는 게시글", "댓글 활동", "답변 채택", "인기글", "좋아요", "신고 없는 건전 활동", "커뮤니티 기여"],
   }),
-  // 프리미엄 추천 가능 최소 A (설계 기준 — 추천 로직 미연결).
+  // 추천 가능 최소 A (절대 기준 — S/C 로 대체 불가). 프리미엄은 더 높은 A 요구.
+  RECOMMEND_MIN_A: 70,
   PREMIUM_MIN_A: 90,
 });
 
-// ════════════════════════════════════════════════════════════════════
-// Space OS 점수 엔진 — A · S · C (Phase 3 · v3.0)
-//
-//   범위: 이번 작업은 "내부 점수체계(A/S/C) 설계 + 계산 로직 추가"까지만
-//   진행한다(Add Only). 아래 함수들은 모두 순수 함수(부수효과 없음) —
-//   이미 집계된 입력값(input)을 받아 점수만 계산한다. DB 읽기/쓰기는
-//   별도 모듈(src/lib/spaceOsScore.js)이 담당하며, 거기서도 새 테이블/
-//   컬럼을 만들지 않고 기존 read 함수만 사용한다.
-//
-//   이 엔진은 XP 지급(analyzeEstimate/computeCompanyXp), LV 계산
-//   (constants/growth.js), 공간온도 계산, 추천업체 정렬(MainApp.jsx)을
-//   변경하지 않는다. A/S/C 는 사용자에게 노출하지 않는 내부 운영 점수다
-//   (UI 정책: 사용자에게는 LV/XP/Progress Bar/공간온도만 보여준다).
-// ════════════════════════════════════════════════════════════════════
-
-const clampScore = (n, max) => Math.max(0, Math.min(max, Math.round(Number.isFinite(n) ? n : 0)));
-const norm01 = (v, max) => (max > 0 ? clamp01(Number(v) / max) : 0);
-const ratingNorm = (rating1to5) => clamp01((Number(rating1to5) - 1) / 4); // 1~5 → 0~1
-
-// ── A Score (본질 · 0~100) ───────────────────────────────────────────
-//   가중치 합 = 100. GPS 인증·견적 완성도는 이번 Phase 에서 안전하게
-//   읽을 수 있는 집계 경로가 없어 제외했다(GPS 모듈 변경 금지 — Phase 4 연동 예정).
-//   입력은 모두 이미 존재하는 업체/리뷰 집계 필드에서 온다(신규 컬럼 없음).
-export function computeAScore({
-  completionRate = 0,      // companies.completion_rate (%) — 약속 이행
-  disputeRate = 0,         // companies.dispute_rate (%) — 투명한 거래(역수로 사용)
-  responseRate = 0,        // companies.response_rate (%) — 응답 성실도
-  asRate = 0,              // companies.as_rate (%) — A/S
-  avgRating = 0,           // reviews.rating 평균(1~5) — 리뷰
-  photoEvidenceRatio = 0,  // 사진 증빙이 있는 리뷰 비율(0~1) — 기록 충실도 proxy
-} = {}) {
-  const honesty = clamp01((100 - clamp01(disputeRate / 100) * 100) / 100);
-  const score =
-    clamp01(completionRate / 100)  * 20 +
-    honesty                        * 15 +
-    clamp01(responseRate / 100)    * 15 +
-    clamp01(asRate / 100)          * 15 +
-    ratingNorm(avgRating)          * 20 +
-    clamp01(photoEvidenceRatio)    * 15;
-  return clampScore(score, 100);
-}
-
-// ── S Score (실력 보너스 · 0~20) ─────────────────────────────────────
-export function computeSScore({
-  qualityScore = 0,    // reviews.quality_score 평균(1~5) — 시공 품질
-  recontractRate = 0,  // reviews.would_recontract 비율(%) — 고객 만족도
-  portfolioCount = 0,  // portfolios 건수 — 포트폴리오
-  completedJobs = 0,   // companies.completed_jobs — 시공 경험
-} = {}) {
-  const score =
-    ratingNorm(qualityScore)           * 20 * 0.40 +
-    clamp01(recontractRate / 100)      * 20 * 0.30 +
-    norm01(portfolioCount, 10)         * 20 * 0.15 +
-    norm01(completedJobs, 20)          * 20 * 0.15;
-  return clampScore(score, 20);
-}
-
-// ── C Score (공동체 보너스 · 0~20) ───────────────────────────────────
-//   별도 활동 이력 테이블을 새로 만들지 않고(DB 구조 변경 금지), 라운지의
-//   기존 집계 필드(글/댓글 수, like_count, is_hot, is_hidden)에서 산출한다.
-export const C_SCORE_EVENTS = Object.freeze({
-  FIRST_POST: 2,     // 첫 글 작성
-  COMMENT_ACTIVITY: 3, // 도움이 되는 댓글/게시 활동(최대)
-  POPULAR_POST: 3,   // 좋아요 많이 받은 글
-  HOT_POST: 5,       // 인기글
-  HEALTHY_30D: 5,    // 30일 건전 활동
+// C(공동체) 보너스 — 라운지 건전 활동 누적(최대 +20). 운영 점수 전용(사용자 비노출).
+export const C_BONUS_EVENTS = Object.freeze({
+  FIRST_POST: 2,        // 첫 글 작성
+  HELPFUL_POST: 3,      // 도움되는 글(답변 채택 등)
+  WELL_LIKED_POST: 3,   // 좋아요 많이 받은 글
+  POPULAR_POST: 5,      // 인기글 선정
+  HEALTHY_30D: 5,       // 30일 건전 활동(신고 0)
+  MAX: 20,
 });
-
-export function computeCScore({
-  postCount = 0,
-  commentCount = 0,
-  popularPostCount = 0, // like_count 가 임계치 이상인 글 수
-  hotPostCount = 0,      // is_hot 인 글 수
-  activeWithin30d = false,
-  hiddenPostCount = 0,   // 운영자에 의해 숨김 처리된 글 수(신고/제재 proxy)
-} = {}) {
-  let c = 0;
-  if (postCount > 0) c += C_SCORE_EVENTS.FIRST_POST;
-  c += Math.min(commentCount, 5) * (C_SCORE_EVENTS.COMMENT_ACTIVITY / 5);
-  if (popularPostCount > 0) c += C_SCORE_EVENTS.POPULAR_POST;
-  if (hotPostCount > 0) c += C_SCORE_EVENTS.HOT_POST;
-  if (activeWithin30d && hiddenPostCount === 0) c += C_SCORE_EVENTS.HEALTHY_30D;
-  if (hiddenPostCount > 0) c -= C_SCORE_EVENTS.HEALTHY_30D; // 건전 활동 보너스 상쇄
-  return clampScore(c, 20);
-}
-
-// ── A/S/C 종합 평가 ───────────────────────────────────────────────────
-//   핵심 원칙: A 는 절대 기준, S·C 는 A 위에 더해지는 보너스일 뿐
-//   A 의 부족을 대신하지 못한다(추천 우선순위는 A → S → C 순서로만 비교).
-export function evaluateSpaceOsScore(input = {}) {
-  const A = computeAScore(input);
-  const S = computeSScore(input);
-  const C = computeCScore(input);
-  const bonus = S + C;
-  const total = A + bonus; // 내부 정렬/리포트용 합산치(사용자 비노출)
-  const tier =
-    A >= SPACE_OS_SCORE_MODEL.PREMIUM_MIN_A ? "프리미엄 후보" :
-    A >= 70 ? "신뢰 업체" :
-    A >= 50 ? "성장 중" : "기록 누적 중";
-  return { A, S, C, bonus, total, tier, isPremiumEligible: A >= SPACE_OS_SCORE_MODEL.PREMIUM_MIN_A };
-}
-
-// 프리미엄 추천 우선순위 비교자(향후 Phase 4 추천 알고리즘에서 사용 예정).
-//   1순위 A → 2순위 S → 3순위 C. 내림차순(점수 높은 쪽이 먼저).
-export function comparePremiumRank(scoreA, scoreB) {
-  return (scoreB.A - scoreA.A) || (scoreB.S - scoreA.S) || (scoreB.C - scoreA.C);
-}
 
 // Space OS 최종 철학 문구 — 안내/표시용(Add Only).
 //   ※ 성장 모달은 '성장'만 보여준다(Phase 9). 아래 문구들은 각자 어울리는 화면

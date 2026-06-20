@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
+import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TOKEN_COSTS } from "../constants/lounge";
@@ -559,7 +560,7 @@ const FAQ_ITEMS = [
   { q: "직접 업체와 거래하면 안 되나요?",
     a: "거래 방식은 전적으로 고객님의 선택입니다. 다만 공간마켓의 보호와 기록은 공간안전결제를 통한 거래에서만 제공됩니다." },
   { q: "고객센터 연락처",
-    a: "문의하기(아래 ‘문의하기’) 또는 이메일 help@gonggan.market 으로 연락주시면 순차적으로 도와드립니다." },
+    a: "문의하기(아래 ‘문의하기’) 또는 이메일 gongganmarket.biz@gmail.com 으로 연락주시면 순차적으로 도와드립니다." },
 ];
 
 export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding }) {
@@ -984,7 +985,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     lastBiddableLogKeyRef.current = key;
     try {
       const bidSubmittedIds = new Set(submittedBids.map(b => b.requestId).filter(Boolean));
-      console.log("[GONGGAN_DEBUG][biddableRequests]", {
+      dlog("[GONGGAN_DEBUG][biddableRequests]", {
         currentCompanyId: companyId, ownerId,
         customerRequestsTotal: customerRequests.length,
         inProgressIds: [...inProgressRequestIds], activeJobIds: [...activeJobRequestIds],
@@ -1429,7 +1430,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         // 멀티패스가 비어도 강제포함(selected_company_id) 진행건은 노출.
         dev.forced_jobs = forcedJobs.length;
         dev.realInProgressIds = forcedJobs.map(j => j.request?.id).filter(Boolean).join(", ") || "none";
-        try { console.log("[GONGGAN_DEBUG][realInProgressIds]", { source: "forced_only", ids: forcedJobs.map(j => j.request?.id).filter(Boolean) }); } catch {}
+        try { dlog("[GONGGAN_DEBUG][realInProgressIds]", { source: "forced_only", ids: forcedJobs.map(j => j.request?.id).filter(Boolean) }); } catch {}
         setCompanyJobs(forcedJobs);
         setCompanyJobsDebug(dev);
         return;
@@ -1586,7 +1587,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       dev.request_statuses = (reqs ?? [])
         .map(r => `${r.id.slice(0,8)}:${r.status ?? "null"}`)
         .join(", ") || "none";
-      try { console.log("[GONGGAN_DEBUG][realInProgressIds]", { source: "merged", multipath: jobs.map(j => j.request?.id).filter(Boolean), forced: forcedJobs.map(j => j.request?.id).filter(Boolean), merged: mergedJobs.map(j => j.request?.id).filter(Boolean) }); } catch {}
+      try { dlog("[GONGGAN_DEBUG][realInProgressIds]", { source: "merged", multipath: jobs.map(j => j.request?.id).filter(Boolean), forced: forcedJobs.map(j => j.request?.id).filter(Boolean), merged: mergedJobs.map(j => j.request?.id).filter(Boolean) }); } catch {}
       setCompanyJobs(mergedJobs);
       setCompanyJobsDebug(dev);
     };
@@ -2896,7 +2897,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                       ))}
                                     </div>
                                   )}
-                                  <button onClick={() => { console.log("[GONGGAN_DIAG][homeCard:nav]", { reqId: r.id, status: r.status, action: stage?.action ?? null, bidCount: r.bidCount ?? 0, to: "bidstatus" }); setBidViewRequestId(r.id); setScreen("bidstatus"); }}
+                                  <button onClick={() => { dlog("[GONGGAN_DIAG][homeCard:nav]", { reqId: r.id, status: r.status, action: stage?.action ?? null, bidCount: r.bidCount ?? 0, to: "bidstatus" }); setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                                     style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff",
                                       border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer",
                                       boxShadow:`0 3px 12px ${C.brand}44` }}>
@@ -3328,7 +3329,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         if (!svId) { showToast("현장견적 요청 정보를 찾을 수 없어요", false); return; }
                         respondSiteVisit(svId, actionType === "accept" ? "accept" : "reject", user?.id ?? null)
                           .then(({ error }) => {
-                            if (SHOW_DEBUG_UI) console.log("[GONGGAN_DEBUG][siteVisitRespond]", { svId, action: actionType, error: error?.message ?? null });
+                            if (SHOW_DEBUG_UI) dlog("[GONGGAN_DEBUG][siteVisitRespond]", { svId, action: actionType, error: error?.message ?? null });
                             if (error) { showToast("처리 실패: " + error.message, false); return; }
                             showToast(actionType === "accept" ? "현장견적을 수락했어요" : "현장견적을 거절했어요");
                             setEscrowRefreshTrigger(t => t + 1);
@@ -4433,7 +4434,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         const inProgress = myRequests.filter(r => isRequestInProgress(r, myRequestsEscrow[r.id] ?? null)).length;
                         const completed  = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null)).length;
                         try {
-                          console.log("[GONGGAN_DEBUG][getUserRequests:classify]", {
+                          dlog("[GONGGAN_DEBUG][getUserRequests:classify]", {
                             counts: { 견적요청: openCount, 진행중: inProgress, 완료: completed }, total: myRequests.length,
                             rows: myRequests.map(r => {
                               const ed = myRequestsEscrow[r.id] ?? null;
@@ -4655,7 +4656,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ background: "transparent", padding: `${S.md}px 4px 0`, marginBottom: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.text4, margin: `${S.md}px 0 2px` }}>앱 정보</div>
               {[
-                { label: "문의하기",                onClick: () => showToast("준비 중입니다") },
+                { label: "문의하기",                onClick: () => { window.location.href = "mailto:gongganmarket.biz@gmail.com?subject=" + encodeURIComponent("[공간마켓] 문의"); } },
                 { label: "개인정보처리방침",         onClick: () => setTermsDocType("privacy_policy") },
                 { label: "이용약관",                onClick: () => setTermsDocType("service_terms") },
                 { label: "위치기반서비스 이용약관",   onClick: () => setTermsDocType("location_terms") },

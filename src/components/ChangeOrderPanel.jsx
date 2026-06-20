@@ -6,6 +6,7 @@ import {
   completeChangeOrder, cancelChangeOrder, createNotification, uploadFile,
 } from "../lib/supabase";
 import { payChangeOrder } from "../services/payment";
+import ImageViewerModal from "./ImageViewerModal"; // QA: 변경요청 사진 확대보기(Add Only)
 
 // 추가견적은 예외 흐름 — 일반 기능처럼 보이지 않도록 업체 화면에선 "문제 발생" 안에 접어 둔다.
 const REASONS = [
@@ -50,6 +51,7 @@ export default function ChangeOrderPanel({ contractId, requestId = null, actorId
   const [moreOpen, setMoreOpen] = useState(false);     // 업체: "문제 발생" 접힘
   const [approveTarget, setApproveTarget] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [photoViewer, setPhotoViewer] = useState(null); // QA: 변경요청 사진 확대보기 { images, index }
 
   const load = () => {
     if (!contractId) return;
@@ -77,6 +79,9 @@ export default function ChangeOrderPanel({ contractId, requestId = null, actorId
 
   return (
     <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
+      {photoViewer && (
+        <ImageViewerModal images={photoViewer.images} startIndex={photoViewer.index} onClose={() => setPhotoViewer(null)} />
+      )}
       <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🧩 추가견적</div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: S.lg }}>
         추가견적은 원계약에 포함되지 않은 예외 작업입니다. 숨은 하자·변경 요청 등 꼭 필요한 경우에만 사용해 주세요.
@@ -101,7 +106,8 @@ export default function ChangeOrderPanel({ contractId, requestId = null, actorId
             {Array.isArray(o.photos) && o.photos.length > 0 && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                 {o.photos.map((u, i) => (
-                  <div key={i} style={{ width: 56, height: 56, borderRadius: R.sm, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
+                  <div key={i} onClick={() => setPhotoViewer({ images: o.photos, index: i })}
+                    style={{ width: 56, height: 56, borderRadius: R.sm, overflow: "hidden", border: `1px solid ${C.bgWarm}`, cursor: "zoom-in" }}>
                     <img src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   </div>
                 ))}

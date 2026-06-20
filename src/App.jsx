@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { dlog } from "./utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { SHOW_DEBUG_UI } from "./constants/release";
 import MainApp from "./components/MainApp";
 import LoginScreen from "./screens/LoginScreen";
@@ -106,7 +107,7 @@ export default function App() {
   useEffect(() => {
     const saved = loadSavedSession();
     try {
-      console.log("[GONGGAN_DEBUG][App:restore]", {
+      dlog("[GONGGAN_DEBUG][App:restore]", {
         phone_verified_device: isDeviceVerified(),
         known_users: getKnownUsers().map(k => ({ userId: k.userId, role: k.role, phone: k.phone, ownerId: k.ownerId ?? null })),
         restored_currentUser: saved ? { id: saved.id, role: saved.role, activeRole: saved.activeRole, ownerId: saved.ownerId ?? null, isGuest: saved.isGuest } : null,
@@ -156,7 +157,7 @@ export default function App() {
   // (supabase.auth 이벤트로는 커스텀 전화번호 세션을 건드리지 않음)
 
   const handleLogin = (u) => {
-    console.log("[GONGGAN_DEBUG][App:handleLogin]", { userId: u?.id ?? null, role: u?.role ?? null, activeRole: u?.activeRole ?? null, ownerId: u?.ownerId ?? null, isGuest: u?.isGuest ?? false });
+    dlog("[GONGGAN_DEBUG][App:handleLogin]", { userId: u?.id ?? null, role: u?.role ?? null, activeRole: u?.activeRole ?? null, ownerId: u?.ownerId ?? null, isGuest: u?.isGuest ?? false });
     if (!u.isGuest) {
       saveSession(u);
       // 기기 인증 유지 — 전화번호 기반 계정만 기억(게스트/번호없는 관리자 제외).
@@ -198,7 +199,7 @@ export default function App() {
   // 1) localStorage 스냅샷으로 바로 복원(서버 의존 X). 2) 베스트-에포트 서버 조회로
   //    최신 정보 보강(실패해도 전화번호 인증으로 보내지 않는다 — 절대 OTP 재요구 X).
   const handlePickUser = async (ku) => {
-    console.log("[GONGGAN_DEBUG][AccountPicker:pick]", { clickedUserId: ku?.userId ?? null, clickedRole: ku?.role ?? null, phone: ku?.phone ?? null, prevCurrentUser: user ? { id: user.id, role: user.activeRole ?? user.role } : null, pendingRole, phoneAuthMode });
+    dlog("[GONGGAN_DEBUG][AccountPicker:pick]", { clickedUserId: ku?.userId ?? null, clickedRole: ku?.role ?? null, phone: ku?.phone ?? null, prevCurrentUser: user ? { id: user.id, role: user.activeRole ?? user.role } : null, pendingRole, phoneAuthMode });
     const key = ku.userId || `${ku.phone}-${ku.role}`;
     setPickBusyId(key);
     const base = knownUserToSession(ku);
@@ -223,7 +224,7 @@ export default function App() {
     } catch {}
     setPickBusyId(null);
     const restored = fresh ?? base;
-    console.log("[GONGGAN_DEBUG][AccountPicker:restore]", { using: fresh ? "server(fresh)" : "snapshot(base)", restoredUserId: restored?.id ?? null, restoredRole: restored?.activeRole ?? restored?.role ?? null, ownerId: restored?.ownerId ?? null });
+    dlog("[GONGGAN_DEBUG][AccountPicker:restore]", { using: fresh ? "server(fresh)" : "snapshot(base)", restoredUserId: restored?.id ?? null, restoredRole: restored?.activeRole ?? restored?.role ?? null, ownerId: restored?.ownerId ?? null });
     handleLogin(restored);
   };
 
@@ -287,7 +288,7 @@ export default function App() {
     if (canEnterApp) _path = "MainApp";
     else if (phoneAuthMode) _path = "LoginScreen(phoneAuthMode)";
     else if (showAccountPicker && hasSavedAccounts) _path = "AccountPicker";
-    console.log("[GONGGAN_DEBUG][App:route]", { path: _path, currentUserId: user?.id ?? null, currentRole: user?.activeRole ?? user?.role ?? null, isGuest: user?.isGuest ?? false, pendingRole, phoneAuthMode, showAccountPicker, deviceVerified: isDeviceVerified() });
+    dlog("[GONGGAN_DEBUG][App:route]", { path: _path, currentUserId: user?.id ?? null, currentRole: user?.activeRole ?? user?.role ?? null, isGuest: user?.isGuest ?? false, pendingRole, phoneAuthMode, showAccountPicker, deviceVerified: isDeviceVerified() });
   }
 
   if (canEnterApp) {
@@ -319,7 +320,7 @@ export default function App() {
         // 코드 관리자 = 가상 'admin' 계정. DB users 행이 아니라 VITE_ADMIN_CODE 게이트로 인증한다.
         // 어드민 RPC 는 p_admin_id 가 'admin' sentinel 이면 허용(migration 040/046 패턴) — 실제 DB
         // admin UUID 가 없어도 동작한다. (uuid 컬럼에는 RPC 내부에서 NULL 로 저장)
-        console.log("[GONGGAN_DEBUG][App:adminLogin]", { userId: "admin", role: "admin", note: "virtual code admin (sentinel)" });
+        dlog("[GONGGAN_DEBUG][App:adminLogin]", { userId: "admin", role: "admin", note: "virtual code admin (sentinel)" });
         localStorage.setItem("admin_authed", "true");
         setShowAdminLogin(false);
         setAdminId("");
@@ -338,7 +339,7 @@ export default function App() {
       const { data, error } = await verifyOperatorPin(adminId, adminPw);
       const op = Array.isArray(data) ? data[0] : null;
       if (!error && op?.user_id) {
-        console.log("[GONGGAN_DEBUG][App:operatorLogin]", { userId: op.user_id, role: "operator" });
+        dlog("[GONGGAN_DEBUG][App:operatorLogin]", { userId: op.user_id, role: "operator" });
         localStorage.setItem("admin_authed", "true");
         setShowAdminLogin(false);
         setAdminId("");

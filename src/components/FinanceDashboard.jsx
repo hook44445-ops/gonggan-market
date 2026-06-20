@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
 import { getAdminProjectFlow, getTestAccounts } from "../lib/supabase";
 import { aggregateFinance, buildTimeSeries, formatWon } from "../lib/financeUtils";
@@ -33,11 +34,11 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
     const { data, error } = await getAdminProjectFlow(adminUserId, { limit: 1000 });
     if (error) {
       setErrMsg(error.message || "조회 실패"); setRows([]);
-      console.log("[GONGGAN_DEBUG][Finance] error", error.message);
+      dlog("[GONGGAN_DEBUG][Finance] error", error.message);
     } else {
       const list = Array.isArray(data) ? data : [];
       setRows(list);
-      console.log("[GONGGAN_DEBUG][Finance] count", list.length);
+      dlog("[GONGGAN_DEBUG][Finance] count", list.length);
     }
     setLoading(false);
   };
