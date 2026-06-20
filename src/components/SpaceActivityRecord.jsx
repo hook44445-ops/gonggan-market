@@ -92,11 +92,14 @@ export default function SpaceActivityRecord({
     );
   }
 
-  const metrics = [
+  // Phase 4-1: 시공 활동 / 커뮤니티 활동 두 그룹으로 구분(표시만 · 집계 로직 동일).
+  const constructionMetrics = [
     ["프로젝트 완료", rec.projectsCompleted, "건"],
     ["견적 응답",     rec.bidResponses,      "회"],
     ["리뷰",          rec.reviews,           "개"],
     ["시공사례",      rec.constructionCases, "건"],
+  ];
+  const communityMetrics = [
     ["라운지 답변",   rec.loungeAnswers,     "개"],
     ["라운지 게시글", rec.loungePosts ?? 0,  "개"],
     ["받은 좋아요",   rec.likesReceived ?? 0, "개"],
@@ -116,6 +119,7 @@ export default function SpaceActivityRecord({
         {selfView
           ? "성실한 활동이 기록으로 쌓이고, 더 많은 상담과 프로젝트로 이어집니다."
           : "순위가 아닌 활동 기록입니다. 성실한 활동이 신뢰가 됩니다."}
+        {selfView && <><br />꾸준한 활동은 업체 신뢰도와 추천 품질 향상에 도움이 됩니다.</>}
       </div>
       {metaBits.length > 0 && (
         <div style={{ fontSize: 11.5, color: C.text4, marginBottom: S.md }}>{metaBits.join(" · ")}</div>
@@ -144,9 +148,9 @@ export default function SpaceActivityRecord({
         </div>
       )}
 
-      {/* 지표 타일 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.sm, marginBottom: S.md }}>
-        {metrics.map(([label, val, unit]) => (
+      {/* 지표 타일 — 🏗 시공 활동 / 🤝 커뮤니티 활동 (집계 동일 · 그룹 표시만) */}
+      {(() => {
+        const Tile = ([label, val, unit]) => (
           <div key={label} style={{
             background: C.surface2 ?? C.bgWarm, borderRadius: R.lg,
             padding: `${S.md}px ${S.sm}px`, textAlign: "center", border: `1px solid ${C.bgWarm}`,
@@ -156,8 +160,23 @@ export default function SpaceActivityRecord({
             </div>
             <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{label}</div>
           </div>
-        ))}
-      </div>
+        );
+        const GroupTitle = ({ children }) => (
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text2, margin: `${S.sm}px 0 6px` }}>{children}</div>
+        );
+        return (
+          <div style={{ marginBottom: S.md }}>
+            <GroupTitle>🏗 시공 활동</GroupTitle>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: S.sm }}>
+              {constructionMetrics.map(Tile)}
+            </div>
+            <GroupTitle>🤝 커뮤니티 활동</GroupTitle>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.sm }}>
+              {communityMetrics.map(Tile)}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 최근 활동 */}
       {rec.recent?.length > 0 && (
@@ -166,6 +185,7 @@ export default function SpaceActivityRecord({
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {rec.recent.map((it, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 900, color: C.brand, flexShrink: 0 }}>✔</span>
                 <span style={{
                   fontSize: 10.5, fontWeight: 800, color: C.brand, background: C.brandL,
                   borderRadius: R.full, padding: "2px 8px", flexShrink: 0,
