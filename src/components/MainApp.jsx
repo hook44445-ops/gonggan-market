@@ -4223,30 +4223,53 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               <MyPageTopBeta
                 name={user.name}
                 avatarChar={user.name?.[0] ?? "?"}
-                metaText={`${user.region ?? ""} · ${activeRole === "consumer" ? "의뢰인" : "검증 업체"}`}
-                roleLabel={activeRole === "consumer" ? "공간사이 회원" : "공간사이 파트너"}
                 verified={!!user.verified}
-                gradeChip={activeRole === "consumer" ? (() => { const gr = calcCustomerGrade(user.completedJobs ?? 0); return { icon: gr.icon, label: gr.label }; })() : null}
-                stats={activeRole === "consumer"
+                metaText={`${user.region ?? ""} · ${activeRole === "consumer" ? "일반회원" : "인테리어 업체"}`}
+                badgeChip={activeRole === "consumer"
+                  ? (() => { const gr = calcCustomerGrade(user.completedJobs ?? 0); return { icon: "⭐", label: gr.label }; })()
+                  : ((companies?.[0]?.guarantee_status === "ACTIVE" || companies?.[0]?.guarantee_grade || companies?.[0]?.badge) ? { icon: "🛡", label: "공간보증" } : { icon: "🌱", label: "신규 파트너" })}
+                levelCompany={activeRole === "company" ? (companies?.[0] ?? currentUser) : currentUser}
+                trust={activeRole === "consumer"
+                  ? (customerTrust?.score != null ? { icon: "🤝", label: "신뢰도 지수", value: customerTrust.score.toFixed(1), sub: `업체 평가 ${customerTrust.count}건` } : null)
+                  : (() => { const t = currentUser?.temp ?? companies?.[0]?.temp ?? 36.5; return { icon: "🌡", label: "공간온도", value: `${Math.round(t)}°`, sub: GRADE(t).label }; })()}
+                activity={activeRole === "consumer"
                   ? (() => {
                       const o = myRequests.filter(r => isRequestOpenForQuotes(r, myRequestsEscrow[r.id] ?? null)).length;
                       const p = myRequests.filter(r => isRequestInProgress(r, myRequestsEscrow[r.id] ?? null)).length;
                       const c = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null)).length;
-                      return [[`${o}`, "견적 요청"], [`${p}`, "진행중"], [`${c}`, "완료"]];
+                      return [{ icon: "📝", label: "견적요청", value: `${o}` }, { icon: "📦", label: "진행중", value: `${p}` }, { icon: "✅", label: "완료", value: `${c}` }, { icon: "❤️", label: "저장", value: `${savedCompanies.length}` }];
                     })()
-                  : [["3", "낙찰"], ["84", "후기"], [`${currentUser?.temp ?? 36.5}°`, "공간온도"]]}
-                trust={activeRole === "consumer" && customerTrust?.score != null ? customerTrust : null}
-                cards={activeRole === "consumer"
+                  : (() => { const co = companies?.[0] ?? {}; return [{ icon: "🏗", label: "시공", value: `${co.completedJobs ?? 0}` }, { icon: "⭐", label: "후기", value: `${co.reviews ?? 0}` }, { icon: "🌡", label: "온도", value: `${Math.round(co.temp ?? 36.5)}°` }, { icon: "🔄", label: "재계약", value: `${co.recontractRate ?? 0}%` }]; })()}
+                myActivity={activeRole === "consumer"
                   ? [
                       { icon: "📋", label: "내 견적", onClick: () => setScreen("timeline") },
                       { icon: "♥", label: "저장 업체", onClick: () => setScreen("favorites") },
                       { icon: "📝", label: "라운지", onClick: () => go("lounge") },
+                      { icon: "🏠", label: "추천 업체", onClick: () => setScreen("home") },
                     ]
                   : [
+                      { icon: "🏢", label: "내 업체", onClick: () => (companies?.[0] ? go("portfolio", companies[0]) : go("dashboard")) },
                       { icon: "📊", label: "대시보드", onClick: () => go("dashboard") },
                       { icon: "📝", label: "라운지", onClick: () => go("lounge") },
-                      { icon: "⭐", label: "내 업체", onClick: () => (companies?.[0] ? go("portfolio", companies[0]) : go("dashboard")) },
+                      { icon: "✏️", label: "내가 쓴 글", onClick: () => go("lounge") },
                     ]}
+                analysis={activeRole === "consumer"
+                  ? (() => {
+                      const o = myRequests.filter(r => isRequestOpenForQuotes(r, myRequestsEscrow[r.id] ?? null)).length;
+                      const p = myRequests.filter(r => isRequestInProgress(r, myRequestsEscrow[r.id] ?? null)).length;
+                      const c = myRequests.filter(r => isRequestSettled(r, myRequestsEscrow[r.id] ?? null)).length;
+                      const readiness = Math.round([o > 0, p > 0, c > 0].filter(Boolean).length / 3 * 100);
+                      return { title: "내 공간 준비 현황", headline: { icon: "🧭", text: "공간 준비도" }, headlineNumber: readiness, headlineSuffix: "%",
+                        items: [{ icon: "📝", label: "견적요청", value: `${o}` }, { icon: "📦", label: "진행중", value: `${p}` }, { icon: "✅", label: "완료", value: `${c}` }, { icon: "❤️", label: "저장", value: `${savedCompanies.length}` }],
+                        ctas: [{ label: "추천 업체 보기", onClick: () => setScreen("home") }, { label: "견적 이어보기", onClick: () => setScreen("timeline") }],
+                        shareText: `[공간사이] 내 공간 준비도 ${readiness}% · 진행중 ${p} · 완료 ${c}` };
+                    })()
+                  : (() => { const co = companies?.[0] ?? {}; const t = co.temp ?? 36.5;
+                      return { title: "우리 업체 분석", headline: { icon: "🏆", text: `신뢰 등급 ${GRADE(t).label}` },
+                        items: [{ icon: "★", label: "평균평점", value: co.rating > 0 ? co.rating.toFixed(1) : "—" }, { icon: "⭐", label: "후기", value: `${co.reviews ?? 0}` }, { icon: "🏗", label: "시공", value: `${co.completedJobs ?? 0}` }, { icon: "🌡", label: "공간온도", value: `${Math.round(t)}°` }],
+                        ctas: [{ label: "내 업체 페이지", onClick: () => (companies?.[0] ? go("portfolio", companies[0]) : go("dashboard")) }],
+                        shareText: `[공간사이] ${user.name} · 평점 ${co.rating > 0 ? co.rating.toFixed(1) : "-"} · 후기 ${co.reviews ?? 0} · 시공 ${co.completedJobs ?? 0}건 · 공간온도 ${Math.round(t)}°` };
+                    })()}
                 onLogout={onLogout}
                 onForgetDevice={onForgetDevice}
                 showForgetConfirm={showForgetConfirm}
