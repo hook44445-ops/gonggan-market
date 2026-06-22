@@ -3,6 +3,7 @@ import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadF
 import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
+import { BetaBanner } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#0B1D3A";
@@ -271,6 +272,7 @@ function ConsultForm() {
 
   return (
     <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <BetaBanner text="베타 파트너 모집 · 가입 · 견적 참여 · 상담 모두 무료입니다. (사업자등록증 + 시공보험 확인 후 승인)" style={{ marginBottom: 0 }} />
       {field("company", "업체명",        { required: true, placeholder: "예: 공간인테리어" })}
       {field("owner",   "대표자명",      { required: true, placeholder: "대표자 성함" })}
       {field("phone",   "연락처",        { required: true, placeholder: "휴대폰 번호", inputMode: "tel" })}

@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────
 import { useState } from "react";
 import { C, R, S } from "../constants";
+import { SHOW_BETA_UI } from "../constants/release"; // 베타: 공간보증 사전신청 문구
 import { selectCompanyGuarantee } from "../lib/supabase";
 import {
   GUARANTEE_GRADES, GUARANTEE_GRADE_MAP, GUARANTEE_STATUS_META,
@@ -103,8 +104,13 @@ export default function GuaranteeCard({ company, actorId, onChange }) {
             style={{ width: "100%", height: 48, borderRadius: R.lg, border: "none",
               background: picked ? C.brand : C.bgWarm, color: picked ? "#fff" : C.text3,
               fontSize: 15, fontWeight: 800, cursor: picked && !busy ? "pointer" : "default" }}>
-            {busy ? "신청 중…" : "이 등급으로 공간보증 신청"}
+            {busy ? "신청 중…" : (SHOW_BETA_UI ? "공간보증 사전신청" : "이 등급으로 공간보증 신청")}
           </button>
+          {SHOW_BETA_UI && (
+            <div style={{ fontSize: 12, color: C.text3, textAlign: "center", marginTop: 8, lineHeight: 1.6 }}>
+              현재는 <b style={{ color: C.brand }}>사전신청</b>만 접수됩니다. 정식 서비스 오픈 후 심사가 진행됩니다.
+            </div>
+          )}
         </>
       ) : (
         <>

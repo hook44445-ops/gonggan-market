@@ -4,6 +4,7 @@ import { SHOW_DEBUG_UI } from "../constants/release";
 import { LogoMark } from "../components/common";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import AppFooter from "../components/AppFooter";
+import { BetaBadge } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 // Hero 배경 — 프로젝트 내부 고정 실사 asset (자연광 우드/식물 인테리어, 외부/Unsplash 미사용)
 const HERO_BG = "/images/landing-hero-interior.jpg";
@@ -182,6 +183,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         overflow: "hidden",
         flexShrink: 0,
       }}>
+        <BetaBadge label="베타 서비스" style={{ position: "absolute", top: 14, right: 14, zIndex: 3 }} />
         <div ref={heroRef} style={{ maxWidth: 480, margin: "0 auto" }}>
           {/* brand — 01 공간·연결형 아이콘 + 워드마크 (여백 중심) */}
           <div style={{ ...fadeStyle(heroVisible, 0), marginBottom: 28 }}>

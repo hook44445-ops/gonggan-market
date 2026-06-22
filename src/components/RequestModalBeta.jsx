@@ -4,10 +4,12 @@
 //   개선: 진행단계+완료표시 / 필수항목 강조 / 입력순서 정리 / 버튼 확대 / 터치영역 확대.
 import { useState, useEffect, useRef } from "react";
 import { C, R, S, SPACE_TYPES, STYLES } from "../constants";
+import { BetaGateModal, BetaBanner } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 export default function RequestModalBeta({ onClose, onDone, initialData = null, isEdit = false }) {
   // ── 로직(원본 동일) ────────────────────────────────────────────────
   const [step, setStep] = useState(1);
+  const [betaAck, setBetaAck] = useState(false); // 베타 안내 확인 전엔 견적 작성 가림
   const stepRef = useRef(step);
   useEffect(() => { stepRef.current = step; }, [step]);
   const closedByBackRef = useRef(false);
@@ -80,6 +82,9 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
   });
 
   return (
+    <>
+    {/* 견적요청 진입 안내 — 확인 전 작성 화면을 가린다(베타). 수정 모드는 제외. */}
+    <BetaGateModal open={!betaAck && !isEdit} kind="quote" onConfirm={() => setBetaAck(true)} onClose={() => onClose?.()} />
     <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.6)",
       display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 100 }}>
       <div style={{ position: "relative", background: C.surface, borderRadius: "24px 24px 0 0",
@@ -92,6 +97,8 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
             display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 1 }}>✕</button>
 
         <div style={{ width: 36, height: 4, borderRadius: R.full, background: C.bgWarm, margin: "2px auto 18px" }} />
+
+        <BetaBanner text="베타 서비스 운영 중 · 안전결제는 정식 서비스에서 제공됩니다." />
 
         {/* 진행단계 — 번호/완료체크 + 라벨 + 바 (스크롤 최소화 위해 컴팩트) */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
@@ -199,5 +206,6 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
         </>}
       </div>
     </div>
+    </>
   );
 }
