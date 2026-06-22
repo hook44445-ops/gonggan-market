@@ -34,7 +34,7 @@ import {
   getTestAccounts, rpcSetTestAccountByPhone, rpcUnsetTestAccount,
   fetchAdminCustomers, fetchAdminSeedPosts, setSeedPostVisible, rpcSetPostHot, rpcSetPostHidden,
   getProjectCheckpoints, getAdminProjectFlow,
-  getPartnerLeads, setPartnerLeadStatus, setPartnerLeadOnboarding,
+  getPartnerLeads, setPartnerLeadStatus, setPartnerLeadOnboarding, setPartnerLeadArchive,
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee,
@@ -3194,6 +3194,26 @@ export default function AdminScreen({ onBack, onHome, user }) {
     showToast("상태가 변경됐어요");
   };
 
+  // 보관(soft archive) 토글 — status 와 무관한 별도 정리 상태. hard delete 아님.
+  //   archived=true: 기본 목록에서 숨김 / false: 기존 status 그대로 기본 목록 복귀.
+  const changePartnerLeadArchive = async (lead, archived) => {
+    let data, error;
+    try {
+      ({ data, error } = await setPartnerLeadArchive(user?.id ?? null, lead.id, archived));
+    } catch (err) {
+      console.error("[partner_lead_set_archive] 예외:", err);
+      error = err;
+    }
+    if (error || data?.error) { showToast(archived ? "보관 실패" : "보관 해제 실패", false); return; }
+    setPartnerLeads((prev) => prev.map((l) => l.id === lead.id ? {
+      ...l,
+      is_archived: archived,
+      archived_at: archived ? new Date().toISOString() : null,
+      archived_by: archived ? (user?.id ?? "admin") : null,
+    } : l));
+    showToast(archived ? "보관함으로 이동했어요" : "보관을 해제했어요");
+  };
+
   // V2 무인 온보딩(069) — 입금확인/승인/반려 전이. company 생성은 하지 않음(최초 로그인 시 브릿지).
   const changePartnerOnboarding = async (lead, action) => {
     let data, error;
@@ -3230,7 +3250,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const _pq        = partnerSearch.trim().toLowerCase();
   const _pqDigits  = _pq.replace(/\D/g, "");
   const filteredPartnerLeads = partnerLeads.filter((l) => {
-    if (partnerLeadsFilter !== "all" && l.status !== partnerLeadsFilter) return false;
+    // 보관(soft archive)은 status 와 무관한 별도 정리 상태. 보관 탭에서만 보관 항목을 노출하고,
+    // 그 외 탭(전체/접수/검토중/승인/반려)에서는 보관 항목을 숨긴다.
+    const archived = !!l.is_archived;
+    if (partnerLeadsFilter === "ARCHIVED") {
+      if (!archived) return false;
+    } else {
+      if (archived) return false;
+      if (partnerLeadsFilter !== "all" && l.status !== partnerLeadsFilter) return false;
+    }
     if (pfDocBiz && !l.business_license_url) return false;
     if (pfDocIns && !l.insurance_file_url) return false;
     if (pfGuarantee && !l.guarantee_grade) return false;
@@ -3482,15 +3510,23 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 </div>
 
                 <div style={{ display: "flex", gap: 6, marginBottom: S.md, overflowX: "auto" }}>
-                  {[["all", "전체"], ["PENDING", "접수"], ["CONTACTED", "검토중"], ["APPROVED", "승인"], ["REJECTED", "반려"]].map(([v, l]) => (
-                    <button key={v} onClick={() => setPartnerLeadsFilter(v)}
-                      style={{ padding: "5px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
-                        whiteSpace: "nowrap", cursor: "pointer", border: "none",
-                        background: partnerLeadsFilter === v ? C.brand : C.bgWarm,
-                        color: partnerLeadsFilter === v ? "#fff" : C.text2 }}>
-                      {l}{v !== "all" ? ` ${partnerLeads.filter((x) => x.status === v).length}` : ""}
-                    </button>
-                  ))}
+                  {[["all", "전체"], ["PENDING", "접수"], ["CONTACTED", "검토중"], ["APPROVED", "승인"], ["REJECTED", "반려"], ["ARCHIVED", "보관"]].map(([v, l]) => {
+                    // 전체/상태 탭 카운트는 보관 제외, 보관 탭은 보관 건수.
+                    const count = v === "ARCHIVED"
+                      ? partnerLeads.filter((x) => x.is_archived).length
+                      : v === "all"
+                        ? null
+                        : partnerLeads.filter((x) => !x.is_archived && x.status === v).length;
+                    return (
+                      <button key={v} onClick={() => setPartnerLeadsFilter(v)}
+                        style={{ padding: "5px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
+                          whiteSpace: "nowrap", cursor: "pointer", border: "none",
+                          background: partnerLeadsFilter === v ? C.brand : C.bgWarm,
+                          color: partnerLeadsFilter === v ? "#fff" : C.text2 }}>
+                        {l}{count != null ? ` ${count}` : ""}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* V1.4 통합 검색 — 업체명/대표자명/연락처/사업자번호 부분검색 */}
@@ -3683,15 +3719,41 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           resize: "none", outline: "none", marginBottom: S.sm }}
                       />
 
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {[["CONTACTED", "검토중"], ["APPROVED", "승인"], ["REJECTED", "반려"], ["PENDING", "접수로"]].map(([v, lb]) => (
-                          <button key={v} disabled={l.status === v} onClick={() => changePartnerLeadStatus(l, v)}
-                            style={{ padding: "6px 14px", borderRadius: R.lg, fontSize: 12, fontWeight: 700,
-                              border: `1px solid ${l.status === v ? C.brand : C.bgWarm}`,
-                              background: l.status === v ? C.brand : "#fff",
-                              color: l.status === v ? "#fff" : C.text2,
-                              cursor: l.status === v ? "default" : "pointer" }}>{lb}</button>
-                        ))}
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                        {l.is_archived ? (
+                          <>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: C.text3, background: C.bgWarm,
+                              borderRadius: R.lg, padding: "6px 12px" }}>
+                              🗂 보관됨{l.archived_at ? ` · ${new Date(l.archived_at).toLocaleDateString("ko-KR")}` : ""}
+                            </span>
+                            <button onClick={() => changePartnerLeadArchive(l, false)}
+                              style={{ padding: "6px 14px", borderRadius: R.lg, fontSize: 12, fontWeight: 700,
+                                border: `1px solid ${C.brand}`, background: "#fff", color: C.brand, cursor: "pointer" }}>
+                              보관 해제
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {[["CONTACTED", "검토중"], ["APPROVED", "승인"], ["REJECTED", "반려"], ["PENDING", "접수로"]].map(([v, lb]) => (
+                              <button key={v} disabled={l.status === v} onClick={() => changePartnerLeadStatus(l, v)}
+                                style={{ padding: "6px 14px", borderRadius: R.lg, fontSize: 12, fontWeight: 700,
+                                  border: `1px solid ${l.status === v ? C.brand : C.bgWarm}`,
+                                  background: l.status === v ? C.brand : "#fff",
+                                  color: l.status === v ? "#fff" : C.text2,
+                                  cursor: l.status === v ? "default" : "pointer" }}>{lb}</button>
+                            ))}
+                            <button onClick={() => setConfirm({
+                              emoji: "🗂",
+                              title: "이 항목을 보관하시겠습니까?",
+                              msg: "보관된 항목은 보관함(보관 탭)에서 다시 확인할 수 있습니다.",
+                              onConfirm: async () => { await changePartnerLeadArchive(l, true); },
+                            })}
+                              style={{ padding: "6px 14px", borderRadius: R.lg, fontSize: 12, fontWeight: 700,
+                                border: `1px solid ${C.bgWarm}`, background: C.bg, color: C.text3, cursor: "pointer", marginLeft: "auto" }}>
+                              🗂 보관
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   );

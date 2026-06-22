@@ -1624,6 +1624,15 @@ export const setPartnerLeadOnboarding = (adminId, leadId, action) =>
     p_action:   action,
   });
 
+// 보관(soft archive) 토글(migration 072) — status 무관 · hard delete 아님.
+//   archived=true: 기본 목록에서 숨김(보관함) / false: 기존 status 그대로 복귀.
+export const setPartnerLeadArchive = (adminId, leadId, archived) =>
+  supabase.rpc("partner_lead_set_archive", {
+    p_admin_id: adminId,
+    p_lead_id:  leadId,
+    p_archived: archived,
+  });
+
 // 최초 로그인 브릿지 — phone 일치 APPROVED & 미클레임 lead 의 guarantee/insurance 조회(없으면 null).
 export const claimPartnerLeadForCompany = (phone) =>
   supabase.rpc("partner_lead_claim_for_company", { p_phone: phone ?? null });
