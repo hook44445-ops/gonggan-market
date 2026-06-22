@@ -7,6 +7,7 @@ import {
   flowStageLabel, paymentStatus, settlementStatus, escrowStatusLabel, shortId, fmtDate, txMatchesSearch,
 } from "../lib/transactionUtils";
 import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
+import { evidenceChatDbg } from "../utils/adminChatDebug"; // 증빙관리 채팅 조회 진단(플래그 시에만 출력)
 
 // ── 프로젝트 증빙관리(V2.3) — 분쟁 시 "누가·언제·어디서·무엇을" 확인하는 콘솔 ──
 // 데이터: admin_project_flow_list(GPS/사진/계약/분쟁/리뷰/직거래의심) + 채팅 요약(읽기 전용).
@@ -61,6 +62,16 @@ export function deriveEvidence(row) {
 }
 
 const scanKeywords = (text) => KEYWORDS.filter(k => text && String(text).includes(k));
+
+// 채팅 메시지가 이미지/파일/링크 URL이면 관리자 상세에서 라벨로 구분 표시(읽기 전용).
+// chats.text는 not-null 단일 컬럼이라 별도 첨부 컬럼이 없다 — URL 형태만 감지해 표기한다.
+const mediaLabel = (text) => {
+  const t = String(text ?? "").trim();
+  if (!/^https?:\/\/\S+$/i.test(t)) return null;
+  if (/\.(png|jpe?g|gif|webp|heic|bmp)(\?|$)/i.test(t)) return "📷 사진";
+  if (/\.(pdf|docx?|xlsx?|pptx?|zip|hwp)(\?|$)/i.test(t)) return "📎 첨부파일";
+  return "🔗 링크";
+};
 
 export default function ProjectEvidenceManagement({ adminUserId, showToast }) {
   const [rows, setRows]       = useState([]);
@@ -275,6 +286,17 @@ function EvidenceDetail({ row, chat: chatPreloaded, onClose }) {
     const s = await getProjectChatSummary({
       customerId: row.customer?.id, companyId: row.company?.id, ownerId: row.company?.owner_id,
     });
+    // 진단(기본 무출력) — room_id 후보 누락 재발 방지용. 프로젝트 1건 열 때 핵심 값 출력.
+    evidenceChatDbg("프로젝트 채팅 조회", {
+      project_id:    row.request_id,
+      customerId:    row.customer?.id ?? null,
+      companyId:     row.company?.id ?? null,
+      ownerId:       row.company?.owner_id ?? null,
+      roomCandidates: s.rooms ?? [],
+      matchedRoomIds: s.matchedRoomIds ?? [],
+      count:         s.count,
+      error:         s.error?.message ?? null,
+    });
     const kw = new Set();
     (s.recent || []).forEach(m => scanKeywords(m.text).forEach(k => kw.add(k)));
     setChat({ count: s.count, last: s.last, recent: s.recent, kw: [...kw] });
@@ -405,16 +427,25 @@ function EvidenceDetail({ row, chat: chatPreloaded, onClose }) {
                     ⚠️ 직거래 의심 키워드 감지({chat.kw.length}) — 표시 전용이며 자동 제재는 적용되지 않습니다.
                   </div>
                 )}
-                <div style={{ fontSize: 11, color: C.text3, fontWeight: 700, marginBottom: 6 }}>최근 메시지</div>
-                {(chat.recent || []).slice(0, 20).map((m, i) => {
-                  const hit = scanKeywords(m.text);
-                  return (
-                    <div key={i} style={{ padding: "6px 0", borderBottom: `1px solid ${C.bg}` }}>
-                      <div style={{ fontSize: 11, color: C.text4 }}>{m.sender_type || "—"} · {fmtDate(m.created_at)}</div>
-                      <div style={{ fontSize: 12.5, color: hit.length ? C.red : C.text1, lineHeight: 1.5 }}>{m.text || "—"}</div>
-                    </div>
-                  );
-                })}
+                {(chat.recent || []).length === 0 ? (
+                  <div style={{ color: C.text4, fontSize: 13, padding: "12px 0", textAlign: "center" }}>채팅 내역이 없습니다.</div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 11, color: C.text3, fontWeight: 700, marginBottom: 6 }}>최근 메시지</div>
+                    {(chat.recent || []).slice(0, 20).map((m, i) => {
+                      const hit = scanKeywords(m.text);
+                      const att = mediaLabel(m.text); // 이미지/파일/링크 URL이면 라벨, 아니면 null
+                      return (
+                        <div key={i} style={{ padding: "6px 0", borderBottom: `1px solid ${C.bg}` }}>
+                          <div style={{ fontSize: 11, color: C.text4 }}>{m.sender_type || "—"} · {fmtDate(m.created_at)}</div>
+                          <div style={{ fontSize: 12.5, color: hit.length ? C.red : C.text1, lineHeight: 1.5, wordBreak: "break-all" }}>
+                            {att ? `${att} ${m.text}` : (m.text || "—")}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
               </>
             )}
           </div>
