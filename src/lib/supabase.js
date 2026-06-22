@@ -292,35 +292,51 @@ export const getChatMessages = async (roomId, { limit = 50, before = null } = {}
   return { data: data ? [...data].reverse() : data, error };
 };
 
-// 관리자 증빙 열람용(읽기 전용) — 한 프로젝트의 채팅을 고객×업체 room 후보로 조회.
-// room_id = `${customerUserId}_${companyId}` 규칙. 업체는 companies.id/owner_id 둘 다 후보로 본다
-// (과거 bids.company_id 가 owner_id 였던 케이스 보정). 데이터 없으면 빈 배열.
-// 성능: 최근 limit개만 조회(전체 일괄 로딩 금지) — 반환 정렬은 기존과 동일(asc).
+// 관리자 채팅 조회 공통 — 한 프로젝트의 모든 room_id 후보를 생성한다(읽기 전용).
+//   고객/업체 채팅의 room_id 저장 순서·식별자(고객 user.id, companies.id, owner_id)가
+//   경로별로 달랐던 이력이 있어, 가능한 조합을 모두 후보로 만들어 조회 누락을 막는다.
+//   ⚠️ room_id '저장 방식'은 절대 변경하지 않는다 — 조회 후보만 넓힌다.
+//   집계/최근메시지/상세가 반드시 이 함수 하나만 사용하도록 통일한다.
+export const buildRoomIdCandidates = ({ customerId, companyId, ownerId } = {}) => {
+  const set = new Set();
+  const pair = (a, b) => { if (a && b) { set.add(`${a}_${b}`); set.add(`${b}_${a}`); } };
+  // 고객 × (업체 companies.id / 업체 owner_id)
+  pair(customerId, companyId);
+  pair(customerId, ownerId);
+  // 업체 식별자 간 조합(owner_id ↔ companies.id)도 포함(과거 케이스 보정)
+  pair(companyId, ownerId);
+  return [...set];
+};
+
+// 관리자 증빙 열람용(읽기 전용) — 한 프로젝트의 채팅을 room 후보 전체로 조회.
+// 데이터 없으면 빈 배열. 성능: 최근 limit개만 조회 — 반환 정렬은 기존과 동일(asc).
 export const getChatsForProject = async ({ customerId, companyId, ownerId, limit = 50 } = {}) => {
-  const rooms = [companyId, ownerId].filter(Boolean).map((cid) => `${customerId}_${cid}`);
-  if (!customerId || rooms.length === 0) return { data: [], error: null };
+  const rooms = buildRoomIdCandidates({ customerId, companyId, ownerId });
+  if (!customerId || rooms.length === 0) return { data: [], error: null, rooms, matchedRoomIds: [] };
   const { data, error } = await supabase
     .from("chats")
     .select("*")
     .in("room_id", rooms)
     .order("created_at", { ascending: false })
     .limit(limit);
-  return { data: data ? [...data].reverse() : data, error };
+  const matchedRoomIds = [...new Set((data ?? []).map((m) => m.room_id))];
+  return { data: data ? [...data].reverse() : data, error, rooms, matchedRoomIds };
 };
 
-// 관리자 증빙관리(V2.3) — 한 프로젝트의 채팅 요약(건수/마지막/최근 50건). 읽기 전용.
-// room_id = `${customerId}_${companyId|ownerId}` 후보. 기존 chats 조회만 사용(미수정).
+// 관리자 증빙관리 — 한 프로젝트의 채팅 요약(건수/마지막/최근 50건). 읽기 전용.
+// 집계·최근메시지·상세 모두 이 함수 하나(=동일 room 후보)만 사용한다.
 export const getProjectChatSummary = async ({ customerId, companyId, ownerId } = {}) => {
-  const rooms = [companyId, ownerId].filter(Boolean).map((cid) => `${customerId}_${cid}`);
-  if (!customerId || rooms.length === 0) return { count: 0, last: null, recent: [], error: null };
+  const rooms = buildRoomIdCandidates({ customerId, companyId, ownerId });
+  if (!customerId || rooms.length === 0) return { count: 0, last: null, recent: [], rooms, matchedRoomIds: [], error: null };
   const { data, error, count } = await supabase
     .from("chats")
-    .select("text, created_at, sender_type", { count: "exact" })
+    .select("text, created_at, sender_type, room_id", { count: "exact" })
     .in("room_id", rooms)
     .order("created_at", { ascending: false })
     .limit(50);
   const recent = data ? [...data] : [];
-  return { count: count ?? recent.length, last: recent[0]?.created_at ?? null, recent, error };
+  const matchedRoomIds = [...new Set(recent.map((m) => m.room_id))];
+  return { count: count ?? recent.length, last: recent[0]?.created_at ?? null, recent, rooms, matchedRoomIds, error };
 };
 
 export const sendMessage = (roomId, senderId, senderType, text) =>
