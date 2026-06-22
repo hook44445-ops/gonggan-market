@@ -6,6 +6,7 @@ import SpaceActivityRecord from "./SpaceActivityRecord"; // v5.5: 공간 활동�
 import { TempBadge } from "./common";
 import GuaranteeBadge from "./GuaranteeBadge";
 import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
+import { BetaGateModal, BetaBanner } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 export default function BidCard({
   r,
@@ -19,6 +20,7 @@ export default function BidCard({
 }) {
   const [submitted, setSubmitted] = useState(alreadyBid);
   const [showForm, setShowForm] = useState(false);
+  const [bidBetaAck, setBidBetaAck] = useState(false); // 베타 안내 확인 전엔 입찰 작성 가림
   const [submitting, setSubmitting] = useState(false);
   const [bidForm, setBidForm] = useState({ price: "", period: "", material: "", comment: "" });
   const setBF = (k, v) => setBidForm(f => ({ ...f, [k]: v }));
@@ -267,6 +269,9 @@ export default function BidCard({
         </div>
       </div>
 
+      {/* 입찰 진입 안내 — 확인 전 작성 화면을 가린다(베타) */}
+      <BetaGateModal open={showForm && !bidBetaAck} kind="bid" onConfirm={() => setBidBetaAck(true)} onClose={() => setShowForm(false)} />
+
       {/* 입찰 제출/수정 폼 바텀시트 */}
       {showForm && (
         <div
@@ -275,7 +280,8 @@ export default function BidCard({
           <div style={{ background: C.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 480, padding: "24px 24px 40px", maxHeight: "88vh", overflowY: "auto" }}>
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 16px" }} />
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: 3 }}>{hasBid ? "입찰 수정하기" : "안심 견적 제출하기"}</div>
-            <div style={{ fontSize: 13, color: C.text3, marginBottom: S.xl }}>{r.type} · {r.size} · {r.area}</div>
+            <div style={{ fontSize: 13, color: C.text3, marginBottom: S.md }}>{r.type} · {r.size} · {r.area}</div>
+            <BetaBanner text="베타 서비스 운영 중 · 견적 참여는 무료입니다. 안전결제는 정식 서비스에서 제공됩니다." />
 
             <div style={{ background: companyBadge.bg, borderRadius: R.lg, padding: `${S.sm}px ${S.md}px`, marginBottom: S.md, display: "flex", alignItems: "center", gap: S.sm, border: `1px solid ${companyBadge.color}33` }}>
               <span style={{ fontSize: 16 }}>{companyBadge.icon}</span>
