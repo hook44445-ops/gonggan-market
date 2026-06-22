@@ -6,7 +6,7 @@ import SpaceActivityRecord from "./SpaceActivityRecord"; // v5.5: 공간 활동�
 import { TempBadge } from "./common";
 import GuaranteeBadge from "./GuaranteeBadge";
 import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
-import { BetaGateModal, BetaBanner } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { BetaGateModal, BetaBanner, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 export default function BidCard({
   r,
@@ -20,7 +20,7 @@ export default function BidCard({
 }) {
   const [submitted, setSubmitted] = useState(alreadyBid);
   const [showForm, setShowForm] = useState(false);
-  const [bidBetaAck, setBidBetaAck] = useState(false); // 베타 안내 확인 전엔 입찰 작성 가림
+  const [bidBetaAck, setBidBetaAck] = useState(() => hasBetaAck("bid")); // 최초 1회 확인 후 재노출 안 함
   const [submitting, setSubmitting] = useState(false);
   const [bidForm, setBidForm] = useState({ price: "", period: "", material: "", comment: "" });
   const setBF = (k, v) => setBidForm(f => ({ ...f, [k]: v }));

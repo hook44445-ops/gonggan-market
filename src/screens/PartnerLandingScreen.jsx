@@ -3,7 +3,7 @@ import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadF
 import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
-import { BetaBanner } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { BetaBanner, BetaBadge } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#0B1D3A";
@@ -157,10 +157,18 @@ function ConsultForm() {
   // V1.3 서류 업로드: 사업자등록증(승인 필수) / 시공보험증권(선택, 예치금 할인 기준).
   const [bizFile, setBizFile] = useState(null);
   const [insFile, setInsFile] = useState(null);
+  // 업체 운영 준수서약 — 필수 체크(프론트 상태값만 사용 · DB/API 미전송).
+  const [pledge, setPledge] = useState(false);
   // V2 무인 온보딩: 제출 성공 시 생성된 lead 정보를 보관해 STEP2~4 로 이어준다.
   const [lead, setLead] = useState(null); // { id, phone, insuranceYn }
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  // 가입 신청 버튼 활성화 조건: 필수 입력값 완료 + 사업자등록증 업로드 + 운영 준수서약 체크.
+  //   ※ 시공보험은 기존 정책대로 선택/우대 — 필수 아님.
+  const requiredFilled = ["company", "owner", "phone", "bizNo", "region", "field"]
+    .every((k) => form[k]?.trim());
+  const canSubmit = requiredFilled && !!bizFile && pledge;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -172,6 +180,14 @@ function ConsultForm() {
     const missing = required.filter(([k]) => !form[k]?.trim()).map(([, label]) => label);
     if (missing.length) {
       alert(`다음 필수 항목을 입력해 주세요:\n${missing.join(", ")}`);
+      return;
+    }
+    if (!bizFile) {
+      alert("사업자등록증을 업로드해 주세요. (승인 필수)");
+      return;
+    }
+    if (!pledge) {
+      alert("업체 운영 준수서약에 동의해 주세요.");
       return;
     }
     // V1.1: partner_leads 저장(관리자 상담관리에서 승인 처리). 문자/이메일/토스 발송 없음.
@@ -291,7 +307,7 @@ function ConsultForm() {
       </div>
       <div>
         <label style={labelStyle}>
-          시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(선택) · 우수 파트너 우대 혜택</span>
+          시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(베타 서비스 선택 / 정식 서비스 필수) · 우수 파트너 우대 혜택</span>
         </label>
         <label style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: insFile ? NAVY : TEXT3 }}>
           <span>📎</span>
@@ -318,6 +334,37 @@ function ConsultForm() {
         </select>
       </div>
 
+      {/* 업체 운영 준수서약 — 필수 체크(미체크 시 가입 신청 버튼 비활성). 표시·동의 전용. */}
+      <div>
+        <label style={labelStyle}>업체 운영 준수서약 <span style={{ color: GOLDD }}>*</span></label>
+        <div style={{
+          border: `1.5px solid #DDE3EC`, borderRadius: 10, background: WHITE,
+          padding: "12px 14px",
+        }}>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" }}>
+            <input type="checkbox" checked={pledge} onChange={(e) => setPledge(e.target.checked)}
+              style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, cursor: "pointer" }} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>아래 내용을 확인하고 동의합니다.</span>
+          </label>
+          <ul style={{
+            margin: "10px 0 0", paddingLeft: 18, fontSize: 12, color: TEXT2, lineHeight: 1.7,
+            paddingTop: 10, borderTop: `1px solid #EEF1F6`,
+          }}>
+            {[
+              "허위 사업자정보 또는 허위 시공이력으로 가입하지 않습니다.",
+              "고객과의 상담, 견적, 계약, 시공 과정에서 성실하게 응대합니다.",
+              "베타 기간 동안 공간마켓 시스템 구조에 따라 견적, 상담, 계약 진행, 프로젝트 기록을 성실히 이용합니다.",
+              "토스페이먼츠 승인 전까지 앱 내 안전결제가 제공되지 않음을 확인했습니다.",
+              "베타 기간의 실제 결제는 고객과 업체가 상호 협의하여 진행됨을 확인했습니다.",
+              "무단 직거래 유도, 허위 견적, 연락 두절, 부실 시공, 리뷰 조작을 하지 않습니다.",
+              "분쟁 발생 시 공간마켓 운영팀의 확인 요청에 성실히 협조합니다.",
+              "정식 서비스 오픈 후 공간보증 예치금 및 공간보증 심사가 적용될 수 있음을 확인했습니다.",
+              "본인은 위 내용을 모두 확인하였으며, 공간마켓 운영정책에 따라 성실히 참여할 것을 서약합니다.",
+            ].map((t, i) => <li key={i} style={{ marginBottom: 4 }}>{t}</li>)}
+          </ul>
+        </div>
+      </div>
+
       <div>
         <label style={labelStyle}>문의사항</label>
         <textarea
@@ -330,11 +377,12 @@ function ConsultForm() {
 
       <button
         type="submit"
-        disabled={saving}
+        disabled={saving || !canSubmit}
         style={{
-          height: 52, borderRadius: 12, border: "none", cursor: saving ? "default" : "pointer",
+          height: 52, borderRadius: 12, border: "none",
+          cursor: saving || !canSubmit ? "default" : "pointer",
           background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900,
-          fontFamily: SANS, letterSpacing: "-0.2px", opacity: saving ? 0.7 : 1,
+          fontFamily: SANS, letterSpacing: "-0.2px", opacity: saving || !canSubmit ? 0.55 : 1,
           boxShadow: `0 6px 20px rgba(201,168,76,0.35)`,
         }}>
         {saving ? "접수 중..." : "공간파트너 가입 신청"}
@@ -559,6 +607,8 @@ export default function PartnerLandingScreen() {
         }} />
 
         <div ref={heroRef} style={{ maxWidth: 520, margin: "0 auto", position: "relative" }}>
+          {/* 베타 파트너 배지 — 클릭 시 업체용 베타 안내 모달(확인 전용 · SHOW_BETA_UI 게이트) */}
+          <BetaBadge label="베타 파트너" kind="bid" style={{ position: "absolute", top: -44, right: 0, zIndex: 3 }} />
           {/* Brand tag */}
           <div style={{ ...fade(heroVis, 0), marginBottom: 20 }}>
             <div style={{

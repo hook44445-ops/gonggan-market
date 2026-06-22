@@ -4,12 +4,12 @@
 //   개선: 진행단계+완료표시 / 필수항목 강조 / 입력순서 정리 / 버튼 확대 / 터치영역 확대.
 import { useState, useEffect, useRef } from "react";
 import { C, R, S, SPACE_TYPES, STYLES } from "../constants";
-import { BetaGateModal, BetaBanner } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { BetaGateModal, BetaBanner, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 export default function RequestModalBeta({ onClose, onDone, initialData = null, isEdit = false }) {
   // ── 로직(원본 동일) ────────────────────────────────────────────────
   const [step, setStep] = useState(1);
-  const [betaAck, setBetaAck] = useState(false); // 베타 안내 확인 전엔 견적 작성 가림
+  const [betaAck, setBetaAck] = useState(() => hasBetaAck("quote")); // 최초 1회 확인 후 재노출 안 함
   const stepRef = useRef(step);
   useEffect(() => { stepRef.current = step; }, [step]);
   const closedByBackRef = useRef(false);
