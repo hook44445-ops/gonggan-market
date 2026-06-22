@@ -1,8 +1,20 @@
 // 베타 서비스 안내 UI — 배지 / 배너 / 진입 안내 모달 (Add Only · 표시 전용).
 //   ⚠️ SHOW_BETA_UI=false 면 배지·배너는 자동으로 사라진다(렌더 null). 결제/계약/로직 무관.
 //   토스페이먼츠 승인 전 '무료 베타 + 안전결제 미제공' 안내를 한 곳에서 관리.
+import { useEffect, useState } from "react";
 import { C, R, S } from "../../constants";
 import { SHOW_BETA_UI } from "../../constants/release";
+
+// 진입 안내 1회 확인 기록 — localStorage. 최초 1회 체크박스 확인 시 저장 → 이후 재노출 안 함.
+const BETA_ACK_KEY = { quote: "gm_beta_ack_quote", bid: "gm_beta_ack_bid" };
+
+export function hasBetaAck(kind) {
+  try { return localStorage.getItem(BETA_ACK_KEY[kind]) === "1"; } catch { return false; }
+}
+
+export function markBetaAck(kind) {
+  try { localStorage.setItem(BETA_ACK_KEY[kind], "1"); } catch { /* noop */ }
+}
 
 // 🎉 베타 배지 — 랜딩 우상단 등.
 export function BetaBadge({ label = "베타 서비스", style }) {
@@ -31,46 +43,117 @@ export function BetaBanner({ text, style }) {
 
 const GATE_CONTENT = {
   quote: {
-    lines: [
-      "현재 공간마켓은 베타 서비스입니다.",
-      "견적요청과 상담은 무료입니다.",
-      "토스페이먼츠 승인 전까지 앱 내 안전결제는 제공되지 않습니다.",
-      "실제 계약 및 결제는 고객과 업체가 상호 협의하여 진행합니다.",
+    title: "🎉 무료 베타 서비스 안내",
+    intro: "베타 기간 동안 공간마켓 시스템 구조에 따라 아래 서비스를 제공합니다.",
+    provided: [
+      "견적요청", "업체 비교", "업체 상담", "계약 진행", "프로젝트 진행관리",
+      "GPS 진행기록", "사진 기록", "채팅", "리뷰 작성", "프로젝트 이력 관리",
+    ],
+    notProvided: ["앱 내 안전결제", "에스크로 결제", "카드결제", "공간보증 서비스"],
+    notes: [
+      "토스페이먼츠 승인 전까지는 앱 내 안전결제를 제공하지 않습니다.",
+      "베타 기간 동안에도 공간마켓 시스템 구조에 맞추어 계약과 프로젝트를 진행할 수 있으며, 결제는 고객과 업체가 상호 협의하여 진행됩니다.",
     ],
     confirm: "확인하고 견적요청하기",
   },
   bid: {
-    lines: [
-      "현재 공간마켓은 베타 서비스입니다.",
-      "가입 · 견적 참여 · 상담 모두 무료입니다.",
-      "토스페이먼츠 승인 전까지 앱 내 안전결제는 제공되지 않습니다.",
-      "실제 계약 및 결제는 고객과 업체 간 상호 협의하여 진행합니다.",
+    title: "🎉 무료 베타 파트너 안내",
+    intro: "베타 기간 동안 공간마켓 시스템 구조에 따라 아래 서비스를 제공합니다.",
+    provided: [
+      "업체 가입", "견적 입찰", "고객 상담", "계약 진행", "프로젝트 진행관리",
+      "GPS 진행기록", "사진 기록", "포트폴리오", "리뷰 관리", "업체 성장(LV)", "프로젝트 이력 관리",
+    ],
+    required: ["사업자등록증", "시공보험 또는 영업배상책임보험", "업체 운영 준수서약"],
+    notProvided: ["공간보증 예치금", "공간보증 심사", "앱 내 안전결제", "에스크로 정산"],
+    notes: [
+      "토스페이먼츠 승인 전까지는 앱 내 안전결제를 제공하지 않습니다.",
+      "베타 기간 동안에도 공간마켓 시스템 구조에 맞추어 계약과 프로젝트를 진행할 수 있으며, 결제는 고객과 업체가 상호 협의하여 진행됩니다.",
+      "공간보증 서비스는 정식 오픈 후 제공됩니다.",
     ],
     confirm: "확인하고 입찰하기",
   },
 };
 
-// 진입 안내 모달 — 견적요청/입찰 직전 1회 고지. open 일 때만 렌더.
-//   onConfirm: 확인 → 기존 흐름 계속 / onClose: 취소.
+function GateSection({ title, children }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text3, marginBottom: 8 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function GateList({ items, mark, color }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {items.map((it) => (
+        <span key={it} style={{
+          fontSize: 12.5, fontWeight: 700, color: color ?? C.text2,
+          background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.full,
+          padding: "5px 10px",
+        }}>{mark} {it}</span>
+      ))}
+    </div>
+  );
+}
+
+// 진입 안내 모달 — 견적요청/입찰 직전 1회 고지(체크박스 확인 전 버튼 비활성).
+//   onConfirm: 확인 → 기존 흐름 계속(localStorage 저장, 이후 재노출 안 함) / onClose: 취소.
 export function BetaGateModal({ open, kind = "quote", onConfirm, onClose }) {
+  const [checked, setChecked] = useState(false);
+  useEffect(() => { if (open) setChecked(false); }, [open]);
+
   if (!open || !SHOW_BETA_UI) return null;
   const c = GATE_CONTENT[kind] ?? GATE_CONTENT.quote;
+
+  const handleConfirm = () => {
+    if (!checked) return;
+    markBetaAck(kind);
+    onConfirm?.();
+  };
+
   return (
     <div onClick={onClose}
       style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.6)", zIndex: 700,
         display: "flex", alignItems: "center", justifyContent: "center", padding: "0 24px" }}>
       <div onClick={(e) => e.stopPropagation()}
-        style={{ width: "100%", maxWidth: 360, background: C.surface, borderRadius: R.xl, padding: "26px 22px",
+        style={{ width: "100%", maxWidth: 380, maxHeight: "86vh", overflowY: "auto",
+          background: C.surface, borderRadius: R.xl, padding: "26px 22px",
           boxShadow: "0 20px 60px rgba(5,10,22,0.35)" }}>
-        <div style={{ fontSize: 32, textAlign: "center", marginBottom: 10 }}>🎉</div>
-        <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, textAlign: "center", marginBottom: 14 }}>베타 서비스 안내</div>
-        <div style={{ fontSize: 13.5, color: C.text2, lineHeight: 1.9, marginBottom: 20 }}>
-          {c.lines.map((l, i) => (
-            <div key={i} style={{ marginBottom: i === 1 ? 8 : 4, color: i >= 2 ? C.text3 : C.text2, fontWeight: i === 1 ? 800 : 600 }}>{l}</div>
-          ))}
-        </div>
-        <button onClick={onConfirm} style={{ width: "100%", padding: "15px", background: C.brand, color: "#fff",
-          border: "none", borderRadius: R.lg, fontSize: 15, fontWeight: 800, cursor: "pointer" }}>
+        <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, textAlign: "center", marginBottom: 6 }}>{c.title}</div>
+        <div style={{ fontSize: 13, color: C.text3, textAlign: "center", marginBottom: 18, lineHeight: 1.6 }}>{c.intro}</div>
+
+        <GateSection title="제공 서비스">
+          <GateList items={c.provided} mark="✅" />
+        </GateSection>
+
+        {c.required && (
+          <GateSection title="가입 필수">
+            <GateList items={c.required} mark="📄" />
+          </GateSection>
+        )}
+
+        <GateSection title="현재 제공되지 않는 서비스">
+          <GateList items={c.notProvided} mark="🚫" color={C.text3} />
+        </GateSection>
+
+        <GateSection title="중요 안내">
+          <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.8, fontWeight: 600 }}>
+            {c.notes.map((n, i) => <div key={i} style={{ marginBottom: i < c.notes.length - 1 ? 6 : 0 }}>· {n}</div>)}
+          </div>
+        </GateSection>
+
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 16, cursor: "pointer" }}>
+          <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)}
+            style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, cursor: "pointer" }} />
+          <span style={{ fontSize: 13, color: C.text1, fontWeight: 700 }}>위 내용을 확인하였습니다.</span>
+        </label>
+
+        <button onClick={handleConfirm} disabled={!checked} style={{
+          width: "100%", padding: "15px", background: checked ? C.brand : "#E8E4DC", color: "#fff",
+          border: "none", borderRadius: R.lg, fontSize: 15, fontWeight: 800,
+          cursor: checked ? "pointer" : "not-allowed",
+        }}>
           {c.confirm}
         </button>
         <button onClick={onClose} style={{ width: "100%", padding: "11px", marginTop: 8, background: "none",
