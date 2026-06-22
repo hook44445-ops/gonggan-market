@@ -3600,12 +3600,24 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       </div>
 
                       {/* 업체 운영준수서약 — 가입 신청 시 필수 동의 항목(미동의 시 신청 불가). 표시 전용. */}
+                      {/* 운영준수서약 제출 이력(071) — 동의 여부 + 동의 일시. 심사/분쟁/제재/증빙/감사 기준 데이터. */}
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: S.sm,
-                        fontSize: 12, color: C.text2 }}>
+                        fontSize: 12, color: C.text2, flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 700 }}>운영준수서약:</span>
-                        <span style={{ fontWeight: 700, color: C.green, background: C.greenL,
-                          borderRadius: R.lg, padding: "4px 10px", border: `1px solid ${C.green}33` }}>✅ 동의</span>
-                        <span style={{ fontSize: 11, color: C.text4 }}>(가입 시 필수 동의)</span>
+                        {l.pledge_agreed ? (
+                          <>
+                            <span style={{ fontWeight: 700, color: C.green, background: C.greenL,
+                              borderRadius: R.lg, padding: "4px 10px", border: `1px solid ${C.green}33` }}>✅ 동의</span>
+                            {l.pledge_agreed_at && (
+                              <span style={{ fontSize: 11, color: C.text4 }}>
+                                동의 일시 {new Date(l.pledge_agreed_at).toLocaleString("ko-KR")}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span style={{ fontWeight: 700, color: C.red, background: "#FFF0F0",
+                            borderRadius: R.lg, padding: "4px 10px", border: "1px solid #F3C7C7" }}>❌ 미동의</span>
+                        )}
                       </div>
 
                       {/* V2 무인 온보딩(069) — 공간보증 신청 진행상태 + 입금확인/승인/반려 */}

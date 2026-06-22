@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadFiles } from "../lib/supabase";
+import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadFiles, setPartnerLeadPledge } from "../lib/supabase";
 import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
@@ -225,6 +225,11 @@ function ConsultForm() {
           if (insFile) insUrl = await uploadFile("documents", `partner_leads/${leadId}/ins_${Date.now()}_${insFile.name}`, insFile);
           if (bizUrl || insUrl) await attachPartnerLeadFiles(leadId, { businessLicenseUrl: bizUrl, insuranceFileUrl: insUrl });
         } catch (e) { console.warn("[partner files] 업로드 실패(신청은 계속):", e); }
+        // 운영준수서약 동의 기록(migration 071) — best-effort. 버튼은 동의 시에만 활성이므로 항상 true.
+        // 본 RPC 미존재(마이그레이션 미적용)/실패는 가입 제출을 막지 않는다.
+        try {
+          await setPartnerLeadPledge(leadId, !!pledge, new Date().toISOString());
+        } catch (e) { console.warn("[partner pledge] 서약 기록 실패(신청은 계속):", e); }
       }
       // V2: 생성된 lead id 로 STEP2~4(등급선택→입금→대기) 진행. 보험여부 = 보험증권 파일 존재.
       setLead({
