@@ -2164,6 +2164,138 @@ function deriveFlowFlags(row) {
 const isFlowCompleted = (row) =>
   row.flow_stage === "SETTLED_OR_REVIEWED" || row.status === "completed";
 
+// ── GPS 시스템 모니터링 대시보드 — admin_project_flow_list 집계(읽기 전용 · DB/API 무변경) ──
+//   목적: "프로젝트가 아니라 GPS 시스템이 정상 운영되는가"를 보는 운영 KPI 화면.
+//   기존 deriveFlowFlags(프로젝트 증빙관리와 동일 기준)를 '집계' 관점으로만 재사용한다.
+function GpsOpsDashboard({ adminUserId }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [errMsg, setErrMsg] = useState(null);
+  const [period, setPeriod] = useState("all"); // all|today|week|month
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true); setErrMsg(null);
+    getAdminProjectFlow(adminUserId, { limit: 500 })
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) { setErrMsg(error.message || "조회 실패"); setRows([]); }
+        else setRows(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => { if (alive) { setErrMsg("조회 실패"); setLoading(false); } });
+    return () => { alive = false; };
+  }, [adminUserId]);
+
+  const latestCpTime = (row) => (row.checkpoints || []).reduce((m, c) => {
+    const t = c.captured_at ? new Date(c.captured_at).getTime() : 0; return t > m ? t : m;
+  }, 0);
+  const inPeriod = (row) => {
+    if (period === "all") return true;
+    const t = latestCpTime(row);
+    if (!t) return false;
+    const span = period === "today" ? 864e5 : period === "week" ? 7 * 864e5 : 30 * 864e5;
+    return Date.now() - t < span;
+  };
+  const rate = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0);
+
+  // 집계 (≤500행 — 렌더 시 계산, 부수효과 없음)
+  const src = rows.filter(inPeriod);
+  let total = 0, gpsRecorded = 0, gpsMissing = 0, startMiss = 0, midMiss = 0, compMiss = 0;
+  let photoOk = 0, photoStageTotal = 0, accSum = 0, accN = 0;
+  const byCompany = {}, byRegion = {};
+  src.forEach((row) => {
+    const ev = deriveFlowFlags(row);
+    total++;
+    if (ev.gpsCount > 0) gpsRecorded++;
+    if (ev.gpsMissing) gpsMissing++;
+    if (ev.startMissing) startMiss++;
+    if (ev.middleMissing) midMiss++;
+    if (ev.completeMissing) compMiss++;
+    if (ev.stages.some((s) => s.gpsStage && s.reached)) { photoStageTotal++; if (!ev.photoMissing) photoOk++; }
+    (row.checkpoints || []).forEach((c) => {
+      const a = Number(c.accuracy);
+      if (c.accuracy != null && Number.isFinite(a)) { accSum += a; accN++; }
+    });
+    const co = row.company?.name || "미배정";
+    byCompany[co] = byCompany[co] || { total: 0, recorded: 0 }; byCompany[co].total++; if (ev.gpsCount > 0) byCompany[co].recorded++;
+    const rg = row.area || "지역 미상";
+    byRegion[rg] = byRegion[rg] || { total: 0, recorded: 0 }; byRegion[rg].total++; if (ev.gpsCount > 0) byRegion[rg].recorded++;
+  });
+  const companies = Object.entries(byCompany).map(([name, v]) => ({ name, ...v, rate: rate(v.recorded, v.total) })).sort((a, b) => b.total - a.total).slice(0, 8);
+  const regions = Object.entries(byRegion).map(([name, v]) => ({ name, ...v, rate: rate(v.recorded, v.total) })).sort((a, b) => b.total - a.total).slice(0, 8);
+  const gpsRate = rate(gpsRecorded, total);
+  const photoRate = rate(photoOk, photoStageTotal);
+  const avgAcc = accN > 0 ? Math.round(accSum / accN) : null;
+  const toneRate = (r) => (r >= 70 ? "#27AE60" : r >= 40 ? "#E67E22" : C.red);
+
+  const Kpi = ({ label, value, sub, tone }) => (
+    <div style={{ flex: "1 1 130px", minWidth: 120, background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "14px 12px" }}>
+      <div style={{ fontSize: 22, fontWeight: 900, color: tone || C.text1, lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: C.text3, marginTop: 4 }}>{label}</div>
+      {sub && <div style={{ fontSize: 10.5, color: C.text4, marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+  const Bars = ({ title, items }) => (
+    <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: 14, marginTop: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 10 }}>{title}</div>
+      {items.length === 0 ? <div style={{ fontSize: 12, color: C.text4 }}>데이터 없음</div> :
+        items.map((it) => (
+          <div key={it.name} style={{ marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.text2, marginBottom: 3 }}>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 170 }}>{it.name}</span>
+              <span style={{ fontWeight: 800, color: toneRate(it.rate) }}>{it.rate}% <span style={{ color: C.text4, fontWeight: 600 }}>({it.recorded}/{it.total})</span></span>
+            </div>
+            <div style={{ height: 6, borderRadius: 999, background: C.bgWarm, overflow: "hidden" }}>
+              <div style={{ width: `${it.rate}%`, height: "100%", background: toneRate(it.rate) }} />
+            </div>
+          </div>
+        ))}
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4 }}>📡 GPS 시스템 모니터링</div>
+      <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: 12 }}>
+        GPS 운영 품질·기록률·누락을 집계하는 시스템 대시보드입니다. 프로젝트 단위 상세 추적은 ‘프로젝트 증빙관리’에서 확인하세요.
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {[["all", "전체"], ["today", "오늘"], ["week", "이번주"], ["month", "이번달"]].map(([v, l]) => (
+          <button key={v} onClick={() => setPeriod(v)}
+            style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700, cursor: "pointer",
+              border: `1px solid ${period === v ? C.brand : C.bgWarm}`, background: period === v ? C.brand : C.surface, color: period === v ? "#fff" : C.text2 }}>{l}</button>
+        ))}
+      </div>
+      {loading ? <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>불러오는 중…</div> :
+        errMsg ? <div style={{ color: C.red, fontSize: 13, padding: "12px 0" }}>조회 실패: {errMsg}</div> :
+          total === 0 ? <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>해당 기간 데이터가 없습니다</div> : (
+            <>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Kpi label="GPS 기록률" value={`${gpsRate}%`} sub={`${gpsRecorded}/${total} 프로젝트`} tone={toneRate(gpsRate)} />
+                <Kpi label="GPS 누락 프로젝트" value={gpsMissing} sub="도달 후 좌표 없음" tone={gpsMissing > 0 ? C.red : C.text1} />
+                <Kpi label="사진 첨부율" value={`${photoRate}%`} sub="GPS 단계 도달 기준" />
+                <Kpi label="평균 위치오차" value={avgAcc != null ? `${avgAcc}m` : "—"} sub="checkpoint accuracy" />
+              </div>
+              <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: 14, marginTop: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 10 }}>단계별 GPS 누락</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {[["착공", startMiss], ["중간점검", midMiss], ["완료", compMiss]].map(([l, n]) => (
+                    <div key={l} style={{ flex: 1, textAlign: "center", background: C.bg, borderRadius: R.md, padding: "10px 4px" }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: n > 0 ? C.red : C.text1 }}>{n}</div>
+                      <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{l} 누락</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <Bars title="업체별 GPS 기록률 (상위 8)" items={companies} />
+              <Bars title="지역별 GPS 기록률 (상위 8)" items={regions} />
+            </>
+          )}
+    </div>
+  );
+}
+
 function ProjectFlowTab({ adminUserId, showToast }) {
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
@@ -4604,9 +4736,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
             {mainTab === "project_flow" && (
               <div>
-                {/* 뷰 전환 — 프로젝트 증빙관리(신규 V2.3) / GPS 흐름(기존 보존) */}
+                {/* 역할 분리 — 프로젝트 증빙관리(프로젝트 콘솔) / GPS 시스템 모니터링(운영 대시보드) */}
                 <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                  {[["evidence", "프로젝트 증빙관리"], ["gps", "GPS 흐름(기존)"]].map(([v, l]) => (
+                  {[["evidence", "프로젝트 증빙관리"], ["gps", "GPS 시스템 모니터링"]].map(([v, l]) => (
                     <button key={v} onClick={() => setFlowView(v)}
                       style={{ padding: "7px 14px", borderRadius: R.full, fontSize: 12.5, fontWeight: 700,
                         border: `1px solid ${flowView === v ? C.brand : C.bgWarm}`, cursor: "pointer",
@@ -4618,7 +4750,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 {flowView === "evidence" ? (
                   <ProjectEvidenceManagement adminUserId={user?.id ?? null} showToast={showToast} />
                 ) : (
-                  <ProjectFlowTab adminUserId={user?.id ?? null} showToast={showToast} />
+                  <GpsOpsDashboard adminUserId={user?.id ?? null} />
                 )}
               </div>
             )}
