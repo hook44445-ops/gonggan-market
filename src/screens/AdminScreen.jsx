@@ -2199,66 +2199,111 @@ function GpsOpsDashboard({ adminUserId }) {
   };
   const rate = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0);
 
-  // 집계 (≤500행 — 렌더 시 계산, 부수효과 없음)
+  // 집계 (≤500행 — 렌더 시 계산, 부수효과 없음 · 기존 checkpoint 데이터만 사용)
   const src = rows.filter(inPeriod);
-  let total = 0, gpsRecorded = 0, gpsMissing = 0, startMiss = 0, midMiss = 0, compMiss = 0;
-  let photoOk = 0, photoStageTotal = 0, accSum = 0, accN = 0;
-  const byCompany = {}, byRegion = {};
+  const OVER_ACC = 50; // m — 위치 오차 과다 임계값(표시 기준)
+  let total = 0, gpsRecorded = 0, startMiss = 0, midMiss = 0, compMiss = 0;
+  let photoOk = 0, photoStageTotal = 0, photoMissingProj = 0;
+  let accSum = 0, accN = 0, acc10 = 0, acc30 = 0, acc50 = 0, accOver = 0;
+  let ongoing = 0, completed = 0, stageIdxSum = 0, gpsMissing = 0;
+  const stageReach = { site_visit: 0, contract: 0, start: 0, middle: 0, complete: 0 };
+  const byCompany = {}, byRegion = {}, byCustomer = {};
+  const anomalies = [];
+  const grp = (map, key, hasGps, reachedStage, photoGood) => {
+    map[key] = map[key] || { total: 0, recorded: 0, photoTotal: 0, photoOk: 0 };
+    const g = map[key]; g.total++; if (hasGps) g.recorded++;
+    if (reachedStage) { g.photoTotal++; if (photoGood) g.photoOk++; }
+  };
   src.forEach((row) => {
     const ev = deriveFlowFlags(row);
     total++;
-    if (ev.gpsCount > 0) gpsRecorded++;
+    const hasGps = ev.gpsCount > 0;
+    if (hasGps) gpsRecorded++;
     if (ev.gpsMissing) gpsMissing++;
     if (ev.startMissing) startMiss++;
     if (ev.middleMissing) midMiss++;
     if (ev.completeMissing) compMiss++;
-    if (ev.stages.some((s) => s.gpsStage && s.reached)) { photoStageTotal++; if (!ev.photoMissing) photoOk++; }
+    const reachedStage = ev.stages.some((s) => s.gpsStage && s.reached);
+    const photoGood = reachedStage && !ev.photoMissing;
+    if (reachedStage) { photoStageTotal++; if (photoGood) photoOk++; }
+    if (ev.photoMissing) photoMissingProj++;
     (row.checkpoints || []).forEach((c) => {
       const a = Number(c.accuracy);
-      if (c.accuracy != null && Number.isFinite(a)) { accSum += a; accN++; }
+      if (c.accuracy != null && Number.isFinite(a)) {
+        accSum += a; accN++;
+        if (a > OVER_ACC) accOver++; else if (a <= 10) acc10++; else if (a <= 30) acc30++; else acc50++;
+      }
     });
-    const co = row.company?.name || "미배정";
-    byCompany[co] = byCompany[co] || { total: 0, recorded: 0 }; byCompany[co].total++; if (ev.gpsCount > 0) byCompany[co].recorded++;
-    const rg = row.area || "지역 미상";
-    byRegion[rg] = byRegion[rg] || { total: 0, recorded: 0 }; byRegion[rg].total++; if (ev.gpsCount > 0) byRegion[rg].recorded++;
+    ev.stages.forEach((s) => { if (s.reached && stageReach[s.key] != null) stageReach[s.key]++; });
+    if (isFlowCompleted(row)) completed++; else ongoing++;
+    stageIdxSum += (FLOW_STAGE_INDEX[row.flow_stage] ?? 0);
+    grp(byCompany, row.company?.name || "미배정", hasGps, reachedStage, photoGood);
+    grp(byRegion, row.area || "지역 미상", hasGps, reachedStage, photoGood);
+    grp(byCustomer, row.customer?.name || "미상", hasGps, reachedStage, photoGood);
+    if (ev.gpsMissing || ev.photoMissing) anomalies.push({ row, ev, t: latestCpTime(row) });
   });
-  const companies = Object.entries(byCompany).map(([name, v]) => ({ name, ...v, rate: rate(v.recorded, v.total) })).sort((a, b) => b.total - a.total).slice(0, 8);
-  const regions = Object.entries(byRegion).map(([name, v]) => ({ name, ...v, rate: rate(v.recorded, v.total) })).sort((a, b) => b.total - a.total).slice(0, 8);
+  const mkRank = (map) => Object.entries(map).map(([name, v]) => ({
+    name, total: v.total, recorded: v.recorded, rate: rate(v.recorded, v.total),
+    missRate: 100 - rate(v.recorded, v.total), photoRate: rate(v.photoOk, v.photoTotal),
+  })).sort((a, b) => b.total - a.total).slice(0, 8);
+  const companies = mkRank(byCompany);
+  const regions = mkRank(byRegion);
   const gpsRate = rate(gpsRecorded, total);
+  const gpsMissRate = total > 0 ? 100 - gpsRate : 0;
   const photoRate = rate(photoOk, photoStageTotal);
   const avgAcc = accN > 0 ? Math.round(accSum / accN) : null;
+  const avgStage = total > 0 ? (stageIdxSum / total).toFixed(1) : "0";
+  const completeRate = rate(completed, total);
+  const unregCompanies = Object.values(byCompany).filter((v) => v.recorded === 0).length;
+  const unregCustomers = Object.values(byCustomer).filter((v) => v.recorded === 0).length;
+  anomalies.sort((a, b) => b.t - a.t);
+  const recentAnomalies = anomalies.slice(0, 6);
+  const accBuckets = [["≤10m", acc10], ["≤30m", acc30], ["31~50m", acc50], [">50m", accOver]];
+  const stageRows = [
+    ["현장방문", stageReach.site_visit], ["계약", stageReach.contract], ["착공", stageReach.start],
+    ["중간점검", stageReach.middle], ["완료", stageReach.complete],
+  ];
   const toneRate = (r) => (r >= 70 ? "#27AE60" : r >= 40 ? "#E67E22" : C.red);
 
   const Kpi = ({ label, value, sub, tone }) => (
-    <div style={{ flex: "1 1 130px", minWidth: 120, background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "14px 12px" }}>
-      <div style={{ fontSize: 22, fontWeight: 900, color: tone || C.text1, lineHeight: 1.1 }}>{value}</div>
+    <div style={{ flex: "1 1 130px", minWidth: 110, background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "13px 12px" }}>
+      <div style={{ fontSize: 21, fontWeight: 900, color: tone || C.text1, lineHeight: 1.1 }}>{value}</div>
       <div style={{ fontSize: 11.5, color: C.text3, marginTop: 4 }}>{label}</div>
       {sub && <div style={{ fontSize: 10.5, color: C.text4, marginTop: 2 }}>{sub}</div>}
     </div>
   );
-  const Bars = ({ title, items }) => (
+  const Section = ({ title, children, sub }) => (
     <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: 14, marginTop: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 10 }}>{title}</div>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: sub ? 2 : 10 }}>{title}</div>
+      {sub && <div style={{ fontSize: 11, color: C.text4, marginBottom: 10 }}>{sub}</div>}
+      {children}
+    </div>
+  );
+  const Bars = ({ title, items, showPhoto }) => (
+    <Section title={title}>
       {items.length === 0 ? <div style={{ fontSize: 12, color: C.text4 }}>데이터 없음</div> :
         items.map((it) => (
-          <div key={it.name} style={{ marginBottom: 8 }}>
+          <div key={it.name} style={{ marginBottom: 9 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.text2, marginBottom: 3 }}>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 170 }}>{it.name}</span>
-              <span style={{ fontWeight: 800, color: toneRate(it.rate) }}>{it.rate}% <span style={{ color: C.text4, fontWeight: 600 }}>({it.recorded}/{it.total})</span></span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>{it.name}</span>
+              <span style={{ fontWeight: 800, color: toneRate(it.rate) }}>
+                {it.rate}% <span style={{ color: C.text4, fontWeight: 600 }}>({it.recorded}/{it.total})</span>
+                {showPhoto && <span style={{ color: C.text3, fontWeight: 700, marginLeft: 6 }}>📷 {it.photoRate}%</span>}
+              </span>
             </div>
             <div style={{ height: 6, borderRadius: 999, background: C.bgWarm, overflow: "hidden" }}>
               <div style={{ width: `${it.rate}%`, height: "100%", background: toneRate(it.rate) }} />
             </div>
           </div>
         ))}
-    </div>
+    </Section>
   );
 
   return (
     <div>
       <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4 }}>📡 GPS 시스템 모니터링</div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: 12 }}>
-        GPS 운영 품질·기록률·누락을 집계하는 시스템 대시보드입니다. 프로젝트 단위 상세 추적은 ‘프로젝트 증빙관리’에서 확인하세요.
+        GPS·사진·프로젝트 진행 품질을 집계하는 운영 대시보드입니다. 프로젝트 단위 상세 추적은 ‘프로젝트 증빙관리’에서 확인하세요.
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
         {[["all", "전체"], ["today", "오늘"], ["week", "이번주"], ["month", "이번달"]].map(([v, l]) => (
@@ -2271,14 +2316,61 @@ function GpsOpsDashboard({ adminUserId }) {
         errMsg ? <div style={{ color: C.red, fontSize: 13, padding: "12px 0" }}>조회 실패: {errMsg}</div> :
           total === 0 ? <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>해당 기간 데이터가 없습니다</div> : (
             <>
+              {/* 상단 — GPS/사진 핵심 */}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <Kpi label="GPS 기록률" value={`${gpsRate}%`} sub={`${gpsRecorded}/${total} 프로젝트`} tone={toneRate(gpsRate)} />
-                <Kpi label="GPS 누락 프로젝트" value={gpsMissing} sub="도달 후 좌표 없음" tone={gpsMissing > 0 ? C.red : C.text1} />
-                <Kpi label="사진 첨부율" value={`${photoRate}%`} sub="GPS 단계 도달 기준" />
-                <Kpi label="평균 위치오차" value={avgAcc != null ? `${avgAcc}m` : "—"} sub="checkpoint accuracy" />
+                <Kpi label="GPS 누락률" value={`${gpsMissRate}%`} sub={`누락 ${gpsMissing}건`} tone={gpsMissRate > 30 ? C.red : C.text1} />
+                <Kpi label="사진 첨부율" value={`${photoRate}%`} sub="GPS 단계 도달 기준" tone={toneRate(photoRate)} />
+                <Kpi label="사진 누락 프로젝트" value={photoMissingProj} sub="도달 단계 사진 없음" tone={photoMissingProj > 0 ? C.red : C.text1} />
               </div>
-              <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: 14, marginTop: 12 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 10 }}>단계별 GPS 누락</div>
+              {/* 보조 — 오차/미등록 */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                <Kpi label="위치 오차 과다" value={accOver} sub={`> ${OVER_ACC}m`} tone={accOver > 0 ? "#E67E22" : C.text1} />
+                <Kpi label="평균 위치오차" value={avgAcc != null ? `${avgAcc}m` : "—"} sub="checkpoint accuracy" />
+                <Kpi label="GPS 미등록 업체" value={unregCompanies} sub="기록 0건 업체" tone={unregCompanies > 0 ? C.red : C.text1} />
+                <Kpi label="GPS 미등록 고객" value={unregCustomers} sub="기록 0건 고객" />
+              </div>
+
+              {/* 프로젝트 진행 품질 */}
+              <Section title="프로젝트 진행 품질">
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  {[["진행중", ongoing, C.text1], ["완료", completed, "#27AE60"], ["완료율", `${completeRate}%`, toneRate(completeRate)], ["평균 단계", avgStage, C.text1]].map(([l, v, t]) => (
+                    <div key={l} style={{ flex: 1, textAlign: "center", background: C.bg, borderRadius: R.md, padding: "10px 4px" }}>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: t }}>{v}</div>
+                      <div style={{ fontSize: 10.5, color: C.text3, marginTop: 2 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: C.text3, marginBottom: 8 }}>단계별 도달 현황</div>
+                {stageRows.map(([l, n]) => {
+                  const r = rate(n, total);
+                  return (
+                    <div key={l} style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.text2, marginBottom: 3 }}>
+                        <span>{l}</span><span style={{ fontWeight: 800, color: C.text2 }}>{r}% <span style={{ color: C.text4, fontWeight: 600 }}>({n}/{total})</span></span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 999, background: C.bgWarm, overflow: "hidden" }}>
+                        <div style={{ width: `${r}%`, height: "100%", background: C.brand }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </Section>
+
+              {/* GPS 정확도 분포 */}
+              <Section title="GPS 정확도 분포" sub={`기록된 체크포인트 ${accN}건 기준`}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {accBuckets.map(([l, n]) => (
+                    <div key={l} style={{ flex: 1, textAlign: "center", background: C.bg, borderRadius: R.md, padding: "10px 4px" }}>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: l === ">50m" ? "#E67E22" : C.text1 }}>{n}</div>
+                      <div style={{ fontSize: 10.5, color: C.text3, marginTop: 2 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              {/* 단계별 GPS 누락 */}
+              <Section title="단계별 GPS 누락">
                 <div style={{ display: "flex", gap: 8 }}>
                   {[["착공", startMiss], ["중간점검", midMiss], ["완료", compMiss]].map(([l, n]) => (
                     <div key={l} style={{ flex: 1, textAlign: "center", background: C.bg, borderRadius: R.md, padding: "10px 4px" }}>
@@ -2287,9 +2379,30 @@ function GpsOpsDashboard({ adminUserId }) {
                     </div>
                   ))}
                 </div>
-              </div>
-              <Bars title="업체별 GPS 기록률 (상위 8)" items={companies} />
-              <Bars title="지역별 GPS 기록률 (상위 8)" items={regions} />
+              </Section>
+
+              {/* 업체별 / 지역별 순위 (GPS 기록률 · 누락률 · 사진율) */}
+              <Bars title="업체별 GPS 기록률 (상위 8)" items={companies} showPhoto />
+              <Bars title="지역별 GPS 기록률 (상위 8)" items={regions} showPhoto />
+
+              {/* 최근 이상 프로젝트 */}
+              <Section title="최근 이상 프로젝트" sub="GPS/사진 누락 — 최근순">
+                {recentAnomalies.length === 0 ? <div style={{ fontSize: 12, color: C.text4 }}>이상 프로젝트가 없습니다 👍</div> :
+                  recentAnomalies.map(({ row, ev }) => (
+                    <div key={row.request_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${C.bg}` }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {row.area || "지역 미상"} · {row.company?.name || "미배정"}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.text4 }}>{FLOW_STAGE_META[row.flow_stage]?.label || row.flow_stage}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                        {ev.gpsMissing && <span style={{ fontSize: 10.5, fontWeight: 800, color: C.red, background: "#FEF0F0", borderRadius: R.full, padding: "2px 8px" }}>GPS 누락</span>}
+                        {ev.photoMissing && <span style={{ fontSize: 10.5, fontWeight: 800, color: "#B08040", background: "#FBF5E8", borderRadius: R.full, padding: "2px 8px" }}>사진 누락</span>}
+                      </div>
+                    </div>
+                  ))}
+              </Section>
             </>
           )}
     </div>
