@@ -3,7 +3,7 @@ import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadF
 import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
-import { BetaBanner } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { BetaBanner, BetaBadge } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#0B1D3A";
@@ -559,6 +559,8 @@ export default function PartnerLandingScreen() {
         }} />
 
         <div ref={heroRef} style={{ maxWidth: 520, margin: "0 auto", position: "relative" }}>
+          {/* 베타 파트너 배지 — 클릭 시 업체용 베타 안내 모달(확인 전용 · SHOW_BETA_UI 게이트) */}
+          <BetaBadge label="베타 파트너" kind="bid" style={{ position: "absolute", top: -44, right: 0, zIndex: 3 }} />
           {/* Brand tag */}
           <div style={{ ...fade(heroVis, 0), marginBottom: 20 }}>
             <div style={{

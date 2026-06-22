@@ -183,7 +183,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         overflow: "hidden",
         flexShrink: 0,
       }}>
-        <BetaBadge label="베타 서비스" style={{ position: "absolute", top: 14, right: 14, zIndex: 3 }} />
+        <BetaBadge label="베타 서비스" kind="quote" style={{ position: "absolute", top: 14, right: 14, zIndex: 3 }} />
         <div ref={heroRef} style={{ maxWidth: 480, margin: "0 auto" }}>
           {/* brand — 01 공간·연결형 아이콘 + 워드마크 (여백 중심) */}
           <div style={{ ...fadeStyle(heroVisible, 0), marginBottom: 28 }}>
