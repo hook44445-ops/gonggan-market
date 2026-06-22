@@ -1607,6 +1607,15 @@ export const attachPartnerLeadFiles = (leadId, { businessLicenseUrl = null, insu
     p_insurance_file_url:   insuranceFileUrl,
   });
 
+// 운영준수서약 동의 기록(migration 071) — 제출 직후 best-effort 호출.
+//   본 RPC 미존재/실패는 가입 제출을 막지 않는다(호출부 try/catch). 동의 일시는 ISO 문자열.
+export const setPartnerLeadPledge = (leadId, agreed = true, agreedAt = null) =>
+  supabase.rpc("partner_lead_set_pledge", {
+    p_lead_id:   leadId,
+    p_agreed:    agreed,
+    p_agreed_at: agreedAt,
+  });
+
 // STEP4~5: 관리자 온보딩 전이. action: 'CONFIRM_DEPOSIT' | 'APPROVE' | 'REJECT'.
 export const setPartnerLeadOnboarding = (adminId, leadId, action) =>
   supabase.rpc("partner_lead_onboarding_set", {

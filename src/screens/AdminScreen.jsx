@@ -2563,6 +2563,60 @@ function ProjectFlowDetail({ row, onClose }) {
   );
 }
 
+// ── 서류 확대 미리보기 모달(조회 전용) ──────────────────────────────────────
+//   업로드 원본(Storage file_url)을 이미지 확대 / PDF 미리보기로 표시.
+//   새 창 열기 · 다운로드 지원. 승인/반려/업로드/DB/API 무관 — 표시 전용 UI.
+function DocPreviewModal({ url, title, onClose }) {
+  if (!url) return null;
+  const clean = String(url).split("?")[0].toLowerCase();
+  const isPdf = clean.endsWith(".pdf");
+  const isImage = /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif)$/.test(clean);
+  // 확장자 불명(서명 URL 등)은 우선 이미지로 시도하되, 로드 실패 시 안내로 폴백.
+  const [imgFailed, setImgFailed] = useState(false);
+
+  return (
+    <div onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(5,10,22,0.78)", zIndex: 1000,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ width: "100%", maxWidth: 760, maxHeight: "92vh", display: "flex", flexDirection: "column",
+          background: C.surface, borderRadius: R.xl, overflow: "hidden", boxShadow: "0 24px 70px rgba(5,10,22,0.5)" }}>
+        {/* 헤더 */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 16px", borderBottom: `1px solid ${C.bgWarm}`, flexShrink: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>{title}</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <a href={url} target="_blank" rel="noreferrer"
+              style={{ fontSize: 12, fontWeight: 700, color: C.text1, background: C.bg, border: `1px solid ${C.bgWarm}`,
+                borderRadius: R.lg, padding: "7px 12px", textDecoration: "none" }}>↗ 새 창</a>
+            <a href={url} download target="_blank" rel="noreferrer"
+              style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.brand,
+                borderRadius: R.lg, padding: "7px 12px", textDecoration: "none" }}>⬇ 다운로드</a>
+            <button onClick={onClose}
+              style={{ fontSize: 14, fontWeight: 700, color: C.text2, background: C.bg, border: `1px solid ${C.bgWarm}`,
+                borderRadius: R.lg, padding: "7px 12px", cursor: "pointer", lineHeight: 1 }}>✕</button>
+          </div>
+        </div>
+        {/* 본문 — 이미지 확대 / PDF 미리보기 */}
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: "#222", display: "flex",
+          alignItems: "center", justifyContent: "center" }}>
+          {isPdf ? (
+            <iframe src={url} title={title} style={{ width: "100%", height: "80vh", border: "none", background: "#fff" }} />
+          ) : (isImage || !imgFailed) ? (
+            <img src={url} alt={title} onError={() => setImgFailed(true)}
+              style={{ maxWidth: "100%", maxHeight: "82vh", objectFit: "contain", display: "block" }} />
+          ) : (
+            <div style={{ color: "#fff", textAlign: "center", padding: "40px 24px", lineHeight: 1.7 }}>
+              <div style={{ fontSize: 30, marginBottom: 8 }}>📄</div>
+              <div style={{ fontSize: 13 }}>미리보기를 표시할 수 없는 형식입니다.<br />‘새 창’ 또는 ‘다운로드’로 확인해 주세요.</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminScreen({ onBack, onHome, user }) {
   const [companies, setCompanies]       = useState([]);
   const [customers, setCustomers]       = useState([]);
@@ -2643,6 +2697,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [pfDocIns, setPfDocIns]   = useState(false);
   const [pfGuarantee, setPfGuarantee] = useState(false);
   const [partnerNoteDraft, setPartnerNoteDraft] = useState({}); // { [leadId]: text }
+  // 서류 확대 미리보기(조회 전용) — 파트너 상담관리 사업자등록증/시공보험증권. { url, title } | null
+  const [docPreview, setDocPreview] = useState(null);
   const [ddrRunning, setDdrRunning] = useState(false);
 
   // DEV panel: admin action tracking
@@ -3511,15 +3567,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         </div>
                       )}
 
-                      {/* V1.4 제출 서류 — 제출됨(초록)+보기 / 미제출(빨강) 구분 표시 */}
+                      {/* V1.4 제출 서류 — 제출됨(초록)+확대보기 모달 / 미제출(빨강) 구분 표시 */}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: S.sm }}>
                         {l.business_license_url ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
                               borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 사업자등록증 제출됨</span>
-                            <a href={l.business_license_url} target="_blank" rel="noreferrer"
-                              style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green,
-                                borderRadius: R.lg, padding: "6px 12px", textDecoration: "none" }}>📄 보기</a>
+                            <button onClick={() => setDocPreview({ url: l.business_license_url, title: `${l.company_name} · 사업자등록증` })}
+                              style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
+                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer" }}>🔍 사업자등록증 보기</button>
                           </span>
                         ) : (
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.red, background: "#FFF0F0",
@@ -3531,15 +3587,36 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
                               borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 보험증권 제출됨</span>
-                            <a href={l.insurance_file_url} target="_blank" rel="noreferrer"
-                              style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green,
-                                borderRadius: R.lg, padding: "6px 12px", textDecoration: "none" }}>📄 보기</a>
+                            <button onClick={() => setDocPreview({ url: l.insurance_file_url, title: `${l.company_name} · 시공보험증권` })}
+                              style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
+                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer" }}>🔍 시공보험증권 보기</button>
                           </span>
                         ) : (
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.red, background: "#FFF0F0",
                             borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7" }}>
                             ⛔ 보험증권 미제출 (예치금 2배)
                           </span>
+                        )}
+                      </div>
+
+                      {/* 업체 운영준수서약 — 가입 신청 시 필수 동의 항목(미동의 시 신청 불가). 표시 전용. */}
+                      {/* 운영준수서약 제출 이력(071) — 동의 여부 + 동의 일시. 심사/분쟁/제재/증빙/감사 기준 데이터. */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: S.sm,
+                        fontSize: 12, color: C.text2, flexWrap: "wrap" }}>
+                        <span style={{ fontWeight: 700 }}>운영준수서약:</span>
+                        {l.pledge_agreed ? (
+                          <>
+                            <span style={{ fontWeight: 700, color: C.green, background: C.greenL,
+                              borderRadius: R.lg, padding: "4px 10px", border: `1px solid ${C.green}33` }}>✅ 동의</span>
+                            {l.pledge_agreed_at && (
+                              <span style={{ fontSize: 11, color: C.text4 }}>
+                                동의 일시 {new Date(l.pledge_agreed_at).toLocaleString("ko-KR")}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span style={{ fontWeight: 700, color: C.red, background: "#FFF0F0",
+                            borderRadius: R.lg, padding: "4px 10px", border: "1px solid #F3C7C7" }}>❌ 미동의</span>
                         )}
                       </div>
 
@@ -5105,6 +5182,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 서류 확대 미리보기(조회 전용) — 파트너 상담관리 사업자등록증/시공보험증권 */}
+      {docPreview && (
+        <DocPreviewModal url={docPreview.url} title={docPreview.title} onClose={() => setDocPreview(null)} />
       )}
 
       {/* Toast */}
