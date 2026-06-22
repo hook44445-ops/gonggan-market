@@ -42,6 +42,7 @@ import {
 import { CATEGORY_LABEL } from "../constants/lounge";
 import { GUARANTEE_GRADE_MAP, GUARANTEE_STATUS_META, wonFromManwon } from "../constants/guarantee";
 import { ONBOARDING_GRADE_MAP, ONBOARDING_STATUS_META } from "../constants/partnerOnboarding";
+import { checkpointEvidenceStatus, checkpointEvidenceBadge, parseGpsMissingReason } from "../utils/gpsCheckpoint";
 import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
 import AdminChangeOrderHistory from "../components/AdminChangeOrderHistory";
 import AdminContractDetail from "../components/AdminContractDetail";
@@ -2426,18 +2427,31 @@ function ProjectFlowDetail({ row, onClose }) {
             <div style={{ marginBottom: 14, background: C.bg, borderRadius: R.md, padding: "10px 12px" }}>
               <div style={{ fontSize: 12, fontWeight: 800, color: C.text1, marginBottom: 8 }}>📋 증빙 체크리스트</div>
               {evid.map((e) => {
-                // 도달했는데 GPS 단계 체크포인트 없음 → 단계 누락 표시(카드 뱃지와 동일 기준)
-                const missing = e.gpsStage && e.reached && !e.cp;
+                // GPS 필수 단계 증빙 상태(읽기 전용 파생): 체크포인트가 있으면 GPS+사진+사유로
+                // ✅/⚠️/❌ 판정, 도달했는데 체크포인트 자체가 없으면 GPS 누락/사유 없음(❌).
+                const badge = e.cp
+                  ? checkpointEvidenceBadge(e.cp)
+                  : (e.gpsStage && e.reached ? { icon: "❌", label: "GPS 누락 / 사유 없음", tone: "bad" } : null);
+                const reason = e.cp ? parseGpsMissingReason(e.cp.note) : null;
+                const icon = e.reached ? (badge ? badge.icon : "✅") : "⬜";
                 return (
-                <div key={e.key} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0", fontSize: 12, color: e.reached ? C.text1 : C.text4 }}>
-                  <span>{e.reached ? (missing ? "⚠️" : "✅") : "⬜"}</span>
-                  <span style={{ fontWeight: e.reached ? 700 : 500 }}>{e.label}</span>
-                  {missing && <span style={{ fontSize: 10, color: C.gold, fontWeight: 700 }}>누락</span>}
-                  {e.cp && (
-                    <span style={{ marginLeft: "auto", display: "flex", gap: 8, fontSize: 10 }}>
-                      <span style={{ color: e.cp.lat != null ? C.green : C.gold }}>📍{e.cp.lat != null ? "GPS" : "좌표없음"}</span>
-                      <span style={{ color: (e.cp.photos?.length ?? 0) > 0 ? C.green : C.gold }}>📷{e.cp.photos?.length ?? 0}</span>
-                    </span>
+                <div key={e.key} style={{ padding: "4px 0", fontSize: 12, color: e.reached ? C.text1 : C.text4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>{icon}</span>
+                    <span style={{ fontWeight: e.reached ? 700 : 500 }}>{e.label}</span>
+                    {badge && <span style={{ fontSize: 10, fontWeight: 700, color: badge.tone === "ok" ? C.green : badge.tone === "bad" ? C.red : C.gold }}>{badge.label}</span>}
+                    {e.cp && (
+                      <span style={{ marginLeft: "auto", display: "flex", gap: 8, fontSize: 10 }}>
+                        <span style={{ color: e.cp.lat != null ? C.green : C.gold }}>📍{e.cp.lat != null ? "GPS" : "없음"}</span>
+                        <span style={{ color: (e.cp.photos?.length ?? 0) > 0 ? C.green : C.gold }}>📷{e.cp.photos?.length ?? 0}</span>
+                      </span>
+                    )}
+                  </div>
+                  {reason && (
+                    <div style={{ marginLeft: 20, marginTop: 2, fontSize: 11, color: C.text3, lineHeight: 1.5 }}>
+                      GPS 누락 사유: “{reason}”
+                      {e.cp?.captured_at && <span style={{ color: C.text4 }}> · {fmt(e.cp.captured_at)}</span>}
+                    </div>
                   )}
                 </div>
                 );
@@ -2529,14 +2543,26 @@ function ProjectFlowDetail({ row, onClose }) {
               return <div style={{ fontSize: 13, color: C.gold, padding: "10px 0" }}>📍 GPS 체크포인트 없음</div>;
             }
             const photos = Array.isArray(cp.photos) ? cp.photos : [];
+            const badge = checkpointEvidenceBadge(cp);
+            const missReason = parseGpsMissingReason(cp.note);
+            const plainNote = missReason ? null : (cp.note ?? cp.memo); // 사유 마커가 아닌 일반 메모만 별도 표시
             return (
               <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.9 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: badge.tone === "ok" ? C.green : badge.tone === "bad" ? C.red : C.gold, marginBottom: 4 }}>
+                  {badge.icon} {badge.label}
+                </div>
+                {missReason && (
+                  <div style={{ background: "#FBF5E8", borderRadius: R.sm, padding: "6px 9px", marginBottom: 6, color: C.text1 }}>
+                    GPS 누락 사유: <b>“{missReason}”</b><br />
+                    기록자: {cp.captured_by || "—"} · 기록시간: {cp.captured_at ? fmt(cp.captured_at) : "—"}
+                  </div>
+                )}
                 <div>📍 도로명: <b style={{ color: C.text1 }}>{cp.road_address || "—"}</b></div>
                 <div>지번: {cp.jibun_address || "—"}</div>
                 <div>위도 {cp.lat ?? "—"} · 경도 {cp.lng ?? "—"} · 정확도 {cp.accuracy != null ? `${cp.accuracy}m` : "—"}</div>
                 <div>기록 시간: {cp.captured_at ? fmt(cp.captured_at) : "—"}</div>
                 <div>기록자: {cp.captured_by || "—"}</div>
-                {(cp.note ?? cp.memo) && <div>메모: {cp.note ?? cp.memo}</div>}
+                {plainNote && <div>메모: {plainNote}</div>}
                 {cp.lat != null && cp.lng != null && (
                   <a href={`https://map.kakao.com/link/map/현장,${cp.lat},${cp.lng}`} target="_blank" rel="noreferrer"
                     style={{ display: "inline-block", marginTop: 6, color: C.brand, fontWeight: 700, textDecoration: "none" }}>카카오맵 보기 →</a>

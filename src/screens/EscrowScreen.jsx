@@ -9,6 +9,7 @@ import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
 import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
+import { buildGpsMissingNote } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import EscrowCalculator from "../components/EscrowCalculator";
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
@@ -374,6 +375,38 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [reportingStage, setReportingStage] = useState(null);
   const [reportError, setReportError] = useState(null);
   const [stageDeadlines, setStageDeadlines] = useState({});
+
+  // GPS 필수 단계(착공/중간/완료) 경고 게이트(베타) — GPS 없으면 사유 입력 후에만 진행.
+  // 저장은 기존 project_checkpoints.note 에 사유 마커로 기록(무스키마 변경).
+  const [gpsGate, setGpsGate] = useState(null);   // { stageId } — 모달 표시
+  const [gpsReason, setGpsReason] = useState(""); // 모달 입력 사유
+  const [gpsCapturing, setGpsCapturing] = useState(false);
+  const [gpsErr, setGpsErr] = useState("");
+  const gpsLocRef = useRef({});     // stageId -> 캡처된 위치(있으면 GPS 정상 진행)
+  const gpsReasonRef = useRef({});  // stageId -> 확정된 사유(있으면 사유 진행)
+
+  // 모달: GPS 다시 기록 시도 → 성공하면 위치 저장 후 단계 보고 재호출.
+  const gpsGateCapture = async () => {
+    if (!gpsGate || gpsCapturing) return;
+    const sid = gpsGate.stageId;
+    setGpsErr(""); setGpsCapturing(true);
+    let loc = null;
+    try { loc = await captureCheckpointLocation(); } catch { /* 무시 */ }
+    setGpsCapturing(false);
+    if (loc) { gpsLocRef.current[sid] = loc; setGpsGate(null); setGpsReason(""); reportComplete(sid); }
+    else { setGpsErr("위치를 가져오지 못했어요. 실내/지하라면 사유를 입력해 진행해주세요."); }
+  };
+  // 모달: 사유(≥5자) 입력 후 진행 → 사유 확정 후 단계 보고 재호출.
+  const gpsGateProceedWithReason = () => {
+    if (!gpsGate) return;
+    const sid = gpsGate.stageId;
+    const r = (gpsReason ?? "").trim();
+    if (r.length < 5) { setGpsErr("사유를 5자 이상 입력해주세요."); return; }
+    gpsReasonRef.current[sid] = r;
+    setGpsGate(null); setGpsReason(""); setGpsErr("");
+    reportComplete(sid);
+  };
+  const gpsGateCancel = () => { setGpsGate(null); setGpsReason(""); setGpsErr(""); };
 
   // DB-loaded contract state (contractData 는 TDZ 방지를 위해 상단으로 선언 이동됨)
   const [expectedEndInput, setExpectedEndInput] = useState(""); // 업체 예상 완공일 입력
@@ -775,6 +808,27 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       reportingRef.current = false; // H-C: 동기 가드 해제 (조기 반환에서 락 누수 방지)
       return;
     }
+
+    // ── GPS 필수 단계 게이트(베타) ──────────────────────────────────────────
+    // 착공/중간/완료(3/4/5)는 GPS 필수. GPS도 없고 사유(≥5자)도 없으면 경고 모달을
+    // 띄우고 진행을 막는다(사유 입력 또는 GPS 기록 후 재호출 시 통과).
+    // 완전 차단(정식)이 아니라 '사유 입력 후 진행' 베타 정책.
+    const cpTypeGate = { 3: "start", 4: "middle", 5: "complete" }[stageId];
+    if (cpTypeGate) {
+      const hasReason = (gpsReasonRef.current[stageId] ?? "").trim().length >= 5;
+      // GPS도 사유도 아직 없을 때만 위치 캡처 1회 시도(사유 진행이면 중복 권한요청 방지).
+      if (!gpsLocRef.current[stageId] && !hasReason) {
+        try { const loc0 = await captureCheckpointLocation(); if (loc0) gpsLocRef.current[stageId] = loc0; } catch { /* 캡처 실패 → 게이트로 */ }
+      }
+      if (!gpsLocRef.current[stageId] && !hasReason) {
+        setGpsReason("");
+        setGpsGate({ stageId });
+        setReportingStage(null);
+        reportingRef.current = false;
+        return;
+      }
+    }
+
     const reqId = request?.id ?? resolvedBid?.requestId ?? null;
     // Write to the request-canonical escrow row (= what the customer reads via
     // getEscrowByRequest). Falls back to resolvedContractId when contractData
@@ -907,24 +961,28 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         setStageStatus(prev => ({ ...prev, [stageId]: "pending_customer" }));
         setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
         if (s?.label) addTimeline("photo", s.label);
-        // GPS 체크포인트(착공/중간/완료) — 전송 버튼 클릭 시점 1회 위치 캡처+역지오코딩 후 저장.
-        // 비동기 fire-and-forget(위치 권한 거부/실패해도 단계 보고는 정상 완료).
+        // GPS 체크포인트(착공/중간/완료) — 게이트에서 캡처된 위치(gpsLocRef) 또는 사유(gpsReasonRef)를
+        // 사진과 같은 checkpoint row 에 묶어 저장한다. GPS 없으면 lat/lng=null + note 에 사유 마커 기록.
         const cpType = { 3: "start", 4: "middle", 5: "complete" }[stageId];
         if (cpType) {
-          // GPS 체크포인트 — fire-and-forget. saveProjectCheckpoint 는 supabase 빌더(Promise
-          // 아님)라 .catch 금지 → async IIFE + try/catch 로 처리(위치 실패해도 단계 보고는 정상).
+          const loc = gpsLocRef.current[stageId] ?? null;
+          const reason = (gpsReasonRef.current[stageId] ?? "").trim();
+          // saveProjectCheckpoint 는 supabase 빌더(Promise 아님) → async IIFE + try/catch.
           (async () => {
             try {
-              const loc = await captureCheckpointLocation();
-              if (!loc) return;
               await saveProjectCheckpoint({
                 actorId: userId, requestId: reqId, contractId: cid, type: cpType,
-                lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
-                roadAddress: loc.road_address, jibunAddress: loc.jibun_address, addressFull: loc.address_full,
-                sido: loc.sido, sigungu: loc.sigungu, dong: loc.dong, bunji: loc.bunji, photos,
+                lat: loc?.lat ?? null, lng: loc?.lng ?? null, accuracy: loc?.accuracy ?? null,
+                roadAddress: loc?.road_address ?? null, jibunAddress: loc?.jibun_address ?? null, addressFull: loc?.address_full ?? null,
+                sido: loc?.sido ?? null, sigungu: loc?.sigungu ?? null, dong: loc?.dong ?? null, bunji: loc?.bunji ?? null,
+                photos,
+                note: loc ? null : buildGpsMissingNote(reason), // GPS 없으면 사유를 note 에 구조적으로 기록
               });
-            } catch { /* GPS 체크포인트 실패 무시 */ }
+            } catch { /* GPS 체크포인트 실패 무시 — 단계 보고는 정상 */ }
           })();
+          // 게이트 임시 상태 정리(다음 단계 보고에 누수 방지)
+          delete gpsLocRef.current[stageId];
+          delete gpsReasonRef.current[stageId];
         }
         // 단계 사진 전송 성공 = 업체가 실제 시공 중. 요청을 in_progress 로 확정 전환해
         // 업체 "새 견적 요청"(status=open) 입찰 목록에서 제거한다(이중 노출 방지).
@@ -1994,6 +2052,46 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           onClose={() => setShowCustEval(false)}
           onSubmit={submitCustomerEvaluation}
         />
+      )}
+
+      {/* GPS 필수 단계 경고 모달(베타) — GPS 없으면 사유 입력 후에만 진행 */}
+      {gpsGate && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.65)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 400 }}
+          onClick={gpsGateCancel}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ width: "100%", maxWidth: 480, background: C.bg, borderRadius: "24px 24px 0 0", padding: "22px 18px 26px", maxHeight: "86vh", overflowY: "auto" }}>
+            <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 16px" }} />
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, marginBottom: 10 }}>📍 GPS 기록이 필요한 단계입니다</div>
+            <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7, marginBottom: 14 }}>
+              이 단계는 프로젝트 증빙을 위해 위치 기록이 필요합니다. GPS 기록 없이 진행하면 관리자 증빙관리에서 <b>“GPS 누락”</b>으로 표시되며, 분쟁 발생 시 불리한 자료로 판단될 수 있습니다.{"\n"}GPS를 기록하거나, 부득이한 경우 사유를 입력해 주세요.
+            </div>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {["지하/실내라 GPS 수신 불가", "위치 권한 거부", "현장 통신 불량", "기기 오류"].map((ex) => (
+                <button key={ex} onClick={() => setGpsReason(ex)}
+                  style={{ fontSize: 11.5, fontWeight: 700, color: C.text2, background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: "5px 10px", cursor: "pointer" }}>{ex}</button>
+              ))}
+            </div>
+            <textarea value={gpsReason} onChange={(e) => { setGpsReason(e.target.value); if (gpsErr) setGpsErr(""); }}
+              placeholder="GPS 없이 진행하는 사유를 5자 이상 입력 (예: 지하/실내라 GPS 수신 불가)"
+              rows={3}
+              style={{ width: "100%", boxSizing: "border-box", padding: "11px 13px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 13.5, color: C.text1, background: C.surface, fontFamily: "inherit", resize: "none", outline: "none", marginBottom: 6 }} />
+            {gpsErr && <div style={{ fontSize: 12, color: C.red, fontWeight: 700, marginBottom: 8 }}>{gpsErr}</div>}
+
+            <button onClick={gpsGateCapture} disabled={gpsCapturing}
+              style={{ width: "100%", padding: 13, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: gpsCapturing ? "default" : "pointer", marginTop: 6, opacity: gpsCapturing ? 0.7 : 1 }}>
+              {gpsCapturing ? "위치 확인 중..." : "📍 GPS 기록하기"}
+            </button>
+            <button onClick={gpsGateProceedWithReason} disabled={gpsCapturing}
+              style={{ width: "100%", padding: 13, background: C.surface, color: C.text1, border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: "pointer", marginTop: 8 }}>
+              사유 입력 후 진행
+            </button>
+            <button onClick={gpsGateCancel}
+              style={{ width: "100%", padding: 12, background: "none", color: C.text3, border: "none", fontWeight: 700, fontSize: 13.5, cursor: "pointer", marginTop: 4 }}>
+              취소
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

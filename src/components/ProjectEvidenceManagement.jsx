@@ -8,6 +8,7 @@ import {
 } from "../lib/transactionUtils";
 import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
 import { evidenceChatDbg } from "../utils/adminChatDebug"; // 증빙관리 채팅 조회 진단(플래그 시에만 출력)
+import { checkpointEvidenceBadge, parseGpsMissingReason } from "../utils/gpsCheckpoint"; // GPS+사진 증빙 상태/누락 사유(읽기 전용)
 
 // ── 프로젝트 증빙관리(V2.3) — 분쟁 시 "누가·언제·어디서·무엇을" 확인하는 콘솔 ──
 // 데이터: admin_project_flow_list(GPS/사진/계약/분쟁/리뷰/직거래의심) + 채팅 요약(읽기 전용).
@@ -374,17 +375,25 @@ function EvidenceDetail({ row, chat: chatPreloaded, onClose }) {
           <div>
             {cps.filter(c => c.lat != null || c.lng != null).length === 0 ? (
               <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>GPS 체크포인트가 없습니다</div>
-            ) : cps.map((cp, i) => (
+            ) : cps.map((cp, i) => {
+              const badge = checkpointEvidenceBadge(cp);
+              const reason = parseGpsMissingReason(cp.note);
+              return (
               <div key={cp.id || i} style={{ background: C.bg, borderRadius: R.md, padding: "10px 12px", marginBottom: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: C.text2, marginBottom: 4 }}>{cp.checkpoint_type || "체크포인트"}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: C.text2 }}>{cp.checkpoint_type || "체크포인트"}</span>
+                  <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: badge.tone === "ok" ? "#27AE60" : badge.tone === "bad" ? C.red : "#B8860B" }}>{badge.icon} {badge.label}</span>
+                </div>
                 <Row k="lat / lng" v={cp.lat != null ? `${cp.lat}, ${cp.lng}` : "—"} />
                 <Row k="주소" v={cp.road_address || cp.jibun_address || "—"} />
                 <Row k="정확도(m)" v={cp.accuracy != null ? cp.accuracy : "—"} />
                 <Row k="캡처 시각" v={fmtDate(cp.captured_at)} />
                 <Row k="업로더" v={shortId(cp.captured_by)} />
                 <Row k="사진" v={`${photoN(cp)}장`} />
+                {reason && <Row k="GPS 누락 사유" v={`“${reason}”`} />}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
