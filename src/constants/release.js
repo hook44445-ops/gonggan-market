@@ -25,11 +25,14 @@ export const SHOW_DEBUG_UI = !isProd && explicit !== "true";
 export const UX_BETA = true;
 
 // ─────────────────────────────────────────────────────
-// 베타 서비스 운영 모드 (토스페이먼츠 승인 전 무료 베타) — 안내 UI 전용 스위치.
-//   true  (APP_MODE=beta)       : 베타 배지·무료 안내·안전결제 미제공 안내·공간보증 사전신청 표시.
-//   false (APP_MODE=production)  : 베타 안내 전부 숨김 → 정식 서비스 문구/공간보증 신청.
-// ※ 표시(문구·배지·안내 모달)만 제어. 결제/에스크로/계약/견적/입찰/공간보증 로직과 무관.
-//    환경변수 VITE_APP_MODE=production 이면 강제 OFF(코드 삭제 없이 끔).
+// 베타 서비스 운영 모드 (토스페이먼츠 승인 전 무료 베타) — 안내 UI 전용 스위치(단일 제어).
+//   · APP_MODE 가 'beta' 면 베타 안내 ON. 'production' 으로 바꾸면 전부 OFF.
+//   · 강제 ON: VITE_SHOW_BETA_UI="true" (production 모드에서도 베타 안내를 켜고 싶을 때).
+//   · 정식 전환은 환경변수 한 번(VITE_APP_MODE=production)으로 끝 — 코드 삭제 없음.
+// ※ 표시(문구·배지·배너·안내 모달)만 제어. 결제/에스크로/계약/견적/입찰/공간보증 로직과 무관.
+//    모든 베타 UI 는 반드시 SHOW_BETA_UI 만 참조하고, false 면 렌더하지 않는다(return null).
 // ─────────────────────────────────────────────────────
-export const SHOW_BETA_UI = import.meta.env.VITE_APP_MODE !== "production";
+export const APP_MODE = import.meta.env.VITE_APP_MODE || "beta";
+export const SHOW_BETA_UI =
+  APP_MODE === "beta" || import.meta.env.VITE_SHOW_BETA_UI === "true";
 
