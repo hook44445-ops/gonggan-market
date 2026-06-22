@@ -307,7 +307,7 @@ function ConsultForm() {
       </div>
       <div>
         <label style={labelStyle}>
-          시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(선택) · 우수 파트너 우대 혜택</span>
+          시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(베타 서비스 선택 / 정식 서비스 필수) · 우수 파트너 우대 혜택</span>
         </label>
         <label style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: insFile ? NAVY : TEXT3 }}>
           <span>📎</span>
@@ -359,6 +359,7 @@ function ConsultForm() {
               "무단 직거래 유도, 허위 견적, 연락 두절, 부실 시공, 리뷰 조작을 하지 않습니다.",
               "분쟁 발생 시 공간마켓 운영팀의 확인 요청에 성실히 협조합니다.",
               "정식 서비스 오픈 후 공간보증 예치금 및 공간보증 심사가 적용될 수 있음을 확인했습니다.",
+              "본인은 위 내용을 모두 확인하였으며, 공간마켓 운영정책에 따라 성실히 참여할 것을 서약합니다.",
             ].map((t, i) => <li key={i} style={{ marginBottom: 4 }}>{t}</li>)}
           </ul>
         </div>
