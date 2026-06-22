@@ -50,6 +50,7 @@ import TransactionManagement from "../components/TransactionManagement";
 import FinanceDashboard from "../components/FinanceDashboard";
 import SettlementManagement from "../components/SettlementManagement";
 import ProjectEvidenceManagement from "../components/ProjectEvidenceManagement";
+import GpsTrustDashboard from "../components/GpsTrustDashboard";
 import AdminCategoryNav from "../components/AdminCategoryNav";
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
@@ -4850,8 +4851,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {mainTab === "project_flow" && (
               <div>
                 {/* 역할 분리 — 프로젝트 증빙관리(프로젝트 콘솔) / GPS 시스템 모니터링(운영 대시보드) */}
-                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                  {[["evidence", "프로젝트 증빙관리"], ["gps", "GPS 시스템 모니터링"]].map(([v, l]) => (
+                <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+                  {[["evidence", "프로젝트 증빙관리"], ["gps", "GPS 시스템 모니터링"], ["trust", "GPS 신뢰도"]].map(([v, l]) => (
                     <button key={v} onClick={() => setFlowView(v)}
                       style={{ padding: "7px 14px", borderRadius: R.full, fontSize: 12.5, fontWeight: 700,
                         border: `1px solid ${flowView === v ? C.brand : C.bgWarm}`, cursor: "pointer",
@@ -4862,6 +4863,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 </div>
                 {flowView === "evidence" ? (
                   <ProjectEvidenceManagement adminUserId={user?.id ?? null} showToast={showToast} />
+                ) : flowView === "trust" ? (
+                  <GpsTrustDashboard adminUserId={user?.id ?? null} showToast={showToast} />
                 ) : (
                   <GpsOpsDashboard adminUserId={user?.id ?? null} />
                 )}
