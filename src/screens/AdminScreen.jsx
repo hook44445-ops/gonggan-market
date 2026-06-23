@@ -13,7 +13,7 @@ import {
   getPaymentOrders, adminUpdatePaymentOrder,
   getDisputePayments, adminResolveDispute,
   getPendingPayouts, adminSetPayoutStatus,
-  adminSetUserStatus, adminAdjustSpaceTemp, adminAdjustUserTokens,
+  apiAdminSetUserStatus, apiAdminAdjustUserTokens, apiAdminAdjustSpaceTemp,
   adminGetLoungePosts, getLoungeReports,
   adminHideContent, adminUpdateLoungeReport,
   createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage, adminGetSeedLoungePosts,
@@ -473,7 +473,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
         return;
       }
       const delta = isGrant ? amount : -amount;
-      const { error } = await adminAdjustUserTokens(targetUser.id, adminUserId, delta, tokenReason || null);
+      const { error } = await apiAdminAdjustUserTokens(targetUser.id, adminUserId, delta, tokenReason || null);
       if (error) {
         showToast?.(error.message ?? "처리 실패", false);
       } else {
@@ -1285,6 +1285,14 @@ const normalizeCompany = (row) => ({
   guarantee_updated_at:    row.guarantee_updated_at ?? null,
 });
 
+// 고객 계정 상태(users.account_status enum) 표시 메타 — 업체 상태 메타와 동일한 UX 패턴.
+const USER_STATUS_META = {
+  NORMAL:          { label: "정상",      color: "#2E5F4B", bg: "#EAF2EE" },
+  TEMP_RESTRICTED: { label: "활동 제한", color: "#D63030", bg: "#FFF3F0" },
+  SUSPENDED:       { label: "계정 정지", color: "#D63030", bg: "#FEF0F0" },
+  BLACKLISTED:     { label: "블랙리스트", color: "#1F2A24", bg: "#E8E0D4" },
+};
+
 const normalizeCustomer = (row) => ({
   id:       row.id,
   name:     row.name ?? "고객",
@@ -1294,6 +1302,15 @@ const normalizeCustomer = (row) => ({
   joinedAt: row.created_at
     ? new Date(row.created_at).toLocaleDateString("ko-KR")
     : "",
+  // 계정 상태 / 공간경제(토큰·온도) — 서버(/api/admin/users)가 반환하는 원본 값 매핑.
+  accountStatus: row.account_status ?? "NORMAL",
+  spaceTokens:   row.space_tokens ?? 0,
+  spaceTemp:     row.space_temp ?? 36.5,
+  // 본인인증 — JSX 가 참조하는 원본 필드 보존(매핑 누락 시 항상 '미인증' 표시되던 문제 해소).
+  is_identity_verified:        row.is_identity_verified ?? false,
+  identity_verified_at:        row.identity_verified_at ?? null,
+  identity_provider:           row.identity_provider ?? null,
+  identity_verification_status: row.identity_verification_status ?? null,
 });
 
 // ── 라운지 운영(seed) 글 관리 탭 — lounge_posts.is_seed=true 전체 관리 ─────────
@@ -2954,6 +2971,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [editingCustomerId, setEditingCustomerId] = useState(null);
   const [customerEditForm, setCustomerEditForm] = useState({});
   const [customerEditSaving, setCustomerEditSaving] = useState(false);
+  const [managingCustomerId, setManagingCustomerId] = useState(null); // 제재/토큰/온도 패널 토글
+  const [customerTokenAmt, setCustomerTokenAmt] = useState(""); // 토큰 지급/회수 수량 입력
 
   const [directDealReports, setDirectDealReports] = useState([]);
   const [ddrFilter, setDdrFilter] = useState("all"); // all | keyword_detected | no_estimate_72h | no_contract_7d | manual_report
@@ -3285,40 +3304,44 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setDocModal(null);
   };
 
+  // 고객 제재/토큰/온도 변경 — service-role API 경유(users 직접 UPDATE 는 auth.uid()=NULL 로 RLS 차단).
+  //   admin_logs 기록은 서버에서 수행. trackAdmin 으로 진단 로그도 남긴다.
   const handleCustomerStatus = async (customer, status, reason) => {
     setActionLoading(true);
-    const { error } = await adminSetUserStatus(customer.id, user?.id, status, reason);
+    const { error } = await apiAdminSetUserStatus(customer.id, user?.id, status, reason || null);
     if (!error) {
       const update = { accountStatus: status };
       setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, ...update } : c));
       setSelectedCustomer(prev => prev ? { ...prev, ...update } : prev);
       showToast("상태 변경 완료");
-    } else { showToast("처리 실패", false); }
+      trackAdmin(`SET_USER_STATUS_${status}`, customer.id, null, true, 1);
+    } else { showToast(error.message ?? "처리 실패", false); trackAdmin("SET_USER_STATUS", customer.id, error.message, false, 0); }
     setActionLoading(false);
   };
 
   const handleAdjustTemp = async (customer, delta) => {
     setActionLoading(true);
-    const { error } = await adminAdjustSpaceTemp(customer.id, user?.id, delta, adjReason || null);
+    const { error } = await apiAdminAdjustSpaceTemp(customer.id, user?.id, delta, adjReason || null);
     if (!error) {
       const next = Math.round(Math.min(99, Math.max(0, (customer.spaceTemp ?? 36.5) + delta)) * 10) / 10;
       setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, spaceTemp: next } : c));
       setSelectedCustomer(prev => prev ? { ...prev, spaceTemp: next } : prev);
       showToast("공간온도 조정 완료");
-    } else { showToast("처리 실패", false); }
+    } else { showToast(error.message ?? "처리 실패", false); }
     setActionLoading(false);
     setAdjReason("");
   };
 
   const handleAdjustTokens = async (customer, delta) => {
     setActionLoading(true);
-    const { error } = await adminAdjustUserTokens(customer.id, user?.id, delta, adjReason || null);
+    const { error } = await apiAdminAdjustUserTokens(customer.id, user?.id, delta, adjReason || null);
     if (!error) {
       const next = Math.max(0, (customer.spaceTokens ?? 0) + delta);
       setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, spaceTokens: next } : c));
       setSelectedCustomer(prev => prev ? { ...prev, spaceTokens: next } : prev);
-      showToast("토큰 조정 완료");
-    } else { showToast("처리 실패", false); }
+      showToast(delta > 0 ? `+${delta} 토큰 지급 완료` : `${delta} 토큰 회수 완료`);
+      trackAdmin(delta > 0 ? "TOKEN_GRANT" : "TOKEN_REVOKE", customer.id, null, true, 1);
+    } else { showToast(error.message ?? "처리 실패", false); }
     setActionLoading(false);
     setAdjReason("");
   };
@@ -4117,6 +4140,81 @@ export default function AdminScreen({ onBack, onHome, user }) {
                               </>
                             )}
                           </div>
+                          {/* 계정 상태 배지 + 제재/토큰 관리 토글 — service-role API 경유(RLS 안전) */}
+                          <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
+                            {(() => {
+                              const meta = USER_STATUS_META[customer.accountStatus] ?? USER_STATUS_META.NORMAL;
+                              return (
+                                <span style={{ fontSize: 11, fontWeight: 700, color: meta.color, background: meta.bg,
+                                  borderRadius: R.full, padding: "2px 9px" }}>{meta.label}</span>
+                              );
+                            })()}
+                            <span style={{ fontSize: 11, color: C.text4 }}>🪙 {customer.spaceTokens ?? 0} · 🌡 {customer.spaceTemp ?? 36.5}°</span>
+                            <button onClick={() => {
+                              if (managingCustomerId === customer.id) { setManagingCustomerId(null); return; }
+                              setManagingCustomerId(customer.id); setAdjReason(""); setCustomerTokenAmt("");
+                            }} style={{ marginLeft: "auto", padding: "3px 10px", borderRadius: R.full,
+                              border: `1px solid ${C.bgWarm}`, background: managingCustomerId === customer.id ? C.surface2 : C.surface,
+                              color: C.text3, fontSize: 11, cursor: "pointer" }}>
+                              {managingCustomerId === customer.id ? "닫기" : "제재/토큰"}
+                            </button>
+                          </div>
+                          {managingCustomerId === customer.id && (
+                            <div style={{ marginTop: S.md, background: C.surface2, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
+                              {/* 사유(제재/토큰/온도 공용 — admin_logs.reason 으로 기록) */}
+                              <div style={{ fontSize: 11, color: C.text3, marginBottom: 3 }}>사유 (admin_logs 기록)</div>
+                              <input value={adjReason} onChange={e => setAdjReason(e.target.value)} placeholder="변경 사유를 입력하세요"
+                                style={{ width: "100%", padding: "8px 12px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
+                                  fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit", background: "#fff", marginBottom: S.md }} />
+
+                              {/* 계정 상태 변경 */}
+                              <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 6 }}>계정 상태</div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: S.md }}>
+                                {Object.entries(USER_STATUS_META).map(([key, meta]) => {
+                                  const active = (customer.accountStatus ?? "NORMAL") === key;
+                                  return (
+                                    <button key={key} disabled={actionLoading || active}
+                                      onClick={() => handleCustomerStatus(customer, key, adjReason)}
+                                      style={{ padding: "6px 11px", borderRadius: R.full, fontSize: 11.5, fontWeight: 700,
+                                        border: `1px solid ${active ? meta.color : C.bgWarm}`,
+                                        background: active ? meta.bg : C.surface, color: active ? meta.color : C.text2,
+                                        cursor: active ? "default" : "pointer", opacity: actionLoading ? 0.5 : 1 }}>
+                                      {active ? "● " : ""}{meta.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* 토큰 지급/회수 */}
+                              <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 6 }}>토큰 (현재 {customer.spaceTokens ?? 0})</div>
+                              <div style={{ display: "flex", gap: 6, marginBottom: S.md }}>
+                                <input type="number" min="1" value={customerTokenAmt} onChange={e => setCustomerTokenAmt(e.target.value)} placeholder="수량"
+                                  style={{ flex: 1, padding: "8px 12px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
+                                    fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit", background: "#fff" }} />
+                                <button disabled={actionLoading || !(Number(customerTokenAmt) > 0)}
+                                  onClick={() => { handleAdjustTokens(customer, Math.abs(Number(customerTokenAmt))); setCustomerTokenAmt(""); }}
+                                  style={{ padding: "8px 14px", borderRadius: R.md, border: "none", background: C.brand, color: "#fff",
+                                    fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: actionLoading || !(Number(customerTokenAmt) > 0) ? 0.5 : 1 }}>지급</button>
+                                <button disabled={actionLoading || !(Number(customerTokenAmt) > 0)}
+                                  onClick={() => { handleAdjustTokens(customer, -Math.abs(Number(customerTokenAmt))); setCustomerTokenAmt(""); }}
+                                  style={{ padding: "8px 14px", borderRadius: R.md, border: `1px solid ${C.red}55`, background: "#FFF0F0", color: C.red,
+                                    fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: actionLoading || !(Number(customerTokenAmt) > 0) ? 0.5 : 1 }}>회수</button>
+                              </div>
+
+                              {/* 공간온도 조정 */}
+                              <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 6 }}>공간온도 (현재 {customer.spaceTemp ?? 36.5}°)</div>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                {[-1, -0.5, +0.5, +1].map(d => (
+                                  <button key={d} disabled={actionLoading} onClick={() => handleAdjustTemp(customer, d)}
+                                    style={{ flex: 1, padding: "8px 0", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
+                                      background: C.surface, color: C.text2, fontSize: 12, fontWeight: 700,
+                                      cursor: "pointer", opacity: actionLoading ? 0.5 : 1 }}>
+                                    {d > 0 ? `+${d}` : d}°
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           {isEditing && (
                             <div style={{ marginTop: S.md, background: C.surface2, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
                               {[["name","이름"],["phone","전화번호"],["region","지역"]].map(([key,label]) => (
