@@ -1330,7 +1330,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
         {/* Space OS · 보호의 약속 안내 */}
         <div style={{ background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: S.lg, fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
-          🤝 계약과 에스크로는 서로를 통제하기 위한 장치가 아니라, 서로를 보호하기 위한 약속입니다.
+          🤝 계약과 에스크로는 서로를 보호하기 위한 약속입니다. 투명한 진행 기록으로 신뢰를 함께 만듭니다.
           <div style={{ marginTop: 5, color: C.text3 }}>에스크로는 돈을 묶는 시스템이 아니라, 약속을 지키기 위한 보호장치입니다.</div>
         </div>
 
@@ -2063,7 +2063,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 16px" }} />
             <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, marginBottom: 10 }}>📍 GPS 기록이 필요한 단계입니다</div>
             <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7, marginBottom: 14 }}>
-              이 단계는 프로젝트 증빙을 위해 위치 기록이 필요합니다. GPS 기록 없이 진행하면 관리자 증빙관리에서 <b>“GPS 누락”</b>으로 표시되며, 분쟁 발생 시 불리한 자료로 판단될 수 있습니다.{"\n"}GPS를 기록하거나, 부득이한 경우 사유를 입력해 주세요.
+              이 단계는 프로젝트 진행 기록을 정확하게 연결하기 위해 위치 기록을 함께 남깁니다. 기록 없이 진행하면 증빙관리에 <b>“GPS 누락”</b>으로 표시됩니다.{"\n"}위치를 기록하거나, 부득이한 경우 사유를 입력해 주세요.
             </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>

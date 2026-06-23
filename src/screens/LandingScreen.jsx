@@ -68,7 +68,7 @@ const HERO_TRUST = [
 ];
 // 기록보호 섹션 항목
 const RECORD_ITEMS = [
-  { icon: "📍", title: "GPS 기록",  desc: "현장 방문·진행 위치가 기록됩니다" },
+  { icon: "📍", title: "GPS 기록",  desc: "현장 방문·진행 단계가 프로젝트에 기록됩니다" },
   { icon: "💬", title: "채팅 기록",  desc: "업체와의 모든 대화가 저장됩니다" },
   { icon: "📷", title: "사진 기록",  desc: "착공·중간·완료 시공 사진이 남습니다" },
   { icon: "📄", title: "계약 기록",  desc: "계약 범위와 변경 내역이 보관됩니다" },

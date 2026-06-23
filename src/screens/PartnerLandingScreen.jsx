@@ -822,10 +822,10 @@ export default function PartnerLandingScreen() {
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 20 }}>🛡️</span>
-              <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>대금 미지급 위험 감소</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>안정적인 대금 정산</span>
             </div>
             <div style={{ fontSize: 13.5, color: TEXT2, lineHeight: 1.65 }}>
-              공사 완료 후 대금 미지급 위험을 줄입니다. 분쟁 발생 시 GPS, 사진, 채팅 기록이 증빙으로 남습니다.
+              공사 완료 후 안정적인 대금 정산을 지원합니다. 프로젝트 진행 기록(GPS·사진·채팅)이 신뢰의 증빙으로 남습니다.
             </div>
           </div>
 

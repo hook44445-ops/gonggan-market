@@ -75,7 +75,7 @@ export default function EstimateAnalysisResult({ result, onClose }) {
         )}
 
         <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", lineHeight: 1.7, textAlign: "center", marginBottom: 16 }}>
-          기록은 사람을 감시하기 위해 존재하지 않습니다.<br />성실한 사람을 보호하기 위해 존재합니다.
+          기록은 성실한 사람을 보호하기 위해 존재합니다.<br />좋은 기록은 좋은 평판보다 오래갑니다.
         </div>
 
         <button

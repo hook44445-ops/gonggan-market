@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
-import { getAdminProjectFlow, getTestAccounts, getProjectChatSummary } from "../lib/supabase";
+import { getProjectChatSummary } from "../lib/supabase";
 import { manwonToWon, formatWon, contractFinance } from "../lib/financeUtils";
 import {
   flowStageLabel, paymentStatus, settlementStatus, escrowStatusLabel, shortId, fmtDate, txMatchesSearch,
 } from "../lib/transactionUtils";
-import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
+import { isTestRow } from "../lib/testAccounts";
+import { useAdminProjectFlow } from "../hooks/useAdminProjectFlow";
+import { Chip } from "./common/AdminTableUI";
 import { evidenceChatDbg } from "../utils/adminChatDebug"; // 증빙관리 채팅 조회 진단(플래그 시에만 출력)
 import { checkpointEvidenceBadge, parseGpsMissingReason } from "../utils/gpsCheckpoint"; // GPS+사진 증빙 상태/누락 사유(읽기 전용)
 
@@ -75,33 +76,13 @@ const mediaLabel = (text) => {
 };
 
 export default function ProjectEvidenceManagement({ adminUserId, showToast }) {
-  const [rows, setRows]       = useState([]);
-  const [testSet, setTestSet] = useState(null);
+  const { rows, loading, errMsg, testSet, reload } = useAdminProjectFlow(adminUserId, { limit: 300 });
   const [chatMap, setChatMap] = useState(new Map()); // request_id -> { count, last, recent, kw }
-  const [loading, setLoading] = useState(true);
   const [chatLoading, setChatLoading] = useState(false);
-  const [errMsg, setErrMsg]   = useState(null);
   const [search, setSearch]   = useState("");
   const [filter, setFilter]   = useState("all");
   const [excludeTest, setExcludeTest] = useState(true);
   const [selected, setSelected] = useState(null);
-
-  const load = async () => {
-    setLoading(true); setErrMsg(null);
-    try {
-      const { data: ta } = await getTestAccounts(adminUserId);
-      setTestSet(buildTestAccountSet(Array.isArray(ta) ? ta : []));
-    } catch { setTestSet(buildTestAccountSet([])); }
-    const { data, error } = await getAdminProjectFlow(adminUserId, { limit: 300 });
-    if (error) {
-      setErrMsg(error.message || "조회 실패"); setRows([]);
-      dlog("[GONGGAN_DEBUG][Evidence] error", error.message);
-    } else {
-      setRows(Array.isArray(data) ? data : []);
-    }
-    setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [adminUserId]);
 
   const txAll = rows;
   const testCount = txAll.filter(r => isTestRow(r, testSet)).length;
@@ -153,12 +134,6 @@ export default function ProjectEvidenceManagement({ adminUserId, showToast }) {
     }
   };
 
-  const Chip = ({ active, onClick, children }) => (
-    <button onClick={onClick}
-      style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
-        border: `1px solid ${active ? C.brand : C.bgWarm}`, cursor: "pointer", whiteSpace: "nowrap",
-        background: active ? C.brand : C.surface, color: active ? "#fff" : C.text2 }}>{children}</button>
-  );
   const Tag = ({ children, color, bg }) => (
     <span style={{ background: bg, color, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>{children}</span>
   );
@@ -167,7 +142,7 @@ export default function ProjectEvidenceManagement({ adminUserId, showToast }) {
     <div style={{ padding: "8px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>프로젝트 증빙관리</div>
-        <button onClick={load} disabled={loading}
+        <button onClick={reload} disabled={loading}
           style={{ marginLeft: "auto", background: C.bgWarm, color: C.text2, border: "none", borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>새로고침</button>
       </div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 10 }}>
