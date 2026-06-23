@@ -15,7 +15,7 @@ import NotificationInbox from "./NotificationInbox";
 
 const POLL_MS = 60000;
 
-export default function NotificationBell({ user, style }) {
+export default function NotificationBell({ user, style, onNavigate }) {
   const userId = user?.id ?? null;
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -70,7 +70,8 @@ export default function NotificationBell({ user, style }) {
         >
           <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto", background: C.bg, borderRadius: "24px 24px 0 0", padding: "20px 16px 28px" }}>
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 16px" }} />
-            <NotificationInbox user={user} onRead={refresh} />
+            <NotificationInbox user={user} onRead={refresh}
+              onNavigate={onNavigate ? (n) => { setOpen(false); onNavigate(n); } : undefined} />
             <button onClick={() => setOpen(false)} style={{ width: "100%", marginTop: 4, padding: 13, background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 14, color: C.text2, cursor: "pointer" }}>
               닫기
             </button>
