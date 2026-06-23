@@ -2486,6 +2486,34 @@ async function adminApiGet(path, adminId) {
 export const fetchAdminCustomers = (adminId, role = "consumer") =>
   adminApiGet(`/api/admin/users?role=${encodeURIComponent(role)}`, adminId);
 
+// service-role 관리자 변경 API(POST). adminApiGet 과 동일 인증 패턴(adminId + sentinel x-admin-code).
+async function adminApiPost(path, adminId, body) {
+  const headers = { "Content-Type": "application/json" };
+  if (adminId === "admin") headers["x-admin-code"] = import.meta.env.VITE_ADMIN_CODE ?? "";
+  try {
+    const res = await fetch(path, {
+      method: "POST", headers,
+      body: JSON.stringify({ ...body, adminId: adminId ?? "" }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return { data: null, error: { message: json?.error || `HTTP ${res.status}`, status: res.status } };
+    return { data: json?.data ?? null, error: null };
+  } catch (e) {
+    return { data: null, error: { message: e?.message || "NETWORK_ERROR" } };
+  }
+}
+
+// 고객 제재/토큰/공간온도 — service-role API 경유(users 직접 UPDATE 는 auth.uid()=NULL 로 RLS 차단).
+// admin_logs 기록은 서버에서 동일하게 수행. 직접 UPDATE 래퍼(adminSetUserStatus 등)는 호환 위해 유지.
+export const apiAdminSetUserStatus = (userId, adminId, status, reason = null) =>
+  adminApiPost("/api/admin/users", adminId, { action: "set_status", userId, status, reason });
+
+export const apiAdminAdjustUserTokens = (userId, adminId, delta, reason = null) =>
+  adminApiPost("/api/admin/users", adminId, { action: "adjust_tokens", userId, delta, reason });
+
+export const apiAdminAdjustSpaceTemp = (userId, adminId, delta, reason = null) =>
+  adminApiPost("/api/admin/users", adminId, { action: "adjust_temp", userId, delta, reason });
+
 // 라운지 운영(seed) 글 전체(숨김/비활성 포함) — admin/operator.
 export const fetchAdminSeedPosts = (adminId) =>
   adminApiGet("/api/admin/seed-posts", adminId);
