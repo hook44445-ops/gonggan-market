@@ -36,7 +36,7 @@ function relTime(iso) {
 
 const PREVIEW_COUNT = 2; // 마이페이지 알림함 미리보기 2개(나머지는 '더보기'). UI 표시 전용.
 
-export default function NotificationInbox({ user, onRead }) {
+export default function NotificationInbox({ user, onRead, onNavigate }) {
   const userId = user?.id ?? null;
   const [items, setItems]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,10 +60,14 @@ export default function NotificationInbox({ user, onRead }) {
   const unread = items.filter(n => !n.is_read).length;
 
   const handleTap = async (n) => {
-    if (n.is_read) return;
-    setItems(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x));
-    try { await markNotificationRead(n.id); } catch {}
-    onRead?.();
+    // 읽음 처리(미읽음일 때만) — 기존 동작 유지.
+    if (!n.is_read) {
+      setItems(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x));
+      try { await markNotificationRead(n.id); } catch {}
+      onRead?.();
+    }
+    // 끊겼던 Flow 복구 — 읽음 여부와 무관하게 관련 화면으로 이동(라우팅은 상위 onNavigate 가 처리).
+    onNavigate?.(n);
   };
 
   const handleAllRead = async () => {

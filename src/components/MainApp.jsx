@@ -2436,6 +2436,19 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     setScreen(s);
   };
 
+  // 알림 클릭 → 관련 화면 이동(끊겼던 거래 Flow 복구). 알림은 related_id=request.id 를 담는다.
+  //   · 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교 화면(bidstatus).
+  //   기존 라우팅/화면/알림 생성 로직 무변경 — 알림에서의 진입 경로만 복구한다.
+  const openNotificationTarget = (n) => {
+    if (!n) return;
+    const rid = n.related_id ?? null;
+    const t = n.type ?? "";
+    if ((t === "BID_RECEIVED" || t === "BID_ALL_IN") && rid) {
+      setBidViewRequestId(rid);
+      go("bidstatus");
+    }
+  };
+
   useEffect(() => {
     if (screen === "admin" && activeRole !== "admin") setScreen("home");
     if (screen === "dashboard" && activeRole !== "company") setScreen("home");
@@ -2519,7 +2532,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <BrandLockup size={32} />
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
               {/* 로그아웃 버튼은 실수 터치 방지를 위해 마이페이지(내정보)로 이동됨 */}
-              <NotificationBell user={user} />
+              <NotificationBell user={user} onNavigate={openNotificationTarget} />
             </div>
           </div>
           <div style={{ display:"flex" }}>
@@ -4054,7 +4067,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>대화</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>파트너와 나눈 이야기</div>
               </div>
-              <NotificationBell user={user} />
+              <NotificationBell user={user} onNavigate={openNotificationTarget} />
             </div>
 
             {isAllEmpty && (
@@ -4342,7 +4355,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         {screen==="my" && (
           <div>
             <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:4 }}>
-              <NotificationBell user={user} />
+              <NotificationBell user={user} onNavigate={openNotificationTarget} />
             </div>
             {UX_BETA ? (
               <MyPageTopBeta
@@ -4626,7 +4639,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             )}
 
             {/* 통합 알림함 — notifications 조회 전용(B단계) */}
-            <NotificationInbox user={user} />
+            <NotificationInbox user={user} onNavigate={openNotificationTarget} />
 
             {/* 푸시 알림 설정 */}
             <PushNotificationSettings user={user} />
