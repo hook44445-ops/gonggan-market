@@ -11,6 +11,7 @@ import {
 } from "../lib/transactionUtils";
 import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
 import { downloadCsv, csvStamp } from "../utils/exportCsv";
+import { Chip, Th, Td } from "./common/AdminTableUI";
 
 // ── 정산관리 고도화(V2.2) — "업체에게 얼마를 지급해야 하는지" 중심 화면 ──────
 // 데이터 소스: admin_project_flow_list(escrow) + settlement_admin_state(072).
@@ -127,18 +128,6 @@ export default function SettlementManagement({ adminUserId, showToast }) {
     downloadCsv(`정산관리_${csvStamp()}.csv`, filtered, cols);
   };
 
-  const Chip = ({ active, onClick, children }) => (
-    <button onClick={onClick}
-      style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
-        border: `1px solid ${active ? C.brand : C.bgWarm}`, cursor: "pointer", whiteSpace: "nowrap",
-        background: active ? C.brand : C.surface, color: active ? "#fff" : C.text2 }}>{children}</button>
-  );
-  const Th = ({ children }) => (
-    <th style={{ textAlign: "left", padding: "8px 10px", fontSize: 11, fontWeight: 700, color: C.text3, whiteSpace: "nowrap" }}>{children}</th>
-  );
-  const Td = ({ children, mono }) => (
-    <td style={{ padding: "9px 10px", fontSize: 12, color: C.text1, whiteSpace: "nowrap", fontFamily: mono ? "monospace" : "inherit" }}>{children}</td>
-  );
   const SBadge = ({ code }) => {
     const m = STATUS_META[code] || STATUS_META.READY;
     return <span style={{ background: `${m.color}1A`, color: m.color, borderRadius: R.sm, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{m.label}</span>;

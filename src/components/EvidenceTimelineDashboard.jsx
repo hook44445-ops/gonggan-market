@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
-import { dlog } from "../utils/devLog";
+import { useState } from "react";
 import { C, R, S } from "../constants";
-import { getAdminProjectFlow, getTestAccounts } from "../lib/supabase";
-import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
+import { isTestRow } from "../lib/testAccounts";
+import { useAdminProjectFlow } from "../hooks/useAdminProjectFlow";
 import {
   projectEvidence, companyEvidenceIndex, buildTimeline, checkpointCompleteness,
   EV_TIER,
@@ -25,33 +24,10 @@ const fmtDate = (t) => t ? new Date(t).toLocaleDateString("ko-KR", { month: "num
 const STAGE_ICON = { site_visit: "📍", contract: "📝", start: "🚧", middle: "🔍", complete: "✅" };
 
 export default function EvidenceTimelineDashboard({ adminUserId, showToast }) {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [errMsg, setErrMsg] = useState(null);
-  const [testSet, setTestSet] = useState(null);
+  const { rows, loading, errMsg, testSet, reload } = useAdminProjectFlow(adminUserId, { limit: 1000 });
   const [excludeTest, setExcludeTest] = useState(true);
   const [sortKey, setSortKey] = useState("avg"); // avg | gpsRate | photoRate | doneRate
   const [selected, setSelected] = useState(null);
-
-  const load = async () => {
-    setLoading(true); setErrMsg(null);
-    try {
-      const { data: ta } = await getTestAccounts(adminUserId);
-      setTestSet(buildTestAccountSet(Array.isArray(ta) ? ta : []));
-    } catch { setTestSet(buildTestAccountSet([])); }
-
-    const { data, error } = await getAdminProjectFlow(adminUserId, { limit: 1000 });
-    if (error) {
-      setErrMsg(error.message || "조회 실패"); setRows([]);
-      dlog("[GONGGAN_DEBUG][Evidence] error", error.message);
-    } else {
-      const list = Array.isArray(data) ? data : [];
-      setRows(list);
-      dlog("[GONGGAN_DEBUG][Evidence] count", list.length);
-    }
-    setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [adminUserId]);
 
   const calcRows = excludeTest ? rows.filter(r => !isTestRow(r, testSet)) : rows;
   const testCount = rows.filter(r => isTestRow(r, testSet)).length;
@@ -112,7 +88,7 @@ export default function EvidenceTimelineDashboard({ adminUserId, showToast }) {
     <div style={{ padding: "4px 2px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>🧾 증빙 타임라인</div>
-        <button onClick={load} disabled={loading}
+        <button onClick={reload} disabled={loading}
           style={{ marginLeft: "auto", background: C.bgWarm, color: C.text2, border: "none", borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>새로고침</button>
       </div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 10 }}>
