@@ -1285,14 +1285,6 @@ const normalizeCompany = (row) => ({
   guarantee_updated_at:    row.guarantee_updated_at ?? null,
 });
 
-// 고객 계정 상태(users.account_status enum) 표시 메타 — 업체 상태 메타와 동일한 UX 패턴.
-const USER_STATUS_META = {
-  NORMAL:          { label: "정상",      color: "#2E5F4B", bg: "#EAF2EE" },
-  TEMP_RESTRICTED: { label: "활동 제한", color: "#D63030", bg: "#FFF3F0" },
-  SUSPENDED:       { label: "계정 정지", color: "#D63030", bg: "#FEF0F0" },
-  BLACKLISTED:     { label: "블랙리스트", color: "#1F2A24", bg: "#E8E0D4" },
-};
-
 const normalizeCustomer = (row) => ({
   id:       row.id,
   name:     row.name ?? "고객",
