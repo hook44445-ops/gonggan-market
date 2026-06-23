@@ -129,7 +129,9 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
         note: checkpointNote.trim() || null,
       });
       if (cpErr) {
-        alert("현장 기록은 등록됐지만 증빙 저장에 실패했어요.\n다시 시도하거나 관리자에게 문의해 주세요. (" + (cpErr.message ?? "") + ")");
+        // 진단(우선순위 5): 오류 원문을 콘솔에 그대로 남긴다(요약 금지).
+        try { console.error("[SITEVISIT_CHECKPOINT_FAILED]", { request_id: job.bid.request_id, site_visit_id: job.siteVisit.id, actor_id: userId, code: cpErr.code, message: cpErr.message, details: cpErr.details, hint: cpErr.hint }); } catch { /* noop */ }
+        alert("현장 기록은 등록됐지만 증빙 저장에 실패했어요.\n다시 시도하거나 관리자에게 문의해 주세요. [" + (cpErr.code ?? "ERR") + "] " + (cpErr.message ?? ""));
       } else if (!loc.address_full && !loc.road_address && !loc.jibun_address) {
         // 역지오코딩 실패해도 좌표는 저장됨 — 사용자 안내.
         alert("주소 변환은 실패했지만 위치 좌표는 저장되었습니다.");

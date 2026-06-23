@@ -279,13 +279,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       try {
         const loc = await captureCheckpointLocation();
         if (!loc) return;
-        await saveContractCheckpoint({
+        const { error: ccErr } = await saveContractCheckpoint({
           actorId: userId, requestId: reqId, contractId: resolvedContractId,
           lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
           roadAddress: loc.road_address, jibunAddress: loc.jibun_address, addressFull: loc.address_full,
           sido: loc.sido, sigungu: loc.sigungu, dong: loc.dong, bunji: loc.bunji,
         });
-      } catch { /* 계약 GPS 실패 무시 — 진행 차단 금지 */ }
+        // 진단(우선순위 5): 계약 GPS 저장 실패 원문을 콘솔에 그대로 남긴다(요약 금지). 진행은 비차단 유지.
+        if (ccErr) { try { console.error("[CONTRACT_CHECKPOINT_FAILED]", { request_id: reqId, contract_id: resolvedContractId, actor_id: userId, code: ccErr.code, message: ccErr.message, details: ccErr.details, hint: ccErr.hint }); } catch { /* noop */ } }
+      } catch (e) { try { console.error("[CONTRACT_CHECKPOINT_THROW]", e?.message ?? e); } catch { /* noop */ } /* 진행 차단 금지 */ }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConsumer, userId, resolvedContractId, request?.id]);
@@ -944,10 +946,14 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         debug.checkpoint_ok  = !cpErr;
         debug.checkpoint_err = cpErr?.message ?? null;
         if (cpErr) {
+          // 진단(우선순위 5): RPC 오류 원문을 콘솔에 그대로 남긴다(요약 금지).
+          //   NOT_PROJECT_COMPANY / NOT_REQUEST_OWNER(actor 검증) · PGRST202(function not found=RPC 미배포)
+          //   · permission denied(RLS) 등을 화면/콘솔에서 그대로 식별할 수 있게 한다.
+          try { console.error("[CHECKPOINT_SAVE_FAILED]", { stage: cpType, request_id: reqId, contract_id: cid, actor_id: userId, code: cpErr.code, message: cpErr.message, details: cpErr.details, hint: cpErr.hint }); } catch { /* noop */ }
           // 증빙 저장 실패 → 단계 완료(에스크로/정산) 미진행. 사용자 안내 후 재시도 유도.
           debug.send_ok  = false;
-          debug.send_err = `checkpoint_save_failed:${cpErr.message}`;
-          setReportError("현장 기록(GPS·사진) 저장에 실패했어요. 네트워크 확인 후 다시 시도해주세요.");
+          debug.send_err = `checkpoint_save_failed:${cpErr.code ?? ""}:${cpErr.message ?? ""}`;
+          setReportError(`현장 기록(GPS·사진) 저장에 실패했어요. 다시 시도해주세요. [${cpErr.code ?? "ERR"}] ${cpErr.message ?? ""}`);
           return; // finally에서 버튼/로딩 원복 — 단계는 완료 처리되지 않음
         }
         // 저장 성공 — 게이트 임시 상태 정리(다음 단계 보고 누수 방지)
