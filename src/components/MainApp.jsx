@@ -9,6 +9,7 @@ import { getAnonymousNickname, formatRelativeTime } from "../utils/anonymousNick
 import LiveFeed from "./LiveFeed";
 import RegionSelectorBar from "./RegionSelectorBar";
 import RegionSelectSheet from "./RegionSelectSheet";
+import LocationPermissionModal from "./LocationPermissionModal";
 import { useGPS } from "../hooks/useGPS";
 import { resolveMapCenter } from "../hooks/useMapCenter";
 import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegionId, regionKey, makeRegionEntry } from "../constants/regions";
@@ -675,6 +676,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const { gpsCenter, gpsErrorCode, gpsTick, loading: gpsLoading, requestCurrentLocation, autoLocateIfGranted, clearGps } = useGPS();
   // GPS 사용 목적: 'view'(지도 이동) | 'add'(현재 위치로 지역 추가)
   const gpsModeRef = useRef("view");
+  // 위치 권한 안내 모달(UX 레이어) — OS 권한 팝업 전에 브랜드 안내를 먼저 노출.
+  //   기존 GPS 로직은 무수정. 권한이 이미 허용됐거나 한 번 안내했으면 바로 진행(중복 안내 방지).
+  const [permModalOpen, setPermModalOpen] = useState(false);
+  const permActionRef = useRef(null);   // 안내 후 실행할 기존 GPS 동작
+  const permShownRef = useRef(false);   // 세션 내 1회만 안내
   const [regionChooserOpen, setRegionChooserOpen] = useState(false); // + 지역 추가 선택 시트
   const [regionExploreOpen, setRegionExploreOpen] = useState(false); // 다른 지역 둘러보기(현재지역 변경 전용, 저장 안 함)
   const [gpsPendingRegion, setGpsPendingRegion] = useState(null);    // 저장 확인 대기 { rawSido, sido, sigungu, lat, lng }
@@ -704,14 +710,37 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     autoLocateIfGranted();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 위치 권한 안내 게이트 — OS 권한 팝업 전 브랜드 안내를 1회 노출한 뒤 기존 GPS 동작 실행.
+  //   · 이미 'granted' 이거나 이번 세션에 안내했으면 곧장 실행(불필요한 재안내 방지).
+  //   · Permissions API 미지원(iOS Safari 등)이면 안내 모달을 띄운 뒤 진행.
+  //   · 기존 GPS 권한 요청 로직(requestCurrentLocation)은 그대로 — 본 게이트는 표시 레이어.
+  const openPermGate = (action) => {
+    if (permShownRef.current) { action(); return; }
+    if (navigator.permissions?.query) {
+      navigator.permissions.query({ name: "geolocation" })
+        .then((res) => {
+          if (res.state === "granted") { permShownRef.current = true; action(); }
+          else { permActionRef.current = action; setPermModalOpen(true); }
+        })
+        .catch(() => { permActionRef.current = action; setPermModalOpen(true); });
+    } else { permActionRef.current = action; setPermModalOpen(true); }
+  };
+  const onPermConfirm = () => {
+    permShownRef.current = true;
+    setPermModalOpen(false);
+    const a = permActionRef.current; permActionRef.current = null;
+    if (a) a(); // 기존 GPS 권한 요청 실행 → OS 팝업
+  };
+  const onPermClose = () => { setPermModalOpen(false); permActionRef.current = null; };
+
   // "현재 위치로 보기" — 버튼 클릭 시 GPS 1회 요청. GPS 가 최우선이라 activeRegion 을 비우지 않아도
   // 지도는 현재 위치로 이동한다(매칭 필터는 유지).
-  const onRequestMapLocation = () => { gpsModeRef.current = "view"; requestCurrentLocation(); };
+  const onRequestMapLocation = () => openPermGate(() => { gpsModeRef.current = "view"; requestCurrentLocation(); });
 
   // 지역 칩 클릭 → 선택 시트 (① 둘러보기 ② 현재 위치로 ③ 관심지역 저장)
   const openRegionChooser = () => setRegionChooserOpen(true);
   // 시트 ① — 현재 위치로 지역 추가: GPS 1회 → reverse geocoding (effect 에서 처리)
-  const onAddRegionByGps = () => { gpsModeRef.current = "add"; setRegionChooserOpen(false); requestCurrentLocation(); };
+  const onAddRegionByGps = () => { setRegionChooserOpen(false); openPermGate(() => { gpsModeRef.current = "add"; requestCurrentLocation(); }); };
   // 시트 ② — 직접 지역 선택(관심지역 저장, 최대 2)
   const onAddRegionManual = () => { setRegionChooserOpen(false); setRegionSheetOpen(true); };
   // 시트 ③ — 다른 지역 둘러보기(현재지역만 변경, 저장/제한 없음)
@@ -3679,6 +3708,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             />
 
             {/* 지역 칩 클릭 시 열리는 선택 시트 — 교체 모드/추가 모드 분기 */}
+            {/* 위치 권한 안내 모달 — OS 권한 팝업 전 브랜드 안내(고객/업체 카피) */}
+            <LocationPermissionModal
+              open={permModalOpen}
+              role={activeRole === "company" ? "company" : "consumer"}
+              onConfirm={onPermConfirm}
+              onClose={onPermClose}
+            />
+
             {regionChooserOpen && (() => {
               const editing = editingRegionIndex !== null;
               const editLabel = editing ? (activityRegions[editingRegionIndex]?.district || activityRegions[editingRegionIndex]?.city || "이 지역") : "";
