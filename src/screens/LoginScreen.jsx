@@ -333,7 +333,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
               }}>🏡</div>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 2 }}>의뢰인으로 시작</div>
-                <div style={{ fontSize: 13, opacity: 0.8 }}>인테리어 · 시공 업체를 찾고 있어요</div>
+                <div style={{ fontSize: 13, opacity: 0.8 }}>집수리·인테리어·리모델링 업체를 찾고 있어요</div>
               </div>
               <div style={{ marginLeft: "auto", fontSize: 20, opacity: 0.8 }}>›</div>
             </button>
