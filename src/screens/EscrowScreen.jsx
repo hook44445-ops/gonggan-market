@@ -953,7 +953,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           // 증빙 저장 실패 → 단계 완료(에스크로/정산) 미진행. 사용자 안내 후 재시도 유도.
           debug.send_ok  = false;
           debug.send_err = `checkpoint_save_failed:${cpErr.code ?? ""}:${cpErr.message ?? ""}`;
-          setReportError(`현장 기록(GPS·사진) 저장에 실패했어요. 다시 시도해주세요. [${cpErr.code ?? "ERR"}] ${cpErr.message ?? ""}`);
+          setReportError(`위치·증빙(GPS) 기록 저장에 실패했어요(사진 업로드와는 별개). 잠시 후 다시 시도해주세요. [${cpErr.code ?? "ERR"}] ${cpErr.message ?? ""}`);
           return; // finally에서 버튼/로딩 원복 — 단계는 완료 처리되지 않음
         }
         // 저장 성공 — 게이트 임시 상태 정리(다음 단계 보고 누수 방지)
