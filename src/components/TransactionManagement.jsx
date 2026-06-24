@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
-import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
+import { useState } from "react";
 import { C, R, S } from "../constants";
-import { getAdminProjectFlow, getTestAccounts } from "../lib/supabase";
 import { manwonToWon, formatWon, contractFinance } from "../lib/financeUtils";
-import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
+import { isTestRow } from "../lib/testAccounts";
+import { useAdminProjectFlow } from "../hooks/useAdminProjectFlow";
+import { Chip, Th, Td } from "./common/AdminTableUI";
 import { downloadCsv, csvStamp } from "../utils/exportCsv";
 import {
   flowStageLabel, paymentStatus, settlementStatus, escrowStatusLabel,
@@ -20,36 +20,11 @@ const FILTERS = [
 ];
 
 export default function TransactionManagement({ adminUserId, showToast }) {
-  const [rows, setRows]       = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [errMsg, setErrMsg]   = useState(null);
+  const { rows, loading, errMsg, testSet, reload } = useAdminProjectFlow(adminUserId, { limit: 1000 });
   const [search, setSearch]   = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [testFilter, setTestFilter] = useState("all"); // all | real | test
-  const [testSet, setTestSet] = useState(null);
   const [selected, setSelected] = useState(null);
-
-  const load = async () => {
-    setLoading(true); setErrMsg(null);
-    // 테스트 계정 목록(배지/필터용) — 실패해도 거래 조회는 계속.
-    try {
-      const { data: ta } = await getTestAccounts(adminUserId);
-      setTestSet(buildTestAccountSet(Array.isArray(ta) ? ta : []));
-    } catch { setTestSet(buildTestAccountSet([])); }
-
-    // 검색은 클라이언트에서 처리(contract_id 포함) → 전량 조회.
-    const { data, error } = await getAdminProjectFlow(adminUserId, { limit: 1000 });
-    if (error) {
-      setErrMsg(error.message || "조회 실패"); setRows([]);
-      dlog("[GONGGAN_DEBUG][Transactions] error", error.message);
-    } else {
-      const list = Array.isArray(data) ? data : [];
-      setRows(list);
-      dlog("[GONGGAN_DEBUG][Transactions] count", list.length);
-    }
-    setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [adminUserId]);
 
   // 계약(에스크로) 성립 거래만 거래관리 대상. (취소 포함 — 취소 필터에서 조회)
   const txRows = rows.filter(r => r.escrow);
@@ -81,20 +56,6 @@ export default function TransactionManagement({ adminUserId, showToast }) {
     downloadCsv(`거래관리_${csvStamp()}.csv`, filtered, cols);
   };
 
-  const Chip = ({ active, onClick, children }) => (
-    <button onClick={onClick}
-      style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
-        border: `1px solid ${active ? C.brand : C.bgWarm}`, cursor: "pointer", whiteSpace: "nowrap",
-        background: active ? C.brand : C.surface, color: active ? "#fff" : C.text2 }}>{children}</button>
-  );
-  const Th = ({ children }) => (
-    <th style={{ textAlign: "left", padding: "8px 10px", fontSize: 11, fontWeight: 700,
-      color: C.text3, whiteSpace: "nowrap" }}>{children}</th>
-  );
-  const Td = ({ children, mono }) => (
-    <td style={{ padding: "9px 10px", fontSize: 12, color: C.text1, whiteSpace: "nowrap",
-      fontFamily: mono ? "monospace" : "inherit" }}>{children}</td>
-  );
   const Badge = ({ label, color }) => (
     <span style={{ background: `${color}1A`, color, borderRadius: R.sm, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{label}</span>
   );
@@ -105,7 +66,7 @@ export default function TransactionManagement({ adminUserId, showToast }) {
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>거래관리</div>
         <button onClick={exportCsv} disabled={loading || filtered.length === 0}
           style={{ marginLeft: "auto", background: C.brandL, color: C.brand, border: `1px solid ${C.brandM ?? C.bgWarm}`, borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>CSV 다운로드</button>
-        <button onClick={load} disabled={loading}
+        <button onClick={reload} disabled={loading}
           style={{ background: C.bgWarm, color: C.text2, border: "none", borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>새로고침</button>
       </div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 12 }}>

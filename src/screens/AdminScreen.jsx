@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
-import { COMPANY_STATUS_META } from "../constants";
+import { COMPANY_STATUS_META, USER_STATUS_META } from "../constants";
 import { LOUNGE_CATEGORIES } from "../constants/lounge";
 import {
   supabase,
@@ -13,7 +13,7 @@ import {
   getPaymentOrders, adminUpdatePaymentOrder,
   getDisputePayments, adminResolveDispute,
   getPendingPayouts, adminSetPayoutStatus,
-  adminSetUserStatus, adminAdjustSpaceTemp, adminAdjustUserTokens,
+  apiAdminSetUserStatus, apiAdminAdjustUserTokens, apiAdminAdjustSpaceTemp,
   adminGetLoungePosts, getLoungeReports,
   adminHideContent, adminUpdateLoungeReport,
   createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage, adminGetSeedLoungePosts,
@@ -50,6 +50,8 @@ import TransactionManagement from "../components/TransactionManagement";
 import FinanceDashboard from "../components/FinanceDashboard";
 import SettlementManagement from "../components/SettlementManagement";
 import ProjectEvidenceManagement from "../components/ProjectEvidenceManagement";
+import GpsTrustDashboard from "../components/GpsTrustDashboard";
+import EvidenceTimelineDashboard from "../components/EvidenceTimelineDashboard";
 import AdminCategoryNav from "../components/AdminCategoryNav";
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
@@ -471,7 +473,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
         return;
       }
       const delta = isGrant ? amount : -amount;
-      const { error } = await adminAdjustUserTokens(targetUser.id, adminUserId, delta, tokenReason || null);
+      const { error } = await apiAdminAdjustUserTokens(targetUser.id, adminUserId, delta, tokenReason || null);
       if (error) {
         showToast?.(error.message ?? "처리 실패", false);
       } else {
@@ -1292,6 +1294,15 @@ const normalizeCustomer = (row) => ({
   joinedAt: row.created_at
     ? new Date(row.created_at).toLocaleDateString("ko-KR")
     : "",
+  // 계정 상태 / 공간경제(토큰·온도) — 서버(/api/admin/users)가 반환하는 원본 값 매핑.
+  accountStatus: row.account_status ?? "NORMAL",
+  spaceTokens:   row.space_tokens ?? 0,
+  spaceTemp:     row.space_temp ?? 36.5,
+  // 본인인증 — JSX 가 참조하는 원본 필드 보존(매핑 누락 시 항상 '미인증' 표시되던 문제 해소).
+  is_identity_verified:        row.is_identity_verified ?? false,
+  identity_verified_at:        row.identity_verified_at ?? null,
+  identity_provider:           row.identity_provider ?? null,
+  identity_verification_status: row.identity_verification_status ?? null,
 });
 
 // ── 라운지 운영(seed) 글 관리 탭 — lounge_posts.is_seed=true 전체 관리 ─────────
@@ -2164,428 +2175,248 @@ function deriveFlowFlags(row) {
 const isFlowCompleted = (row) =>
   row.flow_stage === "SETTLED_OR_REVIEWED" || row.status === "completed";
 
-function ProjectFlowTab({ adminUserId, showToast }) {
-  const [rows, setRows]       = useState([]);
+// ── GPS 시스템 모니터링 대시보드 — admin_project_flow_list 집계(읽기 전용 · DB/API 무변경) ──
+//   목적: "프로젝트가 아니라 GPS 시스템이 정상 운영되는가"를 보는 운영 KPI 화면.
+//   기존 deriveFlowFlags(프로젝트 증빙관리와 동일 기준)를 '집계' 관점으로만 재사용한다.
+function GpsOpsDashboard({ adminUserId }) {
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [errMsg, setErrMsg]   = useState(null);
-  const [search, setSearch]   = useState("");
-  const [statusFilter, setStatusFilter]     = useState("all");   // all | ongoing | completed
-  const [analysisFilter, setAnalysisFilter] = useState("all");   // all | ddr | gps_missing | photo_missing | stage_missing
-  const [selected, setSelected] = useState(null);
+  const [errMsg, setErrMsg] = useState(null);
+  const [period, setPeriod] = useState("all"); // all|today|week|month
 
-  const load = async (searchVal) => {
-    setLoading(true);
-    setErrMsg(null);
-    const { data, error } = await getAdminProjectFlow(adminUserId, { search: searchVal ?? null, limit: 300 });
-    if (error) {
-      setErrMsg(error.message || "조회 실패");
-      setRows([]);
-      dlog("[GONGGAN_DEBUG][ProjectFlow] error", error.message);
-    } else {
-      const list = Array.isArray(data) ? data : [];
-      setRows(list);
-      dlog("[GONGGAN_DEBUG][ProjectFlow] count", list.length);
-    }
-    setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [adminUserId]);
-
-  const filtered = rows.filter(row => {
-    if (statusFilter === "completed" && !isFlowCompleted(row)) return false;
-    if (statusFilter === "ongoing"   &&  isFlowCompleted(row)) return false;
-    if (analysisFilter !== "all") {
-      const f = deriveFlowFlags(row);
-      if (analysisFilter === "ddr"           && !f.ddrSuspect)   return false;
-      if (analysisFilter === "gps_missing"   && !f.gpsMissing)   return false;
-      if (analysisFilter === "photo_missing" && !f.photoMissing) return false;
-    }
-    return true;
-  });
-
-  const Chip = ({ active, onClick, children }) => (
-    <button onClick={onClick}
-      style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700,
-        border: `1px solid ${active ? C.brand : C.bgWarm}`, cursor: "pointer", whiteSpace: "nowrap",
-        background: active ? C.brand : C.surface, color: active ? "#fff" : C.text2 }}>
-      {children}
-    </button>
-  );
-
-  return (
-    <div style={{ padding: "8px 4px" }}>
-      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 6 }}>GPS 흐름관리 (현장흐름 관리)</div>
-      <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 12 }}>
-        견적요청부터 정산·리뷰까지 11단계 진행상황을 한 화면에서 조회합니다. 착공·중간점검·완료 단계의 GPS 좌표/주소/사진 증빙은 상세에서 확인할 수 있어요. (읽기 전용)
-      </div>
-
-      {/* 검색 */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="고객명 · 업체명 · 전화번호 · request_id · 지역"
-          onKeyDown={e => { if (e.key === "Enter") load(search.trim() || null); }}
-          style={{ flex: 1, padding: "11px 14px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 14, outline: "none", color: C.text1, background: C.surface, fontFamily: "inherit" }} />
-        <button onClick={() => load(search.trim() || null)}
-          style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, padding: "0 18px", fontSize: 14, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
-          검색
-        </button>
-      </div>
-
-      {/* 진행중/완료 */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 8, overflowX: "auto" }}>
-        <Chip active={statusFilter === "all"}       onClick={() => setStatusFilter("all")}>전체</Chip>
-        <Chip active={statusFilter === "ongoing"}   onClick={() => setStatusFilter("ongoing")}>진행중</Chip>
-        <Chip active={statusFilter === "completed"} onClick={() => setStatusFilter("completed")}>완료</Chip>
-      </div>
-      {/* 분석 필터 */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto" }}>
-        <Chip active={analysisFilter === "all"}           onClick={() => setAnalysisFilter("all")}>전체</Chip>
-        <Chip active={analysisFilter === "ddr"}           onClick={() => setAnalysisFilter("ddr")}>직거래 의심</Chip>
-        <Chip active={analysisFilter === "gps_missing"}   onClick={() => setAnalysisFilter("gps_missing")}>GPS 누락</Chip>
-        <Chip active={analysisFilter === "photo_missing"} onClick={() => setAnalysisFilter("photo_missing")}>사진 누락</Chip>
-      </div>
-
-      {errMsg && (
-        <div style={{ background: "#FFF0F0", color: C.red, border: `1px solid #F5C6C6`, borderRadius: R.lg, padding: "10px 12px", fontSize: 12, marginBottom: 12, lineHeight: 1.6 }}>
-          조회 실패: {errMsg}
-          {/(Could not find the function|does not exist|schema cache|PGRST202)/i.test(errMsg) && <><br/>RPC 없음 — 047_admin_project_flow_list.sql 적용 필요</>}
-        </div>
-      )}
-
-      <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 8 }}>
-        결과 {loading ? "…" : filtered.length}건 {!loading && rows.length !== filtered.length && <span style={{ color: C.text4, fontWeight: 500 }}>/ 전체 {rows.length}</span>}
-      </div>
-
-      {loading ? (
-        <div style={{ color: C.text3, fontSize: 13, padding: "12px 0" }}>불러오는 중...</div>
-      ) : filtered.length === 0 ? (
-        <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>해당 조건의 흐름이 없습니다</div>
-      ) : (
-        filtered.map(row => {
-          const meta = FLOW_STAGE_META[row.flow_stage] || { label: row.flow_stage, color: C.text3 };
-          const f = deriveFlowFlags(row);
-          return (
-            <div key={row.request_id} onClick={() => setSelected(row)}
-              style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: 8, cursor: "pointer" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <span style={{ background: `${meta.color}1A`, color: meta.color, borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>{meta.label}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{row.area || "지역 미상"}</span>
-                <span style={{ fontSize: 12, color: C.text3 }}>· {row.space_type || "—"}</span>
-                {isFlowCompleted(row) && <span style={{ marginLeft: "auto", fontSize: 11, color: "#27AE60", fontWeight: 700 }}>완료</span>}
-              </div>
-              <div style={{ fontSize: 12, color: C.text3, marginBottom: 6 }}>
-                고객 {row.customer?.name || "—"} · 업체 {row.company?.name || "미배정"} · 입찰 {row.bids_count ?? 0}
-              </div>
-              {/* GPS/사진 개수 */}
-              <div style={{ fontSize: 11, color: C.text3, marginBottom: 6 }}>
-                📍 GPS {f.gpsCount} · 📷 사진 {f.photoCount}
-              </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {f.ddrSuspect      && <span style={{ background: "#FFF0F0", color: C.red,  borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>직거래 의심</span>}
-                {f.startMissing    && <span style={{ background: C.bgWarm,  color: C.text3, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>착공 누락</span>}
-                {f.middleMissing   && <span style={{ background: C.bgWarm,  color: C.text3, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>중간점검 누락</span>}
-                {f.completeMissing && <span style={{ background: C.bgWarm,  color: C.text3, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>완료 누락</span>}
-                {f.gpsMissing      && <span style={{ background: "#FBF5E8", color: C.gold, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>GPS 누락</span>}
-                {f.photoMissing    && <span style={{ background: "#FBF5E8", color: C.gold, borderRadius: R.sm, padding: "2px 7px", fontSize: 10, fontWeight: 700 }}>사진 누락</span>}
-                <span style={{ marginLeft: "auto", fontSize: 10, color: C.text4 }}>{row.request_id?.slice(0, 8)}</span>
-              </div>
-            </div>
-          );
-        })
-      )}
-
-      {selected && <ProjectFlowDetail row={selected} onClose={() => setSelected(null)} />}
-    </div>
-  );
-}
-
-// 직거래 의심 키워드(읽기 전용 표시용 — 자동 제재 없음).
-const DDR_KEYWORDS = ["전화번호","계좌번호","카카오톡","카톡","오픈채팅","문자주세요","직접 연락","현금","따로 거래","수수료 빼고","계좌이체 직접"];
-const DDR_PHONE_RE = /01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/;
-function detectDdrHits(text) {
-  if (!text) return [];
-  const hits = DDR_KEYWORDS.filter(k => text.includes(k));
-  if (DDR_PHONE_RE.test(text)) hits.push("전화번호");
-  return Array.from(new Set(hits));
-}
-
-// 프로젝트 증빙관리 상세 — 요약 + 11단계 타임라인 + 단계별 증빙 모달 + 채팅 증빙(읽기 전용).
-function ProjectFlowDetail({ row, onClose }) {
-  const ff     = deriveFlowFlags(row);  // 카드/필터와 동일 로직 — 증빙 체크리스트 공통 사용
-  const cps    = row.checkpoints || [];
-  const esc    = row.escrow || null;
-  const sv     = row.site_visit || null;
-  const cpVisit    = cpFind(cps, ["site_visit"]);
-  const cpContract = cpFind(cps, ["contract"]); // C-1: 최종계약 GPS(고객 캡처)
-  const cpStart = cpFind(cps, ["start", "construction_start"]);
-  const cpMid   = cpFind(cps, ["middle", "mid_inspection"]);
-  const cpComp  = cpFind(cps, ["complete", "completion"]);
-  const fmt = (t) => t ? new Date(t).toLocaleString("ko-KR", { year: "2-digit", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" }) : null;
-
-  // 채팅 증빙(읽기 전용) — 고객×업체 room 조회.
-  const [chatMsgs, setChatMsgs] = useState([]);
-  const [chatLoading, setChatLoading] = useState(true);
   useEffect(() => {
     let alive = true;
-    setChatLoading(true);
-    getChatsForProject({ customerId: row.customer?.id, companyId: row.company?.id, ownerId: row.company?.owner_id })
-      .then(({ data }) => { if (alive) setChatMsgs(Array.isArray(data) ? data : []); })
-      .catch(() => { if (alive) setChatMsgs([]); })
-      .finally(() => { if (alive) setChatLoading(false); });
+    setLoading(true); setErrMsg(null);
+    getAdminProjectFlow(adminUserId, { limit: 500 })
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) { setErrMsg(error.message || "조회 실패"); setRows([]); }
+        else setRows(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => { if (alive) { setErrMsg("조회 실패"); setLoading(false); } });
     return () => { alive = false; };
-  }, [row.request_id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [adminUserId]);
 
-  // 단계별 증빙 모달(클릭 시).
-  const [stageModal, setStageModal] = useState(null); // { label, reached, cp, key }
+  const latestCpTime = (row) => (row.checkpoints || []).reduce((m, c) => {
+    const t = c.captured_at ? new Date(c.captured_at).getTime() : 0; return t > m ? t : m;
+  }, 0);
+  const inPeriod = (row) => {
+    if (period === "all") return true;
+    const t = latestCpTime(row);
+    if (!t) return false;
+    const span = period === "today" ? 864e5 : period === "week" ? 7 * 864e5 : 30 * 864e5;
+    return Date.now() - t < span;
+  };
+  const rate = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0);
 
-  const chatCount = chatMsgs.length;
-  const lastChatAt = chatCount > 0 ? chatMsgs[chatMsgs.length - 1].created_at : null;
-  const chatDdrCount = chatMsgs.reduce((n, m) => n + (detectDdrHits(m.text).length > 0 ? 1 : 0), 0);
-  const ddrSuspect = (row.direct_deal_reports || []).length > 0 || chatDdrCount > 0;
-  const stageLabel = (FLOW_STAGE_META[row.flow_stage] || {}).label || row.flow_stage || "—";
-
-  // 11단계 정의 — reached(도달 여부), at(시각), cp(GPS 체크포인트, 있으면 좌표 블록 표시)
-  const steps = [
-    { key: "request",  label: "요청",     reached: true,                                             at: row.created_at },
-    { key: "bid",      label: "입찰",     reached: (row.bids_count ?? 0) > 0,                        at: row.selected_bid?.created_at },
-    { key: "visit",    label: "현장실측", reached: !!sv || !!cpVisit,                                 at: cpVisit?.captured_at || sv?.checked_in_at, cp: cpVisit },
-    { key: "quote",    label: "최종견적", reached: row.status === "final_quote_submitted" || sv?.status === "estimate_submitted" || !!sv?.field_estimate_amount, at: null },
-    { key: "contract", label: "계약",     reached: !!row.selected_bid || !!esc || ["CONTRACTED","COMPANY_SELECTED","STARTED","MID_INSPECTION","COMPLETED","SETTLED"].includes(esc?.transaction_status), at: cpContract?.captured_at ?? null, cp: cpContract },
-    { key: "escrow",   label: "에스크로(전액예치)", reached: !!esc?.step1_deposited_at || !!esc, at: esc?.step1_deposited_at || esc?.created_at },
-    { key: "start",    label: "착공",     reached: !!cpStart || esc?.transaction_status === "STARTED", at: cpStart?.captured_at, cp: cpStart },
-    { key: "mid",      label: "중간점검", reached: !!cpMid   || esc?.transaction_status === "MID_INSPECTION", at: cpMid?.captured_at, cp: cpMid },
-    { key: "complete", label: "완료",     reached: !!cpComp  || esc?.transaction_status === "COMPLETED" || !!esc?.step4_approved_at, at: cpComp?.captured_at || esc?.step4_approved_at, cp: cpComp },
-    { key: "settle",   label: "정산",     reached: esc?.transaction_status === "SETTLED", at: null },
-    { key: "review",   label: "리뷰",     reached: (row.review_count ?? 0) > 0, at: null },
+  // 집계 (≤500행 — 렌더 시 계산, 부수효과 없음 · 기존 checkpoint 데이터만 사용)
+  const src = rows.filter(inPeriod);
+  const OVER_ACC = 50; // m — 위치 오차 과다 임계값(표시 기준)
+  let total = 0, gpsRecorded = 0, startMiss = 0, midMiss = 0, compMiss = 0;
+  let photoOk = 0, photoStageTotal = 0, photoMissingProj = 0;
+  let accSum = 0, accN = 0, acc10 = 0, acc30 = 0, acc50 = 0, accOver = 0;
+  let ongoing = 0, completed = 0, stageIdxSum = 0, gpsMissing = 0;
+  const stageReach = { site_visit: 0, contract: 0, start: 0, middle: 0, complete: 0 };
+  const byCompany = {}, byRegion = {}, byCustomer = {};
+  const anomalies = [];
+  const grp = (map, key, hasGps, reachedStage, photoGood) => {
+    map[key] = map[key] || { total: 0, recorded: 0, photoTotal: 0, photoOk: 0 };
+    const g = map[key]; g.total++; if (hasGps) g.recorded++;
+    if (reachedStage) { g.photoTotal++; if (photoGood) g.photoOk++; }
+  };
+  src.forEach((row) => {
+    const ev = deriveFlowFlags(row);
+    total++;
+    const hasGps = ev.gpsCount > 0;
+    if (hasGps) gpsRecorded++;
+    if (ev.gpsMissing) gpsMissing++;
+    if (ev.startMissing) startMiss++;
+    if (ev.middleMissing) midMiss++;
+    if (ev.completeMissing) compMiss++;
+    const reachedStage = ev.stages.some((s) => s.gpsStage && s.reached);
+    const photoGood = reachedStage && !ev.photoMissing;
+    if (reachedStage) { photoStageTotal++; if (photoGood) photoOk++; }
+    if (ev.photoMissing) photoMissingProj++;
+    (row.checkpoints || []).forEach((c) => {
+      const a = Number(c.accuracy);
+      if (c.accuracy != null && Number.isFinite(a)) {
+        accSum += a; accN++;
+        if (a > OVER_ACC) accOver++; else if (a <= 10) acc10++; else if (a <= 30) acc30++; else acc50++;
+      }
+    });
+    ev.stages.forEach((s) => { if (s.reached && stageReach[s.key] != null) stageReach[s.key]++; });
+    if (isFlowCompleted(row)) completed++; else ongoing++;
+    stageIdxSum += (FLOW_STAGE_INDEX[row.flow_stage] ?? 0);
+    grp(byCompany, row.company?.name || "미배정", hasGps, reachedStage, photoGood);
+    grp(byRegion, row.area || "지역 미상", hasGps, reachedStage, photoGood);
+    grp(byCustomer, row.customer?.name || "미상", hasGps, reachedStage, photoGood);
+    if (ev.gpsMissing || ev.photoMissing) anomalies.push({ row, ev, t: latestCpTime(row) });
+  });
+  const mkRank = (map) => Object.entries(map).map(([name, v]) => ({
+    name, total: v.total, recorded: v.recorded, rate: rate(v.recorded, v.total),
+    missRate: 100 - rate(v.recorded, v.total), photoRate: rate(v.photoOk, v.photoTotal),
+  })).sort((a, b) => b.total - a.total).slice(0, 8);
+  const companies = mkRank(byCompany);
+  const regions = mkRank(byRegion);
+  const gpsRate = rate(gpsRecorded, total);
+  const gpsMissRate = total > 0 ? 100 - gpsRate : 0;
+  const photoRate = rate(photoOk, photoStageTotal);
+  const avgAcc = accN > 0 ? Math.round(accSum / accN) : null;
+  const avgStage = total > 0 ? (stageIdxSum / total).toFixed(1) : "0";
+  const completeRate = rate(completed, total);
+  const unregCompanies = Object.values(byCompany).filter((v) => v.recorded === 0).length;
+  const unregCustomers = Object.values(byCustomer).filter((v) => v.recorded === 0).length;
+  anomalies.sort((a, b) => b.t - a.t);
+  const recentAnomalies = anomalies.slice(0, 6);
+  const accBuckets = [["≤10m", acc10], ["≤30m", acc30], ["31~50m", acc50], [">50m", accOver]];
+  const stageRows = [
+    ["현장방문", stageReach.site_visit], ["계약", stageReach.contract], ["착공", stageReach.start],
+    ["중간점검", stageReach.middle], ["완료", stageReach.complete],
   ];
+  const toneRate = (r) => (r >= 70 ? "#27AE60" : r >= 40 ? "#E67E22" : C.red);
 
-  const kakaoUrl = (lat, lng) => `https://map.kakao.com/link/map/현장,${lat},${lng}`;
-
-  const GpsBlock = ({ cp }) => (
-    <div style={{ marginTop: 6, background: C.bg, borderRadius: R.md, padding: "8px 10px", fontSize: 11, color: C.text2, lineHeight: 1.7 }}>
-      <div>📍 도로명: {cp.road_address || cp.jibun_address || "주소 미상"}</div>
-      {cp.jibun_address && cp.road_address && <div>지번: {cp.jibun_address}</div>}
-      <div>위도 {cp.lat ?? "—"} · 경도 {cp.lng ?? "—"} · 정확도 {cp.accuracy != null ? `${cp.accuracy}m` : "—"}</div>
-      {cp.lat != null && cp.lng != null && (
-        <a href={kakaoUrl(cp.lat, cp.lng)} target="_blank" rel="noreferrer"
-          style={{ display: "inline-block", marginTop: 4, color: C.brand, fontWeight: 700, textDecoration: "none" }}>카카오맵 보기 →</a>
-      )}
-      {Array.isArray(cp.photos) && cp.photos.length > 0 && (
-        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-          {cp.photos.map((p, i) => (
-            <a key={i} href={p} target="_blank" rel="noreferrer">
-              <img src={p} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: R.sm, border: `1px solid ${C.bgWarm}` }} />
-            </a>
-          ))}
-        </div>
-      )}
-      {(!cp.photos || cp.photos.length === 0) && <div style={{ color: C.gold }}>사진 없음</div>}
+  const Kpi = ({ label, value, sub, tone }) => (
+    <div style={{ flex: "1 1 130px", minWidth: 110, background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "13px 12px" }}>
+      <div style={{ fontSize: 21, fontWeight: 900, color: tone || C.text1, lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: C.text3, marginTop: 4 }}>{label}</div>
+      {sub && <div style={{ fontSize: 10.5, color: C.text4, marginTop: 2 }}>{sub}</div>}
     </div>
+  );
+  const Section = ({ title, children, sub }) => (
+    <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: 14, marginTop: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: sub ? 2 : 10 }}>{title}</div>
+      {sub && <div style={{ fontSize: 11, color: C.text4, marginBottom: 10 }}>{sub}</div>}
+      {children}
+    </div>
+  );
+  const Bars = ({ title, items, showPhoto }) => (
+    <Section title={title}>
+      {items.length === 0 ? <div style={{ fontSize: 12, color: C.text4 }}>데이터 없음</div> :
+        items.map((it) => (
+          <div key={it.name} style={{ marginBottom: 9 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.text2, marginBottom: 3 }}>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 150 }}>{it.name}</span>
+              <span style={{ fontWeight: 800, color: toneRate(it.rate) }}>
+                {it.rate}% <span style={{ color: C.text4, fontWeight: 600 }}>({it.recorded}/{it.total})</span>
+                {showPhoto && <span style={{ color: C.text3, fontWeight: 700, marginLeft: 6 }}>📷 {it.photoRate}%</span>}
+              </span>
+            </div>
+            <div style={{ height: 6, borderRadius: 999, background: C.bgWarm, overflow: "hidden" }}>
+              <div style={{ width: `${it.rate}%`, height: "100%", background: toneRate(it.rate) }} />
+            </div>
+          </div>
+        ))}
+    </Section>
   );
 
   return (
-   <>
-    <div onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()}
-        style={{ background: C.surface, width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto",
-          borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, padding: "18px 18px 40px" }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>프로젝트 증빙관리 상세</div>
-          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text3 }}>×</button>
-        </div>
-
-        {/* 상단 요약 */}
-        <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.8, marginBottom: 12, background: C.bg, borderRadius: R.md, padding: "10px 12px" }}>
-          <div><b style={{ color: C.text1 }}>{row.area || "지역 미상"}</b> · {row.space_type || "—"} {row.size ? `· ${row.size}` : ""}</div>
-          <div>고객: {row.customer?.name || "—"} ({row.customer?.phone || "—"})</div>
-          <div>업체: {row.company?.name || "미배정"}</div>
-          <div>현재 단계: <b style={{ color: C.text1 }}>{stageLabel}</b></div>
-          {row.selected_bid?.price != null && <div>계약 견적: {row.selected_bid.price}만원</div>}
-          <div>에스크로: {esc?.total_amount != null ? `${esc.total_amount}만원 · ` : ""}상태 {esc?.transaction_status || "—"}</div>
-          <div style={{ color: C.text4 }}>request_id: {row.request_id}</div>
-          {ddrSuspect && (
-            <div style={{ color: C.red, fontWeight: 700 }}>
-              🚩 직거래 의심 {(row.direct_deal_reports || []).length > 0 ? `· 신고 ${row.direct_deal_reports.length}건` : ""}{chatDdrCount > 0 ? ` · 채팅 키워드 ${chatDdrCount}건` : ""}
-            </div>
-          )}
-        </div>
-
-        {/* 카운트 요약 */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-          {[["📍 GPS", ff.gpsCount], ["📷 사진", ff.photoCount], ["💬 채팅", chatLoading ? "…" : chatCount]].map(([label, n]) => (
-            <div key={label} style={{ flex: 1, background: C.bg, borderRadius: R.md, padding: "8px 6px", textAlign: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 900, color: C.text1 }}>{n}</div>
-              <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>{label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* 증빙 체크리스트 — 카드/필터와 '동일 로직'(deriveFlowFlags) 사용 */}
-        {(() => {
-          const evid = ff.stages;  // site_visit/contract/start/middle/complete
-          return (
-            <div style={{ marginBottom: 14, background: C.bg, borderRadius: R.md, padding: "10px 12px" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: C.text1, marginBottom: 8 }}>📋 증빙 체크리스트</div>
-              {evid.map((e) => {
-                // GPS 필수 단계 증빙 상태(읽기 전용 파생): 체크포인트가 있으면 GPS+사진+사유로
-                // ✅/⚠️/❌ 판정, 도달했는데 체크포인트 자체가 없으면 GPS 누락/사유 없음(❌).
-                const badge = e.cp
-                  ? checkpointEvidenceBadge(e.cp)
-                  : (e.gpsStage && e.reached ? { icon: "❌", label: "GPS 누락 / 사유 없음", tone: "bad" } : null);
-                const reason = e.cp ? parseGpsMissingReason(e.cp.note) : null;
-                const icon = e.reached ? (badge ? badge.icon : "✅") : "⬜";
-                return (
-                <div key={e.key} style={{ padding: "4px 0", fontSize: 12, color: e.reached ? C.text1 : C.text4 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span>{icon}</span>
-                    <span style={{ fontWeight: e.reached ? 700 : 500 }}>{e.label}</span>
-                    {badge && <span style={{ fontSize: 10, fontWeight: 700, color: badge.tone === "ok" ? C.green : badge.tone === "bad" ? C.red : C.gold }}>{badge.label}</span>}
-                    {e.cp && (
-                      <span style={{ marginLeft: "auto", display: "flex", gap: 8, fontSize: 10 }}>
-                        <span style={{ color: e.cp.lat != null ? C.green : C.gold }}>📍{e.cp.lat != null ? "GPS" : "없음"}</span>
-                        <span style={{ color: (e.cp.photos?.length ?? 0) > 0 ? C.green : C.gold }}>📷{e.cp.photos?.length ?? 0}</span>
-                      </span>
-                    )}
-                  </div>
-                  {reason && (
-                    <div style={{ marginLeft: 20, marginTop: 2, fontSize: 11, color: C.text3, lineHeight: 1.5 }}>
-                      GPS 누락 사유: “{reason}”
-                      {e.cp?.captured_at && <span style={{ color: C.text4 }}> · {fmt(e.cp.captured_at)}</span>}
-                    </div>
-                  )}
-                </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-
-        {/* 타임라인 */}
-        <div style={{ position: "relative" }}>
-          {steps.map((st, i) => {
-            const isLast = i === steps.length - 1;
-            return (
-              <div key={st.key} style={{ display: "flex", gap: 10, paddingBottom: isLast ? 0 : 14 }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div style={{ width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
-                    background: st.reached ? C.brand : C.bgWarm, border: `2px solid ${st.reached ? C.brand : C.bgWarm}` }} />
-                  {!isLast && <div style={{ width: 2, flex: 1, background: st.reached ? C.brandM : C.bgWarm, minHeight: 18 }} />}
-                </div>
-                <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
-                  <div onClick={() => setStageModal({ label: st.label, reached: st.reached, cp: st.cp || null, key: st.key, at: st.at })}
-                    style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: st.reached ? C.text1 : C.text4 }}>{st.label}</span>
-                    {st.at && <span style={{ fontSize: 11, color: C.text4 }}>{fmt(st.at)}</span>}
-                    {!st.reached && <span style={{ fontSize: 10, color: C.text4 }}>미도달</span>}
-                    <span style={{ marginLeft: "auto", fontSize: 11, color: C.brand, fontWeight: 700 }}>증빙 ›</span>
-                  </div>
-                  {st.cp && st.reached && <GpsBlock cp={st.cp} />}
-                  {/* GPS 필수 단계인데 체크포인트 없음 표시 */}
-                  {["start","mid","complete"].includes(st.key) && st.reached && !st.cp && (
-                    <div style={{ marginTop: 6, fontSize: 11, color: C.gold }}>GPS 체크포인트 없음</div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 채팅 증빙(읽기 전용) */}
-        <div style={{ marginTop: 16, background: C.bg, borderRadius: R.md, padding: "10px 12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: C.text1 }}>💬 채팅 증빙</div>
-            <span style={{ fontSize: 11, color: C.text3 }}>
-              {chatLoading ? "불러오는 중…" : `${chatCount}건${lastChatAt ? ` · 마지막 ${fmt(lastChatAt)}` : ""}`}
-            </span>
-            {chatDdrCount > 0 && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: C.red, background: "#FFF0F0", borderRadius: R.sm, padding: "2px 7px" }}>직거래 의심 {chatDdrCount}</span>}
-          </div>
-          {!chatLoading && chatCount === 0 && <div style={{ fontSize: 12, color: C.text4 }}>채팅 내역 없음</div>}
-          {!chatLoading && chatCount > 0 && (
-            <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-              {chatMsgs.map((m) => {
-                const isCompany = m.sender_type === "company";
-                const hits = detectDdrHits(m.text);
-                const img = m.image_url ?? m.image ?? null;
-                return (
-                  <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: isCompany ? "flex-start" : "flex-end" }}>
-                    <div style={{ fontSize: 9, color: C.text4, marginBottom: 1 }}>{isCompany ? "업체" : "고객"} · {fmt(m.created_at)}</div>
-                    <div style={{ maxWidth: "82%", background: isCompany ? C.surface : C.brandL, color: C.text1,
-                      border: `1px solid ${hits.length > 0 ? C.red : C.bgWarm}`, borderRadius: R.md, padding: "6px 9px", fontSize: 12, lineHeight: 1.5, wordBreak: "break-word" }}>
-                      {m.text}
-                      {img && <div style={{ marginTop: 4 }}><a href={img} target="_blank" rel="noreferrer"><img src={img} alt="" style={{ maxWidth: 120, borderRadius: R.sm, border: `1px solid ${C.bgWarm}` }} /></a></div>}
-                      {hits.length > 0 && <div style={{ marginTop: 3, fontSize: 9, color: C.red, fontWeight: 700 }}>🚩 {hits.join(", ")}</div>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <div style={{ fontSize: 10, color: C.text4, marginTop: 8, lineHeight: 1.5 }}>※ 읽기 전용 증빙입니다. 자동 제재·삭제·수정은 수행하지 않습니다.</div>
-        </div>
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4 }}>📡 GPS 시스템 모니터링</div>
+      <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: 12 }}>
+        GPS·사진·프로젝트 진행 품질을 집계하는 운영 대시보드입니다. 프로젝트 단위 상세 추적은 ‘프로젝트 증빙관리’에서 확인하세요.
       </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {[["all", "전체"], ["today", "오늘"], ["week", "이번주"], ["month", "이번달"]].map(([v, l]) => (
+          <button key={v} onClick={() => setPeriod(v)}
+            style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 12, fontWeight: 700, cursor: "pointer",
+              border: `1px solid ${period === v ? C.brand : C.bgWarm}`, background: period === v ? C.brand : C.surface, color: period === v ? "#fff" : C.text2 }}>{l}</button>
+        ))}
+      </div>
+      {loading ? <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>불러오는 중…</div> :
+        errMsg ? <div style={{ color: C.red, fontSize: 13, padding: "12px 0" }}>조회 실패: {errMsg}</div> :
+          total === 0 ? <div style={{ color: C.text4, fontSize: 13, padding: "12px 0" }}>해당 기간 데이터가 없습니다</div> : (
+            <>
+              {/* 상단 — GPS/사진 핵심 */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Kpi label="GPS 기록률" value={`${gpsRate}%`} sub={`${gpsRecorded}/${total} 프로젝트`} tone={toneRate(gpsRate)} />
+                <Kpi label="GPS 누락률" value={`${gpsMissRate}%`} sub={`누락 ${gpsMissing}건`} tone={gpsMissRate > 30 ? C.red : C.text1} />
+                <Kpi label="사진 첨부율" value={`${photoRate}%`} sub="GPS 단계 도달 기준" tone={toneRate(photoRate)} />
+                <Kpi label="사진 누락 프로젝트" value={photoMissingProj} sub="도달 단계 사진 없음" tone={photoMissingProj > 0 ? C.red : C.text1} />
+              </div>
+              {/* 보조 — 오차/미등록 */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                <Kpi label="위치 오차 과다" value={accOver} sub={`> ${OVER_ACC}m`} tone={accOver > 0 ? "#E67E22" : C.text1} />
+                <Kpi label="평균 위치오차" value={avgAcc != null ? `${avgAcc}m` : "—"} sub="checkpoint accuracy" />
+                <Kpi label="GPS 미등록 업체" value={unregCompanies} sub="기록 0건 업체" tone={unregCompanies > 0 ? C.red : C.text1} />
+                <Kpi label="GPS 미등록 고객" value={unregCustomers} sub="기록 0건 고객" />
+              </div>
+
+              {/* 프로젝트 진행 품질 */}
+              <Section title="프로젝트 진행 품질">
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  {[["진행중", ongoing, C.text1], ["완료", completed, "#27AE60"], ["완료율", `${completeRate}%`, toneRate(completeRate)], ["평균 단계", avgStage, C.text1]].map(([l, v, t]) => (
+                    <div key={l} style={{ flex: 1, textAlign: "center", background: C.bg, borderRadius: R.md, padding: "10px 4px" }}>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: t }}>{v}</div>
+                      <div style={{ fontSize: 10.5, color: C.text3, marginTop: 2 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: C.text3, marginBottom: 8 }}>단계별 도달 현황</div>
+                {stageRows.map(([l, n]) => {
+                  const r = rate(n, total);
+                  return (
+                    <div key={l} style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.text2, marginBottom: 3 }}>
+                        <span>{l}</span><span style={{ fontWeight: 800, color: C.text2 }}>{r}% <span style={{ color: C.text4, fontWeight: 600 }}>({n}/{total})</span></span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 999, background: C.bgWarm, overflow: "hidden" }}>
+                        <div style={{ width: `${r}%`, height: "100%", background: C.brand }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </Section>
+
+              {/* GPS 정확도 분포 */}
+              <Section title="GPS 정확도 분포" sub={`기록된 체크포인트 ${accN}건 기준`}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {accBuckets.map(([l, n]) => (
+                    <div key={l} style={{ flex: 1, textAlign: "center", background: C.bg, borderRadius: R.md, padding: "10px 4px" }}>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: l === ">50m" ? "#E67E22" : C.text1 }}>{n}</div>
+                      <div style={{ fontSize: 10.5, color: C.text3, marginTop: 2 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              {/* 단계별 GPS 누락 */}
+              <Section title="단계별 GPS 누락">
+                <div style={{ display: "flex", gap: 8 }}>
+                  {[["착공", startMiss], ["중간점검", midMiss], ["완료", compMiss]].map(([l, n]) => (
+                    <div key={l} style={{ flex: 1, textAlign: "center", background: C.bg, borderRadius: R.md, padding: "10px 4px" }}>
+                      <div style={{ fontSize: 20, fontWeight: 900, color: n > 0 ? C.red : C.text1 }}>{n}</div>
+                      <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{l} 누락</div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              {/* 업체별 / 지역별 순위 (GPS 기록률 · 누락률 · 사진율) */}
+              <Bars title="업체별 GPS 기록률 (상위 8)" items={companies} showPhoto />
+              <Bars title="지역별 GPS 기록률 (상위 8)" items={regions} showPhoto />
+
+              {/* 최근 이상 프로젝트 */}
+              <Section title="최근 이상 프로젝트" sub="GPS/사진 누락 — 최근순">
+                {recentAnomalies.length === 0 ? <div style={{ fontSize: 12, color: C.text4 }}>이상 프로젝트가 없습니다 👍</div> :
+                  recentAnomalies.map(({ row, ev }) => (
+                    <div key={row.request_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${C.bg}` }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {row.area || "지역 미상"} · {row.company?.name || "미배정"}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.text4 }}>{FLOW_STAGE_META[row.flow_stage]?.label || row.flow_stage}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                        {ev.gpsMissing && <span style={{ fontSize: 10.5, fontWeight: 800, color: C.red, background: "#FEF0F0", borderRadius: R.full, padding: "2px 8px" }}>GPS 누락</span>}
+                        {ev.photoMissing && <span style={{ fontSize: 10.5, fontWeight: 800, color: "#B08040", background: "#FBF5E8", borderRadius: R.full, padding: "2px 8px" }}>사진 누락</span>}
+                      </div>
+                    </div>
+                  ))}
+              </Section>
+            </>
+          )}
     </div>
-
-    {/* 단계별 증빙 상세 모달 */}
-    {stageModal && (
-      <div onClick={() => setStageModal(null)}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-        <div onClick={e => e.stopPropagation()}
-          style={{ background: C.surface, width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto",
-            borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, padding: "18px 18px 36px" }}>
-          <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{stageModal.label} 증빙</div>
-            <span style={{ marginLeft: 10, fontSize: 11, fontWeight: 700, color: stageModal.reached ? C.green : C.text4 }}>{stageModal.reached ? "도달" : "미도달"}</span>
-            <button onClick={() => setStageModal(null)} style={{ marginLeft: "auto", background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text3 }}>×</button>
-          </div>
-          {(() => {
-            const cp = stageModal.cp;
-            if (!cp) {
-              return <div style={{ fontSize: 13, color: C.gold, padding: "10px 0" }}>📍 GPS 체크포인트 없음</div>;
-            }
-            const photos = Array.isArray(cp.photos) ? cp.photos : [];
-            const badge = checkpointEvidenceBadge(cp);
-            const missReason = parseGpsMissingReason(cp.note);
-            const plainNote = missReason ? null : (cp.note ?? cp.memo); // 사유 마커가 아닌 일반 메모만 별도 표시
-            return (
-              <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.9 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: badge.tone === "ok" ? C.green : badge.tone === "bad" ? C.red : C.gold, marginBottom: 4 }}>
-                  {badge.icon} {badge.label}
-                </div>
-                {missReason && (
-                  <div style={{ background: "#FBF5E8", borderRadius: R.sm, padding: "6px 9px", marginBottom: 6, color: C.text1 }}>
-                    GPS 누락 사유: <b>“{missReason}”</b><br />
-                    기록자: {cp.captured_by || "—"} · 기록시간: {cp.captured_at ? fmt(cp.captured_at) : "—"}
-                  </div>
-                )}
-                <div>📍 도로명: <b style={{ color: C.text1 }}>{cp.road_address || "—"}</b></div>
-                <div>지번: {cp.jibun_address || "—"}</div>
-                <div>위도 {cp.lat ?? "—"} · 경도 {cp.lng ?? "—"} · 정확도 {cp.accuracy != null ? `${cp.accuracy}m` : "—"}</div>
-                <div>기록 시간: {cp.captured_at ? fmt(cp.captured_at) : "—"}</div>
-                <div>기록자: {cp.captured_by || "—"}</div>
-                {plainNote && <div>메모: {plainNote}</div>}
-                {cp.lat != null && cp.lng != null && (
-                  <a href={`https://map.kakao.com/link/map/현장,${cp.lat},${cp.lng}`} target="_blank" rel="noreferrer"
-                    style={{ display: "inline-block", marginTop: 6, color: C.brand, fontWeight: 700, textDecoration: "none" }}>카카오맵 보기 →</a>
-                )}
-                <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: C.text1 }}>사진 {photos.length}장</div>
-                {photos.length === 0 ? (
-                  <div style={{ fontSize: 12, color: C.gold }}>사진 없음</div>
-                ) : (
-                  <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                    {photos.map((p, i) => (
-                      <a key={i} href={p} target="_blank" rel="noreferrer">
-                        <img src={p} alt="" style={{ width: 84, height: 84, objectFit: "cover", borderRadius: R.sm, border: `1px solid ${C.bgWarm}` }} />
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-      </div>
-    )}
-   </>
   );
 }
 
@@ -2707,6 +2538,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [editingCustomerId, setEditingCustomerId] = useState(null);
   const [customerEditForm, setCustomerEditForm] = useState({});
   const [customerEditSaving, setCustomerEditSaving] = useState(false);
+  const [managingCustomerId, setManagingCustomerId] = useState(null); // 제재/토큰/온도 패널 토글
+  const [customerTokenAmt, setCustomerTokenAmt] = useState(""); // 토큰 지급/회수 수량 입력
 
   const [directDealReports, setDirectDealReports] = useState([]);
   const [ddrFilter, setDdrFilter] = useState("all"); // all | keyword_detected | no_estimate_72h | no_contract_7d | manual_report
@@ -3038,40 +2871,44 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setDocModal(null);
   };
 
+  // 고객 제재/토큰/온도 변경 — service-role API 경유(users 직접 UPDATE 는 auth.uid()=NULL 로 RLS 차단).
+  //   admin_logs 기록은 서버에서 수행. trackAdmin 으로 진단 로그도 남긴다.
   const handleCustomerStatus = async (customer, status, reason) => {
     setActionLoading(true);
-    const { error } = await adminSetUserStatus(customer.id, user?.id, status, reason);
+    const { error } = await apiAdminSetUserStatus(customer.id, user?.id, status, reason || null);
     if (!error) {
       const update = { accountStatus: status };
       setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, ...update } : c));
       setSelectedCustomer(prev => prev ? { ...prev, ...update } : prev);
       showToast("상태 변경 완료");
-    } else { showToast("처리 실패", false); }
+      trackAdmin(`SET_USER_STATUS_${status}`, customer.id, null, true, 1);
+    } else { showToast(error.message ?? "처리 실패", false); trackAdmin("SET_USER_STATUS", customer.id, error.message, false, 0); }
     setActionLoading(false);
   };
 
   const handleAdjustTemp = async (customer, delta) => {
     setActionLoading(true);
-    const { error } = await adminAdjustSpaceTemp(customer.id, user?.id, delta, adjReason || null);
+    const { error } = await apiAdminAdjustSpaceTemp(customer.id, user?.id, delta, adjReason || null);
     if (!error) {
       const next = Math.round(Math.min(99, Math.max(0, (customer.spaceTemp ?? 36.5) + delta)) * 10) / 10;
       setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, spaceTemp: next } : c));
       setSelectedCustomer(prev => prev ? { ...prev, spaceTemp: next } : prev);
       showToast("공간온도 조정 완료");
-    } else { showToast("처리 실패", false); }
+    } else { showToast(error.message ?? "처리 실패", false); }
     setActionLoading(false);
     setAdjReason("");
   };
 
   const handleAdjustTokens = async (customer, delta) => {
     setActionLoading(true);
-    const { error } = await adminAdjustUserTokens(customer.id, user?.id, delta, adjReason || null);
+    const { error } = await apiAdminAdjustUserTokens(customer.id, user?.id, delta, adjReason || null);
     if (!error) {
       const next = Math.max(0, (customer.spaceTokens ?? 0) + delta);
       setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, spaceTokens: next } : c));
       setSelectedCustomer(prev => prev ? { ...prev, spaceTokens: next } : prev);
-      showToast("토큰 조정 완료");
-    } else { showToast("처리 실패", false); }
+      showToast(delta > 0 ? `+${delta} 토큰 지급 완료` : `${delta} 토큰 회수 완료`);
+      trackAdmin(delta > 0 ? "TOKEN_GRANT" : "TOKEN_REVOKE", customer.id, null, true, 1);
+    } else { showToast(error.message ?? "처리 실패", false); }
     setActionLoading(false);
     setAdjReason("");
   };
@@ -3870,6 +3707,81 @@ export default function AdminScreen({ onBack, onHome, user }) {
                               </>
                             )}
                           </div>
+                          {/* 계정 상태 배지 + 제재/토큰 관리 토글 — service-role API 경유(RLS 안전) */}
+                          <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
+                            {(() => {
+                              const meta = USER_STATUS_META[customer.accountStatus] ?? USER_STATUS_META.NORMAL;
+                              return (
+                                <span style={{ fontSize: 11, fontWeight: 700, color: meta.color, background: meta.bg,
+                                  borderRadius: R.full, padding: "2px 9px" }}>{meta.label}</span>
+                              );
+                            })()}
+                            <span style={{ fontSize: 11, color: C.text4 }}>🪙 {customer.spaceTokens ?? 0} · 🌡 {customer.spaceTemp ?? 36.5}°</span>
+                            <button onClick={() => {
+                              if (managingCustomerId === customer.id) { setManagingCustomerId(null); return; }
+                              setManagingCustomerId(customer.id); setAdjReason(""); setCustomerTokenAmt("");
+                            }} style={{ marginLeft: "auto", padding: "3px 10px", borderRadius: R.full,
+                              border: `1px solid ${C.bgWarm}`, background: managingCustomerId === customer.id ? C.surface2 : C.surface,
+                              color: C.text3, fontSize: 11, cursor: "pointer" }}>
+                              {managingCustomerId === customer.id ? "닫기" : "제재/토큰"}
+                            </button>
+                          </div>
+                          {managingCustomerId === customer.id && (
+                            <div style={{ marginTop: S.md, background: C.surface2, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
+                              {/* 사유(제재/토큰/온도 공용 — admin_logs.reason 으로 기록) */}
+                              <div style={{ fontSize: 11, color: C.text3, marginBottom: 3 }}>사유 (admin_logs 기록)</div>
+                              <input value={adjReason} onChange={e => setAdjReason(e.target.value)} placeholder="변경 사유를 입력하세요"
+                                style={{ width: "100%", padding: "8px 12px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
+                                  fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit", background: "#fff", marginBottom: S.md }} />
+
+                              {/* 계정 상태 변경 */}
+                              <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 6 }}>계정 상태</div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: S.md }}>
+                                {Object.entries(USER_STATUS_META).map(([key, meta]) => {
+                                  const active = (customer.accountStatus ?? "NORMAL") === key;
+                                  return (
+                                    <button key={key} disabled={actionLoading || active}
+                                      onClick={() => handleCustomerStatus(customer, key, adjReason)}
+                                      style={{ padding: "6px 11px", borderRadius: R.full, fontSize: 11.5, fontWeight: 700,
+                                        border: `1px solid ${active ? meta.color : C.bgWarm}`,
+                                        background: active ? meta.bg : C.surface, color: active ? meta.color : C.text2,
+                                        cursor: active ? "default" : "pointer", opacity: actionLoading ? 0.5 : 1 }}>
+                                      {active ? "● " : ""}{meta.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* 토큰 지급/회수 */}
+                              <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 6 }}>토큰 (현재 {customer.spaceTokens ?? 0})</div>
+                              <div style={{ display: "flex", gap: 6, marginBottom: S.md }}>
+                                <input type="number" min="1" value={customerTokenAmt} onChange={e => setCustomerTokenAmt(e.target.value)} placeholder="수량"
+                                  style={{ flex: 1, padding: "8px 12px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
+                                    fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit", background: "#fff" }} />
+                                <button disabled={actionLoading || !(Number(customerTokenAmt) > 0)}
+                                  onClick={() => { handleAdjustTokens(customer, Math.abs(Number(customerTokenAmt))); setCustomerTokenAmt(""); }}
+                                  style={{ padding: "8px 14px", borderRadius: R.md, border: "none", background: C.brand, color: "#fff",
+                                    fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: actionLoading || !(Number(customerTokenAmt) > 0) ? 0.5 : 1 }}>지급</button>
+                                <button disabled={actionLoading || !(Number(customerTokenAmt) > 0)}
+                                  onClick={() => { handleAdjustTokens(customer, -Math.abs(Number(customerTokenAmt))); setCustomerTokenAmt(""); }}
+                                  style={{ padding: "8px 14px", borderRadius: R.md, border: `1px solid ${C.red}55`, background: "#FFF0F0", color: C.red,
+                                    fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: actionLoading || !(Number(customerTokenAmt) > 0) ? 0.5 : 1 }}>회수</button>
+                              </div>
+
+                              {/* 공간온도 조정 */}
+                              <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, marginBottom: 6 }}>공간온도 (현재 {customer.spaceTemp ?? 36.5}°)</div>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                {[-1, -0.5, +0.5, +1].map(d => (
+                                  <button key={d} disabled={actionLoading} onClick={() => handleAdjustTemp(customer, d)}
+                                    style={{ flex: 1, padding: "8px 0", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
+                                      background: C.surface, color: C.text2, fontSize: 12, fontWeight: 700,
+                                      cursor: "pointer", opacity: actionLoading ? 0.5 : 1 }}>
+                                    {d > 0 ? `+${d}` : d}°
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           {isEditing && (
                             <div style={{ marginTop: S.md, background: C.surface2, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
                               {[["name","이름"],["phone","전화번호"],["region","지역"]].map(([key,label]) => (
@@ -4604,9 +4516,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
             {mainTab === "project_flow" && (
               <div>
-                {/* 뷰 전환 — 프로젝트 증빙관리(신규 V2.3) / GPS 흐름(기존 보존) */}
-                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                  {[["evidence", "프로젝트 증빙관리"], ["gps", "GPS 흐름(기존)"]].map(([v, l]) => (
+                {/* 역할 분리 — 프로젝트 증빙관리(프로젝트 콘솔) / GPS 시스템 모니터링(운영 대시보드) */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+                  {[["evidence", "프로젝트 증빙관리"], ["gps", "GPS 시스템 모니터링"], ["trust", "GPS 신뢰도"], ["timeline", "증빙 타임라인"]].map(([v, l]) => (
                     <button key={v} onClick={() => setFlowView(v)}
                       style={{ padding: "7px 14px", borderRadius: R.full, fontSize: 12.5, fontWeight: 700,
                         border: `1px solid ${flowView === v ? C.brand : C.bgWarm}`, cursor: "pointer",
@@ -4617,8 +4529,12 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 </div>
                 {flowView === "evidence" ? (
                   <ProjectEvidenceManagement adminUserId={user?.id ?? null} showToast={showToast} />
+                ) : flowView === "trust" ? (
+                  <GpsTrustDashboard adminUserId={user?.id ?? null} showToast={showToast} />
+                ) : flowView === "timeline" ? (
+                  <EvidenceTimelineDashboard adminUserId={user?.id ?? null} showToast={showToast} />
                 ) : (
-                  <ProjectFlowTab adminUserId={user?.id ?? null} showToast={showToast} />
+                  <GpsOpsDashboard adminUserId={user?.id ?? null} />
                 )}
               </div>
             )}

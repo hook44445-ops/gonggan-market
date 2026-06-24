@@ -100,7 +100,7 @@ const CHECKPOINT_META = {
   complete:   { label: "완료 확인",     icon: "✅" },
 };
 
-export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview, currentUser }) {
+export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview, currentUser, onConfirmFinalQuote }) {
   const IS_DEBUG = SHOW_DEBUG_UI;
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
@@ -279,13 +279,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       try {
         const loc = await captureCheckpointLocation();
         if (!loc) return;
-        await saveContractCheckpoint({
+        const { error: ccErr } = await saveContractCheckpoint({
           actorId: userId, requestId: reqId, contractId: resolvedContractId,
           lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
           roadAddress: loc.road_address, jibunAddress: loc.jibun_address, addressFull: loc.address_full,
           sido: loc.sido, sigungu: loc.sigungu, dong: loc.dong, bunji: loc.bunji,
         });
-      } catch { /* 계약 GPS 실패 무시 — 진행 차단 금지 */ }
+        // 진단(우선순위 5): 계약 GPS 저장 실패 원문을 콘솔에 그대로 남긴다(요약 금지). 진행은 비차단 유지.
+        if (ccErr) { try { console.error("[CONTRACT_CHECKPOINT_FAILED]", { request_id: reqId, contract_id: resolvedContractId, actor_id: userId, code: ccErr.code, message: ccErr.message, details: ccErr.details, hint: ccErr.hint }); } catch { /* noop */ } }
+      } catch (e) { try { console.error("[CONTRACT_CHECKPOINT_THROW]", e?.message ?? e); } catch { /* noop */ } /* 진행 차단 금지 */ }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConsumer, userId, resolvedContractId, request?.id]);
@@ -924,7 +926,42 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         return; // finally에서 버튼/로딩 원복
       }
 
-      // 1. Insert phase_photos
+      // ── 1. GPS·사진 증빙 체크포인트 저장(착공/중간/완료) — 단계 완료 처리 *이전* 필수 ──
+      //   기존엔 단계 완료(에스크로 상태/정산준비) 후 fire-and-forget(catch 무시)로 저장해
+      //   RPC 실패 시 증빙이 조용히 유실됐다(관리자 증빙관리/타임라인 0건). 이제 저장에
+      //   성공해야만 단계 완료를 진행하고, 실패 시 단계를 진행하지 않고 사용자에게 안내한다.
+      //   request_id·contract_id 를 함께 전달. GPS 없으면 lat/lng=null + note 에 사유 기록(정상 저장).
+      const cpType = { 3: "start", 4: "middle", 5: "complete" }[stageId];
+      if (cpType) {
+        const loc = gpsLocRef.current[stageId] ?? null;
+        const reason = (gpsReasonRef.current[stageId] ?? "").trim();
+        const { error: cpErr } = await saveProjectCheckpoint({
+          actorId: userId, requestId: reqId, contractId: cid, type: cpType,
+          lat: loc?.lat ?? null, lng: loc?.lng ?? null, accuracy: loc?.accuracy ?? null,
+          roadAddress: loc?.road_address ?? null, jibunAddress: loc?.jibun_address ?? null, addressFull: loc?.address_full ?? null,
+          sido: loc?.sido ?? null, sigungu: loc?.sigungu ?? null, dong: loc?.dong ?? null, bunji: loc?.bunji ?? null,
+          photos,
+          note: loc ? null : buildGpsMissingNote(reason),
+        });
+        debug.checkpoint_ok  = !cpErr;
+        debug.checkpoint_err = cpErr?.message ?? null;
+        if (cpErr) {
+          // 진단(우선순위 5): RPC 오류 원문을 콘솔에 그대로 남긴다(요약 금지).
+          //   NOT_PROJECT_COMPANY / NOT_REQUEST_OWNER(actor 검증) · PGRST202(function not found=RPC 미배포)
+          //   · permission denied(RLS) 등을 화면/콘솔에서 그대로 식별할 수 있게 한다.
+          try { console.error("[CHECKPOINT_SAVE_FAILED]", { stage: cpType, request_id: reqId, contract_id: cid, actor_id: userId, code: cpErr.code, message: cpErr.message, details: cpErr.details, hint: cpErr.hint }); } catch { /* noop */ }
+          // 증빙 저장 실패 → 단계 완료(에스크로/정산) 미진행. 사용자 안내 후 재시도 유도.
+          debug.send_ok  = false;
+          debug.send_err = `checkpoint_save_failed:${cpErr.code ?? ""}:${cpErr.message ?? ""}`;
+          setReportError(`현장 기록(GPS·사진) 저장에 실패했어요. 다시 시도해주세요. [${cpErr.code ?? "ERR"}] ${cpErr.message ?? ""}`);
+          return; // finally에서 버튼/로딩 원복 — 단계는 완료 처리되지 않음
+        }
+        // 저장 성공 — 게이트 임시 상태 정리(다음 단계 보고 누수 방지)
+        delete gpsLocRef.current[stageId];
+        delete gpsReasonRef.current[stageId];
+      }
+
+      // 2. Insert phase_photos
       if (photos.length > 0) {
         const { error: photoErr } = await addPhasePhotos({
           contractId:   cid,
@@ -942,12 +979,12 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         debug.upload_err = "no photos in state";
       }
 
-      // 2. Update escrow_payments: txStatus + current_step + photos_uploaded_at
+      // 3. Update escrow_payments: txStatus + current_step + photos_uploaded_at
       const { error: escrowErr } = await markEscrowPhaseStarted(cid, txStatus, currentStep);
       debug.status_update_ok  = !escrowErr;
       debug.status_update_err = escrowErr?.message ?? null;
 
-      // 3. Update escrow_payouts stage to READY (customer approval pending)
+      // 4. Update escrow_payouts stage to READY (customer approval pending)
       const { error: payoutErr } = await setEscrowPayoutReady(cid, payoutStage);
       debug.payout_update_ok  = !payoutErr;
       debug.payout_update_err = payoutErr?.message ?? null;
@@ -961,29 +998,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         setStageStatus(prev => ({ ...prev, [stageId]: "pending_customer" }));
         setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
         if (s?.label) addTimeline("photo", s.label);
-        // GPS 체크포인트(착공/중간/완료) — 게이트에서 캡처된 위치(gpsLocRef) 또는 사유(gpsReasonRef)를
-        // 사진과 같은 checkpoint row 에 묶어 저장한다. GPS 없으면 lat/lng=null + note 에 사유 마커 기록.
-        const cpType = { 3: "start", 4: "middle", 5: "complete" }[stageId];
-        if (cpType) {
-          const loc = gpsLocRef.current[stageId] ?? null;
-          const reason = (gpsReasonRef.current[stageId] ?? "").trim();
-          // saveProjectCheckpoint 는 supabase 빌더(Promise 아님) → async IIFE + try/catch.
-          (async () => {
-            try {
-              await saveProjectCheckpoint({
-                actorId: userId, requestId: reqId, contractId: cid, type: cpType,
-                lat: loc?.lat ?? null, lng: loc?.lng ?? null, accuracy: loc?.accuracy ?? null,
-                roadAddress: loc?.road_address ?? null, jibunAddress: loc?.jibun_address ?? null, addressFull: loc?.address_full ?? null,
-                sido: loc?.sido ?? null, sigungu: loc?.sigungu ?? null, dong: loc?.dong ?? null, bunji: loc?.bunji ?? null,
-                photos,
-                note: loc ? null : buildGpsMissingNote(reason), // GPS 없으면 사유를 note 에 구조적으로 기록
-              });
-            } catch { /* GPS 체크포인트 실패 무시 — 단계 보고는 정상 */ }
-          })();
-          // 게이트 임시 상태 정리(다음 단계 보고에 누수 방지)
-          delete gpsLocRef.current[stageId];
-          delete gpsReasonRef.current[stageId];
-        }
+        // GPS·사진 증빙 체크포인트는 위(1.)에서 단계 완료 *이전*에 저장 완료됨(실패 시 여기 도달 안 함).
         // 단계 사진 전송 성공 = 업체가 실제 시공 중. 요청을 in_progress 로 확정 전환해
         // 업체 "새 견적 요청"(status=open) 입찰 목록에서 제거한다(이중 노출 방지).
         // setRequestInProgress 는 supabase 빌더(Promise 아님) → .catch 금지. await + try/catch.
@@ -1194,6 +1209,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     VALID_ESCROW_TX.has(escrowTxStatus);
   const PRE_ESCROW_PHASES = new Set(["site_visit", "site_visiting", "visit_requested", "final_quote_submitted", "escrow_pending"]);
   const isPreEscrowPhase = PRE_ESCROW_PHASES.has((request?.status ?? "").toLowerCase());
+  // 최종견적 도착(결제 전) — 업체가 최종 견적서를 보낸 상태. '대기'가 아니라 '확인 후 결제' 단계.
+  const QUOTE_READY_PHASES = new Set(["final_quote_submitted", "escrow_pending"]);
+  const isQuoteReadyPhase = QUOTE_READY_PHASES.has((request?.status ?? "").toLowerCase());
   // 업체측에서는 customerRequests(getRequests=open 만)에 site_visiting 요청이 없어 request prop 이
   // null 이라 request.status 로는 판정 불가 → 'request-scoped 계약이 resolve 되지 않음(결제 전)'을
   // 보조 신호로 사용한다. (resolvedContractId 는 #245 에서 request_id 로 강하게 잠겨 있으므로,
@@ -1271,6 +1289,33 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     );
   }
 
+  // [의뢰인] 최종견적 도착(결제 전, 에스크로 없음) → '확인하고 결제하기'(BidStatusScreen) 안내.
+  //   기존엔 final_quote_submitted 가 아래 '대기' 게이트(isPreEscrowPhase)에 잡혀, 업체가
+  //   최종견적을 보내도 고객이 "최종 견적을 기다리고 있어요" 막다른 화면에 멈췄음(상태 불일치).
+  if (isConsumer && !hasRealEscrow && isQuoteReadyPhase) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
+          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>공사 안전 결제</div>
+        </div>
+        <div style={{ padding: "56px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
+            최종 견적이 도착했어요
+          </div>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8 }}>
+            선택하신 업체가 최종 견적서를 보냈어요.{"\n"}견적 내용을 확인하고 에스크로 결제를 진행해 주세요.
+          </div>
+          <button onClick={() => (onConfirmFinalQuote ? onConfirmFinalQuote() : onBack())}
+            style={{ marginTop: 24, padding: "13px 28px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
+            최종 견적 확인하고 결제하기 →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // [의뢰인] 결제 전(현장견적 단계) + 실제 에스크로 없음 → '최종 견적 대기' 안내만.
   if (isConsumer && !hasRealEscrow && (isPreEscrowPhase || noStatusButNoEscrow)) {
     return (
@@ -1330,7 +1375,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
         {/* Space OS · 보호의 약속 안내 */}
         <div style={{ background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: S.lg, fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
-          🤝 계약과 에스크로는 서로를 통제하기 위한 장치가 아니라, 서로를 보호하기 위한 약속입니다.
+          🤝 계약과 에스크로는 서로를 보호하기 위한 약속입니다. 투명한 진행 기록으로 신뢰를 함께 만듭니다.
           <div style={{ marginTop: 5, color: C.text3 }}>에스크로는 돈을 묶는 시스템이 아니라, 약속을 지키기 위한 보호장치입니다.</div>
         </div>
 
@@ -2063,7 +2108,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 16px" }} />
             <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, marginBottom: 10 }}>📍 GPS 기록이 필요한 단계입니다</div>
             <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7, marginBottom: 14 }}>
-              이 단계는 프로젝트 증빙을 위해 위치 기록이 필요합니다. GPS 기록 없이 진행하면 관리자 증빙관리에서 <b>“GPS 누락”</b>으로 표시되며, 분쟁 발생 시 불리한 자료로 판단될 수 있습니다.{"\n"}GPS를 기록하거나, 부득이한 경우 사유를 입력해 주세요.
+              이 단계는 프로젝트 진행 기록을 정확하게 연결하기 위해 위치 기록을 함께 남깁니다. 기록 없이 진행하면 증빙관리에 <b>“GPS 누락”</b>으로 표시됩니다.{"\n"}위치를 기록하거나, 부득이한 경우 사유를 입력해 주세요.
             </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>

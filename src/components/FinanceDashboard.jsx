@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
-import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
+import { useState } from "react";
 import { C, R, S } from "../constants";
-import { getAdminProjectFlow, getTestAccounts } from "../lib/supabase";
 import { aggregateFinance, buildTimeSeries, formatWon } from "../lib/financeUtils";
-import { buildTestAccountSet, isTestRow } from "../lib/testAccounts";
+import { isTestRow } from "../lib/testAccounts";
+import { useAdminProjectFlow } from "../hooks/useAdminProjectFlow";
 import { downloadCsv, csvStamp } from "../utils/exportCsv";
 
 // ── 재무대시보드 — 대표 운영용 KPI(조회/집계 전용) ─────────────────────────
@@ -15,34 +14,10 @@ const PERIODS = [["day", "일별"], ["week", "주별"], ["month", "월별"]];
 const PERIOD_LIMIT = { day: 14, week: 12, month: 12 };
 
 export default function FinanceDashboard({ adminUserId, showToast }) {
-  const [rows, setRows]       = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [errMsg, setErrMsg]   = useState(null);
+  const { rows, loading, errMsg, testSet, reload } = useAdminProjectFlow(adminUserId, { limit: 1000 });
   const [period, setPeriod]   = useState("day");
   // 테스트 거래 제외(기본 true). 토글로 포함 가능.
   const [excludeTest, setExcludeTest] = useState(true);
-  const [testSet, setTestSet] = useState(null);
-
-  const load = async () => {
-    setLoading(true); setErrMsg(null);
-    // 테스트 계정 목록 — 실패해도 재무 조회는 계속(제외 0건으로 동작).
-    try {
-      const { data: ta } = await getTestAccounts(adminUserId);
-      setTestSet(buildTestAccountSet(Array.isArray(ta) ? ta : []));
-    } catch { setTestSet(buildTestAccountSet([])); }
-
-    const { data, error } = await getAdminProjectFlow(adminUserId, { limit: 1000 });
-    if (error) {
-      setErrMsg(error.message || "조회 실패"); setRows([]);
-      dlog("[GONGGAN_DEBUG][Finance] error", error.message);
-    } else {
-      const list = Array.isArray(data) ? data : [];
-      setRows(list);
-      dlog("[GONGGAN_DEBUG][Finance] count", list.length);
-    }
-    setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [adminUserId]);
 
   // 집계 입력 행만 필터(계산식 미변경). 기본: 테스트 거래 제외.
   const testCount = rows.filter(r => isTestRow(r, testSet)).length;
@@ -103,7 +78,7 @@ export default function FinanceDashboard({ adminUserId, showToast }) {
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>재무대시보드</div>
         <button onClick={exportCsv} disabled={loading}
           style={{ marginLeft: "auto", background: C.brandL, color: C.brand, border: `1px solid ${C.brandM ?? C.bgWarm}`, borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>CSV 다운로드</button>
-        <button onClick={load} disabled={loading}
+        <button onClick={reload} disabled={loading}
           style={{ background: C.bgWarm, color: C.text2, border: "none", borderRadius: R.md, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>새로고침</button>
       </div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7, marginBottom: 10 }}>

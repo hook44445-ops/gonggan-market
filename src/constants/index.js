@@ -206,6 +206,14 @@ export const COMPANY_STATUS_META = {
   TEMP_RESTRICTED: { label: "활동 제한",  color: "#D63030", bg: "#FFF3F0", canBid: false },
 };
 
+// 고객 계정 상태(users.account_status enum) 표시 메타 — 업체 상태 메타와 동일한 UX 패턴.
+export const USER_STATUS_META = {
+  NORMAL:          { label: "정상",      color: "#2E5F4B", bg: "#EAF2EE" },
+  TEMP_RESTRICTED: { label: "활동 제한", color: "#D63030", bg: "#FFF3F0" },
+  SUSPENDED:       { label: "계정 정지", color: "#D63030", bg: "#FEF0F0" },
+  BLACKLISTED:     { label: "블랙리스트", color: "#1F2A24", bg: "#E8E0D4" },
+};
+
 // ── STEP R: Notification Priority ────────────────────────────────────────────
 export const NOTIFICATION_PRIORITY = {
   LOW:      "LOW",

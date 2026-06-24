@@ -9,6 +9,7 @@ import { getAnonymousNickname, formatRelativeTime } from "../utils/anonymousNick
 import LiveFeed from "./LiveFeed";
 import RegionSelectorBar from "./RegionSelectorBar";
 import RegionSelectSheet from "./RegionSelectSheet";
+import LocationPermissionModal from "./LocationPermissionModal";
 import { useGPS } from "../hooks/useGPS";
 import { resolveMapCenter } from "../hooks/useMapCenter";
 import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegionId, regionKey, makeRegionEntry } from "../constants/regions";
@@ -675,6 +676,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const { gpsCenter, gpsErrorCode, gpsTick, loading: gpsLoading, requestCurrentLocation, autoLocateIfGranted, clearGps } = useGPS();
   // GPS 사용 목적: 'view'(지도 이동) | 'add'(현재 위치로 지역 추가)
   const gpsModeRef = useRef("view");
+  // 위치 권한 안내 모달(UX 레이어) — OS 권한 팝업 전에 브랜드 안내를 먼저 노출.
+  //   기존 GPS 로직은 무수정. 권한이 이미 허용됐거나 한 번 안내했으면 바로 진행(중복 안내 방지).
+  const [permModalOpen, setPermModalOpen] = useState(false);
+  const permActionRef = useRef(null);   // 안내 후 실행할 기존 GPS 동작
+  const permShownRef = useRef(false);   // 세션 내 1회만 안내
   const [regionChooserOpen, setRegionChooserOpen] = useState(false); // + 지역 추가 선택 시트
   const [regionExploreOpen, setRegionExploreOpen] = useState(false); // 다른 지역 둘러보기(현재지역 변경 전용, 저장 안 함)
   const [gpsPendingRegion, setGpsPendingRegion] = useState(null);    // 저장 확인 대기 { rawSido, sido, sigungu, lat, lng }
@@ -704,14 +710,37 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     autoLocateIfGranted();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 위치 권한 안내 게이트 — OS 권한 팝업 전 브랜드 안내를 1회 노출한 뒤 기존 GPS 동작 실행.
+  //   · 이미 'granted' 이거나 이번 세션에 안내했으면 곧장 실행(불필요한 재안내 방지).
+  //   · Permissions API 미지원(iOS Safari 등)이면 안내 모달을 띄운 뒤 진행.
+  //   · 기존 GPS 권한 요청 로직(requestCurrentLocation)은 그대로 — 본 게이트는 표시 레이어.
+  const openPermGate = (action) => {
+    if (permShownRef.current) { action(); return; }
+    if (navigator.permissions?.query) {
+      navigator.permissions.query({ name: "geolocation" })
+        .then((res) => {
+          if (res.state === "granted") { permShownRef.current = true; action(); }
+          else { permActionRef.current = action; setPermModalOpen(true); }
+        })
+        .catch(() => { permActionRef.current = action; setPermModalOpen(true); });
+    } else { permActionRef.current = action; setPermModalOpen(true); }
+  };
+  const onPermConfirm = () => {
+    permShownRef.current = true;
+    setPermModalOpen(false);
+    const a = permActionRef.current; permActionRef.current = null;
+    if (a) a(); // 기존 GPS 권한 요청 실행 → OS 팝업
+  };
+  const onPermClose = () => { setPermModalOpen(false); permActionRef.current = null; };
+
   // "현재 위치로 보기" — 버튼 클릭 시 GPS 1회 요청. GPS 가 최우선이라 activeRegion 을 비우지 않아도
   // 지도는 현재 위치로 이동한다(매칭 필터는 유지).
-  const onRequestMapLocation = () => { gpsModeRef.current = "view"; requestCurrentLocation(); };
+  const onRequestMapLocation = () => openPermGate(() => { gpsModeRef.current = "view"; requestCurrentLocation(); });
 
   // 지역 칩 클릭 → 선택 시트 (① 둘러보기 ② 현재 위치로 ③ 관심지역 저장)
   const openRegionChooser = () => setRegionChooserOpen(true);
   // 시트 ① — 현재 위치로 지역 추가: GPS 1회 → reverse geocoding (effect 에서 처리)
-  const onAddRegionByGps = () => { gpsModeRef.current = "add"; setRegionChooserOpen(false); requestCurrentLocation(); };
+  const onAddRegionByGps = () => { setRegionChooserOpen(false); openPermGate(() => { gpsModeRef.current = "add"; requestCurrentLocation(); }); };
   // 시트 ② — 직접 지역 선택(관심지역 저장, 최대 2)
   const onAddRegionManual = () => { setRegionChooserOpen(false); setRegionSheetOpen(true); };
   // 시트 ③ — 다른 지역 둘러보기(현재지역만 변경, 저장/제한 없음)
@@ -2417,10 +2446,27 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     setScreen(s);
   };
 
-  // 알림 클릭 → 화면 이동(상태별). 진행 알림의 related_id 는 request_id 기준이라
-  // bidViewRequestId 를 세팅해 해당 거래의 견적/에스크로 화면으로 진입한다.
-  //   최종견적→bidstatus · 계약/진행→escrow · 완료/후기→내 견적(timeline)
-  const handleNotifNavigate = (n) => {
+  // 알림 클릭 → 관련 화면 이동(끊겼던 거래 Flow 복구). 알림은 related_id=request.id 를 담는다.
+  //   · 업체: 현장견적/업체선택 → 업체 대시보드(받은 요청·진행중).
+  //   · 의뢰인: 견적 도착 → 견적 비교 · 최종견적 → 견적 · 계약/진행 → 에스크로 · 완료/후기 → 내 견적.
+  //   기존 라우팅/화면/알림 생성 로직 무변경 — 알림에서의 진입 경로만 복구한다.
+  const openNotificationTarget = (n) => {
+    if (!n) return;
+    const rid = n.related_id ?? null;
+    const t = n.type ?? "";
+    // 업체: 현장견적 요청 도착·업체 선택 → 업체 대시보드(받은 요청·진행중).
+    if ((t === "SITE_VISIT_REQUESTED" || t === "COMPANY_SELECTED") && activeRole === "company") {
+      if (rid) setBidViewRequestId(rid);
+      go("dashboard");
+      return;
+    }
+    // 의뢰인: 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교(bidstatus).
+    if ((t === "BID_RECEIVED" || t === "BID_ALL_IN") && rid) {
+      setBidViewRequestId(rid);
+      go("bidstatus");
+      return;
+    }
+    // 그 외(최종견적/계약/진행/완료 등) → notifNavTarget 으로 상태별 이동.
     const target = notifNavTarget(n);
     if (!target) return;
     if (target.screen === "lounge-detail" && target.id) { setLoungePost({ id: target.id, _deeplink: true }); go("lounge-detail"); return; }
@@ -2518,7 +2564,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <BrandLockup size={32} />
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
               {/* 로그아웃 버튼은 실수 터치 방지를 위해 마이페이지(내정보)로 이동됨 */}
-              <NotificationBell user={user} onNavigate={handleNotifNavigate} />
+              <NotificationBell user={user} onNavigate={openNotificationTarget} />
             </div>
           </div>
           <div style={{ display:"flex" }}>
@@ -3707,6 +3753,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             />
 
             {/* 지역 칩 클릭 시 열리는 선택 시트 — 교체 모드/추가 모드 분기 */}
+            {/* 위치 권한 안내 모달 — OS 권한 팝업 전 브랜드 안내(고객/업체 카피) */}
+            <LocationPermissionModal
+              open={permModalOpen}
+              role={activeRole === "company" ? "company" : "consumer"}
+              onConfirm={onPermConfirm}
+              onClose={onPermClose}
+            />
+
             {regionChooserOpen && (() => {
               const editing = editingRegionIndex !== null;
               const editLabel = editing ? (activityRegions[editingRegionIndex]?.district || activityRegions[editingRegionIndex]?.city || "이 지역") : "";
@@ -3805,7 +3859,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             }}
           />
         )}
-        {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} />}
+        {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} onConfirmFinalQuote={() => go("bidstatus")} />}
         {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
         {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id} />}
         {screen==="bidstatus" && (
@@ -4045,7 +4099,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>대화</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>파트너와 나눈 이야기</div>
               </div>
-              <NotificationBell user={user} onNavigate={handleNotifNavigate} />
+              <NotificationBell user={user} onNavigate={openNotificationTarget} />
             </div>
 
             {isAllEmpty && (
@@ -4333,7 +4387,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         {screen==="my" && (
           <div>
             <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:4 }}>
-              <NotificationBell user={user} onNavigate={handleNotifNavigate} />
+              <NotificationBell user={user} onNavigate={openNotificationTarget} />
             </div>
             {UX_BETA ? (
               <MyPageTopBeta
@@ -4617,7 +4671,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             )}
 
             {/* 통합 알림함 — notifications 조회 전용(B단계) */}
-            <NotificationInbox user={user} />
+            <NotificationInbox user={user} onNavigate={openNotificationTarget} />
 
             {/* 푸시 알림 설정 */}
             <PushNotificationSettings user={user} />

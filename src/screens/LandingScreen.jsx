@@ -68,7 +68,7 @@ const HERO_TRUST = [
 ];
 // 기록보호 섹션 항목
 const RECORD_ITEMS = [
-  { icon: "📍", title: "GPS 기록",  desc: "현장 방문·진행 위치가 기록됩니다" },
+  { icon: "📍", title: "GPS 기록",  desc: "현장 방문·진행 단계가 프로젝트에 기록됩니다" },
   { icon: "💬", title: "채팅 기록",  desc: "업체와의 모든 대화가 저장됩니다" },
   { icon: "📷", title: "사진 기록",  desc: "착공·중간·완료 시공 사진이 남습니다" },
   { icon: "📄", title: "계약 기록",  desc: "계약 범위와 변경 내역이 보관됩니다" },
@@ -223,7 +223,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             ...fadeStyle(heroVisible, 0.16),
           }}>
             <div style={{ fontSize: 15, color: C.text2, lineHeight: 1.6, marginBottom: 2 }}>
-              집, 상가, 리모델링까지
+              집수리부터 상가 리모델링까지
             </div>
             <div style={{ fontSize: 15, color: C.text2, lineHeight: 1.6, marginBottom: 10 }}>
               비교하고 확인하세요
@@ -536,10 +536,10 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         <div style={{ maxWidth: 480, margin: "0 auto" }}>
           <div style={{ textAlign: "center", fontSize: 22, fontWeight: 900, color: C.brand, marginBottom: 16 }}>공간마켓</div>
           <p style={{ fontSize: 14, lineHeight: 1.8, color: C.text2, margin: "0 0 12px" }}>
-            공간마켓은 우리 동네 인테리어 업체를 쉽고 편하게 비교하고 상담할 수 있는 플랫폼입니다.
+            공간마켓은 우리 동네 집수리·인테리어·리모델링 업체를 쉽고 편하게 비교하고 상담할 수 있는 플랫폼입니다.
           </p>
           <p style={{ fontSize: 14, lineHeight: 1.8, color: C.text2, margin: "0 0 24px" }}>
-            도배, 장판, 욕실, 주방, 리모델링, 상업공간, 부분시공 등 다양한 공사에 맞는 업체를 찾아 견적을 비교하고 상담할 수 있습니다.
+            집수리, 도배, 장판, 욕실, 주방, 리모델링, 상업공간, 부분시공 등 견적이 필요한 다양한 시공에 맞는 업체를 찾아 견적을 비교하고 상담할 수 있습니다.
           </p>
 
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 12 }}>주요 기능</div>
@@ -585,7 +585,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             marginBottom: 18,
             ...fadeStyle(sec3Visible, 0.08),
           }}>
-            집, 상가, 리모델링까지 — 비교하고 확인하세요
+            집수리부터 상가 리모델링까지 — 비교하고 확인하세요
           </div>
 
           {/* CRO V2 — 최종 CTA 강화 문구 */}

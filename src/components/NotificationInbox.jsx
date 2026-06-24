@@ -60,12 +60,13 @@ export default function NotificationInbox({ user, onRead, onNavigate }) {
   const unread = items.filter(n => !n.is_read).length;
 
   const handleTap = async (n) => {
-    // 읽음 처리(미읽음일 때만) 후 알림 종류에 맞는 화면으로 이동.
+    // 읽음 처리(미읽음일 때만) — 기존 동작 유지.
     if (!n.is_read) {
       setItems(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x));
       try { await markNotificationRead(n.id); } catch {}
       onRead?.();
     }
+    // 끊겼던 Flow 복구 — 읽음 여부와 무관하게 관련 화면으로 이동(라우팅은 상위 onNavigate 가 처리).
     onNavigate?.(n);
   };
 
@@ -118,7 +119,7 @@ export default function NotificationInbox({ user, onRead, onNavigate }) {
                     padding: `${S.sm}px ${S.md}px`, borderRadius: R.lg,
                     background: n.is_read ? C.surface2 : C.brandL,
                     border: `1px solid ${n.is_read ? C.bgWarm : C.brandM}`,
-                    cursor: "pointer",
+                    cursor: n.is_read ? "default" : "pointer",
                   }}>
                   <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
                     background: n.is_read ? C.bg : C.surface,

@@ -119,15 +119,21 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
     if (error) { alert("저장 실패: " + error.message); return; }
     // 현장방문 체크포인트(좌표+주소) 저장 — 실제 위치를 받은 경우에만.
     if (loc) {
-      saveProjectCheckpoint({
+      // 현장방문 증빙 체크포인트(관리자 증빙관리/타임라인 원본) — 실패를 조용히 넘기지 않고
+      // 사용자에게 안내한다(증빙 누락 가시화). site_visits 기록은 위 gpsCheckin 에서 이미 완료.
+      const { error: cpErr } = await saveProjectCheckpoint({
         actorId: userId, requestId: job.bid.request_id, siteVisitId: job.siteVisit.id,
         type: "site_visit", lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy,
         roadAddress: loc.road_address, jibunAddress: loc.jibun_address, addressFull: loc.address_full,
         sido: loc.sido, sigungu: loc.sigungu, dong: loc.dong, bunji: loc.bunji, photos,
         note: checkpointNote.trim() || null,
-      }).catch(() => {});
-      // 역지오코딩 실패해도 좌표는 저장됨 — 사용자 안내.
-      if (!loc.address_full && !loc.road_address && !loc.jibun_address) {
+      });
+      if (cpErr) {
+        // 진단(우선순위 5): 오류 원문을 콘솔에 그대로 남긴다(요약 금지).
+        try { console.error("[SITEVISIT_CHECKPOINT_FAILED]", { request_id: job.bid.request_id, site_visit_id: job.siteVisit.id, actor_id: userId, code: cpErr.code, message: cpErr.message, details: cpErr.details, hint: cpErr.hint }); } catch { /* noop */ }
+        alert("현장 기록은 등록됐지만 증빙 저장에 실패했어요.\n다시 시도하거나 관리자에게 문의해 주세요. [" + (cpErr.code ?? "ERR") + "] " + (cpErr.message ?? ""));
+      } else if (!loc.address_full && !loc.road_address && !loc.jibun_address) {
+        // 역지오코딩 실패해도 좌표는 저장됨 — 사용자 안내.
         alert("주소 변환은 실패했지만 위치 좌표는 저장되었습니다.");
       }
     }
@@ -203,7 +209,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
           <div style={{ fontWeight:800, marginBottom:4 }}>🏠 현장 기록 남기기</div>
           현장에 도착하면 눌러주세요. 현재 위치가 함께 기록됩니다.
           <div style={{ marginTop:6, fontSize:12, color:C.text3, lineHeight:1.6 }}>
-            🛡 기록은 업체를 감시하기 위한 것이 아닙니다. 스스로를 보호하는 증거입니다.
+            🛡 현장 기록은 성실한 진행을 그대로 남겨, 업체 스스로를 보호하는 증거가 됩니다.
           </div>
         </div>
         <div style={{ marginBottom:S.xl }}>
