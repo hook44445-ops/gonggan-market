@@ -39,6 +39,12 @@ export const NOTIF_META = {
   CONSTRUCTION_DONE:     { tier: NOTIF_TIER.PROGRESS, icon: "🎉", priority: "HIGH" },
   SETTLEMENT_DONE:       { tier: NOTIF_TIER.PROGRESS, icon: "🎉", priority: "HIGH" },
   COMPANY_SELECTED:      { tier: NOTIF_TIER.PROGRESS, icon: "🤝", priority: "HIGH" },
+  // ── 업체 진행 알림(미러) — 계약체결 이후 단계 ─────────────
+  CO_CONSTRUCTION_STARTED: { tier: NOTIF_TIER.PROGRESS, icon: "🏗️", priority: "HIGH" },
+  CO_ESCROW_MID_CHECK:     { tier: NOTIF_TIER.PROGRESS, icon: "🛡️", priority: "HIGH" },
+  CO_CONSTRUCTION_DONE:    { tier: NOTIF_TIER.PROGRESS, icon: "🎉", priority: "HIGH" },
+  CO_SETTLEMENT_DONE:      { tier: NOTIF_TIER.PROGRESS, icon: "💰", priority: "HIGH" },
+  CO_DISPUTE_FILED:        { tier: NOTIF_TIER.PROGRESS, icon: "⚠️", priority: "HIGH" },
   // ── 2단계 관심 ──────────────────────────────────────────
   REGION_NEW_COMPANY:    { tier: NOTIF_TIER.INTEREST, icon: "📍", priority: "NORMAL" },
   SAVED_NEW_PORTFOLIO:   { tier: NOTIF_TIER.INTEREST, icon: "🖼️", priority: "NORMAL" },

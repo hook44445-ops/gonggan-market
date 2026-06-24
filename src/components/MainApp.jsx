@@ -1768,6 +1768,45 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     return () => { cancelled = true; };
   }, [myRequestsEscrow, activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── 업체 진행 알림(미러) — 계약체결 이후 진행 이벤트를 업체에도 전달 ───────────────
+  //   기존 소비자 진행 알림과 동일한 dedupe(type+related_id) 메커니즘. 업체 본인(user.id) 대상.
+  //   기존 계약체결(COMPANY_SELECTED)/현장방문요청(SITE_VISIT_REQUESTED) 알림은 무변경 —
+  //   그 이후 단계(착공/중간/완료/정산/분쟁)가 업체에 누락되던 것을 보강한다.
+  //   notifications 테이블/Realtime(폴링·포커스)/Bell/읽음 처리는 기존 구조 그대로 사용.
+  useEffect(() => {
+    if (activeRole !== "company" || !user?.id || user.isGuest || !IS_SUPABASE_READY) return;
+    const jobs = companyJobs ?? [];
+    if (jobs.length === 0) return;
+
+    const CO_STAGE_NOTIF = {
+      STARTED:        { type: "CO_CONSTRUCTION_STARTED", title: "착공 단계 시작", message: "착공 단계가 시작됐어요 🏗️ 자재비·착공 정산이 진행됩니다." },
+      MID_INSPECTION: { type: "CO_ESCROW_MID_CHECK",     title: "중간 점검 승인", message: "중간 점검이 확인됐어요 · 중간 정산이 진행됩니다." },
+      COMPLETED:      { type: "CO_CONSTRUCTION_DONE",    title: "완료 등록됨",     message: "완료가 등록됐어요 🎉 고객 최종 승인 후 잔금이 정산됩니다." },
+      SETTLED:        { type: "CO_SETTLEMENT_DONE",      title: "최종 정산 완료",  message: "최종 정산이 완료됐어요 🎉 거래가 안전하게 마무리됐습니다." },
+      DISPUTE:        { type: "CO_DISPUTE_FILED",        title: "분쟁 접수",       message: "이 거래에 분쟁이 접수됐어요 · 정산이 보류됩니다. 관리자 검토를 기다려주세요." },
+    };
+
+    let cancelled = false;
+    (async () => {
+      const { data: existing } = await getNotifications(user.id);
+      if (cancelled) return;
+      const notifs = existing ?? [];
+      for (const job of jobs) {
+        const rid = job.request?.id ?? job.bid?.requestId ?? null;
+        const tx  = job.escrow?.transaction_status ?? null;
+        if (!rid || !tx) continue;
+        const stage = CO_STAGE_NOTIF[tx];
+        if (stage) {
+          await sendTieredNotification({
+            userId: user.id, type: stage.type, title: stage.title, message: stage.message,
+            relatedId: rid, relatedType: "escrow", existing: notifs, dedupe: true,
+          });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyJobs, activeRole, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 완료건 리뷰 작성 여부 재확인 — request_id 기준 권위 소스(getReviewByRequest)로
   // { [requestId]: boolean } 맵을 채운다. 미확인 상태는 false(미작성) 로 안전 기본값 처리.
   useEffect(() => {
