@@ -135,7 +135,9 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
           }
         } else {
           // Insert welcome message from company, then re-fetch to get real DB id
-          await sendMessage(roomId, String(company?.id ?? "company"), "company", WELCOME);
+          // sender_id 는 null — company.id 는 users(id) FK 대상이 아니라 FK 위반이 됨.
+          // 표시는 sender_type='company' + sender_id≠본인 으로 '업체' 메시지로 렌더됨.
+          await sendMessage(roomId, null, "company", WELCOME);
           const { data: after } = await getChatMessages(roomId);
           if (!cancelled) rows = after ?? [];
         }
