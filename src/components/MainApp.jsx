@@ -119,7 +119,7 @@ import {
   leaveLoungeChat,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
-import { sendTieredNotification } from "../utils/notify";
+import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
 
 // ── 시/도 표기 정규화: 카카오 region_1depth("인천광역시") → 앱 city("인천") ──
@@ -1572,15 +1572,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           //   · 다른 업체를 선택했으면 제외.
           //   · status='in_progress' 단독으로는 절대 진행중 아님.
           const selCid = reqRow?.selected_company_id ?? null;
-          if (!selCid) { excludedReasons.push(`${rid8}:no_selected_company(ghost)`); return false; }
-          if (!candidateIdSet.has(selCid)) { excludedReasons.push(`${rid8}:selected_other`); return false; }
+          // 이 업체 소유의 활성 에스크로(결제 완료 후 생성)는 selected_company_id 동기화 타이밍과
+          // 무관하게 '진행중'으로 인정한다. escrowByRequestId 는 candidateIds 소유 escrow 만 담으므로
+          // 타 업체 유령 위험이 없다 — '고객 결제 완료/에스크로 생성됐는데 업체 진행중이 비는' 누락 보강.
+          const myActiveEscrow = !!esc && ACTIVE_TX.has(txStatus);
+          if (!selCid && !myActiveEscrow) { excludedReasons.push(`${rid8}:no_selected_company(ghost)`); return false; }
+          if (selCid && !candidateIdSet.has(selCid) && !myActiveEscrow) { excludedReasons.push(`${rid8}:selected_other`); return false; }
 
           // 현장방문 견적 단계(결제 전)는 activeJobs(CompanyActiveJobCard)에서 다룸 → companyJobs 제외(이중 노출 방지).
           // site_visiting/visit_requested 는 selected_company_id 가 이미 설정된 상태이므로
           // companyJobs 에도 포함 허용 → DashboardScreen "진행중" 탭에 노출.
           // final_quote_submitted 는 진행중으로 포함(multipath 에서도 제외하지 않음) → 목록 유지.
+          // 단, 이미 결제된(활성 에스크로) 건은 stale 한 escrow_pending 상태여도 진행중으로 유지한다.
           const PRE_ESCROW = new Set(["site_visit", "escrow_pending"]);
-          if (PRE_ESCROW.has(reqStatus)) { excludedReasons.push(`${rid8}:pre_escrow(activeJobs)`); return false; }
+          if (PRE_ESCROW.has(reqStatus) && !myActiveEscrow) { excludedReasons.push(`${rid8}:pre_escrow(activeJobs)`); return false; }
 
           // 여기 도달 = 이 업체가 선택된 계약 + 종료/현장방문단계 아님 → 진행중.
           return true;
@@ -1720,8 +1725,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         const req = myRequests.find(r => r.id === rid) ?? null;
 
         // (1) 현재 단계 진행 알림 — dedupe 로 단계당 1회만
+        // [item1] 계약(생성/체결) 알림은 반드시 '결제 완료 이후'에만 발생한다.
+        //   CONTRACTED 단계는 예치(결제) 확인(step1_deposited_at)된 에스크로에서만 알림을 보낸다.
+        //   → 업체가 최종견적만 보낸(결제 전) 상태에서 계약 알림이 먼저 뜨는 것을 차단.
         const stage = STAGE_NOTIF[tx];
-        if (stage) {
+        const paymentConfirmed = !!esc.step1_deposited_at
+          || ["STARTED", "MID_INSPECTION", "COMPLETED", "SETTLED"].includes(tx);
+        if (stage && (tx !== "CONTRACTED" || paymentConfirmed)) {
           await sendTieredNotification({
             userId: user.id, type: stage.type, title: stage.title, message: stage.message,
             relatedId: rid, relatedType: "escrow", existing: notifs, dedupe: true,
@@ -2437,25 +2447,38 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   };
 
   // 알림 클릭 → 관련 화면 이동(끊겼던 거래 Flow 복구). 알림은 related_id=request.id 를 담는다.
-  //   · 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교 화면(bidstatus).
+  //   · 업체: 현장견적/업체선택 → 업체 대시보드(받은 요청·진행중).
+  //   · 의뢰인: 견적 도착 → 견적 비교 · 최종견적 → 견적 · 계약/진행 → 에스크로 · 완료/후기 → 내 견적.
   //   기존 라우팅/화면/알림 생성 로직 무변경 — 알림에서의 진입 경로만 복구한다.
   const openNotificationTarget = (n) => {
     if (!n) return;
     const rid = n.related_id ?? null;
     const t = n.type ?? "";
+    // 업체: 현장견적 요청 도착·업체 선택 → 업체 대시보드(받은 요청·진행중).
+    if ((t === "SITE_VISIT_REQUESTED" || t === "COMPANY_SELECTED") && activeRole === "company") {
+      if (rid) setBidViewRequestId(rid);
+      go("dashboard");
+      return;
+    }
     // 의뢰인: 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교(bidstatus).
     if ((t === "BID_RECEIVED" || t === "BID_ALL_IN") && rid) {
       setBidViewRequestId(rid);
       go("bidstatus");
       return;
     }
-    // 업체: 현장견적 요청 도착(SITE_VISIT_REQUESTED)·업체 선택(COMPANY_SELECTED) →
-    //   업체 대시보드(받은 요청·진행중)로 이동. (기존엔 알림만 오고 이동이 끊겨 있었음)
-    if ((t === "SITE_VISIT_REQUESTED" || t === "COMPANY_SELECTED") && activeRole === "company") {
-      if (rid) setBidViewRequestId(rid);
-      go("dashboard");
-      return;
+    // 그 외(최종견적/계약/진행/완료 등) → notifNavTarget 으로 상태별 이동.
+    const target = notifNavTarget(n);
+    if (!target) return;
+    if (target.screen === "lounge-detail" && target.id) { setLoungePost({ id: target.id, _deeplink: true }); go("lounge-detail"); return; }
+    if (target.requestId && (target.screen === "escrow" || target.screen === "bidstatus")) {
+      setBidViewRequestId(target.requestId); go(target.screen); return;
     }
+    if (target.screen === "review") {
+      // 완료/후기 알림 → 내 견적(진행/완료) 목록에서 후기 작성 진입(컨텍스트 안전 확보).
+      if (target.requestId) setBidViewRequestId(target.requestId);
+      setScreen(activeRole === "company" ? "dashboard" : "timeline"); return;
+    }
+    if (target.screen) setScreen(target.screen);
   };
 
   useEffect(() => {

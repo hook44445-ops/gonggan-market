@@ -706,17 +706,41 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       <div style={{ minHeight:"100vh", background:C.bg }}>
         <BidScreenHeader title="결제 수단 선택" onBack={goBack} userId={userId} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
-          {/* Amount summary */}
+          {/* Amount summary — 계산식(시공비 + 이용료 = 총액) + 단계별 안전 지급 */}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:4 }}>공간안전결제 예치 금액 (시공비 + 공간안전결제 이용료)</div>
-            <div style={{ fontSize:32, fontWeight:900, color:C.text1, marginBottom:4 }}>{fmtMoney(customerTotal)}</div>
-            <div style={{ fontSize:11, color:C.text4, marginBottom:S.md }}>시공비 {fmtMoney(effectivePrice)} + 이용료 {fmtMoney(fee)}</div>
-            {stages.map(({ name, percent, amount }) => (
-              <div key={name} style={{ display:"flex", justifyContent:"space-between", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.bgWarm}` }}>
-                <div style={{ fontSize:12, fontWeight:700, color:C.text2 }}>{name} {percent}%</div>
-                <div style={{ fontSize:13, fontWeight:800, color:C.brand }}>{fmtMoney(amount)}</div>
-              </div>
-            ))}
+            <div style={{ fontSize:13, color:C.text3, marginBottom:10, fontWeight:700 }}>공간안전결제 예치 금액</div>
+            <div style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", fontSize:13 }}>
+              <span style={{ color:C.text2 }}>시공비</span>
+              <span style={{ fontWeight:700, color:C.text1 }}>{fmtMoney(effectivePrice)}</span>
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", padding:"5px 0 9px", fontSize:13, borderBottom:`1px solid ${C.bgWarm}` }}>
+              <span style={{ color:C.text2 }}>공간안전결제 이용료</span>
+              <span style={{ fontWeight:700, color:C.text1 }}>{fmtMoney(fee)}</span>
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", padding:"10px 0 2px" }}>
+              <span style={{ fontSize:14, fontWeight:800, color:C.text1 }}>총 결제금액</span>
+              <span style={{ fontSize:26, fontWeight:900, color:C.brand }}>{fmtMoney(customerTotal)}</span>
+            </div>
+
+            <div style={{ marginTop:12, paddingTop:12, borderTop:`1px dashed ${C.bgWarm}` }}>
+              <div style={{ fontSize:12, fontWeight:800, color:C.text2, marginBottom:6 }}>🔒 단계별 안전 지급</div>
+              {stages.map(({ name, percent, amount }) => (
+                <div key={name} style={{ display:"flex", justifyContent:"space-between", padding:`${S.xs}px 0` }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:C.text3 }}>{name} {percent}%</div>
+                  <div style={{ fontSize:13, fontWeight:800, color:C.brand }}>{fmtMoney(amount)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 자재비 10% 선지급 안내 — 고객이 선지급 이유를 이해하도록 */}
+          <div style={{ background:"#FBF7EC", borderRadius:R.lg, padding:S.lg, marginBottom:S.lg, border:`1px solid #EADFC4` }}>
+            <div style={{ fontSize:13, fontWeight:800, color:"#8A6D1E", marginBottom:6 }}>📦 자재비 10% 선지급 안내</div>
+            <div style={{ fontSize:12, color:C.text2, lineHeight:1.85 }}>
+              최종견적 확인 및 결제 완료 후 <b>자재비 10%</b>가 먼저 지급됩니다.<br/>
+              빠른 자재 준비와 공사 일정 지연을 방지하기 위한 선지급 방식입니다.<br/>
+              나머지 공사비는 고객 확인 후 단계별로 안전하게 지급됩니다.
+            </div>
           </div>
 
           {/* 결제 직전 — 에스크로 안전 보관 + 기록 저장 안내 */}
