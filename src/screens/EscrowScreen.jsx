@@ -756,6 +756,24 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         }
       }
 
+      // 업체에 '최종 정산 완료' 알림 — 고객 완료 승인 시점 1회. (MainApp 미러 효과는 SETTLED 를
+      // companyJobs 에서 제외하므로 여기서 직접 발송. 승인 핸들러는 클릭당 1회라 중복 없음.)
+      if (stageId === 5 && !stepFailed) {
+        const coOwnerId = resolvedBid?.company?.ownerId ?? null;
+        const coReqId = request?.id ?? resolvedBid?.requestId ?? contractData?.request_id ?? null;
+        if (coOwnerId && coReqId) {
+          createNotification({
+            userId:      coOwnerId,
+            type:        "CO_SETTLEMENT_DONE",
+            title:       "최종 정산 완료",
+            message:     "고객이 완료를 승인했어요 🎉 최종 정산이 마무리됐습니다.",
+            relatedId:   coReqId,
+            relatedType: "escrow",
+            priority:    "HIGH",
+          }).catch(() => {});
+        }
+      }
+
       if (stageId === 5 && resolvedBid?.companyId) {
         updateCompanyTemp(resolvedBid.companyId, 2.5).catch(() => {});
       }
