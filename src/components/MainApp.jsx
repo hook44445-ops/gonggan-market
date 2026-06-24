@@ -2443,9 +2443,18 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (!n) return;
     const rid = n.related_id ?? null;
     const t = n.type ?? "";
+    // 의뢰인: 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교(bidstatus).
     if ((t === "BID_RECEIVED" || t === "BID_ALL_IN") && rid) {
       setBidViewRequestId(rid);
       go("bidstatus");
+      return;
+    }
+    // 업체: 현장견적 요청 도착(SITE_VISIT_REQUESTED)·업체 선택(COMPANY_SELECTED) →
+    //   업체 대시보드(받은 요청·진행중)로 이동. (기존엔 알림만 오고 이동이 끊겨 있었음)
+    if ((t === "SITE_VISIT_REQUESTED" || t === "COMPANY_SELECTED") && activeRole === "company") {
+      if (rid) setBidViewRequestId(rid);
+      go("dashboard");
+      return;
     }
   };
 

@@ -149,7 +149,12 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       }
     }
 
-    init();
+    // 무한로딩/빈화면 방어 — init 이 예외로 끝나도 반드시 loaded=true 로 만들어
+    // "대화를 불러오는 중이에요…" 에 멈추지 않게 한다(입력창/빈상태 노출 → 사용자 전송 시도 가능).
+    init().catch((e) => {
+      try { console.error("[CHAT_INIT_FAILED]", { roomId, message: e?.message ?? e }); } catch { /* noop */ }
+      if (!cancelled) setLoaded(true);
+    });
 
     const channel = supabase
       .channel(`chat:${roomId}`)
