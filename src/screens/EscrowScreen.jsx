@@ -100,7 +100,7 @@ const CHECKPOINT_META = {
   complete:   { label: "완료 확인",     icon: "✅" },
 };
 
-export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview, currentUser }) {
+export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview, currentUser, onConfirmFinalQuote }) {
   const IS_DEBUG = SHOW_DEBUG_UI;
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
@@ -1209,6 +1209,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     VALID_ESCROW_TX.has(escrowTxStatus);
   const PRE_ESCROW_PHASES = new Set(["site_visit", "site_visiting", "visit_requested", "final_quote_submitted", "escrow_pending"]);
   const isPreEscrowPhase = PRE_ESCROW_PHASES.has((request?.status ?? "").toLowerCase());
+  // 최종견적 도착(결제 전) — 업체가 최종 견적서를 보낸 상태. '대기'가 아니라 '확인 후 결제' 단계.
+  const QUOTE_READY_PHASES = new Set(["final_quote_submitted", "escrow_pending"]);
+  const isQuoteReadyPhase = QUOTE_READY_PHASES.has((request?.status ?? "").toLowerCase());
   // 업체측에서는 customerRequests(getRequests=open 만)에 site_visiting 요청이 없어 request prop 이
   // null 이라 request.status 로는 판정 불가 → 'request-scoped 계약이 resolve 되지 않음(결제 전)'을
   // 보조 신호로 사용한다. (resolvedContractId 는 #245 에서 request_id 로 강하게 잠겨 있으므로,
@@ -1281,6 +1284,33 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             최종 견적서를 보냈어요.{"\n"}의뢰인이 에스크로 결제를 완료하면 착공 단계가 열립니다.
           </div>
           <button onClick={onBack} style={{ marginTop: 24, padding: "11px 24px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
+        </div>
+      </div>
+    );
+  }
+
+  // [의뢰인] 최종견적 도착(결제 전, 에스크로 없음) → '확인하고 결제하기'(BidStatusScreen) 안내.
+  //   기존엔 final_quote_submitted 가 아래 '대기' 게이트(isPreEscrowPhase)에 잡혀, 업체가
+  //   최종견적을 보내도 고객이 "최종 견적을 기다리고 있어요" 막다른 화면에 멈췄음(상태 불일치).
+  if (isConsumer && !hasRealEscrow && isQuoteReadyPhase) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
+          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>공사 안전 결제</div>
+        </div>
+        <div style={{ padding: "56px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 34, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
+            최종 견적이 도착했어요
+          </div>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8 }}>
+            선택하신 업체가 최종 견적서를 보냈어요.{"\n"}견적 내용을 확인하고 에스크로 결제를 진행해 주세요.
+          </div>
+          <button onClick={() => (onConfirmFinalQuote ? onConfirmFinalQuote() : onBack())}
+            style={{ marginTop: 24, padding: "13px 28px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
+            최종 견적 확인하고 결제하기 →
+          </button>
         </div>
       </div>
     );
