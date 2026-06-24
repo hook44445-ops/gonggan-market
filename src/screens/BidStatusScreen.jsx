@@ -810,6 +810,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
           )}
 
+          {/* 자재비 10% 선지급 안내 — 결제 버튼 상단(문구만, 정책/지급비율/로직 무변경) */}
+          <div style={{ background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, padding:S.md, marginBottom:S.lg, fontSize:12, color:C.text2, lineHeight:1.7 }}>
+            <div style={{ fontWeight:800, color:C.brand, marginBottom:4 }}>💡 자재비 10% 선지급 안내</div>
+            최종견적서를 확인하고 결제를 완료하면, 빠른 자재 준비를 위해 자재비 10%가 먼저 지급됩니다. 나머지 공사비는 착공, 중간점검, 공사 완료 확인 후 단계별로 안전하게 지급됩니다.
+          </div>
+
           <button
             onClick={() => { try { Promise.resolve(handlePay()).catch((err) => dlog("[GONGGAN_DIAG][handlePay:error]", { msg: err?.message ?? String(err) })); } catch (err) { dlog("[GONGGAN_DIAG][handlePay:error]", { msg: err?.message ?? String(err) }); } }}
             disabled={(!selectedMethod && !SAFE_MODE) || paymentLoading}
