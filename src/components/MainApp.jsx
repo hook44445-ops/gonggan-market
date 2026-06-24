@@ -118,7 +118,7 @@ import {
   leaveLoungeChat,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
-import { sendTieredNotification } from "../utils/notify";
+import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
 
 // ── 시/도 표기 정규화: 카카오 region_1depth("인천광역시") → 앱 city("인천") ──
@@ -1543,15 +1543,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           //   · 다른 업체를 선택했으면 제외.
           //   · status='in_progress' 단독으로는 절대 진행중 아님.
           const selCid = reqRow?.selected_company_id ?? null;
-          if (!selCid) { excludedReasons.push(`${rid8}:no_selected_company(ghost)`); return false; }
-          if (!candidateIdSet.has(selCid)) { excludedReasons.push(`${rid8}:selected_other`); return false; }
+          // 이 업체 소유의 활성 에스크로(결제 완료 후 생성)는 selected_company_id 동기화 타이밍과
+          // 무관하게 '진행중'으로 인정한다. escrowByRequestId 는 candidateIds 소유 escrow 만 담으므로
+          // 타 업체 유령 위험이 없다 — '고객 결제 완료/에스크로 생성됐는데 업체 진행중이 비는' 누락 보강.
+          const myActiveEscrow = !!esc && ACTIVE_TX.has(txStatus);
+          if (!selCid && !myActiveEscrow) { excludedReasons.push(`${rid8}:no_selected_company(ghost)`); return false; }
+          if (selCid && !candidateIdSet.has(selCid) && !myActiveEscrow) { excludedReasons.push(`${rid8}:selected_other`); return false; }
 
           // 현장방문 견적 단계(결제 전)는 activeJobs(CompanyActiveJobCard)에서 다룸 → companyJobs 제외(이중 노출 방지).
           // site_visiting/visit_requested 는 selected_company_id 가 이미 설정된 상태이므로
           // companyJobs 에도 포함 허용 → DashboardScreen "진행중" 탭에 노출.
           // final_quote_submitted 는 진행중으로 포함(multipath 에서도 제외하지 않음) → 목록 유지.
+          // 단, 이미 결제된(활성 에스크로) 건은 stale 한 escrow_pending 상태여도 진행중으로 유지한다.
           const PRE_ESCROW = new Set(["site_visit", "escrow_pending"]);
-          if (PRE_ESCROW.has(reqStatus)) { excludedReasons.push(`${rid8}:pre_escrow(activeJobs)`); return false; }
+          if (PRE_ESCROW.has(reqStatus) && !myActiveEscrow) { excludedReasons.push(`${rid8}:pre_escrow(activeJobs)`); return false; }
 
           // 여기 도달 = 이 업체가 선택된 계약 + 종료/현장방문단계 아님 → 진행중.
           return true;
@@ -1691,8 +1696,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         const req = myRequests.find(r => r.id === rid) ?? null;
 
         // (1) 현재 단계 진행 알림 — dedupe 로 단계당 1회만
+        // [item1] 계약(생성/체결) 알림은 반드시 '결제 완료 이후'에만 발생한다.
+        //   CONTRACTED 단계는 예치(결제) 확인(step1_deposited_at)된 에스크로에서만 알림을 보낸다.
+        //   → 업체가 최종견적만 보낸(결제 전) 상태에서 계약 알림이 먼저 뜨는 것을 차단.
         const stage = STAGE_NOTIF[tx];
-        if (stage) {
+        const paymentConfirmed = !!esc.step1_deposited_at
+          || ["STARTED", "MID_INSPECTION", "COMPLETED", "SETTLED"].includes(tx);
+        if (stage && (tx !== "CONTRACTED" || paymentConfirmed)) {
           await sendTieredNotification({
             userId: user.id, type: stage.type, title: stage.title, message: stage.message,
             relatedId: rid, relatedType: "escrow", existing: notifs, dedupe: true,
@@ -2407,6 +2417,24 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     setScreen(s);
   };
 
+  // 알림 클릭 → 화면 이동(상태별). 진행 알림의 related_id 는 request_id 기준이라
+  // bidViewRequestId 를 세팅해 해당 거래의 견적/에스크로 화면으로 진입한다.
+  //   최종견적→bidstatus · 계약/진행→escrow · 완료/후기→내 견적(timeline)
+  const handleNotifNavigate = (n) => {
+    const target = notifNavTarget(n);
+    if (!target) return;
+    if (target.screen === "lounge-detail" && target.id) { setLoungePost({ id: target.id, _deeplink: true }); go("lounge-detail"); return; }
+    if (target.requestId && (target.screen === "escrow" || target.screen === "bidstatus")) {
+      setBidViewRequestId(target.requestId); go(target.screen); return;
+    }
+    if (target.screen === "review") {
+      // 완료/후기 알림 → 내 견적(진행/완료) 목록에서 후기 작성 진입(컨텍스트 안전 확보).
+      if (target.requestId) setBidViewRequestId(target.requestId);
+      setScreen(activeRole === "company" ? "dashboard" : "timeline"); return;
+    }
+    if (target.screen) setScreen(target.screen);
+  };
+
   useEffect(() => {
     if (screen === "admin" && activeRole !== "admin") setScreen("home");
     if (screen === "dashboard" && activeRole !== "company") setScreen("home");
@@ -2490,7 +2518,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <BrandLockup size={32} />
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
               {/* 로그아웃 버튼은 실수 터치 방지를 위해 마이페이지(내정보)로 이동됨 */}
-              <NotificationBell user={user} />
+              <NotificationBell user={user} onNavigate={handleNotifNavigate} />
             </div>
           </div>
           <div style={{ display:"flex" }}>
@@ -4017,7 +4045,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>대화</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>파트너와 나눈 이야기</div>
               </div>
-              <NotificationBell user={user} />
+              <NotificationBell user={user} onNavigate={handleNotifNavigate} />
             </div>
 
             {isAllEmpty && (
@@ -4305,7 +4333,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         {screen==="my" && (
           <div>
             <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:4 }}>
-              <NotificationBell user={user} />
+              <NotificationBell user={user} onNavigate={handleNotifNavigate} />
             </div>
             {UX_BETA ? (
               <MyPageTopBeta

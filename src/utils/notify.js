@@ -29,6 +29,8 @@ export const NOTIF_META = {
   BID_RECEIVED:          { tier: NOTIF_TIER.PROGRESS, icon: "📋", priority: "HIGH" },
   BID_ALL_IN:            { tier: NOTIF_TIER.PROGRESS, icon: "📋", priority: "HIGH" },
   QUOTE_DEADLINE:        { tier: NOTIF_TIER.PROGRESS, icon: "⏰", priority: "HIGH" },
+  FINAL_QUOTE_ARRIVED:   { tier: NOTIF_TIER.PROGRESS, icon: "📋", priority: "HIGH" },
+  SITE_VISIT_REQUESTED:  { tier: NOTIF_TIER.PROGRESS, icon: "📐", priority: "HIGH" },
   CONTRACT_CREATED:      { tier: NOTIF_TIER.PROGRESS, icon: "📄", priority: "HIGH" },
   CONTRACT_CONFIRMED:    { tier: NOTIF_TIER.PROGRESS, icon: "📄", priority: "HIGH" },
   CONSTRUCTION_STARTED:  { tier: NOTIF_TIER.PROGRESS, icon: "🏗️", priority: "HIGH" },
@@ -118,14 +120,30 @@ export async function sendTieredNotification({
 }
 
 // 알림 탭 → 이동할 화면 결정 (STEP3: 알림 탭 시 해당 화면 이동)
+//   타입별 직접 매핑(요청 흐름): 최종견적→bidstatus, 계약/진행→escrow, 완료/후기→review.
+//   related_id 는 소비자 진행 알림 기준 request_id 이므로 requestId 로 함께 전달한다.
 export function notifNavTarget(n) {
   if (!n) return null;
+  const t = n.type;
+  const rid = n.related_id ?? null;
+
+  // 최종견적 도착/현장견적 → 견적 화면(BidStatusScreen)
+  if (t === "FINAL_QUOTE_ARRIVED" || t === "FINAL_QUOTE_SUBMITTED" || t === "SITE_VISIT_REQUESTED")
+    return { screen: "bidstatus", requestId: rid };
+  // 계약 체결/생성, 착공/중간 진행 → 에스크로(진행) 화면
+  if (t === "CONTRACT_CREATED" || t === "COMPANY_SELECTED" || t === "CONSTRUCTION_STARTED" || t === "ESCROW_MID_CHECK")
+    return { screen: "escrow", requestId: rid };
+  // 공사 완료/정산/후기 요청 → 리뷰 작성(내 견적 목록 경유)
+  if (t === "CONSTRUCTION_DONE" || t === "SETTLEMENT_DONE" || t === "REVIEW_REQUEST" || t === "REVIEW_REQUEST_FOLLOWUP")
+    return { screen: "review", requestId: rid };
+
+  // ── 폴백: tier 기반 ──
   const tier = tierOf(n.type);
   switch (tier) {
     case NOTIF_TIER.PROGRESS:
     case NOTIF_TIER.TRUST:
       // 견적/계약/에스크로/후기 → 내 거래 화면
-      if (n.related_type === "contract" || n.related_type === "escrow") return { screen: "escrow", id: n.related_id };
+      if (n.related_type === "contract" || n.related_type === "escrow") return { screen: "escrow", requestId: rid };
       return { screen: "my" };
     case NOTIF_TIER.LOUNGE:
       if (n.related_type === "lounge_post" && n.related_id) return { screen: "lounge-detail", id: n.related_id };

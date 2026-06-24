@@ -36,7 +36,7 @@ function relTime(iso) {
 
 const PREVIEW_COUNT = 2; // 마이페이지 알림함 미리보기 2개(나머지는 '더보기'). UI 표시 전용.
 
-export default function NotificationInbox({ user, onRead }) {
+export default function NotificationInbox({ user, onRead, onNavigate }) {
   const userId = user?.id ?? null;
   const [items, setItems]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,10 +60,13 @@ export default function NotificationInbox({ user, onRead }) {
   const unread = items.filter(n => !n.is_read).length;
 
   const handleTap = async (n) => {
-    if (n.is_read) return;
-    setItems(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x));
-    try { await markNotificationRead(n.id); } catch {}
-    onRead?.();
+    // 읽음 처리(미읽음일 때만) 후 알림 종류에 맞는 화면으로 이동.
+    if (!n.is_read) {
+      setItems(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x));
+      try { await markNotificationRead(n.id); } catch {}
+      onRead?.();
+    }
+    onNavigate?.(n);
   };
 
   const handleAllRead = async () => {
@@ -115,7 +118,7 @@ export default function NotificationInbox({ user, onRead }) {
                     padding: `${S.sm}px ${S.md}px`, borderRadius: R.lg,
                     background: n.is_read ? C.surface2 : C.brandL,
                     border: `1px solid ${n.is_read ? C.bgWarm : C.brandM}`,
-                    cursor: n.is_read ? "default" : "pointer",
+                    cursor: "pointer",
                   }}>
                   <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
                     background: n.is_read ? C.bg : C.surface,

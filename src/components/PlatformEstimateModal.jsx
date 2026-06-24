@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { createEstimate, updateEstimate, submitEstimate, uploadFile } from "../lib/supabase";
+import { createEstimate, updateEstimate, submitEstimate, uploadFile, createNotification } from "../lib/supabase";
 import { formatDueRemaining } from "../constants/policy";
 import EstimateCoachPanel from "./growth/EstimateCoachPanel";       // Space OS · AI 코치(라이브, Add Only)
 import EstimateAnalysisResult from "./growth/EstimateAnalysisResult"; // Space OS · 성실견적 분석 결과(제출 후)
@@ -225,6 +225,20 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
     const { data, error } = await submitEstimate(id, job.siteVisit?.id ?? null, job.bid.request_id, userId);
     setSaving(false);
     if (error) { alert("제출 실패: " + error.message); return; }
+    // 의뢰인에게 '최종견적 도착' 알림 — 결제(계약) 알림보다 먼저 발생시켜 확인→결제 흐름을 유도(Add Only).
+    // 결제/계약 알림은 결제 완료 시점에 별도 발생하므로 여기서는 계약 알림을 만들지 않는다.
+    const consumerId = job.request?.user_id ?? job.request?.userId ?? null;
+    if (consumerId) {
+      createNotification({
+        userId:      consumerId,
+        type:        "FINAL_QUOTE_ARRIVED",
+        title:       "최종견적이 도착했습니다",
+        message:     "고객님, 업체가 최종견적을 보냈어요. 확인 후 결제를 진행해주세요. 📋",
+        relatedId:   job.bid.request_id,
+        relatedType: "request",
+        priority:    "HIGH",
+      }).catch(() => {});
+    }
     const updated = { ...job, estimate: data, siteVisit: job.siteVisit ? { ...job.siteVisit, status: "estimate_submitted" } : job.siteVisit };
     onChange(updated);
     // Space OS 성실견적 분석 결과 표시(제출/RPC/금액 로직은 위에서 이미 완료 — 분석은 표시 전용).
