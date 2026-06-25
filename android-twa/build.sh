@@ -4,7 +4,7 @@
 #
 # STEP 0: Set your actual Vercel deployment URL
 VERCEL_URL="gonggan-market.vercel.app"   # ← change if your domain is different
-PACKAGE_ID="com.gongganmarket.app"
+PACKAGE_ID="com.gonggansai.gongganmarket"
 KEYSTORE="gonggan-release.keystore"
 KEY_ALIAS="gonggan-market"
 KEY_PASS="GongganMarket2026!"

@@ -3,7 +3,7 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.gongganmarket.app",
+      "package_name": "com.gonggansai.gongganmarket",
       "sha256_cert_fingerprints": [
         "B2:F5:E5:66:60:D8:12:10:E3:BE:72:A7:66:F6:29:DA:2D:EB:E4:A0:D6:21:28:91:DC:FB:4C:91:60:E5:31:D5"
       ]
