@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.GongganMarket" parent="Theme.AppCompat.NoActionBar">
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
+    <!--
+      TWA 런처 액티비티 전용 테마. AppCompat/AndroidX/Material 의존성 없이
+      프레임워크 기본 Material 테마(API 21+, minSdk 21 호환)를 사용한다.
+      색상·배경 의도는 기존과 동일(브랜드 그린/베이지) — android: 접두사
+      프레임워크 attr로만 지정.
+    -->
+    <style name="Theme.GongganMarket" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/colorPrimary</item>
+        <item name="android:colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="android:colorAccent">@color/colorAccent</item>
         <item name="android:windowBackground">@color/colorBackground</item>
     </style>
 </resources>
