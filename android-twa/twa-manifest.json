@@ -1,5 +1,5 @@
 {
-  "packageId": "com.gongganmarket.app",
+  "packageId": "com.gonggansai.gongganmarket",
   "host": "gonggan-market.vercel.app",
   "name": "공간마켓",
   "launcherName": "공간마켓",
@@ -35,6 +35,6 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "minSdkVersion": 19,
+  "minSdkVersion": 21,
   "targetSdkVersion": 34
 }
