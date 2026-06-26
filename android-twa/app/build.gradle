@@ -10,8 +10,8 @@ android {
         applicationId "com.gonggansai.gongganmarket"
         minSdk 21
         targetSdk 35
-        versionCode 3
-        versionName "1.0.2"
+        versionCode 4
+        versionName "1.0.3"
     }
 
     signingConfigs {
@@ -37,5 +37,5 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.2'
 }
