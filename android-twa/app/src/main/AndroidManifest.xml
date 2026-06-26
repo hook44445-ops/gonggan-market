@@ -31,18 +31,25 @@
                 android:name="android.support.customtabs.trusted.DEFAULT_URL"
                 android:value="@string/default_url" />
 
+            <!--
+              상태바/네비게이션바 색상 메타데이터는 androidbrowserhelper가
+              getInt()로 읽어 "리소스 ID"로 사용한다(getColor(id) 호출). 따라서
+              반드시 android:resource 로 선언해야 한다. android:value 로 넣으면
+              해석된 색상 정수가 리소스 ID로 오인되어 Resources$NotFoundException
+              으로 실행 즉시 크래시한다.
+            -->
             <!-- Status bar color matching brand green -->
             <meta-data
                 android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
-                android:value="@color/colorPrimary" />
+                android:resource="@color/colorPrimary" />
             <meta-data
                 android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR_DARK"
-                android:value="@color/colorPrimaryDark" />
+                android:resource="@color/colorPrimaryDark" />
 
             <!-- Navigation bar -->
             <meta-data
                 android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
-                android:value="@color/colorPrimary" />
+                android:resource="@color/colorPrimary" />
 
             <!-- Deep-link intent filter for Digital Asset Links verification -->
             <intent-filter android:autoVerify="true">
