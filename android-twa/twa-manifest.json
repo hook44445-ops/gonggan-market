@@ -35,6 +35,6 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "minSdkVersion": 21,
-  "targetSdkVersion": 34
+  "minSdkVersion": 23,
+  "targetSdkVersion": 35
 }
