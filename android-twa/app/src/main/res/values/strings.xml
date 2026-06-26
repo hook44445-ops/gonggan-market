@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">공간마켓</string>
-    <!-- IMPORTANT: Replace with your actual Vercel deployment URL -->
-    <string name="default_url">https://gonggan-market.vercel.app/</string>
-    <string name="asset_host">gonggan-market.vercel.app</string>
+    <!-- 정식 production 도메인 (sitemap.xml canonical). TWA는 이 URL의 최신 웹앱을 로드한다. -->
+    <string name="default_url">https://gongganmarket.com/</string>
+    <string name="asset_host">gongganmarket.com</string>
     <string name="asset_statements">
         [{
-          \"include\": \"https://gonggan-market.vercel.app/.well-known/assetlinks.json\"
+          \"include\": \"https://gongganmarket.com/.well-known/assetlinks.json\"
         }]
     </string>
 </resources>
