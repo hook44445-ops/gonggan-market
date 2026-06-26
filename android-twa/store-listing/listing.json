@@ -5,8 +5,8 @@
   "full_description": "공간마켓은 고객과 인테리어 업체를 안전하게 연결하는 중개 플랫폼입니다.\n\n■ 의뢰인에게\n• 검증된 업체(서류·보험·시공 이력 확인)에게만 견적 요청\n• 공사비는 단계 확인 후에만 정산되는 에스크로 구조\n• 계약 범위, 시공 사진, 대화 기록이 모두 저장됩니다\n\n■ 업체에게\n• 에스크로로 예치된 검증된 의뢰인만 연결\n• 착공·중간·완료 단계마다 안정적으로 정산\n• 시공 기록이 분쟁 시 증거 자료가 됩니다\n\n■ 단계별 에스크로 정산\n1단계(착공) 10% → 2단계(중간) 20% → 3단계(완료) 40% → 4단계(정산) 30%\n\n공간마켓은 양쪽이 모두 고객입니다.",
   "category": "LIFESTYLE",
   "content_rating": "Everyone",
-  "privacy_policy_url": "https://gonggan-market.vercel.app/privacy",
-  "website_url": "https://gonggan-market.vercel.app",
+  "privacy_policy_url": "https://gongganmarket.com/privacy",
+  "website_url": "https://gongganmarket.com",
   "email": "support@gongganmarket.com",
   "phone": "",
   "screenshots_required": {

@@ -3,7 +3,7 @@
 # Prerequisites: Android SDK (sdkmanager, adb), Java 21+, Node.js 18+
 #
 # STEP 0: Set your actual Vercel deployment URL
-VERCEL_URL="gonggan-market.vercel.app"   # ← change if your domain is different
+VERCEL_URL="gongganmarket.com"   # 정식 production 도메인 (TWA가 로드하는 최신 서비스 URL)
 PACKAGE_ID="com.gonggansai.gongganmarket"
 KEYSTORE="gonggan-release.keystore"
 KEY_ALIAS="gonggan-market"
