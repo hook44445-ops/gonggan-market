@@ -111,6 +111,7 @@ import {
   getNotifications,
   getReviewByRequest,
   getUnreadChatCounts,
+  getRoomsWithMessages,
   fetchMyChatRequests,
   fetchReceivedChatRequests,
   fetchAcceptedReceivedChatRequests,
@@ -2106,11 +2107,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
   // C-4: 채팅 안읽음 개수(room_id별). roomId = `${user.id}_${companyId}` (ChatScreen 규칙과 동일).
   const [unreadByRoom, setUnreadByRoom] = useState({});
+  // 대화홈에 "실제 메시지가 있는 방"만 노출하기 위한 room 집합(읽기 전용).
+  const [roomsWithMessages, setRoomsWithMessages] = useState(() => new Set());
   const refreshUnreadChats = async () => {
-    if (!user?.id || user?.isGuest) { setUnreadByRoom({}); return; }
+    if (!user?.id || user?.isGuest) { setUnreadByRoom({}); setRoomsWithMessages(new Set()); return; }
     const roomIds = (companies ?? []).map(c => `${user.id}_${c.id}`);
     const { data } = await getUnreadChatCounts(roomIds, user.id);
     setUnreadByRoom(data ?? {});
+    const { data: roomSet } = await getRoomsWithMessages(roomIds);
+    setRoomsWithMessages(roomSet ?? new Set());
   };
   // 진입/대화목록 전환/채팅방 이탈 시 갱신(과도한 폴링 없음).
   useEffect(() => {
@@ -4104,7 +4109,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const totalLoungeRequests = loungeReceivedReqs.length + pendingSent.length;
           const totalLoungeOngoing = loungeAcceptedReqs.length + loungeSentReqs.filter(r => r.status === "accepted").length;
           // 회사 채팅: 내 목록에서 나간(숨긴) 업체 제외(soft-hide)
-          const visibleCompanies = companies.filter(c => !hiddenCompanyChats.includes(c.id));
+          // 대화홈에는 "실제 채팅방(메시지 1건 이상)이 생성된 업체"만 노출한다.
+          // 과거에는 모든 활성 업체를 그대로 카드로 만들어, 채팅이 없어도 테스트업체 등이
+          // 기본 카드로 떴다. roomsWithMessages(읽기 전용 조회)로 실제 방만 통과시킨다.
+          const visibleCompanies = companies.filter(c =>
+            !hiddenCompanyChats.includes(c.id) && roomsWithMessages.has(`${user.id}_${c.id}`)
+          );
           const isAllEmpty = totalLoungeRequests === 0 && totalLoungeOngoing === 0 && visibleCompanies.length === 0;
           const sectionTitle = (label) => (
             <div style={{ fontSize:13, fontWeight:800, color:C.text2, margin:`${S.xl}px 0 ${S.sm}px` }}>{label}</div>
