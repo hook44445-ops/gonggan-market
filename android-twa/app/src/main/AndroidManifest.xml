@@ -12,6 +12,14 @@
         android:name="com.google.android.gms.permission.AD_ID"
         tools:node="remove" />
 
+    <!--
+      웹푸시(FCM) 알림을 휴대폰 알림바에 표시하기 위한 권한.
+      Android 13(API 33)+ 에서 알림 표시에 POST_NOTIFICATIONS 런타임 권한이 필요하다.
+      알림 전송/수신은 웹앱의 service worker(firebase-messaging-sw.js)와 아래
+      DelegationService(TWA 알림 위임)가 담당한다.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -72,6 +80,21 @@
         <meta-data
             android:name="asset_statements"
             android:resource="@string/asset_statements" />
+
+        <!--
+          TWA 알림 위임 서비스. 웹앱(PWA)이 service worker 로 표시하는 웹푸시 알림을
+          이 앱의 알림으로 휴대폰 알림바에 노출시킨다(Chrome 가 아닌 앱 명의 표시).
+          androidbrowserhelper 의 DelegationService(=TrustedWebActivityService 확장)를
+          그대로 사용하며 별도 네이티브 코드는 필요 없다.
+        -->
+        <service
+            android:name="com.google.androidbrowserhelper.trusted.DelegationService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
 
     </application>
 

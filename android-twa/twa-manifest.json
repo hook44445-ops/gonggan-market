@@ -11,7 +11,7 @@
   "navigationDividerColor": "#F5F1EA",
   "navigationDividerColorDark": "#F5F1EA",
   "backgroundColor": "#F5F1EA",
-  "enableNotifications": false,
+  "enableNotifications": true,
   "startUrl": "/",
   "iconUrl": "https://gongganmarket.com/icons/icon-512.svg",
   "maskableIconUrl": "https://gongganmarket.com/icons/icon-512.svg",
