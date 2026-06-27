@@ -1004,6 +1004,20 @@ export const createNotification = async ({ userId, type, title, message, related
   return result;
 };
 
+// 회원탈퇴(계정 삭제) — 서버(api/delete-account)에서 익명화 + soft-delete 처리.
+// 본인 확인을 위해 userId 와 등록 전화번호(phone)를 함께 전송한다.
+// 반환: { ok, status, success?, error? }. 진행 중 프로젝트가 있으면 status=409, error="IN_PROGRESS_PROJECT".
+export const deleteUserAccount = async (userId, phone) => {
+  const res = await fetch("/api/delete-account", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, phone }),
+  });
+  let body = null;
+  try { body = await res.json(); } catch { /* 응답 본문 없음 허용 */ }
+  return { ok: res.ok, status: res.status, ...(body ?? {}) };
+};
+
 export const getUserNotifications = (userId, { unreadOnly = false, limit = 30 } = {}) => {
   let q = supabase
     .from("notifications")
