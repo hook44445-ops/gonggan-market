@@ -3812,15 +3812,19 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     {editing ? `${editLabel} 교체` : "지역 선택"}
                   </div>
                   {editing && (
-                    <div style={{ fontSize:12, color:C.text3, marginBottom:S.lg }}>새 지역을 선택하면 이 칩이 교체돼요</div>
+                    <div style={{ fontSize:12, color:C.text3, marginBottom:S.lg }}>현재 위치를 기준으로 지역을 변경합니다.</div>
                   )}
-                  <button onClick={onExploreRegion}
-                    style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, fontSize:14, fontWeight:800, color:C.brand, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
-                    🔎 {editing ? "다른 지역 선택해 교체하기" : "다른 지역 둘러보기"}
-                  </button>
+                  {/* 교체(편집)모드에서는 "현재 위치로 변경" 단일 버튼만 노출(UI 단순화).
+                      검색/둘러보기 버튼은 +지역 추가(비편집) 흐름에서만 유지. */}
+                  {!editing && (
+                    <button onClick={onExploreRegion}
+                      style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, fontSize:14, fontWeight:800, color:C.brand, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
+                      🔎 다른 지역 둘러보기
+                    </button>
+                  )}
                   <button onClick={onAddRegionByGps} disabled={gpsLoading}
                     style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
-                    📍 {gpsLoading ? "현재 위치 확인 중..." : (editing ? "현재 위치로 교체하기" : "현재 위치로 관심지역 추가")}
+                    📍 {gpsLoading ? "현재 위치 확인 중..." : (editing ? "현재 위치로 변경" : "현재 위치로 관심지역 추가")}
                   </button>
                   {!editing && (
                     <button onClick={onAddRegionManual}
