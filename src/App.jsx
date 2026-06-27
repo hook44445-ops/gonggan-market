@@ -7,6 +7,7 @@ import LandingScreen from "./screens/LandingScreen";
 import LegalScreen from "./screens/LegalScreen";
 import PartnerLandingScreen from "./screens/PartnerLandingScreen";
 import DeleteAccountScreen from "./screens/DeleteAccountScreen";
+import DownloadScreen from "./screens/DownloadScreen";
 import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { getUserByPhone, verifyOperatorPin } from "./lib/supabase";
@@ -264,6 +265,13 @@ export default function App() {
       return (
         <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
           <DeleteAccountScreen />
+        </ErrorBoundary>
+      );
+    }
+    if (_staticPath === "/download") {
+      return (
+        <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
+          <DownloadScreen />
         </ErrorBoundary>
       );
     }
