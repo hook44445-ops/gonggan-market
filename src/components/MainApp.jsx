@@ -4148,8 +4148,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {isAllEmpty && (
               <div style={{ textAlign:"center", padding:"60px 20px" }}>
                 <div style={{ fontSize:40, marginBottom:12 }}>💬</div>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text2, marginBottom:6 }}>아직 주고받은 메시지가 없어요</div>
-                <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>대화를 신청하거나 수락하면 이곳에 표시됩니다.</div>
+                <div style={{ fontSize:15, fontWeight:700, color:C.text2, marginBottom:6 }}>아직 시작된 대화가 없습니다.</div>
+                <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>업체와 상담을 시작하면 이곳에 대화가 표시됩니다.</div>
               </div>
             )}
 
