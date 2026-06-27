@@ -370,6 +370,19 @@ export const getUnreadChatCounts = async (roomIds, readerId) => {
   return { data: counts, error: null };
 };
 
+// 메시지가 1건이라도 존재하는 room 집합(읽기 전용) — 대화홈에서 "실제 생성된 방"만
+// 노출하기 위한 필터용. room_id 저장 규칙/스키마는 변경하지 않고 조회만 한다.
+export const getRoomsWithMessages = async (roomIds) => {
+  const ids = (roomIds ?? []).filter(Boolean);
+  if (ids.length === 0) return { data: new Set(), error: null };
+  const { data, error } = await supabase
+    .from("chats")
+    .select("room_id")
+    .in("room_id", ids);
+  if (error) return { data: new Set(), error };
+  return { data: new Set((data ?? []).map((r) => r.room_id)), error: null };
+};
+
 export const subscribeToChatRoom = (roomId, callback) =>
   supabase
     .channel(`chat:${roomId}`)
