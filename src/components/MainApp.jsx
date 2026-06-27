@@ -4801,6 +4801,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   )}
                 </div>
               )}
+              {/* 회원탈퇴 — Google Play 계정 삭제 정책 대응 (/delete-account 진입) */}
+              <div style={{ borderTop: `1px solid ${C.bgWarm}` }}>
+                <button onClick={() => { window.location.href = "/delete-account"; }}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: `${S.sm}px ${S.lg}px`, background: "none", border: "none", cursor: "pointer",
+                    fontFamily: "inherit", textAlign: "left" }}>
+                  <span style={{ fontSize: 11.5, color: C.text4 }}>회원탈퇴</span>
+                  <span style={{ fontSize: 13, color: C.text4 }}>›</span>
+                </button>
+              </div>
             </div>
 
             {/* 앱 정보 / 약관 — 경량 Footer (Apple Settings 느낌 · 문의→개인정보→약관 순) */}
