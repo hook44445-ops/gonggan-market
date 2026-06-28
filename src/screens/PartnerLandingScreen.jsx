@@ -641,6 +641,10 @@ export default function PartnerLandingScreen() {
               광고비·중개비·플랫폼 수수료 걱정 없이<br />
               시공에만 집중하세요.
             </p>
+            {/* 브랜드 비전(준비 중 방향성) — 성실한 업체 우대 철학을 자연스럽게 전달(기능 약속/토큰 노출 없음) */}
+            <p style={{ margin: "-6px 0 20px", fontSize: 13.5, color: "rgba(201,168,76,0.85)", lineHeight: 1.7, fontWeight: 600 }}>
+              성실한 활동은 더 많은 기회로 이어집니다.
+            </p>
             {/* V1.5 핵심 가치제안 — 광고비 0원 / 월정액 0원 / 계약 성사 시에만 4.4% / 검증된 고객만 연결 */}
             <div style={{
               background: "rgba(201,168,76,0.1)", border: `1px solid rgba(201,168,76,0.35)`,

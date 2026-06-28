@@ -59,6 +59,10 @@ export default function GrowthModal({ open, onClose, level = 1, totalXp = 0, xpT
 
         <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 1.7, marginBottom: 22 }}>
           성실한 기록일수록<br />더 많은 XP를 받을 수 있습니다.
+          {/* 브랜드 비전(준비 중 방향성) — 성실한 파트너 우대 철학. 기능 약속/토큰 정책 노출 없음. */}
+          <div style={{ marginTop: 10, fontSize: 11.5, color: "rgba(127,168,224,0.9)", fontWeight: 600 }}>
+            성실한 활동은 더 많은 기회로 이어집니다.
+          </div>
         </div>
 
         <button
