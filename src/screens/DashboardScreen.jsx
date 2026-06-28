@@ -648,12 +648,6 @@ export default function DashboardScreen({
         {tab === "activity" && (
           <SpaceActivityRecord companyId={currentUser?.id ?? null} ownerId={currentUser?.ownerId ?? null} title="공간 활동기록" selfView />
         )}
-
-        {/* 브랜드 철학 결론 — 업체 화면 하단 한 줄(담백, 배너/강조 아님). 보상·정책·알고리즘 미언급. */}
-        <div style={{ textAlign:"center", padding:"32px 24px 12px", fontSize:12.5, color:C.text3, lineHeight:1.85 }}>
-          소박하고, 촌스러워도 괜찮습니다.<br/>
-          우리가 중요하게 생각하는 것은 신뢰, 성실, 실력입니다.
-        </div>
       </div>
 
       <GrowthModal open={showGrowth} onClose={() => setShowGrowth(false)}
