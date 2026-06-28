@@ -919,6 +919,20 @@ export const getAdminLogs = () => {
   return supabase.from("admin_logs").select("*").order("created_at", { ascending: false });
 };
 
+// 관리자 read-only: 라운지 대화 신청 전체 조회(상태/토큰 차감 표시용).
+// 신규 DB/RPC 없이 기존 lounge_chat_requests 를 SELECT 만 한다. RLS 가 admin 전수
+// 조회를 막으면 빈 배열이 반환될 수 있다(graceful). 이름 join 은 FK 모호성/실패
+// 위험을 피해 생략하고, 식별자만 노출한다.
+export const getAdminLoungeChatRequests = ({ limit = 200 } = {}) => {
+  const isAdmin = typeof window !== "undefined" && localStorage.getItem("admin_authed") === "true";
+  if (!isAdmin) return Promise.resolve({ data: [], error: null });
+  return supabase
+    .from("lounge_chat_requests")
+    .select("id, post_id, requester_id, target_id, status, token_charged, accepted_at, created_at, requester_left_at, target_left_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+};
+
 // ── Early Partner ─────────────────────────────────────────────────────────────
 
 export const setEarlyPartner = (companyId, joinedAt) => {

@@ -53,6 +53,7 @@ import ProjectEvidenceManagement from "../components/ProjectEvidenceManagement";
 import GpsTrustDashboard from "../components/GpsTrustDashboard";
 import EvidenceTimelineDashboard from "../components/EvidenceTimelineDashboard";
 import AdminCategoryNav from "../components/AdminCategoryNav";
+import AdminChatOverview from "./admin/AdminChatOverview";
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
@@ -2930,6 +2931,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["lounge",         "라운지관리"],
     ["lounge_seeding", "라운지 시딩"],
     ["reports",        "신고관리"],
+    ["chat_overview",  "채팅/대화 관리"],
     ["direct_deal",    "직거래 의심"],
     ["operator_setting", "운영자 설정"],
     ["project_flow",   "GPS 흐름관리"],
@@ -4550,6 +4552,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {mainTab === "tools" && (
               <AdminCleanupTool adminUserId={user?.id ?? null} showToast={showToast} />
             )}
+
+            {mainTab === "chat_overview" && <AdminChatOverview adminId={user?.id} />}
 
             {mainTab === "admin_logs" && <AdminLogView />}
 
