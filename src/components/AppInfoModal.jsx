@@ -22,15 +22,9 @@ export default function AppInfoModal({ onClose }) {
       }}>
         <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
 
-        <div style={{ display:"flex", alignItems:"center", gap:S.sm, marginBottom:S.lg }}>
+        <div style={{ display:"flex", alignItems:"center", gap:S.sm, marginBottom:S.xl }}>
           <div style={{ fontSize:22 }}>📱</div>
           <div style={{ fontSize:18, fontWeight:900, color:C.text1 }}>공간마켓</div>
-        </div>
-
-        {/* 브랜드 마무리 철학 — 담백한 한 문장(보상/정책/알고리즘 미언급). 업체·고객 공통 접점. */}
-        <div style={{ fontSize:13.5, color:C.text2, lineHeight:1.8, marginBottom:S.xl }}>
-          화려하지 않아도 괜찮습니다.<br/>
-          공간마켓은 신뢰·성실·실력으로 오래가는 공간을 함께 만들어갑니다.
         </div>
 
         <div style={{ background:C.bg, borderRadius:R.md, padding:S.lg, border:`1px solid ${C.bgWarm}` }}>
