@@ -398,6 +398,8 @@ export default function DashboardScreen({
                 textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
                 <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginBottom:5 }}>진행 중인 공사가 없습니다</div>
                 <div style={{ fontSize:12, color:C.text3 }}>새로운 견적 요청을 확인해보세요</div>
+                {/* 성장 여정(활동 단계) — 브랜드 철학. 기능 약속/보상/노출정책 미언급. */}
+                <div style={{ fontSize:11.5, color:C.brand, fontWeight:600, marginTop:10 }}>좋은 시공은 다음 고객을 만듭니다.</div>
               </div>
             )}
 
