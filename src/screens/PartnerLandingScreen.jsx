@@ -645,11 +645,6 @@ export default function PartnerLandingScreen() {
             <p style={{ margin: "-6px 0 20px", fontSize: 13.5, color: "rgba(201,168,76,0.85)", lineHeight: 1.7, fontWeight: 600 }}>
               성실한 활동은 더 많은 기회로 이어집니다.
             </p>
-            {/* 가입 전 심리적 부담 완화 — 브랜드 철학(담백, 강조 아님). 보상/정책/알고리즘 미언급. */}
-            <p style={{ margin: "0 0 22px", fontSize: 13.5, color: "rgba(255,255,255,0.65)", lineHeight: 1.75 }}>
-              소박하고, 촌스러워도 괜찮습니다.<br />
-              우리가 중요하게 생각하는 것은 신뢰, 성실, 실력입니다.
-            </p>
             {/* V1.5 핵심 가치제안 — 광고비 0원 / 월정액 0원 / 계약 성사 시에만 4.4% / 검증된 고객만 연결 */}
             <div style={{
               background: "rgba(201,168,76,0.1)", border: `1px solid rgba(201,168,76,0.35)`,
