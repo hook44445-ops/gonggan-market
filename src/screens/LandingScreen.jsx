@@ -566,6 +566,10 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <p style={{ fontSize: 14, lineHeight: 1.8, color: C.text2, margin: 0 }}>
             검증된 정보와 투명한 진행 과정을 통해 더 좋은 공간을 만드는 경험을 제공합니다.
           </p>
+          {/* 브랜드 마무리 철학 — 담백한 한 문장(보상/정책/알고리즘 미언급) */}
+          <p style={{ fontSize: 14.5, fontWeight: 700, color: C.brand, lineHeight: 1.7, margin: "20px 0 0" }}>
+            좋은 공간은 좋은 사람에게서 시작됩니다.
+          </p>
         </div>
       </div>
 
