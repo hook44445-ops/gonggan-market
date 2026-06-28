@@ -196,11 +196,13 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             }}>
               공간마켓
             </div>
+            {/* 브랜드 선언 — Hero 첫인상(담백, 광고처럼 크게 X). 하단 소개 중복은 제거. */}
             <div style={{
-              fontSize: 11, fontWeight: 500, color: C.text3,
-              letterSpacing: "0.04em",
+              fontSize: 12.5, fontWeight: 500, color: C.text3,
+              lineHeight: 1.7, letterSpacing: "0.01em",
             }}>
-              공간이 연결되는 곳, 믿을 수 있는 거래
+              소박하고, 촌스러운 플랫폼입니다.<br/>
+              <span style={{ color: C.brand, fontWeight: 600 }}>우리가 중요하게 생각하는 것은 신뢰, 성실, 실력입니다.</span>
             </div>
             {/* 공간보호 상시 노출 */}
             <div style={{ marginTop: 12 }}>
@@ -535,11 +537,6 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
       <div style={{ padding: "44px 20px", background: C.bg }}>
         <div style={{ maxWidth: 480, margin: "0 auto" }}>
           <div style={{ textAlign: "center", fontSize: 22, fontWeight: 900, color: C.brand, marginBottom: 16 }}>공간마켓</div>
-          {/* 브랜드 선언 — 메인 랜딩의 철학 소개(담백, 과한 강조 없음). 보상/정책/알고리즘 미언급. */}
-          <p style={{ fontSize: 14.5, lineHeight: 1.85, color: C.text2, textAlign: "center", margin: "0 0 20px" }}>
-            소박하고, 촌스러운 플랫폼입니다. 화려한 광고보다, 작은 약속을 지키는 사람들이 오래 사랑받는 공간을 만들고 싶었습니다.<br />
-            <span style={{ color: C.brand, fontWeight: 700 }}>우리가 중요하게 생각하는 것은 신뢰, 성실, 실력입니다.</span>
-          </p>
           <p style={{ fontSize: 14, lineHeight: 1.8, color: C.text2, margin: "0 0 12px" }}>
             공간마켓은 우리 동네 집수리·인테리어·리모델링 업체를 쉽고 편하게 비교하고 상담할 수 있는 플랫폼입니다.
           </p>
