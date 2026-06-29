@@ -1616,15 +1616,23 @@ export const getProjectCheckpoints = (requestId, actorId = null) =>
 // 관리자 GPS 흐름관리(현장흐름 관리) — 11단계 진행상황 통합 조회(읽기 전용).
 // migration 047 의 admin_project_flow_list RPC. adminId 는 코드관리자 'admin'(sentinel)
 // 또는 실제 admin uuid. 검색/상태/기간/limit 옵션은 서버에서 처리, 세부 필터는 화면 계산.
-export const getAdminProjectFlow = (adminId, opts = {}) =>
-  supabase.rpc("admin_project_flow_list", {
-    p_admin_id:  adminId,
+export const getAdminProjectFlow = (adminId, opts = {}) => {
+  // 운영 관리자(코드 로그인)는 세션 user.id 가 'admin' sentinel 이 아니라 원래 계정
+  // id 로 유지된다(MainApp 의 onLogin({...user, role:'admin'})). 그런데 RPC
+  // admin_project_flow_list 는 p_admin_id 가 'admin' sentinel 이거나 role='admin'
+  // uuid 일 때만 허용하므로, 일반 계정 id 가 넘어가면 ADMIN_ONLY 로 거부된다.
+  // admin_authed 세션이면 RPC 가 허용하는 'admin' sentinel 을 전송해 조회를 복구한다.
+  // (p_admin_id 는 권한 검증에만 쓰이고 결과 필터에는 영향이 없어 회귀가 없다.)
+  const isAuthed = typeof window !== "undefined" && localStorage.getItem("admin_authed") === "true";
+  return supabase.rpc("admin_project_flow_list", {
+    p_admin_id:  isAuthed ? "admin" : adminId,
     p_search:    opts.search ?? null,
     p_status:    opts.status ?? null,
     p_date_from: opts.dateFrom ?? null,
     p_date_to:   opts.dateTo ?? null,
     p_limit:     opts.limit ?? 200,
   });
+};
 
 // ── Partner Leads (파트너 랜딩 상담신청 + 승인 프로세스) — migration 065 ───────
 // 제출: 비로그인 업체가 /partner 에서 호출(anon). 조회/상태변경: admin sentinel('admin')
