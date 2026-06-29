@@ -2950,7 +2950,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "transactions",  label: "거래",         icon: "💳", perm: "can_transactions",
       tabs: [["transactions"], ["payments"], ["settlements"], ["disputes"]] },
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
-      tabs: [["project_flow", "프로젝트증빙관리"], ["direct_deal", "직거래 의심"]] },
+      tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
       tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_seeding"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
