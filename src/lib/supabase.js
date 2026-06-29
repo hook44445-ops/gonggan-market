@@ -433,6 +433,24 @@ export const uploadFile = async (bucket, path, file) => {
   return urlData.publicUrl;
 };
 
+// ── 채팅 사진(프로젝트 기록/증빙) ───────────────────────────────────────────────
+// 사진은 "일반 채팅 메시지"로 전송한다(기존 sendMessage 재사용 — chats 스키마/RLS/
+// 채팅 로직 무변경). text 에 마커 + 공개 URL 을 담아 저장하고, 렌더 시 마커를 감지해
+// 이미지로 표시한다. 업로더(sender_id)/시간(created_at)/방(room_id)/메시지ID(id)는
+// chats 행에서 그대로 파생되고, 프로젝트(request/contract)는 room_id 로 연결된다.
+// ※ Storage 버킷 'chat-photos'(public, 업로드 허용)가 필요하다(대시보드 1회 설정).
+export const CHAT_PHOTO_PREFIX = "[[photo]]";
+export const isChatPhoto  = (text) => typeof text === "string" && text.startsWith(CHAT_PHOTO_PREFIX);
+export const chatPhotoUrl = (text) => (isChatPhoto(text) ? text.slice(CHAT_PHOTO_PREFIX.length) : null);
+
+export const uploadChatPhoto = async (file, roomId, userId) => {
+  const safeRoom = String(roomId || "room").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const ext  = (String(file?.name || "img.jpg").split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const rand = Math.random().toString(36).slice(2, 8);
+  const path = `${safeRoom}/${userId || "guest"}_${Date.now()}_${rand}.${ext}`;
+  return uploadFile("chat-photos", path, file); // → publicUrl (실패 시 throw)
+};
+
 // ── Portfolios ────────────────────────────────────────────────────────────────
 
 export const getPortfolios = (companyId) =>
