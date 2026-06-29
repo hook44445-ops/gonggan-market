@@ -4,7 +4,7 @@ import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import { detectDirectDealKeywords } from "../constants/directDeal";
 import { BADGES } from "../constants/badges";
-import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId, markChatRoomRead, leaveLoungeChat } from "../lib/supabase";
+import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId, markChatRoomRead, leaveLoungeChat, CHAT_PHOTO_PREFIX, isChatPhoto, chatPhotoUrl, uploadChatPhoto } from "../lib/supabase";
 
 const REPORT_REASONS = [
   "외부 연락처(카톡/전화) 요구",
@@ -38,6 +38,10 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
   const roomId = roomIdProp ?? `${user?.id ?? "guest"}_${company?.id ?? "0"}`;
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoErr, setPhotoErr] = useState(null);
+  const [viewerUrl, setViewerUrl] = useState(null);
+  const photoInputRef = useRef(null);
   const [typing, setTyping] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDone, setReportDone] = useState(false);
@@ -236,6 +240,24 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
 
     // typing indicator disappears once realtime delivers the reply (or after timeout)
     if (!isLounge) setTimeout(() => setTyping(false), 3000);
+  };
+
+  // 사진 전송 — 일반 메시지(text=마커+URL)로 전송. 텍스트 흐름과 독립(additive).
+  // Storage 버킷 'chat-photos' 필요. 렌더는 realtime 으로 갱신됨(텍스트와 동일).
+  const sendPhotos = async (files) => {
+    const list = Array.from(files || []).filter(f => f && f.type && f.type.startsWith("image/"));
+    if (list.length === 0 || uploadingPhoto) return;
+    setUploadingPhoto(true);
+    for (const f of list) {
+      try {
+        const url = await uploadChatPhoto(f, roomId, user?.id);
+        await sendMessage(roomId, user?.id ?? "guest", "user", `${CHAT_PHOTO_PREFIX}${url}`);
+      } catch {
+        setPhotoErr("사진 업로드에 실패했어요. 잠시 후 다시 시도해주세요.");
+        setTimeout(() => setPhotoErr(null), 3000);
+      }
+    }
+    setUploadingPhoto(false);
   };
 
   return (
@@ -463,7 +485,14 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
                 padding:"10px 14px", fontSize:14, lineHeight:1.55,
                 whiteSpace:"pre-wrap", wordBreak:"break-word", overflowWrap:"anywhere",
                 border:msg.from==="user"?"none":`1px solid ${C.bgWarm}`,
-                boxShadow:msg.from==="user"?SHADOW.brand:SHADOW.soft }}>{msg.text}</div>
+                boxShadow:msg.from==="user"?SHADOW.brand:SHADOW.soft }}>
+                {isChatPhoto(msg.text) ? (
+                  <img src={chatPhotoUrl(msg.text)} alt="채팅 사진"
+                    onClick={() => setViewerUrl(chatPhotoUrl(msg.text))}
+                    style={{ display:"block", maxWidth:200, maxHeight:240, borderRadius:10,
+                      objectFit:"cover", cursor:"pointer" }} />
+                ) : msg.text}
+              </div>
               <div style={{ fontSize:10, color:C.text4, marginTop:3,
                 padding:"0 2px", textAlign:msg.from==="user"?"right":"left" }}>{msg.time}</div>
             </div>
@@ -503,6 +532,14 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
         <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0,
           padding:`${S.sm}px ${S.md}px calc(${S.sm}px + env(safe-area-inset-bottom))`,
           display:"flex", gap:S.sm, alignItems:"flex-end", boxShadow:"0 -2px 10px rgba(28,23,18,0.04)" }}>
+          {/* 사진 첨부 — 갤러리 선택/카메라 촬영, 여러 장. 텍스트 흐름과 독립. */}
+          <input ref={photoInputRef} type="file" accept="image/*" multiple style={{ display:"none" }}
+            onChange={e => { sendPhotos(e.target.files); e.target.value = ""; }} />
+          <button onClick={() => photoInputRef.current?.click()} aria-label="사진 첨부" disabled={uploadingPhoto}
+            style={{ width:46, height:46, flexShrink:0, borderRadius:R.full, background:C.bgWarm, border:"none",
+              color:C.text2, fontSize:20, cursor:uploadingPhoto?"default":"pointer", lineHeight:1 }}>
+            {uploadingPhoto ? "⏳" : "📷"}
+          </button>
           <input value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && send()} placeholder="메시지를 입력하세요"
             style={{ flex:1, minWidth:0, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.pill,
@@ -520,6 +557,26 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
         </>
       )}
       <style>{`@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}`}</style>
+
+      {/* 사진 업로드 실패 토스트 */}
+      {photoErr && (
+        <div style={{ position:"fixed", left:"50%", bottom:80, transform:"translateX(-50%)",
+          background:"rgba(28,23,18,0.92)", color:"#fff", padding:"10px 16px", borderRadius:R.pill,
+          fontSize:12.5, fontWeight:600, zIndex:2100, maxWidth:"86%", textAlign:"center" }}>{photoErr}</div>
+      )}
+
+      {/* 원본 사진 뷰어 (확대 + 다운로드) */}
+      {viewerUrl && (
+        <div onClick={() => setViewerUrl(null)} style={{ position:"fixed", inset:0,
+          background:"rgba(0,0,0,0.92)", zIndex:2200, display:"flex", flexDirection:"column",
+          alignItems:"center", justifyContent:"center", gap:16, padding:16 }}>
+          <img src={viewerUrl} alt="원본 사진" onClick={e => e.stopPropagation()}
+            style={{ maxWidth:"94%", maxHeight:"80%", objectFit:"contain", borderRadius:8 }} />
+          <a href={viewerUrl} download target="_blank" rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{ color:"#fff", fontSize:14, fontWeight:700, textDecoration:"underline" }}>다운로드</a>
+        </div>
+      )}
     </div>
   );
 }

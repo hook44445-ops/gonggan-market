@@ -14,6 +14,8 @@ import {
   getDirectDealReports,
   getAdminLogs,
   getProjectChatSummary,
+  isChatPhoto,
+  chatPhotoUrl,
 } from "../../lib/supabase";
 
 const C = {
@@ -84,6 +86,7 @@ export default function AdminChatOverview({ adminId }) {
   const [err, setErr] = useState(null);
   const [expanded, setExpanded] = useState(null);
   const [chatCache, setChatCache] = useState({}); // request_id -> summary
+  const [viewerUrl, setViewerUrl] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -170,17 +173,50 @@ export default function AdminChatOverview({ adminId }) {
               <div style={{ fontSize: 11.5, color: C.text3, marginTop: 5 }}>
                 {row.area ?? "—"} · {row.space_type ?? "—"} · req {short(row.request_id)} · 후기 {reviewN} · {fmt(row.created_at)}
               </div>
-              {expanded === row.request_id && (
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${C.line}` }}>
-                  <div style={{ fontSize: 12, color: C.text2, marginBottom: 4 }}>
-                    최근 메시지: {sum ? (sum.last ? `${sum.recent?.[0]?.text ?? ""} (${fmt(sum.last)})` : "메시지 없음") : "불러오는 중…"}
+              {expanded === row.request_id && (() => {
+                const cps = row.checkpoints || [];
+                const recent = sum?.recent || [];
+                const photos = recent.filter((m) => isChatPhoto(m.text));
+                const lastText = recent.find((m) => !isChatPhoto(m.text))?.text;
+                const gpsN = cps.filter((c) => c.lat != null && c.lng != null).length;
+                const cpPhotoN = cps.reduce((n, c) => n + (Array.isArray(c.photos) ? c.photos.length : 0), 0);
+                const approvalN = cps.filter((c) => ["start", "construction_start", "middle", "mid_inspection", "complete", "completion"].includes(c.checkpoint_type)).length;
+                const contractN = cps.some((c) => c.checkpoint_type === "contract") || row.escrow ? 1 : 0;
+                return (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${C.line}` }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ fontSize: 12, color: C.text2, marginBottom: 6 }}>
+                    최근 메시지: {sum ? (lastText ?? (sum.last ? "(사진)" : "메시지 없음")) : "불러오는 중…"} {sum?.last ? `· ${fmt(sum.last)}` : ""}
+                  </div>
+                  {/* 채팅 사진(프로젝트 기록) 썸네일 */}
+                  {photos.length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 11.5, fontWeight: 800, color: C.brand, marginBottom: 4 }}>📷 채팅 사진 {photos.length}장</div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {photos.slice(0, 12).map((m, i) => (
+                          <img key={i} src={chatPhotoUrl(m.text)} alt="채팅 사진"
+                            onClick={() => setViewerUrl(chatPhotoUrl(m.text))}
+                            style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8,
+                              border: `1px solid ${C.line}`, cursor: "pointer" }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* 증빙 카운트 통합 */}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+                    <Badge label={`GPS ${gpsN}`} />
+                    <Badge label={`단계사진 ${cpPhotoN}`} />
+                    <Badge label={`채팅사진 ${photos.length}`} tone={C.brand} bg="#e8f0ea" />
+                    <Badge label={`계약 ${contractN}`} />
+                    <Badge label={`단계승인 ${approvalN}`} />
+                    <Badge label={`리뷰 ${row.review_count ?? 0}`} />
                   </div>
                   <div style={{ fontSize: 11.5, color: C.text3 }}>
-                    메시지 수: {sum?.count ?? "—"} · 단계 증빙: {(row.checkpoints || []).map(c => c.checkpoint_type).join(", ") || "없음"}
+                    메시지 수: {sum?.count ?? "—"} · 단계: {cps.map((c) => c.checkpoint_type).join(", ") || "없음"}
                     {row.escrow?.transaction_status ? ` · 에스크로:${row.escrow.transaction_status}` : ""}
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
           );
         })}
@@ -247,6 +283,19 @@ export default function AdminChatOverview({ adminId }) {
           </div>
         ))}
       </Section>
+
+      {/* 원본 사진 뷰어 (확대 + 업로드 정보 + 다운로드) */}
+      {viewerUrl && (
+        <div onClick={() => setViewerUrl(null)} style={{ position: "fixed", inset: 0,
+          background: "rgba(0,0,0,0.9)", zIndex: 3000, display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: 14, padding: 16 }}>
+          <img src={viewerUrl} alt="원본" onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "94%", maxHeight: "80%", objectFit: "contain", borderRadius: 8 }} />
+          <a href={viewerUrl} download target="_blank" rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{ color: "#fff", fontSize: 14, fontWeight: 700, textDecoration: "underline" }}>다운로드</a>
+        </div>
+      )}
     </div>
   );
 }
