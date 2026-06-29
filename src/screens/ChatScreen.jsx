@@ -252,9 +252,11 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       try {
         const url = await uploadChatPhoto(f, roomId, user?.id);
         await sendMessage(roomId, user?.id ?? "guest", "user", `${CHAT_PHOTO_PREFIX}${url}`);
-      } catch {
-        setPhotoErr("사진 업로드에 실패했어요. 잠시 후 다시 시도해주세요.");
-        setTimeout(() => setPhotoErr(null), 3000);
+      } catch (e) {
+        // 원인 자가진단을 위해 실제 오류를 노출(버킷 없음/정책/경로 구분).
+        const detail = e?.message || e?.error_description || String(e);
+        setPhotoErr(`사진 업로드 실패: ${detail}`);
+        setTimeout(() => setPhotoErr(null), 6000);
       }
     }
     setUploadingPhoto(false);
