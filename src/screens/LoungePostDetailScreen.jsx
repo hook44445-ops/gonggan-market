@@ -1026,8 +1026,10 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         )}
       </div>
 
-      {/* 메시지 신청 버튼 — 본인 글, seed 글에는 숨김 (라운지는 메시지 우선 흐름) */}
-      {!isOwn && !isSeedPost && (
+      {/* 메시지 신청 버튼 — 본인 글, seed 글, 게스트(비로그인)에는 숨김.
+          게스트는 콘텐츠를 둘러본 뒤 '로그인하고 댓글 달기'로 자연 유입되도록
+          하단 메시지 CTA 자체를 노출하지 않는다(메시지 신청은 로그인 후 기능). */}
+      {!isOwn && !isSeedPost && !isGuest && (
         <div style={{ background: C.surface, padding: S.xl, marginBottom: S.sm, borderRadius: R.xl, margin: `0 8px ${S.sm}px` }}>
           <button
             onClick={() => {
