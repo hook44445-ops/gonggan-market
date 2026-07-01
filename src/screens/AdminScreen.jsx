@@ -56,6 +56,7 @@ import AdminCategoryNav from "../components/AdminCategoryNav";
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
+import LoungeInsightsDashboard from "../components/LoungeInsightsDashboard";
 import { toE164KR } from "../lib/testAccounts";
 
 // 라운지 시딩 카테고리 — 통합 Category Master(LOUNGE_CATEGORIES) 기준. 작성 가능 카테고리만 사용.
@@ -3338,6 +3339,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["review_admin",   "리뷰 어드민"],
     ["seed",           "포토후기 시딩"],
     ["lounge",         "라운지관리"],
+    ["lounge_insights","라운지 인사이트"],
     ["lounge_seeding", "라운지 시딩"],
     ["reports",        "신고관리"],
     ["direct_deal",    "직거래 의심"],
@@ -3360,7 +3362,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_seeding"], ["reports"]] },
+      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
@@ -4527,6 +4529,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 }}
               />
             )}
+
+            {/* ── Lounge Insights 탭 — 관리자 전용 콘텐츠 성과 대시보드(읽기 전용, 자체 페칭) ── */}
+            {mainTab === "lounge_insights" && <LoungeInsightsDashboard />}
 
             {/* ── Lounge Seeding 탭 (A안) ── 상단: 신규 시딩 등록/수정(seed_lounge_posts) · 하단: 기존 운영글 관리(lounge_posts.is_seed) ── */}
             {mainTab === "lounge_seeding" && (
