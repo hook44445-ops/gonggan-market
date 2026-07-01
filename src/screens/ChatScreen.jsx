@@ -66,16 +66,19 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
   const revealIdentity  = !isLounge || reqStatus === "accepted";       // 수락 후에만 실프로필/실명 공개
   const canType         = !isLounge || reqStatus == null || reqStatus === "accepted" || (isWaitingAccept && isRequester);
 
-  // 라운지: 같은 consumer 타입끼리 대화하므로 sender_id 기준으로 내/상대 구분
-  const mapRow = (row) => isLounge
-    ? {
-        id: row.id,
-        from: row.sender_type === "system" ? "system" : (row.sender_id === user?.id ? "user" : "company"),
-        text: row.text,
-        time: fmtTime(row.created_at),
-        createdAt: row.created_at,
-      }
-    : normalizeMsg(row);
+  // 발신자 구분은 sender_id 기준으로 통일(라운지=consumer끼리, 거래=고객/업체 모두).
+  // send() 가 sender_type 을 항상 "user" 로 저장하므로 sender_type 기반 구분은 양쪽을
+  // 가려내지 못해 정렬이 깨졌다. system 메시지만 sender_type 으로 판별한다.
+  // 로드·실시간(realtime) 모두 이 mapRow 를 공통 사용 → 동일 정렬 보장.
+  const mapRow = (row) => ({
+    id: row.id,
+    from: row.sender_type === "system"
+      ? "system"
+      : (row.sender_id != null && row.sender_id === user?.id ? "user" : "company"),
+    text: row.text,
+    time: fmtTime(row.created_at),
+    createdAt: row.created_at,
+  });
 
   // 라운지: 상대 공간온도/관심 + 업체 여부 조회 (실패 시 표시만 생략)
   //  · 수락 전(pending/종료)에는 상대 실프로필을 조회/노출하지 않는다(익명 유지). 수락 시점에 reqStatus 변화로 재실행.
@@ -285,14 +288,21 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
             ) : (
             <div style={{ display:"flex", gap:5, alignItems:"center", flexWrap:"wrap" }}>
               {partnerProfile?.spaceTemp != null && (
-                <span style={{ fontSize:10.5, color:C.brand, fontWeight:700 }}>🌡️ {Number(partnerProfile.spaceTemp).toFixed(1)}°</span>
+                <span style={{ fontSize:10.5, color:C.brand, fontWeight:700, whiteSpace:"nowrap" }}>🌡️ {Number(partnerProfile.spaceTemp).toFixed(1)}°</span>
               )}
               {(partnerProfile?.interests ?? []).slice(0, 2).map(it => (
-                <span key={it} style={{ fontSize:10.5, color:C.text3 }}>#{it}</span>
+                <span key={it} style={{ fontSize:10.5, color:C.text3, whiteSpace:"nowrap" }}>#{it}</span>
               ))}
               {partnerCompany && (() => {
                 const bm = partnerCompany.badge ? (BADGES[partnerCompany.badge] ?? BADGES.basic) : null;
-                return bm ? <span style={{ fontSize:10.5, color:bm.color, fontWeight:700 }}>{bm.icon} 공간보증 {bm.label}</span> : null;
+                // 공간보증 배지 — 한 줄 pill(세로 글자 깨짐 방지: nowrap + 넘치면 말줄임).
+                return bm ? (
+                  <span style={{ fontSize:10, color:bm.color, fontWeight:800, whiteSpace:"nowrap",
+                    background:`${bm.color}1A`, borderRadius:999, padding:"1px 8px", lineHeight:1.6,
+                    maxWidth:170, overflow:"hidden", textOverflow:"ellipsis", display:"inline-block", verticalAlign:"middle" }}>
+                    {bm.icon} 공간보증 {bm.label}
+                  </span>
+                ) : null;
               })()}
             </div>
             )
