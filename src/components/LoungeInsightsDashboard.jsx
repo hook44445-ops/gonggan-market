@@ -121,13 +121,19 @@ export default function LoungeInsightsDashboard() {
     setErr(null);
     try {
       // 대량이어도 안전하도록 상한 지정(무거운 통계 쿼리 대신 단순 select 후 클라 집계).
-      const [postsRes, reportsRes] = await Promise.all([
-        adminGetLoungePosts({ limit: 5000 }),
-        getLoungeReports().catch(() => ({ data: [] })),
-      ]);
+      // supabase 쿼리 빌더는 thenable 이라 await 는 되지만 .catch() 는 없다(→ .catch is not a function).
+      // 따라서 Promise.all + .catch 대신, 각 쿼리를 await 로 처리하고 신고 조회는 별도 try/catch 로 격리한다.
+      const postsRes = await adminGetLoungePosts({ limit: 5000 });
       if (postsRes.error) setErr(postsRes.error.message ?? "글 조회 실패");
       setPosts(Array.isArray(postsRes.data) ? postsRes.data : []);
-      setReports(Array.isArray(reportsRes.data) ? reportsRes.data : []);
+
+      // 신고(lounge_reports) 조회는 실패해도 대시보드 전체를 막지 않도록 격리(빈 배열 fallback).
+      let reportsData = [];
+      try {
+        const reportsRes = await getLoungeReports();
+        reportsData = Array.isArray(reportsRes?.data) ? reportsRes.data : [];
+      } catch { reportsData = []; }
+      setReports(reportsData);
     } catch (e) {
       setErr(e?.message ?? String(e));
       setPosts([]);
