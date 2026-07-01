@@ -2299,10 +2299,15 @@ export const recordAppVisit = async ({ userId = null, role = null, visitorKey = 
   if (!IS_SUPABASE_READY || !visitorKey) return { error: null };
   const ua = (typeof navigator !== "undefined" && navigator.userAgent) ? String(navigator.userAgent).slice(0, 300) : null;
   try {
-    return await supabase.from("user_visits").upsert(
-      { user_id: userId, role, visitor_key: visitorKey, screen, user_agent: ua },
-      { onConflict: "visitor_key,visit_date", ignoreDuplicates: true },
-    );
+    // security-definer RPC(086)로 기록 — anon 직접 INSERT 의 GRANT/RLS/onConflict 불확실성 제거.
+    // 서버에서 (visitor_key, visit_date) ON CONFLICT DO NOTHING 로 하루 1회만 저장.
+    return await supabase.rpc("record_visit", {
+      p_visitor_key: visitorKey,
+      p_user_id:     userId,
+      p_role:        role,
+      p_screen:      screen,
+      p_user_agent:  ua,
+    });
   } catch (e) {
     return { error: e };
   }
