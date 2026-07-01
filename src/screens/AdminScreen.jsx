@@ -427,6 +427,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
   const [posts, setPosts] = useState(initPosts);
   useEffect(() => { setPosts(initPosts); }, [initPosts]); // eslint-disable-line react-hooks/exhaustive-deps
   const [postFilter, setPostFilter] = useState("all"); // all | hidden | deleted
+  const [postSearch, setPostSearch] = useState(""); // 제목/본문 검색 — 기본 30건 슬라이스 밖의 글(예: 테스트 글)도 찾기 위함
   const [postReasonId, setPostReasonId] = useState(null);
   const [postReason, setPostReason] = useState("");
   const [postActing, setPostActing] = useState(false);
@@ -552,7 +553,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
       {/* ── Post List ── */}
       <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📝 게시글 관리</div>
-        <div style={{ display: "flex", gap: S.xs, marginBottom: S.md }}>
+        <div style={{ display: "flex", gap: S.xs, marginBottom: S.sm }}>
           {[["all","전체"],["hidden","숨김"],["deleted","삭제됨"]].map(([v,l]) => (
             <button key={v} onClick={() => setPostFilter(v)}
               style={{ padding: "5px 12px", borderRadius: R.full, border: `1px solid ${postFilter===v ? C.brand : C.bgWarm}`,
@@ -560,14 +561,22 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
                 fontWeight: postFilter===v ? 800 : 500, fontSize: 11, cursor: "pointer" }}>{l}</button>
           ))}
         </div>
+        <input value={postSearch} onChange={e => setPostSearch(e.target.value)}
+          placeholder="제목/본문 검색 (예: 테스트 글 찾기)"
+          style={{ width: "100%", boxSizing: "border-box", padding: "7px 12px", marginBottom: S.md,
+            border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 12, outline: "none", fontFamily: "inherit" }} />
         {(() => {
+          const q = postSearch.trim().toLowerCase();
           const fp = posts.filter(p => {
-            if (postFilter === "hidden")  return p.is_hidden && !p.is_deleted;
-            if (postFilter === "deleted") return p.is_deleted;
-            return !p.is_deleted;
+            if (postFilter === "hidden")  { if (!(p.is_hidden && !p.is_deleted)) return false; }
+            else if (postFilter === "deleted") { if (!p.is_deleted) return false; }
+            else if (p.is_deleted) return false;
+            if (!q) return true;
+            return (p.title ?? "").toLowerCase().includes(q) || (p.content ?? "").toLowerCase().includes(q);
           });
           if (fp.length === 0) return <div style={{ textAlign: "center", padding: "20px 0", color: C.text3, fontSize: 12 }}>해당 게시글이 없습니다</div>;
-          return fp.slice(0,30).map(p => {
+          // 검색 중엔 30건 제한을 완화(기본 목록에 안 보이는 오래된/테스트 글도 찾을 수 있도록).
+          return fp.slice(0, q ? 100 : 30).map(p => {
             const showReason = postReasonId === p.id;
             return (
               <div key={p.id} style={{ borderBottom: `1px solid ${C.bg}`, paddingBottom: S.sm, marginBottom: S.sm, opacity: p.is_deleted ? 0.6 : 1 }}>

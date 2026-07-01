@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect } from 'react';
-import { C, R, S, SHADOW } from '../constants';
+import { C, R, S, SHADOW, REGIONS, CITY_DISTRICTS } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
 import { useLounge } from '../hooks/useLounge';
 import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead, createLoungeNotification, getHotLoungePosts } from '../lib/supabase';
@@ -406,6 +406,20 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
 
   const [hotPosts, setHotPosts] = useState([]);
 
+  // 정렬 토글(최신순/인기순) — 기존 '전체/인기' 카테고리 탭과 별도 축. 'latest'=기존 순서 그대로(회귀 없음),
+  // 'popular'=조회+좋아요*3+댓글*5 가중합(loungePopularityScore, 인기 탭과 동일 로직) 재정렬.
+  const [sortMode, setSortMode] = useState('latest'); // 'latest' | 'popular'
+  // 우리동네 필터 — 대분류(시/도) → 소분류(구/군) 2단계. 기본값 '전체'(미선택).
+  const [filterCity, setFilterCity] = useState('');
+  const [filterDistrict, setFilterDistrict] = useState('');
+  const regionMatches = (post) => {
+    if (!filterCity) return true;
+    const r = String(post?.region ?? '').trim();
+    if (!r) return false;
+    if (!filterDistrict) return r === filterCity || r.startsWith(`${filterCity} `);
+    return r === `${filterCity} ${filterDistrict}`;
+  };
+
   const { posts, stories, loading, storiesError, devInfo, refetch } = useLounge(category);
 
   useEffect(() => {
@@ -453,9 +467,11 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
   const allPosts = (() => {
     const merged = [...filteredExtra, ...posts]
       .filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
-      .filter(p => p.is_deleted !== true && p.is_hidden !== true);
+      .filter(p => p.is_deleted !== true && p.is_hidden !== true)
+      .filter(regionMatches);
     // 🔥 인기글 알고리즘 — 조회·좋아요·댓글·최신성 합성 점수로 전체 재정렬
-    if (isPopular) return [...merged].sort((a, b) => loungePopularityScore(b) - loungePopularityScore(a));
+    //   '인기' 카테고리 탭(기존) 또는 '인기순' 정렬 토글(신규) 중 하나라도 켜지면 동일 로직 적용.
+    if (isPopular || sortMode === 'popular') return [...merged].sort((a, b) => loungePopularityScore(b) - loungePopularityScore(a));
     return merged;
   })();
 
@@ -468,6 +484,17 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
   const mergedPosts   = [...extraPosts,   ...posts  ]
     .filter((p, i, arr) => arr.findIndex(x => x.id === p.id) === i)
     .filter(p => p.is_deleted !== true && p.is_hidden !== true);
+
+  // 🏆 오늘의 인기글 — 최근 24시간 내 글 중 가중합(loungePopularityScore) 상위 1~2개, 피드 최상단 고정.
+  //   '전체' 탭에서만 노출(mergedPosts 가 전체 카테고리를 포함하는 시점과 동일 · 기존 🔥 추천글과 동일 게이팅).
+  //   지역 필터가 선택돼 있으면 '우리동네' 오늘의 인기글로 함께 좁혀 보여준다.
+  const todayHotPosts = category === 'all'
+    ? [...mergedPosts]
+        .filter(regionMatches)
+        .filter(p => p.created_at && (Date.now() - new Date(p.created_at).getTime()) <= 24 * 3600 * 1000)
+        .sort((a, b) => loungePopularityScore(b) - loungePopularityScore(a))
+        .slice(0, 2)
+    : [];
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 90 }}>
@@ -515,6 +542,41 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
 
+      {/* 정렬 토글(최신순/인기순) + 우리동네 필터 — 카테고리 탭 아래, 피드 상단 고정 배치 */}
+      <div style={{ background: C.surface, borderBottom: `1px solid ${C.bgWarm}`, padding: `${S.sm}px ${S.xl}px`,
+        display: 'flex', alignItems: 'center', gap: S.sm, flexWrap: 'wrap' }}>
+        {!isPopular && (
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+            {[['latest', '최신순'], ['popular', '인기순']].map(([v, l]) => (
+              <button key={v} onClick={() => setSortMode(v)} style={{
+                padding: '5px 12px', borderRadius: R.full,
+                border: sortMode === v ? 'none' : `1px solid ${C.bgWarm}`,
+                background: sortMode === v ? C.brand : C.bg,
+                color: sortMode === v ? '#fff' : C.text3,
+                fontWeight: sortMode === v ? 800 : 500, fontSize: 12, cursor: 'pointer',
+              }}>{l}</button>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexShrink: 0 }}>
+          <span style={{ fontSize: 12, color: C.text3, alignSelf: 'center', marginRight: 2 }}>📍 우리동네</span>
+          <select value={filterCity} onChange={e => { setFilterCity(e.target.value); setFilterDistrict(''); }}
+            style={{ padding: '5px 8px', borderRadius: R.full, border: `1px solid ${C.bgWarm}`, background: C.bg,
+              color: filterCity ? C.text1 : C.text3, fontSize: 12, fontFamily: 'inherit', outline: 'none' }}>
+            <option value="">전체</option>
+            {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          {filterCity && (
+            <select value={filterDistrict} onChange={e => setFilterDistrict(e.target.value)}
+              style={{ padding: '5px 8px', borderRadius: R.full, border: `1px solid ${C.bgWarm}`, background: C.bg,
+                color: filterDistrict ? C.text1 : C.text3, fontSize: 12, fontFamily: 'inherit', outline: 'none' }}>
+              <option value="">전체</option>
+              {(CITY_DISTRICTS[filterCity] ?? []).map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          )}
+        </div>
+      </div>
+
       {SHOW_DEBUG_UI && (
         <>
           <NotifsDevPanel notifs={notifs} notifsLoading={notifsLoading} notifsError={notifsError} userId={user?.id} />
@@ -531,6 +593,37 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         onDeleteStory={onDeleteStory}
         onAuthorChat={onStoryAuthorChat}
       />
+
+      {/* 🏆 오늘의 인기글 — 최근 24시간 가중합 상위 1~2개, 피드 최상단 고정. 🔥 추천글(수동 큐레이션)과 시각적으로 구분. */}
+      {todayHotPosts.length > 0 && (
+        <div style={{ padding: `${S.md}px ${S.xl}px`, background: 'linear-gradient(135deg, #FFF8E8, #FFF3D6)', borderBottom: `1px solid ${C.bgWarm}` }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#8A6D2A', marginBottom: S.sm, display: 'flex', alignItems: 'center', gap: 4 }}>
+            🏆 오늘의 인기글
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#B08040', background: '#FFF3D6', border: '1px solid #E8C468', borderRadius: R.full, padding: '1px 8px', marginLeft: 4 }}>24시간</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {todayHotPosts.map(p => (
+              <button key={p.id} onClick={() => onPostClick?.(p)}
+                style={{ display: 'flex', alignItems: 'center', gap: S.sm, width: '100%', textAlign: 'left',
+                  background: '#fff', border: `1px solid #E8C468`, borderRadius: R.md, padding: '9px 11px', cursor: 'pointer' }}>
+                {p.image_urls?.[0] && (
+                  <img src={p.image_urls[0]} alt={p.title || '오늘의 인기글'} loading="lazy"
+                    style={{ width: 44, height: 44, borderRadius: R.sm, objectFit: 'cover', flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text1,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {p.title || (p.content ?? '').slice(0, 30)}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>
+                    👁 {(p.view_count ?? 0).toLocaleString()} · ❤️ {p.like_count ?? 0} · 💬 {p.comment_count ?? 0}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isPopular && (
         <div style={{ background: C.brandL, borderLeft: `3px solid ${C.brandM}`, padding: `${S.sm}px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.sm }}>
