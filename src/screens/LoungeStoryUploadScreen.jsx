@@ -5,7 +5,7 @@
 import { useState, useRef } from 'react';
 import { C, R, S } from '../constants';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
-import { IS_SUPABASE_READY, createLoungeStory, uploadLoungeImage } from '../lib/supabase';
+import { IS_SUPABASE_READY, createLoungeStory, uploadLoungeImage, enforceUserStoryLimit } from '../lib/supabase';
 
 const MAX_SIZE_MB = 5;
 
@@ -68,6 +68,13 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
       imageUrls = photos.map(p => p.url); // blob URL (세션 내 유효)
     }
 
+    // 운영자(관리자) 스토리는 24시간 후 자동 삭제하지 않는다(상시 노출 — 공지/이벤트/안내용).
+    // 스키마 변경 없이 만료시각을 먼 미래로 두어 getLoungeStories 의 만료 필터를 통과시킨다.
+    const isAdmin = user?.activeRole === 'admin' || user?.role === 'admin';
+    const expiresAt = isAdmin
+      ? new Date(now.getTime() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString() // 상시 노출(≈100년)
+      : new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();            // 일반 사용자 24시간
+
     const newStory = {
       id:                 storyId,
       user_id:            user?.id ?? null,
@@ -75,7 +82,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
       content:            text.trim(),
       image_urls:         imageUrls,
       is_story:           true,
-      story_expires_at:   new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      story_expires_at:   expiresAt,
       created_at:         now.toISOString(),
       category:           'daily',
       view_count:         0,
@@ -110,6 +117,8 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
       }
       setSubmitting(false);
       if (err) { setUploadError('업로드 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
+      // 일반 사용자는 항상 최근 3개만 유지(오래된 스토리부터 자동 정리). 운영자는 무제한.
+      if (!isAdmin && user?.id) enforceUserStoryLimit(user.id, 3).catch(() => {});
       onPublish?.(data ?? newStory);
     } else {
       try {

@@ -2661,6 +2661,28 @@ export const getLoungeStories = () =>
 export const createLoungeStory = (data) =>
   supabase.from("lounge_posts").insert({ ...data, is_story: true }).select().single();
 
+// 일반 사용자 스토리 보관 한도 — 항상 최근 N개(기본 3)만 유지. 초과분(가장 오래된 것부터)은
+// soft-delete(하드 삭제 아님). 운영자(무제한) 스토리에는 호출하지 않는다. DB 마이그레이션 없음.
+export const enforceUserStoryLimit = async (userId, limit = 3) => {
+  if (!userId) return;
+  const { data } = await supabase
+    .from("lounge_posts")
+    .select("id, created_at")
+    .eq("is_story", true)
+    .eq("user_id", userId)
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .gt("story_expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false });
+  const extra = (data ?? []).slice(limit);   // 최신 limit개 유지, 나머지 제거
+  for (const s of extra) {
+    await supabase
+      .from("lounge_posts")
+      .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
+      .eq("id", s.id)
+      .eq("user_id", userId);
+  }
+};
+
 export const softDeleteLoungeStory = (storyId, userId) =>
   supabase
     .from("lounge_posts")

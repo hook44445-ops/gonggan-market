@@ -25,6 +25,7 @@ import PortfolioScreen from "../screens/PortfolioScreen";
 import PortfolioScreenBeta from "../screens/PortfolioScreenBeta"; // UX Beta 업체 상세(공개/고객 뷰 · Add Only)
 import MyPageTopBeta from "./MyPageTopBeta"; // UX Beta 마이페이지 상단(Add Only)
 import { deriveLevel, responseValue } from "./company/CompanyMetrics"; // UX Beta 마이페이지 — Lv/응답 표시 파생(읽기 전용)
+import { useCompanyGrowth } from "../hooks/useCompanyGrowth"; // 메인 성장카드 LV/성실기록 단일 소스(대시보드/완료탭과 통일)
 import ReviewScreen from "../screens/ReviewScreen";
 import CustomerReviewHistoryScreen from "../screens/CustomerReviewHistoryScreen";
 import ChatScreen from "../screens/ChatScreen";
@@ -620,6 +621,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [contractId, setContractId] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
+  // 업체 성장(LV/성실기록) 단일 소스 — 메인 성장카드가 대시보드/완료탭과 동일 API·계산식을 쓰도록 통일.
+  //   ownerId(=업체 소유자 user.id) 기준으로 완료 에스크로 건수를 조회(대시보드 statsData 와 동일 입력).
+  const myGrowth = useCompanyGrowth({
+    ownerId: activeRole === "company" ? (user?.id ?? currentUser?.ownerId ?? null) : null,
+    // 대시보드(DashboardScreen)의 hasGuarantee 정의와 동일하게 맞춘다(뱃지 제외) → 동일 XP/LV.
+    hasGuarantee: currentUser?.guarantee_status === "ACTIVE" || !!currentUser?.guarantee_grade,
+  });
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
   const bidSubmitGuardRef = useRef(false); // H-2: 입찰 동시 더블서브밋 가드
@@ -3382,11 +3390,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                      보여준다. 성과 데이터는 대시보드 '통계' 탭에서 확인. (Space OS · Phase 8)
                      ※ XP/레벨/공간온도 계산 로직은 변경하지 않음 — 표시 전용. */}
               {(() => {
-                // H-1: 본인 업체(currentUser) 단일 소스. H-2: 레벨은 공유 deriveLevel 로 통일(카드/상세/마이페이지 동일 입력).
+                // 성장카드 LV/성실기록 — 대시보드/완료탭과 '동일 소스'(useCompanyGrowth:
+                //   getCompletedEscrowByCompany + computeCompanyXp/levelInfo). 로딩 전에는
+                //   currentUser 캐시로 폴백(깜빡임 최소화). 공간온도는 currentUser 단일 소스.
                 const _co = currentUser ?? {};
-                const _completed = _co.completedJobs ?? 0;
+                const _completed = myGrowth.completedCount ?? (_co.completedJobs ?? 0);
                 const _temp = _co.temp ?? 36.5;
-                const _lv = deriveLevel(_co).level;
+                const _lv = myGrowth.loading ? deriveLevel(_co).level : myGrowth.growth.level;
                 const growthStats = [
                   [`LV.${_lv}`,            "성장레벨"],
                   [`${Math.round(_temp)}°`, "공간온도"],
