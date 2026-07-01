@@ -10,7 +10,7 @@ import DeleteAccountScreen from "./screens/DeleteAccountScreen";
 import DownloadScreen from "./screens/DownloadScreen";
 import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { getUserByPhone, verifyOperatorPin } from "./lib/supabase";
+import { getUserByPhone, verifyOperatorPin, recordAppVisit } from "./lib/supabase";
 import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
 } from "./lib/deviceAuth";
@@ -18,6 +18,7 @@ import {
 const SESSION_TS_KEY   = "gonggan_login_at";
 const SESSION_USER_KEY = "gonggan_user";
 const GUEST_ID_KEY     = "gonggan_guest_id";
+const VISIT_LOGGED_KEY = "gonggan_visit_logged"; // 세션당 1회 방문 기록(sessionStorage)
 
 // 공유 URL(Deep Link) 게스트용 — localStorage 기반 guest_xxx 식별자(회원 DB 생성 없음).
 // user.id 에는 절대 넣지 않는다(uuid 타입 쿼리 보호) — 추적/세션 연속성 용도로만 보관.
@@ -150,6 +151,18 @@ export default function App() {
     } catch {}
     setLoading(false);
   }, []);
+
+  // 방문자/DAU/MAU 통계(085) — 세션당 1회 방문 기록. DB (visitor_key, visit_date) UNIQUE 로
+  //   날짜당 1행만 저장(중복 무시). 개인정보 미수집(user_id 참조·role만). 실패해도 앱 흐름 무영향.
+  useEffect(() => {
+    if (loading) return;
+    try { if (sessionStorage.getItem(VISIT_LOGGED_KEY)) return; } catch {}
+    const visitorKey = user?.id || ensureGuestId();
+    const role = user?.isGuest ? "guest" : (user?.activeRole || user?.role || null);
+    recordAppVisit({ userId: user?.id ?? null, role, visitorKey })
+      .then(() => { try { sessionStorage.setItem(VISIT_LOGGED_KEY, "1"); } catch {} })
+      .catch(() => { /* 통계 실패 무시 */ });
+  }, [loading, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 로그인 세션 유지 — 이 앱의 사용자 식별은 전화번호 OTP(서버 API) 기반의
   // localStorage 세션(gonggan_user)이며 supabase.auth 세션과 독립적이다.

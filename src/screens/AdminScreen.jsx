@@ -38,6 +38,7 @@ import {
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee,
+  getAdminVisitStats,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
 import { GUARANTEE_GRADE_MAP, GUARANTEE_STATUS_META, wonFromManwon } from "../constants/guarantee";
@@ -107,6 +108,66 @@ const BLANK_LOUNGE_SEED = {
   expert_company_name: '', expert_badge: '', expert_job: '',
   sort_order: 0, is_recommended: false, is_active: true,
 };
+
+// ── 방문자/DAU/MAU 카드 (085) — 관리자 대시보드 상단. security-definer RPC 카운트만 조회. ──
+//   마이그레이션 미적용/조회 실패 시 앱이 깨지지 않게 '준비 중'/0 fallback(관리자 화면 blank 금지).
+function AdminVisitCards({ adminUserId }) {
+  const [stats, setStats] = useState(null); // { today, d7, d30, dau, mau } | null
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data, error } = await getAdminVisitStats(adminUserId ?? "admin");
+        if (!alive) return;
+        if (error || !data) { setFailed(true); setReady(true); return; }
+        setStats(data);
+        setReady(true);
+      } catch (e) {
+        if (!alive) return;
+        try { console.error("[VISIT_STATS_FAILED]", e?.message ?? e); } catch { /* noop */ }
+        setFailed(true); setReady(true);
+      }
+    })();
+    return () => { alive = false; };
+  }, [adminUserId]);
+
+  const cards = [
+    ["오늘 방문자", stats?.today, C.brand],
+    ["최근 7일",    stats?.d7,    C.green],
+    ["최근 30일",   stats?.d30,   C.navy ?? C.brand],
+    ["DAU",         stats?.dau,   C.gold],
+    ["MAU",         stats?.mau,   C.text2],
+  ];
+
+  return (
+    <div style={{ marginBottom: S.xl }}>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>👥 방문자 현황</div>
+      {failed ? (
+        <div style={{ background: C.surface, borderRadius: R.lg, padding: S.xl, border: `1px solid ${C.bgWarm}`,
+          fontSize: 12.5, color: C.text3, lineHeight: 1.7 }}>
+          준비 중 — 방문자 통계(user_visits)를 아직 불러올 수 없습니다.<br/>
+          마이그레이션(085_user_visits.sql) 적용 후 표시됩니다.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm }}>
+          {cards.map(([label, val, color]) => (
+            <div key={label} style={{ background: C.surface, borderRadius: R.lg, padding: `${S.md}px ${S.sm}px`,
+              textAlign: "center", border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color }}>{ready ? (val ?? 0).toLocaleString("ko-KR") : "…"}</div>
+              <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ fontSize: 10.5, color: C.text4, marginTop: 6 }}>
+        방문자 = 날짜 기준 고유 방문(로그인 user 또는 익명 세션). DAU=오늘 고유 방문 · MAU=최근 30일 고유 방문.
+      </div>
+    </div>
+  );
+}
 
 // ── 리뷰 어드민 탭 ────────────────────────────────────────
 function ReviewAdminTab({ adminUserId, showToast }) {
@@ -3232,6 +3293,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── Dashboard ── */}
             {mainTab === "dashboard" && (
               <div>
+                <AdminVisitCards adminUserId={user?.id ?? null} />
                 <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📊 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
