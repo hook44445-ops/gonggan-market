@@ -84,7 +84,9 @@ export default function ChangeOrderPanel({ contractId, requestId = null, actorId
       )}
       <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🧩 추가견적</div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: S.lg }}>
-        추가견적은 원계약에 포함되지 않은 예외 작업입니다. 숨은 하자·변경 요청 등 꼭 필요한 경우에만 사용해 주세요.
+        추가견적은 기존 계약 외 변경사항을 기록하는 기능입니다.<br />
+        실제 진행 방식은 고객과 업체가 협의하여 결정할 수 있습니다.<br />
+        필요한 경우 새로운 견적요청으로 다시 진행할 수 있습니다.
       </div>
 
       {/* 목록 */}
