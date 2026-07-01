@@ -491,12 +491,25 @@ const REVIEW_EXT_FIELDS = [
   "communication_score", "quality_score", "would_recontract", "review_photos",
 ];
 
+// 계약/프로젝트 스코프 컬럼(마이그레이션 087). 미적용 DB 에서도 후기 저장이 깨지지 않도록
+// 컬럼 없음 오류 시 이 필드까지 제거하고 재시도한다(제거되면 계약단위 중복판정만 비활성 —
+// 후기 자체는 반드시 저장). 087 적용 후에는 정상 저장되어 계약 기준 중복판정이 동작한다.
+const REVIEW_SCOPE_FIELDS = ["contract_id", "customer_id"];
+const isColumnError = (res) =>
+  res.error && /column|schema cache|does not exist|PGRST204|42703/i.test(res.error.message ?? res.error.code ?? "");
+
 export const createReview = async (data) => {
   let res = await supabase.from("reviews").insert(data).select().single();
-  if (res.error && /column|schema cache|does not exist|PGRST204|42703/i.test(res.error.message ?? res.error.code ?? "")) {
+  if (isColumnError(res)) {
+    // 1차 폴백 — Part2 확장컬럼(017 미적용) 제거 후 재시도.
     const base = { ...data };
     for (const f of REVIEW_EXT_FIELDS) delete base[f];
     res = await supabase.from("reviews").insert(base).select().single();
+    if (isColumnError(res)) {
+      // 2차 폴백 — 계약 스코프 컬럼(087 미적용)까지 제거 후 재시도(후기 저장 보장).
+      for (const f of REVIEW_SCOPE_FIELDS) delete base[f];
+      res = await supabase.from("reviews").insert(base).select().single();
+    }
   }
   return res;
 };
