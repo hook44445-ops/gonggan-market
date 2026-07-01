@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────
 
 import { useState, useRef } from 'react';
-import { C, R, S, REGIONS } from '../constants';
+import { C, R, S, REGIONS, CITY_DISTRICTS } from '../constants';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
 import { IS_SUPABASE_READY, createLoungePost, updateLoungePost, uploadLoungeImage, enqueueLoungePostPush } from '../lib/supabase';
@@ -181,7 +181,11 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
   const [category,   setCategory]   = useState(editPost?.category ?? '');
   const [title,      setTitle]      = useState(editPost?.title ?? '');
   const [content,    setContent]    = useState(editPost?.content ?? '');
-  const [region,     setRegion]     = useState(editPost?.region ?? '');
+  // 지역 — 대분류(시/도) → 소분류(구/군) 2단계. 기존 저장값("서울" 또는 "서울 강남구")을 분해해 복원.
+  const [regionParts] = useState(() => String(editPost?.region ?? '').trim().split(/\s+/).filter(Boolean));
+  const [regionCity,     setRegionCity]     = useState(regionParts[0] ?? '');
+  const [regionDistrict, setRegionDistrict] = useState(regionParts[1] ?? '');
+  const region = regionCity ? (regionDistrict ? `${regionCity} ${regionDistrict}` : regionCity) : '';
   const [gender,     setGender]     = useState(editPost?.gender ?? '');
   const [ageGroup,   setAgeGroup]   = useState(editPost?.age_group ?? '');
   const [images,     setImages]     = useState(
@@ -421,10 +425,20 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         <div style={{ display: 'flex', gap: S.sm, marginBottom: S.lg, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 120 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: S.xs }}>지역 (선택)</div>
-            <select value={region} onChange={e => setRegion(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 13, background: C.surface, color: region ? C.text1 : C.text3, fontFamily: 'inherit', outline: 'none' }}>
-              <option value="">선택 안함</option>
-              {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <select value={regionCity} onChange={e => { setRegionCity(e.target.value); setRegionDistrict(''); }}
+                style={{ flex: 1, minWidth: 0, padding: '10px 12px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 13, background: C.surface, color: regionCity ? C.text1 : C.text3, fontFamily: 'inherit', outline: 'none' }}>
+                <option value="">선택 안함</option>
+                {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+              {regionCity && (
+                <select value={regionDistrict} onChange={e => setRegionDistrict(e.target.value)}
+                  style={{ flex: 1, minWidth: 0, padding: '10px 12px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 13, background: C.surface, color: regionDistrict ? C.text1 : C.text3, fontFamily: 'inherit', outline: 'none' }}>
+                  <option value="">전체</option>
+                  {(CITY_DISTRICTS[regionCity] ?? []).map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              )}
+            </div>
           </div>
           <div style={{ flex: 1, minWidth: 100 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: S.xs }}>성별 (선택)</div>
