@@ -16,6 +16,8 @@ export const SEO_CATEGORY = {
   review:   { id: 'review',      title: '실제 시공후기와 공간 이야기',     desc: '실제 시공 전후 후기와 공간 변화 이야기를 모은 공간마켓 라운지입니다.' },
   company:  { id: 'recommend',   title: '믿을 수 있는 인테리어 업체 이야기', desc: '인테리어 업체 추천과 경험담을 나누는 공간마켓 라운지입니다.' },
   moving:   { id: 'move_in',     title: '이사·입주 준비와 공간 정보',       desc: '이사·입주 준비와 새 공간 꾸미기 정보를 나누는 공간마켓 라운지입니다.' },
+  humor:    { id: 'humor',       title: '인테리어 유머',                   desc: '인테리어 현장에서 있었던 재미있는 이야기와 공감되는 에피소드를 만나보세요.' },
+  startup:  { id: 'startup',     title: '인테리어 창업 이야기',             desc: '인테리어 업체 운영, 창업, 마케팅 경험을 공유합니다.' },
 };
 
 // 내부 id → SEO 슬러그 (역매핑)
