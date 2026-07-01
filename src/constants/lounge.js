@@ -28,6 +28,7 @@ export const LOUNGE_CATEGORIES = [
   { id: 'interior',    label: '인테리어',     group: '공간' },
   { id: 'review',      label: '📸 시공후기',  group: '공간' },
   { id: 'quote_worry', label: '💬 견적고민',  group: '공간' },
+  { id: 'staff-talk',  label: '🗣️ 사장님 수다', group: '공간' },
   { id: 'room_deco',   label: '집꾸미기',     group: '공간' },
   { id: 'move_in',     label: '🏠 이사입주',  group: '공간' },
   { id: 'realestate',  label: '부동산',       group: '경제' },
@@ -47,8 +48,8 @@ export const LOUNGE_CATEGORIES = [
   { id: 'free',        label: '자유',        group: '일상' },
 ];
 
-// "더보기" 접힘 기준 — 이사입주(index 6)까지 노출, 부동산부터 접힘
-export const LOUNGE_PREVIEW_COUNT = 7;
+// "더보기" 접힘 기준 — 이사입주(index 7)까지 노출, 부동산부터 접힘
+export const LOUNGE_PREVIEW_COUNT = 8;
 
 // 비활성 카테고리 id — 게시글 노출 제외(soft, is_visible=false). 복구 시 이 목록에서 제거.
 // 반려동물(pet)·여행(travel)은 재활성화로 제거. 게임/대화해요만 비활성 유지.
