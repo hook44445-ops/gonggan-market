@@ -21,6 +21,30 @@ const fmtTime = (iso) => {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
 
+// ── 채팅 표시 이름 정책 (베타 → 정식 전환 대비 · 구조 전용) ──────────────────────
+//   현재(베타): 대화 시작 후 실명(회원명) 그대로 노출 = 기존 동작 유지.
+//   향후(정식): 프로필/본인인증 완료 후 CHAT_USE_PROFILE_NAMES=true 로만 바꾸면
+//     profile.nickname → display_name → (익명 닉네임) 순으로 전환된다.
+//     실명은 화면에 노출하지 않고 DB 내부 식별용으로만 사용한다.
+//   ⚠️ 이번 PR 은 화면 동작/ DB / Migration 변경 없음 — 표시 우선순위 '구조'만 준비.
+//      플래그가 false 인 동안 반환값은 기존 표현식과 100% 동일하다.
+const CHAT_USE_PROFILE_NAMES = false; // 정식 전환 시 true (프로필 시스템 + 본인인증 완료 후)
+
+// entity: 상대 프로필 후보(향후 profile.nickname/display_name 보유). realName: 베타 노출값(실명).
+// anonymousName: 익명 닉네임(수락 전 등). fallback: 최종 대체 문자열.
+function resolveChatDisplayName({ entity = null, realName = null, anonymousName = null, fallback = "—" } = {}) {
+  if (CHAT_USE_PROFILE_NAMES) {
+    // 정식: 프로필 닉네임 우선, 실명 미노출.
+    return entity?.profile?.nickname
+      ?? entity?.nickname
+      ?? entity?.display_name
+      ?? anonymousName
+      ?? fallback;
+  }
+  // 베타: 기존과 동일 — 실명(없으면 익명, 그다음 fallback).
+  return realName ?? anonymousName ?? fallback;
+}
+
 // 사진 메시지 파싱 — "[[photo]]<url>[ <캡션>]" 을 { url, caption } 으로 분리(렌더 전용).
 //   · URL 은 공백 없는 첫 토큰(스토리지 public URL 은 공백 없음), 그 뒤 텍스트는 캡션.
 //   · 사진만 → caption 빈문자, 사진+글 → 사진 아래 캡션 함께 출력. DB/전송 구조 무변경.
@@ -325,7 +349,13 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
         </div>
         <div style={{ minWidth:0 }}>
           <div style={{ fontSize:15, fontWeight:800, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-            {isLounge ? (revealIdentity ? (partnerCompany?.name ?? partner?.nickname ?? "—") : (partner?.nickname ?? "익명")) : (company?.name ?? "—")}
+            {/* 표시 이름은 resolveChatDisplayName 로 통일(정식 전환 대비). 베타 반환값=기존과 동일.
+                수락 전 익명(partner.nickname) 분기는 익명 정책 그대로 유지(변경 금지). */}
+            {isLounge
+              ? (revealIdentity
+                  ? resolveChatDisplayName({ entity: partnerCompany ?? partner, realName: partnerCompany?.name ?? partner?.nickname, anonymousName: partner?.nickname, fallback: "—" })
+                  : (partner?.nickname ?? "익명"))
+              : resolveChatDisplayName({ entity: company, realName: company?.name, fallback: "—" })}
           </div>
           {isLounge ? (
             !revealIdentity ? (
