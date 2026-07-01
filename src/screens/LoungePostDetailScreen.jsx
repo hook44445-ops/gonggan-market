@@ -654,6 +654,18 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       } catch {}
       if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
       if (data?.status === 'already_pending') { showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
+      // 대화 신청 알림 — 게시글 메시지 경로에도 상대(post.user_id)에게 알림 생성(댓글 경로와 동일).
+      // 신규 생성(created)일 때만 발송해 중복 알림 방지. 토큰/대화방 로직은 RPC 그대로, 알림만 추가.
+      if (data?.status === 'created') {
+        createNotification({
+          userId:      post.user_id,
+          type:        'LOUNGE_CHAT_REQUEST',
+          title:       '새 대화 신청',
+          message:     '회원님의 글에 누군가 대화를 신청했어요.',
+          relatedId:   postId,
+          relatedType: 'lounge',
+        }).catch(() => {});
+      }
       // 작성한 메시지를 방의 첫 메시지로 전송 (room_id = lounge_{request_id}, MainApp.openLoungeChatRoom과 동일 규칙)
       const requestId = data?.request_id;
       if (requestId) {
