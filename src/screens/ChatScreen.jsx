@@ -21,6 +21,17 @@ const fmtTime = (iso) => {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
 
+// 사진 메시지 파싱 — "[[photo]]<url>[ <캡션>]" 을 { url, caption } 으로 분리(렌더 전용).
+//   · URL 은 공백 없는 첫 토큰(스토리지 public URL 은 공백 없음), 그 뒤 텍스트는 캡션.
+//   · 사진만 → caption 빈문자, 사진+글 → 사진 아래 캡션 함께 출력. DB/전송 구조 무변경.
+const parseChatPhoto = (text) => {
+  const raw = chatPhotoUrl(text) ?? "";
+  const idx = raw.search(/\s/);
+  return idx === -1
+    ? { url: raw, caption: "" }
+    : { url: raw.slice(0, idx), caption: raw.slice(idx + 1).trim() };
+};
+
 const normalizeMsg = (row) => ({
   id: row.id,
   from: row.sender_type === "company" ? "company" : "user",
@@ -513,12 +524,21 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
                 whiteSpace:"pre-wrap", wordBreak:"break-word", overflowWrap:"anywhere",
                 border:msg.from==="user"?"none":`1px solid ${C.bgWarm}`,
                 boxShadow:msg.from==="user"?SHADOW.brand:SHADOW.soft }}>
-                {isChatPhoto(msg.text) ? (
-                  <img src={chatPhotoUrl(msg.text)} alt="채팅 사진"
-                    onClick={() => setViewerUrl(chatPhotoUrl(msg.text))}
-                    style={{ display:"block", maxWidth:200, maxHeight:240, borderRadius:10,
-                      objectFit:"cover", cursor:"pointer" }} />
-                ) : msg.text}
+                {isChatPhoto(msg.text) ? (() => {
+                  // 사진(+선택 캡션) — 사진만 있으면 사진만, 글이 함께면 사진 아래 글도 출력.
+                  const { url, caption } = parseChatPhoto(msg.text);
+                  return (
+                    <>
+                      <img src={url} alt="채팅 사진"
+                        onClick={() => setViewerUrl(url)}
+                        style={{ display:"block", maxWidth:200, maxHeight:240, borderRadius:10,
+                          objectFit:"cover", cursor:"pointer" }} />
+                      {caption && (
+                        <div style={{ marginTop:6, whiteSpace:"pre-wrap", wordBreak:"break-word", overflowWrap:"anywhere" }}>{caption}</div>
+                      )}
+                    </>
+                  );
+                })() : msg.text}
               </div>
               <div style={{ fontSize:10, color:C.text4, marginTop:3,
                 padding:"0 2px", textAlign:msg.from==="user"?"right":"left" }}>{msg.time}</div>
