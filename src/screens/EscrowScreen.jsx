@@ -7,7 +7,7 @@ import NotificationBell from "../components/NotificationBell";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { buildGpsMissingNote } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import EscrowCalculator from "../components/EscrowCalculator";
@@ -207,6 +207,37 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     };
     fetchContract().catch(() => {}).finally(() => setBidFetchDone(true));
   }, [request?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Bootstrap from contract_id only — 업체가 계약 알림(related_type='contract')으로
+  // contract_id 만 들고 진입한 경우(request/bid prop 없음). 위 self-fetch 는 request?.id
+  // 가 있어야 동작하므로 여기서 계약id → request/당사자 복원 후 bids(public read)로 입찰 복원.
+  useEffect(() => {
+    if (resolvedBid || request?.id) return;      // 이미 입찰 있거나 request 경로로 처리 가능
+    if (!resolvedContractId || !userId) return;  // 계약id + actor 있을 때만
+    let alive = true;
+    (async () => {
+      try {
+        const { data: info } = await contractBootstrap(resolvedContractId, userId);
+        if (!alive || !info?.request_id) return;
+        if (info.customer_id) setResolvedCustomerId(info.customer_id);
+        if (info.company_owner_id) setResolvedCompanyOwnerId(info.company_owner_id);
+        const { data: bidsData } = await getBidsForRequest(info.request_id);
+        // 명시 매칭만: selected bid → 후보가 정확히 1개일 때만(임의 first-row 금지).
+        const row = bidsData?.find(b => b.selected) ?? ((bidsData?.length === 1) ? bidsData[0] : null);
+        if (alive && row) {
+          setResolvedBid({
+            id: row.id, requestId: row.request_id, companyId: row.company_id,
+            company: { id: row.company_id, name: "업체", temp: 36.5 },
+            price: row.price, period: row.period_days,
+            material: row.material_note ?? "", comment: row.comment ?? "",
+            createdAt: row.created_at, status: row.selected ? "selected" : "pending",
+          });
+        }
+      } catch { /* noop */ }
+      finally { if (alive) setBidFetchDone(true); }
+    })();
+    return () => { alive = false; };
+  }, [resolvedContractId, resolvedBid, request?.id, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Company fetch: always run when companyId is known but name is missing/default
   // bids.company_id → users.id; companies.owner_id → users.id

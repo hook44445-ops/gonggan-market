@@ -3011,6 +3011,11 @@ export const getBidById = (bidId) =>
 export const resolveContractId = (requestId, actorId) =>
   supabase.rpc("resolve_contract_id", { p_request_id: requestId, p_actor_id: actorId });
 
+// 역방향 — 계약(escrow.id) → 요청/당사자 복원(migration 091). 업체가 계약 알림으로
+// contract_id 만 들고 에스크로 화면에 진입해도 request/bid 를 복원할 수 있게 한다.
+export const contractBootstrap = (contractId, actorId) =>
+  supabase.rpc("contract_bootstrap", { p_contract_id: contractId, p_actor_id: actorId });
+
 export const getEscrowByRequest = (requestId) =>
   supabase.from("escrow_payments")
     .select("*")
