@@ -203,11 +203,19 @@ function CreateModal({ isCompany, actorId, contractId, edit, onClose, onDone }) 
 
   const pickPhotos = async (e) => {
     const files = Array.from(e.target.files ?? []).slice(0, 3 - photos.length);
+    e.target.value = ""; // 같은 파일 재선택 허용
     if (!files.length) return;
     setUploading(true);
     const urls = [];
-    for (const f of files) {
-      try { urls.push(await uploadFile("documents", `change_orders/${contractId}/${Date.now()}_${f.name}`, f)); } catch { /* skip */ }
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      // 저장 경로는 항상 안전한 키(인덱스+확장자)로 고정 — 파일명에 공백/한글/특수문자가 있으면
+      // 스토리지가 키를 거부해 업로드가 조용히 실패하던 문제 방지(현장 확인 사진과 동일 규칙).
+      const ext = (f.name?.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      try {
+        const url = await uploadFile("documents", `change_orders/${contractId}/${Date.now()}_${i}.${ext}`, f);
+        if (url) urls.push(url);
+      } catch (err) { console.error("[CHANGE_ORDER_PHOTO_UPLOAD_FAILED]", err); }
     }
     setPhotos((p) => [...p, ...urls].slice(0, 3));
     setUploading(false);

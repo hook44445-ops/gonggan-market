@@ -430,7 +430,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
               {(m.photos?.length ?? 0) < 5 && (
                 <label style={{ position:"relative", paddingTop:"100%", borderRadius:R.sm, border:`2px dashed ${C.bgWarm}`, cursor: matUploadingId === m.id ? "wait" : "pointer", background:C.surface }}>
                   <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", color:C.text3, fontSize:16 }}>{matUploadingId === m.id ? "⏳" : "📷"}</div>
-                  <input type="file" accept="image/*" multiple disabled={matUploadingId === m.id} onChange={e => { const fl = e.target.files; e.target.value = ""; addMaterialPhotos(m.id, fl); }}
+                  <input type="file" accept="image/*" multiple disabled={matUploadingId === m.id} onChange={e => { const fl = Array.from(e.target.files ?? []); e.target.value = ""; addMaterialPhotos(m.id, fl); }}
                     style={{ position:"absolute", inset:0, opacity:0, width:"100%", height:"100%", cursor:"pointer" }} />
                 </label>
               )}
