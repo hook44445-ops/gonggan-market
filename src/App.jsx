@@ -152,16 +152,21 @@ export default function App() {
     setLoading(false);
   }, []);
 
-  // 방문자/DAU/MAU 통계(085) — 세션당 1회 방문 기록. DB (visitor_key, visit_date) UNIQUE 로
-  //   날짜당 1행만 저장(중복 무시). 개인정보 미수집(user_id 참조·role만). 실패해도 앱 흐름 무영향.
+  // 방문자/DAU/MAU 통계(085/086) — 세션당 1회 방문 기록. record_visit RPC 가 서버에서
+  //   (visitor_key, visit_date) ON CONFLICT DO NOTHING 로 하루 1행만 저장(중복 무시).
+  //   개인정보 미수집(visitor_key·role만). 실패해도 앱 흐름 무영향.
+  //   ⚠️ 세션 플래그는 '성공(error 없음)'했을 때만 세팅 — 실패 시 다음 진입에서 재시도(0건 방지).
   useEffect(() => {
     if (loading) return;
     try { if (sessionStorage.getItem(VISIT_LOGGED_KEY)) return; } catch {}
     const visitorKey = user?.id || ensureGuestId();
     const role = user?.isGuest ? "guest" : (user?.activeRole || user?.role || null);
     recordAppVisit({ userId: user?.id ?? null, role, visitorKey })
-      .then(() => { try { sessionStorage.setItem(VISIT_LOGGED_KEY, "1"); } catch {} })
-      .catch(() => { /* 통계 실패 무시 */ });
+      .then((res) => {
+        if (res && res.error) { try { console.error("[VISIT_RECORD_FAILED]", res.error?.message ?? res.error); } catch {} return; }
+        try { sessionStorage.setItem(VISIT_LOGGED_KEY, "1"); } catch {}
+      })
+      .catch((e) => { try { console.error("[VISIT_RECORD_THROW]", e?.message ?? e); } catch {} });
   }, [loading, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 로그인 세션 유지 — 이 앱의 사용자 식별은 전화번호 OTP(서버 API) 기반의
