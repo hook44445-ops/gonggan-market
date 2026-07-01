@@ -50,6 +50,18 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
+// OG 이미지 절대경로 통일 헬퍼(htmlShell 내부 계산과 JSON-LD 양쪽에서 재사용).
+function resolveOgImage(site, ogImage) {
+  return ogImage?.startsWith('http') ? ogImage : `${site}${ogImage || DEFAULT_OG_PATH}`;
+}
+
+// JSON-LD 안전 직렬화 — </script> 이스케이프로 마크업 탈출(XSS) 방지.
+function jsonLdScript(data) {
+  if (!data) return '';
+  const json = JSON.stringify(data).replace(/</g, '\\u003c');
+  return `<script type="application/ld+json">${json}</script>`;
+}
+
 function getPathParts(req) {
   let p = req.query && req.query.path;
   if (Array.isArray(p)) p = p.join('/');
@@ -66,8 +78,14 @@ function getPathParts(req) {
 }
 
 // 공통 HTML 셸
-function htmlShell({ site, canonical, robots, title, description, ogImage, ogType = 'article', bodyHtml }) {
-  const img = ogImage?.startsWith('http') ? ogImage : `${site}${ogImage || DEFAULT_OG_PATH}`;
+function htmlShell({ site, canonical, robots, title, description, ogImage, ogType = 'article', bodyHtml, publishedTime, modifiedTime, structuredData }) {
+  const img = resolveOgImage(site, ogImage);
+  const articleTimeTags = ogType === 'article'
+    ? [
+        publishedTime ? `<meta property="article:published_time" content="${esc(publishedTime)}" />` : '',
+        modifiedTime  ? `<meta property="article:modified_time" content="${esc(modifiedTime)}" />` : '',
+      ].join('\n')
+    : '';
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -83,10 +101,12 @@ function htmlShell({ site, canonical, robots, title, description, ogImage, ogTyp
 <meta property="og:description" content="${esc(description)}" />
 <meta property="og:image" content="${esc(img)}" />
 <meta property="og:url" content="${esc(canonical)}" />
+${articleTimeTags}
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${esc(title)}" />
 <meta name="twitter:description" content="${esc(description)}" />
 <meta name="twitter:image" content="${esc(img)}" />
+${jsonLdScript(structuredData)}
 </head>
 <body>
 ${bodyHtml}
@@ -150,11 +170,15 @@ async function renderPost(req, res, site, id) {
     }
   }
 
+  // 이미지 alt — 앱(React) 상세 화면과 동일 규칙(다중 이미지 시 번호 표기)으로 정합성 유지.
+  const imgCount = Array.isArray(post.image_urls) ? post.image_urls.length : 0;
   const imagesHtml = Array.isArray(post.image_urls)
-    ? post.image_urls.map((u) => `<img src="${esc(u)}" alt="${esc(meta.title)}" loading="lazy" />`).join('')
+    ? post.image_urls.map((u, i) => `<img src="${esc(u)}" alt="${esc(meta.title)}${imgCount > 1 ? ` (${i + 1})` : ''}" loading="lazy" />`).join('')
     : '';
 
   const dateStr = post.created_at ? new Date(post.created_at).toISOString().slice(0, 10) : '';
+  const publishedTime = post.created_at ? new Date(post.created_at).toISOString() : null;
+  const modifiedTime  = post.updated_at ? new Date(post.updated_at).toISOString() : publishedTime;
 
   const bodyHtml = `<main>
 <article>
@@ -168,6 +192,25 @@ ${ctaHtml(site)}
 <p><a href="${canonical}">공간마켓 앱에서 보기</a></p>
 </main>`;
 
+  // 구조화 데이터(JSON-LD Article) — Google 리치 결과용. 라운지는 익명 기반이라 author 는
+  // 개인 식별 없이 사이트(Organization)로 표기(개인정보 노출 없음, 기존 데이터 필드만 사용).
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: meta.title.replace(/\s*\|\s*공간마켓 라운지$/, ''),
+    description: meta.description,
+    image: [resolveOgImage(site, meta.imagePath)],
+    datePublished: publishedTime || undefined,
+    dateModified: modifiedTime || undefined,
+    author: { '@type': 'Organization', name: '공간마켓' },
+    publisher: {
+      '@type': 'Organization',
+      name: '공간마켓',
+      logo: { '@type': 'ImageObject', url: `${site}/favicon-v2.png` },
+    },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+  };
+
   const html = htmlShell({
     site,
     canonical,
@@ -177,6 +220,9 @@ ${ctaHtml(site)}
     ogImage: meta.imagePath,
     ogType: 'article',
     bodyHtml,
+    publishedTime,
+    modifiedTime,
+    structuredData,
   });
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
