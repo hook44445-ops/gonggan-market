@@ -222,8 +222,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         if (info.customer_id) setResolvedCustomerId(info.customer_id);
         if (info.company_owner_id) setResolvedCompanyOwnerId(info.company_owner_id);
         const { data: bidsData } = await getBidsForRequest(info.request_id);
-        // 명시 매칭만: selected bid → 후보가 정확히 1개일 때만(임의 first-row 금지).
-        const row = bidsData?.find(b => b.selected) ?? ((bidsData?.length === 1) ? bidsData[0] : null);
+        // 계약 업체 입찰 매칭: selected → 계약 업체(company_id, bootstrap 반환) → 단일후보 순.
+        // 알림(contract_id만)으로 진입 시 selected 플래그가 애매하거나 입찰이 여러 개여도
+        // 계약의 company_id(=bids.company_id=companies.id)로 정확히 특정해 resolvedBid 를
+        // 복원한다 → '시공 현황을 불러오지 못했습니다'(=!resolvedBid) 방지. 임의 first-row 금지.
+        const row = bidsData?.find(b => b.selected)
+          ?? (info.company_id ? (bidsData?.find(b => b.company_id === info.company_id) ?? null) : null)
+          ?? ((bidsData?.length === 1) ? bidsData[0] : null);
         if (alive && row) {
           setResolvedBid({
             id: row.id, requestId: row.request_id, companyId: row.company_id,
