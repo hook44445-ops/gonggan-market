@@ -65,6 +65,9 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
   const isTerminated    = isLounge && (reqStatus === "rejected" || reqStatus === "expired");
   const revealIdentity  = !isLounge || reqStatus === "accepted";       // 수락 후에만 실프로필/실명 공개
   const canType         = !isLounge || reqStatus == null || reqStatus === "accepted" || (isWaitingAccept && isRequester);
+  // 저장할 sender_type — chats CHECK 는 ('consumer','company','system')(+081 superset 'user').
+  // 'user' 대신 역할 기반 유효값을 저장해 CHECK 위반을 원천 차단(표시는 sender_id 기준이라 무관).
+  const mySenderType    = (user?.activeRole ?? user?.role) === "company" ? "company" : "consumer";
 
   // 발신자 구분은 sender_id 기준으로 통일(라운지=consumer끼리, 거래=고객/업체 모두).
   // send() 가 sender_type 을 항상 "user" 로 저장하므로 sender_type 기반 구분은 양쪽을
@@ -230,7 +233,18 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
     setInput("");
     if (!isLounge) setTyping(true);
 
-    const { data: sent } = await sendMessage(roomId, user?.id ?? "guest", "user", text).catch(() => ({ data: null }));
+    const { data: sent, error: sendErr } =
+      await sendMessage(roomId, user?.id ?? "guest", mySenderType, text).catch((e) => ({ data: null, error: e }));
+
+    // INSERT 실패(RLS/CHECK/네트워크)를 삼키지 않고 노출 + 입력 복원(메시지 유실 방지).
+    if (sendErr) {
+      if (!isLounge) setTyping(false);
+      setInput(text);
+      const detail = sendErr?.message || sendErr?.error_description || String(sendErr);
+      setPhotoErr(`메시지 전송 실패: ${detail}`);
+      setTimeout(() => setPhotoErr(null), 6000);
+      return;
+    }
 
     // 감지/기록은 백그라운드 — 전송 흐름을 막지 않음 (라운지: 상대가 업체면 업체 id 연결)
     checkDirectDealKeyword(text, {
@@ -254,7 +268,8 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
     for (const f of list) {
       try {
         const url = await uploadChatPhoto(f, roomId, user?.id);
-        await sendMessage(roomId, user?.id ?? "guest", "user", `${CHAT_PHOTO_PREFIX}${url}`);
+        const { error: msgErr } = await sendMessage(roomId, user?.id ?? "guest", mySenderType, `${CHAT_PHOTO_PREFIX}${url}`);
+        if (msgErr) throw msgErr; // 메시지 insert 실패도 아래 catch 에서 실제 오류 노출
       } catch (e) {
         // 원인 자가진단을 위해 실제 오류를 노출(버킷 없음/정책/경로 구분).
         const detail = e?.message || e?.error_description || String(e);
