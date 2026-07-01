@@ -133,12 +133,22 @@ export function notifNavTarget(n) {
   const t = n.type;
   const rid = n.related_id ?? null;
 
+  // 에스크로 진입 target — related_type 이 진실의 소스:
+  //   related_type='contract' → related_id 는 '계약(escrow.id)' → contractId 로 전달.
+  //   related_type='escrow'   → related_id 는 '요청(request_id)' → requestId 로 전달.
+  // (과거엔 무조건 requestId 로 넘겨, 계약id 를 requestId 로 오인해 업체 화면이
+  //  "계약 정보를 불러올 수 없습니다"로 빠지던 문제를 바로잡는다.)
+  const escrowTarget = () =>
+    n.related_type === "contract"
+      ? { screen: "escrow", contractId: rid }
+      : { screen: "escrow", requestId: rid };
+
   // 최종견적 도착/현장견적 → 견적 화면(BidStatusScreen)
   if (t === "FINAL_QUOTE_ARRIVED" || t === "FINAL_QUOTE_SUBMITTED" || t === "SITE_VISIT_REQUESTED")
     return { screen: "bidstatus", requestId: rid };
   // 계약 체결/생성, 착공/중간 진행 → 에스크로(진행) 화면
   if (t === "CONTRACT_CREATED" || t === "COMPANY_SELECTED" || t === "CONSTRUCTION_STARTED" || t === "ESCROW_MID_CHECK")
-    return { screen: "escrow", requestId: rid };
+    return escrowTarget();
   // 공사 완료/정산/후기 요청 → 리뷰 작성(내 견적 목록 경유)
   if (t === "CONSTRUCTION_DONE" || t === "SETTLEMENT_DONE" || t === "REVIEW_REQUEST" || t === "REVIEW_REQUEST_FOLLOWUP")
     return { screen: "review", requestId: rid };
@@ -148,8 +158,8 @@ export function notifNavTarget(n) {
   switch (tier) {
     case NOTIF_TIER.PROGRESS:
     case NOTIF_TIER.TRUST:
-      // 견적/계약/에스크로/후기 → 내 거래 화면
-      if (n.related_type === "contract" || n.related_type === "escrow") return { screen: "escrow", requestId: rid };
+      // 견적/계약/에스크로/후기 → 내 거래 화면 (contract=계약id / escrow=요청id 로 구분 전달)
+      if (n.related_type === "contract" || n.related_type === "escrow") return escrowTarget();
       return { screen: "my" };
     case NOTIF_TIER.LOUNGE:
       if (n.related_type === "lounge_post" && n.related_id) return { screen: "lounge-detail", id: n.related_id };

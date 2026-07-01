@@ -2514,6 +2514,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     const target = notifNavTarget(n);
     if (!target) return;
     if (target.screen === "lounge-detail" && target.id) { setLoungePost({ id: target.id, _deeplink: true }); go("lounge-detail"); return; }
+    // 계약(escrow.id) 기준 진입 — 알림 related_type='contract'. requestId 슬롯에 계약id 를
+    // 넣지 않고 contractId 로 정확히 전달해 EscrowScreen 이 계약을 부트스트랩하도록 한다.
+    if (target.contractId && target.screen === "escrow") {
+      // 이전 화면에서 남은 bidViewRequestId 가 다른 계약을 가리키지 않도록 초기화 후 계약id 로 진입.
+      setBidViewRequestId(null); setContractId(target.contractId); go("escrow"); return;
+    }
     if (target.requestId && (target.screen === "escrow" || target.screen === "bidstatus")) {
       setBidViewRequestId(target.requestId); go(target.screen); return;
     }
