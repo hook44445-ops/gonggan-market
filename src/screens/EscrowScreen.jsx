@@ -237,6 +237,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             material: row.material_note ?? "", comment: row.comment ?? "",
             createdAt: row.created_at, status: row.selected ? "selected" : "pending",
           });
+        } else if (alive && info.bid_id) {
+          // 입찰목록 매칭 실패 시 — contract_bootstrap(092)이 계약 업체 입찰을 직접
+          // 반환(price 포함). 이걸로 resolvedBid 를 복원해 '시공 현황을 불러오지
+          // 못했습니다'(=!resolvedBid) 를 방지한다. 총 계약금액도 bid_price 로 표시된다.
+          setResolvedBid({
+            id: info.bid_id, requestId: info.request_id, companyId: info.company_id,
+            company: { id: info.company_id, name: "업체", temp: 36.5 },
+            price: info.bid_price, period: info.bid_period,
+            material: info.bid_material ?? "", comment: info.bid_comment ?? "",
+            createdAt: null, status: info.bid_selected ? "selected" : "pending",
+          });
         }
       } catch { /* noop */ }
       finally { if (alive) setBidFetchDone(true); }
