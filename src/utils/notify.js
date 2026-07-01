@@ -153,6 +153,12 @@ export function notifNavTarget(n) {
   if (t === "CONSTRUCTION_DONE" || t === "SETTLEMENT_DONE" || t === "REVIEW_REQUEST" || t === "REVIEW_REQUEST_FOLLOWUP")
     return { screen: "review", requestId: rid };
 
+  // 계약/에스크로에 연결된 그 외 알림(추가견적·변경요청 CHANGE_ORDER_* 등) →
+  //   related_type 이 계약/에스크로면 명시 타입이 아니어도 에스크로 상세로 이동한다.
+  //   (CHANGE_ORDER_REQUEST/RESULT 가 tier 폴백에서 '내 거래(my)'로 빠지던 문제 해결.)
+  if (n.related_type === "contract" || n.related_type === "escrow")
+    return escrowTarget();
+
   // ── 폴백: tier 기반 ──
   const tier = tierOf(n.type);
   switch (tier) {
