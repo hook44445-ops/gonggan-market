@@ -2522,10 +2522,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     const target = notifNavTarget(n);
     if (!target) return;
     if (target.screen === "lounge-detail" && target.id) { setLoungePost({ id: target.id, _deeplink: true }); go("lounge-detail"); return; }
-    // 계약(escrow.id) 기준 진입 — 알림 related_type='contract'. requestId 슬롯에 계약id 를
-    // 넣지 않고 contractId 로 정확히 전달해 EscrowScreen 이 계약을 부트스트랩하도록 한다.
+    // 계약(escrow.id) 기준 진입 — 알림 related_type='contract'(추가견적/변경요청 등).
+    //   ✅ 대시보드 '상세보기'와 '완전히 동일한 경로'를 재사용한다:
+    //     이미 로드된 companyJobs 에서 계약(escrow.id)이 일치하는 job 을 찾으면 그 job.bid
+    //     (=selectedBid) + requestId 로 진입한다 → 대시보드 onOpenJob 과 100% 동일하게
+    //     request_id 기준으로 EscrowScreen 이 해결되어 알림 경로가 실패하지 않는다.
+    //   (알림 전용 조회 신설 없음 · EscrowScreen/부트스트랩/DB/RLS 무변경 — 라우팅/파라미터만.)
     if (target.contractId && target.screen === "escrow") {
-      // 이전 화면에서 남은 bidViewRequestId 가 다른 계약을 가리키지 않도록 초기화 후 계약id 로 진입.
+      const job = (companyJobs ?? []).find(j => j?.escrow?.id === target.contractId);
+      if (job?.bid?.requestId) {
+        setSelectedBid(job.bid);
+        setBidViewRequestId(job.bid.requestId);
+        setContractId(target.contractId);
+        go("escrow");
+        return;
+      }
+      // 폴백 — job 미로드 시에만 계약id 단독 진입(기존 경로). 잔여 bidViewRequestId 초기화.
       setBidViewRequestId(null); setContractId(target.contractId); go("escrow"); return;
     }
     if (target.requestId && (target.screen === "escrow" || target.screen === "bidstatus")) {
