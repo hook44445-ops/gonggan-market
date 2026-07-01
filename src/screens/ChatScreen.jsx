@@ -244,17 +244,36 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
     setInput("");
     if (!isLounge) setTyping(true);
 
+    // 낙관적 표시 — 전송 즉시 내 화면에 노출(사진과 달리 텍스트가 realtime 에코를 못 받아도
+    // 보이도록). 성공 시 실제 id 로 치환(realtime 중복은 id 로 dedup), 실패 시 제거+입력 복원.
+    const tmpId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimistic = { id: tmpId, from: "user", text, time: fmtTime(new Date().toISOString()), createdAt: new Date().toISOString() };
+    setMessages(prev => [...prev, optimistic]);
+
+    try { console.log("[CHAT_SEND] insert 시도", { roomId, senderId: user?.id ?? "guest", senderType: mySenderType, textLen: text.length }); } catch { /* noop */ }
+
     const { data: sent, error: sendErr } =
       await sendMessage(roomId, user?.id ?? "guest", mySenderType, text).catch((e) => ({ data: null, error: e }));
 
-    // INSERT 실패(RLS/CHECK/네트워크)를 삼키지 않고 노출 + 입력 복원(메시지 유실 방지).
+    try { console.log("[CHAT_SEND] insert 결과", { sent, error: sendErr, code: sendErr?.code, message: sendErr?.message, details: sendErr?.details }); } catch { /* noop */ }
+
+    // INSERT 실패(RLS/CHECK/네트워크)를 삼키지 않고 노출 + 낙관적 메시지 롤백 + 입력 복원.
     if (sendErr) {
       if (!isLounge) setTyping(false);
+      setMessages(prev => prev.filter(m => m.id !== tmpId));
       setInput(text);
       const detail = sendErr?.message || sendErr?.error_description || String(sendErr);
       setPhotoErr(`메시지 전송 실패: ${detail}`);
       setTimeout(() => setPhotoErr(null), 6000);
       return;
+    }
+
+    // 성공 — 낙관적 메시지를 실제 id 로 치환(이미 realtime 이 실제 id 로 추가했으면 임시분만 제거).
+    if (sent?.id) {
+      setMessages(prev => {
+        const withoutTmp = prev.filter(m => m.id !== tmpId);
+        return withoutTmp.some(m => m.id === sent.id) ? withoutTmp : [...withoutTmp, { ...optimistic, id: sent.id }];
+      });
     }
 
     // 감지/기록은 백그라운드 — 전송 흐름을 막지 않음 (라운지: 상대가 업체면 업체 id 연결)
