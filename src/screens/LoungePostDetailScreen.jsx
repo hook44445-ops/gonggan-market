@@ -392,12 +392,22 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     ];
     targets.forEach(t => t.el.setAttribute('content', t.val));
 
+    // canonical — 봇 프리렌더(api/prerender.js)와 동일한 URL 규칙(id+slug)으로 정합.
+    // JS 를 실행하는 크롤러(Googlebot 등)의 중복 URL(슬러그 변형) 통합에 도움.
+    let canonicalEl = document.head.querySelector('link[rel="canonical"]');
+    const canonicalCreated = !canonicalEl;
+    const canonicalPrev = canonicalCreated ? null : canonicalEl.getAttribute('href');
+    if (!canonicalEl) { canonicalEl = document.createElement('link'); canonicalEl.setAttribute('rel', 'canonical'); document.head.appendChild(canonicalEl); }
+    canonicalEl.setAttribute('href', `${window.location.origin}${buildPostPath(post)}`);
+
     return () => {
       document.title = prevTitle;
       targets.forEach(t => {
         if (t.created) t.el.remove();
         else if (t.prev != null) t.el.setAttribute('content', t.prev);
       });
+      if (canonicalCreated) canonicalEl.remove();
+      else if (canonicalPrev != null) canonicalEl.setAttribute('href', canonicalPrev);
     };
   }, [post?.id, post?.title, post?.content, isSynthSeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
