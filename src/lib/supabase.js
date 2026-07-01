@@ -3005,6 +3005,12 @@ export const getPaymentOrderByRequestAny = (requestId) =>
 export const getBidById = (bidId) =>
   supabase.from("bids").select("*").eq("id", bidId).single();
 
+// contract_id(=escrow.id) 해석 — escrow_payments/payment_orders 의 auth.uid() RLS 에 막히지 않도록
+// security-definer RPC 로 당사자(의뢰인/업체 소유자) 검증 후 escrow.id 를 돌려준다(migration 089).
+// 업체가 대시보드에서 진입해 contract_id 를 못 받는 경우에도 추가견적 패널이 연결되도록 한다.
+export const resolveContractId = (requestId, actorId) =>
+  supabase.rpc("resolve_contract_id", { p_request_id: requestId, p_actor_id: actorId });
+
 export const getEscrowByRequest = (requestId) =>
   supabase.from("escrow_payments")
     .select("*")

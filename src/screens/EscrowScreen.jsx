@@ -7,7 +7,7 @@ import NotificationBell from "../components/NotificationBell";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest } from "../lib/supabase";
+import { uploadFile, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { buildGpsMissingNote } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import EscrowCalculator from "../components/EscrowCalculator";
@@ -104,6 +104,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const IS_DEBUG = SHOW_DEBUG_UI;
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
+  // 계약 당사자 폴백 — 업체가 대시보드로 진입해 request/customer 정보가 없을 때 상태변경 알림용.
+  const [resolvedCustomerId, setResolvedCustomerId] = useState(null);
+  const [resolvedCompanyOwnerId, setResolvedCompanyOwnerId] = useState(null);
   // bidFetchDone: true when self-fetch useEffect completes (or bid was passed directly)
   const [bidFetchDone, setBidFetchDone] = useState(!!selectedBid);
   const [escrowDebug, setEscrowDebug] = useState(null);
@@ -242,6 +245,20 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const companyId = resolvedBid?.companyId;
     if (!reqId) return;
     const resolve = async () => {
+      // Path 0: security-definer RPC(당사자 검증) — escrow/payment RLS(auth.uid() NULL) 우회.
+      //   업체가 대시보드에서 contract_id prop 없이 진입한 경우에도 추가견적 패널이 연결되도록 한다.
+      //   반환 jsonb 로 계약 당사자(customer_id/company_owner_id)도 확보해 상태변경 알림에 사용.
+      if (userId) {
+        try {
+          const { data: info } = await resolveContractId(reqId, userId);
+          if (info?.contract_id) {
+            if (info.customer_id) setResolvedCustomerId(info.customer_id);
+            if (info.company_owner_id) setResolvedCompanyOwnerId(info.company_owner_id);
+            setResolvedContractId(info.contract_id);
+            return;
+          }
+        } catch { /* fall through to legacy paths */ }
+      }
       // Path 1: payment_orders PAID
       const { data: order } = await getPaymentOrderByRequest(reqId);
       if (order?.contract_id) { setResolvedContractId(order.contract_id); return; }
@@ -260,7 +277,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       //    resolvedContractId 는 반드시 현재 request_id 에 매칭되는 계약에서만 산출한다(강한 잠금).
     };
     resolve().catch(() => {});
-  }, [resolvedBid?.requestId, resolvedBid?.companyId, request?.id, resolvedContractId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [resolvedBid?.requestId, resolvedBid?.companyId, request?.id, resolvedContractId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isConsumer = activeRole === "consumer";
 
@@ -1909,8 +1926,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             requestId={request?.id ?? null}
             actorId={userId}
             role={isConsumer ? "consumer" : "company"}
-            customerId={request?.user_id ?? null}
-            companyOwnerId={resolvedBid?.company?.ownerId ?? null}
+            customerId={request?.user_id ?? resolvedCustomerId ?? null}
+            companyOwnerId={resolvedBid?.company?.ownerId ?? resolvedCompanyOwnerId ?? null}
           />
         )}
 
