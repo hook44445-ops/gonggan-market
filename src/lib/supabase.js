@@ -2292,6 +2292,26 @@ export const adminGetLoungePosts = ({ hidden = null, limit = 100 } = {}) => {
   return q;
 };
 
+// ── 방문자/DAU/MAU (085) ──────────────────────────────────────────────────────
+// 앱 시작/세션 복구 시 1회 방문 기록. (visitor_key, visit_date) UNIQUE 라 하루 1회만 저장.
+//   개인정보 미수집 — user_id 참조·role·화면·대략적 UA 만. 실패해도 앱 흐름 무영향.
+export const recordAppVisit = async ({ userId = null, role = null, visitorKey = null, screen = null } = {}) => {
+  if (!IS_SUPABASE_READY || !visitorKey) return { error: null };
+  const ua = (typeof navigator !== "undefined" && navigator.userAgent) ? String(navigator.userAgent).slice(0, 300) : null;
+  try {
+    return await supabase.from("user_visits").upsert(
+      { user_id: userId, role, visitor_key: visitorKey, screen, user_agent: ua },
+      { onConflict: "visitor_key,visit_date", ignoreDuplicates: true },
+    );
+  } catch (e) {
+    return { error: e };
+  }
+};
+
+// 관리자 방문 통계(카운트만) — security-definer RPC. 실패 시 호출측에서 0/준비중 fallback.
+export const getAdminVisitStats = (adminId) =>
+  supabase.rpc("admin_visit_stats", { p_admin_id: adminId ?? "admin" });
+
 export const getLoungeReports = ({ status = null } = {}) => {
   let q = supabase
     .from("lounge_reports")
