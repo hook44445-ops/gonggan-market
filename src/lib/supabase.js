@@ -402,6 +402,15 @@ export const subscribeToBidInserts = (requestId, callback) =>
 export const getEscrowPayment = (requestId) =>
   supabase.from("escrow_payments").select("*").eq("request_id", requestId).maybeSingle();
 
+// 계약(escrow_payments.id) 단독 진입 시 request_id/company_id 복원용(읽기 전용).
+// contract_bootstrap RPC 는 companies 조인(c.id = ep.company_id)에 의존해, escrow.company_id
+// 가 owner_id 로 저장된 레코드에선 당사자 매칭 실패로 null 을 반환한다. 이 헬퍼는 조인 없이
+// escrow_payments 를 id 로 직접 읽어 request_id 를 복원한다(스키마/RLS/결제 로직 무변경, 조회만).
+export const getEscrowById = (id) =>
+  supabase.from("escrow_payments")
+    .select("id, request_id, company_id, total_amount")
+    .eq("id", id).maybeSingle();
+
 export const createEscrowPayment = (data) =>
   supabase.from("escrow_payments").insert(data).select().single();
 
