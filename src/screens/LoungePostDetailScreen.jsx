@@ -669,7 +669,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       // 작성한 메시지를 방의 첫 메시지로 전송 (room_id = lounge_{request_id}, MainApp.openLoungeChatRoom과 동일 규칙)
       const requestId = data?.request_id;
       if (requestId) {
-        const { error: msgErr } = await sendMessage(`lounge_${requestId}`, user.id, 'user', text);
+        // chats.sender_type CHECK 는 ('consumer','company','system')(+superset 'user') 이다.
+        // 하드코딩 'user' 는 superset 미적용 DB 에서 CHECK 위반→INSERT 실패로 첫 메시지가
+        // 조용히 유실됐다(에러는 log 만). ChatScreen 과 동일하게 역할 기반 유효값으로 통일.
+        const senderType = (user?.activeRole ?? user?.role) === 'company' ? 'company' : 'consumer';
+        const { error: msgErr } = await sendMessage(`lounge_${requestId}`, user.id, senderType, text);
         if (msgErr) console.log('[CHAT DEBUG] first message send error', msgErr);
       }
       showToast('💬 메시지를 보냈어요! 대화 탭에서 확인할 수 있어요. 수락 시 20토큰이 차감됩니다.');
