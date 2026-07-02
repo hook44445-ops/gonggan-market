@@ -2533,31 +2533,35 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     //   (알림 전용 조회 신설 없음 · EscrowScreen/부트스트랩/DB/RLS 무변경 — 라우팅/파라미터만.)
     if (target.contractId && target.screen === "escrow") {
       try { console.log("[NOTIF_ESCROW] target", { type: t, related_type: n.related_type, contractId: target.contractId, userId: user?.id ?? null, companyJobsLen: (companyJobs ?? []).length }); } catch { /* noop */ }
-      const job = (companyJobs ?? []).find(j => j?.escrow?.id === target.contractId);
-      if (job?.bid?.requestId) {
-        setSelectedBid(job.bid);
-        setBidViewRequestId(job.bid.requestId);
+      // 대시보드 onOpenJob 과 100% 동일한 진입 = job.bid(=selectedBid) + bid.requestId 전달.
+      //   companyJobs 에서 job 을 찾는 게 핵심인데, escrow.id 로만 찾으면 job.escrow 가
+      //   아직 안 실린(레이스) 경우 매칭 실패한다. 그래서 우선 escrow.id 로 시도하고,
+      //   실패 시 contract_bootstrap 로 request_id 를 복원해 request_id 로 다시 찾는다.
+      const applyJob = (jb) => {
+        setSelectedBid(jb.bid);
+        setBidViewRequestId(jb.bid.requestId);
         setContractId(target.contractId);
         go("escrow");
-        return;
-      }
-      // 폴백 — job 미로드(고객 진입/새로고침 직후/레이스). EscrowScreen 내부 부트스트랩의
-      //   타이밍/가드(resolvedBid||request?.id)에 의존하지 않도록, 여기서 contract_bootstrap 로
-      //   request+bid 를 복원해 '대시보드 직접 진입과 동일한 selectedBid' 를 직접 만들어 넘긴다
-      //   → EscrowScreen 이 즉시 resolvedBid 를 갖게 되어 '시공 현황을 불러오지 못했습니다'가 없다.
-      //   (092 반환의 bid_* 사용. RPC 결과 null/미해결이면 계약id 단독 진입으로 폴백 — 화면 자체
-      //    부트스트랩이 재시도.) ※ EscrowScreen/DB/RLS/추가견적 로직 무변경 — 라우팅/파라미터만.
+      };
+      const jobByEscrow = (companyJobs ?? []).find(j => j?.escrow?.id === target.contractId);
+      if (jobByEscrow?.bid?.requestId) { applyJob(jobByEscrow); return; }
+      // 폴백 — request_id 복원 후 (1) companyJobs 를 request_id 로 재매칭(대시보드 job.bid 그대로,
+      //   escrow.id 미로딩·company_id 불일치와 무관) → (2) 없으면 092 bid_* 로 selectedBid 구성
+      //   → (3) 그래도 없으면 request_id 만(화면 자체 부트스트랩). EscrowScreen/DB/RLS 무변경.
       setSelectedBid(null);
       setContractId(target.contractId);
       (async () => {
         try {
           const { data: info } = await contractBootstrap(target.contractId, user?.id ?? null);
-          try { console.log("[NOTIF_ESCROW] bootstrap result", { requestId: info?.request_id ?? null, bidId: info?.bid_id ?? null, companyId: info?.company_id ?? null }); } catch { /* noop */ }
-          if (info?.request_id) {
-            setBidViewRequestId(info.request_id);
+          const reqId = info?.request_id ?? null;
+          try { console.log("[NOTIF_ESCROW] bootstrap result", { requestId: reqId, bidId: info?.bid_id ?? null, companyId: info?.company_id ?? null }); } catch { /* noop */ }
+          const jobByReq = reqId ? (companyJobs ?? []).find(j => j?.bid?.requestId === reqId) : null;
+          if (jobByReq?.bid) { applyJob(jobByReq); return; } // 대시보드와 동일한 job.bid 복원
+          if (reqId) {
+            setBidViewRequestId(reqId);
             if (info.bid_id) {
               setSelectedBid({
-                id: info.bid_id, requestId: info.request_id, companyId: info.company_id,
+                id: info.bid_id, requestId: reqId, companyId: info.company_id,
                 company: { id: info.company_id, name: "업체", temp: 36.5 },
                 price: info.bid_price, period: info.bid_period,
                 material: info.bid_material ?? "", comment: info.bid_comment ?? "",
