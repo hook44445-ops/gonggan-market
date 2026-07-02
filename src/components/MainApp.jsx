@@ -119,6 +119,7 @@ import {
   acceptLoungeChatRequest,
   rejectLoungeChatRequest,
   leaveLoungeChat,
+  contractBootstrap,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
@@ -2539,8 +2540,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         go("escrow");
         return;
       }
-      // 폴백 — job 미로드 시에만 계약id 단독 진입(기존 경로). 잔여 bidViewRequestId 초기화.
-      setBidViewRequestId(null); setContractId(target.contractId); go("escrow"); return;
+      // 폴백 — job 미로드(고객 진입/새로고침 직후/레이스). 이전 화면의 stale selectedBid 를
+      //   그대로 두면 EscrowScreen 이 그 입찰로 부트스트랩을 건너뛰어 '다른 계약'을 보이거나
+      //   불러오기에 실패한다 → 반드시 초기화한다. 또한 계약id → request_id 를 당사자 검증
+      //   RPC(contract_bootstrap, 기존 조회)로 복원해 대시보드 직접 진입과 동일한 request
+      //   컨텍스트까지 넘긴다(고객은 request 목록 매칭→self-fetch, 업체는 계약id 부트스트랩).
+      //   ※ EscrowScreen/부트스트랩/DB/RLS/추가견적 로직 무변경 — 라우팅/파라미터만.
+      setSelectedBid(null);
+      setContractId(target.contractId);
+      (async () => {
+        try {
+          const { data: info } = await contractBootstrap(target.contractId, user?.id ?? null);
+          setBidViewRequestId(info?.request_id ?? null);
+        } catch { setBidViewRequestId(null); }
+        go("escrow");
+      })();
+      return;
     }
     if (target.requestId && (target.screen === "escrow" || target.screen === "bidstatus")) {
       setBidViewRequestId(target.requestId); go(target.screen); return;
