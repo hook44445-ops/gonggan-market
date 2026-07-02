@@ -16,9 +16,20 @@ const REPORT_REASONS = [
 
 const WELCOME = "안녕하세요! 공간마켓 파트너 업체입니다 😊 견적 관련해서 궁금한 점 편하게 물어보세요!";
 
+// 채팅 메시지 표시 시간 — DB(timestamptz)는 UTC 로 저장/유지하고, 화면만 Asia/Seoul 로
+//   변환한다. 기존 getHours() 는 기기/브라우저(카카오 인앱 등) timezone 을 따라가서 UTC
+//   기기에선 KST 15:22 가 6:22 로 틀어졌다. Intl(timeZone:"Asia/Seoul")로 기기와 무관하게 고정.
+const _kstTimeFmt = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hour12: false,
+});
 const fmtTime = (iso) => {
-  const d = new Date(iso);
-  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  if (!iso) return "";
+  // timezone 표기가 없는 값(방어)은 UTC 로 간주해 파싱.
+  let s = String(iso);
+  if (!/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s = s.replace(" ", "T") + "Z";
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "";
+  return _kstTimeFmt.format(d); // 예: "15:22" (24시간, KST 고정)
 };
 
 // ── 채팅 표시 이름 정책 (베타 → 정식 전환 대비 · 구조 전용) ──────────────────────
