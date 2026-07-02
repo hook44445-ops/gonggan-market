@@ -216,7 +216,7 @@ export default function ReviewModal({
           <div style={{ textAlign:"center", marginBottom:28 }}>
             <div style={{ fontSize:40, marginBottom:10 }}>⭐</div>
             <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:4 }}>시공은 어떠셨나요?</div>
-            <div style={{ fontSize:13, color:C.text3 }}>솔직한 후기가 다른 분들께 큰 도움이 됩니다</div>
+            <div style={{ fontSize:13, color:C.text3 }}>당신의 기록이 다음 사람의 신뢰가 됩니다.</div>
           </div>
 
           <div style={{ background:"#FFF8EC", borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`,

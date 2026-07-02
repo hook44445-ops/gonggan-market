@@ -69,7 +69,7 @@ function CommentSheet({ storyId, user, comments, setComments, onClose }) {
           {comments.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>💬</div>
-              <div style={{ fontSize: 13, color: '#bbb' }}>첫 댓글을 남겨보세요</div>
+              <div style={{ fontSize: 13, color: '#bbb' }}>첫 번째 이야기를 남겨보세요.</div>
             </div>
           ) : comments.map(c => {
             const av = getAnonymousAvatarByNickname(c.anonymous_nickname ?? '');

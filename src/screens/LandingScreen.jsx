@@ -202,7 +202,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               lineHeight: 1.7, letterSpacing: "0.01em",
             }}>
               소박하고, 촌스러운 플랫폼입니다.<br/>
-              <span style={{ color: C.brand, fontWeight: 600 }}>우리가 중요하게 생각하는 것은 신뢰, 성실, 실력입니다.</span>
+              <span style={{ color: C.brand, fontWeight: 600 }}>좋은 공간과 좋은 이야기가 모이는 곳.</span>
             </div>
             {/* 공간보호 상시 노출 */}
             <div style={{ marginTop: 12 }}>

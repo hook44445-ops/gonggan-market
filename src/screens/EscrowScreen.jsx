@@ -1459,6 +1459,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         <div style={{ background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: S.lg, fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
           🤝 계약과 에스크로는 서로를 보호하기 위한 약속입니다. 투명한 진행 기록으로 신뢰를 함께 만듭니다.
           <div style={{ marginTop: 5, color: C.text3 }}>에스크로는 돈을 묶는 시스템이 아니라, 약속을 지키기 위한 보호장치입니다.</div>
+          <div style={{ marginTop: 5, color: C.text3 }}>좋은 공간은 좋은 만남에서 시작됩니다.</div>
         </div>
 
         {/* 공간보호 — 안전거래 보호 중 + 직거래 경고 */}
@@ -1696,7 +1697,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         <div style={{ position:"relative", background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}`, overflow:"hidden" }}>
           <LeafSprig size={72} color={C.brand} opacity={0.05}
             style={{ position:"absolute", right:-10, top:-8, transform:"rotate(-15deg)" }} />
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.xl }}>{isConsumer ? "공사 진행 단계" : "정산 단계"}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{isConsumer ? "공사 진행 단계" : "정산 단계"}</div>
+          {isConsumer && !(stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
+            <div style={{ fontSize: 12.5, color: C.text3, marginBottom: S.lg }}>한 걸음씩, 기록이 쌓이고 있습니다.</div>
+          )}
           {STAGE_META.map((s, i) => {
             const status = stageStatus[s.id];
             // stages[0..3] correspond to STAGE_META ids 2..5 (id 1 is deposit, no payment)
@@ -2000,6 +2004,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               <div>✅ 에스크로 보호 완료</div>
               <div>✅ 거래 기록 보관됨</div>
               <div>✅ 공간온도 상승</div>
+            </div>
+            <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.8, marginTop: S.md }}>
+              공간이 완성되었습니다.<br/>이제 당신의 이야기를 남겨주세요.
             </div>
           </div>
         )}

@@ -32,7 +32,7 @@ export default function MyPageTopBeta({
   name, avatarChar, verified, metaText, profileBadges = [],
   levelCompany, activity = [], myActivity = [], analysis, recentProject,
   onLogout, onForgetDevice, showForgetConfirm, setShowForgetConfirm,
-  showSettings = true,
+  showSettings = true, isConsumer = false,
 }) {
   const [toast, setToast] = useState(null);
   const headlineNum = analysis?.headlineNumber;
@@ -56,6 +56,11 @@ export default function MyPageTopBeta({
 
       <div style={{ marginBottom: S.lg }}>
         <span style={{ fontSize: 22, fontWeight: 900, color: C.text1, letterSpacing: "-0.4px" }}>마이페이지</span>
+        {isConsumer && (
+          <div style={{ fontSize: 12.5, color: C.text3, marginTop: 4, lineHeight: 1.6 }}>
+            좋은 공간은 삶을 바꾸고,<br/>좋은 기록은 그 이야기를 남깁니다.
+          </div>
+        )}
       </div>
 
       {/* 1) 프로필 — Lv/공간보증/공간온도 등을 칩으로 함께 노출(별도 카드 없음) */}
