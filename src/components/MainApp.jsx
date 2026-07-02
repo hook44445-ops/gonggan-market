@@ -2532,6 +2532,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     //     request_id 기준으로 EscrowScreen 이 해결되어 알림 경로가 실패하지 않는다.
     //   (알림 전용 조회 신설 없음 · EscrowScreen/부트스트랩/DB/RLS 무변경 — 라우팅/파라미터만.)
     if (target.contractId && target.screen === "escrow") {
+      try { console.log("[NOTIF_ESCROW] target", { type: t, related_type: n.related_type, contractId: target.contractId, userId: user?.id ?? null, companyJobsLen: (companyJobs ?? []).length }); } catch { /* noop */ }
       const job = (companyJobs ?? []).find(j => j?.escrow?.id === target.contractId);
       if (job?.bid?.requestId) {
         setSelectedBid(job.bid);
@@ -2540,19 +2541,36 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         go("escrow");
         return;
       }
-      // 폴백 — job 미로드(고객 진입/새로고침 직후/레이스). 이전 화면의 stale selectedBid 를
-      //   그대로 두면 EscrowScreen 이 그 입찰로 부트스트랩을 건너뛰어 '다른 계약'을 보이거나
-      //   불러오기에 실패한다 → 반드시 초기화한다. 또한 계약id → request_id 를 당사자 검증
-      //   RPC(contract_bootstrap, 기존 조회)로 복원해 대시보드 직접 진입과 동일한 request
-      //   컨텍스트까지 넘긴다(고객은 request 목록 매칭→self-fetch, 업체는 계약id 부트스트랩).
-      //   ※ EscrowScreen/부트스트랩/DB/RLS/추가견적 로직 무변경 — 라우팅/파라미터만.
+      // 폴백 — job 미로드(고객 진입/새로고침 직후/레이스). EscrowScreen 내부 부트스트랩의
+      //   타이밍/가드(resolvedBid||request?.id)에 의존하지 않도록, 여기서 contract_bootstrap 로
+      //   request+bid 를 복원해 '대시보드 직접 진입과 동일한 selectedBid' 를 직접 만들어 넘긴다
+      //   → EscrowScreen 이 즉시 resolvedBid 를 갖게 되어 '시공 현황을 불러오지 못했습니다'가 없다.
+      //   (092 반환의 bid_* 사용. RPC 결과 null/미해결이면 계약id 단독 진입으로 폴백 — 화면 자체
+      //    부트스트랩이 재시도.) ※ EscrowScreen/DB/RLS/추가견적 로직 무변경 — 라우팅/파라미터만.
       setSelectedBid(null);
       setContractId(target.contractId);
       (async () => {
         try {
           const { data: info } = await contractBootstrap(target.contractId, user?.id ?? null);
-          setBidViewRequestId(info?.request_id ?? null);
-        } catch { setBidViewRequestId(null); }
+          try { console.log("[NOTIF_ESCROW] bootstrap result", { requestId: info?.request_id ?? null, bidId: info?.bid_id ?? null, companyId: info?.company_id ?? null }); } catch { /* noop */ }
+          if (info?.request_id) {
+            setBidViewRequestId(info.request_id);
+            if (info.bid_id) {
+              setSelectedBid({
+                id: info.bid_id, requestId: info.request_id, companyId: info.company_id,
+                company: { id: info.company_id, name: "업체", temp: 36.5 },
+                price: info.bid_price, period: info.bid_period,
+                material: info.bid_material ?? "", comment: info.bid_comment ?? "",
+                createdAt: null, status: info.bid_selected ? "selected" : "pending",
+              });
+            }
+          } else {
+            setBidViewRequestId(null);
+          }
+        } catch (e) {
+          try { console.log("[NOTIF_ESCROW] bootstrap error", e?.message ?? e); } catch { /* noop */ }
+          setBidViewRequestId(null);
+        }
         go("escrow");
       })();
       return;
