@@ -4041,8 +4041,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 setTimeout(() => go("token-store"), 1200);
                 return;
               }
-              const { data, error } = await requestCommentChat(user.id, story.user_id, story.id, null).catch(() => ({ data: null, error: null }));
-              if (error) { showToast(`대화 신청 실패: ${error.message}`); return; }
+              // ⚠️ Supabase 빌더는 PromiseLike(then만)라 .catch 가 없어 `rpc(...).catch(...)` 는
+              //    await 이전 동기 TypeError → RPC 미실행(대화신청 유실). 직접 await + try/catch.
+              let data = null, error = null;
+              try { const r = await requestCommentChat(user.id, story.user_id, story.id, null); data = r?.data ?? null; error = r?.error ?? null; }
+              catch (e) { error = e; }
+              if (error) { showToast(`대화 신청 실패: ${error.message ?? error}`); return; }
               if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
               if (data?.status === 'already_pending')  { showToast('이미 대화 신청을 보냈어요'); return; }
               refreshLoungeChatInbox?.();
