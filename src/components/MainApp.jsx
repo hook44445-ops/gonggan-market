@@ -120,6 +120,7 @@ import {
   rejectLoungeChatRequest,
   leaveLoungeChat,
   contractBootstrap,
+  getEscrowById,
 } from "../lib/supabase";
 import { useCompanyList } from "../hooks/useCompanyList";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
@@ -2562,30 +2563,53 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       (async () => {
         try {
           const { data: info, error: bsErr } = await contractBootstrap(target.contractId, user?.id ?? null);
-          const reqId = info?.request_id ?? null;
+          let reqId = info?.request_id ?? null;
+          let escCompanyId = info?.company_id ?? null;
+          // 092 가 돌려준 계약 업체 입찰(있으면 그대로 사용)
+          let bid = info?.bid_id ? { id: info.bid_id, price: info.bid_price, period: info.bid_period, material: info.bid_material, comment: info.bid_comment, selected: info.bid_selected, companyId: info.company_id } : null;
           _navDbg({ bootstrap: info ?? null, bootstrapError: bsErr?.message ?? null, bootstrapReqId: reqId, bootstrapBidId: info?.bid_id ?? null });
           try { console.log("[BOOTSTRAP]", { contractId: target.contractId, userId: user?.id ?? null, error: bsErr?.message ?? null, info }); } catch { /* noop */ }
+          // 폴백A — RPC 가 null(escrow.company_id 가 owner_id 로 저장된 레코드 등 조인 실패):
+          //   escrow_payments 를 id 로 직접 읽어 request_id/company_id 를 복원(조회만).
+          if (!reqId) {
+            const { data: esc } = await getEscrowById(target.contractId);
+            reqId = esc?.request_id ?? null;
+            escCompanyId = esc?.company_id ?? escCompanyId;
+            _navDbg({ escById: !!esc, escByIdReqId: reqId, escByIdCompanyId: escCompanyId });
+            try { console.log("[ESC_BY_ID]", { contractId: target.contractId, found: !!esc, reqId, companyId: escCompanyId }); } catch { /* noop */ }
+          }
+          // (1) companyJobs 를 request_id 로 재매칭 → 대시보드 job.bid 그대로
           const jobByReq = reqId ? (companyJobs ?? []).find(j => j?.bid?.requestId === reqId) : null;
           _navDbg({ matchJobReq: !!jobByReq });
-          try { console.log("[MATCH_JOB]", { by: "request_id", requestId: reqId, found: !!jobByReq, jobRequestIds: (companyJobs ?? []).map(j => j?.bid?.requestId ?? null) }); } catch { /* noop */ }
-          if (jobByReq?.bid) { applyJob(jobByReq, "request_id"); return; } // 대시보드와 동일한 job.bid 복원
+          try { console.log("[MATCH_JOB]", { by: "request_id", requestId: reqId, found: !!jobByReq }); } catch { /* noop */ }
+          if (jobByReq?.bid) { applyJob(jobByReq, "request_id"); return; }
+          // (2) bids 조회로 계약 업체 입찰 복원(선택 → escrow.company_id 일치 → 단일)
+          if (!bid && reqId) {
+            const { data: bidsData } = await getBidsForRequest(reqId);
+            const row = bidsData?.find(b => b.selected)
+              ?? (escCompanyId ? (bidsData?.find(b => b.company_id === escCompanyId) ?? null) : null)
+              ?? ((bidsData?.length === 1) ? bidsData[0] : null);
+            if (row) bid = { id: row.id, price: row.price, period: row.period_days, material: row.material_note, comment: row.comment, selected: row.selected, companyId: row.company_id };
+            _navDbg({ bidsLen: bidsData?.length ?? 0, bidResolved: !!bid });
+            try { console.log("[BIDS_RESOLVE]", { reqId, bidsLen: bidsData?.length ?? 0, bidId: bid?.id ?? null }); } catch { /* noop */ }
+          }
           if (reqId) {
-            try { console.log("[ESCROW_NAV]", { via: "bootstrap_bid_or_reqonly", contractId: target.contractId, requestId: reqId, selectedBid: info.bid_id ? { id: info.bid_id, price: info.bid_price } : null, bidViewRequestId: reqId }); } catch { /* noop */ }
             setBidViewRequestId(reqId);
-            if (info.bid_id) {
+            if (bid) {
+              _navDbg({ navVia: "escById_or_bids", navSelectedBidId: bid.id, navBidPrice: bid.price });
               setSelectedBid({
-                id: info.bid_id, requestId: reqId, companyId: info.company_id,
-                company: { id: info.company_id, name: "업체", temp: 36.5 },
-                price: info.bid_price, period: info.bid_period,
-                material: info.bid_material ?? "", comment: info.bid_comment ?? "",
-                createdAt: null, status: info.bid_selected ? "selected" : "pending",
+                id: bid.id, requestId: reqId, companyId: bid.companyId,
+                company: { id: bid.companyId, name: "업체", temp: 36.5 },
+                price: bid.price, period: bid.period,
+                material: bid.material ?? "", comment: bid.comment ?? "",
+                createdAt: null, status: bid.selected ? "selected" : "pending",
               });
             }
           } else {
             setBidViewRequestId(null);
           }
         } catch (e) {
-          try { console.log("[NOTIF_ESCROW] bootstrap error", e?.message ?? e); } catch { /* noop */ }
+          try { console.log("[NOTIF_ESCROW] fallback error", e?.message ?? e); } catch { /* noop */ }
           setBidViewRequestId(null);
         }
         go("escrow");
