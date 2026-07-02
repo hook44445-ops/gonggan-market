@@ -55,7 +55,7 @@ export default function GrowthCard({ level = 1, filledBlocks = 0, totalXp = 0, x
       {/* Space OS 한 줄 — 기록은 결국 나를 지켜준다 */}
       <div style={{ marginTop: 14, paddingTop: 13, borderTop: "1px solid rgba(255,255,255,0.08)",
         fontSize: 11.5, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 }}>
-        성실한 기록은 신뢰가 되고, 신뢰는 결국 나를 지켜줍니다.
+        기록은 신뢰가 되고, 신뢰는 다음 만남을 만듭니다.
       </div>
     </div>
   );

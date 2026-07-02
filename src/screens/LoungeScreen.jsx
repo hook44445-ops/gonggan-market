@@ -182,7 +182,7 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings, onNavigate }) {
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🔔</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: C.text2, marginBottom: 6 }}>새 알림이 없습니다</div>
-              <div style={{ fontSize: 12, color: C.text4, lineHeight: 1.6 }}>좋아요·댓글·전문가 답변 알림이 여기에 표시됩니다</div>
+              <div style={{ fontSize: 12, color: C.text4, lineHeight: 1.6 }}>오늘도 좋은 하루가 되길 바랍니다.</div>
             </div>
           ) : (
             notifs.map(n => {
@@ -537,7 +537,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <div style={{ background: `linear-gradient(150deg, ${C.ivory}, ${C.brandL})`,
           padding: `10px ${S.xl}px`, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 11, lineHeight: 1 }}>🌿</span>
-          <span style={{ fontSize: 14, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>우리 동네 인테리어 이야기</span>
+          <span style={{ fontSize: 14, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>좋은 공간과 좋은 이야기가 모이는 곳</span>
         </div>
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
@@ -669,9 +669,9 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
             background: `linear-gradient(135deg,${C.brandL},${C.bgWarm})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 18px', fontSize: 26, border: `1.5px solid ${C.brandM}` }}>🌿</div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 8, letterSpacing: '-0.3px' }}>아직 이야기가 없어요</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 8, letterSpacing: '-0.3px' }}>아직 이야기가 없습니다</div>
           <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8, marginBottom: S.xl }}>
-            이 공간에 첫 이야기를 꺼내보세요
+            첫 번째 이야기를 시작해보세요
           </div>
           {isLoggedIn && !isPopular && (
             <button onClick={() => onWrite?.('post')} style={{ padding: '12px 28px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer', boxShadow: SHADOW.brand }}>

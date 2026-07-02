@@ -105,7 +105,7 @@ export default function NotificationInbox({ user, onRead, onNavigate }) {
       ) : items.length === 0 ? (
         <div style={{ textAlign: "center", padding: "28px 0" }}>
           <div style={{ fontSize: 30, marginBottom: 8 }}>🔔</div>
-          <div style={{ fontSize: 13, color: C.text3 }}>새 알림이 없습니다</div>
+          <div style={{ fontSize: 13, color: C.text3 }}>오늘도 좋은 하루가 되길 바랍니다.</div>
         </div>
       ) : (
         <>

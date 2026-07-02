@@ -332,6 +332,11 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
       </div>
 
       <div style={{ padding: S.xl }}>
+        {!isEdit && (
+          <div style={{ fontSize: 12.5, color: C.text3, marginBottom: S.md, lineHeight: 1.6 }}>
+            당신의 이야기가 또 하나의 좋은 공간을 만듭니다.
+          </div>
+        )}
         {!isEdit && (user?.role === 'company' || user?.activeRole === 'company') && (
           <div style={{ background: '#C4A96A14', border: '1px solid #C4A96A', borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: '#8A6D2A', marginBottom: 4 }}>

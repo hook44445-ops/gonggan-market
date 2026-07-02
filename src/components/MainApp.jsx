@@ -4475,6 +4475,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 name={user.name}
                 avatarChar={user.name?.[0] ?? "?"}
                 verified={!!user.verified}
+                isConsumer={activeRole === "consumer"}
                 metaText={`${user.region ?? ""} · ${activeRole === "consumer" ? "일반회원" : "인테리어 업체"}`}
                 profileBadges={activeRole === "consumer"
                   ? (() => { const gr = calcCustomerGrade(user.completedJobs ?? 0); return [{ icon: "⭐", label: gr.label }]; })()
@@ -5557,6 +5558,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ background:C.bg, borderRadius:R.lg, padding:"10px 14px",
               fontSize:12, color:C.text3, lineHeight:1.7, textAlign:"center", marginBottom:16 }}>
               💬 채팅 · 📷 사진 · 📍 GPS 기록이 저장되며<br/>분쟁 발생 시 기록을 기준으로 검토합니다.
+            </div>
+            <div style={{ fontSize:12.5, color:C.text3, textAlign:"center", marginBottom:16 }}>
+              좋은 만남의 시작을 응원합니다.
             </div>
             <button onClick={() => setReqDoneNotice(false)}
               style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff",

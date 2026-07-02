@@ -463,7 +463,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
           </div>
         )}
 
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
           <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>
             시공 포트폴리오
             <span style={{ fontSize:13, fontWeight:500, color:C.text3, marginLeft:6 }}>
@@ -479,6 +479,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
             </button>
           )}
         </div>
+        <div style={{ fontSize:12, color:C.text3, marginBottom:S.md }}>좋은 시공은 오래 기억됩니다.</div>
         {/* 유형 필터 칩 (전체/주거/상가/부분시공/욕실/주방) */}
         <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:S.md, WebkitOverflowScrolling:"touch" }}>
           {PORTFOLIO_FILTERS.map(f => {

@@ -1164,7 +1164,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         {comments.length === 0 && (
           <div style={{ textAlign: 'center', padding: '28px 0 24px' }}>
             <div style={{ color: C.text3, fontSize: 13, marginBottom: isCompanyUser ? 12 : 0 }}>
-              {isCompanyUser ? '아직 답변이 없어요. 전문가로 첫 답변을 남겨보세요.' : '첫 답변을 남겨보세요 💬'}
+              {isCompanyUser ? '아직 답변이 없어요. 전문가로 첫 답변을 남겨보세요.' : '첫 번째 이야기를 남겨보세요.'}
             </div>
             {isCompanyUser && (
               <button onClick={() => { if (isGuest) { onRequireLogin?.(); return; } inputRef.current?.focus(); }}

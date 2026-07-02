@@ -535,7 +535,7 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
               {isTerminated ? "종료된 대화예요."
                 : (isWaitingAccept && isRequester) ? "익명으로 첫 메시지를 보내보세요.\n상대가 수락하면 프로필이 공개되고 대화가 이어져요."
                 : isWaitingAccept ? "수락 대기중이에요. 수락 후 채팅을 시작할 수 있어요."
-                : "첫 메시지를 보내 대화를 시작해보세요."}
+                : "좋은 대화는 좋은 만남이 됩니다."}
             </div>
           </div>
         )}
