@@ -663,6 +663,10 @@ export const getTopReviews = ({ limit = 12 } = {}) =>
     .or("is_hidden.is.null,is_hidden.eq.false")
     .or("is_deleted.is.null,is_deleted.eq.false")
     .or("status.is.null,status.not.in.(REJECTED,HIDDEN,rejected,hidden)")
+    // 홈 '믿고 맡긴 후기'는 고객→업체 후기만 노출. 업체→고객 신뢰평가
+    // (reviewer_role=company / target_role=customer)는 제외. 구데이터(null) 허용.
+    .or("reviewer_role.is.null,reviewer_role.eq.customer")
+    .or("target_role.is.null,target_role.eq.company")
     .order("created_at", { ascending: false })
     .limit(limit);
 
