@@ -102,6 +102,7 @@ const CHECKPOINT_META = {
 
 export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview, currentUser, onConfirmFinalQuote }) {
   const IS_DEBUG = SHOW_DEBUG_UI;
+  try { console.log("[ESCROW_START]", { contractId: contractId ?? null, requestId: request?.id ?? null, selectedBid: selectedBid ?? null, userId: userId ?? null, activeRole }); } catch { /* noop */ }
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
   // 계약 당사자 폴백 — 업체가 대시보드로 진입해 request/customer 정보가 없을 때 상태변경 알림용.
@@ -1225,6 +1226,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       </div>
     );
   }
+
+  try { console.log("[ESCROW_BRANCH]", { bidFetchDone, resolvedBid: resolvedBid ?? null, resolvedContractId: resolvedContractId ?? null, requestId: request?.id ?? null, dbLoaded, bidAmount,
+    branch: !bidFetchDone ? "LOADING(!bidFetchDone)" : !resolvedBid ? "ERROR(!resolvedBid=시공현황못불러옴)" : (bidFetchDone && dbLoaded && !resolvedContractId && bidAmount === 0) ? "EMPTY(no contract)" : "OK(render)" }); } catch { /* noop */ }
 
   // 로딩: self-fetch가 아직 진행 중
   if (!bidFetchDone) {

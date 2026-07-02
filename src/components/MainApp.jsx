@@ -2507,8 +2507,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   //   기존 라우팅/화면/알림 생성 로직 무변경 — 알림에서의 진입 경로만 복구한다.
   const openNotificationTarget = (n) => {
     if (!n) return;
+    try { console.log("[NOTIFICATION]", n); } catch { /* noop */ }
     const rid = n.related_id ?? null;
     const t = n.type ?? "";
+    try { console.log("[OPEN_NOTIFICATION]", { type: t, related_type: n.related_type ?? null, related_id: rid, activeRole, companyJobsLen: (companyJobs ?? []).length }); } catch { /* noop */ }
     // 업체: 현장견적 요청 도착·업체 선택 → 업체 대시보드(받은 요청·진행중).
     if ((t === "SITE_VISIT_REQUESTED" || t === "COMPANY_SELECTED") && activeRole === "company") {
       if (rid) setBidViewRequestId(rid);
@@ -2537,14 +2539,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       //   companyJobs 에서 job 을 찾는 게 핵심인데, escrow.id 로만 찾으면 job.escrow 가
       //   아직 안 실린(레이스) 경우 매칭 실패한다. 그래서 우선 escrow.id 로 시도하고,
       //   실패 시 contract_bootstrap 로 request_id 를 복원해 request_id 로 다시 찾는다.
-      const applyJob = (jb) => {
+      const applyJob = (jb, via) => {
+        try { console.log("[ESCROW_NAV]", { via, contractId: target.contractId, requestId: jb?.bid?.requestId ?? null, selectedBid: jb?.bid ?? null, bidViewRequestId: jb?.bid?.requestId ?? null }); } catch { /* noop */ }
         setSelectedBid(jb.bid);
         setBidViewRequestId(jb.bid.requestId);
         setContractId(target.contractId);
         go("escrow");
       };
       const jobByEscrow = (companyJobs ?? []).find(j => j?.escrow?.id === target.contractId);
-      if (jobByEscrow?.bid?.requestId) { applyJob(jobByEscrow); return; }
+      try { console.log("[MATCH_JOB]", { by: "escrow.id", contractId: target.contractId, found: !!jobByEscrow, jobRequestId: jobByEscrow?.bid?.requestId ?? null, escrowIds: (companyJobs ?? []).map(j => j?.escrow?.id ?? null) }); } catch { /* noop */ }
+      if (jobByEscrow?.bid?.requestId) { applyJob(jobByEscrow, "escrow.id"); return; }
       // 폴백 — request_id 복원 후 (1) companyJobs 를 request_id 로 재매칭(대시보드 job.bid 그대로,
       //   escrow.id 미로딩·company_id 불일치와 무관) → (2) 없으면 092 bid_* 로 selectedBid 구성
       //   → (3) 그래도 없으면 request_id 만(화면 자체 부트스트랩). EscrowScreen/DB/RLS 무변경.
@@ -2552,12 +2556,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       setContractId(target.contractId);
       (async () => {
         try {
-          const { data: info } = await contractBootstrap(target.contractId, user?.id ?? null);
+          const { data: info, error: bsErr } = await contractBootstrap(target.contractId, user?.id ?? null);
           const reqId = info?.request_id ?? null;
-          try { console.log("[NOTIF_ESCROW] bootstrap result", { requestId: reqId, bidId: info?.bid_id ?? null, companyId: info?.company_id ?? null }); } catch { /* noop */ }
+          try { console.log("[BOOTSTRAP]", { contractId: target.contractId, userId: user?.id ?? null, error: bsErr?.message ?? null, info }); } catch { /* noop */ }
           const jobByReq = reqId ? (companyJobs ?? []).find(j => j?.bid?.requestId === reqId) : null;
-          if (jobByReq?.bid) { applyJob(jobByReq); return; } // 대시보드와 동일한 job.bid 복원
+          try { console.log("[MATCH_JOB]", { by: "request_id", requestId: reqId, found: !!jobByReq, jobRequestIds: (companyJobs ?? []).map(j => j?.bid?.requestId ?? null) }); } catch { /* noop */ }
+          if (jobByReq?.bid) { applyJob(jobByReq, "request_id"); return; } // 대시보드와 동일한 job.bid 복원
           if (reqId) {
+            try { console.log("[ESCROW_NAV]", { via: "bootstrap_bid_or_reqonly", contractId: target.contractId, requestId: reqId, selectedBid: info.bid_id ? { id: info.bid_id, price: info.bid_price } : null, bidViewRequestId: reqId }); } catch { /* noop */ }
             setBidViewRequestId(reqId);
             if (info.bid_id) {
               setSelectedBid({
