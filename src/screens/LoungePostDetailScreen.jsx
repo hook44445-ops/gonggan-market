@@ -674,7 +674,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         // 조용히 유실됐다(에러는 log 만). ChatScreen 과 동일하게 역할 기반 유효값으로 통일.
         const senderType = (user?.activeRole ?? user?.role) === 'company' ? 'company' : 'consumer';
         const { error: msgErr } = await sendMessage(`lounge_${requestId}`, user.id, senderType, text);
-        if (msgErr) console.log('[CHAT DEBUG] first message send error', msgErr);
+        // 첫 메시지 저장 실패(고객 텍스트 유실의 근원)를 삼키지 않고 노출 — 조용한 유실 방지.
+        if (msgErr) {
+          console.log('[CHAT DEBUG] first message send error', msgErr);
+          showToast(`메시지 저장 실패: ${msgErr.message ?? msgErr}. 대화 탭에서 다시 보내주세요.`);
+        }
       }
       showToast('💬 메시지를 보냈어요! 대화 탭에서 확인할 수 있어요. 수락 시 20토큰이 차감됩니다.');
     } catch (e) {
