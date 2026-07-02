@@ -3,8 +3,9 @@
 // 모바일 우선 랜딩. 라우터 미사용 SPA — App.jsx 에서
 // window.location.pathname === "/download" 일 때 이 화면을 렌더한다.
 
+// 비공개 테스트 참여(Opt-in) 페이지 — 테스터 참여 완료 후에만 다운로드 버튼이 노출된다.
 const PLAY_URL =
-  "https://play.google.com/store/apps/details?id=com.gonggansai.gongganmarket";
+  "https://play.google.com/apps/testing/com.gonggansai.gongganmarket";
 
 const C = {
   green: "#2E5F4B", greenDark: "#1D3D2F", beige: "#F5F1EA", bg: "#f3f0ea",
@@ -57,7 +58,10 @@ export default function DownloadScreen() {
 
         <p style={{ fontSize: 14, lineHeight: 1.85, color: C.text2, margin: "0 0 26px" }}>
           현재 공간마켓은 비공개 사전체험판으로 운영 중입니다.<br />
-          아래 버튼을 눌러 Play Store 테스트 다운로드 페이지로 이동해주세요.
+          아래 버튼을 누르면 Google Play 비공개 테스트 참여 페이지로 이동합니다.<br /><br />
+          ① ‘테스터 참여’ 버튼을 눌러 테스트에 참여합니다.<br />
+          ② 참여가 완료되면 ‘Google Play에서 다운로드’ 버튼이 나타납니다.<br />
+          ③ 공간마켓 앱을 설치하여 이용해주세요.
         </p>
 
         <a
@@ -71,8 +75,23 @@ export default function DownloadScreen() {
             boxShadow: "0 6px 16px rgba(46,95,75,0.3)", letterSpacing: "-0.3px",
           }}
         >
-          공간마켓 다운로드하기
+          공간마켓 앱 동의하고 다운로드하기
         </a>
+
+        {/* 처음 참여 안내 — 테스터 참여 선완료 필요 */}
+        <div
+          style={{
+            marginTop: 14, background: C.beige, borderRadius: 14, padding: "14px 16px",
+            border: `1px solid ${C.line}`, textAlign: "left",
+          }}
+        >
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.green, marginBottom: 6 }}>
+            💡 처음 참여하는 경우
+          </div>
+          <p style={{ fontSize: 12.5, lineHeight: 1.75, color: C.text2, margin: 0 }}>
+            Google Play에서 먼저 <b>‘테스터 참여’</b>를 완료해야 다운로드가 가능합니다.
+          </p>
+        </div>
 
         {/* 인앱 브라우저 안내 */}
         <div
