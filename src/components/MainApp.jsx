@@ -1136,7 +1136,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   useEffect(() => {
     getTopReviews({ limit: 12 }).then(({ data, error }) => {
       if (error) { setReviewFetchErr(error.message ?? "fetch_err"); return; }
-      if (data) setTopReviews(data.slice(0, 5));
+      // 삭제/숨김은 getTopReviews 가 서버에서 이미 제외. 여기서 5개로 자르지 않고
+      // 전체(최대 12)를 유지해, 빈 콘텐츠 리뷰를 걸러낸 뒤에도 5개를 채울 버퍼를 남긴다.
+      if (data) setTopReviews(data);
     }).catch(e => setReviewFetchErr(String(e)));
 
     getSeedReviews({ limit: 10, activeOnly: true }).then(({ data, error }) => {
@@ -2767,9 +2769,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
             {/* ── 믿고 맡긴 후기 — 실제 우선, 부족분은 seed_reviews로 채움 ── */}
             {(() => {
-              const seedNeeded = Math.max(0, 5 - topReviews.length);
-              const displayReviews = [
-                ...topReviews.map(r => {
+              // 콘텐츠가 비었거나(삭제/빈 리뷰) junk 면 카드로 노출하지 않는다.
+              const hasContent = (c) => !!(c && String(c).trim()) && !isJunkText(c);
+              // 실제 리뷰를 먼저 걸러(빈 카드 방지) → 그 개수로 seed 백필량 계산해야
+              // 삭제/빈 리뷰가 있어도 항상 5개가 유지된다(slice 이후 제거 금지).
+              const realCards = topReviews
+                .map(r => {
                   const beforeImgs = r.before_image_urls?.length ? r.before_image_urls
                     : r.image_urls?.length ? [r.image_urls[0]] : [];
                   const afterImgs = r.after_image_urls?.length ? r.after_image_urls
@@ -2784,9 +2789,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     beforeThumb: beforeImgs[0] ?? null,
                     afterThumb: afterImgs[0] ?? null,
                   };
-                }),
+                })
+                .filter(rv => hasContent(rv.content));
+              const seedNeeded = Math.max(0, 5 - realCards.length);
+              const displayReviews = [
+                ...realCards,
                 ...seedReviews.slice(0, seedNeeded).map(s => ({
-                  id: s.id, isSeed: true,
+                  id: `seed_${s.id}`, isSeed: true,
                   rating: s.rating, content: s.content,
                   user_name: s.user_name ?? "익명",
                   space_type: s.space_type ?? s.region ?? "시공",
@@ -2794,7 +2803,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   beforeThumb: s.before_image_url ?? null,
                   afterThumb: s.after_image_url ?? null,
                 })),
-              ].filter(rv => !isJunkText(rv.content)).slice(0, 5);
+              ].filter(rv => hasContent(rv.content)).slice(0, 5);
 
               return (
                 <>
