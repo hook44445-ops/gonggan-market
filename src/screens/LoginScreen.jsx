@@ -301,7 +301,9 @@ export default function LoginScreen({ onLogin, initialRole }) {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <button onClick={() => setShowBrowse(true)}
+            {/* 정식 UX 정책: '통합 둘러보기' 메뉴는 홈/로그인 노출에서 제외(기능/패널/route는 유지).
+                라운지는 독립 커뮤니티로 직접 진입 유지 — 아래 라운지 둘러보기 버튼으로 대체. */}
+            <button onClick={() => onLogin({ id: null, role: "consumer", name: "게스트", region: "", isGuest: true, startAt: "lounge" })}
               style={{
                 background: C.surface, border: `1.5px solid ${C.bgWarm}`, borderRadius: R.xl,
                 padding: "15px 20px", display: "flex", alignItems: "center", gap: 14,
@@ -311,10 +313,10 @@ export default function LoginScreen({ onLogin, initialRole }) {
                 width: 44, height: 44, borderRadius: R.lg, flexShrink: 0,
                 background: C.brandL, border: `1.5px solid ${C.brandM}`,
                 display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
-              }}>🔍</div>
+              }}>💬</div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 2 }}>통합 둘러보기</div>
-                <div style={{ fontSize: 12, color: C.text3 }}>가입 전 플랫폼 구조 · 업체 · 후기 확인</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 2 }}>라운지 둘러보기</div>
+                <div style={{ fontSize: 12, color: C.text3 }}>가입 전 커뮤니티 · 후기 · 질문 미리보기</div>
               </div>
               <div style={{ marginLeft: "auto", color: C.brand, fontSize: 20 }}>›</div>
             </button>
