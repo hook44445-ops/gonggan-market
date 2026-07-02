@@ -249,7 +249,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
                 border: "none",
                 boxShadow: "0 8px 24px rgba(46,95,75,0.22)",
               }}>
-              무료 비교견적 받기 (입장하기)
+              무료 견적받기 / 둘러보기
             </button>
             <button
               onClick={() => { window.location.href = "/partner"; }}
