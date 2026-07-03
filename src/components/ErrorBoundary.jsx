@@ -1,5 +1,6 @@
 import { Component } from "react";
 import { C, R, S } from "../constants";
+import { SHOW_DEBUG_UI } from "../constants/release";
 
 // Build-time git sha (injected via vite define). Falls back to "unknown".
 const DEPLOY_SHA = typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "unknown";
@@ -51,12 +52,12 @@ export default class ErrorBoundary extends Component {
           alignItems: "center", justifyContent: "center",
           padding: S.xxl, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif",
         }}>
-          <div style={{ fontSize: 48, marginBottom: S.lg }}>⚠️</div>
+          <div style={{ fontSize: 48, marginBottom: S.lg }}>🌿</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
-            화면을 불러오는 중 오류가 발생했습니다
+            이런, 화면에 문제가 생겼어요
           </div>
           <div style={{ fontSize: 13, color: C.text3, marginBottom: S.xxl, textAlign: "center", lineHeight: 1.7 }}>
-            일시적인 오류입니다. 아래 버튼을 눌러 복구하거나<br />로그아웃 후 다시 시도해주세요.
+            잠시 쉬어가는 중일 거예요. 아래 버튼을 눌러 다시 시도하거나<br />로그아웃 후 다시 들어와 주세요.
           </div>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
@@ -85,9 +86,8 @@ export default class ErrorBoundary extends Component {
             </button>
           )}
 
-          {/* Temporary production-safe diagnostics — aids white-screen / crash triage.
-              TODO: gate behind a debug flag or remove once prod is stable. */}
-          {(() => {
+          {/* 진단 정보 — 일반 사용자에게는 노출하지 않고, 디버그 모드에서만 확인. */}
+          {SHOW_DEBUG_UI && (() => {
             const { route, activeRole } = this.getDiag();
             const msg = this.state.error?.message ?? String(this.state.error ?? "unknown");
             return (

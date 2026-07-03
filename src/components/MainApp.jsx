@@ -2748,7 +2748,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 {user.region} · {user.name}님 안녕하세요
               </div>
               <div style={{ fontSize:23, fontWeight:800, color:C.text1, marginBottom:10, lineHeight:1.35, letterSpacing:"-0.4px" }}>
-                인테리어는 어디서?
+                이번엔 어떤 공간을 만들어볼까요?
               </div>
               <div style={{ marginBottom:S.xl }}>
                 <div style={{ fontSize:13, color:C.text2, lineHeight:1.75, marginBottom:2 }}>집, 상가, 리모델링까지</div>
@@ -4085,7 +4085,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             onBack={() => setScreen("lounge")}
             onPublish={(post) => {
               setLocalLoungePosts(prev => [post, ...prev.filter(p => p.id !== post.id)]);
-              showToast("✅ 글이 등록됐어요!");
+              showToast("✅ 이야기가 등록됐어요! 좋은 글 감사해요");
               earnToken("first_post");
               setScreen("lounge");
             }}

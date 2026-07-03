@@ -134,9 +134,10 @@ function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
         ) : results.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-            <div style={{ fontSize: 14, color: C.text3 }}>
+            <div style={{ fontSize: 14, color: C.text3, marginBottom: 4 }}>
               <span style={{ color: C.brand, fontWeight: 700 }}>"{query}"</span> 검색 결과가 없어요
             </div>
+            <div style={{ fontSize: 12, color: C.text4 }}>다른 키워드로 다시 찾아볼까요?</div>
           </div>
         ) : (
           <div style={{ background: C.surface }}>
