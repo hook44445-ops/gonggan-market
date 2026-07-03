@@ -3,6 +3,8 @@
 // 모바일 우선 랜딩. 라우터 미사용 SPA — App.jsx 에서
 // window.location.pathname === "/download" 일 때 이 화면을 렌더한다.
 
+import { useDocumentMeta } from "../hooks/useDocumentMeta";
+
 // 비공개 테스트 참여(Opt-in) 페이지 — 테스터 참여 완료 후에만 다운로드 버튼이 노출된다.
 const PLAY_URL =
   "https://play.google.com/apps/testing/com.gonggansai.gongganmarket";
@@ -14,6 +16,12 @@ const C = {
 };
 
 export default function DownloadScreen() {
+  useDocumentMeta({
+    title: "공간마켓 앱 다운로드 — 안드로이드 비공개 테스트",
+    description: "공간마켓 안드로이드 앱 비공개 테스트 참여 안내. 참여 후 Play 스토어에서 바로 다운로드할 수 있습니다.",
+    path: "/download",
+  });
+
   return (
     <div
       style={{

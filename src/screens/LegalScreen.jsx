@@ -2,6 +2,8 @@
 // 라우터 미사용 SPA 이므로 App.jsx 에서 window.location.pathname === "/privacy" | "/terms"
 // 일 때 이 화면을 렌더한다. 외부 링크가 아닌 앱 내부 라우트(/privacy, /terms)로 동작한다.
 
+import { useDocumentMeta } from "../hooks/useDocumentMeta";
+
 const BIZ = {
   상호: "공간사이",
   대표자: "김태웅",
@@ -157,6 +159,14 @@ function goHome() {
 
 export default function LegalScreen({ type }) {
   const doc = type === "terms" ? TERMS : PRIVACY;
+  const isTerms = type === "terms";
+  useDocumentMeta({
+    title: `공간마켓 ${doc.title}`,
+    description: isTerms
+      ? "공간마켓 서비스 이용약관입니다. 견적·계약·에스크로 결제 이용 조건을 안내합니다."
+      : "공간마켓 개인정보처리방침입니다. 수집 항목, 이용 목적, 보관 기간을 안내합니다.",
+    path: isTerms ? "/terms" : "/privacy",
+  });
   return (
     <div
       style={{
