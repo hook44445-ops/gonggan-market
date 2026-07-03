@@ -396,9 +396,9 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {RECORD_ITEMS.map((it) => (
-              <div key={it.title} style={{ background: C.surface, borderRadius: R.xl, padding: "16px 14px", border: `1px solid ${C.bgWarm}` }}>
-                <div style={{ fontSize: 22, marginBottom: 8 }}>{it.icon}</div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{it.title}</div>
+              <div key={it.title} style={{ background: C.ivory, borderRadius: R.xl, padding: "16px 14px", border: `1px solid ${C.bgWarm}` }}>
+                <div style={{ width: 36, height: 36, borderRadius: R.full, background: `${C.leaf}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, marginBottom: 8 }}>{it.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.brandD, marginBottom: 4 }}>{it.title}</div>
                 <div style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.5 }}>{it.desc}</div>
               </div>
             ))}
@@ -418,10 +418,10 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {VERIFY_ITEMS.map((it) => (
-              <div key={it.title} style={{ display: "flex", alignItems: "flex-start", gap: 12, background: C.bg, borderRadius: R.xl, padding: "14px 14px", border: `1px solid ${C.bgWarm}` }}>
-                <span style={{ fontSize: 20, flexShrink: 0 }}>{it.icon}</span>
+              <div key={it.title} style={{ display: "flex", alignItems: "flex-start", gap: 12, background: C.ivory, borderRadius: R.xl, padding: "14px 14px", border: `1px solid ${C.bgWarm}` }}>
+                <span style={{ width: 34, height: 34, borderRadius: R.full, background: `${C.leaf}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>{it.icon}</span>
                 <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text1, marginBottom: 3 }}>{it.title}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: C.brandD, marginBottom: 3 }}>{it.title}</div>
                   <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>{it.desc}</div>
                 </div>
               </div>
@@ -445,9 +445,9 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <div style={{ textAlign: "center", fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: 24 }}>왜 공간마켓인가</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {WHY_GM.map((it) => (
-              <div key={it.title} style={{ background: C.surface, borderRadius: R.xl, padding: "16px 14px", border: `1px solid ${C.bgWarm}` }}>
-                <div style={{ fontSize: 22, marginBottom: 8 }}>{it.icon}</div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{it.title}</div>
+              <div key={it.title} style={{ background: C.ivory, borderRadius: R.xl, padding: "16px 14px", border: `1px solid ${C.bgWarm}` }}>
+                <div style={{ width: 36, height: 36, borderRadius: R.full, background: `${C.leaf}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, marginBottom: 8 }}>{it.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.brandD, marginBottom: 4 }}>{it.title}</div>
                 <div style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.5 }}>{it.desc}</div>
               </div>
             ))}
