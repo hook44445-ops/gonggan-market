@@ -3381,23 +3381,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {/* 공간사이 브랜드 무드 카드 */}
             <div style={{ display:"flex", gap:S.sm, marginTop:S.xl, marginBottom:S.sm, overflowX:"auto", paddingBottom:4, scrollbarWidth:"none" }}>
               {[
-                { bg:C.brandD, color:"rgba(255,255,255,0.92)", text:"자연의 숨결,\n감사의 마음으로\n공간을 함께\n만들어갑니다." },
-                { bg:"#DFABC6", color:"#6B3355", text:"오늘도,\n함께 웃는\n하루 되세요! ☺" },
-                { bg:"#686E57", color:"rgba(255,255,255,0.9)", text:"공간을 넘어\n가치 있는 경험을\n전합니다." },
+                { bg:C.brandD, color:"rgba(255,255,255,0.92)", text:"소복소복\n쌓여가는\n공간 이야기" },
+                { bg:C.leaf,   color:"rgba(255,255,255,0.94)", text:"좋은 공간은\n좋은 만남에서\n시작됩니다." },
+                { bg:"#686E57", color:"rgba(255,255,255,0.9)", text:"좋은 공간은\n기억되고,\n좋은 이야기를\n만듭니다." },
               ].map((card, i) => (
                 <div key={i} style={{ flexShrink:0, width:150, background:card.bg, borderRadius:R.xl,
                   padding:`${S.xl}px ${S.lg}px`, minHeight:110,
                   display:"flex", alignItems:"flex-end", position:"relative", overflow:"hidden" }}>
                   {i===0 && <LeafSprig size={62} color="#fff" opacity={0.18} style={{ position:"absolute", right:-8, top:2, transform:"rotate(15deg)" }} />}
-                  {i===1 && (
-                    <svg width={58} height={58} viewBox="0 0 100 100" fill="none"
-                      style={{ position:"absolute", right:-6, top:2, opacity:0.18, pointerEvents:"none" }} aria-hidden="true">
-                      <circle cx="50" cy="50" r="44" stroke="#6B3355" strokeWidth="6" />
-                      <circle cx="36" cy="43" r="6" fill="#6B3355" />
-                      <circle cx="64" cy="43" r="6" fill="#6B3355" />
-                      <path d="M32 62 Q50 76 68 62" stroke="#6B3355" strokeWidth="5.5" strokeLinecap="round" />
-                    </svg>
-                  )}
+                  {i===1 && <LeafSprig size={58} color="#fff" opacity={0.18} style={{ position:"absolute", right:-6, top:2, transform:"rotate(-20deg)" }} />}
                   {i===2 && (
                     <svg width={58} height={58} viewBox="0 0 100 100" fill="none"
                       style={{ position:"absolute", right:-6, top:2, opacity:0.18, pointerEvents:"none" }} aria-hidden="true">
