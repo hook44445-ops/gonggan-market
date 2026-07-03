@@ -2553,6 +2553,21 @@ async function adminApiGet(path, adminId) {
 export const fetchAdminCustomers = (adminId, role = "consumer") =>
   adminApiGet(`/api/admin/users?role=${encodeURIComponent(role)}`, adminId);
 
+// 관리자 운영지표(방문자 DAU/MAU·신규가입·견적·계약) — service-role API 경유(GET).
+export const fetchAdminStats = (adminId) => adminApiGet("/api/admin/stats", adminId);
+
+// 방문 기록(운영 KPI: DAU/MAU) — 사용자당 last_seen_at upsert. fire-and-forget, 실패해도 앱 무영향.
+// supabase.rpc 는 thenable 이라 Promise.resolve 로 감싸 .catch 안전 처리(빌더 직접 .catch 금지).
+// 085_visitor_tracking.sql 미적용 환경에서는 조용히 무시된다.
+export const touchLastSeen = (userId) => {
+  if (!userId) return Promise.resolve();
+  try {
+    return Promise.resolve(supabase.rpc("touch_last_seen", { p_user_id: userId })).catch(() => {});
+  } catch {
+    return Promise.resolve();
+  }
+};
+
 // service-role 관리자 변경 API(POST). adminApiGet 과 동일 인증 패턴(adminId + sentinel x-admin-code).
 async function adminApiPost(path, adminId, body) {
   const headers = { "Content-Type": "application/json" };

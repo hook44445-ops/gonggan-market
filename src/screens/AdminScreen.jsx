@@ -56,6 +56,7 @@ import AdminCategoryNav from "../components/AdminCategoryNav";
 import AdminChatOverview from "./admin/AdminChatOverview";
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
+import AdminVisitorKpiPanel from "../components/AdminVisitorKpiPanel";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
 import LoungeInsightsDashboard from "../components/LoungeInsightsDashboard";
 import { toE164KR } from "../lib/testAccounts";
@@ -3232,6 +3233,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── Dashboard ── */}
             {mainTab === "dashboard" && (
               <div>
+                <AdminVisitorKpiPanel adminUserId={user?.id ?? null} />
                 <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📊 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>

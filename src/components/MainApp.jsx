@@ -81,6 +81,7 @@ import {
   expireRequest,
   archiveRequest,
   getLoungePosts,
+  touchLastSeen,
   createBid,
   updateBid,
   getBidsForRequest,
@@ -693,6 +694,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     const regs = getActivityRegions(user);
     setActivityRegions(regs);
     setActiveRegion(getPrimaryRegion(regs));
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 방문 기록(운영 KPI: DAU/MAU) — 로그인 사용자당 1회 last_seen_at 갱신. fire-and-forget(비차단·에러무시).
+  useEffect(() => {
+    if (user?.id) touchLastSeen(user.id);
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 지도 중심 — GPS(현재위치) > activeRegion(선택지역) > 저장 primary > fallback(서울시청).
