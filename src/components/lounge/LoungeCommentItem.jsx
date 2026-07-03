@@ -19,15 +19,6 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
   //   둘은 절대 공유하지 않는다. (displayName/anonymousNickname/role/company 여부로 판단 금지)
   const isPostAuthor = comment.user_id != null && comment.user_id === postUserId;
   const isSelf       = comment.user_id != null && comment.user_id === currentUserId;
-  console.log('[COMMENT DEBUG]', {
-    commentId:     comment.id,
-    commentUserId: comment.user_id,
-    postUserId,
-    currentUserId,
-    displayName,
-    isPostAuthor,
-    isSelf,
-  });
 
   const handleLike = () => {
     if (liked) return;

@@ -285,8 +285,6 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
     const optimistic = { id: tmpId, from: "user", text, time: fmtTime(new Date().toISOString()), createdAt: new Date().toISOString() };
     setMessages(prev => [...prev, optimistic]);
 
-    try { console.log("[CHAT_SEND] insert 시도", { roomId, senderId: user?.id ?? "guest", senderType: mySenderType, textLen: text.length }); } catch { /* noop */ }
-
     // ⚠️ Supabase 빌더(PostgrestBuilder)는 PromiseLike(then만 존재) — .catch()가 없어
     //    `sendMessage(...).catch(...)` 는 await 이전에 동기 TypeError 를 던진다. 그러면
     //    빌더가 await 되지 않아 INSERT 가 서버로 전송조차 안 되고(=텍스트만 저장 실패,
@@ -297,8 +295,6 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
       const res = await sendMessage(roomId, user?.id ?? "guest", mySenderType, text);
       sent = res?.data ?? null; sendErr = res?.error ?? null;
     } catch (e) { sendErr = e; }
-
-    try { console.log("[CHAT_SEND] insert 결과", { sent, error: sendErr, code: sendErr?.code, message: sendErr?.message, details: sendErr?.details }); } catch { /* noop */ }
 
     // INSERT 실패(RLS/CHECK/네트워크)를 삼키지 않고 노출 + 낙관적 메시지 롤백 + 입력 복원.
     if (sendErr) {

@@ -134,23 +134,7 @@ export default function LoungeProfilePopover({
     // 클릭 시 메시지 핸들러가 '본인에게는 신청할 수 없어요'로 처리한다.
     // 금지: company.owner_id / displayName / anonymousNickname / post.user_id / role / isPostAuthor 로 판정.
     const targetUserId = ownerId ?? null;
-    const isSelf   = targetUserId != null && currentUserId != null && targetUserId === currentUserId;
     const disabled = !!busy || !!alreadySent || !targetUserId;
-    const disabledReason = !targetUserId ? 'no-target' : busy ? 'busy' : alreadySent ? 'alreadySent' : null;
-    console.log('[POPOVER MESSAGE DEBUG]', {
-      currentUserId,
-      targetUserId,
-      ownerId,
-      profileUserId: company?.owner_id ?? null,
-      commentUserId: ownerId,
-      role: 'company',
-      isSelf,
-      isOwn: isSelf,
-      alreadySent: !!alreadySent,
-      busy: !!busy,
-      disabled,
-      disabledReason,
-    });
     const metaBits = [
       company?.temp != null ? `🌡 ${Number(company.temp).toFixed(1)}°` : null,
       company?.region ? `📍 ${company.region}` : null,
@@ -183,23 +167,7 @@ export default function LoungeProfilePopover({
     // 메시지 대상 = ownerId (의뢰인 작성자 user_id = requestCommentChat 의 target).
     // 비활성 사유는 오직 busy/alreadySent/대상없음. 본인(self)은 클릭 시 핸들러가 토스트로 처리.
     const targetUserId = ownerId ?? null;
-    const isSelf   = targetUserId != null && currentUserId != null && targetUserId === currentUserId;
     const disabled = !!busy || !!alreadySent || !targetUserId;
-    const disabledReason = !targetUserId ? 'no-target' : busy ? 'busy' : alreadySent ? 'alreadySent' : null;
-    console.log('[POPOVER MESSAGE DEBUG]', {
-      currentUserId,
-      targetUserId,
-      ownerId,
-      profileUserId: ownerId,
-      commentUserId: ownerId,
-      role: 'consumer',
-      isSelf,
-      isOwn,
-      alreadySent: !!alreadySent,
-      busy: !!busy,
-      disabled,
-      disabledReason,
-    });
     const avatar = getAnonymousAvatarByNickname(displayName);
     const jl = joinPeriod(consumerProfile?.joinedAt);
     const metaBits = [

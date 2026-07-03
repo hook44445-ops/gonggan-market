@@ -704,7 +704,7 @@ function NotifSettings({ user }) {
     setSelected(next);
     localStorage.setItem('lounge_notif_cats', JSON.stringify(next));
     // 알림이 켜져 있으면 카테고리 변경도 DB에 반영
-    if (enabled) { const r = await persistPrefs(true, next); console.log('[NOTIFICATION DEBUG] category change', { currentUserId: user?.id ?? null, ...r }); }
+    if (enabled) { await persistPrefs(true, next); }
   };
 
   // 인앱 브라우저(카카오/인스타/네이버 등) 감지 — 알림 API 차단 환경
@@ -717,7 +717,6 @@ function NotifSettings({ user }) {
 
   const handleToggle = async () => {
     if (busy) return;
-    const beforeValue = enabled;
     const next = !enabled;
     setBusy(true);
 
@@ -726,7 +725,7 @@ function NotifSettings({ user }) {
     localStorage.setItem('lounge_notif_enabled', JSON.stringify(next));
 
     // 2) DB 저장(다른 기기에서도 유지)
-    const { updatePayload, updateResult, error } = await persistPrefs(next, selected);
+    await persistPrefs(next, selected);
 
     // 3) 켤 때만 — 기기 FCM 토큰 등록 시도(가능한 브라우저에서만). 실패해도 선호는 유지된다.
     let pushResult = null;
@@ -736,15 +735,6 @@ function NotifSettings({ user }) {
     } else {
       await disablePush();
     }
-
-    console.log('[NOTIFICATION DEBUG]', {
-      currentUserId: user?.id ?? null,
-      beforeValue, nextValue: next,
-      updatePayload, updateResult, error,
-      pushResult,
-      permStatus: (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported',
-      isInApp, notifUnsupported,
-    });
 
     setBusy(false);
 
