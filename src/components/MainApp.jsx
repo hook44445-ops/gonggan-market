@@ -2339,13 +2339,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   };
 
   const addBid = async (request, bidData) => {
-    console.log('[BID_SUBMIT_BUTTON_CLICK]', {
-      requestId: request?.id,
-      ownerId: user?.id,
-      currentUserId: currentUser?.id,
-      currentCompanyId: currentUser?.id,
-      price: bidData?.price,
-    });
     if (currentUser?.companyStatus && currentUser.companyStatus !== "ACTIVE") {
       showToast("현재 업체 상태에서는 입찰할 수 없습니다. 관리자 승인 후 이용 가능합니다.");
       return;
@@ -2367,8 +2360,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       alert('오류: 업체 소유자 ID를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
       return;
     }
-    console.log('[BID_SUBMIT_IDS]', { finalBidCompanyId, realCompanyId });
-
     // H-2: 동시 더블서브밋 가드 (빠른 연타로 두 번 insert 되는 것 방지)
     if (bidSubmitGuardRef.current) return;
     bidSubmitGuardRef.current = true;
@@ -2441,7 +2432,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       if (data) {
         okFlag = true;
         didInsert = true;
-        console.log('[BID_SUBMIT_SUCCESS]', data);
         // DB 성공 이후에만 local state 추가 (flip-flop 방지)
         setSubmittedBids(prev => [...prev, { ...normalizeBid(data), company: actor }]);
         // Post-insert verification: confirm bid is in DB with correct request_id
@@ -2508,10 +2498,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   //   기존 라우팅/화면/알림 생성 로직 무변경 — 알림에서의 진입 경로만 복구한다.
   const openNotificationTarget = (n) => {
     if (!n) return;
-    try { console.log("[NOTIFICATION]", n); } catch { /* noop */ }
     const rid = n.related_id ?? null;
     const t = n.type ?? "";
-    try { console.log("[OPEN_NOTIFICATION]", { type: t, related_type: n.related_type ?? null, related_id: rid, activeRole, companyJobsLen: (companyJobs ?? []).length }); } catch { /* noop */ }
     // 업체: 현장견적 요청 도착·업체 선택 → 업체 대시보드(받은 요청·진행중).
     if ((t === "SITE_VISIT_REQUESTED" || t === "COMPANY_SELECTED") && activeRole === "company") {
       if (rid) setBidViewRequestId(rid);
@@ -2535,25 +2523,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     //     request_id 기준으로 EscrowScreen 이 해결되어 알림 경로가 실패하지 않는다.
     //   (알림 전용 조회 신설 없음 · EscrowScreen/부트스트랩/DB/RLS 무변경 — 라우팅/파라미터만.)
     if (target.contractId && target.screen === "escrow") {
-      // 진단(모바일 디버그 UI용) — 라우팅 흐름 값을 window 에 축적. 로직 무변경.
-      const _navDbg = (o) => { try { window.__ESCROW_NAV_DEBUG = { ...(window.__ESCROW_NAV_DEBUG || {}), ...o }; } catch { /* noop */ } };
-      _navDbg({ contractId: target.contractId, relatedType: n.related_type ?? null, companyJobsLen: (companyJobs ?? []).length, userId: user?.id ?? null, bootstrap: null, matchJobEscrow: null, matchJobReq: null, navVia: null, navSelectedBidId: null, navBidPrice: null });
-      try { console.log("[NOTIF_ESCROW] target", { type: t, related_type: n.related_type, contractId: target.contractId, userId: user?.id ?? null, companyJobsLen: (companyJobs ?? []).length }); } catch { /* noop */ }
       // 대시보드 onOpenJob 과 100% 동일한 진입 = job.bid(=selectedBid) + bid.requestId 전달.
       //   companyJobs 에서 job 을 찾는 게 핵심인데, escrow.id 로만 찾으면 job.escrow 가
       //   아직 안 실린(레이스) 경우 매칭 실패한다. 그래서 우선 escrow.id 로 시도하고,
       //   실패 시 contract_bootstrap 로 request_id 를 복원해 request_id 로 다시 찾는다.
       const applyJob = (jb, via) => {
-        _navDbg({ navVia: via, navRequestId: jb?.bid?.requestId ?? null, navSelectedBidId: jb?.bid?.id ?? null, navBidPrice: jb?.bid?.price ?? null });
-        try { console.log("[ESCROW_NAV]", { via, contractId: target.contractId, requestId: jb?.bid?.requestId ?? null, selectedBid: jb?.bid ?? null, bidViewRequestId: jb?.bid?.requestId ?? null }); } catch { /* noop */ }
         setSelectedBid(jb.bid);
         setBidViewRequestId(jb.bid.requestId);
         setContractId(target.contractId);
         go("escrow");
       };
       const jobByEscrow = (companyJobs ?? []).find(j => j?.escrow?.id === target.contractId);
-      _navDbg({ matchJobEscrow: !!jobByEscrow });
-      try { console.log("[MATCH_JOB]", { by: "escrow.id", contractId: target.contractId, found: !!jobByEscrow, jobRequestId: jobByEscrow?.bid?.requestId ?? null, escrowIds: (companyJobs ?? []).map(j => j?.escrow?.id ?? null) }); } catch { /* noop */ }
       if (jobByEscrow?.bid?.requestId) { applyJob(jobByEscrow, "escrow.id"); return; }
       // 폴백 — request_id 복원 후 (1) companyJobs 를 request_id 로 재매칭(대시보드 job.bid 그대로,
       //   escrow.id 미로딩·company_id 불일치와 무관) → (2) 없으면 092 bid_* 로 selectedBid 구성
@@ -2567,21 +2547,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           let escCompanyId = info?.company_id ?? null;
           // 092 가 돌려준 계약 업체 입찰(있으면 그대로 사용)
           let bid = info?.bid_id ? { id: info.bid_id, price: info.bid_price, period: info.bid_period, material: info.bid_material, comment: info.bid_comment, selected: info.bid_selected, companyId: info.company_id } : null;
-          _navDbg({ bootstrap: info ?? null, bootstrapError: bsErr?.message ?? null, bootstrapReqId: reqId, bootstrapBidId: info?.bid_id ?? null });
-          try { console.log("[BOOTSTRAP]", { contractId: target.contractId, userId: user?.id ?? null, error: bsErr?.message ?? null, info }); } catch { /* noop */ }
           // 폴백A — RPC 가 null(escrow.company_id 가 owner_id 로 저장된 레코드 등 조인 실패):
           //   escrow_payments 를 id 로 직접 읽어 request_id/company_id 를 복원(조회만).
           if (!reqId) {
             const { data: esc } = await getEscrowById(target.contractId);
             reqId = esc?.request_id ?? null;
             escCompanyId = esc?.company_id ?? escCompanyId;
-            _navDbg({ escById: !!esc, escByIdReqId: reqId, escByIdCompanyId: escCompanyId });
-            try { console.log("[ESC_BY_ID]", { contractId: target.contractId, found: !!esc, reqId, companyId: escCompanyId }); } catch { /* noop */ }
           }
           // (1) companyJobs 를 request_id 로 재매칭 → 대시보드 job.bid 그대로
           const jobByReq = reqId ? (companyJobs ?? []).find(j => j?.bid?.requestId === reqId) : null;
-          _navDbg({ matchJobReq: !!jobByReq });
-          try { console.log("[MATCH_JOB]", { by: "request_id", requestId: reqId, found: !!jobByReq }); } catch { /* noop */ }
           if (jobByReq?.bid) { applyJob(jobByReq, "request_id"); return; }
           // (2) bids 조회로 계약 업체 입찰 복원(선택 → escrow.company_id 일치 → 단일)
           if (!bid && reqId) {
@@ -2590,13 +2564,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               ?? (escCompanyId ? (bidsData?.find(b => b.company_id === escCompanyId) ?? null) : null)
               ?? ((bidsData?.length === 1) ? bidsData[0] : null);
             if (row) bid = { id: row.id, price: row.price, period: row.period_days, material: row.material_note, comment: row.comment, selected: row.selected, companyId: row.company_id };
-            _navDbg({ bidsLen: bidsData?.length ?? 0, bidResolved: !!bid });
-            try { console.log("[BIDS_RESOLVE]", { reqId, bidsLen: bidsData?.length ?? 0, bidId: bid?.id ?? null }); } catch { /* noop */ }
           }
           if (reqId) {
             setBidViewRequestId(reqId);
             if (bid) {
-              _navDbg({ navVia: "escById_or_bids", navSelectedBidId: bid.id, navBidPrice: bid.price });
               setSelectedBid({
                 id: bid.id, requestId: reqId, companyId: bid.companyId,
                 company: { id: bid.companyId, name: "업체", temp: 36.5 },
@@ -2608,8 +2579,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           } else {
             setBidViewRequestId(null);
           }
-        } catch (e) {
-          try { console.log("[NOTIF_ESCROW] fallback error", e?.message ?? e); } catch { /* noop */ }
+        } catch {
           setBidViewRequestId(null);
         }
         go("escrow");
@@ -2674,12 +2644,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     return () => window.removeEventListener("popstate", onPop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // [REVIEW_NAV] 진단 — 화면 전환 추적. 빌드 SHA 와 함께 실제 screen 값을 출력해
-  // '내 리뷰 보기' → my-reviews 라우팅이 런타임에서 동작하는지 확인용.
-  useEffect(() => {
-    console.log("[REVIEW_NAV] screen =", screen, "| build sha =", (typeof __GIT_SHA__ !== "undefined" ? __GIT_SHA__ : "?"));
-  }, [screen]);
 
   const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
@@ -4636,7 +4600,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     // 업체 공개 후기 화면(ReviewScreen)을 재사용하지 않는다.
                     // '리뷰 작성하기'(미작성)는 기존대로 작성 화면(ReviewScreen)으로 이동.
                     return reviewed
-                      ? { label: "최근 완료", title, cta: { label: "내 리뷰 보기", onClick: () => { console.log("[REVIEW_NAV] '내 리뷰 보기' clicked → setScreen('my-reviews')"); setScreen("my-reviews"); } } }
+                      ? { label: "최근 완료", title, cta: { label: "내 리뷰 보기", onClick: () => setScreen("my-reviews") } }
                       : { label: "최근 완료", title, sub: "아직 리뷰를 작성하지 않았습니다.", cta: { label: "리뷰 작성하기", onClick: openReview } };
                   }
                   return null;

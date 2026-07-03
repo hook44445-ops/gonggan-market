@@ -102,7 +102,6 @@ const CHECKPOINT_META = {
 
 export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview, currentUser, onConfirmFinalQuote }) {
   const IS_DEBUG = SHOW_DEBUG_UI;
-  try { console.log("[ESCROW_START]", { contractId: contractId ?? null, requestId: request?.id ?? null, selectedBid: selectedBid ?? null, userId: userId ?? null, activeRole }); } catch { /* noop */ }
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
   // 계약 당사자 폴백 — 업체가 대시보드로 진입해 request/customer 정보가 없을 때 상태변경 알림용.
@@ -814,7 +813,6 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         if (completedReqId) {
           try {
             await setRequestCompleted(completedReqId);
-            console.log("[REQUEST_MARKED_COMPLETED]", { requestId: completedReqId });
           } catch (e) {
             console.warn("[REQUEST_MARK_COMPLETED_FAILED]", e?.message ?? e);
           }
@@ -867,7 +865,6 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const s = STAGE_META.find(x => x.id === stageId);
     setReportingStage(stageId);
     setReportError(null);
-    try { console.log("[PHOTO_SEND_START]", { stageId, requestId: request?.id ?? resolvedBid?.requestId ?? null, contractId: contractData?.id ?? resolvedContractId ?? null, photoCount: (stagePhotos[stageId] ?? []).length }); } catch {}
 
     const phaseConfig = {
       3: { dbStep: 1, txStatus: "STARTED",       currentStep: 2, payoutStage: 2 },
@@ -1057,7 +1054,6 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         debug.upload_ok  = !photoErr;
         debug.upload_err = photoErr?.message ?? null;
         debug.uploaded_photo_url = photos[0];
-        if (!photoErr) { try { console.log("[PHOTO_UPLOAD_SUCCESS]", { contractId: cid, requestId: reqId, step: dbStep, photoCount: photos.length, firstUrl: photos[0] }); } catch {} }
       } else {
         debug.upload_err = "no photos in state";
       }
@@ -1227,55 +1223,6 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     );
   }
 
-  const _branch = !bidFetchDone ? "LOADING(!bidFetchDone)" : !resolvedBid ? "ERROR(!resolvedBid=시공현황못불러옴)" : (bidFetchDone && dbLoaded && !resolvedContractId && bidAmount === 0) ? "EMPTY(no contract)" : "OK(render)";
-  try { console.log("[ESCROW_BRANCH]", { bidFetchDone, resolvedBid: resolvedBid ?? null, resolvedContractId: resolvedContractId ?? null, requestId: request?.id ?? null, dbLoaded, bidAmount, branch: _branch }); } catch { /* noop */ }
-
-  // ── 임시 디버그 UI(운영 확인용) — ?debug=1 또는 localStorage GONGGAN_DEBUG=true 일 때만.
-  //    알림→에스크로 진입 시 어떤 값이 null 이라 에러가 뜨는지 모바일에서 확인. 로직 무변경.
-  let _debugOverlay = null;
-  try {
-    const _dbgOn = (typeof window !== "undefined") &&
-      ((new URLSearchParams(window.location.search).get("debug") === "1") || window.localStorage?.getItem("GONGGAN_DEBUG") === "true");
-    if (_dbgOn) {
-      const nav = (typeof window !== "undefined" && window.__ESCROW_NAV_DEBUG) || {};
-      const rows = [
-        ["branch", _branch],
-        ["prop.contractId", contractId ?? "null"],
-        ["prop.request?.id", request?.id ?? "null"],
-        ["prop.selectedBid?.id", selectedBid?.id ?? "null"],
-        ["prop.selectedBid?.requestId", selectedBid?.requestId ?? "null"],
-        ["prop.selectedBid?.price", selectedBid?.price ?? "null"],
-        ["state.resolvedBid?.id", resolvedBid?.id ?? "null"],
-        ["state.resolvedContractId", resolvedContractId ?? "null"],
-        ["state.bidFetchDone", String(bidFetchDone)],
-        ["state.dbLoaded", String(dbLoaded)],
-        ["state.bidAmount", String(bidAmount)],
-        ["nav.relatedType", nav.relatedType ?? "—"],
-        ["nav.companyJobsLen", nav.companyJobsLen ?? "—"],
-        ["nav.matchJob(escrow.id)", String(nav.matchJobEscrow)],
-        ["nav.matchJob(request_id)", String(nav.matchJobReq)],
-        ["nav.via", nav.navVia ?? "—"],
-        ["nav.selectedBidId", nav.navSelectedBidId ?? "—"],
-        ["nav.bootstrap.error", nav.bootstrapError ?? "—"],
-        ["nav.bootstrap.request_id", nav.bootstrapReqId ?? "null"],
-        ["nav.bootstrap.bid_id", nav.bootstrapBidId ?? "null"],
-      ];
-      _debugOverlay = (
-        <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 99999, maxHeight: "45vh", overflowY: "auto",
-          background: "rgba(20,20,20,0.94)", color: "#d6f5c8", fontSize: 11, lineHeight: 1.5,
-          fontFamily: "ui-monospace,Menlo,monospace", padding: "10px 12px", borderTop: "2px solid #7CCB6B" }}>
-          <div style={{ fontWeight: 800, color: "#fff", marginBottom: 6 }}>🐞 ESCROW DEBUG (임시 · ?debug=1)</div>
-          {rows.map(([k, v]) => (
-            <div key={k} style={{ display: "flex", gap: 8, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
-              <span style={{ color: "#9fd", minWidth: 176, flexShrink: 0 }}>{k}</span>
-              <span style={{ color: (v === "null" || v === "false") ? "#ff8a8a" : "#e8ffe0" }}>{String(v)}</span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-  } catch { /* noop */ }
-
   // 로딩: self-fetch가 아직 진행 중
   if (!bidFetchDone) {
     return (
@@ -1288,7 +1235,6 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ fontSize: 34, marginBottom: 12 }}>⏳</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.text2 }}>시공 현황을 불러오는 중입니다...</div>
         </div>
-        {_debugOverlay}
       </div>
     );
   }
@@ -1307,7 +1253,6 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>다시 시도해 주세요.</div>
           <button onClick={onBack} style={{ marginTop: 20, padding: "10px 22px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
         </div>
-        {_debugOverlay}
       </div>
     );
   }
@@ -1326,7 +1271,6 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>계약이 완료되면 이곳에서 진행 현황을 확인할 수 있어요.</div>
           <button onClick={onBack} style={{ marginTop: 20, padding: "10px 22px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
         </div>
-        {_debugOverlay}
       </div>
     );
   }

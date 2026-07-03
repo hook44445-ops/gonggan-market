@@ -32,7 +32,6 @@ export default function PartnerOnboarding({ leadId, phone, insuranceYn = false, 
     setSaving(true);
     try {
       const { data, error } = await selectPartnerLeadGrade(leadId, g.key, insuranceYn);
-      console.log("[partner_lead_select_grade]", { leadId, grade: g.key, insuranceYn, data, error });
       if (error || data?.error) {
         alert("등급 선택에 실패했어요. 잠시 후 다시 시도해 주세요.");
         return;
