@@ -32,14 +32,29 @@ function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function urlEntry(site, path, lastmod) {
+function urlEntry(site, path, lastmod, opts = {}) {
   const loc = `${site}${path}`.split('/').map((seg, i) => (i < 3 ? seg : encodeURIComponent(seg))).join('/');
-  return `<url><loc>${esc(loc)}</loc>${lastmod ? `<lastmod>${esc(new Date(lastmod).toISOString())}</lastmod>` : ''}</url>`;
+  const { changefreq, priority } = opts;
+  return `<url><loc>${esc(loc)}</loc>${lastmod ? `<lastmod>${esc(new Date(lastmod).toISOString())}</lastmod>` : ''}${changefreq ? `<changefreq>${changefreq}</changefreq>` : ''}${priority != null ? `<priority>${priority}</priority>` : ''}</url>`;
 }
+
+// 핵심 정적 페이지 — 홈/다운로드/파트너/약관/개인정보(SEO 메타데이터 개선 대상과 동일 범위).
+const STATIC_PAGES = [
+  { path: '/',          changefreq: 'daily',   priority: '1.0' },
+  { path: '/download',  changefreq: 'monthly', priority: '0.6' },
+  { path: '/partner',   changefreq: 'monthly', priority: '0.6' },
+  { path: '/terms',     changefreq: 'yearly',  priority: '0.3' },
+  { path: '/privacy',   changefreq: 'yearly',  priority: '0.3' },
+];
 
 export default async function handler(req, res) {
   const site = getSiteUrl(req);
   const entries = [];
+
+  // 핵심 정적 페이지
+  for (const p of STATIC_PAGES) {
+    entries.push(urlEntry(site, p.path, null, { changefreq: p.changefreq, priority: p.priority }));
+  }
 
   // 카테고리 랜딩
   for (const slug of Object.keys(SEO_CATEGORY)) {

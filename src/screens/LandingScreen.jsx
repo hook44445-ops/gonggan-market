@@ -5,6 +5,7 @@ import { LogoMark } from "../components/common";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import AppFooter from "../components/AppFooter";
 import { BetaBadge } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { useDocumentMeta } from "../hooks/useDocumentMeta";
 
 // Hero 배경 — 프로젝트 내부 고정 실사 asset (자연광 우드/식물 인테리어, 외부/Unsplash 미사용)
 const HERO_BG = "/images/landing-hero-interior.jpg";
@@ -126,6 +127,12 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
   const [sec2Ref, sec2Visible]     = useVisible(0.1);
   const [sec3Ref, sec3Visible]     = useVisible(0.1);
   const [versionTapCount, setVersionTapCount] = useState(0);
+
+  useDocumentMeta({
+    title: "공간마켓 — 좋은 공간과 좋은 이야기가 모이는 곳",
+    description: "믿을 수 있는 인테리어 업체 비교부터 계약, 에스크로 안전결제, 시공 기록까지. 집·상가·리모델링을 안전하게 진행하세요.",
+    path: "/",
+  });
 
   const btnBase = {
     display: "flex", alignItems: "center", justifyContent: "center",

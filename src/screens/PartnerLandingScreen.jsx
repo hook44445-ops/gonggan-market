@@ -4,6 +4,7 @@ import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
 import { BetaBanner, BetaBadge } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { useDocumentMeta } from "../hooks/useDocumentMeta";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#0B1D3A";
@@ -561,6 +562,12 @@ function FaqItem({ q, a }) {
 export default function PartnerLandingScreen() {
   const [heroRef, heroVis] = useVisible(0.05);
   const [showLoginGate, setShowLoginGate] = useState(false);
+
+  useDocumentMeta({
+    title: "공간마켓 파트너(업체) 입점 안내",
+    description: "공간마켓 인테리어 파트너 업체 입점 안내. 검증된 고객 매칭, 에스크로 안전정산, 시공 기록 보호까지 함께합니다.",
+    path: "/partner",
+  });
 
   const scrollToForm = (source = "hero") => {
     track("partner_join_click", { source }); // V1.5 전환 이벤트
