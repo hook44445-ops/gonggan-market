@@ -22,8 +22,8 @@
     "keyAlias": "gonggan-market",
     "keyFullName": "CN=GongganMarket,OU=Mobile,O=GongganMarket,L=Seoul,ST=Seoul,C=KR"
   },
-  "appVersionCode": 14,
-  "appVersionName": "1.0.13",
+  "appVersionCode": 15,
+  "appVersionName": "1.0.15",
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://gongganmarket.com/manifest.json",
