@@ -208,7 +208,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               fontSize: 12.5, fontWeight: 500, color: C.text3,
               lineHeight: 1.7, letterSpacing: "0.01em",
             }}>
-              <span style={{ color: C.brand, fontWeight: 600 }}>좋은 공간과 좋은 이야기가 모이는 곳.</span>
+              <span style={{ color: C.brand, fontWeight: 600 }}>좋은 공간은 좋은 만남에서 시작됩니다.</span>
             </div>
             {/* 공간보호 상시 노출 */}
             <div style={{ marginTop: 12 }}>
@@ -240,7 +240,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               fontSize: 16, color: "rgba(44,62,50,0.75)", lineHeight: 1.6,
               letterSpacing: "-0.2px", fontWeight: 500,
             }}>
-              좋은 공간은 좋은 만남에서 시작됩니다
+              공간이 바뀌면,<br />하루가 달라집니다.<br /><br />좋은 공간과 좋은 이야기가<br />소복소복 쌓여갑니다.
             </div>
           </div>
 
