@@ -2866,7 +2866,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                               overflow:"hidden", boxShadow:"0 1px 8px rgba(28,23,18,0.06)",
                               cursor:"pointer" }}>
                             {hasPhoto && (
-                              <div style={{ display:"flex", height:116, overflow:"hidden" }}>
+                              <div style={{ display:"flex", height:145, overflow:"hidden" }}>
                                 {showSplit ? (
                                   <>
                                     <div style={{ flex:1, position:"relative", borderRight:"1.5px solid #fff" }}>
@@ -2927,7 +2927,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                               </div>
                               <div style={{ fontSize:12, color:C.text2, lineHeight:1.6, marginBottom:6,
                                 overflow:"hidden", display:"-webkit-box",
-                                WebkitLineClamp:3, WebkitBoxOrient:"vertical" }}>
+                                WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>
                                 {rv.content}
                               </div>
                               <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
