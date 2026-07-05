@@ -574,13 +574,16 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
         ) : (
           <div key={msg.id} style={{ display:"flex", justifyContent:msg.from==="user"?"flex-end":"flex-start",
             marginBottom:S.sm, alignItems:"flex-end", gap:6 }}>
-            {msg.from === "company" && (
-              <div style={{ width:30, height:30, borderRadius:R.full, background:C.brandL,
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:13, fontWeight:900, color:C.brand, flexShrink:0 }}>{isLounge ? (partner?.nickname ?? "?")[0] : (company?.name ?? "?")[0]}</div>
-            )}
             <div style={{ maxWidth:"76%", display:"flex", flexDirection:"column",
               alignItems:msg.from==="user"?"flex-end":"flex-start" }}>
+              {/* 작성자 표시 — 원형 배경 없이 전체 익명 닉네임을 일반 텍스트로(1줄·말줄임). */}
+              {msg.from === "company" && (
+                <div style={{ fontSize:11, fontWeight:700, color:C.text3, marginBottom:3,
+                  padding:"0 2px", maxWidth:"100%",
+                  whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {isLounge ? (partner?.nickname ?? "익명") : (company?.name ?? "업체")}
+                </div>
+              )}
               <div style={{ background:msg.from==="user"?C.brand:C.surface,
                 color:msg.from==="user"?"#fff":C.text1,
                 borderRadius:msg.from==="user"?"18px 18px 5px 18px":"18px 18px 18px 5px",
