@@ -2775,7 +2775,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
             {/* 공간사이의 약속 */}
             <div style={{ background:C.ivory, borderRadius:R.xl, padding:S.xl,
-              marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, boxShadow:SHADOW.soft,
+              marginBottom:6, border:`1px solid ${C.bgWarm}`, boxShadow:SHADOW.soft,
               position:"relative", overflow:"hidden" }}>
               <LeafSprig size={80} color={C.brand} opacity={0.05}
                 style={{ position:"absolute", right:-10, top:-14, transform:"rotate(10deg)" }} />
