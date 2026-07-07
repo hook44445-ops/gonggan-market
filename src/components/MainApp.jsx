@@ -3481,7 +3481,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
               {/* 5) 버튼 2개 — 동일 너비/높이/라운드 */}
               <div style={{ position:"relative", display:"flex", gap:S.sm }}>
-                <button onClick={() => go("dashboard")} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}>📊 대시보드 →</button>
+                <button onClick={() => go("dashboard")} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}>🤝 파트너센터 →</button>
                 <button onClick={() => go("portfolio",currentUser)} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}>포트폴리오</button>
               </div>
             </div>
@@ -4552,7 +4552,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     ]
                   : [
                       { icon: "🏢", label: "업체 관리", onClick: () => (currentUser ? go("portfolio", currentUser) : go("dashboard")) },
-                      { icon: "📊", label: "대시보드", onClick: () => go("dashboard") },
+                      { icon: "🤝", label: "파트너센터", onClick: () => go("dashboard") },
                       { icon: "📝", label: "라운지", onClick: () => go("lounge") },
                       { icon: "✏️", label: "내가 쓴 글", onClick: () => go("lounge") },
                     ]}
