@@ -311,7 +311,8 @@ export default function DashboardScreen({
           <button onClick={onBack}
             style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
           <div style={{ fontSize:16, fontWeight:700, color:C.text1, flex:1 }}>
-            {currentUser?.name ?? ""} 님
+            🤝 파트너센터
+            <span style={{ fontSize:12, fontWeight:500, color:C.text3 }}> · {currentUser?.name ?? ""} 님</span>
           </div>
           <TempBadge temp={temp} />
         </div>
