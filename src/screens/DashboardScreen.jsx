@@ -239,6 +239,10 @@ export default function DashboardScreen({
     r.status === "open" && r.isActive !== false && r.isClosed !== true
     && !r.selectedBidId && !r.selectedCompanyId && !submittedReqSet.has(r.id)
   ).length;
+  //   계약 대기 = activeJobs 중 결제 대기(escrow_pending) — 최종견적 후 의뢰인 결제 전. 파생만.
+  const pendingContractCount = activeJobs.filter(
+    j => String(j.txStatus).toUpperCase() === "ESCROW_PENDING"
+  ).length;
 
   const temp            = currentUser?.temp ?? 36.5;
   const completedCount  = statsData?.completed_count  ?? currentUser?.completedJobs  ?? 0;
@@ -351,12 +355,14 @@ export default function DashboardScreen({
           onClick={() => setShowGrowth(true)}
         />
 
-        {/* ── 오늘 할 일 요약 — 운영툴 허브(표시 전용, 기존 집계 재사용) ───── */}
+        {/* ── 오늘의 운영 현황 — 운영툴 요약(표시 전용, 기존 집계 재사용) ───── */}
+        {/* count: 정렬·처리필요 배지 판정용 / value: 표시값 / actionable: 처리 필요 대상 */}
         <PartnerTodoSummary items={[
-          { key: "new-bids", icon: "🧾", label: "오늘 신규 견적", value: biddableCount, unit: "건", accent: C.brand, onClick: () => setTab("bids") },
-          { key: "active",   icon: "🏗️", label: "진행중 프로젝트", value: activeJobs.length, unit: "건", onClick: () => setTab("active") },
-          { key: "settle",   icon: "💰", label: "정산 예정",      value: pendingAmount.toLocaleString(), unit: "만원", onClick: () => setTab("active") },
-          { key: "reviews",  icon: "⭐", label: "새 리뷰",        value: reviewCount, unit: "개", onClick: () => setTab("stats") },
+          { key: "new-bids",         icon: "🧾", label: "오늘 신규 견적", count: biddableCount,        value: biddableCount,                 unit: "건",   accent: C.brand, actionable: true, onClick: () => setTab("bids") },
+          { key: "pending-contract", icon: "📝", label: "계약 대기",     count: pendingContractCount, value: pendingContractCount,          unit: "건",   accent: C.brand, actionable: true, onClick: () => setTab("active") },
+          { key: "active",           icon: "🏗️", label: "진행중 프로젝트", count: activeJobs.length,    value: activeJobs.length,             unit: "건",   onClick: () => setTab("active") },
+          { key: "settle",           icon: "💰", label: "정산 예정",     count: pendingAmount,        value: pendingAmount.toLocaleString(), unit: "만원", onClick: () => setTab("active") },
+          { key: "reviews",          icon: "⭐", label: "새 리뷰",       count: reviewCount,          value: reviewCount,                   unit: "개",   actionable: true, onClick: () => setTab("stats") },
         ]} />
 
         {/* ── 연속 활동(Streak) — 꾸준한 성장 장려 · 표시 전용 ───── */}
