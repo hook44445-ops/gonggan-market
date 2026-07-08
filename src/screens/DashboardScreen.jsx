@@ -8,6 +8,7 @@ import EscrowCalculator from "../components/EscrowCalculator";
 import SpaceActivityRecord from "../components/SpaceActivityRecord"; // v5.4.0: 공간 활동기록(Add Only)
 import PortfolioManagePanel from "../components/PortfolioManagePanel"; // 시공사례 등록·관리(Add Only)
 import GrowthCard from "../components/growth/GrowthCard";   // 업체 성장(Level+XP) — 표시 전용(Add Only)
+import PartnerTodoSummary from "../components/partner/PartnerTodoSummary"; // 파트너센터 '오늘 할 일' 요약(표시 전용·Add Only)
 import GrowthModal from "../components/growth/GrowthModal";
 import StreakCard from "../components/growth/StreakCard";          // Phase 10 — 연속 활동(Add Only)
 import LevelUpOverlay from "../components/growth/LevelUpOverlay";  // Phase 11 — 레벨업 연출(Add Only)
@@ -231,6 +232,14 @@ export default function DashboardScreen({
   const thisMonthRevenue = activeJobs.reduce((sum, j) => sum + Math.round(j.total * j.paid / 100), 0);
   const pendingAmount    = activeJobs.reduce((sum, j) => sum + Math.round(j.total * (100 - j.paid) / 100), 0);
 
+  // '오늘 할 일' 요약용 파생값 — 전부 기존 state 재사용(신규 DB/쿼리 없음).
+  //   오늘 신규 견적 = 입찰 탭 biddable 과 동일 필터(미입찰·미선택·미마감 open 요청).
+  const submittedReqSet = new Set((submittedBids ?? []).map(b => b.requestId ?? b.request_id));
+  const biddableCount = allRequests.filter(r =>
+    r.status === "open" && r.isActive !== false && r.isClosed !== true
+    && !r.selectedBidId && !r.selectedCompanyId && !submittedReqSet.has(r.id)
+  ).length;
+
   const temp            = currentUser?.temp ?? 36.5;
   const completedCount  = statsData?.completed_count  ?? currentUser?.completedJobs  ?? 0;
   const recontractRate  = statsData?.repeat_rate       ?? currentUser?.recontractRate ?? 0;
@@ -341,6 +350,14 @@ export default function DashboardScreen({
           isMax={growth.isMax}
           onClick={() => setShowGrowth(true)}
         />
+
+        {/* ── 오늘 할 일 요약 — 운영툴 허브(표시 전용, 기존 집계 재사용) ───── */}
+        <PartnerTodoSummary items={[
+          { key: "new-bids", icon: "🧾", label: "오늘 신규 견적", value: biddableCount, unit: "건", accent: C.brand, onClick: () => setTab("bids") },
+          { key: "active",   icon: "🏗️", label: "진행중 프로젝트", value: activeJobs.length, unit: "건", onClick: () => setTab("active") },
+          { key: "settle",   icon: "💰", label: "정산 예정",      value: pendingAmount.toLocaleString(), unit: "만원", onClick: () => setTab("active") },
+          { key: "reviews",  icon: "⭐", label: "새 리뷰",        value: reviewCount, unit: "개", onClick: () => setTab("stats") },
+        ]} />
 
         {/* ── 연속 활동(Streak) — 꾸준한 성장 장려 · 표시 전용 ───── */}
         <StreakCard streak={streak.current} longest={streak.longest} />
