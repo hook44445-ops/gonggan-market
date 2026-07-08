@@ -12,7 +12,7 @@ export default function PartnerTodoSummary({ items = [] }) {
     <div style={{ background: C.surface, borderRadius: R.xl, border: `1px solid ${C.bgWarm}`,
       boxShadow: SHADOW.soft, padding: `${S.lg}px ${S.lg}px ${S.md}px`, marginBottom: S.lg }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: S.md }}>
-        <span style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>오늘 할 일</span>
+        <span style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>오늘의 운영 현황</span>
         <span style={{ fontSize: 11, fontWeight: 600, color: C.text3 }}>파트너센터 운영 요약</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: S.sm }}>
