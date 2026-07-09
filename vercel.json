@@ -28,7 +28,6 @@
   ],
   "crons": [
     { "path": "/api/push/dispatch", "schedule": "0 9 * * *" },
-    { "path": "/api/lounge/publish-scheduled", "schedule": "30 9 * * *" },
     { "path": "/api/trend/check-trends", "schedule": "0 6 * * *" }
   ]
 }
