@@ -13,13 +13,34 @@
 
 import { evaluateGate } from "./autoPublishGate.js";
 import { discoverTrendingTopics } from "./trendDiscovery.js";
+import { usageStats } from "./usageDashboard.js";
+import { logActivity } from "./activityLog.js";
 
 // ── 설정 / 로그 / 재시도 스토어 (localStorage · DB 아님) ─────────────
 const CFG_KEY = "space_auto_publish_cfg_v1";
 const LOG_KEY = "space_auto_publish_log_v1";
 const RETRY_KEY = "space_auto_publish_retry_v1";
 
-export const DEFAULT_CFG = { enabled: false, intervalHours: 3, dailyLimit: 8, emergencyTrendMin: 95 };
+// Phase 24 — 자동발행 조건/예산 전체(관리자 설정). 기존 4키(enabled/intervalHours/dailyLimit/
+//   emergencyTrendMin)는 그대로 유지 + 게이트 임계치·검사토글·재시도·예산 추가. 전부 localStorage.
+export const DEFAULT_CFG = {
+  enabled: false,          // 자동발행 ON/OFF (기본 OFF)
+  testMode: true,          // 테스트모드(dryRun) — 실제 발행/예약하지 않고 계획만
+  intervalHours: 3,        // 예약 슬롯 간격
+  dailyLimit: 10,          // 하루 최대 발행수
+  minEditorialScore: 90,   // 최소 품질(Editorial/유용성)
+  minConfidence: 90,       // 최소 Confidence
+  minBodyLength: 700,      // 본문 최소 길이
+  dupHours: 48,            // 중복 차단 시간
+  humanizationCheck: true, // Humanization 검사
+  seoCheck: true,          // SEO 검사
+  reviewRequired: true,    // Review/Approved 필수
+  maxRetry: 3,             // 최대 Retry
+  emergencyInstant: true,  // 긴급 즉시발행
+  emergencyTrendMin: 95,   // 긴급 판정 TrendScore
+  budgetTodayKRW: 0,       // 오늘 최대 비용(0=무제한)
+  budgetMonthKRW: 0,       // 이번달 최대 비용(0=무제한)
+};
 
 export function getAutoConfig() {
   try { return { ...DEFAULT_CFG, ...(JSON.parse(localStorage.getItem(CFG_KEY) ?? "{}") || {}) }; }
@@ -29,6 +50,25 @@ export function setAutoConfig(patch) {
   const next = { ...getAutoConfig(), ...patch };
   try { localStorage.setItem(CFG_KEY, JSON.stringify(next)); } catch {}
   return next;
+}
+
+// ── 예산 보호(Phase 24) — usageDashboard 비용 집계 + 설정 한도 비교 ──────
+//   초과 시 blocked=true → 자동발행 계획이 실행을 막고 관리자 알림.
+export function budgetStatus(cfg = getAutoConfig(), now = Date.now()) {
+  let today = 0, month = 0;
+  try {
+    today = usageStats("today", now).costKRW || 0;
+    month = usageStats("month", now).costKRW || 0;
+  } catch { /* 집계 실패 시 0 */ }
+  const overToday = cfg.budgetTodayKRW > 0 && today >= cfg.budgetTodayKRW;
+  const overMonth = cfg.budgetMonthKRW > 0 && month >= cfg.budgetMonthKRW;
+  return {
+    todayKRW: today, monthKRW: month,
+    limitTodayKRW: cfg.budgetTodayKRW, limitMonthKRW: cfg.budgetMonthKRW,
+    overToday, overMonth, blocked: overToday || overMonth,
+    todayPct: cfg.budgetTodayKRW > 0 ? Math.round((today / cfg.budgetTodayKRW) * 100) : null,
+    monthPct: cfg.budgetMonthKRW > 0 ? Math.round((month / cfg.budgetMonthKRW) * 100) : null,
+  };
 }
 
 export function getPublishLog() {
@@ -102,10 +142,15 @@ export function planAutoPublish({ drafts = [], published = [], wbIndex = new Map
   const candidates = drafts.filter((d) => d && d.title && (d.publish_status || "draft") === "draft");
   const emergency = [], scheduled = [], skipped = [];
 
+  const gateCfg = {
+    minQuality: config.minEditorialScore, minConfidence: config.minConfidence,
+    dupHours: config.dupHours, minBodyLength: config.minBodyLength,
+    seoCheck: config.seoCheck, reviewRequired: config.reviewRequired,
+  };
   for (const d of candidates) {
     const rec = wbIndex.get(norm(d.title));
     const stage = stages[String(d.id)]?.stage || "draft";
-    const gate = evaluateGate(d, { confidence: typeof rec?.confidence === "number" ? rec.confidence : null, existing, stage });
+    const gate = evaluateGate(d, { confidence: typeof rec?.confidence === "number" ? rec.confidence : null, existing, stage, cfg: gateCfg });
     const emg = matchEmergency(d, emergSet);
     if (gate.pass && emg) emergency.push({ draft: d, cand: emg, gate, rec: rec || null });
     else if (gate.pass) scheduled.push({ draft: d, gate, rec: rec || null });
@@ -121,22 +166,32 @@ export function planAutoPublish({ drafts = [], published = [], wbIndex = new Map
     .slice(0, dailyRemaining)
     .map((s, i) => ({ ...s, slot: slots[i] }));
 
+  const budget = budgetStatus(config, now);
+
   return {
     enabled: !!config.enabled,
+    testMode: config.testMode !== false,
     emergency,
     scheduled: scheduledPlan,
     skipped,
     dailyRemaining,
     dailyUsed: used,
     dailyLimit: config.dailyLimit,
+    budget,
+    // 예산 초과 시 실행을 막는다(관리자 알림). enabled 여도 blocked 면 실행 금지.
+    blocked: budget.blocked,
+    blockReason: budget.overToday ? "오늘 예산 초과" : budget.overMonth ? "이번달 예산 초과" : null,
   };
 }
 
 // ── 실행 — executor 주입(발행/예약/롤백). 재시도/롤백/로그 처리 ──────
 //   executors: { publish:(id)=>Promise<{error}>, schedule:(id,iso)=>Promise<{error}>, revert:(id)=>Promise<{error}> }
 //   반환: { published, scheduledCount, failed, alerts }
-export async function executeAutoPublishPlan(plan, executors, { now = Date.now(), dryRun = false } = {}) {
+export async function executeAutoPublishPlan(plan, executors, { now = Date.now(), dryRun = false, maxRetry = 3 } = {}) {
   const result = { published: 0, scheduledCount: 0, failed: 0, alerts: [] };
+  // Phase 24 — 예산 초과 또는 테스트모드면 실제 실행하지 않는다(계획만).
+  if (plan?.blocked) return { ...result, blocked: true, alerts: [`⛔ 자동발행 중지 — ${plan.blockReason}. 예산 설정을 확인하세요.`] };
+  if (plan?.testMode) dryRun = true;
   const retry = getRetry();
 
   const logEntry = (draft, mode, gate, cand, status, extra = {}) => appendPublishLog({
@@ -160,7 +215,7 @@ export async function executeAutoPublishPlan(plan, executors, { now = Date.now()
       st.nextRetryAt = now + 5 * 60 * 1000; // 5분 후 재시도
       st.lastError = e?.message ?? String(e);
       retry[String(id)] = st;
-      if (st.attempts >= 3) { result.alerts.push(`⚠️ ${id} 발행 3회 실패 — 관리자 확인 필요 (${st.lastError})`); }
+      if (st.attempts >= maxRetry) { result.alerts.push(`⚠️ ${id} 발행 ${maxRetry}회 실패 — 관리자 확인 필요 (${st.lastError})`); }
       return { ok: false, error: st.lastError, attempts: st.attempts };
     }
   };
@@ -173,12 +228,13 @@ export async function executeAutoPublishPlan(plan, executors, { now = Date.now()
     if (r.ok) {
       result.published += 1;
       logEntry(it.draft, "emergency", it.gate, it.cand, "published", { promptVersion: it.rec?.promptVersion, source: it.rec?.source });
+      logActivity("published", { title: it.draft.title, note: `긴급 즉시발행(TrendScore ${it.cand?.trendScore ?? "-"})`, ok: true });
       // Safe Rollback — 발행 직후 이상(금칙어) 발견 시 즉시 Draft 복귀.
       if (it.gate?.checks?.banned && it.gate.checks.banned.ok === false && executors.revert) {
         await executors.revert(it.draft.id);
         appendPublishLog({ postId: it.draft.id, title: it.draft.title, mode: "rollback", status: "reverted", reason: "발행 후 이상 감지 — Draft 복귀" });
       }
-    } else { result.failed += 1; logEntry(it.draft, "emergency", it.gate, it.cand, "failed"); }
+    } else { result.failed += 1; logEntry(it.draft, "emergency", it.gate, it.cand, "failed"); logActivity("failed", { title: it.draft.title, ok: false, note: r.error }); }
   }
 
   // 2) 일반 게이트 통과분 3시간 슬롯 예약(기존 예약발행 크론이 시각 도래 시 발행).
@@ -191,10 +247,11 @@ export async function executeAutoPublishPlan(plan, executors, { now = Date.now()
       delete retry[String(it.draft.id)];
       result.scheduledCount += 1;
       logEntry(it.draft, "auto", it.gate, null, "scheduled", { promptVersion: it.rec?.promptVersion, source: it.rec?.source });
+      logActivity("scheduled", { title: it.draft.title, note: `예약 ${iso}`, ok: true });
     } catch (e) {
       st.attempts = (st.attempts || 0) + 1; st.nextRetryAt = now + 5 * 60 * 1000; st.lastError = e?.message ?? String(e);
       retry[String(it.draft.id)] = st;
-      if (st.attempts >= 3) result.alerts.push(`⚠️ ${it.draft.id} 예약 3회 실패 — 관리자 확인 필요`);
+      if (st.attempts >= maxRetry) result.alerts.push(`⚠️ ${it.draft.id} 예약 ${maxRetry}회 실패 — 관리자 확인 필요`);
       result.failed += 1; logEntry(it.draft, "auto", it.gate, null, "failed");
     }
   }

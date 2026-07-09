@@ -70,6 +70,46 @@ export function usageOverview(now = Date.now()) {
   return { today: usageStats("today", now), week: usageStats("week", now), month: usageStats("month", now), all: usageStats("all", now) };
 }
 
+// ── Phase 24 고도화 — 모델별 비용 · 평균 글당 비용 · 예상 월 비용 ────────
+const modelShortName = (m) => String(m || "unknown").split("/").pop()
+  .replace("claude-3.5-sonnet", "Claude Sonnet").replace(/^claude.*/i, "Claude")
+  .replace(/gpt.*/i, "GPT").replace(/gemini.*/i, "Gemini").replace(/deepseek.*/i, "DeepSeek");
+
+// range 안의 모델별 요청수/토큰/비용.
+export function usageByModel(range = "month", now = Date.now()) {
+  const winMs = { week: 7 * 864e5, month: 30 * 864e5 }[range];
+  const rows = getWorkbenchRecords().filter((r) => {
+    if (!r || !r.savedAt) return false;
+    if (range === "all") return true;
+    if (range === "today") return r.savedAt >= startOfToday(now);
+    return isWithin(r.savedAt, winMs, now);
+  });
+  const map = {};
+  for (const r of rows) {
+    const key = modelShortName(r.llmModel);
+    (map[key] ||= { model: key, requests: 0, totalTokens: 0, costKRW: 0 });
+    map[key].requests += 1;
+    map[key].totalTokens += num(r.totalTokens) || (num(r.promptTokens) + num(r.completionTokens)) || num(r.tokens);
+    map[key].costKRW += recordCostKRW(r);
+  }
+  return Object.values(map).map((m) => ({ ...m, costKRW: Math.round(m.costKRW) })).sort((a, b) => b.costKRW - a.costKRW);
+}
+
+// 종합 지표 — 오늘/이번달/누적 비용 + 평균 글당 비용 + 예상 월 비용(오늘 실행률 기준).
+export function usageMoneyOverview(now = Date.now()) {
+  const today = usageStats("today", now), month = usageStats("month", now), all = usageStats("all", now);
+  const avgPerArticleKRW = all.success ? Math.round(all.costKRW / all.success) : null;
+  // 예상 월 비용: 이번달 경과일 기준 일평균 × 30.
+  const dayOfMonth = new Date(now).getDate();
+  const projectedMonthKRW = dayOfMonth > 0 ? Math.round((month.costKRW / dayOfMonth) * 30) : null;
+  return {
+    todayKRW: today.costKRW, monthKRW: month.costKRW, allKRW: all.costKRW,
+    avgPerArticleKRW, projectedMonthKRW,
+    todayRequests: today.requests, monthRequests: month.requests, allRequests: all.requests,
+    byModelMonth: usageByModel("month", now),
+  };
+}
+
 // OpenRouter 상태 한 줄 — 🟢 연결 · 모델 · 평균속도 · 오늘 N회 · 비용.
 export function openRouterStatus(now = Date.now()) {
   const cfg = llmConfig();

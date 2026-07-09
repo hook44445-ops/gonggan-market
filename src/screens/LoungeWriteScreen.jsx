@@ -6,7 +6,7 @@ import { useState, useRef } from 'react';
 import { C, R, S, REGIONS, CITY_DISTRICTS } from '../constants';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
-import { IS_SUPABASE_READY, createLoungePost, updateLoungePost, uploadLoungeImage, enqueueLoungePostPush } from '../lib/supabase';
+import { IS_SUPABASE_READY, createLoungePost, updateLoungePost, adminUpdateLoungePost, uploadLoungeImage, enqueueLoungePostPush } from '../lib/supabase';
 
 const WRITABLE_CATS = LOUNGE_CATEGORIES.filter(c => c.group !== null);
 const MAX_IMAGES    = 5;
@@ -255,11 +255,20 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         region:     region || null,
       };
       if (useSupabase) {
-        const { data, error: err } = await updateLoungePost(editPost.id, user.id, updates);
-        if (import.meta.env.DEV) {
-        }
+        // Phase 24 — 관리자가 남의 글/시드 글을 수정할 때는 owner-only RLS 를 통과 못 하므로
+        //   admin RPC 경로로 저장한다(본인 글은 기존 경로 유지 = 회귀 없음).
+        const isAdmin = user?.role === 'admin' || user?.activeRole === 'admin';
+        const adminEditingOthers = isAdmin && editPost.user_id !== user.id;
+        const { data, error: err } = adminEditingOthers
+          ? await adminUpdateLoungePost(editPost.id, updates, user.id)
+          : await updateLoungePost(editPost.id, user.id, updates);
         setSubmitting(false);
-        if (err) { setError('수정에 실패했습니다. RLS 정책을 확인하세요 (005_lounge_owner_update.sql 실행 필요)'); return; }
+        if (err) {
+          setError(err.hint || (adminEditingOthers
+            ? '관리자 수정 실패 — 097_admin_lounge_post_update_fields.sql 실행이 필요합니다'
+            : '수정에 실패했습니다. RLS 정책을 확인하세요 (005_lounge_owner_update.sql 실행 필요)'));
+          return;
+        }
         onPublish?.({ ...editPost, ...updates, ...(data ?? {}) });
       } else {
         try {
