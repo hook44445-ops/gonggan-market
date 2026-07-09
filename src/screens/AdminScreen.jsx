@@ -11,6 +11,9 @@ import { runEditorialMeeting, selectTodaysContent, generateReviewedDraft } from 
 import { generateDailyIssues } from "../lib/dailyIssues";
 import { recommendCategories } from "../lib/categoryRecommender";
 import { scoreContent } from "../lib/contentScore";
+import { connectionRate, clusterBreakdown, knowledgeMap, todaysSpace, editorsPick } from "../lib/spaceGraph";
+import { preGenerationCheck } from "../lib/preGenerationCheck";
+import { TOPIC_CLUSTERS } from "../constants/knowledgeMap";
 import {
   supabase,
   getCompanies, getUsers, getUser, getUserByPhone,
@@ -1195,6 +1198,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const [scheduleFor, setScheduleFor] = useState({}); // { [id]: 'YYYY-MM-DDTHH:mm' }
   const [checkingTrends, setCheckingTrends] = useState(false);
   const [trendCheckResult, setTrendCheckResult] = useState(null);
+  const [aiCheck, setAiCheck] = useState(null); // Phase 3 — 마지막 생성 전 AI 체크 결과(중복 방지)
 
   const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
 
@@ -1302,13 +1306,32 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     .map(p => ({ id: p.id, title: p.title, status: p.publish_status, ...scoreContent({ title: p.title, content: p.content, category: p.category }) }))
     .sort((a, b) => a.total - b.total);
 
+  // ── Phase 3 · Space Graph(공간 지식 네트워크) — 전부 결정론적 재계산(저장/Migration 없음) ──
+  // 발행글 기준으로 콘텐츠 연결률·토픽 클러스터·지식 지도·오늘의 Space/Editor's Pick 을 계산한다.
+  // "글을 많이 만드는 것"이 아니라 "글과 글을 연결하는 것"이 이 Phase 의 목표.
+  const allContent = [...published, ...drafts].filter(p => p.title);
+  const connStats = connectionRate(published);
+  const clusters = clusterBreakdown(published);
+  const kmap = knowledgeMap(published);
+  const spaceTop = todaysSpace(published, 10);
+  const editorPick = editorsPick(published);
+
   // 편집회의 편성표에서 "제작(make)" 이슈를 골라 초안 생성(재작성 루프 포함) → 기존 미리보기/저장 흐름 재사용.
+  //   Phase 3: 생성 "전에" AI 체크(중복 방지)를 먼저 돌린다 — 이미 존재하는 콘텐츠를 먼저 이해하고,
+  //   48h 내 사실상 동일한 글이 있으면 생성을 건너뛴다(콘텐츠 원칙: 중복 글을 만들지 않는다).
   const handleGenerateFromEditor = (pick) => {
+    const check = preGenerationCheck({ topic: pick.topic, category: pick.category }, allContent);
+    setAiCheck(check);
+    if (check.verdict === "skip") {
+      showToast?.("🛑 중복 감지 — 이미 유사한 글이 있어 생성을 건너뜁니다");
+      return;
+    }
     const res = generateReviewedDraft({ issue: pick.topic, spaceAngle: pick.spaceAngle, category: pick.category, region: region.trim() || null });
     setIssue(pick.topic);
     setSpaceAngle(pick.spaceAngle);
     setPreview(res.draft);
-    showToast?.(res.passed ? `✅ 편집회의 통과 초안 생성(점수 ${res.score.total})` : `⚠️ 초안 생성(점수 ${res.score.total} · 재작성 권장)`);
+    const tag = check.verdict === "enrich" ? " · 유사 글 보강 권장" : (check.related.length ? ` · 관련 글 ${check.related.length}건 연결` : "");
+    showToast?.((res.passed ? `✅ 편집회의 통과 초안(점수 ${res.score.total})` : `⚠️ 초안(점수 ${res.score.total} · 재작성 권장)`) + tag);
   };
 
   // 10단계(카테고리별 콘텐츠 축적) — 발행된 AI 콘텐츠를 카테고리별로 집계(8단계 Analytics 경량판).
@@ -1408,6 +1431,99 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
                 <span style={{ color: C.text4, fontSize: 10 }}>공간 {q.axes.spaceRelevance} · 정보 {q.axes.infoValue} · 독창 {q.axes.originality}</span>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* 🕸️ Space Graph (Phase 3) — 공간 지식 네트워크: 글을 "많이" 만드는 게 아니라 "연결"한다.
+          콘텐츠 연결률 · 토픽 클러스터 · 지식 지도 · 오늘의 Space / Editor's Pick. 전부 결정론적 재계산(저장 없음). */}
+      <div style={{ background: "#0f2e26", borderRadius: R.xl, padding: S.xl, border: `1px solid #1c463a`, marginBottom: S.xl }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4 }}>🕸️ Space Graph · 공간 지식 네트워크</div>
+        <div style={{ fontSize: 11.5, color: "#a9c9bd", marginBottom: S.md, lineHeight: 1.6 }}>
+          Space is Everything. 이제 중요한 건 <b style={{ color: "#fff" }}>새 글을 얼마나 잘 쓰느냐</b>가 아니라
+          <b style={{ color: "#fff" }}> 기존 글을 얼마나 잘 연결하느냐</b>입니다. 콘텐츠가 쌓일수록 하나의 공간 지식 네트워크가 됩니다.
+        </div>
+
+        {/* 콘텐츠 연결률 — 관련 글이 1개 이상 있는 발행글 비율 */}
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
+          {[
+            { k: "연결률", v: `${connStats.rate}%`, sub: `연결 ${connStats.connected} / 전체 ${connStats.total}` },
+            { k: "고립 글", v: connStats.isolated, sub: "연결 0건(연결 필요)" },
+            { k: "평균 연결", v: connStats.avgDegree, sub: "글당 관련 글 수" },
+            { k: "클러스터", v: clusters.length, sub: `토픽 그룹 · 지식 엣지 ${kmap.edges.length}` },
+          ].map(m => (
+            <div key={m.k} style={{ flex: "1 1 120px", background: "#123a30", borderRadius: R.lg, padding: "10px 12px", border: "1px solid #1c463a" }}>
+              <div style={{ fontSize: 10.5, color: "#8fb3a6" }}>{m.k}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{m.v}</div>
+              <div style={{ fontSize: 9.5, color: "#6f978a", marginTop: 2 }}>{m.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* AI Topic Cluster — 콘텐츠를 대주제(클러스터)로 관리 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🧩 Topic Cluster (콘텐츠 클러스터)</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: S.lg }}>
+          {(clusters.length ? clusters : TOPIC_CLUSTERS.map(c => ({ ...c, count: 0, views: 0 }))).map(c => (
+            <div key={c.id} style={{ background: "#123a30", border: "1px solid #1c463a", borderRadius: R.md, padding: "6px 10px", fontSize: 11 }}>
+              <span style={{ color: "#fff", fontWeight: 700 }}>{c.label}</span>
+              <span style={{ color: "#8fb3a6", marginLeft: 6 }}>{c.count}글</span>
+              {c.views > 0 && <span style={{ color: "#6f978a", marginLeft: 6 }}>· 조회 {c.views}</span>}
+            </div>
+          ))}
+        </div>
+
+        {/* Knowledge Map — 카테고리 ↔ 카테고리 지식 연결(실제 글이 있는 카테고리끼리) */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🗺️ Knowledge Map (카테고리 지식 연결 {kmap.edges.length})</div>
+        {kmap.edges.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#8fb3a6", marginBottom: S.lg }}>아직 연결할 카테고리가 부족합니다(발행글이 쌓이면 자동 연결)</div>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: S.lg }}>
+            {kmap.edges.slice(0, 24).map((e, i) => (
+              <span key={i} style={{ fontSize: 10.5, color: "#cfe6dd", background: "#123a30", border: "1px solid #1c463a", borderRadius: R.full, padding: "3px 9px" }}>
+                {catLabel(e.source)} ↔ {catLabel(e.target)}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* 오늘의 Space / Editor's Pick — 인기 + 네트워크 허브(연결 많은 글)를 함께 본다 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>⭐ 오늘의 Space · Top {Math.min(spaceTop.length, 10)}</div>
+        {editorPick && (
+          <div style={{ background: "#1a4a3c", borderRadius: R.md, padding: "8px 11px", border: "1px solid #2a6b57", marginBottom: S.sm }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: "#ffd7a0" }}>Editor's Pick</span>
+            <span style={{ fontSize: 12, color: "#fff", fontWeight: 700, marginLeft: 8 }}>{editorPick.title}</span>
+            <span style={{ fontSize: 10, color: "#8fb3a6", marginLeft: 8 }}>연결 {editorPick._hubDegree}건</span>
+          </div>
+        )}
+        {spaceTop.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#8fb3a6" }}>발행된 콘텐츠가 쌓이면 오늘의 Space 가 자동 선정됩니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {spaceTop.map((p, i) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "3px 0", borderBottom: "1px solid #163b30", flexWrap: "wrap" }}>
+                <span style={{ color: "#ffd7a0", fontWeight: 800, width: 18 }}>{i + 1}</span>
+                <span style={{ color: "#fff", fontWeight: 600, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                <span style={{ color: "#6f978a", fontSize: 10 }}>{catLabel(p.category)} · 허브 {p._hubDegree}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* AI 체크(중복 방지) — 편집회의에서 "이 이슈로 초안 생성"을 누르면 생성 전에 실행된 결과 */}
+        {aiCheck && (
+          <div style={{ marginTop: S.lg, background: "#123a30", borderRadius: R.md, padding: "10px 12px", border: `1px solid ${aiCheck.verdict === "skip" ? "#a05a5a" : "#1c463a"}` }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#fff", marginBottom: 4 }}>
+              🤖 AI 체크 · {aiCheck.verdict === "skip" ? "중복 감지(생성 건너뜀)" : aiCheck.verdict === "enrich" ? "유사 글 있음(보강 권장)" : "생성 진행(관련 글 연결)"}
+              <span style={{ color: "#8fb3a6", fontWeight: 600, marginLeft: 8 }}>{aiCheck.chain.map(c => catLabel(c)).join(" → ")}</span>
+            </div>
+            <div style={{ fontSize: 10.5, color: "#a9c9bd", lineHeight: 1.7 }}>
+              {aiCheck.reasons.map((r, i) => <div key={i}>· {r}</div>)}
+            </div>
+            {aiCheck.related.length > 0 && (
+              <div style={{ marginTop: 6, fontSize: 10.5, color: "#cfe6dd" }}>
+                연결할 관련 글: {aiCheck.related.map(r => r.title).slice(0, 3).join(" · ")}
+              </div>
+            )}
           </div>
         )}
       </div>

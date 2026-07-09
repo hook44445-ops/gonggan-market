@@ -38,6 +38,7 @@ import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification, crea
 import { buildPostMeta, buildPostPath } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
 import { resolveCompanyIdentity, resolveConsumerIdentity } from '../utils/identityResolver';
+import { rankBySpaceGraph } from '../lib/spaceGraph'; // Phase 3 — 관련글 공간 그래프 재정렬(AI 연결)
 import SpaceActivityRecord from '../components/SpaceActivityRecord'; // 일반 의뢰인 활동기록 요약(재사용 · 업체버튼 없음)
 
 // 클릭한 닉네임/아바타 요소의 화면 위치(앵커) — 초미니 팝오버 위치 보정용
@@ -412,11 +413,19 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   }, [post?.id, post?.title, post?.content, isSynthSeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 관련글(SEO 내부링크) — 같은 카테고리 인기글 우선. seed/일반 글 공통.
+  //   Phase 3: 넓은 후보 풀(12)을 받아 Space Graph(공간 연결도)로 재정렬해 상위 4개만 노출한다.
+  //   "같이 보면 좋은 글"을 조회수가 아니라 공간 관점 연결로 고른다(그래프 실패 시 원래 순서로 폴백).
   useEffect(() => {
     if (!IS_SUPABASE_READY || !post?.id || !post?.category) { setRelatedPosts([]); return; }
     let cancelled = false;
-    getRelatedLoungePosts(post.category, post.id, 4)
-      .then(({ data }) => { if (!cancelled) setRelatedPosts(data ?? []); })
+    getRelatedLoungePosts(post.category, post.id, 12)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const pool = data ?? [];
+        let ranked = pool.slice(0, 4);
+        try { ranked = rankBySpaceGraph(post, pool, 4); } catch { /* 폴백: 원래 순서 */ }
+        setRelatedPosts(ranked);
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [post?.id, post?.category]);
