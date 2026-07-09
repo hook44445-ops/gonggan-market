@@ -20,6 +20,10 @@ import {
   buildDraftBoard, publishHistory, popularContent, todaysPick, opsStats, PIPELINE_STAGES,
 } from "../lib/publishingPipeline";
 import { discoverTrendingTopics, trendSummary } from "../lib/trendDiscovery";
+import {
+  getAutoConfig, setAutoConfig, planAutoPublish, executeAutoPublishPlan,
+  autoPublishStats, getPublishLog,
+} from "../lib/autoPublish";
 import { voiceFor } from "../constants/categoryVoice";
 import { scoreUsefulness } from "../lib/contentUsefulness";
 import { detectForcedSpaceLinks } from "../lib/forcedSpaceLinkFilter";
@@ -1205,6 +1209,150 @@ const DISPUTE_STATUS_META = {
   REFUNDED:         { label: "환불처리",     color: C.text4,   bg: C.bg      },
   PARTIAL_REFUND:   { label: "일부환불",     color: C.text3,   bg: C.bg      },
 };
+
+// ── 자동발행 OS(Phase 17.5) — 90점+ 검증 콘텐츠 자동 발행 운영 ──────────────
+//   게이트 통과분을 3시간 슬롯에 예약(긴급은 즉시 발행)한다. 실제 발행/예약/롤백은 기존
+//   adminUpdateLoungeDraft 를, 예약 발행 실행은 기존 예약발행 크론을 재사용한다(무수정).
+function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, onReload }) {
+  const [tick, setTick] = useState(0);
+  const [running, setRunning] = useState(false);
+  void tick;
+  const bump = () => setTick(t => t + 1);
+  const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
+
+  const config = getAutoConfig();
+  const wbIndex = workbenchIndex();
+  const stages = getPipelineStages();
+  const plan = planAutoPublish({ drafts, published, wbIndex, stages, config });
+  const stats = autoPublishStats(published, drafts);
+  const log = getPublishLog();
+
+  const executors = {
+    publish:  (id) => adminUpdateLoungeDraft(id, { publishStatus: "published" }, adminUserId),
+    schedule: (id, iso) => adminUpdateLoungeDraft(id, { publishStatus: "scheduled", scheduledAt: iso }, adminUserId),
+    revert:   (id) => adminUpdateLoungeDraft(id, { publishStatus: "draft" }, adminUserId),
+  };
+
+  const toggle = () => { const n = setAutoConfig({ enabled: !config.enabled }); showToast?.(n.enabled ? "🟢 자동발행 ON" : "⚪ 자동발행 OFF"); bump(); };
+
+  const runNow = async () => {
+    if (running) return;
+    if (!config.enabled) { showToast?.("자동발행이 OFF 입니다 — 먼저 ON 하세요"); return; }
+    setRunning(true);
+    try {
+      const res = await executeAutoPublishPlan(plan, executors, {});
+      showToast?.(`⚙️ 긴급발행 ${res.published} · 예약 ${res.scheduledCount} · 실패 ${res.failed}`);
+      res.alerts.forEach(a => showToast?.(a));
+      await onReload?.();
+    } catch (e) {
+      showToast?.("자동발행 실행 실패: " + (e?.message ?? String(e)));
+    } finally { setRunning(false); bump(); }
+  };
+
+  const box = { background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl };
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>⚙️ 자동발행 OS (Production)</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={toggle}
+            style={{ padding: "7px 16px", borderRadius: R.full, fontWeight: 800, fontSize: 12.5, cursor: "pointer", border: "none",
+              background: config.enabled ? C.brand : C.text4, color: "#fff" }}>
+            {config.enabled ? "🟢 ON" : "⚪ OFF"}
+          </button>
+          <button onClick={runNow} disabled={running || !config.enabled}
+            style={{ padding: "7px 14px", background: running ? C.text4 : C.brandD, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+            {running ? "실행 중…" : "▶ 지금 자동발행 실행"}
+          </button>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
+        Quality≥90 · Confidence≥90 · 금칙어/SEO/중복/AI검사/Review 를 모두 통과한 콘텐츠만 자동 발행합니다.
+        게이트 통과분은 <b>3시간 슬롯</b>에 예약되고 기존 예약발행 크론이 발행합니다. 긴급 이슈(Priority High · Trend {config.emergencyTrendMin}+)는 즉시 발행합니다.
+        하루 최대 {config.dailyLimit}개(긴급 제외).
+      </div>
+
+      {/* 9. Dashboard */}
+      <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
+        {[
+          { k: "오늘 발행", v: stats.publishedToday }, { k: "예약", v: stats.scheduledCount },
+          { k: "긴급발행", v: stats.emergencyToday }, { k: "평균점수", v: stats.avgScore ?? "-" },
+          { k: "평균조회", v: stats.avgViews ?? "-" }, { k: "실패", v: stats.failures },
+          { k: "성공률", v: stats.successRate != null ? stats.successRate + "%" : "-" }, { k: "오늘 사용/한도", v: `${stats.dailyUsed}/${config.dailyLimit}` },
+        ].map(m => (
+          <div key={m.k} style={{ flex: "1 1 90px", background: C.bg, borderRadius: R.lg, padding: "8px 11px", border: `1px solid ${C.bgWarm}` }}>
+            <div style={{ fontSize: 10, color: C.text3 }}>{m.k}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.text1 }}>{m.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 긴급 + 예약 계획 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🚨 발행 계획 (게이트 통과분)</div>
+        {plan.emergency.length === 0 && plan.scheduled.length === 0 ? (
+          <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>지금 자동발행 조건(90점+)을 통과한 초안이 없습니다.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {plan.emergency.map(it => (
+              <div key={it.draft.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "5px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+                <span style={{ padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: "#dc262622", color: "#dc2626" }}>긴급 즉시</span>
+                <span style={{ fontWeight: 700, color: C.text1, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.draft.title}</span>
+                <span style={{ color: C.text3 }}>Q{it.gate.quality} · C{it.gate.confidence} · TS{it.cand.trendScore}</span>
+              </div>
+            ))}
+            {plan.scheduled.map(it => (
+              <div key={it.draft.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "5px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+                <span style={{ padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: "#7c3aed22", color: "#7c3aed" }}>
+                  예약 {it.slot instanceof Date ? it.slot.toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit" }) : ""}
+                </span>
+                <span style={{ fontWeight: 700, color: C.text1, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.draft.title}</span>
+                <span style={{ color: C.text3 }}>{catLabel(it.draft.category)} · Q{it.gate.quality} · C{it.gate.confidence}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Gate 미통과(스킵) — 사유 */}
+      {plan.skipped.length > 0 && (
+        <div style={box}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>⛔ 게이트 미통과 ({plan.skipped.length})</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {plan.skipped.slice(0, 12).map(s => (
+              <div key={s.draft.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, padding: "3px 0", flexWrap: "wrap" }}>
+                <span style={{ color: C.text2, fontWeight: 600, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.draft.title}</span>
+                <span style={{ color: C.red, fontSize: 10 }}>{s.gate.reasons.join(" · ")}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 6. Publish Log */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🧾 발행 로그 ({log.length})</div>
+        {log.length === 0 ? <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>아직 자동발행 기록이 없습니다.</div> : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {log.slice(0, 20).map((e, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 10.5, padding: "3px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+                <span style={{ color: C.text4, minWidth: 92 }}>{new Date(e.at).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                <span style={{ padding: "1px 6px", borderRadius: R.full, fontSize: 9, fontWeight: 800,
+                  background: e.status === "published" ? "#05966922" : e.status === "scheduled" ? "#7c3aed22" : e.status === "failed" ? "#dc262622" : "#6b728022",
+                  color: e.status === "published" ? "#059669" : e.status === "scheduled" ? "#7c3aed" : e.status === "failed" ? "#dc2626" : "#6b7280" }}>
+                  {e.mode}·{e.status}
+                </span>
+                <span style={{ color: C.text1, flex: 1, minWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.title}</span>
+                {e.quality != null && <span style={{ color: C.text3 }}>Q{e.quality}{e.confidence != null ? `·C${e.confidence}` : ""}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── AI 트렌드 발굴(Phase 14) — 기획 AI: "무엇을 쓸지" 먼저 판단 ──────────────
 //   생성 엔진 무수정. Mock 트렌드 → 점수/우선순위/다양성 계산 → Draft 생성/Review 보내기.
@@ -4469,6 +4617,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["lounge_ai_factory", "AI 콘텐츠 공장"],
     ["trend_discovery", "트렌드 발굴"],
     ["publishing_pipeline", "발행 파이프라인"],
+    ["auto_publish", "자동발행"],
     ["reports",        "신고관리"],
     ["chat_overview",  "채팅/대화 관리"],
     ["direct_deal",    "직거래 의심"],
@@ -4491,7 +4640,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["reports"]] },
+      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
@@ -5812,6 +5961,23 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   } finally {
                     setAiFactoryLoading(false);
                   }
+                }}
+              />
+            )}
+
+            {/* ── 자동발행 OS (Phase 17.5) ── */}
+            {mainTab === "auto_publish" && (
+              <AutoPublishTab
+                drafts={aiDrafts}
+                published={aiPublished}
+                adminUserId={user?.id ?? null}
+                showToast={showToast}
+                onReload={async () => {
+                  try {
+                    const [draftsRes, publishedRes] = await Promise.all([adminListLoungeDrafts(), adminListPublishedAiContent()]);
+                    setAiDrafts(draftsRes.data ?? []);
+                    setAiPublished(publishedRes.data ?? []);
+                  } catch { /* keep prior */ }
                 }}
               />
             )}
