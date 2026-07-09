@@ -37,6 +37,7 @@ import AdminScreen from "../screens/AdminScreen";
 import LoungeScreen from "../screens/LoungeScreen";
 import LoungeWriteScreen from "../screens/LoungeWriteScreen";
 import LoungePostDetailScreen from "../screens/LoungePostDetailScreen";
+import SpaceMediaScreen from "../screens/SpaceMediaScreen"; // Phase 7 — Space Media Surface(엔진 UI 연결, Add Only)
 import OperatorBoardScreen from "../screens/OperatorBoardScreen";
 import LoungeStoryUploadScreen from "../screens/LoungeStoryUploadScreen";
 import { buildPostPath, seoSlugToCategoryId } from "../utils/loungeSeo";
@@ -4068,6 +4069,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             }}
             onDeleteStory={(id) => setLocalLoungeStories(prev => prev.filter(s => s.id !== id))}
             refreshKey={loungeRefreshKey}
+            onOpenSpaceMedia={() => go("space-media")}
+          />
+        )}
+
+        {/* Phase 7 — Space Media Surface: 기존 엔진(Magazine/Archive/Search/Encyclopedia)을 화면으로 연결(Add Only) */}
+        {screen==="space-media" && (
+          <SpaceMediaScreen
+            onBack={() => setScreen("lounge")}
+            onOpenPost={(post) => {
+              if (!post) return;
+              setLoungePost(post);
+              go("lounge-detail");
+              try { window.history.pushState({}, "", buildPostPath(post)); } catch {}
+            }}
           />
         )}
 
