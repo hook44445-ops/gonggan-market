@@ -15,6 +15,10 @@ import { scoreContent } from "../lib/contentScore";
 import { generateVoicedDraft, generateVoicedDraftLLM } from "../lib/categoryVoiceWriter";
 import { isLLMConfigured } from "../lib/llmClient";
 import { generateForWorkbench, saveWorkbenchRecord, PROMPT_VERSIONS } from "../lib/editorWorkbench";
+import {
+  workbenchIndex, getPipelineStages, setPipelineStage, clearPipelineStage,
+  buildDraftBoard, publishHistory, popularContent, todaysPick, opsStats, PIPELINE_STAGES,
+} from "../lib/publishingPipeline";
 import { voiceFor } from "../constants/categoryVoice";
 import { scoreUsefulness } from "../lib/contentUsefulness";
 import { detectForcedSpaceLinks } from "../lib/forcedSpaceLinkFilter";
@@ -1201,7 +1205,167 @@ const DISPUTE_STATUS_META = {
   PARTIAL_REFUND:   { label: "일부환불",     color: C.text3,   bg: C.bg      },
 };
 
-// GPS 체크포인트(현장방문/착공/중간/완료) — 관리자 분쟁/계약 증빙. admin 은 좌표까지 조회.
+// ── AI 발행 파이프라인(Phase 13) — 생성→검토→승인→발행→추천 운영 ──────────────
+//   생성 엔진 무수정. 기존 supabase 함수(adminUpdateLoungeDraft/Delete)와 기존 예약발행 크론을
+//   재사용한다. Review/Approved 하위 상태는 localStorage(publishingPipeline)에 얹는다.
+function PublishingPipelineTab({ drafts = [], published = [], loading = false, adminUserId, showToast, onReload }) {
+  const [tick, setTick] = useState(0);         // localStorage 스테이지 변경 후 강제 리렌더
+  const [scheduleFor, setScheduleFor] = useState({}); // { [id]: 'YYYY-MM-DDTHH:mm' }
+  const [busy, setBusy] = useState(false);
+
+  const wbIndex = workbenchIndex();
+  const stages = getPipelineStages();
+  const { board } = buildDraftBoard(drafts, wbIndex, stages); // eslint-disable-line no-unused-vars
+  const history = publishHistory(published);
+  const popular = popularContent(published);
+  const pick = todaysPick(published, wbIndex);
+  const stats = opsStats(drafts, published, wbIndex);
+  const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
+  void tick;
+
+  const bump = () => setTick(t => t + 1);
+  const moveStage = (id, stage) => { setPipelineStage(id, stage); bump(); showToast?.(stage === "review" ? "🔎 검토로 이동" : "✅ 승인됨"); };
+  const doPublish = async (id) => {
+    if (busy) return; setBusy(true);
+    const { error } = await adminUpdateLoungeDraft(id, { publishStatus: "published" }, adminUserId);
+    setBusy(false);
+    if (error) { showToast?.("발행 실패: " + error.message); return; }
+    clearPipelineStage(id); showToast?.("🚀 발행됐습니다"); onReload?.();
+  };
+  const doSchedule = async (id) => {
+    const when = scheduleFor[id];
+    if (!when) { showToast?.("예약 일시를 선택하세요"); return; }
+    if (busy) return; setBusy(true);
+    const { error } = await adminUpdateLoungeDraft(id, { publishStatus: "scheduled", scheduledAt: new Date(when).toISOString() }, adminUserId);
+    setBusy(false);
+    if (error) { showToast?.("예약 실패: " + error.message); return; }
+    showToast?.("⏰ 예약 발행 설정됨(기존 크론이 시각 도래 시 발행)"); onReload?.();
+  };
+  const doDelete = async (id) => {
+    if (busy) return; setBusy(true);
+    const { error } = await adminDeleteLoungeDraft(id, adminUserId);
+    setBusy(false);
+    if (error) { showToast?.("삭제 실패: " + error.message); return; }
+    clearPipelineStage(id); onReload?.();
+  };
+
+  const stageColor = Object.fromEntries(PIPELINE_STAGES.map(s => [s.id, s.color]));
+  const box = { background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl };
+  const chip = (bg, color) => ({ padding: "2px 8px", borderRadius: R.full, fontSize: 10, fontWeight: 800, background: bg, color });
+
+  const DraftCard = ({ r }) => (
+    <div style={{ background: C.bg, borderRadius: R.md, border: `1px solid ${C.bgWarm}`, padding: "8px 10px", marginBottom: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <span style={chip(stageColor[r.stage] + "22", stageColor[r.stage])}>{r.stage}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: C.text1, flex: 1, minWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</span>
+        {r.confidence != null && <span style={{ fontSize: 10, fontWeight: 800, color: r.confidence >= 80 ? C.brand : C.gold }}>{r.confidence}%</span>}
+      </div>
+      <div style={{ fontSize: 9.5, color: C.text3, marginTop: 3, display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <span style={{ color: C.brand }}>{catLabel(r.category)}</span>
+        <span>· {r.readingMinutes}분</span>
+        {r.source && <span>· {r.source === "llm" ? "LLM" : "Mock"}{r.promptVersion ? `·${r.promptVersion}` : ""}</span>}
+        {r.createdAt && <span>· {new Date(r.createdAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}</span>}
+      </div>
+      <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+        {r.stage === "draft" && <button onClick={() => moveStage(r.id, "review")} style={btn(C.gold)}>검토</button>}
+        {r.stage === "review" && <button onClick={() => moveStage(r.id, "approved")} style={btn("#2563eb")}>승인</button>}
+        {(r.stage === "approved" || r.stage === "review" || r.stage === "draft") && <button onClick={() => doPublish(r.id)} style={btn(C.brand)}>발행</button>}
+        <input type="datetime-local" value={scheduleFor[r.id] ?? ""} onChange={e => setScheduleFor(s => ({ ...s, [r.id]: e.target.value }))}
+          style={{ fontSize: 10, padding: "2px 4px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm }} />
+        <button onClick={() => doSchedule(r.id)} style={btn("#7c3aed")}>예약</button>
+        <button onClick={() => doDelete(r.id)} style={btn(C.text4)}>삭제</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🚀 AI 발행 파이프라인</div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
+        생성된 초안을 <b>Draft → Review → Approved → Published</b> 로 운영합니다. 발행/예약은 기존 발행 흐름과
+        예약발행 크론을 그대로 사용하며(자동 발행 없음), Review/Approved 상태는 이 브라우저에 저장됩니다.
+      </div>
+
+      {/* 7. 운영 통계 */}
+      <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
+        {[
+          { k: "Draft", v: stats.draftCount }, { k: "Published", v: stats.publishedCount },
+          { k: "오늘 생성", v: stats.todayCreated }, { k: "오늘 발행", v: stats.todayPublished },
+          { k: "평균 Confidence", v: stats.avgConfidence != null ? stats.avgConfidence + "%" : "-" },
+          { k: "평균 Reading", v: stats.avgReadingMinutes + "분" },
+        ].map(m => (
+          <div key={m.k} style={{ flex: "1 1 100px", background: C.brandL, borderRadius: R.lg, padding: "10px 12px", border: `1px solid ${C.brandM}` }}>
+            <div style={{ fontSize: 10.5, color: C.text3 }}>{m.k}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: C.brandD }}>{m.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 6. Today's Pick */}
+      {pick && (
+        <div style={{ ...box, background: "linear-gradient(135deg, #0f2e26, #1a4a3c)", border: "none", color: "#fff", padding: S.lg }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: "#ffd7a0", marginBottom: 3 }}>⭐ TODAY'S PICK</div>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>{pick.post.title}</div>
+          <div style={{ fontSize: 11, color: "#a9c9bd", marginTop: 4 }}>{catLabel(pick.post.category)} · 종합점수 {pick.score} · Community {pick.community} · Confidence {pick.confidence}% · 조회 {pick.post.view_count ?? 0}</div>
+        </div>
+      )}
+
+      {/* 1~3. 초안 보드 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📋 초안 보드 (검토 → 승인 → 발행/예약)</div>
+        {loading ? <div style={{ textAlign: "center", padding: 30, color: C.text3 }}>불러오는 중…</div> : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: S.md }}>
+            {[["draft", "Draft"], ["review", "Review"], ["approved", "Approved"], ["scheduled", "Scheduled"]].map(([id, lbl]) => (
+              <div key={id}>
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: stageColor[id], marginBottom: 6 }}>{lbl} ({board[id].length})</div>
+                {board[id].length === 0 ? <div style={{ fontSize: 11, color: C.text4, padding: "8px 0" }}>없음</div> : board[id].map(r => <DraftCard key={r.id} r={r} />)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 5. 인기 콘텐츠 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🔥 인기 콘텐츠 (자동 계산)</div>
+        <div style={{ display: "flex", gap: S.lg, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.brand, marginBottom: 5 }}>✨ Editor's Pick</div>
+            <div style={{ fontSize: 12, color: C.text1 }}>{popular.editorsPick?.title ?? "-"}</div>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.pinkD, margin: "10px 0 5px" }}>📈 상승</div>
+            {popular.rising.slice(0, 4).map(p => <div key={p.id} style={{ fontSize: 11, color: C.text2, padding: "1px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {p.title}</div>)}
+          </div>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text1, marginBottom: 5 }}>👍 인기</div>
+            {popular.popular.slice(0, 5).map(p => <div key={p.id} style={{ fontSize: 11, color: C.text2, padding: "1px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {p.title} <span style={{ color: C.text3 }}>({p._c.engagementScore})</span></div>)}
+          </div>
+        </div>
+      </div>
+
+      {/* 4. 발행 히스토리 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🗂️ 발행 히스토리 ({history.length})</div>
+        {history.length === 0 ? <div style={{ fontSize: 12, color: C.text3, textAlign: "center", padding: 20 }}>발행된 AI 콘텐츠가 없습니다</div> : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {history.slice(0, 20).map(h => (
+              <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "5px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+                <span style={{ color: C.text1, fontWeight: 600, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</span>
+                <span style={{ color: C.brand }}>{h.categoryLabel}</span>
+                <span style={{ color: C.text3 }}>👁 {h.views} · ❤ {h.likes} · 🔖 {h.saves}</span>
+                {h.publishedAt && <span style={{ color: C.text4 }}>{new Date(h.publishedAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function btn(bg) {
+  return { padding: "3px 9px", background: bg, color: "#fff", border: "none", borderRadius: R.sm, fontSize: 10, fontWeight: 700, cursor: "pointer" };
+}
+
 // ── AI 콘텐츠 공장(Phase 1) — Draft 생성 → 검수 → 예약/즉시 발행 ──────────────
 //   lounge_posts.is_seed=true 재사용(신규 테이블 없음). 실제 발행은 관리자 승인 후에만
 //   일어난다(베타 원칙: 자동 발행보다 Draft→승인→발행). 본문은 템플릿 기반(generateDraft) —
@@ -4203,6 +4367,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["lounge_insights","라운지 인사이트"],
     ["lounge_seeding", "라운지 시딩"],
     ["lounge_ai_factory", "AI 콘텐츠 공장"],
+    ["publishing_pipeline", "발행 파이프라인"],
     ["reports",        "신고관리"],
     ["chat_overview",  "채팅/대화 관리"],
     ["direct_deal",    "직거래 의심"],
@@ -4225,7 +4390,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["reports"]] },
+      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["publishing_pipeline", "발행 파이프라인"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
@@ -5546,6 +5711,25 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   } finally {
                     setAiFactoryLoading(false);
                   }
+                }}
+              />
+            )}
+
+            {/* ── AI 발행 파이프라인 (Phase 13) ── */}
+            {mainTab === "publishing_pipeline" && (
+              <PublishingPipelineTab
+                drafts={aiDrafts}
+                published={aiPublished}
+                loading={aiFactoryLoading}
+                adminUserId={user?.id ?? null}
+                showToast={showToast}
+                onReload={async () => {
+                  setAiFactoryLoading(true);
+                  try {
+                    const [draftsRes, publishedRes] = await Promise.all([adminListLoungeDrafts(), adminListPublishedAiContent()]);
+                    setAiDrafts(draftsRes.data ?? []);
+                    setAiPublished(publishedRes.data ?? []);
+                  } catch { /* keep prior */ } finally { setAiFactoryLoading(false); }
                 }}
               />
             )}
