@@ -1376,17 +1376,19 @@ function TrendDiscoveryTab({ published = [], adminUserId, showToast, onReload })
     setBusyTopic(cand.topic);
     try {
       const wb = await generateForWorkbench(
-        { issue: cand.topic, category: cand.category, mode: "voice", promptVersion: "v1", temperature: 0.7 },
+        { issue: cand.topic, category: cand.category, mode: "voice", promptVersion: "v1", temperature: 0.85 },
         { existing: published.filter(p => p.title).map(p => ({ title: p.title })) }
       );
+      // Phase 20.6 — 실제 LLM 실패/미설정 시 Mock 생성하지 않고 중단.
+      if (wb.error || !wb.result) { showToast?.(wb.error || "LLM 생성 실패"); return; }
       const { data, error } = await adminCreateLoungeDraft(
         { category: wb.result.category, title: wb.result.title, content: wb.result.body, aiTopic: cand.topic, publishStatus: "draft" },
         adminUserId
       );
       if (error) { showToast?.("초안 저장 실패: " + error.message); return; }
-      saveWorkbenchRecord({ result: wb.result, meta: wb.meta }); // Confidence/PromptVersion 파이프라인 표시용
+      saveWorkbenchRecord({ result: wb.result, meta: wb.meta }); // Confidence/Editorial/토큰 파이프라인 표시용
       if (sendReview && data?.id != null) setPipelineStage(data.id, "review");
-      showToast?.(sendReview ? "🔎 Review 로 보냈습니다" : `📝 초안 생성됨${wb.meta.source === "llm" ? " (LLM)" : ""}`);
+      showToast?.(sendReview ? "🔎 Review 로 보냈습니다" : `📝 초안 생성됨 (LLM · Conf ${wb.meta.confidence}%)`);
       onReload?.();
     } catch (e) {
       showToast?.("생성 실패: " + (e?.message ?? String(e)));
@@ -1636,7 +1638,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   // Phase 11 — AI Editor Workbench
   const [workbench, setWorkbench]   = useState(null);    // { result, meta, quality }
   const [promptVersion, setPromptVersion] = useState("v1");
-  const [temperature, setTemperature] = useState(0.7);
+  const [temperature, setTemperature] = useState(0.85);
   const [showPrompt, setShowPrompt] = useState(false);
   const [showRaw, setShowRaw]       = useState(false);
   const [saving, setSaving]         = useState(false);
@@ -1678,9 +1680,11 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         { issue: issue.trim(), category: cat, region: region.trim() || null, mode: genMode === "raw" ? "raw" : "voice", promptVersion, temperature },
         { existing }
       );
+      // Phase 20.6 — Production: LLM 미설정/실패 시 Mock 생성하지 않고 명확히 안내.
+      if (wb.error || !wb.result) { setWorkbench(null); showToast?.(wb.error || "LLM 생성 실패"); return; }
       setWorkbench(wb);
-      setPreview({ title: wb.result.title, content: wb.result.body, category: wb.result.category, tags: wb.result.tags, summary: wb.result.summary, keywords: wb.result.keywords });
-      if (isLLMConfigured()) showToast?.(wb.meta.source === "llm" ? `✨ LLM 생성 완료 · Confidence ${wb.meta.confidence}%` : "⚠️ LLM 실패 — Mock 폴백 사용");
+      setPreview({ title: wb.result.title, content: wb.result.body, category: wb.result.category, tags: wb.result.tags, summary: wb.result.summary, keywords: wb.result.keywords, focusKeyword: wb.result.focusKeyword, metaDescription: wb.result.metaDescription });
+      showToast?.(`✨ LLM 생성 완료 · Confidence ${wb.meta.confidence}% · Editorial ${wb.meta.editorialScore}`);
     } catch (e) {
       showToast?.("생성 실패: " + (e?.message ?? String(e)));
     } finally {
@@ -1742,6 +1746,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
           title: preview.title, summary: preview.summary ?? "", body: preview.content,
           tags: preview.tags ?? [], keywords: preview.keywords ?? [], category: preview.category,
           tone: workbench.result.tone, readingMinutes: workbench.result.readingMinutes, relatedTopics: workbench.result.relatedTopics,
+          focusKeyword: preview.focusKeyword ?? "", metaDescription: preview.metaDescription ?? "",
         },
         meta: workbench.meta,
       });
@@ -2588,7 +2593,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         </button>
         {genMode !== "space" && (
           <span style={{ marginLeft: 10, fontSize: 11, color: C.text3 }}>
-            {isLLMConfigured() ? "🟢 LLM 연결됨" : "⚪ LLM 미설정 — 템플릿(Mock) 사용"}
+            {isLLMConfigured() ? "🟢 LLM 연결됨 (OpenRouter)" : "⚪ LLM 미설정 (VITE_LLM_API_KEY 필요)"}
           </span>
         )}
 
@@ -2631,13 +2636,17 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
                     {workbench.meta.source === "llm" ? "LLM" : "Mock 폴백"}
                   </span>
                 </div>
-                {/* AI 분석 */}
+                {/* AI 분석 + 관리자 로그(Provider/Model/Latency/Tokens/Editorial) */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, fontSize: 10.5, color: "#d1d5db", marginBottom: 8 }}>
-                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>톤: {workbench.result.tone?.slice(0, 24) || "-"}</span>
+                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>톤: {workbench.result.tone?.slice(0, 20) || "-"}</span>
                   <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>유용성 {workbench.quality.usefulness}</span>
-                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>읽는시간 {workbench.result.readingMinutes}분</span>
-                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>카테고리 {catLabel(workbench.result.category)}</span>
-                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>{workbench.meta.llmProvider}·{workbench.meta.tokensEstimated}tok·{workbench.meta.latencyMs}ms</span>
+                  <span style={{ background: "#134e2b", color: "#a7f3d0", borderRadius: R.full, padding: "2px 8px", fontWeight: 700 }}>Editorial {workbench.meta.editorialScore}</span>
+                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>읽기 {workbench.result.readingMinutes}분</span>
+                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>{workbench.meta.llmProvider} · {workbench.meta.llmModel}</span>
+                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>{workbench.meta.latencyMs}ms</span>
+                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>
+                    tok {workbench.meta.promptTokens ?? "?"}+{workbench.meta.completionTokens ?? "?"}={workbench.meta.totalTokens ?? workbench.meta.tokensEstimated}
+                  </span>
                 </div>
                 {/* Quality Panel */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(88px, 1fr))", gap: 6 }}>
@@ -2688,6 +2697,19 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
                   <div style={{ flex: 1, minWidth: 160 }}>
                     <div style={{ fontSize: 10, color: C.text3, marginBottom: 2 }}>키워드 (콤마 구분)</div>
                     <input value={(preview.keywords ?? []).join(", ")} onChange={e => editArrayField("keywords", e.target.value)}
+                      style={{ width: "100%", padding: "6px 9px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+                  </div>
+                </div>
+                {/* SEO — Focus Keyword · Meta Description */}
+                <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <div style={{ fontSize: 10, color: C.text3, marginBottom: 2 }}>Focus Keyword (SEO)</div>
+                    <input value={preview.focusKeyword ?? ""} onChange={e => setPreview(p => ({ ...p, focusKeyword: e.target.value }))}
+                      style={{ width: "100%", padding: "6px 9px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+                  </div>
+                  <div style={{ flex: 2, minWidth: 200 }}>
+                    <div style={{ fontSize: 10, color: C.text3, marginBottom: 2 }}>Meta Description (SEO)</div>
+                    <input value={preview.metaDescription ?? ""} onChange={e => setPreview(p => ({ ...p, metaDescription: e.target.value }))}
                       style={{ width: "100%", padding: "6px 9px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
                   </div>
                 </div>

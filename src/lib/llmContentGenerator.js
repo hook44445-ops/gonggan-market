@@ -29,6 +29,7 @@ function systemPrompt(plan) {
       : "공간 연결은 자연스러울 때만. 억지 상투구는 금지합니다.",
     "품질 기준(유용성 우선): " + Object.values(USEFULNESS_AXIS_LABELS).join(" · ") + ".",
     "과장·단정('무조건', '100%', '확실히 오른다')을 쓰지 말고, 근거·사례 중심으로 신뢰감 있게 씁니다.",
+    "Humanization: 사람이 쓴 것처럼 자연스럽게. GPT 상투구('오늘은 ~에 대해 알아보겠습니다', '결론적으로'), 반복 문단, 뻔한 나열을 피하고 구체적 사례·리듬 있는 문장으로 씁니다.",
     plan.mode === "raw"
       ? "형식은 Raw Knowledge Mode: 꾸미지 않은 원석 지식(오늘 무슨 일/왜 중요/핵심 포인트/앞으로 볼 것/참고 키워드/후속 후보)."
       : "본문은 마크다운 소제목(##)과 목록(-)을 적절히 사용해 읽기 좋게 구성합니다.",
@@ -50,6 +51,8 @@ function userPrompt(plan) {
     '  "keywords": ["검색 키워드", "3~8개"],',
     '  "readingMinutes": 3,',
     `  "relatedTopics": ["관련 주제", "2~5개"],`,
+    '  "focusKeyword": "핵심 SEO 키워드 1개",',
+    '  "metaDescription": "검색결과용 요약(80~120자)",',
     `  "category": "${plan.category}",`,
     `  "tone": "${plan.voice.tone}"`,
     "}",
@@ -94,6 +97,8 @@ export function normalizeResult(obj, plan) {
     keywords: asArray(obj.keywords).slice(0, 10),
     readingMinutes,
     relatedTopics: asArray(obj.relatedTopics).slice(0, 6),
+    focusKeyword: String(obj.focusKeyword ?? "").trim() || (asArray(obj.keywords)[0] ?? ""),
+    metaDescription: String(obj.metaDescription ?? "").trim() || String(obj.summary ?? "").trim().slice(0, 120),
     category: String(obj.category ?? plan.category ?? "").trim() || plan.category,
     tone: String(obj.tone ?? plan.voice?.tone ?? "").trim() || plan.voice?.tone || "",
   };
@@ -101,8 +106,8 @@ export function normalizeResult(obj, plan) {
 
 // renderFromPlan 의 LLM 버전 — 실제 LLM 호출 → JSON 파싱/검증. 실패 시 throw(호출부 폴백).
 //   반환: { title, summary, body, tags, keywords, readingMinutes, relatedTopics, category, tone }
-export async function renderFromPlanLLM(plan, { signal = null, temperature = 0.7, maxTokens = 1800 } = {}) {
-  const text = await callLLM({ system: systemPrompt(plan), user: userPrompt(plan), temperature, maxTokens, signal });
+export async function renderFromPlanLLM(plan, { signal = null, temperature = 0.85, maxTokens = 2400 } = {}) {
+  const { text } = await callLLM({ system: systemPrompt(plan), user: userPrompt(plan), temperature, maxTokens, signal });
   const parsed = parseLLMJson(text);
   const result = normalizeResult(parsed, plan);
   if (!result) throw new Error("LLM returned invalid/short JSON");

@@ -35,6 +35,7 @@ const RULES_BASE = (plan) => [
     ? "이 글은 공간 연결을 강요하지 마세요('우리 집/공간/인테리어' 상투구 금지)."
     : "공간 연결은 자연스러울 때만. 억지 상투구 금지.",
   "과장·단정('무조건','100%','확실히 오른다') 금지. 근거·사례 중심으로 신뢰감 있게.",
+  "Humanization: 사람이 쓴 것처럼 자연스럽게. GPT 상투구·반복 문단·뻔한 나열을 피하고, 구체적 사례와 리듬 있는 문장으로 씁니다.",
 ];
 
 const VERSION_EXTRA = {
@@ -48,6 +49,7 @@ const JSON_CONTRACT = (plan) => [
   "{",
   '  "title": "제목", "summary": "2~3문장 요약", "body": "마크다운 본문(##/목록)",',
   '  "tags": ["3~6개"], "keywords": ["3~8개"], "readingMinutes": 3, "relatedTopics": ["2~5개"],',
+  '  "focusKeyword": "핵심 SEO 키워드 1개", "metaDescription": "검색결과용 요약(80~120자)",',
   `  "category": "${plan.category}", "tone": "${plan.voice.tone}"`,
   "}",
 ].join("\n");
@@ -155,62 +157,69 @@ export function computeConfidence(quality, source = "mock") {
   return clamp(source === "llm" ? base : Math.min(base, 78));
 }
 
+// Editorial Score(0~100) — 편집 관점 종합 등급(유용성·신뢰도·SEO·가독성).
+export function computeEditorialScore(quality, confidence) {
+  return clamp(quality.usefulness * 0.45 + confidence * 0.30 + quality.seo * 0.15 + quality.readability.score * 0.10);
+}
+
 // ── 워크벤치 생성 — 결과 + 메타 + 품질 ──────────────────────────────
 //   반환: { result(9필드), meta:{prompt,promptVersion,llmModel,llmProvider,temperature,tokensEstimated,
 //           latencyMs,confidence,rawResponse,source}, quality }
 export async function generateForWorkbench(
-  { issue, category, region = null, mode = "voice", promptVersion = "v1", temperature = 0.7 } = {},
-  { signal = null, existing = [] } = {}
+  { issue, category, region = null, mode = "voice", promptVersion = "v1", temperature = 0.85 } = {},
+  { signal = null, existing = [], maxTokens = 2400 } = {}
 ) {
   const plan = buildWritePlan({ issue, category, region, mode });
   const cfg = llmConfig();
   const messages = buildWorkbenchMessages(plan, promptVersion);
+  const baseMeta = { prompt: messages, promptVersion: messages.version, llmModel: cfg.model, llmProvider: cfg.provider, temperature };
 
-  let result = null, rawResponse = null, latencyMs = 0, source = "mock";
-
-  if (isLLMConfigured()) {
-    const t0 = Date.now();
-    try {
-      rawResponse = await callLLM({ system: messages.system, user: messages.user, temperature, signal });
-      latencyMs = Date.now() - t0;
-      const parsed = normalizeResult(parseLLMJson(rawResponse), plan);
-      if (parsed) {
-        // Natural Category — 정책상 억지 공간연결 정리(Phase 8/10 과 동일).
-        if (plan.voice.spaceLinkPolicy !== "natural") {
-          const stripped = stripForced(parsed.body);
-          parsed.body = stripped;
-        }
-        result = parsed;
-        source = "llm";
-      }
-    } catch (e) {
-      latencyMs = Date.now() - t0;
-      rawResponse = `⚠️ LLM 오류: ${e?.message ?? String(e)}`;
-    }
+  // Phase 20.6 — Production: LLM 미설정 시 생성하지 않고 명확히 안내(Mock 생성 금지).
+  if (!isLLMConfigured()) {
+    return { error: "LLM 미설정 (VITE_LLM_API_KEY 필요)", result: null, quality: null, meta: { ...baseMeta, source: "unconfigured" } };
   }
 
-  if (!result) result = mockResult(generateVoicedDraft({ issue, category, region, mode }), plan);
+  const t0 = Date.now();
+  let rawResponse = null, usage = { promptTokens: null, completionTokens: null, totalTokens: null };
+  try {
+    const llm = await callLLM({ system: messages.system, user: messages.user, temperature, maxTokens, signal });
+    rawResponse = llm.text;
+    usage = llm.usage || usage;
+    const latencyMs = Date.now() - t0;
+    const parsed = normalizeResult(parseLLMJson(rawResponse), plan);
+    if (!parsed) throw new Error("LLM 응답 파싱 실패(JSON 형식 아님/본문 미달)");
+    // Natural Category — 정책상 억지 공간연결 정리.
+    if (plan.voice.spaceLinkPolicy !== "natural") parsed.body = stripForced(parsed.body);
 
-  const quality = computeQuality({ title: result.title, body: result.body, category: plan.category, keywords: result.keywords }, existing);
-  const confidence = computeConfidence(quality, source);
-  const tokensEstimated = Math.round((messages.system.length + messages.user.length + (rawResponse ? rawResponse.length : result.body.length)) / 4);
+    const quality = computeQuality({ title: parsed.title, body: parsed.body, category: plan.category, keywords: parsed.keywords }, existing);
+    const confidence = computeConfidence(quality, "llm");
+    const editorialScore = computeEditorialScore(quality, confidence);
 
-  return {
-    result,
-    meta: {
-      prompt: messages,
-      promptVersion: messages.version,
-      llmModel: cfg.model,
-      llmProvider: cfg.provider,
-      temperature,
-      tokensEstimated,
-      latencyMs,
-      confidence,
-      rawResponse,
-      source,
-    },
-    quality,
-  };
+    return {
+      result: parsed,
+      quality,
+      meta: {
+        ...baseMeta,
+        source: "llm",
+        latencyMs,
+        confidence,
+        editorialScore,
+        rawResponse,
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        tokensEstimated: usage.totalTokens ?? Math.round((messages.system.length + messages.user.length + rawResponse.length) / 4),
+      },
+    };
+  } catch (e) {
+    // Phase 20.6 — 실패 시에도 Mock 생성 금지. "LLM 호출 실패"만 반환.
+    return {
+      error: `LLM 호출 실패: ${e?.message ?? String(e)}`,
+      result: null,
+      quality: null,
+      meta: { ...baseMeta, source: "error", latencyMs: Date.now() - t0, rawResponse },
+    };
+  }
 }
 
 // stripForcedSpaceLinks 안전 래퍼(엔진 무수정 — export 함수 호출만).
@@ -227,15 +236,23 @@ export function saveWorkbenchRecord({ result, meta } = {}) {
   const rec = {
     id: `wb_${Date.now()}`,
     savedAt: Date.now(),
-    draft: { title: result.title, summary: result.summary, body: result.body, tags: result.tags, keywords: result.keywords, category: result.category, tone: result.tone },
+    draft: {
+      title: result.title, summary: result.summary, body: result.body, tags: result.tags, keywords: result.keywords,
+      category: result.category, tone: result.tone,
+      focusKeyword: result.focusKeyword ?? "", metaDescription: result.metaDescription ?? "",
+    },
     prompt: meta.prompt,
     promptVersion: meta.promptVersion,
     llmModel: meta.llmModel,
     llmProvider: meta.llmProvider,
     temperature: meta.temperature,
     tokens: meta.tokensEstimated,
+    promptTokens: meta.promptTokens ?? null,
+    completionTokens: meta.completionTokens ?? null,
+    totalTokens: meta.totalTokens ?? null,
     latency: meta.latencyMs,
     confidence: meta.confidence,
+    editorialScore: meta.editorialScore ?? null,
     rawResponse: meta.rawResponse,
     source: meta.source,
   };
