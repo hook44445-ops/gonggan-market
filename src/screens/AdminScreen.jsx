@@ -14,6 +14,7 @@ import { scoreContent } from "../lib/contentScore";
 // Phase 8 — Content Quality & Natural Category (기존 엔진 무수정, 신규 모듈 추가 호출)
 import { generateVoicedDraft, generateVoicedDraftLLM } from "../lib/categoryVoiceWriter";
 import { isLLMConfigured } from "../lib/llmClient";
+import { generateForWorkbench, saveWorkbenchRecord, PROMPT_VERSIONS } from "../lib/editorWorkbench";
 import { voiceFor } from "../constants/categoryVoice";
 import { scoreUsefulness } from "../lib/contentUsefulness";
 import { detectForcedSpaceLinks } from "../lib/forcedSpaceLinkFilter";
@@ -1213,6 +1214,12 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const [preview, setPreview]       = useState(null); // { title, content, category, tags }
   const [genMode, setGenMode]       = useState("voice"); // Phase 8: voice(카테고리 톤)/space(공간 관점)/raw(원석 지식)
   const [generating, setGenerating] = useState(false);   // Phase 10: LLM 생성 진행중
+  // Phase 11 — AI Editor Workbench
+  const [workbench, setWorkbench]   = useState(null);    // { result, meta, quality }
+  const [promptVersion, setPromptVersion] = useState("v1");
+  const [temperature, setTemperature] = useState(0.7);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [showRaw, setShowRaw]       = useState(false);
   const [saving, setSaving]         = useState(false);
   const [scheduleFor, setScheduleFor] = useState({}); // { [id]: 'YYYY-MM-DDTHH:mm' }
   const [checkingTrends, setCheckingTrends] = useState(false);
@@ -1240,20 +1247,30 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     const cat = preset?.issue === issue.trim() ? preset.category : classifyCategory(`${issue} ${spaceAngle}`);
     if (genMode === "space") {
       // 기존 Phase 1 동작 보존(공간 관점 강제 템플릿).
+      setWorkbench(null);
       setPreview(generateDraft({ issue: issue.trim(), spaceAngle: spaceAngle.trim(), category: cat, region: region.trim() || null }));
       return;
     }
+    // Phase 11 — AI Editor Workbench: 생성 결과 + 메타(프롬프트/모델/confidence/raw) + Quality.
     setGenerating(true);
     try {
-      const d = await generateVoicedDraftLLM({ issue: issue.trim(), category: cat, region: region.trim() || null, mode: genMode === "raw" ? "raw" : "voice" });
-      setPreview({ title: d.title, content: d.body, category: d.category, tags: d.tags });
-      if (isLLMConfigured()) showToast?.(d.source === "llm" ? "✨ LLM 생성 완료" : "⚠️ LLM 실패 — Mock 폴백 사용");
+      const existing = [...drafts, ...published].filter(p => p.title).map(p => ({ title: p.title }));
+      const wb = await generateForWorkbench(
+        { issue: issue.trim(), category: cat, region: region.trim() || null, mode: genMode === "raw" ? "raw" : "voice", promptVersion, temperature },
+        { existing }
+      );
+      setWorkbench(wb);
+      setPreview({ title: wb.result.title, content: wb.result.body, category: wb.result.category, tags: wb.result.tags, summary: wb.result.summary, keywords: wb.result.keywords });
+      if (isLLMConfigured()) showToast?.(wb.meta.source === "llm" ? `✨ LLM 생성 완료 · Confidence ${wb.meta.confidence}%` : "⚠️ LLM 실패 — Mock 폴백 사용");
     } catch (e) {
       showToast?.("생성 실패: " + (e?.message ?? String(e)));
     } finally {
       setGenerating(false);
     }
   };
+
+  // 태그/키워드 편집 — 콤마 구분 문자열 ↔ 배열.
+  const editArrayField = (field, str) => setPreview(p => ({ ...p, [field]: String(str).split(",").map(s => s.trim()).filter(Boolean) }));
 
   // Phase 8 — 미리보기 품질 분석(카테고리 톤 · 유용성 · 억지 공간연결). 두 생성 경로(모드/편집국) 모두 커버.
   const previewQuality = preview ? (() => {
@@ -1274,8 +1291,21 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     }, adminUserId);
     setSaving(false);
     if (error) { showToast?.("초안 저장 실패: " + error.message); return; }
+    // Phase 11 — 워크벤치 기록(prompt/model/temperature/tokens/latency/confidence/raw)을 로컬 보관.
+    //   편집한 최종본을 저장(발행 draft 는 title/content/category 만 DB 로 감 — 스키마 변경 없음).
+    if (workbench) {
+      saveWorkbenchRecord({
+        result: {
+          title: preview.title, summary: preview.summary ?? "", body: preview.content,
+          tags: preview.tags ?? [], keywords: preview.keywords ?? [], category: preview.category,
+          tone: workbench.result.tone, readingMinutes: workbench.result.readingMinutes, relatedTopics: workbench.result.relatedTopics,
+        },
+        meta: workbench.meta,
+      });
+    }
     showToast?.("📝 초안이 등록됐습니다");
     setPreview(null);
+    setWorkbench(null);
     onReload?.();
   };
 
@@ -2028,6 +2058,31 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
             ))}
           </div>
         </div>
+
+        {/* Phase 11 — Prompt Version + Temperature (voice/raw 에서만) */}
+        {genMode !== "space" && (
+          <div style={{ marginBottom: S.md, display: "flex", gap: S.lg, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>Prompt Version</div>
+              <div style={{ display: "flex", gap: 5 }}>
+                {PROMPT_VERSIONS.map(v => (
+                  <button key={v.id} onClick={() => setPromptVersion(v.id)} title={v.note}
+                    style={{ padding: "5px 10px", borderRadius: R.md, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                      background: promptVersion === v.id ? C.brand : C.bg, color: promptVersion === v.id ? "#fff" : C.text2,
+                      border: `1px solid ${promptVersion === v.id ? C.brand : C.bgWarm}` }}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>Temperature {temperature.toFixed(1)}</div>
+              <input type="range" min="0" max="1" step="0.1" value={temperature} onChange={e => setTemperature(Number(e.target.value))}
+                style={{ width: 120 }} />
+            </div>
+          </div>
+        )}
+
         <button onClick={handleGenerate} disabled={generating}
           style={{ padding: "10px 18px", background: generating ? C.text4 : C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: generating ? "default" : "pointer" }}>
           {generating ? "생성 중…" : "✨ 초안 생성"}
@@ -2065,16 +2120,119 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
               </div>
             )}
 
+            {/* Phase 11 — AI Editor Workbench: Confidence · AI 분석 · Quality Panel */}
+            {workbench && (
+              <div style={{ background: "#111827", borderRadius: R.md, padding: "10px 12px", marginBottom: S.sm }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: workbench.meta.confidence >= 80 ? "#6ee7b7" : workbench.meta.confidence >= 60 ? "#fcd34d" : "#fca5a5" }}>
+                    {workbench.meta.confidence}%
+                  </span>
+                  <span style={{ fontSize: 10.5, color: "#9ca3af" }}>AI Confidence</span>
+                  <span style={{ marginLeft: "auto", fontSize: 10, padding: "2px 8px", borderRadius: R.full, fontWeight: 800, background: workbench.meta.source === "llm" ? "#065f46" : "#374151", color: "#e5e7eb" }}>
+                    {workbench.meta.source === "llm" ? "LLM" : "Mock 폴백"}
+                  </span>
+                </div>
+                {/* AI 분석 */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, fontSize: 10.5, color: "#d1d5db", marginBottom: 8 }}>
+                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>톤: {workbench.result.tone?.slice(0, 24) || "-"}</span>
+                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>유용성 {workbench.quality.usefulness}</span>
+                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>읽는시간 {workbench.result.readingMinutes}분</span>
+                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>카테고리 {catLabel(workbench.result.category)}</span>
+                  <span style={{ background: "#1f2937", borderRadius: R.full, padding: "2px 8px" }}>{workbench.meta.llmProvider}·{workbench.meta.tokensEstimated}tok·{workbench.meta.latencyMs}ms</span>
+                </div>
+                {/* Quality Panel */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(88px, 1fr))", gap: 6 }}>
+                  {[
+                    { k: "정보성", v: workbench.quality.infoValue },
+                    { k: "자연스러움", v: workbench.quality.naturalness },
+                    { k: "중복", v: workbench.quality.duplication.label, raw: workbench.quality.duplication.score, invert: true },
+                    { k: "SEO", v: workbench.quality.seo },
+                    { k: "제목", v: workbench.quality.title },
+                    { k: "읽기난이도", v: workbench.quality.readability.label, raw: workbench.quality.readability.score },
+                  ].map(m => {
+                    const val = typeof m.raw === "number" ? m.raw : m.v;
+                    const good = m.invert ? val < 40 : val >= 70;
+                    const mid = m.invert ? val < 60 : val >= 50;
+                    return (
+                      <div key={m.k} style={{ background: "#1f2937", borderRadius: R.sm, padding: "6px 8px" }}>
+                        <div style={{ fontSize: 9, color: "#9ca3af" }}>{m.k}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: good ? "#6ee7b7" : mid ? "#fcd34d" : "#fca5a5" }}>{m.v}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {workbench.quality.duplication.nearest && (
+                  <div style={{ fontSize: 10, color: "#fca5a5", marginTop: 6 }}>⚠️ 유사 기존 글: {workbench.quality.duplication.nearest}</div>
+                )}
+              </div>
+            )}
+
             <input value={preview.title} onChange={e => setPreview(p => ({ ...p, title: e.target.value }))}
               style={{ width: "100%", padding: "8px 10px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 13, fontWeight: 700, outline: "none", boxSizing: "border-box", marginBottom: S.sm, fontFamily: "inherit" }} />
             <textarea value={preview.content} onChange={e => setPreview(p => ({ ...p, content: e.target.value }))} rows={10}
               style={{ width: "100%", padding: "8px 10px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit", resize: "vertical", lineHeight: 1.6 }} />
+
+            {/* Phase 11 — 편집: 요약 · 태그 · 키워드 (워크벤치 결과 편집) */}
+            {workbench && (
+              <div style={{ marginTop: S.sm, display: "flex", flexDirection: "column", gap: 6 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: C.text3, marginBottom: 2 }}>요약</div>
+                  <textarea value={preview.summary ?? ""} onChange={e => setPreview(p => ({ ...p, summary: e.target.value }))} rows={2}
+                    style={{ width: "100%", padding: "6px 9px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
+                </div>
+                <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <div style={{ fontSize: 10, color: C.text3, marginBottom: 2 }}>태그 (콤마 구분)</div>
+                    <input value={(preview.tags ?? []).join(", ")} onChange={e => editArrayField("tags", e.target.value)}
+                      style={{ width: "100%", padding: "6px 9px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <div style={{ fontSize: 10, color: C.text3, marginBottom: 2 }}>키워드 (콤마 구분)</div>
+                    <input value={(preview.keywords ?? []).join(", ")} onChange={e => editArrayField("keywords", e.target.value)}
+                      style={{ width: "100%", padding: "6px 9px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 12, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+                  </div>
+                </div>
+
+                {/* LLM Prompt / Raw Response 보기 (개발/검수용) */}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                  <button onClick={() => setShowPrompt(s => !s)}
+                    style={{ padding: "5px 10px", background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    {showPrompt ? "▾" : "▸"} LLM Prompt ({workbench.meta.promptVersion})
+                  </button>
+                  <button onClick={() => setShowRaw(s => !s)}
+                    style={{ padding: "5px 10px", background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    {showRaw ? "▾" : "▸"} Raw Response (JSON)
+                  </button>
+                </div>
+                {showPrompt && (
+                  <div style={{ background: "#0b1220", borderRadius: R.sm, padding: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, color: "#9ca3af" }}>system + user prompt</span>
+                      <button onClick={() => { try { navigator.clipboard.writeText(`${workbench.meta.prompt.system}\n\n---\n\n${workbench.meta.prompt.user}`); showToast?.("프롬프트 복사됨"); } catch {} }}
+                        style={{ padding: "2px 8px", background: "#1f2937", color: "#e5e7eb", border: "none", borderRadius: R.sm, fontSize: 10, cursor: "pointer" }}>📋 복사</button>
+                    </div>
+                    <pre style={{ margin: 0, fontSize: 10.5, color: "#cbd5e1", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 220, overflow: "auto" }}>{workbench.meta.prompt.system}{"\n\n"}{workbench.meta.prompt.user}</pre>
+                  </div>
+                )}
+                {showRaw && (
+                  <div style={{ background: "#0b1220", borderRadius: R.sm, padding: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, color: "#9ca3af" }}>LLM raw response · {workbench.meta.llmModel}</span>
+                      <button onClick={() => { try { navigator.clipboard.writeText(workbench.meta.rawResponse ?? ""); showToast?.("Raw 복사됨"); } catch {} }}
+                        style={{ padding: "2px 8px", background: "#1f2937", color: "#e5e7eb", border: "none", borderRadius: R.sm, fontSize: 10, cursor: "pointer" }}>📋 복사</button>
+                    </div>
+                    <pre style={{ margin: 0, fontSize: 10.5, color: "#cbd5e1", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 220, overflow: "auto" }}>{workbench.meta.rawResponse ?? "(Mock 폴백 — LLM 응답 없음)"}</pre>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ display: "flex", gap: S.sm, marginTop: S.sm }}>
               <button onClick={handleSaveDraft} disabled={saving}
                 style={{ padding: "8px 16px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
                 {saving ? "저장 중..." : "📝 초안으로 저장"}
               </button>
-              <button onClick={() => setPreview(null)}
+              <button onClick={() => { setPreview(null); setWorkbench(null); }}
                 style={{ padding: "8px 16px", background: C.bg, color: C.text3, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
                 취소
               </button>
