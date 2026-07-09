@@ -11,6 +11,11 @@ import { runEditorialMeeting, selectTodaysContent, generateReviewedDraft } from 
 import { generateDailyIssues } from "../lib/dailyIssues";
 import { recommendCategories } from "../lib/categoryRecommender";
 import { scoreContent } from "../lib/contentScore";
+// Phase 8 — Content Quality & Natural Category (기존 엔진 무수정, 신규 모듈 추가 호출)
+import { generateVoicedDraft } from "../lib/categoryVoiceWriter";
+import { voiceFor } from "../constants/categoryVoice";
+import { scoreUsefulness } from "../lib/contentUsefulness";
+import { detectForcedSpaceLinks } from "../lib/forcedSpaceLinkFilter";
 import { connectionRate, clusterBreakdown, knowledgeMap, todaysSpace, editorsPick } from "../lib/spaceGraph";
 import { preGenerationCheck } from "../lib/preGenerationCheck";
 import { TOPIC_CLUSTERS } from "../constants/knowledgeMap";
@@ -1205,6 +1210,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const [spaceAngle, setSpaceAngle] = useState(ISSUE_PRESETS[0].spaceAngle);
   const [region, setRegion]         = useState("");
   const [preview, setPreview]       = useState(null); // { title, content, category, tags }
+  const [genMode, setGenMode]       = useState("voice"); // Phase 8: voice(카테고리 톤)/space(공간 관점)/raw(원석 지식)
   const [saving, setSaving]         = useState(false);
   const [scheduleFor, setScheduleFor] = useState({}); // { [id]: 'YYYY-MM-DDTHH:mm' }
   const [checkingTrends, setCheckingTrends] = useState(false);
@@ -1223,17 +1229,28 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   };
 
   // 1~4단계(이슈→기획→제목/구성→본문) — 템플릿 기반, 네트워크 호출 없이 즉시 미리보기 생성.
+  // Phase 8: 모드 3종. voice(카테고리 톤·억지 공간연결 제거) / space(기존 공간 관점 generateDraft) / raw(원석 지식).
   const handleGenerate = () => {
     if (!issue.trim()) { showToast?.("이슈를 입력하거나 프리셋을 선택하세요"); return; }
     const preset = ISSUE_PRESETS.find(p => p.id === presetId);
-    const draft = generateDraft({
-      issue: issue.trim(),
-      spaceAngle: spaceAngle.trim(),
-      category: preset?.issue === issue.trim() ? preset.category : classifyCategory(`${issue} ${spaceAngle}`),
-      region: region.trim() || null,
-    });
-    setPreview(draft);
+    const cat = preset?.issue === issue.trim() ? preset.category : classifyCategory(`${issue} ${spaceAngle}`);
+    if (genMode === "space") {
+      // 기존 Phase 1 동작 보존(공간 관점 강제 템플릿).
+      setPreview(generateDraft({ issue: issue.trim(), spaceAngle: spaceAngle.trim(), category: cat, region: region.trim() || null }));
+    } else {
+      const d = generateVoicedDraft({ issue: issue.trim(), category: cat, region: region.trim() || null, mode: genMode === "raw" ? "raw" : "voice" });
+      setPreview({ title: d.title, content: d.content, category: d.category, tags: d.tags });
+    }
   };
+
+  // Phase 8 — 미리보기 품질 분석(카테고리 톤 · 유용성 · 억지 공간연결). 두 생성 경로(모드/편집국) 모두 커버.
+  const previewQuality = preview ? (() => {
+    const v = voiceFor(preview.category, preview.title);
+    const u = scoreUsefulness({ title: preview.title, content: preview.content, category: preview.category });
+    const forced = detectForcedSpaceLinks(preview.content).length;
+    const policyLabel = { natural: "자연스러움 허용", light: "가볍게만", none: "연결 강요 금지" }[v.spaceLinkPolicy] || v.spaceLinkPolicy;
+    return { v, u, forced, policyLabel };
+  })() : null;
 
   // 6단계(초안 등록, DRAFT) — 관리자 검수 전 상태로 저장. 공개 피드에는 노출되지 않는다.
   const handleSaveDraft = async () => {
@@ -1977,9 +1994,27 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
           </div>
         </div>
         <div style={{ marginBottom: S.md }}>
-          <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>공간 관점 재해석 (제목 방향)</div>
+          <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>공간 관점 재해석 (제목 방향 · 공간 관점 모드에서만 사용)</div>
           <input value={spaceAngle} onChange={e => setSpaceAngle(e.target.value)}
             style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+        </div>
+        {/* Phase 8 — 생성 모드: 카테고리 톤(기본) / 공간 관점(기존) / 원석 지식(Raw) */}
+        <div style={{ marginBottom: S.md }}>
+          <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>생성 모드</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {[
+              { id: "voice", label: "🎯 카테고리 톤", desc: "카테고리답게(억지 공간연결 제거)" },
+              { id: "space", label: "🌌 공간 관점", desc: "기존 공간 관점 템플릿" },
+              { id: "raw",   label: "🪨 원석 지식", desc: "꾸미지 않은 Raw Knowledge" },
+            ].map(m => (
+              <button key={m.id} onClick={() => setGenMode(m.id)} title={m.desc}
+                style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                  background: genMode === m.id ? C.brandD : C.bg, color: genMode === m.id ? "#fff" : C.text2,
+                  border: `1px solid ${genMode === m.id ? C.brandD : C.bgWarm}` }}>
+                {m.label}
+              </button>
+            ))}
+          </div>
         </div>
         <button onClick={handleGenerate}
           style={{ padding: "10px 18px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
@@ -1989,6 +2024,30 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         {preview && (
           <div style={{ marginTop: S.lg, background: C.bg, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
             <div style={{ fontSize: 10, color: C.text3, marginBottom: 4 }}>카테고리: {catLabel(preview.category)}</div>
+
+            {/* Phase 8 — 초안 품질 미리보기 */}
+            {previewQuality && (
+              <div style={{ background: "#fff", border: `1px solid ${C.bgWarm}`, borderRadius: R.md, padding: "8px 10px", marginBottom: S.sm, fontSize: 11 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                  <span style={{ background: C.brandL, color: C.brandD, borderRadius: R.full, padding: "2px 8px", fontWeight: 700 }}>톤: {previewQuality.v.label}</span>
+                  <span style={{ color: C.text3 }}>공간 연결: {previewQuality.policyLabel} (강도 {previewQuality.u.spaceRelevanceAux})</span>
+                  <span style={{ color: previewQuality.forced > 0 ? C.red : C.brand, fontWeight: 700 }}>
+                    {previewQuality.forced > 0 ? `⚠️ 억지 연결 ${previewQuality.forced}건` : "✅ 억지 연결 없음"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginTop: 5 }}>
+                  <span style={{ padding: "2px 8px", borderRadius: R.full, fontWeight: 800, background: previewQuality.u.recommendPublish ? C.brandL : (C.red + "22"), color: previewQuality.u.recommendPublish ? C.brandD : C.red }}>
+                    유용성 {previewQuality.u.total}점
+                  </span>
+                  <span style={{ color: C.text3 }}>저장가치 {previewQuality.u.saveValue}</span>
+                  <span style={{ color: C.text3 }}>· 정보 {previewQuality.u.axes.infoValue} · 도움 {previewQuality.u.axes.realHelp} · 적합 {previewQuality.u.axes.categoryFit} · 자연스러움 {previewQuality.u.axes.naturalness}</span>
+                  <span style={{ marginLeft: "auto", fontWeight: 800, color: previewQuality.u.recommendPublish ? C.brand : C.text3 }}>
+                    {previewQuality.u.recommendPublish ? "👍 발행 추천" : "✍️ 보강 권장"}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <input value={preview.title} onChange={e => setPreview(p => ({ ...p, title: e.target.value }))}
               style={{ width: "100%", padding: "8px 10px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 13, fontWeight: 700, outline: "none", boxSizing: "border-box", marginBottom: S.sm, fontFamily: "inherit" }} />
             <textarea value={preview.content} onChange={e => setPreview(p => ({ ...p, content: e.target.value }))} rows={10}
