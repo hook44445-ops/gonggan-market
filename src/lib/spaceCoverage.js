@@ -12,9 +12,13 @@
 //   결정론적 순수 함수 · 저장/Migration 없음 · 기존 데이터로만 계산(Regression Zero).
 // ════════════════════════════════════════════════════════════════════
 
+import { contentCoverageAreas } from "../constants/contentAreas.js";
+
 // 커버리지 영역 정의 — 작업지시서의 예시 영역을 그대로 반영.
 //   category: 대응하는 라운지 카테고리 id(있으면). keywords: 제목/토픽 매칭 보조어.
-export const SPACE_COVERAGE_AREAS = [
+//   Phase 12: 기존 영역은 그대로 두고(순서·동작 불변), Content Areas 레지스트리의 새 영역을
+//   id 중복 없이 뒤에 덧붙인다(additive). 로직 변경 없음.
+const BASE_COVERAGE_AREAS = [
   { id: "interior",  label: "인테리어",   category: "interior",   keywords: ["인테리어", "리모델링", "시공"] },
   { id: "room_deco", label: "집꾸미기",   category: "room_deco",  keywords: ["집꾸미기", "홈스타일링", "가구"] },
   { id: "review",    label: "시공후기",   category: "review",     keywords: ["후기", "비포", "애프터"] },
@@ -33,6 +37,13 @@ export const SPACE_COVERAGE_AREAS = [
   { id: "startup",   label: "창업",       category: "startup",     keywords: ["창업", "상가", "매장", "자영업"] },
   { id: "pet",       label: "반려동물",   category: "pet",         keywords: ["반려동물", "강아지", "고양이", "펫"] },
   { id: "astrology", label: "인도점성술", category: null,          keywords: ["점성술", "사주", "타로", "별자리", "운세"] },
+];
+
+// 기존 영역 + Content Areas 신규 영역(중복 id 제외) — 순서상 기존이 앞(동작 불변), 신규가 뒤.
+const _existingIds = new Set(BASE_COVERAGE_AREAS.map((a) => a.id));
+export const SPACE_COVERAGE_AREAS = [
+  ...BASE_COVERAGE_AREAS,
+  ...contentCoverageAreas().filter((a) => !_existingIds.has(a.id)),
 ];
 
 const norm = (s) => String(s ?? "").toLowerCase();
