@@ -19,6 +19,7 @@ import {
   workbenchIndex, getPipelineStages, setPipelineStage, clearPipelineStage,
   buildDraftBoard, publishHistory, popularContent, todaysPick, opsStats, PIPELINE_STAGES,
 } from "../lib/publishingPipeline";
+import { discoverTrendingTopics, trendSummary } from "../lib/trendDiscovery";
 import { voiceFor } from "../constants/categoryVoice";
 import { scoreUsefulness } from "../lib/contentUsefulness";
 import { detectForcedSpaceLinks } from "../lib/forcedSpaceLinkFilter";
@@ -1204,6 +1205,105 @@ const DISPUTE_STATUS_META = {
   REFUNDED:         { label: "환불처리",     color: C.text4,   bg: C.bg      },
   PARTIAL_REFUND:   { label: "일부환불",     color: C.text3,   bg: C.bg      },
 };
+
+// ── AI 트렌드 발굴(Phase 14) — 기획 AI: "무엇을 쓸지" 먼저 판단 ──────────────
+//   생성 엔진 무수정. Mock 트렌드 → 점수/우선순위/다양성 계산 → Draft 생성/Review 보내기.
+//   생성은 기존 generateForWorkbench, 저장은 기존 adminCreateLoungeDraft, 스테이지는 기존
+//   setPipelineStage 를 재사용한다(전부 호출만). 실제 뉴스/Trends API 는 provider 교체로 확장.
+function TrendDiscoveryTab({ published = [], adminUserId, showToast, onReload }) {
+  const [seed, setSeed] = useState(0);
+  const [busyTopic, setBusyTopic] = useState(null);
+  const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
+
+  const candidates = discoverTrendingTopics({ recentPublished: published, limit: 10, seed });
+  const summary = trendSummary(candidates);
+  const prioColor = { High: "#dc2626", Medium: "#d97706", Low: "#6b7280" };
+
+  const makeDraft = async (cand, sendReview) => {
+    if (busyTopic) return;
+    setBusyTopic(cand.topic);
+    try {
+      const wb = await generateForWorkbench(
+        { issue: cand.topic, category: cand.category, mode: "voice", promptVersion: "v1", temperature: 0.7 },
+        { existing: published.filter(p => p.title).map(p => ({ title: p.title })) }
+      );
+      const { data, error } = await adminCreateLoungeDraft(
+        { category: wb.result.category, title: wb.result.title, content: wb.result.body, aiTopic: cand.topic, publishStatus: "draft" },
+        adminUserId
+      );
+      if (error) { showToast?.("초안 저장 실패: " + error.message); return; }
+      saveWorkbenchRecord({ result: wb.result, meta: wb.meta }); // Confidence/PromptVersion 파이프라인 표시용
+      if (sendReview && data?.id != null) setPipelineStage(data.id, "review");
+      showToast?.(sendReview ? "🔎 Review 로 보냈습니다" : `📝 초안 생성됨${wb.meta.source === "llm" ? " (LLM)" : ""}`);
+      onReload?.();
+    } catch (e) {
+      showToast?.("생성 실패: " + (e?.message ?? String(e)));
+    } finally {
+      setBusyTopic(null);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>🧭 AI 트렌드 발굴 (기획 AI)</div>
+        <button onClick={() => setSeed(s => s + 1)}
+          style={{ padding: "7px 14px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+          🔄 추천 새로 찾기
+        </button>
+      </div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.md, lineHeight: 1.6 }}>
+        AI 가 <b>무엇을 써야 하는지</b> 먼저 판단합니다. 트렌드 점수·카테고리 다양성·최근 발행 기록을 고려해 발행 우선순위를 추천합니다.
+        (현재 Mock 데이터 — 향후 Google Trends / News / RSS 로 provider 교체 가능)
+      </div>
+
+      <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
+        {[
+          { k: "High", v: summary.High, c: prioColor.High }, { k: "Medium", v: summary.Medium, c: prioColor.Medium },
+          { k: "Low", v: summary.Low, c: prioColor.Low }, { k: "카테고리 다양성", v: summary.categoryDiversity, c: C.brandD },
+        ].map(m => (
+          <div key={m.k} style={{ flex: "1 1 90px", background: C.bg, borderRadius: R.lg, padding: "8px 11px", border: `1px solid ${C.bgWarm}` }}>
+            <div style={{ fontSize: 10.5, color: C.text3 }}>{m.k}</div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: m.c }}>{m.v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
+        {candidates.map((c) => (
+          <div key={c.topic} style={{ background: "#fff", borderRadius: R.lg, border: `1px solid ${C.bgWarm}`, padding: S.md }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+              <span style={{ padding: "2px 9px", borderRadius: R.full, fontSize: 10, fontWeight: 800, background: prioColor[c.priority] + "22", color: prioColor[c.priority] }}>{c.priority}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 800, color: C.text1, flex: 1, minWidth: 160 }}>{c.topic}</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: c.trendScore >= 75 ? C.brand : C.gold }}>{c.trendScore}</span>
+            </div>
+            <div style={{ fontSize: 11, color: C.text3, marginBottom: 4, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ color: C.brand, fontWeight: 700 }}>{catLabel(c.category)}</span>
+              <span>· 예상 조회 ~{c.estimatedInterest.toLocaleString()}</span>
+              <span>· {c.publishRecommendation}</span>
+            </div>
+            <div style={{ fontSize: 11, color: C.text2, marginBottom: 6 }}>💡 {c.reason}</div>
+            {c.keywords.length > 0 && (
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
+                {c.keywords.map(k => <span key={k} style={{ fontSize: 10, background: C.brandL, color: C.brandD, borderRadius: R.full, padding: "2px 8px" }}>{k}</span>)}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => makeDraft(c, false)} disabled={busyTopic === c.topic}
+                style={{ padding: "6px 12px", background: busyTopic === c.topic ? C.text4 : C.brandD, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 11.5, cursor: "pointer" }}>
+                {busyTopic === c.topic ? "생성 중…" : "✍️ Draft 생성"}
+              </button>
+              <button onClick={() => makeDraft(c, true)} disabled={busyTopic === c.topic}
+                style={{ padding: "6px 12px", background: C.bg, color: C.brandD, border: `1px solid ${C.brandM}`, borderRadius: R.md, fontWeight: 700, fontSize: 11.5, cursor: "pointer" }}>
+                🔎 Review 보내기
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ── AI 발행 파이프라인(Phase 13) — 생성→검토→승인→발행→추천 운영 ──────────────
 //   생성 엔진 무수정. 기존 supabase 함수(adminUpdateLoungeDraft/Delete)와 기존 예약발행 크론을
@@ -4367,6 +4467,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["lounge_insights","라운지 인사이트"],
     ["lounge_seeding", "라운지 시딩"],
     ["lounge_ai_factory", "AI 콘텐츠 공장"],
+    ["trend_discovery", "트렌드 발굴"],
     ["publishing_pipeline", "발행 파이프라인"],
     ["reports",        "신고관리"],
     ["chat_overview",  "채팅/대화 관리"],
@@ -4390,7 +4491,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["publishing_pipeline", "발행 파이프라인"], ["reports"]] },
+      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
@@ -5711,6 +5812,22 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   } finally {
                     setAiFactoryLoading(false);
                   }
+                }}
+              />
+            )}
+
+            {/* ── AI 트렌드 발굴 (Phase 14) ── */}
+            {mainTab === "trend_discovery" && (
+              <TrendDiscoveryTab
+                published={aiPublished}
+                adminUserId={user?.id ?? null}
+                showToast={showToast}
+                onReload={async () => {
+                  try {
+                    const [draftsRes, publishedRes] = await Promise.all([adminListLoungeDrafts(), adminListPublishedAiContent()]);
+                    setAiDrafts(draftsRes.data ?? []);
+                    setAiPublished(publishedRes.data ?? []);
+                  } catch { /* keep prior */ }
                 }}
               />
             )}
