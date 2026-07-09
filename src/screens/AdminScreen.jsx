@@ -14,6 +14,9 @@ import { scoreContent } from "../lib/contentScore";
 // Phase 8 — Content Quality & Natural Category (기존 엔진 무수정, 신규 모듈 추가 호출)
 import { generateVoicedDraft, generateVoicedDraftLLM } from "../lib/categoryVoiceWriter";
 import { isLLMConfigured } from "../lib/llmClient";
+// Phase 18 — Real LLM Editorial Engine
+import { generateEditorial } from "../lib/editorialEngine";
+import { getEditorialConfig, setEditorialConfig } from "../lib/editorialConfig";
 import { generateForWorkbench, saveWorkbenchRecord, PROMPT_VERSIONS } from "../lib/editorWorkbench";
 import {
   workbenchIndex, getPipelineStages, setPipelineStage, clearPipelineStage,
@@ -1625,6 +1628,9 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const [region, setRegion]         = useState("");
   const [preview, setPreview]       = useState(null); // { title, content, category, tags }
   const [genMode, setGenMode]       = useState("voice"); // Phase 8: voice(카테고리 톤)/space(공간 관점)/raw(원석 지식)
+  const [edCfg, setEdCfg]           = useState(() => getEditorialConfig()); // Phase 18 — 모델/temperature/maxTokens
+  const [edGen, setEdGen]           = useState(false);
+  const [edResult, setEdResult]     = useState(null); // { confidence, editorsPick, attempts, passed, draft }
   const [generating, setGenerating] = useState(false);   // Phase 10: LLM 생성 진행중
   // Phase 11 — AI Editor Workbench
   const [workbench, setWorkbench]   = useState(null);    // { result, meta, quality }
@@ -1692,6 +1698,27 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     const policyLabel = { natural: "자연스러움 허용", light: "가볍게만", none: "연결 강요 금지" }[v.spaceLinkPolicy] || v.spaceLinkPolicy;
     return { v, u, forced, policyLabel };
   })() : null;
+
+  // Phase 18 — 실제 LLM(OpenRouter) Editorial 생성. Mock 없음: LLM 미설정/실패 시 초안 미생성.
+  const updateEdCfg = (patch) => { const next = setEditorialConfig(patch); setEdCfg(next); };
+  const handleEditorialGenerate = async () => {
+    if (!issue.trim()) { showToast?.("주제(트렌드 제목)를 입력하세요"); return; }
+    if (!isLLMConfigured()) { showToast?.("LLM 미설정(VITE_LLM_API_KEY 필요) — 실제 매거진 생성 불가"); return; }
+    setEdGen(true); setEdResult(null);
+    try {
+      const r = await generateEditorial({
+        topic: issue.trim(), region: region.trim() || null,
+        model: edCfg.model, temperature: edCfg.temperature, maxTokens: edCfg.maxTokens, maxRetries: edCfg.maxRetries,
+      });
+      if (!r.ok) { showToast?.("생성 실패: " + (r.reason || "error")); }
+      else {
+        setEdResult(r);
+        setPreview({ title: r.draft.title, content: r.draft.body, category: r.draft.category, tags: r.draft.tags, summary: r.draft.summary, seo: r.draft.seo });
+        showToast?.(`✨ 매거진 생성 · 신뢰도 ${r.confidence.total} ${r.passed ? "(90+ 통과)" : "(90 미만)"} · 시도 ${r.attempts.length}회`);
+      }
+    } catch (e) { showToast?.("오류: " + (e?.message ?? String(e))); }
+    finally { setEdGen(false); }
+  };
 
   // 6단계(초안 등록, DRAFT) — 관리자 검수 전 상태로 저장. 공개 피드에는 노출되지 않는다.
   const handleSaveDraft = async () => {
@@ -2420,6 +2447,57 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Phase 18 — Real LLM Editorial Engine (OpenRouter). Mock 없음: 미설정/실패 시 초안 미생성 */}
+      <div style={{ background: C.brandD, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.brandD}`, marginBottom: S.xl, color: "#fff" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 800 }}>📰 AI 편집국 — 실제 매거진 생성 (LLM)</div>
+          <span style={{ fontSize: 11, color: isLLMConfigured() ? "#B5D4C5" : "#F6DDAA" }}>{isLLMConfigured() ? "● LLM 연결됨" : "○ LLM 미설정(VITE_LLM_API_KEY)"}</span>
+        </div>
+        <div style={{ fontSize: 11, color: "#B5D4C5", marginTop: 4, lineHeight: 1.6 }}>
+          위 "이슈/트렌드"를 주제로 실제 OpenRouter LLM이 매거진 수준의 글을 씁니다. 신뢰도 90점 미만이면 자동 재작성(최대 3회, 최고점 채택).
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: S.md }}>
+          <label style={{ flex: "2 1 200px" }}>
+            <div style={{ fontSize: 10, color: "#9fb6ab" }}>모델</div>
+            <input value={edCfg.model} onChange={e => updateEdCfg({ model: e.target.value })}
+              style={{ width: "100%", padding: "7px 9px", borderRadius: R.md, border: "1px solid #3a5a4c", background: "#1a3327", color: "#fff", fontSize: 12, boxSizing: "border-box", fontFamily: "inherit" }} />
+          </label>
+          <label style={{ flex: "1 1 90px" }}>
+            <div style={{ fontSize: 10, color: "#9fb6ab" }}>Temperature</div>
+            <input type="number" step="0.05" min="0" max="1" value={edCfg.temperature} onChange={e => updateEdCfg({ temperature: Number(e.target.value) })}
+              style={{ width: "100%", padding: "7px 9px", borderRadius: R.md, border: "1px solid #3a5a4c", background: "#1a3327", color: "#fff", fontSize: 12, boxSizing: "border-box", fontFamily: "inherit" }} />
+          </label>
+          <label style={{ flex: "1 1 90px" }}>
+            <div style={{ fontSize: 10, color: "#9fb6ab" }}>Max Tokens</div>
+            <input type="number" step="100" min="500" value={edCfg.maxTokens} onChange={e => updateEdCfg({ maxTokens: Number(e.target.value) })}
+              style={{ width: "100%", padding: "7px 9px", borderRadius: R.md, border: "1px solid #3a5a4c", background: "#1a3327", color: "#fff", fontSize: 12, boxSizing: "border-box", fontFamily: "inherit" }} />
+          </label>
+        </div>
+        <button onClick={handleEditorialGenerate} disabled={edGen}
+          style={{ marginTop: S.md, padding: "10px 18px", background: edGen ? "#3a5a4c" : C.gold, color: edGen ? "#9fb6ab" : "#1a1a1a", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: edGen ? "default" : "pointer" }}>
+          {edGen ? "생성 중… (재작성 포함 최대 3회)" : "📰 실제 매거진 생성"}
+        </button>
+        {edResult && (
+          <div style={{ marginTop: S.md, background: "#1a3327", borderRadius: R.lg, padding: S.md, fontSize: 11.5 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ padding: "2px 9px", borderRadius: R.full, fontWeight: 800, background: edResult.passed ? "#2E5F4B" : "#7a4a1a", color: "#fff" }}>신뢰도 {edResult.confidence.total} {edResult.passed ? "· 90+ 통과" : "· 90 미만"}</span>
+              <span style={{ color: "#B5D4C5" }}>카테고리 {edResult.category}</span>
+              <span style={{ color: "#B5D4C5" }}>· 시도 {edResult.attempts.length}회</span>
+              <span style={{ color: edResult.editorsPick.isPick ? C.gold : "#9fb6ab", fontWeight: 700 }}>· {edResult.editorsPick.isPick ? "⭐ Editor's Pick 후보" : `Pick ${edResult.editorsPick.total}`}</span>
+            </div>
+            <div style={{ color: "#9fb6ab", marginTop: 6, fontSize: 10.5 }}>
+              정보 {edResult.confidence.axes.information} · 독창 {edResult.confidence.axes.originality} · 자연 {edResult.confidence.axes.naturalness} · 가독 {edResult.confidence.axes.readability} · SEO {edResult.confidence.axes.seo} · 적합 {edResult.confidence.axes.categoryMatch} · 편집 {edResult.confidence.axes.editorial}
+            </div>
+            {edResult.draft.seo && (
+              <div style={{ color: "#B5D4C5", marginTop: 6, fontSize: 10.5, lineHeight: 1.6 }}>
+                SEO · title: {edResult.draft.seo.metaTitle} / focus: {edResult.draft.seo.focusKeyword} / intent: {edResult.draft.seo.searchIntent}
+              </div>
+            )}
+            <div style={{ color: "#9fb6ab", marginTop: 6, fontSize: 10.5 }}>아래 미리보기에서 확인·수정 후 "초안으로 저장"하세요.</div>
+          </div>
+        )}
       </div>
 
       {/* ① 이슈 입력 → ②③④ 기획/제목/본문 생성(템플릿) */}

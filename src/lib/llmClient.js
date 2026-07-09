@@ -34,6 +34,8 @@ export function isLLMConfigured() {
   return Boolean(API_KEY);
 }
 
+export const DEFAULT_MODEL = MODEL;
+
 export function llmConfig() {
   return { provider: PROVIDER, model: MODEL, configured: isLLMConfigured(), timeoutMs: TIMEOUT_MS, maxRetries: MAX_RETRIES };
 }
@@ -67,8 +69,9 @@ function makeController(externalSignal) {
   return { controller, cleanup };
 }
 
-// Provider 별 요청 조립.
-function buildRequest({ system, user, temperature, maxTokens }) {
+// Provider 별 요청 조립. model 미지정 시 env 기본 모델(Phase 18: 관리자 모델 변경 지원).
+function buildRequest({ system, user, temperature, maxTokens, model }) {
+  const useModel = model || MODEL;
   if (PROVIDER === "anthropic") {
     return {
       url: `${BASE_URL.replace(/\/$/, "")}/v1/messages`,
@@ -80,7 +83,7 @@ function buildRequest({ system, user, temperature, maxTokens }) {
         "anthropic-dangerous-direct-browser-access": "true",
       },
       body: {
-        model: MODEL,
+        model: useModel,
         max_tokens: maxTokens,
         temperature,
         system,
@@ -99,7 +102,7 @@ function buildRequest({ system, user, temperature, maxTokens }) {
       "x-title": "Gonggan Space Lounge",
     },
     body: {
-      model: MODEL,
+      model: useModel,
       temperature,
       max_tokens: maxTokens,
       messages: [
@@ -113,11 +116,11 @@ function buildRequest({ system, user, temperature, maxTokens }) {
 
 // LLM 호출 — 성공 시 응답 텍스트 문자열 반환. 실패 시 LLMError throw(호출부가 Mock 폴백).
 //   opts: { system, user, temperature=0.7, maxTokens=1600, signal }
-export async function callLLM({ system = "", user = "", temperature = 0.7, maxTokens = 1600, signal = null } = {}) {
+export async function callLLM({ system = "", user = "", temperature = 0.7, maxTokens = 1600, model = null, signal = null } = {}) {
   if (!isLLMConfigured()) throw new LLMError("LLM not configured", { status: 0, retryable: false });
   if (!user.trim()) throw new LLMError("empty prompt", { status: 0, retryable: false });
 
-  const req = buildRequest({ system, user, temperature, maxTokens });
+  const req = buildRequest({ system, user, temperature, maxTokens, model });
   let lastErr = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
