@@ -39,6 +39,9 @@ import { buildPostMeta, buildPostPath } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
 import { resolveCompanyIdentity, resolveConsumerIdentity } from '../utils/identityResolver';
 import { rankBySpaceGraph } from '../lib/spaceGraph'; // Phase 3 — 관련글 공간 그래프 재정렬(AI 연결)
+import { readingExperience } from '../lib/readingExperience'; // Phase 5 — 읽는 시간/목차/태그
+import { authorBadge } from '../lib/authorSystem'; // Phase 5 — 작성자 유형 배지(AI 는 뒤에서만)
+import { articleJsonLdTags } from '../utils/articleSchema'; // Phase 5 — Article/Breadcrumb 구조화 데이터(SEO)
 import SpaceActivityRecord from '../components/SpaceActivityRecord'; // 일반 의뢰인 활동기록 요약(재사용 · 업체버튼 없음)
 
 // 클릭한 닉네임/아바타 요소의 화면 위치(앵커) — 초미니 팝오버 위치 보정용
@@ -266,6 +269,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [deleteDevInfo, setDeleteDevInfo] = useState(null);
   const [imgViewer, setImgViewer]         = useState(null); // { urls, index }
   const inputRef = useRef(null);
+  const articleRef = useRef(null); // Phase 5 — 본문 컨테이너(목차 클릭 시 소제목으로 스크롤)
+
+  // 목차 항목 클릭 → 본문에서 같은 텍스트의 소제목을 찾아 부드럽게 스크롤(RichContent 무변경, 실패 시 무시).
+  const scrollToHeading = (text) => {
+    const root = articleRef.current;
+    if (!root) return;
+    const target = Array.from(root.querySelectorAll('div')).find(el => el.textContent?.trim() === String(text).trim());
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // 게스트(딥링크 등) 읽기 전용 보강 — isGuest 플래그가 누락돼도 실제 user.id 없으면 비로그인 취급.
   // → 게시글/댓글 수정·삭제·작성·좋아요·저장·메시지·신고는 모두 비활성/차단(아래 핸들러 가드와 이중화).
@@ -410,6 +422,26 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       if (canonicalCreated) canonicalEl.remove();
       else if (canonicalPrev != null) canonicalEl.setAttribute('href', canonicalPrev);
     };
+  }, [post?.id, post?.title, post?.content, isSynthSeed]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Phase 5 · SEO: Article/Breadcrumb 구조화 데이터(JSON-LD) 주입(언마운트 시 제거) ──
+  //   글 하나가 검색 자산이 되도록. 기존 메타 갱신 효과와 독립적인 additive 주입(실패 시 무해).
+  useEffect(() => {
+    if (!post || isSynthSeed) return undefined;
+    let els = [];
+    try {
+      const origin = window.location.origin;
+      const catLabel = CATEGORY_LABEL[post.category] || null;
+      els = articleJsonLdTags(post, catLabel, origin).map((json) => {
+        const s = document.createElement('script');
+        s.type = 'application/ld+json';
+        s.setAttribute('data-lounge-schema', String(post.id));
+        s.textContent = json;
+        document.head.appendChild(s);
+        return s;
+      });
+    } catch { /* 구조화 데이터 주입 실패는 무시(본문 렌더에 영향 없음) */ }
+    return () => { els.forEach((s) => s.remove()); };
   }, [post?.id, post?.title, post?.content, isSynthSeed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 관련글(SEO 내부링크) — 같은 카테고리 인기글 우선. seed/일반 글 공통.
@@ -931,7 +963,40 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           /* SEO: 글 제목은 의미상 H1 (스타일은 동일 유지) */
           <h1 style={{ fontSize: 18, fontWeight: 900, color: C.text1, margin: `0 0 ${S.md}px`, lineHeight: 1.4 }}>{post.title}</h1>
         )}
-        <div style={{ marginBottom: S.xl }}><RichContent content={post.content} baseSize={14} /></div>
+
+        {/* Phase 5 · Reading Experience — 읽는 시간 + 작성자 유형(운영/AI/전문가 글일 때만). AI 는 뒤에서만. */}
+        {post.title && (() => {
+          const rx = readingExperience(post);
+          const badge = authorBadge(post);
+          const showBadge = isSeedPost || post.is_expert; // 일반 사용자 글엔 배지 미표시(기존 익명 신원 유지)
+          return (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: `0 0 ${S.md}px` }}>
+                <span style={{ fontSize: 11.5, color: C.text3 }}>📖 {rx.readingTime.label}</span>
+                {showBadge && (
+                  <span title={badge.desc} style={{ fontSize: 10.5, fontWeight: 700, color: badge.tone, background: C.ivory, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: '2px 9px' }}>
+                    {badge.emoji} {badge.label}
+                  </span>
+                )}
+              </div>
+              {/* 목차 — 소제목 2개 이상일 때만. 클릭하면 해당 소제목으로 스크롤(읽기 편의). */}
+              {rx.hasToc && (
+                <nav aria-label="목차" style={{ background: C.ivory, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, padding: `${S.sm}px ${S.md}px`, marginBottom: S.lg }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: C.text2, marginBottom: 6 }}>이 글에서 다루는 내용</div>
+                  {rx.toc.map((h) => (
+                    <button key={h.id} onClick={() => scrollToHeading(h.text)}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer',
+                        padding: `3px 0 3px ${(h.level - 2) * 12}px`, fontSize: 12, color: C.text2, lineHeight: 1.5 }}>
+                      · {h.text}
+                    </button>
+                  ))}
+                </nav>
+              )}
+            </>
+          );
+        })()}
+
+        <div ref={articleRef} style={{ marginBottom: S.xl }}><RichContent content={post.content} baseSize={14} /></div>
 
         {post.image_urls && post.image_urls.length > 0 && (
           <div style={{ display: 'flex', gap: 6, marginBottom: S.lg, overflowX: 'auto', scrollbarWidth: 'none' }}>

@@ -18,6 +18,9 @@ import { communityScore, rankByCommunity, todaysLivingSpace } from "../lib/commu
 import { commentInsightByPost } from "../lib/commentInsight";
 import { buildFollowupQueue } from "../lib/followupRecommender";
 import { communityTemperature } from "../lib/communityTemperature";
+import { composeMagazine } from "../lib/magazine";
+import { composeArchive } from "../lib/archive";
+import { spaceSearch } from "../lib/spaceSearch";
 import {
   supabase,
   getCompanies, getUsers, getUser, getUserByPhone,
@@ -1205,6 +1208,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const [aiCheck, setAiCheck] = useState(null); // Phase 3 — 마지막 생성 전 AI 체크 결과(중복 방지)
   const [comments, setComments] = useState(null); // Phase 4 — 온디맨드 로드한 최근 댓글(인사이트용)
   const [loadingComments, setLoadingComments] = useState(false);
+  const [searchQ, setSearchQ] = useState(""); // Phase 5 — Space Media 지식 검색 데모
 
   const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
 
@@ -1335,6 +1339,13 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const followupQueue = comments
     ? buildFollowupQueue({ insightRows, postsById: publishedById, risingCategories: temp.risingTopics })
     : buildFollowupQueue({ insightRows: [], postsById: publishedById, risingCategories: temp.risingTopics });
+
+  // ── Phase 5 · Space Media(매거진/아카이브/검색) — 발행글로 매거진 구성을 미리보기(결정론적 재계산) ──
+  // "게시판"이 아니라 "매거진/아카이브"로 보는 구조. 실제 사용자 화면(글 상세 Reading Experience)은
+  // 별도로 적용되며, 여기서는 관리자가 매거진 준비 상태를 확인한다(PC Version First 구조 검증).
+  const magazine = composeMagazine(published);
+  const archive = composeArchive(published);
+  const searchResult = searchQ.trim() ? spaceSearch(searchQ, published, { limit: 8 }) : null;
 
   // 최근 댓글을 온디맨드로 불러와 댓글 인사이트/후속 추천을 채운다(자동 로드 아님).
   const handleLoadComments = async () => {
@@ -1694,6 +1705,104 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
                 </div>
               ))}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* 📖 Space Media (Phase 5) — 매거진/아카이브/검색 구조 미리보기. 게시판이 아니라 미디어.
+          실제 사용자 UX(읽는 시간·목차·작성자 배지)는 글 상세에 적용됨. 여기선 관리자 준비 확인용. */}
+      <div style={{ background: "#111827", borderRadius: R.xl, padding: S.xl, border: `1px solid #273244`, marginBottom: S.xl }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4 }}>📖 Space Media · 매거진 미리보기</div>
+        <div style={{ fontSize: 11.5, color: "#9fb0c8", marginBottom: S.md, lineHeight: 1.6 }}>
+          "YouTube 가 영상을 기록했다면, Space Lounge 는 글과 사진으로 세상을 기록한다." 발행글을 매거진 홈으로
+          구성한 미리보기입니다(PC Version First 구조). 온도 {magazine.insight.temperature}° · 전체 {magazine.insight.totalPosts}글 · 오늘 {magazine.insight.todayPosts}글.
+        </div>
+
+        {/* Editor's Pick + Hero */}
+        {magazine.editorsPick && (
+          <div style={{ background: "#1b2536", borderRadius: R.md, padding: "9px 12px", border: "1px solid #2c3a52", marginBottom: S.sm }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: "#ffcf8f" }}>Editor's Pick</span>
+            <span style={{ fontSize: 12.5, color: "#fff", fontWeight: 700, marginLeft: 8 }}>{magazine.editorsPick.title}</span>
+            <span style={{ fontSize: 10, color: "#9fb0c8", marginLeft: 8 }}>{magazine.editorsPick.readingLabel} · {magazine.editorsPick.author.label}</span>
+          </div>
+        )}
+
+        {/* 매거진 섹션들 */}
+        {magazine.sections.length === 0 ? (
+          <div style={{ fontSize: 11.5, color: "#9fb0c8", marginBottom: S.lg }}>발행글이 쌓이면 매거진 섹션이 자동 구성됩니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: S.md, marginBottom: S.lg }}>
+            {magazine.sections.map(sec => (
+              <div key={sec.id}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>{sec.title} <span style={{ color: "#6b7c96", fontWeight: 600 }}>({sec.cards.length})</span></div>
+                <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+                  {sec.cards.slice(0, 6).map(card => (
+                    <div key={card.id} style={{ flex: "0 0 140px", background: "#1b2536", borderRadius: R.md, border: "1px solid #273244", padding: "8px 9px" }}>
+                      <div style={{ fontSize: 11, color: "#fff", fontWeight: 600, lineHeight: 1.4, height: 30, overflow: "hidden" }}>{card.title}</div>
+                      <div style={{ fontSize: 9, color: "#6b7c96", marginTop: 5 }}>{card.author.emoji} {card.readingLabel} · 👁 {card.views}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Trending */}
+        {magazine.trending.length > 0 && (
+          <div style={{ marginBottom: S.lg }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🔥 Trending</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {magazine.trending.map(t => (
+                <span key={t.category} style={{ fontSize: 10, color: "#cfe0f5", background: "#1b2536", border: "1px solid #2c3a52", borderRadius: R.full, padding: "3px 9px" }}>{t.label} ↑{t.momentum}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Archive 요약 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🗄️ Archive</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: S.sm }}>
+          {archive.byTime.map(b => (
+            <div key={b.id} style={{ background: "#1b2536", borderRadius: R.md, padding: "6px 11px", border: "1px solid #273244" }}>
+              <span style={{ fontSize: 10, color: "#9fb0c8" }}>{b.label}</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginLeft: 6 }}>{b.count}</span>
+            </div>
+          ))}
+        </div>
+        {archive.byTag.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: S.lg }}>
+            {archive.byTag.slice(0, 16).map(t => (
+              <span key={t.tag} style={{ fontSize: 9.5, color: "#8fa2bd", background: "#1b2536", borderRadius: R.full, padding: "2px 7px" }}>#{t.tag} {t.count}</span>
+            ))}
+          </div>
+        )}
+
+        {/* 지식 검색 데모 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🔎 Space Search (지식 검색)</div>
+        <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="예) 인테리어, 신혼집, 금리…"
+          style={{ width: "100%", padding: "9px 12px", background: "#1b2536", color: "#fff", border: "1px solid #2c3a52", borderRadius: R.md, fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit", marginBottom: S.sm }} />
+        {searchResult && (
+          <div>
+            <div style={{ fontSize: 10.5, color: "#9fb0c8", marginBottom: 5 }}>
+              공간 관점: {searchResult.spaceKeyword} · 결과 {searchResult.results.length}건
+              {searchResult.categories.length > 0 && " · " + searchResult.categories.map(c => `${c.label}(${c.count})`).join(", ")}
+            </div>
+            {searchResult.results.length === 0 ? (
+              <div style={{ fontSize: 11, color: "#6b7c96" }}>일치하는 글이 없습니다</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {searchResult.results.map(r => (
+                  <div key={r.id} style={{ fontSize: 11, padding: "4px 0", borderBottom: "1px solid #1f2a3c" }}>
+                    <span style={{ padding: "1px 6px", borderRadius: R.full, fontSize: 9, fontWeight: 800, background: r._matched === "direct" ? "#25406b" : "#3a2d55", color: "#cfe0f5", marginRight: 6 }}>
+                      {r._matched === "direct" ? "직접" : "연결"}
+                    </span>
+                    <span style={{ color: "#fff", fontWeight: 600 }}>{r.title}</span>
+                    <span style={{ color: "#6b7c96", marginLeft: 6 }}>{catLabel(r.category)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
