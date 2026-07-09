@@ -4,6 +4,7 @@ import { C, R, S } from "../constants";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
 import { COMPANY_STATUS_META, USER_STATUS_META } from "../constants";
 import { LOUNGE_CATEGORIES } from "../constants/lounge";
+import { ISSUE_PRESETS, generateDraft, classifyCategory } from "../constants/aiContentFactory";
 import {
   supabase,
   getCompanies, getUsers, getUser, getUserByPhone,
@@ -24,6 +25,7 @@ import {
   getSeedReviews, createSeedReview, updateSeedReview, deleteSeedReview, uploadSeedReviewImage,
   adminGetReviews, adminUpdateReview, adminHideReview, adminSoftDeleteReview, adminRestoreReview,
   adminUpdateLoungePost, adminSoftDeleteLoungePost, adminRestoreLoungePost,
+  adminCreateLoungeDraft, adminUpdateLoungeDraft, adminListLoungeDrafts, adminListPublishedAiContent, adminDeleteLoungeDraft,
   adminGetLoungeComments, adminSoftDeleteLoungeComment, adminRestoreLoungeComment,
   adminUpdateCompanyInfo, adminUpdateUserInfo,
   getCompaniesByOwnerIds,
@@ -1173,6 +1175,222 @@ const DISPUTE_STATUS_META = {
 };
 
 // GPS 체크포인트(현장방문/착공/중간/완료) — 관리자 분쟁/계약 증빙. admin 은 좌표까지 조회.
+// ── AI 콘텐츠 공장(Phase 1) — Draft 생성 → 검수 → 예약/즉시 발행 ──────────────
+//   lounge_posts.is_seed=true 재사용(신규 테이블 없음). 실제 발행은 관리자 승인 후에만
+//   일어난다(베타 원칙: 자동 발행보다 Draft→승인→발행). 본문은 템플릿 기반(generateDraft) —
+//   추후 Claude/OpenAI 연결 시 이 함수 내부만 교체하면 되는 구조.
+function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetchErr = null, adminUserId, showToast, onReload }) {
+  const [presetId, setPresetId]     = useState(ISSUE_PRESETS[0].id);
+  const [issue, setIssue]           = useState(ISSUE_PRESETS[0].issue);
+  const [spaceAngle, setSpaceAngle] = useState(ISSUE_PRESETS[0].spaceAngle);
+  const [region, setRegion]         = useState("");
+  const [preview, setPreview]       = useState(null); // { title, content, category, tags }
+  const [saving, setSaving]         = useState(false);
+  const [scheduleFor, setScheduleFor] = useState({}); // { [id]: 'YYYY-MM-DDTHH:mm' }
+
+  const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
+
+  const applyPreset = (id) => {
+    const p = ISSUE_PRESETS.find(x => x.id === id);
+    setPresetId(id);
+    if (p) { setIssue(p.issue); setSpaceAngle(p.spaceAngle); }
+  };
+
+  // 1~4단계(이슈→기획→제목/구성→본문) — 템플릿 기반, 네트워크 호출 없이 즉시 미리보기 생성.
+  const handleGenerate = () => {
+    if (!issue.trim()) { showToast?.("이슈를 입력하거나 프리셋을 선택하세요"); return; }
+    const preset = ISSUE_PRESETS.find(p => p.id === presetId);
+    const draft = generateDraft({
+      issue: issue.trim(),
+      spaceAngle: spaceAngle.trim(),
+      category: preset?.issue === issue.trim() ? preset.category : classifyCategory(`${issue} ${spaceAngle}`),
+      region: region.trim() || null,
+    });
+    setPreview(draft);
+  };
+
+  // 6단계(초안 등록, DRAFT) — 관리자 검수 전 상태로 저장. 공개 피드에는 노출되지 않는다.
+  const handleSaveDraft = async () => {
+    if (!preview) return;
+    setSaving(true);
+    const { error } = await adminCreateLoungeDraft({
+      category: preview.category, title: preview.title, content: preview.content,
+      region: region.trim() || null, aiTopic: issue.trim(), publishStatus: "draft",
+    }, adminUserId);
+    setSaving(false);
+    if (error) { showToast?.("초안 저장 실패: " + error.message); return; }
+    showToast?.("📝 초안이 등록됐습니다");
+    setPreview(null);
+    onReload?.();
+  };
+
+  // 7→9단계(검수/수정 → 예약/즉시 발행) — 승인은 항상 관리자 조작으로만 발생(자동발행 없음, 베타 원칙).
+  const handlePublishNow = async (id) => {
+    const { error } = await adminUpdateLoungeDraft(id, { publishStatus: "published" }, adminUserId);
+    if (error) { showToast?.("발행 실패: " + error.message); return; }
+    showToast?.("🚀 발행됐습니다");
+    onReload?.();
+  };
+
+  const handleSchedule = async (id) => {
+    const when = scheduleFor[id];
+    if (!when) { showToast?.("예약 일시를 선택하세요"); return; }
+    const { error } = await adminUpdateLoungeDraft(id, {
+      publishStatus: "scheduled", scheduledAt: new Date(when).toISOString(),
+    }, adminUserId);
+    if (error) { showToast?.("예약 실패: " + error.message); return; }
+    showToast?.("⏰ 예약 발행이 설정됐습니다");
+    onReload?.();
+  };
+
+  const handleDeleteDraft = async (id) => {
+    const { error } = await adminDeleteLoungeDraft(id, adminUserId);
+    if (error) { showToast?.("삭제 실패: " + error.message); return; }
+    onReload?.();
+  };
+
+  // 10단계(카테고리별 콘텐츠 축적) — 발행된 AI 콘텐츠를 카테고리별로 집계(8단계 Analytics 경량판).
+  const byCategory = published.reduce((acc, p) => {
+    const k = p.category || "daily";
+    if (!acc[k]) acc[k] = { count: 0, views: 0, likes: 0, comments: 0 };
+    acc[k].count += 1;
+    acc[k].views += p.view_count ?? 0;
+    acc[k].likes += p.like_count ?? 0;
+    acc[k].comments += p.comment_count ?? 0;
+    return acc;
+  }, {});
+
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🏭 AI 콘텐츠 공장</div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
+        이슈를 공간 관점으로 재해석한 초안을 만들고, 검수 후 발행합니다. 자동 발행은 하지 않습니다 —
+        모든 발행은 관리자 승인이 필요합니다(베타 원칙).
+      </div>
+
+      {/* ① 이슈 입력 → ②③④ 기획/제목/본문 생성(템플릿) */}
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>새 초안 만들기</div>
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.md }}>
+          {ISSUE_PRESETS.map(p => (
+            <button key={p.id} onClick={() => applyPreset(p.id)}
+              style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                background: presetId === p.id ? C.brand : C.bg, color: presetId === p.id ? "#fff" : C.text2,
+                border: `1px solid ${presetId === p.id ? C.brand : C.bgWarm}` }}>
+              {p.issue}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: S.sm, marginBottom: S.sm }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>이슈/트렌드</div>
+            <input value={issue} onChange={e => setIssue(e.target.value)}
+              style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>지역(선택)</div>
+            <input value={region} onChange={e => setRegion(e.target.value)} placeholder="예) 부천"
+              style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+          </div>
+        </div>
+        <div style={{ marginBottom: S.md }}>
+          <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>공간 관점 재해석 (제목 방향)</div>
+          <input value={spaceAngle} onChange={e => setSpaceAngle(e.target.value)}
+            style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
+        </div>
+        <button onClick={handleGenerate}
+          style={{ padding: "10px 18px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+          ✨ 초안 생성
+        </button>
+
+        {preview && (
+          <div style={{ marginTop: S.lg, background: C.bg, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
+            <div style={{ fontSize: 10, color: C.text3, marginBottom: 4 }}>카테고리: {catLabel(preview.category)}</div>
+            <input value={preview.title} onChange={e => setPreview(p => ({ ...p, title: e.target.value }))}
+              style={{ width: "100%", padding: "8px 10px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 13, fontWeight: 700, outline: "none", boxSizing: "border-box", marginBottom: S.sm, fontFamily: "inherit" }} />
+            <textarea value={preview.content} onChange={e => setPreview(p => ({ ...p, content: e.target.value }))} rows={10}
+              style={{ width: "100%", padding: "8px 10px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit", resize: "vertical", lineHeight: 1.6 }} />
+            <div style={{ display: "flex", gap: S.sm, marginTop: S.sm }}>
+              <button onClick={handleSaveDraft} disabled={saving}
+                style={{ padding: "8px 16px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+                {saving ? "저장 중..." : "📝 초안으로 저장"}
+              </button>
+              <button onClick={() => setPreview(null)}
+                style={{ padding: "8px 16px", background: C.bg, color: C.text3, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+                취소
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ⑦⑧ 검수/수정 · 예약 발행 대기열 */}
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
+          검수 대기 · 예약 목록 ({drafts.length})
+        </div>
+        {fetchErr && <div style={{ fontSize: 12, color: C.red, marginBottom: S.sm }}>⚠️ {fetchErr}</div>}
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "30px 0", color: C.text3, fontSize: 13 }}>불러오는 중...</div>
+        ) : drafts.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "30px 0", color: C.text3, fontSize: 13 }}>초안이 없습니다. 위에서 새 초안을 만들어보세요.</div>
+        ) : drafts.map(d => (
+          <div key={d.id} style={{ padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bg}` }}>
+            <div style={{ display: "flex", gap: S.xs, alignItems: "center", marginBottom: 3, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: C.brand, background: C.brandL, borderRadius: R.sm, padding: "1px 7px" }}>
+                {catLabel(d.category)}
+              </span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: d.publish_status === "scheduled" ? "#8A6D2A" : C.text4 }}>
+                {d.publish_status === "scheduled" ? `예약됨 · ${d.scheduled_at ? new Date(d.scheduled_at).toLocaleString("ko-KR") : ""}` : "초안"}
+              </span>
+              {d.ai_topic && <span style={{ fontSize: 10, color: C.text4 }}>· 이슈: {d.ai_topic}</span>}
+            </div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text1, marginBottom: 2 }}>{d.title}</div>
+            <div style={{ fontSize: 11, color: C.text2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 6 }}>
+              {(d.content ?? "").replace(/\n/g, " ").slice(0, 80)}…
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <button onClick={() => handlePublishNow(d.id)}
+                style={{ padding: "5px 12px", background: C.brand, color: "#fff", border: "none", borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                즉시 발행
+              </button>
+              <input type="datetime-local" value={scheduleFor[d.id] ?? ""} onChange={e => setScheduleFor(s => ({ ...s, [d.id]: e.target.value }))}
+                style={{ padding: "5px 8px", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, fontSize: 11, fontFamily: "inherit" }} />
+              <button onClick={() => handleSchedule(d.id)}
+                style={{ padding: "5px 12px", background: "#C4A96A22", color: "#8A6D2A", border: "1px solid #C4A96A", borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                예약 발행
+              </button>
+              <button onClick={() => handleDeleteDraft(d.id)}
+                style={{ padding: "5px 12px", background: "#FEF0F0", color: C.red, border: "none", borderRadius: R.sm, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                삭제
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ⑩ 카테고리별 콘텐츠 축적(경량 Analytics) */}
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
+          발행된 AI 콘텐츠 · 카테고리별 누적 ({published.length}건)
+        </div>
+        {Object.keys(byCategory).length === 0 ? (
+          <div style={{ textAlign: "center", padding: "20px 0", color: C.text3, fontSize: 13 }}>아직 발행된 콘텐츠가 없습니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {Object.entries(byCategory).map(([cat, stat]) => (
+              <div key={cat} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.bg}`, fontSize: 12 }}>
+                <span style={{ fontWeight: 700, color: C.text1 }}>{catLabel(cat)}</span>
+                <span style={{ color: C.text3 }}>{stat.count}건 · 조회 {stat.views} · 좋아요 {stat.likes} · 댓글 {stat.comments}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const CHECKPOINT_LABEL = {
   site_visit: "현장방문 견적", start: "착공 확인", middle: "중간점검", complete: "완료 확인",
 };
@@ -2596,6 +2814,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [seedLoungeRows, setSeedLoungeRows]       = useState([]);
   const [seedLoungeLoading, setSeedLoungeLoading] = useState(false);
   const [seedLoungeErr, setSeedLoungeErr]         = useState(null);
+  // AI 콘텐츠 공장(Phase 1) — lounge_posts.is_seed 재사용, 별도 소스
+  const [aiDrafts, setAiDrafts]           = useState([]);
+  const [aiPublished, setAiPublished]     = useState([]);
+  const [aiFactoryLoading, setAiFactoryLoading] = useState(false);
+  const [aiFactoryErr, setAiFactoryErr]   = useState(null);
   const [reports, setReports]           = useState([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsErr, setReportsErr]     = useState(null);
@@ -2771,6 +2994,27 @@ export default function AdminScreen({ onBack, onHome, user }) {
           setSeedLoungeRows([]);
         } finally {
           setSeedLoungeLoading(false);
+        }
+      })();
+    }
+    if (mainTab === "lounge_ai_factory") {
+      setAiFactoryLoading(true);
+      setAiFactoryErr(null);
+      (async () => {
+        try {
+          const [draftsRes, publishedRes] = await Promise.all([
+            adminListLoungeDrafts(),
+            adminListPublishedAiContent(),
+          ]);
+          if (draftsRes.error) throw new Error(draftsRes.error.message ?? "load failed");
+          setAiDrafts(draftsRes.data ?? []);
+          setAiPublished(publishedRes.data ?? []);
+        } catch (err) {
+          setAiFactoryErr(err?.message ?? String(err));
+          setAiDrafts([]);
+          setAiPublished([]);
+        } finally {
+          setAiFactoryLoading(false);
         }
       })();
     }
@@ -3002,6 +3246,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["lounge",         "라운지관리"],
     ["lounge_insights","라운지 인사이트"],
     ["lounge_seeding", "라운지 시딩"],
+    ["lounge_ai_factory", "AI 콘텐츠 공장"],
     ["reports",        "신고관리"],
     ["chat_overview",  "채팅/대화 관리"],
     ["direct_deal",    "직거래 의심"],
@@ -3024,7 +3269,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["reports"]] },
+      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
@@ -4316,6 +4561,37 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   }}
                 />
               </>
+            )}
+
+            {/* ── AI 콘텐츠 공장(Phase 1) ── */}
+            {mainTab === "lounge_ai_factory" && (
+              <LoungeAiFactoryTab
+                drafts={aiDrafts}
+                published={aiPublished}
+                loading={aiFactoryLoading}
+                fetchErr={aiFactoryErr}
+                adminUserId={user?.id ?? null}
+                showToast={showToast}
+                onReload={async () => {
+                  setAiFactoryLoading(true);
+                  setAiFactoryErr(null);
+                  try {
+                    const [draftsRes, publishedRes] = await Promise.all([
+                      adminListLoungeDrafts(),
+                      adminListPublishedAiContent(),
+                    ]);
+                    if (draftsRes.error) throw new Error(draftsRes.error.message ?? "load failed");
+                    setAiDrafts(draftsRes.data ?? []);
+                    setAiPublished(publishedRes.data ?? []);
+                  } catch (err) {
+                    setAiFactoryErr(err?.message ?? String(err));
+                    setAiDrafts([]);
+                    setAiPublished([]);
+                  } finally {
+                    setAiFactoryLoading(false);
+                  }
+                }}
+              />
             )}
 
             {/* ── Customer Reports ── */}

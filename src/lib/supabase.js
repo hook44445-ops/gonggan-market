@@ -864,6 +864,105 @@ export const adminRestoreLoungePost = async (id, adminId) => {
   return { data, error };
 };
 
+// ── AI 콘텐츠 공장(Phase 1) — lounge_posts.is_seed=true 재사용, 신규 테이블 없음. ──
+//   RLS 는 005_lounge_owner_update 의 "anon insert/update" 를 그대로 사용(기존 관리자
+//   쓰기와 동일 원칙 — admin 검증은 애플리케이션 레이어). publish_status 와 is_visible
+//   은 항상 함께 갱신해 기존 공개 피드 필터(is_visible !== false)가 그대로 작동하게 한다.
+export const adminCreateLoungeDraft = async ({
+  category, title, content, region = null, imageUrls = [],
+  aiTopic = null, publishStatus = "draft", scheduledAt = null,
+}, adminId) => {
+  const { data, error } = await supabase
+    .from("lounge_posts")
+    .insert({
+      user_id:            null,
+      anonymous_nickname: "공간마켓",
+      category,
+      title,
+      content,
+      region,
+      image_urls:         imageUrls,
+      is_seed:            true,
+      is_visible:         publishStatus === "published",
+      publish_status:     publishStatus,
+      scheduled_at:        publishStatus === "scheduled" ? scheduledAt : null,
+      ai_topic:           aiTopic,
+    })
+    .select("*")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "CREATE_AI_LOUNGE_DRAFT",
+      target_type: "lounge_post", target_id: data?.id ?? null,
+      after_val: { category, publish_status: publishStatus, ai_topic: aiTopic },
+    });
+  }
+  return { data, error };
+};
+
+export const adminUpdateLoungeDraft = async (id, updates, adminId) => {
+  const patch = { ...updates, updated_at: new Date().toISOString() };
+  if (updates.publishStatus) {
+    patch.publish_status = updates.publishStatus;
+    patch.is_visible = updates.publishStatus === "published";
+    patch.scheduled_at = updates.publishStatus === "scheduled" ? (updates.scheduledAt ?? null) : null;
+    delete patch.publishStatus;
+    delete patch.scheduledAt;
+  }
+  const { data, error } = await supabase
+    .from("lounge_posts")
+    .update(patch)
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "UPDATE_AI_LOUNGE_DRAFT",
+      target_type: "lounge_post", target_id: id, after_val: patch,
+    });
+  }
+  return { data, error };
+};
+
+// 초안/예약 목록(관리자 검수용) — 아직 발행되지 않은 AI 콘텐츠만.
+export const adminListLoungeDrafts = () =>
+  supabase
+    .from("lounge_posts")
+    .select("*")
+    .eq("is_seed", true)
+    .not("ai_topic", "is", null)
+    .in("publish_status", ["draft", "scheduled"])
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+// 발행 완료된 AI 콘텐츠 — 카테고리별 축적 현황/성과(8단계 Analytics, 조회수·좋아요 재사용).
+export const adminListPublishedAiContent = () =>
+  supabase
+    .from("lounge_posts")
+    .select("id, category, title, ai_topic, view_count, like_count, comment_count, created_at")
+    .eq("is_seed", true)
+    .not("ai_topic", "is", null)
+    .eq("publish_status", "published")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+// 초안 전용 삭제 — 발행된 글은 대상에서 제외(안전장치: 이미 공개된 콘텐츠는 기존
+// adminSoftDeleteLoungePost 로만 처리).
+export const adminDeleteLoungeDraft = async (id, adminId) => {
+  const { error } = await supabase
+    .from("lounge_posts")
+    .delete()
+    .eq("id", id)
+    .neq("publish_status", "published");
+  if (!error) {
+    await supabase.from("admin_logs").insert({
+      admin_id: adminId || null, action: "DELETE_AI_LOUNGE_DRAFT",
+      target_type: "lounge_post", target_id: id,
+    });
+  }
+  return { error };
+};
+
 // ── Admin Lounge Comments ─────────────────────────────────────────────────────
 
 export const adminGetLoungeComments = ({ limit = 200 } = {}) =>
