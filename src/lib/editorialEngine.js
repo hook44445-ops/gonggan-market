@@ -13,13 +13,16 @@
 //   테스트 용이성: opts._callLLM 로 LLM 호출을 주입 가능(미주입 시 실제 callLLM).
 // ════════════════════════════════════════════════════════════════════
 
-import { callLLM as realCallLLM, isLLMConfigured } from "./llmClient.js";
+import { callLLM as realCallLLM, isLLMConfigured, llmConfig } from "./llmClient.js";
 import { parseLLMJson } from "./llmContentGenerator.js";
 import {
   classifyEditorialCategory, EDITORIAL_VOICE, BANNED_GPT_PHRASES,
   editorialSystemPrompt, editorialUserPrompt,
 } from "../constants/editorialPrompt.js";
 import { getEditorialConfig } from "./editorialConfig.js";
+// Phase 19 — Humanization / Category Match
+import { analyzeHumanization } from "./humanizationEngine.js";
+import { categoryMatchScore } from "./categoryMatch.js";
 
 const SENTENCE_SPLIT = /(?<=[.!?。…])\s+|\n+/;
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
@@ -127,7 +130,35 @@ export function editorsPickScore(draft, confidence) {
   return { saveValue, shareValue, searchValue, longevity, total, isPick: total >= 78 };
 }
 
-// ── 메인: 생성(분류→프롬프트→LLM→정규화→scrub→confidence→retry→pick) ──
+// ── Editorial Score (Phase 19) — Confidence + Humanization + Category Match 통합 7축 ──
+export const EDITORIAL_AXIS_LABELS = {
+  humanTone: "휴먼 톤", categoryMatch: "카테고리 적합", hookQuality: "훅 품질",
+  endingQuality: "마무리 품질", repetitionRisk: "반복 위험(낮을수록↑)", editorialValue: "편집 가치", saveWorthiness: "저장 가치",
+};
+export function computeEditorialScore(draft, confidence, human, catMatch, editorsPick) {
+  const axes = {
+    humanTone:     human.humanTone,
+    categoryMatch: catMatch.score,
+    hookQuality:   human.hook.score,
+    endingQuality: human.ending.score,
+    repetitionRisk: clamp(100 - human.repetitionRisk), // 반복 적을수록 높음(가점 방향 통일)
+    editorialValue: clamp((confidence.axes.information + confidence.axes.originality + confidence.axes.editorial) / 3),
+    saveWorthiness: editorsPick.saveValue,
+  };
+  const total = clamp(
+    axes.humanTone * 0.20 + axes.categoryMatch * 0.14 + axes.hookQuality * 0.12 +
+    axes.endingQuality * 0.12 + axes.repetitionRisk * 0.12 + axes.editorialValue * 0.18 + axes.saveWorthiness * 0.12
+  );
+  return { axes, total };
+}
+// 최종 판정 — Editor's Pick 가능 / 일반 발행 가능 / 재작성 권장 / 발행 비추천.
+export function editorialVerdict({ finalScore, aiStrong, isPick }) {
+  if (aiStrong || finalScore < 70) return "발행 비추천";
+  if (finalScore < 90) return "재작성 권장";
+  return isPick ? "Editor's Pick 가능" : "일반 발행 가능";
+}
+
+// ── 메인: 생성(분류→프롬프트→LLM→정규화→scrub→confidence+humanization→verdict→retry→pick) ──
 export async function generateEditorial(args = {}, opts = {}) {
   const { topic, categoryHint = null, region = null } = args;
   const t = String(topic ?? "").trim();
@@ -151,35 +182,55 @@ export async function generateEditorial(args = {}, opts = {}) {
 
   let best = null;
   const attempts = [];
+  let totalLatency = 0;
   for (let i = 0; i < maxRetries; i++) {
     try {
+      const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
       // 재시도는 temperature 를 조금씩 올려 변주(정형화 탈출).
       const text = await call({ system, user, temperature: Math.min(temperature + i * 0.07, 1), maxTokens, model, signal: opts.signal });
+      const latency = Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - t0);
+      totalLatency += latency;
       const parsed = parseLLMJson(text);
       let draft = normalizeEditorial(parsed, category);
-      if (!draft) { attempts.push({ attempt: i + 1, ok: false, reason: "invalid_json" }); continue; }
+      if (!draft) { attempts.push({ attempt: i + 1, ok: false, reason: "invalid_json", latency }); continue; }
       const scrub = scrubGptTraces(draft.body);
       draft = { ...draft, body: scrub.text, scrubbedTraces: scrub.removed };
+      // Phase 19 — Confidence + Humanization + Category Match → 최종 점수.
       const confidence = computeConfidence(draft);
-      attempts.push({ attempt: i + 1, ok: true, confidence: confidence.total });
-      if (!best || confidence.total > best.confidence.total) best = { draft, confidence };
-      if (confidence.total >= minConfidence) break; // 90점 이상이면 채택 후 종료.
+      const human = analyzeHumanization(draft.body);
+      const catMatch = categoryMatchScore(draft);
+      const editorsPick = editorsPickScore(draft, confidence);
+      const editorial = computeEditorialScore(draft, confidence, human, catMatch, editorsPick);
+      const finalScore = clamp(confidence.total * 0.45 + editorial.total * 0.55);
+      const cand = { draft, confidence, human, catMatch, editorsPick, editorial, finalScore, latency, tokenEstimate: Math.round(draft.body.length / 2) };
+      attempts.push({ attempt: i + 1, ok: true, finalScore, aiStrong: human.ai.isStrong, latency });
+      if (!best || finalScore > best.finalScore) best = cand;
+      // 90점 이상 AND AI 티 강하지 않을 때만 채택 종료. AI 티 강하면 점수와 무관하게 재작성.
+      if (finalScore >= minConfidence && !human.ai.isStrong) break;
     } catch (e) {
       attempts.push({ attempt: i + 1, ok: false, reason: e?.message || "llm_error" });
     }
   }
 
-  if (!best) return { ok: false, reason: "all_attempts_failed", attempts };
-  const editorsPick = editorsPickScore(best.draft, best.confidence);
+  if (!best) return { ok: false, reason: "all_attempts_failed", attempts, provider: llmConfig().provider };
+  const verdict = editorialVerdict({ finalScore: best.finalScore, aiStrong: best.human.ai.isStrong, isPick: best.editorsPick.isPick });
   return {
     ok: true,
     draft: best.draft,
     category,
     confidence: best.confidence,
-    editorsPick,
+    human: best.human,
+    catMatch: best.catMatch,
+    editorial: best.editorial,
+    editorsPick: best.editorsPick,
+    finalScore: best.finalScore,
+    verdict,
     attempts,
-    passed: best.confidence.total >= minConfidence,
+    passed: best.finalScore >= minConfidence && !best.human.ai.isStrong,
     model,
+    provider: llmConfig().provider,
+    latencyMs: totalLatency,
+    tokenEstimate: best.tokenEstimate,
   };
 }
 
