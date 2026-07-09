@@ -68,6 +68,25 @@ export const CATEGORY_VOICES = {
     spaceLinkPolicy: "light",
     sections: ["도입", "본문", "마무리"],
   },
+  // ── Phase 12 추가 voice(콘텐츠 영역 확장) ──
+  tech: {
+    label: "기술·트렌드",
+    tone: "기술을 쉽게 설명하고 실제 활용과 최신 트렌드를 짚는다. 과장 없이 정확하게.",
+    spaceLinkPolicy: "light",
+    sections: ["한눈에", "어떻게 작동하나", "실제 활용", "최신 트렌드", "마무리"],
+  },
+  review_pick: {
+    label: "리뷰·추천",
+    tone: "줄거리·스포일러보다 핵심 메시지와 적용점 중심. 추천 대상을 분명히.",
+    spaceLinkPolicy: "none",
+    sections: ["한줄 소개", "핵심 메시지", "이런 점이 좋다", "추천 대상", "마무리"],
+  },
+  growth: {
+    label: "자기계발·실천",
+    tone: "실천 중심으로 구체적으로. 단정·과장 없이, 오늘 할 수 있는 것 위주.",
+    spaceLinkPolicy: "none",
+    sections: ["왜 중요한가", "핵심 원칙", "오늘부터 실천", "주의할 점", "마무리"],
+  },
 };
 
 // 라운지 카테고리 id → voice.
@@ -91,6 +110,20 @@ const CONCEPT_VOICES = [
   { area: "astrology", voice: "informational",  match: ["점성술", "별자리", "인도점성", "베다", "조티시"] },
   { area: "ai",        voice: "analytical",     match: ["ai", "인공지능", "챗gpt", "chatgpt", "gpt", "로봇", "생성형"] },
   { area: "society",   voice: "analytical",     match: ["사회", "정책", "복지", "저출산", "고령화", "이슈"] },
+  // ── Phase 12 콘텐츠 영역 확장(개념 영역 감지 · 충돌 안전 키워드) ──
+  { area: "economy",   voice: "analytical",  match: ["경제", "금리", "물가", "환율", "인플레이션", "gdp"] },
+  { area: "kr_stock",  voice: "analytical",  match: ["코스피", "코스닥", "국내주식", "배당", "공매도"] },
+  { area: "us_stock",  voice: "analytical",  match: ["미국주식", "해외주식", "나스닥", "에스앤피", "테슬라", "엔비디아"] },
+  { area: "it",        voice: "tech",        match: ["소프트웨어", "개발자", "프로그래밍", "클라우드", "아이티"] },
+  { area: "science",   voice: "informational", match: ["과학", "우주", "물리학", "화학", "생물학", "논문"] },
+  { area: "book",      voice: "review_pick", match: ["독서", "서평", "베스트셀러", "완독", "좋은 책", "책 추천", "책추천", "도서"] },
+  { area: "movie",     voice: "review_pick", match: ["영화", "개봉작", "시사회"] },
+  { area: "drama",     voice: "review_pick", match: ["드라마", "넷플릭스", "정주행"] },
+  { area: "game",      voice: "review_pick", match: ["게임", "공략", "콘솔", "스팀"] },
+  { area: "auto",      voice: "informational", match: ["자동차", "전기차", "시승", "연비"] },
+  { area: "self_dev",  voice: "growth",      match: ["자기계발", "습관 형성", "생산성", "루틴", "동기부여", "시간관리"] },
+  { area: "history",   voice: "contemplative", match: ["역사", "조선시대", "세계사", "왕조"] },
+  { area: "philosophy", voice: "contemplative", match: ["철학", "형이상학", "니체", "칸트", "윤리학"] },
 ];
 
 const norm = (s) => String(s ?? "").toLowerCase();
