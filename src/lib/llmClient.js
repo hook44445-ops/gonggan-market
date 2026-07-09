@@ -90,6 +90,12 @@ function buildRequest({ system, user, temperature, maxTokens, model }) {
         messages: [{ role: "user", content: user }],
       },
       extractText: (json) => (Array.isArray(json?.content) ? json.content.map((c) => c?.text || "").join("") : ""),
+      extractUsage: (json) => {
+        const u = json?.usage || {};
+        const p = Number.isFinite(u.input_tokens) ? u.input_tokens : null;
+        const c = Number.isFinite(u.output_tokens) ? u.output_tokens : null;
+        return { promptTokens: p, completionTokens: c, totalTokens: p != null && c != null ? p + c : null };
+      },
     };
   }
   // OpenRouter / OpenAI 호환.
@@ -111,13 +117,22 @@ function buildRequest({ system, user, temperature, maxTokens, model }) {
       ],
     },
     extractText: (json) => json?.choices?.[0]?.message?.content || "",
+    extractUsage: (json) => {
+      const u = json?.usage || {};
+      return {
+        promptTokens: Number.isFinite(u.prompt_tokens) ? u.prompt_tokens : null,
+        completionTokens: Number.isFinite(u.completion_tokens) ? u.completion_tokens : null,
+        totalTokens: Number.isFinite(u.total_tokens) ? u.total_tokens : null,
+      };
+    },
   };
 }
 
-// LLM 호출 — 성공 시 응답 텍스트 문자열 반환. 실패 시 LLMError throw(호출부가 Mock 폴백).
-//   opts: { system, user, temperature=0.7, maxTokens=1600, signal }
-export async function callLLM({ system = "", user = "", temperature = 0.7, maxTokens = 1600, model = null, signal = null } = {}) {
-  if (!isLLMConfigured()) throw new LLMError("LLM not configured", { status: 0, retryable: false });
+// LLM 호출 — 성공 시 { text, usage } 반환. 실패 시 LLMError throw(호출부가 처리).
+//   usage = { promptTokens, completionTokens, totalTokens }  (관리자 로그용)
+//   opts: { system, user, temperature=0.85, maxTokens=2400, signal }
+export async function callLLM({ system = "", user = "", temperature = 0.85, maxTokens = 2400, model = null, signal = null } = {}) {
+  if (!isLLMConfigured()) throw new LLMError("LLM 미설정 (VITE_LLM_API_KEY 필요)", { status: 0, retryable: false });
   if (!user.trim()) throw new LLMError("empty prompt", { status: 0, retryable: false });
 
   const req = buildRequest({ system, user, temperature, maxTokens, model });
@@ -143,7 +158,7 @@ export async function callLLM({ system = "", user = "", temperature = 0.7, maxTo
       const json = await res.json();
       const text = req.extractText(json);
       if (!text || !text.trim()) throw new LLMError("empty LLM response", { status: 200, retryable: false });
-      return text;
+      return { text, usage: req.extractUsage ? req.extractUsage(json) : { promptTokens: null, completionTokens: null, totalTokens: null } };
     } catch (e) {
       cleanup();
       const aborted = e?.name === "AbortError";
