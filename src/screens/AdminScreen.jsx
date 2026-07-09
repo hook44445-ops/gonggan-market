@@ -14,6 +14,10 @@ import { scoreContent } from "../lib/contentScore";
 import { connectionRate, clusterBreakdown, knowledgeMap, todaysSpace, editorsPick } from "../lib/spaceGraph";
 import { preGenerationCheck } from "../lib/preGenerationCheck";
 import { TOPIC_CLUSTERS } from "../constants/knowledgeMap";
+import { communityScore, rankByCommunity, todaysLivingSpace } from "../lib/communityScore";
+import { commentInsightByPost } from "../lib/commentInsight";
+import { buildFollowupQueue } from "../lib/followupRecommender";
+import { communityTemperature } from "../lib/communityTemperature";
 import {
   supabase,
   getCompanies, getUsers, getUser, getUserByPhone,
@@ -1199,6 +1203,8 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const [checkingTrends, setCheckingTrends] = useState(false);
   const [trendCheckResult, setTrendCheckResult] = useState(null);
   const [aiCheck, setAiCheck] = useState(null); // Phase 3 — 마지막 생성 전 AI 체크 결과(중복 방지)
+  const [comments, setComments] = useState(null); // Phase 4 — 온디맨드 로드한 최근 댓글(인사이트용)
+  const [loadingComments, setLoadingComments] = useState(false);
 
   const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
 
@@ -1315,6 +1321,37 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const kmap = knowledgeMap(published);
   const spaceTop = todaysSpace(published, 10);
   const editorPick = editorsPick(published);
+
+  // ── Phase 4 · Community Engine(살아있는 공간) — 전부 결정론적 재계산(저장/Migration 없음) ──
+  // AI 가 만들고, 사람이 반응하고, 그 반응이 다시 AI 의 다음 기획으로 돌아간다.
+  // 발행글의 사용자 신호(조회·좋아요·댓글)로 커뮤니티 점수·온도·오늘의 살아있는 공간을 계산한다.
+  const temp = communityTemperature(published);
+  const livingSpace = todaysLivingSpace(published, { n: 8 });
+  const topDiscussed = rankByCommunity(published, "discussion", 6).filter(p => p._c.discussionScore > 0);
+  const topEngaged = rankByCommunity(published, "engagement", 6).filter(p => p._c.engagementScore > 0);
+  // 댓글 인사이트 — 온디맨드 로드된 댓글이 있을 때만 계산(기본 로드 경로 무변경 · Regression Zero).
+  const publishedById = published.reduce((acc, p) => { acc[p.id] = p; return acc; }, {});
+  const insightRows = comments ? commentInsightByPost(comments, publishedById) : [];
+  const followupQueue = comments
+    ? buildFollowupQueue({ insightRows, postsById: publishedById, risingCategories: temp.risingTopics })
+    : buildFollowupQueue({ insightRows: [], postsById: publishedById, risingCategories: temp.risingTopics });
+
+  // 최근 댓글을 온디맨드로 불러와 댓글 인사이트/후속 추천을 채운다(자동 로드 아님).
+  const handleLoadComments = async () => {
+    if (loadingComments) return;
+    setLoadingComments(true);
+    try {
+      const { data } = await adminGetLoungeComments({ limit: 300 });
+      // 삭제/숨김 댓글은 커뮤니티 신호에서 제외(살아있는 반응만 인사이트에 반영).
+      const live = (data ?? []).filter(c => c.is_deleted !== true && c.is_hidden !== true);
+      setComments(live);
+      showToast?.(`💬 최근 댓글 ${live.length}건으로 인사이트를 계산했습니다`);
+    } catch (e) {
+      showToast?.("댓글 로드 실패: " + (e?.message ?? String(e)));
+    } finally {
+      setLoadingComments(false);
+    }
+  };
 
   // 편집회의 편성표에서 "제작(make)" 이슈를 골라 초안 생성(재작성 루프 포함) → 기존 미리보기/저장 흐름 재사용.
   //   Phase 3: 생성 "전에" AI 체크(중복 방지)를 먼저 돌린다 — 이미 존재하는 콘텐츠를 먼저 이해하고,
@@ -1524,6 +1561,139 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
                 연결할 관련 글: {aiCheck.related.map(r => r.title).slice(0, 3).join(" · ")}
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* 🌡️ Community Engine (Phase 4) — 살아있는 공간: AI 가 만들고, 사람이 반응하고,
+          그 반응이 다시 AI 의 다음 기획으로 돌아간다. 커뮤니티 온도 · 오늘의 살아있는 공간 ·
+          댓글 인사이트 · 후속 콘텐츠 추천 · 상승/조용 카테고리. 전부 결정론적 재계산(저장 없음). */}
+      <div style={{ background: "#2a1a3a", borderRadius: R.xl, padding: S.xl, border: `1px solid #43305a`, marginBottom: S.xl }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>🌡️ Community Engine · 살아있는 공간</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: "#ffcf8f" }}>{temp.temperature}°</span>
+            <button onClick={handleLoadComments} disabled={loadingComments}
+              style={{ padding: "6px 12px", background: "#3a2650", color: "#e5d4f5", border: "1px solid #55406f", borderRadius: R.lg, fontWeight: 700, fontSize: 11.5, cursor: "pointer" }}>
+              {loadingComments ? "분석 중..." : "💬 댓글 인사이트 분석"}
+            </button>
+          </div>
+        </div>
+        <div style={{ fontSize: 11.5, color: "#c6a9dd", marginBottom: S.md, lineHeight: 1.6 }}>
+          공간 온도는 라운지 전체 활성도입니다(체온 36.5° 기준). AI 가 쓴 글에 사람이 반응하면 온도가 오르고,
+          그 신호가 후속 콘텐츠 기획으로 돌아갑니다.
+        </div>
+
+        {/* 온도 지표 */}
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
+          {[
+            { k: "오늘 글", v: temp.todayPosts },
+            { k: "총 댓글", v: temp.totalComments },
+            { k: "총 반응", v: temp.totalReactions },
+            { k: "인기 글", v: temp.popularCount, sub: "커뮤니티 70+" },
+            { k: "숨김 비율", v: `${Math.round(temp.hiddenRatio * 100)}%` },
+          ].map(m => (
+            <div key={m.k} style={{ flex: "1 1 90px", background: "#3a2650", borderRadius: R.lg, padding: "8px 11px", border: "1px solid #43305a" }}>
+              <div style={{ fontSize: 10, color: "#b193cc" }}>{m.k}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{m.v}</div>
+              {m.sub && <div style={{ fontSize: 9, color: "#8f76a8", marginTop: 2 }}>{m.sub}</div>}
+            </div>
+          ))}
+        </div>
+
+        {/* 오늘의 살아있는 공간 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>✨ 오늘의 살아있는 공간</div>
+        {livingSpace.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#b193cc", marginBottom: S.lg }}>반응이 쌓이면 오늘 살아 움직이는 글이 자동 선정됩니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: S.lg }}>
+            {livingSpace.map((p, i) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "3px 0", borderBottom: "1px solid #382548", flexWrap: "wrap" }}>
+                <span style={{ color: "#ffcf8f", fontWeight: 800, width: 18 }}>{i + 1}</span>
+                <span style={{ color: "#fff", fontWeight: 600, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                <span style={{ color: "#b193cc", fontSize: 10 }}>커뮤니티 {p._c.communityScore}{p._c.evergreen ? " · evergreen" : ""}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 반응/토론 상위 + 상승/조용 카테고리 */}
+        <div style={{ display: "flex", gap: S.md, flexWrap: "wrap", marginBottom: S.lg }}>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🔥 반응 좋은 글</div>
+            {topEngaged.length === 0 ? <div style={{ fontSize: 10.5, color: "#b193cc" }}>—</div> :
+              topEngaged.map(p => (
+                <div key={p.id} style={{ fontSize: 10.5, color: "#e5d4f5", padding: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  · {p.title} <span style={{ color: "#8f76a8" }}>({p._c.engagementScore})</span>
+                </div>
+              ))}
+          </div>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>💬 댓글 많은 글</div>
+            {topDiscussed.length === 0 ? <div style={{ fontSize: 10.5, color: "#b193cc" }}>—</div> :
+              topDiscussed.map(p => (
+                <div key={p.id} style={{ fontSize: 10.5, color: "#e5d4f5", padding: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  · {p.title} <span style={{ color: "#8f76a8" }}>({p._c.discussionScore})</span>
+                </div>
+              ))}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: S.md, flexWrap: "wrap", marginBottom: S.lg }}>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>📈 상승 카테고리</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {temp.risingTopics.length === 0 ? <span style={{ fontSize: 10.5, color: "#b193cc" }}>—</span> :
+                temp.risingTopics.map(c => (
+                  <span key={c.category} style={{ fontSize: 10, color: "#c9f0d0", background: "#243a2a", border: "1px solid #35553d", borderRadius: R.full, padding: "3px 9px" }}>{c.label} ↑{c.momentum}</span>
+                ))}
+            </div>
+          </div>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>💤 조용한 카테고리(보강 필요)</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {temp.quietCategories.length === 0 ? <span style={{ fontSize: 10.5, color: "#b193cc" }}>—</span> :
+                temp.quietCategories.map(c => (
+                  <span key={c.category} style={{ fontSize: 10, color: "#e8c9c9", background: "#3a2626", border: "1px solid #553939", borderRadius: R.full, padding: "3px 9px" }}>{c.label}</span>
+                ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 후속 콘텐츠 추천 (댓글 인사이트 로드 시 질문/논쟁 기반 추천이 추가된다) */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>
+          🎯 후속 콘텐츠 추천 {comments ? "" : "(💬 댓글 인사이트 분석을 누르면 질문·논쟁 기반 추천이 추가됩니다)"}
+        </div>
+        {followupQueue.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#b193cc" }}>추천할 후속 주제가 아직 없습니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {followupQueue.slice(0, 8).map((r, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, padding: "4px 0", borderBottom: "1px solid #382548", flexWrap: "wrap" }}>
+                <span style={{ padding: "2px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: "#3a2650", color: "#d3b8ea" }}>
+                  {({ qa: "Q&A", deep: "심화", improve: "개선", balance: "균형", category: "카테고리" })[r.type] || r.type}
+                </span>
+                <span style={{ color: "#fff", fontWeight: 600 }}>{r.topic || (r.category ? catLabel(r.category) : "")}</span>
+                <span style={{ color: "#8f76a8", fontSize: 10, flexBasis: "100%" }}>{r.reason}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 댓글 인사이트 (온디맨드 로드 시) — 질문/후기/논쟁 분포 + 주의 필요 글 */}
+        {comments && insightRows.length > 0 && (
+          <div style={{ marginTop: S.lg }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🧭 댓글 인사이트 (글별)</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {insightRows.slice(0, 8).map(row => (
+                <div key={row.postId} style={{ fontSize: 11, padding: "4px 0", borderBottom: "1px solid #382548" }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    {row.analysis.needsAttention && <span style={{ padding: "1px 6px", borderRadius: R.full, fontSize: 9, fontWeight: 800, background: "#553939", color: "#f0c9c9" }}>주의</span>}
+                    <span style={{ color: "#fff", fontWeight: 600, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.title}</span>
+                    <span style={{ color: "#8f76a8", fontSize: 10 }}>질문 {row.analysis.question} · 후기 {row.analysis.review} · 논쟁 {row.analysis.dispute}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
