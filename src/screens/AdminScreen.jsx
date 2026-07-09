@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
@@ -25,6 +25,8 @@ import {
 } from "../lib/publishingPipeline";
 import { discoverTrendingTopics, trendSummary } from "../lib/trendDiscovery";
 import { buildDailyPlan, getPriorityConfig, setPriorityConfig, RATIO_PRESETS, targetMix } from "../lib/publishingPriority";
+import { analyzeStrategy, MODE_HELP, VERSION_HELP, TEMPERATURE_HELP } from "../lib/autoStrategy";
+import { usageStats, openRouterStatus } from "../lib/usageDashboard";
 import {
   getAutoConfig, setAutoConfig, planAutoPublish, executeAutoPublishPlan,
   autoPublishStats, getPublishLog,
@@ -1692,6 +1694,52 @@ function btn(bg) {
   return { padding: "3px 9px", background: bg, color: "#fff", border: "none", borderRadius: R.sm, fontSize: 10, fontWeight: 700, cursor: "pointer" };
 }
 
+// ── LLM Usage Dashboard(Phase 20.7) — 워크벤치 생성 기록(localStorage) 집계 표시 ─────
+//   오늘/이번주/이번달/누적 × 요청·성공률·재생성·평균응답·토큰·비용(KRW)·Editorial·Confidence·
+//   Editor's Pick 비율. DB/API/Cron 없음(usageStats 호출만). 회귀 없음.
+function UsageDashboardPanel({ C, S, R }) {
+  const [range, setRange] = useState("today");
+  const st = useMemo(() => usageStats(range), [range]);
+  const RANGES = [["today", "오늘"], ["week", "이번주"], ["month", "이번달"], ["all", "누적"]];
+  const cell = (label, value, sub) => (
+    <div style={{ background: "#fff", borderRadius: R.md, padding: "8px 10px", border: `1px solid ${C.bgWarm}` }}>
+      <div style={{ fontSize: 9.5, color: C.text3, marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{value}</div>
+      {sub != null && <div style={{ fontSize: 9, color: C.text3, marginTop: 1 }}>{sub}</div>}
+    </div>
+  );
+  return (
+    <div style={{ background: C.bg, borderRadius: R.xl, padding: S.lg, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: S.sm, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>📊 LLM Usage Dashboard</div>
+        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+          {RANGES.map(([id, lb]) => (
+            <button key={id} onClick={() => setRange(id)}
+              style={{ padding: "3px 10px", borderRadius: R.full, fontSize: 10.5, fontWeight: 700, cursor: "pointer",
+                border: `1px solid ${range === id ? C.brand : C.bgWarm}`, background: range === id ? C.brand : "#fff", color: range === id ? "#fff" : C.text3 }}>
+              {lb}
+            </button>
+          ))}
+        </div>
+      </div>
+      {st.requests === 0 ? (
+        <div style={{ fontSize: 11, color: C.text3, padding: "6px 2px" }}>아직 생성 기록이 없습니다. 초안을 생성하면 사용량·비용·품질이 집계됩니다.</div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))", gap: 6 }}>
+          {cell("총 요청", `${st.requests}회`, `성공 ${st.success} · 실패 ${st.failed}`)}
+          {cell("성공률", st.successRate != null ? `${st.successRate}%` : "—")}
+          {cell("예상 비용", `₩${st.costKRW.toLocaleString()}`, `${st.totalTokens.toLocaleString()} tok`)}
+          {cell("평균 응답", st.avgLatencyMs != null ? `${(st.avgLatencyMs / 1000).toFixed(1)}초` : "—")}
+          {cell("Editorial", st.avgEditorialScore != null ? `${st.avgEditorialScore}점` : "—", `Pick ${st.editorsPickRatio != null ? st.editorsPickRatio + "%" : "—"}`)}
+          {cell("Confidence", st.avgConfidence != null ? `${st.avgConfidence}%` : "—")}
+          {cell("재생성", `${st.regen}회`)}
+          {cell("토큰", st.totalTokens.toLocaleString(), `in ${st.promptTokens.toLocaleString()} · out ${st.completionTokens.toLocaleString()}`)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── AI 콘텐츠 공장(Phase 1) — Draft 생성 → 검수 → 예약/즉시 발행 ──────────────
 //   lounge_posts.is_seed=true 재사용(신규 테이블 없음). 실제 발행은 관리자 승인 후에만
 //   일어난다(베타 원칙: 자동 발행보다 Draft→승인→발행). 본문은 템플릿 기반(generateDraft) —
@@ -1702,7 +1750,9 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const [spaceAngle, setSpaceAngle] = useState(ISSUE_PRESETS[0].spaceAngle);
   const [region, setRegion]         = useState("");
   const [preview, setPreview]       = useState(null); // { title, content, category, tags }
-  const [genMode, setGenMode]       = useState("voice"); // Phase 8: voice(카테고리 톤)/space(공간 관점)/raw(원석 지식)
+  const [genMode, setGenMode]       = useState("auto"); // Phase 20.7: auto(AI 추천) 기본. voice/space/raw = 고급.
+  const [autoStrat, setAutoStrat]   = useState(null);   // 자동모드가 선택한 전략(표시용)
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [edCfg, setEdCfg]           = useState(() => getEditorialConfig()); // Phase 18 — 모델/temperature/maxTokens
   const [edGen, setEdGen]           = useState(false);
   const [edResult, setEdResult]     = useState(null); // { confidence, editorsPick, attempts, passed, draft }
@@ -1737,19 +1787,30 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     if (generating) return;
     if (!issue.trim()) { showToast?.("이슈를 입력하거나 프리셋을 선택하세요"); return; }
     const preset = ISSUE_PRESETS.find(p => p.id === presetId);
-    const cat = preset?.issue === issue.trim() ? preset.category : classifyCategory(`${issue} ${spaceAngle}`);
-    if (genMode === "space") {
-      // 기존 Phase 1 동작 보존(공간 관점 강제 템플릿).
+
+    // Phase 20.7 — 자동모드: AI 가 글 성격을 분석해 모드/버전/Temperature 를 자동 선택.
+    let useMode = genMode, useVersion = promptVersion, useTemp = temperature, cat;
+    if (genMode === "auto") {
+      const strat = analyzeStrategy(issue.trim());
+      setAutoStrat(strat);
+      useMode = strat.mode; useVersion = strat.promptVersion; useTemp = strat.temperature; cat = strat.category;
+    } else {
+      setAutoStrat(null);
+      cat = preset?.issue === issue.trim() ? preset.category : classifyCategory(`${issue} ${spaceAngle}`);
+    }
+
+    if (useMode === "space" && genMode !== "auto") {
+      // 기존 수동 공간 관점 동작 보존(템플릿). 자동모드는 항상 LLM 경로를 탄다.
       setWorkbench(null);
       setPreview(generateDraft({ issue: issue.trim(), spaceAngle: spaceAngle.trim(), category: cat, region: region.trim() || null }));
       return;
     }
-    // Phase 11 — AI Editor Workbench: 생성 결과 + 메타(프롬프트/모델/confidence/raw) + Quality.
+    // AI Editor Workbench(실제 LLM): 생성 결과 + 메타(프롬프트/모델/토큰/confidence/editorial) + Quality.
     setGenerating(true);
     try {
       const existing = [...drafts, ...published].filter(p => p.title).map(p => ({ title: p.title }));
       const wb = await generateForWorkbench(
-        { issue: issue.trim(), category: cat, region: region.trim() || null, mode: genMode === "raw" ? "raw" : "voice", promptVersion, temperature },
+        { issue: issue.trim(), category: cat, region: region.trim() || null, mode: useMode === "raw" ? "raw" : "voice", promptVersion: useVersion, temperature: useTemp },
         { existing }
       );
       // Phase 20.6 — Production: LLM 미설정/실패 시 Mock 생성하지 않고 명확히 안내.
@@ -1993,6 +2054,9 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         이슈를 공간 관점으로 재해석한 초안을 만들고, 검수 후 발행합니다. 자동 발행은 하지 않습니다 —
         모든 발행은 관리자 승인이 필요합니다(베타 원칙).
       </div>
+
+      {/* 📊 LLM Usage Dashboard (Phase 20.7) — 워크벤치 기록 집계(로컬). 사용량·비용·품질·성공률. */}
+      <UsageDashboardPanel C={C} S={S} R={R} />
 
       {/* 🗞️ AI 편집국 — 생성 전 기획 레이어: 편집회의(오늘 이슈 심의) → 카테고리 추천 → 콘텐츠 품질 점검.
           목표는 콘텐츠의 "양"이 아니라 "경쟁력". 전부 결정론적 재계산(저장/Migration 없음). */}
@@ -2616,58 +2680,91 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
           <input value={spaceAngle} onChange={e => setSpaceAngle(e.target.value)}
             style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} />
         </div>
-        {/* Phase 8 — 생성 모드: 카테고리 톤(기본) / 공간 관점(기존) / 원석 지식(Raw) */}
+        {/* Phase 20.7 — 생성 모드: 자동(AI 추천) 기본 + 고급 설정 펼치기 */}
         <div style={{ marginBottom: S.md }}>
           <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>생성 모드</div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {[
-              { id: "voice", label: "🎯 카테고리 톤", desc: "카테고리답게(억지 공간연결 제거)" },
-              { id: "space", label: "🌌 공간 관점", desc: "기존 공간 관점 템플릿" },
-              { id: "raw",   label: "🪨 원석 지식", desc: "꾸미지 않은 Raw Knowledge" },
-            ].map(m => (
-              <button key={m.id} onClick={() => setGenMode(m.id)} title={m.desc}
-                style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
-                  background: genMode === m.id ? C.brandD : C.bg, color: genMode === m.id ? "#fff" : C.text2,
-                  border: `1px solid ${genMode === m.id ? C.brandD : C.bgWarm}` }}>
-                {m.label}
-              </button>
-            ))}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <button onClick={() => setGenMode("auto")} title="주제만 입력하면 AI 가 글 성격을 분석해 최적 전략을 자동 선택합니다."
+              style={{ padding: "6px 14px", borderRadius: R.full, fontSize: 12, fontWeight: 800, cursor: "pointer",
+                background: genMode === "auto" ? C.brand : C.bg, color: genMode === "auto" ? "#fff" : C.text2,
+                border: `1px solid ${genMode === "auto" ? C.brand : C.bgWarm}` }}>
+              🤖 자동 (AI 추천)
+            </button>
+            <button onClick={() => setShowAdvanced(s => !s)}
+              style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 11.5, fontWeight: 700, cursor: "pointer", background: C.bg, color: C.text3, border: `1px solid ${C.bgWarm}` }}>
+              {showAdvanced ? "▾ 고급 설정" : "▸ 고급 설정"}
+            </button>
           </div>
         </div>
 
-        {/* Phase 11 — Prompt Version + Temperature (voice/raw 에서만) */}
-        {genMode !== "space" && (
-          <div style={{ marginBottom: S.md, display: "flex", gap: S.lg, flexWrap: "wrap", alignItems: "flex-end" }}>
-            <div>
-              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>Prompt Version</div>
-              <div style={{ display: "flex", gap: 5 }}>
-                {PROMPT_VERSIONS.map(v => (
-                  <button key={v.id} onClick={() => setPromptVersion(v.id)} title={v.note}
-                    style={{ padding: "5px 10px", borderRadius: R.md, fontSize: 11, fontWeight: 700, cursor: "pointer",
-                      background: promptVersion === v.id ? C.brand : C.bg, color: promptVersion === v.id ? "#fff" : C.text2,
-                      border: `1px solid ${promptVersion === v.id ? C.brand : C.bgWarm}` }}>
-                    {v.label}
-                  </button>
-                ))}
+        {/* 고급 설정(직접 설정) — 평소 숨김 */}
+        {showAdvanced && (
+          <div style={{ background: C.bg, borderRadius: R.md, border: `1px solid ${C.bgWarm}`, padding: S.md, marginBottom: S.md }}>
+            <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>모드 직접 선택</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: S.sm }}>
+              {[
+                { id: "voice", label: "🎯 카테고리 톤", help: MODE_HELP.voice },
+                { id: "space", label: "🌌 공간 관점", help: MODE_HELP.space },
+                { id: "raw",   label: "🪨 원석 지식", help: MODE_HELP.raw },
+              ].map(m => (
+                <button key={m.id} onClick={() => setGenMode(m.id)} title={m.help}
+                  style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                    background: genMode === m.id ? C.brandD : "#fff", color: genMode === m.id ? "#fff" : C.text2,
+                    border: `1px solid ${genMode === m.id ? C.brandD : C.bgWarm}` }}>
+                  {m.label} <span style={{ opacity: 0.7 }}>ⓘ</span>
+                </button>
+              ))}
+            </div>
+            {genMode !== "space" && genMode !== "auto" && (
+              <div style={{ display: "flex", gap: S.lg, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <div>
+                  <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>Prompt Version</div>
+                  <div style={{ display: "flex", gap: 5 }}>
+                    {PROMPT_VERSIONS.map(v => (
+                      <button key={v.id} onClick={() => setPromptVersion(v.id)} title={VERSION_HELP[v.id]}
+                        style={{ padding: "5px 10px", borderRadius: R.md, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                          background: promptVersion === v.id ? C.brand : "#fff", color: promptVersion === v.id ? "#fff" : C.text2,
+                          border: `1px solid ${promptVersion === v.id ? C.brand : C.bgWarm}` }}>
+                        {v.label} <span style={{ opacity: 0.7 }}>ⓘ</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div title={TEMPERATURE_HELP}>
+                  <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>Temperature {temperature.toFixed(1)} <span style={{ opacity: 0.7 }}>ⓘ</span></div>
+                  <input type="range" min="0" max="1" step="0.1" value={temperature} onChange={e => setTemperature(Number(e.target.value))} style={{ width: 120 }} />
+                </div>
               </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>Temperature {temperature.toFixed(1)}</div>
-              <input type="range" min="0" max="1" step="0.1" value={temperature} onChange={e => setTemperature(Number(e.target.value))}
-                style={{ width: 120 }} />
-            </div>
+            )}
+          </div>
+        )}
+
+        {/* 자동모드가 선택한 전략 표시 */}
+        {genMode === "auto" && autoStrat && (
+          <div style={{ background: "#0f2e26", borderRadius: R.md, padding: "9px 12px", marginBottom: S.md, color: "#fff" }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: "#8fe3c4" }}>AI 분석 결과</span>
+            <span style={{ fontSize: 12, marginLeft: 8 }}>{autoStrat.chain.join(" → ")}</span>
+            <span style={{ fontSize: 11, color: "#a9c9bd", marginLeft: 8 }}>· 예상 스타일 “{autoStrat.style}”</span>
           </div>
         )}
 
         <button onClick={handleGenerate} disabled={generating}
           style={{ padding: "10px 18px", background: generating ? C.text4 : C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: generating ? "default" : "pointer" }}>
-          {generating ? "생성 중…" : "✨ 초안 생성"}
+          {generating ? "생성 중…" : (genMode === "auto" ? "🤖 AI 자동 생성" : "✨ 초안 생성")}
         </button>
-        {genMode !== "space" && (
-          <span style={{ marginLeft: 10, fontSize: 11, color: C.text3 }}>
-            {isLLMConfigured() ? "🟢 LLM 연결됨 (OpenRouter)" : "⚪ LLM 미설정 (VITE_LLM_API_KEY 필요)"}
-          </span>
-        )}
+        {/* OpenRouter 상태 개선 */}
+        {(() => {
+          const st = openRouterStatus();
+          return st.connected ? (
+            <span style={{ marginLeft: 10, fontSize: 11, color: C.text2 }}>
+              🟢 OpenRouter 연결됨 · {st.model}
+              {st.avgLatencySec != null ? ` · 평균 ${st.avgLatencySec}초` : ""}
+              {st.todayCount > 0 ? ` · 오늘 ${st.todayCount}회 · ₩${st.todayCostKRW}` : ""}
+            </span>
+          ) : (
+            <span style={{ marginLeft: 10, fontSize: 11, color: C.gold }}>⚪ LLM 미설정 (VITE_LLM_API_KEY 필요)</span>
+          );
+        })()}
 
         {preview && (
           <div style={{ marginTop: S.lg, background: C.bg, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
