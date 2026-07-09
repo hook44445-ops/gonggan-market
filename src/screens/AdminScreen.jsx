@@ -11,6 +11,20 @@ import { runEditorialMeeting, selectTodaysContent, generateReviewedDraft } from 
 import { generateDailyIssues } from "../lib/dailyIssues";
 import { recommendCategories } from "../lib/categoryRecommender";
 import { scoreContent } from "../lib/contentScore";
+import { connectionRate, clusterBreakdown, knowledgeMap, todaysSpace, editorsPick } from "../lib/spaceGraph";
+import { preGenerationCheck } from "../lib/preGenerationCheck";
+import { TOPIC_CLUSTERS } from "../constants/knowledgeMap";
+import { communityScore, rankByCommunity, todaysLivingSpace } from "../lib/communityScore";
+import { commentInsightByPost } from "../lib/commentInsight";
+import { buildFollowupQueue } from "../lib/followupRecommender";
+import { communityTemperature } from "../lib/communityTemperature";
+import { composeMagazine } from "../lib/magazine";
+import { composeArchive } from "../lib/archive";
+import { spaceSearch } from "../lib/spaceSearch";
+import { pipelineStages, buildDraftQueue, todaysDashboard, publishingCalendar } from "../lib/publishingOs";
+import { categoryHealthSummary } from "../lib/categoryHealth";
+import { spaceCoverage } from "../lib/spaceCoverage";
+import { buildSpaceIndex } from "../lib/spaceIndex";
 import {
   supabase,
   getCompanies, getUsers, getUser, getUserByPhone,
@@ -1195,6 +1209,10 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const [scheduleFor, setScheduleFor] = useState({}); // { [id]: 'YYYY-MM-DDTHH:mm' }
   const [checkingTrends, setCheckingTrends] = useState(false);
   const [trendCheckResult, setTrendCheckResult] = useState(null);
+  const [aiCheck, setAiCheck] = useState(null); // Phase 3 — 마지막 생성 전 AI 체크 결과(중복 방지)
+  const [comments, setComments] = useState(null); // Phase 4 — 온디맨드 로드한 최근 댓글(인사이트용)
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [searchQ, setSearchQ] = useState(""); // Phase 5 — Space Media 지식 검색 데모
 
   const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
 
@@ -1302,13 +1320,80 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     .map(p => ({ id: p.id, title: p.title, status: p.publish_status, ...scoreContent({ title: p.title, content: p.content, category: p.category }) }))
     .sort((a, b) => a.total - b.total);
 
+  // ── Phase 3 · Space Graph(공간 지식 네트워크) — 전부 결정론적 재계산(저장/Migration 없음) ──
+  // 발행글 기준으로 콘텐츠 연결률·토픽 클러스터·지식 지도·오늘의 Space/Editor's Pick 을 계산한다.
+  // "글을 많이 만드는 것"이 아니라 "글과 글을 연결하는 것"이 이 Phase 의 목표.
+  const allContent = [...published, ...drafts].filter(p => p.title);
+  const connStats = connectionRate(published);
+  const clusters = clusterBreakdown(published);
+  const kmap = knowledgeMap(published);
+  const spaceTop = todaysSpace(published, 10);
+  const editorPick = editorsPick(published);
+
+  // ── Phase 4 · Community Engine(살아있는 공간) — 전부 결정론적 재계산(저장/Migration 없음) ──
+  // AI 가 만들고, 사람이 반응하고, 그 반응이 다시 AI 의 다음 기획으로 돌아간다.
+  // 발행글의 사용자 신호(조회·좋아요·댓글)로 커뮤니티 점수·온도·오늘의 살아있는 공간을 계산한다.
+  const temp = communityTemperature(published);
+  const livingSpace = todaysLivingSpace(published, { n: 8 });
+  const topDiscussed = rankByCommunity(published, "discussion", 6).filter(p => p._c.discussionScore > 0);
+  const topEngaged = rankByCommunity(published, "engagement", 6).filter(p => p._c.engagementScore > 0);
+  // 댓글 인사이트 — 온디맨드 로드된 댓글이 있을 때만 계산(기본 로드 경로 무변경 · Regression Zero).
+  const publishedById = published.reduce((acc, p) => { acc[p.id] = p; return acc; }, {});
+  const insightRows = comments ? commentInsightByPost(comments, publishedById) : [];
+  const followupQueue = comments
+    ? buildFollowupQueue({ insightRows, postsById: publishedById, risingCategories: temp.risingTopics })
+    : buildFollowupQueue({ insightRows: [], postsById: publishedById, risingCategories: temp.risingTopics });
+
+  // ── Phase 5 · Space Media(매거진/아카이브/검색) — 발행글로 매거진 구성을 미리보기(결정론적 재계산) ──
+  // "게시판"이 아니라 "매거진/아카이브"로 보는 구조. 실제 사용자 화면(글 상세 Reading Experience)은
+  // 별도로 적용되며, 여기서는 관리자가 매거진 준비 상태를 확인한다(PC Version First 구조 검증).
+  const magazine = composeMagazine(published);
+  const archive = composeArchive(published);
+  const searchResult = searchQ.trim() ? spaceSearch(searchQ, published, { limit: 8 }) : null;
+
+  // ── Phase 6 · Publishing OS(운영 파이프라인) — Phase 1~5 엔진을 하나의 운영 관점으로 연결 ──
+  // 기획→생성→검수→연결→발행→분석→재기획. 전부 결정론적 재계산(저장/Migration 없음).
+  const osPipeline = pipelineStages({ issues: dailyIssues, drafts, published, todaysPicks });
+  const osDraftQueue = buildDraftQueue(drafts, published);
+  const osDashboard = todaysDashboard({ published, drafts });
+  const osCalendar = publishingCalendar(drafts, { days: 14 });
+  const osHealth = categoryHealthSummary(published);
+  const osCoverage = spaceCoverage(published);
+  const osIndex = buildSpaceIndex(published);
+
+  // 최근 댓글을 온디맨드로 불러와 댓글 인사이트/후속 추천을 채운다(자동 로드 아님).
+  const handleLoadComments = async () => {
+    if (loadingComments) return;
+    setLoadingComments(true);
+    try {
+      const { data } = await adminGetLoungeComments({ limit: 300 });
+      // 삭제/숨김 댓글은 커뮤니티 신호에서 제외(살아있는 반응만 인사이트에 반영).
+      const live = (data ?? []).filter(c => c.is_deleted !== true && c.is_hidden !== true);
+      setComments(live);
+      showToast?.(`💬 최근 댓글 ${live.length}건으로 인사이트를 계산했습니다`);
+    } catch (e) {
+      showToast?.("댓글 로드 실패: " + (e?.message ?? String(e)));
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
   // 편집회의 편성표에서 "제작(make)" 이슈를 골라 초안 생성(재작성 루프 포함) → 기존 미리보기/저장 흐름 재사용.
+  //   Phase 3: 생성 "전에" AI 체크(중복 방지)를 먼저 돌린다 — 이미 존재하는 콘텐츠를 먼저 이해하고,
+  //   48h 내 사실상 동일한 글이 있으면 생성을 건너뛴다(콘텐츠 원칙: 중복 글을 만들지 않는다).
   const handleGenerateFromEditor = (pick) => {
+    const check = preGenerationCheck({ topic: pick.topic, category: pick.category }, allContent);
+    setAiCheck(check);
+    if (check.verdict === "skip") {
+      showToast?.("🛑 중복 감지 — 이미 유사한 글이 있어 생성을 건너뜁니다");
+      return;
+    }
     const res = generateReviewedDraft({ issue: pick.topic, spaceAngle: pick.spaceAngle, category: pick.category, region: region.trim() || null });
     setIssue(pick.topic);
     setSpaceAngle(pick.spaceAngle);
     setPreview(res.draft);
-    showToast?.(res.passed ? `✅ 편집회의 통과 초안 생성(점수 ${res.score.total})` : `⚠️ 초안 생성(점수 ${res.score.total} · 재작성 권장)`);
+    const tag = check.verdict === "enrich" ? " · 유사 글 보강 권장" : (check.related.length ? ` · 관련 글 ${check.related.length}건 연결` : "");
+    showToast?.((res.passed ? `✅ 편집회의 통과 초안(점수 ${res.score.total})` : `⚠️ 초안(점수 ${res.score.total} · 재작성 권장)`) + tag);
   };
 
   // 10단계(카테고리별 콘텐츠 축적) — 발행된 AI 콘텐츠를 카테고리별로 집계(8단계 Analytics 경량판).
@@ -1410,6 +1495,460 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
             ))}
           </div>
         )}
+      </div>
+
+      {/* 🕸️ Space Graph (Phase 3) — 공간 지식 네트워크: 글을 "많이" 만드는 게 아니라 "연결"한다.
+          콘텐츠 연결률 · 토픽 클러스터 · 지식 지도 · 오늘의 Space / Editor's Pick. 전부 결정론적 재계산(저장 없음). */}
+      <div style={{ background: "#0f2e26", borderRadius: R.xl, padding: S.xl, border: `1px solid #1c463a`, marginBottom: S.xl }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4 }}>🕸️ Space Graph · 공간 지식 네트워크</div>
+        <div style={{ fontSize: 11.5, color: "#a9c9bd", marginBottom: S.md, lineHeight: 1.6 }}>
+          Space is Everything. 이제 중요한 건 <b style={{ color: "#fff" }}>새 글을 얼마나 잘 쓰느냐</b>가 아니라
+          <b style={{ color: "#fff" }}> 기존 글을 얼마나 잘 연결하느냐</b>입니다. 콘텐츠가 쌓일수록 하나의 공간 지식 네트워크가 됩니다.
+        </div>
+
+        {/* 콘텐츠 연결률 — 관련 글이 1개 이상 있는 발행글 비율 */}
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
+          {[
+            { k: "연결률", v: `${connStats.rate}%`, sub: `연결 ${connStats.connected} / 전체 ${connStats.total}` },
+            { k: "고립 글", v: connStats.isolated, sub: "연결 0건(연결 필요)" },
+            { k: "평균 연결", v: connStats.avgDegree, sub: "글당 관련 글 수" },
+            { k: "클러스터", v: clusters.length, sub: `토픽 그룹 · 지식 엣지 ${kmap.edges.length}` },
+          ].map(m => (
+            <div key={m.k} style={{ flex: "1 1 120px", background: "#123a30", borderRadius: R.lg, padding: "10px 12px", border: "1px solid #1c463a" }}>
+              <div style={{ fontSize: 10.5, color: "#8fb3a6" }}>{m.k}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{m.v}</div>
+              <div style={{ fontSize: 9.5, color: "#6f978a", marginTop: 2 }}>{m.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* AI Topic Cluster — 콘텐츠를 대주제(클러스터)로 관리 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🧩 Topic Cluster (콘텐츠 클러스터)</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: S.lg }}>
+          {(clusters.length ? clusters : TOPIC_CLUSTERS.map(c => ({ ...c, count: 0, views: 0 }))).map(c => (
+            <div key={c.id} style={{ background: "#123a30", border: "1px solid #1c463a", borderRadius: R.md, padding: "6px 10px", fontSize: 11 }}>
+              <span style={{ color: "#fff", fontWeight: 700 }}>{c.label}</span>
+              <span style={{ color: "#8fb3a6", marginLeft: 6 }}>{c.count}글</span>
+              {c.views > 0 && <span style={{ color: "#6f978a", marginLeft: 6 }}>· 조회 {c.views}</span>}
+            </div>
+          ))}
+        </div>
+
+        {/* Knowledge Map — 카테고리 ↔ 카테고리 지식 연결(실제 글이 있는 카테고리끼리) */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🗺️ Knowledge Map (카테고리 지식 연결 {kmap.edges.length})</div>
+        {kmap.edges.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#8fb3a6", marginBottom: S.lg }}>아직 연결할 카테고리가 부족합니다(발행글이 쌓이면 자동 연결)</div>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: S.lg }}>
+            {kmap.edges.slice(0, 24).map((e, i) => (
+              <span key={i} style={{ fontSize: 10.5, color: "#cfe6dd", background: "#123a30", border: "1px solid #1c463a", borderRadius: R.full, padding: "3px 9px" }}>
+                {catLabel(e.source)} ↔ {catLabel(e.target)}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* 오늘의 Space / Editor's Pick — 인기 + 네트워크 허브(연결 많은 글)를 함께 본다 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>⭐ 오늘의 Space · Top {Math.min(spaceTop.length, 10)}</div>
+        {editorPick && (
+          <div style={{ background: "#1a4a3c", borderRadius: R.md, padding: "8px 11px", border: "1px solid #2a6b57", marginBottom: S.sm }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: "#ffd7a0" }}>Editor's Pick</span>
+            <span style={{ fontSize: 12, color: "#fff", fontWeight: 700, marginLeft: 8 }}>{editorPick.title}</span>
+            <span style={{ fontSize: 10, color: "#8fb3a6", marginLeft: 8 }}>연결 {editorPick._hubDegree}건</span>
+          </div>
+        )}
+        {spaceTop.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#8fb3a6" }}>발행된 콘텐츠가 쌓이면 오늘의 Space 가 자동 선정됩니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {spaceTop.map((p, i) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "3px 0", borderBottom: "1px solid #163b30", flexWrap: "wrap" }}>
+                <span style={{ color: "#ffd7a0", fontWeight: 800, width: 18 }}>{i + 1}</span>
+                <span style={{ color: "#fff", fontWeight: 600, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                <span style={{ color: "#6f978a", fontSize: 10 }}>{catLabel(p.category)} · 허브 {p._hubDegree}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* AI 체크(중복 방지) — 편집회의에서 "이 이슈로 초안 생성"을 누르면 생성 전에 실행된 결과 */}
+        {aiCheck && (
+          <div style={{ marginTop: S.lg, background: "#123a30", borderRadius: R.md, padding: "10px 12px", border: `1px solid ${aiCheck.verdict === "skip" ? "#a05a5a" : "#1c463a"}` }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#fff", marginBottom: 4 }}>
+              🤖 AI 체크 · {aiCheck.verdict === "skip" ? "중복 감지(생성 건너뜀)" : aiCheck.verdict === "enrich" ? "유사 글 있음(보강 권장)" : "생성 진행(관련 글 연결)"}
+              <span style={{ color: "#8fb3a6", fontWeight: 600, marginLeft: 8 }}>{aiCheck.chain.map(c => catLabel(c)).join(" → ")}</span>
+            </div>
+            <div style={{ fontSize: 10.5, color: "#a9c9bd", lineHeight: 1.7 }}>
+              {aiCheck.reasons.map((r, i) => <div key={i}>· {r}</div>)}
+            </div>
+            {aiCheck.related.length > 0 && (
+              <div style={{ marginTop: 6, fontSize: 10.5, color: "#cfe6dd" }}>
+                연결할 관련 글: {aiCheck.related.map(r => r.title).slice(0, 3).join(" · ")}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 🌡️ Community Engine (Phase 4) — 살아있는 공간: AI 가 만들고, 사람이 반응하고,
+          그 반응이 다시 AI 의 다음 기획으로 돌아간다. 커뮤니티 온도 · 오늘의 살아있는 공간 ·
+          댓글 인사이트 · 후속 콘텐츠 추천 · 상승/조용 카테고리. 전부 결정론적 재계산(저장 없음). */}
+      <div style={{ background: "#2a1a3a", borderRadius: R.xl, padding: S.xl, border: `1px solid #43305a`, marginBottom: S.xl }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>🌡️ Community Engine · 살아있는 공간</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: "#ffcf8f" }}>{temp.temperature}°</span>
+            <button onClick={handleLoadComments} disabled={loadingComments}
+              style={{ padding: "6px 12px", background: "#3a2650", color: "#e5d4f5", border: "1px solid #55406f", borderRadius: R.lg, fontWeight: 700, fontSize: 11.5, cursor: "pointer" }}>
+              {loadingComments ? "분석 중..." : "💬 댓글 인사이트 분석"}
+            </button>
+          </div>
+        </div>
+        <div style={{ fontSize: 11.5, color: "#c6a9dd", marginBottom: S.md, lineHeight: 1.6 }}>
+          공간 온도는 라운지 전체 활성도입니다(체온 36.5° 기준). AI 가 쓴 글에 사람이 반응하면 온도가 오르고,
+          그 신호가 후속 콘텐츠 기획으로 돌아갑니다.
+        </div>
+
+        {/* 온도 지표 */}
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
+          {[
+            { k: "오늘 글", v: temp.todayPosts },
+            { k: "총 댓글", v: temp.totalComments },
+            { k: "총 반응", v: temp.totalReactions },
+            { k: "인기 글", v: temp.popularCount, sub: "커뮤니티 70+" },
+            { k: "숨김 비율", v: `${Math.round(temp.hiddenRatio * 100)}%` },
+          ].map(m => (
+            <div key={m.k} style={{ flex: "1 1 90px", background: "#3a2650", borderRadius: R.lg, padding: "8px 11px", border: "1px solid #43305a" }}>
+              <div style={{ fontSize: 10, color: "#b193cc" }}>{m.k}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{m.v}</div>
+              {m.sub && <div style={{ fontSize: 9, color: "#8f76a8", marginTop: 2 }}>{m.sub}</div>}
+            </div>
+          ))}
+        </div>
+
+        {/* 오늘의 살아있는 공간 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>✨ 오늘의 살아있는 공간</div>
+        {livingSpace.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#b193cc", marginBottom: S.lg }}>반응이 쌓이면 오늘 살아 움직이는 글이 자동 선정됩니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: S.lg }}>
+            {livingSpace.map((p, i) => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "3px 0", borderBottom: "1px solid #382548", flexWrap: "wrap" }}>
+                <span style={{ color: "#ffcf8f", fontWeight: 800, width: 18 }}>{i + 1}</span>
+                <span style={{ color: "#fff", fontWeight: 600, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                <span style={{ color: "#b193cc", fontSize: 10 }}>커뮤니티 {p._c.communityScore}{p._c.evergreen ? " · evergreen" : ""}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 반응/토론 상위 + 상승/조용 카테고리 */}
+        <div style={{ display: "flex", gap: S.md, flexWrap: "wrap", marginBottom: S.lg }}>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🔥 반응 좋은 글</div>
+            {topEngaged.length === 0 ? <div style={{ fontSize: 10.5, color: "#b193cc" }}>—</div> :
+              topEngaged.map(p => (
+                <div key={p.id} style={{ fontSize: 10.5, color: "#e5d4f5", padding: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  · {p.title} <span style={{ color: "#8f76a8" }}>({p._c.engagementScore})</span>
+                </div>
+              ))}
+          </div>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>💬 댓글 많은 글</div>
+            {topDiscussed.length === 0 ? <div style={{ fontSize: 10.5, color: "#b193cc" }}>—</div> :
+              topDiscussed.map(p => (
+                <div key={p.id} style={{ fontSize: 10.5, color: "#e5d4f5", padding: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  · {p.title} <span style={{ color: "#8f76a8" }}>({p._c.discussionScore})</span>
+                </div>
+              ))}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: S.md, flexWrap: "wrap", marginBottom: S.lg }}>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>📈 상승 카테고리</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {temp.risingTopics.length === 0 ? <span style={{ fontSize: 10.5, color: "#b193cc" }}>—</span> :
+                temp.risingTopics.map(c => (
+                  <span key={c.category} style={{ fontSize: 10, color: "#c9f0d0", background: "#243a2a", border: "1px solid #35553d", borderRadius: R.full, padding: "3px 9px" }}>{c.label} ↑{c.momentum}</span>
+                ))}
+            </div>
+          </div>
+          <div style={{ flex: "1 1 240px" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>💤 조용한 카테고리(보강 필요)</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {temp.quietCategories.length === 0 ? <span style={{ fontSize: 10.5, color: "#b193cc" }}>—</span> :
+                temp.quietCategories.map(c => (
+                  <span key={c.category} style={{ fontSize: 10, color: "#e8c9c9", background: "#3a2626", border: "1px solid #553939", borderRadius: R.full, padding: "3px 9px" }}>{c.label}</span>
+                ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 후속 콘텐츠 추천 (댓글 인사이트 로드 시 질문/논쟁 기반 추천이 추가된다) */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>
+          🎯 후속 콘텐츠 추천 {comments ? "" : "(💬 댓글 인사이트 분석을 누르면 질문·논쟁 기반 추천이 추가됩니다)"}
+        </div>
+        {followupQueue.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#b193cc" }}>추천할 후속 주제가 아직 없습니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {followupQueue.slice(0, 8).map((r, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, padding: "4px 0", borderBottom: "1px solid #382548", flexWrap: "wrap" }}>
+                <span style={{ padding: "2px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: "#3a2650", color: "#d3b8ea" }}>
+                  {({ qa: "Q&A", deep: "심화", improve: "개선", balance: "균형", category: "카테고리" })[r.type] || r.type}
+                </span>
+                <span style={{ color: "#fff", fontWeight: 600 }}>{r.topic || (r.category ? catLabel(r.category) : "")}</span>
+                <span style={{ color: "#8f76a8", fontSize: 10, flexBasis: "100%" }}>{r.reason}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 댓글 인사이트 (온디맨드 로드 시) — 질문/후기/논쟁 분포 + 주의 필요 글 */}
+        {comments && insightRows.length > 0 && (
+          <div style={{ marginTop: S.lg }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🧭 댓글 인사이트 (글별)</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {insightRows.slice(0, 8).map(row => (
+                <div key={row.postId} style={{ fontSize: 11, padding: "4px 0", borderBottom: "1px solid #382548" }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    {row.analysis.needsAttention && <span style={{ padding: "1px 6px", borderRadius: R.full, fontSize: 9, fontWeight: 800, background: "#553939", color: "#f0c9c9" }}>주의</span>}
+                    <span style={{ color: "#fff", fontWeight: 600, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.title}</span>
+                    <span style={{ color: "#8f76a8", fontSize: 10 }}>질문 {row.analysis.question} · 후기 {row.analysis.review} · 논쟁 {row.analysis.dispute}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 📖 Space Media (Phase 5) — 매거진/아카이브/검색 구조 미리보기. 게시판이 아니라 미디어.
+          실제 사용자 UX(읽는 시간·목차·작성자 배지)는 글 상세에 적용됨. 여기선 관리자 준비 확인용. */}
+      <div style={{ background: "#111827", borderRadius: R.xl, padding: S.xl, border: `1px solid #273244`, marginBottom: S.xl }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4 }}>📖 Space Media · 매거진 미리보기</div>
+        <div style={{ fontSize: 11.5, color: "#9fb0c8", marginBottom: S.md, lineHeight: 1.6 }}>
+          "YouTube 가 영상을 기록했다면, Space Lounge 는 글과 사진으로 세상을 기록한다." 발행글을 매거진 홈으로
+          구성한 미리보기입니다(PC Version First 구조). 온도 {magazine.insight.temperature}° · 전체 {magazine.insight.totalPosts}글 · 오늘 {magazine.insight.todayPosts}글.
+        </div>
+
+        {/* Editor's Pick + Hero */}
+        {magazine.editorsPick && (
+          <div style={{ background: "#1b2536", borderRadius: R.md, padding: "9px 12px", border: "1px solid #2c3a52", marginBottom: S.sm }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: "#ffcf8f" }}>Editor's Pick</span>
+            <span style={{ fontSize: 12.5, color: "#fff", fontWeight: 700, marginLeft: 8 }}>{magazine.editorsPick.title}</span>
+            <span style={{ fontSize: 10, color: "#9fb0c8", marginLeft: 8 }}>{magazine.editorsPick.readingLabel} · {magazine.editorsPick.author.label}</span>
+          </div>
+        )}
+
+        {/* 매거진 섹션들 */}
+        {magazine.sections.length === 0 ? (
+          <div style={{ fontSize: 11.5, color: "#9fb0c8", marginBottom: S.lg }}>발행글이 쌓이면 매거진 섹션이 자동 구성됩니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: S.md, marginBottom: S.lg }}>
+            {magazine.sections.map(sec => (
+              <div key={sec.id}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>{sec.title} <span style={{ color: "#6b7c96", fontWeight: 600 }}>({sec.cards.length})</span></div>
+                <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+                  {sec.cards.slice(0, 6).map(card => (
+                    <div key={card.id} style={{ flex: "0 0 140px", background: "#1b2536", borderRadius: R.md, border: "1px solid #273244", padding: "8px 9px" }}>
+                      <div style={{ fontSize: 11, color: "#fff", fontWeight: 600, lineHeight: 1.4, height: 30, overflow: "hidden" }}>{card.title}</div>
+                      <div style={{ fontSize: 9, color: "#6b7c96", marginTop: 5 }}>{card.author.emoji} {card.readingLabel} · 👁 {card.views}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Trending */}
+        {magazine.trending.length > 0 && (
+          <div style={{ marginBottom: S.lg }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🔥 Trending</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {magazine.trending.map(t => (
+                <span key={t.category} style={{ fontSize: 10, color: "#cfe0f5", background: "#1b2536", border: "1px solid #2c3a52", borderRadius: R.full, padding: "3px 9px" }}>{t.label} ↑{t.momentum}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Archive 요약 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🗄️ Archive</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: S.sm }}>
+          {archive.byTime.map(b => (
+            <div key={b.id} style={{ background: "#1b2536", borderRadius: R.md, padding: "6px 11px", border: "1px solid #273244" }}>
+              <span style={{ fontSize: 10, color: "#9fb0c8" }}>{b.label}</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginLeft: 6 }}>{b.count}</span>
+            </div>
+          ))}
+        </div>
+        {archive.byTag.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: S.lg }}>
+            {archive.byTag.slice(0, 16).map(t => (
+              <span key={t.tag} style={{ fontSize: 9.5, color: "#8fa2bd", background: "#1b2536", borderRadius: R.full, padding: "2px 7px" }}>#{t.tag} {t.count}</span>
+            ))}
+          </div>
+        )}
+
+        {/* 지식 검색 데모 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🔎 Space Search (지식 검색)</div>
+        <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="예) 인테리어, 신혼집, 금리…"
+          style={{ width: "100%", padding: "9px 12px", background: "#1b2536", color: "#fff", border: "1px solid #2c3a52", borderRadius: R.md, fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit", marginBottom: S.sm }} />
+        {searchResult && (
+          <div>
+            <div style={{ fontSize: 10.5, color: "#9fb0c8", marginBottom: 5 }}>
+              공간 관점: {searchResult.spaceKeyword} · 결과 {searchResult.results.length}건
+              {searchResult.categories.length > 0 && " · " + searchResult.categories.map(c => `${c.label}(${c.count})`).join(", ")}
+            </div>
+            {searchResult.results.length === 0 ? (
+              <div style={{ fontSize: 11, color: "#6b7c96" }}>일치하는 글이 없습니다</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {searchResult.results.map(r => (
+                  <div key={r.id} style={{ fontSize: 11, padding: "4px 0", borderBottom: "1px solid #1f2a3c" }}>
+                    <span style={{ padding: "1px 6px", borderRadius: R.full, fontSize: 9, fontWeight: 800, background: r._matched === "direct" ? "#25406b" : "#3a2d55", color: "#cfe0f5", marginRight: 6 }}>
+                      {r._matched === "direct" ? "직접" : "연결"}
+                    </span>
+                    <span style={{ color: "#fff", fontWeight: 600 }}>{r.title}</span>
+                    <span style={{ color: "#6b7c96", marginLeft: 6 }}>{catLabel(r.category)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 🛰️ Publishing OS (Phase 6) — 운영 파이프라인: 기획→생성→검수→연결→발행→분석→재기획.
+          Phase 1~5 엔진을 하나의 운영 관점으로 묶은 관리자 콘솔. 전부 결정론적 재계산(저장 없음). */}
+      <div style={{ background: "#1a1030", borderRadius: R.xl, padding: S.xl, border: `1px solid #33235a`, marginBottom: S.xl }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4 }}>🛰️ Publishing OS · 콘텐츠 운영 파이프라인</div>
+        <div style={{ fontSize: 11.5, color: "#b9a6dd", marginBottom: S.md, lineHeight: 1.6 }}>
+          AI 가 기획하고, 연결하고, 사람이 반응하고, 관리자가 운영하고, 다시 AI 의 다음 기획으로 돌아갑니다.
+          온도 {osDashboard.temperature}° · 색인 {osIndex.stats.indexed}글 · 커버리지 {osCoverage.coverageRate}%.
+        </div>
+
+        {/* 1. Publishing Pipeline — 단계 흐름 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🔻 Pipeline</div>
+        <div style={{ display: "flex", gap: 5, overflowX: "auto", paddingBottom: 6, marginBottom: S.lg }}>
+          {osPipeline.map((s, i) => (
+            <div key={s.id} style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 5 }}>
+              <div title={s.note} style={{ background: "#241640", borderRadius: R.md, border: "1px solid #33235a", padding: "7px 10px", minWidth: 96 }}>
+                <div style={{ fontSize: 10, color: "#b9a6dd", lineHeight: 1.3 }}>{s.label}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>{s.count}</div>
+              </div>
+              {i < osPipeline.length - 1 && <span style={{ color: "#5a4a7a", fontSize: 12 }}>→</span>}
+            </div>
+          ))}
+        </div>
+
+        {/* 2. Today's Dashboard */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>📅 Today's Dashboard</div>
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.sm }}>
+          {[
+            { k: "오늘 생성", v: osDashboard.createdToday },
+            { k: "오늘 발행예정", v: osDashboard.scheduledToday },
+            { k: "오늘 인기", v: osDashboard.popularToday.length },
+            { k: "댓글 많은", v: osDashboard.commentedToday.length },
+            { k: "저장 후보", v: osDashboard.saveCandidates.length },
+          ].map(m => (
+            <div key={m.k} style={{ flex: "1 1 80px", background: "#241640", borderRadius: R.lg, padding: "8px 10px", border: "1px solid #33235a" }}>
+              <div style={{ fontSize: 10, color: "#b9a6dd" }}>{m.k}</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>{m.v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: S.lg, fontSize: 11 }}>
+          {osDashboard.editorsPick && <span style={{ color: "#e5d4f5" }}>⭐ Editor's Pick: <b style={{ color: "#fff" }}>{osDashboard.editorsPick.title}</b></span>}
+          {osDashboard.recommendedSlots.length > 0 && (
+            <span style={{ color: "#b9a6dd" }}>· 추천 발행 슬롯: {osDashboard.recommendedSlots.map(s => s.label).slice(0, 4).join(", ")}</span>
+          )}
+        </div>
+
+        {/* 3. Draft Queue — 운영 관점 초안 목록 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🗂️ Draft Queue ({osDraftQueue.length})</div>
+        {osDraftQueue.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#b9a6dd", marginBottom: S.lg }}>검수 대기 초안이 없습니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: S.lg }}>
+            {osDraftQueue.slice(0, 8).map(q => (
+              <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, padding: "4px 0", borderBottom: "1px solid #281a44", flexWrap: "wrap" }}>
+                {q.recommended && <span style={{ padding: "1px 6px", borderRadius: R.full, fontSize: 9, fontWeight: 800, background: "#2a5a3a", color: "#c9f0d0" }}>추천</span>}
+                <span style={{ padding: "1px 6px", borderRadius: R.full, fontSize: 9, fontWeight: 700, background: "#241640", color: "#b9a6dd" }}>{q.status === "scheduled" ? "예약" : "초안"}</span>
+                <span style={{ color: "#fff", fontWeight: 600, flex: 1, minWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.title}</span>
+                <span style={{ color: q.needsRewrite ? "#e8a0a0" : "#9fd0b0", fontSize: 10 }}>품질 {q.qualityScore}</span>
+                <span style={{ color: "#8f76a8", fontSize: 10 }}>공간 {q.spaceRelevance} · {PRIORITY_LABEL[q.priority]} · 연결 {q.relatedCount}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 4. Publishing Calendar — 14일 예약 요약 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>
+          🗓️ Publishing Calendar <span style={{ color: "#8f76a8", fontWeight: 600 }}>(예약 {osCalendar.totalScheduled} · 빈 슬롯 {osCalendar.emptyDates.length}일{osCalendar.overloadedDates.length ? ` · ⚠️과밀 ${osCalendar.overloadedDates.length}일` : ""})</span>
+        </div>
+        <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: S.lg }}>
+          {osCalendar.days.map(day => (
+            <div key={day.date} title={day.items.map(i => i.title).join("\n") || "빈 슬롯"}
+              style={{ width: 34, textAlign: "center", padding: "5px 0", borderRadius: R.sm,
+                background: day.overloaded ? "#5a2a2a" : day.count > 0 ? "#2a5a3a" : "#241640",
+                border: "1px solid #33235a" }}>
+              <div style={{ fontSize: 8.5, color: "#b9a6dd" }}>{day.weekday}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#fff" }}>{day.count}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* 5. Category Health */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>
+          🩺 Category Health <span style={{ color: "#8f76a8", fontWeight: 600 }}>(비어있음 {osHealth.empty} · 방치 {osHealth.stale} · 조용 {osHealth.quiet} · 상승 {osHealth.rising} · 건강 {osHealth.healthy})</span>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: S.lg }}>
+          {osHealth.rows.slice(0, 12).map(r => {
+            const tone = { empty: "#553939", stale: "#554a39", quiet: "#39404a", rising: "#2a5a3a", healthy: "#241640" }[r.status];
+            return (
+              <span key={r.category} style={{ fontSize: 10, color: "#e5d4f5", background: tone, border: "1px solid #33235a", borderRadius: R.full, padding: "3px 9px" }}>
+                {r.label} · {r.count}{r.status === "stale" && r.lastPublishedDaysAgo != null ? ` (${r.lastPublishedDaysAgo}일 전)` : ""}
+              </span>
+            );
+          })}
+        </div>
+
+        {/* 6. Space Coverage — Space is Everything 커버리지(추천만) */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🌌 Space Coverage <span style={{ color: "#8f76a8", fontWeight: 600 }}>(커버 {osCoverage.covered}/{osCoverage.total})</span></div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: S.sm }}>
+          {osCoverage.areas.map(a => {
+            const tone = a.status === "empty" ? "#553939" : a.status === "thin" ? "#554a39" : "#2a4a3a";
+            return (
+              <span key={a.id} title={a.hasCategory ? "" : "개념 영역(카테고리 없음)"} style={{ fontSize: 10, color: "#e5d4f5", background: tone, borderRadius: R.full, padding: "3px 9px" }}>
+                {a.label} {a.count}{a.hasCategory ? "" : " *"}
+              </span>
+            );
+          })}
+        </div>
+        {osCoverage.recommendations.length > 0 && (
+          <div style={{ fontSize: 10.5, color: "#b9a6dd", marginBottom: S.lg }}>
+            💡 부족 영역 추천(추천만): {osCoverage.recommendations.map(r => r.area).slice(0, 8).join(", ")}
+          </div>
+        )}
+
+        {/* 7. Space Index — 통합 색인 요약 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🧬 Space Index</div>
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap" }}>
+          {[
+            { k: "색인 글", v: osIndex.stats.indexed },
+            { k: "연결 고립", v: osIndex.stats.isolated },
+            { k: "Evergreen", v: osIndex.stats.evergreen },
+            { k: "미매핑 영역", v: osIndex.stats.unmapped },
+          ].map(m => (
+            <div key={m.k} style={{ flex: "1 1 80px", background: "#241640", borderRadius: R.lg, padding: "8px 10px", border: "1px solid #33235a" }}>
+              <div style={{ fontSize: 10, color: "#b9a6dd" }}>{m.k}</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>{m.v}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ① 이슈 입력 → ②③④ 기획/제목/본문 생성(템플릿) */}

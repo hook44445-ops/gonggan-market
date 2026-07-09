@@ -5,12 +5,14 @@
 //            Category Mapping → Draft Generate → lounge_posts 에 DRAFT 저장.
 //
 // ⚠️ 안전 규칙(하드코딩, 예외 없음):
-//   · 이 엔드포인트는 절대 publish_status='published' 또는 'scheduled' 를
-//     쓰지 않는다 — 항상 'draft' + is_visible=false 로만 저장한다.
-//   · 자동 발행은 이 파이프라인의 책임이 아니다(별도 api/lounge/publish-scheduled.js
-//     가 "이미 관리자가 승인한 예약"만 실행한다 — 여기서 만든 draft 는 대상이 아님).
+//   · 트렌드 수집 파이프라인은 절대 publish_status='published' 또는 'scheduled' 를
+//     쓰지 않는다 — 항상 'draft' + is_visible=false 로만 저장한다(자동 발행 없음).
+//   · 별도 단계 publishDueScheduled() 는 "이미 관리자가 승인해 예약한" 글만 시각 도래 시
+//     발행한다(여기서 만든 draft 는 대상이 아님). 구 api/lounge/publish-scheduled.js 로직을
+//     통합한 것으로, Vercel Hobby 함수 개수 한도(12개)를 넘지 않기 위한 조치다.
 //
-// 운영: Vercel Cron(vercel.json "crons")이 3시간마다 호출.
+// 운영: Vercel Cron(vercel.json "crons")이 하루 1회 호출(Hobby 플랜 = 일 1회 제한).
+//       관리자 화면 "지금 트렌드 확인" 버튼으로도 수동 호출 가능(같은 엔드포인트).
 // 필요 env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY(RLS 우회, 없으면 ANON 폴백 —
 //   lounge_posts 는 이미 anon insert/update 정책이 열려 있어 폴백도 동작한다).
 // 미설정/실패 시 graceful no-op(앱에 영향 없음).
@@ -57,6 +59,32 @@ async function sbInsertDraft(row) {
   if (!r.ok) return { error: await r.text().catch(() => r.statusText) };
   const data = await r.json().catch(() => null);
   return { data: Array.isArray(data) ? data[0] : data };
+}
+
+// 예약 발행 배치 — publish_status='scheduled' 이고 scheduled_at 이 지난 글을 published 로 전환.
+// (구 api/lounge/publish-scheduled.js 로직을 그대로 통합 — Vercel Hobby 함수 개수 한도(12개) 대응.
+//  관리자가 이미 승인해 "예약"한 것을 시각 도래 시 실행만 하며, 새 승인 결정은 내리지 않는다.)
+async function publishDueScheduled() {
+  try {
+    const nowIso = new Date().toISOString();
+    const r = await fetch(
+      `${SB_URL}/rest/v1/lounge_posts?publish_status=eq.scheduled&scheduled_at=lte.${encodeURIComponent(nowIso)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          apikey: SB_KEY,
+          Authorization: `Bearer ${SB_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify({ publish_status: 'published', is_visible: true, updated_at: nowIso }),
+      }
+    );
+    const rows = r.ok ? await r.json().catch(() => []) : [];
+    return { ok: r.ok, published: Array.isArray(rows) ? rows.length : 0 };
+  } catch (e) {
+    return { ok: false, published: 0, reason: e?.message ?? 'error' };
+  }
 }
 
 export default async function handler(req, res) {
@@ -107,6 +135,9 @@ export default async function handler(req, res) {
       }
     }
 
+    // 7) 예약 발행 배치(승인된 예약만 시각 도래 시 실행) — 트렌드 수집과 독립, 실패해도 무해.
+    const scheduled = await publishDueScheduled();
+
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(JSON.stringify({
@@ -116,6 +147,7 @@ export default async function handler(req, res) {
       deduped: fresh.length,
       created: created.length,
       drafts: created,
+      publishedScheduled: scheduled.published,
     }));
   } catch (e) {
     res.statusCode = 200;
