@@ -26,11 +26,13 @@ import {
 import { discoverTrendingTopics, trendSummary } from "../lib/trendDiscovery";
 import { buildDailyPlan, getPriorityConfig, setPriorityConfig, RATIO_PRESETS, targetMix } from "../lib/publishingPriority";
 import { analyzeStrategy, MODE_HELP, VERSION_HELP, TEMPERATURE_HELP } from "../lib/autoStrategy";
-import { usageStats, openRouterStatus } from "../lib/usageDashboard";
+import { usageStats, openRouterStatus, usageMoneyOverview } from "../lib/usageDashboard";
 import {
   getAutoConfig, setAutoConfig, planAutoPublish, executeAutoPublishPlan,
-  autoPublishStats, getPublishLog,
+  autoPublishStats, getPublishLog, budgetStatus,
 } from "../lib/autoPublish";
+import { activityRows, activitySummary, clearActivityLog } from "../lib/activityLog";
+import { getSeriesList, upsertSeries, removeSeries, dueSeries, nextEpisodePrompt } from "../lib/storyEngine";
 import { voiceFor } from "../constants/categoryVoice";
 import { scoreUsefulness } from "../lib/contentUsefulness";
 import { detectForcedSpaceLinks } from "../lib/forcedSpaceLinkFilter";
@@ -1223,6 +1225,7 @@ const DISPUTE_STATUS_META = {
 function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, onReload }) {
   const [tick, setTick] = useState(0);
   const [running, setRunning] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   void tick;
   const bump = () => setTick(t => t + 1);
   const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
@@ -1232,6 +1235,8 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
   const stages = getPipelineStages();
   const plan = planAutoPublish({ drafts, published, wbIndex, stages, config });
   const stats = autoPublishStats(published, drafts);
+  const budget = budgetStatus(config);
+  const acts = activityRows({ limit: 30 });
   const log = getPublishLog();
 
   const executors = {
@@ -1242,14 +1247,18 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
 
   const toggle = () => { const n = setAutoConfig({ enabled: !config.enabled }); showToast?.(n.enabled ? "🟢 자동발행 ON" : "⚪ 자동발행 OFF"); bump(); };
 
+  const setCfg = (patch) => { setAutoConfig(patch); bump(); };
+
   const runNow = async () => {
     if (running) return;
     if (!config.enabled) { showToast?.("자동발행이 OFF 입니다 — 먼저 ON 하세요"); return; }
+    if (plan.blocked) { showToast?.(`⛔ ${plan.blockReason} — 실행 중지. 예산 설정을 확인하세요`); return; }
     setRunning(true);
     try {
-      const res = await executeAutoPublishPlan(plan, executors, {});
-      showToast?.(`⚙️ 긴급발행 ${res.published} · 예약 ${res.scheduledCount} · 실패 ${res.failed}`);
-      res.alerts.forEach(a => showToast?.(a));
+      const res = await executeAutoPublishPlan(plan, executors, { maxRetry: config.maxRetry });
+      if (res.blocked) { showToast?.(res.alerts[0] || "⛔ 예산 초과로 중지"); }
+      else if (res.dryRun) { showToast?.(`🧪 테스트모드 — 계획만: 긴급 ${plan.emergency.length} · 예약 ${plan.scheduled.length} (실제 발행 안 함)`); }
+      else { showToast?.(`⚙️ 긴급발행 ${res.published} · 예약 ${res.scheduledCount} · 실패 ${res.failed}`); res.alerts.forEach(a => showToast?.(a)); }
       await onReload?.();
     } catch (e) {
       showToast?.("자동발행 실행 실패: " + (e?.message ?? String(e)));
@@ -1268,17 +1277,67 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
               background: config.enabled ? C.brand : C.text4, color: "#fff" }}>
             {config.enabled ? "🟢 ON" : "⚪ OFF"}
           </button>
+          <button onClick={() => setShowSettings(v => !v)}
+            style={{ padding: "7px 12px", background: "#fff", color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+            {showSettings ? "▾ 설정" : "⚙️ 설정"}
+          </button>
           <button onClick={runNow} disabled={running || !config.enabled}
             style={{ padding: "7px 14px", background: running ? C.text4 : C.brandD, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
-            {running ? "실행 중…" : "▶ 지금 자동발행 실행"}
+            {running ? "실행 중…" : (config.testMode ? "🧪 계획 미리보기" : "▶ 지금 자동발행 실행")}
           </button>
         </div>
       </div>
-      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
-        Quality≥90 · Confidence≥90 · 금칙어/SEO/중복/AI검사/Review 를 모두 통과한 콘텐츠만 자동 발행합니다.
-        게이트 통과분은 <b>3시간 슬롯</b>에 예약되고 기존 예약발행 크론이 발행합니다. 긴급 이슈(Priority High · Trend {config.emergencyTrendMin}+)는 즉시 발행합니다.
-        하루 최대 {config.dailyLimit}개(긴급 제외).
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.md, lineHeight: 1.6 }}>
+        Quality≥{config.minEditorialScore} · Confidence≥{config.minConfidence} · 본문 {config.minBodyLength}자+ · {config.seoCheck ? "SEO" : "SEO×"}/중복 {config.dupHours}h/{config.reviewRequired ? "Review필수" : "Review무관"} 를 통과한 콘텐츠만 자동 발행합니다.
+        게이트 통과분은 <b>{config.intervalHours}시간 슬롯</b>에 예약되고 기존 예약발행 크론이 발행합니다. 긴급 이슈(Trend {config.emergencyTrendMin}+)는 {config.emergencyInstant ? "즉시 발행" : "예약"}합니다.
+        하루 최대 {config.dailyLimit}개. {config.testMode && <b style={{ color: C.gold }}>🧪 테스트모드(실제 발행 안 함)</b>}
       </div>
+
+      {/* 예산 상태 배너 (Phase 24) */}
+      {(config.budgetTodayKRW > 0 || config.budgetMonthKRW > 0) && (
+        <div style={{ background: budget.blocked ? "#dc262615" : C.bg, border: `1px solid ${budget.blocked ? "#dc2626" : C.bgWarm}`, borderRadius: R.lg, padding: "9px 12px", marginBottom: S.md, fontSize: 11.5, color: budget.blocked ? "#dc2626" : C.text2, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontWeight: 800 }}>{budget.blocked ? "⛔ 예산 초과 — 자동발행 중지" : "💰 예산"}</span>
+          {config.budgetTodayKRW > 0 && <span>오늘 ₩{budget.todayKRW.toLocaleString()} / ₩{config.budgetTodayKRW.toLocaleString()} ({budget.todayPct}%)</span>}
+          {config.budgetMonthKRW > 0 && <span>이번달 ₩{budget.monthKRW.toLocaleString()} / ₩{config.budgetMonthKRW.toLocaleString()} ({budget.monthPct}%)</span>}
+        </div>
+      )}
+
+      {/* 자동발행 조건 + 예산 설정 (Phase 24) */}
+      {showSettings && (
+        <div style={{ background: "#fff", borderRadius: R.xl, padding: S.lg, border: `1px solid ${C.bgWarm}`, marginBottom: S.lg }}>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>⚙️ 자동발행 조건 설정</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+            {[
+              ["testMode", "테스트모드(계획만)", "bool"],
+              ["dailyLimit", "하루 최대 발행수", "num"],
+              ["minEditorialScore", "최소 Editorial", "num"],
+              ["minConfidence", "최소 Confidence", "num"],
+              ["minBodyLength", "본문 최소 길이", "num"],
+              ["dupHours", "중복 차단(시간)", "num"],
+              ["maxRetry", "최대 Retry", "num"],
+              ["intervalHours", "예약 슬롯 간격(h)", "num"],
+              ["emergencyTrendMin", "긴급 TrendScore", "num"],
+              ["seoCheck", "SEO 검사", "bool"],
+              ["humanizationCheck", "Humanization 검사", "bool"],
+              ["reviewRequired", "Review 필수", "bool"],
+              ["emergencyInstant", "긴급 즉시발행", "bool"],
+              ["budgetTodayKRW", "오늘 예산(₩·0=무제한)", "num"],
+              ["budgetMonthKRW", "이번달 예산(₩·0=무제한)", "num"],
+            ].map(([key, label, type]) => (
+              <label key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: C.text2, background: C.bg, borderRadius: R.md, padding: "6px 9px" }}>
+                <span>{label}</span>
+                {type === "bool" ? (
+                  <input type="checkbox" checked={!!config[key]} onChange={(e) => setCfg({ [key]: e.target.checked })} />
+                ) : (
+                  <input type="number" value={config[key]} onChange={(e) => setCfg({ [key]: Number(e.target.value) })}
+                    style={{ width: 78, textAlign: "right", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, padding: "3px 6px", fontSize: 11 }} />
+                )}
+              </label>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: C.text3, marginTop: S.sm }}>기본: 자동발행 OFF · Editorial 90 · Confidence 90 · 본문 700+ · 중복 48h · Retry 3 · 하루 10개. 전부 localStorage 저장(DB/Cron 없음).</div>
+        </div>
+      )}
 
       {/* 9. Dashboard */}
       <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
@@ -1336,6 +1395,31 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
           </div>
         </div>
       )}
+
+      {/* Activity Log (Phase 24) — AI 운영 활동 실시간 로그 */}
+      <div style={box}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.md }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>📡 Activity Log</div>
+          {acts.length > 0 && (
+            <button onClick={() => { clearActivityLog(); bump(); }} style={{ fontSize: 10, color: C.text3, background: "none", border: "none", cursor: "pointer" }}>지우기</button>
+          )}
+        </div>
+        {acts.length === 0 ? <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>아직 활동 기록이 없습니다. 생성·발행 시 트렌드/생성/응답/게이트/예약/발행/비용이 기록됩니다.</div> : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {acts.map((a) => (
+              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 10.5, padding: "3px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+                <span style={{ minWidth: 14 }}>{a.icon}</span>
+                <span style={{ color: C.text2, fontWeight: 700, minWidth: 74 }}>{a.label}</span>
+                <span style={{ color: C.text1, flex: 1, minWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title || a.note || ""}</span>
+                {a.model && <span style={{ color: C.text3 }}>{String(a.model).split("/").pop()}</span>}
+                {Number.isFinite(a.costKRW) && a.costKRW > 0 && <span style={{ color: C.text3 }}>₩{a.costKRW}</span>}
+                {Number.isFinite(a.latencyMs) && <span style={{ color: C.text3 }}>{a.latencyMs}ms</span>}
+                <span style={{ color: C.text4, minWidth: 44, textAlign: "right" }}>{a.rel}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 6. Publish Log */}
       <div style={box}>
@@ -1428,6 +1512,120 @@ function PublishingPriorityTab({ drafts = [], published = [] }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── 연재 스토리(Phase 24) — Story Bible 관리: 시리즈/세계관/등장인물/회차/다음화 힌트 ──────
+//   생성은 기존 AI 공장(generateForWorkbench)·발행은 기존 스토리 발행 흐름 재사용.
+//   여기서는 Story Bible 상태와 "다음 화 프롬프트"만 조립한다(localStorage · DB/Cron 없음).
+function StoryEngineTab({ showToast }) {
+  const [tick, setTick] = useState(0); void tick;
+  const bump = () => setTick(t => t + 1);
+  const [editing, setEditing] = useState(null); // series 객체 or {} for new
+  const list = getSeriesList();
+  const due = dueSeries();
+  const box = { background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl };
+  const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
+
+  const blank = { title: "", world: "", synopsis: "", category: "daily", cadenceHours: 24, charactersText: "" };
+  const startNew = () => setEditing({ ...blank });
+  const startEdit = (s) => setEditing({ ...s, charactersText: (s.characters || []).map(c => `${c.name}|${c.role || ""}|${c.note || ""}`).join("\n") });
+
+  const saveSeries = () => {
+    if (!editing.title?.trim()) { showToast?.("시리즈 제목을 입력하세요"); return; }
+    const characters = String(editing.charactersText || "").split("\n").map(l => l.trim()).filter(Boolean).map(l => {
+      const [name, role, note] = l.split("|").map(x => (x || "").trim());
+      return { name, role, note };
+    });
+    upsertSeries({ id: editing.id, title: editing.title.trim(), world: editing.world, synopsis: editing.synopsis,
+      category: editing.category, cadenceHours: Number(editing.cadenceHours) || 24, characters });
+    setEditing(null); bump(); showToast?.("연재 저장됨");
+  };
+
+  const copyPrompt = async (s) => {
+    const p = nextEpisodePrompt(s);
+    try { await navigator.clipboard.writeText(p); showToast?.("다음 화 프롬프트 복사됨 — AI 콘텐츠 공장에 붙여넣어 생성하세요"); }
+    catch { showToast?.("복사 실패 — 아래 프롬프트를 수동 복사하세요"); }
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>📚 연재 스토리 (Story Engine)</div>
+        <button onClick={startNew} style={{ padding: "7px 14px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>+ 새 연재</button>
+      </div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
+        시리즈·세계관·등장인물(Story Bible)을 정의하면 회차를 이어갑니다. 하루 최소 1편의 <b>다음 화 후보</b>를 만들고,
+        프롬프트는 기존 <b>AI 콘텐츠 공장</b>에서 생성·검수·발행합니다(엔진 재사용 · DB/Cron 없음).
+      </div>
+
+      {/* 편집 폼 */}
+      {editing && (
+        <div style={box}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>{editing.id ? "연재 수정" : "새 연재"}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <input placeholder="시리즈 제목 (예: 민수의 원룸 이야기)" value={editing.title} onChange={e => setEditing({ ...editing, title: e.target.value })}
+              style={{ padding: "8px 10px", border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 12.5 }} />
+            <textarea placeholder="세계관 (배경·무대가 되는 공간·분위기)" value={editing.world} onChange={e => setEditing({ ...editing, world: e.target.value })}
+              rows={2} style={{ padding: "8px 10px", border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 12.5, resize: "vertical" }} />
+            <textarea placeholder="등장인물 — 한 줄에 한 명: 이름|역할|메모" value={editing.charactersText} onChange={e => setEditing({ ...editing, charactersText: e.target.value })}
+              rows={3} style={{ padding: "8px 10px", border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 12.5, resize: "vertical" }} />
+            <textarea placeholder="줄거리 / 시놉시스" value={editing.synopsis} onChange={e => setEditing({ ...editing, synopsis: e.target.value })}
+              rows={2} style={{ padding: "8px 10px", border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 12.5, resize: "vertical" }} />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <label style={{ fontSize: 11.5, color: C.text2 }}>카테고리{" "}
+                <select value={editing.category} onChange={e => setEditing({ ...editing, category: e.target.value })} style={{ fontSize: 11.5, padding: "4px 6px", borderRadius: R.sm, border: `1px solid ${C.bgWarm}` }}>
+                  {LOUNGE_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </label>
+              <label style={{ fontSize: 11.5, color: C.text2 }}>연재 주기(시간){" "}
+                <input type="number" value={editing.cadenceHours} onChange={e => setEditing({ ...editing, cadenceHours: e.target.value })}
+                  style={{ width: 64, fontSize: 11.5, padding: "4px 6px", borderRadius: R.sm, border: `1px solid ${C.bgWarm}`, textAlign: "right" }} />
+              </label>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={saveSeries} style={{ padding: "7px 16px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>저장</button>
+              <button onClick={() => setEditing(null)} style={{ padding: "7px 14px", background: "#fff", color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>취소</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 오늘의 다음 화 후보 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>⭐ 오늘의 다음 화 후보 ({due.length})</div>
+        {due.length === 0 ? (
+          <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>연재 주기가 도래한 시리즈가 없습니다.</div>
+        ) : due.map(({ series: s, nextN, hint }) => (
+          <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "6px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+            <span style={{ padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: "#7c3aed22", color: "#7c3aed" }}>{nextN}화</span>
+            <span style={{ fontWeight: 700, color: C.text1, flex: 1, minWidth: 120 }}>{hint}</span>
+            <button onClick={() => copyPrompt(s)} style={{ padding: "4px 10px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: "pointer" }}>프롬프트 복사</button>
+          </div>
+        ))}
+      </div>
+
+      {/* 시리즈 목록 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📖 연재 목록 ({list.length})</div>
+        {list.length === 0 ? (
+          <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>아직 연재가 없습니다. "+ 새 연재"로 Story Bible을 만드세요.</div>
+        ) : list.map(s => (
+          <div key={s.id} style={{ padding: "8px 0", borderBottom: `1px solid ${C.bg}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 800, color: C.text1, fontSize: 12.5 }}>{s.title}</span>
+              <span style={{ color: C.text3, fontSize: 11 }}>{catLabel(s.category)} · {s.episode || 0}화 발행 · 주기 {s.cadenceHours}h · 인물 {(s.characters || []).length}</span>
+              <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                <button onClick={() => copyPrompt(s)} style={{ padding: "3px 9px", background: "#fff", color: C.brandD, border: `1px solid ${C.brandM}`, borderRadius: R.md, fontWeight: 700, fontSize: 10, cursor: "pointer" }}>다음화 프롬프트</button>
+                <button onClick={() => startEdit(s)} style={{ padding: "3px 9px", background: "#fff", color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 10, cursor: "pointer" }}>수정</button>
+                <button onClick={() => { if (confirm(`"${s.title}" 연재를 삭제할까요?`)) { removeSeries(s.id); bump(); } }} style={{ padding: "3px 9px", background: "#fff", color: C.red, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 10, cursor: "pointer" }}>삭제</button>
+              </span>
+            </div>
+            {s.world && <div style={{ fontSize: 11, color: C.text3, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🌍 {s.world}</div>}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1700,6 +1898,7 @@ function btn(bg) {
 function UsageDashboardPanel({ C, S, R }) {
   const [range, setRange] = useState("today");
   const st = useMemo(() => usageStats(range), [range]);
+  const money = useMemo(() => usageMoneyOverview(), []);
   const RANGES = [["today", "오늘"], ["week", "이번주"], ["month", "이번달"], ["all", "누적"]];
   const cell = (label, value, sub) => (
     <div style={{ background: "#fff", borderRadius: R.md, padding: "8px 10px", border: `1px solid ${C.bgWarm}` }}>
@@ -1734,6 +1933,27 @@ function UsageDashboardPanel({ C, S, R }) {
           {cell("Confidence", st.avgConfidence != null ? `${st.avgConfidence}%` : "—")}
           {cell("재생성", `${st.regen}회`)}
           {cell("토큰", st.totalTokens.toLocaleString(), `in ${st.promptTokens.toLocaleString()} · out ${st.completionTokens.toLocaleString()}`)}
+        </div>
+      )}
+
+      {/* 비용 종합 + 모델별 (Phase 24 고도화) */}
+      {money.allRequests > 0 && (
+        <div style={{ marginTop: S.sm, borderTop: `1px solid ${C.bgWarm}`, paddingTop: S.sm }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))", gap: 6, marginBottom: 6 }}>
+            {cell("오늘 비용", `₩${money.todayKRW.toLocaleString()}`)}
+            {cell("이번달 비용", `₩${money.monthKRW.toLocaleString()}`)}
+            {cell("누적 비용", `₩${money.allKRW.toLocaleString()}`)}
+            {cell("평균 글당", money.avgPerArticleKRW != null ? `₩${money.avgPerArticleKRW.toLocaleString()}` : "—")}
+            {cell("예상 월 비용", money.projectedMonthKRW != null ? `₩${money.projectedMonthKRW.toLocaleString()}` : "—", "이번달 일평균×30")}
+          </div>
+          {money.byModelMonth.length > 0 && (
+            <div style={{ fontSize: 10.5, color: C.text3, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 700, color: C.text2 }}>모델별(이번달):</span>
+              {money.byModelMonth.map((m) => (
+                <span key={m.model}>{m.model} ₩{m.costKRW.toLocaleString()} ({m.requests})</span>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -4897,6 +5117,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["publishing_pipeline", "발행 파이프라인"],
     ["auto_publish", "자동발행"],
     ["publishing_priority", "발행 우선순위"],
+    ["story_engine",   "연재 스토리"],
     ["reports",        "신고관리"],
     ["chat_overview",  "채팅/대화 관리"],
     ["direct_deal",    "직거래 의심"],
@@ -4919,7 +5140,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["publishing_priority", "발행 우선순위"], ["reports"]] },
+      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
@@ -6264,6 +6485,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── 발행 우선순위 (Phase 22) ── */}
             {mainTab === "publishing_priority" && (
               <PublishingPriorityTab drafts={aiDrafts} published={aiPublished} />
+            )}
+
+            {/* ── 연재 스토리 (Phase 24) ── */}
+            {mainTab === "story_engine" && (
+              <StoryEngineTab showToast={showToast} />
             )}
 
             {/* ── AI 트렌드 발굴 (Phase 14) ── */}

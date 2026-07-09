@@ -17,6 +17,7 @@ import { scoreUsefulness } from "./contentUsefulness.js";
 import { detectForcedSpaceLinks, stripForcedSpaceLinks } from "./forcedSpaceLinkFilter.js";
 import { readingTime } from "./readingExperience.js";
 import { CATEGORY_LABEL } from "../constants/lounge.js";
+import { logActivity } from "./activityLog.js";
 
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
 
@@ -260,6 +261,16 @@ export function saveWorkbenchRecord({ result, meta } = {}) {
     const cur = getWorkbenchRecords();
     localStorage.setItem(STORE_KEY, JSON.stringify([rec, ...cur].slice(0, CAP)));
   } catch { /* 저장 실패 무시 */ }
+  // Phase 24 — Activity Log 기록(생성/응답/실패). 실패해도 무해(호출만).
+  try {
+    const inTok = Number(rec.promptTokens) || 0, outTok = Number(rec.completionTokens) || 0;
+    const costKRW = Math.round(((inTok / 1e6) * 3.0 + (outTok / 1e6) * 15.0) * 1350);
+    logActivity(rec.source === "llm" ? "llm_response" : "failed", {
+      title: rec.draft?.title || meta.prompt?.slice(0, 24) || "생성",
+      model: rec.llmModel, tokens: rec.totalTokens, latencyMs: rec.latency,
+      costKRW, ok: rec.source === "llm", note: rec.source === "llm" ? `Editorial ${rec.editorialScore ?? "-"} · Conf ${rec.confidence ?? "-"}` : rec.source,
+    });
+  } catch { /* 로그 실패 무시 */ }
   return getWorkbenchRecords();
 }
 

@@ -816,6 +816,13 @@ export const adminRestoreReview = (id, adminId) =>
 // ── Admin Lounge Posts ────────────────────────────────────────────────────────
 
 export const adminUpdateLoungePost = async (id, updates, adminId) => {
+  // Phase 24 — SECURITY DEFINER RPC(RLS 우회 · 내부 admin 검증)로 관리자가 "남의 글/시드 글"도
+  //   수정 가능. migration 097 미배포 환경에서만 직접 update 로 폴백(회귀 없음).
+  const rpc = await supabase.rpc("admin_update_lounge_post_fields", {
+    p_id: id, p_admin_id: adminId ?? null, p_patch: updates ?? {},
+  });
+  if (!rpc.error) return { data: rpc.data, error: null };
+
   const { data, error } = await supabase
     .from("lounge_posts")
     .update({ ...updates, updated_at: new Date().toISOString() })
@@ -827,6 +834,9 @@ export const adminUpdateLoungePost = async (id, updates, adminId) => {
       admin_id: adminId || null, action: "UPDATE_LOUNGE_POST",
       target_type: "lounge_post", target_id: id, after_val: updates,
     });
+  } else if (/row-level security|violates|PGRST/i.test(error.message || "")) {
+    // 두 경로 모두 실패 → RPC 미배포 + RLS 차단. 운영자에게 조치 안내.
+    error.hint = "관리자 수정 RPC 미배포: Supabase SQL Editor 에서 097_admin_lounge_post_update_fields.sql 실행 필요";
   }
   return { data, error };
 };
