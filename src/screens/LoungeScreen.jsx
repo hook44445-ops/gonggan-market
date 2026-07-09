@@ -395,7 +395,7 @@ function StoryDevPanel({ stories, storiesError }) {
 }
 
 // ── 메인 스크린 ────────────────────────────────────────
-export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage, onNotifNavigate, onDeleteStory, onStoryAuthorChat, refreshKey = 0, initialCategory = null }) {
+export default function LoungeScreen({ user, extraPosts = [], extraStories = [], onPostClick, onWrite, onStoryUpload, onRequireLogin, onGoMyPage, onNotifNavigate, onDeleteStory, onStoryAuthorChat, refreshKey = 0, initialCategory = null, onOpenSpaceMedia }) {
   const [category,        setCategory]        = useState(initialCategory || 'all');
   const [showWriteOptions, setShowWriteOptions] = useState(false);
   const [searchOpen,      setSearchOpen]       = useState(false);
@@ -536,9 +536,17 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         </div>
         {/* 커뮤니티 서브 배너 */}
         <div style={{ background: `linear-gradient(150deg, ${C.ivory}, ${C.brandL})`,
-          padding: `10px ${S.xl}px`, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 11, lineHeight: 1 }}>🌿</span>
-          <span style={{ fontSize: 14, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px' }}>좋은 공간과 좋은 이야기가 모이는 곳</span>
+          padding: `10px ${S.xl}px`, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <span style={{ fontSize: 11, lineHeight: 1 }}>🌿</span>
+            <span style={{ fontSize: 14, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>좋은 공간과 좋은 이야기가 모이는 곳</span>
+          </div>
+          {onOpenSpaceMedia && (
+            <button onClick={onOpenSpaceMedia}
+              style={{ flexShrink: 0, background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, padding: '5px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, boxShadow: SHADOW.soft }}>
+              📖 매거진 →
+            </button>
+          )}
         </div>
         <LoungeCategoryTabs selected={category} onChange={setCategory} />
       </div>
