@@ -1714,7 +1714,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
       else {
         setEdResult(r);
         setPreview({ title: r.draft.title, content: r.draft.body, category: r.draft.category, tags: r.draft.tags, summary: r.draft.summary, seo: r.draft.seo });
-        showToast?.(`✨ 매거진 생성 · 신뢰도 ${r.confidence.total} ${r.passed ? "(90+ 통과)" : "(90 미만)"} · 시도 ${r.attempts.length}회`);
+        showToast?.(`✨ ${r.verdict} · 종합 ${r.finalScore}점 · 시도 ${r.attempts.length}회${r.human?.ai?.isStrong ? " · ⚠️AI티" : ""}`);
       }
     } catch (e) { showToast?.("오류: " + (e?.message ?? String(e))); }
     finally { setEdGen(false); }
@@ -2482,13 +2482,18 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         {edResult && (
           <div style={{ marginTop: S.md, background: "#1a3327", borderRadius: R.lg, padding: S.md, fontSize: 11.5 }}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ padding: "2px 9px", borderRadius: R.full, fontWeight: 800, background: edResult.passed ? "#2E5F4B" : "#7a4a1a", color: "#fff" }}>신뢰도 {edResult.confidence.total} {edResult.passed ? "· 90+ 통과" : "· 90 미만"}</span>
+              {(() => { const vc = { "Editor's Pick 가능": C.gold, "일반 발행 가능": "#2E5F4B", "재작성 권장": "#7a4a1a", "발행 비추천": "#7a1a1a" }[edResult.verdict] || "#3a5a4c";
+                return <span style={{ padding: "2px 9px", borderRadius: R.full, fontWeight: 800, background: vc, color: "#1a1a1a" === vc ? "#000" : "#fff" }}>{edResult.verdict === "Editor's Pick 가능" ? "⭐ " : ""}{edResult.verdict}</span>; })()}
+              <span style={{ padding: "2px 9px", borderRadius: R.full, fontWeight: 800, background: edResult.passed ? "#2E5F4B" : "#7a4a1a", color: "#fff" }}>종합 {edResult.finalScore}점</span>
               <span style={{ color: "#B5D4C5" }}>카테고리 {edResult.category}</span>
               <span style={{ color: "#B5D4C5" }}>· 시도 {edResult.attempts.length}회</span>
-              <span style={{ color: edResult.editorsPick.isPick ? C.gold : "#9fb6ab", fontWeight: 700 }}>· {edResult.editorsPick.isPick ? "⭐ Editor's Pick 후보" : `Pick ${edResult.editorsPick.total}`}</span>
+              {edResult.human?.ai?.isStrong && <span style={{ color: "#F6A6A6", fontWeight: 700 }}>⚠️ AI 티 강함</span>}
             </div>
             <div style={{ color: "#9fb6ab", marginTop: 6, fontSize: 10.5 }}>
-              정보 {edResult.confidence.axes.information} · 독창 {edResult.confidence.axes.originality} · 자연 {edResult.confidence.axes.naturalness} · 가독 {edResult.confidence.axes.readability} · SEO {edResult.confidence.axes.seo} · 적합 {edResult.confidence.axes.categoryMatch} · 편집 {edResult.confidence.axes.editorial}
+              휴먼톤 {edResult.editorial.axes.humanTone} · 카테고리적합 {edResult.editorial.axes.categoryMatch} · 훅 {edResult.editorial.axes.hookQuality}({edResult.human.hook.type}) · 마무리 {edResult.editorial.axes.endingQuality}({edResult.human.ending.type}) · 반복내성 {edResult.editorial.axes.repetitionRisk} · 편집가치 {edResult.editorial.axes.editorialValue} · 저장가치 {edResult.editorial.axes.saveWorthiness}
+            </div>
+            <div style={{ color: "#7f9a8c", marginTop: 4, fontSize: 10 }}>
+              신뢰도(내용) {edResult.confidence.total} · {edResult.provider} · {edResult.model} · {edResult.latencyMs}ms · ~{edResult.tokenEstimate}토큰{edResult.catMatch?.mismatch ? ` · ⚠️ 카테고리 재검토 제안: ${edResult.catMatch.suggested}` : ""}
             </div>
             {edResult.draft.seo && (
               <div style={{ color: "#B5D4C5", marginTop: 6, fontSize: 10.5, lineHeight: 1.6 }}>
