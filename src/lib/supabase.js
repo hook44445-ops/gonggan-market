@@ -832,10 +832,17 @@ export const adminUpdateLoungePost = async (id, updates, adminId) => {
 };
 
 export const adminSoftDeleteLoungePost = async (id, adminId, reason) => {
+  // Phase 22 — SECURITY DEFINER RPC(RLS 우회 · 내부 admin 검증). RPC 가 admin_logs 도 기록.
+  //   "new row violates row-level security policy" 해소. migration 096 미적용 시 직접 update 폴백.
+  const rpc = await supabase.rpc("admin_soft_delete_lounge_post", {
+    p_id: id, p_admin_id: adminId ?? null, p_reason: reason ?? null,
+  });
+  if (!rpc.error) return { data: rpc.data, error: null };
+
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("lounge_posts")
-    .update({ is_deleted: true, deleted_at: now, deleted_by: adminId || null })
+    .update({ is_deleted: true, deleted_at: now, deleted_by: adminId || null, is_visible: false })
     .eq("id", id)
     .select("id")
     .single();
@@ -849,6 +856,10 @@ export const adminSoftDeleteLoungePost = async (id, adminId, reason) => {
 };
 
 export const adminRestoreLoungePost = async (id, adminId) => {
+  // Phase 22 — SECURITY DEFINER RPC 우선(RLS 우회). 미배포 시 직접 update 폴백.
+  const rpc = await supabase.rpc("admin_restore_lounge_post", { p_id: id, p_admin_id: adminId ?? null });
+  if (!rpc.error) return { data: rpc.data, error: null };
+
   const { data, error } = await supabase
     .from("lounge_posts")
     .update({ is_deleted: false, deleted_at: null, deleted_by: null, is_hidden: false, hidden_at: null, hidden_reason: null })

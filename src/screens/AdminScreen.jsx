@@ -24,6 +24,7 @@ import {
   buildDraftBoard, publishHistory, popularContent, todaysPick, opsStats, PIPELINE_STAGES,
 } from "../lib/publishingPipeline";
 import { discoverTrendingTopics, trendSummary } from "../lib/trendDiscovery";
+import { buildDailyPlan, getPriorityConfig, setPriorityConfig, RATIO_PRESETS, targetMix } from "../lib/publishingPriority";
 import {
   getAutoConfig, setAutoConfig, planAutoPublish, executeAutoPublishPlan,
   autoPublishStats, getPublishLog,
@@ -1354,6 +1355,77 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── 발행 우선순위(Phase 22) — P1 긴급 / P2 Trending / P3 예약(Evergreen) + ⭐ 연재 ──────
+//   순수 편성 엔진(publishingPriority). 실제 발행은 기존 발행 흐름/크론 재사용(여기서는 편성/시각화만).
+function PublishingPriorityTab({ drafts = [], published = [] }) {
+  const [tick, setTick] = useState(0); void tick;
+  const config = getPriorityConfig();
+  const plan = buildDailyPlan({ drafts, published, config, storyReady: false });
+  const mix = targetMix();
+  const setRatio = (p) => { setPriorityConfig({ evergreen: p.evergreen, breaking: p.breaking }); setTick(t => t + 1); };
+  const lvColor = { P1: "#dc2626", P2: "#d97706", P3: "#2563eb", Story: "#7c3aed" };
+
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🗞️ 발행 우선순위 (Editorial OS)</div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
+        예약 발행만 하지 않습니다. 긴급 뉴스(P1) → Trending(P2) → 예약·Evergreen(P3) 순으로 하루 {config.dailyTotal}개를 편성합니다.
+        긴급 뉴스가 없으면 예약 글만 발행합니다. 지향점: <b>속도 {mix.breaking}% · Evergreen {mix.evergreen}% · 연재 {mix.story}%</b>.
+      </div>
+
+      {/* 비율 설정 */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: S.lg }}>
+        <span style={{ fontSize: 12, color: C.text2, fontWeight: 700 }}>Evergreen:Breaking 비율</span>
+        {RATIO_PRESETS.map(p => (
+          <button key={p.id} onClick={() => setRatio(p)}
+            style={{ padding: "5px 11px", borderRadius: R.full, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+              background: config.evergreen === p.evergreen && config.breaking === p.breaking ? C.brand : "#fff",
+              color: config.evergreen === p.evergreen && config.breaking === p.breaking ? "#fff" : C.text2,
+              border: `1px solid ${config.evergreen === p.evergreen && config.breaking === p.breaking ? C.brand : C.bgWarm}` }}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 요약 */}
+      <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
+        {[
+          { k: "긴급 편성", v: plan.breakingPlanned }, { k: "Evergreen 편성", v: plan.evergreenPlanned },
+          { k: "연재", v: plan.storyPlanned }, { k: "긴급 후보", v: plan.breakingAvailable },
+          { k: "하루 총량", v: plan.dailyTotal },
+        ].map(m => (
+          <div key={m.k} style={{ flex: "1 1 90px", background: C.bg, borderRadius: R.lg, padding: "8px 11px", border: `1px solid ${C.bgWarm}` }}>
+            <div style={{ fontSize: 10, color: C.text3 }}>{m.k}</div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: C.text1 }}>{m.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {!plan.hasBreaking && (
+        <div style={{ fontSize: 11.5, color: C.text3, background: C.bg, borderRadius: R.md, padding: "8px 11px", marginBottom: S.md }}>
+          ⚡ 지금 긴급 뉴스 후보가 없습니다 — 예약·Evergreen 글로 편성합니다.
+        </div>
+      )}
+
+      {/* 오늘의 편성 */}
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📋 오늘의 발행 편성 (비율 {plan.ratioLabel})</div>
+      {plan.slots.length === 0 ? (
+        <div style={{ fontSize: 12, color: C.text3, padding: 16, textAlign: "center" }}>편성할 초안이 없습니다. 트렌드 발굴/공장에서 초안을 만들어 주세요.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {plan.slots.map((s, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, padding: "7px 10px", background: "#fff", border: `1px solid ${C.bgWarm}`, borderRadius: R.md, flexWrap: "wrap" }}>
+              <span style={{ padding: "2px 8px", borderRadius: R.full, fontSize: 10, fontWeight: 800, background: (lvColor[s.level] || "#6b7280") + "22", color: lvColor[s.level] || "#6b7280" }}>{s.level} · {s.label}</span>
+              <span style={{ fontWeight: 700, color: C.text1, flex: 1, minWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.item?.title || "연재 다음 화 (Story Engine 준비 시 자동 편성)"}</span>
+              {s.item && <span style={{ color: C.text3, fontSize: 10 }}>{s.item.categoryLabel}{s.item.trendScore ? ` · TS${s.item.trendScore}` : ""}</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -4705,6 +4777,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["trend_discovery", "트렌드 발굴"],
     ["publishing_pipeline", "발행 파이프라인"],
     ["auto_publish", "자동발행"],
+    ["publishing_priority", "발행 우선순위"],
     ["reports",        "신고관리"],
     ["chat_overview",  "채팅/대화 관리"],
     ["direct_deal",    "직거래 의심"],
@@ -4727,7 +4800,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["reports"]] },
+      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["publishing_priority", "발행 우선순위"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
@@ -6067,6 +6140,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   } catch { /* keep prior */ }
                 }}
               />
+            )}
+
+            {/* ── 발행 우선순위 (Phase 22) ── */}
+            {mainTab === "publishing_priority" && (
+              <PublishingPriorityTab drafts={aiDrafts} published={aiPublished} />
             )}
 
             {/* ── AI 트렌드 발굴 (Phase 14) ── */}
