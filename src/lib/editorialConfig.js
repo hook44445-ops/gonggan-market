@@ -8,8 +8,11 @@ import { DEFAULT_MODEL } from "./llmClient.js";
 
 const KEY = "editorial_llm_config_v1";
 
+// 모델 기본값 — env(DEFAULT_MODEL)이 있으면 그걸, 없으면 OpenRouter 기본 id. 절대 빈 값이 되지 않게.
+export const FALLBACK_MODEL = DEFAULT_MODEL || "anthropic/claude-3.5-sonnet";
+
 export const EDITORIAL_DEFAULTS = {
-  model: DEFAULT_MODEL,
+  model: FALLBACK_MODEL,
   temperature: 0.85,   // 사람처럼 리듬 다양 → 약간 높게(단정·과장은 프롬프트로 억제)
   maxTokens: 2400,     // 본문 1200~2500자 + JSON 여유
   minConfidence: 90,
@@ -19,7 +22,9 @@ export const EDITORIAL_DEFAULTS = {
 export function getEditorialConfig() {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? "{}");
-    return { ...EDITORIAL_DEFAULTS, ...(v && typeof v === "object" ? v : {}) };
+    const merged = { ...EDITORIAL_DEFAULTS, ...(v && typeof v === "object" ? v : {}) };
+    if (!merged.model || !String(merged.model).trim()) merged.model = FALLBACK_MODEL; // 빈 값 방지
+    return merged;
   } catch {
     return { ...EDITORIAL_DEFAULTS };
   }
