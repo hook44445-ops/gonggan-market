@@ -21,6 +21,10 @@ import { communityTemperature } from "../lib/communityTemperature";
 import { composeMagazine } from "../lib/magazine";
 import { composeArchive } from "../lib/archive";
 import { spaceSearch } from "../lib/spaceSearch";
+import { pipelineStages, buildDraftQueue, todaysDashboard, publishingCalendar } from "../lib/publishingOs";
+import { categoryHealthSummary } from "../lib/categoryHealth";
+import { spaceCoverage } from "../lib/spaceCoverage";
+import { buildSpaceIndex } from "../lib/spaceIndex";
 import {
   supabase,
   getCompanies, getUsers, getUser, getUserByPhone,
@@ -1347,6 +1351,16 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const archive = composeArchive(published);
   const searchResult = searchQ.trim() ? spaceSearch(searchQ, published, { limit: 8 }) : null;
 
+  // ── Phase 6 · Publishing OS(운영 파이프라인) — Phase 1~5 엔진을 하나의 운영 관점으로 연결 ──
+  // 기획→생성→검수→연결→발행→분석→재기획. 전부 결정론적 재계산(저장/Migration 없음).
+  const osPipeline = pipelineStages({ issues: dailyIssues, drafts, published, todaysPicks });
+  const osDraftQueue = buildDraftQueue(drafts, published);
+  const osDashboard = todaysDashboard({ published, drafts });
+  const osCalendar = publishingCalendar(drafts, { days: 14 });
+  const osHealth = categoryHealthSummary(published);
+  const osCoverage = spaceCoverage(published);
+  const osIndex = buildSpaceIndex(published);
+
   // 최근 댓글을 온디맨드로 불러와 댓글 인사이트/후속 추천을 채운다(자동 로드 아님).
   const handleLoadComments = async () => {
     if (loadingComments) return;
@@ -1805,6 +1819,136 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
             )}
           </div>
         )}
+      </div>
+
+      {/* 🛰️ Publishing OS (Phase 6) — 운영 파이프라인: 기획→생성→검수→연결→발행→분석→재기획.
+          Phase 1~5 엔진을 하나의 운영 관점으로 묶은 관리자 콘솔. 전부 결정론적 재계산(저장 없음). */}
+      <div style={{ background: "#1a1030", borderRadius: R.xl, padding: S.xl, border: `1px solid #33235a`, marginBottom: S.xl }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4 }}>🛰️ Publishing OS · 콘텐츠 운영 파이프라인</div>
+        <div style={{ fontSize: 11.5, color: "#b9a6dd", marginBottom: S.md, lineHeight: 1.6 }}>
+          AI 가 기획하고, 연결하고, 사람이 반응하고, 관리자가 운영하고, 다시 AI 의 다음 기획으로 돌아갑니다.
+          온도 {osDashboard.temperature}° · 색인 {osIndex.stats.indexed}글 · 커버리지 {osCoverage.coverageRate}%.
+        </div>
+
+        {/* 1. Publishing Pipeline — 단계 흐름 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🔻 Pipeline</div>
+        <div style={{ display: "flex", gap: 5, overflowX: "auto", paddingBottom: 6, marginBottom: S.lg }}>
+          {osPipeline.map((s, i) => (
+            <div key={s.id} style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 5 }}>
+              <div title={s.note} style={{ background: "#241640", borderRadius: R.md, border: "1px solid #33235a", padding: "7px 10px", minWidth: 96 }}>
+                <div style={{ fontSize: 10, color: "#b9a6dd", lineHeight: 1.3 }}>{s.label}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>{s.count}</div>
+              </div>
+              {i < osPipeline.length - 1 && <span style={{ color: "#5a4a7a", fontSize: 12 }}>→</span>}
+            </div>
+          ))}
+        </div>
+
+        {/* 2. Today's Dashboard */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>📅 Today's Dashboard</div>
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.sm }}>
+          {[
+            { k: "오늘 생성", v: osDashboard.createdToday },
+            { k: "오늘 발행예정", v: osDashboard.scheduledToday },
+            { k: "오늘 인기", v: osDashboard.popularToday.length },
+            { k: "댓글 많은", v: osDashboard.commentedToday.length },
+            { k: "저장 후보", v: osDashboard.saveCandidates.length },
+          ].map(m => (
+            <div key={m.k} style={{ flex: "1 1 80px", background: "#241640", borderRadius: R.lg, padding: "8px 10px", border: "1px solid #33235a" }}>
+              <div style={{ fontSize: 10, color: "#b9a6dd" }}>{m.k}</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>{m.v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: S.lg, fontSize: 11 }}>
+          {osDashboard.editorsPick && <span style={{ color: "#e5d4f5" }}>⭐ Editor's Pick: <b style={{ color: "#fff" }}>{osDashboard.editorsPick.title}</b></span>}
+          {osDashboard.recommendedSlots.length > 0 && (
+            <span style={{ color: "#b9a6dd" }}>· 추천 발행 슬롯: {osDashboard.recommendedSlots.map(s => s.label).slice(0, 4).join(", ")}</span>
+          )}
+        </div>
+
+        {/* 3. Draft Queue — 운영 관점 초안 목록 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🗂️ Draft Queue ({osDraftQueue.length})</div>
+        {osDraftQueue.length === 0 ? (
+          <div style={{ fontSize: 11, color: "#b9a6dd", marginBottom: S.lg }}>검수 대기 초안이 없습니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: S.lg }}>
+            {osDraftQueue.slice(0, 8).map(q => (
+              <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, padding: "4px 0", borderBottom: "1px solid #281a44", flexWrap: "wrap" }}>
+                {q.recommended && <span style={{ padding: "1px 6px", borderRadius: R.full, fontSize: 9, fontWeight: 800, background: "#2a5a3a", color: "#c9f0d0" }}>추천</span>}
+                <span style={{ padding: "1px 6px", borderRadius: R.full, fontSize: 9, fontWeight: 700, background: "#241640", color: "#b9a6dd" }}>{q.status === "scheduled" ? "예약" : "초안"}</span>
+                <span style={{ color: "#fff", fontWeight: 600, flex: 1, minWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.title}</span>
+                <span style={{ color: q.needsRewrite ? "#e8a0a0" : "#9fd0b0", fontSize: 10 }}>품질 {q.qualityScore}</span>
+                <span style={{ color: "#8f76a8", fontSize: 10 }}>공간 {q.spaceRelevance} · {PRIORITY_LABEL[q.priority]} · 연결 {q.relatedCount}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 4. Publishing Calendar — 14일 예약 요약 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>
+          🗓️ Publishing Calendar <span style={{ color: "#8f76a8", fontWeight: 600 }}>(예약 {osCalendar.totalScheduled} · 빈 슬롯 {osCalendar.emptyDates.length}일{osCalendar.overloadedDates.length ? ` · ⚠️과밀 ${osCalendar.overloadedDates.length}일` : ""})</span>
+        </div>
+        <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: S.lg }}>
+          {osCalendar.days.map(day => (
+            <div key={day.date} title={day.items.map(i => i.title).join("\n") || "빈 슬롯"}
+              style={{ width: 34, textAlign: "center", padding: "5px 0", borderRadius: R.sm,
+                background: day.overloaded ? "#5a2a2a" : day.count > 0 ? "#2a5a3a" : "#241640",
+                border: "1px solid #33235a" }}>
+              <div style={{ fontSize: 8.5, color: "#b9a6dd" }}>{day.weekday}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#fff" }}>{day.count}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* 5. Category Health */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>
+          🩺 Category Health <span style={{ color: "#8f76a8", fontWeight: 600 }}>(비어있음 {osHealth.empty} · 방치 {osHealth.stale} · 조용 {osHealth.quiet} · 상승 {osHealth.rising} · 건강 {osHealth.healthy})</span>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: S.lg }}>
+          {osHealth.rows.slice(0, 12).map(r => {
+            const tone = { empty: "#553939", stale: "#554a39", quiet: "#39404a", rising: "#2a5a3a", healthy: "#241640" }[r.status];
+            return (
+              <span key={r.category} style={{ fontSize: 10, color: "#e5d4f5", background: tone, border: "1px solid #33235a", borderRadius: R.full, padding: "3px 9px" }}>
+                {r.label} · {r.count}{r.status === "stale" && r.lastPublishedDaysAgo != null ? ` (${r.lastPublishedDaysAgo}일 전)` : ""}
+              </span>
+            );
+          })}
+        </div>
+
+        {/* 6. Space Coverage — Space is Everything 커버리지(추천만) */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🌌 Space Coverage <span style={{ color: "#8f76a8", fontWeight: 600 }}>(커버 {osCoverage.covered}/{osCoverage.total})</span></div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: S.sm }}>
+          {osCoverage.areas.map(a => {
+            const tone = a.status === "empty" ? "#553939" : a.status === "thin" ? "#554a39" : "#2a4a3a";
+            return (
+              <span key={a.id} title={a.hasCategory ? "" : "개념 영역(카테고리 없음)"} style={{ fontSize: 10, color: "#e5d4f5", background: tone, borderRadius: R.full, padding: "3px 9px" }}>
+                {a.label} {a.count}{a.hasCategory ? "" : " *"}
+              </span>
+            );
+          })}
+        </div>
+        {osCoverage.recommendations.length > 0 && (
+          <div style={{ fontSize: 10.5, color: "#b9a6dd", marginBottom: S.lg }}>
+            💡 부족 영역 추천(추천만): {osCoverage.recommendations.map(r => r.area).slice(0, 8).join(", ")}
+          </div>
+        )}
+
+        {/* 7. Space Index — 통합 색인 요약 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🧬 Space Index</div>
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap" }}>
+          {[
+            { k: "색인 글", v: osIndex.stats.indexed },
+            { k: "연결 고립", v: osIndex.stats.isolated },
+            { k: "Evergreen", v: osIndex.stats.evergreen },
+            { k: "미매핑 영역", v: osIndex.stats.unmapped },
+          ].map(m => (
+            <div key={m.k} style={{ flex: "1 1 80px", background: "#241640", borderRadius: R.lg, padding: "8px 10px", border: "1px solid #33235a" }}>
+              <div style={{ fontSize: 10, color: "#b9a6dd" }}>{m.k}</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "#fff" }}>{m.v}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ① 이슈 입력 → ②③④ 기획/제목/본문 생성(템플릿) */}
