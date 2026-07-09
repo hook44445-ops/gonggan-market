@@ -7,6 +7,10 @@ import { LOUNGE_CATEGORIES } from "../constants/lounge";
 import { ISSUE_PRESETS, generateDraft, classifyCategory } from "../constants/aiContentFactory";
 import { scoreTopic, priorityFromScore, PRIORITY_LABEL } from "../lib/topicScore";
 import { mapCategory } from "../lib/categoryMapper";
+import { runEditorialMeeting, selectTodaysContent, generateReviewedDraft } from "../lib/aiEditor";
+import { generateDailyIssues } from "../lib/dailyIssues";
+import { recommendCategories } from "../lib/categoryRecommender";
+import { scoreContent } from "../lib/contentScore";
 import {
   supabase,
   getCompanies, getUsers, getUser, getUserByPhone,
@@ -1285,6 +1289,28 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     })
     .sort((a, b) => b._score - a._score);
 
+  // ── AI 편집국(Phase 2·AI Editor) — 생성 전 "편집회의" 기획 레이어(전부 결정론적 재계산, 저장 없음) ──
+  // 오늘의 이슈(도메인 시드 + 현재 Trend Queue 이슈) → 편집회의 심의 → 오늘 만들 콘텐츠 선정.
+  const dailyIssues = generateDailyIssues({ trends: trendQueue.map(q => ({ topic: q.ai_topic })), limit: 20 });
+  const editorialMeeting = runEditorialMeeting(dailyIssues);
+  const todaysPicks = selectTodaysContent(editorialMeeting, 20);
+  // 새 카테고리 추천(공간 연결 + 2개 조건 이상, 기존 카테고리 제외) — 추천만, 자동 생성 없음.
+  const categoryRecs = recommendCategories(dailyIssues);
+  // 콘텐츠 품질 점검 — 기존 초안/발행글을 7개 축으로 자기평가(90점 미만 재작성 권장). 낮은 순 정렬.
+  const qualityChecks = [...drafts, ...published]
+    .filter(p => p.title)
+    .map(p => ({ id: p.id, title: p.title, status: p.publish_status, ...scoreContent({ title: p.title, content: p.content, category: p.category }) }))
+    .sort((a, b) => a.total - b.total);
+
+  // 편집회의 편성표에서 "제작(make)" 이슈를 골라 초안 생성(재작성 루프 포함) → 기존 미리보기/저장 흐름 재사용.
+  const handleGenerateFromEditor = (pick) => {
+    const res = generateReviewedDraft({ issue: pick.topic, spaceAngle: pick.spaceAngle, category: pick.category, region: region.trim() || null });
+    setIssue(pick.topic);
+    setSpaceAngle(pick.spaceAngle);
+    setPreview(res.draft);
+    showToast?.(res.passed ? `✅ 편집회의 통과 초안 생성(점수 ${res.score.total})` : `⚠️ 초안 생성(점수 ${res.score.total} · 재작성 권장)`);
+  };
+
   // 10단계(카테고리별 콘텐츠 축적) — 발행된 AI 콘텐츠를 카테고리별로 집계(8단계 Analytics 경량판).
   const byCategory = published.reduce((acc, p) => {
     const k = p.category || "daily";
@@ -1302,6 +1328,88 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
         이슈를 공간 관점으로 재해석한 초안을 만들고, 검수 후 발행합니다. 자동 발행은 하지 않습니다 —
         모든 발행은 관리자 승인이 필요합니다(베타 원칙).
+      </div>
+
+      {/* 🗞️ AI 편집국 — 생성 전 기획 레이어: 편집회의(오늘 이슈 심의) → 카테고리 추천 → 콘텐츠 품질 점검.
+          목표는 콘텐츠의 "양"이 아니라 "경쟁력". 전부 결정론적 재계산(저장/Migration 없음). */}
+      <div style={{ background: C.brandL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.brandM}`, marginBottom: S.xl }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.brandD, marginBottom: 4 }}>🗞️ AI 편집국</div>
+        <div style={{ fontSize: 11.5, color: C.text2, marginBottom: S.md, lineHeight: 1.6 }}>
+          공간라운지는 인테리어 커뮤니티가 아니라 <b>공간을 중심으로 세상을 기록하는 AI 콘텐츠 플랫폼</b>입니다.
+          글을 만들기 전에 편집회의를 엽니다: 오늘 이슈 → 가치 평가 → 공간 관련성 → 카테고리 결정 → 생성.
+        </div>
+
+        {/* A. 편집회의 편성표 — 오늘 만들 콘텐츠 심의 결과 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>
+          📋 편집회의 · 오늘의 이슈 편성표 (제작 {todaysPicks.length} / 심의 {editorialMeeting.length})
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: S.lg }}>
+          {editorialMeeting.slice(0, 12).map((m, i) => (
+            <div key={m.topic + i} style={{ background: "#fff", borderRadius: R.md, padding: "8px 10px", border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 11.5 }}>
+                <span style={{ padding: "2px 7px", borderRadius: R.full, fontSize: 10, fontWeight: 800, background: m.verdict === "make" ? C.brand : C.bgWarm, color: m.verdict === "make" ? "#fff" : C.text3 }}>
+                  {m.verdict === "make" ? "제작" : "보류"}
+                </span>
+                <span style={{ fontWeight: 800, color: C.text1 }}>{m.topic}</span>
+                <span style={{ color: C.text3 }}>가치 {m.valueScore} · 공간 {m.spaceScore}</span>
+                <span style={{ color: C.brand }}>→ {catLabel(m.category)}</span>
+                {m.verdict === "make" && (
+                  <button onClick={() => handleGenerateFromEditor(m)}
+                    style={{ marginLeft: "auto", padding: "4px 10px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: "pointer" }}>
+                    이 이슈로 초안 생성 ↑
+                  </button>
+                )}
+              </div>
+              <div style={{ marginTop: 4, color: C.text4, fontSize: 10.5 }}>
+                {m.chain.join(" → ")} · {m.spaceAngle}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* B. 새 카테고리 추천 — 추천만, 자동 생성 없음 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>
+          🌱 새 카테고리 추천 (관리자 승인 필요 · 자동 생성 안 함)
+        </div>
+        <div style={{ fontSize: 10.5, color: C.text3, marginBottom: S.sm, lineHeight: 1.6 }}>
+          공간과 연결되고, 6개 조건(검색량·트렌드 지속·확장성·공간 관련성·관심도·장기가치) 중 2개 이상을
+          만족하는 후보만 제안합니다. 실제 카테고리 추가는 관리자가 승인해야 합니다.
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: S.lg }}>
+          {categoryRecs.length === 0 ? (
+            <span style={{ fontSize: 11.5, color: C.text3 }}>추천할 새 카테고리가 없습니다</span>
+          ) : categoryRecs.map(c => (
+            <div key={c.id} title={c.metSignals.join(" / ")}
+              style={{ background: "#fff", border: `1px solid ${C.brandM}`, borderRadius: R.md, padding: "6px 10px", fontSize: 11 }}>
+              <div>
+                <span style={{ fontWeight: 800, color: C.brandD }}>{c.label}</span>
+                <span style={{ color: C.gold, marginLeft: 6, fontWeight: 700 }}>{c.signalCount}/6</span>
+                {c.related && <span style={{ color: C.brand, marginLeft: 6 }}>· 오늘 이슈 연관</span>}
+              </div>
+              <div style={{ color: C.text4, fontSize: 10 }}>{c.spaceLink}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* C. 콘텐츠 품질 점검 — 7축 자기평가, 90점 미만 재작성 권장 */}
+        <div style={{ fontSize: 12, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>
+          🎯 콘텐츠 품질 점검 (90점 미만 = 재작성 권장)
+        </div>
+        {qualityChecks.length === 0 ? (
+          <div style={{ fontSize: 11.5, color: C.text3 }}>점검할 콘텐츠가 없습니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {qualityChecks.slice(0, 8).map(q => (
+              <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: `1px solid ${C.bgWarm}`, fontSize: 11.5, flexWrap: "wrap" }}>
+                <span style={{ padding: "2px 7px", borderRadius: R.full, fontSize: 10, fontWeight: 800, background: q.needsRewrite ? C.red + "22" : C.brandL, color: q.needsRewrite ? C.red : C.brandD }}>
+                  {q.total}점 {q.needsRewrite ? "· 재작성" : "· 통과"}
+                </span>
+                <span style={{ color: C.text1, fontWeight: 700, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.title}</span>
+                <span style={{ color: C.text4, fontSize: 10 }}>공간 {q.axes.spaceRelevance} · 정보 {q.axes.infoValue} · 독창 {q.axes.originality}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ① 이슈 입력 → ②③④ 기획/제목/본문 생성(템플릿) */}
