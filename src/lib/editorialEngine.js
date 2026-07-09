@@ -58,7 +58,7 @@ export function normalizeEditorial(obj, category) {
   if (!obj || typeof obj !== "object") return null;
   const title = String(obj.title ?? "").trim();
   let body = String(obj.body ?? obj.content ?? "").trim();
-  if (!title || body.length < 400) return null; // 매거진 최소 분량 미달 → 실패로 간주.
+  if (!title || body.length < 700) return null; // 매거진 최소 분량(800자 근사) 미달 → 실패로 간주(→ 재시도).
 
   const seoIn = obj.seo && typeof obj.seo === "object" ? obj.seo : {};
   const seo = {

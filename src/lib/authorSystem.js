@@ -14,7 +14,7 @@
 // ════════════════════════════════════════════════════════════════════
 
 export const AUTHOR_TYPES = {
-  ai_editor: { id: "ai_editor", label: "AI Editor", emoji: "✍️", tone: "#3a6b5a", desc: "AI 편집국이 공간 관점으로 정리한 글" },
+  ai_editor: { id: "ai_editor", label: "✨ Editor's Pick", emoji: "✍️", tone: "#3a6b5a", desc: "AI 편집국이 공간 관점으로 정리한 글" },
   official:  { id: "official",  label: "Official",  emoji: "🏛️", tone: "#4a5a7a", desc: "공간라운지 운영이 발행한 글" },
   partner:   { id: "partner",   label: "Partner",   emoji: "🛠️", tone: "#8a5a2a", desc: "검증된 업체(전문가)가 쓴 글" },
   community: { id: "community", label: "Community", emoji: "🙌", tone: "#6a4a7a", desc: "라운지 이웃이 쓴 글" },
@@ -36,7 +36,7 @@ export function authorBadge(post = {}) {
 //   여기서는 "유형 라벨"만 제공한다(AI 는 앞에 나서지 않는다는 원칙에 맞춰 이름을 지어내지 않는다).
 export function authorDisplayHint(post = {}) {
   const t = authorTypeOf(post);
-  if (t === "ai_editor") return "AI Editor";
+  if (t === "ai_editor") return "✨ Editor's Pick";
   if (t === "official") return "공간라운지";
   return null; // partner/community 는 기존 신원 해석을 그대로 사용
 }

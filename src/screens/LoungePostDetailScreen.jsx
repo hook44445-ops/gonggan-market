@@ -34,7 +34,7 @@ import ChatRequestModal from '../components/lounge/ChatRequestModal';
 import ReportModal from '../components/lounge/ReportModal';
 import CompanyMiniPortfolioModal from '../components/lounge/CompanyMiniPortfolioModal';
 import LoungeProfilePopover from '../components/lounge/LoungeProfilePopover';
-import { IS_SUPABASE_READY, softDeleteLoungePost, createLoungeNotification, createNotification } from '../lib/supabase';
+import { IS_SUPABASE_READY, softDeleteLoungePost, adminSoftDeleteLoungePost, createLoungeNotification, createNotification } from '../lib/supabase';
 import { buildPostMeta, buildPostPath } from '../utils/loungeSeo';
 import { RichContent } from '../utils/richText';
 import { resolveCompanyIdentity, resolveConsumerIdentity } from '../utils/identityResolver';
@@ -194,21 +194,27 @@ function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
 }
 
 // ── 포스트 메뉴 시트 ───────────────────────────────────
-function PostMenuSheet({ isOwn, onEdit, onDelete, onReport, onBlock, onClose }) {
+function PostMenuSheet({ isOwn, isAdmin, onEdit, onDelete, onReport, onBlock, onClose }) {
+  const canManage = isOwn || isAdmin;   // 본인 글 또는 관리자 → 수정/삭제
+  const canReport = !isOwn;             // 본인 글이 아니면 → 신고/차단
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 400 }} onClick={onClose}>
       <div style={{ background: C.surface, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, paddingBottom: 'env(safe-area-inset-bottom, 20px)' }} onClick={e => e.stopPropagation()}>
         <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: '12px auto 8px' }} />
-        {isOwn ? (
+        {isAdmin && !isOwn && (
+          <div style={{ padding: '6px 20px 2px', fontSize: 11, fontWeight: 800, color: C.gold }}>관리자</div>
+        )}
+        {canManage && (
           <>
             <button onClick={onEdit} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: `1px solid ${C.bg}`, fontSize: 15, fontWeight: 700, color: C.brand, cursor: 'pointer', textAlign: 'left' }}>
               ✏️ 수정하기
             </button>
-            <button onClick={onDelete} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', fontSize: 15, fontWeight: 700, color: C.red ?? '#E53E3E', cursor: 'pointer', textAlign: 'left' }}>
+            <button onClick={onDelete} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: canReport ? `1px solid ${C.bg}` : 'none', fontSize: 15, fontWeight: 700, color: C.red ?? '#E53E3E', cursor: 'pointer', textAlign: 'left' }}>
               🗑️ 삭제하기
             </button>
           </>
-        ) : (
+        )}
+        {canReport && (
           <>
             <button onClick={onReport} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: `1px solid ${C.bg}`, fontSize: 15, fontWeight: 700, color: C.text2, cursor: 'pointer', textAlign: 'left' }}>
               🚨 신고하기
@@ -284,6 +290,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const isGuest    = user?.isGuest === true || !user?.id;
   const isLoggedIn = !isGuest;
   const isOwn      = isLoggedIn && post?.user_id && user?.id && post.user_id === user.id;
+  // Phase 19.5 — 관리자 판별(기존 role/activeRole 재사용). 관리자면 상세 ...에 수정/삭제 노출.
+  const isAdmin    = isLoggedIn && (user?.role === 'admin' || user?.activeRole === 'admin');
+  const canManage  = isOwn || isAdmin;
 
   // 좋아요/조회수 카운트는 항상 DB 값 기준으로 동기화 (하드코딩 금지)
   useEffect(() => {
@@ -842,30 +851,21 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   };
 
   const handleDelete = async () => {
-    if (isGuest || !isOwn || !post?.id || !user?.id) return;
+    if (isGuest || (!isOwn && !isAdmin) || !post?.id || !user?.id) return;
     setDeleting(true);
 
     if (IS_SUPABASE_READY) {
-      const { data, error: deleteErr } = await softDeleteLoungePost(post.id, user.id);
-
+      // 본인 글은 기존 소프트삭제 RPC, 관리자(타인 글)는 admin 소프트삭제(is_deleted, hard delete 아님).
+      const { data, error: deleteErr } = isOwn
+        ? await softDeleteLoungePost(post.id, user.id)
+        : await adminSoftDeleteLoungePost(post.id, user.id, 'admin_detail');
+      const ok = isOwn ? (!deleteErr && data === true) : (!deleteErr && !!data);
       if (import.meta.env.DEV) {
-        setDeleteDevInfo({
-          currentUserId: user?.id,
-          postUserId:    post?.user_id,
-          isOwner:       post?.user_id === user?.id,
-          postId:        post?.id,
-          delete_ok:     !deleteErr && data === true,
-          delete_err:    deleteErr?.message ?? null,
-          rpc_returned:  data,
-        });
+        setDeleteDevInfo({ currentUserId: user?.id, postUserId: post?.user_id, isOwner: post?.user_id === user?.id, postId: post?.id, delete_ok: ok, delete_err: deleteErr?.message ?? null, rpc_returned: data });
       }
-
-      if (deleteErr || data !== true) {
+      if (!ok) {
         setDeleting(false);
-        const errMsg = deleteErr?.message
-          ? `삭제 실패: ${deleteErr.message}`
-          : '삭제 실패: 본인 글만 삭제할 수 있어요 (migration 미실행 확인)';
-        showToast(errMsg);
+        showToast(deleteErr?.message ? `삭제 실패: ${deleteErr.message}` : '삭제 실패: 권한 또는 migration 미실행 확인');
         return;
       }
     } else {
@@ -1345,8 +1345,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       {showMenu && (
         <PostMenuSheet
           isOwn={isOwn}
-          onEdit={() => { setShowMenu(false); if (!isOwn) return; onEditPost?.(post); }}
-          onDelete={() => { setShowMenu(false); if (!isOwn) return; setShowDeleteConfirm(true); }}
+          isAdmin={isAdmin}
+          onEdit={() => { setShowMenu(false); if (!canManage) return; onEditPost?.(post); }}
+          onDelete={() => { setShowMenu(false); if (!canManage) return; setShowDeleteConfirm(true); }}
           onReport={handleReport}
           onBlock={handleBlock}
           onClose={() => setShowMenu(false)}

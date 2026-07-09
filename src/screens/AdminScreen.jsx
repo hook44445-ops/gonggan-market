@@ -17,6 +17,7 @@ import { isLLMConfigured } from "../lib/llmClient";
 // Phase 18 — Real LLM Editorial Engine
 import { generateEditorial } from "../lib/editorialEngine";
 import { getEditorialConfig, setEditorialConfig } from "../lib/editorialConfig";
+import { resolveLoungeCategory } from "../lib/loungeCategoryMap";
 import { generateForWorkbench, saveWorkbenchRecord, PROMPT_VERSIONS } from "../lib/editorWorkbench";
 import {
   workbenchIndex, getPipelineStages, setPipelineStage, clearPipelineStage,
@@ -1710,11 +1711,14 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         topic: issue.trim(), region: region.trim() || null,
         model: edCfg.model, temperature: edCfg.temperature, maxTokens: edCfg.maxTokens, maxRetries: edCfg.maxRetries,
       });
-      if (!r.ok) { showToast?.("생성 실패: " + (r.reason || "error")); }
+      if (!r.ok) { showToast?.("생성 실패: " + (r.reason === "llm_not_configured" ? "LLM 미설정" : r.reason === "all_attempts_failed" ? "유효한 본문 생성 실패(재시도 초과)" : (r.reason || "error"))); }
+      else if (String(r.draft.body).replace(/\s/g, "").length < 500) { showToast?.("본문이 너무 짧아 저장을 막았습니다 — 다시 시도하세요"); }
       else {
         setEdResult(r);
-        setPreview({ title: r.draft.title, content: r.draft.body, category: r.draft.category, tags: r.draft.tags, summary: r.draft.summary, seo: r.draft.seo });
-        showToast?.(`✨ ${r.verdict} · 종합 ${r.finalScore}점 · 시도 ${r.attempts.length}회${r.human?.ai?.isStrong ? " · ⚠️AI티" : ""}`);
+        // ⚠️ 저장 카테고리는 반드시 라운지 id 로 보정(편집 카테고리 한글 그대로 저장하면 필터/표시 깨짐).
+        const loungeCat = resolveLoungeCategory(r.category, r.draft.title, r.draft.body);
+        setPreview({ title: r.draft.title, content: r.draft.body, category: loungeCat, tags: r.draft.tags, summary: r.draft.summary, seo: r.draft.seo });
+        showToast?.(`✨ ${r.verdict} · 종합 ${r.finalScore}점 · ${catLabel(loungeCat)} · 시도 ${r.attempts.length}회${r.human?.ai?.isStrong ? " · ⚠️AI티" : ""}`);
       }
     } catch (e) { showToast?.("오류: " + (e?.message ?? String(e))); }
     finally { setEdGen(false); }
