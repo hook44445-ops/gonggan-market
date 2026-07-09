@@ -15,6 +15,12 @@
 import { voiceFor } from "../constants/categoryVoice.js";
 import { classifyCategory } from "../constants/aiContentFactory.js";
 import { stripForcedSpaceLinks } from "./forcedSpaceLinkFilter.js";
+// Phase 10 — 실제 LLM 경로(옵트인). 미설정/실패 시 아래 Mock 렌더러로 폴백.
+import { isLLMConfigured } from "./llmClient.js";
+import { renderFromPlanLLM } from "./llmContentGenerator.js";
+import { readingTime } from "./readingExperience.js";
+import { relatedCategoryIds } from "../constants/knowledgeMap.js";
+import { CATEGORY_LABEL } from "../constants/lounge.js";
 
 const RAW_SECTIONS = ["오늘 무슨 일이 있었나", "왜 중요한가", "핵심 포인트", "앞으로 볼 것", "참고 키워드", "후속 콘텐츠 후보"];
 
@@ -131,4 +137,58 @@ export function generateVoicedDraft(args = {}) {
     mode: plan.mode,
     strippedForcedLinks: stripped,
   };
+}
+
+// ── Phase 10 — 실제 LLM 생성(구조 유지: plan→prompt→render, render만 LLM으로) ──
+// Mock(generateVoicedDraft) 결과를 필수 JSON 스키마로 매핑(폴백도 동일 형태 보장).
+function toResultShape(draft, plan, source) {
+  const body = draft.content;
+  const summary = body.replace(/[#*>\-]/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
+  const keywords = Array.from(new Set([plan.topic, CATEGORY_LABEL[plan.category] || plan.category, ...(draft.tags || [])])).filter(Boolean).slice(0, 8);
+  const relatedTopics = relatedCategoryIds(plan.category).map((c) => CATEGORY_LABEL[c] || c).slice(0, 4);
+  return {
+    title: draft.title,
+    summary,
+    body,
+    tags: draft.tags || [plan.topic, plan.category].filter(Boolean),
+    keywords,
+    readingMinutes: readingTime(body, 0).minutes,
+    relatedTopics,
+    category: plan.category,
+    tone: plan.voice.tone,
+    voice: draft.voice,
+    mode: plan.mode,
+    strippedForcedLinks: draft.strippedForcedLinks ?? 0,
+    source,
+  };
+}
+
+// 실제 LLM 초안 — 결과는 반드시 JSON(title/summary/body/tags/keywords/readingMinutes/
+//   relatedTopics/category/tone). LLM 미설정/실패/타임아웃/파싱실패 시 기존 Mock 렌더러로 자동 폴백.
+export async function generateVoicedDraftLLM(args = {}, { signal = null } = {}) {
+  const plan = buildWritePlan(args);
+  if (isLLMConfigured()) {
+    try {
+      const r = await renderFromPlanLLM(plan, { signal });
+      // Natural Category — 정책상(공간 연결 강요 금지 카테고리) 억지 공간연결을 LLM 본문에도 정리.
+      let body = r.body;
+      let stripped = 0;
+      if (plan.voice.spaceLinkPolicy !== "natural") {
+        const s = stripForcedSpaceLinks(body);
+        body = s.text; stripped = s.removed;
+      }
+      return {
+        ...r,
+        body,
+        category: plan.category, // 카테고리는 계획을 신뢰(LLM 임의 변경 방지)
+        voice: { id: plan.voice.id, label: plan.voice.label, tone: plan.voice.tone, spaceLinkPolicy: plan.voice.spaceLinkPolicy, area: plan.voice.area },
+        mode: plan.mode,
+        strippedForcedLinks: stripped,
+        source: "llm",
+      };
+    } catch {
+      /* 폴백 → 아래 Mock */
+    }
+  }
+  return toResultShape(generateVoicedDraft(args), plan, "mock");
 }

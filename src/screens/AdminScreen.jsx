@@ -12,7 +12,8 @@ import { generateDailyIssues } from "../lib/dailyIssues";
 import { recommendCategories } from "../lib/categoryRecommender";
 import { scoreContent } from "../lib/contentScore";
 // Phase 8 — Content Quality & Natural Category (기존 엔진 무수정, 신규 모듈 추가 호출)
-import { generateVoicedDraft } from "../lib/categoryVoiceWriter";
+import { generateVoicedDraft, generateVoicedDraftLLM } from "../lib/categoryVoiceWriter";
+import { isLLMConfigured } from "../lib/llmClient";
 import { voiceFor } from "../constants/categoryVoice";
 import { scoreUsefulness } from "../lib/contentUsefulness";
 import { detectForcedSpaceLinks } from "../lib/forcedSpaceLinkFilter";
@@ -1211,6 +1212,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const [region, setRegion]         = useState("");
   const [preview, setPreview]       = useState(null); // { title, content, category, tags }
   const [genMode, setGenMode]       = useState("voice"); // Phase 8: voice(카테고리 톤)/space(공간 관점)/raw(원석 지식)
+  const [generating, setGenerating] = useState(false);   // Phase 10: LLM 생성 진행중
   const [saving, setSaving]         = useState(false);
   const [scheduleFor, setScheduleFor] = useState({}); // { [id]: 'YYYY-MM-DDTHH:mm' }
   const [checkingTrends, setCheckingTrends] = useState(false);
@@ -1228,18 +1230,28 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     if (p) { setIssue(p.issue); setSpaceAngle(p.spaceAngle); }
   };
 
-  // 1~4단계(이슈→기획→제목/구성→본문) — 템플릿 기반, 네트워크 호출 없이 즉시 미리보기 생성.
-  // Phase 8: 모드 3종. voice(카테고리 톤·억지 공간연결 제거) / space(기존 공간 관점 generateDraft) / raw(원석 지식).
-  const handleGenerate = () => {
+  // 1~4단계(이슈→기획→제목/구성→본문). Phase 8: 모드 3종.
+  //   voice(카테고리 톤·억지 공간연결 제거) / space(기존 공간 관점 generateDraft) / raw(원석 지식).
+  //   Phase 10: voice/raw 는 실제 LLM(옵트인) 로 생성하고, 미설정/실패 시 자동으로 기존 Mock 폴백.
+  const handleGenerate = async () => {
+    if (generating) return;
     if (!issue.trim()) { showToast?.("이슈를 입력하거나 프리셋을 선택하세요"); return; }
     const preset = ISSUE_PRESETS.find(p => p.id === presetId);
     const cat = preset?.issue === issue.trim() ? preset.category : classifyCategory(`${issue} ${spaceAngle}`);
     if (genMode === "space") {
       // 기존 Phase 1 동작 보존(공간 관점 강제 템플릿).
       setPreview(generateDraft({ issue: issue.trim(), spaceAngle: spaceAngle.trim(), category: cat, region: region.trim() || null }));
-    } else {
-      const d = generateVoicedDraft({ issue: issue.trim(), category: cat, region: region.trim() || null, mode: genMode === "raw" ? "raw" : "voice" });
-      setPreview({ title: d.title, content: d.content, category: d.category, tags: d.tags });
+      return;
+    }
+    setGenerating(true);
+    try {
+      const d = await generateVoicedDraftLLM({ issue: issue.trim(), category: cat, region: region.trim() || null, mode: genMode === "raw" ? "raw" : "voice" });
+      setPreview({ title: d.title, content: d.body, category: d.category, tags: d.tags });
+      if (isLLMConfigured()) showToast?.(d.source === "llm" ? "✨ LLM 생성 완료" : "⚠️ LLM 실패 — Mock 폴백 사용");
+    } catch (e) {
+      showToast?.("생성 실패: " + (e?.message ?? String(e)));
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -2016,10 +2028,15 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
             ))}
           </div>
         </div>
-        <button onClick={handleGenerate}
-          style={{ padding: "10px 18px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-          ✨ 초안 생성
+        <button onClick={handleGenerate} disabled={generating}
+          style={{ padding: "10px 18px", background: generating ? C.text4 : C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: generating ? "default" : "pointer" }}>
+          {generating ? "생성 중…" : "✨ 초안 생성"}
         </button>
+        {genMode !== "space" && (
+          <span style={{ marginLeft: 10, fontSize: 11, color: C.text3 }}>
+            {isLLMConfigured() ? "🟢 LLM 연결됨" : "⚪ LLM 미설정 — 템플릿(Mock) 사용"}
+          </span>
+        )}
 
         {preview && (
           <div style={{ marginTop: S.lg, background: C.bg, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
