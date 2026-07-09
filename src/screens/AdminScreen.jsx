@@ -5,6 +5,8 @@ import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constan
 import { COMPANY_STATUS_META, USER_STATUS_META } from "../constants";
 import { LOUNGE_CATEGORIES } from "../constants/lounge";
 import { ISSUE_PRESETS, generateDraft, classifyCategory } from "../constants/aiContentFactory";
+import { scoreTopic, priorityFromScore, PRIORITY_LABEL } from "../lib/topicScore";
+import { mapCategory } from "../lib/categoryMapper";
 import {
   supabase,
   getCompanies, getUsers, getUser, getUserByPhone,
@@ -1187,6 +1189,8 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const [preview, setPreview]       = useState(null); // { title, content, category, tags }
   const [saving, setSaving]         = useState(false);
   const [scheduleFor, setScheduleFor] = useState({}); // { [id]: 'YYYY-MM-DDTHH:mm' }
+  const [checkingTrends, setCheckingTrends] = useState(false);
+  const [trendCheckResult, setTrendCheckResult] = useState(null);
 
   const catLabel = (id) => LOUNGE_CATEGORIES.find(c => c.id === id)?.label ?? id;
 
@@ -1248,6 +1252,38 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     if (error) { showToast?.("삭제 실패: " + error.message); return; }
     onReload?.();
   };
+
+  // Phase 2 — Trend Scheduler 수동 트리거(cron 은 3시간마다 자동 호출, 여기서는 즉시 확인용).
+  // 결과는 항상 DRAFT 로만 저장되며(api/trend/check-trends.js 하드코딩 규칙), 자동 발행 없음.
+  const handleCheckTrendsNow = async () => {
+    if (checkingTrends) return;
+    setCheckingTrends(true);
+    setTrendCheckResult(null);
+    try {
+      const res = await fetch("/api/trend/check-trends");
+      const json = await res.json();
+      setTrendCheckResult(json);
+      if (json?.created > 0) showToast?.(`🔎 트렌드 ${json.created}건을 초안으로 저장했습니다`);
+      else showToast?.("새로운(중복 아닌) 트렌드 이슈가 없습니다");
+      onReload?.();
+    } catch (e) {
+      showToast?.("트렌드 확인 실패: " + (e?.message ?? String(e)));
+    } finally {
+      setCheckingTrends(false);
+    }
+  };
+
+  // 8단계(관리자 화면 · Trend Queue) — 기존 draft/scheduled 목록(drafts)에서 ai_topic 이 있는
+  // 항목을 재사용해 추천점수/우선순위/카테고리 신뢰도를 다시 계산(별도 저장 없이 항상 최신 계산).
+  const trendQueue = drafts
+    .filter(d => d.ai_topic)
+    .map(d => {
+      const score = scoreTopic({ topic: d.ai_topic, region: d.region ?? null, collectedAt: d.created_at });
+      const priority = priorityFromScore(score.total);
+      const mapped = mapCategory(d.ai_topic);
+      return { ...d, _score: score.total, _priority: priority, _categoryConfidence: mapped.confidence };
+    })
+    .sort((a, b) => b._score - a._score);
 
   // 10단계(카테고리별 콘텐츠 축적) — 발행된 AI 콘텐츠를 카테고리별로 집계(8단계 Analytics 경량판).
   const byCategory = published.reduce((acc, p) => {
@@ -1320,6 +1356,45 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
                 취소
               </button>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Phase 2 — Trend Queue: 수집된 이슈(현재 draft/scheduled 중 ai_topic 보유)를
+          추천점수·우선순위·카테고리 신뢰도와 함께 보여준다. 실제 승인/발행 조작은
+          바로 아래 "검수 대기 · 예약 목록"에서 한다(중복 액션 버튼 없이 정보만 여기 표시). */}
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.md, flexWrap: "wrap", gap: S.sm }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>
+            📡 Trend Queue ({trendQueue.length})
+          </div>
+          <button onClick={handleCheckTrendsNow} disabled={checkingTrends}
+            style={{ padding: "6px 14px", background: C.bg, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+            {checkingTrends ? "확인 중..." : "🔎 지금 트렌드 확인"}
+          </button>
+        </div>
+        <div style={{ fontSize: 11, color: C.text3, marginBottom: S.sm, lineHeight: 1.6 }}>
+          3시간마다 자동 수집(Vercel Cron) + 수동 확인 버튼. 중복 이슈(48시간 이내 동일 title/topic)는
+          자동으로 걸러지며, 결과는 항상 초안(DRAFT)으로만 저장됩니다(자동 발행 없음).
+        </div>
+        {trendCheckResult && (
+          <div style={{ fontSize: 11, color: C.text3, marginBottom: S.sm, background: C.bg, borderRadius: R.sm, padding: "6px 10px" }}>
+            수집 {trendCheckResult.collected ?? 0}건 · 중복 제외 후 {trendCheckResult.deduped ?? 0}건 · 초안 생성 {trendCheckResult.created ?? 0}건
+          </div>
+        )}
+        {trendQueue.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "20px 0", color: C.text3, fontSize: 12.5 }}>대기 중인 트렌드 이슈가 없습니다</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {trendQueue.map(q => (
+              <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: `1px solid ${C.bg}`, fontSize: 11.5, flexWrap: "wrap" }}>
+                <span style={{ fontWeight: 700, color: C.text1, minWidth: 90 }}>{q.ai_topic}</span>
+                <span>{PRIORITY_LABEL[q._priority]}</span>
+                <span style={{ color: C.text3 }}>점수 {q._score}</span>
+                <span style={{ color: C.brand }}>{catLabel(q.category)}{q._categoryConfidence === "low" ? "(추정)" : ""}</span>
+                <span style={{ color: C.text4, marginLeft: "auto" }}>{q.created_at ? new Date(q.created_at).toLocaleString("ko-KR") : ""}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
