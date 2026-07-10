@@ -19,6 +19,7 @@ import { generateEditorial } from "../lib/editorialEngine";
 import { getEditorialConfig, setEditorialConfig } from "../lib/editorialConfig";
 import { resolveLoungeCategory } from "../lib/loungeCategoryMap";
 import { generateForWorkbench, saveWorkbenchRecord, PROMPT_VERSIONS } from "../lib/editorWorkbench";
+import { providerStatus, PROVIDER_CHOICES, LLM_PROVIDERS } from "../lib/llmProviders";
 import {
   workbenchIndex, getPipelineStages, setPipelineStage, clearPipelineStage,
   buildDraftBoard, publishHistory, popularContent, todaysPick, opsStats, PIPELINE_STAGES,
@@ -1926,8 +1927,9 @@ function TrendDiscoveryTab({ published = [], adminUserId, showToast, onReload })
     if (busyTopic) return;
     setBusyTopic(cand.topic);
     try {
+      // Phase 28 — Draft/Review 도 현재 선택 Provider(editorialConfig) 사용.
       const wb = await generateForWorkbench(
-        { issue: cand.topic, category: cand.category, mode: "voice", promptVersion: "v1", temperature: 0.85 },
+        { issue: cand.topic, category: cand.category, mode: "voice", promptVersion: "v1", temperature: 0.85, provider: getEditorialConfig().provider },
         { existing: published.filter(p => p.title).map(p => ({ title: p.title })) }
       );
       // Phase 20.6 — 실제 LLM 실패/미설정 시 Mock 생성하지 않고 중단.
@@ -2316,7 +2318,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     try {
       const existing = [...drafts, ...published].filter(p => p.title).map(p => ({ title: p.title }));
       const wb = await generateForWorkbench(
-        { issue: issue.trim(), category: cat, region: region.trim() || null, mode: useMode === "raw" ? "raw" : "voice", promptVersion: useVersion, temperature: useTemp },
+        { issue: issue.trim(), category: cat, region: region.trim() || null, mode: useMode === "raw" ? "raw" : "voice", promptVersion: useVersion, temperature: useTemp, provider: edCfg.provider },
         { existing }
       );
       // Phase 20.6 — Production: LLM 미설정/실패 시 Mock 생성하지 않고 명확히 안내.
@@ -2351,7 +2353,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     setEdGen(true); setEdResult(null);
     try {
       const r = await generateEditorial({
-        topic: issue.trim(), region: region.trim() || null,
+        topic: issue.trim(), region: region.trim() || null, provider: edCfg.provider,
         model: edCfg.model, temperature: edCfg.temperature, maxTokens: edCfg.maxTokens, maxRetries: edCfg.maxRetries,
       });
       if (!r.ok) { showToast?.("생성 실패: " + (r.reason === "llm_not_configured" ? "LLM 미설정" : r.reason === "all_attempts_failed" ? "유효한 본문 생성 실패(재시도 초과)" : (r.reason || "error"))); }
@@ -3104,16 +3106,28 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
       <div style={{ background: C.brandD, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.brandD}`, marginBottom: S.xl, color: "#fff" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <div style={{ fontSize: 14, fontWeight: 800 }}>📰 AI 편집국 — 실제 매거진 생성 (LLM)</div>
-          <span style={{ fontSize: 11, color: isLLMConfigured() ? "#B5D4C5" : "#F6DDAA" }}>{isLLMConfigured() ? "● LLM 연결됨" : "○ LLM 미설정(VITE_LLM_API_KEY)"}</span>
+          {/* Phase 28 — Provider 실시간 연결 상태 */}
+          <span style={{ display: "flex", gap: 10, fontSize: 11, flexWrap: "wrap" }}>
+            {providerStatus().map(p => (
+              <span key={p.id} style={{ color: p.connected ? "#B5D4C5" : "#9fb6ab" }}>
+                {p.connected ? "●" : "○"} {p.label} {p.connected ? "Connected" : "Not Configured"}
+              </span>
+            ))}
+          </span>
         </div>
         <div style={{ fontSize: 11, color: "#B5D4C5", marginTop: 4, lineHeight: 1.6 }}>
-          위 "이슈/트렌드"를 주제로 실제 OpenRouter LLM이 매거진 수준의 글을 씁니다. 신뢰도 90점 미만이면 자동 재작성(최대 3회, 최고점 채택).
+          위 "이슈/트렌드"를 주제로 선택한 LLM이 매거진 수준의 글을 씁니다. 신뢰도 90점 미만이면 자동 재작성(최대 3회, 최고점 채택). 기본 Provider는 Claude.
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: S.md }}>
           <label style={{ flex: "2 1 200px" }}>
-            <div style={{ fontSize: 10, color: "#9fb6ab" }}>모델</div>
-            <input value={edCfg.model} onChange={e => updateEdCfg({ model: e.target.value })}
-              style={{ width: "100%", padding: "7px 9px", borderRadius: R.md, border: "1px solid #3a5a4c", background: "#1a3327", color: "#fff", fontSize: 12, boxSizing: "border-box", fontFamily: "inherit" }} />
+            <div style={{ fontSize: 10, color: "#9fb6ab" }}>Provider</div>
+            <select value={edCfg.provider || "claude"} onChange={e => updateEdCfg({ provider: e.target.value })}
+              style={{ width: "100%", padding: "7px 9px", borderRadius: R.md, border: "1px solid #3a5a4c", background: "#1a3327", color: "#fff", fontSize: 12, boxSizing: "border-box", fontFamily: "inherit" }}>
+              <option value="claude">Claude</option>
+              <option value="gpt">GPT</option>
+              <option value="gemini">Gemini</option>
+              <option value="auto">Auto (콘텐츠 유형별 자동)</option>
+            </select>
           </label>
           <label style={{ flex: "1 1 90px" }}>
             <div style={{ fontSize: 10, color: "#9fb6ab" }}>Temperature</div>

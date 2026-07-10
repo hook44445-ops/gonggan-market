@@ -12,6 +12,7 @@ const KEY = "editorial_llm_config_v1";
 export const FALLBACK_MODEL = DEFAULT_MODEL || "anthropic/claude-3.5-sonnet";
 
 export const EDITORIAL_DEFAULTS = {
+  provider: "claude",  // Phase 28 — 멀티 LLM 선택(claude/gpt/gemini/auto). 기본 Claude 유지.
   model: FALLBACK_MODEL,
   temperature: 0.85,   // 사람처럼 리듬 다양 → 약간 높게(단정·과장은 프롬프트로 억제)
   maxTokens: 2400,     // 본문 1200~2500자 + JSON 여유
