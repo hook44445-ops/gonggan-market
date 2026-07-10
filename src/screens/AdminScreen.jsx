@@ -30,6 +30,7 @@ import { runFusion } from "../lib/fusionRunner";
 import FusionProgress from "../components/FusionProgress";
 import FusionHistory from "../components/FusionHistory";
 import CeoOffice from "../components/CeoOffice";
+import MissionControl from "../components/MissionControl";
 import {
   workbenchIndex, getPipelineStages, setPipelineStage, clearPipelineStage,
   buildDraftBoard, publishHistory, popularContent, todaysPick, opsStats, PIPELINE_STAGES,
@@ -5715,6 +5716,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["lounge_ai_factory", "AI 콘텐츠 공장"],
     ["trend_discovery", "트렌드 발굴"],
     ["publishing_pipeline", "발행 파이프라인"],
+    ["mission_control", "운영센터"],
     ["ai_hq",          "AI 운영본부"],
     ["ceo_office",     "AI 사장실"],
     ["auto_publish", "자동발행"],
@@ -5744,7 +5746,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["ai_hq", "AI 운영본부"], ["ceo_office", "AI 사장실"], ["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["editorial_schedule", "자동 편성"], ["blog_publish", "블로그 발행"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["reports"]] },
+      tabs: [["mission_control", "운영센터"], ["ai_hq", "AI 운영본부"], ["ceo_office", "AI 사장실"], ["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["editorial_schedule", "자동 편성"], ["blog_publish", "블로그 발행"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
@@ -7096,6 +7098,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
               <AIHeadquartersTab published={aiPublished} adminUserId={user?.id ?? null} showToast={showToast} onReload={async () => {
                 try { const [d, p] = await Promise.all([adminListLoungeDrafts(), adminListPublishedAiContent()]); setAiDrafts(d.data ?? []); setAiPublished(p.data ?? []); } catch { /* keep */ }
               }} />
+            )}
+
+            {/* ── 운영센터 (Phase 33 · Mission Control) ── */}
+            {mainTab === "mission_control" && (
+              <MissionControl showToast={showToast} />
             )}
 
             {/* ── AI 사장실 (Phase 32 · Automation Factory) ── */}
