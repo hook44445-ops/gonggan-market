@@ -215,12 +215,19 @@ export async function generateForWorkbench(
       },
     };
   } catch (e) {
-    // Phase 20.6 — 실패 시에도 Mock 생성 금지. "LLM 호출 실패"만 반환.
+    // Phase 27 — 실패 시 Mock 생성 금지 + 운영자가 원인을 바로 알 수 있게 리치 에러 전달.
+    //   llmClient 의 LLMError 는 status/url/model/responseBody 를 포함한다.
     return {
       error: `LLM 호출 실패: ${e?.message ?? String(e)}`,
       result: null,
       quality: null,
-      meta: { ...baseMeta, source: "error", latencyMs: Date.now() - t0, rawResponse },
+      meta: {
+        ...baseMeta, source: "error", latencyMs: Date.now() - t0, rawResponse,
+        llmStatus: e?.status ?? null,
+        llmUrl: e?.url ?? null,
+        llmErrorModel: e?.model ?? null,
+        llmResponseBody: (e?.responseBody ?? "").slice(0, 500) || null,
+      },
     };
   }
 }

@@ -29,6 +29,28 @@ const BASE_URL = ENV.VITE_LLM_BASE_URL || (PROVIDER === "anthropic" ? "https://a
 const TIMEOUT_MS  = Number(ENV.VITE_LLM_TIMEOUT_MS) || 30000;
 const MAX_RETRIES = Number.isFinite(Number(ENV.VITE_LLM_MAX_RETRIES)) ? Number(ENV.VITE_LLM_MAX_RETRIES) : 2;
 
+// Phase 27 — 모델 폴백 체인. 지정 모델이 404(모델 없음/엔드포인트 없음)이면 다음 모델로 자동 전환.
+//   auth(401/403)·timeout·rate-limit 은 폴백하지 않는다(원인을 가리지 않기 위해).
+//   VITE_LLM_MODEL_FALLBACKS(쉼표 구분)로 재정의 가능. 기본은 OpenRouter 에서 널리 제공되는 슬러그.
+const DEFAULT_OPENROUTER_FALLBACKS = [
+  "anthropic/claude-3.5-sonnet",
+  "anthropic/claude-3.7-sonnet",
+  "anthropic/claude-3.5-haiku",
+  "openai/gpt-4o-mini",
+];
+function fallbackModels() {
+  const raw = String(ENV.VITE_LLM_MODEL_FALLBACKS || "").trim();
+  if (raw) return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return PROVIDER === "anthropic" ? [] : DEFAULT_OPENROUTER_FALLBACKS;
+}
+// 시도할 모델 순서: 요청 모델(또는 기본) → 폴백들(중복 제거).
+function modelCandidates(primary) {
+  const first = primary || MODEL;
+  const seen = new Set(), out = [];
+  for (const m of [first, ...fallbackModels()]) { const k = String(m || "").trim(); if (k && !seen.has(k)) { seen.add(k); out.push(k); } }
+  return out;
+}
+
 // 키가 있어야만 LLM 경로를 켠다(없으면 항상 Mock 폴백).
 export function isLLMConfigured() {
   return Boolean(API_KEY);
@@ -48,12 +70,32 @@ function isRetryable(status) {
 }
 
 class LLMError extends Error {
-  constructor(message, { status = 0, retryable = false } = {}) {
+  constructor(message, { status = 0, retryable = false, url = null, model = null, provider = null, responseBody = null } = {}) {
     super(message);
     this.name = "LLMError";
     this.status = status;
     this.retryable = retryable;
+    this.url = url;
+    this.model = model;
+    this.provider = provider;
+    this.responseBody = responseBody;
   }
+}
+
+// 404(모델 없음/엔드포인트 없음) 또는 400 "not a valid model / no endpoints" 만 모델 폴백 대상.
+function isModelUnavailable(status, bodyText) {
+  if (status === 404) return true;
+  if (status === 400 && /no endpoints|not a valid model|model .*not found|invalid model/i.test(bodyText || "")) return true;
+  return false;
+}
+
+// 운영자가 바로 원인을 알 수 있는 리치 에러 메시지.
+function buildHttpErrorMessage({ status, url, model, provider, bodyText }) {
+  const head = status === 404
+    ? (provider === "anthropic" ? "Anthropic Endpoint/Model Not Found" : "OpenRouter Endpoint Not Found")
+    : `LLM HTTP ${status}`;
+  const body = (bodyText || "").replace(/\s+/g, " ").trim().slice(0, 400) || "(빈 응답)";
+  return `${head}\nRequest URL: ${url}\nModel: ${model}\nStatus: ${status}\nResponse: ${body}`;
 }
 
 // 외부 signal + 자체 timeout 을 결합한 AbortController.
@@ -135,6 +177,30 @@ export async function callLLM({ system = "", user = "", temperature = 0.85, maxT
   if (!isLLMConfigured()) throw new LLMError("LLM 미설정 (VITE_LLM_API_KEY 필요)", { status: 0, retryable: false });
   if (!user.trim()) throw new LLMError("empty prompt", { status: 0, retryable: false });
 
+  const candidates = modelCandidates(model);
+  let modelErr = null;
+  // 모델 폴백 체인 — 404(모델 없음)면 다음 모델 시도. 그 외(auth/timeout)는 즉시 throw.
+  for (let ci = 0; ci < candidates.length; ci++) {
+    const useModel = candidates[ci];
+    try {
+      return await callModel({ system, user, temperature, maxTokens, model: useModel, signal });
+    } catch (e) {
+      if (e instanceof LLMError && isModelUnavailable(e.status, e.responseBody) && ci < candidates.length - 1) {
+        modelErr = e; // 다음 폴백 모델로 계속.
+        continue;
+      }
+      // 마지막 후보였고 모델 문제였다면, 시도한 모델 목록을 덧붙여 안내.
+      if (e instanceof LLMError && isModelUnavailable(e.status, e.responseBody) && candidates.length > 1) {
+        e.message = `${e.message}\n(시도한 모델: ${candidates.join(", ")})`;
+      }
+      throw e;
+    }
+  }
+  throw modelErr || new LLMError("LLM failed", { status: 0, retryable: false });
+}
+
+// 단일 모델에 대한 요청(재시도 포함). 실패 시 리치 LLMError throw.
+async function callModel({ system, user, temperature, maxTokens, model, signal }) {
   const req = buildRequest({ system, user, temperature, maxTokens, model });
   let lastErr = null;
 
@@ -144,25 +210,31 @@ export async function callLLM({ system = "", user = "", temperature = 0.85, maxT
       const res = await fetch(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(req.body), signal: controller.signal });
       cleanup();
       if (!res.ok) {
+        // 실제 원인 파악을 위해 응답 본문을 읽는다(운영자 로그/에러 표시용).
+        const bodyText = await res.text().catch(() => "");
         const retryable = isRetryable(res.status);
-        // Rate limit — Retry-After 존중 후 백오프.
+        // Rate limit / 5xx — Retry-After 존중 후 백오프.
         if (retryable && attempt < MAX_RETRIES) {
           const ra = Number(res.headers.get("retry-after"));
           const backoff = Number.isFinite(ra) && ra > 0 ? ra * 1000 : Math.min(800 * 2 ** attempt, 8000);
-          lastErr = new LLMError(`HTTP ${res.status}`, { status: res.status, retryable: true });
+          lastErr = new LLMError(`HTTP ${res.status}`, { status: res.status, retryable: true, url: req.url, model, provider: PROVIDER, responseBody: bodyText });
           await sleep(backoff);
           continue;
         }
-        throw new LLMError(`LLM HTTP ${res.status}`, { status: res.status, retryable });
+        throw new LLMError(
+          buildHttpErrorMessage({ status: res.status, url: req.url, model, provider: PROVIDER, bodyText }),
+          { status: res.status, retryable, url: req.url, model, provider: PROVIDER, responseBody: bodyText }
+        );
       }
       const json = await res.json();
       const text = req.extractText(json);
-      if (!text || !text.trim()) throw new LLMError("empty LLM response", { status: 200, retryable: false });
+      if (!text || !text.trim()) throw new LLMError("empty LLM response", { status: 200, retryable: false, url: req.url, model, provider: PROVIDER });
       return { text, usage: req.extractUsage ? req.extractUsage(json) : { promptTokens: null, completionTokens: null, totalTokens: null } };
     } catch (e) {
       cleanup();
+      if (e instanceof LLMError && e.status && e.status !== 200) throw e; // HTTP 오류는 위에서 이미 리치 메시지.
       const aborted = e?.name === "AbortError";
-      lastErr = e instanceof LLMError ? e : new LLMError(aborted ? "LLM timeout/abort" : (e?.message || "network error"), { status: 0, retryable: !aborted });
+      lastErr = e instanceof LLMError ? e : new LLMError(aborted ? "LLM timeout/abort" : (e?.message || "network error"), { status: 0, retryable: !aborted, url: req.url, model, provider: PROVIDER });
       // 네트워크/타임아웃 — 남은 재시도가 있으면 백오프 후 재시도.
       if (lastErr.retryable && attempt < MAX_RETRIES) {
         await sleep(Math.min(800 * 2 ** attempt, 8000));
@@ -171,7 +243,7 @@ export async function callLLM({ system = "", user = "", temperature = 0.85, maxT
       throw lastErr;
     }
   }
-  throw lastErr || new LLMError("LLM failed", { status: 0, retryable: false });
+  throw lastErr || new LLMError("LLM failed", { status: 0, retryable: false, url: req.url, model, provider: PROVIDER });
 }
 
 export { LLMError };
