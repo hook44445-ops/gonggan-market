@@ -29,6 +29,15 @@ export const ACTIVITY_KINDS = {
   retry:        { icon: "🔁", label: "Retry" },
   budget:       { icon: "💰", label: "예산" },
   story:        { icon: "📚", label: "연재" },
+  // Phase 25 — 블로그 발행(JAFA1) 이벤트.
+  blog_start:     { icon: "📤", label: "블로그 발행 시작" },
+  blog_html:      { icon: "🧱", label: "HTML 생성" },
+  blog_prepared:  { icon: "📦", label: "발행 준비(임시)" },
+  blog_url:       { icon: "🔗", label: "URL 생성" },
+  blog_published: { icon: "🚀", label: "블로그 발행" },
+  blog_drafted:   { icon: "📝", label: "블로그 임시저장" },
+  blog_retry:     { icon: "🔁", label: "블로그 Retry" },
+  blog_failed:    { icon: "❌", label: "블로그 발행 실패" },
 };
 
 export function getActivityLog() {

@@ -39,6 +39,11 @@ import { morningBriefPrompt, morningBriefTitles } from "../lib/morningBrief";
 import { todayWordPrompt, todayWordTitle } from "../lib/todayWord";
 import { astrologyPrompt, astrologyTitle } from "../lib/indianAstrology";
 import { timeTrendCandidates } from "../lib/timeTrend";
+import {
+  getBlogConfig, setBlogConfig, getBlogLog, buildBlogPost, publishToBlog,
+  blogUsageStats, isBlogEligible, BLOG_PROVIDERS,
+} from "../lib/blogPublisher";
+import { classifyContentType } from "../lib/contentTypes";
 import { voiceFor } from "../constants/categoryVoice";
 import { scoreUsefulness } from "../lib/contentUsefulness";
 import { detectForcedSpaceLinks } from "../lib/forcedSpaceLinkFilter";
@@ -1525,6 +1530,170 @@ function PublishingPriorityTab({ drafts = [], published = [] }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── 블로그 발행(Phase 25 JAFA1) — Space Lounge → 네이버 블로그 자동배포 준비/실행 ──────
+//   HTML/SEO/태그/공유메타/Space Lounge 링크를 자동 생성한다. 실제 업로드는 endpoint(웹훅/프록시)
+//   설정 시 전송, 미설정 시 '준비(임시저장)'로 기록(회귀 없음 · 나중에 endpoint 만 연결).
+function BlogPublishTab({ published = [], showToast }) {
+  const [tick, setTick] = useState(0); void tick;
+  const bump = () => setTick(t => t + 1);
+  const [showSettings, setShowSettings] = useState(false);
+  const [preview, setPreview] = useState(null); // { title, html }
+  const [busy, setBusy] = useState(false);
+  const cfg = getBlogConfig();
+  const usage = blogUsageStats();
+  const log = getBlogLog();
+  const box = { background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl };
+
+  const setCfg = (patch) => { setBlogConfig(patch); bump(); };
+
+  // 발행 대상 후보 — 발행된 AI 콘텐츠 중 타입 토글 통과분.
+  const candidates = (published || [])
+    .map((p) => ({ ...p, _type: p.content_type || p.contentType || classifyContentType(p.title || "") }))
+    .filter((p) => isBlogEligible(p._type, cfg))
+    .slice(0, 30);
+
+  const usedToday = usage.dailyUsed;
+  const remain = Math.max(0, cfg.dailyMax - usedToday);
+
+  const doPublish = async (p) => {
+    if (busy) return;
+    if (!cfg.enabled) { showToast?.("블로그 자동발행이 OFF 입니다 — 먼저 ON 하세요"); return; }
+    if (remain <= 0) { showToast?.(`오늘 업로드 한도(${cfg.dailyMax}) 도달`); return; }
+    setBusy(true);
+    try {
+      const res = await publishToBlog(p, { cfg });
+      if (res.status === "prepared") showToast?.("📦 발행 준비 완료(임시저장) — 업로드 endpoint 설정 시 자동 전송됩니다");
+      else if (res.status === "failed") showToast?.("블로그 발행 실패: " + (res.error ?? ""));
+      else showToast?.(`✅ 블로그 ${res.status === "published" ? "발행" : "임시저장"} 완료${res.url ? " · " + res.url : ""}`);
+    } catch (e) { showToast?.("블로그 발행 오류: " + (e?.message ?? String(e))); }
+    finally { setBusy(false); bump(); }
+  };
+
+  const showHtml = (p) => { const b = buildBlogPost(p, cfg); setPreview({ title: p.title, html: b.html }); };
+
+  const SETTINGS = [
+    ["enabled", "블로그 자동발행 ON/OFF", "bool"], ["draftMode", "임시저장", "bool"], ["instant", "즉시발행", "bool"],
+    ["testMode", "테스트모드", "bool"], ["coverImage", "대표이미지 포함", "bool"], ["seoAuto", "SEO 자동생성", "bool"],
+    ["tagAuto", "태그 자동생성", "bool"], ["appendUrl", "Space Lounge URL 첨부", "bool"],
+    ["maxRetry", "최대 Retry", "num"], ["dailyMax", "하루 최대 업로드", "num"],
+    ["typeMorningBrief", "Morning Brief 대상", "bool"], ["typeQt", "큐티 말씀 대상", "bool"],
+    ["typeAstrology", "인도점성술 대상", "bool"], ["typeSpaceMarket", "공간마켓 대상", "bool"],
+    ["typeSeries", "연재 대상", "bool"], ["typeTimeTrend", "Time Trend 대상", "bool"],
+    ["typeBreaking", "긴급뉴스 대상(기본 OFF)", "bool"],
+  ];
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>📤 블로그 발행 (JAFA1)</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setCfg({ enabled: !cfg.enabled })}
+            style={{ padding: "7px 16px", borderRadius: R.full, fontWeight: 800, fontSize: 12.5, cursor: "pointer", border: "none", background: cfg.enabled ? C.brand : C.text4, color: "#fff" }}>
+            {cfg.enabled ? "🟢 ON" : "⚪ OFF"}
+          </button>
+          <button onClick={() => setShowSettings(v => !v)} style={{ padding: "7px 12px", background: "#fff", color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
+            {showSettings ? "▾ 설정" : "⚙️ 설정"}
+          </button>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.md, lineHeight: 1.6 }}>
+        Space Lounge 글을 <b>{BLOG_PROVIDERS[cfg.provider]?.label}</b>용 HTML·SEO·태그·공유메타로 자동 변환하고 Space Lounge 링크를 첨부합니다.
+        {" "}오늘 {usedToday}/{cfg.dailyMax}. {!cfg.endpoint && <b style={{ color: C.gold }}>⚠️ 업로드 endpoint 미설정 — 발행물은 '준비(임시저장)'로 기록됩니다.</b>}
+      </div>
+
+      {/* Usage */}
+      <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
+        {[
+          { k: "오늘 업로드", v: usage.today }, { k: "이번주", v: usage.week }, { k: "이번달", v: usage.month }, { k: "누적", v: usage.all },
+          { k: "성공률", v: usage.successRate != null ? usage.successRate + "%" : "-" }, { k: "실패", v: usage.failures },
+          { k: "Retry", v: usage.retries }, { k: "평균 업로드", v: usage.avgUploadMs != null ? (usage.avgUploadMs / 1000).toFixed(1) + "초" : "-" },
+        ].map(m => (
+          <div key={m.k} style={{ flex: "1 1 90px", background: C.bg, borderRadius: R.lg, padding: "8px 11px", border: `1px solid ${C.bgWarm}` }}>
+            <div style={{ fontSize: 10, color: C.text3 }}>{m.k}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.text1 }}>{m.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 설정 */}
+      {showSettings && (
+        <div style={box}>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>⚙️ 블로그 발행 설정</div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: C.text2, marginBottom: 8 }}>
+            <span style={{ minWidth: 130 }}>Space Lounge URL</span>
+            <input value={cfg.spaceLoungeUrl} onChange={(e) => setCfg({ spaceLoungeUrl: e.target.value })}
+              style={{ flex: 1, border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, padding: "4px 8px", fontSize: 11 }} />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: C.text2, marginBottom: 10 }}>
+            <span style={{ minWidth: 130 }}>업로드 endpoint(웹훅)</span>
+            <input value={cfg.endpoint} placeholder="예: https://your-proxy/naver-publish (미설정 시 임시저장)" onChange={(e) => setCfg({ endpoint: e.target.value })}
+              style={{ flex: 1, border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, padding: "4px 8px", fontSize: 11 }} />
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+            {SETTINGS.map(([key, label, type]) => (
+              <label key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: C.text2, background: C.bg, borderRadius: R.md, padding: "6px 9px" }}>
+                <span>{label}</span>
+                {type === "bool"
+                  ? <input type="checkbox" checked={!!cfg[key]} onChange={(e) => setCfg({ [key]: e.target.checked })} />
+                  : <input type="number" value={cfg[key]} onChange={(e) => setCfg({ [key]: Number(e.target.value) })} style={{ width: 64, textAlign: "right", border: `1px solid ${C.bgWarm}`, borderRadius: R.sm, padding: "3px 6px", fontSize: 11 }} />}
+              </label>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: C.text3, marginTop: S.sm }}>기본: 자동발행 OFF · 임시저장 ON · 즉시발행 OFF · Retry 3. 긴급뉴스는 기본 발행 대상 제외.</div>
+        </div>
+      )}
+
+      {/* 발행 대기열 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🗂️ 발행 대상 ({candidates.length})</div>
+        {candidates.length === 0 ? (
+          <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>발행된 콘텐츠 중 블로그 발행 대상이 없습니다(타입 토글 확인).</div>
+        ) : candidates.map((p) => (
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "6px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+            <span style={{ padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: C.brandL, color: C.brandD }}>{contentTypeMeta(p._type).icon} {contentTypeMeta(p._type).label}</span>
+            <span style={{ fontWeight: 700, color: C.text1, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+            <button onClick={() => showHtml(p)} style={{ padding: "4px 9px", background: "#fff", color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 10, cursor: "pointer" }}>HTML</button>
+            <button onClick={() => doPublish(p)} disabled={busy || !cfg.enabled} style={{ padding: "4px 10px", background: cfg.enabled ? C.brandD : C.text4, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: cfg.enabled ? "pointer" : "default" }}>블로그 발행</button>
+          </div>
+        ))}
+      </div>
+
+      {/* HTML 미리보기 */}
+      {preview && (
+        <div style={box}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.sm }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>🧱 HTML 미리보기 — {preview.title}</div>
+            <button onClick={() => setPreview(null)} style={{ fontSize: 11, color: C.text3, background: "none", border: "none", cursor: "pointer" }}>닫기</button>
+          </div>
+          <div style={{ border: `1px solid ${C.bgWarm}`, borderRadius: R.md, padding: S.md, maxHeight: 300, overflow: "auto", background: "#fff" }}
+            dangerouslySetInnerHTML={{ __html: preview.html }} />
+        </div>
+      )}
+
+      {/* 발행 로그 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🧾 블로그 발행 로그 ({log.length})</div>
+        {log.length === 0 ? <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>아직 블로그 발행 기록이 없습니다.</div> : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {log.slice(0, 20).map((e, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 10.5, padding: "3px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+                <span style={{ color: C.text4, minWidth: 88 }}>{new Date(e.at).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                <span style={{ padding: "1px 6px", borderRadius: R.full, fontSize: 9, fontWeight: 800,
+                  background: e.status === "published" ? "#05966922" : e.status === "drafted" || e.status === "prepared" ? "#7c3aed22" : e.status === "failed" ? "#dc262622" : "#6b728022",
+                  color: e.status === "published" ? "#059669" : e.status === "drafted" || e.status === "prepared" ? "#7c3aed" : e.status === "failed" ? "#dc2626" : "#6b7280" }}>
+                  {e.status}
+                </span>
+                <span style={{ color: C.text1, flex: 1, minWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.title}</span>
+                {e.url ? <a href={e.url} target="_blank" rel="noopener" style={{ color: C.brand, fontSize: 10 }}>URL</a> : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -5234,6 +5403,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["publishing_pipeline", "발행 파이프라인"],
     ["auto_publish", "자동발행"],
     ["editorial_schedule", "자동 편성"],
+    ["blog_publish",   "블로그 발행"],
     ["publishing_priority", "발행 우선순위"],
     ["story_engine",   "연재 스토리"],
     ["reports",        "신고관리"],
@@ -5258,7 +5428,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["editorial_schedule", "자동 편성"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["reports"]] },
+      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["editorial_schedule", "자동 편성"], ["blog_publish", "블로그 발행"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
@@ -6608,6 +6778,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── 자동 편성 (Phase 24 Morning Brief) ── */}
             {mainTab === "editorial_schedule" && (
               <EditorialScheduleTab published={aiPublished} showToast={showToast} />
+            )}
+
+            {/* ── 블로그 발행 (Phase 25 JAFA1) ── */}
+            {mainTab === "blog_publish" && (
+              <BlogPublishTab published={aiPublished} showToast={showToast} />
             )}
 
             {/* ── 연재 스토리 (Phase 24) ── */}
