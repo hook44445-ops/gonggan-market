@@ -24,23 +24,47 @@ const RETRY_KEY = "space_auto_publish_retry_v1";
 // Phase 24 — 자동발행 조건/예산 전체(관리자 설정). 기존 4키(enabled/intervalHours/dailyLimit/
 //   emergencyTrendMin)는 그대로 유지 + 게이트 임계치·검사토글·재시도·예산 추가. 전부 localStorage.
 export const DEFAULT_CFG = {
-  enabled: false,          // 자동발행 ON/OFF (기본 OFF)
-  testMode: true,          // 테스트모드(dryRun) — 실제 발행/예약하지 않고 계획만
+  enabled: false,          // 자동발행 ON/OFF (기본 OFF · 반드시 관리자가 켜야 함)
+  testMode: false,         // 테스트모드 (기본 OFF) — ON 시 Q70/경고, Draft 테스트발행
   intervalHours: 3,        // 예약 슬롯 간격
-  dailyLimit: 10,          // 하루 최대 발행수
+  dailyLimit: 11,          // 하루 최대 발행수(상한선)
   minEditorialScore: 90,   // 최소 품질(Editorial/유용성)
   minConfidence: 90,       // 최소 Confidence
   minBodyLength: 700,      // 본문 최소 길이
-  dupHours: 48,            // 중복 차단 시간
+  minReadMinutes: 0,       // 최소 읽기 시간(0=미적용)
+  dupHours: 48,            // 중복 차단 시간(48/24/12/0=OFF)
   humanizationCheck: true, // Humanization 검사
   seoCheck: true,          // SEO 검사
-  reviewRequired: true,    // Review/Approved 필수
+  reviewRequired: true,    // Review 필수
+  approvedRequired: false, // Approved 필수
   maxRetry: 3,             // 최대 Retry
   emergencyInstant: true,  // 긴급 즉시발행
   emergencyTrendMin: 95,   // 긴급 판정 TrendScore
   budgetTodayKRW: 0,       // 오늘 최대 비용(0=무제한)
   budgetMonthKRW: 0,       // 이번달 최대 비용(0=무제한)
+  // Phase 24 — 콘텐츠 타입 편성 토글(기본 ON). 하루 편성에서 제외하려면 false.
+  typeMorningBrief: true,
+  typeQt: true,
+  typeAstrology: true,
+  typeSeries: true,
+  typeSpaceMarket: true,
+  typeTimeTrend: true,
 };
+
+// 콘텐츠 타입 토글 → contentTypes.dailyComposition 이 쓰는 { [typeId]: bool } 맵.
+export function typeToggles(cfg = getAutoConfig()) {
+  return {
+    morning_brief: cfg.typeMorningBrief !== false,
+    qt: cfg.typeQt !== false,
+    astrology: cfg.typeAstrology !== false,
+    series: cfg.typeSeries !== false,
+    space_market: cfg.typeSpaceMarket !== false,
+    trend_past: cfg.typeTimeTrend !== false,
+    trend_present: cfg.typeTimeTrend !== false,
+    trend_future: cfg.typeTimeTrend !== false,
+    breaking: true,
+  };
+}
 
 export function getAutoConfig() {
   try { return { ...DEFAULT_CFG, ...(JSON.parse(localStorage.getItem(CFG_KEY) ?? "{}") || {}) }; }
@@ -143,6 +167,7 @@ export function planAutoPublish({ drafts = [], published = [], wbIndex = new Map
   const emergency = [], scheduled = [], skipped = [];
 
   const gateCfg = {
+    testMode: config.testMode,
     minQuality: config.minEditorialScore, minConfidence: config.minConfidence,
     dupHours: config.dupHours, minBodyLength: config.minBodyLength,
     seoCheck: config.seoCheck, reviewRequired: config.reviewRequired,

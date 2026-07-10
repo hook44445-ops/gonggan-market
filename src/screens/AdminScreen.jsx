@@ -31,8 +31,14 @@ import {
   getAutoConfig, setAutoConfig, planAutoPublish, executeAutoPublishPlan,
   autoPublishStats, getPublishLog, budgetStatus,
 } from "../lib/autoPublish";
-import { activityRows, activitySummary, clearActivityLog } from "../lib/activityLog";
+import { activityRows, activitySummary, clearActivityLog, contentMixSummary } from "../lib/activityLog";
 import { getSeriesList, upsertSeries, removeSeries, dueSeries, nextEpisodePrompt } from "../lib/storyEngine";
+import { dailyComposition, contentTypeMeta } from "../lib/contentTypes";
+import { typeToggles } from "../lib/autoPublish";
+import { morningBriefPrompt, morningBriefTitles } from "../lib/morningBrief";
+import { todayWordPrompt, todayWordTitle } from "../lib/todayWord";
+import { astrologyPrompt, astrologyTitle } from "../lib/indianAstrology";
+import { timeTrendCandidates } from "../lib/timeTrend";
 import { voiceFor } from "../constants/categoryVoice";
 import { scoreUsefulness } from "../lib/contentUsefulness";
 import { detectForcedSpaceLinks } from "../lib/forcedSpaceLinkFilter";
@@ -1321,8 +1327,15 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
               ["humanizationCheck", "Humanization 검사", "bool"],
               ["reviewRequired", "Review 필수", "bool"],
               ["emergencyInstant", "긴급 즉시발행", "bool"],
+              ["approvedRequired", "Approved 필수", "bool"],
               ["budgetTodayKRW", "오늘 예산(₩·0=무제한)", "num"],
               ["budgetMonthKRW", "이번달 예산(₩·0=무제한)", "num"],
+              ["typeMorningBrief", "Morning Brief 포함", "bool"],
+              ["typeQt", "오늘 큐티 말씀 포함", "bool"],
+              ["typeAstrology", "오늘의 인도점성술 포함", "bool"],
+              ["typeSeries", "연재 1개 포함", "bool"],
+              ["typeSpaceMarket", "공간마켓 1개 포함", "bool"],
+              ["typeTimeTrend", "Time Trend 3개 포함", "bool"],
             ].map(([key, label, type]) => (
               <label key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: C.text2, background: C.bg, borderRadius: R.md, padding: "6px 9px" }}>
                 <span>{label}</span>
@@ -1510,6 +1523,103 @@ function PublishingPriorityTab({ drafts = [], published = [] }) {
               {s.item && <span style={{ color: C.text3, fontSize: 10 }}>{s.item.categoryLabel}{s.item.trendScore ? ` · TS${s.item.trendScore}` : ""}</span>}
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 자동 편성(Phase 24 Morning Brief) — 하루 편성표 + 아침 콘텐츠 프롬프트 생성 ──────
+//   "뉴스는 뉴스로, 공간마켓은 공간마켓으로." 타입별 편성 상한(11)·공간관점 적용 여부 표시.
+//   각 아침 콘텐츠(모닝브리핑/큐티/인도점성술/타임트렌드)의 생성 프롬프트를 복사해 AI 공장에서
+//   생성·검수·발행한다(엔진/발행 흐름 재사용 · DB/Cron 없음).
+function EditorialScheduleTab({ published = [], showToast }) {
+  const [tick, setTick] = useState(0); void tick;
+  const toggles = typeToggles();
+  const comp = dailyComposition({ published, toggles });
+  const mix = contentMixSummary("today");
+  const trends = timeTrendCandidates({ published });
+  const box = { background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl };
+
+  const copy = async (label, text) => {
+    try { await navigator.clipboard.writeText(text); showToast?.(`${label} 프롬프트 복사됨 — AI 콘텐츠 공장에 붙여넣어 생성하세요`); }
+    catch { showToast?.("복사 실패 — 콘솔의 프롬프트를 수동 복사하세요"); if (typeof console !== "undefined") console.log(text); }
+  };
+
+  const morning = [
+    { id: "morning_brief", label: "📰 Morning Brief", title: morningBriefTitles().editorials, prompt: morningBriefPrompt() },
+    { id: "qt", label: "📖 오늘 큐티 말씀", title: todayWordTitle(), prompt: todayWordPrompt() },
+    { id: "astrology", label: "🔮 오늘의 인도점성술", title: astrologyTitle(), prompt: astrologyPrompt() },
+  ];
+
+  return (
+    <div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🗞️ 자동 편성 (Daily Editorial)</div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
+        하루 최대 <b>{comp.cap}개</b>(상한선 · 품질 통과분만 발행). <b>뉴스는 뉴스로, 공간마켓은 공간 관점으로, 연재는 연재로</b> —
+        타입별로 공간 관점 적용 여부가 다릅니다. 각 콘텐츠는 프롬프트를 복사해 <b>AI 콘텐츠 공장</b>에서 생성·검수·발행합니다.
+      </div>
+
+      {/* 오늘의 편성표 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
+          📋 오늘의 편성표 (발행 {comp.publishedToday} / 상한 {comp.cap} · 잔여 {comp.remaining})
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          {comp.rows.map((r) => (
+            <div key={r.typeId} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "5px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+              <span style={{ minWidth: 18 }}>{r.icon}</span>
+              <span style={{ fontWeight: 700, color: C.text1, minWidth: 120 }}>{r.label}</span>
+              <span style={{ color: C.text3, minWidth: 44 }}>{r.slot}</span>
+              <span style={{ padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: r.news ? "#0369a122" : r.spacePerspective ? "#7c3aed22" : "#6b728022", color: r.news ? "#0369a1" : r.spacePerspective ? "#7c3aed" : "#6b7280" }}>
+                {r.news ? "뉴스형" : r.spacePerspective ? "공간관점" : r.seoFirst ? "SEO정리" : "일반"}
+              </span>
+              <span style={{ marginLeft: "auto", color: C.text2 }}>{r.done}/{r.quota}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 아침 고정 콘텐츠 생성 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🌅 아침 고정 콘텐츠 (프롬프트 생성)</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {morning.map((m) => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "6px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 700, color: C.text1, minWidth: 150 }}>{m.label}</span>
+              <span style={{ color: C.text3, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</span>
+              <button onClick={() => copy(m.label, m.prompt)} style={{ padding: "4px 10px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: "pointer" }}>프롬프트 복사</button>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 10, color: C.text3, marginTop: S.sm }}>Morning Brief 는 검색 노출용 정리 콘텐츠 — AI 의견·공간 관점·감성 해석 없이 신문사/날짜/제목을 유지합니다.</div>
+      </div>
+
+      {/* Time Trend 후보 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>⏳ Time Trend 후보 (과거·현재·미래)</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {trends.map((t) => (
+            <div key={t.axis} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "6px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+              <span style={{ padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: "#7c3aed22", color: "#7c3aed" }}>{t.icon} {t.label}</span>
+              <span style={{ color: C.text1, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.topic}</span>
+              <button onClick={() => copy(`Time Trend ${t.label}`, t.prompt)} style={{ padding: "4px 10px", background: "#fff", color: C.brandD, border: `1px solid ${C.brandM}`, borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: "pointer" }}>프롬프트 복사</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 콘텐츠 믹스 + Shareability */}
+      {mix.total > 0 && (
+        <div style={box}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📊 오늘 콘텐츠 믹스 · Shareability {mix.avgShareability != null ? `평균 ${mix.avgShareability}` : ""}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {mix.ratios.map((r) => (
+              <span key={r.type} style={{ fontSize: 11, color: C.text2, background: C.bg, borderRadius: R.full, padding: "3px 10px" }}>
+                {contentTypeMeta(r.type).icon} {contentTypeMeta(r.type).label} {r.pct}% ({r.count})
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -1899,6 +2009,7 @@ function UsageDashboardPanel({ C, S, R }) {
   const [range, setRange] = useState("today");
   const st = useMemo(() => usageStats(range), [range]);
   const money = useMemo(() => usageMoneyOverview(), []);
+  const mix = useMemo(() => contentMixSummary("all"), []);
   const RANGES = [["today", "오늘"], ["week", "이번주"], ["month", "이번달"], ["all", "누적"]];
   const cell = (label, value, sub) => (
     <div style={{ background: "#fff", borderRadius: R.md, padding: "8px 10px", border: `1px solid ${C.bgWarm}` }}>
@@ -1952,6 +2063,12 @@ function UsageDashboardPanel({ C, S, R }) {
               {money.byModelMonth.map((m) => (
                 <span key={m.model}>{m.model} ₩{m.costKRW.toLocaleString()} ({m.requests})</span>
               ))}
+            </div>
+          )}
+          {mix.total > 0 && (
+            <div style={{ fontSize: 10.5, color: C.text3, display: "flex", gap: 10, flexWrap: "wrap", marginTop: 5 }}>
+              <span style={{ fontWeight: 700, color: C.text2 }}>콘텐츠 믹스{mix.avgShareability != null ? ` · Shareability 평균 ${mix.avgShareability}` : ""}:</span>
+              {mix.ratios.slice(0, 8).map((r) => <span key={r.type}>{r.type} {r.pct}%</span>)}
             </div>
           )}
         </div>
@@ -5116,6 +5233,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["trend_discovery", "트렌드 발굴"],
     ["publishing_pipeline", "발행 파이프라인"],
     ["auto_publish", "자동발행"],
+    ["editorial_schedule", "자동 편성"],
     ["publishing_priority", "발행 우선순위"],
     ["story_engine",   "연재 스토리"],
     ["reports",        "신고관리"],
@@ -5140,7 +5258,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["reports"]] },
+      tabs: [["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["editorial_schedule", "자동 편성"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["reports"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
@@ -6485,6 +6603,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── 발행 우선순위 (Phase 22) ── */}
             {mainTab === "publishing_priority" && (
               <PublishingPriorityTab drafts={aiDrafts} published={aiPublished} />
+            )}
+
+            {/* ── 자동 편성 (Phase 24 Morning Brief) ── */}
+            {mainTab === "editorial_schedule" && (
+              <EditorialScheduleTab published={aiPublished} showToast={showToast} />
             )}
 
             {/* ── 연재 스토리 (Phase 24) ── */}
