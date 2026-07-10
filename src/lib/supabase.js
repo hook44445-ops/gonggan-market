@@ -815,31 +815,47 @@ export const adminRestoreReview = (id, adminId) =>
 
 // ── Admin Lounge Posts ────────────────────────────────────────────────────────
 
+// Phase 26.1 — 관리자 RPC 공통 호출기. 파라미터명은 반드시 p_id / p_admin_id / p_reason / p_patch.
+//   PostgREST 스키마 캐시가 stale 이면 "Could not find the function … in the schema cache"
+//   (code PGRST202) 가 난다 → 짧게 대기 후 1회 재시도하고, 그래도 실패하면 운영자에게
+//   "스키마 캐시 재로드 필요"를 명확히 안내한다(호출부가 error.message 표시). 폴백 없음.
+const isSchemaCacheMiss = (err) =>
+  err && (err.code === "PGRST202" || /schema cache|could not find the function/i.test(err.message || ""));
+
+const callAdminRpc = async (fn, args) => {
+  let { data, error } = await supabase.rpc(fn, args);
+  if (error && isSchemaCacheMiss(error)) {
+    await new Promise((r) => setTimeout(r, 400)); // 캐시 재로드 레이스 대비 1회 재시도
+    ({ data, error } = await supabase.rpc(fn, args));
+    if (error && isSchemaCacheMiss(error)) {
+      error.message = `PostgREST 스키마 캐시에 함수(${fn})가 없습니다. Supabase SQL Editor 에서 ` +
+        `NOTIFY pgrst, 'reload schema'; 실행 또는 대시보드 Settings→API 재시작 후 다시 시도하세요. (원본: ${error.message})`;
+    }
+  }
+  return { data, error };
+};
+
 export const adminUpdateLoungePost = async (id, updates, adminId) => {
   // Phase 26 — RPC 전용(096/097 SECURITY DEFINER · public.users.id+role='admin' 검증 · RLS 우회).
   //   direct update 폴백 제거. 관리자 인증은 커스텀 세션이라 admin id(p_admin_id)를 그대로 전달한다.
-  //   실패 시 실제 RPC error 를 그대로 반환(호출부가 error.message 표시).
-  const { data, error } = await supabase.rpc("admin_update_lounge_post_fields", {
+  return callAdminRpc("admin_update_lounge_post_fields", {
     p_id: id, p_admin_id: adminId ?? null, p_patch: updates ?? {},
   });
-  return { data, error };
 };
 
 export const adminSoftDeleteLoungePost = async (id, adminId, reason) => {
   // Phase 26 — RPC 전용(admin_soft_delete_lounge_post · Soft Delete 만 · Hard Delete 없음).
-  //   direct update/delete 폴백 제거. admin_logs 기록은 RPC 내부에서 수행.
-  const { data, error } = await supabase.rpc("admin_soft_delete_lounge_post", {
+  //   시그니처(096): admin_soft_delete_lounge_post(p_id uuid, p_admin_id uuid, p_reason text).
+  return callAdminRpc("admin_soft_delete_lounge_post", {
     p_id: id, p_admin_id: adminId ?? null, p_reason: reason ?? null,
   });
-  return { data, error };
 };
 
 export const adminRestoreLoungePost = async (id, adminId) => {
-  // Phase 26 — RPC 전용(admin_restore_lounge_post). direct update 폴백 제거.
-  const { data, error } = await supabase.rpc("admin_restore_lounge_post", {
+  // Phase 26 — RPC 전용(admin_restore_lounge_post · 시그니처: p_id uuid, p_admin_id uuid).
+  return callAdminRpc("admin_restore_lounge_post", {
     p_id: id, p_admin_id: adminId ?? null,
   });
-  return { data, error };
 };
 
 // ── AI 콘텐츠 공장(Phase 1) — lounge_posts.is_seed=true 재사용, 신규 테이블 없음. ──
