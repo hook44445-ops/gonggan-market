@@ -8,6 +8,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/cron/autonomous-cycle", "destination": "/api/trend/check-trends?mode=autonomous" },
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/robots.txt", "destination": "/api/robots" },
     {

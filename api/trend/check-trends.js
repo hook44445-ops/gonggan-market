@@ -23,6 +23,8 @@ import { scoreTopic, priorityFromScore } from '../../src/lib/topicScore.js';
 import { mapCategory } from '../../src/lib/categoryMapper.js';
 import { filterNewTopics } from '../../src/lib/duplicateChecker.js';
 import { generateDraft } from '../../src/constants/aiContentFactory.js';
+import { authenticateCron } from '../../src/lib/cronAuth.js';
+import { runAutonomousCycle } from '../../src/lib/serverAutonomousCycle.js';
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -88,6 +90,28 @@ async function publishDueScheduled() {
 }
 
 export default async function handler(req, res) {
+  const sendJson = (status, obj) => {
+    res.statusCode = status;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify(obj));
+  };
+
+  // ── Phase 39 — 서버 자율 사이클(외부 스케줄러 전용) ─────────────────────
+  // vercel.json rewrite: /api/cron/autonomous-cycle → 이 엔드포인트(?mode=autonomous).
+  // 기존 일 1회 Vercel Cron 경로(mode 없음)는 아래 로직 그대로 — Regression Zero.
+  // 인증: Authorization: Bearer <CRON_SECRET>. 미설정 503 · 불일치 401. 비밀 원문 미노출.
+  if (req.query?.mode === 'autonomous') {
+    const auth = authenticateCron(req);
+    if (!auth.ok) return sendJson(auth.status, { ok: false, code: auth.code });
+    try {
+      const result = await runAutonomousCycle({ now: Date.now() });
+      return sendJson(200, { mode: 'autonomous', ...result });
+    } catch (e) {
+      return sendJson(200, { ok: false, mode: 'autonomous', reason: e?.message ?? 'error' });
+    }
+  }
+  // ───────────────────────────────────────────────────────────────────────
+
   if (!SB_URL || !SB_KEY) {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
