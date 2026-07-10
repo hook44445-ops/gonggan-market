@@ -26,6 +26,9 @@ import { planFusion } from "../lib/aiFusion";
 import { pipelineView } from "../lib/aiPipeline";
 import { holdMeeting } from "../lib/aiMeeting";
 import { staffPerformance, workLog, aiBudget, hiringCandidates, deactivationSuggestions } from "../lib/aiPerformance";
+import { runFusion } from "../lib/fusionRunner";
+import FusionProgress from "../components/FusionProgress";
+import FusionHistory from "../components/FusionHistory";
 import {
   workbenchIndex, getPipelineStages, setPipelineStage, clearPipelineStage,
   buildDraftBoard, publishHistory, popularContent, todaysPick, opsStats, PIPELINE_STAGES,
@@ -1544,8 +1547,13 @@ function PublishingPriorityTab({ drafts = [], published = [] }) {
 // ── AI 운영본부(Phase 29 · AI Headquarters V2) — 조직도·자동추천·Fusion·파이프라인 ──────
 //   AI 를 "직원"으로 시각화하고, 주제→담당AI 자동추천→Fusion 조합→전체 파이프라인을 보여준다.
 //   ⚠️ 기존 생성/발행/호출 구조 무변경 — 조직도/추천/플랜을 "조립·표시"만 한다(additive).
-function AIHeadquartersTab({ published = [], showToast }) {
+function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload }) {
   const [topic, setTopic] = useState("");
+  const [fusionProgress, setFusionProgress] = useState(null);
+  const [fusionResult, setFusionResult] = useState(null);
+  const [fusionBusy, setFusionBusy] = useState(false);
+  const [histTick, setHistTick] = useState(0);
+  const [savingDraft, setSavingDraft] = useState(false);
   const org = orgChart();
   const pipe = pipelineView({ autoPublishEnabled: (getAutoConfig().enabled === true) });
   const rec = topic.trim() ? aiRecommend(topic.trim()) : null;
@@ -1567,6 +1575,35 @@ function AIHeadquartersTab({ published = [], showToast }) {
   const publishedToday = (published || []).filter((p) => isToday(p.created_at)).length;
   const avgQuality = perf.filter((p) => p.avgEditorial != null && p.jobs > 0);
   const avgQ = avgQuality.length ? Math.round(avgQuality.reduce((n, p) => n + p.avgEditorial, 0) / avgQuality.length) : null;
+
+  // Phase 31 — 실제 Fusion 실행(순차). 발행 자동 금지 — 미리보기·품질검사까지만.
+  const runFusionNow = async () => {
+    if (fusionBusy || !topic.trim()) return;
+    setFusionBusy(true); setFusionResult(null); setFusionProgress({ index: 0, total: fusion.stages.length, phase: "running", stage: fusion.stages[0] });
+    try {
+      const res = await runFusion(topic.trim(), { onStep: (p) => setFusionProgress(p) });
+      setFusionResult(res); setHistTick((t) => t + 1);
+      showToast?.(res.ok ? `🧩 Fusion 완료 · ${res.mode} · ₩${res.totalCostKRW}` : "Fusion 실패 — 단계별 결과를 확인하세요");
+    } catch (e) {
+      showToast?.("Fusion 오류: " + (e?.message ?? String(e)));
+    } finally { setFusionBusy(false); setFusionProgress(null); }
+  };
+
+  // 승인 → 초안 저장(기존 adminCreateLoungeDraft 재사용 · 발행 아님 · 자동발행 아님).
+  const saveFusionDraft = async () => {
+    if (savingDraft || !fusionResult?.final?.body) return;
+    setSavingDraft(true);
+    try {
+      const { error } = await adminCreateLoungeDraft(
+        { category: "daily", title: fusionResult.final.title || topic.trim(), content: fusionResult.final.body, aiTopic: topic.trim(), publishStatus: "draft" },
+        adminUserId
+      );
+      if (error) { showToast?.("초안 저장 실패: " + error.message); return; }
+      showToast?.("✅ 초안으로 저장됨 (발행은 관리자 승인 후)");
+      await onReload?.();
+    } catch (e) { showToast?.("저장 오류: " + (e?.message ?? String(e))); }
+    finally { setSavingDraft(false); }
+  };
 
   return (
     <div>
@@ -1611,10 +1648,16 @@ function AIHeadquartersTab({ published = [], showToast }) {
         )}
       </div>
 
-      {/* Fusion 플랜 */}
+      {/* Fusion 플랜 + 실제 실행 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>
-          🧩 Fusion 조합 <span style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>({fusion.modeLabel} · {fusion.contentType})</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: S.sm }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>
+            🧩 Fusion 조합 <span style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>({fusion.modeLabel} · {fusion.contentType})</span>
+          </div>
+          <button onClick={runFusionNow} disabled={fusionBusy || !topic.trim()}
+            style={{ padding: "7px 14px", background: fusionBusy ? C.text4 : C.brandD, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: fusionBusy || !topic.trim() ? "default" : "pointer" }}>
+            {fusionBusy ? "실행 중…" : "▶ Fusion 실행 (미리보기까지)"}
+          </button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           {fusion.stages.map((s, i) => (
@@ -1626,7 +1669,47 @@ function AIHeadquartersTab({ published = [], showToast }) {
             </span>
           ))}
         </div>
-        <div style={{ fontSize: 10.5, color: C.text3, marginTop: S.sm }}>콘텐츠 특성에 따라 1~3개 AI 를 자동 조합합니다. 실행은 관리자 승인 하에 기존 생성 엔진을 단계별로 재사용합니다.</div>
+        <div style={{ fontSize: 10.5, color: C.text3, marginTop: S.sm }}>주제를 입력하고 실행하면 AI 들이 <b>순차</b>로 원고→SEO→검수를 수행합니다. <b>발행은 자동으로 하지 않습니다</b> — 미리보기·품질검사 후 관리자가 승인합니다.</div>
+
+        {/* 진행률 + 단계별 결과 */}
+        <FusionProgress progress={fusionProgress} result={fusionResult} />
+
+        {/* 최종 미리보기 + 품질 + 초안 저장(승인) */}
+        {fusionResult && fusionResult.final?.body && (
+          <div style={{ marginTop: S.md, background: C.bg, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 800, color: C.text1 }}>👀 미리보기</span>
+              {fusionResult.quality && (
+                <span style={{ padding: "1px 8px", borderRadius: R.full, fontSize: 10, fontWeight: 800, background: fusionResult.quality.pass ? "#05966922" : (C.gold + "22"), color: fusionResult.quality.pass ? "#059669" : C.gold }}>
+                  품질검사 {fusionResult.quality.pass ? "통과" : "경고"} · {fusionResult.quality.quality}점
+                </span>
+              )}
+              <button onClick={saveFusionDraft} disabled={savingDraft}
+                style={{ marginLeft: "auto", padding: "5px 12px", background: C.brand, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 11, cursor: savingDraft ? "default" : "pointer" }}>
+                {savingDraft ? "저장 중…" : "✅ 승인 → 초안 저장"}
+              </button>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{fusionResult.final.title}</div>
+            <div style={{ fontSize: 11.5, color: C.text2, lineHeight: 1.7, maxHeight: 220, overflow: "auto", whiteSpace: "pre-wrap" }}>{fusionResult.final.body}</div>
+            {fusionResult.quality?.reasons?.length > 0 && (
+              <div style={{ fontSize: 10.5, color: C.gold, marginTop: 6 }}>검사 지적: {fusionResult.quality.reasons.join(" · ")}</div>
+            )}
+            {/* 단계별 결과 비교 */}
+            {fusionResult.stepsFull && (
+              <details style={{ marginTop: 8 }}>
+                <summary style={{ fontSize: 11, color: C.text3, cursor: "pointer" }}>단계별 결과 비교 ({fusionResult.stepsFull.length})</summary>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                  {fusionResult.stepsFull.map((st, i) => (
+                    <div key={i} style={{ background: "#fff", borderRadius: R.md, padding: "6px 9px", border: `1px solid ${C.bgWarm}` }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, color: C.text2 }}>Step {i + 1} · {st.staff} · {st.role} {st.ok ? "" : "(실패)"}</div>
+                      <div style={{ fontSize: 10.5, color: C.text3, lineHeight: 1.6, maxHeight: 90, overflow: "auto", whiteSpace: "pre-wrap", marginTop: 3 }}>{(st.text || st.error || "").slice(0, 400)}</div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
       </div>
 
       {/* AI 회의실 */}
@@ -1744,6 +1827,9 @@ function AIHeadquartersTab({ published = [], showToast }) {
         </div>
         <div style={{ fontSize: 10, color: C.text3, marginTop: S.sm }}>✋ = 사람 개입(승인) 또는 향후 편입 단계. LLM/자동발행 설정이 켜질수록 자동 단계가 늘어납니다. 관리자는 <b>승인</b>만 하는 구조를 지향합니다.</div>
       </div>
+
+      {/* Fusion 실행 이력 */}
+      <FusionHistory tick={histTick} />
     </div>
   );
 }
@@ -7003,9 +7089,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
               <PublishingPriorityTab drafts={aiDrafts} published={aiPublished} />
             )}
 
-            {/* ── AI 운영본부 (Phase 29·30 · AI Headquarters / AI OS) ── */}
+            {/* ── AI 운영본부 (Phase 29·30·31 · AI Headquarters / AI OS / Fusion) ── */}
             {mainTab === "ai_hq" && (
-              <AIHeadquartersTab published={aiPublished} showToast={showToast} />
+              <AIHeadquartersTab published={aiPublished} adminUserId={user?.id ?? null} showToast={showToast} onReload={async () => {
+                try { const [d, p] = await Promise.all([adminListLoungeDrafts(), adminListPublishedAiContent()]); setAiDrafts(d.data ?? []); setAiPublished(p.data ?? []); } catch { /* keep */ }
+              }} />
             )}
 
             {/* ── 자동 편성 (Phase 24 Morning Brief) ── */}
