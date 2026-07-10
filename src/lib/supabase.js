@@ -816,72 +816,29 @@ export const adminRestoreReview = (id, adminId) =>
 // ── Admin Lounge Posts ────────────────────────────────────────────────────────
 
 export const adminUpdateLoungePost = async (id, updates, adminId) => {
-  // Phase 24 — SECURITY DEFINER RPC(RLS 우회 · 내부 admin 검증)로 관리자가 "남의 글/시드 글"도
-  //   수정 가능. migration 097 미배포 환경에서만 직접 update 로 폴백(회귀 없음).
-  const rpc = await supabase.rpc("admin_update_lounge_post_fields", {
+  // Phase 26 — RPC 전용(096/097 SECURITY DEFINER · public.users.id+role='admin' 검증 · RLS 우회).
+  //   direct update 폴백 제거. 관리자 인증은 커스텀 세션이라 admin id(p_admin_id)를 그대로 전달한다.
+  //   실패 시 실제 RPC error 를 그대로 반환(호출부가 error.message 표시).
+  const { data, error } = await supabase.rpc("admin_update_lounge_post_fields", {
     p_id: id, p_admin_id: adminId ?? null, p_patch: updates ?? {},
   });
-  if (!rpc.error) return { data: rpc.data, error: null };
-
-  const { data, error } = await supabase
-    .from("lounge_posts")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select("id, is_hidden, is_deleted, category, content")
-    .single();
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id: adminId || null, action: "UPDATE_LOUNGE_POST",
-      target_type: "lounge_post", target_id: id, after_val: updates,
-    });
-  } else if (/row-level security|violates|PGRST/i.test(error.message || "")) {
-    // 두 경로 모두 실패 → RPC 미배포 + RLS 차단. 운영자에게 조치 안내.
-    error.hint = "관리자 수정 RPC 미배포: Supabase SQL Editor 에서 097_admin_lounge_post_update_fields.sql 실행 필요";
-  }
   return { data, error };
 };
 
 export const adminSoftDeleteLoungePost = async (id, adminId, reason) => {
-  // Phase 22 — SECURITY DEFINER RPC(RLS 우회 · 내부 admin 검증). RPC 가 admin_logs 도 기록.
-  //   "new row violates row-level security policy" 해소. migration 096 미적용 시 직접 update 폴백.
-  const rpc = await supabase.rpc("admin_soft_delete_lounge_post", {
+  // Phase 26 — RPC 전용(admin_soft_delete_lounge_post · Soft Delete 만 · Hard Delete 없음).
+  //   direct update/delete 폴백 제거. admin_logs 기록은 RPC 내부에서 수행.
+  const { data, error } = await supabase.rpc("admin_soft_delete_lounge_post", {
     p_id: id, p_admin_id: adminId ?? null, p_reason: reason ?? null,
   });
-  if (!rpc.error) return { data: rpc.data, error: null };
-
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("lounge_posts")
-    .update({ is_deleted: true, deleted_at: now, deleted_by: adminId || null, is_visible: false })
-    .eq("id", id)
-    .select("id")
-    .single();
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id: adminId || null, action: "DELETE_LOUNGE_POST",
-      target_type: "lounge_post", target_id: id, reason,
-    });
-  }
   return { data, error };
 };
 
 export const adminRestoreLoungePost = async (id, adminId) => {
-  // Phase 22 — SECURITY DEFINER RPC 우선(RLS 우회). 미배포 시 직접 update 폴백.
-  const rpc = await supabase.rpc("admin_restore_lounge_post", { p_id: id, p_admin_id: adminId ?? null });
-  if (!rpc.error) return { data: rpc.data, error: null };
-
-  const { data, error } = await supabase
-    .from("lounge_posts")
-    .update({ is_deleted: false, deleted_at: null, deleted_by: null, is_hidden: false, hidden_at: null, hidden_reason: null })
-    .eq("id", id)
-    .select("id")
-    .single();
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id: adminId || null, action: "RESTORE_LOUNGE_POST",
-      target_type: "lounge_post", target_id: id,
-    });
-  }
+  // Phase 26 — RPC 전용(admin_restore_lounge_post). direct update 폴백 제거.
+  const { data, error } = await supabase.rpc("admin_restore_lounge_post", {
+    p_id: id, p_admin_id: adminId ?? null,
+  });
   return { data, error };
 };
 
