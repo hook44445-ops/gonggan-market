@@ -187,7 +187,9 @@ export async function generateEditorial(args = {}, opts = {}) {
     try {
       const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
       // 재시도는 temperature 를 조금씩 올려 변주(정형화 탈출).
-      const text = await call({ system, user, temperature: Math.min(temperature + i * 0.07, 1), maxTokens, model, signal: opts.signal });
+      // Phase 27 — callLLM 은 { text, usage } 를 반환한다(과거 문자열 반환과 호환: 문자열이면 그대로).
+      const resp = await call({ system, user, temperature: Math.min(temperature + i * 0.07, 1), maxTokens, model, signal: opts.signal });
+      const text = typeof resp === "string" ? resp : (resp?.text ?? "");
       const latency = Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - t0);
       totalLatency += latency;
       const parsed = parseLLMJson(text);
