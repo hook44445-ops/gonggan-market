@@ -15,6 +15,7 @@ import { operationScore } from "../lib/operationScore";
 import { upsertTodaySummary, healthTrend, sevenDayReport, getDailySummaries } from "../lib/dailySummary";
 import { getAutopilotConfig, setAutopilotConfig } from "../lib/publishQueue";
 import { adminCreateLoungeDraft, adminUpdateLoungeDraft } from "../lib/supabase";
+import ServerAutonomousStatus from "./ServerAutonomousStatus";
 
 const LV = { high: "#dc2626", mid: "#d97706", info: "#6b7280" };
 const AUTONOMY_KEY = "space_autonomy_mode_v1";
@@ -85,6 +86,9 @@ export default function OperationMonitor({ published = [], adminUserId, showToas
         무인 운영 ON이면 화면이 열려 있는 동안 <b>60초마다</b> 오늘 편성 자동 생성(중복 방지)·Watchdog 점검·Self-Healing 복구·발행·일일 요약을 수행합니다.
         {" "}오늘 편성 {isTodayGenerated() ? "✅ 생성됨" : "⏳ 대기"}. {cfg.emergencyStop && <b style={{ color: C.red }}>⛔ 정지됨.</b>}
       </div>
+
+      {/* Phase 39 — 서버 자율 트리거(브라우저 닫혀도 운영) */}
+      <ServerAutonomousStatus />
 
       {/* 운영점수 breakdown + 수동 사이클 */}
       <div style={box}>
