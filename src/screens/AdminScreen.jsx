@@ -24,6 +24,8 @@ import { orgChart, DEPARTMENTS } from "../lib/aiOrg";
 import { recommend as aiRecommend } from "../lib/aiRecommend";
 import { planFusion } from "../lib/aiFusion";
 import { pipelineView } from "../lib/aiPipeline";
+import { holdMeeting } from "../lib/aiMeeting";
+import { staffPerformance, workLog, aiBudget, hiringCandidates, deactivationSuggestions } from "../lib/aiPerformance";
 import {
   workbenchIndex, getPipelineStages, setPipelineStage, clearPipelineStage,
   buildDraftBoard, publishHistory, popularContent, todaysPick, opsStats, PIPELINE_STAGES,
@@ -1542,22 +1544,51 @@ function PublishingPriorityTab({ drafts = [], published = [] }) {
 // ── AI 운영본부(Phase 29 · AI Headquarters V2) — 조직도·자동추천·Fusion·파이프라인 ──────
 //   AI 를 "직원"으로 시각화하고, 주제→담당AI 자동추천→Fusion 조합→전체 파이프라인을 보여준다.
 //   ⚠️ 기존 생성/발행/호출 구조 무변경 — 조직도/추천/플랜을 "조립·표시"만 한다(additive).
-function AIHeadquartersTab({ showToast }) {
+function AIHeadquartersTab({ published = [], showToast }) {
   const [topic, setTopic] = useState("");
   const org = orgChart();
   const pipe = pipelineView({ autoPublishEnabled: (getAutoConfig().enabled === true) });
   const rec = topic.trim() ? aiRecommend(topic.trim()) : null;
   const fusion = topic.trim() ? planFusion(topic.trim()) : planFusion("매거진", { contentType: "magazine" });
+  const meeting = topic.trim() ? holdMeeting(topic.trim()) : null;
+  const perf = staffPerformance();
+  const wlog = workLog();
+  const budget = aiBudget();
+  const hires = hiringCandidates();
+  const deacts = deactivationSuggestions();
   const box = { background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl };
   const dot = (on) => <span style={{ color: on ? "#059669" : C.text4 }}>{on ? "●" : "○"}</span>;
+  const stars = (n) => n == null ? "미평가" : "★".repeat(n) + "☆".repeat(5 - n);
+
+  // 운영현황 — 오늘 생성/예약/발행/평균품질(기존 데이터 집계).
+  const todayStr = new Date().toDateString();
+  const isToday = (ts) => ts && new Date(ts).toDateString() === todayStr;
+  const scheduledCount = (published || []).filter((p) => (p.publish_status || "") === "scheduled").length;
+  const publishedToday = (published || []).filter((p) => isToday(p.created_at)).length;
+  const avgQuality = perf.filter((p) => p.avgEditorial != null && p.jobs > 0);
+  const avgQ = avgQuality.length ? Math.round(avgQuality.reduce((n, p) => n + p.avgEditorial, 0) / avgQuality.length) : null;
 
   return (
     <div>
-      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🏢 AI 운영본부 (AI Headquarters)</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🏢 AI 운영본부 (AI Operating System)</div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
-        AI 는 <b>직원</b>, 총괄비서는 <b>팀장</b>, 관리자는 <b>최종 승인자</b>입니다. 주제만 입력하면 담당 AI 를 자동 추천하고,
+        AI 는 <b>직원</b>, 총괄비서는 <b>팀장</b>, 관리자는 <b>최종 승인자</b>입니다. 주제만 입력하면 AI 들이 회의를 열어 담당을 정하고,
         콘텐츠 특성에 따라 여러 AI 를 조합(Fusion)해 분석→작성→검수→발행까지 편성합니다.
         {" "}가동 직원 <b>{org.activeStaff}/{org.totalStaff}</b> · 모든 모델은 기존 <b>OpenRouter</b> 구조로 호출됩니다(구조/키 무변경).
+      </div>
+
+      {/* 운영현황 대시보드 */}
+      <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.lg }}>
+        {[
+          { k: "오늘 생성", v: budget.todayJobs }, { k: "예약", v: scheduledCount }, { k: "발행", v: publishedToday },
+          { k: "평균 품질", v: avgQ != null ? avgQ + "점" : "-" }, { k: "AI 비용(오늘)", v: "₩" + budget.todayKRW.toLocaleString() },
+          { k: "누적 비용", v: "₩" + budget.totalKRW.toLocaleString() }, { k: "절약 시간", v: budget.savedHours + "h" },
+        ].map((m) => (
+          <div key={m.k} style={{ flex: "1 1 96px", background: C.bg, borderRadius: R.lg, padding: "9px 11px", border: `1px solid ${C.bgWarm}` }}>
+            <div style={{ fontSize: 10, color: C.text3 }}>{m.k}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>{m.v}</div>
+          </div>
+        ))}
       </div>
 
       {/* 자동 추천 */}
@@ -1598,6 +1629,29 @@ function AIHeadquartersTab({ showToast }) {
         <div style={{ fontSize: 10.5, color: C.text3, marginTop: S.sm }}>콘텐츠 특성에 따라 1~3개 AI 를 자동 조합합니다. 실행은 관리자 승인 하에 기존 생성 엔진을 단계별로 재사용합니다.</div>
       </div>
 
+      {/* AI 회의실 */}
+      {meeting && (
+        <div style={box}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>
+            💬 AI 회의실 <span style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>· {meeting.contentLabel}{meeting.conflict.hasConflict ? " · 의견충돌 조정됨" : ""}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {meeting.log.map((l, i) => {
+              const isOrch = l.provider === "orchestrator";
+              return (
+                <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", background: isOrch ? "#11182710" : C.bg, borderRadius: R.md, padding: "7px 10px", border: `1px solid ${C.bgWarm}` }}>
+                  <span style={{ fontWeight: 800, fontSize: 11, color: isOrch ? C.brandD : C.text1, minWidth: 90 }}>{l.speaker}</span>
+                  <span style={{ fontSize: 11.5, color: C.text2, lineHeight: 1.5, flex: 1 }}>{l.line}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 10.5, color: C.text3, marginTop: S.sm }}>
+            최종 결정: <b style={{ color: C.text1 }}>{meeting.decision.fusion}</b> · 예상 ₩{meeting.decision.estCostKRW} · 품질 {meeting.decision.quality}
+          </div>
+        </div>
+      )}
+
       {/* 조직도 */}
       <div style={box}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🗂️ AI 조직도</div>
@@ -1624,6 +1678,55 @@ function AIHeadquartersTab({ showToast }) {
           ))}
         </div>
         <div style={{ fontSize: 10, color: C.text3, marginTop: S.sm }}>새 AI 출시 시 <code>src/lib/aiOrg.js</code> 의 AI_STAFF 에 항목 1개만 추가하면 직원으로 편입됩니다(OpenRouter 슬러그 기준).</div>
+        {/* 브랜드 철학 */}
+        <div style={{ marginTop: S.md, padding: "12px 14px", background: C.brandL, borderRadius: R.md, borderLeft: `3px solid ${C.brand}` }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.brandD, lineHeight: 1.6 }}>"좋은 콘텐츠는 좋은 협업에서 시작됩니다."</div>
+          <div style={{ fontSize: 11, color: C.text2, marginTop: 4, lineHeight: 1.6 }}>AI 는 사람을 대신하는 것이 아니라, 사람과 함께 더 좋은 콘텐츠를 만드는 동료입니다.</div>
+        </div>
+      </div>
+
+      {/* 성과·승진 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🏅 성과 평가 · 승진</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          {perf.map((p) => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, padding: "5px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 700, color: C.text1, minWidth: 110 }}>{p.name}</span>
+              <span style={{ padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: C.brandL, color: C.brandD }}>{p.title}</span>
+              <span style={{ color: p.rating ? C.gold : C.text4, letterSpacing: 1 }}>{stars(p.rating)}</span>
+              <span style={{ marginLeft: "auto", color: C.text3 }}>
+                {p.jobs}건 · 성공 {p.successRate != null ? p.successRate + "%" : "-"} · 품질 {p.avgEditorial ?? "-"} · {p.avgLatencyMs != null ? (p.avgLatencyMs / 1000).toFixed(1) + "s" : "-"} · ₩{p.costKRW.toLocaleString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 근무기록 + 예산 + 인사(채용/비활성) */}
+      <div style={{ display: "flex", gap: S.md, flexWrap: "wrap", marginBottom: S.xl }}>
+        <div style={{ ...box, flex: "1 1 240px", marginBottom: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🕒 근무 기록 (오늘)</div>
+          {wlog.today.length === 0 ? <div style={{ fontSize: 11.5, color: C.text3 }}>오늘 근무 기록이 없습니다.</div> : wlog.today.map((w) => (
+            <div key={w.model} style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, padding: "3px 0", borderBottom: `1px solid ${C.bg}` }}>
+              <span style={{ color: C.text1, fontWeight: 600 }}>{w.name}</span><span style={{ color: C.text2 }}>{w.jobs}건</span>
+            </div>
+          ))}
+          <div style={{ fontSize: 10.5, color: C.text3, marginTop: 6 }}>오늘 {budget.todayJobs}건 · 누적 {budget.totalJobs}건 · 절약 {budget.savedHours}시간</div>
+        </div>
+        <div style={{ ...box, flex: "1 1 240px", marginBottom: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>👥 인사 (채용 후보 · 비활성 제안)</div>
+          <div style={{ fontSize: 10.5, color: C.text2, fontWeight: 700, marginBottom: 3 }}>채용 후보(OpenRouter 신모델)</div>
+          {hires.slice(0, 4).map((h) => (
+            <div key={h.model} style={{ fontSize: 11, color: C.text3, padding: "2px 0" }}>· {h.model.split("/").pop()} → {h.role} <span style={{ color: C.text4 }}>({h.deptName})</span></div>
+          ))}
+          {deacts.length > 0 && (
+            <>
+              <div style={{ fontSize: 10.5, color: C.red, fontWeight: 700, margin: "6px 0 3px" }}>비활성 제안</div>
+              {deacts.map((d) => <div key={d.id} style={{ fontSize: 11, color: C.text3, padding: "2px 0" }}>· {d.name}: {d.reason} → 대체 {d.alternative}</div>)}
+            </>
+          )}
+          <div style={{ fontSize: 10, color: C.text4, marginTop: 6 }}>채용 = AI_STAFF 에 1줄 추가. 실제 발행/비용은 기존 구조 그대로.</div>
+        </div>
       </div>
 
       {/* 파이프라인 */}
@@ -6900,9 +7003,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
               <PublishingPriorityTab drafts={aiDrafts} published={aiPublished} />
             )}
 
-            {/* ── AI 운영본부 (Phase 29 · AI Headquarters V2) ── */}
+            {/* ── AI 운영본부 (Phase 29·30 · AI Headquarters / AI OS) ── */}
             {mainTab === "ai_hq" && (
-              <AIHeadquartersTab showToast={showToast} />
+              <AIHeadquartersTab published={aiPublished} showToast={showToast} />
             )}
 
             {/* ── 자동 편성 (Phase 24 Morning Brief) ── */}
