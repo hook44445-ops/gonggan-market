@@ -71,3 +71,27 @@ export function activitySummary(now = Date.now()) {
   }
   return { total: today.length, byKind, costKRW: Math.round(costKRW), avgLatencyMs: latN ? Math.round(latSum / latN) : null };
 }
+
+// Phase 24 — 콘텐츠 타입별 발행 비율 + Shareability 평균(발행 이벤트 기준).
+//   range: 'today'|'week'|'all'. 발행/예약 이벤트에 붙은 contentType/shareabilityScore 집계.
+export function contentMixSummary(range = "today", now = Date.now()) {
+  const winMs = { week: 7 * 864e5 }[range];
+  const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
+  const rows = getActivityLog().filter((r) => {
+    if (!["published", "scheduled", "llm_response"].includes(r.kind)) return false;
+    if (range === "all") return true;
+    if (range === "today") return r.at >= startOfDay.getTime();
+    return winMs ? now - r.at <= winMs : true;
+  });
+  const byType = {};
+  let shSum = 0, shN = 0;
+  for (const r of rows) {
+    const ct = r.contentType || "기타";
+    byType[ct] = (byType[ct] || 0) + 1;
+    if (Number.isFinite(r.shareabilityScore)) { shSum += r.shareabilityScore; shN += 1; }
+  }
+  const total = rows.length;
+  const ratios = Object.entries(byType).map(([type, count]) => ({ type, count, pct: total ? Math.round((count / total) * 100) : 0 }))
+    .sort((a, b) => b.count - a.count);
+  return { total, ratios, avgShareability: shN ? Math.round(shSum / shN) : null };
+}

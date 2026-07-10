@@ -18,6 +18,8 @@ import { detectForcedSpaceLinks, stripForcedSpaceLinks } from "./forcedSpaceLink
 import { readingTime } from "./readingExperience.js";
 import { CATEGORY_LABEL } from "../constants/lounge.js";
 import { logActivity } from "./activityLog.js";
+import { classifyContentType } from "./contentTypes.js";
+import { scoreShareability } from "./shareability.js";
 
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
 
@@ -265,8 +267,13 @@ export function saveWorkbenchRecord({ result, meta } = {}) {
   try {
     const inTok = Number(rec.promptTokens) || 0, outTok = Number(rec.completionTokens) || 0;
     const costKRW = Math.round(((inTok / 1e6) * 3.0 + (outTok / 1e6) * 15.0) * 1350);
+    const contentType = classifyContentType(rec.draft?.title || "", { typeHint: meta.contentType || null });
+    const sh = rec.source === "llm"
+      ? scoreShareability({ title: rec.draft?.title, body: rec.draft?.body, contentType, tags: rec.draft?.tags })
+      : null;
     logActivity(rec.source === "llm" ? "llm_response" : "failed", {
       title: rec.draft?.title || meta.prompt?.slice(0, 24) || "생성",
+      contentType, shareabilityScore: sh?.shareScore ?? null,
       model: rec.llmModel, tokens: rec.totalTokens, latencyMs: rec.latency,
       costKRW, ok: rec.source === "llm", note: rec.source === "llm" ? `Editorial ${rec.editorialScore ?? "-"} · Conf ${rec.confidence ?? "-"}` : rec.source,
     });

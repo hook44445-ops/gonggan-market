@@ -42,9 +42,12 @@ export function checkSeo({ title = "", body = "" } = {}) {
 //   cfg(선택 · Phase 24): { minQuality, minConfidence, dupHours, minBodyLength, minHeadings,
 //     seoCheck, humanizationCheck, reviewRequired } — 미지정 시 기존 기본값(회귀 없음).
 export function evaluateGate(post = {}, { confidence = null, existing = [], stage = null, cfg = {} } = {}) {
-  const minQuality    = Number.isFinite(cfg.minQuality)    ? cfg.minQuality    : QUALITY_MIN;
+  // Phase 24 — 테스트모드: Quality 70 · Confidence/중복/Review 는 경고만(발행 허용).
+  const testMode      = !!cfg.testMode;
+  const minQuality    = Number.isFinite(cfg.minQuality)    ? cfg.minQuality    : (testMode ? 70 : QUALITY_MIN);
   const minConfidence = Number.isFinite(cfg.minConfidence) ? cfg.minConfidence : CONFIDENCE_MIN;
   const dupHours      = Number.isFinite(cfg.dupHours)      ? cfg.dupHours      : 48;
+  const dupOn         = dupHours > 0;
   const minBody       = Number.isFinite(cfg.minBodyLength) ? cfg.minBodyLength : 400;
   const minHeadings   = Number.isFinite(cfg.minHeadings)   ? cfg.minHeadings   : 2;
   const seoOn         = cfg.seoCheck !== false;          // 기본 ON
@@ -54,7 +57,7 @@ export function evaluateGate(post = {}, { confidence = null, existing = [], stag
   const full = `${post.title ?? ""}\n${post.content ?? ""}`;
   const banned = checkBannedWords(full);
   const seo = checkSeo({ title: post.title, body: post.content });
-  const dup = isDuplicateTopic(post.ai_topic || post.title, existing, dupHours);
+  const dup = dupOn && isDuplicateTopic(post.ai_topic || post.title, existing, dupHours);
   const bodyLen = String(post.content ?? "").length;
   const headings = (String(post.content ?? "").match(/^##\s/gm) ?? []).length;
   const aiOk = bodyLen >= minBody && headings >= minHeadings; // AI 검사: 구조/길이 sanity
@@ -62,23 +65,25 @@ export function evaluateGate(post = {}, { confidence = null, existing = [], stag
 
   const checks = {
     quality:      { ok: u.total >= minQuality, value: u.total },
-    confidence:   { ok: confidence != null && confidence >= minConfidence, value: confidence },
+    // 테스트모드에서는 Confidence/중복/Review 를 통과 처리(경고로만 수집).
+    confidence:   { ok: testMode || (confidence != null && confidence >= minConfidence), value: confidence },
     banned:       { ok: banned.length === 0, value: banned },
     seo:          { ok: !seoOn || seo.ok, value: seo },
-    duplicate:    { ok: !dup, value: dup },
+    duplicate:    { ok: testMode || !dup, value: dup },
     aiCheck:      { ok: aiOk, value: { bodyLen, headings } },
-    reviewStatus: { ok: reviewOk, value: stage },
+    reviewStatus: { ok: testMode || reviewOk, value: stage },
   };
   const pass = Object.values(checks).every((c) => c.ok);
 
-  const reasons = [];
-  if (!checks.quality.ok) reasons.push(`품질 ${u.total} < ${minQuality}`);
-  if (!checks.confidence.ok) reasons.push(`Confidence ${confidence ?? "없음"} < ${minConfidence}`);
+  const reasons = [], warnings = [];
+  const push = (soft, msg) => (soft ? warnings : reasons).push(msg);
+  if (!checks.quality.ok) reasons.push(`Quality ${u.total} < ${minQuality}`);
+  if (confidence == null || confidence < minConfidence) push(testMode, `Confidence ${confidence ?? "없음"} < ${minConfidence}`);
   if (!checks.banned.ok) reasons.push(`금칙어(${banned.join(", ")})`);
-  if (!checks.seo.ok) reasons.push("SEO 미달(제목 길이/소제목)");
-  if (!checks.duplicate.ok) reasons.push(`${dupHours}시간 내 중복`);
-  if (!checks.aiCheck.ok) reasons.push("본문 구조/길이 미달");
-  if (!checks.reviewStatus.ok) reasons.push("Review/Approved 상태 아님");
+  if (!checks.seo.ok) reasons.push("SEO 미통과(제목 길이/소제목)");
+  if (dup) push(testMode, `${dupHours}시간 내 중복`);
+  if (!checks.aiCheck.ok) reasons.push("본문 길이/구조 부족");
+  if (!reviewOk) push(testMode, "Review/Approved 상태 아님");
 
-  return { pass, checks, reasons, quality: u.total, confidence };
+  return { pass, testMode, checks, reasons, warnings, quality: u.total, confidence };
 }
