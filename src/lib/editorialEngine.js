@@ -14,6 +14,7 @@
 // ════════════════════════════════════════════════════════════════════
 
 import { callLLM as realCallLLM, isLLMConfigured, llmConfig } from "./llmClient.js";
+import { generateArticle, resolveProvider, LLM_PROVIDERS } from "./llmProviders.js";
 import { parseLLMJson } from "./llmContentGenerator.js";
 import {
   classifyEditorialCategory, EDITORIAL_VOICE, BANNED_GPT_PHRASES,
@@ -164,9 +165,14 @@ export async function generateEditorial(args = {}, opts = {}) {
   const t = String(topic ?? "").trim();
   if (!t) return { ok: false, reason: "empty_topic" };
 
-  const call = opts._callLLM || realCallLLM;
-  const configured = opts._callLLM ? true : isLLMConfigured();
-  if (!configured) return { ok: false, reason: "llm_not_configured" };
+  // Phase 28 — Multi-LLM: 선택 Provider(claude/gpt/gemini/auto). Claude 는 기존 callLLM 그대로.
+  const provider = args.provider || "claude";
+  const resolvedProvider = resolveProvider(provider, t);
+  // 테스트 주입(_callLLM) 우선. 실제는 generateArticle 로 Provider 라우팅.
+  const call = opts._callLLM
+    || ((p) => generateArticle({ ...p, provider, contentType: t }));
+  const configured = opts._callLLM ? true : LLM_PROVIDERS[resolvedProvider]?.isConfigured();
+  if (!configured) return { ok: false, reason: "llm_not_configured", provider: resolvedProvider };
 
   const cfg = getEditorialConfig();
   const model = args.model || cfg.model;
@@ -214,7 +220,7 @@ export async function generateEditorial(args = {}, opts = {}) {
     }
   }
 
-  if (!best) return { ok: false, reason: "all_attempts_failed", attempts, provider: llmConfig().provider };
+  if (!best) return { ok: false, reason: "all_attempts_failed", attempts, provider: resolvedProvider };
   const verdict = editorialVerdict({ finalScore: best.finalScore, aiStrong: best.human.ai.isStrong, isPick: best.editorsPick.isPick });
   return {
     ok: true,
@@ -230,7 +236,7 @@ export async function generateEditorial(args = {}, opts = {}) {
     attempts,
     passed: best.finalScore >= minConfidence && !best.human.ai.isStrong,
     model,
-    provider: llmConfig().provider,
+    provider: resolvedProvider,
     latencyMs: totalLatency,
     tokenEstimate: best.tokenEstimate,
   };

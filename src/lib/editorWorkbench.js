@@ -12,6 +12,7 @@
 
 import { buildWritePlan, buildPrompt, generateVoicedDraft } from "./categoryVoiceWriter.js";
 import { callLLM, llmConfig, isLLMConfigured } from "./llmClient.js";
+import { generateArticle, resolveProvider, LLM_PROVIDERS } from "./llmProviders.js";
 import { parseLLMJson, normalizeResult } from "./llmContentGenerator.js";
 import { scoreUsefulness } from "./contentUsefulness.js";
 import { detectForcedSpaceLinks, stripForcedSpaceLinks } from "./forcedSpaceLinkFilter.js";
@@ -169,23 +170,25 @@ export function computeEditorialScore(quality, confidence) {
 //   반환: { result(9필드), meta:{prompt,promptVersion,llmModel,llmProvider,temperature,tokensEstimated,
 //           latencyMs,confidence,rawResponse,source}, quality }
 export async function generateForWorkbench(
-  { issue, category, region = null, mode = "voice", promptVersion = "v1", temperature = 0.85 } = {},
+  { issue, category, region = null, mode = "voice", promptVersion = "v1", temperature = 0.85, provider = "claude", contentType = null } = {},
   { signal = null, existing = [], maxTokens = 2400 } = {}
 ) {
   const plan = buildWritePlan({ issue, category, region, mode });
   const cfg = llmConfig();
   const messages = buildWorkbenchMessages(plan, promptVersion);
-  const baseMeta = { prompt: messages, promptVersion: messages.version, llmModel: cfg.model, llmProvider: cfg.provider, temperature };
+  // Phase 28 — Multi-LLM: 선택 Provider(claude/gpt/gemini/auto) 해석. Claude 는 기존 엔진 그대로.
+  const resolved = resolveProvider(provider, contentType || issue);
+  const baseMeta = { prompt: messages, promptVersion: messages.version, llmModel: cfg.model, llmProvider: resolved, temperature };
 
-  // Phase 20.6 — Production: LLM 미설정 시 생성하지 않고 명확히 안내(Mock 생성 금지).
-  if (!isLLMConfigured()) {
-    return { error: "LLM 미설정 (VITE_LLM_API_KEY 필요)", result: null, quality: null, meta: { ...baseMeta, source: "unconfigured" } };
+  // Production: 해석된 Provider 가 미설정이면 생성하지 않고 명확히 안내(Mock 생성 금지).
+  if (!LLM_PROVIDERS[resolved]?.isConfigured()) {
+    return { error: `LLM 미설정 (${resolved} API Key 필요)`, result: null, quality: null, meta: { ...baseMeta, source: "unconfigured" } };
   }
 
   const t0 = Date.now();
   let rawResponse = null, usage = { promptTokens: null, completionTokens: null, totalTokens: null };
   try {
-    const llm = await callLLM({ system: messages.system, user: messages.user, temperature, maxTokens, signal });
+    const llm = await generateArticle({ system: messages.system, user: messages.user, temperature, maxTokens, provider, contentType: contentType || issue, signal });
     rawResponse = llm.text;
     usage = llm.usage || usage;
     const latencyMs = Date.now() - t0;
@@ -204,6 +207,8 @@ export async function generateForWorkbench(
       meta: {
         ...baseMeta,
         source: "llm",
+        llmProvider: llm.provider || resolved,
+        llmModel: llm.model || cfg.model,
         latencyMs,
         confidence,
         editorialScore,
