@@ -259,14 +259,15 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         //   admin RPC 경로로 저장한다(본인 글은 기존 경로 유지 = 회귀 없음).
         const isAdmin = user?.role === 'admin' || user?.activeRole === 'admin';
         const adminEditingOthers = isAdmin && editPost.user_id !== user.id;
+        // Phase 26 — 관리자 수정은 admin RPC 전용(폴백 없음). 실패 시 실제 RPC error.message 표시.
         const { data, error: err } = adminEditingOthers
           ? await adminUpdateLoungePost(editPost.id, updates, user.id)
           : await updateLoungePost(editPost.id, user.id, updates);
         setSubmitting(false);
         if (err) {
-          setError(err.hint || (adminEditingOthers
-            ? '관리자 수정 실패 — 097_admin_lounge_post_update_fields.sql 실행이 필요합니다'
-            : '수정에 실패했습니다. RLS 정책을 확인하세요 (005_lounge_owner_update.sql 실행 필요)'));
+          setError(err.message
+            ? `수정 실패: ${err.message}`
+            : (adminEditingOthers ? '관리자 수정 실패' : '수정에 실패했습니다.'));
           return;
         }
         onPublish?.({ ...editPost, ...updates, ...(data ?? {}) });
