@@ -29,6 +29,7 @@ import { pipelineView } from "../lib/aiPipeline";
 import { holdMeeting } from "../lib/aiMeeting";
 import { staffPerformance, workLog, aiBudget, hiringCandidates, deactivationSuggestions } from "../lib/aiPerformance";
 import { runFusion } from "../lib/fusionRunner";
+import { saveFusionFinal } from "../lib/fusionPipelineBridge";
 import FusionProgress from "../components/FusionProgress";
 import FusionHistory from "../components/FusionHistory";
 import CeoOffice from "../components/CeoOffice";
@@ -135,6 +136,7 @@ import AdminChatOverview from "./admin/AdminChatOverview";
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
+import AICleanupCenter from "../components/AICleanupCenter";
 import LoungeInsightsDashboard from "../components/LoungeInsightsDashboard";
 import { toE164KR } from "../lib/testAccounts";
 
@@ -1563,6 +1565,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
   const [fusionBusy, setFusionBusy] = useState(false);
   const [histTick, setHistTick] = useState(0);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [fusionSaved, setFusionSaved] = useState(null); // Phase 46 — 자동 저장 결과 { saved, duplicate, draftId }
   const org = orgChart();
   const pipe = pipelineView({ autoPublishEnabled: (getAutoConfig().enabled === true) });
   const rec = topic.trim() ? aiRecommend(topic.trim()) : null;
@@ -1588,28 +1591,41 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
   // Phase 31 — 실제 Fusion 실행(순차). 발행 자동 금지 — 미리보기·품질검사까지만.
   const runFusionNow = async () => {
     if (fusionBusy || !topic.trim()) return;
-    setFusionBusy(true); setFusionResult(null); setFusionProgress({ index: 0, total: fusion.stages.length, phase: "running", stage: fusion.stages[0] });
+    setFusionBusy(true); setFusionResult(null); setFusionSaved(null); setFusionProgress({ index: 0, total: fusion.stages.length, phase: "running", stage: fusion.stages[0] });
     try {
       const res = await runFusion(topic.trim(), { onStep: (p) => setFusionProgress(p) });
       setFusionResult(res); setHistTick((t) => t + 1);
       showToast?.(res.ok ? `🧩 Fusion 완료 · ${res.mode} · ₩${res.totalCostKRW}` : "Fusion 실패 — 단계별 결과를 확인하세요");
+      // Phase 46 — 최종본 자동 저장(중복 차단·단일 저장). 저장 이후는 서버가 승인·예약·발행.
+      if (res?.final?.body) {
+        const bridge = await saveFusionFinal({
+          fusionResult: res, topic: topic.trim(), existing: published || [],
+          createDraft: (rec) => adminCreateLoungeDraft({ category: "daily", title: rec.title, content: rec.content, aiTopic: rec.ai_topic, publishStatus: "draft" }, adminUserId),
+        });
+        setFusionSaved(bridge);
+        if (bridge.saved) { showToast?.(`✅ 최종본 자동 저장 (ID ${String(bridge.draftId).slice(0, 8)}) — 서버 승인·예약·발행 대기`); await onReload?.(); }
+        else if (bridge.duplicate) showToast?.("이미 같은 편성이 있어 중복 저장하지 않았습니다");
+        else showToast?.("자동 저장 실패 — 아래 재저장 버튼으로 다시 시도하세요");
+      }
     } catch (e) {
       showToast?.("Fusion 오류: " + (e?.message ?? String(e)));
     } finally { setFusionBusy(false); setFusionProgress(null); }
   };
 
-  // 승인 → 초안 저장(기존 adminCreateLoungeDraft 재사용 · 발행 아님 · 자동발행 아님).
+  // 수동 재저장(기존 버튼 유지) — 자동 저장이 이미 성공/중복이면 재저장하지 않는다(중복 차단).
   const saveFusionDraft = async () => {
     if (savingDraft || !fusionResult?.final?.body) return;
+    if (fusionSaved?.saved || fusionSaved?.duplicate) { showToast?.("이미 저장됨 — 중복 저장하지 않습니다"); return; }
     setSavingDraft(true);
     try {
-      const { error } = await adminCreateLoungeDraft(
-        { category: "daily", title: fusionResult.final.title || topic.trim(), content: fusionResult.final.body, aiTopic: topic.trim(), publishStatus: "draft" },
-        adminUserId
-      );
-      if (error) { showToast?.("초안 저장 실패: " + error.message); return; }
-      showToast?.("✅ 초안으로 저장됨 (발행은 관리자 승인 후)");
-      await onReload?.();
+      const bridge = await saveFusionFinal({
+        fusionResult, topic: topic.trim(), existing: published || [],
+        createDraft: (rec) => adminCreateLoungeDraft({ category: "daily", title: rec.title, content: rec.content, aiTopic: rec.ai_topic, publishStatus: "draft" }, adminUserId),
+      });
+      setFusionSaved(bridge);
+      if (bridge.saved) { showToast?.(`✅ 초안 저장됨 (ID ${String(bridge.draftId).slice(0, 8)})`); await onReload?.(); }
+      else if (bridge.duplicate) showToast?.("이미 같은 편성이 있어 중복 저장하지 않았습니다");
+      else showToast?.("초안 저장 실패: " + (bridge.error ?? bridge.reason ?? "오류"));
     } catch (e) { showToast?.("저장 오류: " + (e?.message ?? String(e))); }
     finally { setSavingDraft(false); }
   };
@@ -1698,6 +1714,17 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
                 {savingDraft ? "저장 중…" : "✅ 승인 → 초안 저장"}
               </button>
             </div>
+            {/* Phase 46 — 정직한 상태 표기(실제 LLM 호출 · 자동 저장 결과) */}
+            {(() => {
+              const calls = (fusionResult.steps || []).filter((s) => s.ok).length, tot = (fusionResult.steps || []).length;
+              const realLLM = calls > 0;
+              return (
+                <div style={{ fontSize: 10.5, color: C.text2, marginBottom: 6, lineHeight: 1.8 }}>
+                  <div>실제 LLM 호출: <b style={{ color: realLLM ? "#059669" : C.red }}>{calls}/{tot}</b>{!realLLM && <b style={{ color: C.red }}> · 실제 AI 호출 안 됨(규칙/폴백)</b>}</div>
+                  <div>최종본 저장: {!fusionSaved ? "대기" : fusionSaved.saved ? <b style={{ color: "#059669" }}>완료 (ID {String(fusionSaved.draftId).slice(0, 8)}) · 서버 승인·예약·발행 대기</b> : fusionSaved.duplicate ? <b style={{ color: C.gold }}>중복 — 저장 안 함</b> : <b style={{ color: C.red }}>실패 (재저장 필요)</b>}</div>
+                </div>
+              );
+            })()}
             <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{fusionResult.final.title}</div>
             <div style={{ fontSize: 11.5, color: C.text2, lineHeight: 1.7, maxHeight: 220, overflow: "auto", whiteSpace: "pre-wrap" }}>{fusionResult.final.body}</div>
             {fusionResult.quality?.reasons?.length > 0 && (
@@ -5767,6 +5794,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["tools",          "정리도구"],
     ["notifications",  "알림"],
     ["admin_logs",     "관리자로그"],
+    ["ai_cleanup",     "AI 청소센터"],
   ];
 
   // ── 관리자 IA 대분류 — 역할 기반 그룹핑(Phase 40) ─────────────────────────
@@ -5797,7 +5825,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "lounge_review", label: "라운지·리뷰",  icon: "📋", perm: "can_contents",
       tabs: [["lounge", "라운지관리"], ["lounge_seeding", "라운지 시딩"], ["seed", "포토후기"], ["reviews", "리뷰관리"], ["review_admin", "리뷰 어드민"], ["reports", "신고관리"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
-      tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
+      tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"], ["ai_cleanup", "AI 청소센터"]] },
   ];
   const isSuperAdmin = user?.role === "admin";
   // 운영자(role='operator')는 로그인 시 주입된 permissions(can_*)로 대분류 노출 제한.
@@ -7558,6 +7586,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {mainTab === "chat_overview" && <AdminChatOverview adminId={user?.id} />}
 
             {mainTab === "admin_logs" && <AdminLogView />}
+
+            {/* ── AI 청소센터 (Phase 46 · 읽기 전용 탐지·4단계 승인) ── */}
+            {mainTab === "ai_cleanup" && <AICleanupCenter />}
 
             {mainTab === "notifications" && (
               <div>

@@ -150,11 +150,12 @@ export default function DraftPreviewModal({ draft, scheduleLabel, onClose, onApp
           {board && (
             <div style={section}>
               <div style={{ ...label, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span>AI 조직 4인 검토</span>
+                <span>규칙 기반 사전검사 (휴리스틱)</span>
                 <span style={{ fontSize: 11.5, fontWeight: 800, color: board.hardGatePassed ? "#059669" : C.red }}>
-                  승인 {board.approvalCount}/4 · {board.grade} · 게이트 {board.hardGatePassed ? "PASS" : "FAIL"} · {boardLabel}
+                  통과 {board.approvalCount}/4 · {board.grade} · 게이트 {board.hardGatePassed ? "PASS" : "FAIL"} · {boardLabel}
                 </span>
               </div>
+              <div style={{ fontSize: 10, color: C.text3, marginBottom: 4 }}>※ 규칙 기반 사전검사입니다. 실제 AI(LLM) 검수는 미실행(생성 시 Fusion 3콜은 별도). </div>
               <details>
                 <summary style={{ fontSize: 11, color: C.text3, cursor: "pointer" }}>각 AI 직원 판단 펼치기</summary>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
