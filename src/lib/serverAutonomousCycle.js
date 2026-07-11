@@ -67,9 +67,48 @@ async function sbInsertDraft(row) {
 
 // 승인·예약·도래분 발행 — publish_status='scheduled' & scheduled_at<=now 를 published 로 전환.
 // (check-trends 의 publishDueScheduled 와 동일 규칙 — 관리자가 승인·예약한 것만, 재실행해도 무해.)
+// ── Phase 43 진단: 각 단계를 순서대로 로그(cron↓API↓publishDueScheduled↓publish↓DB update) ──
 async function publishDueScheduled(now = Date.now()) {
+  const L = "[autonomous-cycle][publishDueScheduled]";
+  const nowIso = new Date(now).toISOString();
+  const diag = { scheduledTotal: 0, dueCount: 0, notDue: 0, published: 0, rows: [], ok: false };
   try {
-    const nowIso = new Date(now).toISOString();
+    console.log(`${L} 시작 now=${nowIso}`);
+
+    // (3) 예약(scheduled) 글 전체 조회 — 시간 무관, 몇 건인지 먼저 로그.
+    const scheduled = (await sbGet(
+      `lounge_posts?publish_status=eq.scheduled&select=id,title,scheduled_at&order=scheduled_at.asc&limit=100`
+    )) ?? [];
+    diag.scheduledTotal = Array.isArray(scheduled) ? scheduled.length : 0;
+    console.log(`${L} (3) scheduled count=${diag.scheduledTotal} (DB publish_status='scheduled')`);
+
+    if (diag.scheduledTotal === 0) {
+      // 예약 글이 0건 → 발행할 대상이 없음. (localStorage 예약은 서버에서 안 보임)
+      console.log(`${L} 예약(scheduled) 글이 DB 에 0건 — 발행 대상 없음. (브라우저 localStorage 예약은 서버 미가시)`);
+      diag.ok = true;
+      return { ...diag, reason: "no_db_scheduled" };
+    }
+
+    // (4) 각 글의 예약시간 vs 현재시간 vs 발행 가능 여부 로그.
+    const dueIds = [];
+    for (const row of scheduled) {
+      const due = row.scheduled_at != null && new Date(row.scheduled_at).getTime() <= now;
+      console.log(`${L} (4) id=${row.id} scheduledAt=${row.scheduled_at ?? "null"} now=${nowIso} due=${due}`);
+      diag.rows.push({ id: row.id, title: (row.title ?? "").slice(0, 40), scheduledAt: row.scheduled_at ?? null, due });
+      if (due) dueIds.push(row.id); else diag.notDue += 1;
+    }
+    diag.dueCount = dueIds.length;
+    // (5) Safety Gate: 서버는 "이미 승인·예약된 글"만 발행 — 별도 skip 사유 없음(승인·예약이 곧 게이트 통과).
+    console.log(`${L} (5) SafetyGate: 서버측 추가 게이트 없음(승인·예약=통과). due=${diag.dueCount} notDue(미도래)=${diag.notDue}`);
+
+    if (dueIds.length === 0) {
+      console.log(`${L} 도래(due) 0건 — 예약은 있으나 아직 발행 시각 미도래. 발행 안 함.`);
+      diag.ok = true;
+      return { ...diag, reason: "none_due" };
+    }
+
+    // (6)(7) publish 실행 = DB UPDATE scheduled→published (도래분만 PATCH).
+    console.log(`${L} (6) publish 실행: ${dueIds.length}건 scheduled→published PATCH`);
     const r = await fetch(
       `${SB_URL}/rest/v1/lounge_posts?publish_status=eq.scheduled&scheduled_at=lte.${encodeURIComponent(nowIso)}`,
       {
@@ -83,10 +122,20 @@ async function publishDueScheduled(now = Date.now()) {
         body: JSON.stringify({ publish_status: "published", is_visible: true, updated_at: nowIso }),
       }
     );
-    const rows = r.ok ? await r.json().catch(() => []) : [];
-    return { ok: r.ok, published: Array.isArray(rows) ? rows.length : 0 };
+    if (!r.ok) {
+      const body = await r.text().catch(() => r.statusText);
+      console.error(`${L} (7) DB UPDATE 실패 status=${r.status} body=${body}`);
+      return { ...diag, ok: false, reason: `db_update_failed:${r.status}`, error: body };
+    }
+    const rows = await r.json().catch(() => []);
+    diag.published = Array.isArray(rows) ? rows.length : 0;
+    diag.ok = true;
+    console.log(`${L} (7) DB UPDATE 완료: published=${diag.published}건 (status scheduled→published, is_visible=true)`);
+    return diag;
   } catch (e) {
-    return { ok: false, published: 0, reason: e?.message ?? "error" };
+    // (8) 예외 전체 출력.
+    console.error(`${L} (8) EXCEPTION`, e?.stack || e?.message || String(e));
+    return { ...diag, ok: false, reason: e?.message ?? "error", stack: e?.stack ?? null };
   }
 }
 
@@ -105,8 +154,11 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
   const slot = slotKey(now);
   const dateKey = kstDateKey(now);
   const kst = kstIso(now);
+  const L = "[autonomous-cycle]";
+  console.log(`${L} (2) runAutonomousCycle 진입 slot=${slot} kst=${kst} envReady=${!!(SB_URL && SB_KEY)}`);
 
   if (!SB_URL || !SB_KEY) {
+    console.error(`${L} missing_env SUPABASE_URL/KEY 미설정 — DB 접근 불가`);
     return { ok: false, reason: "missing_env", slot, dateKey, kst, generated: 0, published: 0 };
   }
 
@@ -156,8 +208,12 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
     }
   }
 
+  console.log(`${L} (2) 생성 단계: todayCount=${todayCount} need=${need} generated=${generated}`);
+
   // 3) 승인·예약·도래분 발행(Safety Gate: DB 상태만으로 판정, 재실행 무해).
+  console.log(`${L} publishDueScheduled 호출`);
   const pub = await publishDueScheduled(now);
+  console.log(`${L} publishDueScheduled 결과 scheduledTotal=${pub.scheduledTotal} due=${pub.dueCount} published=${pub.published} reason=${pub.reason ?? "-"}`);
 
   return {
     ok: true,
@@ -167,6 +223,8 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
     todayCount,
     targetPerDay: DAILY_DRAFT_TARGET,
     maxPerRun: MAX_DRAFTS_PER_RUN,
+    // Phase 43 진단: 예약/도래/발행 상세(응답으로 바로 확인 가능).
+    publishDiag: { scheduledTotal: pub.scheduledTotal, dueCount: pub.dueCount, notDue: pub.notDue, published: pub.published, reason: pub.reason ?? null, rows: pub.rows ?? [] },
     generated,
     drafts,
     published: pub.published,
