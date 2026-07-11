@@ -17,6 +17,7 @@ import { processDuePublishes } from "../lib/publishWorker";
 import { publishHistoryStats, getPublishLog } from "../lib/publishHistory";
 import { adminUpdateLoungeDraft } from "../lib/supabase";
 import { classifyContentType } from "../lib/contentTypes";
+import DraftPreviewModal from "./DraftPreviewModal";
 
 const STATUS_COLOR = {
   approved: "#2563eb", scheduled: "#7c3aed", publishing: "#d97706",
@@ -26,6 +27,8 @@ const STATUS_COLOR = {
 export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, onReload }) {
   const [tick, setTick] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [previewDraft, setPreviewDraft] = useState(null); // 미리보기 모달 대상(Phase 41)
+  const [rejectedIds, setRejectedIds] = useState(() => new Set()); // 반려 = 세션 내 목록 숨김(발행 안 함·DB 무변경)
   const refresh = () => setTick((t) => t + 1);
   const cfg = getAutopilotConfig();
   const jobs = getPublishQueue();
@@ -60,6 +63,19 @@ export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, 
     refresh(); showToast?.(`🗓️ 예약: ${pubSlotLabel(at.toISOString())}`);
   };
 
+  // Phase 41 — 승인 예정 슬롯 라벨(미리보기 표시용, 실제 예약과 동일 계산).
+  const slotLabelFor = (d) => {
+    try { return pubSlotLabel(schedulePublishAt(d.content_type || classifyContentType(d.title || "")).toISOString()); }
+    catch { return null; }
+  };
+  // 승인 — 목록·미리보기 공통(기존 예약 로직 위임). 미리보기에서 호출 시 모달 닫기.
+  const approveDraft = (d) => { scheduleDraft(d); setPreviewDraft(null); };
+  // 반려 — DB 무변경. 세션 내 승인대기 목록에서만 숨겨 오발행을 방지.
+  const rejectDraft = (d) => {
+    setRejectedIds((prev) => { const n = new Set(prev); n.add(d.id); return n; });
+    setPreviewDraft(null); showToast?.("✕ 반려됨 — 목록에서 숨김(발행 안 됨 · DB 삭제 아님)");
+  };
+
   const runNow = async () => {
     if (busy) return; setBusy(true);
     try {
@@ -82,7 +98,7 @@ export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, 
   };
   const retry = (job) => { updatePublishJob(job.id, { status: "scheduled", error: null, scheduledAt: new Date().toISOString() }); refresh(); showToast?.("재시도 예약"); };
 
-  const readyDrafts = (drafts || []).filter((d) => (d.publish_status || "draft") === "draft").slice(0, 12);
+  const readyDrafts = (drafts || []).filter((d) => (d.publish_status || "draft") === "draft" && !rejectedIds.has(d.id)).slice(0, 12);
   const tile = (k, v, col) => (
     <div key={k} style={{ flex: "1 1 90px", background: C.bg, borderRadius: R.lg, padding: "9px 11px", border: `1px solid ${C.bgWarm}` }}>
       <div style={{ fontSize: 10, color: C.text3 }}>{k}</div>
@@ -121,9 +137,11 @@ export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, 
       <div style={box}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>✅ 승인 초안 → 예약 추가 ({readyDrafts.length})</div>
         {readyDrafts.length === 0 ? <div style={{ fontSize: 11.5, color: C.text3 }}>예약할 초안이 없습니다(초안 상태 글).</div> : readyDrafts.map((d) => (
-          <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "5px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
+          <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, padding: "5px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
             <span style={{ color: C.text1, fontWeight: 600, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title || d.content?.slice(0, 30)}</span>
+            <button onClick={() => setPreviewDraft(d)} style={{ padding: "4px 11px", background: "#fff", color: C.brandD, border: `1px solid ${C.brandD}`, borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: "pointer" }}>👁 미리보기</button>
             <button onClick={() => scheduleDraft(d)} style={{ padding: "4px 11px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: "pointer" }}>🗓️ 예약</button>
+            <button onClick={() => rejectDraft(d)} style={{ padding: "4px 10px", background: "#fff", color: C.red, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: "pointer" }}>✕ 반려</button>
           </div>
         ))}
       </div>
@@ -165,6 +183,17 @@ export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, 
           </div>
         )}
       </div>
+
+      {/* Phase 41 — 승인 전 미리보기 모달(승인/반려는 목록과 동일 동작) */}
+      {previewDraft && (
+        <DraftPreviewModal
+          draft={previewDraft}
+          scheduleLabel={slotLabelFor(previewDraft)}
+          onClose={() => setPreviewDraft(null)}
+          onApprove={approveDraft}
+          onReject={rejectDraft}
+        />
+      )}
     </div>
   );
 }
