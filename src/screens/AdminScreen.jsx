@@ -13,7 +13,9 @@ import { recommendCategories } from "../lib/categoryRecommender";
 import { scoreContent } from "../lib/contentScore";
 // Phase 8 — Content Quality & Natural Category (기존 엔진 무수정, 신규 모듈 추가 호출)
 import { generateVoicedDraft, generateVoicedDraftLLM } from "../lib/categoryVoiceWriter";
-import { isLLMConfigured } from "../lib/llmClient";
+import { isLLMConfigured, callLLM } from "../lib/llmClient";
+import { evaluateQuality, QUALITY_PASS } from "../lib/qualityEvaluator";
+import { refineToQuality, buildBoostPrompt } from "../lib/qualityRefiner";
 // Phase 18 — Real LLM Editorial Engine
 import { generateEditorial } from "../lib/editorialEngine";
 import { getEditorialConfig, setEditorialConfig } from "../lib/editorialConfig";
@@ -2632,6 +2634,29 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
       setWorkbench(wb);
       setPreview({ title: wb.result.title, content: wb.result.body, category: wb.result.category, tags: wb.result.tags, summary: wb.result.summary, keywords: wb.result.keywords, focusKeyword: wb.result.focusKeyword, metaDescription: wb.result.metaDescription });
       showToast?.(`✨ LLM 생성 완료 · Confidence ${wb.meta.confidence}% · Editorial ${wb.meta.editorialScore}`);
+
+      // Phase 42 — 품질 자동 보정 루프: 85점 미만이면 약점만 골라 최대 2회 보완 후 재평가.
+      //   실패/오류 시 초안 그대로 유지(회귀 없음). 점수는 실제 evaluateQuality 로 재채점(조작 없음).
+      try {
+        const baseDraft = { title: wb.result.title, content: wb.result.body, category: wb.result.category, type: wb.result.contentType || wb.meta?.contentType };
+        const ev0 = evaluateQuality(baseDraft);
+        if (ev0.totalScore < QUALITY_PASS) {
+          const r = await refineToQuality({
+            generate: () => baseDraft,
+            refine: async (dr, ev) => {
+              const p = buildBoostPrompt(dr, ev, dr.type);
+              const out = await callLLM({ system: p.system, user: p.user, temperature: 0.6, maxTokens: 2400 });
+              const text = (out?.text ?? "").trim();
+              return text.length > 60 ? { ...dr, content: text } : null;
+            },
+            evaluate: evaluateQuality,
+          }, { minScore: QUALITY_PASS, maxBoosts: 2 });
+          if (r.score > ev0.totalScore) {
+            setPreview((p) => ({ ...p, title: r.draft.title, content: r.draft.content }));
+            showToast?.(`🔁 품질 보정: ${ev0.totalScore} → ${r.score}점 · 보완 ${r.boosts}회 · ${r.status === "approved_ready" ? "통과(승인대기)" : "관리자 검토대기"}`);
+          }
+        }
+      } catch { /* 보정 실패 시 초안 유지 */ }
     } catch (e) {
       showToast?.("생성 실패: " + (e?.message ?? String(e)));
     } finally {

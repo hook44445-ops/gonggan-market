@@ -12,6 +12,7 @@ import { C, R, S } from "../constants";
 import { CATEGORY_LABEL } from "../constants/lounge";
 import { buildPostPath } from "../utils/loungeSeo";
 import { buildBlogSeo, buildBlogPost, isBlogEligible, getBlogLog } from "../lib/blogPublisher";
+import { evaluateQuality, RUBRIC_LABELS } from "../lib/qualityEvaluator";
 
 export default function DraftPreviewModal({ draft, scheduleLabel, onClose, onApprove, onReject }) {
   if (!draft) return null;
@@ -31,6 +32,10 @@ export default function DraftPreviewModal({ draft, scheduleLabel, onClose, onApp
   let path = "";
   try { path = buildPostPath(d); } catch { path = `/lounge/posts/${d.id}`; }
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  // 품질 항목별 점수(Phase 42) — 결정론적 평가(읽기 전용).
+  let quality = null;
+  try { quality = evaluateQuality(d); } catch { quality = null; }
 
   // 블로그 변환 결과(있는 경우) — 기존 빌더로 미리보기 + 과거 발행 이력 매칭.
   let blog = null, blogEligible = false, blogHit = null;
@@ -98,6 +103,35 @@ export default function DraftPreviewModal({ draft, scheduleLabel, onClose, onApp
               </div>
             ) : <div style={{ fontSize: 12, color: C.text3 }}>SEO 정보 없음</div>}
           </div>
+
+          {/* 품질 항목별 점수(Phase 42) */}
+          {quality && (
+            <div style={section}>
+              <div style={{ ...label, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span>품질 항목별 점수</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: quality.passed ? "#059669" : quality.totalScore >= 80 ? C.gold : C.red }}>
+                  {quality.totalScore}점 / 기준 {quality.threshold} · {quality.band}{quality.passed ? " ✅" : ""}
+                </span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {Object.entries(quality.breakdown).map(([k, v]) => {
+                  const low = v.score < v.max * 0.7;
+                  return (
+                    <span key={k} style={{ fontSize: 10.5, borderRadius: R.full, padding: "3px 9px", fontWeight: 700,
+                      background: low ? "#fdeeee" : C.bg, color: low ? C.red : C.text2, border: `1px solid ${low ? "#f6d5d5" : C.bgWarm}` }}>
+                      {RUBRIC_LABELS[k]} {v.score}/{v.max}
+                    </span>
+                  );
+                })}
+              </div>
+              {quality.weakPoints.length > 0 && (
+                <div style={{ fontSize: 10.5, color: C.text3, marginTop: 7, lineHeight: 1.6 }}>
+                  <b style={{ color: C.text2 }}>주요 보완</b> · {quality.weakPoints.slice(0, 5).join(" · ")}
+                  {quality.factuality < 10 && <span style={{ color: C.red }}> · ⚠ 사실성 {quality.factuality}/15(자동발행 최소 10)</span>}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 태그 */}
           <div style={section}>
