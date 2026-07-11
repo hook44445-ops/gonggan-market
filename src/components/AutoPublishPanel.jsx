@@ -19,6 +19,7 @@ import { adminUpdateLoungeDraft } from "../lib/supabase";
 import { classifyContentType } from "../lib/contentTypes";
 import DraftPreviewModal from "./DraftPreviewModal";
 import { evaluateQuality } from "../lib/qualityEvaluator";
+import { reviewByBoard } from "../lib/aiEditorialBoard";
 
 const STATUS_COLOR = {
   approved: "#2563eb", scheduled: "#7c3aed", publishing: "#d97706",
@@ -139,11 +140,14 @@ export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, 
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>✅ 승인 초안 → 예약 추가 ({readyDrafts.length})</div>
         {readyDrafts.length === 0 ? <div style={{ fontSize: 11.5, color: C.text3 }}>예약할 초안이 없습니다(초안 상태 글).</div> : readyDrafts.map((d) => {
           let q = null; try { q = evaluateQuality(d); } catch { q = null; }
+          let b = null; try { b = reviewByBoard(d, { evaluation: q }); } catch { b = null; }
           const qColor = !q ? C.text4 : q.passed ? "#059669" : q.totalScore >= 80 ? C.gold : C.red;
+          const bColor = !b ? C.text4 : b.hardGatePassed ? "#059669" : C.red;
           return (
           <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, padding: "5px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
             <span style={{ color: C.text1, fontWeight: 600, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title || d.content?.slice(0, 30)}</span>
-            {q && <span title={q.weakPoints.slice(0, 4).join(" · ")} style={{ padding: "2px 8px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: qColor + "22", color: qColor, whiteSpace: "nowrap" }}>품질 {q.totalScore}·기준 {q.threshold}{q.passed ? " ✅" : " 미달"}</span>}
+            {q && <span title={q.weakPoints.slice(0, 4).join(" · ")} style={{ padding: "2px 8px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: qColor + "22", color: qColor, whiteSpace: "nowrap" }}>품질 {q.totalScore}·{q.band}</span>}
+            {b && <span title={b.reviewers.map((r) => `${r.role}:${r.decision}`).join(" · ")} style={{ padding: "2px 8px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: bColor + "22", color: bColor, whiteSpace: "nowrap" }}>4인 {b.approvalCount}/4·게이트 {b.hardGatePassed ? "PASS" : "FAIL"}</span>}
             <button onClick={() => setPreviewDraft(d)} style={{ padding: "4px 11px", background: "#fff", color: C.brandD, border: `1px solid ${C.brandD}`, borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: "pointer" }}>👁 미리보기</button>
             <button onClick={() => scheduleDraft(d)} style={{ padding: "4px 11px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: "pointer" }}>🗓️ 예약</button>
             <button onClick={() => rejectDraft(d)} style={{ padding: "4px 10px", background: "#fff", color: C.red, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: "pointer" }}>✕ 반려</button>

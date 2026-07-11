@@ -21,6 +21,9 @@ import { mapCategory } from "./categoryMapper.js";
 import { filterNewTopics } from "./duplicateChecker.js";
 import { generateDraft } from "../constants/aiContentFactory.js";
 import { slotKey, kstDateKey, kstIso, kstMidnightUtcIso } from "./cronRunGuard.js";
+import { classifyContentType } from "./contentTypes.js";
+import { schedulePublishAt } from "./publishScheduler.js";
+import { runEditorialApproval } from "./editorialApprovalPolicy.js";
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const SB_KEY =
@@ -63,6 +66,66 @@ async function sbInsertDraft(row) {
   if (!r.ok) return { error: await r.text().catch(() => r.statusText) };
   const data = await r.json().catch(() => null);
   return { data: Array.isArray(data) ? data[0] : data };
+}
+
+// 단건 PATCH.
+async function sbPatch(id, patch) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/lounge_posts?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify(patch),
+    });
+    return r.ok;
+  } catch { return false; }
+}
+
+// 회당 검토 상한(무한 방지).
+const MAX_APPROVE_PER_RUN = 5;
+
+// ── Phase 43: AI 조직 4인 검토 → 자동 승인분을 DB scheduled 로 전환(예약) ──────────
+//   서버는 결정론적 4인 검토(발행 우선)만 수행하고, 승인분에 편성시각(scheduled_at)을 부여한다.
+//   이후 publishDueScheduled 가 도래분을 published 로 발행. (localStorage 미의존 · DB가 진실원)
+//   breaking(실시간 긴급뉴스)은 자동승인 제외 → 관리자 검토(초안 유지). Hard Fail/2:2 도 초안 유지.
+async function autoApproveAndSchedule(now) {
+  const L = "[autonomous-cycle][board]";
+  const res = { reviewed: 0, scheduled: 0, needsReview: 0, rows: [] };
+  try {
+    const drafts = (await sbGet(
+      `lounge_posts?publish_status=eq.draft&ai_topic=not.is.null&select=id,title,content,category,ai_topic,created_at&order=created_at.desc&limit=${MAX_APPROVE_PER_RUN}`
+    )) ?? [];
+    console.log(`${L} 후보 draft=${drafts.length}`);
+    if (!drafts.length) return res;
+
+    const cutoffIso = new Date(now - LOOKBACK_HOURS * 3600 * 1000).toISOString();
+    const existing = (await sbGet(
+      `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=id,title,ai_topic,created_at&limit=500`
+    )) ?? [];
+
+    for (const d of drafts) {
+      res.reviewed += 1;
+      const type = classifyContentType(d.title || d.ai_topic || "");
+      const eligible = type !== "breaking"; // breaking 은 관리자 검토
+      // 서버는 LLM 보정 없이 현재 본문으로 결정론적 4인 검토(발행 우선).
+      const r = await runEditorialApproval({ draft: { ...d, type }, existing });
+      console.log(`${L} id=${d.id} type=${type} score=${r.qualityScore} grade=${r.grade} decision=${r.finalDecision} hardGate=${r.hardGatePassed} approvals=${r.approvalCount}/4 rev=${r.revisionCount} regen=${r.regenerationCount} board=${r.boardReviewCount}`);
+      if (r.approved && eligible) {
+        const at = schedulePublishAt(type, { now });
+        const ok = await sbPatch(d.id, { publish_status: "scheduled", scheduled_at: at.toISOString(), updated_at: new Date(now).toISOString() });
+        if (ok) { res.scheduled += 1; res.rows.push({ id: d.id, type, decision: r.finalDecision, grade: r.grade, score: r.qualityScore, scheduledAt: at.toISOString() }); console.log(`${L} → scheduled id=${d.id} at=${at.toISOString()}`); }
+        else { res.needsReview += 1; console.warn(`${L} scheduled PATCH 실패 id=${d.id} → draft 유지`); }
+      } else {
+        res.needsReview += 1;
+        res.rows.push({ id: d.id, type, decision: "NEEDS_REVIEW", grade: r.grade, score: r.qualityScore, reason: eligible ? (r.hardGate?.reasons || []) : ["breaking=관리자검토"] });
+        console.log(`${L} → needs_review id=${d.id} (${eligible ? r.finalDecision : "breaking"})`);
+      }
+    }
+    console.log(`${L} 완료 reviewed=${res.reviewed} scheduled=${res.scheduled} needsReview=${res.needsReview}`);
+    return res;
+  } catch (e) {
+    console.error(`${L} EXCEPTION`, e?.stack || e?.message || String(e));
+    return { ...res, error: e?.message ?? "error" };
+  }
 }
 
 // 승인·예약·도래분 발행 — publish_status='scheduled' & scheduled_at<=now 를 published 로 전환.
@@ -210,7 +273,12 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
 
   console.log(`${L} (2) 생성 단계: todayCount=${todayCount} need=${need} generated=${generated}`);
 
-  // 3) 승인·예약·도래분 발행(Safety Gate: DB 상태만으로 판정, 재실행 무해).
+  // 3) AI 조직 4인 검토 → 자동 승인분 예약(scheduled) 전환.
+  console.log(`${L} autoApproveAndSchedule 호출`);
+  const board = await autoApproveAndSchedule(now);
+  console.log(`${L} board 결과 reviewed=${board.reviewed} scheduled=${board.scheduled} needsReview=${board.needsReview}`);
+
+  // 4) 승인·예약·도래분 발행(Safety Gate: DB 상태만으로 판정, 재실행 무해).
   console.log(`${L} publishDueScheduled 호출`);
   const pub = await publishDueScheduled(now);
   console.log(`${L} publishDueScheduled 결과 scheduledTotal=${pub.scheduledTotal} due=${pub.dueCount} published=${pub.published} reason=${pub.reason ?? "-"}`);
@@ -223,7 +291,9 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
     todayCount,
     targetPerDay: DAILY_DRAFT_TARGET,
     maxPerRun: MAX_DRAFTS_PER_RUN,
-    // Phase 43 진단: 예약/도래/발행 상세(응답으로 바로 확인 가능).
+    // Phase 43: AI 조직 4인 검토 → 자동승인·예약 결과.
+    boardDiag: { reviewed: board.reviewed, scheduled: board.scheduled, needsReview: board.needsReview, rows: board.rows ?? [] },
+    // 진단: 예약/도래/발행 상세(응답으로 바로 확인 가능).
     publishDiag: { scheduledTotal: pub.scheduledTotal, dueCount: pub.dueCount, notDue: pub.notDue, published: pub.published, reason: pub.reason ?? null, rows: pub.rows ?? [] },
     generated,
     drafts,
