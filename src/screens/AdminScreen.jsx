@@ -5744,9 +5744,12 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["admin_logs",     "관리자로그"],
   ];
 
-  // ── 관리자 IA 대분류(5) — 기존 21개 탭을 그룹핑(탭 추가/삭제 없음) ──────────
+  // ── 관리자 IA 대분류 — 역할 기반 그룹핑(Phase 40) ─────────────────────────
   // 권한: SUPER_ADMIN(role=admin)=전체 / 운영자=admin_permissions 카테고리만(Phase 3 연동).
   // 소분류 label 은 [key, 커스텀라벨?] — 생략 시 MAIN_TABS 라벨 사용.
+  // ⚠️ Phase 40 = 정보구조(IA)만 재배치 — 탭 추가/삭제/로직 변경 없음. 기존 콘텐츠 대분류(23탭)를
+  //   운영자가 3초 안에 찾도록 역할별 5분류(AI 운영센터/편성국/발행센터/무인운영/AI 분석실)+라운지·리뷰로
+  //   나눈다. 나뉜 분류는 모두 기존 'can_contents' 권한을 유지 → 운영자 접근 범위·권한 모델 무변경.
   const TAB_LABEL = Object.fromEntries(MAIN_TABS);
   const CATEGORIES_DEF = [
     { key: "operations",    label: "운영",         icon: "🏢", perm: "can_operations",
@@ -5755,8 +5758,19 @@ export default function AdminScreen({ onBack, onHome, user }) {
       tabs: [["transactions"], ["payments"], ["settlements"], ["disputes"]] },
     { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
-    { key: "contents",      label: "콘텐츠",       icon: "📝", perm: "can_contents",
-      tabs: [["mission_control", "운영센터"], ["live_ops", "라이브 운영"], ["operation_monitor", "무인 운영"], ["e2e_validation", "실전 검증"], ["programming", "편성국"], ["ai_hq", "AI 운영본부"], ["ceo_office", "AI 사장실"], ["autopilot", "자동발행 대기"], ["reviews"], ["review_admin"], ["seed", "포토후기"], ["lounge"], ["lounge_insights", "라운지 인사이트"], ["lounge_seeding"], ["lounge_ai_factory"], ["trend_discovery", "트렌드 발굴"], ["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["editorial_schedule", "자동 편성"], ["blog_publish", "블로그 발행"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["reports"]] },
+    // ── 콘텐츠(AI 운영) 역할 기반 5분류 — 모두 can_contents 유지(재배치만) ──
+    { key: "ai_center",     label: "AI 운영센터",  icon: "🛰️", perm: "can_contents",
+      tabs: [["mission_control", "운영센터"], ["ceo_office", "AI 사장실"]] },
+    { key: "editorial",     label: "편성국",       icon: "🗞️", perm: "can_contents",
+      tabs: [["trend_discovery", "트렌드 발굴"], ["editorial_schedule", "자동 편성"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["programming", "콘텐츠 계획"], ["lounge_ai_factory", "AI 콘텐츠 공장"]] },
+    { key: "publishing",    label: "발행센터",     icon: "📤", perm: "can_contents",
+      tabs: [["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["autopilot", "자동발행 대기"], ["blog_publish", "블로그 발행"]] },
+    { key: "autonomous",    label: "무인운영",     icon: "🤖", perm: "can_contents",
+      tabs: [["operation_monitor", "무인 운영"], ["live_ops", "라이브 운영"], ["e2e_validation", "실전 검증"]] },
+    { key: "ai_lab",        label: "AI 분석실",    icon: "🔬", perm: "can_contents",
+      tabs: [["ai_hq", "AI 운영본부"], ["lounge_insights", "라운지 인사이트"]] },
+    { key: "lounge_review", label: "라운지·리뷰",  icon: "📋", perm: "can_contents",
+      tabs: [["lounge", "라운지관리"], ["lounge_seeding", "라운지 시딩"], ["seed", "포토후기"], ["reviews", "리뷰관리"], ["review_admin", "리뷰 어드민"], ["reports", "신고관리"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
       tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"]] },
   ];
