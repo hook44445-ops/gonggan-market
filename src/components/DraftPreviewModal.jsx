@@ -13,6 +13,7 @@ import { CATEGORY_LABEL } from "../constants/lounge";
 import { buildPostPath } from "../utils/loungeSeo";
 import { buildBlogSeo, buildBlogPost, isBlogEligible, getBlogLog } from "../lib/blogPublisher";
 import { evaluateQuality, RUBRIC_LABELS } from "../lib/qualityEvaluator";
+import { reviewByBoard } from "../lib/aiEditorialBoard";
 
 export default function DraftPreviewModal({ draft, scheduleLabel, onClose, onApprove, onReject }) {
   if (!draft) return null;
@@ -36,6 +37,18 @@ export default function DraftPreviewModal({ draft, scheduleLabel, onClose, onApp
   // 품질 항목별 점수(Phase 42) — 결정론적 평가(읽기 전용).
   let quality = null;
   try { quality = evaluateQuality(d); } catch { quality = null; }
+
+  // AI 조직 4인 검토(Phase 43) — 결정론적(읽기 전용).
+  let board = null;
+  try { board = reviewByBoard(d, { evaluation: quality }); } catch { board = null; }
+  const ROLE_KO = { writer: "작성 담당", fact_checker: "팩트체커", seo: "SEO 담당", chief_editor: "편집장" };
+  const DEC_KO = { PASS: "PASS", PASS_WITH_NOTE: "PASS_WITH_NOTE", REVISE: "REVISE" };
+  const boardLabel = !board ? "" :
+    board.boardDecision === "AUTO_APPROVED" ? "자동 승인"
+    : board.boardDecision === "AUTO_APPROVED_WITH_NOTES" ? "자동 승인(주의)"
+    : board.boardDecision === "NEEDS_REVISION" ? "보정 후 승인 예정"
+    : board.boardDecision === "SPLIT" ? "검토대기(2:2)"
+    : "검토대기(Hard Fail)";
 
   // 블로그 변환 결과(있는 경우) — 기존 빌더로 미리보기 + 과거 발행 이력 매칭.
   let blog = null, blogEligible = false, blogHit = null;
@@ -130,6 +143,35 @@ export default function DraftPreviewModal({ draft, scheduleLabel, onClose, onApp
                   {quality.factuality < 10 && <span style={{ color: C.red }}> · ⚠ 사실성 {quality.factuality}/15(자동발행 최소 10)</span>}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* AI 조직 4인 검토(Phase 43) */}
+          {board && (
+            <div style={section}>
+              <div style={{ ...label, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span>AI 조직 4인 검토</span>
+                <span style={{ fontSize: 11.5, fontWeight: 800, color: board.hardGatePassed ? "#059669" : C.red }}>
+                  승인 {board.approvalCount}/4 · {board.grade} · 게이트 {board.hardGatePassed ? "PASS" : "FAIL"} · {boardLabel}
+                </span>
+              </div>
+              <details>
+                <summary style={{ fontSize: 11, color: C.text3, cursor: "pointer" }}>각 AI 직원 판단 펼치기</summary>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
+                  {board.reviewers.map((rv) => {
+                    const col = rv.hardFail ? C.red : rv.decision === "PASS" ? "#059669" : rv.decision === "PASS_WITH_NOTE" ? C.gold : C.red;
+                    return (
+                      <div key={rv.role} style={{ fontSize: 11, color: C.text2, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "baseline" }}>
+                        <span style={{ minWidth: 64, fontWeight: 700, color: C.text1 }}>{ROLE_KO[rv.role]}</span>
+                        <span style={{ fontWeight: 800, color: col }}>{DEC_KO[rv.decision]}{rv.hardFail ? " · Hard Fail" : ""}</span>
+                        <span style={{ color: C.text3 }}>{rv.score}점</span>
+                        {rv.issues.length > 0 && <span style={{ color: C.text3 }}>· {rv.issues.slice(0, 2).join(", ")}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {board.hardGate.reasons.length > 0 && <div style={{ fontSize: 10.5, color: C.red, marginTop: 6 }}>안전 게이트 실패: {board.hardGate.reasons.join(" · ")}</div>}
+              </details>
             </div>
           )}
 
