@@ -101,13 +101,21 @@ export default async function handler(req, res) {
   // 기존 일 1회 Vercel Cron 경로(mode 없음)는 아래 로직 그대로 — Regression Zero.
   // 인증: Authorization: Bearer <CRON_SECRET>. 미설정 503 · 불일치 401. 비밀 원문 미노출.
   if (req.query?.mode === 'autonomous') {
+    // (1) cron-job.org → autonomous-cycle API 도착 로그(비밀 미출력).
+    console.log(`[autonomous-cycle] (1) API 도착 method=${req.method} ua=${(req.headers?.['user-agent'] || '').slice(0, 60)} hasAuth=${!!(req.headers?.authorization)}`);
     const auth = authenticateCron(req);
-    if (!auth.ok) return sendJson(auth.status, { ok: false, code: auth.code });
+    if (!auth.ok) {
+      console.warn(`[autonomous-cycle] (1) 인증 실패 code=${auth.code} status=${auth.status}`);
+      return sendJson(auth.status, { ok: false, code: auth.code });
+    }
+    console.log('[autonomous-cycle] (1) 인증 통과 → runAutonomousCycle 호출');
     try {
       const result = await runAutonomousCycle({ now: Date.now() });
+      console.log(`[autonomous-cycle] 완료 published=${result?.publishDiag?.published ?? 0} scheduledTotal=${result?.publishDiag?.scheduledTotal ?? 0} due=${result?.publishDiag?.dueCount ?? 0}`);
       return sendJson(200, { mode: 'autonomous', ...result });
     } catch (e) {
-      return sendJson(200, { ok: false, mode: 'autonomous', reason: e?.message ?? 'error' });
+      console.error('[autonomous-cycle] (8) 핸들러 EXCEPTION', e?.stack || e?.message || String(e));
+      return sendJson(200, { ok: false, mode: 'autonomous', reason: e?.message ?? 'error', stack: e?.stack ?? null });
     }
   }
   // ───────────────────────────────────────────────────────────────────────
