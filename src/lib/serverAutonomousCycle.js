@@ -24,6 +24,7 @@ import { slotKey, kstDateKey, kstIso, kstMidnightUtcIso } from "./cronRunGuard.j
 import { classifyContentType } from "./contentTypes.js";
 import { schedulePublishAt } from "./publishScheduler.js";
 import { runEditorialApproval } from "./editorialApprovalPolicy.js";
+import { findDuplicate, editorialKey } from "./editorialKey.js";
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const SB_KEY =
@@ -82,6 +83,8 @@ async function sbPatch(id, patch) {
 
 // 회당 검토 상한(무한 방지).
 const MAX_APPROVE_PER_RUN = 5;
+// ⑯ 회당 발행 상한 — 놓친 예약 다수를 한 번에 쏟지 않고 사이클마다 3건씩 회수.
+const MAX_PUBLISH_PER_RUN = 3;
 
 // ── Phase 43: AI 조직 4인 검토 → 자동 승인분을 DB scheduled 로 전환(예약) ──────────
 //   서버는 결정론적 4인 검토(발행 우선)만 수행하고, 승인분에 편성시각(scheduled_at)을 부여한다.
@@ -99,20 +102,39 @@ async function autoApproveAndSchedule(now) {
 
     const cutoffIso = new Date(now - LOOKBACK_HOURS * 3600 * 1000).toISOString();
     const existing = (await sbGet(
-      `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=id,title,ai_topic,created_at&limit=500`
+      `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=id,title,ai_topic,created_at,publish_status,scheduled_at&limit=500`
     )) ?? [];
+    // content_type 컬럼이 없으므로 제목으로 분류해 편성 키를 만든다(⑬).
+    const withType = (e) => ({ ...e, content_type: classifyContentType(e.title || e.ai_topic || "") });
+    const pipeline = existing.filter((e) => ["review", "approved", "scheduled", "publishing", "published"].includes(e.publish_status || "")).map(withType);
+    // 보드 중복검사 코퍼스는 "기존 파이프라인"만 — 이번 배치의 형제 draft 는 제외(형제끼리 자기중복 Hard Fail 방지).
+    const batchIds = new Set(drafts.map((d) => d.id));
+    const existingForBoard = existing.filter((e) => !batchIds.has(e.id));
+    const seenKeys = new Set();
+    res.duplicate = 0;
 
     for (const d of drafts) {
       res.reviewed += 1;
       const type = classifyContentType(d.title || d.ai_topic || "");
       const eligible = type !== "breaking"; // breaking 은 관리자 검토
+      const at = schedulePublishAt(type, { now });
+      // ⑬ 편성 중복 차단: 같은 키가 이미 파이프라인(승인~발행)에 있거나, 이번 배치에서 이미 처리됨(대표본 1건).
+      const keyRec = { content_type: type, title: d.title, scheduled_at: at.toISOString() };
+      const key = editorialKey(keyRec);
+      const dup = seenKeys.has(key) || findDuplicate(keyRec, pipeline);
+      if (dup) {
+        res.duplicate += 1;
+        res.rows.push({ id: d.id, type, decision: "DUPLICATE_SKIP", key });
+        console.log(`${L} → duplicate skip id=${d.id} key=${key} (같은 편성 이미 존재)`);
+        continue;
+      }
+      seenKeys.add(key); // 대표본 확정 — 같은 키의 형제 draft 는 이후 스킵.
       // 서버는 LLM 보정 없이 현재 본문으로 결정론적 4인 검토(발행 우선).
-      const r = await runEditorialApproval({ draft: { ...d, type }, existing });
+      const r = await runEditorialApproval({ draft: { ...d, type }, existing: existingForBoard });
       console.log(`${L} id=${d.id} type=${type} score=${r.qualityScore} grade=${r.grade} decision=${r.finalDecision} hardGate=${r.hardGatePassed} approvals=${r.approvalCount}/4 rev=${r.revisionCount} regen=${r.regenerationCount} board=${r.boardReviewCount}`);
       if (r.approved && eligible) {
-        const at = schedulePublishAt(type, { now });
         const ok = await sbPatch(d.id, { publish_status: "scheduled", scheduled_at: at.toISOString(), updated_at: new Date(now).toISOString() });
-        if (ok) { res.scheduled += 1; res.rows.push({ id: d.id, type, decision: r.finalDecision, grade: r.grade, score: r.qualityScore, scheduledAt: at.toISOString() }); console.log(`${L} → scheduled id=${d.id} at=${at.toISOString()}`); }
+        if (ok) { res.scheduled += 1; res.rows.push({ id: d.id, type, decision: r.finalDecision, grade: r.grade, score: r.qualityScore, scheduledAt: at.toISOString() }); console.log(`${L} → scheduled id=${d.id} at=${at.toISOString()} key=${key}`); }
         else { res.needsReview += 1; console.warn(`${L} scheduled PATCH 실패 id=${d.id} → draft 유지`); }
       } else {
         res.needsReview += 1;
@@ -120,7 +142,7 @@ async function autoApproveAndSchedule(now) {
         console.log(`${L} → needs_review id=${d.id} (${eligible ? r.finalDecision : "breaking"})`);
       }
     }
-    console.log(`${L} 완료 reviewed=${res.reviewed} scheduled=${res.scheduled} needsReview=${res.needsReview}`);
+    console.log(`${L} 완료 reviewed=${res.reviewed} scheduled=${res.scheduled} duplicate=${res.duplicate} needsReview=${res.needsReview}`);
     return res;
   } catch (e) {
     console.error(`${L} EXCEPTION`, e?.stack || e?.message || String(e));
@@ -170,10 +192,14 @@ async function publishDueScheduled(now = Date.now()) {
       return { ...diag, reason: "none_due" };
     }
 
-    // (6)(7) publish 실행 = DB UPDATE scheduled→published (도래분만 PATCH).
-    console.log(`${L} (6) publish 실행: ${dueIds.length}건 scheduled→published PATCH`);
+    // (6)(7) publish 실행 = DB UPDATE scheduled→published.
+    // ⑯ 발행 폭주 방지: 한 사이클 최대 MAX_PUBLISH_PER_RUN 건만. 나머지(놓친 예약 포함)는 다음 Cron 회수.
+    const batch = dueIds.slice(0, MAX_PUBLISH_PER_RUN);
+    diag.deferred = dueIds.length - batch.length;
+    console.log(`${L} (6) publish 실행: due ${dueIds.length}건 중 ${batch.length}건 PATCH (상한 ${MAX_PUBLISH_PER_RUN}, 이월 ${diag.deferred})`);
+    const inList = batch.map((id) => encodeURIComponent(id)).join(",");
     const r = await fetch(
-      `${SB_URL}/rest/v1/lounge_posts?publish_status=eq.scheduled&scheduled_at=lte.${encodeURIComponent(nowIso)}`,
+      `${SB_URL}/rest/v1/lounge_posts?publish_status=eq.scheduled&id=in.(${inList})`,
       {
         method: "PATCH",
         headers: {
@@ -292,7 +318,7 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
     targetPerDay: DAILY_DRAFT_TARGET,
     maxPerRun: MAX_DRAFTS_PER_RUN,
     // Phase 43: AI 조직 4인 검토 → 자동승인·예약 결과.
-    boardDiag: { reviewed: board.reviewed, scheduled: board.scheduled, needsReview: board.needsReview, rows: board.rows ?? [] },
+    boardDiag: { reviewed: board.reviewed, scheduled: board.scheduled, duplicate: board.duplicate ?? 0, needsReview: board.needsReview, rows: board.rows ?? [] },
     // 진단: 예약/도래/발행 상세(응답으로 바로 확인 가능).
     publishDiag: { scheduledTotal: pub.scheduledTotal, dueCount: pub.dueCount, notDue: pub.notDue, published: pub.published, reason: pub.reason ?? null, rows: pub.rows ?? [] },
     generated,

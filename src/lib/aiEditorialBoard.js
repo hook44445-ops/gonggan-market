@@ -164,6 +164,10 @@ export function reviewByBoard(draft, { existing = [], evaluation = null } = {}) 
     boardDecision,
     approvalCount,
     totalReviewers: 4,
+    // ⑧ 정직한 상태 구분: 이 보드는 규칙 기반(휴리스틱) 사전검사이며 실제 LLM 검수가 아니다.
+    reviewMode: "heuristic",
+    heuristicStatus: hardGatePassed ? "HEURISTIC_PASS" : "HEURISTIC_FAIL",
+    aiReviewStatus: "AI_REVIEW_PENDING",
     qualityScore: ev.totalScore,
     grade: gradeOf(ev.totalScore),
     hardGatePassed,
