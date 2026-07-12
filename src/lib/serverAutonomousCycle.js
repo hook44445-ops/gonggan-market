@@ -27,6 +27,7 @@ import { runEditorialApproval } from "./editorialApprovalPolicy.js";
 import { findDuplicate, editorialKey } from "./editorialKey.js";
 import { decidePublishMode } from "./publishModeDecider.js";
 import { computeBudget, canPublish, isRegular } from "./dailyPublishBudget.js";
+import { ensureImageUrls } from "./approvalImage.js";
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const SB_KEY =
@@ -142,6 +143,8 @@ async function autoApproveAndSchedule(now) {
         // §7 발행 방식 자동 판단(즉시/예약/보류). Safety Gate(hardGate)는 board 로 이미 반영.
         const decision = decidePublishMode({ title: d.title, content: d.content, content_type: type }, { board: r.board, now });
         const nowIso = new Date(now).toISOString();
+        // §7 총괄비서실장 — 재검토 없이 서명·HardFail·예산·발행방식 확인 후 집행만.
+        console.log(`[CHIEF_SECRETARY] id=${d.id} BOARD_APPROVED 인수 · verify(hardGate=${r.hardGatePassed} mode=${decision.mode}/${decision.priority} budget=${budget.total.pub}/${budget.total.cap}) → 집행`);
         if (decision.mode === "HOLD") {
           res.hold += 1; res.needsReview += 1;
           res.rows.push({ id: d.id, type, decision: "HOLD", reason: decision.reason, priority: decision.priority });
@@ -307,7 +310,7 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
           title: draft.title,
           content: draft.content,
           region: item.region ?? null,
-          image_urls: [],
+          image_urls: ensureImageUrls({ title: draft.title, content: draft.content, content_type: classifyContentType(draft.title || item.topic) }), // §11 빈 image_urls 금지
           is_seed: true,
           is_visible: false, // ⚠️ 절대 true 금지 — 관리자 승인 전 비공개.
           publish_status: "draft", // ⚠️ 절대 published/scheduled 금지.

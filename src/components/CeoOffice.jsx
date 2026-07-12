@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
 import { getQueue, enqueueJob, updateJob, removeJob, queueSummary, JOB_STATUS, JOB_STAGE } from "../lib/automationQueue";
+import ChiefSecretaryBoard from "./ChiefSecretaryBoard";
 import { processJob, processQueue } from "../lib/automationRunner";
 import { suggestSlot, slotLabel } from "../lib/automationScheduler";
 import { providerStatus } from "../lib/llmProviders";
@@ -74,6 +75,10 @@ export default function CeoOffice({ adminUserId, showToast, onReload }) {
   return (
     <div>
       <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🏛️ AI 사장실 (Automation Factory)</div>
+
+      {/* Phase 48 — AI 품의·결재 타임라인(총괄비서실장) */}
+      <ChiefSecretaryBoard />
+
       {/* 총괄비서 아침 브리핑 */}
       <div style={{ background: "#111827", borderRadius: R.lg, padding: "11px 14px", marginBottom: S.lg, color: "#e5e7eb" }}>
         <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 3 }}>🧠 총괄비서 브리핑</div>

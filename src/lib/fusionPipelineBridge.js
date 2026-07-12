@@ -11,6 +11,7 @@
 
 import { classifyContentType } from "./contentTypes.js";
 import { editorialKey, editorialDateKST, findDuplicate } from "./editorialKey.js";
+import { ensureImageUrls, pickRepresentativeImage } from "./approvalImage.js";
 
 // fusionResult: runFusion 반환({ final:{title,body}, steps, contentType, ok, ... })
 // deps: { createDraft: (rec)=>{data|error}, existing: [drafts+published] }
@@ -25,11 +26,14 @@ export async function saveFusionFinal({ fusionResult, topic = "", existing = [],
     return { saved: false, reason: "no_final_body", duplicate: false, draftId: null };
   }
   const contentType = fusionResult?.contentType || classifyContentType(title || topic);
+  const img = pickRepresentativeImage({ title, content: body, content_type: contentType }); // §11 빈 image_urls 금지
   const rec = {
     title, content: body, ai_topic: String(topic || "").trim(),
     content_type: contentType,
     editorial_date: editorialDateKST(Date.now()),
     scheduled_at: null,
+    image_urls: ensureImageUrls({ title, content: body, content_type: contentType }),
+    image_alt: img.alt,
   };
 
   // 중복 저장 차단(같은 편성 키 or 동일 본문이 활성 상태로 존재).
