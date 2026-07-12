@@ -1600,7 +1600,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
       if (res?.final?.body) {
         const bridge = await saveFusionFinal({
           fusionResult: res, topic: topic.trim(), existing: published || [],
-          createDraft: (rec) => adminCreateLoungeDraft({ category: "daily", title: rec.title, content: rec.content, aiTopic: rec.ai_topic, publishStatus: "draft" }, adminUserId),
+          createDraft: (rec) => adminCreateLoungeDraft({ category: "daily", title: rec.title, content: rec.content, aiTopic: rec.ai_topic, publishStatus: "draft", imageUrls: rec.image_urls || [] }, adminUserId),
         });
         setFusionSaved(bridge);
         if (bridge.saved) { showToast?.(`✅ 최종본 자동 저장 (ID ${String(bridge.draftId).slice(0, 8)}) — 서버 승인·예약·발행 대기`); await onReload?.(); }
