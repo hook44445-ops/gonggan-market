@@ -11,6 +11,10 @@ import { C, R, S } from "../constants";
 import { supabase } from "../lib/supabase";
 import { buildDossier, dossierStage } from "../lib/approvalDossier";
 import { classifyContentType } from "../lib/contentTypes";
+// Phase 50 — 실제 LLM 4인 검수 + 운영 로그 연결(Additive)
+import { buildDossierLLM } from "../lib/aiEditorialBoardLLM";
+import { isLLMConfigured } from "../lib/llmClient";
+import { logDossierProgress, getOpsLog } from "../lib/aiOpsLog";
 
 const STAGES = ["검토중", "서명완료", "총괄비서실장", "발행완료", "예외함"];
 const STAGE_COLOR = { 검토중: C.gold, 서명완료: "#2563eb", 총괄비서실장: "#7c3aed", 발행완료: "#059669", 예외함: C.red };
@@ -21,6 +25,22 @@ export default function ChiefSecretaryBoard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("전체");
   const [open, setOpen] = useState({});
+  const [llmById, setLlmById] = useState({});   // contentId → 실제 LLM 검수 품의서
+  const [reviewingId, setReviewingId] = useState(null);
+  const [showLog, setShowLog] = useState(false);
+  const llmOn = isLLMConfigured();
+
+  // 실제 LLM 4인 검수 실행(카드별, 1회 1건). 결과로 품의서 재계산 + 운영 로그 기록.
+  const reviewLLM = async (r) => {
+    if (!r?.id || !llmOn) return;
+    setReviewingId(String(r.id));
+    try {
+      const d = await buildDossierLLM(r, { now: Date.now() });
+      setLlmById((m) => ({ ...m, [String(r.id)]: d }));
+      logDossierProgress(d);
+    } catch { /* 실패 시 기존 휴리스틱 카드 유지 */ }
+    finally { setReviewingId(null); }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -38,9 +58,11 @@ export default function ChiefSecretaryBoard() {
   useEffect(() => { load(); }, []);
 
   const now = Date.now();
-  const dossiers = (rows ?? []).map((r) => buildDossier(r, { now }));
-  const counts = STAGES.reduce((a, s) => ({ ...a, [s]: dossiers.filter((d) => dossierStage(d) === s).length }), {});
-  const shown = filter === "전체" ? dossiers : dossiers.filter((d) => dossierStage(d) === filter);
+  // 실제 LLM 검수분(llmById)이 있으면 그걸, 없으면 기존 규칙 기반 품의서.
+  const items = (rows ?? []).map((r) => ({ r, d: llmById[String(r.id)] || buildDossier(r, { now }) }));
+  const counts = STAGES.reduce((a, s) => ({ ...a, [s]: items.filter((it) => dossierStage(it.d) === s).length }), {});
+  const shown = filter === "전체" ? items : items.filter((it) => dossierStage(it.d) === filter);
+  const opsLog = showLog ? getOpsLog(14) : [];
   const box = { background: "#fff", borderRadius: R.xl, padding: S.lg, border: `1px solid ${C.bgWarm}`, marginBottom: S.md };
   const chip = (bg, col) => ({ display: "inline-block", padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: bg, color: col, marginRight: 4, marginBottom: 3 });
 
@@ -48,11 +70,24 @@ export default function ChiefSecretaryBoard() {
     <div style={{ marginBottom: S.xl }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: S.sm }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>🗂️ AI 품의·결재 (총괄비서실장)</div>
-        <button onClick={load} style={{ padding: "5px 12px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>새로고침</button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => setShowLog((v) => !v)} style={{ padding: "5px 12px", background: showLog ? C.brand : "#fff", color: showLog ? "#fff" : C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>운영 로그</button>
+          <button onClick={load} style={{ padding: "5px 12px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 11, cursor: "pointer" }}>새로고침</button>
+        </div>
       </div>
       <div style={{ fontSize: 10.5, color: C.text3, marginBottom: S.sm, lineHeight: 1.6 }}>
-        Fusion→대표이미지→품의서→4인 서명→BOARD_APPROVED→총괄비서실장 인수→발행 전 과정을 표시합니다. 사장 승인 단계 없음 · 4인 검토는 <b>규칙 기반(실제 LLM 검수 아님)</b>.
+        Fusion→대표이미지→품의서→4인 서명→BOARD_APPROVED→총괄비서실장 인수→발행 전 과정을 표시합니다. 사장 승인 단계 없음 ·
+        4인 검토는 기본 <b>규칙 기반</b>이며, {llmOn ? <b style={{ color: C.brand }}>카드의 “🤖 실제 LLM 검수”로 실 LLM 4인 검수 가능</b> : <b style={{ color: C.gold }}>LLM 미설정(실 검수하려면 VITE_LLM_API_KEY)</b>}.
       </div>
+
+      {showLog && (
+        <div style={{ background: "#101a16", borderRadius: R.md, padding: "8px 10px", marginBottom: S.sm, fontFamily: "monospace", fontSize: 10, color: "#9fd6b8", maxHeight: 180, overflowY: "auto" }}>
+          {opsLog.length === 0 ? <div style={{ color: "#6a8a78" }}>운영 로그 없음 (LLM 검수 실행 시 [DOSSIER_CREATED]…[PUBLISHED] 기록)</div>
+            : opsLog.map((e, i) => (
+              <div key={i}>[{e.tag}] {e.dossierNo || e.contentId || ""} {e.detail ? `· ${e.detail}` : ""} <span style={{ color: "#5a7a68" }}>{new Date(e.at).toLocaleTimeString("ko-KR")}</span></div>
+            ))}
+        </div>
+      )}
 
       {/* 상태 필터 */}
       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: S.sm }}>
@@ -68,8 +103,9 @@ export default function ChiefSecretaryBoard() {
       {loading && <div style={{ fontSize: 12, color: C.text3 }}>불러오는 중…</div>}
       {!loading && shown.length === 0 && <div style={{ fontSize: 12, color: C.text3 }}>표시할 품의서가 없습니다.</div>}
 
-      {shown.slice(0, 30).map((d) => {
+      {shown.slice(0, 30).map(({ r, d }) => {
         const stage = dossierStage(d);
+        const isLlm = d.reviewMode === "llm";
         return (
           <div key={d.contentId} style={box}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -77,6 +113,7 @@ export default function ChiefSecretaryBoard() {
               <span style={chip(STAGE_COLOR[stage] + "22", STAGE_COLOR[stage])}>{stage}</span>
               <span style={chip(C.bg, C.text2)}>{d.track}</span>
               <span style={chip(C.bg, C.text2)}>품질 {d.qualityScore}·{d.grade}</span>
+              <span style={chip(isLlm ? "#2E5F4B22" : C.bg, isLlm ? C.brand : C.text3)}>{isLlm ? "🤖 LLM 검수" : "규칙 기반"}</span>
               <span style={{ flex: 1 }} />
               {d.image?.url && <img src={d.image.url} alt={d.image.alt} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: R.sm, border: `1px solid ${C.bgWarm}` }} />}
             </div>
@@ -99,10 +136,18 @@ export default function ChiefSecretaryBoard() {
               {d.publishURL && <> · <span style={{ fontFamily: "monospace", color: C.brandD }}>{d.publishURL}</span></>}
             </div>
 
-            {/* 타임라인 */}
-            <button onClick={() => setOpen((o) => ({ ...o, [d.contentId]: !o[d.contentId] }))} style={{ fontSize: 10.5, color: C.text3, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-              {open[d.contentId] ? "▲ 타임라인 접기" : "▼ 타임라인 펼치기"}
-            </button>
+            {/* 타임라인 + 실제 LLM 검수 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <button onClick={() => setOpen((o) => ({ ...o, [d.contentId]: !o[d.contentId] }))} style={{ fontSize: 10.5, color: C.text3, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                {open[d.contentId] ? "▲ 타임라인 접기" : "▼ 타임라인 펼치기"}
+              </button>
+              {llmOn && !isLlm && (
+                <button onClick={() => reviewLLM(r)} disabled={reviewingId === String(r.id)}
+                  style={{ fontSize: 10.5, fontWeight: 700, color: reviewingId === String(r.id) ? C.text3 : C.brand, background: "none", border: `1px solid ${C.brandM}`, borderRadius: R.full, padding: "2px 9px", cursor: "pointer" }}>
+                  {reviewingId === String(r.id) ? "검수 중…" : "🤖 실제 LLM 검수"}
+                </button>
+              )}
+            </div>
             {open[d.contentId] && (
               <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
                 {d.timeline.map((t, i) => (
