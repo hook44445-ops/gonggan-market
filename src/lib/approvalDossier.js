@@ -17,6 +17,7 @@ import { classifyContentType } from "./contentTypes.js";
 import { isRegular } from "./dailyPublishBudget.js";
 import { buildPostPath } from "../utils/loungeSeo.js";
 import { schedulePublishAt } from "./publishScheduler.js";
+import { publishResult } from "./executiveOffice.js";
 
 const ROLE_KO = { writer: "작성 품질 담당", fact_checker: "팩트체커", seo: "SEO 담당", chief_editor: "편집장" };
 const pad = (n) => String(n).padStart(2, "0");
@@ -50,7 +51,8 @@ export function buildDossier(record = {}, { board = null, now = Date.now(), budg
     const signed = !rv.hardFail;
     return {
       role, name: ROLE_KO[role], decision: rv.decision, score: rv.score, hardFail: rv.hardFail,
-      issues: rv.issues || [], signed, signedAt: signed ? kstStamp(baseMs + (i + 1) * 60 * 1000) : null,
+      issues: rv.issues || [], revisionRequests: rv.revisionRequests || [],
+      signed, signedAt: signed ? kstStamp(baseMs + (i + 1) * 60 * 1000) : null,
     };
   });
   const allSigned = reviewers.every((r) => r.signed);
@@ -104,6 +106,7 @@ export function buildDossier(record = {}, { board = null, now = Date.now(), budg
     scheduledAt,
     publishStatus: st,
     publishURL: published ? publishPath : "",
+    result: publishResult(record, { now }), // §8 발행결과(URL/게시시간/Elapsed/Publish ID)
     editorialKey: editorialKey({ content_type: type, title: record.title, scheduled_at: scheduledAt, created_at: record.created_at }),
     timeline,
   };

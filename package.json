@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test api/push/enqueue.test.js src/lib/quality.test.js src/lib/editorialBoard.test.js src/lib/fusionPipeline.test.js src/lib/publishMode.test.js src/lib/approvalDossier.test.js"
+    "test": "node --test api/push/enqueue.test.js src/lib/quality.test.js src/lib/editorialBoard.test.js src/lib/fusionPipeline.test.js src/lib/publishMode.test.js src/lib/approvalDossier.test.js src/lib/executiveOffice.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

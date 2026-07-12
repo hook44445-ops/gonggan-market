@@ -1,15 +1,17 @@
 // ════════════════════════════════════════════════════════════════════
-// ChiefSecretaryBoard — AI 사장실 품의서 타임라인 (Phase 48)
+// ChiefSecretaryBoard — AI 사장실 품의서 타임라인 (Phase 48 · 50 · 51)
 //
 //   Fusion 최종본 → 대표이미지 → 품의서 → 4인 서명 → BOARD_APPROVED → 총괄비서실장 인수 →
-//   즉시/예약 발행까지 전 과정을 품의서 카드 + 타임라인으로 표시한다(읽기 전용).
-//   ⚠️ 사장 승인 단계 없음. 총괄비서실장은 재검토 없이 집행만. 4인 검토는 규칙 기반(정직 표기).
+//   즉시/예약 발행까지 전 과정을 품의서 카드 + 실시간 KPI + 타임라인으로 표시한다(읽기 전용).
+//   ⚠️ 사장 승인 단계 없음. 총괄비서실장은 재검토 없이 집행만. 4인 검토는 기본 규칙 기반(정직 표기)이며
+//     LLM 설정 시 카드별로 실제 LLM 4인 검수 실행 가능.
 // ════════════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from "react";
 import { C, R, S } from "../constants";
 import { supabase } from "../lib/supabase";
 import { buildDossier, dossierStage } from "../lib/approvalDossier";
+import { executiveKpis } from "../lib/executiveOffice";
 import { classifyContentType } from "../lib/contentTypes";
 // Phase 50 — 실제 LLM 4인 검수 + 운영 로그 연결(Additive)
 import { buildDossierLLM } from "../lib/aiEditorialBoardLLM";
@@ -60,6 +62,7 @@ export default function ChiefSecretaryBoard() {
   const now = Date.now();
   // 실제 LLM 검수분(llmById)이 있으면 그걸, 없으면 기존 규칙 기반 품의서.
   const items = (rows ?? []).map((r) => ({ r, d: llmById[String(r.id)] || buildDossier(r, { now }) }));
+  const kpi = rows ? executiveKpis(rows, { now }) : null;
   const counts = STAGES.reduce((a, s) => ({ ...a, [s]: items.filter((it) => dossierStage(it.d) === s).length }), {});
   const shown = filter === "전체" ? items : items.filter((it) => dossierStage(it.d) === filter);
   const opsLog = showLog ? getOpsLog(14) : [];
@@ -86,6 +89,20 @@ export default function ChiefSecretaryBoard() {
             : opsLog.map((e, i) => (
               <div key={i}>[{e.tag}] {e.dossierNo || e.contentId || ""} {e.detail ? `· ${e.detail}` : ""} <span style={{ color: "#5a7a68" }}>{new Date(e.at).toLocaleTimeString("ko-KR")}</span></div>
             ))}
+        </div>
+      )}
+
+      {/* Executive KPI (§10) */}
+      {kpi && (
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: S.sm }}>
+          {[["오늘 생성", kpi.todayGenerated], ["오늘 검토", kpi.todayReviewed], ["오늘 발행", kpi.todayPublished, "#059669"],
+            ["긴급발행", kpi.immediate, "#d97706"], ["예약", kpi.scheduledPending, "#7c3aed"], ["평균품질", kpi.avgQuality ?? "-"],
+            ["평균처리", kpi.avgProcessMin != null ? kpi.avgProcessMin + "분" : "-"], ["예산", `${kpi.budget.total.pub}/${kpi.budget.total.cap}`]].map(([k, v, col]) => (
+            <div key={k} style={{ flex: "1 1 74px", textAlign: "center", background: C.bg, borderRadius: R.md, padding: "7px 4px", border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: col || C.text1 }}>{v}</div>
+              <div style={{ fontSize: 9.5, color: C.text3 }}>{k}</div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -121,9 +138,9 @@ export default function ChiefSecretaryBoard() {
 
             {/* 4인 서명 */}
             <div style={{ marginBottom: 4 }}>
-              {d.reviewers.map((r) => (
-                <span key={r.role} style={chip(DEC_COLOR(r) + "18", DEC_COLOR(r))} title={r.signedAt ? `SIGNED ${r.signedAt}` : "미서명"}>
-                  {r.name} {r.signed ? "✔" : "✕"}
+              {d.reviewers.map((rv) => (
+                <span key={rv.role} style={chip(DEC_COLOR(rv) + "18", DEC_COLOR(rv))} title={rv.signedAt ? `SIGNED ${rv.signedAt}` : "미서명"}>
+                  {rv.name} {rv.signed ? "✔" : "✕"}
                 </span>
               ))}
               <span style={chip(d.boardApproved ? "#05966922" : C.bg, d.boardApproved ? "#059669" : C.text3)}>{d.boardApproved ? "BOARD_APPROVED" : "검토중"}</span>
@@ -133,8 +150,17 @@ export default function ChiefSecretaryBoard() {
               총괄비서실장: <b style={{ color: d.chiefSecretary.received ? "#059669" : C.text3 }}>{d.chiefSecretary.received ? `인수 · ${d.chiefSecretary.action}` : `대기 (${d.chiefSecretary.reason || ""})`}</b>
               {" · "}발행: <b style={{ color: d.publishMode === "HOLD" ? C.red : d.publishMode === "IMMEDIATE" ? "#d97706" : "#7c3aed" }}>{d.publishMode === "IMMEDIATE" ? `즉시발행 ${d.priority}` : d.publishMode === "SCHEDULED" ? "예약발행" : "예외함"}</b>
               {d.scheduledAt && d.publishMode === "SCHEDULED" && ` · ${new Date(d.scheduledAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
-              {d.publishURL && <> · <span style={{ fontFamily: "monospace", color: C.brandD }}>{d.publishURL}</span></>}
             </div>
+
+            {/* 발행결과(§8) */}
+            {d.result && (
+              <div style={{ fontSize: 10.5, color: "#059669", marginBottom: 4, wordBreak: "break-all" }}>
+                ✅ 발행완료 · <span style={{ fontFamily: "monospace", color: C.brandD }}>{d.result.url}</span>
+                {" · "}게시 {new Date(d.result.publishedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                {d.result.elapsedMin != null && ` · Elapsed ${d.result.elapsedMin}분`}
+                {" · ID "}{d.result.publishId}
+              </div>
+            )}
 
             {/* 타임라인 + 실제 LLM 검수 */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -149,15 +175,32 @@ export default function ChiefSecretaryBoard() {
               )}
             </div>
             {open[d.contentId] && (
-              <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
-                {d.timeline.map((t, i) => (
-                  <div key={i} style={{ fontSize: 10.5, color: t.done ? C.text2 : C.text4, display: "flex", gap: 6 }}>
-                    <span>{t.done ? "✅" : "⬜"}</span>
-                    <span style={{ fontWeight: 700 }}>{t.label}</span>
-                    {t.at && <span style={{ color: C.text4 }}>{t.at}</span>}
-                    {t.note && <span style={{ color: C.text4 }}>· {t.note}</span>}
-                  </div>
-                ))}
+              <div style={{ marginTop: 6 }}>
+                {/* 4인 의견·수정요청(§3) */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 6, paddingBottom: 6, borderBottom: `1px solid ${C.bg}` }}>
+                  {d.reviewers.map((rv) => (
+                    <div key={rv.role} style={{ fontSize: 10.5, color: C.text2, lineHeight: 1.5 }}>
+                      <b style={{ color: C.text1 }}>{rv.name}</b> · <span style={{ fontWeight: 700, color: DEC_COLOR(rv) }}>{rv.decision}</span> · {rv.score}점 {rv.signed ? `· SIGNED ${rv.signedAt}` : "· 미서명"}
+                      {((rv.issues || []).length > 0 || (rv.revisionRequests || []).length > 0) && (
+                        <div style={{ color: C.text3, marginLeft: 8 }}>
+                          {(rv.issues || []).length > 0 && <>의견: {rv.issues.slice(0, 3).join(", ")}<br /></>}
+                          {(rv.revisionRequests || []).length > 0 && <>수정요청: {rv.revisionRequests.slice(0, 2).join(", ")}</>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* 타임라인(§4) */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {d.timeline.map((t, i) => (
+                    <div key={i} style={{ fontSize: 10.5, color: t.done ? C.text2 : C.text4, display: "flex", gap: 6 }}>
+                      <span>{t.done ? "✅" : "⬜"}</span>
+                      <span style={{ fontWeight: 700 }}>{t.label}</span>
+                      {t.at && <span style={{ color: C.text4 }}>{t.at}</span>}
+                      {t.note && <span style={{ color: C.text4 }}>· {t.note}</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
