@@ -25,6 +25,8 @@ import { classifyContentType } from "./contentTypes.js";
 import { schedulePublishAt } from "./publishScheduler.js";
 import { runEditorialApproval } from "./editorialApprovalPolicy.js";
 import { findDuplicate, editorialKey } from "./editorialKey.js";
+import { decidePublishMode } from "./publishModeDecider.js";
+import { computeBudget, canPublish, isRegular } from "./dailyPublishBudget.js";
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const SB_KEY =
@@ -102,8 +104,11 @@ async function autoApproveAndSchedule(now) {
 
     const cutoffIso = new Date(now - LOOKBACK_HOURS * 3600 * 1000).toISOString();
     const existing = (await sbGet(
-      `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=id,title,ai_topic,created_at,publish_status,scheduled_at&limit=500`
+      `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=id,title,ai_topic,created_at,updated_at,publish_status,scheduled_at&limit=500`
     )) ?? [];
+    // §16 일일 발행 예산(정기 10/비정기 5/총 15) — 오늘 발행 수 집계 후 사이클 중 증분.
+    const budget = computeBudget(existing, { now });
+    res.immediate = 0; res.hold = 0; res.limitExceeded = 0;
     // content_type 컬럼이 없으므로 제목으로 분류해 편성 키를 만든다(⑬).
     const withType = (e) => ({ ...e, content_type: classifyContentType(e.title || e.ai_topic || "") });
     const pipeline = existing.filter((e) => ["review", "approved", "scheduled", "publishing", "published"].includes(e.publish_status || "")).map(withType);
@@ -116,7 +121,8 @@ async function autoApproveAndSchedule(now) {
     for (const d of drafts) {
       res.reviewed += 1;
       const type = classifyContentType(d.title || d.ai_topic || "");
-      const eligible = type !== "breaking"; // breaking 은 관리자 검토
+      // §7①·§14 — 긴급(breaking)도 파이프라인 통과. 단 Hard Fail 이면 decidePublishMode 가 HOLD 로 차단.
+      const eligible = true;
       const at = schedulePublishAt(type, { now });
       // ⑬ 편성 중복 차단: 같은 키가 이미 파이프라인(승인~발행)에 있거나, 이번 배치에서 이미 처리됨(대표본 1건).
       const keyRec = { content_type: type, title: d.title, scheduled_at: at.toISOString() };
@@ -133,16 +139,38 @@ async function autoApproveAndSchedule(now) {
       const r = await runEditorialApproval({ draft: { ...d, type }, existing: existingForBoard });
       console.log(`${L} id=${d.id} type=${type} score=${r.qualityScore} grade=${r.grade} decision=${r.finalDecision} hardGate=${r.hardGatePassed} approvals=${r.approvalCount}/4 rev=${r.revisionCount} regen=${r.regenerationCount} board=${r.boardReviewCount}`);
       if (r.approved && eligible) {
-        const ok = await sbPatch(d.id, { publish_status: "scheduled", scheduled_at: at.toISOString(), updated_at: new Date(now).toISOString() });
-        if (ok) { res.scheduled += 1; res.rows.push({ id: d.id, type, decision: r.finalDecision, grade: r.grade, score: r.qualityScore, scheduledAt: at.toISOString() }); console.log(`${L} → scheduled id=${d.id} at=${at.toISOString()} key=${key}`); }
-        else { res.needsReview += 1; console.warn(`${L} scheduled PATCH 실패 id=${d.id} → draft 유지`); }
+        // §7 발행 방식 자동 판단(즉시/예약/보류). Safety Gate(hardGate)는 board 로 이미 반영.
+        const decision = decidePublishMode({ title: d.title, content: d.content, content_type: type }, { board: r.board, now });
+        const nowIso = new Date(now).toISOString();
+        if (decision.mode === "HOLD") {
+          res.hold += 1; res.needsReview += 1;
+          res.rows.push({ id: d.id, type, decision: "HOLD", reason: decision.reason, priority: decision.priority });
+          console.log(`${L} → HOLD id=${d.id} reason=${decision.reason}`);
+        } else if (decision.mode === "IMMEDIATE" && canPublish(type, budget)) {
+          // §10 즉시발행 = 기존 executor 재사용(scheduled 상태를 반드시 거치지 않음).
+          const ok = await sbPatch(d.id, { publish_status: "published", is_visible: true, updated_at: nowIso });
+          if (ok) {
+            res.immediate += 1;
+            (isRegular(type) ? budget.regular : budget.irregular).pub += 1; budget.total.pub += 1;
+            res.rows.push({ id: d.id, type, decision: "IMMEDIATE", priority: decision.priority, reason: decision.reason, grade: r.grade, score: r.qualityScore });
+            console.log(`${L} → IMMEDIATE publish id=${d.id} ${decision.priority}/${decision.reason}`);
+          } else { res.needsReview += 1; console.warn(`${L} immediate PATCH 실패 id=${d.id}`); }
+        } else {
+          // 예약발행(SCHEDULED) 또는 즉시 대상이나 예산 초과 → 예약으로 이월.
+          const capped = decision.mode === "IMMEDIATE";
+          if (capped) res.limitExceeded += 1;
+          const ok = await sbPatch(d.id, { publish_status: "scheduled", scheduled_at: at.toISOString(), updated_at: nowIso });
+          if (ok) { res.scheduled += 1; res.rows.push({ id: d.id, type, decision: capped ? "SCHEDULED_LIMITED" : "SCHEDULED", reason: decision.reason, grade: r.grade, score: r.qualityScore, scheduledAt: at.toISOString() }); console.log(`${L} → scheduled id=${d.id} at=${at.toISOString()} ${decision.reason}${capped ? " (예산초과 이월)" : ""}`); }
+          else { res.needsReview += 1; console.warn(`${L} scheduled PATCH 실패 id=${d.id} → draft 유지`); }
+        }
       } else {
         res.needsReview += 1;
         res.rows.push({ id: d.id, type, decision: "NEEDS_REVIEW", grade: r.grade, score: r.qualityScore, reason: eligible ? (r.hardGate?.reasons || []) : ["breaking=관리자검토"] });
         console.log(`${L} → needs_review id=${d.id} (${eligible ? r.finalDecision : "breaking"})`);
       }
     }
-    console.log(`${L} 완료 reviewed=${res.reviewed} scheduled=${res.scheduled} duplicate=${res.duplicate} needsReview=${res.needsReview}`);
+    res.budget = budget;
+    console.log(`${L} 완료 reviewed=${res.reviewed} immediate=${res.immediate} scheduled=${res.scheduled} hold=${res.hold} duplicate=${res.duplicate} needsReview=${res.needsReview} | 예산 정기 ${budget.regular.pub}/${budget.regular.cap} 비정기 ${budget.irregular.pub}/${budget.irregular.cap} 총 ${budget.total.pub}/${budget.total.cap}`);
     return res;
   } catch (e) {
     console.error(`${L} EXCEPTION`, e?.stack || e?.message || String(e));
@@ -318,7 +346,7 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
     targetPerDay: DAILY_DRAFT_TARGET,
     maxPerRun: MAX_DRAFTS_PER_RUN,
     // Phase 43: AI 조직 4인 검토 → 자동승인·예약 결과.
-    boardDiag: { reviewed: board.reviewed, scheduled: board.scheduled, duplicate: board.duplicate ?? 0, needsReview: board.needsReview, rows: board.rows ?? [] },
+    boardDiag: { reviewed: board.reviewed, immediate: board.immediate ?? 0, scheduled: board.scheduled, hold: board.hold ?? 0, duplicate: board.duplicate ?? 0, needsReview: board.needsReview, limitExceeded: board.limitExceeded ?? 0, budget: board.budget ?? null, rows: board.rows ?? [] },
     // 진단: 예약/도래/발행 상세(응답으로 바로 확인 가능).
     publishDiag: { scheduledTotal: pub.scheduledTotal, dueCount: pub.dueCount, notDue: pub.notDue, published: pub.published, reason: pub.reason ?? null, rows: pub.rows ?? [] },
     generated,
