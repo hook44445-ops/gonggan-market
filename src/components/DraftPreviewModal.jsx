@@ -14,6 +14,8 @@ import { buildPostPath } from "../utils/loungeSeo";
 import { buildBlogSeo, buildBlogPost, isBlogEligible, getBlogLog } from "../lib/blogPublisher";
 import { evaluateQuality, RUBRIC_LABELS } from "../lib/qualityEvaluator";
 import { reviewByBoard } from "../lib/aiEditorialBoard";
+import { decidePublishMode } from "../lib/publishModeDecider";
+import { classifyContentType } from "../lib/contentTypes";
 
 export default function DraftPreviewModal({ draft, scheduleLabel, onClose, onApprove, onReject }) {
   if (!draft) return null;
@@ -49,6 +51,12 @@ export default function DraftPreviewModal({ draft, scheduleLabel, onClose, onApp
     : board.boardDecision === "NEEDS_REVISION" ? "보정 후 승인 예정"
     : board.boardDecision === "SPLIT" ? "검토대기(2:2)"
     : "검토대기(Hard Fail)";
+
+  // 발행 방식 자동 판단(Phase 47) — 즉시/예약/보류.
+  let pubMode = null;
+  try { pubMode = decidePublishMode({ title: d.title, content: d.content, content_type: classifyContentType(d.title || d.ai_topic || "") }, { board }); } catch { pubMode = null; }
+  const MODE_KO = { IMMEDIATE: "즉시발행", SCHEDULED: "예약발행", HOLD: "보류(예외함)" };
+  const REASON_KO = { BREAKING_NEWS: "긴급뉴스·속보", REALTIME_SURGE: "실시간 검색 급등", TODAY_ONLY: "당일 한정", ADMIN_FORCE: "관리자 즉시발행 지정", OVERDUE_RECOVERY: "도래 미발행 복구", PROGRAM_SLOT: "기본편성 슬롯", EVERGREEN_CONTENT: "상시 검색형", HARD_FAIL: "Hard Fail", BROKEN_BODY: "본문 공백", SEVERE_DUPLICATE: "심각 중복", IMAGE_MISID: "이미지 오인" };
 
   // 블로그 변환 결과(있는 경우) — 기존 빌더로 미리보기 + 과거 발행 이력 매칭.
   let blog = null, blogEligible = false, blogHit = null;
@@ -156,6 +164,11 @@ export default function DraftPreviewModal({ draft, scheduleLabel, onClose, onApp
                 </span>
               </div>
               <div style={{ fontSize: 10, color: C.text3, marginBottom: 4 }}>※ 규칙 기반 사전검사입니다. 실제 AI(LLM) 검수는 미실행(생성 시 Fusion 3콜은 별도). </div>
+              {pubMode && (
+                <div style={{ fontSize: 11.5, fontWeight: 800, marginBottom: 6, color: pubMode.mode === "HOLD" ? C.red : pubMode.mode === "IMMEDIATE" ? "#d97706" : "#7c3aed" }}>
+                  발행 방식: {MODE_KO[pubMode.mode]} {pubMode.priority !== "HOLD" && `· ${pubMode.priority}`} · 사유 {REASON_KO[pubMode.reason] || pubMode.reason}
+                </div>
+              )}
               <details>
                 <summary style={{ fontSize: 11, color: C.text3, cursor: "pointer" }}>각 AI 직원 판단 펼치기</summary>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
