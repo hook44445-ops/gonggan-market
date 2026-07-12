@@ -137,6 +137,7 @@ import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
 import AICleanupCenter from "../components/AICleanupCenter";
+import ChiefSecretaryBoard from "../components/ChiefSecretaryBoard";
 import LoungeInsightsDashboard from "../components/LoungeInsightsDashboard";
 import { toE164KR } from "../lib/testAccounts";
 
@@ -5774,6 +5775,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     ["trend_discovery", "트렌드 발굴"],
     ["publishing_pipeline", "발행 파이프라인"],
     ["mission_control", "운영센터"],
+    ["executive_office", "AI 품의·결재"],
     ["live_ops",       "라이브 운영"],
     ["operation_monitor", "무인 운영"],
     ["e2e_validation", "실전 검증"],
@@ -5813,7 +5815,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
       tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
     // ── 콘텐츠(AI 운영) 역할 기반 5분류 — 모두 can_contents 유지(재배치만) ──
     { key: "ai_center",     label: "AI 운영센터",  icon: "🛰️", perm: "can_contents",
-      tabs: [["mission_control", "운영센터"], ["ceo_office", "AI 사장실"]] },
+      tabs: [["mission_control", "운영센터"], ["executive_office", "AI 품의·결재"], ["ceo_office", "AI 사장실"]] },
     { key: "editorial",     label: "편성국",       icon: "🗞️", perm: "can_contents",
       tabs: [["trend_discovery", "트렌드 발굴"], ["editorial_schedule", "자동 편성"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["programming", "콘텐츠 계획"], ["lounge_ai_factory", "AI 콘텐츠 공장"]] },
     { key: "publishing",    label: "발행센터",     icon: "📤", perm: "can_contents",
@@ -7181,6 +7183,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {mainTab === "mission_control" && (
               <MissionControl showToast={showToast} />
             )}
+
+            {/* ── AI 품의·결재 (Phase 51 · Executive Office) ── */}
+            {mainTab === "executive_office" && <ChiefSecretaryBoard />}
 
             {/* ── 무인 운영 (Phase 38 · 7-Day Autonomous Operation) ── */}
             {mainTab === "operation_monitor" && (

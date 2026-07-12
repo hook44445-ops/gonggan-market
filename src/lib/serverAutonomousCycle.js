@@ -139,6 +139,14 @@ async function autoApproveAndSchedule(now) {
       // 서버는 LLM 보정 없이 현재 본문으로 결정론적 4인 검토(발행 우선).
       const r = await runEditorialApproval({ draft: { ...d, type }, existing: existingForBoard });
       console.log(`${L} id=${d.id} type=${type} score=${r.qualityScore} grade=${r.grade} decision=${r.finalDecision} hardGate=${r.hardGatePassed} approvals=${r.approvalCount}/4 rev=${r.revisionCount} regen=${r.regenerationCount} board=${r.boardReviewCount}`);
+      // §9 운영 로그 태그(품의서·4인 검토) — reviewMode=heuristic(정직).
+      console.log(`[DOSSIER] id=${d.id} type=${type} quality=${r.qualityScore} reviewMode=heuristic`);
+      const TAG = { writer: "WRITER", fact_checker: "FACT", seo: "SEO", chief_editor: "EDITOR" };
+      for (const rv of (r.board?.reviewers || [])) {
+        console.log(`[${TAG[rv.role] || rv.role}] id=${d.id} ${rv.decision}${rv.hardFail ? " HARD_FAIL" : ""} score=${rv.score}`);
+        if (rv.role === "writer") console.log(`[QUALITY] id=${d.id} ${rv.decision} score=${rv.score}`);
+      }
+      if (r.hardGatePassed && r.approved) console.log(`[BOARD_APPROVED] id=${d.id} signed=4/4`);
       if (r.approved && eligible) {
         // §7 발행 방식 자동 판단(즉시/예약/보류). Safety Gate(hardGate)는 board 로 이미 반영.
         const decision = decidePublishMode({ title: d.title, content: d.content, content_type: type }, { board: r.board, now });
@@ -151,8 +159,10 @@ async function autoApproveAndSchedule(now) {
           console.log(`${L} → HOLD id=${d.id} reason=${decision.reason}`);
         } else if (decision.mode === "IMMEDIATE" && canPublish(type, budget)) {
           // §10 즉시발행 = 기존 executor 재사용(scheduled 상태를 반드시 거치지 않음).
+          console.log(`[PUBLISH] id=${d.id} mode=IMMEDIATE ${decision.priority}/${decision.reason}`);
           const ok = await sbPatch(d.id, { publish_status: "published", is_visible: true, updated_at: nowIso });
           if (ok) {
+            console.log(`[PUBLISHED] id=${d.id} at=${nowIso}`);
             res.immediate += 1;
             (isRegular(type) ? budget.regular : budget.irregular).pub += 1; budget.total.pub += 1;
             res.rows.push({ id: d.id, type, decision: "IMMEDIATE", priority: decision.priority, reason: decision.reason, grade: r.grade, score: r.qualityScore });
