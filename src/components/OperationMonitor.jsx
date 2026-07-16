@@ -15,12 +15,13 @@ import { operationScore } from "../lib/operationScore";
 import { upsertTodaySummary, healthTrend, sevenDayReport, getDailySummaries } from "../lib/dailySummary";
 import { getAutopilotConfig, setAutopilotConfig } from "../lib/publishQueue";
 import { adminCreateLoungeDraft, adminUpdateLoungeDraft } from "../lib/supabase";
+import { workflowKpis, runScheduler, WORKFLOW_ORDER, WORKFLOW_LABEL, buildWorkflowQueue } from "../lib/workflowEngine";
 import ServerAutonomousStatus from "./ServerAutonomousStatus";
 
 const LV = { high: "#dc2626", mid: "#d97706", info: "#6b7280" };
 const AUTONOMY_KEY = "space_autonomy_mode_v1";
 
-export default function OperationMonitor({ published = [], adminUserId, showToast, onReload }) {
+export default function OperationMonitor({ published = [], drafts = [], adminUserId, showToast, onReload }) {
   const [tick, setTick] = useState(0);
   const [autonomy, setAutonomy] = useState(() => { try { return localStorage.getItem(AUTONOMY_KEY) === "1"; } catch { return false; } });
   const [lastHeal, setLastHeal] = useState(null);
@@ -31,16 +32,21 @@ export default function OperationMonitor({ published = [], adminUserId, showToas
 
   const createDraft = async ({ title, body, aiTopic }) => adminCreateLoungeDraft({ category: "daily", title, content: body, aiTopic, publishStatus: "draft" }, adminUserId);
   const executor = async (job) => job.loungeId ? adminUpdateLoungeDraft(job.loungeId, { publishStatus: "published" }, adminUserId) : { error: new Error("id 없음") };
+  // Phase 57 — 통합 WorkflowQueue: DB(publish_status='scheduled') 도래분을 같은 파이프라인으로 발행.
+  const dbExecutor = async (rec) => rec.id ? adminUpdateLoungeDraft(rec.id, { publishStatus: "published" }, adminUserId) : { error: new Error("id 없음") };
 
   const runCycle = async (silent = true) => {
     if (busyRef.current) return; busyRef.current = true;
     try {
       await ensureTodayProgram({ createDraft }, { published });
       const h = await heal({ createDraft, executor }, { published });
+      // 예약 도래분(DB) 발행 — 무인운영도 발행센터와 동일한 WorkflowQueue를 사용.
+      const sched = await runScheduler({ records: [...(drafts || []), ...(published || [])], executor: dbExecutor });
       upsertTodaySummary();
       setLastHeal(h);
       refresh();
-      if (h.published > 0 || h.healed > 0) { if (!silent) showToast?.(`🔧 복구 ${h.healed} · 발행 ${h.published}`); await onReload?.(); }
+      const total = (h.published || 0) + (h.healed || 0) + (sched.published || 0);
+      if (total > 0) { if (!silent) showToast?.(`🔧 복구 ${h.healed} · 발행 ${h.published + sched.published}`); await onReload?.(); }
     } catch (e) { if (!silent) showToast?.("사이클 오류: " + (e?.message ?? String(e))); }
     finally { busyRef.current = false; }
   };
@@ -86,6 +92,31 @@ export default function OperationMonitor({ published = [], adminUserId, showToas
         무인 운영 ON이면 화면이 열려 있는 동안 <b>60초마다</b> 오늘 편성 자동 생성(중복 방지)·Watchdog 점검·Self-Healing 복구·발행·일일 요약을 수행합니다.
         {" "}오늘 편성 {isTodayGenerated() ? "✅ 생성됨" : "⏳ 대기"}. {cfg.emergencyStop && <b style={{ color: C.red }}>⛔ 정지됨.</b>}
       </div>
+
+      {/* Phase 57 — 통합 워크플로우(WorkflowQueue · DB 단일 진실원) — 운영센터·발행센터와 동일 수치 */}
+      {(() => {
+        const recs = [...(drafts || []), ...(published || [])];
+        const wf = workflowKpis(recs);
+        const q = buildWorkflowQueue(recs);
+        return (
+          <div style={{ ...box, background: "#0b1220", border: "1px solid #1e293b" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: "#8fe3c4", marginBottom: S.sm }}>🔗 통합 워크플로우 (WorkflowQueue · DB 기준)</div>
+            <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.sm }}>
+              {[["오늘 생성", wf.todayCreated], ["검토", wf.todayReviewed], ["PASS", wf.todayPass], ["수정", wf.revision], ["예약", wf.scheduled], ["발행", wf.published], ["실패", wf.failed], ["평균품질", wf.avgQuality != null ? wf.avgQuality + "점" : "-"]].map(([k, v]) => (
+                <div key={k} style={{ flex: "1 1 78px", background: "#111c2e", borderRadius: R.lg, padding: "7px 10px", border: "1px solid #1e293b" }}>
+                  <div style={{ fontSize: 9.5, color: "#94a3b8" }}>{k}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#e2e8f0" }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {WORKFLOW_ORDER.filter((s) => q.counts[s] > 0).map((s) => (
+                <span key={s} style={{ fontSize: 10, fontWeight: 700, background: "#111c2e", color: "#cbd5e1", borderRadius: R.full, padding: "2px 9px", border: "1px solid #1e293b" }}>{WORKFLOW_LABEL[s]} {q.counts[s]}</span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Phase 39 — 서버 자율 트리거(브라우저 닫혀도 운영) */}
       <ServerAutonomousStatus />

@@ -933,7 +933,8 @@ export const adminListLoungeDrafts = () =>
 export const adminListPublishedAiContent = () =>
   supabase
     .from("lounge_posts")
-    .select("id, category, title, ai_topic, view_count, like_count, comment_count, created_at")
+    // Phase 57 — 통합 WorkflowQueue가 발행완료 상태를 정확히 파생하도록 publish_status/updated_at 포함(모두 기존 컬럼).
+    .select("id, category, title, ai_topic, publish_status, scheduled_at, view_count, like_count, comment_count, created_at, updated_at")
     .eq("is_seed", true)
     .not("ai_topic", "is", null)
     .eq("publish_status", "published")
