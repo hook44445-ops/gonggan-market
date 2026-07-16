@@ -31,6 +31,10 @@ import { staffPerformance, workLog, aiBudget, hiringCandidates, deactivationSugg
 import { runFusion } from "../lib/fusionRunner";
 import { saveFusionFinal } from "../lib/fusionPipelineBridge";
 import { workflowAnalytics, routeCategory } from "../lib/workflowEngine";
+import { prubiRoute } from "../lib/newsroomRouter";
+import { runImagePipeline } from "../lib/imageFactory";
+import { bureauKpis } from "../lib/editorialBureaus";
+import AIWorkforceTab from "../components/AIWorkforceTab";
 import FusionProgress from "../components/FusionProgress";
 import FusionHistory from "../components/FusionHistory";
 import CeoOffice from "../components/CeoOffice";
@@ -1685,14 +1689,56 @@ function AIHeadquartersTab({ published = [], drafts = [], adminUserId, showToast
         );
       })()}
 
+      {/* Phase 58 — 편집국별 KPI (카테고리 독립 편집국) */}
+      {(() => {
+        const bureaus = bureauKpis([...(drafts || []), ...(published || [])]);
+        if (!bureaus.length) return null;
+        return (
+          <div style={box}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🏢 편집국별 KPI (AI 지식매거진신문사)</div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead>
+                  <tr style={{ color: C.text3, textAlign: "left" }}>
+                    {["편집국", "총건", "PASS율", "Rev율", "평균품질", "발행", "예약", "조회", "SEO"].map((h) => (
+                      <th key={h} style={{ padding: "4px 6px", borderBottom: `1px solid ${C.bgWarm}`, whiteSpace: "nowrap" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {bureaus.map((b) => (
+                    <tr key={b.id} style={{ borderBottom: `1px solid ${C.bg}` }}>
+                      <td style={{ padding: "4px 6px", fontWeight: 700, color: C.text1, whiteSpace: "nowrap" }}>{b.icon} {b.label}</td>
+                      <td style={{ padding: "4px 6px" }}>{b.total}</td>
+                      <td style={{ padding: "4px 6px", color: "#059669" }}>{b.passRate}%</td>
+                      <td style={{ padding: "4px 6px", color: b.revisionRate ? C.gold : C.text3 }}>{b.revisionRate}%</td>
+                      <td style={{ padding: "4px 6px" }}>{b.avgQuality ?? "-"}</td>
+                      <td style={{ padding: "4px 6px" }}>{b.published}</td>
+                      <td style={{ padding: "4px 6px" }}>{b.scheduled}</td>
+                      <td style={{ padding: "4px 6px" }}>{b.views}</td>
+                      <td style={{ padding: "4px 6px" }}>{b.seoScore ?? "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ fontSize: 10, color: C.text4, marginTop: 6 }}>모든 편집국은 동일 Workflow 사용. CTR/SEO/비용 일부는 실측 지표 미연결 추정치.</div>
+          </div>
+        );
+      })()}
+
       {/* 자동 추천 */}
       <div style={box}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🎯 AI 자동 추천 (주제만 입력)</div>
         {topic.trim() && (() => {
           const rt = routeCategory(topic.trim());
+          const pr = prubiRoute({ title: topic.trim() });
+          const img = runImagePipeline({ title: topic.trim(), content: fusionResult?.final?.body || "" });
           return (
-            <div style={{ fontSize: 11, color: C.brandD, marginBottom: S.sm, background: C.bg, borderRadius: R.md, padding: "6px 10px" }}>
-              🧭 Category Router: <b>{rt.label}</b> → {rt.steps.join(" → ")}
+            <div style={{ fontSize: 11, color: C.text2, marginBottom: S.sm, background: C.bg, borderRadius: R.md, padding: "8px 10px", lineHeight: 1.7 }}>
+              <div>🧭 <b>Category Router</b>: {rt.label} → {rt.steps.join(" → ")}</div>
+              <div>🧠 <b>Prubi Router</b>: Intent {pr.intent} · 난이도 {pr.difficulty}/5 · 목표품질 <b>{pr.tierLabel}({pr.expectedQuality}+)</b> · {String(pr.model).split("/").pop()} × Fusion {pr.fusionCount} · 검수 {pr.reviewRounds}회</div>
+              <div>🖼️ <b>Image Factory</b>: {img.route.needed ? `${img.route.count}장 · ${img.route.styleLabel}` : "이미지 불필요"}{img.route.needed && ` · 품의 ${img.gate.approved ? "승인" : img.gate.reason}`}</div>
             </div>
           );
         })()}
@@ -5864,7 +5910,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "autonomous",    label: "무인운영",     icon: "🤖", perm: "can_contents",
       tabs: [["operation_monitor", "무인 운영"], ["live_ops", "라이브 운영"], ["e2e_validation", "실전 검증"]] },
     { key: "ai_lab",        label: "AI 분석실",    icon: "🔬", perm: "can_contents",
-      tabs: [["ai_hq", "AI 운영본부"], ["lounge_insights", "라운지 인사이트"]] },
+      tabs: [["ai_hq", "AI 운영본부"], ["ai_workforce", "AI 인사팀"], ["lounge_insights", "라운지 인사이트"]] },
     { key: "lounge_review", label: "라운지·리뷰",  icon: "📋", perm: "can_contents",
       tabs: [["lounge", "라운지관리"], ["lounge_seeding", "라운지 시딩"], ["seed", "포토후기"], ["reviews", "리뷰관리"], ["review_admin", "리뷰 어드민"], ["reports", "신고관리"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
@@ -7219,6 +7265,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 try { const [d, p] = await Promise.all([adminListLoungeDrafts(), adminListPublishedAiContent()]); setAiDrafts(d.data ?? []); setAiPublished(p.data ?? []); } catch { /* keep */ }
               }} />
             )}
+
+            {/* ── AI 인사팀 (Phase 58-1 · OpenRouter Workforce) ── */}
+            {mainTab === "ai_workforce" && <AIWorkforceTab showToast={showToast} />}
 
             {/* ── 운영센터 (Phase 33 · Mission Control · Phase 57 통합 WorkflowQueue) ── */}
             {mainTab === "mission_control" && (
