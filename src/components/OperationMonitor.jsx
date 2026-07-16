@@ -15,12 +15,15 @@ import { operationScore } from "../lib/operationScore";
 import { upsertTodaySummary, healthTrend, sevenDayReport, getDailySummaries } from "../lib/dailySummary";
 import { getAutopilotConfig, setAutopilotConfig } from "../lib/publishQueue";
 import { adminCreateLoungeDraft, adminUpdateLoungeDraft } from "../lib/supabase";
+import { workflowKpis, runScheduler, WORKFLOW_ORDER, WORKFLOW_LABEL, buildWorkflowQueue } from "../lib/workflowEngine";
+import { runWeeklyGrowth, getGrowthState, GROWTH_SEQUENCE } from "../lib/editorialBureaus";
+import { aiBudget } from "../lib/aiPerformance";
 import ServerAutonomousStatus from "./ServerAutonomousStatus";
 
 const LV = { high: "#dc2626", mid: "#d97706", info: "#6b7280" };
 const AUTONOMY_KEY = "space_autonomy_mode_v1";
 
-export default function OperationMonitor({ published = [], adminUserId, showToast, onReload }) {
+export default function OperationMonitor({ published = [], drafts = [], adminUserId, showToast, onReload }) {
   const [tick, setTick] = useState(0);
   const [autonomy, setAutonomy] = useState(() => { try { return localStorage.getItem(AUTONOMY_KEY) === "1"; } catch { return false; } });
   const [lastHeal, setLastHeal] = useState(null);
@@ -31,16 +34,24 @@ export default function OperationMonitor({ published = [], adminUserId, showToas
 
   const createDraft = async ({ title, body, aiTopic }) => adminCreateLoungeDraft({ category: "daily", title, content: body, aiTopic, publishStatus: "draft" }, adminUserId);
   const executor = async (job) => job.loungeId ? adminUpdateLoungeDraft(job.loungeId, { publishStatus: "published" }, adminUserId) : { error: new Error("id 없음") };
+  // Phase 57 — 통합 WorkflowQueue: DB(publish_status='scheduled') 도래분을 같은 파이프라인으로 발행.
+  const dbExecutor = async (rec) => rec.id ? adminUpdateLoungeDraft(rec.id, { publishStatus: "published" }, adminUserId) : { error: new Error("id 없음") };
 
   const runCycle = async (silent = true) => {
     if (busyRef.current) return; busyRef.current = true;
     try {
       await ensureTodayProgram({ createDraft }, { published });
       const h = await heal({ createDraft, executor }, { published });
+      // 예약 도래분(DB) 발행 — 무인운영도 발행센터와 동일한 WorkflowQueue를 사용.
+      const records = [...(drafts || []), ...(published || [])];
+      const sched = await runScheduler({ records, executor: dbExecutor });
+      // Phase 58 §7 — 주간 자동 성장(품질 유지 시 발행량 2배). applyGrowth가 주 1회로 자체 가드.
+      try { const g = runWeeklyGrowth(records, { aiCostPerJobKRW: aiBudget().avgCostPerJobKRW }); if (g.applied && g.doubled && !silent) showToast?.(`📈 주간 성장: 발행량 ${g.currentTarget}→${g.nextTarget}`); } catch { /* keep */ }
       upsertTodaySummary();
       setLastHeal(h);
       refresh();
-      if (h.published > 0 || h.healed > 0) { if (!silent) showToast?.(`🔧 복구 ${h.healed} · 발행 ${h.published}`); await onReload?.(); }
+      const total = (h.published || 0) + (h.healed || 0) + (sched.published || 0);
+      if (total > 0) { if (!silent) showToast?.(`🔧 복구 ${h.healed} · 발행 ${h.published + sched.published}`); await onReload?.(); }
     } catch (e) { if (!silent) showToast?.("사이클 오류: " + (e?.message ?? String(e))); }
     finally { busyRef.current = false; }
   };
@@ -86,6 +97,54 @@ export default function OperationMonitor({ published = [], adminUserId, showToas
         무인 운영 ON이면 화면이 열려 있는 동안 <b>60초마다</b> 오늘 편성 자동 생성(중복 방지)·Watchdog 점검·Self-Healing 복구·발행·일일 요약을 수행합니다.
         {" "}오늘 편성 {isTodayGenerated() ? "✅ 생성됨" : "⏳ 대기"}. {cfg.emergencyStop && <b style={{ color: C.red }}>⛔ 정지됨.</b>}
       </div>
+
+      {/* Phase 57 — 통합 워크플로우(WorkflowQueue · DB 단일 진실원) — 운영센터·발행센터와 동일 수치 */}
+      {(() => {
+        const recs = [...(drafts || []), ...(published || [])];
+        const wf = workflowKpis(recs);
+        const q = buildWorkflowQueue(recs);
+        return (
+          <div style={{ ...box, background: "#0b1220", border: "1px solid #1e293b" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: "#8fe3c4", marginBottom: S.sm }}>🔗 통합 워크플로우 (WorkflowQueue · DB 기준)</div>
+            <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.sm }}>
+              {[["오늘 생성", wf.todayCreated], ["검토", wf.todayReviewed], ["PASS", wf.todayPass], ["수정", wf.revision], ["예약", wf.scheduled], ["발행", wf.published], ["실패", wf.failed], ["평균품질", wf.avgQuality != null ? wf.avgQuality + "점" : "-"]].map(([k, v]) => (
+                <div key={k} style={{ flex: "1 1 78px", background: "#111c2e", borderRadius: R.lg, padding: "7px 10px", border: "1px solid #1e293b" }}>
+                  <div style={{ fontSize: 9.5, color: "#94a3b8" }}>{k}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#e2e8f0" }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {WORKFLOW_ORDER.filter((s) => q.counts[s] > 0).map((s) => (
+                <span key={s} style={{ fontSize: 10, fontWeight: 700, background: "#111c2e", color: "#cbd5e1", borderRadius: R.full, padding: "2px 9px", border: "1px solid #1e293b" }}>{WORKFLOW_LABEL[s]} {q.counts[s]}</span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Phase 58 §7 — 주간 자동 성장(품질 유지 시 발행량 2배: 20→…→2560) */}
+      {(() => {
+        const gs = getGrowthState();
+        const idx = Math.max(0, GROWTH_SEQUENCE.indexOf(gs.weeklyTarget));
+        return (
+          <div style={box}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: S.sm }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>📈 주간 자동 성장 (발행량)</div>
+              <div style={{ fontSize: 12, color: C.text3 }}>이번 주 목표 <b style={{ color: C.brandD, fontSize: 15 }}>{gs.weeklyTarget}</b>건/주</div>
+            </div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: S.sm }}>
+              {GROWTH_SEQUENCE.map((v, i) => (
+                <span key={v} style={{ fontSize: 10.5, fontWeight: 800, borderRadius: R.full, padding: "3px 10px", border: `1px solid ${C.bgWarm}`,
+                  background: i < idx ? "#05966922" : i === idx ? C.brand : C.bg, color: i < idx ? "#059669" : i === idx ? "#fff" : C.text4 }}>{v}</span>
+              ))}
+            </div>
+            <div style={{ fontSize: 10.5, color: C.text3, lineHeight: 1.6 }}>
+              무인 운영 사이클이 주 1회 실측 KPI(PASS율≥85·품질≥85·실패율≤5%·비용≤₩400/건)를 검증해 <b>충족 시에만</b> 다음 주 발행량을 2배로 올립니다. 품질이 유지되지 않으면 현 수준을 유지합니다.
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Phase 39 — 서버 자율 트리거(브라우저 닫혀도 운영) */}
       <ServerAutonomousStatus />

@@ -30,6 +30,12 @@ import { holdMeeting } from "../lib/aiMeeting";
 import { staffPerformance, workLog, aiBudget, hiringCandidates, deactivationSuggestions } from "../lib/aiPerformance";
 import { runFusion } from "../lib/fusionRunner";
 import { saveFusionFinal } from "../lib/fusionPipelineBridge";
+import { workflowAnalytics, routeCategory } from "../lib/workflowEngine";
+import { prubiRoute } from "../lib/newsroomRouter";
+import { runImagePipeline } from "../lib/imageFactory";
+import { bureauKpis } from "../lib/editorialBureaus";
+import { staffPipeline, preGenerationGate } from "../lib/pipelineGate";
+import AIWorkforceTab from "../components/AIWorkforceTab";
 import FusionProgress from "../components/FusionProgress";
 import FusionHistory from "../components/FusionHistory";
 import CeoOffice from "../components/CeoOffice";
@@ -1559,7 +1565,7 @@ function PublishingPriorityTab({ drafts = [], published = [] }) {
 // ── AI 운영본부(Phase 29 · AI Headquarters V2) — 조직도·자동추천·Fusion·파이프라인 ──────
 //   AI 를 "직원"으로 시각화하고, 주제→담당AI 자동추천→Fusion 조합→전체 파이프라인을 보여준다.
 //   ⚠️ 기존 생성/발행/호출 구조 무변경 — 조직도/추천/플랜을 "조립·표시"만 한다(additive).
-function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload }) {
+function AIHeadquartersTab({ published = [], drafts = [], adminUserId, showToast, onReload }) {
   const [topic, setTopic] = useState("");
   const [fusionProgress, setFusionProgress] = useState(null);
   const [fusionResult, setFusionResult] = useState(null);
@@ -1600,11 +1606,12 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
       // Phase 46 — 최종본 자동 저장(중복 차단·단일 저장). 저장 이후는 서버가 승인·예약·발행.
       if (res?.final?.body) {
         const bridge = await saveFusionFinal({
-          fusionResult: res, topic: topic.trim(), existing: published || [],
+          fusionResult: res, topic: topic.trim(), existing: [...(drafts || []), ...(published || [])], enforceGate: true,
           createDraft: (rec) => adminCreateLoungeDraft({ category: "daily", title: rec.title, content: rec.content, aiTopic: rec.ai_topic, publishStatus: "draft", imageUrls: rec.image_urls || [] }, adminUserId),
         });
         setFusionSaved(bridge);
         if (bridge.saved) { showToast?.(`✅ 최종본 자동 저장 (ID ${String(bridge.draftId).slice(0, 8)}) — 서버 승인·예약·발행 대기`); await onReload?.(); }
+        else if (bridge.reason === "gate_block") showToast?.(`🛑 반복/신선도 차단 — ${(bridge.gate?.reasons || []).join(" · ")}`);
         else if (bridge.duplicate) showToast?.("이미 같은 편성이 있어 중복 저장하지 않았습니다");
         else showToast?.("자동 저장 실패 — 아래 재저장 버튼으로 다시 시도하세요");
       }
@@ -1620,11 +1627,12 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
     setSavingDraft(true);
     try {
       const bridge = await saveFusionFinal({
-        fusionResult, topic: topic.trim(), existing: published || [],
+        fusionResult, topic: topic.trim(), existing: [...(drafts || []), ...(published || [])], enforceGate: true,
         createDraft: (rec) => adminCreateLoungeDraft({ category: "daily", title: rec.title, content: rec.content, aiTopic: rec.ai_topic, publishStatus: "draft" }, adminUserId),
       });
       setFusionSaved(bridge);
       if (bridge.saved) { showToast?.(`✅ 초안 저장됨 (ID ${String(bridge.draftId).slice(0, 8)})`); await onReload?.(); }
+      else if (bridge.reason === "gate_block") showToast?.(`🛑 반복/신선도 차단 — ${(bridge.gate?.reasons || []).join(" · ")}`);
       else if (bridge.duplicate) showToast?.("이미 같은 편성이 있어 중복 저장하지 않았습니다");
       else showToast?.("초안 저장 실패: " + (bridge.error ?? bridge.reason ?? "오류"));
     } catch (e) { showToast?.("저장 오류: " + (e?.message ?? String(e))); }
@@ -1654,9 +1662,93 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
         ))}
       </div>
 
+      {/* Phase 57 — 통합 WorkflowQueue 분석(품질/실패율/Revision율/PASS율/카테고리 성공률) */}
+      {(() => {
+        const wa = workflowAnalytics([...(drafts || []), ...(published || [])], { aiCostKRW: budget.todayKRW });
+        return (
+          <div style={{ ...box, background: "#0b1220", border: "1px solid #1e293b" }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: "#8fe3c4", marginBottom: S.sm }}>🔬 WorkflowQueue 분석 (DB 단일 진실원)</div>
+            <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.sm }}>
+              {[["총 건수", wa.total], ["평균품질", wa.avgQuality != null ? wa.avgQuality + "점" : "-"], ["PASS율", wa.passRate + "%"], ["Revision율", wa.revisionRate + "%"], ["실패율", wa.failRate + "%"], ["AI 비용", "₩" + (wa.aiCostKRW || 0).toLocaleString()]].map(([k, v]) => (
+                <div key={k} style={{ flex: "1 1 92px", background: "#111c2e", borderRadius: R.lg, padding: "8px 10px", border: "1px solid #1e293b" }}>
+                  <div style={{ fontSize: 9.5, color: "#94a3b8" }}>{k}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#e2e8f0" }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>카테고리별 성공률(발행완료/전체)</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {wa.categorySuccess.map((r) => (
+                <div key={r.route} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+                  <span style={{ color: "#cbd5e1", minWidth: 92 }}>{r.label}</span>
+                  <div style={{ flex: 1, height: 6, background: "#111c2e", borderRadius: 999, overflow: "hidden" }}>
+                    <div style={{ width: `${r.successRate}%`, height: "100%", background: "#34d399" }} />
+                  </div>
+                  <span style={{ color: "#e2e8f0", fontWeight: 700, minWidth: 78, textAlign: "right" }}>{r.successRate}% ({r.published}/{r.total})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Phase 58 — 편집국별 KPI (카테고리 독립 편집국) */}
+      {(() => {
+        const bureaus = bureauKpis([...(drafts || []), ...(published || [])]);
+        if (!bureaus.length) return null;
+        return (
+          <div style={box}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🏢 편집국별 KPI (AI 지식매거진신문사)</div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead>
+                  <tr style={{ color: C.text3, textAlign: "left" }}>
+                    {["편집국", "총건", "PASS율", "Rev율", "평균품질", "발행", "예약", "조회", "SEO"].map((h) => (
+                      <th key={h} style={{ padding: "4px 6px", borderBottom: `1px solid ${C.bgWarm}`, whiteSpace: "nowrap" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {bureaus.map((b) => (
+                    <tr key={b.id} style={{ borderBottom: `1px solid ${C.bg}` }}>
+                      <td style={{ padding: "4px 6px", fontWeight: 700, color: C.text1, whiteSpace: "nowrap" }}>{b.icon} {b.label}</td>
+                      <td style={{ padding: "4px 6px" }}>{b.total}</td>
+                      <td style={{ padding: "4px 6px", color: "#059669" }}>{b.passRate}%</td>
+                      <td style={{ padding: "4px 6px", color: b.revisionRate ? C.gold : C.text3 }}>{b.revisionRate}%</td>
+                      <td style={{ padding: "4px 6px" }}>{b.avgQuality ?? "-"}</td>
+                      <td style={{ padding: "4px 6px" }}>{b.published}</td>
+                      <td style={{ padding: "4px 6px" }}>{b.scheduled}</td>
+                      <td style={{ padding: "4px 6px" }}>{b.views}</td>
+                      <td style={{ padding: "4px 6px" }}>{b.seoScore ?? "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ fontSize: 10, color: C.text4, marginTop: 6 }}>모든 편집국은 동일 Workflow 사용. CTR/SEO/비용 일부는 실측 지표 미연결 추정치.</div>
+          </div>
+        );
+      })()}
+
       {/* 자동 추천 */}
       <div style={box}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🎯 AI 자동 추천 (주제만 입력)</div>
+        {topic.trim() && (() => {
+          const rt = routeCategory(topic.trim());
+          const sp = staffPipeline({ title: topic.trim() });
+          const img = runImagePipeline({ title: topic.trim(), content: fusionResult?.final?.body || "" });
+          const gate = preGenerationGate({ title: topic.trim(), content: fusionResult?.final?.body || topic.trim() }, [...(drafts || []), ...(published || [])]);
+          const gateColor = gate.action === "BLOCK" ? C.red : gate.action === "GENERATE" ? "#059669" : C.gold;
+          return (
+            <div style={{ fontSize: 11, color: C.text2, marginBottom: S.sm, background: C.bg, borderRadius: R.md, padding: "8px 10px", lineHeight: 1.7 }}>
+              <div>🧭 <b>Category Router</b>: {rt.label} → {rt.steps.join(" → ")}</div>
+              <div>🧠 <b>Prubi Router</b>: Intent {sp.intent} · 난이도 {sp.difficulty}/5 · 목표품질 <b>{sp.qualityTier}</b> · {String(sp.model).split("/").pop()} × Fusion {sp.fusionCount} · 검수 {sp.reviewRounds}회</div>
+              <div>🧑‍💼 <b>직원 배치</b>: {sp.pipeline.join(" → ")}</div>
+              <div>🖼️ <b>Image Factory</b>: {img.route.needed ? `${img.route.count}장 · ${img.route.styleLabel}` : "이미지 불필요"}{img.route.needed && ` · 품의 ${img.gate.approved ? "승인" : img.gate.reason}`}</div>
+              <div>🧪 <b>사전 게이트</b>: <span style={{ color: gateColor, fontWeight: 800 }}>{gate.action}</span> · noveltyScore {gate.novelty.score} · 새신호 {gate.novelty.signalCount}/7 · 구조 {gate.structure.recommended}{gate.reasons.length ? ` · ${gate.reasons.join(" · ")}` : ""}</div>
+            </div>
+          );
+        })()}
         <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="예: 엔비디아 실적 속보 / 폭염 심층 매거진 / 오늘 큐티"
           style={{ width: "100%", padding: "9px 11px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`, fontSize: 13, boxSizing: "border-box", fontFamily: "inherit", marginBottom: S.sm }} />
         {rec ? (
@@ -5522,7 +5614,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
         }
       })();
     }
-    if (mainTab === "lounge_ai_factory") {
+    // Phase 57 — 통합 워크플로우 탭도 DB 레코드(단일 진실원)를 마운트 시 로드해 수치를 일치시킨다.
+    const WORKFLOW_TABS = new Set(["lounge_ai_factory", "mission_control", "operation_monitor", "autopilot", "ai_hq", "programming", "executive_office", "publishing_pipeline"]);
+    if (WORKFLOW_TABS.has(mainTab)) {
       setAiFactoryLoading(true);
       setAiFactoryErr(null);
       (async () => {
@@ -5823,7 +5917,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     { key: "autonomous",    label: "무인운영",     icon: "🤖", perm: "can_contents",
       tabs: [["operation_monitor", "무인 운영"], ["live_ops", "라이브 운영"], ["e2e_validation", "실전 검증"]] },
     { key: "ai_lab",        label: "AI 분석실",    icon: "🔬", perm: "can_contents",
-      tabs: [["ai_hq", "AI 운영본부"], ["lounge_insights", "라운지 인사이트"]] },
+      tabs: [["ai_hq", "AI 운영본부"], ["ai_workforce", "AI 인사팀"], ["lounge_insights", "라운지 인사이트"]] },
     { key: "lounge_review", label: "라운지·리뷰",  icon: "📋", perm: "can_contents",
       tabs: [["lounge", "라운지관리"], ["lounge_seeding", "라운지 시딩"], ["seed", "포토후기"], ["reviews", "리뷰관리"], ["review_admin", "리뷰 어드민"], ["reports", "신고관리"]] },
     { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
@@ -7174,22 +7268,25 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
             {/* ── AI 운영본부 (Phase 29·30·31 · AI Headquarters / AI OS / Fusion) ── */}
             {mainTab === "ai_hq" && (
-              <AIHeadquartersTab published={aiPublished} adminUserId={user?.id ?? null} showToast={showToast} onReload={async () => {
+              <AIHeadquartersTab published={aiPublished} drafts={aiDrafts} adminUserId={user?.id ?? null} showToast={showToast} onReload={async () => {
                 try { const [d, p] = await Promise.all([adminListLoungeDrafts(), adminListPublishedAiContent()]); setAiDrafts(d.data ?? []); setAiPublished(p.data ?? []); } catch { /* keep */ }
               }} />
             )}
 
-            {/* ── 운영센터 (Phase 33 · Mission Control) ── */}
+            {/* ── AI 인사팀 (Phase 58-1 · OpenRouter Workforce) ── */}
+            {mainTab === "ai_workforce" && <AIWorkforceTab showToast={showToast} />}
+
+            {/* ── 운영센터 (Phase 33 · Mission Control · Phase 57 통합 WorkflowQueue) ── */}
             {mainTab === "mission_control" && (
-              <MissionControl showToast={showToast} />
+              <MissionControl showToast={showToast} records={[...aiDrafts, ...aiPublished]} />
             )}
 
             {/* ── AI 품의·결재 (Phase 51 · Executive Office) ── */}
             {mainTab === "executive_office" && <ChiefSecretaryBoard />}
 
-            {/* ── 무인 운영 (Phase 38 · 7-Day Autonomous Operation) ── */}
+            {/* ── 무인 운영 (Phase 38 · 7-Day Autonomous · Phase 57 통합 WorkflowQueue) ── */}
             {mainTab === "operation_monitor" && (
-              <OperationMonitor published={aiPublished} adminUserId={user?.id ?? null} showToast={showToast} onReload={async () => {
+              <OperationMonitor published={aiPublished} drafts={aiDrafts} adminUserId={user?.id ?? null} showToast={showToast} onReload={async () => {
                 try { const [d, p] = await Promise.all([adminListLoungeDrafts(), adminListPublishedAiContent()]); setAiDrafts(d.data ?? []); setAiPublished(p.data ?? []); } catch { /* keep */ }
               }} />
             )}
@@ -7213,9 +7310,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
               <ProgrammingEngine published={aiPublished} showToast={showToast} />
             )}
 
-            {/* ── AI Autopilot (Phase 35 · Auto Publish Ready) ── */}
+            {/* ── AI Autopilot (Phase 35 · Auto Publish Ready · Phase 57 통합 WorkflowQueue) ── */}
             {mainTab === "autopilot" && (
-              <AutoPublishPanel drafts={aiDrafts} adminUserId={user?.id ?? null} showToast={showToast} onReload={async () => {
+              <AutoPublishPanel drafts={aiDrafts} published={aiPublished} adminUserId={user?.id ?? null} showToast={showToast} onReload={async () => {
                 try { const [d, p] = await Promise.all([adminListLoungeDrafts(), adminListPublishedAiContent()]); setAiDrafts(d.data ?? []); setAiPublished(p.data ?? []); } catch { /* keep */ }
               }} />
             )}

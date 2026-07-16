@@ -12,6 +12,7 @@ import {
   programmingBoard, todayPreview, weeklyStats, validateProgram,
   addCustomProgram, removeCustomProgram, CUSTOM_PRESETS, setMemo, getMemos, PROGRAM_TYPE_COLOR,
 } from "../lib/programmingEngine";
+import { CATEGORY_ROUTES } from "../lib/workflowEngine";
 
 export default function ProgrammingEngine({ published = [], showToast }) {
   const [tick, setTick] = useState(0);
@@ -38,6 +39,27 @@ export default function ProgrammingEngine({ published = [], showToast }) {
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
         공간라운지의 <b>기본 편성 시스템</b>입니다. 🔒 고정편성(큐티·인도점성술·Morning Brief·긴급뉴스·공간마켓·연재·Time Trend)은
         <b> 삭제·순서변경·OFF 불가</b> — 안정적으로 깔고 갑니다. 필요한 편성만 <b>추가</b>합니다.
+      </div>
+
+      {/* Phase 57 — Category Router: 카테고리 → Fusion/Writer/Research/SEO/Image 파이프라인 */}
+      <div style={box}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🧭 Category Router (카테고리별 파이프라인 연결)</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {Object.values(CATEGORY_ROUTES).map((r) => (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 11, borderBottom: `1px solid ${C.bg}`, paddingBottom: 5 }}>
+              <span style={{ minWidth: 96, fontWeight: 800, color: C.text1 }}>{r.label}</span>
+              <span style={{ color: C.text2 }}>
+                {[r.fusion, r.writer, r.research, r.seo, r.image].filter(Boolean).map((s, i, arr) => (
+                  <span key={s + i}>
+                    <span style={{ background: C.bg, borderRadius: R.full, padding: "2px 8px", border: `1px solid ${C.bgWarm}` }}>{s}</span>
+                    {i < arr.length - 1 && <span style={{ color: C.text4 }}> → </span>}
+                  </span>
+                ))}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 10, color: C.text3, marginTop: 6 }}>주제→카테고리 판별 후 각 카테고리에 맞는 Fusion·Writer·Research·SEO·Image 엔진으로 라우팅됩니다.</div>
       </div>
 
       {/* 오늘 미리보기 */}

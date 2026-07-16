@@ -11,11 +11,13 @@ import { C, R, S } from "../constants";
 import { missionSnapshot } from "../lib/missionControl";
 import { getQueue, updateJob } from "../lib/automationQueue";
 import { activityRows } from "../lib/activityLog";
+import { workflowKpis, buildWorkflowQueue, WORKFLOW_ORDER, WORKFLOW_LABEL } from "../lib/workflowEngine";
+import { newsroomInsights } from "../lib/pipelineGate";
 
 const HEALTH_ICON = { green: "🟢", yellow: "🟡", red: "🔴", idle: "⚪" };
 const LV_COLOR = { high: "#dc2626", mid: "#d97706", info: "#2563eb" };
 
-export default function MissionControl({ showToast }) {
+export default function MissionControl({ showToast, records = [] }) {
   const [tick, setTick] = useState(0);
   const refresh = () => setTick((t) => t + 1);
   const snap = missionSnapshot();
@@ -23,6 +25,12 @@ export default function MissionControl({ showToast }) {
   const failedJobs = getQueue().filter((j) => j.status === "failed");
   const box = { background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl };
   void tick;
+
+  // Phase 57 — 통합 워크플로우(WorkflowQueue) 단일 진실원. 모든 탭 공통 수치.
+  const wf = workflowKpis(records, { aiCostKRW: snap.dashboard.costKRW });
+  const wfQueue = buildWorkflowQueue(records);
+  // Phase 59 — 신선도·반복 지표(DB 파생).
+  const ni = newsroomInsights(records);
 
   const retryJob = (id) => { updateJob(id, { status: "queued", error: null }); refresh(); showToast?.("재시도 대기열로 이동"); };
   const retryAll = () => { failedJobs.forEach((j) => updateJob(j.id, { status: "queued", error: null })); refresh(); showToast?.(`${failedJobs.length}건 재시도 대기열로 이동`); };
@@ -49,6 +57,38 @@ export default function MissionControl({ showToast }) {
       <div style={{ background: "#111827", borderRadius: R.lg, padding: "11px 14px", marginBottom: S.lg, color: "#e5e7eb" }}>
         <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 3 }}>🧠 총괄비서 브리핑</div>
         <div style={{ fontSize: 11.5, color: "#cbd5e1", lineHeight: 1.6 }}>{snap.briefing}</div>
+      </div>
+
+      {/* Phase 57 — 통합 워크플로우(WorkflowQueue) · DB 단일 진실원(모든 탭 일치) */}
+      <div style={{ ...box, marginBottom: S.lg, background: "#0b1220", border: "1px solid #1e293b" }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: "#8fe3c4", marginBottom: S.sm }}>🔗 통합 워크플로우 (WorkflowQueue · DB 기준)</div>
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.sm }}>
+          {[["오늘 생성", wf.todayCreated], ["오늘 검토", wf.todayReviewed], ["오늘 PASS", wf.todayPass], ["수정(Revision)", wf.revision], ["예약", wf.scheduled], ["발행", wf.published], ["실패", wf.failed], ["평균품질", wf.avgQuality != null ? wf.avgQuality + "점" : "-"], ["평균시간", wf.avgProcessMin != null ? wf.avgProcessMin + "분" : "-"], ["AI 비용", "₩" + (wf.aiCostKRW || 0).toLocaleString()]].map(([k, v]) => (
+            <div key={k} style={{ flex: "1 1 78px", background: "#111c2e", borderRadius: R.lg, padding: "7px 10px", border: "1px solid #1e293b" }}>
+              <div style={{ fontSize: 9.5, color: "#94a3b8" }}>{k}</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#e2e8f0" }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {WORKFLOW_ORDER.filter((s) => wfQueue.counts[s] > 0).map((s) => (
+            <span key={s} style={{ fontSize: 10, fontWeight: 700, background: "#111c2e", color: "#cbd5e1", borderRadius: R.full, padding: "2px 9px", border: "1px solid #1e293b" }}>{WORKFLOW_LABEL[s]} {wfQueue.counts[s]}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Phase 59 — 신선도·반복 방지 지표(DB 파생) */}
+      <div style={{ ...box, marginBottom: S.lg, background: "#0b1220", border: "1px solid #1e293b" }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: "#8fe3c4", marginBottom: S.sm }}>🧪 신선도·반복 방지 (Freshness/Repetition)</div>
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap" }}>
+          {[["새 주제 후보", ni.newTopicCandidates], ["반복 차단", ni.repeatBlocked], ["noveltyScore 평균", ni.noveltyAvg ?? "-"], ["Date Fix", ni.dateFix], ["주제 집중도", ni.topicConcentration ? `${ni.topicConcentration.entity} ${ni.topicConcentration.share}%` : "-"], ["엔티티 반복률", ni.entityRepeatRate + "%"], ["BOARD_APPROVED율", ni.boardApprovedRate != null ? ni.boardApprovedRate + "%" : "-"]].map(([k, v]) => (
+            <div key={k} style={{ flex: "1 1 96px", background: "#111c2e", borderRadius: R.lg, padding: "7px 10px", border: "1px solid #1e293b" }}>
+              <div style={{ fontSize: 9.5, color: "#94a3b8" }}>{k}</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "#e2e8f0" }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        {ni.overCapEntities.length > 0 && <div style={{ fontSize: 10, color: "#fca5a5", marginTop: 6 }}>⚠ 오늘 집중 초과 엔티티: {ni.overCapEntities.join(", ")} (하루 10% 상한)</div>}
       </div>
 
       {/* 대시보드 */}

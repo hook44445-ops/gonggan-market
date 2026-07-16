@@ -20,13 +20,14 @@ import { classifyContentType } from "../lib/contentTypes";
 import DraftPreviewModal from "./DraftPreviewModal";
 import { evaluateQuality } from "../lib/qualityEvaluator";
 import { reviewByBoard } from "../lib/aiEditorialBoard";
+import { publishingView, dueForPublish, runScheduler, WORKFLOW_LABEL } from "../lib/workflowEngine";
 
 const STATUS_COLOR = {
   approved: "#2563eb", scheduled: "#7c3aed", publishing: "#d97706",
   published: "#059669", failed: "#dc2626", draft: "#6b7280",
 };
 
-export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, onReload }) {
+export default function AutoPublishPanel({ drafts = [], published = [], adminUserId, showToast, onReload }) {
   const [tick, setTick] = useState(0);
   const [busy, setBusy] = useState(false);
   const [previewDraft, setPreviewDraft] = useState(null); // 미리보기 모달 대상(Phase 41)
@@ -46,10 +47,32 @@ export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, 
     return adminUpdateLoungeDraft(job.loungeId, { publishStatus: "published" }, adminUserId);
   };
 
-  // 화면 진입 시 도래분 자동 처리(ON & !EmergencyStop 일 때만).
+  // Phase 57 — 통합 WorkflowQueue(DB) 뷰 + DB 예약 도래분 발행.
+  //   기존 localStorage publishQueue 와 별개로, DB(publish_status='scheduled') 도래분을 직접 발행한다.
+  //   → "예약만 되고 Publish 안 됨" 문제(클라이언트 큐 ↔ DB 예약 불일치) 해소.
+  const allRecords = [...(drafts || []), ...(published || [])];
+  const pv = publishingView(allRecords);
+  const dueDbCount = dueForPublish(allRecords).length;
+  const dbExecutor = async (rec) => {
+    if (!rec.id) return { error: new Error("발행 대상(레코드 id) 없음") };
+    return adminUpdateLoungeDraft(rec.id, { publishStatus: "published" }, adminUserId);
+  };
+  const runDbScheduler = async () => {
+    if (busy) return; setBusy(true);
+    try {
+      const r = await runScheduler({ records: allRecords, executor: dbExecutor });
+      if (r.blocked) showToast?.("발행 대상이 없습니다");
+      else showToast?.(`DB 예약 발행: 발행 ${r.published} · 실패 ${r.failed}`);
+      refresh(); await onReload?.();
+    } catch (e) { showToast?.("DB 발행 오류: " + (e?.message ?? String(e))); }
+    finally { setBusy(false); }
+  };
+
+  // 화면 진입 시 도래분 자동 처리(ON & !EmergencyStop 일 때만) — localStorage 큐 + DB 예약 둘 다.
   useEffect(() => {
     if (cfg.autoPublishOn && !cfg.emergencyStop) {
       processDuePublishes({ executor }).then((r) => { if (r.published > 0) { showToast?.(`🚀 자동 발행 ${r.published}건`); refresh(); onReload?.(); } });
+      runScheduler({ records: allRecords, executor: dbExecutor }).then((r) => { if (r.published > 0) { showToast?.(`🚀 DB 예약 자동 발행 ${r.published}건`); refresh(); onReload?.(); } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -133,6 +156,28 @@ export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, 
         {tile("예약", sum.scheduled, "#7c3aed")}{tile("발행중", sum.publishing, "#d97706")}{tile("오늘 발행", sum.publishedToday, "#059669")}
         {tile("승인됨", sum.approved)}{tile("실패", sum.failed, sum.failed ? "#dc2626" : undefined)}{tile("재시도", sum.retries)}
         {tile("이번주", hist.week)}{tile("이번달", hist.month)}
+      </div>
+
+      {/* Phase 57 — 통합 WorkflowQueue(DB) · 발행센터는 Scheduled/Publishing/Published/Failed 만 본다 */}
+      <div style={{ ...box, background: "#0b1220", border: "1px solid #1e293b" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: S.sm }}>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: "#8fe3c4" }}>🔗 통합 WorkflowQueue (DB 기준)</div>
+          <button onClick={runDbScheduler} disabled={busy || dueDbCount === 0}
+            style={{ padding: "5px 12px", background: dueDbCount > 0 && !busy ? C.brand : C.text4, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 11, cursor: dueDbCount > 0 && !busy ? "pointer" : "default" }}>
+            ▶ DB 예약 도래분 발행 ({dueDbCount})
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap" }}>
+          {[["예약(Scheduled)", pv.counts.scheduled, "#7c3aed"], ["발행중(Publishing)", pv.counts.publishing, "#d97706"], ["발행완료(Published)", pv.counts.published, "#059669"], ["실패(Failed)", pv.counts.failed, "#dc2626"]].map(([k, v, col]) => (
+            <div key={k} style={{ flex: "1 1 120px", background: "#111c2e", borderRadius: R.lg, padding: "8px 11px", border: "1px solid #1e293b" }}>
+              <div style={{ fontSize: 9.5, color: "#94a3b8" }}>{k}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: col }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 10, color: "#64748b", marginTop: 6 }}>
+          {WORKFLOW_LABEL.SCHEDULED}·{WORKFLOW_LABEL.PUBLISHING}·{WORKFLOW_LABEL.PUBLISHED}·{WORKFLOW_LABEL.FAILED} 만 표시. DB(publish_status)·scheduled_at 도래분을 실제 발행 API로 게시합니다.
+        </div>
       </div>
 
       {/* 승인 초안 → 예약 */}
