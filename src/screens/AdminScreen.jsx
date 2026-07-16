@@ -34,6 +34,7 @@ import { workflowAnalytics, routeCategory } from "../lib/workflowEngine";
 import { prubiRoute } from "../lib/newsroomRouter";
 import { runImagePipeline } from "../lib/imageFactory";
 import { bureauKpis } from "../lib/editorialBureaus";
+import { staffPipeline, preGenerationGate } from "../lib/pipelineGate";
 import AIWorkforceTab from "../components/AIWorkforceTab";
 import FusionProgress from "../components/FusionProgress";
 import FusionHistory from "../components/FusionHistory";
@@ -1605,11 +1606,12 @@ function AIHeadquartersTab({ published = [], drafts = [], adminUserId, showToast
       // Phase 46 — 최종본 자동 저장(중복 차단·단일 저장). 저장 이후는 서버가 승인·예약·발행.
       if (res?.final?.body) {
         const bridge = await saveFusionFinal({
-          fusionResult: res, topic: topic.trim(), existing: published || [],
+          fusionResult: res, topic: topic.trim(), existing: [...(drafts || []), ...(published || [])], enforceGate: true,
           createDraft: (rec) => adminCreateLoungeDraft({ category: "daily", title: rec.title, content: rec.content, aiTopic: rec.ai_topic, publishStatus: "draft", imageUrls: rec.image_urls || [] }, adminUserId),
         });
         setFusionSaved(bridge);
         if (bridge.saved) { showToast?.(`✅ 최종본 자동 저장 (ID ${String(bridge.draftId).slice(0, 8)}) — 서버 승인·예약·발행 대기`); await onReload?.(); }
+        else if (bridge.reason === "gate_block") showToast?.(`🛑 반복/신선도 차단 — ${(bridge.gate?.reasons || []).join(" · ")}`);
         else if (bridge.duplicate) showToast?.("이미 같은 편성이 있어 중복 저장하지 않았습니다");
         else showToast?.("자동 저장 실패 — 아래 재저장 버튼으로 다시 시도하세요");
       }
@@ -1625,11 +1627,12 @@ function AIHeadquartersTab({ published = [], drafts = [], adminUserId, showToast
     setSavingDraft(true);
     try {
       const bridge = await saveFusionFinal({
-        fusionResult, topic: topic.trim(), existing: published || [],
+        fusionResult, topic: topic.trim(), existing: [...(drafts || []), ...(published || [])], enforceGate: true,
         createDraft: (rec) => adminCreateLoungeDraft({ category: "daily", title: rec.title, content: rec.content, aiTopic: rec.ai_topic, publishStatus: "draft" }, adminUserId),
       });
       setFusionSaved(bridge);
       if (bridge.saved) { showToast?.(`✅ 초안 저장됨 (ID ${String(bridge.draftId).slice(0, 8)})`); await onReload?.(); }
+      else if (bridge.reason === "gate_block") showToast?.(`🛑 반복/신선도 차단 — ${(bridge.gate?.reasons || []).join(" · ")}`);
       else if (bridge.duplicate) showToast?.("이미 같은 편성이 있어 중복 저장하지 않았습니다");
       else showToast?.("초안 저장 실패: " + (bridge.error ?? bridge.reason ?? "오류"));
     } catch (e) { showToast?.("저장 오류: " + (e?.message ?? String(e))); }
@@ -1732,13 +1735,17 @@ function AIHeadquartersTab({ published = [], drafts = [], adminUserId, showToast
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🎯 AI 자동 추천 (주제만 입력)</div>
         {topic.trim() && (() => {
           const rt = routeCategory(topic.trim());
-          const pr = prubiRoute({ title: topic.trim() });
+          const sp = staffPipeline({ title: topic.trim() });
           const img = runImagePipeline({ title: topic.trim(), content: fusionResult?.final?.body || "" });
+          const gate = preGenerationGate({ title: topic.trim(), content: fusionResult?.final?.body || topic.trim() }, [...(drafts || []), ...(published || [])]);
+          const gateColor = gate.action === "BLOCK" ? C.red : gate.action === "GENERATE" ? "#059669" : C.gold;
           return (
             <div style={{ fontSize: 11, color: C.text2, marginBottom: S.sm, background: C.bg, borderRadius: R.md, padding: "8px 10px", lineHeight: 1.7 }}>
               <div>🧭 <b>Category Router</b>: {rt.label} → {rt.steps.join(" → ")}</div>
-              <div>🧠 <b>Prubi Router</b>: Intent {pr.intent} · 난이도 {pr.difficulty}/5 · 목표품질 <b>{pr.tierLabel}({pr.expectedQuality}+)</b> · {String(pr.model).split("/").pop()} × Fusion {pr.fusionCount} · 검수 {pr.reviewRounds}회</div>
+              <div>🧠 <b>Prubi Router</b>: Intent {sp.intent} · 난이도 {sp.difficulty}/5 · 목표품질 <b>{sp.qualityTier}</b> · {String(sp.model).split("/").pop()} × Fusion {sp.fusionCount} · 검수 {sp.reviewRounds}회</div>
+              <div>🧑‍💼 <b>직원 배치</b>: {sp.pipeline.join(" → ")}</div>
               <div>🖼️ <b>Image Factory</b>: {img.route.needed ? `${img.route.count}장 · ${img.route.styleLabel}` : "이미지 불필요"}{img.route.needed && ` · 품의 ${img.gate.approved ? "승인" : img.gate.reason}`}</div>
+              <div>🧪 <b>사전 게이트</b>: <span style={{ color: gateColor, fontWeight: 800 }}>{gate.action}</span> · noveltyScore {gate.novelty.score} · 새신호 {gate.novelty.signalCount}/7 · 구조 {gate.structure.recommended}{gate.reasons.length ? ` · ${gate.reasons.join(" · ")}` : ""}</div>
             </div>
           );
         })()}

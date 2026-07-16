@@ -12,25 +12,33 @@
 import { classifyContentType } from "./contentTypes.js";
 import { editorialKey, editorialDateKST, findDuplicate } from "./editorialKey.js";
 import { ensureImageUrls, pickRepresentativeImage } from "./approvalImage.js";
+import { preGenerationGate } from "./pipelineGate.js";
+import { normalizeDatesInText } from "./editorialDateGuard.js";
 
 // fusionResult: runFusion 반환({ final:{title,body}, steps, contentType, ok, ... })
 // deps: { createDraft: (rec)=>{data|error}, existing: [drafts+published] }
-export async function saveFusionFinal({ fusionResult, topic = "", existing = [], createDraft } = {}) {
+export async function saveFusionFinal({ fusionResult, topic = "", existing = [], createDraft, enforceGate = false, now = Date.now() } = {}) {
   const L = "[FUSION_SAVE]";
   const final = fusionResult?.final;
-  const body = String(final?.body ?? "").trim();
-  const title = String(final?.title ?? topic ?? "").trim();
+  let body = String(final?.body ?? "").trim();
+  let title = String(final?.title ?? topic ?? "").trim();
 
   // ⑦ Fusion 실패 우선처리: 최소한 최종본 본문이 있어야 저장(빈 글은 Hard Fail).
   if (!body || body.replace(/\s/g, "").length < 80) {
     return { saved: false, reason: "no_final_body", duplicate: false, draftId: null };
   }
   const contentType = fusionResult?.contentType || classifyContentType(title || topic);
+
+  // Phase 59 §4 — 날짜 단일 기준: 과거/불일치 날짜 토큰을 editorial_date(KST)로 보정.
+  const editorialDate = editorialDateKST(now);
+  title = normalizeDatesInText(title, editorialDate);
+  body = normalizeDatesInText(body, editorialDate);
+
   const img = pickRepresentativeImage({ title, content: body, content_type: contentType }); // §11 빈 image_urls 금지
   const rec = {
     title, content: body, ai_topic: String(topic || "").trim(),
     content_type: contentType,
-    editorial_date: editorialDateKST(Date.now()),
+    editorial_date: editorialDate,
     scheduled_at: null,
     image_urls: ensureImageUrls({ title, content: body, content_type: contentType }),
     image_alt: img.alt,
@@ -41,6 +49,14 @@ export async function saveFusionFinal({ fusionResult, topic = "", existing = [],
   if (dup) {
     console.log(`${L} duplicate — skip save (기존 id=${String(dup.id).slice(0, 8)})`);
     return { saved: false, duplicate: true, draftId: dup.id ?? null, key: editorialKey(rec), reason: "duplicate" };
+  }
+
+  // Phase 59 §2/§3/§7 — 사전 생성 게이트: 반복 주제·무정보 반복글은 저장하지 않는다.
+  //   (기존 findDuplicate 보다 넓게 "제목만 바꾼 유사글/새 정보 없는 반복"을 차단)
+  const gate = preGenerationGate(rec, existing, { now });
+  if (enforceGate && gate.action === "BLOCK") {
+    console.log(`${L} gate BLOCK — ${gate.reasons.join(" · ")}`);
+    return { saved: false, duplicate: gate.repeat.repeat, draftId: gate.repeat.matchId ?? null, key: editorialKey(rec), reason: "gate_block", gate: { action: gate.action, reasons: gate.reasons, novelty: gate.novelty.score } };
   }
 
   if (typeof createDraft !== "function") {
@@ -59,6 +75,8 @@ export async function saveFusionFinal({ fusionResult, topic = "", existing = [],
   return {
     saved: true, duplicate: false, draftId, key: editorialKey(rec),
     contentType, title,
+    // Phase 59 — 신선도/날짜 관측값(운영센터 표시용).
+    gate: { action: gate.action, novelty: gate.novelty.score, structure: gate.structure.recommended, dateRevise: gate.date.dateRevise },
     // 실제 LLM 호출 근거(정직): Fusion 단계 성공 수.
     fusionCalls: (fusionResult?.steps || []).filter((s) => s.ok).length,
     fusionTotal: (fusionResult?.steps || []).length,
