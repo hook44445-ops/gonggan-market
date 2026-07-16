@@ -16,6 +16,8 @@ import { upsertTodaySummary, healthTrend, sevenDayReport, getDailySummaries } fr
 import { getAutopilotConfig, setAutopilotConfig } from "../lib/publishQueue";
 import { adminCreateLoungeDraft, adminUpdateLoungeDraft } from "../lib/supabase";
 import { workflowKpis, runScheduler, WORKFLOW_ORDER, WORKFLOW_LABEL, buildWorkflowQueue } from "../lib/workflowEngine";
+import { runWeeklyGrowth, getGrowthState, GROWTH_SEQUENCE } from "../lib/editorialBureaus";
+import { aiBudget } from "../lib/aiPerformance";
 import ServerAutonomousStatus from "./ServerAutonomousStatus";
 
 const LV = { high: "#dc2626", mid: "#d97706", info: "#6b7280" };
@@ -41,7 +43,10 @@ export default function OperationMonitor({ published = [], drafts = [], adminUse
       await ensureTodayProgram({ createDraft }, { published });
       const h = await heal({ createDraft, executor }, { published });
       // 예약 도래분(DB) 발행 — 무인운영도 발행센터와 동일한 WorkflowQueue를 사용.
-      const sched = await runScheduler({ records: [...(drafts || []), ...(published || [])], executor: dbExecutor });
+      const records = [...(drafts || []), ...(published || [])];
+      const sched = await runScheduler({ records, executor: dbExecutor });
+      // Phase 58 §7 — 주간 자동 성장(품질 유지 시 발행량 2배). applyGrowth가 주 1회로 자체 가드.
+      try { const g = runWeeklyGrowth(records, { aiCostPerJobKRW: aiBudget().avgCostPerJobKRW }); if (g.applied && g.doubled && !silent) showToast?.(`📈 주간 성장: 발행량 ${g.currentTarget}→${g.nextTarget}`); } catch { /* keep */ }
       upsertTodaySummary();
       setLastHeal(h);
       refresh();
@@ -113,6 +118,29 @@ export default function OperationMonitor({ published = [], drafts = [], adminUse
               {WORKFLOW_ORDER.filter((s) => q.counts[s] > 0).map((s) => (
                 <span key={s} style={{ fontSize: 10, fontWeight: 700, background: "#111c2e", color: "#cbd5e1", borderRadius: R.full, padding: "2px 9px", border: "1px solid #1e293b" }}>{WORKFLOW_LABEL[s]} {q.counts[s]}</span>
               ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Phase 58 §7 — 주간 자동 성장(품질 유지 시 발행량 2배: 20→…→2560) */}
+      {(() => {
+        const gs = getGrowthState();
+        const idx = Math.max(0, GROWTH_SEQUENCE.indexOf(gs.weeklyTarget));
+        return (
+          <div style={box}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: S.sm }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>📈 주간 자동 성장 (발행량)</div>
+              <div style={{ fontSize: 12, color: C.text3 }}>이번 주 목표 <b style={{ color: C.brandD, fontSize: 15 }}>{gs.weeklyTarget}</b>건/주</div>
+            </div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: S.sm }}>
+              {GROWTH_SEQUENCE.map((v, i) => (
+                <span key={v} style={{ fontSize: 10.5, fontWeight: 800, borderRadius: R.full, padding: "3px 10px", border: `1px solid ${C.bgWarm}`,
+                  background: i < idx ? "#05966922" : i === idx ? C.brand : C.bg, color: i < idx ? "#059669" : i === idx ? "#fff" : C.text4 }}>{v}</span>
+              ))}
+            </div>
+            <div style={{ fontSize: 10.5, color: C.text3, lineHeight: 1.6 }}>
+              무인 운영 사이클이 주 1회 실측 KPI(PASS율≥85·품질≥85·실패율≤5%·비용≤₩400/건)를 검증해 <b>충족 시에만</b> 다음 주 발행량을 2배로 올립니다. 품질이 유지되지 않으면 현 수준을 유지합니다.
             </div>
           </div>
         );

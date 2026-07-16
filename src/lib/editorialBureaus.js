@@ -10,7 +10,7 @@
 //     성장 목표량은 localStorage 저장(DB/Schema 무변경). 순수/집계 함수.
 // ════════════════════════════════════════════════════════════════════
 
-import { buildWorkflowQueue, WORKFLOW_STATES } from "./workflowEngine.js";
+import { buildWorkflowQueue, WORKFLOW_STATES, workflowAnalytics } from "./workflowEngine.js";
 import { editorialDateKST } from "./editorialKey.js";
 
 const GROWTH_KEY = "space_bureau_growth_v1";
@@ -124,6 +124,29 @@ export function evaluateGrowth(metrics = {}, { now = Date.now(), state = getGrow
     week: editorialDateKST(now),
     nextLevel,
   };
+}
+
+// 실측 지표 → 성장 게이트 입력. WorkflowQueue 분석(실제 DB) + AI 비용(주입)에서 파생.
+//   passRate/avgQuality/failRate 는 workflowAnalytics(실측), costPerJobKRW 는 aiBudget 등에서 주입.
+export function growthMetrics(records = [], { aiCostPerJobKRW = 0, now = Date.now() } = {}) {
+  const a = workflowAnalytics(records, { now });
+  return {
+    passRate: a.passRate,
+    avgQuality: a.avgQuality ?? 0,   // 데이터 없으면 0 → 게이트 보수적으로 미달 처리
+    failRate: a.failRate,
+    costPerJobKRW: Math.round(aiCostPerJobKRW || 0),
+    sampleSize: a.total,
+  };
+}
+
+// 실측 지표로 이번 주 성장 판정·적용(주간 1회).
+export function runWeeklyGrowth(records = [], { aiCostPerJobKRW = 0, now = Date.now(), minSample = 5 } = {}) {
+  const metrics = growthMetrics(records, { aiCostPerJobKRW, now });
+  // 표본이 너무 적으면 성장 보류(과대평가 방지) — 상태는 건드리지 않는다.
+  if (metrics.sampleSize < minSample) {
+    return { ...evaluateGrowth(metrics, { now }), applied: false, reason: `표본 부족(${metrics.sampleSize}/${minSample}) → 성장 보류`, metrics };
+  }
+  return { ...applyGrowth(metrics, { now }), metrics };
 }
 
 // 성장 적용(주간 1회) — 판정 결과를 상태에 반영·저장.
