@@ -263,16 +263,33 @@ function ConsultForm() {
   };
 
   const inputStyle = {
-    width: "100%", height: 48, borderRadius: 10,
-    border: `1.5px solid #E8E1D8`,
-    padding: "0 14px", fontSize: 15, fontFamily: SANS,
-    background: WHITE, color: NAVY, outline: "none",
+    width: "100%", height: 48, borderRadius: 12,
+    border: `1px solid #E8E1D8`,
+    padding: "0 16px", fontSize: 15, fontFamily: SANS,
+    background: "#FFFDFA", color: NAVY, outline: "none",
     boxSizing: "border-box",
   };
   const labelStyle = {
     fontSize: 12, fontWeight: 700, color: TEXT2, marginBottom: 6, display: "block",
   };
   const req = <span style={{ color: GOLDD }}> *</span>;
+  // 업로드 카드(시안 · dashed + 아이콘 박스). kind: biz/ins 색상 구분.
+  const uploadCard = (kind, file, onFile, { title, sub, accept = "image/*,application/pdf" }) => {
+    const ico = kind === "ins"
+      ? { t: "INS", bg: "#F5F8F5", color: "#2D5A27", border: "#D5E5D6" }
+      : { t: "IMG", bg: "#F9F6F2", color: "#1A2E22", border: "#E8E1D8" };
+    return (
+      <label className="gm-upload" style={{ display: "block", border: "1.5px dashed #E8E1D8",
+        borderRadius: 14, background: "#FFFDFA", padding: 18, textAlign: "center", cursor: "pointer" }}>
+        <div style={{ width: 44, height: 44, borderRadius: 10, background: ico.bg, color: ico.color,
+          border: `1px solid ${ico.border}`, display: "flex", alignItems: "center", justifyContent: "center",
+          margin: "0 auto 8px", fontWeight: 800, fontSize: 11 }}>{ico.t}</div>
+        <b style={{ fontSize: 13, color: NAVY }}>{file ? file.name : title}</b><br />
+        <small style={{ color: TEXT3, fontSize: 11 }}>{file ? "선택됨 · 다시 선택하려면 탭" : sub}</small>
+        <input type="file" accept={accept} style={{ display: "none" }} onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+      </label>
+    );
+  };
 
   if (submitted) {
     // V2: lead id 가 있으면 무인 온보딩(STEP2~4)으로 이어간다.
@@ -301,7 +318,7 @@ function ConsultForm() {
   const field = (k, label, { required = false, placeholder = "", inputMode } = {}) => (
     <div>
       <label style={labelStyle}>{label}{required && req}</label>
-      <input style={inputStyle} placeholder={placeholder} value={form[k]} onChange={set(k)} inputMode={inputMode} />
+      <input className="gm-pinput" style={inputStyle} placeholder={placeholder} value={form[k]} onChange={set(k)} inputMode={inputMode} />
     </div>
   );
 
@@ -315,24 +332,16 @@ function ConsultForm() {
       {field("region",  "시공지역",      { required: true, placeholder: "예: 서울 전역, 경기 남부" })}
       {field("field",   "전문분야",      { required: true, placeholder: "예: 주거 리모델링, 상업 인테리어" })}
 
-      {/* V1.3 서류 업로드 — 사업자등록증(승인 필수) / 시공보험증권(선택·예치금 할인 기준) */}
+      {/* V1.3 서류 업로드 — 사업자등록증(승인 필수) / 시공보험증권(선택·예치금 할인 기준) · 시안 업로드 카드 */}
       <div>
         <label style={labelStyle}>사업자등록증 <span style={{ color: GOLDD }}>(승인 필수)</span></label>
-        <label style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: bizFile ? NAVY : TEXT3 }}>
-          <span>📎</span>
-          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bizFile ? bizFile.name : "파일 선택 (PDF/이미지)"}</span>
-          <input type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => setBizFile(e.target.files?.[0] ?? null)} />
-        </label>
+        {uploadCard("biz", bizFile, setBizFile, { title: "사업자등록증 촬영 / 파일 선택", sub: "JPG/PNG/PDF 10MB 이하 · OCR 자동 대조" })}
       </div>
       <div>
         <label style={labelStyle}>
           시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(베타 서비스 선택 / 정식 서비스 필수) · 우수 파트너 우대 혜택</span>
         </label>
-        <label style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: insFile ? NAVY : TEXT3 }}>
-          <span>📎</span>
-          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{insFile ? insFile.name : "파일 선택 (PDF/이미지)"}</span>
-          <input type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => setInsFile(e.target.files?.[0] ?? null)} />
-        </label>
+        {uploadCard("ins", insFile, setInsFile, { title: "시공보험증권 업로드", sub: "우수 파트너 우대 · 신뢰보증금 할인" })}
         <div style={{ fontSize: 11, color: TEXT3, marginTop: 5, lineHeight: 1.6 }}>
           시공보험증권 제출 업체는 우수 파트너 우대정책에 따라 신뢰보증금 할인 혜택이 적용됩니다.<br />
           공간마켓은 무면허·불법·서류 미비 업체의 활동을 제한하며, 검증된 파트너에게 우대 혜택을 제공합니다.
@@ -342,6 +351,7 @@ function ConsultForm() {
       <div>
         <label style={labelStyle}>시공보험 가입 여부</label>
         <select
+          className="gm-pinput"
           style={{ ...inputStyle, appearance: "none", color: form.insurance ? NAVY : TEXT3 }}
           value={form.insurance}
           onChange={set("insurance")}
@@ -357,8 +367,8 @@ function ConsultForm() {
       <div>
         <label style={labelStyle}>업체 운영 준수서약 <span style={{ color: GOLDD }}>*</span></label>
         <div style={{
-          border: `1.5px solid #E8E1D8`, borderRadius: 10, background: WHITE,
-          padding: "12px 14px",
+          border: `1px solid #E8E1D8`, borderRadius: 14, background: "#FFFDFA",
+          padding: "14px 16px",
         }}>
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" }}>
             <input type="checkbox" checked={pledge} onChange={(e) => setPledge(e.target.checked)}
@@ -387,7 +397,8 @@ function ConsultForm() {
       <div>
         <label style={labelStyle}>문의사항</label>
         <textarea
-          style={{ ...inputStyle, height: 100, padding: "12px 14px", resize: "none" }}
+          className="gm-pinput"
+          style={{ ...inputStyle, height: 100, padding: "12px 16px", resize: "none" }}
           placeholder="추가로 전달하실 내용이 있다면 입력해 주세요 (선택)"
           value={form.message}
           onChange={set("message")}
@@ -398,11 +409,11 @@ function ConsultForm() {
         type="submit"
         disabled={saving || !canSubmit}
         style={{
-          height: 52, borderRadius: 12, border: "none",
+          height: 52, borderRadius: 999, border: "1px solid #E9DDC0",
           cursor: saving || !canSubmit ? "default" : "pointer",
-          background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900,
-          fontFamily: SANS, letterSpacing: "-0.2px", opacity: saving || !canSubmit ? 0.55 : 1,
-          boxShadow: `0 6px 20px rgba(200,168,106,0.35)`,
+          background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)", color: NAVY, fontSize: 16, fontWeight: 800,
+          fontFamily: SANS, letterSpacing: "-0.01em", opacity: saving || !canSubmit ? 0.5 : 1,
+          boxShadow: "0 8px 24px rgba(200,168,106,.28), 0 0 0 1px rgba(232,220,192,.8) inset, 0 1px 2px rgba(255,255,255,.6) inset",
         }}>
         {saving ? "접수 중..." : "공간파트너 가입 신청"}
       </button>
@@ -741,11 +752,17 @@ export default function PartnerLandingScreen() {
 
         {/* ── 무인 입점 신청 (실제 ConsultForm · API 유지) ────────── */}
         <div id="partner-consult-form" style={{ padding: "8px 0 36px", scrollMarginTop: 16 }}>
-          <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 28, padding: 24,
-            maxWidth: 520, margin: "0 auto", boxShadow: "0 20px 60px rgba(18,26,22,.06)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <b style={{ fontSize: 15 }}>무인 입점 신청</b>
+          <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 24, padding: "22px 18px",
+            maxWidth: 520, margin: "0 auto", boxShadow: "0 4px 24px rgba(18,26,22,.04)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <b style={{ fontSize: 16 }}>무인 입점 (3분)</b>
               <span style={okBadge}>상담사 전화 없음</span>
+            </div>
+            {/* 진행바(시안 .prog) — 작성 → 서류 → 등급 → 입금 → 완료. 첫 구간 활성(신청서 작성 단계) */}
+            <div style={{ display: "flex", gap: 6, margin: "12px 0 18px" }}>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i === 0 ? GOLD : "#E8E1D8" }} />
+              ))}
             </div>
             <ConsultForm />
           </div>
@@ -792,6 +809,10 @@ export default function PartnerLandingScreen() {
         .gm-sticky-gold:hover{ transform:translateY(-2px);
           box-shadow:0 12px 32px rgba(200,168,106,.42), 0 0 0 1px rgba(232,220,192,.9) inset }
         .gm-sticky-gold:active{ transform:translateY(0) }
+        .gm-pinput:focus{ border-color:#C8A86A !important; background:#fff !important }
+        .gm-upload:hover{ border-color:#C8A86A }
+        .gm-grade-opt:hover{ border-color:#C8A86A !important; transform:translateY(-1px);
+          box-shadow:0 4px 16px rgba(200,168,106,.15) }
         button:active{ transform: scale(.985) }
       `}</style>
       <div className="gm-partner-sticky-cta" style={{ position: "fixed", left: 16, right: 16,
