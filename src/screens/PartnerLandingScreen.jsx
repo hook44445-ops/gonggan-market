@@ -188,11 +188,12 @@ function ConsultForm() {
 
   // 가입 신청 버튼 활성화 조건: 필수 입력값 완료 + 사업자등록증 업로드 + 운영 준수서약 체크.
   //   ※ 시공보험은 기존 정책대로 선택/우대 — 필수 아님.
-  const requiredFilled = ["company", "owner", "phone", "bizNo", "region", "field"]
+  // 대표자명은 선택(사업자등록증에 기재되어 확인 가능) — 필수에서 제외.
+  const requiredFilled = ["company", "phone", "bizNo", "region", "field"]
     .every((k) => form[k]?.trim());
   const canSubmit = requiredFilled && !!bizFile && pledge;
   // 스텝 게이트('다음' 활성 조건). 최종 제출 검증은 handleSubmit 이 그대로 수행.
-  const step1Ok = ["company", "owner", "phone", "bizNo"].every((k) => form[k]?.trim());
+  const step1Ok = ["company", "phone", "bizNo"].every((k) => form[k]?.trim());
   const step2Ok = ["region", "field"].every((k) => form[k]?.trim()) && !!bizFile;
   const goStep = (n) => {
     setStep(n);
@@ -204,7 +205,7 @@ function ConsultForm() {
     e.preventDefault();
     if (saving) return;
     const required = [
-      ["company", "업체명"], ["owner", "대표자명"], ["phone", "연락처"],
+      ["company", "업체명"], ["phone", "연락처"],
       ["bizNo", "사업자등록번호"], ["region", "시공지역"], ["field", "전문분야"],
     ];
     const missing = required.filter(([k]) => !form[k]?.trim()).map(([, label]) => label);
@@ -363,7 +364,7 @@ function ConsultForm() {
         <>
           <BetaBanner text="베타 파트너 모집 · 가입 · 견적 참여 · 상담 모두 무료입니다. (사업자등록증 + 시공보험 확인 후 승인)" style={{ marginBottom: 0 }} />
           {field("company", "업체명",        { required: true, placeholder: "예: 공간인테리어" })}
-          {field("owner",   "대표자명",      { required: true, placeholder: "대표자 성함" })}
+          {field("owner",   "대표자명",      { placeholder: "대표자 성함 (선택 · 사업자등록증으로 확인)" })}
           {field("phone",   "연락처",        { required: true, placeholder: "휴대폰 번호", inputMode: "tel" })}
           {field("bizNo",   "사업자등록번호", { required: true, placeholder: "000-00-00000", inputMode: "numeric" })}
           <button type="button" disabled={!step1Ok} onClick={() => goStep(2)} style={navGold(step1Ok)}>
