@@ -17,7 +17,7 @@ function BadgeBeta({ style }) {
       fontSize: 11, fontWeight: 700, ...style,
     }}>
       <span className="gm-beta-dot" style={{ width: 6, height: 6, background: "#2D5A27", borderRadius: "50%" }} />
-      베타 파트너
+      BETA 파트너
     </span>
   );
 }
@@ -26,6 +26,8 @@ function BadgeBeta({ style }) {
 const NAVY  = "#121A16";
 const NAVY2 = "#1E2A22";
 const NAVY3 = "#2C3A30";
+const FOREST = "#1A2E22"; // 파트너 히어로 배경(웜 포레스트)
+const OK    = "#2D5A27";  // 타임라인 배지/초록 점
 const GOLD  = "#C8A86A";
 const GOLDD = "#A98B4E";
 const GOLDB = "rgba(200,168,106,0.12)";
@@ -613,15 +615,16 @@ export default function PartnerLandingScreen() {
     justifyContent: "center", alignItems: "center", gap: 8, transition: "transform .08s",
   };
   const okBadge = {
-    display: "inline-flex", padding: "4px 8px", borderRadius: 999, fontSize: 10,
-    fontWeight: 700, background: "#E7F0E6", color: "#2D5A27",
+    display: "inline-flex", alignItems: "center", padding: "4px 10px", borderRadius: 999,
+    fontSize: 11, fontWeight: 700, background: "#E7F0E6", color: OK,
+    border: "1px solid #C8D8C5", whiteSpace: "nowrap", flexShrink: 0,
   };
   const STEPS = [
-    { b: "간편 신청", t: " - 3개 필드만" },
-    { b: "사업자등록증 업로드", t: " - OCR + 국세청 API 자동 검증", badge: "무인" },
-    { b: "관리자 3초 승인", t: " - 일치 배지만 보고 승인" },
-    { b: "견적 수신 - 검증 고객 알림", t: "" },
-    { b: "수주·정산 4.4%만 - 베타 0원", t: "" },
+    { b: "간편 신청",          t: "3개 필드만",              badge: "30초" },
+    { b: "사업자등록증 업로드", t: "OCR + 국세청 API 자동 검증", badge: "무인" },
+    { b: "관리자 3초 승인",    t: "일치 배지만 보고 승인",     badge: "3초" },
+    { b: "견적 수신",          t: "검증 고객 알림",           badge: "검증" },
+    { b: "수주·정산 4.4%만",   t: "베타 0원",                 badge: "수수료" },
   ];
   const GRADE_ROWS = [
     ["베이직 50만원", "500만원까지"],
@@ -654,8 +657,8 @@ export default function PartnerLandingScreen() {
 
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 20px" }}>
         {/* ── NAVY(웜 잉크) HERO ──────────────────────────────────── */}
-        <div ref={heroRef} style={{ background: NAVY,
-          color: "#F9F6F2", borderRadius: 32, padding: "40px 28px", margin: "20px 0",
+        <div ref={heroRef} style={{ background: FOREST,
+          color: "#F9F6F2", borderRadius: 28, padding: "28px 24px", margin: "16px 0 28px",
           position: "relative", overflow: "hidden" }}>
           <BadgeBeta style={{ position: "absolute", top: 14, right: 14, zIndex: 3 }} />
           <h1 style={{ fontSize: "clamp(24px,6vw,36px)", fontWeight: 800, lineHeight: 1.1, margin: 0, wordBreak: "keep-all" }}>
@@ -675,47 +678,63 @@ export default function PartnerLandingScreen() {
           </div>
         </div>
 
-        {/* ── TIMELINE : 신청부터 수주까지 ───────────────────────── */}
+        {/* ── TIMELINE : 신청부터 수주까지 (dot 32px 일관 · 카드별 배지 · 중앙 연결선) ── */}
         <div style={{ padding: "36px 0" }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>신청부터 수주까지</h3>
-          <div style={{ position: "relative", paddingLeft: 40, marginTop: 18 }}>
-            <div style={{ position: "absolute", left: 14, top: 4, bottom: 4, width: 1, background: "#E8E1D8" }} />
+          <h3 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 16px" }}>신청부터 수주까지</h3>
+          <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* 연결선: dot(32px) 중앙(15px)에 정렬 */}
+            <div style={{ position: "absolute", left: 15, top: 16, bottom: 16, width: 2, background: "#E8E1D8", borderRadius: 2 }} />
             {STEPS.map((s, i) => (
-              <div key={i} style={{ position: "relative", marginBottom: 20 }}>
-                <div style={{ position: "absolute", left: -34, width: 28, height: 28, borderRadius: "50%",
-                  background: i === 0 ? NAVY : "#fff", border: i === 0 ? "none" : "1px solid #E8E1D8",
-                  color: i === 0 ? "#fff" : TEXT3, display: "flex", alignItems: "center",
-                  justifyContent: "center", fontWeight: 800, fontSize: 12 }}>{i + 1}</div>
-                <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 24, padding: 12, fontSize: 13, lineHeight: 1.5 }}>
-                  <b>{s.b}</b>{s.t}
-                  {s.badge && <span style={{ ...okBadge, marginLeft: 6 }}>{s.badge}</span>}
+              <div key={i} style={{ position: "relative", zIndex: 1, display: "grid",
+                gridTemplateColumns: "32px 1fr", gap: 14, alignItems: "center" }}>
+                <div style={{ width: 32, height: 32, minWidth: 32, borderRadius: "50%",
+                  background: i === 0 ? NAVY : "#E7F0E6", border: i === 0 ? "2px solid " + NAVY : "2px solid #C8D8C5",
+                  color: i === 0 ? "#fff" : OK, display: "flex", alignItems: "center",
+                  justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0 }}>{i + 1}</div>
+                <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 16,
+                  padding: "14px 16px", minHeight: 56, display: "flex", justifyContent: "space-between",
+                  alignItems: "center", gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <b style={{ fontSize: 14, letterSpacing: "-0.02em" }}>{s.b}</b>
+                    <div style={{ fontSize: 12, color: TEXT3, marginTop: 2, lineHeight: 1.4 }}>{s.t}</div>
+                  </div>
+                  <span style={okBadge}>{s.badge}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ── 신뢰 등급표 (다크 카드 · 시안 동일) ─────────────────── */}
+        {/* ── 신뢰 등급표 (다크 카드 · 중앙정렬 헤더 · ≥700px 2열 · keep-all 공지) ── */}
         <div style={{ padding: "0 0 36px" }}>
-          <div style={{ background: NAVY, color: "#F9F6F2", border: "none", borderRadius: 24, padding: 24 }}>
-            <h3 style={{ textAlign: "center", fontSize: 16, margin: 0 }}>
-              신뢰 등급 = 수주 가능 금액
-              <span style={{ background: GOLD, color: NAVY, padding: "2px 8px", borderRadius: 99, fontSize: 11, marginLeft: 6, fontWeight: 800 }}>베타 100업체 무료</span>
-            </h3>
-            <p style={{ textAlign: "center", fontSize: 11, opacity: .5, margin: "8px 0 16px" }}>
+          <div style={{ background: NAVY, color: "#F9F6F2", borderRadius: 28, padding: "28px 20px" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+              marginBottom: 8, textAlign: "center" }}>
+              <div style={{ fontSize: 18, fontWeight: 800, whiteSpace: "nowrap" }}>신뢰 등급 = 수주 가능 금액</div>
+              <span style={{ background: GOLD, color: NAVY, padding: "6px 14px", borderRadius: 999,
+                fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>베타 100업체 무료</span>
+            </div>
+            <p style={{ textAlign: "center", fontSize: 12, color: "#9A958E", lineHeight: 1.5,
+              margin: "0 0 18px", wordBreak: "keep-all" }}>
               베타 100업체까지는 1천만원/1억 공사도 0원, 등급 제한 없음
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="gm-grade-list" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
               {GRADE_ROWS.map(([name, limit]) => (
-                <div key={name} style={{ display: "flex", justifyContent: "space-between",
-                  background: "rgba(255,255,255,.06)", padding: "12px 16px", borderRadius: 14, fontSize: 13 }}>
+                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                  background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.08)",
+                  padding: "14px 18px", borderRadius: 14, fontSize: 13 }}>
                   <span>{name}</span><b style={{ color: GOLD }}>{limit}</b>
                 </div>
               ))}
             </div>
-            <div style={{ border: `1px solid ${GOLD}`, borderRadius: 14, padding: 12, marginTop: 16, textAlign: "center", fontSize: 12 }}>
-              <b style={{ color: GOLD }}>베타 100업체까지는 금액 상관없이 0원, 전등급 무료 개방</b><br />
-              <small style={{ opacity: .5 }}>베타 이후: 베이직(500만)까지 무료, 이상은 예치 후 해제</small>
+            <div style={{ border: `1.5px solid ${GOLD}`, borderRadius: 16, padding: 16, marginTop: 18,
+              textAlign: "center", background: "rgba(200,168,106,.07)" }}>
+              <b style={{ color: GOLD, fontSize: 13, display: "block", lineHeight: 1.6, wordBreak: "keep-all" }}>
+                베타 100업체까지는<br />금액 상관없이 0원, 전등급 무료 개방
+              </b>
+              <span style={{ color: "#9A958E", fontSize: 11, marginTop: 8, display: "block", wordBreak: "keep-all" }}>
+                베타 이후: 베이직(500만)까지 무료, 이상은 예치 후 해제
+              </span>
             </div>
           </div>
         </div>
@@ -756,33 +775,37 @@ export default function PartnerLandingScreen() {
           fontSize: 13, color: TEXT3, fontFamily: SANS }}>공간마켓 홈으로</button>
       </div>
 
-      {/* ── 모바일 하단 고정 CTA (sticky-cta-fix · fab-up 흰색 원형 분리) ──────
-          현재 배포본 버그 수정 #1: 골드 버튼과 ↑ 버튼을 flex 형제로 분리해
-          흰 원이 골드 버튼 텍스트를 가리지 않도록 함(사진 536번 버그). */}
+      {/* ── 모바일 하단 고정 CTA (골드 그라데이션 단일 버튼 · 검은테두리 제거 + 옅은 베이지 띠 + shimmer) ── */}
       <style>{`
         .gm-beta-dot{ animation: gmBlink 1.8s infinite }
         @keyframes gmBlink{ 0%,100%{ opacity:1 } 50%{ opacity:.4 } }
         .gm-partner-sticky-cta{ display:none }
         @media (max-width: 640px){ .gm-partner-sticky-cta{ display:flex } }
+        @media (min-width: 700px){ .gm-grade-list{ grid-template-columns: 1fr 1fr !important } }
         @media (max-width: 380px){
           .gm-topnav{ padding: 8px 12px !important }
           .gm-tab{ padding: 6px 12px !important; font-size: 12px !important }
         }
+        .gm-sticky-gold::after{ content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent); transition:.6s }
+        .gm-sticky-gold:hover::after{ left:100% }
+        .gm-sticky-gold:hover{ transform:translateY(-2px);
+          box-shadow:0 12px 32px rgba(200,168,106,.42), 0 0 0 1px rgba(232,220,192,.9) inset }
+        .gm-sticky-gold:active{ transform:translateY(0) }
         button:active{ transform: scale(.985) }
       `}</style>
       <div className="gm-partner-sticky-cta" style={{ position: "fixed", left: 16, right: 16,
         bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 900,
-        alignItems: "center", gap: 12, background: NAVY, borderRadius: 999, padding: 6,
-        boxShadow: "0 12px 32px rgba(0,0,0,.3)" }}>
-        <button onClick={() => scrollToForm("floating")} style={{ flex: 1, background: GOLD, color: NAVY,
-          border: "none", fontWeight: 800, fontSize: 15, padding: "15px 20px", borderRadius: 999,
-          cursor: "pointer", fontFamily: SANS }}>
+        justifyContent: "center", pointerEvents: "none" }}>
+        <button className="gm-sticky-gold" onClick={() => scrollToForm("floating")} style={{
+          pointerEvents: "auto", height: 52, maxWidth: 420, flex: 1, borderRadius: 999,
+          border: "1px solid #E9DDC0", background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)",
+          color: NAVY, fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em", cursor: "pointer",
+          fontFamily: SANS, position: "relative", overflow: "hidden",
+          transition: "transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s",
+          boxShadow: "0 8px 24px rgba(200,168,106,.28), 0 0 0 1px rgba(232,220,192,.8) inset, 0 1px 2px rgba(255,255,255,.6) inset" }}>
           공간파트너 가입 신청
         </button>
-        <div onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} role="button" aria-label="맨 위로"
-          style={{ width: 44, height: 44, background: "#fff", borderRadius: "50%", display: "flex",
-            alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer",
-            fontWeight: 800, boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>↑</div>
       </div>
     </div>
   );
