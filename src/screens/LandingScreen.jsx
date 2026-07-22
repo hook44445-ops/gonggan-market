@@ -178,7 +178,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
       <div style={{
         backgroundColor: C.bg,
         backgroundImage:
-          `linear-gradient(100deg, rgba(245,241,234,0.86) 0%, rgba(245,241,234,0.50) 30%, rgba(245,241,234,0.10) 52%, rgba(245,241,234,0) 66%), url('${HERO_BG}')`,
+          `linear-gradient(100deg, rgba(245,241,234,0.94) 0%, rgba(245,241,234,0.72) 30%, rgba(245,241,234,0.34) 56%, rgba(245,241,234,0.06) 80%, rgba(245,241,234,0) 100%), url('${HERO_BG}')`,
         backgroundSize: "cover, cover",
         backgroundPosition: "center, center",
         backgroundRepeat: "no-repeat, no-repeat",
@@ -218,8 +218,8 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
 
           {/* main copy */}
           <div style={{
-            fontSize: 36, fontWeight: 900, color: C.text1,
-            lineHeight: 1.25, marginBottom: 16, letterSpacing: "-0.5px",
+            fontSize: "clamp(30px, 8vw, 40px)", fontWeight: 900, color: C.text1,
+            lineHeight: 1.2, marginBottom: 16, letterSpacing: "-0.5px", wordBreak: "keep-all",
             ...fadeStyle(heroVisible, 0.08),
           }}>
             인테리어는 어디서?

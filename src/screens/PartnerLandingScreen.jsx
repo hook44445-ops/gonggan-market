@@ -7,16 +7,16 @@ import { BetaBanner, BetaBadge } from "../components/beta/BetaUI"; // 베타 안
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
-const NAVY  = "#0B1D3A";
-const NAVY2 = "#132848";
-const NAVY3 = "#1C3A60";
-const GOLD  = "#C9A84C";
-const GOLDD = "#A8813A";
-const GOLDB = "rgba(201,168,76,0.12)";
+const NAVY  = "#121A16";
+const NAVY2 = "#1E2A22";
+const NAVY3 = "#2C3A30";
+const GOLD  = "#C8A86A";
+const GOLDD = "#A98B4E";
+const GOLDB = "rgba(200,168,106,0.12)";
 const WHITE = "#FFFFFF";
-const OFF   = "#F4F6F9";
-const TEXT2 = "#4B5E78";
-const TEXT3 = "#7A8EA8";
+const OFF   = "#F9F6F2";
+const TEXT2 = "#4A554C";
+const TEXT3 = "#8A857E";
 const SANS  = "'Pretendard','Apple SD Gothic Neo',sans-serif";
 
 // ── Scroll-triggered fade ──────────────────────────────────────────────────────
@@ -246,7 +246,7 @@ function ConsultForm() {
 
   const inputStyle = {
     width: "100%", height: 48, borderRadius: 10,
-    border: `1.5px solid #DDE3EC`,
+    border: `1.5px solid #E8E1D8`,
     padding: "0 14px", fontSize: 15, fontFamily: SANS,
     background: WHITE, color: NAVY, outline: "none",
     boxSizing: "border-box",
@@ -339,7 +339,7 @@ function ConsultForm() {
       <div>
         <label style={labelStyle}>업체 운영 준수서약 <span style={{ color: GOLDD }}>*</span></label>
         <div style={{
-          border: `1.5px solid #DDE3EC`, borderRadius: 10, background: WHITE,
+          border: `1.5px solid #E8E1D8`, borderRadius: 10, background: WHITE,
           padding: "12px 14px",
         }}>
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" }}>
@@ -349,7 +349,7 @@ function ConsultForm() {
           </label>
           <ul style={{
             margin: "10px 0 0", paddingLeft: 18, fontSize: 12, color: TEXT2, lineHeight: 1.7,
-            paddingTop: 10, borderTop: `1px solid #EEF1F6`,
+            paddingTop: 10, borderTop: `1px solid #F3EEE4`,
           }}>
             {[
               "허위 사업자정보 또는 허위 시공이력으로 가입하지 않습니다.",
@@ -384,7 +384,7 @@ function ConsultForm() {
           cursor: saving || !canSubmit ? "default" : "pointer",
           background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900,
           fontFamily: SANS, letterSpacing: "-0.2px", opacity: saving || !canSubmit ? 0.55 : 1,
-          boxShadow: `0 6px 20px rgba(201,168,76,0.35)`,
+          boxShadow: `0 6px 20px rgba(200,168,106,0.35)`,
         }}>
         {saving ? "접수 중..." : "공간파트너 가입 신청"}
       </button>
@@ -444,7 +444,7 @@ function CompanyLoginGate({ onClose }) {
 
   const inputStyle = {
     width: "100%", height: 48, borderRadius: 10,
-    border: `1.5px solid #DDE3EC`,
+    border: `1.5px solid #E8E1D8`,
     padding: "0 14px", fontSize: 15, fontFamily: SANS,
     background: WHITE, color: NAVY, outline: "none",
     boxSizing: "border-box",
@@ -457,7 +457,7 @@ function CompanyLoginGate({ onClose }) {
     <div
       onClick={onClose}
       style={{
-        position: "fixed", inset: 0, background: "rgba(11,29,58,0.55)",
+        position: "fixed", inset: 0, background: "rgba(18,26,22,0.55)",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: 20, zIndex: 1000,
       }}>
@@ -529,7 +529,7 @@ function FaqItem({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{
-      background: WHITE, border: `1px solid #E4EAF3`, borderRadius: 12,
+      background: WHITE, border: `1px solid #EFEAE0`, borderRadius: 12,
       overflow: "hidden",
     }}>
       <button
@@ -549,7 +549,7 @@ function FaqItem({ q, a }) {
       {open && (
         <div style={{
           padding: "0 16px 16px", fontSize: 13.5, color: TEXT2, lineHeight: 1.65,
-          borderTop: `1px solid #F0F3F8`, paddingTop: 14,
+          borderTop: `1px solid #F4EFE6`, paddingTop: 14,
         }}>
           {a}
         </div>
@@ -604,12 +604,12 @@ export default function PartnerLandingScreen() {
         <div style={{
           position: "absolute", top: -60, right: -60,
           width: 220, height: 220, borderRadius: "50%",
-          background: "rgba(201,168,76,0.08)", pointerEvents: "none",
+          background: "rgba(200,168,106,0.08)", pointerEvents: "none",
         }} />
         <div style={{
           position: "absolute", bottom: -40, left: -40,
           width: 160, height: 160, borderRadius: "50%",
-          background: "rgba(201,168,76,0.06)", pointerEvents: "none",
+          background: "rgba(200,168,106,0.06)", pointerEvents: "none",
         }} />
 
         <div ref={heroRef} style={{ maxWidth: 520, margin: "0 auto", position: "relative" }}>
@@ -643,12 +643,12 @@ export default function PartnerLandingScreen() {
               시공에만 집중하세요.
             </p>
             {/* 브랜드 비전(준비 중 방향성) — 성실한 업체 우대 철학을 자연스럽게 전달(기능 약속/토큰 노출 없음) */}
-            <p style={{ margin: "-6px 0 20px", fontSize: 13.5, color: "rgba(201,168,76,0.85)", lineHeight: 1.7, fontWeight: 600 }}>
+            <p style={{ margin: "-6px 0 20px", fontSize: 13.5, color: "rgba(200,168,106,0.85)", lineHeight: 1.7, fontWeight: 600 }}>
               성실한 활동은 더 많은 기회로 이어집니다.
             </p>
             {/* V1.5 핵심 가치제안 — 광고비 0원 / 월정액 0원 / 계약 성사 시에만 4.4% / 검증된 고객만 연결 */}
             <div style={{
-              background: "rgba(201,168,76,0.1)", border: `1px solid rgba(201,168,76,0.35)`,
+              background: "rgba(200,168,106,0.1)", border: `1px solid rgba(200,168,106,0.35)`,
               borderRadius: 12, padding: "14px 16px", marginBottom: 24,
             }}>
               {[
@@ -684,7 +684,7 @@ export default function PartnerLandingScreen() {
               style={{
                 height: 54, borderRadius: 12, border: "none", cursor: "pointer",
                 background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900,
-                fontFamily: SANS, boxShadow: `0 8px 28px rgba(201,168,76,0.45)`,
+                fontFamily: SANS, boxShadow: `0 8px 28px rgba(200,168,106,0.45)`,
               }}>
               공간파트너 가입 신청
             </button>
@@ -738,7 +738,7 @@ export default function PartnerLandingScreen() {
           ].map(({ icon, title, desc }) => (
             <div key={title} style={{
               background: WHITE, borderRadius: 14, padding: "18px 14px",
-              boxShadow: "0 2px 12px rgba(11,29,58,0.06)",
+              boxShadow: "0 2px 12px rgba(18,26,22,0.06)",
             }}>
               <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
               <div style={{ fontSize: 14, fontWeight: 800, color: NAVY, marginBottom: 6 }}>{title}</div>
@@ -755,7 +755,7 @@ export default function PartnerLandingScreen() {
           {TRUST.map(({ icon, title, desc }) => (
             <div key={title} style={{
               display: "flex", alignItems: "flex-start", gap: 14,
-              border: `1px solid #E4EAF3`, borderRadius: 12, padding: "16px 14px", background: OFF,
+              border: `1px solid #EFEAE0`, borderRadius: 12, padding: "16px 14px", background: OFF,
             }}>
               <span style={{ fontSize: 22, flexShrink: 0 }}>{icon}</span>
               <div>
@@ -809,7 +809,7 @@ export default function PartnerLandingScreen() {
           {/* #5 고객 검증 시스템 */}
           <div style={{
             background: WHITE, borderRadius: 14, padding: "18px 16px",
-            boxShadow: "0 2px 12px rgba(11,29,58,0.06)",
+            boxShadow: "0 2px 12px rgba(18,26,22,0.06)",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 20 }}>👤</span>
@@ -823,7 +823,7 @@ export default function PartnerLandingScreen() {
           {/* #6 안심거래 결과 중심 */}
           <div style={{
             background: WHITE, borderRadius: 14, padding: "18px 16px",
-            boxShadow: "0 2px 12px rgba(11,29,58,0.06)",
+            boxShadow: "0 2px 12px rgba(18,26,22,0.06)",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 20 }}>🛡️</span>
@@ -906,7 +906,7 @@ export default function PartnerLandingScreen() {
         <SectionTitle label="수수료 안내" sub={"계약이 성사된 프로젝트에만\n4.4% 이용수수료가 발생합니다"} />
         <div style={{
           background: WHITE, borderRadius: 16, padding: "24px 20px",
-          boxShadow: "0 2px 16px rgba(11,29,58,0.08)",
+          boxShadow: "0 2px 16px rgba(18,26,22,0.08)",
         }}>
           <div style={{ textAlign: "center", marginBottom: 20 }}>
             <span style={{ fontSize: 42, fontWeight: 900, color: GOLD }}>4.4</span>
@@ -950,14 +950,14 @@ export default function PartnerLandingScreen() {
               {i < ONBOARDING.length - 1 && (
                 <div style={{
                   position: "absolute", left: 17, top: 38, bottom: 0,
-                  width: 2, background: "#E4EAF3",
+                  width: 2, background: "#EFEAE0",
                 }} />
               )}
               {/* Step circle */}
               <div style={{
                 flexShrink: 0, width: 36, height: 36, borderRadius: "50%",
                 background: num === 1 ? GOLD : OFF,
-                border: `2px solid ${num === 1 ? GOLD : "#DDE3EC"}`,
+                border: `2px solid ${num === 1 ? GOLD : "#E8E1D8"}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 14, fontWeight: 900,
                 color: num === 1 ? WHITE : TEXT3,
@@ -980,7 +980,7 @@ export default function PartnerLandingScreen() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {PARTNER_TYPES.map((t) => (
             <div key={t} style={{
-              background: WHITE, border: `1px solid #DDE3EC`,
+              background: WHITE, border: `1px solid #E8E1D8`,
               borderRadius: 99, padding: "8px 16px",
               fontSize: 13, fontWeight: 600, color: NAVY,
             }}>
@@ -1006,7 +1006,7 @@ export default function PartnerLandingScreen() {
 
         {/* 기존 승인 업체 → 업체 로그인 분리 */}
         <div style={{
-          marginTop: 28, paddingTop: 24, borderTop: `1px solid #E4EAF3`, textAlign: "center",
+          marginTop: 28, paddingTop: 24, borderTop: `1px solid #EFEAE0`, textAlign: "center",
         }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: NAVY, marginBottom: 4 }}>
             이미 승인된 공간파트너이신가요?
@@ -1062,15 +1062,15 @@ export default function PartnerLandingScreen() {
       <div className="gm-partner-floating-cta" style={{
         position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 900,
         padding: "10px 16px calc(10px + env(safe-area-inset-bottom, 0px))",
-        background: "rgba(11,29,58,0.92)", backdropFilter: "blur(6px)",
-        borderTop: `1px solid rgba(201,168,76,0.3)`,
+        background: "rgba(18,26,22,0.92)", backdropFilter: "blur(6px)",
+        borderTop: `1px solid rgba(200,168,106,0.3)`,
       }}>
         <button
           onClick={() => scrollToForm("floating")}
           style={{
             width: "100%", height: 50, borderRadius: 12, border: "none", cursor: "pointer",
             background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900, fontFamily: SANS,
-            boxShadow: `0 6px 20px rgba(201,168,76,0.4)`,
+            boxShadow: `0 6px 20px rgba(200,168,106,0.4)`,
           }}>
           공간파트너 가입 신청
         </button>
