@@ -768,7 +768,7 @@ export default function PartnerLandingScreen() {
             </button>
             <button onClick={goCompanyLogin} style={{ ...btn, maxWidth: 240, background: "transparent",
               border: "1px solid rgba(255,255,255,.25)", color: "#fff" }}>
-              로그인
+              이미 파트너이신가요? 로그인 →
             </button>
           </div>
         </div>
