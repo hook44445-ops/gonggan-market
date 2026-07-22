@@ -3,6 +3,7 @@ import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadF
 import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
+import AppFooter from "../components/AppFooter"; // 사업자정보 푸터(법적 필수 · 삭제 금지)
 import { BetaBanner, BetaBadge } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 
@@ -590,492 +591,169 @@ export default function PartnerLandingScreen() {
     setShowLoginGate(true);
   };
 
+  const btn = {
+    padding: "15px 26px", borderRadius: 999, border: "none", fontWeight: 800, fontSize: 14,
+    cursor: "pointer", fontFamily: SANS, width: "100%", display: "inline-flex",
+    justifyContent: "center", alignItems: "center", gap: 8, transition: "transform .08s",
+  };
+  const okBadge = {
+    display: "inline-flex", padding: "4px 8px", borderRadius: 999, fontSize: 10,
+    fontWeight: 700, background: "#E7F0E6", color: "#2D5A27",
+  };
+  const STEPS = [
+    { b: "간편 신청", t: " - 3개 필드만" },
+    { b: "사업자등록증 업로드", t: " - OCR + 국세청 API 자동 검증", badge: "무인" },
+    { b: "관리자 3초 승인", t: " - 일치 배지만 보고 승인" },
+    { b: "견적 수신 - 검증 고객 알림", t: "" },
+    { b: "수주·정산 4.4%만 - 베타 0원", t: "" },
+  ];
+  const GRADE_ROWS = [
+    ["베이직 50만원", "500만원까지"],
+    ["스탠다드 100만원", "1,000만원까지"],
+    ["프리미엄 200만원", "2,000만원까지"],
+    ["엔터프라이즈 500만원", "5,000만원까지"],
+    ["시그니처 1,000만원", "1억까지"],
+  ];
+
   return (
-    <div style={{ fontFamily: SANS, background: OFF, minHeight: "100vh" }}>
+    <div style={{ fontFamily: SANS, background: OFF, color: NAVY, minHeight: "100vh", letterSpacing: "-0.02em", WebkitFontSmoothing: "antialiased" }}>
       {showLoginGate && <CompanyLoginGate onClose={() => setShowLoginGate(false)} />}
 
-      {/* ── HERO ───────────────────────────────────────────────────── */}
-      <div style={{
-        background: `linear-gradient(160deg, ${NAVY} 0%, ${NAVY3} 100%)`,
-        padding: "64px 24px 56px",
-        position: "relative", overflow: "hidden",
-      }}>
-        {/* Decorative circles */}
-        <div style={{
-          position: "absolute", top: -60, right: -60,
-          width: 220, height: 220, borderRadius: "50%",
-          background: "rgba(200,168,106,0.08)", pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", bottom: -40, left: -40,
-          width: 160, height: 160, borderRadius: "50%",
-          background: "rgba(200,168,106,0.06)", pointerEvents: "none",
-        }} />
+      {/* ── TOPNAV (고객/파트너 · 라우팅 유지) ─────────────────────── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(249,246,242,.85)",
+        backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
+        borderBottom: "1px solid #E8E1D8", display: "flex", justifyContent: "space-between",
+        alignItems: "center", padding: "10px 20px" }}>
+        <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>
+          공간마켓<span style={{ color: GOLD, fontWeight: 400 }}> BETA</span>
+        </div>
+        <div style={{ display: "flex", gap: 6, background: "#ECE7DF", padding: 4, borderRadius: 999 }}>
+          <button onClick={() => { window.location.href = "/"; }} style={{ padding: "8px 16px", borderRadius: 999,
+            border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: SANS,
+            background: "transparent", color: TEXT3 }}>고객</button>
+          <button style={{ padding: "8px 16px", borderRadius: 999, border: "none", fontWeight: 700,
+            fontSize: 13, cursor: "pointer", fontFamily: SANS, background: NAVY, color: "#fff" }}>파트너</button>
+        </div>
+      </div>
 
-        <div ref={heroRef} style={{ maxWidth: 520, margin: "0 auto", position: "relative" }}>
-          {/* 베타 파트너 배지 — 클릭 시 업체용 베타 안내 모달(확인 전용 · SHOW_BETA_UI 게이트) */}
-          <BetaBadge label="베타 파트너" kind="bid" style={{ position: "absolute", top: -44, right: 0, zIndex: 3 }} />
-          {/* Brand tag */}
-          <div style={{ ...fade(heroVis, 0), marginBottom: 20 }}>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: 99, padding: "5px 14px",
-            }}>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", fontWeight: 600 }}>
-                공간마켓 파트너 프로그램
-              </span>
-            </div>
+      <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 20px" }}>
+        {/* ── NAVY(웜 잉크) HERO ──────────────────────────────────── */}
+        <div ref={heroRef} style={{ background: `linear-gradient(160deg, ${NAVY} 0%, ${NAVY3} 100%)`,
+          color: "#F9F6F2", borderRadius: 32, padding: "40px 28px", margin: "20px 0",
+          position: "relative", overflow: "hidden" }}>
+          <BetaBadge label="베타 파트너" kind="bid" style={{ position: "absolute", top: 14, right: 14, zIndex: 3 }} />
+          <h1 style={{ fontSize: "clamp(24px,6vw,36px)", fontWeight: 800, lineHeight: 1.1, margin: 0, wordBreak: "keep-all" }}>
+            광고비 없이 수주하는<br /><span style={{ color: GOLD }}>공간파트너</span>
+          </h1>
+          <p style={{ opacity: .6, fontSize: 14, margin: "12px 0", lineHeight: 1.7 }}>
+            당근·숨고 광고비 쓰지 마세요. 예치된 고객만 연결됩니다.
+          </p>
+          <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button onClick={() => scrollToForm("hero")} style={{ ...btn, maxWidth: 220, background: "#fff", color: NAVY }}>
+              30초 간편 신청
+            </button>
+            <button onClick={goCompanyLogin} style={{ ...btn, maxWidth: 240, background: "transparent",
+              border: "1px solid rgba(255,255,255,.25)", color: "#fff" }}>
+              이미 파트너신가요? 로그인 →
+            </button>
           </div>
+        </div>
 
-          {/* Headline */}
-          <div style={{ ...fade(heroVis, 0.07) }}>
-            <h1 style={{
-              margin: "0 0 18px", fontSize: 28, fontWeight: 900,
-              color: WHITE, lineHeight: 1.35, letterSpacing: "-0.5px",
-            }}>
-              광고비 없이<br />
-              <span style={{ color: GOLD }}>수주하는 공간파트너</span>
-            </h1>
-            <p style={{ margin: "0 0 20px", fontSize: 15, color: "rgba(255,255,255,0.75)", lineHeight: 1.7 }}>
-              검증된 의뢰인이 먼저 예치하고 연결됩니다.<br />
-              광고비·중개비·플랫폼 수수료 걱정 없이<br />
-              시공에만 집중하세요.
+        {/* ── TIMELINE : 신청부터 수주까지 ───────────────────────── */}
+        <div style={{ padding: "36px 0" }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>신청부터 수주까지</h3>
+          <div style={{ position: "relative", paddingLeft: 40, marginTop: 18 }}>
+            <div style={{ position: "absolute", left: 14, top: 4, bottom: 4, width: 1, background: "#E8E1D8" }} />
+            {STEPS.map((s, i) => (
+              <div key={i} style={{ position: "relative", marginBottom: 20 }}>
+                <div style={{ position: "absolute", left: -34, width: 28, height: 28, borderRadius: "50%",
+                  background: i === 0 ? NAVY : "#fff", border: i === 0 ? "none" : "1px solid #E8E1D8",
+                  color: i === 0 ? "#fff" : TEXT3, display: "flex", alignItems: "center",
+                  justifyContent: "center", fontWeight: 800, fontSize: 12 }}>{i + 1}</div>
+                <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 24, padding: 12, fontSize: 13, lineHeight: 1.5 }}>
+                  <b>{s.b}</b>{s.t}
+                  {s.badge && <span style={{ ...okBadge, marginLeft: 6 }}>{s.badge}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── 신뢰 등급표 (다크 카드 · 시안 동일) ─────────────────── */}
+        <div style={{ padding: "0 0 36px" }}>
+          <div style={{ background: NAVY, color: "#F9F6F2", border: "none", borderRadius: 24, padding: 24 }}>
+            <h3 style={{ textAlign: "center", fontSize: 16, margin: 0 }}>
+              신뢰 등급 = 수주 가능 금액
+              <span style={{ background: GOLD, color: NAVY, padding: "2px 8px", borderRadius: 99, fontSize: 11, marginLeft: 6, fontWeight: 800 }}>베타 100업체 무료</span>
+            </h3>
+            <p style={{ textAlign: "center", fontSize: 11, opacity: .5, margin: "8px 0 16px" }}>
+              베타 100업체까지는 1천만원/1억 공사도 0원, 등급 제한 없음
             </p>
-            {/* 브랜드 비전(준비 중 방향성) — 성실한 업체 우대 철학을 자연스럽게 전달(기능 약속/토큰 노출 없음) */}
-            <p style={{ margin: "-6px 0 20px", fontSize: 13.5, color: "rgba(200,168,106,0.85)", lineHeight: 1.7, fontWeight: 600 }}>
-              성실한 활동은 더 많은 기회로 이어집니다.
-            </p>
-            {/* V1.5 핵심 가치제안 — 광고비 0원 / 월정액 0원 / 계약 성사 시에만 4.4% / 검증된 고객만 연결 */}
-            <div style={{
-              background: "rgba(200,168,106,0.1)", border: `1px solid rgba(200,168,106,0.35)`,
-              borderRadius: 12, padding: "14px 16px", marginBottom: 24,
-            }}>
-              {[
-                "광고비 0원 · 월정액 0원",
-                "계약 성사 시에만 4.4%",
-                "검증된 고객만 연결받으세요",
-              ].map((t) => (
-                <div key={t} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0" }}>
-                  <span style={{ color: GOLD, fontSize: 13, fontWeight: 900 }}>✓</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: WHITE, letterSpacing: "-0.2px" }}>{t}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {GRADE_ROWS.map(([name, limit]) => (
+                <div key={name} style={{ display: "flex", justifyContent: "space-between",
+                  background: "rgba(255,255,255,.06)", padding: "12px 16px", borderRadius: 14, fontSize: 13 }}>
+                  <span>{name}</span><b style={{ color: GOLD }}>{limit}</b>
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* 가치 badges (V1.5) */}
-          <div style={{ ...fade(heroVis, 0.14), display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
-            {["광고비 없음", "월정액 없음", "견적 수신 무료", "계약 성사 시에만 4.4%"].map((t) => (
-              <div key={t} style={{
-                background: GOLDB, border: `1px solid ${GOLD}`,
-                borderRadius: 99, padding: "5px 14px",
-                fontSize: 12, fontWeight: 700, color: GOLD, letterSpacing: "0.02em",
-              }}>
-                {t}
-              </div>
-            ))}
-          </div>
-
-          {/* CTA — 신규 업체(가입 신청) / 기존 승인 업체(로그인) 분리 */}
-          <div style={{ ...fade(heroVis, 0.2), display: "flex", flexDirection: "column", gap: 10 }}>
-            <button
-              onClick={() => scrollToForm("hero")}
-              style={{
-                height: 54, borderRadius: 12, border: "none", cursor: "pointer",
-                background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900,
-                fontFamily: SANS, boxShadow: `0 8px 28px rgba(200,168,106,0.45)`,
-              }}>
-              공간파트너 가입 신청
-            </button>
-            <button
-              onClick={goCompanyLogin}
-              style={{
-                height: 50, borderRadius: 12, cursor: "pointer", fontFamily: SANS,
-                background: "rgba(255,255,255,0.08)", border: `1.5px solid ${GOLD}`,
-                color: GOLD, fontSize: 15, fontWeight: 800,
-              }}>
-              업체 로그인
-            </button>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", textAlign: "center", lineHeight: 1.6 }}>
-              이미 승인된 공간파트너만 이용할 수 있습니다.<br />
-              승인 전 업체는 가입 신청 후 안내를 받아주세요.
+            <div style={{ border: `1px solid ${GOLD}`, borderRadius: 14, padding: 12, marginTop: 16, textAlign: "center", fontSize: 12 }}>
+              <b style={{ color: GOLD }}>베타 100업체까지는 금액 상관없이 0원, 전등급 무료 개방</b><br />
+              <small style={{ opacity: .5 }}>베타 이후: 베이직(500만)까지 무료, 이상은 예치 후 해제</small>
             </div>
+          </div>
+        </div>
+
+        {/* ── 무인 입점 신청 (실제 ConsultForm · API 유지) ────────── */}
+        <div id="partner-consult-form" style={{ padding: "8px 0 36px", scrollMarginTop: 16 }}>
+          <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 28, padding: 24,
+            maxWidth: 520, margin: "0 auto", boxShadow: "0 20px 60px rgba(18,26,22,.06)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <b style={{ fontSize: 15 }}>무인 입점 신청</b>
+              <span style={okBadge}>상담사 전화 없음</span>
+            </div>
+            <ConsultForm />
+          </div>
+
+          {/* 기존 승인 업체 → 로그인 분리(유지) */}
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid #EFEAE0", textAlign: "center", maxWidth: 520, margin: "24px auto 0" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: NAVY, marginBottom: 4 }}>이미 승인된 공간파트너이신가요?</div>
+            <div style={{ fontSize: 12, color: TEXT3, marginBottom: 14, lineHeight: 1.6 }}>관리자 승인을 받은 업체만 로그인할 수 있습니다.</div>
+            <button onClick={goCompanyLogin} style={{ ...btn, background: NAVY, color: "#fff" }}>업체 로그인</button>
+          </div>
+        </div>
+
+        {/* ══ 이하 유지(삭제 금지) : FAQ ══ */}
+        <div style={{ padding: "36px 0" }}>
+          <div style={{ textAlign: "center", fontSize: "clamp(22px,4.5vw,26px)", fontWeight: 900, color: NAVY, marginBottom: 20 }}>자주 묻는 질문</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 620, margin: "0 auto" }}>
+            {FAQS.map((f) => <FaqItem key={f.q} q={f.q} a={f.a} />)}
           </div>
         </div>
       </div>
 
-      {/* ── WHY: 업체의 고민 ──────────────────────────────────────── */}
-      <Section bg={WHITE}>
-        <SectionTitle label="업체 대표님의 고민" sub={"광고비는 쓰는데\n진짜 고객이 안 옵니다"} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {[
-            { icon: "😤", text: "광고비 수백만 원 써도 허위 견적·바람맞는 경우 허다" },
-            { icon: "💸", text: "플랫폼 수수료·월정액·광고비 3중 부담" },
-            { icon: "📵", text: "고객 연락처 노출 없이 견적만 받고 종적 감추는 경우" },
-            { icon: "⚔️", text: "공사 완료 후 억지 분쟁으로 정산 거부하는 사례" },
-          ].map(({ icon, text }) => (
-            <div key={text} style={{
-              display: "flex", alignItems: "flex-start", gap: 12,
-              background: OFF, borderRadius: 12, padding: "14px 16px",
-            }}>
-              <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>{icon}</span>
-              <span style={{ fontSize: 14, color: TEXT2, lineHeight: 1.55, fontWeight: 500 }}>{text}</span>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ── WHY: 공간마켓 파트너의 차이 ─────────────────────────── */}
-      <Section bg={OFF}>
-        <SectionTitle label="공간마켓 파트너" sub="이 모든 문제를 구조로 해결합니다" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          {[
-            { icon: "🔒", title: "에스크로 선예치",    desc: "의뢰인이 먼저 공사비를 예치한 뒤 연결됩니다" },
-            { icon: "💰", title: "단계별 정산",         desc: "착공·중간·완료 각 단계마다 안전하게 정산" },
-            { icon: "📸", title: "시공 기록 보호",      desc: "사진·기록이 분쟁 시 증거가 됩니다" },
-            { icon: "📣", title: "광고비 Zero",         desc: "별도 광고비·월정액 없이 수주 가능" },
-          ].map(({ icon, title, desc }) => (
-            <div key={title} style={{
-              background: WHITE, borderRadius: 14, padding: "18px 14px",
-              boxShadow: "0 2px 12px rgba(18,26,22,0.06)",
-            }}>
-              <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: NAVY, marginBottom: 6 }}>{title}</div>
-              <div style={{ fontSize: 12, color: TEXT3, lineHeight: 1.55 }}>{desc}</div>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ── TRUST SYSTEM ─────────────────────────────────────────── */}
-      <Section bg={WHITE}>
-        <SectionTitle label="신뢰 시스템" sub="6가지로 구성된 안심 거래 구조" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {TRUST.map(({ icon, title, desc }) => (
-            <div key={title} style={{
-              display: "flex", alignItems: "flex-start", gap: 14,
-              border: `1px solid #EFEAE0`, borderRadius: 12, padding: "16px 14px", background: OFF,
-            }}>
-              <span style={{ fontSize: 22, flexShrink: 0 }}>{icon}</span>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: NAVY, marginBottom: 4 }}>{title}</div>
-                <div style={{ fontSize: 13, color: TEXT3, lineHeight: 1.5 }}>{desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ── ⭐ NEW: 호흡과 신뢰 (Landing Page Upgrade v2.0 · Add Only) ── */}
-      <BreathTrustSection />
-
-      {/* ── 우수 파트너 검증 카드 (V1.6) ────────────────────────── */}
-      <Section bg={OFF}>
-        <div style={{
-          background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY3} 100%)`,
-          borderRadius: 16, padding: "24px 20px",
-        }}>
-          <div style={{ fontSize: 16, fontWeight: 900, color: WHITE, marginBottom: 16, textAlign: "center" }}>
-            검증된 파트너만 활동할 수 있습니다
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-            {[
-              "사업자 확인",
-              "시공 이력 확인",
-              "보험 서류 확인",
-              "무면허·불법 업체 제한",
-            ].map((t) => (
-              <div key={t} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ color: GOLD, fontWeight: 900, fontSize: 13 }}>✓</span>
-                <span style={{ fontSize: 14, color: "rgba(255,255,255,0.88)", fontWeight: 600 }}>{t}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{
-            fontSize: 12.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.65,
-            textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 14,
-          }}>
-            고객은 더 안심하고 계약할 수 있고,<br />
-            파트너는 더 신뢰받는 환경에서 활동할 수 있습니다.
-          </div>
-        </div>
-      </Section>
-
-      {/* ── 고객 검증 · 안심거래 · 입점 제한 (V1.5) ──────────────── */}
-      <Section bg={OFF}>
-        <SectionTitle label="검증된 연결" sub="허위 고객·미지급 위험을 구조로 줄입니다" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* #5 고객 검증 시스템 */}
-          <div style={{
-            background: WHITE, borderRadius: 14, padding: "18px 16px",
-            boxShadow: "0 2px 12px rgba(18,26,22,0.06)",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 20 }}>👤</span>
-              <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>검증된 고객만 연결</span>
-            </div>
-            <div style={{ fontSize: 13.5, color: TEXT2, lineHeight: 1.65 }}>
-              모든 고객은 연락처 인증, 주소 확인, 계약서 작성, 에스크로 예치 후 업체와 연결됩니다.
-            </div>
-          </div>
-
-          {/* #6 안심거래 결과 중심 */}
-          <div style={{
-            background: WHITE, borderRadius: 14, padding: "18px 16px",
-            boxShadow: "0 2px 12px rgba(18,26,22,0.06)",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 20 }}>🛡️</span>
-              <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>안정적인 대금 정산</span>
-            </div>
-            <div style={{ fontSize: 13.5, color: TEXT2, lineHeight: 1.65 }}>
-              공사 완료 후 안정적인 대금 정산을 지원합니다. 프로젝트 진행 기록(GPS·사진·채팅)이 신뢰의 증빙으로 남습니다.
-            </div>
-          </div>
-
-          {/* #7 입점 제한 안내 */}
-          <div style={{
-            background: NAVY, borderRadius: 14, padding: "18px 16px",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 20 }}>🚫</span>
-              <span style={{ fontSize: 15, fontWeight: 800, color: WHITE }}>검증된 업체만 입점</span>
-            </div>
-            <div style={{ fontSize: 13.5, color: "rgba(255,255,255,0.78)", lineHeight: 1.65 }}>
-              공간마켓은 무면허 업체, 불법 업체, 서류 미비 업체의 입점을 제한합니다. 정식 사업자와 검증 완료 업체만 공간파트너로 활동할 수 있습니다.
-            </div>
-          </div>
-        </div>
-      </Section>
-
-      {/* ── DEPOSIT GRADES ───────────────────────────────────────── */}
-      <Section bg={`linear-gradient(160deg, ${NAVY} 0%, ${NAVY3} 100%)`}>
-        <SectionTitle
-          label="공간뱃지예치보증금 등급"
-          sub={<span style={{ color: WHITE }}>신뢰 등급이 높을수록{"\n"}더 큰 규모의 프로젝트에 참여할 수 있습니다</span>}
-        />
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", textAlign: "center", marginTop: -14, marginBottom: 20, lineHeight: 1.6 }}>
-          등급에 따라 수주 가능한 프로젝트 규모가 달라집니다.<br />
-          신뢰도와 책임 범위를 기반으로 운영됩니다.
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {GRADES.map(({ name, deposit, limit, color }) => (
-            <div key={name} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 12, padding: "14px 16px",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{
-                  width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0,
-                }} />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: WHITE }}>{name}</div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>예치보증금 {deposit}</div>
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 17, fontWeight: 900, color: GOLD, lineHeight: 1.1 }}>{limit}</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>수주 가능</div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{
-          marginTop: 16, background: GOLDB, border: `1px solid ${GOLD}`,
-          borderRadius: 12, padding: "14px 16px", textAlign: "center",
-        }}>
-          <div style={{ fontSize: 13, color: GOLD, fontWeight: 800, lineHeight: 1.6, marginBottom: 6 }}>
-            예치보증금은 가입비가 아닙니다
-          </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", fontWeight: 600, lineHeight: 1.6 }}>
-            공간마켓은 광고비와 월 사용료를 받지 않습니다.<br />
-            예치보증금은 파트너 활동 종료 시 100% 환급 가능합니다.
-          </div>
-        </div>
-        {/* 등급표 하단 신뢰 문구 (V1.6) */}
-        <div style={{ marginTop: 12, fontSize: 11.5, color: "rgba(255,255,255,0.45)", textAlign: "center", lineHeight: 1.65 }}>
-          예치보증금은 수수료가 아닌 신뢰 파트너 인증을 위한 보증금입니다.<br />
-          프로젝트 규모에 따라 참여 가능한 범위가 달라질 수 있습니다.
-        </div>
-      </Section>
-
-      {/* ── FEE ─────────────────────────────────────────────────── */}
-      <Section bg={OFF}>
-        <SectionTitle label="수수료 안내" sub={"계약이 성사된 프로젝트에만\n4.4% 이용수수료가 발생합니다"} />
-        <div style={{
-          background: WHITE, borderRadius: 16, padding: "24px 20px",
-          boxShadow: "0 2px 16px rgba(18,26,22,0.08)",
-        }}>
-          <div style={{ textAlign: "center", marginBottom: 20 }}>
-            <span style={{ fontSize: 42, fontWeight: 900, color: GOLD }}>4.4</span>
-            <span style={{ fontSize: 20, fontWeight: 700, color: GOLD }}>%</span>
-            <div style={{ fontSize: 12, color: TEXT3, marginTop: 4 }}>VAT 포함 · 공간멤버십파트너 이용수수료</div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[
-              { ok: true,  label: "계약이 성사된 프로젝트에만 부과됩니다" },
-              { ok: true,  label: "광고비, 월정액, 가입비 일체 없음" },
-              { ok: true,  label: "견적 요청 수신은 무료" },
-              { ok: false, label: "수주 실패 / 견적 미채택 시 수수료 없음" },
-            ].map(({ ok, label }) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 16, flexShrink: 0 }}>{ok ? "✅" : "🔸"}</span>
-                <span style={{ fontSize: 14, color: ok ? NAVY : TEXT2, fontWeight: ok ? 600 : 400 }}>{label}</span>
-              </div>
-            ))}
-          </div>
-          {/* V1.6 보조 문구 — 매칭 실패/견적 미채택/수주 실패 시 비용 없음 */}
-          <div style={{
-            marginTop: 16, padding: "12px 14px",
-            background: OFF, borderRadius: 10, fontSize: 12, color: TEXT3, lineHeight: 1.65,
-          }}>
-            매칭 실패 · 견적 미채택 · 수주 실패 시<br />
-            <span style={{ fontWeight: 700, color: TEXT2 }}>비용은 발생하지 않습니다.</span>
-          </div>
-        </div>
-      </Section>
-
-      {/* ── ONBOARDING STEPS ────────────────────────────────────── */}
-      <Section bg={WHITE}>
-        <SectionTitle label="파트너 입점 가이드" sub="파트너 신청부터 첫 수주까지" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-          {ONBOARDING.map(({ num, title, desc }, i) => (
-            <div key={num} style={{
-              display: "flex", gap: 16, paddingBottom: i < ONBOARDING.length - 1 ? 24 : 0,
-              position: "relative",
-            }}>
-              {/* Line */}
-              {i < ONBOARDING.length - 1 && (
-                <div style={{
-                  position: "absolute", left: 17, top: 38, bottom: 0,
-                  width: 2, background: "#EFEAE0",
-                }} />
-              )}
-              {/* Step circle */}
-              <div style={{
-                flexShrink: 0, width: 36, height: 36, borderRadius: "50%",
-                background: num === 1 ? GOLD : OFF,
-                border: `2px solid ${num === 1 ? GOLD : "#E8E1D8"}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 14, fontWeight: 900,
-                color: num === 1 ? WHITE : TEXT3,
-                zIndex: 1, position: "relative",
-              }}>
-                {num}
-              </div>
-              <div style={{ paddingTop: 6 }}>
-                <div style={{ fontSize: 15, fontWeight: 800, color: NAVY, marginBottom: 4 }}>{title}</div>
-                <div style={{ fontSize: 13, color: TEXT3, lineHeight: 1.55 }}>{desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ── PARTNER TYPES ────────────────────────────────────────── */}
-      <Section bg={OFF}>
-        <SectionTitle label="입점 가능 업종" sub="다양한 공간 전문가를 모십니다" />
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {PARTNER_TYPES.map((t) => (
-            <div key={t} style={{
-              background: WHITE, border: `1px solid #E8E1D8`,
-              borderRadius: 99, padding: "8px 16px",
-              fontSize: 13, fontWeight: 600, color: NAVY,
-            }}>
-              {t}
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ── FAQ (V1.5) ───────────────────────────────────────────── */}
-      <Section bg={OFF}>
-        <SectionTitle label="자주 묻는 질문" sub="가입 전에 궁금한 점을 확인하세요" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {FAQS.map((f) => <FaqItem key={f.q} q={f.q} a={f.a} />)}
-        </div>
-      </Section>
-
-      {/* ── CONSULTATION FORM (신규 업체) ────────────────────────── */}
-      <Section bg={WHITE}>
-        <div id="partner-consult-form" style={{ scrollMarginTop: 16 }} />
-        <SectionTitle label="신규 업체 · 가입 신청" sub="지금 신청하면 1~2 영업일 내 연락드립니다" />
-        <ConsultForm />
-
-        {/* 기존 승인 업체 → 업체 로그인 분리 */}
-        <div style={{
-          marginTop: 28, paddingTop: 24, borderTop: `1px solid #EFEAE0`, textAlign: "center",
-        }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: NAVY, marginBottom: 4 }}>
-            이미 승인된 공간파트너이신가요?
-          </div>
-          <div style={{ fontSize: 12, color: TEXT3, marginBottom: 14, lineHeight: 1.6 }}>
-            관리자 승인을 받은 업체만 로그인할 수 있습니다.
-          </div>
-          <button
-            onClick={goCompanyLogin}
-            style={{
-              height: 50, width: "100%", borderRadius: 12, cursor: "pointer", fontFamily: SANS,
-              background: NAVY, color: WHITE, fontSize: 15, fontWeight: 800, border: "none",
-            }}>
-            업체 로그인
-          </button>
-        </div>
-      </Section>
-
-      {/* ── FOOTER ───────────────────────────────────────────────── */}
-      <div style={{
-        background: NAVY, padding: "32px 24px",
-        fontFamily: SANS, textAlign: "center",
-      }}>
-        <div style={{ maxWidth: 520, margin: "0 auto" }}>
-          <div style={{ fontSize: 16, fontWeight: 900, color: WHITE, marginBottom: 6 }}>
-            공간마켓
-          </div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginBottom: 12 }}>
-            파트너 전용 문의: gongganmarket.biz@gmail.com
-          </div>
-          <button
-            onClick={() => { window.location.href = "/"; }}
-            style={{
-              background: "transparent", border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: 99, padding: "7px 20px", cursor: "pointer",
-              fontSize: 13, color: "rgba(255,255,255,0.6)", fontFamily: SANS,
-            }}>
-            공간마켓 홈으로
-          </button>
-          <div style={{ marginTop: 20, fontSize: 11, color: "rgba(255,255,255,0.25)" }}>
-            © 2026 공간마켓. All rights reserved.
-          </div>
-        </div>
+      {/* ── 사업자정보 푸터 + 개인정보/이용약관 (법적 필수 · 삭제 금지) ── */}
+      <div style={{ padding: "20px 20px 96px", background: "#EFEAE0", borderTop: "1px solid #E8E1D8", textAlign: "center" }}>
+        <AppFooter />
+        <button onClick={() => { window.location.href = "/"; }} style={{ marginTop: 16, background: "transparent",
+          border: "1px solid #D6D0C8", borderRadius: 99, padding: "7px 20px", cursor: "pointer",
+          fontSize: 13, color: TEXT3, fontFamily: SANS }}>공간마켓 홈으로</button>
       </div>
 
-      {/* ── 모바일 플로팅 CTA (V1.5) — 모바일 하단 고정, 클릭 시 신청폼으로 스크롤 ── */}
+      {/* ── 모바일 플로팅 CTA (유지) ─────────────────────────────── */}
       <style>{`
-        @media (max-width: 640px) {
-          .gm-partner-floating-cta { display: block !important; }
-        }
-        .gm-partner-floating-cta { display: none; }
+        @media (max-width: 640px){ .gm-partner-floating-cta{ display:block !important } }
+        .gm-partner-floating-cta{ display:none }
+        button:active{ transform: scale(.985) }
       `}</style>
-      <div className="gm-partner-floating-cta" style={{
-        position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 900,
-        padding: "10px 16px calc(10px + env(safe-area-inset-bottom, 0px))",
-        background: "rgba(18,26,22,0.92)", backdropFilter: "blur(6px)",
-        borderTop: `1px solid rgba(200,168,106,0.3)`,
-      }}>
-        <button
-          onClick={() => scrollToForm("floating")}
-          style={{
-            width: "100%", height: 50, borderRadius: 12, border: "none", cursor: "pointer",
-            background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900, fontFamily: SANS,
-            boxShadow: `0 6px 20px rgba(200,168,106,0.4)`,
-          }}>
+      <div className="gm-partner-floating-cta" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 900,
+        padding: "10px 16px calc(10px + env(safe-area-inset-bottom, 0px))", background: "rgba(18,26,22,0.92)",
+        backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", borderTop: `1px solid rgba(200,168,106,0.3)` }}>
+        <button onClick={() => scrollToForm("floating")} style={{ ...btn, height: 50, background: GOLD, color: "#fff",
+          fontSize: 16, fontWeight: 900, boxShadow: `0 6px 20px rgba(200,168,106,0.4)` }}>
           공간파트너 가입 신청
         </button>
       </div>
-
     </div>
   );
 }
