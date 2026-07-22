@@ -6372,6 +6372,21 @@ export default function AdminScreen({ onBack, onHome, user }) {
                             ⛔ 보험증권 미제출 (예치금 2배)
                           </span>
                         )}
+                        {/* 073 대표자 신분증(선택) — 제출 시 확대보기, 미제출은 중립 표시 */}
+                        {l.id_card_url ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 신분증 제출됨</span>
+                            <button onClick={() => setDocPreview({ url: l.id_card_url, title: `${l.company_name} · 대표자 신분증` })}
+                              style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
+                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer" }}>🔍 신분증 보기</button>
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 12, fontWeight: 700, color: C.text3, background: C.surface2 ?? "#F4F1EA",
+                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #E8E1D8" }}>
+                            신분증 미제출 (선택)
+                          </span>
+                        )}
                       </div>
 
                       {/* 업체 운영준수서약 — 가입 신청 시 필수 동의 항목(미동의 시 신청 불가). 표시 전용. */}
