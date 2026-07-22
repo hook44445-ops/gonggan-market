@@ -26,7 +26,7 @@ function BadgeBeta({ style }) {
 const NAVY  = "#121A16";
 const NAVY2 = "#1E2A22";
 const NAVY3 = "#2C3A30";
-const FOREST = "#1A2E22"; // 파트너 히어로 배경(웜 포레스트)
+const FOREST = "#1E3A2F"; // 파트너 히어로 배경(웜 포레스트)
 const OK    = "#2D5A27";  // 타임라인 배지/초록 점
 const GOLD  = "#C8A86A";
 const GOLDD = "#A98B4E";
@@ -348,7 +348,7 @@ function ConsultForm() {
   // 다음/이전 버튼 스타일(제출 버튼과 동일 골드 그라데이션 재사용)
   const navGold = (enabled) => ({
     flex: 1, height: 52, borderRadius: 999, border: "1px solid #E9DDC0",
-    background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)", color: NAVY,
+    background: "linear-gradient(180deg,#D8BE88 0%,#C8A86A 100%)", color: NAVY,
     fontSize: 15, fontWeight: 800, fontFamily: SANS, letterSpacing: "-0.01em",
     cursor: enabled ? "pointer" : "default", opacity: enabled ? 1 : 0.5,
     boxShadow: "0 8px 24px rgba(200,168,106,.28), 0 0 0 1px rgba(232,220,192,.8) inset, 0 1px 2px rgba(255,255,255,.6) inset",
@@ -491,7 +491,7 @@ function ConsultForm() {
               style={{
                 flex: 1, height: 52, borderRadius: 999, border: "1px solid #E9DDC0",
                 cursor: saving || !canSubmit ? "default" : "pointer",
-                background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)", color: NAVY, fontSize: 16, fontWeight: 800,
+                background: "linear-gradient(180deg,#D8BE88 0%,#C8A86A 100%)", color: NAVY, fontSize: 16, fontWeight: 800,
                 fontFamily: SANS, letterSpacing: "-0.01em", opacity: saving || !canSubmit ? 0.5 : 1,
                 boxShadow: "0 8px 24px rgba(200,168,106,.28), 0 0 0 1px rgba(232,220,192,.8) inset, 0 1px 2px rgba(255,255,255,.6) inset",
               }}>
@@ -768,7 +768,7 @@ export default function PartnerLandingScreen() {
             </button>
             <button onClick={goCompanyLogin} style={{ ...btn, maxWidth: 240, background: "transparent",
               border: "1px solid rgba(255,255,255,.25)", color: "#fff" }}>
-              이미 파트너신가요? 로그인 →
+              로그인
             </button>
           </div>
         </div>
@@ -813,7 +813,7 @@ export default function PartnerLandingScreen() {
               margin: "0 0 18px", wordBreak: "keep-all" }}>
               베타 100업체까지는 1천만원/1억 공사도 0원, 등급 제한 없음
             </p>
-            <div className="gm-grade-list" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+            <div className="gm-grade-list" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {GRADE_ROWS.map(([name, limit]) => (
                 <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                   background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.08)",
@@ -876,7 +876,7 @@ export default function PartnerLandingScreen() {
         @keyframes gmBlink{ 0%,100%{ opacity:1 } 50%{ opacity:.4 } }
         .gm-partner-sticky-cta{ display:none }
         @media (max-width: 640px){ .gm-partner-sticky-cta{ display:flex } }
-        @media (min-width: 700px){ .gm-grade-list{ grid-template-columns: 1fr 1fr !important } }
+        @media (max-width: 480px){ .gm-grade-list{ grid-template-columns: 1fr !important } }
         @media (max-width: 380px){
           .gm-topnav{ padding: 8px 12px !important }
           .gm-tab{ padding: 6px 12px !important; font-size: 12px !important }
@@ -898,7 +898,7 @@ export default function PartnerLandingScreen() {
         justifyContent: "center", pointerEvents: "none" }}>
         <button className="gm-sticky-gold" onClick={() => scrollToForm("floating")} style={{
           pointerEvents: "auto", height: 52, maxWidth: 420, flex: 1, borderRadius: 999,
-          border: "1px solid #E9DDC0", background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)",
+          border: "1px solid #E9DDC0", background: "linear-gradient(180deg,#D8BE88 0%,#C8A86A 100%)",
           color: NAVY, fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em", cursor: "pointer",
           fontFamily: SANS, position: "relative", overflow: "hidden",
           transition: "transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s",
