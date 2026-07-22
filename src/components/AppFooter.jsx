@@ -19,15 +19,15 @@ export default function AppFooter() {
       <div style={{ fontSize: 11, fontWeight: 700, color: "#8a8275", marginBottom: 6, letterSpacing: "0.02em" }}>
         공간사이 사업자 정보
       </div>
-      <div style={{ fontSize: 11, color: "#9a9183", letterSpacing: "0.01em" }}>
+      <div style={{ fontSize: 11, color: "#7A7670", letterSpacing: "0.01em" }}>
         {BIZ_ROWS.map(([label, value]) => (
           <div key={label}>
-            <span style={{ color: "#b3a99b" }}>{label}</span>{" "}{value}
+            <span style={{ color: "#948C7F" }}>{label}</span>{" "}{value}
           </div>
         ))}
       </div>
       {/* 법적고지 링크 — 토스 PG 심사용. 앱 내부 라우트(/privacy, /terms). */}
-      <div style={{ marginTop: 10, fontSize: 11, color: "#9a9183" }}>
+      <div style={{ marginTop: 10, fontSize: 11, color: "#7A7670" }}>
         <a href="/privacy" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>
           개인정보처리방침
         </a>

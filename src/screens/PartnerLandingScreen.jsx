@@ -4,8 +4,23 @@ import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
 import AppFooter from "../components/AppFooter"; // 사업자정보 푸터(법적 필수 · 삭제 금지)
-import { BetaBanner, BetaBadge } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { BetaBanner } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
+
+// ── 베타 배지 (badge-beta · 이모지 없이 초록 점 blink + #F5EED6 배경) ────────────
+// FINAL BALANCED: 시안의 .badge-beta 이식. 이모지 배지 대체(현재 배포본 버그 수정 #2).
+function BadgeBeta({ style }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6, background: "#F5EED6",
+      border: "1px solid #E8DCC0", color: "#6B4F1A", padding: "6px 12px", borderRadius: 999,
+      fontSize: 11, fontWeight: 700, ...style,
+    }}>
+      <span className="gm-beta-dot" style={{ width: 6, height: 6, background: "#2D5A27", borderRadius: "50%" }} />
+      베타 파트너
+    </span>
+  );
+}
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#121A16";
@@ -543,6 +558,7 @@ function FaqItem({ q, a }) {
         }}>
         <span style={{ fontSize: 14.5, fontWeight: 800, color: NAVY, lineHeight: 1.45 }}>Q. {q}</span>
         <span style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
           fontSize: 16, color: GOLD, flexShrink: 0,
           transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s ease",
         }}>⌄</span>
@@ -616,11 +632,11 @@ export default function PartnerLandingScreen() {
   ];
 
   return (
-    <div style={{ fontFamily: SANS, background: OFF, color: NAVY, minHeight: "100vh", letterSpacing: "-0.02em", WebkitFontSmoothing: "antialiased" }}>
+    <div style={{ fontFamily: SANS, background: OFF, color: NAVY, minHeight: "100vh", letterSpacing: "-0.02em", WebkitFontSmoothing: "antialiased", overflowX: "hidden" }}>
       {showLoginGate && <CompanyLoginGate onClose={() => setShowLoginGate(false)} />}
 
       {/* ── TOPNAV (고객/파트너 · 라우팅 유지) ─────────────────────── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(249,246,242,.85)",
+      <div className="gm-topnav" style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(249,246,242,.85)",
         backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
         borderBottom: "1px solid #E8E1D8", display: "flex", justifyContent: "space-between",
         alignItems: "center", padding: "10px 20px" }}>
@@ -628,20 +644,20 @@ export default function PartnerLandingScreen() {
           공간마켓<span style={{ color: GOLD, fontWeight: 400 }}> BETA</span>
         </div>
         <div style={{ display: "flex", gap: 6, background: "#ECE7DF", padding: 4, borderRadius: 999 }}>
-          <button onClick={() => { window.location.href = "/"; }} style={{ padding: "8px 16px", borderRadius: 999,
+          <button className="gm-tab" onClick={() => { window.location.href = "/"; }} style={{ padding: "8px 16px", borderRadius: 999,
             border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: SANS,
             background: "transparent", color: TEXT3 }}>고객</button>
-          <button style={{ padding: "8px 16px", borderRadius: 999, border: "none", fontWeight: 700,
+          <button className="gm-tab" style={{ padding: "8px 16px", borderRadius: 999, border: "none", fontWeight: 700,
             fontSize: 13, cursor: "pointer", fontFamily: SANS, background: NAVY, color: "#fff" }}>파트너</button>
         </div>
       </div>
 
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 20px" }}>
         {/* ── NAVY(웜 잉크) HERO ──────────────────────────────────── */}
-        <div ref={heroRef} style={{ background: `linear-gradient(160deg, ${NAVY} 0%, ${NAVY3} 100%)`,
+        <div ref={heroRef} style={{ background: NAVY,
           color: "#F9F6F2", borderRadius: 32, padding: "40px 28px", margin: "20px 0",
           position: "relative", overflow: "hidden" }}>
-          <BetaBadge label="베타 파트너" kind="bid" style={{ position: "absolute", top: 14, right: 14, zIndex: 3 }} />
+          <BadgeBeta style={{ position: "absolute", top: 14, right: 14, zIndex: 3 }} />
           <h1 style={{ fontSize: "clamp(24px,6vw,36px)", fontWeight: 800, lineHeight: 1.1, margin: 0, wordBreak: "keep-all" }}>
             광고비 없이 수주하는<br /><span style={{ color: GOLD }}>공간파트너</span>
           </h1>
@@ -740,19 +756,33 @@ export default function PartnerLandingScreen() {
           fontSize: 13, color: TEXT3, fontFamily: SANS }}>공간마켓 홈으로</button>
       </div>
 
-      {/* ── 모바일 플로팅 CTA (유지) ─────────────────────────────── */}
+      {/* ── 모바일 하단 고정 CTA (sticky-cta-fix · fab-up 흰색 원형 분리) ──────
+          현재 배포본 버그 수정 #1: 골드 버튼과 ↑ 버튼을 flex 형제로 분리해
+          흰 원이 골드 버튼 텍스트를 가리지 않도록 함(사진 536번 버그). */}
       <style>{`
-        @media (max-width: 640px){ .gm-partner-floating-cta{ display:block !important } }
-        .gm-partner-floating-cta{ display:none }
+        .gm-beta-dot{ animation: gmBlink 1.8s infinite }
+        @keyframes gmBlink{ 0%,100%{ opacity:1 } 50%{ opacity:.4 } }
+        .gm-partner-sticky-cta{ display:none }
+        @media (max-width: 640px){ .gm-partner-sticky-cta{ display:flex } }
+        @media (max-width: 380px){
+          .gm-topnav{ padding: 8px 12px !important }
+          .gm-tab{ padding: 6px 12px !important; font-size: 12px !important }
+        }
         button:active{ transform: scale(.985) }
       `}</style>
-      <div className="gm-partner-floating-cta" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 900,
-        padding: "10px 16px calc(10px + env(safe-area-inset-bottom, 0px))", background: "rgba(18,26,22,0.92)",
-        backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", borderTop: `1px solid rgba(200,168,106,0.3)` }}>
-        <button onClick={() => scrollToForm("floating")} style={{ ...btn, height: 50, background: GOLD, color: "#fff",
-          fontSize: 16, fontWeight: 900, boxShadow: `0 6px 20px rgba(200,168,106,0.4)` }}>
+      <div className="gm-partner-sticky-cta" style={{ position: "fixed", left: 16, right: 16,
+        bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 900,
+        alignItems: "center", gap: 12, background: NAVY, borderRadius: 999, padding: 6,
+        boxShadow: "0 12px 32px rgba(0,0,0,.3)" }}>
+        <button onClick={() => scrollToForm("floating")} style={{ flex: 1, background: GOLD, color: NAVY,
+          border: "none", fontWeight: 800, fontSize: 15, padding: "15px 20px", borderRadius: 999,
+          cursor: "pointer", fontFamily: SANS }}>
           공간파트너 가입 신청
         </button>
+        <div onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} role="button" aria-label="맨 위로"
+          style={{ width: 44, height: 44, background: "#fff", borderRadius: "50%", display: "flex",
+            alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer",
+            fontWeight: 800, boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>↑</div>
       </div>
     </div>
   );
