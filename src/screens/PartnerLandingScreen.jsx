@@ -180,6 +180,9 @@ function ConsultForm() {
   const [pledge, setPledge] = useState(false);
   // V2 무인 온보딩: 제출 성공 시 생성된 lead 정보를 보관해 STEP2~4 로 이어준다.
   const [lead, setLead] = useState(null); // { id, phone, insuranceYn }
+  // 스텝형 위저드(디자인/UX만). 1 기본정보 · 2 시공·서류 · 3 약관·제출.
+  //   기능·검증·API 무변경 — handleSubmit 이 최종 재검증(안전망). 게이트는 '다음' 활성 조건일 뿐.
+  const [step, setStep] = useState(1);
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
@@ -188,6 +191,14 @@ function ConsultForm() {
   const requiredFilled = ["company", "owner", "phone", "bizNo", "region", "field"]
     .every((k) => form[k]?.trim());
   const canSubmit = requiredFilled && !!bizFile && pledge;
+  // 스텝 게이트('다음' 활성 조건). 최종 제출 검증은 handleSubmit 이 그대로 수행.
+  const step1Ok = ["company", "owner", "phone", "bizNo"].every((k) => form[k]?.trim());
+  const step2Ok = ["region", "field"].every((k) => form[k]?.trim()) && !!bizFile;
+  const goStep = (n) => {
+    setStep(n);
+    const el = typeof document !== "undefined" ? document.getElementById("partner-consult-form") : null;
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -322,117 +333,172 @@ function ConsultForm() {
     </div>
   );
 
+  // 다음/이전 버튼 스타일(제출 버튼과 동일 골드 그라데이션 재사용)
+  const navGold = (enabled) => ({
+    flex: 1, height: 52, borderRadius: 999, border: "1px solid #E9DDC0",
+    background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)", color: NAVY,
+    fontSize: 15, fontWeight: 800, fontFamily: SANS, letterSpacing: "-0.01em",
+    cursor: enabled ? "pointer" : "default", opacity: enabled ? 1 : 0.5,
+    boxShadow: "0 8px 24px rgba(200,168,106,.28), 0 0 0 1px rgba(232,220,192,.8) inset, 0 1px 2px rgba(255,255,255,.6) inset",
+  });
+  const navBack = {
+    height: 52, padding: "0 22px", borderRadius: 999, border: "1px solid #E8E1D8",
+    background: "#fff", color: TEXT2, fontSize: 14, fontWeight: 700, fontFamily: SANS, cursor: "pointer",
+  };
+  const stepHint = (n) => (
+    <div style={{ fontSize: 11, color: TEXT3, textAlign: "center", marginTop: 2 }}>{n} / 3 단계</div>
+  );
+
   return (
     <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <BetaBanner text="베타 파트너 모집 · 가입 · 견적 참여 · 상담 모두 무료입니다. (사업자등록증 + 시공보험 확인 후 승인)" style={{ marginBottom: 0 }} />
-      {field("company", "업체명",        { required: true, placeholder: "예: 공간인테리어" })}
-      {field("owner",   "대표자명",      { required: true, placeholder: "대표자 성함" })}
-      {field("phone",   "연락처",        { required: true, placeholder: "휴대폰 번호", inputMode: "tel" })}
-      {field("bizNo",   "사업자등록번호", { required: true, placeholder: "000-00-00000", inputMode: "numeric" })}
-      {field("region",  "시공지역",      { required: true, placeholder: "예: 서울 전역, 경기 남부" })}
-      {field("field",   "전문분야",      { required: true, placeholder: "예: 주거 리모델링, 상업 인테리어" })}
-
-      {/* V1.3 서류 업로드 — 사업자등록증(승인 필수) / 시공보험증권(선택·예치금 할인 기준) · 시안 업로드 카드 */}
-      <div>
-        <label style={labelStyle}>사업자등록증 <span style={{ color: GOLDD }}>(승인 필수)</span></label>
-        {uploadCard("biz", bizFile, setBizFile, { title: "사업자등록증 촬영 / 파일 선택", sub: "JPG/PNG/PDF 10MB 이하 · OCR 자동 대조" })}
-      </div>
-      <div>
-        <label style={labelStyle}>
-          시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(베타 서비스 선택 / 정식 서비스 필수) · 우수 파트너 우대 혜택</span>
-        </label>
-        {uploadCard("ins", insFile, setInsFile, { title: "시공보험증권 업로드", sub: "우수 파트너 우대 · 신뢰보증금 할인" })}
-        <div style={{ fontSize: 11, color: TEXT3, marginTop: 5, lineHeight: 1.6 }}>
-          시공보험증권 제출 업체는 우수 파트너 우대정책에 따라 신뢰보증금 할인 혜택이 적용됩니다.<br />
-          공간마켓은 무면허·불법·서류 미비 업체의 활동을 제한하며, 검증된 파트너에게 우대 혜택을 제공합니다.
-        </div>
-      </div>
-
-      <div>
-        <label style={labelStyle}>시공보험 가입 여부</label>
-        <select
-          className="gm-pinput"
-          style={{ ...inputStyle, appearance: "none", color: form.insurance ? NAVY : TEXT3 }}
-          value={form.insurance}
-          onChange={set("insurance")}
-        >
-          <option value="">선택 안 함</option>
-          <option value="가입">가입</option>
-          <option value="미가입">미가입</option>
-          <option value="확인필요">확인 필요</option>
-        </select>
-      </div>
-
-      {/* 업체 운영 준수서약 — 필수 체크(미체크 시 가입 신청 버튼 비활성). 표시·동의 전용. */}
-      <div>
-        <label style={labelStyle}>업체 운영 준수서약 <span style={{ color: GOLDD }}>*</span></label>
-        <div style={{
-          border: `1px solid #E8E1D8`, borderRadius: 14, background: "#FFFDFA",
-          padding: "14px 16px",
-        }}>
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" }}>
-            <input type="checkbox" checked={pledge} onChange={(e) => setPledge(e.target.checked)}
-              style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, cursor: "pointer" }} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>아래 내용을 확인하고 동의합니다.</span>
-          </label>
-          <ul style={{
-            margin: "10px 0 0", paddingLeft: 18, fontSize: 12, color: TEXT2, lineHeight: 1.7,
-            paddingTop: 10, borderTop: `1px solid #F3EEE4`,
-          }}>
-            {[
-              "허위 사업자정보 또는 허위 시공이력으로 가입하지 않습니다.",
-              "고객과의 상담, 견적, 계약, 시공 과정에서 성실하게 응대합니다.",
-              "베타 기간 동안 공간마켓 시스템 구조에 따라 견적, 상담, 계약 진행, 프로젝트 기록을 성실히 이용합니다.",
-              "토스페이먼츠 승인 전까지 앱 내 안전결제가 제공되지 않음을 확인했습니다.",
-              "베타 기간의 실제 결제는 고객과 업체가 상호 협의하여 진행됨을 확인했습니다.",
-              "무단 직거래 유도, 허위 견적, 연락 두절, 부실 시공, 리뷰 조작을 하지 않습니다.",
-              "분쟁 발생 시 공간마켓 운영팀의 확인 요청에 성실히 협조합니다.",
-              "정식 서비스 오픈 후 공간보증 예치금 및 공간보증 심사가 적용될 수 있음을 확인했습니다.",
-              "본인은 위 내용을 모두 확인하였으며, 공간마켓 운영정책에 따라 성실히 참여할 것을 서약합니다.",
-            ].map((t, i) => <li key={i} style={{ marginBottom: 4 }}>{t}</li>)}
-          </ul>
-        </div>
-      </div>
-
-      <div>
-        <label style={labelStyle}>문의사항</label>
-        <textarea
-          className="gm-pinput"
-          style={{ ...inputStyle, height: 100, padding: "12px 16px", resize: "none" }}
-          placeholder="추가로 전달하실 내용이 있다면 입력해 주세요 (선택)"
-          value={form.message}
-          onChange={set("message")}
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={saving || !canSubmit}
-        style={{
-          height: 52, borderRadius: 999, border: "1px solid #E9DDC0",
-          cursor: saving || !canSubmit ? "default" : "pointer",
-          background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)", color: NAVY, fontSize: 16, fontWeight: 800,
-          fontFamily: SANS, letterSpacing: "-0.01em", opacity: saving || !canSubmit ? 0.5 : 1,
-          boxShadow: "0 8px 24px rgba(200,168,106,.28), 0 0 0 1px rgba(232,220,192,.8) inset, 0 1px 2px rgba(255,255,255,.6) inset",
-        }}>
-        {saving ? "접수 중..." : "공간파트너 가입 신청"}
-      </button>
-      {/* V1.5/V1.6 신청폼 하단 안심 문구 */}
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6 }}>
-        {["무료 상담", "가입 강요 없음", "1~2 영업일 내 연락", "검토 후 승인 진행"].map((t) => (
-          <span key={t} style={{
-            fontSize: 11.5, fontWeight: 700, color: GOLDD,
-            background: GOLDB, border: `1px solid ${GOLD}`,
-            borderRadius: 99, padding: "4px 11px",
-          }}>
-            ✓ {t}
-          </span>
+      {/* 진행바 — step 연동(시안 .prog) */}
+      <div style={{ display: "flex", gap: 6 }}>
+        {[1, 2, 3].map((i) => (
+          <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= step ? GOLD : "#E8E1D8" }} />
         ))}
       </div>
-      <div style={{ fontSize: 12, color: TEXT3, textAlign: "center", lineHeight: 1.6 }}>
-        신청 후 관리자 검토를 거쳐 가입 절차를 안내드립니다.<br />
-        자동 문자·이메일은 발송되지 않습니다.
-      </div>
+
+      {/* ── STEP 1 · 기본 정보 ─────────────────────────────────── */}
+      {step === 1 && (
+        <>
+          <BetaBanner text="베타 파트너 모집 · 가입 · 견적 참여 · 상담 모두 무료입니다. (사업자등록증 + 시공보험 확인 후 승인)" style={{ marginBottom: 0 }} />
+          {field("company", "업체명",        { required: true, placeholder: "예: 공간인테리어" })}
+          {field("owner",   "대표자명",      { required: true, placeholder: "대표자 성함" })}
+          {field("phone",   "연락처",        { required: true, placeholder: "휴대폰 번호", inputMode: "tel" })}
+          {field("bizNo",   "사업자등록번호", { required: true, placeholder: "000-00-00000", inputMode: "numeric" })}
+          <button type="button" disabled={!step1Ok} onClick={() => goStep(2)} style={navGold(step1Ok)}>
+            다음 - 서류 업로드
+          </button>
+          {stepHint(1)}
+        </>
+      )}
+
+      {/* ── STEP 2 · 시공·서류 ─────────────────────────────────── */}
+      {step === 2 && (
+        <>
+          {field("region", "시공지역", { required: true, placeholder: "예: 서울 전역, 경기 남부" })}
+          {field("field",  "전문분야", { required: true, placeholder: "예: 주거 리모델링, 상업 인테리어" })}
+
+          {/* V1.3 서류 업로드 — 사업자등록증(승인 필수) / 시공보험증권(선택·예치금 할인 기준) · 시안 업로드 카드 */}
+          <div>
+            <label style={labelStyle}>사업자등록증 <span style={{ color: GOLDD }}>(승인 필수)</span></label>
+            {uploadCard("biz", bizFile, setBizFile, { title: "사업자등록증 촬영 / 파일 선택", sub: "JPG/PNG/PDF 10MB 이하 · OCR 자동 대조" })}
+          </div>
+          <div>
+            <label style={labelStyle}>
+              시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(베타 서비스 선택 / 정식 서비스 필수) · 우수 파트너 우대 혜택</span>
+            </label>
+            {uploadCard("ins", insFile, setInsFile, { title: "시공보험증권 업로드", sub: "우수 파트너 우대 · 신뢰보증금 할인" })}
+            <div style={{ fontSize: 11, color: TEXT3, marginTop: 5, lineHeight: 1.6 }}>
+              시공보험증권 제출 업체는 우수 파트너 우대정책에 따라 신뢰보증금 할인 혜택이 적용됩니다.<br />
+              공간마켓은 무면허·불법·서류 미비 업체의 활동을 제한하며, 검증된 파트너에게 우대 혜택을 제공합니다.
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>시공보험 가입 여부</label>
+            <select
+              className="gm-pinput"
+              style={{ ...inputStyle, appearance: "none", color: form.insurance ? NAVY : TEXT3 }}
+              value={form.insurance}
+              onChange={set("insurance")}
+            >
+              <option value="">선택 안 함</option>
+              <option value="가입">가입</option>
+              <option value="미가입">미가입</option>
+              <option value="확인필요">확인 필요</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button type="button" onClick={() => goStep(1)} style={navBack}>이전</button>
+            <button type="button" disabled={!step2Ok} onClick={() => goStep(3)} style={navGold(step2Ok)}>
+              다음 - 약관 동의
+            </button>
+          </div>
+          {stepHint(2)}
+        </>
+      )}
+
+      {/* ── STEP 3 · 약관·제출 ─────────────────────────────────── */}
+      {step === 3 && (
+        <>
+          {/* 업체 운영 준수서약 — 필수 체크(미체크 시 가입 신청 버튼 비활성). 표시·동의 전용. */}
+          <div>
+            <label style={labelStyle}>업체 운영 준수서약 <span style={{ color: GOLDD }}>*</span></label>
+            <div style={{
+              border: `1px solid #E8E1D8`, borderRadius: 14, background: "#FFFDFA",
+              padding: "14px 16px",
+            }}>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" }}>
+                <input type="checkbox" checked={pledge} onChange={(e) => setPledge(e.target.checked)}
+                  style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, cursor: "pointer" }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>아래 내용을 확인하고 동의합니다.</span>
+              </label>
+              <ul style={{
+                margin: "10px 0 0", paddingLeft: 18, fontSize: 12, color: TEXT2, lineHeight: 1.7,
+                paddingTop: 10, borderTop: `1px solid #F3EEE4`,
+              }}>
+                {[
+                  "허위 사업자정보 또는 허위 시공이력으로 가입하지 않습니다.",
+                  "고객과의 상담, 견적, 계약, 시공 과정에서 성실하게 응대합니다.",
+                  "베타 기간 동안 공간마켓 시스템 구조에 따라 견적, 상담, 계약 진행, 프로젝트 기록을 성실히 이용합니다.",
+                  "토스페이먼츠 승인 전까지 앱 내 안전결제가 제공되지 않음을 확인했습니다.",
+                  "베타 기간의 실제 결제는 고객과 업체가 상호 협의하여 진행됨을 확인했습니다.",
+                  "무단 직거래 유도, 허위 견적, 연락 두절, 부실 시공, 리뷰 조작을 하지 않습니다.",
+                  "분쟁 발생 시 공간마켓 운영팀의 확인 요청에 성실히 협조합니다.",
+                  "정식 서비스 오픈 후 공간보증 예치금 및 공간보증 심사가 적용될 수 있음을 확인했습니다.",
+                  "본인은 위 내용을 모두 확인하였으며, 공간마켓 운영정책에 따라 성실히 참여할 것을 서약합니다.",
+                ].map((t, i) => <li key={i} style={{ marginBottom: 4 }}>{t}</li>)}
+              </ul>
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>문의사항</label>
+            <textarea
+              className="gm-pinput"
+              style={{ ...inputStyle, height: 100, padding: "12px 16px", resize: "none" }}
+              placeholder="추가로 전달하실 내용이 있다면 입력해 주세요 (선택)"
+              value={form.message}
+              onChange={set("message")}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button type="button" onClick={() => goStep(2)} style={navBack}>이전</button>
+            <button
+              type="submit"
+              disabled={saving || !canSubmit}
+              style={{
+                flex: 1, height: 52, borderRadius: 999, border: "1px solid #E9DDC0",
+                cursor: saving || !canSubmit ? "default" : "pointer",
+                background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)", color: NAVY, fontSize: 16, fontWeight: 800,
+                fontFamily: SANS, letterSpacing: "-0.01em", opacity: saving || !canSubmit ? 0.5 : 1,
+                boxShadow: "0 8px 24px rgba(200,168,106,.28), 0 0 0 1px rgba(232,220,192,.8) inset, 0 1px 2px rgba(255,255,255,.6) inset",
+              }}>
+              {saving ? "접수 중..." : "공간파트너 가입 신청"}
+            </button>
+          </div>
+          {/* V1.5/V1.6 신청폼 하단 안심 문구 */}
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6 }}>
+            {["무료 상담", "가입 강요 없음", "1~2 영업일 내 연락", "검토 후 승인 진행"].map((t) => (
+              <span key={t} style={{
+                fontSize: 11.5, fontWeight: 700, color: GOLDD,
+                background: GOLDB, border: `1px solid ${GOLD}`,
+                borderRadius: 99, padding: "4px 11px",
+              }}>
+                ✓ {t}
+              </span>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, color: TEXT3, textAlign: "center", lineHeight: 1.6 }}>
+            신청 후 관리자 검토를 거쳐 가입 절차를 안내드립니다.<br />
+            자동 문자·이메일은 발송되지 않습니다.
+          </div>
+          {stepHint(3)}
+        </>
+      )}
     </form>
   );
 }
@@ -754,15 +820,9 @@ export default function PartnerLandingScreen() {
         <div id="partner-consult-form" style={{ padding: "8px 0 36px", scrollMarginTop: 16 }}>
           <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 24, padding: "22px 18px",
             maxWidth: 520, margin: "0 auto", boxShadow: "0 4px 24px rgba(18,26,22,.04)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <b style={{ fontSize: 16 }}>무인 입점 (3분)</b>
               <span style={okBadge}>상담사 전화 없음</span>
-            </div>
-            {/* 진행바(시안 .prog) — 작성 → 서류 → 등급 → 입금 → 완료. 첫 구간 활성(신청서 작성 단계) */}
-            <div style={{ display: "flex", gap: 6, margin: "12px 0 18px" }}>
-              {[0, 1, 2, 3, 4].map((i) => (
-                <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i === 0 ? GOLD : "#E8E1D8" }} />
-              ))}
             </div>
             <ConsultForm />
           </div>
