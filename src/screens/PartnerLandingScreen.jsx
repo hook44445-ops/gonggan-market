@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadFiles, setPartnerLeadPledge } from "../lib/supabase";
+import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadFiles, attachPartnerLeadIdCard, setPartnerLeadPledge } from "../lib/supabase";
 import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
@@ -176,6 +176,8 @@ function ConsultForm() {
   // V1.3 서류 업로드: 사업자등록증(승인 필수) / 시공보험증권(선택, 예치금 할인 기준).
   const [bizFile, setBizFile] = useState(null);
   const [insFile, setInsFile] = useState(null);
+  // V1.7: 대표자 신분증(선택) — best-effort 저장(migration 073). 필수 아님·제출 차단 안 함.
+  const [idFile, setIdFile] = useState(null);
   // 업체 운영 준수서약 — 필수 체크(프론트 상태값만 사용 · DB/API 미전송).
   const [pledge, setPledge] = useState(false);
   // V2 무인 온보딩: 제출 성공 시 생성된 lead 정보를 보관해 STEP2~4 로 이어준다.
@@ -252,6 +254,13 @@ function ConsultForm() {
           if (insFile) insUrl = await uploadFile("documents", `partner_leads/${leadId}/ins_${Date.now()}_${insFile.name}`, insFile);
           if (bizUrl || insUrl) await attachPartnerLeadFiles(leadId, { businessLicenseUrl: bizUrl, insuranceFileUrl: insUrl });
         } catch (e) { console.warn("[partner files] 업로드 실패(신청은 계속):", e); }
+        // V1.7: 대표자 신분증(선택) — 사업자/보험과 분리 저장. 073 미적용 시 이 호출만 no-op.
+        if (idFile) {
+          try {
+            const idUrl = await uploadFile("documents", `partner_leads/${leadId}/id_${Date.now()}_${idFile.name}`, idFile);
+            if (idUrl) await attachPartnerLeadIdCard(leadId, idUrl);
+          } catch (e) { console.warn("[partner id-card] 저장 실패(신청은 계속):", e); }
+        }
         // 운영준수서약 동의 기록(migration 071) — best-effort. 버튼은 동의 시에만 활성이므로 항상 true.
         // 본 RPC 미존재(마이그레이션 미적용)/실패는 가입 제출을 막지 않는다.
         try {
@@ -289,6 +298,8 @@ function ConsultForm() {
   const uploadCard = (kind, file, onFile, { title, sub, accept = "image/*,application/pdf" }) => {
     const ico = kind === "ins"
       ? { t: "INS", bg: "#F5F8F5", color: "#2D5A27", border: "#D5E5D6" }
+      : kind === "id"
+      ? { t: "ID", bg: "#F9F6F2", color: "#8A857E", border: "#E8E1D8" }
       : { t: "IMG", bg: "#F9F6F2", color: "#1A2E22", border: "#E8E1D8" };
     return (
       <label className="gm-upload" style={{ display: "block", border: "1.5px dashed #E8E1D8",
@@ -394,6 +405,12 @@ function ConsultForm() {
               시공보험증권 제출 업체는 우수 파트너 우대정책에 따라 신뢰보증금 할인 혜택이 적용됩니다.<br />
               공간마켓은 무면허·불법·서류 미비 업체의 활동을 제한하며, 검증된 파트너에게 우대 혜택을 제공합니다.
             </div>
+          </div>
+          <div>
+            <label style={labelStyle}>
+              대표자 신분증 <span style={{ color: TEXT3, fontWeight: 500 }}>(선택 · 본인 확인용)</span>
+            </label>
+            {uploadCard("id", idFile, setIdFile, { title: "대표자 신분증 업로드 (선택)", sub: "본인 확인용 · 암호화 저장" })}
           </div>
 
           <div>

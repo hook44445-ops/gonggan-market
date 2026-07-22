@@ -1809,6 +1809,15 @@ export const attachPartnerLeadFiles = (leadId, { businessLicenseUrl = null, insu
     p_insurance_file_url:   insuranceFileUrl,
   });
 
+// V1.7: 대표자 신분증(선택) url 저장(migration 073). 사업자/보험 첨부와 분리 호출 —
+//   073 미적용 환경에서는 이 호출만 실패(no-op)하고 기존 서류 첨부는 영향받지 않는다.
+//   p_id_card_url 만 전달하므로 073 4-arg RPC 에만 매칭(기존 3-arg 에는 매칭 안 됨).
+export const attachPartnerLeadIdCard = (leadId, idCardUrl = null) =>
+  supabase.rpc("partner_lead_attach_files", {
+    p_lead_id:     leadId,
+    p_id_card_url: idCardUrl,
+  });
+
 // 운영준수서약 동의 기록(migration 071) — 제출 직후 best-effort 호출.
 //   본 RPC 미존재/실패는 가입 제출을 막지 않는다(호출부 try/catch). 동의 일시는 ISO 문자열.
 export const setPartnerLeadPledge = (leadId, agreed = true, agreedAt = null) =>
