@@ -4,13 +4,30 @@ import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
 import AppFooter from "../components/AppFooter"; // 사업자정보 푸터(법적 필수 · 삭제 금지)
-import { BetaBanner, BetaBadge } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { BetaBanner } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
+
+// ── 베타 배지 (badge-beta · 이모지 없이 초록 점 blink + #F5EED6 배경) ────────────
+// FINAL BALANCED: 시안의 .badge-beta 이식. 이모지 배지 대체(현재 배포본 버그 수정 #2).
+function BadgeBeta({ style }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6, background: "#F5EED6",
+      border: "1px solid #E8DCC0", color: "#6B4F1A", padding: "6px 12px", borderRadius: 999,
+      fontSize: 11, fontWeight: 700, ...style,
+    }}>
+      <span className="gm-beta-dot" style={{ width: 6, height: 6, background: "#2D5A27", borderRadius: "50%" }} />
+      BETA 파트너
+    </span>
+  );
+}
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#121A16";
 const NAVY2 = "#1E2A22";
 const NAVY3 = "#2C3A30";
+const FOREST = "#1A2E22"; // 파트너 히어로 배경(웜 포레스트)
+const OK    = "#2D5A27";  // 타임라인 배지/초록 점
 const GOLD  = "#C8A86A";
 const GOLDD = "#A98B4E";
 const GOLDB = "rgba(200,168,106,0.12)";
@@ -246,16 +263,33 @@ function ConsultForm() {
   };
 
   const inputStyle = {
-    width: "100%", height: 48, borderRadius: 10,
-    border: `1.5px solid #E8E1D8`,
-    padding: "0 14px", fontSize: 15, fontFamily: SANS,
-    background: WHITE, color: NAVY, outline: "none",
+    width: "100%", height: 48, borderRadius: 12,
+    border: `1px solid #E8E1D8`,
+    padding: "0 16px", fontSize: 15, fontFamily: SANS,
+    background: "#FFFDFA", color: NAVY, outline: "none",
     boxSizing: "border-box",
   };
   const labelStyle = {
     fontSize: 12, fontWeight: 700, color: TEXT2, marginBottom: 6, display: "block",
   };
   const req = <span style={{ color: GOLDD }}> *</span>;
+  // 업로드 카드(시안 · dashed + 아이콘 박스). kind: biz/ins 색상 구분.
+  const uploadCard = (kind, file, onFile, { title, sub, accept = "image/*,application/pdf" }) => {
+    const ico = kind === "ins"
+      ? { t: "INS", bg: "#F5F8F5", color: "#2D5A27", border: "#D5E5D6" }
+      : { t: "IMG", bg: "#F9F6F2", color: "#1A2E22", border: "#E8E1D8" };
+    return (
+      <label className="gm-upload" style={{ display: "block", border: "1.5px dashed #E8E1D8",
+        borderRadius: 14, background: "#FFFDFA", padding: 18, textAlign: "center", cursor: "pointer" }}>
+        <div style={{ width: 44, height: 44, borderRadius: 10, background: ico.bg, color: ico.color,
+          border: `1px solid ${ico.border}`, display: "flex", alignItems: "center", justifyContent: "center",
+          margin: "0 auto 8px", fontWeight: 800, fontSize: 11 }}>{ico.t}</div>
+        <b style={{ fontSize: 13, color: NAVY }}>{file ? file.name : title}</b><br />
+        <small style={{ color: TEXT3, fontSize: 11 }}>{file ? "선택됨 · 다시 선택하려면 탭" : sub}</small>
+        <input type="file" accept={accept} style={{ display: "none" }} onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+      </label>
+    );
+  };
 
   if (submitted) {
     // V2: lead id 가 있으면 무인 온보딩(STEP2~4)으로 이어간다.
@@ -284,7 +318,7 @@ function ConsultForm() {
   const field = (k, label, { required = false, placeholder = "", inputMode } = {}) => (
     <div>
       <label style={labelStyle}>{label}{required && req}</label>
-      <input style={inputStyle} placeholder={placeholder} value={form[k]} onChange={set(k)} inputMode={inputMode} />
+      <input className="gm-pinput" style={inputStyle} placeholder={placeholder} value={form[k]} onChange={set(k)} inputMode={inputMode} />
     </div>
   );
 
@@ -298,24 +332,16 @@ function ConsultForm() {
       {field("region",  "시공지역",      { required: true, placeholder: "예: 서울 전역, 경기 남부" })}
       {field("field",   "전문분야",      { required: true, placeholder: "예: 주거 리모델링, 상업 인테리어" })}
 
-      {/* V1.3 서류 업로드 — 사업자등록증(승인 필수) / 시공보험증권(선택·예치금 할인 기준) */}
+      {/* V1.3 서류 업로드 — 사업자등록증(승인 필수) / 시공보험증권(선택·예치금 할인 기준) · 시안 업로드 카드 */}
       <div>
         <label style={labelStyle}>사업자등록증 <span style={{ color: GOLDD }}>(승인 필수)</span></label>
-        <label style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: bizFile ? NAVY : TEXT3 }}>
-          <span>📎</span>
-          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bizFile ? bizFile.name : "파일 선택 (PDF/이미지)"}</span>
-          <input type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => setBizFile(e.target.files?.[0] ?? null)} />
-        </label>
+        {uploadCard("biz", bizFile, setBizFile, { title: "사업자등록증 촬영 / 파일 선택", sub: "JPG/PNG/PDF 10MB 이하 · OCR 자동 대조" })}
       </div>
       <div>
         <label style={labelStyle}>
           시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(베타 서비스 선택 / 정식 서비스 필수) · 우수 파트너 우대 혜택</span>
         </label>
-        <label style={{ ...inputStyle, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: insFile ? NAVY : TEXT3 }}>
-          <span>📎</span>
-          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{insFile ? insFile.name : "파일 선택 (PDF/이미지)"}</span>
-          <input type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => setInsFile(e.target.files?.[0] ?? null)} />
-        </label>
+        {uploadCard("ins", insFile, setInsFile, { title: "시공보험증권 업로드", sub: "우수 파트너 우대 · 신뢰보증금 할인" })}
         <div style={{ fontSize: 11, color: TEXT3, marginTop: 5, lineHeight: 1.6 }}>
           시공보험증권 제출 업체는 우수 파트너 우대정책에 따라 신뢰보증금 할인 혜택이 적용됩니다.<br />
           공간마켓은 무면허·불법·서류 미비 업체의 활동을 제한하며, 검증된 파트너에게 우대 혜택을 제공합니다.
@@ -325,6 +351,7 @@ function ConsultForm() {
       <div>
         <label style={labelStyle}>시공보험 가입 여부</label>
         <select
+          className="gm-pinput"
           style={{ ...inputStyle, appearance: "none", color: form.insurance ? NAVY : TEXT3 }}
           value={form.insurance}
           onChange={set("insurance")}
@@ -340,8 +367,8 @@ function ConsultForm() {
       <div>
         <label style={labelStyle}>업체 운영 준수서약 <span style={{ color: GOLDD }}>*</span></label>
         <div style={{
-          border: `1.5px solid #E8E1D8`, borderRadius: 10, background: WHITE,
-          padding: "12px 14px",
+          border: `1px solid #E8E1D8`, borderRadius: 14, background: "#FFFDFA",
+          padding: "14px 16px",
         }}>
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer" }}>
             <input type="checkbox" checked={pledge} onChange={(e) => setPledge(e.target.checked)}
@@ -370,7 +397,8 @@ function ConsultForm() {
       <div>
         <label style={labelStyle}>문의사항</label>
         <textarea
-          style={{ ...inputStyle, height: 100, padding: "12px 14px", resize: "none" }}
+          className="gm-pinput"
+          style={{ ...inputStyle, height: 100, padding: "12px 16px", resize: "none" }}
           placeholder="추가로 전달하실 내용이 있다면 입력해 주세요 (선택)"
           value={form.message}
           onChange={set("message")}
@@ -381,11 +409,11 @@ function ConsultForm() {
         type="submit"
         disabled={saving || !canSubmit}
         style={{
-          height: 52, borderRadius: 12, border: "none",
+          height: 52, borderRadius: 999, border: "1px solid #E9DDC0",
           cursor: saving || !canSubmit ? "default" : "pointer",
-          background: GOLD, color: WHITE, fontSize: 16, fontWeight: 900,
-          fontFamily: SANS, letterSpacing: "-0.2px", opacity: saving || !canSubmit ? 0.55 : 1,
-          boxShadow: `0 6px 20px rgba(200,168,106,0.35)`,
+          background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)", color: NAVY, fontSize: 16, fontWeight: 800,
+          fontFamily: SANS, letterSpacing: "-0.01em", opacity: saving || !canSubmit ? 0.5 : 1,
+          boxShadow: "0 8px 24px rgba(200,168,106,.28), 0 0 0 1px rgba(232,220,192,.8) inset, 0 1px 2px rgba(255,255,255,.6) inset",
         }}>
         {saving ? "접수 중..." : "공간파트너 가입 신청"}
       </button>
@@ -543,6 +571,7 @@ function FaqItem({ q, a }) {
         }}>
         <span style={{ fontSize: 14.5, fontWeight: 800, color: NAVY, lineHeight: 1.45 }}>Q. {q}</span>
         <span style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
           fontSize: 16, color: GOLD, flexShrink: 0,
           transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s ease",
         }}>⌄</span>
@@ -597,15 +626,16 @@ export default function PartnerLandingScreen() {
     justifyContent: "center", alignItems: "center", gap: 8, transition: "transform .08s",
   };
   const okBadge = {
-    display: "inline-flex", padding: "4px 8px", borderRadius: 999, fontSize: 10,
-    fontWeight: 700, background: "#E7F0E6", color: "#2D5A27",
+    display: "inline-flex", alignItems: "center", padding: "4px 10px", borderRadius: 999,
+    fontSize: 11, fontWeight: 700, background: "#E7F0E6", color: OK,
+    border: "1px solid #C8D8C5", whiteSpace: "nowrap", flexShrink: 0,
   };
   const STEPS = [
-    { b: "간편 신청", t: " - 3개 필드만" },
-    { b: "사업자등록증 업로드", t: " - OCR + 국세청 API 자동 검증", badge: "무인" },
-    { b: "관리자 3초 승인", t: " - 일치 배지만 보고 승인" },
-    { b: "견적 수신 - 검증 고객 알림", t: "" },
-    { b: "수주·정산 4.4%만 - 베타 0원", t: "" },
+    { b: "간편 신청",          t: "3개 필드만",              badge: "30초" },
+    { b: "사업자등록증 업로드", t: "OCR + 국세청 API 자동 검증", badge: "무인" },
+    { b: "관리자 3초 승인",    t: "일치 배지만 보고 승인",     badge: "3초" },
+    { b: "견적 수신",          t: "검증 고객 알림",           badge: "검증" },
+    { b: "수주·정산 4.4%만",   t: "베타 0원",                 badge: "수수료" },
   ];
   const GRADE_ROWS = [
     ["베이직 50만원", "500만원까지"],
@@ -616,11 +646,11 @@ export default function PartnerLandingScreen() {
   ];
 
   return (
-    <div style={{ fontFamily: SANS, background: OFF, color: NAVY, minHeight: "100vh", letterSpacing: "-0.02em", WebkitFontSmoothing: "antialiased" }}>
+    <div style={{ fontFamily: SANS, background: OFF, color: NAVY, minHeight: "100vh", letterSpacing: "-0.02em", WebkitFontSmoothing: "antialiased", overflowX: "hidden" }}>
       {showLoginGate && <CompanyLoginGate onClose={() => setShowLoginGate(false)} />}
 
       {/* ── TOPNAV (고객/파트너 · 라우팅 유지) ─────────────────────── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(249,246,242,.85)",
+      <div className="gm-topnav" style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(249,246,242,.85)",
         backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
         borderBottom: "1px solid #E8E1D8", display: "flex", justifyContent: "space-between",
         alignItems: "center", padding: "10px 20px" }}>
@@ -628,20 +658,20 @@ export default function PartnerLandingScreen() {
           공간마켓<span style={{ color: GOLD, fontWeight: 400 }}> BETA</span>
         </div>
         <div style={{ display: "flex", gap: 6, background: "#ECE7DF", padding: 4, borderRadius: 999 }}>
-          <button onClick={() => { window.location.href = "/"; }} style={{ padding: "8px 16px", borderRadius: 999,
+          <button className="gm-tab" onClick={() => { window.location.href = "/"; }} style={{ padding: "8px 16px", borderRadius: 999,
             border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: SANS,
             background: "transparent", color: TEXT3 }}>고객</button>
-          <button style={{ padding: "8px 16px", borderRadius: 999, border: "none", fontWeight: 700,
+          <button className="gm-tab" style={{ padding: "8px 16px", borderRadius: 999, border: "none", fontWeight: 700,
             fontSize: 13, cursor: "pointer", fontFamily: SANS, background: NAVY, color: "#fff" }}>파트너</button>
         </div>
       </div>
 
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 20px" }}>
         {/* ── NAVY(웜 잉크) HERO ──────────────────────────────────── */}
-        <div ref={heroRef} style={{ background: `linear-gradient(160deg, ${NAVY} 0%, ${NAVY3} 100%)`,
-          color: "#F9F6F2", borderRadius: 32, padding: "40px 28px", margin: "20px 0",
+        <div ref={heroRef} style={{ background: FOREST,
+          color: "#F9F6F2", borderRadius: 28, padding: "28px 24px", margin: "16px 0 28px",
           position: "relative", overflow: "hidden" }}>
-          <BetaBadge label="베타 파트너" kind="bid" style={{ position: "absolute", top: 14, right: 14, zIndex: 3 }} />
+          <BadgeBeta style={{ position: "absolute", top: 14, right: 14, zIndex: 3 }} />
           <h1 style={{ fontSize: "clamp(24px,6vw,36px)", fontWeight: 800, lineHeight: 1.1, margin: 0, wordBreak: "keep-all" }}>
             광고비 없이 수주하는<br /><span style={{ color: GOLD }}>공간파트너</span>
           </h1>
@@ -659,58 +689,80 @@ export default function PartnerLandingScreen() {
           </div>
         </div>
 
-        {/* ── TIMELINE : 신청부터 수주까지 ───────────────────────── */}
+        {/* ── TIMELINE : 신청부터 수주까지 (dot 32px 일관 · 카드별 배지 · 중앙 연결선) ── */}
         <div style={{ padding: "36px 0" }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>신청부터 수주까지</h3>
-          <div style={{ position: "relative", paddingLeft: 40, marginTop: 18 }}>
-            <div style={{ position: "absolute", left: 14, top: 4, bottom: 4, width: 1, background: "#E8E1D8" }} />
+          <h3 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 16px" }}>신청부터 수주까지</h3>
+          <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* 연결선: dot(32px) 중앙(15px)에 정렬 */}
+            <div style={{ position: "absolute", left: 15, top: 16, bottom: 16, width: 2, background: "#E8E1D8", borderRadius: 2 }} />
             {STEPS.map((s, i) => (
-              <div key={i} style={{ position: "relative", marginBottom: 20 }}>
-                <div style={{ position: "absolute", left: -34, width: 28, height: 28, borderRadius: "50%",
-                  background: i === 0 ? NAVY : "#fff", border: i === 0 ? "none" : "1px solid #E8E1D8",
-                  color: i === 0 ? "#fff" : TEXT3, display: "flex", alignItems: "center",
-                  justifyContent: "center", fontWeight: 800, fontSize: 12 }}>{i + 1}</div>
-                <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 24, padding: 12, fontSize: 13, lineHeight: 1.5 }}>
-                  <b>{s.b}</b>{s.t}
-                  {s.badge && <span style={{ ...okBadge, marginLeft: 6 }}>{s.badge}</span>}
+              <div key={i} style={{ position: "relative", zIndex: 1, display: "grid",
+                gridTemplateColumns: "32px 1fr", gap: 14, alignItems: "center" }}>
+                <div style={{ width: 32, height: 32, minWidth: 32, borderRadius: "50%",
+                  background: i === 0 ? NAVY : "#E7F0E6", border: i === 0 ? "2px solid " + NAVY : "2px solid #C8D8C5",
+                  color: i === 0 ? "#fff" : OK, display: "flex", alignItems: "center",
+                  justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0 }}>{i + 1}</div>
+                <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 16,
+                  padding: "14px 16px", minHeight: 56, display: "flex", justifyContent: "space-between",
+                  alignItems: "center", gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <b style={{ fontSize: 14, letterSpacing: "-0.02em" }}>{s.b}</b>
+                    <div style={{ fontSize: 12, color: TEXT3, marginTop: 2, lineHeight: 1.4 }}>{s.t}</div>
+                  </div>
+                  <span style={okBadge}>{s.badge}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ── 신뢰 등급표 (다크 카드 · 시안 동일) ─────────────────── */}
+        {/* ── 신뢰 등급표 (다크 카드 · 중앙정렬 헤더 · ≥700px 2열 · keep-all 공지) ── */}
         <div style={{ padding: "0 0 36px" }}>
-          <div style={{ background: NAVY, color: "#F9F6F2", border: "none", borderRadius: 24, padding: 24 }}>
-            <h3 style={{ textAlign: "center", fontSize: 16, margin: 0 }}>
-              신뢰 등급 = 수주 가능 금액
-              <span style={{ background: GOLD, color: NAVY, padding: "2px 8px", borderRadius: 99, fontSize: 11, marginLeft: 6, fontWeight: 800 }}>베타 100업체 무료</span>
-            </h3>
-            <p style={{ textAlign: "center", fontSize: 11, opacity: .5, margin: "8px 0 16px" }}>
+          <div style={{ background: NAVY, color: "#F9F6F2", borderRadius: 28, padding: "28px 20px" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+              marginBottom: 8, textAlign: "center" }}>
+              <div style={{ fontSize: 18, fontWeight: 800, whiteSpace: "nowrap" }}>신뢰 등급 = 수주 가능 금액</div>
+              <span style={{ background: GOLD, color: NAVY, padding: "6px 14px", borderRadius: 999,
+                fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>베타 100업체 무료</span>
+            </div>
+            <p style={{ textAlign: "center", fontSize: 12, color: "#9A958E", lineHeight: 1.5,
+              margin: "0 0 18px", wordBreak: "keep-all" }}>
               베타 100업체까지는 1천만원/1억 공사도 0원, 등급 제한 없음
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="gm-grade-list" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
               {GRADE_ROWS.map(([name, limit]) => (
-                <div key={name} style={{ display: "flex", justifyContent: "space-between",
-                  background: "rgba(255,255,255,.06)", padding: "12px 16px", borderRadius: 14, fontSize: 13 }}>
+                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                  background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.08)",
+                  padding: "14px 18px", borderRadius: 14, fontSize: 13 }}>
                   <span>{name}</span><b style={{ color: GOLD }}>{limit}</b>
                 </div>
               ))}
             </div>
-            <div style={{ border: `1px solid ${GOLD}`, borderRadius: 14, padding: 12, marginTop: 16, textAlign: "center", fontSize: 12 }}>
-              <b style={{ color: GOLD }}>베타 100업체까지는 금액 상관없이 0원, 전등급 무료 개방</b><br />
-              <small style={{ opacity: .5 }}>베타 이후: 베이직(500만)까지 무료, 이상은 예치 후 해제</small>
+            <div style={{ border: `1.5px solid ${GOLD}`, borderRadius: 16, padding: 16, marginTop: 18,
+              textAlign: "center", background: "rgba(200,168,106,.07)" }}>
+              <b style={{ color: GOLD, fontSize: 13, display: "block", lineHeight: 1.6, wordBreak: "keep-all" }}>
+                베타 100업체까지는<br />금액 상관없이 0원, 전등급 무료 개방
+              </b>
+              <span style={{ color: "#9A958E", fontSize: 11, marginTop: 8, display: "block", wordBreak: "keep-all" }}>
+                베타 이후: 베이직(500만)까지 무료, 이상은 예치 후 해제
+              </span>
             </div>
           </div>
         </div>
 
         {/* ── 무인 입점 신청 (실제 ConsultForm · API 유지) ────────── */}
         <div id="partner-consult-form" style={{ padding: "8px 0 36px", scrollMarginTop: 16 }}>
-          <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 28, padding: 24,
-            maxWidth: 520, margin: "0 auto", boxShadow: "0 20px 60px rgba(18,26,22,.06)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <b style={{ fontSize: 15 }}>무인 입점 신청</b>
+          <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 24, padding: "22px 18px",
+            maxWidth: 520, margin: "0 auto", boxShadow: "0 4px 24px rgba(18,26,22,.04)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <b style={{ fontSize: 16 }}>무인 입점 (3분)</b>
               <span style={okBadge}>상담사 전화 없음</span>
+            </div>
+            {/* 진행바(시안 .prog) — 작성 → 서류 → 등급 → 입금 → 완료. 첫 구간 활성(신청서 작성 단계) */}
+            <div style={{ display: "flex", gap: 6, margin: "12px 0 18px" }}>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i === 0 ? GOLD : "#E8E1D8" }} />
+              ))}
             </div>
             <ConsultForm />
           </div>
@@ -740,17 +792,39 @@ export default function PartnerLandingScreen() {
           fontSize: 13, color: TEXT3, fontFamily: SANS }}>공간마켓 홈으로</button>
       </div>
 
-      {/* ── 모바일 플로팅 CTA (유지) ─────────────────────────────── */}
+      {/* ── 모바일 하단 고정 CTA (골드 그라데이션 단일 버튼 · 검은테두리 제거 + 옅은 베이지 띠 + shimmer) ── */}
       <style>{`
-        @media (max-width: 640px){ .gm-partner-floating-cta{ display:block !important } }
-        .gm-partner-floating-cta{ display:none }
+        .gm-beta-dot{ animation: gmBlink 1.8s infinite }
+        @keyframes gmBlink{ 0%,100%{ opacity:1 } 50%{ opacity:.4 } }
+        .gm-partner-sticky-cta{ display:none }
+        @media (max-width: 640px){ .gm-partner-sticky-cta{ display:flex } }
+        @media (min-width: 700px){ .gm-grade-list{ grid-template-columns: 1fr 1fr !important } }
+        @media (max-width: 380px){
+          .gm-topnav{ padding: 8px 12px !important }
+          .gm-tab{ padding: 6px 12px !important; font-size: 12px !important }
+        }
+        .gm-sticky-gold::after{ content:''; position:absolute; top:0; left:-100%; width:100%; height:100%;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent); transition:.6s }
+        .gm-sticky-gold:hover::after{ left:100% }
+        .gm-sticky-gold:hover{ transform:translateY(-2px);
+          box-shadow:0 12px 32px rgba(200,168,106,.42), 0 0 0 1px rgba(232,220,192,.9) inset }
+        .gm-sticky-gold:active{ transform:translateY(0) }
+        .gm-pinput:focus{ border-color:#C8A86A !important; background:#fff !important }
+        .gm-upload:hover{ border-color:#C8A86A }
+        .gm-grade-opt:hover{ border-color:#C8A86A !important; transform:translateY(-1px);
+          box-shadow:0 4px 16px rgba(200,168,106,.15) }
         button:active{ transform: scale(.985) }
       `}</style>
-      <div className="gm-partner-floating-cta" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 900,
-        padding: "10px 16px calc(10px + env(safe-area-inset-bottom, 0px))", background: "rgba(18,26,22,0.92)",
-        backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", borderTop: `1px solid rgba(200,168,106,0.3)` }}>
-        <button onClick={() => scrollToForm("floating")} style={{ ...btn, height: 50, background: GOLD, color: "#fff",
-          fontSize: 16, fontWeight: 900, boxShadow: `0 6px 20px rgba(200,168,106,0.4)` }}>
+      <div className="gm-partner-sticky-cta" style={{ position: "fixed", left: 16, right: 16,
+        bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 900,
+        justifyContent: "center", pointerEvents: "none" }}>
+        <button className="gm-sticky-gold" onClick={() => scrollToForm("floating")} style={{
+          pointerEvents: "auto", height: 52, maxWidth: 420, flex: 1, borderRadius: 999,
+          border: "1px solid #E9DDC0", background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)",
+          color: NAVY, fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em", cursor: "pointer",
+          fontFamily: SANS, position: "relative", overflow: "hidden",
+          transition: "transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s",
+          boxShadow: "0 8px 24px rgba(200,168,106,.28), 0 0 0 1px rgba(232,220,192,.8) inset, 0 1px 2px rgba(255,255,255,.6) inset" }}>
           공간파트너 가입 신청
         </button>
       </div>

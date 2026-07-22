@@ -3,23 +3,26 @@ import { SHOW_DEBUG_UI } from "../constants/release";
 import AppFooter from "../components/AppFooter";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 
-// ── HTML 시안(gonggan_final_ALL.html) 이식 · 고객 랜딩 ─────────────────────────
+// ── HTML 시안(gonggan_FINAL_BALANCED.html) 이식 · 고객 랜딩 ────────────────────
 // 디자인/레이아웃/컬러/타이포는 시안과 거의 동일. 기능·라우팅·상태는 기존 그대로
 // (onSelectRole / '/partner' 이동 / onResume / onAdminTap). 맨 끝에 SEO 소개문·FAQ·
 // 사업자정보 푸터·약관 링크를 자연스럽게 유지(법적 필수·삭제 금지).
+// FINAL BALANCED: 히어로 서브텍스트 대비 상향(#3D3A36·w500) + A17 수직 그라데이션,
+// 카드 radius 20 / 이미지 200(모바일 170), 하단 고정 CTA(sticky-cta-fix + fab-up 분리).
 
 // 시안 컬러 토큰
 const SK = {
   bg: "#F9F6F2", ink: "#121A16", forest: "#1A2E22", gold: "#C8A86A",
   line: "#E8E1D8", muted: "#8A857E", surface: "#FFFFFF",
+  inkSoft: "#3D3A36", // A17 저휘도 대응 서브텍스트
 };
-const SANS = "'Pretendard','Apple SD Gothic Neo',sans-serif";
+const SANS = "'Pretendard Variable','Pretendard','Apple SD Gothic Neo',sans-serif";
 
-// 시공사례(시안 동일 카피 · 프로젝트 asset 이미지)
+// 시공사례(시안 동일 카피 · living/kitchen/cafe 이미지)
 const CASES = [
-  { img: "/images/gonggan-case1.webp", title: "32평 아파트 거실 리모델링", meta: "서울 강남구 · 2,400만원 · 14일 완공" },
-  { img: "/images/gonggan-case2.webp", title: "24평 주방·아일랜드 교체",   meta: "성남시 · 1,100만원 · 7일 완공" },
-  { img: "/images/gonggan-case3.webp", title: "마포구 상가 카페 인테리어", meta: "마포구 · 3,200만원 · 21일 완공" },
+  { img: "/images/living.webp",  title: "32평 아파트 거실 리모델링", meta: "서울 강남구 · 2,400만원 · 14일 완공" },
+  { img: "/images/kitchen.webp", title: "24평 주방·아일랜드 교체",   meta: "성남시 · 1,100만원 · 7일 완공" },
+  { img: "/images/cafe.webp",    title: "마포구 상가 카페 인테리어", meta: "마포구 · 3,200만원 · 21일 완공" },
 ];
 
 // FAQ(유지 · 삭제 금지)
@@ -39,7 +42,8 @@ function FaqRow({ q, a }) {
           gap: 12, padding: "15px 16px", background: "transparent", border: "none",
           cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
         <span style={{ fontSize: 14, fontWeight: 800, color: SK.ink, lineHeight: 1.4 }}>Q. {q}</span>
-        <span style={{ fontSize: 15, color: SK.gold, flexShrink: 0,
+        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
+          fontSize: 15, color: SK.gold, flexShrink: 0,
           transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>⌄</span>
       </button>
       {open && <div style={{ padding: "0 16px 15px", fontSize: 13, color: SK.muted, lineHeight: 1.65 }}>{a}</div>}
@@ -64,10 +68,12 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
 
   const goConsumer = () => onSelectRole("consumer");
   const goPartner  = () => { window.location.href = "/partner"; };
+  const scrollTop  = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   return (
     <div style={{ background: SK.bg, color: SK.ink, fontFamily: SANS, minHeight: "100vh",
-      letterSpacing: "-0.02em", WebkitFontSmoothing: "antialiased" }}>
+      letterSpacing: "-0.02em", WebkitFontSmoothing: "antialiased", overflowX: "hidden",
+      paddingBottom: "calc(96px + env(safe-area-inset-bottom, 0px))" }}>
       {SHOW_DEBUG_UI && (
         <div style={{ background: "#1a1a1a", color: "#00ff88", textAlign: "center", padding: "4px 0",
           fontSize: 10, fontFamily: "monospace" }}>
@@ -76,7 +82,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
       )}
 
       {/* ── TOPNAV (sticky · 고객/파트너 탭) ─────────────────────────── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(249,246,242,.85)",
+      <div className="gm-topnav" style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(249,246,242,.85)",
         backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
         borderBottom: `1px solid ${SK.line}`, display: "flex", justifyContent: "space-between",
         alignItems: "center", padding: "10px 20px" }}>
@@ -84,9 +90,10 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           공간마켓<span style={{ color: SK.gold, fontWeight: 400 }}> BETA</span>
         </div>
         <div style={{ display: "flex", gap: 6, background: "#ECE7DF", padding: 4, borderRadius: 999 }}>
-          <button style={{ padding: "8px 16px", borderRadius: 999, border: "none", fontWeight: 700,
-            fontSize: 13, cursor: "pointer", fontFamily: SANS, background: SK.ink, color: "#fff" }}>고객</button>
-          <button onClick={goPartner} style={{ padding: "8px 16px", borderRadius: 999, border: "none",
+          <button className="gm-tab" style={{ padding: "8px 16px", borderRadius: 999, border: "none", fontWeight: 700,
+            fontSize: 13, cursor: "pointer", fontFamily: SANS, background: SK.ink, color: "#fff",
+            boxShadow: "0 2px 8px rgba(0,0,0,.2)" }}>고객</button>
+          <button className="gm-tab" onClick={goPartner} style={{ padding: "8px 16px", borderRadius: 999, border: "none",
             fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: SANS, background: "transparent",
             color: SK.muted }}>파트너</button>
         </div>
@@ -102,23 +109,23 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         )}
 
         {/* ── HERO ──────────────────────────────────────────────────── */}
-        <div style={{ position: "relative", borderRadius: 32, overflow: "hidden",
+        <div className="gm-hero" style={{ position: "relative", borderRadius: 28, overflow: "hidden",
           margin: "20px 0 36px", minHeight: 560, background: "#E8E0D1", display: "flex", alignItems: "center" }}>
-          <div style={{ position: "absolute", inset: 0, backgroundImage: `url('/images/gonggan-hero.webp')`,
-            backgroundSize: "cover", backgroundPosition: "center", filter: "saturate(.9) brightness(1.05)" }} />
-          <div style={{ position: "absolute", inset: 0, background:
-            "linear-gradient(90deg, #F9F6F2 0%, rgba(249,246,242,.92) 38%, rgba(249,246,242,.15) 72%, rgba(249,246,242,0) 100%)" }} />
-          <div style={{ position: "relative", zIndex: 2, padding: "36px 32px", maxWidth: 440 }}>
+          <div style={{ position: "absolute", inset: 0, backgroundImage: `url('/images/living.webp')`,
+            backgroundSize: "cover", backgroundPosition: "center", filter: "saturate(.88) brightness(.94)" }} />
+          <div className="gm-hero-ov" style={{ position: "absolute", inset: 0 }} />
+          <div className="gm-hero-ct" style={{ position: "relative", zIndex: 2, padding: "36px 32px", maxWidth: 440 }}>
             <div style={{ display: "inline-flex", gap: 6, alignItems: "center", background: SK.forest,
               color: "#E8E1D8", padding: "6px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700,
               letterSpacing: ".02em", marginBottom: 16 }}>
               사업자·보험·시공이력 검증 완료
             </div>
-            <h1 style={{ fontSize: "clamp(30px,6vw,44px)", fontWeight: 800, lineHeight: 1.08,
+            <h1 className="gm-hero-h1" style={{ fontSize: "clamp(30px,6vw,44px)", fontWeight: 800, lineHeight: 1.08,
               letterSpacing: "-0.04em", wordBreak: "keep-all", margin: 0 }}>
               인테리어, 아무에게나<br />맡길 수 없으니까
             </h1>
-            <p style={{ fontSize: 15, color: SK.muted, margin: "14px 0 22px", lineHeight: 1.6, wordBreak: "keep-all" }}>
+            <p style={{ fontSize: 15, color: SK.inkSoft, opacity: 1, fontWeight: 500,
+              margin: "14px 0 22px", lineHeight: 1.65, wordBreak: "keep-all" }}>
               집수리부터 상가 리모델링까지. 검증된 업체 3곳 견적을 1분만에 비교하세요. 가입비 0원 · 견적 무료.
             </p>
             <button onClick={goConsumer} style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
@@ -126,7 +133,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             </button>
             <div style={{ display: "flex", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
               {["✓ 검증업체만", "✓ 기록 보호", "✓ 단계별 정산"].map((t) => (
-                <span key={t} style={{ fontSize: 11, color: SK.muted }}>{t}</span>
+                <span key={t} style={{ fontSize: 11, color: "#6B6560" }}>{t}</span>
               ))}
             </div>
           </div>
@@ -141,10 +148,10 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <div className="gm-grid" style={{ display: "grid", gap: 16 }}>
             {CASES.map((c) => (
               <div key={c.title} className="gm-card" style={{ background: SK.surface, border: `1px solid ${SK.line}`,
-                borderRadius: 24, overflow: "hidden", transition: "transform .25s, box-shadow .25s" }}>
-                <img src={c.img} alt={c.title} loading="lazy" style={{ width: "100%", height: 220, objectFit: "cover", display: "block" }} />
+                borderRadius: 20, overflow: "hidden", transition: "transform .25s, box-shadow .25s" }}>
+                <img src={c.img} alt={c.title} loading="lazy" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
                 <div style={{ padding: "16px 18px" }}>
-                  <b style={{ fontSize: 15 }}>{c.title}</b>
+                  <b style={{ fontSize: 14, letterSpacing: "-0.02em" }}>{c.title}</b>
                   <div style={{ fontSize: 11, color: SK.muted, marginTop: 4 }}>{c.meta}</div>
                 </div>
               </div>
@@ -153,7 +160,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         </div>
 
         {/* ── DARK CTA ──────────────────────────────────────────────── */}
-        <div style={{ background: SK.forest, color: "#E8E1D8", borderRadius: 32, padding: "48px 28px",
+        <div style={{ background: SK.forest, color: "#E8E1D8", borderRadius: 28, padding: "48px 28px",
           textAlign: "center", margin: "28px 0" }}>
           <h2 style={{ fontSize: "clamp(20px,4.5vw,24px)", fontWeight: 800, lineHeight: 1.35, margin: 0 }}>
             아직도 발품 파세요?<br />공간마켓이 검증까지 끝냈습니다
@@ -210,11 +217,37 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         </div>
       </div>
 
-      {/* 반응형 · 카드 hover (시안 규칙) */}
+      {/* ── 하단 고정 CTA (sticky-cta-fix · 모바일) · fab-up 흰색 원형 분리 ── */}
+      <div className="gm-sticky-cta" style={{ position: "fixed", left: 16, right: 16,
+        bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 60,
+        display: "flex", alignItems: "center", gap: 12, background: SK.ink,
+        borderRadius: 999, padding: 6, boxShadow: "0 12px 32px rgba(0,0,0,.3)" }}>
+        <button onClick={goConsumer} style={{ flex: 1, background: SK.gold, color: SK.ink, border: "none",
+          fontWeight: 800, fontSize: 15, padding: "15px 20px", borderRadius: 999, cursor: "pointer",
+          fontFamily: SANS }}>무료 비교견적 받기</button>
+        <div onClick={scrollTop} role="button" aria-label="맨 위로" style={{ width: 44, height: 44,
+          background: "#fff", borderRadius: "50%", display: "flex", alignItems: "center",
+          justifyContent: "center", flexShrink: 0, cursor: "pointer", fontWeight: 800,
+          boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>↑</div>
+      </div>
+
+      {/* 반응형 · 카드 hover · 히어로 오버레이(A17 수직/데스크탑 수평) · 고정 CTA 게이트 */}
       <style>{`
-        @media (min-width: 780px){ .gm-grid{ grid-template-columns: repeat(3,1fr) } }
+        .gm-hero-ov{ background: linear-gradient(180deg, rgba(249,246,242,.88) 0%, rgba(249,246,242,.92) 50%, rgba(249,246,242,.65) 100%) }
+        @media (min-width: 600px){ .gm-hero-ov{ background: linear-gradient(90deg, #F9F6F2 0%, rgba(249,246,242,.92) 38%, rgba(249,246,242,.15) 72%, transparent 100%) } }
+        @media (min-width: 780px){ .gm-grid{ grid-template-columns: repeat(3,1fr) } .gm-hero{ min-height: 620px } .gm-hero-ct{ max-width: 500px; padding: 48px } }
         .gm-card:hover{ transform: translateY(-3px); box-shadow: 0 12px 32px rgba(18,26,22,.08) }
         button:active{ transform: scale(.985) }
+        .gm-sticky-cta{ display: none }
+        @media (max-width: 640px){ .gm-sticky-cta{ display: flex } }
+        @media (max-width: 380px){
+          .gm-hero{ min-height: 480px; border-radius: 20px; margin: 8px 0 20px }
+          .gm-hero-ct{ padding: 20px 16px }
+          .gm-hero-h1{ font-size: 26px !important; line-height: 1.15 }
+          .gm-card img{ height: 170px }
+          .gm-topnav{ padding: 8px 12px !important }
+          .gm-tab{ padding: 6px 12px !important; font-size: 12px !important }
+        }
       `}</style>
     </div>
   );
