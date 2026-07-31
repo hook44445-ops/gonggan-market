@@ -3,11 +3,13 @@
 // 일 때 이 화면을 렌더한다. 외부 링크가 아닌 앱 내부 라우트(/privacy, /terms)로 동작한다.
 
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
+import { TELECOM_SALES_NO } from "../components/AppFooter"; // 통신판매업 신고번호 단일 소스
 
 const BIZ = {
   상호: "공간사이",
   대표자: "김태웅",
   사업자등록번호: "270-53-00885",
+  통신판매업신고번호: TELECOM_SALES_NO,
   주소: "경기도 성남시 중원구 성남대로1151번길 5, 2층 202호",
   고객센터: "010-2740-6030",
   이메일: "gongganmarket.biz@gmail.com",
@@ -73,6 +75,7 @@ const PRIVACY = {
         `상호 : ${BIZ.상호}`,
         `대표자 : ${BIZ.대표자}`,
         `사업자등록번호 : ${BIZ.사업자등록번호}`,
+        `통신판매업 신고번호 : ${BIZ.통신판매업신고번호}`,
         `이메일 : ${BIZ.이메일}`,
         `전화번호 : ${BIZ.고객센터}`,
       ].join("\n"),
@@ -143,6 +146,7 @@ const TERMS = {
         `상호 : ${BIZ.상호}`,
         `대표자 : ${BIZ.대표자}`,
         `사업자등록번호 : ${BIZ.사업자등록번호}`,
+        `통신판매업 신고번호 : ${BIZ.통신판매업신고번호}`,
         `주소 : ${BIZ.주소}`,
         `고객센터 : ${BIZ.고객센터}`,
         `이메일 : ${BIZ.이메일}`,
