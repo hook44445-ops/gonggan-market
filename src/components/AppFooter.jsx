@@ -38,6 +38,10 @@ export default function AppFooter() {
         <a href="/terms" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>
           이용약관
         </a>
+        <span style={{ color: "#c4bcae", margin: "0 8px" }}>·</span>
+        <a href="/refund" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>
+          환불정책
+        </a>
       </div>
     </div>
   );

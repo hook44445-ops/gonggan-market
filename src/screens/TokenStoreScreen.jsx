@@ -13,11 +13,26 @@ import MissionList from '../components/token/MissionList';
 export default function TokenStoreScreen({ user, balance, logs, missionStats, onBack, onBuy, onEarnToken, onHistory }) {
   const [tab, setTab]   = useState('store');
   const [toast, setToast] = useState(null);
+  const [buying, setBuying] = useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2000); };
 
-  const handleBuy = (pkg) => {
-    showToast(`⚠️ MVP: 실결제 미연동. ${(pkg.tokens + pkg.bonus).toLocaleString()} 토큰 구매 (${pkg.price.toLocaleString()}원)`);
+  // 실결제 연동 — 상위(MainApp)의 onBuy 가 토스 결제창을 띄운다(성공 시 결제창으로 리다이렉트).
+  // onBuy 미제공(구형 호출부) 시에만 안내 토스트로 폴백.
+  const handleBuy = async (pkg) => {
+    if (buying) return;
+    if (typeof onBuy !== 'function') {
+      showToast('결제 준비 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    setBuying(true);
+    try {
+      await onBuy(pkg);
+    } catch {
+      showToast('결제를 시작하지 못했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setBuying(false);
+    }
   };
 
   return (
@@ -53,10 +68,14 @@ export default function TokenStoreScreen({ user, balance, logs, missionStats, on
             </div>
             <div style={{ marginTop: S.xl, background: C.surface, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.8 }}>
-                ✓ 결제는 향후 연동 예정 (MVP)<br/>
+                ✓ 결제는 토스페이먼츠로 안전하게 처리됩니다 (신용·체크카드)<br/>
                 ✓ 토큰은 라운지 대화 신청, 좋아요, 글 상단 노출 등에 사용<br/>
-                ✓ 구매한 토큰은 환불되지 않습니다
+                ✓ 구매 즉시 토큰이 계정에 지급됩니다 (디지털 상품)<br/>
+                ✓ <strong style={{ color: C.text2 }}>미사용 토큰</strong>은 결제 후 <strong style={{ color: C.text2 }}>7일 이내 청약철회(환불)</strong> 가능 · 일부라도 사용 시 환불 불가
               </div>
+              <a href="/refund" style={{ display: 'inline-block', marginTop: S.md, fontSize: 12, fontWeight: 700, color: C.brand, textDecoration: 'underline' }}>
+                환불 정책 자세히 보기 →
+              </a>
             </div>
           </>
         )}

@@ -122,7 +122,10 @@ import {
   leaveLoungeChat,
   contractBootstrap,
   getEscrowById,
+  purchaseSpaceTokens,
 } from "../lib/supabase";
+import { getProvider } from "../services/payment/paymentService";
+import { ACTIVE_PROVIDER, getMethodMeta } from "../services/payment/constants";
 import { useCompanyList } from "../hooks/useCompanyList";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
@@ -654,7 +657,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [myPostsRefreshKey, setMyPostsRefreshKey] = useState(0);
   const [localLoungePosts, setLocalLoungePosts]   = useState([]);
   const [localLoungeStories, setLocalLoungeStories] = useState([]);
-  const { balance: tokenBalance, logs: tokenLogs, missionStats: tokenMissionStats, spend: spendToken, earn: earnToken } = useSpaceToken(user?.id);
+  const { balance: tokenBalance, logs: tokenLogs, missionStats: tokenMissionStats, spend: spendToken, earn: earnToken, reload: reloadTokens } = useSpaceToken(user?.id);
   const { temperature } = useSpaceTemperature(user?.id);
 
   const [activeJobs, setActiveJobs] = useState([]);
@@ -1975,6 +1978,67 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     processTossReturn().catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Handle TossPayments redirect return — 라운지 공간토큰 구매
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    // 결제 실패/취소 복귀
+    if (params.get("pg_token_fail") === "1") {
+      window.history.replaceState({}, "", window.location.pathname);
+      try { localStorage.removeItem("pg_token_pending"); } catch { /* noop */ }
+      showToast("결제가 취소됐어요. 다시 시도할 수 있어요.");
+      return;
+    }
+
+    if (params.get("pg_token_success") !== "1") return;
+    window.history.replaceState({}, "", window.location.pathname);
+
+    const paymentKey = params.get("paymentKey");
+    const orderId    = params.get("orderId");
+    const amount     = Number(params.get("amount")) || 0;
+
+    let pending = null;
+    try { pending = JSON.parse(localStorage.getItem("pg_token_pending") ?? "null"); } catch { /* noop */ }
+    try { localStorage.removeItem("pg_token_pending"); } catch { /* noop */ }
+    if (!pending?.userId || !pending?.tokens) return;
+
+    const processTokenReturn = async () => {
+      // 서버 승인 검증 — 토스가 거절하면 적립하지 않는다(에스크로와 동일 패턴).
+      if (paymentKey && orderId && amount) {
+        try {
+          const confirmRes = await fetch("/api/confirm-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentKey, orderId, amount }),
+          });
+          if (!confirmRes.ok) { showToast("결제 확인에 실패했습니다. 고객센터에 문의해주세요."); return; }
+        } catch {
+          showToast("결제 서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+          return;
+        }
+      }
+
+      // 주문 기록 + 토큰 적립(멱등: order_id 기준).
+      const { data, error } = await purchaseSpaceTokens({
+        userId:     pending.userId,
+        tokens:     pending.tokens,
+        price:      pending.price,
+        orderId:    orderId ?? pending.orderId,
+        paymentKey: paymentKey ?? `toss_${Date.now()}`,
+        method:     "CARD",
+        description: pending.description,
+      });
+      if (error || data?.error) { showToast("토큰 적립에 실패했어요. 고객센터에 문의해주세요."); return; }
+
+      await reloadTokens?.();
+      showToast(`🪙 ${Number(pending.tokens).toLocaleString()} 토큰이 지급됐어요!`);
+      setPrevScreen("my");
+      setScreen("token-history");
+    };
+
+    processTokenReturn().catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // One-time cleanup: archive known test requests (runs once on mount)
   useEffect(() => {
     const TEST_IDS = [
@@ -2491,6 +2555,78 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     setPrevScreen(screen);
     if (co) setSelCo(co);
     setScreen(s);
+  };
+
+  // ── 라운지 공간토큰 실결제 ────────────────────────────────────────────────
+  // 토큰 패키지 구매 → 토스 결제창(카드). 성공 시 successUrl(?pg_token_success=1) 로
+  // 복귀하면 아래 useEffect(processTokenReturn) 가 승인 검증 후 purchase_space_tokens
+  // RPC 로 주문 기록 + 토큰 적립을 멱등 처리한다. (에스크로 결제와 동일한 검증 패턴)
+  const handleTokenPurchase = async (pkg) => {
+    if (!pkg) return;
+    if (!user?.id) { showToast("로그인 후 이용할 수 있어요."); return; }
+    const tokens = (pkg.tokens ?? 0) + (pkg.bonus ?? 0);
+    const price  = pkg.price ?? 0;
+    if (tokens <= 0 || price <= 0) { showToast("잘못된 상품이에요."); return; }
+    const description = `공간토큰 ${tokens.toLocaleString()}개 구매 (${price.toLocaleString()}원)`;
+
+    const SAFE_MODE  = import.meta.env.VITE_SAFE_MODE === "true";
+    const clientKey  = import.meta.env.VITE_TOSS_CLIENT_KEY;
+    const isLiveKey  = String(clientKey ?? "").startsWith("live_");
+
+    // 결제창 연동 경로 — 클라이언트 키가 있고 SAFE_MODE 가 아닐 때.
+    if (clientKey && !SAFE_MODE) {
+      const orderId = `token_${Date.now()}`;
+      try {
+        localStorage.setItem("pg_token_pending", JSON.stringify({
+          userId: user.id, tokens, price, description, orderId, savedAt: Date.now(),
+        }));
+      } catch { /* noop */ }
+      try {
+        const tossMethod = getMethodMeta("CARD")?.tossMethod ?? "카드";
+        await getProvider(ACTIVE_PROVIDER).requestPayment({
+          clientKey,
+          tossMethod,
+          amount: price,
+          orderId,
+          orderName: `공간토큰 ${tokens.toLocaleString()}개`,
+          customerName: user?.name ?? "고객",
+          successUrl: window.location.origin + "/?pg_token_success=1",
+          failUrl:    window.location.origin + "/?pg_token_fail=1",
+        });
+        // 팝업 모드 등 리다이렉트가 발생하지 않은 경우 — 라이브 키면 승인 검증 없이 적립 금지.
+        if (isLiveKey) return;
+      } catch (err) {
+        // 라이브 키 환경에서는 결제 실패/취소 시 적립하지 않는다.
+        if (isLiveKey) {
+          try { localStorage.removeItem("pg_token_pending"); } catch { /* noop */ }
+          showToast("결제가 완료되지 않았습니다. 다시 시도해주세요.");
+          return;
+        }
+        // 테스트 키 환경 — 결제창 로드 실패 시 시뮬레이션으로 폴백.
+      }
+      // 테스트 키(비-live) — 결제창 미리다이렉트/실패 시 시뮬레이션 적립.
+      try { localStorage.removeItem("pg_token_pending"); } catch { /* noop */ }
+      const { data, error } = await purchaseSpaceTokens({
+        userId: user.id, tokens, price, orderId,
+        paymentKey: `test_${Date.now()}`, method: "CARD", description,
+      });
+      if (error || data?.error) { showToast("토큰 적립에 실패했어요. 고객센터에 문의해주세요."); return; }
+      await reloadTokens?.();
+      showToast(`🪙 ${tokens.toLocaleString()} 토큰이 지급됐어요! (테스트 모드)`);
+      go("token-history");
+      return;
+    }
+
+    // 키 없음 / SAFE_MODE — 시뮬레이션 적립(개발·QA).
+    const orderId = `token_sim_${Date.now()}`;
+    const { data, error } = await purchaseSpaceTokens({
+      userId: user.id, tokens, price, orderId,
+      paymentKey: `sim_${Date.now()}`, method: "CARD", description,
+    });
+    if (error || data?.error) { showToast("토큰 적립에 실패했어요. 고객센터에 문의해주세요."); return; }
+    await reloadTokens?.();
+    showToast(`🪙 ${tokens.toLocaleString()} 토큰이 지급됐어요! (테스트 모드)`);
+    go("token-history");
   };
 
   // 알림 클릭 → 관련 화면 이동(끊겼던 거래 Flow 복구). 알림은 related_id=request.id 를 담는다.
@@ -4177,6 +4313,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             logs={tokenLogs}
             missionStats={tokenMissionStats}
             onBack={() => setScreen(prevScreen || "my")}
+            onBuy={handleTokenPurchase}
             onEarnToken={async (action) => earnToken(action)}
             onHistory={() => go("token-history")}
           />
