@@ -5,6 +5,7 @@ import MainApp from "./components/MainApp";
 import LoginScreen from "./screens/LoginScreen";
 import LandingScreen from "./screens/LandingScreen";
 import LegalScreen from "./screens/LegalScreen";
+import TokenProductScreen from "./screens/TokenProductScreen";
 import PartnerLandingScreen from "./screens/PartnerLandingScreen";
 import DeleteAccountScreen from "./screens/DeleteAccountScreen";
 import DownloadScreen from "./screens/DownloadScreen";
@@ -269,6 +270,13 @@ export default function App() {
       return (
         <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
           <LegalScreen type={_staticPath === "/terms" ? "terms" : _staticPath === "/refund" ? "refund" : "privacy"} />
+        </ErrorBoundary>
+      );
+    }
+    if (_staticPath === "/tokens") {
+      return (
+        <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
+          <TokenProductScreen />
         </ErrorBoundary>
       );
     }
