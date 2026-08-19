@@ -29,8 +29,18 @@ export default function AppFooter() {
           </div>
         ))}
       </div>
-      {/* 법적고지 링크 — 토스 PG 심사용. 앱 내부 라우트(/privacy, /terms). */}
+      {/* 판매 상품 안내 링크 — 토스 PG 심사용(비회원 열람용 상품 페이지). */}
       <div style={{ marginTop: 10, fontSize: 11, color: "#7A7670" }}>
+        <a href="/safe-payment" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>
+          공간안전결제 안내
+        </a>
+        <span style={{ color: "#c4bcae", margin: "0 8px" }}>·</span>
+        <a href="/tokens" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>
+          공간토큰 구매
+        </a>
+      </div>
+      {/* 법적고지 링크 — 토스 PG 심사용. 앱 내부 라우트(/privacy, /terms). */}
+      <div style={{ marginTop: 6, fontSize: 11, color: "#7A7670" }}>
         <a href="/privacy" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>
           개인정보처리방침
         </a>
