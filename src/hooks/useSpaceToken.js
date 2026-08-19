@@ -52,13 +52,15 @@ export function useSpaceToken(userId) {
   const balanceRef = useRef(0);
   const logsRef    = useRef([]);
 
-  useEffect(() => {
+  // 잔액/원장/미션 통계 재조회 — 최초 마운트와 외부 이벤트(예: 토큰 구매 결제 복귀) 공용.
+  const load = useCallback(async () => {
     if (!userId) return;
-    Promise.all([
-      getSpaceToken(userId),
-      getSpaceTokenLogs(userId),
-      getUserMissionStats(userId),
-    ]).then(async ([tokenResult, logsResult, stats]) => {
+    try {
+      const [tokenResult, logsResult, stats] = await Promise.all([
+        getSpaceToken(userId),
+        getSpaceTokenLogs(userId),
+        getUserMissionStats(userId),
+      ]);
       const initBalance = tokenResult.data?.balance ?? 20;
       const initLogs    = logsResult.data ?? [];
       const { balance: finalBalance, logs: finalLogs } = await grantThresholds(userId, initBalance, initLogs, stats);
@@ -67,10 +69,12 @@ export function useSpaceToken(userId) {
       setBalance(finalBalance);
       setLogs(finalLogs);
       setMissionStats(stats);
-    }).catch(() => {
+    } catch {
       // graceful — keep defaults
-    });
+    }
   }, [userId]);
+
+  useEffect(() => { load(); }, [load]);
 
   const earn = useCallback(async (action, description) => {
     const amount = TOKEN_EARN[action.toUpperCase()] ?? TOKEN_EARN[action] ?? 0;
@@ -146,5 +150,5 @@ export function useSpaceToken(userId) {
     } catch {}
   }, [userId]);
 
-  return { balance, logs, missionStats, earn, spend, adminAdjust, refreshMissionStats };
+  return { balance, logs, missionStats, earn, spend, adminAdjust, refreshMissionStats, reload: load };
 }

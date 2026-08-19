@@ -10,10 +10,13 @@ import { getEarnDescription, getSpendDescription } from '../utils/tokenCalculato
 export default function TokenHistoryScreen({ balance, logs = [], onBack }) {
   const [tab, setTab] = useState('all');
 
+  // 구매 로그는 원장에 'action' 컬럼이 없어(086) type='earn' + 설명(…구매)으로 기록된다.
+  // → 구매 탭은 action 또는 설명 마커로 매칭하고, 적립 탭은 구매를 제외한다.
+  const isPurchase = (l) => l.action === 'purchase' || /구매/.test(l.description ?? '');
   const filtered = tab === 'all' ? logs
-    : tab === 'earn'    ? logs.filter(l => l.type === 'earn')
+    : tab === 'earn'    ? logs.filter(l => l.type === 'earn' && !isPurchase(l))
     : tab === 'spend'   ? logs.filter(l => l.type === 'spend')
-    : logs.filter(l => l.action === 'purchase');
+    : logs.filter(isPurchase);
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, paddingBottom: 40 }}>

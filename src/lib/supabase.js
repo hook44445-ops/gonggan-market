@@ -2892,6 +2892,20 @@ export const getSpaceTokenLogs = (userId, limit = 50) =>
     .order("created_at", { ascending: false })
     .limit(limit);
 
+// 공간토큰 실결제(라운지) — 토스 결제창 성공 + /api/confirm-payment 승인 검증 후 1회 호출.
+// 멱등(order_id 기준): 주문 기록(payment_orders)·트랜잭션(payment_transactions)·토큰 적립
+// (space_tokens)·원장(space_token_logs)을 security-definer RPC 로 원자적 처리한다(migration 099).
+export const purchaseSpaceTokens = ({ userId, tokens, price, orderId, paymentKey, method, description }) =>
+  supabase.rpc("purchase_space_tokens", {
+    p_user_id:     userId,
+    p_tokens:      tokens,
+    p_price:       price,
+    p_order_id:    orderId,
+    p_payment_key: paymentKey ?? null,
+    p_method:      method ?? "CARD",
+    p_description: description ?? null,
+  });
+
 export const getUserMissionStats = async (userId) => {
   if (!userId) return null;
   const [postsRes, commentsRes, storiesRes, likesRes, requestsRes] = await Promise.all([

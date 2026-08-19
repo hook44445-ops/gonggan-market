@@ -8,8 +8,8 @@ export const BIZ_ROWS = [
   ["대표자", "김태웅"],
   ["사업자등록번호", "270-53-00885"],
   ["통신판매업신고번호", TELECOM_SALES_NO],
-  ["주소", "경기도 성남시 성남대로1151번길 5, 2층 202호"],
-  ["고객센터", "010-2740-6030"],
+  ["주소", "경기도 성남시 중원구 성남대로1151번길 5, 2층 202호"],
+  ["고객센터", "070-7954-2740"],
   ["이메일", "gongganmarket.biz@gmail.com"],
 ];
 
@@ -37,6 +37,10 @@ export default function AppFooter() {
         <span style={{ color: "#c4bcae", margin: "0 8px" }}>·</span>
         <a href="/terms" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>
           이용약관
+        </a>
+        <span style={{ color: "#c4bcae", margin: "0 8px" }}>·</span>
+        <a href="/refund" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>
+          환불정책
         </a>
       </div>
     </div>
