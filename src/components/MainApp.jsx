@@ -4947,131 +4947,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               </button>
             )}
 
-            {/* 통합 알림함 — notifications 조회 전용(B단계) */}
-            <NotificationInbox user={user} onNavigate={openNotificationTarget} />
-
-            {/* 푸시 알림 설정 */}
-            <PushNotificationSettings user={user} />
-
-            {/* 도움말 — 에스크로/분쟁/환불 안내 (고객센터) */}
-            <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.text3, marginBottom: S.sm }}>도움말 · 고객센터</div>
-              {(faqExpanded ? FAQ_ITEMS : FAQ_ITEMS.slice(0, 5)).map(({ q, a, extra }) => (
-                <details key={q} style={{ borderBottom: `1px solid ${C.bg}`, padding: `${S.sm}px 0` }}>
-                  <summary style={{ fontSize: 14, color: C.text2, cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>❔ {q}</span><span style={{ fontSize: 16, color: C.text3 }}>›</span>
-                  </summary>
-                  <div style={{ fontSize: 14, color: C.text3, lineHeight: 1.7, marginTop: S.sm, paddingLeft: 2 }}>{a}</div>
-                  {extra && <div style={{ marginTop: S.sm }}>{extra}</div>}
-                </details>
-              ))}
-              {!faqExpanded && FAQ_ITEMS.length > 5 && (
-                <button onClick={() => setFaqExpanded(true)} style={{ width: "100%", marginTop: S.sm, padding: "10px 0",
-                  background: "none", border: "none", cursor: "pointer", fontFamily: "inherit",
-                  fontSize: 13, fontWeight: 700, color: C.text3 }}>
-                  더보기 ⌵
-                </button>
-              )}
-            </div>
-
-            {/* 라운지 — 공간온도 · 토큰 · 알림설정 (FAQ 다음, 로그아웃 이전으로 위치 조정) */}
-            <LoungeMyPageSection
-              user={user}
-              temperature={temperature}
-              balance={tokenBalance}
-              tokenLogs={tokenLogs}
-              myPosts={localLoungePosts}
-              refreshKey={myPostsRefreshKey}
-              onNavigate={(target) => {
-                if (target === "token-store")        { requireAuth(() => go("token-store")); }
-                else if (target === "token-history") { requireAuth(() => go("token-history")); }
-              }}
-              onOpenLoungeChat={(req) => requireAuth(() => {
-                // room_id = lounge_{lounge_chat_request_id} — 기존 chats 재사용 (신규 테이블 없음)
-                setLoungeChat({
-                  roomId: `lounge_${req.requestId}`,
-                  partner: {
-                    userId:    req.partnerId,
-                    nickname:  getAnonymousNickname(req.partnerId, req.postId),
-                    postId:    req.postId,
-                    postTitle: req.postTitle,
-                    requestId: req.requestId,
-                  },
-                });
-                go("lounge-chat");
-              })}
-              onEditPost={(post) => {
-                setEditingLoungePost(post);
-                setEditOriginScreen('my');
-                go("lounge-edit");
-              }}
-              onDeletePost={(id) => {
-                setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
-                if (loungePost?.id === id) setLoungePost(null);
-              }}
-            />
-
-            {/* 설정 — 로그아웃 / 기기 인증 삭제 (도움말 다음, 앱 정보 이전 — 중요도 하향) */}
-            <div style={{ background: C.bg, borderRadius: R.xl, overflow: "hidden", marginBottom: S.lg }}>
-              <button onClick={onLogout} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: `${S.md}px ${S.lg}px`, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-                <span style={{ fontSize: 13, color: C.text3 }}>↩ 로그아웃</span>
-                <span style={{ fontSize: 15, color: C.text4 }}>›</span>
-              </button>
-              {onForgetDevice && (
-                <div style={{ borderTop: `1px solid ${C.bgWarm}` }}>
-                  {!showForgetConfirm ? (
-                    <button onClick={() => setShowForgetConfirm(true)} style={{ width: "100%", textAlign: "left",
-                      padding: `${S.sm}px ${S.lg}px`, background: "none", border: "none", cursor: "pointer",
-                      fontFamily: "inherit", fontSize: 11.5, color: C.text4 }}>이 기기 인증 삭제 (완전 로그아웃)</button>
-                  ) : (
-                    <div style={{ padding: S.lg }}>
-                      <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: 10 }}>
-                        이 기기에 저장된 계정 목록과 전화번호 인증이 삭제됩니다.<br />다음 로그인 시 전화번호 인증을 다시 진행해야 합니다.
-                      </div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => setShowForgetConfirm(false)} style={{ flex: 1, padding: "10px", background: C.surface,
-                          color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>취소</button>
-                        <button onClick={() => { setShowForgetConfirm(false); onForgetDevice(); }} style={{ flex: 1, padding: "10px",
-                          background: C.red, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>삭제하고 로그아웃</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* 회원탈퇴 — Google Play 계정 삭제 정책 대응 (/delete-account 진입) */}
-              <div style={{ borderTop: `1px solid ${C.bgWarm}` }}>
-                <button onClick={() => { window.location.href = "/delete-account"; }}
-                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: `${S.sm}px ${S.lg}px`, background: "none", border: "none", cursor: "pointer",
-                    fontFamily: "inherit", textAlign: "left" }}>
-                  <span style={{ fontSize: 11.5, color: C.text4 }}>회원탈퇴</span>
-                  <span style={{ fontSize: 13, color: C.text4 }}>›</span>
-                </button>
-              </div>
-            </div>
-
-            {/* 앱 정보 / 약관 — 경량 Footer (Apple Settings 느낌 · 문의→개인정보→약관 순) */}
-            <div style={{ background: "transparent", padding: `${S.md}px 4px 0`, marginBottom: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.text4, margin: `${S.md}px 0 2px` }}>앱 정보</div>
-              {[
-                { label: "문의하기",                onClick: () => { window.location.href = "mailto:gongganmarket.biz@gmail.com?subject=" + encodeURIComponent("[공간마켓] 문의"); } },
-                { label: "개인정보처리방침",         onClick: () => setTermsDocType("privacy_policy") },
-                { label: "이용약관",                onClick: () => setTermsDocType("service_terms") },
-                { label: "위치기반서비스 이용약관",   onClick: () => setTermsDocType("location_terms") },
-                { label: "고객 거래 유의사항",        onClick: () => setTermsDocType("customer_transaction_notice") },
-                ...(activeRole === "company" ? [{ label: "업체 운영 준수서약", onClick: () => setTermsDocType("operation_pledge") }] : []),
-                { label: "사업자정보",              onClick: () => setShowBusinessInfo(true) },
-                { label: "앱 정보",                 onClick: () => setShowAppInfo(true) },
-              ].map(({ label, onClick }) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.bg}`, cursor: "pointer" }}
-                  onClick={onClick}>
-                  <span style={{ fontSize: 13, color: C.text3 }}>{label}</span>
-                  <span style={{ fontSize: 15, color: C.text4 }}>›</span>
-                </div>
-              ))}
-              <div style={{ fontSize: 11, color: C.text4, marginTop: S.sm }}>토큰 결제는 준비 중입니다.</div>
-            </div>
 
             {activeRole==="company" && (
               <div>
@@ -5269,6 +5144,132 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 })}
               </div>
             )}
+
+            {/* 통합 알림함 — notifications 조회 전용(B단계) */}
+            <NotificationInbox user={user} onNavigate={openNotificationTarget} />
+
+            {/* 푸시 알림 설정 */}
+            <PushNotificationSettings user={user} />
+
+            {/* 도움말 — 에스크로/분쟁/환불 안내 (고객센터) */}
+            <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text3, marginBottom: S.sm }}>도움말 · 고객센터</div>
+              {(faqExpanded ? FAQ_ITEMS : FAQ_ITEMS.slice(0, 5)).map(({ q, a, extra }) => (
+                <details key={q} style={{ borderBottom: `1px solid ${C.bg}`, padding: `${S.sm}px 0` }}>
+                  <summary style={{ fontSize: 14, color: C.text2, cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>❔ {q}</span><span style={{ fontSize: 16, color: C.text3 }}>›</span>
+                  </summary>
+                  <div style={{ fontSize: 14, color: C.text3, lineHeight: 1.7, marginTop: S.sm, paddingLeft: 2 }}>{a}</div>
+                  {extra && <div style={{ marginTop: S.sm }}>{extra}</div>}
+                </details>
+              ))}
+              {!faqExpanded && FAQ_ITEMS.length > 5 && (
+                <button onClick={() => setFaqExpanded(true)} style={{ width: "100%", marginTop: S.sm, padding: "10px 0",
+                  background: "none", border: "none", cursor: "pointer", fontFamily: "inherit",
+                  fontSize: 13, fontWeight: 700, color: C.text3 }}>
+                  더보기 ⌵
+                </button>
+              )}
+            </div>
+
+            {/* 라운지 — 공간온도 · 토큰 · 알림설정 (FAQ 다음, 로그아웃 이전으로 위치 조정) */}
+            <LoungeMyPageSection
+              user={user}
+              temperature={temperature}
+              balance={tokenBalance}
+              tokenLogs={tokenLogs}
+              myPosts={localLoungePosts}
+              refreshKey={myPostsRefreshKey}
+              onNavigate={(target) => {
+                if (target === "token-store")        { requireAuth(() => go("token-store")); }
+                else if (target === "token-history") { requireAuth(() => go("token-history")); }
+              }}
+              onOpenLoungeChat={(req) => requireAuth(() => {
+                // room_id = lounge_{lounge_chat_request_id} — 기존 chats 재사용 (신규 테이블 없음)
+                setLoungeChat({
+                  roomId: `lounge_${req.requestId}`,
+                  partner: {
+                    userId:    req.partnerId,
+                    nickname:  getAnonymousNickname(req.partnerId, req.postId),
+                    postId:    req.postId,
+                    postTitle: req.postTitle,
+                    requestId: req.requestId,
+                  },
+                });
+                go("lounge-chat");
+              })}
+              onEditPost={(post) => {
+                setEditingLoungePost(post);
+                setEditOriginScreen('my');
+                go("lounge-edit");
+              }}
+              onDeletePost={(id) => {
+                setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
+                if (loungePost?.id === id) setLoungePost(null);
+              }}
+            />
+
+            {/* 설정 — 로그아웃 / 기기 인증 삭제 (도움말 다음, 앱 정보 이전 — 중요도 하향) */}
+            <div style={{ background: C.bg, borderRadius: R.xl, overflow: "hidden", marginBottom: S.lg }}>
+              <button onClick={onLogout} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: `${S.md}px ${S.lg}px`, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                <span style={{ fontSize: 13, color: C.text3 }}>↩ 로그아웃</span>
+                <span style={{ fontSize: 15, color: C.text4 }}>›</span>
+              </button>
+              {onForgetDevice && (
+                <div style={{ borderTop: `1px solid ${C.bgWarm}` }}>
+                  {!showForgetConfirm ? (
+                    <button onClick={() => setShowForgetConfirm(true)} style={{ width: "100%", textAlign: "left",
+                      padding: `${S.sm}px ${S.lg}px`, background: "none", border: "none", cursor: "pointer",
+                      fontFamily: "inherit", fontSize: 11.5, color: C.text4 }}>이 기기 인증 삭제 (완전 로그아웃)</button>
+                  ) : (
+                    <div style={{ padding: S.lg }}>
+                      <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: 10 }}>
+                        이 기기에 저장된 계정 목록과 전화번호 인증이 삭제됩니다.<br />다음 로그인 시 전화번호 인증을 다시 진행해야 합니다.
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => setShowForgetConfirm(false)} style={{ flex: 1, padding: "10px", background: C.surface,
+                          color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>취소</button>
+                        <button onClick={() => { setShowForgetConfirm(false); onForgetDevice(); }} style={{ flex: 1, padding: "10px",
+                          background: C.red, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>삭제하고 로그아웃</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* 회원탈퇴 — Google Play 계정 삭제 정책 대응 (/delete-account 진입) */}
+              <div style={{ borderTop: `1px solid ${C.bgWarm}` }}>
+                <button onClick={() => { window.location.href = "/delete-account"; }}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: `${S.sm}px ${S.lg}px`, background: "none", border: "none", cursor: "pointer",
+                    fontFamily: "inherit", textAlign: "left" }}>
+                  <span style={{ fontSize: 11.5, color: C.text4 }}>회원탈퇴</span>
+                  <span style={{ fontSize: 13, color: C.text4 }}>›</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 앱 정보 / 약관 — 경량 Footer (Apple Settings 느낌 · 문의→개인정보→약관 순) */}
+            <div style={{ background: "transparent", padding: `${S.md}px 4px 0`, marginBottom: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.text4, margin: `${S.md}px 0 2px` }}>앱 정보</div>
+              {[
+                { label: "문의하기",                onClick: () => { window.location.href = "mailto:gongganmarket.biz@gmail.com?subject=" + encodeURIComponent("[공간마켓] 문의"); } },
+                { label: "개인정보처리방침",         onClick: () => setTermsDocType("privacy_policy") },
+                { label: "이용약관",                onClick: () => setTermsDocType("service_terms") },
+                { label: "위치기반서비스 이용약관",   onClick: () => setTermsDocType("location_terms") },
+                { label: "고객 거래 유의사항",        onClick: () => setTermsDocType("customer_transaction_notice") },
+                ...(activeRole === "company" ? [{ label: "업체 운영 준수서약", onClick: () => setTermsDocType("operation_pledge") }] : []),
+                { label: "사업자정보",              onClick: () => setShowBusinessInfo(true) },
+                { label: "앱 정보",                 onClick: () => setShowAppInfo(true) },
+              ].map(({ label, onClick }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.bg}`, cursor: "pointer" }}
+                  onClick={onClick}>
+                  <span style={{ fontSize: 13, color: C.text3 }}>{label}</span>
+                  <span style={{ fontSize: 15, color: C.text4 }}>›</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: C.text4, marginTop: S.sm }}>토큰 결제는 준비 중입니다.</div>
+            </div>
 
             {/* 앱 버전 · 사업자 정보 — 법적 정보이므로 마이페이지 최하단에 배치 */}
             <div style={{ textAlign: "center", marginTop: 40, marginBottom: 32 }}>
