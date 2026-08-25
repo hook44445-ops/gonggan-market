@@ -286,7 +286,7 @@ function ConsumerRequestCard({ r, closed, dLabel, dColor, dBg, onOpen }) {
       <div onClick={onOpen} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor: closed ? "default" : "pointer" }}>
         <div>
           <div style={{ fontSize:14, fontWeight:800, color: closed ? C.text3 : C.text1 }}>{r.type} · {r.size}</div>
-          <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>📍 {r.area} · {r.time}</div>
+          <div style={{ fontSize:12, color:C.text3, marginTop:3, display:"flex", alignItems:"center", gap:3 }}><Icon emoji="📍" size={11} color={C.text3} /> {r.area} · {r.time}</div>
         </div>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
           <span style={{ background:dBg, color:dColor, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>{dLabel}</span>
@@ -534,7 +534,7 @@ function FavEmptyState({ title, desc, onGo }) {
       <div style={{ position:"relative", width:64, height:64, margin:"0 auto 18px" }}>
         <div style={{ width:64, height:64, borderRadius:R.full, background:`linear-gradient(135deg,${C.brandL},${C.bgWarm})`,
           display:"flex", alignItems:"center", justifyContent:"center", border:`1.5px solid ${C.brandM}` }}>
-          <span style={{ fontSize:26, lineHeight:1 }}>🌿</span>
+          <Icon emoji="🌿" size={26} color={C.brand} />
         </div>
       </div>
       <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:8, letterSpacing:"-0.3px" }}>{title}</div>
@@ -2843,8 +2843,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               return (
                 <div key={progRow.id} style={{ background:C.ivory, borderRadius:R.xl, padding:S.xxl, marginBottom:S.lg,
                   border:`1px solid ${C.brandM}`, boxShadow:SHADOW.card }}>
-                  <div style={{ fontSize:14, fontWeight:800, color:C.brandD, marginBottom:6, lineHeight:1.8 }}>
-                    🏗️ 현재 시공 진행 중
+                  <div style={{ fontSize:14, fontWeight:800, color:C.brandD, marginBottom:6, lineHeight:1.8, display:"flex", alignItems:"center", gap:6 }}>
+                    <Icon emoji="🏗️" size={14} color={C.brandD} /> 현재 시공 진행 중
                   </div>
                   <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md, lineHeight:1.8 }}>{title}</div>
                   {/* 진행바 */}
@@ -2896,8 +2896,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 return hasActive ? (
                   <div style={{ background:`${C.brand}22`, borderRadius:R.full,
                     padding:"11px 22px", fontSize:13, fontWeight:700, color:C.brand,
-                    border:`1.5px solid ${C.brand}44`, display:"inline-block" }}>
-                    📋 진행 중인 견적이 있습니다
+                    border:`1.5px solid ${C.brand}44`, display:"inline-flex", alignItems:"center", gap:6 }}>
+                    <Icon emoji="📋" size={13} color={C.brand} /> 진행 중인 견적이 있습니다
                   </div>
                 ) : (
                   <button onClick={handleOpenNewReq}
@@ -3464,7 +3464,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               {[["🏘","인근 업체",`${companies.length}곳`],["🌡","평균 공간온도",`${avgTemp}°`],["✅","누적 완료",`${totalJobs}건`]].map(([icon,label,val]) => (
                 <div key={label} style={{ flex:1, background:C.surface, borderRadius:R.lg,
                   padding:`${S.lg}px ${S.sm}px`, textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
-                  <div style={{ fontSize:18 }}>{icon}</div>
+                  <div style={{ display:"flex", justifyContent:"center" }}><Icon emoji={icon} size={18} color={C.brand} /></div>
                   <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginTop:S.xs }}>{val}</div>
                   <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>{label}</div>
                 </div>
@@ -3507,7 +3507,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                           {post.title ?? post.content?.slice(0,30)}
                         </div>
                       </div>
-                      <div style={{ fontSize:12, color:C.text3, flexShrink:0 }}>❤️ {post.like_count ?? 0}</div>
+                      <div style={{ fontSize:12, color:C.text3, flexShrink:0, display:"flex", alignItems:"center", gap:3 }}><Icon emoji="❤️" size={11} color={C.text3} /> {post.like_count ?? 0}</div>
                     </div>
                   ))}
                 </div>

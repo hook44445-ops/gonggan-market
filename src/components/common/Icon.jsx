@@ -93,6 +93,7 @@ const EMOJI_ICON_MAP = {
   "🔐": KeyRound,
   "📦": Package,
   "🗨️": MessageCircle, "🗨": MessageCircle,
+  "🏘️": Building2, "🏘": Building2,
 };
 
 // 첫 글자가 매핑된 이모지면 분리해서 {emoji, rest} 로 반환한다.
