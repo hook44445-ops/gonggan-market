@@ -9,6 +9,7 @@ import {
   FlaskConical, Flag, Bot, Sparkles, ArrowUpRight, Construction,
   Sofa, Briefcase, Store, ShowerHead, CookingPot, PaintRoller, DoorOpen,
   Ruler, SearchX, CheckCheck, Landmark, Banknote, Clock,
+  Mail, HelpCircle, KeyRound, Package,
 } from "lucide-react";
 import { C } from "../../constants";
 import { useIconVersion } from "../../hooks/useIconVersion";
@@ -87,7 +88,23 @@ const EMOJI_ICON_MAP = {
   "🏦": Landmark,
   "💸": Banknote,
   "⏳": Clock,
+  "📨": Mail,
+  "❔": HelpCircle, "❓": HelpCircle,
+  "🔐": KeyRound,
+  "📦": Package,
+  "🗨️": MessageCircle, "🗨": MessageCircle,
 };
+
+// 첫 글자가 매핑된 이모지면 분리해서 {emoji, rest} 로 반환한다.
+// showToast("✅ 저장됐어요") 처럼 문자열 맨 앞에 이모지를 붙이는 기존 호출부를
+// 하나도 고치지 않고, 렌더 지점 한 곳에서만 아이콘화할 때 사용한다.
+const LEADING_EMOJI_RE = /^([\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]️?)\s*/u;
+export function splitLeadingEmoji(text) {
+  const s = String(text ?? "");
+  const m = s.match(LEADING_EMOJI_RE);
+  if (!m) return { emoji: null, rest: s };
+  return { emoji: m[1].replace(/️$/, ""), rest: s.slice(m[0].length) };
+}
 
 /**
  * <Icon emoji="🎉" /> — v2(기본)에서는 매핑된 lucide 라인 아이콘을,

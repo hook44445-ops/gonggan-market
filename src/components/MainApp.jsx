@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { loungeChatDbg } from "../utils/loungeChatDebug"; // 라운지 대화 신청/수신 신원 진단(플래그 시에만 출력)
-import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark } from "./common";
+import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark, Icon, splitLeadingEmoji } from "./common";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { TOKEN_COSTS } from "../constants/lounge";
 import { getAnonymousNickname, formatRelativeTime } from "../utils/anonymousNickname";
@@ -2932,8 +2932,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     padding:`0 ${S.sm}px` }}>
                     <div style={{ width:36, height:36, borderRadius:R.full, background:C.brandL,
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      margin:"0 auto 8px", fontSize:15, border:`1px solid ${C.brandM}` }}>
-                      {item.icon}
+                      margin:"0 auto 8px", border:`1px solid ${C.brandM}` }}>
+                      <Icon emoji={item.icon} size={15} color={C.brand} />
                     </div>
                     <div style={{ fontSize:12, fontWeight:700, color:C.text1, marginBottom:2 }}>{item.title}</div>
                     <div style={{ fontSize:10, color:C.text3, lineHeight:1.5 }}>{item.sub}</div>
@@ -3050,10 +3050,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                             )}
                             <div style={{ padding:"10px 12px 12px" }}>
                               {hasPhoto && (
-                                <span style={{ display:"inline-block", background:"#FFF8EC", color:"#8A5C00",
+                                <span style={{ display:"inline-flex", alignItems:"center", gap:3, background:"#FFF8EC", color:"#8A5C00",
                                   borderRadius:R.full, padding:"2px 7px", fontSize:9, fontWeight:800,
                                   border:"1px solid #F5D97A", marginBottom:6 }}>
-                                  📷 포토리뷰
+                                  <Icon emoji="📷" size={9} color="#8A5C00" /> 포토리뷰
                                 </span>
                               )}
                               <div style={{ display:"flex", alignItems:"center", gap:3, marginBottom:5 }}>
@@ -3070,8 +3070,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                               <div style={{ fontSize:11, color:C.text4, marginBottom:4 }}>
                                 {rv.user_name} · {rv.space_type}
                               </div>
-                              <div style={{ fontSize:11, fontWeight:700, color:C.text3 }}>
-                                🏠 {rv.companyName}
+                              <div style={{ fontSize:11, fontWeight:700, color:C.text3, display:"flex", alignItems:"center", gap:3 }}>
+                                <Icon emoji="🏠" size={11} color={C.text3} /> {rv.companyName}
                               </div>
                             </div>
                           </div>
@@ -3103,7 +3103,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {/* STEP2: 이번 주 인기 콘텐츠 — 조회수+좋아요 기준 상위 3건 */}
             {popularPosts.length > 0 && (
               <div style={{ background:C.ivory, borderRadius:12, padding:S.xl, marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
-                <div style={{ fontSize:16, fontWeight:800, color:"#1E3D2F", marginBottom:S.md, lineHeight:1.8 }}>🔥 이번 주 인기</div>
+                <div style={{ fontSize:16, fontWeight:800, color:"#1E3D2F", marginBottom:S.md, lineHeight:1.8, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="🔥" size={16} color="#1E3D2F" /> 이번 주 인기</div>
                 {popularPosts.map(post => {
                   const thumb = post.image_urls?.[0] ?? null;
                   return (
@@ -3112,10 +3112,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       style={{ display:"flex", gap:S.md, alignItems:"center", padding:`${S.sm}px 0`, cursor:"pointer", borderBottom:`1px solid ${C.bgWarm}` }}>
                       {thumb && <img src={thumb} alt="" loading="lazy" style={{ width:56, height:56, borderRadius:R.md, objectFit:"cover", flexShrink:0, border:`1px solid ${C.bgWarm}` }} />}
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:14, fontWeight:700, color:C.text1, lineHeight:1.8, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
-                          {post.is_expert ? "🛡️ " : ""}{post.title ?? post.content?.slice(0,30)}
+                        <div style={{ fontSize:14, fontWeight:700, color:C.text1, lineHeight:1.8, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", display:"flex", alignItems:"center", gap:4 }}>
+                          {post.is_expert && <Icon emoji="🛡️" size={13} color={C.brand} />}<span style={{ overflow:"hidden", textOverflow:"ellipsis" }}>{post.title ?? post.content?.slice(0,30)}</span>
                         </div>
-                        <div style={{ fontSize:13, color:C.text3, lineHeight:1.8 }}>👁 {(post.view_count ?? 0).toLocaleString()} · ❤️ {post.like_count ?? 0}</div>
+                        <div style={{ fontSize:13, color:C.text3, lineHeight:1.8, display:"flex", alignItems:"center", gap:3 }}><Icon emoji="👁" size={12} color={C.text3} /> {(post.view_count ?? 0).toLocaleString()} · <Icon emoji="❤️" size={12} color={C.text3} /> {post.like_count ?? 0}</div>
                       </div>
                       <span style={{ fontSize:13, color:"#1E3D2F", fontWeight:800, flexShrink:0 }}>읽기 →</span>
                     </div>
@@ -3139,7 +3139,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
                     <div style={{ width:36, height:36, borderRadius:R.full,
                       background:C.brandL, border:`1.5px solid ${C.brandM}`,
-                      display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>{item.icon}</div>
+                      display:"flex", alignItems:"center", justifyContent:"center" }}><Icon emoji={item.icon} size={16} color={C.brand} /></div>
                     {i < arr.length-1 && (
                       <div style={{ width:1.5, height:24, background:C.bgWarm, marginTop:4 }} />
                     )}
@@ -3168,8 +3168,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   {/* ── Active requests ── */}
                   {activeReqs.length > 0 && (
                     <>
-                      <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>
-                        📋 내 견적 요청
+                      <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}>
+                        <Icon emoji="📋" size={16} color={C.text1} /> 내 견적 요청
                         <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>{activeReqs.length}건</span>
                       </div>
                       {activeReqs.map(r => {
@@ -3207,8 +3207,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                   )}
                                 </div>
                               </div>
-                              <div style={{ fontSize:13, color:C.text3, marginBottom:S.sm }}>
-                                📍 {r.area} · {r.style} · {r.time}
+                              <div style={{ fontSize:13, color:C.text3, marginBottom:S.sm, display:"flex", alignItems:"center", gap:4 }}>
+                                <Icon emoji="📍" size={12} color={C.text3} /> {r.area} · {r.style} · {r.time}
                               </div>
 
                               {/* ── Stage-aware action block ── */}
@@ -3216,8 +3216,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                 <div style={{ background: stage?.badge === "확인 필요" ? "#FFF7E6" : C.brandL,
                                   borderRadius:R.lg, padding:S.md, marginBottom:S.md,
                                   border:`1px solid ${stage?.badge === "확인 필요" ? "#C07000" : C.brandM}` }}>
-                                  <div style={{ fontSize:13, fontWeight:800, color: stage?.badge === "확인 필요" ? "#C07000" : C.brand, marginBottom:S.sm }}>
-                                    {stage?.badge === "확인 필요" ? "🔔" : "🏗"} {stage?.label ?? "시공 진행중"}
+                                  <div style={{ fontSize:13, fontWeight:800, color: stage?.badge === "확인 필요" ? "#C07000" : C.brand, marginBottom:S.sm, display:"flex", alignItems:"center", gap:5 }}>
+                                    <Icon emoji={stage?.badge === "확인 필요" ? "🔔" : "🏗"} size={13} color={stage?.badge === "확인 필요" ? "#C07000" : C.brand} /> {stage?.label ?? "시공 진행중"}
                                   </div>
                                   <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>{stage?.sub}</div>
                                   <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
@@ -3235,8 +3235,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                 // (기존 버그: bidCount>0 일 때만 버튼 노출 → "검토 중"에 갇혀 결제 화면 도달 불가)
                                 <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.md,
                                   marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
-                                  <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:S.sm }}>
-                                    {r.bidCount > 0 ? `🔔 업체 ${r.bidCount}곳이 입찰했어요` : `📋 ${stage?.label ?? "최종 견적서 확인"}`}
+                                  <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:S.sm, display:"flex", alignItems:"center", gap:5 }}>
+                                    {r.bidCount > 0
+                                      ? <><Icon emoji="🔔" size={13} color={C.brand} /> 업체 {r.bidCount}곳이 입찰했어요</>
+                                      : <><Icon emoji="📋" size={13} color={C.brand} /> {stage?.label ?? "최종 견적서 확인"}</>}
                                   </div>
                                   {reqBids.length > 0 && (
                                     <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.md }}>
@@ -3262,7 +3264,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                 <div style={{ background:C.surface2, borderRadius:R.lg, padding:S.md,
                                   marginBottom:S.md, border:`1px solid ${C.bgWarm}`,
                                   display:"flex", alignItems:"center", gap:S.sm }}>
-                                  <span style={{ fontSize:18 }}>⏳</span>
+                                  <Icon emoji="⏳" size={18} color={C.text3} />
                                   <div>
                                     <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>인근 검증 업체들이 검토 중입니다</div>
                                     <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
@@ -3276,37 +3278,42 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                 <button onClick={() => setScreen("timeline")}
                                   style={{ flex:1, minWidth:"calc(50% - 4px)", padding:"10px", background:C.surface2,
                                     color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg,
-                                    fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                  📊 진행 현황
+                                    fontWeight:700, fontSize:13, cursor:"pointer",
+                                    display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
+                                  <Icon emoji="📊" size={13} color={C.text2} /> 진행 현황
                                 </button>
                                 {stage?.action !== "escrow" && (
                                   <button onClick={() => setEditRequest(r)}
                                     style={{ flex:1, minWidth:"calc(50% - 4px)", padding:"10px", background:C.brandL,
                                       color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg,
-                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                    ✏️ 수정
+                                      fontWeight:700, fontSize:13, cursor:"pointer",
+                                      display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
+                                    <Icon emoji="✏️" size={13} color={C.brand} /> 수정
                                   </button>
                                 )}
                                 {stage?.action === "escrow" ? (
                                   <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
-                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                    🏗 에스크로 보기
+                                      fontWeight:700, fontSize:13, cursor:"pointer",
+                                      display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
+                                    <Icon emoji="🏗" size={13} color="#fff" /> 에스크로 보기
                                   </button>
                                 ) : (stage?.action === "bids" || r.bidCount > 0) ? (
                                   <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
-                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                    💰 견적 보기
+                                      fontWeight:700, fontSize:13, cursor:"pointer",
+                                      display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
+                                    <Icon emoji="💰" size={13} color="#fff" /> 견적 보기
                                   </button>
                                 ) : (
                                   <button onClick={() => handleRepost(r.id)}
                                     style={{ flex:1, padding:"10px", background:C.brandL,
                                       color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg,
-                                      fontWeight:700, fontSize:13, cursor:"pointer" }}>
-                                    🔄 재노출
+                                      fontWeight:700, fontSize:13, cursor:"pointer",
+                                      display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
+                                    <Icon emoji="🔄" size={13} color={C.brand} /> 재노출
                                   </button>
                                 )}
                                 {stage?.action !== "escrow" && (
@@ -5365,9 +5372,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         </div>
       )}
 
-      {toast && (
-        <div style={{ position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:C.brand, color:"#fff", borderRadius:R.full, padding:"12px 22px", fontSize:13, fontWeight:700, boxShadow:`0 8px 24px ${C.brand}44`, zIndex:200, whiteSpace:"nowrap" }}>{toast}</div>
-      )}
+      {toast && (() => {
+        const { emoji, rest } = splitLeadingEmoji(toast);
+        return (
+          <div style={{ position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:C.brand, color:"#fff", borderRadius:R.full, padding:"12px 22px", fontSize:13, fontWeight:700, boxShadow:`0 8px 24px ${C.brand}44`, zIndex:200, whiteSpace:"nowrap",
+            display:"flex", alignItems:"center", gap:7 }}>
+            {emoji && <Icon emoji={emoji} size={14} color="#fff" />}{rest}
+          </div>
+        );
+      })()}
 
       {showLoginRequired && (
         <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:500 }}
@@ -5840,8 +5853,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   borderRadius:R.lg,
                   background:active?C.brandL:"transparent",
                   transition:"background 0.2s" }}>
-                  <div style={{ fontSize:20, opacity:active?1:0.55,
-                    transform:active?"scale(1.08)":"scale(1)", transition:"transform 0.2s" }}>{icon}</div>
+                  <div style={{ opacity:active?1:0.55,
+                    transform:active?"scale(1.08)":"scale(1)", transition:"transform 0.2s" }}>
+                    <Icon emoji={icon} size={20} color={active ? C.brand : C.text3} />
+                  </div>
                   <div style={{ fontSize:10, fontWeight:active?800:400,
                     color:active?C.brand:C.text3, letterSpacing:active?"-0.2px":"0" }}>{label}</div>
                 </div>
