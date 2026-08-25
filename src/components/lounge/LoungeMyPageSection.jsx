@@ -785,8 +785,9 @@ function NotifSettings({ user }) {
         {CATS.map(cat => {
           const active = selected.includes(cat.id);
           return (
-            <button key={cat.id} onClick={() => toggleCat(cat.id)} style={{ padding: '6px 12px', borderRadius: R.full, border: active ? 'none' : `1px solid ${C.bgWarm}`, background: active ? C.brand : C.surface, color: active ? '#fff' : C.text3, fontWeight: active ? 700 : 500, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s' }}>
-              {active ? '✓ ' : ''}{cat.label}
+            <button key={cat.id} onClick={() => toggleCat(cat.id)} style={{ padding: '6px 12px', borderRadius: R.full, border: active ? 'none' : `1px solid ${C.bgWarm}`, background: active ? C.brand : C.surface, color: active ? '#fff' : C.text3, fontWeight: active ? 700 : 500, fontSize: 12, cursor: 'pointer', transition: 'all 0.15s',
+              display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {active && <Icon emoji="✓" size={11} color="#fff" />}{(() => { const { emoji, rest } = splitLeadingEmoji(cat.label); return <>{emoji && <Icon emoji={emoji} size={12} color={active ? '#fff' : C.text3} />}{rest}</>; })()}
             </button>
           );
         })}

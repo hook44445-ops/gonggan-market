@@ -4,7 +4,7 @@
 
 import { useState, useRef } from 'react';
 import { C, R, S, REGIONS, CITY_DISTRICTS } from '../constants';
-import { Icon } from '../components/common';
+import { Icon, splitLeadingEmoji } from '../components/common';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
 import { IS_SUPABASE_READY, createLoungePost, updateLoungePost, adminUpdateLoungePost, uploadLoungeImage, enqueueLoungePostPush } from '../lib/supabase';
@@ -375,8 +375,9 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>카테고리 <span style={{ color: C.red }}>*</span></div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: S.sm }}>
             {WRITABLE_CATS.map(cat => (
-              <button key={cat.id} onClick={() => setCategory(cat.id)} style={{ padding: '6px 14px', borderRadius: R.full, border: 'none', background: category === cat.id ? C.brand : C.bg, color: category === cat.id ? '#fff' : C.text3, fontWeight: category === cat.id ? 800 : 500, fontSize: 13, cursor: 'pointer' }}>
-                {cat.label}
+              <button key={cat.id} onClick={() => setCategory(cat.id)} style={{ padding: '6px 14px', borderRadius: R.full, border: 'none', background: category === cat.id ? C.brand : C.bg, color: category === cat.id ? '#fff' : C.text3, fontWeight: category === cat.id ? 800 : 500, fontSize: 13, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                {(() => { const { emoji, rest } = splitLeadingEmoji(cat.label); return <>{emoji && <Icon emoji={emoji} size={13} color={category === cat.id ? '#fff' : C.text3} />}{rest}</>; })()}
               </button>
             ))}
           </div>

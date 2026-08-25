@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { LOUNGE_CATEGORIES, LOUNGE_PREVIEW_COUNT } from '../../constants/lounge';
+import { Icon, splitLeadingEmoji } from '../common';
 
 const ALL_CATS = LOUNGE_CATEGORIES;
 // 더보기 접힘 기준 — 집꾸미기까지 노출, 이사입주부터 접힘
@@ -13,6 +14,7 @@ const EXTRA_CATS   = ALL_CATS.slice(LOUNGE_PREVIEW_COUNT);
 
 function CatChip({ cat, selected, onChange }) {
   const active = selected === cat.id;
+  const { emoji, rest } = splitLeadingEmoji(cat.label);
   return (
     <button
       onClick={() => onChange(cat.id)}
@@ -29,8 +31,11 @@ function CatChip({ cat, selected, onChange }) {
         whiteSpace: 'nowrap',
         transition: 'background 0.15s',
         letterSpacing: '-0.2px',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
       }}>
-      {cat.label}
+      {emoji && <Icon emoji={emoji} size={12} color={active ? '#fff' : C.text3} />}{rest}
     </button>
   );
 }
