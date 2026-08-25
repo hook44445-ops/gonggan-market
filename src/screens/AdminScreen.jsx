@@ -540,7 +540,9 @@ function ReviewAdminTab({ adminUserId, showToast }) {
 function ReportList({ reports, label, hiddenIds, onToggleHide }) {
   return (
     <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
-      <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>{label}</div>
+      <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display: "flex", alignItems: "center", gap: 6 }}>
+        {(() => { const { emoji, rest } = splitLeadingEmoji(label); return <>{emoji && <Icon emoji={emoji} size={14} color={C.text1} />}{rest}</>; })()}
+      </div>
       {reports.length === 0 ? (
         <div style={{ textAlign: "center", padding: "20px 0", color: C.text3, fontSize: 13 }}>신고 내역이 없습니다</div>
       ) : reports.map((r, i) => (
@@ -672,7 +674,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
         {[["게시글 신고", `${postReports.length}건`, "📝"], ["댓글 신고", `${commentReports.length}건`, "💬"],
           ["스토리 신고", `${storyReports.length}건`, "📸"], ["차단 처리", `${allBlocks.length}명`, "🚫"]].map(([label,val,icon]) => (
           <div key={label} style={{ background: "#fff", borderRadius: R.lg, padding: S.xl, border: `1px solid ${C.bgWarm}`, textAlign: "center" }}>
-            <div style={{ fontSize: 24, marginBottom: S.sm }}>{icon}</div>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: S.sm }}><Icon emoji={icon} size={24} color={C.brand} /></div>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text1 }}>{val}</div>
             <div style={{ fontSize: 12, color: C.text3, marginTop: 4 }}>{label}</div>
           </div>
@@ -1857,8 +1859,8 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
           {pipe.stages.map((s, i) => (
             <span key={s.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span title={s.note || ""} style={{ background: s.ready ? C.brandL : C.bg, color: s.ready ? C.brandD : C.text4, borderRadius: R.md, padding: "5px 8px", border: `1px solid ${s.ready ? C.brandM : C.bgWarm}`, fontSize: 10.5, fontWeight: 700 }}>
-                {s.icon} {s.label}{!s.auto ? " ✋" : ""}
+              <span title={s.note || ""} style={{ background: s.ready ? C.brandL : C.bg, color: s.ready ? C.brandD : C.text4, borderRadius: R.md, padding: "5px 8px", border: `1px solid ${s.ready ? C.brandM : C.bgWarm}`, fontSize: 10.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                <Icon emoji={s.icon} size={11} color={s.ready ? C.brandD : C.text4} /> {s.label}{!s.auto && <Icon emoji="✋" size={10} color={s.ready ? C.brandD : C.text4} />}
               </span>
               {i < pipe.stages.length - 1 && <span style={{ color: C.text4, fontSize: 10 }}>›</span>}
             </span>
@@ -1993,7 +1995,7 @@ function BlogPublishTab({ published = [], showToast }) {
           <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>발행된 콘텐츠 중 블로그 발행 대상이 없습니다(타입 토글 확인).</div>
         ) : candidates.map((p) => (
           <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "6px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
-            <span style={{ padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: C.brandL, color: C.brandD }}>{contentTypeMeta(p._type).icon} {contentTypeMeta(p._type).label}</span>
+            <span style={{ padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: C.brandL, color: C.brandD, display: "inline-flex", alignItems: "center", gap: 3 }}><Icon emoji={contentTypeMeta(p._type).icon} size={10} color={C.brandD} /> {contentTypeMeta(p._type).label}</span>
             <span style={{ fontWeight: 700, color: C.text1, flex: 1, minWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
             <button onClick={() => showHtml(p)} style={{ padding: "4px 9px", background: "#fff", color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.md, fontWeight: 700, fontSize: 10, cursor: "pointer" }}>HTML</button>
             <button onClick={() => doPublish(p)} disabled={busy || !cfg.enabled} style={{ padding: "4px 10px", background: cfg.enabled ? C.brandD : C.text4, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 700, fontSize: 10.5, cursor: cfg.enabled ? "pointer" : "default" }}>블로그 발행</button>
@@ -2071,12 +2073,12 @@ function EditorialScheduleTab({ published = [], showToast }) {
       {/* 오늘의 편성표 */}
       <div style={box}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
-          📋 오늘의 편성표 (발행 {comp.publishedToday} / 상한 {comp.cap} · 잔여 {comp.remaining})
+          <Icon emoji="📋" size={13} color={C.text1} /> 오늘의 편성표 (발행 {comp.publishedToday} / 상한 {comp.cap} · 잔여 {comp.remaining})
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {comp.rows.map((r) => (
             <div key={r.typeId} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "5px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
-              <span style={{ minWidth: 18 }}>{r.icon}</span>
+              <span style={{ minWidth: 18, display: "inline-flex" }}><Icon emoji={r.icon} size={14} color={C.text2} /></span>
               <span style={{ fontWeight: 700, color: C.text1, minWidth: 120 }}>{r.label}</span>
               <span style={{ color: C.text3, minWidth: 44 }}>{r.slot}</span>
               <span style={{ padding: "1px 7px", borderRadius: R.full, fontSize: 9.5, fontWeight: 800, background: r.news ? "#0369a122" : r.spacePerspective ? "#7c3aed22" : "#6b728022", color: r.news ? "#0369a1" : r.spacePerspective ? "#7c3aed" : "#6b7280" }}>
