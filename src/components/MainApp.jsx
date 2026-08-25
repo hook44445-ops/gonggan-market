@@ -5342,7 +5342,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
             <div style={{ textAlign:"center", marginBottom:S.xxl }}>
-              <div style={{ fontSize:40, marginBottom:12 }}>🔒</div>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="🔒" size={40} color={C.text2} /></div>
               <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:8 }}>견적을 마감할까요?</div>
               <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>
                 마감 후에는 새 입찰을 받을 수 없어요.<br/>기존에 받은 입찰은 계속 확인할 수 있어요.
@@ -5367,18 +5367,27 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
             <div style={{ textAlign:"center", marginBottom:S.xxl }}>
-              <div style={{ fontSize:44, marginBottom:10 }}>🔨</div>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}><Icon emoji="🔨" size={44} color={C.brand} /></div>
               <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:8 }}>업체 등록이 필요해요</div>
-              <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>입찰하려면 업체 등록이 필요합니다.<br/>사업자 인증 후 🛡 인증 배지가 부여돼요.</div>
+              <div style={{ fontSize:13, color:C.text3, lineHeight:1.7, display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                <span>입찰하려면 업체 등록이 필요합니다.</span>
+                <span style={{ display:"flex", alignItems:"center", gap:4 }}>사업자 인증 후 <Icon emoji="🛡" size={12} color={C.text3} /> 인증 배지가 부여돼요.</span>
+              </div>
             </div>
             <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl }}>
-              {["견적 입찰 가능","채팅 상담 가능","🛡 공간마켓 인증 배지","상단 노출 우선순위"].map(t => (
-                <div key={t} style={{ fontSize:13, color:C.brand, fontWeight:600, marginBottom:4 }}>✓ {t}</div>
-              ))}
+              {["견적 입찰 가능","채팅 상담 가능","🛡 공간마켓 인증 배지","상단 노출 우선순위"].map(t => {
+                const { emoji, rest } = splitLeadingEmoji(t);
+                return (
+                  <div key={t} style={{ fontSize:13, color:C.brand, fontWeight:600, marginBottom:4, display:"flex", alignItems:"center", gap:5 }}>
+                    <Icon emoji="✓" size={12} color={C.brand} /> {emoji && <Icon emoji={emoji} size={12} color={C.brand} />} {rest}
+                  </div>
+                );
+              })}
             </div>
             <div style={{ display:"flex", gap:S.sm }}>
               <button onClick={() => setShowRegisterPrompt(false)} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>나중에</button>
-              <button onClick={() => { setShowRegisterPrompt(false); onStartOnboarding(); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>🚀 업체 등록하기</button>
+              <button onClick={() => { setShowRegisterPrompt(false); onStartOnboarding(); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44`,
+                display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icon emoji="🚀" size={14} color="#fff" /> 업체 등록하기</button>
             </div>
           </div>
         </div>
@@ -5401,7 +5410,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             onClick={e => e.stopPropagation()}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
             <div style={{ textAlign:"center", marginBottom:S.xxl }}>
-              <div style={{ fontSize:40, marginBottom:12 }}>🔒</div>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="🔒" size={40} color={C.text2} /></div>
               <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:8 }}>로그인이 필요해요</div>
               <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>
                 글쓰기, 댓글, 대화 신청, 토큰 사용 등<br/>
@@ -5410,12 +5419,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:S.sm }}>
               <button onClick={() => { setShowLoginRequired(false); onLogout(); }}
-                style={{ width:"100%", padding:S.xl, background:`linear-gradient(135deg,${C.brand},${C.brandD})`, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
-                🏡 의뢰인으로 시작
+                style={{ width:"100%", padding:S.xl, background:`linear-gradient(135deg,${C.brand},${C.brandD})`, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44`,
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+                <Icon emoji="🏡" size={14} color="#fff" /> 의뢰인으로 시작
               </button>
               <button onClick={() => { setShowLoginRequired(false); onLogout(); }}
-                style={{ width:"100%", padding:S.xl, background:C.surface, color:C.brand, border:`2px solid ${C.brandM}`, borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer" }}>
-                🔨 업체로 시작
+                style={{ width:"100%", padding:S.xl, background:C.surface, color:C.brand, border:`2px solid ${C.brandM}`, borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+                <Icon emoji="🔨" size={14} color={C.brand} /> 업체로 시작
               </button>
               <button onClick={() => setShowLoginRequired(false)}
                 style={{ width:"100%", padding:"12px", background:"none", border:"none", color:C.text3, fontWeight:700, fontSize:14, cursor:"pointer", marginTop:S.xs }}>
@@ -5507,7 +5518,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:500 }}>
             <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"28px 24px 40px" }}>
               <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
-              <div style={{ fontSize:22, textAlign:"center", marginBottom:12 }}>{isCooldown ? "⏳" : isQuoteBlock ? "🛡" : "📋"}</div>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji={isCooldown ? "⏳" : isQuoteBlock ? "🛡" : "📋"} size={22} color={C.brand} /></div>
 
               {isQuoteBlock && (<>
                 <div style={{ fontSize:17, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:10 }}>
@@ -5707,7 +5718,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
             <div style={{ textAlign:"center", marginBottom:S.xxl }}>
-              <div style={{ fontSize:48, marginBottom:10 }}>🔔</div>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}><Icon emoji="🔔" size={48} color={C.brand} /></div>
               <div style={{ fontSize:20, fontWeight:900, color:C.text1, marginBottom:8 }}>업체 {bidAlert.count}곳이 입찰했어요!</div>
               <div style={{ fontSize:14, color:C.text3, lineHeight:1.7 }}>{bidAlert.requestType} 견적을 확인한 업체들이<br/>금액과 기간을 제출했어요</div>
             </div>
@@ -5726,12 +5737,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               ))}
             </div>
             <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.md, marginBottom:S.xl, display:"flex", gap:S.sm, alignItems:"center", border:`1px solid ${C.trustM}` }}>
-              <span style={{ fontSize:16 }}>🛡</span>
+              <Icon emoji="🛡" size={16} color={C.navy} />
               <span style={{ fontSize:12, color:C.navy, fontWeight:600 }}>선택한 업체와 에스크로 안전 정산으로 진행됩니다</span>
             </div>
             <div style={{ display:"flex", gap:S.sm }}>
               <button onClick={() => setBidAlert(null)} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>나중에</button>
-              <button onClick={() => { setBidViewRequestId(bidAlert.requestId ?? null); setBidAlert(null); setScreen("bidstatus"); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>💰 견적 비교하기</button>
+              <button onClick={() => { setBidViewRequestId(bidAlert.requestId ?? null); setBidAlert(null); setScreen("bidstatus"); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44`,
+                display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icon emoji="💰" size={14} color="#fff" /> 견적 비교하기</button>
             </div>
           </div>
         </div>
@@ -5767,7 +5779,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             style={{ background:C.surface, width:"100%", maxWidth:480,
               borderRadius:"24px 24px 0 0", padding:"22px 24px 36px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 18px" }} />
-            <div style={{ fontSize:34, textAlign:"center", marginBottom:10 }}>🔒</div>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}><Icon emoji="🔒" size={34} color={C.brand} /></div>
             <div style={{ fontSize:18, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:8 }}>
               안전하게 보호됩니다
             </div>
@@ -5778,7 +5790,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </div>
             <div style={{ background:C.bg, borderRadius:R.lg, padding:"10px 14px",
               fontSize:12, color:C.text3, lineHeight:1.7, textAlign:"center", marginBottom:16 }}>
-              💬 채팅 · 📷 사진 · 📍 GPS 기록이 저장되며<br/>분쟁 발생 시 기록을 기준으로 검토합니다.
+              <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="💬" size={11} color={C.text3} /> 채팅</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📷" size={11} color={C.text3} /> 사진</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📍" size={11} color={C.text3} /> GPS</span> 기록이 저장되며<br/>분쟁 발생 시 기록을 기준으로 검토합니다.
             </div>
             <div style={{ fontSize:12.5, color:C.text3, textAlign:"center", marginBottom:16 }}>
               좋은 만남의 시작을 응원합니다.
@@ -5830,8 +5842,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 {rv.content}
               </div>
               <div style={{ borderTop:`1px solid ${C.bg}`, paddingTop:12, fontSize:13, color:C.text3, lineHeight:1.8 }}>
-                <div>👤 {rv.user_name} · {rv.space_type}</div>
-                <div>🏠 {rv.companyName}</div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}><Icon emoji="👤" size={12} color={C.text3} /> {rv.user_name} · {rv.space_type}</div>
+                <div style={{ display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🏠" size={12} color={C.text3} /> {rv.companyName}</div>
               </div>
             </div>
           </div>
