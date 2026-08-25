@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
+import { Icon, splitLeadingEmoji } from "../components/common/Icon";
+import { useIconVersion } from "../hooks/useIconVersion";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
 import { COMPANY_STATUS_META, USER_STATUS_META } from "../constants";
 import { LOUNGE_CATEGORIES } from "../constants/lounge";
@@ -224,7 +226,7 @@ function AdminVisitCards({ adminUserId }) {
 
   return (
     <div style={{ marginBottom: S.xl }}>
-      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>👥 방문자 현황</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="👥" size={14} color={C.text1} /> 방문자 현황</div>
       {failed ? (
         <div style={{ background: C.surface, borderRadius: R.lg, padding: S.xl, border: `1px solid ${C.bgWarm}`,
           fontSize: 12.5, color: C.text3, lineHeight: 1.7 }}>
@@ -664,7 +666,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
 
   return (
     <div>
-      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>💬 라운지 관리</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg, display:"flex", alignItems:"center", gap:6}}><Icon emoji="💬" size={14} color={C.text1} /> 라운지 관리</div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
         {[["게시글 신고", `${postReports.length}건`, "📝"], ["댓글 신고", `${commentReports.length}건`, "💬"],
@@ -694,7 +696,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
 
       {/* ── Post List ── */}
       <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📝 게시글 관리</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📝" size={14} color={C.text1} /> 게시글 관리</div>
         <div style={{ display: "flex", gap: S.xs, marginBottom: S.sm }}>
           {[["all","전체"],["hidden","숨김"],["deleted","삭제됨"]].map(([v,l]) => (
             <button key={v} onClick={() => setPostFilter(v)}
@@ -811,7 +813,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
       <ReportList reports={storyReports}   label="📸 신고된 스토리" hiddenIds={hiddenIds} onToggleHide={toggleHide} />
 
       <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>💰 공간토큰 수동 관리</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="💰" size={14} color={C.text1} /> 공간토큰 수동 관리</div>
         <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
           <div style={{ display: "flex", gap: S.sm }}>
             <input
@@ -843,7 +845,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
       </div>
 
       <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🌡️ 공간온도 수동 조정</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🌡️" size={14} color={C.text1} /> 공간온도 수동 조정</div>
         <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.md, border: `1px solid ${C.brandM}` }}>
           <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>변경 사유를 반드시 입력하세요. 변경 기록은 adminLogs에 자동 저장됩니다.</div>
         </div>
@@ -870,7 +872,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
 
       {posts.length > 0 && (
         <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginTop: S.lg, border: `1px solid ${C.bgWarm}` }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📝 게시글 목록 (총 {posts.length}개)</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📝" size={14} color={C.text1} /> 게시글 목록 (총 {posts.length}개)</div>
           {posts.slice(0, 30).map(p => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: S.sm, padding: `${S.sm}px 0`, borderBottom: `1px solid ${C.bg}` }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1008,7 +1010,7 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.lg }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>🌱 라운지 시딩 관리</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🌱" size={14} color={C.text1} /> 라운지 시딩 관리</div>
         {view === "list" ? (
           <button onClick={openCreate}
             style={{ padding: "8px 16px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
@@ -1035,7 +1037,7 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
             <div style={{ textAlign: "center", padding: "30px 0", color: C.text3, fontSize: 13 }}>불러오는 중...</div>
           ) : seeds.length === 0 ? (
             <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>🌱</div>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="🌱" size={32} color={C.text3} /></div>
               <div style={{ fontSize: 14, color: C.text3 }}>등록된 시딩 게시글이 없습니다</div>
               <div style={{ fontSize: 12, color: C.text4, marginTop: 6 }}>위 버튼을 눌러 첫 글을 등록하세요</div>
             </div>
@@ -1303,7 +1305,7 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>⚙️ 자동발행 OS (Production)</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="⚙️" size={14} color={C.text1} /> 자동발행 OS (Production)</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={toggle}
             style={{ padding: "7px 16px", borderRadius: R.full, fontWeight: 800, fontSize: 12.5, cursor: "pointer", border: "none",
@@ -1338,7 +1340,7 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
       {/* 자동발행 조건 + 예산 설정 (Phase 24) */}
       {showSettings && (
         <div style={{ background: "#fff", borderRadius: R.xl, padding: S.lg, border: `1px solid ${C.bgWarm}`, marginBottom: S.lg }}>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>⚙️ 자동발행 조건 설정</div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="⚙️" size={14} color={C.text1} /> 자동발행 조건 설정</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
             {[
               ["testMode", "테스트모드(계획만)", "bool"],
@@ -1396,7 +1398,7 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
 
       {/* 긴급 + 예약 계획 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🚨 발행 계획 (게이트 통과분)</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🚨" size={14} color={C.text1} /> 발행 계획 (게이트 통과분)</div>
         {plan.emergency.length === 0 && plan.scheduled.length === 0 ? (
           <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>지금 자동발행 조건(90점+)을 통과한 초안이 없습니다.</div>
         ) : (
@@ -1424,7 +1426,7 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
       {/* Gate 미통과(스킵) — 사유 */}
       {plan.skipped.length > 0 && (
         <div style={box}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>⛔ 게이트 미통과 ({plan.skipped.length})</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="⛔" size={14} color={C.text1} /> 게이트 미통과 ({plan.skipped.length})</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             {plan.skipped.slice(0, 12).map(s => (
               <div key={s.draft.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, padding: "3px 0", flexWrap: "wrap" }}>
@@ -1439,7 +1441,7 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
       {/* Activity Log (Phase 24) — AI 운영 활동 실시간 로그 */}
       <div style={box}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.md }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>📡 Activity Log</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📡" size={14} color={C.text1} /> Activity Log</div>
           {acts.length > 0 && (
             <button onClick={() => { clearActivityLog(); bump(); }} style={{ fontSize: 10, color: C.text3, background: "none", border: "none", cursor: "pointer" }}>지우기</button>
           )}
@@ -1463,7 +1465,7 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
 
       {/* 6. Publish Log */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🧾 발행 로그 ({log.length})</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🧾" size={14} color={C.text1} /> 발행 로그 ({log.length})</div>
         {log.length === 0 ? <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>아직 자동발행 기록이 없습니다.</div> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {log.slice(0, 20).map((e, i) => (
@@ -1497,7 +1499,7 @@ function PublishingPriorityTab({ drafts = [], published = [] }) {
 
   return (
     <div>
-      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🗞️ 발행 우선순위 (Editorial OS)</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🗞️" size={14} color={C.text1} /> 발행 우선순위 (Editorial OS)</div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
         예약 발행만 하지 않습니다. 긴급 뉴스(P1) → Trending(P2) → 예약·Evergreen(P3) 순으로 하루 {config.dailyTotal}개를 편성합니다.
         긴급 뉴스가 없으면 예약 글만 발행합니다. 지향점: <b>속도 {mix.breaking}% · Evergreen {mix.evergreen}% · 연재 {mix.story}%</b>.
@@ -1538,7 +1540,7 @@ function PublishingPriorityTab({ drafts = [], published = [] }) {
       )}
 
       {/* 오늘의 편성 */}
-      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📋 오늘의 발행 편성 (비율 {plan.ratioLabel})</div>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📋" size={14} color={C.text1} /> 오늘의 발행 편성 (비율 {plan.ratioLabel})</div>
       {plan.slots.length === 0 ? (
         <div style={{ fontSize: 12, color: C.text3, padding: 16, textAlign: "center" }}>편성할 초안이 없습니다. 트렌드 발굴/공장에서 초안을 만들어 주세요.</div>
       ) : (
@@ -1633,7 +1635,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
 
   return (
     <div>
-      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🏢 AI 운영본부 (AI Operating System)</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🏢" size={14} color={C.text1} /> AI 운영본부 (AI Operating System)</div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
         AI 는 <b>직원</b>, 총괄비서는 <b>팀장</b>, 관리자는 <b>최종 승인자</b>입니다. 주제만 입력하면 AI 들이 회의를 열어 담당을 정하고,
         콘텐츠 특성에 따라 여러 AI 를 조합(Fusion)해 분석→작성→검수→발행까지 편성합니다.
@@ -1656,7 +1658,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
 
       {/* 자동 추천 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🎯 AI 자동 추천 (주제만 입력)</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🎯" size={14} color={C.text1} /> AI 자동 추천 (주제만 입력)</div>
         <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="예: 엔비디아 실적 속보 / 폭염 심층 매거진 / 오늘 큐티"
           style={{ width: "100%", padding: "9px 11px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`, fontSize: 13, boxSizing: "border-box", fontFamily: "inherit", marginBottom: S.sm }} />
         {rec ? (
@@ -1774,7 +1776,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
 
       {/* 조직도 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🗂️ AI 조직도</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🗂️" size={14} color={C.text1} /> AI 조직도</div>
         <div style={{ background: "#111827", borderRadius: R.md, padding: "10px 12px", marginBottom: S.md, color: "#e5e7eb" }}>
           <div style={{ fontSize: 12.5, fontWeight: 800 }}>{org.orchestrator.icon} {org.orchestrator.name} <span style={{ fontSize: 10.5, color: "#9ca3af", fontWeight: 600 }}>({org.orchestrator.role})</span></div>
           <div style={{ fontSize: 10.5, color: "#9ca3af", marginTop: 2 }}>{org.orchestrator.desc}</div>
@@ -1807,7 +1809,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
 
       {/* 성과·승진 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🏅 성과 평가 · 승진</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🏅" size={14} color={C.text1} /> 성과 평가 · 승진</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {perf.map((p) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, padding: "5px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
@@ -1825,7 +1827,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
       {/* 근무기록 + 예산 + 인사(채용/비활성) */}
       <div style={{ display: "flex", gap: S.md, flexWrap: "wrap", marginBottom: S.xl }}>
         <div style={{ ...box, flex: "1 1 240px", marginBottom: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🕒 근무 기록 (오늘)</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🕒" size={14} color={C.text1} /> 근무 기록 (오늘)</div>
           {wlog.today.length === 0 ? <div style={{ fontSize: 11.5, color: C.text3 }}>오늘 근무 기록이 없습니다.</div> : wlog.today.map((w) => (
             <div key={w.model} style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, padding: "3px 0", borderBottom: `1px solid ${C.bg}` }}>
               <span style={{ color: C.text1, fontWeight: 600 }}>{w.name}</span><span style={{ color: C.text2 }}>{w.jobs}건</span>
@@ -1834,7 +1836,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
           <div style={{ fontSize: 10.5, color: C.text3, marginTop: 6 }}>오늘 {budget.todayJobs}건 · 누적 {budget.totalJobs}건 · 절약 {budget.savedHours}시간</div>
         </div>
         <div style={{ ...box, flex: "1 1 240px", marginBottom: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>👥 인사 (채용 후보 · 비활성 제안)</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="👥" size={14} color={C.text1} /> 인사 (채용 후보 · 비활성 제안)</div>
           <div style={{ fontSize: 10.5, color: C.text2, fontWeight: 700, marginBottom: 3 }}>채용 후보(OpenRouter 신모델)</div>
           {hires.slice(0, 4).map((h) => (
             <div key={h.model} style={{ fontSize: 11, color: C.text3, padding: "2px 0" }}>· {h.model.split("/").pop()} → {h.role} <span style={{ color: C.text4 }}>({h.deptName})</span></div>
@@ -1926,7 +1928,7 @@ function BlogPublishTab({ published = [], showToast }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>📤 블로그 발행 (JAFA1)</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📤" size={14} color={C.text1} /> 블로그 발행 (JAFA1)</div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setCfg({ enabled: !cfg.enabled })}
             style={{ padding: "7px 16px", borderRadius: R.full, fontWeight: 800, fontSize: 12.5, cursor: "pointer", border: "none", background: cfg.enabled ? C.brand : C.text4, color: "#fff" }}>
@@ -1959,7 +1961,7 @@ function BlogPublishTab({ published = [], showToast }) {
       {/* 설정 */}
       {showSettings && (
         <div style={box}>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>⚙️ 블로그 발행 설정</div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="⚙️" size={14} color={C.text1} /> 블로그 발행 설정</div>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: C.text2, marginBottom: 8 }}>
             <span style={{ minWidth: 130 }}>Space Lounge URL</span>
             <input value={cfg.spaceLoungeUrl} onChange={(e) => setCfg({ spaceLoungeUrl: e.target.value })}
@@ -1986,7 +1988,7 @@ function BlogPublishTab({ published = [], showToast }) {
 
       {/* 발행 대기열 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🗂️ 발행 대상 ({candidates.length})</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🗂️" size={14} color={C.text1} /> 발행 대상 ({candidates.length})</div>
         {candidates.length === 0 ? (
           <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>발행된 콘텐츠 중 블로그 발행 대상이 없습니다(타입 토글 확인).</div>
         ) : candidates.map((p) => (
@@ -2003,7 +2005,7 @@ function BlogPublishTab({ published = [], showToast }) {
       {preview && (
         <div style={box}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.sm }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>🧱 HTML 미리보기 — {preview.title}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🧱" size={14} color={C.text1} /> HTML 미리보기 — {preview.title}</div>
             <button onClick={() => setPreview(null)} style={{ fontSize: 11, color: C.text3, background: "none", border: "none", cursor: "pointer" }}>닫기</button>
           </div>
           <div style={{ border: `1px solid ${C.bgWarm}`, borderRadius: R.md, padding: S.md, maxHeight: 300, overflow: "auto", background: "#fff" }}
@@ -2013,7 +2015,7 @@ function BlogPublishTab({ published = [], showToast }) {
 
       {/* 발행 로그 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🧾 블로그 발행 로그 ({log.length})</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🧾" size={14} color={C.text1} /> 블로그 발행 로그 ({log.length})</div>
         {log.length === 0 ? <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>아직 블로그 발행 기록이 없습니다.</div> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {log.slice(0, 20).map((e, i) => (
@@ -2060,7 +2062,7 @@ function EditorialScheduleTab({ published = [], showToast }) {
 
   return (
     <div>
-      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🗞️ 자동 편성 (Daily Editorial)</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🗞️" size={14} color={C.text1} /> 자동 편성 (Daily Editorial)</div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
         하루 최대 <b>{comp.cap}개</b>(상한선 · 품질 통과분만 발행). <b>뉴스는 뉴스로, 공간마켓은 공간 관점으로, 연재는 연재로</b> —
         타입별로 공간 관점 적용 여부가 다릅니다. 각 콘텐츠는 프롬프트를 복사해 <b>AI 콘텐츠 공장</b>에서 생성·검수·발행합니다.
@@ -2088,7 +2090,7 @@ function EditorialScheduleTab({ published = [], showToast }) {
 
       {/* 아침 고정 콘텐츠 생성 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🌅 아침 고정 콘텐츠 (프롬프트 생성)</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🌅" size={14} color={C.text1} /> 아침 고정 콘텐츠 (프롬프트 생성)</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {morning.map((m) => (
             <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5, padding: "6px 0", borderBottom: `1px solid ${C.bg}`, flexWrap: "wrap" }}>
@@ -2118,7 +2120,7 @@ function EditorialScheduleTab({ published = [], showToast }) {
       {/* 콘텐츠 믹스 + Shareability */}
       {mix.total > 0 && (
         <div style={box}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📊 오늘 콘텐츠 믹스 · Shareability {mix.avgShareability != null ? `평균 ${mix.avgShareability}` : ""}</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📊" size={14} color={C.text1} /> 오늘 콘텐츠 믹스 · Shareability {mix.avgShareability != null ? `평균 ${mix.avgShareability}` : ""}</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {mix.ratios.map((r) => (
               <span key={r.type} style={{ fontSize: 11, color: C.text2, background: C.bg, borderRadius: R.full, padding: "3px 10px" }}>
@@ -2168,7 +2170,7 @@ function StoryEngineTab({ showToast }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>📚 연재 스토리 (Story Engine)</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📚" size={14} color={C.text1} /> 연재 스토리 (Story Engine)</div>
         <button onClick={startNew} style={{ padding: "7px 14px", background: C.brandD, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>+ 새 연재</button>
       </div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
@@ -2224,7 +2226,7 @@ function StoryEngineTab({ showToast }) {
 
       {/* 시리즈 목록 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📖 연재 목록 ({list.length})</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📖" size={14} color={C.text1} /> 연재 목록 ({list.length})</div>
         {list.length === 0 ? (
           <div style={{ fontSize: 12, color: C.text3, padding: "8px 0" }}>아직 연재가 없습니다. "+ 새 연재"로 Story Bible을 만드세요.</div>
         ) : list.map(s => (
@@ -2289,7 +2291,7 @@ function TrendDiscoveryTab({ published = [], adminUserId, showToast, onReload })
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>🧭 AI 트렌드 발굴 (기획 AI)</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🧭" size={14} color={C.text1} /> AI 트렌드 발굴 (기획 AI)</div>
         <button onClick={() => setSeed(s => s + 1)}
           style={{ padding: "7px 14px", background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>
           🔄 추천 새로 찾기
@@ -2423,7 +2425,7 @@ function PublishingPipelineTab({ drafts = [], published = [], loading = false, a
 
   return (
     <div>
-      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🚀 AI 발행 파이프라인</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🚀" size={14} color={C.text1} /> AI 발행 파이프라인</div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
         생성된 초안을 <b>Draft → Review → Approved → Published</b> 로 운영합니다. 발행/예약은 기존 발행 흐름과
         예약발행 크론을 그대로 사용하며(자동 발행 없음), Review/Approved 상태는 이 브라우저에 저장됩니다.
@@ -2455,7 +2457,7 @@ function PublishingPipelineTab({ drafts = [], published = [], loading = false, a
 
       {/* 1~3. 초안 보드 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📋 초안 보드 (검토 → 승인 → 발행/예약)</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📋" size={14} color={C.text1} /> 초안 보드 (검토 → 승인 → 발행/예약)</div>
         {loading ? <div style={{ textAlign: "center", padding: 30, color: C.text3 }}>불러오는 중…</div> : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: S.md }}>
             {[["draft", "Draft"], ["review", "Review"], ["approved", "Approved"], ["scheduled", "Scheduled"]].map(([id, lbl]) => (
@@ -2470,16 +2472,16 @@ function PublishingPipelineTab({ drafts = [], published = [], loading = false, a
 
       {/* 5. 인기 콘텐츠 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🔥 인기 콘텐츠 (자동 계산)</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🔥" size={14} color={C.text1} /> 인기 콘텐츠 (자동 계산)</div>
         <div style={{ display: "flex", gap: S.lg, flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 240px" }}>
-            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.brand, marginBottom: 5 }}>✨ Editor's Pick</div>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.brand, marginBottom: 5, display:"flex", alignItems:"center", gap:6}}><Icon emoji="✨" size={14} color={C.text1} /> Editor's Pick</div>
             <div style={{ fontSize: 12, color: C.text1 }}>{popular.editorsPick?.title ?? "-"}</div>
-            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.pinkD, margin: "10px 0 5px" }}>📈 상승</div>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.pinkD, margin: "10px 0 5px", display:"flex", alignItems:"center", gap:6}}><Icon emoji="📈" size={14} color={C.text1} /> 상승</div>
             {popular.rising.slice(0, 4).map(p => <div key={p.id} style={{ fontSize: 11, color: C.text2, padding: "1px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {p.title}</div>)}
           </div>
           <div style={{ flex: "1 1 240px" }}>
-            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text1, marginBottom: 5 }}>👍 인기</div>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text1, marginBottom: 5, display:"flex", alignItems:"center", gap:6}}><Icon emoji="👍" size={14} color={C.text1} /> 인기</div>
             {popular.popular.slice(0, 5).map(p => <div key={p.id} style={{ fontSize: 11, color: C.text2, padding: "1px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>· {p.title} <span style={{ color: C.text3 }}>({p._c.engagementScore})</span></div>)}
           </div>
         </div>
@@ -2487,7 +2489,7 @@ function PublishingPipelineTab({ drafts = [], published = [], loading = false, a
 
       {/* 4. 발행 히스토리 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md }}>🗂️ 발행 히스토리 ({history.length})</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🗂️" size={14} color={C.text1} /> 발행 히스토리 ({history.length})</div>
         {history.length === 0 ? <div style={{ fontSize: 12, color: C.text3, textAlign: "center", padding: 20 }}>발행된 AI 콘텐츠가 없습니다</div> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             {history.slice(0, 20).map(h => (
@@ -2528,7 +2530,7 @@ function UsageDashboardPanel({ C, S, R }) {
   return (
     <div style={{ background: C.bg, borderRadius: R.xl, padding: S.lg, border: `1px solid ${C.bgWarm}`, marginBottom: S.xl }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: S.sm, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>📊 LLM Usage Dashboard</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📊" size={14} color={C.text1} /> LLM Usage Dashboard</div>
         <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
           {RANGES.map(([id, lb]) => (
             <button key={id} onClick={() => setRange(id)}
@@ -2916,7 +2918,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
 
   return (
     <div>
-      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🏭 AI 콘텐츠 공장</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🏭" size={14} color={C.text1} /> AI 콘텐츠 공장</div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
         이슈를 공간 관점으로 재해석한 초안을 만들고, 검수 후 발행합니다. 자동 발행은 하지 않습니다 —
         모든 발행은 관리자 승인이 필요합니다(베타 원칙).
@@ -2928,7 +2930,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
       {/* 🗞️ AI 편집국 — 생성 전 기획 레이어: 편집회의(오늘 이슈 심의) → 카테고리 추천 → 콘텐츠 품질 점검.
           목표는 콘텐츠의 "양"이 아니라 "경쟁력". 전부 결정론적 재계산(저장/Migration 없음). */}
       <div style={{ background: C.brandL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.brandM}`, marginBottom: S.xl }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: C.brandD, marginBottom: 4 }}>🗞️ AI 편집국</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.brandD, marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🗞️" size={14} color={C.text1} /> AI 편집국</div>
         <div style={{ fontSize: 11.5, color: C.text2, marginBottom: S.md, lineHeight: 1.6 }}>
           공간라운지는 인테리어 커뮤니티가 아니라 <b>공간을 중심으로 세상을 기록하는 AI 콘텐츠 플랫폼</b>입니다.
           글을 만들기 전에 편집회의를 엽니다: 오늘 이슈 → 가치 평가 → 공간 관련성 → 카테고리 결정 → 생성.
@@ -3010,7 +3012,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
       {/* 🕸️ Space Graph (Phase 3) — 공간 지식 네트워크: 글을 "많이" 만드는 게 아니라 "연결"한다.
           콘텐츠 연결률 · 토픽 클러스터 · 지식 지도 · 오늘의 Space / Editor's Pick. 전부 결정론적 재계산(저장 없음). */}
       <div style={{ background: "#0f2e26", borderRadius: R.xl, padding: S.xl, border: `1px solid #1c463a`, marginBottom: S.xl }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4 }}>🕸️ Space Graph · 공간 지식 네트워크</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🕸️" size={14} color={C.text1} /> Space Graph · 공간 지식 네트워크</div>
         <div style={{ fontSize: 11.5, color: "#a9c9bd", marginBottom: S.md, lineHeight: 1.6 }}>
           Space is Everything. 이제 중요한 건 <b style={{ color: "#fff" }}>새 글을 얼마나 잘 쓰느냐</b>가 아니라
           <b style={{ color: "#fff" }}> 기존 글을 얼마나 잘 연결하느냐</b>입니다. 콘텐츠가 쌓일수록 하나의 공간 지식 네트워크가 됩니다.
@@ -3033,7 +3035,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         </div>
 
         {/* AI Topic Cluster — 콘텐츠를 대주제(클러스터)로 관리 */}
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🧩 Topic Cluster (콘텐츠 클러스터)</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🧩" size={14} color={C.text1} /> Topic Cluster (콘텐츠 클러스터)</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: S.lg }}>
           {(clusters.length ? clusters : TOPIC_CLUSTERS.map(c => ({ ...c, count: 0, views: 0 }))).map(c => (
             <div key={c.id} style={{ background: "#123a30", border: "1px solid #1c463a", borderRadius: R.md, padding: "6px 10px", fontSize: 11 }}>
@@ -3045,7 +3047,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         </div>
 
         {/* Knowledge Map — 카테고리 ↔ 카테고리 지식 연결(실제 글이 있는 카테고리끼리) */}
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🗺️ Knowledge Map (카테고리 지식 연결 {kmap.edges.length})</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🗺️" size={14} color={C.text1} /> Knowledge Map (카테고리 지식 연결 {kmap.edges.length})</div>
         {kmap.edges.length === 0 ? (
           <div style={{ fontSize: 11, color: "#8fb3a6", marginBottom: S.lg }}>아직 연결할 카테고리가 부족합니다(발행글이 쌓이면 자동 연결)</div>
         ) : (
@@ -3105,7 +3107,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
           댓글 인사이트 · 후속 콘텐츠 추천 · 상승/조용 카테고리. 전부 결정론적 재계산(저장 없음). */}
       <div style={{ background: "#2a1a3a", borderRadius: R.xl, padding: S.xl, border: `1px solid #43305a`, marginBottom: S.xl }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: "#fff" }}>🌡️ Community Engine · 살아있는 공간</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", display:"flex", alignItems:"center", gap:6}}><Icon emoji="🌡️" size={14} color={C.text1} /> Community Engine · 살아있는 공간</div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 22, fontWeight: 800, color: "#ffcf8f" }}>{temp.temperature}°</span>
             <button onClick={handleLoadComments} disabled={loadingComments}
@@ -3137,7 +3139,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         </div>
 
         {/* 오늘의 살아있는 공간 */}
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>✨ 오늘의 살아있는 공간</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="✨" size={14} color={C.text1} /> 오늘의 살아있는 공간</div>
         {livingSpace.length === 0 ? (
           <div style={{ fontSize: 11, color: "#b193cc", marginBottom: S.lg }}>반응이 쌓이면 오늘 살아 움직이는 글이 자동 선정됩니다</div>
         ) : (
@@ -3155,7 +3157,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         {/* 반응/토론 상위 + 상승/조용 카테고리 */}
         <div style={{ display: "flex", gap: S.md, flexWrap: "wrap", marginBottom: S.lg }}>
           <div style={{ flex: "1 1 240px" }}>
-            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🔥 반응 좋은 글</div>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🔥" size={14} color={C.text1} /> 반응 좋은 글</div>
             {topEngaged.length === 0 ? <div style={{ fontSize: 10.5, color: "#b193cc" }}>—</div> :
               topEngaged.map(p => (
                 <div key={p.id} style={{ fontSize: 10.5, color: "#e5d4f5", padding: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -3164,7 +3166,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
               ))}
           </div>
           <div style={{ flex: "1 1 240px" }}>
-            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>💬 댓글 많은 글</div>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5, display:"flex", alignItems:"center", gap:6}}><Icon emoji="💬" size={14} color={C.text1} /> 댓글 많은 글</div>
             {topDiscussed.length === 0 ? <div style={{ fontSize: 10.5, color: "#b193cc" }}>—</div> :
               topDiscussed.map(p => (
                 <div key={p.id} style={{ fontSize: 10.5, color: "#e5d4f5", padding: "2px 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -3175,7 +3177,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         </div>
         <div style={{ display: "flex", gap: S.md, flexWrap: "wrap", marginBottom: S.lg }}>
           <div style={{ flex: "1 1 240px" }}>
-            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>📈 상승 카테고리</div>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📈" size={14} color={C.text1} /> 상승 카테고리</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
               {temp.risingTopics.length === 0 ? <span style={{ fontSize: 10.5, color: "#b193cc" }}>—</span> :
                 temp.risingTopics.map(c => (
@@ -3184,7 +3186,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
             </div>
           </div>
           <div style={{ flex: "1 1 240px" }}>
-            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5 }}>💤 조용한 카테고리(보강 필요)</div>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#fff", marginBottom: 5, display:"flex", alignItems:"center", gap:6}}><Icon emoji="💤" size={14} color={C.text1} /> 조용한 카테고리(보강 필요)</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
               {temp.quietCategories.length === 0 ? <span style={{ fontSize: 10.5, color: "#b193cc" }}>—</span> :
                 temp.quietCategories.map(c => (
@@ -3217,7 +3219,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         {/* 댓글 인사이트 (온디맨드 로드 시) — 질문/후기/논쟁 분포 + 주의 필요 글 */}
         {comments && insightRows.length > 0 && (
           <div style={{ marginTop: S.lg }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🧭 댓글 인사이트 (글별)</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🧭" size={14} color={C.text1} /> 댓글 인사이트 (글별)</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
               {insightRows.slice(0, 8).map(row => (
                 <div key={row.postId} style={{ fontSize: 11, padding: "4px 0", borderBottom: "1px solid #382548" }}>
@@ -3236,7 +3238,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
       {/* 📖 Space Media (Phase 5) — 매거진/아카이브/검색 구조 미리보기. 게시판이 아니라 미디어.
           실제 사용자 UX(읽는 시간·목차·작성자 배지)는 글 상세에 적용됨. 여기선 관리자 준비 확인용. */}
       <div style={{ background: "#111827", borderRadius: R.xl, padding: S.xl, border: `1px solid #273244`, marginBottom: S.xl }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4 }}>📖 Space Media · 매거진 미리보기</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📖" size={14} color={C.text1} /> Space Media · 매거진 미리보기</div>
         <div style={{ fontSize: 11.5, color: "#9fb0c8", marginBottom: S.md, lineHeight: 1.6 }}>
           "YouTube 가 영상을 기록했다면, Space Lounge 는 글과 사진으로 세상을 기록한다." 발행글을 매거진 홈으로
           구성한 미리보기입니다(PC Version First 구조). 온도 {magazine.insight.temperature}° · 전체 {magazine.insight.totalPosts}글 · 오늘 {magazine.insight.todayPosts}글.
@@ -3275,7 +3277,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         {/* Trending */}
         {magazine.trending.length > 0 && (
           <div style={{ marginBottom: S.lg }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🔥 Trending</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🔥" size={14} color={C.text1} /> Trending</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
               {magazine.trending.map(t => (
                 <span key={t.category} style={{ fontSize: 10, color: "#cfe0f5", background: "#1b2536", border: "1px solid #2c3a52", borderRadius: R.full, padding: "3px 9px" }}>{t.label} ↑{t.momentum}</span>
@@ -3285,7 +3287,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         )}
 
         {/* Archive 요약 */}
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🗄️ Archive</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🗄️" size={14} color={C.text1} /> Archive</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: S.sm }}>
           {archive.byTime.map(b => (
             <div key={b.id} style={{ background: "#1b2536", borderRadius: R.md, padding: "6px 11px", border: "1px solid #273244" }}>
@@ -3303,7 +3305,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         )}
 
         {/* 지식 검색 데모 */}
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5 }}>🔎 Space Search (지식 검색)</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: 5, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🔎" size={14} color={C.text1} /> Space Search (지식 검색)</div>
         <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="예) 인테리어, 신혼집, 금리…"
           style={{ width: "100%", padding: "9px 12px", background: "#1b2536", color: "#fff", border: "1px solid #2c3a52", borderRadius: R.md, fontSize: 13, outline: "none", boxSizing: "border-box", fontFamily: "inherit", marginBottom: S.sm }} />
         {searchResult && (
@@ -3334,14 +3336,14 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
       {/* 🛰️ Publishing OS (Phase 6) — 운영 파이프라인: 기획→생성→검수→연결→발행→분석→재기획.
           Phase 1~5 엔진을 하나의 운영 관점으로 묶은 관리자 콘솔. 전부 결정론적 재계산(저장 없음). */}
       <div style={{ background: "#1a1030", borderRadius: R.xl, padding: S.xl, border: `1px solid #33235a`, marginBottom: S.xl }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4 }}>🛰️ Publishing OS · 콘텐츠 운영 파이프라인</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🛰️" size={14} color={C.text1} /> Publishing OS · 콘텐츠 운영 파이프라인</div>
         <div style={{ fontSize: 11.5, color: "#b9a6dd", marginBottom: S.md, lineHeight: 1.6 }}>
           AI 가 기획하고, 연결하고, 사람이 반응하고, 관리자가 운영하고, 다시 AI 의 다음 기획으로 돌아갑니다.
           온도 {osDashboard.temperature}° · 색인 {osIndex.stats.indexed}글 · 커버리지 {osCoverage.coverageRate}%.
         </div>
 
         {/* 1. Publishing Pipeline — 단계 흐름 */}
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🔻 Pipeline</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🔻" size={14} color={C.text1} /> Pipeline</div>
         <div style={{ display: "flex", gap: 5, overflowX: "auto", paddingBottom: 6, marginBottom: S.lg }}>
           {osPipeline.map((s, i) => (
             <div key={s.id} style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 5 }}>
@@ -3355,7 +3357,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         </div>
 
         {/* 2. Today's Dashboard */}
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>📅 Today's Dashboard</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📅" size={14} color={C.text1} /> Today's Dashboard</div>
         <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.sm }}>
           {[
             { k: "오늘 생성", v: osDashboard.createdToday },
@@ -3378,7 +3380,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         </div>
 
         {/* 3. Draft Queue — 운영 관점 초안 목록 */}
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🗂️ Draft Queue ({osDraftQueue.length})</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🗂️" size={14} color={C.text1} /> Draft Queue ({osDraftQueue.length})</div>
         {osDraftQueue.length === 0 ? (
           <div style={{ fontSize: 11, color: "#b9a6dd", marginBottom: S.lg }}>검수 대기 초안이 없습니다</div>
         ) : (
@@ -3445,7 +3447,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         )}
 
         {/* 7. Space Index — 통합 색인 요약 */}
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🧬 Space Index</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🧬" size={14} color={C.text1} /> Space Index</div>
         <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap" }}>
           {[
             { k: "색인 글", v: osIndex.stats.indexed },
@@ -3464,7 +3466,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
       {/* Phase 18 — Real LLM Editorial Engine (OpenRouter). Mock 없음: 미설정/실패 시 초안 미생성 */}
       <div style={{ background: C.brandD, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.brandD}`, marginBottom: S.xl, color: "#fff" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-          <div style={{ fontSize: 14, fontWeight: 800 }}>📰 AI 편집국 — 실제 매거진 생성 (LLM)</div>
+          <div style={{ fontSize: 14, fontWeight: 800, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📰" size={14} color={C.text1} /> AI 편집국 — 실제 매거진 생성 (LLM)</div>
           {/* Phase 28 — Provider 실시간 연결 상태 */}
           <span style={{ display: "flex", gap: 10, fontSize: 11, flexWrap: "wrap" }}>
             {providerStatus().map(p => (
@@ -3937,7 +3939,7 @@ function AdminCheckpoints({ requestId, adminUserId }) {
   const mini = { fontSize: 10, fontWeight: 700, color: C.brand, background: C.brandL, border: "none", borderRadius: R.sm, padding: "3px 7px", cursor: "pointer" };
   return (
     <div style={{ background: C.bg, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
-      <div style={{ fontSize: 12, fontWeight: 800, color: C.text2, marginBottom: 8 }}>📍 현장 기록 (GPS 체크포인트)</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: C.text2, marginBottom: 8, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📍" size={14} color={C.text1} /> 현장 기록 (GPS 체크포인트)</div>
       {rows.map((cp) => {
         const addr = cp.address_full || cp.road_address || cp.jibun_address || "주소 미확인";
         const hasCoord = cp.lat != null && cp.lng != null;
@@ -4017,7 +4019,7 @@ function AdminCleanupTool({ adminUserId, showToast }) {
   return (
     <div>
       <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.lg }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🧹 데이터 정리 / 운영 도구</div>
+        <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🧹" size={14} color={C.text1} /> 데이터 정리 / 운영 도구</div>
         <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: S.lg }}>
           테스트/꼬인 거래를 강제 정리합니다. 기본은 <b>화면 숨김/취소(soft)</b>이며, hard delete 는 테스트 데이터에만 사용하세요.
         </div>
@@ -4183,7 +4185,7 @@ function SeedPostsManagerTab({ posts = [], loading = false, fetchErr = null, adm
           <div style={{ textAlign: "center", padding: "30px 0", color: C.text3, fontSize: 13 }}>불러오는 중...</div>
         ) : posts.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px 0" }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>🌱</div>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="🌱" size={32} color={C.text3} /></div>
             <div style={{ fontSize: 14, color: C.text3 }}>운영글(is_seed=true)이 없습니다</div>
             <div style={{ fontSize: 12, color: C.text4, marginTop: 6 }}>019~021 시드 마이그레이션 적용 여부를 확인하세요</div>
           </div>
@@ -4531,7 +4533,7 @@ function SeedReviewTab() {
         <div style={{ textAlign: "center", padding: "40px 0", color: C.text4 }}>불러오는 중…</div>
       ) : seeds.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 0" }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📷</div>
+          <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="📷" size={36} color={C.text3} /></div>
           <div style={{ fontSize: 14, color: C.text3 }}>등록된 시딩 후기가 없습니다</div>
         </div>
       ) : seeds.map(s => (
@@ -5127,7 +5129,7 @@ function GpsOpsDashboard({ adminUserId }) {
 
   return (
     <div>
-      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4 }}>📡 GPS 시스템 모니터링</div>
+      <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📡" size={14} color={C.text1} /> GPS 시스템 모니터링</div>
       <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: 12 }}>
         GPS·사진·프로젝트 진행 품질을 집계하는 운영 대시보드입니다. 프로젝트 단위 상세 추적은 ‘프로젝트 증빙관리’에서 확인하세요.
       </div>
@@ -5279,13 +5281,34 @@ function DocPreviewModal({ url, title, onClose }) {
               style={{ maxWidth: "100%", maxHeight: "82vh", objectFit: "contain", display: "block" }} />
           ) : (
             <div style={{ color: "#fff", textAlign: "center", padding: "40px 24px", lineHeight: 1.7 }}>
-              <div style={{ fontSize: 30, marginBottom: 8 }}>📄</div>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom: 8 }}><Icon emoji="📄" size={30} color={C.text3} /></div>
               <div style={{ fontSize: 13 }}>미리보기를 표시할 수 없는 형식입니다.<br />‘새 창’ 또는 ‘다운로드’로 확인해 주세요.</div>
             </div>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+// 아이콘 세트 v1(기존 이모지)/v2(신규 라인 아이콘) 전환 스위치.
+// localStorage 기반 — 이 브라우저에서 즉시 반영되며, 이모지 톤이 유치하다는
+// 피드백에 따라 v2 를 기본값으로 두고 필요 시 v1 로 즉시 롤백할 수 있게 한다.
+function IconVersionToggle() {
+  const [version, setVersion] = useIconVersion();
+  const isV2 = version === "v2";
+  return (
+    <button
+      onClick={() => setVersion(isV2 ? "v1" : "v2")}
+      title="아이콘 세트 전환 (v1: 기존 이모지 / v2: 신규 라인 아이콘)"
+      style={{
+        background: isV2 ? C.brandL : C.bgWarm, border: `1px solid ${isV2 ? C.brand : C.bgWarm}`,
+        borderRadius: R.md, padding: "6px 10px", fontSize: 11, fontWeight: 700,
+        color: isV2 ? C.brandD : C.text3, cursor: "pointer",
+      }}
+    >
+      아이콘 {isV2 ? "v2" : "v1"}
+    </button>
   );
 }
 
@@ -6041,12 +6064,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
               심사 대기 {stats.pending}건
             </div>
           )}
+          <IconVersionToggle />
           {onHome && (
             <button onClick={onHome}
               style={{ background: C.bgWarm, border: "none", borderRadius: R.md,
                 padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.text2,
                 cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-              🏠 홈으로
+              <Icon emoji="🏠" size={14} /> 홈으로
             </button>
           )}
         </div>
@@ -6083,7 +6107,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
         {!loading && !canAccessTab(mainTab) && (
           <div style={{ textAlign: "center", padding: "60px 20px", color: C.text3 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="🔒" size={40} color={C.text3} /></div>
             <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 6 }}>접근 권한이 없습니다</div>
             <div style={{ fontSize: 13, lineHeight: 1.7 }}>이 메뉴는 부여된 운영자 권한 범위에 포함되어 있지 않습니다.<br/>좌측 상단 메뉴에서 접근 가능한 항목을 선택해주세요.</div>
           </div>
@@ -6096,7 +6120,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
               <div>
                 <AdminVisitCards adminUserId={user?.id ?? null} />
                 <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
-                <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>📊 현황 요약</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📊" size={14} color={C.text1} /> 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
                   {[
                     ["업체 심사 대기", stats.pending,    C.gold,    "companies"],
@@ -6116,7 +6140,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   ))}
                 </div>
                 <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, marginBottom: S.lg }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: S.md }}>🛡 공간마켓 운영 현황</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🛡" size={14} color={C.text1} /> 공간마켓 운영 현황</div>
                   {[
                     ["공간안전결제 에스크로 수수료 (고객)", "3.7% (VAT 포함, 고정)"],
                     ["공간멤버십파트너 이용수수료 (업체)", "4.4% (VAT 포함 · 계약 성사 시에만)"],
@@ -6134,7 +6158,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 {/* STEP O — Emergency Switch */}
                 <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `2px solid ${C.red}33` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginBottom: S.lg }}>
-                    <span style={{ fontSize: 18 }}>🚨</span>
+                    <Icon emoji="🚨" size={18} color={C.red} />
                     <div style={{ fontSize: 14, fontWeight: 800, color: C.red }}>긴급 운영 스위치</div>
                     {opsLoading && <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>저장 중...</span>}
                   </div>
@@ -6146,7 +6170,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     <div key={field} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                       padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1, display: "flex", alignItems: "center", gap: 5 }}>
+                          {(() => { const { emoji, rest } = splitLeadingEmoji(label); return <>{emoji && <Icon emoji={emoji} size={12} color={C.text1} />}{rest}</>; })()}
+                        </div>
                         <div style={{ fontSize: 11, color: C.text4 }}>{sub}</div>
                       </div>
                       <button
@@ -6195,7 +6221,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
                 {filtered.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="✅" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 14, color: C.text3 }}>해당 항목이 없습니다</div>
                   </div>
                 ) : filtered.map(company => {
@@ -6308,7 +6334,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   <div style={{ textAlign: "center", padding: "60px 0", fontSize: 14, color: C.text3 }}>불러오는 중…</div>
                 ) : filteredPartnerLeads.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="📋" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 14, color: C.text3 }}>상담 신청 없음</div>
                   </div>
                 ) : filteredPartnerLeads.map((l) => {
@@ -6347,39 +6373,39 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         {l.business_license_url ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 사업자등록증 제출됨</span>
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 사업자등록증 제출됨</span>
                             <button onClick={() => setDocPreview({ url: l.business_license_url, title: `${l.company_name} · 사업자등록증` })}
                               style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
-                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer" }}>🔍 사업자등록증 보기</button>
+                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="🔍" size={12} color="#fff" /> 사업자등록증 보기</button>
                           </span>
                         ) : (
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.red, background: "#FFF0F0",
-                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7" }}>
-                            ⛔ 사업자등록증 미제출 (승인 불가)
+                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <Icon emoji="⛔" size={12} color={C.red} /> 사업자등록증 미제출 (승인 불가)
                           </span>
                         )}
                         {l.insurance_file_url ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 보험증권 제출됨</span>
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 보험증권 제출됨</span>
                             <button onClick={() => setDocPreview({ url: l.insurance_file_url, title: `${l.company_name} · 시공보험증권` })}
                               style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
-                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer" }}>🔍 시공보험증권 보기</button>
+                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="🔍" size={12} color="#fff" /> 시공보험증권 보기</button>
                           </span>
                         ) : (
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.red, background: "#FFF0F0",
-                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7" }}>
-                            ⛔ 보험증권 미제출 (예치금 2배)
+                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <Icon emoji="⛔" size={12} color={C.red} /> 보험증권 미제출 (예치금 2배)
                           </span>
                         )}
                         {/* 073 대표자 신분증(선택) — 제출 시 확대보기, 미제출은 중립 표시 */}
                         {l.id_card_url ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 신분증 제출됨</span>
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 신분증 제출됨</span>
                             <button onClick={() => setDocPreview({ url: l.id_card_url, title: `${l.company_name} · 대표자 신분증` })}
                               style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
-                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer" }}>🔍 신분증 보기</button>
+                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="🔍" size={12} color="#fff" /> 신분증 보기</button>
                           </span>
                         ) : (
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.text3, background: C.surface2 ?? "#F4F1EA",
@@ -6397,7 +6423,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         {l.pledge_agreed ? (
                           <>
                             <span style={{ fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "4px 10px", border: `1px solid ${C.green}33` }}>✅ 동의</span>
+                              borderRadius: R.lg, padding: "4px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={11} color={C.green} /> 동의</span>
                             {l.pledge_agreed_at && (
                               <span style={{ fontSize: 11, color: C.text4 }}>
                                 동의 일시 {new Date(l.pledge_agreed_at).toLocaleString("ko-KR")}
@@ -6406,7 +6432,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           </>
                         ) : (
                           <span style={{ fontWeight: 700, color: C.red, background: "#FFF0F0",
-                            borderRadius: R.lg, padding: "4px 10px", border: "1px solid #F3C7C7" }}>❌ 미동의</span>
+                            borderRadius: R.lg, padding: "4px 10px", border: "1px solid #F3C7C7", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="❌" size={11} color={C.red} /> 미동의</span>
                         )}
                       </div>
 
@@ -6521,7 +6547,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 {customersErr ? (
                   <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl,
                     textAlign: "center", border: `1px solid ${C.bgWarm}` }}>
-                    <div style={{ fontSize: 32, marginBottom: 12 }}>🔒</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="🔒" size={32} color={C.text3} /></div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 8 }}>
                       {/ADMIN_ONLY|403/.test(customersErrMsg ?? "") ? "관리자 전용" : "고객 목록을 불러올 수 없어요"}
                     </div>
@@ -6565,12 +6591,12 @@ export default function AdminScreen({ onBack, onHome, user }) {
                               </button>
                             </div>
                           </div>
-                          <div style={{ fontSize: 12, color: C.text3 }}>📱 {customer.phone} · 📍 {customer.region}</div>
+                          <div style={{ fontSize: 12, color: C.text3, display: "flex", alignItems: "center", gap: 4 }}><Icon emoji="📱" size={11} color={C.text3} /> {customer.phone} · <Icon emoji="📍" size={11} color={C.text3} /> {customer.region}</div>
                           <div style={{ fontSize: 11, color: C.text4, marginTop: 4 }}>가입일: {customer.joinedAt}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
                             {customer.is_identity_verified ? (
                               <>
-                                <span style={{ fontSize: 11, color: C.green, fontWeight: 700 }}>✓ 본인인증 완료</span>
+                                <span style={{ fontSize: 11, color: C.green, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 3 }}><Icon emoji="✓" size={11} color={C.green} /> 본인인증 완료</span>
                                 <span style={{ fontSize: 10, color: C.text4 }}>
                                   {customer.identity_verified_at ? new Date(customer.identity_verified_at).toLocaleDateString("ko-KR") : ""}
                                   {customer.identity_provider ? ` (${customer.identity_provider})` : ""}
@@ -6586,7 +6612,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                             ) : (
                               <>
                                 <span style={{ fontSize: 11, color: customer.identity_verification_status === "required" ? C.gold : C.text4, fontWeight: customer.identity_verification_status === "required" ? 700 : 400 }}>
-                                  {customer.identity_verification_status === "required" ? "⚠️ 인증 필요" : "미인증"}
+                                  {customer.identity_verification_status === "required" ? <><Icon emoji="⚠️" size={11} color={C.gold} /> 인증 필요</> : "미인증"}
                                 </span>
                                 <button onClick={async () => {
                                   const { error } = await adminVerifyUserIdentity(customer.id, user?.id, "verified");
@@ -6607,7 +6633,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                                   borderRadius: R.full, padding: "2px 9px" }}>{meta.label}</span>
                               );
                             })()}
-                            <span style={{ fontSize: 11, color: C.text4 }}>🪙 {customer.spaceTokens ?? 0} · 🌡 {customer.spaceTemp ?? 36.5}°</span>
+                            <span style={{ fontSize: 11, color: C.text4, display: "inline-flex", alignItems: "center", gap: 3 }}><Icon emoji="🪙" size={10} color={C.text4} /> {customer.spaceTokens ?? 0} · <Icon emoji="🌡" size={10} color={C.text4} /> {customer.spaceTemp ?? 36.5}°</span>
                             <button onClick={() => {
                               if (managingCustomerId === customer.id) { setManagingCustomerId(null); return; }
                               setManagingCustomerId(customer.id); setAdjReason(""); setCustomerTokenAmt("");
@@ -6730,7 +6756,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   </div>
                 ) : hiddenRequests.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="✅" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 14, color: C.text3 }}>숨김 처리된 요청이 없습니다</div>
                   </div>
                 ) : hiddenRequests.map(req => (
@@ -6807,7 +6833,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   .filter(o => paymentFilter === "all" || o.status === paymentFilter)
                   .length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>💳</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="💳" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 14, color: C.text3 }}>해당 결제 내역이 없습니다</div>
                   </div>
                 ) : paymentOrders
@@ -6897,7 +6923,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
               <div>
                 {disputes.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>⚖️</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="⚖️" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: C.text1, marginBottom: 8 }}>분쟁 대기 없음</div>
                     <div style={{ fontSize: 13, color: C.text3 }}>실시간 분쟁 내역은 거래 발생 시 표시됩니다</div>
                   </div>
@@ -6987,7 +7013,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 <div>
                 {settlements.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>💰</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="💰" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: C.text1, marginBottom: 8 }}>정산 대기 없음</div>
                     <div style={{ fontSize: 13, color: C.text3 }}>에스크로 정산 내역은 거래 완료 시 표시됩니다</div>
                   </div>
@@ -7302,13 +7328,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   <div style={{ textAlign: "center", padding: "60px 0", fontSize: 14, color: C.text3 }}>불러오는 중…</div>
                 ) : reportsErr ? (
                   <div style={{ textAlign: "center", padding: "40px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="⚠️" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 14, color: C.red, marginBottom: 4 }}>신고 목록을 불러오지 못했습니다</div>
                     <div style={{ fontSize: 12, color: C.text3 }}>{reportsErr}</div>
                   </div>
                 ) : reports.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="📋" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 14, color: C.text3 }}>신고 내역 없음</div>
                   </div>
                 ) : reports.map(r => {
@@ -7385,7 +7411,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   <div style={{ textAlign: "center", padding: "60px 0", fontSize: 14, color: C.text3 }}>불러오는 중…</div>
                 ) : filteredDdr.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>🕵️</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="🕵️" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 14, color: C.text3 }}>직거래 의심 기록 없음</div>
                   </div>
                 ) : filteredDdr.map((r) => {
@@ -7424,7 +7450,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                             <img src={r.trigger_detail.image_url} alt="" style={{ width: 56, height: 56, borderRadius: R.sm, objectFit: "cover", flexShrink: 0 }} />
                           )}
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.red, marginBottom: 2 }}>🚩 포트폴리오 이미지 신고</div>
+                            <div style={{ fontSize: 11.5, fontWeight: 800, color: C.red, marginBottom: 2, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🚩" size={14} color={C.text1} /> 포트폴리오 이미지 신고</div>
                             <div style={{ fontSize: 12, color: C.text2 }}>{r.trigger_detail.reason || "사유 미기재"}</div>
                             {r.trigger_detail.portfolio_id && (
                               <div style={{ fontSize: 10.5, color: C.text4, marginTop: 2 }}>portfolio: {String(r.trigger_detail.portfolio_id).slice(0, 8)}…</div>
@@ -7468,7 +7494,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
                 {reviewRewards.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>☕</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="☕" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 14, color: C.text3 }}>대기 중인 포토리뷰가 없습니다</div>
                   </div>
                 ) : reviewRewards.map(rw => {
@@ -7648,7 +7674,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
                 {notifications.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "60px 0" }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>🔔</div>
+                    <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="🔔" size={36} color={C.text3} /></div>
                     <div style={{ fontSize: 14, color: C.text3 }}>새 알림이 없습니다</div>
                   </div>
                 ) : notifications.map(n => (
@@ -7743,7 +7769,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
               return (
                 <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.sm }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>🛡 공간보증</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🛡" size={14} color={C.text1} /> 공간보증</div>
                     <span style={{ background: gm.bg, color: gm.color, borderRadius: R.full, padding: "3px 10px", fontSize: 12, fontWeight: 800 }}>{gm.label}</span>
                   </div>
                   <div style={{ fontSize: 13, color: C.text2, marginBottom: S.md }}>
@@ -7777,7 +7803,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
             <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg,
               marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.md }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>📄 제출 서류</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📄" size={14} color={C.text1} /> 제출 서류</div>
                 <button onClick={() => setShowDocReview(true)}
                   style={{ fontSize: 12, color: C.brand, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>
                   서류 검토 ›
@@ -8070,7 +8096,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
           onClick={() => setDocModal(null)}>
           <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 360 }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>📄 사업자등록증</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📄" size={14} color={C.text1} /> 사업자등록증</div>
             {[
               ["상호명",   selected.name],
               ["전화번호", selected.phone || "—"],
@@ -8101,7 +8127,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
           onClick={() => setDocModal(null)}>
           <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 360 }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>🛡 시공보험증서</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🛡" size={14} color={C.text1} /> 시공보험증서</div>
             {[
               ["업체명",   selected.name],
               ["보험 가입", selected.docs[1]?.submitted ? "✓ 가입 완료" : "✗ 미가입"],
@@ -8137,7 +8163,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
               const ins = selected.hasInsurance;
               return (
                 <>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>🛡️ 공간보증 배지</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.lg, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🛡️" size={14} color={C.text1} /> 공간보증 배지</div>
                   {[
                     ["현재 등급",        bm2 ? `${bm2.icon} ${bm2.label}` : "없음"],
                     ["수주 한도",        bm2 ? bm2.maxJob : "—"],
@@ -8191,8 +8217,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
           zIndex: 300, padding: `0 ${S.xl}px` }}>
           <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 340 }}>
             <div style={{ textAlign: "center", marginBottom: S.xl }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>
-                {confirm.emoji ?? (confirm.type === "approve" ? "✅" : "❌")}
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                <Icon emoji={confirm.emoji ?? (confirm.type === "approve" ? "✅" : "❌")} size={48} color={confirm.type === "reject" ? C.red : C.brand} />
               </div>
               <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
                 {confirm.title ?? (confirm.type === "approve" ? "승인하시겠어요?" : "반려하시겠어요?")}

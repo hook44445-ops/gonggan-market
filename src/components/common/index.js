@@ -3,3 +3,4 @@ export { default as CertBadge } from "./CertBadge";
 export { default as Stars } from "./Stars";
 export { default as Divider } from "./Divider";
 export { LogoMark, BrandLockup, LeafSprig, LeafMark } from "./Brand";
+export { Icon, splitLeadingEmoji } from "./Icon";

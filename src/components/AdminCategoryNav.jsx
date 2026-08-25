@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { C } from "../constants";
+import { Icon } from "./common";
 
 // ── 관리자 IA 네비게이션 — 상단 대분류(5) + 하단 소분류 ──────────────────────
 // categories: [{ key, label, icon, tabs: [{ key, label }] }] (권한 필터링 완료본)
@@ -37,8 +38,9 @@ export default function AdminCategoryNav({ categories, mainTab, onSelect }) {
               style={{ padding: "12px 14px", border: "none", background: "transparent",
                 fontWeight: on ? 900 : 600, fontSize: 13.5, whiteSpace: "nowrap",
                 color: on ? C.brand : C.text3,
-                borderBottom: `3px solid ${on ? C.brand : "transparent"}`, cursor: "pointer" }}>
-              {c.icon ? `${c.icon} ` : ""}{c.label}
+                borderBottom: `3px solid ${on ? C.brand : "transparent"}`, cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 5 }}>
+              {c.icon && <Icon emoji={c.icon} size={13.5} color={on ? C.brand : C.text3} />}{c.label}
             </button>
           );
         })}

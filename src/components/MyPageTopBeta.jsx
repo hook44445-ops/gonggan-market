@@ -6,6 +6,7 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { CompanyLevelBar } from "./company/CompanyMetrics";
+import { Icon } from "./common";
 
 // 150~200ms Count Up (분석 대표 수치 전용).
 function useCountUp(target, ms = 200) {
@@ -70,14 +71,14 @@ export default function MyPageTopBeta({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 17, fontWeight: 800, color: C.text1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
-            {verified && <span title="인증" style={{ fontSize: 13 }}>🛡️</span>}
+            {verified && <span title="인증"><Icon emoji="🛡️" size={13} color={C.brand} /></span>}
           </div>
           {profileBadges.length > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 5, flexWrap: "wrap" }}>
               {profileBadges.map((b) => (
                 <span key={b.label} style={{ display: "inline-flex", alignItems: "center", gap: 3, background: C.brandL,
                   border: `1px solid ${C.brandM}`, borderRadius: R.full, padding: "2px 9px", fontSize: 11, fontWeight: 700, color: C.brand }}>
-                  {b.icon} {b.label}
+                  <Icon emoji={b.icon} size={11} color={C.brand} /> {b.label}
                 </span>
               ))}
             </div>
@@ -100,7 +101,7 @@ export default function MyPageTopBeta({
           {activity.map((a, i) => (
             <div key={i} style={{ flex: "1 1 0", minWidth: 0, textAlign: "center", background: C.surface,
               border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "14px 4px" }}>
-              <div style={{ fontSize: 11, marginBottom: 4 }}>{a.icon}</div>
+              <div style={{ marginBottom: 4, display: "flex", justifyContent: "center" }}><Icon emoji={a.icon} size={13} color={C.brand} /></div>
               <div style={{ fontSize: 30, fontWeight: 800, color: C.text1, lineHeight: 1.05,
                 whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.value}</div>
               <div style={{ fontSize: 12, color: C.text3, marginTop: 4, whiteSpace: "nowrap" }}>{a.label}</div>
@@ -116,7 +117,7 @@ export default function MyPageTopBeta({
             <button key={m.label} onClick={m.onClick} style={{ display: "flex", alignItems: "center", gap: S.md,
               background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: 20, padding: `${S.lg}px`,
               cursor: "pointer", fontFamily: "inherit", textAlign: "left", boxShadow: "0 1px 4px rgba(28,23,18,0.04)" }}>
-              <span style={{ fontSize: 20, lineHeight: 1 }}>{m.icon}</span>
+              <Icon emoji={m.icon} size={20} color={C.brand} />
               <span style={{ fontSize: 13.5, fontWeight: 700, color: C.text1 }}>{m.label}</span>
             </button>
           ))}
@@ -151,13 +152,13 @@ export default function MyPageTopBeta({
           {analysis.headlineText && (
             <div style={{ background: C.brandL, borderRadius: R.lg, padding: "10px 13px", marginBottom: S.md,
               fontSize: 13.5, fontWeight: 700, color: C.brand, lineHeight: 1.5 }}>
-              {analysis.headlineIcon} {headlineNum != null ? `${shownHeadline}${analysis.headlineSuffix ?? ""} · ` : ""}{analysis.headlineText}
+              <Icon emoji={analysis.headlineIcon} size={13} color={C.brand} /> {headlineNum != null ? `${shownHeadline}${analysis.headlineSuffix ?? ""} · ` : ""}{analysis.headlineText}
             </div>
           )}
           {analysis.rows?.map((r, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: `${S.sm}px 0`, borderBottom: i < analysis.rows.length - 1 ? `1px solid ${C.bg}` : "none" }}>
-              <span style={{ fontSize: 13, color: C.text2 }}>{r.icon} {r.label}</span>
+              <span style={{ fontSize: 13, color: C.text2, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji={r.icon} size={12} color={C.text2} /> {r.label}</span>
               <span style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>{r.value}{r.note ? <span style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}> {r.note}</span> : null}</span>
             </div>
           ))}
