@@ -40,7 +40,7 @@ const EMOJI_ICON_MAP = {
   "🏢": Building2,
   "★": Star, "⭐": Star, "⭐️": Star,
   "🎉": BadgeCheck, "🎊": BadgeCheck, "🥳": BadgeCheck, "💯": BadgeCheck,
-  "❤️": Heart, "❤": Heart, "♥": Heart, "💖": Heart,
+  "❤️": Heart, "❤": Heart, "♥": Heart, "💖": Heart, "🤍": Heart,
   "💰": Wallet, "🪙": Coins, "💳": CreditCard, "🧾": Receipt,
   "🔥": Flame,
   "🌡️": Thermometer, "🌡": Thermometer,

@@ -902,7 +902,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>라운지</div>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon emoji="📭" size={40} color={C.text3} /></div>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.text2, marginBottom: 8 }}>게시글을 찾을 수 없어요</div>
           <div style={{ fontSize: 13, color: C.text3, textAlign: 'center', lineHeight: 1.6 }}>삭제됐거나 존재하지 않는 게시글이에요</div>
           <button onClick={onBack} style={{ marginTop: 24, padding: '12px 28px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
@@ -950,7 +950,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             {/* 익명 사람 이모티콘 — 닉네임 글씨 크기와 동일(인라인·세로 가운데). 아이콘처럼 튀지 않게(directive ②) */}
             <span style={{ fontSize: 14, lineHeight: 1, display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>{getGenderEmoji(post.gender)}</span>
             <span style={{ fontWeight: 800, fontSize: 14, color: C.text1 }}>
-              {hasBadge && <span style={{ fontSize: 13, marginRight: 3 }}>🛡️</span>}
+              {hasBadge && <Icon emoji="🛡️" size={13} color={C.brand} style={{ marginRight: 3 }} />}
               {post.is_expert ? companyDisplayName(post.user_id, expertCompany) : resolveConsumerIdentity(post)}
             </span>
           </span>
@@ -973,7 +973,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           return (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: `0 0 ${S.md}px` }}>
-                <span style={{ fontSize: 11.5, color: C.text3 }}>📖 {rx.readingTime.label}</span>
+                <span style={{ fontSize: 11.5, color: C.text3, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="📖" size={11} color={C.text3} /> {rx.readingTime.label}</span>
                 {showBadge && (
                   <span title={badge.desc} style={{ fontSize: 10.5, fontWeight: 700, color: badge.tone, background: C.ivory, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: '2px 9px' }}>
                     {badge.emoji} {badge.label}
@@ -1030,11 +1030,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4, fontSize: 11, color: C.text3, fontWeight: 600 }}>
                 {(() => {
                   const bm = expertCompany.badge ? (BADGES[expertCompany.badge] ?? BADGES.basic) : null;
-                  return bm ? <span style={{ color: bm.color }}>{bm.icon} 공간보증 {bm.label}</span> : null;
+                  return bm ? <span style={{ color: bm.color, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji={bm.icon} size={11} color={bm.color} /> 공간보증 {bm.label}</span> : null;
                 })()}
-                <span style={{ color: C.brand }}>🌡 {expertCompany.temp ?? 0}°</span>
-                {expertCompany.region && <span>· 📍 {expertCompany.region}</span>}
-                {expertReviewCount != null && <span>· ⭐ 후기 {expertReviewCount}</span>}
+                <span style={{ color: C.brand, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="🌡" size={11} color={C.brand} /> {expertCompany.temp ?? 0}°</span>
+                {expertCompany.region && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>· <Icon emoji="📍" size={11} color={C.text3} /> {expertCompany.region}</span>}
+                {expertReviewCount != null && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>· <Icon emoji="⭐" size={11} color={C.text3} /> 후기 {expertReviewCount}</span>}
               </div>
             )}
             {/* 버튼 2개 한 줄 (28px) — 견적 CTA 제거(라운지는 대화→메시지 우선, 견적은 대화 내부에서만 유도) */}
@@ -1060,23 +1060,23 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         {isSynthSeed ? (
           /* 합성 seed(DB 미존재) — 읽기 전용: 조회수/공유만 */
           <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
-            <span style={{ fontSize: 12, color: C.text3 }}>👁 {viewCount.toLocaleString()}</span>
-            <button onClick={handleShare} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.text3, padding: 0 }}>
-              🔗 공유
+            <span style={{ fontSize: 12, color: C.text3, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="👁" size={12} color={C.text3} /> {viewCount.toLocaleString()}</span>
+            <button onClick={handleShare} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.text3, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Icon emoji="🔗" size={13} color={C.text3} /> 공유
             </button>
           </div>
         ) : (
           /* 일반 글·운영글(seed) 공통 상호작용 — 조회/좋아요(토글)/저장/공유/신고 */
           <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bgWarm}`, background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
-            <span style={{ fontSize: 12, color: C.text3 }}>👁 {viewCount.toLocaleString()}</span>
-            <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
-              {liked ? '❤️' : '🤍'} {likeCount}
+            <span style={{ fontSize: 12, color: C.text3, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="👁" size={12} color={C.text3} /> {viewCount.toLocaleString()}</span>
+            <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Icon emoji={liked ? '❤️' : '🤍'} size={13} color={liked ? '#E53E3E' : C.text3} /> {likeCount}
             </button>
-            <button onClick={handleSave} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
-              {saved ? '🔖' : '📄'} {saved ? '저장됨' : '저장'}
+            <button onClick={handleSave} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Icon emoji={saved ? '🔖' : '📄'} size={13} color={saved ? C.gold : C.text3} /> {saved ? '저장됨' : '저장'}
             </button>
-            <button onClick={handleShare} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.text3, padding: 0 }}>
-              🔗 공유
+            <button onClick={handleShare} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.text3, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Icon emoji="🔗" size={13} color={C.text3} /> 공유
             </button>
             {!isOwn && (
               <button onClick={() => openReport({ type: 'post', targetId: post.id })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, padding: 0, marginLeft: 'auto' }}>
@@ -1098,8 +1098,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               if (!chatSent) setShowChat(true);
             }}
             disabled={chatSent}
-            style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand}44`, transition: 'background 0.2s' }}>
-            {isGuest ? '💬 메시지 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 메시지 신청하기'}
+            style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand}44`, transition: 'background 0.2s',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <Icon emoji={chatSent ? '✅' : '💬'} size={15} color="#fff" /> {isGuest ? '메시지 신청하기 (로그인 필요)' : chatSent ? '신청 완료' : '메시지 신청하기'}
           </button>
           <div style={{ textAlign: 'center', marginTop: S.sm, fontSize: 11, color: C.text4 }}>
             {chatSent ? '상대방이 수락하면 20토큰이 차감되고 대화방이 열려요' : '신청은 무료 · 상대방 수락 시 20토큰 차감'}
@@ -1203,8 +1204,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             </div>
             {isCompanyUser && (
               <button onClick={() => { if (isGuest) { onRequireLogin?.(); return; } inputRef.current?.focus(); }}
-                style={{ padding: '10px 20px', borderRadius: R.lg, border: 'none', background: C.brand, color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
-                🏅 전문가로 답변하기
+                style={{ padding: '10px 20px', borderRadius: R.lg, border: 'none', background: C.brand, color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Icon emoji="🏅" size={13} color="#fff" /> 전문가로 답변하기
               </button>
             )}
           </div>
@@ -1230,8 +1231,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                   display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {rp.title || '제목 없음'}
                 </div>
-                <div style={{ fontSize: 12, color: C.text4, marginTop: 2 }}>
-                  {CATEGORY_LABEL[rp.category] ?? rp.category} · 👁 {(rp.view_count ?? 0).toLocaleString()} · 💬 {rp.comment_count ?? 0}
+                <div style={{ fontSize: 12, color: C.text4, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                  {CATEGORY_LABEL[rp.category] ?? rp.category} · <Icon emoji="👁" size={10} color={C.text4} /> {(rp.view_count ?? 0).toLocaleString()} · <Icon emoji="💬" size={10} color={C.text4} /> {rp.comment_count ?? 0}
                 </div>
               </div>
             </button>
@@ -1240,9 +1241,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           {isSeedPost && (
             <button
               onClick={() => onNavigate?.({ target: 'map' })}
-              style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: S.md,
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, width: '100%', textAlign: 'center', marginTop: S.md,
                 background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.brand, padding: S.sm }}>
-              📍 내 지역 업체 보기
+              <Icon emoji="📍" size={13} color={C.brand} /> 내 지역 업체 보기
             </button>
           )}
         </div>
@@ -1261,8 +1262,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             이 게시글에는 댓글을 달 수 없어요
           </div>
         ) : isGuest ? (
-          <button onClick={() => onRequireLogin?.()} style={{ width: '100%', padding: '13px', background: C.brandL, color: C.brand, border: `1.5px solid ${C.brandM}`, borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
-            🔒 로그인하고 댓글 달기
+          <button onClick={() => onRequireLogin?.()} style={{ width: '100%', padding: '13px', background: C.brandL, color: C.brand, border: `1.5px solid ${C.brandM}`, borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <Icon emoji="🔒" size={14} color={C.brand} /> 로그인하고 댓글 달기
           </button>
         ) : (
           <div style={{ display: 'flex', gap: S.sm, alignItems: 'flex-end' }}>
