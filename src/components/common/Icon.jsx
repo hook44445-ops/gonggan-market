@@ -8,6 +8,7 @@ import {
   Satellite, AlertOctagon, Scale, MailX, Trash2, Newspaper, Link2, ThumbsUp, Coins,
   FlaskConical, Flag, Bot, Sparkles, ArrowUpRight, Construction,
   Sofa, Briefcase, Store, ShowerHead, CookingPot, PaintRoller, DoorOpen,
+  Ruler, SearchX, CheckCheck, Landmark, Banknote, Clock,
 } from "lucide-react";
 import { C } from "../../constants";
 import { useIconVersion } from "../../hooks/useIconVersion";
@@ -80,6 +81,12 @@ const EMOJI_ICON_MAP = {
   "🍳": CookingPot,
   "🪵": PaintRoller,
   "🚪": DoorOpen,
+  "📐": Ruler,
+  "😢": SearchX,
+  "🏁": CheckCheck,
+  "🏦": Landmark,
+  "💸": Banknote,
+  "⏳": Clock,
 };
 
 /**
