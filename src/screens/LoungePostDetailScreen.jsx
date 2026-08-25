@@ -1070,7 +1070,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bgWarm}`, background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
             <span style={{ fontSize: 12, color: C.text3, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="👁" size={12} color={C.text3} /> {viewCount.toLocaleString()}</span>
             <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Icon emoji={liked ? '❤️' : '🤍'} size={13} color={liked ? '#E53E3E' : C.text3} /> {likeCount}
+              <Icon emoji="❤️" filled={liked} size={13} color={liked ? '#E53E3E' : C.text3} /> {likeCount}
             </button>
             <button onClick={handleSave} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <Icon emoji={saved ? '🔖' : '📄'} size={13} color={saved ? C.gold : C.text3} /> {saved ? '저장됨' : '저장'}

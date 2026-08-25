@@ -147,7 +147,7 @@ export function splitLeadingEmoji(text) {
  * v1(관리자 토글)에서는 기존 이모지를 그대로 렌더한다.
  * size/color/strokeWidth 는 v2 렌더에만 적용(이모지는 폰트 색상 그대로).
  */
-export function Icon({ emoji, size = 18, color = C.text2, strokeWidth = 1.8, className, style }) {
+export function Icon({ emoji, size = 18, color = C.text2, strokeWidth = 1.8, filled = false, className, style }) {
   const [version] = useIconVersion();
   if (version === "v1") {
     return (
@@ -173,6 +173,7 @@ export function Icon({ emoji, size = 18, color = C.text2, strokeWidth = 1.8, cla
       size={size}
       color={color}
       strokeWidth={strokeWidth}
+      fill={filled ? color : "none"}
       className={className}
       style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0, ...style }}
       aria-hidden="true"

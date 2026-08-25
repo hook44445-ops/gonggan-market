@@ -11,6 +11,7 @@ import { getCompanyByOwnerId } from '../../lib/supabase';
 import { getSpaceActivityRecord } from '../../lib/spaceActivity';
 import { getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 import { resolveCompanyIdentity } from '../../utils/identityResolver';
+import { Icon, splitLeadingEmoji } from '../common';
 
 const W = 110; // 초미니 팝오버 폭 — 추가 ~30% 축소(155→110): 닉네임 옆 가벼운 정보 위젯 수준
 
@@ -106,7 +107,7 @@ export default function LoungeProfilePopover({
   const act = (fn, arg) => { actedRef.current = true; onClose?.(); fn?.(arg); };
 
   const chip = (bg, color, children, key) => (
-    <span key={key} style={{ background: bg, color, borderRadius: R.full, padding: '1px 5px', fontSize: 9, fontWeight: 700 }}>{children}</span>
+    <span key={key} style={{ background: bg, color, borderRadius: R.full, padding: '1px 5px', fontSize: 9, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 2 }}>{children}</span>
   );
 
   // 얇은 리스트형 행(메뉴) — 버튼처럼 보이지 않게. 높이 18 · 아이콘 + 라벨(초미니).
@@ -116,12 +117,27 @@ export default function LoungeProfilePopover({
         background: 'none', border: 'none', borderRadius: 6, textAlign: 'left',
         color: danger ? C.text4 : C.text2, fontWeight: 700, fontSize: 11,
         cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
-      <span style={{ fontSize: 11, width: 13, textAlign: 'center' }}>{icon}</span>
+      <span style={{ width: 13, display: 'flex', justifyContent: 'center' }}><Icon emoji={icon} size={11} color={danger ? C.text4 : C.text2} /></span>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
     </button>
   );
 
   const Divider = () => <div style={{ height: 1, background: C.bgWarm, margin: '4px 0' }} />;
+
+  // 이모지 접두 문자열 배열(metaBits)을 "아이콘 텍스트 · 아이콘 텍스트" 형태로 렌더.
+  const MetaBits = ({ bits }) => (
+    <div style={{ fontSize: 9.5, color: C.text3, fontWeight: 600, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 3 }}>
+      {bits.map((b, i) => {
+        const { emoji, rest } = splitLeadingEmoji(b);
+        return (
+          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+            {i > 0 && <span style={{ marginRight: 1 }}>·</span>}
+            {emoji && <Icon emoji={emoji} size={9.5} color={C.text3} />}{rest}
+          </span>
+        );
+      })}
+    </div>
+  );
 
   // 닉네임(11.5px Bold)
   const nameStyle = { fontSize: 11.5, fontWeight: 800, color: C.text1, lineHeight: 1.3,
@@ -141,14 +157,12 @@ export default function LoungeProfilePopover({
     ].filter(Boolean);
     return (
       <>
-        <div style={{ ...nameStyle, marginBottom: 3 }}>🛠 {name}</div>
+        <div style={{ ...nameStyle, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4 }}><Icon emoji="🛠" size={11} color={C.text1} /> {name}</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: metaBits.length ? 2 : 0 }}>
-          {chip(C.brand, '#fff', '⭐ 전문가', 'exp')}
-          {hasGuaranteeBadge(company) && chip(C.brandL, C.brand, '🏅 공간보증', 'guarantee')}
+          {chip(C.brand, '#fff', <><Icon emoji="⭐" size={8} color="#fff" /> 전문가</>, 'exp')}
+          {hasGuaranteeBadge(company) && chip(C.brandL, C.brand, <><Icon emoji="🏅" size={8} color={C.brand} /> 공간보증</>, 'guarantee')}
         </div>
-        {metaBits.length > 0 && (
-          <div style={{ fontSize: 9.5, color: C.text3, fontWeight: 600 }}>{metaBits.join(' · ')}</div>
-        )}
+        {metaBits.length > 0 && <MetaBits bits={metaBits} />}
         <Divider />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Row icon="📁" label="포트폴리오" onClick={() => act(onViewPortfolio, company)} />
@@ -182,7 +196,7 @@ export default function LoungeProfilePopover({
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>{avatar.emoji}</div>
           <div style={{ ...nameStyle, minWidth: 0 }}>{displayName}</div>
         </div>
-        <div style={{ fontSize: 9.5, color: C.text3, fontWeight: 600 }}>{metaBits.join(' · ')}</div>
+        <MetaBits bits={metaBits} />
         <Divider />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Row icon="💬" label={alreadySent ? '신청 보냄' : busy ? '처리 중...' : '메시지 신청'}

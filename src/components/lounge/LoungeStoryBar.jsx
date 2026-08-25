@@ -18,6 +18,7 @@ import {
   getUser,
   IS_SUPABASE_READY,
 } from '../../lib/supabase';
+import { Icon } from '../common';
 
 // ── 댓글 바텀시트 (화이트) ────────────────────────────
 function CommentSheet({ storyId, user, comments, setComments, onClose }) {
@@ -68,7 +69,7 @@ function CommentSheet({ storyId, user, comments, setComments, onClose }) {
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px 4px' }}>
           {comments.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>💬</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Icon emoji="💬" size={28} color="#bbb" /></div>
               <div style={{ fontSize: 13, color: '#bbb' }}>첫 번째 이야기를 남겨보세요.</div>
             </div>
           ) : comments.map(c => {
@@ -150,7 +151,7 @@ function MoreSheet({ isOwner, onDelete, onReport, onClose }) {
 
         {confirmDelete ? (
           <div style={{ padding: '24px 20px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🗑</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Icon emoji="🗑" size={32} color={C.red} /></div>
             <div style={{ fontSize: 17, fontWeight: 800, color: '#111', marginBottom: 6 }}>스토리를 삭제할까요?</div>
             <div style={{ fontSize: 13, color: '#888', marginBottom: 24 }}>삭제 후 복구되지 않아요</div>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -341,7 +342,7 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user, onAut
       {story.story_expires_at && !bannerClosed && (
         <div style={{ position: 'absolute', top: 'max(env(safe-area-inset-top, 0px), 10px)', left: 0, right: 0, marginTop: 60, display: 'flex', justifyContent: 'center', zIndex: 10, padding: '0 12px' }}>
           <div style={{ background: 'rgba(0,0,0,0.55)', borderRadius: R.full, padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 8, backdropFilter: 'blur(4px)' }}>
-            <span style={{ fontSize: 13, color: '#fff' }}>⚡ 스토리는 24시간 뒤에 사라져요!</span>
+            <span style={{ fontSize: 13, color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon emoji="⚡" size={13} color="#fff" /> 스토리는 24시간 뒤에 사라져요!</span>
             <button
               onClick={() => setBannerClosed(true)}
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: 14, cursor: 'pointer', padding: 0, lineHeight: 1 }}>
@@ -394,7 +395,7 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user, onAut
           onClick={toggleLike}
           disabled={!user?.id || likeLoading}
           style={{ background: 'none', border: 'none', cursor: user?.id ? 'pointer' : 'default', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, opacity: likeLoading ? 0.6 : 1 }}>
-          <span style={{ fontSize: 28, lineHeight: 1, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}>{isLiked ? '❤️' : '🤍'}</span>
+          <Icon emoji="❤️" filled={isLiked} size={28} color={isLiked ? '#E53E3E' : '#fff'} strokeWidth={2} style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
           {likeCount > 0 && <span style={{ fontSize: 12, color: '#fff', fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{likeCount}</span>}
         </button>
 
@@ -402,7 +403,7 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user, onAut
         <button
           onClick={() => setShowComments(true)}
           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <span style={{ fontSize: 26, lineHeight: 1, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}>💬</span>
+          <Icon emoji="💬" size={26} color="#fff" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
           {comments.length > 0 && <span style={{ fontSize: 12, color: '#fff', fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>{comments.length}</span>}
         </button>
 
@@ -468,8 +469,8 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user, onAut
             <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>{story.anonymous_nickname}</div>
             <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {authorProfile?.spaceTemp != null && (
-                <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
-                  🌡️ 공간온도 {Number(authorProfile.spaceTemp).toFixed(1)}°
+                <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Icon emoji="🌡️" size={11} color={C.brand} /> 공간온도 {Number(authorProfile.spaceTemp).toFixed(1)}°
                 </span>
               )}
               {(authorProfile?.interests ?? []).slice(0, 3).map(it => (
@@ -478,13 +479,14 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user, onAut
                 </span>
               ))}
               {story.created_at && (
-                <span style={{ fontSize: 11, color: C.text4 }}>🕐 최근활동 {formatRelativeTime(story.created_at)}</span>
+                <span style={{ fontSize: 11, color: C.text4, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="🕐" size={10} color={C.text4} /> 최근활동 {formatRelativeTime(story.created_at)}</span>
               )}
             </div>
             {!isOwner && onAuthorChat && (
               <button onClick={() => { setProfileOpen(false); onAuthorChat(story); }}
-                style={{ width: '100%', marginTop: 16, padding: '13px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
-                💬 이 작성자에게 대화 신청하기
+                style={{ width: '100%', marginTop: 16, padding: '13px', background: C.brand, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Icon emoji="💬" size={14} color="#fff" /> 이 작성자에게 대화 신청하기
               </button>
             )}
             <button onClick={() => setProfileOpen(false)}
@@ -590,7 +592,7 @@ export default function LoungeStoryBar({ stories, onStoryClick, user, onStoryDel
   return (
     <>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.bgWarm}`, padding: `${S.md}px ${S.xl}px` }}>
-        <div style={{ fontSize: 12, color: C.text3, fontWeight: 700, marginBottom: S.sm }}>📸 실시간 스토리</div>
+        <div style={{ fontSize: 12, color: C.text3, fontWeight: 700, marginBottom: S.sm, display: 'flex', alignItems: 'center', gap: 5 }}><Icon emoji="📸" size={12} color={C.text3} /> 실시간 스토리</div>
         <div style={{ display: 'flex', gap: S.sm, overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none', paddingBottom: 2 }}>
           {localStories.map((story, i) => (
             <StoryCard
