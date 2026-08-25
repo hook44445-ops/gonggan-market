@@ -4350,9 +4350,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             !hiddenCompanyChats.includes(c.id) && roomsWithMessages.has(`${user.id}_${c.id}`)
           );
           const isAllEmpty = totalLoungeRequests === 0 && totalLoungeOngoing === 0 && visibleCompanies.length === 0;
-          const sectionTitle = (label) => (
-            <div style={{ fontSize:13, fontWeight:800, color:C.text2, margin:`${S.xl}px 0 ${S.sm}px` }}>{label}</div>
-          );
+          const sectionTitle = (label) => {
+            const { emoji, rest } = splitLeadingEmoji(label);
+            return (
+              <div style={{ fontSize:13, fontWeight:800, color:C.text2, margin:`${S.xl}px 0 ${S.sm}px`,
+                display:"flex", alignItems:"center", gap:6 }}>
+                {emoji && <Icon emoji={emoji} size={13} color={C.text2} />}{rest}
+              </div>
+            );
+          };
           // 카드 우측 더보기(⋯) 메뉴 — 라운지: 대화 나가기 / 계약·견적: 삭제 불가 안내
           const renderCardMenu = (menuKey, kind, req) => (
             <div style={{ position:"relative", flexShrink:0 }} onClick={(e) => e.stopPropagation()}>
@@ -4391,7 +4397,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
             {isAllEmpty && (
               <div style={{ textAlign:"center", padding:"60px 20px" }}>
-                <div style={{ fontSize:40, marginBottom:12 }}>💬</div>
+                <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="💬" size={40} color={C.text3} /></div>
                 <div style={{ fontSize:15, fontWeight:700, color:C.text2, marginBottom:6 }}>아직 시작된 대화가 없습니다.</div>
                 <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>업체와 상담을 시작하면 이곳에 대화가 표시됩니다.</div>
               </div>
@@ -4403,7 +4409,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 {loungeReceivedReqs.map(r => (
                   <div key={`recv_${r.id}`}
                     style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", border:`1px solid ${C.bgWarm}` }}>
-                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>💬</div>
+                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Icon emoji="💬" size={20} color={C.brand} /></div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:11, fontWeight:700, color:C.gold, marginBottom:2 }}>대화 요청이 도착했어요</div>
                       <div style={{ fontSize:14, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
@@ -4424,12 +4430,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 {pendingSent.map(r => (
                   <div key={`sent_${r.id}`} onClick={() => requireAuth(() => openLoungeChatRoom(r, r.target_id))}
                     style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
-                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>💬</div>
+                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Icon emoji="💬" size={20} color={C.brand} /></div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:14, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
                         {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? "게시글"}
                       </div>
-                      <div style={{ fontSize:11, color:C.text3 }}>🔒 익명 · 메시지 보내기 · {formatRelativeTime(r.created_at)}</div>
+                      <div style={{ fontSize:11, color:C.text3, display:"flex", alignItems:"center", gap:3 }}><Icon emoji="🔒" size={10} color={C.text3} /> 익명 · 메시지 보내기 · {formatRelativeTime(r.created_at)}</div>
                     </div>
                     <div style={{ fontSize:11, fontWeight:700, color:C.gold, background:`${C.gold}18`, padding:"4px 10px", borderRadius:R.full, flexShrink:0 }}>수락 대기중</div>
                   </div>
@@ -4443,7 +4449,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 {loungeAcceptedReqs.map(r => (
                   <div key={`acc_recv_${r.id}`} onClick={() => openLoungeChatRoom(r, r.requester_id)}
                     style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
-                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>💬</div>
+                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Icon emoji="💬" size={20} color={C.brand} /></div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:14, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
                         {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? "게시글"}
@@ -4456,7 +4462,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 {loungeSentReqs.filter(r => r.status === "accepted").map(r => (
                   <div key={`acc_sent_${r.id}`} onClick={() => openLoungeChatRoom(r, r.target_id)}
                     style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
-                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>💬</div>
+                    <div style={{ width:44, height:44, borderRadius:"50%", background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Icon emoji="💬" size={20} color={C.brand} /></div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:14, fontWeight:700, color:C.text1, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
                         {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? "게시글"}
@@ -4520,7 +4526,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 .filter(({ r, escData }) => isRequestInProgress(r, escData) || isRequestSettled(r, escData));
               if (myRequests.length === 0 || progressRows.length === 0) return (
                 <div style={{ textAlign:"center", padding:"60px 0" }}>
-                  <div style={{ fontSize:40, marginBottom:12 }}>{myRequests.length === 0 ? "📋" : "🏗"}</div>
+                  <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji={myRequests.length === 0 ? "📋" : "🏗"} size={40} color={C.text3} /></div>
                   <div style={{ fontSize:14, color:C.text3 }}>
                     {myRequests.length === 0 ? "아직 견적 요청이 없어요" : "현재 진행 중인 시공 현황이 없습니다."}
                   </div>
@@ -4565,7 +4571,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   <div style={{ height:3, background:C.brand }} />
                   <div style={{ padding:S.xl }}>
                     <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:4 }}>{r.type} · {r.size}</div>
-                    <div style={{ fontSize:12, color:C.text3, marginBottom:S.xl }}>📍 {r.area} · 💰 {r.budget}</div>
+                    <div style={{ fontSize:12, color:C.text3, marginBottom:S.xl, display:"flex", alignItems:"center", gap:4 }}><Icon emoji="📍" size={11} color={C.text3} /> {r.area} · <Icon emoji="💰" size={11} color={C.text3} /> {r.budget}</div>
                     {steps.map((step, i, arr) => (
                       <div key={step.label} style={{ display:"flex", gap:S.md, marginBottom: i<arr.length-1?S.lg:0 }}>
                         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
@@ -4584,8 +4590,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                           {step.time && <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>{step.time}</div>}
                           {step.bidStep && (
                             <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
-                              style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
-                              🔔 입찰 비교 후 업체 선택 →
+                              style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44`,
+                                display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
+                              <Icon emoji="🔔" size={12} color="#fff" /> 입찰 비교 후 업체 선택 →
                             </button>
                           )}
                           {step.escrowStep && (
@@ -4597,8 +4604,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                             </button>
                           )}
                           {step.escrowStep && r.status === "in_progress" && !hasEscrow && (
-                            <div style={{ marginTop:S.sm, background:C.brandL, borderRadius:R.md, padding:"8px 12px", fontSize:11, color:C.brand }}>
-                              💬 상세 견적서는 실측 후 72시간(3일) 내 플랫폼에 등록됩니다
+                            <div style={{ marginTop:S.sm, background:C.brandL, borderRadius:R.md, padding:"8px 12px", fontSize:11, color:C.brand, display:"flex", alignItems:"center", gap:4 }}>
+                              <Icon emoji="💬" size={11} color={C.brand} /> 상세 견적서는 실측 후 72시간(3일) 내 플랫폼에 등록됩니다
                             </div>
                           )}
                         </div>
