@@ -22,6 +22,7 @@ import {
   upsertPushPreferences,
 } from '../../lib/supabase';
 import { enablePush, disablePush } from '../../lib/push';
+import { Icon, splitLeadingEmoji } from '../common';
 
 // ── 로컬스토리지 헬퍼 ──────────────────────────────────
 const readLS = (key, fallback = []) => {
@@ -43,7 +44,7 @@ function SubHeader({ title, onBack }) {
 function EmptyState({ icon, title, desc, cta, onCta }) {
   return (
     <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-      <div style={{ fontSize: 44, marginBottom: 14 }}>{icon}</div>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}><Icon emoji={icon} size={44} color={C.text3} /></div>
       <div style={{ fontSize: 15, fontWeight: 700, color: C.text2, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6, marginBottom: cta ? S.xl : 0 }}>{desc}</div>
       {cta && (
@@ -58,7 +59,7 @@ function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '0 24px' }}>
       <div style={{ background: C.surface, borderRadius: R.xl, padding: 24, width: '100%', maxWidth: 320 }}>
-        <div style={{ fontSize: 20, textAlign: 'center', marginBottom: 12 }}>🗑️</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon emoji="🗑️" size={20} color={C.red} /></div>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, textAlign: 'center', marginBottom: 8 }}>게시글을 삭제할까요?</div>
         <div style={{ fontSize: 13, color: C.text3, textAlign: 'center', lineHeight: 1.6, marginBottom: 20 }}>삭제된 글은 복구할 수 없어요</div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -168,18 +169,18 @@ function MyPostsScreen({ posts, loading, devInfo, onBack, onEdit, onDelete }) {
 
               {/* 통계 + 액션 */}
               <div style={{ display: 'flex', alignItems: 'center', gap: S.md }}>
-                <span style={{ fontSize: 11, color: C.text4 }}>❤️ {post.like_count ?? 0}</span>
-                <span style={{ fontSize: 11, color: C.text4 }}>💬 {post.comment_count ?? 0}</span>
+                <span style={{ fontSize: 11, color: C.text4, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="❤️" size={11} color={C.text4} /> {post.like_count ?? 0}</span>
+                <span style={{ fontSize: 11, color: C.text4, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="💬" size={11} color={C.text4} /> {post.comment_count ?? 0}</span>
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                   <button
                     onClick={() => onEdit?.(post)}
-                    style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, color: C.brand, background: C.brandL, border: 'none', borderRadius: R.full, cursor: 'pointer' }}>
-                    ✏️ 수정
+                    style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, color: C.brand, background: C.brandL, border: 'none', borderRadius: R.full, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Icon emoji="✏️" size={11} color={C.brand} /> 수정
                   </button>
                   <button
                     onClick={() => setConfirmId(post.id)}
-                    style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, color: '#E53E3E', background: '#FEF0F0', border: 'none', borderRadius: R.full, cursor: 'pointer' }}>
-                    🗑️ 삭제
+                    style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, color: '#E53E3E', background: '#FEF0F0', border: 'none', borderRadius: R.full, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Icon emoji="🗑️" size={11} color="#E53E3E" /> 삭제
                   </button>
                 </div>
               </div>
@@ -196,11 +197,15 @@ function MyPostsScreen({ posts, loading, devInfo, onBack, onEdit, onDelete }) {
         />
       )}
 
-      {toast && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1F2A24', color: '#fff', borderRadius: R.full, padding: '10px 20px', fontSize: 13, fontWeight: 700, zIndex: 600, whiteSpace: 'nowrap' }}>
-          {toast}
-        </div>
-      )}
+      {toast && (() => {
+        const { emoji, rest } = splitLeadingEmoji(toast);
+        return (
+          <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1F2A24', color: '#fff', borderRadius: R.full, padding: '10px 20px', fontSize: 13, fontWeight: 700, zIndex: 600, whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center', gap: 6 }}>
+            {emoji && <Icon emoji={emoji} size={13} color="#fff" />}{rest}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -375,7 +380,7 @@ function ChatHistoryScreen({ userId, onBack, onOpenChat }) {
     <div style={{ minHeight: '100vh', background: C.bg }}>
       <SubHeader title="대화 신청 내역" onBack={onBack} />
       <div style={{ background: C.brandL, padding: `${S.sm}px ${S.xl}px`, borderBottom: `1px solid ${C.brandM}` }}>
-        <div style={{ fontSize: 11, color: C.brand }}>💬 수락 시 신청자의 20토큰이 차감됩니다</div>
+        <div style={{ fontSize: 11, color: C.brand, display: 'flex', alignItems: 'center', gap: 4 }}><Icon emoji="💬" size={11} color={C.brand} /> 수락 시 신청자의 20토큰이 차감됩니다</div>
       </div>
 
       {/* 탭 */}
@@ -398,10 +403,10 @@ function ChatHistoryScreen({ userId, onBack, onOpenChat }) {
         {/* 수락된 대화 — 채팅방 재진입 */}
         {acceptedRecv.length > 0 && (
           <div style={{ background: C.surface, borderBottom: `8px solid ${C.bg}` }}>
-            <div style={{ padding: `${S.md}px ${S.xl}px 0`, fontSize: 12, fontWeight: 800, color: C.text3 }}>💬 대화 중</div>
+            <div style={{ padding: `${S.md}px ${S.xl}px 0`, fontSize: 12, fontWeight: 800, color: C.text3, display: 'flex', alignItems: 'center', gap: 5 }}><Icon emoji="💬" size={12} color={C.text3} /> 대화 중</div>
             {acceptedRecv.map(r => (
               <div key={r.id} style={{ padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}`, display: 'flex', alignItems: 'center', gap: S.md }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.brandL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>💬</div>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.brandL, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon emoji="💬" size={22} color={C.brand} /></div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                     {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? '게시글'}
@@ -423,7 +428,7 @@ function ChatHistoryScreen({ userId, onBack, onOpenChat }) {
             <div style={{ background: C.surface }}>
               {received.map(r => (
                 <div key={r.id} style={{ padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}`, display: 'flex', alignItems: 'center', gap: S.md }}>
-                  <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.brandL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>💬</div>
+                  <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.brandL, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon emoji="💬" size={22} color={C.brand} /></div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                       {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? '게시글'}
@@ -471,7 +476,7 @@ function ChatHistoryScreen({ userId, onBack, onOpenChat }) {
                 const st = statusLabel(r.status);
                 return (
                   <div key={r.id} style={{ padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}`, display: 'flex', alignItems: 'center', gap: S.md }}>
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.brandL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>💬</div>
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.brandL, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon emoji="💬" size={22} color={C.brand} /></div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, marginBottom: 2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                         {r.lounge_posts?.title ?? r.lounge_posts?.anonymous_nickname ?? '게시글'}
@@ -494,13 +499,16 @@ function ChatHistoryScreen({ userId, onBack, onOpenChat }) {
           )
       )}
 
-      {toast && (
-        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.8)', color: '#fff', borderRadius: R.lg,
-          padding: '10px 18px', fontSize: 13, zIndex: 100, whiteSpace: 'pre-line', textAlign: 'center' }}>
-          {toast}
-        </div>
-      )}
+      {toast && (() => {
+        const { emoji, rest } = splitLeadingEmoji(toast);
+        return (
+          <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(0,0,0,0.8)', color: '#fff', borderRadius: R.lg,
+            padding: '10px 18px', fontSize: 13, zIndex: 100, whiteSpace: 'pre-line', textAlign: 'center' }}>
+            {emoji && <Icon emoji={emoji} size={13} color="#fff" style={{ marginRight: 4 }} />}{rest}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -527,7 +535,7 @@ function MissionsScreen({ tokenLogs, onBack }) {
       <div style={{ padding: S.xl }}>
         <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.xl, border: `1px solid ${C.brandM}` }}>
           <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>
-            🎯 미션을 완료하면 공간토큰을 받을 수 있어요.<br/>
+            <Icon emoji="🎯" size={12} color={C.brand} /> 미션을 완료하면 공간토큰을 받을 수 있어요.<br/>
             토큰으로 대화를 신청하거나 부스트를 이용해보세요.
           </div>
         </div>
@@ -535,8 +543,8 @@ function MissionsScreen({ tokenLogs, onBack }) {
           const done = completed.has(m.key);
           return (
             <div key={m.key} style={{ background: C.surface, borderRadius: R.lg, padding: S.xl, marginBottom: S.sm, border: `1px solid ${done ? C.brandM : C.bgWarm}`, display: 'flex', alignItems: 'center', gap: S.md, opacity: done ? 0.7 : 1 }}>
-              <div style={{ width: 48, height: 48, borderRadius: R.lg, background: done ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>
-                {done ? '✅' : m.icon}
+              <div style={{ width: 48, height: 48, borderRadius: R.lg, background: done ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon emoji={done ? '✅' : m.icon} size={22} color={done ? C.brand : C.text3} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 2 }}>{m.label}</div>
@@ -579,7 +587,7 @@ function PrivacyScreen({ onBack }) {
       <div style={{ padding: S.xl }}>
         <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.xl, border: `1px solid ${C.brandM}` }}>
           <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.7 }}>
-            🛡 라운지에서는 항상 익명 닉네임으로 표시됩니다.<br/>
+            <Icon emoji="🛡" size={12} color={C.brand} /> 라운지에서는 항상 익명 닉네임으로 표시됩니다.<br/>
             닉네임은 글마다 새로 배정되며, 실명·연락처는 절대 공개되지 않습니다.<br/>
             아래 설정으로 추가 정보 노출을 제어할 수 있어요.
           </div>
@@ -627,7 +635,7 @@ function BlocksScreen({ onBack }) {
           </div>
           {blocks.map((id, i) => (
             <div key={i} style={{ background: C.surface, padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}`, display: 'flex', alignItems: 'center', gap: S.md }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🚫</div>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon emoji="🚫" size={20} color={C.text3} /></div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.text2 }}>차단된 사용자</div>
                 <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>ID: {id}</div>
@@ -757,7 +765,7 @@ function NotifSettings({ user }) {
     <div style={{ background: C.bg, borderRadius: R.lg, padding: S.xl, marginBottom: S.lg }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: S.lg }}>
         <div style={{ flex: 1, minWidth: 0, marginRight: S.md }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>📱 새 글 알림</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text1, display: 'flex', alignItems: 'center', gap: 6 }}><Icon emoji="📱" size={14} color={C.text1} /> 새 글 알림</div>
           <div style={{ fontSize: 12, color: C.text3, marginTop: 3, lineHeight: 1.5 }}>
             {blockedHelp ? '알림이 차단돼 있어요' : enabled ? '선택한 카테고리 새 글 알림 중' : '알림을 켜보세요'}
           </div>
@@ -768,7 +776,7 @@ function NotifSettings({ user }) {
       </div>
       {blockedHelp && (
         <div style={{ background: C.ivory ?? '#F5F0E8', border: `1px solid ${C.bgWarm}`, borderRadius: 12, padding: '12px 14px', marginBottom: S.md, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-          <span style={{ flexShrink: 0 }}>💡</span>
+          <Icon emoji="💡" size={14} color={C.text2} style={{ flexShrink: 0 }} />
           <span style={{ fontSize: 14, color: C.text2, lineHeight: 1.8 }}>{blockedHelp}</span>
         </div>
       )}
@@ -784,7 +792,9 @@ function NotifSettings({ user }) {
         })}
       </div>
       {toast && (
-        <div style={{ marginTop: S.sm, background: C.brand, color: '#fff', borderRadius: R.lg, padding: '10px 14px', fontSize: 12, fontWeight: 700, textAlign: 'center' }}>{toast}</div>
+        <div style={{ marginTop: S.sm, background: C.brand, color: '#fff', borderRadius: R.lg, padding: '10px 14px', fontSize: 12, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          {(() => { const { emoji, rest } = splitLeadingEmoji(toast); return <>{emoji && <Icon emoji={emoji} size={12} color="#fff" />}{rest}</>; })()}
+        </div>
       )}
     </div>
   );
@@ -794,7 +804,7 @@ function NotifSettings({ user }) {
 function Row({ label, icon, count, onClick }) {
   return (
     <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', height: 48, borderBottom: `1px solid ${C.bg}`, cursor: onClick ? 'pointer' : 'default' }}>
-      <span style={{ width: 22, fontSize: 15, flexShrink: 0, textAlign: 'center', lineHeight: 1 }}>{icon}</span>
+      <span style={{ width: 22, flexShrink: 0, display: 'flex', justifyContent: 'center' }}><Icon emoji={icon} size={15} color={C.text2} /></span>
       <span style={{ flex: 1, minWidth: 0, fontSize: 14, color: C.text2, marginLeft: S.sm, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
       {count !== undefined && <span style={{ fontSize: 12, color: C.text4, marginRight: S.sm, flexShrink: 0 }}>{count}</span>}
       {onClick && <span style={{ fontSize: 16, color: C.text3, flexShrink: 0 }}>›</span>}
@@ -968,7 +978,7 @@ export default function LoungeMyPageSection({
           <>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, margin: `${S.md}px 0 ${S.sm}px` }}>업체 전용</div>
             <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.brandM}` }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.brand }}>🏆 초기 파트너 혜택 중</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, display: 'flex', alignItems: 'center', gap: 6 }}><Icon emoji="🏆" size={13} color={C.brand} /> 초기 파트너 혜택 중</div>
               <div style={{ fontSize: 12, color: C.text3, marginTop: 4 }}>전문가 답변 배지 무료 사용</div>
             </div>
           </>
