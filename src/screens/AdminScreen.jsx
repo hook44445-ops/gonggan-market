@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
-import { Icon } from "../components/common/Icon";
+import { Icon, splitLeadingEmoji } from "../components/common/Icon";
 import { useIconVersion } from "../hooks/useIconVersion";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
 import { COMPANY_STATUS_META, USER_STATUS_META } from "../constants";
@@ -6158,7 +6158,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 {/* STEP O — Emergency Switch */}
                 <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `2px solid ${C.red}33` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginBottom: S.lg }}>
-                    <span style={{ fontSize: 18 }}>🚨</span>
+                    <Icon emoji="🚨" size={18} color={C.red} />
                     <div style={{ fontSize: 14, fontWeight: 800, color: C.red }}>긴급 운영 스위치</div>
                     {opsLoading && <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>저장 중...</span>}
                   </div>
@@ -6170,7 +6170,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     <div key={field} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                       padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1, display: "flex", alignItems: "center", gap: 5 }}>
+                          {(() => { const { emoji, rest } = splitLeadingEmoji(label); return <>{emoji && <Icon emoji={emoji} size={12} color={C.text1} />}{rest}</>; })()}
+                        </div>
                         <div style={{ fontSize: 11, color: C.text4 }}>{sub}</div>
                       </div>
                       <button
@@ -6371,39 +6373,39 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         {l.business_license_url ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 사업자등록증 제출됨</span>
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 사업자등록증 제출됨</span>
                             <button onClick={() => setDocPreview({ url: l.business_license_url, title: `${l.company_name} · 사업자등록증` })}
                               style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
-                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer" }}>🔍 사업자등록증 보기</button>
+                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="🔍" size={12} color="#fff" /> 사업자등록증 보기</button>
                           </span>
                         ) : (
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.red, background: "#FFF0F0",
-                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7" }}>
-                            ⛔ 사업자등록증 미제출 (승인 불가)
+                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <Icon emoji="⛔" size={12} color={C.red} /> 사업자등록증 미제출 (승인 불가)
                           </span>
                         )}
                         {l.insurance_file_url ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 보험증권 제출됨</span>
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 보험증권 제출됨</span>
                             <button onClick={() => setDocPreview({ url: l.insurance_file_url, title: `${l.company_name} · 시공보험증권` })}
                               style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
-                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer" }}>🔍 시공보험증권 보기</button>
+                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="🔍" size={12} color="#fff" /> 시공보험증권 보기</button>
                           </span>
                         ) : (
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.red, background: "#FFF0F0",
-                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7" }}>
-                            ⛔ 보험증권 미제출 (예치금 2배)
+                            borderRadius: R.lg, padding: "6px 12px", border: "1px solid #F3C7C7", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <Icon emoji="⛔" size={12} color={C.red} /> 보험증권 미제출 (예치금 2배)
                           </span>
                         )}
                         {/* 073 대표자 신분증(선택) — 제출 시 확대보기, 미제출은 중립 표시 */}
                         {l.id_card_url ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33` }}>✅ 신분증 제출됨</span>
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 신분증 제출됨</span>
                             <button onClick={() => setDocPreview({ url: l.id_card_url, title: `${l.company_name} · 대표자 신분증` })}
                               style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
-                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer" }}>🔍 신분증 보기</button>
+                                borderRadius: R.lg, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="🔍" size={12} color="#fff" /> 신분증 보기</button>
                           </span>
                         ) : (
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.text3, background: C.surface2 ?? "#F4F1EA",
@@ -6421,7 +6423,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         {l.pledge_agreed ? (
                           <>
                             <span style={{ fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "4px 10px", border: `1px solid ${C.green}33` }}>✅ 동의</span>
+                              borderRadius: R.lg, padding: "4px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={11} color={C.green} /> 동의</span>
                             {l.pledge_agreed_at && (
                               <span style={{ fontSize: 11, color: C.text4 }}>
                                 동의 일시 {new Date(l.pledge_agreed_at).toLocaleString("ko-KR")}
@@ -6430,7 +6432,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           </>
                         ) : (
                           <span style={{ fontWeight: 700, color: C.red, background: "#FFF0F0",
-                            borderRadius: R.lg, padding: "4px 10px", border: "1px solid #F3C7C7" }}>❌ 미동의</span>
+                            borderRadius: R.lg, padding: "4px 10px", border: "1px solid #F3C7C7", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="❌" size={11} color={C.red} /> 미동의</span>
                         )}
                       </div>
 
@@ -8215,8 +8217,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
           zIndex: 300, padding: `0 ${S.xl}px` }}>
           <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xxl, width: "100%", maxWidth: 340 }}>
             <div style={{ textAlign: "center", marginBottom: S.xl }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>
-                {confirm.emoji ?? (confirm.type === "approve" ? "✅" : "❌")}
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                <Icon emoji={confirm.emoji ?? (confirm.type === "approve" ? "✅" : "❌")} size={48} color={confirm.type === "reject" ? C.red : C.brand} />
               </div>
               <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
                 {confirm.title ?? (confirm.type === "approve" ? "승인하시겠어요?" : "반려하시겠어요?")}
