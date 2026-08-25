@@ -5046,7 +5046,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
                   marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
-                    <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{grade.icon} {grade.label} 등급</div>
+                    <div style={{ fontSize:15, fontWeight:800, color:C.text1, display:"flex", alignItems:"center", gap:6 }}><Icon emoji={grade.icon} size={15} color={C.brand} /> {grade.label} 등급</div>
                     {nextGrade !== undefined && (
                       <span style={{ fontSize:11, color:C.text3 }}>다음 등급까지 {nextGrade - (user.completedJobs ?? 0)}건</span>
                     )}

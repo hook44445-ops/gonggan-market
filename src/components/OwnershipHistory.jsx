@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { fmtMoney } from "../utils/calculations";
 import { getBidsForRequest } from "../lib/supabase";
+import { Icon } from "./common";
 
 // ─────────────────────────────────────────────────────
 // Ownership — 내 공간 기록 (락인 구조)
@@ -37,7 +38,9 @@ function Card({ children, style }) {
 function SectionTitle({ icon, title, sub }) {
   return (
     <div style={{ marginBottom: S.md, marginTop: S.xl }}>
-      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, lineHeight: 1.8 }}>{icon} {title}</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, lineHeight: 1.8, display: "flex", alignItems: "center", gap: 6 }}>
+        <Icon emoji={icon} size={16} color={C.text1} /> {title}
+      </div>
       {sub && <div style={{ fontSize: 14, color: C.text3, lineHeight: 1.8 }}>{sub}</div>}
     </div>
   );
@@ -70,7 +73,7 @@ export default function OwnershipHistory({
 
   return (
     <div style={{ background: C.ivory, borderRadius: 12, padding: "18px 16px", marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
-      <div style={{ fontSize: 17, fontWeight: 800, color: DEEP_GREEN, lineHeight: 1.8 }}>📁 내 공간 기록</div>
+      <div style={{ fontSize: 17, fontWeight: 800, color: DEEP_GREEN, lineHeight: 1.8, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="📁" size={17} color={DEEP_GREEN} /> 내 공간 기록</div>
       <div style={{ fontSize: 14, color: C.text3, lineHeight: 1.8, marginBottom: S.sm }}>
         쌓인 기록은 다음 공사에서 그대로 자산이 됩니다
       </div>
@@ -78,7 +81,7 @@ export default function OwnershipHistory({
       {/* 1) 내 공간 기록 — 완료 계약 카드 */}
       {settled.length === 0 ? (
         <Card style={{ background: C.surface, textAlign: "center", padding: "22px 18px" }}>
-          <div style={{ fontSize: 26, marginBottom: 6 }}>🏠</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}><Icon emoji="🏠" size={26} color={DEEP_GREEN} /></div>
           <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.8 }}>아직 완료된 공사 기록이 없어요</div>
           <div style={{ fontSize: 14, color: C.text3, lineHeight: 1.8 }}>첫 시공을 마치면 이곳에 기록이 쌓입니다</div>
         </Card>
@@ -119,7 +122,7 @@ export default function OwnershipHistory({
             {bidsByReq[r.id].map(b => (
               <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
                 fontSize: 14, color: b.selected ? DEEP_GREEN : C.text2, fontWeight: b.selected ? 800 : 400, lineHeight: 1.8 }}>
-                <span>{b.selected ? "✅ " : ""}{fmtMoney(b.price)} · {b.period_days ?? "-"}일</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>{b.selected && <Icon emoji="✅" size={12} color={DEEP_GREEN} />}{fmtMoney(b.price)} · {b.period_days ?? "-"}일</span>
                 {b.selected && <span style={{ fontSize: 13, color: DEEP_GREEN, fontWeight: 800 }}>선택</span>}
               </div>
             ))}
@@ -150,7 +153,7 @@ export default function OwnershipHistory({
             return (
               <div key={r.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: C.text2, lineHeight: 1.8 }}>
                 <span>{fmtYearMonth(r.createdAt)} {r.area} {r.type}</span>
-                <span style={{ color: DEEP_GREEN, fontWeight: 800 }}>{total > 0 ? fmtMoney(total) : "—"} 안전 완료 ✅</span>
+                <span style={{ color: DEEP_GREEN, fontWeight: 800, display: "inline-flex", alignItems: "center", gap: 4 }}>{total > 0 ? fmtMoney(total) : "—"} 안전 완료 <Icon emoji="✅" size={12} color={DEEP_GREEN} /></span>
               </div>
             );
           })}
@@ -158,7 +161,7 @@ export default function OwnershipHistory({
             <span style={{ fontWeight: 800, color: C.text1 }}>총 보호 완료 금액</span>
             <span style={{ fontWeight: 800, color: DEEP_GREEN }}>{fmtMoney(protectedTotal)}</span>
           </div>
-          <div style={{ fontSize: 14, color: C.text3, lineHeight: 1.8 }}>분쟁 없음: {settled.length}건 ✅</div>
+          <div style={{ fontSize: 14, color: C.text3, lineHeight: 1.8, display: "flex", alignItems: "center", gap: 4 }}>분쟁 없음: {settled.length}건 <Icon emoji="✅" size={12} color={C.text3} /></div>
         </Card>
       )}
     </div>
@@ -183,12 +186,13 @@ function SavedCompanyCard({ co, userId, onOpenCompany }) {
         <button onClick={() => onOpenCompany?.(co)}
           style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left",
             fontSize: 14, fontWeight: 800, color: C.text1, lineHeight: 1.8, fontFamily: "inherit" }}>
-          🏠 {co.name} →
+          <Icon emoji="🏠" size={14} color={C.text1} /> {co.name} →
         </button>
         <button onClick={toggleAlert}
           style={{ flexShrink: 0, padding: "5px 10px", borderRadius: R.full, cursor: "pointer", fontSize: 13, fontWeight: 700,
-            border: `1px solid ${alertOn ? DEEP_GREEN : C.bgWarm}`, background: alertOn ? C.brandL : C.surface, color: alertOn ? DEEP_GREEN : C.text3 }}>
-          {alertOn ? "🔔 알림 켜짐" : "🔕 알림 받기"}
+            border: `1px solid ${alertOn ? DEEP_GREEN : C.bgWarm}`, background: alertOn ? C.brandL : C.surface, color: alertOn ? DEEP_GREEN : C.text3,
+            display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <Icon emoji={alertOn ? "🔔" : "🔕"} size={13} color={alertOn ? DEEP_GREEN : C.text3} /> {alertOn ? "알림 켜짐" : "알림 받기"}
         </button>
       </div>
       {editing ? (
@@ -201,7 +205,7 @@ function SavedCompanyCard({ co, userId, onOpenCompany }) {
         <button onClick={() => setEditing(true)}
           style={{ background: "none", border: "none", padding: "6px 0 0", cursor: "pointer", textAlign: "left",
             fontSize: 14, color: memo ? C.text2 : C.text4, lineHeight: 1.8, fontFamily: "inherit" }}>
-          📝 {memo || "메모 추가하기"}
+          <Icon emoji="📝" size={13} color={memo ? C.text2 : C.text4} /> {memo || "메모 추가하기"}
         </button>
       )}
     </Card>
