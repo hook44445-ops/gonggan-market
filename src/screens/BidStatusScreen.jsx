@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI, UX_BETA } from "../constants/release";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
-import { TempBadge } from "../components/common";
+import { TempBadge, Icon, splitLeadingEmoji } from "../components/common";
 import NotificationBell from "../components/NotificationBell";
 import BidCompareCard from "../components/BidCompareCard"; // UX Beta 입찰 비교 카드(Add Only)
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -293,7 +293,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     <div style={{ minHeight:"100vh", background:C.bg }}>
       <BidScreenHeader title="현장방문 견적 요청" onBack={onBack} userId={userId} />
       <div style={{ padding:`${S.xxl}px ${S.xl}px`, textAlign:"center" }}>
-        <div style={{ fontSize:44, marginBottom:14 }}>📍</div>
+        <div style={{ display:"flex", justifyContent:"center", marginBottom:14 }}><Icon emoji="📍" size={44} color={C.brand} /></div>
         <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:10 }}>현장방문 견적을 요청했어요</div>
         <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:28 }}>
           선택하신 업체가 현장을 방문해 확인한 뒤<br/>최종 견적서를 보내드립니다.<br/>
@@ -315,7 +315,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           {isQuotePhase && finalEstimate && (
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
-              <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:S.md }}>📋 업체가 보낸 최종 견적서</div>
+              <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="📋" size={14} color={C.brand} /> 업체가 보낸 최종 견적서</div>
               {Array.isArray(finalEstimate.items) && finalEstimate.items.length > 0 && (
                 <div style={{ marginBottom:S.md }}>
                   {finalEstimate.items.map((it, i) => (
@@ -345,7 +345,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               {/* 업체가 첨부한 현장 실측 사진 — 있을 때만 그리드 표시(없으면 기존 화면 유지). */}
               {Array.isArray(finalEstimate.final_quote_photo_urls) && finalEstimate.final_quote_photo_urls.length > 0 && (
                 <div style={{ marginTop:S.md }}>
-                  <div style={{ fontSize:12, fontWeight:800, color:C.text2, marginBottom:S.xs }}>📷 현장 실측 사진</div>
+                  <div style={{ fontSize:12, fontWeight:800, color:C.text2, marginBottom:S.xs, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="📷" size={12} color={C.text2} /> 현장 실측 사진</div>
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:S.sm }}>
                     {finalEstimate.final_quote_photo_urls.map((url, i) => (
                       <a key={url + i} href={url} target="_blank" rel="noreferrer"
@@ -367,7 +367,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
             <div style={{ fontSize:13, color:C.text2, marginBottom:S.md }}>{selBid.material}</div>
             <div style={{ background:C.brandL, borderRadius:R.md, padding:S.md, border:`1px solid ${C.brandM}` }}>
-              <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs }}>🔒 공간안전결제 — 토스페이먼츠가 공사대금을 안전하게 보호합니다</div>
+              <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔒" size={11} color={C.brand} /> 공간안전결제 — 토스페이먼츠가 공사대금을 안전하게 보호합니다</div>
               {/* 결제수단 미선택(현장방문 요청 등 결제 전 단계)에서는 수수료를 확정 금액처럼 표시하지 않는다. */}
               {[
                 ["시공비", fmtMoney(effectivePrice)],
@@ -386,7 +386,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
           </div>
           <div style={{ background:C.navyL, borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, border:`1px solid ${C.trustM}` }}>
-            <div style={{ fontSize:14, fontWeight:800, color:C.navy, marginBottom:S.md }}>🛡 에스크로 안전 정산</div>
+            <div style={{ fontSize:14, fontWeight:800, color:C.navy, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="🛡" size={14} color={C.navy} /> 에스크로 안전 정산</div>
             {stages.map(({ name, percent, amount }) => (
               <div key={name} style={{ display:"flex", justifyContent:"space-between", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.trustM}` }}>
                 <div><div style={{ fontSize:12, fontWeight:700, color:C.navy }}>{name} {percent}%</div><div style={{ fontSize:11, color:C.text3 }}>{name} 확인</div></div>
@@ -433,7 +433,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               cursor: (!isQuotePhase && !isAwarded && siteVisitLoading) ? "not-allowed" : "pointer",
               boxShadow: (!isQuotePhase && !isAwarded && siteVisitLoading) ? "none" : `0 6px 20px ${C.brand}44` }}>
             {isQuotePhase
-              ? "예약 확정하고 결제 진행 ✅"
+              ? <>예약 확정하고 결제 진행 <Icon emoji="✅" size={15} color="#fff" /></>
               : isAwarded
               ? "위 내용으로 에스크로 결제 및 예약 확정하기 →"
               : siteVisitLoading
@@ -454,7 +454,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             <div style={{ width:44, height:44, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:900, color:C.brand }}>{(selBid.company?.name ?? "?")[0]}</div>
             <div><div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{selBid.company?.name ?? "선택된 파트너"}</div><div style={{ fontSize:13, color:C.text3 }}>{fmtMoney(effectivePrice)} · {selBid.period}일</div></div>
           </div>
-          <div style={{ background:C.brandL, borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`, fontSize:13, color:C.brand, fontWeight:700, textAlign:"center" }}>🎉 예약 확정 완료</div>
+          <div style={{ background:C.brandL, borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`, fontSize:13, color:C.brand, fontWeight:700, textAlign:"center", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icon emoji="🎉" size={13} color={C.brand} /> 예약 확정 완료</div>
         </div>
         <div style={{ marginBottom:S.md }}>
           <SpaceProtectionBadge variant="list" />
@@ -472,11 +472,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         <div onClick={() => { dlog("[GONGGAN_DIAG][reservedCard]", { selBidId: selBid?.id ?? null, selBidStatus: selBid?.status ?? null, requestStatus: request?.status ?? null, next: "payment" }); setStep("payment"); }} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`2px solid ${C.brand}`, cursor:"pointer" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
             <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>공간안전결제로 진행</div>
-            <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700 }}>🛡 보호</span>
+            <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700, display:"inline-flex", alignItems:"center", gap:4 }}><Icon emoji="🛡" size={11} color={C.brand} /> 보호</span>
           </div>
           <div style={{ fontSize:14, color:C.text3, lineHeight:1.8 }}>토스페이먼츠 보관 · 단계별 지급 · 분쟁 중재 지원</div>
         </div>
-        <button onClick={() => onChat(selBid.company ?? { id: selBid.companyId, name: "업체" })} style={{ width:"100%", padding:S.lg, background:"none", color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:600, fontSize:14, cursor:"pointer" }}>💬 먼저 업체와 상담하기</button>
+        <button onClick={() => onChat(selBid.company ?? { id: selBid.companyId, name: "업체" })} style={{ width:"100%", padding:S.lg, background:"none", color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:600, fontSize:14, cursor:"pointer",
+          display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icon emoji="💬" size={13} color={C.text3} /> 먼저 업체와 상담하기</button>
       </div>
     </div>
   );
@@ -723,7 +724,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
 
             <div style={{ marginTop:12, paddingTop:12, borderTop:`1px dashed ${C.bgWarm}` }}>
-              <div style={{ fontSize:12, fontWeight:800, color:C.text2, marginBottom:6 }}>🔒 단계별 안전 지급</div>
+              <div style={{ fontSize:12, fontWeight:800, color:C.text2, marginBottom:6, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔒" size={12} color={C.text2} /> 단계별 안전 지급</div>
               {stages.map(({ name, percent, amount }) => (
                 <div key={name} style={{ display:"flex", justifyContent:"space-between", padding:`${S.xs}px 0` }}>
                   <div style={{ fontSize:12, fontWeight:700, color:C.text3 }}>{name} {percent}%</div>
@@ -735,7 +736,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
           {/* 자재비 10% 선지급 안내 — 고객이 선지급 이유를 이해하도록 */}
           <div style={{ background:"#FBF7EC", borderRadius:R.lg, padding:S.lg, marginBottom:S.lg, border:`1px solid #EADFC4` }}>
-            <div style={{ fontSize:13, fontWeight:800, color:"#8A6D1E", marginBottom:6 }}>📦 자재비 10% 선지급 안내</div>
+            <div style={{ fontSize:13, fontWeight:800, color:"#8A6D1E", marginBottom:6, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="📦" size={13} color="#8A6D1E" /> 자재비 10% 선지급 안내</div>
             <div style={{ fontSize:12, color:C.text2, lineHeight:1.85 }}>
               최종견적 확인 및 결제 완료 후 <b>자재비 10%</b>가 먼저 지급됩니다.<br/>
               빠른 자재 준비와 공사 일정 지연을 방지하기 위한 선지급 방식입니다.<br/>
@@ -746,10 +747,10 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           {/* 결제 직전 — 에스크로 안전 보관 + 기록 저장 안내 */}
           <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg,
             marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
-            <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:6 }}>🔒 업체에게 바로 돈이 지급되지 않습니다</div>
+            <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:6, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔒" size={13} color={C.brand} /> 업체에게 바로 돈이 지급되지 않습니다</div>
             <div style={{ fontSize:12, color:C.text2, lineHeight:1.8 }}>
               결제금은 공간마켓이 안전하게 보관하며, 고객 확인 후 단계별로 지급됩니다.<br/>
-              💬 채팅 · 📷 사진 · 📍 GPS 기록이 저장되며 분쟁 발생 시 기록을 기준으로 검토합니다.
+              <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="💬" size={11} color={C.text2} /> 채팅</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📷" size={11} color={C.text2} /> 사진</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📍" size={11} color={C.text2} /> GPS</span> 기록이 저장되며 분쟁 발생 시 기록을 기준으로 검토합니다.
             </div>
           </div>
 
@@ -795,7 +796,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           </div>
 
           <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.md, marginBottom:S.xl, fontSize:12, color:C.navy, display:"flex", gap:S.sm }}>
-            <span>🛡</span><span>예치금은 공간마켓이 안전하게 보관하며 단계별 확인 후 업체에 지급됩니다</span>
+            <Icon emoji="🛡" size={13} color={C.navy} /><span>예치금은 공간마켓이 안전하게 보관하며 단계별 확인 후 업체에 지급됩니다</span>
           </div>
 
           {SHOW_DEBUG_UI && SAFE_MODE && (
@@ -812,7 +813,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
           {/* 자재비 10% 선지급 안내 — 결제 버튼 상단(문구만, 정책/지급비율/로직 무변경) */}
           <div style={{ background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, padding:S.md, marginBottom:S.lg, fontSize:12, color:C.text2, lineHeight:1.7 }}>
-            <div style={{ fontWeight:800, color:C.brand, marginBottom:4 }}>💡 자재비 10% 선지급 안내</div>
+            <div style={{ fontWeight:800, color:C.brand, marginBottom:4, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="💡" size={12} color={C.brand} /> 자재비 10% 선지급 안내</div>
             최종견적서를 확인하고 결제를 완료하면, 빠른 자재 준비를 위해 자재비 10%가 먼저 지급됩니다. 나머지 공사비는 착공, 중간점검, 공사 완료 확인 후 단계별로 안전하게 지급됩니다.
           </div>
 
@@ -822,15 +823,23 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             style={{ width:"100%", padding:S.xxl, background: (selectedMethod || SAFE_MODE) && !paymentLoading ? C.brand : C.bgWarm,
               color: (selectedMethod || SAFE_MODE) && !paymentLoading ? "#fff" : C.text4, border:"none", borderRadius:R.lg,
               fontWeight:800, fontSize:16, cursor: (selectedMethod || SAFE_MODE) && !paymentLoading ? "pointer" : "not-allowed",
-              boxShadow: (selectedMethod || SAFE_MODE) && !paymentLoading ? `0 6px 20px ${C.brand}44` : "none" }}>
-            {paymentLoading ? "처리 중..." : SAFE_MODE ? "🔧 테스트 예치 (SAFE_MODE)" : selectedMethod ? `🔒 ${fmtMoney(customerTotal)} 결제하기` : "결제 수단을 선택하세요"}
+              boxShadow: (selectedMethod || SAFE_MODE) && !paymentLoading ? `0 6px 20px ${C.brand}44` : "none",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+            {paymentLoading ? "처리 중..."
+              : SAFE_MODE ? <><Icon emoji="🔧" size={15} color="#fff" /> 테스트 예치 (SAFE_MODE)</>
+              : selectedMethod ? <><Icon emoji="🔒" size={15} color="#fff" /> {fmtMoney(customerTotal)} 결제하기</>
+              : "결제 수단을 선택하세요"}
           </button>
         </div>
-        {localToast && (
-          <div style={{ position:"fixed", bottom:100, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,0.82)", color:"#fff", borderRadius:20, padding:"10px 20px", fontSize:13, fontWeight:600, zIndex:500, whiteSpace:"nowrap", pointerEvents:"none" }}>
-            {localToast}
-          </div>
-        )}
+        {localToast && (() => {
+          const { emoji, rest } = splitLeadingEmoji(localToast);
+          return (
+            <div style={{ position:"fixed", bottom:100, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,0.82)", color:"#fff", borderRadius:20, padding:"10px 20px", fontSize:13, fontWeight:600, zIndex:500, whiteSpace:"nowrap", pointerEvents:"none",
+              display:"flex", alignItems:"center", gap:6 }}>
+              {emoji && <Icon emoji={emoji} size={13} color="#fff" />}{rest}
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -848,13 +857,15 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             ))}
           </div>
         )}
-        <div style={{ fontSize:64, marginBottom:16 }}>✅</div>
+        <div style={{ display:"flex", justifyContent:"center", marginBottom:16 }}><Icon emoji="✅" size={64} color={C.brand} /></div>
         <div style={{ fontSize:22, fontWeight:900, color:C.text1, marginBottom:8 }}>예약 완료!</div>
         <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>에스크로 예치 완료. 착공 확인 후 업체에 지급됩니다.</div>
-        <button onClick={() => onChat(selBid.company ?? { id: selBid.companyId, name: "업체" })} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44`, marginBottom:S.sm }}>💬 {selBid.company?.name ?? "업체"}와 채팅하기</button>
+        <button onClick={() => onChat(selBid.company ?? { id: selBid.companyId, name: "업체" })} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44`, marginBottom:S.sm,
+          display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icon emoji="💬" size={15} color="#fff" /> {selBid.company?.name ?? "업체"}와 채팅하기</button>
         {/* H-B: 레거시 done_direct 경로 안전장치(현재 도달 안 함). 에스크로 리뷰는 EscrowScreen.onReview에서 처리. */}
         {step === "done_direct" && onReview && selBid.company && (
-          <button onClick={() => onReview(selBid.company)} style={{ width:"100%", padding:S.lg, background:"none", color:C.brand, border:`1px solid ${C.brand}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:S.sm }}>⭐ 시공 후기 작성하기</button>
+          <button onClick={() => onReview(selBid.company)} style={{ width:"100%", padding:S.lg, background:"none", color:C.brand, border:`1px solid ${C.brand}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:S.sm,
+            display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icon emoji="⭐" size={13} color={C.brand} /> 시공 후기 작성하기</button>
         )}
         <button onClick={onBack} style={{ width:"100%", padding:S.lg, background:"none", color:C.text3, border:"none", fontWeight:600, fontSize:14, cursor:"pointer" }}>홈으로</button>
       </div>
@@ -897,7 +908,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           </div>
         )}
         <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.md, border:`1px solid ${C.brandM}` }}>
-          <div style={{ fontSize:13, fontWeight:700, color:C.brand }}>💡 업체 금액은 선택 전까지 서로 모릅니다</div>
+          <div style={{ fontSize:13, fontWeight:700, color:C.brand, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="💡" size={13} color={C.brand} /> 업체 금액은 선택 전까지 서로 모릅니다</div>
           <div style={{ fontSize:12, color:C.brand, marginTop:4, opacity:0.8 }}>기록과 리뷰를 보고 안심하고 선택하세요</div>
         </div>
         <div style={{ marginBottom:S.xl }}>
@@ -910,7 +921,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             minHeight:200, display:"flex", alignItems:"center", justifyContent:"center",
           }}>
             <div style={{ textAlign:"center", padding:S.xxl }}>
-              <div style={{ fontSize:36, marginBottom:12 }}>💬</div>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="💬" size={36} color={C.text3} /></div>
               <div style={{ fontSize:14, fontWeight:700, color:C.text3 }}>인근 업체들이 견적을 검토 중입니다</div>
               <div style={{ fontSize:12, color:C.text4, marginTop:6 }}>보통 24시간 내 입찰이 시작됩니다</div>
             </div>
@@ -934,8 +945,10 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
                 </div>
                 <div style={{ fontSize:13, color:C.text2, marginBottom:S.md, fontStyle:"italic" }}>{bid.comment}</div>
                 <div style={{ display:"flex", flexDirection:"column", gap:S.sm }}>
-                  <button onClick={() => onChat(bid.company ?? { id: bid.companyId, name: "업체" })} style={{ width:"100%", padding:"11px", background:C.surface, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>💬 상담하기</button>
-                  <button onClick={() => selectBid(bid)} style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 12px ${C.brand}44` }}>✅ 이 업체로 선택하기</button>
+                  <button onClick={() => onChat(bid.company ?? { id: bid.companyId, name: "업체" })} style={{ width:"100%", padding:"11px", background:C.surface, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer",
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icon emoji="💬" size={13} color={C.text2} /> 상담하기</button>
+                  <button onClick={() => selectBid(bid)} style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 12px ${C.brand}44`,
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icon emoji="✅" size={13} color="#fff" /> 이 업체로 선택하기</button>
                 </div>
               </div>
             </div>
