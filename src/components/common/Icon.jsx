@@ -10,6 +10,7 @@ import {
   Sofa, Briefcase, Store, ShowerHead, CookingPot, PaintRoller, DoorOpen,
   Ruler, SearchX, CheckCheck, Landmark, Banknote, Clock,
   Mail, HelpCircle, KeyRound, Package,
+  Upload, Microscope,
 } from "lucide-react";
 import { C } from "../../constants";
 import { useIconVersion } from "../../hooks/useIconVersion";
@@ -94,6 +95,8 @@ const EMOJI_ICON_MAP = {
   "📦": Package,
   "🗨️": MessageCircle, "🗨": MessageCircle,
   "🏘️": Building2, "🏘": Building2,
+  "📤": Upload,
+  "🔬": Microscope,
 };
 
 // 첫 글자가 매핑된 이모지면 분리해서 {emoji, rest} 로 반환한다.
