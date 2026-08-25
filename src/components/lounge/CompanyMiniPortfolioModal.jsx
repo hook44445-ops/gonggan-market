@@ -9,6 +9,7 @@ import { BADGES } from '../../constants/badges';
 import { getCompanyByOwnerId, getReviews, getPortfolios, getCompanyLoungeStats } from '../../lib/supabase';
 import SpaceActivityRecord from '../SpaceActivityRecord'; // v5.4.0: 공간 활동기록(Add Only)
 import { resolveCompanyIdentity } from '../../utils/identityResolver';
+import { Icon } from '../common';
 
 const daysAgoLabel = (iso) => {
   if (!iso) return null;
@@ -91,19 +92,19 @@ export default function CompanyMiniPortfolioModal({
             {/* 헤더: 익명닉네임 + 배지/온도/지역 */}
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 6 }}>
-                {hasGuaranteeBadge(company) && <span style={{ marginRight: 4 }}>🛡️</span>}
+                {hasGuaranteeBadge(company) && <Icon emoji="🛡️" size={16} color={C.brand} style={{ marginRight: 4 }} />}
                 {/* 업체 표시명은 Identity Resolver 로 결정(display_name → anonymous_name → name → '공간파트너'). */}
                 {resolveCompanyIdentity(company) || anonymousNickname}
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 {bm && (
-                  <span style={{ background: bm.bg, color: bm.color, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{bm.icon} {bm.label}</span>
+                  <span style={{ background: bm.bg, color: bm.color, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon emoji={bm.icon} size={11} color={bm.color} /> {bm.label}</span>
                 )}
                 {company.temp != null && (
-                  <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>🌡️ 공간온도 {Number(company.temp).toFixed(1)}°</span>
+                  <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon emoji="🌡️" size={11} color={C.brand} /> 공간온도 {Number(company.temp).toFixed(1)}°</span>
                 )}
                 {company.region && (
-                  <span style={{ background: C.surface2 ?? C.bgWarm, color: C.text3, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 600 }}>📍 {company.region}</span>
+                  <span style={{ background: C.surface2 ?? C.bgWarm, color: C.text3, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon emoji="📍" size={11} color={C.text3} /> {company.region}</span>
                 )}
                 {reviewCount != null && (
                   <span style={{ color: C.text3, fontSize: 11, fontWeight: 600 }}>후기 {reviewCount}</span>

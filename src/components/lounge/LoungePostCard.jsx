@@ -8,6 +8,7 @@ import { formatLoungeRelativeTime, getAnonymousAvatarByNickname, getGenderEmoji 
 import { CATEGORY_LABEL } from '../../constants/lounge';
 import { plainExcerpt } from '../../utils/richText';
 import { extractLoungeTags } from '../../utils/loungeTags';
+import { Icon } from '../common';
 
 export default function LoungePostCard({ post, onClick }) {
   const catLabel   = CATEGORY_LABEL[post.category] ?? post.category;
@@ -144,9 +145,9 @@ export default function LoungePostCard({ post, onClick }) {
 
       {/* Row 4: 조회 · 좋아요 · 댓글 (리스트에서는 작성자 익명닉네임을 노출하지 않는다 — 지역·시간은 Row 1) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 11, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
-        <span style={{ fontSize: 11, color: C.text3 }}>❤️ {post.like_count ?? 0}</span>
-        <span style={{ fontSize: 11, color: C.text3 }}>💬 {post.comment_count ?? 0}</span>
+        <span style={{ fontSize: 11, color: C.text3, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="👁" size={10} color={C.text3} /> {(post.view_count ?? 0).toLocaleString()}</span>
+        <span style={{ fontSize: 11, color: C.text3, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="❤️" size={10} color={C.text3} /> {post.like_count ?? 0}</span>
+        <span style={{ fontSize: 11, color: C.text3, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="💬" size={10} color={C.text3} /> {post.comment_count ?? 0}</span>
       </div>
     </div>
   );

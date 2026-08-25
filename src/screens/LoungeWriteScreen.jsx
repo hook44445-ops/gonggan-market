@@ -4,6 +4,7 @@
 
 import { useState, useRef } from 'react';
 import { C, R, S, REGIONS, CITY_DISTRICTS } from '../constants';
+import { Icon } from '../components/common';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
 import { IS_SUPABASE_READY, createLoungePost, updateLoungePost, adminUpdateLoungePost, uploadLoungeImage, enqueueLoungePostPush } from '../lib/supabase';
@@ -160,7 +161,7 @@ const DEFAULT_GUIDE = {
 const guideFor = (cat) => CATEGORY_GUIDE[cat] ?? DEFAULT_GUIDE;
 
 // 제목 아래 공통 안내 — 간결한 검색 친화 안내 (카테고리별 예시 자동 변경 v1.0)
-const TITLE_HELPER = '💡 지역명, 제품명, 브랜드명을 함께 적으면 더 많은 사람들이 쉽게 글을 찾을 수 있어요.';
+const TITLE_HELPER = '지역명, 제품명, 브랜드명을 함께 적으면 더 많은 사람들이 쉽게 글을 찾을 수 있어요.';
 
 // 사진 안내 문구 — 견적고민/시공후기/인테리어/집꾸미기에서 특히 노출
 const PHOTO_HELPER_CATS = ['quote_worry', 'review', 'interior', 'room_deco'];
@@ -363,7 +364,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         {!isEdit && (
           <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.xl, border: `1px solid ${C.brandM}` }}>
             <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>
-              🛡 글 작성 시 익명 아이디가 자동 배정됩니다.<br/>
+              <Icon emoji="🛡" size={12} color={C.brand} /> 글 작성 시 익명 아이디가 자동 배정됩니다.<br/>
               같은 글의 댓글에서는 동일 익명이 유지됩니다.<br/>
               다른 글에서는 새로운 닉네임이 배정됩니다.
             </div>
@@ -385,7 +386,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: S.sm }}>제목 (선택)</div>
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder={titleGuideFor(category)} maxLength={100}
             style={{ width: '100%', padding: '14px 16px', border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 15, outline: 'none', boxSizing: 'border-box', background: C.surface, color: C.text1, fontFamily: 'inherit' }} />
-          <div style={{ fontSize: 11.5, color: C.text4, marginTop: 6, lineHeight: 1.5 }}>{TITLE_HELPER}</div>
+          <div style={{ fontSize: 11.5, color: C.text4, marginTop: 6, lineHeight: 1.5, display: 'flex', alignItems: 'flex-start', gap: 4 }}><Icon emoji="💡" size={11} color={C.text4} style={{ marginTop: 1 }} /> {TITLE_HELPER}</div>
 
           {/* 제목 예시 카드 — 연베이지 카드 + 체크. 안내 전용(등록값 영향 없음) */}
           <div style={{ background: C.sand, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: `${S.md}px ${S.lg}px`, marginTop: S.sm }}>
@@ -428,7 +429,7 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
             ))}
             {images.length < MAX_IMAGES && (
               <div onClick={() => fileInputRef.current?.click()} style={{ width: 80, height: 80, borderRadius: R.md, border: `2px dashed ${C.bgWarm}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer', background: C.surface }}>
-                <span style={{ fontSize: 24, color: C.text4 }}>📷</span>
+                <Icon emoji="📷" size={24} color={C.text4} />
                 <span style={{ fontSize: 10, color: C.text4 }}>추가</span>
               </div>
             )}

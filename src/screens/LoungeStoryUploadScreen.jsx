@@ -4,6 +4,7 @@
 
 import { useState, useRef } from 'react';
 import { C, R, S } from '../constants';
+import { Icon } from '../components/common';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
 import { IS_SUPABASE_READY, createLoungeStory, uploadLoungeImage, enforceUserStoryLimit } from '../lib/supabase';
 
@@ -186,7 +187,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
               cursor: 'pointer',
               flexDirection: 'column', gap: 12,
             }}>
-            <div style={{ fontSize: 48 }}>📷</div>
+            <Icon emoji="📷" size={48} color="rgba(255,255,255,0.5)" />
             <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: 700 }}>사진 추가</div>
             <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>탭하여 갤러리에서 선택 (최대 5장)</div>
           </div>
@@ -281,8 +282,8 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         {/* 안내 */}
         <div style={{ background: 'rgba(46,95,75,0.3)', borderRadius: R.lg, padding: S.md, border: `1px solid ${C.brandM}55` }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
-            ⏰ 스토리는 <strong style={{ color: '#fff' }}>24시간</strong> 후 자동으로 사라집니다.<br />
-            🛡 익명으로 게시되며, 실명/연락처는 표시되지 않습니다.
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon emoji="⏰" size={11} color="rgba(255,255,255,0.65)" /> 스토리는 <strong style={{ color: '#fff' }}>24시간</strong> 후 자동으로 사라집니다.</span><br />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon emoji="🛡" size={11} color="rgba(255,255,255,0.65)" /> 익명으로 게시되며, 실명/연락처는 표시되지 않습니다.</span>
           </div>
         </div>
       </div>

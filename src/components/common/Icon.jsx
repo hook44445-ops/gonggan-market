@@ -13,7 +13,7 @@ import {
   Upload, Microscope,
   Hand, Plus, Sunrise, Globe, Factory, Users, Moon, Library, Phone, Repeat,
   ChevronDown, Network, Archive, Map, OctagonX, Dna, Compass, Blocks, Eraser,
-  Stethoscope, Mountain, BellOff,
+  Stethoscope, Mountain, BellOff, AlarmClock,
 } from "lucide-react";
 import { C } from "../../constants";
 import { useIconVersion } from "../../hooks/useIconVersion";
@@ -91,7 +91,7 @@ const EMOJI_ICON_MAP = {
   "🏁": CheckCheck,
   "🏦": Landmark,
   "💸": Banknote,
-  "⏳": Clock, "🕐": Clock,
+  "⏳": Clock, "🕐": Clock, "⏰": AlarmClock,
   "📨": Mail, "📩": Mail,
   "❔": HelpCircle, "❓": HelpCircle,
   "🔐": KeyRound,

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { formatLoungeRelativeTime, getGenderEmoji } from '../../utils/anonymousNickname';
 import { resolveConsumerIdentity } from '../../utils/identityResolver';
+import { Icon } from '../common';
 
 export default function LoungeCommentItem({ comment, isReply = false, onLike, onReport, onReply, onAuthorClick, onCompanyClick, currentUserId, postUserId = null, companyName = null }) {
   // 표시명은 Identity Resolver 로 결정. 업체(전문가) 댓글은 상위에서 업체 표시명(companyName)을
@@ -83,7 +84,7 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
             onClick={isCompanyAuthor ? handleAuthorClick : undefined}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.brand, color: '#fff', borderRadius: R.full, padding: '2px 9px', fontSize: 10, fontWeight: 800,
               cursor: isCompanyAuthor ? 'pointer' : 'default' }}>
-            🏅 공간보증 · 전문가 답변
+<Icon emoji="🏅" size={10} color="#fff" /> 공간보증 · 전문가 답변
           </span>
         )}
         <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>
@@ -106,12 +107,12 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
       <div style={{ display: 'flex', gap: S.lg, alignItems: 'center', paddingLeft: 30 }}>
         {comment.is_expert_reply ? (
           // 전문가 답변 — 좋아요(기존 like_count/onLike 재사용, 문구만 통일)
-          <button onClick={handleLike} style={{ background: liked ? C.brand : 'none', border: `1px solid ${liked ? C.brand : C.bgWarm}`, borderRadius: R.full, cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#fff' : C.text2, fontWeight: 700, padding: '4px 12px' }}>
-            👍 좋아요 {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
+          <button onClick={handleLike} style={{ background: liked ? C.brand : 'none', border: `1px solid ${liked ? C.brand : C.bgWarm}`, borderRadius: R.full, cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#fff' : C.text2, fontWeight: 700, padding: '4px 12px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Icon emoji="👍" size={12} color={liked ? '#fff' : C.text2} /> 좋아요 {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
           </button>
         ) : (
-          <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 700 : 400, padding: 0 }}>
-            {liked ? '❤️' : '🤍'} {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
+          <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 700 : 400, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Icon emoji="❤️" filled={liked} size={12} color={liked ? '#E53E3E' : C.text3} /> {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
           </button>
         )}
         {!isReply && (
