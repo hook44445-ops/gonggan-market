@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
+import { Icon } from "../components/common/Icon";
+import { useIconVersion } from "../hooks/useIconVersion";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
 import { COMPANY_STATUS_META, USER_STATUS_META } from "../constants";
 import { LOUNGE_CATEGORIES } from "../constants/lounge";
@@ -5289,6 +5291,27 @@ function DocPreviewModal({ url, title, onClose }) {
   );
 }
 
+// 아이콘 세트 v1(기존 이모지)/v2(신규 라인 아이콘) 전환 스위치.
+// localStorage 기반 — 이 브라우저에서 즉시 반영되며, 이모지 톤이 유치하다는
+// 피드백에 따라 v2 를 기본값으로 두고 필요 시 v1 로 즉시 롤백할 수 있게 한다.
+function IconVersionToggle() {
+  const [version, setVersion] = useIconVersion();
+  const isV2 = version === "v2";
+  return (
+    <button
+      onClick={() => setVersion(isV2 ? "v1" : "v2")}
+      title="아이콘 세트 전환 (v1: 기존 이모지 / v2: 신규 라인 아이콘)"
+      style={{
+        background: isV2 ? C.brandL : C.bgWarm, border: `1px solid ${isV2 ? C.brand : C.bgWarm}`,
+        borderRadius: R.md, padding: "6px 10px", fontSize: 11, fontWeight: 700,
+        color: isV2 ? C.brandD : C.text3, cursor: "pointer",
+      }}
+    >
+      아이콘 {isV2 ? "v2" : "v1"}
+    </button>
+  );
+}
+
 export default function AdminScreen({ onBack, onHome, user }) {
   const [companies, setCompanies]       = useState([]);
   const [customers, setCustomers]       = useState([]);
@@ -6041,12 +6064,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
               심사 대기 {stats.pending}건
             </div>
           )}
+          <IconVersionToggle />
           {onHome && (
             <button onClick={onHome}
               style={{ background: C.bgWarm, border: "none", borderRadius: R.md,
                 padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.text2,
                 cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-              🏠 홈으로
+              <Icon emoji="🏠" size={14} /> 홈으로
             </button>
           )}
         </div>
