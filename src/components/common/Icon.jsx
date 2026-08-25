@@ -91,7 +91,7 @@ const EMOJI_ICON_MAP = {
   "🏁": CheckCheck,
   "🏦": Landmark,
   "💸": Banknote,
-  "⏳": Clock,
+  "⏳": Clock, "🕐": Clock,
   "📨": Mail, "📩": Mail,
   "❔": HelpCircle, "❓": HelpCircle,
   "🔐": KeyRound,

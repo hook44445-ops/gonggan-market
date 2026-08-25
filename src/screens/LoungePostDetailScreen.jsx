@@ -4,6 +4,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { C, R, S } from '../constants';
+import { Icon, splitLeadingEmoji } from '../components/common';
 import { SHOW_DEBUG_UI } from '../constants/release';
 import { CATEGORY_LABEL, TOKEN_COSTS } from '../constants/lounge';
 import { useLoungePost } from '../hooks/useLounge';
@@ -96,13 +97,13 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
           {/* 공간온도 · 가입기간 · 관심카테고리 · 최근활동 (조회 실패 시 표시 생략) */}
           <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             {profile?.spaceTemp != null && (
-              <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>
-                🌡️ 공간온도 {Number(profile.spaceTemp).toFixed(1)}°
+              <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Icon emoji="🌡️" size={11} color={C.brand} /> 공간온도 {Number(profile.spaceTemp).toFixed(1)}°
               </span>
             )}
             {joinLabel && (
-              <span style={{ background: C.bg, color: C.text3, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 600 }}>
-                🗓️ {joinLabel}
+              <span style={{ background: C.bg, color: C.text3, borderRadius: R.full, padding: '3px 10px', fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Icon emoji="🗓️" size={11} color={C.text3} /> {joinLabel}
               </span>
             )}
             {(profile?.interests ?? []).slice(0, 3).map(it => (
@@ -111,8 +112,8 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
               </span>
             ))}
             {comment.created_at && formatLoungeRelativeTime(comment.created_at) && (
-              <span style={{ fontSize: 11, color: C.text4 }}>
-                🕐 최근활동 {formatLoungeRelativeTime(comment.created_at)}
+              <span style={{ fontSize: 11, color: C.text4, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <Icon emoji="🕐" size={10} color={C.text4} /> 최근활동 {formatLoungeRelativeTime(comment.created_at)}
               </span>
             )}
           </div>
@@ -141,7 +142,7 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
               fontSize: 15, color: alreadySent ? C.text4 : C.text1, fontWeight: 600, textAlign: 'left',
               opacity: busy ? 0.6 : 1 }}
           >
-            <span style={{ fontSize: 20 }}>{alreadySent ? '✅' : '💬'}</span>
+            <Icon emoji={alreadySent ? '✅' : '💬'} size={20} color={alreadySent ? C.text4 : C.text1} />
             {alreadySent ? '이미 대화 신청을 보냈어요' : busy ? '처리 중...' : '이 작성자에게 대화 신청하기'}
           </button>
         )}
@@ -152,7 +153,7 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
             background: 'none', border: 'none', cursor: 'pointer',
             fontSize: 15, color: C.text1, fontWeight: 600, textAlign: 'left' }}
         >
-          <span style={{ fontSize: 20 }}>🚩</span>
+          <Icon emoji="🚩" size={20} color={C.text1} />
           {roleLabel === '게시글 작성자' ? '게시글 신고하기' : '댓글 신고하기'}
         </button>
 
@@ -175,7 +176,7 @@ function DeleteConfirmDialog({ onConfirm, onCancel, loading }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 500, padding: '0 24px' }}>
       <div style={{ background: C.surface, borderRadius: R.xl, padding: 24, width: '100%', maxWidth: 320 }}>
-        <div style={{ fontSize: 20, textAlign: 'center', marginBottom: 12 }}>🗑️</div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon emoji="🗑️" size={20} color={C.red} /></div>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, textAlign: 'center', marginBottom: 8 }}>게시글을 삭제할까요?</div>
         <div style={{ fontSize: 13, color: C.text3, textAlign: 'center', lineHeight: 1.6, marginBottom: 20 }}>삭제된 글은 복구할 수 없어요</div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -206,21 +207,21 @@ function PostMenuSheet({ isOwn, isAdmin, onEdit, onDelete, onReport, onBlock, on
         )}
         {canManage && (
           <>
-            <button onClick={onEdit} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: `1px solid ${C.bg}`, fontSize: 15, fontWeight: 700, color: C.brand, cursor: 'pointer', textAlign: 'left' }}>
-              ✏️ 수정하기
+            <button onClick={onEdit} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: `1px solid ${C.bg}`, fontSize: 15, fontWeight: 700, color: C.brand, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Icon emoji="✏️" size={15} color={C.brand} /> 수정하기
             </button>
-            <button onClick={onDelete} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: canReport ? `1px solid ${C.bg}` : 'none', fontSize: 15, fontWeight: 700, color: C.red ?? '#E53E3E', cursor: 'pointer', textAlign: 'left' }}>
-              🗑️ 삭제하기
+            <button onClick={onDelete} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: canReport ? `1px solid ${C.bg}` : 'none', fontSize: 15, fontWeight: 700, color: C.red ?? '#E53E3E', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Icon emoji="🗑️" size={15} color={C.red ?? '#E53E3E'} /> 삭제하기
             </button>
           </>
         )}
         {canReport && (
           <>
-            <button onClick={onReport} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: `1px solid ${C.bg}`, fontSize: 15, fontWeight: 700, color: C.text2, cursor: 'pointer', textAlign: 'left' }}>
-              🚨 신고하기
+            <button onClick={onReport} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', borderBottom: `1px solid ${C.bg}`, fontSize: 15, fontWeight: 700, color: C.text2, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Icon emoji="🚨" size={15} color={C.text2} /> 신고하기
             </button>
-            <button onClick={onBlock} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', fontSize: 15, fontWeight: 700, color: C.text2, cursor: 'pointer', textAlign: 'left' }}>
-              🚫 차단하기
+            <button onClick={onBlock} style={{ width: '100%', padding: '16px 20px', background: 'none', border: 'none', fontSize: 15, fontWeight: 700, color: C.text2, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Icon emoji="🚫" size={15} color={C.text2} /> 차단하기
             </button>
           </>
         )}
@@ -1410,11 +1411,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         </div>
       )}
 
-      {toast && (
-        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: C.brand, color: '#fff', borderRadius: R.lg, padding: '12px 22px', fontSize: 12, fontWeight: 700, boxShadow: `0 8px 24px ${C.brand}44`, zIndex: 200, maxWidth: '85vw', wordBreak: 'break-all', textAlign: 'center' }}>
-          {toast}
-        </div>
-      )}
+      {toast && (() => {
+        const { emoji, rest } = splitLeadingEmoji(toast);
+        return (
+          <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: C.brand, color: '#fff', borderRadius: R.lg, padding: '12px 22px', fontSize: 12, fontWeight: 700, boxShadow: `0 8px 24px ${C.brand}44`, zIndex: 200, maxWidth: '85vw', wordBreak: 'break-all', textAlign: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {emoji && <Icon emoji={emoji} size={12} color="#fff" />}{rest}
+          </div>
+        );
+      })()}
     </div>
   );
 }
