@@ -6591,12 +6591,12 @@ export default function AdminScreen({ onBack, onHome, user }) {
                               </button>
                             </div>
                           </div>
-                          <div style={{ fontSize: 12, color: C.text3 }}>📱 {customer.phone} · 📍 {customer.region}</div>
+                          <div style={{ fontSize: 12, color: C.text3, display: "flex", alignItems: "center", gap: 4 }}><Icon emoji="📱" size={11} color={C.text3} /> {customer.phone} · <Icon emoji="📍" size={11} color={C.text3} /> {customer.region}</div>
                           <div style={{ fontSize: 11, color: C.text4, marginTop: 4 }}>가입일: {customer.joinedAt}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
                             {customer.is_identity_verified ? (
                               <>
-                                <span style={{ fontSize: 11, color: C.green, fontWeight: 700 }}>✓ 본인인증 완료</span>
+                                <span style={{ fontSize: 11, color: C.green, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 3 }}><Icon emoji="✓" size={11} color={C.green} /> 본인인증 완료</span>
                                 <span style={{ fontSize: 10, color: C.text4 }}>
                                   {customer.identity_verified_at ? new Date(customer.identity_verified_at).toLocaleDateString("ko-KR") : ""}
                                   {customer.identity_provider ? ` (${customer.identity_provider})` : ""}
@@ -6612,7 +6612,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                             ) : (
                               <>
                                 <span style={{ fontSize: 11, color: customer.identity_verification_status === "required" ? C.gold : C.text4, fontWeight: customer.identity_verification_status === "required" ? 700 : 400 }}>
-                                  {customer.identity_verification_status === "required" ? "⚠️ 인증 필요" : "미인증"}
+                                  {customer.identity_verification_status === "required" ? <><Icon emoji="⚠️" size={11} color={C.gold} /> 인증 필요</> : "미인증"}
                                 </span>
                                 <button onClick={async () => {
                                   const { error } = await adminVerifyUserIdentity(customer.id, user?.id, "verified");
@@ -6633,7 +6633,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                                   borderRadius: R.full, padding: "2px 9px" }}>{meta.label}</span>
                               );
                             })()}
-                            <span style={{ fontSize: 11, color: C.text4 }}>🪙 {customer.spaceTokens ?? 0} · 🌡 {customer.spaceTemp ?? 36.5}°</span>
+                            <span style={{ fontSize: 11, color: C.text4, display: "inline-flex", alignItems: "center", gap: 3 }}><Icon emoji="🪙" size={10} color={C.text4} /> {customer.spaceTokens ?? 0} · <Icon emoji="🌡" size={10} color={C.text4} /> {customer.spaceTemp ?? 36.5}°</span>
                             <button onClick={() => {
                               if (managingCustomerId === customer.id) { setManagingCustomerId(null); return; }
                               setManagingCustomerId(customer.id); setAdjReason(""); setCustomerTokenAmt("");
