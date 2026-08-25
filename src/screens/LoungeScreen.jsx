@@ -9,7 +9,7 @@ import { useLounge } from '../hooks/useLounge';
 import { IS_SUPABASE_READY, getNotifications, markAllNotifsRead, createLoungeNotification, getHotLoungePosts } from '../lib/supabase';
 import { NOTIF_META as NOTIF_TAXONOMY, notifNavTarget } from '../utils/notify';
 import { matchesLoungeSearch, loungePopularityScore } from '../utils/loungeTags';
-import { LogoMark } from '../components/common';
+import { LogoMark, Icon } from '../components/common';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
 import LoungePostCard from '../components/lounge/LoungePostCard';
@@ -81,7 +81,7 @@ function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
     <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 200, display: 'flex', flexDirection: 'column' }}>
       <div style={{ background: C.surface, borderBottom: `1px solid ${C.bgWarm}`, padding: `12px ${S.xl}px`, display: 'flex', gap: S.sm, alignItems: 'center' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: C.bg, borderRadius: R.full, padding: '0 14px', gap: S.sm, height: 42 }}>
-          <span style={{ fontSize: 16, color: C.text3 }}>🔍</span>
+          <Icon emoji="🔍" size={16} color={C.text3} />
           <input
             ref={inputRef}
             value={query}
@@ -123,7 +123,7 @@ function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text2, marginBottom: S.md }}>추천 검색어</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {SUGGESTED_SEARCHES.map(t => (
-                  <span key={t} style={chipStyle} onClick={() => applyTerm(t)}>🔍 {t}</span>
+                  <span key={t} style={{ ...chipStyle, display: 'inline-flex', alignItems: 'center', gap: 4 }} onClick={() => applyTerm(t)}><Icon emoji="🔍" size={12} color={C.text2} /> {t}</span>
                 ))}
               </div>
               <div style={{ fontSize: 12, color: C.text4, marginTop: S.lg, lineHeight: 1.6 }}>
@@ -133,7 +133,7 @@ function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
           </div>
         ) : results.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon emoji="📭" size={40} color={C.text3} /></div>
             <div style={{ fontSize: 14, color: C.text3, marginBottom: 4 }}>
               <span style={{ color: C.brand, fontWeight: 700 }}>"{query}"</span> 검색 결과가 없어요
             </div>
@@ -166,7 +166,7 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings, onNavigate }) {
         <div style={{ padding: '16px 20px 12px', borderBottom: `1px solid ${C.bgWarm}` }}>
           <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: '0 auto 16px' }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>🔔 알림</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, display: 'flex', alignItems: 'center', gap: 6 }}><Icon emoji="🔔" size={17} color={C.text1} /> 알림</div>
             <button onClick={onGoSettings} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, fontWeight: 700, padding: 0 }}>
               알림 설정 (준비중)
             </button>
@@ -176,12 +176,12 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings, onNavigate }) {
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-              <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Icon emoji="⏳" size={24} color={C.text3} /></div>
               <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
             </div>
           ) : notifs.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🔔</div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon emoji="🔔" size={40} color={C.text3} /></div>
               <div style={{ fontSize: 14, fontWeight: 700, color: C.text2, marginBottom: 6 }}>새 알림이 없습니다</div>
               <div style={{ fontSize: 12, color: C.text4, lineHeight: 1.6 }}>오늘도 좋은 하루가 되길 바랍니다.</div>
             </div>
@@ -194,8 +194,8 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings, onNavigate }) {
               };
               return (
                 <div key={n.id} onClick={handleTap} style={{ display: 'flex', alignItems: 'center', gap: S.md, padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bg}`, background: !n.is_read ? `${C.brandL}88` : C.surface, cursor: target ? 'pointer' : 'default' }}>
-                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: !n.is_read ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                    {icon}
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: !n.is_read ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon emoji={icon} size={18} color={!n.is_read ? C.brand : C.text3} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, color: C.text1, fontWeight: !n.is_read ? 700 : 500, lineHeight: 1.4 }}>{n.message}</div>
@@ -538,13 +538,13 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <div style={{ background: `linear-gradient(150deg, ${C.ivory}, ${C.brandL})`,
           padding: `10px ${S.xl}px`, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span style={{ fontSize: 11, lineHeight: 1 }}>🌿</span>
+            <Icon emoji="🌿" size={11} color={C.brand} />
             <span style={{ fontSize: 14, color: C.brand, fontWeight: 600, letterSpacing: '-0.2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>좋은 공간과 좋은 이야기가 모이는 곳</span>
           </div>
           {onOpenSpaceMedia && (
             <button onClick={onOpenSpaceMedia}
               style={{ flexShrink: 0, background: C.brand, color: '#fff', border: 'none', borderRadius: R.full, padding: '5px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, boxShadow: SHADOW.soft }}>
-              📖 매거진 →
+<Icon emoji="📖" size={12} color="#fff" /> 매거진 →
             </button>
           )}
         </div>
@@ -568,7 +568,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
           </div>
         )}
         <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexShrink: 0 }}>
-          <span style={{ fontSize: 12, color: C.text3, alignSelf: 'center', marginRight: 2 }}>📍 우리동네</span>
+          <span style={{ fontSize: 12, color: C.text3, alignSelf: 'center', marginRight: 2, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="📍" size={12} color={C.text3} /> 우리동네</span>
           <select value={filterCity} onChange={e => { setFilterCity(e.target.value); setFilterDistrict(''); }}
             style={{ padding: '5px 8px', borderRadius: R.full, border: `1px solid ${C.bgWarm}`, background: C.bg,
               color: filterCity ? C.text1 : C.text3, fontSize: 12, fontFamily: 'inherit', outline: 'none' }}>
@@ -607,7 +607,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
       {todayHotPosts.length > 0 && (
         <div style={{ padding: `${S.md}px ${S.xl}px`, background: 'linear-gradient(135deg, #FFF8E8, #FFF3D6)', borderBottom: `1px solid ${C.bgWarm}` }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: '#8A6D2A', marginBottom: S.sm, display: 'flex', alignItems: 'center', gap: 4 }}>
-            🏆 오늘의 인기글
+<Icon emoji="🏆" size={13} color="#8A6D2A" /> 오늘의 인기글
             <span style={{ fontSize: 10, fontWeight: 700, color: '#B08040', background: '#FFF3D6', border: '1px solid #E8C468', borderRadius: R.full, padding: '1px 8px', marginLeft: 4 }}>24시간</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -624,8 +624,8 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {p.title || (p.content ?? '').slice(0, 30)}
                   </div>
-                  <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>
-                    👁 {(p.view_count ?? 0).toLocaleString()} · ❤️ {p.like_count ?? 0} · 💬 {p.comment_count ?? 0}
+                  <div style={{ fontSize: 11, color: C.text4, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Icon emoji="👁" size={10} color={C.text4} /> {(p.view_count ?? 0).toLocaleString()} · <Icon emoji="❤️" size={10} color={C.text4} /> {p.like_count ?? 0} · <Icon emoji="💬" size={10} color={C.text4} /> {p.comment_count ?? 0}
                   </div>
                 </div>
               </button>
@@ -636,7 +636,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
 
       {isPopular && (
         <div style={{ background: C.brandL, borderLeft: `3px solid ${C.brandM}`, padding: `${S.sm}px ${S.xl}px`, display: 'flex', alignItems: 'center', gap: S.sm }}>
-          <span style={{ fontSize: 13 }}>🌿</span>
+          <Icon emoji="🌿" size={13} color={C.brand} />
           <span style={{ fontSize: 12, color: C.brand, fontWeight: 600 }}>많이 읽힌 이야기 모음 — 읽기·댓글·관심만 가능해요</span>
         </div>
       )}
@@ -644,7 +644,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
       {/* 🔥 추천글 — 운영자 수동 등록(최대 5). 과하지 않게 작게. (전체 탭 상단) */}
       {category === 'all' && hotPosts.length > 0 && (
         <div style={{ padding: `${S.md}px ${S.xl}px`, borderBottom: `1px solid ${C.bgWarm}` }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🔥 추천글</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm, display: 'flex', alignItems: 'center', gap: 5 }}><Icon emoji="🔥" size={13} color={C.text1} /> 추천글</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {hotPosts.map(p => (
               <button key={p.id} onClick={() => onPostClick?.(p)}
@@ -658,7 +658,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {p.title || (p.content ?? '').slice(0, 30)}
                 </span>
-                <span style={{ fontSize: 11, color: C.text4, flexShrink: 0 }}>👁 {(p.view_count ?? 0).toLocaleString()}</span>
+                <span style={{ fontSize: 11, color: C.text4, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3 }}><Icon emoji="👁" size={10} color={C.text4} /> {(p.view_count ?? 0).toLocaleString()}</span>
               </button>
             ))}
           </div>
@@ -667,7 +667,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
 
       {loading && allPosts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Icon emoji="⏳" size={32} color={C.text3} /></div>
           <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
         </div>
       ) : allPosts.length === 0 ? (
@@ -677,7 +677,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
           <div style={{ width: 64, height: 64, borderRadius: R.full,
             background: `linear-gradient(135deg,${C.brandL},${C.bgWarm})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 18px', fontSize: 26, border: `1.5px solid ${C.brandM}` }}>🌿</div>
+            margin: '0 auto 18px', border: `1.5px solid ${C.brandM}` }}><Icon emoji="🌿" size={26} color={C.brand} /></div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 8, letterSpacing: '-0.3px' }}>아직 이야기가 없습니다</div>
           <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8, marginBottom: S.xl }}>
             첫 번째 이야기를 시작해보세요
@@ -711,12 +711,12 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
             <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.xl, textAlign: 'center' }}>무엇을 올리시겠어요?</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: S.sm }}>
               <button onClick={() => { setShowWriteOptions(false); onWrite?.('post'); }}
-                style={{ padding: S.xl, background: C.brandL, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', textAlign: 'left' }}>
-                📝 게시물
+                style={{ padding: S.xl, background: C.brandL, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon emoji="📝" size={15} color={C.brand} /> 게시물
               </button>
               <button onClick={() => { setShowWriteOptions(false); onStoryUpload?.(); }}
-                style={{ padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', textAlign: 'left' }}>
-                📸 스토리 (24시간)
+                style={{ padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Icon emoji="📸" size={15} color={C.text2} /> 스토리 (24시간)
               </button>
             </div>
           </div>
