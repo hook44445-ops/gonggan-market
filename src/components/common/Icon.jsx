@@ -7,6 +7,7 @@ import {
   Zap, Target, BookOpen, Settings, Pin, TrendingUp, CreditCard, Radio, Smartphone, Leaf,
   Satellite, AlertOctagon, Scale, MailX, Trash2, Newspaper, Link2, ThumbsUp, Coins,
   FlaskConical, Flag, Bot, Sparkles, ArrowUpRight, Construction,
+  Sofa, Briefcase, Store, ShowerHead, CookingPot, PaintRoller, DoorOpen,
 } from "lucide-react";
 import { C } from "../../constants";
 import { useIconVersion } from "../../hooks/useIconVersion";
@@ -72,6 +73,13 @@ const EMOJI_ICON_MAP = {
   "🗞️": Newspaper, "🗞": Newspaper,
   "🔗": Link2,
   "👍": ThumbsUp, "🙌": ThumbsUp,
+  "🛋️": Sofa, "🛋": Sofa,
+  "💼": Briefcase,
+  "🏪": Store,
+  "🚿": ShowerHead,
+  "🍳": CookingPot,
+  "🪵": PaintRoller,
+  "🚪": DoorOpen,
 };
 
 /**
