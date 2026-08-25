@@ -3558,8 +3558,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   marginBottom:S.lg, border:`1.5px solid ${C.brandM}`, cursor:"pointer",
                   display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div>
-                  <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:3 }}>
-                    🔨 업체 등록하고 입찰하기
+                  <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:3, display:"flex", alignItems:"center", gap:6 }}>
+                    <Icon emoji="🔨" size={14} color={C.brand} /> 업체 등록하고 입찰하기
                   </div>
                   <div style={{ fontSize:12, color:C.text3 }}>등록하면 견적 입찰 + 채팅 가능</div>
                 </div>
@@ -3625,7 +3625,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
               {/* 5) 버튼 2개 — 동일 너비/높이/라운드 */}
               <div style={{ position:"relative", display:"flex", gap:S.sm }}>
-                <button onClick={() => go("dashboard")} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}>🤝 파트너센터 →</button>
+                <button onClick={() => go("dashboard")} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}><Icon emoji="🤝" size={14} color="#fff" /> 파트너센터 →</button>
                 <button onClick={() => go("portfolio",currentUser)} style={{ flex:1, height:44, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(255,255,255,0.18)", color:"#fff", border:"1px solid rgba(255,255,255,0.3)", borderRadius:R.lg, fontSize:14, fontWeight:700, cursor:"pointer" }}>포트폴리오</button>
               </div>
             </div>
@@ -3633,7 +3633,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {/* 업체 이용 절차 5단계 */}
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
               marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.lg }}>🗂 업체 이용 절차</div>
+              <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.lg, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="🗂" size={14} color={C.text1} /> 업체 이용 절차</div>
               {[
                 { icon:"🔍", title:"프로젝트 매칭",     desc:"인근 견적 요청 확인 후 입찰 제출" },
                 { icon:"📝", title:"계약 & 착공",        desc:"고객 선택 시 착공금 30% 즉시 수령" },
@@ -3644,7 +3644,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <div key={title} style={{ display:"flex", gap:S.md, marginBottom:i < arr.length - 1 ? S.lg : 0 }}>
                   <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0 }}>
                     <div style={{ width:36, height:36, borderRadius:R.full, background:C.brandL,
-                      display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>{icon}</div>
+                      display:"flex", alignItems:"center", justifyContent:"center" }}><Icon emoji={icon} size={16} color={C.brand} /></div>
                     {i < arr.length - 1 && (
                       <div style={{ width:2, flex:1, minHeight:12, marginTop:4, background:C.bgWarm }} />
                     )}
@@ -3666,7 +3666,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
             {siteVisitJobs.length > 0 && (
               <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🔨 진행중 작업 ({siteVisitJobs.length})</div>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="🔨" size={16} color={C.text1} /> 진행중 작업 ({siteVisitJobs.length})</div>
                 {siteVisitJobs.map((job) => (
                   <CompanyActiveJobCard
                     key={job.bid?.id ?? job.request?.id}
@@ -3702,8 +3702,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {/* ── 진행중 작업(에스크로 계약) ─────────────────────────────── */}
             {companyJobs.length > 0 && (
               <div style={{ marginBottom:S.xl }}>
-                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>
-                  🏗 내 시공 진행중
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}>
+                  <Icon emoji="🏗" size={16} color={C.text1} /> 내 시공 진행중
                   <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
                     {companyJobs.length}건
                   </span>
@@ -3719,8 +3719,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:4 }}>
                           {request?.type || "인테리어"} · {request?.size || ""}
                         </div>
-                        <div style={{ fontSize:12, color:C.text3 }}>
-                          📍 {request?.area || "지역 미정"}
+                        <div style={{ fontSize:12, color:C.text3, display:"flex", alignItems:"center", gap:3 }}>
+                          <Icon emoji="📍" size={11} color={C.text3} /> {request?.area || "지역 미정"}
                         </div>
                       </div>
                       <div style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"4px 10px", fontSize:11, fontWeight:800 }}>
@@ -3750,23 +3750,24 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             )}
 
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
-              <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>
-                📋 새 견적 요청
+              <div style={{ fontSize:16, fontWeight:800, color:C.text1, display:"flex", alignItems:"center", gap:6 }}>
+                <Icon emoji="📋" size={16} color={C.text1} /> 새 견적 요청
                 {biddableRequests.length > 0 && (
                   <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
                     {biddableRequests.length}건
                   </span>
                 )}
               </div>
-              <button onClick={loadCompanyRequests} style={{ fontSize:13, background:C.brandL, border:`1px solid ${C.brandM}`, color:C.brand, borderRadius:R.full, padding:"6px 14px", fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>🔄 새로고침</button>
+              <button onClick={loadCompanyRequests} style={{ fontSize:13, background:C.brandL, border:`1px solid ${C.brandM}`, color:C.brand, borderRadius:R.full, padding:"6px 14px", fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔄" size={13} color={C.brand} /> 새로고침</button>
             </div>
 
             {/* 안정적인 div 래퍼 — siteVisitJobs 섹션이 동시에 추가/제거될 때 React 재조정 오류 방지(#210) */}
             <div>
               {biddableRequests.length === 0 ? (
                 <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
-                  <div style={{ fontSize:32, marginBottom:12 }}>📭</div>
-                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6 }}>아직 새 요청이 없어요 🏠</div>
+                  <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="📭" size={32} color={C.text3} /></div>
+                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>아직 새 요청이 없어요 <Icon emoji="🏠" size={15} color={C.text1} /></div>
                   <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>
                     의뢰인이 요청을 등록하면 이곳에 표시됩니다
                     {SHOW_DEBUG_UI && <><br/>{`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}</>}
@@ -3923,9 +3924,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {mapIsFallback && (
               <div style={{ background:"#FFF8F0", border:`1px solid ${C.brandM}`, borderRadius:R.lg,
                 padding:"10px 14px", marginBottom:S.md, display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-                <div style={{ fontSize:12, color:C.text2, lineHeight:1.55 }}>
-                  📍 아직 이 지역 등록 업체가 적어,{" "}
-                  {mapFallbackTier === "city" ? "같은 시/도" : "전국"} 업체도 함께 보여드려요
+                <div style={{ fontSize:12, color:C.text2, lineHeight:1.55, display:"flex", alignItems:"flex-start", gap:4 }}>
+                  <Icon emoji="📍" size={12} color={C.text2} style={{ marginTop:2 }} /> <span>아직 이 지역 등록 업체가 적어,{" "}
+                  {mapFallbackTier === "city" ? "같은 시/도" : "전국"} 업체도 함께 보여드려요</span>
                 </div>
                 <button onClick={() => setMapLocalOnly(v => !v)}
                   style={{ flexShrink:0, padding:"5px 10px", borderRadius:R.full, border:`1px solid ${C.brand}`,
@@ -3960,9 +3961,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 {/* 지역 확장 배지 — fallback 업체에만 */}
                 {mapIsFallback && !mapLocalOnly && (
                   <div style={{ marginBottom:3, paddingLeft:2 }}>
-                    <span style={{ display:"inline-block", background:"#FFF3E0", border:"1px solid #FFCC80",
+                    <span style={{ display:"inline-flex", alignItems:"center", gap:3, background:"#FFF3E0", border:"1px solid #FFCC80",
                       borderRadius:R.full, padding:"2px 8px", fontSize:10, color:"#E65100", fontWeight:700 }}>
-                      {mapFallbackTier === "city" ? "📌 지역 확장" : "📌 추천"}
+                      <Icon emoji="📌" size={10} color="#E65100" /> {mapFallbackTier === "city" ? "지역 확장" : "추천"}
                     </span>
                   </div>
                 )}
@@ -3973,7 +3974,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {/* 내 지역만 보기 + 결과 0건 empty state */}
             {mapLocalOnly && mapLocalMatches.length === 0 && (
               <div style={{ textAlign:"center", padding:"32px 0", color:C.text3 }}>
-                <div style={{ fontSize:32, marginBottom:10 }}>🔍</div>
+                <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}><Icon emoji="🔍" size={32} color={C.text3} /></div>
                 <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:6 }}>이 지역 등록 업체가 아직 없어요</div>
                 <div style={{ fontSize:12, lineHeight:1.6 }}>
                   활동지역을 변경하거나<br />"전체 보기"로 인근 업체를 확인해보세요
@@ -4034,18 +4035,21 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       검색/둘러보기 버튼은 +지역 추가(비편집) 흐름에서만 유지. */}
                   {!editing && (
                     <button onClick={onExploreRegion}
-                      style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, fontSize:14, fontWeight:800, color:C.brand, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
-                      🔎 다른 지역 둘러보기
+                      style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, fontSize:14, fontWeight:800, color:C.brand, cursor:"pointer", textAlign:"left", fontFamily:"inherit",
+                        display:"flex", alignItems:"center", gap:8 }}>
+                      <Icon emoji="🔎" size={14} color={C.brand} /> 다른 지역 둘러보기
                     </button>
                   )}
                   <button onClick={onAddRegionByGps} disabled={gpsLoading}
-                    style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
-                    📍 {gpsLoading ? "현재 위치 확인 중..." : (editing ? "현재 위치로 변경" : "현재 위치로 관심지역 추가")}
+                    style={{ width:"100%", padding:S.xl, marginBottom:S.sm, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit",
+                      display:"flex", alignItems:"center", gap:8 }}>
+                    <Icon emoji="📍" size={14} color={C.text1} /> {gpsLoading ? "현재 위치 확인 중..." : (editing ? "현재 위치로 변경" : "현재 위치로 관심지역 추가")}
                   </button>
                   {!editing && (
                     <button onClick={onAddRegionManual}
-                      style={{ width:"100%", padding:S.xl, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
-                      ⭐ 관심지역으로 저장 (최대 2곳)
+                      style={{ width:"100%", padding:S.xl, background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontSize:14, fontWeight:700, color:C.text1, cursor:"pointer", textAlign:"left", fontFamily:"inherit",
+                        display:"flex", alignItems:"center", gap:8 }}>
+                      <Icon emoji="⭐" size={14} color={C.text1} /> 관심지역으로 저장 (최대 2곳)
                     </button>
                   )}
                 </div>
@@ -4059,7 +4063,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:1001, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
                 <div onClick={e => e.stopPropagation()}
                   style={{ background:C.surface, borderRadius:R.xl, width:"100%", maxWidth:360, padding:"24px 22px" }}>
-                  <div style={{ fontSize:30, textAlign:"center", marginBottom:10 }}>📍</div>
+                  <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}><Icon emoji="📍" size={30} color={C.brand} /></div>
                   <div style={{ fontSize:13, color:C.text3, textAlign:"center", marginBottom:4 }}>현재 위치</div>
                   <div style={{ fontSize:17, fontWeight:800, color:C.text1, textAlign:"center", marginBottom:S.lg }}>
                     {gpsPendingRegion.rawSido} {gpsPendingRegion.sigungu}
