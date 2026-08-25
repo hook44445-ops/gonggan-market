@@ -414,7 +414,7 @@ function ReviewAdminTab({ adminUserId, showToast }) {
         <button onClick={() => setPhotoOnly(v => !v)}
           style={{ padding: "7px 14px", borderRadius: R.full, border: `1.5px solid ${photoOnly ? C.brand : C.bgWarm}`,
             background: photoOnly ? C.brandL : C.surface, color: photoOnly ? C.brand : C.text3,
-            fontWeight: photoOnly ? 800 : 500, fontSize: 12, cursor: "pointer" }}>📷 포토후기</button>
+            fontWeight: photoOnly ? 800 : 500, fontSize: 12, cursor: "pointer" }}><Icon emoji="📷" size={13} color={C.text2} /> 포토후기</button>
         <button onClick={reload} disabled={loading}
           style={{ marginLeft: "auto", padding: "7px 14px", borderRadius: R.full, border: `1px solid ${C.bgWarm}`,
             background: C.surface, color: C.text3, fontSize: 12, cursor: "pointer" }}>
@@ -681,7 +681,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
 
       {loungeErr && (
         <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
-          <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ 라운지 데이터 로드 실패</div>
+          <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}><Icon emoji="⚠️" size={13} color={C.red} /> 라운지 데이터 로드 실패</div>
           <div style={{ fontSize: 11, color: C.red, marginTop: 4, opacity: 0.8 }}>{loungeErr}</div>
         </div>
       )}
@@ -1028,7 +1028,7 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
         <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
           {fetchErr && (
             <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
-              <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ seed_lounge_posts 로드 실패</div>
+              <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}><Icon emoji="⚠️" size={13} color={C.red} /> seed_lounge_posts 로드 실패</div>
               <div style={{ fontSize: 11, color: C.red, marginTop: 4, opacity: 0.8 }}>{fetchErr}</div>
               {import.meta.env.DEV && <div style={{ fontSize: 10, color: C.text4, marginTop: 4 }}>테이블 미생성 시 supabase/migrations/004_seed_lounge_posts.sql 실행 필요</div>}
             </div>
@@ -1325,7 +1325,7 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.md, lineHeight: 1.6 }}>
         Quality≥{config.minEditorialScore} · Confidence≥{config.minConfidence} · 본문 {config.minBodyLength}자+ · {config.seoCheck ? "SEO" : "SEO×"}/중복 {config.dupHours}h/{config.reviewRequired ? "Review필수" : "Review무관"} 를 통과한 콘텐츠만 자동 발행합니다.
         게이트 통과분은 <b>{config.intervalHours}시간 슬롯</b>에 예약되고 기존 예약발행 크론이 발행합니다. 긴급 이슈(Trend {config.emergencyTrendMin}+)는 {config.emergencyInstant ? "즉시 발행" : "예약"}합니다.
-        하루 최대 {config.dailyLimit}개. {config.testMode && <b style={{ color: C.gold }}>🧪 테스트모드(실제 발행 안 함)</b>}
+        하루 최대 {config.dailyLimit}개. {config.testMode && <b style={{ color: C.gold }}><Icon emoji="🧪" size={13} color={C.text2} /> 테스트모드(실제 발행 안 함)</b>}
       </div>
 
       {/* 예산 상태 배너 (Phase 24) */}
@@ -1706,7 +1706,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
         {fusionResult && fusionResult.final?.body && (
           <div style={{ marginTop: S.md, background: C.bg, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 800, color: C.text1 }}>👀 미리보기</span>
+              <span style={{ fontSize: 12.5, fontWeight: 800, color: C.text1 }}><Icon emoji="👀" size={13} color={C.text2} /> 미리보기</span>
               {fusionResult.quality && (
                 <span style={{ padding: "1px 8px", borderRadius: R.full, fontSize: 10, fontWeight: 800, background: fusionResult.quality.pass ? "#05966922" : (C.gold + "22"), color: fusionResult.quality.pass ? "#059669" : C.gold }}>
                   품질검사 {fusionResult.quality.pass ? "통과" : "경고"} · {fusionResult.quality.quality}점
@@ -1853,7 +1853,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
 
       {/* 파이프라인 */}
       <div style={box}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🔄 자동 파이프라인 <span style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>(준비 {pipe.readyCount}/{pipe.total})</span></div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}><Icon emoji="🔄" size={13} color={C.text2} /> 자동 파이프라인 <span style={{ fontSize: 11, color: C.text3, fontWeight: 600 }}>(준비 {pipe.readyCount}/{pipe.total})</span></div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
           {pipe.stages.map((s, i) => (
             <span key={s.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -1864,7 +1864,7 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
             </span>
           ))}
         </div>
-        <div style={{ fontSize: 10, color: C.text3, marginTop: S.sm }}>✋ = 사람 개입(승인) 또는 향후 편입 단계. LLM/자동발행 설정이 켜질수록 자동 단계가 늘어납니다. 관리자는 <b>승인</b>만 하는 구조를 지향합니다.</div>
+        <div style={{ fontSize: 10, color: C.text3, marginTop: S.sm }}><Icon emoji="✋" size={13} color={C.text2} /> = 사람 개입(승인) 또는 향후 편입 단계. LLM/자동발행 설정이 켜질수록 자동 단계가 늘어납니다. 관리자는 <b>승인</b>만 하는 구조를 지향합니다.</div>
       </div>
 
       {/* Fusion 실행 이력 */}
@@ -1941,7 +1941,7 @@ function BlogPublishTab({ published = [], showToast }) {
       </div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.md, lineHeight: 1.6 }}>
         Space Lounge 글을 <b>{BLOG_PROVIDERS[cfg.provider]?.label}</b>용 HTML·SEO·태그·공유메타로 자동 변환하고 Space Lounge 링크를 첨부합니다.
-        {" "}오늘 {usedToday}/{cfg.dailyMax}. {!cfg.endpoint && <b style={{ color: C.gold }}>⚠️ 업로드 endpoint 미설정 — 발행물은 '준비(임시저장)'로 기록됩니다.</b>}
+        {" "}오늘 {usedToday}/{cfg.dailyMax}. {!cfg.endpoint && <b style={{ color: C.gold }}><Icon emoji="⚠️" size={13} color={C.red} /> 업로드 endpoint 미설정 — 발행물은 '준비(임시저장)'로 기록됩니다.</b>}
       </div>
 
       {/* Usage */}
@@ -3429,7 +3429,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         </div>
 
         {/* 6. Space Coverage — Space is Everything 커버리지(추천만) */}
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}>🌌 Space Coverage <span style={{ color: "#8f76a8", fontWeight: 600 }}>(커버 {osCoverage.covered}/{osCoverage.total})</span></div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#fff", marginBottom: S.sm }}><Icon emoji="🌌" size={13} color={C.text2} /> Space Coverage <span style={{ color: "#8f76a8", fontWeight: 600 }}>(커버 {osCoverage.covered}/{osCoverage.total})</span></div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: S.sm }}>
           {osCoverage.areas.map(a => {
             const tone = a.status === "empty" ? "#553939" : a.status === "thin" ? "#554a39" : "#2a4a3a";
@@ -3513,7 +3513,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
               <span style={{ padding: "2px 9px", borderRadius: R.full, fontWeight: 800, background: edResult.passed ? "#2E5F4B" : "#7a4a1a", color: "#fff" }}>종합 {edResult.finalScore}점</span>
               <span style={{ color: "#B5D4C5" }}>카테고리 {edResult.category}</span>
               <span style={{ color: "#B5D4C5" }}>· 시도 {edResult.attempts.length}회</span>
-              {edResult.human?.ai?.isStrong && <span style={{ color: "#F6A6A6", fontWeight: 700 }}>⚠️ AI 티 강함</span>}
+              {edResult.human?.ai?.isStrong && <span style={{ color: "#F6A6A6", fontWeight: 700 }}><Icon emoji="⚠️" size={13} color={C.red} /> AI 티 강함</span>}
             </div>
             <div style={{ color: "#9fb6ab", marginTop: 6, fontSize: 10.5 }}>
               휴먼톤 {edResult.editorial.axes.humanTone} · 카테고리적합 {edResult.editorial.axes.categoryMatch} · 훅 {edResult.editorial.axes.hookQuality}({edResult.human.hook.type}) · 마무리 {edResult.editorial.axes.endingQuality}({edResult.human.ending.type}) · 반복내성 {edResult.editorial.axes.repetitionRisk} · 편집가치 {edResult.editorial.axes.editorialValue} · 저장가치 {edResult.editorial.axes.saveWorthiness}
@@ -3643,7 +3643,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
               {st.todayCount > 0 ? ` · 오늘 ${st.todayCount}회 · ₩${st.todayCostKRW}` : ""}
             </span>
           ) : (
-            <span style={{ marginLeft: 10, fontSize: 11, color: C.gold }}>⚪ LLM 미설정 (VITE_LLM_API_KEY 필요)</span>
+            <span style={{ marginLeft: 10, fontSize: 11, color: C.gold }}><Icon emoji="⚪" size={13} color={C.text2} /> LLM 미설정 (VITE_LLM_API_KEY 필요)</span>
           );
         })()}
 
@@ -3780,7 +3780,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                       <span style={{ fontSize: 10, color: "#9ca3af" }}>system + user prompt</span>
                       <button onClick={() => { try { navigator.clipboard.writeText(`${workbench.meta.prompt.system}\n\n---\n\n${workbench.meta.prompt.user}`); showToast?.("프롬프트 복사됨"); } catch {} }}
-                        style={{ padding: "2px 8px", background: "#1f2937", color: "#e5e7eb", border: "none", borderRadius: R.sm, fontSize: 10, cursor: "pointer" }}>📋 복사</button>
+                        style={{ padding: "2px 8px", background: "#1f2937", color: "#e5e7eb", border: "none", borderRadius: R.sm, fontSize: 10, cursor: "pointer" }}><Icon emoji="📋" size={13} color={C.text2} /> 복사</button>
                     </div>
                     <pre style={{ margin: 0, fontSize: 10.5, color: "#cbd5e1", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 220, overflow: "auto" }}>{workbench.meta.prompt.system}{"\n\n"}{workbench.meta.prompt.user}</pre>
                   </div>
@@ -3790,7 +3790,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                       <span style={{ fontSize: 10, color: "#9ca3af" }}>LLM raw response · {workbench.meta.llmModel}</span>
                       <button onClick={() => { try { navigator.clipboard.writeText(workbench.meta.rawResponse ?? ""); showToast?.("Raw 복사됨"); } catch {} }}
-                        style={{ padding: "2px 8px", background: "#1f2937", color: "#e5e7eb", border: "none", borderRadius: R.sm, fontSize: 10, cursor: "pointer" }}>📋 복사</button>
+                        style={{ padding: "2px 8px", background: "#1f2937", color: "#e5e7eb", border: "none", borderRadius: R.sm, fontSize: 10, cursor: "pointer" }}><Icon emoji="📋" size={13} color={C.text2} /> 복사</button>
                     </div>
                     <pre style={{ margin: 0, fontSize: 10.5, color: "#cbd5e1", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 220, overflow: "auto" }}>{workbench.meta.rawResponse ?? "(Mock 폴백 — LLM 응답 없음)"}</pre>
                   </div>
@@ -4160,7 +4160,7 @@ function SeedPostsManagerTab({ posts = [], loading = false, fetchErr = null, adm
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: S.lg }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>🌱 라운지 운영글 관리 <span style={{ color: C.brand, fontSize: 14 }}>{posts.length}</span></div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}><Icon emoji="🌱" size={13} color={C.text2} /> 라운지 운영글 관리 <span style={{ color: C.brand, fontSize: 14 }}>{posts.length}</span></div>
         <button onClick={() => onReload?.()}
           style={{ padding: "8px 14px", background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
           새로고침
@@ -4172,7 +4172,7 @@ function SeedPostsManagerTab({ posts = [], loading = false, fetchErr = null, adm
 
       {fetchErr && (
         <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
-          <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ 운영글 목록 로드 실패</div>
+          <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}><Icon emoji="⚠️" size={13} color={C.red} /> 운영글 목록 로드 실패</div>
           <div style={{ fontSize: 11, color: C.red, marginTop: 4, opacity: 0.85, wordBreak: "break-all" }}>{fetchErr}</div>
           <div style={{ fontSize: 10, color: C.text4, marginTop: 4 }}>
             /api/admin/seed-posts (service role) 연동 또는 SUPABASE_SERVICE_ROLE_KEY 설정을 확인하세요.
@@ -4365,13 +4365,17 @@ function SeedReviewTab() {
 
   return (
     <div>
-      {toast && (
-        <div style={{ position: "fixed", top: 70, left: "50%", transform: "translateX(-50%)",
-          background: toast.ok ? C.brand : "#c0392b", color: "#fff",
-          borderRadius: R.xl, padding: "10px 20px", fontSize: 13, fontWeight: 700, zIndex: 9999 }}>
-          {toast.msg}
-        </div>
-      )}
+      {toast && (() => {
+        const { emoji, rest } = splitLeadingEmoji(toast.msg);
+        return (
+          <div style={{ position: "fixed", top: 70, left: "50%", transform: "translateX(-50%)",
+            background: toast.ok ? C.brand : "#c0392b", color: "#fff",
+            borderRadius: R.xl, padding: "10px 20px", fontSize: 13, fontWeight: 700, zIndex: 9999,
+            display: "flex", alignItems: "center", gap: 6 }}>
+            {emoji && <Icon emoji={emoji} size={13} color="#fff" />}{rest}
+          </div>
+        );
+      })()}
 
       <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>포토후기 시딩</div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg }}>
@@ -4402,7 +4406,7 @@ function SeedReviewTab() {
       <div style={{ background: "#1a2e1a", color: "#ffdd88", borderRadius: R.md,
         padding: "10px 14px", fontSize: 10, fontFamily: "monospace", marginBottom: S.lg,
         lineHeight: 1.7, border: "1px solid #c07000" }}>
-        <span style={{ color: "#ff6644", fontWeight: 700 }}>⚠️ 이미지 업로드 실패 시 — Storage INSERT policy SQL:</span><br/>
+        <span style={{ color: "#ff6644", fontWeight: 700 }}><Icon emoji="⚠️" size={13} color={C.red} /> 이미지 업로드 실패 시 — Storage INSERT policy SQL:</span><br/>
         DROP POLICY IF EXISTS "seed-review-images 1l8aott_0" ON storage.objects;<br/>
         <br/>
         CREATE POLICY "seed_review_images_insert_public"<br/>
@@ -6249,7 +6253,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       <div style={{ display: "flex", gap: S.sm, alignItems: "center" }}>
                         {!allOk && (
                           <span style={{ fontSize: 11, color: C.red, background: "#FFF0F0",
-                            borderRadius: R.sm, padding: "2px 6px", fontWeight: 700 }}>⚠ 서류 미완</span>
+                            borderRadius: R.sm, padding: "2px 6px", fontWeight: 700 }}><Icon emoji="⚠" size={13} color={C.red} /> 서류 미완</span>
                         )}
                         <span style={{ fontSize: 11, color: C.text4 }}>제출 {company.submittedAt}</span>
                         <span style={{ marginLeft: "auto", fontSize: 11, color: C.brand, fontWeight: 700 }}>상세 보기 →</span>
@@ -6455,7 +6459,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                               <div>주문번호: <b style={{ fontSize: 11 }}>{l.order_id || "—"}</b></div>
                               {l.deposit_confirmed_at && <div>입금확인: <b>{new Date(l.deposit_confirmed_at).toLocaleDateString("ko-KR")}</b></div>}
                               {l.approved_at && <div>승인일: <b>{new Date(l.approved_at).toLocaleDateString("ko-KR")}</b></div>}
-                              {l.company_id && <div style={{ gridColumn: "1 / -1", color: C.green }}>✅ 업체 활성화됨</div>}
+                              {l.company_id && <div style={{ gridColumn: "1 / -1", color: C.green }}><Icon emoji="✅" size={13} color={C.green} /> 업체 활성화됨</div>}
                             </div>
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
                               <button disabled={l.onboarding_status !== "PENDING_DEPOSIT"}
@@ -7646,7 +7650,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     실발송 검증은 env 설정 후 별도 진행 → 여기선 큐 등록/생성 확인까지만. dispatch/enqueue 구조 무변경. */}
                 {(user?.role === "admin" || import.meta.env.DEV) && (
                   <div style={{ background: C.surface, border: `1px dashed ${C.brandM}`, borderRadius: R.lg, padding: S.lg, marginBottom: S.md }}>
-                    <div style={{ fontSize: 12, color: C.text3, marginBottom: 8, fontWeight: 700 }}>🧪 푸시 검증용 (관리자 전용)</div>
+                    <div style={{ fontSize: 12, color: C.text3, marginBottom: 8, fontWeight: 700 }}><Icon emoji="🧪" size={13} color={C.text2} /> 푸시 검증용 (관리자 전용)</div>
                     <button
                       onClick={async () => {
                         if (!user?.id) return;
@@ -7699,7 +7703,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
                 {companies.filter(c => c.status === "pending").length > 0 && (
                   <div style={{ marginTop: S.xl }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text2, marginBottom: S.md }}>📋 최근 심사 대기</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text2, marginBottom: S.md }}><Icon emoji="📋" size={13} color={C.text2} /> 최근 심사 대기</div>
                     {companies.filter(c => c.status === "pending").map(c => (
                       <div key={c.id}
                         onClick={() => { setMainTab("companies"); openDetail(c); }}
@@ -8277,14 +8281,18 @@ export default function AdminScreen({ onBack, onHome, user }) {
       )}
 
       {/* Toast */}
-      {toast && (
-        <div style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
-          background: toast.ok ? "#1C3A28" : C.red, color: "#fff",
-          borderRadius: R.full, padding: "10px 20px", fontSize: 13, fontWeight: 700,
-          zIndex: 999, boxShadow: "0 4px 20px rgba(0,0,0,0.25)", whiteSpace: "nowrap" }}>
-          {toast.ok ? "✓" : "✗"} {toast.msg}
-        </div>
-      )}
+      {toast && (() => {
+        const { emoji, rest } = splitLeadingEmoji(toast.msg);
+        return (
+          <div style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
+            background: toast.ok ? "#1C3A28" : C.red, color: "#fff",
+            borderRadius: R.full, padding: "10px 20px", fontSize: 13, fontWeight: 700,
+            zIndex: 999, boxShadow: "0 4px 20px rgba(0,0,0,0.25)", whiteSpace: "nowrap",
+            display: "flex", alignItems: "center", gap: 6 }}>
+            {emoji ? <Icon emoji={emoji} size={13} color="#fff" /> : (toast.ok ? "✓" : "✗")} {rest}
+          </div>
+        );
+      })()}
     </div>
   );
 }
