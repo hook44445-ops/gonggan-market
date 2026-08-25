@@ -4864,7 +4864,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 {activeRole === "consumer" && customerTrust?.score != null && (
                   <div style={{ background:C.brandL, borderRadius:R.lg, padding:`${S.sm}px ${S.lg}px`, marginBottom:S.lg,
                     display:"flex", alignItems:"center", justifyContent:"center", gap:8, border:`1px solid ${C.brandM}` }}>
-                    <span style={{ fontSize:13, fontWeight:700, color:C.brand }}>🤝 신뢰도 지수</span>
+                    <Icon emoji="🤝" size={13} color={C.brand} /><span style={{ fontSize:13, fontWeight:700, color:C.brand }}>신뢰도 지수</span>
                     <span style={{ fontSize:15, fontWeight:900, color:C.brand }}>{customerTrust.score.toFixed(1)}</span>
                     <span style={{ fontSize:11, color:C.text3 }}>업체 평가 {customerTrust.count}건</span>
                   </div>
@@ -4913,7 +4913,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {/* 공간뱃지 예치보증 — 내 업체 리포트 바로 아래(업체 핵심 신뢰 정보는 상단에서 확인) */}
             {activeRole === "company" && (
               <div style={{ marginBottom: S.lg }}>
-                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md }}>🛡️ 공간뱃지예치보증금 현황</div>
+                <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="🛡️" size={16} color={C.text1} /> 공간뱃지예치보증금 현황</div>
                 <CompanyDepositCard
                   badge={currentUser?.badge ?? user.badge ?? "standard"}
                   hasInsurance={currentUser?.hasInsurance ?? user.insurance ?? false}
@@ -4925,12 +4925,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {!UX_BETA && activeRole === "consumer" && (
               <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.lg, border:`1px solid ${C.bgWarm}` }}>
                 <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}>
-                  ♥ 저장한 업체
+                  <Icon emoji="♥" size={15} color={C.text1} /> 저장한 업체
                   <span style={{ fontSize:13, fontWeight:600, color:C.brand }}>{savedCompanies.length}</span>
                 </div>
                 {savedCompanies.length === 0 ? (
-                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.6, textAlign:"center", padding:"16px 0" }}>
-                    관심 있는 업체를 ♥ 로 저장해보세요
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.6, textAlign:"center", padding:"16px 0", display:"flex", alignItems:"center", justifyContent:"center", gap:4 }}>
+                    관심 있는 업체를 <Icon emoji="♥" size={12} color={C.text3} /> 로 저장해보세요
                   </div>
                 ) : (
                   savedCompanies.map(c => (
@@ -4945,7 +4945,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
             {activeRole === "company" && user.isEarlyPartner && user.earlyPartnerBenefitUntil && (
               <div style={{ background: C.brandL, borderRadius: R.xl, padding: S.xl, marginTop: S.lg, border: `1px solid ${C.brandM}` }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.brand, marginBottom: 4 }}>🏆 초기 파트너 혜택 중</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.brand, marginBottom: 4, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="🏆" size={14} color={C.brand} /> 초기 파트너 혜택 중</div>
                 <div style={{ fontSize: 12, color: C.text3 }}>
                   혜택 만료일: {new Date(user.earlyPartnerBenefitUntil).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
                 </div>
@@ -4956,7 +4956,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {isModerator && (
               <button onClick={() => setScreen("operator-board")}
                 style={{ width: "100%", background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.brandM}`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: S.md, fontFamily: "inherit" }}>
-                <span style={{ fontSize: 20 }}>🛡️</span>
+                <Icon emoji="🛡️" size={20} color={C.brand} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>운영자 게시판 관리</div>
                   <div style={{ fontSize: 12, color: C.text3 }}>추천글 등록 · 글/댓글 숨김</div>
@@ -4971,7 +4971,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, border:`1px solid ${C.bgWarm}` }}>
                   <div onClick={() => setScreen("document-center")}
                     style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer" }}>
-                    <span style={{ fontSize:14, color:C.text1, fontWeight:600 }}>📁 서류 관리</span>
+                    <span style={{ fontSize:14, color:C.text1, fontWeight:600, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="📁" size={14} color={C.text1} /> 서류 관리</span>
                     <span style={{ fontSize:16, color:C.text3 }}>›</span>
                   </div>
                 </div>
@@ -4989,7 +4989,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 {/* Phase C: 영업지역 관리 (최대 2곳) */}
                 <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginTop:S.md, border:`1px solid ${C.bgWarm}` }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
-                    <span style={{ fontSize:14, color:C.text1, fontWeight:800 }}>📍 영업지역</span>
+                    <span style={{ fontSize:14, color:C.text1, fontWeight:800, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="📍" size={14} color={C.text1} /> 영업지역</span>
                     <span style={{ fontSize:11, color:C.text3 }}>최대 2곳</span>
                   </div>
                   {companyServiceRegions.length > 0 ? (
@@ -4998,7 +4998,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         <span key={regionKey(r.city, r.district) || i}
                           style={{ display:"inline-flex", alignItems:"center", gap:4, background:C.brandL, color:C.brand,
                             borderRadius:R.full, padding:"5px 12px", fontSize:12, fontWeight:800, border:`1px solid ${C.brandM}` }}>
-                          📍 {regionKey(r.city, r.district)}{r.is_primary ? " · 기본" : ""}
+                          <Icon emoji="📍" size={11} color={C.brand} /> {regionKey(r.city, r.district)}{r.is_primary ? " · 기본" : ""}
                         </span>
                       ))}
                     </div>
@@ -5009,8 +5009,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   )}
                   <button onClick={() => setCompanyRegionSheetOpen(true)}
                     style={{ width:"100%", padding:"11px 0", borderRadius:R.lg, cursor:"pointer",
-                      border:`1.5px dashed ${C.brandM}`, background:C.brandL, color:C.brand, fontSize:13, fontWeight:800 }}>
-                    {companyServiceRegions.length ? "✏️ 영업지역 수정" : "+ 영업지역 설정"}
+                      border:`1.5px dashed ${C.brandM}`, background:C.brandL, color:C.brand, fontSize:13, fontWeight:800,
+                      display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+                    {companyServiceRegions.length ? <><Icon emoji="✏️" size={13} color={C.brand} /> 영업지역 수정</> : "+ 영업지역 설정"}
                   </button>
                   {/* DEV 전용 — 테스트 업체 영업지역 즉시 주입(강서구·영등포구) → RegionRefetch + region_debug 재검증용 */}
                   {SHOW_DEBUG_UI && currentUser?.id && (
@@ -5069,15 +5070,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {activeRole === "consumer" && (() => {
               const statusColor = idVerified ? C.green : idStatus === "required" ? C.gold : C.text4;
               const statusLabel = idVerified ? "인증 완료" : idStatus === "required" ? "인증 필요" : "미인증";
-              const statusIcon  = idVerified ? "✓" : idStatus === "required" ? "⚠️" : "—";
+              const statusIcon  = idVerified ? "✓" : idStatus === "required" ? "⚠️" : null;
               return (
                 <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
                   marginBottom: S.lg, border: `1px solid ${idStatus === "required" ? C.gold + "66" : C.bgWarm}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>🔐 본인인증</div>
-                      <div style={{ fontSize: 11, color: statusColor, fontWeight: 700, marginTop: 3 }}>
-                        {statusIcon} {statusLabel}
+                      <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="🔐" size={14} color={C.text1} /> 본인인증</div>
+                      <div style={{ fontSize: 11, color: statusColor, fontWeight: 700, marginTop: 3, display:"flex", alignItems:"center", gap:4 }}>
+                        {statusIcon ? <Icon emoji={statusIcon} size={11} color={statusColor} /> : "—"} {statusLabel}
                         {idVerified && idVerifiedAt && (
                           <span style={{ fontWeight: 400, color: C.text4, marginLeft: 6 }}>
                             {new Date(idVerifiedAt).toLocaleDateString("ko-KR")}
@@ -5124,7 +5125,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   background:C.surface, borderRadius:R.xl, padding:"16px 18px", marginBottom:S.lg,
                   border:`1px solid ${C.bgWarm}`, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
                 <span>
-                  <span style={{ display:"block", fontSize:15, fontWeight:800, color:C.text1 }}>🗂️ 공간 이력</span>
+                  <span style={{ display:"flex", alignItems:"center", gap:6, fontSize:15, fontWeight:800, color:C.text1 }}><Icon emoji="🗂️" size={15} color={C.text1} /> 공간 이력</span>
                   <span style={{ display:"block", fontSize:12, color:C.text3, marginTop:2 }}>완료된 공사가 공간의 기억으로 쌓입니다</span>
                 </span>
                 <span style={{ fontSize:18, color:C.text3, flexShrink:0 }}>→</span>
@@ -5140,7 +5141,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     <div style={{ width:56, height:56, borderRadius:R.full,
                       background:`linear-gradient(135deg,${C.brandL},${C.bgWarm})`,
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      margin:"0 auto 14px", fontSize:22, border:`1px solid ${C.brandM}` }}>🏠</div>
+                      margin:"0 auto 14px", border:`1px solid ${C.brandM}` }}><Icon emoji="🏠" size={22} color={C.brand} /></div>
                     <div style={{ fontSize:14, fontWeight:700, color:C.text1, marginBottom:6 }}>아직 견적 요청이 없어요</div>
                     <div style={{ fontSize:12, color:C.text3, marginBottom:S.xl, lineHeight:1.7 }}>공간사이에서 첫 공간 여정을 시작해보세요</div>
                     <button onClick={() => { setScreen("home"); handleOpenNewReq(); }}
@@ -5175,7 +5176,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               {(faqExpanded ? FAQ_ITEMS : FAQ_ITEMS.slice(0, 5)).map(({ q, a, extra }) => (
                 <details key={q} style={{ borderBottom: `1px solid ${C.bg}`, padding: `${S.sm}px 0` }}>
                   <summary style={{ fontSize: 14, color: C.text2, cursor: "pointer", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>❔ {q}</span><span style={{ fontSize: 16, color: C.text3 }}>›</span>
+                    <span style={{ display:"flex", alignItems:"center", gap:6 }}><Icon emoji="❔" size={13} color={C.text3} /> {q}</span><span style={{ fontSize: 16, color: C.text3 }}>›</span>
                   </summary>
                   <div style={{ fontSize: 14, color: C.text3, lineHeight: 1.7, marginTop: S.sm, paddingLeft: 2 }}>{a}</div>
                   {extra && <div style={{ marginTop: S.sm }}>{extra}</div>}
