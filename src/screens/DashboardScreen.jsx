@@ -9,6 +9,7 @@ import SpaceActivityRecord from "../components/SpaceActivityRecord"; // v5.4.0: 
 import PortfolioManagePanel from "../components/PortfolioManagePanel"; // 시공사례 등록·관리(Add Only)
 import GrowthCard from "../components/growth/GrowthCard";   // 업체 성장(Level+XP) — 표시 전용(Add Only)
 import PartnerTodoSummary from "../components/partner/PartnerTodoSummary"; // 파트너센터 '오늘 할 일' 요약(표시 전용·Add Only)
+import PartnerActivityFeed from "../components/partner/PartnerActivityFeed"; // 운영홈 '최근 활동'(기존 알림 재사용·표시 전용·Add Only)
 import GrowthModal from "../components/growth/GrowthModal";
 import StreakCard from "../components/growth/StreakCard";          // Phase 10 — 연속 활동(Add Only)
 import LevelUpOverlay from "../components/growth/LevelUpOverlay";  // Phase 11 — 레벨업 연출(Add Only)
@@ -19,7 +20,7 @@ import { computeCompanyXp, levelInfo } from "../constants/growth";
 import { earnedAchievements, ACHIEVEMENTS } from "../constants/growthPlus";
 import { getStreak, getSeenAchievements, markAchievementsSeen, getLastSeenLevel, setLastSeenLevel } from "../utils/growthStore";
 import { getMembershipRateByCreatedAt } from "../utils/calculations";
-import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews } from "../lib/supabase";
+import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews, getNotifications } from "../lib/supabase";
 
 const PAID_BY_STEP = { 1: 10, 2: 10, 3: 30, 4: 70, 5: 100 };
 
@@ -168,6 +169,7 @@ export default function DashboardScreen({
   const [escrowJobs, setEscrowJobs]       = useState([]);
   const [completedEscrow, setCompletedEscrow] = useState([]);
   const [statsData, setStatsData]         = useState(null);
+  const [notifs, setNotifs]               = useState([]); // 운영홈 '최근 활동' — 기존 알림 재사용(표시 전용)
   const [jobsLoading, setJobsLoading]     = useState(false);
   // Phase 10~12 — 연속 활동 / 레벨업 연출 / 업적 토스트 (클라이언트 표시 전용)
   const [streak, setStreak]               = useState({ current: 0, longest: 0 });
@@ -181,6 +183,17 @@ export default function DashboardScreen({
       .then(({ data }) => { if (data) setEscrowJobs(data.map(normalizeEscrowRow)); })
       .finally(() => setJobsLoading(false));
   }, [currentUser?.id]);
+
+  // 운영홈 '최근 활동' — 기존 알림(notifications) 재사용. 신규 DB/API 없음(기존 getNotifications).
+  useEffect(() => {
+    const uid = userId ?? currentUser?.id ?? null;
+    if (!uid) return;
+    let alive = true;
+    getNotifications(uid)
+      .then(({ data }) => { if (alive && Array.isArray(data)) setNotifs(data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [userId, currentUser?.id]);
 
   useEffect(() => {
     const ownerId = userId ?? currentUser?.ownerId ?? null;
@@ -238,6 +251,10 @@ export default function DashboardScreen({
   const biddableCount = allRequests.filter(r =>
     r.status === "open" && r.isActive !== false && r.isClosed !== true
     && !r.selectedBidId && !r.selectedCompanyId && !submittedReqSet.has(r.id)
+  ).length;
+  //   계약 대기 = activeJobs 중 결제 대기(escrow_pending) — 최종견적 후 의뢰인 결제 전. 파생만.
+  const pendingContractCount = activeJobs.filter(
+    j => String(j.txStatus).toUpperCase() === "ESCROW_PENDING"
   ).length;
 
   const temp            = currentUser?.temp ?? 36.5;
@@ -351,13 +368,18 @@ export default function DashboardScreen({
           onClick={() => setShowGrowth(true)}
         />
 
-        {/* ── 오늘 할 일 요약 — 운영툴 허브(표시 전용, 기존 집계 재사용) ───── */}
+        {/* ── 오늘의 운영 현황 — 운영툴 요약(표시 전용, 기존 집계 재사용) ───── */}
+        {/* count: 정렬·처리필요 배지 판정용 / value: 표시값 / actionable: 처리 필요 대상 */}
         <PartnerTodoSummary items={[
-          { key: "new-bids", icon: "🧾", label: "오늘 신규 견적", value: biddableCount, unit: "건", accent: C.brand, onClick: () => setTab("bids") },
-          { key: "active",   icon: "🏗️", label: "진행중 프로젝트", value: activeJobs.length, unit: "건", onClick: () => setTab("active") },
-          { key: "settle",   icon: "💰", label: "정산 예정",      value: pendingAmount.toLocaleString(), unit: "만원", onClick: () => setTab("active") },
-          { key: "reviews",  icon: "⭐", label: "새 리뷰",        value: reviewCount, unit: "개", onClick: () => setTab("stats") },
+          { key: "new-bids",         icon: "🧾", label: "오늘 신규 견적", count: biddableCount,        value: biddableCount,                 unit: "건",   accent: C.brand, actionable: true, onClick: () => setTab("bids") },
+          { key: "pending-contract", icon: "📝", label: "계약 대기",     count: pendingContractCount, value: pendingContractCount,          unit: "건",   accent: C.brand, actionable: true, onClick: () => setTab("active") },
+          { key: "active",           icon: "🏗️", label: "진행중 프로젝트", count: activeJobs.length,    value: activeJobs.length,             unit: "건",   onClick: () => setTab("active") },
+          { key: "settle",           icon: "💰", label: "정산 예정",     count: pendingAmount,        value: pendingAmount.toLocaleString(), unit: "만원", onClick: () => setTab("active") },
+          { key: "reviews",          icon: "⭐", label: "새 리뷰",       count: reviewCount,          value: reviewCount,                   unit: "개",   actionable: true, onClick: () => setTab("stats") },
         ]} />
+
+        {/* ── 최근 활동 — 기존 알림 시간순(운영홈 · 표시 전용) ───── */}
+        <PartnerActivityFeed items={notifs} max={5} />
 
         {/* ── 연속 활동(Streak) — 꾸준한 성장 장려 · 표시 전용 ───── */}
         <StreakCard streak={streak.current} longest={streak.longest} />
