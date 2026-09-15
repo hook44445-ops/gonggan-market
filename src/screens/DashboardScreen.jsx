@@ -20,6 +20,8 @@ import { earnedAchievements, ACHIEVEMENTS } from "../constants/growthPlus";
 import { getStreak, getSeenAchievements, markAchievementsSeen, getLastSeenLevel, setLastSeenLevel } from "../utils/growthStore";
 import { getMembershipRateByCreatedAt } from "../utils/calculations";
 import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews } from "../lib/supabase";
+import PartnerHeaderV3 from "../components/v3/PartnerHeaderV3";
+import { useUiVersion } from "../hooks/useUiVersion";
 
 const PAID_BY_STEP = { 1: 10, 2: 10, 3: 30, 4: 70, 5: 100 };
 
@@ -164,6 +166,7 @@ export default function DashboardScreen({
   const allRequests  = allRequestsProp ?? [];
   const jobsFromHome = companyJobs ?? [];
   const [tab, setTab]                     = useState("active");
+  const [uiVersion] = useUiVersion();   // v3: 상단 3개 카드를 하나로 압축
   const [showGrowth, setShowGrowth]       = useState(false);
   const [escrowJobs, setEscrowJobs]       = useState([]);
   const [completedEscrow, setCompletedEscrow] = useState([]);
@@ -341,6 +344,25 @@ export default function DashboardScreen({
 
       <div style={{ padding:`${S.lg}px ${S.xl}px 40px` }}>
 
+        {/* ── 상단 요약 — v3: 성장/할일/연속활동을 한 카드로 압축, v2: 기존 3카드 ── */}
+        {uiVersion === "v3" ? (
+          <PartnerHeaderV3
+            level={growth.level}
+            totalXp={growth.totalXp}
+            xpToNext={growth.xpToNext}
+            isMax={growth.isMax}
+            streak={streak.current}
+            temp={currentUser?.temp ?? 36.5}
+            onGrowth={() => setShowGrowth(true)}
+            todos={[
+          { key: "new-bids", icon: "🧾", label: "신규 견적",   value: biddableCount,                 unit: "건",   accent: C.brand, onClick: () => setTab("bids") },
+          { key: "active",   icon: "🏗️", label: "진행중",      value: activeJobs.length,             unit: "건",   onClick: () => setTab("active") },
+          { key: "settle",   icon: "💰", label: "정산 예정",   value: pendingAmount.toLocaleString(), unit: "만원", onClick: () => setTab("active") },
+          { key: "reviews",  icon: "⭐", label: "새 리뷰",     value: reviewCount,                   unit: "개",   onClick: () => setTab("stats") },
+        ]}
+          />
+        ) : (
+          <>
         {/* ── 업체 성장(Level+XP) — 대시보드 상단 · 표시 전용 ───── */}
         <GrowthCard
           level={growth.level}
@@ -361,6 +383,8 @@ export default function DashboardScreen({
 
         {/* ── 연속 활동(Streak) — 꾸준한 성장 장려 · 표시 전용 ───── */}
         <StreakCard streak={streak.current} longest={streak.longest} />
+          </>
+        )}
 
         {/* ── 진행중 ──────────────────────────────────────────── */}
         {tab === "active" && (
