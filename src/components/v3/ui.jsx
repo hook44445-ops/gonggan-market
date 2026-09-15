@@ -14,7 +14,7 @@ import Icon from "../common/Icon";
 export function Page({ children, pad = true }) {
   return (
     <div style={{ minHeight: "100vh", background: C.bg, paddingBottom: 96 }}>
-      <div style={{ padding: pad ? `0 ${S.xl}px` : 0, display: "flex", flexDirection: "column", gap: S.xl }}>
+      <div style={{ padding: pad ? `0 ${S.xl}px` : 0, display: "flex", flexDirection: "column", gap: 24 }}>
         {children}
       </div>
     </div>
@@ -27,7 +27,7 @@ export function Section({ title, action, onAction, children, tight = false }) {
     <section style={{ display: "flex", flexDirection: "column", gap: tight ? S.sm : S.md }}>
       {(title || action) && (
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: `0 ${S.xs}px` }}>
-          {title && <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: C.text1, letterSpacing: "-0.2px" }}>{title}</h2>}
+          {title && <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: C.text1, letterSpacing: "-0.35px" }}>{title}</h2>}
           {action && (
             <button onClick={onAction} style={{ background: "none", border: "none", padding: 0, fontSize: 12.5,
               fontWeight: 700, color: C.text3, cursor: "pointer" }}>
@@ -133,14 +133,15 @@ export function Hero({ eyebrow, title, sub, chips = [], actions = [] }) {
       <div aria-hidden style={{ position: "absolute", right: -60, top: -70, width: 190, height: 190,
         borderRadius: "50%", background: "rgba(255,255,255,0.08)", pointerEvents: "none" }} />
       {eyebrow && <div style={{ fontSize: 11.5, opacity: 0.75, marginBottom: 6, letterSpacing: "0.2px" }}>{eyebrow}</div>}
-      <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.4px", lineHeight: 1.3 }}>{title}</div>
-      {sub && <div style={{ fontSize: 13, opacity: 0.8, marginTop: 6, lineHeight: 1.6 }}>{sub}</div>}
+      <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: "-0.6px", lineHeight: 1.32 }}>{title}</div>
+      {sub && <div style={{ fontSize: 12.5, opacity: 0.78, marginTop: 7, lineHeight: 1.62, letterSpacing: "-0.1px" }}>{sub}</div>}
 
       {chips.length > 0 && (
-        <div style={{ display: "flex", gap: S.sm, marginTop: S.lg, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6, marginTop: S.lg, flexWrap: "wrap" }}>
           {chips.map((c, i) => (
-            <span key={i} style={{ background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.22)",
-              borderRadius: R.full, padding: "6px 12px", fontSize: 12, fontWeight: 700 }}>{c}</span>
+            <span key={i} style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: R.full, padding: "5px 10px", fontSize: 11, fontWeight: 700,
+              whiteSpace: "nowrap", letterSpacing: "-0.1px" }}>{c}</span>
           ))}
         </div>
       )}

@@ -10,6 +10,7 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { NOTIF_META } from "../utils/notify";
+import Icon from "./common/Icon";
 import {
   getUserNotifications,
   markNotificationRead,
@@ -84,7 +85,9 @@ export default function NotificationInbox({ user, onRead, onNavigate }) {
       {/* 헤더 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.md }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>🔔 알림함</span>
+          {/* 헤더/빈 상태/항목 아이콘 모두 라인 아이콘으로 통일 — 상단 종과 톤을 맞춘다. */}
+          <Icon emoji="🔔" size={16} color={C.text1} />
+          <span style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>알림함</span>
           {unread > 0 && (
             <span style={{ background: C.brand, color: "#fff", borderRadius: R.full, padding: "2px 9px", fontSize: 11, fontWeight: 800 }}>
               {unread}
@@ -104,7 +107,7 @@ export default function NotificationInbox({ user, onRead, onNavigate }) {
         <div style={{ textAlign: "center", padding: "28px 0", fontSize: 13, color: C.text3 }}>불러오는 중…</div>
       ) : items.length === 0 ? (
         <div style={{ textAlign: "center", padding: "28px 0" }}>
-          <div style={{ fontSize: 30, marginBottom: 8 }}>🔔</div>
+          <div style={{ marginBottom: 8, lineHeight: 0 }}><Icon emoji="🔔" size={26} color={C.text4} /></div>
           <div style={{ fontSize: 13, color: C.text3 }}>오늘도 좋은 하루가 되길 바랍니다.</div>
         </div>
       ) : (
@@ -124,7 +127,7 @@ export default function NotificationInbox({ user, onRead, onNavigate }) {
                   <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
                     background: n.is_read ? C.bg : C.surface,
                     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
-                    {icon}
+                    <Icon emoji={icon} size={14} color={n.is_read ? C.text3 : C.brand} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>

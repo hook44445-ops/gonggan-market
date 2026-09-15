@@ -14,6 +14,7 @@ import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
 import LoungePostCard from '../components/lounge/LoungePostCard';
 import { Spinner } from '../components/v3/ui';
+import Icon from '../components/common/Icon';
 
 // ── 알림 유틸 ──────────────────────────────────────────
 const NOTIF_META = {
@@ -167,7 +168,10 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings, onNavigate }) {
         <div style={{ padding: '16px 20px 12px', borderBottom: `1px solid ${C.bgWarm}` }}>
           <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: '0 auto 16px' }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>🔔 알림</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 17, fontWeight: 800, color: C.text1 }}>
+              {/* 알림 패널도 라인 아이콘으로 통일 — 상단 종과 톤을 맞춘다. */}
+              <Icon emoji="🔔" size={18} color={C.text1} />알림
+            </div>
             <button onClick={onGoSettings} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text4, fontWeight: 700, padding: 0 }}>
               알림 설정 (준비중)
             </button>
@@ -182,7 +186,7 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings, onNavigate }) {
             </div>
           ) : notifs.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🔔</div>
+              <div style={{ marginBottom: 12, lineHeight: 0 }}><Icon emoji="🔔" size={34} color={C.text4} /></div>
               <div style={{ fontSize: 14, fontWeight: 700, color: C.text2, marginBottom: 6 }}>새 알림이 없습니다</div>
               <div style={{ fontSize: 12, color: C.text4, lineHeight: 1.6 }}>오늘도 좋은 하루가 되길 바랍니다.</div>
             </div>
@@ -196,7 +200,7 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings, onNavigate }) {
               return (
                 <div key={n.id} onClick={handleTap} style={{ display: 'flex', alignItems: 'center', gap: S.md, padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bg}`, background: !n.is_read ? `${C.brandL88}` : C.surface, cursor: target ? 'pointer' : 'default' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: !n.is_read ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                    {icon}
+                    <Icon emoji={icon} size={18} color={!n.is_read ? C.brand : C.text3} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, color: C.text1, fontWeight: !n.is_read ? 700 : 500, lineHeight: 1.4 }}>{n.message}</div>
