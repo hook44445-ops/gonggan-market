@@ -4463,6 +4463,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="💬" size={40} color={C.text3} /></div>
                 <div style={{ fontSize:15, fontWeight:700, color:C.text2, marginBottom:6 }}>아직 시작된 대화가 없습니다.</div>
                 <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>업체와 상담을 시작하면 이곳에 대화가 표시됩니다.</div>
+                {/* 빈 상태에서 다음 행동을 제시 — '관심' 탭 등 다른 빈 화면과 톤을 맞춘다. */}
+                <button
+                  onClick={() => setScreen(activeRole === "company" ? "dashboard" : "map")}
+                  style={{ marginTop:18, background:C.brand, color:"#fff", border:"none", borderRadius:R.full,
+                    padding:"11px 22px", fontSize:13.5, fontWeight:800, cursor:"pointer" }}>
+                  {activeRole === "company" ? "받은 요청 보기" : "업체 찾아보기"}
+                </button>
               </div>
             )}
 

@@ -13,6 +13,7 @@ import { LogoMark } from '../components/common';
 import LoungeCategoryTabs from '../components/lounge/LoungeCategoryTabs';
 import LoungeStoryBar from '../components/lounge/LoungeStoryBar';
 import LoungePostCard from '../components/lounge/LoungePostCard';
+import { Spinner } from '../components/v3/ui';
 
 // ── 알림 유틸 ──────────────────────────────────────────
 const NOTIF_META = {
@@ -176,7 +177,7 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings, onNavigate }) {
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-              <div style={{ fontSize: 24, marginBottom: 8 }}>⏳</div>
+              <div style={{ marginBottom: 10, display: 'flex', justifyContent: 'center' }}><Spinner /></div>
               <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
             </div>
           ) : notifs.length === 0 ? (
@@ -667,7 +668,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
 
       {loading && allPosts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Spinner size={28} /></div>
           <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
         </div>
       ) : allPosts.length === 0 ? (

@@ -117,3 +117,17 @@
   --c-red55: rgba(214,48,48,0.333);
   --c-shadowBrand: 0 6px 20px rgba(36,64,107,0.18);
 }
+
+/* 로딩 스피너 — 이모지(⏳) 대신 쓰는 공용 인디케이터. 색은 currentColor 를 따른다. */
+@keyframes gg-spin { to { transform: rotate(360deg); } }
+.gg-spinner {
+  display: inline-block;
+  border-radius: 50%;
+  border-style: solid;
+  border-color: currentColor;
+  border-right-color: transparent;
+  animation: gg-spin 0.7s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gg-spinner { animation-duration: 2s; }
+}

@@ -236,3 +236,11 @@ export function TrustRow({ items }) {
     </div>
   );
 }
+
+/* 로딩 인디케이터 — 이모지 대신. size/두께만 조절한다. */
+export function Spinner({ size = 22, width = 2.5, color = C.text3 }) {
+  return (
+    <span className="gg-spinner" aria-label="불러오는 중"
+      style={{ width: size, height: size, borderWidth: width, color }} />
+  );
+}

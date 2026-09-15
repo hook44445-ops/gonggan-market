@@ -22,6 +22,7 @@ import {
   upsertPushPreferences,
 } from '../../lib/supabase';
 import { enablePush, disablePush } from '../../lib/push';
+import { Spinner } from '../v3/ui';
 
 // ── 로컬스토리지 헬퍼 ──────────────────────────────────
 const readLS = (key, fallback = []) => {
@@ -132,7 +133,7 @@ function MyPostsScreen({ posts, loading, devInfo, onBack, onEdit, onDelete }) {
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Spinner size={28} /></div>
           <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중...</div>
         </div>
       ) : posts.length === 0 ? (
