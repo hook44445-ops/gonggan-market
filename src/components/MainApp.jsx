@@ -130,6 +130,7 @@ import { useCompanyList } from "../hooks/useCompanyList";
 import { applyRoleTheme } from "../utils/roleTheme";
 import { useUiVersion } from "../hooks/useUiVersion";
 import MyPageV3 from "../screens/v3/MyPageV3";
+import HomeV3 from "../screens/v3/HomeV3";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
 
@@ -2839,7 +2840,60 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       <div style={{ padding:(FULL||NO_PAD)?0:`${S.xl}px ${S.xl}px 90px` }}>
 
         {/* 의뢰인 홈 */}
-        {screen==="home" && mode==="consumer" && (
+        {screen==="home" && (mode==="consumer" || mode==="company") && uiVersion === "v3" && (() => {
+          // v3 홈 — 기존 데이터(업체 목록·후기·요청)를 그대로 쓰고 구성만 재배치한다.
+          const revSrc = [
+            ...topReviews.map(r => ({
+              id: r.id, text: r.content, author: r.user_name ?? "익명",
+              company: maskCompanyName(r.companies?.name ?? null),
+              photo: r.after_image_urls?.[0] ?? r.image_urls?.[0] ?? null,
+              meta: r.space_type ?? r.region ?? null,
+            })),
+            ...seedReviews.map(sr => ({
+              id: `seed_${sr.id}`, text: sr.content, author: sr.user_name ?? "익명",
+              company: sr.masked_company_name ?? "공간○○",
+              photo: sr.after_image_url ?? null,
+              meta: sr.space_type ?? sr.region ?? null,
+            })),
+          ].filter(r => (r.text ?? "").trim().length > 0);
+
+          const showcases = revSrc.filter(r => r.photo)
+            .map(r => ({ id: r.id, photo: r.photo, title: r.meta ?? "시공 사례", meta: r.company }));
+
+          const temps = (companies ?? []).map(c => Number(c.temp)).filter(Number.isFinite);
+          const avgTemp = temps.length ? temps.reduce((a, b) => a + b, 0) / temps.length : 36.5;
+
+          const escOf = (r) => myRequestsEscrow[r.id] ?? null;
+          const ip = myRequests.find(r => isRequestInProgress(r, escOf(r)));
+          const doneCnt = myRequests.filter(r => isRequestSettled(r, escOf(r))).length;
+
+          return (
+            <HomeV3
+              activeRole={activeRole}
+              user={user}
+              activeContract={ip ? {
+                title: ip.type ?? ip.area ?? "시공",
+                stageLabel: "진행 중",
+                pct: 50,
+                onOpen: () => { setBidViewRequestId(ip.id); setScreen("escrow"); },
+              } : null}
+              showcases={showcases}
+              reviews={revSrc}
+              companiesCount={(companies ?? []).length}
+              avgTemp={avgTemp}
+              completedCount={doneCnt}
+              newRequestCount={(activeJobs ?? []).length}
+              onNewRequest={() => requireAuth(() => handleOpenNewReq())}
+              onOpenShowcase={() => setScreen("portfolio")}
+              onGo={(target) => {
+                if (target === "home-requests") { setScreen("home"); return; }
+                setScreen(target);
+              }}
+            />
+          );
+        })()}
+
+        {screen==="home" && mode==="consumer" && uiVersion !== "v3" && (
           <div>
             {/* ── 진행감 카드 — 진행 중인 계약(에스크로)이 있을 때만 최상단 노출 ── */}
             {(() => {
@@ -3559,7 +3613,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         )}
 
         {/* 업체 홈 */}
-        {screen==="home" && mode==="company" && (
+        {screen==="home" && mode==="company" && uiVersion !== "v3" && (
           <div>
             {isGuestCompany && (
               <div onClick={() => setShowRegisterPrompt(true)}

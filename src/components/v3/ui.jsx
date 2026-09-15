@@ -197,3 +197,42 @@ export function QuietList({ items }) {
     </div>
   );
 }
+
+/* 사진 타일 — 시공 사례처럼 '보여주는' 콘텐츠. 첫인상에서 가장 강한 요소. */
+export function PhotoTile({ src, title, meta, onClick, height = 150 }) {
+  return (
+    <div onClick={onClick} style={{ cursor: onClick ? "pointer" : "default", borderRadius: R.lg,
+      overflow: "hidden", background: C.surface, border: `1px solid ${C.bgWarm}`, boxShadow: SHADOW.soft }}>
+      <div style={{ position: "relative", height, background: C.bgWarm }}>
+        {/* 이미지 로드 실패(네트워크·CDN 장애) 시 깨진 alt 대신 중립 배경만 남긴다. */}
+        {src && <img src={src} alt="" loading="lazy"
+          onError={(e) => { e.currentTarget.style.display = "none"; }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+        <div aria-hidden style={{ position: "absolute", inset: 0,
+          background: "linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.42) 100%)" }} />
+        {title && (
+          <div style={{ position: "absolute", left: S.md, right: S.md, bottom: S.sm, color: "#fff" }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: "-0.2px" }}>{title}</div>
+            {meta && <div style={{ fontSize: 11, opacity: 0.85, marginTop: 2 }}>{meta}</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* 신뢰 지표 줄 — 숫자 3개로 '안심'을 즉시 전달한다(사회적 증거). */
+export function TrustRow({ items }) {
+  return (
+    <div style={{ display: "flex", background: C.surface, border: `1px solid ${C.bgWarm}`,
+      borderRadius: R.xl, padding: `${S.lg}px ${S.sm}px`, boxShadow: SHADOW.soft }}>
+      {items.map(({ value, label }, i) => (
+        <div key={i} style={{ flex: 1, textAlign: "center", position: "relative" }}>
+          {i > 0 && <div style={{ position: "absolute", left: 0, top: 4, bottom: 4, width: 1, background: C.bgWarm }} />}
+          <div style={{ fontSize: 17, fontWeight: 900, color: C.brand, lineHeight: 1.2 }}>{value}</div>
+          <div style={{ fontSize: 11, color: C.text3, marginTop: 3 }}>{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
