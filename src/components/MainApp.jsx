@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
+import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES } from "../constants";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { loungeChatDbg } from "../utils/loungeChatDebug"; // 라운지 대화 신청/수신 신원 진단(플래그 시에만 출력)
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark, Icon, splitLeadingEmoji } from "./common";
@@ -128,6 +128,9 @@ import { getProvider } from "../services/payment/paymentService";
 import { ACTIVE_PROVIDER, getMethodMeta } from "../services/payment/constants";
 import { useCompanyList } from "../hooks/useCompanyList";
 import { applyRoleTheme } from "../utils/roleTheme";
+import { useUiVersion } from "../hooks/useUiVersion";
+import MyPageV3 from "../screens/v3/MyPageV3";
+import HomeV3 from "../screens/v3/HomeV3";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
 
@@ -581,6 +584,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
   // 역할별 테마 — 파트너(업체)는 네이비, 고객은 기존 그린. 루트 data-role 만 전환한다.
   useEffect(() => { applyRoleTheme(mode); }, [mode]);
+
+  // UI 버전 — v3(정리본) / v2(기존). 관리자 화면 토글에서 전환한다.
+  const [uiVersion] = useUiVersion();
   // 운영자/관리자 — 라운지 운영(추천글·숨김) 권한.
   // operator 는 부가 권한(is_operator 플래그)이며 사용자 유형(company/consumer)을 바꾸지 않음.
   const isModerator = activeRole === "admin"
@@ -2834,7 +2840,60 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       <div style={{ padding:(FULL||NO_PAD)?0:`${S.xl}px ${S.xl}px 90px` }}>
 
         {/* 의뢰인 홈 */}
-        {screen==="home" && mode==="consumer" && (
+        {screen==="home" && (mode==="consumer" || mode==="company") && uiVersion === "v3" && (() => {
+          // v3 홈 — 기존 데이터(업체 목록·후기·요청)를 그대로 쓰고 구성만 재배치한다.
+          const revSrc = [
+            ...topReviews.map(r => ({
+              id: r.id, text: r.content, author: r.user_name ?? "익명",
+              company: maskCompanyName(r.companies?.name ?? null),
+              photo: r.after_image_urls?.[0] ?? r.image_urls?.[0] ?? null,
+              meta: r.space_type ?? r.region ?? null,
+            })),
+            ...seedReviews.map(sr => ({
+              id: `seed_${sr.id}`, text: sr.content, author: sr.user_name ?? "익명",
+              company: sr.masked_company_name ?? "공간○○",
+              photo: sr.after_image_url ?? null,
+              meta: sr.space_type ?? sr.region ?? null,
+            })),
+          ].filter(r => (r.text ?? "").trim().length > 0);
+
+          const showcases = revSrc.filter(r => r.photo)
+            .map(r => ({ id: r.id, photo: r.photo, title: r.meta ?? "시공 사례", meta: r.company }));
+
+          const temps = (companies ?? []).map(c => Number(c.temp)).filter(Number.isFinite);
+          const avgTemp = temps.length ? temps.reduce((a, b) => a + b, 0) / temps.length : 36.5;
+
+          const escOf = (r) => myRequestsEscrow[r.id] ?? null;
+          const ip = myRequests.find(r => isRequestInProgress(r, escOf(r)));
+          const doneCnt = myRequests.filter(r => isRequestSettled(r, escOf(r))).length;
+
+          return (
+            <HomeV3
+              activeRole={activeRole}
+              user={user}
+              activeContract={ip ? {
+                title: ip.type ?? ip.area ?? "시공",
+                stageLabel: "진행 중",
+                pct: 50,
+                onOpen: () => { setBidViewRequestId(ip.id); setScreen("escrow"); },
+              } : null}
+              showcases={showcases}
+              reviews={revSrc}
+              companiesCount={(companies ?? []).length}
+              avgTemp={avgTemp}
+              completedCount={doneCnt}
+              newRequestCount={(activeJobs ?? []).length}
+              onNewRequest={() => requireAuth(() => handleOpenNewReq())}
+              onOpenShowcase={() => setScreen("portfolio")}
+              onGo={(target) => {
+                if (target === "home-requests") { setScreen("home"); return; }
+                setScreen(target);
+              }}
+            />
+          );
+        })()}
+
+        {screen==="home" && mode==="consumer" && uiVersion !== "v3" && (
           <div>
             {/* ── 진행감 카드 — 진행 중인 계약(에스크로)이 있을 때만 최상단 노출 ── */}
             {(() => {
@@ -3554,7 +3613,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         )}
 
         {/* 업체 홈 */}
-        {screen==="home" && mode==="company" && (
+        {screen==="home" && mode==="company" && uiVersion !== "v3" && (
           <div>
             {isGuestCompany && (
               <div onClick={() => setShowRegisterPrompt(true)}
@@ -4682,7 +4741,59 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           </div>
         )}
 
-        {screen==="my" && (
+        {screen==="my" && uiVersion === "v3" && (() => {
+          // v3 정리본 — 통계/등급은 기존 계산식을 그대로 재사용한다.
+          const escOf = (r) => myRequestsEscrow[r.id] ?? null;
+          const open = myRequests.filter(r => isRequestOpenForQuotes(r, escOf(r))).length;
+          const prog = myRequests.filter(r => isRequestInProgress(r, escOf(r))).length;
+          const done = myRequests.filter(r => isRequestSettled(r, escOf(r))).length;
+          return (
+            <MyPageV3
+              user={user}
+              activeRole={activeRole}
+              stats={{ requests: open, inProgress: prog, completed: done, saved: savedCompanies.length }}
+              grade={(() => {
+                // 고객: 완료 건수 기반 등급(새집→우리집→드림하우스→홈스타일러)
+                // 업체: 공간온도 기반 등급(GRADE) — 둘 다 '쌓이는 느낌'을 진행바로 보여준다.
+                if (activeRole === "company") {
+                  const t = Number(myCompanyRow?.temp ?? currentUser?.temp ?? 36.5);
+                  const g = GRADE(t);
+                  return { label: g.label, hint: `공간온도 ${t.toFixed(1)}°`, pct: Math.min(100, (t / 100) * 100) };
+                }
+                const cur = calcCustomerGrade(done);
+                const next = CUSTOMER_GRADES.find(x => x.minJobs > done);
+                return {
+                  label: `${cur.label} 등급`,
+                  hint: next ? `다음 등급까지 ${next.minJobs - done}건` : "최고 등급",
+                  pct: next ? Math.round((done / next.minJobs) * 100) : 100,
+                };
+              })()}
+              spaceTemp={currentUser?.temp ?? myCompanyRow?.temp ?? 36.5}
+              tokenBalance={tokenBalance}
+              idVerified={idVerified}
+              onVerifyId={handleMockIdVerify}
+              unreadTotal={unreadTotal}
+              companyRegions={(companyServiceRegions ?? []).map(r => r.label ?? r.sigungu).filter(Boolean)}
+              onEditRegions={() => setCompanyRegionSheetOpen(true)}
+              onGo={(target) => {
+                if (target === "newreq") { requireAuth(() => handleOpenNewReq()); return; }
+                if (target === "lounge-settings" || target === "my-posts") { setScreen("lounge"); return; }
+                if (target === "notifications") { setScreen("timeline"); return; }
+                if (target === "help") { setFaqExpanded(true); setScreen("my"); return; }
+                if (target === "documents") { setScreen("dashboard"); return; }
+                setScreen(target);
+              }}
+              onLogout={onLogout}
+              onForgetDevice={() => setShowForgetConfirm(true)}
+              onDeleteAccount={() => { window.location.href = "/delete-account"; }}
+              onShowAppInfo={() => setShowAppInfo(true)}
+              onShowBusinessInfo={() => setShowBusinessInfo(true)}
+              onTerms={(t) => { window.location.href = "/" + t; }}
+            />
+          );
+        })()}
+
+        {screen==="my" && uiVersion !== "v3" && (
           <div>
             <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:4 }}>
               <NotificationBell user={user} onNavigate={openNotificationTarget} />

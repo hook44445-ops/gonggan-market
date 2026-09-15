@@ -3,6 +3,7 @@ import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(
 import { C, R, S } from "../constants";
 import { Icon, splitLeadingEmoji } from "../components/common/Icon";
 import { useIconVersion } from "../hooks/useIconVersion";
+import { useUiVersion } from "../hooks/useUiVersion";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
 import { COMPANY_STATUS_META, USER_STATUS_META } from "../constants";
 import { LOUNGE_CATEGORIES } from "../constants/lounge";
@@ -5312,6 +5313,27 @@ function IconVersionToggle() {
   );
 }
 
+// 화면 구성 v2(기존)/v3(정리본) 전환 스위치.
+// v3 = 마이페이지 등 재설계본(중복 제거·빈 섹션 축약·설정 하위페이지 분리).
+// 문제가 생기면 v2 로 즉시 롤백할 수 있게 원본 화면을 그대로 남겨두었다.
+function UiVersionToggle() {
+  const [version, setVersion] = useUiVersion();
+  const isV3 = version === "v3";
+  return (
+    <button
+      onClick={() => setVersion(isV3 ? "v2" : "v3")}
+      title="화면 구성 전환 (v2: 기존 / v3: 정리본)"
+      style={{
+        background: isV3 ? C.brandL : C.bgWarm, border: `1px solid ${isV3 ? C.brand : C.bgWarm}`,
+        borderRadius: R.md, padding: "6px 10px", fontSize: 11, fontWeight: 700,
+        color: isV3 ? C.brandD : C.text3, cursor: "pointer",
+      }}
+    >
+      화면 {isV3 ? "v3" : "v2"}
+    </button>
+  );
+}
+
 export default function AdminScreen({ onBack, onHome, user }) {
   const [companies, setCompanies]       = useState([]);
   const [customers, setCustomers]       = useState([]);
@@ -6065,6 +6087,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
             </div>
           )}
           <IconVersionToggle />
+          <UiVersionToggle />
           {onHome && (
             <button onClick={onHome}
               style={{ background: C.bgWarm, border: "none", borderRadius: R.md,
