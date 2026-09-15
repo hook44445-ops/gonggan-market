@@ -68,7 +68,7 @@ export default function PartnerOnboarding({ leadId, phone, insuranceYn = false, 
   };
   const goldBtn = {
     width: "100%", height: 52, borderRadius: 999, border: "1px solid #E9DDC0", cursor: "pointer",
-    background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)", color: INK,
+    background: "linear-gradient(180deg,#D8BE88 0%,#C8A86A 100%)", color: INK,
     fontSize: 16, fontWeight: 800, fontFamily: SANS, letterSpacing: "-0.01em",
     boxShadow: "0 8px 24px rgba(200,168,106,.28), 0 0 0 1px rgba(232,220,192,.8) inset, 0 1px 2px rgba(255,255,255,.6) inset",
   };
