@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { C, R } from "../constants";
 import { getUnreadCount } from "../lib/supabase";
 import NotificationInbox from "./NotificationInbox";
+import Icon from "./common/Icon";
 
 const POLL_MS = 60000;
 
@@ -49,14 +50,20 @@ export default function NotificationBell({ user, style, onNavigate }) {
       <button
         onClick={() => { setOpen(true); }}
         aria-label="알림"
-        style={{ position: "relative", background: "none", border: "none", cursor: "pointer", fontSize: 21, lineHeight: 1, padding: 4, ...style }}
+        style={{ position: "relative", background: "none", border: "none", cursor: "pointer",
+          lineHeight: 0, padding: 4, display: "inline-flex", alignItems: "center", ...style }}
       >
-        🔔
+        {/* 헤더 아이콘은 라인 아이콘 세트로 통일 — 이모지 종은 톤이 어긋난다. */}
+        <Icon emoji="🔔" size={22} color={C.text2} />
         {unread > 0 && (
           <span style={{
-            position: "absolute", top: -2, right: -4, minWidth: 16, height: 16, padding: "0 4px",
-            borderRadius: R.full, background: C.red ?? "#E53E3E", color: "#fff",
-            fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center",
+            // 라인 아이콘은 이모지보다 획이 얇다 — 배지가 종을 덮지 않도록 작게 줄이고
+            // 배경색 링을 둘러 종 윤곽과 숫자가 서로 뭉개지지 않게 한다.
+            position: "absolute", top: -1, right: -2, minWidth: 15, height: 15, padding: "0 3.5px",
+            borderRadius: R.full, background: C.red, color: "#fff", boxSizing: "border-box",
+            boxShadow: `0 0 0 2px ${C.surface}`,
+            fontSize: 9.5, fontWeight: 800, lineHeight: 1,
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             {unread > 9 ? "9+" : unread}
           </span>

@@ -11,6 +11,7 @@ import { C, R, S } from "../constants";
 import { missionSnapshot } from "../lib/missionControl";
 import { getQueue, updateJob } from "../lib/automationQueue";
 import { activityRows } from "../lib/activityLog";
+import Icon from "./common/Icon";
 
 const HEALTH_ICON = { green: "🟢", yellow: "🟡", red: "🔴", idle: "⚪" };
 const LV_COLOR = { high: "#dc2626", mid: "#d97706", info: "#2563eb" };
@@ -61,7 +62,9 @@ export default function MissionControl({ showToast }) {
       {/* 알림 + 이상징후 추천 */}
       {(snap.alerts.length > 0 || snap.recommendations.length > 0) && (
         <div style={box}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>🔔 관리자 알림</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>
+            <Icon emoji="🔔" size={14} color={C.text1} />관리자 알림
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {snap.alerts.map((a, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11.5 }}>

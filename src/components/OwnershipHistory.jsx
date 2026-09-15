@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { fmtMoney } from "../utils/calculations";
 import { getBidsForRequest } from "../lib/supabase";
+import Icon from "./common/Icon";
 
 // ─────────────────────────────────────────────────────
 // Ownership — 내 공간 기록 (락인 구조)
@@ -188,7 +189,10 @@ function SavedCompanyCard({ co, userId, onOpenCompany }) {
         <button onClick={toggleAlert}
           style={{ flexShrink: 0, padding: "5px 10px", borderRadius: R.full, cursor: "pointer", fontSize: 13, fontWeight: 700,
             border: `1px solid ${alertOn ? DEEP_GREEN : C.bgWarm}`, background: alertOn ? C.brandL : C.surface, color: alertOn ? DEEP_GREEN : C.text3 }}>
-          {alertOn ? "🔔 알림 켜짐" : "🔕 알림 받기"}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <Icon emoji={alertOn ? "🔔" : "🔕"} size={13} color={alertOn ? DEEP_GREEN : C.text3} />
+            {alertOn ? "알림 켜짐" : "알림 받기"}
+          </span>
         </button>
       </div>
       {editing ? (
