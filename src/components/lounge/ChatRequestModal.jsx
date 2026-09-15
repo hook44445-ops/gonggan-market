@@ -68,7 +68,7 @@ export default function ChatRequestModal({ balance, sending = false, onConfirm, 
           </button>
           {/* sending(처리 중)일 때만 비활성 — 빈 텍스트는 클릭 시 toast 안내(silent 무반응 방지) */}
           <button onClick={handleSend} disabled={sending}
-            style={{ flex: 2, padding: S.xl, background: sending ? C.text4 : (text.trim() ? C.brand : C.brandM ?? C.brand), color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: sending ? 'default' : 'pointer', opacity: (!sending && !text.trim()) ? 0.7 : 1, boxShadow: sending ? 'none' : `0 4px 16px ${C.brand}44` }}>
+            style={{ flex: 2, padding: S.xl, background: sending ? C.text4 : (text.trim() ? C.brand : C.brandM ?? C.brand), color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: sending ? 'default' : 'pointer', opacity: (!sending && !text.trim()) ? 0.7 : 1, boxShadow: sending ? 'none' : `0 4px 16px ${C.brand44}` }}>
             {sending ? '보내는 중...' : '보내기'}
           </button>
         </div>

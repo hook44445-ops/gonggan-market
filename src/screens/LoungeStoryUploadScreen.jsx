@@ -279,7 +279,7 @@ export default function LoungeStoryUploadScreen({ user, onBack, onPublish }) {
         )}
 
         {/* 안내 */}
-        <div style={{ background: 'rgba(46,95,75,0.3)', borderRadius: R.lg, padding: S.md, border: `1px solid ${C.brandM}55` }}>
+        <div style={{ background: 'rgba(46,95,75,0.3)', borderRadius: R.lg, padding: S.md, border: `1px solid ${C.brandM55}` }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7 }}>
             ⏰ 스토리는 <strong style={{ color: '#fff' }}>24시간</strong> 후 자동으로 사라집니다.<br />
             🛡 익명으로 게시되며, 실명/연락처는 표시되지 않습니다.

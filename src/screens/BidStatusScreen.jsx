@@ -431,7 +431,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               color: (!isQuotePhase && !isAwarded && siteVisitLoading) ? C.text4 : "#fff",
               border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16,
               cursor: (!isQuotePhase && !isAwarded && siteVisitLoading) ? "not-allowed" : "pointer",
-              boxShadow: (!isQuotePhase && !isAwarded && siteVisitLoading) ? "none" : `0 6px 20px ${C.brand}44` }}>
+              boxShadow: (!isQuotePhase && !isAwarded && siteVisitLoading) ? "none" : `0 6px 20px ${C.brand44}` }}>
             {isQuotePhase
               ? "예약 확정하고 결제 진행 ✅"
               : isAwarded
@@ -822,7 +822,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             style={{ width:"100%", padding:S.xxl, background: (selectedMethod || SAFE_MODE) && !paymentLoading ? C.brand : C.bgWarm,
               color: (selectedMethod || SAFE_MODE) && !paymentLoading ? "#fff" : C.text4, border:"none", borderRadius:R.lg,
               fontWeight:800, fontSize:16, cursor: (selectedMethod || SAFE_MODE) && !paymentLoading ? "pointer" : "not-allowed",
-              boxShadow: (selectedMethod || SAFE_MODE) && !paymentLoading ? `0 6px 20px ${C.brand}44` : "none" }}>
+              boxShadow: (selectedMethod || SAFE_MODE) && !paymentLoading ? `0 6px 20px ${C.brand44}` : "none" }}>
             {paymentLoading ? "처리 중..." : SAFE_MODE ? "🔧 테스트 예치 (SAFE_MODE)" : selectedMethod ? `🔒 ${fmtMoney(customerTotal)} 결제하기` : "결제 수단을 선택하세요"}
           </button>
         </div>
@@ -851,7 +851,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         <div style={{ fontSize:64, marginBottom:16 }}>✅</div>
         <div style={{ fontSize:22, fontWeight:900, color:C.text1, marginBottom:8 }}>예약 완료!</div>
         <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>에스크로 예치 완료. 착공 확인 후 업체에 지급됩니다.</div>
-        <button onClick={() => onChat(selBid.company ?? { id: selBid.companyId, name: "업체" })} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand}44`, marginBottom:S.sm }}>💬 {selBid.company?.name ?? "업체"}와 채팅하기</button>
+        <button onClick={() => onChat(selBid.company ?? { id: selBid.companyId, name: "업체" })} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand44}`, marginBottom:S.sm }}>💬 {selBid.company?.name ?? "업체"}와 채팅하기</button>
         {/* H-B: 레거시 done_direct 경로 안전장치(현재 도달 안 함). 에스크로 리뷰는 EscrowScreen.onReview에서 처리. */}
         {step === "done_direct" && onReview && selBid.company && (
           <button onClick={() => onReview(selBid.company)} style={{ width:"100%", padding:S.lg, background:"none", color:C.brand, border:`1px solid ${C.brand}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:S.sm }}>⭐ 시공 후기 작성하기</button>
@@ -935,7 +935,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
                 <div style={{ fontSize:13, color:C.text2, marginBottom:S.md, fontStyle:"italic" }}>{bid.comment}</div>
                 <div style={{ display:"flex", flexDirection:"column", gap:S.sm }}>
                   <button onClick={() => onChat(bid.company ?? { id: bid.companyId, name: "업체" })} style={{ width:"100%", padding:"11px", background:C.surface, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer" }}>💬 상담하기</button>
-                  <button onClick={() => selectBid(bid)} style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 12px ${C.brand}44` }}>✅ 이 업체로 선택하기</button>
+                  <button onClick={() => selectBid(bid)} style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 12px ${C.brand44}` }}>✅ 이 업체로 선택하기</button>
                 </div>
               </div>
             </div>

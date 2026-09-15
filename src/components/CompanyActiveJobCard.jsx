@@ -40,7 +40,7 @@ export default function CompanyActiveJobCard({ job, onAction }) {
     if (s === "scheduled") return { label: "실측 예약됨", color: C.brand, bg: C.brandL };
     if (s === "checked_in") return { label: "현장 기록 완료", color: "#B08040", bg: "#FBF5E8" };
     if (s === "completed") return { label: "현장견적 완료", color: C.brand, bg: C.brandL };
-    if (s === "estimate_submitted") return { label: "견적서 제출완료", color: C.green, bg: "#EAF2EE" };
+    if (s === "estimate_submitted") return { label: "견적서 제출완료", color: C.green, bg: C.brandL };
     return { label: s, color: C.text3, bg: C.bg };
   };
 
@@ -50,7 +50,7 @@ export default function CompanyActiveJobCard({ job, onAction }) {
     if (!siteVisit) {
       return (
         <button onClick={() => onAction("schedule", job)}
-          style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+          style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
           📅 실측 일정 잡기
         </button>
       );
@@ -62,7 +62,7 @@ export default function CompanyActiveJobCard({ job, onAction }) {
           <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>의뢰인이 현장견적을 요청했어요. 수락 후 실측 일정을 잡아주세요.</div>
           <div style={{ display:"flex", gap:S.sm }}>
             <button onClick={() => onAction("accept", job)}
-              style={{ flex:2, padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+              style={{ flex:2, padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
               ✅ 현장견적 수락
             </button>
             <button onClick={() => onAction("reject", job)}
@@ -76,7 +76,7 @@ export default function CompanyActiveJobCard({ job, onAction }) {
     if (s === "accepted") {
       return (
         <button onClick={() => onAction("schedule", job)}
-          style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+          style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
           📅 실측 일정 잡기
         </button>
       );
@@ -95,7 +95,7 @@ export default function CompanyActiveJobCard({ job, onAction }) {
             방문 예정: {new Date(siteVisit.scheduled_at).toLocaleString("ko-KR", { month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" })}
           </div>
           <button onClick={() => onAction("checkin", job)}
-            style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+            style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
             📍 현장 기록 남기기
           </button>
         </div>
@@ -104,7 +104,7 @@ export default function CompanyActiveJobCard({ job, onAction }) {
     if (s === "checked_in") {
       return (
         <button onClick={() => onAction("field_estimate", job)}
-          style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+          style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
           📝 현장견적 입력 & 실측 완료
         </button>
       );
@@ -118,7 +118,7 @@ export default function CompanyActiveJobCard({ job, onAction }) {
             </div>
           )}
           <button onClick={() => onAction("platform_estimate", job)}
-            style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+            style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
             📋 플랫폼 견적서 작성
           </button>
         </div>
@@ -128,7 +128,7 @@ export default function CompanyActiveJobCard({ job, onAction }) {
       if (estimate?.status === "accepted") {
         return (
           <button onClick={() => onAction("escrow", job)}
-            style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+            style={{ width:"100%", padding:"12px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
             💰 에스크로 결제 진행
           </button>
         );

@@ -130,7 +130,7 @@ export default function BidCard({
             </button>
             <button
               onClick={() => onAction?.("reject_site_visit", { r, myBid, siteVisit })}
-              style={{ flex: 1, padding: "10px 0", background: "#FFF0F0", color: C.red, border: `1px solid ${C.red}44`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+              style={{ flex: 1, padding: "10px 0", background: "#FFF0F0", color: C.red, border: `1px solid ${C.red44}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
               ✖ 거절
             </button>
           </div>
@@ -209,7 +209,7 @@ export default function BidCard({
             renderChosenStatus()
           ) : hasBid ? (
             /* 입찰 제출 완료 + 의뢰인 검토 중 (선정 전) */
-            <div key="reviewing" style={{ background: C.greenL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.green}33` }}>
+            <div key="reviewing" style={{ background: C.greenL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.green33}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.sm }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.green }}>✅ 입찰 제출 완료</div>
                 <span style={{ fontSize: 20 }}>✅</span>
@@ -261,7 +261,7 @@ export default function BidCard({
               </div>
               <button
                 onClick={handleBidButtonClick}
-                style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.full, padding: "10px 20px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: `0 3px 12px ${C.brand}44` }}>
+                style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.full, padding: "10px 20px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: `0 3px 12px ${C.brand44}` }}>
                 {isGuest ? "🔒 입찰하기" : "견적 입찰하기"}
               </button>
             </div>
@@ -347,7 +347,7 @@ export default function BidCard({
               <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
                 취소
               </button>
-              <button onClick={handleSubmit} disabled={!canSubmit || submitting} style={{ flex: 2, padding: S.xl, background: canSubmit ? C.brand : C.bgWarm, color: canSubmit ? "#fff" : C.text4, border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: canSubmit ? "pointer" : "not-allowed", boxShadow: canSubmit ? `0 4px 16px ${C.brand}44` : "none", transition: "all 0.2s" }}>
+              <button onClick={handleSubmit} disabled={!canSubmit || submitting} style={{ flex: 2, padding: S.xl, background: canSubmit ? C.brand : C.bgWarm, color: canSubmit ? "#fff" : C.text4, border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: canSubmit ? "pointer" : "not-allowed", boxShadow: canSubmit ? `0 4px 16px ${C.brand44}` : "none", transition: "all 0.2s" }}>
                 {submitting ? "제출 중..." : hasBid ? "입찰 수정하기" : "안심 견적 제출하기"}
               </button>
             </div>

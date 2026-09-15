@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────
 
 // 등급 기본 예치금(만원). 등급 라벨/이모지는 068 GUARANTEE_GRADES 와 동일 값.
+import { C } from "./index";
 export const ONBOARDING_GRADES = [
   { key: "BASIC",     emoji: "🥉", label: "베이직",   base: 50,   color: "#A0714F" },
   { key: "STANDARD",  emoji: "🥈", label: "스탠다드", base: 100,  color: "#5A6370" },
@@ -29,7 +30,7 @@ export const ONBOARDING_STATUS_META = {
   PENDING_DOCS:      { label: "기본정보 접수",  step: 1, color: "#7A8A7E", bg: "#F2EBDA" },
   PENDING_DEPOSIT:   { label: "입금 대기",     step: 2, color: "#B08040", bg: "#FBF5E8" },
   AWAITING_APPROVAL: { label: "승인 대기",     step: 3, color: "#7C3AED", bg: "#F5F0FF" },
-  APPROVED:          { label: "승인 완료",     step: 4, color: "#1D3D2F", bg: "#E8F0EC" },
+  APPROVED:          { label: "승인 완료",     step: 4, color: C.brandD, bg: C.brandL },
   REJECTED:          { label: "반려",          step: 0, color: "#B23B3B", bg: "#FBEAEA" },
 };
 

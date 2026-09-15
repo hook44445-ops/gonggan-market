@@ -197,7 +197,7 @@ function MyPostsScreen({ posts, loading, devInfo, onBack, onEdit, onDelete }) {
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#1F2A24', color: '#fff', borderRadius: R.full, padding: '10px 20px', fontSize: 13, fontWeight: 700, zIndex: 600, whiteSpace: 'nowrap' }}>
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: C.text1, color: '#fff', borderRadius: R.full, padding: '10px 20px', fontSize: 13, fontWeight: 700, zIndex: 600, whiteSpace: 'nowrap' }}>
           {toast}
         </div>
       )}
@@ -923,7 +923,7 @@ export default function LoungeMyPageSection({
             <div style={{ fontSize: 13, fontWeight: 700, color: C.brand }}>{level.label}</div>
           </div>
         </div>
-        <div style={{ background: `${C.brand}20`, borderRadius: R.full, height: 4 }}>
+        <div style={{ background: `${C.brand20}`, borderRadius: R.full, height: 4 }}>
           <div style={{
             width: `${Math.min(100, Math.max(0, (temp - 36.5) / (99 - 36.5) * 100))}%`,
             height: '100%', background: C.brand, borderRadius: R.full,

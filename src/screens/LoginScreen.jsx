@@ -280,7 +280,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
               width: 80, height: 80, borderRadius: 26, margin: "0 auto 14px",
               background: C.surface,
               display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: `0 10px 30px ${C.brand}22`, border: `1px solid ${C.bgWarm}`,
+              boxShadow: `0 10px 30px ${C.brand22}`, border: `1px solid ${C.bgWarm}`,
             }}><LogoMark size={52} bare /></div>
             <div style={{ fontSize: 28, fontWeight: 800, color: C.brandD, letterSpacing: "-0.5px" }}>공간사이</div>
             <div style={{ fontSize: 12, color: C.text3, marginTop: 4, letterSpacing: "1px" }}>공간마켓</div>
@@ -326,7 +326,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                 background: `linear-gradient(135deg,${C.brand},${C.brandD})`, color: "#fff",
                 border: "none", borderRadius: R.xl, padding: "18px 20px",
                 display: "flex", alignItems: "center", gap: 14,
-                cursor: "pointer", boxShadow: `0 6px 20px ${C.brand}44`, textAlign: "left",
+                cursor: "pointer", boxShadow: `0 6px 20px ${C.brand44}`, textAlign: "left",
               }}>
               <div style={{
                 width: 48, height: 48, borderRadius: R.lg, flexShrink: 0,
@@ -444,7 +444,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
             style={{ ...iS, fontSize: 18, fontWeight: 700 }} autoFocus />
           {msg && <div style={{ padding: "12px 16px", borderRadius: R.md, marginBottom: 14, background: "#FFF0F0", color: C.red, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
           <button onClick={() => { if (!name.trim()) return setMsg("이름을 입력해주세요"); setMsg(""); setConsumerStep(2); }}
-            style={{ width: "100%", padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, cursor: "pointer", boxShadow: `0 6px 20px ${C.brand}44` }}>
+            style={{ width: "100%", padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, cursor: "pointer", boxShadow: `0 6px 20px ${C.brand44}` }}>
             다음 →
           </button>
         </div>
@@ -503,7 +503,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
               const active = selectedServices.includes(s);
               return (
                 <button key={s} onClick={() => toggleService(s)}
-                  style={{ padding: "14px 12px", borderRadius: R.lg, fontSize: 14, fontWeight: 700, border: `2px solid ${active ? C.brand : C.bgWarm}`, background: active ? C.brandL : C.surface, color: active ? C.brand : C.text2, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8, boxShadow: active ? `0 0 0 1px ${C.brand}33` : "none", transition: "all 0.15s" }}>
+                  style={{ padding: "14px 12px", borderRadius: R.lg, fontSize: 14, fontWeight: 700, border: `2px solid ${active ? C.brand : C.bgWarm}`, background: active ? C.brandL : C.surface, color: active ? C.brand : C.text2, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8, boxShadow: active ? `0 0 0 1px ${C.brand33}` : "none", transition: "all 0.15s" }}>
                   <span style={{ fontSize: 18 }}>{SERVICE_ICONS[s] ?? "🔧"}</span>
                   <span>{s}</span>
                 </button>
@@ -512,7 +512,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
           </div>
           {msg && <div style={{ padding: "12px 16px", borderRadius: R.md, marginBottom: 14, background: "#FFF0F0", color: C.red, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
           <button onClick={saveConsumer} disabled={loading}
-            style={{ width: "100%", padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, cursor: "pointer", boxShadow: `0 6px 20px ${C.brand}44`, opacity: loading ? 0.7 : 1 }}>
+            style={{ width: "100%", padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, cursor: "pointer", boxShadow: `0 6px 20px ${C.brand44}`, opacity: loading ? 0.7 : 1 }}>
             {loading ? "저장 중..." : `공간마켓 시작하기 🚀${selectedServices.length > 0 ? ` (${selectedServices.length}개 선택)` : ""}`}
           </button>
           <button onClick={() => { setConsumerStep(2); setSelectedDistrict(""); }}
@@ -768,7 +768,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
           <div style={{ background: C.surface, borderTop: `1px solid ${C.bgWarm}`, padding: "12px 20px 24px", display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => { setShowBrowse(false); chooseRole("consumer"); }}
-                style={{ flex: 1, padding: "16px", background: `linear-gradient(135deg,${C.brand},${C.brandD})`, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
+                style={{ flex: 1, padding: "16px", background: `linear-gradient(135deg,${C.brand},${C.brandD})`, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand44}` }}>
                 🏡 의뢰인으로 시작
               </button>
               <button onClick={() => { setShowBrowse(false); chooseRole("company"); }}

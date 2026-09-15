@@ -423,7 +423,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
           <button onClick={() => setShowModal(true)}
             style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff",
               border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15,
-              cursor:"pointer", boxShadow:`0 8px 24px ${C.brand}44` }}>
+              cursor:"pointer", boxShadow:`0 8px 24px ${C.brand44}` }}>
             ✏️ 비포/애프터 포토리뷰 작성하기 (☕ 쿠폰 지급)
           </button>
         </div>

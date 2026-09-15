@@ -77,7 +77,7 @@ export default function LiveFeed() {
               paddingBottom: isLast ? 0 : S.sm, marginBottom: isLast ? 0 : S.sm,
               borderBottom: isLast ? "none" : `1px solid ${C.bgWarm}` }}>
             <div style={{ width:28, height:28, borderRadius:R.sm, flexShrink:0,
-              background:`${C.green}15`, display:"flex", alignItems:"center",
+              background:`${C.green15}`, display:"flex", alignItems:"center",
               justifyContent:"center", fontSize:13 }}>
               🔨
             </div>
@@ -106,7 +106,7 @@ export default function LiveFeed() {
 
       <style>{`
         @keyframes gPulse{
-          0%,100%{box-shadow:0 0 0 0 ${C.green}44}
+          0%,100%{box-shadow:0 0 0 0 ${C.green44}}
           50%{box-shadow:0 0 0 5px transparent}
         }
       `}</style>

@@ -180,7 +180,7 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
         {errorMsg && (
           <div style={{
             background: "#FEF0F0", borderRadius: R.lg, padding: S.lg, marginBottom: S.xl,
-            border: `1px solid ${C.red}33`, fontSize: 12, color: C.red, lineHeight: 1.6,
+            border: `1px solid ${C.red33}`, fontSize: 12, color: C.red, lineHeight: 1.6,
           }}>
             ⚠️ {errorMsg}
           </div>
@@ -296,7 +296,7 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
                       width: "100%", padding: S.lg,
                       background: C.brand, color: "#fff", border: "none",
                       borderRadius: R.md, fontWeight: 700, fontSize: 13, cursor: "pointer",
-                      boxShadow: `0 4px 14px ${C.brand}44`,
+                      boxShadow: `0 4px 14px ${C.brand44}`,
                     }}>
                     {saving ? "제출 중..." : "✅ 제출하기"}
                   </button>
@@ -358,7 +358,7 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
                   border: "none", borderRadius: R.md,
                   fontWeight: 700, fontSize: 14,
                   cursor: allChecked ? "pointer" : "not-allowed",
-                  boxShadow: allChecked ? `0 4px 14px ${C.brand}44` : "none",
+                  boxShadow: allChecked ? `0 4px 14px ${C.brand44}` : "none",
                 }}>
                 {saving
                   ? "제출 중..."

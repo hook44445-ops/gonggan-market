@@ -40,7 +40,7 @@ export default function AppInfoModal({ onClose }) {
         <button onClick={onClose}
           style={{ width:"100%", marginTop:S.xl, padding:S.lg, background:C.brand, color:"#fff",
             border:"none", borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer",
-            boxShadow:`0 4px 14px ${C.brand}44` }}>
+            boxShadow:`0 4px 14px ${C.brand44}` }}>
           확인
         </button>
       </div>

@@ -127,6 +127,7 @@ import {
 import { getProvider } from "../services/payment/paymentService";
 import { ACTIVE_PROVIDER, getMethodMeta } from "../services/payment/constants";
 import { useCompanyList } from "../hooks/useCompanyList";
+import { applyRoleTheme } from "../utils/roleTheme";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
 
@@ -577,6 +578,9 @@ const FAQ_ITEMS = [
 export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
   const mode = activeRole === "company" ? "company" : activeRole === "admin" ? "admin" : "consumer";
+
+  // 역할별 테마 — 파트너(업체)는 네이비, 고객은 기존 그린. 루트 data-role 만 전환한다.
+  useEffect(() => { applyRoleTheme(mode); }, [mode]);
   // 운영자/관리자 — 라운지 운영(추천글·숨김) 권한.
   // operator 는 부가 권한(is_operator 플래그)이며 사용자 유형(company/consumer)을 바꾸지 않음.
   const isModerator = activeRole === "admin"
@@ -2894,9 +2898,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               {(() => {
                 const hasActive = myRequests.some(r => r.isActive);
                 return hasActive ? (
-                  <div style={{ background:`${C.brand}22`, borderRadius:R.full,
+                  <div style={{ background:`${C.brand22}`, borderRadius:R.full,
                     padding:"11px 22px", fontSize:13, fontWeight:700, color:C.brand,
-                    border:`1.5px solid ${C.brand}44`, display:"inline-block" }}>
+                    border:`1.5px solid ${C.brand44}`, display:"inline-block" }}>
                     📋 진행 중인 견적이 있습니다
                   </div>
                 ) : (
@@ -3225,7 +3229,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                       background: stage?.badge === "확인 필요" ? "#C07000" : C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
                                       fontWeight:800, fontSize:14, cursor:"pointer",
-                                      boxShadow:`0 3px 12px ${C.brand}44` }}>
+                                      boxShadow:`0 3px 12px ${C.brand44}` }}>
                                     {stage?.cta ?? "에스크로 확인하기"} →
                                   </button>
                                 </div>
@@ -3254,7 +3258,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                   <button onClick={() => { dlog("[GONGGAN_DIAG][homeCard:nav]", { reqId: r.id, status: r.status, action: stage?.action ?? null, bidCount: r.bidCount ?? 0, to: "bidstatus" }); setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                                     style={{ width:"100%", padding:"11px", background:C.brand, color:"#fff",
                                       border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer",
-                                      boxShadow:`0 3px 12px ${C.brand}44` }}>
+                                      boxShadow:`0 3px 12px ${C.brand44}` }}>
                                     {stage?.cta ?? "견적 비교하고 업체 선택하기"} →
                                   </button>
                                 </div>
@@ -3510,7 +3514,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 </div>
               )}
               <button onClick={() => setScreen("lounge")}
-                style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand}33` }}>
+                style={{ width:"100%", padding:"13px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand33}` }}>
                 라운지 들어가기
               </button>
             </div>
@@ -3705,7 +3709,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   <div key={bid.id ?? request?.id} style={{
                     background:C.surface, borderRadius:R.xl, padding:S.xl,
                     marginBottom:S.md, border:`1.5px solid ${C.brandM}`,
-                    boxShadow:`0 2px 12px ${C.brand}18`,
+                    boxShadow:`0 2px 12px ${C.brand18}`,
                   }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:S.sm }}>
                       <div>
@@ -4420,7 +4424,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       </div>
                       <div style={{ fontSize:11, color:C.text3 }}>🔒 익명 · 메시지 보내기 · {formatRelativeTime(r.created_at)}</div>
                     </div>
-                    <div style={{ fontSize:11, fontWeight:700, color:C.gold, background:`${C.gold}18`, padding:"4px 10px", borderRadius:R.full, flexShrink:0 }}>수락 대기중</div>
+                    <div style={{ fontSize:11, fontWeight:700, color:C.gold, background:`${C.gold18}`, padding:"4px 10px", borderRadius:R.full, flexShrink:0 }}>수락 대기중</div>
                   </div>
                 ))}
               </>
@@ -4562,10 +4566,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                             background: step.done?C.green : step.active?C.brand : C.bgWarm,
                             display:"flex", alignItems:"center", justifyContent:"center",
                             fontSize:14, color: step.done||step.active?"#fff":C.text4,
-                            boxShadow: step.active?`0 0 0 4px ${C.brand}22`:"none", fontWeight:900 }}>
+                            boxShadow: step.active?`0 0 0 4px ${C.brand22}`:"none", fontWeight:900 }}>
                             {step.done?"✓":i+1}
                           </div>
-                          {i<arr.length-1 && <div style={{ width:2, flex:1, minHeight:16, marginTop:4, background:step.done?C.green:step.active?`${C.brand}44`:C.bgWarm }} />}
+                          {i<arr.length-1 && <div style={{ width:2, flex:1, minHeight:16, marginTop:4, background:step.done?C.green:step.active?`${C.brand44}`:C.bgWarm }} />}
                         </div>
                         <div style={{ flex:1, paddingTop:6 }}>
                           <div style={{ fontSize:14, fontWeight:700, color:step.done?C.green:step.active?C.brand:C.text3 }}>{step.label}</div>
@@ -4573,7 +4577,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                           {step.time && <div style={{ fontSize:11, color:C.text4, marginTop:2 }}>{step.time}</div>}
                           {step.bidStep && (
                             <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
-                              style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+                              style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
                               🔔 입찰 비교 후 업체 선택 →
                             </button>
                           )}
@@ -4581,7 +4585,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                             <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
                               style={{ marginTop:S.sm, padding:"8px 16px",
                                 background: csStage?.badge === "확인 필요" ? "#C07000" : C.brand,
-                                color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand}44` }}>
+                                color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
                               {csStage?.cta ?? "에스크로 진행현황 보기"} →
                             </button>
                           )}
@@ -5358,14 +5362,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </div>
             <div style={{ display:"flex", gap:S.sm }}>
               <button onClick={() => setShowRegisterPrompt(false)} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>나중에</button>
-              <button onClick={() => { setShowRegisterPrompt(false); onStartOnboarding(); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>🚀 업체 등록하기</button>
+              <button onClick={() => { setShowRegisterPrompt(false); onStartOnboarding(); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand44}` }}>🚀 업체 등록하기</button>
             </div>
           </div>
         </div>
       )}
 
       {toast && (
-        <div style={{ position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:C.brand, color:"#fff", borderRadius:R.full, padding:"12px 22px", fontSize:13, fontWeight:700, boxShadow:`0 8px 24px ${C.brand}44`, zIndex:200, whiteSpace:"nowrap" }}>{toast}</div>
+        <div style={{ position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)", background:C.brand, color:"#fff", borderRadius:R.full, padding:"12px 22px", fontSize:13, fontWeight:700, boxShadow:`0 8px 24px ${C.brand44}`, zIndex:200, whiteSpace:"nowrap" }}>{toast}</div>
       )}
 
       {showLoginRequired && (
@@ -5384,7 +5388,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:S.sm }}>
               <button onClick={() => { setShowLoginRequired(false); onLogout(); }}
-                style={{ width:"100%", padding:S.xl, background:`linear-gradient(135deg,${C.brand},${C.brandD})`, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>
+                style={{ width:"100%", padding:S.xl, background:`linear-gradient(135deg,${C.brand},${C.brandD})`, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand44}` }}>
                 🏡 의뢰인으로 시작
               </button>
               <button onClick={() => { setShowLoginRequired(false); onLogout(); }}
@@ -5504,7 +5508,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   onClick={() => { setReqBlock(null); setScreen("home"); }}
                   style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff", border:"none",
                     borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
-                    boxShadow:`0 4px 16px ${C.brand}44`, marginBottom:10 }}>
+                    boxShadow:`0 4px 16px ${C.brand44}`, marginBottom:10 }}>
                   진행 중 견적 보기
                 </button>
                 {reqBlock.activeReq?.id && (
@@ -5515,7 +5519,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       setReqBlock(null);
                     }}
                     style={{ width:"100%", padding:"12px", background:C.surface2, color:C.red,
-                      border:`1px solid ${C.red}33`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:10 }}>
+                      border:`1px solid ${C.red33}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", marginBottom:10 }}>
                     견적 종료하고 새 요청 등록
                   </button>
                 )}
@@ -5532,7 +5536,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   onClick={() => { setReqBlock(null); setScreen("home"); }}
                   style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff", border:"none",
                     borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer",
-                    boxShadow:`0 4px 16px ${C.brand}44`, marginBottom:10 }}>
+                    boxShadow:`0 4px 16px ${C.brand44}`, marginBottom:10 }}>
                   진행 중 요청 보기
                 </button>
                 {reqBlock.activeReq?.id && (
@@ -5705,7 +5709,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </div>
             <div style={{ display:"flex", gap:S.sm }}>
               <button onClick={() => setBidAlert(null)} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>나중에</button>
-              <button onClick={() => { setBidViewRequestId(bidAlert.requestId ?? null); setBidAlert(null); setScreen("bidstatus"); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44` }}>💰 견적 비교하기</button>
+              <button onClick={() => { setBidViewRequestId(bidAlert.requestId ?? null); setBidAlert(null); setScreen("bidstatus"); }} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand44}` }}>💰 견적 비교하기</button>
             </div>
           </div>
         </div>

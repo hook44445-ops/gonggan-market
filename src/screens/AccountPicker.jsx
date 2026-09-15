@@ -50,7 +50,7 @@ export default function AccountPicker({ users = [], busyId = null, onPick, onAdd
           <div style={{
             width: 72, height: 72, borderRadius: 24, margin: "0 auto 12px",
             background: C.surface, display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: `0 10px 30px ${C.brand}22`, border: `1px solid ${C.bgWarm}`,
+            boxShadow: `0 10px 30px ${C.brand22}`, border: `1px solid ${C.bgWarm}`,
           }}><LogoMark size={46} bare /></div>
           <div style={{ fontSize: 22, fontWeight: 800, color: C.brandD, letterSpacing: "-0.5px" }}>다시 오셨네요</div>
           <div style={{ fontSize: 13, color: C.text3, marginTop: 6 }}>

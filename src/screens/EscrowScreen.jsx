@@ -47,7 +47,7 @@ function CountdownTimer({ deadlineMs }) {
           {pad(h)}:{pad(m)}:{pad(s)}
         </span>
       </div>
-      <div style={{ background: `${C.brand}22`, borderRadius: R.full, height: 6 }}>
+      <div style={{ background: `${C.brand22}`, borderRadius: R.full, height: 6 }}>
         <div style={{ width: `${pct}%`, height: "100%", background: C.brand, borderRadius: R.full, transition: "width 1s linear" }} />
       </div>
       <div style={{ fontSize: 11, color: C.text3, marginTop: S.xs }}>72시간 내 미확인 시 자동 승인됩니다</div>
@@ -1387,7 +1387,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             선택하신 업체가 최종 견적서를 보냈어요.{"\n"}견적 내용을 확인하고 에스크로 결제를 진행해 주세요.
           </div>
           <button onClick={() => (onConfirmFinalQuote ? onConfirmFinalQuote() : onBack())}
-            style={{ marginTop: 24, padding: "13px 28px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
+            style={{ marginTop: 24, padding: "13px 28px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand44}` }}>
             최종 견적 확인하고 결제하기 →
           </button>
         </div>
@@ -1597,7 +1597,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
         {/* STEP J — Dispute freeze banner */}
         {disputeSubmitted && (
-          <div style={{ background: "#FFF0F0", border: `2px solid ${C.red}44`, borderRadius: R.lg,
+          <div style={{ background: "#FFF0F0", border: `2px solid ${C.red44}`, borderRadius: R.lg,
             padding: S.lg, marginBottom: S.lg, display: "flex", alignItems: "flex-start", gap: S.sm }}>
             <span style={{ fontSize: 22, flexShrink: 0 }}>⚠️</span>
             <div>
@@ -1641,7 +1641,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             </>
           )}
           <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: R.full, height: 8, marginBottom: 6 }}>
-            <div style={{ width: `${paid}%`, height: "100%", background: C.brand, borderRadius: R.full, transition: "width 0.6s ease", boxShadow: `0 0 8px ${C.brand}88` }} />
+            <div style={{ width: `${paid}%`, height: "100%", background: C.brand, borderRadius: R.full, transition: "width 0.6s ease", boxShadow: `0 0 8px ${C.brand88}` }} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, opacity: 0.7 }}>
             <span>{isConsumer ? "업체에 지급됨" : "업체 지급 완료"} {paid}%</span>
@@ -1717,7 +1717,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                     width: 40, height: 40, borderRadius: R.full,
                     background: done ? C.green : active ? C.brand : C.bgWarm,
                     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
-                    boxShadow: active ? `0 0 0 4px ${C.brand}33` : "none",
+                    boxShadow: active ? `0 0 0 4px ${C.brand33}` : "none",
                     border: active ? `2px solid ${C.brand}` : "none",
                     color: (done || active) ? "#fff" : C.text4,
                   }}>
@@ -1794,7 +1794,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                               border: "none",
                               background: photos.length > 0 && !disputeSubmitted ? C.brand : C.bgWarm,
                               color:      photos.length > 0 && !disputeSubmitted ? "#fff" : C.text4,
-                              boxShadow:  photos.length > 0 && !disputeSubmitted ? `0 4px 14px ${C.brand}44` : "none" }}>
+                              boxShadow:  photos.length > 0 && !disputeSubmitted ? `0 4px 14px ${C.brand44}` : "none" }}>
                             {disputeSubmitted ? "🔒 분쟁 동결 중"
                               : reportingStage === s.id ? "전송 중..."
                               : isUploadingThis ? "업로드 중..."
@@ -1803,7 +1803,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                           </button>
                         </div>
                         {reportError && (
-                          <div style={{ marginTop: S.sm, padding: "8px 12px", background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.md, fontSize: 12, color: C.red }}>
+                          <div style={{ marginTop: S.sm, padding: "8px 12px", background: "#FFF0F0", border: `1px solid ${C.red33}`, borderRadius: R.md, fontSize: 12, color: C.red }}>
                             {reportError}
                           </div>
                         )}
@@ -1880,12 +1880,12 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       )}
                       <div style={{ display: "flex", gap: S.sm }}>
                         {!disputeSubmitted && (
-                          <button onClick={() => setShowDispute(true)} style={{ flex: 1, padding: "11px", background: C.surface, color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>⚠️ 이의 신청</button>
+                          <button onClick={() => setShowDispute(true)} style={{ flex: 1, padding: "11px", background: C.surface, color: C.red, border: `1px solid ${C.red33}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>⚠️ 이의 신청</button>
                         )}
                         <button
                           onClick={() => !disputeSubmitted && setConfirmStage(s.id)}
                           disabled={disputeSubmitted}
-                          style={{ flex: 2, padding: "11px", background: disputeSubmitted ? C.bgWarm : C.brand, color: disputeSubmitted ? C.text4 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: disputeSubmitted ? "not-allowed" : "pointer", boxShadow: disputeSubmitted ? "none" : `0 4px 14px ${C.brand}44` }}>
+                          style={{ flex: 2, padding: "11px", background: disputeSubmitted ? C.bgWarm : C.brand, color: disputeSubmitted ? C.text4 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: disputeSubmitted ? "not-allowed" : "pointer", boxShadow: disputeSubmitted ? "none" : `0 4px 14px ${C.brand44}` }}>
                           {disputeSubmitted ? "🔒 분쟁 동결 중" : `✅ ${(isConsumer ? CUSTOMER_DISPLAY[s.id]?.confirmLabel : null) ?? s.confirmLabel}`}
                         </button>
                       </div>
@@ -1902,7 +1902,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
                   {/* Customer: dispute submitted */}
                   {isConsumer && disputeSubmitted && status === "pending_customer" && (
-                    <div style={{ background: "#FFF0F0", borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, border: `1px solid ${C.red}22`, marginTop: S.sm }}>
+                    <div style={{ background: "#FFF0F0", borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, border: `1px solid ${C.red22}`, marginTop: S.sm }}>
                       <span style={{ fontSize: 16 }}>⚠️</span>
                       <div>
                         <div style={{ fontSize: 13, color: C.red, fontWeight: 700 }}>이의 신청 접수됨</div>
@@ -2108,13 +2108,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               </div>
             )}
             {approvalError && (
-              <div style={{ marginBottom: S.lg, padding: "10px 14px", background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.md, fontSize: 13, color: C.red }}>
+              <div style={{ marginBottom: S.lg, padding: "10px 14px", background: "#FFF0F0", border: `1px solid ${C.red33}`, borderRadius: R.md, fontSize: 13, color: C.red }}>
                 {approvalError}
               </div>
             )}
             <div style={{ display: "flex", gap: S.sm }}>
               <button onClick={() => { setConfirmStage(null); setApprovalError(null); }} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>취소</button>
-              <button onClick={() => advanceStage(confirmStage)} style={{ flex: 2, padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand}44` }}>
+              <button onClick={() => advanceStage(confirmStage)} style={{ flex: 2, padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand44}` }}>
                 ✅ {(isConsumer ? CUSTOMER_DISPLAY[confirmStage]?.confirmLabel : null) ?? STAGE_META.find(x => x.id === confirmStage)?.confirmLabel ?? "승인하고 지급"}
               </button>
             </div>

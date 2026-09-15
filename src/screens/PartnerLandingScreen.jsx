@@ -6,6 +6,7 @@ import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호�
 import AppFooter from "../components/AppFooter"; // 사업자정보 푸터(법적 필수 · 삭제 금지)
 import { BetaBanner } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
+import { applyRoleTheme } from "../utils/roleTheme";
 
 // ── 베타 배지 (badge-beta · 이모지 없이 초록 점 blink + #F5EED6 배경) ────────────
 // FINAL BALANCED: 시안의 .badge-beta 이식. 이모지 배지 대체(현재 배포본 버그 수정 #2).
@@ -674,6 +675,9 @@ function FaqItem({ q, a }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function PartnerLandingScreen() {
+  // 파트너 전용 페이지 — 네이비 테마 적용
+  useEffect(() => { applyRoleTheme("company"); return () => applyRoleTheme("consumer"); }, []);
+
   const [heroRef, heroVis] = useVisible(0.05);
   const [showLoginGate, setShowLoginGate] = useState(false);
 

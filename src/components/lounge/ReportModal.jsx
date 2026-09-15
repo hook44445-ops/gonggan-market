@@ -152,7 +152,7 @@ export default function ReportModal({ type, targetId, onClose, onReport, onBlock
               width: "100%",
               padding: "13px",
               borderRadius: R.lg,
-              border: `1px solid ${C.red}33`,
+              border: `1px solid ${C.red33}`,
               background: "#FEF0F0",
               color: C.red,
               fontWeight: 700,

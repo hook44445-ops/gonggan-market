@@ -121,7 +121,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
       <button onClick={() => setSubmitted("done")}
         style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff",
           border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
-          boxShadow:`0 6px 20px ${C.brand}44` }}>
+          boxShadow:`0 6px 20px ${C.brand44}` }}>
         💳 {depositAmt.toLocaleString()}만원 공간뱃지예치보증금 등록하기
       </button>
     </div>
@@ -199,7 +199,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
         }}
         style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff",
           border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
-          boxShadow:`0 6px 20px ${C.brand}44` }}>
+          boxShadow:`0 6px 20px ${C.brand44}` }}>
         공간마켓 시작하기 🚀
       </button>
     </div>
@@ -602,7 +602,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
               style={{ width:"100%", padding:S.xl, marginTop:S.md,
                 background:canSubmit?C.brand:"#E8E4DC",
                 color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
-                boxShadow:canSubmit?`0 6px 20px ${C.brand}44`:"none" }}>
+                boxShadow:canSubmit?`0 6px 20px ${C.brand44}`:"none" }}>
               🚀 업체 파트너 신청 완료
             </button>
           );

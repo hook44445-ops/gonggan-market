@@ -73,7 +73,7 @@ export default function BidCompareCard({ bid, onChat, onSelect, selected = false
             background: selected ? C.brandL : C.brand,
             color: selected ? C.brand : "#fff",
             border: selected ? `1.5px solid ${C.brand}` : "none",
-            boxShadow: selected ? "none" : `0 3px 12px ${C.brand}44`,
+            boxShadow: selected ? "none" : `0 3px 12px ${C.brand44}`,
           }}>{selected ? "✔ 선택됨" : "이 업체로 선택하기"}</button>
         </div>
       </div>
