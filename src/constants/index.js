@@ -73,8 +73,8 @@ export const S = { xs:4, sm:8, md:12, lg:16, xl:20, xxl:28 };
 
 // 카드 깊이/레이어 — 숨쉬는 느낌의 부드러운 그림자
 export const SHADOW = {
-  soft:  "0 2px 10px rgba(28,23,18,0.05)",
-  card:  "0 4px 16px rgba(28,23,18,0.07)",
+  soft:  "0 1px 3px rgba(24,33,29,0.04), 0 4px 14px rgba(24,33,29,0.045)",
+  card:  "0 2px 6px rgba(24,33,29,0.05), 0 8px 24px rgba(24,33,29,0.06)",
   lift:  "0 8px 28px rgba(28,23,18,0.10)",
   brand: "var(--c-shadowBrand, 0 6px 20px rgba(46,95,75,0.18))",
 };

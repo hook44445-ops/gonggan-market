@@ -7,59 +7,59 @@
    · SDK(카카오맵 등) 처럼 var() 를 못 받는 곳은 resolveColor() 로 계산값을 읽는다.
 */
 :root {
-  --c-brand: #2E5F4B;
-  --c-brandL: #EAF2EE;
-  --c-brandM: #B5D4C5;
-  --c-brandD: #1D3D2F;
-  --c-brandSoft: #3A7A5C;
-  --c-navy: #1F2A24;
-  --c-navyM: #2E5F4B;
-  --c-navyL: #EAF2EE;
-  --c-bg: #F5F1EA;
-  --c-bgWarm: #E8E0D4;
+  --c-brand: #1F4A3A;
+  --c-brandL: #EAF1ED;
+  --c-brandM: #AFC9BC;
+  --c-brandD: #132E23;
+  --c-brandSoft: #2F6A4F;
+  --c-navy: #18211D;
+  --c-navyM: #1F4A3A;
+  --c-navyL: #EAF1ED;
+  --c-bg: #F4F4F1;
+  --c-bgWarm: #E4E4DE;
   --c-surface: #FFFFFF;
-  --c-surface2: #F8F5F0;
-  --c-text1: #1F2A24;
-  --c-text2: #3A4A3E;
-  --c-text3: #7A8A7E;
-  --c-text4: #B0BAB4;
-  --c-green: #2E5F4B;
-  --c-greenL: #EAF2EE;
+  --c-surface2: #FAFAF8;
+  --c-text1: #18211D;
+  --c-text2: #39453E;
+  --c-text3: #79827C;
+  --c-text4: #AFB5B1;
+  --c-green: #1F4A3A;
+  --c-greenL: #EAF1ED;
   --c-red: #D63030;
   --c-gold: #C8A15A;
-  --c-trust: #1F2A24;
-  --c-trustL: #EAF2EE;
-  --c-trustM: #B5D4C5;
-  --c-ivory: #FBF7EF;
-  --c-sand: #F2EBDA;
+  --c-trust: #18211D;
+  --c-trustL: #EAF1ED;
+  --c-trustM: #AFC9BC;
+  --c-ivory: #FBFBF9;
+  --c-sand: #EDEDE7;
   --c-pink: #DFABC6;
   --c-pinkL: #FBEEF3;
   --c-pinkD: #6B3355;
-  --c-leaf: #6B8E5A;
+  --c-leaf: #5E7F52;
   --c-sun: #F6DDAA;
-  --c-brand0D: rgba(46,95,75,0.051);
-  --c-brand18: rgba(46,95,75,0.094);
-  --c-brand1A: rgba(46,95,75,0.102);
-  --c-brand20: rgba(46,95,75,0.125);
-  --c-brand22: rgba(46,95,75,0.133);
-  --c-brand33: rgba(46,95,75,0.2);
-  --c-brand44: rgba(46,95,75,0.267);
-  --c-brand55: rgba(46,95,75,0.333);
-  --c-brand66: rgba(46,95,75,0.4);
-  --c-brand88: rgba(46,95,75,0.533);
-  --c-brandAA: rgba(46,95,75,0.667);
+  --c-brand0D: rgba(31,74,58,0.051);
+  --c-brand18: rgba(31,74,58,0.094);
+  --c-brand1A: rgba(31,74,58,0.102);
+  --c-brand20: rgba(31,74,58,0.125);
+  --c-brand22: rgba(31,74,58,0.133);
+  --c-brand33: rgba(31,74,58,0.2);
+  --c-brand44: rgba(31,74,58,0.267);
+  --c-brand55: rgba(31,74,58,0.333);
+  --c-brand66: rgba(31,74,58,0.4);
+  --c-brand88: rgba(31,74,58,0.533);
+  --c-brandAA: rgba(31,74,58,0.667);
   --c-brandL88: rgba(234,242,238,0.533);
   --c-brandM55: rgba(181,212,197,0.333);
   --c-gold18: rgba(200,161,90,0.094);
   --c-gold44: rgba(200,161,90,0.267);
-  --c-green15: rgba(46,95,75,0.082);
-  --c-green33: rgba(46,95,75,0.2);
-  --c-green44: rgba(46,95,75,0.267);
+  --c-green15: rgba(31,74,58,0.082);
+  --c-green33: rgba(31,74,58,0.2);
+  --c-green44: rgba(31,74,58,0.267);
   --c-red22: rgba(214,48,48,0.133);
   --c-red33: rgba(214,48,48,0.2);
   --c-red44: rgba(214,48,48,0.267);
   --c-red55: rgba(214,48,48,0.333);
-  --c-shadowBrand: 0 6px 20px rgba(46,95,75,0.18);
+  --c-shadowBrand: 0 6px 20px rgba(31,74,58,0.18);
 }
 
 [data-role="company"] {
@@ -130,4 +130,12 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .gg-spinner { animation-duration: 2s; }
+}
+
+/* 한글 줄바꿈 — 단어 중간에서 끊기지 않게(keep-all). '아무에게나 맡길 수 없으니 / 까'
+   처럼 어절이 쪼개지면 정돈돼 보이지 않는다. 긴 URL 등 끊을 데가 없는 문자열은
+   overflow-wrap 으로 넘침만 막는다. */
+body {
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
