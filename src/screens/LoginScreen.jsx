@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import { BADGES } from "../constants/badges";
-import { LogoMark, LeafSprig } from "../components/common";
+import { LogoMark, LeafSprig, Icon } from "../components/common";
 import CompanyOnboarding from "./CompanyOnboarding";
 import { upsertUserByPhone, signupUserByPhone, getUserByPhone } from "../lib/supabase";
 import { getKnownUsers, knownUserToSession } from "../lib/deviceAuth";
@@ -294,7 +294,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                 padding: `${S.lg}px ${S.sm}px`, textAlign: "center",
                 border: `1px solid ${C.bgWarm}`,
               }}>
-                <div style={{ fontSize: 22, marginBottom: 5 }}>{icon}</div>
+                <div style={{ marginBottom: 5, display: "flex", justifyContent: "center" }}><Icon emoji={icon} size={22} color={C.brand} /></div>
                 <div style={{ fontSize: 12, color: C.text2, fontWeight: 700 }}>{label}</div>
               </div>
             ))}
@@ -312,8 +312,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
               <div style={{
                 width: 44, height: 44, borderRadius: R.lg, flexShrink: 0,
                 background: C.brandL, border: `1.5px solid ${C.brandM}`,
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
-              }}>💬</div>
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}><Icon emoji="💬" size={22} color={C.brand} /></div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 2 }}>라운지 둘러보기</div>
                 <div style={{ fontSize: 12, color: C.text3 }}>가입 전 커뮤니티 · 후기 · 질문 미리보기</div>
@@ -331,8 +331,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
               <div style={{
                 width: 48, height: 48, borderRadius: R.lg, flexShrink: 0,
                 background: "rgba(255,255,255,0.2)",
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24,
-              }}>🏡</div>
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}><Icon emoji="🏡" size={24} color="#fff" /></div>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 2 }}>의뢰인으로 시작</div>
                 <div style={{ fontSize: 13, opacity: 0.8 }}>집수리·인테리어·리모델링 업체를 찾고 있어요</div>
@@ -349,8 +349,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
               <div style={{
                 width: 48, height: 48, borderRadius: R.lg, flexShrink: 0,
                 background: C.surface2, border: `1.5px solid ${C.bgWarm}`,
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24,
-              }}>🔨</div>
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}><Icon emoji="🔨" size={24} color={C.brand} /></div>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 2 }}>업체로 시작</div>
                 <div style={{ fontSize: 13, color: C.text3 }}>견적 의뢰를 받고 일감을 늘려요</div>
@@ -414,7 +414,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
           )}
           {!codeSent && (
             <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, fontSize: 13, color: C.text2, lineHeight: 1.8 }}>
-              📱 입력한 번호로 인증문자가 발송됩니다<br />🔒 번호는 인증 외 목적으로 사용되지 않습니다
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="📱" size={14} color={C.brand} /> 입력한 번호로 인증문자가 발송됩니다</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="🔒" size={14} color={C.brand} /> 번호는 인증 외 목적으로 사용되지 않습니다</div>
             </div>
           )}
           <div style={{ textAlign: "center", marginTop: 32 }}>
@@ -478,7 +479,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                 ← {selectedCity}
               </button>
               <div style={{ fontSize: 22, fontWeight: 900, color: C.text1, marginBottom: 6 }}>구 / 시를 선택해주세요</div>
-              <div style={{ fontSize: 14, color: C.brand, fontWeight: 700, marginBottom: S.xl }}>📍 {selectedCity}</div>
+              <div style={{ fontSize: 14, color: C.brand, fontWeight: 700, marginBottom: S.xl, display: "flex", alignItems: "center", gap: 4 }}><Icon emoji="📍" size={14} color={C.brand} /> {selectedCity}</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, maxHeight: "55vh", overflowY: "auto" }}>
                 {CITY_DISTRICTS[selectedCity].map(district => (
                   <button key={district} onClick={() => { setSelectedDistrict(district); setConsumerStep(3); }}
@@ -497,14 +498,14 @@ export default function LoginScreen({ onLogin, initialRole }) {
         <div style={{ width: "100%", maxWidth: 390 }}>
           {progressBar(3, 3)}
           <div style={{ fontSize: 22, fontWeight: 900, color: C.text1, marginBottom: 6 }}>관심 서비스를 선택해주세요</div>
-          <div style={{ fontSize: 14, color: C.text3, marginBottom: S.xl }}>📍 {selectedCity} {selectedDistrict} · 복수 선택 가능</div>
+          <div style={{ fontSize: 14, color: C.text3, marginBottom: S.xl, display: "flex", alignItems: "center", gap: 4 }}><Icon emoji="📍" size={14} color={C.text3} /> {selectedCity} {selectedDistrict} · 복수 선택 가능</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
             {SPECIALTIES.map(s => {
               const active = selectedServices.includes(s);
               return (
                 <button key={s} onClick={() => toggleService(s)}
                   style={{ padding: "14px 12px", borderRadius: R.lg, fontSize: 14, fontWeight: 700, border: `2px solid ${active ? C.brand : C.bgWarm}`, background: active ? C.brandL : C.surface, color: active ? C.brand : C.text2, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8, boxShadow: active ? `0 0 0 1px ${C.brand33}` : "none", transition: "all 0.15s" }}>
-                  <span style={{ fontSize: 18 }}>{SERVICE_ICONS[s] ?? "🔧"}</span>
+                  <Icon emoji={SERVICE_ICONS[s] ?? "🔧"} size={18} color={active ? C.brand : C.text2} />
                   <span>{s}</span>
                 </button>
               );
@@ -512,8 +513,11 @@ export default function LoginScreen({ onLogin, initialRole }) {
           </div>
           {msg && <div style={{ padding: "12px 16px", borderRadius: R.md, marginBottom: 14, background: "#FFF0F0", color: C.red, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
           <button onClick={saveConsumer} disabled={loading}
-            style={{ width: "100%", padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, cursor: "pointer", boxShadow: `0 6px 20px ${C.brand44}`, opacity: loading ? 0.7 : 1 }}>
-            {loading ? "저장 중..." : `공간마켓 시작하기 🚀${selectedServices.length > 0 ? ` (${selectedServices.length}개 선택)` : ""}`}
+            style={{ width: "100%", padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, cursor: "pointer", boxShadow: `0 6px 20px ${C.brand44}`, opacity: loading ? 0.7 : 1,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            {loading ? "저장 중..." : (
+              <>공간마켓 시작하기{selectedServices.length > 0 ? ` (${selectedServices.length}개 선택)` : ""} <Icon emoji="🚀" size={16} color="#fff" /></>
+            )}
           </button>
           <button onClick={() => { setConsumerStep(2); setSelectedDistrict(""); }}
             style={{ background: "none", border: "none", fontSize: 14, color: C.text3, cursor: "pointer", marginTop: S.md, fontWeight: 600, width: "100%" }}>
@@ -589,7 +593,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                       background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.42)",
                       borderRadius: R.lg, padding: "10px 11px",
                     }}>
-                      <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+                      <Icon emoji={icon} size={16} color="#fff" style={{ flexShrink: 0 }} />
                       <span style={{ fontSize: 12.5, fontWeight: 800, color: "#fff", letterSpacing: "-0.2px", lineHeight: 1.2 }}>{t}</span>
                     </div>
                   ))}
@@ -612,7 +616,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                   { icon: "📋", title: "프로젝트 증빙보관", desc: "사진·계약·대화 전 과정을 기록·보관해요" },
                 ].map(({ icon, title, desc }) => (
                   <div key={title} style={{ background: C.surface, borderRadius: R.lg, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
-                    <div style={{ width: 40, height: 40, borderRadius: R.md, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, marginBottom: 10 }}>{icon}</div>
+                    <div style={{ width: 40, height: 40, borderRadius: R.md, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}><Icon emoji={icon} size={20} color={C.brand} /></div>
                     <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{title}</div>
                     <div style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.55 }}>{desc}</div>
                   </div>
@@ -642,7 +646,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                   <div key={label} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
                     <div style={{ width: 72, background: C.surface, borderRadius: R.lg, border: `1px solid ${C.brandM}`, padding: "10px 6px 12px", textAlign: "center", position: "relative" }}>
                       <div style={{ position: "absolute", top: 6, left: 6, width: 16, height: 16, borderRadius: R.full, background: C.brand, color: "#fff", fontSize: 9.5, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</div>
-                      <div style={{ fontSize: 22, margin: "4px 0 6px" }}>{icon}</div>
+                      <div style={{ margin: "4px 0 6px", display: "flex", justifyContent: "center" }}><Icon emoji={icon} size={22} color={C.brand} /></div>
                       <div style={{ fontSize: 11.5, fontWeight: 800, color: C.text1, lineHeight: 1.3, whiteSpace: "nowrap" }}>{label}</div>
                     </div>
                     {i < arr.length - 1 && (
@@ -685,14 +689,14 @@ export default function LoginScreen({ onLogin, initialRole }) {
                   const b = BADGES[c.badge] ?? BADGES.basic;
                   return (
                     <div key={c.name} style={{ flexShrink: 0, width: 172, background: C.surface, borderRadius: R.xl, border: `1px solid ${C.bgWarm}`, overflow: "hidden", boxShadow: "0 2px 10px rgba(28,23,18,0.06)" }}>
-                      <div style={{ height: 124, background: `linear-gradient(135deg, ${C.brandL} 0%, ${C.surface2} 100%)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 56, position: "relative" }}>
-                        {c.photo}
+                      <div style={{ height: 124, background: `linear-gradient(135deg, ${C.brandL} 0%, ${C.surface2} 100%)`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                        <Icon emoji={c.photo} size={48} color={C.brand} />
                         <span style={{ position: "absolute", top: 10, left: 10, background: b.bg, color: b.color, borderRadius: R.full, padding: "3px 10px", fontSize: 10.5, fontWeight: 800, boxShadow: "0 1px 4px rgba(28,23,18,0.12)" }}>{b.label}</span>
                         <span style={{ position: "absolute", top: 10, right: 10, background: "rgba(255,255,255,0.92)", color: c.temp >= 90 ? C.brand : C.gold, borderRadius: R.full, padding: "3px 9px", fontSize: 12, fontWeight: 900, boxShadow: "0 1px 4px rgba(28,23,18,0.12)" }}>{c.temp}°</span>
                       </div>
                       <div style={{ padding: "13px 13px 15px" }}>
                         <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>{c.name}</div>
-                        <div style={{ fontSize: 11.5, color: C.text3, marginBottom: 9 }}>📍 {c.region}</div>
+                        <div style={{ fontSize: 11.5, color: C.text3, marginBottom: 9, display: "flex", alignItems: "center", gap: 3 }}><Icon emoji="📍" size={11} color={C.text3} /> {c.region}</div>
                         <span style={{ display: "inline-block", background: C.surface2, color: C.text2, borderRadius: R.full, padding: "4px 11px", fontSize: 11, fontWeight: 600, border: `1px solid ${C.bgWarm}` }}>{c.spec}</span>
                       </div>
                     </div>
@@ -713,7 +717,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                 <div key={i} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                     <div style={{ display: "flex", gap: S.sm, alignItems: "center" }}>
-                      <div style={{ width: 40, height: 40, borderRadius: R.md, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>{r.photo}</div>
+                      <div style={{ width: 40, height: 40, borderRadius: R.md, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon emoji={r.photo} size={20} color={C.brand} /></div>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>{r.co}</div>
                         <div style={{ fontSize: 11, color: C.text3 }}>{r.type}</div>
@@ -739,7 +743,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                 ].map(({ icon, step }, i, arr) => (
                   <div key={step} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
                     <div style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ width: 44, height: 44, borderRadius: R.full, background: C.brandL, border: `1.5px solid ${C.brandM}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, margin: "0 auto 8px" }}>{icon}</div>
+                      <div style={{ width: 44, height: 44, borderRadius: R.full, background: C.brandL, border: `1.5px solid ${C.brandM}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px" }}><Icon emoji={icon} size={19} color={C.brand} /></div>
                       <div style={{ fontSize: 12, fontWeight: 800, color: C.text1 }}>{step}</div>
                     </div>
                     {i < arr.length - 1 && <div style={{ color: C.brandM, fontSize: 16, fontWeight: 900, flexShrink: 0 }}>›</div>}
@@ -751,7 +755,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
             {/* ═══ 8. 공간마켓 라운지 (보조 서비스 · 축소) ═══ */}
             <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <span style={{ fontSize: 18 }}>💬</span>
+                <Icon emoji="💬" size={18} color={C.brand} />
                 <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>공간마켓 라운지</div>
                 <span style={{ background: C.surface2, color: C.text3, borderRadius: R.full, padding: "2px 9px", fontSize: 10.5, fontWeight: 700, border: `1px solid ${C.bgWarm}` }}>보조 서비스</span>
               </div>
@@ -768,17 +772,20 @@ export default function LoginScreen({ onLogin, initialRole }) {
           <div style={{ background: C.surface, borderTop: `1px solid ${C.bgWarm}`, padding: "12px 20px 24px", display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }}>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => { setShowBrowse(false); chooseRole("consumer"); }}
-                style={{ flex: 1, padding: "16px", background: `linear-gradient(135deg,${C.brand},${C.brandD})`, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand44}` }}>
-                🏡 의뢰인으로 시작
+                style={{ flex: 1, padding: "16px", background: `linear-gradient(135deg,${C.brand},${C.brandD})`, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand44}`,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <Icon emoji="🏡" size={16} color="#fff" /> 의뢰인으로 시작
               </button>
               <button onClick={() => { setShowBrowse(false); chooseRole("company"); }}
-                style={{ flex: 1, padding: "16px", background: C.surface, color: C.brand, border: `2px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
-                🔨 업체로 시작
+                style={{ flex: 1, padding: "16px", background: C.surface, color: C.brand, border: `2px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <Icon emoji="🔨" size={16} color={C.brand} /> 업체로 시작
               </button>
             </div>
             <button onClick={() => { setShowBrowse(false); onLogin({ id: null, role: "consumer", name: "게스트", region: "", isGuest: true, startAt: "lounge" }); }}
-              style={{ width: "100%", padding: "14px", background: C.surface, color: C.text2, border: `2px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
-              💬 라운지 둘러보기
+              style={{ width: "100%", padding: "14px", background: C.surface, color: C.text2, border: `2px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Icon emoji="💬" size={16} color={C.text2} /> 라운지 둘러보기
             </button>
           </div>
         </div>

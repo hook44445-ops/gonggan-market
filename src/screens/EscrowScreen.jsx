@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
-import { LeafSprig } from "../components/common";
+import { LeafSprig, Icon } from "../components/common";
 import NotificationBell from "../components/NotificationBell";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
@@ -1214,7 +1214,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
         </div>
         <div style={{ padding: "60px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 34, marginBottom: 12 }}>🔍</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Icon emoji="🔍" size={34} color={C.text3} /></div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 6 }}>계약 정보를 불러올 수 없습니다</div>
           <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>잠시 후 다시 시도해주세요</div>
           <button onClick={onBack} style={{ marginTop: 20, padding: "10px 22px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
@@ -1248,7 +1248,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
         </div>
         <div style={{ padding: "60px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 34, marginBottom: 12 }}>😢</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Icon emoji="😢" size={34} color={C.text3} /></div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 6 }}>시공 현황을 불러오지 못했습니다.</div>
           <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>다시 시도해 주세요.</div>
           <button onClick={onBack} style={{ marginTop: 20, padding: "10px 22px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
@@ -1266,7 +1266,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
         </div>
         <div style={{ padding: "60px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 34, marginBottom: 12 }}>🏠</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Icon emoji="🏠" size={34} color={C.text3} /></div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 6 }}>현재 진행 중인 시공 현황이 없습니다.</div>
           <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.7 }}>계약이 완료되면 이곳에서 진행 현황을 확인할 수 있어요.</div>
           <button onClick={onBack} style={{ marginTop: 20, padding: "10px 22px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
@@ -1379,7 +1379,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>공사 안전 결제</div>
         </div>
         <div style={{ padding: "56px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 34, marginBottom: 12 }}>📋</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Icon emoji="📋" size={34} color={C.text3} /></div>
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
             최종 견적이 도착했어요
           </div>
@@ -1404,7 +1404,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>공사 안전 결제</div>
         </div>
         <div style={{ padding: "56px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 34, marginBottom: 12 }}>📋</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Icon emoji="📋" size={34} color={C.text3} /></div>
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
             최종 견적을 기다리고 있어요
           </div>
@@ -1429,7 +1429,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: S.sm }}>
           {userId && <NotificationBell user={{ id: userId }} />}
-          <div style={{ background: C.navyL, borderRadius: R.full, padding: "4px 12px", fontSize: 12, fontWeight: 700, color: C.navy }}>🛡 보호중</div>
+          <div style={{ background: C.navyL, borderRadius: R.full, padding: "4px 12px", fontSize: 12, fontWeight: 700, color: C.navy, display: "flex", alignItems: "center", gap: 4 }}><Icon emoji="🛡" size={13} color={C.navy} /> 보호중</div>
         </div>
       </div>
 
@@ -1439,8 +1439,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           onClick={() => { const el = document.getElementById("escrow-amount-card"); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }}
           style={{ background: "#1E3D2F", color: "#fff", padding: "12px 20px", cursor: "pointer",
             display: "flex", flexDirection: "column", gap: 2 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.8 }}>
-            🛡️ 현재 {fmtMoney(Math.round(bidAmount * (100 - paid) / 100))} 보호 중
+          <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.8, display: "flex", alignItems: "center", gap: 6 }}>
+            <Icon emoji="🛡️" size={15} color="#fff" /> 현재 {fmtMoney(Math.round(bidAmount * (100 - paid) / 100))} 보호 중
           </div>
           <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.8 }}>
             {paid > 0
@@ -1454,7 +1454,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
         {/* Space OS · 보호의 약속 안내 */}
         <div style={{ background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: S.lg, fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
-          🤝 계약과 에스크로는 서로를 보호하기 위한 약속입니다. 투명한 진행 기록으로 신뢰를 함께 만듭니다.
+          <Icon emoji="🤝" size={13} color={C.text2} /> 계약과 에스크로는 서로를 보호하기 위한 약속입니다. 투명한 진행 기록으로 신뢰를 함께 만듭니다.
           <div style={{ marginTop: 5, color: C.text3 }}>에스크로는 돈을 묶는 시스템이 아니라, 약속을 지키기 위한 보호장치입니다.</div>
           <div style={{ marginTop: 5, color: C.text3 }}>좋은 공간은 좋은 만남에서 시작됩니다.</div>
         </div>
@@ -1599,7 +1599,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         {disputeSubmitted && (
           <div style={{ background: "#FFF0F0", border: `2px solid ${C.red44}`, borderRadius: R.lg,
             padding: S.lg, marginBottom: S.lg, display: "flex", alignItems: "flex-start", gap: S.sm }}>
-            <span style={{ fontSize: 22, flexShrink: 0 }}>⚠️</span>
+            <Icon emoji="⚠️" size={22} color={C.red} style={{ flexShrink: 0 }} />
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.red, marginBottom: 3 }}>분쟁 접수 — 계약 일시 동결</div>
               <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6 }}>
@@ -1617,10 +1617,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           borderRadius: R.lg, padding: `${S.sm}px ${S.lg}px`,
           marginBottom: S.lg, display: "flex", alignItems: "center", gap: S.sm,
         }}>
-          <span style={{ fontSize: 16 }}>{isConsumer ? "👤" : "🏗"}</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: isConsumer ? C.brand : C.text2 }}>
+          <Icon emoji={isConsumer ? "👤" : "🏗"} size={16} color={isConsumer ? C.brand : C.text2} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: isConsumer ? C.brand : C.text2, display: "flex", alignItems: "center", gap: 5 }}>
             {isConsumer
-              ? "🔒 사진을 확인하고 승인하면 공사비가 업체에 지급됩니다"
+              ? <><Icon emoji="🔒" size={13} color={C.brand} /> 사진을 확인하고 승인하면 공사비가 업체에 지급됩니다</>
               : "단계별로 완료 신고 후 고객 확인 시 입금됩니다"}
           </span>
         </div>
@@ -1667,7 +1667,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           if (dateStr) {
             return (
               <div style={{ background: C.ivory, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, lineHeight: 1.8 }}>📅 예상 완공일</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, lineHeight: 1.8, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="📅" size={14} color={C.text1} /> 예상 완공일</div>
                 <div style={{ fontSize: 14, color: C.text2, lineHeight: 1.8 }}>{fmtDate(dateStr) ?? dateStr}</div>
               </div>
             );
@@ -1675,7 +1675,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           if (!isConsumer && resolvedContractId) {
             return (
               <div style={{ background: C.ivory, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.sm, lineHeight: 1.8 }}>📅 예상 완공일 입력</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.sm, lineHeight: 1.8, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="📅" size={14} color={C.text1} /> 예상 완공일 입력</div>
                 <div style={{ display: "flex", gap: S.sm }}>
                   <input type="date" value={expectedEndInput} onChange={e => setExpectedEndInput(e.target.value)}
                     style={{ flex: 1, padding: "11px 14px", borderRadius: R.lg, border: `1px solid ${C.bgWarm}`, fontSize: 14, color: C.text1, background: C.surface, fontFamily: "inherit", outline: "none" }} />
@@ -1721,7 +1721,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                     border: active ? `2px solid ${C.brand}` : "none",
                     color: (done || active) ? "#fff" : C.text4,
                   }}>
-                    {statusIcon(s.id)}
+                    <Icon emoji={statusIcon(s.id)} size={18} color={(done || active) ? "#fff" : C.text4} />
                   </div>
                   {i < STAGE_META.length - 1 && (
                     <div style={{ width: 2, flex: 1, minHeight: 20, marginTop: 4, background: done ? C.green : C.bgWarm }} />
@@ -1741,8 +1741,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                           }
                         </div>
                         {!isConsumer && (
-                          <div style={{ fontSize: 11, color: col }}>
-                            {done ? "✓ 입금완료" : status === "pending_customer" ? "⏳ 고객 확인 대기" : active ? "● 신고 대기" : "미지급"}
+                          <div style={{ fontSize: 11, color: col, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3 }}>
+                            {done ? "✓ 입금완료"
+                              : status === "pending_customer" ? <><Icon emoji="⏳" size={11} color={col} /> 고객 확인 대기</>
+                              : active ? "● 신고 대기" : "미지급"}
                           </div>
                         )}
                       </div>
@@ -1754,7 +1756,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   {!isConsumer && status === "company_todo" && s.id >= 2 && (
                     <div style={{ marginTop: S.sm }}>
                       <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📸 {s.id === 3 ? "착공 사진 등록" : "사진 업로드"}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm, display: "flex", alignItems: "center", gap: 5 }}><Icon emoji="📸" size={13} color={C.text1} /> {s.id === 3 ? "착공 사진 등록" : "사진 업로드"}</div>
                         <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: S.md }}>
                           고객이 사진을 확인하면 {stage ? fmtMoney(stage.amount) : `${s.pct}%`} 지급 승인이 진행됩니다.
                         </div>
@@ -1776,15 +1778,16 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                         {photos.length === 0 && (
                           <button onClick={() => fileInputRefs[s.id]?.current?.click()} disabled={isUploadingThis}
                             style={{ width: "100%", padding: "18px", background: C.bg, border: `2px dashed ${C.bgWarm}`, borderRadius: R.lg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: S.sm, cursor: "pointer", marginBottom: S.md }}>
-                            <span style={{ fontSize: 28 }}>{isUploadingThis ? "⏳" : "📷"}</span>
+                            <Icon emoji={isUploadingThis ? "⏳" : "📷"} size={28} color={C.text3} />
                             <span style={{ fontSize: 13, color: C.text3, fontWeight: 600 }}>{isUploadingThis ? "처리 중..." : "사진을 선택하세요"}</span>
                             <span style={{ fontSize: 11, color: C.text4 }}>JPG, PNG · 최대 6장</span>
                           </button>
                         )}
                         <div style={{ display: "flex", gap: S.sm }}>
                           <button onClick={() => fileInputRefs[s.id]?.current?.click()} disabled={isUploadingThis}
-                            style={{ flex: 1, padding: "11px", background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                            📁 사진 선택
+                            style={{ flex: 1, padding: "11px", background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer",
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                            <Icon emoji="📁" size={13} color={C.text2} /> 사진 선택
                           </button>
                           <button
                             onClick={() => !disputeSubmitted && !reportingStage && reportComplete(s.id)}
@@ -1795,7 +1798,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                               background: photos.length > 0 && !disputeSubmitted ? C.brand : C.bgWarm,
                               color:      photos.length > 0 && !disputeSubmitted ? "#fff" : C.text4,
                               boxShadow:  photos.length > 0 && !disputeSubmitted ? `0 4px 14px ${C.brand44}` : "none" }}>
-                            {disputeSubmitted ? "🔒 분쟁 동결 중"
+                            {disputeSubmitted ? <><Icon emoji="🔒" size={13} color={C.text4} /> 분쟁 동결 중</>
                               : reportingStage === s.id ? "전송 중..."
                               : isUploadingThis ? "업로드 중..."
                               : s.id === 3 ? "착공 완료 및 공사 시작"
@@ -1839,7 +1842,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                         </div>
                       )}
                       <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm }}>
-                        <span style={{ fontSize: 16 }}>⏳</span>
+                        <Icon emoji="⏳" size={16} color={C.brand} />
                         <span style={{ fontSize: 13, color: C.brand, fontWeight: 700 }}>고객 확인 대기중 · 72시간 내 자동 승인</span>
                       </div>
                     </div>
@@ -1848,7 +1851,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   {/* Company: done */}
                   {!isConsumer && status === "done" && s.pct > 0 && (
                     <div style={{ background: C.greenL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
-                      <span style={{ fontSize: 16 }}>✅</span>
+                      <Icon emoji="✅" size={16} color={C.green} />
                       <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>입금 완료 · {fmtMoney(stage?.companyReceiveAmount ?? 0)}</span>
                     </div>
                   )}
@@ -1856,10 +1859,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   {/* ── Customer confirmation UI ── */}
                   {isConsumer && status === "pending_customer" && (
                     <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.brandM}`, marginTop: S.sm }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: C.brand, marginBottom: S.sm }}>
-                        {s.id === 3 && "🏗 업체가 공사를 시작했습니다"}
-                        {s.id === 4 && "📸 중간 공사 사진을 확인하고 승인해주세요"}
-                        {s.id === 5 && "🏁 업체가 공사 완료 사진을 올렸습니다"}
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.brand, marginBottom: S.sm, display: "flex", alignItems: "center", gap: 5 }}>
+                        {s.id === 3 && <><Icon emoji="🏗" size={13} color={C.brand} /> 업체가 공사를 시작했습니다</>}
+                        {s.id === 4 && <><Icon emoji="📸" size={13} color={C.brand} /> 중간 공사 사진을 확인하고 승인해주세요</>}
+                        {s.id === 5 && <><Icon emoji="🏁" size={13} color={C.brand} /> 업체가 공사 완료 사진을 올렸습니다</>}
                       </div>
                       {deadline && <CountdownTimer deadlineMs={deadline} />}
                       {photos.length > 0 && (
@@ -1880,13 +1883,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       )}
                       <div style={{ display: "flex", gap: S.sm }}>
                         {!disputeSubmitted && (
-                          <button onClick={() => setShowDispute(true)} style={{ flex: 1, padding: "11px", background: C.surface, color: C.red, border: `1px solid ${C.red33}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>⚠️ 이의 신청</button>
+                          <button onClick={() => setShowDispute(true)} style={{ flex: 1, padding: "11px", background: C.surface, color: C.red, border: `1px solid ${C.red33}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}><Icon emoji="⚠️" size={13} color={C.red} /> 이의 신청</button>
                         )}
                         <button
                           onClick={() => !disputeSubmitted && setConfirmStage(s.id)}
                           disabled={disputeSubmitted}
-                          style={{ flex: 2, padding: "11px", background: disputeSubmitted ? C.bgWarm : C.brand, color: disputeSubmitted ? C.text4 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: disputeSubmitted ? "not-allowed" : "pointer", boxShadow: disputeSubmitted ? "none" : `0 4px 14px ${C.brand44}` }}>
-                          {disputeSubmitted ? "🔒 분쟁 동결 중" : `✅ ${(isConsumer ? CUSTOMER_DISPLAY[s.id]?.confirmLabel : null) ?? s.confirmLabel}`}
+                          style={{ flex: 2, padding: "11px", background: disputeSubmitted ? C.bgWarm : C.brand, color: disputeSubmitted ? C.text4 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 13, cursor: disputeSubmitted ? "not-allowed" : "pointer", boxShadow: disputeSubmitted ? "none" : `0 4px 14px ${C.brand44}`,
+                            display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                          {disputeSubmitted
+                            ? <><Icon emoji="🔒" size={13} color={C.text4} /> 분쟁 동결 중</>
+                            : <><Icon emoji="✅" size={13} color="#fff" /> {(isConsumer ? CUSTOMER_DISPLAY[s.id]?.confirmLabel : null) ?? s.confirmLabel}</>}
                         </button>
                       </div>
                     </div>
@@ -1895,7 +1902,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   {/* Customer: done state for payable stages */}
                   {isConsumer && status === "done" && s.pct > 0 && (
                     <div style={{ background: C.greenL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
-                      <span style={{ fontSize: 16 }}>✅</span>
+                      <Icon emoji="✅" size={16} color={C.green} />
                       <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>확정 완료 · {fmtMoney(stage?.amount ?? 0)} 지급됨</span>
                     </div>
                   )}
@@ -1903,7 +1910,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   {/* Customer: dispute submitted */}
                   {isConsumer && disputeSubmitted && status === "pending_customer" && (
                     <div style={{ background: "#FFF0F0", borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, border: `1px solid ${C.red22}`, marginTop: S.sm }}>
-                      <span style={{ fontSize: 16 }}>⚠️</span>
+                      <Icon emoji="⚠️" size={16} color={C.red} />
                       <div>
                         <div style={{ fontSize: 13, color: C.red, fontWeight: 700 }}>이의 신청 접수됨</div>
                         <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>공간마켓 중재팀이 검토 후 연락드립니다 (영업일 1~2일)</div>
@@ -1923,12 +1930,12 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
         {/* ── Shared Construction Timeline ── */}
         <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>🗓 공사 타임라인</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.lg, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="🗓" size={15} color={C.text1} /> 공사 타임라인</div>
           {timeline.map((item, idx) => (
             <div key={item.id} style={{ display: "flex", gap: S.md, marginBottom: idx < timeline.length - 1 ? S.lg : 0 }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
                 <div style={{ width: 32, height: 32, borderRadius: R.full, background: item.type === "confirm" ? C.greenL : item.type === "dispute" ? "#FFF0F0" : C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>
-                  {TIMELINE_ICONS[item.type] ?? "●"}
+                  {TIMELINE_ICONS[item.type] ? <Icon emoji={TIMELINE_ICONS[item.type]} size={15} color={item.type === "confirm" ? C.green : item.type === "dispute" ? C.red : C.brand} /> : "●"}
                 </div>
                 {idx < timeline.length - 1 && (
                   <div style={{ width: 2, flex: 1, minHeight: 16, marginTop: 4, background: C.bgWarm }} />
@@ -1945,12 +1952,12 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         {/* ── GPS 체크포인트 — 단계별 현장 주소(좌표 아님) ── */}
         {checkpoints.length > 0 && (
           <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.lg }}>📍 현장 체크포인트</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.lg, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="📍" size={15} color={C.text1} /> 현장 체크포인트</div>
             {checkpoints.map((cp, idx) => {
               const meta = CHECKPOINT_META[cp.checkpoint_type] ?? { label: cp.checkpoint_type, icon: "📍" };
               return (
                 <div key={cp.id} style={{ display: "flex", gap: S.md, marginBottom: idx < checkpoints.length - 1 ? S.lg : 0 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: R.full, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{meta.icon}</div>
+                  <div style={{ width: 32, height: 32, borderRadius: R.full, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon emoji={meta.icon} size={15} color={C.brand} /></div>
                   <div style={{ flex: 1, paddingTop: 2 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{meta.label}</div>
                     <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>{cp.road_address || cp.jibun_address || "주소 미확인"}</div>
@@ -1981,7 +1988,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
         {/* Warranty info */}
         <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, display: "flex", gap: S.md, alignItems: "flex-start", marginBottom: S.lg }}>
-          <div style={{ fontSize: 24, flexShrink: 0 }}>🛡</div>
+          <Icon emoji="🛡" size={24} color={C.navy} style={{ flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: 4 }}>{isConsumer ? "공사 후 A/S 안내" : "하자보수 보증 안내"}</div>
             <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7 }}>완료 확인 후 <b style={{ color: C.navy }}>1년간 무상 AS</b> 보장</div>
@@ -1992,15 +1999,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         {/* ── STEP4: 완료 축하 카드 ── */}
         {isConsumer && (stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
           <div style={{ background: "#1E3D2F", color: "#fff", borderRadius: R.xl, padding: S.xxl, marginBottom: S.lg }}>
-            <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.8, marginBottom: 4 }}>🎉 공사가 완료됐습니다!</div>
+            <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.8, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="🎉" size={18} color="#fff" /> 공사가 완료됐습니다!</div>
             <div style={{ fontSize: 14, opacity: 0.92, lineHeight: 1.8, marginBottom: S.md }}>
               {request?.area ? `${request.area} ` : ""}{request?.space_type ?? "시공"}
               {bidAmount > 0 ? ` · ${fmtMoney(bidAmount)}이 안전하게 완료됐어요.` : "이 안전하게 완료됐어요."}
             </div>
-            <div style={{ fontSize: 14, lineHeight: 1.9 }}>
-              <div>✅ 에스크로 보호 완료</div>
-              <div>✅ 거래 기록 보관됨</div>
-              <div>✅ 공간온도 상승</div>
+            <div style={{ fontSize: 14, lineHeight: 1.9, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="✅" size={13} color="#fff" /> 에스크로 보호 완료</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="✅" size={13} color="#fff" /> 거래 기록 보관됨</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="✅" size={13} color="#fff" /> 공간온도 상승</div>
             </div>
             <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.8, marginTop: S.md }}>
               공간이 완성되었습니다.<br/>이제 당신의 이야기를 남겨주세요.
@@ -2014,7 +2021,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             border: `1px solid ${reviewedForContract ? C.brandM : "#F5D97A"}` }}>
             {reviewedForContract ? (
               <div style={{ display:"flex", alignItems:"center", gap:S.md }}>
-                <div style={{ fontSize:28, flexShrink:0 }}>✅</div>
+                <Icon emoji="✅" size={28} color={C.brand} style={{ flexShrink:0 }} />
                 <div>
                   <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:2 }}>리뷰 작성 완료</div>
                   <div style={{ fontSize:12, color:C.text3 }}>소중한 후기 감사합니다. 커피쿠폰 발송 예정입니다.</div>
@@ -2023,7 +2030,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             ) : (
               <div>
                 <div style={{ display:"flex", alignItems:"center", gap:S.md, marginBottom:S.md }}>
-                  <div style={{ fontSize:28, flexShrink:0 }}>☕</div>
+                  <Icon emoji="☕" size={28} color="#8A5C00" style={{ flexShrink:0 }} />
                   <div>
                     <div style={{ fontSize:14, fontWeight:800, color:"#8A5C00", marginBottom:2 }}>공사 완료 — 후기를 남겨보세요</div>
                     <div style={{ fontSize:12, color:"#A06B00", lineHeight:1.6 }}>포토리뷰 작성 시 커피쿠폰을 드립니다.</div>
@@ -2032,8 +2039,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                 <button onClick={() => onReview && onReview(resolvedBid?.company)}
                   style={{ width:"100%", padding:S.lg, background:"#8A5C00", color:"#fff",
                     border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14,
-                    cursor:"pointer", boxShadow:"0 4px 16px rgba(138,92,0,0.25)" }}>
-                  ⭐ 포토리뷰 작성하고 커피쿠폰 받기
+                    cursor:"pointer", boxShadow:"0 4px 16px rgba(138,92,0,0.25)",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <Icon emoji="⭐" size={14} color="#fff" /> 포토리뷰 작성하고 커피쿠폰 받기
                 </button>
               </div>
             )}
@@ -2045,7 +2053,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ background: custEvalDone ? C.brandL : C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${custEvalDone ? C.brandM : C.bgWarm}` }}>
             {custEvalDone ? (
               <div style={{ display:"flex", alignItems:"center", gap:S.md }}>
-                <div style={{ fontSize:24, flexShrink:0 }}>✅</div>
+                <Icon emoji="✅" size={24} color={C.brand} style={{ flexShrink:0 }} />
                 <div style={{ fontSize:13, fontWeight:700, color:C.brand }}>고객 신뢰평가를 완료했어요</div>
               </div>
             ) : (
@@ -2070,7 +2078,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
         {/* Deposit info */}
         <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md }}>{isConsumer ? "🏦 결제 보관 안내" : "🏦 예치금 보관 안내"}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="🏦" size={14} color={C.text1} /> {isConsumer ? "결제 보관 안내" : "예치금 보관 안내"}</div>
           {[["보관", "공간마켓 법인 신탁 계좌"], ["환급", "탈퇴 7일 내 전액"], ["분쟁", "중재 후 판정 지급"], ["향후", "은행 신탁 연계 예정"]].map(([k, v]) => (
             <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: `${S.xs}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
               <span style={{ fontSize: 12, color: C.text3 }}>{k}</span>
@@ -2086,7 +2094,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ background: C.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 480, padding: "24px 24px 40px" }}>
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 20px" }} />
             <div style={{ textAlign: "center", marginBottom: S.xxl }}>
-              <div style={{ fontSize: 44, marginBottom: 10 }}>💸</div>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}><Icon emoji="💸" size={44} color={C.brand} /></div>
               <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6 }}>
                 {confirmStage === 3 && "공사 시작을 확인하고 업체에 지급할까요?"}
                 {confirmStage === 4 && "중간 공사를 확인하고 업체에 지급할까요?"}
@@ -2114,8 +2122,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             )}
             <div style={{ display: "flex", gap: S.sm }}>
               <button onClick={() => { setConfirmStage(null); setApprovalError(null); }} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>취소</button>
-              <button onClick={() => advanceStage(confirmStage)} style={{ flex: 2, padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand44}` }}>
-                ✅ {(isConsumer ? CUSTOMER_DISPLAY[confirmStage]?.confirmLabel : null) ?? STAGE_META.find(x => x.id === confirmStage)?.confirmLabel ?? "승인하고 지급"}
+              <button onClick={() => advanceStage(confirmStage)} style={{ flex: 2, padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand44}`,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <Icon emoji="✅" size={15} color="#fff" /> {(isConsumer ? CUSTOMER_DISPLAY[confirmStage]?.confirmLabel : null) ?? STAGE_META.find(x => x.id === confirmStage)?.confirmLabel ?? "승인하고 지급"}
               </button>
             </div>
           </div>
@@ -2128,7 +2137,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           onClick={e => { if (e.target === e.currentTarget) setShowDispute(false); }}>
           <div style={{ background: C.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 480, padding: "24px 24px 40px" }}>
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 20px" }} />
-            <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6 }}>⚠️ 이의 신청</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="⚠️" size={18} color={C.red} /> 이의 신청</div>
             <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6, marginBottom: S.md }}>시공 상태가 계약 내용과 다를 경우 이의를 신청하세요.<br />공간마켓 중재팀이 검토 후 연락드립니다.</div>
             <div style={{ marginBottom: S.lg }}>
               <DisputeNotice variant="full" />
@@ -2192,7 +2201,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div onClick={(e) => e.stopPropagation()}
             style={{ width: "100%", maxWidth: 480, background: C.bg, borderRadius: "24px 24px 0 0", padding: "22px 18px 26px", maxHeight: "86vh", overflowY: "auto" }}>
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 16px" }} />
-            <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, marginBottom: 10 }}>📍 GPS 기록이 필요한 단계입니다</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="📍" size={17} color={C.brand} /> GPS 기록이 필요한 단계입니다</div>
             <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7, marginBottom: 14 }}>
               이 단계는 프로젝트 진행 기록을 정확하게 연결하기 위해 위치 기록을 함께 남깁니다. 기록 없이 진행하면 증빙관리에 <b>“GPS 누락”</b>으로 표시됩니다.{"\n"}위치를 기록하거나, 부득이한 경우 사유를 입력해 주세요.
             </div>
@@ -2210,8 +2219,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             {gpsErr && <div style={{ fontSize: 12, color: C.red, fontWeight: 700, marginBottom: 8 }}>{gpsErr}</div>}
 
             <button onClick={gpsGateCapture} disabled={gpsCapturing}
-              style={{ width: "100%", padding: 13, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: gpsCapturing ? "default" : "pointer", marginTop: 6, opacity: gpsCapturing ? 0.7 : 1 }}>
-              {gpsCapturing ? "위치 확인 중..." : "📍 GPS 기록하기"}
+              style={{ width: "100%", padding: 13, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: gpsCapturing ? "default" : "pointer", marginTop: 6, opacity: gpsCapturing ? 0.7 : 1,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              {gpsCapturing ? "위치 확인 중..." : <><Icon emoji="📍" size={14} color="#fff" /> GPS 기록하기</>}
             </button>
             <button onClick={gpsGateProceedWithReason} disabled={gpsCapturing}
               style={{ width: "100%", padding: 13, background: C.surface, color: C.text1, border: `1.5px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: "pointer", marginTop: 8 }}>

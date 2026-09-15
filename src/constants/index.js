@@ -30,7 +30,7 @@ export const C = {
   leaf: "var(--c-leaf, #6B8E5A)",
   sun: "var(--c-sun, #F6DDAA)",
 
-  // 알파(투명도) 변형 — 기존 `${C.brand}44` 패턴 대체. 2번째 인자는 CSS 미로드 시 폴백.
+  // 알파(투명도) 변형 — 기존 "C.brand + 44" 형태의 hex 알파 패턴 대체. 2번째 인자는 CSS 미로드 시 폴백.
   brand0D: "var(--c-brand0D, rgba(46,95,75,0.051))",
   brand18: "var(--c-brand18, rgba(46,95,75,0.094))",
   brand1A: "var(--c-brand1A, rgba(46,95,75,0.102))",
