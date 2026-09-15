@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { C, R, S, GRADE, SHADOW, calcCustomerGrade } from "../constants";
+import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES } from "../constants";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { loungeChatDbg } from "../utils/loungeChatDebug"; // 라운지 대화 신청/수신 신원 진단(플래그 시에만 출력)
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark, Icon, splitLeadingEmoji } from "./common";
@@ -128,6 +128,8 @@ import { getProvider } from "../services/payment/paymentService";
 import { ACTIVE_PROVIDER, getMethodMeta } from "../services/payment/constants";
 import { useCompanyList } from "../hooks/useCompanyList";
 import { applyRoleTheme } from "../utils/roleTheme";
+import { useUiVersion } from "../hooks/useUiVersion";
+import MyPageV3 from "../screens/v3/MyPageV3";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
 
@@ -581,6 +583,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
   // 역할별 테마 — 파트너(업체)는 네이비, 고객은 기존 그린. 루트 data-role 만 전환한다.
   useEffect(() => { applyRoleTheme(mode); }, [mode]);
+
+  // UI 버전 — v3(정리본) / v2(기존). 관리자 화면 토글에서 전환한다.
+  const [uiVersion] = useUiVersion();
   // 운영자/관리자 — 라운지 운영(추천글·숨김) 권한.
   // operator 는 부가 권한(is_operator 플래그)이며 사용자 유형(company/consumer)을 바꾸지 않음.
   const isModerator = activeRole === "admin"
@@ -4682,7 +4687,59 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           </div>
         )}
 
-        {screen==="my" && (
+        {screen==="my" && uiVersion === "v3" && (() => {
+          // v3 정리본 — 통계/등급은 기존 계산식을 그대로 재사용한다.
+          const escOf = (r) => myRequestsEscrow[r.id] ?? null;
+          const open = myRequests.filter(r => isRequestOpenForQuotes(r, escOf(r))).length;
+          const prog = myRequests.filter(r => isRequestInProgress(r, escOf(r))).length;
+          const done = myRequests.filter(r => isRequestSettled(r, escOf(r))).length;
+          return (
+            <MyPageV3
+              user={user}
+              activeRole={activeRole}
+              stats={{ requests: open, inProgress: prog, completed: done, saved: savedCompanies.length }}
+              grade={(() => {
+                // 고객: 완료 건수 기반 등급(새집→우리집→드림하우스→홈스타일러)
+                // 업체: 공간온도 기반 등급(GRADE) — 둘 다 '쌓이는 느낌'을 진행바로 보여준다.
+                if (activeRole === "company") {
+                  const t = Number(myCompanyRow?.temp ?? currentUser?.temp ?? 36.5);
+                  const g = GRADE(t);
+                  return { label: g.label, hint: `공간온도 ${t.toFixed(1)}°`, pct: Math.min(100, (t / 100) * 100) };
+                }
+                const cur = calcCustomerGrade(done);
+                const next = CUSTOMER_GRADES.find(x => x.minJobs > done);
+                return {
+                  label: `${cur.label} 등급`,
+                  hint: next ? `다음 등급까지 ${next.minJobs - done}건` : "최고 등급",
+                  pct: next ? Math.round((done / next.minJobs) * 100) : 100,
+                };
+              })()}
+              spaceTemp={currentUser?.temp ?? myCompanyRow?.temp ?? 36.5}
+              tokenBalance={tokenBalance}
+              idVerified={idVerified}
+              onVerifyId={handleMockIdVerify}
+              unreadTotal={unreadTotal}
+              companyRegions={(companyServiceRegions ?? []).map(r => r.label ?? r.sigungu).filter(Boolean)}
+              onEditRegions={() => setCompanyRegionSheetOpen(true)}
+              onGo={(target) => {
+                if (target === "newreq") { requireAuth(() => handleOpenNewReq()); return; }
+                if (target === "lounge-settings" || target === "my-posts") { setScreen("lounge"); return; }
+                if (target === "notifications") { setScreen("timeline"); return; }
+                if (target === "help") { setFaqExpanded(true); setScreen("my"); return; }
+                if (target === "documents") { setScreen("dashboard"); return; }
+                setScreen(target);
+              }}
+              onLogout={onLogout}
+              onForgetDevice={() => setShowForgetConfirm(true)}
+              onDeleteAccount={() => { window.location.href = "/delete-account"; }}
+              onShowAppInfo={() => setShowAppInfo(true)}
+              onShowBusinessInfo={() => setShowBusinessInfo(true)}
+              onTerms={(t) => { window.location.href = "/" + t; }}
+            />
+          );
+        })()}
+
+        {screen==="my" && uiVersion !== "v3" && (
           <div>
             <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:4 }}>
               <NotificationBell user={user} onNavigate={openNotificationTarget} />
