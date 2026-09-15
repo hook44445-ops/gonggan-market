@@ -307,7 +307,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
       {status !== "estimate_submitted" && (
         <button
           onClick={() => onGoEstimate({ ...job })}
-          style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44`, marginBottom:S.sm }}>
+          style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand44}`, marginBottom:S.sm }}>
           📋 플랫폼 견적서 작성하기
         </button>
       )}

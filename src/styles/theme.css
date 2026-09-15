@@ -1,0 +1,119 @@
+/* 공간마켓 테마 토큰 — 역할별 팔레트.
+   :root                = 고객(consumer) 그린 톤 (기존 아이덴티티 유지)
+   [data-role="company"] = 파트너(업체) 네이비 톤 — 신뢰·전문성 강조
+
+   · 컴포넌트는 기존처럼 constants 의 C.* 를 그대로 쓰면 되고,
+     C.* 값이 var(--c-*) 이므로 data-role 속성만 바뀌면 전체가 전환된다.
+   · SDK(카카오맵 등) 처럼 var() 를 못 받는 곳은 resolveColor() 로 계산값을 읽는다.
+*/
+:root {
+  --c-brand: #2E5F4B;
+  --c-brandL: #EAF2EE;
+  --c-brandM: #B5D4C5;
+  --c-brandD: #1D3D2F;
+  --c-brandSoft: #3A7A5C;
+  --c-navy: #1F2A24;
+  --c-navyM: #2E5F4B;
+  --c-navyL: #EAF2EE;
+  --c-bg: #F5F1EA;
+  --c-bgWarm: #E8E0D4;
+  --c-surface: #FFFFFF;
+  --c-surface2: #F8F5F0;
+  --c-text1: #1F2A24;
+  --c-text2: #3A4A3E;
+  --c-text3: #7A8A7E;
+  --c-text4: #B0BAB4;
+  --c-green: #2E5F4B;
+  --c-greenL: #EAF2EE;
+  --c-red: #D63030;
+  --c-gold: #C8A15A;
+  --c-trust: #1F2A24;
+  --c-trustL: #EAF2EE;
+  --c-trustM: #B5D4C5;
+  --c-ivory: #FBF7EF;
+  --c-sand: #F2EBDA;
+  --c-pink: #DFABC6;
+  --c-pinkL: #FBEEF3;
+  --c-pinkD: #6B3355;
+  --c-leaf: #6B8E5A;
+  --c-sun: #F6DDAA;
+  --c-brand0D: rgba(46,95,75,0.051);
+  --c-brand18: rgba(46,95,75,0.094);
+  --c-brand1A: rgba(46,95,75,0.102);
+  --c-brand20: rgba(46,95,75,0.125);
+  --c-brand22: rgba(46,95,75,0.133);
+  --c-brand33: rgba(46,95,75,0.2);
+  --c-brand44: rgba(46,95,75,0.267);
+  --c-brand55: rgba(46,95,75,0.333);
+  --c-brand66: rgba(46,95,75,0.4);
+  --c-brand88: rgba(46,95,75,0.533);
+  --c-brandAA: rgba(46,95,75,0.667);
+  --c-brandL88: rgba(234,242,238,0.533);
+  --c-brandM55: rgba(181,212,197,0.333);
+  --c-gold18: rgba(200,161,90,0.094);
+  --c-gold44: rgba(200,161,90,0.267);
+  --c-green15: rgba(46,95,75,0.082);
+  --c-green33: rgba(46,95,75,0.2);
+  --c-green44: rgba(46,95,75,0.267);
+  --c-red22: rgba(214,48,48,0.133);
+  --c-red33: rgba(214,48,48,0.2);
+  --c-red44: rgba(214,48,48,0.267);
+  --c-red55: rgba(214,48,48,0.333);
+  --c-shadowBrand: 0 6px 20px rgba(46,95,75,0.18);
+}
+
+[data-role="company"] {
+  --c-brand: #24406B;
+  --c-brandL: #EBEFF7;
+  --c-brandM: #B6C5DE;
+  --c-brandD: #16294A;
+  --c-brandSoft: #3A5A8C;
+  --c-navy: #16202E;
+  --c-navyM: #24406B;
+  --c-navyL: #EBEFF7;
+  --c-bg: #F3F5F8;
+  --c-bgWarm: #E2E7EF;
+  --c-surface: #FFFFFF;
+  --c-surface2: #F7F9FC;
+  --c-text1: #18202B;
+  --c-text2: #3A4657;
+  --c-text3: #78849A;
+  --c-text4: #AFB8C6;
+  --c-green: #24406B;
+  --c-greenL: #EBEFF7;
+  --c-red: #D63030;
+  --c-gold: #C8A15A;
+  --c-trust: #16202E;
+  --c-trustL: #EBEFF7;
+  --c-trustM: #B6C5DE;
+  --c-ivory: #FAFBFD;
+  --c-sand: #E9EEF5;
+  --c-pink: #DFABC6;
+  --c-pinkL: #FBEEF3;
+  --c-pinkD: #6B3355;
+  --c-leaf: #5A7590;
+  --c-sun: #F6DDAA;
+  --c-brand0D: rgba(36,64,107,0.051);
+  --c-brand18: rgba(36,64,107,0.094);
+  --c-brand1A: rgba(36,64,107,0.102);
+  --c-brand20: rgba(36,64,107,0.125);
+  --c-brand22: rgba(36,64,107,0.133);
+  --c-brand33: rgba(36,64,107,0.2);
+  --c-brand44: rgba(36,64,107,0.267);
+  --c-brand55: rgba(36,64,107,0.333);
+  --c-brand66: rgba(36,64,107,0.4);
+  --c-brand88: rgba(36,64,107,0.533);
+  --c-brandAA: rgba(36,64,107,0.667);
+  --c-brandL88: rgba(235,239,247,0.533);
+  --c-brandM55: rgba(182,197,222,0.333);
+  --c-gold18: rgba(200,161,90,0.094);
+  --c-gold44: rgba(200,161,90,0.267);
+  --c-green15: rgba(36,64,107,0.082);
+  --c-green33: rgba(36,64,107,0.2);
+  --c-green44: rgba(36,64,107,0.267);
+  --c-red22: rgba(214,48,48,0.133);
+  --c-red33: rgba(214,48,48,0.2);
+  --c-red44: rgba(214,48,48,0.267);
+  --c-red55: rgba(214,48,48,0.333);
+  --c-shadowBrand: 0 6px 20px rgba(36,64,107,0.18);
+}

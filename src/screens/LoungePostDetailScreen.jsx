@@ -1097,7 +1097,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               if (!chatSent) setShowChat(true);
             }}
             disabled={chatSent}
-            style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand}44`, transition: 'background 0.2s' }}>
+            style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand44}`, transition: 'background 0.2s' }}>
             {isGuest ? '💬 메시지 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 메시지 신청하기'}
           </button>
           <div style={{ textAlign: 'center', marginTop: S.sm, fontSize: 11, color: C.text4 }}>
@@ -1411,7 +1411,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: C.brand, color: '#fff', borderRadius: R.lg, padding: '12px 22px', fontSize: 12, fontWeight: 700, boxShadow: `0 8px 24px ${C.brand}44`, zIndex: 200, maxWidth: '85vw', wordBreak: 'break-all', textAlign: 'center' }}>
+        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', background: C.brand, color: '#fff', borderRadius: R.lg, padding: '12px 22px', fontSize: 12, fontWeight: 700, boxShadow: `0 8px 24px ${C.brand44}`, zIndex: 200, maxWidth: '85vw', wordBreak: 'break-all', textAlign: 'center' }}>
           {toast}
         </div>
       )}

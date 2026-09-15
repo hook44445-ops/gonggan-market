@@ -108,7 +108,7 @@ export default function AdminLogView() {
             <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 11.5, color: C.text3 }}>{fmtTime(r.created_at)}</span>
-                <span style={{ background: `${C.brand}1A`, color: C.brand, borderRadius: R.full, padding: "2px 9px", fontSize: 11, fontWeight: 800 }}>
+                <span style={{ background: `${C.brand1A}`, color: C.brand, borderRadius: R.full, padding: "2px 9px", fontSize: 11, fontWeight: 800 }}>
                   {ACTION_LABEL[r.action] || r.action || "—"}
                 </span>
                 {r.target_type && (

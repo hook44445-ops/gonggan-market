@@ -65,7 +65,7 @@ export default class ErrorBoundary extends Component {
               padding: "13px 28px", background: C.brand, color: "#fff",
               border: "none", borderRadius: R.full, fontWeight: 800,
               fontSize: 15, cursor: "pointer", marginBottom: S.md,
-              boxShadow: `0 4px 16px ${C.brand}44`,
+              boxShadow: `0 4px 16px ${C.brand44}`,
             }}
           >
             🏠 홈으로 돌아가기

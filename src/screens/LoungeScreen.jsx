@@ -193,7 +193,7 @@ function NotifPanel({ notifs, loading, onClose, onGoSettings, onNavigate }) {
                 if (target && onNavigate) { onClose?.(); onNavigate(target); }
               };
               return (
-                <div key={n.id} onClick={handleTap} style={{ display: 'flex', alignItems: 'center', gap: S.md, padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bg}`, background: !n.is_read ? `${C.brandL}88` : C.surface, cursor: target ? 'pointer' : 'default' }}>
+                <div key={n.id} onClick={handleTap} style={{ display: 'flex', alignItems: 'center', gap: S.md, padding: `${S.lg}px ${S.xl}px`, borderBottom: `1px solid ${C.bg}`, background: !n.is_read ? `${C.brandL88}` : C.surface, cursor: target ? 'pointer' : 'default' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: !n.is_read ? C.brandL : C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
                     {icon}
                   </div>
@@ -700,7 +700,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         position: 'fixed', right: S.xl, bottom: 80, width: 56, height: 56,
         borderRadius: R.full, background: C.brand, color: '#fff',
         border: 'none', fontSize: 24, cursor: 'pointer',
-        boxShadow: `0 4px 16px ${C.brand}66`, zIndex: 20,
+        boxShadow: `0 4px 16px ${C.brand66}`, zIndex: 20,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>+</button>}
 

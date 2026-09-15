@@ -1,40 +1,71 @@
 export const C = {
-  brand:    "#2E5F4B",
-  brandL:   "#EAF2EE",
-  brandM:   "#B5D4C5",
-  brandD:   "#1D3D2F",
+  brand: "var(--c-brand, #2E5F4B)",
+  brandL: "var(--c-brandL, #EAF2EE)",
+  brandM: "var(--c-brandM, #B5D4C5)",
+  brandD: "var(--c-brandD, #1D3D2F)",
+  brandSoft: "var(--c-brandSoft, #3A7A5C)",
+  navy: "var(--c-navy, #1F2A24)",
+  navyM: "var(--c-navyM, #2E5F4B)",
+  navyL: "var(--c-navyL, #EAF2EE)",
+  bg: "var(--c-bg, #F5F1EA)",
+  bgWarm: "var(--c-bgWarm, #E8E0D4)",
+  surface: "var(--c-surface, #FFFFFF)",
+  surface2: "var(--c-surface2, #F8F5F0)",
+  text1: "var(--c-text1, #1F2A24)",
+  text2: "var(--c-text2, #3A4A3E)",
+  text3: "var(--c-text3, #7A8A7E)",
+  text4: "var(--c-text4, #B0BAB4)",
+  green: "var(--c-green, #2E5F4B)",
+  greenL: "var(--c-greenL, #EAF2EE)",
+  red: "var(--c-red, #D63030)",
+  gold: "var(--c-gold, #C8A15A)",
+  trust: "var(--c-trust, #1F2A24)",
+  trustL: "var(--c-trustL, #EAF2EE)",
+  trustM: "var(--c-trustM, #B5D4C5)",
+  ivory: "var(--c-ivory, #FBF7EF)",
+  sand: "var(--c-sand, #F2EBDA)",
+  pink: "var(--c-pink, #DFABC6)",
+  pinkL: "var(--c-pinkL, #FBEEF3)",
+  pinkD: "var(--c-pinkD, #6B3355)",
+  leaf: "var(--c-leaf, #6B8E5A)",
+  sun: "var(--c-sun, #F6DDAA)",
 
-  navy:     "#1F2A24",
-  navyM:    "#2E5F4B",
-  navyL:    "#EAF2EE",
+  // 알파(투명도) 변형 — 기존 "C.brand + 44" 형태의 hex 알파 패턴 대체. 2번째 인자는 CSS 미로드 시 폴백.
+  brand0D: "var(--c-brand0D, rgba(46,95,75,0.051))",
+  brand18: "var(--c-brand18, rgba(46,95,75,0.094))",
+  brand1A: "var(--c-brand1A, rgba(46,95,75,0.102))",
+  brand20: "var(--c-brand20, rgba(46,95,75,0.125))",
+  brand22: "var(--c-brand22, rgba(46,95,75,0.133))",
+  brand33: "var(--c-brand33, rgba(46,95,75,0.2))",
+  brand44: "var(--c-brand44, rgba(46,95,75,0.267))",
+  brand55: "var(--c-brand55, rgba(46,95,75,0.333))",
+  brand66: "var(--c-brand66, rgba(46,95,75,0.4))",
+  brand88: "var(--c-brand88, rgba(46,95,75,0.533))",
+  brandAA: "var(--c-brandAA, rgba(46,95,75,0.667))",
+  brandL88: "var(--c-brandL88, rgba(234,242,238,0.533))",
+  brandM55: "var(--c-brandM55, rgba(181,212,197,0.333))",
+  gold18: "var(--c-gold18, rgba(200,161,90,0.094))",
+  gold44: "var(--c-gold44, rgba(200,161,90,0.267))",
+  green15: "var(--c-green15, rgba(46,95,75,0.082))",
+  green33: "var(--c-green33, rgba(46,95,75,0.2))",
+  green44: "var(--c-green44, rgba(46,95,75,0.267))",
+  red22: "var(--c-red22, rgba(214,48,48,0.133))",
+  red33: "var(--c-red33, rgba(214,48,48,0.2))",
+  red44: "var(--c-red44, rgba(214,48,48,0.267))",
+  red55: "var(--c-red55, rgba(214,48,48,0.333))",
+};
 
-  bg:       "#F5F1EA",
-  bgWarm:   "#E8E0D4",
-  surface:  "#FFFFFF",
-  surface2: "#F8F5F0",
 
-  text1:    "#1F2A24",
-  text2:    "#3A4A3E",
-  text3:    "#7A8A7E",
-  text4:    "#B0BAB4",
-
-  green:    "#2E5F4B",
-  greenL:   "#EAF2EE",
-  red:      "#D63030",
-  gold:     "#C8A15A",
-
-  trust:    "#1F2A24",
-  trustL:   "#EAF2EE",
-  trustM:   "#B5D4C5",
-
-  // ── 공간사이 아이덴티티 확장 톤 (자연·감사·생기) ──
-  ivory:    "#FBF7EF",   // 따뜻한 웜화이트 (surface 대체용 부드러운 면)
-  sand:     "#F2EBDA",   // 샌드 베이지 — 섹션 배경
-  pink:     "#DFABC6",   // 라이트 핑크 — 은은한 생기 포인트 (badge/divider/accent 전용)
-  pinkL:    "#FBEEF3",   // 라이트 핑크 배경
-  pinkD:    "#6B3355",   // 라이트 핑크 위 텍스트
-  leaf:     "#6B8E5A",   // 올리브 잎 톤 (보타니컬 장식)
-  sun:      "#F6DDAA",   // 포근 옐로우 — 따뜻한 강조
+// CSS var() 를 못 받는 외부 SDK(카카오맵 등)에서 현재 테마의 실제 색상값을 읽는다.
+// C.* 는 "var(--c-xxx)" 문자열이므로, 계산된 값으로 변환해 전달해야 한다.
+export const resolveColor = (value, fallback = "#2E5F4B") => {
+  if (typeof window === "undefined") return fallback;
+  const name = String(value ?? "").match(/var\((--[^)]+)\)/)?.[1];
+  if (!name) return value || fallback;
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  } catch { return fallback; }
 };
 
 export const R = { xs:4, sm:8, md:12, lg:16, xl:20, xxl:24, pill:28, full:999 };
@@ -45,14 +76,16 @@ export const SHADOW = {
   soft:  "0 2px 10px rgba(28,23,18,0.05)",
   card:  "0 4px 16px rgba(28,23,18,0.07)",
   lift:  "0 8px 28px rgba(28,23,18,0.10)",
-  brand: "0 6px 20px rgba(46,95,75,0.18)",
+  brand: "var(--c-shadowBrand, 0 6px 20px rgba(46,95,75,0.18))",
 };
 
 export const GRADE = t => {
-  if(t>=96) return { label:"최우수", color:"#1D3D2F", bg:"#E8F0EC", bar:"#2E5F4B", icon:"🏆" };
-  if(t>=90) return { label:"신뢰",   color:"#2E5F4B", bg:"#EAF2EE", bar:"#3A7A5C", icon:"✅" };
-  if(t>=84) return { label:"양호",   color:"#B08040", bg:"#FBF5E8", bar:"#C8A15A", icon:"👍" };
-  return           { label:"신규",   color:"#6B3355", bg:"#FBEEF3", bar:"#DFABC6", icon:"🌱" };
+  // 등급 배지 — 브랜드 계열(최우수/신뢰)은 테마 토큰을 써서 역할별 색상을 따른다.
+  // 양호(골드)/신규(핑크)는 등급 고유색이라 테마와 무관하게 유지.
+  if(t>=96) return { label:"최우수", color:C.brandD, bg:C.brandL, bar:C.brand,     icon:"🏆" };
+  if(t>=90) return { label:"신뢰",   color:C.brand,  bg:C.brandL, bar:C.brandSoft, icon:"✅" };
+  if(t>=84) return { label:"양호",   color:"#B08040", bg:"#FBF5E8", bar:C.gold,     icon:"👍" };
+  return           { label:"신규",   color:C.pinkD,  bg:C.pinkL,  bar:C.pink,      icon:"🌱" };
 };
 
 export const PHOTOS = {

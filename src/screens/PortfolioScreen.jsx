@@ -255,7 +255,7 @@ function PortfolioWriteModal({ companyId, onClose, onSaved }) {
               color: form.title.trim() ? "#fff" : C.text4,
               border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15,
               cursor: form.title.trim() ? "pointer" : "not-allowed",
-              boxShadow: form.title.trim() ? `0 4px 16px ${C.brand}44` : "none" }}>
+              boxShadow: form.title.trim() ? `0 4px 16px ${C.brand44}` : "none" }}>
             {saving ? "저장 중..." : "저장하기"}
           </button>
         </div>
@@ -378,7 +378,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
               display:"flex", alignItems:"center", gap:S.sm }}>
               <div style={{ width:8, height:8, borderRadius:"50%",
                 background:company.online?C.green:C.text4,
-                boxShadow:company.online?`0 0 0 3px ${C.green}33`:"none" }} />
+                boxShadow:company.online?`0 0 0 3px ${C.green33}`:"none" }} />
               <span style={{ fontSize:13, fontWeight:700, color:company.online?C.green:C.text3 }}>
                 {company.online
                   ? (company.lastActive ? `지금 활동중 · ${company.lastActive}` : "지금 활동중")

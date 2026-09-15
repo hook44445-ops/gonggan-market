@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import "./styles/theme.css"; // 역할별(고객 그린 / 파트너 네이비) 색상 토큰
 import DebugOverlay from "./components/DebugOverlay";
 import { SHOW_DEBUG_UI } from "./constants/release";
 

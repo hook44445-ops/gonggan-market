@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────
 
 // 등급 5단계(고정). amount = 예치금(만원). 선택 시 자동 계산은 서버(068 RPC)가 권위.
+import { C } from "./index";
 export const GUARANTEE_GRADES = [
   { key: "BASIC",     emoji: "🥉", label: "베이직",   amount: 50,   color: "#A0714F" },
   { key: "STANDARD",  emoji: "🥈", label: "스탠다드", amount: 100,  color: "#5A6370" },
@@ -22,9 +23,9 @@ export const wonFromManwon = (manwon) =>
 export const GUARANTEE_STATUS_META = {
   NONE:              { label: "미가입",       step: 0, color: "#7A8A7E", bg: "#F2EBDA" },
   PENDING_DEPOSIT:   { label: "입금 대기",    step: 1, color: "#B08040", bg: "#FBF5E8" },
-  DEPOSIT_CONFIRMED: { label: "입금 확인",    step: 2, color: "#2E5F4B", bg: "#EAF2EE" },
+  DEPOSIT_CONFIRMED: { label: "입금 확인",    step: 2, color: C.brand,  bg: C.brandL },
   AWAITING_APPROVAL: { label: "승인 대기",    step: 3, color: "#7C3AED", bg: "#F5F0FF" },
-  ACTIVE:            { label: "공간보증 활성", step: 4, color: "#1D3D2F", bg: "#E8F0EC" },
+  ACTIVE:            { label: "공간보증 활성", step: 4, color: C.brandD, bg: C.brandL },
 };
 
 // 무인 자동화 단계(마이페이지 진행 표시용).

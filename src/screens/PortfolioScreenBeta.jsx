@@ -277,7 +277,7 @@ export default function PortfolioScreenBeta({ company, onChat, onReview, onBack 
           <button onClick={() => onChat(company)} style={{
             width: "100%", maxWidth: 440, padding: "16px", background: C.brand, color: "#fff",
             border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, minHeight: 56, cursor: "pointer",
-            boxShadow: `0 6px 20px ${C.brand}44`,
+            boxShadow: `0 6px 20px ${C.brand44}`,
           }}>💬 상담하기</button>
         </div>
       )}

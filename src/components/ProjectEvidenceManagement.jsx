@@ -211,7 +211,7 @@ export default function ProjectEvidenceManagement({ adminUserId, showToast }) {
               style={{ background: isTest ? "#FFFBEF" : C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: 8, cursor: "pointer" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
                 {isTest && <Tag color="#fff" bg="#8A5C00">TEST</Tag>}
-                <span style={{ background: `${C.brand}1A`, color: C.brand, borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>{flowStageLabel(row.flow_stage)}</span>
+                <span style={{ background: `${C.brand1A}`, color: C.brand, borderRadius: R.full, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>{flowStageLabel(row.flow_stage)}</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{row.area || "지역 미상"}</span>
                 <span style={{ fontSize: 12, color: C.text3 }}>· {row.space_type || "—"}</span>
                 {ev.completed && <span style={{ marginLeft: "auto", fontSize: 11, color: "#27AE60", fontWeight: 700 }}>완료</span>}

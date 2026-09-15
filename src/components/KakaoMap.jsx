@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { C, R, GRADE } from "../constants";
+import { C, R, GRADE, resolveColor } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
 
 // trim — Vercel env 에 줄바꿈/공백이 섞여 들어오면 SDK URL 이 깨져 onerror 가 남.
@@ -221,7 +221,7 @@ function MockMap({ companies, userRegion, onPinClick, selectedId, onRequestLocat
       <div style={{ position:"absolute", top:"48%", left:0, right:0, height:4, background:"rgba(255,255,255,0.65)" }} />
       {/* 반경 3km 표시 원 */}
       <div style={{ position:"absolute", left:"50%", top:"50%", transform:"translate(-50%,-50%)",
-        width:180, height:180, borderRadius:"50%", border:`2px dashed ${C.brand}55`, background:`${C.brand}0d` }} />
+        width:180, height:180, borderRadius:"50%", border:`2px dashed ${C.brand55}`, background:`${C.brand0D}` }} />
       {!empty && positioned.map((c, i) => {
         const positions = [{x:28,y:40},{x:57,y:28},{x:71,y:57},{x:42,y:70},{x:62,y:36},{x:34,y:58}];
         const pos = positions[i] ?? {x:50,y:50};
@@ -231,7 +231,7 @@ function MockMap({ companies, userRegion, onPinClick, selectedId, onRequestLocat
           <div key={c.id} onClick={() => onPinClick?.(c)}
             style={{ position:"absolute", left:`${pos.x}%`, top:`${pos.y}%`, transform:"translate(-50%,-100%)", cursor:"pointer", zIndex:active?20:10 }}>
             <div style={{ background:active?C.brand:g.bar, color:"#fff", borderRadius:R.full, padding:"5px 10px",
-              fontSize:11, fontWeight:800, boxShadow:active?`0 4px 14px ${C.brand}88`:"0 3px 10px rgba(0,0,0,0.2)",
+              fontSize:11, fontWeight:800, boxShadow:active?`0 4px 14px ${C.brand88}`:"0 3px 10px rgba(0,0,0,0.2)",
               whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4,
               transform:active?"scale(1.12)":"scale(1)", transition:"transform 0.15s" }}>
               {c.online && <div style={{ width:5, height:5, borderRadius:"50%", background:C.green }} />}
@@ -242,7 +242,7 @@ function MockMap({ companies, userRegion, onPinClick, selectedId, onRequestLocat
         );
       })}
       <div style={{ position:"absolute", left:"50%", top:"50%", transform:"translate(-50%,-50%)" }}>
-        <div style={{ width:14, height:14, borderRadius:"50%", background:C.brand, border:"3px solid #fff", boxShadow:`0 0 0 8px ${C.brand}22` }} />
+        <div style={{ width:14, height:14, borderRadius:"50%", background:C.brand, border:"3px solid #fff", boxShadow:`0 0 0 8px ${C.brand22}` }} />
       </div>
       {empty && (
         <div style={{ position:"absolute", left:"50%", top:"58%", transform:"translate(-50%,-50%)",
@@ -381,8 +381,8 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
     circleRef.current?.setMap(null);
     circleRef.current = new maps.Circle({
       center: c, radius: RADIUS_M,
-      strokeWeight: 2, strokeColor: C.brand, strokeOpacity: 0.5, strokeStyle: "shortdash",
-      fillColor: C.brand, fillOpacity: 0.06,
+      strokeWeight: 2, strokeColor: resolveColor(C.brand), strokeOpacity: 0.5, strokeStyle: "shortdash",
+      fillColor: resolveColor(C.brand), fillOpacity: 0.06,
     });
     circleRef.current.setMap(map);
 
@@ -397,7 +397,7 @@ function RealMap({ companies, userRegion, onPinClick, selectedId, center: center
       const active = selectedId === co.id;
       const bg = active ? C.brand : g.bar;
       const scale = active ? "scale(1.12)" : "scale(1)";
-      const shadow = active ? `0 4px 14px ${C.brand}aa` : "0 3px 10px rgba(0,0,0,0.2)";
+      const shadow = active ? `0 4px 14px ${C.brandAA}` : "0 3px 10px rgba(0,0,0,0.2)";
       const content = document.createElement("div");
       content.style.cssText = `background:${bg};color:#fff;border-radius:20px;padding:5px 10px;font-size:11px;font-weight:800;white-space:nowrap;box-shadow:${shadow};cursor:pointer;transform:${scale};transition:transform 0.15s;`;
       content.textContent = `🏠 ${(co.name ?? "?").slice(0, 4)}`;

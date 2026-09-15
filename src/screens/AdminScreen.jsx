@@ -390,7 +390,7 @@ function ReviewAdminTab({ adminUserId, showToast }) {
       )}
 
       {fetchErr && (
-        <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+        <div style={{ background: "#FFF0F0", border: `1px solid ${C.red33}`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
           <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ 리뷰 로드 실패: {fetchErr}</div>
         </div>
       )}
@@ -494,13 +494,13 @@ function ReviewAdminTab({ adminUserId, showToast }) {
                   </button>
                   {!r.is_hidden && !r.is_deleted && (
                     <button onClick={() => doHide(r)} disabled={acting}
-                      style={{ flex: 1, padding: "8px", background: "#FBF5E8", color: C.gold, border: `1px solid ${C.gold}44`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      style={{ flex: 1, padding: "8px", background: "#FBF5E8", color: C.gold, border: `1px solid ${C.gold44}`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                       숨김
                     </button>
                   )}
                   {!r.is_deleted && (
                     <button onClick={() => doDelete(r)} disabled={acting}
-                      style={{ flex: 1, padding: "8px", background: "#FFF0F0", color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      style={{ flex: 1, padding: "8px", background: "#FFF0F0", color: C.red, border: `1px solid ${C.red33}`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                       삭제
                     </button>
                   )}
@@ -522,7 +522,7 @@ function ReviewAdminTab({ adminUserId, showToast }) {
                       </button>
                     )}
                     <button onClick={() => { setReasonId(r.id); setReason(""); }}
-                      style={{ flex: 1, padding: "7px", background: "#FEF0F0", color: C.red, border: `1px solid ${C.red}22`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      style={{ flex: 1, padding: "7px", background: "#FEF0F0", color: C.red, border: `1px solid ${C.red22}`, borderRadius: R.md, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                       {r.is_hidden ? "삭제" : "숨김/삭제"}
                     </button>
                   </>
@@ -680,7 +680,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
       </div>
 
       {loungeErr && (
-        <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+        <div style={{ background: "#FFF0F0", border: `1px solid ${C.red33}`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
           <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ 라운지 데이터 로드 실패</div>
           <div style={{ fontSize: 11, color: C.red, marginTop: 4, opacity: 0.8 }}>{loungeErr}</div>
         </div>
@@ -760,7 +760,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
                           </button>
                         )}
                         <button onClick={() => { setPostReasonId(showReason ? null : p.id); setPostReason(""); }}
-                          style={{ padding: "4px 8px", borderRadius: R.full, border: `1px solid ${C.red}22`, background: "#FFF0F0", color: C.red, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          style={{ padding: "4px 8px", borderRadius: R.full, border: `1px solid ${C.red22}`, background: "#FFF0F0", color: C.red, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                           {p.is_hidden ? "삭제" : "숨김/삭제"}
                         </button>
                       </>
@@ -781,7 +781,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
                         else { showToast?.("숨김 처리 완료"); setPosts(prev => prev.map(x => x.id === p.id ? { ...x, is_hidden: true } : x)); setPostReasonId(null); setPostReason(""); }
                         setPostActing(false);
                       }} disabled={postActing}
-                        style={{ padding: "6px 10px", borderRadius: R.md, background: "#FBF5E8", color: C.gold, border: `1px solid ${C.gold}44`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                        style={{ padding: "6px 10px", borderRadius: R.md, background: "#FBF5E8", color: C.gold, border: `1px solid ${C.gold44}`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                         숨김
                       </button>
                     )}
@@ -793,7 +793,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
                       else { showToast?.("삭제 처리 완료"); setPosts(prev => prev.map(x => x.id === p.id ? { ...x, is_deleted: true } : x)); setPostReasonId(null); setPostReason(""); }
                       setPostActing(false);
                     }} disabled={postActing}
-                      style={{ padding: "6px 10px", borderRadius: R.md, background: "#FFF0F0", color: C.red, border: `1px solid ${C.red}33`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                      style={{ padding: "6px 10px", borderRadius: R.md, background: "#FFF0F0", color: C.red, border: `1px solid ${C.red33}`, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                       삭제
                     </button>
                     <button onClick={() => { setPostReasonId(null); setPostReason(""); }}
@@ -837,7 +837,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
             </button>
             <button
               onClick={() => handleTokenAdjust(false)} disabled={tokenLoading}
-              style={{ flex: 1, padding: "10px", background: tokenLoading ? C.bgWarm : "#FEF0F0", color: C.red, border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: tokenLoading ? "not-allowed" : "pointer" }}>
+              style={{ flex: 1, padding: "10px", background: tokenLoading ? C.bgWarm : "#FEF0F0", color: C.red, border: `1px solid ${C.red33}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: tokenLoading ? "not-allowed" : "pointer" }}>
               {tokenLoading ? "처리중…" : "- 회수"}
             </button>
           </div>
@@ -864,7 +864,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, sh
             style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
           <button
             onClick={handleTempAdjust} disabled={tempLoading}
-            style={{ padding: "12px", background: tempLoading ? C.bgWarm : C.brand, color: tempLoading ? C.text3 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: tempLoading ? "not-allowed" : "pointer", boxShadow: tempLoading ? "none" : `0 4px 14px ${C.brand}44` }}>
+            style={{ padding: "12px", background: tempLoading ? C.bgWarm : C.brand, color: tempLoading ? C.text3 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: tempLoading ? "not-allowed" : "pointer", boxShadow: tempLoading ? "none" : `0 4px 14px ${C.brand44}` }}>
             {tempLoading ? "처리중…" : "공간온도 조정하기"}
           </button>
         </div>
@@ -1027,7 +1027,7 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
       {view === "list" && (
         <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
           {fetchErr && (
-            <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+            <div style={{ background: "#FFF0F0", border: `1px solid ${C.red33}`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
               <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ seed_lounge_posts 로드 실패</div>
               <div style={{ fontSize: 11, color: C.red, marginTop: 4, opacity: 0.8 }}>{fetchErr}</div>
               {import.meta.env.DEV && <div style={{ fontSize: 10, color: C.text4, marginTop: 4 }}>테이블 미생성 시 supabase/migrations/004_seed_lounge_posts.sql 실행 필요</div>}
@@ -4171,7 +4171,7 @@ function SeedPostsManagerTab({ posts = [], loading = false, fetchErr = null, adm
       </div>
 
       {fetchErr && (
-        <div style={{ background: "#FFF0F0", border: `1px solid ${C.red}33`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
+        <div style={{ background: "#FFF0F0", border: `1px solid ${C.red33}`, borderRadius: R.lg, padding: S.md, marginBottom: S.md }}>
           <div style={{ fontSize: 12, color: C.red, fontWeight: 700 }}>⚠️ 운영글 목록 로드 실패</div>
           <div style={{ fontSize: 11, color: C.red, marginTop: 4, opacity: 0.85, wordBreak: "break-all" }}>{fetchErr}</div>
           <div style={{ fontSize: 10, color: C.text4, marginTop: 4 }}>
@@ -6156,7 +6156,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 </div>
 
                 {/* STEP O — Emergency Switch */}
-                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `2px solid ${C.red}33` }}>
+                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `2px solid ${C.red33}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginBottom: S.lg }}>
                     <Icon emoji="🚨" size={18} color={C.red} />
                     <div style={{ fontSize: 14, fontWeight: 800, color: C.red }}>긴급 운영 스위치</div>
@@ -6373,7 +6373,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         {l.business_license_url ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 사업자등록증 제출됨</span>
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green33}`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 사업자등록증 제출됨</span>
                             <button onClick={() => setDocPreview({ url: l.business_license_url, title: `${l.company_name} · 사업자등록증` })}
                               style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
                                 borderRadius: R.lg, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="🔍" size={12} color="#fff" /> 사업자등록증 보기</button>
@@ -6387,7 +6387,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         {l.insurance_file_url ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 보험증권 제출됨</span>
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green33}`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 보험증권 제출됨</span>
                             <button onClick={() => setDocPreview({ url: l.insurance_file_url, title: `${l.company_name} · 시공보험증권` })}
                               style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
                                 borderRadius: R.lg, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="🔍" size={12} color="#fff" /> 시공보험증권 보기</button>
@@ -6402,7 +6402,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         {l.id_card_url ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 신분증 제출됨</span>
+                              borderRadius: R.lg, padding: "6px 10px", border: `1px solid ${C.green33}`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={12} color={C.green} /> 신분증 제출됨</span>
                             <button onClick={() => setDocPreview({ url: l.id_card_url, title: `${l.company_name} · 대표자 신분증` })}
                               style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.green, border: "none",
                                 borderRadius: R.lg, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="🔍" size={12} color="#fff" /> 신분증 보기</button>
@@ -6423,7 +6423,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         {l.pledge_agreed ? (
                           <>
                             <span style={{ fontWeight: 700, color: C.green, background: C.greenL,
-                              borderRadius: R.lg, padding: "4px 10px", border: `1px solid ${C.green}33`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={11} color={C.green} /> 동의</span>
+                              borderRadius: R.lg, padding: "4px 10px", border: `1px solid ${C.green33}`, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon emoji="✅" size={11} color={C.green} /> 동의</span>
                             {l.pledge_agreed_at && (
                               <span style={{ fontSize: 11, color: C.text4 }}>
                                 동의 일시 {new Date(l.pledge_agreed_at).toLocaleString("ko-KR")}
@@ -6605,7 +6605,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                                   const { error } = await adminVerifyUserIdentity(customer.id, user?.id, "revoked");
                                   if (error) showToast(error.message ?? "처리 실패", false);
                                   else { showToast("인증 취소 완료"); setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, is_identity_verified: false, identity_verified_at: null, identity_provider: null, identity_verification_status: "revoked" } : c)); }
-                                }} style={{ padding: "3px 8px", borderRadius: R.full, border: `1px solid ${C.red}33`, background: "#FFF0F0", color: C.red, fontSize: 10, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
+                                }} style={{ padding: "3px 8px", borderRadius: R.full, border: `1px solid ${C.red33}`, background: "#FFF0F0", color: C.red, fontSize: 10, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
                                   취소
                                 </button>
                               </>
@@ -6681,7 +6681,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                                     fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: actionLoading || !(Number(customerTokenAmt) > 0) ? 0.5 : 1 }}>지급</button>
                                 <button disabled={actionLoading || !(Number(customerTokenAmt) > 0)}
                                   onClick={() => { handleAdjustTokens(customer, -Math.abs(Number(customerTokenAmt))); setCustomerTokenAmt(""); }}
-                                  style={{ padding: "8px 14px", borderRadius: R.md, border: `1px solid ${C.red}55`, background: "#FFF0F0", color: C.red,
+                                  style={{ padding: "8px 14px", borderRadius: R.md, border: `1px solid ${C.red55}`, background: "#FFF0F0", color: C.red,
                                     fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: actionLoading || !(Number(customerTokenAmt) > 0) ? 0.5 : 1 }}>회수</button>
                               </div>
 
@@ -6761,7 +6761,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   </div>
                 ) : hiddenRequests.map(req => (
                   <div key={req.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl,
-                    marginBottom: S.sm, border: `1.5px solid ${C.red}22` }}>
+                    marginBottom: S.sm, border: `1.5px solid ${C.red22}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
                       <div style={{ flex: 1, marginRight: S.sm }}>
                         <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
@@ -6889,7 +6889,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                               },
                             })}
                               style={{ flex: 1, padding: "9px", background: "#FFF0F0", color: C.red,
-                                border: `1px solid ${C.red}33`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                                border: `1px solid ${C.red33}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                               환불 기록
                             </button>
                           )}
@@ -6907,7 +6907,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                               },
                             })}
                               style={{ flex: 1, padding: "9px", background: "#FBF5E8", color: C.gold,
-                                border: `1px solid ${C.gold}44`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                                border: `1px solid ${C.gold44}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                               지급 보류
                             </button>
                           )}
@@ -7059,7 +7059,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                             },
                           })}
                             style={{ flex: 1, padding: "9px", background: "#FBF5E8", color: C.gold,
-                              border: `1px solid ${C.gold}44`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                              border: `1px solid ${C.gold44}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                             지급 보류
                           </button>
                         )}
@@ -7955,20 +7955,20 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: S.sm }}>
                     <button onClick={() => setRejectMode(true)} disabled={actionLoading}
                       style={{ padding: "13px", background: "#FFF0F0", color: C.red,
-                        border: `1px solid ${C.red}33`, borderRadius: R.lg,
+                        border: `1px solid ${C.red33}`, borderRadius: R.lg,
                         fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                       ✗ 반려
                     </button>
                     <button onClick={() => setHoldMode(true)} disabled={actionLoading}
                       style={{ padding: "13px", background: "#FBF5E8", color: C.gold,
-                        border: `1px solid ${C.gold}44`, borderRadius: R.lg,
+                        border: `1px solid ${C.gold44}`, borderRadius: R.lg,
                         fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                       ⏸ 보류
                     </button>
                     <button onClick={() => setConfirm({ type: "approve", company: selected })} disabled={actionLoading}
                       style={{ padding: "13px", background: C.green, color: "#fff",
                         border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14,
-                        cursor: "pointer", boxShadow: `0 4px 14px ${C.green}44` }}>
+                        cursor: "pointer", boxShadow: `0 4px 14px ${C.green44}` }}>
                       ✓ 승인하기
                     </button>
                   </div>

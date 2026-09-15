@@ -83,9 +83,9 @@ export default function ReviewModal({
       <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:200 }}>
         <div style={{ background:"#F8F5F0", borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"32px 24px 48px", textAlign:"center" }}>
           <div style={{ fontSize:40, marginBottom:12 }}>🔒</div>
-          <div style={{ fontSize:17, fontWeight:800, color:"#1F2A24", marginBottom:8 }}>아직 후기를 남길 수 없어요</div>
+          <div style={{ fontSize:17, fontWeight:800, color:C.text1, marginBottom:8 }}>아직 후기를 남길 수 없어요</div>
           <div style={{ fontSize:13, color:"#7A8A7E", lineHeight:1.7, marginBottom:24 }}>공사가 완료되고 정산이 끝난 후 후기를 작성할 수 있습니다.</div>
-          <button onClick={onClose} style={{ padding:"14px 40px", background:"#2E5F4B", color:"#fff", border:"none", borderRadius:12, fontWeight:800, fontSize:15, cursor:"pointer" }}>확인</button>
+          <button onClick={onClose} style={{ padding:"14px 40px", background:C.brand, color:"#fff", border:"none", borderRadius:12, fontWeight:800, fontSize:15, cursor:"pointer" }}>확인</button>
         </div>
       </div>
     );

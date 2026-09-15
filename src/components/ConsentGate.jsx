@@ -135,7 +135,7 @@ export default function ConsentGate({ requiredTypes, userId, title, onComplete, 
               border:"none", borderRadius:R.md,
               fontWeight:700, fontSize:14,
               cursor: allChecked ? "pointer" : "not-allowed",
-              boxShadow: allChecked ? `0 4px 14px ${C.brand}44` : "none",
+              boxShadow: allChecked ? `0 4px 14px ${C.brand44}` : "none",
             }}>
             {isLast
               ? `✅ 모두 동의하고 계속 (${idx + 1}/${templates.length})`

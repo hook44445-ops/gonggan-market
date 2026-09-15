@@ -118,7 +118,7 @@ export default function TokenStoreScreen({ user, balance, logs, missionStats, on
       </div>
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)', background: C.brand, color: '#fff', borderRadius: R.full, padding: '12px 22px', fontSize: 13, fontWeight: 700, boxShadow: `0 8px 24px ${C.brand}44`, zIndex: 200, whiteSpace: 'nowrap', maxWidth: '80%', textAlign: 'center' }}>
+        <div style={{ position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)', background: C.brand, color: '#fff', borderRadius: R.full, padding: '12px 22px', fontSize: 13, fontWeight: 700, boxShadow: `0 8px 24px ${C.brand44}`, zIndex: 200, whiteSpace: 'nowrap', maxWidth: '80%', textAlign: 'center' }}>
           {toast}
         </div>
       )}

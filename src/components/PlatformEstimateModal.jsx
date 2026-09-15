@@ -474,7 +474,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
         <button onClick={handleSave} disabled={saving} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", opacity:saving?0.7:1 }}>
           임시저장
         </button>
-        <button onClick={handleSubmit} disabled={saving} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand}44`, opacity:saving?0.7:1 }}>
+        <button onClick={handleSubmit} disabled={saving} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand44}`, opacity:saving?0.7:1 }}>
           {saving ? "처리중..." : "최종 견적서 전송하기"}
         </button>
       </div>
