@@ -42,7 +42,7 @@ export default function ConsentGate({ requiredTypes, userId, title, onComplete, 
   const beta = needBeta ? GATE_CONTENT[betaKind] ?? GATE_CONTENT.quote : null;
   const templates = [
     ...requiredTypes.map(type => DOCUMENT_TEMPLATES.find(t => t.type === type)).filter(Boolean),
-    ...(beta ? [{ type: `beta_${betaKind}`, title: "베타 서비스 이용 안내", beta }] : []),
+    ...(beta ? [{ type: `beta_${betaKind}`, title: "오픈 기간 이용 안내", beta }] : []),
   ];
 
   const allKeys = templates.flatMap((tpl, ti) => {

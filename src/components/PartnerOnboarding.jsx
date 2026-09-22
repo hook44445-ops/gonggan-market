@@ -136,7 +136,7 @@ export default function PartnerOnboarding({ leadId, phone, insuranceYn = false, 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <b style={{ fontSize: 14, display: "block", color: INK }}>{g.label}</b>
                   <small style={{ fontSize: 12, color: TEXT3, display: "block" }}>예치금 {wonFromManwon(dep)}</small>
-                  <small style={{ fontSize: 12, color: GOLD, fontWeight: 700, display: "block" }}>베타 100업체 무료</small>
+                  <small style={{ fontSize: 12, color: GOLD, fontWeight: 700, display: "block" }}>오픈 파트너 100곳 무료</small>
                 </div>
                 <span style={{
                   width: 28, height: 28, borderRadius: "50%", background: "#F9F6F2", display: "flex",
@@ -169,7 +169,7 @@ export default function PartnerOnboarding({ leadId, phone, insuranceYn = false, 
         </div>
         <div style={{ fontSize: 13, color: TEXT2, textAlign: "center", lineHeight: 1.6, marginBottom: 18 }}>
           아래 계좌로 입금해 주세요. 관리자 확인 후 승인됩니다.<br />
-          <span style={{ color: GOLD, fontWeight: 700 }}>베타 100업체까지는 입금 없이 바로 승인됩니다</span>
+          <span style={{ color: GOLD, fontWeight: 700 }}>오픈 파트너 100곳까지는 입금 없이 승인됩니다</span>
         </div>
 
         <div style={{
@@ -224,7 +224,7 @@ export default function PartnerOnboarding({ leadId, phone, insuranceYn = false, 
         padding: "12px 14px", fontSize: 12.5, color: "#8B6A2A", lineHeight: 1.6, textAlign: "center",
       }}>
         상태: <b>입금대기중</b> · 자동 문자/이메일은 발송되지 않습니다.<br />
-        <span style={{ fontSize: 11, color: TEXT3 }}>베타 100업체는 평균 3분 내 승인</span>
+        <span style={{ fontSize: 11, color: TEXT3 }}>오픈 파트너 100곳 · 서류 확인 뒤 바로 승인</span>
       </div>
       {onClose && (
         <button type="button" onClick={onClose}

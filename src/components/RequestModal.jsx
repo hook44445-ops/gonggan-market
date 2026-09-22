@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S, SPACE_TYPES, STYLES } from "../constants";
+import { SHOW_BETA_UI } from "../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 
 export default function RequestModal({ onClose, onDone, initialData = null, isEdit = false }) {
   const [step, setStep] = useState(1);
@@ -124,15 +125,20 @@ export default function RequestModal({ onClose, onDone, initialData = null, isEd
             style={{ ...iS, resize:"none", lineHeight:1.7, marginBottom:S.sm }} />
           <div style={{ background:C.surface2, borderRadius:R.md, padding:"10px 14px",
             marginBottom:S.sm, fontSize:12, color:C.text3, lineHeight:1.8 }}>
-            🔒 <b style={{color:C.brand}}>공간안전결제</b> — 토스페이먼츠가 공사대금을 안전하게 보호합니다<br/>
-            단계별 안전정산 후 공사 완료 시 최종 지급 · 가상계좌 이용 시 이용료 660원<br/>
-            예시: 시공비 3,000만 → 총 예치 3,111만원
+            {SHOW_BETA_UI ? (<>
+              📋 <b style={{color:C.brand}}>계약부터 준공까지 기록이 남아요</b><br/>
+              계약서·공사 사진·GPS 진행 기록이 공간마켓에 남습니다 · 대금은 계약서 단계대로 업체와 직접 주고받아요
+            </>) : (<>
+              🔒 <b style={{color:C.brand}}>공간안전결제</b> — 토스페이먼츠가 공사대금을 안전하게 보호합니다<br/>
+              단계별 안전정산 후 공사 완료 시 최종 지급 · 가상계좌 이용 시 이용료 660원<br/>
+              예시: 시공비 3,000만 → 총 예치 3,111만원
+            </>)}
           </div>
           <div style={{ background:C.navyL, borderRadius:R.md, padding:"10px 14px",
             marginBottom:S.xl, fontSize:13, color:C.navy, fontWeight:600,
             display:"flex", gap:8, alignItems:"center" }}>
             <span>🛡</span>
-            <span>인근 검증 업체에게만 공개 · 에스크로 안전 정산 적용</span>
+            <span>{SHOW_BETA_UI ? "인근 검증 업체에게만 공개돼요" : "인근 검증 업체에게만 공개 · 에스크로 안전 정산 적용"}</span>
           </div>
           <div style={{ display:"flex", gap:S.sm }}>
             <button onClick={() => setStep(2)} style={{ flex:0.5, padding:S.xl, background:C.bg, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>← 이전</button>

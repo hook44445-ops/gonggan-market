@@ -19,7 +19,7 @@ export function markBetaAck(kind) {
 // 🎉 베타 배지 — 랜딩 우상단 등.
 //   kind("quote"|"bid") 를 주면 클릭 시 베타 안내 모달(BetaInfoModal · 확인 전용)을 연다.
 //   kind 가 없으면 기존처럼 단순 표시용 배지.
-export function BetaBadge({ label = "베타 서비스", style, kind }) {
+export function BetaBadge({ label = "오픈 기간 · 수수료 0원", style, kind }) {
   const [open, setOpen] = useState(false);
   if (!SHOW_BETA_UI) return null;
 
@@ -54,38 +54,39 @@ export function BetaBanner({ text, style }) {
       background: C.brandL, border: `1px solid ${C.brandM}`, borderRadius: R.lg,
       padding: `${S.sm}px ${S.md}px`, marginBottom: S.md,
       fontSize: 12.5, color: C.brand, fontWeight: 700, lineHeight: 1.6, ...style,
-    }}>🎉 {text}</div>
+    }}>{text}</div>
   );
 }
 
 export const GATE_CONTENT = {
   quote: {
-    title: "🎉 무료 베타 서비스 안내",
-    intro: "베타 기간 동안 공간마켓 시스템 구조에 따라 아래 서비스를 제공합니다.",
+    title: "견적부터 준공까지, 기록이 남습니다",
+    intro: "공간마켓은 요청·상담·계약·공사 사진·진행 기록을 한곳에 남겨, 나중에 무엇이든 확인할 수 있게 합니다. 오픈 기간에는 수수료가 없습니다.",
     provided: [
       "견적요청", "업체 비교", "업체 상담", "계약 진행", "프로젝트 진행관리",
       "GPS 진행기록", "사진 기록", "채팅", "리뷰 작성", "프로젝트 이력 관리",
     ],
-    notProvided: ["앱 내 안전결제", "에스크로 결제", "카드결제", "공간보증 서비스"],
+    notProvided: ["앱 안 안전결제", "에스크로 정산", "카드결제", "공간보증"],
     notes: [
-      "토스페이먼츠 승인 전까지는 앱 내 안전결제를 제공하지 않습니다.",
-      "베타 기간 동안에도 공간마켓 시스템 구조에 맞추어 계약과 프로젝트를 진행할 수 있으며, 결제는 고객과 업체가 상호 협의하여 진행됩니다.",
+      "공사대금은 계약서에 적은 단계대로 고객과 업체가 직접 주고받습니다.",
+      "계약서·공사 사진·GPS 진행 기록이 공간마켓에 남아, 단계마다 확인하고 문제가 생기면 근거로 쓸 수 있습니다.",
+      "앱 안 안전결제는 토스페이먼츠 승인 뒤 열립니다.",
     ],
-    confirm: "확인하고 견적요청하기",
+    confirm: "확인하고 견적 요청하기",
   },
   bid: {
-    title: "🎉 무료 베타 파트너 안내",
-    intro: "베타 기간 동안 공간마켓 시스템 구조에 따라 아래 서비스를 제공합니다.",
+    title: "일감부터 평판까지, 기록이 쌓입니다",
+    intro: "견적·상담·계약·시공 사진·후기가 업체 프로필에 쌓여 다음 고객을 데려옵니다. 오픈 기간에는 가입비·수수료가 없습니다.",
     provided: [
       "업체 가입", "견적 입찰", "고객 상담", "계약 진행", "프로젝트 진행관리",
       "GPS 진행기록", "사진 기록", "포트폴리오", "리뷰 관리", "업체 성장(LV)", "프로젝트 이력 관리",
     ],
     required: ["사업자등록증", "시공보험 또는 영업배상책임보험", "업체 운영 준수서약"],
-    notProvided: ["공간보증 예치금", "공간보증 심사", "앱 내 안전결제", "에스크로 정산"],
+    notProvided: ["앱 안 안전결제", "에스크로 정산", "공간보증 예치금·심사"],
     notes: [
-      "토스페이먼츠 승인 전까지는 앱 내 안전결제를 제공하지 않습니다.",
-      "베타 기간 동안에도 공간마켓 시스템 구조에 맞추어 계약과 프로젝트를 진행할 수 있으며, 결제는 고객과 업체가 상호 협의하여 진행됩니다.",
-      "공간보증 서비스는 정식 오픈 후 제공됩니다.",
+      "공사대금은 계약서에 적은 단계대로 고객과 직접 주고받습니다.",
+      "계약서·시공 사진·GPS 진행 기록이 남아, 업체의 성실함을 보여 주는 근거가 됩니다.",
+      "앱 안 안전결제와 공간보증은 정식 오픈 때 열립니다.",
     ],
     confirm: "확인하고 입찰하기",
   },
@@ -118,7 +119,7 @@ function GateList({ items, mark, color }) {
 export function GateBody({ c }) {
   return (
     <>
-      <GateSection title="제공 서비스">
+      <GateSection title="지금 함께하는 것">
         <GateList items={c.provided} mark="✅" />
       </GateSection>
 
@@ -128,11 +129,11 @@ export function GateBody({ c }) {
         </GateSection>
       )}
 
-      <GateSection title="현재 제공되지 않는 서비스">
-        <GateList items={c.notProvided} mark="🚫" color={C.text3} />
+      <GateSection title="정식 오픈 때 열리는 것">
+        <GateList items={c.notProvided} mark="🔜" color={C.text3} />
       </GateSection>
 
-      <GateSection title="중요 안내">
+      <GateSection title="대금은 이렇게">
         <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.8, fontWeight: 600 }}>
           {c.notes.map((n, i) => <div key={i} style={{ marginBottom: i < c.notes.length - 1 ? 6 : 0 }}>· {n}</div>)}
         </div>
@@ -172,7 +173,7 @@ export function BetaGateModal({ open, kind = "quote", onConfirm, onClose }) {
         <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 16, cursor: "pointer" }}>
           <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)}
             style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, cursor: "pointer" }} />
-          <span style={{ fontSize: 13, color: C.text1, fontWeight: 700 }}>위 내용을 확인하였습니다.</span>
+          <span style={{ fontSize: 13, color: C.text1, fontWeight: 700 }}>내용을 확인했어요.</span>
         </label>
 
         <button onClick={handleConfirm} disabled={!checked} style={{
@@ -208,7 +209,7 @@ export function BetaInfoModal({ open, kind = "quote", onClose }) {
           boxShadow: "0 20px 60px rgba(5,10,22,0.35)" }}>
         <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, textAlign: "center", marginBottom: 6 }}>{c.title}</div>
         <div style={{ fontSize: 13, color: C.text3, textAlign: "center", marginBottom: 18, lineHeight: 1.6 }}>
-          현재 공간마켓은 무료 베타 서비스로 운영 중입니다.<br />{c.intro}
+          {c.intro}
         </div>
 
         <GateBody c={c} />

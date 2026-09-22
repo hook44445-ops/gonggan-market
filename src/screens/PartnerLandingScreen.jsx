@@ -374,7 +374,7 @@ function ConsultForm() {
       {/* ── STEP 1 · 기본 정보 ─────────────────────────────────── */}
       {step === 1 && (
         <>
-          <BetaBanner text="베타 파트너 모집 · 가입 · 견적 참여 · 상담 모두 무료입니다. (사업자등록증 + 시공보험 확인 후 승인)" style={{ marginBottom: 0 }} />
+          <BetaBanner text="오픈 파트너 모집 · 가입·견적 참여·상담 모두 무료 (사업자등록증·시공보험 확인 후 승인)" style={{ marginBottom: 0 }} />
           {field("company", "업체명",        { required: true, placeholder: "예: 공간인테리어" })}
           {field("owner",   "대표자명",      { placeholder: "대표자 성함 (선택 · 사업자등록증으로 확인)" })}
           {field("phone",   "연락처",        { required: true, placeholder: "휴대폰 번호", inputMode: "tel" })}
@@ -399,7 +399,7 @@ function ConsultForm() {
           </div>
           <div>
             <label style={labelStyle}>
-              시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(베타 서비스 선택 / 정식 서비스 필수) · 우수 파트너 우대 혜택</span>
+              시공보험증권 <span style={{ color: TEXT3, fontWeight: 500 }}>(지금은 선택 · 정식 오픈부터 필수) · 우수 파트너 우대 혜택</span>
             </label>
             {uploadCard("ins", insFile, setInsFile, { title: "시공보험증권 업로드", sub: "우수 파트너 우대 · 신뢰보증금 할인" })}
             <div style={{ fontSize: 11, color: TEXT3, marginTop: 5, lineHeight: 1.6 }}>
@@ -461,9 +461,8 @@ function ConsultForm() {
                 {[
                   "허위 사업자정보 또는 허위 시공이력으로 가입하지 않습니다.",
                   "고객과의 상담, 견적, 계약, 시공 과정에서 성실하게 응대합니다.",
-                  "베타 기간 동안 공간마켓 시스템 구조에 따라 견적, 상담, 계약 진행, 프로젝트 기록을 성실히 이용합니다.",
-                  "토스페이먼츠 승인 전까지 앱 내 안전결제가 제공되지 않음을 확인했습니다.",
-                  "베타 기간의 실제 결제는 고객과 업체가 상호 협의하여 진행됨을 확인했습니다.",
+                  "오픈 기간 동안 공간마켓 시스템에 따라 견적, 상담, 계약 진행, 프로젝트 기록을 성실히 이용합니다.",
+                  "앱 안 안전결제는 토스페이먼츠 승인 뒤 열리며, 그 전까지 공사대금은 계약서 단계대로 고객과 직접 주고받음을 확인했습니다.",
                   "무단 직거래 유도, 허위 견적, 연락 두절, 부실 시공, 리뷰 조작을 하지 않습니다.",
                   "분쟁 발생 시 공간마켓 운영팀의 확인 요청에 성실히 협조합니다.",
                   "정식 서비스 오픈 후 공간보증 예치금 및 공간보증 심사가 적용될 수 있음을 확인했습니다.",
@@ -723,7 +722,7 @@ export default function PartnerLandingScreen() {
     { b: "사업자등록증 업로드", t: "OCR + 국세청 API 자동 검증", badge: "무인" },
     { b: "관리자 3초 승인",    t: "일치 배지만 보고 승인",     badge: "3초" },
     { b: "견적 수신",          t: "검증 고객 알림",           badge: "검증" },
-    { b: "수주·정산 4.4%만",   t: "베타 0원",                 badge: "수수료" },
+    { b: "수주·정산 4.4%만",   t: "오픈 기간 0원",                 badge: "수수료" },
   ];
   const GRADE_ROWS = [
     ["베이직 50만원", "500만원까지"],
@@ -811,11 +810,11 @@ export default function PartnerLandingScreen() {
               marginBottom: 8, textAlign: "center" }}>
               <div style={{ fontSize: 18, fontWeight: 800, whiteSpace: "nowrap" }}>신뢰 등급 = 수주 가능 금액</div>
               <span style={{ background: GOLD, color: NAVY, padding: "6px 14px", borderRadius: 999,
-                fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>베타 100업체 무료</span>
+                fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>오픈 파트너 100곳 무료</span>
             </div>
             <p style={{ textAlign: "center", fontSize: 12, color: "#9A958E", lineHeight: 1.5,
               margin: "0 0 18px", wordBreak: "keep-all" }}>
-              베타 100업체까지는 1천만원/1억 공사도 0원, 등급 제한 없음
+              오픈 파트너 100곳까지는 1천만원·1억 공사도 0원, 등급 제한 없음
             </p>
             <div className="gm-grade-list" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
               {GRADE_ROWS.map(([name, limit]) => (
@@ -829,10 +828,10 @@ export default function PartnerLandingScreen() {
             <div style={{ border: `1.5px solid ${GOLD}`, borderRadius: 16, padding: 16, marginTop: 18,
               textAlign: "center", background: "rgba(200,168,106,.07)" }}>
               <b style={{ color: GOLD, fontSize: 13, display: "block", lineHeight: 1.6, wordBreak: "keep-all" }}>
-                베타 100업체까지는<br />금액 상관없이 0원, 전등급 무료 개방
+                오픈 파트너 100곳까지는<br />금액 상관없이 0원, 전등급 무료 개방
               </b>
               <span style={{ color: "#9A958E", fontSize: 11, marginTop: 8, display: "block", wordBreak: "keep-all" }}>
-                베타 이후: 베이직(500만)까지 무료, 이상은 예치 후 해제
+                100곳 이후: 베이직(500만)까지 무료, 이상은 예치 후 해제
               </span>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
+import { SHOW_BETA_UI } from "../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments, calculateCompanyReceive } from "../utils/calculations";
 
 // role:
@@ -60,7 +61,9 @@ export default function EscrowCalculator({ role = "consumer" } = {}) {
             <span style={{ fontSize:15, fontWeight:900, color:C.brand }}>{fmtMoney(customerTotal)}</span>
           </div>
           <div style={{ fontSize:11, color:C.text4, marginTop:S.sm, lineHeight:1.6 }}>
-            토스페이먼츠가 공사대금을 안전하게 보호합니다 · 단계별 안전정산 후 공사 완료 시 최종 지급
+            {SHOW_BETA_UI
+              ? "앱 안 안전결제가 열리면 이렇게 계산돼요 · 지금은 계약서 단계대로 업체와 직접 주고받아요"
+              : "토스페이먼츠가 공사대금을 안전하게 보호합니다 · 단계별 안전정산 후 공사 완료 시 최종 지급"}
           </div>
         </div>
       )}

@@ -64,7 +64,7 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack }) {
 
           <div style={{ marginTop: S.md, background: C.bg, borderRadius: R.lg, padding: "10px 14px", fontSize: 12, color: C.text3, lineHeight: 1.7 }}>
             💬 채팅·📷 사진·📍 현장 기록이 남아, 문제가 생기면 기록을 기준으로 함께 확인해요.<br />
-            베타 기간 결제는 업체와 협의해 진행하고, 앱 안 안전결제는 정식 서비스에서 열려요.
+            대금은 계약서에 적은 단계대로 업체와 직접 주고받아요 · 앱 안 안전결제는 정식 오픈 때 열려요.
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: S.sm, marginTop: S.lg }}>

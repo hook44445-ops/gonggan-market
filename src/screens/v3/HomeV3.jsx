@@ -15,6 +15,7 @@
 // ─────────────────────────────────────────────────────
 import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progress, FoldText } from "../../components/v3/ui";
 import { C, R, S } from "../../constants";
+import { SHOW_BETA_UI } from "../../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 
 // 의뢰인이 가장 먼저 고르는 것은 '어떤 공간인가'다. 요청 모달의 공간 유형(SPACE_TYPES)과 같은 이름을 쓴다
 // → 누르면 그 유형이 미리 골라진 채로 견적 요청이 열린다.
@@ -90,8 +91,10 @@ export default function HomeV3({
           <Hero
             eyebrow="인테리어 · 집수리 비교견적"
             title="아무에게나 맡길 수 없으니까"
-            sub="검증된 업체 3곳의 견적을 1분 만에 비교하고, 공사대금은 단계별로 안전하게 지켜드립니다."
-            chips={["가입비 0원", "견적 무료", "공간안전결제"]}
+            sub={SHOW_BETA_UI
+              ? "검증된 업체 3곳의 견적을 1분 만에 비교하고, 계약부터 공사 사진까지 한곳에 기록해 드립니다."
+              : "검증된 업체 3곳의 견적을 1분 만에 비교하고, 공사대금은 단계별로 안전하게 지켜드립니다."}
+            chips={SHOW_BETA_UI ? ["가입비 0원", "견적 무료", "계약·공사 기록"] : ["가입비 0원", "견적 무료", "공간안전결제"]}
             actions={[{ label: "무료 견적 받기", primary: true, onClick: onNewRequest }]}
           />
         )}
@@ -219,7 +222,7 @@ export default function HomeV3({
             <>
               <Row emoji="🗺️" label="지역 지도" sub="가까운 업체 찾기" onClick={() => onGo("map")} />
               <Row emoji="💬" label="라운지" sub="인테리어 이야기 · 후기" onClick={() => onGo("lounge")} />
-              <Row emoji="🛡️" label="공간안전결제란?" sub="단계별 안전 지급 구조" onClick={() => { window.location.href = "/safe-payment"; }} last />
+              <Row emoji="🛡️" label={SHOW_BETA_UI ? "공간안전결제 · 정식 오픈 예정" : "공간안전결제란?"} sub={SHOW_BETA_UI ? "토스페이먼츠 승인 뒤 열리는 단계별 지급 구조" : "단계별 안전 지급 구조"} onClick={() => { window.location.href = "/safe-payment"; }} last />
             </>
           )}
         </Card>

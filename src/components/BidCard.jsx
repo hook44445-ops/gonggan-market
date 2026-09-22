@@ -281,7 +281,7 @@ export default function BidCard({
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 16px" }} />
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: 3 }}>{hasBid ? "입찰 수정하기" : "안심 견적 제출하기"}</div>
             <div style={{ fontSize: 13, color: C.text3, marginBottom: S.md }}>{r.type} · {r.size} · {r.area}</div>
-            <BetaBanner text="베타 서비스 운영 중 · 견적 참여는 무료입니다. 안전결제는 정식 서비스에서 제공됩니다." />
+            <BetaBanner text="오픈 기간 · 견적 참여·상담·계약 기록 모두 수수료 0원" />
 
             <div style={{ background: companyBadge.bg, borderRadius: R.lg, padding: `${S.sm}px ${S.md}px`, marginBottom: S.md, display: "flex", alignItems: "center", gap: S.sm, border: `1px solid ${companyBadge.color}33` }}>
               <span style={{ fontSize: 16 }}>{companyBadge.icon}</span>
