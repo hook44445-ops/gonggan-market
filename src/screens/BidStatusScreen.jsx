@@ -10,6 +10,7 @@ import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
 import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
+import QuoteDocument from "../components/QuoteDocument"; // 최종 견적서 미리보기·인쇄
 import {
   PAYMENT_METHODS, COMING_SOON_MESSAGE, ACTIVE_PROVIDER, getMethodMeta,
   loadFeeRules, feeRateFromRules, computeFeeWithRate, getProvider,
@@ -84,6 +85,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
   // 최종 견적서(현장방문 후 업체 제출) — 의뢰인 확인용. 견적 단계에서만 조회.
   const [finalEstimate, setFinalEstimate] = useState(null);
+  const [showQuoteDoc, setShowQuoteDoc] = useState(false); // 최종 견적서 미리보기·인쇄
   useEffect(() => {
     if (!isQuotePhase || !request?.id) { setFinalEstimate(null); return; }
     let alive = true;
@@ -315,7 +317,9 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           {isQuotePhase && finalEstimate && (
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
-              <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="📋" size={14} color={C.brand} /> 업체가 보낸 최종 견적서</div>
+              <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="📋" size={14} color={C.brand} /> <span style={{ flex:1 }}>업체가 보낸 최종 견적서</span>
+                <button onClick={() => setShowQuoteDoc(true)} style={{ background:"none", border:`1px solid ${C.brandM}`, borderRadius:R.full, padding:"5px 10px", fontSize:12, fontWeight:700, color:C.brand, cursor:"pointer", fontFamily:"inherit" }}>견적서 보기·인쇄</button></div>
+              {showQuoteDoc && <QuoteDocument estimate={finalEstimate} companyName={selBid.company?.name} request={request ?? {}} docNo={(finalEstimate.id ?? "").toString().slice(0, 8).toUpperCase() || null} onClose={() => setShowQuoteDoc(false)} />}
               {Array.isArray(finalEstimate.items) && finalEstimate.items.length > 0 && (
                 <div style={{ marginBottom:S.md }}>
                   {finalEstimate.items.map((it, i) => (

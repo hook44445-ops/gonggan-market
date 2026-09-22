@@ -5668,6 +5668,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         <PlatformEstimateModal
           job={estimateJob}
           companyId={currentUser?.id}
+          companyName={currentUser?.name}
           userId={user?.id}
           onClose={() => setEstimateJob(null)}
           onChange={(updatedJob) => {

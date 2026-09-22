@@ -1338,6 +1338,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               estimate: null,
             }}
             companyId={currentUser?.id ?? resolvedBid.companyId}
+            companyName={currentUser?.name ?? resolvedBid.company?.name}
             userId={userId}
             onClose={onBack}
             onChange={() => {}}

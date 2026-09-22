@@ -5,6 +5,8 @@ import { formatDueRemaining } from "../constants/policy";
 import EstimateCoachPanel from "./growth/EstimateCoachPanel";       // Space OS · AI 코치(라이브, Add Only)
 import EstimateAnalysisResult from "./growth/EstimateAnalysisResult"; // Space OS · 성실견적 분석 결과(제출 후)
 import { analyzeEstimate } from "../constants/spaceOs";
+import QuoteDocument from "./QuoteDocument"; // 견적서 미리보기·인쇄
+import { QUOTE_STEPS, DURATION_PRESETS, WARRANTY_PRESETS, suggestTrades, applyTrade, restoreQuote, filledItems, stepBlocker, makeEmptyItem } from "../lib/finalQuote";
 
 function Backdrop({ onClose, children }) {
   return (
@@ -23,7 +25,7 @@ function Backdrop({ onClose, children }) {
   );
 }
 
-const emptyItem = () => ({ id: Date.now() + Math.random(), name: "", material: "", qty: "", unitPrice: "" });
+const emptyItem = () => makeEmptyItem();
 
 // [정책] 현장견적 카운트다운: 72h (constants/policy.js · 2026.06)
 function useDueCountdown(dueAt) {
@@ -41,11 +43,17 @@ function useDueCountdown(dueAt) {
   return text;
 }
 
-export default function PlatformEstimateModal({ job, companyId, userId, onClose, onChange }) {
-  const [items, setItems] = useState(() => [emptyItem(), emptyItem(), emptyItem()]);
-  const [durationDays, setDurationDays] = useState("");
-  const [note, setNote] = useState("");
-  const [warrantyNote, setWarrantyNote] = useState("");
+export default function PlatformEstimateModal({ job, companyId, companyName, userId, onClose, onChange }) {
+  // 임시저장본 복원 — 예전엔 사진만 돌아오고 공정·기간·메모는 비어 보였다.
+  const [restored] = useState(() => restoreQuote(job.estimate));
+  const [items, setItems] = useState(restored.items);
+  const [durationDays, setDurationDays] = useState(restored.durationDays);
+  const [note, setNote] = useState(restored.note);
+  const [warrantyNote, setWarrantyNote] = useState(restored.warrantyNote);
+  const [step, setStep] = useState(1);            // 1 공정·금액 → 2 기간·사진 → 3 확인·전송
+  const [stepMsg, setStepMsg] = useState(null);
+  const [showExtra, setShowExtra] = useState(false); // 자재·특이사항·특약(선택) 펼치기
+  const [showDoc, setShowDoc] = useState(false);     // 견적서 미리보기·인쇄
   const [estimateId, setEstimateId] = useState(job.estimate?.id ?? null);
   const [saving, setSaving] = useState(false);
   const [analysis, setAnalysis] = useState(null); // Space OS 성실견적 분석 결과(제출 후 표시)
@@ -182,7 +190,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
     request_id: job.bid.request_id,
     site_visit_id: job.siteVisit?.id ?? null,
     company_id: companyId,
-    items: items.map(({ name, material, qty, unitPrice }) => ({
+    items: filledItems(items).map(({ name, material, qty, unitPrice }) => ({
       name, material, qty: Number(qty) || 0, unit_price: Number(unitPrice) || 0,
       amount: (Number(qty) || 0) * (Number(unitPrice) || 0),
     })),
@@ -210,8 +218,8 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
   };
 
   const handleSubmit = async () => {
-    const invalid = items.some(it => !it.name || !it.qty || !it.unitPrice);
-    if (invalid) { alert("공정명, 수량, 단가를 모두 입력해주세요"); return; }
+    const invalid = stepBlocker(1, { items }) || stepBlocker(2, { durationDays });
+    if (invalid) { setStepMsg(invalid); setStep(stepBlocker(1, { items }) ? 1 : 2); return; }
     setSaving(true);
     let id = estimateId;
     if (!id) {
@@ -248,235 +256,301 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
     } catch { onClose(); }
   };
 
-  return (
-    <Backdrop onClose={onClose}>
-      <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:S.sm }}>📋 최종 견적서 작성</div>
+  const trades = suggestTrades(job.request ?? {});
+  const inp  = { padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", minWidth:0 };
+  const area = { width:"100%", padding:"12px 14px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" };
+  const goNext = () => {
+    const why = stepBlocker(step, { items, durationDays });
+    if (why) { setStepMsg(why); return; }
+    setStepMsg(null);
+    setStep(step + 1);
+  };
+
+  return (    <Backdrop onClose={onClose}>
+      <div style={{ display:"flex", alignItems:"center", gap:S.sm, marginBottom:4 }}>
+        <div style={{ fontSize:18, fontWeight:800, color:C.text1, flex:1 }}>최종 견적서</div>
+        {step < 3 && (
+          <button onClick={handleSave} disabled={saving}
+            style={{ background:"none", border:`1px solid ${C.bgWarm}`, borderRadius:R.full, padding:"6px 12px", fontSize:12, fontWeight:700, color:C.text2, cursor:"pointer", fontFamily:"inherit" }}>
+            임시저장
+          </button>
+        )}
+      </div>
+      <div style={{ fontSize:12.5, color:C.text3, marginBottom:S.md }}>
+        {[job.request?.space_type, job.request?.size, job.request?.area].filter(Boolean).join(" · ") || "인테리어 프로젝트"}
+      </div>
 
       {countdown && (
-        <div style={{ background: isOverdue ? "#FFF0F0" : C.brandL, borderRadius:R.lg, padding:"10px 14px", marginBottom:S.lg, fontSize:12, fontWeight:700, color: isOverdue ? C.red : C.brand }}>
+        <div style={{ background: isOverdue ? "#FFF0F0" : C.brandL, borderRadius:R.lg, padding:"8px 12px", marginBottom:S.md, fontSize:12, fontWeight:700, color: isOverdue ? C.red : C.brand }}>
           {isOverdue ? "⚠️ " : "⏰ "}{countdown}
         </div>
       )}
 
-      <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>
-        {job.request?.space_type ?? ""} {job.request?.size ?? ""} · {job.request?.area ?? ""}
-      </div>
-
-      {/* ① 프로젝트 기본정보 — 프로젝트의 공식 기준(Source of Truth). request_id 로 모든 기록이 연결된다. */}
-      <div style={{ background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.md, padding:S.md, marginBottom:S.xl }}>
-        <div style={{ fontSize:13, fontWeight:800, color:C.text1, marginBottom:S.sm }}>📁 프로젝트 기본정보</div>
-        {[
-          ["프로젝트명", `${job.request?.space_type ?? ""} ${job.request?.size ?? ""}`.trim() || "인테리어 프로젝트"],
-          ["프로젝트 ID", requestIdForPhotos ?? "—"],
-          ["고객", job.request?.area ? `의뢰인 · ${job.request.area}` : "의뢰인"],
-          ["업체", "내 업체"],
-          ["주소", job.request?.area ?? "결제 후 공개"],
-          ["공사기간", durationDays ? `${durationDays}일` : "—"],
-          ["작성일", (job.estimate?.created_at ? new Date(job.estimate.created_at) : new Date()).toLocaleDateString("ko-KR")],
-        ].map(([k, v]) => (
-          <div key={k} style={{ display:"flex", justifyContent:"space-between", gap:S.md, fontSize:12, padding:"3px 0" }}>
-            <span style={{ color:C.text3, flexShrink:0 }}>{k}</span>
-            <span style={{ color:C.text1, fontWeight:600, textAlign:"right", wordBreak:"break-all" }}>{v}</span>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ marginBottom:S.xl }}>
-        <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.md }}>공정 내역</div>
-        {items.map((it, idx) => (
-          <div key={it.id} style={{ background:C.bg, borderRadius:R.md, padding:S.md, marginBottom:S.sm }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.sm }}>
-              <span style={{ fontSize:12, fontWeight:700, color:C.text3 }}>공정 {idx + 1}</span>
-              {items.length > 1 && (
-                <button onClick={() => removeItem(it.id)} style={{ background:"none", border:"none", color:C.text4, fontSize:16, cursor:"pointer", padding:0, lineHeight:1 }}>✕</button>
-              )}
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:S.sm, marginBottom:S.sm }}>
-              <input
-                value={it.name}
-                onChange={e => updateItem(it.id, "name", e.target.value)}
-                placeholder="공정명"
-                style={{ padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
-              />
-              <input
-                value={it.material}
-                onChange={e => updateItem(it.id, "material", e.target.value)}
-                placeholder="자재명"
-                style={{ padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
-              />
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:S.sm, alignItems:"center" }}>
-              <input
-                type="number"
-                value={it.qty}
-                onChange={e => updateItem(it.id, "qty", e.target.value)}
-                placeholder="수량"
-                style={{ padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
-              />
-              <input
-                type="number"
-                value={it.unitPrice}
-                onChange={e => updateItem(it.id, "unitPrice", e.target.value)}
-                placeholder="단가(만원)"
-                style={{ padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
-              />
-              <div style={{ fontSize:12, fontWeight:700, color:C.brand, textAlign:"right" }}>
-                {Math.round((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)).toLocaleString()}만
-              </div>
-            </div>
-          </div>
-        ))}
-        {items.length < 10 && (
-          <button onClick={addItem} style={{ width:"100%", padding:"11px", border:`2px dashed ${C.bgWarm}`, borderRadius:R.md, background:"none", color:C.text3, fontWeight:700, fontSize:13, cursor:"pointer", marginTop:S.sm }}>
-            + 공정 추가
+      {/* 3단계 막대 — 지난 단계는 눌러서 돌아갈 수 있다 */}
+      <div style={{ display:"flex", gap:6, marginBottom:S.xl }}>
+        {QUOTE_STEPS.map(s => (
+          <button key={s.id} onClick={() => { if (s.id < step) { setStep(s.id); setStepMsg(null); } }}
+            style={{ flex:1, background:"none", border:"none", padding:0, cursor: s.id < step ? "pointer" : "default", fontFamily:"inherit", textAlign:"left" }}>
+            <div style={{ height: s.id === step ? 6 : 4, borderRadius:R.full, background: s.id < step ? C.brandM : s.id === step ? C.brand : C.bgWarm, marginBottom:5 }} />
+            <div style={{ fontSize:11.5, fontWeight: s.id === step ? 800 : 600, color: s.id <= step ? C.text1 : C.text4 }}>{s.id}. {s.label}</div>
           </button>
-        )}
+        ))}
       </div>
 
-      <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-        <div style={{ fontSize:14, fontWeight:800, color:C.brand }}>총 견적 금액</div>
-        <div style={{ fontSize:20, fontWeight:900, color:C.brand }}>{Math.round(totalPrice).toLocaleString()}만원</div>
-      </div>
+      {step === 1 && (
+        <>
+          <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:4 }}>어떤 공정이 들어가나요?</div>
+          <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>누르면 아래 줄에 채워져요. 의뢰인이 요청한 공사가 앞에 있어요.</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:S.lg }}>
+            {trades.map(tr => {
+              const on = items.some(it => it.name.trim() === tr);
+              return (
+                <button key={tr} onClick={() => setItems(prev => applyTrade(prev, tr))}
+                  style={{ padding:"7px 12px", borderRadius:R.full, fontSize:12.5, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                    border:`1.5px solid ${on ? C.brand : C.bgWarm}`, background: on ? C.brandL : C.surface, color: on ? C.brand : C.text2 }}>
+                  {on ? "✓ " : "+ "}{tr}
+                </button>
+              );
+            })}
+          </div>
 
-      <div style={{ marginBottom:S.lg }}>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>공사 기간 (일)</div>
-        <input
-          type="number"
-          value={durationDays}
-          onChange={e => setDurationDays(e.target.value)}
-          placeholder="예) 14"
-          style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:15, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }}
-        />
-      </div>
-
-      <div style={{ marginBottom:S.lg }}>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>견적 메모</div>
-        <textarea
-          value={note}
-          onChange={e => setNote(e.target.value)}
-          placeholder="고객에게 전달할 견적 설명"
-          rows={3}
-          style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }}
-        />
-      </div>
-
-      <div style={{ marginBottom:S.xxl }}>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>하자보수 조건</div>
-        <textarea
-          value={warrantyNote}
-          onChange={e => setWarrantyNote(e.target.value)}
-          placeholder="하자보수 보증 기간 및 조건"
-          rows={2}
-          style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }}
-        />
-      </div>
-
-      {/* 현장 실측 사진 첨부 (최대 5장) — 의뢰인이 결제 전 확인용. 기존 금액/제출 로직과 독립. */}
-      <div style={{ marginBottom:S.xxl }}>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>
-          현장 확인 사진 첨부 <span style={{ color:C.text4, fontWeight:600 }}>({photoUrls.length}/{MAX_PHOTOS})</span>
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:S.sm }}>
-          {photoUrls.map((url, i) => (
-            <div key={url + i} style={{ position:"relative", paddingTop:"100%", borderRadius:R.md, overflow:"hidden", border:`1px solid ${C.bgWarm}` }}>
-              <img src={url} alt={`현장사진 ${i+1}`} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
-              <button onClick={() => removePhoto(i)} aria-label="사진 삭제"
-                style={{ position:"absolute", top:4, right:4, width:22, height:22, borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:13, lineHeight:1, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+          {items.map((it, idx) => (
+            <div key={it.id} style={{ background:C.bg, borderRadius:R.md, padding:S.md, marginBottom:S.sm }}>
+              <div style={{ display:"flex", gap:S.sm, alignItems:"center", marginBottom:S.sm }}>
+                <span style={{ fontSize:12, fontWeight:800, color:C.text4, width:16 }}>{idx + 1}</span>
+                <input value={it.name} onChange={e => updateItem(it.id, "name", e.target.value)} placeholder="공정명 (예: 철거)" style={{ ...inp, flex:1 }} />
+                {items.length > 1 && (
+                  <button onClick={() => removeItem(it.id)} aria-label="줄 삭제" style={{ background:"none", border:"none", color:C.text4, fontSize:16, cursor:"pointer", padding:"0 2px", lineHeight:1 }}>✕</button>
+                )}
+              </div>
+              <input value={it.material} onChange={e => updateItem(it.id, "material", e.target.value)} placeholder="자재·규격 (선택)" style={{ ...inp, width:"100%", marginBottom:S.sm }} />
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1.3fr auto", gap:S.sm, alignItems:"center" }}>
+                <input type="number" inputMode="decimal" value={it.qty} onChange={e => updateItem(it.id, "qty", e.target.value)} placeholder="수량" style={inp} />
+                <input type="number" inputMode="decimal" value={it.unitPrice} onChange={e => updateItem(it.id, "unitPrice", e.target.value)} placeholder="단가(만원)" style={inp} />
+                <div style={{ fontSize:13, fontWeight:800, color:C.brand, textAlign:"right", minWidth:56 }}>
+                  {Math.round((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)).toLocaleString()}만
+                </div>
+              </div>
             </div>
           ))}
-          {photoUrls.length < MAX_PHOTOS && (
-            <label style={{ position:"relative", paddingTop:"100%", borderRadius:R.md, border:`2px dashed ${C.bgWarm}`, cursor: uploadingPhoto ? "wait" : "pointer", background:C.bg }}>
-              <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", color:C.text3, fontSize:12, fontWeight:700, gap:2 }}>
-                <span style={{ fontSize:20 }}>{uploadingPhoto ? "⏳" : "📷"}</span>
-                {uploadingPhoto ? "업로드중" : "사진 추가"}
-              </div>
-              <input type="file" accept="image/*" multiple disabled={uploadingPhoto} onChange={handlePhotoSelect}
-                style={{ position:"absolute", inset:0, opacity:0, width:"100%", height:"100%", cursor:"pointer" }} />
-            </label>
+          {items.length < 10 && (
+            <button onClick={addItem} style={{ width:"100%", padding:"11px", border:`2px dashed ${C.bgWarm}`, borderRadius:R.md, background:"none", color:C.text3, fontWeight:700, fontSize:13, cursor:"pointer", marginTop:4, fontFamily:"inherit" }}>
+              + 줄 추가
+            </button>
           )}
-        </div>
-        {photoError && (
-          <div style={{ marginTop:S.sm, fontSize:12, color:C.red, lineHeight:1.6 }}>{photoError}</div>
-        )}
-      </div>
+        </>
+      )}
 
-      {/* ③ 자재 기록 (선택) — 자재 다중 등록. 공통 강제항목(두께/규격) 없이 자유입력만. */}
-      <div style={{ marginBottom:S.xl }}>
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
-          <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>자재 기록 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
-          <span style={{ fontSize:11, color:C.text4 }}>{materials.length}건</span>
-        </div>
-        <div style={{ fontSize:11, color:C.text4, lineHeight:1.6, marginBottom:S.sm }}>
-          자재마다 필요한 정보가 달라요. 자유롭게 기록하세요. (향후 AI가 자재명으로 입력항목을 자동 추천)
-        </div>
-        {materials.map((m, idx) => (
-          <div key={m.id} style={{ background:C.bg, borderRadius:R.md, padding:S.md, marginBottom:S.sm, border:`1px solid ${C.bgWarm}` }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.sm }}>
-              <span style={{ fontSize:12, fontWeight:700, color:C.text3 }}>자재 {idx + 1}</span>
-              <button onClick={() => removeMaterial(m.id)} style={{ background:"none", border:"none", color:C.text4, fontSize:16, cursor:"pointer", padding:0, lineHeight:1 }}>✕</button>
+      {step === 2 && (
+        <>
+          <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.sm }}>공사 기간</div>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center", marginBottom:S.xl }}>
+            {DURATION_PRESETS.map(d => (
+              <button key={d} onClick={() => setDurationDays(String(d))}
+                style={{ padding:"9px 14px", borderRadius:R.full, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                  border:`1.5px solid ${String(d) === durationDays ? C.brand : C.bgWarm}`, background: String(d) === durationDays ? C.brandL : C.surface, color: String(d) === durationDays ? C.brand : C.text2 }}>
+                {d}일
+              </button>
+            ))}
+            <input type="number" inputMode="numeric" value={durationDays} onChange={e => setDurationDays(e.target.value)} placeholder="직접(일)" style={{ ...inp, width:92 }} />
+          </div>
+
+          <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.sm }}>하자보수 조건</div>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.sm }}>
+            {WARRANTY_PRESETS.map(w => (
+              <button key={w} onClick={() => setWarrantyNote(prev => prev.includes(w) ? prev : (prev.trim() ? `${prev.trim()} · ${w}` : w))}
+                style={{ padding:"7px 12px", borderRadius:R.full, fontSize:12.5, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                  border:`1.5px solid ${warrantyNote.includes(w) ? C.brand : C.bgWarm}`, background: warrantyNote.includes(w) ? C.brandL : C.surface, color: warrantyNote.includes(w) ? C.brand : C.text2 }}>
+                {warrantyNote.includes(w) ? "✓ " : "+ "}{w}
+              </button>
+            ))}
+          </div>
+          <textarea value={warrantyNote} onChange={e => setWarrantyNote(e.target.value)} placeholder="보증 기간·범위를 적어 주세요" rows={2} style={{ ...area, marginBottom:S.xl }} />
+
+          <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:4 }}>의뢰인에게 한마디</div>
+          <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>현장에서 본 것, 금액이 이렇게 나온 이유를 짧게.</div>
+          <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="예) 욕실 방수층이 들떠 있어 철거 후 재시공이 필요합니다." rows={3} style={{ ...area, marginBottom:S.xl }} />
+
+          {/* 현장 실측 사진 첨부 (최대 5장) — 의뢰인이 결제 전 확인용. 기존 금액/제출 로직과 독립. */}
+          <div style={{ marginBottom:S.xxl }}>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>
+              현장 확인 사진 첨부 <span style={{ color:C.text4, fontWeight:600 }}>({photoUrls.length}/{MAX_PHOTOS})</span>
             </div>
-            <input value={m.name} onChange={e => updateMaterial(m.id, "name", e.target.value)} placeholder="자재명 (예: 단열재 · 타일 · 창호 · 방수재 · 도장 · 전선 · 배관 · 마루 · 기타)"
-              style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", marginBottom:S.sm }} />
-            <textarea value={m.record} onChange={e => updateMaterial(m.id, "record", e.target.value)} placeholder="기록내용 (자유입력 — 자재에 맞게: 두께/규격/난연등급/색상/KS규격/모델명/유리사양 등)" rows={2}
-              style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none", marginBottom:S.sm }} />
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:6, marginBottom:S.sm }}>
-              {(m.photos ?? []).map((url, i) => (
-                <div key={url + i} style={{ position:"relative", paddingTop:"100%", borderRadius:R.sm, overflow:"hidden", border:`1px solid ${C.bgWarm}` }}>
-                  <img src={url} alt={`자재사진 ${i+1}`} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
-                  <button onClick={() => removeMaterialPhoto(m.id, i)} aria-label="사진 삭제"
-                    style={{ position:"absolute", top:2, right:2, width:18, height:18, borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:11, lineHeight:1, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:S.sm }}>
+              {photoUrls.map((url, i) => (
+                <div key={url + i} style={{ position:"relative", paddingTop:"100%", borderRadius:R.md, overflow:"hidden", border:`1px solid ${C.bgWarm}` }}>
+                  <img src={url} alt={`현장사진 ${i+1}`} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
+                  <button onClick={() => removePhoto(i)} aria-label="사진 삭제"
+                    style={{ position:"absolute", top:4, right:4, width:22, height:22, borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:13, lineHeight:1, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
                 </div>
               ))}
-              {(m.photos?.length ?? 0) < 5 && (
-                <label style={{ position:"relative", paddingTop:"100%", borderRadius:R.sm, border:`2px dashed ${C.bgWarm}`, cursor: matUploadingId === m.id ? "wait" : "pointer", background:C.surface }}>
-                  <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", color:C.text3, fontSize:16 }}>{matUploadingId === m.id ? "⏳" : "📷"}</div>
-                  <input type="file" accept="image/*" multiple disabled={matUploadingId === m.id} onChange={e => { const fl = Array.from(e.target.files ?? []); e.target.value = ""; addMaterialPhotos(m.id, fl); }}
+              {photoUrls.length < MAX_PHOTOS && (
+                <label style={{ position:"relative", paddingTop:"100%", borderRadius:R.md, border:`2px dashed ${C.bgWarm}`, cursor: uploadingPhoto ? "wait" : "pointer", background:C.bg }}>
+                  <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", color:C.text3, fontSize:12, fontWeight:700, gap:2 }}>
+                    <span style={{ fontSize:20 }}>{uploadingPhoto ? "⏳" : "📷"}</span>
+                    {uploadingPhoto ? "업로드중" : "사진 추가"}
+                  </div>
+                  <input type="file" accept="image/*" multiple disabled={uploadingPhoto} onChange={handlePhotoSelect}
                     style={{ position:"absolute", inset:0, opacity:0, width:"100%", height:"100%", cursor:"pointer" }} />
                 </label>
               )}
             </div>
-            <input value={m.memo} onChange={e => updateMaterial(m.id, "memo", e.target.value)} placeholder="메모 (선택)"
-              style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }} />
+            {photoError && (
+              <div style={{ marginTop:S.sm, fontSize:12, color:C.red, lineHeight:1.6 }}>{photoError}</div>
+            )}
           </div>
-        ))}
-        {materials.length < 20 && (
-          <button onClick={addMaterial} style={{ width:"100%", padding:"11px", border:`2px dashed ${C.bgWarm}`, borderRadius:R.md, background:"none", color:C.text3, fontWeight:700, fontSize:13, cursor:"pointer" }}>
-            + 자재 기록 추가
+        </>
+      )}
+
+      {step === 3 && (
+        <>
+          {/* 보낼 내용 한눈에 — 의뢰인이 받는 모양 그대로 */}
+          <div style={{ background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, padding:S.lg, marginBottom:S.lg }}>
+            <div style={{ fontSize:12, fontWeight:800, color:C.text3, marginBottom:S.sm }}>의뢰인이 받는 견적</div>
+            {filledItems(items).map((it, i) => (
+              <div key={it.id} style={{ display:"flex", justifyContent:"space-between", gap:S.md, fontSize:13, padding:"4px 0", borderBottom:`1px solid ${C.bgWarm}` }}>
+                <span style={{ color:C.text1 }}>{i + 1}. {it.name}{it.material ? <span style={{ color:C.text4 }}> · {it.material}</span> : null}</span>
+                <span style={{ color:C.text1, fontWeight:700, flexShrink:0 }}>{Math.round((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)).toLocaleString()}만</span>
+              </div>
+            ))}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginTop:S.md }}>
+              <span style={{ fontSize:14, fontWeight:800, color:C.brand }}>총 견적</span>
+              <span style={{ fontSize:22, fontWeight:900, color:C.brand }}>{Math.round(totalPrice).toLocaleString()}만원</span>
+            </div>
+            <div style={{ fontSize:12.5, color:C.text2, lineHeight:1.8, marginTop:S.sm }}>
+              공사 {durationDays || "—"}일 · 현장 사진 {photoUrls.length}장{warrantyNote ? ` · ${warrantyNote}` : ""}
+            </div>
+            {note && <div style={{ fontSize:12.5, color:C.text3, lineHeight:1.7, marginTop:4, whiteSpace:"pre-wrap" }}>“{note}”</div>}
+          </div>
+
+          <button onClick={() => setShowDoc(true)}
+            style={{ width:"100%", padding:"12px", marginBottom:S.md, background:C.surface, color:C.brand, border:`1.5px solid ${C.brand}`, borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>
+            📄 견적서 미리보기 · 인쇄
           </button>
+          {showDoc && (
+            <QuoteDocument
+              estimate={{ ...buildPayload(), final_quote_photo_urls: photoUrls }}
+              companyName={companyName ?? job.bid?.company?.name ?? job.company?.name}
+              request={job.request ?? {}}
+              docNo={(estimateId ?? requestIdForPhotos ?? "").toString().slice(0, 8).toUpperCase() || null}
+              issuedAt={job.estimate?.submitted_at ?? null}
+              onClose={() => setShowDoc(false)}
+            />
+          )}
+          <button onClick={() => setShowExtra(v => !v)}
+            style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 14px", marginBottom:S.md,
+              background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, cursor:"pointer", fontFamily:"inherit" }}>
+            <span style={{ fontSize:13, fontWeight:800, color:C.text1 }}>더 남길 기록 <span style={{ color:C.text4, fontWeight:600 }}>(선택 · 자재·특이사항·특약)</span></span>
+            <span style={{ fontSize:12, color:C.text3, fontWeight:700 }}>{showExtra ? "접기 ▴" : "펼치기 ▾"}</span>
+          </button>
+          {showExtra && (
+            <div>
+              {/* ③ 자재 기록 (선택) — 자재 다중 등록. 공통 강제항목(두께/규격) 없이 자유입력만. */}
+              <div style={{ marginBottom:S.xl }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:C.text2 }}>자재 기록 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
+                  <span style={{ fontSize:11, color:C.text4 }}>{materials.length}건</span>
+                </div>
+                <div style={{ fontSize:11, color:C.text4, lineHeight:1.6, marginBottom:S.sm }}>
+                  자재마다 필요한 정보가 달라요. 자유롭게 기록하세요. (향후 AI가 자재명으로 입력항목을 자동 추천)
+                </div>
+                {materials.map((m, idx) => (
+                  <div key={m.id} style={{ background:C.bg, borderRadius:R.md, padding:S.md, marginBottom:S.sm, border:`1px solid ${C.bgWarm}` }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.sm }}>
+                      <span style={{ fontSize:12, fontWeight:700, color:C.text3 }}>자재 {idx + 1}</span>
+                      <button onClick={() => removeMaterial(m.id)} style={{ background:"none", border:"none", color:C.text4, fontSize:16, cursor:"pointer", padding:0, lineHeight:1 }}>✕</button>
+                    </div>
+                    <input value={m.name} onChange={e => updateMaterial(m.id, "name", e.target.value)} placeholder="자재명 (예: 단열재 · 타일 · 창호 · 방수재 · 도장 · 전선 · 배관 · 마루 · 기타)"
+                      style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", marginBottom:S.sm }} />
+                    <textarea value={m.record} onChange={e => updateMaterial(m.id, "record", e.target.value)} placeholder="기록내용 (자유입력 — 자재에 맞게: 두께/규격/난연등급/색상/KS규격/모델명/유리사양 등)" rows={2}
+                      style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none", marginBottom:S.sm }} />
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:6, marginBottom:S.sm }}>
+                      {(m.photos ?? []).map((url, i) => (
+                        <div key={url + i} style={{ position:"relative", paddingTop:"100%", borderRadius:R.sm, overflow:"hidden", border:`1px solid ${C.bgWarm}` }}>
+                          <img src={url} alt={`자재사진 ${i+1}`} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
+                          <button onClick={() => removeMaterialPhoto(m.id, i)} aria-label="사진 삭제"
+                            style={{ position:"absolute", top:2, right:2, width:18, height:18, borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:11, lineHeight:1, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+                        </div>
+                      ))}
+                      {(m.photos?.length ?? 0) < 5 && (
+                        <label style={{ position:"relative", paddingTop:"100%", borderRadius:R.sm, border:`2px dashed ${C.bgWarm}`, cursor: matUploadingId === m.id ? "wait" : "pointer", background:C.surface }}>
+                          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", color:C.text3, fontSize:16 }}>{matUploadingId === m.id ? "⏳" : "📷"}</div>
+                          <input type="file" accept="image/*" multiple disabled={matUploadingId === m.id} onChange={e => { const fl = Array.from(e.target.files ?? []); e.target.value = ""; addMaterialPhotos(m.id, fl); }}
+                            style={{ position:"absolute", inset:0, opacity:0, width:"100%", height:"100%", cursor:"pointer" }} />
+                        </label>
+                      )}
+                    </div>
+                    <input value={m.memo} onChange={e => updateMaterial(m.id, "memo", e.target.value)} placeholder="메모 (선택)"
+                      style={{ width:"100%", padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:13, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit" }} />
+                  </div>
+                ))}
+                {materials.length < 20 && (
+                  <button onClick={addMaterial} style={{ width:"100%", padding:"11px", border:`2px dashed ${C.bgWarm}`, borderRadius:R.md, background:"none", color:C.text3, fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                    + 자재 기록 추가
+                  </button>
+                )}
+              </div>
+
+              {/* ⑤ 특이사항 (선택) */}
+              <div style={{ marginBottom:S.lg }}>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>특이사항 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
+                <textarea value={specialNote} onChange={e => setSpecialNote(e.target.value)} placeholder="현장/프로젝트 특이사항 메모" rows={2}
+                  style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }} />
+              </div>
+
+              {/* ⑥ 시공 참고사항 (선택) */}
+              <div style={{ marginBottom:S.lg }}>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>시공 참고사항 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
+                <textarea value={constructionNote} onChange={e => setConstructionNote(e.target.value)} placeholder="주의사항 · 고객 요청사항 등" rows={2}
+                  style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }} />
+              </div>
+
+              {/* ⑦ 계약 특약 (선택) */}
+              <div style={{ marginBottom:S.xxl }}>
+                <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>계약 특약 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
+                <textarea value={contractSpecial} onChange={e => setContractSpecial(e.target.value)} placeholder="계약 특약 사항" rows={2}
+                  style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }} />
+              </div>
+            </div>
+          )}
+
+          {/* Space OS · AI 코치 — 작성 중 보완 제안(제안형). 분석/표시 전용. */}
+          <EstimateCoachPanel form={analysisForm} />
+        </>
+      )}
+
+      {stepMsg && (
+        <div style={{ margin:`${S.md}px 0 0`, padding:"9px 12px", background:"#FFF6E5", border:"1px solid #F5D97A", borderRadius:R.md, fontSize:12.5, fontWeight:700, color:"#8A5C00" }}>{stepMsg}</div>
+      )}
+
+      {/* 아래 고정 버튼 — 1·2단계: 합계 + 다음 / 3단계: 임시저장 + 전송 */}
+      <div style={{ position:"sticky", bottom:-40, background:C.surface, padding:`${S.md}px 0 0`, marginTop:S.lg, borderTop:`1px solid ${C.bgWarm}` }}>
+        {step < 3 ? (
+          <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
+            {step > 1 ? (
+              <button onClick={() => { setStep(step - 1); setStepMsg(null); }}
+                style={{ padding:"14px 16px", background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>이전</button>
+            ) : (
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:11, color:C.text3 }}>합계</div>
+                <div style={{ fontSize:18, fontWeight:900, color:C.brand }}>{Math.round(totalPrice).toLocaleString()}만원</div>
+              </div>
+            )}
+            <button onClick={goNext}
+              style={{ flex: step > 1 ? 1 : "0 0 55%", padding:"14px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", fontFamily:"inherit", boxShadow:`0 4px 16px ${C.brand44}` }}>
+              다음
+            </button>
+          </div>
+        ) : (
+          <div style={{ display:"flex", gap:S.sm }}>
+            <button onClick={handleSave} disabled={saving} style={{ flex:1, padding:"14px", background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", opacity:saving?0.7:1, fontFamily:"inherit" }}>
+              임시저장
+            </button>
+            <button onClick={handleSubmit} disabled={saving} style={{ flex:2, padding:"14px", background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand44}`, opacity:saving?0.7:1, fontFamily:"inherit" }}>
+              {saving ? "처리중..." : "의뢰인에게 보내기"}
+            </button>
+          </div>
         )}
-      </div>
-
-      {/* ⑤ 특이사항 (선택) */}
-      <div style={{ marginBottom:S.lg }}>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>특이사항 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
-        <textarea value={specialNote} onChange={e => setSpecialNote(e.target.value)} placeholder="현장/프로젝트 특이사항 메모" rows={2}
-          style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }} />
-      </div>
-
-      {/* ⑥ 시공 참고사항 (선택) */}
-      <div style={{ marginBottom:S.lg }}>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>시공 참고사항 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
-        <textarea value={constructionNote} onChange={e => setConstructionNote(e.target.value)} placeholder="주의사항 · 고객 요청사항 등" rows={2}
-          style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }} />
-      </div>
-
-      {/* ⑦ 계약 특약 (선택) */}
-      <div style={{ marginBottom:S.xxl }}>
-        <div style={{ fontSize:13, fontWeight:700, color:C.text2, marginBottom:S.sm }}>계약 특약 <span style={{ color:C.text4, fontWeight:600 }}>(선택)</span></div>
-        <textarea value={contractSpecial} onChange={e => setContractSpecial(e.target.value)} placeholder="계약 특약 사항" rows={2}
-          style={{ width:"100%", padding:"13px 16px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" }} />
-      </div>
-
-      {/* Space OS · AI 코치 — 작성 중 보완 제안(제안형). 분석/표시 전용. */}
-      <EstimateCoachPanel form={analysisForm} />
-
-      <div style={{ display:"flex", gap:S.sm }}>
-        <button onClick={handleSave} disabled={saving} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:14, cursor:"pointer", opacity:saving?0.7:1 }}>
-          임시저장
-        </button>
-        <button onClick={handleSubmit} disabled={saving} style={{ flex:2, padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", boxShadow:`0 4px 16px ${C.brand44}`, opacity:saving?0.7:1 }}>
-          {saving ? "처리중..." : "최종 견적서 전송하기"}
-        </button>
       </div>
 
       {/* 제출 후 Space OS 분석 결과 — '확인' 시 onClose 로 모달 종료 */}
