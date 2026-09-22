@@ -58,7 +58,7 @@ export function BetaBanner({ text, style }) {
   );
 }
 
-const GATE_CONTENT = {
+export const GATE_CONTENT = {
   quote: {
     title: "🎉 무료 베타 서비스 안내",
     intro: "베타 기간 동안 공간마켓 시스템 구조에 따라 아래 서비스를 제공합니다.",
@@ -115,7 +115,7 @@ function GateList({ items, mark, color }) {
 }
 
 // 안내 콘텐츠 본문(제공/가입필수/미제공/중요안내) — 게이트 모달·배지 클릭 모달 공용.
-function GateBody({ c }) {
+export function GateBody({ c }) {
   return (
     <>
       <GateSection title="제공 서비스">

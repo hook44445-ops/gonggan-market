@@ -2420,6 +2420,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       setConsentGateConfig({
         types: CONSUMER_CONSENT_TYPES,
         title: "견적 요청 전 약관 동의",
+        betaKind: "quote",
         onComplete: () => { setConsentGateConfig(null); setShowReq(true); },
       });
       return;
@@ -5920,6 +5921,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           userId={user?.id}
           title={consentGateConfig.title}
           onComplete={consentGateConfig.onComplete}
+          betaKind={consentGateConfig.betaKind ?? null}
           onClose={() => setConsentGateConfig(null)}
         />
       )}

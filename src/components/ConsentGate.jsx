@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
 import { DOCUMENT_TEMPLATES } from "../constants/documentTemplates";
+import { SHOW_BETA_UI } from "../constants/release";
+import { GATE_CONTENT, GateBody, hasBetaAck, markBetaAck } from "./beta/BetaUI";
 
 const STORAGE_KEY = (userId) => `gonggan_consents_${userId ?? "guest"}`;
 
@@ -34,10 +36,14 @@ function Check({ on, size = 22 }) {
 //  · 맨 위 「전체 동의」 한 번이면 모든 문서·모든 확인 항목이 체크된다.
 //  · 문서마다 한 줄로 접혀 있고, 「보기」로 펼치면 요점·확인 항목을 하나씩 볼 수 있다.
 //  · 모두 필수 — 하나라도 빠지면 계속 버튼이 잠긴다(기존 저장 방식 그대로).
-export default function ConsentGate({ requiredTypes, userId, title, onComplete, onClose }) {
-  const templates = requiredTypes
-    .map(type => DOCUMENT_TEMPLATES.find(t => t.type === type))
-    .filter(Boolean);
+export default function ConsentGate({ requiredTypes, userId, title, onComplete, onClose, betaKind = null }) {
+  // 베타 안내(앱 안 안전결제 미제공 등)도 같은 장에서 한 번에 확인한다 — 따로 뜨던 확인 창을 합침.
+  const needBeta = !!betaKind && SHOW_BETA_UI && !hasBetaAck(betaKind);
+  const beta = needBeta ? GATE_CONTENT[betaKind] ?? GATE_CONTENT.quote : null;
+  const templates = [
+    ...requiredTypes.map(type => DOCUMENT_TEMPLATES.find(t => t.type === type)).filter(Boolean),
+    ...(beta ? [{ type: `beta_${betaKind}`, title: "베타 서비스 이용 안내", beta }] : []),
+  ];
 
   const allKeys = templates.flatMap((tpl, ti) => {
     const items = tpl.checklist ?? [];
@@ -59,6 +65,7 @@ export default function ConsentGate({ requiredTypes, userId, title, onComplete, 
   const handleDone = () => {
     if (!allChecked) return;
     saveConsents(userId, requiredTypes);
+    if (needBeta) markBetaAck(betaKind);
     onComplete?.();
   };
 
@@ -118,7 +125,13 @@ export default function ConsentGate({ requiredTypes, userId, title, onComplete, 
                     {open ? "접기 ▲" : "보기 ▼"}
                   </button>
                 </div>
-                {open && (
+                {open && tpl.beta && (
+                  <div style={{ padding: `0 ${S.md}px ${S.md}px ${S.md}px` }}>
+                    <div style={{ fontSize: 12.5, color: C.text3, marginBottom: S.sm, lineHeight: 1.6 }}>{tpl.beta.intro}</div>
+                    <GateBody c={tpl.beta} />
+                  </div>
+                )}
+                {open && !tpl.beta && (
                   <div style={{ padding: `0 ${S.md}px ${S.md}px ${S.md + 34}px` }}>
                     {tpl.reason && (
                       <div style={{ fontSize: 12, color: C.brand, background: C.brandL, borderRadius: R.md,
