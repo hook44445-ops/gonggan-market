@@ -108,6 +108,10 @@ import {
   archiveRequestAuto,
   getTopReviews,
   getRecentPortfolios,
+  getPortfolios,
+  getReviews,
+  getCompletedEscrowByCompany,
+  getPhasePhotosByContracts,
   getSeedReviews,
   requestMockIdentityVerification,
   updateCompanyServiceRegions,
@@ -137,6 +141,7 @@ import HomeV3 from "../screens/v3/HomeV3";
 import ShowcaseV3 from "../screens/v3/ShowcaseV3";
 import RequestSentSheet from "./v3/RequestSentSheet";
 import { normalizeShowcases } from "../lib/showcases";
+import { contractsReadyForShowcase } from "../lib/portfolioDraft";
 import { SAMPLE_COMPANY, SAMPLE_WHEN_FEWER_THAN } from "../constants/sampleCompany";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
@@ -1245,11 +1250,41 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   // Auto-creates a row if none exists yet
   // myCompanyRow: 공간보증 카드용 raw company 행(normalizeCompany 는 guarantee 전체 보존 안 함).
   const [myCompanyRow, setMyCompanyRow] = useState(null);
+  // 파트너 홈 「내 업체 한눈에」 — 고객에게 보이는 내 업체 숫자 + 지금 할 한 가지(전부 실제 기록을 센다).
+  const [partnerGrowth, setPartnerGrowth] = useState(null);
+  const [dashTab, setDashTab] = useState("active"); // 파트너센터를 특정 탭(포트폴리오 등)으로 바로 열 때
   const reloadMyCompany = async () => {
     if (!user?.id) return;
     const { data } = await getCompanyByOwnerId(user.id).catch(() => ({ data: null }));
     if (data) setMyCompanyRow(data);
   };
+  useEffect(() => {
+    if (activeRole !== "company" || !myCompanyRow?.id || !user?.id) { setPartnerGrowth(null); return; }
+    let alive = true;
+    (async () => {
+      const safe = (p) => Promise.resolve(p).catch(() => ({ data: [] }));
+      const [pf, done, revs] = await Promise.all([
+        safe(getPortfolios(myCompanyRow.id)),
+        safe(getCompletedEscrowByCompany(user.id)),
+        safe(getReviews(myCompanyRow.id)),
+      ]);
+      const contracts = done?.data ?? [];
+      const rows = (await safe(getPhasePhotosByContracts(contracts.map(c => c.id))))?.data ?? [];
+      const portfolios = pf?.data ?? [];
+      const reviews = (revs?.data ?? []).filter(r => !r.is_hidden && !r.deleted_at);
+      const rated = reviews.map(r => Number(r.rating)).filter(n => Number.isFinite(n) && n > 0);
+      if (!alive) return;
+      setPartnerGrowth({
+        showcases: portfolios.length,
+        reviews: reviews.length,
+        rating: rated.length ? Math.round((rated.reduce((a, n) => a + n, 0) / rated.length) * 10) / 10 : null,
+        completed: contracts.length,
+        readyFromJobs: contractsReadyForShowcase({ contracts, photoRows: rows, portfolios }).length,
+      });
+    })();
+    return () => { alive = false; };
+  }, [activeRole, myCompanyRow?.id, user?.id]);
+
   useEffect(() => {
     if (activeRole !== "company" || !user?.id) return;
     getCompanyByOwnerId(user.id).then(async ({ data }) => {
@@ -2996,6 +3031,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               completedCount={doneCnt}
               newRequestCount={activeRole === "company" ? biddableRequests.length : (activeJobs ?? []).length}
               requestsSlot={activeRole === "company" ? renderPartnerRequests() : null}
+              partnerGrowth={activeRole === "company" ? partnerGrowth : null}
+              onPartnerAction={(tab) => { setDashTab(tab); setScreen("dashboard"); }}
+              onPartnerProfile={() => currentUser && go("portfolio", currentUser)}
               openRequest={op ? {
                 title: op.type ?? op.area ?? "시공",
                 bidCount: op.bidCount ?? 0,
@@ -4312,7 +4350,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         )}
         {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} onConfirmFinalQuote={() => go("bidstatus")} />}
         {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
-        {screen==="dashboard" && <DashboardScreen onBack={() => setScreen("home")} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id} />}
+        {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
             onBack={() => setScreen("home")}
