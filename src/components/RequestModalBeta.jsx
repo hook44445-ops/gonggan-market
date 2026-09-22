@@ -17,7 +17,10 @@ const STYLE_IMG = {
 };
 const SIZE_QUICK = ["10평대", "20평대", "30평대", "40평 이상"];
 const BUDGET_QUICK = ["1,000만원 이하", "1,000~3,000만원", "3,000~5,000만원", "5,000만원 이상", "상담 후 결정"];
-const WORK_TAGS = ["철거", "도배", "바닥", "욕실", "주방", "조명·전기", "창호", "붙박이장", "페인트", "타일"];
+// 자주 찾는 공사는 먼저, 나머지는 「더 보기」 — 칩이 한꺼번에 스무 개 넘게 서면 요청서가 무거워진다.
+// ⚠ 고름 판정이 본문 부분일치(form.desc.includes)라, 서로의 일부가 되는 이름을 넣지 않는다.
+const WORK_TAGS = ["철거", "도배", "바닥", "필름", "욕실", "주방", "타일", "페인트", "조명·전기", "창호"];
+const MORE_WORK_TAGS = ["중문", "도어", "몰딩", "붙박이장·가구", "방수", "누수·배관", "줄눈", "탄성코트", "발코니 확장", "단열", "블라인드·커튼"];
 
 function PhotoPick({ label, img, active, onClick, ratio = "4 / 3" }) {
   return (
@@ -37,6 +40,7 @@ function PhotoPick({ label, img, active, onClick, ratio = "4 / 3" }) {
 export default function RequestModalBeta({ onClose, onDone, initialData = null, isEdit = false }) {
   // ── 로직(원본 동일) ────────────────────────────────────────────────
   const [step, setStep] = useState(1);
+  const [moreTags, setMoreTags] = useState(false);
   const [betaAck, setBetaAck] = useState(() => hasBetaAck("quote")); // 최초 1회 확인 후 재노출 안 함
   const stepRef = useRef(step);
   useEffect(() => { stepRef.current = step; }, [step]);
@@ -220,7 +224,7 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
 
           <Label required>어떤 공사가 필요하세요?</Label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-            {WORK_TAGS.map(tag => {
+            {[...WORK_TAGS, ...((moreTags || MORE_WORK_TAGS.some(t => form.desc.includes(t))) ? MORE_WORK_TAGS : [])].map(tag => {
               const on = form.desc.includes(tag);
               return (
                 <button key={tag} onClick={() => set("desc", on
@@ -229,6 +233,13 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
                   style={{ ...chip(on), padding: "8px 13px", minHeight: 38, fontSize: 13 }}>{on ? "✓ " : "+ "}{tag}</button>
               );
             })}
+            {!(moreTags || MORE_WORK_TAGS.some(t => form.desc.includes(t))) && (
+              <button onClick={() => setMoreTags(true)}
+                style={{ padding: "8px 13px", minHeight: 38, fontSize: 13, fontWeight: 700, color: C.brand,
+                  background: "none", border: `1.5px dashed ${C.brandM}`, borderRadius: R.full, cursor: "pointer" }}>
+                더 보기 · 중문·몰딩·방수 등
+              </button>
+            )}
           </div>
           <textarea placeholder="위에서 고르거나 직접 적어 주세요 · 예) 주방 확장, 욕실 2개 교체" value={form.desc}
             onChange={e => set("desc", e.target.value)} rows={4}
