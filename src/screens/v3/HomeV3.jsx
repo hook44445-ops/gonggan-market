@@ -66,6 +66,9 @@ export default function HomeV3({
   onRequestType,           // 의뢰인: 공간 유형을 고른 채 견적 요청 열기(type)
   requestsSlot = null,     // 파트너: 입찰할 새 견적 요청 목록(MainApp 이 그린다)
   onOpenShowcase,
+  partnerGrowth = null,    // 파트너: { showcases, reviews, rating, completed, readyFromJobs } — 실제 기록 집계
+  onPartnerAction,         // 파트너: (tab) → 파트너센터 그 탭으로
+  onPartnerProfile,        // 파트너: 고객에게 보이는 내 업체 화면
 }) {
   const isCompany = activeRole === "company";
   const name = user?.name || (isCompany ? "파트너" : "고객");
@@ -118,6 +121,29 @@ export default function HomeV3({
       {isCompany && requestsSlot && (
         <div id="partner-requests" style={{ scrollMarginTop: 120 }}>{requestsSlot}</div>
       )}
+
+      {/* ── 파트너: 내 업체 한눈에 — 고객에게 보이는 숫자 + 지금 할 한 가지 ───
+          시공 사례가 쌓이면 고객 홈 「시공 사례」에 업체 이름과 함께 올라가 다음 요청으로 이어진다.
+          숫자는 전부 실제 기록(portfolios·reviews·끝난 계약)이다 — 조회수처럼 없는 기록은 만들지 않는다. */}
+      {isCompany && partnerGrowth && (() => {
+        const g = partnerGrowth;
+        const nudge = g.readyFromJobs > 0
+          ? { text: `📸 끝난 공사 ${g.readyFromJobs}건을 시공 사례로 만들 수 있어요. 공사 중 올린 사진으로 채워 드려요.`, cta: "사례 만들기", tab: "portfolio" }
+          : g.showcases === 0
+            ? { text: "시공 사례가 있으면 고객 홈에 업체 이름과 함께 올라가요. 첫 사례를 올려 보세요.", cta: "사례 올리기", tab: "portfolio" }
+            : { text: `고객 홈 「시공 사례」에 내 사례 ${g.showcases}건이 업체 이름과 함께 보이고 있어요.`, cta: null };
+        return (
+          <Section title="내 업체 한눈에" action={onPartnerProfile ? "고객에게 보이는 모습" : null} onAction={onPartnerProfile}>
+            <TrustRow items={[
+              { value: `${g.showcases}건`, label: "시공 사례" },
+              { value: `${g.reviews}개`, label: "후기" },
+              { value: g.rating != null ? `${g.rating.toFixed(1)}` : "—", label: "평점" },
+              { value: `${g.completed}건`, label: "완료 공사" },
+            ]} />
+            <EmptyInvite text={nudge.text} cta={nudge.cta} onCta={nudge.tab ? () => onPartnerAction?.(nudge.tab) : undefined} />
+          </Section>
+        );
+      })()}
 
       {/* ── 의뢰인: 보낸 요청의 상태 — 견적이 왔으면 비교하러 가게 ─────── */}
       {!isCompany && !activeContract && openRequest && (

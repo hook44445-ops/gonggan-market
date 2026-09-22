@@ -162,10 +162,11 @@ export default function DashboardScreen({
   allRequests: allRequestsProp,
   currentUser, submittedBids,
   userId,
+  initialTab = "active",
 }) {
   const allRequests  = allRequestsProp ?? [];
   const jobsFromHome = companyJobs ?? [];
-  const [tab, setTab]                     = useState("active");
+  const [tab, setTab]                     = useState(initialTab);
   const [uiVersion] = useUiVersion();   // v3: 상단 3개 카드를 하나로 압축
   const [showGrowth, setShowGrowth]       = useState(false);
   const [escrowJobs, setEscrowJobs]       = useState([]);
