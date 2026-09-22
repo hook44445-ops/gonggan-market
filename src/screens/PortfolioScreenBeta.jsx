@@ -37,7 +37,11 @@ function useCountUp(target, ms = 240) {
   return v;
 }
 
-export default function PortfolioScreenBeta({ company, onChat, onReview, onBack }) {
+export default function PortfolioScreenBeta({ company, onChat: onChatProp, onReview: onReviewProp, onBack, onRequest }) {
+  // 예시 업체(견본)는 상담·후기 대상이 아니다 → 버튼 대신 「이런 업체 만나기(무료 견적)」
+  const isSample = !!company?.isSample;
+  const onChat = isSample ? null : onChatProp;
+  const onReview = isSample ? null : onReviewProp;
   const [portfolio, setPortfolio] = useState(company?.portfolio ?? []);
   const [reviews, setReviews] = useState(company?.reviewList ?? []);
   const [photoWork, setPhotoWork] = useState(null);
@@ -46,7 +50,7 @@ export default function PortfolioScreenBeta({ company, onChat, onReview, onBack 
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    if (!company?.id) return;
+    if (!company?.id || company.isSample) return;
     getPortfolios(company.id).then(({ data, error }) => {
       if (!error && data && data.length > 0) setPortfolio(data.map(normalize));
     });
@@ -132,6 +136,17 @@ export default function PortfolioScreenBeta({ company, onChat, onReview, onBack 
 
       <div style={{ padding: `${S.sm}px ${S.xl}px 110px` }}>
 
+        {isSample && (
+          <div style={{ margin: `${S.sm}px 0 0`, background: "#FFF6E5", border: "1px solid #F3D9A4", borderRadius: R.lg,
+            padding: "10px 14px", fontSize: 12.5, color: "#7A5200", lineHeight: 1.6 }}>
+            👀 <b>예시 화면이에요.</b> 실제 업체가 아니에요. 공간마켓에 입점한 업체는 이렇게 보여요.
+          </div>
+        )}
+        {company.cover && (
+          <div style={{ marginTop: S.md, borderRadius: R.xl, overflow: "hidden", aspectRatio: "16 / 9", background: C.surface2 }}>
+            <img src={company.cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          </div>
+        )}
         {/* ── Hero ──────────────────────────────────────────── */}
         <div style={{ padding: `${S.lg}px 2px ${S.xl}px`, animation: "pf-fade 240ms ease both" }}>
           <style>{`@keyframes pf-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
@@ -189,7 +204,7 @@ export default function PortfolioScreenBeta({ company, onChat, onReview, onBack 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm }}>
               {gridWorks.slice(0, 6).map(w => (
                 <button key={w.id} onClick={() => setPhotoWork(w)} style={{
-                  position: "relative", paddingTop: "100%", border: "none", padding: 0,
+                  position: "relative", aspectRatio: "1 / 1", border: "none", padding: 0,
                   borderRadius: R.lg, overflow: "hidden", cursor: "pointer", background: C.surface2,
                 }}>
                   <img src={w.after ?? w.before} alt={w.title ?? "시공사례"} loading="lazy"
@@ -240,11 +255,11 @@ export default function PortfolioScreenBeta({ company, onChat, onReview, onBack 
                 </div>
               );
             })}
-            <button onClick={onReview} style={{
+            {onReview && <button onClick={onReview} style={{
               width: "100%", marginTop: S.md, padding: "12px", background: C.surface,
               border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 13, fontWeight: 800,
               color: C.text2, cursor: "pointer",
-            }}>후기 전체보기 →</button>
+            }}>후기 전체보기 →</button>}
           </Section>
         )}
 
@@ -267,6 +282,20 @@ export default function PortfolioScreenBeta({ company, onChat, onReview, onBack 
       </div>
 
       {/* ── 하단 고정 CTA ──────────────────────────────────── */}
+      {isSample && onRequest && (
+        <div style={{
+          position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30,
+          background: C.surface, borderTop: `1px solid ${C.bgWarm}`,
+          padding: `${S.md}px ${S.xl}px calc(${S.md}px + env(safe-area-inset-bottom))`,
+          display: "flex", justifyContent: "center",
+        }}>
+          <button onClick={onRequest} style={{
+            width: "100%", maxWidth: 440, padding: "16px", background: C.brand, color: "#fff",
+            border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, minHeight: 56, cursor: "pointer",
+            boxShadow: `0 6px 20px ${C.brand44}`,
+          }}>이런 업체 만나기 · 무료 견적 받기</button>
+        </div>
+      )}
       {onChat && (
         <div style={{
           position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30,

@@ -134,6 +134,7 @@ import HomeV3 from "../screens/v3/HomeV3";
 import ShowcaseV3 from "../screens/v3/ShowcaseV3";
 import RequestSentSheet from "./v3/RequestSentSheet";
 import { normalizeShowcases } from "../lib/showcases";
+import { SAMPLE_COMPANY, SAMPLE_WHEN_FEWER_THAN } from "../constants/sampleCompany";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
 
@@ -197,6 +198,9 @@ const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // DB는 budget_min/budget_max(만원 단위 정수)로 저장하므로 문자열에서 숫자를 안전하게 파싱한다.
 // - 숫자 2개: [min, max]   - 숫자 1개: [n, n]   - 숫자 없음(협의 등): [0, 0]
 // 기존 데이터는 이미 budget_min/max 정수로 저장되어 있어 영향 없음.
+// 테스트 업체 — 이름에 「테스트」/test 가 들어간 업체(운영 데이터 정리 전까지 의뢰인 화면에서 제외)
+export const isTestCompany = (c) => /테스트|(^|[^a-z])test([^a-z]|$)/i.test(String(c?.name ?? ""));
+
 const parseBudgetRange = (str) => {
   if (!str || typeof str !== "string") return { min: 0, max: 0 };
   const nums = (str.match(/\d[\d,]*/g) ?? [])
@@ -2128,7 +2132,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     };
   }, [bidViewRequestId]);
 
-  const { companies } = useCompanyList();
+  const { companies: allCompanies } = useCompanyList();
+  // 의뢰인 화면에는 테스트용 업체를 보이지 않는다(운영 목록에 남아 있어 신뢰를 깎던 문제). 파트너·관리자는 그대로.
+  const companies = useMemo(
+    () => activeRole === "consumer" ? allCompanies.filter(c => !isTestCompany(c)) : allCompanies,
+    [allCompanies, activeRole],
+  );
   const showcaseItems = useMemo(() => {
     const coIds = new Set((companies ?? []).map(c => c.id));
     return normalizeShowcases({ topReviews, seedReviews, maskName: maskCompanyName })
@@ -4067,6 +4076,38 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               </div>
             ))}
 
+            {/* 예시 업체 — 실제 업체가 적을 때 「업체는 이렇게 보여요」 견본(상담·입찰 대상 아님) */}
+            {activeRole === "consumer" && (mapLocalOnly ? mapLocalMatches : mapCompanies).length < SAMPLE_WHEN_FEWER_THAN && (
+              <div style={{ marginBottom:S.sm }}>
+                <div style={{ marginBottom:4, paddingLeft:2, display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ background:"#FFF6E5", border:"1px solid #F3D9A4", borderRadius:R.full, padding:"2px 9px",
+                    fontSize:10.5, color:"#7A5200", fontWeight:800 }}>예시</span>
+                  <span style={{ fontSize:11.5, color:C.text3 }}>입점한 업체는 이렇게 보여요</span>
+                </div>
+                <div onClick={() => go("portfolio", SAMPLE_COMPANY)} style={{ cursor:"pointer", borderRadius:R.xl, overflow:"hidden",
+                  border:`1px solid ${C.bgWarm}`, background:C.surface }}>
+                  <div style={{ position:"relative", aspectRatio:"16 / 7", background:C.surface2 }}>
+                    <img src={SAMPLE_COMPANY.cover} alt="" loading="lazy" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+                    <div style={{ position:"absolute", right:8, bottom:8, display:"flex", gap:4 }}>
+                      {SAMPLE_COMPANY.portfolio.map(w => (
+                        <img key={w.id} src={w.after} alt="" loading="lazy" style={{ width:44, height:44, objectFit:"cover", borderRadius:8, border:"2px solid #fff" }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ padding:`${S.md}px ${S.lg}px` }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{SAMPLE_COMPANY.name}</span>
+                      <TempBadge temp={SAMPLE_COMPANY.temp} />
+                    </div>
+                    <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>
+                      시공 {SAMPLE_COMPANY.completedJobs}건 · 응답 {SAMPLE_COMPANY.responseTime} · {SAMPLE_COMPANY.specialties.join(" · ")}
+                    </div>
+                    <div style={{ fontSize:12.5, color:C.brand, fontWeight:700, marginTop:8 }}>예시 프로필 보기 →</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 내 지역만 보기 + 결과 0건 empty state */}
             {mapLocalOnly && mapLocalMatches.length === 0 && (
               <div style={{ textAlign:"center", padding:"32px 0", color:C.text3 }}>
@@ -4206,7 +4247,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const onBack = () => setScreen("home");
           // UX Beta: 공개/고객 뷰는 프리미엄 상세, 업체 본인/관리자는 기존 관리 화면 유지.
           return (UX_BETA && !canManage)
-            ? <PortfolioScreenBeta company={selCo} onChat={onChat} onReview={onReview} onBack={onBack} />
+            ? <PortfolioScreenBeta company={selCo} onChat={onChat} onReview={onReview} onBack={onBack}
+                onRequest={() => requireAuth(() => handleOpenNewReq())} />
             : <PortfolioScreen company={selCo} canManage={canManage} onChat={onChat} onReview={onReview} onBack={onBack} onEscrow={() => go("escrow")} />;
         })()}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} onEarnToken={earnToken} />}
