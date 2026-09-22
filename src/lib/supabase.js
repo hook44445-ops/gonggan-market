@@ -339,6 +339,36 @@ export const getProjectChatSummary = async ({ customerId, companyId, ownerId } =
   return { count: count ?? recent.length, last: recent[0]?.created_at ?? null, recent, rooms, matchedRoomIds, error };
 };
 
+// ── 파트너용 고객 상담방 목록 ────────────────────────────────────────────────
+// 견적·계약 채팅 room_id = `${customerId}_${companyId}`. 의뢰인 쪽은 companies 로 방을 만들지만,
+// 업체 쪽은 어떤 고객이 말을 걸었는지 알 방법이 없었다 → room_id 가 `_${companyId}` 로 끝나는 방을 모은다.
+// 반환: [{ roomId, customerId, lastText, lastAt, customerName }] 최근 대화 순.
+export async function getCompanyChatRooms(companyId) {
+  if (!companyId) return { data: [], error: null };
+  const { data, error } = await supabase
+    .from("chats")
+    .select("room_id, text, created_at, sender_type")
+    .like("room_id", `%_${companyId}`)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) return { data: [], error };
+  const rooms = new Map();
+  for (const row of data ?? []) {
+    if (rooms.has(row.room_id)) continue;
+    const customerId = row.room_id.slice(0, row.room_id.length - companyId.length - 1);
+    if (!customerId || customerId === "guest") continue;
+    rooms.set(row.room_id, { roomId: row.room_id, customerId, lastText: row.text ?? "", lastAt: row.created_at });
+  }
+  const list = [...rooms.values()];
+  const ids = list.map(r => r.customerId).filter(id => /^[0-9a-f-]{36}$/i.test(id));
+  if (ids.length) {
+    const { data: users } = await supabase.from("users").select("id, name").in("id", ids);
+    const nameOf = new Map((users ?? []).map(u => [u.id, u.name]));
+    list.forEach(r => { r.customerName = nameOf.get(r.customerId) ?? null; });
+  }
+  return { data: list, error: null };
+}
+
 export const sendMessage = (roomId, senderId, senderType, text) =>
   supabase.from("chats").insert({
     room_id: roomId,

@@ -113,6 +113,8 @@ import {
   getNotifications,
   getReviewByRequest,
   getUnreadChatCounts,
+  getCompanyChatRooms,
+  isChatPhoto,
   getRoomsWithMessages,
   fetchMyChatRequests,
   fetchReceivedChatRequests,
@@ -2233,6 +2235,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (screen === "chatlist" || screen === "home") refreshUnreadChats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, user?.id, companies?.length]);
+  // 파트너: 고객이 말을 건 상담방(room_id = 고객ID_업체ID). 대화 목록 진입 때 갱신.
+  const [customerRooms, setCustomerRooms] = useState([]);
+  const [customerChat, setCustomerChat] = useState(null); // { roomId, customer:{ id, name } }
+  useEffect(() => {
+    if (activeRole !== "company" || !currentUser?.id) return;
+    if (screen !== "chatlist" && screen !== "home") return;
+    let alive = true;
+    getCompanyChatRooms(currentUser.id).then(({ data }) => { if (alive) setCustomerRooms(data ?? []); }).catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, activeRole, currentUser?.id]);
   const unreadTotal = Object.values(unreadByRoom).reduce((a, b) => a + (b || 0), 0);
 
   // ── 통합 대화 탭: 라운지 대화 요청(보낸/받은/수락됨) — chats(회사채팅)는 무변경 ──────
@@ -2816,7 +2829,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const FULL = ["showcase","chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
+  const FULL = ["showcase","cchat","chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   // 파트너: 입찰할 새 견적 요청 목록 — v2 홈과 v3 홈이 같은 목록을 쓴다(v3 홈에서 요청이 안 보이던 문제).
   const renderPartnerRequests = () => (
@@ -4261,6 +4274,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         })()}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} onEarnToken={earnToken} />}
         {screen==="my-reviews" && <CustomerReviewHistoryScreen currentUser={currentUser} companies={companies} onBack={() => setScreen("my")} />}
+        {screen==="cchat" && customerChat && (
+          <ChatScreen
+            key={customerChat.roomId}
+            roomId={customerChat.roomId}
+            company={{ ...customerChat.customer, isCustomer: true }}
+            companyId={currentUser?.id ?? null}
+            user={user}
+            onBack={() => setScreen("chatlist")}
+          />
+        )}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen("chatlist")}
           onQuoteRequest={activeRole === "consumer" ? () => { setScreen("home"); handleOpenNewReq(); } : undefined} />}
         {screen==="lounge-chat" && loungeChat && (
@@ -4511,7 +4534,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const visibleCompanies = companies.filter(c =>
             !hiddenCompanyChats.includes(c.id) && roomsWithMessages.has(`${user.id}_${c.id}`)
           );
-          const isAllEmpty = totalLoungeRequests === 0 && totalLoungeOngoing === 0 && visibleCompanies.length === 0;
+          const isAllEmpty = totalLoungeRequests === 0 && totalLoungeOngoing === 0 && visibleCompanies.length === 0
+            && !(activeRole === "company" && customerRooms.length > 0);
           const sectionTitle = (label) => {
             const { emoji, rest } = splitLeadingEmoji(label);
             return (
@@ -4655,6 +4679,31 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     {renderCardMenu(`acc_sent_${r.id}`, "lounge", r)}
                   </div>
                 ))}
+              </>
+            )}
+
+            {activeRole === "company" && customerRooms.length > 0 && (
+              <>
+                {sectionTitle(`🏗 고객 상담 (${customerRooms.length})`)}
+                {customerRooms.map(rm => {
+                  const name = rm.customerName ? `${rm.customerName} 고객님` : "의뢰인";
+                  const last = isChatPhoto(rm.lastText) ? "📷 사진" : (rm.lastText || "대화를 시작해 보세요");
+                  return (
+                    <div key={rm.roomId} onClick={() => { setCustomerChat({ roomId: rm.roomId, customer: { id: rm.customerId, name } }); setScreen("cchat"); }}
+                      style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
+                      <div style={{ width:48, height:48, borderRadius:R.full, flexShrink:0, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand }}>
+                        {name[0]}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3, gap:8 }}>
+                          <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{name}</div>
+                          <div style={{ fontSize:11, color:C.text4, flexShrink:0 }}>{formatRelativeTime(rm.lastAt)}</div>
+                        </div>
+                        <div style={{ fontSize:13, color:C.text3, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>{last}</div>
+                      </div>
+                    </div>
+                  );
+                })}
               </>
             )}
 

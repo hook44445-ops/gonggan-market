@@ -14,7 +14,8 @@ const REPORT_REASONS = [
   "기타 부적절한 행위",
 ];
 
-const WELCOME = "안녕하세요! 공간마켓 파트너 업체입니다 😊 견적 관련해서 궁금한 점 편하게 물어보세요!";
+// 새 상담방 첫 안내 — 업체가 쓴 척하지 않고 시스템 안내로 남긴다(예전엔 업체 이름으로 자동 인사를 넣었다).
+const WELCOME = "상담이 시작되었어요. 연락처·계좌를 따로 주고받기보다 이 대화방에서 이야기하면 약속이 기록으로 보호돼요.";
 
 // 채팅 메시지 표시 시간 — DB(timestamptz)는 UTC 로 저장/유지하고, 화면만 Asia/Seoul 로
 //   변환한다. 기존 getHours() 는 기기/브라우저(카카오 인앱 등) timezone 을 따라가서 UTC
@@ -75,10 +76,15 @@ const normalizeMsg = (row) => ({
   createdAt: row.created_at,
 });
 
+const QUICK_CUSTOMER = ["공사 기간은 얼마나 걸리나요?", "현장 방문 가능한 날이 있나요?", "A/S는 어떻게 되나요?", "자재는 어떤 걸 쓰나요?", "견적서를 자세히 받고 싶어요"];
+const QUICK_PARTNER = ["현장 사진 몇 장 보내주실 수 있을까요?", "실측 가능한 날짜를 알려주세요", "원하시는 공사 범위를 조금 더 알려주세요", "견적서를 앱에 올려 드릴게요"];
 const PAGE_SIZE = 50;
 const LOUNGE_SYSTEM_HELLO = "라운지 대화가 시작되었습니다.";
 
-export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode, partner, roomId: roomIdProp, onOpenSource, onOpenPortfolio, onLeft }) {
+export default function ChatScreen({ company, companyId: companyIdProp = null, user, onBack, onQuoteRequest, mode, partner, roomId: roomIdProp, onOpenSource, onOpenPortfolio, onLeft }) {
+  // 파트너가 고객 상담방을 열면 company 자리에 「고객」이 온다(isCustomer). 업체 id 는 companyId 로 따로 받는다.
+  const isCustomerView = !!company?.isCustomer;
+  const dealCompanyId = isCustomerView ? companyIdProp : (company?.id ?? null);
   // 라운지 모드: room_id = lounge_{lounge_chat_request_id} (호출부에서 전달) — 기존 견적/업체 채팅 규칙 무변경
   const isLounge = mode === "lounge";
   const roomId = roomIdProp ?? `${user?.id ?? "guest"}_${company?.id ?? "0"}`;
@@ -190,10 +196,8 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
             if (!cancelled) rows = after ?? [];
           }
         } else {
-          // Insert welcome message from company, then re-fetch to get real DB id
-          // sender_id 는 null — company.id 는 users(id) FK 대상이 아니라 FK 위반이 됨.
-          // 표시는 sender_type='company' + sender_id≠본인 으로 '업체' 메시지로 렌더됨.
-          await sendMessage(roomId, null, "company", WELCOME);
+          // 첫 안내는 시스템 메시지로(sender_id null). 업체 이름으로 가짜 인사를 넣지 않는다.
+          await sendMessage(roomId, null, "system", WELCOME);
           const { data: after } = await getChatMessages(roomId);
           if (!cancelled) rows = after ?? [];
         }
@@ -277,7 +281,6 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
     if (!input.trim()) return;
     const text = input.trim();
     setInput("");
-    if (!isLounge) setTyping(true);
 
     // 낙관적 표시 — 전송 즉시 내 화면에 노출(사진과 달리 텍스트가 realtime 에코를 못 받아도
     // 보이도록). 성공 시 실제 id 로 치환(realtime 중복은 id 로 dedup), 실패 시 제거+입력 복원.
@@ -298,7 +301,6 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
 
     // INSERT 실패(RLS/CHECK/네트워크)를 삼키지 않고 노출 + 낙관적 메시지 롤백 + 입력 복원.
     if (sendErr) {
-      if (!isLounge) setTyping(false);
       setMessages(prev => prev.filter(m => m.id !== tmpId));
       setInput(text);
       const detail = sendErr?.message || sendErr?.error_description || String(sendErr);
@@ -317,15 +319,14 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
 
     // 감지/기록은 백그라운드 — 전송 흐름을 막지 않음 (라운지: 상대가 업체면 업체 id 연결)
     checkDirectDealKeyword(text, {
-      companyId: isLounge ? (partnerCompany?.id ?? null) : (company?.id ?? null),
-      customerId: user?.id ?? null,
+      companyId: isLounge ? (partnerCompany?.id ?? null) : dealCompanyId,
+      customerId: isCustomerView ? (company?.id ?? null) : (user?.id ?? null),
       senderId: user?.id ?? null,
-      senderRole: "consumer",
+      senderRole: mySenderType,
       chatMessageId: sent?.id ?? null,
     }).catch(() => {});
 
-    // typing indicator disappears once realtime delivers the reply (or after timeout)
-    if (!isLounge) setTimeout(() => setTyping(false), 3000);
+    // (상대 「입력 중」 표시는 실제 신호가 없어 쓰지 않는다 — 예전엔 보낼 때마다 3초간 가짜로 떴다)
   };
 
   // 사진 전송 — 일반 메시지(text=마커+URL)로 전송. 텍스트 흐름과 독립(additive).
@@ -397,7 +398,9 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
             </div>
             )
           ) : (
-            <div style={{ fontSize:11, color:company?.online?C.green:C.text3, fontWeight:600 }}>
+            isCustomerView ? (
+              <div style={{ fontSize:11, color:C.text3, fontWeight:600 }}>견적·시공 상담</div>
+            ) : <div style={{ fontSize:11, color:company?.online?C.green:C.text3, fontWeight:600 }}>
               {company?.online
                 ? (company.lastActive ? `활동중 · ${company.lastActive}` : "활동중")
                 : (company?.responseTime ?? "")}
@@ -419,7 +422,7 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
               📋 견적요청
             </button>
           )}
-          {!isLounge && <TempBadge temp={company?.temp ?? 0} />}
+          {!isLounge && !isCustomerView && <TempBadge temp={company?.temp ?? 0} />}
           <button onClick={() => { setReportDone(false); setReportOpen(true); }} aria-label="신고"
             style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, color:C.text3, padding:"2px 4px", lineHeight:1 }}>
             🚩
@@ -641,6 +644,17 @@ export default function ChatScreen({ company, user, onBack, onQuoteRequest, mode
           <div style={{ background:C.brandL, borderTop:`1px solid ${C.brandM}`, color:C.brandD, flexShrink:0,
             padding:"8px 16px", fontSize:11.5, fontWeight:600, textAlign:"center", lineHeight:1.5 }}>
             🔒 수락 대기중 · 익명 — 상대가 수락하면 프로필이 공개되고 대화가 이어져요
+          </div>
+        )}
+        {/* 빠른 문장 — 무엇을 물어야 할지 막막할 때 한 번에(누르면 입력칸에 채워짐 · 보내기는 직접) */}
+        {!isLounge && !input && (
+          <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0, display:"flex", gap:6,
+            overflowX:"auto", padding:"8px 12px 0", scrollbarWidth:"none" }}>
+            {(isCustomerView ? QUICK_PARTNER : QUICK_CUSTOMER).map(q => (
+              <button key={q} onClick={() => setInput(q)}
+                style={{ flex:"0 0 auto", border:`1px solid ${C.brandM}`, background:C.brandL, color:C.brand, borderRadius:R.full,
+                  padding:"7px 12px", fontSize:12.5, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>{q}</button>
+            ))}
           </div>
         )}
         <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0,
