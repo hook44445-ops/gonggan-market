@@ -4,6 +4,7 @@
 //   개선: 진행단계+완료표시 / 필수항목 강조 / 입력순서 정리 / 버튼 확대 / 터치영역 확대.
 import { useState, useEffect, useRef } from "react";
 import { C, R, S, SPACE_TYPES, STYLES } from "../constants";
+import { SHOW_BETA_UI } from "../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 import { BetaGateModal, BetaBanner, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 // 고르기 쉬운 입력 — 사진으로 고르고, 자주 쓰는 값은 한 번에 누른다. (직접 입력도 그대로 된다)
@@ -126,7 +127,7 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
 
         <div style={{ width: 36, height: 4, borderRadius: R.full, background: C.bgWarm, margin: "2px auto 18px" }} />
 
-        <BetaBanner text="베타 서비스 운영 중 · 안전결제는 정식 서비스에서 제공됩니다." />
+        <BetaBanner text="오픈 기간 · 견적·상담·계약 기록 모두 무료예요" />
 
         {/* 진행단계 — 번호/완료체크 + 라벨 + 바 (스크롤 최소화 위해 컴팩트) */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
@@ -247,14 +248,19 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
 
           <div style={{ background: C.surface2, borderRadius: R.lg, padding: "12px 14px",
             marginBottom: S.sm, fontSize: 12, color: C.text3, lineHeight: 1.8 }}>
-            🔒 <b style={{ color: C.brand }}>공간안전결제</b> — 토스페이먼츠가 공사대금을 안전하게 보호합니다<br/>
-            단계별 안전정산 후 공사 완료 시 최종 지급 · 가상계좌 이용 시 이용료 660원
+            {SHOW_BETA_UI ? (<>
+              📋 <b style={{ color: C.brand }}>계약부터 준공까지 기록이 남아요</b><br/>
+              계약서·공사 사진·GPS 진행 기록이 공간마켓에 남습니다 · 대금은 계약서 단계대로 업체와 직접 주고받아요
+            </>) : (<>
+              🔒 <b style={{ color: C.brand }}>공간안전결제</b> — 토스페이먼츠가 공사대금을 안전하게 보호합니다<br/>
+              단계별 안전정산 후 공사 완료 시 최종 지급 · 가상계좌 이용 시 이용료 660원
+            </>)}
           </div>
           <div style={{ background: C.navyL, borderRadius: R.lg, padding: "12px 14px",
             marginBottom: S.xl, fontSize: 13, color: C.navy, fontWeight: 600,
             display: "flex", gap: 8, alignItems: "center" }}>
             <span>🛡</span>
-            <span>인근 검증 업체에게만 공개 · 에스크로 안전 정산 적용</span>
+            <span>{SHOW_BETA_UI ? "인근 검증 업체에게만 공개돼요" : "인근 검증 업체에게만 공개 · 에스크로 안전 정산 적용"}</span>
           </div>
 
           <div style={{ display: "flex", gap: S.sm }}>

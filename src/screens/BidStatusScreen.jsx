@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
-import { SHOW_DEBUG_UI, UX_BETA } from "../constants/release";
+import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI } from "../constants/release";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge, Icon, splitLeadingEmoji } from "../components/common";
 import NotificationBell from "../components/NotificationBell";
@@ -367,7 +367,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
             <div style={{ fontSize:13, color:C.text2, marginBottom:S.md }}>{selBid.material}</div>
             <div style={{ background:C.brandL, borderRadius:R.md, padding:S.md, border:`1px solid ${C.brandM}` }}>
-              <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔒" size={11} color={C.brand} /> 공간안전결제 — 토스페이먼츠가 공사대금을 안전하게 보호합니다</div>
+              <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔒" size={11} color={C.brand} /> {SHOW_BETA_UI ? "앱 안 안전결제가 열리면 이렇게 계산돼요 · 지금은 계약서 단계대로 직접 주고받아요" : "공간안전결제 — 토스페이먼츠가 공사대금을 안전하게 보호합니다"}</div>
               {/* 결제수단 미선택(현장방문 요청 등 결제 전 단계)에서는 수수료를 확정 금액처럼 표시하지 않는다. */}
               {[
                 ["시공비", fmtMoney(effectivePrice)],
