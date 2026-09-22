@@ -13,7 +13,7 @@
 //  · 신뢰 숫자 3개(검증 업체/안전결제/평균 응답)로 안심을 즉시 제공
 //  · 진행 중인 계약이 있으면 그것을 최상단으로 올려 '할 일'을 먼저 보여준다
 // ─────────────────────────────────────────────────────
-import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progress } from "../../components/v3/ui";
+import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progress, FoldText } from "../../components/v3/ui";
 import { C, R, S } from "../../constants";
 
 // 의뢰인이 가장 먼저 고르는 것은 '어떤 공간인가'다. 요청 모달의 공간 유형(SPACE_TYPES)과 같은 이름을 쓴다
@@ -189,7 +189,7 @@ export default function HomeV3({
             {reviews.slice(0, 2).map((r, i, arr) => (
               <div key={r.id ?? i} style={{ padding: `${S.md}px 0`,
                 borderBottom: i === arr.length - 1 ? "none" : `1px solid ${C.bg}` }}>
-                <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.65 }}>“{r.text}”</div>
+                <FoldText text={`“${r.text}”`} lines={3} style={{ fontSize: 13, color: C.text2, lineHeight: 1.65 }} />
                 <div style={{ fontSize: 11.5, color: C.text4, marginTop: 6 }}>
                   {r.author ?? "고객"}{r.company ? ` · ${r.company}` : ""}
                 </div>

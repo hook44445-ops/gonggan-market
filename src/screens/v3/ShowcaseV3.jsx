@@ -7,7 +7,7 @@
 //  · 상세: 큰 사진(전/후 전환) · 사진 넘기기 · 후기 본문 · 「비슷하게 견적 받기」 · 업체 보기(연결될 때만)
 // ─────────────────────────────────────────────────────
 import { useMemo, useState } from "react";
-import { Page, Card, EmptyInvite } from "../../components/v3/ui";
+import { Page, Card, EmptyInvite, FoldText } from "../../components/v3/ui";
 import { C, R, S, SHADOW } from "../../constants";
 import { showcaseTypes } from "../../lib/showcases";
 
@@ -94,7 +94,7 @@ function Detail({ item, onBack, onRequest, onOpenCompany }) {
       {item.text ? (
         <Card>
           <div style={{ fontSize: 12, fontWeight: 800, color: C.text3, marginBottom: 6 }}>의뢰인 후기</div>
-          <div style={{ fontSize: 14, color: C.text1, lineHeight: 1.75, whiteSpace: "pre-wrap" }}>{item.text}</div>
+          <FoldText text={item.text} lines={6} minChars={220} style={{ fontSize: 14, color: C.text1, lineHeight: 1.75 }} />
           <div style={{ fontSize: 12, color: C.text4, marginTop: S.sm }}>{item.author}</div>
         </Card>
       ) : null}

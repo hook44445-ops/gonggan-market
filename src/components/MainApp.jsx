@@ -2856,7 +2856,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const revSrc = [
             ...topReviews.map(r => ({
               id: r.id, text: r.content, author: r.user_name ?? "익명",
-              company: maskCompanyName(r.companies?.name ?? null),
+              company: r.companies?.name ? maskCompanyName(r.companies.name) : null,
               photo: r.after_image_urls?.[0] ?? r.image_urls?.[0] ?? null,
               meta: r.space_type ?? r.region ?? null,
             })),
