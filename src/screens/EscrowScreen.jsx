@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { SHOW_DEBUG_UI } from "../constants/release";
+import { SHOW_DEBUG_UI, SHOW_BETA_UI } from "../constants/release";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { LeafSprig, Icon } from "../components/common";
 import NotificationBell from "../components/NotificationBell";
@@ -437,6 +437,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
   // Per-stage photo upload
   const [stagePhotos, setStagePhotos] = useState({ 3: [], 4: [], 5: [] });
+  const [showGuide, setShowGuide] = useState(false); // 보호·정산 안내 접기(기본 접힘)
   const [photoViewer, setPhotoViewer] = useState(null); // QA: 단계 사진 확대보기 { images, index }
   const [uploadingStage, setUploadingStage] = useState(null);
   const [reportingStage, setReportingStage] = useState(null);
@@ -1462,17 +1463,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 40px` }}>
 
-        {/* Space OS · 보호의 약속 안내 */}
-        <div style={{ background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: S.lg, fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
-          <Icon emoji="🤝" size={13} color={C.text2} /> 계약과 에스크로는 서로를 보호하기 위한 약속입니다. 투명한 진행 기록으로 신뢰를 함께 만듭니다.
-          <div style={{ marginTop: 5, color: C.text3 }}>에스크로는 돈을 묶는 시스템이 아니라, 약속을 지키기 위한 보호장치입니다.</div>
-          <div style={{ marginTop: 5, color: C.text3 }}>좋은 공간은 좋은 만남에서 시작됩니다.</div>
-        </div>
-
-        {/* 공간보호 — 안전거래 보호 중 + 직거래 경고 */}
-        <SpaceProtectionBadge variant="escrow" />
-
-        {IS_DEBUG && (() => {
+{IS_DEBUG && (() => {
           const approveVisible = stageStatus[3] === "pending_customer";
           const approvalRequired = approveVisible || stageStatus[4] === "pending_customer" || stageStatus[5] === "pending_customer";
           return (
@@ -1842,10 +1833,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   {!isConsumer && status === "pending_customer" && (
                     <div style={{ marginTop: S.sm }}>
                       {photos.length > 0 && (
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm, marginBottom: S.sm }}>
+                        <div style={{ display: "grid", gridTemplateColumns: photos.length === 1 ? "1fr" : "repeat(2,1fr)", gap: S.sm, marginBottom: S.sm }}>
                           {photos.map((src, pi) => (
                             <div key={src} onClick={() => setPhotoViewer({ images: photos, index: pi })}
-                              style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}`, aspectRatio: "1", cursor: "zoom-in" }}>
+                              style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}`, aspectRatio: "4/3", cursor: "zoom-in" }}>
                               <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                             </div>
                           ))}
@@ -1876,7 +1867,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       </div>
                       {deadline && <CountdownTimer deadlineMs={deadline} />}
                       {photos.length > 0 && (
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.md }}>
+                        <div style={{ display: "grid", gridTemplateColumns: photos.length === 1 ? "1fr" : "repeat(2,1fr)", gap: S.sm, marginBottom: S.md }}>
                           {photos.map((src, pi) => (
                             <div key={src} onClick={() => setPhotoViewer({ images: photos, index: pi })}
                               style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.brandM}`, aspectRatio: "4/3", cursor: "zoom-in" }}>
@@ -1928,6 +1919,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                     </div>
                   )}
 
+                  {/* 끝난 단계의 사진 기록 — 확정 뒤에도 «무엇을 보고 확인했는지» 다시 볼 수 있게(표시만) */}
+                  {status === "done" && photos.length > 0 && (
+                    <div style={{ display: "flex", gap: 6, marginTop: S.sm, overflowX: "auto" }}>
+                      {photos.map((src, pi) => (
+                        <div key={src} onClick={() => setPhotoViewer({ images: photos, index: pi })}
+                          style={{ flex: "0 0 auto", width: 72, height: 54, borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}`, cursor: "zoom-in" }}>
+                          <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {/* Locked stage */}
                   {status === "locked" && (
                     <div style={{ fontSize: 12, color: C.text4, marginTop: 4 }}>이전 단계 완료 후 활성화됩니다</div>
@@ -1982,9 +1984,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           </div>
         )}
 
-        <EscrowCalculator role={isConsumer ? "consumer" : "company"} companyCreatedAt={resolvedBid?.company?.created_at} />
-
-        {/* ── 추가견적(Change Order) — 예외 흐름. 계약 성립 후에만 노출 ── */}
+{/* ── 추가견적(Change Order) — 예외 흐름. 계약 성립 후에만 노출 ── */}
         {resolvedContractId && (
           <ChangeOrderPanel
             contractId={resolvedContractId}
@@ -1996,16 +1996,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           />
         )}
 
-        {/* Warranty info */}
-        <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, display: "flex", gap: S.md, alignItems: "flex-start", marginBottom: S.lg }}>
-          <Icon emoji="🛡" size={24} color={C.navy} style={{ flexShrink: 0 }} />
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: 4 }}>{isConsumer ? "공사 후 A/S 안내" : "하자보수 보증 안내"}</div>
-            <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7 }}>완료 확인 후 <b style={{ color: C.navy }}>1년간 무상 AS</b> 보장</div>
-          </div>
-        </div>
-
-        {/* Review CTA — shown to consumer when SETTLED/completed */}
+{/* Review CTA — shown to consumer when SETTLED/completed */}
         {/* ── STEP4: 완료 축하 카드 ── */}
         {isConsumer && (stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
           <div style={{ background: "#1E3D2F", color: "#fff", borderRadius: R.xl, padding: S.xxl, marginBottom: S.lg }}>
@@ -2080,21 +2071,58 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           </div>
         )}
 
-        {/* 보호/분쟁 안내 — 계약 상세 (경고 톤 금지) */}
-        <div style={{ display: "flex", flexDirection: "column", gap: S.md, marginBottom: S.lg }}>
-          <ProtectionNotice variant="short" />
-          <DisputeNotice variant="short" />
-        </div>
-
-        {/* Deposit info */}
-        <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="🏦" size={14} color={C.text1} /> {isConsumer ? "결제 보관 안내" : "예치금 보관 안내"}</div>
-          {[["보관", "공간마켓 법인 신탁 계좌"], ["환급", "탈퇴 7일 내 전액"], ["분쟁", "중재 후 판정 지급"], ["향후", "은행 신탁 연계 예정"]].map(([k, v]) => (
-            <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: `${S.xs}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
-              <span style={{ fontSize: 12, color: C.text3 }}>{k}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.text1 }}>{v}</span>
+        {/* ── 보호·정산 안내 — 설명 블록은 접어 두고, 화면 위쪽은 «지금 할 일 · 단계 · 사진» 만. (표시만 이동 · 로직 무변경) ── */}
+        <div style={{ background: C.surface, borderRadius: R.xl, border: `1px solid ${C.bgWarm}`, overflow: "hidden" }}>
+          <button onClick={() => setShowGuide(v => !v)} aria-expanded={showGuide}
+            style={{ width: "100%", padding: `${S.lg}px ${S.xl}px`, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit",
+              display: "flex", alignItems: "center", gap: S.sm, textAlign: "left" }}>
+            <Icon emoji="🛡" size={16} color={C.navy} />
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 14, fontWeight: 800, color: C.text1 }}>보호·정산 안내</span>
+              <span style={{ display: "block", fontSize: 12, color: C.text3, marginTop: 2 }}>{isConsumer ? "단계별 금액 · A/S · 이의 신청 방법" : "단계별 정산 · 수수료 · 하자보수 · 분쟁 처리"}</span>
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.text3 }}>{showGuide ? "접기 ▴" : "자세히 보기 ▾"}</span>
+          </button>
+          {showGuide && (
+            <div style={{ padding: `0 ${S.lg}px ${S.lg}px` }}>
+            {/* Space OS · 보호의 약속 안내 */}
+            <div style={{ background: C.bg, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: S.lg, fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
+              <Icon emoji="🤝" size={13} color={C.text2} /> 계약과 에스크로는 서로를 보호하기 위한 약속입니다. 투명한 진행 기록으로 신뢰를 함께 만듭니다.
+              <div style={{ marginTop: 5, color: C.text3 }}>에스크로는 돈을 묶는 시스템이 아니라, 약속을 지키기 위한 보호장치입니다.</div>
+              <div style={{ marginTop: 5, color: C.text3 }}>좋은 공간은 좋은 만남에서 시작됩니다.</div>
             </div>
-          ))}
+
+            {/* 공간보호 — 안전거래 보호 중 + 직거래 경고 */}
+            <SpaceProtectionBadge variant="escrow" />
+            <EscrowCalculator role={isConsumer ? "consumer" : "company"} companyCreatedAt={resolvedBid?.company?.created_at} />
+            {/* Warranty info */}
+            <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, display: "flex", gap: S.md, alignItems: "flex-start", marginBottom: S.lg }}>
+              <Icon emoji="🛡" size={24} color={C.navy} style={{ flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: 4 }}>{isConsumer ? "공사 후 A/S 안내" : "하자보수 보증 안내"}</div>
+                <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.7 }}>완료 확인 후 <b style={{ color: C.navy }}>1년간 무상 AS</b> 보장</div>
+              </div>
+            </div>
+            {/* 보호/분쟁 안내 — 계약 상세 (경고 톤 금지) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: S.md, marginBottom: S.lg }}>
+              <ProtectionNotice variant="short" />
+              <DisputeNotice variant="short" />
+            </div>
+
+            {/* Deposit info — 베타엔 보관 약속 문구 금지(정식 모드에서만) */}
+            {!SHOW_BETA_UI && (
+            <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="🏦" size={14} color={C.text1} /> {isConsumer ? "결제 보관 안내" : "예치금 보관 안내"}</div>
+              {[["보관", "공간마켓 법인 신탁 계좌"], ["환급", "탈퇴 7일 내 전액"], ["분쟁", "중재 후 판정 지급"], ["향후", "은행 신탁 연계 예정"]].map(([k, v]) => (
+                <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: `${S.xs}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
+                  <span style={{ fontSize: 12, color: C.text3 }}>{k}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.text1 }}>{v}</span>
+                </div>
+              ))}
+            </div>
+            )}
+            </div>
+          )}
         </div>
       </div>
 
