@@ -5,6 +5,7 @@ import { formatDueRemaining } from "../constants/policy";
 import EstimateCoachPanel from "./growth/EstimateCoachPanel";       // Space OS · AI 코치(라이브, Add Only)
 import EstimateAnalysisResult from "./growth/EstimateAnalysisResult"; // Space OS · 성실견적 분석 결과(제출 후)
 import { analyzeEstimate } from "../constants/spaceOs";
+import QuoteDocument from "./QuoteDocument"; // 견적서 미리보기·인쇄
 import { QUOTE_STEPS, DURATION_PRESETS, WARRANTY_PRESETS, suggestTrades, applyTrade, restoreQuote, filledItems, stepBlocker, makeEmptyItem } from "../lib/finalQuote";
 
 function Backdrop({ onClose, children }) {
@@ -42,7 +43,7 @@ function useDueCountdown(dueAt) {
   return text;
 }
 
-export default function PlatformEstimateModal({ job, companyId, userId, onClose, onChange }) {
+export default function PlatformEstimateModal({ job, companyId, companyName, userId, onClose, onChange }) {
   // 임시저장본 복원 — 예전엔 사진만 돌아오고 공정·기간·메모는 비어 보였다.
   const [restored] = useState(() => restoreQuote(job.estimate));
   const [items, setItems] = useState(restored.items);
@@ -52,6 +53,7 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
   const [step, setStep] = useState(1);            // 1 공정·금액 → 2 기간·사진 → 3 확인·전송
   const [stepMsg, setStepMsg] = useState(null);
   const [showExtra, setShowExtra] = useState(false); // 자재·특이사항·특약(선택) 펼치기
+  const [showDoc, setShowDoc] = useState(false);     // 견적서 미리보기·인쇄
   const [estimateId, setEstimateId] = useState(job.estimate?.id ?? null);
   const [saving, setSaving] = useState(false);
   const [analysis, setAnalysis] = useState(null); // Space OS 성실견적 분석 결과(제출 후 표시)
@@ -421,6 +423,20 @@ export default function PlatformEstimateModal({ job, companyId, userId, onClose,
             {note && <div style={{ fontSize:12.5, color:C.text3, lineHeight:1.7, marginTop:4, whiteSpace:"pre-wrap" }}>“{note}”</div>}
           </div>
 
+          <button onClick={() => setShowDoc(true)}
+            style={{ width:"100%", padding:"12px", marginBottom:S.md, background:C.surface, color:C.brand, border:`1.5px solid ${C.brand}`, borderRadius:R.lg, fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>
+            📄 견적서 미리보기 · 인쇄
+          </button>
+          {showDoc && (
+            <QuoteDocument
+              estimate={{ ...buildPayload(), final_quote_photo_urls: photoUrls }}
+              companyName={companyName ?? job.bid?.company?.name ?? job.company?.name}
+              request={job.request ?? {}}
+              docNo={(estimateId ?? requestIdForPhotos ?? "").toString().slice(0, 8).toUpperCase() || null}
+              issuedAt={job.estimate?.submitted_at ?? null}
+              onClose={() => setShowDoc(false)}
+            />
+          )}
           <button onClick={() => setShowExtra(v => !v)}
             style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 14px", marginBottom:S.md,
               background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, cursor:"pointer", fontFamily:"inherit" }}>
