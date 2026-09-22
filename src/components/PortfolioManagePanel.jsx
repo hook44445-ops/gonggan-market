@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { C, R, S } from "../constants";
 import {
   getPortfolios, createPortfolio, updatePortfolio, deletePortfolio, uploadFile,
+  getCompletedEscrowByCompany, getPhasePhotosByContracts,
 } from "../lib/supabase";
+import { contractsReadyForShowcase } from "../lib/portfolioDraft";
 
 // ════════════════════════════════════════════════════════════════════════════
 // PortfolioManagePanel — 업체 대시보드 "포트폴리오 관리"(시공사례)
@@ -17,9 +19,11 @@ const MAX_PHOTOS = 8;
 const repPhoto = (p) => (Array.isArray(p?.after_photos) && p.after_photos[0])
   || (Array.isArray(p?.before_photos) && p.before_photos[0]) || null;
 
-export default function PortfolioManagePanel({ companyId }) {
+export default function PortfolioManagePanel({ companyId, ownerId = null }) {
   const [items, setItems] = useState(null); // null = 로딩
-  const [editing, setEditing] = useState(null); // portfolio | { _new:true } | null
+  const [editing, setEditing] = useState(null); // portfolio | { _new:true, _draft? } | null
+  // 끝난 공사 중 완료 사진이 있고 아직 사례로 안 만든 것 — 버튼 하나로 초안이 열린다(자동 공개 아님).
+  const [ready, setReady] = useState([]);
 
   const refetch = () => {
     if (!companyId) { setItems([]); return; }
@@ -28,6 +32,20 @@ export default function PortfolioManagePanel({ companyId }) {
       .catch(() => setItems([]));
   };
   useEffect(() => { refetch(); /* eslint-disable-next-line */ }, [companyId]);
+
+  useEffect(() => {
+    if (!ownerId || items == null) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data: contracts } = await getCompletedEscrowByCompany(ownerId);
+        const list = contracts ?? [];
+        const { data: rows } = await getPhasePhotosByContracts(list.map((c) => c.id));
+        if (alive) setReady(contractsReadyForShowcase({ contracts: list, photoRows: rows ?? [], portfolios: items }));
+      } catch { if (alive) setReady([]); }
+    })();
+    return () => { alive = false; };
+  }, [ownerId, items]);
 
   if (!companyId) {
     return <div style={{ padding: "30px 0", textAlign: "center", color: C.text3, fontSize: 13 }}>업체 정보를 불러오는 중...</div>;
@@ -44,8 +62,37 @@ export default function PortfolioManagePanel({ companyId }) {
         </button>
       </div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: 14, lineHeight: 1.6 }}>
-        등록하면 즉시 고객에게 노출됩니다. 언제든 수정·삭제할 수 있어요.
+        등록하면 업체 프로필과 고객 홈 「시공 사례」에 바로 보입니다. 언제든 수정·삭제할 수 있어요.
       </div>
+
+      {ready.length > 0 && (
+        <div style={{ background: C.brandL, border: `1px solid ${C.brandM}`, borderRadius: R.xl, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+            📸 끝난 공사 {ready.length}건을 시공 사례로 만들 수 있어요
+          </div>
+          <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: 12 }}>
+            공사 중에 올린 착공·완료 사진으로 초안을 채워 드려요. 확인하고 한 줄만 보태면 다음 고객이 보는 사례가 됩니다.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {ready.map(({ contract, draft }) => (
+              <div key={contract.id} style={{ display: "flex", gap: 10, alignItems: "center", background: C.surface, borderRadius: R.lg, padding: 8 }}>
+                <img src={draft.after_photos[0]} alt="" style={{ width: 56, height: 56, borderRadius: R.md, objectFit: "cover", flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{draft.title}</div>
+                  <div style={{ fontSize: 11.5, color: C.text3 }}>
+                    {[draft.area, `시공 전 ${draft.before_photos.length}장 · 후 ${draft.after_photos.length}장`].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+                <button onClick={() => setEditing({ _new: true, _draft: { ...draft, contract_id: contract.id } })}
+                  style={{ padding: "8px 12px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full,
+                    fontWeight: 800, fontSize: 12, cursor: "pointer", flexShrink: 0 }}>
+                  사례 만들기
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {items == null ? (
         <div style={{ padding: "30px 0", textAlign: "center", color: C.text3, fontSize: 13 }}>불러오는 중...</div>
@@ -72,7 +119,7 @@ export default function PortfolioManagePanel({ companyId }) {
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => setEditing(p)}
                       style={{ padding: "5px 12px", background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, fontSize: 12, fontWeight: 700, color: C.text2, cursor: "pointer" }}>수정</button>
-                    <DeleteButton id={p.id} onDeleted={refetch} />
+                    <DeleteButton id={p.id} ownerId={ownerId} onDeleted={refetch} />
                   </div>
                 </div>
               </div>
@@ -84,7 +131,8 @@ export default function PortfolioManagePanel({ companyId }) {
       {editing && (
         <PortfolioEditModal
           companyId={companyId}
-          initial={editing._new ? null : editing}
+          ownerId={ownerId}
+          initial={editing._draft ?? (editing._new ? null : editing)}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); refetch(); }}
         />
@@ -93,12 +141,12 @@ export default function PortfolioManagePanel({ companyId }) {
   );
 }
 
-function DeleteButton({ id, onDeleted }) {
+function DeleteButton({ id, ownerId, onDeleted }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const del = async () => {
     setBusy(true);
-    const { error } = await deletePortfolio(id).catch(() => ({ error: true }));
+    const { error } = await deletePortfolio(id, ownerId).catch(() => ({ error: true }));
     setBusy(false);
     if (!error) onDeleted?.();
     else setConfirming(false);
@@ -161,8 +209,8 @@ function PhotoSection({ label, hint, photos, setPhotos, allowCover }) {
 }
 
 // 등록/수정 공용 모달
-function PortfolioEditModal({ companyId, initial, onClose, onSaved }) {
-  const isEdit = !!initial;
+function PortfolioEditModal({ companyId, ownerId, initial, onClose, onSaved }) {
+  const isEdit = !!initial?.id; // 초안(공사 사진으로 채운 새 사례)은 id가 없다 → 새로 만든다
   const [form, setForm] = useState({
     title: initial?.title ?? "", space_type: initial?.space_type ?? "",
     area: initial?.area ?? "", size: initial?.size ?? "",
@@ -210,8 +258,8 @@ function PortfolioEditModal({ companyId, initial, onClose, onSaved }) {
         after_photos: after,
       };
       const res = isEdit
-        ? await updatePortfolio(initial.id, payload)
-        : await createPortfolio({ company_id: companyId, ...payload });
+        ? await updatePortfolio(initial.id, payload, ownerId, companyId)
+        : await createPortfolio({ company_id: companyId, contract_id: initial?.contract_id ?? null, ...payload }, ownerId);
       if (!res.error) { onSaved?.(); return; }
     } catch { /* graceful */ }
     setSaving(false);

@@ -1,13 +1,15 @@
 // 시공 사례 — 홈 사진 타일·「시공 사례」 모음·상세가 같은 모양의 데이터를 쓰도록 한 곳에서 정리한다.
 //
-// 원천은 두 가지다.
+// 원천은 세 가지다(보이는 순서도 이 순서).
 //  · topReviews  : 실제 고객 리뷰(getTopReviews) — before/after/image_urls 배열 · companies.name
+//  · portfolios  : 업체가 직접 올린 시공 사례(getRecentPortfolios) — before_photos/after_photos · companies.name
+//                  업체가 스스로 공개한 것이라 이름을 가리지 않는다(고객 리뷰의 업체 이름 가림과 다르다).
 //  · seedReviews : 운영 예시 리뷰(getSeedReviews) — before_image_url/after_image_url 단일 값
 // 사진이 하나도 없는 리뷰는 사례로 쓰지 않는다(누르면 빈 화면이 되기 때문).
 
 const listOf = (arr) => (Array.isArray(arr) ? arr.filter(Boolean) : []);
 
-export function normalizeShowcases({ topReviews = [], seedReviews = [], maskName = (n) => n } = {}) {
+export function normalizeShowcases({ topReviews = [], portfolios = [], seedReviews = [], maskName = (n) => n } = {}) {
   const real = topReviews.map((r) => {
     const after = listOf(r.after_image_urls);
     const before = listOf(r.before_image_urls);
@@ -43,7 +45,28 @@ export function normalizeShowcases({ topReviews = [], seedReviews = [], maskName
     createdAt: s.created_at ?? null,
     isSeed: true,
   }));
-  return [...real, ...seed]
+  const partner = (portfolios ?? []).map((p) => {
+    const after = listOf(p.after_photos);
+    const before = listOf(p.before_photos);
+    const name = p.companies?.name ?? null;
+    return {
+      id: `pf_${p.id}`,
+      photo: after[0] ?? before[0] ?? null,
+      before: before[0] ?? null,
+      gallery: after.length ? after : before,
+      text: (p.desc ?? "").trim(),
+      author: name ?? "시공 업체",
+      company: name,
+      companyId: p.company_id ?? null,
+      region: p.area ?? null,
+      spaceType: p.space_type ?? null,
+      rating: null,
+      createdAt: p.created_at ?? null,
+      isSeed: false,
+      isPortfolio: true,
+    };
+  });
+  return [...real, ...partner, ...seed]
     .filter((x) => x.photo)
     .map((x) => ({ ...x, title: x.spaceType ?? "시공 사례", meta: [x.region, x.company].filter(Boolean).join(" · ") }));
 }
