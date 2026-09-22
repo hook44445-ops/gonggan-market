@@ -2818,6 +2818,70 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
   const FULL = ["showcase","chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
+  // 파트너: 입찰할 새 견적 요청 목록 — v2 홈과 v3 홈이 같은 목록을 쓴다(v3 홈에서 요청이 안 보이던 문제).
+  const renderPartnerRequests = () => (
+    <>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
+        <div style={{ fontSize:16, fontWeight:800, color:C.text1, display:"flex", alignItems:"center", gap:6 }}>
+          <Icon emoji="📋" size={16} color={C.text1} /> 새 견적 요청
+          {biddableRequests.length > 0 && (
+            <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
+              {biddableRequests.length}건
+            </span>
+          )}
+        </div>
+        <button onClick={loadCompanyRequests} style={{ fontSize:13, background:C.brandL, border:`1px solid ${C.brandM}`, color:C.brand, borderRadius:R.full, padding:"6px 14px", fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+          display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔄" size={13} color={C.brand} /> 새로고침</button>
+      </div>
+
+      {/* 안정적인 div 래퍼 — siteVisitJobs 섹션이 동시에 추가/제거될 때 React 재조정 오류 방지(#210) */}
+      <div>
+        {biddableRequests.length === 0 ? (
+          <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="📭" size={32} color={C.text3} /></div>
+            <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>아직 새 요청이 없어요 <Icon emoji="🏠" size={15} color={C.text1} /></div>
+            <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>
+              의뢰인이 요청을 등록하면 이곳에 표시됩니다
+              {SHOW_DEBUG_UI && <><br/>{`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}</>}
+            </div>
+          </div>
+        ) : (
+          biddableRequests.map(r => {
+            const _compId = currentUser?.id;
+            const _ownId  = user?.id;
+            const myBidFromState = submittedBids.find(b =>
+              b.requestId === r.id &&
+              (b.companyId === _compId || b.companyId === _ownId) &&
+              !String(b.id).startsWith("tmp-")
+            ) ?? null;
+            const myBidFromDb = !myBidFromState
+              ? (() => {
+                  const rawBids = Array.isArray(r.bidsRaw) ? r.bidsRaw : [];
+                  const db = rawBids.find(b => b?.company_id === _compId || b?.company_id === _ownId);
+                  if (!db) return null;
+                  return { id: db.id, requestId: r.id, companyId: db.company_id, price: db.price ?? 0, status: db.status ?? "pending" };
+                })()
+              : null;
+            const myBid = myBidFromState ?? myBidFromDb;
+            const siteVisitForBid = siteVisitJobs.find(j => j.request?.id === r.id)?.siteVisit ?? null;
+            return (
+              <BidCard
+                key={r.id}
+                r={r}
+                currentUser={currentUser}
+                alreadyBid={!!myBid}
+                myBid={myBid}
+                siteVisit={siteVisitForBid}
+                onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
+                onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
+              />
+            );
+          })
+        )}
+      </div>
+    </>
+  );
+
   const NAV = mode === "admin"
     ? [["📋","관리","admin"],["💬","라운지","lounge"],["👤","마이","my"]]
     : mode === "consumer"
@@ -2914,7 +2978,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               companiesCount={(companies ?? []).length}
               avgTemp={avgTemp}
               completedCount={doneCnt}
-              newRequestCount={(activeJobs ?? []).length}
+              newRequestCount={activeRole === "company" ? biddableRequests.length : (activeJobs ?? []).length}
+              requestsSlot={activeRole === "company" ? renderPartnerRequests() : null}
               openRequest={op ? {
                 title: op.type ?? op.area ?? "시공",
                 bidCount: op.bidCount ?? 0,
@@ -3854,64 +3919,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               </div>
             )}
 
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
-              <div style={{ fontSize:16, fontWeight:800, color:C.text1, display:"flex", alignItems:"center", gap:6 }}>
-                <Icon emoji="📋" size={16} color={C.text1} /> 새 견적 요청
-                {biddableRequests.length > 0 && (
-                  <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
-                    {biddableRequests.length}건
-                  </span>
-                )}
-              </div>
-              <button onClick={loadCompanyRequests} style={{ fontSize:13, background:C.brandL, border:`1px solid ${C.brandM}`, color:C.brand, borderRadius:R.full, padding:"6px 14px", fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-                display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔄" size={13} color={C.brand} /> 새로고침</button>
-            </div>
-
-            {/* 안정적인 div 래퍼 — siteVisitJobs 섹션이 동시에 추가/제거될 때 React 재조정 오류 방지(#210) */}
-            <div>
-              {biddableRequests.length === 0 ? (
-                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
-                  <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="📭" size={32} color={C.text3} /></div>
-                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>아직 새 요청이 없어요 <Icon emoji="🏠" size={15} color={C.text1} /></div>
-                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>
-                    의뢰인이 요청을 등록하면 이곳에 표시됩니다
-                    {SHOW_DEBUG_UI && <><br/>{`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}</>}
-                  </div>
-                </div>
-              ) : (
-                biddableRequests.map(r => {
-                  const _compId = currentUser?.id;
-                  const _ownId  = user?.id;
-                  const myBidFromState = submittedBids.find(b =>
-                    b.requestId === r.id &&
-                    (b.companyId === _compId || b.companyId === _ownId) &&
-                    !String(b.id).startsWith("tmp-")
-                  ) ?? null;
-                  const myBidFromDb = !myBidFromState
-                    ? (() => {
-                        const rawBids = Array.isArray(r.bidsRaw) ? r.bidsRaw : [];
-                        const db = rawBids.find(b => b?.company_id === _compId || b?.company_id === _ownId);
-                        if (!db) return null;
-                        return { id: db.id, requestId: r.id, companyId: db.company_id, price: db.price ?? 0, status: db.status ?? "pending" };
-                      })()
-                    : null;
-                  const myBid = myBidFromState ?? myBidFromDb;
-                  const siteVisitForBid = siteVisitJobs.find(j => j.request?.id === r.id)?.siteVisit ?? null;
-                  return (
-                    <BidCard
-                      key={r.id}
-                      r={r}
-                      currentUser={currentUser}
-                      alreadyBid={!!myBid}
-                      myBid={myBid}
-                      siteVisit={siteVisitForBid}
-                      onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
-                      onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
-                    />
-                  );
-                })
-              )}
-            </div>
+            {renderPartnerRequests()}
 
             {SHOW_DEBUG_UI && (
               <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:600, overflowY:"auto" }}>

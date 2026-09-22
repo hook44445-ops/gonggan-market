@@ -63,6 +63,7 @@ export default function HomeV3({
   onGo = () => {},
   onNewRequest,
   onRequestType,           // 의뢰인: 공간 유형을 고른 채 견적 요청 열기(type)
+  requestsSlot = null,     // 파트너: 입찰할 새 견적 요청 목록(MainApp 이 그린다)
   onOpenShowcase,
 }) {
   const isCompany = activeRole === "company";
@@ -81,7 +82,7 @@ export default function HomeV3({
               : "새 요청이 들어오면 바로 알려드릴게요."}
             chips={[`공간온도 ${Number(avgTemp).toFixed(1)}°`, `완료 ${completedCount}건`]}
             actions={[
-              { label: "요청 보기", primary: true, onClick: () => onGo("home-requests") },
+              { label: "요청 보기", primary: true, onClick: () => document.getElementById("partner-requests")?.scrollIntoView({ behavior: "smooth", block: "start" }) },
               { label: "파트너센터", onClick: () => onGo("dashboard") },
             ]}
           />
@@ -108,6 +109,11 @@ export default function HomeV3({
           </div>
           <Progress pct={activeContract.pct} />
         </Card>
+      )}
+
+      {/* ── 파트너: 새 견적 요청 — 홈에서 바로 보고 입찰한다 ─────────── */}
+      {isCompany && requestsSlot && (
+        <div id="partner-requests" style={{ scrollMarginTop: 120 }}>{requestsSlot}</div>
       )}
 
       {/* ── 의뢰인: 보낸 요청의 상태 — 견적이 왔으면 비교하러 가게 ─────── */}
@@ -204,7 +210,8 @@ export default function HomeV3({
         <Card pad={`0 ${S.lg}px`}>
           {isCompany ? (
             <>
-              <Row emoji="📋" label="받은 요청" sub="입찰할 견적 요청" badge={newRequestCount || null} onClick={() => onGo("home-requests")} />
+              <Row emoji="📋" label="받은 요청" sub="입찰할 견적 요청" badge={newRequestCount || null}
+                onClick={() => document.getElementById("partner-requests")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
               <Row emoji="🗺️" label="지역 지도" sub="내 영업지역 확인" onClick={() => onGo("map")} />
               <Row emoji="💬" label="라운지" sub="사장님 수다 · 노하우" onClick={() => onGo("lounge")} last />
             </>
