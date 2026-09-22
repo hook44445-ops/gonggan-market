@@ -4552,15 +4552,29 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {isAllEmpty && (
               <div style={{ textAlign:"center", padding:"60px 20px" }}>
                 <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="💬" size={40} color={C.text3} /></div>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text2, marginBottom:6 }}>아직 시작된 대화가 없습니다.</div>
-                <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>업체와 상담을 시작하면 이곳에 대화가 표시됩니다.</div>
-                {/* 빈 상태에서 다음 행동을 제시 — '관심' 탭 등 다른 빈 화면과 톤을 맞춘다. */}
+                <div style={{ fontSize:15, fontWeight:700, color:C.text2, marginBottom:6 }}>아직 시작된 대화가 없어요</div>
+                {activeRole === "company" ? (
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>고객 요청에 견적을 보내면 이곳에서 상담이 시작돼요.</div>
+                ) : (
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>
+                    무료 견적을 요청하면 우리 동네 업체가<br />견적과 함께 먼저 말을 걸어와요.
+                  </div>
+                )}
+                {/* 빈 상태에서 다음 행동을 제시 — 의뢰인은 견적 요청이 대화의 시작이다. */}
                 <button
-                  onClick={() => setScreen(activeRole === "company" ? "dashboard" : "map")}
+                  onClick={() => activeRole === "company" ? setScreen("dashboard") : requireAuth(() => handleOpenNewReq())}
                   style={{ marginTop:18, background:C.brand, color:"#fff", border:"none", borderRadius:R.full,
-                    padding:"11px 22px", fontSize:13.5, fontWeight:800, cursor:"pointer" }}>
-                  {activeRole === "company" ? "받은 요청 보기" : "업체 찾아보기"}
+                    padding:"12px 24px", fontSize:14, fontWeight:800, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand44}` }}>
+                  {activeRole === "company" ? "받은 요청 보기" : "무료 견적 받기"}
                 </button>
+                {activeRole !== "company" && (
+                  <div>
+                    <button onClick={() => setScreen("map")}
+                      style={{ marginTop:10, background:"none", border:"none", color:C.text3, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                      먼저 업체 둘러보기 →
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
