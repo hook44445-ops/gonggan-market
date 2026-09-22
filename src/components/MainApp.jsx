@@ -326,13 +326,10 @@ function ConsumerRequestCard({ r, closed, dLabel, dColor, dBg, onOpen }) {
   );
 }
 
-const maskCompanyName = (name) => {
-  if (!name) return "업체";
-  const len = name.length;
-  if (len <= 3) return name[0] + "*";
-  if (len <= 5) return name.slice(0, 2) + "***";
-  return name.slice(0, Math.min(Math.ceil(len / 2), 4)) + "***";
-};
+// 고객 후기·시공 사례의 업체 이름은 가리지 않는다(대표 결정 2026-09-22 «업체 공개»).
+//   잘한 공사가 그 업체의 이름으로 남아야 다음 고객이 그 업체를 찾는다 — 예전 «공간○○» 가림은 뺐다.
+//   예시(seed) 후기는 원래부터 masked_company_name 을 쓰므로 그대로 가려진다.
+const companyLabel = (name) => name || "업체";
 
 // ── (mock code removed — replaced by seed_reviews DB table) ─────────────────
 
@@ -2148,7 +2145,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     const coIds = new Set((companies ?? []).map(c => c.id));
     // 업체 사례는 지금 보이는 업체 것만(테스트 업체·사라진 업체의 사례가 새지 않게).
     const portfolios = (partnerPortfolios ?? []).filter(p => p.company_id && coIds.has(p.company_id));
-    return normalizeShowcases({ topReviews, portfolios, seedReviews, maskName: maskCompanyName })
+    return normalizeShowcases({ topReviews, portfolios, seedReviews })
       .map(x => ({ ...x, companyId: x.companyId && coIds.has(x.companyId) ? x.companyId : null }));
   }, [topReviews, partnerPortfolios, seedReviews, companies]);
 
@@ -2960,7 +2957,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const revSrc = [
             ...topReviews.map(r => ({
               id: r.id, text: r.content, author: r.user_name ?? "익명",
-              company: r.companies?.name ? maskCompanyName(r.companies.name) : null,
+              company: r.companies?.name ?? null,
               photo: r.after_image_urls?.[0] ?? r.image_urls?.[0] ?? null,
               meta: r.space_type ?? r.region ?? null,
             })),
@@ -3149,7 +3146,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     rating: r.rating, content: r.content,
                     user_name: r.user_name ?? "익명",
                     space_type: r.space_type ?? r.region ?? "시공",
-                    companyName: maskCompanyName(r.companies?.name ?? null),
+                    companyName: companyLabel(r.companies?.name ?? null),
                     beforeThumb: beforeImgs[0] ?? null,
                     afterThumb: afterImgs[0] ?? null,
                   };

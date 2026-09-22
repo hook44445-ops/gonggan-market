@@ -3,7 +3,7 @@
 // 원천은 세 가지다(보이는 순서도 이 순서).
 //  · topReviews  : 실제 고객 리뷰(getTopReviews) — before/after/image_urls 배열 · companies.name
 //  · portfolios  : 업체가 직접 올린 시공 사례(getRecentPortfolios) — before_photos/after_photos · companies.name
-//                  업체가 스스로 공개한 것이라 이름을 가리지 않는다(고객 리뷰의 업체 이름 가림과 다르다).
+//                  업체 이름은 가리지 않는다(리뷰도 마찬가지 · 대표 결정 2026-09-22). maskName 은 부르는 쪽이 원할 때만.
 //  · seedReviews : 운영 예시 리뷰(getSeedReviews) — before_image_url/after_image_url 단일 값
 // 사진이 하나도 없는 리뷰는 사례로 쓰지 않는다(누르면 빈 화면이 되기 때문).
 
