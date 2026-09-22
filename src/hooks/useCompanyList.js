@@ -3,6 +3,7 @@ import { getActiveCompanies } from "../lib/supabase";
 
 const normalizeRow = (row) => ({
   id:                     row.id,
+  ownerId:                row.owner_id ?? row.ownerId ?? null, // 업체 소유자 user.id — 시공 사례 저장 RPC·활동 기록이 쓴다
   name:                   row.name ?? "업체",
   temp:                   row.temp ?? 36.5,
   reviews:                row.reviews ?? 0,

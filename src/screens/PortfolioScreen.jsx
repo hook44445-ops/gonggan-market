@@ -102,7 +102,7 @@ function PhotoUploadSection({ label, hint, files, onAdd, onRemove, inputRef }) {
   );
 }
 
-function PortfolioWriteModal({ companyId, onClose, onSaved }) {
+function PortfolioWriteModal({ companyId, ownerId, onClose, onSaved }) {
   const [form, setForm] = useState({ title:"", space_type:"", area:"", size:"", desc:"" });
   const [beforeFiles, setBeforeFiles] = useState([]);
   const [afterFiles,  setAfterFiles]  = useState([]);
@@ -154,7 +154,7 @@ function PortfolioWriteModal({ companyId, onClose, onSaved }) {
         desc:          form.desc.trim() || null,
         before_photos: beforeUrls,
         after_photos:  afterUrls,
-      });
+      }, ownerId);
       if (!error && data) { onSaved(data); onClose(); return; }
     } catch { /* upload failed */ }
     setSaving(false);
@@ -541,6 +541,7 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
       {showWriteModal && (
         <PortfolioWriteModal
           companyId={company.id}
+          ownerId={company.ownerId ?? company.owner_id ?? null}
           onClose={() => setShowWriteModal(false)}
           onSaved={handlePortfolioSaved}
         />

@@ -499,14 +499,40 @@ export const getPortfolios = (companyId) =>
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
 
-export const createPortfolio = (data) =>
-  supabase.from("portfolios").insert(data).select().single();
+// 의뢰인 홈 «시공 사례»용 — 업체가 올린 최근 사례(사진 있는 것) · 업체 이름 포함. 읽기 전용.
+export const getRecentPortfolios = (limit = 24) =>
+  supabase
+    .from("portfolios")
+    .select("id, company_id, contract_id, title, space_type, area, size, desc, before_photos, after_photos, created_at, companies(name)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
-export const updatePortfolio = (id, data) =>
-  supabase.from("portfolios").update(data).eq("id", id).select().single();
+// 쓰기는 RPC만(100_portfolios.sql) — 표 직접 insert/update/delete 는 RLS가 막는다.
+//   actorId = 업체 소유자 user.id(companies.owner_id). RPC가 소유 여부를 확인한다.
+const portfolioRpcArgs = (actorId, companyId, id, d = {}) => ({
+  p_actor_id:    actorId ?? null,
+  p_company_id:  companyId ?? null,
+  p_id:          id ?? null,
+  p_title:       d.title ?? "",
+  p_space_type:  d.space_type ?? null,
+  p_area:        d.area ?? null,
+  p_size:        d.size ?? null,
+  p_budget:      Number.isFinite(Number(d.budget)) && d.budget !== null && d.budget !== "" ? Math.round(Number(d.budget)) : null,
+  p_desc:        d.desc ?? null,
+  p_tags:        d.tags ?? [],
+  p_before:      d.before_photos ?? [],
+  p_after:       d.after_photos ?? [],
+  p_contract_id: d.contract_id ?? null,
+});
 
-export const deletePortfolio = (id) =>
-  supabase.from("portfolios").delete().eq("id", id);
+export const createPortfolio = (data, actorId) =>
+  supabase.rpc("portfolio_save", portfolioRpcArgs(actorId, data?.company_id, null, data));
+
+export const updatePortfolio = (id, data, actorId, companyId) =>
+  supabase.rpc("portfolio_save", portfolioRpcArgs(actorId, companyId ?? data?.company_id, id, data));
+
+export const deletePortfolio = (id, actorId) =>
+  supabase.rpc("portfolio_delete", { p_actor_id: actorId ?? null, p_id: id });
 
 // ── Reviews ───────────────────────────────────────────────────────────────────
 
@@ -1422,6 +1448,17 @@ export const getPhasePhotos = (contractId, step = null) => {
     .order("created_at", { ascending: true });
   if (step !== null) q = q.eq("step", step);
   return q;
+};
+
+// 끝난 공사 → 시공 사례 초안(portfolioDraft.js)용 — 여러 계약의 단계 사진을 한 번에(읽기 전용).
+export const getPhasePhotosByContracts = async (contractIds = []) => {
+  const ids = (contractIds ?? []).filter(Boolean);
+  if (ids.length === 0) return { data: [], error: null };
+  return supabase
+    .from("phase_photos")
+    .select("contract_id, step, photos, created_at")
+    .in("contract_id", ids)
+    .order("created_at", { ascending: true });
 };
 
 // 공간 이력(Space History) 전용 — 여러 계약의 대표 시공사진 1장을 한 번에 조회(읽기 전용).

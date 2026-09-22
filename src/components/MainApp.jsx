@@ -107,6 +107,7 @@ import {
   getActiveRequestByUser,
   archiveRequestAuto,
   getTopReviews,
+  getRecentPortfolios,
   getSeedReviews,
   requestMockIdentityVerification,
   updateCompanyServiceRegions,
@@ -1087,6 +1088,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const loadReqLastAtRef = useRef(0);       // loadCompanyRequests 디바운스(1초)
   const [escrowRefreshTrigger, setEscrowRefreshTrigger] = useState(0);
   const [topReviews, setTopReviews] = useState([]);
+  const [partnerPortfolios, setPartnerPortfolios] = useState([]); // 업체가 올린 시공 사례 → 의뢰인 홈 «시공 사례»
   const [hidingId, setHidingId] = useState(null);     // requestId currently being hidden
   const [hideDebug, setHideDebug] = useState(null);   // DEV panel
 
@@ -1171,6 +1173,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // 전체(최대 12)를 유지해, 빈 콘텐츠 리뷰를 걸러낸 뒤에도 5개를 채울 버퍼를 남긴다.
       if (data) setTopReviews(data);
     }).catch(e => setReviewFetchErr(String(e)));
+
+    getRecentPortfolios(24).then(({ data }) => { if (data) setPartnerPortfolios(data); }).catch(() => {});
 
     getSeedReviews({ limit: 10, activeOnly: true }).then(({ data, error }) => {
       if (error) setSeedFetchErr(error.message ?? "seed_err");
@@ -2142,9 +2146,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   );
   const showcaseItems = useMemo(() => {
     const coIds = new Set((companies ?? []).map(c => c.id));
-    return normalizeShowcases({ topReviews, seedReviews, maskName: maskCompanyName })
+    // 업체 사례는 지금 보이는 업체 것만(테스트 업체·사라진 업체의 사례가 새지 않게).
+    const portfolios = (partnerPortfolios ?? []).filter(p => p.company_id && coIds.has(p.company_id));
+    return normalizeShowcases({ topReviews, portfolios, seedReviews, maskName: maskCompanyName })
       .map(x => ({ ...x, companyId: x.companyId && coIds.has(x.companyId) ? x.companyId : null }));
-  }, [topReviews, seedReviews, companies]);
+  }, [topReviews, partnerPortfolios, seedReviews, companies]);
 
   // 관심 업체(위시리스트)
   const [savedCompanyIds, setSavedCompanyIds] = useState([]);

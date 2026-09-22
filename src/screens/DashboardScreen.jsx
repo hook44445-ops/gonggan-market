@@ -683,7 +683,7 @@ export default function DashboardScreen({
 
         {/* 시공사례(포트폴리오) 등록·관리 — 기존 portfolios/uploadFile 재사용 */}
         {tab === "portfolio" && (
-          <PortfolioManagePanel companyId={currentUser?.id ?? null} />
+          <PortfolioManagePanel companyId={currentUser?.id ?? null} ownerId={userId ?? currentUser?.ownerId ?? null} />
         )}
 
         {/* v5.4.0: 공간 활동기록(본인) — 실데이터 집계, 없으면 빈 상태 안내 */}
