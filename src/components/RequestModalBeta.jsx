@@ -16,6 +16,14 @@ const STYLE_IMG = {
   "모던 미니멀": "/images/style-minimal.webp", "북유럽 감성": "/images/style-nordic.webp", "인더스트리얼": "/images/style-industrial.webp",
   "내추럴 우드": "/images/style-wood.webp", "럭셔리 클래식": "/images/style-classic.webp",
 };
+// 분위기 사진은 공간 유형을 따라간다 — 카페를 고쳐야 하는 사람에게 거실 사진을 보이지 않는다(힉스필드 · 2026-09-23).
+//   주거(아파트 전체·부분·원룸/오피스텔)는 위 STYLE_IMG(거실) 그대로.
+const STYLE_KEY = { "모던 미니멀": "minimal", "북유럽 감성": "nordic", "인더스트리얼": "industrial", "내추럴 우드": "wood", "럭셔리 클래식": "classic" };
+const STYLE_GROUP = { "카페/식당": "cafe", "오피스": "office", "상가": "shop" };
+export const styleImgFor = (spaceType, style) => {
+  const g = STYLE_GROUP[spaceType];
+  return g && STYLE_KEY[style] ? `/images/style/${g}-${STYLE_KEY[style]}.webp` : STYLE_IMG[style];
+};
 const SIZE_QUICK = ["10평대", "20평대", "30평대", "40평 이상"];
 const BUDGET_QUICK = ["1,000만원 이하", "1,000~3,000만원", "3,000~5,000만원", "5,000만원 이상", "상담 후 결정"];
 // 자주 찾는 공사는 먼저, 나머지는 「더 보기」 — 칩이 한꺼번에 스무 개 넘게 서면 요청서가 무거워진다.
@@ -198,7 +206,7 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           <Label>마음에 드는 분위기</Label>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: isCustomStyle ? S.md : S.xl }}>
             {STYLES.map(st => (
-              <PhotoPick key={st} label={st} img={STYLE_IMG[st]} active={form.style === st} onClick={() => set("style", form.style === st ? "" : st)} ratio="1 / 1" />
+              <PhotoPick key={st} label={st} img={styleImgFor(form.type, st)} active={form.style === st} onClick={() => set("style", form.style === st ? "" : st)} ratio="1 / 1" />
             ))}
             <button onClick={() => set("style", "기타")} aria-pressed={isCustomStyle}
               style={{ ...chip(isCustomStyle), borderRadius: R.lg, aspectRatio: "1 / 1", minHeight: 0, display: "grid", placeItems: "center" }}>✏️ 직접 적기</button>
