@@ -23,7 +23,7 @@ const SPACE_TILES = [
   { type: "아파트 부분", sub: "주방·욕실·도배", img: "/images/kitchen.webp" },
   { type: "원룸/오피스텔", sub: "원룸·투룸", img: "/images/space-officetel.webp" },
   { type: "카페/식당", sub: "매장 인테리어", img: "/images/cafe.webp" },
-  { type: "오피스", sub: "사무실", img: null },
+  { type: "오피스", sub: "사무실", img: "/images/space-office.webp" },
   { type: "상가", sub: "상가·점포", img: "/images/space-shop.webp" },
 ];
 

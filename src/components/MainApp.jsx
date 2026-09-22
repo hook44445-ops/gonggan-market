@@ -132,6 +132,7 @@ import { useUiVersion } from "../hooks/useUiVersion";
 import MyPageV3 from "../screens/v3/MyPageV3";
 import HomeV3 from "../screens/v3/HomeV3";
 import ShowcaseV3 from "../screens/v3/ShowcaseV3";
+import RequestSentSheet from "./v3/RequestSentSheet";
 import { normalizeShowcases } from "../lib/showcases";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
@@ -202,6 +203,8 @@ const parseBudgetRange = (str) => {
     .map(s => parseInt(s.replace(/,/g, ""), 10))
     .filter(n => Number.isFinite(n) && n > 0);
   if (nums.length === 0) return { min: 0, max: 0 };
+  // 빠른 선택 「1,000만원 이하」 — 상한만 있는 범위
+  if (nums.length === 1 && /이하/.test(str)) return { min: 0, max: nums[0] };
   if (nums.length === 1) return { min: nums[0], max: nums[0] };
   const sorted = [...nums].sort((a, b) => a - b);
   return { min: sorted[0], max: sorted[sorted.length - 1] };
@@ -5829,7 +5832,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         setMyRequests(prev => [optimistic, ...prev]);
         setCustomerRequests(prev => [optimistic, ...prev]);
         setShowReq(false);
-        showToast("✅ 요청이 접수됐어요 · 검증된 업체가 보통 2~4시간 내에 연락드려요. 대화 탭에서 확인하세요.");
+        showToast("✅ 요청이 접수됐어요");
         setReqDoneNotice(true); // 완료 직후 — 에스크로 안전 보관 안내 카드 노출
 
         // INSERT to Supabase
@@ -5931,36 +5934,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
       {/* 견적 요청 완료 직후 — 에스크로 안전 보관 안내 카드 */}
       {reqDoneNotice && (
-        <div onClick={() => setReqDoneNotice(false)}
-          style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)", zIndex:510,
-            display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background:C.surface, width:"100%", maxWidth:480,
-              borderRadius:"24px 24px 0 0", padding:"22px 24px 36px" }}>
-            <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 18px" }} />
-            <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}><Icon emoji="🔒" size={34} color={C.brand} /></div>
-            <div style={{ fontSize:18, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:8 }}>
-              안전하게 보호됩니다
-            </div>
-            <div style={{ fontSize:14, color:C.text2, lineHeight:1.8, textAlign:"center", marginBottom:14 }}>
-              업체에게 바로 돈이 지급되지 않습니다.<br/>
-              결제금은 공간마켓이 안전하게 보관하며<br/>
-              고객 확인 후 단계별로 지급됩니다.
-            </div>
-            <div style={{ background:C.bg, borderRadius:R.lg, padding:"10px 14px",
-              fontSize:12, color:C.text3, lineHeight:1.7, textAlign:"center", marginBottom:16 }}>
-              <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="💬" size={11} color={C.text3} /> 채팅</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📷" size={11} color={C.text3} /> 사진</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📍" size={11} color={C.text3} /> GPS</span> 기록이 저장되며<br/>분쟁 발생 시 기록을 기준으로 검토합니다.
-            </div>
-            <div style={{ fontSize:12.5, color:C.text3, textAlign:"center", marginBottom:16 }}>
-              좋은 만남의 시작을 응원합니다.
-            </div>
-            <button onClick={() => setReqDoneNotice(false)}
-              style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff",
-                border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer" }}>
-              확인했어요
-            </button>
-          </div>
-        </div>
+        <RequestSentSheet
+          onClose={() => setReqDoneNotice(false)}
+          onBrowse={() => { setShowcaseOpenId(null); setScreen("showcase"); }}
+          onTrack={() => setScreen("timeline")}
+        />
       )}
 
       {/* 믿고 맡긴 후기 — 상세(읽기 전용 바텀시트). 카드/제목/본문 클릭 시 진입 */}

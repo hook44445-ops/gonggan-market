@@ -6,6 +6,34 @@ import { useState, useEffect, useRef } from "react";
 import { C, R, S, SPACE_TYPES, STYLES } from "../constants";
 import { BetaGateModal, BetaBanner, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
+// 고르기 쉬운 입력 — 사진으로 고르고, 자주 쓰는 값은 한 번에 누른다. (직접 입력도 그대로 된다)
+const SPACE_IMG = {
+  "아파트 전체": "/images/living.webp", "아파트 부분": "/images/kitchen.webp", "원룸/오피스텔": "/images/space-officetel.webp",
+  "카페/식당": "/images/cafe.webp", "오피스": "/images/space-office.webp", "상가": "/images/space-shop.webp",
+};
+const STYLE_IMG = {
+  "모던 미니멀": "/images/style-minimal.webp", "북유럽 감성": "/images/style-nordic.webp", "인더스트리얼": "/images/style-industrial.webp",
+  "내추럴 우드": "/images/style-wood.webp", "럭셔리 클래식": "/images/style-classic.webp",
+};
+const SIZE_QUICK = ["10평대", "20평대", "30평대", "40평 이상"];
+const BUDGET_QUICK = ["1,000만원 이하", "1,000~3,000만원", "3,000~5,000만원", "5,000만원 이상", "상담 후 결정"];
+const WORK_TAGS = ["철거", "도배", "바닥", "욕실", "주방", "조명·전기", "창호", "붙박이장", "페인트", "타일"];
+
+function PhotoPick({ label, img, active, onClick, ratio = "4 / 3" }) {
+  return (
+    <button onClick={onClick} aria-pressed={active}
+      style={{ position: "relative", padding: 0, borderRadius: R.lg, overflow: "hidden", cursor: "pointer", aspectRatio: ratio,
+        border: `2.5px solid ${active ? C.brand : "transparent"}`, background: C.bgWarm, boxShadow: active ? `0 4px 14px ${C.brand44}` : "none" }}>
+      {img && <img src={img} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+      <div aria-hidden style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.6) 100%)" }} />
+      <span style={{ position: "absolute", left: 8, right: 8, bottom: 7, color: "#fff", fontSize: 12.5, fontWeight: 800, textAlign: "left", letterSpacing: "-0.2px" }}>{label}</span>
+      {active && <span style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: "50%", background: C.brand,
+        color: "#fff", fontSize: 12, fontWeight: 900, display: "grid", placeItems: "center" }}>✓</span>}
+    </button>
+  );
+}
+
 export default function RequestModalBeta({ onClose, onDone, initialData = null, isEdit = false }) {
   // ── 로직(원본 동일) ────────────────────────────────────────────────
   const [step, setStep] = useState(1);
@@ -129,14 +157,20 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           <div style={{ fontSize: 13, color: C.text3, marginBottom: S.xl }}>시공할 공간과 평수를 알려주세요</div>
 
           <Label required>공간 유형</Label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: S.xl }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: S.xl }}>
             {SPACE_TYPES.map(t => (
-              <button key={t} onClick={() => set("type", t)} style={chip(form.type === t)}>{t}</button>
+              <PhotoPick key={t} label={t} img={SPACE_IMG[t]} active={form.type === t} onClick={() => set("type", t)} ratio="1 / 1" />
             ))}
           </div>
 
           <Label required>평수</Label>
-          <input placeholder="예: 32평" value={form.size} onChange={e => set("size", e.target.value)} style={iS} />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+            {SIZE_QUICK.map(q => (
+              <button key={q} onClick={() => set("size", q)} style={chip(form.size === q)}>{q}</button>
+            ))}
+          </div>
+          <input placeholder="정확히 알면 적어 주세요 · 예: 32평" value={SIZE_QUICK.includes(form.size) ? "" : form.size}
+            onChange={e => set("size", e.target.value)} style={iS} />
 
           <button onClick={() => form.type && form.size && setStep(2)} style={{ ...primaryBtn(!!(form.type && form.size)), width: "100%", flex: "none", marginTop: 4 }}>
             다음 →
@@ -148,14 +182,21 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           <div style={{ fontSize: 13, color: C.text3, marginBottom: S.xl }}>희망 범위를 알려주세요 (스타일은 선택)</div>
 
           <Label required>희망 예산</Label>
-          <input placeholder="예: 2,500~3,000만원" value={form.budget} onChange={e => set("budget", e.target.value)} style={iS} />
-
-          <Label>선호 스타일</Label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: isCustomStyle ? S.md : S.xl }}>
-            {STYLES.map(s => (
-              <button key={s} onClick={() => set("style", s)} style={chip(form.style === s)}>{s}</button>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+            {BUDGET_QUICK.map(q => (
+              <button key={q} onClick={() => set("budget", q)} style={chip(form.budget === q)}>{q}</button>
             ))}
-            <button onClick={() => set("style", "기타")} style={chip(isCustomStyle)}>✏️ 기타</button>
+          </div>
+          <input placeholder="직접 적기 · 예: 2,500~3,000만원" value={BUDGET_QUICK.includes(form.budget) ? "" : form.budget}
+            onChange={e => set("budget", e.target.value)} style={iS} />
+
+          <Label>마음에 드는 분위기</Label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: isCustomStyle ? S.md : S.xl }}>
+            {STYLES.map(st => (
+              <PhotoPick key={st} label={st} img={STYLE_IMG[st]} active={form.style === st} onClick={() => set("style", form.style === st ? "" : st)} ratio="1 / 1" />
+            ))}
+            <button onClick={() => set("style", "기타")} aria-pressed={isCustomStyle}
+              style={{ ...chip(isCustomStyle), borderRadius: R.lg, aspectRatio: "1 / 1", minHeight: 0, display: "grid", placeItems: "center" }}>✏️ 직접 적기</button>
           </div>
           {isCustomStyle && (
             <input
@@ -177,10 +218,32 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           <div style={{ fontSize: 19, fontWeight: 800, color: C.text1, marginBottom: 4 }}>요청 내용</div>
           <div style={{ fontSize: 13, color: C.text3, marginBottom: S.xl }}>업체에게 전달할 내용을 입력해주세요</div>
 
-          <Label required>요청 사항</Label>
-          <textarea placeholder="예) 주방 확장, 욕실 2개 교체, 바닥재 전체 교체 원합니다." value={form.desc}
+          <Label required>어떤 공사가 필요하세요?</Label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+            {WORK_TAGS.map(tag => {
+              const on = form.desc.includes(tag);
+              return (
+                <button key={tag} onClick={() => set("desc", on
+                    ? form.desc.split(/,\s*/).filter(x => x.trim() && x.trim() !== tag).join(", ")
+                    : (form.desc.trim() ? `${form.desc.trim().replace(/,$/, "")}, ${tag}` : tag))}
+                  style={{ ...chip(on), padding: "8px 13px", minHeight: 38, fontSize: 13 }}>{on ? "✓ " : "+ "}{tag}</button>
+              );
+            })}
+          </div>
+          <textarea placeholder="위에서 고르거나 직접 적어 주세요 · 예) 주방 확장, 욕실 2개 교체" value={form.desc}
             onChange={e => set("desc", e.target.value)} rows={4}
             style={{ ...iS, minHeight: 110, resize: "none", lineHeight: 1.7, marginBottom: S.md }} />
+
+          {/* 보내기 전 한눈에 — 고른 내용을 카드로 */}
+          <div style={{ border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: S.sm,
+            display: "flex", gap: 12, alignItems: "center" }}>
+            {SPACE_IMG[form.type] && <img src={SPACE_IMG[form.type]} alt="" style={{ width: 56, height: 56, borderRadius: R.md, objectFit: "cover", flexShrink: 0 }} />}
+            <div style={{ minWidth: 0, fontSize: 12.5, color: C.text2, lineHeight: 1.6 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>{form.type} · {form.size}</div>
+              <div>예산 {form.budget}{form.style ? ` · ${form.style === "기타" ? "직접 적은 스타일" : form.style}` : ""}</div>
+            </div>
+            <button onClick={() => setStep(1)} style={{ marginLeft: "auto", background: "none", border: "none", color: C.brand, fontSize: 12.5, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>고치기</button>
+          </div>
 
           <div style={{ background: C.surface2, borderRadius: R.lg, padding: "12px 14px",
             marginBottom: S.sm, fontSize: 12, color: C.text3, lineHeight: 1.8 }}>
