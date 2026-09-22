@@ -222,7 +222,7 @@ export default function HomeV3({
             <>
               <Row emoji="🗺️" label="지역 지도" sub="가까운 업체 찾기" onClick={() => onGo("map")} />
               <Row emoji="💬" label="라운지" sub="인테리어 이야기 · 후기" onClick={() => onGo("lounge")} />
-              <Row emoji="🛡️" label="공간안전결제란?" sub="단계별 안전 지급 구조" onClick={() => { window.location.href = "/safe-payment"; }} last />
+              <Row emoji="🛡️" label={SHOW_BETA_UI ? "공간안전결제 · 정식 오픈 예정" : "공간안전결제란?"} sub={SHOW_BETA_UI ? "토스페이먼츠 승인 뒤 열리는 단계별 지급 구조" : "단계별 안전 지급 구조"} onClick={() => { window.location.href = "/safe-payment"; }} last />
             </>
           )}
         </Card>

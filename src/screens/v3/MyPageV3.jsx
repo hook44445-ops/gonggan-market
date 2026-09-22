@@ -15,6 +15,7 @@
 // ─────────────────────────────────────────────────────
 import { Page, Section, Card, Row, StatTiles, EmptyInvite, Hero, Progress, QuietList } from "../../components/v3/ui";
 import { C, R, S } from "../../constants";
+import { SHOW_BETA_UI } from "../../constants/release"; // 베타면 «안전결제 기록» 대신 «계약·공사 기록»
 import { BIZ_ROWS } from "../../components/AppFooter";
 
 export default function MyPageV3({
@@ -103,7 +104,7 @@ export default function MyPageV3({
         <Card pad={`0 ${S.lg}px`}>
           <Row emoji="🏠" label="공간 이력"   sub="완료된 시공 기록"       badge={s.completed || null} onClick={() => onGo("space-history")} />
           <Row emoji="📋" label="받은 견적"   sub="다음 공사 때 참고용"     badge={s.requests || null}  onClick={() => onGo("timeline")} />
-          <Row emoji="🛡️" label="안전결제 기록" sub="공간안전결제로 완료한 거래" onClick={() => onGo("timeline")} last />
+          <Row emoji="🛡️" label={SHOW_BETA_UI ? "계약·공사 기록" : "안전결제 기록"} sub={SHOW_BETA_UI ? "진행한 계약과 공사 기록" : "공간안전결제로 완료한 거래"} onClick={() => onGo("timeline")} last />
         </Card>
         {!hasAnyDeal && (
           <EmptyInvite
@@ -160,7 +161,7 @@ export default function MyPageV3({
       <Section title="알림 · 도움">
         <Card pad={`0 ${S.lg}px`}>
           <Row emoji="🔔" label="알림함" badge={unreadTotal || null} onClick={() => onGo("notifications")} />
-          <Row emoji="❓" label="자주 묻는 질문" sub="에스크로 · 환불 · 분쟁" onClick={() => onGo("help")} />
+          <Row emoji="❓" label="자주 묻는 질문" sub={SHOW_BETA_UI ? "계약 · 대금 · 분쟁" : "에스크로 · 환불 · 분쟁"} onClick={() => onGo("help")} />
           <Row emoji="💬" label="고객센터 문의" sub="070-7954-2740" onClick={onShowAppInfo} last />
         </Card>
       </Section>
