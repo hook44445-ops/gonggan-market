@@ -16,6 +16,7 @@ import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import CustomerEvaluationModal from "../components/CustomerEvaluationModal";
 import PlatformEstimateModal from "../components/PlatformEstimateModal";
+import EscrowNextCard from "../components/v3/EscrowNextCard"; // 맨 위 「지금 할 일」(표시 전용 · 로직 무변경)
 
 // Stage status values:
 // 'done'           — payment released
@@ -1433,6 +1434,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         </div>
       </div>
 
+      {/* ── 지금 할 일 + 5단계 막대 — 들어오자마자 «내가 뭘 하면 되나». stageStatus 만 읽는다(승인·지급 로직 무변경). ── */}
+      <EscrowNextCard
+        stageStatus={stageStatus}
+        isConsumer={isConsumer}
+        labels={Object.fromEntries(STAGE_META.map(m => [m.id, isConsumer ? (CUSTOMER_DISPLAY[m.id]?.label ?? m.label) : m.label]))}
+        settled={stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED"}
+        disputed={!!disputeSubmitted}
+        reviewed={!!reviewedForContract}
+      />
       {/* ── STEP1: 현재 보호 금액 배너 (탭 시 금액 카드로 스크롤) ── */}
       {bidAmount > 0 && paid < 100 && (
         <div
@@ -1710,7 +1720,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             const deadline = stageDeadlines[s.id];
 
             return (
-              <div key={s.id} style={{ display: "flex", gap: S.md, marginBottom: i < STAGE_META.length - 1 ? S.xl : 0 }}>
+              <div key={s.id} id={`stage-${s.id}`} style={{ display: "flex", gap: S.md, marginBottom: i < STAGE_META.length - 1 ? S.xl : 0, scrollMarginTop: 90 }}>
                 {/* Timeline dot */}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
                   <div style={{
@@ -2016,7 +2026,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         )}
 
         {isConsumer && (stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
-          <div style={{ background: reviewedForContract ? C.brandL : "#FFF8EC",
+          <div id="escrow-review" style={{ scrollMarginTop: 90, background: reviewedForContract ? C.brandL : "#FFF8EC",
             borderRadius: R.xl, padding: S.xl, marginBottom: S.lg,
             border: `1px solid ${reviewedForContract ? C.brandM : "#F5D97A"}` }}>
             {reviewedForContract ? (
