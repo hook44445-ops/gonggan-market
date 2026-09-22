@@ -1,50 +1,51 @@
 import { C } from "../../constants";
 
 // ─────────────────────────────────────────────────────
-// 공간마켓 브랜드 마크 — 01 공간·연결형
-// 원형 연결(링) + 집(공간) + 창문 + 잎(자연)
-// 모든 브랜드 아이콘(앱/파비콘/PWA/헤더/스플래시)의 단일 소스.
-// 좌표는 48 그리드 기준으로 정의되어 모든 에셋과 동일하게 유지됩니다.
+// 공간마켓 브랜드 마크 — v3 (2026-09) 집 · 마주한 두 사람 · 열린 문
+// 앱 아이콘/파비콘(public/icons/gm-logo.svg)과 같은 도형. 1024 그리드.
 // ─────────────────────────────────────────────────────
-export function LogoMark({ size = 32, rounded = true, bare = false, tone = "brand" }) {
-  // tone="brand": 딥그린 단색 (밝은 배경/헤더용)
-  // tone="light": 아이보리 + 세이지 잎 (딥그린 배경/히어로용)
-  const mark = tone === "light" ? "#FFFFFF" : C.brand;
-  const leaf = tone === "light" ? C.brandM : C.brand;
+const DOOR = "#D6A756";
+function MarkShapes({ color }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      {!bare && <rect width="48" height="48" rx={rounded ? 13 : 0} fill={C.brandL} />}
-      {/* 원형 연결 링 */}
-      <circle cx="24" cy="24" r="20" fill="none" stroke={mark} strokeWidth="2.2" />
-      {/* 집 외곽 (공간) */}
-      <path d="M13.8 21.6 L24 12.4 L34.2 21.6 L34.2 30.6 Q34.2 32.6 32.2 32.6 L15.8 32.6 Q13.8 32.6 13.8 30.6 Z"
-        fill="none" stroke={mark} strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" />
-      {/* 창문 2×2 */}
-      <g fill={mark}>
-        <rect x="18.0" y="17.8" width="3.0" height="3.0" rx="0.5" />
-        <rect x="22.0" y="17.8" width="3.0" height="3.0" rx="0.5" />
-        <rect x="18.0" y="21.8" width="3.0" height="3.0" rx="0.5" />
-        <rect x="22.0" y="21.8" width="3.0" height="3.0" rx="0.5" />
+    <>
+      <path d="M274 590 V410 L512 250 L750 410 V590" fill="none" stroke={color} strokeWidth="58" strokeLinejoin="round" />
+      <g fill={color}>
+        <path d="M245 585 L303 585 L345 528 Q396 486 447 538 L447 730 L300 730 Q245 730 245 675 Z" />
+        <path d="M779 585 L721 585 L679 528 Q630 488 574 540 L609 562 L612 730 L724 730 Q779 730 779 675 Z" />
+        <circle cx="396" cy="455" r="41" />
+        <circle cx="628" cy="455" r="41" />
       </g>
-      {/* 잎 (자연·새싹) */}
-      <path d="M27 32 C23 31 21.2 28 22 25.6 C25 26.6 27.2 29 27 32 Z" fill={leaf} />
-      <path d="M27 32 C31 31 32.8 28 32 25.6 C29 26.6 26.8 29 27 32 Z" fill={leaf} />
+      <path fill={DOOR} d="M491 507 L558 546 Q566 551 566 561 L566 671 Q566 680 558 685 L492 725 Q481 731 481 719 L481 517 Q481 502 491 507 Z" />
+    </>
+  );
+}
+
+export function LogoMark({ size = 32, rounded = true, bare = false, tone = "brand" }) {
+  // tone="brand": 딥그린 판 + 크림 도형(앱 아이콘과 같음) · bare 면 판 없이 브랜드색 도형
+  // tone="light": 판 없이 크림 도형(딥그린 배경/히어로 위)
+  const onDark = tone === "light";
+  const plate = !bare && !onDark;
+  return (
+    <svg width={size} height={size} viewBox={plate ? "0 0 1024 1024" : "200 200 624 580"} fill="none"
+      xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      {plate && <rect width="1024" height="1024" rx={rounded ? 230 : 0} fill={C.brandD ?? "#17472F"} />}
+      <MarkShapes color={plate || onDark ? "#F4EFE4" : C.brand} />
     </svg>
   );
 }
 
 // ─────────────────────────────────────────────────────
-// 공간사이 / 공간마켓 워드마크 (마크 + 텍스트)
+// 공간마켓 워드마크 (마크 + 텍스트) — 앱 이름이 앞, 회사는 작게
 // ─────────────────────────────────────────────────────
 export function BrandLockup({ size = 32, dark = false }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
       <LogoMark size={size} />
       <div>
-        <div style={{ fontSize: size * 0.47, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.3px",
-          color: dark ? "#fff" : C.brandD }}>공간사이</div>
-        <div style={{ fontSize: size * 0.28, lineHeight: 1, letterSpacing: "0.4px",
-          color: dark ? "rgba(255,255,255,0.7)" : C.text3 }}>공간마켓</div>
+        <div style={{ fontSize: size * 0.5, fontWeight: 900, lineHeight: 1.15, letterSpacing: "-0.4px",
+          color: dark ? "#fff" : C.brandD }}>공간마켓</div>
+        <div style={{ fontSize: size * 0.28, lineHeight: 1, letterSpacing: "0.2px",
+          color: dark ? "rgba(255,255,255,0.7)" : C.text3 }}>by 공간사이</div>
       </div>
     </div>
   );

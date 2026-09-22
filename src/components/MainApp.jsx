@@ -2812,7 +2812,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const NAV = mode === "admin"
     ? [["📋","관리","admin"],["💬","라운지","lounge"],["👤","마이","my"]]
     : mode === "consumer"
-    ? [["🏠","홈","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","마이","my"]]
+    // 의뢰인: 가운데 = 무료 견적(앱의 핵심 행동). 관심은 상단 ♥ 버튼으로.
+    ? [["🏠","홈","home"],["💬","라운지","lounge"],["＋","무료 견적","__request"],["🗨","대화","chatlist"],["👤","마이","my"]]
     : [["📋","요청","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","내정보","my"]];
 
   return (
@@ -2836,6 +2837,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <BrandLockup size={32} />
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
               {/* 로그아웃 버튼은 실수 터치 방지를 위해 마이페이지(내정보)로 이동됨 */}
+              {mode === "consumer" && (
+                <button onClick={() => setScreen("favorites")} aria-label="관심"
+                  style={{ width:36, height:36, borderRadius:"50%", border:"none", background:"transparent", cursor:"pointer",
+                    display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>
+                  <Icon emoji="❤️" size={20} color={C.text2} />
+                </button>
+              )}
               <NotificationBell user={user} onNavigate={openNotificationTarget} />
             </div>
           </div>
@@ -4492,7 +4500,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간마켓</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>대화</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>파트너와 나눈 이야기</div>
               </div>
@@ -4743,9 +4751,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         {screen==="favorites" && (
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
+              {mode === "consumer" && (
+                <button onClick={() => setScreen("home")} aria-label="뒤로"
+                  style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
+              )}
               <LogoMark size={34} />
               <div>
-                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간마켓</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>관심</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>마음이 머문 공간과 이야기를 모았어요</div>
               </div>
@@ -4965,7 +4977,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
               <div>
-                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간마켓</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>마이페이지</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>나의 공간 여정을 한눈에</div>
               </div>
@@ -6016,6 +6028,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           boxShadow:"0 -2px 16px rgba(46,95,75,0.07)" }}>
           {NAV.map(([icon,label,target]) => {
             const active = screen === target;
+            if (target === "__request") return (
+              <button key={target} onClick={() => requireAuth(() => handleOpenNewReq())} aria-label="무료 견적 받기"
+                style={{ flex:1, background:"none", border:"none", cursor:"pointer", display:"flex", flexDirection:"column",
+                  alignItems:"center", padding:"0 0 12px", position:"relative" }}>
+                <div style={{ width:54, height:54, marginTop:-20, borderRadius:"50%", background:C.brand, color:"#fff",
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:30, fontWeight:300, lineHeight:1,
+                  boxShadow:`0 6px 18px ${C.brand44}`, border:`4px solid ${C.ivory}` }}>+</div>
+                <div style={{ fontSize:10, fontWeight:800, color:C.brand, marginTop:3 }}>{label}</div>
+              </button>
+            );
             return (
               <button key={target} onClick={() => setScreen(target)}
                 style={{ flex:1, background:"none", border:"none", cursor:"pointer",
