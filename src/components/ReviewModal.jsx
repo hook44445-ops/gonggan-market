@@ -130,8 +130,9 @@ export default function ReviewModal({
 
   const removePhoto = (id, setter) => setter(prev => prev.filter(p => p.id !== id));
 
+  // 사진은 선택 — 전 사진이 없는 의뢰인도 후기를 남길 수 있게. 커피쿠폰은 전·후 사진이 모두 있을 때만.
   const photoValid = beforePhotos.length >= 1 && afterPhotos.length >= 1;
-  const canSubmit  = content.length >= 20 && photoValid && !uploading;
+  const canSubmit  = content.length >= 20 && !uploading;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -320,10 +321,10 @@ export default function ReviewModal({
           <div style={{ marginBottom:S.lg }}>
             <div style={{ marginBottom:S.md }}>
               <div style={{ fontSize:13, fontWeight:800, color:C.text1 }}>
-                📷 현장 사진 <span style={{ color:C.red }}>*</span>
+                📷 현장 사진 <span style={{ color:C.text3, fontWeight:600, fontSize:12 }}>(선택)</span>
               </div>
               <div style={{ fontSize:11, color:C.text3, marginTop:2 }}>
-                공사 전과 후 사진을 등록해주세요 · 비포 1장 + 애프터 1장 최소
+                전·후 사진을 1장씩 올리면 커피쿠폰을 드려요 · 없어도 후기는 남길 수 있어요
               </div>
             </div>
 
@@ -352,8 +353,8 @@ export default function ReviewModal({
             />
 
             {totalPhotos > 0 && !photoValid && (
-              <div style={{ fontSize:12, color:C.red, marginTop:S.sm, fontWeight:600 }}>
-                비포와 애프터 사진을 각각 1장 이상 등록해주세요.
+              <div style={{ fontSize:12, color:"#A06B00", marginTop:S.sm, fontWeight:600 }}>
+                ☕ {beforePhotos.length ? "공사 후" : "공사 전"} 사진도 1장 올리면 커피쿠폰 대상이에요.
               </div>
             )}
           </div>
@@ -403,8 +404,8 @@ export default function ReviewModal({
               color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16,
               cursor: canSubmit ? "pointer" : "not-allowed" }}>
             {uploading ? "사진 업로드 중..."
-              : !photoValid ? "비포/애프터 사진을 추가해주세요"
-              : "후기 등록하기"}
+              : content.length < 20 ? `후기를 ${20 - content.length}자 더 적어 주세요`
+              : photoValid ? "포토 후기 등록하기 ☕" : "후기 등록하기"}
           </button>
         </>)}
 
@@ -412,10 +413,10 @@ export default function ReviewModal({
         {step === 3 && (
           <div style={{ textAlign:"center", padding:"24px 0" }}>
             <div style={{ fontSize:64, marginBottom:16 }}>🎉</div>
-            <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:8 }}>비포/애프터 리뷰 등록 완료!</div>
+            <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:8 }}>{finalUrls.before.length && finalUrls.after.length ? "비포/애프터 리뷰 등록 완료!" : "후기 등록 완료!"}</div>
             <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl, lineHeight:1.7 }}>소중한 후기 감사합니다.</div>
 
-            <div style={{ background:"#FFF8EC", borderRadius:R.lg, padding:S.xl,
+            {finalUrls.before.length > 0 && finalUrls.after.length > 0 && <div style={{ background:"#FFF8EC", borderRadius:R.lg, padding:S.xl,
               marginBottom:S.xl, border:"1px solid #F5D97A" }}>
               <div style={{ fontSize:28, marginBottom:8 }}>☕</div>
               <div style={{ fontSize:15, fontWeight:800, color:"#8A5C00", marginBottom:6 }}>
@@ -424,7 +425,7 @@ export default function ReviewModal({
               <div style={{ fontSize:12, color:"#A06B00", lineHeight:1.6 }}>
                 담당자 확인 후 등록하신 연락처로<br/>커피쿠폰을 발송해 드립니다.
               </div>
-            </div>
+            </div>}
 
             {(finalUrls.before.length > 0 || finalUrls.after.length > 0) && (
               <div style={{ display:"flex", gap:S.sm, justifyContent:"center", marginBottom:S.xl }}>

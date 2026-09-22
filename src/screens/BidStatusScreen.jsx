@@ -873,6 +873,19 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   );
 
   // Bid list — empty state maintains container layout
+  // 비교를 쉽게 — 2곳 이상일 때 가장 싼 곳·빠른 곳·평판 좋은 곳에 표시를 단다(동점이면 함께).
+  const bidTags = (bid) => {
+    if (bids.length < 2) return [];
+    const prices = bids.map(b => Number(b.price)).filter(n => n > 0);
+    const periods = bids.map(b => Number(b.period)).filter(n => n > 0);
+    const temps = bids.map(b => Number(b.company?.temp ?? 0));
+    const out = [];
+    if (prices.length > 1 && Number(bid.price) === Math.min(...prices)) out.push("💰 최저가");
+    if (periods.length > 1 && Number(bid.period) === Math.min(...periods)) out.push("⚡ 가장 빨라요");
+    if (Math.max(...temps) > 0 && Number(bid.company?.temp ?? 0) === Math.max(...temps) && new Set(temps).size > 1) out.push("⭐ 평판 최고");
+    return out;
+  };
+
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
       <BidScreenHeader title="업체 비교하기" sub={request ? `${request.type} · 업체 ${bids.length}곳 입찰` : `업체 ${bids.length}곳이 입찰했어요`} onBack={goBack} userId={userId} />
@@ -931,6 +944,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             <BidCompareCard
               key={bid.id}
               bid={bid}
+              tags={bidTags(bid)}
               selected={bid.status === "selected" || selectedBid?.id === bid.id}
               onChat={() => onChat(bid.company ?? { id: bid.companyId, name: "업체" })}
               onSelect={() => selectBid(bid)}

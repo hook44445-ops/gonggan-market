@@ -4628,13 +4628,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:S.md, marginBottom:S.xl }}>
               <button onClick={() => setScreen("home")} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
-              <div style={{ fontSize:17, fontWeight:800, color:C.text1 }}>시공 진행 현황</div>
+              <div style={{ fontSize:17, fontWeight:800, color:C.text1 }}>내 견적·시공 진행</div>
             </div>
             {(() => {
               // 계약 진입 건만 사전 필터 — null-map 백지 방어.
               const progressRows = myRequests
                 .map(r => ({ r, escData: myRequestsEscrow[r.id] ?? null }))
-                .filter(({ r, escData }) => isRequestInProgress(r, escData) || isRequestSettled(r, escData));
+                // 견적을 기다리는 요청도 보여준다 — 요청 직후 「진행 보기」가 빈 화면이 되지 않게.
+                .filter(({ r, escData }) => isRequestInProgress(r, escData) || isRequestSettled(r, escData) || isRequestOpenForQuotes(r, escData));
               if (myRequests.length === 0 || progressRows.length === 0) return (
                 <div style={{ textAlign:"center", padding:"60px 0" }}>
                   <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji={myRequests.length === 0 ? "📋" : "🏗"} size={40} color={C.text3} /></div>
@@ -4670,9 +4671,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 return "착공 ~ 중간점검";
               })();
 
+              const bids = r.bidCount ?? 0;
+              const waiting = !step2done && bids === 0;
               const steps = [
                 { label:"견적 요청",    sub:"요청 등록 완료",           done:true,      time:r.time },
-                { label:"업체 선택",   sub: step2done ? "계약 완료" : "입찰 비교 후 계약", done:step2done, active:!step2done, bidStep:!step2done },
+                { label: waiting ? "업체 검토 중" : "업체 선택",
+                  sub: step2done ? "계약 완료" : bids > 0 ? `견적 ${bids}건 도착 · 비교해 보세요` : "우리 동네 검증 업체들이 요청을 보고 있어요. 견적이 오면 알려드려요",
+                  done:step2done, active:!step2done, bidStep:!step2done && bids > 0, waitStep: waiting },
                 { label:"공사 진행",   sub: constructionSub,            done:isSettled, active:step3active, escrowStep:step3active },
                 { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",     done:step4done },
               ];
@@ -4704,6 +4709,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                               style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}`,
                                 display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
                               <Icon emoji="🔔" size={12} color="#fff" /> 입찰 비교 후 업체 선택 →
+                            </button>
+                          )}
+                          {step.waitStep && (
+                            <button onClick={() => { setShowcaseOpenId(null); setScreen("showcase"); }}
+                              style={{ marginTop:S.sm, padding:"8px 14px", background:C.surface, color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                              기다리는 동안 시공 사례 보기 →
                             </button>
                           )}
                           {step.escrowStep && (
