@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES } from "../constants";
+import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES, SPACE_TYPES } from "../constants";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { loungeChatDbg } from "../utils/loungeChatDebug"; // 라운지 대화 신청/수신 신원 진단(플래그 시에만 출력)
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark, Icon, splitLeadingEmoji } from "./common";
@@ -131,6 +131,8 @@ import { applyRoleTheme } from "../utils/roleTheme";
 import { useUiVersion } from "../hooks/useUiVersion";
 import MyPageV3 from "../screens/v3/MyPageV3";
 import HomeV3 from "../screens/v3/HomeV3";
+import ShowcaseV3 from "../screens/v3/ShowcaseV3";
+import { normalizeShowcases } from "../lib/showcases";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
 
@@ -613,6 +615,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   // H-B: review 화면으로 진입했는데 selCo가 없으면 홈으로 복구 (blank screen 방지)
   useEffect(() => {
     if (screen === "review" && !selCo) setScreen("home");
+    // 업체를 고르지 않은 채 업체 상세로 오면 빈 화면이 된다 → 홈으로 복구
+    if (screen === "portfolio" && !selCo) setScreen("home");
   }, [screen, selCo]);
 
   // Expose current screen + role for ErrorBoundary diagnostics (white-screen triage).
@@ -1147,6 +1151,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [reviewFetchErr, setReviewFetchErr] = useState(null);
   const [seedReviews, setSeedReviews] = useState([]);
   const [seedFetchErr, setSeedFetchErr] = useState(null);
+  // 시공 사례 — 홈 사진·「시공 사례」 모음·상세가 함께 쓴다. 업체 연결은 목록에 실제로 있는 업체만.
+  const [showcaseOpenId, setShowcaseOpenId] = useState(null);
 
   // Load top reviews + seed reviews once on mount
   useEffect(() => {
@@ -2120,6 +2126,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   }, [bidViewRequestId]);
 
   const { companies } = useCompanyList();
+  const showcaseItems = useMemo(() => {
+    const coIds = new Set((companies ?? []).map(c => c.id));
+    return normalizeShowcases({ topReviews, seedReviews, maskName: maskCompanyName })
+      .map(x => ({ ...x, companyId: x.companyId && coIds.has(x.companyId) ? x.companyId : null }));
+  }, [topReviews, seedReviews, companies]);
 
   // 관심 업체(위시리스트)
   const [savedCompanyIds, setSavedCompanyIds] = useState([]);
@@ -2792,7 +2803,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
+  const FULL = ["showcase","chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NAV = mode === "admin"
     ? [["📋","관리","admin"],["💬","라운지","lounge"],["👤","마이","my"]]
@@ -2857,8 +2868,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             })),
           ].filter(r => (r.text ?? "").trim().length > 0);
 
-          const showcases = revSrc.filter(r => r.photo)
-            .map(r => ({ id: r.id, photo: r.photo, title: r.meta ?? "시공 사례", meta: r.company }));
+          const showcases = showcaseItems.map(x => ({ id: x.id, photo: x.photo, title: x.title, meta: x.meta }));
 
           const temps = (companies ?? []).map(c => Number(c.temp)).filter(Number.isFinite);
           const avgTemp = temps.length ? temps.reduce((a, b) => a + b, 0) / temps.length : 36.5;
@@ -2866,6 +2876,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const escOf = (r) => myRequestsEscrow[r.id] ?? null;
           const ip = myRequests.find(r => isRequestInProgress(r, escOf(r)));
           const doneCnt = myRequests.filter(r => isRequestSettled(r, escOf(r))).length;
+          const op = activeRole === "consumer" ? myRequests.find(r => isRequestOpenForQuotes(r, escOf(r))) : null;
 
           return (
             <HomeV3
@@ -2883,10 +2894,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               avgTemp={avgTemp}
               completedCount={doneCnt}
               newRequestCount={(activeJobs ?? []).length}
+              openRequest={op ? {
+                title: op.type ?? op.area ?? "시공",
+                bidCount: op.bidCount ?? 0,
+                onOpen: () => { setBidViewRequestId(op.id); setScreen((op.bidCount ?? 0) > 0 ? "bidstatus" : "timeline"); },
+              } : null}
               onNewRequest={() => requireAuth(() => handleOpenNewReq())}
-              onOpenShowcase={() => setScreen("portfolio")}
+              onRequestType={(type) => requireAuth(() => {
+                if (SPACE_TYPES.includes(type)) setReqPrefill({ type });
+                handleOpenNewReq();
+              })}
+              onOpenShowcase={(w) => { setShowcaseOpenId(w?.id ?? null); setScreen("showcase"); }}
               onGo={(target) => {
                 if (target === "home-requests") { setScreen("home"); return; }
+                if (target === "showcase") { setShowcaseOpenId(null); setScreen("showcase"); return; }
                 setScreen(target);
               }}
             />
@@ -4150,6 +4171,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           </div>
         )}
 
+        {screen==="showcase" && (
+          <ShowcaseV3
+            key={showcaseOpenId ?? "list"}
+            items={showcaseItems}
+            initialId={showcaseOpenId}
+            onBack={() => { setShowcaseOpenId(null); setScreen("home"); }}
+            onRequest={(type) => requireAuth(() => {
+              if (type && SPACE_TYPES.includes(type)) setReqPrefill({ type });
+              handleOpenNewReq();
+            })}
+            onOpenCompany={(id) => {
+              const co = (companies ?? []).find(c => c.id === id);
+              if (co) { setSelCo(co); setScreen("portfolio"); }
+            }}
+          />
+        )}
         {screen==="portfolio" && selCo && (() => {
           const canManage = activeRole === "admin" || (activeRole === "company" && (currentUser?.id === selCo?.id || (currentUser?.ownerId != null && currentUser?.ownerId === selCo?.ownerId)));
           const onChat = c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c);
