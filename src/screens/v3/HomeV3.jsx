@@ -13,8 +13,41 @@
 //  · 신뢰 숫자 3개(검증 업체/안전결제/평균 응답)로 안심을 즉시 제공
 //  · 진행 중인 계약이 있으면 그것을 최상단으로 올려 '할 일'을 먼저 보여준다
 // ─────────────────────────────────────────────────────
-import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progress } from "../../components/v3/ui";
+import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progress, FoldText } from "../../components/v3/ui";
 import { C, R, S } from "../../constants";
+
+// 의뢰인이 가장 먼저 고르는 것은 '어떤 공간인가'다. 요청 모달의 공간 유형(SPACE_TYPES)과 같은 이름을 쓴다
+// → 누르면 그 유형이 미리 골라진 채로 견적 요청이 열린다.
+const SPACE_TILES = [
+  { type: "아파트 전체", sub: "전체 리모델링", img: "/images/living.webp" },
+  { type: "아파트 부분", sub: "주방·욕실·도배", img: "/images/kitchen.webp" },
+  { type: "원룸/오피스텔", sub: "원룸·투룸", img: "/images/space-officetel.webp" },
+  { type: "카페/식당", sub: "매장 인테리어", img: "/images/cafe.webp" },
+  { type: "오피스", sub: "사무실", img: "/images/space-office.webp" },
+  { type: "상가", sub: "상가·점포", img: "/images/space-shop.webp" },
+];
+
+const STEPS = [
+  { n: "1", title: "1분 요청", sub: "공간과 예산만 알려 주세요" },
+  { n: "2", title: "견적 비교", sub: "검증 업체 견적을 한눈에" },
+  { n: "3", title: "안전 결제", sub: "공사 단계마다 나눠 지급" },
+];
+
+function SpaceTile({ type, sub, img, onClick }) {
+  return (
+    <button onClick={onClick} style={{ position: "relative", padding: 0, border: "none", borderRadius: R.lg, overflow: "hidden",
+      aspectRatio: "1 / 1", cursor: "pointer", background: `linear-gradient(145deg, ${C.brandL}, ${C.brandM})`, textAlign: "left" }}>
+      {img && <img src={img} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+      <div aria-hidden style={{ position: "absolute", inset: 0, background: img
+        ? "linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 100%)" : "none" }} />
+      <div style={{ position: "absolute", left: 10, right: 8, bottom: 9, color: img ? "#fff" : C.brandD }}>
+        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "-0.3px", lineHeight: 1.25 }}>{type}</div>
+        <div style={{ fontSize: 10.5, opacity: 0.85, marginTop: 1 }}>{sub}</div>
+      </div>
+    </button>
+  );
+}
 
 export default function HomeV3({
   activeRole = "consumer",
@@ -26,8 +59,11 @@ export default function HomeV3({
   avgTemp = 36.5,
   completedCount = 0,
   newRequestCount = 0,     // 업체: 오늘 들어온 요청
+  openRequest = null,      // 의뢰인: 진행 중이 아닌 최근 요청 { title, bidCount, onOpen }
   onGo = () => {},
   onNewRequest,
+  onRequestType,           // 의뢰인: 공간 유형을 고른 채 견적 요청 열기(type)
+  requestsSlot = null,     // 파트너: 입찰할 새 견적 요청 목록(MainApp 이 그린다)
   onOpenShowcase,
 }) {
   const isCompany = activeRole === "company";
@@ -46,7 +82,7 @@ export default function HomeV3({
               : "새 요청이 들어오면 바로 알려드릴게요."}
             chips={[`공간온도 ${Number(avgTemp).toFixed(1)}°`, `완료 ${completedCount}건`]}
             actions={[
-              { label: "요청 보기", primary: true, onClick: () => onGo("home-requests") },
+              { label: "요청 보기", primary: true, onClick: () => document.getElementById("partner-requests")?.scrollIntoView({ behavior: "smooth", block: "start" }) },
               { label: "파트너센터", onClick: () => onGo("dashboard") },
             ]}
           />
@@ -75,17 +111,68 @@ export default function HomeV3({
         </Card>
       )}
 
-      {/* ── 신뢰 숫자 — 사회적 증거를 한 줄로 ───────────────────── */}
-      <TrustRow
-        items={[
-          { value: `${companiesCount}곳`, label: "검증 업체" },
-          { value: `${Number(avgTemp).toFixed(1)}°`, label: "평균 공간온도" },
-          { value: `${completedCount}건`, label: "누적 완료" },
-        ]}
-      />
+      {/* ── 파트너: 새 견적 요청 — 홈에서 바로 보고 입찰한다 ─────────── */}
+      {isCompany && requestsSlot && (
+        <div id="partner-requests" style={{ scrollMarginTop: 120 }}>{requestsSlot}</div>
+      )}
+
+      {/* ── 의뢰인: 보낸 요청의 상태 — 견적이 왔으면 비교하러 가게 ─────── */}
+      {!isCompany && !activeContract && openRequest && (
+        <Card tone="brand" onClick={openRequest.onOpen}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: S.md }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>내 견적 요청</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginTop: 3 }}>{openRequest.title}</div>
+              <div style={{ fontSize: 12.5, color: C.text2, marginTop: 3 }}>
+                {openRequest.bidCount > 0 ? `견적 ${openRequest.bidCount}건이 도착했어요` : "업체들이 요청을 보고 있어요"}
+              </div>
+            </div>
+            <span style={{ flex: "0 0 auto", background: C.brand, color: "#fff", borderRadius: R.full, padding: "8px 14px",
+              fontSize: 12.5, fontWeight: 800 }}>{openRequest.bidCount > 0 ? "비교하기" : "보기"}</span>
+          </div>
+        </Card>
+      )}
+
+      {/* ── 의뢰인: 어떤 공간인지부터 고르게 — 누르면 유형이 골라진 요청이 열린다 ── */}
+      {!isCompany && (
+        <Section title="어떤 공간을 고치세요?">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.sm }}>
+            {SPACE_TILES.map((t) => (
+              <SpaceTile key={t.type} {...t} onClick={() => (onRequestType ? onRequestType(t.type) : onNewRequest?.())} />
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* ── 신뢰 — 업체 수가 적을 때 숫자('1곳')는 오히려 불안하다 → 약속으로 보여준다 ── */}
+      {isCompany || companiesCount >= 10 ? (
+        <TrustRow
+          items={[
+            { value: `${companiesCount}곳`, label: "검증 업체" },
+            { value: `${Number(avgTemp).toFixed(1)}°`, label: "평균 공간온도" },
+            { value: `${completedCount}건`, label: "누적 완료" },
+          ]}
+        />
+      ) : (
+        <Section title="견적은 이렇게 진행돼요">
+          <Card pad={`${S.md}px ${S.sm}px`}>
+            <div style={{ display: "flex" }}>
+              {STEPS.map((st, i) => (
+                <div key={st.n} style={{ flex: 1, textAlign: "center", position: "relative", padding: `0 ${S.xs}px` }}>
+                  {i > 0 && <div aria-hidden style={{ position: "absolute", left: -6, top: 12, color: C.text4, fontSize: 12 }}>›</div>}
+                  <div style={{ width: 26, height: 26, borderRadius: "50%", margin: "0 auto", background: C.brandL, color: C.brand,
+                    fontSize: 12.5, fontWeight: 900, display: "grid", placeItems: "center" }}>{st.n}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginTop: 6 }}>{st.title}</div>
+                  <div style={{ fontSize: 10.5, color: C.text3, marginTop: 2, lineHeight: 1.4 }}>{st.sub}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </Section>
+      )}
 
       {/* ── 시공 사례 — 첫인상의 핵심. 사진을 크게 ───────────────── */}
-      <Section title="시공 사례" action="더보기" onAction={() => onGo("portfolio")}>
+      <Section title="시공 사례" action={showcases.length > 0 ? "전체 보기" : null} onAction={() => onGo("showcase")}>
         {showcases.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: S.md }}>
             {showcases.slice(0, 3).map((w, i) => (
@@ -108,7 +195,7 @@ export default function HomeV3({
             {reviews.slice(0, 2).map((r, i, arr) => (
               <div key={r.id ?? i} style={{ padding: `${S.md}px 0`,
                 borderBottom: i === arr.length - 1 ? "none" : `1px solid ${C.bg}` }}>
-                <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.65 }}>“{r.text}”</div>
+                <FoldText text={`“${r.text}”`} lines={3} style={{ fontSize: 13, color: C.text2, lineHeight: 1.65 }} />
                 <div style={{ fontSize: 11.5, color: C.text4, marginTop: 6 }}>
                   {r.author ?? "고객"}{r.company ? ` · ${r.company}` : ""}
                 </div>
@@ -123,7 +210,8 @@ export default function HomeV3({
         <Card pad={`0 ${S.lg}px`}>
           {isCompany ? (
             <>
-              <Row emoji="📋" label="받은 요청" sub="입찰할 견적 요청" badge={newRequestCount || null} onClick={() => onGo("home-requests")} />
+              <Row emoji="📋" label="받은 요청" sub="입찰할 견적 요청" badge={newRequestCount || null}
+                onClick={() => document.getElementById("partner-requests")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
               <Row emoji="🗺️" label="지역 지도" sub="내 영업지역 확인" onClick={() => onGo("map")} />
               <Row emoji="💬" label="라운지" sub="사장님 수다 · 노하우" onClick={() => onGo("lounge")} last />
             </>

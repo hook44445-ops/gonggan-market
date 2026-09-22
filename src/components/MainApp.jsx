@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES } from "../constants";
+import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES, SPACE_TYPES } from "../constants";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { loungeChatDbg } from "../utils/loungeChatDebug"; // 라운지 대화 신청/수신 신원 진단(플래그 시에만 출력)
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark, Icon, splitLeadingEmoji } from "./common";
@@ -113,6 +113,8 @@ import {
   getNotifications,
   getReviewByRequest,
   getUnreadChatCounts,
+  getCompanyChatRooms,
+  isChatPhoto,
   getRoomsWithMessages,
   fetchMyChatRequests,
   fetchReceivedChatRequests,
@@ -131,6 +133,10 @@ import { applyRoleTheme } from "../utils/roleTheme";
 import { useUiVersion } from "../hooks/useUiVersion";
 import MyPageV3 from "../screens/v3/MyPageV3";
 import HomeV3 from "../screens/v3/HomeV3";
+import ShowcaseV3 from "../screens/v3/ShowcaseV3";
+import RequestSentSheet from "./v3/RequestSentSheet";
+import { normalizeShowcases } from "../lib/showcases";
+import { SAMPLE_COMPANY, SAMPLE_WHEN_FEWER_THAN } from "../constants/sampleCompany";
 import { sendTieredNotification, notifNavTarget } from "../utils/notify";
 import KakaoMap from "./KakaoMap";
 
@@ -194,12 +200,17 @@ const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // DB는 budget_min/budget_max(만원 단위 정수)로 저장하므로 문자열에서 숫자를 안전하게 파싱한다.
 // - 숫자 2개: [min, max]   - 숫자 1개: [n, n]   - 숫자 없음(협의 등): [0, 0]
 // 기존 데이터는 이미 budget_min/max 정수로 저장되어 있어 영향 없음.
+// 테스트 업체 — 이름에 「테스트」/test 가 들어간 업체(운영 데이터 정리 전까지 의뢰인 화면에서 제외)
+export const isTestCompany = (c) => /테스트|(^|[^a-z])test([^a-z]|$)/i.test(String(c?.name ?? ""));
+
 const parseBudgetRange = (str) => {
   if (!str || typeof str !== "string") return { min: 0, max: 0 };
   const nums = (str.match(/\d[\d,]*/g) ?? [])
     .map(s => parseInt(s.replace(/,/g, ""), 10))
     .filter(n => Number.isFinite(n) && n > 0);
   if (nums.length === 0) return { min: 0, max: 0 };
+  // 빠른 선택 「1,000만원 이하」 — 상한만 있는 범위
+  if (nums.length === 1 && /이하/.test(str)) return { min: 0, max: nums[0] };
   if (nums.length === 1) return { min: nums[0], max: nums[0] };
   const sorted = [...nums].sort((a, b) => a - b);
   return { min: sorted[0], max: sorted[sorted.length - 1] };
@@ -613,6 +624,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   // H-B: review 화면으로 진입했는데 selCo가 없으면 홈으로 복구 (blank screen 방지)
   useEffect(() => {
     if (screen === "review" && !selCo) setScreen("home");
+    // 업체를 고르지 않은 채 업체 상세로 오면 빈 화면이 된다 → 홈으로 복구
+    if (screen === "portfolio" && !selCo) setScreen("home");
   }, [screen, selCo]);
 
   // Expose current screen + role for ErrorBoundary diagnostics (white-screen triage).
@@ -1147,6 +1160,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [reviewFetchErr, setReviewFetchErr] = useState(null);
   const [seedReviews, setSeedReviews] = useState([]);
   const [seedFetchErr, setSeedFetchErr] = useState(null);
+  // 시공 사례 — 홈 사진·「시공 사례」 모음·상세가 함께 쓴다. 업체 연결은 목록에 실제로 있는 업체만.
+  const [showcaseOpenId, setShowcaseOpenId] = useState(null);
 
   // Load top reviews + seed reviews once on mount
   useEffect(() => {
@@ -2119,7 +2134,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     };
   }, [bidViewRequestId]);
 
-  const { companies } = useCompanyList();
+  const { companies: allCompanies } = useCompanyList();
+  // 의뢰인 화면에는 테스트용 업체를 보이지 않는다(운영 목록에 남아 있어 신뢰를 깎던 문제). 파트너·관리자는 그대로.
+  const companies = useMemo(
+    () => activeRole === "consumer" ? allCompanies.filter(c => !isTestCompany(c)) : allCompanies,
+    [allCompanies, activeRole],
+  );
+  const showcaseItems = useMemo(() => {
+    const coIds = new Set((companies ?? []).map(c => c.id));
+    return normalizeShowcases({ topReviews, seedReviews, maskName: maskCompanyName })
+      .map(x => ({ ...x, companyId: x.companyId && coIds.has(x.companyId) ? x.companyId : null }));
+  }, [topReviews, seedReviews, companies]);
 
   // 관심 업체(위시리스트)
   const [savedCompanyIds, setSavedCompanyIds] = useState([]);
@@ -2210,6 +2235,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (screen === "chatlist" || screen === "home") refreshUnreadChats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, user?.id, companies?.length]);
+  // 파트너: 고객이 말을 건 상담방(room_id = 고객ID_업체ID). 대화 목록 진입 때 갱신.
+  const [customerRooms, setCustomerRooms] = useState([]);
+  const [customerChat, setCustomerChat] = useState(null); // { roomId, customer:{ id, name } }
+  useEffect(() => {
+    if (activeRole !== "company" || !currentUser?.id) return;
+    if (screen !== "chatlist" && screen !== "home") return;
+    let alive = true;
+    getCompanyChatRooms(currentUser.id).then(({ data }) => { if (alive) setCustomerRooms(data ?? []); }).catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, activeRole, currentUser?.id]);
   const unreadTotal = Object.values(unreadByRoom).reduce((a, b) => a + (b || 0), 0);
 
   // ── 통합 대화 탭: 라운지 대화 요청(보낸/받은/수락됨) — chats(회사채팅)는 무변경 ──────
@@ -2406,6 +2442,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       setConsentGateConfig({
         types: CONSUMER_CONSENT_TYPES,
         title: "견적 요청 전 약관 동의",
+        betaKind: "quote",
         onComplete: () => { setConsentGateConfig(null); setShowReq(true); },
       });
       return;
@@ -2792,12 +2829,77 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const FULL = ["chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
+  const FULL = ["showcase","cchat","chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
+  // 파트너: 입찰할 새 견적 요청 목록 — v2 홈과 v3 홈이 같은 목록을 쓴다(v3 홈에서 요청이 안 보이던 문제).
+  const renderPartnerRequests = () => (
+    <>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
+        <div style={{ fontSize:16, fontWeight:800, color:C.text1, display:"flex", alignItems:"center", gap:6 }}>
+          <Icon emoji="📋" size={16} color={C.text1} /> 새 견적 요청
+          {biddableRequests.length > 0 && (
+            <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
+              {biddableRequests.length}건
+            </span>
+          )}
+        </div>
+        <button onClick={loadCompanyRequests} style={{ fontSize:13, background:C.brandL, border:`1px solid ${C.brandM}`, color:C.brand, borderRadius:R.full, padding:"6px 14px", fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+          display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔄" size={13} color={C.brand} /> 새로고침</button>
+      </div>
+
+      {/* 안정적인 div 래퍼 — siteVisitJobs 섹션이 동시에 추가/제거될 때 React 재조정 오류 방지(#210) */}
+      <div>
+        {biddableRequests.length === 0 ? (
+          <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
+            <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="📭" size={32} color={C.text3} /></div>
+            <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>아직 새 요청이 없어요 <Icon emoji="🏠" size={15} color={C.text1} /></div>
+            <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>
+              의뢰인이 요청을 등록하면 이곳에 표시됩니다
+              {SHOW_DEBUG_UI && <><br/>{`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}</>}
+            </div>
+          </div>
+        ) : (
+          biddableRequests.map(r => {
+            const _compId = currentUser?.id;
+            const _ownId  = user?.id;
+            const myBidFromState = submittedBids.find(b =>
+              b.requestId === r.id &&
+              (b.companyId === _compId || b.companyId === _ownId) &&
+              !String(b.id).startsWith("tmp-")
+            ) ?? null;
+            const myBidFromDb = !myBidFromState
+              ? (() => {
+                  const rawBids = Array.isArray(r.bidsRaw) ? r.bidsRaw : [];
+                  const db = rawBids.find(b => b?.company_id === _compId || b?.company_id === _ownId);
+                  if (!db) return null;
+                  return { id: db.id, requestId: r.id, companyId: db.company_id, price: db.price ?? 0, status: db.status ?? "pending" };
+                })()
+              : null;
+            const myBid = myBidFromState ?? myBidFromDb;
+            const siteVisitForBid = siteVisitJobs.find(j => j.request?.id === r.id)?.siteVisit ?? null;
+            return (
+              <BidCard
+                key={r.id}
+                r={r}
+                currentUser={currentUser}
+                alreadyBid={!!myBid}
+                myBid={myBid}
+                siteVisit={siteVisitForBid}
+                onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
+                onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
+              />
+            );
+          })
+        )}
+      </div>
+    </>
+  );
+
   const NAV = mode === "admin"
     ? [["📋","관리","admin"],["💬","라운지","lounge"],["👤","마이","my"]]
     : mode === "consumer"
-    ? [["🏠","홈","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","마이","my"]]
+    // 의뢰인: 가운데 = 무료 견적(앱의 핵심 행동). 관심은 상단 ♥ 버튼으로.
+    ? [["🏠","홈","home"],["💬","라운지","lounge"],["＋","무료 견적","__request"],["🗨","대화","chatlist"],["👤","마이","my"]]
     : [["📋","요청","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","내정보","my"]];
 
   return (
@@ -2821,6 +2923,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <BrandLockup size={32} />
             <div style={{ display:"flex", gap:S.sm, alignItems:"center" }}>
               {/* 로그아웃 버튼은 실수 터치 방지를 위해 마이페이지(내정보)로 이동됨 */}
+              {mode === "consumer" && (
+                <button onClick={() => setScreen("favorites")} aria-label="관심"
+                  style={{ width:36, height:36, borderRadius:"50%", border:"none", background:"transparent", cursor:"pointer",
+                    display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>
+                  <Icon emoji="❤️" size={20} color={C.text2} />
+                </button>
+              )}
               <NotificationBell user={user} onNavigate={openNotificationTarget} />
             </div>
           </div>
@@ -2845,7 +2954,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const revSrc = [
             ...topReviews.map(r => ({
               id: r.id, text: r.content, author: r.user_name ?? "익명",
-              company: maskCompanyName(r.companies?.name ?? null),
+              company: r.companies?.name ? maskCompanyName(r.companies.name) : null,
               photo: r.after_image_urls?.[0] ?? r.image_urls?.[0] ?? null,
               meta: r.space_type ?? r.region ?? null,
             })),
@@ -2857,8 +2966,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             })),
           ].filter(r => (r.text ?? "").trim().length > 0);
 
-          const showcases = revSrc.filter(r => r.photo)
-            .map(r => ({ id: r.id, photo: r.photo, title: r.meta ?? "시공 사례", meta: r.company }));
+          const showcases = showcaseItems.map(x => ({ id: x.id, photo: x.photo, title: x.title, meta: x.meta }));
 
           const temps = (companies ?? []).map(c => Number(c.temp)).filter(Number.isFinite);
           const avgTemp = temps.length ? temps.reduce((a, b) => a + b, 0) / temps.length : 36.5;
@@ -2866,6 +2974,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const escOf = (r) => myRequestsEscrow[r.id] ?? null;
           const ip = myRequests.find(r => isRequestInProgress(r, escOf(r)));
           const doneCnt = myRequests.filter(r => isRequestSettled(r, escOf(r))).length;
+          const op = activeRole === "consumer" ? myRequests.find(r => isRequestOpenForQuotes(r, escOf(r))) : null;
 
           return (
             <HomeV3
@@ -2882,11 +2991,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               companiesCount={(companies ?? []).length}
               avgTemp={avgTemp}
               completedCount={doneCnt}
-              newRequestCount={(activeJobs ?? []).length}
+              newRequestCount={activeRole === "company" ? biddableRequests.length : (activeJobs ?? []).length}
+              requestsSlot={activeRole === "company" ? renderPartnerRequests() : null}
+              openRequest={op ? {
+                title: op.type ?? op.area ?? "시공",
+                bidCount: op.bidCount ?? 0,
+                onOpen: () => { setBidViewRequestId(op.id); setScreen((op.bidCount ?? 0) > 0 ? "bidstatus" : "timeline"); },
+              } : null}
               onNewRequest={() => requireAuth(() => handleOpenNewReq())}
-              onOpenShowcase={() => setScreen("portfolio")}
+              onRequestType={(type) => requireAuth(() => {
+                if (SPACE_TYPES.includes(type)) setReqPrefill({ type });
+                handleOpenNewReq();
+              })}
+              onOpenShowcase={(w) => { setShowcaseOpenId(w?.id ?? null); setScreen("showcase"); }}
               onGo={(target) => {
                 if (target === "home-requests") { setScreen("home"); return; }
+                if (target === "showcase") { setShowcaseOpenId(null); setScreen("showcase"); return; }
                 setScreen(target);
               }}
             />
@@ -3812,64 +3932,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               </div>
             )}
 
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
-              <div style={{ fontSize:16, fontWeight:800, color:C.text1, display:"flex", alignItems:"center", gap:6 }}>
-                <Icon emoji="📋" size={16} color={C.text1} /> 새 견적 요청
-                {biddableRequests.length > 0 && (
-                  <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
-                    {biddableRequests.length}건
-                  </span>
-                )}
-              </div>
-              <button onClick={loadCompanyRequests} style={{ fontSize:13, background:C.brandL, border:`1px solid ${C.brandM}`, color:C.brand, borderRadius:R.full, padding:"6px 14px", fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-                display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔄" size={13} color={C.brand} /> 새로고침</button>
-            </div>
-
-            {/* 안정적인 div 래퍼 — siteVisitJobs 섹션이 동시에 추가/제거될 때 React 재조정 오류 방지(#210) */}
-            <div>
-              {biddableRequests.length === 0 ? (
-                <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
-                  <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="📭" size={32} color={C.text3} /></div>
-                  <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>아직 새 요청이 없어요 <Icon emoji="🏠" size={15} color={C.text1} /></div>
-                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>
-                    의뢰인이 요청을 등록하면 이곳에 표시됩니다
-                    {SHOW_DEBUG_UI && <><br/>{`(db_rows: ${reqDebug?.companyRows ?? "?"}, fetch_err: ${reqDebug?.companyFetchError ?? "none"})`}</>}
-                  </div>
-                </div>
-              ) : (
-                biddableRequests.map(r => {
-                  const _compId = currentUser?.id;
-                  const _ownId  = user?.id;
-                  const myBidFromState = submittedBids.find(b =>
-                    b.requestId === r.id &&
-                    (b.companyId === _compId || b.companyId === _ownId) &&
-                    !String(b.id).startsWith("tmp-")
-                  ) ?? null;
-                  const myBidFromDb = !myBidFromState
-                    ? (() => {
-                        const rawBids = Array.isArray(r.bidsRaw) ? r.bidsRaw : [];
-                        const db = rawBids.find(b => b?.company_id === _compId || b?.company_id === _ownId);
-                        if (!db) return null;
-                        return { id: db.id, requestId: r.id, companyId: db.company_id, price: db.price ?? 0, status: db.status ?? "pending" };
-                      })()
-                    : null;
-                  const myBid = myBidFromState ?? myBidFromDb;
-                  const siteVisitForBid = siteVisitJobs.find(j => j.request?.id === r.id)?.siteVisit ?? null;
-                  return (
-                    <BidCard
-                      key={r.id}
-                      r={r}
-                      currentUser={currentUser}
-                      alreadyBid={!!myBid}
-                      myBid={myBid}
-                      siteVisit={siteVisitForBid}
-                      onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
-                      onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
-                    />
-                  );
-                })
-              )}
-            </div>
+            {renderPartnerRequests()}
 
             {SHOW_DEBUG_UI && (
               <div style={{ margin:"16px 0", background:"rgba(0,0,0,0.92)", color:"#0f0", borderRadius:8, padding:"8px 12px", fontSize:11, lineHeight:2, fontFamily:"monospace", maxHeight:600, overflowY:"auto" }}>
@@ -4034,6 +4097,38 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               </div>
             ))}
 
+            {/* 예시 업체 — 실제 업체가 적을 때 「업체는 이렇게 보여요」 견본(상담·입찰 대상 아님) */}
+            {activeRole === "consumer" && (mapLocalOnly ? mapLocalMatches : mapCompanies).length < SAMPLE_WHEN_FEWER_THAN && (
+              <div style={{ marginBottom:S.sm }}>
+                <div style={{ marginBottom:4, paddingLeft:2, display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ background:"#FFF6E5", border:"1px solid #F3D9A4", borderRadius:R.full, padding:"2px 9px",
+                    fontSize:10.5, color:"#7A5200", fontWeight:800 }}>예시</span>
+                  <span style={{ fontSize:11.5, color:C.text3 }}>입점한 업체는 이렇게 보여요</span>
+                </div>
+                <div onClick={() => go("portfolio", SAMPLE_COMPANY)} style={{ cursor:"pointer", borderRadius:R.xl, overflow:"hidden",
+                  border:`1px solid ${C.bgWarm}`, background:C.surface }}>
+                  <div style={{ position:"relative", aspectRatio:"16 / 7", background:C.surface2 }}>
+                    <img src={SAMPLE_COMPANY.cover} alt="" loading="lazy" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+                    <div style={{ position:"absolute", right:8, bottom:8, display:"flex", gap:4 }}>
+                      {SAMPLE_COMPANY.portfolio.map(w => (
+                        <img key={w.id} src={w.after} alt="" loading="lazy" style={{ width:44, height:44, objectFit:"cover", borderRadius:8, border:"2px solid #fff" }} />
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ padding:`${S.md}px ${S.lg}px` }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{SAMPLE_COMPANY.name}</span>
+                      <TempBadge temp={SAMPLE_COMPANY.temp} />
+                    </div>
+                    <div style={{ fontSize:12, color:C.text3, marginTop:4 }}>
+                      시공 {SAMPLE_COMPANY.completedJobs}건 · 응답 {SAMPLE_COMPANY.responseTime} · {SAMPLE_COMPANY.specialties.join(" · ")}
+                    </div>
+                    <div style={{ fontSize:12.5, color:C.brand, fontWeight:700, marginTop:8 }}>예시 프로필 보기 →</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* 내 지역만 보기 + 결과 0건 empty state */}
             {mapLocalOnly && mapLocalMatches.length === 0 && (
               <div style={{ textAlign:"center", padding:"32px 0", color:C.text3 }}>
@@ -4150,6 +4245,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           </div>
         )}
 
+        {screen==="showcase" && (
+          <ShowcaseV3
+            key={showcaseOpenId ?? "list"}
+            items={showcaseItems}
+            initialId={showcaseOpenId}
+            onBack={() => { setShowcaseOpenId(null); setScreen("home"); }}
+            onRequest={(type) => requireAuth(() => {
+              if (type && SPACE_TYPES.includes(type)) setReqPrefill({ type });
+              handleOpenNewReq();
+            })}
+            onOpenCompany={(id) => {
+              const co = (companies ?? []).find(c => c.id === id);
+              if (co) { setSelCo(co); setScreen("portfolio"); }
+            }}
+          />
+        )}
         {screen==="portfolio" && selCo && (() => {
           const canManage = activeRole === "admin" || (activeRole === "company" && (currentUser?.id === selCo?.id || (currentUser?.ownerId != null && currentUser?.ownerId === selCo?.ownerId)));
           const onChat = c => isGuestCompany ? setShowRegisterPrompt(true) : go("chat",c);
@@ -4157,11 +4268,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const onBack = () => setScreen("home");
           // UX Beta: 공개/고객 뷰는 프리미엄 상세, 업체 본인/관리자는 기존 관리 화면 유지.
           return (UX_BETA && !canManage)
-            ? <PortfolioScreenBeta company={selCo} onChat={onChat} onReview={onReview} onBack={onBack} />
+            ? <PortfolioScreenBeta company={selCo} onChat={onChat} onReview={onReview} onBack={onBack}
+                onRequest={() => requireAuth(() => handleOpenNewReq())} />
             : <PortfolioScreen company={selCo} canManage={canManage} onChat={onChat} onReview={onReview} onBack={onBack} onEscrow={() => go("escrow")} />;
         })()}
         {screen==="review" && selCo && <ReviewScreen company={selCo} onBack={() => setScreen("portfolio")} currentUser={currentUser} requestId={bidViewRequestId ?? null} contractId={contractId ?? null} onEarnToken={earnToken} />}
         {screen==="my-reviews" && <CustomerReviewHistoryScreen currentUser={currentUser} companies={companies} onBack={() => setScreen("my")} />}
+        {screen==="cchat" && customerChat && (
+          <ChatScreen
+            key={customerChat.roomId}
+            roomId={customerChat.roomId}
+            company={{ ...customerChat.customer, isCustomer: true }}
+            companyId={currentUser?.id ?? null}
+            user={user}
+            onBack={() => setScreen("chatlist")}
+          />
+        )}
         {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen("chatlist")}
           onQuoteRequest={activeRole === "consumer" ? () => { setScreen("home"); handleOpenNewReq(); } : undefined} />}
         {screen==="lounge-chat" && loungeChat && (
@@ -4412,7 +4534,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const visibleCompanies = companies.filter(c =>
             !hiddenCompanyChats.includes(c.id) && roomsWithMessages.has(`${user.id}_${c.id}`)
           );
-          const isAllEmpty = totalLoungeRequests === 0 && totalLoungeOngoing === 0 && visibleCompanies.length === 0;
+          const isAllEmpty = totalLoungeRequests === 0 && totalLoungeOngoing === 0 && visibleCompanies.length === 0
+            && !(activeRole === "company" && customerRooms.length > 0);
           const sectionTitle = (label) => {
             const { emoji, rest } = splitLeadingEmoji(label);
             return (
@@ -4451,7 +4574,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간마켓</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>대화</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>파트너와 나눈 이야기</div>
               </div>
@@ -4461,15 +4584,29 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {isAllEmpty && (
               <div style={{ textAlign:"center", padding:"60px 20px" }}>
                 <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="💬" size={40} color={C.text3} /></div>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text2, marginBottom:6 }}>아직 시작된 대화가 없습니다.</div>
-                <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>업체와 상담을 시작하면 이곳에 대화가 표시됩니다.</div>
-                {/* 빈 상태에서 다음 행동을 제시 — '관심' 탭 등 다른 빈 화면과 톤을 맞춘다. */}
+                <div style={{ fontSize:15, fontWeight:700, color:C.text2, marginBottom:6 }}>아직 시작된 대화가 없어요</div>
+                {activeRole === "company" ? (
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>고객 요청에 견적을 보내면 이곳에서 상담이 시작돼요.</div>
+                ) : (
+                  <div style={{ fontSize:13, color:C.text3, lineHeight:1.7 }}>
+                    무료 견적을 요청하면 우리 동네 업체가<br />견적과 함께 먼저 말을 걸어와요.
+                  </div>
+                )}
+                {/* 빈 상태에서 다음 행동을 제시 — 의뢰인은 견적 요청이 대화의 시작이다. */}
                 <button
-                  onClick={() => setScreen(activeRole === "company" ? "dashboard" : "map")}
+                  onClick={() => activeRole === "company" ? setScreen("dashboard") : requireAuth(() => handleOpenNewReq())}
                   style={{ marginTop:18, background:C.brand, color:"#fff", border:"none", borderRadius:R.full,
-                    padding:"11px 22px", fontSize:13.5, fontWeight:800, cursor:"pointer" }}>
-                  {activeRole === "company" ? "받은 요청 보기" : "업체 찾아보기"}
+                    padding:"12px 24px", fontSize:14, fontWeight:800, cursor:"pointer", boxShadow:`0 4px 14px ${C.brand44}` }}>
+                  {activeRole === "company" ? "받은 요청 보기" : "무료 견적 받기"}
                 </button>
+                {activeRole !== "company" && (
+                  <div>
+                    <button onClick={() => setScreen("map")}
+                      style={{ marginTop:10, background:"none", border:"none", color:C.text3, fontSize:13, fontWeight:700, cursor:"pointer" }}>
+                      먼저 업체 둘러보기 →
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -4545,6 +4682,31 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               </>
             )}
 
+            {activeRole === "company" && customerRooms.length > 0 && (
+              <>
+                {sectionTitle(`🏗 고객 상담 (${customerRooms.length})`)}
+                {customerRooms.map(rm => {
+                  const name = rm.customerName ? `${rm.customerName} 고객님` : "의뢰인";
+                  const last = isChatPhoto(rm.lastText) ? "📷 사진" : (rm.lastText || "대화를 시작해 보세요");
+                  return (
+                    <div key={rm.roomId} onClick={() => { setCustomerChat({ roomId: rm.roomId, customer: { id: rm.customerId, name } }); setScreen("cchat"); }}
+                      style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.bgWarm}` }}>
+                      <div style={{ width:48, height:48, borderRadius:R.full, flexShrink:0, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand }}>
+                        {name[0]}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3, gap:8 }}>
+                          <div style={{ fontSize:15, fontWeight:800, color:C.text1 }}>{name}</div>
+                          <div style={{ fontSize:11, color:C.text4, flexShrink:0 }}>{formatRelativeTime(rm.lastAt)}</div>
+                        </div>
+                        <div style={{ fontSize:13, color:C.text3, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>{last}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
             {visibleCompanies.length > 0 && (
               <>
                 {sectionTitle("🏗 계약/견적채팅")}
@@ -4587,13 +4749,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:S.md, marginBottom:S.xl }}>
               <button onClick={() => setScreen("home")} style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
-              <div style={{ fontSize:17, fontWeight:800, color:C.text1 }}>시공 진행 현황</div>
+              <div style={{ fontSize:17, fontWeight:800, color:C.text1 }}>내 견적·시공 진행</div>
             </div>
             {(() => {
               // 계약 진입 건만 사전 필터 — null-map 백지 방어.
               const progressRows = myRequests
                 .map(r => ({ r, escData: myRequestsEscrow[r.id] ?? null }))
-                .filter(({ r, escData }) => isRequestInProgress(r, escData) || isRequestSettled(r, escData));
+                // 견적을 기다리는 요청도 보여준다 — 요청 직후 「진행 보기」가 빈 화면이 되지 않게.
+                .filter(({ r, escData }) => isRequestInProgress(r, escData) || isRequestSettled(r, escData) || isRequestOpenForQuotes(r, escData));
               if (myRequests.length === 0 || progressRows.length === 0) return (
                 <div style={{ textAlign:"center", padding:"60px 0" }}>
                   <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji={myRequests.length === 0 ? "📋" : "🏗"} size={40} color={C.text3} /></div>
@@ -4629,9 +4792,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 return "착공 ~ 중간점검";
               })();
 
+              const bids = r.bidCount ?? 0;
+              const waiting = !step2done && bids === 0;
               const steps = [
                 { label:"견적 요청",    sub:"요청 등록 완료",           done:true,      time:r.time },
-                { label:"업체 선택",   sub: step2done ? "계약 완료" : "입찰 비교 후 계약", done:step2done, active:!step2done, bidStep:!step2done },
+                { label: waiting ? "업체 검토 중" : "업체 선택",
+                  sub: step2done ? "계약 완료" : bids > 0 ? `견적 ${bids}건 도착 · 비교해 보세요` : "우리 동네 검증 업체들이 요청을 보고 있어요. 견적이 오면 알려드려요",
+                  done:step2done, active:!step2done, bidStep:!step2done && bids > 0, waitStep: waiting },
                 { label:"공사 진행",   sub: constructionSub,            done:isSettled, active:step3active, escrowStep:step3active },
                 { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",     done:step4done },
               ];
@@ -4665,6 +4832,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                               <Icon emoji="🔔" size={12} color="#fff" /> 입찰 비교 후 업체 선택 →
                             </button>
                           )}
+                          {step.waitStep && (
+                            <button onClick={() => { setShowcaseOpenId(null); setScreen("showcase"); }}
+                              style={{ marginTop:S.sm, padding:"8px 14px", background:C.surface, color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                              기다리는 동안 시공 사례 보기 →
+                            </button>
+                          )}
                           {step.escrowStep && (
                             <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
                               style={{ marginTop:S.sm, padding:"8px 16px",
@@ -4691,9 +4864,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         {screen==="favorites" && (
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
+              {mode === "consumer" && (
+                <button onClick={() => setScreen("home")} aria-label="뒤로"
+                  style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text1, padding:0 }}>←</button>
+              )}
               <LogoMark size={34} />
               <div>
-                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간마켓</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>관심</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>마음이 머문 공간과 이야기를 모았어요</div>
               </div>
@@ -4913,7 +5090,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
               <div>
-                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간사이</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간마켓</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>마이페이지</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>나의 공간 여정을 한눈에</div>
               </div>
@@ -5792,7 +5969,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         setMyRequests(prev => [optimistic, ...prev]);
         setCustomerRequests(prev => [optimistic, ...prev]);
         setShowReq(false);
-        showToast("✅ 요청이 접수됐어요 · 검증된 업체가 보통 2~4시간 내에 연락드려요. 대화 탭에서 확인하세요.");
+        showToast("✅ 요청이 접수됐어요");
         setReqDoneNotice(true); // 완료 직후 — 에스크로 안전 보관 안내 카드 노출
 
         // INSERT to Supabase
@@ -5880,6 +6057,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           userId={user?.id}
           title={consentGateConfig.title}
           onComplete={consentGateConfig.onComplete}
+          betaKind={consentGateConfig.betaKind ?? null}
           onClose={() => setConsentGateConfig(null)}
         />
       )}
@@ -5894,36 +6072,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
       {/* 견적 요청 완료 직후 — 에스크로 안전 보관 안내 카드 */}
       {reqDoneNotice && (
-        <div onClick={() => setReqDoneNotice(false)}
-          style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.6)", zIndex:510,
-            display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background:C.surface, width:"100%", maxWidth:480,
-              borderRadius:"24px 24px 0 0", padding:"22px 24px 36px" }}>
-            <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 18px" }} />
-            <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}><Icon emoji="🔒" size={34} color={C.brand} /></div>
-            <div style={{ fontSize:18, fontWeight:900, color:C.text1, textAlign:"center", marginBottom:8 }}>
-              안전하게 보호됩니다
-            </div>
-            <div style={{ fontSize:14, color:C.text2, lineHeight:1.8, textAlign:"center", marginBottom:14 }}>
-              업체에게 바로 돈이 지급되지 않습니다.<br/>
-              결제금은 공간마켓이 안전하게 보관하며<br/>
-              고객 확인 후 단계별로 지급됩니다.
-            </div>
-            <div style={{ background:C.bg, borderRadius:R.lg, padding:"10px 14px",
-              fontSize:12, color:C.text3, lineHeight:1.7, textAlign:"center", marginBottom:16 }}>
-              <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="💬" size={11} color={C.text3} /> 채팅</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📷" size={11} color={C.text3} /> 사진</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📍" size={11} color={C.text3} /> GPS</span> 기록이 저장되며<br/>분쟁 발생 시 기록을 기준으로 검토합니다.
-            </div>
-            <div style={{ fontSize:12.5, color:C.text3, textAlign:"center", marginBottom:16 }}>
-              좋은 만남의 시작을 응원합니다.
-            </div>
-            <button onClick={() => setReqDoneNotice(false)}
-              style={{ width:"100%", padding:"14px", background:C.brand, color:"#fff",
-                border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer" }}>
-              확인했어요
-            </button>
-          </div>
-        </div>
+        <RequestSentSheet
+          onClose={() => setReqDoneNotice(false)}
+          onBrowse={() => { setShowcaseOpenId(null); setScreen("showcase"); }}
+          onTrack={() => setScreen("timeline")}
+        />
       )}
 
       {/* 믿고 맡긴 후기 — 상세(읽기 전용 바텀시트). 카드/제목/본문 클릭 시 진입 */}
@@ -5988,6 +6141,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           boxShadow:"0 -2px 16px rgba(46,95,75,0.07)" }}>
           {NAV.map(([icon,label,target]) => {
             const active = screen === target;
+            if (target === "__request") return (
+              <button key={target} onClick={() => requireAuth(() => handleOpenNewReq())} aria-label="무료 견적 받기"
+                style={{ flex:1, background:"none", border:"none", cursor:"pointer", display:"flex", flexDirection:"column",
+                  alignItems:"center", padding:"0 0 12px", position:"relative" }}>
+                <div style={{ width:54, height:54, marginTop:-20, borderRadius:"50%", background:C.brand, color:"#fff",
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:30, fontWeight:300, lineHeight:1,
+                  boxShadow:`0 6px 18px ${C.brand44}`, border:`4px solid ${C.ivory}` }}>+</div>
+                <div style={{ fontSize:10, fontWeight:800, color:C.brand, marginTop:3 }}>{label}</div>
+              </button>
+            );
             return (
               <button key={target} onClick={() => setScreen(target)}
                 style={{ flex:1, background:"none", border:"none", cursor:"pointer",

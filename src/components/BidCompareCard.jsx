@@ -6,8 +6,9 @@ import { C, R, S, GRADE, SHADOW } from "../constants";
 import { TempBadge } from "./common";
 import { fmtMoney } from "../utils/calculations";
 import { CompanyKpiTiles, CompanyLevelBar, CompanyMiniBadges } from "./company/CompanyMetrics";
+import { FoldText } from "./v3/ui";
 
-export default function BidCompareCard({ bid, onChat, onSelect, selected = false }) {
+export default function BidCompareCard({ bid, onChat, onSelect, selected = false, tags = [] }) {
   const company = bid.company ?? {};
   const g = GRADE(company.temp ?? 0);
 
@@ -22,6 +23,14 @@ export default function BidCompareCard({ bid, onChat, onSelect, selected = false
 
       <div style={{ flex: 1, padding: `${S.xl}px ${S.xl}px ${S.lg}px` }}>
         {/* 예상금액 — 최우선(가장 먼저·가장 크게) */}
+        {tags.length > 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: S.sm }}>
+            {tags.map((t) => (
+              <span key={t} style={{ fontSize: 11.5, fontWeight: 800, color: C.brand, background: C.brandL,
+                border: `1px solid ${C.brandM}`, borderRadius: R.full, padding: "3px 9px" }}>{t}</span>
+            ))}
+          </div>
+        )}
         <div style={{ fontSize: 12, color: C.text3, fontWeight: 700, marginBottom: 2 }}>예상금액</div>
         <div style={{ fontSize: 28, fontWeight: 900, color: C.brand, lineHeight: 1.1 }}>{fmtMoney(bid.price)}</div>
         <div style={{ fontSize: 12, color: C.text3, marginTop: 3 }}>예상 공사기간 {bid.period}일</div>
@@ -54,10 +63,10 @@ export default function BidCompareCard({ bid, onChat, onSelect, selected = false
 
         {/* 업체 한마디 — 최대 2줄 */}
         {bid.comment && (
-          <div style={{
-            marginTop: S.md, fontSize: 12.5, color: C.text2, lineHeight: 1.6, fontStyle: "italic",
-            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-          }}>“{bid.comment}”</div>
+          <div style={{ marginTop: S.md }}>
+            <FoldText text={`“${bid.comment}”`} lines={2} minChars={70}
+              style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.6, fontStyle: "italic" }} />
+          </div>
         )}
 
         {/* 버튼 — 모든 카드 동일 위치. 선택 시 ✔ 선택됨 */}

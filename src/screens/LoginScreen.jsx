@@ -282,8 +282,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
               display: "flex", alignItems: "center", justifyContent: "center",
               boxShadow: `0 10px 30px ${C.brand22}`, border: `1px solid ${C.bgWarm}`,
             }}><LogoMark size={52} bare /></div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: C.brandD, letterSpacing: "-0.5px" }}>공간사이</div>
-            <div style={{ fontSize: 12, color: C.text3, marginTop: 4, letterSpacing: "1px" }}>공간마켓</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: C.brandD, letterSpacing: "-0.5px" }}>공간마켓</div>
+            <div style={{ fontSize: 12, color: C.text3, marginTop: 4, letterSpacing: "0.5px" }}>by 공간사이</div>
             <div style={{ fontSize: 13, color: C.text3, marginTop: 8 }}>사람과 공간 사이, 믿을 수 있는 연결</div>
           </div>
 

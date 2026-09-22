@@ -18,8 +18,8 @@ export default function SplashScreen() {
           boxShadow:"0 8px 28px rgba(0,0,0,0.18)" }}>
           <LogoMark size={62} bare />
         </div>
-        <div style={{ fontSize:30, fontWeight:800, letterSpacing:2 }}>공간사이</div>
-        <div style={{ fontSize:13, opacity:0.82, letterSpacing:6, marginTop:4 }}>공간마켓</div>
+        <div style={{ fontSize:30, fontWeight:800, letterSpacing:2 }}>공간마켓</div>
+        <div style={{ fontSize:13, opacity:0.82, letterSpacing:2, marginTop:4 }}>by 공간사이</div>
         <div style={{ fontSize:11, opacity:0.55, marginTop:14, lineHeight:1.6 }}>
           사람과 공간 사이, 따뜻한 연결
         </div>

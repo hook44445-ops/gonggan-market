@@ -7,6 +7,7 @@
 //  3) 온도: 상단에 인사/성취를 보여주는 히어로를 둬 첫 화면에서 기분이 좋게 한다.
 //  4) 테마: 색은 전부 C 토큰만 사용 → 고객(그린)/파트너(네이비) 자동 전환.
 // ─────────────────────────────────────────────────────
+import { useState } from "react";
 import { C, R, S, SHADOW } from "../../constants";
 import Icon from "../common/Icon";
 
@@ -243,5 +244,24 @@ export function Spinner({ size = 22, width = 2.5, color = C.text3 }) {
   return (
     <span className="gg-spinner" aria-label="불러오는 중"
       style={{ width: size, height: size, borderWidth: width, color }} />
+  );
+}
+
+/* 긴 글 접기 — 기본은 몇 줄만 보이고 「더 보기」로 펼친다. 짧은 글에는 버튼을 달지 않는다. */
+export function FoldText({ text, lines = 3, minChars = 90, style }) {
+  const [open, setOpen] = useState(false);
+  const long = (text ?? "").length > minChars || (text ?? "").split(/\r?\n/).length > lines;
+  return (
+    <div>
+      <div style={{ whiteSpace: "pre-wrap", ...(long && !open ? { display: "-webkit-box", WebkitLineClamp: lines,
+        WebkitBoxOrient: "vertical", overflow: "hidden" } : null), ...style }}>{text}</div>
+      {long && (
+        <button onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }} aria-expanded={open}
+          style={{ marginTop: 6, background: "none", border: "none", padding: 0, cursor: "pointer",
+            fontSize: 12.5, fontWeight: 700, color: C.brand }}>
+          {open ? "접기 ▲" : "더 보기 ▼"}
+        </button>
+      )}
+    </div>
   );
 }
