@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { SHOW_DEBUG_UI } from "../constants/release";
+import { useEffect, useState } from "react";
+import { SHOW_DEBUG_UI, SHOW_BETA_UI } from "../constants/release";
+import { getTopReviews, getRecentPortfolios, getSeedReviews } from "../lib/supabase";
+import { normalizeShowcases } from "../lib/showcases";
+import { isTestCompanyName } from "../lib/testCompany";
 import AppFooter from "../components/AppFooter";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 
@@ -18,18 +21,18 @@ const SK = {
 };
 const SANS = "'Pretendard Variable','Pretendard','Apple SD Gothic Neo',sans-serif";
 
-// 시공사례(시안 동일 카피 · living/kitchen/cafe 이미지)
-const CASES = [
-  { img: "/images/living.webp",  title: "32평 아파트 거실 리모델링", meta: "서울 강남구 · 2,400만원 · 14일 완공" },
-  { img: "/images/kitchen.webp", title: "24평 주방·아일랜드 교체",   meta: "성남시 · 1,100만원 · 7일 완공" },
-  { img: "/images/cafe.webp",    title: "마포구 상가 카페 인테리어", meta: "마포구 · 3,200만원 · 21일 완공" },
-];
+// 시공사례 — 예전엔 시안 카피(«강남 2,400만원·14일 완공» 등 실제로 없던 공사)를 «검증된 업체가 시공했습니다»로
+// 보였다. 이제 실제 사례를 쓴다: 고객 사진 후기 + 업체가 올린 시공 사례(업체 이름 공개). 모자라면 운영 예시를
+// «예시»로 표시해 채우고, 하나도 없으면 칸을 숨긴다. 의뢰인 홈 「시공 사례」와 같은 정리(normalizeShowcases).
+const CASE_COUNT = 3;
 
-// FAQ(유지 · 삭제 금지)
+// FAQ(유지 · 삭제 금지) — 문구는 지금 실제로 하는 것만(베타에서 안전결제는 아직 없다 · 보험은 선택).
 const FAQ_ITEMS = [
   { q: "견적 요청은 무료인가요?", a: "네. 견적 요청과 업체 비교는 무료입니다." },
-  { q: "공간안전결제는 무엇인가요?", a: "공사비를 바로 지급하지 않고 단계 확인 후 안전하게 정산하는 구조입니다." },
-  { q: "업체는 어떻게 검증되나요?", a: "사업자 정보, 시공 이력, 서류 확인을 거친 업체만 연결됩니다." },
+  { q: "공간안전결제는 무엇인가요?", a: SHOW_BETA_UI
+      ? "공사비를 단계마다 확인한 뒤 지급하는 구조로, 토스페이먼츠 승인 뒤 열립니다. 지금은 계약서에 적은 단계대로 업체와 직접 주고받고, 계약·사진·진행 기록이 공간마켓에 남습니다."
+      : "공사비를 바로 지급하지 않고 단계 확인 후 안전하게 정산하는 구조입니다." },
+  { q: "업체는 어떻게 검증되나요?", a: "사업자등록증을 확인한 업체만 견적을 보낼 수 있어요. 시공보험·시공 사례·고객 후기는 업체 프로필에서 직접 확인할 수 있습니다." },
   { q: "분쟁이 생기면 어떻게 하나요?", a: "계약, 채팅, 사진, 진행기록이 저장되어 프로젝트 기록을 확인할 수 있습니다." },
 ];
 
@@ -62,9 +65,27 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
 
   useDocumentMeta({
     title: "공간마켓 — 좋은 공간과 좋은 이야기가 모이는 곳",
-    description: "믿을 수 있는 인테리어 업체 비교부터 계약, 에스크로 안전결제, 시공 기록까지. 집·상가·리모델링을 안전하게 진행하세요.",
+    description: SHOW_BETA_UI
+      ? "믿을 수 있는 인테리어 업체 비교부터 계약, 공사 사진·진행 기록까지. 집·상가·리모델링을 한곳에서 진행하세요."
+      : "믿을 수 있는 인테리어 업체 비교부터 계약, 에스크로 안전결제, 시공 기록까지. 집·상가·리모델링을 안전하게 진행하세요.",
     path: "/",
   });
+
+  const [cases, setCases] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    const safe = (p) => Promise.resolve(p).then((r) => r?.data ?? []).catch(() => []);
+    Promise.all([safe(getTopReviews({ limit: 12 })), safe(getRecentPortfolios(12)), safe(getSeedReviews({ limit: 6, activeOnly: true }))])
+      .then(([topReviews, portfolios, seedReviews]) => {
+        if (!alive) return;
+        const items = normalizeShowcases({ topReviews, portfolios, seedReviews })
+          .filter((x) => x.isSeed || !isTestCompanyName(x.company)) // 테스트 업체 사례는 첫 화면에 안 싣는다
+          .slice(0, CASE_COUNT);
+        setCases(items);
+      });
+    return () => { alive = false; };
+  }, []);
+  const hasReal = cases.some((c) => !c.isSeed);
 
   const goConsumer = () => onSelectRole("consumer");
   const goPartner  = () => { window.location.href = "/partner"; };
@@ -118,7 +139,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             <div style={{ display: "inline-flex", gap: 6, alignItems: "center", background: SK.forest,
               color: "#E8E1D8", padding: "6px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700,
               letterSpacing: ".02em", marginBottom: 16 }}>
-              사업자·보험·시공이력 검증 완료
+              사업자등록 확인 업체만 견적
             </div>
             <h1 className="gm-hero-h1" style={{ fontSize: "clamp(30px,6vw,44px)", fontWeight: 800, lineHeight: 1.08,
               letterSpacing: "-0.04em", wordBreak: "keep-all", margin: 0 }}>
@@ -132,7 +153,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               무료 비교견적 받기 →
             </button>
             <div style={{ display: "flex", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
-              {["✓ 검증업체만", "✓ 기록 보호", "✓ 단계별 정산"].map((t) => (
+              {(SHOW_BETA_UI ? ["✓ 사업자 확인 업체", "✓ 계약·공사 기록", "✓ 견적 무료"] : ["✓ 검증업체만", "✓ 기록 보호", "✓ 단계별 정산"]).map((t) => (
                 <span key={t} style={{ fontSize: 11, color: "#6B6560" }}>{t}</span>
               ))}
             </div>
@@ -140,32 +161,41 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         </div>
 
         {/* ── 시공사례 ──────────────────────────────────────────────── */}
+        {cases.length > 0 && (
         <div style={{ padding: "36px 0" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 18 }}>
             <h2 style={{ fontSize: "clamp(22px,4.5vw,26px)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0 }}>시공사례</h2>
-            <span style={{ fontSize: 12, color: SK.muted }}>검증된 업체가 시공했습니다</span>
+            <span style={{ fontSize: 12, color: SK.muted }}>{hasReal ? "고객과 업체가 올린 실제 사례" : "예시 사례 · 실제 사례가 쌓이는 중"}</span>
           </div>
           <div className="gm-grid" style={{ display: "grid", gap: 16 }}>
-            {CASES.map((c) => (
-              <div key={c.title} className="gm-card" style={{ background: SK.surface, border: `1px solid ${SK.line}`,
-                borderRadius: 20, overflow: "hidden", transition: "transform .25s, box-shadow .25s" }}>
-                <img src={c.img} alt={c.title} loading="lazy" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
+            {cases.map((c) => (
+              <div key={c.id} className="gm-card" onClick={goConsumer} style={{ background: SK.surface, border: `1px solid ${SK.line}`,
+                borderRadius: 20, overflow: "hidden", transition: "transform .25s, box-shadow .25s", cursor: "pointer", position: "relative" }}>
+                <img src={c.photo} alt={c.title} loading="lazy" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
+                {c.isSeed && (
+                  <span style={{ position: "absolute", top: 12, left: 12, background: "rgba(18,26,22,.72)", color: "#fff",
+                    fontSize: 11, fontWeight: 800, padding: "4px 9px", borderRadius: 999 }}>예시</span>
+                )}
                 <div style={{ padding: "16px 18px" }}>
-                  <b style={{ fontSize: 14, letterSpacing: "-0.02em" }}>{c.title}</b>
-                  <div style={{ fontSize: 11, color: SK.muted, marginTop: 4 }}>{c.meta}</div>
+                  {/* 공간 유형이 없는 실제 후기는 고객이 쓴 한 줄을 제목으로 — «시공 사례»만 덩그러니 서지 않게 */}
+                  <b style={{ fontSize: 14, letterSpacing: "-0.02em", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {c.spaceType || (c.text ? `“${c.text.length > 24 ? c.text.slice(0, 24) + "…" : c.text}”` : c.title)}
+                  </b>
+                  <div style={{ fontSize: 11, color: SK.muted, marginTop: 4 }}>{c.meta || (c.isPortfolio ? "업체 시공 사례" : `고객 후기${c.rating ? ` · ★${c.rating}` : ""}`)}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
+        )}
 
         {/* ── DARK CTA ──────────────────────────────────────────────── */}
         <div style={{ background: SK.forest, color: "#E8E1D8", borderRadius: 28, padding: "48px 28px",
           textAlign: "center", margin: "28px 0" }}>
           <h2 style={{ fontSize: "clamp(20px,4.5vw,24px)", fontWeight: 800, lineHeight: 1.35, margin: 0 }}>
-            아직도 발품 파세요?<br />공간마켓이 검증까지 끝냈습니다
+            아직도 발품 파세요?<br />견적은 공간마켓에서 한 번에
           </h2>
-          <p style={{ opacity: .6, fontSize: 13, marginTop: 8 }}>사업자·시공이력 검증 업체와 안전하게 비교하세요</p>
+          <p style={{ opacity: .6, fontSize: 13, marginTop: 8 }}>사업자등록을 확인한 업체들의 견적을 모아 비교하세요</p>
           <button onClick={goConsumer} style={{ ...btnBase, maxWidth: 340, background: "#fff",
             color: SK.forest, margin: "20px auto 0" }}>
             무료 비교견적 받기
@@ -186,7 +216,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <div style={{ fontSize: 15, fontWeight: 800, color: SK.ink, marginBottom: 12 }}>주요 기능</div>
           <ul style={{ listStyle: "none", padding: 0, margin: "0 0 4px", display: "flex", flexDirection: "column", gap: 9 }}>
             {["무료 견적 요청", "여러 업체 비교", "실시간 채팅 상담", "프로젝트 진행 관리",
-              "시공 사진 및 진행 과정 확인", "업체 리뷰 및 평점 확인", "안전한 결제 시스템"].map((f) => (
+              "시공 사진 및 진행 과정 확인", "업체 리뷰 및 평점 확인", SHOW_BETA_UI ? "계약·공사 기록 보관" : "안전한 결제 시스템"].map((f) => (
               <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 14, lineHeight: 1.6, color: "#3A4A40" }}>
                 <span style={{ color: SK.gold, fontWeight: 900, flexShrink: 0 }}>•</span><span>{f}</span>
               </li>

@@ -202,7 +202,8 @@ const REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // - 숫자 2개: [min, max]   - 숫자 1개: [n, n]   - 숫자 없음(협의 등): [0, 0]
 // 기존 데이터는 이미 budget_min/max 정수로 저장되어 있어 영향 없음.
 // 테스트 업체 — 이름에 「테스트」/test 가 들어간 업체(운영 데이터 정리 전까지 의뢰인 화면에서 제외)
-export const isTestCompany = (c) => /테스트|(^|[^a-z])test([^a-z]|$)/i.test(String(c?.name ?? ""));
+export { isTestCompany } from "../lib/testCompany"; // 비로그인 첫 화면도 같은 판정을 쓴다
+import { isTestCompany } from "../lib/testCompany";
 
 const parseBudgetRange = (str) => {
   if (!str || typeof str !== "string") return { min: 0, max: 0 };
