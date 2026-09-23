@@ -45,6 +45,65 @@
     <meta name="twitter:description" content="믿을 수 있는 인테리어 업체 비교부터 계약, 에스크로 안전결제, 시공 기록까지." />
     <meta name="twitter:image" content="https://gongganmarket.com/og-space-v2.png" />
 
+
+    <!-- 구조화 데이터(JSON-LD) — 사이트 전역 개체. 값의 단일 소스는 src/utils/siteSeo.js 이며,
+         siteSeo.test.js 가 두 값이 갈라지지 않는지 검사한다.
+         여기(정적 head)에 두는 이유: 자바스크립트를 실행하지 않는 크롤러(특히 네이버 Yeti)와
+         생성형 답변엔진이 rewrite/프리렌더 동작 여부와 «무관하게» 운영 주체를 읽을 수 있어야 한다.
+         페이지별 스키마(Service/FAQPage/BreadcrumbList)는 각 화면이 useJsonLd 로 덧붙인다. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": "https://gongganmarket.com/#organization",
+        "name": "공간마켓",
+        "legalName": "공간사이",
+        "url": "https://gongganmarket.com/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://gongganmarket.com/favicon-v3.png"
+        },
+        "image": "https://gongganmarket.com/og-space-v2.png",
+        "email": "gongganmarket.biz@gmail.com",
+        "telephone": "070-7954-2740",
+        "founder": {
+          "@type": "Person",
+          "name": "김태웅"
+        },
+        "taxID": "270-53-00885",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "경기도 성남시 중원구 성남대로1151번길 5, 2층 202호",
+          "addressLocality": "성남시 중원구",
+          "addressRegion": "경기도",
+          "addressCountry": "KR"
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "070-7954-2740",
+          "email": "gongganmarket.biz@gmail.com",
+          "contactType": "customer service",
+          "areaServed": "KR",
+          "availableLanguage": [
+            "ko"
+          ]
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "@id": "https://gongganmarket.com/#website",
+        "url": "https://gongganmarket.com/",
+        "name": "공간마켓",
+        "inLanguage": "ko-KR",
+        "publisher": {
+          "@id": "https://gongganmarket.com/#organization"
+        }
+      }
+    </script>
+
     <!-- Fonts -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
   </head>
