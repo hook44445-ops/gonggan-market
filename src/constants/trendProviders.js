@@ -1,3 +1,5 @@
+import { pickDailyTopics } from "./loungeTopicPool.js";
+
 // ════════════════════════════════════════════════════════════════════
 // 공간라운지 AI 콘텐츠 공장 — Trend Provider 인터페이스 (Phase 2)
 //   실제 외부 API 연결은 Phase 3. 여기서는 "구조"만 정의한다 — 각 Provider 는
@@ -16,25 +18,22 @@ export const TREND_PROVIDER_KIND = {
   MANUAL:       "manual",
 };
 
-// Phase 2 데모/테스트용 시드 — 실 API 연결 전까지 파이프라인이 끝까지 동작하도록
-// 보장하는 유일한 "활성" 소스. 이슈 자체는 예시이며 매 수집 호출마다 동일 목록을 반환한다
-// (Phase 3: 실제 검색 트렌드로 교체).
-const MANUAL_SEED_TOPICS = [
-  { topic: "폭우",         region: null },
-  { topic: "폭염",         region: null },
-  { topic: "부동산 대책", region: null },
-  { topic: "한파",         region: null },
-  { topic: "전세사기",     region: null },
-  { topic: "장마",         region: null },
-];
-
+// 유일한 "활성" 소스 — 실제 검색 API 연결(Phase 3) 전까지 파이프라인을 끝까지 돌린다.
+/* ⚠️ 2026-09-23: 예전에는 여기 여섯 개(폭우·폭염·부동산 대책·한파·전세사기·장마)가 박혀 있어
+   매 호출마다 같은 목록이 돌아왔다 — 자동 글쓰기가 «맨날 같은 글»을 쓰던 첫 번째 원인이다.
+   이제 주제는 loungeTopicPool 이 날짜로 돌려 준다(같은 날은 같은 결과 · 중복검사와 잘 맞는다). */
 async function collectManual() {
-  const now = new Date().toISOString();
-  return MANUAL_SEED_TOPICS.map((t) => ({
+  const now = new Date();
+  return pickDailyTopics(6, now).map((t) => ({
     providerId: "manual",
     topic:      t.topic,
+    angle:      t.angle,
+    category:   t.category,
+    audience:   t.audience,
+    brand:      t.brand ?? null,
+    region:     t.region ?? null,
     sourceUrl:  null,
-    collectedAt: now,
+    collectedAt: now.toISOString(),
     raw:        t,
   }));
 }

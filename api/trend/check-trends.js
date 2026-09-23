@@ -23,6 +23,7 @@ import { scoreTopic, priorityFromScore } from '../../src/lib/topicScore.js';
 import { mapCategory } from '../../src/lib/categoryMapper.js';
 import { filterNewTopics } from '../../src/lib/duplicateChecker.js';
 import { generateDraft } from '../../src/constants/aiContentFactory.js';
+import { ensureImageUrls } from '../../src/lib/approvalImage.js';
 import { authenticateCron } from '../../src/lib/cronAuth.js';
 import { runAutonomousCycle } from '../../src/lib/serverAutonomousCycle.js';
 
@@ -146,7 +147,14 @@ export default async function handler(req, res) {
       const { category } = mapCategory(item.topic);
       const score = scoreTopic({ topic: item.topic, region: item.region ?? null, collectedAt: item.collectedAt });
       const priority = priorityFromScore(score.total);
-      const draft = generateDraft({ issue: item.topic, category, region: item.region ?? null });
+      /* 2026-09-23: 주제 풀이 주는 각도(질문형 제목)·브랜드 표시를 그대로 넘긴다 — 형식 회전과 AEO 제목이 여기서 살아난다. */
+      const draft = generateDraft({
+        issue:      item.topic,
+        spaceAngle: item.angle ?? null,
+        category:   item.category ?? category,
+        region:     item.region ?? null,
+        brand:      item.brand ?? null,
+      });
 
       const { data, error } = await sbInsertDraft({
         user_id:            null,
@@ -155,7 +163,8 @@ export default async function handler(req, res) {
         title:               draft.title,
         content:             draft.content,
         region:              item.region ?? null,
-        image_urls:          [],
+        /* 빈 image_urls 금지(§11) — 카테고리 후보 중 제목 해시로 고른다(같은 글=같은 그림, 다른 글=다른 그림). */
+        image_urls:          ensureImageUrls({ title: draft.title, content: draft.content }),
         is_seed:             true,
         is_visible:          false,   // ⚠️ 절대 true 로 두지 않음 — 관리자 승인 전 비공개.
         publish_status:      'draft', // ⚠️ 절대 published/scheduled 로 두지 않음.

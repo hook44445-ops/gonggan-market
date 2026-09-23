@@ -8,6 +8,8 @@
 
 // 공간 최상위 6개 도메인(철학 이미지 반영) — 카테고리는 이 중 하나에 속하는
 // "공간 안의 이야기"로 취급한다. UI 그룹핑/문서화 참고용(표시 전용).
+import { composeBody } from "./aiDraftWriter.js";
+
 export const SPACE_DOMAINS = [
   { id: "residential", label: "주거공간", categories: ["interior", "room_deco", "move_in"] },
   { id: "workspace",   label: "업무공간", categories: ["startup", "staff-talk"] },
@@ -68,41 +70,28 @@ export function classifyCategory(text, fallback = "daily") {
   return best;
 }
 
-// 4단계(본문 생성) — LOUNGE_SEO_POLICY.md 구조(도입→소제목→체크리스트→공간마켓 연결→CTA)를
+// 4단계(본문 생성) — 본문 틀은 aiDraftWriter.js 가 가지고 있다(형식 다섯 벌 회전 + AEO/GEO/SEO).
+//   2026-09-23: 틀이 한 벌뿐이라 «맨날 같은 글»이 나오던 것을 고쳤다.
+// (옛 주석) LOUNGE_SEO_POLICY.md 구조(도입→소제목→체크리스트→공간마켓 연결→CTA)를
 // 따르는 템플릿. 이슈를 "공간 관점"으로 재해석해 정보성 콘텐츠 뼈대를 만든다.
 // ⚠️ 표시 전용 초안이다 — 관리자가 검수/수정 후 발행하는 것을 전제로 한다(베타 원칙).
 //    Phase 2/3 에서 이 함수 시그니처(입력/출력)를 유지한 채 내부만 실제 AI 호출로 교체하면 된다.
-export function generateDraft({ issue, spaceAngle, category, region } = {}) {
+export function generateDraft({ issue, spaceAngle, category, region, brand = null, seed = null } = {}) {
   const topic = String(issue ?? "").trim();
   const angle = String(spaceAngle ?? "").trim() || `${topic}과(와) 공간의 관계`;
   const cat = category || classifyCategory(`${topic} ${angle}`);
-  const regionPrefix = region ? `${region} ` : "";
+  const where = region ? `${region}에서 ` : "";
 
-  const title = `${regionPrefix}${angle}`.trim();
+  /* 제목 — 질문형을 그대로 둔다(AEO: 사람이 검색창에 치는 말). 지역이 있으면 앞에(GEO). */
+  const title = `${region ? region + " " : ""}${angle}`.trim();
 
-  const content = [
-    `요즘 "${topic}" 이야기가 많습니다. 그런데 이건 남의 이야기가 아니라, 사실 우리가 매일 지내는 공간과 맞닿아 있는 이야기입니다.`,
-    "",
-    `## 왜 지금 "${topic}"이 공간과 연결될까`,
-    `${topic}은 생활 방식과 공간을 쓰는 방식을 함께 바꿉니다. ${angle}을(를) 고민하는 사람이 늘어나는 이유이기도 합니다.`,
-    "",
-    "## 공간에서 확인해볼 것",
-    "- 지금 공간에서 가장 불편한 지점은 어디인가",
-    "- 예산 안에서 우선순위를 어디에 둘 것인가",
-    "- 혼자 해결할 부분과 전문가 도움이 필요한 부분 구분하기",
-    "",
-    "## 체크리스트",
-    "- [ ] 현재 공간 상태 사진으로 기록해두기",
-    "- [ ] 우선순위 3가지 정하기",
-    "- [ ] 비슷한 사례·견적 미리 비교해보기",
-    "",
-    "## 정리",
-    `"${topic}"은 지나가는 이슈가 아니라 공간을 다시 보게 하는 계기입니다. 작은 변화부터 시작해도 충분합니다.`,
-    "",
-    "궁금한 점이 있다면 공간마켓 라운지에서 비슷한 고민을 하는 사람들과 이야기를 나눠보세요. 필요하다면 검증된 업체의 무료 비교견적도 받아볼 수 있습니다.",
-  ].join("\n");
+  const content = composeBody({ topic, angle, where, cat, brand, seed, region });
 
-  const tags = [topic, cat].filter(Boolean);
+  /* 태그 — 주제·지역·카테고리 중심(중복 제거, 최대 5개). */
+  const tags = [topic, region, cat, brand === "prubi" ? "기록" : null, "인테리어"]
+    .filter(Boolean)
+    .filter((v, idx, arr) => arr.indexOf(v) === idx)
+    .slice(0, 5);
 
   return { title, content, category: cat, tags };
 }
