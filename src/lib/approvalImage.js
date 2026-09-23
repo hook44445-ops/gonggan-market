@@ -25,8 +25,14 @@ export function imageCategoryOf({ title = "", content = "", content_type = null 
   if (t === "qt") return "QT";
   if (t === "astrology") return "ASTROLOGY";
   if (t === "space_market") return "SPACE_MARKET";
-  if (t === "trend_past" || t === "trend_present" || t === "trend_future") return "TIME_TREND";
-  if (/주식|증시|투자|경제|부동산|금리|비즈니스|창업|매출/.test(f)) return "BUSINESS";
+  /* ⚠️ trend_* 는 classifyContentType 의 **기본값에 가깝다**(대부분의 제목이 여기로 떨어진다).
+     그래서 그림을 고를 때는 먼저 «무슨 이야기인가»를 본다 — 바닥재 글에 카페 사진이 붙던 이유가 이것이었다.
+     본문 주제가 잡히면 그쪽을 쓰고, 아무것도 안 잡힐 때만 TIME_TREND 로 남긴다(2026-09-23). */
+  const isTrend = t === "trend_past" || t === "trend_present" || t === "trend_future";
+  if (/인테리어|리모델링|욕실|주방|거실|시공|자재|가구|바닥재|마루|장판|도배|타일|조명|수납/.test(f)) return "INTERIOR";
+  if (/견적|계약|하자|공정|입주|이사|평형|공사/.test(f)) return "SPACE_MARKET";
+  if (/주식|증시|투자|경제|부동산|금리|비즈니스|창업|매출|광고비|사장님|업체 운영/.test(f)) return "BUSINESS";
+  if (isTrend) return "TIME_TREND";
   if (/ai|인공지능|테크|기술|앱|스마트|it\b/i.test(f)) return "TECH";
   if (/인테리어|리모델링|욕실|주방|거실|시공|자재|가구/.test(f)) return "INTERIOR";
   if (/생활|살림|청소|정리|건강|수면|반려/.test(f)) return "LIFESTYLE";
@@ -34,22 +40,58 @@ export function imageCategoryOf({ title = "", content = "", content_type = null 
   return "DEFAULT";
 }
 
-// 카테고리 → 기본 이미지(브랜드 자료성). 뉴스/속보/편성은 사건 오인 방지 위해 브랜드 자료 이미지 사용.
-const CATEGORY_IMAGE = {
-  INTERIOR: "/mock/after-apartment.svg",
-  SPACE_MARKET: "/mock/after-kitchen.svg",
-  LIFESTYLE: "/mock/after-bath.svg",
-  BUSINESS: "/mock/after-office.svg",
-  TECH: "/mock/after-office.svg",
-  TIME_TREND: "/mock/after-cafe.svg",
-  MORNING_BRIEF: BRAND_DEFAULT,
-  NEWS: BRAND_DEFAULT,
-  BREAKING: BRAND_DEFAULT,
-  EDITORIAL: BRAND_DEFAULT,
-  QT: BRAND_DEFAULT,
-  ASTROLOGY: BRAND_DEFAULT,
-  DEFAULT: OG_DEFAULT,
+// 카테고리 → 기본 이미지 **후보들**. 뉴스/속보/편성은 사건 오인 방지 위해 브랜드 자료 이미지 사용.
+//
+// ⚠️ 2026-09-23: 예전에는 카테고리마다 파일이 «하나»였다. 그래서 인테리어 글은 매번 같은 그림이
+//    붙었다(대표 실측: 「사진도 맨날 같은 사진이 올라옴」). 이제 후보를 여러 장 두고 제목 해시로 고른다 —
+//    같은 글은 늘 같은 그림(안정), 다른 글은 다른 그림(다양). 전부 저장소에 실제로 있는 파일만 쓴다.
+const CATEGORY_IMAGES = {
+  INTERIOR: [
+    "/images/living.webp", "/images/sample/living-after.webp", "/images/style-minimal.webp",
+    "/images/style-nordic.webp", "/images/style-wood.webp", "/images/gonggan-case1.webp",
+    "/mock/after-apartment.svg",
+  ],
+  SPACE_MARKET: [
+    "/images/kitchen.webp", "/images/sample/kitchen-after.webp", "/images/gonggan-case2.webp",
+    "/images/gonggan-case3.webp", "/mock/after-kitchen.svg",
+  ],
+  LIFESTYLE: [
+    "/images/sample/bath-after.webp", "/images/living.webp", "/images/style-classic.webp",
+    "/mock/after-bath.svg",
+  ],
+  BUSINESS: [
+    "/images/space-office.webp", "/images/style/office-minimal.webp", "/images/style/office-nordic.webp",
+    "/images/space-officetel.webp", "/mock/after-office.svg",
+  ],
+  TECH: [
+    "/images/style/office-industrial.webp", "/images/space-office.webp", "/mock/after-office.svg",
+  ],
+  TIME_TREND: [
+    "/images/cafe.webp", "/images/style/cafe-nordic.webp", "/images/style/cafe-wood.webp",
+    "/images/space-shop.webp", "/mock/after-cafe.svg",
+  ],
+  MORNING_BRIEF: [BRAND_DEFAULT],
+  NEWS: [BRAND_DEFAULT],
+  BREAKING: [BRAND_DEFAULT],
+  EDITORIAL: [BRAND_DEFAULT],
+  QT: [BRAND_DEFAULT],
+  ASTROLOGY: [BRAND_DEFAULT],
+  DEFAULT: ["/images/gonggan-hero.webp", "/images/sample/cover.webp", OG_DEFAULT],
 };
+
+/* 같은 글은 같은 그림, 다른 글은 다른 그림 — 제목+본문 앞머리로 안정 해시. */
+function pickFrom(list, key) {
+  if (!Array.isArray(list) || list.length === 0) return OG_DEFAULT;
+  let h = 2166136261;
+  const s = String(key ?? "");
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return list[Math.abs(h) % list.length];
+}
+
+/* 예전 이름 호환 — 카테고리별 «대표 한 장»이 필요한 곳을 위해 남겨 둔다. */
+export const CATEGORY_IMAGE = Object.fromEntries(
+  Object.entries(CATEGORY_IMAGES).map(([k, v]) => [k, v[0]]),
+);
 
 const CAT_KO = {
   BREAKING: "속보", NEWS: "뉴스", MORNING_BRIEF: "모닝브리프", QT: "큐티", ASTROLOGY: "운세",
@@ -61,7 +103,8 @@ export function pickRepresentativeImage(content = {}) {
   const category = imageCategoryOf(content);
   // ① 외부 검색 훅 — 현재 미구현(외부 이미지 API 필요). null 이면 카테고리/브랜드 기본으로.
   const external = null;
-  const url = external || CATEGORY_IMAGE[category] || OG_DEFAULT;
+  const key = `${String(content.title ?? "")}|${String(content.content ?? "").slice(0, 60)}`;
+  const url = external || pickFrom(CATEGORY_IMAGES[category], key) || OG_DEFAULT;
   const brandCats = new Set(["MORNING_BRIEF", "NEWS", "BREAKING", "EDITORIAL", "QT", "ASTROLOGY"]);
   const source = external ? "external_search" : brandCats.has(category) ? "brand_default" : "category_default";
   const title = String(content.title ?? "").trim();
