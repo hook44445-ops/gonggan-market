@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- 마스커블 판 — 안드로이드가 원·스퀘어클 등 어떤 모양으로 잘라도 살아남게
+       내용을 중앙 기준 0.88 로 줄였다(안전영역: 중앙 지름 80%). 배경은 가장자리까지 채운다. -->
+  <rect width="1024" height="1024" fill="#17472F"/>
+  <g transform="translate(512 512) scale(0.88) translate(-512 -512)">
+    <path d="M171 457 L512 252 L853 457" fill="none" stroke="#F4EFE4" stroke-width="77"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="211" y="474" width="307" height="324" rx="26" fill="#F4EFE4"/>
+    <rect x="493" y="525" width="347" height="273" rx="26" fill="#D6A756" stroke="#17472F" stroke-width="26"/>
+  </g>
+</svg>
