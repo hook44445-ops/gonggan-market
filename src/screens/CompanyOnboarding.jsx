@@ -103,10 +103,9 @@ export default function CompanyOnboarding({ phone, onDone }) {
       <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
         marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
         <div style={{ fontSize:15, fontWeight:800, color:C.text1, marginBottom:S.md }}>결제 수단</div>
-        {[["💳","신용/체크카드"],["📱","카카오페이"],["🏦","계좌이체"]].map(([icon,label]) => (
+        {["신용·체크카드", "카카오페이", "계좌이체"].map((label) => (
           <div key={label} style={{ display:"flex", alignItems:"center", gap:S.md,
             padding:`${S.md}px 0`, borderBottom:`1px solid ${C.bgWarm}`, cursor:"pointer" }}>
-            <span style={{ fontSize:20 }}>{icon}</span>
             <span style={{ fontSize:14, fontWeight:600, color:C.text1 }}>{label}</span>
             <span style={{ marginLeft:"auto", color:C.text4 }}>›</span>
           </div>
@@ -115,24 +114,22 @@ export default function CompanyOnboarding({ phone, onDone }) {
       <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.md,
         marginBottom:S.xl, fontSize:12, color:C.navy, lineHeight:1.7,
         display:"flex", gap:S.sm }}>
-        <span>🛡</span>
         <span>공간뱃지예치보증금은 회사 운영비와 분리되어 공간마켓 신탁 계좌에 보관되며 업무에 사용되지 않습니다</span>
       </div>
       <button onClick={() => setSubmitted("done")}
         style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff",
           border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
           boxShadow:`0 6px 20px ${C.brand44}` }}>
-        💳 {depositAmt.toLocaleString()}만원 공간뱃지예치보증금 등록하기
+        {depositAmt.toLocaleString()}만원 공간뱃지예치보증금 등록하기
       </button>
     </div>
   );
 
   if(submitted === "done") return (
     <div style={{ width:"100%", maxWidth:390, textAlign:"center", padding:"40px 0" }}>
-      <div style={{ fontSize:64, marginBottom:16 }}>🎉</div>
-      <div style={{ fontSize:22, fontWeight:900, color:C.text1, marginBottom:8 }}>신청 완료!</div>
-      <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>
-        공간뱃지예치보증금 등록 완료.<br/>서류 검토 후 1~2일 내<br/>🛡 공간마켓 인증 배지가 부여됩니다
+      <div style={{ fontSize:22, fontWeight:700, color:C.text1, marginBottom:10, letterSpacing:"-0.02em" }}>신청이 접수됐습니다</div>
+      <div style={{ fontSize:14, color:C.text3, lineHeight:1.85, marginBottom:S.xxl }}>
+        공간뱃지예치보증금 등록이 끝났습니다.<br/>서류 검토 후 1~2일 안에 공간마켓 인증 배지가 부여됩니다.
       </div>
       <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
         marginBottom:S.lg, border:`1px solid ${C.bgWarm}`, textAlign:"left" }}>
@@ -200,7 +197,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
         style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff",
           border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer",
           boxShadow:`0 6px 20px ${C.brand44}` }}>
-        공간마켓 시작하기 🚀
+        공간마켓 시작하기
       </button>
     </div>
   );
@@ -224,7 +221,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
         <div style={{ background:`linear-gradient(135deg, ${C.brand}, ${C.brandD ?? C.brand})`,
           borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, color:"#fff",
           boxShadow:"0 6px 20px rgba(46,95,75,0.25)" }}>
-          <div style={{ fontSize:12, fontWeight:700, opacity:0.9, marginBottom:6 }}>🤝 공간멤버십파트너</div>
+          <div style={{ fontSize:12, fontWeight:700, opacity:0.9, marginBottom:6 }}>공간멤버십파트너</div>
           <div style={{ fontSize:16, fontWeight:900, marginBottom:12, lineHeight:1.4 }}>
             계약 성사 시에만 이용수수료 4.4%
           </div>

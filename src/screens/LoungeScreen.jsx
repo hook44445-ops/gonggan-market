@@ -125,7 +125,7 @@ function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text2, marginBottom: S.md }}>추천 검색어</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {SUGGESTED_SEARCHES.map(t => (
-                  <span key={t} style={chipStyle} onClick={() => applyTerm(t)}>🔍 {t}</span>
+                  <span key={t} style={chipStyle} onClick={() => applyTerm(t)}>{t}</span>
                 ))}
               </div>
               <div style={{ fontSize: 12, color: C.text4, marginTop: S.lg, lineHeight: 1.6 }}>
@@ -135,7 +135,6 @@ function SearchOverlay({ onClose, onPostClick, allPosts = [] }) {
           </div>
         ) : results.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
             <div style={{ fontSize: 14, color: C.text3, marginBottom: 4 }}>
               <span style={{ color: C.brand, fontWeight: 700 }}>"{query}"</span> 검색 결과가 없어요
             </div>
