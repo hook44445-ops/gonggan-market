@@ -8,13 +8,13 @@ import { fmtMoney } from "../utils/calculations";
 import { CompanyKpiTiles, CompanyLevelBar, CompanyMiniBadges } from "./company/CompanyMetrics";
 import { FoldText } from "./v3/ui";
 
-export default function BidCompareCard({ bid, onChat, onSelect, selected = false, tags = [] }) {
+export default function BidCompareCard({ bid, onChat, onSelect, selected = false, tags = [], id }) {
   const company = bid.company ?? {};
   const g = GRADE(company.temp ?? 0);
 
   return (
-    <div style={{
-      display: "flex", background: C.surface, borderRadius: R.xl,
+    <div id={id} style={{
+      display: "flex", background: C.surface, borderRadius: R.xl, scrollMarginTop: 80,
       marginBottom: S.md, border: `1px solid ${selected ? C.brand : C.bgWarm}`,
       boxShadow: SHADOW.card, overflow: "hidden",
     }}>

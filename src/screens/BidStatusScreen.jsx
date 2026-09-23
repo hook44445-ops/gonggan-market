@@ -11,6 +11,7 @@ import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
 import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
 import QuoteDocument from "../components/QuoteDocument"; // 최종 견적서 미리보기·인쇄
+import { SORT_KEYS, sortBids, bidSummary, bidTags as calcBidTags } from "../lib/bidCompare"; // 입찰 비교(정렬·요약·표)
 import {
   PAYMENT_METHODS, COMING_SOON_MESSAGE, ACTIVE_PROVIDER, getMethodMeta,
   loadFeeRules, feeRateFromRules, computeFeeWithRate, getProvider,
@@ -86,6 +87,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   // 최종 견적서(현장방문 후 업체 제출) — 의뢰인 확인용. 견적 단계에서만 조회.
   const [finalEstimate, setFinalEstimate] = useState(null);
   const [showQuoteDoc, setShowQuoteDoc] = useState(false); // 최종 견적서 미리보기·인쇄
+  const [sortKey, setSortKey] = useState("recommended"); // 입찰 정렬(표시 전용)
+  const [tableView, setTableView] = useState(false);     // 한눈에 보는 표
   useEffect(() => {
     if (!isQuotePhase || !request?.id) { setFinalEstimate(null); return; }
     let alive = true;
@@ -877,18 +880,10 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   );
 
   // Bid list — empty state maintains container layout
-  // 비교를 쉽게 — 2곳 이상일 때 가장 싼 곳·빠른 곳·평판 좋은 곳에 표시를 단다(동점이면 함께).
-  const bidTags = (bid) => {
-    if (bids.length < 2) return [];
-    const prices = bids.map(b => Number(b.price)).filter(n => n > 0);
-    const periods = bids.map(b => Number(b.period)).filter(n => n > 0);
-    const temps = bids.map(b => Number(b.company?.temp ?? 0));
-    const out = [];
-    if (prices.length > 1 && Number(bid.price) === Math.min(...prices)) out.push("💰 최저가");
-    if (periods.length > 1 && Number(bid.period) === Math.min(...periods)) out.push("⚡ 가장 빨라요");
-    if (Math.max(...temps) > 0 && Number(bid.company?.temp ?? 0) === Math.max(...temps) && new Set(temps).size > 1) out.push("⭐ 평판 최고");
-    return out;
-  };
+  // 비교 표시(최저가·빠름·평판)와 정렬은 src/lib/bidCompare.js 에서 — 화면은 그리기만.
+  const bidTags = (bid) => calcBidTags(bids, bid);
+  const sortedBids = sortBids(bids, sortKey);
+  const summary = bidSummary(bids);
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
@@ -932,6 +927,60 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           <ProtectionNotice variant="short" />
         </div>
 
+        {/* 견적 요약 + 정렬 + 표 보기 — 카드가 길어 두세 곳을 견주기 어려웠다(표시 전용) */}
+        {bids.length > 1 && (
+          <div style={{ marginBottom:S.md }}>
+            <div style={{ background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, marginBottom:S.sm, display:"flex", alignItems:"center", gap:S.sm }}>
+              <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13.5, fontWeight:800, color:C.text1 }}>
+                {summary.count}곳 · {fmtMoney(summary.min)} ~ {fmtMoney(summary.max)}
+              </div>
+              <div style={{ fontSize:12, color:C.text3, marginTop:2, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                가장 싼 곳과 {fmtMoney(summary.gap)} 차이{summary.minPeriod ? ` · 공사 ${summary.minPeriod}~${summary.maxPeriod}일` : ""}
+              </div>
+              </div>
+              <button onClick={() => setTableView(v => !v)}
+                style={{ marginLeft:"auto", flex:"0 0 auto", padding:"7px 12px", borderRadius:R.full, fontSize:12.5, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                  border:`1.5px solid ${tableView ? C.brand : C.bgWarm}`, background: tableView ? C.brandL : C.surface, color: tableView ? C.brand : C.text2, whiteSpace:"nowrap" }}>
+                {tableView ? "카드로 보기" : "표로 한눈에"}
+              </button>
+            </div>
+            <div style={{ display:"flex", gap:6, alignItems:"center", overflowX:"auto", paddingBottom:2 }}>
+              {SORT_KEYS.map(s => (
+                <button key={s.id} onClick={() => setSortKey(s.id)}
+                  style={{ flex:"0 0 auto", padding:"7px 12px", borderRadius:R.full, fontSize:12.5, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                    border:`1.5px solid ${sortKey === s.id ? C.brand : C.bgWarm}`, background: sortKey === s.id ? C.brandL : C.surface, color: sortKey === s.id ? C.brand : C.text2, whiteSpace:"nowrap" }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 표 보기 — 금액·기간·공간온도만 나란히. 누르면 그 업체 카드로 간다. */}
+        {tableView && bids.length > 1 && (
+          <div style={{ background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, overflow:"hidden", marginBottom:S.md }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 86px 56px 56px", fontSize:11.5, fontWeight:700, color:C.text3, padding:"9px 12px", borderBottom:`1px solid ${C.bgWarm}`, background:C.bg }}>
+              <span>업체</span><span style={{ textAlign:"right" }}>금액</span><span style={{ textAlign:"right" }}>기간</span><span style={{ textAlign:"right" }}>온도</span>
+            </div>
+            {sortedBids.map(b => {
+              const best = calcBidTags(bids, b);
+              return (
+                <button key={b.id} onClick={() => { setTableView(false); setTimeout(() => document.getElementById(`bid-${b.id}`)?.scrollIntoView({ behavior:"smooth", block:"center" }), 60); }}
+                  style={{ width:"100%", display:"grid", gridTemplateColumns:"1fr 86px 56px 56px", alignItems:"center", padding:"11px 12px",
+                    background:"none", border:"none", borderBottom:`1px solid ${C.bgWarm}`, cursor:"pointer", fontFamily:"inherit", textAlign:"left" }}>
+                  <span style={{ minWidth:0 }}>
+                    <span style={{ display:"block", fontSize:13, fontWeight:700, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{b.company?.name ?? "파트너"}</span>
+                    {best.length > 0 && <span style={{ display:"block", fontSize:10.5, color:C.brand, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{best.join(" · ")}</span>}
+                  </span>
+                  <span style={{ textAlign:"right", fontSize:13, fontWeight:800, color:C.brand }}>{fmtMoney(b.price)}</span>
+                  <span style={{ textAlign:"right", fontSize:12, color:C.text2 }}>{b.period ? `${b.period}일` : "—"}</span>
+                  <span style={{ textAlign:"right", fontSize:12, color:C.text2 }}>{b.company?.temp ? `${Number(b.company.temp).toFixed(1)}°` : "—"}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         {bids.length === 0 ? (
           <div style={{
             background:C.surface, borderRadius:R.xl, border:`1px solid ${C.bgWarm}`,
@@ -944,9 +993,10 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
           </div>
         ) : (
-          bids.map(bid => UX_BETA ? (
+          sortedBids.map(bid => UX_BETA ? (
             <BidCompareCard
               key={bid.id}
+              id={`bid-${bid.id}`}
               bid={bid}
               tags={bidTags(bid)}
               selected={bid.status === "selected" || selectedBid?.id === bid.id}
