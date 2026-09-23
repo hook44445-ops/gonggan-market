@@ -662,7 +662,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {p.title || (p.content ?? '').slice(0, 30)}
                 </span>
-                <span style={{ fontSize: 11, color: C.text4, flexShrink: 0 }}>👁 {(p.view_count ?? 0).toLocaleString()}</span>
+                <span style={{ fontSize: 11, color: C.text4, flexShrink: 0 }}>조회 {(p.view_count ?? 0).toLocaleString()}</span>
               </button>
             ))}
           </div>
@@ -678,10 +678,9 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
         <div style={{ margin: `${S.xl}px ${S.xl}px 0`, background: C.ivory, borderRadius: R.xl,
           padding: '44px 24px 36px', textAlign: 'center',
           border: `1px solid ${C.bgWarm}`, boxShadow: SHADOW.soft }}>
-          <div style={{ width: 64, height: 64, borderRadius: R.full,
-            background: `linear-gradient(135deg,${C.brandL},${C.bgWarm})`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 18px', fontSize: 26, border: `1.5px solid ${C.brandM}` }}>🌿</div>
+          {/* 이모지 한 글자 대신 그림 하나 — 채팅 빈 화면과 같은 그림(글자 없음) */}
+          <img src="/images/chat/empty.webp" alt="" width={112} height={112}
+            style={{ width: 112, height: 112, objectFit: 'contain', margin: '0 auto 10px', display: 'block', opacity: 0.95 }} />
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 8, letterSpacing: '-0.3px' }}>아직 이야기가 없습니다</div>
           <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8, marginBottom: S.xl }}>
             첫 번째 이야기를 시작해보세요
