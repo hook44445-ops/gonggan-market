@@ -11,6 +11,7 @@ import { getAnonymousNickname, formatLoungeRelativeTime, getAnonymousAvatarByNic
 import {
   createLoungeComment,
   getRelatedLoungePosts,
+  getNearbyPortfolios,
   likeLoungePost,
   unlikeLoungePost,
   addLoungePostLike,
@@ -141,7 +142,7 @@ function CommentAuthorActionSheet({ comment, alreadySent, busy, isOwn, onChat, o
               fontSize: 15, color: alreadySent ? C.text4 : C.text1, fontWeight: 600, textAlign: 'left',
               opacity: busy ? 0.6 : 1 }}
           >
-            <span style={{ fontSize: 20 }}>{alreadySent ? '✅' : '💬'}</span>
+            <span style={{ fontSize: 20 }}>{alreadySent ? '✓' : '···'}</span>
             {alreadySent ? '이미 대화 신청을 보냈어요' : busy ? '처리 중...' : '이 작성자에게 대화 신청하기'}
           </button>
         )}
@@ -233,6 +234,9 @@ function PostMenuSheet({ isOwn, isAdmin, onEdit, onDelete, onReport, onBlock, on
 }
 
 // 카테고리별 거래 연결 CTA — 라운지를 거래로 잇는 핵심
+/* 공간 이야기 카테고리 — 여기에만 «이 동네 시공 사례»를 붙인다(연애·주식 글에 공사 사례는 소음이다). */
+const SPACE_CATEGORIES = new Set(['review', 'quote_worry', 'interior', 'room_deco', 'move_in']);
+
 export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost, onNavigate, onOpenPost, onChatRequested }) {
   const { post: foundPost, comments, loading, commentsFetchError, addComment, likeComment, refetchComments } = useLoungePost(postId, initialPost);
   const post = foundPost ?? initialPost ?? null;
@@ -269,6 +273,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   // 이미 신청 보낸 댓글 userId Set (UI 표시용)
   const [sentChatTargets,    setSentChatTargets]    = useState(() => new Set());
   const [relatedPosts, setRelatedPosts]     = useState([]);
+  const [nearbyCases, setNearbyCases]       = useState({ rows: [], matched: false });
   const [showMenu,    setShowMenu]          = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting,    setDeleting]          = useState(false);
@@ -459,7 +464,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   useEffect(() => {
     if (!IS_SUPABASE_READY || !post?.id || !post?.category) { setRelatedPosts([]); return; }
     let cancelled = false;
-    getRelatedLoungePosts(post.category, post.id, 12)
+    getRelatedLoungePosts(post.category, post.id, 12, post.region ?? null)
       .then(({ data }) => {
         if (cancelled) return;
         const pool = data ?? [];
@@ -469,7 +474,19 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [post?.id, post?.category]);
+  }, [post?.id, post?.category, post?.region]);
+
+  /* 이 동네 시공 사례 — 공간 이야기(후기·견적고민·인테리어…)에만 붙인다.
+     라운지 글에는 업체 정보가 없다. 그래서 «이 글의 업체»라고 하지 않고,
+     같은 동네에서 실제로 끝난 공사를 보여 주고 그 업체로 건너가게만 한다. */
+  useEffect(() => {
+    if (!IS_SUPABASE_READY || !post?.id || !SPACE_CATEGORIES.has(post.category)) { setNearbyCases({ rows: [], matched: false }); return; }
+    let cancelled = false;
+    getNearbyPortfolios(post.region ?? null, 3)
+      .then(({ data, matched }) => { if (!cancelled) setNearbyCases({ rows: data ?? [], matched: !!matched }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [post?.id, post?.category, post?.region]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -484,7 +501,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setLiked(next);
     setLikeCount(c => Math.max(0, c + (next ? 1 : -1)));
     if (next) {
-      showToast('❤️ 좋아요를 눌렀어요');
+      showToast('공감을 눌렀어요');
       await Promise.all([
         addLoungePostLike(postId, user.id),
         likeLoungePost(postId),
@@ -684,7 +701,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), nickname: post?.anonymous_nickname, sentAt: new Date().toISOString() });
         localStorage.setItem(key, JSON.stringify(prev.slice(0, 50)));
       } catch {}
-      if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
+      if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요'); return; }
       if (data?.status === 'already_pending') { showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
       // 대화 신청 알림 — 게시글 메시지 경로에도 상대(post.user_id)에게 알림 생성(댓글 경로와 동일).
       // 신규 생성(created)일 때만 발송해 중복 알림 방지. 토큰/대화방 로직은 RPC 그대로, 알림만 추가.
@@ -711,7 +728,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           showToast(`메시지 저장 실패: ${msgErr.message ?? msgErr}. 대화 탭에서 다시 보내주세요.`);
         }
       }
-      showToast('💬 메시지를 보냈어요! 대화 탭에서 확인할 수 있어요. 수락 시 20토큰이 차감됩니다.');
+      showToast('메시지를 보냈어요. 대화 탭에서 확인할 수 있어요. 수락 시 20토큰이 차감됩니다.');
     } catch (e) {
       showToast('대화 신청에 실패했습니다. 다시 시도해주세요.');
     } finally {
@@ -812,7 +829,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       if (error) {
         showToast(`대화 신청 실패: ${error.message}`);
       } else if (status === 'already_accepted') {
-        showToast('이미 대화 중인 상대예요 💬');
+        showToast('이미 대화 중인 상대예요');
       } else if (status === 'already_pending') {
         showToast('이미 대화 신청을 보냈어요');
       } else if (data?.error === 'SELF_REQUEST') {
@@ -1019,7 +1036,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           <div style={{ background: C.ivory, border: `1px solid ${C.bgWarm}`, borderRadius: 10, padding: 8, marginBottom: S.md }}>
             {/* 배지 + 닉네임 한 줄 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span style={{ background: '#C4A96A22', color: '#8A6D2A', border: '1px solid #C4A96A', borderRadius: R.full, padding: '1px 7px', fontSize: 10.5, fontWeight: 800 }}>⭐ 전문가</span>
+              <span style={{ background: '#C4A96A22', color: '#8A6D2A', border: '1px solid #C4A96A', borderRadius: R.full, padding: '1px 7px', fontSize: 10.5, fontWeight: 800 }}>전문가</span>
               <span style={{ fontSize: 14, fontWeight: 800, color: C.text1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
                 {companyDisplayName(post.user_id, expertCompany ?? (post.expert_company_name ? { name: post.expert_company_name } : null))}
               </span>
@@ -1032,8 +1049,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                   return bm ? <span style={{ color: bm.color }}>{bm.icon} 공간보증 {bm.label}</span> : null;
                 })()}
                 <span style={{ color: C.brand }}>🌡 {expertCompany.temp ?? 0}°</span>
-                {expertCompany.region && <span>· 📍 {expertCompany.region}</span>}
-                {expertReviewCount != null && <span>· ⭐ 후기 {expertReviewCount}</span>}
+                {expertCompany.region && <span>· {expertCompany.region}</span>}
+                {expertReviewCount != null && <span>· 후기 {expertReviewCount}</span>}
               </div>
             )}
             {/* 버튼 2개 한 줄 (28px) — 견적 CTA 제거(라운지는 대화→메시지 우선, 견적은 대화 내부에서만 유도) */}
@@ -1059,7 +1076,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         {isSynthSeed ? (
           /* 합성 seed(DB 미존재) — 읽기 전용: 조회수/공유만 */
           <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
-            <span style={{ fontSize: 12, color: C.text3 }}>👁 {viewCount.toLocaleString()}</span>
+            <span style={{ fontSize: 12, color: C.text3 }}>조회 {viewCount.toLocaleString()}</span>
             <button onClick={handleShare} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: C.text3, padding: 0 }}>
               🔗 공유
             </button>
@@ -1067,9 +1084,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         ) : (
           /* 일반 글·운영글(seed) 공통 상호작용 — 조회/좋아요(토글)/저장/공유/신고 */
           <div style={{ display: 'flex', gap: S.xl, alignItems: 'center', paddingTop: S.md, borderTop: `1px solid ${C.bgWarm}`, background: C.surface2, borderRadius: R.md, padding: S.md, marginTop: S.sm }}>
-            <span style={{ fontSize: 12, color: C.text3 }}>👁 {viewCount.toLocaleString()}</span>
+            <span style={{ fontSize: 12, color: C.text3 }}>조회 {viewCount.toLocaleString()}</span>
             <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 800 : 500, padding: 0 }}>
-              {liked ? '❤️' : '🤍'} {likeCount}
+              {liked ? '공감함' : '공감'} {likeCount}
             </button>
             <button onClick={handleSave} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: saved ? C.gold : C.text3, padding: 0 }}>
               {saved ? '🔖' : '📄'} {saved ? '저장됨' : '저장'}
@@ -1098,7 +1115,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             }}
             disabled={chatSent}
             style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand44}`, transition: 'background 0.2s' }}>
-            {isGuest ? '💬 메시지 신청하기 (로그인 필요)' : chatSent ? '✅ 신청 완료' : '💬 메시지 신청하기'}
+            {isGuest ? '메시지 신청하기 (로그인 필요)' : chatSent ? '신청 완료' : '메시지 신청하기'}
           </button>
           <div style={{ textAlign: 'center', marginTop: S.sm, fontSize: 11, color: C.text4 }}>
             {chatSent ? '상대방이 수락하면 20토큰이 차감되고 대화방이 열려요' : '신청은 무료 · 상대방 수락 시 20토큰 차감'}
@@ -1203,12 +1220,47 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             {isCompanyUser && (
               <button onClick={() => { if (isGuest) { onRequireLogin?.(); return; } inputRef.current?.focus(); }}
                 style={{ padding: '10px 20px', borderRadius: R.lg, border: 'none', background: C.brand, color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
-                🏅 전문가로 답변하기
+                전문가로 답변하기
               </button>
             )}
           </div>
         )}
       </div>
+
+      {/* 이 동네 시공 사례 — 업체가 직접 올린 실제 사례(portfolios)다. 라운지 글과 업체를 잇는 다리.
+          같은 구에서 찾지 못하면 제목을 「최근 시공 사례」로 낮춘다(없는 인연을 있다고 하지 않는다). */}
+      {nearbyCases.rows.length > 0 && (
+        <div className="gg-rise" style={{ background: C.surface, padding: `${S.xl}px ${S.xl}px ${S.lg}px`, marginTop: S.sm }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>
+              {nearbyCases.matched ? `${nearbyCases.district} 시공 사례` : '최근 시공 사례'}
+            </div>
+            <div style={{ fontSize: 11.5, color: C.text4 }}>업체가 올린 실제 사례</div>
+          </div>
+          <div style={{ display: 'flex', gap: S.sm, overflowX: 'auto', paddingTop: S.sm, paddingBottom: 2, WebkitOverflowScrolling: 'touch' }}>
+            {nearbyCases.rows.map((pf) => {
+              const photo = pf.after_photos?.[0] || pf.before_photos?.[0];
+              const meta  = [pf.space_type, pf.area].filter(Boolean).join(' · ');
+              return (
+                <button
+                  key={pf.id}
+                  onClick={() => onNavigate?.({ target: 'company', companyId: pf.company_id })}
+                  style={{ width: 148, flexShrink: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+                  <img src={photo} alt={pf.title || '시공 사례'} loading="lazy"
+                    style={{ width: '100%', height: 104, objectFit: 'cover', borderRadius: R.md, border: `1px solid ${C.bgWarm}`, display: 'block' }} />
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text1, marginTop: 6, lineHeight: 1.35,
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {pf.title || '시공 사례'}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.text4, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {pf.companies?.name ?? '업체'}{meta ? ` · ${meta}` : ''}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 관련글 — SEO 내부링크 + 체류. seed 운영글은 광고형 CTA 대신 관련글/지역 링크. */}
       {relatedPosts.length > 0 && (
@@ -1229,8 +1281,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
                   display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {rp.title || '제목 없음'}
                 </div>
-                <div style={{ fontSize: 12, color: C.text4, marginTop: 2 }}>
-                  {CATEGORY_LABEL[rp.category] ?? rp.category} · 👁 {(rp.view_count ?? 0).toLocaleString()} · 💬 {rp.comment_count ?? 0}
+                <div style={{ fontSize: 12, color: C.text4, marginTop: 2, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                  {rp.region && post?.region && rp.region === post.region && (
+                    <span style={{ background: C.brandL, color: C.brand, borderRadius: R.full, padding: '1px 7px', fontSize: 10.5, fontWeight: 700 }}>같은 동네</span>
+                  )}
+                  <span>{CATEGORY_LABEL[rp.category] ?? rp.category}{rp.region ? ` · ${rp.region}` : ''} · 조회 {(rp.view_count ?? 0).toLocaleString()} · 댓글 {rp.comment_count ?? 0}</span>
                 </div>
               </div>
             </button>
@@ -1241,7 +1296,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               onClick={() => onNavigate?.({ target: 'map' })}
               style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: S.md,
                 background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.brand, padding: S.sm }}>
-              📍 내 지역 업체 보기
+              내 지역 업체 보기
             </button>
           )}
         </div>
@@ -1251,7 +1306,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.surface, borderTop: `1px solid ${C.bgWarm}`, padding: `${S.sm}px ${S.xl}px`, paddingBottom: 'env(safe-area-inset-bottom, 8px)', zIndex: 10 }}>
         {replyTo && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.brandL, borderRadius: R.sm, padding: `${S.xs}px ${S.sm}px`, marginBottom: S.xs }}>
-            <span style={{ fontSize: 12, color: C.brand, fontWeight: 600 }}>↩ {replyTo.anonymous_nickname}에게 답글</span>
+            <span style={{ fontSize: 12, color: C.brand, fontWeight: 600 }}>{replyTo.anonymous_nickname}에게 답글</span>
             <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: C.text3, padding: 0 }}>✕</button>
           </div>
         )}
@@ -1261,7 +1316,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           </div>
         ) : isGuest ? (
           <button onClick={() => onRequireLogin?.()} style={{ width: '100%', padding: '13px', background: C.brandL, color: C.brand, border: `1.5px solid ${C.brandM}`, borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
-            🔒 로그인하고 댓글 달기
+            로그인하고 댓글 달기
           </button>
         ) : (
           <div style={{ display: 'flex', gap: S.sm, alignItems: 'flex-end' }}>
