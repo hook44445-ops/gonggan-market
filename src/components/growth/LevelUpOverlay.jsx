@@ -1,11 +1,15 @@
 // Phase 11 — 레벨업 축하 연출. 카드 확대 + 가벼운 Confetti + 진동.
 //   과도한 게임 효과는 지양. 4초 후 자동 닫힘 · 탭하면 즉시 닫힘.
 import { useEffect, useRef } from "react";
+import { stageFor } from "../../lib/growthStage";
 
 const CONFETTI = ["#5B9DF9", "#7FD8A6", "#FFC85C", "#F08FB0", "#B79BFF"];
 
 export default function LevelUpOverlay({ open, from = 1, to = 2, onClose }) {
   const fired = useRef(false);
+  const fromStage = stageFor(from);
+  const toStage = stageFor(to);
+  const stageChanged = fromStage.id !== toStage.id;
 
   useEffect(() => {
     if (!open) { fired.current = false; return; }
@@ -54,15 +58,29 @@ export default function LevelUpOverlay({ open, from = 1, to = 2, onClose }) {
           animation: "lvup-pop 0.5s cubic-bezier(.2,.9,.3,1.2) both",
         }}
       >
-        <div style={{ fontSize: 40, marginBottom: 6 }}>🎉</div>
-        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "3px", color: "#7FA8E0", marginBottom: 14 }}>LEVEL UP</div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 18 }}>
-          <span style={{ fontSize: 20, fontWeight: 800, color: "rgba(255,255,255,0.45)" }}>LV.{from}</span>
-          <span style={{ fontSize: 18, color: "rgba(255,255,255,0.4)" }}>→</span>
-          <span style={{ fontSize: 34, fontWeight: 900, color: "#fff" }}>LV.{to}</span>
+        {/* 파티 이모지 대신 지금 단계 그림 — 단계가 바뀌었으면 그 이야기를 먼저 한다 */}
+        <img src={toStage.art} alt="" width={84} height={84}
+          style={{ width: 84, height: 84, borderRadius: 22, objectFit: "cover", display: "block", margin: "0 auto 12px",
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }} />
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "3px", color: "#7FA8E0", marginBottom: 12 }}>
+          {stageChanged ? "NEW STAGE" : "LEVEL UP"}
         </div>
+        {stageChanged ? (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>{toStage.name}</div>
+            <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.55)", marginTop: 6 }}>
+              {fromStage.name} → {toStage.name} · LV.{to}
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 16 }}>
+            <span style={{ fontSize: 20, fontWeight: 800, color: "rgba(255,255,255,0.45)" }}>LV.{from}</span>
+            <span style={{ fontSize: 18, color: "rgba(255,255,255,0.4)" }}>→</span>
+            <span style={{ fontSize: 34, fontWeight: 900, color: "#fff" }}>LV.{to}</span>
+          </div>
+        )}
         <div style={{ fontSize: 13.5, lineHeight: 1.8, color: "rgba(255,255,255,0.72)" }}>
-          Space OS가<br />당신의 성장을 기록했습니다.
+          {stageChanged ? toStage.line : <>Space OS가<br />당신의 성장을 기록했습니다.</>}
         </div>
         <button
           onClick={onClose}
