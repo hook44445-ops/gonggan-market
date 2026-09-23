@@ -143,8 +143,12 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
         borderBottom: `1px solid ${SK.line}`, display: "flex", justifyContent: "space-between",
         alignItems: "center", padding: "10px 20px" }}>
-        <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>
-          공간마켓<span style={{ color: SK.muted, fontWeight: 500, fontSize: 11, letterSpacing: "0.14em", marginLeft: 7 }}>BETA</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <img src="/icons/gm-logo.svg" alt="" aria-hidden="true" width="30" height="30"
+            style={{ width: 30, height: 30, borderRadius: 9, display: "block", flexShrink: 0 }} />
+          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>
+            공간마켓<span style={{ color: SK.muted, fontWeight: 500, fontSize: 11, letterSpacing: "0.14em", marginLeft: 7 }}>BETA</span>
+          </div>
         </div>
         <div style={{ display: "flex", gap: 6, background: "#ECE7DF", padding: 4, borderRadius: 999 }}>
           <button className="gm-tab" style={{ padding: "8px 16px", borderRadius: 999, border: "none", fontWeight: 700,
