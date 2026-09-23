@@ -507,6 +507,27 @@ export const getRecentPortfolios = (limit = 24) =>
     .order("created_at", { ascending: false })
     .limit(limit);
 
+// 라운지 글 옆에 붙일 «이 동네 시공 사례» — 글의 지역(예: "서울 마포구")에서 구/군 한 토막을 뽑아
+//   업체가 적어 둔 area("마포구")로 찾는다. 같은 동네 사례가 없으면 최근 사례로 폴백하되
+//   **matched=false 로 돌려준다** — 화면이 「이 동네」라고 거짓말하지 않게 하기 위해서다.
+//   사진(시공 후) 없는 사례는 버린다(빈 카드가 더 나쁘다).
+export const getNearbyPortfolios = async (region, limit = 3) => {
+  const cols = "id, company_id, title, space_type, area, after_photos, before_photos, created_at, companies(name)";
+  const district = String(region ?? "").trim().split(/\s+/).filter(Boolean).pop() ?? "";
+  const withPhoto = (rows) => (rows ?? []).filter(r => (r.after_photos?.[0] || r.before_photos?.[0]));
+
+  if (district) {
+    const near = await supabase.from("portfolios").select(cols)
+      .ilike("area", `%${district}%`)
+      .order("created_at", { ascending: false }).limit(limit * 2);
+    const rows = withPhoto(near.data).slice(0, limit);
+    if (rows.length) return { data: rows, matched: true, district, error: null };
+  }
+  const recent = await supabase.from("portfolios").select(cols)
+    .order("created_at", { ascending: false }).limit(limit * 3);
+  return { data: withPhoto(recent.data).slice(0, limit), matched: false, district, error: recent.error ?? null };
+};
+
 // 쓰기는 RPC만(100_portfolios.sql) — 표 직접 insert/update/delete 는 RLS가 막는다.
 //   actorId = 업체 소유자 user.id(companies.owner_id). RPC가 소유 여부를 확인한다.
 const portfolioRpcArgs = (actorId, companyId, id, d = {}) => ({
@@ -2885,8 +2906,11 @@ export const createLoungeComment = (data) =>
   supabase.from("lounge_comments").insert(data).select().single();
 
 // 관련글 — SEO 내부링크용. 같은 카테고리 인기글 우선, 부족분은 최신글로 보강.
-export const getRelatedLoungePosts = async (category, excludeId, limit = 4) => {
-  const cols = "id, title, category, image_urls, view_count, like_count, comment_count, is_seed, is_expert, created_at";
+// 관련글 — 같은 카테고리 안에서 **같은 동네 글을 먼저** 준다(2026-09-23).
+//   왜: 인테리어 글은 「무엇을 했나」만큼 「어디서 했나」가 중요하다. 같은 구에서 나온 이야기가
+//       조회수 높은 남의 동네 글보다 쓸모 있다. region 이 없으면 기존(같은 카테고리 인기순) 그대로.
+export const getRelatedLoungePosts = async (category, excludeId, limit = 4, region = null) => {
+  const cols = "id, title, category, region, image_urls, view_count, like_count, comment_count, is_seed, is_expert, created_at";
   const base = () =>
     supabase
       .from("lounge_posts")
@@ -2896,15 +2920,22 @@ export const getRelatedLoungePosts = async (category, excludeId, limit = 4) => {
       .eq("is_story", false)
       .or("is_hidden.is.null,is_hidden.eq.false");
 
+  let rows = [];
+  const seenIds = new Set();
+  const push = (list) => { for (const r of list ?? []) { if (rows.length >= limit) break; if (!seenIds.has(r.id)) { rows.push(r); seenIds.add(r.id); } } };
+
+  /* 1순위: 같은 카테고리 + 같은 동네 */
+  if (region) {
+    const near = await base().eq("category", category).eq("region", region).order("view_count", { ascending: false }).limit(limit);
+    push(near.data);
+  }
+  /* 2순위: 같은 카테고리 */
   const sameCat = await base().eq("category", category).order("view_count", { ascending: false }).limit(limit);
-  let rows = sameCat.data ?? [];
+  push(sameCat.data);
+  /* 3순위: 카테고리 무관 인기글로 자리 채우기 */
   if (rows.length < limit) {
-    const seen = new Set(rows.map(r => r.id));
     const more = await base().order("view_count", { ascending: false }).limit(limit * 2);
-    for (const r of more.data ?? []) {
-      if (rows.length >= limit) break;
-      if (!seen.has(r.id)) { rows.push(r); seen.add(r.id); }
-    }
+    push(more.data);
   }
   return { data: rows.slice(0, limit), error: sameCat.error ?? null };
 };
