@@ -5,3 +5,4 @@ dist
 android-twa/.gradle/
 android-twa/build/
 android-twa/app/build/
+store/*.aab

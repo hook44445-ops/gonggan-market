@@ -5,7 +5,10 @@ import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
 import AppFooter from "../components/AppFooter"; // 사업자정보 푸터(법적 필수 · 삭제 금지)
 import { BetaBanner } from "../components/beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { SHOW_BETA_UI } from "../constants/release";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
+import { useJsonLd } from "../hooks/useJsonLd";
+import { partnerFaq, pageSeo, faqSchema, breadcrumbSchema } from "../utils/siteSeo";
 import { applyRoleTheme } from "../utils/roleTheme";
 
 // ── 베타 배지 (badge-beta · 이모지 없이 초록 점 blink + #F5EED6 배경) ────────────
@@ -72,25 +75,9 @@ function track(event, params = {}) {
   } catch { /* analytics 실패는 전환 흐름에 영향 주지 않음 */ }
 }
 
-// ── FAQ (V1.5) ──────────────────────────────────────────────────────────────────
-const FAQS = [
-  {
-    q: "가입할 때 비용이 드나요?",
-    a: "가입비는 없습니다. 광고비·월정액도 없으며, 견적 요청 수신도 무료입니다. 비용은 계약이 실제로 성사된 프로젝트에만 발생합니다.",
-  },
-  {
-    q: "수수료는 얼마인가요?",
-    a: "계약이 성사된 프로젝트에 한해 4.4%(VAT 포함)의 이용수수료만 부과됩니다. 그 외 어떤 명목의 비용도 없습니다.",
-  },
-  {
-    q: "수주에 실패하면 비용이 나가나요?",
-    a: "아니요. 견적이 채택되지 않거나 수주에 실패한 경우에는 어떤 비용도 청구되지 않습니다. 부담 없이 견적에 참여하세요.",
-  },
-  {
-    q: "예치보증금은 돌려받을 수 있나요?",
-    a: "예치보증금은 가입비가 아니라 신뢰를 보증하는 예치금입니다. 공간파트너 활동 종료 시 100% 환급 가능합니다.",
-  },
-];
+// ── FAQ (V1.5) — 문구는 utils/siteSeo.js 단일 소스 ───────────────────────────────
+// 봇 프리렌더(api/prerender.js)가 같은 배열을 써서 화면과 색인 내용이 갈라지지 않는다.
+const FAQS = partnerFaq();
 
 // ── Section wrapper ────────────────────────────────────────────────────────────
 function Section({ children, bg = OFF, py = 56 }) {
@@ -680,11 +667,15 @@ export default function PartnerLandingScreen() {
   const [heroRef, heroVis] = useVisible(0.05);
   const [showLoginGate, setShowLoginGate] = useState(false);
 
-  useDocumentMeta({
-    title: "공간마켓 파트너(업체) 입점 안내",
-    description: "공간마켓 인테리어 파트너 업체 입점 안내. 검증된 고객 매칭, 에스크로 안전정산, 시공 기록 보호까지 함께합니다.",
-    path: "/partner",
-  });
+  const SEO = pageSeo(SHOW_BETA_UI)["/partner"];
+  useDocumentMeta({ title: SEO.title, description: SEO.description, path: "/partner" });
+
+  // 공급자(업체) 쪽 구조화 데이터 — 「가입비·수수료가 얼마냐」가 업체의 첫 질문이라
+  // FAQ 를 그대로 구조화해 답변엔진이 숫자를 정확히 인용하게 한다.
+  useJsonLd("partner", [
+    faqSchema(FAQS, undefined, "/partner"),
+    breadcrumbSchema([["공간마켓", "/"], ["파트너 입점 안내", "/partner"]]),
+  ]);
 
   const scrollToForm = (source = "hero") => {
     track("partner_join_click", { source }); // V1.5 전환 이벤트

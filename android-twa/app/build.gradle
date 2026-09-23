@@ -4,14 +4,14 @@ plugins {
 
 android {
     namespace 'com.gonggansai.gongganmarket'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.gonggansai.gongganmarket"
-        minSdk 23
-        targetSdk 35
-        versionCode 16
-        versionName "1.0.16"
+        minSdk 24
+        targetSdk 36
+        versionCode 19
+        versionName "1.0.19"
     }
 
     signingConfigs {
@@ -37,12 +37,10 @@ android {
 }
 
 dependencies {
-    // compileSdk 35 / AGP 8.6.1에서 빌드·설치가 검증된 버전(versionCode 3 시점)으로
-    // 되돌린다. 2.7.2는 전이 의존성으로 compileSdk 36을 요구하는 core 1.17.0 /
-    // browser 1.10.0을 끌어와, 이를 강제 하향(force)하면 런타임에 라이브러리가
-    // 기대하는 API와 어긋나 TWA 실행 직후 종료가 발생했다. 2.5.0은 자체 전이
-    // 의존성이 compileSdk 35와 정합하므로 강제 고정 없이 일관된 의존성 그래프를
-    // 갖는다. (실행 즉시 크래시의 실제 원인이던 색상 메타데이터 버그는 #508에서
-    // 이미 수정됨 — 라이브러리 버전과 무관.)
+    // Play 정책상 2026-11-01 까지 targetSdk 36(Android 16) 이어야 한다. 그래서
+    // compileSdk/targetSdk 만 36 으로 올리고, 라이브러리는 실기기에서 검증된 2.5.0 을
+    // 그대로 둔다. 2.7.2 로 올리면 appcompat·kotlin 이 함께 끌려 들어와 dex 가
+    // 849KB -> 8.9MB 로 불어나고, 예전에 2.7.2 에서 TWA 실행 직후 종료가 났던 적이
+    // 있어 실기기 확인 없이 바꾸지 않는다. (2.7.x 전환은 내부 테스트로 따로 검증한다.)
     implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
 }

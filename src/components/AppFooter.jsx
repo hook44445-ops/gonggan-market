@@ -1,17 +1,12 @@
 // 사업자 정보 푸터 (토스 PG 승인용) — LandingScreen 하단 정보 영역에 배치.
 // 작은 서브텍스트 · 회색 톤 · 비강조. 기존 공간마켓 스타일(차분한 베이지/그레이)에 맞춘다.
-// 통신판매업 신고번호 — 서비스 공통 단일 소스(Footer·사업자정보 모달·법적고지가 모두 참조).
-export const TELECOM_SALES_NO = "2026-성남중원-0463";
+//
+// 사업자 정보의 단일 소스는 utils/siteSeo.js 다 — 푸터·사업자정보 모달·법적고지뿐 아니라
+// 봇 프리렌더의 JSON-LD(Organization)도 같은 값을 쓴다. 여기서는 재노출만 한다
+// (기존 import 경로 `from "./AppFooter"` 를 깨지 않기 위해).
+import { BIZ_ROWS, TELECOM_SALES_NO } from "../utils/siteSeo";
 
-export const BIZ_ROWS = [
-  ["상호", "공간사이"],
-  ["대표자", "김태웅"],
-  ["사업자등록번호", "270-53-00885"],
-  ["통신판매업신고번호", TELECOM_SALES_NO],
-  ["주소", "경기도 성남시 중원구 성남대로1151번길 5, 2층 202호"],
-  ["고객센터", "070-7954-2740"],
-  ["이메일", "biz@gonggansai.com"],
-];
+export { BIZ_ROWS, TELECOM_SALES_NO };
 
 export default function AppFooter() {
   return (
