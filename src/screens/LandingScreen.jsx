@@ -5,6 +5,8 @@ import { normalizeShowcases } from "../lib/showcases";
 import { isTestCompanyName } from "../lib/testCompany";
 import AppFooter from "../components/AppFooter";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
+import { useJsonLd } from "../hooks/useJsonLd";
+import { consumerFaq, pageSeo, serviceSchema, faqSchema } from "../utils/siteSeo";
 
 // ── HTML 시안(gonggan_FINAL_BALANCED.html) 이식 · 고객 랜딩 ────────────────────
 // 디자인/레이아웃/컬러/타이포는 시안과 거의 동일. 기능·라우팅·상태는 기존 그대로
@@ -62,15 +64,9 @@ const JOURNEY = [
   },
 ];
 
-// FAQ(유지 · 삭제 금지) — 문구는 지금 실제로 하는 것만(베타에서 안전결제는 아직 없다 · 보험은 선택).
-const FAQ_ITEMS = [
-  { q: "견적 요청은 무료인가요?", a: "네. 견적 요청과 업체 비교는 무료입니다." },
-  { q: "공간안전결제는 무엇인가요?", a: SHOW_BETA_UI
-      ? "공사비를 단계마다 확인한 뒤 지급하는 구조로, 토스페이먼츠 승인 뒤 열립니다. 지금은 계약서에 적은 단계대로 업체와 직접 주고받고, 계약·사진·진행 기록이 공간마켓에 남습니다."
-      : "공사비를 바로 지급하지 않고 단계 확인 후 안전하게 정산하는 구조입니다." },
-  { q: "업체는 어떻게 검증되나요?", a: "사업자등록증을 확인한 업체만 견적을 보낼 수 있어요. 시공보험·시공 사례·고객 후기는 업체 프로필에서 직접 확인할 수 있습니다." },
-  { q: "분쟁이 생기면 어떻게 하나요?", a: "계약, 채팅, 사진, 진행기록이 저장되어 프로젝트 기록을 확인할 수 있습니다." },
-];
+// FAQ(유지 · 삭제 금지) — 문구는 utils/siteSeo.js 단일 소스.
+// 봇 프리렌더(api/prerender.js)가 같은 배열을 써서 화면과 색인 내용이 갈라지지 않는다.
+const FAQ_ITEMS = consumerFaq(SHOW_BETA_UI);
 
 function FaqRow({ q, a }) {
   const [open, setOpen] = useState(false);
@@ -99,13 +95,15 @@ const btnBase = {
 export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccounts = false, onResume }) {
   const [versionTapCount, setVersionTapCount] = useState(0);
 
-  useDocumentMeta({
-    title: "공간마켓 — 좋은 공간과 좋은 이야기가 모이는 곳",
-    description: SHOW_BETA_UI
-      ? "믿을 수 있는 인테리어 업체 비교부터 계약, 공사 사진·진행 기록까지. 집·상가·리모델링을 한곳에서 진행하세요."
-      : "믿을 수 있는 인테리어 업체 비교부터 계약, 에스크로 안전결제, 시공 기록까지. 집·상가·리모델링을 안전하게 진행하세요.",
-    path: "/",
-  });
+  const SEO = pageSeo(SHOW_BETA_UI)["/"];
+  useDocumentMeta({ title: SEO.title, description: SEO.description, path: "/" });
+
+  // 페이지별 구조화 데이터만 덧붙인다 — Organization/WebSite 는 index.html 이
+  // 전역으로 내보내므로 여기서 또 내면 같은 개체가 중복된다.
+  useJsonLd("landing", [
+    serviceSchema(SHOW_BETA_UI),
+    faqSchema(FAQ_ITEMS, undefined, "/"),
+  ]);
 
   const [cases, setCases] = useState([]);
   useEffect(() => {
