@@ -81,9 +81,11 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
         {comment.is_expert_reply && (
           <span
             onClick={isCompanyAuthor ? handleAuthorClick : undefined}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.brand, color: '#fff', borderRadius: R.full, padding: '2px 9px', fontSize: 10, fontWeight: 800,
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: C.brandL, color: C.brand, border: `1px solid ${C.brandM}`,
+              borderRadius: R.full, padding: '2px 9px', fontSize: 10, fontWeight: 700,
               cursor: isCompanyAuthor ? 'pointer' : 'default' }}>
-            🏅 공간보증 · 전문가 답변
+            {/* 「공간보증」은 실제 보증 등급이 있는 업체만 쓰는 말이라 답변 배지에서 뺀다(사실과 다른 표시 금지) */}
+            업체 답변
           </span>
         )}
         <span style={{ fontSize: 11, color: C.text4, marginLeft: 'auto' }}>
@@ -107,16 +109,23 @@ export default function LoungeCommentItem({ comment, isReply = false, onLike, on
         {comment.is_expert_reply ? (
           // 전문가 답변 — 좋아요(기존 like_count/onLike 재사용, 문구만 통일)
           <button onClick={handleLike} style={{ background: liked ? C.brand : 'none', border: `1px solid ${liked ? C.brand : C.bgWarm}`, borderRadius: R.full, cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#fff' : C.text2, fontWeight: 700, padding: '4px 12px' }}>
-            👍 좋아요 {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
+            도움됐어요 {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
           </button>
         ) : (
           <button onClick={handleLike} style={{ background: 'none', border: 'none', cursor: liked ? 'default' : 'pointer', fontSize: 12, color: liked ? '#E53E3E' : C.text3, fontWeight: liked ? 700 : 400, padding: 0 }}>
-            {liked ? '❤️' : '🤍'} {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
+            <span style={{ color: liked ? '#E53E3E' : C.text3 }}>{liked ? '♥' : '♡'}</span> {(Number(comment.like_count ?? 0) + (liked ? 1 : 0)) || ''}
           </button>
         )}
         {!isReply && (
           <button onClick={() => onReply?.(comment)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.text3, padding: 0 }}>
             답글
+          </button>
+        )}
+        {/* 업체가 답을 달면 그 업체로 가는 길을 드러낸다 — 예전엔 이름을 눌러야만 열려 보이지 않았다 */}
+        {isCompanyAuthor && (
+          <button onClick={handleAuthorClick}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: C.brand, fontWeight: 700, padding: 0 }}>
+            업체 보기 · 메시지
           </button>
         )}
         <button onClick={() => onReport?.(comment.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: C.text4, padding: 0, marginLeft: 'auto' }}>
