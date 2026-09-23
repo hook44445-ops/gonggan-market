@@ -214,19 +214,43 @@ export default function ReviewModal({
 
         {/* ── STEP 1: Star rating ── */}
         {step === 1 && (<>
-          <div style={{ textAlign:"center", marginBottom:28 }}>
-            <div style={{ fontSize:40, marginBottom:10 }}>⭐</div>
-            <div style={{ fontSize:18, fontWeight:800, color:C.text1, marginBottom:4 }}>시공은 어떠셨나요?</div>
-            <div style={{ fontSize:13, color:C.text3 }}>당신의 기록이 다음 사람의 신뢰가 됩니다.</div>
+          {/* 완료된 공간 한 장 — 후기를 쓰는 자리에 어울리는 온도(이모지 대신) */}
+          <div style={{ position:"relative", margin:`0 -24px ${S.lg}px`, height:150, overflow:"hidden" }}>
+            <img src="/images/review/done.webp" alt="" loading="lazy"
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+              style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+            <div style={{ position:"absolute", inset:0,
+              background:`linear-gradient(to bottom, rgba(255,255,255,0) 30%, rgba(255,255,255,0.82) 72%, ${C.surface} 96%)` }} />
+          </div>
+          <div style={{ marginBottom:S.lg }}>
+            <div style={{ fontSize:19, fontWeight:800, color:C.text1, letterSpacing:"-0.03em" }}>시공은 어떠셨나요?</div>
+            <div style={{ fontSize:13, color:C.text3, marginTop:6, lineHeight:1.7 }}>
+              적어 주신 한 줄이 이 공사의 마지막 기록이 됩니다.
+            </div>
+          </div>
+
+          {/* 서로의 유익 — 이 후기가 «나»와 «업체»에게 각각 무엇이 되는가 */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:S.lg }}>
+            <div style={{ background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, padding:"12px 13px" }}>
+              <div style={{ fontSize:11, fontWeight:800, color:C.text3, letterSpacing:"0.06em", marginBottom:5 }}>나에게</div>
+              <div style={{ fontSize:12.5, color:C.text1, lineHeight:1.6 }}>
+                우리 집 공사가 사진과 함께 <b>내 기록</b>으로 남습니다. 나중에 A/S·재공사 때 꺼내 봅니다.
+              </div>
+            </div>
+            <div style={{ background:C.bg, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, padding:"12px 13px" }}>
+              <div style={{ fontSize:11, fontWeight:800, color:C.text3, letterSpacing:"0.06em", marginBottom:5 }}>업체에게</div>
+              <div style={{ fontSize:12.5, color:C.text1, lineHeight:1.6 }}>
+                잘한 공사가 <b>시공 사례와 평판</b>으로 쌓여, 광고 없이 다음 고객을 만납니다.
+              </div>
+            </div>
           </div>
 
           <div style={{ background:"#FFF8EC", borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`,
             marginBottom:S.xl, border:"1px solid #F5D97A",
             display:"flex", alignItems:"flex-start", gap:S.sm }}>
-            <div style={{ fontSize:22, flexShrink:0 }}>☕</div>
             <div>
               <div style={{ fontSize:13, fontWeight:800, color:"#8A5C00", marginBottom:3 }}>
-                비포/애프터 포토리뷰 작성 시 커피쿠폰 지급
+                전·후 사진을 함께 올리면 커피쿠폰을 드립니다
               </div>
               <div style={{ fontSize:11, color:"#A06B00", lineHeight:1.6 }}>
                 공사 전·후 사진을 등록하면 커피쿠폰을 드립니다.<br/>
@@ -398,7 +422,7 @@ export default function ReviewModal({
             </div>
           )}
 
-          <button onClick={handleSubmit} disabled={!canSubmit}
+          <button onClick={handleSubmit} disabled={!canSubmit} className={canSubmit ? "gg-cta" : undefined}
             style={{ width:"100%", padding:S.xl,
               background: canSubmit ? C.brand : "#E8E4DC",
               color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16,
@@ -411,8 +435,14 @@ export default function ReviewModal({
 
         {/* ── STEP 3: Success ── */}
         {step === 3 && (
-          <div style={{ textAlign:"center", padding:"24px 0" }}>
-            <div style={{ fontSize:64, marginBottom:16 }}>🎉</div>
+          <div style={{ textAlign:"center", padding:"0 0 24px" }}>
+            <div style={{ position:"relative", margin:"0 -24px 18px", height:150, overflow:"hidden" }}>
+              <img src="/images/review/thanks.webp" alt="" loading="lazy"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+                style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+              <div style={{ position:"absolute", inset:0,
+                background:`linear-gradient(to bottom, rgba(255,255,255,0) 30%, rgba(255,255,255,0.84) 74%, ${C.surface} 96%)` }} />
+            </div>
             <div style={{ fontSize:20, fontWeight:800, color:C.text1, marginBottom:8 }}>{finalUrls.before.length && finalUrls.after.length ? "비포/애프터 리뷰 등록 완료!" : "후기 등록 완료!"}</div>
             <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl, lineHeight:1.7 }}>소중한 후기 감사합니다.</div>
 
