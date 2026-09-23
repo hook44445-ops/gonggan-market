@@ -66,7 +66,7 @@ export function selectTodaysContent(meeting = [], n = 20) {
 // 생성 → 자기평가 → (미달 시) 재작성. 결정론적 엔진에서 "재작성"은 대체 공간 앵글로
 //   변주를 만들어 가장 높은 점수의 초안을 고르는 것으로 구현한다(Phase 3: LLM 재작성으로 교체).
 //   반환: { draft, score, attempts, passed }  — draft 는 generateDraft() 와 동일한 형태.
-export function generateReviewedDraft({ issue, spaceAngle, category, region = null } = {}, { maxAttempts = 3 } = {}) {
+export function generateReviewedDraft({ issue, spaceAngle, category, region = null, variant = 0 } = {}, { maxAttempts = 3 } = {}) {
   const angles = [
     spaceAngle,
     `${issue}, 우리 공간부터 점검하기`,
@@ -77,7 +77,8 @@ export function generateReviewedDraft({ issue, spaceAngle, category, region = nu
   let attempts = 0;
   for (let i = 0; i < Math.min(maxAttempts, angles.length); i++) {
     attempts += 1;
-    const draft = generateDraft({ issue, spaceAngle: angles[i], category, region });
+    // variant: 같은 주제가 다시 나올 때 형식·제목을 한 칸 민다(글 반복 방지)
+    const draft = generateDraft({ issue, spaceAngle: angles[i], category, region, variant: Number(variant ?? 0) + i });
     const score = scoreContent(draft);
     if (!best || score.total > best.score.total) best = { draft, score };
     if (score.total >= REWRITE_THRESHOLD && isLoungeUnique(score)) break; // 통과하면 즉시 채택.

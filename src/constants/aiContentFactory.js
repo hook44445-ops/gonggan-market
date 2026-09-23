@@ -8,7 +8,7 @@
 
 // 공간 최상위 6개 도메인(철학 이미지 반영) — 카테고리는 이 중 하나에 속하는
 // "공간 안의 이야기"로 취급한다. UI 그룹핑/문서화 참고용(표시 전용).
-import { composeBody } from "./aiDraftWriter.js";
+import { composeBody, titleFor, hashOf } from "./aiDraftWriter.js";
 
 export const SPACE_DOMAINS = [
   { id: "residential", label: "주거공간", categories: ["interior", "room_deco", "move_in"] },
@@ -76,16 +76,17 @@ export function classifyCategory(text, fallback = "daily") {
 // 따르는 템플릿. 이슈를 "공간 관점"으로 재해석해 정보성 콘텐츠 뼈대를 만든다.
 // ⚠️ 표시 전용 초안이다 — 관리자가 검수/수정 후 발행하는 것을 전제로 한다(베타 원칙).
 //    Phase 2/3 에서 이 함수 시그니처(입력/출력)를 유지한 채 내부만 실제 AI 호출로 교체하면 된다.
-export function generateDraft({ issue, spaceAngle, category, region, brand = null, seed = null } = {}) {
+export function generateDraft({ issue, spaceAngle, category, region, brand = null, seed = null, variant = 0 } = {}) {
   const topic = String(issue ?? "").trim();
   const angle = String(spaceAngle ?? "").trim() || `${topic}과(와) 공간의 관계`;
   const cat = category || classifyCategory(`${topic} ${angle}`);
   const where = region ? `${region}에서 ` : "";
 
-  /* 제목 — 질문형을 그대로 둔다(AEO: 사람이 검색창에 치는 말). 지역이 있으면 앞에(GEO). */
-  const title = `${region ? region + " " : ""}${angle}`.trim();
+  /* 제목 — 질문형을 기본으로, 형식에 맞춰 여섯 가지로 돌려 쓴다(AEO). 지역이 있으면 앞에(GEO). */
+  const pick = hashOf(`${topic}|${angle}|${region ?? ""}`) + Number(variant ?? 0);
+  const title = `${region ? region + " " : ""}${titleFor(angle, pick)}`.trim();
 
-  const content = composeBody({ topic, angle, where, cat, brand, seed, region });
+  const content = composeBody({ topic, angle, where, cat, brand, seed, region, variant });
 
   /* 태그 — 주제·지역·카테고리 중심(중복 제거, 최대 5개). */
   const tags = [topic, region, cat, brand === "prubi" ? "기록" : null, "인테리어"]
