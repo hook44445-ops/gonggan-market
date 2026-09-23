@@ -51,12 +51,23 @@ const FAQ_BANK = {
 const faqFor = (cat) => FAQ_BANK[cat] ?? FAQ_BANK.DEFAULT;
 const trimQ = (s) => String(s ?? "").replace(/\?$/, "");
 
+/* 조사 — 받침 유무로 고른다. 「…맞추기은(는)」 처럼 어색하게 붙던 것을 없앤다. */
+const hasBatchim = (word) => {
+  const ch = String(word ?? "").trim().slice(-1);
+  const code = ch.charCodeAt(0);
+  if (!(code >= 0xac00 && code <= 0xd7a3)) return false; // 한글이 아니면 없는 것으로 본다
+  return (code - 0xac00) % 28 !== 0;
+};
+export const josa = (word, withBatchim, without) => `${word}${hasBatchim(word) ? withBatchim : without}`;
+const eun = (w) => josa(w, "은", "는");
+const eul = (w) => josa(w, "을", "를");
+
 /* 형식 다섯 벌 — 각 함수는 본문(FAQ 앞까지)을 돌려준다. */
 export const DRAFT_FORMATS = [
   ({ topic, angle, where }) => [
     `**한 줄 답**: ${trimQ(angle)}는 「범위·자재·기간」 셋이 정합니다. 이 셋을 같은 조건으로 놓고 비교해야 숫자가 의미를 갖습니다.`,
     "",
-    `${where}${topic}을(를) 두고 가장 많이 나오는 질문입니다. 답이 사람마다 다른 이유는 조건이 서로 다르기 때문입니다.`,
+    `${where}${eul(topic)} 두고 가장 많이 나오는 질문입니다. 답이 사람마다 다른 이유는 조건이 서로 다르기 때문입니다.`,
     "",
     "## 무엇이 금액을 정하나",
     "- 범위: 어디까지 손대는가(전체 · 부분 · 마감만)",
@@ -73,7 +84,7 @@ export const DRAFT_FORMATS = [
   ].join("\n"),
 
   ({ topic, angle, where }) => [
-    `**한 줄 답**: ${topic}은(는) 순서를 지키면 대부분 풀립니다. 앞 공정이 끝나야 뒤 공정이 제대로 앉습니다.`,
+    `**한 줄 답**: ${eun(topic)} 순서를 지키면 대부분 풀립니다. 앞 공정이 끝나야 뒤 공정이 제대로 앉습니다.`,
     "",
     `${where}${trimQ(angle)} — 순서대로 적어 봅니다.`,
     "",
@@ -113,7 +124,7 @@ export const DRAFT_FORMATS = [
   ].join("\n"),
 
   ({ topic, angle, where }) => [
-    `**한 줄 답**: ${topic}은(는) 현장에서 「미리 말해 두었는가」로 갈립니다.`,
+    `**한 줄 답**: ${eun(topic)} 현장에서 「미리 말해 두었는가」로 갈립니다.`,
     "",
     `${where}${trimQ(angle)} — 현장 기준으로 적어 봅니다. 사장님들이 실제로 겪는 순서대로입니다.`,
     "",
@@ -149,9 +160,118 @@ export const DRAFT_FORMATS = [
     "## 정리",
     "남의 견적은 답이 아니라 질문지입니다.",
   ].join("\n"),
+
+  /* ⑥ 비교 — 둘 중 무엇을 고르나. 표로 나란히 놓는다(숫자는 쓰지 않는다). */
+  ({ topic, angle, where }) => [
+    `**한 줄 답**: ${eun(topic)} 「무엇이 더 좋은가」가 아니라 「내 조건에 무엇이 맞는가」의 문제입니다.`,
+    "",
+    `${where}${trimQ(angle)} — 나란히 놓고 봅니다.`,
+    "",
+    "## 나란히 보기",
+    "| 보는 자리 | 이럴 때 유리 | 이럴 때 불리 |",
+    "|---|---|---|",
+    "| 범위가 넓을 때 | 한 업체가 전체를 맡는 쪽 | 공정별로 쪼개는 쪽 |",
+    "| 일정이 급할 때 | 자재가 이미 확보된 쪽 | 주문 제작이 섞인 쪽 |",
+    "| 예산이 빡빡할 때 | 손대는 곳을 줄이는 쪽 | 자재 등급만 낮추는 쪽 |",
+    "",
+    "## 고르는 순서",
+    "1. 포기할 수 없는 것 한 가지를 정한다",
+    "2. 그것을 지키면서 줄일 수 있는 것을 찾는다",
+    "3. 남은 차이만 업체에 묻는다",
+    "",
+    "## 정리",
+    "비교는 답을 고르는 일이 아니라, 내 조건을 분명히 하는 일입니다.",
+  ].join("\n"),
+
+  /* ⑦ 오해와 사실 — 현장에서 반복되는 잘못된 상식. */
+  ({ topic, angle, where }) => [
+    `**한 줄 답**: ${topic}에 대해 자주 도는 이야기 중 절반은 조건이 빠진 말입니다.`,
+    "",
+    `${where}${trimQ(angle)} — 자주 듣는 말부터 짚습니다.`,
+    "",
+    "## 자주 듣는 말과 사실",
+    "**「싼 견적은 무조건 부실하다」** — 꼭 그렇지는 않습니다. 범위가 좁게 잡혀 있을 뿐인 경우가 많습니다. 빠진 항목을 먼저 확인하세요.",
+    "",
+    "**「비싼 자재를 쓰면 하자가 없다」** — 하자는 자재보다 시공과 양생 시간에서 더 자주 옵니다.",
+    "",
+    "**「공사는 길수록 꼼꼼하다」** — 공정 순서가 꼬여 길어지는 경우도 있습니다. 기간보다 순서를 보세요.",
+    "",
+    "## 그래서 무엇을 보나",
+    "- 견적서에 「포함되지 않은 것」이 적혀 있는가",
+    "- 공정 사이에 양생·건조 시간이 들어 있는가",
+    "- 변경이 생길 때 어떻게 합의하기로 했는가",
+    "",
+    "## 정리",
+    "말을 그대로 믿기보다, 그 말이 어떤 조건에서 나온 것인지 물어보면 됩니다.",
+  ].join("\n"),
+
+  /* ⑧ 하루의 흐름 — 시간순으로 보여 주는 형식. */
+  ({ topic, angle, where }) => [
+    `**한 줄 답**: ${eun(topic)} 하루의 순서를 알면 훨씬 덜 불안합니다.`,
+    "",
+    `${where}${trimQ(angle)} — 현장에서 하루가 어떻게 흘러가는지 적어 봅니다.`,
+    "",
+    "## 공사 하루",
+    "**아침** — 오늘 할 공정과 자재를 확인합니다. 어제 끝난 자리를 한 번 봅니다.",
+    "",
+    "**낮** — 작업이 이어집니다. 변경이 필요하면 이때 말해야 합니다. 마감 뒤에는 되돌리기 어렵습니다.",
+    "",
+    "**저녁** — 오늘 한 곳을 사진으로 남깁니다. 내일 할 일과 걸림돌을 한 줄로 공유합니다.",
+    "",
+    "## 이렇게 하면 덜 부딪칩니다",
+    "- 질문은 모아 두었다가 하루 한 번",
+    "- 변경은 말이 아니라 메시지로",
+    "- 사진은 공정이 바뀔 때마다 한 장",
+    "",
+    "## 정리",
+    "매일 한 줄과 사진 한 장이면, 끝난 뒤 설명할 것이 남습니다.",
+  ].join("\n"),
+
+  /* ⑨ 말 풀이 — 견적서·현장 용어를 쉬운 말로. */
+  ({ topic, angle, where }) => [
+    `**한 줄 답**: ${topic}에서 막히는 이유는 대개 몰라서가 아니라 말이 낯설어서입니다.`,
+    "",
+    `${where}${trimQ(angle)} — 자주 나오는 말부터 풀어 봅니다.`,
+    "",
+    "## 낯선 말 풀이",
+    "- **철거** — 뜯어내는 일. 폐기물 처리비가 따로 붙는지 확인합니다.",
+    "- **양생** — 굳히고 말리는 시간. 사람이 쉬는 게 아니라 공사가 진행 중인 시간입니다.",
+    "- **마감** — 눈에 보이는 마지막 표면. 하자가 가장 먼저 눈에 띄는 자리입니다.",
+    "- **부대공사** — 본 공사에 딸려 오는 작업. 견적서에 있는지 없는지가 금액을 크게 바꿉니다.",
+    "",
+    "## 견적서에서 이렇게 읽습니다",
+    "1. 공정 이름 옆의 수량 단위를 봅니다(㎡·개·식)",
+    "2. 「식」으로 묶인 항목은 무엇이 들어 있는지 묻습니다",
+    "3. 빠진 공정이 있으면 지금 적어 둡니다",
+    "",
+    "## 정리",
+    "용어 몇 개만 알아도 견적서가 문서가 아니라 대화가 됩니다.",
+  ].join("\n"),
+
+  /* ⑩ 스스로 점검 — 질문지 형식(독자가 답을 적게 만든다). */
+  ({ topic, angle, where }) => [
+    `**한 줄 답**: ${topic} 앞에서 가장 먼저 할 일은 업체를 찾는 게 아니라 내 조건을 적는 것입니다.`,
+    "",
+    `${where}${trimQ(angle)} — 다음 질문에 한 줄씩 답해 보세요. 그대로 요청서가 됩니다.`,
+    "",
+    "## 나에게 묻는 다섯 가지",
+    "1. 가장 불편한 곳은 어디인가요",
+    "2. 손대지 않아도 되는 곳은 어디인가요",
+    "3. 언제까지 끝나야 하나요",
+    "4. 포기할 수 없는 것 한 가지는 무엇인가요",
+    "5. 공사 중 어디에서 지낼 수 있나요",
+    "",
+    "## 답을 적고 나면",
+    "- 범위가 정해져 견적 조건이 같아집니다",
+    "- 업체가 되묻는 횟수가 줄어 상담이 빨라집니다",
+    "- 나중에 추가비 이야기가 나와도 기준이 있습니다",
+    "",
+    "## 정리",
+    "좋은 견적은 좋은 질문에서 나옵니다.",
+  ].join("\n"),
 ];
 
-/* 우리 이야기 — 광고 문장 대신 「쓰는 법」으로. */
+/* 우리 이야기 — 광고 문장 대신 「쓰는 법」으로. 브랜드마다 두 벌을 씨앗으로 번갈아 쓴다. */
 export const BRAND_BODY = {
   market: ({ angle }) => [
     "**한 줄 답**: 업체를 찾아다니는 대신 같은 조건으로 견적을 모아 비교하면 시간이 크게 줍니다.",
@@ -188,6 +308,40 @@ export const BRAND_BODY = {
     "## 정리",
     "거창하게 쓰지 않아도 됩니다. 하루 한 줄이면 충분합니다.",
   ].join("\n"),
+  market2: ({ angle }) => [
+    "**한 줄 답**: 견적을 모으는 것보다 «같은 조건으로» 모으는 것이 먼저입니다.",
+    "",
+    `${trimQ(angle)} — 무엇이 같아야 비교가 되는지부터 봅니다.`,
+    "",
+    "## 같아야 하는 세 가지",
+    "- 범위: 어디를 어디까지 손대는가",
+    "- 자재: 등급과 제품을 어디까지 정했는가",
+    "- 기간: 언제 시작해 언제 끝나는가",
+    "",
+    "## 같아지면 생기는 일",
+    "- 금액 차이가 «무엇 때문인지» 설명됩니다",
+    "- 업체도 빠진 항목을 넣어 다시 계산할 수 있습니다",
+    "",
+    "## 정리",
+    "비교는 싸움이 아니라 조건 맞추기입니다. 조건이 같아야 서로 손해가 없습니다.",
+  ].join("\n"),
+  prubi2: ({ angle }) => [
+    "**한 줄 답**: 공사가 끝나면 기억은 흐려지지만, 그날 적어 둔 한 줄은 남습니다.",
+    "",
+    `${trimQ(angle)} — 남겨 두면 나중에 쓰이는 것들입니다.`,
+    "",
+    "## 나중에 꼭 쓰이는 기록",
+    "- 자재 이름과 색상(다시 살 때)",
+    "- 시공한 날짜(하자 기간을 셀 때)",
+    "- 현장에서 바뀐 결정과 그 이유",
+    "",
+    "## 업체에게도 남는 것",
+    "- 같은 질문을 다시 받지 않습니다",
+    "- 다음 고객에게 보여 줄 사례가 됩니다",
+    "",
+    "## 정리",
+    "기록은 한쪽을 위한 것이 아니라 서로를 지키는 장치입니다.",
+  ].join("\n"),
 };
 
 /** 문자열 → 안정적인 정수(같은 입력은 늘 같은 값). */
@@ -219,12 +373,57 @@ const CLOSERS = {
 
 const closerFor = (cat) => (cat === "staff-talk" ? CLOSERS.partner : cat === "quote_worry" || cat === "review" ? CLOSERS.consumer : CLOSERS.both).join("\n");
 
+
+/* 목소리 — 같은 형식이라도 첫 줄의 결이 달라지게. 씨앗으로 고른다(같은 날 같은 글은 같은 목소리). */
+export const VOICES = [
+  null,                                                     // 담백하게(덧말 없음)
+  "현장에서 자주 듣는 질문이라 정리해 둡니다.",
+  "처음 겪는 분들이 많아, 순서대로 적어 봅니다.",
+  "업체와 의뢰인 모두에게 도움이 되는 쪽으로 적었습니다.",
+  "한 번 겪고 나면 당연해지지만, 처음에는 막막한 부분입니다.",
+];
+
+/* 제목 — 질문형을 기본으로 두되, 형식에 맞는 변주를 돌려 쓴다(AEO: 사람이 치는 말 그대로). */
+export const TITLE_SHAPES = [
+  (angle) => angle,                                     // 질문형 그대로
+  (angle) => `${trimQ(angle)} — 순서대로 정리`,
+  (angle) => `${trimQ(angle)}, 무엇부터 볼까요`,
+  (angle) => `${trimQ(angle)} — 자주 듣는 말과 사실`,
+  (angle) => `${trimQ(angle)} — 체크리스트`,
+  (angle) => `${trimQ(angle)} — 나란히 비교하기`,
+];
+
+/* 형식 → 제목 모양. 「체크리스트」 제목인데 본문이 사례이면 어긋나므로 짝을 지어 둔다. */
+const TITLE_FOR_FORMAT = [0, 1, 4, 2, 0, 5, 3, 1, 2, 2];
+
+export function formatIndexFor(seedOrKey) {
+  const pick = typeof seedOrKey === "number" ? seedOrKey : hashOf(String(seedOrKey ?? ""));
+  return pick % DRAFT_FORMATS.length;
+}
+
+export function titleFor(angle, seed) {
+  const fi = formatIndexFor(seed != null ? Number(seed) : String(angle ?? ""));
+  const shape = TITLE_SHAPES[TITLE_FOR_FORMAT[fi] ?? 0];
+  return shape(String(angle ?? "").trim());
+}
+
 /** 본문 조립(형식 고르기 + 마무리 + FAQ + 내부 링크). generateDraft 가 부른다. */
-export function composeBody({ topic, angle, where, cat, brand = null, seed = null, region = null }) {
-  const pick = seed != null ? Number(seed) : hashOf(`${topic}|${angle}|${region ?? ""}`);
-  const body = brand && BRAND_BODY[brand]
-    ? BRAND_BODY[brand]({ topic, angle, where, cat })
+export function composeBody({ topic, angle, where, cat, brand = null, seed = null, region = null, variant = 0 }) {
+  /* 형식 고르기 — 주제마다 시작점을 정하고, 다시 나올 때마다 **한 칸씩 민다**(variant).
+     확률(해시)로 고르면 같은 주제가 같은 형식에 다시 걸려 글이 통째로 반복됐다.
+     순번으로 밀면 형식 수(10)만큼은 반드시 다른 글이 된다. */
+  const pick = hashOf(`${topic}|${angle}|${region ?? ""}`) + Number(variant ?? 0);
+  const brandKey = brand && BRAND_BODY[brand]
+    ? (pick % 2 === 1 && BRAND_BODY[`${brand}2`] ? `${brand}2` : brand)
+    : null;
+  const raw = brandKey
+    ? BRAND_BODY[brandKey]({ topic, angle, where, cat })
     : DRAFT_FORMATS[pick % DRAFT_FORMATS.length]({ topic, angle, where, cat });
+
+  /* 목소리 — 「한 줄 답」 바로 다음에 한 문장만 얹는다(형식이 같아도 결이 달라지게). */
+  const voice = VOICES[(pick + 2) % VOICES.length];
+  const lines = raw.split("\n");
+  const body = voice && lines.length > 2 ? [lines[0], "", voice, ...lines.slice(1)].join("\n") : raw;
 
   const faq = faqFor(cat).map(([q, a]) => `### ${q}\n${a}`).join("\n\n");
   return [

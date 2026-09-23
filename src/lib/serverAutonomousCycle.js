@@ -312,7 +312,7 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
         const { category } = mapCategory(item.topic);
         const score = scoreTopic({ topic: item.topic, region: item.region ?? null, collectedAt: item.collectedAt });
         const priority = priorityFromScore(score.total);
-        const draft = generateDraft({ issue: item.topic, category, region: item.region ?? null });
+        const draft = generateDraft({ issue: item.topic, spaceAngle: item.angle ?? null, category, region: item.region ?? null, brand: item.brand ?? null, variant: item.variant ?? 0 });
         const { data, error } = await sbInsertDraft({
           user_id: null,
           anonymous_nickname: "공간마켓",

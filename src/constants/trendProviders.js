@@ -32,6 +32,8 @@ async function collectManual() {
     audience:   t.audience,
     brand:      t.brand ?? null,
     region:     t.region ?? null,
+    variant:    t.variant ?? 0,   // 같은 주제가 다시 나올 때 형식·제목을 바꾸는 순번
+    rotation:   t.rotation ?? 0,
     sourceUrl:  null,
     collectedAt: now.toISOString(),
     raw:        t,

@@ -49,11 +49,39 @@ export const LOUNGE_TOPIC_POOL = [
   { topic: "공정별 인건비", angle: "요즘 공정별 인건비, 어떻게 잡고 계신가요?", category: "staff-talk", audience: "partner" },
   { topic: "계약금 분쟁 예방", angle: "계약금 단계에서 분쟁을 줄이는 방법", category: "staff-talk", audience: "partner" },
   { topic: "후기 요청 타이밍", angle: "후기를 부탁하기 좋은 순간은 언제인가요?", category: "staff-talk", audience: "partner" },
+  // ── 수요자: 계절·설비 ─────────────────────────────────────────
+  { topic: "단열 공사", angle: "겨울에 추운 집, 어디부터 손대야 하나요?", category: "interior", audience: "consumer", geo: true },
+  { topic: "창호 교체", angle: "창호만 바꿔도 달라지나요?", category: "interior", audience: "consumer", geo: true },
+  { topic: "누수 점검", angle: "천장에 얼룩이 생겼을 때 무엇부터 확인하나요?", category: "daily", audience: "consumer" },
+  { topic: "보일러 교체 시기", angle: "보일러는 언제 바꾸는 게 좋은가요?", category: "daily", audience: "consumer" },
+  { topic: "층간 소음과 방음", angle: "방음 공사는 어디까지 효과가 있나요?", category: "interior", audience: "consumer" },
+  { topic: "베란다 확장", angle: "베란다 확장, 무엇을 먼저 확인해야 하나요?", category: "interior", audience: "consumer", geo: true },
+  // ── 수요자: 살림과 취향 ───────────────────────────────────────
+  { topic: "아이 방 꾸미기", angle: "아이 방, 몇 살까지 쓸 수 있게 만드나요?", category: "room_deco", audience: "consumer" },
+  { topic: "반려동물과 바닥재", angle: "반려동물이 있는 집, 바닥은 무엇으로 하나요?", category: "room_deco", audience: "consumer" },
+  { topic: "도배와 페인트", angle: "도배와 페인트, 우리 집엔 무엇이 맞나요?", category: "interior", audience: "consumer" },
+  { topic: "필름 시공", angle: "필름 시공은 어디에 쓰면 좋은가요?", category: "interior", audience: "consumer" },
+  { topic: "조명 교체와 전기", angle: "조명을 바꾸려면 전기 공사도 해야 하나요?", category: "room_deco", audience: "consumer" },
+  { topic: "수납 계획", angle: "수납은 공사 전에 어떻게 계획하나요?", category: "room_deco", audience: "consumer" },
+  // ── 수요자: 임대·상업 ─────────────────────────────────────────
+  { topic: "임대 전 수리 범위", angle: "세를 놓기 전, 어디까지 고쳐야 하나요?", category: "interior", audience: "consumer", geo: true },
+  { topic: "원상복구 기준", angle: "퇴거할 때 원상복구는 어디까지인가요?", category: "quote_worry", audience: "consumer" },
+  { topic: "공실 상가 리모델링", angle: "오래 비어 있던 상가, 무엇부터 손보나요?", category: "startup", audience: "consumer", geo: true },
+  { topic: "소형 매장 인테리어", angle: "작은 매장, 예산을 어디에 몰아야 하나요?", category: "startup", audience: "consumer" },
+  // ── 공급자: 운영 ──────────────────────────────────────────────
+  { topic: "자재 수급 관리", angle: "자재가 밀릴 때 일정을 어떻게 지키나요?", category: "staff-talk", audience: "partner" },
+  { topic: "현장 인력 배치", angle: "공정이 겹칠 때 인력을 어떻게 나누나요?", category: "staff-talk", audience: "partner" },
+  { topic: "A/S 기준 만들기", angle: "A/S 범위를 미리 정해 두면 무엇이 달라지나요?", category: "staff-talk", audience: "partner" },
+  { topic: "계절별 일감 관리", angle: "비수기에 무엇을 준비해 두시나요?", category: "staff-talk", audience: "partner" },
   // ── 우리 이야기(정보형) — 빈도 제한을 받는다 ──────────────────
   { topic: "비교견적 이용법", angle: "업체를 찾아다니지 않고 견적을 비교하는 방법", category: "quote_worry", audience: "brand", brand: "market" },
   { topic: "공사 기록 남기기", angle: "계약부터 공사 사진까지 한곳에 기록해 두면 생기는 일", category: "review", audience: "brand", brand: "market" },
   { topic: "현장 메모 정리", angle: "현장에서 적은 메모가 다음 견적을 돕는 방법", category: "staff-talk", audience: "brand", brand: "prubi" },
   { topic: "공간 기록 습관", angle: "집을 고치는 동안 하루 한 줄씩 남겨 두면", category: "daily", audience: "brand", brand: "prubi" },
+  { topic: "요청서 쓰는 법", angle: "견적 요청서에 무엇을 적으면 답이 정확해지나요?", category: "quote_worry", audience: "brand", brand: "market" },
+  { topic: "시공 사례 읽는 법", angle: "남의 시공 사례를 내 공사에 옮기는 방법", category: "review", audience: "brand", brand: "market" },
+  { topic: "공사 일지", angle: "공사 중에 남긴 메모가 하자 이야기에서 하는 일", category: "review", audience: "brand", brand: "prubi" },
+  { topic: "결정 기록", angle: "바꾼 결정과 이유를 적어 두면 생기는 여유", category: "daily", audience: "brand", brand: "prubi" },
 ];
 
 /** GEO 회전용 지역 — 서비스가 실제로 도는 곳부터. */
@@ -72,26 +100,45 @@ export function seedFromDate(date = new Date()) {
 }
 
 /**
- * 오늘의 주제 묶음. 매일 시작점이 밀려 같은 글이 반복되지 않는다.
+ * 오늘의 주제 묶음 — **차례대로 돈다**(확률이 아니라 순번).
+ *   · 날짜를 하루 단위 번호로 바꾸고, 그 번호로 주제 풀을 순서대로 걷는다.
+ *     → 같은 주제는 풀을 한 바퀴 다 돈 뒤에야 다시 나온다(주제가 46개면 9일 넘게 뒤).
+ *   · 다시 나올 때는 `variant` 가 1 늘어난다 → 본문 형식·제목 모양이 달라진다.
+ *     (예전에는 날짜 해시로 뽑아, 한 달 안에 같은 주제가 같은 형식으로 겹치는 글이 생겼다)
  *   · brand(우리 이야기)는 한 번에 최대 1개 — 라운지가 광고판이 되지 않게.
- *   · geo:true 주제에는 지역을 돌려 붙인다(부평구 → 다음 날 성남시).
+ *   · geo:true 주제에는 지역을 순서대로 돌려 붙인다.
  */
+export function dayIndexOf(date = new Date()) {
+  const d = typeof date === "string" ? new Date(`${date}T00:00:00Z`) : date;
+  return Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86400000);
+}
+
 export function pickDailyTopics(count = 5, date = new Date()) {
-  const seed = seedFromDate(date);
+  const day = dayIndexOf(date);
   const normal = LOUNGE_TOPIC_POOL.filter(t => t.audience !== "brand");
   const brand  = LOUNGE_TOPIC_POOL.filter(t => t.audience === "brand");
+  const brandDay = day % 3 === 0;                      // 우리 이야기는 사흘에 한 번
+  const normalCount = Math.max(0, brandDay ? count - 1 : count);
   const out = [];
-  const step = 7; // 서로 이웃한 주제가 한꺼번에 나오지 않도록 성큼성큼
-  for (let i = 0; i < Math.max(0, count - 1); i++) {
-    const t = normal[(seed + i * step) % normal.length];
-    out.push(withRegion(t, seed + i));
+
+  /* 보통 주제 — 하루에 normalCount 칸씩, 풀을 «차례대로» 걷는다.
+     칸 번호(n)가 계속 커지므로 같은 주제는 풀을 한 바퀴 돈 뒤에야 다시 나오고,
+     그때는 variant 가 1 늘어 형식·제목이 달라진다. */
+  let cursor = day * 5;                                 // 하루 다섯 칸을 예약해 두고 그 안에서 쓴다
+  for (let i = 0; i < normalCount; i++) {
+    const n = cursor + i;
+    out.push(withRegion(normal[n % normal.length], n, Math.floor(n / normal.length)));
   }
-  if (count > 0) out.push(withRegion(brand[seed % brand.length], seed));
+
+  if (brandDay && count > 0) {
+    const bi = Math.floor(day / 3);
+    out.push(withRegion(brand[bi % brand.length], day, Math.floor(bi / brand.length)));
+  }
   return out;
 }
 
-function withRegion(t, n) {
+function withRegion(t, n, variant = 0) {
   if (!t) return t;
   const region = t.geo ? LOUNGE_TOPIC_REGIONS[n % LOUNGE_TOPIC_REGIONS.length] : null;
-  return { ...t, region };
+  return { ...t, region, variant, rotation: n };
 }
