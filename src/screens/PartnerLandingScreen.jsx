@@ -717,6 +717,26 @@ export default function PartnerLandingScreen() {
     fontSize: 11, fontWeight: 700, background: "#E7F0E6", color: OK,
     border: "1px solid #C8D8C5", whiteSpace: "nowrap", flexShrink: 0,
   };
+  /* ── 업체의 하루 — 2026-09-23 ─────────────────────────────────────────────
+     왜: 이 페이지는 「가입 절차 안내서」였다(30초·확인·승인·검증 배지 나열). 사진은 한 장도 없고,
+         차별점이 수수료(4.4%·오픈 무료)에만 걸려 있었다. 가격은 따라잡히면 끝이다.
+     업체가 실제로 겪는 하루로 다시 세운다 — 견적이 오고, 현장을 보고, 계약하고, 남는다.
+     마지막 마디가 우리만 할 수 있는 말이다: 끝난 공사가 다음 고객을 데려온다. */
+  const PARTNER_JOURNEY = [
+    { no: "01", when: "아침",       title: "광고비를 먼저 쓰지 않습니다",
+      desc: "견적을 요청한 고객에게만 연결됩니다. 요청서에 공간·범위·예산이 적혀 오니 헛걸음이 줄어듭니다.",
+      proof: "견적 수신 · 요청서", img: "/images/partner/p1.webp" },
+    { no: "02", when: "현장에서",   title: "같은 조건으로 견적을 냅니다",
+      desc: "공정·기간·보증을 항목으로 적어 보내면, 고객이 금액만이 아니라 근거를 보고 고릅니다.",
+      proof: "견적서 작성 3단계", img: "/images/partner/p2.webp" },
+    { no: "03", when: "계약할 때",  title: "말이 아니라 기록으로 남깁니다",
+      desc: "계약 내용과 주고받은 말, 현장 사진이 그날짜에 붙습니다. 추가비·하자 이야기가 나와도 확인할 것이 있습니다.",
+      proof: "계약 · 진행 화면", img: "/images/partner/p3.webp" },
+    { no: "04", when: "끝난 뒤",    title: "끝난 공사가 다음 고객을 데려옵니다",
+      desc: "완료한 현장을 시공 사례로 올리면 업체 프로필과 라운지에 남아, 다음 고객이 그것을 보고 찾아옵니다.",
+      proof: "시공 사례 · 후기", img: "/images/partner/p4.webp" },
+  ];
+
   const STEPS = [
     /* ⚠️ 2026-09-23: 예전 이 목록은 「OCR + 국세청 API 자동 검증 · 무인」 · 「관리자 3초 승인」을 내걸었다.
        저장소에 OCR도 국세청 API도 없다(검색 0건) — 서류는 올라가 저장되고 **사람이 보고 승인**한다.
@@ -783,6 +803,45 @@ export default function PartnerLandingScreen() {
               border: "1px solid rgba(255,255,255,.25)", color: "#fff" }}>
               이미 파트너신가요? 로그인 →
             </button>
+          </div>
+        </div>
+
+        {/* ── 업체의 하루 (여정) — 수수료가 아니라 «현장이 어떻게 달라지는가»를 먼저 말한다 ── */}
+        <div style={{ padding: "4px 0 30px" }}>
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: GOLD, letterSpacing: "0.12em", marginBottom: 8 }}>
+              공간파트너의 하루
+            </div>
+            <h2 style={{ fontSize: "clamp(21px,4.5vw,26px)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, lineHeight: 1.35 }}>
+              수주보다 먼저, 현장이 편해집니다
+            </h2>
+            <p style={{ fontSize: 13.5, color: TEXT3, lineHeight: 1.75, margin: "10px 0 0", wordBreak: "keep-all" }}>
+              고객을 연결해 주는 곳은 많습니다. 공간마켓은 그 뒤 — 견적·계약·현장 사진이 한곳에 남아, 다투는 자리가 줄어듭니다.
+            </p>
+          </div>
+          <div className="gm-pjourney" style={{ display: "grid", gap: 14 }}>
+            {PARTNER_JOURNEY.map((j, i) => (
+              <div key={j.no} className="gg-rise" style={{
+                background: "#fff", border: "1px solid #E8E1D8", borderRadius: 20, overflow: "hidden",
+                display: "grid", gridTemplateColumns: "1fr", animationDelay: `${i * 0.06}s`,
+              }}>
+                <img src={j.img} alt="" loading="lazy" aria-hidden="true"
+                  style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
+                <div style={{ padding: "15px 17px 17px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: GOLD, letterSpacing: "0.1em" }}>{j.no}</span>
+                    <span style={{ fontSize: 11.5, color: TEXT3 }}>{j.when}</span>
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: NAVY, letterSpacing: "-0.02em", lineHeight: 1.4 }}>{j.title}</div>
+                  <div style={{ fontSize: 13.5, color: "#3A4A40", lineHeight: 1.75, marginTop: 7, wordBreak: "keep-all" }}>{j.desc}</div>
+                  <div style={{ marginTop: 11, display: "inline-flex", alignItems: "center", gap: 6,
+                    background: "#F4F1EB", border: "1px solid #E8E1D8", borderRadius: 999, padding: "4px 11px",
+                    fontSize: 11.5, fontWeight: 700, color: "#5A6B60" }}>
+                    앱 화면 · {j.proof}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -886,6 +945,10 @@ export default function PartnerLandingScreen() {
       {/* ── 모바일 하단 고정 CTA (골드 그라데이션 단일 버튼 · 검은테두리 제거 + 옅은 베이지 띠 + shimmer) ── */}
       <style>{`
         .gm-beta-dot{ animation: gmBlink 1.8s infinite }
+        /* 업체의 하루 — 넓은 화면에서는 2열, 더 넓으면 사진이 옆으로(고객 랜딩과 같은 규칙) */
+        @media (min-width: 780px){ .gm-pjourney{ grid-template-columns: repeat(2,1fr); gap: 18px } }
+        @media (min-width: 1040px){ .gm-pjourney > div{ grid-template-columns: 240px 1fr; align-items: stretch }
+          .gm-pjourney img{ height: 100% !important; min-height: 190px } }
         @keyframes gmBlink{ 0%,100%{ opacity:1 } 50%{ opacity:.4 } }
         .gm-partner-sticky-cta{ display:none }
         @media (max-width: 640px){ .gm-partner-sticky-cta{ display:flex } }
