@@ -142,11 +142,13 @@ export default function LoungePostCard({ post, onClick }) {
         </div>
       )}
 
-      {/* Row 4: 조회 · 좋아요 · 댓글 (리스트에서는 작성자 익명닉네임을 노출하지 않는다 — 지역·시간은 Row 1) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 11, color: C.text3 }}>👁 {(post.view_count ?? 0).toLocaleString()}</span>
-        <span style={{ fontSize: 11, color: C.text3 }}>❤️ {post.like_count ?? 0}</span>
-        <span style={{ fontSize: 11, color: C.text3 }}>💬 {post.comment_count ?? 0}</span>
+      {/* Row 4: 조회 · 공감 · 댓글 — 이모지 세 개 대신 글자로 (리스트에서 작성자 익명닉네임은 노출하지 않는다) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 11, color: C.text4 }}>
+        <span>조회 {(post.view_count ?? 0).toLocaleString()}</span>
+        <span style={{ color: C.bgWarm }}>·</span>
+        <span>공감 {post.like_count ?? 0}</span>
+        <span style={{ color: C.bgWarm }}>·</span>
+        <span>댓글 {post.comment_count ?? 0}</span>
       </div>
     </div>
   );
