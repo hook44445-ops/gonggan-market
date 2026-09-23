@@ -120,6 +120,7 @@ import {
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee,
   getAdminVisitStats,
+  signedDocUrl,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
 import { GUARANTEE_GRADE_MAP, GUARANTEE_STATUS_META, wonFromManwon } from "../constants/guarantee";
@@ -5241,9 +5242,18 @@ function GpsOpsDashboard({ adminUserId }) {
 // ── 서류 확대 미리보기 모달(조회 전용) ──────────────────────────────────────
 //   업로드 원본(Storage file_url)을 이미지 확대 / PDF 미리보기로 표시.
 //   새 창 열기 · 다운로드 지원. 승인/반려/업로드/DB/API 무관 — 표시 전용 UI.
-function DocPreviewModal({ url, title, onClose }) {
-  if (!url) return null;
-  const clean = String(url).split("?")[0].toLowerCase();
+function DocPreviewModal({ url: rawUrl, title, onClose }) {
+  // 서류는 공개 주소로 두지 않는다 — 열 때마다 짧게 사는 서명 주소를 만든다.
+  // (예전에 공개 주소로 저장된 값도 경로를 꺼내 같은 방식으로 연다)
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    if (!rawUrl) { setUrl(null); return; }
+    signedDocUrl(rawUrl).then((u) => { if (alive) setUrl(u); }).catch(() => { if (alive) setUrl(rawUrl); });
+    return () => { alive = false; };
+  }, [rawUrl]);
+  if (!rawUrl) return null;
+  const clean = String(rawUrl).split("?")[0].toLowerCase();
   const isPdf = clean.endsWith(".pdf");
   const isImage = /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif)$/.test(clean);
   // 확장자 불명(서명 URL 등)은 우선 이미지로 시도하되, 로드 실패 시 안내로 폴백.
@@ -5275,7 +5285,9 @@ function DocPreviewModal({ url, title, onClose }) {
         {/* 본문 — 이미지 확대 / PDF 미리보기 */}
         <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: "#222", display: "flex",
           alignItems: "center", justifyContent: "center" }}>
-          {isPdf ? (
+          {!url ? (
+            <div style={{ color: "#fff", padding: "40px 24px", fontSize: 13 }}>서류를 여는 중이에요…</div>
+          ) : isPdf ? (
             <iframe src={url} title={title} style={{ width: "100%", height: "80vh", border: "none", background: "#fff" }} />
           ) : (isImage || !imgFailed) ? (
             <img src={url} alt={title} onError={() => setImgFailed(true)}

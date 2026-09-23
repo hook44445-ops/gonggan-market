@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { createEstimate, updateEstimate, submitEstimate, uploadFile, createNotification } from "../lib/supabase";
+import { createEstimate, updateEstimate, submitEstimate, uploadDocument, createNotification } from "../lib/supabase";
 import { formatDueRemaining } from "../constants/policy";
 import EstimateCoachPanel from "./growth/EstimateCoachPanel";       // Space OS · AI 코치(라이브, Add Only)
 import EstimateAnalysisResult from "./growth/EstimateAnalysisResult"; // Space OS · 성실견적 분석 결과(제출 후)
@@ -111,7 +111,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
         const file = files[i];
         if (file.size > 10 * 1024 * 1024) { setPhotoError(`${file.name}: 파일이 너무 커요 (최대 10MB)`); continue; }
         const path = `final-quote/${requestIdForPhotos}/material/${Date.now()}_${i}.jpg`;
-        try { const url = await uploadFile("documents", path, file); if (url) uploaded.push(url); }
+        try { const url = await uploadDocument("documents", path, file); if (url) uploaded.push(url); }
         catch (err) { console.error("[MATERIAL_PHOTO_UPLOAD_FAILED]", err); setPhotoError("자재 사진 업로드 실패: " + (err?.message ?? "")); }
       }
       if (uploaded.length > 0) setMaterials(prev => prev.map(m => m.id === id ? { ...m, photos: [...(m.photos ?? []), ...uploaded].slice(0, 5) } : m));
@@ -140,7 +140,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
         // 업로드 경로는 request_id 기준 고정 — synthetic/contract/company 단독 id 사용 금지.
         const path = `final-quote/${requestIdForPhotos}/${Date.now()}_${i}.jpg`;
         try {
-          const url = await uploadFile("documents", path, file);
+          const url = await uploadDocument("documents", path, file);
           if (url) uploaded.push(url);
           else setPhotoError("사진 업로드에 실패했어요. 잠시 후 다시 시도해주세요.");
         } catch (err) {

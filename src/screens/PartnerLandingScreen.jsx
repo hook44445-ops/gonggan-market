@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { submitPartnerLead, checkPartnerApproved, uploadFile, attachPartnerLeadFiles, attachPartnerLeadIdCard, setPartnerLeadPledge } from "../lib/supabase";
+import { submitPartnerLead, checkPartnerApproved, uploadDocument, attachPartnerLeadFiles, attachPartnerLeadIdCard, setPartnerLeadPledge } from "../lib/supabase";
 import { isDeviceVerified, getKnownUsers } from "../lib/deviceAuth";
 import PartnerOnboarding from "../components/PartnerOnboarding";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
@@ -251,14 +251,14 @@ function ConsultForm() {
       if (leadId) {
         try {
           let bizUrl = null;
-          if (bizFile) bizUrl = await uploadFile("documents", `partner_leads/${leadId}/biz_${Date.now()}_${bizFile.name}`, bizFile);
-          if (insFile) insUrl = await uploadFile("documents", `partner_leads/${leadId}/ins_${Date.now()}_${insFile.name}`, insFile);
+          if (bizFile) bizUrl = await uploadDocument("documents", `partner_leads/${leadId}/biz_${Date.now()}_${bizFile.name}`, bizFile);
+          if (insFile) insUrl = await uploadDocument("documents", `partner_leads/${leadId}/ins_${Date.now()}_${insFile.name}`, insFile);
           if (bizUrl || insUrl) await attachPartnerLeadFiles(leadId, { businessLicenseUrl: bizUrl, insuranceFileUrl: insUrl });
         } catch (e) { console.warn("[partner files] 업로드 실패(신청은 계속):", e); }
         // V1.7: 대표자 신분증(선택) — 사업자/보험과 분리 저장. 073 미적용 시 이 호출만 no-op.
         if (idFile) {
           try {
-            const idUrl = await uploadFile("documents", `partner_leads/${leadId}/id_${Date.now()}_${idFile.name}`, idFile);
+            const idUrl = await uploadDocument("documents", `partner_leads/${leadId}/id_${Date.now()}_${idFile.name}`, idFile);
             if (idUrl) await attachPartnerLeadIdCard(leadId, idUrl);
           } catch (e) { console.warn("[partner id-card] 저장 실패(신청은 계속):", e); }
         }

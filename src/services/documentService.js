@@ -54,13 +54,10 @@ export async function uploadDocumentFile({ file, companyId, userId, documentType
 
   if (uploadError) throw uploadError;
 
-  const { data: publicUrlData } = supabase.storage
-    .from("company-documents")
-    .getPublicUrl(path);
-
+  // 공개 주소를 만들지 않는다 — «버킷/경로» 만 저장하고, 볼 때 서명 주소를 만든다(signedDocUrl).
   return {
     file_name: file.name,
-    file_url: publicUrlData.publicUrl,
+    file_url: `company-documents/${path}`,
     file_size: file.size,
     mime_type: file.type
   };

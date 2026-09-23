@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
-import { adminReviewDocument, createNotification } from "../lib/supabase";
+import { adminReviewDocument, createNotification, signedDocUrl } from "../lib/supabase";
 
 const STATUS_META = {
   draft:     { label: "미작성",   color: C.text4,  bg: C.bg      },
@@ -170,10 +170,15 @@ export default function AdminDocumentReviewModal({ docs, company, adminUser, onC
               {selected.file_url && (
                 <div style={{ marginBottom: S.md }}>
                   <div style={{ fontSize: 11, color: C.text3, marginBottom: S.xs }}>첨부 파일</div>
-                  <a href={selected.file_url} target="_blank" rel="noreferrer"
-                    style={{ fontSize: 13, color: C.brand, fontWeight: 700, textDecoration: "none" }}>
+                  {/* 서류는 공개 주소로 두지 않는다 — 누를 때 짧게 사는 서명 주소를 만들어 연다. */}
+                  <button onClick={async () => {
+                      const u = await signedDocUrl(selected.file_url);
+                      if (u) window.open(u, "_blank", "noopener");
+                    }}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer",
+                      fontSize: 13, color: C.brand, fontWeight: 700 }}>
                     📎 {selected.file_name ?? "파일 보기"} ›
-                  </a>
+                  </button>
                 </div>
               )}
 

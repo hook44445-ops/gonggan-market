@@ -464,6 +464,46 @@ export const disputeEscrowStep = (paymentId, step, reason) =>
 
 // ── Storage ───────────────────────────────────────────────────────────────────
 
+// ── 민감 서류(사업자등록증·신분증·보험증권·계약 증빙) ─────────────────────────
+// 예전에는 업로드 후 **공개 주소**(getPublicUrl)를 DB 에 저장했다. 주소만 알면 누구나 열려
+// 개인정보가 새어 나간다. 이제 저장값은 «버킷/경로» 이고, 볼 때마다 짧게 사는 서명 주소를 만든다.
+//  · 새로 올린 것: "documents/partner_leads/…" 같은 경로
+//  · 예전에 저장된 공개/서명 주소: 주소에서 경로를 꺼내 똑같이 서명 주소로 바꾼다(버킷을 비공개로
+//    돌려도 열린다)
+// ⚠️ 버킷을 실제로 **비공개**로 바꾸는 것은 Supabase 대시보드에서 한 번 해야 한다(대표).
+export const PRIVATE_DOC_BUCKETS = ["documents", "company-documents"];
+
+export const docObjectRef = (value) => {
+  const v = String(value ?? "").trim();
+  if (!v || v.startsWith("blob:") || v.startsWith("data:")) return null;
+  const m = v.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+?)(?:\?|$)/);
+  if (m) return { bucket: m[1], path: decodeURIComponent(m[2]) };
+  if (/^https?:/i.test(v)) return null;
+  const slash = v.indexOf("/");
+  if (slash <= 0) return null;
+  const bucket = v.slice(0, slash);
+  if (!PRIVATE_DOC_BUCKETS.includes(bucket)) return null;
+  return { bucket, path: v.slice(slash + 1) };
+};
+
+/** 서류 열람용 임시 주소(기본 10분). 실패하면 원래 값을 그대로 돌려준다(화면이 멈추지 않게). */
+export const signedDocUrl = async (value, expiresIn = 600) => {
+  const ref = docObjectRef(value);
+  if (!ref) return value ?? null;
+  try {
+    const { data, error } = await supabase.storage.from(ref.bucket).createSignedUrl(ref.path, expiresIn);
+    if (error || !data?.signedUrl) return value ?? null;
+    return data.signedUrl;
+  } catch { return value ?? null; }
+};
+
+/** 민감 서류 업로드 — 공개 주소를 만들지 않고 «버킷/경로» 를 돌려준다(이 값을 DB 에 저장). */
+export const uploadDocument = async (bucket, path, file) => {
+  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+  if (error) throw error;
+  return `${bucket}/${data?.path ?? path}`;
+};
+
 export const uploadFile = async (bucket, path, file) => {
   const { data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
   if (error) throw error;

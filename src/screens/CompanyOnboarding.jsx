@@ -3,7 +3,7 @@ import { C, R, S, CITY_DISTRICTS, SPECIALTIES } from "../constants";
 import { BADGES, requiredDeposit, depositRatePct } from "../constants/badges";
 import { Divider } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
-import { upsertUserByPhone, upsertCompany, uploadFile, upsertCompanyDocument } from "../lib/supabase";
+import { upsertUserByPhone, upsertCompany, uploadDocument, upsertCompanyDocument } from "../lib/supabase";
 import RegionSelectSheet from "../components/RegionSelectSheet";
 import { getPrimaryRegion, regionKey } from "../constants/regions";
 
@@ -390,7 +390,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
               setUploadingBiz(true);
               try {
                 const path = `biz-doc/${Date.now()}_${file.name.replace(/\s/g,"_")}`;
-                const url = await uploadFile("documents", path, file).catch(() => URL.createObjectURL(file));
+                const url = await uploadDocument("documents", path, file).catch(() => URL.createObjectURL(file));
                 set("bizDocFile", file.name);
                 set("bizDocUrl", url);
                 set("hasBizDoc", true);
@@ -433,7 +433,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
                   setUploadingIns(true);
                   try {
                     const path = `insurance/${Date.now()}_${file.name.replace(/\s/g,"_")}`;
-                    const url = await uploadFile("documents", path, file).catch(() => URL.createObjectURL(file));
+                    const url = await uploadDocument("documents", path, file).catch(() => URL.createObjectURL(file));
                     set("insuranceFile", file.name);
                     set("insuranceUrl", url);
                     set("hasInsurance", true);
