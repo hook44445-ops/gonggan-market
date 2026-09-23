@@ -2001,7 +2001,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         {/* ── STEP4: 완료 축하 카드 ── */}
         {isConsumer && (stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
           <div style={{ background: "#1E3D2F", color: "#fff", borderRadius: R.xl, padding: S.xxl, marginBottom: S.lg }}>
-            <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.8, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="🎉" size={18} color="#fff" /> 공사가 완료됐습니다!</div>
+            <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.8, marginBottom: 4 }}>공사가 완료됐습니다</div>
             <div style={{ fontSize: 14, opacity: 0.92, lineHeight: 1.8, marginBottom: S.md }}>
               {request?.area ? `${request.area} ` : ""}{request?.space_type ?? "시공"}
               {bidAmount > 0 ? ` · ${fmtMoney(bidAmount)}이 안전하게 완료됐어요.` : "이 안전하게 완료됐어요."}
@@ -2034,11 +2034,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                 <div style={{ display:"flex", alignItems:"center", gap:S.md, marginBottom:S.md }}>
                   <Icon emoji="☕" size={28} color="#8A5C00" style={{ flexShrink:0 }} />
                   <div>
-                    <div style={{ fontSize:14, fontWeight:800, color:"#8A5C00", marginBottom:2 }}>공사 완료 — 후기를 남겨보세요</div>
-                    <div style={{ fontSize:12, color:"#A06B00", lineHeight:1.6 }}>포토리뷰 작성 시 커피쿠폰을 드립니다.</div>
+                    <div style={{ fontSize:14, fontWeight:800, color:"#8A5C00", marginBottom:2 }}>마지막 한 가지 — 후기</div>
+                    <div style={{ fontSize:12, color:"#A06B00", lineHeight:1.6 }}>내 공간 기록으로 남고, 업체에게는 다음 고객이 됩니다. 전·후 사진을 올리면 커피쿠폰도 드립니다.</div>
                   </div>
                 </div>
-                <button onClick={() => onReview && onReview(resolvedBid?.company)}
+                <button onClick={() => onReview && onReview(resolvedBid?.company)} className="gg-cta"
                   style={{ width:"100%", padding:S.lg, background:"#8A5C00", color:"#fff",
                     border:"none", borderRadius:R.lg, fontWeight:800, fontSize:14,
                     cursor:"pointer", boxShadow:"0 4px 16px rgba(138,92,0,0.25)",
