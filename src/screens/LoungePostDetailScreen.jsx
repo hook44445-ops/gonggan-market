@@ -2,7 +2,7 @@
 // 공간마켓 라운지 시스템
 // ─────────────────────────────────────────────────────
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { C, R, S } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
 import { CATEGORY_LABEL, TOKEN_COSTS } from '../constants/lounge';
@@ -234,6 +234,22 @@ function PostMenuSheet({ isOwn, isAdmin, onEdit, onDelete, onReport, onBlock, on
 }
 
 // 카테고리별 거래 연결 CTA — 라운지를 거래로 잇는 핵심
+/* 사진을 글보다 먼저, 그리고 글 사이사이로 (2026-09-23 대표 지시).
+   왜: 인테리어 글에서 사진은 장식이 아니라 «본문»이다. 지금까지는 글을 다 읽은 뒤 맨 아래
+       작은 썸네일 줄로 나와서, 정작 보러 온 것을 마지막에 보여 주고 있었다.
+   규칙: 첫 장은 제목 바로 아래 큰 사진, 나머지는 문단 사이에 하나씩. 문단이 모자라면 본문 끝에 이어 붙인다.
+       원본 배열 순서와 인덱스는 그대로 — 눌렀을 때 뷰어가 같은 장을 연다. */
+function splitIntoChunks(content, parts) {
+  const text = String(content ?? '');
+  if (parts <= 1) return [text];
+  const paras = text.split(/\n\s*\n/);
+  if (paras.length <= 1) return [text];
+  const per = Math.ceil(paras.length / parts);
+  const chunks = [];
+  for (let i = 0; i < paras.length; i += per) chunks.push(paras.slice(i, i + per).join('\n\n'));
+  return chunks;
+}
+
 /* 공간 이야기 카테고리 — 여기에만 «이 동네 시공 사례»를 붙인다(연애·주식 글에 공사 사례는 소음이다). */
 const SPACE_CATEGORIES = new Set(['review', 'quote_worry', 'interior', 'room_deco', 'move_in']);
 
@@ -989,10 +1005,10 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           return (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: `0 0 ${S.md}px` }}>
-                <span style={{ fontSize: 11.5, color: C.text3 }}>📖 {rx.readingTime.label}</span>
+                <span style={{ fontSize: 11.5, color: C.text3 }}>{rx.readingTime.label}</span>
                 {showBadge && (
                   <span title={badge.desc} style={{ fontSize: 10.5, fontWeight: 700, color: badge.tone, background: C.ivory, border: `1px solid ${C.bgWarm}`, borderRadius: R.full, padding: '2px 9px' }}>
-                    {badge.emoji} {badge.label}
+                    {badge.label}
                   </span>
                 )}
               </div>
@@ -1013,23 +1029,54 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           );
         })()}
 
-        <div ref={articleRef} style={{ marginBottom: S.xl }}><RichContent content={post.content} baseSize={14} /></div>
-
-        {post.image_urls && post.image_urls.length > 0 && (
-          <div style={{ display: 'flex', gap: 6, marginBottom: S.lg, overflowX: 'auto', scrollbarWidth: 'none' }}>
-            {post.image_urls.map((url, i) => (
+        {(() => {
+          const photos = post.image_urls ?? [];
+          const altOf  = (i) => (post.title ? `${post.title}${photos.length > 1 ? ` (${i + 1})` : ''}` : '공간마켓 라운지 이미지');
+          const open   = (i) => setImgViewer({ urls: photos, index: i });
+          const big    = (i, extra = {}) => (
+            <div key={`ph-${i}`} style={{ position: 'relative', margin: `0 0 ${S.lg}px`, ...extra }}>
               <img
-                key={i}
-                src={url}
+                src={photos[i]}
                 /* SEO: 제목 기반 alt — 이미지도 콘텐츠의 일부 */
-                alt={post.title ? `${post.title}${post.image_urls.length > 1 ? ` (${i + 1})` : ''}` : '공간마켓 라운지 이미지'}
-                loading="lazy"
-                onClick={() => setImgViewer({ urls: post.image_urls, index: i })}
-                style={{ width: 120, height: 120, borderRadius: R.md, objectFit: 'cover', flexShrink: 0, cursor: 'pointer' }}
+                alt={altOf(i)}
+                loading={i === 0 ? 'eager' : 'lazy'}
+                onClick={() => open(i)}
+                style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: R.lg,
+                  border: `1px solid ${C.bgWarm}`, display: 'block', cursor: 'zoom-in' }}
               />
-            ))}
-          </div>
-        )}
+              {photos.length > 1 && (
+                <span style={{ position: 'absolute', right: 8, bottom: 8, background: 'rgba(0,0,0,0.55)', color: '#fff',
+                  borderRadius: R.full, padding: '2px 9px', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em' }}>
+                  {i + 1} / {photos.length}
+                </span>
+              )}
+            </div>
+          );
+
+          if (photos.length === 0) {
+            return <div ref={articleRef} style={{ marginBottom: S.xl }}><RichContent content={post.content} baseSize={14} /></div>;
+          }
+
+          /* 첫 장은 글보다 먼저. 나머지는 문단 사이에 한 장씩. */
+          const rest   = photos.length - 1;
+          const chunks = splitIntoChunks(post.content, rest + 1);
+          const placed = Math.min(rest, Math.max(0, chunks.length - 1));
+          return (
+            <>
+              {big(0)}
+              <div ref={articleRef} style={{ marginBottom: S.xl }}>
+                {chunks.map((chunk, ci) => (
+                  <Fragment key={`ck-${ci}`}>
+                    <RichContent content={chunk} baseSize={14} />
+                    {ci < placed && big(ci + 1, { marginTop: S.md })}
+                  </Fragment>
+                ))}
+                {/* 문단이 모자라 못 넣은 사진은 본문 끝에 이어 붙인다(버리지 않는다) */}
+                {Array.from({ length: rest - placed }, (_, k) => big(placed + 1 + k, { marginTop: S.md }))}
+              </div>
+            </>
+          );
+        })()}
 
         {/* STEP3: 전문가(업체) 글 — 작성자 프로필 카드 자동 연결 */}
         {post.is_expert && (
