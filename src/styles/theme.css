@@ -161,3 +161,51 @@ body {
   word-break: keep-all;
   overflow-wrap: break-word;
 }
+
+/* ── CTA — 버튼 하나에도 디테일 (2026-09-23) ─────────────────────────────────
+   표면: 힉스필드로 만든 아주 옅은 질감(리넨 / 브러시드 골드)을 soft-light 로 얹는다.
+   빛  : 위에서 1px 하이라이트, 아래로 그림자. 손이 닿으면 광택이 한 번 지나간다.
+   눌림: 살짝 들어가고 그림자가 안으로 들어온다(종이 위 도장처럼).
+   쓰는 법: 주요 버튼에 className="gg-cta" (골드 버튼은 "gg-cta gg-cta-gold").
+   움직임 최소화 설정에서는 광택을 켜지 않는다. */
+.gg-cta {
+  position: relative; overflow: hidden; isolation: isolate;
+  box-shadow: 0 8px 20px rgba(20, 45, 32, 0.22), inset 0 1px 0 rgba(255,255,255,0.20);
+  transition: transform 0.16s ease, box-shadow 0.2s ease, filter 0.16s ease;
+}
+/* 표면 — 인라인 배경색 위에 얹는 질감 층(인라인 style 이 background 를 덮어써도 살아남는다) */
+.gg-cta::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.10)),
+    url("/images/texture/linen.webp");
+  background-size: auto, 170px 170px;
+  mix-blend-mode: soft-light; opacity: 0.85;
+}
+.gg-cta > * { position: relative; z-index: 1; }
+.gg-cta::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,0.26) 50%, transparent 62%);
+  transform: translateX(-130%);
+}
+.gg-cta:hover::after { transform: translateX(130%); transition: transform 0.85s cubic-bezier(0.22,0.61,0.36,1); }
+.gg-cta:hover { transform: translateY(-1px); box-shadow: 0 12px 26px rgba(20, 45, 32, 0.28), inset 0 1px 0 rgba(255,255,255,0.22); }
+.gg-cta:active {
+  transform: translateY(1px) scale(0.995); filter: brightness(0.97);
+  box-shadow: inset 0 2px 7px rgba(0,0,0,0.20), 0 2px 6px rgba(20, 45, 32, 0.16);
+}
+.gg-cta:disabled, .gg-cta[aria-disabled="true"] { box-shadow: none; transform: none; filter: none; }
+.gg-cta:disabled::before, .gg-cta:disabled::after,
+.gg-cta[aria-disabled="true"]::before, .gg-cta[aria-disabled="true"]::after { display: none; }
+.gg-cta-gold::before {
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.26), rgba(0,0,0,0.10)),
+    url("/images/texture/brushed.webp");
+  background-size: auto, 190px 190px;
+}
+.gg-cta-gold { box-shadow: 0 8px 22px rgba(150, 115, 40, 0.30), inset 0 1px 0 rgba(255,255,255,0.35); }
+.gg-cta-gold:hover { box-shadow: 0 12px 28px rgba(150, 115, 40, 0.36), inset 0 1px 0 rgba(255,255,255,0.38); }
+@media (prefers-reduced-motion: reduce) {
+  .gg-cta, .gg-cta:hover, .gg-cta:active { transform: none !important; transition: none !important; }
+  .gg-cta::after { display: none !important; }
+}

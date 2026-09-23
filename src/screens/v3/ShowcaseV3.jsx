@@ -100,7 +100,7 @@ function Detail({ item, onBack, onRequest, onOpenCompany }) {
       ) : null}
 
       <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
-        <button onClick={() => onRequest?.(item.spaceType)}
+        <button onClick={() => onRequest?.(item.spaceType)} className="gg-cta"
           style={{ height: 50, borderRadius: R.lg, border: "none", background: C.brand, color: "#fff", fontSize: 15,
             fontWeight: 800, cursor: "pointer", boxShadow: SHADOW.brand }}>
           이런 공사, 무료로 견적 받기

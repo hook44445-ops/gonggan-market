@@ -284,7 +284,7 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
 
           <div style={{ display: "flex", gap: S.sm }}>
             <button onClick={() => setStep(2)} style={backBtn}>← 이전</button>
-            <button onClick={() => form.desc && onDone(form)} style={primaryBtn(!!form.desc)}>{isEdit ? "✅ 수정 완료" : "🚀 견적 요청하기"}</button>
+            <button onClick={() => form.desc && onDone(form)} className={form.desc ? "gg-cta" : undefined} style={primaryBtn(!!form.desc)}>{isEdit ? "✅ 수정 완료" : "🚀 견적 요청하기"}</button>
           </div>
           {!isEdit && (
             <div style={{ textAlign: "center", fontSize: 12, color: C.text3, marginTop: S.md }}>

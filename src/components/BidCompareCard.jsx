@@ -135,7 +135,7 @@ export default function BidCompareCard({ bid, onChat, onSelect, onOpenCompany, s
             border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 600, fontSize: 13.5,
             minHeight: 46, cursor: "pointer", fontFamily: "inherit", letterSpacing: "-0.01em",
           }}>상담</button>
-          <button onClick={onSelect} style={{
+          <button onClick={onSelect} className={selected ? undefined : "gg-cta"} style={{
             flex: 1, padding: "12px", borderRadius: R.lg, fontWeight: 700, fontSize: 14.5, minHeight: 46,
             cursor: "pointer", fontFamily: "inherit", letterSpacing: "-0.01em",
             background: selected ? C.brandL : C.brand,
