@@ -272,107 +272,90 @@ export default function LoginScreen({ onLogin, initialRole }) {
       padding: "24px 20px", fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif",
     }}>
 
-      {/* ── Step 1: Role Selection ── */}
+      {/* ── Step 1: 첫 화면 — 사진 한 장, 절제된 글, 장식 없는 선택 ── */}
       {step === 1 && (
-        <div style={{ width: "100%", maxWidth: 390 }}>
-          <div style={{ textAlign: "center", marginBottom: 36 }}>
-            <div style={{
-              width: 80, height: 80, borderRadius: 26, margin: "0 auto 14px",
-              background: C.surface,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: `0 10px 30px ${C.brand22}`, border: `1px solid ${C.bgWarm}`,
-            }}><LogoMark size={52} bare /></div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: C.brandD, letterSpacing: "-0.5px" }}>공간마켓</div>
-            <div style={{ fontSize: 12, color: C.text3, marginTop: 4, letterSpacing: "0.5px" }}>by 공간사이</div>
-            <div style={{ fontSize: 13, color: C.text3, marginTop: 8 }}>사람과 공간 사이, 믿을 수 있는 연결</div>
+        <div style={{ width: "100%", maxWidth: 420 }}>
+          {/* 사진 — 아침 빛이 드는 작업 책상. 아래는 배경색으로 천천히 사라진다. */}
+          <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", marginBottom: 22 }}>
+            <img src="/images/intro/hero.webp" alt="" width={900} height={600}
+              style={{ width: "100%", height: 208, objectFit: "cover", display: "block" }} />
+            <div style={{ position: "absolute", inset: 0,
+              background: `linear-gradient(to bottom, rgba(246,243,238,0) 22%, rgba(246,243,238,0.72) 58%, ${C.bg} 92%)` }} />
+            <div style={{ position: "absolute", left: 20, right: 20, bottom: 16 }}>
+              <div style={{ fontSize: 10, color: C.text3, letterSpacing: "0.2em", marginBottom: 7 }}>BY 공간사이</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                <LogoMark size={26} bare />
+                <span style={{ fontSize: 27, fontWeight: 700, color: C.text1, letterSpacing: "-0.03em", lineHeight: 1.2 }}>공간마켓</span>
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: S.sm, marginBottom: S.xxl }}>
-            {[["🔍", "간편 견적"], ["🏆", "검증 업체"], ["🛡", "안전 정산"]].map(([icon, label]) => (
-              <div key={label} style={{
-                flex: 1, background: C.surface, borderRadius: R.lg,
-                padding: `${S.lg}px ${S.sm}px`, textAlign: "center",
-                border: `1px solid ${C.bgWarm}`,
-              }}>
-                <div style={{ marginBottom: 5, display: "flex", justifyContent: "center" }}><Icon emoji={icon} size={22} color={C.brand} /></div>
-                <div style={{ fontSize: 12, color: C.text2, fontWeight: 700 }}>{label}</div>
-              </div>
-            ))}
+          <div style={{ padding: "0 4px", marginBottom: 26 }}>
+            <div style={{ fontSize: 15, color: C.text2, lineHeight: 1.75, letterSpacing: "-0.01em" }}>
+              사람과 공간 사이,<br />믿을 수 있는 연결.
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, fontSize: 11.5, color: C.text4, letterSpacing: "0.02em" }}>
+              <span>무료 견적</span><span style={{ color: C.bgWarm }}>—</span>
+              <span>검증 업체</span><span style={{ color: C.bgWarm }}>—</span>
+              <span>단계별 안전 정산</span>
+            </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {/* 정식 UX 정책: '통합 둘러보기' 메뉴는 홈/로그인 노출에서 제외(기능/패널/route는 유지).
-                라운지는 독립 커뮤니티로 직접 진입 유지 — 아래 라운지 둘러보기 버튼으로 대체. */}
-            <button onClick={() => onLogin({ id: null, role: "consumer", name: "게스트", region: "", isGuest: true, startAt: "lounge" })}
-              style={{
-                background: C.surface, border: `1.5px solid ${C.bgWarm}`, borderRadius: R.xl,
-                padding: "15px 20px", display: "flex", alignItems: "center", gap: 14,
-                cursor: "pointer", boxShadow: "0 2px 8px rgba(28,23,18,0.06)", textAlign: "left",
-              }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: R.lg, flexShrink: 0,
-                background: C.brandL, border: `1.5px solid ${C.brandM}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}><Icon emoji="💬" size={22} color={C.brand} /></div>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 2 }}>라운지 둘러보기</div>
-                <div style={{ fontSize: 12, color: C.text3 }}>가입 전 커뮤니티 · 후기 · 질문 미리보기</div>
-              </div>
-              <div style={{ marginLeft: "auto", color: C.brand, fontSize: 20 }}>›</div>
-            </button>
-
             <button onClick={() => chooseRole("consumer")}
               style={{
-                background: `linear-gradient(135deg,${C.brand},${C.brandD})`, color: "#fff",
-                border: "none", borderRadius: R.xl, padding: "18px 20px",
-                display: "flex", alignItems: "center", gap: 14,
-                cursor: "pointer", boxShadow: `0 6px 20px ${C.brand44}`, textAlign: "left",
+                background: C.surface, border: `1px solid ${C.brandM}`, borderRadius: 16,
+                padding: "16px 18px", display: "flex", alignItems: "center", gap: 14,
+                cursor: "pointer", textAlign: "left", fontFamily: "inherit",
               }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: R.lg, flexShrink: 0,
-                background: "rgba(255,255,255,0.2)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}><Icon emoji="🏡" size={24} color="#fff" /></div>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 2 }}>의뢰인으로 시작</div>
-                <div style={{ fontSize: 13, opacity: 0.8 }}>집수리·인테리어·리모델링 업체를 찾고 있어요</div>
-              </div>
-              <div style={{ marginLeft: "auto", fontSize: 20, opacity: 0.8 }}>›</div>
+              <img src="/images/intro/consumer.webp" alt="" width={44} height={44}
+                style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, objectFit: "cover" }} />
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: 15.5, fontWeight: 700, color: C.text1, letterSpacing: "-0.01em" }}>의뢰인으로 시작</span>
+                <span style={{ display: "block", fontSize: 12.5, color: C.text3, marginTop: 2 }}>집수리·인테리어 업체를 찾고 있어요</span>
+              </span>
+              <span style={{ color: C.text4, fontSize: 18 }}>›</span>
             </button>
 
             <button onClick={() => chooseRole("company")}
               style={{
-                background: C.surface, border: `1.5px solid ${C.bgWarm}`, borderRadius: R.xl,
-                padding: "18px 20px", display: "flex", alignItems: "center", gap: 14,
-                cursor: "pointer", boxShadow: "0 2px 12px rgba(28,23,18,0.08)", textAlign: "left",
+                background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: 16,
+                padding: "16px 18px", display: "flex", alignItems: "center", gap: 14,
+                cursor: "pointer", textAlign: "left", fontFamily: "inherit",
               }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: R.lg, flexShrink: 0,
-                background: C.surface2, border: `1.5px solid ${C.bgWarm}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}><Icon emoji="🔨" size={24} color={C.brand} /></div>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 2 }}>업체로 시작</div>
-                <div style={{ fontSize: 13, color: C.text3 }}>견적 의뢰를 받고 일감을 늘려요</div>
-              </div>
-              <div style={{ marginLeft: "auto", color: C.brand, fontSize: 20 }}>›</div>
+              <img src="/images/intro/partner.webp" alt="" width={44} height={44}
+                style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, objectFit: "cover" }} />
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: 15.5, fontWeight: 700, color: C.text1, letterSpacing: "-0.01em" }}>업체로 시작</span>
+                <span style={{ display: "block", fontSize: 12.5, color: C.text3, marginTop: 2 }}>견적 의뢰를 받고 일감을 늘려요</span>
+              </span>
+              <span style={{ color: C.text4, fontSize: 18 }}>›</span>
             </button>
           </div>
 
-          <div style={{ textAlign: "center", marginTop: 24 }}>
+          {/* 라운지는 가입 전에도 볼 수 있다 — 카드 대신 조용한 한 줄 */}
+          <button onClick={() => onLogin({ id: null, role: "consumer", name: "게스트", region: "", isGuest: true, startAt: "lounge" })}
+            style={{ width: "100%", marginTop: 16, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 0" }}>
+            <img src="/images/intro/lounge.webp" alt="" width={20} height={20}
+              style={{ width: 20, height: 20, borderRadius: 6, objectFit: "cover", opacity: 0.9 }} />
+            <span style={{ fontSize: 13, color: C.text2, fontWeight: 600 }}>가입 없이 라운지 둘러보기</span>
+            <span style={{ color: C.text4, fontSize: 15 }}>›</span>
+          </button>
+
+          <div style={{ textAlign: "center", marginTop: 26 }}>
             <div
               onClick={() => {
                 const next = tapCount + 1;
                 setTapCount(next);
                 if (next >= 5) { setTapCount(0); setShowAdminModal(true); }
               }}
-              style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
+              style={{ fontSize: 10.5, color: C.text4, cursor: "default", userSelect: "none", letterSpacing: "0.06em" }}>
               공간마켓 v1.0.0
             </div>
           </div>
         </div>
       )}
-
       {/* ── Step 2: Phone verification ── */}
       {step === 2 && (
         <div style={{ width: "100%", maxWidth: 390 }}>

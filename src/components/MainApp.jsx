@@ -1760,10 +1760,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   useEffect(() => {
     if (activeRole !== "consumer") return;
     const MSG = {
-      STARTED:        "🎉 착공이 시작됐습니다 · 30%가 업체에 안전하게 지급됐어요. 다음 정산은 중간 완료 후입니다",
-      MID_INSPECTION: "✅ 중간 단계가 확인됐습니다 · 40%가 업체에 지급됐어요. 이제 마무리 단계입니다",
-      COMPLETED:      "🛠 마무리 단계입니다 · 완료 사진 확인 후 잔금이 지급됩니다",
-      SETTLED:        "🎉 모든 공사가 완료됐습니다 · 총 거래가 안전하게 마무리됐어요. 후기를 남겨주세요",
+      STARTED:        "착공이 시작됐습니다 · 30%가 업체에 안전하게 지급됐어요. 다음 정산은 중간 완료 후입니다",
+      MID_INSPECTION: "중간 단계가 확인됐습니다 · 40%가 업체에 지급됐어요. 이제 마무리 단계입니다",
+      COMPLETED:      "마무리 단계입니다 · 완료 사진 확인 후 잔금이 지급됩니다",
+      SETTLED:        "모든 공사가 완료됐습니다 · 총 거래가 안전하게 마무리됐어요. 후기를 남겨주세요",
     };
     Object.entries(myRequestsEscrow).forEach(([rid, ed]) => {
       const tx = ed?.escrow?.transaction_status;
@@ -1784,11 +1784,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
     // 단계 → 알림 정의 (진행 알림: 즉시·무제한)
     const STAGE_NOTIF = {
-      CONTRACTED:     { type: "CONTRACT_CREATED",     title: "계약 생성", message: "계약서가 생성됐습니다 📄 내용을 확인해보세요" },
-      STARTED:        { type: "CONSTRUCTION_STARTED", title: "착공 시작", message: "착공이 시작됐어요 🏗️ 30%가 업체에 안전하게 지급됐습니다" },
+      CONTRACTED:     { type: "CONTRACT_CREATED",     title: "계약 생성", message: "계약서가 생성됐습니다. 내용을 확인해 주세요" },
+      STARTED:        { type: "CONSTRUCTION_STARTED", title: "착공 시작", message: "착공이 시작됐어요. 30%가 업체에 안전하게 지급됐습니다" },
       MID_INSPECTION: { type: "ESCROW_MID_CHECK",     title: "중간 점검", message: "중간 단계가 확인됐어요 · 40%가 안전하게 지급됐습니다" },
-      COMPLETED:      { type: "CONSTRUCTION_DONE",    title: "공사 완료", message: "공사가 완료됐습니다 🎉 완료 확인 후 잔금이 지급됩니다" },
-      SETTLED:        { type: "SETTLEMENT_DONE",      title: "정산 완료", message: "최종 정산이 완료됐어요 🎉 거래가 안전하게 마무리됐습니다" },
+      COMPLETED:      { type: "CONSTRUCTION_DONE",    title: "공사 완료", message: "공사가 완료됐습니다. 완료 확인 후 잔금이 지급됩니다" },
+      SETTLED:        { type: "SETTLEMENT_DONE",      title: "정산 완료", message: "최종 정산이 완료됐어요. 거래가 안전하게 마무리됐습니다" },
     };
 
     let cancelled = false;
@@ -1858,10 +1858,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (jobs.length === 0) return;
 
     const CO_STAGE_NOTIF = {
-      STARTED:        { type: "CO_CONSTRUCTION_STARTED", title: "착공 단계 시작", message: "착공 단계가 시작됐어요 🏗️ 자재비·착공 정산이 진행됩니다." },
+      STARTED:        { type: "CO_CONSTRUCTION_STARTED", title: "착공 단계 시작", message: "착공 단계가 시작됐어요. 자재비·착공 정산이 진행됩니다." },
       MID_INSPECTION: { type: "CO_ESCROW_MID_CHECK",     title: "중간 점검 승인", message: "중간 점검이 확인됐어요 · 중간 정산이 진행됩니다." },
-      COMPLETED:      { type: "CO_CONSTRUCTION_DONE",    title: "완료 등록됨",     message: "완료가 등록됐어요 🎉 고객 최종 승인 후 잔금이 정산됩니다." },
-      SETTLED:        { type: "CO_SETTLEMENT_DONE",      title: "최종 정산 완료",  message: "최종 정산이 완료됐어요 🎉 거래가 안전하게 마무리됐습니다." },
+      COMPLETED:      { type: "CO_CONSTRUCTION_DONE",    title: "완료 등록됨",     message: "완료가 등록됐어요. 고객 최종 승인 후 잔금이 정산됩니다." },
+      SETTLED:        { type: "CO_SETTLEMENT_DONE",      title: "최종 정산 완료",  message: "최종 정산이 완료됐어요. 거래가 안전하게 마무리됐습니다." },
       DISPUTE:        { type: "CO_DISPUTE_FILED",        title: "분쟁 접수",       message: "이 거래에 분쟁이 접수됐어요 · 정산이 보류됩니다. 관리자 검토를 기다려주세요." },
     };
 
@@ -2093,7 +2093,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       if (error || data?.error) { showToast("토큰 적립에 실패했어요. 고객센터에 문의해주세요."); return; }
 
       await reloadTokens?.();
-      showToast(`🪙 ${Number(pending.tokens).toLocaleString()} 토큰이 지급됐어요!`);
+      showToast(`${Number(pending.tokens).toLocaleString()} 토큰이 지급됐어요`);
       setPrevScreen("my");
       setScreen("token-history");
     };
@@ -2615,7 +2615,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         type:        allIn ? "BID_ALL_IN" : "BID_RECEIVED",
         title:       "견적 도착",
         message:     allIn
-          ? `업체 ${n}곳이 견적을 보냈어요 📋 지금 비교해보세요`
+          ? `업체 ${n}곳이 견적을 보냈어요 · 지금 비교해 보세요`
           : `업체 ${n}곳이 견적을 보냈어요 📋`,
         relatedId:   request.id,
         relatedType: "request",
