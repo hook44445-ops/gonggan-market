@@ -105,6 +105,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
   const [reqStatus, setReqStatus] = useState(null); // 라운지: lounge_chat_requests.status (수락 전 입력 게이트용)
   const [reqRequesterId, setReqRequesterId] = useState(null); // 라운지: 신청자(요청 보낸 사람) id — 익명/입력 권한 판별
   const [menuOpen, setMenuOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false); // 보호 안내 한 줄 → 자세히
   const [leaving, setLeaving] = useState(false);
   const bottomRef = useRef(null);
 
@@ -363,7 +364,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
           {isLounge ? (partner?.nickname ?? "?")[0] : (company?.name ?? "?")[0]}
           {!isLounge && company?.online && <div style={{ position:"absolute", bottom:0, right:0, width:10, height:10, borderRadius:"50%", background:C.green, border:"2px solid #fff" }} />}
         </div>
-        <div style={{ minWidth:0 }}>
+        <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:15, fontWeight:800, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
             {/* 표시 이름은 resolveChatDisplayName 로 통일(정식 전환 대비). 베타 반환값=기존과 동일.
                 수락 전 익명(partner.nickname) 분기는 익명 정책 그대로 유지(변경 금지). */}
@@ -400,14 +401,15 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
           ) : (
             isCustomerView ? (
               <div style={{ fontSize:11, color:C.text3, fontWeight:600 }}>견적·시공 상담</div>
-            ) : <div style={{ fontSize:11, color:company?.online?C.green:C.text3, fontWeight:600 }}>
+            ) : <div style={{ fontSize:11, color:company?.online?C.green:C.text3, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+              {!isLounge && !isCustomerView && company?.temp ? <span style={{ color:C.brand, fontWeight:700 }}>🌡 {Number(company.temp).toFixed(1)}° · </span> : null}
               {company?.online
                 ? (company.lastActive ? `활동중 · ${company.lastActive}` : "활동중")
                 : (company?.responseTime ?? "")}
             </div>
           )}
         </div>
-        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:S.sm, flexShrink:0 }}>
+        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
           {isLounge && revealIdentity && partnerCompany && onOpenPortfolio && (
             <button onClick={() => onOpenPortfolio(partner?.userId)}
               style={{ background:C.surface, color:C.text2, border:`1px solid ${C.bgWarm}`,
@@ -422,7 +424,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
               📋 견적요청
             </button>
           )}
-          {!isLounge && !isCustomerView && <TempBadge temp={company?.temp ?? 0} />}
+
           <button onClick={() => { setReportDone(false); setReportOpen(true); }} aria-label="신고"
             style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, color:C.text3, padding:"2px 4px", lineHeight:1 }}>
             🚩
@@ -451,14 +453,6 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
           )}
         </div>
       </div>
-
-      {/* Space OS · 프로젝트 대화 보호 안내 */}
-      {!isLounge && (
-        <div style={{ background:C.bg, borderBottom:`1px solid ${C.bgWarm}`, padding:"8px 16px",
-          fontSize:11.5, color:C.text3, lineHeight:1.6 }}>
-          🛡 프로젝트 대화는 서로의 약속을 보호하기 위해 안전하게 보관됩니다.
-        </div>
-      )}
 
       {/* 라운지: 원본 글/댓글/스토리 링크 */}
       {isLounge && partner?.postId && (
@@ -528,13 +522,23 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
         </div>
       )}
 
-      <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.bgWarm}`, background:C.bg }}>
-        <ProtectionNotice variant="short" />
-        <div style={{ marginTop:8, fontSize:12, color:C.text3, lineHeight:1.6, textAlign:"center" }}>
-          견적과 계약은 공간마켓 안에서 진행해야 보호받을 수 있어요.
-        </div>
+      {/* 보호 안내 — 예전엔 석 줄이 쌓여 첫 메시지 전에 화면을 다 먹었다. 한 줄로 접고 누르면 자세히. */}
+      <div style={{ borderBottom:`1px solid ${C.bgWarm}`, background:C.bg, flexShrink:0 }}>
+        <button onClick={() => setGuideOpen(v => !v)}
+          style={{ width:"100%", background:"none", border:"none", padding:"7px 16px", cursor:"pointer", fontFamily:"inherit",
+            display:"flex", alignItems:"center", gap:6, textAlign:"left" }}>
+          <span style={{ fontSize:12, flexShrink:0 }}>🛡</span>
+          <span style={{ flex:1, fontSize:11.5, color:C.text3, lineHeight:1.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            견적·계약은 공간마켓 안에서 — 대화가 기록으로 남아요
+          </span>
+          <span style={{ fontSize:11, color:C.text4, fontWeight:700, flexShrink:0 }}>{guideOpen ? "접기" : "자세히"}</span>
+        </button>
+        {guideOpen && (
+          <div style={{ padding:"0 16px 10px" }}>
+            <ProtectionNotice variant="short" />
+          </div>
+        )}
       </div>
-
       <div style={{ flex:1, overflowY:"auto", WebkitOverflowScrolling:"touch", overscrollBehavior:"contain",
         padding:`${S.lg}px ${S.lg}px ${S.md}px`, background:"transparent" }}>
         {messages.length === 0 && !loaded && (
@@ -546,18 +550,36 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
           </div>
         )}
         {messages.length === 0 && loaded && (
-          <div style={{ textAlign:"center", marginTop:64, padding:"0 24px" }}>
-            <div style={{ fontSize:36, marginBottom:10 }}>💬</div>
-            <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:6 }}>아직 주고받은 메시지가 없어요</div>
-            <div style={{ fontSize:12.5, color:C.text3, lineHeight:1.6, whiteSpace:"pre-line" }}>
+          <div style={{ textAlign:"center", marginTop:40, padding:"0 20px" }}>
+            {/* 빈 대화 — 이모지 한 글자 대신 그림 하나(힉스필드). 글자 없는 그림이라 언어와 무관하다. */}
+            <img src="/images/chat/empty.webp" alt="" width={124} height={124}
+              style={{ width:124, height:124, objectFit:"contain", opacity:0.95, marginBottom:6 }} />
+            <div style={{ fontSize:14.5, fontWeight:800, color:C.text1, marginBottom:6 }}>
+              {isTerminated ? "종료된 대화예요"
+                : isWaitingAccept ? "아직 주고받은 메시지가 없어요"
+                : isCustomerView ? "고객과의 첫 대화예요" : "첫 메시지를 보내 보세요"}
+            </div>
+            <div style={{ fontSize:12.5, color:C.text3, lineHeight:1.7, whiteSpace:"pre-line", marginBottom:S.lg }}>
               {isTerminated ? "종료된 대화예요."
                 : (isWaitingAccept && isRequester) ? "익명으로 첫 메시지를 보내보세요.\n상대가 수락하면 프로필이 공개되고 대화가 이어져요."
                 : isWaitingAccept ? "수락 대기중이에요. 수락 후 채팅을 시작할 수 있어요."
-                : "좋은 대화는 좋은 만남이 됩니다."}
+                : isCustomerView ? "무엇을 확인하고 싶은지 먼저 여쭤보면 견적이 빨라져요."
+                : "무엇이든 물어보세요. 아래 문장을 눌러 시작해도 돼요."}
             </div>
+            {/* 시작 문장 — 누르면 입력칸에 채워진다(보내기는 직접). */}
+            {!isLounge && !isTerminated && (
+              <div style={{ display:"flex", flexDirection:"column", gap:6, maxWidth:320, margin:"0 auto" }}>
+                {(isCustomerView ? QUICK_PARTNER : QUICK_CUSTOMER).slice(0, 3).map(q => (
+                  <button key={q} onClick={() => setInput(q)}
+                    style={{ padding:"10px 14px", border:`1px solid ${C.bgWarm}`, background:C.surface, color:C.text2,
+                      borderRadius:R.lg, fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit", textAlign:"left", lineHeight:1.5 }}>
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-        {hasMore && messages.length > 0 && (
+        )}        {hasMore && messages.length > 0 && (
           <div style={{ textAlign:"center", marginBottom:S.md }}>
             <button onClick={loadOlder} disabled={loadingMore}
               style={{ background:C.surface, color:C.text3, border:`1px solid ${C.bgWarm}`,
@@ -647,7 +669,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
           </div>
         )}
         {/* 빠른 문장 — 무엇을 물어야 할지 막막할 때 한 번에(누르면 입력칸에 채워짐 · 보내기는 직접) */}
-        {!isLounge && !input && (
+        {!isLounge && !input && messages.length > 0 && (
           <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0, display:"flex", gap:6,
             overflowX:"auto", padding:"8px 12px 0", scrollbarWidth:"none" }}>
             {(isCustomerView ? QUICK_PARTNER : QUICK_CUSTOMER).map(q => (
