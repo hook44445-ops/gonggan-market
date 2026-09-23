@@ -108,7 +108,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         borderBottom: `1px solid ${SK.line}`, display: "flex", justifyContent: "space-between",
         alignItems: "center", padding: "10px 20px" }}>
         <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>
-          공간마켓<span style={{ color: SK.gold, fontWeight: 400 }}> BETA</span>
+          공간마켓<span style={{ color: SK.muted, fontWeight: 500, fontSize: 11, letterSpacing: "0.14em", marginLeft: 7 }}>BETA</span>
         </div>
         <div style={{ display: "flex", gap: 6, background: "#ECE7DF", padding: 4, borderRadius: 999 }}>
           <button className="gm-tab" style={{ padding: "8px 16px", borderRadius: 999, border: "none", fontWeight: 700,
@@ -125,7 +125,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         {hasSavedAccounts && (
           <button onClick={() => onResume?.()} style={{ ...btnBase, marginTop: 14, background: SK.forest,
             color: "#fff", maxWidth: 520 }}>
-            👋 다시 오셨네요 · 저장된 계정으로 시작
+            다시 오셨네요 · 저장된 계정으로 시작
           </button>
         )}
 
@@ -193,9 +193,9 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         <div style={{ background: SK.forest, color: "#E8E1D8", borderRadius: 28, padding: "48px 28px",
           textAlign: "center", margin: "28px 0" }}>
           <h2 style={{ fontSize: "clamp(20px,4.5vw,24px)", fontWeight: 800, lineHeight: 1.35, margin: 0 }}>
-            아직도 발품 파세요?<br />견적은 공간마켓에서 한 번에
+            업체를 찾아다니는 시간을<br />공간마켓이 줄여 드립니다
           </h2>
-          <p style={{ opacity: .6, fontSize: 13, marginTop: 8 }}>사업자등록을 확인한 업체들의 견적을 모아 비교하세요</p>
+          <p style={{ opacity: .62, fontSize: 13, marginTop: 10, lineHeight: 1.7 }}>사업자등록을 확인한 업체의 견적을 한자리에서 비교하고, 계약부터 마무리까지 기록으로 남깁니다.</p>
           <button onClick={goConsumer} style={{ ...btnBase, maxWidth: 340, background: "#fff",
             color: SK.forest, margin: "20px auto 0" }}>
             무료 비교견적 받기
@@ -213,16 +213,27 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <p style={{ fontSize: 14, lineHeight: 1.8, color: "#3A4A40", margin: "0 0 20px" }}>
             집수리, 도배, 장판, 욕실, 주방, 리모델링, 상업공간, 부분시공 등 견적이 필요한 다양한 시공에 맞는 업체를 찾아 견적을 비교하고 상담할 수 있습니다.
           </p>
-          <div style={{ fontSize: 15, fontWeight: 800, color: SK.ink, marginBottom: 12 }}>주요 기능</div>
-          <ul style={{ listStyle: "none", padding: 0, margin: "0 0 4px", display: "flex", flexDirection: "column", gap: 9 }}>
-            {["무료 견적 요청", "여러 업체 비교", "실시간 채팅 상담", "프로젝트 진행 관리",
-              "시공 사진 및 진행 과정 확인", "업체 리뷰 및 평점 확인", SHOW_BETA_UI ? "계약·공사 기록 보관" : "안전한 결제 시스템"].map((f) => (
-              <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 14, lineHeight: 1.6, color: "#3A4A40" }}>
-                <span style={{ color: SK.gold, fontWeight: 900, flexShrink: 0 }}>•</span><span>{f}</span>
-              </li>
+          {/* 기능을 불릿으로 늘어놓지 않는다 — 흐름 세 마디로(검색 문구는 위 소개문에 그대로 있다) */}
+          <div style={{ marginTop: 26 }}>
+            {[
+              ["견적을 모은다", "요청 한 번으로 우리 동네 업체들의 견적을 받고, 금액·기간·기록을 나란히 비교합니다."],
+              ["이야기를 나눈다", "업체와 앱 안에서 상담하고, 현장 사진과 주고받은 말이 그대로 남습니다."],
+              [SHOW_BETA_UI ? "기록으로 남긴다" : "단계로 정산한다",
+               SHOW_BETA_UI
+                 ? "착공·중간·완료 사진과 계약 내용이 단계마다 쌓여, 나중에 다시 볼 수 있습니다."
+                 : "착공·중간·완료를 확인할 때마다 단계별로 정산합니다."],
+            ].map(([t, d], i) => (
+              <div key={t} style={{ display: "flex", gap: 16, padding: "16px 0", borderTop: i === 0 ? "none" : `1px solid ${SK.line}` }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: SK.muted, letterSpacing: "0.08em", paddingTop: 3, flexShrink: 0 }}>
+                  0{i + 1}
+                </span>
+                <span>
+                  <span style={{ display: "block", fontSize: 15.5, fontWeight: 700, color: SK.ink, letterSpacing: "-0.02em" }}>{t}</span>
+                  <span style={{ display: "block", fontSize: 13.5, color: "#3A4A40", lineHeight: 1.75, marginTop: 5, wordBreak: "keep-all" }}>{d}</span>
+                </span>
+              </div>
             ))}
-          </ul>
-        </div>
+          </div>        </div>
 
         {/* ── FAQ ───────────────────────────────────────────────────── */}
         <div style={{ padding: "36px 0" }}>
@@ -251,8 +262,8 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
       <div className="gm-sticky-cta" style={{ position: "fixed", left: 16, right: 16,
         bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 60,
         display: "flex", alignItems: "center", gap: 12, background: SK.ink,
-        borderRadius: 999, padding: 6, boxShadow: "0 12px 32px rgba(0,0,0,.3)" }}>
-        <button onClick={goConsumer} style={{ flex: 1, background: SK.gold, color: SK.ink, border: "none",
+        borderRadius: 999, padding: 6, boxShadow: "0 8px 24px rgba(18,26,22,.18)" }}>
+        <button onClick={goConsumer} style={{ flex: 1, background: SK.forest, color: "#fff", border: "none",
           fontWeight: 800, fontSize: 15, padding: "15px 20px", borderRadius: 999, cursor: "pointer",
           fontFamily: SANS }}>무료 비교견적 받기</button>
         <div onClick={scrollTop} role="button" aria-label="맨 위로" style={{ width: 44, height: 44,
