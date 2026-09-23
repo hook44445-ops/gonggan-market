@@ -45,7 +45,9 @@ export default function EscrowNextCard({ stageStatus, isConsumer, labels = {}, s
           <button key={st.id} role="listitem" onClick={() => scrollTo(`stage-${st.id}`)}
             aria-current={st.state === "active" ? "step" : undefined}
             style={{ flex: 1, textAlign: "center", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
-            <div style={{ borderRadius: R.full, marginBottom: 6, opacity: st.state === "locked" ? 0.7 : 1,
+            {/* 지금 단계만 천천히 숨 쉰다 — 어디까지 왔는지 한눈에 */}
+            <div className={st.state === "active" ? "gg-breathe" : undefined}
+              style={{ borderRadius: R.full, marginBottom: 6, opacity: st.state === "locked" ? 0.7 : 1,
               background: st.state === "done" ? C.brandM : st.state === "active" ? C.brand : C.bgWarm,
               height: st.state === "active" ? 7 : 5, marginTop: st.state === "active" ? -1 : 0 }} />
             <div style={{ fontSize: 10.5, fontWeight: st.state === "active" ? 800 : 600, lineHeight: 1.3, wordBreak: "keep-all",

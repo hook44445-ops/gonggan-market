@@ -132,7 +132,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         {/* ── HERO ──────────────────────────────────────────────────── */}
         <div className="gm-hero" style={{ position: "relative", borderRadius: 28, overflow: "hidden",
           margin: "20px 0 36px", minHeight: 560, background: "#E8E0D1", display: "flex", alignItems: "center" }}>
-          <div style={{ position: "absolute", inset: 0, backgroundImage: `url('/images/living.webp')`,
+          <div className="gg-drift" style={{ position: "absolute", inset: 0, backgroundImage: `url('/images/living.webp')`,
             backgroundSize: "cover", backgroundPosition: "center", filter: "saturate(.88) brightness(.94)" }} />
           <div className="gm-hero-ov" style={{ position: "absolute", inset: 0 }} />
           <div className="gm-hero-ct" style={{ position: "relative", zIndex: 2, padding: "36px 32px", maxWidth: 440 }}>
@@ -141,7 +141,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               letterSpacing: ".02em", marginBottom: 16 }}>
               사업자등록 확인 업체만 견적
             </div>
-            <h1 className="gm-hero-h1" style={{ fontSize: "clamp(30px,6vw,44px)", fontWeight: 800, lineHeight: 1.08,
+            <h1 className="gm-hero-h1 gg-rise gg-d1" style={{ fontSize: "clamp(30px,6vw,44px)", fontWeight: 800, lineHeight: 1.08,
               letterSpacing: "-0.04em", wordBreak: "keep-all", margin: 0 }}>
               인테리어, 아무에게나<br />맡길 수 없으니까
             </h1>
@@ -149,7 +149,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               margin: "14px 0 22px", lineHeight: 1.65, wordBreak: "keep-all" }}>
               집수리부터 상가 리모델링까지. 검증된 업체 3곳 견적을 1분만에 비교하세요. 가입비 0원 · 견적 무료.
             </p>
-            <button onClick={goConsumer} style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
+            <button onClick={goConsumer} className="gg-rise gg-d3" style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
               무료 비교견적 받기 →
             </button>
             <div style={{ display: "flex", gap: 12, marginTop: 14, flexWrap: "wrap" }}>

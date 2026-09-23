@@ -132,6 +132,28 @@
   .gg-spinner { animation-duration: 2s; }
 }
 
+/* ── 생기 — 화면이 살아 있게. 요란한 움직임이 아니라 «스르르 · 천천히 · 한 번». ──
+   쓰는 법: 나타나는 요소에 className="gg-rise"(필요하면 gg-d1~d3 로 차례), 사진에는 gg-drift,
+   지금 진행 중인 것에는 gg-breathe. 움직임 최소화 설정은 존중한다. */
+@keyframes gg-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.gg-rise { animation: gg-rise 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.gg-d1 { animation-delay: 0.06s; }
+.gg-d2 { animation-delay: 0.12s; }
+.gg-d3 { animation-delay: 0.18s; }
+
+@keyframes gg-drift { from { transform: scale(1); } to { transform: scale(1.05); } }
+.gg-drift { animation: gg-drift 22s ease-in-out infinite alternate; will-change: transform; }
+
+@keyframes gg-breathe { 0%, 100% { opacity: 0.45; transform: scale(1); } 50% { opacity: 1; transform: scale(1.2); } }
+.gg-breathe { animation: gg-breathe 2.6s ease-in-out infinite; }
+
+/* 누를 때 살짝 눌리는 느낌 — 버튼이 죽어 있지 않게 */
+button:not(:disabled):active { transform: translateY(0.5px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gg-rise, .gg-drift, .gg-breathe { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
+
 /* 한글 줄바꿈 — 단어 중간에서 끊기지 않게(keep-all). '아무에게나 맡길 수 없으니 / 까'
    처럼 어절이 쪼개지면 정돈돼 보이지 않는다. 긴 URL 등 끊을 데가 없는 문자열은
    overflow-wrap 으로 넘침만 막는다. */

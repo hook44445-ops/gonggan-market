@@ -18,7 +18,7 @@ export default function BidCompareCard({ bid, onChat, onSelect, onOpenCompany, s
   const isWork = visual.kind === "work";
 
   return (
-    <div id={id} style={{
+    <div id={id} className="gg-rise" style={{
       background: C.surface, borderRadius: R.xl, scrollMarginTop: 80,
       marginBottom: S.md, border: `1px solid ${selected ? C.brand : C.bgWarm}`,
       boxShadow: selected ? `0 0 0 1px ${C.brand}` : "0 1px 2px rgba(31,42,36,0.04)", overflow: "hidden",
