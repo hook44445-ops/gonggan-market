@@ -137,6 +137,7 @@ import GpsTrustDashboard from "../components/GpsTrustDashboard";
 import EvidenceTimelineDashboard from "../components/EvidenceTimelineDashboard";
 import AdminCategoryNav from "../components/AdminCategoryNav";
 import AdminChatOverview from "./admin/AdminChatOverview";
+import PushHealthPanel from "./admin/PushHealthPanel";
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
@@ -7676,6 +7677,12 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
                   알림 <span style={{ color: C.brand }}>{notifications.length}건</span>
                 </div>
+
+                {/* 푸시가 제때 나가고 있는지 — 큐 적체·실패·자격증명을 한 화면에서 본다.
+                    크론이 하루 1회라 여기가 밀리면 대화/계약 알림이 최대 하루 늦는다. */}
+                {user?.role === "admin" && (
+                  <PushHealthPanel adminId={user?.id} showToast={showToast} />
+                )}
 
                 {/* ADMIN ONLY 테스트 발송 — 본인에게 알림 1건 생성(notifications 저장 + /api/push/enqueue 큐 등록).
                     실발송 검증은 env 설정 후 별도 진행 → 여기선 큐 등록/생성 확인까지만. dispatch/enqueue 구조 무변경. */}

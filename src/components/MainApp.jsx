@@ -2847,12 +2847,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     return true;
   };
 
-  // 푸시 클릭 딥링크: /requests/:id · /contracts/:id (라운지 외)
+  // 푸시 클릭 딥링크: /requests/:id · /contracts/:id · /my (라운지 외)
   const applyPushDeepLink = (pathname) => {
     const req = pathname.match(/^\/requests\/([^/]+)/);
     if (req) { setBidViewRequestId(decodeURIComponent(req[1])); go("bidstatus"); return true; }
     const con = pathname.match(/^\/contracts\/([^/]+)/);
     if (con) { setContractId(decodeURIComponent(con[1])); go("escrow"); return true; }
+    // 라운지 1:1 대화 알림 — 「대화 신청 내역」이 마이페이지 안에 있다.
+    // (대화방 id 가 알림에 실리지 않아 방을 바로 열 수는 없다.)
+    if (/^\/my\/?$/.test(pathname)) { go("my"); return true; }
     return false;
   };
 

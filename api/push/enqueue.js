@@ -62,16 +62,43 @@ export const TYPE_TO_PREF_COLUMN = {
   LOUNGE_COMMENT: "push_lounge_activity",
   LOUNGE_WEEKLY_HOT: "push_lounge_activity",
   LOUNGE_REGION_REVIEW: "push_lounge_activity",
+  // 종이(견적서/문서) — 최종 견적서는 «종이가 도착했다» 알림이라 견적 토글에 묶는다
+  FINAL_QUOTE_ARRIVED: "push_estimate_news",
+  FINAL_QUOTE_SUBMITTED: "push_estimate_news",
+  QUOTE_COMPARISON_BLOCK: "push_estimate_news",
+  CHECKLIST: "push_estimate_news",
+  UPLOAD: "push_company_recommend",
+  // 업체 쪽 사본(CO_*) — 고객 알림과 같은 단계를 업체에게도 보낸다. 에스크로 토글을 함께 쓴다
+  CO_CONSTRUCTION_STARTED: "push_escrow",
+  CO_ESCROW_MID_CHECK: "push_escrow",
+  CO_CONSTRUCTION_DONE: "push_escrow",
+  CO_SETTLEMENT_DONE: "push_escrow",
+  CO_DISPUTE_FILED: "push_escrow",
+  // 라운지 1:1 대화 — push_chat 컬럼은 화면에 토글이 있는데 여태 아무 타입도 쓰지 않았다
+  LOUNGE_CHAT_REQUEST: "push_chat",
+  LOUNGE_CHAT_ACCEPTED: "push_chat",
+  LOUNGE_CHAT_MESSAGE: "push_chat",
+  // 제재/차단 안내와 관리자 테스트는 일부러 매핑하지 않는다(끄면 안 되는 고지 · push_enabled 만 확인):
+  //   HARD_BLOCK, COOLDOWN_BLOCK, ADMIN_TEST_PUSH
 };
 
-// 알림 related_type → 클릭 시 이동 경로
-export function buildTargetUrl(relatedType, relatedId) {
+// 알림 type/related_type → 클릭 시 이동 경로
+// type 은 나중에 붙은 3번째 인자다(라운지 대화처럼 related_type 만으로는 갈 곳이 안 정해지는 경우).
+// 없이 불러도 예전 그대로 동작한다.
+export function buildTargetUrl(relatedType, relatedId, type) {
+  // 라운지 1:1 대화 — 대화방 id(lounge_{requestId})가 알림에 실리지 않으므로 방을 직접 열 수 없다.
+  // 「대화 신청 내역」 카드가 있는 마이페이지로 보낸다(없는 화면을 가리키지 않는다).
+  if (type === "LOUNGE_CHAT_REQUEST" || type === "LOUNGE_CHAT_ACCEPTED" || type === "LOUNGE_CHAT_MESSAGE") {
+    return "/my";
+  }
   if (!relatedId) return "/";
   switch (relatedType) {
     case "contract":
     case "escrow":
       return `/contracts/${relatedId}`;
     case "lounge_post":
+      return `/lounge/posts/${relatedId}`;
+    case "lounge":
       return `/lounge/posts/${relatedId}`;
     case "request":
     case "bid":
@@ -81,12 +108,103 @@ export function buildTargetUrl(relatedType, relatedId) {
   }
 }
 
+// 즉시 발송 대상 — 대화·계약·에스크로·견적 도착처럼 «지금» 알아야 하는 것들.
+// 소식성(라운지 새 글 등)은 여기 해당하지 않고 크론이 시간창에 맞춰 내보낸다.
+export function isImmediatePushType(type) {
+  const col = TYPE_TO_PREF_COLUMN[type];
+  return col === "push_escrow" || col === "push_chat" || col === "push_estimate_news";
+}
+
+// 큐에 넣은 직후 디스패처를 한 번 깨운다(크론은 하루 1회라 그것만으로는 즉시가 되지 않는다).
+// 실패해도 큐에는 남아 있으므로 다음 크론이 보낸다 — 그래서 결과를 삼킨다.
+async function wakeDispatcher() {
+  const base =
+    process.env.PUSH_DISPATCH_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  if (!base) return { woke: false, reason: "no_base_url" };
+  const url = base.startsWith("http") ? `${base.replace(/\/$/, "")}/api/push/dispatch` : base;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(url, { method: "POST", signal: ctrl.signal });
+    clearTimeout(timer);
+    return { woke: r.ok };
+  } catch {
+    return { woke: false, reason: "dispatch_unreachable" };
+  }
+}
+
 // push_preferences 행과 알림 type 으로 큐잉 여부를 판단(순수 함수, 테스트용 분리)
 export function decidePushGate(pref, type) {
   if (!pref || !pref.push_enabled) return { allow: false, reason: "push_disabled" };
   const col = TYPE_TO_PREF_COLUMN[type];
   if (col && pref[col] === false) return { allow: false, reason: "category_disabled" };
   return { allow: true };
+}
+
+
+// ── 관리자 현황 조회 ────────────────────────────────────────────────────────
+// Vercel Hobby 는 서버리스 함수 12개가 한도라 파일을 새로 만들지 않고 여기에 얹는다.
+// POST /api/push/enqueue  { action: "stats", adminId }  (+ sentinel 이면 x-admin-code 헤더)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function verifyAdmin(adminId, req) {
+  if (UUID_RE.test(adminId)) {
+    const { data: me } = await db.from("users").select("id, role").eq("id", adminId).maybeSingle();
+    return me && me.role === "admin";
+  }
+  if (adminId === "admin") {
+    const expected = process.env.ADMIN_CODE || process.env.VITE_ADMIN_CODE || "";
+    return !!expected && String(req.headers["x-admin-code"] ?? "") === expected;
+  }
+  return false;
+}
+
+async function pushStats() {
+  const since = new Date(Date.now() - 7 * 24 * 3600000).toISOString();
+  const countOf = async (build) => {
+    const { count } = await build.select("id", { count: "exact", head: true });
+    return count ?? 0;
+  };
+
+  const [queued, sent7, failed7, skipped7] = await Promise.all([
+    countOf(db.from("push_logs").eq("status", "queued")),
+    countOf(db.from("push_logs").eq("status", "sent").gte("sent_at", since)),
+    countOf(db.from("push_logs").eq("status", "failed").gte("sent_at", since)),
+    countOf(db.from("push_logs").eq("status", "skipped").gte("sent_at", since)),
+  ]);
+
+  const [tokensActive, prefsOn] = await Promise.all([
+    countOf(db.from("fcm_tokens").eq("is_active", true)),
+    countOf(db.from("push_preferences").eq("push_enabled", true)),
+  ]);
+
+  // 가장 오래 큐에 남아 있는 한 건 — 디스패처가 죽었는지 바로 드러난다
+  const { data: oldest } = await db
+    .from("push_logs").select("created_at")
+    .eq("status", "queued").order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+  const { data: recentFails } = await db
+    .from("push_logs").select("type, error_message, sent_at")
+    .in("status", ["failed", "skipped"]).gte("sent_at", since)
+    .order("sent_at", { ascending: false }).limit(20);
+
+  const { data: recentSent } = await db
+    .from("push_logs").select("type, title, sent_at")
+    .eq("status", "sent").order("sent_at", { ascending: false }).limit(10);
+
+  return {
+    queued, sent7, failed7, skipped7, tokensActive, prefsOn,
+    oldestQueuedAt: oldest?.created_at ?? null,
+    recentFails: recentFails ?? [],
+    recentSent: recentSent ?? [],
+    env: {
+      // 값은 절대 내보내지 않는다. 설정됐는지만 본다.
+      fcmV1: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+      fcmLegacy: !!process.env.FCM_SERVER_KEY,
+      dispatchUrl: !!(process.env.PUSH_DISPATCH_URL || process.env.VERCEL_URL),
+    },
+  };
 }
 
 export default async function handler(req, res) {
@@ -101,7 +219,37 @@ export default async function handler(req, res) {
   if (typeof body === "string") {
     try { body = JSON.parse(body); } catch { body = {}; }
   }
-  const { userId, type, title, message, relatedId, relatedType } = body || {};
+  const { userId, type, title, message, relatedId, relatedType, action, adminId } = body || {};
+
+  // 관리자 전용 동작(현황 조회 · 수동 발송) — 일반 큐잉보다 먼저 가른다.
+  if (action === "stats" || action === "flush") {
+    if (!db) {
+      res.statusCode = 200;
+      res.end(JSON.stringify({ ok: false, reason: "no_db_credentials" }));
+      return;
+    }
+    if (!(await verifyAdmin(String(adminId ?? "").trim(), req))) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ ok: false, reason: "admin_only" }));
+      return;
+    }
+    try {
+      // flush — 큐에 쌓인 것을 지금 내보낸다(크론은 하루 1회라 그것만 기다릴 수 없다).
+      if (action === "flush") {
+        res.statusCode = 200;
+        res.end(JSON.stringify({ ok: true, ...(await wakeDispatcher()) }));
+        return;
+      }
+      // stats — 큐가 밀렸는지, 토큰이 있는지, 왜 실패했는지 한 화면에서 본다.
+      res.statusCode = 200;
+      res.end(JSON.stringify({ ok: true, stats: await pushStats() }));
+    } catch (err) {
+      res.statusCode = 200;
+      res.end(JSON.stringify({ ok: false, reason: "admin_action_failed", message: err?.message ?? String(err) }));
+    }
+    return;
+  }
+
   if (!userId || !type) {
     res.statusCode = 200;
     res.end(JSON.stringify({ ok: false, reason: "missing_params" }));
@@ -152,7 +300,7 @@ export default async function handler(req, res) {
       type,
       title: title || "공간마켓",
       body: message || "",
-      target_url: buildTargetUrl(relatedType, relId),
+      target_url: buildTargetUrl(relatedType, relId, type),
       related_id: relId,
       status: "queued",
     });
@@ -162,8 +310,14 @@ export default async function handler(req, res) {
       return;
     }
 
+    // 대화·계약·에스크로·견적 도착은 «지금» 나가야 한다.
+    // vercel.json 크론은 하루 1회(0 9 * * *)뿐이라, 그것만 믿으면 최대 24시간 늦는다.
+    let dispatch = null;
+    if (isImmediatePushType(type)) dispatch = await wakeDispatcher();
+
     res.statusCode = 200;
-    res.end(JSON.stringify({ ok: true, queued: true }));
+    res.end(JSON.stringify({ ok: true, queued: true, ...(dispatch ? { dispatch } : {}) }));
+
   } catch (err) {
     res.statusCode = 200;
     res.end(JSON.stringify({ ok: false, reason: "error", message: err?.message ?? String(err) }));

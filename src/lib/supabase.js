@@ -2851,6 +2851,33 @@ async function adminApiPost(path, adminId, body) {
   }
 }
 
+// ── 푸시 운영 현황 · 수동 발송 ────────────────────────────────────────────────
+// Vercel Hobby 는 서버리스 함수 12개가 한도라 파일을 더 못 만든다. 그래서 관리자 동작이
+// /api/push/enqueue 에 얹혀 있다. 응답이 {ok, stats} 라 adminApiPost({data}) 와 모양이 달라
+// 전용 래퍼를 둔다.
+async function pushAdminAction(action, adminId) {
+  const headers = { "Content-Type": "application/json" };
+  if (adminId === "admin") headers["x-admin-code"] = import.meta.env.VITE_ADMIN_CODE ?? "";
+  try {
+    const res = await fetch("/api/push/enqueue", {
+      method: "POST", headers,
+      body: JSON.stringify({ action, adminId: adminId ?? "" }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json?.ok === false) {
+      return { data: null, error: { message: json?.message || json?.reason || `HTTP ${res.status}` } };
+    }
+    return { data: json, error: null };
+  } catch (e) {
+    return { data: null, error: { message: e?.message || "NETWORK_ERROR" } };
+  }
+}
+
+// 큐 적체·7일 발송/실패·토큰 수·가장 오래된 대기 건을 한 번에 본다.
+export const fetchPushStats = (adminId) => pushAdminAction("stats", adminId);
+// 크론은 하루 1회라 그것만 기다릴 수 없다 — 지금 큐를 비운다.
+export const flushPushQueue = (adminId) => pushAdminAction("flush", adminId);
+
 // 고객 제재/토큰/공간온도 — service-role API 경유(users 직접 UPDATE 는 auth.uid()=NULL 로 RLS 차단).
 // admin_logs 기록은 서버에서 동일하게 수행. 직접 UPDATE 래퍼(adminSetUserStatus 등)는 호환 위해 유지.
 export const apiAdminSetUserStatus = (userId, adminId, status, reason = null) =>
