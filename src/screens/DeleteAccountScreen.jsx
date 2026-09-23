@@ -161,7 +161,7 @@ export default function DeleteAccountScreen() {
                   앱 열기 / 로그인
                 </button>
                 <p style={{ fontSize: 12, lineHeight: 1.7, color: C.text3, margin: "14px 0 0" }}>
-                  삭제 요청 또는 문의: gongganmarket.biz@gmail.com
+                  삭제 요청 또는 문의: biz@gonggansai.com
                 </p>
               </div>
             )}

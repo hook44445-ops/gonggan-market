@@ -12,7 +12,7 @@ const BIZ = {
   통신판매업신고번호: TELECOM_SALES_NO,
   주소: "경기도 성남시 중원구 성남대로1151번길 5, 2층 202호",
   고객센터: "070-7954-2740",
-  이메일: "gongganmarket.biz@gmail.com",
+  이메일: "biz@gonggansai.com",
 };
 
 const PRIVACY = {

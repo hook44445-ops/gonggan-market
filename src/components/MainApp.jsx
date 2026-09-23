@@ -590,7 +590,7 @@ const FAQ_ITEMS = [
   { q: "직접 업체와 거래하면 안 되나요?",
     a: "거래 방식은 전적으로 고객님의 선택입니다. 다만 공간마켓의 보호와 기록은 공간안전결제를 통한 거래에서만 제공됩니다." },
   { q: "고객센터 연락처",
-    a: "문의하기(아래 ‘문의하기’) 또는 이메일 gongganmarket.biz@gmail.com 으로 연락주시면 순차적으로 도와드립니다." },
+    a: "문의하기(아래 ‘문의하기’) 또는 이메일 biz@gonggansai.com 으로 연락주시면 순차적으로 도와드립니다." },
 ];
 
 export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding }) {
@@ -5613,7 +5613,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ background: "transparent", padding: `${S.md}px 4px 0`, marginBottom: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.text4, margin: `${S.md}px 0 2px` }}>앱 정보</div>
               {[
-                { label: "문의하기",                onClick: () => { window.location.href = "mailto:gongganmarket.biz@gmail.com?subject=" + encodeURIComponent("[공간마켓] 문의"); } },
+                { label: "문의하기",                onClick: () => { window.location.href = "mailto:biz@gonggansai.com?subject=" + encodeURIComponent("[공간마켓] 문의"); } },
                 { label: "개인정보처리방침",         onClick: () => setTermsDocType("privacy_policy") },
                 { label: "이용약관",                onClick: () => setTermsDocType("service_terms") },
                 { label: "위치기반서비스 이용약관",   onClick: () => setTermsDocType("location_terms") },
