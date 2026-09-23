@@ -9,7 +9,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, getEstimateForRequest } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, getEstimateForRequest, getPortfolios } from "../lib/supabase";
 import QuoteDocument from "../components/QuoteDocument"; // 최종 견적서 미리보기·인쇄
 import { SORT_KEYS, sortBids, bidSummary, bidTags as calcBidTags } from "../lib/bidCompare"; // 입찰 비교(정렬·요약·표)
 import {
@@ -89,6 +89,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   const [showQuoteDoc, setShowQuoteDoc] = useState(false); // 최종 견적서 미리보기·인쇄
   const [sortKey, setSortKey] = useState("recommended"); // 입찰 정렬(표시 전용)
   const [tableView, setTableView] = useState(false);     // 한눈에 보는 표
+  const [coPhotos, setCoPhotos] = useState({});          // { [companyId]: [사진 url] } — 업체가 올린 시공 사례
   useEffect(() => {
     if (!isQuotePhase || !request?.id) { setFinalEstimate(null); return; }
     let alive = true;
@@ -880,6 +881,22 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   );
 
   // Bid list — empty state maintains container layout
+  // 입찰한 업체가 올린 시공 사례 사진 — 카드 맨 위에 세운다. 읽기 전용이라 실패해도 화면엔 영향 없다.
+  const bidCompanyIds = bids.map(b => b.company?.id ?? b.companyId).filter(Boolean).join(",");
+  useEffect(() => {
+    const ids = bidCompanyIds ? bidCompanyIds.split(",") : [];
+    const todo = ids.filter(id => coPhotos[id] === undefined);
+    if (todo.length === 0) return;
+    let cancelled = false;
+    Promise.all(todo.map(id =>
+      getPortfolios(id)
+        .then(({ data }) => [id, (data ?? []).flatMap(r => [...(r.after_photos ?? []), ...(r.before_photos ?? [])]).filter(Boolean).slice(0, 3)])
+        .catch(() => [id, []])
+    )).then(pairs => {
+      if (!cancelled) setCoPhotos(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
+    });
+    return () => { cancelled = true; };
+  }, [bidCompanyIds]); // eslint-disable-line react-hooks/exhaustive-deps
   // 비교 표시(최저가·빠름·평판)와 정렬은 src/lib/bidCompare.js 에서 — 화면은 그리기만.
   const bidTags = (bid) => calcBidTags(bids, bid);
   const sortedBids = sortBids(bids, sortKey);
@@ -997,6 +1014,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             <BidCompareCard
               key={bid.id}
               id={`bid-${bid.id}`}
+              photos={coPhotos[bid.company?.id ?? bid.companyId] ?? []}
+              requestText={[request?.type, request?.description, request?.desc].filter(Boolean).join(" ")}
               bid={bid}
               tags={bidTags(bid)}
               selected={bid.status === "selected" || selectedBid?.id === bid.id}
