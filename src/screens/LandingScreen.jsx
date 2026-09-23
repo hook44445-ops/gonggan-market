@@ -26,6 +26,42 @@ const SANS = "'Pretendard Variable','Pretendard','Apple SD Gothic Neo',sans-seri
 // «예시»로 표시해 채우고, 하나도 없으면 칸을 숨긴다. 의뢰인 홈 「시공 사례」와 같은 정리(normalizeShowcases).
 const CASE_COUNT = 3;
 
+// ── 여정 네 마디 — 랜딩의 뼈대 (2026-09-23) ─────────────────────────────────
+// 왜 이걸 넣나: 지금까지 랜딩 구조가 경쟁사(견적 매칭 앱)와 같았다 — 히어로 → 사례 → CTA → 설명.
+//   전부 «매칭까지»만 말한다. 그런데 공간마켓이 실제로 가진 것은 매칭 «이후»다:
+//   계약·채팅·현장 사진·단계가 앱에 남는다. 그래서 랜딩 자체를 공사 한 건의 흐름으로 세운다.
+// ⚠️ 각 마디는 앱에 **실제로 있는 화면**만 가리킨다(없는 기능을 그리지 않는다).
+const JOURNEY = [
+  {
+    no: "01", when: "요청한 날",
+    title: "같은 조건으로 모읍니다",
+    desc: "어떤 공간을 어디까지 고칠지 한 번만 적으면, 사업자등록을 확인한 업체들이 같은 조건으로 견적을 보냅니다.",
+    proof: "요청서 · 업체 비교",
+    img: "/images/journey/step1.webp",
+  },
+  {
+    no: "02", when: "고르는 날",
+    title: "금액만이 아니라 근거를 봅니다",
+    desc: "공정·기간·보증을 나란히 놓고 비교합니다. 업체가 올린 시공 사례와 고객 후기도 같은 자리에서 확인합니다.",
+    proof: "견적 비교 · 시공 사례",
+    img: "/images/journey/step2.webp",
+  },
+  {
+    no: "03", when: "공사하는 동안",
+    title: "오늘 무엇을 할 차례인지 보입니다",
+    desc: "착공·중간·완료 단계가 화면 맨 위에 있고, 현장 사진과 주고받은 말이 그날짜에 붙습니다.",
+    proof: "진행 화면 · 현장 사진",
+    img: "/images/journey/step3.webp",
+  },
+  {
+    no: "04", when: "공사가 끝난 뒤",
+    title: "끝나도 기록은 남습니다",
+    desc: "계약 내용과 단계별 사진이 그대로 남아, 하자나 추가비 이야기가 나와도 말이 아니라 기록으로 확인합니다.",
+    proof: "계약서 · 진행 기록",
+    img: "/images/journey/step4.webp",
+  },
+];
+
 // FAQ(유지 · 삭제 금지) — 문구는 지금 실제로 하는 것만(베타에서 안전결제는 아직 없다 · 보험은 선택).
 const FAQ_ITEMS = [
   { q: "견적 요청은 무료인가요?", a: "네. 견적 요청과 업체 비교는 무료입니다." },
@@ -143,11 +179,11 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             </div>
             <h1 className="gm-hero-h1 gg-rise gg-d1" style={{ fontSize: "clamp(30px,6vw,44px)", fontWeight: 800, lineHeight: 1.08,
               letterSpacing: "-0.04em", wordBreak: "keep-all", margin: 0 }}>
-              인테리어, 아무에게나<br />맡길 수 없으니까
+              견적부터 마무리까지<br />한 자리에 남습니다
             </h1>
             <p style={{ fontSize: 15, color: SK.inkSoft, opacity: 1, fontWeight: 500,
               margin: "14px 0 22px", lineHeight: 1.65, wordBreak: "keep-all" }}>
-              집수리부터 상가 리모델링까지. 검증된 업체 3곳 견적을 1분만에 비교하세요. 가입비 0원 · 견적 무료.
+              사업자등록을 확인한 업체의 견적을 같은 조건으로 비교하고, 계약·현장 사진·진행 단계가 그대로 기록됩니다. 가입비 0원 · 견적 무료.
             </p>
             <button onClick={goConsumer} className="gg-rise gg-d3" style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
               무료 비교견적 받기 →
@@ -157,6 +193,50 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
                 <span key={t} style={{ fontSize: 11, color: "#6B6560" }}>{t}</span>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* ── 여정 — 이 랜딩의 뼈대. 경쟁사가 말하지 않는 «매칭 이후»를 화면에 세운다 ── */}
+        <div style={{ padding: "8px 0 36px" }}>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: SK.gold, letterSpacing: "0.12em", marginBottom: 8 }}>
+              공사 한 건이 지나가는 길
+            </div>
+            <h2 style={{ fontSize: "clamp(22px,4.5vw,28px)", fontWeight: 800, letterSpacing: "-0.03em", margin: 0, lineHeight: 1.35 }}>
+              견적에서 끝나지 않습니다
+            </h2>
+            <p style={{ fontSize: 13.5, color: SK.muted, lineHeight: 1.75, margin: "10px 0 0", wordBreak: "keep-all" }}>
+              업체를 연결해 주는 곳은 많습니다. 공간마켓은 그다음 — 고르고, 공사하고, 끝난 뒤까지 한 화면에 둡니다.
+            </p>
+          </div>
+
+          <div className="gm-journey" style={{ display: "grid", gap: 14 }}>
+            {JOURNEY.map((j, i) => (
+              <div key={j.no} className="gg-rise" style={{
+                background: SK.surface, border: `1px solid ${SK.line}`, borderRadius: 20, overflow: "hidden",
+                display: "grid", gridTemplateColumns: "1fr", animationDelay: `${i * 0.06}s`,
+              }}>
+                <img src={j.img} alt="" loading="lazy" aria-hidden="true"
+                  style={{ width: "100%", height: 168, objectFit: "cover", display: "block" }} />
+                <div style={{ padding: "16px 18px 18px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 800, color: SK.gold, letterSpacing: "0.1em" }}>{j.no}</span>
+                    <span style={{ fontSize: 11.5, color: SK.muted }}>{j.when}</span>
+                  </div>
+                  <div style={{ fontSize: 16.5, fontWeight: 800, color: SK.ink, letterSpacing: "-0.02em", lineHeight: 1.4 }}>
+                    {j.title}
+                  </div>
+                  <div style={{ fontSize: 13.5, color: "#3A4A40", lineHeight: 1.75, marginTop: 7, wordBreak: "keep-all" }}>
+                    {j.desc}
+                  </div>
+                  <div style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6,
+                    background: "#F4F1EB", border: `1px solid ${SK.line}`, borderRadius: 999, padding: "4px 11px",
+                    fontSize: 11.5, fontWeight: 700, color: "#5A6B60" }}>
+                    앱 화면 · {j.proof}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -272,11 +352,14 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>↑</div>
       </div>
 
+      {/* 여정 카드 — 넓은 화면에서 2열, 아주 넓으면 사진이 왼쪽으로 */}
       {/* 반응형 · 카드 hover · 히어로 오버레이(A17 수직/데스크탑 수평) · 고정 CTA 게이트 */}
       <style>{`
         .gm-hero-ov{ background: linear-gradient(180deg, rgba(249,246,242,.88) 0%, rgba(249,246,242,.92) 50%, rgba(249,246,242,.65) 100%) }
         @media (min-width: 600px){ .gm-hero-ov{ background: linear-gradient(90deg, #F9F6F2 0%, rgba(249,246,242,.92) 38%, rgba(249,246,242,.15) 72%, transparent 100%) } }
         @media (min-width: 780px){ .gm-grid{ grid-template-columns: repeat(3,1fr) } .gm-hero{ min-height: 620px } .gm-hero-ct{ max-width: 500px; padding: 48px } }
+        @media (min-width: 780px){ .gm-journey{ grid-template-columns: repeat(2,1fr); gap: 18px } }
+        @media (min-width: 1040px){ .gm-journey > div{ grid-template-columns: 240px 1fr; align-items: stretch } .gm-journey img{ height: 100% !important; min-height: 190px } }
         .gm-card:hover{ transform: translateY(-3px); box-shadow: 0 12px 32px rgba(18,26,22,.08) }
         button:active{ transform: scale(.985) }
         .gm-sticky-cta{ display: none }
