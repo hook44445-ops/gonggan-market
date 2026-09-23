@@ -3,7 +3,7 @@ import { C, R, S } from "../constants";
 import {
   getChangeOrders, createChangeOrder, setChangeOrderAmount,
   approveChangeOrder, rejectChangeOrder,
-  completeChangeOrder, cancelChangeOrder, createNotification, uploadFile,
+  completeChangeOrder, cancelChangeOrder, createNotification, uploadDocument,
 } from "../lib/supabase";
 import { payChangeOrder } from "../services/payment";
 import ImageViewerModal from "./ImageViewerModal"; // QA: 변경요청 사진 확대보기(Add Only)
@@ -215,7 +215,7 @@ function CreateModal({ isCompany, actorId, contractId, edit, onClose, onDone }) 
       // 스토리지가 키를 거부해 업로드가 조용히 실패하던 문제 방지(현장 확인 사진과 동일 규칙).
       const ext = (f.name?.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
       try {
-        const url = await uploadFile("documents", `change_orders/${contractId}/${Date.now()}_${i}.${ext}`, f);
+        const url = await uploadDocument("documents", `change_orders/${contractId}/${Date.now()}_${i}.${ext}`, f);
         if (url) urls.push(url);
       } catch (err) { console.error("[CHANGE_ORDER_PHOTO_UPLOAD_FAILED]", err); }
     }

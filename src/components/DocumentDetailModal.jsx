@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release"; // 프로덕션 디버그 로그 게이팅
 import { DOCUMENT_TEMPLATES, UPLOAD_DOCUMENT_TEMPLATES } from "../constants/documentTemplates";
-import { uploadFile, upsertCompanyDocument, submitCompanyDocument } from "../lib/supabase";
+import { uploadDocument, upsertCompanyDocument, submitCompanyDocument, signedDocUrl } from "../lib/supabase";
 
 const ALL_TEMPLATES = [...UPLOAD_DOCUMENT_TEMPLATES, ...DOCUMENT_TEMPLATES];
 const UPLOAD_TYPES  = new Set(UPLOAD_DOCUMENT_TEMPLATES.map(t => t.type));
@@ -61,7 +61,7 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
     setErrorMsg(null);
     try {
       const path = `company-docs/${companyId}/${doc.document_type}/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
-      const url  = await uploadFile("documents", path, file).catch(() => URL.createObjectURL(file));
+      const url  = await uploadDocument("documents", path, file).catch(() => URL.createObjectURL(file));
       const data = await ensureRow({
         file_name: file.name, file_url: url,
         file_size: file.size, mime_type: file.type,
@@ -262,11 +262,16 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
               <div style={{ background: C.greenL, borderRadius: R.lg, padding: S.lg, marginBottom: S.xl, border: `1px solid ${C.brandM}` }}>
                 <div style={{ fontSize: 12, color: C.text3, marginBottom: 4 }}>첨부 파일</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.brand }}>✅ {fileInfo.name}</div>
-                {fileInfo.url.startsWith("http") && (
-                  <a href={fileInfo.url} target="_blank" rel="noreferrer"
-                    style={{ fontSize: 12, color: C.brand, display: "block", marginTop: 4 }}>
+                {/* 서류는 공개 주소로 두지 않는다 — 누를 때 짧게 사는 서명 주소로 연다. */}
+                {!String(fileInfo.url).startsWith("blob:") && (
+                  <button onClick={async () => {
+                      const u = await signedDocUrl(fileInfo.url);
+                      if (u) window.open(u, "_blank", "noopener");
+                    }}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer",
+                      fontSize: 12, color: C.brand, display: "block", marginTop: 4 }}>
                     파일 보기 ›
-                  </a>
+                  </button>
                 )}
               </div>
             ) : (

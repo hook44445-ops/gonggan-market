@@ -5,7 +5,7 @@ import {
   gpsCheckin,
   completeSiteVisit,
   createNotification,
-  uploadFile,
+  uploadDocument,
   saveProjectCheckpoint,
 } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
@@ -93,7 +93,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
     for (const file of files) {
       try {
         const path = `site_visits/${job.bid.id}/${Date.now()}_${file.name}`;
-        const url = await uploadFile("documents", path, file);
+        const url = await uploadDocument("documents", path, file);
         urls.push(url);
       } catch (_) {
         // ignore individual upload failures
