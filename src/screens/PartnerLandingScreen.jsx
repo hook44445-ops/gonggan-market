@@ -181,7 +181,7 @@ function ConsultForm() {
   const [idFile, setIdFile] = useState(null);
   // 업체 운영 준수서약 — 필수 체크(프론트 상태값만 사용 · DB/API 미전송).
   const [pledge, setPledge] = useState(false);
-  // V2 무인 온보딩: 제출 성공 시 생성된 lead 정보를 보관해 STEP2~4 로 이어준다.
+  // V2 온보딩: 제출 성공 시 생성된 lead 정보를 보관해 STEP2~4 로 이어준다.
   const [lead, setLead] = useState(null); // { id, phone, insuranceYn }
   // 스텝형 위저드(디자인/UX만). 1 기본정보 · 2 시공·서류 · 3 약관·제출.
   //   기능·검증·API 무변경 — handleSubmit 이 최종 재검증(안전망). 게이트는 '다음' 활성 조건일 뿐.
@@ -316,7 +316,7 @@ function ConsultForm() {
   };
 
   if (submitted) {
-    // V2: lead id 가 있으면 무인 온보딩(STEP2~4)으로 이어간다.
+    // V2: lead id 가 있으면 온보딩(STEP2~4)으로 이어간다.
     // id 가 없으면(구버전/조회 실패) 기존 정적 접수완료 안내로 폴백.
     if (lead?.id) {
       return <PartnerOnboarding leadId={lead.id} phone={lead.phone} insuranceYn={lead.insuranceYn} />;
@@ -395,7 +395,7 @@ function ConsultForm() {
           {/* V1.3 서류 업로드 — 사업자등록증(승인 필수) / 시공보험증권(선택·예치금 할인 기준) · 시안 업로드 카드 */}
           <div>
             <label style={labelStyle}>사업자등록증 <span style={{ color: GOLDD }}>(승인 필수)</span></label>
-            {uploadCard("biz", bizFile, setBizFile, { title: "사업자등록증 촬영 / 파일 선택", sub: "JPG/PNG/PDF 10MB 이하 · OCR 자동 대조" })}
+            {uploadCard("biz", bizFile, setBizFile, { title: "사업자등록증 촬영 / 파일 선택", sub: "JPG/PNG/PDF 10MB 이하 · 담당자 확인용" })}
           </div>
           <div>
             <label style={labelStyle}>
@@ -411,7 +411,7 @@ function ConsultForm() {
             <label style={labelStyle}>
               대표자 신분증 <span style={{ color: TEXT3, fontWeight: 500 }}>(선택 · 본인 확인용)</span>
             </label>
-            {uploadCard("id", idFile, setIdFile, { title: "대표자 신분증 업로드 (선택)", sub: "본인 확인용 · 암호화 저장" })}
+            {uploadCard("id", idFile, setIdFile, { title: "대표자 신분증 업로드 (선택)", sub: "본인 확인용 · 승인 절차에만 사용" })}
           </div>
 
           <div>
@@ -718,9 +718,12 @@ export default function PartnerLandingScreen() {
     border: "1px solid #C8D8C5", whiteSpace: "nowrap", flexShrink: 0,
   };
   const STEPS = [
+    /* ⚠️ 2026-09-23: 예전 이 목록은 「OCR + 국세청 API 자동 검증 · 무인」 · 「관리자 3초 승인」을 내걸었다.
+       저장소에 OCR도 국세청 API도 없다(검색 0건) — 서류는 올라가 저장되고 **사람이 보고 승인**한다.
+       업체에게 없는 기능을 약속하지 않는다(어제 고친 가짜 「공간보증」 배지와 같은 종류의 문제다). */
     { b: "간편 신청",          t: "3개 필드만",              badge: "30초" },
-    { b: "사업자등록증 업로드", t: "OCR + 국세청 API 자동 검증", badge: "무인" },
-    { b: "관리자 3초 승인",    t: "일치 배지만 보고 승인",     badge: "3초" },
+    { b: "사업자등록증 업로드", t: "담당자가 서류를 직접 확인",   badge: "확인" },
+    { b: "승인",              t: "확인이 끝나면 바로 알려 드립니다", badge: "승인" },
     { b: "견적 수신",          t: "검증 고객 알림",           badge: "검증" },
     { b: "수주·정산 4.4%만",   t: "오픈 기간 0원",                 badge: "수수료" },
   ];
@@ -741,8 +744,12 @@ export default function PartnerLandingScreen() {
         backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
         borderBottom: "1px solid #E8E1D8", display: "flex", justifyContent: "space-between",
         alignItems: "center", padding: "10px 20px" }}>
-        <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>
-          공간마켓<span style={{ color: GOLD, fontWeight: 400 }}> BETA</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <img src="/icons/gm-logo.svg" alt="" aria-hidden="true" width="30" height="30"
+            style={{ width: 30, height: 30, borderRadius: 9, display: "block", flexShrink: 0 }} />
+          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>
+            공간마켓<span style={{ color: GOLD, fontWeight: 400 }}> BETA</span>
+          </div>
         </div>
         <div style={{ display: "flex", gap: 6, background: "#ECE7DF", padding: 4, borderRadius: 999 }}>
           <button className="gm-tab" onClick={() => { window.location.href = "/"; }} style={{ padding: "8px 16px", borderRadius: 999,
@@ -763,7 +770,10 @@ export default function PartnerLandingScreen() {
             광고비 없이 수주하는<br /><span style={{ color: GOLD }}>공간파트너</span>
           </h1>
           <p style={{ opacity: .6, fontSize: 14, margin: "12px 0", lineHeight: 1.7 }}>
-            당근·숨고 광고비 쓰지 마세요. 예치된 고객만 연결됩니다.
+            {/* ⚠️ 2026-09-23: 예전 문구는 「당근·숨고 광고비 쓰지 마세요. 예치된 고객만 연결됩니다.」였다.
+                ① 경쟁사 실명을 깎아내리는 말은 품격에도, 비교광고 규정에도 맞지 않는다.
+                ② «예치된 고객»은 베타에 없는 약속이다(예치·보관 문구 금지 — 안전결제는 토스 승인 뒤에 열린다). */}
+            광고비를 먼저 쓰지 않아도 됩니다. 견적을 요청한 고객에게만 연결됩니다.
           </p>
           <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button onClick={() => scrollToForm("hero")} style={{ ...btn, maxWidth: 220, background: "#fff", color: NAVY }}>
@@ -837,12 +847,12 @@ export default function PartnerLandingScreen() {
           </div>
         </div>
 
-        {/* ── 무인 입점 신청 (실제 ConsultForm · API 유지) ────────── */}
+        {/* ── 입점 신청 (실제 ConsultForm · API 유지) ────────────── */}
         <div id="partner-consult-form" style={{ padding: "8px 0 36px", scrollMarginTop: 16 }}>
           <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 24, padding: "22px 18px",
             maxWidth: 520, margin: "0 auto", boxShadow: "0 4px 24px rgba(18,26,22,.04)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <b style={{ fontSize: 16 }}>무인 입점 (3분)</b>
+              <b style={{ fontSize: 16 }}>입점 신청 (3분)</b>
               <span style={okBadge}>상담사 전화 없음</span>
             </div>
             <ConsultForm />
