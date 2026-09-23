@@ -68,7 +68,7 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack }) {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: S.sm, marginTop: S.lg }}>
-            <button onClick={() => { onClose?.(); onBrowse?.(); }}
+            <button onClick={() => { onClose?.(); onBrowse?.(); }} className="gg-cta"
               style={{ height: 52, borderRadius: R.lg, border: "none", background: C.brand, color: "#fff", fontSize: 15,
                 fontWeight: 800, cursor: "pointer", boxShadow: SHADOW.brand }}>
               기다리는 동안 시공 사례 구경하기

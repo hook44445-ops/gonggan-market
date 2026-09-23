@@ -150,7 +150,7 @@ export function Hero({ eyebrow, title, sub, chips = [], actions = [] }) {
       {actions.length > 0 && (
         <div style={{ display: "flex", gap: S.sm, marginTop: S.lg }}>
           {actions.map(({ label, onClick, primary }, i) => (
-            <button key={i} onClick={onClick}
+            <button key={i} onClick={onClick} className={primary ? "gg-cta" : undefined}
               style={{ flex: 1, height: 44, borderRadius: R.lg, fontSize: 14, fontWeight: 800, cursor: "pointer",
                 background: primary ? "#fff" : "rgba(255,255,255,0.16)",
                 color: primary ? C.brandD : "#fff",

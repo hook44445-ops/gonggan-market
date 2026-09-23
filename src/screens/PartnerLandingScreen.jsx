@@ -972,7 +972,7 @@ export default function PartnerLandingScreen() {
       <div className="gm-partner-sticky-cta" style={{ position: "fixed", left: 16, right: 16,
         bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 900,
         justifyContent: "center", pointerEvents: "none" }}>
-        <button className="gm-sticky-gold" onClick={() => scrollToForm("floating")} style={{
+        <button className="gm-sticky-gold gg-cta gg-cta-gold" onClick={() => scrollToForm("floating")} style={{
           pointerEvents: "auto", height: 52, maxWidth: 420, flex: 1, borderRadius: 999,
           border: "1px solid #E9DDC0", background: "linear-gradient(180deg,#D9C49A 0%,#C8A86A 100%)",
           color: NAVY, fontSize: 15, fontWeight: 800, letterSpacing: "-0.01em", cursor: "pointer",

@@ -189,7 +189,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               margin: "14px 0 22px", lineHeight: 1.65, wordBreak: "keep-all" }}>
               사업자등록을 확인한 업체의 견적을 같은 조건으로 비교하고, 계약·현장 사진·진행 단계가 그대로 기록됩니다. 가입비 0원 · 견적 무료.
             </p>
-            <button onClick={goConsumer} className="gg-rise gg-d3" style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
+            <button onClick={goConsumer} className="gg-rise gg-d3 gg-cta" style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
               무료 비교견적 받기 →
             </button>
             <div style={{ display: "flex", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
@@ -280,7 +280,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             업체를 찾아다니는 시간을<br />공간마켓이 줄여 드립니다
           </h2>
           <p style={{ opacity: .62, fontSize: 13, marginTop: 10, lineHeight: 1.7 }}>사업자등록을 확인한 업체의 견적을 한자리에서 비교하고, 계약부터 마무리까지 기록으로 남깁니다.</p>
-          <button onClick={goConsumer} style={{ ...btnBase, maxWidth: 340, background: "#fff",
+          <button onClick={goConsumer} className="gg-cta" style={{ ...btnBase, maxWidth: 340, background: "#fff",
             color: SK.forest, margin: "20px auto 0" }}>
             무료 비교견적 받기
           </button>
@@ -347,7 +347,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 60,
         display: "flex", alignItems: "center", gap: 12, background: SK.ink,
         borderRadius: 999, padding: 6, boxShadow: "0 8px 24px rgba(18,26,22,.18)" }}>
-        <button onClick={goConsumer} style={{ flex: 1, background: SK.forest, color: "#fff", border: "none",
+        <button onClick={goConsumer} className="gg-cta" style={{ flex: 1, background: SK.forest, color: "#fff", border: "none",
           fontWeight: 800, fontSize: 15, padding: "15px 20px", borderRadius: 999, cursor: "pointer",
           fontFamily: SANS }}>무료 비교견적 받기</button>
         <div onClick={scrollTop} role="button" aria-label="맨 위로" style={{ width: 44, height: 44,
