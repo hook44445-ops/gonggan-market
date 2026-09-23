@@ -158,7 +158,7 @@ export default function BidCard({
     return (
       <div key="in-progress" style={{ background: "#F0F4FF", borderRadius: R.lg, padding: S.lg, border: `1px solid #C0D0FF` }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: "#3355CC", marginBottom: S.sm }}>
-          🎉 [2단계] 계약 및 착공 진행 중
+          2단계 · 계약 및 착공 진행 중
         </div>
         <div style={{ fontSize: 12, color: C.text3 }}>
           의뢰인이 이 업체를 선정했습니다. 현장 방문 일정을 조율해주세요.
@@ -216,19 +216,19 @@ export default function BidCard({
               </div>
               <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.sm }}>
                 <span style={{ background: C.surface, borderRadius: R.sm, padding: "4px 10px", fontSize: 13, fontWeight: 800, color: C.brand }}>
-                  💰 내 입찰가 {Number(bidForm.price || myBid?.price || 0).toLocaleString()}만원
+                  내 입찰가 {Number(bidForm.price || myBid?.price || 0).toLocaleString()}만원
                 </span>
                 <span style={{ background: C.surface, borderRadius: R.sm, padding: "4px 10px", fontSize: 13, fontWeight: 700, color: C.text2 }}>
-                  📅 {bidForm.period || myBid?.period || "—"}일
+                  공사 {bidForm.period || myBid?.period || "—"}일
                 </span>
               </div>
               {(bidForm.material || myBid?.material) && (
-                <div style={{ fontSize: 12, color: C.text3, marginBottom: 3 }}>🔨 {bidForm.material || myBid?.material}</div>
+                <div style={{ fontSize: 12, color: C.text3, marginBottom: 3 }}>{bidForm.material || myBid?.material}</div>
               )}
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:6 }}>
                 <div style={{ fontSize:12, color: mineSelected ? C.brand : otherSelected ? C.text4 : C.text3, fontWeight: mineSelected ? 700 : 400 }}>
                   {mineSelected
-                    ? "🎉 [2단계] 계약 진행 및 착공 준비 중 · 진행중 탭에서 확인하세요"
+                    ? "2단계 · 계약 진행 및 착공 준비 중 — 진행중 탭에서 확인하세요"
                     : otherSelected
                     ? "다른 업체가 선정되었어요"
                     : "의뢰인이 검토 중입니다"}
