@@ -31,6 +31,15 @@ test("1,000만원 초과 — 입찰 조건(보험+구간 보증금)을 갖춘 �
   }
 });
 
+test("300만~500만원 — 공간보증 베이직(50만원) 이상이면 자재비 10% 먼저(4칸: 계약·자재비·착공 20·완료 70)", () => {
+  const plan = stagePlanFor({ bizVerified: true, totalManwon: 400, depositManwon: 50 });
+  assert.equal(plan, "2STEPA");
+  assert.deepEqual(stepsOf(plan), [1, 2, 3, 5]);
+  assert.deepEqual(STAGE_PLANS[plan], [10, 20, 0, 70]);
+  assert.equal(stagePlanFor({ bizVerified: true, totalManwon: 250, depositManwon: 50 }), "2STEP"); // 300만원 미만 소액은 선지급 없음
+  assert.equal(stagePlanFor({ bizVerified: true, totalManwon: 400 }), "2STEP");                   // 보증금 없으면 30/70
+});
+
 test("사업자 확인 전 — 1STEP(결제는 막히고, 칸은 기록용 3칸)", () => {
   const plan = stagePlanFor({ bizVerified: false, totalManwon: 800 });
   assert.equal(plan, "1STEP");

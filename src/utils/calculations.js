@@ -81,20 +81,25 @@ export const STAGE_PLANS = {
   "4STEP": [10, 20, 40, 30],
   "3STEP": [0, 30, 40, 30],
   "2STEP": [0, 30, 0, 70],
+  "2STEPA": [10, 20, 0, 70],   // 300만~500만원 + 공간보증 베이직(50만원) 이상 — 자재비 10% 먼저(대표 09-25 (다))
   "1STEP": [0, 0, 0, 100],
 };
 export const normalizePlan = (plan) => (STAGE_PLANS[plan] ? plan : "4STEP");
 
 // 계약 전 미리보기용 — 서버(escrow_stage_plan)와 같은 규칙. bizVerified 는 관리자 확인된 사업자등록만.
 // 자재비 선지급에 필요한 보증금(만원) — 그 공사 구간 끝 숫자의 10%(대표 09-25). 서버 migration 120 과 같은 표.
+//   300만~500만 → 50(베이직) · ~1,000만 → 100(스탠다드) · ~2,000만 → 200(프리미엄) · ~5,000만 → 500(마스터) · ~1억 → 1,000(시그니처)
+export const ADVANCE_MIN_MANWON = 300;   // 이 아래(300만원 미만) 소액 공사는 선지급 없이 착공 30 · 완료 70
 export const advanceDepositNeed = (totalManwon) => {
   const m = Number(totalManwon) || 0;
-  return m <= 1000 ? 100 : m <= 2000 ? 200 : m <= 5000 ? 500 : 1000;
+  return m < 500 ? 50 : m <= 1000 ? 100 : m <= 2000 ? 200 : m <= 5000 ? 500 : 1000;
 };
 export const stagePlanFor = ({ bizVerified, totalManwon, depositManwon = 0 }) => {
   if (!bizVerified) return "1STEP";
-  if (Number(totalManwon) < 500) return "2STEP";
-  return (Number(depositManwon) || 0) >= advanceDepositNeed(totalManwon) ? "4STEP" : "3STEP";
+  const m = Number(totalManwon) || 0;
+  const adv = m >= ADVANCE_MIN_MANWON && (Number(depositManwon) || 0) >= advanceDepositNeed(m);
+  if (m < 500) return adv ? "2STEPA" : "2STEP";
+  return adv ? "4STEP" : "3STEP";
 };
 
 // 이 계획에서 공사 화면 단계(2 자재 · 3 착공 · 4 중간 · 5 완료)가 쓰이는지

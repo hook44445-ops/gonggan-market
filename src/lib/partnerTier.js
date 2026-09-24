@@ -259,10 +259,10 @@ export function limitStateOf(company = {}) {
 //   3) 사업자 있음 · 보험 없음 → 시공보험을 내면 한도가 커진다
 //   null = 더 권할 것 없음
 // 자재비 선지급이 걸리는 공사 금액(만원) — 이 아래는 2단계(착공 30 · 완료 70)라 선지급이 없다.
-export const ADVANCE_MIN_MANWON = 500;
+export const ADVANCE_MIN_MANWON = 300;   // 300만원 미만 소액 공사는 선지급 없음(대표 09-25 (다))
 // 자재비 선지급에 필요한 보증금 — 공사 구간 끝 숫자의 10%(대표 09-25 · 서버 migration 120 · utils/calculations advanceDepositNeed 와 같은 표)
 //   500만~1,000만 → 100 · ~2,000만 → 200 · ~5,000만 → 500 · ~1억 → 1,000(만원)
-export const advanceNeed = (amt) => (amt <= 1000 ? 100 : amt <= 2000 ? 200 : amt <= 5000 ? 500 : 1000);
+export const advanceNeed = (amt) => (amt < 500 ? 50 : amt <= 1000 ? 100 : amt <= 2000 ? 200 : amt <= 5000 ? 500 : 1000);
 
 export function cardNudge(budgetManwon, state = {}) {
   const s = { biz: false, insurance: false, depositManwon: 0, license: false, ...state };
