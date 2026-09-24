@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import DocImg from "./DocImg";
 
 // 최종 견적서 — 미리보기 + 인쇄/PDF 저장(A4 한 장 모양).
 // 파트너(작성 중 폼)와 의뢰인(받은 견적) 둘 다 같은 문서를 본다. estimate 는 estimates 행 모양
@@ -136,7 +137,7 @@ export default function QuoteDocument({ estimate = {}, companyName, request = {}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
               {photos.map((u, i) => (
                 <div key={u + i} className="qd-photo" style={{ aspectRatio: "4/3", overflow: "hidden", border: "1px solid #E4E0D8" }}>
-                  <img src={u} alt={`현장 사진 ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <DocImg src={u} alt={`현장 사진 ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 </div>
               ))}
             </div>

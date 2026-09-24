@@ -7,6 +7,7 @@ import EstimateAnalysisResult from "./growth/EstimateAnalysisResult"; // Space O
 import { analyzeEstimate } from "../constants/spaceOs";
 import QuoteDocument from "./QuoteDocument"; // 견적서 미리보기·인쇄
 import { QUOTE_STEPS, DURATION_PRESETS, WARRANTY_PRESETS, suggestTrades, applyTrade, restoreQuote, filledItems, stepBlocker, makeEmptyItem } from "../lib/finalQuote";
+import DocImg from "./DocImg";
 
 function Backdrop({ onClose, children }) {
   return (
@@ -379,7 +380,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:S.sm }}>
               {photoUrls.map((url, i) => (
                 <div key={url + i} style={{ position:"relative", paddingTop:"100%", borderRadius:R.md, overflow:"hidden", border:`1px solid ${C.bgWarm}` }}>
-                  <img src={url} alt={`현장사진 ${i+1}`} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
+                  <DocImg src={url} alt={`현장사진 ${i+1}`} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
                   <button onClick={() => removePhoto(i)} aria-label="사진 삭제"
                     style={{ position:"absolute", top:4, right:4, width:22, height:22, borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:13, lineHeight:1, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
                 </div>
@@ -467,7 +468,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
                     <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:6, marginBottom:S.sm }}>
                       {(m.photos ?? []).map((url, i) => (
                         <div key={url + i} style={{ position:"relative", paddingTop:"100%", borderRadius:R.sm, overflow:"hidden", border:`1px solid ${C.bgWarm}` }}>
-                          <img src={url} alt={`자재사진 ${i+1}`} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
+                          <DocImg src={url} alt={`자재사진 ${i+1}`} style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }} />
                           <button onClick={() => removeMaterialPhoto(m.id, i)} aria-label="사진 삭제"
                             style={{ position:"absolute", top:2, right:2, width:18, height:18, borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.6)", color:"#fff", fontSize:11, lineHeight:1, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
                         </div>

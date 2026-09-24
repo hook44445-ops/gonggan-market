@@ -7,6 +7,7 @@ import {
 } from "../lib/supabase";
 import { payChangeOrder } from "../services/payment";
 import ImageViewerModal from "./ImageViewerModal"; // QA: 변경요청 사진 확대보기(Add Only)
+import DocImg from "./DocImg";
 
 // 추가견적은 예외 흐름 — 일반 기능처럼 보이지 않도록 업체 화면에선 "문제 발생" 안에 접어 둔다.
 const REASONS = [
@@ -110,7 +111,7 @@ export default function ChangeOrderPanel({ contractId, requestId = null, actorId
                 {o.photos.map((u, i) => (
                   <div key={i} onClick={() => setPhotoViewer({ images: o.photos, index: i })}
                     style={{ width: 56, height: 56, borderRadius: R.sm, overflow: "hidden", border: `1px solid ${C.bgWarm}`, cursor: "zoom-in" }}>
-                    <img src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <DocImg src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   </div>
                 ))}
               </div>
@@ -270,7 +271,7 @@ function CreateModal({ isCompany, actorId, contractId, edit, onClose, onDone }) 
       <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.xl }}>
         {photos.map((u, i) => (
           <div key={i} style={{ width: 72, height: 72, borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
-            <img src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <DocImg src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
         ))}
         {photos.length < 3 && (

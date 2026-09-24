@@ -10,6 +10,7 @@ import { useAdminProjectFlow } from "../hooks/useAdminProjectFlow";
 import { Chip } from "./common/AdminTableUI";
 import { evidenceChatDbg } from "../utils/adminChatDebug"; // 증빙관리 채팅 조회 진단(플래그 시에만 출력)
 import { checkpointEvidenceBadge, parseGpsMissingReason } from "../utils/gpsCheckpoint"; // GPS+사진 증빙 상태/누락 사유(읽기 전용)
+import DocImg from "./DocImg";
 
 // ── 프로젝트 증빙관리(V2.3) — 분쟁 시 "누가·언제·어디서·무엇을" 확인하는 콘솔 ──
 // 데이터: admin_project_flow_list(GPS/사진/계약/분쟁/리뷰/직거래의심) + 채팅 요약(읽기 전용).
@@ -384,7 +385,7 @@ function EvidenceDetail({ row, chat: chatPreloaded, onClose }) {
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {(cp.photos || []).map((p, j) => (
-                    <img key={j} src={typeof p === "string" ? p : p?.url} alt="" loading="lazy"
+                    <DocImg key={j} src={typeof p === "string" ? p : p?.url} alt="" loading="lazy"
                       style={{ width: 72, height: 72, objectFit: "cover", borderRadius: R.sm, border: `1px solid ${C.bgWarm}` }} />
                   ))}
                 </div>

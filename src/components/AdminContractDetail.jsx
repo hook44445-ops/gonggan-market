@@ -1,3 +1,4 @@
+import DocImg from "./DocImg";
 import { useState, useEffect, useCallback } from "react";
 import { C, R, S } from "../constants";
 import {
@@ -215,7 +216,7 @@ export default function AdminContractDetail({ requestId = null, contractId = nul
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "6px 0" }}>
                           {cp.photos.map((u, i) => (
                             <a key={i} href={u} target="_blank" rel="noreferrer" style={{ width: 56, height: 56, borderRadius: R.sm, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
-                              <img src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              <DocImg src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             </a>
                           ))}
                         </div>
@@ -260,7 +261,7 @@ export default function AdminContractDetail({ requestId = null, contractId = nul
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                           {co.photos.map((u, j) => (
                             <a key={j} href={u} target="_blank" rel="noreferrer" style={{ width: 52, height: 52, borderRadius: R.sm, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
-                              <img src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              <DocImg src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             </a>
                           ))}
                         </div>

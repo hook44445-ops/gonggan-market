@@ -486,6 +486,10 @@ export const docObjectRef = (value) => {
   return { bucket, path: v.slice(slash + 1) };
 };
 
+/** 서버에 저장된 사진인가 — 공개 주소(http) 또는 «버킷/경로». blob:/data: 는 업로드 실패 흔적. */
+export const isStoredPhoto = (value) =>
+  typeof value === "string" && (/^https?:\/\//.test(value) || !!docObjectRef(value));
+
 /** 서류 열람용 임시 주소(기본 10분). 실패하면 원래 값을 그대로 돌려준다(화면이 멈추지 않게). */
 export const signedDocUrl = async (value, expiresIn = 600) => {
   const ref = docObjectRef(value);
