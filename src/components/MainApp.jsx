@@ -1,4 +1,5 @@
 import { SHOW_BETA_UI } from "../constants/release";
+import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES, SPACE_TYPES } from "../constants";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
@@ -703,8 +704,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   //   ownerId(=업체 소유자 user.id) 기준으로 완료 에스크로 건수를 조회(대시보드 statsData 와 동일 입력).
   const myGrowth = useCompanyGrowth({
     ownerId: activeRole === "company" ? (user?.id ?? currentUser?.ownerId ?? null) : null,
-    // 대시보드(DashboardScreen)의 hasGuarantee 정의와 동일하게 맞춘다(뱃지 제외) → 동일 XP/LV.
-    hasGuarantee: currentUser?.guarantee_status === "ACTIVE" || !!currentUser?.guarantee_grade,
+    // 대시보드·지도 카드와 같은 공간보증 기준(C1) → 화면마다 같은 XP/LV.
+    hasGuarantee: isGuaranteeBadgeVisible(currentUser ?? {}),
   });
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
@@ -2837,6 +2838,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // 파트너: 새 견적 요청(한도 안) → 입찰할 요청 목록이 있는 홈 / 한도 밖 → 「내 한도 · 서류」(migration 110).
     if (t === "NEW_REQUEST") { loadCompanyRequests?.(); go("home"); return; }
     if (t === "NEW_REQUEST_LOCKED") { setScreen("document-center"); return; }
+    // 계약은 사업자부터(A안 · migration 116): 업체 → 서류 올리는 곳 / 의뢰인 → 그 요청의 결제 화면 / 관리자 → 관리 화면.
+    if (t === "BIZ_REQUIRED") { setScreen("document-center"); return; }
+    if (t === "BIZ_VERIFIED" && rid) { setBidViewRequestId(rid); go("bidstatus"); return; }
+    if (t === "ADMIN_BIZ_PENDING") { go("admin"); return; }
     // 의뢰인: 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교(bidstatus).
     if ((t === "BID_RECEIVED" || t === "BID_ALL_IN") && rid) {
       setBidViewRequestId(rid);
@@ -3041,6 +3046,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 siteVisit={siteVisitForBid}
                 onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
                 onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
+                onGoDocuments={() => setScreen("document-center")}
               />
             );
           })
@@ -4485,7 +4491,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             }
           }} />}
         {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
-        {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id}
+        {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} onGoDocuments={() => setScreen("document-center")} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id}
           onBidSubmit={isGuestCompany ? null : (r, data) => addBid(r, data)} />}
         {screen==="bidstatus" && (
           <BidStatusScreen

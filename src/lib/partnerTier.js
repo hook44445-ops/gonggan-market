@@ -130,8 +130,9 @@ export function limitText(manwon) {
   return `${n.toLocaleString("ko-KR")}만원`;
 }
 
-// 대표 2026-09-24: 「1안 위주, 2안은 문의 시」 — 화면은 1안(시공보험 → 1,000만원, 초과부터 보험 + 보증금 10%)
-// 하나만 말한다. 2안(보험 없이 보증금 20%)과 사업자 없이 보험·보증금으로 500만원 가는 길은 계산에만 남긴다 —
+// 대표 2026-09-24 (나중 결정): 1,000만원까지는 「시공보험 가입, 또는 보험이 없으면 보증금 20%」 — 둘 다 안내한다
+// (예전: 「1안 위주, 2안은 문의 시」로 보증금 20% 길은 계산에만 두었다). 1,000만원 초과는 보험 + 보증금 10%.
+// 사업자 없이 보험·보증금으로 500만원 가는 길은 계산에만 남긴다 —
 // 문의한 업체의 보증금을 관리자가 승인하면 그대로 반영되지만, 안내 문구에는 나오지 않는다(기본 규정이 헷갈리지 않게).
 // 다음 한 가지 — 지금 상태에서 «하나만 더 내면» 한도가 얼마가 되는지. 업체 화면·가입 완료 화면이 쓴다.
 export function nextUnlock(state = {}) {
@@ -141,7 +142,7 @@ export function nextUnlock(state = {}) {
   const tries = [
     !s.biz && { key: "biz", ask: "사업자등록증", next: { ...s, biz: true } },
     s.biz && !s.insurance &&
-      { key: "insurance", ask: "시공보험 증권", next: { ...s, insurance: true } },
+      { key: "insurance", ask: `시공보험 증권 또는 보증금 20%(${guaranteeAsk(LIMITS.BIZ_BACKED / UNINSURED_MULTIPLIER)})`, next: { ...s, insurance: true } },
     // 보증금이 없거나, 걸었어도 한도를 못 올리는 베이직(50)·스탠다드(100)면 — 등급은 정해진 금액뿐이라
     // 한도를 올리는 첫 등급(프리미엄 200만원)을 콕 집어 말한다.
     s.biz && s.insurance && dep * DEPOSIT_MULTIPLIER <= LIMITS.BIZ_BACKED &&
@@ -177,8 +178,10 @@ export function unlockFor(amountManwon, state = {}) {
   const need = [];
   if (!s.biz) need.push("사업자등록증");
   if (amt <= LIMITS.BIZ_BACKED) {
-    // 500~1,000 — 시공보험, 또는 보험 없이 보증금 20%
-    if (!s.insurance) need.push("시공보험 증권");
+    // 500~1,000 — 시공보험, 또는 보험 없이 보증금 20%(보증금 × 5 ≥ 공사 금액)
+    if (!s.insurance && dep * UNINSURED_MULTIPLIER < amt) {
+      need.push(`시공보험 증권 또는 보증금 20%(${guaranteeAsk(Math.ceil(amt / UNINSURED_MULTIPLIER))})`);
+    }
     return { need, over: false };
   }
   if (!s.insurance) need.push("시공보험 증권");
@@ -246,4 +249,24 @@ export function limitStateOf(company = {}) {
     depositManwon: active ? amount : 0,
     license: company.license_verified === true,
   };
+}
+
+// 카드 한 장의 «다음 한 가지» — 입찰 카드·입찰 폼이 같은 문장을 보인다(대표 2026-09-24:
+// 「입찰 카드는 보이되 사업자·시공보험을 내도록 유도, 1,000만원 이상 카드는 보증금을 내도록 안내」).
+// 서류를 안 내는 이유는 대개 귀찮아서다 → 막지 않고, 이 카드에서 «내면 무엇이 되는지»를 한 줄로.
+//   1) 이 공사가 내 한도 밖  → 무엇을 내면 이 공사에 입찰할 수 있는지(1,000만원 초과면 보증금이 여기서 나온다)
+//   2) 한도 안 · 사업자 없음 → 선택돼도 계약은 사업자 확인 뒤(A안) — 미리 올려 두면 바로 계약
+//   3) 사업자 있음 · 보험 없음 → 시공보험을 내면 한도가 커진다
+//   null = 더 권할 것 없음
+export function cardNudge(budgetManwon, state = {}) {
+  const s = { biz: false, insurance: false, depositManwon: 0, license: false, ...state };
+  const amt = Number(budgetManwon) || 0;
+  const u = amt > 0 ? unlockFor(amt, s) : null;
+  if (u) return { key: "unlock", text: unlockMessage(u), cta: u.over ? null : "서류 올리기" };
+  if (!s.biz) return { key: "biz", text: "선택되면 계약은 사업자등록증 확인 뒤에 해요 — 미리 올려 두면 선택되자마자 계약돼요(홈택스 당일 발급)", cta: "사업자등록증 올리기" };
+  if (!s.insurance) {
+    const next = bidLimit({ ...s, insurance: true });
+    if (next > bidLimit(s)) return { key: "insurance", text: `시공보험 증권을 올리거나, 보험이 없으면 보증금 20%(${guaranteeAsk(next / UNINSURED_MULTIPLIER)})를 걸면 ${limitText(next)} 공사까지 입찰할 수 있어요`, cta: "서류 올리기" };
+  }
+  return null;
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
 import { MIN_BID_MANWON, isValidBidManwon } from "../utils/calculations";
-import { bidLimit, limitText, unlockFor, unlockMessage, limitStateOf, partnerTier } from "../lib/partnerTier";
+import { bidLimit, limitText, unlockFor, unlockMessage, limitStateOf, partnerTier, cardNudge } from "../lib/partnerTier";
 import { trustState } from "./TrustEmblems";
 import SpaceActivityRecord from "./SpaceActivityRecord"; // v5.5: 공간 활동기록 요약(Add Only)
 import { TempBadge } from "./common";
@@ -18,6 +18,7 @@ export default function BidCard({
   myBid = null,
   siteVisit = null,
   onAction = null,
+  onGoDocuments = null,   // 「내 한도 · 서류」로 — 카드의 «다음 한 가지» 버튼
 }) {
   const [submitted, setSubmitted] = useState(alreadyBid);
   const [showForm, setShowForm] = useState(false);
@@ -74,6 +75,22 @@ export default function BidCard({
   const limitState = limitStateOf(company ?? {});
   const maxBidAmount = bidLimit(limitState);
   const tierLabel = partnerTier(trustState(company ?? {})).label;
+  // 이 카드의 «다음 한 가지» — 예산 상한 기준(모르면 사업자부터). 막지 않고 내면 무엇이 되는지 한 줄로.
+  const budgetMax = Number(r.budgetMax ?? r.budget_max) || 0;
+  const nudge = !isGuest ? cardNudge(budgetMax, limitState) : null;
+  const nudgeLine = nudge && (
+    <div style={{ background: "#FBF7EC", border: "1px solid #EADFC4", borderRadius: R.lg, padding: `${S.sm}px ${S.md}px`,
+      marginTop: S.md, display: "flex", alignItems: "center", gap: S.sm }}>
+      <span style={{ flex: 1, fontSize: 12, color: "#6F5A1E", lineHeight: 1.6, fontWeight: 600 }}>🔓 {nudge.text}</span>
+      {nudge.cta && onGoDocuments && (
+        <button onClick={(e) => { e.stopPropagation(); onGoDocuments(); }}
+          style={{ flex: "0 0 auto", background: C.surface, color: "#8A6D1E", border: "1px solid #EADFC4", borderRadius: R.full,
+            padding: "6px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+          {nudge.cta}
+        </button>
+      )}
+    </div>
+  );
   const bidPrice = parseInt(bidForm.price, 10);
   const overLimit = !!bidForm.price && bidPrice > maxBidAmount;
   const underMin  = !!bidForm.price && (!Number.isFinite(bidPrice) || bidPrice < MIN_BID_MANWON);
@@ -276,6 +293,7 @@ export default function BidCard({
               </button>
             </div>
           )}
+          {!isChosen && !hasBid && !isClosed && nudgeLine}
         </div>
       </div>
 
@@ -297,6 +315,7 @@ export default function BidCard({
               <span style={{ fontSize: 12, color: "#6F695D", fontWeight: 600 }}>{tierLabel} · 공사 1건</span>
               <span style={{ fontSize: 13, color: C.text1, fontWeight: 800 }}>최대 {limitText(maxBidAmount)}까지 입찰</span>
             </div>
+            {nudgeLine && <div style={{ marginTop: -S.sm, marginBottom: S.md }}>{nudgeLine}</div>}
 
             {/* v5.5: 공간 활동기록 요약(④ 입찰 카드) — 실데이터만, 기록 없으면 미표시 */}
             <div style={{ marginBottom: S.md }}>

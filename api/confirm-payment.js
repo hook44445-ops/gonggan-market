@@ -1,3 +1,5 @@
+import { contractGate, BIZ_REQUIRED_MESSAGE } from "../src/lib/contractGate.js";
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -26,6 +28,16 @@ export default async function handler(req, res) {
       error: "이미 결제된 공사예요. 같은 공사를 두 번 결제할 수 없어요 — 공사 화면에서 진행 상황을 확인해 주세요.",
       code: "ALREADY_PAID",
     });
+  }
+
+  // 계약은 사업자부터(A안) — 선택된 업체의 사업자등록이 관리자 확인 전이면 승인하지 않는다 → 매입 안 됨(돈이 안 나감).
+  // 결제 화면도 막지만, 화면을 거치지 않은 요청까지 여기서 막는다. 업체를 «확인 못 했다»(조회 실패)면 예전처럼 막지 않는다 —
+  // «확인 안 된 업체다»라고 읽혔을 때만 막는다(설정 문제로 모든 결제가 멈추지 않게).
+  if (reqMatch) {
+    const company = await selectedCompanyOf(reqMatch[1]);
+    if (company && !contractGate(company).ok) {
+      return res.status(409).json({ error: BIZ_REQUIRED_MESSAGE, code: "BIZ_REQUIRED" });
+    }
   }
 
   const auth = Buffer.from(`${secretKey}:`).toString("base64");
@@ -72,5 +84,25 @@ async function paymentsPaused() {
     return !!rows?.[0]?.pause_new_payments;
   } catch {
     return false;
+  }
+}
+
+// 요청에 선택된 업체 행(verified 만). selected_company_id 는 업체 ID 일 수도, 주인 사용자 ID 일 수도 있다.
+// 못 읽으면 null(= 모름). 업체 행이 없으면 null.
+async function selectedCompanyOf(requestId) {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  const h = { apikey: key, Authorization: `Bearer ${key}` };
+  try {
+    const r = await fetch(`${url}/rest/v1/requests?id=eq.${encodeURIComponent(requestId)}&select=selected_company_id&limit=1`, { headers: h });
+    if (!r.ok) return null;
+    const ref = (await r.json())?.[0]?.selected_company_id;
+    if (!ref || !/^[0-9a-f-]{36}$/i.test(String(ref))) return null;
+    const c = await fetch(`${url}/rest/v1/companies?or=(id.eq.${ref},owner_id.eq.${ref})&select=id,verified&limit=1`, { headers: h });
+    if (!c.ok) return null;
+    return (await c.json())?.[0] ?? null;
+  } catch {
+    return null;
   }
 }

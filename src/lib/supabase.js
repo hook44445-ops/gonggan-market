@@ -2609,6 +2609,14 @@ export const adminReviewDocument = async (docId, adminId, reviewStatus, reason =
         .update({ has_insurance: reviewStatus === "approved" })
         .eq("id", data.company_id);
     }
+    // 사업자등록증 — 승인하면 companies.verified 를 켠다. 계약은 사업자부터(A안)라, 예전처럼 문서만 승인되고
+    // verified 가 안 켜지면 업체는 서류를 내고도 영원히 결제를 못 받는다. 반려는 verified 를 끄지 않는다 —
+    // 업체 심사(adminReviewCompany)로 이미 확인된 업체가 새로 낸 서류 한 장 때문에 계약이 끊기지 않게.
+    if (data?.document_type === "business_license" && data.company_id && reviewStatus === "approved") {
+      await supabase.from("companies")
+        .update({ verified: true })
+        .eq("id", data.company_id);
+    }
     // 면허도 같다 — 실내건축공사업 등록증을 관리자가 승인했을 때만 license_verified(마이그레이션 101)를 켠다.
     if (data?.document_type === "interior_license" && data.company_id
         && (reviewStatus === "approved" || reviewStatus === "rejected")) {

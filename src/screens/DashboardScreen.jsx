@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { isGuaranteeBadgeVisible } from "../constants/guarantee";
+import { BIZ_GRACE_HOURS } from "../lib/contractGate";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S, SHADOW } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
@@ -168,6 +170,7 @@ const normalizeCompletedJob = (row) => {
 
 export default function DashboardScreen({
   onBack, onEscrow, onOpenJob,
+  onGoDocuments, // 「내 한도 · 서류」 화면 — 사업자등록증을 올리는 곳(A안)
   onBidSubmit,   // (요청, 입찰값) → Promise<boolean>. 없으면 이 탭에서 입찰이 조용히 아무 일도 안 했다(2026-09-24 점검에서 발견).
   companyJobs, companyJobsDebug,
   allRequests: allRequestsProp,
@@ -266,7 +269,8 @@ export default function DashboardScreen({
 
   // 업체 성장(Level+XP) — 표시 전용. 대시보드가 이미 보유한 집계에서 XP 파생(DB 쓰기 없음).
   //   공간온도/추천업체 로직과 완전 분리. XP/레벨은 감소하지 않는다.
-  const hasGuarantee = currentUser?.guarantee_status === "ACTIVE" || !!currentUser?.guarantee_grade;
+  // 공간보증 — 지도·비교 카드와 같은 기준(입금·승인 뒤 ACTIVE + 노출 · C1). 등급만 있다고 켜지 않는다.
+  const hasGuarantee = isGuaranteeBadgeVisible(currentUser ?? {});
   // P-XP-01 화면 정합: 업체카드/업체상세/마이페이지/메인 성장카드와 '동일 입력 기준'
   //   (완료 건수 + 공간보증)으로 통일 → 같은 사용자가 화면마다 동일한 Lv/XP/Progress 를 본다.
   //   ⚠️ 계산식(computeCompanyXp)·레벨식·XP 지급 정책·DB 무변경 — 입력 집합만 표준에 맞춤.
@@ -461,6 +465,25 @@ export default function DashboardScreen({
               </div>
             )}
 
+            {/* 계약은 사업자부터(A안) — 선택됐는데 사업자 확인 전이면, 의뢰인은 결제할 수 없다. 지금 할 한 가지를 맨 위에. */}
+            {currentUser && currentUser.verified !== true && activeJobs.some(j => !j.contracted) && (
+              <div style={{ background:"#FBF7EC", border:"1px solid #EADFC4", borderRadius:R.xl, padding:S.lg, marginBottom:S.md }}>
+                <div style={{ fontSize:14, fontWeight:800, color:"#8A6D1E", marginBottom:6 }}>선택됐어요! 계약하려면 사업자등록증이 필요해요</div>
+                <div style={{ fontSize:12.5, color:C.text2, lineHeight:1.75 }}>
+                  공간마켓은 사업자등록을 마친 업체와만 계약해요. 사업자등록증은 홈택스에서 당일 발급돼요.
+                  올리면 관리자가 확인한 뒤 의뢰인이 결제할 수 있어요. 선택 후 {BIZ_GRACE_HOURS}시간이 지나면
+                  의뢰인이 공간온도 부담 없이 다른 업체를 고를 수 있어요.
+                </div>
+                {onGoDocuments && (
+                  <button onClick={onGoDocuments}
+                    style={{ marginTop:S.md, width:"100%", padding:"12px 0", background:C.brand, color:"#fff", border:"none",
+                      borderRadius:R.lg, fontSize:14, fontWeight:800, cursor:"pointer" }}>
+                    사업자등록증 올리기
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Job cards */}
             {activeJobs.map(job => (
               <div key={job.id} onClick={() => job.bid && onOpenJob ? onOpenJob(job.bid) : onEscrow()}
@@ -527,7 +550,7 @@ export default function DashboardScreen({
                 오늘 견적 요청 <b style={{ color:C.brand }}>{biddable.length}건</b>
               </div>
               {biddable.map(r => <BidCard key={r.id} r={r} currentUser={currentUser} submittedBids={submittedBids}
-                onBidSubmit={onBidSubmit ? data => onBidSubmit(r, data) : undefined} />)}
+                onBidSubmit={onBidSubmit ? data => onBidSubmit(r, data) : undefined} onGoDocuments={onGoDocuments} />)}
             </div>
           );
         })()}
