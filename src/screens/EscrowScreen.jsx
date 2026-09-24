@@ -87,7 +87,9 @@ const CUSTOMER_DISPLAY = {
   1: SHOW_BETA_UI
      ? { label: "계약 확정",     sub: "대금은 계약서 단계대로 업체와 직접 주고받아요",       confirmLabel: null }
      : { label: "결제 완료",       sub: "공사비를 공간마켓이 안전하게 보관합니다",             confirmLabel: null },
-  2: { label: "자재비 지급",      sub: "계약 완료 후 자재비가 업체에 먼저 지급됩니다",         confirmLabel: null },
+  2: SHOW_BETA_UI
+     ? { label: "자재비",           sub: "계약서대로 자재비를 먼저 주고받아요",                  confirmLabel: null }
+     : { label: "자재비 지급",      sub: "계약 완료 후 자재비가 업체에 먼저 지급됩니다",         confirmLabel: null },
   3: { label: "공사 시작 확인",   sub: "업체가 사진을 올리면 확인하고 승인해주세요",           confirmLabel: "공사 시작 승인" },
   4: { label: "중간 확인",        sub: "중간 공사 사진을 확인하고 승인해주세요",                confirmLabel: "중간 확인 승인" },
   5: { label: "공사 완료 확인",   sub: "완료 사진을 확인하고 승인하면 공사가 마무리됩니다",     confirmLabel: "완료 승인" },
@@ -1282,8 +1284,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const paid = stageMeta.filter(s => stageStatus[s.id] === "done" && s.pct > 0).reduce((a, s) => a + s.pct, 0);
 
   const headerSub = resolvedBid
-    ? `${resolvedBid.company?.name && resolvedBid.company.name !== "—" ? resolvedBid.company.name : "업체"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
-    : isConsumer ? "공사 안전 결제" : "에스크로 안전 정산";
+    ? `${resolvedBid.company?.name && resolvedBid.company.name !== "—" ? resolvedBid.company.name : "업체"} · ${bidAmount > 0 ? fmtMoney(isConsumer && !SHOW_BETA_UI ? customerTotal : bidAmount) : "금액 미정"}`
+    : SHOW_BETA_UI ? "공사 진행" : isConsumer ? "공사 안전 결제" : "에스크로 안전 정산";
 
   const statusColor = (sid) => {
     const st = stageStatus[sid];
@@ -1308,7 +1310,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
         <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
           <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{SHOW_BETA_UI ? "공사 진행" : (isConsumer ? "공사 안전 결제" : "에스크로 안전 정산")}</div>
         </div>
         <div style={{ padding: "60px 24px", textAlign: "center" }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Icon emoji="🔍" size={34} color={C.text3} /></div>
@@ -1326,7 +1328,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
         <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
           <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{SHOW_BETA_UI ? "공사 진행" : (isConsumer ? "공사 안전 결제" : "에스크로 안전 정산")}</div>
         </div>
         <div style={{ padding: "60px 24px", textAlign: "center" }}>
           <div style={{ fontSize: 34, marginBottom: 12 }}>⏳</div>
@@ -1342,7 +1344,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
         <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
           <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{SHOW_BETA_UI ? "공사 진행" : (isConsumer ? "공사 안전 결제" : "에스크로 안전 정산")}</div>
         </div>
         <div style={{ padding: "60px 24px", textAlign: "center" }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Icon emoji="😢" size={34} color={C.text3} /></div>
@@ -1360,7 +1362,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
         <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
           <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{SHOW_BETA_UI ? "공사 진행" : (isConsumer ? "공사 안전 결제" : "에스크로 안전 정산")}</div>
         </div>
         <div style={{ padding: "60px 24px", textAlign: "center" }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Icon emoji="🏠" size={34} color={C.text3} /></div>
@@ -1522,7 +1524,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, position: "sticky", top: 0, zIndex: 10, display: "flex", alignItems: "center", gap: S.md }}>
         <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{isConsumer ? "공사 안전 결제" : "에스크로 안전 정산"}</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>{SHOW_BETA_UI ? "공사 진행" : (isConsumer ? "공사 안전 결제" : "에스크로 안전 정산")}</div>
           <div style={{ fontSize: 12, color: C.text3 }}>{headerSub}</div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: S.sm }}>
@@ -1731,8 +1733,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <Icon emoji={isConsumer ? "👤" : "🏗"} size={16} color={isConsumer ? C.brand : C.text2} />
           <span style={{ fontSize: 13, fontWeight: 700, color: isConsumer ? C.brand : C.text2, display: "flex", alignItems: "center", gap: 5 }}>
             {isConsumer
-              ? <><Icon emoji="🔒" size={13} color={C.brand} /> 사진을 확인하고 승인하면 공사비가 업체에 지급됩니다</>
-              : "단계별로 완료 신고 후 고객 확인 시 입금됩니다"}
+              ? <><Icon emoji="🔒" size={13} color={C.brand} /> {SHOW_BETA_UI ? "사진을 확인하고 승인하면 그 단계가 확정돼요 · 대금은 계약서대로" : "사진을 확인하고 승인하면 공사비가 업체에 지급됩니다"}</>
+              : SHOW_BETA_UI ? "단계마다 완료 사진을 보내고 고객 확인을 받으세요" : "단계별로 완료 신고 후 고객 확인 시 입금됩니다"}
           </span>
         </div>
 
@@ -1755,7 +1757,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ width: `${paid}%`, height: "100%", background: C.brand, borderRadius: R.full, transition: "width 0.6s ease", boxShadow: `0 0 8px ${C.brand88}` }} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, opacity: 0.7 }}>
-            <span>{isConsumer ? "업체에 지급됨" : "업체 지급 완료"} {paid}%</span>
+            <span>{SHOW_BETA_UI ? "확정된 단계" : isConsumer ? "업체에 지급됨" : "업체 지급 완료"} {paid}%</span>
             {bidAmount > 0 && <span>{SHOW_BETA_UI ? "남은 단계" : "보관 중"} {fmtMoney(Math.round(bidAmount * (100 - paid) / 100))}</span>}
           </div>
         </div>
@@ -2015,7 +2017,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   {isConsumer && status === "done" && s.pct > 0 && (
                     <div style={{ background: C.greenL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
                       <Icon emoji="✅" size={16} color={C.green} />
-                      <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>확정 완료 · {fmtMoney(stage?.amount ?? 0)} 지급됨</span>
+                      <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>확정 완료 · {fmtMoney(stage?.amount ?? 0)}{SHOW_BETA_UI ? "" : " 지급됨"}</span>
                     </div>
                   )}
 
