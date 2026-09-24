@@ -1418,7 +1418,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       try {
         const { data: selectedRequests, error: selectedError } = await supabase
           .from("requests")
-          .select("*, bids(id, price, status, company_id, period_days, material_note, comment, created_at, selected)")
+          .select("*, bids(id, price, status, company_id, period_days, material_note, comment, created_at)")  // bids.selected 칸은 없다 — 넣으면 조회 전체가 42703 으로 실패해 선택된 공사가 진행중에서 빠졌다
           .in("selected_company_id", candidateIds)
           .in("status", FORCE_STATUS);
         if (selectedError) { try { console.error("[DASHBOARD_SELECTED_REQUESTS_FAILED]", selectedError); } catch {} }
@@ -1449,7 +1449,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 id: selectedBid.id, requestId: req.id, companyId: selectedBid.company_id,
                 price: selectedBid.price, period: selectedBid.period_days,
                 material: selectedBid.material_note ?? "", comment: selectedBid.comment ?? "",
-                createdAt: selectedBid.created_at, status: selectedBid.selected ? "selected" : "pending",
+                createdAt: selectedBid.created_at, status: (selectedBid.selected || selectedBid.id === req.selected_bid_id) ? "selected" : "pending",
                 company: { id: req.selected_company_id, name: user.name ?? "업체", temp: 36.5, ownerId: user.id },
               } : null,
               request: normalizeRequest(req),
@@ -4389,7 +4389,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         )}
         {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} onConfirmFinalQuote={() => go("bidstatus")} />}
         {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
-        {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id} />}
+        {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id}
+          onBidSubmit={isGuestCompany ? null : (r, data) => addBid(r, data)} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
             onBack={() => setScreen("home")}

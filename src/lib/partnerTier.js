@@ -13,7 +13,7 @@
 export const TIERS = {
   basic:    { key: "basic",    rank: 0, label: "기본",         line: "아직 증빙을 내지 않은 업체" },
   verified: { key: "verified", rank: 1, label: "확인된 업체",   line: "증빙 일부를 확인한 업체" },
-  premium:  { key: "premium",  rank: 2, label: "프리미엄 파트너", line: "사업자·시공보험·보증금을 모두 증빙한 업체" },
+  premium:  { key: "premium",  rank: 2, label: "프리미엄 파트너", line: "사업자·시공보험·보증금을 모두 확인해 1,000만원이 넘는 공사도 맡는 업체" },
 };
 
 // 증빙 셋 — 순서가 곧 화면 순서다.
@@ -24,10 +24,15 @@ export const PROOFS = [
 ];
 
 // { biz, insurance, deposit } → 등급. 무엇이 빠졌는지도 함께 돌려준다(파트너에게 «다음 한 가지»를 권할 때).
+// 프리미엄 파트너 = 1,000만원이 넘는 공사를 받을 수 있는 업체(대표: 「1,000만원까지는 사업자 + 시공보험,
+// 그 이상은 보증금 · 프리미엄 파트너」). 셋을 다 냈어도 보증금이 한도를 못 올리는 등급(베이직 50·스탠다드 100)이면
+// 확인된 업체에 둔다 — 카드는 금테인데 1,000만원 넘는 공사에 입찰할 수 없는 일이 없게.
+// depositManwon 이 없으면(예전 호출) 예전처럼 셋이면 프리미엄.
 export function partnerTier(state = {}) {
   const have = PROOFS.filter(p => !!state[p.key]);
+  const depOk = state.depositManwon == null || Number(state.depositManwon) * DEPOSIT_MULTIPLIER > LIMITS.BIZ_BACKED;
   const missing = PROOFS.filter(p => !state[p.key]);
-  const tier = have.length === PROOFS.length ? TIERS.premium
+  const tier = have.length === PROOFS.length && depOk ? TIERS.premium
              : have.length > 0              ? TIERS.verified
              :                                 TIERS.basic;
   return { ...tier, count: have.length, total: PROOFS.length, missing };
@@ -125,6 +130,9 @@ export function limitText(manwon) {
   return `${n.toLocaleString("ko-KR")}만원`;
 }
 
+// 대표 2026-09-24: 「1안 위주, 2안은 문의 시」 — 화면은 1안(시공보험 → 1,000만원, 초과부터 보험 + 보증금 10%)
+// 하나만 말한다. 2안(보험 없이 보증금 20%)과 사업자 없이 보험·보증금으로 500만원 가는 길은 계산에만 남긴다 —
+// 문의한 업체의 보증금을 관리자가 승인하면 그대로 반영되지만, 안내 문구에는 나오지 않는다(기본 규정이 헷갈리지 않게).
 // 다음 한 가지 — 지금 상태에서 «하나만 더 내면» 한도가 얼마가 되는지. 업체 화면·가입 완료 화면이 쓴다.
 export function nextUnlock(state = {}) {
   const s = { biz: false, insurance: false, depositManwon: 0, license: false, ...state };
@@ -133,10 +141,12 @@ export function nextUnlock(state = {}) {
   const tries = [
     !s.biz && { key: "biz", ask: "사업자등록증", next: { ...s, biz: true } },
     s.biz && !s.insurance &&
-      { key: "insurance", ask: "시공보험 증권(또는 보증금 20%)", next: { ...s, insurance: true } },
-    s.biz && s.insurance && !(dep > 0) &&
-      { key: "premium", ask: "공간보증 보증금", next: { ...s, depositManwon: 150 } },
-    s.biz && s.insurance && dep > 0 && !s.license &&
+      { key: "insurance", ask: "시공보험 증권", next: { ...s, insurance: true } },
+    // 보증금이 없거나, 걸었어도 한도를 못 올리는 베이직(50)·스탠다드(100)면 — 등급은 정해진 금액뿐이라
+    // 한도를 올리는 첫 등급(프리미엄 200만원)을 콕 집어 말한다.
+    s.biz && s.insurance && dep * DEPOSIT_MULTIPLIER <= LIMITS.BIZ_BACKED &&
+      { key: "premium", ask: "공간보증 200만원(프리미엄 등급)", next: { ...s, depositManwon: 200 } },
+    s.biz && s.insurance && dep * DEPOSIT_MULTIPLIER > LIMITS.BIZ_BACKED && !s.license &&
       { key: "license", ask: "실내건축공사업 등록증", next: { ...s, license: true } },
   ].filter(Boolean);
   for (const t of tries) {
@@ -144,6 +154,14 @@ export function nextUnlock(state = {}) {
     if (after > now) return { key: t.key, ask: t.ask, from: now, to: after };
   }
   return null;
+}
+
+// 공간보증은 정해진 다섯 등급뿐이다(constants/guarantee.js). 필요한 보증금을 «걸 수 있는» 가장 가까운 등급으로 올려
+// 말한다 — 「보증금 120만원 이상」은 걸 수 없는 금액이라 헷갈렸다.
+const GUARANTEE_STEPS = [[50, "베이직"], [100, "스탠다드"], [200, "프리미엄"], [500, "마스터"], [1000, "시그니처"]];
+export function guaranteeAsk(needManwon) {
+  const hit = GUARANTEE_STEPS.find(([amt]) => amt >= needManwon);
+  return hit ? `공간보증 ${hit[1]}(${hit[0].toLocaleString("ko-KR")}만원)` : `공간보증 ${needManwon.toLocaleString("ko-KR")}만원`;
 }
 
 // 입찰 금액이 한도를 넘을 때 — 무엇을 내면 이 공사에 입찰할 수 있는지(null = 이미 가능).
@@ -154,18 +172,17 @@ export function unlockFor(amountManwon, state = {}) {
   if (amt > LIMITS.MAX) return { need: [], over: true };
   const dep = Number(s.depositManwon) || 0;
   const depNeed = Math.ceil(amt / DEPOSIT_MULTIPLIER);
-  const won = (n) => `${n.toLocaleString("ko-KR")}만원`;
   // 300~500 — 사업자 없이도 된다. 셋 중 하나면 된다.
-  if (amt <= LIMITS.NO_BIZ_BACKED) return { need: ["사업자등록증 · 시공보험 · 보증금 중 하나"], over: false };
+  if (amt <= LIMITS.NO_BIZ_BACKED) return { need: ["사업자등록증"], over: false };
   const need = [];
   if (!s.biz) need.push("사업자등록증");
   if (amt <= LIMITS.BIZ_BACKED) {
     // 500~1,000 — 시공보험, 또는 보험 없이 보증금 20%
-    if (!s.insurance) need.push(`시공보험 증권 또는 보증금 ${won(Math.ceil(amt / UNINSURED_MULTIPLIER))} 이상`);
+    if (!s.insurance) need.push("시공보험 증권");
     return { need, over: false };
   }
   if (!s.insurance) need.push("시공보험 증권");
-  if (dep < depNeed) need.push(`보증금 ${won(depNeed)} 이상`);
+  if (dep < depNeed) need.push(guaranteeAsk(depNeed));
   if (amt > LIMITS.UNLICENSED_CEILING && !s.license) need.push("실내건축공사업 등록증");
   return { need, over: false };
 }
@@ -183,7 +200,7 @@ export function unlockMessage(u) {
 export const LADDER = [
   { key: "none",    label: "가입만",                        note: "도배·부분 수리",  state: {} },
   { key: "biz",     label: "사업자등록증",                  note: "관리자 확인",     state: { biz: true } },
-  { key: "insurance", label: "+ 시공보험",                  note: "또는 보증금 20%", state: { biz: true, insurance: true } },
+  { key: "insurance", label: "+ 시공보험",                  note: "관리자 확인", state: { biz: true, insurance: true } },
   { key: "premium", label: "+ 보증금 · 프리미엄 파트너",    note: "1,000만원 초과부터 · 보증금 10%", state: { biz: true, insurance: true, depositManwon: 150 } },
   { key: "license", label: "+ 실내건축공사업 등록증",       note: "대형 공사",       state: { biz: true, insurance: true, depositManwon: 1000, license: true } },
 ].map(r => ({ ...r, limit: bidLimit(r.state) }));
@@ -192,9 +209,14 @@ export const LADDER = [
 // 보증금이 적은 면허 업체가 닿지 못해 「면허 안 냄」처럼 보였다.
 export function ladderKeyOf(state = {}) {
   const dep = Number(state.depositManwon) || 0;
-  if (state.biz && state.insurance && dep > 0 && state.license) return "license";
-  if (state.biz && state.insurance && dep > 0) return "premium";
-  if (state.biz && (state.insurance || dep > 0)) return "insurance";
+  // 프리미엄·면허 칸은 «보증금이 실제로 한도를 1,000만원 위로 올렸을 때»만. 공간보증 베이직(50)·스탠다드(100)는
+  // 보증금 × 10 이 1,000 을 넘지 못해 한도가 그대로인데, 예전엔 보증금만 있으면 프리미엄 칸으로 올려
+  // 위 카드(1,000만원)와 계단 칸(1,500만원 미만)이 한 화면에서 서로 다른 말을 했다.
+  const raised = state.biz && state.insurance && dep * DEPOSIT_MULTIPLIER > LIMITS.BIZ_BACKED;
+  if (raised && state.license) return "license";
+  if (raised) return "premium";
+  // 보험 대신 보증금 20% 도 «한도를 실제로 올렸을 때»만(× 5 가 500 을 넘을 때 — 공간보증 200만원부터).
+  if (state.biz && (state.insurance || dep * UNINSURED_MULTIPLIER > LIMITS.BIZ)) return "insurance";
   if (state.biz) return "biz";
   return "none";
 }

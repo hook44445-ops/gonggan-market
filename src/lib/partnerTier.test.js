@@ -85,12 +85,12 @@ test("다음 한 가지 — 하나만 더 내면 얼마가 되는지", () => {
 
 test("입찰 금액이 넘을 때 — 무엇을 내면 되는지", () => {
   assert.equal(unlockFor(250, {}), null);                                   // 이미 가능
-  assert.deepEqual(unlockFor(450, {}).need, ["사업자등록증 · 시공보험 · 보증금 중 하나"]);
-  assert.deepEqual(unlockFor(800, {}).need, ["사업자등록증", "시공보험 증권 또는 보증금 160만원 이상"]);
-  assert.deepEqual(unlockFor(800, { biz: true }).need, ["시공보험 증권 또는 보증금 160만원 이상"]);
-  assert.deepEqual(unlockFor(1200, { biz: true, insurance: true }).need, ["보증금 120만원 이상"]);
+  assert.deepEqual(unlockFor(450, {}).need, ["사업자등록증"]);
+  assert.deepEqual(unlockFor(800, {}).need, ["사업자등록증", "시공보험 증권"]);
+  assert.deepEqual(unlockFor(800, { biz: true }).need, ["시공보험 증권"]);
+  assert.deepEqual(unlockFor(1200, { biz: true, insurance: true }).need, ["공간보증 프리미엄(200만원)"]);
   assert.deepEqual(unlockFor(3000, { biz: true, insurance: true, depositManwon: 100 }).need,
-    ["보증금 300만원 이상", "실내건축공사업 등록증"]);
+    ["공간보증 마스터(500만원)", "실내건축공사업 등록증"]);
   assert.equal(unlockFor(20000, { biz: true, insurance: true, depositManwon: 5000, license: true }).over, true);
 });
 
@@ -118,7 +118,7 @@ test("보험 없으면 보증금 20% — 1,000만원까지만", () => {
   assert.equal(bidLimit({ biz: true, depositManwon: 200 }), 1000);   // 200 × 5
   assert.equal(bidLimit({ biz: true, depositManwon: 1000 }), 1000);  // 보험 없는 길은 1,000 에서 멈춘다
   assert.equal(unlockFor(800, { biz: true, depositManwon: 1000 }), null);
-  assert.deepEqual(unlockFor(800, { biz: true }).need, ["시공보험 증권 또는 보증금 160만원 이상"]);
+  assert.deepEqual(unlockFor(800, { biz: true }).need, ["시공보험 증권"]);   // 2안(보증금 20%)은 안내하지 않는다
   assert.deepEqual(unlockFor(1200, { biz: true, depositManwon: 1000 }).need, ["시공보험 증권"]);
   assert.equal(nextUnlock({ biz: true, depositManwon: 100 }).key, "insurance");
 });
@@ -157,7 +157,7 @@ test("ladderKeyOf — 낸 증빙으로 계단 위치를 정한다", async () => 
   assert.equal(ladderKeyOf({}), "none");
   assert.equal(ladderKeyOf({ insurance: true }), "none");                       // 사업자 없이는 500만원이어도 첫 칸
   assert.equal(ladderKeyOf({ biz: true }), "biz");
-  assert.equal(ladderKeyOf({ biz: true, depositManwon: 100 }), "insurance");      // 보험 대신 보증금 20%
+  assert.equal(ladderKeyOf({ biz: true, depositManwon: 200 }), "insurance");      // 보험 대신 보증금 20%(200만원부터 한도가 오른다)
   assert.equal(ladderKeyOf({ biz: true, insurance: true, depositManwon: 200 }), "premium");
   assert.equal(ladderKeyOf({ biz: true, insurance: true, depositManwon: 500, license: true }), "license");
 });
@@ -167,4 +167,40 @@ test("maxedText — 최고 한도가 아니면 보증금 안내", async () => {
   const { maxedText } = await import("./partnerTier.js");
   assert.match(maxedText({ biz: true, insurance: true, depositManwon: 500, license: true }), /보증금을 늘리면/);
   assert.equal(maxedText({ biz: true, insurance: true, depositManwon: 1000, license: true }), "가장 큰 공사까지 받을 수 있어요");
+});
+
+// 공간보증 베이직(50)·스탠다드(100)는 한도를 올리지 못한다 — 프리미엄 칸으로 올리지 않는다.
+test("ladderKeyOf — 한도를 올리지 못하는 보증금은 프리미엄이 아니다", async () => {
+  const { ladderKeyOf } = await import("./partnerTier.js");
+  for (const dep of [50, 100]) {
+    const s = { biz: true, insurance: true, depositManwon: dep };
+    assert.equal(bidLimit(s), 1000);
+    assert.equal(ladderKeyOf(s), "insurance");
+    assert.equal(ladderKeyOf({ ...s, license: true }), "insurance");
+  }
+  assert.equal(ladderKeyOf({ biz: true, insurance: true, depositManwon: 200 }), "premium");
+});
+
+test("nextUnlock — 베이직·스탠다드를 건 업체에게는 프리미엄 등급(200만원)을 알려 준다", () => {
+  const n = nextUnlock({ biz: true, insurance: true, depositManwon: 50 });
+  assert.equal(n.key, "premium");
+  assert.equal(n.to, LIMITS.UNLICENSED_CEILING);
+  assert.match(n.ask, /200만원/);
+});
+
+test("ladderKeyOf — 보험 없이 건 보증금도 한도를 올릴 때만 한 칸 오른다", async () => {
+  const { ladderKeyOf } = await import("./partnerTier.js");
+  assert.equal(bidLimit({ biz: true, depositManwon: 50 }), 500);
+  assert.equal(ladderKeyOf({ biz: true, depositManwon: 50 }), "biz");
+  assert.equal(ladderKeyOf({ biz: true, depositManwon: 100 }), "biz");
+  assert.equal(ladderKeyOf({ biz: true, depositManwon: 200 }), "insurance");
+});
+
+// 프리미엄 파트너 = 1,000만원 초과 공사를 받을 수 있는 업체. 베이직·스탠다드 보증금이면 확인된 업체.
+test("partnerTier — 한도를 못 올리는 보증금이면 프리미엄이 아니다", () => {
+  const base = { biz: true, insurance: true, deposit: true };
+  assert.equal(partnerTier(base).key, "premium");                          // 금액을 모르면 예전처럼
+  assert.equal(partnerTier({ ...base, depositManwon: 50 }).key, "verified");
+  assert.equal(partnerTier({ ...base, depositManwon: 100 }).key, "verified");
+  assert.equal(partnerTier({ ...base, depositManwon: 200 }).key, "premium");
 });

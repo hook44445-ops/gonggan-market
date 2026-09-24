@@ -41,11 +41,15 @@ export const TRUST_EMBLEMS = [
 export function trustState(company = {}) {
   const deposit = isGuaranteeBadgeVisible(company);
   const grade = deposit ? (GUARANTEE_GRADE_MAP[company.guarantee_grade]?.label ?? null) : null;
+  // 보증금 금액 — 프리미엄 파트너 판정(partnerTier)에 쓴다. 한도 계산(limitStateOf)과 같은 규칙.
+  const depositManwon = deposit
+    ? (Number(company.guarantee_amount) || GUARANTEE_GRADE_MAP[company.guarantee_grade]?.amount || 0) : 0;
   return {
     biz:       company.verified === true,
     insurance: (company.has_insurance ?? company.hasInsurance ?? company.insurance) === true,
     deposit,
     depositGrade: grade,
+    depositManwon,
   };
 }
 
