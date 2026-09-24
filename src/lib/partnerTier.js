@@ -184,7 +184,7 @@ export const LADDER = [
   { key: "none",    label: "가입만",                        note: "도배·부분 수리",  state: {} },
   { key: "biz",     label: "사업자등록증",                  note: "관리자 확인",     state: { biz: true } },
   { key: "insurance", label: "+ 시공보험",                  note: "또는 보증금 20%", state: { biz: true, insurance: true } },
-  { key: "premium", label: "+ 보증금 · 프리미엄 파트너",    note: "보증금 10%",      state: { biz: true, insurance: true, depositManwon: 150 } },
+  { key: "premium", label: "+ 보증금 · 프리미엄 파트너",    note: "1,000만원 초과부터 · 보증금 10%", state: { biz: true, insurance: true, depositManwon: 150 } },
   { key: "license", label: "+ 실내건축공사업 등록증",       note: "대형 공사",       state: { biz: true, insurance: true, depositManwon: 1000, license: true } },
 ].map(r => ({ ...r, limit: bidLimit(r.state) }));
 
