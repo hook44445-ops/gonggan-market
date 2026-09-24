@@ -2422,21 +2422,38 @@ export const getWebhookLogs = ({ limit = 50 } = {}) =>
 
 // ── Admin: Dispute Payments ───────────────────────────────────────────────────
 
-export const getDisputePayments = () =>
-  supabase
+// 계약(escrow_payments)·지급(escrow_payouts)과 업체(companies) 사이엔 관계(외래키)가 없어, 조회에 companies(...) 를
+// 끼우면 전체가 PGRST200 으로 실패하고 관리자 화면엔 «분쟁 대기 없음»처럼 비어 보였다(D3). 업체는 따로 붙인다.
+const attachCompanies = async (res) => {
+  if (res.error || !Array.isArray(res.data) || res.data.length === 0) return res;
+  const refs = [...new Set(res.data.map(r => r.company_id).filter(Boolean))];
+  if (refs.length === 0) return res;
+  try {
+    const list = refs.join(",");
+    const { data: cos } = await supabase.from("companies").select("id, name, owner_id").or(`id.in.(${list}),owner_id.in.(${list})`);
+    const rows = cos ?? [];
+    const find = (ref) => rows.find(c => c.id === ref) ?? rows.find(c => c.owner_id === ref) ?? null;
+    return { ...res, data: res.data.map(r => ({ ...r, companies: r.companies ?? find(r.company_id) })) };
+  } catch {
+    return res;
+  }
+};
+
+export const getDisputePayments = async () =>
+  attachCompanies(await supabase
     .from("escrow_payments")
-    .select("*, requests(id, space_type, area, user_id), companies(id, name, owner_id)")
+    .select("*, requests(id, space_type, area, user_id)")
     .not("dispute_status", "is", null)
-    .order("disputed_at", { ascending: false });
+    .order("disputed_at", { ascending: false }));
 
 // ── Admin: Pending Payouts ────────────────────────────────────────────────────
 
-export const getPendingPayouts = () =>
-  supabase
+export const getPendingPayouts = async () =>
+  attachCompanies(await supabase
     .from("escrow_payouts")
-    .select("*, companies(id, name, owner_id), escrow_payments(id, total_amount, transaction_status)")
+    .select("*, escrow_payments(id, total_amount, transaction_status)")
     .in("status", ["PENDING", "READY", "APPROVED", "HELD"])
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }));
 
 
 // ── Admin: Dispute management ─────────────────────────────────────────────────

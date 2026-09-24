@@ -5525,12 +5525,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
       });
     }
     if (mainTab === "disputes") {
-      getDisputePayments().then(({ data }) => {
+      getDisputePayments().then(({ data, error }) => {
+        // 조회가 실패하면 «분쟁 없음»이 아니라 실패라고 말한다(D3 — 빈 화면이 거짓말이 되던 것)
+        if (error) showToast(`분쟁 목록을 불러오지 못했어요 — ${error.message ?? "다시 시도해 주세요"}`, false);
         if (data) setDisputes(data);
       });
     }
     if (mainTab === "settlements") {
-      getPendingPayouts().then(({ data }) => {
+      getPendingPayouts().then(({ data, error }) => {
+        if (error) showToast(`정산 목록을 불러오지 못했어요 — ${error.message ?? "다시 시도해 주세요"}`, false);
         if (data) setSettlements(data);
       });
     }
