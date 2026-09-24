@@ -21,6 +21,13 @@ const STAGES = [
   ["공간보증 업체", "보증금을 건 업체는 500만원 이상 공사에서 결제 직후 자재비 10%를 먼저 받고, 착공 확인 때 20%", "자재비 10%"],
 ];
 
+// 공사 금액별 지급 구조(서버 escrow_stage_plan · migration 112·120 과 같은 규칙)
+const AMOUNT_PLANS = [
+  ["500만원 미만", "착공 확인 30% → 완료 확인 70%", "사업자등록을 확인한 업체"],
+  ["500만~1,000만원", "착공 확인 30%(자재비 포함) → 중간 점검 40% → 완료 확인 30%", "사업자등록 + 시공보험(없으면 보증금 200만원). 보증금 100만원 이상을 건 업체는 결제 직후 자재비 10%를 먼저 받고 착공 20%"],
+  ["1,000만원 초과 ~ 1억원", "결제 직후 자재비 10% → 착공 확인 20% → 중간 점검 40% → 완료 확인 30%", "사업자등록 + 시공보험 + 공사 구간 보증금(10% 이상)을 모두 갖춘 업체만 맡습니다. 1,500만원 이상은 실내건축공사업 등록 업체만"],
+];
+
 export default function SafePaymentScreen() {
   useDocumentMeta({
     title: "공간안전결제 안내 — 공간마켓",
@@ -139,6 +146,26 @@ export default function SafePaymentScreen() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* 금액별 지급 구조 — 금액이 클수록 업체 조건이 단단해진다(대표 09-25 「진입은 쉽게, 갈수록 단단하게」) */}
+        <section style={{ marginBottom: 26 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 800, color: "#2E5F4B", margin: "0 0 12px" }}>
+            공사 금액별 지급 구조
+          </h2>
+          <div style={{ background: "#fff", border: "1px solid #e6ded0", borderRadius: 14, overflow: "hidden" }}>
+            {AMOUNT_PLANS.map(([band, plan, who], i) => (
+              <div key={band} style={{ padding: "13px 16px", borderBottom: i < AMOUNT_PLANS.length - 1 ? "1px solid #f0ebe1" : "none" }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#3a352c" }}>{band}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#2E5F4B", marginTop: 3 }}>{plan}</div>
+                <div style={{ fontSize: 12.5, color: "#6b6456", lineHeight: 1.6, marginTop: 2 }}>{who}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 12.5, color: "#6b6456", lineHeight: 1.7, margin: "10px 2px 0" }}>
+            업체 보증금(공간보증)은 공사 금액 구간 끝의 10% 이상입니다 — 1,000만원까지 100만원, 2,000만원까지 200만원,
+            5,000만원까지 500만원, 1억원까지 1,000만원. 결제 직후 먼저 나가는 자재비 10%는 늘 이 보증금 안에 있습니다.
+          </p>
         </section>
 
         {/* 서비스 제공기간 — 토스 심사 필수 표기 */}

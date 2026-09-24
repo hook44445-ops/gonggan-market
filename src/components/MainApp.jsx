@@ -5005,7 +5005,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 || r.status === "completed" || r.status === "settled";
               const csStage = computeCustomerStage(r, escData);
               const inProgress = hasEscrow || r.status === "in_progress";
-              const step2done = inProgress;
+              // 업체를 이미 골랐으면(선택·현장방문·최종 견적·결제 대기) 2단계는 끝난 것 — 예전엔 계약 전이면 늘
+              // 「견적 N건 도착 · 비교해 보세요」로 남았고, 옛 완료 공사도 그랬다(총점검 09-25).
+              const chosen = !!(r.selectedBidId || r.selectedCompanyId) || ["site_visit","site_visiting","visit_requested","final_quote_submitted","escrow_pending"].includes(r.status);
+              const payPending = !hasEscrow && ["final_quote_submitted","escrow_pending"].includes(r.status);
+              const step2done = inProgress || isSettled || chosen;
               const step3active = inProgress && !isSettled;
               const step4done = isSettled;
 
@@ -5025,8 +5029,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               const steps = [
                 { label:"견적 요청",    sub:"요청 등록 완료",           done:true,      time:r.time },
                 { label: waiting ? "업체 검토 중" : "업체 선택",
-                  sub: step2done ? "계약 완료" : bids > 0 ? `견적 ${bids}건 도착 · 비교해 보세요` : "우리 동네 검증 업체들이 요청을 보고 있어요. 견적이 오면 알려드려요",
-                  done:step2done, active:!step2done, bidStep:!step2done && bids > 0, waitStep: waiting },
+                  sub: inProgress || isSettled ? "계약 완료"
+                    : payPending ? "업체 선택 완료 · 최종 견적 확인·결제 대기"
+                    : chosen ? "업체 선택 완료 · 현장방문·최종 견적 준비 중"
+                    : bids > 0 ? `견적 ${bids}건 도착 · 비교해 보세요` : "우리 동네 검증 업체들이 요청을 보고 있어요. 견적이 오면 알려드려요",
+                  done:step2done, active:!step2done || payPending, bidStep:(!step2done && bids > 0) || payPending, bidLabel: payPending ? "최종 견적 확인하기" : null, waitStep: waiting },
                 { label:"공사 진행",   sub: constructionSub,            done:isSettled, active:step3active, escrowStep:step3active },
                 { label:"완료 및 정산", sub: step4done ? "완료 확인 · 공사 기록이 남아 있어요" : "완료 확인 + 잔금 지급", done:step4done, recordStep: step4done && hasEscrow },
               ];
@@ -5057,7 +5064,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                             <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
                               style={{ marginTop:S.sm, padding:"8px 16px", background:C.brand, color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}`,
                                 display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
-                              <Icon emoji="🔔" size={12} color="#fff" /> 입찰 비교 후 업체 선택 →
+                              <Icon emoji="🔔" size={12} color="#fff" /> {step.bidLabel ?? "입찰 비교 후 업체 선택"} →
                             </button>
                           )}
                           {step.waitStep && (
