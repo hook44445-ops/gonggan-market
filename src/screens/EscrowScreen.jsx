@@ -10,7 +10,7 @@ import DocImg from "../components/DocImg";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments, STAGE_PLANS, normalizePlan, planUsesStage } from "../utils/calculations";
 import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, getOpsConfig, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, hasCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
-import { buildGpsMissingNote } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
+import { buildGpsMissingNote, parseGpsMissingReason } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
@@ -2068,12 +2068,21 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.lg, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="📍" size={15} color={C.text1} /> 현장 체크포인트</div>
             {checkpoints.map((cp, idx) => {
               const meta = CHECKPOINT_META[cp.checkpoint_type] ?? { label: cp.checkpoint_type, icon: "📍" };
+              // 위치 없이 진행한 단계는 그 사실과 업체가 적은 사유를 그대로 보여 준다(C24 — 예전엔 「주소 미확인」만).
+              const noLocReason = parseGpsMissingReason(cp.note);
+              const noAddr = !cp.road_address && !cp.jibun_address;
               return (
                 <div key={cp.id} style={{ display: "flex", gap: S.md, marginBottom: idx < checkpoints.length - 1 ? S.lg : 0 }}>
                   <div style={{ width: 32, height: 32, borderRadius: R.full, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon emoji={meta.icon} size={15} color={C.brand} /></div>
                   <div style={{ flex: 1, paddingTop: 2 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{meta.label}</div>
-                    <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>{cp.road_address || cp.jibun_address || "주소 미확인"}</div>
+                    {noAddr && noLocReason ? (
+                      <div style={{ fontSize: 12, color: C.text2, marginTop: 2, lineHeight: 1.6 }}>
+                        위치 기록 없이 진행 · 업체가 남긴 사유: 「{noLocReason}」
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>{cp.road_address || cp.jibun_address || "위치 기록 없음"}</div>
+                    )}
                     {cp.road_address && cp.jibun_address && (
                       <div style={{ fontSize: 11, color: C.text4, marginTop: 1 }}>지번 {cp.jibun_address}</div>
                     )}
