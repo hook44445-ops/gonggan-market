@@ -102,7 +102,7 @@ export function isBetaServer(env) {
 
 export const PARTNER_LADDER = LADDER.map((r) => ({
   name: r.label.replace(/^\+ /, ''),
-  limit: r.key === 'license' ? `최대 ${limitText(r.limit)}` : `${limitText(r.limit)}까지`,
+  limit: r.key === 'license' ? `최대 ${limitText(r.limit)}` : r.limit > 0 ? `${limitText(r.limit)}까지` : '카드 보기(입찰은 사업자등록 뒤)',
 }));
 export const PARTNER_DEPOSIT_NOTE = '보증금은 공사 금액의 10%(시공보험이 없으면 20%)';
 
@@ -112,7 +112,7 @@ export const PARTNER_DEPOSIT_NOTE = '보증금은 공사 금액의 10%(시공보
 // 봇이 읽는 문서와 사람이 보는 화면이 정면으로 어긋나 있었다.
 export const PARTNER_STEPS = [
   ['간편 가입', '업체명 · 연락처 · 영업 지역 · 공종만 적으면 1분이면 끝납니다.'],
-  ['바로 입찰', `승인을 기다리지 않고 바로 공사 1건 ${PARTNER_LADDER[0].limit} 입찰합니다.`],
+  ['사업자등록 뒤 입찰', `가입하면 500만원까지 공사 카드를 볼 수 있고, 사업자등록증이 확인되면 공사 1건 ${PARTNER_LADDER[1].limit} 입찰합니다.`],
   ['서류를 낼수록', `사업자등록증을 내면 ${PARTNER_LADDER[1].limit}, 시공보험까지 내면 ${PARTNER_LADDER[2].limit} 한도가 커집니다.`],
   ['프리미엄 파트너', '보증금까지 증빙하면 의뢰인 화면에서 대표 시공 사진이 카드의 얼굴이 되고 금테가 붙습니다.'],
 ];
@@ -171,7 +171,7 @@ export function partnerFaq() {
     },
     {
       q: '가입하면 바로 입찰할 수 있나요?',
-      a: `네. 가입만으로 공사 1건 ${PARTNER_LADDER[0].limit} 입찰·상담할 수 있어요. 계약(결제)은 사업자등록증을 확인한 뒤에 열려요(홈택스에서 당일 발급) — 내면 한도도 ${PARTNER_LADDER[1].limit}, 시공보험까지 내면 ${PARTNER_LADDER[2].limit} 커집니다.`,
+      a: `가입하면 500만원까지 공사 카드를 볼 수 있고, 입찰은 사업자등록증을 확인한 뒤에 열려요(홈택스에서 당일 발급). 사업자등록증이면 공사 1건 ${PARTNER_LADDER[1].limit}, 시공보험까지 내면 ${PARTNER_LADDER[2].limit} 입찰할 수 있어요.`,
     },
     {
       q: '보증금은 꼭 내야 하나요?',

@@ -163,7 +163,7 @@ export default function PartnerLandingScreen() {
   const L = Object.fromEntries(LADDER.map((r) => [r.key, limitText(r.limit)]));
   const STEPS = [
     { b: "간편 가입",        t: "업체명 · 연락처 · 지역 · 공종",                    badge: "1분" },
-    { b: "바로 입찰",        t: `공사 1건 ${L.none}까지 — 승인 기다림 없이`,          badge: "기본" },
+    { b: "공사 카드 보기",   t: "가입하면 500만원까지 카드가 보여요 — 입찰은 사업자등록 확인 뒤", badge: "기본" },
     { b: "서류를 낼수록",    t: `사업자등록증 ${L.biz} · 시공보험 ${L.insurance}`,    badge: "성장" },
     { b: "프리미엄 파트너",  t: "보증금까지 — 금테 카드와 대표 사진",                  badge: "프리미엄" },
   ];
@@ -301,7 +301,7 @@ export default function PartnerLandingScreen() {
               <div style={{ fontSize: 11, fontWeight: 800, color: GOLD, letterSpacing: "0.14em", marginBottom: 8 }}>PREMIUM PARTNER</div>
               <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.4, wordBreak: "keep-all" }}>증빙을 낼수록, 더 큰 공사를</div>
               <p style={{ fontSize: 12.5, color: "#9A958E", lineHeight: 1.6, margin: "8px 0 0", wordBreak: "keep-all" }}>
-                입찰은 가입만으로, 계약은 사업자등록 뒤에. 공사 1건 기준입니다.
+                입찰은 사업자등록 확인 뒤에 열려요(홈택스 당일 발급). 공사 1건 기준입니다.
               </p>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>

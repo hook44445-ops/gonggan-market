@@ -2695,11 +2695,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         const lim = /BID_OVER_LIMIT/.test(msg) ? (msg.match(/한도는 (\d+)만원/)?.[1] ?? null) : null;
         const friendly = dup ? "이미 입찰한 요청이에요. 입찰 수정으로 변경해주세요."
           : /BID_OVER_LIMIT/.test(msg) ? `공사 1건 한도${lim ? `(${Number(lim).toLocaleString("ko-KR")}만원)` : ""}를 넘었어요. 서류를 내면 한도가 커져요.`
+          : /BIZ_REQUIRED_TO_BID/.test(msg) ? "입찰 전에 사업자등록을 해야 열려요 — 「내 한도 · 서류」에서 사업자등록증을 올려 주세요(홈택스 당일 발급)."
           : /COMPANY_NOT_ACTIVE/.test(msg) ? "지금은 입찰할 수 없는 상태예요. 고객센터로 문의해 주세요."
           : /BIDS_PAUSED/.test(msg) ? "지금은 새 입찰을 잠시 멈췄어요. 잠시 후 다시 시도해 주세요."
           : `입찰을 저장하지 못했어요: ${msg}`;
         showToast(friendly);
-        if (!/BID_OVER_LIMIT|COMPANY_NOT_ACTIVE|BIDS_PAUSED/.test(msg) && !dup) alert(friendly);
+        if (!/BID_OVER_LIMIT|BIZ_REQUIRED_TO_BID|COMPANY_NOT_ACTIVE|BIDS_PAUSED/.test(msg) && !dup) alert(friendly);
         return;
       }
       if (data) {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
 import { MIN_BID_MANWON, isValidBidManwon } from "../utils/calculations";
-import { bidLimit, limitText, unlockFor, unlockMessage, limitStateOf, partnerTier, cardNudge } from "../lib/partnerTier";
+import { bidLimit, limitText, unlockFor, unlockMessage, limitStateOf, partnerTier, cardNudge, cardPreviewLimit } from "../lib/partnerTier";
 import { trustState } from "./TrustEmblems";
 import SpaceActivityRecord from "./SpaceActivityRecord"; // v5.5: 공간 활동기록 요약(Add Only)
 import { TempBadge } from "./common";
@@ -74,10 +74,21 @@ export default function BidCard({
   // 정했는데, 그 값은 가입 화면에서 결제 없이 적히던 값이라 한도를 공짜로 가져갈 수 있었다.
   const limitState = limitStateOf(company ?? {});
   const maxBidAmount = bidLimit(limitState);
+  // 사업자등록 전 — 카드는 보이되 입찰은 잠김(대표 09-25). 서버(124)도 막는다.
+  const bizLocked = !isGuest && !limitState.biz;
   const tierLabel = partnerTier(trustState(company ?? {})).label;
   // 이 카드의 «다음 한 가지» — 예산 상한 기준(모르면 사업자부터). 막지 않고 내면 무엇이 되는지 한 줄로.
   const budgetMax = Number(r.budgetMax ?? r.budget_max) || 0;
   const nudge = !isGuest ? cardNudge(budgetMax, limitState) : null;
+  // 보이는 공사 카드 — 다음 한 칸까지만(대표 09-25): 가입만 500 · 사업자만 1,000 · 그 위는 전부.
+  const previewCap = isGuest ? null : cardPreviewLimit(limitState);
+  const budgetMin = Number(r.budgetMin ?? r.budget_min) || 0;
+  if (previewCap != null && !alreadyBid && budgetMin > previewCap) return null;
+  // 보이지만 아직 못 여는 카드 — 고객 예산 하한이 내 한도를 넘는다(대표 09-25 「입찰카드는 시공보험 등록해야 열리게」).
+  const cardLocked = bizLocked || (!isGuest && budgetMin > 0 && budgetMin > maxBidAmount);
+  const lockLabel = bizLocked ? "🔒 사업자등록 후 입찰"
+    : !limitState.insurance ? "🔒 시공보험 등록 후 입찰"
+    : "🔒 서류 올리고 입찰";
   const nudgeLine = nudge && (
     <div style={{ background: "#FBF7EC", border: "1px solid #EADFC4", borderRadius: R.lg, padding: `${S.sm}px ${S.md}px`,
       marginTop: S.md, display: "flex", alignItems: "center", gap: S.sm }}>
@@ -287,9 +298,11 @@ export default function BidCard({
                 <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>경쟁 입찰 {r.bidCount ?? r.bids ?? 0}개</div>
               </div>
               <button
-                onClick={handleBidButtonClick}
-                style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.full, padding: "10px 20px", fontWeight: 800, fontSize: 13, cursor: "pointer", boxShadow: `0 3px 12px ${C.brand44}` }}>
-                {isGuest ? "🔒 입찰하기" : "견적 입찰하기"}
+                onClick={cardLocked ? (e) => { e.stopPropagation(); onGoDocuments?.(); } : handleBidButtonClick}
+                style={{ background: cardLocked ? C.surface : C.brand, color: cardLocked ? "#8A6D1E" : "#fff",
+                  border: cardLocked ? "1px solid #EADFC4" : "none", borderRadius: R.full, padding: "10px 20px", fontWeight: 800, fontSize: 13, cursor: "pointer",
+                  boxShadow: cardLocked ? "none" : `0 3px 12px ${C.brand44}` }}>
+                {isGuest ? "🔒 입찰하기" : cardLocked ? lockLabel : "견적 입찰하기"}
               </button>
             </div>
           )}

@@ -49,11 +49,11 @@ test("비교 줄 — 모든 카드가 같은 순서, 없는 값은 —", () => {
 // ── 수주 한도 안전안 ──────────────────────────────────────────────
 import { bidLimit, limitText, nextUnlock, unlockFor, LIMITS } from "./partnerTier.js";
 
-test("사업자 없음 — 가입만 300, 보험이나 보증금이 있으면 500, 그 이상은 막힌다", () => {
-  assert.equal(bidLimit({}), 300);
-  assert.equal(bidLimit({ insurance: true }), 500);
-  assert.equal(bidLimit({ depositManwon: 1000 }), 500);          // 보증금을 아무리 걸어도 사업자 없이는 500
-  assert.equal(bidLimit({ insurance: true, depositManwon: 1000, license: true }), 500);
+test("사업자 없음 — 입찰 잠김(카드는 500까지 보임), 보험·보증금이 있어도 같다", () => {
+  assert.equal(bidLimit({}), 0);
+  assert.equal(bidLimit({ insurance: true }), 0);
+  assert.equal(bidLimit({ depositManwon: 1000 }), 0);            // 보증금을 아무리 걸어도 사업자 없이는 입찰 잠김
+  assert.equal(bidLimit({ insurance: true, depositManwon: 1000, license: true }), 0);
 });
 
 test("사업자 있음 — 500 → 보험 1,000 → 보증금 × 10(면허 없으면 1,500 미만)", () => {
@@ -77,14 +77,14 @@ test("금액 글자 — 1,499 는 「1,500만원 미만」", () => {
 });
 
 test("다음 한 가지 — 하나만 더 내면 얼마가 되는지", () => {
-  assert.deepEqual(nextUnlock({}), { key: "biz", ask: "사업자등록증", from: 300, to: 500 });
+  assert.deepEqual(nextUnlock({}), { key: "biz", ask: "사업자등록증", from: 0, to: 500 });
   assert.equal(nextUnlock({ biz: true }).key, "insurance");
   assert.equal(nextUnlock({ biz: true, insurance: true }).key, "premium");
   assert.equal(nextUnlock({ biz: true, insurance: true, depositManwon: 200 }).key, "license");
 });
 
 test("입찰 금액이 넘을 때 — 무엇을 내면 되는지", () => {
-  assert.equal(unlockFor(250, {}), null);                                   // 이미 가능
+  assert.deepEqual(unlockFor(250, {}).need, ["사업자등록증"]);                // 가입만은 입찰 잠김                                   // 이미 가능
   assert.deepEqual(unlockFor(450, {}).need, ["사업자등록증"]);
   assert.deepEqual(unlockFor(800, {}).need, ["사업자등록증", "시공보험 증권 또는 보증금 20%(공간보증 프리미엄(200만원))"]);
   assert.deepEqual(unlockFor(800, { biz: true }).need, ["시공보험 증권 또는 보증금 20%(공간보증 프리미엄(200만원))"]);
@@ -139,8 +139,8 @@ test("한 문장 — 받침에 맞춘 조사", () => {
   assert.match(unlockMessage({ need: [], over: true }), /1억원까지/);
 });
 
-test("계단 — 300 · 500 · 1,000 · 1,500 미만 · 1억", () => {
-  assert.deepEqual(LADDER.map(r => r.limit), [300, 500, 1000, 1499, 10000]);
+test("계단 — 0(가입·카드만) · 500 · 1,000 · 1,500 미만 · 1억", () => {
+  assert.deepEqual(LADDER.map(r => r.limit), [0, 500, 1000, 1499, 10000]);
   assert.deepEqual(LADDER.map(r => r.key), ["none", "biz", "insurance", "premium", "license"]);
 });
 
@@ -210,7 +210,7 @@ import { cardNudge } from "./partnerTier.js";
 
 test("카드 유도 — 한도 밖이면 이 공사에 필요한 것, 1,000만원 넘으면 보증금", () => {
   assert.match(cardNudge(1200, { biz: true, insurance: true }).text, /공간보증 프리미엄\(200만원\)/);
-  assert.match(cardNudge(1200, {}).text, /사업자등록증 \+ 시공보험 증권 \+ 공간보증/);
+  assert.match(cardNudge(1200, {}).text, /입찰 전에 사업자등록을 해야 열려요/);   // 사업자 전이면 늘 이것부터
   assert.equal(cardNudge(20000, { biz: true, insurance: true, depositManwon: 5000, license: true }).cta, null); // 1억 초과는 낼 것이 없다
 });
 
@@ -236,4 +236,11 @@ test("자재비 선지급 유도 — 500만원 이상 공사, 보증금 없는 �
   assert.match(cardNudge(800, { biz: true, insurance: true, depositManwon: 50 }).text, /스탠다드\(100만원\)/);
   assert.equal(cardNudge(1800, { biz: true, insurance: true, depositManwon: 200, license: true }), null); // 프리미엄 — 1,000~2,000 구간(1,500 이상은 면허)
   assert.equal(cardNudge(400, { biz: true, insurance: true }), null);                   // 500만원 미만은 선지급 없음
+});
+
+test("보이는 카드 — 가입만 500 · 사업자만 1,000 · 보험부터 전부(대표 09-25)", async () => {
+  const { cardPreviewLimit } = await import("./partnerTier.js");
+  assert.equal(cardPreviewLimit({}), 500);
+  assert.equal(cardPreviewLimit({ biz: true }), 1000);
+  assert.equal(cardPreviewLimit({ biz: true, insurance: true }), null);
 });

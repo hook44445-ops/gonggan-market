@@ -136,7 +136,7 @@ test('파트너 FAQ 는 수수료를 말하지 않고, 한도는 계단(partnerT
   assert.ok(!all.includes('수수료'), '입구에서 수수료를 말하지 않는다(대표 2026-09-24)');
   assert.ok(!all.includes('4.4'));
   const bid = partnerFaq().find((f) => f.q.includes('바로 입찰')).a;
-  assert.ok(bid.includes(PARTNER_LADDER[0].limit));
+  assert.ok(bid.includes(PARTNER_LADDER[1].limit));   // 가입만은 입찰 잠김 — 사업자등록 뒤 한도로 말한다(대표 09-25)
 });
 
 // ─────────────────────────────────────────────────────
