@@ -2472,6 +2472,13 @@ export const adminReviewDocument = async (docId, adminId, reviewStatus, reason =
         .update({ has_insurance: reviewStatus === "approved" })
         .eq("id", data.company_id);
     }
+    // 면허도 같다 — 실내건축공사업 등록증을 관리자가 승인했을 때만 license_verified(마이그레이션 101)를 켠다.
+    if (data?.document_type === "interior_license" && data.company_id
+        && (reviewStatus === "approved" || reviewStatus === "rejected")) {
+      await supabase.from("companies")
+        .update({ license_verified: reviewStatus === "approved" })
+        .eq("id", data.company_id);
+    }
   }
 
   return { data, error };

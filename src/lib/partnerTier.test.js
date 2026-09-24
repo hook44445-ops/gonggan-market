@@ -142,3 +142,29 @@ test("계단 — 300 · 500 · 1,000 · 1,500 미만 · 1억", () => {
   assert.deepEqual(LADDER.map(r => r.limit), [300, 500, 1000, 1499, 10000]);
   assert.deepEqual(LADDER.map(r => r.key), ["none", "biz", "insurance", "premium", "license"]);
 });
+
+// 앱이 쓰는 정규화된 업체 값(MainApp normalizeCompany — hasInsurance)에서도 면허가 한도를 연다.
+// normalizeCompany 가 license_verified 를 빠뜨리면 관리자가 면허를 승인해도 입찰 화면은 1,500만원 미만으로 막혔다.
+test("limitStateOf — 정규화된 업체 값(hasInsurance)에서도 면허가 한도를 연다", () => {
+  const normalized = { verified: true, hasInsurance: true, guarantee_status: "ACTIVE", guarantee_amount: 500, license_verified: true };
+  assert.equal(bidLimit(limitStateOf(normalized)), 5000);
+  assert.equal(bidLimit(limitStateOf({ ...normalized, license_verified: undefined })), LIMITS.UNLICENSED_CEILING);
+});
+
+// 계단 위치는 금액이 아니라 «낸 증빙»으로 — 보증금이 적은 면허 업체도 면허 칸에 있어야 한다.
+test("ladderKeyOf — 낸 증빙으로 계단 위치를 정한다", async () => {
+  const { ladderKeyOf } = await import("./partnerTier.js");
+  assert.equal(ladderKeyOf({}), "none");
+  assert.equal(ladderKeyOf({ insurance: true }), "none");                       // 사업자 없이는 500만원이어도 첫 칸
+  assert.equal(ladderKeyOf({ biz: true }), "biz");
+  assert.equal(ladderKeyOf({ biz: true, depositManwon: 100 }), "insurance");      // 보험 대신 보증금 20%
+  assert.equal(ladderKeyOf({ biz: true, insurance: true, depositManwon: 200 }), "premium");
+  assert.equal(ladderKeyOf({ biz: true, insurance: true, depositManwon: 500, license: true }), "license");
+});
+
+// 더 낼 서류가 없다 ≠ 가장 큰 공사. 1억 미만이면 «보증금을 늘리면 커진다».
+test("maxedText — 최고 한도가 아니면 보증금 안내", async () => {
+  const { maxedText } = await import("./partnerTier.js");
+  assert.match(maxedText({ biz: true, insurance: true, depositManwon: 500, license: true }), /보증금을 늘리면/);
+  assert.equal(maxedText({ biz: true, insurance: true, depositManwon: 1000, license: true }), "가장 큰 공사까지 받을 수 있어요");
+});

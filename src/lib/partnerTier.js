@@ -184,9 +184,28 @@ export const LADDER = [
   { key: "none",    label: "가입만",                        note: "도배·부분 수리",  state: {} },
   { key: "biz",     label: "사업자등록증",                  note: "관리자 확인",     state: { biz: true } },
   { key: "insurance", label: "+ 시공보험",                  note: "또는 보증금 20%", state: { biz: true, insurance: true } },
-  { key: "premium", label: "+ 보증금 · 프리미엄 파트너",    note: "보증금 10%",      state: { biz: true, insurance: true, depositManwon: 150 } },
+  { key: "premium", label: "+ 보증금 · 프리미엄 파트너",    note: "1,000만원 초과부터 · 보증금 10%", state: { biz: true, insurance: true, depositManwon: 150 } },
   { key: "license", label: "+ 실내건축공사업 등록증",       note: "대형 공사",       state: { biz: true, insurance: true, depositManwon: 1000, license: true } },
 ].map(r => ({ ...r, limit: bidLimit(r.state) }));
+
+// 지금 계단 어느 칸인지 — «낸 증빙»으로 정한다. 금액으로 찾으면(한도 ≥ 칸 금액) 면허 칸(기준 1억)에
+// 보증금이 적은 면허 업체가 닿지 못해 「면허 안 냄」처럼 보였다.
+export function ladderKeyOf(state = {}) {
+  const dep = Number(state.depositManwon) || 0;
+  if (state.biz && state.insurance && dep > 0 && state.license) return "license";
+  if (state.biz && state.insurance && dep > 0) return "premium";
+  if (state.biz && (state.insurance || dep > 0)) return "insurance";
+  if (state.biz) return "biz";
+  return "none";
+}
+
+// 더 낼 서류가 없을 때의 한 줄 — 최고 한도가 아니면 «보증금을 늘리면 커진다»고 말한다.
+// (다음 서류가 없다는 것과 가장 큰 공사까지 된다는 것은 다르다.)
+export function maxedText(state = {}) {
+  return bidLimit(state) >= LIMITS.MAX
+    ? "가장 큰 공사까지 받을 수 있어요"
+    : `보증금을 늘리면 보증금의 ${DEPOSIT_MULTIPLIER}배, 최대 ${limitText(LIMITS.MAX)}까지 커져요`;
+}
 
 // 업체 정보 → 한도 계산 입력. 전부 «관리자가 확인한 값»만 본다(스스로 켠 값·결제 없이 적힌 badge 는 보지 않는다).
 //   biz       companies.verified — 관리자가 업체를 승인할 때만 켜진다

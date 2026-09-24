@@ -17,6 +17,7 @@ const DOC_TYPE_LABELS = {
   insurance_certificate: "시공보험 증서",
   bankbook_copy:         "통장사본",
   qualification_license: "자격증/면허증",
+  interior_license:      "실내건축공사업 등록증",
   portfolio:             "포트폴리오/시공사진",
   // 동의·서약 서류
   operation_pledge:      "업체 운영 준수서약",
@@ -179,6 +180,14 @@ export default function AdminDocumentReviewModal({ docs, company, adminUser, onC
                       fontSize: 13, color: C.brand, fontWeight: 700 }}>
                     📎 {selected.file_name ?? "파일 보기"} ›
                   </button>
+                </div>
+              )}
+
+              {/* 면허 — 승인하면 이 업체의 공사 1건 한도가 1억원까지 열린다. 등록증 사진만 보고 승인하지 않는다. */}
+              {selected.document_type === "interior_license" && (
+                <div style={{ marginBottom: S.md, padding: "8px 10px", background: "#FBF5E8", borderRadius: R.sm, fontSize: 12, color: C.text2, lineHeight: 1.6 }}>
+                  승인하면 공사 1건 한도가 최대 1억원까지 열립니다. KISCON 에서 상호·등록번호로 등록이 살아 있는지 확인한 뒤 승인해 주세요.{" "}
+                  <a href="https://www.kiscon.net" target="_blank" rel="noopener noreferrer" style={{ color: C.brand, fontWeight: 700 }}>KISCON 열기 ›</a>
                 </div>
               )}
 
