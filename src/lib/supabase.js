@@ -257,12 +257,28 @@ export const updateRequest = (id, data, actorId) =>
 export const createBid = (data) =>
   supabase.from("bids").insert(data).select().single();
 
-export const getBidsForRequest = (requestId) =>
-  supabase
+// 입찰 + 업체 정보. 예전엔 입찰 줄만 가져와(select("*")) 비교 목록이 늘 기본값
+// («선택된 파트너 · 36.5° · Lv.1»)이었다(C1). bids.company_id 는 companies.id 일 수도,
+// 업체 주인 users.id 일 수도 있어 둘 다로 찾아 row.companies 에 붙인다. 업체 조회가 실패해도 입찰은 그대로 돌려준다.
+export const getBidsForRequest = async (requestId) => {
+  const res = await supabase
     .from("bids")
     .select("*")
     .eq("request_id", requestId)
     .order("price", { ascending: true });
+  if (res.error || !Array.isArray(res.data) || res.data.length === 0) return res;
+  const refs = [...new Set(res.data.map(b => b.company_id).filter(Boolean))];
+  if (refs.length === 0) return res;
+  try {
+    const list = refs.join(",");
+    const { data: cos } = await supabase.from("companies").select("*").or(`id.in.(${list}),owner_id.in.(${list})`);
+    const rows = cos ?? [];
+    const find = (ref) => rows.find(c => c.id === ref) ?? rows.find(c => c.owner_id === ref) ?? null;
+    return { ...res, data: res.data.map(b => (b.companies ? b : { ...b, companies: find(b.company_id) })) };
+  } catch {
+    return res;
+  }
+};
 
 export const selectBid = async (bidId) => {
   const res = await supabase.from("bids").update({ selected: true }).eq("id", bidId);

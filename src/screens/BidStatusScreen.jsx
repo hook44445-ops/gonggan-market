@@ -20,7 +20,8 @@ import {
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 
-const DEFAULT_COMPANY = { id: null, name: "선택된 파트너", temp: 36.5, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
+// 업체 정보를 못 불러왔을 때만 쓰는 자리 — 확인 안 된 칩이 켜지지 않게 badge 등 신뢰 칸은 비워 둔다(C1).
+const DEFAULT_COMPANY = { id: null, name: "업체", temp: 36.5, verified: false, badge: null, completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
 
 const normalizeCompany = (row) => ({
   id: row.id, name: row.name ?? "업체", temp: row.temp ?? 36.5,
@@ -29,6 +30,15 @@ const normalizeCompany = (row) => ({
   asRate: row.as_rate ?? 0, region: row.region ?? "", online: row.online ?? false,
   ownerId: row.owner_id ?? null,
   companyStatus: row.company_status ?? "PENDING",
+  // 신뢰 칸 — 관리자가 확인한 값만(카드 칩·엠블럼·레벨이 쓴다)
+  hasInsurance: row.has_insurance ?? false,
+  license_verified: row.license_verified ?? false,
+  guarantee_status: row.guarantee_status ?? null,
+  guarantee_grade: row.guarantee_grade ?? null,
+  guarantee_amount: row.guarantee_amount ?? null,
+  guarantee_badge_visible: row.guarantee_badge_visible ?? false,
+  reviews: row.review_count ?? row.reviews ?? 0,
+  level: row.level ?? row.growth_level ?? null,
 });
 const normalizeBid = (row) => ({
   id: row.id, requestId: row.request_id, companyId: row.company_id,

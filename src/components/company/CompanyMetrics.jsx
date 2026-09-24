@@ -1,6 +1,7 @@
 // 업체 지표 공유 컴포넌트 — 업체카드 / 입찰비교 등에서 동일하게 재사용(중복 UI 방지).
 //   ⚠️ 표현 전용. Lv/XP/현재·필요 XP 는 기존 levelInfo/computeCompanyXp/LEVEL_THRESHOLDS
 //      읽기 전용 파생 — XP 계산·레벨 계산 로직은 수정하지 않는다.
+import { isGuaranteeBadgeVisible } from "../../constants/guarantee";
 import { C, R, S } from "../../constants";
 import { computeCompanyXp, levelInfo, LEVEL_THRESHOLDS, MAX_LEVEL } from "../../constants/growth";
 
@@ -15,7 +16,9 @@ export function responseValue(company = {}) {
 
 // Lv/XP — 메인카드와 동일 입력으로 읽기 전용 파생.
 export function deriveLevel(company = {}) {
-  const hasGuarantee = company.guarantee_status === "ACTIVE" || !!company.guarantee_grade || !!company.badge;
+  // 공간보증 — 입금 확인·관리자 승인을 거친 ACTIVE + 노출일 때만. 예전엔 badge(결제 없이 적히던 값)나
+  // 등급만 있어도 켜져, 기본값 업체(badge:"basic")에까지 「✓ 공간보증」이 붙었다(C1).
+  const hasGuarantee = isGuaranteeBadgeVisible(company);
   return levelInfo(computeCompanyXp({ completedCount: company.completedJobs ?? 0, hasGuarantee }));
 }
 
@@ -77,7 +80,9 @@ export function CompanyLevelBar({ company = {}, marginTop = S.lg }) {
 
 // 검증배지 — 아이콘 중심 미니 칩(홈/입찰 최대 3개).
 export function CompanyMiniBadges({ company = {}, marginTop = 6 }) {
-  const hasGuarantee = company.guarantee_status === "ACTIVE" || !!company.guarantee_grade || !!company.badge;
+  // 공간보증 — 입금 확인·관리자 승인을 거친 ACTIVE + 노출일 때만. 예전엔 badge(결제 없이 적히던 값)나
+  // 등급만 있어도 켜져, 기본값 업체(badge:"basic")에까지 「✓ 공간보증」이 붙었다(C1).
+  const hasGuarantee = isGuaranteeBadgeVisible(company);
   const items = [];
   if (hasGuarantee) items.push("공간보증");
   if (company.verified || company.bizCert || company.is_verified) items.push("사업자");
