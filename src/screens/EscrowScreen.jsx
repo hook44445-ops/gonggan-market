@@ -1135,6 +1135,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         debug.upload_ok  = !photoErr;
         debug.upload_err = photoErr?.message ?? null;
         debug.uploaded_photo_url = photos[0];
+        // 사진 기록이 안 남았으면 여기서 멈춘다 — 예전엔 무시하고 단계를 넘겨, 고객은 사진 없는 승인 요청을 받았다(C27).
+        if (photoErr) {
+          debug.send_ok  = false;
+          debug.send_err = photoErr.message ?? "phase_photos insert failed";
+          setReportError(`사진을 공사 기록에 남기지 못해 보내지 않았어요. 잠시 후 다시 눌러 주세요. [${photoErr.code ?? "ERR"}]`);
+          return;
+        }
       } else {
         debug.upload_err = "no photos in state";
       }
@@ -1166,7 +1173,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         // setRequestInProgress 는 supabase 빌더(Promise 아님) → .catch 금지. await + try/catch.
         if (reqId) { try { await setRequestInProgress(reqId); } catch { /* 전이 실패 무시 */ } }
       } else {
-        setReportError(`단계 상태 업데이트 실패: ${escrowErr.message}`);
+        // 실패를 조용히 넘기지 않는다(C27) — 고객에게 안 넘어갔다는 걸 분명히.
+        setReportError(`사진은 올라갔지만 고객에게 넘기지 못했어요. 잠시 후 다시 눌러 주세요. 계속되면 고객센터로 알려 주세요. [${escrowErr.code ?? "ERR"}] ${escrowErr.message ?? ""}`);
       }
 
       logActivity({
