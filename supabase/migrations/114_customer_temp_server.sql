@@ -109,7 +109,9 @@ create trigger trg_request_customer_reversal after update on public.requests
 
 notify pgrst, 'reload schema';
 
--- 확인: 둘 다 true 면 끝
+-- 확인: 셋 다 true 면 끝
 select
+  exists (select 1 from information_schema.columns
+           where table_schema = 'public' and table_name = 'users' and column_name = 'space_temp') as users_space_temp_ok,
   exists (select 1 from pg_trigger where tgname = 'trg_review_customer_temp') as review_trigger_ok,
   exists (select 1 from pg_trigger where tgname = 'trg_request_customer_reversal') as reversal_trigger_ok;
