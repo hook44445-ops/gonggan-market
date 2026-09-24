@@ -94,6 +94,24 @@ const normalizeMsg = (row) => ({
 
 const QUICK_CUSTOMER = ["공사 기간은 얼마나 걸리나요?", "현장 방문 가능한 날이 있나요?", "A/S는 어떻게 되나요?", "자재는 어떤 걸 쓰나요?", "견적서를 자세히 받고 싶어요"];
 const QUICK_PARTNER = ["현장 사진 몇 장 보내주실 수 있을까요?", "실측 가능한 날짜를 알려주세요", "원하시는 공사 범위를 조금 더 알려주세요", "견적서를 앱에 올려 드릴게요"];
+
+// 공사 대화방의 빠른 문장 — 지금 공사 단계에 맞춘다(공사 중인데 계약 전 질문이 뜨던 것, C33).
+const PROJECT_QUICK = {
+  visit:    { consumer: ["현장방문 가능한 날이 언제인가요?", "방문 전에 연락 주세요", "주차·출입 방법 알려 드릴게요"],
+              company:  ["현장방문 가능한 날짜를 알려주세요", "방문 전에 전화 드릴게요", "현장 사진 몇 장 보내주실 수 있을까요?"] },
+  quote:    { consumer: ["견적서 항목 중 궁금한 게 있어요", "공사 시작일을 조정할 수 있나요?"],
+              company:  ["견적서 확인 부탁드립니다", "궁금한 항목 말씀해 주세요"] },
+  building: { consumer: ["오늘 작업은 어디까지 됐나요?", "작업 사진 한 장 보내주실 수 있나요?", "마무리 일정이 언제인가요?"],
+              company:  ["오늘 작업 마쳤습니다 — 사진 올려 드릴게요", "내일 작업 시작 시간 안내드려요", "확인 부탁드립니다"] },
+  done:     { consumer: ["A/S 문의드려요"], company: ["A/S 일정 잡아 드릴게요"] },
+};
+const projectPhase = (status) =>
+  ["site_visit","site_visiting"].includes(status) ? "visit"
+  : ["final_quote_submitted","escrow_pending","contracting"].includes(status) ? "quote"
+  : status === "in_progress" ? "building"
+  : status === "completed" ? "done" : null;
+// 한 방(고객+업체)에 공사가 여러 건 쌓일 수 있다 → 새 공사가 시작되는 안내 위에 구분선.
+const isProjectStartEvent = (text) => typeof text === "string" && (text.includes("맡기기로 했어요") || text.includes("선택했어요. 이 방에서"));
 const PAGE_SIZE = 50;
 const LOUNGE_SYSTEM_HELLO = "라운지 대화가 시작되었습니다.";
 
@@ -140,6 +158,11 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
     }).catch(() => {});
     return () => { alive = false; };
   }, [isLounge, user?.id, roomId, myRole]);
+  const quickSet = (() => {
+    const ph = projectPhase(project?.status);
+    if (ph) return PROJECT_QUICK[ph][isCustomerView ? "company" : "consumer"];
+    return isCustomerView ? QUICK_PARTNER : QUICK_CUSTOMER;
+  })();
   const callCounterpart = () => {
     if (!project?.counterpart_phone) return;
     const who = myRole === "company" ? "업체" : "고객";
@@ -631,7 +654,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
             {/* 시작 문장 — 누르면 입력칸에 채워진다(보내기는 직접). */}
             {!isLounge && !isTerminated && (
               <div style={{ display:"flex", flexDirection:"column", gap:6, maxWidth:320, margin:"0 auto" }}>
-                {(isCustomerView ? QUICK_PARTNER : QUICK_CUSTOMER).slice(0, 3).map(q => (
+                {quickSet.slice(0, 3).map(q => (
                   <button key={q} onClick={() => setInput(q)}
                     style={{ padding:"10px 14px", border:`1px solid ${C.bgWarm}`, background:C.surface, color:C.text2,
                       borderRadius:R.lg, fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit", textAlign:"left", lineHeight:1.5 }}>
@@ -652,11 +675,22 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
           </div>
         )}
         {messages.map((msg) => msg.from === "system" ? (
-          <div key={msg.id} style={{ display:"flex", justifyContent:"center", margin:`${S.lg}px 0` }}>
-            <div style={{ maxWidth:"80%", background:C.brandL, color:C.brandD,
-              border:`1px solid ${C.brandM}`, borderRadius:R.lg,
-              padding:"9px 16px", fontSize:12, fontWeight:600, lineHeight:1.6,
-              textAlign:"center", whiteSpace:"pre-wrap", wordBreak:"break-word" }}>{msg.text}</div>
+          <div key={msg.id} style={{ margin:`${S.lg}px 0` }}>
+            {isProjectStartEvent(msg.text) && (
+              <div style={{ display:"flex", alignItems:"center", gap:8, margin:`${S.xl}px 0 ${S.md}px` }}>
+                <div style={{ flex:1, height:1, background:C.brandM }} />
+                <div style={{ fontSize:11, fontWeight:800, color:C.brand, whiteSpace:"nowrap" }}>새 공사 시작{msg.time ? ` · ${msg.time}` : ""}</div>
+                <div style={{ flex:1, height:1, background:C.brandM }} />
+              </div>
+            )}
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+              <div style={{ maxWidth:"80%", background:C.brandL, color:C.brandD,
+                border:`1px solid ${C.brandM}`, borderRadius:R.lg,
+                padding:"9px 16px", fontSize:12, fontWeight:600, lineHeight:1.6,
+                textAlign:"center", whiteSpace:"pre-wrap", wordBreak:"break-word" }}>{msg.text}</div>
+              {/* 시스템 기록도 언제인지 남긴다(C33) */}
+              {msg.time && !isProjectStartEvent(msg.text) && <div style={{ fontSize:10.5, color:C.text4 }}>{msg.time}</div>}
+            </div>
           </div>
         ) : (
           <div key={msg.id} style={{ display:"flex", justifyContent:msg.from==="user"?"flex-end":"flex-start",
@@ -734,7 +768,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
         {!isLounge && !input && messages.length > 0 && (
           <div style={{ background:C.surface, borderTop:`1px solid ${C.bgWarm}`, flexShrink:0, display:"flex", gap:6,
             overflowX:"auto", padding:"8px 12px 0", scrollbarWidth:"none" }}>
-            {(isCustomerView ? QUICK_PARTNER : QUICK_CUSTOMER).map(q => (
+            {quickSet.map(q => (
               <button key={q} onClick={() => setInput(q)}
                 style={{ flex:"0 0 auto", border:`1px solid ${C.brandM}`, background:C.brandL, color:C.brand, borderRadius:R.full,
                   padding:"7px 12px", fontSize:12.5, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>{q}</button>
