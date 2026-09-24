@@ -5,7 +5,7 @@ import { TempBadge, Stars, Divider } from "../components/common";
 import ReviewModal from "../components/ReviewModal";
 import ImageViewerModal from "../components/ImageViewerModal";
 import { calcTempDelta, clampTemp } from "../utils/calculations";
-import { getReviews, createReview, createReviewReward } from "../lib/supabase";
+import { getReviews, createReview, createReviewReward, getEscrowWithPayouts } from "../lib/supabase";
 import { sendTieredNotification } from "../utils/notify";
 
 const normalizeReview = (row) => ({
@@ -222,13 +222,21 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
       return;
     }
 
+    // 후기를 계약에 묶는다 — 화면이 계약 ID 를 못 받은 채 열리는 경로가 있어(C18 contract: null)
+    // 요청 ID 로 계약을 찾아 채운다. 못 찾아도 후기는 저장한다.
+    let reviewContractId = contractId ?? null;
+    if (!reviewContractId && requestId) {
+      try { reviewContractId = (await getEscrowWithPayouts(requestId)).data?.escrow?.id ?? null; } catch { /* 없음 */ }
+    }
+    log.contract_id = reviewContractId?.slice(0, 8) ?? null;
+
     try {
       const { data: reviewRow, error: reviewErr } = await createReview({
         company_id:        company.id,
         user_id:           currentUser?.id    ?? null,
         customer_id:       currentUser?.id    ?? null,
         request_id:        requestId          ?? null,
-        contract_id:       contractId         ?? null,
+        contract_id:       reviewContractId,
         rating:            data.rating,
         content:           data.content,
         tags:              data.tags,
@@ -275,7 +283,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
         // 공사 후기 작성 보상 — 완료된 계약 1건당 1회 지급(+15). 중복방지는 useSpaceToken.earn이
         // 동일 action+description(계약 식별 포함) 존재 여부로 처리합니다.
         try {
-          const rewardDesc = contractId ? `공사 후기 작성 · 계약 ${contractId}` : "공사 후기 작성";
+          const rewardDesc = reviewContractId ? `공사 후기 작성 · 계약 ${reviewContractId}` : "공사 후기 작성";
           const granted = await onEarnToken?.("construction_review", rewardDesc);
           log.reward_ok = log.reward_ok || !!granted;
         } catch {}
@@ -327,7 +335,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
       <div style={{ padding:`${S.xl}px ${S.xl}px 100px` }}>
 
         {/* Coupon incentive banner */}
-        {submitDebug && (
+        {SHOW_DEBUG_UI && submitDebug && (   /* 운영 화면에 [DEV:review-submit] 가 보이던 것(C18) — 개발 모드에서만 */
           <div style={{ background:"rgba(0,0,0,0.90)", color:"#0f0", borderRadius:8,
             padding:"8px 12px", fontSize:10, lineHeight:1.8, fontFamily:"monospace",
             marginBottom:S.md, overflowX:"auto" }}>

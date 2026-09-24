@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { C, R, S } from "../../constants";
 import { SHOW_BETA_UI } from "../../constants/release";
+import { LADDER, limitText } from "../../lib/partnerTier";
 
 // 진입 안내 1회 확인 기록 — localStorage. 최초 1회 체크박스 확인 시 저장 → 이후 재노출 안 함.
 const BETA_ACK_KEY = { quote: "gm_beta_ack_quote", bid: "gm_beta_ack_bid" };
@@ -81,12 +82,14 @@ export const GATE_CONTENT = {
       "업체 가입", "견적 입찰", "고객 상담", "계약 진행", "프로젝트 진행관리",
       "GPS 진행기록", "사진 기록", "포트폴리오", "리뷰 관리", "업체 성장(LV)", "프로젝트 이력 관리",
     ],
-    required: ["사업자등록증", "시공보험 또는 영업배상책임보험", "업체 운영 준수서약"],
-    notProvided: ["앱 안 안전결제", "에스크로 정산", "공간보증 예치금·심사"],
+    // 예전엔 「가입 필수: 사업자등록증·시공보험·준수서약」이었다 — 지금 정책(가입만 해도 300만원 공사부터,
+    // 서류는 원할 때 하나씩)과 반대. 대표: 「가입 문턱을 낮춰서 에스컬레이션으로」. 공간보증도 계단에 들어갔다.
+    ladder: true,
+    notProvided: ["앱 안 안전결제", "에스크로 정산"],
     notes: [
       "공사대금은 계약서에 적은 단계대로 고객과 직접 주고받습니다.",
       "계약서·시공 사진·GPS 진행 기록이 남아, 업체의 성실함을 보여 주는 근거가 됩니다.",
-      "앱 안 안전결제와 공간보증은 정식 오픈 때 열립니다.",
+      "앱 안 안전결제는 정식 오픈 때 열립니다.",
     ],
     confirm: "확인하고 입찰하기",
   },
@@ -126,6 +129,24 @@ export function GateBody({ c }) {
       {c.required && (
         <GateSection title="가입 필수">
           <GateList items={c.required} mark="📄" />
+        </GateSection>
+      )}
+
+      {c.ladder && (
+        <GateSection title="받을 수 있는 공사 — 가입만 해도 바로, 낼수록 커져요">
+          <div style={{ border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, overflow: "hidden" }}>
+            {LADDER.map((r, i) => (
+              <div key={r.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+                padding: "8px 12px", fontSize: 12.5, borderTop: i === 0 ? "none" : `1px solid ${C.bgWarm}`,
+                background: i === 0 ? C.brandL : C.surface }}>
+                <span style={{ color: C.text1, fontWeight: i === 0 ? 800 : 600 }}>{i === 0 ? "가입만" : r.label}</span>
+                <span style={{ color: i === 0 ? C.brand : C.text2, fontWeight: 800, whiteSpace: "nowrap" }}>
+                  {i === LADDER.length - 1 ? `최대 ${limitText(r.limit)}` : limitText(r.limit)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 11.5, color: C.text3, marginTop: 6 }}>서류는 마이 → 「내 한도 · 서류」에서 원할 때 하나씩 내면 돼요.</div>
         </GateSection>
       )}
 
@@ -170,7 +191,10 @@ export function BetaGateModal({ open, kind = "quote", onConfirm, onClose }) {
 
         <GateBody c={c} />
 
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 16, cursor: "pointer" }}>
+        {/* 확인 체크·버튼은 창 아래에 붙인다 — 내용이 길어도 스크롤 없이 보이게(C22) */}
+        <div style={{ position: "sticky", bottom: -26, margin: "0 -22px -26px", padding: "12px 22px 18px",
+          background: C.surface, borderTop: `1px solid ${C.bgWarm}`, boxShadow: "0 -8px 16px rgba(31,42,36,0.06)" }}>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12, cursor: "pointer" }}>
           <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)}
             style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, cursor: "pointer" }} />
           <span style={{ fontSize: 13, color: C.text1, fontWeight: 700 }}>내용을 확인했어요.</span>
@@ -187,6 +211,7 @@ export function BetaGateModal({ open, kind = "quote", onConfirm, onClose }) {
           color: C.text3, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
           취소
         </button>
+        </div>
       </div>
     </div>
   );
