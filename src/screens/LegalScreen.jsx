@@ -3,16 +3,20 @@
 // 일 때 이 화면을 렌더한다. 외부 링크가 아닌 앱 내부 라우트(/privacy, /terms)로 동작한다.
 
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
-import { TELECOM_SALES_NO } from "../components/AppFooter"; // 통신판매업 신고번호 단일 소스
+import { BIZ as BIZ_INFO } from "../utils/siteSeo"; // 사업자정보 단일 소스
 
+// 법적고지에 적는 사업자정보 — 값은 utils/siteSeo.js 한 곳에서만 관리한다.
+// 예전에는 이 파일이 값을 따로 들고 있어서, 푸터는 gmail·법적고지는 회사 도메인으로
+// 이메일이 갈라져 있었다(전자상거래법상 공개 의무 항목이라 갈라지면 안 된다).
+// 한글 라벨은 이 화면의 문장 형식이라 여기서 매핑만 한다.
 const BIZ = {
-  상호: "공간사이",
-  대표자: "김태웅",
-  사업자등록번호: "270-53-00885",
-  통신판매업신고번호: TELECOM_SALES_NO,
-  주소: "경기도 성남시 중원구 성남대로1151번길 5, 2층 202호",
-  고객센터: "070-7954-2740",
-  이메일: "biz@gonggansai.com",
+  상호: BIZ_INFO.legalName,
+  대표자: BIZ_INFO.ceo,
+  사업자등록번호: BIZ_INFO.bizNo,
+  통신판매업신고번호: BIZ_INFO.telecomSalesNo,
+  주소: BIZ_INFO.address,
+  고객센터: BIZ_INFO.tel,
+  이메일: BIZ_INFO.email,
 };
 
 const PRIVACY = {

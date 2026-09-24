@@ -509,3 +509,48 @@ test('사이트맵·robots 도 www 요청에서 apex URL 만 낸다', async () =
   await robotsHandler(rq2, rs2);
   assert.ok(o2.body.includes(`Sitemap: ${SITE_URL}/sitemap.xml`), 'robots 의 Sitemap 이 apex 가 아니다');
 });
+
+// ─────────────────────────────────────────────────────
+// 사업자 이메일 단일화 (2026-09-24, 대표 결정: biz@gonggansai.com)
+// 예전에는 푸터·JSON-LD·llms.txt 는 gmail, 앱 문의·법적고지는 회사 도메인이라
+// 전자상거래법상 공개 의무 항목이 두 가지로 갈라져 있었다.
+// ─────────────────────────────────────────────────────
+
+test('사업자 이메일은 회사 도메인 하나만 쓴다', () => {
+  assert.equal(BIZ.email, 'biz@gonggansai.com');
+  assert.ok(!BIZ.email.includes('gmail'), '개인 메일 주소가 사업자정보에 들어갔다');
+});
+
+test('폐기된 gmail 주소가 코드·문서 어디에도 남아 있지 않다', () => {
+  const root = new URL('../../', import.meta.url);
+  const files = [
+    'index.html',
+    'src/utils/siteSeo.js',
+    'src/screens/LegalScreen.jsx',
+    'store/ASO-ko.md',
+    'docs/SEO_AEO_GEO.md',
+  ];
+  for (const f of files) {
+    const text = readFileSync(fileURLToPath(new URL(f, root)), 'utf-8');
+    assert.ok(!text.includes('gongganmarket.biz@gmail.com'), `옛 주소가 남아 있다: ${f}`);
+  }
+});
+
+test('법적고지 화면이 사업자정보를 따로 들고 있지 않다', () => {
+  // 값을 하드코딩하면 푸터와 또 갈라진다 — siteSeo 에서만 가져와야 한다.
+  const legal = readFileSync(fileURLToPath(new URL('../screens/LegalScreen.jsx', import.meta.url)), 'utf-8');
+  assert.ok(legal.includes('from "../utils/siteSeo"'), 'siteSeo 를 단일 소스로 쓰지 않는다');
+  for (const literal of [BIZ.bizNo, BIZ.telecomSalesNo, BIZ.tel, BIZ.email, BIZ.address]) {
+    assert.ok(!legal.includes(`"${literal}"`), `값을 하드코딩했다: ${literal}`);
+  }
+});
+
+test('프리렌더·llms.txt 도 같은 이메일을 낸다', async () => {
+  const { body: home } = await invoke(prerender, { page: 'home' });
+  assert.ok(home.includes(BIZ.email));
+  assert.ok(!home.includes('gmail.com'));
+
+  const { body: llms } = await invoke(prerender, { page: 'llms' });
+  assert.ok(llms.includes(BIZ.email));
+  assert.ok(!llms.includes('gmail.com'));
+});
