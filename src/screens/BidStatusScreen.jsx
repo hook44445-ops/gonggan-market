@@ -293,6 +293,25 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     if (step === "list") selectBidRef.current = false;
   }, [step]);
 
+  // ⚠ 훅은 반드시 단계별 return(아래 if (step===…) return) «위»에 둔다. 예전엔 이 사진 조회 훅이 맨 아래 목록 화면 앞에
+  //   있어서, 업체를 골라 confirm 단계로 넘어가는 순간 훅 수가 줄어 React #300 으로 화면이 통째로 멈췄다(2026-09-24 점검).
+  // 입찰한 업체가 올린 시공 사례 사진 — 카드 맨 위에 세운다. 읽기 전용이라 실패해도 화면엔 영향 없다.
+  const bidCompanyIds = bids.map(b => b.company?.id ?? b.companyId).filter(Boolean).join(",");
+  useEffect(() => {
+    const ids = bidCompanyIds ? bidCompanyIds.split(",") : [];
+    const todo = ids.filter(id => coPhotos[id] === undefined);
+    if (todo.length === 0) return;
+    let cancelled = false;
+    Promise.all(todo.map(id =>
+      getPortfolios(id)
+        .then(({ data }) => [id, (data ?? []).flatMap(r => [...(r.after_photos ?? []), ...(r.before_photos ?? [])]).filter(Boolean).slice(0, 3)])
+        .catch(() => [id, []])
+    )).then(pairs => {
+      if (!cancelled) setCoPhotos(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
+    });
+    return () => { cancelled = true; };
+  }, [bidCompanyIds]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const goBack = () => step === "list" ? onBack() : setStep("list");
 
   if (step==="siteVisitDone") return (
@@ -887,22 +906,6 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   );
 
   // Bid list — empty state maintains container layout
-  // 입찰한 업체가 올린 시공 사례 사진 — 카드 맨 위에 세운다. 읽기 전용이라 실패해도 화면엔 영향 없다.
-  const bidCompanyIds = bids.map(b => b.company?.id ?? b.companyId).filter(Boolean).join(",");
-  useEffect(() => {
-    const ids = bidCompanyIds ? bidCompanyIds.split(",") : [];
-    const todo = ids.filter(id => coPhotos[id] === undefined);
-    if (todo.length === 0) return;
-    let cancelled = false;
-    Promise.all(todo.map(id =>
-      getPortfolios(id)
-        .then(({ data }) => [id, (data ?? []).flatMap(r => [...(r.after_photos ?? []), ...(r.before_photos ?? [])]).filter(Boolean).slice(0, 3)])
-        .catch(() => [id, []])
-    )).then(pairs => {
-      if (!cancelled) setCoPhotos(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
-    });
-    return () => { cancelled = true; };
-  }, [bidCompanyIds]); // eslint-disable-line react-hooks/exhaustive-deps
   // 비교 표시(최저가·빠름·평판)와 정렬은 src/lib/bidCompare.js 에서 — 화면은 그리기만.
   const bidTags = (bid) => calcBidTags(bids, bid);
   const sortedBids = sortBids(bids, sortKey);

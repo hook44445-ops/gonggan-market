@@ -5253,12 +5253,13 @@ function DocPreviewModal({ url: rawUrl, title, onClose }) {
     signedDocUrl(rawUrl).then((u) => { if (alive) setUrl(u); }).catch(() => { if (alive) setUrl(rawUrl); });
     return () => { alive = false; };
   }, [rawUrl]);
+  // 확장자 불명(서명 URL 등)은 우선 이미지로 시도하되, 로드 실패 시 안내로 폴백.
+  // ⚠ 훅은 아래 early return 보다 위에 — 주소가 없어졌다 생기면 훅 수가 달라져 화면이 멈춘다(React #300).
+  const [imgFailed, setImgFailed] = useState(false);
   if (!rawUrl) return null;
   const clean = String(rawUrl).split("?")[0].toLowerCase();
   const isPdf = clean.endsWith(".pdf");
   const isImage = /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif)$/.test(clean);
-  // 확장자 불명(서명 URL 등)은 우선 이미지로 시도하되, 로드 실패 시 안내로 폴백.
-  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <div onClick={onClose}
