@@ -6,8 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   BIZ,
   BIZ_ROWS,
-  PARTNER_FEE_RATE,
-  PARTNER_GRADES,
+  PARTNER_LADDER,
   consumerFaq,
   partnerFaq,
   pageSeo,
@@ -128,9 +127,12 @@ test('faqSchema/breadcrumbSchema 는 빈 입력에 null 을 준다(조건문 없
   assert.equal(breadcrumbSchema([]), null);
 });
 
-test('파트너 FAQ 가 수수료율을 단일 소스에서 가져온다', () => {
-  const feeAnswer = partnerFaq().find((f) => f.q.includes('수수료')).a;
-  assert.ok(feeAnswer.includes(PARTNER_FEE_RATE));
+test('파트너 FAQ 는 수수료를 말하지 않고, 한도는 계단(partnerTier)에서 가져온다', () => {
+  const all = partnerFaq().map((f) => f.q + f.a).join(' ');
+  assert.ok(!all.includes('수수료'), '입구에서 수수료를 말하지 않는다(대표 2026-09-24)');
+  assert.ok(!all.includes('4.4'));
+  const bid = partnerFaq().find((f) => f.q.includes('바로 입찰')).a;
+  assert.ok(bid.includes(PARTNER_LADDER[0].limit));
 });
 
 // ─────────────────────────────────────────────────────
@@ -160,12 +162,12 @@ test('프리렌더 홈이 Organization·WebSite·Service·FAQPage 를 모두 낸
   assert.deepEqual(types, ['Organization', 'WebSite', 'Service', 'FAQPage']);
 });
 
-test('프리렌더 파트너가 수수료·보증금 등급을 숫자 그대로 담는다', async () => {
+test('프리렌더 파트너가 한도 계단을 숫자 그대로 담고, 수수료는 말하지 않는다', async () => {
   const { statusCode, body } = await invoke(prerender, { page: 'partner' });
   assert.equal(statusCode, 200);
-  assert.ok(body.includes(PARTNER_FEE_RATE));
-  for (const g of PARTNER_GRADES) {
-    assert.ok(body.includes(g.name), `등급 누락: ${g.name}`);
+  assert.ok(!body.includes('4.4%'), '수수료를 입구에서 말하지 않는다');
+  for (const g of PARTNER_LADDER) {
+    assert.ok(body.includes(g.name), `단계 누락: ${g.name}`);
     assert.ok(body.includes(g.limit), `한도 누락: ${g.name}`);
   }
   for (const { q } of partnerFaq()) assert.ok(body.includes(q), `질문 누락: ${q}`);
@@ -212,7 +214,8 @@ test('llms.txt 가 베타 사실과 양면(수요·공급) 요약을 담는다',
   assert.match(body, /^# 공간마켓/);
   assert.ok(body.includes('의뢰인(수요자)이 받는 것'));
   assert.ok(body.includes('시공 업체(공급자)가 받는 것'));
-  assert.ok(body.includes(PARTNER_FEE_RATE));
+  assert.ok(!body.includes('4.4%'));
+  assert.ok(body.includes(PARTNER_LADDER[0].limit));
   assert.ok(body.includes('통신판매중개자'));
   if (isBetaServer()) assert.ok(body.includes('베타'));
 });
