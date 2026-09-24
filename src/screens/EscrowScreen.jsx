@@ -1557,10 +1557,14 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           style={{ background: "#1E3D2F", color: "#fff", padding: "12px 20px", cursor: "pointer",
             display: "flex", flexDirection: "column", gap: 2 }}>
           <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.8, display: "flex", alignItems: "center", gap: 6 }}>
-            <Icon emoji="🛡️" size={15} color="#fff" /> 현재 {fmtMoney(Math.round(bidAmount * (100 - paid) / 100))} 보호 중
+            <Icon emoji="🛡️" size={15} color="#fff" /> {SHOW_BETA_UI
+              ? `남은 단계 ${fmtMoney(Math.round(bidAmount * (100 - paid) / 100))}`
+              : `현재 ${fmtMoney(Math.round(bidAmount * (100 - paid) / 100))} 보호 중`}
           </div>
           <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.8 }}>
-            {paid > 0
+            {SHOW_BETA_UI
+              ? "대금은 계약서 단계대로 업체와 직접 주고받고, 단계마다 확인과 사진이 기록돼요"
+              : paid > 0
               ? `토스페이먼츠 에스크로 · ${fmtMoney(Math.round(bidAmount * paid / 100))}이 단계 확인 후 지급됐어요`
               : "토스페이먼츠 에스크로"}
           </div>
@@ -1736,9 +1740,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         <div id="escrow-amount-card" style={{ background: `linear-gradient(135deg,${C.navy},${C.navyM})`, borderRadius: R.xl, padding: S.xxl, marginBottom: S.xl, color: "#fff" }}>
           {isConsumer ? (
             <>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>공간안전결제 예치 금액 (시공비 + 공간안전결제 이용료)</div>
-              <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(customerTotal)}</div>
-              <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>공간마켓이 보관 중 · 사진 확인 후 단계별로 업체에 지급됩니다</div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>{SHOW_BETA_UI ? "총 계약 금액" : "공간안전결제 예치 금액 (시공비 + 공간안전결제 이용료)"}</div>
+              <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(SHOW_BETA_UI ? bidAmount : customerTotal)}</div>
+              <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>{SHOW_BETA_UI ? "대금은 계약서 단계대로 업체와 직접 주고받아요 · 단계마다 사진을 확인해 주세요" : "공간마켓이 보관 중 · 사진 확인 후 단계별로 업체에 지급됩니다"}</div>
             </>
           ) : (
             <>
@@ -1752,7 +1756,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, opacity: 0.7 }}>
             <span>{isConsumer ? "업체에 지급됨" : "업체 지급 완료"} {paid}%</span>
-            {bidAmount > 0 && <span>보관 중 {fmtMoney(Math.round(bidAmount * (100 - paid) / 100))}</span>}
+            {bidAmount > 0 && <span>{SHOW_BETA_UI ? "남은 단계" : "보관 중"} {fmtMoney(Math.round(bidAmount * (100 - paid) / 100))}</span>}
           </div>
         </div>
 

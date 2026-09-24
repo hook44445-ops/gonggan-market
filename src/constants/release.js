@@ -36,6 +36,11 @@ export const APP_MODE = import.meta.env.VITE_APP_MODE || "beta";
 export const SHOW_BETA_UI =
   APP_MODE === "beta" || import.meta.env.VITE_SHOW_BETA_UI === "true";
 
+// 앱 안 결제가 실제로 열렸는가 — 베타 스위치와 한 몸(스위치를 둘로 두면 화면마다 말이 갈린다, 대표 09-25).
+//   토스페이먼츠 상점이 열리고 키를 넣은 뒤 VITE_APP_MODE=production 한 번으로
+//   결제 버튼 · 「공간마켓이 보관」 문구 · 에스크로 안내가 함께 켜진다. 그 전에는 모두 «결제 준비 중 · 계약서대로 직접».
+export const PAYMENTS_LIVE = !SHOW_BETA_UI;
+
 
 // ─────────────────────────────────────────────────────
 // 본인인증(휴대폰 실명 확인 · 포트원) — 키가 들어오면 켜진다(lib/identity.js).
