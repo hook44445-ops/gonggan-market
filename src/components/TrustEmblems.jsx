@@ -24,10 +24,11 @@ const INK   = "#2B2A26";
 const MUTED = "#9A9384";
 const GOLD  = "#B08A3E";
 
+// lockedText 는 의뢰인이 보는 말, hint 는 업체 자신에게 하는 말(내 카드 미리보기 등).
 export const TRUST_EMBLEMS = [
-  { key: "biz",       file: "biz",       label: "사업자",   earnedText: "사업자등록을 확인했습니다",       lockedText: "사업자등록증을 내면 채워집니다" },
-  { key: "insurance", file: "insurance", label: "시공보험", earnedText: "시공보험에 가입한 업체입니다",     lockedText: "시공보험 증권을 내면 채워집니다" },
-  { key: "deposit",   file: "deposit",   label: "보증금",   earnedText: "공간보증 보증금을 예치했습니다",   lockedText: "공간보증에 참여하면 채워집니다" },
+  { key: "biz",       file: "biz",       label: "사업자",   earnedText: "사업자등록을 확인했습니다",     lockedText: "사업자등록이 아직 확인되지 않았습니다", hint: "사업자등록증을 내면 채워집니다" },
+  { key: "insurance", file: "insurance", label: "시공보험", earnedText: "시공보험에 가입한 업체입니다",   lockedText: "시공보험 가입이 확인되지 않았습니다",   hint: "시공보험 증권을 내면 채워집니다" },
+  { key: "deposit",   file: "deposit",   label: "보증금",   earnedText: "공간보증 보증금을 예치했습니다", lockedText: "보증금을 예치하지 않은 업체입니다",     hint: "공간보증에 참여하면 채워집니다" },
 ];
 
 // 업체 데이터 → 무엇을 땄나. 필드 이름이 화면마다 달라 예전 CompanyVerificationBadges 기준을 그대로 받는다.
@@ -103,7 +104,7 @@ export function LevelEmblem({ level = 1, size = 40, large = false }) {
 }
 
 // 업체카드 한 줄 — 레벨 + 증빙 셋. 여백을 넉넉히 둔다(세련됨은 비움에서 나온다).
-export function CompanyTrustRow({ company, style }) {
+export function CompanyTrustRow({ company, style, forPartner = false }) {
   if (!company) return null;
   const s = trustState(company);
   const level = companyLevel(company);
@@ -134,7 +135,7 @@ export function CompanyTrustRow({ company, style }) {
           const sub = e.key === "deposit" && on && s.depositGrade ? s.depositGrade : e.label;
           return (
             <div key={e.key} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 44 }}>
-              <Emblem file={e.file} earned={on} size={36} title={on ? e.earnedText : e.lockedText} />
+              <Emblem file={e.file} earned={on} size={36} title={on ? e.earnedText : (forPartner ? e.hint : e.lockedText)} />
               <span style={{
                 marginTop: 3, fontSize: 10, fontWeight: on ? 700 : 500,
                 color: on ? INK : MUTED, whiteSpace: "nowrap",
