@@ -568,8 +568,12 @@ function ReportList({ reports, label, hiddenIds, onToggleHide }) {
 }
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
-function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, showToast, adminUserId, onReload }) {
-  const allReports = (() => { try { return JSON.parse(localStorage.getItem("lounge_reports") ?? "[]"); } catch { return []; } })();
+function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], loungeErr = null, showToast, adminUserId, onReload }) {
+  // 신고는 서버 목록(migration 113 ③)에서 — 예전엔 관리자 본인 브라우저 저장소를 읽어 실제 신고를 못 봤다.
+  const allReports = (loungeReports ?? []).map(r => ({
+    id: r.id, type: r.target_type, targetId: r.target_id, reason: r.reason,
+    createdAt: r.created_at, status: r.status, reporterName: r.reporter_name ?? null,
+  }));
   const allBlocks  = (() => { try { return JSON.parse(localStorage.getItem("lounge_blocks")  ?? "[]"); } catch { return []; } })();
   const [posts, setPosts] = useState(initPosts);
   useEffect(() => { setPosts(initPosts); }, [initPosts]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -5542,7 +5546,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
         try {
           const [postsRes, reportsRes] = await Promise.all([
             adminGetLoungePosts(),
-            getLoungeReports(),
+            getLoungeReports({ adminId: user?.id ?? "admin" }),
           ]);
           setLoungePosts(postsRes.data ?? []);
           setLoungeReports(reportsRes.data ?? []);
@@ -7137,12 +7141,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {mainTab === "lounge" && (
               <LoungeManagementTab
                 loungePosts={loungePosts}
+                loungeReports={loungeReports}
                 loungeErr={loungeErr}
                 showToast={showToast}
                 adminUserId={user?.id}
                 onReload={async () => {
                   try {
-                    const [postsRes, reportsRes] = await Promise.all([adminGetLoungePosts(), getLoungeReports()]);
+                    const [postsRes, reportsRes] = await Promise.all([adminGetLoungePosts(), getLoungeReports({ adminId: user?.id ?? "admin" })]);
                     setLoungePosts(postsRes.data ?? []);
                     setLoungeReports(reportsRes.data ?? []);
                     setLoungeErr(postsRes.error?.message ?? null);

@@ -2711,13 +2711,18 @@ export const recordAppVisit = async ({ userId = null, role = null, visitorKey = 
 export const getAdminVisitStats = (adminId) =>
   supabase.rpc("admin_visit_stats", { p_admin_id: adminId ?? "admin" });
 
-export const getLoungeReports = ({ status = null } = {}) => {
-  let q = supabase
-    .from("lounge_reports")
-    .select("*, reporter:reporter_id(name, phone)")
-    .order("created_at", { ascending: false });
-  if (status) q = q.eq("status", status);
-  return q;
+// ── 라운지 신고(migration 113 ③) ─────────────────────────────────────────────
+// 앱은 Supabase 로그인 세션이 없어 표에 직접 쓰고 읽지 못한다 → security definer 함수로만.
+export const createLoungeReport = ({ reporterId = null, type, targetId, reason, description = null }) =>
+  supabase.rpc("lounge_report_create", {
+    p_reporter_id: reporterId, p_target_type: type, p_target_id: targetId != null ? String(targetId) : null,
+    p_reason: reason, p_description: description,
+  });
+
+export const getLoungeReports = async ({ status = null, adminId = null } = {}) => {
+  const { data, error } = await supabase.rpc("admin_lounge_reports", { p_admin_id: adminId ?? "admin", p_status: status });
+  // 예전 모양(reporter:{name}) 도 유지 — 대시보드가 쓴다.
+  return { data: (data ?? []).map(r => ({ ...r, reporter: { name: r.reporter_name ?? null } })), error };
 };
 
 export const adminHideContent = async (table, id, adminId, hidden, reason = null) => {
@@ -2742,13 +2747,8 @@ export const adminHideContent = async (table, id, adminId, hidden, reason = null
   return { data, error };
 };
 
-export const adminUpdateLoungeReport = (id, status, adminNote = null) =>
-  supabase
-    .from("lounge_reports")
-    .update({ status, ...(adminNote ? { admin_note: adminNote } : {}) })
-    .eq("id", id)
-    .select("id, status")
-    .single();
+export const adminUpdateLoungeReport = (id, status, adminNote = null, adminId = null) =>
+  supabase.rpc("admin_lounge_report_update", { p_admin_id: adminId ?? "admin", p_id: id, p_status: status, p_note: adminNote });
 
 // ── STEP SYNC-1: Request Repost ───────────────────────────────────────────────
 
