@@ -251,6 +251,7 @@ export const closeRequest = (id) =>
 
 // 고객 요청 수정 — 직접 UPDATE 는 없는 updated_at 칸(42703)과 정책(이 앱 로그인은 세션 없음)에 막혀
 // 「수정됐어요」만 뜨고 저장되지 않았다. 본인·open 상태를 확인하는 함수로 저장한다(migration 108).
+// 예산(budget_min/max)이 바뀔 때만 8칸 판(migration 126)을 부른다 — 입찰이 있으면 서버가 BUDGET_LOCKED_HAS_BIDS(E7).
 export const updateRequest = (id, data, actorId) =>
   supabase.rpc("request_update_by_owner", {
     p_request_id:  id,
@@ -259,6 +260,8 @@ export const updateRequest = (id, data, actorId) =>
     p_size:        data.size ?? null,
     p_style:       data.style ?? null,
     p_description: data.description ?? null,
+    ...("budget_min" in data || "budget_max" in data
+      ? { p_budget_min: data.budget_min ?? 0, p_budget_max: data.budget_max ?? 0 } : {}),
   });
 
 // ── Bids ──────────────────────────────────────────────────────────────────────
