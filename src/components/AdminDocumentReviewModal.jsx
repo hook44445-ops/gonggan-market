@@ -44,8 +44,9 @@ const CHECKLIST_LABELS = {
   final_approval:  "고객 최종 승인 후 정산 동의",
 };
 
-export default function AdminDocumentReviewModal({ docs, company, adminUser, onClose, onUpdate }) {
-  const [selected, setSelected] = useState(docs?.[0] ?? null);
+export default function AdminDocumentReviewModal({ docs, company, adminUser, onClose, onUpdate, initialDocType = null }) {
+  // 「서류 확인 대기」에서 누른 서류로 바로 펼친다(E13) — 없으면 첫 서류.
+  const [selected, setSelected] = useState(() => (initialDocType && docs?.find(d => d.document_type === initialDocType)) || docs?.[0] || null);
   const [reviewReason, setReviewReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState("");

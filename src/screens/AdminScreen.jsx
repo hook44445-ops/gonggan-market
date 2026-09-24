@@ -5,6 +5,7 @@ import { Icon, splitLeadingEmoji } from "../components/common/Icon";
 import { useIconVersion } from "../hooks/useIconVersion";
 import { useUiVersion } from "../hooks/useUiVersion";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
+import { bidLimit, limitStateOf, limitText } from "../lib/partnerTier";
 import { COMPANY_STATUS_META, USER_STATUS_META } from "../constants";
 import { LOUNGE_CATEGORIES } from "../constants/lounge";
 import { ISSUE_PRESETS, generateDraft, classifyCategory } from "../constants/aiContentFactory";
@@ -4099,7 +4100,12 @@ const normalizeCompany = (row) => ({
     { label: "대표자 신분증",   submitted: !!row.id_card_url },
   ],
   deposit:    row.deposit_amount ?? 0,
-  hasInsurance: !!row.insurance_url || !!row.has_insurance,
+  // 시공보험 «확인됨»은 관리자 확인 칸(has_insurance)만 — 예전엔 증권을 올리기만 해도(insurance_url) 켜졌다(E12).
+  hasInsurance: row.has_insurance === true,
+  has_insurance: row.has_insurance === true,
+  insuranceUploaded: !!row.insurance_url,
+  verified: row.verified === true,
+  license_verified: row.license_verified === true,
   rejectNote: row.reject_note ?? "",
   // 공간보증(068) — 표시/관리용 pass-through.
   guarantee_grade:         row.guarantee_grade ?? null,
@@ -5518,8 +5524,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
     return () => { alive = false; };
   }, [mainTab, showDocReview]);
   // 목록에서 누른 업체가 열리고 서류를 다 불러온 뒤 검토 창을 띄운다.
+  const [reviewDocType, setReviewDocType] = useState(null);
   useEffect(() => {
-    if (openDocReviewFor && selected?.id === openDocReviewFor) { setShowDocReview(true); setOpenDocReviewFor(null); }
+    // 그 업체의 서류를 다 불러온 뒤에 연다 — 그래야 누른 서류로 바로 펼칠 수 있다(E13).
+    if (openDocReviewFor && selected?.id === openDocReviewFor.companyId
+        && companyDocuments.some(d => d.company_id === openDocReviewFor.companyId)) {
+      setReviewDocType(openDocReviewFor.docType ?? null);
+      setShowDocReview(true);
+      setOpenDocReviewFor(null);
+    }
   }, [openDocReviewFor, selected?.id, companyDocuments]);
 
   useEffect(() => {
@@ -6208,7 +6221,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     const co = companies.find(c => c.id === d.company_id);
                     const days = Math.max(0, Math.floor((Date.now() - new Date(d.updated_at ?? d.created_at).getTime()) / 864e5));
                     return (
-                      <div key={d.id} onClick={() => { if (!co) return; setSelected(co); setMainTab("companies"); setOpenDocReviewFor(co.id); }}
+                      <div key={d.id} onClick={() => { if (!co) return; setSelected(co); setMainTab("companies"); setOpenDocReviewFor({ companyId: co.id, docType: d.document_type }); }}
                         style={{ display: "flex", alignItems: "center", gap: S.sm, padding: "10px 0", borderTop: `1px solid ${C.bgWarm}`, cursor: co ? "pointer" : "default" }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{co?.name ?? "업체 정보 없음"}</div>
@@ -6325,7 +6338,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     <div style={{ fontSize: 14, color: C.text3 }}>해당 항목이 없습니다</div>
                   </div>
                 ) : filtered.map(company => {
-                  const bm = BADGES[company.badge] || BADGES.basic;
+                  // 목록 칩도 실제 공간보증 상태로(E12) — 가입 때 적힌 badge 로 「👑 시그니처」가 뜨던 것.
+                  const _gg = company.guarantee_grade ? GUARANTEE_GRADE_MAP[company.guarantee_grade] : null;
+                  const _ga = company.guarantee_status === "ACTIVE";
+                  const bm = { bg: _ga ? C.brandL : C.surface2, color: _ga ? C.brand : C.text3, icon: "",
+                    label: _gg ? (_ga ? `공간보증 ${_gg.label}` : `${_gg.label} 신청`) : "공간보증 없음" };
                   const sm = STATUS_MAP[company.status] || STATUS_MAP.pending;
                   const allOk = company.docs.every(d => d.submitted);
                   return (
@@ -6340,7 +6357,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                             <span style={{ background: bm.bg, color: bm.color, borderRadius: R.full,
                               padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{bm.icon} {bm.label}</span>
                             <span style={{ background: C.surface2, color: C.text3, borderRadius: R.full,
-                              padding: "2px 8px", fontSize: 11 }}>공간뱃지예치보증금 {requiredDeposit(company.badge, company.hasInsurance).toLocaleString()}만원</span>
+                              padding: "2px 8px", fontSize: 11 }}>입찰 한도 {limitText(bidLimit(limitStateOf(company)))}</span>
                           </div>
                         </div>
                         <span style={{ background: sm.bg, color: sm.color, borderRadius: R.full,
@@ -7834,7 +7851,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 20px" }} />
 
             {(() => {
-              const bm = BADGES[selected.badge] || BADGES.basic;
+              // 한도·등급은 실제 계산으로(E12) — 예전엔 가입 때 적힌 badge 로 「시그니처 · 한도 1억원」이 떴다.
+              const ls = limitStateOf(selected);
+              const lim = bidLimit(ls);
+              const gg = selected.guarantee_grade ? GUARANTEE_GRADE_MAP[selected.guarantee_grade] : null;
+              const gActive = selected.guarantee_status === "ACTIVE";
+              const gLabel = gg ? (gActive ? `공간보증 ${gg.label}` : `${gg.label} 신청 · ${(GUARANTEE_STATUS_META[selected.guarantee_status] ?? GUARANTEE_STATUS_META.NONE).label}`) : "공간보증 없음";
+              const bm = { bg: gActive ? C.brandL : C.surface2, color: gActive ? C.brand : C.text3, icon: "", label: gLabel };
               return (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.xl }}>
                   <div>
@@ -7848,9 +7871,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     <div style={{ fontSize: 12, color: C.text4 }}>📞 {selected.phone}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: C.navy }}>{requiredDeposit(selected.badge, selected.hasInsurance).toLocaleString()}만원</div>
-                    <div style={{ fontSize: 11, color: C.text4 }}>필요 공간뱃지예치보증금 ({depositRatePct(selected.hasInsurance)}%)</div>
-                    <div style={{ fontSize: 11, color: bm.color, fontWeight: 700, marginTop: 2 }}>수주 한도 {bm.maxJob}</div>
+                    <div style={{ fontSize: 11, color: C.text4 }}>지금 입찰 한도</div>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: C.navy }}>{limitText(lim)}</div>
+                    <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>
+                      사업자 {ls.biz ? "✓" : "—"} · 시공보험 {ls.insurance ? "✓" : (selected.insuranceUploaded ? "확인 전" : "—")} · 보증금 {ls.depositManwon ? `${ls.depositManwon}만원` : "—"}
+                    </div>
                     <button onClick={() => setDocModal("badge")}
                       style={{ fontSize: 11, color: C.brand, background: "none", border: "none", cursor: "pointer", fontWeight: 700, marginTop: 4, textDecoration: "underline" }}>
                       배지 상세 ›
@@ -8187,7 +8212,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
           docs={companyDocuments}
           company={selected}
           adminUser={user}
-          onClose={() => setShowDocReview(false)}
+          initialDocType={reviewDocType}
+          onClose={() => { setShowDocReview(false); setReviewDocType(null); }}
           onUpdate={(updated) => {
             setCompanyDocuments(prev => prev.map(d => d.id === updated.id ? updated : d));
           }}
