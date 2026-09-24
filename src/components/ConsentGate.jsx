@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { DOCUMENT_TEMPLATES } from "../constants/documentTemplates";
 import { SHOW_BETA_UI } from "../constants/release";
 import { GATE_CONTENT, GateBody, hasBetaAck, markBetaAck } from "./beta/BetaUI";
+import { recordConsents, getConsentTypes } from "../lib/supabase";
 
 const STORAGE_KEY = (userId) => `gonggan_consents_${userId ?? "guest"}`;
 
@@ -19,6 +20,25 @@ function saveConsents(userId, types) {
     types.forEach(t => { data[t] = Date.now(); });
     localStorage.setItem(STORAGE_KEY(userId), JSON.stringify(data));
   } catch {}
+  // 서버에도 남긴다(SQL 121) — 기기가 바뀌어도 다시 묻지 않고, 회사 쪽에 동의 증빙이 남는다. 실패해도 진행은 막지 않는다.
+  if (userId) recordConsents(userId, types).then(() => {}, () => {});
+}
+
+// 로그인 뒤 한 번 — 서버에 있는 동의를 이 기기에 채우고, 이 기기에만 있던 동의는 서버로 올린다(예전 동의 이관).
+export async function syncConsents(userId) {
+  if (!userId) return;
+  try {
+    const { data: server, error } = await getConsentTypes(userId);
+    if (error) return;
+    const have = new Set(Array.isArray(server) ? server : []);
+    let local = {};
+    try { local = JSON.parse(localStorage.getItem(STORAGE_KEY(userId)) ?? "{}"); } catch { local = {}; }
+    const onlyLocal = Object.keys(local).filter(t => local[t] && !have.has(t));
+    let changed = false;
+    have.forEach(t => { if (!local[t]) { local[t] = Date.now(); changed = true; } });
+    if (changed) { try { localStorage.setItem(STORAGE_KEY(userId), JSON.stringify(local)); } catch {} }
+    if (onlyLocal.length) await recordConsents(userId, onlyLocal);
+  } catch { /* 동기화 실패 — 예전처럼 이 기기 기록만으로 동작 */ }
 }
 
 function Check({ on, size = 22 }) {

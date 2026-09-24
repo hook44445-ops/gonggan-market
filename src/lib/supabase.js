@@ -304,6 +304,15 @@ export const markRequestSiteVisit = (requestId, { bidId = null, companyId = null
   });
 
 // 의뢰인 최종 견적 승인 → escrow_pending (+ 제출 견적서 accepted). RPC 가 의뢰인 소유 검증.
+// 약관 동의 기록(SQL 121) — 기기에만 남던 동의를 서버에도. 같은 사용자·종류는 첫 동의 시각을 지킨다.
+export const recordConsents = (userId, types) =>
+  supabase.rpc("consent_record", {
+    p_user_id: userId, p_types: types,
+    p_user_agent: typeof navigator !== "undefined" ? String(navigator.userAgent ?? "").slice(0, 300) : null,
+  });
+export const getConsentTypes = (userId) =>
+  supabase.rpc("consent_types_for", { p_user_id: userId });
+
 export const approveFinalQuote = (requestId, actorId = null) =>
   supabase.rpc("request_approve_final_quote", { p_request_id: requestId, p_actor_id: actorId });
 
