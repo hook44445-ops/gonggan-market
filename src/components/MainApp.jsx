@@ -2575,9 +2575,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           insertResult: null,
           insertError:  error.message,
         });
-        const dup = /duplicate|unique/i.test(error.message ?? "");
-        showToast(dup ? "이미 입찰한 요청이에요. 입찰 수정으로 변경해주세요." : `입찰 저장 실패: ${error.message}`);
-        alert('입찰 저장 실패: ' + error.message);
+        const msg = error.message ?? "";
+        const dup = /duplicate|unique/i.test(msg);
+        // 서버 트리거가 막은 경우(101 수주 한도 · 009 승인 업체) — 원문 대신 사람이 읽을 말로.
+        const lim = /BID_OVER_LIMIT/.test(msg) ? (msg.match(/한도는 (\d+)만원/)?.[1] ?? null) : null;
+        const friendly = dup ? "이미 입찰한 요청이에요. 입찰 수정으로 변경해주세요."
+          : /BID_OVER_LIMIT/.test(msg) ? `공사 1건 한도${lim ? `(${Number(lim).toLocaleString("ko-KR")}만원)` : ""}를 넘었어요. 서류를 내면 한도가 커져요.`
+          : /COMPANY_NOT_ACTIVE/.test(msg) ? "지금은 입찰할 수 없는 상태예요. 고객센터로 문의해 주세요."
+          : `입찰을 저장하지 못했어요: ${msg}`;
+        showToast(friendly);
+        if (!/BID_OVER_LIMIT|COMPANY_NOT_ACTIVE/.test(msg) && !dup) alert(friendly);
         return;
       }
       if (data) {
