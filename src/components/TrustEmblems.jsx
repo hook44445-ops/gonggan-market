@@ -15,6 +15,7 @@
 //   · .webp   : 상세·수집함용(별빛까지) · 384px
 //   작게 쓸 땐 36px 아래로 내리지 않는다 — 28px 에선 인증서·방패·금고가 서로 구분되지 않는다.
 
+import { useState } from "react";
 import { stageFor } from "../lib/growthStage";
 import { levelInfo, computeCompanyXp } from "../constants/growth";
 import { isGuaranteeBadgeVisible, GUARANTEE_GRADE_MAP, guaranteeEmblemFile } from "../constants/guarantee";
@@ -115,19 +116,33 @@ export function LevelEmblem({ level = 1, size = 40, large = false }) {
 
 // 업체카드 한 줄 — 레벨 + 증빙 셋. 여백을 넉넉히 둔다(세련됨은 비움에서 나온다).
 export function CompanyTrustRow({ company, style, forPartner = false }) {
+  // 핸드폰은 마우스를 올릴 수 없다(title 말풍선이 안 뜬다) → 엠블럼을 누르면 줄 아래에 설명을 펼친다(09-25).
+  const [openKey, setOpenKey] = useState(null);
   if (!company) return null;
   const s = trustState(company);
   const level = companyLevel(company);
   const st = stageFor(level);
   const earnedCount = TRUST_EMBLEMS.filter(e => s[e.key]).length;
+  // 누른 엠블럼의 설명 — 관리자가 확인한 사실만 말한다(엠블럼을 켜는 기준과 같다).
+  const explain = (() => {
+    if (!openKey) return null;
+    if (openKey === "level") return `Lv.${level} ${st.name} — 완료한 공사와 후기 같은 기록이 쌓일수록 올라가요`;
+    const e = TRUST_EMBLEMS.find(x => x.key === openKey);
+    if (!e) return null;
+    if (!s[e.key]) return forPartner ? e.hint : e.lockedText;
+    if (e.key === "deposit") return `공간보증 ${s.depositGrade ?? ""}${s.depositManwon ? ` · 보증금 ${Number(s.depositManwon).toLocaleString("ko-KR")}만원` : ""} — 관리자가 입금을 확인한 보증금이에요`;
+    if (e.key === "biz") return "사업자등록을 확인했습니다 — 관리자가 사업자등록증을 확인했어요";
+    if (e.key === "insurance") return "시공보험에 가입한 업체입니다 — 관리자가 보험 증권을 확인했어요";
+    return e.earnedText;
+  })();
 
   return (
-    <div style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-      paddingTop: 12, borderTop: "1px solid rgba(43,42,38,0.07)", ...style,
-    }}>
+    <div style={{ paddingTop: 12, borderTop: "1px solid rgba(43,42,38,0.07)", ...style }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
       {/* 레벨 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+      <div role="button" tabIndex={0} aria-expanded={openKey === "level"}
+        onClick={(ev) => { ev.stopPropagation(); setOpenKey(k => (k === "level" ? null : "level")); }}
+        style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, cursor: "pointer" }}>
         <LevelEmblem level={level} size={40} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, color: GOLD, letterSpacing: "0.08em" }}>LV.{level}</div>
@@ -144,7 +159,10 @@ export function CompanyTrustRow({ company, style, forPartner = false }) {
           const on = s[e.key];
           const sub = e.key === "deposit" && on && s.depositGrade ? s.depositGrade : e.label;
           return (
-            <div key={e.key} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 44 }}>
+            <div key={e.key} role="button" tabIndex={0} aria-expanded={openKey === e.key}
+              onClick={(ev) => { ev.stopPropagation(); setOpenKey(k => (k === e.key ? null : e.key)); }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 44, cursor: "pointer",
+                borderRadius: 10, background: openKey === e.key ? "rgba(176,138,62,0.10)" : "transparent" }}>
               <Emblem file={e.key === "deposit" && on ? s.depositFile : e.file} earned={on} size={36}
                 title={on ? (e.key === "deposit" && s.depositGrade ? `공간보증 ${s.depositGrade} — ${e.earnedText}` : e.earnedText) : (forPartner ? e.hint : e.lockedText)} />
               <span style={{
@@ -155,6 +173,14 @@ export function CompanyTrustRow({ company, style, forPartner = false }) {
           );
         })}
       </div>
+    </div>
+    {explain && (
+      <div onClick={(ev) => { ev.stopPropagation(); setOpenKey(null); }}
+        style={{ marginTop: 8, background: "#FBF7EC", border: "1px solid #EADFC4", borderRadius: 10,
+          padding: "8px 11px", fontSize: 12, lineHeight: 1.55, color: "#5E4B18", fontWeight: 600 }}>
+        {explain}
+      </div>
+    )}
     </div>
   );
 }
