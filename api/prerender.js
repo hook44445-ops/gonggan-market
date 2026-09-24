@@ -24,6 +24,7 @@ import {
   ESCROW_STAGES,
   PARTNER_LADDER,
   PARTNER_DEPOSIT_NOTE,
+  PARTNER_STEPS,
   consumerFaq,
   partnerFaq,
   pageSeo,
@@ -423,18 +424,6 @@ async function renderPartner(req, res, site) {
 <p>${esc(seo.description)}</p>
 
 <section>
-<h2>어떤 업체가 신청할 수 있나요?</h2>
-<ul>
-<li>인테리어·리모델링 업체</li>
-<li>인테리어 디자인·설계 사무소</li>
-<li>가구·마루·창호 시공 업체</li>
-<li>도배·도장·전기·설비 전문 업체</li>
-<li>상업 공간 전문 시공팀</li>
-<li>건물 유지보수·소규모 공사팀</li>
-</ul>
-</section>
-
-<section>
 <h2>가입은 어떻게 하나요?</h2>
 <p>업체명·연락처·영업 지역·공종만 적으면 바로 시작합니다. 가입비·광고비·월정액은 없습니다.</p>
 </section>
@@ -447,14 +436,7 @@ async function renderPartner(req, res, site) {
 
 <section>
 <h2>신청부터 수주까지</h2>
-<ol>
-<li>파트너 신청 — 양식 제출 후 1~2 영업일 내 연락</li>
-<li>서류 검토 및 가입 승인 — 사업자·보험·이력 서류 확인</li>
-<li>보증금 예치 등급 설정 — 예치 금액에 따라 수주 한도 결정</li>
-<li>프로필·포트폴리오 작성 — 시공 사례, 전문 분야, 자격 정보 등록</li>
-<li>견적 요청 수신 — 검증된 의뢰인의 요청을 자동 전달</li>
-<li>수주 완료 및 정산 — 단계별 사진 확인 후 정산</li>
-</ol>
+<ol>${PARTNER_STEPS.map(([t, d]) => `<li><strong>${esc(t)}</strong> — ${esc(d)}</li>`).join('')}</ol>
 </section>
 ${faqHtml(faq)}
 

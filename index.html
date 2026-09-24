@@ -3,8 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>공간마켓 — 좋은 공간과 좋은 이야기가 모이는 곳</title>
-    <meta name="description" content="믿을 수 있는 인테리어 업체 비교부터 계약, 에스크로 안전결제, 시공 기록까지. 집·상가·리모델링을 안전하게 진행하세요." />
+    <!-- 제목·설명은 src/utils/siteSeo.js 의 pageSeo() 가 단일 소스다(siteSeo.test.js 가 일치를 검사).
+         정적으로도 들고 있는 이유: 프리렌더 rewrite 를 타지 않는 크롤러(UA 에 bot/crawl 이 없는
+         ChatGPT-User 등)와 JS 를 실행하지 않는 수집기가 이 값을 그대로 가져가기 때문이다.
+         ⚠️ 베타에서는 에스크로를 운영 중인 기능처럼 쓰지 않는다 — 예전 이 자리가 그랬다. -->
+    <title>인테리어 비교견적 — 공간마켓 · 집수리 리모델링 견적</title>
+    <meta name="description" content="인테리어 견적, 여러 곳을 나란히 놓고 비교하세요. 사업자등록을 확인한 업체가 같은 조건으로 견적을 보내고, 공사 사진과 대화가 기록으로 남습니다. 견적 요청 무료." />
     <!-- 기본 canonical — 각 화면 진입 시 useDocumentMeta 훅이 페이지별 URL로 교체한다. -->
     <link rel="canonical" href="https://gongganmarket.com/" />
 
@@ -29,8 +33,8 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://gongganmarket.com/" />
     <meta property="og:site_name" content="공간마켓" />
-    <meta property="og:title" content="공간마켓 — 좋은 공간과 좋은 이야기가 모이는 곳" />
-    <meta property="og:description" content="믿을 수 있는 인테리어 업체 비교부터 계약, 에스크로 안전결제, 시공 기록까지." />
+    <meta property="og:title" content="인테리어 비교견적 — 공간마켓 · 집수리 리모델링 견적" />
+    <meta property="og:description" content="인테리어 견적, 여러 곳을 나란히 놓고 비교하세요. 사업자등록을 확인한 업체가 같은 조건으로 견적을 보내고, 공사 사진과 대화가 기록으로 남습니다. 견적 요청 무료." />
     <meta property="og:image" content="https://gongganmarket.com/og-space-v2.png" />
     <meta property="og:image:secure_url" content="https://gongganmarket.com/og-space-v2.png" />
     <meta property="og:image:type" content="image/png" />
@@ -41,8 +45,8 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="공간마켓 — 좋은 공간과 좋은 이야기가 모이는 곳" />
-    <meta name="twitter:description" content="믿을 수 있는 인테리어 업체 비교부터 계약, 에스크로 안전결제, 시공 기록까지." />
+    <meta name="twitter:title" content="인테리어 비교견적 — 공간마켓 · 집수리 리모델링 견적" />
+    <meta name="twitter:description" content="인테리어 견적, 여러 곳을 나란히 놓고 비교하세요. 사업자등록을 확인한 업체가 같은 조건으로 견적을 보내고, 공사 사진과 대화가 기록으로 남습니다. 견적 요청 무료." />
     <meta name="twitter:image" content="https://gongganmarket.com/og-space-v2.png" />
 
 
