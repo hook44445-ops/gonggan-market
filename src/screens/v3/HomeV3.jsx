@@ -107,7 +107,7 @@ export default function HomeV3({
       {activeContract && (
         <Card tone="brand" onClick={activeContract.onOpen}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: S.sm }}>
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>진행 중인 공사</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>{activeContract.heading ?? "진행 중인 공사"}</span>
             <span style={{ fontSize: 11.5, color: C.text3 }}>{activeContract.stageLabel}</span>
           </div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.md }}>

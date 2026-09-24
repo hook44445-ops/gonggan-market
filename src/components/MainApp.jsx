@@ -528,6 +528,21 @@ function isRequestSettled(r, escrowData) {
 // 활성(정산 전) 에스크로 계약이 존재하는가 — 진행중 판정의 1차 기준(상태 무관).
 // 업체가 착공/단계 사진을 올려 계약이 생기면 escrow row 가 존재한다. status 가 stale 'open'
 // 이어도 이 escrow 가 곧 "진행중"의 근거다.
+// 홈 「진행 중」 카드의 제목·단계·진행률·열 화면. 예전엔 「진행 중인 공사 · 진행 중 · 50%」 고정이라
+// 현장방문만 요청했는데 공사가 절반 된 것처럼 보였고, 최종 견적서가 와도 알 수 없었다(C2).
+function homeStageOf(r, escrowData) {
+  const esc = escrowData?.escrow ?? null;
+  if (esc) {
+    const step = Math.max(1, Number(esc.current_step) || 1);
+    const label = esc.transaction_status === "DISPUTE" ? "이의 신청 검토 중"
+      : step <= 2 ? "착공 준비 중" : step === 3 ? "착공 확인 단계" : step === 4 ? "중간 점검 단계" : "완료 확인 단계";
+    return { heading: "진행 중인 공사", label, pct: Math.min(95, 20 + (step - 1) * 18), target: "escrow" };
+  }
+  if (r?.status === "escrow_pending") return { heading: "진행 중인 견적", label: "예약 확정 · 결제 대기", pct: 15, target: "bidstatus" };
+  if (r?.status === "final_quote_submitted") return { heading: "최종 견적서가 도착했어요", label: "확인해 주세요", pct: 12, target: "bidstatus" };
+  return { heading: "진행 중인 견적", label: "현장방문 · 최종 견적 준비 중", pct: 6, target: "bidstatus" };
+}
+
 function hasActiveEscrow(escrowData) {
   const escrow = escrowData?.escrow ?? null;
   if (!escrow) return false;
@@ -3115,12 +3130,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <HomeV3
               activeRole={activeRole}
               user={user}
-              activeContract={ip ? {
-                title: ip.type ?? ip.area ?? "시공",
-                stageLabel: "진행 중",
-                pct: 50,
-                onOpen: () => { setBidViewRequestId(ip.id); setScreen("escrow"); },
-              } : null}
+              activeContract={ip ? (() => {
+                const st = homeStageOf(ip, escOf(ip));
+                return {
+                  title: ip.type ?? ip.area ?? "시공",
+                  heading: st.heading,
+                  stageLabel: st.label,
+                  pct: st.pct,
+                  // 계약 전(현장방문·최종 견적·결제 대기)은 견적 화면으로, 계약 뒤는 공사 화면으로
+                  onOpen: () => { setBidViewRequestId(ip.id); setScreen(st.target); },
+                };
+              })() : null}
               showcases={showcases}
               reviews={revSrc}
               companiesCount={(companies ?? []).length}
