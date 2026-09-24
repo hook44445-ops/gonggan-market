@@ -61,7 +61,11 @@ export default function DocumentDetailModal({ doc, companyId, userId, onClose, o
     setErrorMsg(null);
     try {
       const path = `company-docs/${companyId}/${doc.document_type}/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
-      const url  = await uploadDocument("documents", path, file).catch(() => URL.createObjectURL(file));
+      // 업로드가 실패하면 여기서 멈춘다 — 예전엔 이 기기에서만 열리는 임시 주소(blob:)로 바꿔 그대로 제출돼,
+      // 관리자는 열리지 않는 서류를 받았다(한도 계단이 조용히 멈춤, 총점검 09-25).
+      const url  = await uploadDocument("documents", path, file).catch((err) => {
+        throw new Error(`파일을 올리지 못했어요. 다시 시도해 주세요.${err?.message ? ` (${err.message})` : ""}`);
+      });
       const data = await ensureRow({
         file_name: file.name, file_url: url,
         file_size: file.size, mime_type: file.type,
