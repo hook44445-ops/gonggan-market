@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { createEstimate, updateEstimate, submitEstimate, uploadDocument, createNotification, postProjectEvent } from "../lib/supabase";
+import { supabase, createEstimate, updateEstimate, submitEstimate, uploadDocument, createNotification, postProjectEvent } from "../lib/supabase";
 import { formatDueRemaining } from "../constants/policy";
 import EstimateCoachPanel from "./growth/EstimateCoachPanel";       // Space OS · AI 코치(라이브, Add Only)
 import EstimateAnalysisResult from "./growth/EstimateAnalysisResult"; // Space OS · 성실견적 분석 결과(제출 후)
@@ -236,7 +236,15 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
     if (error) { alert("제출 실패: " + error.message); return; }
     // 의뢰인에게 '최종견적 도착' 알림 — 결제(계약) 알림보다 먼저 발생시켜 확인→결제 흐름을 유도(Add Only).
     // 결제/계약 알림은 결제 완료 시점에 별도 발생하므로 여기서는 계약 알림을 만들지 않는다.
-    const consumerId = job.request?.user_id ?? job.request?.userId ?? null;
+    // 파트너센터 경로에선 job.request 에 user_id 가 없을 수 있다 → 요청에서 한 번 읽는다.
+    // (없으면 의뢰인에게 「최종견적 도착」 알림도, 공사 대화방 기록도 안 갔다 — 총점검 09-24)
+    let consumerId = job.request?.user_id ?? job.request?.userId ?? null;
+    if (!consumerId && job.bid?.request_id) {
+      try {
+        const { data: rq } = await supabase.from("requests").select("user_id").eq("id", job.bid.request_id).maybeSingle();
+        consumerId = rq?.user_id ?? null;
+      } catch { /* 알림·기록만 빠진다 */ }
+    }
     if (consumerId) {
       createNotification({
         userId:      consumerId,
