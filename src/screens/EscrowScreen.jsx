@@ -8,7 +8,7 @@ import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import DocImg from "../components/DocImg";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
+import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, hasCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { buildGpsMissingNote } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -23,6 +23,9 @@ import EscrowNextCard from "../components/v3/EscrowNextCard"; // 맨 위 「지�
 // 'company_todo'   — waiting for company to act
 // 'pending_customer' — company acted, waiting for customer confirmation
 // 'locked'         — not yet reachable
+
+// 단계 사진 자동 승인 — 서버에서 실제로 처리할 때만 true(A3). 그 전에는 카운트다운·「자동 승인」 문구를 숨긴다.
+const AUTO_APPROVE_LIVE = false;
 
 function CountdownTimer({ deadlineMs }) {
   const [remaining, setRemaining] = useState(() => deadlineMs ? Math.max(0, deadlineMs - Date.now()) : 0);
@@ -507,7 +510,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     });
     setCustEvalSubmitting(false);
     if (!error) { setCustEvalDone(true); setShowCustEval(false); }
+    else window.alert(`고객 평가를 저장하지 못했어요. 잠시 후 다시 시도해 주세요. (${error.message ?? error.code ?? "오류"})`);
   };
+  // 새로고침 뒤에도 이미 남긴 평가를 기억한다(예전엔 화면 상태뿐이라 같은 고객을 또 평가할 수 있었다).
+  useEffect(() => {
+    const rid = request?.id ?? null;
+    const cid = resolvedContractId ?? contractId ?? null;
+    if (!rid && !cid) return;
+    let alive = true;
+    hasCustomerEvaluation({ requestId: rid, contractId: cid }).then(done => { if (alive && done) setCustEvalDone(true); }).catch(() => {});
+    return () => { alive = false; };
+  }, [request?.id, resolvedContractId, contractId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fileInputRef3 = useRef(null);
   const fileInputRef4 = useRef(null);
@@ -841,15 +854,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         }
       }
 
-      if (stageId === 5 && resolvedBid?.companyId) {
-        updateCompanyTemp(resolvedBid.companyId, 2.5).catch(() => {});
-      }
+      // 완료 승인 뒤 공간온도·완료 건수는 서버가 정산 완료(SETTLED) 때 올린다(migration 109).
 
       if (!payoutFailed && !stepFailed) {
         postProjectEvent(request?.user_id ?? userId ?? null, resolvedBid?.companyId ?? contractData?.company_id ?? null,
           stageId === 5
             ? "고객이 공사 완료를 확인했어요. 수고하셨습니다 — A/S 가 필요하면 이 방에서 이어서 이야기하세요."
-            : `고객이 ${s?.label ?? "단계"}을(를) 확인하고 승인했어요.`);
+            : `고객이 ${s?.label ?? "단계"} 사진을 확인하고 승인했어요.`);
       }
 
       logActivity({
@@ -1089,7 +1100,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
         if (s?.label) addTimeline("photo", s.label);
         postProjectEvent(request?.user_id ?? resolvedCustomerId ?? null, resolvedBid?.companyId ?? contractData?.company_id ?? null,
-          `업체가 ${s?.label ?? "단계"} 사진 ${photos.length}장을 보냈어요. 사진을 보고 승인해 주세요(72시간 안에 답이 없으면 자동 승인).`);
+          `업체가 ${s?.label ?? "단계"} 사진 ${photos.length}장을 보냈어요. 사진을 보고 승인해 주세요.`);
         // GPS·사진 증빙 체크포인트는 위(1.)에서 단계 완료 *이전*에 저장 완료됨(실패 시 여기 도달 안 함).
         // 단계 사진 전송 성공 = 업체가 실제 시공 중. 요청을 in_progress 로 확정 전환해
         // 업체 "새 견적 요청"(status=open) 입찰 목록에서 제거한다(이중 노출 방지).
@@ -1866,7 +1877,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       )}
                       <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm }}>
                         <Icon emoji="⏳" size={16} color={C.brand} />
-                        <span style={{ fontSize: 13, color: C.brand, fontWeight: 700 }}>고객 확인 대기중 · 72시간 내 자동 승인</span>
+                        <span style={{ fontSize: 13, color: C.brand, fontWeight: 700 }}>고객 확인 대기중</span>
                       </div>
                     </div>
                   )}
@@ -1887,7 +1898,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                         {s.id === 4 && <><Icon emoji="📸" size={13} color={C.brand} /> 중간 공사 사진을 확인하고 승인해주세요</>}
                         {s.id === 5 && <><Icon emoji="🏁" size={13} color={C.brand} /> 업체가 공사 완료 사진을 올렸습니다</>}
                       </div>
-                      {deadline && <CountdownTimer deadlineMs={deadline} />}
+                      {/* 자동 승인은 서버 기능이 생길 때(A3 · 48시간) 다시 보인다 — 지금은 화면 카운트다운뿐이라 약속하지 않는다. */}
+                      {AUTO_APPROVE_LIVE && deadline && <CountdownTimer deadlineMs={deadline} />}
                       {photos.length > 0 && (
                         <div style={{ display: "grid", gridTemplateColumns: photos.length === 1 ? "1fr" : "repeat(2,1fr)", gap: S.sm, marginBottom: S.md }}>
                           {photos.map((src, pi) => (

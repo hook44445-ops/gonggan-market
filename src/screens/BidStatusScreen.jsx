@@ -727,6 +727,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         } catch (err) {
           // H-E: SDK 로드 타임아웃·오류 → 사용자에게 알리고 시뮬레이션으로 fallback
           // payingRef는 runDBWrites의 finally 블록에서 해제된다.
+          // 관리자 「신규 결제 중지」 — 시뮬레이션 대체 기록으로 넘어가지 않고 여기서 멈춘다.
+          if (err?.code === "PAYMENTS_PAUSED") {
+            showLocalToast(err.message);
+            setPaymentLoading(false); payingRef.current = false;
+            return;
+          }
           dlog("[GONGGAN_DIAG][payChain:toss:catch]", { msg: err?.message ?? String(err) });
           dlog("[GONGGAN_DIAG][handlePay:error]", { stage: "toss", msg: err?.message ?? String(err) });
           // P0: 라이브 키 환경에서는 결제 실패/취소 시 PAID 주문을 생성하지 않는다.

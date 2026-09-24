@@ -5,7 +5,7 @@ import { TempBadge, Stars, Divider } from "../components/common";
 import ReviewModal from "../components/ReviewModal";
 import ImageViewerModal from "../components/ImageViewerModal";
 import { calcTempDelta, clampTemp } from "../utils/calculations";
-import { getReviews, createReview, createReviewReward, updateCompanyTemp } from "../lib/supabase";
+import { getReviews, createReview, createReviewReward } from "../lib/supabase";
 import { sendTieredNotification } from "../utils/notify";
 
 const normalizeReview = (row) => ({
@@ -256,7 +256,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
 
       if (reviewRow) {
         setAlreadyReviewed(true);
-        await updateCompanyTemp(company.id, delta).catch(() => {});
+        // 공간온도는 서버가 후기 저장 때 올린다(migration 109) — 앱에서 직접 고치면 정책에 막혔다.
 
         // 신뢰 알림(3단계): 업체에 "후기 등록 · 공간온도 상승" 알림
         const ownerId = company.ownerId ?? company.owner_id ?? null;

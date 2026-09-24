@@ -77,9 +77,10 @@ export default function MyPageV3({
       {/* ── 요약 통계 — 탭하면 바로 이동(별도 바로가기 버튼 줄을 없앤 이유) ── */}
       <StatTiles
         items={[
-          { label: "견적요청", value: s.requests,   emoji: "📝", onClick: () => onGo("timeline") },
-          { label: "진행중",   value: s.inProgress, emoji: "📦", onClick: () => onGo("timeline") },
-          { label: "완료",     value: s.completed,  emoji: "✅", onClick: () => onGo("timeline") },
+          // 파트너는 고객용 「내 견적」 화면이 아니라 파트너센터로 간다(예전엔 파트너도 고객 화면이 열렸다).
+          { label: isCompany ? "새 요청" : "견적요청", value: s.requests,   emoji: "📝", onClick: () => onGo(isCompany ? "home" : "timeline") },
+          { label: "진행중",   value: s.inProgress, emoji: "📦", onClick: () => onGo(isCompany ? "dashboard" : "timeline") },
+          { label: "완료",     value: s.completed,  emoji: "✅", onClick: () => onGo(isCompany ? "dashboard" : "timeline") },
           { label: "저장",     value: s.saved,      emoji: "❤️", onClick: () => onGo("favorites") },
         ]}
       />
@@ -103,9 +104,14 @@ export default function MyPageV3({
       {/* ── 내 기록 — v2 의 빈 카드 4개를 '행 4개'로 접었다 ──────────── */}
       <Section title="내 기록">
         <Card pad={`0 ${S.lg}px`}>
-          <Row emoji="🏠" label="공간 이력"   sub="완료된 시공 기록"       badge={s.completed || null} onClick={() => onGo("space-history")} />
-          <Row emoji="📋" label="받은 견적"   sub="다음 공사 때 참고용"     badge={s.requests || null}  onClick={() => onGo("timeline")} />
-          <Row emoji="🛡️" label={SHOW_BETA_UI ? "계약·공사 기록" : "안전결제 기록"} sub={SHOW_BETA_UI ? "진행한 계약과 공사 기록" : "공간안전결제로 완료한 거래"} onClick={() => onGo("timeline")} last />
+          {isCompany ? (<>
+            <Row emoji="🏗" label="진행 중인 공사" sub="단계 사진·정산 현황" badge={s.inProgress || null} onClick={() => onGo("dashboard")} />
+            <Row emoji="✅" label="완료한 공사"   sub="정산 완료·고객 평가"   badge={s.completed || null}  onClick={() => onGo("dashboard")} last />
+          </>) : (<>
+            <Row emoji="🏠" label="공간 이력"   sub="완료된 시공 기록"       badge={s.completed || null} onClick={() => onGo("space-history")} />
+            <Row emoji="📋" label="받은 견적"   sub="다음 공사 때 참고용"     badge={s.requests || null}  onClick={() => onGo("timeline")} />
+            <Row emoji="🛡️" label={SHOW_BETA_UI ? "계약·공사 기록" : "안전결제 기록"} sub={SHOW_BETA_UI ? "진행한 계약과 공사 기록" : "공간안전결제로 완료한 거래"} onClick={() => onGo("timeline")} last />
+          </>)}
         </Card>
         {!hasAnyDeal && (
           <EmptyInvite
@@ -120,7 +126,7 @@ export default function MyPageV3({
       {isCompany && (
         <Section title="파트너 관리">
           <Card pad={`0 ${S.lg}px`}>
-            <Row emoji="🛡️" label="공간보증" sub="등급·예치보증 현황" onClick={() => onGo("dashboard")} />
+            <Row emoji="🛡️" label="내 한도 · 서류" sub="얼마까지 입찰 · 다음 계단" onClick={() => onGo("documents")} />
             <Row emoji="📍" label="영업지역"
                  sub={companyRegions.length ? companyRegions.join(" · ") : "최대 2곳까지 설정"}
                  onClick={onEditRegions} />
