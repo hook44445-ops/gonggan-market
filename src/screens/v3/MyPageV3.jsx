@@ -63,7 +63,8 @@ export default function MyPageV3({
           chips={[
             `공간온도 ${Number(spaceTemp).toFixed(1)}°`,
             ...(grade?.label ? [grade.label] : []),
-            idVerified ? "본인인증 완료" : "본인인증 전",
+            // 본인인증 칩은 진짜 제공자가 붙었을 때만(onVerifyId 가 있을 때) — constants/release IDENTITY_VERIFY_READY
+            ...(onVerifyId ? [idVerified ? "본인인증 완료" : "본인인증 전"] : []),
           ]}
           actions={isCompany
             ? [{ label: "파트너센터", primary: true, onClick: () => onGo("dashboard") },
@@ -91,7 +92,7 @@ export default function MyPageV3({
       )}
 
       {/* ── 본인인증 — 미인증일 때만 노출. 완료되면 사라져 화면이 짧아진다 ── */}
-      {!idVerified && (
+      {onVerifyId && !idVerified && (
         <EmptyInvite
           text="본인인증을 마치면 더 안전하게 거래할 수 있어요."
           cta="인증하기"

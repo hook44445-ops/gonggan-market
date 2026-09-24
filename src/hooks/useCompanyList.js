@@ -22,6 +22,10 @@ const normalizeRow = (row) => ({
   bizCert:                !!(row.biz_cert_url ?? row.bizCert),
   platformCert:           row.platform_cert ?? row.platformCert ?? false,
   badge:                  row.badge ?? null,
+  // 공간보증(068) — 카드의 보증금 엠블럼이 이 값으로 켜진다. 예전엔 여기서 버려져 실제로 예치한 업체도 안 켜졌다.
+  guarantee_status:        row.guarantee_status ?? null,
+  guarantee_grade:         row.guarantee_grade ?? null,
+  guarantee_badge_visible: row.guarantee_badge_visible ?? false,
   specialties:            row.specialties ?? [],
   desc:                   row.description ?? row.desc ?? "",
   rating:                 row.rating ?? 0,

@@ -3,7 +3,8 @@ import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES, SPACE_TYPES
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { loungeChatDbg } from "../utils/loungeChatDebug"; // 라운지 대화 신청/수신 신원 진단(플래그 시에만 출력)
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark, Icon, splitLeadingEmoji } from "./common";
-import { SHOW_DEBUG_UI } from "../constants/release";
+import { SHOW_DEBUG_UI, IDENTITY_VERIFY_READY } from "../constants/release";
+import { startIdentityVerification, completeIdentityVerification, takeIdentityReturn } from "../lib/identity";
 import { TOKEN_COSTS } from "../constants/lounge";
 import { getAnonymousNickname, formatRelativeTime } from "../utils/anonymousNickname";
 import LiveFeed from "./LiveFeed";
@@ -113,7 +114,6 @@ import {
   getCompletedEscrowByCompany,
   getPhasePhotosByContracts,
   getSeedReviews,
-  requestMockIdentityVerification,
   updateCompanyServiceRegions,
   getNotifications,
   getReviewByRequest,
@@ -1095,27 +1095,45 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [hidingId, setHidingId] = useState(null);     // requestId currently being hidden
   const [hideDebug, setHideDebug] = useState(null);   // DEV panel
 
-  // Identity verification state (mock, no real KYC)
-  // Required DB columns: is_identity_verified, identity_verified_at, identity_provider, identity_verification_status
+  // 본인인증(포트원 · 진짜) — 인증창 → 서버가 포트원에 다시 물어 확인하고 완료로 표시(api/verify-otp.js · 102).
+  //   예전엔 누르면 확인 없이 완료로 적던 가짜(mock)였다. 키가 없으면 IDENTITY_VERIFY_READY=false 라 버튼이 안 보인다.
+  // DB columns: is_identity_verified, identity_verified_at, identity_provider, identity_verification_status
   const [idVerified,   setIdVerified]   = useState(user?.is_identity_verified ?? false);
   const [idVerifiedAt, setIdVerifiedAt] = useState(user?.identity_verified_at ?? null);
   const [idStatus,     setIdStatus]     = useState(user?.identity_verification_status ?? null);
   const [idVerifying,  setIdVerifying]  = useState(false);
 
-  const handleMockIdVerify = async () => {
-    if (!user?.id || idVerifying) return;
-    setIdVerifying(true);
-    const { data, error } = await requestMockIdentityVerification(user.id);
-    if (error) {
-      showToast("인증 처리 중 오류가 발생했습니다", false);
-    } else if (data) {
+  const applyIdentityResult = async (identityVerificationId) => {
+    const data = await completeIdentityVerification(identityVerificationId, user?.id);
+    if (data?.user?.is_identity_verified) {
       setIdVerified(true);
-      setIdVerifiedAt(data.identity_verified_at ?? null);
+      setIdVerifiedAt(data.user.identity_verified_at ?? null);
       setIdStatus("verified");
       showToast("본인인증이 완료됐습니다");
+    } else {
+      showToast("본인인증을 확인하지 못했어요", false);
     }
-    setIdVerifying(false);
   };
+  const handleIdVerify = async () => {
+    if (!user?.id || idVerifying) return;
+    setIdVerifying(true);
+    try {
+      const id = await startIdentityVerification({ purpose: "mypage" });
+      if (id) await applyIdentityResult(id);            // 모바일에서 페이지가 떠나면 돌아와서 마무리
+    } catch (e) {
+      showToast(e?.message || "본인인증을 마치지 못했어요", false);
+    } finally {
+      setIdVerifying(false);
+    }
+  };
+  // 모바일: 인증창에서 돌아왔으면 마무리한다(App 이 주소의 결과를 챙겨 둔다).
+  useEffect(() => {
+    if (!user?.id || !IDENTITY_VERIFY_READY) return;
+    const back = takeIdentityReturn("mypage");
+    if (!back) return;
+    if (back.error) { showToast(back.error, false); return; }
+    applyIdentityResult(back.id).catch((e) => showToast(e?.message || "본인인증을 확인하지 못했어요", false));
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 취소/숨김/삭제 상태는 소비자(myRequests)·업체(customerRequests→biddableRequests) 양쪽
   // 어디에도 노출하지 않는다. (budget 등 값 기반 하드코딩 필터 금지 — 상태 기준 방어만.)
@@ -1304,7 +1322,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             claimLeadId = claim.lead_id;
             leadExtra = {
               name:                    claim.company_name ?? (user.name ?? "업체"),
-              has_insurance:           claim.insurance_yn ?? false,
+              has_insurance:           false, // 신청서의 「보험 있음」은 자기 신고 — 증권 승인 때 켜진다
               // V1.3: 가입상담 업로드 서류를 company 로 복사(기존 companies 서류 컬럼 재사용).
               biz_cert_url:            claim.business_license_url ?? null,
               insurance_url:           claim.insurance_file_url ?? null,
@@ -1322,11 +1340,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           name:           user.name ?? "업체",
           region:         user.region ?? "",
           online:         true,
-          // 온보딩 브릿지 경로(claimLeadId)에서는 company_status 를 ACTIVE 로 자동 설정하지 않는다.
-          //   입찰 게이트(company_status='ACTIVE')는 기존 업체 승인 프로세스로 분리 유지(068 원칙:
-          //   guarantee_status ≠ company_status). 비-온보딩 일반 최초 로그인은 기존대로 ACTIVE.
-          //   (CompanyOnboarding 도 company_status 미설정 → DB 기본값 사용, insert 안전.)
-          ...(claimLeadId ? {} : { company_status: "ACTIVE" }),
+          // 가입 즉시 활동 — 옛 신청서(partner_leads)로 들어온 업체도 새 가입(CompanyOnboarding)과 같다.
+          //   예전엔 이 경로만 PENDING 으로 두고 관리자 승인을 기다리게 했다. 이제 안전은 승인 대기가
+          //   아니라 수주 한도(lib/partnerTier.js · 서버 101)가 맡는다 — 증빙 없으면 공사 1건 300만원까지.
+          //   (guarantee_status 와 company_status 는 여전히 별개다 — 068 원칙.)
+          company_status: "ACTIVE",
           ...leadExtra,
         });
         if (created) {
@@ -2575,9 +2593,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           insertResult: null,
           insertError:  error.message,
         });
-        const dup = /duplicate|unique/i.test(error.message ?? "");
-        showToast(dup ? "이미 입찰한 요청이에요. 입찰 수정으로 변경해주세요." : `입찰 저장 실패: ${error.message}`);
-        alert('입찰 저장 실패: ' + error.message);
+        const msg = error.message ?? "";
+        const dup = /duplicate|unique/i.test(msg);
+        // 서버 트리거가 막은 경우(101 수주 한도 · 009 승인 업체) — 원문 대신 사람이 읽을 말로.
+        const lim = /BID_OVER_LIMIT/.test(msg) ? (msg.match(/한도는 (\d+)만원/)?.[1] ?? null) : null;
+        const friendly = dup ? "이미 입찰한 요청이에요. 입찰 수정으로 변경해주세요."
+          : /BID_OVER_LIMIT/.test(msg) ? `공사 1건 한도${lim ? `(${Number(lim).toLocaleString("ko-KR")}만원)` : ""}를 넘었어요. 서류를 내면 한도가 커져요.`
+          : /COMPANY_NOT_ACTIVE/.test(msg) ? "지금은 입찰할 수 없는 상태예요. 고객센터로 문의해 주세요."
+          : `입찰을 저장하지 못했어요: ${msg}`;
+        showToast(friendly);
+        if (!/BID_OVER_LIMIT|COMPANY_NOT_ACTIVE/.test(msg) && !dup) alert(friendly);
         return;
       }
       if (data) {
@@ -2847,12 +2872,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     return true;
   };
 
-  // 푸시 클릭 딥링크: /requests/:id · /contracts/:id (라운지 외)
+  // 푸시 클릭 딥링크: /requests/:id · /contracts/:id · /my (라운지 외)
   const applyPushDeepLink = (pathname) => {
     const req = pathname.match(/^\/requests\/([^/]+)/);
     if (req) { setBidViewRequestId(decodeURIComponent(req[1])); go("bidstatus"); return true; }
     const con = pathname.match(/^\/contracts\/([^/]+)/);
     if (con) { setContractId(decodeURIComponent(con[1])); go("escrow"); return true; }
+    // 라운지 1:1 대화 알림 — 「대화 신청 내역」이 마이페이지 안에 있다.
+    // (대화방 id 가 알림에 실리지 않아 방을 바로 열 수는 없다.)
+    if (/^\/my\/?$/.test(pathname)) { go("my"); return true; }
     return false;
   };
 
@@ -4997,7 +5025,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               spaceTemp={currentUser?.temp ?? myCompanyRow?.temp ?? 36.5}
               tokenBalance={tokenBalance}
               idVerified={idVerified}
-              onVerifyId={handleMockIdVerify}
+              onVerifyId={IDENTITY_VERIFY_READY ? handleIdVerify : null}
               unreadTotal={unreadTotal}
               companyRegions={(companyServiceRegions ?? []).map(r => r.label ?? r.sigungu).filter(Boolean)}
               onEditRegions={() => setCompanyRegionSheetOpen(true)}
@@ -5408,7 +5436,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               );
             })()}
 
-            {activeRole === "consumer" && (() => {
+            {IDENTITY_VERIFY_READY && activeRole === "consumer" && (() => {
               const statusColor = idVerified ? C.green : idStatus === "required" ? C.gold : C.text4;
               const statusLabel = idVerified ? "인증 완료" : idStatus === "required" ? "인증 필요" : "미인증";
               const statusIcon  = idVerified ? "✓" : idStatus === "required" ? "⚠️" : null;
@@ -5435,7 +5463,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       )}
                     </div>
                     {!idVerified && (
-                      <button onClick={handleMockIdVerify} disabled={idVerifying}
+                      <button onClick={handleIdVerify} disabled={idVerifying}
                         style={{ padding: "8px 14px", background: idVerifying ? C.bgWarm : C.brand,
                           color: idVerifying ? C.text3 : "#fff", border: "none", borderRadius: R.full,
                           fontWeight: 700, fontSize: 12, cursor: idVerifying ? "not-allowed" : "pointer",

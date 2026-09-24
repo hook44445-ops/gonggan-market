@@ -147,6 +147,14 @@
 @keyframes gg-breathe { 0%, 100% { opacity: 0.45; transform: scale(1); } 50% { opacity: 1; transform: scale(1.2); } }
 .gg-breathe { animation: gg-breathe 2.6s ease-in-out infinite; }
 
+/* 신뢰 엠블럼(TrustEmblems.jsx) — 딴 것은 금빛이 은은하게 번지고, 손을 대면 조금 떠오른다.
+   수집물처럼 보이되 요란하지 않게: 번쩍임·반복 애니메이션은 쓰지 않는다. */
+.gg-emblem { transition: transform 0.25s cubic-bezier(0.22, 0.61, 0.36, 1), filter 0.25s ease; }
+.gg-emblem-earned { filter: drop-shadow(0 1px 2.5px rgba(176, 138, 62, 0.35)); }
+.gg-emblem-earned:hover { transform: translateY(-1.5px) scale(1.06);
+  filter: drop-shadow(0 3px 6px rgba(176, 138, 62, 0.45)); }
+@media (prefers-reduced-motion: reduce) { .gg-emblem-earned:hover { transform: none; } }
+
 /* 누를 때 살짝 눌리는 느낌 — 버튼이 죽어 있지 않게 */
 button:not(:disabled):active { transform: translateY(0.5px); }
 

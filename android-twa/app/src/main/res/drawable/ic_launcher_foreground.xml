@@ -1,32 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 공간마켓 런처 아이콘 앞면 — 앱 로고 v3 그대로(집 · 마주한 두 사람 · 열린 문).
-     도형 원본: public/icons/gm-logo.svg (1024 그리드) · src/components/common/Brand.jsx 와 같은 path.
-     1024 그리드의 마크(중심 512,475)를 108 어댑티브 화면 안전영역에 맞춘다: scale 0.118, translate(-6.4,-2.05). -->
+<!-- 공간마켓 런처 아이콘 앞면 — 앱 아이콘 v4(지붕 아래 견적 두 장).
+     도형 원본: public/icons/gm-icon-v4.svg (1024 그리드) · 같은 좌표를 그대로 옮겼다.
+
+     1024 그리드 → 108dp 어댑티브 화면. 내용을 0.86 으로 줄인다 — 원·스퀘어클 어떤 마스크로
+     잘려도 살아남고(안전영역: 중앙 지름 80%), 좌우로도 숨 쉴 여유가 생긴다.
+       scale = (108/1024) * 0.86 = 0.0907
+       translate = 54 - 0.0907 * 512 = 7.56   (그림 중심 512,512.25 를 54dp 에 놓는다)
+     public/icons/gm-icon-v4.svg 와 같은 0.86 이라 웹·iOS·안드로이드가 모두 같은 크기다. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:scaleX="0.118"
-        android:scaleY="0.118"
-        android:translateX="-6.4"
-        android:translateY="-2.05">
-        <!-- 집 지붕 -->
-        <path android:strokeColor="#F4EFE4" android:strokeWidth="58" android:fillColor="#00000000"
-            android:strokeLineJoin="round"
-            android:pathData="M274,590 V410 L512,250 L750,410 V590"/>
-        <!-- 마주한 두 사람 -->
+        android:scaleX="0.0907"
+        android:scaleY="0.0907"
+        android:translateX="7.56"
+        android:translateY="7.54">
+        <!-- 지붕 -->
+        <path android:strokeColor="#F4EFE4" android:strokeWidth="77" android:fillColor="#00000000"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M171,457 L512,252 L853,457"/>
+        <!-- 뒷장(아이보리) -->
         <path android:fillColor="#F4EFE4"
-            android:pathData="M245,585 L303,585 L345,528 Q396,486 447,538 L447,730 L300,730 Q245,730 245,675 Z"/>
-        <path android:fillColor="#F4EFE4"
-            android:pathData="M779,585 L721,585 L679,528 Q630,488 574,540 L609,562 L612,730 L724,730 Q779,730 779,675 Z"/>
-        <path android:fillColor="#F4EFE4"
-            android:pathData="M396,414 A41,41 0 1,1 396,496 A41,41 0 1,1 396,414 Z"/>
-        <path android:fillColor="#F4EFE4"
-            android:pathData="M628,414 A41,41 0 1,1 628,496 A41,41 0 1,1 628,414 Z"/>
-        <!-- 열린 문 -->
-        <path android:fillColor="#D6A756"
-            android:pathData="M491,507 L558,546 Q566,551 566,561 L566,671 Q566,680 558,685 L492,725 Q481,731 481,719 L481,517 Q481,502 491,507 Z"/>
+            android:pathData="M237,474 H492 A26,26 0 0 1 518,500 V772 A26,26 0 0 1 492,798 H237 A26,26 0 0 1 211,772 V500 A26,26 0 0 1 237,474 Z"/>
+        <!-- 앞장(골드) — 테두리 26 은 «위에 얹혀 있다»는 두께감 -->
+        <path android:fillColor="#D6A756" android:strokeColor="#17472F" android:strokeWidth="26"
+            android:pathData="M519,525 H814 A26,26 0 0 1 840,551 V772 A26,26 0 0 1 814,798 H519 A26,26 0 0 1 493,772 V551 A26,26 0 0 1 519,525 Z"/>
     </group>
 </vector>

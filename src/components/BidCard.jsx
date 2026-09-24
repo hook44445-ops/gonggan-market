@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { C, R, S } from "../constants";
 import { MIN_BID_MANWON, isValidBidManwon } from "../utils/calculations";
-import { BADGES } from "../constants/badges";
+import { bidLimit, limitText, unlockFor, unlockMessage, limitStateOf, partnerTier } from "../lib/partnerTier";
+import { trustState } from "./TrustEmblems";
 import SpaceActivityRecord from "./SpaceActivityRecord"; // v5.5: 공간 활동기록 요약(Add Only)
 import { TempBadge } from "./common";
 import GuaranteeBadge from "./GuaranteeBadge";
 import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
-import { BetaGateModal, BetaBanner, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { BetaGateModal, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 export default function BidCard({
   r,
@@ -68,8 +69,11 @@ export default function BidCard({
 
   const isClosed = r.isActive === false && r.isActive !== undefined;
   const company = currentUser;
-  const companyBadge = BADGES[company?.badge ?? "basic"] ?? BADGES.basic;
-  const maxBidAmount = companyBadge.maxAmount;
+  // 수주 한도 — 관리자가 확인한 증빙으로만 정한다(lib/partnerTier.js 안전안). 예전엔 companies.badge 로
+  // 정했는데, 그 값은 가입 화면에서 결제 없이 적히던 값이라 한도를 공짜로 가져갈 수 있었다.
+  const limitState = limitStateOf(company ?? {});
+  const maxBidAmount = bidLimit(limitState);
+  const tierLabel = partnerTier(trustState(company ?? {})).label;
   const bidPrice = parseInt(bidForm.price, 10);
   const overLimit = !!bidForm.price && bidPrice > maxBidAmount;
   const underMin  = !!bidForm.price && (!Number.isFinite(bidPrice) || bidPrice < MIN_BID_MANWON);
@@ -281,13 +285,11 @@ export default function BidCard({
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 16px" }} />
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: 3 }}>{hasBid ? "입찰 수정하기" : "안심 견적 제출하기"}</div>
             <div style={{ fontSize: 13, color: C.text3, marginBottom: S.md }}>{r.type} · {r.size} · {r.area}</div>
-            <BetaBanner text="오픈 기간 · 견적 참여·상담·계약 기록 모두 수수료 0원" />
 
-            <div style={{ background: companyBadge.bg, borderRadius: R.lg, padding: `${S.sm}px ${S.md}px`, marginBottom: S.md, display: "flex", alignItems: "center", gap: S.sm, border: `1px solid ${companyBadge.color}33` }}>
-              <span style={{ fontSize: 16 }}>{companyBadge.icon}</span>
-              <span style={{ fontSize: 12, color: companyBadge.color, fontWeight: 700 }}>
-                {companyBadge.label} · 최대 {companyBadge.maxAmount.toLocaleString()}만원까지 입찰 가능
-              </span>
+            <div style={{ background: "#FFFDF8", borderRadius: R.lg, padding: `${S.sm}px ${S.md}px`, marginBottom: S.md,
+              border: "1px solid #EDE3CF", display: "flex", justifyContent: "space-between", alignItems: "center", gap: S.sm }}>
+              <span style={{ fontSize: 12, color: "#6F695D", fontWeight: 600 }}>{tierLabel} · 공사 1건</span>
+              <span style={{ fontSize: 13, color: C.text1, fontWeight: 800 }}>최대 {limitText(maxBidAmount)}까지 입찰</span>
             </div>
 
             {/* v5.5: 공간 활동기록 요약(④ 입찰 카드) — 실데이터만, 기록 없으면 미표시 */}
@@ -297,11 +299,23 @@ export default function BidCard({
 
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 6 }}>견적 금액 (만원) <span style={{ color: C.red }}>*</span></div>
             <input value={bidForm.price} onChange={e => setBF("price", e.target.value)} placeholder="예: 2800" type="number" style={{ ...iS, borderColor: invalidPrice ? C.red : undefined }} />
-            {overLimit && (
-              <div style={{ fontSize: 12, color: C.red, marginTop: -10, marginBottom: 10, fontWeight: 600 }}>
-                ⚠️ {companyBadge.label} 등급 최대 {companyBadge.maxAmount.toLocaleString()}만원을 초과했습니다
-              </div>
-            )}
+            {/* 한도에 걸리는 순간 = 「첫 벽」. 오류가 아니라 초대로 — 무엇을 내면 이 공사를 할 수 있는지 알려 준다. */}
+            {overLimit && (() => {
+              const u = unlockFor(bidPrice, limitState);
+              return (
+                <div style={{ background: "#FFFDF8", border: "1px solid #E6D3A8", borderRadius: R.lg,
+                  padding: `${S.sm}px ${S.md}px`, marginTop: -6, marginBottom: 12 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: "#7A5A1E", lineHeight: 1.5 }}>
+                    {unlockMessage(u)}
+                  </div>
+                  {!u?.over && (
+                    <div style={{ fontSize: 11.5, color: "#8C8577", marginTop: 3, lineHeight: 1.6 }}>
+                      마이 → 서류함에서 낼 수 있어요. 낼 때마다 받을 수 있는 공사가 커집니다.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {underMin && !overLimit && (
               <div style={{ fontSize: 12, color: C.red, marginTop: -10, marginBottom: 10, fontWeight: 600 }}>
                 ⚠️ 최소 견적 금액은 {MIN_BID_MANWON}만원(100,000원)입니다
@@ -315,7 +329,7 @@ export default function BidCard({
             <input value={bidForm.material} onChange={e => setBF("material", e.target.value)} placeholder="예: LX하우시스 바닥재, 대림 욕실" style={iS} />
 
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 6 }}>의뢰인에게 한마디</div>
-            <textarea value={bidForm.comment} onChange={e => setBF("comment", e.target.value)} placeholder="예: 12년 경력, 에스크로 156건 완료. 중간 점검 사진 매번 공유해드립니다." rows={3} style={{ ...iS, resize: "none", lineHeight: 1.7 }} />
+            <textarea value={bidForm.comment} onChange={e => setBF("comment", e.target.value)} placeholder="예: 12년 경력, 욕실·주방 전문. 중간 점검 사진 매번 공유해드립니다." rows={3} style={{ ...iS, resize: "none", lineHeight: 1.7 }} />
 
             {company && (
               <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.md, display: "flex", gap: S.md, alignItems: "center", border: `1px solid ${C.brandM}` }}>
@@ -324,8 +338,8 @@ export default function BidCard({
                   <div style={{ fontSize: 12, color: C.text2 }}>
                     재계약률 {company.recontractRate ?? "—"}% · AS {company.asRate ?? "—"}% · 완료 {company.completedJobs ?? "—"}건
                   </div>
-                  <div style={{ fontSize: 11, color: companyBadge.color, fontWeight: 700, marginTop: 3 }}>
-                    {companyBadge.icon} {companyBadge.label}
+                  <div style={{ fontSize: 11, color: C.brand, fontWeight: 700, marginTop: 3 }}>
+                    {tierLabel} · 최대 {limitText(maxBidAmount)}
                   </div>
                   {/* 공간보증 배지(068) — badge_visible && ACTIVE 일 때만 */}
                   <div style={{ marginTop: 4 }}><GuaranteeBadge company={company} /></div>
@@ -333,15 +347,8 @@ export default function BidCard({
               </div>
             )}
 
-            <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.md, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.8 }}>
-                💡 공간멤버십파트너 이용수수료 안내<br />
-                • 견적 발송은 <b style={{ color: C.text2 }}>무료</b>입니다<br />
-                • <b style={{ color: C.text2 }}>계약 성사 시에만</b> 이용수수료 <b style={{ color: C.text2 }}>4.4% (VAT 포함)</b>가 발생합니다<br />
-                • 정산 시 자동 차감 · 지급되지 않은 금액에는 부과되지 않습니다<br />
-                <span style={{ color: C.text4 }}>* 의뢰인 부담 없음 · 공간뱃지예치보증금은 수수료가 아닙니다</span>
-              </div>
-            </div>
+            {/* 수수료 안내는 두지 않는다(대표 2026-09-24: 「수수료를 처음부터 보여줄 필요 없다」). */}
+            <div style={{ height: S.md }} />
 
             <div style={{ display: "flex", gap: S.sm }}>
               <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>

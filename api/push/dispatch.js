@@ -18,7 +18,7 @@
 // ─────────────────────────────────────────────────────
 
 import crypto from 'crypto';
-import { isNewsType, isWithinNewsWindow, NEWS_DAILY_CAP } from '../../src/utils/pushPolicy.js';
+import { isNewsType, isWithinNewsWindow, NEWS_DAILY_CAP, NEWS_TYPES } from '../../src/utils/pushPolicy.js';
 
 const SB_URL  = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -174,8 +174,12 @@ export default async function handler(req, res) {
     // 소식성: 시간창 밖이면 보류(queued 유지), 하루 캡 초과면 skip
     if (isNewsType(log.type)) {
       if (!isWithinNewsWindow(now)) { continue; }
+      // 캡은 «소식성»만 센다. 타입을 안 좁히면 계약·대화 알림 3건만 받아도
+      // 동네 소식이 캡에 걸려 막힌다.
       const sentToday = await sbGet(
-        `push_logs?user_id=eq.${encodeURIComponent(log.user_id)}&status=eq.sent&sent_at=gte.${encodeURIComponent(since24h)}&select=id&limit=10`
+        `push_logs?user_id=eq.${encodeURIComponent(log.user_id)}&status=eq.sent`
+        + `&type=in.(${NEWS_TYPES.join(',')})`
+        + `&sent_at=gte.${encodeURIComponent(since24h)}&select=id&limit=${NEWS_DAILY_CAP + 1}`
       );
       const newsSent = Array.isArray(sentToday) ? sentToday.length : 0;
       if (newsSent >= NEWS_DAILY_CAP) {

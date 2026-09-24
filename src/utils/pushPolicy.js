@@ -48,15 +48,20 @@ export function isPreferredWindow(date = new Date()) {
 // 소식성 하루 최대 발송 횟수
 export const NEWS_DAILY_CAP = 3;
 
+// 소식성 타입 목록 (시간창/일일캡 적용 대상)
+// dispatch 가 일일 캡을 셀 때 이 목록으로 질의를 좁힌다 — 목록과 세는 기준이 어긋나면
+// 계약 알림 몇 건에 소식이 막히는 일이 생긴다.
+export const NEWS_TYPES = [
+  PUSH_TYPE.LOCAL_NEWS,
+  PUSH_TYPE.INTERIOR_NEWS,
+  PUSH_TYPE.REVIEW_NEWS,
+  PUSH_TYPE.ESTIMATE_NEWS,
+  PUSH_TYPE.COMPANY_NEWS,
+];
+
 // 소식성 타입 여부 (시간창/일일캡 적용 대상)
 export function isNewsType(type) {
-  return [
-    PUSH_TYPE.LOCAL_NEWS,
-    PUSH_TYPE.INTERIOR_NEWS,
-    PUSH_TYPE.REVIEW_NEWS,
-    PUSH_TYPE.ESTIMATE_NEWS,
-    PUSH_TYPE.COMPANY_NEWS,
-  ].includes(type);
+  return NEWS_TYPES.includes(type);
 }
 
 // 라운지 카테고리 id → 푸시 타입

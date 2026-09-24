@@ -2464,6 +2464,14 @@ export const adminReviewDocument = async (docId, adminId, reviewStatus, reason =
       target_id:   docId,
       after_val:   { review_status: reviewStatus, reason },
     });
+    // 시공보험은 «증권을 관리자가 승인했을 때만» 인정한다. 예전엔 업체가 가입 화면에서 스스로 켠 값이
+    // 그대로 has_insurance 가 되어, 카드가 확인하지 않은 보험을 「가입한 업체」라고 말할 수 있었다.
+    if (data?.document_type === "insurance_certificate" && data.company_id
+        && (reviewStatus === "approved" || reviewStatus === "rejected")) {
+      await supabase.from("companies")
+        .update({ has_insurance: reviewStatus === "approved" })
+        .eq("id", data.company_id);
+    }
   }
 
   return { data, error };
@@ -2850,6 +2858,33 @@ async function adminApiPost(path, adminId, body) {
     return { data: null, error: { message: e?.message || "NETWORK_ERROR" } };
   }
 }
+
+// ── 푸시 운영 현황 · 수동 발송 ────────────────────────────────────────────────
+// Vercel Hobby 는 서버리스 함수 12개가 한도라 파일을 더 못 만든다. 그래서 관리자 동작이
+// /api/push/enqueue 에 얹혀 있다. 응답이 {ok, stats} 라 adminApiPost({data}) 와 모양이 달라
+// 전용 래퍼를 둔다.
+async function pushAdminAction(action, adminId) {
+  const headers = { "Content-Type": "application/json" };
+  if (adminId === "admin") headers["x-admin-code"] = import.meta.env.VITE_ADMIN_CODE ?? "";
+  try {
+    const res = await fetch("/api/push/enqueue", {
+      method: "POST", headers,
+      body: JSON.stringify({ action, adminId: adminId ?? "" }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json?.ok === false) {
+      return { data: null, error: { message: json?.message || json?.reason || `HTTP ${res.status}` } };
+    }
+    return { data: json, error: null };
+  } catch (e) {
+    return { data: null, error: { message: e?.message || "NETWORK_ERROR" } };
+  }
+}
+
+// 큐 적체·7일 발송/실패·토큰 수·가장 오래된 대기 건을 한 번에 본다.
+export const fetchPushStats = (adminId) => pushAdminAction("stats", adminId);
+// 크론은 하루 1회라 그것만 기다릴 수 없다 — 지금 큐를 비운다.
+export const flushPushQueue = (adminId) => pushAdminAction("flush", adminId);
 
 // 고객 제재/토큰/공간온도 — service-role API 경유(users 직접 UPDATE 는 auth.uid()=NULL 로 RLS 차단).
 // admin_logs 기록은 서버에서 동일하게 수행. 직접 UPDATE 래퍼(adminSetUserStatus 등)는 호환 위해 유지.
@@ -3496,22 +3531,10 @@ export const uploadSeedLoungeImage = async (file) => {
   return { data, error: null };
 };
 
-// ── Identity Verification (mock — no real KYC; TODO: replace with service-role Edge Function) ──
-
-export const requestMockIdentityVerification = async (userId) => {
-  const now = new Date().toISOString();
-  return supabase
-    .from("users")
-    .update({
-      is_identity_verified: true,
-      identity_verified_at: now,
-      identity_provider: "mock",
-      identity_verification_status: "verified",
-    })
-    .eq("id", userId)
-    .select("id, is_identity_verified, identity_verified_at, identity_provider, identity_verification_status")
-    .single();
-};
+// ── 본인인증 ──────────────────────────────────────────────────────────────
+// 진짜 본인인증은 lib/identity.js(포트원) → api/verify-otp.js(서버 확인) 로만 켠다.
+// 예전 requestMockIdentityVerification(누르면 확인 없이 완료)은 지웠다. 앱에서 완료로 바꾸는 쓰기는
+// 마이그레이션 102 의 트리거가 막는다(관리자 「철회」처럼 false 로 바꾸는 것만 된다).
 
 export const adminVerifyUserIdentity = async (userId, adminId, status = "verified") => {
   const now = new Date().toISOString();
