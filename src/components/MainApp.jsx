@@ -2021,7 +2021,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           });
           if (!confirmRes.ok) {
             const j = await confirmRes.json().catch(() => ({}));
-            showToast(j?.code === "PAYMENTS_PAUSED" ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+            showToast(["PAYMENTS_PAUSED", "ALREADY_PAID"].includes(j?.code) ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
             return;
           }
         } catch {
@@ -2144,7 +2144,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           });
           if (!confirmRes.ok) {
             const j = await confirmRes.json().catch(() => ({}));
-            showToast(j?.code === "PAYMENTS_PAUSED" ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+            showToast(["PAYMENTS_PAUSED", "ALREADY_PAID"].includes(j?.code) ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
             return;
           }
         } catch {
