@@ -307,6 +307,10 @@ export const markRequestSiteVisit = (requestId, { bidId = null, companyId = null
 export const approveFinalQuote = (requestId, actorId = null) =>
   supabase.rpc("request_approve_final_quote", { p_request_id: requestId, p_actor_id: actorId });
 
+// 현장방문 없이 입찰 금액 그대로 계약(SQL 119) — 요청 주인만 · 계약 전일 때만. 성공하면 요청은 결제 대기(escrow_pending).
+export const contractDirect = (requestId, bidId, actorId) =>
+  supabase.rpc("request_contract_direct", { p_request_id: requestId, p_bid_id: bidId, p_actor_id: actorId });
+
 // 업체 입찰 내용 수정 — 한 요청당 1입찰 정책에서 재제출은 수정으로 처리
 export const updateBid = (id, data) =>
   supabase.from("bids").update(data).eq("id", id).select().single();

@@ -11,7 +11,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, getEstimateForRequest, getPortfolios, postProjectEvent, getStagePlanPreview } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, contractDirect, getEstimateForRequest, getPortfolios, postProjectEvent, getStagePlanPreview } from "../lib/supabase";
 import QuoteDocument from "../components/QuoteDocument"; // 최종 견적서 미리보기·인쇄
 import { SORT_KEYS, sortBids, bidSummary, bidTags as calcBidTags } from "../lib/bidCompare"; // 입찰 비교(정렬·요약·표)
 import {
@@ -152,12 +152,48 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       (selBidId ? bids.find(b => b.id === selBidId) : null) ??
       bids.find(b => b.status === "selected") ??
       (bids[0] ?? null); // #5: 견적단계(isQuotePhase)에선 selected_bid_id 미매칭이어도 첫 입찰로 진입 — 결제 무반응 방지
-    if (chosen) { setSelBid(chosen); setStep("confirm"); }
+    // 예약 확정과 결제를 한 화면에서(대표 09-24) — 최종 견적서 카드가 결제 화면 위에 붙는다.
+    if (chosen) { setSelBid(chosen); setStep("payment"); }
   }, [isQuotePhase, bids, selBid, step]);
 
   // 업체 선택 → 현장견적 요청: site_visits(status='requested') 생성 + 요청 상태 전이.
   // 직접 UPDATE + .select().maybeSingle() 검증 — RLS 우회를 위해 SECURITY DEFINER RPC 시도 후 fallback.
   // DB 업데이트 성공 확인 후에만 siteVisitDone으로 전환 (낙관적 UI 업데이트 금지).
+  // 현장방문 없이 입찰 금액 그대로 계약(대표 09-24 「현장방문 없이 계약 시행 버튼」, SQL 119).
+  //   서버가 요청 주인·계약 전 여부를 확인하고 요청을 결제 대기로 바꾼다 → 곧장 결제 화면.
+  const [directLoading, setDirectLoading] = useState(false);
+  const handleContractDirect = async () => {
+    if (!selBid?.id || !request?.id || directLoading) return;
+    if (!window.confirm(`현장방문 없이 ${fmtMoney(selBid.price ?? 0)}(입찰 금액) 그대로 계약할까요?\n현장 확인이 필요 없는 작은 공사에 알맞아요.`)) return;
+    setDirectLoading(true);
+    try {
+      const { data, error } = await contractDirect(request.id, selBid.id, userId);
+      if (error || !data?.ok) {
+        const m = error?.message ?? "";
+        showLocalToast(/ALREADY_CONTRACTED/.test(m) ? "이미 계약된 공사예요."
+          : /NOT_CONTRACTABLE/.test(m) ? "지금 단계에서는 바로 계약할 수 없어요."
+          : "계약을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      const companyOwnerId = selBid.company?.ownerId ?? null;
+      if (companyOwnerId) {
+        createNotification({
+          userId: companyOwnerId, type: "DIRECT_CONTRACT", title: "현장방문 없이 계약 요청",
+          message: `${request?.space_type ?? request?.type ?? "시공"} 요청에서 선택됐어요. 의뢰인이 입찰 금액 그대로 계약을 시작했어요 — 결제되면 알려 드릴게요.`,
+          relatedId: request.id, relatedType: "request", priority: "HIGH",
+        }).catch(() => {});
+      }
+      postProjectEvent(request.user_id, data.company_id,
+        `${request?.space_type ?? request?.type ?? "이번"} 공사를 ${selBid.company?.name ?? "이 업체"}에 입찰 금액(${fmtMoney(selBid.price ?? 0)}) 그대로 맡기기로 했어요. 현장방문 없이 진행해요.`);
+      onRefresh?.();
+      setStep("payment");
+    } catch {
+      showLocalToast("계약을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setDirectLoading(false);
+    }
+  };
+
   const handleRequestSiteVisit = async () => {
     // 1. 버튼 클릭 로그 — 가드 이전 맨 첫 줄에서 실행(클릭 실제 발생 확인용)
     dlog('[SITE_VISIT_BUTTON_CLICK]', {
@@ -417,14 +453,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     </div>
   );
 
-  if (step==="confirm" && selBid) {
-    const stages = calculateStagePayments(effectivePrice, undefined, stagePlan).filter(st => st.percent > 0);
-    const { feeAmount: escrowFee, total: customerTotal } = computeFeeWithRate(effectivePrice, rateFor(selectedMethod));
-    return (
-      <div style={{ minHeight:"100vh", background:C.bg }}>
-        <BidScreenHeader title={isQuotePhase ? "최종 견적서 확인" : "예약 확인"} onBack={goBack} userId={userId} />
-        <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
-          {isQuotePhase && finalEstimate && (
+  // 최종 견적서 카드 — 확인 화면과 결제 화면이 같이 쓴다.
+  const renderQuoteCard = () => !finalEstimate ? null : (
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
               <div style={{ fontSize:14, fontWeight:800, color:C.brand, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="📋" size={14} color={C.brand} /> <span style={{ flex:1 }}>업체가 보낸 최종 견적서</span>
                 <button onClick={() => setShowQuoteDoc(true)} style={{ background:"none", border:`1px solid ${C.brandM}`, borderRadius:R.full, padding:"5px 10px", fontSize:12, fontWeight:700, color:C.brand, cursor:"pointer", fontFamily:"inherit" }}>견적서 보기·인쇄</button></div>
@@ -471,7 +501,16 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
                 </div>
               )}
             </div>
-          )}
+  );
+
+  if (step==="confirm" && selBid) {
+    const stages = calculateStagePayments(effectivePrice, undefined, stagePlan).filter(st => st.percent > 0);
+    const { feeAmount: escrowFee, total: customerTotal } = computeFeeWithRate(effectivePrice, rateFor(selectedMethod));
+    return (
+      <div style={{ minHeight:"100vh", background:C.bg }}>
+        <BidScreenHeader title={isQuotePhase ? "최종 견적서 확인" : "예약 확인"} onBack={goBack} userId={userId} />
+        <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
+          {isQuotePhase && renderQuoteCard()}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.lg }}>
               <div style={{ width:48, height:48, borderRadius:R.lg, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand }}>{(selBid.company?.name ?? "?")[0]}</div>
@@ -561,6 +600,19 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               ? "처리 중..."
               : "현장방문 견적 요청하기 →"}
           </button>
+          {!isQuotePhase && !isAwarded && (
+            <>
+              <button type="button" onClick={handleContractDirect} disabled={directLoading || siteVisitLoading || !selBid?.id}
+                style={{ width:"100%", marginTop:S.sm, padding:S.lg, background:C.surface, color:C.brand,
+                  border:`1.5px solid ${C.brandM}`, borderRadius:R.lg, fontWeight:800, fontSize:15,
+                  cursor: directLoading ? "not-allowed" : "pointer" }}>
+                {directLoading ? "처리 중..." : `현장방문 없이 ${fmtMoney(selBid.price ?? 0)}로 계약하기`}
+              </button>
+              <div style={{ fontSize:11.5, color:C.text3, textAlign:"center", marginTop:6, lineHeight:1.6 }}>
+                도배·부분 수리처럼 현장 확인이 필요 없는 공사는 입찰 금액 그대로 바로 계약할 수 있어요.
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -631,6 +683,16 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           payingRef.current = false;
           setPaymentLoading(false);
           showLocalToast("이미 결제된 공사예요. 공사 화면에서 진행 상황을 확인해 주세요.");
+          return;
+        }
+      }
+      // 예약 확정 = 결제 시작(한 화면). 최종 견적서가 온 상태면 여기서 승인한다 — 실패하면 결제로 넘어가지 않는다.
+      if (reqStatus === "final_quote_submitted" && request?.id) {
+        const { error: apErr } = await approveFinalQuote(request.id, userId).catch((e) => ({ error: e }));
+        if (apErr) {
+          payingRef.current = false;
+          setPaymentLoading(false);
+          showLocalToast("예약 확정에 실패했어요. 잠시 후 다시 시도해 주세요.");
           return;
         }
       }
@@ -794,7 +856,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         } catch {}
 
         // 공사 결제 주문번호에 요청 ID 를 넣는다 — 서버(api/confirm-payment)가 같은 공사의 두 번째 결제를 막는다(C17).
-        const tossOrderId = /^[0-9a-f-]{36}$/i.test(String(request?.id ?? "")) ? `gm_${request.id}_${Date.now()}` : `order_${Date.now()}`;
+        // 요청 ID 가 없으면 결제하지 않는다 — 서버(api/confirm-payment)는 gm_ 주문만 공사 결제로 승인한다.
+        if (!/^[0-9a-f-]{36}$/i.test(String(request?.id ?? ""))) {
+          payingRef.current = false; setPaymentLoading(false);
+          showLocalToast("요청 정보를 찾지 못해 결제할 수 없어요. 새로고침 뒤 다시 시도해 주세요.");
+          return;
+        }
+        const tossOrderId = `gm_${request.id}_${Date.now()}`;
         try {
           // H-E: SDK 로드 타임아웃(15초)은 provider(tossProvider) 내부에서 처리 →
           // onload가 영원히 오지 않아도 payingRef 영구 잠금 방지. 타임아웃/오류 시
@@ -848,8 +916,9 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
     return (
       <div style={{ minHeight:"100vh", background:C.bg }}>
-        <BidScreenHeader title="결제 수단 선택" onBack={goBack} userId={userId} />
+        <BidScreenHeader title={isQuotePhase && finalEstimate ? "최종 견적 확인 · 결제" : "결제 수단 선택"} onBack={goBack} userId={userId} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
+          {isQuotePhase && renderQuoteCard()}
           {/* Amount summary — 계산식(시공비 + 이용료 = 총액) + 단계별 안전 지급 */}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ fontSize:13, color:C.text3, marginBottom:10, fontWeight:700 }}>{SHOW_BETA_UI ? "결제 금액" : "공간안전결제 예치 금액"}</div>
