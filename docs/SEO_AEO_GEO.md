@@ -179,3 +179,55 @@ FAQ 를 `FAQPage` 구조화 데이터로 내보내고, 답변은 **첫 문장에
 사업자정보는 전자상거래법상 공개 의무 항목이라 **임의로 바꾸지 않았다.**
 통신판매업 신고에 적은 값을 확인한 뒤 한쪽으로 통일하고, `LegalScreen` 의 하드코딩
 사업자정보 블록을 `siteSeo.BIZ_ROWS` 로 합치면 다시 갈라지지 않는다.
+
+
+---
+
+## 9. 구글 (2026-09-24)
+
+### 고친 것 — 서치콘솔 URL 검사가 다른 문서를 보고 있었다
+
+봇 rewrite 정규식은 이름에 `bot`/`crawl`/`spider` 가 든 UA 만 잡았다. 그래서
+
+| 수집기 | 예전 | 지금 |
+|---|---|---|
+| `Googlebot` (실제 색인) | 프리렌더 | 프리렌더 |
+| `Google-InspectionTool` (서치콘솔 URL 검사) | **SPA** | 프리렌더 |
+| `ChatGPT-User` · `Claude-User` · `Perplexity-User` | **SPA** | 프리렌더 |
+| `meta-externalagent` | **SPA** | 프리렌더 |
+| 사람(iPhone·Android·데스크톱) | SPA | SPA |
+
+URL 검사가 Googlebot 과 다른 문서를 보면 클로킹으로 오해받는다.
+`-User` 계열 페처는 자바스크립트를 실행하지 않아서 SPA 를 받으면 빈 문서를 가져갔다(GEO 손해).
+
+`siteSeo.test.js` 가 ① 세 rewrite 규칙의 UA 정규식이 갈라지지 않는지
+② 위 수집기들이 프리렌더를, 사람이 SPA 를 받는지 검사한다.
+
+### 소유확인 — 단일 소스로 합침
+
+`siteSeo.js` 의 `verificationMetas()` 가 `index.html` 과 프리렌더 양쪽에 같은 값을 낸다.
+테스트가 양쪽 일치와 «한쪽에만 몰래 추가된 값이 없는지»를 검사한다.
+
+- 네이버: 메타 태그 + HTML 파일(`public/naver*.html`) 둘 다 설정됨
+- **구글: 아직 미설정** — `GOOGLE_SITE_VERIFICATION` 이 빈 문자열이라 태그를 내지 않는다
+
+### 구글 서치콘솔 설정 절차 (대표)
+
+1. https://search.google.com/search-console → 속성 추가 → **URL 접두어** `https://gongganmarket.com`
+2. 소유확인 방법 **「HTML 태그」** 선택 → `content="..."` 값 복사
+3. 그 값을 `src/utils/siteSeo.js` 의 `GOOGLE_SITE_VERIFICATION` 에 넣고 배포
+   (`index.html` 에도 같은 줄이 필요하다 — 테스트가 빠뜨림을 잡는다)
+4. 배포 후 서치콘솔에서 **확인** 누르기
+5. **Sitemaps** → `sitemap.xml` 제출
+6. **URL 검사** → `/` 와 `/partner` → 「색인 생성 요청」
+
+> DNS 방식(TXT 레코드)을 쓰면 코드 변경 없이 도메인 전체를 한 번에 확인할 수 있다.
+> 이 경우 2~3 단계는 건너뛴다.
+
+### 구글에 대한 솔직한 기대치
+
+- **FAQ 리치결과는 안 뜬다.** 구글은 2023-08 이후 정부·보건 등 일부 사이트에만 보여준다.
+  FAQPage 구조화 데이터는 답변엔진·네이버를 위해 유지하는 것이다.
+- **번들이 무겁다** — `index-*.js` 약 2.3MB(gzip 660KB). 구글은 페이지 경험을 순위 신호로 쓴다.
+  Googlebot 은 프리렌더를 받으므로 색인 자체는 영향이 적지만, 실제 사용자 지표(CWV)에는 반영된다.
+  코드 분할은 별도 과제.

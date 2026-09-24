@@ -44,6 +44,25 @@ export const BIZ_ROWS = [
   ['이메일', BIZ.email],
 ];
 
+// ── 검색엔진 사이트 소유확인 ──────────────────────────
+// 봇 user-agent 로 / 를 요청하면 index.html 이 아니라 프리렌더가 나간다.
+// 그래서 소유확인 메타는 «양쪽 모두»에 같은 값으로 있어야 한다 — 한쪽만 있으면
+// 확인이 조용히 풀린다. siteSeo.test.js 가 index.html 과의 일치를 검사한다.
+//
+// 네이버는 HTML 파일 방식(public/naver*.html)도 함께 쓰고 있다.
+// 구글은 아직 미설정 — 서치콘솔에서 「HTML 태그」 방식 코드를 받아 아래에 넣으면
+// index.html · 프리렌더 양쪽에 동시에 반영된다(빈 문자열이면 태그를 내지 않는다).
+export const NAVER_SITE_VERIFICATION = '0b2e655f5bb483edebab3e18bc7faf4712328734';
+export const GOOGLE_SITE_VERIFICATION = '';
+
+// <meta name="..." content="..."> 목록 — 값이 빈 것은 건너뛴다.
+export function verificationMetas() {
+  return [
+    ['naver-site-verification', NAVER_SITE_VERIFICATION],
+    ['google-site-verification', GOOGLE_SITE_VERIFICATION],
+  ].filter(([, v]) => v);
+}
+
 // ── 베타 모드 ─────────────────────────────────────────
 // 토스페이먼츠 승인 전 무료 베타. 브라우저는 constants/release.js 의 SHOW_BETA_UI,
 // 서버(프리렌더/사이트맵)는 아래 isBetaServer() 로 같은 값을 읽는다.

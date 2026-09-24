@@ -8,6 +8,7 @@ import {
   BIZ_ROWS,
   PARTNER_LADDER,
   PARTNER_STEPS,
+  verificationMetas,
   consumerFaq,
   partnerFaq,
   pageSeo,
@@ -221,20 +222,31 @@ test('llms.txt 가 베타 사실과 양면(수요·공급) 요약을 담는다',
   if (isBetaServer()) assert.ok(body.includes('베타'));
 });
 
-test('프리렌더 HTML 의 네이버 소유확인 메타가 index.html 과 일치한다', async () => {
+test('소유확인 메타가 index.html 과 프리렌더 양쪽에 같은 값으로 있다', async () => {
   // 봇이 / 를 요청하면 index.html 이 아니라 프리렌더가 나간다.
-  // 두 값이 갈라지면 서치어드바이저 소유확인이 조용히 풀린다.
-  const indexHtml = readFileSync(fileURLToPath(new URL('../../index.html', import.meta.url)), 'utf-8');
-  const expected = indexHtml.match(/name="naver-site-verification" content="([^"]+)"/)?.[1];
-  assert.ok(expected, 'index.html 에 naver-site-verification 이 없다');
+  // 한쪽에만 있으면 서치어드바이저·서치콘솔 소유확인이 조용히 풀린다.
+  const html = indexHtml();
+  const metas = verificationMetas();
+  assert.ok(metas.length > 0, '소유확인 메타가 하나도 없다');
 
-  for (const page of ['home', 'partner']) {
-    const { body } = await invoke(prerender, { page });
+  for (const [name, value] of metas) {
     assert.ok(
-      body.includes(`name="naver-site-verification" content="${expected}"`),
-      `프리렌더(${page}) 의 소유확인 값이 index.html 과 다르다`,
+      html.includes(`name="${name}" content="${value}"`),
+      `index.html 에 ${name} 이 없거나 값이 다르다`,
     );
+    for (const page of ['home', 'partner']) {
+      const { body } = await invoke(prerender, { page });
+      assert.ok(
+        body.includes(`name="${name}" content="${value}"`),
+        `프리렌더(${page}) 에 ${name} 이 없거나 값이 다르다`,
+      );
+    }
   }
+
+  // 반대 방향 — index.html 에만 몰래 추가된 소유확인이 없어야 한다.
+  const inHtml = [...html.matchAll(/<meta name="([a-z-]*site-verification)" content="([^"]*)"/g)]
+    .map(([, n, v]) => `${n}=${v}`);
+  assert.deepEqual(inHtml.sort(), metas.map(([n, v]) => `${n}=${v}`).sort());
 });
 
 test('index.html 의 정적 JSON-LD 가 siteSeo 모듈과 일치한다', () => {
@@ -376,4 +388,56 @@ test('ASO 문안이 베타에서 에스크로를 운영 중이라 말하지 않�
   if (!isBetaServer()) return;
   const aso = readFileSync(fileURLToPath(new URL('../../store/ASO-ko.md', import.meta.url)), 'utf-8');
   assert.ok(aso.includes('정식 서비스에서 제공'), '에스크로가 아직 열리지 않았다는 안내가 빠졌다');
+});
+
+// ─────────────────────────────────────────────────────
+// 봇 rewrite — 어떤 수집기가 프리렌더를 받는가.
+// Googlebot 과 서치콘솔 URL 검사(Google-InspectionTool)가 서로 다른 문서를 보면
+// 클로킹으로 오해받는다. 사람은 반드시 SPA 를 그대로 받아야 한다.
+// ─────────────────────────────────────────────────────
+
+function botRegexes() {
+  const cfg = JSON.parse(readFileSync(fileURLToPath(new URL('../../vercel.json', import.meta.url)), 'utf-8'));
+  return cfg.rewrites
+    .filter((r) => Array.isArray(r.has))
+    .map((r) => r.has.find((h) => h.key === 'user-agent')?.value)
+    .filter(Boolean);
+}
+
+test('봇 판별 정규식이 rewrite 규칙마다 갈라지지 않는다', () => {
+  const list = botRegexes();
+  assert.ok(list.length >= 3, `UA 조건 rule 이 너무 적다(${list.length})`);
+  assert.equal(new Set(list).size, 1, 'rewrite 규칙마다 UA 정규식이 다르다');
+});
+
+test('JS 를 실행하지 않는 수집기는 프리렌더를, 사람은 SPA 를 받는다', () => {
+  const re = new RegExp(botRegexes()[0]);
+
+  const bots = {
+    Googlebot: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    'Google-InspectionTool': 'Mozilla/5.0 (compatible; Google-InspectionTool/1.0)',
+    Yeti: 'Mozilla/5.0 (compatible; Yeti/1.1; +https://naver.me/spd)',
+    Daum: 'Mozilla/5.0 (compatible; Daum/4.1)',
+    bingbot: 'Mozilla/5.0 (compatible; bingbot/2.0)',
+    GPTBot: 'Mozilla/5.0 (compatible; GPTBot/1.0)',
+    'OAI-SearchBot': 'Mozilla/5.0 (compatible; OAI-SearchBot/1.0)',
+    'ChatGPT-User': 'Mozilla/5.0 (compatible; ChatGPT-User/1.0)',
+    ClaudeBot: 'Mozilla/5.0 (compatible; ClaudeBot/1.0)',
+    'Claude-User': 'Mozilla/5.0 (compatible; Claude-User/1.0)',
+    PerplexityBot: 'Mozilla/5.0 (compatible; PerplexityBot/1.0)',
+    'Perplexity-User': 'Mozilla/5.0 (compatible; Perplexity-User/1.0)',
+    kakaotalk: 'Mozilla/5.0 (compatible; kakaotalk-scrap/1.0)',
+  };
+  for (const [name, ua] of Object.entries(bots)) {
+    assert.ok(re.test(ua), `프리렌더를 받아야 하는데 안 받는다: ${name}`);
+  }
+
+  const humans = {
+    iPhone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    Android: 'Mozilla/5.0 (Linux; Android 14; SM-S911N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+    Desktop: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  };
+  for (const [name, ua] of Object.entries(humans)) {
+    assert.ok(!re.test(ua), `사람인데 프리렌더를 받는다: ${name}`);
+  }
 });

@@ -25,6 +25,7 @@ import {
   PARTNER_LADDER,
   PARTNER_DEPOSIT_NOTE,
   PARTNER_STEPS,
+  verificationMetas,
   consumerFaq,
   partnerFaq,
   pageSeo,
@@ -35,11 +36,6 @@ import {
   faqSchema,
   breadcrumbSchema,
 } from '../src/utils/siteSeo.js';
-
-// 검색엔진 사이트 소유확인 — index.html 과 «같은 값»이어야 한다.
-// 봇 user-agent 로 / 를 요청하면 index.html 이 아니라 이 프리렌더가 나가므로,
-// 여기에 없으면 네이버 서치어드바이저 소유확인이 풀린다(HTML 파일 방식은 별도로 유지).
-const NAVER_SITE_VERIFICATION = '0b2e655f5bb483edebab3e18bc7faf4712328734';
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -117,7 +113,7 @@ function htmlShell({ site, canonical, robots, title, description, ogImage, ogTyp
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <script>(function(){try{var u=navigator.userAgent||"";/* 카카오/라인/인스타/페북/네이버/다음 등 인앱 웹뷰(사람)만 앱(SPA) 라우트로 전환. 검색봇은 JS 미실행 → OG/미리보기·색인 유지 */if(/kakaotalk|kakaostory|naver\\(inapp|line\\/|instagram|fban|fbav|daumapps/i.test(u)){var q=location.search?location.search+"&app=1":"?app=1";location.replace(location.pathname+q);}}catch(e){}})();</script>
-<meta name="naver-site-verification" content="${NAVER_SITE_VERIFICATION}" />
+${verificationMetas().map(([n, v]) => `<meta name="${n}" content="${esc(v)}" />`).join('\n')}
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}" />
 <meta name="robots" content="${esc(robots)}" />
