@@ -499,7 +499,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             {SHOW_BETA_UI && <div style={{ fontSize:12, color:C.text3, lineHeight:1.7, marginTop:-6, marginBottom:S.sm }}>계약서에 이 비율을 적어 두면 단계마다 확인하고 주고받기 쉬워요.</div>}
             {stages.map(({ name, percent, amount }) => (
               <div key={name} style={{ display:"flex", justifyContent:"space-between", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.trustM}` }}>
-                <div><div style={{ fontSize:12, fontWeight:700, color:C.navy }}>{name} {percent}%</div><div style={{ fontSize:11, color:C.text3 }}>{name} 확인</div></div>
+                <div><div style={{ fontSize:12, fontWeight:700, color:C.navy }}>{name} {percent}%</div><div style={{ fontSize:11, color:C.text3 }}>{name.endsWith("확인") ? name : `${name} 확인`}</div></div>
                 <div style={{ fontSize:13, fontWeight:800, color:C.brand }}>{fmtMoney(amount)}</div>
               </div>
             ))}

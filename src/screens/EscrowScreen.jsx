@@ -610,7 +610,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       const mapped = data.map(row => {
         const a = row.action ?? "";
         const type = a.includes("DISPUTE") ? "dispute" : a.includes("PHOTO") ? "photo" : a.includes("STEP") ? "confirm" : "contract";
-        const label = (row.metadata?.label) ?? a.replace(/_/g, " ");
+        // 기록 이름 — 영문 코드를 그대로 보이지 않게(C15 「CONTRACT CREATED」), 같은 단계의 «사진 보냄»과 «승인»을
+        // 구분한다(둘 다 「착공 확인」으로 보였다).
+        const base = row.metadata?.label ?? null;
+        const label =
+            a === "CONTRACT_CREATED" ? (base ?? "계약·결제 완료")
+          : a.includes("PHOTO")      ? (base && base.includes("사진") ? base : `${base ?? "단계"} 사진 보냄`)
+          : a.includes("STEP")       ? (base && base.includes("승인") ? base : `${base ?? "단계"} 승인`)
+          : a.includes("DISPUTE")    ? (base ?? "이의 신청")
+          : (base ?? "진행 기록");
         const stage = row.metadata?.stage ?? null;
         return { id: row.id, type, label, stage, ts: new Date(row.created_at).getTime() };
       });
