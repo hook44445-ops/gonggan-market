@@ -98,7 +98,7 @@ import {
   adminHideContent, adminUpdateLoungeReport,
   createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage, adminGetSeedLoungePosts,
   holdAllPayoutsForEscrow,
-  getCompanyDocuments, adminReviewDocument,
+  getCompanyDocuments, adminReviewDocument, getPendingCompanyDocuments,
   getReviewRewardsPending, updateReviewReward,
   adminGetHiddenRequests, adminRestoreRequest,
   getSeedReviews, createSeedReview, updateSeedReview, deleteSeedReview, uploadSeedReviewImage,
@@ -126,7 +126,7 @@ import { CATEGORY_LABEL } from "../constants/lounge";
 import { GUARANTEE_GRADE_MAP, GUARANTEE_STATUS_META, wonFromManwon } from "../constants/guarantee";
 import { ONBOARDING_GRADE_MAP, ONBOARDING_STATUS_META } from "../constants/partnerOnboarding";
 import { checkpointEvidenceStatus, checkpointEvidenceBadge, parseGpsMissingReason } from "../utils/gpsCheckpoint";
-import AdminDocumentReviewModal from "../components/AdminDocumentReviewModal";
+import AdminDocumentReviewModal, { DOC_TYPE_LABELS } from "../components/AdminDocumentReviewModal";
 import AdminChangeOrderHistory from "../components/AdminChangeOrderHistory";
 import AdminContractDetail from "../components/AdminContractDetail";
 import TransactionManagement from "../components/TransactionManagement";
@@ -5503,6 +5503,25 @@ export default function AdminScreen({ onBack, onHome, user }) {
     getOpsConfig().then(({ data }) => { if (data) setOpsConfig(data); }).catch(() => {});
   }, []);
 
+  // 서류 확인 대기(E10) — 첫 화면에서 오래 기다린 서류부터. 서류 창을 닫으면 다시 읽는다.
+  const [docQueue, setDocQueue] = useState([]);
+  const [docQueueErr, setDocQueueErr] = useState(null);
+  const [openDocReviewFor, setOpenDocReviewFor] = useState(null);
+  useEffect(() => {
+    if (mainTab !== "dashboard") return undefined;
+    let alive = true;
+    getPendingCompanyDocuments().then(({ data, error }) => {
+      if (!alive) return;
+      setDocQueue(data ?? []);
+      setDocQueueErr(error ? (error.message ?? "조회 실패") : null);
+    }).catch(e => { if (alive) setDocQueueErr(e?.message ?? "조회 실패"); });
+    return () => { alive = false; };
+  }, [mainTab, showDocReview]);
+  // 목록에서 누른 업체가 열리고 서류를 다 불러온 뒤 검토 창을 띄운다.
+  useEffect(() => {
+    if (openDocReviewFor && selected?.id === openDocReviewFor) { setShowDocReview(true); setOpenDocReviewFor(null); }
+  }, [openDocReviewFor, selected?.id, companyDocuments]);
+
   useEffect(() => {
     if (!selected?.id) { setCompanyDocuments([]); return; }
     getCompanyDocuments(selected.id).then(({ data }) => {
@@ -6175,6 +6194,32 @@ export default function AdminScreen({ onBack, onHome, user }) {
               <div>
                 <AdminVisitCards adminUserId={user?.id ?? null} />
                 <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
+                {/* 서류 확인 대기 — 업체가 올린 서류가 묻히지 않게(테스트업체 시공보험 증서가 6월부터 「확인 중」이었다, E10) */}
+                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.lg, border: `1px solid ${docQueue.length ? C.gold : C.bgWarm}`, marginBottom: S.lg }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: S.sm }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>서류 확인 대기 <span style={{ color: docQueue.length ? C.gold : C.text4 }}>{docQueue.length}</span></div>
+                    <div style={{ fontSize: 11.5, color: C.text4 }}>오래 기다린 순</div>
+                  </div>
+                  {docQueueErr ? (
+                    <div style={{ fontSize: 12.5, color: C.red }}>서류 목록을 불러오지 못했어요 — {docQueueErr}</div>
+                  ) : docQueue.length === 0 ? (
+                    <div style={{ fontSize: 12.5, color: C.text3 }}>기다리는 서류가 없어요</div>
+                  ) : docQueue.map(d => {
+                    const co = companies.find(c => c.id === d.company_id);
+                    const days = Math.max(0, Math.floor((Date.now() - new Date(d.updated_at ?? d.created_at).getTime()) / 864e5));
+                    return (
+                      <div key={d.id} onClick={() => { if (!co) return; setSelected(co); setMainTab("companies"); setOpenDocReviewFor(co.id); }}
+                        style={{ display: "flex", alignItems: "center", gap: S.sm, padding: "10px 0", borderTop: `1px solid ${C.bgWarm}`, cursor: co ? "pointer" : "default" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{co?.name ?? "업체 정보 없음"}</div>
+                          <div style={{ fontSize: 12, color: C.text3 }}>{DOC_TYPE_LABELS[d.document_type] ?? d.document_type} · {d.review_status === "reviewing" ? "확인 중" : "제출됨"}</div>
+                        </div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: days >= 3 ? C.red : C.gold, whiteSpace: "nowrap" }}>{days === 0 ? "오늘" : `${days}일째`}</div>
+                        {co && <span style={{ color: C.text4 }}>›</span>}
+                      </div>
+                    );
+                  })}
+                </div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📊" size={14} color={C.text1} /> 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
                   {[
