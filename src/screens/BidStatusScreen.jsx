@@ -1,3 +1,4 @@
+import { RESPECT_FOR_CUSTOMER } from "../constants/mutualRespect";
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI } from "../constants/release";
@@ -503,6 +504,10 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
                 <div style={{ fontSize:13, fontWeight:800, color:C.brand }}>{fmtMoney(amount)}</div>
               </div>
             ))}
+          </div>
+          {/* 서로 존중의 약속 — 선택 뒤 약속이 양쪽 평판에 남는다(서버 규칙과 같은 문구). */}
+          <div style={{ background:C.surface, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, marginBottom:S.xl, border:`1px solid ${C.bgWarm}`, fontSize:12.5, color:C.text2, lineHeight:1.7 }}>
+            {RESPECT_FOR_CUSTOMER}
           </div>
           <button
             type="button"

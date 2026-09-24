@@ -1,3 +1,4 @@
+import { RESPECT_FOR_CUSTOMER, RESPECT_FOR_PARTNER } from "../constants/mutualRespect";
 import { SHOW_BETA_UI } from "../constants/release";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { C, R, S, SHADOW } from "../constants";
@@ -527,6 +528,10 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
             <div style={{ fontSize:11, fontWeight:800, color:C.brand, marginBottom:2 }}>{PROJECT_STATUS_LABEL[project.status] ?? "진행 중"}</div>
             <div style={{ fontSize:13, fontWeight:700, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
               {[project.space_type, project.size, project.region].filter(Boolean).join(" · ") || "공사"}
+            </div>
+            {/* 서로 존중의 약속 — 이 방의 약속이 내 평판에 남는다(역할별, 서버 규칙과 같은 문구) */}
+            <div style={{ fontSize:11, color:C.text3, lineHeight:1.55, marginTop:3 }}>
+              {project.my_role === "company" ? RESPECT_FOR_PARTNER : RESPECT_FOR_CUSTOMER}
             </div>
           </div>
           {project.counterpart_phone && (

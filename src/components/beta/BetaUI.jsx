@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { C, R, S } from "../../constants";
 import { SHOW_BETA_UI } from "../../constants/release";
 import { LADDER, limitText } from "../../lib/partnerTier";
+import { RESPECT_FOR_PARTNER } from "../../constants/mutualRespect";
 
 // 진입 안내 1회 확인 기록 — localStorage. 최초 1회 체크박스 확인 시 저장 → 이후 재노출 안 함.
 const BETA_ACK_KEY = { quote: "gm_beta_ack_quote", bid: "gm_beta_ack_bid" };
@@ -89,6 +90,7 @@ export const GATE_CONTENT = {
     notes: [
       "공사대금은 계약서에 적은 단계대로 고객과 직접 주고받습니다.",
       "계약서·시공 사진·GPS 진행 기록이 남아, 업체의 성실함을 보여 주는 근거가 됩니다.",
+      RESPECT_FOR_PARTNER,
       "앱 안 안전결제는 정식 오픈 때 열립니다.",
     ],
     confirm: "확인하고 입찰하기",
