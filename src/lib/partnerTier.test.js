@@ -226,3 +226,14 @@ test("1,000만원까지는 시공보험 또는 보증금 20% — 두 길을 모�
   assert.match(cardNudge(400, { biz: true }).text, /시공보험 증권을 올리거나, 보험이 없으면 보증금 20%\(공간보증 프리미엄\(200만원\)\)/);
   assert.match(nextUnlock({ biz: true }).ask, /시공보험 증권 또는 보증금 20%/);
 });
+
+test("자재비 선지급 유도 — 500만원 이상 공사, 보증금 없는 업체에만(대표 09-24 「나로 가자」)", async () => {
+  const { cardNudge } = await import("./partnerTier.js");
+  assert.equal(cardNudge(800, { biz: true, insurance: true }).key, "advance");
+  assert.match(cardNudge(800, { biz: true, insurance: true }).text, /자재비 10%를 결제 직후/);
+  assert.equal(cardNudge(800, { biz: true, insurance: true, depositManwon: 100 }), null); // 스탠다드(100) — 500~1,000 구간 끝 10%
+  assert.equal(cardNudge(800, { biz: true, insurance: true, depositManwon: 50 }).key, "advance"); // 베이직(50)은 모자람
+  assert.match(cardNudge(800, { biz: true, insurance: true, depositManwon: 50 }).text, /스탠다드\(100만원\)/);
+  assert.equal(cardNudge(1800, { biz: true, insurance: true, depositManwon: 200, license: true }), null); // 프리미엄 — 1,000~2,000 구간(1,500 이상은 면허)
+  assert.equal(cardNudge(400, { biz: true, insurance: true }), null);                   // 500만원 미만은 선지급 없음
+});

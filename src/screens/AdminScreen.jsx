@@ -6199,7 +6199,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   {[
                     ["공간안전결제 에스크로 수수료 (고객)", "3.7% (VAT 포함, 고정)"],
                     ["공간멤버십파트너 이용수수료 (업체)", "4.4% (VAT 포함 · 계약 성사 시에만)"],
-                    ["에스크로 구조",        "10/20/40/30"],
+                    ["에스크로 구조",        "500만 미만 30/70 · 이상 30/40/30 · 공간보증 10/20/40/30"],
                     ["초기 파트너 혜택",     "가입 1개월 수수료 0% · 배지 우선"],
                   ].map(([k, v]) => (
                     <div key={k} style={{ display: "flex", justifyContent: "space-between",
