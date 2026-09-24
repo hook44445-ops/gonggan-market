@@ -122,7 +122,6 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
   const hasReal = cases.some((c) => !c.isSeed);
 
   const goConsumer = () => onSelectRole("consumer");
-  const goPartner  = () => { window.location.href = "/partner"; };
   const scrollTop  = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   return (
@@ -152,9 +151,13 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <button className="gm-tab" style={{ padding: "8px 16px", borderRadius: 999, border: "none", fontWeight: 700,
             fontSize: 13, cursor: "pointer", fontFamily: SANS, background: SK.ink, color: "#fff",
             boxShadow: "0 2px 8px rgba(0,0,0,.2)" }}>고객</button>
-          <button className="gm-tab" onClick={goPartner} style={{ padding: "8px 16px", borderRadius: 999, border: "none",
+          {/* 버튼이 아니라 진짜 <a href> 여야 한다 — 구글은 onClick 을 따라가지 않는다.
+              서치콘솔에서 /partner 가 「참조 페이지: 감지된 페이지 없음」이었던 이유.
+              덤으로 새 탭 열기·링크 복사도 된다. 모양은 그대로. */}
+          <a className="gm-tab" href="/partner" style={{ padding: "8px 16px", borderRadius: 999, border: "none",
             fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: SANS, background: "transparent",
-            color: SK.muted }}>파트너</button>
+            color: SK.muted, textDecoration: "none", display: "inline-flex", alignItems: "center",
+            lineHeight: 1 }}>파트너</a>
         </div>
       </div>
 
