@@ -3137,6 +3137,14 @@ export const createSpaceTokenLog = ({ userId, type, action, amount, description 
     description: description ?? null,
   });
 
+// 적립·사용은 서버 함수로(migration 111) — 직접 upsert 는 정책에 막히고 원장 action 칸이 없어 저장되지 않았다.
+// 적립 금액·중복 규칙은 서버가 정한다(앱은 action 만 보낸다).
+export const earnSpaceToken = (userId, action, description = null) =>
+  supabase.rpc("token_earn", { p_user_id: userId, p_action: action, p_description: description });
+
+export const spendSpaceToken = (userId, action, amount, description = null) =>
+  supabase.rpc("token_spend", { p_user_id: userId, p_action: action, p_amount: amount, p_description: description });
+
 export const getSpaceTokenLogs = (userId, limit = 50) =>
   supabase
     .from("space_token_logs")
