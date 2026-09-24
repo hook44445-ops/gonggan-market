@@ -8,7 +8,7 @@ import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import DocImg from "../components/DocImg";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments, STAGE_PLANS, normalizePlan, planUsesStage } from "../utils/calculations";
-import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, getOpsConfig, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, hasCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
+import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, getOpsConfig, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByIdOrOwner, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, hasCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { buildGpsMissingNote, parseGpsMissingReason } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -299,7 +299,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const haveCreatedAt = !!resolvedBid?.company?.created_at;
     // 이름이 이미 있어도 created_at(멤버십 수수료 계산 기준)이 없으면 조회.
     if (existingName && existingName !== "—" && existingName !== "업체" && haveCreatedAt) return;
-    getCompanyByOwnerId(companyId).then(({ data, error }) => {
+    getCompanyByIdOrOwner(companyId).then(({ data, error }) => {
       setEscrowDebug(prev => ({
         ...prev,
         companyLookup: {
@@ -395,6 +395,12 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   // contractData 선언이 반드시 그 위에 있어야 한다(선언 전 접근 시 "Cannot access 'contractData'
   // before initialization" 크래시). DB-loaded contract 상태이지만 선언만 끌어올린다.
   const [contractData, setContractData] = useState(null);
+  // 완료 탭 등에서 업체 ID 없이 들어오면 계약 행의 업체를 넣어 준다 → 위 업체 조회가 이름을 채운다(D14 — 머리글 업체명 「—」).
+  useEffect(() => {
+    const cid = contractData?.company_id;
+    if (!cid) return;
+    setResolvedBid(prev => (prev && !prev.companyId ? { ...prev, companyId: cid } : prev));
+  }, [contractData?.company_id]);
   // 금액 표시 기준 통일 — 한 화면에 초기예산(444)·입찰가·예치액(333)이 섞이지 않도록
   // 마스터 금액 우선순위를 고정한다(crash-safe: Number 변환 후 NaN/0 스킵).
   //   1. contract.total_amount — 에스크로 계약이 존재하면(결제 완료) 실제 예치액이 마스터.
@@ -1276,7 +1282,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const paid = stageMeta.filter(s => stageStatus[s.id] === "done" && s.pct > 0).reduce((a, s) => a + s.pct, 0);
 
   const headerSub = resolvedBid
-    ? `${resolvedBid.company?.name ?? "—"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
+    ? `${resolvedBid.company?.name && resolvedBid.company.name !== "—" ? resolvedBid.company.name : "업체"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
     : isConsumer ? "공사 안전 결제" : "에스크로 안전 정산";
 
   const statusColor = (sid) => {

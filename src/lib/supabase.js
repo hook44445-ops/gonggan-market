@@ -101,6 +101,15 @@ export const getCompany = (id) =>
 export const getCompanyByOwnerId = (ownerId) =>
   supabase.from("companies").select("*").eq("owner_id", ownerId).maybeSingle();
 
+// 업체 ID 또는 업체 주인(users.id) 어느 쪽이든 받아 업체 한 곳을 찾는다.
+// bids.company_id · escrow_payments.company_id 가 경로에 따라 둘 중 하나라서(C1 · D14).
+export const getCompanyByIdOrOwner = async (ref) => {
+  if (!ref) return { data: null, error: null };
+  const byOwner = await getCompanyByOwnerId(ref);
+  if (byOwner.data || byOwner.error) return byOwner;
+  return supabase.from("companies").select("*").eq("id", ref).maybeSingle();
+};
+
 export const upsertCompany = (data) =>
   supabase.from("companies").upsert(data, { onConflict: "owner_id" }).select().single();
 
