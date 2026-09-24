@@ -6,8 +6,9 @@ import { LeafSprig, Icon } from "../components/common";
 import NotificationBell from "../components/NotificationBell";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
+import DocImg from "../components/DocImg";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
+import { isStoredPhoto, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { buildGpsMissingNote } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -608,7 +609,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       let skipped = 0;
       (photos ?? []).forEach(p => {
         const rawUrls = Array.isArray(p.photos) ? p.photos : (p.photos ? [p.photos] : []);
-        const validUrls = rawUrls.filter(u => typeof u === "string" && /^https?:\/\//.test(u));
+        const validUrls = rawUrls.filter(isStoredPhoto);
         skipped += rawUrls.length - validUrls.length;
         if (validUrls.length > 0) {
           ph[p.step] = [...(ph[p.step] ?? []), ...validUrls];
@@ -879,11 +880,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
     const { dbStep, txStatus, currentStep, payoutStage } = phaseConfig;
     const allPhotos = stagePhotos[stageId] ?? [];
-    // Only http(s) URLs survive a reload and are viewable by the customer.
+    // Only stored photos (http 주소 또는 «documents/…» 경로, #693) survive a reload.
     // blob:/data: URLs come from a FAILED storage upload (uploadFile threw →
     // local createObjectURL fallback). Persisting them saves dead links that
     // render as broken images for everyone — never write them to the DB.
-    const photos = allPhotos.filter(u => typeof u === "string" && /^https?:\/\//.test(u));
+    const photos = allPhotos.filter(isStoredPhoto);
     // 핑퐁 정합: 의뢰인이 검토할 사진 없이 단계 전송 금지(빈 단계 승인 방지).
     if (photos.length === 0) {
       setReportError(allPhotos.length > 0
@@ -1767,7 +1768,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm, marginBottom: S.md }}>
                             {photos.map((src, pi) => (
                               <div key={src} style={{ position: "relative", aspectRatio: "1", borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
-                                <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
+                                <DocImg src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                                 <button onClick={() => removePhoto(s.id, pi)} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "rgba(0,0,0,0.55)", color: "#fff", border: "none", borderRadius: R.full, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
                               </div>
                             ))}
@@ -1839,7 +1840,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                           {photos.map((src, pi) => (
                             <div key={src} onClick={() => setPhotoViewer({ images: photos, index: pi })}
                               style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}`, aspectRatio: "4/3", cursor: "zoom-in" }}>
-                              <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
+                              <DocImg src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                             </div>
                           ))}
                         </div>
@@ -1873,7 +1874,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                           {photos.map((src, pi) => (
                             <div key={src} onClick={() => setPhotoViewer({ images: photos, index: pi })}
                               style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.brandM}`, aspectRatio: "4/3", cursor: "zoom-in" }}>
-                              <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
+                              <DocImg src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                             </div>
                           ))}
                         </div>
@@ -1927,7 +1928,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       {photos.map((src, pi) => (
                         <div key={src} onClick={() => setPhotoViewer({ images: photos, index: pi })}
                           style={{ flex: "0 0 auto", width: 72, height: 54, borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.bgWarm}`, cursor: "zoom-in" }}>
-                          <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
+                          <DocImg src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                         </div>
                       ))}
                     </div>

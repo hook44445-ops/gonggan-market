@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { adminGetChangeOrders } from "../lib/supabase";
+import DocImg from "./DocImg";
 
 // 관리자용 추가견적 이력 — "기록 확인" 전용(정당/부당 판단 UI 아님).
 // 계약/에스크로 상세 · 분쟁관리 상세 · 정산관리 상세에서 공통 사용.
@@ -81,7 +82,7 @@ export default function AdminChangeOrderHistory({ contractId, adminId, title = "
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                   {o.photos.map((u, i) => (
                     <a key={i} href={u} target="_blank" rel="noreferrer" style={{ width: 64, height: 64, borderRadius: R.sm, overflow: "hidden", border: `1px solid ${C.bgWarm}` }}>
-                      <img src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <DocImg src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     </a>
                   ))}
                 </div>

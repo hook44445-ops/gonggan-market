@@ -10,6 +10,7 @@ import {
 } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
+import DocImg from "./DocImg";
 
 function Backdrop({ onClose, children }) {
   return (
@@ -227,7 +228,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
           <div style={{ display:"flex", gap:S.sm, flexWrap:"wrap" }}>
             {photos.map((url, i) => (
               <div key={i} style={{ width:80, height:80, borderRadius:R.md, overflow:"hidden", border:`1px solid ${C.bgWarm}` }}>
-                <img src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                <DocImg src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
               </div>
             ))}
             {photos.length < 3 && (

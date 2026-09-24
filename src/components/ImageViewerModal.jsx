@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import DocImg from "./DocImg";
 
 export default function ImageViewerModal({ images, startIndex = 0, onClose }) {
   const [idx, setIdx] = useState(startIndex);
@@ -66,7 +67,7 @@ export default function ImageViewerModal({ images, startIndex = 0, onClose }) {
         </div>
       )}
 
-      <img
+      <DocImg
         src={images[idx]}
         alt=""
         onClick={e => e.stopPropagation()}
