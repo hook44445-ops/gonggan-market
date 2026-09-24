@@ -17,6 +17,10 @@
 
 set search_path = public, extensions;
 
+-- 0) 고객 공간온도 칸 — 설계(schema.sql)엔 있지만 운영에 없었다(42703, 대표 실행 때 확인).
+--    그동안 화면의 고객 「공간온도 36.5°」는 저장값이 아니라 기본값이었다.
+alter table public.users add column if not exists space_temp numeric(4,1) not null default 36.5;
+
 -- 한 요청에 같은 종류의 번복은 한 번만 — 기록 표(관리자 확인용)
 create table if not exists public.customer_temp_events (
   request_id  uuid not null,
