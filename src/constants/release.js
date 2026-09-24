@@ -36,3 +36,14 @@ export const APP_MODE = import.meta.env.VITE_APP_MODE || "beta";
 export const SHOW_BETA_UI =
   APP_MODE === "beta" || import.meta.env.VITE_SHOW_BETA_UI === "true";
 
+
+// ─────────────────────────────────────────────────────
+// 본인인증(휴대폰 실명 확인 · 포트원) — 키가 들어오면 켜진다(lib/identity.js).
+//   예전 「본인인증하기」 버튼은 아무 확인 없이 users.is_identity_verified 를 true 로 적고
+//   「본인인증이 완료됐습니다」라고 말했다(identity_provider: "mock"). 거짓 완료였다.
+//   이제 포트원 인증창 → 서버가 포트원에 다시 물어 확인 → 서버가 완료로 표시(마이그레이션 102).
+//   키가 없으면 버튼·「본인인증 전/완료」 표시를 숨긴다(가짜 완료를 다시 만들지 않는다).
+// ─────────────────────────────────────────────────────
+export const IDENTITY_VERIFY_READY = !!(
+  import.meta.env.VITE_PORTONE_STORE_ID && import.meta.env.VITE_PORTONE_IDENTITY_CHANNEL_KEY
+);

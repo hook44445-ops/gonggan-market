@@ -3531,22 +3531,10 @@ export const uploadSeedLoungeImage = async (file) => {
   return { data, error: null };
 };
 
-// ── Identity Verification (mock — no real KYC; TODO: replace with service-role Edge Function) ──
-
-export const requestMockIdentityVerification = async (userId) => {
-  const now = new Date().toISOString();
-  return supabase
-    .from("users")
-    .update({
-      is_identity_verified: true,
-      identity_verified_at: now,
-      identity_provider: "mock",
-      identity_verification_status: "verified",
-    })
-    .eq("id", userId)
-    .select("id, is_identity_verified, identity_verified_at, identity_provider, identity_verification_status")
-    .single();
-};
+// ── 본인인증 ──────────────────────────────────────────────────────────────
+// 진짜 본인인증은 lib/identity.js(포트원) → api/verify-otp.js(서버 확인) 로만 켠다.
+// 예전 requestMockIdentityVerification(누르면 확인 없이 완료)은 지웠다. 앱에서 완료로 바꾸는 쓰기는
+// 마이그레이션 102 의 트리거가 막는다(관리자 「철회」처럼 false 로 바꾸는 것만 된다).
 
 export const adminVerifyUserIdentity = async (userId, adminId, status = "verified") => {
   const now = new Date().toISOString();

@@ -27,9 +27,10 @@ const MUTED = "#8C8577";
 const GOLD = "#B08A3E";
 const STEPS = ["업체", "지역", "공종"];
 
-export default function CompanyOnboarding({ phone, onDone }) {
+export default function CompanyOnboarding({ phone, verifiedName = "", onDone }) {
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ bizName: "", name: "", serviceRegions: [], specialties: [], desc: "", agree: false });
+  // 본인인증(포트원)으로 들어왔으면 인증된 이름이 대표자 이름이 된다 — 고칠 수 없게 둔다.
+  const [form, setForm] = useState({ bizName: "", name: verifiedName || "", serviceRegions: [], specialties: [], desc: "", agree: false });
   const [regionSheetOpen, setRegionSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -125,9 +126,13 @@ export default function CompanyOnboarding({ phone, onDone }) {
         <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 8 }}>업체명</div>
         <input value={form.bizName} onChange={e => set("bizName", e.target.value)} placeholder="예: 한결 인테리어" style={iS} autoFocus />
         <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 8 }}>
-          대표자 이름 <span style={{ color: C.text4, fontWeight: 500 }}>(선택)</span>
+          대표자 이름 {verifiedName
+            ? <span style={{ color: C.brand, fontWeight: 700 }}>· 본인인증 완료</span>
+            : <span style={{ color: C.text4, fontWeight: 500 }}>(선택)</span>}
         </div>
-        <input value={form.name} onChange={e => set("name", e.target.value)} placeholder="홍길동" style={{ ...iS, marginBottom: 24 }} />
+        <input value={form.name} onChange={e => set("name", e.target.value)} placeholder="홍길동"
+          readOnly={!!verifiedName}
+          style={{ ...iS, marginBottom: 24, ...(verifiedName ? { background: "#F4F1EA", color: C.text2 } : {}) }} />
         <button onClick={() => ok1 && setStep(2)} style={primary(ok1)}>다음</button>
       </>}
 

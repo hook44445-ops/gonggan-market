@@ -3,7 +3,8 @@ import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES, SPACE_TYPES
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { loungeChatDbg } from "../utils/loungeChatDebug"; // 라운지 대화 신청/수신 신원 진단(플래그 시에만 출력)
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark, Icon, splitLeadingEmoji } from "./common";
-import { SHOW_DEBUG_UI } from "../constants/release";
+import { SHOW_DEBUG_UI, IDENTITY_VERIFY_READY } from "../constants/release";
+import { startIdentityVerification, completeIdentityVerification, takeIdentityReturn } from "../lib/identity";
 import { TOKEN_COSTS } from "../constants/lounge";
 import { getAnonymousNickname, formatRelativeTime } from "../utils/anonymousNickname";
 import LiveFeed from "./LiveFeed";
@@ -113,7 +114,6 @@ import {
   getCompletedEscrowByCompany,
   getPhasePhotosByContracts,
   getSeedReviews,
-  requestMockIdentityVerification,
   updateCompanyServiceRegions,
   getNotifications,
   getReviewByRequest,
@@ -1095,27 +1095,45 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [hidingId, setHidingId] = useState(null);     // requestId currently being hidden
   const [hideDebug, setHideDebug] = useState(null);   // DEV panel
 
-  // Identity verification state (mock, no real KYC)
-  // Required DB columns: is_identity_verified, identity_verified_at, identity_provider, identity_verification_status
+  // 본인인증(포트원 · 진짜) — 인증창 → 서버가 포트원에 다시 물어 확인하고 완료로 표시(api/verify-otp.js · 102).
+  //   예전엔 누르면 확인 없이 완료로 적던 가짜(mock)였다. 키가 없으면 IDENTITY_VERIFY_READY=false 라 버튼이 안 보인다.
+  // DB columns: is_identity_verified, identity_verified_at, identity_provider, identity_verification_status
   const [idVerified,   setIdVerified]   = useState(user?.is_identity_verified ?? false);
   const [idVerifiedAt, setIdVerifiedAt] = useState(user?.identity_verified_at ?? null);
   const [idStatus,     setIdStatus]     = useState(user?.identity_verification_status ?? null);
   const [idVerifying,  setIdVerifying]  = useState(false);
 
-  const handleMockIdVerify = async () => {
-    if (!user?.id || idVerifying) return;
-    setIdVerifying(true);
-    const { data, error } = await requestMockIdentityVerification(user.id);
-    if (error) {
-      showToast("인증 처리 중 오류가 발생했습니다", false);
-    } else if (data) {
+  const applyIdentityResult = async (identityVerificationId) => {
+    const data = await completeIdentityVerification(identityVerificationId, user?.id);
+    if (data?.user?.is_identity_verified) {
       setIdVerified(true);
-      setIdVerifiedAt(data.identity_verified_at ?? null);
+      setIdVerifiedAt(data.user.identity_verified_at ?? null);
       setIdStatus("verified");
       showToast("본인인증이 완료됐습니다");
+    } else {
+      showToast("본인인증을 확인하지 못했어요", false);
     }
-    setIdVerifying(false);
   };
+  const handleIdVerify = async () => {
+    if (!user?.id || idVerifying) return;
+    setIdVerifying(true);
+    try {
+      const id = await startIdentityVerification({ purpose: "mypage" });
+      if (id) await applyIdentityResult(id);            // 모바일에서 페이지가 떠나면 돌아와서 마무리
+    } catch (e) {
+      showToast(e?.message || "본인인증을 마치지 못했어요", false);
+    } finally {
+      setIdVerifying(false);
+    }
+  };
+  // 모바일: 인증창에서 돌아왔으면 마무리한다(App 이 주소의 결과를 챙겨 둔다).
+  useEffect(() => {
+    if (!user?.id || !IDENTITY_VERIFY_READY) return;
+    const back = takeIdentityReturn("mypage");
+    if (!back) return;
+    if (back.error) { showToast(back.error, false); return; }
+    applyIdentityResult(back.id).catch((e) => showToast(e?.message || "본인인증을 확인하지 못했어요", false));
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 취소/숨김/삭제 상태는 소비자(myRequests)·업체(customerRequests→biddableRequests) 양쪽
   // 어디에도 노출하지 않는다. (budget 등 값 기반 하드코딩 필터 금지 — 상태 기준 방어만.)
@@ -5007,7 +5025,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               spaceTemp={currentUser?.temp ?? myCompanyRow?.temp ?? 36.5}
               tokenBalance={tokenBalance}
               idVerified={idVerified}
-              onVerifyId={handleMockIdVerify}
+              onVerifyId={IDENTITY_VERIFY_READY ? handleIdVerify : null}
               unreadTotal={unreadTotal}
               companyRegions={(companyServiceRegions ?? []).map(r => r.label ?? r.sigungu).filter(Boolean)}
               onEditRegions={() => setCompanyRegionSheetOpen(true)}
@@ -5418,7 +5436,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               );
             })()}
 
-            {activeRole === "consumer" && (() => {
+            {IDENTITY_VERIFY_READY && activeRole === "consumer" && (() => {
               const statusColor = idVerified ? C.green : idStatus === "required" ? C.gold : C.text4;
               const statusLabel = idVerified ? "인증 완료" : idStatus === "required" ? "인증 필요" : "미인증";
               const statusIcon  = idVerified ? "✓" : idStatus === "required" ? "⚠️" : null;
@@ -5445,7 +5463,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                       )}
                     </div>
                     {!idVerified && (
-                      <button onClick={handleMockIdVerify} disabled={idVerifying}
+                      <button onClick={handleIdVerify} disabled={idVerifying}
                         style={{ padding: "8px 14px", background: idVerifying ? C.bgWarm : C.brand,
                           color: idVerifying ? C.text3 : "#fff", border: "none", borderRadius: R.full,
                           fontWeight: 700, fontSize: 12, cursor: idVerifying ? "not-allowed" : "pointer",

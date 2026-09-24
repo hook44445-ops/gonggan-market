@@ -4,6 +4,7 @@ import { BADGES } from "../constants/badges";
 import { LogoMark, LeafSprig, Icon } from "../components/common";
 import CompanyOnboarding from "./CompanyOnboarding";
 import { upsertUserByPhone, signupUserByPhone, getUserByPhone } from "../lib/supabase";
+import { IDENTITY_READY, startIdentityVerification, completeIdentityVerification, takeIdentityReturn } from "../lib/identity";
 import { getKnownUsers, knownUserToSession } from "../lib/deviceAuth";
 import { SHOW_DEBUG_UI } from "../constants/release";
 
@@ -44,6 +45,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
   const [codeSent, setCodeSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  // 휴대폰 본인인증(포트원)으로 확인된 이름 — 업체 가입 화면의 대표자 이름으로 넘긴다.
+  const [verifiedName, setVerifiedName] = useState("");
 
   // Admin hidden entry — version text tap (5x) on first screen
   const [tapCount, setTapCount] = useState(0);
@@ -79,6 +82,47 @@ export default function LoginScreen({ onLogin, initialRole }) {
     setPendingRole(role);
     setStep(2);
   };
+
+  // 업체는 문자 대신 휴대폰 본인인증 한 번으로 로그인·가입한다(키가 있을 때 — lib/identity.js).
+  //   번호 소유 + 실명을 한 번에 확인하므로 단계는 늘지 않고 신원 확인이 더해진다.
+  const useIdentity = pendingRole === "company" && IDENTITY_READY;
+  const finishIdentity = async (identityVerificationId) => {
+    setLoading(true); setMsg("");
+    try {
+      const data = await completeIdentityVerification(identityVerificationId);
+      if (data.user) {
+        const isAdmin = data.user.role === "admin";
+        const role = isAdmin ? "admin" : "company";
+        onLogin({ ...data.user, role, activeRole: role, isOperator: data.user.is_operator === true });
+      } else {
+        // 새 업체 — 인증된 번호·이름으로 3단계 가입을 잇는다(번호는 서버가 확인한 값).
+        setPhone(data.phone ?? "");
+        setVerifiedName(data.name ?? "");
+        setStep(3);
+      }
+    } catch (e) {
+      setMsg("❌ " + (e?.message || "본인인증을 확인하지 못했어요"));
+    } finally {
+      setLoading(false);
+    }
+  };
+  const startIdentity = async () => {
+    if (loading) return;
+    setMsg("");
+    try {
+      const id = await startIdentityVerification({ purpose: "login_company" });
+      if (id) await finishIdentity(id);               // 모바일에서 페이지가 떠나면 돌아와서 마무리
+    } catch (e) {
+      setMsg("❌ " + (e?.message || "본인인증을 마치지 못했어요"));
+    }
+  };
+  // 모바일: 인증창에서 돌아왔으면 결과를 받아 마무리한다(App 이 주소의 결과를 챙겨 둔다).
+  useEffect(() => {
+    const back = takeIdentityReturn("login_company");
+    if (!back) return;
+    if (back.error) { setMsg("❌ " + back.error); return; }
+    finishIdentity(back.id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-proceed when coming from LandingScreen with a pre-selected role
   useEffect(() => {
@@ -364,9 +408,30 @@ export default function LoginScreen({ onLogin, initialRole }) {
             ← 뒤로
           </button>
           <div style={{ fontSize: 20, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
-            {pendingRole === "admin" ? "관리자 인증" : "전화번호 인증"}
+            {pendingRole === "admin" ? "관리자 인증" : useIdentity ? "휴대폰 본인인증" : "전화번호 인증"}
           </div>
-          <div style={{ fontSize: 13, color: C.text3, marginBottom: S.xxl }}>가입된 계정이 없으면 자동으로 가입됩니다</div>
+          <div style={{ fontSize: 13, color: C.text3, marginBottom: S.xxl }}>
+            {useIdentity ? "번호와 이름을 한 번에 확인해요. 가입된 계정이 없으면 이어서 가입합니다." : "가입된 계정이 없으면 자동으로 가입됩니다"}
+          </div>
+          {useIdentity && (
+            <>
+              <button onClick={startIdentity} disabled={loading}
+                style={{ width: "100%", padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg,
+                  fontWeight: 800, fontSize: 16, cursor: loading ? "default" : "pointer", marginBottom: 14, opacity: loading ? 0.7 : 1 }}>
+                {loading ? "확인하는 중…" : "휴대폰 본인인증 하기"}
+              </button>
+              {msg && (
+                <div role="alert" style={{ padding: "12px 16px", borderRadius: R.md, marginBottom: 14, background: "#FFF0F0", color: C.red, fontSize: 13 }}>
+                  {msg}
+                </div>
+              )}
+              <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, fontSize: 13, color: C.text2, lineHeight: 1.8, marginBottom: 14 }}>
+                PASS 또는 통신사 인증으로 1분이면 끝나요.<br />
+                문자 인증 대신 이 한 번으로 가입·로그인합니다.
+              </div>
+            </>
+          )}
+          {!useIdentity && (<>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 8 }}>전화번호</div>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
             <input value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="010-0000-0000" maxLength={13}
@@ -401,6 +466,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="🔒" size={14} color={C.brand} /> 번호는 인증 외 목적으로 사용되지 않습니다</div>
             </div>
           )}
+          </>)}
           <div style={{ textAlign: "center", marginTop: 32 }}>
             <div
               onClick={() => {
@@ -511,7 +577,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
 
       {/* Company onboarding */}
       {step === 3 && pendingRole === "company" && (
-        <CompanyOnboarding phone={phone} onDone={u => onLogin({ ...u, role: "company", activeRole: "company" })} />
+        <CompanyOnboarding phone={phone} verifiedName={verifiedName} onDone={u => onLogin({ ...u, role: "company", activeRole: "company" })} />
       )}
 
       {/* Admin onboarding */}

@@ -12,6 +12,7 @@ import DeleteAccountScreen from "./screens/DeleteAccountScreen";
 import DownloadScreen from "./screens/DownloadScreen";
 import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { stashIdentityReturn } from "./lib/identity";
 import { getUserByPhone, verifyOperatorPin, recordAppVisit } from "./lib/supabase";
 import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
@@ -141,9 +142,13 @@ export default function App() {
     // 그대로 재사용한다. 새 로그인 로직을 만들지 않고, /?login=company 파라미터만 읽어 분기한다.
     try {
       const _params = new URLSearchParams(window.location.search);
+      // 본인인증(포트원) 인증창이 모바일에서 페이지를 떠났다가 돌아온 경우 — 주소의 결과를 챙겨 둔다.
+      const ivBack = stashIdentityReturn(_params);
+      if (ivBack && _params.get("login") !== "company") window.history.replaceState({}, "", "/");
       if (_params.get("login") === "company") {
         window.history.replaceState({}, "", "/");
-        if (isDeviceVerified() && getKnownUsers().length > 0) {
+        // 본인인증에서 돌아왔으면 계정 고르기가 아니라 로그인 화면에서 마무리한다.
+        if (!ivBack && isDeviceVerified() && getKnownUsers().length > 0) {
           setShowAccountPicker(true);
         } else {
           setPendingRole("company");
