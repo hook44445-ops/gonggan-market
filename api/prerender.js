@@ -24,6 +24,9 @@ import {
   ESCROW_STAGES,
   PARTNER_LADDER,
   PARTNER_DEPOSIT_NOTE,
+  PARTNER_STEPS,
+  verificationMetas,
+  canonicalSite,
   consumerFaq,
   partnerFaq,
   pageSeo,
@@ -35,19 +38,17 @@ import {
   breadcrumbSchema,
 } from '../src/utils/siteSeo.js';
 
-// 검색엔진 사이트 소유확인 — index.html 과 «같은 값»이어야 한다.
-// 봇 user-agent 로 / 를 요청하면 index.html 이 아니라 이 프리렌더가 나가므로,
-// 여기에 없으면 네이버 서치어드바이저 소유확인이 풀린다(HTML 파일 방식은 별도로 유지).
-const NAVER_SITE_VERIFICATION = '0b2e655f5bb483edebab3e18bc7faf4712328734';
-
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
+// 정식 호스트 고정 — www 와 apex 가 각자 자기를 canonical 이라 선언하면
+// 구글이 「중복 페이지」로 보고 색인을 건너뛴다(2026-09-24 실제 발생).
+// canonicalSite() 가 운영 도메인을 apex 하나로 모으고, preview/localhost 는 그대로 둔다.
 function getSiteUrl(req) {
   if (process.env.SITE_URL) return String(process.env.SITE_URL).replace(/\/$/, '');
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host  = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
-  return `${proto}://${host}`;
+  return canonicalSite(host, proto);
 }
 
 async function sb(path) {
@@ -116,7 +117,7 @@ function htmlShell({ site, canonical, robots, title, description, ogImage, ogTyp
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <script>(function(){try{var u=navigator.userAgent||"";/* 카카오/라인/인스타/페북/네이버/다음 등 인앱 웹뷰(사람)만 앱(SPA) 라우트로 전환. 검색봇은 JS 미실행 → OG/미리보기·색인 유지 */if(/kakaotalk|kakaostory|naver\\(inapp|line\\/|instagram|fban|fbav|daumapps/i.test(u)){var q=location.search?location.search+"&app=1":"?app=1";location.replace(location.pathname+q);}}catch(e){}})();</script>
-<meta name="naver-site-verification" content="${NAVER_SITE_VERIFICATION}" />
+${verificationMetas().map(([n, v]) => `<meta name="${n}" content="${esc(v)}" />`).join('\n')}
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}" />
 <meta name="robots" content="${esc(robots)}" />
@@ -423,18 +424,6 @@ async function renderPartner(req, res, site) {
 <p>${esc(seo.description)}</p>
 
 <section>
-<h2>어떤 업체가 신청할 수 있나요?</h2>
-<ul>
-<li>인테리어·리모델링 업체</li>
-<li>인테리어 디자인·설계 사무소</li>
-<li>가구·마루·창호 시공 업체</li>
-<li>도배·도장·전기·설비 전문 업체</li>
-<li>상업 공간 전문 시공팀</li>
-<li>건물 유지보수·소규모 공사팀</li>
-</ul>
-</section>
-
-<section>
 <h2>가입은 어떻게 하나요?</h2>
 <p>업체명·연락처·영업 지역·공종만 적으면 바로 시작합니다. 가입비·광고비·월정액은 없습니다.</p>
 </section>
@@ -447,14 +436,7 @@ async function renderPartner(req, res, site) {
 
 <section>
 <h2>신청부터 수주까지</h2>
-<ol>
-<li>파트너 신청 — 양식 제출 후 1~2 영업일 내 연락</li>
-<li>서류 검토 및 가입 승인 — 사업자·보험·이력 서류 확인</li>
-<li>보증금 예치 등급 설정 — 예치 금액에 따라 수주 한도 결정</li>
-<li>프로필·포트폴리오 작성 — 시공 사례, 전문 분야, 자격 정보 등록</li>
-<li>견적 요청 수신 — 검증된 의뢰인의 요청을 자동 전달</li>
-<li>수주 완료 및 정산 — 단계별 사진 확인 후 정산</li>
-</ol>
+<ol>${PARTNER_STEPS.map(([t, d]) => `<li><strong>${esc(t)}</strong> — ${esc(d)}</li>`).join('')}</ol>
 </section>
 ${faqHtml(faq)}
 
