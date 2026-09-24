@@ -151,6 +151,12 @@ export default async function handler(req, res) {
 
   if (!SB_URL || !SB_KEY) { res.statusCode = 200; res.end(JSON.stringify({ ok: false, reason: 'no_db_credentials' })); return; }
 
+  // 단계 사진 48시간 자동 승인(migration 112) — pg_cron 이 없을 때를 위한 대체 실행.
+  // 발송기가 돌 때(크론·새 알림 깨우기)마다 함께 돈다. 실패해도 발송은 계속한다.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/escrow_auto_approve_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
+
   // 발송 경로 결정: v1(서비스계정) 우선, 없으면 legacy(서버키) 폴백.
   const useV1 = !!SA;
   let accessToken = null;

@@ -9,7 +9,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, getEstimateForRequest, getPortfolios, postProjectEvent } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, getEstimateForRequest, getPortfolios, postProjectEvent, getStagePlanPreview } from "../lib/supabase";
 import QuoteDocument from "../components/QuoteDocument"; // 최종 견적서 미리보기·인쇄
 import { SORT_KEYS, sortBids, bidSummary, bidTags as calcBidTags } from "../lib/bidCompare"; // 입찰 비교(정렬·요약·표)
 import {
@@ -105,6 +105,21 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   const effectivePrice = (isQuotePhase && Number(finalEstimate?.total_price) > 0)
     ? Number(finalEstimate.total_price)
     : (selBid?.price ?? 0);
+
+  // 지급 계획(A3) 미리보기 — 업체 서류(사업자등록)와 금액으로 서버가 고른다. 계약 때 같은 값이 저장된다.
+  const [stagePlan, setStagePlan] = useState("4STEP");
+  const planCompanyRef = selBid?.companyId ?? selBid?.company?.id ?? null;
+  useEffect(() => {
+    let alive = true;
+    if (!planCompanyRef || !(effectivePrice > 0)) return;
+    getStagePlanPreview(planCompanyRef, effectivePrice).then(p => { if (alive) setStagePlan(p); }).catch(() => {});
+    return () => { alive = false; };
+  }, [planCompanyRef, effectivePrice]);
+  const planNotice = stagePlan === "1STEP"
+    ? { title: "대금은 공사를 마친 뒤 한꺼번에", body: "이 업체는 사업자등록 확인 전이라, 공사비는 공사를 모두 마치고 완료를 확인한 뒤 한꺼번에 지급돼요. 착공 때는 사진과 위치만 기록합니다." }
+    : stagePlan === "2STEP"
+      ? { title: "대금은 두 번에 나눠서", body: "500만원 미만 공사는 착공을 확인할 때 30%, 완료를 확인할 때 70%가 지급돼요." }
+      : { title: "자재비 10% 선지급 안내", body: "결제 완료 후 자재비 10%가 먼저 지급되고, 나머지는 착공·중간 점검·완료를 확인할 때마다 단계별로 지급돼요." };
 
   // 최종견적 단계 진입 시 선택된 업체로 바로 견적 확인(confirm) 단계로 이동.
   // [결제 진입 validation 완화] request.status 가 final_quote_submitted/escrow_pending(isQuotePhase)
@@ -343,7 +358,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   );
 
   if (step==="confirm" && selBid) {
-    const stages = calculateStagePayments(effectivePrice);
+    const stages = calculateStagePayments(effectivePrice, undefined, stagePlan).filter(st => st.percent > 0);
     const { feeAmount: escrowFee, total: customerTotal } = computeFeeWithRate(effectivePrice, rateFor(selectedMethod));
     return (
       <div style={{ minHeight:"100vh", background:C.bg }}>
@@ -529,7 +544,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   if (step==="payment" && selBid) {
     const feeRate = rateFor(selectedMethod);
     const { feeAmount: fee, total: customerTotal } = computeFeeWithRate(effectivePrice, feeRate);
-    const stages = calculateStagePayments(effectivePrice);
+    const stages = calculateStagePayments(effectivePrice, undefined, stagePlan).filter(st => st.percent > 0);
 
     const handlePay = async () => {
       dlog("[GONGGAN_DIAG][handlePay:enter]", {
@@ -787,12 +802,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
           {/* 자재비 10% 선지급 안내 — 고객이 선지급 이유를 이해하도록 */}
           <div style={{ background:"#FBF7EC", borderRadius:R.lg, padding:S.lg, marginBottom:S.lg, border:`1px solid #EADFC4` }}>
-            <div style={{ fontSize:13, fontWeight:800, color:"#8A6D1E", marginBottom:6, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="📦" size={13} color="#8A6D1E" /> 자재비 10% 선지급 안내</div>
-            <div style={{ fontSize:12, color:C.text2, lineHeight:1.85 }}>
-              최종견적 확인 및 결제 완료 후 <b>자재비 10%</b>가 먼저 지급됩니다.<br/>
-              빠른 자재 준비와 공사 일정 지연을 방지하기 위한 선지급 방식입니다.<br/>
-              나머지 공사비는 고객 확인 후 단계별로 안전하게 지급됩니다.
-            </div>
+            <div style={{ fontSize:13, fontWeight:800, color:"#8A6D1E", marginBottom:6, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="📦" size={13} color="#8A6D1E" /> {planNotice.title}</div>
+            <div style={{ fontSize:12, color:C.text2, lineHeight:1.85 }}>{planNotice.body}</div>
           </div>
 
           {/* 결제 직전 — 에스크로 안전 보관 + 기록 저장 안내 */}
@@ -864,8 +875,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
           {/* 자재비 10% 선지급 안내 — 결제 버튼 상단(문구만, 정책/지급비율/로직 무변경) */}
           <div style={{ background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, padding:S.md, marginBottom:S.lg, fontSize:12, color:C.text2, lineHeight:1.7 }}>
-            <div style={{ fontWeight:800, color:C.brand, marginBottom:4, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="💡" size={12} color={C.brand} /> 자재비 10% 선지급 안내</div>
-            최종견적서를 확인하고 결제를 완료하면, 빠른 자재 준비를 위해 자재비 10%가 먼저 지급됩니다. 나머지 공사비는 착공, 중간점검, 공사 완료 확인 후 단계별로 안전하게 지급됩니다.
+            <div style={{ fontWeight:800, color:C.brand, marginBottom:4, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="💡" size={12} color={C.brand} /> {planNotice.title}</div>
+            {planNotice.body}
           </div>
 
           <button

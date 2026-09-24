@@ -4,14 +4,15 @@
 // 들어오자마자 «지금 내가 뭘 하면 되나»가 보이도록, 이미 계산된 stageStatus 만 읽어 한 줄로 말한다.
 // 버튼은 해당 단계 칸으로 스크롤할 뿐이다 — 승인·지급·정산 로직은 그대로 EscrowScreen 이 한다.
 //
-// stageStatus: { 1..5: "done" | "company_todo" | "pending_customer" | "locked" }
+// stageStatus: { 1..5: "done" | "company_todo" | "pending_customer" | "locked" | "skipped"(지급 계획에 없음) }
 
 export const STAGE_IDS = [1, 2, 3, 4, 5];
 // 문장 안에서 부르는 짧은 이름 — 단계 이름(「공사 시작 확인」)을 그대로 넣으면 «확인 사진을 확인»처럼 겹친다.
 export const PHOTO_WORD = { 3: "착공", 4: "중간 점검", 5: "완공" };
 
 export function progressSteps(stageStatus = {}) {
-  return STAGE_IDS.map((id) => {
+  // 지급 계획(A3)에 없는 단계("skipped")는 막대에서 뺀다 — 예: 500만원 미만은 자재·중간 없음.
+  return STAGE_IDS.filter((id) => stageStatus[id] !== "skipped").map((id) => {
     const st = stageStatus[id];
     return { id, state: st === "done" ? "done" : (st === "company_todo" || st === "pending_customer") ? "active" : "locked" };
   });

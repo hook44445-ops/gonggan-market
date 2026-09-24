@@ -706,6 +706,14 @@ export const createCustomerEvaluation = ({ companyId, customerId, requestId = nu
     status: "published",
   });
 
+// 계약 전 지급 계획 미리보기(A3) — 서버 escrow_stage_plan 과 같은 답(계약 때 실제로 저장되는 값).
+// 함수가 아직 없으면 4STEP(지금까지와 같음).
+export const getStagePlanPreview = async (companyRef, totalManwon) => {
+  if (!companyRef || !(Number(totalManwon) > 0)) return "4STEP";
+  const { data, error } = await supabase.rpc("escrow_stage_plan", { p_company_ref: companyRef, p_total: Number(totalManwon) });
+  return !error && typeof data === "string" ? data : "4STEP";
+};
+
 // 서버가 큐에 넣은 푸시를 지금 내보내게 깨운다(새 견적 요청 → 파트너 알림, migration 110). 실패해도 무시.
 export const wakePushDispatcher = () =>
   fetch("/api/push/enqueue", {
