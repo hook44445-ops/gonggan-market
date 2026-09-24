@@ -17,7 +17,7 @@ import { resolveMapCenter } from "../hooks/useMapCenter";
 import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegionId, regionKey, makeRegionEntry } from "../constants/regions";
 import { getMatchedCompaniesWithTier } from "../utils/regionMatching";
 import { isJunkText } from "../utils/dataHygiene";
-import { updateUserActivityRegions, getSavedCompanyIds, getSavedCompanies, saveCompany, unsaveCompany, getCustomerTrust } from "../lib/supabase";
+import { updateUserActivityRegions, getSavedCompanyIds, getSavedCompanies, saveCompany, unsaveCompany, getCustomerTrust, getUserSpaceTemp } from "../lib/supabase";
 import CompanyCardOriginal from "./CompanyCard";
 import CompanyCardBeta from "./CompanyCardBeta";
 import { UX_BETA } from "../constants/release";
@@ -1329,6 +1329,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [myCompanyRow, setMyCompanyRow] = useState(null);
   // 파트너 홈 「내 업체 한눈에」 — 고객에게 보이는 내 업체 숫자 + 지금 할 한 가지(전부 실제 기록을 센다).
   const [partnerGrowth, setPartnerGrowth] = useState(null);
+  // 고객 공간온도 — 서버 저장값(114). 못 읽으면(115 실행 전 등) null 이고 화면은 기본값 36.5°.
+  const [customerTemp, setCustomerTemp] = useState(null);
+  useEffect(() => {
+    if (activeRole !== "consumer" || !user?.id) return;
+    let alive = true;
+    getUserSpaceTemp(user.id)
+      .then(({ data, error }) => { const n = Number(data); if (alive && !error && data != null && Number.isFinite(n)) setCustomerTemp(n); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [activeRole, user?.id]);
   const [dashTab, setDashTab] = useState("active"); // 파트너센터를 특정 탭(포트폴리오 등)으로 바로 열 때
   const reloadMyCompany = async () => {
     if (!user?.id) return;
@@ -5177,7 +5187,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   pct: next ? Math.round((done / next.minJobs) * 100) : 100,
                 };
               })()}
-              spaceTemp={currentUser?.temp ?? myCompanyRow?.temp ?? 36.5}
+              spaceTemp={activeRole === "company" ? (currentUser?.temp ?? myCompanyRow?.temp ?? 36.5) : (customerTemp ?? 36.5)}
               tokenBalance={tokenBalance}
               idVerified={idVerified}
               onVerifyId={IDENTITY_VERIFY_READY ? handleIdVerify : null}

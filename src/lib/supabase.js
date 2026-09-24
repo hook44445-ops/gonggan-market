@@ -681,6 +681,10 @@ export const getReviews = (companyId) =>
     .or("status.is.null,status.not.in.(REJECTED,HIDDEN,rejected,hidden)")
     .order("created_at", { ascending: false });
 
+// 고객 공간온도(users.space_temp · 114) — users 는 RLS 로 막혀 있어 읽기 함수로만(115).
+export const getUserSpaceTemp = (userId) =>
+  supabase.rpc("user_space_temp", { p_user: userId });
+
 // 업체 목록용 — 여러 업체의 공개 후기 평점만 한 번에(D16). 거르기는 getReviews 와 같다.
 export const getReviewRatingsByCompanies = (companyIds = []) =>
   supabase
