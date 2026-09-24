@@ -94,6 +94,7 @@ export default function GuaranteeCard({ company, actorId, onChange }) {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>{g.label}</div>
                     <div style={{ fontSize: 12, color: C.text3 }}>예치금 {wonFromManwon(g.amount)}</div>
+                    {g.opens && <div style={{ fontSize: 11.5, color: C.brand, fontWeight: 700, marginTop: 2, lineHeight: 1.5 }}>{g.opens}</div>}
                   </div>
                   {sel && <span style={{ color: C.brand, fontWeight: 900 }}>✓</span>}
                 </button>

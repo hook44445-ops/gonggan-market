@@ -6,11 +6,13 @@
 // 등급 5단계(고정). amount = 예치금(만원). 선택 시 자동 계산은 서버(068 RPC)가 권위.
 import { C } from "./index";
 export const GUARANTEE_GRADES = [
-  { key: "BASIC",     emoji: "🥉", label: "베이직",   amount: 50,   color: "#A0714F" },
-  { key: "STANDARD",  emoji: "🥈", label: "스탠다드", amount: 100,  color: "#5A6370" },
-  { key: "PREMIUM",   emoji: "🥇", label: "프리미엄", amount: 200,  color: "#B8860B" },
-  { key: "MASTER",    emoji: "💎", label: "마스터",   amount: 500,  color: "#0090AA" },
-  { key: "SIGNATURE", emoji: "👑", label: "시그니처", amount: 1000, color: "#7C3AED" },
+//  opens = 이 등급이 여는 것(대표 09-25 — 5등급이 «공사 구간 끝 숫자의 10%»와 한 칸씩 맞물린다).
+//  입구는 열어 두고 등급도 열어 둔다: 누구나 원할 때 고르고, 걸면 무엇이 좋은지만 보인다.
+  { key: "BASIC",     emoji: "🥉", label: "베이직",   amount: 50,   color: "#A0714F", opens: "300만~500만원 공사 자재비 10% 먼저 받기" },
+  { key: "STANDARD",  emoji: "🥈", label: "스탠다드", amount: 100,  color: "#5A6370", opens: "1,000만원까지 공사 자재비 10% 먼저 받기" },
+  { key: "PREMIUM",   emoji: "🥇", label: "프리미엄", amount: 200,  color: "#B8860B", opens: "2,000만원까지 입찰(시공보험 필요) · 보험 없으면 1,000만원까지 · 프리미엄 파트너" },
+  { key: "MASTER",    emoji: "💎", label: "마스터",   amount: 500,  color: "#0090AA", opens: "5,000만원까지 입찰(시공보험 · 1,500만원 이상은 면허)" },
+  { key: "SIGNATURE", emoji: "👑", label: "시그니처", amount: 1000, color: "#7C3AED", opens: "1억원까지 입찰(시공보험 · 1,500만원 이상은 면허)" },
 ];
 
 export const GUARANTEE_GRADE_MAP = Object.fromEntries(GUARANTEE_GRADES.map((g) => [g.key, g]));

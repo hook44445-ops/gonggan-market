@@ -218,7 +218,7 @@ test("카드 유도 — 한도 안이면 사업자 → 시공보험 순서로 �
   assert.equal(cardNudge(200, {}).key, "biz");
   assert.equal(cardNudge(400, { biz: true }).key, "insurance");
   assert.match(cardNudge(400, { biz: true }).text, /1,000만원/);
-  assert.equal(cardNudge(400, { biz: true, insurance: true }), null);
+  assert.equal(cardNudge(400, { biz: true, insurance: true, depositManwon: 50 }), null);
   assert.equal(cardNudge(0, {}).key, "biz");                           // 예산을 모르면 사업자부터
 });
 
@@ -235,5 +235,7 @@ test("자재비 선지급 유도 — 500만원 이상 공사, 보증금 없는 �
   assert.equal(cardNudge(800, { biz: true, insurance: true, depositManwon: 50 }).key, "advance"); // 베이직(50)은 모자람
   assert.match(cardNudge(800, { biz: true, insurance: true, depositManwon: 50 }).text, /스탠다드\(100만원\)/);
   assert.equal(cardNudge(1800, { biz: true, insurance: true, depositManwon: 200, license: true }), null); // 프리미엄 — 1,000~2,000 구간(1,500 이상은 면허)
-  assert.equal(cardNudge(400, { biz: true, insurance: true }), null);                   // 500만원 미만은 선지급 없음
+  assert.equal(cardNudge(400, { biz: true, insurance: true }).key, "advance");            // 300~500 은 베이직(50)으로 선지급
+  assert.equal(cardNudge(400, { biz: true, insurance: true, depositManwon: 50 }), null);
+  assert.equal(cardNudge(250, { biz: true, insurance: true }), null);                   // 300만원 미만 소액은 선지급 없음
 });
