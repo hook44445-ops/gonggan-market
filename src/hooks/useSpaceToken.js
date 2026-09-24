@@ -6,6 +6,8 @@ import {
   createSpaceTokenLog,
   getSpaceTokenLogs,
   getUserMissionStats,
+  earnSpaceToken,
+  spendSpaceToken,
 } from '../lib/supabase';
 
 const THRESHOLD_MISSIONS = [
@@ -33,14 +35,13 @@ async function grantThresholds(userId, balance, logs, stats) {
     if (already) continue;
     const amount = TOKEN_EARN[action.toUpperCase()] ?? TOKEN_EARN[action] ?? 0;
     if (!amount) continue;
-    const newBalance = cur + amount;
-    const log = { type: 'earn', action, amount, description: action, created_at: new Date().toISOString() };
+    if (!userId) continue;
+    // 서버가 24시간 중복을 다시 확인하고 적립한다(migration 111). 적립된 경우에만 화면에 반영.
+    const { data } = await earnSpaceToken(userId, action, null);
+    if (data?.status !== 'earned') continue;
+    const log = { type: 'earn', action, amount: data.amount ?? amount, description: action, created_at: new Date().toISOString() };
     curLogs = [log, ...curLogs];
-    cur = newBalance;
-    if (userId) {
-      await upsertSpaceToken(userId, newBalance);
-      await createSpaceTokenLog({ userId, type: 'earn', action, amount, description: null });
-    }
+    cur = typeof data.balance === 'number' ? data.balance : cur + amount;
   }
   return { balance: cur, logs: curLogs };
 }
@@ -93,36 +94,36 @@ export function useSpaceToken(userId) {
     }
     if (alreadyEarned) return false;
 
-    const newBalance = balanceRef.current + amount;
-    const log = { type: 'earn', action, amount, description: description ?? action, created_at: new Date().toISOString() };
+    if (!userId) return false;
+    // 서버가 금액·중복을 정하고 적립한다(migration 111). 저장된 경우에만 화면 잔액을 바꾼다.
+    const { data, error } = await earnSpaceToken(userId, action, description ?? null);
+    if (error || data?.status !== 'earned') return false;
+    const newBalance = typeof data.balance === 'number' ? data.balance : balanceRef.current + amount;
+    const log = { type: 'earn', action, amount: data.amount ?? amount, description: description ?? action, created_at: new Date().toISOString() };
 
     balanceRef.current = newBalance;
     logsRef.current    = [log, ...logsRef.current];
     setBalance(newBalance);
     setLogs(prev => [log, ...prev]);
-
-    if (userId) {
-      await upsertSpaceToken(userId, newBalance);
-      await createSpaceTokenLog({ userId, type: 'earn', action, amount, description: description ?? null });
-    }
     return true;
   }, [userId]);
 
   const spend = useCallback(async (action, amount, description) => {
     if (balanceRef.current < amount) return false;
-
-    const newBalance = balanceRef.current - amount;
+    if (!userId) return false;
+    // 서버에서 잔액 확인 후 차감(migration 111). 예전엔 화면에서만 빠지고 저장되지 않았다.
+    const { data, error } = await spendSpaceToken(userId, action, amount, description ?? null);
+    if (error || data?.status !== 'spent') {
+      if (typeof data?.balance === 'number') { balanceRef.current = data.balance; setBalance(data.balance); }
+      return false;
+    }
+    const newBalance = typeof data.balance === 'number' ? data.balance : balanceRef.current - amount;
     const log = { type: 'spend', action, amount, description: description ?? action, created_at: new Date().toISOString() };
 
     balanceRef.current = newBalance;
     logsRef.current    = [log, ...logsRef.current];
     setBalance(newBalance);
     setLogs(prev => [log, ...prev]);
-
-    if (userId) {
-      await upsertSpaceToken(userId, newBalance);
-      await createSpaceTokenLog({ userId, type: 'spend', action, amount, description: description ?? null });
-    }
     return true;
   }, [userId]);
 

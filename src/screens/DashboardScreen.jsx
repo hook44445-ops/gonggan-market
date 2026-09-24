@@ -17,12 +17,20 @@ import GrowthStatsPanel from "../components/growth/GrowthStatsPanel"; // Phase 1
 import { computeCompanyXp, levelInfo } from "../constants/growth";
 import { earnedAchievements, ACHIEVEMENTS } from "../constants/growthPlus";
 import { getStreak, getSeenAchievements, markAchievementsSeen, getLastSeenLevel, setLastSeenLevel } from "../utils/growthStore";
-import { getMembershipRateByCreatedAt } from "../utils/calculations";
+import { getMembershipRateByCreatedAt, STAGE_PLANS, normalizePlan } from "../utils/calculations";
 import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews } from "../lib/supabase";
 import PartnerHeaderV3 from "../components/v3/PartnerHeaderV3";
 import { useUiVersion } from "../hooks/useUiVersion";
 
-const PAID_BY_STEP = { 1: 10, 2: 10, 3: 30, 4: 70, 5: 100 };
+// 지급된 비율 — 계약의 지급 계획(A3)과 단계(current_step)로 센다. 정산 완료면 100.
+//   current_step 1·2 = 자재까지 · 3 = 착공까지 · 4 = 중간까지 · 5 = 전부 (고객 승인 기준, EscrowScreen 과 같다)
+//   예전 표(10/10/30/70/100)는 4단계 고정이었고 step 을 4 로 잘라 정산 뒤에도 70% 로 보였다.
+const paidPercent = (currentStep, plan, txStatus) => {
+  if (txStatus === "SETTLED") return 100;
+  const p = STAGE_PLANS[normalizePlan(plan)];
+  const upto = { 1: 1, 2: 1, 3: 2, 4: 3, 5: 4 }[Math.min(5, Math.max(1, currentStep ?? 1))];
+  return p.slice(0, upto).reduce((a, b) => a + b, 0);
+};
 
 const TX_META = {
   CONTRACTED:    { label: "착공대기", color: "#E8A51B", bucket: "waiting_start", nextAction: "착공 사진 업로드 필요" },
@@ -62,7 +70,7 @@ const normalizeEscrowRow = (row) => {
     type:        row.requests?.space_type ?? "",
     status:      txMeta.label,
     statusColor: txMeta.color,
-    paid:        PAID_BY_STEP[step] ?? info.paid,
+    paid:        paidPercent(row.current_step, row.stage_plan, row.transaction_status),
     dDay:        Math.max(0, 30 - daysElapsed),
     total:       row.total_amount ?? 0,
     txStatus:    row.transaction_status ?? "CONTRACTED",
@@ -130,7 +138,7 @@ const normalizeCompanyJob = ({ bid, request, escrow }) => {
     type:        request?.type || request?.space_type || "인테리어",
     status:      txMeta.label,
     statusColor: txMeta.color,
-    paid:        reqMeta ? 0 : (PAID_BY_STEP[step] ?? txMeta.paid ?? 10),
+    paid:        reqMeta ? 0 : paidPercent(escrow?.current_step, escrow?.stage_plan, escrow?.transaction_status),
     dDay:        Math.max(0, 30 - daysElapsed),
     total,
     txStatus:    txStatus ?? reqStatus.toUpperCase(),

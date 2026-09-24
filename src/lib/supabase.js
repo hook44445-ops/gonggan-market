@@ -224,7 +224,8 @@ export const getLiveRequests = ({ limit = 5 } = {}) =>
 export const getActiveRequestByUser = (userId) =>
   supabase
     .from("requests")
-    .select("id, status, space_type, created_at, last_activity_at")
+    // last_activity_at 은 운영 스키마에 없다(42703 → 중복 요청 막기가 늘 통과되던 문제).
+    .select("id, status, space_type, created_at")
     .eq("user_id", userId)
     .in("status", ["open", "in_progress"])
     .or("is_hidden.is.null,is_hidden.eq.false")
@@ -239,8 +240,17 @@ export const archiveRequestAuto = (id, reason) =>
 export const closeRequest = (id) =>
   supabase.from("requests").update({ status: "closed" }).eq("id", id);
 
-export const updateRequest = (id, data) =>
-  supabase.from("requests").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+// 고객 요청 수정 — 직접 UPDATE 는 없는 updated_at 칸(42703)과 정책(이 앱 로그인은 세션 없음)에 막혀
+// 「수정됐어요」만 뜨고 저장되지 않았다. 본인·open 상태를 확인하는 함수로 저장한다(migration 108).
+export const updateRequest = (id, data, actorId) =>
+  supabase.rpc("request_update_by_owner", {
+    p_request_id:  id,
+    p_actor_id:    actorId ?? null,
+    p_space_type:  data.space_type ?? null,
+    p_size:        data.size ?? null,
+    p_style:       data.style ?? null,
+    p_description: data.description ?? null,
+  });
 
 // ── Bids ──────────────────────────────────────────────────────────────────────
 
@@ -695,6 +705,31 @@ export const createCustomerEvaluation = ({ companyId, customerId, requestId = nu
     content: content || "업체가 작성한 고객 신뢰평가",
     status: "published",
   });
+
+// 계약 전 지급 계획 미리보기(A3) — 서버 escrow_stage_plan 과 같은 답(계약 때 실제로 저장되는 값).
+// 함수가 아직 없으면 4STEP(지금까지와 같음).
+export const getStagePlanPreview = async (companyRef, totalManwon) => {
+  if (!companyRef || !(Number(totalManwon) > 0)) return "4STEP";
+  const { data, error } = await supabase.rpc("escrow_stage_plan", { p_company_ref: companyRef, p_total: Number(totalManwon) });
+  return !error && typeof data === "string" ? data : "4STEP";
+};
+
+// 서버가 큐에 넣은 푸시를 지금 내보내게 깨운다(새 견적 요청 → 파트너 알림, migration 110). 실패해도 무시.
+export const wakePushDispatcher = () =>
+  fetch("/api/push/enqueue", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "wake" }),
+  }).catch(() => {});
+
+// 이 거래에 업체가 이미 고객 평가를 남겼는지 — 새로고침 뒤에도 「평가 완료」를 기억해 중복 평가를 막는다.
+export const hasCustomerEvaluation = async ({ requestId, contractId }) => {
+  if (!requestId && !contractId) return false;
+  let q = supabase.from("reviews").select("id").eq("reviewer_role", "company").eq("target_role", "customer").limit(1);
+  q = contractId ? q.eq("contract_id", contractId) : q.eq("request_id", requestId);
+  const { data } = await q;
+  return (data?.length ?? 0) > 0;
+};
 
 // 고객 신뢰도 지수 — 업체들이 남긴 평가 평균 (계약이행도/응답성)
 export const getCustomerTrust = async (customerId) => {
@@ -2032,16 +2067,16 @@ export const getCompanyActiveJobs = async (companyId, extraIds = []) => {
   const candidateIds = [...new Set([companyId, ...(extraIds ?? [])].filter(Boolean))];
   if (candidateIds.length === 0) return { data: [], error: null };
 
-  // ① 선택된 입찰
-  const { data: bids, error: bidErr } = await supabase
+  // ① 선택된 입찰 — 운영 bids 에는 selected 칸이 없다(42703 → 목록 전체가 비던 문제).
+  //    선택의 원본은 requests.selected_bid_id. 이 업체 입찰 중 그 id 로 가리켜진 것만 쓴다.
+  const { data: myBids } = await supabase
     .from("bids")
     .select("*, requests(*)")
     .in("company_id", candidateIds)
-    .eq("selected", true)
     .order("created_at", { ascending: false });
-  if (bidErr) return { data: [], error: bidErr };
+  const bids = (myBids ?? []).filter(b => b.requests?.selected_bid_id && b.requests.selected_bid_id === b.id);
 
-  // ② requests.selected_company_id (입찰행 누락/selected 플래그 미반영 보강)
+  // ② requests.selected_company_id (입찰행 누락 보강)
   const { data: selReqs } = await supabase
     .from("requests")
     .select("*")
@@ -2070,6 +2105,16 @@ export const getCompanyActiveJobs = async (companyId, extraIds = []) => {
   if (missingReqIds.length > 0) {
     const { data: escReqs } = await supabase.from("requests").select("*").in("id", missingReqIds);
     for (const r of escReqs ?? []) if (!byReq[r.id]) byReq[r.id] = { request: r, bid: null };
+  }
+
+  // 요청 쪽 경로(②③)로만 잡힌 건도 선택된 입찰을 붙인다 — 현장방문·견적서를 찾으려면 bid 가 필요.
+  const needBidIds = Object.values(byReq).filter(e => !e.bid && e.request?.selected_bid_id).map(e => e.request.selected_bid_id);
+  if (needBidIds.length > 0) {
+    const { data: selBids } = await supabase.from("bids").select("*").in("id", needBidIds);
+    for (const b of selBids ?? []) {
+      const e = Object.values(byReq).find(x => x.request?.selected_bid_id === b.id);
+      if (e && !e.bid) e.bid = b;
+    }
   }
 
   const entries = Object.values(byReq).filter(e => e.request);
@@ -2249,20 +2294,19 @@ export const uploadLoungeImage = async (file, userId) => {
 
 // ── STEP O: ops_config (Emergency Switch) ────────────────────────────────────
 
+// 한 줄짜리 표(id=1). 읽기는 누구나(결제·입찰 화면이 확인), 쓰기는 관리자 함수로만(migration 108).
 export const getOpsConfig = () =>
-  supabase.from("ops_config").select("*").limit(1).single();
+  supabase.from("ops_config").select("*").eq("id", 1).maybeSingle();
 
 export const updateOpsConfig = async (adminId, updates) => {
-  const { data: existing } = await supabase.from("ops_config").select("id").limit(1).single();
-  if (existing?.id) {
-    return supabase.from("ops_config")
-      .update({ ...updates, updated_by: adminId ?? null, updated_at: new Date().toISOString() })
-      .eq("id", existing.id)
-      .select().single();
-  }
-  return supabase.from("ops_config")
-    .insert({ ...updates, updated_by: adminId ?? null })
-    .select().single();
+  const [[field, value]] = Object.entries(updates);
+  return supabase.rpc("ops_config_set", { p_actor_id: adminId ?? null, p_field: field, p_value: !!value });
+};
+
+// 신규 결제 중지 여부 — 결제 버튼 앞에서 확인. 표를 못 읽으면 막지 않는다(서버 승인 단계가 한 번 더 본다).
+export const isPaymentPaused = async () => {
+  const { data } = await getOpsConfig();
+  return !!data?.pause_new_payments;
 };
 
 // ── STEP L: customer_reports ──────────────────────────────────────────────────
@@ -3100,6 +3144,14 @@ export const createSpaceTokenLog = ({ userId, type, action, amount, description 
     amount,
     description: description ?? null,
   });
+
+// 적립·사용은 서버 함수로(migration 111) — 직접 upsert 는 정책에 막히고 원장 action 칸이 없어 저장되지 않았다.
+// 적립 금액·중복 규칙은 서버가 정한다(앱은 action 만 보낸다).
+export const earnSpaceToken = (userId, action, description = null) =>
+  supabase.rpc("token_earn", { p_user_id: userId, p_action: action, p_description: description });
+
+export const spendSpaceToken = (userId, action, amount, description = null) =>
+  supabase.rpc("token_spend", { p_user_id: userId, p_action: action, p_amount: amount, p_description: description });
 
 export const getSpaceTokenLogs = (userId, limit = 50) =>
   supabase

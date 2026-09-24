@@ -5509,8 +5509,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const toggleOps = async (field) => {
     setOpsLoading(true);
     const next = { ...opsConfig, [field]: !opsConfig[field] };
-    const { data } = await updateOpsConfig(user?.id ?? null, { [field]: next[field] });
+    const { data, error } = await updateOpsConfig(user?.id ?? null, { [field]: next[field] });
     if (data) setOpsConfig(data);
+    // 저장 실패를 숨기지 않는다 — 스위치가 «눌린 것처럼» 보이면 운영 판단을 그르친다.
+    if (error) window.alert(`긴급 스위치 저장 실패: ${error.message ?? error.code ?? "알 수 없는 오류"}`);
     setOpsLoading(false);
   };
 
@@ -5646,6 +5648,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
     : companies.filter(c => c.status === companyTab);
 
   const handleApprove = async (company) => {
+    // 긴급 스위치 「신규 승인 중지」 — 켜져 있으면 승인하지 않는다.
+    if (opsConfig?.pause_new_approvals) {
+      window.alert("긴급 운영 스위치 「신규 승인 중지」가 켜져 있어요. 스위치를 끈 뒤 승인해 주세요.");
+      return;
+    }
     setActionLoading(true);
     const { error } = await adminReviewCompany(company.id, user?.id ?? null, "approved");
     if (!error) {

@@ -7,8 +7,8 @@ import NotificationBell from "../components/NotificationBell";
 import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import DocImg from "../components/DocImg";
-import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
+import { fmtMoney, calculateCustomerTotal, calculateStagePayments, STAGE_PLANS, normalizePlan, planUsesStage } from "../utils/calculations";
+import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, getOpsConfig, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, hasCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { buildGpsMissingNote } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -24,21 +24,26 @@ import EscrowNextCard from "../components/v3/EscrowNextCard"; // 맨 위 「지�
 // 'pending_customer' — company acted, waiting for customer confirmation
 // 'locked'         — not yet reachable
 
-function CountdownTimer({ deadlineMs }) {
+// 단계 사진 자동 승인(A3, migration 112) — 서버 설정(ops_config.auto_approve_hours)을 읽어 켜진 경우에만
+// 카운트다운·「자동 승인」 문구를 보인다. 기준 시각은 업체가 사진을 올린 서버 시각(escrow_payouts.ready_at).
+function CountdownTimer({ deadlineMs, hours }) {
   const [remaining, setRemaining] = useState(() => deadlineMs ? Math.max(0, deadlineMs - Date.now()) : 0);
-  useState(() => {
-    if (!deadlineMs || remaining <= 0) return;
+  useEffect(() => {
+    if (!deadlineMs) return;
     const id = setInterval(() => {
-      setRemaining(prev => { const n = Math.max(0, deadlineMs - Date.now()); if (n <= 0) clearInterval(id); return n; });
+      const n = Math.max(0, deadlineMs - Date.now());
+      setRemaining(n);
+      if (n <= 0) clearInterval(id);
     }, 1000);
     return () => clearInterval(id);
-  });
+  }, [deadlineMs]);
   if (!deadlineMs) return null;
   const total = Math.floor(remaining / 1000);
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  const pct = Math.min(100, ((72 * 3600 * 1000 - remaining) / (72 * 3600 * 1000)) * 100);
+  const span = hours * 3600 * 1000;
+  const pct = Math.min(100, ((span - remaining) / span) * 100);
   const pad = n => String(n).padStart(2, "0");
   return (
     <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.brandM}`, marginBottom: S.md }}>
@@ -51,7 +56,7 @@ function CountdownTimer({ deadlineMs }) {
       <div style={{ background: `${C.brand22}`, borderRadius: R.full, height: 6 }}>
         <div style={{ width: `${pct}%`, height: "100%", background: C.brand, borderRadius: R.full, transition: "width 1s linear" }} />
       </div>
-      <div style={{ fontSize: 11, color: C.text3, marginTop: S.xs }}>72시간 내 미확인 시 자동 승인됩니다</div>
+      <div style={{ fontSize: 11, color: C.text3, marginTop: S.xs }}>{hours}시간 안에 확인하지 않으면 자동 승인돼요 · 문제가 있으면 「이의 신청」을 눌러 주세요(자동 승인이 멈춰요)</div>
     </div>
   );
 }
@@ -86,6 +91,33 @@ const CUSTOMER_DISPLAY = {
   3: { label: "공사 시작 확인",   sub: "업체가 사진을 올리면 확인하고 승인해주세요",           confirmLabel: "공사 시작 승인" },
   4: { label: "중간 확인",        sub: "중간 공사 사진을 확인하고 승인해주세요",                confirmLabel: "중간 확인 승인" },
   5: { label: "공사 완료 확인",   sub: "완료 사진을 확인하고 승인하면 공사가 마무리됩니다",     confirmLabel: "완료 승인" },
+};
+
+// ── 지급 계획(A3) — 계약에 저장된 stage_plan 으로 단계·비율·문구를 고른다(서버 migration 112 와 같은 표) ──
+//   계획에 없는 단계(자재·중간)는 목록에서 빠지고, 착공이 0%(사업자등록 전 업체)면 «기록만» 으로 안내한다.
+const planPct = (plan) => {
+  const p = STAGE_PLANS[normalizePlan(plan)];
+  return { 1: 0, 2: p[0], 3: p[1], 4: p[2], 5: p[3] };
+};
+const planStageMeta = (plan) => {
+  const pct = planPct(plan);
+  return STAGE_META.filter(s => planUsesStage(plan, s.id)).map(s => {
+    if (s.id === 1 || s.id === 2) return { ...s, pct: pct[s.id] };
+    const v = pct[s.id];
+    const sub = s.id === 3
+        ? (v > 0 ? `착공 사진을 확인하고 승인하면 업체에 ${v}% 지급` : "착공 사진·위치를 기록해요 — 이 계약은 공사를 마친 뒤 한꺼번에 지급돼요")
+      : s.id === 4 ? `중간 점검 사진을 확인하고 승인하면 ${v}% 지급`
+      : (v >= 100 ? "완료 사진을 확인하고 승인하면 공사비 전액 지급" : `완료 사진을 확인하고 승인하면 잔금 ${v}% 지급`);
+    return { ...s, pct: v, sub };
+  });
+};
+const planCustomerDisplay = (plan) => {
+  const pct = planPct(plan);
+  return {
+    ...CUSTOMER_DISPLAY,
+    3: pct[3] > 0 ? CUSTOMER_DISPLAY[3]
+      : { ...CUSTOMER_DISPLAY[3], sub: "업체가 착공 사진을 올리면 확인해 주세요 — 공사비는 완료 확인 때 한꺼번에 지급돼요" },
+  };
 };
 
 const TIMELINE_ICONS = {
@@ -386,7 +418,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const bidAmount     = _amtPick ? _amtPick[1] : 0;
   const _amountSource = _amtPick ? _amtPick[0] : "0(none)";
   const customerTotal = bidAmount > 0 ? calculateCustomerTotal(bidAmount) : 0;
-  const stages        = bidAmount > 0 ? calculateStagePayments(bidAmount) : [];
+  // 지급 계획 — 계약(escrow_payments.stage_plan)에 저장된 것. 옛 계약(없음)은 4단계.
+  const stagePlan     = normalizePlan(contractData?.stage_plan);
+  const stageMeta     = planStageMeta(stagePlan);
+  const customerDisplay = planCustomerDisplay(stagePlan);
+  const stages        = bidAmount > 0 ? calculateStagePayments(bidAmount, undefined, stagePlan) : [];
   if (_amountSource !== "contract.total_amount") {
     try { dlog("[GONGGAN_DIAG][amountFallback]", {
       requestId: request?.id ?? resolvedBid?.requestId ?? null,
@@ -482,6 +518,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const [expectedEndInput, setExpectedEndInput] = useState(""); // 업체 예상 완공일 입력
   const [expectedEndSaving, setExpectedEndSaving] = useState(false);
   const [dbPayoutMap, setDbPayoutMap] = useState({});  // { [stage]: payout row }
+  // 자동 승인 시간(서버 설정) — 0 이면 끔(설정이 없거나 migration 112 전)
+  const [autoApproveHours, setAutoApproveHours] = useState(0);
+  useEffect(() => {
+    getOpsConfig().then(({ data }) => { const h = Number(data?.auto_approve_hours); setAutoApproveHours(h > 0 ? h : 0); }).catch(() => {});
+  }, []);
+  // UI 단계(3·4·5)의 자동 승인 마감 = 해당 지급 줄(2·3·4)이 READY 가 된 서버 시각 + 설정 시간
+  const serverDeadlineOf = (uiStageId) => {
+    const po = dbPayoutMap[uiStageId - 1];
+    if (!autoApproveHours || po?.status !== "READY" || !po?.ready_at) return null;
+    return new Date(po.ready_at).getTime() + autoApproveHours * 3600 * 1000;
+  };
   const [dbPhotos, setDbPhotos]     = useState({});    // { [dbStep]: string[] }
   const [dbLoaded, setDbLoaded]     = useState(false);
   const [dbRefreshKey, setDbRefreshKey] = useState(0); // increment to force re-fetch
@@ -507,7 +554,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     });
     setCustEvalSubmitting(false);
     if (!error) { setCustEvalDone(true); setShowCustEval(false); }
+    else window.alert(`고객 평가를 저장하지 못했어요. 잠시 후 다시 시도해 주세요. (${error.message ?? error.code ?? "오류"})`);
   };
+  // 새로고침 뒤에도 이미 남긴 평가를 기억한다(예전엔 화면 상태뿐이라 같은 고객을 또 평가할 수 있었다).
+  useEffect(() => {
+    const rid = request?.id ?? null;
+    const cid = resolvedContractId ?? contractId ?? null;
+    if (!rid && !cid) return;
+    let alive = true;
+    hasCustomerEvaluation({ requestId: rid, contractId: cid }).then(done => { if (alive && done) setCustEvalDone(true); }).catch(() => {});
+    return () => { alive = false; };
+  }, [request?.id, resolvedContractId, contractId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fileInputRef3 = useRef(null);
   const fileInputRef4 = useRef(null);
@@ -660,7 +717,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const p4 = derivedFromRecovery ? null : dbPayoutMap[4];
     const ph = derivedFromRecovery ? {} : dbPhotos;
 
-    const ns = { 1: "done", 2: "done", 3: "company_todo", 4: "locked", 5: "locked" };
+    // 지급 계획(A3): 계획에 없는 단계는 "skipped" — 자재(2)는 4단계에만, 중간(4)도 4단계에만.
+    const plan = normalizePlan(contractData?.stage_plan);
+    const ns = { 1: "done", 2: planUsesStage(plan, 2) ? "done" : "skipped", 3: "company_todo", 4: "locked", 5: "locked" };
     const reasons = [];
 
     // Stage 3: 착공
@@ -675,8 +734,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       else reasons.push(`txStatus=${txStatus}|step=${curStep}`);
     }
 
-    // Stage 4: 중간점검
-    if (ns[3] === "done") {
+    // Stage 4: 중간점검 — 계획에 없으면 건너뜀
+    if (!planUsesStage(plan, 4)) {
+      ns[4] = "skipped";
+    } else if (ns[3] === "done") {
       if (p3?.status === "APPROVED" || curStep >= 4) {
         ns[4] = "done";
         if (p3?.status === "APPROVED") reasons.push("중간payout=APPROVED");
@@ -689,9 +750,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       }
     }
 
-    // Stage 5: 완료
+    // Stage 5: 완료 — 중간이 없는 계획은 착공 다음이 바로 완료
     // SETTLED shortcut also guarded by !derivedFromRecovery
-    if (ns[4] === "done") {
+    const beforeDone = ns[4] === "skipped" ? ns[3] === "done" : ns[4] === "done";
+    if (beforeDone) {
       if (p4?.status === "APPROVED" || curStep >= 5 || (txStatus === "SETTLED" && !derivedFromRecovery)) {
         ns[5] = "done";
         if (p4?.status === "APPROVED") reasons.push("완료payout=APPROVED");
@@ -708,7 +770,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
     // Global SETTLED shortcut: only when contract is reliably resolved (not from recovery path)
     if (txStatus === "SETTLED" && !derivedFromRecovery) {
-      ns[3] = "done"; ns[4] = "done"; ns[5] = "done";
+      ns[3] = "done"; if (ns[4] !== "skipped") ns[4] = "done"; ns[5] = "done";
       reasons.push("SETTLED_override");
     }
 
@@ -720,7 +782,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       reasons.push("⛔safety:ns4_clamped(step=" + curStep + ")");
     }
     if (curStep < 5 && ns[5] === "done") {
-      ns[5] = ns[4] === "done" ? "company_todo" : "locked";
+      ns[5] = (ns[4] === "done" || (ns[4] === "skipped" && ns[3] === "done")) ? "company_todo" : "locked";
       reasons.push("⛔safety:ns5_clamped(step=" + curStep + ")");
     }
 
@@ -751,13 +813,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       setApprovalError("분쟁 처리 중에는 단계를 승인할 수 없어요.");
       return;
     }
-    const s = STAGE_META.find(x => x.id === stageId);
+    const s = stageMeta.find(x => x.id === stageId);
+    // 다음 단계 = 지급 계획에 있는 다음 단계(중간이 없으면 착공 → 완료)
+    const nextId = [4, 5].find(id => id > stageId && planUsesStage(stagePlan, id)) ?? null;
     setApprovalError(null);
     // Optimistic UI
     setStageStatus(prev => ({
       ...prev,
       [stageId]: "done",
-      ...(stageId < 5 ? { [stageId + 1]: "company_todo" } : {}),
+      ...(nextId ? { [nextId]: "company_todo" } : {}),
     }));
     setConfirmStage(null);
     if (s?.confirmLabel) addTimeline("confirm", s.timelineLabel ?? s.confirmLabel);
@@ -798,7 +862,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         setStageStatus(prev => ({
           ...prev,
           [stageId]: "pending_customer",
-          ...(stageId < 5 ? { [stageId + 1]: "locked" } : {}),
+          ...(nextId ? { [nextId]: "locked" } : {}),
         }));
         const detail = payoutFailed && stepFailed ? "두 단계 모두 실패"
           : payoutFailed ? "정산 승인 실패"
@@ -841,15 +905,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         }
       }
 
-      if (stageId === 5 && resolvedBid?.companyId) {
-        updateCompanyTemp(resolvedBid.companyId, 2.5).catch(() => {});
-      }
+      // 완료 승인 뒤 공간온도·완료 건수는 서버가 정산 완료(SETTLED) 때 올린다(migration 109).
 
       if (!payoutFailed && !stepFailed) {
         postProjectEvent(request?.user_id ?? userId ?? null, resolvedBid?.companyId ?? contractData?.company_id ?? null,
           stageId === 5
             ? "고객이 공사 완료를 확인했어요. 수고하셨습니다 — A/S 가 필요하면 이 방에서 이어서 이야기하세요."
-            : `고객이 ${s?.label ?? "단계"}을(를) 확인하고 승인했어요.`);
+            : `고객이 ${s?.label ?? "단계"} 사진을 확인하고 승인했어요.`);
       }
 
       logActivity({
@@ -873,7 +935,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     if (reportingStage !== null) return;
     if (stageStatus[stageId] === "pending_customer" || stageStatus[stageId] === "done") return;
     reportingRef.current = true;
-    const s = STAGE_META.find(x => x.id === stageId);
+    const s = stageMeta.find(x => x.id === stageId);
     setReportingStage(stageId);
     setReportError(null);
 
@@ -1089,7 +1151,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
         if (s?.label) addTimeline("photo", s.label);
         postProjectEvent(request?.user_id ?? resolvedCustomerId ?? null, resolvedBid?.companyId ?? contractData?.company_id ?? null,
-          `업체가 ${s?.label ?? "단계"} 사진 ${photos.length}장을 보냈어요. 사진을 보고 승인해 주세요(72시간 안에 답이 없으면 자동 승인).`);
+          `업체가 ${s?.label ?? "단계"} 사진 ${photos.length}장을 보냈어요. 사진을 보고 승인해 주세요.${autoApproveHours ? ` ${autoApproveHours}시간 안에 확인이 없으면 자동으로 승인돼요.` : ""}`);
         // GPS·사진 증빙 체크포인트는 위(1.)에서 단계 완료 *이전*에 저장 완료됨(실패 시 여기 도달 안 함).
         // 단계 사진 전송 성공 = 업체가 실제 시공 중. 요청을 in_progress 로 확정 전환해
         // 업체 "새 견적 요청"(status=open) 입찰 목록에서 제거한다(이중 노출 방지).
@@ -1195,7 +1257,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     }));
   };
 
-  const paid = STAGE_META.filter(s => stageStatus[s.id] === "done" && s.pct > 0).reduce((a, s) => a + s.pct, 0);
+  const paid = stageMeta.filter(s => stageStatus[s.id] === "done" && s.pct > 0).reduce((a, s) => a + s.pct, 0);
 
   const headerSub = resolvedBid
     ? `${resolvedBid.company?.name ?? "—"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
@@ -1211,7 +1273,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const statusIcon = (sid) => {
     const st = stageStatus[sid];
     if (st === "done") return "✓";
-    const meta = STAGE_META.find(s => s.id === sid);
+    const meta = stageMeta.find(s => s.id === sid);
     return meta?.icon ?? "○";
   };
 
@@ -1461,7 +1523,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       <EscrowNextCard
         stageStatus={stageStatus}
         isConsumer={isConsumer}
-        labels={Object.fromEntries(STAGE_META.map(m => [m.id, isConsumer ? (CUSTOMER_DISPLAY[m.id]?.label ?? m.label) : m.label]))}
+        labels={Object.fromEntries(stageMeta.map(m => [m.id, isConsumer ? (customerDisplay[m.id]?.label ?? m.label) : m.label]))}
         settled={stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED"}
         disputed={!!disputeSubmitted}
         reviewed={!!reviewedForContract}
@@ -1721,7 +1783,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           {isConsumer && !(stageStatus[5] === "done" || contractData?.transaction_status === "SETTLED") && (
             <div style={{ fontSize: 12.5, color: C.text3, marginBottom: S.lg }}>한 걸음씩, 기록이 쌓이고 있습니다.</div>
           )}
-          {STAGE_META.map((s, i) => {
+          {stageMeta.map((s, i) => {
             const status = stageStatus[s.id];
             // stages[0..3] correspond to STAGE_META ids 2..5 (id 1 is deposit, no payment)
             const stage = s.id >= 2 ? stages[s.id - 2] : null;
@@ -1733,7 +1795,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             const deadline = stageDeadlines[s.id];
 
             return (
-              <div key={s.id} id={`stage-${s.id}`} style={{ display: "flex", gap: S.md, marginBottom: i < STAGE_META.length - 1 ? S.xl : 0, scrollMarginTop: 90 }}>
+              <div key={s.id} id={`stage-${s.id}`} style={{ display: "flex", gap: S.md, marginBottom: i < stageMeta.length - 1 ? S.xl : 0, scrollMarginTop: 90 }}>
                 {/* Timeline dot */}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
                   <div style={{
@@ -1746,7 +1808,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   }}>
                     <Icon emoji={statusIcon(s.id)} size={18} color={(done || active) ? "#fff" : C.text4} />
                   </div>
-                  {i < STAGE_META.length - 1 && (
+                  {i < stageMeta.length - 1 && (
                     <div style={{ width: 2, flex: 1, minHeight: 20, marginTop: 4, background: done ? C.green : C.bgWarm }} />
                   )}
                 </div>
@@ -1754,7 +1816,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                 {/* Content */}
                 <div style={{ flex: 1, paddingTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: done ? C.green : active ? C.brand : C.text3 }}>{isConsumer ? (CUSTOMER_DISPLAY[s.id]?.label ?? s.label) : s.label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: done ? C.green : active ? C.brand : C.text3 }}>{isConsumer ? (customerDisplay[s.id]?.label ?? s.label) : s.label}</div>
                     {stage && (
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: done ? C.green : active ? C.brand : C.text4 }}>
@@ -1773,7 +1835,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       </div>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5, marginBottom: active ? S.md : 0 }}>{isConsumer ? (CUSTOMER_DISPLAY[s.id]?.sub ?? s.sub) : s.sub}</div>
+                  <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5, marginBottom: active ? S.md : 0 }}>{isConsumer ? (customerDisplay[s.id]?.sub ?? s.sub) : s.sub}</div>
 
                   {/* ── Company action buttons (stages 2, 3, 4) ── */}
                   {!isConsumer && status === "company_todo" && s.id >= 2 && (
@@ -1866,7 +1928,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       )}
                       <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm }}>
                         <Icon emoji="⏳" size={16} color={C.brand} />
-                        <span style={{ fontSize: 13, color: C.brand, fontWeight: 700 }}>고객 확인 대기중 · 72시간 내 자동 승인</span>
+                        <span style={{ fontSize: 13, color: C.brand, fontWeight: 700 }}>고객 확인 대기중{serverDeadlineOf(s.id) ? ` · ${autoApproveHours}시간 안에 확인이 없으면 자동 승인` : ""}</span>
                       </div>
                     </div>
                   )}
@@ -1887,7 +1949,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                         {s.id === 4 && <><Icon emoji="📸" size={13} color={C.brand} /> 중간 공사 사진을 확인하고 승인해주세요</>}
                         {s.id === 5 && <><Icon emoji="🏁" size={13} color={C.brand} /> 업체가 공사 완료 사진을 올렸습니다</>}
                       </div>
-                      {deadline && <CountdownTimer deadlineMs={deadline} />}
+                      {/* 자동 승인 — 서버가 실제로 처리할 때만(설정 켜짐 + 사진 올린 서버 시각이 있을 때) */}
+                      {serverDeadlineOf(s.id) && <CountdownTimer deadlineMs={serverDeadlineOf(s.id)} hours={autoApproveHours} />}
                       {photos.length > 0 && (
                         <div style={{ display: "grid", gridTemplateColumns: photos.length === 1 ? "1fr" : "repeat(2,1fr)", gap: S.sm, marginBottom: S.md }}>
                           {photos.map((src, pi) => (
@@ -1916,7 +1979,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                             display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                           {disputeSubmitted
                             ? <><Icon emoji="🔒" size={13} color={C.text4} /> 분쟁 동결 중</>
-                            : <><Icon emoji="✅" size={13} color="#fff" /> {(isConsumer ? CUSTOMER_DISPLAY[s.id]?.confirmLabel : null) ?? s.confirmLabel}</>}
+                            : <><Icon emoji="✅" size={13} color="#fff" /> {(isConsumer ? customerDisplay[s.id]?.confirmLabel : null) ?? s.confirmLabel}</>}
                         </button>
                       </div>
                     </div>
@@ -2155,21 +2218,23 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ textAlign: "center", marginBottom: S.xxl }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}><Icon emoji="💸" size={44} color={C.brand} /></div>
               <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6 }}>
-                {confirmStage === 3 && "공사 시작을 확인하고 업체에 지급할까요?"}
+                {confirmStage === 3 && ((stages[1]?.amount ?? 0) > 0 ? "공사 시작을 확인하고 업체에 지급할까요?" : "공사 시작을 확인할까요?")}
                 {confirmStage === 4 && "중간 공사를 확인하고 업체에 지급할까요?"}
                 {confirmStage === 5 && "공사 완료를 확인하고 업체에 잔금을 지급할까요?"}
               </div>
               <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
-                공간마켓이 보관 중인 금액에서<br />
-                <b style={{ color: C.text1 }}>{fmtMoney(stages[confirmStage - 2]?.amount ?? 0)}</b>을 업체에 지급합니다
+                {(stages[confirmStage - 2]?.amount ?? 0) > 0
+                  ? <><b style={{ color: C.text1 }}>{fmtMoney(stages[confirmStage - 2]?.amount ?? 0)}</b>을 업체에 지급합니다</>
+                  : <>이 단계는 지급 없이 기록만 남아요. 공사비는 완료 확인 때 한꺼번에 지급돼요.</>}
               </div>
             </div>
             {stages.length > 0 && (
               <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, marginBottom: S.xl }}>
-                {stages.map(({ name, percent, amount }, idx) => (
-                  <div key={name} style={{ display: "flex", justifyContent: "space-between", padding: `${S.sm}px 0`, borderBottom: idx < stages.length - 1 ? `1px solid ${C.bgWarm}` : "none" }}>
-                    <span style={{ fontSize: 13, color: idx === 0 ? C.text3 : C.text2, fontWeight: 600 }}>{name} ({percent}%)</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: idx === 0 ? C.text4 : C.text1, textDecoration: idx === 0 ? "line-through" : "none" }}>{fmtMoney(amount)}</span>
+                {stages.map((st, i) => ({ ...st, uid: i + 2 })).filter(st => st.percent > 0).map(({ name, percent, amount, uid }, idx, arr) => (
+                  <div key={name} style={{ display: "flex", justifyContent: "space-between", padding: `${S.sm}px 0`, borderBottom: idx < arr.length - 1 ? `1px solid ${C.bgWarm}` : "none" }}>
+                    {/* 이미 지급된 단계는 줄을 긋는다(C16) */}
+                    <span style={{ fontSize: 13, color: stageStatus[uid] === "done" ? C.text4 : C.text2, fontWeight: 600 }}>{name} ({percent}%)</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: stageStatus[uid] === "done" ? C.text4 : C.text1, textDecoration: stageStatus[uid] === "done" ? "line-through" : "none" }}>{fmtMoney(amount)}</span>
                   </div>
                 ))}
               </div>
@@ -2183,7 +2248,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               <button onClick={() => { setConfirmStage(null); setApprovalError(null); }} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>취소</button>
               <button onClick={() => advanceStage(confirmStage)} style={{ flex: 2, padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand44}`,
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <Icon emoji="✅" size={15} color="#fff" /> {(isConsumer ? CUSTOMER_DISPLAY[confirmStage]?.confirmLabel : null) ?? STAGE_META.find(x => x.id === confirmStage)?.confirmLabel ?? "승인하고 지급"}
+                <Icon emoji="✅" size={15} color="#fff" /> {(isConsumer ? customerDisplay[confirmStage]?.confirmLabel : null) ?? stageMeta.find(x => x.id === confirmStage)?.confirmLabel ?? "승인하고 지급"}
               </button>
             </div>
           </div>

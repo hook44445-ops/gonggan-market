@@ -1,3 +1,4 @@
+import { isPaymentPaused } from "../../../lib/supabase";
 // ── TossPayments 어댑터 (실연동) ────────────────────────────────────────────
 // 화면 컴포넌트에서 Toss SDK 로딩/호출을 직접 하지 않도록 분리.
 export const id = "TOSS";
@@ -32,6 +33,12 @@ export async function requestPayment({
 }) {
   if (!clientKey) throw new Error("Missing Toss client key");
   if (!tossMethod) throw new Error("Unsupported Toss payment method");
+  // 관리자 「신규 결제 중지」 — 결제창을 열기 전에 막는다(서버 승인 단계도 한 번 더 막는다).
+  if (await isPaymentPaused()) {
+    const e = new Error("지금은 새 결제를 잠시 멈췄어요. 잠시 후 다시 시도해 주세요.");
+    e.code = "PAYMENTS_PAUSED";
+    throw e;
+  }
   const TossPayments = await loadSdk();
   const toss = TossPayments(clientKey);
   return toss.requestPayment(tossMethod, {

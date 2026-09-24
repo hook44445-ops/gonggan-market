@@ -108,6 +108,7 @@ import {
   getEscrowWithPayouts,
   getActiveRequestByUser,
   archiveRequestAuto,
+  wakePushDispatcher,
   getTopReviews,
   getRecentPortfolios,
   getPortfolios,
@@ -618,6 +619,9 @@ const FAQ_ITEMS = [
 
 export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
+  // 마운트 때 한 번 도는 딥링크 처리처럼 오래된 클로저에서도 지금 역할을 읽기 위한 ref.
+  const activeRoleRef = useRef(activeRole);
+  activeRoleRef.current = activeRole;
   const mode = activeRole === "company" ? "company" : activeRole === "admin" ? "admin" : "consumer";
 
   // 역할별 테마 — 파트너(업체)는 네이비, 고객은 기존 그린. 루트 data-role 만 전환한다.
@@ -990,6 +994,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         const newReq = normalizeRequest(data);
         setMyRequests(prev => [newReq, ...prev]);
         setCustomerRequests(prev => [newReq, ...prev]);
+        wakePushDispatcher(); // 재노출도 새 요청 — 파트너 알림(서버 트리거)을 바로 보낸다
       }
     } else {
       setReqCreateDebug({ _note: "repost guard blocked", requestId, hasTmpPrefix: requestId.startsWith("tmp-"), hasUserId: !!user.id, hasOriginalReq: !!originalReq });
@@ -1002,18 +1007,30 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     const markUpdated = r => r.id === requestId
       ? { ...r, type: form.type, size: form.size, style: form.style, desc: form.desc }
       : r;
+    if (requestId.startsWith("tmp-")) {
+      setMyRequests(prev => prev.map(markUpdated));
+      setCustomerRequests(prev => prev.map(markUpdated));
+      setEditRequest(null);
+      showToast("✅ 견적 요청이 수정됐어요");
+      return;
+    }
+    // 저장이 끝난 뒤에만 「수정됐어요」 — 예전엔 먼저 띄우고 결과를 안 봐서, 저장 실패가 가려졌다.
+    const { error } = await updateRequest(requestId, {
+      space_type:  form.type,
+      size:        form.size,
+      style:       form.style,
+      description: form.desc ?? "",
+    }, user?.id);
+    if (error) {
+      const locked = /REQUEST_LOCKED/.test(error.message ?? "");
+      showToast(locked ? "업체를 고른 뒤에는 요청 내용을 바꿀 수 없어요. 대화방에서 업체와 이야기해 주세요."
+                       : "❌ 수정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
     setMyRequests(prev => prev.map(markUpdated));
     setCustomerRequests(prev => prev.map(markUpdated));
     setEditRequest(null);
     showToast("✅ 견적 요청이 수정됐어요");
-    if (!requestId.startsWith("tmp-")) {
-      await updateRequest(requestId, {
-        space_type:  form.type,
-        size:        form.size,
-        style:       form.style,
-        description: form.desc ?? "",
-      });
-    }
   };
 
   const [reqDebug, setReqDebug] = useState(null);
@@ -1990,7 +2007,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
     const processTossReturn = async () => {
       // C-3: server-side payment verification — abort if Toss rejects
-      if (paymentKey && orderId && amount) {
+      // 토스 결제번호 없이 돌아온 경우(주소만 열림 등) — 승인 확인 없이 기록하지 않는다.
+      if (!(paymentKey && orderId && amount)) {
+        showToast("결제 확인 정보가 없어 진행하지 않았어요. 결제를 다시 시도해 주세요.");
+        return;
+      }
+      {
         try {
           const confirmRes = await fetch("/api/confirm-payment", {
             method: "POST",
@@ -1998,7 +2020,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             body: JSON.stringify({ paymentKey, orderId, amount }),
           });
           if (!confirmRes.ok) {
-            showToast("결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+            const j = await confirmRes.json().catch(() => ({}));
+            showToast(j?.code === "PAYMENTS_PAUSED" ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
             return;
           }
         } catch {
@@ -2107,14 +2130,23 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
     const processTokenReturn = async () => {
       // 서버 승인 검증 — 토스가 거절하면 적립하지 않는다(에스크로와 동일 패턴).
-      if (paymentKey && orderId && amount) {
+      // 토스 결제번호 없이 돌아온 경우(주소만 열림 등) — 승인 확인 없이 기록하지 않는다.
+      if (!(paymentKey && orderId && amount)) {
+        showToast("결제 확인 정보가 없어 진행하지 않았어요. 결제를 다시 시도해 주세요.");
+        return;
+      }
+      {
         try {
           const confirmRes = await fetch("/api/confirm-payment", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentKey, orderId, amount }),
           });
-          if (!confirmRes.ok) { showToast("결제 확인에 실패했습니다. 고객센터에 문의해주세요."); return; }
+          if (!confirmRes.ok) {
+            const j = await confirmRes.json().catch(() => ({}));
+            showToast(j?.code === "PAYMENTS_PAUSED" ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+            return;
+          }
         } catch {
           showToast("결제 서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
           return;
@@ -2141,23 +2173,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
     processTokenReturn().catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // One-time cleanup: archive known test requests (runs once on mount)
-  useEffect(() => {
-    const TEST_IDS = [
-      "7c04f82e", "eac3b498", "ba6b29b6", "18d966b7",
-    ];
-    // supabase uuid starts with these prefixes — archive via prefix match using RPC isn't available,
-    // so we archive by fetching then filtering
-    supabase
-      .from("requests")
-      .select("id")
-      .or(TEST_IDS.map(p => `id.ilike.${p}%`).join(","))
-      .then(({ data }) => {
-        if (data) data.forEach(r => archiveRequest(r.id));
-      })
-      .catch(() => {});
-  }, []);
 
   // Load bids + subscribe to realtime when viewing a request's bid status
   useEffect(() => {
@@ -2648,9 +2663,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         const friendly = dup ? "이미 입찰한 요청이에요. 입찰 수정으로 변경해주세요."
           : /BID_OVER_LIMIT/.test(msg) ? `공사 1건 한도${lim ? `(${Number(lim).toLocaleString("ko-KR")}만원)` : ""}를 넘었어요. 서류를 내면 한도가 커져요.`
           : /COMPANY_NOT_ACTIVE/.test(msg) ? "지금은 입찰할 수 없는 상태예요. 고객센터로 문의해 주세요."
+          : /BIDS_PAUSED/.test(msg) ? "지금은 새 입찰을 잠시 멈췄어요. 잠시 후 다시 시도해 주세요."
           : `입찰을 저장하지 못했어요: ${msg}`;
         showToast(friendly);
-        if (!/BID_OVER_LIMIT|COMPANY_NOT_ACTIVE/.test(msg) && !dup) alert(friendly);
+        if (!/BID_OVER_LIMIT|COMPANY_NOT_ACTIVE|BIDS_PAUSED/.test(msg) && !dup) alert(friendly);
         return;
       }
       if (data) {
@@ -2752,29 +2768,25 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           successUrl: window.location.origin + "/?pg_token_success=1",
           failUrl:    window.location.origin + "/?pg_token_fail=1",
         });
-        // 팝업 모드 등 리다이렉트가 발생하지 않은 경우 — 라이브 키면 승인 검증 없이 적립 금지.
-        if (isLiveKey) return;
+        // 리다이렉트가 안 된 경우(팝업 등) — 토스 승인 없이는 적립하지 않는다(키 종류와 무관).
+        return;
       } catch (err) {
-        // 라이브 키 환경에서는 결제 실패/취소 시 적립하지 않는다.
-        if (isLiveKey) {
+        // 관리자 「신규 결제 중지」 — 시뮬레이션 적립으로 넘어가지 않는다.
+        if (err?.code === "PAYMENTS_PAUSED") {
           try { localStorage.removeItem("pg_token_pending"); } catch { /* noop */ }
-          showToast("결제가 완료되지 않았습니다. 다시 시도해주세요.");
+          showToast(err.message);
           return;
         }
-        // 테스트 키 환경 — 결제창 로드 실패 시 시뮬레이션으로 폴백.
+        // 결제창 실패·취소 — 적립하지 않는다. 예전엔 테스트 키(운영이 지금 쓰는 키)에서
+        // 가짜 결제번호로 토큰을 적립하고 매출 기록까지 만들었다.
+        try { localStorage.removeItem("pg_token_pending"); } catch { /* noop */ }
+        showToast("결제가 완료되지 않았습니다. 다시 시도해 주세요.");
+        return;
       }
-      // 테스트 키(비-live) — 결제창 미리다이렉트/실패 시 시뮬레이션 적립.
-      try { localStorage.removeItem("pg_token_pending"); } catch { /* noop */ }
-      const { data, error } = await purchaseSpaceTokens({
-        userId: user.id, tokens, price, orderId,
-        paymentKey: `test_${Date.now()}`, method: "CARD", description,
-      });
-      if (error || data?.error) { showToast("토큰 적립에 실패했어요. 고객센터에 문의해주세요."); return; }
-      await reloadTokens?.();
-      showToast(`🪙 ${tokens.toLocaleString()} 토큰이 지급됐어요! (테스트 모드)`);
-      go("token-history");
-      return;
     }
+
+    // 결제 키가 없으면 SAFE_MODE(개발·QA)에서만 시뮬레이션 적립 — 운영에서는 결제하지 않는다.
+    if (!SAFE_MODE) { showToast("지금은 결제를 받을 수 없어요. 고객센터로 문의해 주세요."); return; }
 
     // 키 없음 / SAFE_MODE — 시뮬레이션 적립(개발·QA).
     const orderId = `token_sim_${Date.now()}`;
@@ -2802,6 +2814,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       go("dashboard");
       return;
     }
+    // 파트너: 새 견적 요청(한도 안) → 입찰할 요청 목록이 있는 홈 / 한도 밖 → 「내 한도 · 서류」(migration 110).
+    if (t === "NEW_REQUEST") { loadCompanyRequests?.(); go("home"); return; }
+    if (t === "NEW_REQUEST_LOCKED") { setScreen("document-center"); return; }
     // 의뢰인: 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교(bidstatus).
     if ((t === "BID_RECEIVED" || t === "BID_ALL_IN") && rid) {
       setBidViewRequestId(rid);
@@ -2923,6 +2938,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   // 푸시 클릭 딥링크: /requests/:id · /contracts/:id · /my (라운지 외)
   const applyPushDeepLink = (pathname) => {
     const req = pathname.match(/^\/requests\/([^/]+)/);
+    // 파트너가 새 요청 푸시를 누르면 고객용 견적 비교가 아니라 입찰 목록(홈)으로.
+    if (req && activeRoleRef.current === "company") { go("home"); return true; }
     if (req) { setBidViewRequestId(decodeURIComponent(req[1])); go("bidstatus"); return true; }
     const con = pathname.match(/^\/contracts\/([^/]+)/);
     if (con) { setContractId(decodeURIComponent(con[1])); go("escrow"); return true; }
@@ -4747,7 +4764,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
             {projectRooms.length > 0 && (
               <>
-                {sectionTitle(`🏗 진행 중인 공사 (${projectRooms.length})`)}
+                {(() => {
+                  // 끝난 공사까지 「진행 중」으로 세던 것 — 제목을 실제 상태로.
+                  const live = projectRooms.filter(rm => !["completed", "closed", "cancelled"].includes(rm.request_status ?? rm.status)).length;
+                  return sectionTitle(live > 0
+                    ? `🏗 진행 중인 공사 (${live})${live < projectRooms.length ? ` · 완료 ${projectRooms.length - live}` : ""}`
+                    : `🏗 공사 대화방 (${projectRooms.length})`);
+                })()}
                 {projectRooms.map(rm => {
                   const title = [rm.space_type, rm.size, rm.region].filter(Boolean).join(" · ") || "공사";
                   const who = rm.counterpart_name ? (rm.my_role === "company" ? `${rm.counterpart_name} 고객님` : rm.counterpart_name) : (rm.my_role === "company" ? "고객님" : "업체");
@@ -5095,11 +5118,18 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const open = myRequests.filter(r => isRequestOpenForQuotes(r, escOf(r))).length;
           const prog = myRequests.filter(r => isRequestInProgress(r, escOf(r))).length;
           const done = myRequests.filter(r => isRequestSettled(r, escOf(r))).length;
+          // 파트너는 자기 숫자로 — 예전엔 고객용 계산(내 요청)이 들어가 늘 0 이었다.
+          const isCo = activeRole === "company";
+          const coStats = isCo ? {
+            requests:   biddableRequests.length,
+            inProgress: companyJobs.length,
+            completed:  currentUser?.completedJobs ?? myCompanyRow?.completed_jobs ?? 0,
+          } : null;
           return (
             <MyPageV3
               user={user}
               activeRole={activeRole}
-              stats={{ requests: open, inProgress: prog, completed: done, saved: savedCompanies.length }}
+              stats={{ requests: coStats?.requests ?? open, inProgress: coStats?.inProgress ?? prog, completed: coStats?.completed ?? done, saved: savedCompanies.length }}
               grade={(() => {
                 // 고객: 완료 건수 기반 등급(새집→우리집→드림하우스→홈스타일러)
                 // 업체: 공간온도 기반 등급(GRADE) — 둘 다 '쌓이는 느낌'을 진행바로 보여준다.
@@ -5128,7 +5158,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 if (target === "lounge-settings" || target === "my-posts") { setScreen("lounge"); return; }
                 if (target === "notifications") { setScreen("timeline"); return; }
                 if (target === "help") { setFaqExpanded(true); setScreen("my"); return; }
-                if (target === "documents") { setScreen("dashboard"); return; }
+                // 「내 한도 · 서류」 화면(DocumentCenterScreen) — 예전엔 파트너센터로 잘못 보냈다.
+                if (target === "documents") { setScreen("document-center"); return; }
                 setScreen(target);
               }}
               onLogout={onLogout}
@@ -6173,6 +6204,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             setMyRequests(prev => prev.map(replace));
             setCustomerRequests(prev => prev.map(replace));
             earnToken("first_quote_request");
+            // 파트너 알림은 서버 트리거가 큐에 넣는다 — 여기선 바로 보내라고 깨우기만.
+            wakePushDispatcher();
           }
         }
       }} />}
