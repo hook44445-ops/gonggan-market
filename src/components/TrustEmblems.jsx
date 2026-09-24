@@ -59,7 +59,6 @@ export function companyLevel(company = {}) {
   if (given >= 1) return Math.min(10, Math.floor(given));
   const xp = computeCompanyXp({
     completedCount: Number(company.completedJobs ?? company.completed_count ?? 0),
-    reviewCount:    Number(company.reviews ?? company.review_count ?? 0),
     hasGuarantee:   trustState(company).deposit,
   });
   return levelInfo(xp).level;

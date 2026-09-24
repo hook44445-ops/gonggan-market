@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S, SHADOW } from "../constants";
 import { SHOW_DEBUG_UI } from "../constants/release";
@@ -266,7 +267,8 @@ export default function DashboardScreen({
 
   // 업체 성장(Level+XP) — 표시 전용. 대시보드가 이미 보유한 집계에서 XP 파생(DB 쓰기 없음).
   //   공간온도/추천업체 로직과 완전 분리. XP/레벨은 감소하지 않는다.
-  const hasGuarantee = currentUser?.guarantee_status === "ACTIVE" || !!currentUser?.guarantee_grade;
+  // 공간보증 — 지도·비교 카드와 같은 기준(입금·승인 뒤 ACTIVE + 노출 · C1). 등급만 있다고 켜지 않는다.
+  const hasGuarantee = isGuaranteeBadgeVisible(currentUser ?? {});
   // P-XP-01 화면 정합: 업체카드/업체상세/마이페이지/메인 성장카드와 '동일 입력 기준'
   //   (완료 건수 + 공간보증)으로 통일 → 같은 사용자가 화면마다 동일한 Lv/XP/Progress 를 본다.
   //   ⚠️ 계산식(computeCompanyXp)·레벨식·XP 지급 정책·DB 무변경 — 입력 집합만 표준에 맞춤.

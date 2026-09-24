@@ -1,4 +1,5 @@
 import { SHOW_BETA_UI } from "../constants/release";
+import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES, SPACE_TYPES } from "../constants";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
@@ -703,8 +704,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   //   ownerId(=업체 소유자 user.id) 기준으로 완료 에스크로 건수를 조회(대시보드 statsData 와 동일 입력).
   const myGrowth = useCompanyGrowth({
     ownerId: activeRole === "company" ? (user?.id ?? currentUser?.ownerId ?? null) : null,
-    // 대시보드(DashboardScreen)의 hasGuarantee 정의와 동일하게 맞춘다(뱃지 제외) → 동일 XP/LV.
-    hasGuarantee: currentUser?.guarantee_status === "ACTIVE" || !!currentUser?.guarantee_grade,
+    // 대시보드·지도 카드와 같은 공간보증 기준(C1) → 화면마다 같은 XP/LV.
+    hasGuarantee: isGuaranteeBadgeVisible(currentUser ?? {}),
   });
   const [showCloseConfirm, setShowCloseConfirm] = useState(null); // requestId being confirmed
   const bidRealtimeRef = useRef(null);
