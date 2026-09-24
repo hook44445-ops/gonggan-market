@@ -37,7 +37,7 @@ const JOURNEY = [
   {
     no: "01", when: "요청한 날",
     title: "같은 조건으로 모읍니다",
-    desc: "어떤 공간을 어디까지 고칠지 한 번만 적으면, 사업자등록을 확인한 업체들이 같은 조건으로 견적을 보냅니다.",
+    desc: "어떤 공간을 어디까지 고칠지 한 번만 적으면, 업체들이 같은 조건을 보고 견적을 보냅니다.",
     proof: "요청서 · 업체 비교",
     img: "/images/journey/step1.webp",
   },
@@ -188,7 +188,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             </h1>
             <p style={{ fontSize: 15, color: SK.inkSoft, opacity: 1, fontWeight: 500,
               margin: "14px 0 22px", lineHeight: 1.65, wordBreak: "keep-all" }}>
-              사업자등록을 확인한 업체의 견적을 같은 조건으로 비교하고, 계약·현장 사진·진행 단계가 그대로 기록됩니다. 가입비 0원 · 견적 무료.
+              업체가 어디까지 증빙했는지 보면서 같은 조건으로 견적을 비교하고, 계약·현장 사진·진행 단계가 그대로 기록됩니다. 가입비 0원 · 견적 무료.
             </p>
             <button onClick={goConsumer} className="gg-rise gg-d3 gg-cta" style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
               무료 비교견적 받기 →
@@ -280,7 +280,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <h2 style={{ fontSize: "clamp(20px,4.5vw,24px)", fontWeight: 800, lineHeight: 1.35, margin: 0 }}>
             업체를 찾아다니는 시간을<br />공간마켓이 줄여 드립니다
           </h2>
-          <p style={{ opacity: .62, fontSize: 13, marginTop: 10, lineHeight: 1.7 }}>사업자등록을 확인한 업체의 견적을 한자리에서 비교하고, 계약부터 마무리까지 기록으로 남깁니다.</p>
+          <p style={{ opacity: .62, fontSize: 13, marginTop: 10, lineHeight: 1.7 }}>업체가 어디까지 증빙했는지 보면서 한자리에서 비교하고, 계약부터 마무리까지 기록으로 남깁니다.</p>
           <button onClick={goConsumer} className="gg-cta" style={{ ...btnBase, maxWidth: 340, background: "#fff",
             color: SK.forest, margin: "20px auto 0" }}>
             무료 비교견적 받기

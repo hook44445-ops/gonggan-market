@@ -554,3 +554,34 @@ test('프리렌더·llms.txt 도 같은 이메일을 낸다', async () => {
   assert.ok(llms.includes(BIZ.email));
   assert.ok(!llms.includes('gmail.com'));
 });
+
+// ─────────────────────────────────────────────────────
+// 「사업자등록을 확인한 업체가 견적을 보낸다」는 사실이 아니다.
+// 새 정책에서는 가입만 한 업체도 300만원까지 입찰한다(partnerTier LIMITS.NONE).
+// 이 문장이 설명에 들어가면 title·OG·프리렌더·llms.txt 에 실려 색인되고,
+// 같은 페이지 FAQ(「증빙이 적은 업체는 작은 공사만」)와 정면으로 모순된다.
+// ─────────────────────────────────────────────────────
+
+test('없는 검증을 광고하지 않는다 — 「사업자등록을 확인한 업체」 문구 금지', () => {
+  const banned = /사업자등록을 확인한 업체/;
+
+  for (const beta of [true, false]) {
+    for (const [path, seo] of Object.entries(pageSeo(beta))) {
+      assert.ok(!banned.test(seo.title), `${path} 제목에 금지 문구(beta=${beta})`);
+      assert.ok(!banned.test(seo.description), `${path} 설명에 금지 문구(beta=${beta})`);
+    }
+    for (const { q, a } of consumerFaq(beta)) {
+      assert.ok(!banned.test(q) && !banned.test(a), `의뢰인 FAQ 에 금지 문구: ${q}`);
+    }
+  }
+  for (const { q, a } of partnerFaq()) {
+    assert.ok(!banned.test(q) && !banned.test(a), `파트너 FAQ 에 금지 문구: ${q}`);
+  }
+});
+
+test('프리렌더·llms.txt 에도 금지 문구가 실리지 않는다', async () => {
+  for (const page of ['home', 'partner', 'llms']) {
+    const { body } = await invoke(prerender, { page });
+    assert.ok(!body.includes('사업자등록을 확인한 업체'), `프리렌더(${page}) 에 금지 문구`);
+  }
+});
