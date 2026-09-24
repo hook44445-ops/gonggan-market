@@ -15,11 +15,20 @@
        대신 앞장을 307→347 로 넓혀 오른쪽을 채웠다. 이제 처마가 뒷장 밖으로 78.5,
        앞장 밖으로 38.5 나온다 — 지붕 아래 내용물이 오른쪽에 실린다.
 
+       ★ 숨 쉴 여유(0.86)
+       그림을 판 안에서 0.86 으로 줄였다. 처음엔 1.0 이라 좌우 여백이 12.9% 뿐이었고
+       위아래(20.8%)보다 훨씬 좁아 옆으로 꽉 찬 느낌이었다. 0.86 이면 좌우 18% ·
+       위아래 25% 가 되고, 48px 에서도 세 덩어리가 뭉개지지 않는다.
+       이 값이면 안드로이드 마스커블 안전영역(중앙 80% 원)에도 들어가므로
+       일반판과 마스커블판의 크기를 하나로 맞출 수 있다.
+
        앞장 테두리(26)는 두 장을 떼어놓으려는 게 아니다. 금색과 아이보리는 이미 다른 색이라
        저절로 구분된다. «앞장이 위에 얹혀 있다»는 두께감이라 얇아야 맞다. -->
   <rect width="1024" height="1024" rx="230" fill="#17472F"/>
-  <path d="M171 457 L512 252 L853 457" fill="none" stroke="#F4EFE4" stroke-width="77"
-        stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="211" y="474" width="307" height="324" rx="26" fill="#F4EFE4"/>
-  <rect x="493" y="525" width="347" height="273" rx="26" fill="#D6A756" stroke="#17472F" stroke-width="26"/>
+  <g transform="translate(512 512) scale(0.86) translate(-512 -512)">
+    <path d="M171 457 L512 252 L853 457" fill="none" stroke="#F4EFE4" stroke-width="77"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="211" y="474" width="307" height="324" rx="26" fill="#F4EFE4"/>
+    <rect x="493" y="525" width="347" height="273" rx="26" fill="#D6A756" stroke="#17472F" stroke-width="26"/>
+  </g>
 </svg>

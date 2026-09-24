@@ -2,21 +2,21 @@
 <!-- 공간마켓 런처 아이콘 앞면 — 앱 아이콘 v4(지붕 아래 견적 두 장).
      도형 원본: public/icons/gm-icon-v4.svg (1024 그리드) · 같은 좌표를 그대로 옮겼다.
 
-     1024 그리드 → 108dp 어댑티브 화면. 내용을 0.88 로 줄여 어떤 마스크(원·스퀘어클)로
-     잘려도 살아남게 한다 — public/icons/gm-icon-v4-maskable.svg 와 같은 비율이다.
-       scale = (108/1024) * 0.88 = 0.0928
-       translate = 54 - 0.0928 * 512 = 6.49   (그림 중심 512,512.25 를 54dp 에 놓는다)
-     결과적으로 그림 폭이 108dp 중 약 65% 를 차지한다 — v3 과 같은 크기감이다. -->
+     1024 그리드 → 108dp 어댑티브 화면. 내용을 0.86 으로 줄인다 — 원·스퀘어클 어떤 마스크로
+     잘려도 살아남고(안전영역: 중앙 지름 80%), 좌우로도 숨 쉴 여유가 생긴다.
+       scale = (108/1024) * 0.86 = 0.0907
+       translate = 54 - 0.0907 * 512 = 7.56   (그림 중심 512,512.25 를 54dp 에 놓는다)
+     public/icons/gm-icon-v4.svg 와 같은 0.86 이라 웹·iOS·안드로이드가 모두 같은 크기다. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:scaleX="0.0928"
-        android:scaleY="0.0928"
-        android:translateX="6.49"
-        android:translateY="6.46">
+        android:scaleX="0.0907"
+        android:scaleY="0.0907"
+        android:translateX="7.56"
+        android:translateY="7.54">
         <!-- 지붕 -->
         <path android:strokeColor="#F4EFE4" android:strokeWidth="77" android:fillColor="#00000000"
             android:strokeLineCap="round" android:strokeLineJoin="round"
