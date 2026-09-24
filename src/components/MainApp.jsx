@@ -2929,6 +2929,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   useEffect(() => {
     if (screen === "admin" && activeRole !== "admin") setScreen("home");
     if (screen === "dashboard" && activeRole !== "company") setScreen("home");
+    // 관리자 역할엔 홈 화면이 없다(의뢰인·업체 홈만 그린다) → 빈 화면 대신 관리 화면으로(C11).
+    if (screen === "home" && activeRole === "admin") setScreen("admin");
   }, [screen, activeRole]);
 
   // ── 라운지 SEO 딥링크 라우팅 ─────────────────────────────
