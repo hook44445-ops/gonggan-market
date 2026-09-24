@@ -157,7 +157,9 @@ export function CompanyTrustRow({ company, style, forPartner = false }) {
       >
         {TRUST_EMBLEMS.map(e => {
           const on = s[e.key];
-          const sub = e.key === "deposit" && on && s.depositGrade ? s.depositGrade : e.label;
+          // 보증금 칸은 두 줄 「보증금 / 프리미엄」 — 등급 이름만 쓰면 고객이 무엇의 프리미엄인지 모른다(대표 09-25).
+          const grade2 = e.key === "deposit" && on && s.depositGrade ? s.depositGrade : null;
+          const sub = e.label;
           return (
             <div key={e.key} role="button" tabIndex={0} aria-expanded={openKey === e.key}
               onClick={(ev) => { ev.stopPropagation(); setOpenKey(k => (k === e.key ? null : e.key)); }}
@@ -169,6 +171,7 @@ export function CompanyTrustRow({ company, style, forPartner = false }) {
                 marginTop: 3, fontSize: 10, fontWeight: on ? 700 : 500,
                 color: on ? INK : MUTED, whiteSpace: "nowrap",
               }}>{sub}</span>
+              {grade2 && <span style={{ fontSize: 10, fontWeight: 800, color: GOLD, whiteSpace: "nowrap", lineHeight: 1.2 }}>{grade2}</span>}
             </div>
           );
         })}
