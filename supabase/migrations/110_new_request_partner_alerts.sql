@@ -108,7 +108,7 @@ begin
               and coalesce((to_jsonb(v_pref) ->> 'push_estimate_news')::boolean, true);
     if v_push then
       insert into public.push_logs (user_id, type, title, body, target_url, related_id, status)
-      values (co.owner_id, v_type, v_title, v_msg, '/requests/' || r.id, r.id::text, 'queued')
+      values (co.owner_id, v_type, v_title, v_msg, '/requests/' || r.id, r.id, 'queued')   -- related_id 가 uuid 든 text 든 들어간다
       on conflict do nothing;
       v_count := v_count + 1;
     end if;
