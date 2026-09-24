@@ -204,3 +204,19 @@ test("partnerTier — 한도를 못 올리는 보증금이면 프리미엄이 �
   assert.equal(partnerTier({ ...base, depositManwon: 100 }).key, "verified");
   assert.equal(partnerTier({ ...base, depositManwon: 200 }).key, "premium");
 });
+
+import { cardNudge } from "./partnerTier.js";
+
+test("카드 유도 — 한도 밖이면 이 공사에 필요한 것, 1,000만원 넘으면 보증금", () => {
+  assert.match(cardNudge(1200, { biz: true, insurance: true }).text, /공간보증 프리미엄\(200만원\)/);
+  assert.match(cardNudge(1200, {}).text, /사업자등록증 \+ 시공보험 증권 \+ 공간보증/);
+  assert.equal(cardNudge(20000, { biz: true, insurance: true, depositManwon: 5000, license: true }).cta, null); // 1억 초과는 낼 것이 없다
+});
+
+test("카드 유도 — 한도 안이면 사업자 → 시공보험 순서로 한 가지", () => {
+  assert.equal(cardNudge(200, {}).key, "biz");
+  assert.equal(cardNudge(400, { biz: true }).key, "insurance");
+  assert.match(cardNudge(400, { biz: true }).text, /1,000만원/);
+  assert.equal(cardNudge(400, { biz: true, insurance: true }), null);
+  assert.equal(cardNudge(0, {}).key, "biz");                           // 예산을 모르면 사업자부터
+});

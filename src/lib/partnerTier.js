@@ -247,3 +247,23 @@ export function limitStateOf(company = {}) {
     license: company.license_verified === true,
   };
 }
+
+// 카드 한 장의 «다음 한 가지» — 입찰 카드·입찰 폼이 같은 문장을 보인다(대표 2026-09-24:
+// 「입찰 카드는 보이되 사업자·시공보험을 내도록 유도, 1,000만원 이상 카드는 보증금을 내도록 안내」).
+// 서류를 안 내는 이유는 대개 귀찮아서다 → 막지 않고, 이 카드에서 «내면 무엇이 되는지»를 한 줄로.
+//   1) 이 공사가 내 한도 밖  → 무엇을 내면 이 공사에 입찰할 수 있는지(1,000만원 초과면 보증금이 여기서 나온다)
+//   2) 한도 안 · 사업자 없음 → 선택돼도 계약은 사업자 확인 뒤(A안) — 미리 올려 두면 바로 계약
+//   3) 사업자 있음 · 보험 없음 → 시공보험을 내면 한도가 커진다
+//   null = 더 권할 것 없음
+export function cardNudge(budgetManwon, state = {}) {
+  const s = { biz: false, insurance: false, depositManwon: 0, license: false, ...state };
+  const amt = Number(budgetManwon) || 0;
+  const u = amt > 0 ? unlockFor(amt, s) : null;
+  if (u) return { key: "unlock", text: unlockMessage(u), cta: u.over ? null : "서류 올리기" };
+  if (!s.biz) return { key: "biz", text: "선택되면 계약은 사업자등록증 확인 뒤에 해요 — 미리 올려 두면 선택되자마자 계약돼요(홈택스 당일 발급)", cta: "사업자등록증 올리기" };
+  if (!s.insurance) {
+    const next = bidLimit({ ...s, insurance: true });
+    if (next > bidLimit(s)) return { key: "insurance", text: `시공보험 증권을 올리면 ${limitText(next)} 공사까지 입찰할 수 있어요`, cta: "시공보험 올리기" };
+  }
+  return null;
+}

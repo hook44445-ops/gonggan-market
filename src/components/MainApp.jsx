@@ -3046,6 +3046,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 siteVisit={siteVisitForBid}
                 onBidSubmit={isGuestCompany ? null : data => addBid(r, data)}
                 onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
+                onGoDocuments={() => setScreen("document-center")}
               />
             );
           })

@@ -550,7 +550,7 @@ export default function DashboardScreen({
                 오늘 견적 요청 <b style={{ color:C.brand }}>{biddable.length}건</b>
               </div>
               {biddable.map(r => <BidCard key={r.id} r={r} currentUser={currentUser} submittedBids={submittedBids}
-                onBidSubmit={onBidSubmit ? data => onBidSubmit(r, data) : undefined} />)}
+                onBidSubmit={onBidSubmit ? data => onBidSubmit(r, data) : undefined} onGoDocuments={onGoDocuments} />)}
             </div>
           );
         })()}
