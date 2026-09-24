@@ -238,7 +238,8 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
               return (
                 <button key={tag} onClick={() => set("desc", on
                     ? form.desc.split(/,\s*/).filter(x => x.trim() && x.trim() !== tag).join(", ")
-                    : (form.desc.trim() ? `${form.desc.trim().replace(/,$/, "")}, ${tag}` : tag))}
+                    // 끝에 한 칸 — 이어 쓰는 글이 칩 글에 붙지 않게(C8 「바닥[점검]…」)
+                    : (form.desc.trim() ? `${form.desc.trim().replace(/,$/, "")}, ${tag}` : tag) + " ")}
                   style={{ ...chip(on), padding: "8px 13px", minHeight: 38, fontSize: 13 }}>{on ? "✓ " : "+ "}{tag}</button>
               );
             })}

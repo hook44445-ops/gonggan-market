@@ -274,8 +274,11 @@ const normalizeRequest = (row) => {
       const lo = Number.isFinite(row.budget_min) && row.budget_min > 0 ? row.budget_min : null;
       const hi = Number.isFinite(row.budget_max) && row.budget_max > 0 ? row.budget_max : null;
       if (lo == null && hi == null) return "협의";
-      const a = lo ?? hi, b = hi ?? lo;
-      return a === b ? `${a}만원` : `${a}~${b}만원`;
+      // 한쪽만 있으면 「이하/이상」— 예전엔 「1,000만원 이하」가 「1000만원」 한 값처럼 보였다(C6)
+      const won = (n) => `${n.toLocaleString("ko-KR")}만원`;
+      if (lo == null) return `${won(hi)} 이하`;
+      if (hi == null) return `${won(lo)} 이상`;
+      return lo === hi ? won(lo) : `${lo.toLocaleString("ko-KR")}~${won(hi)}`;
     })(),
     style: row.style ?? "",
     desc: row.description ?? row.desc ?? "",

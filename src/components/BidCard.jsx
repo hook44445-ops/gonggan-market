@@ -304,7 +304,7 @@ export default function BidCard({
             </div>
 
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 6 }}>견적 금액 (만원) <span style={{ color: C.red }}>*</span></div>
-            <input value={bidForm.price} onChange={e => setBF("price", e.target.value)} placeholder="예: 2800" type="number" style={{ ...iS, borderColor: invalidPrice ? C.red : undefined }} />
+            <input value={bidForm.price} onChange={e => setBF("price", e.target.value)} placeholder={`예: ${Math.min(2800, Math.floor(maxBidAmount * 0.9 / 10) * 10)}`} type="number" style={{ ...iS, borderColor: invalidPrice ? C.red : undefined }} />
             {/* 한도에 걸리는 순간 = 「첫 벽」. 오류가 아니라 초대로 — 무엇을 내면 이 공사를 할 수 있는지 알려 준다. */}
             {overLimit && (() => {
               const u = unlockFor(bidPrice, limitState);
