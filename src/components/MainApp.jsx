@@ -54,7 +54,7 @@ import DocumentCenterScreen from "../screens/DocumentCenterScreen";
 import TermsModal from "./TermsModal";
 import BusinessInfoModal from "./BusinessInfoModal";
 import AppInfoModal from "./AppInfoModal";
-import ConsentGate, { hasConsented } from "./ConsentGate";
+import ConsentGate, { hasConsented, syncConsents } from "./ConsentGate";
 import BidCard from "./BidCard";
 import ImageViewerModal from "./ImageViewerModal";
 import CompanyDepositCard, { DepositPolicyCard } from "./CompanyDepositCard";
@@ -743,6 +743,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [showBusinessInfo, setShowBusinessInfo] = useState(false);
   const [showAppInfo, setShowAppInfo] = useState(false);
   const [consentGateConfig, setConsentGateConfig] = useState(null);
+  // 약관 동의를 서버와 맞춘다(SQL 121) — 새 기기에서 다시 묻지 않게, 이 기기에만 있던 동의는 서버로.
+  useEffect(() => {
+    if (user?.id && !user?.isGuest) syncConsents(user.id);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 마이페이지 도움말 FAQ — 기본 5개만 노출, "더보기"로 전체 펼침
   const [faqExpanded, setFaqExpanded] = useState(false);
