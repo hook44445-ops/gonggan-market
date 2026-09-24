@@ -45,3 +45,51 @@ test("비교 줄 — 모든 카드가 같은 순서, 없는 값은 —", () => {
   assert.equal(empty[1].value, "—");
   assert.equal(empty[2].value, "—");
 });
+
+// ── 수주 한도 안전안 ──────────────────────────────────────────────
+import { bidLimit, limitText, nextUnlock, unlockFor, LIMITS } from "./partnerTier.js";
+
+test("사업자 없음 — 가입만 300, 보험이나 보증금이 있으면 500, 그 이상은 막힌다", () => {
+  assert.equal(bidLimit({}), 300);
+  assert.equal(bidLimit({ insurance: true }), 500);
+  assert.equal(bidLimit({ depositManwon: 1000 }), 500);          // 보증금을 아무리 걸어도 사업자 없이는 500
+  assert.equal(bidLimit({ insurance: true, depositManwon: 1000, license: true }), 500);
+});
+
+test("사업자 있음 — 500 → 보험 1,000 → 보증금 × 10(면허 없으면 1,500 미만)", () => {
+  assert.equal(bidLimit({ biz: true }), 500);
+  assert.equal(bidLimit({ biz: true, insurance: true }), 1000);
+  assert.equal(bidLimit({ biz: true, insurance: true, depositManwon: 50 }), 1000);   // 500 < 1,000 이라 그대로
+  assert.equal(bidLimit({ biz: true, insurance: true, depositManwon: 200 }), LIMITS.UNLICENSED_CEILING);
+  assert.equal(bidLimit({ biz: true, insurance: true, depositManwon: 200, license: true }), 2000);
+  assert.equal(bidLimit({ biz: true, insurance: true, depositManwon: 5000, license: true }), 10000); // 1억 상한
+});
+
+test("보증금은 보험 없이는 한도를 올리지 않는다", () => {
+  assert.equal(bidLimit({ biz: true, depositManwon: 500 }), 500);
+});
+
+test("금액 글자 — 1,499 는 「1,500만원 미만」", () => {
+  assert.equal(limitText(300), "300만원");
+  assert.equal(limitText(1000), "1,000만원");
+  assert.equal(limitText(1499), "1,500만원 미만");
+  assert.equal(limitText(10000), "1억원");
+});
+
+test("다음 한 가지 — 하나만 더 내면 얼마가 되는지", () => {
+  assert.deepEqual(nextUnlock({}), { key: "biz", ask: "사업자등록증", from: 300, to: 500 });
+  assert.equal(nextUnlock({ biz: true }).key, "insurance");
+  assert.equal(nextUnlock({ biz: true, insurance: true }).key, "deposit");
+  assert.equal(nextUnlock({ biz: true, insurance: true, depositManwon: 200 }).key, "license");
+});
+
+test("입찰 금액이 넘을 때 — 무엇을 내면 되는지", () => {
+  assert.equal(unlockFor(250, {}), null);                                   // 이미 가능
+  assert.deepEqual(unlockFor(450, {}).need, ["시공보험 증권 또는 보증금"]);
+  assert.deepEqual(unlockFor(800, {}).need, ["사업자등록증", "시공보험 증권"]);
+  assert.deepEqual(unlockFor(800, { biz: true }).need, ["시공보험 증권"]);
+  assert.deepEqual(unlockFor(1200, { biz: true, insurance: true }).need, ["보증금 120만원 이상"]);
+  assert.deepEqual(unlockFor(3000, { biz: true, insurance: true, depositManwon: 100 }).need,
+    ["보증금 300만원 이상", "실내건축공사업 등록증"]);
+  assert.equal(unlockFor(20000, { biz: true, insurance: true, depositManwon: 5000, license: true }).over, true);
+});
