@@ -10,6 +10,12 @@ export default async function handler(req, res) {
   const { paymentKey, orderId, amount } = req.body ?? {};
   if (!paymentKey || !orderId || !amount) return res.status(400).json({ error: "Missing required fields" });
 
+  // 아는 주문만 승인한다 — 공사 결제(gm_{요청ID}_…)와 공간토큰(token_…). 예전엔 다른 주문번호(order_…)로 오면
+  // 아래 중복·사업자·금액 검사를 모두 건너뛸 수 있었다(총점검 09-24 6차).
+  if (!/^(gm_|token_)/.test(String(orderId))) {
+    return res.status(400).json({ error: "알 수 없는 주문이에요. 결제를 다시 시작해 주세요.", code: "UNKNOWN_ORDER" });
+  }
+
   const secretKey = process.env.TOSS_SECRET_KEY;
   if (!secretKey) return res.status(500).json({ error: "Payment service not configured" });
 
@@ -37,6 +43,16 @@ export default async function handler(req, res) {
     const company = await selectedCompanyOf(reqMatch[1]);
     if (company && !contractGate(company).ok) {
       return res.status(409).json({ error: BIZ_REQUIRED_MESSAGE, code: "BIZ_REQUIRED" });
+    }
+  }
+
+  // 금액 검사 — 결제 금액이 이 공사의 계약 금액(최종 견적서, 없으면 선택한 입찰가)보다 적으면 승인하지 않는다.
+  // 결제 금액은 앱이 보내는 값이라, 앱을 조작하면 240만원 공사를 1,000원에 «결제 완료»로 만들 수 있었다(총점검 09-24 6차).
+  // 이용료는 결제수단마다 달라 «이상»만 본다. 금액을 못 읽으면(조회 실패) 예전처럼 막지 않는다.
+  if (reqMatch) {
+    const base = await contractBaseWon(reqMatch[1]);
+    if (base && Number(amount) < base) {
+      return res.status(409).json({ error: "결제 금액이 계약 금액과 맞지 않아요. 결제를 다시 시작해 주세요.", code: "AMOUNT_MISMATCH" });
     }
   }
 
@@ -102,6 +118,27 @@ async function selectedCompanyOf(requestId) {
     const c = await fetch(`${url}/rest/v1/companies?or=(id.eq.${ref},owner_id.eq.${ref})&select=id,verified&limit=1`, { headers: h });
     if (!c.ok) return null;
     return (await c.json())?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// 이 공사의 계약 금액(원) — 서버 함수 contract_base_price(SQL 119: 최종 견적서 총액, 없으면 선택한 입찰가, 만원).
+// 못 읽으면 null(= 모름 → 막지 않음).
+async function contractBaseWon(requestId) {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  try {
+    const r = await fetch(`${url}/rest/v1/rpc/contract_base_price`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_request_id: requestId }),
+    });
+    if (!r.ok) return null;
+    const n = Number(await r.json());
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return n >= 100000 ? n : n * 10000;
   } catch {
     return null;
   }

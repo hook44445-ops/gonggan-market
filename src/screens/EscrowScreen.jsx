@@ -2358,7 +2358,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 16px" }} />
             <div style={{ fontSize: 17, fontWeight: 800, color: C.text1, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="📍" size={17} color={C.brand} /> GPS 기록이 필요한 단계입니다</div>
             <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7, marginBottom: 14 }}>
-              이 단계는 프로젝트 진행 기록을 정확하게 연결하기 위해 위치 기록을 함께 남깁니다. 기록 없이 진행하면 증빙관리에 <b>“GPS 누락”</b>으로 표시됩니다.{"\n"}위치를 기록하거나, 부득이한 경우 사유를 입력해 주세요.
+              이 단계는 프로젝트 진행 기록을 정확하게 연결하기 위해 위치 기록을 함께 남깁니다. 기록 없이 진행하면 증빙관리에 <b>“GPS 누락”</b>으로 표시됩니다.{"\n"}실내라 잘 안 잡히면 건물 밖 가까운 곳에서 「GPS 기록하기」를 눌러 주세요. 그래도 안 되면 사유를 입력해 주세요.
             </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
