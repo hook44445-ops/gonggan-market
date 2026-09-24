@@ -71,21 +71,25 @@ export const calculateCustomerTotal = (bidAmount) => {
 // companyCreatedAt 전달 시 멤버십 수수료(0/2.2/4.4%)로 수령액 계산.
 // 미전달(unknown) 시 보수적으로 최고요율(4.4%) 적용 — 과대 표기 방지.
 // ── 지급 계획(A3, 대표 결정 09-24) — 서버 escrow_plan_percent(migration 112)와 같은 표 ──
-//   4STEP: 사업자등록 + 500만원 이상 → 자재 10 · 착공 20 · 중간 40 · 완료 30
+//   4STEP: 사업자등록 + 500만원 이상 + 보증금(공간보증 ACTIVE) → 자재 10 · 착공 20 · 중간 40 · 완료 30
+//   3STEP: 사업자등록 + 500만원 이상 + 보증금 없음 → 착공 30(자재비 포함) · 중간 40 · 완료 30
+//          (대표 09-24 「나로 가자」 — 자재비 선지급은 보증금 건 업체의 혜택, 서버 migration 120)
 //   2STEP: 사업자등록 + 500만원 미만 → 착공 30 · 완료 70
 //   1STEP: 사업자등록증 없음(금액 무관) → 착공은 기록만(0) · 완료 100
 //   이미 맺은 계약(stage_plan 없음)은 4STEP 그대로.
 export const STAGE_PLANS = {
   "4STEP": [10, 20, 40, 30],
+  "3STEP": [0, 30, 40, 30],
   "2STEP": [0, 30, 0, 70],
   "1STEP": [0, 0, 0, 100],
 };
 export const normalizePlan = (plan) => (STAGE_PLANS[plan] ? plan : "4STEP");
 
 // 계약 전 미리보기용 — 서버(escrow_stage_plan)와 같은 규칙. bizVerified 는 관리자 확인된 사업자등록만.
-export const stagePlanFor = ({ bizVerified, totalManwon }) => {
+export const stagePlanFor = ({ bizVerified, totalManwon, guaranteeActive = false }) => {
   if (!bizVerified) return "1STEP";
-  return Number(totalManwon) < 500 ? "2STEP" : "4STEP";
+  if (Number(totalManwon) < 500) return "2STEP";
+  return guaranteeActive ? "4STEP" : "3STEP";
 };
 
 // 이 계획에서 공사 화면 단계(2 자재 · 3 착공 · 4 중간 · 5 완료)가 쓰이는지

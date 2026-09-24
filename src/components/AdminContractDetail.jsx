@@ -160,7 +160,7 @@ export default function AdminContractDetail({ requestId = null, contractId = nul
               </Section>
 
               {/* 3) 원계약 정산 정보 + 액션 */}
-              <Section title="🧾 원계약 정산 (10/20/40/30)" sub="실제 송금 없음 — 상태 기록만">
+              <Section title="🧾 원계약 정산 (계약에 저장된 단계 비율)" sub="실제 송금 없음 — 상태 기록만">
                 {payouts.length === 0 ? (
                   <div style={{ fontSize: 12, color: C.text4 }}>정산 단계 없음</div>
                 ) : payouts.map((p) => (

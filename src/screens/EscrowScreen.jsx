@@ -581,7 +581,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
   // Timeline — start with local entry; DB entries loaded when contractId present
   const [timeline, setTimeline] = useState([
-    { id: 1, type: "contract", label: "계약 완료 · 공사비 안전 예치 · 자재비 선지급 (10%)", ts: Date.now() - 2 * 24 * 3600 * 1000 },
+    { id: 1, type: "contract", label: "계약·결제 완료", ts: Date.now() - 2 * 24 * 3600 * 1000 },
   ]);
 
   const addTimeline = (type, label) => {
