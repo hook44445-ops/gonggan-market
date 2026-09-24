@@ -65,7 +65,7 @@ export default function SpaceProtectionBadge({ variant = "badge", style }) {
       padding: "12px 16px", display: "flex", gap: 10, alignItems: "flex-start",
       marginBottom: S.lg, ...style,
     }}>
-      <span style={{ fontSize: 18, flexShrink: 0 }}>🛡️</span>
+      <span style={{ fontSize: 18, flexShrink: 0 }}>{SHOW_BETA_UI ? "🗂️" : "🛡️"}</span>
       <div>
         <div style={{ fontSize: 14, fontWeight: 800, color: C.navy }}>{SHOW_BETA_UI ? "계약·사진·단계가 기록되고 있어요" : "공간마켓 안전거래로 보호 중"}</div>
         <div style={{ fontSize: 12, color: C.text3, marginTop: 2, lineHeight: 1.6 }}>
