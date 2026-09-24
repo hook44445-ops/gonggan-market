@@ -69,42 +69,27 @@
 → 두 정적 파일을 제거해 동적 버전을 살렸다.
 **`public/` 에 `robots.txt` / `sitemap.xml` / `llms.txt` 를 다시 만들면 안 된다.**
 
-### 남은 불확실성: `/` rewrite
+### ✅ 해결됨 — `/` rewrite 는 동작한다 (2026-09-24 확인)
 
-`/` 는 빌드 산출물 `dist/index.html` 이 파일시스템에서 먼저 잡힐 수 있어,
-`/` 의 봇 rewrite 가 같은 이유로 무력화될 가능성이 있다
-(`/partner` 는 해당 파일이 없어 확실히 동작한다).
+배포 전에는 `/` 가 `dist/index.html` 에 섀도잉될까 걱정했는데, **네이버 서치어드바이저
+「사이트 간단 체크」가 증거를 줬다.** 네이버가 수집한 설명은
 
-배포 환경에서 확인하지 못했으므로, **rewrite 가 안 먹어도 홈이 비지 않도록**
-전역 구조화 데이터(Organization·WebSite)를 `index.html` 정적 head 에 직접 넣었다.
-JS 를 실행하지 않는 크롤러도 운영 주체는 읽을 수 있다.
+> 믿을 수 있는 인테리어 업체 비교부터 계약, **공사 사진·진행 기록까지**…
 
-**배포 후 반드시 확인할 것:**
+**베타 문구**였다. 이 문장은 당시 정적 `index.html` 에 없었고 `pageSeo(beta)` 에만 있었다.
+즉 네이버 봇이 받은 문서는 `index.html` 이 아니라 **프리렌더 응답**이다.
 
-```bash
-# 1) 홈 프리렌더가 실제로 먹는지 — <h1> 과 FAQ 가 보이면 성공
-curl -s -A "Mozilla/5.0 (compatible; Yeti/1.1; +http://naver.me/spd)" \
-     https://gongganmarket.com/ | grep -c "<h1>"
+같은 확인에서 색인 항목도 전부 녹색이었다 — 수집 허용 예 · 수집 완료 예 · 응답 OK(200) ·
+색인 허용 예 · 색인 완료 예.
 
-# 2) 파트너 (확실히 동작해야 함)
-curl -s -A "Yeti" https://gongganmarket.com/partner | grep "수수료"
+### 그 확인이 드러낸 버그 (같은 날 수정)
 
-# 3) 동적 robots / sitemap 이 살아났는지
-curl -s https://gongganmarket.com/robots.txt   | grep "GPTBot"
-curl -s https://gongganmarket.com/sitemap.xml  | grep -c "<url>"   # 6 보다 커야 함
-curl -s https://gongganmarket.com/llms.txt     | head -3
+`index.html` 의 정적 제목·설명이 **에스크로를 운영 중인 기능처럼** 적고 있었다.
+프리렌더를 타는 크롤러는 베타 문구를 받았지만, UA 에 `bot`/`crawl` 이 없는 수집기
+(`ChatGPT-User` 등)는 이 정적 값을 그대로 가져갔다 — 사실과 다른 문장이 색인될 자리였다.
 
-# 4) 일반 사용자는 SPA 그대로인지 (h1 이 0 이어야 정상)
-curl -s -A "Mozilla/5.0 (iPhone)" https://gongganmarket.com/ | grep -c "<h1>"
-```
-
-1번이 `0` 이면 `/` rewrite 가 섀도잉된 것이다. 그때의 선택지:
-
-- `vercel.json` 의 `rewrites` 를 레거시 `routes` 로 옮긴다 (단, `headers`/`redirects` 와 병용 불가)
-- 또는 루트 `middleware.js` 로 봇 분기 (엣지 함수 — 함수 한도 영향 확인 필요)
-- 또는 홈은 현 상태(정적 JSON-LD + 메타)로 두고 `/partner`·`/lounge` 로만 간다
-
----
+→ `index.html` 의 title·description·OG·Twitter 를 `pageSeo()` 단일 소스와 맞추고,
+`siteSeo.test.js` 가 둘의 일치와 「베타에 에스크로 문구 금지」를 검사한다.
 
 ## 4. AEO — 답변엔진 최적화
 
@@ -162,3 +147,87 @@ FAQ 를 `FAQPage` 구조화 데이터로 내보내고, 답변은 **첫 문장에
 - **구글 서치콘솔 소유확인 메타** — 네이버만 있다.
 - **`/safe-payment` `/tokens` 프리렌더** — 토스 심사 중이라 해당 페이지 표면은 건드리지 않았다.
   사이트맵 등록만 했다.
+
+
+---
+
+## 7. ASO — 스토어와 웹의 검색어를 맞춘다 (2026-09-24)
+
+문안은 `store/ASO-ko.md`. 기준은 **어트랙션(매력) → 라포(공감) → 시덕션(끌림)**.
+
+가장 큰 구멍은 **제목에 검색어가 하나도 없었다는 것**이다.
+
+| 자리 | 예전 | 지금 |
+|---|---|---|
+| 웹 `<title>` | 공간마켓 — 좋은 공간과 좋은 이야기가 모이는 곳 | 인테리어 비교견적 — 공간마켓 · 집수리 리모델링 견적 |
+| 웹 `/partner` | 공간마켓 파트너(업체) 입점 안내 | 인테리어 업체 입점 — 공간마켓 공간파트너 |
+| Play 앱 이름 | 공간마켓 | 공간마켓 – 인테리어 비교견적 |
+
+브랜드 인지도가 아직 없는 단계에서 제목을 브랜드 슬로건으로 쓰면 아무에게도 안 걸린다.
+**제목은 검색어를 담고, 끌림은 설명이 맡는다.**
+
+`siteSeo.test.js` 가 제목에 「인테리어」·「견적」이 들어있는지, 35자를 넘지 않는지,
+그리고 ASO 문서가 코드의 사실(입찰 한도·보증금·연락처)과 갈라지지 않는지 검사한다.
+
+## 8. ⚠️ 미결 — 문의 이메일이 두 가지
+
+| 위치 | 값 |
+|---|---|
+| 앱 문의하기 · 법적고지(`LegalScreen`) · 계정삭제 · `store/ASO-ko.md` | `biz@gonggansai.com` |
+| 사업자정보 푸터(`siteSeo.BIZ`) · 홈 JSON-LD · `llms.txt` | `gongganmarket.biz@gmail.com` |
+
+사업자정보는 전자상거래법상 공개 의무 항목이라 **임의로 바꾸지 않았다.**
+통신판매업 신고에 적은 값을 확인한 뒤 한쪽으로 통일하고, `LegalScreen` 의 하드코딩
+사업자정보 블록을 `siteSeo.BIZ_ROWS` 로 합치면 다시 갈라지지 않는다.
+
+
+---
+
+## 9. 구글 (2026-09-24)
+
+### 고친 것 — 서치콘솔 URL 검사가 다른 문서를 보고 있었다
+
+봇 rewrite 정규식은 이름에 `bot`/`crawl`/`spider` 가 든 UA 만 잡았다. 그래서
+
+| 수집기 | 예전 | 지금 |
+|---|---|---|
+| `Googlebot` (실제 색인) | 프리렌더 | 프리렌더 |
+| `Google-InspectionTool` (서치콘솔 URL 검사) | **SPA** | 프리렌더 |
+| `ChatGPT-User` · `Claude-User` · `Perplexity-User` | **SPA** | 프리렌더 |
+| `meta-externalagent` | **SPA** | 프리렌더 |
+| 사람(iPhone·Android·데스크톱) | SPA | SPA |
+
+URL 검사가 Googlebot 과 다른 문서를 보면 클로킹으로 오해받는다.
+`-User` 계열 페처는 자바스크립트를 실행하지 않아서 SPA 를 받으면 빈 문서를 가져갔다(GEO 손해).
+
+`siteSeo.test.js` 가 ① 세 rewrite 규칙의 UA 정규식이 갈라지지 않는지
+② 위 수집기들이 프리렌더를, 사람이 SPA 를 받는지 검사한다.
+
+### 소유확인 — 단일 소스로 합침
+
+`siteSeo.js` 의 `verificationMetas()` 가 `index.html` 과 프리렌더 양쪽에 같은 값을 낸다.
+테스트가 양쪽 일치와 «한쪽에만 몰래 추가된 값이 없는지»를 검사한다.
+
+- 네이버: 메타 태그 + HTML 파일(`public/naver*.html`) 둘 다 설정됨
+- **구글: 아직 미설정** — `GOOGLE_SITE_VERIFICATION` 이 빈 문자열이라 태그를 내지 않는다
+
+### 구글 서치콘솔 설정 절차 (대표)
+
+1. https://search.google.com/search-console → 속성 추가 → **URL 접두어** `https://gongganmarket.com`
+2. 소유확인 방법 **「HTML 태그」** 선택 → `content="..."` 값 복사
+3. 그 값을 `src/utils/siteSeo.js` 의 `GOOGLE_SITE_VERIFICATION` 에 넣고 배포
+   (`index.html` 에도 같은 줄이 필요하다 — 테스트가 빠뜨림을 잡는다)
+4. 배포 후 서치콘솔에서 **확인** 누르기
+5. **Sitemaps** → `sitemap.xml` 제출
+6. **URL 검사** → `/` 와 `/partner` → 「색인 생성 요청」
+
+> DNS 방식(TXT 레코드)을 쓰면 코드 변경 없이 도메인 전체를 한 번에 확인할 수 있다.
+> 이 경우 2~3 단계는 건너뛴다.
+
+### 구글에 대한 솔직한 기대치
+
+- **FAQ 리치결과는 안 뜬다.** 구글은 2023-08 이후 정부·보건 등 일부 사이트에만 보여준다.
+  FAQPage 구조화 데이터는 답변엔진·네이버를 위해 유지하는 것이다.
+- **번들이 무겁다** — `index-*.js` 약 2.3MB(gzip 660KB). 구글은 페이지 경험을 순위 신호로 쓴다.
+  Googlebot 은 프리렌더를 받으므로 색인 자체는 영향이 적지만, 실제 사용자 지표(CWV)에는 반영된다.
+  코드 분할은 별도 과제.
