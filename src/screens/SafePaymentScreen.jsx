@@ -1,3 +1,4 @@
+import { PAYMENTS_LIVE } from "../constants/release";
 // 토스 PG 심사용 공개 상품 페이지 (로그인 없이 접근 가능) — 공간마켓 본류.
 // 라우터 미사용 SPA — App.jsx 에서 window.location.pathname === "/safe-payment" 일 때 렌더.
 // 공간안전결제(에스크로) 상품/서비스의 설명·결제 구조·단계별 지급·서비스 제공기간·
@@ -75,6 +76,14 @@ export default function SafePaymentScreen() {
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "22px 20px 40px" }}>
+        {/* 지금 상태 — 결제가 아직 열리지 않았으면 먼저 말한다(없는 기능을 약속하지 않기) */}
+        {!PAYMENTS_LIVE && (
+          <div style={{ background: "#FBF7EC", border: "1px solid #EADFC4", borderRadius: 12, padding: "12px 14px", marginBottom: 20, fontSize: 13, lineHeight: 1.75, color: "#6F5A1E" }}>
+            <b>지금은 오픈 준비 중이에요.</b> 토스페이먼츠 승인 뒤 아래 방식으로 결제·지급됩니다. 그 전까지는 계약서에 적은 단계대로
+            업체와 직접 주고받고, 단계 확인·사진·GPS 기록은 앱에 남습니다.
+          </div>
+        )}
+
         {/* 상품 개요 */}
         <section style={{ marginBottom: 26 }}>
           <h1 style={{ fontSize: 20, fontWeight: 900, color: "#2E5F4B", margin: "0 0 10px" }}>

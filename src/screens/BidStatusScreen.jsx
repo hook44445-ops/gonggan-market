@@ -1,7 +1,7 @@
 import { RESPECT_FOR_CUSTOMER } from "../constants/mutualRespect";
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
-import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI } from "../constants/release";
+import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge, Icon, splitLeadingEmoji } from "../components/common";
 import { getEscrowWithPayouts } from "../lib/supabase";
@@ -22,8 +22,6 @@ import {
 import { BIZ_GRACE_HOURS } from "../lib/contractGate";
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
-// 결제가 실제로 열렸는지 — 토스페이먼츠 상점이 열리고 실키를 넣은 뒤 대표가 켠다. 보관(에스크로) 약속 문구도 이 스위치를 따른다.
-const PAYMENTS_LIVE = import.meta.env.VITE_PAYMENTS_LIVE === "true";
 const AUTO_APPROVE_HOURS = 48;   // 서버 자동 승인(migration 112 · pg_cron)과 같은 값
 
 // 업체 정보를 못 불러왔을 때만 쓰는 자리 — 확인 안 된 칩이 켜지지 않게 badge 등 신뢰 칸은 비워 둔다(C1).
@@ -136,7 +134,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   //   화면에 온 업체 행이 «확인 안 됨»이라고 말해도 같다(행을 못 불러온 기본값 업체는 id 가 없어 여기 안 걸린다).
   //   결제 승인 서버(api/confirm-payment)도 같은 규칙으로 한 번 더 막는다.
   const bizPending = stagePlan === "1STEP" || (!!selBid?.company?.id && selBid.company.verified === false);
-  // 결제가 실제로 열렸는가(토스 상점 개설 뒤 Vercel 에 VITE_PAYMENTS_LIVE=true) — 꺼져 있으면 보관 약속도 결제 버튼도 없다.
+  // 결제가 실제로 열렸는가(constants/release PAYMENTS_LIVE = 정식 모드) — 꺼져 있으면 보관 약속도 결제 버튼도 없다.
   const payBlocked = bizPending || (!PAYMENTS_LIVE && !SAFE_MODE);
   const planNotice = bizPending
     ? { title: "업체의 사업자 확인을 기다리고 있어요", body: `공간마켓은 사업자등록을 마친 업체와만 계약해요. 업체에 사업자등록증 제출을 안내했고(홈택스에서 당일 발급), 확인되면 알림으로 알려 드릴게요. 선택 후 ${BIZ_GRACE_HOURS}시간이 지나도 확인이 안 되면 다른 업체를 골라도 공간온도에 영향이 없어요.` }

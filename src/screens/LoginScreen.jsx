@@ -784,8 +784,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
 
             {/* ═══ 7. 에스크로 안전정산 (단계형) ═══ */}
             <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: 28, border: `1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>에스크로 안전정산</div>
-              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 16 }}>공사비는 공간마켓이 보관해요</div>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>{SHOW_BETA_UI ? "단계별 확인" : "에스크로 안전정산"}</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 16 }}>{SHOW_BETA_UI ? "단계마다 확인하고 기록해요" : "공사비는 공간마켓이 보관해요"}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 {[
                   { icon: "📝", step: "계약" },
