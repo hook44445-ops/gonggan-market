@@ -108,6 +108,7 @@ import {
   getEscrowWithPayouts,
   getActiveRequestByUser,
   archiveRequestAuto,
+  wakePushDispatcher,
   getTopReviews,
   getRecentPortfolios,
   getPortfolios,
@@ -618,6 +619,9 @@ const FAQ_ITEMS = [
 
 export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
+  // 마운트 때 한 번 도는 딥링크 처리처럼 오래된 클로저에서도 지금 역할을 읽기 위한 ref.
+  const activeRoleRef = useRef(activeRole);
+  activeRoleRef.current = activeRole;
   const mode = activeRole === "company" ? "company" : activeRole === "admin" ? "admin" : "consumer";
 
   // 역할별 테마 — 파트너(업체)는 네이비, 고객은 기존 그린. 루트 data-role 만 전환한다.
@@ -990,6 +994,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         const newReq = normalizeRequest(data);
         setMyRequests(prev => [newReq, ...prev]);
         setCustomerRequests(prev => [newReq, ...prev]);
+        wakePushDispatcher(); // 재노출도 새 요청 — 파트너 알림(서버 트리거)을 바로 보낸다
       }
     } else {
       setReqCreateDebug({ _note: "repost guard blocked", requestId, hasTmpPrefix: requestId.startsWith("tmp-"), hasUserId: !!user.id, hasOriginalReq: !!originalReq });
@@ -2809,6 +2814,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       go("dashboard");
       return;
     }
+    // 파트너: 새 견적 요청(한도 안) → 입찰할 요청 목록이 있는 홈 / 한도 밖 → 「내 한도 · 서류」(migration 110).
+    if (t === "NEW_REQUEST") { loadCompanyRequests?.(); go("home"); return; }
+    if (t === "NEW_REQUEST_LOCKED") { setScreen("document-center"); return; }
     // 의뢰인: 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교(bidstatus).
     if ((t === "BID_RECEIVED" || t === "BID_ALL_IN") && rid) {
       setBidViewRequestId(rid);
@@ -2930,6 +2938,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   // 푸시 클릭 딥링크: /requests/:id · /contracts/:id · /my (라운지 외)
   const applyPushDeepLink = (pathname) => {
     const req = pathname.match(/^\/requests\/([^/]+)/);
+    // 파트너가 새 요청 푸시를 누르면 고객용 견적 비교가 아니라 입찰 목록(홈)으로.
+    if (req && activeRoleRef.current === "company") { go("home"); return true; }
     if (req) { setBidViewRequestId(decodeURIComponent(req[1])); go("bidstatus"); return true; }
     const con = pathname.match(/^\/contracts\/([^/]+)/);
     if (con) { setContractId(decodeURIComponent(con[1])); go("escrow"); return true; }
@@ -6194,6 +6204,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             setMyRequests(prev => prev.map(replace));
             setCustomerRequests(prev => prev.map(replace));
             earnToken("first_quote_request");
+            // 파트너 알림은 서버 트리거가 큐에 넣는다 — 여기선 바로 보내라고 깨우기만.
+            wakePushDispatcher();
           }
         }
       }} />}

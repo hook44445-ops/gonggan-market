@@ -47,6 +47,9 @@ export const TYPE_TO_PREF_COLUMN = {
   TEMP_UP: "push_estimate_news",
   RECONTRACT: "push_estimate_news",
   TRUST_MILESTONE: "push_estimate_news",
+  // 파트너 — 새 견적 요청(한도 안/밖). 서버 트리거(migration 110)가 push_logs 에 직접 넣는다.
+  NEW_REQUEST: "push_estimate_news",
+  NEW_REQUEST_LOCKED: "push_estimate_news",
   // 업체/관리
   COMPANY_APPROVED: "push_company_recommend",
   COMPANY_REJECTED: "push_company_recommend",
@@ -220,6 +223,14 @@ export default async function handler(req, res) {
     try { body = JSON.parse(body); } catch { body = {}; }
   }
   const { userId, type, title, message, relatedId, relatedType, action, adminId } = body || {};
+
+  // wake — 서버 트리거가 큐에 넣은 푸시(예: 새 견적 요청 → 파트너들)를 지금 내보낸다.
+  // 이미 큐에 있는 것만 보내므로 누가 불러도 새 알림이 생기지 않는다(크론은 하루 1회라 이게 없으면 최대 24시간 늦음).
+  if (action === "wake") {
+    res.statusCode = 200;
+    res.end(JSON.stringify({ ok: true, ...(await wakeDispatcher()) }));
+    return;
+  }
 
   // 관리자 전용 동작(현황 조회 · 수동 발송) — 일반 큐잉보다 먼저 가른다.
   if (action === "stats" || action === "flush") {

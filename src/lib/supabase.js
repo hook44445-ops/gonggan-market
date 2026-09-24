@@ -706,6 +706,14 @@ export const createCustomerEvaluation = ({ companyId, customerId, requestId = nu
     status: "published",
   });
 
+// 서버가 큐에 넣은 푸시를 지금 내보내게 깨운다(새 견적 요청 → 파트너 알림, migration 110). 실패해도 무시.
+export const wakePushDispatcher = () =>
+  fetch("/api/push/enqueue", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "wake" }),
+  }).catch(() => {});
+
 // 이 거래에 업체가 이미 고객 평가를 남겼는지 — 새로고침 뒤에도 「평가 완료」를 기억해 중복 평가를 막는다.
 export const hasCustomerEvaluation = async ({ requestId, contractId }) => {
   if (!requestId && !contractId) return false;
