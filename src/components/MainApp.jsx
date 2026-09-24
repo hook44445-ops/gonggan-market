@@ -180,6 +180,7 @@ function reverseGeocode(lat, lng) {
 // 공사 대화방 목록의 단계 이름 — requests.status 기준.
 const PROJECT_STAGE_LABEL = {
   site_visit: "업체 선택됨 · 현장방문 조율",
+  site_visiting: "업체 선택됨 · 현장방문 조율",
   final_quote_submitted: "최종 견적 도착",
   escrow_pending: "예약 확정 · 결제 대기",
   contracting: "계약 진행",
