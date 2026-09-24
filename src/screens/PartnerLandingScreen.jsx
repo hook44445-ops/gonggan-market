@@ -301,7 +301,7 @@ export default function PartnerLandingScreen() {
               <div style={{ fontSize: 11, fontWeight: 800, color: GOLD, letterSpacing: "0.14em", marginBottom: 8 }}>PREMIUM PARTNER</div>
               <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.4, wordBreak: "keep-all" }}>증빙을 낼수록, 더 큰 공사를</div>
               <p style={{ fontSize: 12.5, color: "#9A958E", lineHeight: 1.6, margin: "8px 0 0", wordBreak: "keep-all" }}>
-                가입만으로 시작하고, 서류는 원할 때 하나씩. 공사 1건 기준입니다.
+                입찰은 가입만으로, 계약은 사업자등록 뒤에. 공사 1건 기준입니다.
               </p>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>

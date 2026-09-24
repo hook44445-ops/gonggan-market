@@ -170,7 +170,7 @@ export function partnerFaq() {
     },
     {
       q: '가입하면 바로 입찰할 수 있나요?',
-      a: `네. 가입만으로 공사 1건 ${PARTNER_LADDER[0].limit} 입찰할 수 있어요. 사업자등록증을 내면 ${PARTNER_LADDER[1].limit}, 시공보험까지 내면 ${PARTNER_LADDER[2].limit} 커집니다.`,
+      a: `네. 가입만으로 공사 1건 ${PARTNER_LADDER[0].limit} 입찰·상담할 수 있어요. 계약(결제)은 사업자등록증을 확인한 뒤에 열려요(홈택스에서 당일 발급) — 내면 한도도 ${PARTNER_LADDER[1].limit}, 시공보험까지 내면 ${PARTNER_LADDER[2].limit} 커집니다.`,
     },
     {
       q: '보증금은 꼭 내야 하나요?',

@@ -19,6 +19,8 @@ import {
   loadFeeRules, feeRateFromRules, computeFeeWithRate, getProvider,
 } from "../services/payment";
 
+import { BIZ_GRACE_HOURS } from "../lib/contractGate";
+
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 
 // 업체 정보를 못 불러왔을 때만 쓰는 자리 — 확인 안 된 칩이 켜지지 않게 badge 등 신뢰 칸은 비워 둔다(C1).
@@ -127,8 +129,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     getStagePlanPreview(planCompanyRef, effectivePrice).then(p => { if (alive) setStagePlan(p); }).catch(() => {});
     return () => { alive = false; };
   }, [planCompanyRef, effectivePrice]);
-  const planNotice = stagePlan === "1STEP"
-    ? { title: "대금은 공사를 마친 뒤 한꺼번에", body: "이 업체는 사업자등록 확인 전이라, 공사비는 공사를 모두 마치고 완료를 확인한 뒤 한꺼번에 지급돼요. 착공 때는 사진과 위치만 기록합니다." }
+  // 계약은 사업자부터(A안) — 서버가 1STEP 을 준다 = 이 업체의 사업자등록이 아직 확인 전. 결제를 열지 않는다.
+  //   화면에 온 업체 행이 «확인 안 됨»이라고 말해도 같다(행을 못 불러온 기본값 업체는 id 가 없어 여기 안 걸린다).
+  //   결제 승인 서버(api/confirm-payment)도 같은 규칙으로 한 번 더 막는다.
+  const bizPending = stagePlan === "1STEP" || (!!selBid?.company?.id && selBid.company.verified === false);
+  const planNotice = bizPending
+    ? { title: "업체의 사업자 확인을 기다리고 있어요", body: `공간마켓은 사업자등록을 마친 업체와만 계약해요. 업체에 사업자등록증 제출을 안내했고(홈택스에서 당일 발급), 확인되면 알림으로 알려 드릴게요. 선택 후 ${BIZ_GRACE_HOURS}시간이 지나도 확인이 안 되면 다른 업체를 골라도 공간온도에 영향이 없어요.` }
     : stagePlan === "2STEP"
       ? { title: "대금은 두 번에 나눠서", body: "500만원 미만 공사는 착공을 확인할 때 30%, 완료를 확인할 때 70%가 지급돼요." }
       : { title: "자재비 10% 선지급 안내", body: "결제 완료 후 자재비 10%가 먼저 지급되고, 나머지는 착공·중간 점검·완료를 확인할 때마다 단계별로 지급돼요." };
@@ -612,6 +618,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         finalQuote: finalEstimate?.total_price ?? null, effectivePrice, customerTotal,
         selectedMethod: selectedMethod ?? null, SAFE_MODE, paying: payingRef.current,
       });
+      if (bizPending) { dlog("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "biz_required" }); return; }
       if (!selectedMethod && !SAFE_MODE) { dlog("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "no_method_and_not_safe_mode" }); return; }
       if (payingRef.current) { dlog("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "already_paying(payingRef)" }); return; }
       payingRef.current = true;
@@ -951,13 +958,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
           <button
             onClick={() => { try { Promise.resolve(handlePay()).catch((err) => dlog("[GONGGAN_DIAG][handlePay:error]", { msg: err?.message ?? String(err) })); } catch (err) { dlog("[GONGGAN_DIAG][handlePay:error]", { msg: err?.message ?? String(err) }); } }}
-            disabled={(!selectedMethod && !SAFE_MODE) || paymentLoading}
-            style={{ width:"100%", padding:S.xxl, background: (selectedMethod || SAFE_MODE) && !paymentLoading ? C.brand : C.bgWarm,
-              color: (selectedMethod || SAFE_MODE) && !paymentLoading ? "#fff" : C.text4, border:"none", borderRadius:R.lg,
-              fontWeight:800, fontSize:16, cursor: (selectedMethod || SAFE_MODE) && !paymentLoading ? "pointer" : "not-allowed",
-              boxShadow: (selectedMethod || SAFE_MODE) && !paymentLoading ? `0 6px 20px ${C.brand44}` : "none",
+            disabled={bizPending || (!selectedMethod && !SAFE_MODE) || paymentLoading}
+            style={{ width:"100%", padding:S.xxl, background: !bizPending && (selectedMethod || SAFE_MODE) && !paymentLoading ? C.brand : C.bgWarm,
+              color: !bizPending && (selectedMethod || SAFE_MODE) && !paymentLoading ? "#fff" : C.text4, border:"none", borderRadius:R.lg,
+              fontWeight:800, fontSize:16, cursor: !bizPending && (selectedMethod || SAFE_MODE) && !paymentLoading ? "pointer" : "not-allowed",
+              boxShadow: !bizPending && (selectedMethod || SAFE_MODE) && !paymentLoading ? `0 6px 20px ${C.brand44}` : "none",
               display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
-            {paymentLoading ? "처리 중..."
+            {bizPending ? "업체 사업자 확인 대기 중"
+              : paymentLoading ? "처리 중..."
               : SAFE_MODE ? <><Icon emoji="🔧" size={15} color="#fff" /> 테스트 예치 (SAFE_MODE)</>
               : selectedMethod ? <><Icon emoji="🔒" size={15} color="#fff" /> {fmtMoney(customerTotal)} 결제하기</>
               : "결제 수단을 선택하세요"}

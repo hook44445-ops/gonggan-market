@@ -148,7 +148,7 @@ export function GateBody({ c }) {
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 11.5, color: C.text3, marginTop: 6 }}>서류는 마이 → 「내 한도 · 서류」에서 원할 때 하나씩 내면 돼요.</div>
+          <div style={{ fontSize: 11.5, color: C.text3, marginTop: 6 }}>입찰·상담은 가입만으로, 계약은 사업자등록증 확인 뒤에 해요. 서류는 마이 → 「내 한도 · 서류」에서.</div>
         </GateSection>
       )}
 

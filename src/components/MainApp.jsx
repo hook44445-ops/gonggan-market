@@ -2838,6 +2838,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // 파트너: 새 견적 요청(한도 안) → 입찰할 요청 목록이 있는 홈 / 한도 밖 → 「내 한도 · 서류」(migration 110).
     if (t === "NEW_REQUEST") { loadCompanyRequests?.(); go("home"); return; }
     if (t === "NEW_REQUEST_LOCKED") { setScreen("document-center"); return; }
+    // 계약은 사업자부터(A안 · migration 116): 업체 → 서류 올리는 곳 / 의뢰인 → 그 요청의 결제 화면 / 관리자 → 관리 화면.
+    if (t === "BIZ_REQUIRED") { setScreen("document-center"); return; }
+    if (t === "BIZ_VERIFIED" && rid) { setBidViewRequestId(rid); go("bidstatus"); return; }
+    if (t === "ADMIN_BIZ_PENDING") { go("admin"); return; }
     // 의뢰인: 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교(bidstatus).
     if ((t === "BID_RECEIVED" || t === "BID_ALL_IN") && rid) {
       setBidViewRequestId(rid);
@@ -4486,7 +4490,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             }
           }} />}
         {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
-        {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id}
+        {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} onGoDocuments={() => setScreen("document-center")} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id}
           onBidSubmit={isGuestCompany ? null : (r, data) => addBid(r, data)} />}
         {screen==="bidstatus" && (
           <BidStatusScreen
