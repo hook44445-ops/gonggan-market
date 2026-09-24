@@ -167,9 +167,12 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
   // 로드·실시간(realtime) 모두 이 mapRow 를 공통 사용 → 동일 정렬 보장.
   const mapRow = (row) => ({
     id: row.id,
+    // 한 사람이 고객·업체 두 역할을 가진 경우(같은 sender_id)에도 역할이 다르면 상대 말로 본다.
     from: row.sender_type === "system"
       ? "system"
-      : (row.sender_id != null && row.sender_id === user?.id ? "user" : "company"),
+      : (row.sender_id != null && row.sender_id === user?.id
+          && !((row.sender_type === "company" || row.sender_type === "consumer") && row.sender_type !== mySenderType)
+          ? "user" : "company"),
     text: row.text,
     time: fmtTime(row.created_at),
     createdAt: row.created_at,
