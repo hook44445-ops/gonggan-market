@@ -175,7 +175,8 @@ export function nextUnlock(state = {}) {
 const GUARANTEE_STEPS = [[50, "베이직"], [100, "스탠다드"], [200, "프리미엄"], [500, "마스터"], [1000, "시그니처"]];
 export function guaranteeAsk(needManwon) {
   const hit = GUARANTEE_STEPS.find(([amt]) => amt >= needManwon);
-  return hit ? `공간보증 ${hit[1]}(${hit[0].toLocaleString("ko-KR")}만원)` : `공간보증 ${needManwon.toLocaleString("ko-KR")}만원`;
+  // 괄호 한 겹만(E6) — 바깥 안내가 이미 「보증금 20%( … )」로 한 번 감싼다.
+  return hit ? `공간보증 ${hit[1]} ${hit[0].toLocaleString("ko-KR")}만원` : `공간보증 ${needManwon.toLocaleString("ko-KR")}만원`;
 }
 
 // 입찰 금액이 한도를 넘을 때 — 무엇을 내면 이 공사에 입찰할 수 있는지(null = 이미 가능).
@@ -285,7 +286,8 @@ export function cardNudge(budgetManwon, state = {}) {
   if (u) return { key: "unlock", text: unlockMessage(u), cta: u.over ? null : "서류 올리기" };
   if (!s.insurance) {
     const next = bidLimit({ ...s, insurance: true });
-    if (next > bidLimit(s)) return { key: "insurance", text: `시공보험 증권을 올리거나, 보험이 없으면 보증금 20%(${guaranteeAsk(next / UNINSURED_MULTIPLIER)})를 걸면 ${limitText(next)} 공사까지 입찰할 수 있어요`, cta: "서류 올리기" };
+    // 이 카드는 이미 입찰 가능 — 이 공사와 상관없는 긴 보증금 안내 대신 한 줄(E6). 보증금 길은 「내 한도 · 서류」에서.
+    if (next > bidLimit(s)) return { key: "insurance", text: `시공보험 증권을 올리면 ${limitText(next)} 공사까지 입찰할 수 있어요`, cta: "서류 올리기" };
   }
   // 500만원 이상 공사 — 자재비 10% 선지급은 보증금(공간보증) 건 업체만(대표 09-24 「나로 가자」, 서버 migration 120).
   // 없으면 착공 확인 때 30%(자재비 포함)로 받는다 — 막지 않고, 걸면 무엇이 좋은지 한 줄로.
