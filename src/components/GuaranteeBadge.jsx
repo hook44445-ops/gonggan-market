@@ -1,7 +1,7 @@
 // 공간보증 배지 — guarantee_badge_visible=true AND guarantee_status='ACTIVE' 일 때만 노출.
 // 업체카드/입찰카드/업체상세/프로필/라운지 전문가 표시 공용.
 import { C } from "../constants";
-import { GUARANTEE_GRADE_MAP, isGuaranteeBadgeVisible } from "../constants/guarantee";
+import { GUARANTEE_GRADE_MAP, isGuaranteeBadgeVisible, guaranteeEmblemFile } from "../constants/guarantee";
 
 export default function GuaranteeBadge({ company, size = "sm" }) {
   if (!isGuaranteeBadgeVisible(company)) return null;
@@ -20,7 +20,8 @@ export default function GuaranteeBadge({ company, size = "sm" }) {
         fontSize: small ? 10.5 : 12, fontWeight: 800, whiteSpace: "nowrap",
       }}
     >
-      <span style={{ fontSize: small ? 11 : 13 }}>{g.emoji}</span>
+      <img src={`/images/emblem/${guaranteeEmblemFile(g.key)}-sm.webp`} alt="" width={small ? 16 : 20} height={small ? 16 : 20}
+        style={{ width: small ? 16 : 20, height: small ? 16 : 20, display: "block" }} />
       공간보증 {g.label}
     </span>
   );

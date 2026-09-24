@@ -17,7 +17,7 @@
 
 import { stageFor } from "../lib/growthStage";
 import { levelInfo, computeCompanyXp } from "../constants/growth";
-import { isGuaranteeBadgeVisible, GUARANTEE_GRADE_MAP } from "../constants/guarantee";
+import { isGuaranteeBadgeVisible, GUARANTEE_GRADE_MAP, guaranteeEmblemFile } from "../constants/guarantee";
 
 const INK   = "#2B2A26";
 const MUTED = "#9A9384";
@@ -49,6 +49,7 @@ export function trustState(company = {}) {
     insurance: (company.has_insurance ?? company.hasInsurance ?? company.insurance) === true,
     deposit,
     depositGrade: grade,
+    depositFile: deposit ? guaranteeEmblemFile(company.guarantee_grade) : "deposit",
     depositManwon,
   };
 }
@@ -144,7 +145,8 @@ export function CompanyTrustRow({ company, style, forPartner = false }) {
           const sub = e.key === "deposit" && on && s.depositGrade ? s.depositGrade : e.label;
           return (
             <div key={e.key} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 44 }}>
-              <Emblem file={e.file} earned={on} size={36} title={on ? e.earnedText : (forPartner ? e.hint : e.lockedText)} />
+              <Emblem file={e.key === "deposit" && on ? s.depositFile : e.file} earned={on} size={36}
+                title={on ? (e.key === "deposit" && s.depositGrade ? `공간보증 ${s.depositGrade} — ${e.earnedText}` : e.earnedText) : (forPartner ? e.hint : e.lockedText)} />
               <span style={{
                 marginTop: 3, fontSize: 10, fontWeight: on ? 700 : 500,
                 color: on ? INK : MUTED, whiteSpace: "nowrap",

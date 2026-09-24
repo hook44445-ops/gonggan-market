@@ -5,16 +5,16 @@
 import { C, R, S } from "../constants";
 import { TempBadge } from "./common";
 import { fmtMoney } from "../utils/calculations";
-import { CompanyMiniBadges, responseValue, deriveLevel } from "./company/CompanyMetrics";
+import { responseValue } from "./company/CompanyMetrics";
 import { FoldText } from "./v3/ui";
 import { cardVisual, whyThisCompany, specialtyChips } from "../lib/companyLook";
+import { CompanyTrustRow } from "./TrustEmblems";
 
 export default function BidCompareCard({ bid, onChat, onSelect, onOpenCompany, selected = false, tags = [], id, photos = [], requestText = "" }) {
   const company = bid.company ?? {};
   const visual = cardVisual(company, photos);
   const why = whyThisCompany(company);
   const { chips, matchedCount } = specialtyChips(company, requestText);
-  const level = deriveLevel(company).level;
   const isWork = visual.kind === "work";
 
   return (
@@ -67,7 +67,6 @@ export default function BidCompareCard({ bid, onChat, onSelect, onOpenCompany, s
               <span style={{ fontSize: 17, fontWeight: 700, color: C.text1, lineHeight: 1.35, letterSpacing: "-0.01em", wordBreak: "break-word" }}>
                 {company.name ?? "파트너"}
               </span>
-              <span style={{ fontSize: 11, color: C.text4, fontWeight: 600, letterSpacing: "0.04em" }}>Lv.{level}</span>
             </div>
             {/* 전문분야 — 칩을 늘어놓지 않고 한 줄 글로. 내가 요청한 공사만 진하게. */}
             {chips.length > 0 && (
@@ -84,7 +83,9 @@ export default function BidCompareCard({ bid, onChat, onSelect, onOpenCompany, s
           <TempBadge temp={company.temp ?? 36.5} info />
         </div>
 
-        <div style={{ marginTop: 6 }}><CompanyMiniBadges company={company} /></div>
+        {/* 고객이 업체를 고르는 순간의 신뢰 표시 — 레벨 + 증빙 엠블럼(사업자·시공보험·보증금 등급). 예전엔 글자 칩
+            「✓ 공간보증 · ✓ 사업자」만 있었고 시공보험은 빠져 있었다(09-25). 딴 것은 금빛, 없는 것은 흐린 빈 자리. */}
+        <CompanyTrustRow company={company} style={{ marginTop: 12 }} />
 
         {/* 금액 — 카드에서 가장 큰 글자 하나 */}
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: S.md, marginTop: 14 }}>
