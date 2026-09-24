@@ -3561,7 +3561,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                     <Icon emoji={stage?.badge === "확인 필요" ? "🔔" : "🏗"} size={13} color={stage?.badge === "확인 필요" ? "#C07000" : C.brand} /> {stage?.label ?? "시공 진행중"}
                                   </div>
                                   <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>{stage?.sub}</div>
-                                  <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                                  <button onClick={() => { if (selectedBid?.requestId !== r.id) setSelectedBid(null); setContractId(myRequestsEscrow[r.id]?.escrow?.id ?? null); setBidViewRequestId(r.id); go("escrow"); }}
                                     style={{ width:"100%", padding:"11px",
                                       background: stage?.badge === "확인 필요" ? "#C07000" : C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
@@ -3633,7 +3633,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                   </button>
                                 )}
                                 {stage?.action === "escrow" ? (
-                                  <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                                  <button onClick={() => { if (selectedBid?.requestId !== r.id) setSelectedBid(null); setContractId(myRequestsEscrow[r.id]?.escrow?.id ?? null); setBidViewRequestId(r.id); go("escrow"); }}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
                                       fontWeight:700, fontSize:13, cursor:"pointer",
@@ -4986,7 +4986,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               const { escrow: esc } = escData ?? {};
               const txStatus = esc?.transaction_status ?? null;
               const hasEscrow = !!esc;
-              const isSettled = txStatus === "SETTLED";
+              // 완료 — 정산 완료 · 완료 단계 승인 · 후기 · 요청 완료 중 하나라도(C19 — 예전엔 SETTLED 만 봐서
+              // 자동 승인으로 끝난 공사가 「착공 대기」로 남고 버튼도 없었다). 완료 사진만 온 상태(COMPLETED)는 아직 확인 대기.
+              const payout4Approved = (escData?.payouts ?? []).some(p => p.stage === 4 && p.status === "APPROVED");
+              const isSettled = txStatus === "SETTLED" || payout4Approved || r.hasReview === true
+                || r.status === "completed" || r.status === "settled";
               const csStage = computeCustomerStage(r, escData);
               const inProgress = hasEscrow || r.status === "in_progress";
               const step2done = inProgress;
@@ -4994,10 +4998,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               const step4done = isSettled;
 
               const constructionSub = (() => {
+                if (isSettled) return "공사 완료";
+                if (txStatus === "DISPUTE") return "이의 신청 검토 중";
                 if (txStatus === "STARTED") return "착공 사진 확인 대기";
                 if (txStatus === "MID_INSPECTION") return "중간 점검 사진 확인 대기";
                 if (txStatus === "COMPLETED") return "완료 사진 확인 대기";
-                if (hasEscrow) return "착공 대기 · 에스크로 보관 중";
+                if (hasEscrow) return "계약·결제 완료 · 착공 준비 중";
                 if (r.status === "in_progress") return "실측 방문 3일 내 · 견적서 72시간(3일) 내 등록";
                 return "착공 ~ 중간점검";
               })();
@@ -5010,7 +5016,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   sub: step2done ? "계약 완료" : bids > 0 ? `견적 ${bids}건 도착 · 비교해 보세요` : "우리 동네 검증 업체들이 요청을 보고 있어요. 견적이 오면 알려드려요",
                   done:step2done, active:!step2done, bidStep:!step2done && bids > 0, waitStep: waiting },
                 { label:"공사 진행",   sub: constructionSub,            done:isSettled, active:step3active, escrowStep:step3active },
-                { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",     done:step4done },
+                { label:"완료 및 정산", sub: step4done ? "완료 확인 · 공사 기록이 남아 있어요" : "완료 확인 + 잔금 지급", done:step4done, recordStep: step4done && hasEscrow },
               ];
 
               return (
@@ -5049,11 +5055,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                             </button>
                           )}
                           {step.escrowStep && (
-                            <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                            <button onClick={() => { if (selectedBid?.requestId !== r.id) setSelectedBid(null); setContractId(myRequestsEscrow[r.id]?.escrow?.id ?? null); setBidViewRequestId(r.id); go("escrow"); }}
                               style={{ marginTop:S.sm, padding:"8px 16px",
                                 background: csStage?.badge === "확인 필요" ? "#C07000" : C.brand,
                                 color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
                               {csStage?.cta ?? "에스크로 진행현황 보기"} →
+                            </button>
+                          )}
+                          {step.recordStep && (
+                            <button onClick={() => { if (selectedBid?.requestId !== r.id) setSelectedBid(null); setContractId(myRequestsEscrow[r.id]?.escrow?.id ?? null); setBidViewRequestId(r.id); go("escrow"); }}
+                              style={{ marginTop:S.sm, padding:"8px 16px", background:C.surface, color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                              공사 기록 보기 →
                             </button>
                           )}
                           {step.escrowStep && r.status === "in_progress" && !hasEscrow && (
