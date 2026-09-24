@@ -50,7 +50,7 @@ export function PartnerNextStep({ state = {}, style }) {
     <div style={{ background: "#FFFDF8", border: "1px solid #EDE3CF", borderRadius: 18, padding: "18px 18px 16px", ...style }}>
       <div style={{ fontSize: 12, color: MUTED, fontWeight: 600 }}>지금 공사 1건</div>
       <div style={{ fontSize: 26, fontWeight: 800, color: INK, letterSpacing: "-0.02em", marginTop: 2 }}>
-        {limitText(now)}<span style={{ fontSize: 15, fontWeight: 700, color: MUTED }}>까지</span>
+        {now > 0 ? <>{limitText(now)}<span style={{ fontSize: 15, fontWeight: 700, color: MUTED }}>까지</span></> : <span style={{ fontSize: 20 }}>카드 보기 · 입찰 잠김</span>}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "14px 0 12px" }} aria-hidden="true">
         {LADDER.map((r, i) => (
@@ -60,7 +60,9 @@ export function PartnerNextStep({ state = {}, style }) {
       </div>
       {next ? (
         <div style={{ fontSize: 13.5, color: INK, lineHeight: 1.6 }}>
-          <b style={{ fontWeight: 800 }}>{next.ask.replace(/\(.*\)/, "")}</b>을 내면 <b style={{ fontWeight: 800, color: GOLD }}>{limitText(next.to)}</b>까지
+          <b style={{ fontWeight: 800 }}>{next.ask.replace(/\(.*\)/, "")}</b>을 내면 {next.contract
+            ? <><b style={{ fontWeight: 800, color: GOLD }}>계약(결제)</b>이 열려요 — 선택되면 바로 계약</>
+            : <><b style={{ fontWeight: 800, color: GOLD }}>{limitText(next.to)}</b>까지</>}
         </div>
       ) : (
         <div style={{ fontSize: 13.5, color: INK }}>{maxedText(state)}</div>

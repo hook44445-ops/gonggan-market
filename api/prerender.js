@@ -430,7 +430,7 @@ async function renderPartner(req, res, site) {
 
 <section>
 <h2>증빙과 수주 한도</h2>
-<p>가입만으로 공사 1건 ${esc(PARTNER_LADDER[0].limit)} 입찰할 수 있고, 계약은 사업자등록 확인 뒤에 열립니다. 증빙을 하나씩 낼수록 한도가 커집니다. ${esc(PARTNER_DEPOSIT_NOTE)}이며, 사업자등록·시공보험·보증금을 모두 증빙하면 프리미엄 파트너가 됩니다.</p>
+<p>가입하면 500만원까지 공사 카드를 볼 수 있고, 입찰·계약은 사업자등록 확인 뒤에 열립니다(공사 1건 ${esc(PARTNER_LADDER[1].limit)}). 증빙을 하나씩 낼수록 한도가 커집니다. ${esc(PARTNER_DEPOSIT_NOTE)}이며, 사업자등록·시공보험·보증금을 모두 증빙하면 프리미엄 파트너가 됩니다.</p>
 <ul>${PARTNER_LADDER.map((g) => `<li>${esc(g.name)} — 공사 1건 ${esc(g.limit)}</li>`).join('')}</ul>
 </section>
 

@@ -74,8 +74,10 @@ export function compareStats(company = {}) {
 //   원칙: 공사가 클수록 의뢰인이 맡기는 돈이 커진다 → 업체가 걸어 둔 안전장치도 커져야 한다.
 //
 //   사업자 없음(개인 기술자)
-//     가입만                            300만원   — 도배·부분 수리. 입구는 열어 둔다
-//     + 시공보험 또는 보증금              500만원   — 그 이상은 사업자등록을 해야 열린다(프리미엄 불가)
+//     가입만                            입찰 잠김  — 500만원까지 공사 카드는 보이고 「입찰 전에 사업자등록을 해야 열려요」.
+//                                                    대표 09-25 「가입 300은 없애고 카드는 500까지 보여지되 사업자등록을 유도」
+//                                                    · 「입찰 전에 사업자등록을 해야 열려요가 써 있어야 해」(카드는 보이고 입찰은 잠김).
+//                                                    예전 300 · 「보험이나 보증금이면 500」 숨은 길은 없어졌다. 서버 124 도 같다.
 //   사업자 있음
 //     사업자등록(관리자 확인)             500만원
 //     + 시공보험(증권 승인)            1,000만원
@@ -94,8 +96,10 @@ export function compareStats(company = {}) {
 //   숫자는 여기 한 곳에서만 바꾼다(서버 트리거 101 도 같은 숫자를 쓴다).
 // ════════════════════════════════════════════════════════════════════
 export const LIMITS = {
-  NONE:               300,    // 가입만
-  NO_BIZ_BACKED:      500,    // 사업자 없음 + 시공보험 또는 보증금
+  NONE:                 0,    // 가입만 — 입찰 잠김(카드는 CARD_PREVIEW 까지 보인다)
+  NO_BIZ_BACKED:        0,    // 사업자 없음 — 보험·보증금이 있어도 같다
+  CARD_PREVIEW:       500,    // 사업자등록 전 업체에게 보이는 공사 카드 상한(대표 09-25)
+  CARD_PREVIEW_BIZ:  1000,    // 사업자만(보험 없음) — 1,000만원까지 카드가 보인다(대표 09-25)
   BIZ:                500,    // 사업자 확인
   BIZ_BACKED:        1000,    // 사업자 + (시공보험 또는 보증금 20%)
   UNLICENSED_CEILING: 1499,   // 면허 없이: 1,500만원 «미만»
@@ -123,8 +127,17 @@ export function bidLimit({ biz = false, insurance = false, depositManwon = 0, li
 }
 
 // 화면에 쓰는 금액 글자 — 1,499 는 「1,500만원 미만」으로 읽힌다.
+// 이 업체에게 보이는 공사 카드 상한(만원) — «다음 한 칸까지 미리 보여 주기».
+//   가입만 500(입찰은 잠김) · 사업자만 1,000(입찰은 500까지) · 그 위는 전부. null = 제한 없음.
+export function cardPreviewLimit(state = {}) {
+  if (!state.biz) return LIMITS.CARD_PREVIEW;
+  if (!state.insurance) return LIMITS.CARD_PREVIEW_BIZ;
+  return null;
+}
+
 export function limitText(manwon) {
   const n = Number(manwon) || 0;
+  if (n <= 0) return "입찰 잠김";   // 가입만 — 카드만 보이고 입찰은 사업자등록 뒤
   if (n === LIMITS.UNLICENSED_CEILING) return "1,500만원 미만";
   if (n >= 10000) return `${(n / 10000).toLocaleString("ko-KR")}억원`;
   return `${n.toLocaleString("ko-KR")}만원`;
@@ -173,8 +186,8 @@ export function unlockFor(amountManwon, state = {}) {
   if (amt > LIMITS.MAX) return { need: [], over: true };
   const dep = Number(s.depositManwon) || 0;
   const depNeed = Math.ceil(amt / DEPOSIT_MULTIPLIER);
-  // 300~500 — 사업자 없이도 된다. 셋 중 하나면 된다.
-  if (amt <= LIMITS.NO_BIZ_BACKED) return { need: ["사업자등록증"], over: false };
+  // ~500 — 사업자등록증 하나면 된다(가입만은 입찰 잠김).
+  if (amt <= LIMITS.BIZ) return { need: ["사업자등록증"], over: false };
   const need = [];
   if (!s.biz) need.push("사업자등록증");
   if (amt <= LIMITS.BIZ_BACKED) {
@@ -201,8 +214,8 @@ export function unlockMessage(u) {
 
 // 계단 — 가입 완료 화면·업체 화면이 그대로 그린다. 금액은 bidLimit 에서 뽑는다(숫자를 두 번 적지 않는다).
 export const LADDER = [
-  { key: "none",    label: "가입만",                        note: "도배·부분 수리",  state: {} },
-  { key: "biz",     label: "사업자등록증",                  note: "관리자 확인",     state: { biz: true } },
+  { key: "none",    label: "가입만",                        note: "공사 카드 보기 · 입찰은 사업자등록 뒤",  state: {} },
+  { key: "biz",     label: "사업자등록증",                  note: "관리자 확인 · 입찰·계약이 열려요", state: { biz: true } },
   { key: "insurance", label: "+ 시공보험",                  note: "관리자 확인", state: { biz: true, insurance: true } },
   { key: "premium", label: "+ 보증금 · 프리미엄 파트너",    note: "1,000만원 초과부터 · 보증금 10%", state: { biz: true, insurance: true, depositManwon: 150 } },
   { key: "license", label: "+ 실내건축공사업 등록증",       note: "대형 공사",       state: { biz: true, insurance: true, depositManwon: 1000, license: true } },
@@ -267,9 +280,9 @@ export const advanceNeed = (amt) => (amt <= 1000 ? 100 : amt <= 2000 ? 200 : amt
 export function cardNudge(budgetManwon, state = {}) {
   const s = { biz: false, insurance: false, depositManwon: 0, license: false, ...state };
   const amt = Number(budgetManwon) || 0;
+  if (!s.biz) return { key: "biz", text: "입찰 전에 사업자등록을 해야 열려요 — 홈택스에서 당일 발급, 올리면 관리자 확인 뒤 바로 입찰할 수 있어요", cta: "사업자등록증 올리기" };
   const u = amt > 0 ? unlockFor(amt, s) : null;
   if (u) return { key: "unlock", text: unlockMessage(u), cta: u.over ? null : "서류 올리기" };
-  if (!s.biz) return { key: "biz", text: "선택되면 계약은 사업자등록증 확인 뒤에 해요 — 미리 올려 두면 선택되자마자 계약돼요(홈택스 당일 발급)", cta: "사업자등록증 올리기" };
   if (!s.insurance) {
     const next = bidLimit({ ...s, insurance: true });
     if (next > bidLimit(s)) return { key: "insurance", text: `시공보험 증권을 올리거나, 보험이 없으면 보증금 20%(${guaranteeAsk(next / UNINSURED_MULTIPLIER)})를 걸면 ${limitText(next)} 공사까지 입찰할 수 있어요`, cta: "서류 올리기" };

@@ -62,8 +62,8 @@ const ALL_DOCS = [...UNLOCK_DOCS, ...CONSENT_DOCS, ...OPTIONAL_DOCS];
 const STEP_EMBLEM = { none: "join", biz: "biz", insurance: "insurance", premium: "deposit", license: "license" };
 // 칸마다 «무엇을 내면» 한 줄 — 1,000만원 초과부터 보증금이 필수라는 게 보여야 한다.
 const STEP_NOTE = {
-  none:      "가입하면 바로 · 도배·부분 수리",
-  biz:       "사업자등록증 · 관리자가 확인",
+  none:      "가입하면 500만원까지 공사 카드 보기 · 입찰은 사업자등록 뒤",
+  biz:       "사업자등록증 · 관리자가 확인하면 입찰·계약이 열려요",
   insurance: "시공보험 증권 · 관리자가 확인",
   premium:   "1,000만원 초과부터 · 공사금액의 10% 보증금",
   license:   "보증금의 10배까지 · 대형 공사",
@@ -92,7 +92,7 @@ function LimitHero({ state }) {
       <div style={{ position: "relative" }}>
         <div style={{ fontSize: 12, letterSpacing: "0.08em", color: GOLD, fontWeight: 700 }}>공사 1건 한도</div>
         <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-0.03em", marginTop: 4, lineHeight: 1.15 }}>
-          {limitText(now)}<span style={{ fontSize: 16, fontWeight: 700, opacity: 0.7 }}>까지</span>
+          {now > 0 ? <>{limitText(now)}<span style={{ fontSize: 16, fontWeight: 700, opacity: 0.7 }}>까지</span></> : "사업자등록 뒤 입찰"}
         </div>
         <div style={{ fontSize: 13, opacity: 0.78, marginTop: 4 }}>
           지금 · {(step?.label ?? "가입만").replace(/^\+ /, "")}
@@ -127,7 +127,8 @@ function NextStep({ state, onOpenDoc }) {
         <div style={{ fontSize: 14, color: C.text1, lineHeight: 1.5, marginTop: 2 }}>
           <b>{next.ask}</b>{docType ? "을 내면" : "을 걸면"}
         </div>
-        <div style={{ fontSize: 18, fontWeight: 900, color: "#9A7430", letterSpacing: "-0.02em" }}>{limitText(next.to)}까지</div>
+        <div style={{ fontSize: 18, fontWeight: 900, color: "#9A7430", letterSpacing: "-0.02em" }}>{`${limitText(next.to)}까지`}</div>
+        {next.key === "biz" && <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2 }}>입찰과 계약이 함께 열려요 · 홈택스에서 당일 발급</div>}
         {/* 2안(보험 없이 보증금)은 안내하지 않고 문의로만 받는다 */}
         {next.key === "insurance" && <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2 }}>보험 가입이 어려우면 고객센터로 문의해 주세요</div>}
       </div>

@@ -135,7 +135,7 @@ export function GateBody({ c }) {
       )}
 
       {c.ladder && (
-        <GateSection title="받을 수 있는 공사 — 가입만 해도 바로, 낼수록 커져요">
+        <GateSection title="받을 수 있는 공사 — 사업자등록부터 입찰, 낼수록 커져요">
           <div style={{ border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, overflow: "hidden" }}>
             {LADDER.map((r, i) => (
               <div key={r.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
@@ -148,7 +148,7 @@ export function GateBody({ c }) {
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 11.5, color: C.text3, marginTop: 6 }}>입찰·상담은 가입만으로, 계약은 사업자등록증 확인 뒤에 해요. 서류는 마이 → 「내 한도 · 서류」에서.</div>
+          <div style={{ fontSize: 11.5, color: C.text3, marginTop: 6 }}>가입하면 500만원까지 공사 카드를 볼 수 있고, 입찰은 사업자등록증 확인 뒤에 열려요(홈택스 당일 발급). 서류는 마이 → 「내 한도 · 서류」에서.</div>
         </GateSection>
       )}
 
