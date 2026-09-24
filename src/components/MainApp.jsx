@@ -393,7 +393,7 @@ const computeCustomerStage = (r, escrowData) => {
     };
     return {
       badge: "접수완료", badgeBg: C.bgWarm, badgeFg: C.text3,
-      label: "접수완료", sub: "검증된 업체들이 견적을 검토 중입니다 · 보통 2~4시간 내 응답이 와요 ⏱️",
+      label: "접수완료", sub: "근처 업체들이 요청을 보고 있어요 · 견적이 오면 알림으로 알려 드려요",
       action: null, cta: null,
     };
   }

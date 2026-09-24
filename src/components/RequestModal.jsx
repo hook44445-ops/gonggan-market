@@ -146,7 +146,7 @@ export default function RequestModal({ onClose, onDone, initialData = null, isEd
           </div>
           {!isEdit && (
             <div style={{ textAlign:"center", fontSize:12, color:C.text3, marginTop:S.md }}>
-              보통 2~4시간 내 연락드립니다.
+              견적이 오면 알림으로 알려 드려요.
             </div>
           )}
         </>}
