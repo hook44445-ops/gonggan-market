@@ -11,7 +11,7 @@ import { SHOW_BETA_UI } from "../constants/release"; // 베타: 공간보증 사
 import { selectCompanyGuarantee } from "../lib/supabase";
 import {
   GUARANTEE_GRADES, GUARANTEE_GRADE_MAP, GUARANTEE_STATUS_META,
-  GUARANTEE_FLOW_STEPS, wonFromManwon,
+  GUARANTEE_FLOW_STEPS, wonFromManwon, guaranteeEmblemFile,
 } from "../constants/guarantee";
 
 export default function GuaranteeCard({ company, actorId, onChange }) {
@@ -90,7 +90,8 @@ export default function GuaranteeCard({ company, actorId, onChange }) {
                   style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
                     background: sel ? C.brandL : C.surface2, border: `1.5px solid ${sel ? C.brand : C.bgWarm}`,
                     borderRadius: R.lg, padding: "12px 14px", cursor: "pointer" }}>
-                  <span style={{ fontSize: 22 }}>{g.emoji}</span>
+                  <img src={`/images/emblem/${guaranteeEmblemFile(g.key)}-sm.webp`} alt="" width={44} height={44}
+                    style={{ width: 44, height: 44, flexShrink: 0, display: "block" }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>{g.label}</div>
                     <div style={{ fontSize: 12, color: C.text3 }}>예치금 {wonFromManwon(g.amount)}</div>

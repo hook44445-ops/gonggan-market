@@ -15,6 +15,12 @@ export const GUARANTEE_GRADES = [
 
 export const GUARANTEE_GRADE_MAP = Object.fromEntries(GUARANTEE_GRADES.map((g) => [g.key, g]));
 
+// 등급 엠블럼 — 힉스필드(gpt_image_2_5, 기존 보증금·숲 엠블럼을 참고로 한 가족, 09-25).
+//   public/images/emblem/deposit-{basic|standard|premium|master|signature}(-sm).webp
+//   등급이 오를수록 칸을 더 채우고(78→100%) 장식이 화려해진다 — 청동·은·금·금+청록·금+보라.
+export const guaranteeEmblemFile = (gradeKey) =>
+  GUARANTEE_GRADE_MAP[gradeKey] ? `deposit-${String(gradeKey).toLowerCase()}` : "deposit";
+
 // 만원 → 원 표기.
 export const wonFromManwon = (manwon) =>
   (Number(manwon || 0) * 10000).toLocaleString("ko-KR") + "원";
