@@ -22,6 +22,9 @@ import {
 import { BIZ_GRACE_HOURS } from "../lib/contractGate";
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
+// 결제가 실제로 열렸는지 — 토스페이먼츠 상점이 열리고 실키를 넣은 뒤 대표가 켠다. 보관(에스크로) 약속 문구도 이 스위치를 따른다.
+const PAYMENTS_LIVE = import.meta.env.VITE_PAYMENTS_LIVE === "true";
+const AUTO_APPROVE_HOURS = 48;   // 서버 자동 승인(migration 112 · pg_cron)과 같은 값
 
 // 업체 정보를 못 불러왔을 때만 쓰는 자리 — 확인 안 된 칩이 켜지지 않게 badge 등 신뢰 칸은 비워 둔다(C1).
 const DEFAULT_COMPANY = { id: null, name: "업체", temp: 36.5, verified: false, badge: null, completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
@@ -133,6 +136,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   //   화면에 온 업체 행이 «확인 안 됨»이라고 말해도 같다(행을 못 불러온 기본값 업체는 id 가 없어 여기 안 걸린다).
   //   결제 승인 서버(api/confirm-payment)도 같은 규칙으로 한 번 더 막는다.
   const bizPending = stagePlan === "1STEP" || (!!selBid?.company?.id && selBid.company.verified === false);
+  // 결제가 실제로 열렸는가(토스 상점 개설 뒤 Vercel 에 VITE_PAYMENTS_LIVE=true) — 꺼져 있으면 보관 약속도 결제 버튼도 없다.
+  const payBlocked = bizPending || (!PAYMENTS_LIVE && !SAFE_MODE);
   const planNotice = bizPending
     ? { title: "업체의 사업자 확인을 기다리고 있어요", body: `공간마켓은 사업자등록을 마친 업체와만 계약해요. 업체에 사업자등록증 제출을 안내했고(홈택스에서 당일 발급), 확인되면 알림으로 알려 드릴게요. 선택 후 ${BIZ_GRACE_HOURS}시간이 지나도 확인이 안 되면 다른 업체를 골라도 공간온도에 영향이 없어요.` }
     : stagePlan === "2STEP"
@@ -673,6 +678,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         selectedMethod: selectedMethod ?? null, SAFE_MODE, paying: payingRef.current,
       });
       if (bizPending) { dlog("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "biz_required" }); return; }
+      if (!PAYMENTS_LIVE && !SAFE_MODE) { showLocalToast("지금은 결제 준비 중이에요. 상점이 열리면 바로 결제할 수 있어요."); return; }
       if (!selectedMethod && !SAFE_MODE) { dlog("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "no_method_and_not_safe_mode" }); return; }
       if (payingRef.current) { dlog("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "already_paying(payingRef)" }); return; }
       payingRef.current = true;
@@ -945,28 +951,21 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
                   <div style={{ fontSize:13, fontWeight:800, color:C.brand }}>{fmtMoney(amount)}</div>
                 </div>
               ))}
+              {!bizPending && <div style={{ fontSize:11.5, color:C.text3, lineHeight:1.7, marginTop:4 }}>{planNotice.body}</div>}
             </div>
           </div>
 
-          {/* 자재비 10% 선지급 안내 — 고객이 선지급 이유를 이해하도록 */}
-          <div style={{ background:"#FBF7EC", borderRadius:R.lg, padding:S.lg, marginBottom:S.lg, border:`1px solid #EADFC4` }}>
-            <div style={{ fontSize:13, fontWeight:800, color:"#8A6D1E", marginBottom:6, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="📦" size={13} color="#8A6D1E" /> {planNotice.title}</div>
-            <div style={{ fontSize:12, color:C.text2, lineHeight:1.85 }}>{planNotice.body}</div>
-          </div>
-
-          {/* 결제 직전 — 에스크로 안전 보관 + 기록 저장 안내 */}
-          <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg,
-            marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
-            <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:6, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔒" size={13} color={C.brand} /> 업체에게 바로 돈이 지급되지 않습니다</div>
+          {/* 돈이 가는 길 — 한 상자(결제 화면 안내 중복 정리, 대표 09-25). 보관 약속은 결제가 실제로 열렸을 때만(PAYMENTS_LIVE). */}
+          <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
+            <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:6, display:"flex", alignItems:"center", gap:5 }}>
+              <Icon emoji="🔒" size={13} color={C.brand} /> {PAYMENTS_LIVE ? "결제한 금액은 단계마다 나눠서 업체에 가요" : "지금은 결제 준비 중이에요"}
+            </div>
             <div style={{ fontSize:12, color:C.text2, lineHeight:1.8 }}>
-              {SHOW_BETA_UI ? "대금은 계약서에 적은 단계대로 업체에 직접 지급하고, 단계마다 확인과 사진이 앱에 기록됩니다." : "결제금은 공간마켓이 안전하게 보관하며, 고객 확인 후 단계별로 지급됩니다."}<br/>
-              <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="💬" size={11} color={C.text2} /> 채팅</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📷" size={11} color={C.text2} /> 사진</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📍" size={11} color={C.text2} /> GPS</span> 기록이 저장되며 분쟁 발생 시 기록을 기준으로 검토합니다.
+              {PAYMENTS_LIVE
+                ? `결제한 금액은 공간마켓이 보관하고, 사진을 보고 단계를 확인할 때마다 업체에 지급돼요. ${AUTO_APPROVE_HOURS}시간 안에 확인이 없으면 자동으로 승인되고, 이의를 신청하면 남은 단계는 멈춰요.`
+                : "토스페이먼츠 상점이 열리면 이 화면에서 바로 결제할 수 있어요. 견적 내용은 그대로 남아 있어요."}
+              <br/>채팅 · 사진 · GPS 기록이 이 공사 한 건에 저장되고, 분쟁이 생기면 그 기록으로 검토합니다.
             </div>
-          </div>
-
-          {/* 보호 범위 안내 (강제 체크박스 없음) */}
-          <div style={{ marginBottom:S.lg }}>
-            <ProtectionNotice variant="full" />
           </div>
 
           {/* Payment method selection */}
@@ -1005,10 +1004,6 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             })}
           </div>
 
-          <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.md, marginBottom:S.xl, fontSize:12, color:C.navy, display:"flex", gap:S.sm }}>
-            <Icon emoji="🛡" size={13} color={C.navy} /><span>{SHOW_BETA_UI ? "앱 안 안전결제(에스크로)는 정식 서비스에서 제공되며, 그 전까지는 계약서에 적은 단계대로 업체와 직접 진행합니다." : "예치금은 공간마켓이 안전하게 보관하며 단계별 확인 후 업체에 지급됩니다"}</span>
-          </div>
-
           {SHOW_DEBUG_UI && SAFE_MODE && (
             <div style={{ background:"#FBF5E8", borderRadius:R.lg, padding:`${S.sm}px ${S.md}px`, marginBottom:S.md, fontSize:12, color:"#B08040", fontWeight:700, textAlign:"center" }}>
               🔧 SAFE_MODE: 실제 결제 비활성 (테스트 모드)
@@ -1021,21 +1016,24 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
           )}
 
-          {/* 자재비 10% 선지급 안내 — 결제 버튼 상단(문구만, 정책/지급비율/로직 무변경) */}
-          <div style={{ background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, padding:S.md, marginBottom:S.lg, fontSize:12, color:C.text2, lineHeight:1.7 }}>
-            <div style={{ fontWeight:800, color:C.brand, marginBottom:4, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="💡" size={12} color={C.brand} /> {planNotice.title}</div>
-            {planNotice.body}
-          </div>
+          {/* 결제가 막혀 있을 때만, 버튼 바로 위에 이유 한 줄 */}
+          {bizPending && (
+            <div style={{ background:"#FBF7EC", border:"1px solid #EADFC4", borderRadius:R.lg, padding:S.md, marginBottom:S.md, fontSize:12, color:C.text2, lineHeight:1.7 }}>
+              <div style={{ fontWeight:800, color:"#8A6D1E", marginBottom:4 }}>{planNotice.title}</div>
+              {planNotice.body}
+            </div>
+          )}
 
           <button
             onClick={() => { try { Promise.resolve(handlePay()).catch((err) => dlog("[GONGGAN_DIAG][handlePay:error]", { msg: err?.message ?? String(err) })); } catch (err) { dlog("[GONGGAN_DIAG][handlePay:error]", { msg: err?.message ?? String(err) }); } }}
-            disabled={bizPending || (!selectedMethod && !SAFE_MODE) || paymentLoading}
-            style={{ width:"100%", padding:S.xxl, background: !bizPending && (selectedMethod || SAFE_MODE) && !paymentLoading ? C.brand : C.bgWarm,
-              color: !bizPending && (selectedMethod || SAFE_MODE) && !paymentLoading ? "#fff" : C.text4, border:"none", borderRadius:R.lg,
-              fontWeight:800, fontSize:16, cursor: !bizPending && (selectedMethod || SAFE_MODE) && !paymentLoading ? "pointer" : "not-allowed",
-              boxShadow: !bizPending && (selectedMethod || SAFE_MODE) && !paymentLoading ? `0 6px 20px ${C.brand44}` : "none",
+            disabled={payBlocked || (!selectedMethod && !SAFE_MODE) || paymentLoading}
+            style={{ width:"100%", padding:S.xxl, background: !payBlocked && (selectedMethod || SAFE_MODE) && !paymentLoading ? C.brand : C.bgWarm,
+              color: !payBlocked && (selectedMethod || SAFE_MODE) && !paymentLoading ? "#fff" : C.text4, border:"none", borderRadius:R.lg,
+              fontWeight:800, fontSize:16, cursor: !payBlocked && (selectedMethod || SAFE_MODE) && !paymentLoading ? "pointer" : "not-allowed",
+              boxShadow: !payBlocked && (selectedMethod || SAFE_MODE) && !paymentLoading ? `0 6px 20px ${C.brand44}` : "none",
               display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             {bizPending ? "업체 사업자 확인 대기 중"
+              : !PAYMENTS_LIVE && !SAFE_MODE ? "결제 준비 중 — 곧 열려요"
               : paymentLoading ? "처리 중..."
               : SAFE_MODE ? <><Icon emoji="🔧" size={15} color="#fff" /> 테스트 예치 (SAFE_MODE)</>
               : selectedMethod ? <><Icon emoji="🔒" size={15} color="#fff" /> {fmtMoney(customerTotal)} 결제하기</>
