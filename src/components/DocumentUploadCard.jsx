@@ -2,7 +2,7 @@ import { C, R, S } from "../constants";
 
 const STATUS_META = {
   draft:     { label: "미작성",   color: C.text4,  bg: C.bg      },
-  submitted: { label: "제출완료", color: C.brand,  bg: C.brandL  },
+  submitted: { label: "관리자 확인 중", color: C.brand,  bg: C.brandL  },   // 올렸다 → 관리자가 확인하면 한도가 오른다
   reviewing: { label: "검토중",   color: C.gold,   bg: "#FBF5E8" },
   approved:  { label: "승인완료", color: C.green,  bg: C.greenL  },
   held:      { label: "보류",     color: C.gold,   bg: "#FBF5E8" },
@@ -39,6 +39,12 @@ export default function DocumentUploadCard({ doc, onClick }) {
         <div style={{ fontSize: 12, color: C.text3 }}>
           {doc.file_name ? `📎 ${doc.file_name}` : "파일 첨부 필요"}
         </div>
+        {status === "submitted" && (
+          <div style={{ fontSize: 11, color: C.brand, marginTop: 3 }}>관리자가 확인하면 알림으로 알려 드리고, 한도 계단이 한 칸 올라가요</div>
+        )}
+        {status === "draft" && doc.file_name && (
+          <div style={{ fontSize: 11, color: C.gold, marginTop: 3 }}>아직 제출 전이에요 — 눌러서 「제출」을 마쳐 주세요</div>
+        )}
         {(status === "rejected" || status === "held") && doc.review_reason && (
           <div style={{ fontSize: 11, color: status === "rejected" ? C.red : C.gold, marginTop: 3 }}>
             사유: {doc.review_reason}

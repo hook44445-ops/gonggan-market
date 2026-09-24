@@ -2843,9 +2843,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (t === "NEW_REQUEST") { loadCompanyRequests?.(); go("home"); return; }
     if (t === "NEW_REQUEST_LOCKED") { setScreen("document-center"); return; }
     // 계약은 사업자부터(A안 · migration 116): 업체 → 서류 올리는 곳 / 의뢰인 → 그 요청의 결제 화면 / 관리자 → 관리 화면.
-    if (t === "BIZ_REQUIRED") { setScreen("document-center"); return; }
+    if (t === "BIZ_REQUIRED" || t === "DOCUMENT_REVIEW") { setScreen("document-center"); return; }
     if (t === "BIZ_VERIFIED" && rid) { setBidViewRequestId(rid); go("bidstatus"); return; }
-    if (t === "ADMIN_BIZ_PENDING") { go("admin"); return; }
+    if (t === "ADMIN_BIZ_PENDING" || t === "ADMIN_DOC_SUBMITTED") { go("admin"); return; }
     // 의뢰인: 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교(bidstatus).
     if ((t === "BID_RECEIVED" || t === "BID_ALL_IN") && rid) {
       setBidViewRequestId(rid);

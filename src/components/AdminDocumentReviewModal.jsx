@@ -69,9 +69,12 @@ export default function AdminDocumentReviewModal({ docs, company, adminUser, onC
           userId:      company.ownerId,
           type:        "DOCUMENT_REVIEW",
           title:       `서류 검토 결과: ${docLabel}`,
+          // 한도를 여는 서류(사업자·보험·면허)는 «무엇이 달라졌는지»까지 — 에스컬레이션의 보상이 바로 보이게.
           message:     reviewStatus === "approved"
-            ? `${docLabel} 서류가 승인되었습니다.`
-            : `${docLabel} 서류가 ${statusLabel}되었습니다.${reviewReason ? ` 사유: ${reviewReason}` : ""}`,
+            ? (["business_license", "insurance_certificate", "interior_license"].includes(selected.document_type)
+                ? `${docLabel}이(가) 확인됐어요 — 한도 계단이 한 칸 올랐어요. 「내 한도 · 서류」에서 새 한도를 확인하세요.`
+                : `${docLabel} 서류가 승인되었습니다.`)
+            : `${docLabel} 서류가 ${statusLabel}되었습니다.${reviewReason ? ` 사유: ${reviewReason}` : ""}${reviewStatus === "rejected" ? " 고쳐서 다시 올려 주세요." : ""}`,
           relatedId:   selected.id,
           relatedType: "company_document",
           priority:    reviewStatus === "rejected" ? "HIGH" : "NORMAL",
