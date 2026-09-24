@@ -1,3 +1,4 @@
+import { SHOW_BETA_UI } from "../constants/release";
 import { useState } from "react";
 import { C, R, S } from "../constants";
 
@@ -48,7 +49,7 @@ export default function DisputeNotice({ variant = "short", defaultOpen = false }
           <div style={{ background: C.brandL, borderRadius: 10, padding: "12px 14px", marginBottom: S.md }}>
             {[
               "계약서·사진·채팅 기록 제공",
-              "에스크로 정산 일시 보류",
+              SHOW_BETA_UI ? "다음 단계 확인 보류(이의 제기)" : "에스크로 정산 일시 보류",
               "고객·업체 간 소통 중재",
               "합의를 통한 환불 협의 지원",
             ].map(t => (

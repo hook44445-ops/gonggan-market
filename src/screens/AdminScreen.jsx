@@ -6650,13 +6650,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
                                 <span style={{ fontSize: 11, color: customer.identity_verification_status === "required" ? C.gold : C.text4, fontWeight: customer.identity_verification_status === "required" ? 700 : 400 }}>
                                   {customer.identity_verification_status === "required" ? <><Icon emoji="⚠️" size={11} color={C.gold} /> 인증 필요</> : "미인증"}
                                 </span>
-                                <button onClick={async () => {
-                                  const { error } = await adminVerifyUserIdentity(customer.id, user?.id, "verified");
-                                  if (error) showToast(error.message ?? "처리 실패", false);
-                                  else { showToast("본인인증 처리 완료"); setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, is_identity_verified: true, identity_verified_at: new Date().toISOString(), identity_provider: "admin_manual", identity_verification_status: "verified" } : c)); }
-                                }} style={{ padding: "3px 8px", borderRadius: R.full, border: `1px solid ${C.brandM}`, background: C.brandL, color: C.brand, fontSize: 10, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
-                                  수동 인증
-                                </button>
+                                {/* 본인인증은 본인이 앱에서 포트원으로만 켠다(마이그레이션 102). 관리자가 대신 켜는 버튼은 없앴다 —
+                                    예전 「수동 인증」은 아무 확인 없이 완료로 적었고, 102 뒤에는 서버가 막는다. */}
+                                <span style={{ fontSize: 10, color: C.text4, marginLeft: "auto" }}>본인이 앱에서 인증</span>
                               </>
                             )}
                           </div>

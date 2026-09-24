@@ -1,3 +1,4 @@
+import { SHOW_BETA_UI } from "../constants/release";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { C, R, S, SHADOW } from "../constants";
 import { TempBadge } from "../components/common";
@@ -471,7 +472,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
           <div style={{ fontSize:20, flexShrink:0 }}>🛡</div>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:12.5, fontWeight:800, color:C.navy }}>견적요청으로 전환하기</div>
-            <div style={{ fontSize:11, color:C.text3, lineHeight:1.5 }}>에스크로 보호 · GPS 증빙 · 분쟁 보호 혜택을 받을 수 있습니다.</div>
+            <div style={{ fontSize:11, color:C.text3, lineHeight:1.5 }}>{SHOW_BETA_UI ? "계약·현장 사진·단계가 한 건에 기록되고, 분쟁 시 그 기록을 드려요." : "에스크로 보호 · GPS 증빙 · 분쟁 보호 혜택을 받을 수 있습니다."}</div>
           </div>
           <button onClick={onQuoteRequest}
             style={{ flexShrink:0, background:C.navy, color:"#fff", border:"none", borderRadius:R.full,

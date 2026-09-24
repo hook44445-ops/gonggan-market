@@ -3539,6 +3539,11 @@ export const uploadSeedLoungeImage = async (file) => {
 export const adminVerifyUserIdentity = async (userId, adminId, status = "verified") => {
   const now = new Date().toISOString();
   const isVerified = status === "verified";
+  // 관리자가 대신 «완료»로 켜는 길은 닫는다. 102 를 돌리기 전에도 같게 — 전에는 켜지고 뒤에는 서버 오류가 나는
+  // 식으로 갈리지 않게 여기서 먼저 거절한다. 철회(revoked)만 된다.
+  if (isVerified) {
+    return { data: null, error: { message: "본인인증은 본인이 앱에서 직접 해야 합니다. 관리자는 철회만 할 수 있어요." } };
+  }
   const { data, error } = await supabase
     .from("users")
     .update({

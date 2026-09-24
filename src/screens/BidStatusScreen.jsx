@@ -375,26 +375,30 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
             <div style={{ fontSize:13, color:C.text2, marginBottom:S.md }}>{selBid.material}</div>
             <div style={{ background:C.brandL, borderRadius:R.md, padding:S.md, border:`1px solid ${C.brandM}` }}>
-              <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔒" size={11} color={C.brand} /> {SHOW_BETA_UI ? "앱 안 안전결제가 열리면 이렇게 계산돼요 · 지금은 계약서 단계대로 직접 주고받아요" : "공간안전결제 — 토스페이먼츠가 공사대금을 안전하게 보호합니다"}</div>
+              <div style={{ fontSize:11, fontWeight:700, color:C.brand, marginBottom:S.xs, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔒" size={11} color={C.brand} /> {SHOW_BETA_UI ? "대금은 계약서에 적은 단계대로 업체와 직접 주고받아요" : "공간안전결제 — 토스페이먼츠가 공사대금을 안전하게 보호합니다"}</div>
               {/* 결제수단 미선택(현장방문 요청 등 결제 전 단계)에서는 수수료를 확정 금액처럼 표시하지 않는다. */}
-              {[
+              {/* 베타: 이용료·예치 총액을 보이지 않는다(앱이 돈을 받지 않는다). 공사 금액 한 줄만. */}
+              {(SHOW_BETA_UI ? [["공사 금액", fmtMoney(effectivePrice)]] : [
                 ["시공비", fmtMoney(effectivePrice)],
                 ["공간안전결제 이용료", selectedMethod ? `+${fmtMoney(escrowFee)}` : "결제수단에 따라 달라집니다"],
-              ].map(([k, v]) => (
+              ]).map(([k, v]) => (
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.text2, marginBottom:2 }}>
                   <span>{k}</span>
                   <span style={{ fontWeight:700, color: (k === "공간안전결제 이용료" && !selectedMethod) ? C.text3 : C.text2 }}>{v}</span>
                 </div>
               ))}
+              {!SHOW_BETA_UI && (<>
               <div style={{ height:1, background:C.brandM, margin:`${S.xs}px 0` }} />
               <div style={{ display:"flex", justifyContent:"space-between" }}>
                 <span style={{ fontSize:13, fontWeight:800, color:C.text1 }}>총 예치 금액</span>
                 <span style={{ fontSize:14, fontWeight:900, color:C.brand }}>{selectedMethod ? fmtMoney(customerTotal) : "결제수단 선택 시 확정"}</span>
               </div>
+              </>)}
             </div>
           </div>
           <div style={{ background:C.navyL, borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, border:`1px solid ${C.trustM}` }}>
-            <div style={{ fontSize:14, fontWeight:800, color:C.navy, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="🛡" size={14} color={C.navy} /> 에스크로 안전 정산</div>
+            <div style={{ fontSize:14, fontWeight:800, color:C.navy, marginBottom:S.md, display:"flex", alignItems:"center", gap:6 }}><Icon emoji="🛡" size={14} color={C.navy} /> {SHOW_BETA_UI ? "대금은 이렇게 나눠 주세요" : "에스크로 안전 정산"}</div>
+            {SHOW_BETA_UI && <div style={{ fontSize:12, color:C.text3, lineHeight:1.7, marginTop:-6, marginBottom:S.sm }}>계약서에 이 비율을 적어 두면 단계마다 확인하고 주고받기 쉬워요.</div>}
             {stages.map(({ name, percent, amount }) => (
               <div key={name} style={{ display:"flex", justifyContent:"space-between", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.trustM}` }}>
                 <div><div style={{ fontSize:12, fontWeight:700, color:C.navy }}>{name} {percent}%</div><div style={{ fontSize:11, color:C.text3 }}>{name} 확인</div></div>
@@ -443,7 +447,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             {isQuotePhase
               ? <>예약 확정하고 결제 진행 <Icon emoji="✅" size={15} color="#fff" /></>
               : isAwarded
-              ? "위 내용으로 에스크로 결제 및 예약 확정하기 →"
+              ? (SHOW_BETA_UI ? "위 내용으로 예약 확정하기 →" : "위 내용으로 에스크로 결제 및 예약 확정하기 →")
               : siteVisitLoading
               ? "처리 중..."
               : "현장방문 견적 요청하기 →"}
@@ -455,7 +459,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
   if (step==="reserved" && selBid) return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
-      <BidScreenHeader title="안전결제로 시작하기" onBack={goBack} userId={userId} />
+      <BidScreenHeader title={SHOW_BETA_UI ? "계약 진행하기" : "안전결제로 시작하기"} onBack={goBack} userId={userId} />
       <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
         <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
           <div style={{ display:"flex", gap:S.md, alignItems:"center", marginBottom:S.md }}>
@@ -474,15 +478,17 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           <DisputeNotice variant="short" />
         </div>
         {/* 직거래 경고 — 계약 화면 */}
+        {!SHOW_BETA_UI && (
         <div style={{ marginBottom:S.xl, fontSize:12, color:C.text3, lineHeight:1.7, textAlign:"center" }}>
           직거래 시 에스크로 보호, 분쟁지원, 공간보증이 모두 사라집니다.
         </div>
+        )}
         <div onClick={() => { dlog("[GONGGAN_DIAG][reservedCard]", { selBidId: selBid?.id ?? null, selBidStatus: selBid?.status ?? null, requestStatus: request?.status ?? null, next: "payment" }); setStep("payment"); }} style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`2px solid ${C.brand}`, cursor:"pointer" }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-            <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>공간안전결제로 진행</div>
-            <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700, display:"inline-flex", alignItems:"center", gap:4 }}><Icon emoji="🛡" size={11} color={C.brand} /> 보호</span>
+            <div style={{ fontSize:16, fontWeight:800, color:C.text1 }}>{SHOW_BETA_UI ? "계약 기록 시작하기" : "공간안전결제로 진행"}</div>
+            <span style={{ background:C.brandL, color:C.brand, borderRadius:R.full, padding:"3px 10px", fontSize:11, fontWeight:700, display:"inline-flex", alignItems:"center", gap:4 }}><Icon emoji="🛡" size={11} color={C.brand} /> {SHOW_BETA_UI ? "기록" : "보호"}</span>
           </div>
-          <div style={{ fontSize:14, color:C.text3, lineHeight:1.8 }}>토스페이먼츠 보관 · 단계별 지급 · 분쟁 중재 지원</div>
+          <div style={{ fontSize:14, color:C.text3, lineHeight:1.8 }}>{SHOW_BETA_UI ? "계약서 단계대로 직접 지급 · 단계·사진 기록 · 분쟁 시 기록 제공" : "토스페이먼츠 보관 · 단계별 지급 · 분쟁 중재 지원"}</div>
         </div>
         <button onClick={() => onChat(selBid.company ?? { id: selBid.companyId, name: "업체" })} style={{ width:"100%", padding:S.lg, background:"none", color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:600, fontSize:14, cursor:"pointer",
           display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icon emoji="💬" size={13} color={C.text3} /> 먼저 업체와 상담하기</button>
@@ -717,7 +723,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           {/* Amount summary — 계산식(시공비 + 이용료 = 총액) + 단계별 안전 지급 */}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-            <div style={{ fontSize:13, color:C.text3, marginBottom:10, fontWeight:700 }}>공간안전결제 예치 금액</div>
+            <div style={{ fontSize:13, color:C.text3, marginBottom:10, fontWeight:700 }}>{SHOW_BETA_UI ? "결제 금액" : "공간안전결제 예치 금액"}</div>
             <div style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", fontSize:13 }}>
               <span style={{ color:C.text2 }}>시공비</span>
               <span style={{ fontWeight:700, color:C.text1 }}>{fmtMoney(effectivePrice)}</span>
@@ -757,7 +763,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             marginBottom:S.lg, border:`1px solid ${C.brandM}` }}>
             <div style={{ fontSize:13, fontWeight:800, color:C.brand, marginBottom:6, display:"flex", alignItems:"center", gap:5 }}><Icon emoji="🔒" size={13} color={C.brand} /> 업체에게 바로 돈이 지급되지 않습니다</div>
             <div style={{ fontSize:12, color:C.text2, lineHeight:1.8 }}>
-              결제금은 공간마켓이 안전하게 보관하며, 고객 확인 후 단계별로 지급됩니다.<br/>
+              {SHOW_BETA_UI ? "대금은 계약서에 적은 단계대로 업체에 직접 지급하고, 단계마다 확인과 사진이 앱에 기록됩니다." : "결제금은 공간마켓이 안전하게 보관하며, 고객 확인 후 단계별로 지급됩니다."}<br/>
               <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="💬" size={11} color={C.text2} /> 채팅</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📷" size={11} color={C.text2} /> 사진</span> · <span style={{ display:"inline-flex", alignItems:"center", gap:3 }}><Icon emoji="📍" size={11} color={C.text2} /> GPS</span> 기록이 저장되며 분쟁 발생 시 기록을 기준으로 검토합니다.
             </div>
           </div>
@@ -804,7 +810,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           </div>
 
           <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.md, marginBottom:S.xl, fontSize:12, color:C.navy, display:"flex", gap:S.sm }}>
-            <Icon emoji="🛡" size={13} color={C.navy} /><span>예치금은 공간마켓이 안전하게 보관하며 단계별 확인 후 업체에 지급됩니다</span>
+            <Icon emoji="🛡" size={13} color={C.navy} /><span>{SHOW_BETA_UI ? "앱 안 안전결제(에스크로)는 정식 서비스에서 제공되며, 그 전까지는 계약서에 적은 단계대로 업체와 직접 진행합니다." : "예치금은 공간마켓이 안전하게 보관하며 단계별 확인 후 업체에 지급됩니다"}</span>
           </div>
 
           {SHOW_DEBUG_UI && SAFE_MODE && (
@@ -867,7 +873,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         )}
         <div style={{ display:"flex", justifyContent:"center", marginBottom:16 }}><Icon emoji="✅" size={64} color={C.brand} /></div>
         <div style={{ fontSize:22, fontWeight:900, color:C.text1, marginBottom:8 }}>예약 완료!</div>
-        <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>에스크로 예치 완료. 착공 확인 후 업체에 지급됩니다.</div>
+        <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>{SHOW_BETA_UI ? "계약이 기록됐어요. 착공하면 단계마다 확인해 주세요." : "에스크로 예치 완료. 착공 확인 후 업체에 지급됩니다."}</div>
         <button onClick={() => onChat(selBid.company ?? { id: selBid.companyId, name: "업체" })} style={{ width:"100%", padding:S.xxl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", boxShadow:`0 6px 20px ${C.brand44}`, marginBottom:S.sm,
           display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}><Icon emoji="💬" size={15} color="#fff" /> {selBid.company?.name ?? "업체"}와 채팅하기</button>
         {/* H-B: 레거시 done_direct 경로 안전장치(현재 도달 안 함). 에스크로 리뷰는 EscrowScreen.onReview에서 처리. */}

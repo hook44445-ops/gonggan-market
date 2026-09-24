@@ -1,3 +1,4 @@
+import { SHOW_BETA_UI } from "../constants/release";
 import { useState, useEffect, useRef } from "react";
 import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import { BADGES } from "../constants/badges";
@@ -660,7 +661,9 @@ export default function LoginScreen({ onLogin, initialRole }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 {[
                   { icon: "🏅", title: "승인 업체만 활동",   desc: "서류·보험 검증을 통과한 업체만 활동해요" },
-                  { icon: "🔒", title: "에스크로 안전보관", desc: "공사비는 단계 확인 전까지 안전하게 보관" },
+                  (SHOW_BETA_UI
+                    ? { icon: "🗂", title: "단계별 기록", desc: "계약·사진·진행 단계가 그대로 남아요" }
+                    : { icon: "🔒", title: "에스크로 안전보관", desc: "공사비는 단계 확인 전까지 안전하게 보관" }),
                   { icon: "📍", title: "GPS 현장기록",     desc: "현장방문·시공 단계마다 위치를 인증해요" },
                   { icon: "📋", title: "프로젝트 증빙보관", desc: "사진·계약·대화 전 과정을 기록·보관해요" },
                 ].map(({ icon, title, desc }) => (

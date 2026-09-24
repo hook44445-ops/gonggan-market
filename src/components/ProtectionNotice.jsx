@@ -1,3 +1,4 @@
+import { SHOW_BETA_UI } from "../constants/release";
 import { useState } from "react";
 import { C, R, S } from "../constants";
 
@@ -9,6 +10,23 @@ import { C, R, S } from "../constants";
 // ─────────────────────────────────────────────────────
 export default function ProtectionNotice({ variant = "short", defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
+
+  // 베타(오픈 기간) — 앱이 공사비를 받거나 보관하지 않는다. 보관·에스크로 약속 대신 지금 되는 것만 말한다.
+  if (SHOW_BETA_UI) {
+    return (
+      <div style={{
+        background: C.brandL, border: `1px solid ${C.brandM}`, borderRadius: 12,
+        padding: "14px 16px", fontSize: 14, lineHeight: 1.8, color: C.text2,
+        display: "flex", gap: 10, alignItems: "flex-start",
+      }}>
+        <span style={{ fontSize: 16, flexShrink: 0 }}>🗂️</span>
+        <div>
+          계약서·단계·사진·대화가 <b style={{ color: C.brand }}>한 건에 기록</b>되고, 분쟁이 생기면 그 기록을 드립니다.<br />
+          앱 안 안전결제(에스크로)는 정식 서비스에서 제공되며, 그 전까지는 계약서에 적은 단계대로 업체와 직접 진행합니다.
+        </div>
+      </div>
+    );
+  }
 
   if (variant === "short") {
     return (
