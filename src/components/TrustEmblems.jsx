@@ -43,7 +43,7 @@ export function trustState(company = {}) {
   const grade = deposit ? (GUARANTEE_GRADE_MAP[company.guarantee_grade]?.label ?? null) : null;
   return {
     biz:       company.verified === true,
-    insurance: (company.has_insurance ?? company.insurance) === true,
+    insurance: (company.has_insurance ?? company.hasInsurance ?? company.insurance) === true,
     deposit,
     depositGrade: grade,
   };

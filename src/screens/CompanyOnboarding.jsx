@@ -19,7 +19,7 @@ import { C, R, S, SPECIALTIES } from "../constants";
 import { upsertUserByPhone, upsertCompany } from "../lib/supabase";
 import RegionSelectSheet from "../components/RegionSelectSheet";
 import { getPrimaryRegion, regionKey } from "../constants/regions";
-import PartnerLadder from "../components/partner/PartnerLadder";
+import { PartnerNextStep } from "../components/partner/PartnerLadder";
 
 const INK = "#1F2A24";
 const MUTED = "#8C8577";
@@ -80,7 +80,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
     }
   };
 
-  // ── 가입 완료 — 지금 한도와 계단. 프리미엄이 «다음에 할 일»로 보이게 한다. ──
+  // ── 가입 완료 — 가볍게: 지금 얼마까지 + 다음 한 가지. (전체 계단은 업체 화면 「내 한도」에서) ──
   if (joined) {
     return (
       <div style={{ width: "100%", maxWidth: 390 }}>
@@ -89,15 +89,10 @@ export default function CompanyOnboarding({ phone, onDone }) {
           기본 파트너로 시작했어요
         </div>
         <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.75, marginTop: 8, marginBottom: 22 }}>
-          지금부터 견적 요청을 보고 입찰할 수 있어요.<br />
-          증빙을 하나씩 낼 때마다 받을 수 있는 공사가 커집니다.
+          지금부터 우리 동네 견적 요청을 보고 입찰할 수 있어요.
         </div>
 
-        <PartnerLadder current="none" style={{ marginBottom: 22 }} />
-
-        <div style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.7, marginBottom: 18 }}>
-          서류는 마이 → 서류함에서 언제든 낼 수 있어요. 금액은 공사 1건 기준입니다.
-        </div>
+        <PartnerNextStep state={{}} style={{ marginBottom: 24 }} />
         <button onClick={() => onDone(joined)} style={primary(true)}>공간마켓 시작하기</button>
       </div>
     );
