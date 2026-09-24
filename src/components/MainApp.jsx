@@ -452,15 +452,15 @@ function computeProgress(r, escrowData) {
     nextActionText = "모든 공사가 완료됐어요 · 후기를 남겨주세요";
   } else if (tx === "COMPLETED") {
     percent = 75; stepNo = 4; isWaiting = true;
-    nextActionText = "완료 사진 확인 후 잔금 30%가 업체에 지급됩니다";
+    nextActionText = "완료 사진을 확인하고 승인해 주세요";
   } else if (tx === "MID_INSPECTION") {
     percent = 50; stepNo = 3; isWaiting = true;
-    nextActionText = "중간 검수 확인 후 40%가 업체에 지급됩니다";
+    nextActionText = "중간 점검 사진을 확인하고 승인해 주세요";
   } else if (tx === "STARTED") {
     percent = approved(2) ? 25 : 25; stepNo = 2; isWaiting = !approved(2);
     nextActionText = approved(2)
       ? "다음은 중간 검수 단계입니다"
-      : "착공 사진 확인 후 20%가 업체에 지급됩니다";
+      : "착공 사진을 확인하고 승인해 주세요";
   } else {
     // CONTRACTED/예치 등 — 착공 전
     percent = 0; stepNo = 1; isWaiting = true;
@@ -1836,10 +1836,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   useEffect(() => {
     if (activeRole !== "consumer") return;
     const MSG = {
-      STARTED:        "착공이 시작됐습니다 · 30%가 업체에 안전하게 지급됐어요. 다음 정산은 중간 완료 후입니다",
-      MID_INSPECTION: "중간 단계가 확인됐습니다 · 40%가 업체에 지급됐어요. 이제 마무리 단계입니다",
-      COMPLETED:      "마무리 단계입니다 · 완료 사진 확인 후 잔금이 지급됩니다",
-      SETTLED:        "모든 공사가 완료됐습니다 · 총 거래가 안전하게 마무리됐어요. 후기를 남겨주세요",
+      STARTED:        "업체가 착공 사진을 보냈어요 · 공사 화면에서 확인해 주세요",
+      MID_INSPECTION: "업체가 중간 점검 사진을 보냈어요 · 공사 화면에서 확인해 주세요",
+      COMPLETED:      "업체가 완료 사진을 보냈어요 · 확인 후 완료를 승인해 주세요",
+      SETTLED:        "공사가 마무리됐어요 · 후기를 남겨 주세요",
     };
     Object.entries(myRequestsEscrow).forEach(([rid, ed]) => {
       const tx = ed?.escrow?.transaction_status;
@@ -1861,10 +1861,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // 단계 → 알림 정의 (진행 알림: 즉시·무제한)
     const STAGE_NOTIF = {
       CONTRACTED:     { type: "CONTRACT_CREATED",     title: "계약 생성", message: "계약서가 생성됐습니다. 내용을 확인해 주세요" },
-      STARTED:        { type: "CONSTRUCTION_STARTED", title: "착공 시작", message: "착공이 시작됐어요. 30%가 업체에 안전하게 지급됐습니다" },
-      MID_INSPECTION: { type: "ESCROW_MID_CHECK",     title: "중간 점검", message: "중간 단계가 확인됐어요 · 40%가 안전하게 지급됐습니다" },
-      COMPLETED:      { type: "CONSTRUCTION_DONE",    title: "공사 완료", message: "공사가 완료됐습니다. 완료 확인 후 잔금이 지급됩니다" },
-      SETTLED:        { type: "SETTLEMENT_DONE",      title: "정산 완료", message: "최종 정산이 완료됐어요. 거래가 안전하게 마무리됐습니다" },
+      STARTED:        { type: "CONSTRUCTION_STARTED", title: "착공 시작", message: "착공이 시작됐어요. 공사 화면에서 진행 사진을 확인해 주세요" },
+      MID_INSPECTION: { type: "ESCROW_MID_CHECK",     title: "중간 점검", message: "중간 점검 단계예요. 공사 화면에서 사진을 확인해 주세요" },
+      COMPLETED:      { type: "CONSTRUCTION_DONE",    title: "공사 완료", message: "업체가 완료 사진을 보냈어요. 확인 후 완료를 승인해 주세요" },
+      SETTLED:        { type: "SETTLEMENT_DONE",      title: "정산 완료", message: "공사가 마무리됐어요. 후기를 남겨 주시면 다른 분께 큰 도움이 돼요" },
     };
 
     let cancelled = false;
@@ -2225,7 +2225,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         // H-A: 에스크로/결제/리뷰/관리자 화면에서는 팝업 금지
         // 입찰 알림은 홈·입찰목록·타임라인 같이 알림이 맥락에 맞는 화면에서만 표시한다.
         const SAFE_ALERT_SCREENS = new Set(["home", "bidstatus", "timeline", "my"]);
-        if (SAFE_ALERT_SCREENS.has(screenRef.current)) {
+        if (SAFE_ALERT_SCREENS.has(screenRef.current) && activeRoleRef.current !== "company" && activeRoleRef.current !== "admin") {
           const request = customerRequests.find(r => r.id === bidViewRequestId) ?? myRequests.find(r => r.id === bidViewRequestId);
           setBidAlert({
             count: normalized.length,
@@ -2729,16 +2729,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       }).catch(() => {});
     }
 
-    setSubmittedBids(prev => {
-      const forRequest = prev.filter(b => b.requestId === request.id);
-      setBidAlert({
-        count: forRequest.length,
-        requestType: request.type,
-        requestId: request.id,
-        companies: forRequest.map(b => b.company).filter(Boolean),
-      });
-      return prev;
-    });
+    // 예전엔 여기서 「업체 N곳이 입찰했어요」(의뢰인용 팝업)를 입찰한 업체 본인에게 띄웠다(C23).
+    // 의뢰인은 위 알림 + 실시간 구독으로 받는다.
     return true;
   };
   const isGuestCompany = false;
@@ -6253,7 +6245,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         }
       }} />}
 
-      {bidAlert && (
+      {bidAlert && activeRole !== "company" && (
         <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:400 }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />
