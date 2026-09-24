@@ -157,6 +157,7 @@ const normalizeCompletedJob = (row) => {
 
 export default function DashboardScreen({
   onBack, onEscrow, onOpenJob,
+  onBidSubmit,   // (요청, 입찰값) → Promise<boolean>. 없으면 이 탭에서 입찰이 조용히 아무 일도 안 했다(2026-09-24 점검에서 발견).
   companyJobs, companyJobsDebug,
   allRequests: allRequestsProp,
   currentUser, submittedBids,
@@ -510,7 +511,8 @@ export default function DashboardScreen({
               <div style={{ fontSize:13, color:C.text3, marginBottom:S.xl }}>
                 오늘 견적 요청 <b style={{ color:C.brand }}>{biddable.length}건</b>
               </div>
-              {biddable.map(r => <BidCard key={r.id} r={r} currentUser={currentUser} submittedBids={submittedBids} />)}
+              {biddable.map(r => <BidCard key={r.id} r={r} currentUser={currentUser} submittedBids={submittedBids}
+                onBidSubmit={onBidSubmit ? data => onBidSubmit(r, data) : undefined} />)}
             </div>
           );
         })()}

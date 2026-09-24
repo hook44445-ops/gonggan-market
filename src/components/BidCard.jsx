@@ -93,6 +93,12 @@ export default function BidCard({
 
   const handleSubmit = async () => {
     if (!canSubmit || submitting) return;
+    // 제출 함수를 받지 못한 화면에서 그려졌으면 조용히 끝내지 않는다 — 파트너센터 입찰 탭이 이렇게 한 건도 못 넣었다.
+    if (typeof onBidSubmit !== "function") {
+      console.error("[BidCard] onBidSubmit 이 연결되지 않은 화면입니다 — 입찰을 저장할 수 없습니다", { requestId: r?.id });
+      alert("지금 이 화면에서는 입찰을 보낼 수 없어요. 홈의 요청 목록에서 다시 시도해 주세요.");
+      return;
+    }
     setSubmitting(true);
     const ok = await onBidSubmit?.({
       price:    parseInt(bidForm.price, 10),
