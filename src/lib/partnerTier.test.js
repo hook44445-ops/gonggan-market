@@ -231,6 +231,9 @@ test("자재비 선지급 유도 — 500만원 이상 공사, 보증금 없는 �
   const { cardNudge } = await import("./partnerTier.js");
   assert.equal(cardNudge(800, { biz: true, insurance: true }).key, "advance");
   assert.match(cardNudge(800, { biz: true, insurance: true }).text, /자재비 10%를 결제 직후/);
-  assert.equal(cardNudge(800, { biz: true, insurance: true, depositManwon: 200 }), null); // 보증금 있으면 이미 받는다
+  assert.equal(cardNudge(800, { biz: true, insurance: true, depositManwon: 100 }), null); // 스탠다드(100) — 500~1,000 구간 끝 10%
+  assert.equal(cardNudge(800, { biz: true, insurance: true, depositManwon: 50 }).key, "advance"); // 베이직(50)은 모자람
+  assert.match(cardNudge(800, { biz: true, insurance: true, depositManwon: 50 }).text, /스탠다드\(100만원\)/);
+  assert.equal(cardNudge(1800, { biz: true, insurance: true, depositManwon: 200, license: true }), null); // 프리미엄 — 1,000~2,000 구간(1,500 이상은 면허)
   assert.equal(cardNudge(400, { biz: true, insurance: true }), null);                   // 500만원 미만은 선지급 없음
 });

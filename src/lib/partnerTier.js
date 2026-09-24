@@ -260,6 +260,9 @@ export function limitStateOf(company = {}) {
 //   null = 더 권할 것 없음
 // 자재비 선지급이 걸리는 공사 금액(만원) — 이 아래는 2단계(착공 30 · 완료 70)라 선지급이 없다.
 export const ADVANCE_MIN_MANWON = 500;
+// 자재비 선지급에 필요한 보증금 — 공사 구간 끝 숫자의 10%(대표 09-25 · 서버 migration 120 · utils/calculations advanceDepositNeed 와 같은 표)
+//   500만~1,000만 → 100 · ~2,000만 → 200 · ~5,000만 → 500 · ~1억 → 1,000(만원)
+export const advanceNeed = (amt) => (amt <= 1000 ? 100 : amt <= 2000 ? 200 : amt <= 5000 ? 500 : 1000);
 
 export function cardNudge(budgetManwon, state = {}) {
   const s = { biz: false, insurance: false, depositManwon: 0, license: false, ...state };
@@ -273,8 +276,8 @@ export function cardNudge(budgetManwon, state = {}) {
   }
   // 500만원 이상 공사 — 자재비 10% 선지급은 보증금(공간보증) 건 업체만(대표 09-24 「나로 가자」, 서버 migration 120).
   // 없으면 착공 확인 때 30%(자재비 포함)로 받는다 — 막지 않고, 걸면 무엇이 좋은지 한 줄로.
-  if (amt >= ADVANCE_MIN_MANWON && !(Number(s.depositManwon) > 0)) {
-    return { key: "advance", text: "공간보증(보증금)을 걸면 이 공사의 자재비 10%를 결제 직후 먼저 받아요 — 없으면 착공 확인 때 30%로 함께 받아요", cta: "서류 올리기" };
+  if (amt >= ADVANCE_MIN_MANWON && (Number(s.depositManwon) || 0) < advanceNeed(amt)) {
+    return { key: "advance", text: `${guaranteeAsk(advanceNeed(amt))} 이상을 걸면 이 공사의 자재비 10%를 결제 직후 먼저 받아요 — 없으면 착공 확인 때 30%로 함께 받아요`, cta: "서류 올리기" };
   }
   return null;
 }
