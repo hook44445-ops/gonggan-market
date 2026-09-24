@@ -11,7 +11,7 @@ const STATUS_META = {
   rejected:  { label: "반려",     color: C.red,    bg: "#FEF0F0" },
 };
 
-const DOC_TYPE_LABELS = {
+export const DOC_TYPE_LABELS = {
   // 업로드 서류
   business_license:      "사업자등록증",
   insurance_certificate: "시공보험 증서",

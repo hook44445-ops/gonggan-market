@@ -2550,6 +2550,18 @@ export const getCompanyDocuments = (companyId) =>
     .eq("company_id", companyId)
     .order("created_at", { ascending: true });
 
+// 관리자 「서류 확인 대기」 — 업체들이 올린 서류 중 확인 전(제출·확인 중)인 것, 오래 기다린 순(E10).
+// 한도를 여는 서류와 정산용 서류만(동의·서약 서류는 자동 제출이라 넣지 않는다).
+export const REVIEW_QUEUE_DOC_TYPES = ["business_license", "insurance_certificate", "interior_license", "bankbook_copy", "qualification_license"];
+export const getPendingCompanyDocuments = () =>
+  supabase
+    .from("company_documents")
+    .select("id, company_id, document_type, review_status, created_at, updated_at")
+    .in("review_status", ["submitted", "reviewing"])
+    .in("document_type", REVIEW_QUEUE_DOC_TYPES)
+    .order("updated_at", { ascending: true })
+    .limit(50);
+
 export const upsertCompanyDocument = (data) => {
   if (data.id) {
     const { id, ...rest } = data;
