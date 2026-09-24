@@ -21,6 +21,7 @@ const WELCOME = "상담이 시작되었어요. 연락처·계좌를 따로 주�
 // 공사 대화방 카드의 단계 이름 — requests.status 기준.
 const PROJECT_STATUS_LABEL = {
   site_visit: "업체 선택됨 · 현장방문 조율",
+  site_visiting: "업체 선택됨 · 현장방문 조율",
   final_quote_submitted: "최종 견적 도착",
   escrow_pending: "예약 확정 · 결제 대기",
   contracting: "계약 진행",
@@ -34,6 +35,7 @@ const PROJECT_STATUS_LABEL = {
 const _kstTimeFmt = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hour12: false,
 });
+const _kstDateFmt = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric" });
 const fmtTime = (iso) => {
   if (!iso) return "";
   // timezone 표기가 없는 값(방어)은 UTC 로 간주해 파싱.
@@ -41,6 +43,9 @@ const fmtTime = (iso) => {
   if (!/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s = s.replace(" ", "T") + "Z";
   const d = new Date(s);
   if (isNaN(d.getTime())) return "";
+  // 오늘이 아닌 메시지는 날짜를 붙인다(예: "9/22 06:55") — 기록으로 남는 방이라 언제인지가 중요하다.
+  const day = _kstDateFmt.format(d);
+  if (day !== _kstDateFmt.format(new Date())) return `${day} ${_kstTimeFmt.format(d)}`;
   return _kstTimeFmt.format(d); // 예: "15:22" (24시간, KST 고정)
 };
 
@@ -451,7 +456,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
               포트폴리오
             </button>
           )}
-          {onQuoteRequest && (
+          {onQuoteRequest && !project && (
             <button onClick={onQuoteRequest}
               style={{ background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`,
                 borderRadius:R.full, padding:"6px 12px", fontSize:12, fontWeight:800, cursor:"pointer", whiteSpace:"nowrap" }}>

@@ -189,7 +189,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
       // 공사 대화방 열기 — 선택한 순간부터 이 방에서 현장방문 일정·연락을 이어간다.
       postProjectEvent(request.user_id, resolvedCompanyId,
-        `${request?.space_type ?? request?.type ?? "공사"} 공사로 ${company?.name ?? selBid.company?.name ?? "업체"}을(를) 선택했어요. 이 방에서 현장방문 일정을 정하고, 위의 「전화하기」로 바로 연락할 수 있어요.`);
+        `${request?.space_type ?? request?.type ?? "이번"} 공사를 ${company?.name ?? selBid.company?.name ?? "이 업체"}에 맡기기로 했어요. 이 방에서 현장방문 일정을 정하고, 위의 「전화하기」로 바로 연락할 수 있어요.`);
 
       dlog('[SITE_VISIT_FLOW_SUCCESS]', {
         requestId: request.id,
@@ -328,7 +328,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           선택하신 업체가 현장을 방문해 확인한 뒤<br/>최종 견적서를 보내드립니다.<br/>
           최종 견적서가 도착하면 확인 후 안전결제로 진행할 수 있어요.
         </div>
-        <button onClick={onBack} style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer" }}>
+        {/* 선택한 순간 공사 대화방이 열린다 — 현장방문 일정은 이 방에서(전화하기 포함). */}
+        {selBid && onChat && (
+          <button onClick={() => onChat(selBid.company ?? { id: selBid.companyId, name: "업체" })}
+            style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer", marginBottom:S.sm }}>
+            업체와 대화하기 · 현장방문 일정 정하기
+          </button>
+        )}
+        <button onClick={onBack} style={{ width:"100%", padding:S.xl, background:selBid && onChat ? C.surface : C.brand, color:selBid && onChat ? C.text2 : "#fff", border:selBid && onChat ? `1px solid ${C.bgWarm}` : "none", borderRadius:R.lg, fontWeight:800, fontSize:15, cursor:"pointer" }}>
           확인
         </button>
       </div>
