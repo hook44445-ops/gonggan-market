@@ -31,6 +31,17 @@ const BUDGET_QUICK = ["300만원 이하", "300~500만원", "500~1,000만원", "1
 // ⚠ 고름 판정이 본문 부분일치(form.desc.includes)라, 서로의 일부가 되는 이름을 넣지 않는다.
 const WORK_TAGS = ["철거", "도배", "바닥", "필름", "욕실", "주방", "타일", "페인트", "조명·전기", "창호"];
 const MORE_WORK_TAGS = ["중문", "도어", "몰딩", "붙박이장·가구", "방수", "누수·배관", "줄눈", "탄성코트", "발코니 확장", "단열", "블라인드·커튼"];
+const ALL_WORK_TAGS = [...WORK_TAGS, ...MORE_WORK_TAGS];
+// 고른 공사(칩)와 적은 설명(입력칸)을 따로 둔다(E3) — 예전엔 칩이 입력칸 글에 섞여, 입력칸을 통째로 고치면
+// 칩 선택이 남았는지 알 수 없었다. 보낼 때는 「도배, 바닥 — 설명」 한 줄(업체 화면·칩 순서 C10 이 읽는 모양).
+const DESC_SEP = " — ";
+function splitDesc(desc) {
+  const d = String(desc ?? "");
+  const [head, ...rest] = d.split(DESC_SEP);
+  const parts = head.split(/,\s*/).map(x => x.trim()).filter(Boolean);
+  if (parts.length && parts.every(p => ALL_WORK_TAGS.includes(p))) return { tags: parts, note: rest.join(DESC_SEP) };
+  return { tags: [], note: d };
+}
 
 function PhotoPick({ label, img, active, onClick, ratio = "4 / 3" }) {
   return (
@@ -82,6 +93,13 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
     desc:   initialData?.desc   ?? "",
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const [workTags, setWorkTags] = useState(() => splitDesc(initialData?.desc).tags);
+  const [workNote, setWorkNote] = useState(() => splitDesc(initialData?.desc).note);
+  useEffect(() => {
+    const d = [workTags.join(", "), workNote.trim()].filter(Boolean).join(DESC_SEP);
+    setForm(f => (f.desc === d ? f : { ...f, desc: d }));
+  }, [workTags, workNote]);
+  const toggleWorkTag = (tag) => setWorkTags(ts => (ts.includes(tag) ? ts.filter(t => t !== tag) : [...ts, tag]));
 
   // ── 표현(Beta) ─────────────────────────────────────────────────────
   const iS = { width: "100%", padding: "15px 16px", border: `1.5px solid ${C.bgWarm}`,
@@ -234,17 +252,14 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
 
           <Label required>어떤 공사가 필요하세요?</Label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-            {[...WORK_TAGS, ...((moreTags || MORE_WORK_TAGS.some(t => form.desc.includes(t))) ? MORE_WORK_TAGS : [])].map(tag => {
-              const on = form.desc.includes(tag);
+            {[...WORK_TAGS, ...((moreTags || MORE_WORK_TAGS.some(t => workTags.includes(t))) ? MORE_WORK_TAGS : [])].map(tag => {
+              const on = workTags.includes(tag);
               return (
-                <button key={tag} onClick={() => set("desc", on
-                    ? form.desc.split(/,\s*/).filter(x => x.trim() && x.trim() !== tag).join(", ")
-                    // 끝에 한 칸 — 이어 쓰는 글이 칩 글에 붙지 않게(C8 「바닥[점검]…」)
-                    : (form.desc.trim() ? `${form.desc.trim().replace(/,$/, "")}, ${tag}` : tag) + " ")}
+                <button key={tag} onClick={() => toggleWorkTag(tag)} aria-pressed={on}
                   style={{ ...chip(on), padding: "8px 13px", minHeight: 38, fontSize: 13 }}>{on ? "✓ " : "+ "}{tag}</button>
               );
             })}
-            {!(moreTags || MORE_WORK_TAGS.some(t => form.desc.includes(t))) && (
+            {!(moreTags || MORE_WORK_TAGS.some(t => workTags.includes(t))) && (
               <button onClick={() => setMoreTags(true)}
                 style={{ padding: "8px 13px", minHeight: 38, fontSize: 13, fontWeight: 700, color: C.brand,
                   background: "none", border: `1.5px dashed ${C.brandM}`, borderRadius: R.full, cursor: "pointer" }}>
@@ -252,8 +267,11 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
               </button>
             )}
           </div>
-          <textarea placeholder="위에서 고르거나 직접 적어 주세요 · 예) 주방 확장, 욕실 2개 교체" value={form.desc}
-            onChange={e => set("desc", e.target.value)} rows={4}
+          {workTags.length > 0 && (
+            <div style={{ fontSize: 12.5, color: C.brand, fontWeight: 700, marginBottom: 6 }}>고른 공사 · {workTags.join(", ")}</div>
+          )}
+          <textarea placeholder={workTags.length ? "더 알려 줄 것 · 예) 거실만, 욕실 2개 중 1개" : "위에서 고르거나 직접 적어 주세요 · 예) 주방 확장, 욕실 2개 교체"} value={workNote}
+            onChange={e => setWorkNote(e.target.value)} rows={4}
             style={{ ...iS, minHeight: 110, resize: "none", lineHeight: 1.7, marginBottom: S.md }} />
 
           {/* 보내기 전 한눈에 — 고른 내용을 카드로 */}

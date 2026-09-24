@@ -130,7 +130,6 @@ function NextStep({ state, onOpenDoc }) {
         <div style={{ fontSize: 18, fontWeight: 900, color: "#9A7430", letterSpacing: "-0.02em" }}>{`${limitText(next.to)}까지`}</div>
         {next.key === "biz" && <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2 }}>입찰과 계약이 함께 열려요 · 홈택스에서 당일 발급</div>}
         {/* 2안(보험 없이 보증금)은 안내하지 않고 문의로만 받는다 */}
-        {next.key === "insurance" && <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2 }}>보험 가입이 어려우면 고객센터로 문의해 주세요</div>}
       </div>
       {docType ? (
         <button type="button" onClick={() => onOpenDoc(docType)}
@@ -249,6 +248,13 @@ export default function DocumentCenterScreen({ company, companyRow, user, onBack
   };
 
   const state = limitStateOf(companyRow ?? company ?? {});
+  // 업체가 이미 확인된 항목(관리자 업체 승인 118 등)은 서류 카드도 「확인 완료」로 — 업체 상태와 서류 상태가
+  // 따로 놀아 사업자 확인이 끝났는데 「관리자 확인 중」으로 남던 것(E8). 서버 쪽 정리는 SQL 125.
+  const unlockDocOf = (type) => {
+    const key = Object.keys(UNLOCK_DOC).find(k => UNLOCK_DOC[k] === type);
+    const d = getDoc(type);
+    return key && state[key] ? { ...(d ?? {}), review_status: "approved" } : d;
+  };
   const agreed = CONSENT_DOCS.filter(d => ["submitted", "reviewing", "approved"].includes(getDoc(d.document_type)?.review_status)).length;
 
   return (
@@ -270,7 +276,7 @@ export default function DocumentCenterScreen({ company, companyRow, user, onBack
       ) : (
         <>
           <Section title="한도를 여는 서류" sub="원할 때 하나씩 — 관리자가 확인하면 계단이 한 칸 오릅니다">
-            {UNLOCK_DOCS.map(m => <DocCard key={m.document_type} docMeta={m} existingDoc={getDoc(m.document_type)} onClick={setModalDoc} />)}
+            {UNLOCK_DOCS.map(m => <DocCard key={m.document_type} docMeta={m} existingDoc={unlockDocOf(m.document_type)} onClick={setModalDoc} />)}
           </Section>
 
           <div style={{ marginBottom: S.md }}>

@@ -56,6 +56,7 @@ import BusinessInfoModal from "./BusinessInfoModal";
 import AppInfoModal from "./AppInfoModal";
 import ConsentGate, { hasConsented, syncConsents } from "./ConsentGate";
 import BidCard from "./BidCard";
+import { cardPreviewLimit, limitStateOf } from "../lib/partnerTier";
 import ImageViewerModal from "./ImageViewerModal";
 import CompanyDepositCard, { DepositPolicyCard } from "./CompanyDepositCard";
 import { RECORD_METRIC_LABEL } from "../constants/growth"; // 업체 메인 성장지표(표시 전용)
@@ -1112,6 +1113,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       return true;
     });
   }, [customerRequests, inProgressRequestIds, activeJobRequestIds, submittedBids, currentUser?.id, user?.id]);
+  // 화면에 실제로 보이는 요청 카드 — BidCard 와 같은 규칙(보이는 카드 상한 cardPreviewLimit).
+  // 숫자(「새 견적 요청 N건」·히어로 「오늘 새로 들어온 요청」)도 이것만 센다 — 숨긴 카드까지 세던 것(E11).
+  const visibleBiddableRequests = useMemo(() => {
+    const cap = cardPreviewLimit(limitStateOf(currentUser ?? {}));
+    if (cap == null) return biddableRequests;
+    return biddableRequests.filter(r => !((Number(r.budgetMin ?? r.budget_min) || 0) > cap));
+  }, [biddableRequests, currentUser]);
   // 동일 결과의 중복 로그를 막기 위한 ref — key 가 바뀔 때만 출력.
   const lastBiddableLogKeyRef = useRef("");
   useEffect(() => {
@@ -3003,9 +3011,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
         <div style={{ fontSize:16, fontWeight:800, color:C.text1, display:"flex", alignItems:"center", gap:6 }}>
           <Icon emoji="📋" size={16} color={C.text1} /> 새 견적 요청
-          {biddableRequests.length > 0 && (
+          {visibleBiddableRequests.length > 0 && (
             <span style={{ fontSize:13, fontWeight:600, color:C.brand, marginLeft:6 }}>
-              {biddableRequests.length}건
+              {visibleBiddableRequests.length}건
             </span>
           )}
         </div>
@@ -3015,7 +3023,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
       {/* 안정적인 div 래퍼 — siteVisitJobs 섹션이 동시에 추가/제거될 때 React 재조정 오류 방지(#210) */}
       <div>
-        {biddableRequests.length === 0 ? (
+        {visibleBiddableRequests.length === 0 ? (
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xxl, textAlign:"center", border:`1px solid ${C.bgWarm}`, marginBottom:S.xl }}>
             <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="📭" size={32} color={C.text3} /></div>
             <div style={{ fontSize:15, fontWeight:700, color:C.text1, marginBottom:6, display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>아직 새 요청이 없어요 <Icon emoji="🏠" size={15} color={C.text1} /></div>
@@ -3025,7 +3033,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </div>
           </div>
         ) : (
-          biddableRequests.map(r => {
+          visibleBiddableRequests.map(r => {
             const _compId = currentUser?.id;
             const _ownId  = user?.id;
             const myBidFromState = submittedBids.find(b =>
@@ -3165,7 +3173,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               completedCount={(companies ?? []).reduce((s, c) => s + (Number(c.completedJobs) || 0), 0)}
               partnerName={activeRole === "company" ? (currentUser?.name ?? null) : null}
               partnerTemp={activeRole === "company" ? (myCompanyRow?.temp ?? currentUser?.temp ?? null) : null}
-              newRequestCount={activeRole === "company" ? biddableRequests.length : (activeJobs ?? []).length}
+              newRequestCount={activeRole === "company" ? visibleBiddableRequests.length : (activeJobs ?? []).length}
               requestsSlot={activeRole === "company" ? renderPartnerRequests() : null}
               partnerGrowth={activeRole === "company" ? partnerGrowth : null}
               onPartnerAction={(tab) => { setDashTab(tab); setScreen("dashboard"); }}
