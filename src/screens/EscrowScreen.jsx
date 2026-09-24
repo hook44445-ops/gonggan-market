@@ -1344,7 +1344,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <PlatformEstimateModal
             job={{
               bid: { id: resolvedBid.id, request_id: resolvedBid.requestId },
-              request: request ?? { id: resolvedBid.requestId },
+              request: request ?? { id: resolvedBid.requestId, user_id: resolvedCustomerId ?? null },
               siteVisit: null,
               estimate: null,
             }}
