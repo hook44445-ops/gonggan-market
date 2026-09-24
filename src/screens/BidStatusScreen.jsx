@@ -9,7 +9,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, getEstimateForRequest, getPortfolios } from "../lib/supabase";
+import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, getEstimateForRequest, getPortfolios, postProjectEvent } from "../lib/supabase";
 import QuoteDocument from "../components/QuoteDocument"; // 최종 견적서 미리보기·인쇄
 import { SORT_KEYS, sortBids, bidSummary, bidTags as calcBidTags } from "../lib/bidCompare"; // 입찰 비교(정렬·요약·표)
 import {
@@ -186,6 +186,10 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           relatedId: request?.id ?? null, relatedType: "request", priority: "HIGH",
         }).catch(() => {});
       }
+
+      // 공사 대화방 열기 — 선택한 순간부터 이 방에서 현장방문 일정·연락을 이어간다.
+      postProjectEvent(request.user_id, resolvedCompanyId,
+        `${request?.space_type ?? request?.type ?? "공사"} 공사로 ${company?.name ?? selBid.company?.name ?? "업체"}을(를) 선택했어요. 이 방에서 현장방문 일정을 정하고, 위의 「전화하기」로 바로 연락할 수 있어요.`);
 
       dlog('[SITE_VISIT_FLOW_SUCCESS]', {
         requestId: request.id,
@@ -630,6 +634,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           setDbWriteLog({ ...log });
 
           // ── 6. notification + activity (fire-and-forget) ────────
+          postProjectEvent(request.user_id, selBid.companyId,
+            `결제가 끝나 계약이 확정됐어요 · 공사 금액 ${effectivePrice}만원. 착공·중간·완료 사진과 확인이 이 방에도 기록돼요.`);
           const companyOwnerId = selBid.company?.ownerId ?? null;
           if (companyOwnerId) {
             createNotification({

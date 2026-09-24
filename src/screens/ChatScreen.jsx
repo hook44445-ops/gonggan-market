@@ -5,7 +5,7 @@ import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import { detectDirectDealKeywords } from "../constants/directDeal";
 import { BADGES } from "../constants/badges";
-import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId, markChatRoomRead, leaveLoungeChat, CHAT_PHOTO_PREFIX, isChatPhoto, chatPhotoUrl, uploadChatPhoto } from "../lib/supabase";
+import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId, markChatRoomRead, leaveLoungeChat, getProjectRooms, postProjectEvent, CHAT_PHOTO_PREFIX, isChatPhoto, chatPhotoUrl, uploadChatPhoto } from "../lib/supabase";
 
 const REPORT_REASONS = [
   "외부 연락처(카톡/전화) 요구",
@@ -17,6 +17,16 @@ const REPORT_REASONS = [
 
 // 새 상담방 첫 안내 — 업체가 쓴 척하지 않고 시스템 안내로 남긴다(예전엔 업체 이름으로 자동 인사를 넣었다).
 const WELCOME = "상담이 시작되었어요. 연락처·계좌를 따로 주고받기보다 이 대화방에서 이야기하면 약속이 기록으로 보호돼요.";
+
+// 공사 대화방 카드의 단계 이름 — requests.status 기준.
+const PROJECT_STATUS_LABEL = {
+  site_visit: "업체 선택됨 · 현장방문 조율",
+  final_quote_submitted: "최종 견적 도착",
+  escrow_pending: "예약 확정 · 결제 대기",
+  contracting: "계약 진행",
+  in_progress: "공사 진행 중",
+  completed: "공사 완료",
+};
 
 // 채팅 메시지 표시 시간 — DB(timestamptz)는 UTC 로 저장/유지하고, 화면만 Asia/Seoul 로
 //   변환한다. 기존 getHours() 는 기기/브라우저(카카오 인앱 등) timezone 을 따라가서 UTC
@@ -109,6 +119,29 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
   const [guideOpen, setGuideOpen] = useState(false); // 보호 안내 한 줄 → 자세히
   const [leaving, setLeaving] = useState(false);
   const bottomRef = useRef(null);
+
+  // ── 공사 대화방(migration 103) — 선택된 공사가 있으면 공사 카드 + 전화하기 ─────────
+  // room_id = 고객ID_업체ID. 고객이 이 업체를 선택한 뒤(현장방문~완료)에만 서버가 공사·번호를 준다.
+  const myRole = (user?.activeRole ?? user?.role) === "company" ? "company" : "consumer";
+  const [project, setProject] = useState(null);
+  useEffect(() => {
+    setProject(null);
+    if (isLounge || !user?.id || !roomId) return undefined;
+    let alive = true;
+    getProjectRooms(user.id).then(({ data }) => {
+      if (!alive) return;
+      const rows = (data ?? []).filter(r => r.room_id === roomId);
+      setProject(rows.find(r => r.my_role === myRole) ?? rows[0] ?? null);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [isLounge, user?.id, roomId, myRole]);
+  const callCounterpart = () => {
+    if (!project?.counterpart_phone) return;
+    const who = myRole === "company" ? "업체" : "고객";
+    postProjectEvent(project.customer_id, project.company_id, `${who}이(가) 전화 연결을 눌렀어요.`);
+    const tel = String(project.counterpart_phone).replace(/^\+82/, "0").replace(/[^0-9]/g, "");
+    window.location.href = `tel:${tel}`;
+  };
 
   // 라운지 익명 대화 요청 상태 기반 플래그 (Phase 2 — 블릿형 익명 메시지 요청)
   //  · pending(Waiting Accept): 신청자만 익명 채팅방에서 입력 가능. 상대는 요청함에서 수락/거절(방에 들어오지 않음).
@@ -454,6 +487,26 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
           )}
         </div>
       </div>
+
+      {/* 공사 카드 — 어느 공사의 방인지, 지금 어느 단계인지. 선택된 뒤에는 전화하기. */}
+      {!isLounge && project && (
+        <div style={{ background:C.surface, borderBottom:`1px solid ${C.bgWarm}`, padding:"10px 16px",
+          display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:11, fontWeight:800, color:C.brand, marginBottom:2 }}>{PROJECT_STATUS_LABEL[project.status] ?? "진행 중"}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+              {[project.space_type, project.size, project.region].filter(Boolean).join(" · ") || "공사"}
+            </div>
+          </div>
+          {project.counterpart_phone && (
+            <button onClick={callCounterpart}
+              style={{ flexShrink:0, background:C.brand, color:"#fff", border:"none", borderRadius:R.full,
+                padding:"8px 14px", fontSize:12.5, fontWeight:800, cursor:"pointer", whiteSpace:"nowrap" }}>
+              전화하기
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 라운지: 원본 글/댓글/스토리 링크 */}
       {isLounge && partner?.postId && (

@@ -122,6 +122,7 @@ import {
   getCompanyChatRooms,
   isChatPhoto,
   getRoomsWithMessages,
+  getProjectRooms,
   fetchMyChatRequests,
   fetchReceivedChatRequests,
   fetchAcceptedReceivedChatRequests,
@@ -175,6 +176,16 @@ function reverseGeocode(lat, lng) {
 }
 
 // ── normalizers: DB row → local shape ─────────────────────────────────────────
+
+// 공사 대화방 목록의 단계 이름 — requests.status 기준.
+const PROJECT_STAGE_LABEL = {
+  site_visit: "업체 선택됨 · 현장방문 조율",
+  final_quote_submitted: "최종 견적 도착",
+  escrow_pending: "예약 확정 · 결제 대기",
+  contracting: "계약 진행",
+  in_progress: "공사 진행 중",
+  completed: "공사 완료",
+};
 
 const normalizeCompany = (row) => ({
   id:            row.id,
@@ -2313,6 +2324,31 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, activeRole, currentUser?.id]);
+  // 공사 대화방(migration 103) — 고객이 업체를 선택한 공사마다 방 하나. 공개 업체 목록과 무관.
+  const [projectRooms, setProjectRooms] = useState([]);
+  useEffect(() => {
+    if (!user?.id || user?.isGuest) { setProjectRooms([]); return undefined; }
+    if (screen !== "chatlist" && screen !== "home") return undefined;
+    let alive = true;
+    const role = activeRole === "company" ? "company" : "consumer";
+    getProjectRooms(user.id).then(({ data }) => {
+      if (alive) setProjectRooms((data ?? []).filter(r => r.my_role === role));
+    }).catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, activeRole, user?.id]);
+  // 공사 화면에서 대화로 들어오면 ← 가 공사 화면으로 돌아가게.
+  const [chatBackTo, setChatBackTo] = useState(null);
+  const leaveChat = () => { const t = chatBackTo; setChatBackTo(null); setScreen(t ?? "chatlist"); };
+  const openProjectRoom = (rm) => {
+    if (rm.my_role === "company") {
+      setCustomerChat({ roomId: rm.room_id, customer: { id: rm.customer_id, name: rm.counterpart_name ? `${rm.counterpart_name} 고객님` : "고객님" } });
+      setScreen("cchat");
+    } else {
+      const co = companies.find(c => c.id === rm.company_id) ?? { id: rm.company_id, name: rm.counterpart_name ?? "업체" };
+      go("chat", co);
+    }
+  };
   const unreadTotal = Object.values(unreadByRoom).reduce((a, b) => a + (b || 0), 0);
 
   // ── 통합 대화 탭: 라운지 대화 요청(보낸/받은/수락됨) — chats(회사채팅)는 무변경 ──────
@@ -4361,10 +4397,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             company={{ ...customerChat.customer, isCustomer: true }}
             companyId={currentUser?.id ?? null}
             user={user}
-            onBack={() => setScreen("chatlist")}
+            onBack={leaveChat}
           />
         )}
-        {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={() => setScreen("chatlist")}
+        {screen==="chat" && selCo && <ChatScreen company={selCo} user={user} onBack={leaveChat}
           onQuoteRequest={activeRole === "consumer" ? () => { setScreen("home"); handleOpenNewReq(); } : undefined} />}
         {screen==="lounge-chat" && loungeChat && (
           <ChatScreen
@@ -4387,7 +4423,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             }}
           />
         )}
-        {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} onConfirmFinalQuote={() => go("bidstatus")} />}
+        {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} onConfirmFinalQuote={() => go("bidstatus")}
+          onOpenChat={({ customerId, companyId, companyName }) => {
+            setChatBackTo("escrow");
+            if (activeRole === "company") {
+              setCustomerChat({ roomId: `${customerId}_${companyId}`, customer: { id: customerId, name: "고객님" } });
+              setScreen("cchat");
+            } else {
+              setSelCo(companies.find(c => c.id === companyId) ?? { id: companyId, name: companyName ?? "업체" });
+              setScreen("chat");
+            }
+          }} />}
         {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
         {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id}
           onBidSubmit={isGuestCompany ? null : (r, data) => addBid(r, data)} />}
@@ -4612,11 +4658,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           // 대화홈에는 "실제 채팅방(메시지 1건 이상)이 생성된 업체"만 노출한다.
           // 과거에는 모든 활성 업체를 그대로 카드로 만들어, 채팅이 없어도 테스트업체 등이
           // 기본 카드로 떴다. roomsWithMessages(읽기 전용 조회)로 실제 방만 통과시킨다.
-          const visibleCompanies = companies.filter(c =>
+          const projectRoomIds = new Set(projectRooms.map(r => r.room_id));
+          const visibleCompanies = activeRole === "company" ? [] : companies.filter(c =>
             !hiddenCompanyChats.includes(c.id) && roomsWithMessages.has(`${user.id}_${c.id}`)
+            && !projectRoomIds.has(`${user.id}_${c.id}`)
           );
+          const otherCustomerRooms = customerRooms.filter(rm => !projectRoomIds.has(rm.roomId));
           const isAllEmpty = totalLoungeRequests === 0 && totalLoungeOngoing === 0 && visibleCompanies.length === 0
-            && !(activeRole === "company" && customerRooms.length > 0);
+            && projectRooms.length === 0
+            && !(activeRole === "company" && otherCustomerRooms.length > 0);
           const sectionTitle = (label) => {
             const { emoji, rest } = splitLeadingEmoji(label);
             return (
@@ -4657,7 +4707,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간마켓</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>대화</div>
-                <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>파트너와 나눈 이야기</div>
+                <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>{activeRole === "company" ? "고객과 나눈 이야기" : "파트너와 나눈 이야기"}</div>
               </div>
               <NotificationBell user={user} onNavigate={openNotificationTarget} />
             </div>
@@ -4689,6 +4739,35 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   </div>
                 )}
               </div>
+            )}
+
+            {projectRooms.length > 0 && (
+              <>
+                {sectionTitle(`🏗 진행 중인 공사 (${projectRooms.length})`)}
+                {projectRooms.map(rm => {
+                  const title = [rm.space_type, rm.size, rm.region].filter(Boolean).join(" · ") || "공사";
+                  const who = rm.counterpart_name ? (rm.my_role === "company" ? `${rm.counterpart_name} 고객님` : rm.counterpart_name) : (rm.my_role === "company" ? "고객님" : "업체");
+                  const unread = unreadByRoom[rm.room_id] ?? 0;
+                  return (
+                    <div key={`pj_${rm.room_id}`} onClick={() => openProjectRoom(rm)}
+                      style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.sm, display:"flex", gap:S.lg, alignItems:"center", cursor:"pointer", border:`1px solid ${C.brandM}` }}>
+                      <div style={{ width:48, height:48, borderRadius:R.full, flexShrink:0, background:C.brandL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:C.brand }}>
+                        {who[0]}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:11, fontWeight:800, color:C.brand, marginBottom:2 }}>{PROJECT_STAGE_LABEL[rm.status] ?? "진행 중"}</div>
+                        <div style={{ fontSize:15, fontWeight:800, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{who}</div>
+                        <div style={{ fontSize:12.5, color:C.text3, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{title}</div>
+                      </div>
+                      {unread > 0 && (
+                        <div style={{ flexShrink:0, minWidth:20, height:20, padding:"0 6px", borderRadius:R.full, background:C.brand, color:"#fff", fontSize:11, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          {unread > 99 ? "99+" : unread}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
             )}
 
             {totalLoungeRequests > 0 && (
@@ -4763,10 +4842,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               </>
             )}
 
-            {activeRole === "company" && customerRooms.length > 0 && (
+            {activeRole === "company" && otherCustomerRooms.length > 0 && (
               <>
-                {sectionTitle(`🏗 고객 상담 (${customerRooms.length})`)}
-                {customerRooms.map(rm => {
+                {sectionTitle(`🏗 고객 상담 (${otherCustomerRooms.length})`)}
+                {otherCustomerRooms.map(rm => {
                   const name = rm.customerName ? `${rm.customerName} 고객님` : "의뢰인";
                   const last = isChatPhoto(rm.lastText) ? "📷 사진" : (rm.lastText || "대화를 시작해 보세요");
                   return (

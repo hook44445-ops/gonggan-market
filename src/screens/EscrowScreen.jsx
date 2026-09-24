@@ -8,7 +8,7 @@ import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import DocImg from "../components/DocImg";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../utils/calculations";
-import { isStoredPhoto, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
+import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { buildGpsMissingNote } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -103,7 +103,7 @@ const CHECKPOINT_META = {
   complete:   { label: "완료 확인",     icon: "✅" },
 };
 
-export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview, currentUser, onConfirmFinalQuote }) {
+export default function EscrowScreen({ onBack, activeRole, selectedBid, contractId, userId, request, onReview, currentUser, onConfirmFinalQuote, onOpenChat }) {
   const IS_DEBUG = SHOW_DEBUG_UI;
   const [resolvedBid, setResolvedBid] = useState(selectedBid ?? null);
   const [resolvedContractId, setResolvedContractId] = useState(contractId ?? null);
@@ -845,6 +845,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         updateCompanyTemp(resolvedBid.companyId, 2.5).catch(() => {});
       }
 
+      if (!payoutFailed && !stepFailed) {
+        postProjectEvent(request?.user_id ?? userId ?? null, resolvedBid?.companyId ?? contractData?.company_id ?? null,
+          stageId === 5
+            ? "고객이 공사 완료를 확인했어요. 수고하셨습니다 — A/S 가 필요하면 이 방에서 이어서 이야기하세요."
+            : `고객이 ${s?.label ?? "단계"}을(를) 확인하고 승인했어요.`);
+      }
+
       logActivity({
         userId:     userId ?? null,
         role:       "consumer",
@@ -1081,6 +1088,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         setStageStatus(prev => ({ ...prev, [stageId]: "pending_customer" }));
         setStageDeadlines(prev => ({ ...prev, [stageId]: Date.now() + 71 * 3600 * 1000 + 59 * 60 * 1000 }));
         if (s?.label) addTimeline("photo", s.label);
+        postProjectEvent(request?.user_id ?? resolvedCustomerId ?? null, resolvedBid?.companyId ?? contractData?.company_id ?? null,
+          `업체가 ${s?.label ?? "단계"} 사진 ${photos.length}장을 보냈어요. 사진을 보고 승인해 주세요(72시간 안에 답이 없으면 자동 승인).`);
         // GPS·사진 증빙 체크포인트는 위(1.)에서 단계 완료 *이전*에 저장 완료됨(실패 시 여기 도달 안 함).
         // 단계 사진 전송 성공 = 업체가 실제 시공 중. 요청을 in_progress 로 확정 전환해
         // 업체 "새 견적 요청"(status=open) 입찰 목록에서 제거한다(이중 노출 방지).
@@ -1434,7 +1443,17 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: S.sm }}>
           {userId && <NotificationBell user={{ id: userId }} />}
-          <div style={{ background: C.navyL, borderRadius: R.full, padding: "4px 12px", fontSize: 12, fontWeight: 700, color: C.navy, display: "flex", alignItems: "center", gap: 4 }}><Icon emoji="🛡" size={13} color={C.navy} /> 보호중</div>
+          {/* 공사 대화방 — 이 공사의 고객·업체가 같은 방에서 이야기한다(migration 103). */}
+          {onOpenChat && (request?.user_id ?? resolvedCustomerId) && (resolvedBid?.companyId ?? contractData?.company_id) && (
+            <button onClick={() => onOpenChat({
+                customerId:  request?.user_id ?? resolvedCustomerId,
+                companyId:   resolvedBid?.companyId ?? contractData?.company_id,
+                companyName: resolvedBid?.company?.name ?? null,
+              })}
+              style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.full, padding: "6px 14px", fontSize: 12.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>
+              대화
+            </button>
+          )}
         </div>
       </div>
 
