@@ -1040,21 +1040,32 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       showToast("✅ 견적 요청이 수정됐어요");
       return;
     }
+    // 예산이 바뀌었을 때만 예산도 보낸다 — 입찰이 0건일 때만 서버가 받아 준다(E7, migration 126).
+    const orig = [...myRequests, ...customerRequests].find(r => r.id === requestId);
+    const nb = parseBudgetRange(form.budget);
+    const budgetChanged = !!form.budget && form.budget !== orig?.budget
+      && ((orig?.budgetMin ?? 0) !== nb.min || (orig?.budgetMax ?? 0) !== nb.max);
     // 저장이 끝난 뒤에만 「수정됐어요」 — 예전엔 먼저 띄우고 결과를 안 봐서, 저장 실패가 가려졌다.
     const { error } = await updateRequest(requestId, {
       space_type:  form.type,
       size:        form.size,
       style:       form.style,
       description: form.desc ?? "",
+      ...(budgetChanged ? { budget_min: nb.min, budget_max: nb.max } : {}),
     }, user?.id);
     if (error) {
-      const locked = /REQUEST_LOCKED/.test(error.message ?? "");
+      const msg = error.message ?? "";
+      const locked = /REQUEST_LOCKED/.test(msg);
+      const hasBids = /BUDGET_LOCKED_HAS_BIDS/.test(msg);
       showToast(locked ? "업체를 고른 뒤에는 요청 내용을 바꿀 수 없어요. 대화방에서 업체와 이야기해 주세요."
-                       : "❌ 수정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
+              : hasBids ? "입찰이 들어온 뒤에는 예산을 바꿀 수 없어요. 예산 말고 다른 내용은 고칠 수 있어요."
+              : "❌ 수정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
       return;
     }
-    setMyRequests(prev => prev.map(markUpdated));
-    setCustomerRequests(prev => prev.map(markUpdated));
+    const withBudget = r => (r.id === requestId && budgetChanged)
+      ? { ...markUpdated(r), budgetMin: nb.min || null, budgetMax: nb.max || null, budget: form.budget } : markUpdated(r);
+    setMyRequests(prev => prev.map(withBudget));
+    setCustomerRequests(prev => prev.map(withBudget));
     setEditRequest(null);
     showToast("✅ 견적 요청이 수정됐어요");
   };
