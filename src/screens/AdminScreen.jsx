@@ -5662,9 +5662,12 @@ export default function AdminScreen({ onBack, onHome, user }) {
     }
     setActionLoading(true);
     const { error } = await adminReviewCompany(company.id, user?.id ?? null, "approved");
+    // 실패를 조용히 넘기지 않는다 — 예전엔 RLS 에 막혀 0건이 바뀌어도 성공처럼 닫혔다(총점검 09-24 5차).
+    if (error) showToast(`승인하지 못했어요 — ${/ADMIN_ONLY/.test(error.message ?? "") ? "관리자 권한 확인 실패" : (error.message ?? "서버 오류")}`, false);
     if (!error) {
+      showToast(`${company.name} 승인 · 사업자 확인 완료`);
       setCompanies(prev => prev.map(c =>
-        c.id === company.id ? { ...c, status: "approved", rejectNote: "" } : c
+        c.id === company.id ? { ...c, status: "approved", verified: true, rejectNote: "" } : c
       ));
       if (company.ownerId) {
         await createNotification({
@@ -5706,6 +5709,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const handleReject = async (company, note) => {
     setActionLoading(true);
     const { error } = await adminReviewCompany(company.id, user?.id ?? null, "rejected", note);
+    if (error) showToast(`반려하지 못했어요 — ${error.message ?? "서버 오류"}`, false);
     if (!error) {
       setCompanies(prev => prev.map(c =>
         c.id === company.id ? { ...c, status: "rejected", rejectNote: note } : c
@@ -8048,6 +8052,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           if (!holdNote.trim()) return;
                           setActionLoading(true);
                           const { error } = await adminReviewCompany(selected.id, user?.id ?? null, "pending", holdNote);
+                          if (error) showToast(`보류하지 못했어요 — ${error.message ?? "서버 오류"}`, false);
                           if (!error) {
                             if (selected.ownerId) {
                               await createNotification({

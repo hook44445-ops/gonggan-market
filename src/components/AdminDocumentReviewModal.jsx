@@ -77,7 +77,8 @@ export default function AdminDocumentReviewModal({ docs, company, adminUser, onC
           priority:    reviewStatus === "rejected" ? "HIGH" : "NORMAL",
         });
       }
-      const updated = data ?? { ...selected, review_status: reviewStatus, review_reason: reviewReason || null };
+      // 서버 함수는 요약만 돌려준다 — 파일 경로 등 기존 칸은 살리고 상태만 바꾼다.
+      const updated = { ...selected, ...(data ?? {}), review_status: reviewStatus, review_reason: reviewReason || null };
       setSelected(updated);
       onUpdate?.(updated);
       setReviewReason("");
