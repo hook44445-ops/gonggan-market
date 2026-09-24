@@ -681,6 +681,16 @@ export const getReviews = (companyId) =>
     .or("status.is.null,status.not.in.(REJECTED,HIDDEN,rejected,hidden)")
     .order("created_at", { ascending: false });
 
+// 업체 목록용 — 여러 업체의 공개 후기 평점만 한 번에(D16). 거르기는 getReviews 와 같다.
+export const getReviewRatingsByCompanies = (companyIds = []) =>
+  supabase
+    .from("reviews")
+    .select("company_id,rating")
+    .in("company_id", companyIds)
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .or("status.is.null,status.not.in.(REJECTED,HIDDEN,rejected,hidden)");
+
 // Part2 확장 컬럼 — 마이그레이션 017 미적용 환경에서도 후기 저장이 깨지지 않도록
 // (컬럼 없으면 해당 필드만 제거하고 재시도)
 const REVIEW_EXT_FIELDS = [
