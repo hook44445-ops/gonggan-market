@@ -13,7 +13,7 @@
 export const TIERS = {
   basic:    { key: "basic",    rank: 0, label: "기본",         line: "아직 증빙을 내지 않은 업체" },
   verified: { key: "verified", rank: 1, label: "확인된 업체",   line: "증빙 일부를 확인한 업체" },
-  premium:  { key: "premium",  rank: 2, label: "프리미엄 파트너", line: "사업자·시공보험·보증금을 모두 증빙한 업체" },
+  premium:  { key: "premium",  rank: 2, label: "프리미엄 파트너", line: "사업자·시공보험·보증금을 모두 확인해 1,000만원이 넘는 공사도 맡는 업체" },
 };
 
 // 증빙 셋 — 순서가 곧 화면 순서다.
@@ -24,10 +24,15 @@ export const PROOFS = [
 ];
 
 // { biz, insurance, deposit } → 등급. 무엇이 빠졌는지도 함께 돌려준다(파트너에게 «다음 한 가지»를 권할 때).
+// 프리미엄 파트너 = 1,000만원이 넘는 공사를 받을 수 있는 업체(대표: 「1,000만원까지는 사업자 + 시공보험,
+// 그 이상은 보증금 · 프리미엄 파트너」). 셋을 다 냈어도 보증금이 한도를 못 올리는 등급(베이직 50·스탠다드 100)이면
+// 확인된 업체에 둔다 — 카드는 금테인데 1,000만원 넘는 공사에 입찰할 수 없는 일이 없게.
+// depositManwon 이 없으면(예전 호출) 예전처럼 셋이면 프리미엄.
 export function partnerTier(state = {}) {
   const have = PROOFS.filter(p => !!state[p.key]);
+  const depOk = state.depositManwon == null || Number(state.depositManwon) * DEPOSIT_MULTIPLIER > LIMITS.BIZ_BACKED;
   const missing = PROOFS.filter(p => !state[p.key]);
-  const tier = have.length === PROOFS.length ? TIERS.premium
+  const tier = have.length === PROOFS.length && depOk ? TIERS.premium
              : have.length > 0              ? TIERS.verified
              :                                 TIERS.basic;
   return { ...tier, count: have.length, total: PROOFS.length, missing };
@@ -196,7 +201,7 @@ export const LADDER = [
   { key: "none",    label: "가입만",                        note: "도배·부분 수리",  state: {} },
   { key: "biz",     label: "사업자등록증",                  note: "관리자 확인",     state: { biz: true } },
   { key: "insurance", label: "+ 시공보험",                  note: "관리자 확인", state: { biz: true, insurance: true } },
-  { key: "premium", label: "+ 공간보증 200만원 이상",       note: "1,000만원 초과부터 · 보증금 10%", state: { biz: true, insurance: true, depositManwon: 150 } },
+  { key: "premium", label: "+ 보증금 · 프리미엄 파트너",    note: "1,000만원 초과부터 · 보증금 10%", state: { biz: true, insurance: true, depositManwon: 150 } },
   { key: "license", label: "+ 실내건축공사업 등록증",       note: "대형 공사",       state: { biz: true, insurance: true, depositManwon: 1000, license: true } },
 ].map(r => ({ ...r, limit: bidLimit(r.state) }));
 

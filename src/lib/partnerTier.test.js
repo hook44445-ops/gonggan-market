@@ -195,3 +195,12 @@ test("ladderKeyOf — 보험 없이 건 보증금도 한도를 올릴 때만 한
   assert.equal(ladderKeyOf({ biz: true, depositManwon: 100 }), "biz");
   assert.equal(ladderKeyOf({ biz: true, depositManwon: 200 }), "insurance");
 });
+
+// 프리미엄 파트너 = 1,000만원 초과 공사를 받을 수 있는 업체. 베이직·스탠다드 보증금이면 확인된 업체.
+test("partnerTier — 한도를 못 올리는 보증금이면 프리미엄이 아니다", () => {
+  const base = { biz: true, insurance: true, deposit: true };
+  assert.equal(partnerTier(base).key, "premium");                          // 금액을 모르면 예전처럼
+  assert.equal(partnerTier({ ...base, depositManwon: 50 }).key, "verified");
+  assert.equal(partnerTier({ ...base, depositManwon: 100 }).key, "verified");
+  assert.equal(partnerTier({ ...base, depositManwon: 200 }).key, "premium");
+});
