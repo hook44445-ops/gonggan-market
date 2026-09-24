@@ -262,7 +262,11 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
       postProjectEvent(consumerId, companyId,
         `최종 견적서가 도착했어요${total ? ` · ${Number(total).toLocaleString("ko-KR")}만원` : ""}${data?.duration_days ? ` · ${data.duration_days}일` : ""}. 「진행 중인 공사」에서 항목을 확인하고 예약을 확정할 수 있어요.`);
     }
-    const updated = { ...job, estimate: data, siteVisit: job.siteVisit ? { ...job.siteVisit, status: "estimate_submitted" } : job.siteVisit };
+    // 요청 상태도 함께 바꿔 둔다 — 서버(estimate_submit)는 이미 final_quote_submitted 로 바꿨는데 카드가
+    // 새로고침 전까지 「현장방문 견적 요청」으로 남았다(C3).
+    const updated = { ...job, estimate: data,
+      siteVisit: job.siteVisit ? { ...job.siteVisit, status: "estimate_submitted" } : job.siteVisit,
+      request: job.request ? { ...job.request, status: "final_quote_submitted" } : job.request };
     onChange(updated);
     // Space OS 성실견적 분석 결과 표시(제출/RPC/금액 로직은 위에서 이미 완료 — 분석은 표시 전용).
     // 결과 모달의 '확인'(onClose)으로 모달을 닫는다.

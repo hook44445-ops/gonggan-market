@@ -1423,7 +1423,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>최종 견적서 작성</div>
           </div>
           <div style={{ padding: "20px 24px", fontSize: 13, color: C.text3, lineHeight: 1.7 }}>
-            현장방문 후 최종 견적 금액을 작성해 의뢰인에게 보내주세요. 의뢰인이 에스크로 결제를 완료하면 착공 단계가 열립니다.
+            현장방문 후 최종 견적 금액을 작성해 의뢰인에게 보내주세요. 의뢰인이 예약을 확정하고 결제를 마치면 착공 단계가 열립니다.
           </div>
           <PlatformEstimateModal
             job={{

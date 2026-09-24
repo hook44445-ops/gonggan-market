@@ -5864,6 +5864,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           onChange={(updatedJob) => {
             setActiveJobs(prev => prev.map(j => j.bid.id === updatedJob.bid.id ? updatedJob : j));
             setEstimateJob(updatedJob);
+            // 파트너센터 진행 카드도 바로 「최종견적 검토중」으로(C3 — 예전엔 새로고침해야 바뀌었다).
+            const rid = updatedJob.bid?.request_id ?? updatedJob.request?.id ?? null;
+            if (rid && updatedJob.request?.status === "final_quote_submitted") {
+              setCompanyJobs(prev => prev.map(j => (j.request?.id === rid && ["open", "site_visit", "site_visiting", "visit_requested"].includes(j.request?.status))
+                ? { ...j, request: { ...j.request, status: "final_quote_submitted" } } : j));
+            }
           }}
         />
       )}
