@@ -112,7 +112,7 @@ export function DepositPolicyCard() {
       {[
         "공간뱃지예치보증금은 회사 운영비와 분리 보관됩니다.",
         "분쟁이 없을 경우 전액 반환됩니다.",
-        "시공보험 가입 업체는 10%, 미가입 업체는 20% 예치가 적용됩니다.",
+        "보증금은 받을 수 있는 공사 1건 금액의 10%입니다(시공보험 가입 업체).",
         "고객 보호와 신뢰 거래를 위한 제도입니다.",
       ].map(t => (
         <div key={t} style={{ display:"flex", gap:S.sm, alignItems:"center",

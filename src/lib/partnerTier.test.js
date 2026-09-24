@@ -85,12 +85,12 @@ test("다음 한 가지 — 하나만 더 내면 얼마가 되는지", () => {
 
 test("입찰 금액이 넘을 때 — 무엇을 내면 되는지", () => {
   assert.equal(unlockFor(250, {}), null);                                   // 이미 가능
-  assert.deepEqual(unlockFor(450, {}).need, ["사업자등록증 · 시공보험 · 보증금 중 하나"]);
-  assert.deepEqual(unlockFor(800, {}).need, ["사업자등록증", "시공보험 증권 또는 보증금 160만원 이상"]);
-  assert.deepEqual(unlockFor(800, { biz: true }).need, ["시공보험 증권 또는 보증금 160만원 이상"]);
-  assert.deepEqual(unlockFor(1200, { biz: true, insurance: true }).need, ["보증금 120만원 이상"]);
+  assert.deepEqual(unlockFor(450, {}).need, ["사업자등록증"]);
+  assert.deepEqual(unlockFor(800, {}).need, ["사업자등록증", "시공보험 증권"]);
+  assert.deepEqual(unlockFor(800, { biz: true }).need, ["시공보험 증권"]);
+  assert.deepEqual(unlockFor(1200, { biz: true, insurance: true }).need, ["공간보증 프리미엄(200만원)"]);
   assert.deepEqual(unlockFor(3000, { biz: true, insurance: true, depositManwon: 100 }).need,
-    ["보증금 300만원 이상", "실내건축공사업 등록증"]);
+    ["공간보증 마스터(500만원)", "실내건축공사업 등록증"]);
   assert.equal(unlockFor(20000, { biz: true, insurance: true, depositManwon: 5000, license: true }).over, true);
 });
 
@@ -118,7 +118,7 @@ test("보험 없으면 보증금 20% — 1,000만원까지만", () => {
   assert.equal(bidLimit({ biz: true, depositManwon: 200 }), 1000);   // 200 × 5
   assert.equal(bidLimit({ biz: true, depositManwon: 1000 }), 1000);  // 보험 없는 길은 1,000 에서 멈춘다
   assert.equal(unlockFor(800, { biz: true, depositManwon: 1000 }), null);
-  assert.deepEqual(unlockFor(800, { biz: true }).need, ["시공보험 증권 또는 보증금 160만원 이상"]);
+  assert.deepEqual(unlockFor(800, { biz: true }).need, ["시공보험 증권"]);   // 2안(보증금 20%)은 안내하지 않는다
   assert.deepEqual(unlockFor(1200, { biz: true, depositManwon: 1000 }).need, ["시공보험 증권"]);
   assert.equal(nextUnlock({ biz: true, depositManwon: 100 }).key, "insurance");
 });

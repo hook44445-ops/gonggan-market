@@ -64,7 +64,7 @@ const STEP_EMBLEM = { none: "join", biz: "biz", insurance: "insurance", premium:
 const STEP_NOTE = {
   none:      "가입하면 바로 · 도배·부분 수리",
   biz:       "사업자등록증 · 관리자가 확인",
-  insurance: "시공보험 증권 · 없으면 보증금 20%",
+  insurance: "시공보험 증권 · 관리자가 확인",
   premium:   "1,000만원 초과부터 · 공사금액의 10% 보증금",
   license:   "보증금의 10배까지 · 대형 공사",
 };
@@ -128,6 +128,8 @@ function NextStep({ state, onOpenDoc }) {
           <b>{next.ask}</b>{docType ? "을 내면" : "을 걸면"}
         </div>
         <div style={{ fontSize: 18, fontWeight: 900, color: "#9A7430", letterSpacing: "-0.02em" }}>{limitText(next.to)}까지</div>
+        {/* 2안(보험 없이 보증금)은 안내하지 않고 문의로만 받는다 */}
+        {next.key === "insurance" && <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2 }}>보험 가입이 어려우면 고객센터로 문의해 주세요</div>}
       </div>
       {docType ? (
         <button type="button" onClick={() => onOpenDoc(docType)}
