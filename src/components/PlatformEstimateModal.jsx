@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { createEstimate, updateEstimate, submitEstimate, uploadDocument, createNotification } from "../lib/supabase";
+import { createEstimate, updateEstimate, submitEstimate, uploadDocument, createNotification, postProjectEvent } from "../lib/supabase";
 import { formatDueRemaining } from "../constants/policy";
 import EstimateCoachPanel from "./growth/EstimateCoachPanel";       // Space OS · AI 코치(라이브, Add Only)
 import EstimateAnalysisResult from "./growth/EstimateAnalysisResult"; // Space OS · 성실견적 분석 결과(제출 후)
@@ -247,6 +247,12 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
         relatedType: "request",
         priority:    "HIGH",
       }).catch(() => {});
+    }
+    // 공사 대화방 기록 — 누르면 볼 수 있게 금액·기간을 함께 남긴다.
+    if (consumerId) {
+      const total = data?.total_price ?? null;
+      postProjectEvent(consumerId, companyId,
+        `최종 견적서가 도착했어요${total ? ` · ${Number(total).toLocaleString("ko-KR")}만원` : ""}${data?.duration_days ? ` · ${data.duration_days}일` : ""}. 「진행 중인 공사」에서 항목을 확인하고 예약을 확정할 수 있어요.`);
     }
     const updated = { ...job, estimate: data, siteVisit: job.siteVisit ? { ...job.siteVisit, status: "estimate_submitted" } : job.siteVisit };
     onChange(updated);

@@ -7,6 +7,7 @@ import {
   createNotification,
   uploadDocument,
   saveProjectCheckpoint,
+  postProjectEvent,
 } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
@@ -66,6 +67,8 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
       relatedType: "bid",
       priority: "NORMAL",
     });
+    // 같은 내용을 공사 대화방에도 기록 — 알림은 지나가도 방에는 남는다.
+    postProjectEvent(job.request.user_id, companyId, `${title} · ${message}`);
   };
 
   const handleSchedule = async () => {

@@ -369,6 +369,26 @@ export async function getCompanyChatRooms(companyId) {
   return { data: list, error: null };
 }
 
+// ── 공사 대화방(migration 103) ─────────────────────────────────────────────────
+// 공사 한 건 = 대화방 하나. room_id 는 기존 규칙 그대로 `${고객ID}_${업체ID}`.
+// 고객이 업체를 선택한 뒤(현장방문 단계~완료)의 방만, 상대 이름·전화번호와 함께 돌려준다.
+export const projectRoomId = (customerId, companyId) =>
+  customerId && companyId ? `${customerId}_${companyId}` : null;
+
+export const getProjectRooms = async (actorId) => {
+  if (!actorId) return { data: [], error: null };
+  const { data, error } = await supabase.rpc("project_rooms_for_actor", { p_actor_id: actorId });
+  return { data: data ?? [], error };
+};
+
+// 공사 진행을 대화방에 시스템 기록으로 남긴다(선택·현장방문·최종견적·결제·단계·완료).
+// 실패해도 본 흐름은 막지 않는다.
+export const postProjectEvent = async (customerId, companyId, text) => {
+  const roomId = projectRoomId(customerId, companyId);
+  if (!roomId || !text) return;
+  try { await sendMessage(roomId, null, "system", text); } catch { /* 기록 실패는 흐름을 막지 않음 */ }
+};
+
 export const sendMessage = (roomId, senderId, senderType, text) =>
   supabase.from("chats").insert({
     room_id: roomId,
