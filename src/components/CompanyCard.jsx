@@ -1,8 +1,6 @@
 import { C, R, S, GRADE, SHADOW } from "../constants";
-import { BADGES } from "../constants/badges";
-import { TempBadge, CertBadge, LeafSprig } from "./common";
-import CompanyVerificationBadges from "./CompanyVerificationBadges";
-import GuaranteeBadge from "./GuaranteeBadge";
+import { TempBadge, LeafSprig } from "./common";
+import { CompanyTrustRow } from "./TrustEmblems";
 
 function KpiRow({ isLoggedIn, company }) {
   if (isLoggedIn) {
@@ -35,7 +33,6 @@ function KpiRow({ isLoggedIn, company }) {
 export default function CompanyCard({ company, onClick, isLoggedIn = false, saved = false, onToggleSave }) {
   if (!company) return null;
   const g  = GRADE(company.temp ?? 0);
-  const bm = company.badge ? (BADGES[company.badge] ?? BADGES.basic) : null;
 
   return (
     <div onClick={onClick} style={{
@@ -85,23 +82,6 @@ export default function CompanyCard({ company, onClick, isLoggedIn = false, save
               </div>
             </div>
 
-            {/* Cert badges */}
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 6 }}>
-              {bm ? (
-                <span style={{
-                  background: bm.bg, color: bm.color, borderRadius: R.full,
-                  padding: "2px 9px", fontSize: 11, fontWeight: 700,
-                  display: "inline-flex", alignItems: "center", gap: 3,
-                }}>
-                  {bm.icon} 공간보증 {bm.label}
-                </span>
-              ) : (
-                <span style={{ background: C.surface2, color: C.text3, borderRadius: R.full, padding: "2px 9px", fontSize: 11, fontWeight: 600 }}>공간보증 준비중</span>
-              )}
-              {company.insurance && <CertBadge type="insurance" />}
-              {company.bizCert   && <CertBadge type="biz" />}
-            </div>
-
             {/* Activity status */}
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
               <span style={{
@@ -135,11 +115,8 @@ export default function CompanyCard({ company, onClick, isLoggedIn = false, save
           </div>
         )}
 
-        {/* 공간보증 배지(068) — badge_visible && ACTIVE 일 때만 */}
-        <div style={{ marginTop: S.sm, paddingLeft: 4 }}><GuaranteeBadge company={company} /></div>
-
-        {/* 신뢰 스크리닝 — 검증 항목 시각화 */}
-        <CompanyVerificationBadges company={company} style={{ marginTop: S.sm, paddingLeft: 4 }} />
+        {/* 신뢰 — 레벨 + 증빙 셋(사업자·시공보험·보증금). 예전엔 칩 세 줄에 같은 말이 두 번씩 나왔다. */}
+        <CompanyTrustRow company={company} style={{ marginTop: S.md }} />
       </div>
     </div>
   );
