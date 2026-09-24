@@ -10,7 +10,6 @@ import { fmtMoney, calculateCustomerTotal, calculateStagePayments } from "../uti
 import { uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, updateCompanyTemp, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { buildGpsMissingNote } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
-import EscrowCalculator from "../components/EscrowCalculator";
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
@@ -2080,7 +2079,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <Icon emoji="🛡" size={16} color={C.navy} />
             <span style={{ flex: 1 }}>
               <span style={{ display: "block", fontSize: 14, fontWeight: 800, color: C.text1 }}>보호·정산 안내</span>
-              <span style={{ display: "block", fontSize: 12, color: C.text3, marginTop: 2 }}>{isConsumer ? "단계별 금액 · A/S · 이의 신청 방법" : "단계별 정산 · 수수료 · 하자보수 · 분쟁 처리"}</span>
+              <span style={{ display: "block", fontSize: 12, color: C.text3, marginTop: 2 }}>{isConsumer ? "단계별 금액 · A/S · 이의 신청 방법" : "단계별 정산 · 하자보수 · 분쟁 처리"}</span>
             </span>
             <span style={{ fontSize: 12, fontWeight: 700, color: C.text3 }}>{showGuide ? "접기 ▴" : "자세히 보기 ▾"}</span>
           </button>
@@ -2095,7 +2094,6 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
 
             {/* 공간보호 — 안전거래 보호 중 + 직거래 경고 */}
             <SpaceProtectionBadge variant="escrow" />
-            <EscrowCalculator role={isConsumer ? "consumer" : "company"} companyCreatedAt={resolvedBid?.company?.created_at} />
             {/* Warranty info */}
             <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, display: "flex", gap: S.md, alignItems: "flex-start", marginBottom: S.lg }}>
               <Icon emoji="🛡" size={24} color={C.navy} style={{ flexShrink: 0 }} />

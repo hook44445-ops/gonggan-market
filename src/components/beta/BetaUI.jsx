@@ -19,7 +19,7 @@ export function markBetaAck(kind) {
 // 🎉 베타 배지 — 랜딩 우상단 등.
 //   kind("quote"|"bid") 를 주면 클릭 시 베타 안내 모달(BetaInfoModal · 확인 전용)을 연다.
 //   kind 가 없으면 기존처럼 단순 표시용 배지.
-export function BetaBadge({ label = "오픈 기간 · 수수료 0원", style, kind }) {
+export function BetaBadge({ label = "오픈 기간", style, kind }) {
   const [open, setOpen] = useState(false);
   if (!SHOW_BETA_UI) return null;
 
@@ -61,7 +61,7 @@ export function BetaBanner({ text, style }) {
 export const GATE_CONTENT = {
   quote: {
     title: "견적부터 준공까지, 기록이 남습니다",
-    intro: "공간마켓은 요청·상담·계약·공사 사진·진행 기록을 한곳에 남겨, 나중에 무엇이든 확인할 수 있게 합니다. 오픈 기간에는 수수료가 없습니다.",
+    intro: "공간마켓은 요청·상담·계약·공사 사진·진행 기록을 한곳에 남겨, 나중에 무엇이든 확인할 수 있게 합니다.",
     provided: [
       "견적요청", "업체 비교", "업체 상담", "계약 진행", "프로젝트 진행관리",
       "GPS 진행기록", "사진 기록", "채팅", "리뷰 작성", "프로젝트 이력 관리",
@@ -76,7 +76,7 @@ export const GATE_CONTENT = {
   },
   bid: {
     title: "일감부터 평판까지, 기록이 쌓입니다",
-    intro: "견적·상담·계약·시공 사진·후기가 업체 프로필에 쌓여 다음 고객을 데려옵니다. 오픈 기간에는 가입비·수수료가 없습니다.",
+    intro: "견적·상담·계약·시공 사진·후기가 업체 프로필에 쌓여 다음 고객을 데려옵니다.",
     provided: [
       "업체 가입", "견적 입찰", "고객 상담", "계약 진행", "프로젝트 진행관리",
       "GPS 진행기록", "사진 기록", "포트폴리오", "리뷰 관리", "업체 성장(LV)", "프로젝트 이력 관리",

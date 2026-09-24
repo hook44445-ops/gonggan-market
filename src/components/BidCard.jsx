@@ -7,7 +7,7 @@ import SpaceActivityRecord from "./SpaceActivityRecord"; // v5.5: 공간 활동�
 import { TempBadge } from "./common";
 import GuaranteeBadge from "./GuaranteeBadge";
 import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
-import { BetaGateModal, BetaBanner, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { BetaGateModal, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
 export default function BidCard({
   r,
@@ -285,7 +285,6 @@ export default function BidCard({
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 16px" }} />
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text1, marginBottom: 3 }}>{hasBid ? "입찰 수정하기" : "안심 견적 제출하기"}</div>
             <div style={{ fontSize: 13, color: C.text3, marginBottom: S.md }}>{r.type} · {r.size} · {r.area}</div>
-            <BetaBanner text="오픈 기간 · 견적 참여·상담·계약 기록 모두 수수료 0원" />
 
             <div style={{ background: "#FFFDF8", borderRadius: R.lg, padding: `${S.sm}px ${S.md}px`, marginBottom: S.md,
               border: "1px solid #EDE3CF", display: "flex", justifyContent: "space-between", alignItems: "center", gap: S.sm }}>
@@ -348,15 +347,8 @@ export default function BidCard({
               </div>
             )}
 
-            <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.md, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
-              <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.8 }}>
-                💡 공간멤버십파트너 이용수수료 안내<br />
-                • 견적 발송은 <b style={{ color: C.text2 }}>무료</b>입니다<br />
-                • <b style={{ color: C.text2 }}>계약 성사 시에만</b> 이용수수료 <b style={{ color: C.text2 }}>4.4% (VAT 포함)</b>가 발생합니다<br />
-                • 정산 시 자동 차감 · 지급되지 않은 금액에는 부과되지 않습니다<br />
-                <span style={{ color: C.text4 }}>* 의뢰인 부담 없음 · 공간뱃지예치보증금은 수수료가 아닙니다</span>
-              </div>
-            </div>
+            {/* 수수료 안내는 두지 않는다(대표 2026-09-24: 「수수료를 처음부터 보여줄 필요 없다」). */}
+            <div style={{ height: S.md }} />
 
             <div style={{ display: "flex", gap: S.sm }}>
               <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
