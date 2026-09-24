@@ -1304,7 +1304,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             claimLeadId = claim.lead_id;
             leadExtra = {
               name:                    claim.company_name ?? (user.name ?? "업체"),
-              has_insurance:           claim.insurance_yn ?? false,
+              has_insurance:           false, // 신청서의 「보험 있음」은 자기 신고 — 증권 승인 때 켜진다
               // V1.3: 가입상담 업로드 서류를 company 로 복사(기존 companies 서류 컬럼 재사용).
               biz_cert_url:            claim.business_license_url ?? null,
               insurance_url:           claim.insurance_file_url ?? null,

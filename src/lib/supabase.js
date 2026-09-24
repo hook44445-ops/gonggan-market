@@ -2464,6 +2464,14 @@ export const adminReviewDocument = async (docId, adminId, reviewStatus, reason =
       target_id:   docId,
       after_val:   { review_status: reviewStatus, reason },
     });
+    // 시공보험은 «증권을 관리자가 승인했을 때만» 인정한다. 예전엔 업체가 가입 화면에서 스스로 켠 값이
+    // 그대로 has_insurance 가 되어, 카드가 확인하지 않은 보험을 「가입한 업체」라고 말할 수 있었다.
+    if (data?.document_type === "insurance_certificate" && data.company_id
+        && (reviewStatus === "approved" || reviewStatus === "rejected")) {
+      await supabase.from("companies")
+        .update({ has_insurance: reviewStatus === "approved" })
+        .eq("id", data.company_id);
+    }
   }
 
   return { data, error };

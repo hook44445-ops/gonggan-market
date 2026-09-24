@@ -172,7 +172,7 @@ export default function CompanyOnboarding({ phone, onDone }) {
             default_service_region_id: primarySR ? (primarySR.id ?? regionKey(primarySR.city, primarySR.district)) : null,
             specialties: form.specialties,
             badge: form.badge,
-            has_insurance: form.hasInsurance,
+            has_insurance: false, // 스스로 켠 값은 인정하지 않는다 — 보험 증권 승인 때 켜진다(adminReviewDocument)
             deposit_amount: depositAmt,
             biz_cert_url: form.bizDocUrl,
             insurance_url: form.insuranceUrl,

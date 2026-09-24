@@ -18,7 +18,6 @@
 import { stageFor } from "../lib/growthStage";
 import { levelInfo, computeCompanyXp } from "../constants/growth";
 import { isGuaranteeBadgeVisible, GUARANTEE_GRADE_MAP } from "../constants/guarantee";
-import { BADGES } from "../constants/badges";
 
 const INK   = "#2B2A26";
 const MUTED = "#9A9384";
@@ -31,15 +30,22 @@ export const TRUST_EMBLEMS = [
   { key: "deposit",   file: "deposit",   label: "보증금",   earnedText: "공간보증 보증금을 예치했습니다", lockedText: "보증금을 예치하지 않은 업체입니다",     hint: "공간보증에 참여하면 채워집니다" },
 ];
 
-// 업체 데이터 → 무엇을 땄나. 필드 이름이 화면마다 달라 예전 CompanyVerificationBadges 기준을 그대로 받는다.
+// 업체 데이터 → 무엇을 땄나.
+// ⚠ 엠블럼은 «관리자가 확인한 것»으로만 켠다. 업체가 스스로 낸 값·올리기만 한 서류로는 켜지 않는다.
+//   카드가 의뢰인에게 「확인했습니다」라고 말하기 때문이다(거짓이 되면 프리미엄 전체가 무너진다).
+//   · 사업자  — companies.verified : 관리자가 업체를 승인할 때만 켜진다(adminReviewCompany).
+//               biz_cert_url(올리기만 한 서류)로는 켜지 않는다.
+//   · 시공보험 — companies.has_insurance : 보험 증권 승인 때 켜지도록 adminReviewDocument 가 맞춘다.
+//   · 보증금  — 공간보증(068) ACTIVE + 노출 : 입금 확인·관리자 승인을 거친 서버 값.
+//               옛 companies.badge 는 가입 화면에서 결제 없이 기록되던 값이라 보지 않는다.
 export function trustState(company = {}) {
-  const deposit = isGuaranteeBadgeVisible(company) || (!!company.badge && company.badge !== "none");
-  const grade = GUARANTEE_GRADE_MAP[company.guarantee_grade]?.label ?? BADGES[company.badge]?.label ?? null;
+  const deposit = isGuaranteeBadgeVisible(company);
+  const grade = deposit ? (GUARANTEE_GRADE_MAP[company.guarantee_grade]?.label ?? null) : null;
   return {
-    biz:       !!(company.verified || company.bizCert || company.is_verified),
-    insurance: !!(company.hasInsurance || company.insurance || company.has_insurance),
+    biz:       company.verified === true,
+    insurance: (company.has_insurance ?? company.insurance) === true,
     deposit,
-    depositGrade: deposit ? grade : null,
+    depositGrade: grade,
   };
 }
 
