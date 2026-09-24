@@ -381,9 +381,22 @@ export const getProjectRooms = async (actorId) => {
   return { data: data ?? [], error };
 };
 
+// bids.company_id 에는 업체 ID 대신 «업체 주인 사용자 ID» 가 들어 있는 경우가 있다.
+// 방 ID 는 반드시 companies.id 로 만든다 — 아니면 같은 공사가 두 방으로 갈라진다(총점검 09-24).
+const _roomCompanyIdCache = new Map();
+export const resolveRoomCompanyId = async (companyIdOrOwnerId) => {
+  if (!companyIdOrOwnerId) return null;
+  if (_roomCompanyIdCache.has(companyIdOrOwnerId)) return _roomCompanyIdCache.get(companyIdOrOwnerId);
+  let id = companyIdOrOwnerId;
+  try { id = (await resolveCompanyId(companyIdOrOwnerId)) ?? companyIdOrOwnerId; } catch { /* 원래 값 */ }
+  _roomCompanyIdCache.set(companyIdOrOwnerId, id);
+  return id;
+};
+
 // 공사 진행을 대화방에 시스템 기록으로 남긴다(선택·현장방문·최종견적·결제·단계·완료).
 // 실패해도 본 흐름은 막지 않는다.
-export const postProjectEvent = async (customerId, companyId, text) => {
+export const postProjectEvent = async (customerId, companyIdOrOwnerId, text) => {
+  const companyId = await resolveRoomCompanyId(companyIdOrOwnerId);
   const roomId = projectRoomId(customerId, companyId);
   if (!roomId || !text) return;
   try { await sendMessage(roomId, null, "system", text); } catch { /* 기록 실패는 흐름을 막지 않음 */ }

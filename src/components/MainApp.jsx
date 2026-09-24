@@ -123,6 +123,7 @@ import {
   isChatPhoto,
   getRoomsWithMessages,
   getProjectRooms,
+  resolveRoomCompanyId,
   fetchMyChatRequests,
   fetchReceivedChatRequests,
   fetchAcceptedReceivedChatRequests,
@@ -4425,7 +4426,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           />
         )}
         {screen==="escrow" && <EscrowScreen onBack={() => { setEscrowRefreshTrigger(t => t+1); setScreen(prevScreen||"home"); }} activeRole={activeRole} selectedBid={selectedBid} currentUser={currentUser} contractId={contractId} userId={user?.id ?? null} request={[...myRequests, ...customerRequests].find(r => r.id === bidViewRequestId) ?? null} onReview={(co) => { if (co) setSelCo(co); setScreen("review"); }} onConfirmFinalQuote={() => go("bidstatus")}
-          onOpenChat={({ customerId, companyId, companyName }) => {
+          onOpenChat={async ({ customerId, companyId: rawCompanyId, companyName }) => {
+            // 공사 화면의 업체 값이 주인 사용자 ID 일 수 있다 → 선택 때 만든 방과 같은 방으로.
+            const companyId = await resolveRoomCompanyId(rawCompanyId);
             setChatBackTo("escrow");
             if (activeRole === "company") {
               setCustomerChat({ roomId: `${customerId}_${companyId}`, customer: { id: customerId, name: "고객님" } });
