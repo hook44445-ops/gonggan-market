@@ -8,6 +8,8 @@
 --    같은 고객·업체의 옛 공사가 카드에 잡혔다(총점검 09-24).
 --    이제 «업체가 선택된 공사» 중 열림·취소·만료·종료만 뺀다(상태 이름이 늘어도 안전).
 --    옛 상담방에 업체 이름으로 들어간 가짜 자동 인사도 지운다(업체가 쓴 척하는 글).
+--    결제 뒤 「공사 중」, 완료 뒤 「완료」 로 바꾸는 두 함수도 requests.updated_at 때문에 실패하고
+--    있었다 → 다시 만들고, 멈춰 있던 거래를 에스크로 상태 기준으로 한 번 바로잡는다.
 -- ============================================================
 
 set search_path = public, extensions;
@@ -64,6 +66,85 @@ set search_path = public, extensions as $$
 $$;
 
 grant execute on function public.project_rooms_for_actor(uuid) to anon, authenticated;
+
+-- ── 공사 상태가 「최종 견적 도착」에서 멈추던 것 ───────────────────────────────────
+-- request_mark_in_progress(036)·request_mark_completed(041) 이 운영에 없는 requests.updated_at 을
+-- 써서 매번 실패했다 → 결제·완료 뒤에도 requests.status 가 final_quote_submitted 로 남았다.
+-- updated_at 없이 다시 만들고, 선택 직후 상태(site_visiting)에서도 넘어가게 한다.
+create or replace function public.request_mark_in_progress(p_request_id uuid)
+returns text language plpgsql security definer
+set search_path = public, extensions as $$
+declare v_esc public.escrow_payments; v_bid uuid; v_new text;
+begin
+  select * into v_esc from public.escrow_payments
+   where request_id = p_request_id
+     and coalesce(transaction_status, '') not in ('SETTLED', 'CANCELLED', 'REFUNDED')
+   order by created_at desc
+   limit 1;
+  if v_esc.id is null then
+    return null;
+  end if;
+
+  select id into v_bid from public.bids
+   where request_id = p_request_id and selected = true
+   order by created_at desc
+   limit 1;
+
+  update public.requests
+     set status              = 'in_progress',
+         selected_company_id = coalesce(selected_company_id, v_esc.company_id),
+         selected_bid_id     = coalesce(selected_bid_id,     v_bid)
+   where id = p_request_id
+     and status in ('open', 'escrow_pending', 'site_visit', 'site_visiting', 'final_quote_submitted')
+   returning status into v_new;
+
+  return v_new;
+end; $$;
+
+grant execute on function public.request_mark_in_progress(uuid) to anon, authenticated;
+
+create or replace function public.request_mark_completed(p_request_id uuid)
+returns text language plpgsql security definer
+set search_path = public, extensions as $$
+declare v_esc public.escrow_payments; v_new text;
+begin
+  select * into v_esc from public.escrow_payments
+   where request_id = p_request_id
+     and coalesce(transaction_status, '') in ('SETTLED', 'COMPLETED')
+   order by created_at desc
+   limit 1;
+  if v_esc.id is null then
+    return null;
+  end if;
+
+  update public.requests
+     set status = 'completed'
+   where id = p_request_id
+     and status not in ('completed', 'cancelled')
+   returning status into v_new;
+
+  return v_new;
+end; $$;
+
+grant execute on function public.request_mark_completed(uuid) to anon, authenticated;
+
+-- 이미 멈춰 있던 거래 바로잡기(한 번) — 에스크로 상태를 기준으로.
+--   정산·완료된 에스크로가 있는 요청 → completed
+update public.requests r
+   set status = 'completed'
+ where r.status not in ('completed','cancelled','canceled','expired','closed')
+   and exists (select 1 from public.escrow_payments e
+                where e.request_id = r.id
+                  and coalesce(e.transaction_status,'') in ('SETTLED','COMPLETED'));
+--   진행 중(정산·취소·환불 아님) 에스크로가 있는 요청 → in_progress
+update public.requests r
+   set status = 'in_progress'
+ where r.status in ('open','escrow_pending','site_visit','site_visiting','final_quote_submitted')
+   and exists (select 1 from public.escrow_payments e
+                where e.request_id = r.id
+                  and coalesce(e.transaction_status,'') not in ('SETTLED','COMPLETED','CANCELLED','REFUNDED'));
+
+notify pgrst, 'reload schema';
 
 -- 옛 가짜 자동 인사(업체 이름으로 들어간 글) 지우기 — 지금은 시스템 안내로만 시작한다.
 delete from public.chats
