@@ -4110,7 +4110,7 @@ const normalizeCustomer = (row) => ({
   name:     row.name ?? "고객",
   phone:    row.phone ?? "",
   region:   row.region ?? "",
-  requests: 0,
+  requests: row.request_count ?? 0,   // 서버(/api/admin/users)가 센 요청 수 — 예전엔 0 고정(D21)
   joinedAt: row.created_at
     ? new Date(row.created_at).toLocaleDateString("ko-KR")
     : "",
