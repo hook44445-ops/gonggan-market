@@ -720,10 +720,9 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             successUrl: window.location.origin + "/?pg_success=1",
             failUrl:    window.location.origin + "/?pg_fail=1",
           });
-          // If requestPayment didn't redirect (e.g. popup mode), fall through to DB writes.
-          // P0: 라이브 키 환경에서는 토스 승인 검증 없이 PAID 생성 금지 — fallback 차단.
-          if (isLiveKey) { setPaymentLoading(false); payingRef.current = false; return; }
-          await runDBWrites();
+          // 리다이렉트가 안 된 경우(팝업 등) — 토스 승인 없이 결제 기록을 만들지 않는다(키 종류와 무관).
+          setPaymentLoading(false); payingRef.current = false;
+          return;
         } catch (err) {
           // H-E: SDK 로드 타임아웃·오류 → 사용자에게 알리고 시뮬레이션으로 fallback
           // payingRef는 runDBWrites의 finally 블록에서 해제된다.
@@ -735,23 +734,23 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           }
           dlog("[GONGGAN_DIAG][payChain:toss:catch]", { msg: err?.message ?? String(err) });
           dlog("[GONGGAN_DIAG][handlePay:error]", { stage: "toss", msg: err?.message ?? String(err) });
-          // P0: 라이브 키 환경에서는 결제 실패/취소 시 PAID 주문을 생성하지 않는다.
-          // (test 키 환경에서만 기존 시뮬레이션 fallback 유지)
-          if (isLiveKey) {
-            showLocalToast("결제가 완료되지 않았습니다. 다시 시도해주세요.");
-            setPaymentLoading(false);
-            payingRef.current = false;
-            return;
-          }
-          if (err?.message?.includes("timeout")) {
-            showLocalToast("결제 서버 연결이 지연됩니다. 잠시 후 재시도해주세요.");
-          }
-          await runDBWrites();
+          // 결제창이 안 열리거나 실패하면 결제 기록을 만들지 않는다.
+          // 예전엔 테스트 키(운영이 지금 쓰는 키)에서 «시뮬레이션»으로 결제 완료를 기록해,
+          // 통신 오류 한 번에 돈 없이 「결제 완료」 계약이 생길 수 있었다. 시뮬레이션은 SAFE_MODE(개발용)에서만.
+          try { localStorage.removeItem("pg_pending"); } catch { /* noop */ }
+          showLocalToast(err?.message?.includes("timeout")
+            ? "결제 서버 연결이 지연됩니다. 잠시 후 다시 시도해 주세요."
+            : "결제가 완료되지 않았습니다. 다시 시도해 주세요.");
+          setPaymentLoading(false);
+          payingRef.current = false;
+          return;
         }
       } else {
-        // No Toss key — simulate
-        dlog("[GONGGAN_DIAG][payChain:branch]", { path: "else→runDBWrites(simulate)" });
-        await runDBWrites();
+        // 결제 키·수단이 없으면 결제하지 않는다(예전엔 시뮬레이션으로 결제 완료를 기록했다).
+        dlog("[GONGGAN_DIAG][payChain:branch]", { path: "else→blocked(no key or method)" });
+        showLocalToast(clientKey ? "결제 수단을 골라 주세요." : "지금은 결제를 받을 수 없어요. 고객센터로 문의해 주세요.");
+        setPaymentLoading(false);
+        payingRef.current = false;
       }
     };
 

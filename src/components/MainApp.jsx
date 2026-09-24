@@ -2002,7 +2002,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
     const processTossReturn = async () => {
       // C-3: server-side payment verification — abort if Toss rejects
-      if (paymentKey && orderId && amount) {
+      // 토스 결제번호 없이 돌아온 경우(주소만 열림 등) — 승인 확인 없이 기록하지 않는다.
+      if (!(paymentKey && orderId && amount)) {
+        showToast("결제 확인 정보가 없어 진행하지 않았어요. 결제를 다시 시도해 주세요.");
+        return;
+      }
+      {
         try {
           const confirmRes = await fetch("/api/confirm-payment", {
             method: "POST",
@@ -2010,7 +2015,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             body: JSON.stringify({ paymentKey, orderId, amount }),
           });
           if (!confirmRes.ok) {
-            showToast("결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+            const j = await confirmRes.json().catch(() => ({}));
+            showToast(j?.code === "PAYMENTS_PAUSED" ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
             return;
           }
         } catch {
@@ -2119,14 +2125,23 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
     const processTokenReturn = async () => {
       // 서버 승인 검증 — 토스가 거절하면 적립하지 않는다(에스크로와 동일 패턴).
-      if (paymentKey && orderId && amount) {
+      // 토스 결제번호 없이 돌아온 경우(주소만 열림 등) — 승인 확인 없이 기록하지 않는다.
+      if (!(paymentKey && orderId && amount)) {
+        showToast("결제 확인 정보가 없어 진행하지 않았어요. 결제를 다시 시도해 주세요.");
+        return;
+      }
+      {
         try {
           const confirmRes = await fetch("/api/confirm-payment", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentKey, orderId, amount }),
           });
-          if (!confirmRes.ok) { showToast("결제 확인에 실패했습니다. 고객센터에 문의해주세요."); return; }
+          if (!confirmRes.ok) {
+            const j = await confirmRes.json().catch(() => ({}));
+            showToast(j?.code === "PAYMENTS_PAUSED" ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+            return;
+          }
         } catch {
           showToast("결제 서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
           return;
@@ -2748,8 +2763,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           successUrl: window.location.origin + "/?pg_token_success=1",
           failUrl:    window.location.origin + "/?pg_token_fail=1",
         });
-        // 팝업 모드 등 리다이렉트가 발생하지 않은 경우 — 라이브 키면 승인 검증 없이 적립 금지.
-        if (isLiveKey) return;
+        // 리다이렉트가 안 된 경우(팝업 등) — 토스 승인 없이는 적립하지 않는다(키 종류와 무관).
+        return;
       } catch (err) {
         // 관리자 「신규 결제 중지」 — 시뮬레이션 적립으로 넘어가지 않는다.
         if (err?.code === "PAYMENTS_PAUSED") {
@@ -2757,26 +2772,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           showToast(err.message);
           return;
         }
-        // 라이브 키 환경에서는 결제 실패/취소 시 적립하지 않는다.
-        if (isLiveKey) {
-          try { localStorage.removeItem("pg_token_pending"); } catch { /* noop */ }
-          showToast("결제가 완료되지 않았습니다. 다시 시도해주세요.");
-          return;
-        }
-        // 테스트 키 환경 — 결제창 로드 실패 시 시뮬레이션으로 폴백.
+        // 결제창 실패·취소 — 적립하지 않는다. 예전엔 테스트 키(운영이 지금 쓰는 키)에서
+        // 가짜 결제번호로 토큰을 적립하고 매출 기록까지 만들었다.
+        try { localStorage.removeItem("pg_token_pending"); } catch { /* noop */ }
+        showToast("결제가 완료되지 않았습니다. 다시 시도해 주세요.");
+        return;
       }
-      // 테스트 키(비-live) — 결제창 미리다이렉트/실패 시 시뮬레이션 적립.
-      try { localStorage.removeItem("pg_token_pending"); } catch { /* noop */ }
-      const { data, error } = await purchaseSpaceTokens({
-        userId: user.id, tokens, price, orderId,
-        paymentKey: `test_${Date.now()}`, method: "CARD", description,
-      });
-      if (error || data?.error) { showToast("토큰 적립에 실패했어요. 고객센터에 문의해주세요."); return; }
-      await reloadTokens?.();
-      showToast(`🪙 ${tokens.toLocaleString()} 토큰이 지급됐어요! (테스트 모드)`);
-      go("token-history");
-      return;
     }
+
+    // 결제 키가 없으면 SAFE_MODE(개발·QA)에서만 시뮬레이션 적립 — 운영에서는 결제하지 않는다.
+    if (!SAFE_MODE) { showToast("지금은 결제를 받을 수 없어요. 고객센터로 문의해 주세요."); return; }
 
     // 키 없음 / SAFE_MODE — 시뮬레이션 적립(개발·QA).
     const orderId = `token_sim_${Date.now()}`;
