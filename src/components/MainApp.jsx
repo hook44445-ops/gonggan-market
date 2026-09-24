@@ -184,6 +184,7 @@ const normalizeCompany = (row) => ({
   verified:      row.verified ?? false,
   badge:         row.badge ?? "basic",
   hasInsurance:  row.has_insurance ?? false,
+  license_verified: row.license_verified ?? false, // 면허 — 입찰 한도(limitStateOf)가 본다
   completedJobs: row.completed_jobs ?? 0,
   recontractRate: row.recontract_rate ?? 0,
   asRate:        row.as_rate ?? 0,
@@ -4425,7 +4426,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             onOpenPost={(p) => { setLoungePost(p); go("lounge-detail"); try { window.history.pushState({}, "", buildPostPath(p)); } catch {} }}
           />
         )}
-        {screen==="document-center" && <DocumentCenterScreen company={currentUser} user={user} onBack={() => setScreen("my")} />}
+        {screen==="document-center" && <DocumentCenterScreen company={currentUser} companyRow={myCompanyRow} user={user} onBack={() => setScreen("my")} />}
 
         {screen==="lounge" && (
           <LoungeScreen

@@ -5,6 +5,8 @@ import { DOCUMENT_TEMPLATES, UPLOAD_DOCUMENT_TEMPLATES } from "../constants/docu
 import DocumentUploadCard from "../components/DocumentUploadCard";
 import DocumentChecklistCard from "../components/DocumentChecklistCard";
 import DocumentDetailModal from "../components/DocumentDetailModal";
+import PartnerLadder from "../components/partner/PartnerLadder";
+import { bidLimit, limitText, nextUnlock, limitStateOf, ladderKeyOf, maxedText } from "../lib/partnerTier";
 
 const DOC_ICONS = {
   business_license:      "📋",
@@ -16,6 +18,7 @@ const DOC_ICONS = {
   location_terms:        "📍",
   bankbook_copy:         "🏦",
   qualification_license: "🏅",
+  interior_license:      "🏛",
   portfolio:             "🖼",
   badge_application:     "🔰",
 };
@@ -58,7 +61,41 @@ function DocCard({ docMeta, existingDoc, onClick }) {
   return <DocumentChecklistCard doc={docData} onClick={() => onClick(docData)} />;
 }
 
-export default function DocumentCenterScreen({ company, user, onBack }) {
+// 다음 한 가지를 내는 서류 — 누르면 그 서류 칸이 바로 열린다. 보증금은 서류가 아니라 공간보증 화면에서 낸다.
+const UNLOCK_DOC = { biz: "business_license", insurance: "insurance_certificate", license: "interior_license" };
+
+// 내 한도 — 지금 공사 1건 얼마까지, 다음 한 가지를 내면 얼마까지, 전체 계단.
+// 값은 관리자가 확인한 것만 본다(limitStateOf). companyRow(원본 행)가 있으면 그걸 쓴다 — 정규화된 값은 보증 정보가 빠질 수 있다.
+function MyLimitCard({ row, onOpenDoc }) {
+  const state = limitStateOf(row ?? {});
+  const now = bidLimit(state);
+  const next = nextUnlock(state);
+  const docType = next ? UNLOCK_DOC[next.key] : null;
+  return (
+    <div style={{ marginBottom: S.xl }}>
+      <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}`, marginBottom: S.md }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text3 }}>내 한도 · 지금 공사 1건</div>
+        <div style={{ fontSize: 26, fontWeight: 900, color: C.text1, letterSpacing: "-0.02em", marginTop: 2 }}>
+          {limitText(now)}<span style={{ fontSize: 15, fontWeight: 700, color: C.text3 }}>까지</span>
+        </div>
+        {next ? (
+          <button type="button" disabled={!docType} onClick={() => docType && onOpenDoc(docType)}
+            style={{ marginTop: S.md, width: "100%", textAlign: "left", background: C.brandL, border: `1px solid ${C.brandM}`,
+              borderRadius: R.lg, padding: "12px 14px", cursor: docType ? "pointer" : "default", fontFamily: "inherit",
+              fontSize: 13.5, color: C.text1, lineHeight: 1.6 }}>
+            <b>{next.ask}</b>{docType ? "을 내면" : "을 걸면"} <b style={{ color: C.brand }}>{limitText(next.to)}</b>까지{docType ? " ›" : ""}
+            {!docType && <div style={{ fontSize: 12, color: C.text3 }}>공간보증은 마이페이지 「공간보증」에서 신청해요</div>}
+          </button>
+        ) : (
+          <div style={{ marginTop: S.md, fontSize: 13.5, color: C.green, fontWeight: 700 }}>{maxedText(state)}</div>
+        )}
+      </div>
+      <PartnerLadder current={ladderKeyOf(state)} />
+    </div>
+  );
+}
+
+export default function DocumentCenterScreen({ company, companyRow, user, onBack }) {
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalDoc, setModalDoc] = useState(null);
@@ -105,6 +142,11 @@ export default function DocumentCenterScreen({ company, user, onBack }) {
         </button>
         <div style={{ fontSize: 20, fontWeight: 900, color: C.text1 }}>📁 서류 관리</div>
       </div>
+
+      <MyLimitCard row={companyRow ?? company} onOpenDoc={(type) => {
+        const meta = [...REQUIRED_DOCS, ...OPTIONAL_DOCS].find(d => d.document_type === type);
+        if (meta) setModalDoc({ ...meta, ...(getDoc(type) ?? {}), title: meta.title, icon: meta.icon, document_type: type });
+      }} />
 
       {/* 제출 현황 */}
       <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
@@ -156,7 +198,7 @@ export default function DocumentCenterScreen({ company, user, onBack }) {
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>선택 서류</div>
               <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>
-                통장사본 · 자격증 · 포트폴리오 · 배지 신청서
+                {OPTIONAL_DOCS.slice(0, 4).map(d => d.title).join(" · ")}
               </div>
             </div>
             <span style={{ fontSize: 16, color: C.text3 }}>{showOptional ? "▲" : "▼"}</span>
