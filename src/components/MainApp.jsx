@@ -1322,11 +1322,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           name:           user.name ?? "업체",
           region:         user.region ?? "",
           online:         true,
-          // 온보딩 브릿지 경로(claimLeadId)에서는 company_status 를 ACTIVE 로 자동 설정하지 않는다.
-          //   입찰 게이트(company_status='ACTIVE')는 기존 업체 승인 프로세스로 분리 유지(068 원칙:
-          //   guarantee_status ≠ company_status). 비-온보딩 일반 최초 로그인은 기존대로 ACTIVE.
-          //   (CompanyOnboarding 도 company_status 미설정 → DB 기본값 사용, insert 안전.)
-          ...(claimLeadId ? {} : { company_status: "ACTIVE" }),
+          // 가입 즉시 활동 — 옛 신청서(partner_leads)로 들어온 업체도 새 가입(CompanyOnboarding)과 같다.
+          //   예전엔 이 경로만 PENDING 으로 두고 관리자 승인을 기다리게 했다. 이제 안전은 승인 대기가
+          //   아니라 수주 한도(lib/partnerTier.js · 서버 101)가 맡는다 — 증빙 없으면 공사 1건 300만원까지.
+          //   (guarantee_status 와 company_status 는 여전히 별개다 — 068 원칙.)
+          company_status: "ACTIVE",
           ...leadExtra,
         });
         if (created) {
