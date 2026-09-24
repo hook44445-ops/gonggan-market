@@ -148,3 +148,12 @@ export function unlockFor(amountManwon, state = {}) {
   if (amt > LIMITS.MAX) return { need: [], over: true };
   return { need, over: false };
 }
+
+// 계단 — 가입 완료 화면·업체 화면이 그대로 그린다. 금액은 bidLimit 에서 뽑는다(숫자를 두 번 적지 않는다).
+export const LADDER = [
+  { key: "none",      label: "가입만",                     note: "도배·부분 수리",     state: {} },
+  { key: "biz",       label: "사업자등록증",               note: "관리자 확인",        state: { biz: true } },
+  { key: "insurance", label: "+ 시공보험",                 note: "증권 승인",          state: { biz: true, insurance: true } },
+  { key: "deposit",   label: "+ 보증금 · 프리미엄 파트너", note: "보증금 × 10",        state: { biz: true, insurance: true, depositManwon: 150 } },
+  { key: "license",   label: "+ 실내건축공사업 등록증",    note: "대형 공사",          state: { biz: true, insurance: true, depositManwon: 1000, license: true } },
+].map(r => ({ ...r, limit: bidLimit(r.state) }));
