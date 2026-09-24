@@ -67,11 +67,13 @@ export default function HomeV3({
   requestsSlot = null,     // 파트너: 입찰할 새 견적 요청 목록(MainApp 이 그린다)
   onOpenShowcase,
   partnerGrowth = null,    // 파트너: { showcases, reviews, rating, completed, readyFromJobs } — 실제 기록 집계
+  partnerName = null,      // 파트너: 내 업체 이름(파트너센터와 같은 호칭 · C9)
+  partnerTemp = null,      // 파트너: 내 업체 공간온도(시장 평균이 아니다 · D15)
   onPartnerAction,         // 파트너: (tab) → 파트너센터 그 탭으로
   onPartnerProfile,        // 파트너: 고객에게 보이는 내 업체 화면
 }) {
   const isCompany = activeRole === "company";
-  const name = user?.name || (isCompany ? "파트너" : "고객");
+  const name = (isCompany ? partnerName : null) || user?.name || (isCompany ? "파트너" : "고객");
 
   return (
     <Page>
@@ -84,7 +86,11 @@ export default function HomeV3({
             sub={newRequestCount > 0
               ? `오늘 새로 들어온 요청이 ${newRequestCount}건 있어요.`
               : "새 요청이 들어오면 바로 알려드릴게요."}
-            chips={[`공간온도 ${Number(avgTemp).toFixed(1)}°`, `완료 ${completedCount}건`]}
+            chips={[
+              `공간온도 ${Number(partnerTemp ?? avgTemp).toFixed(1)}°`,
+              // 파트너센터·「내 업체 한눈에」와 같은 숫자(끝난 계약). 아직 못 읽었으면 숫자를 비운다 — 0건이라고 하지 않는다.
+              partnerGrowth ? `완료 ${partnerGrowth.completed}건` : null,
+            ].filter(Boolean)}
             actions={[
               { label: "요청 보기", primary: true, onClick: () => document.getElementById("partner-requests")?.scrollIntoView({ behavior: "smooth", block: "start" }) },
               { label: "파트너센터", onClick: () => onGo("dashboard") },
@@ -173,8 +179,10 @@ export default function HomeV3({
         </Section>
       )}
 
-      {/* ── 신뢰 — 업체 수가 적을 때 숫자('1곳')는 오히려 불안하다 → 약속으로 보여준다 ── */}
-      {isCompany || companiesCount >= 10 ? (
+      {/* ── 신뢰 — 업체 수가 적을 때 숫자('1곳')는 오히려 불안하다 → 약속으로 보여준다 ──
+          파트너에게는 시장 숫자를 안 보인다 — 바로 위 「내 업체 한눈에」의 완료 6건 아래에
+          「누적 완료 0건」이 서면 같은 화면이 두 말을 한다(D15). */}
+      {isCompany ? null : companiesCount >= 10 ? (
         <TrustRow
           items={[
             { value: `${companiesCount}곳`, label: "검증 업체" },

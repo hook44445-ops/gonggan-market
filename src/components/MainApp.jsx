@@ -3117,7 +3117,6 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
           const escOf = (r) => myRequestsEscrow[r.id] ?? null;
           const ip = myRequests.find(r => isRequestInProgress(r, escOf(r)));
-          const doneCnt = myRequests.filter(r => isRequestSettled(r, escOf(r))).length;
           const op = activeRole === "consumer" ? myRequests.find(r => isRequestOpenForQuotes(r, escOf(r))) : null;
 
           return (
@@ -3139,7 +3138,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               reviews={revSrc}
               companiesCount={(companies ?? []).length}
               avgTemp={avgTemp}
-              completedCount={doneCnt}
+              // 「누적 완료」는 시장 숫자다 — 내가 끝낸 요청 수를 여기 넣으면 라벨이 거짓말을 한다(D15).
+              completedCount={(companies ?? []).reduce((s, c) => s + (Number(c.completedJobs) || 0), 0)}
+              partnerName={activeRole === "company" ? (currentUser?.name ?? null) : null}
+              partnerTemp={activeRole === "company" ? (myCompanyRow?.temp ?? currentUser?.temp ?? null) : null}
               newRequestCount={activeRole === "company" ? biddableRequests.length : (activeJobs ?? []).length}
               requestsSlot={activeRole === "company" ? renderPartnerRequests() : null}
               partnerGrowth={activeRole === "company" ? partnerGrowth : null}
