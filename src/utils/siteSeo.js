@@ -15,6 +15,27 @@ import { LADDER, limitText } from '../lib/partnerTier.js';
 
 export const SITE_URL = 'https://gongganmarket.com';
 
+// ── 정식 호스트 고정 (www ↔ apex) ─────────────────────
+// 2026-09-24 서치콘솔: 홈이 「중복 페이지, Google에서 사용자와 다른 표준을 선택함」으로
+// 색인되지 않았다. 참조 페이지가 https://www.gongganmarket.com/ 이었다.
+//
+// 원인: canonical 을 «요청 호스트»로 만들고 있었다(서버는 x-forwarded-host,
+// 브라우저는 window.location.origin). 그래서 www 와 apex 가 각자 자기 자신을
+// 정식이라고 선언했고, 구글은 둘 중 하나를 스스로 골랐다.
+// JSON-LD 는 SITE_URL(apex) 로 고정돼 있어 신호까지 서로 엇갈렸다.
+//
+// → 운영 도메인(www 포함)으로 들어온 요청은 언제나 apex 하나로 고정한다.
+//   preview(*.vercel.app)·localhost 는 요청 호스트를 그대로 써야 링크가 끊기지 않는다.
+export const SITE_HOSTS = ['gongganmarket.com', 'www.gongganmarket.com'];
+
+export function canonicalSite(host, proto = 'https') {
+  const raw = String(host || '').trim();
+  if (!raw) return SITE_URL;
+  const bare = raw.toLowerCase().split(':')[0];
+  if (SITE_HOSTS.includes(bare)) return SITE_URL;
+  return `${String(proto).replace(/:$/, '')}://${raw}`;
+}
+
 // ── 사업자 정보 — 전자상거래법상 공개 의무 정보. AppFooter / 사업자정보 모달 /
 //    법적고지 / JSON-LD(Organization) 가 모두 이 값을 참조한다.
 export const TELECOM_SALES_NO = '2026-성남중원-0463';

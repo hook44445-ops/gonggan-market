@@ -12,11 +12,16 @@
 //     이름을 적어두면 운영자 의도가 분명해지고, 나중에 선별 차단할 자리가 생긴다.
 // ─────────────────────────────────────────────────────
 
+// 정식 호스트 고정 — www 와 apex 가 각자 자기를 canonical 이라 선언하면
+// 구글이 「중복 페이지」로 보고 색인을 건너뛴다(2026-09-24 실제 발생).
+// canonicalSite() 가 운영 도메인을 apex 하나로 모으고, preview/localhost 는 그대로 둔다.
+import { canonicalSite } from '../src/utils/siteSeo.js';
+
 function getSiteUrl(req) {
   if (process.env.SITE_URL) return String(process.env.SITE_URL).replace(/\/$/, '');
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host  = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
-  return `${proto}://${host}`;
+  return canonicalSite(host, proto);
 }
 
 // 앱 전용·개인 화면 — 라우트가 없어 SPA catch-all 로 떨어지거나(soft 404),

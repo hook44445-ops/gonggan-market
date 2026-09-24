@@ -26,6 +26,7 @@ import {
   PARTNER_DEPOSIT_NOTE,
   PARTNER_STEPS,
   verificationMetas,
+  canonicalSite,
   consumerFaq,
   partnerFaq,
   pageSeo,
@@ -40,11 +41,14 @@ import {
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
+// 정식 호스트 고정 — www 와 apex 가 각자 자기를 canonical 이라 선언하면
+// 구글이 「중복 페이지」로 보고 색인을 건너뛴다(2026-09-24 실제 발생).
+// canonicalSite() 가 운영 도메인을 apex 하나로 모으고, preview/localhost 는 그대로 둔다.
 function getSiteUrl(req) {
   if (process.env.SITE_URL) return String(process.env.SITE_URL).replace(/\/$/, '');
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host  = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
-  return `${proto}://${host}`;
+  return canonicalSite(host, proto);
 }
 
 async function sb(path) {
