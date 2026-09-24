@@ -16,7 +16,8 @@
 
 import { useState } from "react";
 import { C, R, S, SPECIALTIES } from "../constants";
-import { upsertUserByPhone, upsertCompany } from "../lib/supabase";
+import { signupUserByPhone, upsertCompany } from "../lib/supabase";
+import { toE164KR } from "../lib/testAccounts";
 import RegionSelectSheet from "../components/RegionSelectSheet";
 import { getPrimaryRegion, regionKey } from "../constants/regions";
 import { PartnerNextStep } from "../components/partner/PartnerLadder";
@@ -52,15 +53,20 @@ export default function CompanyOnboarding({ phone, onDone }) {
     try {
       const primarySR = getPrimaryRegion(form.serviceRegions);
       const region = primarySR ? regionKey(primarySR.city, primarySR.district) : "";
-      const profile = { name: form.name.trim() || form.bizName.trim(), role: "company", region, phone };
-      const { data: userRow, error: uErr } = await upsertUserByPhone(profile);
+      // 사용자 생성은 서버 함수(signup_user_by_phone, 마이그레이션 048)로만 된다 — 앱에서 users 에
+      // 직접 쓰는 건 보안 정책(auth.uid()=id)에 막힌다. 예전 가입은 직접 쓰기를 하고 실패를 무시해,
+      // 새 업체의 owner_id 가 비어 저장될 수 있었다. 번호는 DB 저장형(+82…)으로 맞춘다.
+      const e164 = toE164KR(phone);
+      const { data: userRow, error: uErr } = await signupUserByPhone({
+        phone: e164, name: form.name.trim() || form.bizName.trim(), role: "company", region,
+      });
       if (uErr || !userRow?.id) throw uErr || new Error("user");
       const joinedAt = new Date();
       const until = new Date(joinedAt); until.setFullYear(until.getFullYear() + 1);
       const { error: cErr } = await upsertCompany({
         owner_id: userRow.id,
         name: form.bizName.trim(),
-        phone,
+        phone: e164,
         region,
         service_regions: form.serviceRegions,
         default_service_region_id: primarySR ? (primarySR.id ?? regionKey(primarySR.city, primarySR.district)) : null,
