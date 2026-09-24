@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C, R, S } from "../../constants";
+import { createLoungeReport } from "../../lib/supabase";
 
 const TITLES = {
   post:    "게시글 신고",
@@ -17,19 +18,24 @@ const REASONS = [
   "기타",
 ];
 
-export default function ReportModal({ type, targetId, onClose, onReport, onBlock }) {
+export default function ReportModal({ type, targetId, reporterId = null, onClose, onReport, onBlock }) {
   const [selected, setSelected] = useState(null);
+  const [sending, setSending] = useState(false);
+  const [sendErr, setSendErr] = useState(null);
 
   const title = TITLES[type] ?? "신고";
 
-  function handleReport() {
-    if (!selected) return;
-
-    const key = "lounge_reports";
-    const prev = JSON.parse(localStorage.getItem(key) ?? "[]");
-    prev.push({ type, targetId, reason: selected, createdAt: new Date().toISOString() });
-    localStorage.setItem(key, JSON.stringify(prev));
-
+  // 신고는 서버(관리자 신고 목록)로 보낸다. 예전엔 신고한 사람 브라우저에만 남아 아무도 못 봤다.
+  // 서버에 들어간 뒤에만 「접수됐어요」 — 실패하면 창에 남겨 다시 보내게 한다.
+  async function handleReport() {
+    if (!selected || sending) return;
+    setSending(true);
+    setSendErr(null);
+    let rid = reporterId;
+    if (!rid) { try { rid = JSON.parse(localStorage.getItem("gonggan_user") ?? "null")?.id ?? null; } catch { rid = null; } }
+    const { error } = await createLoungeReport({ reporterId: rid, type, targetId, reason: selected });
+    setSending(false);
+    if (error) { setSendErr("신고를 보내지 못했어요. 잠시 뒤 다시 눌러 주세요."); return; }
     onReport(selected);
     onClose();
   }
@@ -122,10 +128,14 @@ export default function ReportModal({ type, targetId, onClose, onReport, onBlock
           })}
         </div>
 
+        {sendErr && (
+          <div style={{ fontSize: 12.5, color: C.red, fontWeight: 700, marginBottom: S.sm }}>{sendErr}</div>
+        )}
+
         {/* 신고하기 button */}
         <button
           onClick={handleReport}
-          disabled={!selected}
+          disabled={!selected || sending}
           style={{
             display: "block",
             width: "100%",
@@ -140,7 +150,7 @@ export default function ReportModal({ type, targetId, onClose, onReport, onBlock
             transition: "background 0.15s",
           }}
         >
-          신고하기
+          {sending ? "보내는 중…" : "신고하기"}
         </button>
 
         {/* 차단하기 button — user type only */}

@@ -17,7 +17,7 @@ import { resolveMapCenter } from "../hooks/useMapCenter";
 import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegionId, regionKey, makeRegionEntry } from "../constants/regions";
 import { getMatchedCompaniesWithTier } from "../utils/regionMatching";
 import { isJunkText } from "../utils/dataHygiene";
-import { updateUserActivityRegions, getSavedCompanyIds, getSavedCompanies, saveCompany, unsaveCompany, getCustomerTrust } from "../lib/supabase";
+import { updateUserActivityRegions, getSavedCompanyIds, getSavedCompanies, saveCompany, unsaveCompany, getCustomerTrust, getUserSpaceTemp } from "../lib/supabase";
 import CompanyCardOriginal from "./CompanyCard";
 import CompanyCardBeta from "./CompanyCardBeta";
 import { UX_BETA } from "../constants/release";
@@ -274,8 +274,11 @@ const normalizeRequest = (row) => {
       const lo = Number.isFinite(row.budget_min) && row.budget_min > 0 ? row.budget_min : null;
       const hi = Number.isFinite(row.budget_max) && row.budget_max > 0 ? row.budget_max : null;
       if (lo == null && hi == null) return "협의";
-      const a = lo ?? hi, b = hi ?? lo;
-      return a === b ? `${a}만원` : `${a}~${b}만원`;
+      // 한쪽만 있으면 「이하/이상」— 예전엔 「1,000만원 이하」가 「1000만원」 한 값처럼 보였다(C6)
+      const won = (n) => `${n.toLocaleString("ko-KR")}만원`;
+      if (lo == null) return `${won(hi)} 이하`;
+      if (hi == null) return `${won(lo)} 이상`;
+      return lo === hi ? won(lo) : `${lo.toLocaleString("ko-KR")}~${won(hi)}`;
     })(),
     style: row.style ?? "",
     desc: row.description ?? row.desc ?? "",
@@ -393,7 +396,7 @@ const computeCustomerStage = (r, escrowData) => {
     };
     return {
       badge: "접수완료", badgeBg: C.bgWarm, badgeFg: C.text3,
-      label: "접수완료", sub: "검증된 업체들이 견적을 검토 중입니다 · 보통 2~4시간 내 응답이 와요 ⏱️",
+      label: "접수완료", sub: "근처 업체들이 요청을 보고 있어요 · 견적이 오면 알림으로 알려 드려요",
       action: null, cta: null,
     };
   }
@@ -449,15 +452,15 @@ function computeProgress(r, escrowData) {
     nextActionText = "모든 공사가 완료됐어요 · 후기를 남겨주세요";
   } else if (tx === "COMPLETED") {
     percent = 75; stepNo = 4; isWaiting = true;
-    nextActionText = "완료 사진 확인 후 잔금 30%가 업체에 지급됩니다";
+    nextActionText = "완료 사진을 확인하고 승인해 주세요";
   } else if (tx === "MID_INSPECTION") {
     percent = 50; stepNo = 3; isWaiting = true;
-    nextActionText = "중간 검수 확인 후 40%가 업체에 지급됩니다";
+    nextActionText = "중간 점검 사진을 확인하고 승인해 주세요";
   } else if (tx === "STARTED") {
     percent = approved(2) ? 25 : 25; stepNo = 2; isWaiting = !approved(2);
     nextActionText = approved(2)
       ? "다음은 중간 검수 단계입니다"
-      : "착공 사진 확인 후 20%가 업체에 지급됩니다";
+      : "착공 사진을 확인하고 승인해 주세요";
   } else {
     // CONTRACTED/예치 등 — 착공 전
     percent = 0; stepNo = 1; isWaiting = true;
@@ -525,6 +528,21 @@ function isRequestSettled(r, escrowData) {
 // 활성(정산 전) 에스크로 계약이 존재하는가 — 진행중 판정의 1차 기준(상태 무관).
 // 업체가 착공/단계 사진을 올려 계약이 생기면 escrow row 가 존재한다. status 가 stale 'open'
 // 이어도 이 escrow 가 곧 "진행중"의 근거다.
+// 홈 「진행 중」 카드의 제목·단계·진행률·열 화면. 예전엔 「진행 중인 공사 · 진행 중 · 50%」 고정이라
+// 현장방문만 요청했는데 공사가 절반 된 것처럼 보였고, 최종 견적서가 와도 알 수 없었다(C2).
+function homeStageOf(r, escrowData) {
+  const esc = escrowData?.escrow ?? null;
+  if (esc) {
+    const step = Math.max(1, Number(esc.current_step) || 1);
+    const label = esc.transaction_status === "DISPUTE" ? "이의 신청 검토 중"
+      : step <= 2 ? "착공 준비 중" : step === 3 ? "착공 확인 단계" : step === 4 ? "중간 점검 단계" : "완료 확인 단계";
+    return { heading: "진행 중인 공사", label, pct: Math.min(95, 20 + (step - 1) * 18), target: "escrow" };
+  }
+  if (r?.status === "escrow_pending") return { heading: "진행 중인 견적", label: "예약 확정 · 결제 대기", pct: 15, target: "bidstatus" };
+  if (r?.status === "final_quote_submitted") return { heading: "최종 견적서가 도착했어요", label: "확인해 주세요", pct: 12, target: "bidstatus" };
+  return { heading: "진행 중인 견적", label: "현장방문 · 최종 견적 준비 중", pct: 6, target: "bidstatus" };
+}
+
 function hasActiveEscrow(escrowData) {
   const escrow = escrowData?.escrow ?? null;
   if (!escrow) return false;
@@ -1311,6 +1329,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [myCompanyRow, setMyCompanyRow] = useState(null);
   // 파트너 홈 「내 업체 한눈에」 — 고객에게 보이는 내 업체 숫자 + 지금 할 한 가지(전부 실제 기록을 센다).
   const [partnerGrowth, setPartnerGrowth] = useState(null);
+  // 고객 공간온도 — 서버 저장값(114). 못 읽으면(115 실행 전 등) null 이고 화면은 기본값 36.5°.
+  const [customerTemp, setCustomerTemp] = useState(null);
+  useEffect(() => {
+    if (activeRole !== "consumer" || !user?.id) return;
+    let alive = true;
+    getUserSpaceTemp(user.id)
+      .then(({ data, error }) => { const n = Number(data); if (alive && !error && data != null && Number.isFinite(n)) setCustomerTemp(n); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [activeRole, user?.id]);
   const [dashTab, setDashTab] = useState("active"); // 파트너센터를 특정 탭(포트폴리오 등)으로 바로 열 때
   const reloadMyCompany = async () => {
     if (!user?.id) return;
@@ -1818,10 +1846,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   useEffect(() => {
     if (activeRole !== "consumer") return;
     const MSG = {
-      STARTED:        "착공이 시작됐습니다 · 30%가 업체에 안전하게 지급됐어요. 다음 정산은 중간 완료 후입니다",
-      MID_INSPECTION: "중간 단계가 확인됐습니다 · 40%가 업체에 지급됐어요. 이제 마무리 단계입니다",
-      COMPLETED:      "마무리 단계입니다 · 완료 사진 확인 후 잔금이 지급됩니다",
-      SETTLED:        "모든 공사가 완료됐습니다 · 총 거래가 안전하게 마무리됐어요. 후기를 남겨주세요",
+      STARTED:        "업체가 착공 사진을 보냈어요 · 공사 화면에서 확인해 주세요",
+      MID_INSPECTION: "업체가 중간 점검 사진을 보냈어요 · 공사 화면에서 확인해 주세요",
+      COMPLETED:      "업체가 완료 사진을 보냈어요 · 확인 후 완료를 승인해 주세요",
+      SETTLED:        "공사가 마무리됐어요 · 후기를 남겨 주세요",
     };
     Object.entries(myRequestsEscrow).forEach(([rid, ed]) => {
       const tx = ed?.escrow?.transaction_status;
@@ -1843,10 +1871,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // 단계 → 알림 정의 (진행 알림: 즉시·무제한)
     const STAGE_NOTIF = {
       CONTRACTED:     { type: "CONTRACT_CREATED",     title: "계약 생성", message: "계약서가 생성됐습니다. 내용을 확인해 주세요" },
-      STARTED:        { type: "CONSTRUCTION_STARTED", title: "착공 시작", message: "착공이 시작됐어요. 30%가 업체에 안전하게 지급됐습니다" },
-      MID_INSPECTION: { type: "ESCROW_MID_CHECK",     title: "중간 점검", message: "중간 단계가 확인됐어요 · 40%가 안전하게 지급됐습니다" },
-      COMPLETED:      { type: "CONSTRUCTION_DONE",    title: "공사 완료", message: "공사가 완료됐습니다. 완료 확인 후 잔금이 지급됩니다" },
-      SETTLED:        { type: "SETTLEMENT_DONE",      title: "정산 완료", message: "최종 정산이 완료됐어요. 거래가 안전하게 마무리됐습니다" },
+      STARTED:        { type: "CONSTRUCTION_STARTED", title: "착공 시작", message: "착공이 시작됐어요. 공사 화면에서 진행 사진을 확인해 주세요" },
+      MID_INSPECTION: { type: "ESCROW_MID_CHECK",     title: "중간 점검", message: "중간 점검 단계예요. 공사 화면에서 사진을 확인해 주세요" },
+      COMPLETED:      { type: "CONSTRUCTION_DONE",    title: "공사 완료", message: "업체가 완료 사진을 보냈어요. 확인 후 완료를 승인해 주세요" },
+      SETTLED:        { type: "SETTLEMENT_DONE",      title: "정산 완료", message: "공사가 마무리됐어요. 후기를 남겨 주시면 다른 분께 큰 도움이 돼요" },
     };
 
     let cancelled = false;
@@ -2021,7 +2049,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           });
           if (!confirmRes.ok) {
             const j = await confirmRes.json().catch(() => ({}));
-            showToast(j?.code === "PAYMENTS_PAUSED" ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+            showToast(["PAYMENTS_PAUSED", "ALREADY_PAID"].includes(j?.code) ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
             return;
           }
         } catch {
@@ -2144,7 +2172,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           });
           if (!confirmRes.ok) {
             const j = await confirmRes.json().catch(() => ({}));
-            showToast(j?.code === "PAYMENTS_PAUSED" ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
+            showToast(["PAYMENTS_PAUSED", "ALREADY_PAID"].includes(j?.code) ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
             return;
           }
         } catch {
@@ -2207,7 +2235,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         // H-A: 에스크로/결제/리뷰/관리자 화면에서는 팝업 금지
         // 입찰 알림은 홈·입찰목록·타임라인 같이 알림이 맥락에 맞는 화면에서만 표시한다.
         const SAFE_ALERT_SCREENS = new Set(["home", "bidstatus", "timeline", "my"]);
-        if (SAFE_ALERT_SCREENS.has(screenRef.current)) {
+        if (SAFE_ALERT_SCREENS.has(screenRef.current) && activeRoleRef.current !== "company" && activeRoleRef.current !== "admin") {
           const request = customerRequests.find(r => r.id === bidViewRequestId) ?? myRequests.find(r => r.id === bidViewRequestId);
           setBidAlert({
             count: normalized.length,
@@ -2711,16 +2739,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       }).catch(() => {});
     }
 
-    setSubmittedBids(prev => {
-      const forRequest = prev.filter(b => b.requestId === request.id);
-      setBidAlert({
-        count: forRequest.length,
-        requestType: request.type,
-        requestId: request.id,
-        companies: forRequest.map(b => b.company).filter(Boolean),
-      });
-      return prev;
-    });
+    // 예전엔 여기서 「업체 N곳이 입찰했어요」(의뢰인용 팝업)를 입찰한 업체 본인에게 띄웠다(C23).
+    // 의뢰인은 위 알림 + 실시간 구독으로 받는다.
     return true;
   };
   const isGuestCompany = false;
@@ -2911,6 +2931,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   useEffect(() => {
     if (screen === "admin" && activeRole !== "admin") setScreen("home");
     if (screen === "dashboard" && activeRole !== "company") setScreen("home");
+    // 관리자 역할엔 홈 화면이 없다(의뢰인·업체 홈만 그린다) → 빈 화면 대신 관리 화면으로(C11).
+    if (screen === "home" && activeRole === "admin") setScreen("admin");
   }, [screen, activeRole]);
 
   // ── 라운지 SEO 딥링크 라우팅 ─────────────────────────────
@@ -3105,24 +3127,31 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
           const escOf = (r) => myRequestsEscrow[r.id] ?? null;
           const ip = myRequests.find(r => isRequestInProgress(r, escOf(r)));
-          const doneCnt = myRequests.filter(r => isRequestSettled(r, escOf(r))).length;
           const op = activeRole === "consumer" ? myRequests.find(r => isRequestOpenForQuotes(r, escOf(r))) : null;
 
           return (
             <HomeV3
               activeRole={activeRole}
               user={user}
-              activeContract={ip ? {
-                title: ip.type ?? ip.area ?? "시공",
-                stageLabel: "진행 중",
-                pct: 50,
-                onOpen: () => { setBidViewRequestId(ip.id); setScreen("escrow"); },
-              } : null}
+              activeContract={ip ? (() => {
+                const st = homeStageOf(ip, escOf(ip));
+                return {
+                  title: ip.type ?? ip.area ?? "시공",
+                  heading: st.heading,
+                  stageLabel: st.label,
+                  pct: st.pct,
+                  // 계약 전(현장방문·최종 견적·결제 대기)은 견적 화면으로, 계약 뒤는 공사 화면으로
+                  onOpen: () => { setBidViewRequestId(ip.id); setScreen(st.target); },
+                };
+              })() : null}
               showcases={showcases}
               reviews={revSrc}
               companiesCount={(companies ?? []).length}
               avgTemp={avgTemp}
-              completedCount={doneCnt}
+              // 「누적 완료」는 시장 숫자다 — 내가 끝낸 요청 수를 여기 넣으면 라벨이 거짓말을 한다(D15).
+              completedCount={(companies ?? []).reduce((s, c) => s + (Number(c.completedJobs) || 0), 0)}
+              partnerName={activeRole === "company" ? (currentUser?.name ?? null) : null}
+              partnerTemp={activeRole === "company" ? (myCompanyRow?.temp ?? currentUser?.temp ?? null) : null}
               newRequestCount={activeRole === "company" ? biddableRequests.length : (activeJobs ?? []).length}
               requestsSlot={activeRole === "company" ? renderPartnerRequests() : null}
               partnerGrowth={activeRole === "company" ? partnerGrowth : null}
@@ -3538,7 +3567,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                     <Icon emoji={stage?.badge === "확인 필요" ? "🔔" : "🏗"} size={13} color={stage?.badge === "확인 필요" ? "#C07000" : C.brand} /> {stage?.label ?? "시공 진행중"}
                                   </div>
                                   <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>{stage?.sub}</div>
-                                  <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                                  <button onClick={() => { if (selectedBid?.requestId !== r.id) setSelectedBid(null); setContractId(myRequestsEscrow[r.id]?.escrow?.id ?? null); setBidViewRequestId(r.id); go("escrow"); }}
                                     style={{ width:"100%", padding:"11px",
                                       background: stage?.badge === "확인 필요" ? "#C07000" : C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
@@ -3610,7 +3639,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                   </button>
                                 )}
                                 {stage?.action === "escrow" ? (
-                                  <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                                  <button onClick={() => { if (selectedBid?.requestId !== r.id) setSelectedBid(null); setContractId(myRequestsEscrow[r.id]?.escrow?.id ?? null); setBidViewRequestId(r.id); go("escrow"); }}
                                     style={{ flex:1, padding:"10px", background:C.brand,
                                       color:"#fff", border:"none", borderRadius:R.lg,
                                       fontWeight:700, fontSize:13, cursor:"pointer",
@@ -4963,7 +4992,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               const { escrow: esc } = escData ?? {};
               const txStatus = esc?.transaction_status ?? null;
               const hasEscrow = !!esc;
-              const isSettled = txStatus === "SETTLED";
+              // 완료 — 정산 완료 · 완료 단계 승인 · 후기 · 요청 완료 중 하나라도(C19 — 예전엔 SETTLED 만 봐서
+              // 자동 승인으로 끝난 공사가 「착공 대기」로 남고 버튼도 없었다). 완료 사진만 온 상태(COMPLETED)는 아직 확인 대기.
+              const payout4Approved = (escData?.payouts ?? []).some(p => p.stage === 4 && p.status === "APPROVED");
+              const isSettled = txStatus === "SETTLED" || payout4Approved || r.hasReview === true
+                || r.status === "completed" || r.status === "settled";
               const csStage = computeCustomerStage(r, escData);
               const inProgress = hasEscrow || r.status === "in_progress";
               const step2done = inProgress;
@@ -4971,10 +5004,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               const step4done = isSettled;
 
               const constructionSub = (() => {
+                if (isSettled) return "공사 완료";
+                if (txStatus === "DISPUTE") return "이의 신청 검토 중";
                 if (txStatus === "STARTED") return "착공 사진 확인 대기";
                 if (txStatus === "MID_INSPECTION") return "중간 점검 사진 확인 대기";
                 if (txStatus === "COMPLETED") return "완료 사진 확인 대기";
-                if (hasEscrow) return "착공 대기 · 에스크로 보관 중";
+                if (hasEscrow) return "계약·결제 완료 · 착공 준비 중";
                 if (r.status === "in_progress") return "실측 방문 3일 내 · 견적서 72시간(3일) 내 등록";
                 return "착공 ~ 중간점검";
               })();
@@ -4987,7 +5022,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   sub: step2done ? "계약 완료" : bids > 0 ? `견적 ${bids}건 도착 · 비교해 보세요` : "우리 동네 검증 업체들이 요청을 보고 있어요. 견적이 오면 알려드려요",
                   done:step2done, active:!step2done, bidStep:!step2done && bids > 0, waitStep: waiting },
                 { label:"공사 진행",   sub: constructionSub,            done:isSettled, active:step3active, escrowStep:step3active },
-                { label:"완료 및 정산", sub:"완료 확인 + 잔금 지급",     done:step4done },
+                { label:"완료 및 정산", sub: step4done ? "완료 확인 · 공사 기록이 남아 있어요" : "완료 확인 + 잔금 지급", done:step4done, recordStep: step4done && hasEscrow },
               ];
 
               return (
@@ -5026,11 +5061,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                             </button>
                           )}
                           {step.escrowStep && (
-                            <button onClick={() => { setBidViewRequestId(r.id); go("escrow"); }}
+                            <button onClick={() => { if (selectedBid?.requestId !== r.id) setSelectedBid(null); setContractId(myRequestsEscrow[r.id]?.escrow?.id ?? null); setBidViewRequestId(r.id); go("escrow"); }}
                               style={{ marginTop:S.sm, padding:"8px 16px",
                                 background: csStage?.badge === "확인 필요" ? "#C07000" : C.brand,
                                 color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
                               {csStage?.cta ?? "에스크로 진행현황 보기"} →
+                            </button>
+                          )}
+                          {step.recordStep && (
+                            <button onClick={() => { if (selectedBid?.requestId !== r.id) setSelectedBid(null); setContractId(myRequestsEscrow[r.id]?.escrow?.id ?? null); setBidViewRequestId(r.id); go("escrow"); }}
+                              style={{ marginTop:S.sm, padding:"8px 16px", background:C.surface, color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                              공사 기록 보기 →
                             </button>
                           )}
                           {step.escrowStep && r.status === "in_progress" && !hasEscrow && (
@@ -5146,7 +5187,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   pct: next ? Math.round((done / next.minJobs) * 100) : 100,
                 };
               })()}
-              spaceTemp={currentUser?.temp ?? myCompanyRow?.temp ?? 36.5}
+              spaceTemp={activeRole === "company" ? (currentUser?.temp ?? myCompanyRow?.temp ?? 36.5) : (customerTemp ?? 36.5)}
               tokenBalance={tokenBalance}
               idVerified={idVerified}
               onVerifyId={IDENTITY_VERIFY_READY ? handleIdVerify : null}
@@ -5827,6 +5868,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           onChange={(updatedJob) => {
             setActiveJobs(prev => prev.map(j => j.bid.id === updatedJob.bid.id ? updatedJob : j));
             setEstimateJob(updatedJob);
+            // 파트너센터 진행 카드도 바로 「최종견적 검토중」으로(C3 — 예전엔 새로고침해야 바뀌었다).
+            const rid = updatedJob.bid?.request_id ?? updatedJob.request?.id ?? null;
+            if (rid && updatedJob.request?.status === "final_quote_submitted") {
+              setCompanyJobs(prev => prev.map(j => (j.request?.id === rid && ["open", "site_visit", "site_visiting", "visit_requested"].includes(j.request?.status))
+                ? { ...j, request: { ...j.request, status: "final_quote_submitted" } } : j));
+            }
           }}
         />
       )}
@@ -6210,7 +6257,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         }
       }} />}
 
-      {bidAlert && (
+      {bidAlert && activeRole !== "company" && (
         <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:400 }}>
           <div style={{ background:C.surface, borderRadius:"24px 24px 0 0", width:"100%", maxWidth:480, padding:"24px 24px 40px" }}>
             <div style={{ width:36, height:4, background:C.bgWarm, borderRadius:R.full, margin:"0 auto 20px" }} />

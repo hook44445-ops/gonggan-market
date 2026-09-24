@@ -180,7 +180,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             <div style={{ display: "inline-flex", gap: 6, alignItems: "center", background: SK.forest,
               color: "#E8E1D8", padding: "6px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700,
               letterSpacing: ".02em", marginBottom: 16 }}>
-              사업자등록 확인 업체만 견적
+              업체마다 확인된 증빙이 보여요
             </div>
             <h1 className="gm-hero-h1 gg-rise gg-d1" style={{ fontSize: "clamp(30px,6vw,44px)", fontWeight: 800, lineHeight: 1.08,
               letterSpacing: "-0.04em", wordBreak: "keep-all", margin: 0 }}>
@@ -188,7 +188,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             </h1>
             <p style={{ fontSize: 15, color: SK.inkSoft, opacity: 1, fontWeight: 500,
               margin: "14px 0 22px", lineHeight: 1.65, wordBreak: "keep-all" }}>
-              사업자등록을 확인한 업체의 견적을 같은 조건으로 비교하고, 계약·현장 사진·진행 단계가 그대로 기록됩니다. 가입비 0원 · 견적 무료.
+              업체마다 확인된 증빙(사업자·시공보험·보증금)을 보면서 같은 조건의 견적을 비교하고, 계약·현장 사진·진행 단계가 그대로 기록됩니다. 가입비 0원 · 견적 무료.
             </p>
             <button onClick={goConsumer} className="gg-rise gg-d3 gg-cta" style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
               무료 비교견적 받기 →
@@ -280,7 +280,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <h2 style={{ fontSize: "clamp(20px,4.5vw,24px)", fontWeight: 800, lineHeight: 1.35, margin: 0 }}>
             업체를 찾아다니는 시간을<br />공간마켓이 줄여 드립니다
           </h2>
-          <p style={{ opacity: .62, fontSize: 13, marginTop: 10, lineHeight: 1.7 }}>사업자등록을 확인한 업체의 견적을 한자리에서 비교하고, 계약부터 마무리까지 기록으로 남깁니다.</p>
+          <p style={{ opacity: .62, fontSize: 13, marginTop: 10, lineHeight: 1.7 }}>확인된 증빙이 표시된 업체들의 견적을 한자리에서 비교하고, 계약부터 마무리까지 기록으로 남깁니다.</p>
           <button onClick={goConsumer} className="gg-cta" style={{ ...btnBase, maxWidth: 340, background: "#fff",
             color: SK.forest, margin: "20px auto 0" }}>
             무료 비교견적 받기

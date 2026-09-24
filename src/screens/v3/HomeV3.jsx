@@ -67,11 +67,13 @@ export default function HomeV3({
   requestsSlot = null,     // 파트너: 입찰할 새 견적 요청 목록(MainApp 이 그린다)
   onOpenShowcase,
   partnerGrowth = null,    // 파트너: { showcases, reviews, rating, completed, readyFromJobs } — 실제 기록 집계
+  partnerName = null,      // 파트너: 내 업체 이름(파트너센터와 같은 호칭 · C9)
+  partnerTemp = null,      // 파트너: 내 업체 공간온도(시장 평균이 아니다 · D15)
   onPartnerAction,         // 파트너: (tab) → 파트너센터 그 탭으로
   onPartnerProfile,        // 파트너: 고객에게 보이는 내 업체 화면
 }) {
   const isCompany = activeRole === "company";
-  const name = user?.name || (isCompany ? "파트너" : "고객");
+  const name = (isCompany ? partnerName : null) || user?.name || (isCompany ? "파트너" : "고객");
 
   return (
     <Page>
@@ -84,7 +86,11 @@ export default function HomeV3({
             sub={newRequestCount > 0
               ? `오늘 새로 들어온 요청이 ${newRequestCount}건 있어요.`
               : "새 요청이 들어오면 바로 알려드릴게요."}
-            chips={[`공간온도 ${Number(avgTemp).toFixed(1)}°`, `완료 ${completedCount}건`]}
+            chips={[
+              `공간온도 ${Number(partnerTemp ?? avgTemp).toFixed(1)}°`,
+              // 파트너센터·「내 업체 한눈에」와 같은 숫자(끝난 계약). 아직 못 읽었으면 숫자를 비운다 — 0건이라고 하지 않는다.
+              partnerGrowth ? `완료 ${partnerGrowth.completed}건` : null,
+            ].filter(Boolean)}
             actions={[
               { label: "요청 보기", primary: true, onClick: () => document.getElementById("partner-requests")?.scrollIntoView({ behavior: "smooth", block: "start" }) },
               { label: "파트너센터", onClick: () => onGo("dashboard") },
@@ -95,8 +101,8 @@ export default function HomeV3({
             eyebrow="인테리어 · 집수리 비교견적"
             title="아무에게나 맡길 수 없으니까"
             sub={SHOW_BETA_UI
-              ? "검증된 업체 3곳의 견적을 1분 만에 비교하고, 계약부터 공사 사진까지 한곳에 기록해 드립니다."
-              : "검증된 업체 3곳의 견적을 1분 만에 비교하고, 공사대금은 단계별로 안전하게 지켜드립니다."}
+              ? "같은 조건으로 받은 견적을 나란히 비교하고, 계약부터 공사 사진까지 한곳에 기록해 드립니다."
+              : "같은 조건으로 받은 견적을 나란히 비교하고, 공사대금은 단계별로 안전하게 지켜드립니다."}
             chips={SHOW_BETA_UI ? ["가입비 0원", "견적 무료", "계약·공사 기록"] : ["가입비 0원", "견적 무료", "공간안전결제"]}
             actions={[{ label: "무료 견적 받기", primary: true, onClick: onNewRequest }]}
           />
@@ -107,7 +113,7 @@ export default function HomeV3({
       {activeContract && (
         <Card tone="brand" onClick={activeContract.onOpen}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: S.sm }}>
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>진행 중인 공사</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.brand }}>{activeContract.heading ?? "진행 중인 공사"}</span>
             <span style={{ fontSize: 11.5, color: C.text3 }}>{activeContract.stageLabel}</span>
           </div>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
@@ -173,8 +179,10 @@ export default function HomeV3({
         </Section>
       )}
 
-      {/* ── 신뢰 — 업체 수가 적을 때 숫자('1곳')는 오히려 불안하다 → 약속으로 보여준다 ── */}
-      {isCompany || companiesCount >= 10 ? (
+      {/* ── 신뢰 — 업체 수가 적을 때 숫자('1곳')는 오히려 불안하다 → 약속으로 보여준다 ──
+          파트너에게는 시장 숫자를 안 보인다 — 바로 위 「내 업체 한눈에」의 완료 6건 아래에
+          「누적 완료 0건」이 서면 같은 화면이 두 말을 한다(D15). */}
+      {isCompany ? null : companiesCount >= 10 ? (
         <TrustRow
           items={[
             { value: `${companiesCount}곳`, label: "검증 업체" },

@@ -568,8 +568,12 @@ function ReportList({ reports, label, hiddenIds, onToggleHide }) {
 }
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
-function LoungeManagementTab({ loungePosts: initPosts = [], loungeErr = null, showToast, adminUserId, onReload }) {
-  const allReports = (() => { try { return JSON.parse(localStorage.getItem("lounge_reports") ?? "[]"); } catch { return []; } })();
+function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], loungeErr = null, showToast, adminUserId, onReload }) {
+  // 신고는 서버 목록(migration 113 ③)에서 — 예전엔 관리자 본인 브라우저 저장소를 읽어 실제 신고를 못 봤다.
+  const allReports = (loungeReports ?? []).map(r => ({
+    id: r.id, type: r.target_type, targetId: r.target_id, reason: r.reason,
+    createdAt: r.created_at, status: r.status, reporterName: r.reporter_name ?? null,
+  }));
   const allBlocks  = (() => { try { return JSON.parse(localStorage.getItem("lounge_blocks")  ?? "[]"); } catch { return []; } })();
   const [posts, setPosts] = useState(initPosts);
   useEffect(() => { setPosts(initPosts); }, [initPosts]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -4110,7 +4114,7 @@ const normalizeCustomer = (row) => ({
   name:     row.name ?? "고객",
   phone:    row.phone ?? "",
   region:   row.region ?? "",
-  requests: 0,
+  requests: row.request_count ?? 0,   // 서버(/api/admin/users)가 센 요청 수 — 예전엔 0 고정(D21)
   joinedAt: row.created_at
     ? new Date(row.created_at).toLocaleDateString("ko-KR")
     : "",
@@ -5525,12 +5529,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
       });
     }
     if (mainTab === "disputes") {
-      getDisputePayments().then(({ data }) => {
+      getDisputePayments().then(({ data, error }) => {
+        // 조회가 실패하면 «분쟁 없음»이 아니라 실패라고 말한다(D3 — 빈 화면이 거짓말이 되던 것)
+        if (error) showToast(`분쟁 목록을 불러오지 못했어요 — ${error.message ?? "다시 시도해 주세요"}`, false);
         if (data) setDisputes(data);
       });
     }
     if (mainTab === "settlements") {
-      getPendingPayouts().then(({ data }) => {
+      getPendingPayouts().then(({ data, error }) => {
+        if (error) showToast(`정산 목록을 불러오지 못했어요 — ${error.message ?? "다시 시도해 주세요"}`, false);
         if (data) setSettlements(data);
       });
     }
@@ -5539,7 +5546,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
         try {
           const [postsRes, reportsRes] = await Promise.all([
             adminGetLoungePosts(),
-            getLoungeReports(),
+            getLoungeReports({ adminId: user?.id ?? "admin" }),
           ]);
           setLoungePosts(postsRes.data ?? []);
           setLoungeReports(reportsRes.data ?? []);
@@ -7134,12 +7141,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {mainTab === "lounge" && (
               <LoungeManagementTab
                 loungePosts={loungePosts}
+                loungeReports={loungeReports}
                 loungeErr={loungeErr}
                 showToast={showToast}
                 adminUserId={user?.id}
                 onReload={async () => {
                   try {
-                    const [postsRes, reportsRes] = await Promise.all([adminGetLoungePosts(), getLoungeReports()]);
+                    const [postsRes, reportsRes] = await Promise.all([adminGetLoungePosts(), getLoungeReports({ adminId: user?.id ?? "admin" })]);
                     setLoungePosts(postsRes.data ?? []);
                     setLoungeReports(reportsRes.data ?? []);
                     setLoungeErr(postsRes.error?.message ?? null);

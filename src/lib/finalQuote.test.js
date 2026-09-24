@@ -40,3 +40,8 @@ test("다음 단계 막기 — 빈 줄은 무시, 반쯤 쓴 줄만 막는다", 
   assert.equal(stepBlocker(2, { durationDays: "7" }), null);
   assert.equal(quoteTotal(ok), 100);
 });
+
+test("C10: 요청 설명에 도배가 있으면 칩 맨 앞이 도배", () => {
+  const t = suggestTrades({ description: "[점검] 시스템 점검용 요청입니다. 도배 — 실제 공사 아님.", space_type: "아파트 부분" });
+  assert.equal(t[0], "도배");
+});

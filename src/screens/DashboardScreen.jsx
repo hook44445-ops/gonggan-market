@@ -19,6 +19,7 @@ import { earnedAchievements, ACHIEVEMENTS } from "../constants/growthPlus";
 import { getStreak, getSeenAchievements, markAchievementsSeen, getLastSeenLevel, setLastSeenLevel } from "../utils/growthStore";
 import { getMembershipRateByCreatedAt, STAGE_PLANS, normalizePlan } from "../utils/calculations";
 import { getCompanyEscrowJobs, getCompletedEscrowByCompany, getReviews } from "../lib/supabase";
+import { partnerMoney, daysLeft } from "../lib/partnerMoney";
 import PartnerHeaderV3 from "../components/v3/PartnerHeaderV3";
 import { useUiVersion } from "../hooks/useUiVersion";
 
@@ -71,7 +72,8 @@ const normalizeEscrowRow = (row) => {
     status:      txMeta.label,
     statusColor: txMeta.color,
     paid:        paidPercent(row.current_step, row.stage_plan, row.transaction_status),
-    dDay:        Math.max(0, 30 - daysElapsed),
+    contracted:  true,
+    dDay:        daysLeft(row.created_at, row.requests?.period_days ?? null),
     total:       row.total_amount ?? 0,
     txStatus:    row.transaction_status ?? "CONTRACTED",
     dashboardBucket: txMeta.bucket ?? "in_progress",
@@ -139,7 +141,8 @@ const normalizeCompanyJob = ({ bid, request, escrow }) => {
     status:      txMeta.label,
     statusColor: txMeta.color,
     paid:        reqMeta ? 0 : paidPercent(escrow?.current_step, escrow?.stage_plan, escrow?.transaction_status),
-    dDay:        Math.max(0, 30 - daysElapsed),
+    contracted:  !!escrow,   // 계약(에스크로) 전이면 돈 숫자에 넣지 않는다(C14)
+    dDay:        escrow ? daysLeft(escrow.created_at, bid?.period ?? bid?.period_days ?? request?.period_days ?? null) : null,
     total,
     txStatus:    txStatus ?? reqStatus.toUpperCase(),
     dashboardBucket: txMeta.bucket ?? "in_progress",
@@ -224,6 +227,7 @@ export default function DashboardScreen({
         : 0;
 
       setStatsData({
+        forId:                 compId,   // 이 통계가 어느 업체 것인지 — 업적 비교는 지금 업체 것일 때만(C5)
         completed_count:       completed.length,
         review_count:          reviews.length,
         avg_rating:            avgRating,
@@ -241,8 +245,8 @@ export default function DashboardScreen({
   ).filter(Boolean);
   const jobsSource = jobsFromHome.length > 0 ? "companyJobs" : "dashboardLocal";
 
-  const thisMonthRevenue = activeJobs.reduce((sum, j) => sum + Math.round(j.total * j.paid / 100), 0);
-  const pendingAmount    = activeJobs.reduce((sum, j) => sum + Math.round(j.total * (100 - j.paid) / 100), 0);
+  // 돈 숫자는 한 계산으로(C14) — 계약 전 공사 제외, 업체 실수령(수수료 뺀 값), 이번 달 정산 완료 포함.
+  const { monthRevenue: thisMonthRevenue, pending: pendingAmount } = partnerMoney({ activeJobs, completedJobs: completedEscrow });
 
   // '오늘 할 일' 요약용 파생값 — 전부 기존 state 재사용(신규 DB/쿼리 없음).
   //   오늘 신규 견적 = 입찰 탭 biddable 과 동일 필터(미입찰·미선택·미마감 open 요청).
@@ -290,8 +294,11 @@ export default function DashboardScreen({
 
   // 레벨업 / 신규 업적 감지 — 실데이터(statsData) 로드 후에만 동작(오탐 방지).
   useEffect(() => {
-    const cid = currentUser?.id;
-    if (!cid || !statsData) return;
+    // 업적·레벨 기록 키는 업체 주인 사용자 ID 하나로 고정한다. 예전엔 currentUser.id 였는데 파트너 화면에선
+    // 불러오는 시점에 따라 사용자 ID ↔ 업체 ID 로 바뀌어 기록이 두 벌로 갈라졌고, 오갈 때마다 다른 쪽 기준선과
+    // 비교해 「첫 후기 +20 XP」 같은 업적이 다시 떴다(C5). 통계도 지금 업체 것일 때만 비교한다.
+    const cid = userId ?? currentUser?.ownerId ?? currentUser?.id;
+    if (!cid || !statsData || statsData.forId !== (currentUser?.id ?? null)) return;
     const prevLevel = getLastSeenLevel(cid);
     if (prevLevel === null) {
       // 최초 진입 = 기준선 설정(연출/토스트 없이 현재 상태를 '본 것'으로 기록).
@@ -309,7 +316,7 @@ export default function DashboardScreen({
       setAchQueue((q) => [...q, ...items]);
       markAchievementsSeen(cid, fresh);
     }
-  }, [currentUser?.id, statsData, growth.level, earnedIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, currentUser?.id, currentUser?.ownerId, statsData, growth.level, earnedIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tabs = [["active","진행중"],["bids","입찰"],["stats","통계"],["portfolio","포트폴리오"],["completed","완료"],["activity","활동기록"]];
 
@@ -426,7 +433,7 @@ export default function DashboardScreen({
             <div style={{ background:`linear-gradient(150deg,${C.brand},${C.brandD})`,
               borderRadius:R.xl, padding:`${S.xl}px`, marginBottom:S.lg, color:"#fff" }}>
               <div style={{ fontSize:11, opacity:0.7, letterSpacing:"0.3px", marginBottom:6 }}>
-                이번 달 정산 수익
+                이번 달 정산 수익 · 수수료 뺀 실수령
               </div>
               <div style={{ fontSize:32, fontWeight:800, marginBottom:10, letterSpacing:"-0.5px" }}>
                 {thisMonthRevenue > 0 ? `${thisMonthRevenue.toLocaleString()}만원` : "—"}
@@ -483,8 +490,8 @@ export default function DashboardScreen({
                       </div>
                       <div style={{ marginBottom:6 }}>
                         <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:C.text3, marginBottom:4 }}>
-                          <span>에스크로 {job.paid}% 지급</span>
-                          <span>D-{job.dDay}</span>
+                          <span>{job.contracted ? `공사비 ${job.paid}% 지급됨` : "계약 전 · 최종 견적·결제 대기"}</span>
+                          {job.dDay != null && <span>D-{job.dDay}</span>}
                         </div>
                         <div style={{ background:C.bgWarm, borderRadius:R.full, height:4, overflow:"hidden" }}>
                           <div style={{ width:`${job.paid}%`, height:"100%", background:job.statusColor, borderRadius:R.full }} />

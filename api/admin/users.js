@@ -164,5 +164,22 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(200).json({ data: data ?? [] });
+  // 고객별 견적 요청 수 — 화면이 0 으로 고정해 두어 모든 고객이 「견적 0건」이었다(D21).
+  // 실패해도 목록은 그대로 돌려준다(요청 수만 빠짐).
+  let rows = data ?? [];
+  if (rows.length > 0) {
+    try {
+      const ids = rows.map(u => u.id);
+      const counts = {};
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data: reqs } = await db.from("requests").select("user_id").in("user_id", ids.slice(i, i + 200)).limit(10000);
+        (reqs ?? []).forEach(r => { counts[r.user_id] = (counts[r.user_id] || 0) + 1; });
+      }
+      rows = rows.map(u => ({ ...u, request_count: counts[u.id] ?? 0 }));
+    } catch (e) {
+      console.error("[admin/users] request_count failed", e?.message ?? e);
+    }
+  }
+
+  return res.status(200).json({ data: rows });
 }

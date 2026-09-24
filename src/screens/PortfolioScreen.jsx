@@ -396,7 +396,8 @@ export default function PortfolioScreen({ company, onChat, onReview, onBack, onE
                   에스크로 안전 정산
                 </div>
                 <div style={{ fontSize:12, color:C.text3, lineHeight:1.5 }}>
-                  선금 30% → 중간 점검 후 40% → 완료 확인 후 30%
+                  {/* 비율은 계약 때 정해진다(A3) — 예전 「선금 30 → 40 → 30」은 어디에도 없는 비율이었다(D17) */}
+                  단계마다 사진을 확인하고 승인하면 지급 · 공사 금액·업체 증빙에 따라 1~4단계
                 </div>
               </div>
             </div>

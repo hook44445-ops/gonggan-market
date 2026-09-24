@@ -8,9 +8,9 @@ import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import DocImg from "../components/DocImg";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments, STAGE_PLANS, normalizePlan, planUsesStage } from "../utils/calculations";
-import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, getOpsConfig, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByOwnerId, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, hasCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
+import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, getOpsConfig, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByIdOrOwner, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, hasCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
-import { buildGpsMissingNote } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
+import { buildGpsMissingNote, parseGpsMissingReason } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
@@ -299,7 +299,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
     const haveCreatedAt = !!resolvedBid?.company?.created_at;
     // 이름이 이미 있어도 created_at(멤버십 수수료 계산 기준)이 없으면 조회.
     if (existingName && existingName !== "—" && existingName !== "업체" && haveCreatedAt) return;
-    getCompanyByOwnerId(companyId).then(({ data, error }) => {
+    getCompanyByIdOrOwner(companyId).then(({ data, error }) => {
       setEscrowDebug(prev => ({
         ...prev,
         companyLookup: {
@@ -395,6 +395,12 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   // contractData 선언이 반드시 그 위에 있어야 한다(선언 전 접근 시 "Cannot access 'contractData'
   // before initialization" 크래시). DB-loaded contract 상태이지만 선언만 끌어올린다.
   const [contractData, setContractData] = useState(null);
+  // 완료 탭 등에서 업체 ID 없이 들어오면 계약 행의 업체를 넣어 준다 → 위 업체 조회가 이름을 채운다(D14 — 머리글 업체명 「—」).
+  useEffect(() => {
+    const cid = contractData?.company_id;
+    if (!cid) return;
+    setResolvedBid(prev => (prev && !prev.companyId ? { ...prev, companyId: cid } : prev));
+  }, [contractData?.company_id]);
   // 금액 표시 기준 통일 — 한 화면에 초기예산(444)·입찰가·예치액(333)이 섞이지 않도록
   // 마스터 금액 우선순위를 고정한다(crash-safe: Number 변환 후 NaN/0 스킵).
   //   1. contract.total_amount — 에스크로 계약이 존재하면(결제 완료) 실제 예치액이 마스터.
@@ -610,7 +616,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       const mapped = data.map(row => {
         const a = row.action ?? "";
         const type = a.includes("DISPUTE") ? "dispute" : a.includes("PHOTO") ? "photo" : a.includes("STEP") ? "confirm" : "contract";
-        const label = (row.metadata?.label) ?? a.replace(/_/g, " ");
+        // 기록 이름 — 영문 코드를 그대로 보이지 않게(C15 「CONTRACT CREATED」), 같은 단계의 «사진 보냄»과 «승인»을
+        // 구분한다(둘 다 「착공 확인」으로 보였다).
+        const base = row.metadata?.label ?? null;
+        const label =
+            a === "CONTRACT_CREATED" ? (base ?? "계약·결제 완료")
+          : a.includes("PHOTO")      ? (base && base.includes("사진") ? base : `${base ?? "단계"} 사진 보냄`)
+          : a.includes("STEP")       ? (base && base.includes("승인") ? base : `${base ?? "단계"} 승인`)
+          : a.includes("DISPUTE")    ? (base ?? "이의 신청")
+          : (base ?? "진행 기록");
         const stage = row.metadata?.stage ?? null;
         return { id: row.id, type, label, stage, ts: new Date(row.created_at).getTime() };
       });
@@ -1127,6 +1141,13 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         debug.upload_ok  = !photoErr;
         debug.upload_err = photoErr?.message ?? null;
         debug.uploaded_photo_url = photos[0];
+        // 사진 기록이 안 남았으면 여기서 멈춘다 — 예전엔 무시하고 단계를 넘겨, 고객은 사진 없는 승인 요청을 받았다(C27).
+        if (photoErr) {
+          debug.send_ok  = false;
+          debug.send_err = photoErr.message ?? "phase_photos insert failed";
+          setReportError(`사진을 공사 기록에 남기지 못해 보내지 않았어요. 잠시 후 다시 눌러 주세요. [${photoErr.code ?? "ERR"}]`);
+          return;
+        }
       } else {
         debug.upload_err = "no photos in state";
       }
@@ -1158,7 +1179,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         // setRequestInProgress 는 supabase 빌더(Promise 아님) → .catch 금지. await + try/catch.
         if (reqId) { try { await setRequestInProgress(reqId); } catch { /* 전이 실패 무시 */ } }
       } else {
-        setReportError(`단계 상태 업데이트 실패: ${escrowErr.message}`);
+        // 실패를 조용히 넘기지 않는다(C27) — 고객에게 안 넘어갔다는 걸 분명히.
+        setReportError(`사진은 올라갔지만 고객에게 넘기지 못했어요. 잠시 후 다시 눌러 주세요. 계속되면 고객센터로 알려 주세요. [${escrowErr.code ?? "ERR"}] ${escrowErr.message ?? ""}`);
       }
 
       logActivity({
@@ -1260,7 +1282,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const paid = stageMeta.filter(s => stageStatus[s.id] === "done" && s.pct > 0).reduce((a, s) => a + s.pct, 0);
 
   const headerSub = resolvedBid
-    ? `${resolvedBid.company?.name ?? "—"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
+    ? `${resolvedBid.company?.name && resolvedBid.company.name !== "—" ? resolvedBid.company.name : "업체"} · ${bidAmount > 0 ? fmtMoney(isConsumer ? customerTotal : bidAmount) : "금액 미정"}`
     : isConsumer ? "공사 안전 결제" : "에스크로 안전 정산";
 
   const statusColor = (sid) => {
@@ -1401,7 +1423,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>최종 견적서 작성</div>
           </div>
           <div style={{ padding: "20px 24px", fontSize: 13, color: C.text3, lineHeight: 1.7 }}>
-            현장방문 후 최종 견적 금액을 작성해 의뢰인에게 보내주세요. 의뢰인이 에스크로 결제를 완료하면 착공 단계가 열립니다.
+            현장방문 후 최종 견적 금액을 작성해 의뢰인에게 보내주세요. 의뢰인이 예약을 확정하고 결제를 마치면 착공 단계가 열립니다.
           </div>
           <PlatformEstimateModal
             job={{
@@ -2052,12 +2074,21 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.lg, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="📍" size={15} color={C.text1} /> 현장 체크포인트</div>
             {checkpoints.map((cp, idx) => {
               const meta = CHECKPOINT_META[cp.checkpoint_type] ?? { label: cp.checkpoint_type, icon: "📍" };
+              // 위치 없이 진행한 단계는 그 사실과 업체가 적은 사유를 그대로 보여 준다(C24 — 예전엔 「주소 미확인」만).
+              const noLocReason = parseGpsMissingReason(cp.note);
+              const noAddr = !cp.road_address && !cp.jibun_address;
               return (
                 <div key={cp.id} style={{ display: "flex", gap: S.md, marginBottom: idx < checkpoints.length - 1 ? S.lg : 0 }}>
                   <div style={{ width: 32, height: 32, borderRadius: R.full, background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon emoji={meta.icon} size={15} color={C.brand} /></div>
                   <div style={{ flex: 1, paddingTop: 2 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{meta.label}</div>
-                    <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>{cp.road_address || cp.jibun_address || "주소 미확인"}</div>
+                    {noAddr && noLocReason ? (
+                      <div style={{ fontSize: 12, color: C.text2, marginTop: 2, lineHeight: 1.6 }}>
+                        위치 기록 없이 진행 · 업체가 남긴 사유: 「{noLocReason}」
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: C.text2, marginTop: 2 }}>{cp.road_address || cp.jibun_address || "위치 기록 없음"}</div>
+                    )}
                     {cp.road_address && cp.jibun_address && (
                       <div style={{ fontSize: 11, color: C.text4, marginTop: 1 }}>지번 {cp.jibun_address}</div>
                     )}

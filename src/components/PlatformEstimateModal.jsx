@@ -95,6 +95,18 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
     } catch {}
   }, [materials, specialNote, constructionNote, contractSpecial]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 파트너센터 경로에선 job.request 에 요청 설명이 없다 → 「의뢰인이 요청한 공사가 앞에」가 거짓이 됐다(C10).
+  // 창이 열릴 때 요청의 설명·공간을 한 번 읽어 칩 순서에 쓴다.
+  const [reqInfo, setReqInfo] = useState(null);
+  useEffect(() => {
+    const rid = job.bid?.request_id ?? job.request?.id ?? null;
+    if (!rid || job.request?.description || job.request?.desc) return undefined;
+    let alive = true;
+    supabase.from("requests").select("description, space_type, user_id").eq("id", rid).maybeSingle()
+      .then(({ data }) => { if (alive && data) setReqInfo(data); }).catch(() => {});
+    return () => { alive = false; };
+  }, [job.bid?.request_id, job.request?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const addMaterial    = () => { if (materials.length >= 20) return; setMaterials(prev => [...prev, emptyMaterial()]); };
   const updateMaterial = (id, field, val) => setMaterials(prev => prev.map(m => m.id === id ? { ...m, [field]: val } : m));
   const removeMaterial = (id) => setMaterials(prev => prev.filter(m => m.id !== id));
@@ -238,7 +250,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
     // 결제/계약 알림은 결제 완료 시점에 별도 발생하므로 여기서는 계약 알림을 만들지 않는다.
     // 파트너센터 경로에선 job.request 에 user_id 가 없을 수 있다 → 요청에서 한 번 읽는다.
     // (없으면 의뢰인에게 「최종견적 도착」 알림도, 공사 대화방 기록도 안 갔다 — 총점검 09-24)
-    let consumerId = job.request?.user_id ?? job.request?.userId ?? null;
+    let consumerId = job.request?.user_id ?? job.request?.userId ?? reqInfo?.user_id ?? null;
     if (!consumerId && job.bid?.request_id) {
       try {
         const { data: rq } = await supabase.from("requests").select("user_id").eq("id", job.bid.request_id).maybeSingle();
@@ -262,7 +274,11 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
       postProjectEvent(consumerId, companyId,
         `최종 견적서가 도착했어요${total ? ` · ${Number(total).toLocaleString("ko-KR")}만원` : ""}${data?.duration_days ? ` · ${data.duration_days}일` : ""}. 「진행 중인 공사」에서 항목을 확인하고 예약을 확정할 수 있어요.`);
     }
-    const updated = { ...job, estimate: data, siteVisit: job.siteVisit ? { ...job.siteVisit, status: "estimate_submitted" } : job.siteVisit };
+    // 요청 상태도 함께 바꿔 둔다 — 서버(estimate_submit)는 이미 final_quote_submitted 로 바꿨는데 카드가
+    // 새로고침 전까지 「현장방문 견적 요청」으로 남았다(C3).
+    const updated = { ...job, estimate: data,
+      siteVisit: job.siteVisit ? { ...job.siteVisit, status: "estimate_submitted" } : job.siteVisit,
+      request: job.request ? { ...job.request, status: "final_quote_submitted" } : job.request };
     onChange(updated);
     // Space OS 성실견적 분석 결과 표시(제출/RPC/금액 로직은 위에서 이미 완료 — 분석은 표시 전용).
     // 결과 모달의 '확인'(onClose)으로 모달을 닫는다.
@@ -271,7 +287,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
     } catch { onClose(); }
   };
 
-  const trades = suggestTrades(job.request ?? {});
+  const trades = suggestTrades({ ...(job.request ?? {}), ...(reqInfo ?? {}) });
   const inp  = { padding:"10px 12px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.sm, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", minWidth:0 };
   const area = { width:"100%", padding:"12px 14px", border:`1.5px solid ${C.bgWarm}`, borderRadius:R.md, fontSize:14, outline:"none", boxSizing:"border-box", color:C.text1, background:C.surface, fontFamily:"inherit", resize:"none" };
   const goNext = () => {

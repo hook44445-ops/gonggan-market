@@ -101,6 +101,15 @@ export const getCompany = (id) =>
 export const getCompanyByOwnerId = (ownerId) =>
   supabase.from("companies").select("*").eq("owner_id", ownerId).maybeSingle();
 
+// 업체 ID 또는 업체 주인(users.id) 어느 쪽이든 받아 업체 한 곳을 찾는다.
+// bids.company_id · escrow_payments.company_id 가 경로에 따라 둘 중 하나라서(C1 · D14).
+export const getCompanyByIdOrOwner = async (ref) => {
+  if (!ref) return { data: null, error: null };
+  const byOwner = await getCompanyByOwnerId(ref);
+  if (byOwner.data || byOwner.error) return byOwner;
+  return supabase.from("companies").select("*").eq("id", ref).maybeSingle();
+};
+
 export const upsertCompany = (data) =>
   supabase.from("companies").upsert(data, { onConflict: "owner_id" }).select().single();
 
@@ -257,12 +266,28 @@ export const updateRequest = (id, data, actorId) =>
 export const createBid = (data) =>
   supabase.from("bids").insert(data).select().single();
 
-export const getBidsForRequest = (requestId) =>
-  supabase
+// 입찰 + 업체 정보. 예전엔 입찰 줄만 가져와(select("*")) 비교 목록이 늘 기본값
+// («선택된 파트너 · 36.5° · Lv.1»)이었다(C1). bids.company_id 는 companies.id 일 수도,
+// 업체 주인 users.id 일 수도 있어 둘 다로 찾아 row.companies 에 붙인다. 업체 조회가 실패해도 입찰은 그대로 돌려준다.
+export const getBidsForRequest = async (requestId) => {
+  const res = await supabase
     .from("bids")
     .select("*")
     .eq("request_id", requestId)
     .order("price", { ascending: true });
+  if (res.error || !Array.isArray(res.data) || res.data.length === 0) return res;
+  const refs = [...new Set(res.data.map(b => b.company_id).filter(Boolean))];
+  if (refs.length === 0) return res;
+  try {
+    const list = refs.join(",");
+    const { data: cos } = await supabase.from("companies").select("*").or(`id.in.(${list}),owner_id.in.(${list})`);
+    const rows = cos ?? [];
+    const find = (ref) => rows.find(c => c.id === ref) ?? rows.find(c => c.owner_id === ref) ?? null;
+    return { ...res, data: res.data.map(b => (b.companies ? b : { ...b, companies: find(b.company_id) })) };
+  } catch {
+    return res;
+  }
+};
 
 export const selectBid = async (bidId) => {
   const res = await supabase.from("bids").update({ selected: true }).eq("id", bidId);
@@ -655,6 +680,20 @@ export const getReviews = (companyId) =>
     .or("is_deleted.is.null,is_deleted.eq.false")
     .or("status.is.null,status.not.in.(REJECTED,HIDDEN,rejected,hidden)")
     .order("created_at", { ascending: false });
+
+// 고객 공간온도(users.space_temp · 114) — users 는 RLS 로 막혀 있어 읽기 함수로만(115).
+export const getUserSpaceTemp = (userId) =>
+  supabase.rpc("user_space_temp", { p_user: userId });
+
+// 업체 목록용 — 여러 업체의 공개 후기 평점만 한 번에(D16). 거르기는 getReviews 와 같다.
+export const getReviewRatingsByCompanies = (companyIds = []) =>
+  supabase
+    .from("reviews")
+    .select("company_id,rating")
+    .in("company_id", companyIds)
+    .or("is_hidden.is.null,is_hidden.eq.false")
+    .or("is_deleted.is.null,is_deleted.eq.false")
+    .or("status.is.null,status.not.in.(REJECTED,HIDDEN,rejected,hidden)");
 
 // Part2 확장 컬럼 — 마이그레이션 017 미적용 환경에서도 후기 저장이 깨지지 않도록
 // (컬럼 없으면 해당 필드만 제거하고 재시도)
@@ -2406,21 +2445,38 @@ export const getWebhookLogs = ({ limit = 50 } = {}) =>
 
 // ── Admin: Dispute Payments ───────────────────────────────────────────────────
 
-export const getDisputePayments = () =>
-  supabase
+// 계약(escrow_payments)·지급(escrow_payouts)과 업체(companies) 사이엔 관계(외래키)가 없어, 조회에 companies(...) 를
+// 끼우면 전체가 PGRST200 으로 실패하고 관리자 화면엔 «분쟁 대기 없음»처럼 비어 보였다(D3). 업체는 따로 붙인다.
+const attachCompanies = async (res) => {
+  if (res.error || !Array.isArray(res.data) || res.data.length === 0) return res;
+  const refs = [...new Set(res.data.map(r => r.company_id).filter(Boolean))];
+  if (refs.length === 0) return res;
+  try {
+    const list = refs.join(",");
+    const { data: cos } = await supabase.from("companies").select("id, name, owner_id").or(`id.in.(${list}),owner_id.in.(${list})`);
+    const rows = cos ?? [];
+    const find = (ref) => rows.find(c => c.id === ref) ?? rows.find(c => c.owner_id === ref) ?? null;
+    return { ...res, data: res.data.map(r => ({ ...r, companies: r.companies ?? find(r.company_id) })) };
+  } catch {
+    return res;
+  }
+};
+
+export const getDisputePayments = async () =>
+  attachCompanies(await supabase
     .from("escrow_payments")
-    .select("*, requests(id, space_type, area, user_id), companies(id, name, owner_id)")
+    .select("*, requests(id, space_type, area, user_id)")
     .not("dispute_status", "is", null)
-    .order("disputed_at", { ascending: false });
+    .order("disputed_at", { ascending: false }));
 
 // ── Admin: Pending Payouts ────────────────────────────────────────────────────
 
-export const getPendingPayouts = () =>
-  supabase
+export const getPendingPayouts = async () =>
+  attachCompanies(await supabase
     .from("escrow_payouts")
-    .select("*, companies(id, name, owner_id), escrow_payments(id, total_amount, transaction_status)")
+    .select("*, escrow_payments(id, total_amount, transaction_status)")
     .in("status", ["PENDING", "READY", "APPROVED", "HELD"])
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }));
 
 
 // ── Admin: Dispute management ─────────────────────────────────────────────────
@@ -2669,13 +2725,18 @@ export const recordAppVisit = async ({ userId = null, role = null, visitorKey = 
 export const getAdminVisitStats = (adminId) =>
   supabase.rpc("admin_visit_stats", { p_admin_id: adminId ?? "admin" });
 
-export const getLoungeReports = ({ status = null } = {}) => {
-  let q = supabase
-    .from("lounge_reports")
-    .select("*, reporter:reporter_id(name, phone)")
-    .order("created_at", { ascending: false });
-  if (status) q = q.eq("status", status);
-  return q;
+// ── 라운지 신고(migration 113 ③) ─────────────────────────────────────────────
+// 앱은 Supabase 로그인 세션이 없어 표에 직접 쓰고 읽지 못한다 → security definer 함수로만.
+export const createLoungeReport = ({ reporterId = null, type, targetId, reason, description = null }) =>
+  supabase.rpc("lounge_report_create", {
+    p_reporter_id: reporterId, p_target_type: type, p_target_id: targetId != null ? String(targetId) : null,
+    p_reason: reason, p_description: description,
+  });
+
+export const getLoungeReports = async ({ status = null, adminId = null } = {}) => {
+  const { data, error } = await supabase.rpc("admin_lounge_reports", { p_admin_id: adminId ?? "admin", p_status: status });
+  // 예전 모양(reporter:{name}) 도 유지 — 대시보드가 쓴다.
+  return { data: (data ?? []).map(r => ({ ...r, reporter: { name: r.reporter_name ?? null } })), error };
 };
 
 export const adminHideContent = async (table, id, adminId, hidden, reason = null) => {
@@ -2700,13 +2761,8 @@ export const adminHideContent = async (table, id, adminId, hidden, reason = null
   return { data, error };
 };
 
-export const adminUpdateLoungeReport = (id, status, adminNote = null) =>
-  supabase
-    .from("lounge_reports")
-    .update({ status, ...(adminNote ? { admin_note: adminNote } : {}) })
-    .eq("id", id)
-    .select("id, status")
-    .single();
+export const adminUpdateLoungeReport = (id, status, adminNote = null, adminId = null) =>
+  supabase.rpc("admin_lounge_report_update", { p_admin_id: adminId ?? "admin", p_id: id, p_status: status, p_note: adminNote });
 
 // ── STEP SYNC-1: Request Repost ───────────────────────────────────────────────
 

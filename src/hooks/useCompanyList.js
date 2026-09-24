@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getActiveCompanies } from "../lib/supabase";
+import { getActiveCompanies, getReviewRatingsByCompanies } from "../lib/supabase";
+import { reviewStatsByCompany, withReviewStats } from "../lib/reviewStats";
 
 const normalizeRow = (row) => ({
   id:                     row.id,
@@ -50,7 +51,17 @@ export function useCompanyList() {
       .then(({ data, error }) => {
         if (cancelled) return;
         if (!error && Array.isArray(data)) {
-          setCompanies(data.map(normalizeRow));
+          const list = data.map(normalizeRow);
+          setCompanies(list);
+          // 평점·후기 수는 reviews 에서 센다(companies 에 평점 칸이 없다 · D16). 못 읽으면 먼저 그린 목록 그대로.
+          const ids = list.map((c) => c.id).filter(Boolean);
+          if (ids.length) {
+            getReviewRatingsByCompanies(ids)
+              .then(({ data: rows, error: e }) => {
+                if (!cancelled && !e && Array.isArray(rows)) setCompanies(withReviewStats(list, reviewStatsByCompany(rows)));
+              })
+              .catch(() => {});
+          }
         }
       })
       .catch(() => {

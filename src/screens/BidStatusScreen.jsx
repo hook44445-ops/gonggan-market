@@ -1,8 +1,10 @@
+import { RESPECT_FOR_CUSTOMER } from "../constants/mutualRespect";
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI } from "../constants/release";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge, Icon, splitLeadingEmoji } from "../components/common";
+import { getEscrowWithPayouts } from "../lib/supabase";
 import NotificationBell from "../components/NotificationBell";
 import BidCompareCard from "../components/BidCompareCard"; // UX Beta 입찰 비교 카드(Add Only)
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -19,7 +21,8 @@ import {
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 
-const DEFAULT_COMPANY = { id: null, name: "선택된 파트너", temp: 36.5, verified: false, badge: "basic", completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
+// 업체 정보를 못 불러왔을 때만 쓰는 자리 — 확인 안 된 칩이 켜지지 않게 badge 등 신뢰 칸은 비워 둔다(C1).
+const DEFAULT_COMPANY = { id: null, name: "업체", temp: 36.5, verified: false, badge: null, completedJobs: 0, recontractRate: 0, asRate: 0, region: "", online: false };
 
 const normalizeCompany = (row) => ({
   id: row.id, name: row.name ?? "업체", temp: row.temp ?? 36.5,
@@ -28,6 +31,15 @@ const normalizeCompany = (row) => ({
   asRate: row.as_rate ?? 0, region: row.region ?? "", online: row.online ?? false,
   ownerId: row.owner_id ?? null,
   companyStatus: row.company_status ?? "PENDING",
+  // 신뢰 칸 — 관리자가 확인한 값만(카드 칩·엠블럼·레벨이 쓴다)
+  hasInsurance: row.has_insurance ?? false,
+  license_verified: row.license_verified ?? false,
+  guarantee_status: row.guarantee_status ?? null,
+  guarantee_grade: row.guarantee_grade ?? null,
+  guarantee_amount: row.guarantee_amount ?? null,
+  guarantee_badge_visible: row.guarantee_badge_visible ?? false,
+  reviews: row.review_count ?? row.reviews ?? 0,
+  level: row.level ?? row.growth_level ?? null,
 });
 const normalizeBid = (row) => ({
   id: row.id, requestId: row.request_id, companyId: row.company_id,
@@ -127,7 +139,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   // 우선순위: request.selected_bid_id 매칭 → status==='selected' → 단일 입찰.
   // (bids/status DB 전이·estimates RPC/RLS·렌더링 로직은 미변경 — 선택 게이트만 status-tolerant.)
   useEffect(() => {
-    if (!isQuotePhase || selBid || step !== "list") return;
+    if (!isQuotePhase || selBid || step !== "list" || paidEscrow) return;   // 계약된 공사는 결제 전 화면으로 넘기지 않는다(C17)
     // request 는 정규화(myRequests=selectedBidId) 또는 raw(selected_bid_id) 둘 다 올 수 있어 양쪽 매칭.
     const selBidId = request?.selected_bid_id ?? request?.selectedBidId ?? null;
     const chosen =
@@ -331,7 +343,49 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
     return () => { cancelled = true; };
   }, [bidCompanyIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 이미 계약(결제)된 공사인가 — 결제 뒤 ← 로 돌아오면 이 화면은 결제 전 상태(escrow_pending)를 들고 있어
+  // 곧장 결제 전 화면으로 넘기고, 뒤로 가도 다시 넘겨 빠져나올 수 없었다(C17 · 이중 결제 위험).
+  // 서버에 계약이 있는지 물어 있으면 결제 전 화면 대신 «공사 화면으로» 안내한다.
+  // ⚠ 훅은 아래 단계별 return 위에 둔다(React #300).
+  const [paidEscrow, setPaidEscrow] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    if (!request?.id) return;
+    getEscrowWithPayouts(request.id)
+      .then(({ data }) => { if (alive && data?.escrow) setPaidEscrow(data.escrow); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [request?.id]);
+
   const goBack = () => step === "list" ? onBack() : setStep("list");
+
+  if (paidEscrow && step !== "list") {
+    const chosen = selBid
+      ?? bids.find(b => b.id === (request?.selected_bid_id ?? request?.selectedBidId))
+      ?? bids.find(b => b.status === "selected")
+      ?? null;
+    const paidAt = paidEscrow.created_at ? new Date(paidEscrow.created_at).toLocaleDateString("ko-KR") : null;
+    return (
+      <div style={{ minHeight:"100vh", background:C.bg }}>
+        <BidScreenHeader title="이미 결제된 공사" onBack={() => { setStep("list"); onBack(); }} userId={userId} />
+        <div style={{ padding:`${S.xxl}px ${S.xl}px 40px`, textAlign:"center" }}>
+          <div style={{ display:"flex", justifyContent:"center", marginBottom:S.md }}><Icon emoji="✅" size={44} color={C.brand} /></div>
+          <div style={{ fontSize:18, fontWeight:900, color:C.text1, marginBottom:8 }}>이 공사는 결제가 끝났어요</div>
+          <div style={{ fontSize:14, color:C.text3, lineHeight:1.8, marginBottom:S.xxl }}>
+            {paidAt ? `${paidAt}에 계약됐어요. ` : ""}같은 공사를 다시 결제할 수 없어요.<br/>진행 상황은 공사 화면에서 확인해 주세요.
+          </div>
+          <button onClick={() => onEscrow?.({ ...(chosen ?? {}), contractId: paidEscrow.id })}
+            style={{ width:"100%", padding:S.xl, background:C.brand, color:"#fff", border:"none", borderRadius:R.lg, fontWeight:800, fontSize:16, cursor:"pointer", marginBottom:S.sm }}>
+            공사 화면 보기 →
+          </button>
+          <button onClick={() => { setStep("list"); onBack(); }}
+            style={{ width:"100%", padding:S.lg, background:"none", color:C.text3, border:"none", fontWeight:600, fontSize:14, cursor:"pointer" }}>
+            홈으로
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (step==="siteVisitDone") return (
     <div style={{ minHeight:"100vh", background:C.bg }}>
@@ -446,10 +500,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             {SHOW_BETA_UI && <div style={{ fontSize:12, color:C.text3, lineHeight:1.7, marginTop:-6, marginBottom:S.sm }}>계약서에 이 비율을 적어 두면 단계마다 확인하고 주고받기 쉬워요.</div>}
             {stages.map(({ name, percent, amount }) => (
               <div key={name} style={{ display:"flex", justifyContent:"space-between", padding:`${S.xs}px 0`, borderBottom:`1px solid ${C.trustM}` }}>
-                <div><div style={{ fontSize:12, fontWeight:700, color:C.navy }}>{name} {percent}%</div><div style={{ fontSize:11, color:C.text3 }}>{name} 확인</div></div>
+                <div><div style={{ fontSize:12, fontWeight:700, color:C.navy }}>{name} {percent}%</div><div style={{ fontSize:11, color:C.text3 }}>{name.endsWith("확인") ? name : `${name} 확인`}</div></div>
                 <div style={{ fontSize:13, fontWeight:800, color:C.brand }}>{fmtMoney(amount)}</div>
               </div>
             ))}
+          </div>
+          {/* 서로 존중의 약속 — 선택 뒤 약속이 양쪽 평판에 남는다(서버 규칙과 같은 문구). */}
+          <div style={{ background:C.surface, borderRadius:R.lg, padding:`${S.md}px ${S.lg}px`, marginBottom:S.xl, border:`1px solid ${C.bgWarm}`, fontSize:12.5, color:C.text2, lineHeight:1.7 }}>
+            {RESPECT_FOR_CUSTOMER}
           </div>
           <button
             type="button"
@@ -558,6 +616,17 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       if (payingRef.current) { dlog("[GONGGAN_DIAG][payChain:handlePay:return]", { reason: "already_paying(payingRef)" }); return; }
       payingRef.current = true;
       setPaymentLoading(true);
+      // 이미 계약(결제)된 공사면 멈춘다 — 결제 뒤 ← 로 돌아와 다시 누르는 경우(C17).
+      if (request?.id) {
+        const { data: ex } = await getEscrowWithPayouts(request.id).catch(() => ({ data: null }));
+        if (ex?.escrow) {
+          setPaidEscrow(ex.escrow);
+          payingRef.current = false;
+          setPaymentLoading(false);
+          showLocalToast("이미 결제된 공사예요. 공사 화면에서 진행 상황을 확인해 주세요.");
+          return;
+        }
+      }
       const feeSnapshot = { provider: ACTIVE_PROVIDER, paymentMethod: selectedMethod, customerFeeRate: feeRate, companyFeeRate: 0.044, vatRate: 0.1, snapshotAt: new Date().toISOString() };
 
       const runDBWrites = async (pgPaymentKey = null) => {
@@ -717,7 +786,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           }));
         } catch {}
 
-        const tossOrderId = `order_${Date.now()}`;
+        // 공사 결제 주문번호에 요청 ID 를 넣는다 — 서버(api/confirm-payment)가 같은 공사의 두 번째 결제를 막는다(C17).
+        const tossOrderId = /^[0-9a-f-]{36}$/i.test(String(request?.id ?? "")) ? `gm_${request.id}_${Date.now()}` : `order_${Date.now()}`;
         try {
           // H-E: SDK 로드 타임아웃(15초)은 provider(tossProvider) 내부에서 처리 →
           // onload가 영원히 오지 않아도 payingRef 영구 잠금 방지. 타임아웃/오류 시
