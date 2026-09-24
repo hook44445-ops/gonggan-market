@@ -128,11 +128,13 @@ export function analyzeEstimate(form = {}) {
   const score = Math.round(raw.reduce((s, it) => s + it.contribution, 0)); // 0~100
   const gainedXp = Math.round(ESTIMATE_MIN + (score / 100) * XP_SPAN);      // 30~150
 
-  // 획득 XP 를 행동(항목)별로 정직하게 배분 — 기여도 비례. 합 ≈ gainedXp.
+  // 획득 XP = 제출 기본(baseXp) + 항목별 몫. 항목 몫의 합 + 기본 ≈ gainedXp.
+  // 예전엔 기본까지 항목에 나눠 넣고, 화면은 품질 0.7 이상 항목만 보여 줘서 「+77」인데 목록은 「+12」였다(C4).
+  const baseXp = ESTIMATE_MIN;
   const totalContribution = raw.reduce((s, it) => s + it.contribution, 0) || 1;
   const items = raw.map((it) => ({
     ...it,
-    earnedXp: Math.round(gainedXp * (it.contribution / totalContribution)),
+    earnedXp: Math.round((gainedXp - baseXp) * (it.contribution / totalContribution)),
   }));
 
   const tier =
@@ -140,13 +142,14 @@ export function analyzeEstimate(form = {}) {
     score >= 65 ? "성실견적" :
     score >= 35 ? "보통 견적" : "간단 견적";
 
-  const strongItems  = items.filter((it) => it.quality >= 0.7 && it.earnedXp > 0)
+  // 점수에 기여한 항목은 전부 보인다(합이 맞게) — 품질이 낮아도 기여했으면 인정한다.
+  const strongItems  = items.filter((it) => it.earnedXp > 0)
     .sort((a, b) => b.earnedXp - a.earnedXp);
   const improveItems = items
     .filter((it) => it.quality < 0.6 && it.potentialXp > 0)
     .sort((a, b) => b.potentialXp - a.potentialXp);
 
-  return { score, gainedXp, tier, items, strongItems, improveItems };
+  return { score, gainedXp, baseXp, tier, items, strongItems, improveItems };
 }
 
 // ── 프로젝트 단계 XP 지급 사유 (행동 단위 · 과정 가치) ──────────────

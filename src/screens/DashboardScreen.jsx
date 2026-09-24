@@ -224,6 +224,7 @@ export default function DashboardScreen({
         : 0;
 
       setStatsData({
+        forId:                 compId,   // 이 통계가 어느 업체 것인지 — 업적 비교는 지금 업체 것일 때만(C5)
         completed_count:       completed.length,
         review_count:          reviews.length,
         avg_rating:            avgRating,
@@ -290,8 +291,11 @@ export default function DashboardScreen({
 
   // 레벨업 / 신규 업적 감지 — 실데이터(statsData) 로드 후에만 동작(오탐 방지).
   useEffect(() => {
-    const cid = currentUser?.id;
-    if (!cid || !statsData) return;
+    // 업적·레벨 기록 키는 업체 주인 사용자 ID 하나로 고정한다. 예전엔 currentUser.id 였는데 파트너 화면에선
+    // 불러오는 시점에 따라 사용자 ID ↔ 업체 ID 로 바뀌어 기록이 두 벌로 갈라졌고, 오갈 때마다 다른 쪽 기준선과
+    // 비교해 「첫 후기 +20 XP」 같은 업적이 다시 떴다(C5). 통계도 지금 업체 것일 때만 비교한다.
+    const cid = userId ?? currentUser?.ownerId ?? currentUser?.id;
+    if (!cid || !statsData || statsData.forId !== (currentUser?.id ?? null)) return;
     const prevLevel = getLastSeenLevel(cid);
     if (prevLevel === null) {
       // 최초 진입 = 기준선 설정(연출/토스트 없이 현재 상태를 '본 것'으로 기록).
@@ -309,7 +313,7 @@ export default function DashboardScreen({
       setAchQueue((q) => [...q, ...items]);
       markAchievementsSeen(cid, fresh);
     }
-  }, [currentUser?.id, statsData, growth.level, earnedIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, currentUser?.id, currentUser?.ownerId, statsData, growth.level, earnedIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tabs = [["active","진행중"],["bids","입찰"],["stats","통계"],["portfolio","포트폴리오"],["completed","완료"],["activity","활동기록"]];
 

@@ -5,7 +5,7 @@ import { C } from "../../constants";
 
 export default function EstimateAnalysisResult({ result, onClose }) {
   if (!result) return null;
-  const { score, gainedXp, tier, strongItems = [], improveItems = [] } = result;
+  const { score, gainedXp, baseXp = 0, tier, strongItems = [], improveItems = [] } = result;
 
   return (
     <div
@@ -41,10 +41,16 @@ export default function EstimateAnalysisResult({ result, onClose }) {
         </div>
 
         {/* 인정받은 기록 — 왜 XP가 지급되었는지 행동 단위로 표시 */}
-        {strongItems.length > 0 && (
+        {(strongItems.length > 0 || baseXp > 0) && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.55)", marginBottom: 10 }}>인정받은 기록</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+              {baseXp > 0 && (
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ flexShrink: 0, fontSize: 13, fontWeight: 900, color: "#7FD0A8", minWidth: 56 }}>+{baseXp} XP</span>
+                  <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.82)", lineHeight: 1.55 }}>최종 견적서를 보냈어요.</span>
+                </div>
+              )}
               {strongItems.map((it) => (
                 <div key={it.key} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                   <span style={{ flexShrink: 0, fontSize: 13, fontWeight: 900, color: "#7FD0A8", minWidth: 56 }}>
