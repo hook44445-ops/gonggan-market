@@ -231,3 +231,64 @@ URL 검사가 Googlebot 과 다른 문서를 보면 클로킹으로 오해받는
 - **번들이 무겁다** — `index-*.js` 약 2.3MB(gzip 660KB). 구글은 페이지 경험을 순위 신호로 쓴다.
   Googlebot 은 프리렌더를 받으므로 색인 자체는 영향이 적지만, 실제 사용자 지표(CWV)에는 반영된다.
   코드 분할은 별도 과제.
+
+
+---
+
+## 10. www ↔ apex 중복 색인 (2026-09-24 서치콘솔에서 발견)
+
+### 증상
+
+사이트맵은 **성공 · 328페이지 발견**인데 홈이 색인되지 않았다.
+
+> 페이지 색인이 생성되지 않음: **중복 페이지, Google에서 사용자와 다른 표준을 선택함**
+> 참조 페이지: `https://www.gongganmarket.com/`
+
+### 원인
+
+canonical 을 «요청 호스트»로 만들고 있었다.
+
+- 서버: `getSiteUrl(req)` → `x-forwarded-host`
+- 브라우저: `useDocumentMeta` → `window.location.origin`
+
+그래서 `www` 로 들어온 크롤러는 `<link rel="canonical" href="https://www.gongganmarket.com/">` 를,
+apex 로 들어온 크롤러는 apex 를 받았다. **두 호스트가 각자 자기를 정식이라 선언**한 셈이라
+구글은 둘 중 하나를 스스로 골랐다(www).
+
+게다가 JSON-LD 는 `SITE_URL`(apex)로 고정돼 있어 같은 문서 안에서 신호가 엇갈렸고,
+사이트맵도 요청 호스트를 따라가 www 로 가져가면 328개 URL 이 전부 www 가 될 수 있었다.
+
+### 고친 것
+
+`siteSeo.canonicalSite(host, proto)` 하나로 모았다.
+
+- 운영 도메인(`gongganmarket.com`, `www.gongganmarket.com`) → **언제나 apex**
+- preview(`*.vercel.app`) · localhost → 요청 호스트 그대로 (미리보기 링크가 운영으로 새면 안 된다)
+
+적용: `api/prerender.js` · `api/robots.js` · `api/sitemap.js` · `src/hooks/useDocumentMeta.js`.
+테스트가 www 요청에서 canonical·og:url·사이트맵·robots 가 모두 apex 인지 검사한다.
+
+### ⚠️ 코드만으로는 절반이다 — Vercel 설정 필요
+
+canonical 태그는 «권고»다. 두 호스트가 모두 200 을 주는 한 구글은 여전히 둘 다 크롤링한다.
+**한쪽이 다른 쪽으로 301 해야** 중복이 끝난다.
+
+Vercel → 프로젝트 → **Settings → Domains** 에서 `gongganmarket.com` 을 **Primary** 로 두면
+`www` 가 자동으로 301 된다.
+
+> ⚠️ 이 리다이렉트를 `vercel.json` 에 직접 쓰지 말 것. Vercel 도메인 설정이 반대 방향
+> (apex → www)으로 잡혀 있으면 **무한 리다이렉트 루프**가 난다. 도메인 설정 한 곳에서만 정한다.
+
+현재 Vercel 의 Primary 가 어느 쪽인지 확인하지 못했다(이 세션은 egress 차단).
+**apex 가 Primary 가 아니면** canonical(apex)이 리다이렉트를 가리키게 되므로, 그때는
+`SITE_URL` 과 `SITE_HOSTS` 를 www 기준으로 바꾸는 편이 맞다.
+
+### 확인 방법
+
+```bash
+curl -sI https://www.gongganmarket.com/ | head -3   # 301 + Location: apex 여야 정상
+curl -s -A "Googlebot" https://gongganmarket.com/ | grep -o 'rel="canonical"[^>]*'
+```
+
+서치콘솔에서는 URL 검사 → 「색인 생성 요청」을 다시 하면 된다.
+중복 판정이 풀리는 데는 보통 며칠 걸린다.

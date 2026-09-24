@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { canonicalSite } from "../utils/siteSeo";
 
 // 정적 페이지(홈/다운로드/파트너/약관 등) 진입 시 title/description/canonical/OG 를
 // 페이지별로 갱신한다. LoungePostDetailScreen 의 기존 SEO 메타 갱신 패턴과 동일한
@@ -19,9 +20,13 @@ export function useDocumentMeta({ title, description, path, ogImage }) {
       return { el, created, prev };
     };
 
-    const canonicalHref = path ? `${window.location.origin}${path}` : null;
+    // canonical/og:url 은 «보고 있는 주소»가 아니라 «정식 주소»여야 한다.
+    // window.location.origin 을 쓰면 www 와 apex 가 각자 자기를 정식이라 선언해
+    // 구글이 중복으로 보고 색인을 건너뛴다(2026-09-24 서치콘솔에서 실제로 발생).
+    const origin = canonicalSite(window.location.host, window.location.protocol);
+    const canonicalHref = path ? `${origin}${path}` : null;
     const ogImageAbs = ogImage
-      ? (ogImage.startsWith("http") ? ogImage : `${window.location.origin}${ogImage}`)
+      ? (ogImage.startsWith("http") ? ogImage : `${origin}${ogImage}`)
       : null;
 
     const targets = [];

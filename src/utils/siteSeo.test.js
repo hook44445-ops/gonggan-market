@@ -9,6 +9,8 @@ import {
   PARTNER_LADDER,
   PARTNER_STEPS,
   verificationMetas,
+  canonicalSite,
+  SITE_URL,
   consumerFaq,
   partnerFaq,
   pageSeo,
@@ -440,4 +442,70 @@ test('JS 를 실행하지 않는 수집기는 프리렌더를, 사람은 SPA 를
   for (const [name, ua] of Object.entries(humans)) {
     assert.ok(!re.test(ua), `사람인데 프리렌더를 받는다: ${name}`);
   }
+});
+
+// ─────────────────────────────────────────────────────
+// 정식 호스트 고정 — www ↔ apex 중복 색인 방지.
+// 2026-09-24 서치콘솔: 홈이 「중복 페이지, Google에서 사용자와 다른 표준을
+// 선택함」으로 색인되지 않았다(참조 페이지가 www). canonical 을 요청 호스트로
+// 만들고 있어 두 호스트가 각자 자기를 정식이라 선언한 것이 원인이었다.
+// ─────────────────────────────────────────────────────
+
+test('canonicalSite 는 운영 도메인을 apex 하나로 모은다', () => {
+  for (const h of ['gongganmarket.com', 'www.gongganmarket.com', 'WWW.GonggangMarket.com'.toLowerCase().replace('gonggangmarket', 'gongganmarket')]) {
+    assert.equal(canonicalSite(h), SITE_URL, `고정 실패: ${h}`);
+  }
+  // 포트가 붙어도 운영 도메인이면 고정
+  assert.equal(canonicalSite('www.gongganmarket.com:443'), SITE_URL);
+  // 값이 없으면 안전하게 정식 주소
+  assert.equal(canonicalSite(''), SITE_URL);
+  assert.equal(canonicalSite(undefined), SITE_URL);
+});
+
+test('canonicalSite 는 preview·localhost 는 건드리지 않는다', () => {
+  // 여기서 apex 로 고정해 버리면 미리보기 배포의 링크가 전부 운영으로 샌다.
+  assert.equal(canonicalSite('gonggan-market-abc123.vercel.app'), 'https://gonggan-market-abc123.vercel.app');
+  assert.equal(canonicalSite('localhost:5173', 'http'), 'http://localhost:5173');
+  // window.location.protocol 처럼 콜론이 붙어 와도 처리한다
+  assert.equal(canonicalSite('localhost:5173', 'http:'), 'http://localhost:5173');
+});
+
+test('www 로 들어온 봇 요청도 canonical·og:url 이 apex 를 가리킨다', async () => {
+  const req = {
+    headers: { host: 'www.gongganmarket.com', 'x-forwarded-host': 'www.gongganmarket.com', 'x-forwarded-proto': 'https' },
+    query: { page: 'home' },
+    url: '/',
+  };
+  const out = { statusCode: 200, headers: {}, body: '' };
+  const res = {
+    set statusCode(v) { out.statusCode = v; },
+    get statusCode() { return out.statusCode; },
+    setHeader(k, v) { out.headers[k] = v; },
+    end(b) { out.body = b; },
+  };
+  await prerender(req, res);
+
+  assert.ok(out.body.includes(`rel="canonical" href="${SITE_URL}/"`), 'canonical 이 apex 가 아니다');
+  assert.ok(out.body.includes(`property="og:url" content="${SITE_URL}/"`), 'og:url 이 apex 가 아니다');
+  assert.ok(!out.body.includes('www.gongganmarket.com'), 'www 주소가 문서에 남아 있다');
+});
+
+test('사이트맵·robots 도 www 요청에서 apex URL 만 낸다', async () => {
+  const mk = () => {
+    const out = { body: '', headers: {} };
+    return [
+      { headers: { host: 'www.gongganmarket.com', 'x-forwarded-host': 'www.gongganmarket.com', 'x-forwarded-proto': 'https' }, query: {}, url: '/' },
+      { set statusCode(v) {}, get statusCode() { return 200; }, setHeader(k, v) { out.headers[k] = v; }, end(b) { out.body = b; } },
+      out,
+    ];
+  };
+
+  const [rq1, rs1, o1] = mk();
+  await sitemapHandler(rq1, rs1);
+  assert.ok(!o1.body.includes('www.gongganmarket.com'), '사이트맵에 www URL 이 섞였다');
+  assert.ok(o1.body.includes(`<loc>${SITE_URL}/</loc>`));
+
+  const [rq2, rs2, o2] = mk();
+  await robotsHandler(rq2, rs2);
+  assert.ok(o2.body.includes(`Sitemap: ${SITE_URL}/sitemap.xml`), 'robots 의 Sitemap 이 apex 가 아니다');
 });
