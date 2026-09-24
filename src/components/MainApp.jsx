@@ -235,6 +235,8 @@ const parseBudgetRange = (str) => {
   if (nums.length === 0) return { min: 0, max: 0 };
   // 빠른 선택 「1,000만원 이하」 — 상한만 있는 범위
   if (nums.length === 1 && /이하/.test(str)) return { min: 0, max: nums[0] };
+  // 「5,000만원 이상」 — 하한만 있는 범위(예전엔 5,000만원 한 값으로 저장됐다)
+  if (nums.length === 1 && /이상/.test(str)) return { min: nums[0], max: 0 };
   if (nums.length === 1) return { min: nums[0], max: nums[0] };
   const sorted = [...nums].sort((a, b) => a - b);
   return { min: sorted[0], max: sorted[sorted.length - 1] };
