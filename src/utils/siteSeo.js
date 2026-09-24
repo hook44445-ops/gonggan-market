@@ -51,7 +51,7 @@ export const BIZ = {
   addressRegion: '경기도',
   addressCountry: 'KR',
   tel: '070-7954-2740',
-  email: 'gongganmarket.biz@gmail.com',
+  email: 'biz@gonggansai.com',
 };
 
 // 푸터/모달이 렌더하는 순서 그대로. (기존 AppFooter.BIZ_ROWS 를 여기로 옮긴 것)
