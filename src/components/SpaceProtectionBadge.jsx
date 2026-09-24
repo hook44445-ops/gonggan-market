@@ -1,3 +1,4 @@
+import { SHOW_BETA_UI } from "../constants/release";
 import { C, R, S } from "../constants";
 
 // ─────────────────────────────────────────────────────
@@ -15,6 +16,13 @@ const PROTECTION_ITEMS = [
   "분쟁지원 가능",
   "보호기록 보유",
 ];
+// 베타 — 앱이 대금을 보관하지 않으므로 «보호중» 대신 실제로 되는 기록만.
+const BETA_ITEMS = [
+  "계약·단계 기록",
+  "현장 사진 기록",
+  "대화 기록",
+  "분쟁 시 기록 제공",
+];
 
 export default function SpaceProtectionBadge({ variant = "badge", style }) {
   if (variant === "badge") {
@@ -25,7 +33,7 @@ export default function SpaceProtectionBadge({ variant = "badge", style }) {
         borderRadius: R.full, padding: "5px 12px", fontSize: 12, fontWeight: 800,
         ...style,
       }}>
-        🛡️ 공간안전결제 보호중
+        {SHOW_BETA_UI ? "🗂️ 계약·사진 기록 중" : "🛡️ 공간안전결제 보호중"}
       </span>
     );
   }
@@ -37,10 +45,10 @@ export default function SpaceProtectionBadge({ variant = "badge", style }) {
         padding: "14px 16px", ...style,
       }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-          🛡️ 공간마켓 보호 적용
+          {SHOW_BETA_UI ? "🗂️ 이 거래는 기록이 남아요" : "🛡️ 공간마켓 보호 적용"}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 10px" }}>
-          {PROTECTION_ITEMS.map((t) => (
+          {(SHOW_BETA_UI ? BETA_ITEMS : PROTECTION_ITEMS).map((t) => (
             <div key={t} style={{ fontSize: 13, color: C.text2, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ color: C.green }}>✅</span> {t}
             </div>
@@ -57,11 +65,11 @@ export default function SpaceProtectionBadge({ variant = "badge", style }) {
       padding: "12px 16px", display: "flex", gap: 10, alignItems: "flex-start",
       marginBottom: S.lg, ...style,
     }}>
-      <span style={{ fontSize: 18, flexShrink: 0 }}>🛡️</span>
+      <span style={{ fontSize: 18, flexShrink: 0 }}>{SHOW_BETA_UI ? "🗂️" : "🛡️"}</span>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 800, color: C.navy }}>공간마켓 안전거래로 보호 중</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.navy }}>{SHOW_BETA_UI ? "계약·사진·단계가 기록되고 있어요" : "공간마켓 안전거래로 보호 중"}</div>
         <div style={{ fontSize: 12, color: C.text3, marginTop: 2, lineHeight: 1.6 }}>
-          직거래 시 이 보호가 사라집니다.
+          {SHOW_BETA_UI ? "대금은 계약서에 적은 단계대로 업체와 직접 주고받아요." : "직거래 시 이 보호가 사라집니다."}
         </div>
       </div>
     </div>

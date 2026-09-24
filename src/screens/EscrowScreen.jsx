@@ -78,7 +78,9 @@ const STAGE_META = [
 
 // Customer-facing display: simpler, action-oriented copy (no professional jargon)
 const CUSTOMER_DISPLAY = {
-  1: { label: "결제 완료",       sub: "공사비를 공간마켓이 안전하게 보관합니다",             confirmLabel: null },
+  1: SHOW_BETA_UI
+     ? { label: "계약 확정",     sub: "대금은 계약서 단계대로 업체와 직접 주고받아요",       confirmLabel: null }
+     : { label: "결제 완료",       sub: "공사비를 공간마켓이 안전하게 보관합니다",             confirmLabel: null },
   2: { label: "자재비 지급",      sub: "계약 완료 후 자재비가 업체에 먼저 지급됩니다",         confirmLabel: null },
   3: { label: "공사 시작 확인",   sub: "업체가 사진을 올리면 확인하고 승인해주세요",           confirmLabel: "공사 시작 승인" },
   4: { label: "중간 확인",        sub: "중간 공사 사진을 확인하고 승인해주세요",                confirmLabel: "중간 확인 승인" },
@@ -1636,9 +1638,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             </>
           ) : (
             <>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>총 계약 금액 (공간마켓 보관중)</div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>{SHOW_BETA_UI ? "총 계약 금액" : "총 계약 금액 (공간마켓 보관중)"}</div>
               <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(bidAmount)}</div>
-              <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>고객 예치 완료 · 단계별 완료 신고 후 입금됩니다</div>
+              <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>{SHOW_BETA_UI ? "단계마다 완료를 알리고 계약서대로 받으세요" : "고객 예치 완료 · 단계별 완료 신고 후 입금됩니다"}</div>
             </>
           )}
           <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: R.full, height: 8, marginBottom: 6 }}>
@@ -2006,7 +2008,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               {bidAmount > 0 ? ` · ${fmtMoney(bidAmount)}이 안전하게 완료됐어요.` : "이 안전하게 완료됐어요."}
             </div>
             <div style={{ fontSize: 14, lineHeight: 1.9, display: "flex", flexDirection: "column", gap: 2 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="✅" size={13} color="#fff" /> 에스크로 보호 완료</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="✅" size={13} color="#fff" /> {SHOW_BETA_UI ? "단계 기록 완료" : "에스크로 보호 완료"}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="✅" size={13} color="#fff" /> 거래 기록 보관됨</div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="✅" size={13} color="#fff" /> 공간온도 상승</div>
             </div>

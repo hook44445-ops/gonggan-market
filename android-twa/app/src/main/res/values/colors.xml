@@ -5,5 +5,5 @@
     <color name="colorAccent">#B5D4C5</color>
     <color name="colorBackground">#F5F1EA</color>
     <!-- 런처 아이콘 판 색 — 로고 원본(gm-logo.svg)과 같은 딥그린. 앱 테마색(colorPrimary)과는 별개 -->
-    <color name="ic_launcher_background">#17472F</color>
+    <color name="ic_launcher_background">#0E2B1D</color>
 </resources>

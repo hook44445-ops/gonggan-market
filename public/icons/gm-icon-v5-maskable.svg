@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <rect width="1024" height="1024" rx="230" fill="#0E2B1D"/>
+  <!-- 마스커블 — 배경을 가장자리까지 채우고, 마크 중심(512,475)을 한가운데로 옮겨 0.9 로 줄였다(안전영역 지름 80%). -->
+  <rect width="1024" height="1024" fill="#0E2B1D"/>
+  <g transform="translate(512 512) scale(0.9) translate(-512 -475)">
   <g fill="#F4EFE4">
     <path d="M274 590 V410 L512 250 L750 410 V590" fill="none" stroke="#F4EFE4" stroke-width="58" stroke-linejoin="round"/>
     <path d="M245 585 L303 585 L345 528 Q396 486 447 538 L447 730 L300 730 Q245 730 245 675 Z"/>
@@ -8,4 +10,5 @@
     <circle cx="628" cy="455" r="41"/>
   </g>
   <path fill="#D6A756" d="M491 507 L558 546 Q566 551 566 561 L566 671 Q566 680 558 685 L492 725 Q481 731 481 719 L481 517 Q481 502 491 507 Z"/>
+  </g>
 </svg>
