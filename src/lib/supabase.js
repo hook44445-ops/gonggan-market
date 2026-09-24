@@ -1736,39 +1736,22 @@ export const getCompletedEscrowByCompany = (companyId) =>
     .order("created_at", { ascending: false });
 
 
-export const adminReviewCompany = async (companyId, adminId, docStatus, rejectNote = null) => {
-  const { data: prev } = await supabase
-    .from("companies")
-    .select("doc_status, verified")
-    .eq("id", companyId)
-    .single();
-
-  const { data, error } = await supabase
-    .from("companies")
-    .update({
-      doc_status: docStatus,
-      reject_note: rejectNote,
-      reviewed_at: new Date().toISOString(),
-      ...(docStatus === "approved" && { verified: true }),
-    })
-    .eq("id", companyId)
-    .select()
-    .single();
-
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id: adminId || null,
-      action: docStatus === "approved" ? "APPROVE_COMPANY" : "REJECT_COMPANY",
-      target_type: "company",
-      target_id: companyId,
-      before_val: { doc_status: prev?.doc_status },
-      after_val: { doc_status: docStatus },
-      reason: rejectNote,
-    });
+// 관리자 전용 RPC 호출 — 관리자 uuid 로 먼저, 거절되면 코드관리자 세션('admin_authed')일 때 'admin' 으로 한 번 더
+// (068·085 등 다른 관리자 함수와 같은 규칙).
+const adminRpc = async (fn, adminId, params) => {
+  const first = await supabase.rpc(fn, { p_admin_id: adminId ? String(adminId) : "admin", ...params });
+  const isAuthed = typeof window !== "undefined" && localStorage.getItem("admin_authed") === "true";
+  if (first.error && /ADMIN_ONLY/.test(first.error.message ?? "") && isAuthed && adminId && adminId !== "admin") {
+    return supabase.rpc(fn, { p_admin_id: "admin", ...params });
   }
-
-  return { data, error };
+  return first;
 };
+
+// 업체 심사(승인·반려·보류). 예전엔 companies 를 직접 UPDATE 했는데, 앱엔 Supabase 로그인 세션이 없어
+// RLS 가 막았고 0건이 바뀌어도 오류가 안 보였다 → 운영에서 승인된 업체 0곳(총점검 09-24 5차).
+// 이제 서버 함수(SQL 118 admin_review_company)가 관리자 확인·verified·기록까지 한 번에 한다.
+export const adminReviewCompany = (companyId, adminId, docStatus, rejectNote = null) =>
+  adminRpc("admin_review_company", adminId, { p_company_id: companyId, p_status: docStatus, p_note: rejectNote });
 
 // ── STEP H: Payment Orders ────────────────────────────────────────────────────
 
@@ -2579,54 +2562,12 @@ export const submitCompanyDocument = (docId) =>
     .select()
     .single();
 
+// 서류 한 장 심사. 사업자등록증 승인 → verified, 시공보험 → has_insurance, 실내건축공사업 등록증 → license_verified
+// 를 서버 함수(SQL 118 admin_review_document)가 같이 바꾼다. 예전엔 companies 를 직접 고쳐 RLS 에 조용히 막혔다.
+// 반환 data 는 예전처럼 서류 행 모양({ id, review_status, document_type, company_id })으로 맞춘다.
 export const adminReviewDocument = async (docId, adminId, reviewStatus, reason = null) => {
-  const { data, error } = await supabase
-    .from("company_documents")
-    .update({
-      review_status: reviewStatus,
-      review_reason: reason ?? null,
-      reviewed_by:   adminId ?? null,
-      reviewed_at:   new Date().toISOString(),
-      updated_at:    new Date().toISOString(),
-    })
-    .eq("id", docId)
-    .select()
-    .single();
-
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id:    adminId ?? null,
-      action:      `DOC_${reviewStatus.toUpperCase()}`,
-      target_type: "document",
-      target_id:   docId,
-      after_val:   { review_status: reviewStatus, reason },
-    });
-    // 시공보험은 «증권을 관리자가 승인했을 때만» 인정한다. 예전엔 업체가 가입 화면에서 스스로 켠 값이
-    // 그대로 has_insurance 가 되어, 카드가 확인하지 않은 보험을 「가입한 업체」라고 말할 수 있었다.
-    if (data?.document_type === "insurance_certificate" && data.company_id
-        && (reviewStatus === "approved" || reviewStatus === "rejected")) {
-      await supabase.from("companies")
-        .update({ has_insurance: reviewStatus === "approved" })
-        .eq("id", data.company_id);
-    }
-    // 사업자등록증 — 승인하면 companies.verified 를 켠다. 계약은 사업자부터(A안)라, 예전처럼 문서만 승인되고
-    // verified 가 안 켜지면 업체는 서류를 내고도 영원히 결제를 못 받는다. 반려는 verified 를 끄지 않는다 —
-    // 업체 심사(adminReviewCompany)로 이미 확인된 업체가 새로 낸 서류 한 장 때문에 계약이 끊기지 않게.
-    if (data?.document_type === "business_license" && data.company_id && reviewStatus === "approved") {
-      await supabase.from("companies")
-        .update({ verified: true })
-        .eq("id", data.company_id);
-    }
-    // 면허도 같다 — 실내건축공사업 등록증을 관리자가 승인했을 때만 license_verified(마이그레이션 101)를 켠다.
-    if (data?.document_type === "interior_license" && data.company_id
-        && (reviewStatus === "approved" || reviewStatus === "rejected")) {
-      await supabase.from("companies")
-        .update({ license_verified: reviewStatus === "approved" })
-        .eq("id", data.company_id);
-    }
-  }
-
-  return { data, error };
+  const { data, error } = await adminRpc("admin_review_document", adminId, { p_doc_id: docId, p_status: reviewStatus, p_reason: reason ?? null });
+  return { data: data ?? null, error };
 };
 
 // ── Admin: User status & space economy ────────────────────────────────────────
