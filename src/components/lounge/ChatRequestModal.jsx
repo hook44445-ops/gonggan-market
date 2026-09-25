@@ -51,8 +51,13 @@ export default function ChatRequestModal({ balance = 0, sending = false, onConfi
           <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.8 }}>
             {PAYMENTS_LIVE
               ? '토큰을 충전하거나, 라운지 활동으로도 모을 수 있어요.'
-              : '토큰 충전은 정식 오픈 때 열려요. 그때까지는 라운지 활동으로 모을 수 있어요 — 프로필 채우기 · 첫 글 · 첫 댓글 · 후기 남기기.'}
+              : <>토큰 충전은 정식 오픈 때 열려요. 그때까지는 라운지 활동으로 모을 수 있어요 — 프로필 채우기 · 첫 글 · 첫 댓글 · 후기 남기기.</>}
           </div>
+          {!PAYMENTS_LIVE && (
+            <div style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.7, marginTop: 6, paddingTop: 6, borderTop: `1px dashed ${C.brandM}` }}>
+              그래도 모자라면 고객센터(070-7954-2740)로 알려 주세요 — 확인 후 넣어 드려요.
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: S.sm }}>
