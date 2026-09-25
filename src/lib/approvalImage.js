@@ -11,7 +11,8 @@
 import { classifyContentType } from "./contentTypes.js";
 
 export const BRAND_DEFAULT = "/images/landing-hero-interior.jpg";
-export const OG_DEFAULT = "/mock-reviews/after-cafe.svg";
+// 공유 미리보기에 쓰일 수 있어 SVG 는 쓰지 않는다 — 카카오톡·페이스북이 SVG 미리보기를 못 띄운다(09-26).
+export const OG_DEFAULT = "/og-space-v2.png";
 
 // §12 이미지 카테고리.
 export const IMAGE_CATEGORIES = ["NEWS", "BREAKING", "MORNING_BRIEF", "EDITORIAL", "QT", "ASTROLOGY", "INTERIOR", "SPACE_MARKET", "TIME_TREND", "LIFESTYLE", "BUSINESS", "TECH", "DEFAULT"];
@@ -49,26 +50,24 @@ const CATEGORY_IMAGES = {
   INTERIOR: [
     "/images/living.webp", "/images/sample/living-after.webp", "/images/style-minimal.webp",
     "/images/style-nordic.webp", "/images/style-wood.webp", "/images/gonggan-case1.webp",
-    "/mock/after-apartment.svg",
   ],
   SPACE_MARKET: [
     "/images/kitchen.webp", "/images/sample/kitchen-after.webp", "/images/gonggan-case2.webp",
-    "/images/gonggan-case3.webp", "/mock/after-kitchen.svg",
+    "/images/gonggan-case3.webp",
   ],
   LIFESTYLE: [
     "/images/sample/bath-after.webp", "/images/living.webp", "/images/style-classic.webp",
-    "/mock/after-bath.svg",
   ],
   BUSINESS: [
     "/images/space-office.webp", "/images/style/office-minimal.webp", "/images/style/office-nordic.webp",
-    "/images/space-officetel.webp", "/mock/after-office.svg",
+    "/images/space-officetel.webp",
   ],
   TECH: [
-    "/images/style/office-industrial.webp", "/images/space-office.webp", "/mock/after-office.svg",
+    "/images/style/office-industrial.webp", "/images/space-office.webp",
   ],
   TIME_TREND: [
     "/images/cafe.webp", "/images/style/cafe-nordic.webp", "/images/style/cafe-wood.webp",
-    "/images/space-shop.webp", "/mock/after-cafe.svg",
+    "/images/space-shop.webp",
   ],
   MORNING_BRIEF: [BRAND_DEFAULT],
   NEWS: [BRAND_DEFAULT],

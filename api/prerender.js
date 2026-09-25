@@ -17,6 +17,8 @@ import {
   detectPII,
   slugToRegion,
   DEFAULT_OG_PATH,
+  renderSeoBodyHtml,
+  buildPostStructuredData,
 } from '../src/utils/loungeSeo.js';
 import {
   BIZ,
@@ -213,31 +215,18 @@ async function renderPost(req, res, site, id) {
 <h1>${esc((post.title && post.title.trim()) || String(post.content ?? '').slice(0, 40))}</h1>
 <p><time datetime="${esc(post.created_at ?? '')}">${esc(dateStr)}</time>${post.category ? ` · ${esc(post.category)}` : ''}${post.region ? ` · ${esc(post.region)}` : ''}</p>
 ${imagesHtml}
-<div>${esc(post.content ?? '').replace(/\n/g, '<br/>')}</div>
+<div>${renderSeoBodyHtml(post.content ?? '', esc)}</div>
 </article>
 ${relatedHtml}
 ${ctaHtml(site)}
 <p><a href="${canonical}">공간마켓 앱에서 보기</a></p>
 </main>`;
 
-  // 구조화 데이터(JSON-LD Article) — Google 리치 결과용. 라운지는 익명 기반이라 author 는
-  // 개인 식별 없이 사이트(Organization)로 표기(개인정보 노출 없음, 기존 데이터 필드만 사용).
-  const structuredData = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: meta.title.replace(/\s*\|\s*공간마켓 라운지$/, ''),
-    description: meta.description,
-    image: [resolveOgImage(site, meta.imagePath)],
-    datePublished: publishedTime || undefined,
-    dateModified: modifiedTime || undefined,
-    author: { '@type': 'Organization', name: '공간마켓' },
-    publisher: {
-      '@type': 'Organization',
-      name: '공간마켓',
-      logo: { '@type': 'ImageObject', url: `${site}/favicon-v2.png` },
-    },
-    mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
-  };
+  // 구조화 데이터 — Article(+분류·지역·언어·키워드) · 빵부스러기 · FAQ(문답 2쌍 이상).
+  //   라운지는 익명 기반이라 author 는 개인 식별 없이 사이트(Organization)로 표기.
+  const structuredData = buildPostStructuredData({
+    post, site, canonical, meta, ogImageUrl: resolveOgImage(site, meta.imagePath),
+  });
 
   const html = htmlShell({
     site,

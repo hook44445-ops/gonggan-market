@@ -6,7 +6,8 @@
 // ─────────────────────────────────────────────────────
 
 // 기본 OG 이미지 (절대경로는 호출부에서 site origin 과 합성)
-export const DEFAULT_OG_PATH = '/mock-reviews/after-cafe.svg';
+// 공유 미리보기 기본 그림 — 카카오톡·페이스북은 SVG 미리보기를 못 띄운다(09-26). 사이트 대표 PNG 와 같은 것.
+export const DEFAULT_OG_PATH = '/og-space-v2.png';
 
 // SEO 카테고리 슬러그 ↔ 내부 카테고리 id 매핑
 //  요청서 슬러그(좌) → 앱 내부 LOUNGE_CATEGORIES id(우)
@@ -92,17 +93,180 @@ export function isPostPublic(post) {
 }
 
 // 글 상세 메타(title/description/og image path) 생성
+// ── 본문 구조 읽기(SEO·AEO) ───────────────────────────────────────────────
+// AI 글 생성기(aiDraftWriter)는 이미 AI 답변 엔진이 인용하기 좋은 모양으로 쓴다:
+//   첫 줄 「**한 줄 답**: …」 · 「## 소제목」 · 끝에 「## 자주 묻는 질문」 + 「### 질문\n답」 세 쌍.
+// 그런데 검색엔진용 화면(prerender)은 본문 앞 110자를 잘라 설명문으로 쓰고(별표째 「**한 줄 답**」),
+// 본문은 「## …」「| … |」 날것 그대로 내보냈다 — 재료를 다 버리고 있었다(09-26).
+const stripInline = (t) => String(t ?? '')
+  .replace(/\*\*(.+?)\*\*/g, '$1')
+  .replace(/^#{1,6}\s+/, '')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const clip = (t, n) => {
+  const x = String(t ?? '').trim();
+  if (x.length <= n) return x;
+  const cut = x.slice(0, n);
+  const at = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf(' '));
+  return `${(at > n * 0.6 ? cut.slice(0, at) : cut).trim()}…`;
+};
+
+/** 본문 → { answer(한 줄 답), headings[{level,text}], faq[{q,a}], lead(첫 일반 문단) } */
+export function seoOutline(content = '') {
+  const lines = String(content ?? '').replace(/\r\n/g, '\n').split('\n');
+  let answer = null;
+  let lead = null;
+  const headings = [];
+  const faq = [];
+  let inFaq = false;
+  let curQ = null;
+  let curA = [];
+  const pushQA = () => {
+    if (curQ && curA.length) faq.push({ q: curQ, a: curA.join(' ').trim() });
+    curQ = null;
+    curA = [];
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!answer) {
+      const m = line.match(/^\*{0,2}\s*한\s*줄\s*답\s*\*{0,2}\s*[:：]\s*(.+)$/);
+      if (m) { answer = stripInline(m[1]); continue; }
+    }
+    const h = line.match(/^(#{2,3})\s+(.+)$/);
+    if (h) {
+      const level = h[1].length;
+      const text = stripInline(h[2]);
+      pushQA();
+      if (level === 2) {
+        inFaq = /자주\s*묻는\s*질문|FAQ/i.test(text);
+        headings.push({ level, text });
+      } else if (inFaq) {
+        curQ = text;
+      } else {
+        headings.push({ level, text });
+      }
+      continue;
+    }
+    if (inFaq) {
+      // 답은 빈 줄에서 끊는다 — 뒤에 붙는 안내 문장(「비슷한 고민과 시공 후기는…」)이 섞이지 않게.
+      if (!line) { if (curQ && curA.length) pushQA(); continue; }
+      if (curQ && !line.startsWith('|')) curA.push(stripInline(line));
+      continue;
+    }
+    if (!lead && line && !line.startsWith('|') && !/^[-•]\s|^\d+\.\s/.test(line) && line.length >= 12) {
+      lead = stripInline(line);
+    }
+  }
+  pushQA();
+  return { answer, headings, faq, lead };
+}
+
 export function buildPostMeta(post) {
   const titleBase = (post?.title && String(post.title).trim())
     || String(post?.content ?? '').trim().slice(0, 40)
     || '라운지 글';
   const title = `${titleBase} | 공간마켓 라운지`;
-  const description = String(post?.content ?? '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 110) || '공간마켓 라운지에서 공간 이야기를 나눠보세요.';
-  const imagePath = (Array.isArray(post?.image_urls) && post.image_urls[0]) || DEFAULT_OG_PATH;
+  // 설명문 — 「한 줄 답」이 있으면 그것(검색 결과·AI 답변에 그대로 인용되는 문장), 없으면 첫 일반 문단.
+  const o = seoOutline(post?.content);
+  const plain = stripInline(String(post?.content ?? '').replace(/^\|.*$/gm, ' ').replace(/^#{1,6}\s+/gm, ''));
+  const description = clip(o.answer || o.lead || plain, 150) || '공간마켓 라운지에서 공간 이야기를 나눠보세요.';
+  // 대표 그림 — SVG 는 건너뛴다(이미 발행된 AI 글 일부가 SVG 를 첫 그림으로 가졌다).
+  const firstRaster = (Array.isArray(post?.image_urls) ? post.image_urls : []).find((u) => u && !/\.svg(\?|#|$)/i.test(u));
+  const imagePath = firstRaster || DEFAULT_OG_PATH;
   return { title, description, imagePath };
+}
+
+/** 검색엔진용 본문 HTML — 소제목 h2/h3, 목록 ul/ol, 표 table, **굵게** strong. esc 는 호출하는 쪽의 HTML 이스케이프. */
+export function renderSeoBodyHtml(content = '', esc = (x) => String(x)) {
+  const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const lines = String(content ?? '').replace(/\r\n/g, '\n').split('\n');
+  const out = [];
+  let list = null;
+  let listTag = null;
+  let table = null;
+  const flushList = () => {
+    if (!list) return;
+    out.push(`<${listTag}>${list.map((x) => `<li>${inline(x)}</li>`).join('')}</${listTag}>`);
+    list = null;
+    listTag = null;
+  };
+  const cells = (r) => r.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+  const flushTable = () => {
+    if (!table) return;
+    const rows = table.filter((r) => !/^\|?\s*:?-{2,}/.test(r));
+    if (rows.length) {
+      const [head, ...body] = rows;
+      out.push(`<table><thead><tr>${cells(head).map((c) => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${body
+        .map((r) => `<tr>${cells(r).map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+    }
+    table = null;
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.startsWith('|')) { flushList(); (table ??= []).push(line); continue; }
+    flushTable();
+    const h = line.match(/^(#{2,3})\s+(.+)$/);
+    if (h) { flushList(); out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); continue; }
+    const ul = line.match(/^[-•]\s+(.+)$/);
+    const ol = line.match(/^\d+\.\s+(.+)$/);
+    if (ul || ol) {
+      const tag = ul ? 'ul' : 'ol';
+      if (listTag && listTag !== tag) flushList();
+      listTag = tag;
+      (list ??= []).push((ul || ol)[1]);
+      continue;
+    }
+    flushList();
+    if (line) out.push(`<p>${inline(line)}</p>`);
+  }
+  flushList();
+  flushTable();
+  return out.join('\n');
+}
+
+/** 구조화 데이터 묶음 — Article(+분류·지역·언어·키워드) · 빵부스러기 · FAQ(문답 2쌍 이상일 때). */
+export function buildPostStructuredData({ post, site, canonical, meta, ogImageUrl }) {
+  const o = seoOutline(post?.content);
+  const seoSlug = CATEGORY_ID_TO_SEO[post?.category];
+  const catTitle = seoSlug ? SEO_CATEGORY[seoSlug]?.title : null;
+  const publishedTime = post?.created_at ? new Date(post.created_at).toISOString() : undefined;
+  const modifiedTime = post?.updated_at ? new Date(post.updated_at).toISOString() : publishedTime;
+  const headline = meta.title.replace(/\s*\|\s*공간마켓 라운지$/, '');
+  const keywords = [catTitle, post?.region, ...o.headings.filter((h) => h.level === 2).map((h) => h.text)]
+    .filter((k) => k && !/자주\s*묻는\s*질문|^정리$/.test(k));
+  const list = [{
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline,
+    description: meta.description,
+    image: [ogImageUrl],
+    datePublished: publishedTime,
+    dateModified: modifiedTime,
+    inLanguage: 'ko-KR',
+    articleSection: catTitle || undefined,
+    keywords: keywords.length ? keywords.join(', ') : undefined,
+    ...(post?.region ? { contentLocation: { '@type': 'Place', name: post.region } } : {}),
+    author: { '@type': 'Organization', name: '공간마켓' },
+    publisher: { '@type': 'Organization', name: '공간마켓', logo: { '@type': 'ImageObject', url: `${site}/favicon-v2.png` } },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+  }, {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: '공간마켓 라운지', item: `${site}/lounge` },
+      ...(seoSlug ? [{ '@type': 'ListItem', position: 2, name: catTitle, item: `${site}${buildCategoryPath(seoSlug)}` }] : []),
+      { '@type': 'ListItem', position: seoSlug ? 3 : 2, name: headline, item: canonical },
+    ],
+  }];
+  if (o.faq.length >= 2) {
+    list.push({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: o.faq.map(({ q, a }) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+    });
+  }
+  return list;
 }
 
 // 지역 랜딩 메타
