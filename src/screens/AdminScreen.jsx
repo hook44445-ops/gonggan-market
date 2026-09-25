@@ -8216,6 +8216,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
           onClose={() => { setShowDocReview(false); setReviewDocType(null); }}
           onUpdate={(updated) => {
             setCompanyDocuments(prev => prev.map(d => d.id === updated.id ? updated : d));
+            // 서류 심사는 업체 칸(verified·has_insurance·license_verified)도 바꾼다(118) — 머리글 한도·증빙 줄이
+            // 새로고침 전까지 옛 값으로 남던 것(E16). 업체 목록을 다시 읽고 열려 있는 업체도 맞춘다.
+            getCompanies().then(({ data }) => {
+              const rows = (data ?? []).filter(c => c.doc_status !== "draft").map(normalizeCompany);
+              setCompanies(rows);
+              setSelected(prev => (prev ? (rows.find(c => c.id === prev.id) ?? prev) : prev));
+            }).catch(() => {});
           }}
         />
       )}

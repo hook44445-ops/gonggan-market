@@ -57,6 +57,7 @@ import AppInfoModal from "./AppInfoModal";
 import ConsentGate, { hasConsented, syncConsents } from "./ConsentGate";
 import BidCard from "./BidCard";
 import { cardPreviewLimit, limitStateOf } from "../lib/partnerTier";
+import { reversalEffect, reversalMessage } from "../lib/reversalRule";
 import ImageViewerModal from "./ImageViewerModal";
 import CompanyDepositCard, { DepositPolicyCard } from "./CompanyDepositCard";
 import { RECORD_METRIC_LABEL } from "../constants/growth"; // 업체 메인 성장지표(표시 전용)
@@ -291,6 +292,7 @@ const normalizeRequest = (row) => {
     user: "의뢰인",
     bids: bidCount,
     bidCount,
+    selectedAt: row.selected_at ?? null,   // 업체를 고른 시각(116) — 번복 온도 72시간 기준
     time: new Date(row.created_at).toLocaleString("ko-KR", { month:"numeric", day:"numeric", hour:"numeric", minute:"2-digit" }),
     status,
     urgent: row.urgent ?? false,
@@ -975,12 +977,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   };
 
   // 의뢰인 요청 취소(E15) — 서버에서 된 뒤에만 화면을 바꾼다.
-  const handleCancelMyRequest = async (r) => {
-    if (!window.confirm("이 견적 요청을 취소할까요? 업체들에게 더 이상 보이지 않아요.")) return;
+  // 고른 뒤 취소는 업체가 들인 수고만큼 공간온도에 반영(대표 「시장논리에 맞게」, lib/reversalRule · 서버 128).
+  const handleCancelMyRequest = async (r, effect) => {
+    const e = effect ?? reversalEffect({ selected: false });
+    if (!e.canCancel) { showToast(reversalMessage(e)); return; }
+    if (!window.confirm(reversalMessage(e))) return;
     const { error } = await cancelMyRequest(r.id, user?.id);
     if (error) {
-      showToast(/AFTER_SELECT_NOT_YET/.test(error.message ?? "")
-        ? "업체를 고른 뒤에는 여기서 취소할 수 없어요. 대화방에서 업체와 이야기해 주세요."
+      const m = error.message ?? "";
+      showToast(/PAID_USE_DISPUTE/.test(m) ? reversalMessage({ canCancel: false })
+        : /AFTER_SELECT_NOT_YET/.test(m) ? "지금은 여기서 취소할 수 없어요. 대화방에서 업체와 이야기해 주세요."
         : "❌ 취소하지 못했어요. 잠시 후 다시 시도해 주세요.");
       return;
     }
@@ -2736,9 +2742,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           : /BIZ_REQUIRED_TO_BID/.test(msg) ? "입찰 전에 사업자등록을 해야 열려요 — 「내 한도 · 서류」에서 사업자등록증을 올려 주세요(홈택스 당일 발급)."
           : /COMPANY_NOT_ACTIVE/.test(msg) ? "지금은 입찰할 수 없는 상태예요. 고객센터로 문의해 주세요."
           : /BIDS_PAUSED/.test(msg) ? "지금은 새 입찰을 잠시 멈췄어요. 잠시 후 다시 시도해 주세요."
+          : /BID_CAP_REACHED/.test(msg) ? "이 요청은 이미 5곳이 입찰해서 마감됐어요. 다음 요청을 기다려 주세요."
           : `입찰을 저장하지 못했어요: ${msg}`;
         showToast(friendly);
-        if (!/BID_OVER_LIMIT|BIZ_REQUIRED_TO_BID|COMPANY_NOT_ACTIVE|BIDS_PAUSED/.test(msg) && !dup) alert(friendly);
+        if (!/BID_OVER_LIMIT|BIZ_REQUIRED_TO_BID|COMPANY_NOT_ACTIVE|BIDS_PAUSED|BID_CAP_REACHED/.test(msg) && !dup) alert(friendly);
         return;
       }
       if (data) {
@@ -5155,6 +5162,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     {!chosen && !inProgress && r.status === "open" && (r.bidCount ?? 0) > 0 && (
                       <div style={{ fontSize:11.5, color:C.text4, marginTop:6 }}>입찰이 들어온 뒤에는 예산은 바꿀 수 없어요 · 다른 내용은 고칠 수 있어요</div>
                     )}
+                    {/* 고른 뒤 · 결제 전 — 「업체 바꾸기」는 두지 않는다(비교·상담은 고르기 전에). 취소만, 영향을 먼저 알린다(E1). */}
+                    {chosen && !hasEscrow && !isSettled && r.status !== "in_progress" && (() => {
+                      const eff = reversalEffect({ selected: true, status: r.status, selectedAt: r.selectedAt, paid: false });
+                      return (
+                        <div style={{ marginTop:S.xl, paddingTop:S.lg, borderTop:`1px solid ${C.bgWarm}` }}>
+                          <div style={{ fontSize:11.5, color:C.text3, lineHeight:1.6, marginBottom:S.sm }}>
+                            {eff.delta === 0 ? "업체가 72시간 넘게 최종 견적을 주지 않았어요 — 지금 취소해도 공간온도에 영향이 없어요"
+                              : `지금 취소하면 공간온도 ${eff.delta}° — 업체가 이미 ${eff.why === "after_quote" ? "현장방문·최종 견적까지 준비했어요" : "연락·현장방문을 준비하고 있어요"}`}
+                          </div>
+                          <button onClick={() => handleCancelMyRequest(r, eff)}
+                            style={{ width:"100%", padding:"10px", background:C.surface, color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                            요청 취소
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
