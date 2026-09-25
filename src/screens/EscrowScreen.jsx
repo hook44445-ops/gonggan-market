@@ -8,7 +8,7 @@ import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import DocImg from "../components/DocImg";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments, STAGE_PLANS, normalizePlan, planUsesStage } from "../utils/calculations";
-import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, updateDisputeStatus, holdAllPayoutsForEscrow, approveEscrowPayoutByStage, createNotification, getOpsConfig, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByIdOrOwner, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, hasCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
+import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, approveEscrowPayoutByStage, createNotification, getOpsConfig, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByIdOrOwner, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, hasCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { buildGpsMissingNote, parseGpsMissingReason } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
 import ProtectionNotice from "../components/ProtectionNotice";
@@ -857,10 +857,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
       const uiToPayoutStage = { 3: 2, 4: 3, 5: 4 };
       const payoutStage = uiToPayoutStage[stageId];
       let payoutFailed = false;
+      let payoutErr = null;
       if (payoutStage) {
         const { error: pe } = await approveEscrowPayoutByStage(resolvedContractId, payoutStage, userId ?? null);
         log.payout = pe?.message ?? "ok";
-        if (pe) payoutFailed = true;
+        if (pe) { payoutFailed = true; payoutErr = pe; }
       }
 
       // 2. Advance escrow_payments: stepN_approved_at + current_step + txStatus
@@ -891,7 +892,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         const detail = payoutFailed && stepFailed ? "두 단계 모두 실패"
           : payoutFailed ? "정산 승인 실패"
           : "단계 진행 실패";
-        setApprovalError(`승인 처리 중 오류가 발생했습니다 (${detail}). 잠시 후 다시 시도해주세요.`);
+        // 서버(136)가 알려 준 이유가 있으면 그대로 — 예: 로그인이 풀렸어요, 이의 신청 중
+        setApprovalError(payoutErr?.code && payoutErr?.message
+          ? payoutErr.message
+          : `승인 처리 중 오류가 발생했습니다 (${detail}). 잠시 후 다시 시도해주세요.`);
         log.failed = true;
       }
 
@@ -2326,9 +2330,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   setShowDispute(false);
                   setDisputeSubmitted(true);
                   if (resolvedContractId) {
-                    holdAllPayoutsForEscrow(resolvedContractId).catch(() => {});
-                    updateTransactionStatus(resolvedContractId, "DISPUTE").catch(() => {});
-                    updateDisputeStatus(resolvedContractId, "DISPUTE_OPEN").catch(() => {});
+                    // 서버 dispute 동작이 미지급 줄 보류 · DISPUTE · dispute_status 를 한 번에(136 · E20)
+                    updateTransactionStatus(resolvedContractId, "DISPUTE").then(({ error }) => {
+                      if (error) setApprovalError(`이의 신청 저장 실패: ${error.message ?? error.code ?? "오류"}`);
+                    }).catch(() => {});
                     logActivity({
                       userId:     userId ?? null,
                       role:       "consumer",
