@@ -4,6 +4,7 @@
 import { isGuaranteeBadgeVisible } from "../../constants/guarantee";
 import { C, R, S } from "../../constants";
 import { computeCompanyXp, levelInfo, LEVEL_THRESHOLDS, MAX_LEVEL } from "../../constants/growth";
+import Icon from "../common/Icon";
 
 export function responseValue(company = {}) {
   if (company.avgResponseHours > 0) {
@@ -25,7 +26,8 @@ export function deriveLevel(company = {}) {
 // 비교 핵심 지표 3종 — 아이콘/숫자/라벨 크기·위치·높이 완전 통일.
 //   tiles 를 넘기면 해당 항목을 그대로 렌더(상세 Hero 등에서 재사용 · 스타일 동일).
 export function CompanyKpiTiles({ company = {}, marginTop = S.lg, tiles }) {
-  const rating = company.rating > 0 ? company.rating.toFixed(1) : "0.0";
+  // 후기가 아직 없으면 0.0 대신 「—」 — 0.0 은 «나쁜 평점»으로 읽힌다(신규 업체가 손해).
+  const rating = company.rating > 0 ? company.rating.toFixed(1) : "—";
   const resolved = tiles ?? [
     { icon: "⭐", value: rating,                          label: "후기" },
     { icon: "🏗", value: `${company.completedJobs ?? 0}`, label: "시공" },
@@ -39,8 +41,9 @@ export function CompanyKpiTiles({ company = {}, marginTop = S.lg, tiles }) {
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           textAlign: "center", background: C.surface2, borderRadius: R.lg, padding: "10px 4px",
         }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 4, maxWidth: "100%" }}>
-            <span style={{ fontSize: 13, lineHeight: 1 }}>{t.icon}</span>
+          {/* 아이콘은 브랜드 선 아이콘으로 — 이모지를 그대로 쓰면 기기마다 다르게 보이고 엠블럼 줄과 톤이 어긋난다(09-25) */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, maxWidth: "100%" }}>
+            <Icon emoji={t.icon} size={13} color={C.text3} />
             <span style={{ fontSize: 21, fontWeight: 800, color: C.text1, lineHeight: 1.05,
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.value}</span>
           </div>

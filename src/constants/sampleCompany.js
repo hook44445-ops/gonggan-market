@@ -18,6 +18,7 @@ export const SAMPLE_COMPANY = {
   responseTime: "1시간 이내",
   avgResponseHours: 1,
   completedJobs: 42,
+  rating: 4.9,                    // 견본 평점 — 화면마다 「예시」로 표시된다
   recontractRate: 30,
   asRate: 98,
   years: 8,
