@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+
 import { sessionUserId } from "../../src/lib/sessionToken.server.js";
 
 // ── 관리자 고객 API (service role) ────────────────────────────────────────────
@@ -80,20 +81,26 @@ export default async function handler(req, res) {
       }
 
       if (action === "adjust_tokens") {
+        // 앱이 보는 토큰 원장은 space_tokens(잔액) · space_token_logs(내역)다(111 · 134 token_summary).
+        // 예전엔 쓰지 않는 users.space_tokens 칸을 고쳐, 관리자가 토큰을 줘도 앱 잔액이 그대로였다(09-26 발견).
         const delta = Number(body.delta);
         if (!Number.isFinite(delta) || delta === 0) return res.status(400).json({ error: "INVALID_DELTA" });
-        const { data: curr } = await db.from("users").select("space_tokens").eq("id", userId).single();
-        const prev = curr?.space_tokens ?? 0;
+        const { data: row } = await db.from("space_tokens").select("balance").eq("user_id", userId).maybeSingle();
+        const prev = row?.balance ?? 20;             // 행이 없으면 앱·서버 함수와 같은 기본 20
         const next = Math.max(0, prev + delta);
-        const { data, error } = await db.from("users")
-          .update({ space_tokens: next }).eq("id", userId)
-          .select("id, space_tokens").single();
+        const { data, error } = await db.from("space_tokens")
+          .upsert({ user_id: userId, balance: next }, { onConflict: "user_id" })
+          .select("user_id, balance").single();
         if (error) return res.status(500).json({ error: error.message });
+        await db.from("space_token_logs").insert({
+          user_id: userId, amount: Math.abs(next - prev), type: next >= prev ? "earn" : "spend",
+          action: "admin_adjust", description: reason || (delta > 0 ? "관리자 지급" : "관리자 회수"),
+        });
         await db.from("admin_logs").insert({
           admin_id: adminLogId, action: delta > 0 ? "TOKEN_GRANT" : "TOKEN_REVOKE", target_type: "user",
-          target_id: userId, before_val: { space_tokens: prev }, after_val: { space_tokens: next }, reason,
+          target_id: userId, before_val: { balance: prev }, after_val: { balance: next }, reason,
         });
-        return res.status(200).json({ data });
+        return res.status(200).json({ data: { id: userId, space_tokens: next, balance: next } });
       }
 
       if (action === "adjust_temp") {
