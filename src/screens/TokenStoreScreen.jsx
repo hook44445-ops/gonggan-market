@@ -9,6 +9,7 @@ import { TOKEN_PACKAGES, TOKEN_COSTS } from '../constants/lounge';
 import TokenBalance from '../components/token/TokenBalance';
 import TokenPackageCard from '../components/token/TokenPackageCard';
 import MissionList from '../components/token/MissionList';
+import { PAYMENTS_LIVE } from '../constants/release';
 
 export default function TokenStoreScreen({ user, balance, logs, missionStats, onBack, onBuy, onEarnToken, onHistory }) {
   const [tab, setTab]   = useState('store');
@@ -21,6 +22,12 @@ export default function TokenStoreScreen({ user, balance, logs, missionStats, on
   // onBuy 미제공(구형 호출부) 시에만 안내 토스트로 폴백.
   const handleBuy = async (pkg) => {
     if (buying) return;
+    // 결제 전(토스 상점 개설 전) — 구매를 막는다. 운영이 테스트 키라 결제창이 열리면 테스트 결제로 실제 토큰이 적립될 수 있다.
+    if (!PAYMENTS_LIVE) {
+      showToast('토큰 구매는 정식 오픈 뒤 열려요. 지금은 무료 미션으로 모을 수 있어요.');
+      setTab('mission');
+      return;
+    }
     if (typeof onBuy !== 'function') {
       showToast('결제 준비 중입니다. 잠시 후 다시 시도해주세요.');
       return;
@@ -43,7 +50,7 @@ export default function TokenStoreScreen({ user, balance, logs, missionStats, on
       </div>
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 0` }}>
-        <TokenBalance balance={balance} onStore={() => {}} onHistory={onHistory} />
+        <TokenBalance balance={balance} onStore={() => setTab(PAYMENTS_LIVE ? 'store' : 'mission')} onHistory={onHistory} storeLabel={PAYMENTS_LIVE ? '토큰 충전' : '무료로 모으기'} />
       </div>
 
       <div style={{ display: 'flex', margin: `${S.xl}px ${S.xl}px 0`, background: C.bg, borderRadius: R.lg, padding: S.xs }}>
@@ -57,6 +64,12 @@ export default function TokenStoreScreen({ user, balance, logs, missionStats, on
       <div style={{ padding: S.xl }}>
         {tab === 'store' && (
           <>
+            {!PAYMENTS_LIVE && (
+              <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7, marginBottom: S.md, background: C.brandL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.brandM}` }}>
+                <strong style={{ color: C.brand }}>토큰 구매는 정식 오픈 뒤 열려요.</strong><br/>
+                지금은 <button onClick={() => setTab('mission')} style={{ background: 'none', border: 'none', padding: 0, color: C.brand, fontWeight: 800, textDecoration: 'underline', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>무료 미션</button>으로 모을 수 있어요 · 문의 070-7954-2740
+              </div>
+            )}
             <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6, marginBottom: S.xl, background: C.surface, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
               ⚠️ <strong>토큰 철학:</strong> 토큰은 "아까워야" 합니다.<br/>
               진짜 관심과 가벼운 접근을 구분하는 장치입니다.
@@ -68,9 +81,10 @@ export default function TokenStoreScreen({ user, balance, logs, missionStats, on
             </div>
             <div style={{ marginTop: S.xl, background: C.surface, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.8 }}>
-                ✓ 결제는 토스페이먼츠로 안전하게 처리됩니다 (신용·체크카드)<br/>
+                {!PAYMENTS_LIVE && <><strong style={{ color: C.text2 }}>구매 안내(정식 오픈 뒤 적용)</strong><br/></>}
+                ✓ 결제는 토스페이먼츠로 처리됩니다 (신용·체크카드)<br/>
                 ✓ 토큰은 라운지 대화 신청, 좋아요, 글 상단 노출 등에 사용<br/>
-                ✓ 구매 즉시 토큰이 계정에 지급됩니다 (디지털 상품)<br/>
+                ✓ 결제가 완료되면 바로 토큰이 계정에 지급됩니다 (디지털 상품)<br/>
                 ✓ <strong style={{ color: C.text2 }}>미사용 토큰</strong>은 결제 후 <strong style={{ color: C.text2 }}>7일 이내 청약철회(환불)</strong> 가능 · 일부라도 사용 시 환불 불가
               </div>
               <a href="/refund" style={{ display: 'inline-block', marginTop: S.md, fontSize: 12, fontWeight: 700, color: C.brand, textDecoration: 'underline' }}>

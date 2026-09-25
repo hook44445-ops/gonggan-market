@@ -445,7 +445,8 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
               : resolveChatDisplayName({ entity: company, realName: company?.name, fallback: "—" })}
           </div>
           {isLounge ? (
-            !revealIdentity ? (
+            // 상태를 불러오기 전(reqStatus null)엔 아무것도 쓰지 않는다 — 수락된 방에서도 「수락 전」이 잠깐 보였다(09-26 R4).
+            reqStatus == null ? null : !revealIdentity ? (
               <div style={{ fontSize:10.5, color:C.text3, fontWeight:600 }}>🔒 익명 · {isTerminated ? "종료됨" : "수락 전"}</div>
             ) : (
             <div style={{ display:"flex", gap:5, alignItems:"center", flexWrap:"wrap" }}>

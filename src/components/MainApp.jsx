@@ -1,4 +1,5 @@
 import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
+import ChatRequestModal from "./lounge/ChatRequestModal";
 import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES, SPACE_TYPES } from "../constants";
@@ -106,6 +107,8 @@ import {
   createPaymentTransaction,
   createNotification,
   requestCommentChat,
+  findOpenLoungeChat,
+  sendMessage,
   setRequestInProgress,
   markRequestSiteVisit,
   getCompanyBids,
@@ -2830,6 +2833,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   // RPC 로 주문 기록 + 토큰 적립을 멱등 처리한다. (에스크로 결제와 동일한 검증 패턴)
   const handleTokenPurchase = async (pkg) => {
     if (!pkg) return;
+    // 결제 전(토스 상점 개설 전)엔 구매를 열지 않는다 — 운영이 테스트 키라 테스트 결제로 실제 토큰이 적립될 수 있다.
+    if (!PAYMENTS_LIVE) { showToast("토큰 구매는 정식 오픈 뒤 열려요. 지금은 무료 미션으로 모을 수 있어요."); return; }
     if (!user?.id) { showToast("로그인 후 이용할 수 있어요."); return; }
     const tokens = (pkg.tokens ?? 0) + (pkg.bonus ?? 0);
     const price  = pkg.price ?? 0;
@@ -3058,6 +3063,50 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     return () => window.removeEventListener("popstate", onPop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 스토리 작성자에게 대화 신청 — 시트 상태(09-26 R2)
+  const [storyChat, setStoryChat] = useState(null); // { story, openRoom, shortBalance, sending }
+  const handleStoryChatSend = async (messageText) => {
+    const sc = storyChat;
+    if (!sc || sc.sending) return;
+    const text = (messageText ?? "").trim();
+    if (!text) { showToast("메시지를 입력해주세요"); return; }
+    const story = sc.story;
+    setStoryChat(prev => prev && ({ ...prev, sending: true }));
+    const senderType = (user?.activeRole ?? user?.role) === "company" ? "company" : "consumer";
+    let data = null, error = null;
+    try { const r = await requestCommentChat(user.id, story.user_id, story.id, null); data = r?.data ?? null; error = r?.error ?? null; }
+    catch (e) { error = e; }
+    if (error) { setStoryChat(null); showToast("대화 신청에 실패했어요. 다시 시도해 주세요."); return; }
+    if (data?.error === "SELF_REQUEST") { setStoryChat(null); showToast("본인에게는 신청할 수 없어요"); return; }
+    // 서버(SQL 133)가 신청 시점에 잔액을 본다 — 모자라면 시트를 «토큰이 필요해요»로 바꾼다
+    if (data?.error === "INSUFFICIENT_TOKENS") {
+      setStoryChat(prev => prev && ({ ...prev, shortBalance: typeof data.balance === "number" ? data.balance : 0, sending: false }));
+      return;
+    }
+    if (data?.status === "already_accepted") {
+      if (data.request_id) { try { await sendMessage(`lounge_${data.request_id}`, user.id, senderType, text); } catch { /* 방으로는 간다 */ } }
+      setStoryChat(null);
+      showToast("이미 대화 중인 상대예요 — 적은 메시지를 대화방에 보냈어요");
+      if (data.request_id) openLoungeChatRoom({ id: data.request_id, postId: story.id }, story.user_id);
+      return;
+    }
+    if (data?.status === "reverse_pending") { setStoryChat(null); refreshLoungeChatInbox?.(); showToast("상대가 먼저 대화를 신청해 두었어요 — 대화 탭에서 수락하면 바로 열려요"); return; }
+    if (data?.status === "already_pending")  { setStoryChat(null); showToast("이미 대화 신청을 보냈어요. 대화 탭에서 확인하세요."); return; }
+    if (data?.status === "created") {
+      createNotification({
+        userId: story.user_id, type: "LOUNGE_CHAT_REQUEST", title: "새 대화 신청",
+        message: "회원님의 스토리에 누군가 대화를 신청했어요.", relatedId: story.id, relatedType: "lounge",
+      }).catch(() => {});
+    }
+    if (data?.request_id) {
+      const { error: msgErr } = await sendMessage(`lounge_${data.request_id}`, user.id, senderType, text);
+      if (msgErr) showToast(`메시지 저장 실패: ${msgErr.message ?? msgErr}. 대화 탭에서 다시 보내주세요.`);
+    }
+    setStoryChat(null);
+    refreshLoungeChatInbox?.();
+    showToast("메시지를 보냈어요. 상대가 수락하면 20토큰이 차감됩니다.");
+  };
 
   const FULL = ["showcase","cchat","chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
@@ -4618,40 +4667,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               go("lounge-write");
             })}
             onStoryAuthorChat={(story) => requireAuth(async () => {
-              // 스토리 작성자 대화 신청 — 댓글 작성자 대화 신청과 동일한 실제 RPC(request_comment_chat) 사용.
-              // 기존 라운지 대화 정책 그대로(수락 시 신청자 20토큰 차감).
+              // 스토리 작성자 대화 신청 — 글·댓글 경로와 같은 시트(ChatRequestModal)로(09-26 R2 · 9차 4-2).
+              //   예전엔 한 번 누르면 확인·메시지 없이 바로 신청되고, 토큰이 모자라면 토스트 뒤 1.2초 만에 토큰 화면으로 튕겼다.
               if (!story?.user_id || story.user_id === user?.id) return;
-              // 토큰이 모자라면 토큰 화면으로 — 결제가 열리기 전엔 «충전»이라 말하지 않는다(09-25).
-              if ((tokenBalance ?? 0) < TOKEN_COSTS.CHAT_REQUEST) {
-                const need = TOKEN_COSTS.CHAT_REQUEST - (tokenBalance ?? 0);
-                showToast(PAYMENTS_LIVE
-                  ? `대화를 열려면 토큰이 ${need}개 더 필요해요`
-                  : `대화를 열려면 토큰이 ${need}개 더 필요해요 — 라운지 활동으로 모을 수 있어요`);
-                setTimeout(() => go("token-store"), 1200);
-                return;
-              }
-              // ⚠️ Supabase 빌더는 PromiseLike(then만)라 .catch 가 없어 `rpc(...).catch(...)` 는
-              //    await 이전 동기 TypeError → RPC 미실행(대화신청 유실). 직접 await + try/catch.
-              let data = null, error = null;
-              try { const r = await requestCommentChat(user.id, story.user_id, story.id, null); data = r?.data ?? null; error = r?.error ?? null; }
-              catch (e) { error = e; }
-              if (error) { showToast(`대화 신청 실패: ${error.message ?? error}`); return; }
-              // 이미 열린 방(양방향, SQL 134) — 그 방으로 바로(L5). 상대가 먼저 신청해 둔 경우 — 대화 탭에서 수락.
-              if (data?.status === 'already_accepted') {
-                showToast('이미 대화 중인 상대예요 — 대화방으로 갈게요');
-                if (data.request_id) openLoungeChatRoom({ id: data.request_id, postId: story.id }, story.user_id);
-                return;
-              }
-              if (data?.status === 'reverse_pending') { refreshLoungeChatInbox?.(); showToast('상대가 먼저 대화를 신청해 두었어요 — 대화 탭에서 수락하면 바로 열려요'); return; }
-              if (data?.status === 'already_pending')  { showToast('이미 대화 신청을 보냈어요'); return; }
-              // 서버(SQL 133)도 신청 시점에 잔액을 본다 — 화면 검사를 지나쳐도 여기서 막힌다.
-              if (data?.error === 'INSUFFICIENT_TOKENS') {
-                showToast(`토큰이 ${Math.max(0, (data.needed ?? TOKEN_COSTS.CHAT_REQUEST) - (data.balance ?? 0))}개 더 필요해요`);
-                setTimeout(() => go("token-store"), 1200);
-                return;
-              }
-              refreshLoungeChatInbox?.();
-              showToast("💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.");
+              let room = null;
+              try { room = await findOpenLoungeChat(user.id, story.user_id); } catch { room = null; }
+              setStoryChat({ story, openRoom: room, shortBalance: null, sending: false });
             })}
             onStoryUpload={() => requireAuth(() => {
               if (!hasConsented(user?.id, LOUNGE_CONSENT_TYPES)) {
@@ -6429,6 +6450,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         </div>
       )}
 
+      {storyChat && (
+        <ChatRequestModal
+          balance={storyChat.shortBalance ?? tokenBalance ?? 0}
+          toName={storyChat.story?.anonymous_nickname ?? null}
+          sending={storyChat.sending}
+          openRoom={!!storyChat.openRoom}
+          onOpenRoom={() => {
+            const r = storyChat.openRoom, st = storyChat.story;
+            setStoryChat(null);
+            if (r?.id) openLoungeChatRoom({ id: r.id, postId: r.post_id ?? st?.id }, st?.user_id);
+          }}
+          onConfirm={handleStoryChatSend}
+          onCancel={() => setStoryChat(null)}
+          onGetTokens={() => { setStoryChat(null); go("token-store"); }}
+        />
+      )}
       {termsDocType && <TermsModal docType={termsDocType} onClose={() => setTermsDocType(null)} />}
       {showBusinessInfo && <BusinessInfoModal onClose={() => setShowBusinessInfo(false)} />}
       {showAppInfo && <AppInfoModal onClose={() => setShowAppInfo(false)} />}

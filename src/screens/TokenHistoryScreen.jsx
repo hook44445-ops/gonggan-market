@@ -56,7 +56,8 @@ export default function TokenHistoryScreen({ balance, logs = [], onBack }) {
                     <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{formatRelativeTime(log.created_at)}</div>
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 900, color: isEarn ? C.brand : C.red }}>
-                    {isEarn ? '+' : '-'}{log.amount.toLocaleString()}
+                    {/* 원장 부호가 섞여 있다(대화 수락 차감은 -20, 사용 함수는 20) — 부호는 종류로만 붙인다(「--20」 방지) */}
+                    {isEarn ? '+' : '-'}{Math.abs(Number(log.amount) || 0).toLocaleString()}
                   </div>
                 </div>
               );

@@ -3395,6 +3395,20 @@ export const enqueueLoungePostPush = (postId) =>
 // ── 댓글 작성자 대화 신청 (lounge_chat_requests, migration 027) ───────────────
 
 // 요청 생성: 중복/자기자신/시드 검사 포함 RPC (idempotent)
+// 두 사람 사이에 이미 수락된 라운지 대화방이 있는지(누가 먼저 신청했든) — 시트를 열기 전에 확인(09-26 R2).
+// 서버(SQL 134 request_comment_chat)가 같은 판정을 한 번 더 한다. 없거나 못 읽으면 null.
+export const findOpenLoungeChat = async (meId, otherId) => {
+  if (!meId || !otherId) return null;
+  const { data } = await supabase
+    .from("lounge_chat_requests")
+    .select("id, post_id")
+    .eq("status", "accepted")
+    .or(`and(requester_id.eq.${meId},target_id.eq.${otherId}),and(requester_id.eq.${otherId},target_id.eq.${meId})`)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  return data?.[0] ?? null;
+};
+
 export const requestCommentChat = (requesterId, targetId, postId, commentId) =>
   supabase.rpc("request_comment_chat", {
     p_requester_id: requesterId,

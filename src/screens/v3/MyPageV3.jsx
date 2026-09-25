@@ -15,7 +15,7 @@
 // ─────────────────────────────────────────────────────
 import { Page, Section, Card, Row, StatTiles, EmptyInvite, Hero, Progress, QuietList } from "../../components/v3/ui";
 import { C, R, S } from "../../constants";
-import { SHOW_BETA_UI } from "../../constants/release"; // 베타면 «안전결제 기록» 대신 «계약·공사 기록»
+import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../../constants/release"; // 베타면 «안전결제 기록» 대신 «계약·공사 기록»
 import { BIZ_ROWS } from "../../components/AppFooter";
 
 export default function MyPageV3({
@@ -155,7 +155,7 @@ export default function MyPageV3({
             <button onClick={() => onGo("token-store")}
               style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.full,
                 padding: "9px 16px", fontSize: 12.5, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
-              충전
+              {PAYMENTS_LIVE ? "충전" : "모으기"}
             </button>
           </div>
           <div style={{ borderTop: `1px solid ${C.bg}` }} />
