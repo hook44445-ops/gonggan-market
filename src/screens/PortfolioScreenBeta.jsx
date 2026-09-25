@@ -8,7 +8,8 @@ import { C, R, S, GRADE } from "../constants";
 import { TempBadge } from "../components/common";
 import PhotoModal from "../components/PhotoModal";
 import { getPortfolios, getReviews } from "../lib/supabase";
-import { CompanyKpiTiles, CompanyLevelBar, CompanyMiniBadges, deriveLevel, responseValue } from "../components/company/CompanyMetrics";
+import { CompanyKpiTiles, deriveLevel, responseValue } from "../components/company/CompanyMetrics";
+import { CompanyTrustRow } from "../components/TrustEmblems";
 
 const normalize = (row) => {
   const before = row.before_photos ?? [];
@@ -80,12 +81,11 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
     ? (reviews.reduce((s, r) => s + (r.rating ?? 0), 0) / reviewCount).toFixed(1) : null;
 
   // 업체소개 — Tag 형태(기존 필드에서 도출, 추가 데이터 없음).
+  //   서류(사업자·시공보험·보증금)는 위 엠블럼 줄이 말한다 — 태그로 또 쓰지 않는다(09-25).
+  //   더구나 옛 태그는 company.insurance·badge 같은 «스스로 적은 값»으로도 켜져, 엠블럼(관리자 확인)과 어긋났다.
   const tagSet = new Set();
   portfolio.forEach(w => { if (w.type) tagSet.add(w.type); });
   if (company.region) tagSet.add(company.region);
-  if (company.verified || company.bizCert || company.is_verified) tagSet.add("사업자 인증");
-  if (company.insurance) tagSet.add("시공보험");
-  if (company.guarantee_status === "ACTIVE" || company.guarantee_grade || company.badge) tagSet.add("공간보증");
   const tags = [...tagSet].slice(0, 8);
 
   // 신뢰 타임라인 — 성장 과정(도출).
@@ -151,9 +151,14 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
         <div style={{ padding: `${S.lg}px 2px ${S.xl}px`, animation: "pf-fade 240ms ease both" }}>
           <style>{`@keyframes pf-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
           <div style={{ display: "flex", alignItems: "center", gap: S.lg }}>
-            <div style={{ width: 68, height: 68, borderRadius: 20, flexShrink: 0,
+            {/* 업체 얼굴 — 로고가 있으면 그림, 없으면 이름 첫 글자 */}
+            <div style={{ width: 68, height: 68, borderRadius: 20, flexShrink: 0, overflow: "hidden",
               background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 28, fontWeight: 900, color: C.brand }}>{(company.name ?? "?")[0]}</div>
+              fontSize: 28, fontWeight: 900, color: C.brand }}>
+              {company.logo
+                ? <img src={company.logo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                : (company.name ?? "?")[0]}
+            </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: 14, fontWeight: 800, color: C.brand }}>Lv.{gv.level}</span>
@@ -166,14 +171,13 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
             </div>
           </div>
 
-          <CompanyMiniBadges company={company} marginTop={S.md} />
 
           {/* 시공경험 중심 KPI (시공 먼저) — 공유 컴포넌트 재사용 */}
           <div style={{ height: 1, background: C.bgWarm, margin: `${S.xl}px 0 0` }} />
           <CompanyKpiTiles company={company} tiles={kpiTiles} marginTop={S.lg} />
 
-          {/* Lv / XP 진행 (공유) */}
-          <CompanyLevelBar company={company} marginTop={S.lg} />
+          {/* 신뢰 — 레벨 엠블럼 + 사업자·시공보험·보증금·실내건축(지도 카드·입찰 비교 카드와 같은 줄) */}
+          <CompanyTrustRow company={company} style={{ marginTop: S.lg }} />
         </div>
 
         {/* ── 업체소개 (Tag) ─────────────────────────────────── */}

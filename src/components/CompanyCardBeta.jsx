@@ -4,7 +4,8 @@
 //   KPI/Level/XP/Badge 는 company/CompanyMetrics 공유 컴포넌트를 재사용(중복 UI 없음).
 import { C, R, S, GRADE, SHADOW } from "../constants";
 import { TempBadge, LeafSprig } from "./common";
-import { CompanyKpiTiles, CompanyLevelBar, CompanyMiniBadges } from "./company/CompanyMetrics";
+import { CompanyKpiTiles } from "./company/CompanyMetrics";
+import { CompanyTrustRow } from "./TrustEmblems";
 
 export default function CompanyCardBeta({ company, onClick, isLoggedIn = false, saved = false, onToggleSave }) {
   if (!company) return null;
@@ -27,12 +28,15 @@ export default function CompanyCardBeta({ company, onClick, isLoggedIn = false, 
         {/* Header: 아바타 + 이름(2줄 허용)/배지 + 온도/저장 */}
         <div style={{ display: "flex", gap: S.md, alignItems: "flex-start" }}>
           <div style={{
-            width: 52, height: 52, borderRadius: R.lg, flexShrink: 0,
+            width: 52, height: 52, borderRadius: R.lg, flexShrink: 0, overflow: "hidden",
             background: C.brandL,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 21, fontWeight: 800, color: C.brand, position: "relative",
           }}>
-            {(company.name ?? "?")[0]}
+            {/* 업체 얼굴 — 로고가 있으면 그림, 없으면 이름 첫 글자(프로필 화면과 같은 규칙) */}
+            {company.logo
+              ? <img src={company.logo} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              : (company.name ?? "?")[0]}
             {company.online && (
               <div style={{
                 position: "absolute", bottom: -1, right: -1,
@@ -49,7 +53,6 @@ export default function CompanyCardBeta({ company, onClick, isLoggedIn = false, 
               display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
               overflow: "hidden", wordBreak: "break-word",
             }}>{company.name}</div>
-            <CompanyMiniBadges company={company} />
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -69,8 +72,9 @@ export default function CompanyCardBeta({ company, onClick, isLoggedIn = false, 
         {/* 비교 핵심 지표 (공유) */}
         <CompanyKpiTiles company={company} />
 
-        {/* 성장 — Lv + XP 진행도 (공유) */}
-        <CompanyLevelBar company={company} />
+        {/* 신뢰 — 레벨 엠블럼 + 사업자·시공보험·보증금·실내건축(입찰 비교 카드와 같은 줄).
+            예전엔 「✓ 공간보증」 글자 칩이라 시공보험·실내건축이 지도에선 아예 안 보였다(대표 09-25). */}
+        <CompanyTrustRow company={company} />
       </div>
     </div>
   );
