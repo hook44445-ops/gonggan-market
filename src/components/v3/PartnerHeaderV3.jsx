@@ -13,6 +13,14 @@
 import { C, R, S, SHADOW } from "../../constants";
 import Icon from "../common/Icon";
 import { Progress } from "./ui";
+import { LevelEmblem } from "../TrustEmblems";
+import { stageFor } from "../../lib/growthStage";
+
+// 「내 한도 · 서류」 가족(힉스필드 3-6) — 역할 색(남색)과 상관없이 깊은 초록 · 아이보리 · 금 선
+const INK = "#F4EFE4";
+const GOLD = "#D6A756";
+const DEEP = "#0E2B1D";
+const GOLD_LINE = "rgba(214,167,86,0.35)";
 
 export default function PartnerHeaderV3({
   level = 1,
@@ -28,40 +36,46 @@ export default function PartnerHeaderV3({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: S.md }}>
-      {/* 상태 카드 — 레벨 · XP · 공간온도 · 연속활동을 한 면에 */}
+      {/* 상태 카드 — 레벨 엠블럼 · XP · 공간온도 · 연속활동을 한 면에 */}
       <div
         onClick={onGrowth}
         style={{ position: "relative", overflow: "hidden", borderRadius: R.xl, cursor: onGrowth ? "pointer" : "default",
-          background: `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: "#fff",
-          padding: `${S.xl}px ${S.xl}px ${S.lg}px`, boxShadow: SHADOW.brand }}
+          background: `${DEEP} url(/images/limit/hero.webp) right center / cover no-repeat`, color: INK,
+          padding: `${S.lg}px ${S.xl}px ${S.lg}px`, boxShadow: "0 8px 22px rgba(14,43,29,0.22)" }}
       >
-        <div aria-hidden style={{ position: "absolute", right: -50, top: -60, width: 160, height: 160,
-          borderRadius: "50%", background: "rgba(255,255,255,0.07)", pointerEvents: "none" }} />
+        <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none",
+          background: `linear-gradient(90deg, ${DEEP} 0%, rgba(14,43,29,0.88) 55%, rgba(14,43,29,0.35) 100%)` }} />
 
-        <div style={{ display: "flex", alignItems: "baseline", gap: S.sm, marginBottom: S.md }}>
-          <span style={{ fontSize: 12, opacity: 0.75, fontWeight: 700 }}>LV.</span>
-          <span style={{ fontSize: 30, fontWeight: 900, lineHeight: 1 }}>{level}</span>
-          <span style={{ marginLeft: "auto", fontSize: 11.5, opacity: 0.8 }}>
-            {isMax ? "최고 레벨" : `다음 LV까지 ${Number(xpToNext).toLocaleString()} XP`}
-          </span>
-        </div>
+        <div style={{ position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginBottom: S.md }}>
+            <LevelEmblem level={level} size={44} large />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 11.5, color: GOLD, fontWeight: 700, letterSpacing: "0.06em" }}>{stageFor(level).name}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 12, opacity: 0.75, fontWeight: 700 }}>LV.</span>
+                <span style={{ fontSize: 28, fontWeight: 900, lineHeight: 1 }}>{level}</span>
+              </div>
+            </div>
+            <span style={{ marginLeft: "auto", fontSize: 11.5, color: "rgba(244,239,228,0.78)", alignSelf: "flex-end" }}>
+              {isMax ? "최고 레벨" : `다음 LV까지 ${Number(xpToNext).toLocaleString()} XP`}
+            </span>
+          </div>
 
-        {/* XP 진행 — 흰 계열로 그라데이션 위에서도 읽히게 */}
-        <div style={{ height: 6, borderRadius: R.full, background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
-          <div style={{ width: `${pct}%`, height: "100%", borderRadius: R.full,
-            background: "rgba(255,255,255,0.92)", transition: "width .4s ease" }} />
-        </div>
+          {/* XP 진행 — 금색 */}
+          <div style={{ height: 6, borderRadius: R.full, background: "rgba(244,239,228,0.16)", overflow: "hidden" }}>
+            <div style={{ width: `${pct}%`, height: "100%", borderRadius: R.full,
+              background: GOLD, transition: "width .4s ease" }} />
+          </div>
 
-        {/* 상태 칩 — 온도 / 연속활동 */}
-        <div style={{ display: "flex", gap: S.sm, marginTop: S.lg }}>
-          <span style={{ background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.22)",
-            borderRadius: R.full, padding: "5px 11px", fontSize: 11.5, fontWeight: 700 }}>
-            공간온도 {Number(temp).toFixed(1)}°
-          </span>
-          <span style={{ background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.22)",
-            borderRadius: R.full, padding: "5px 11px", fontSize: 11.5, fontWeight: 700 }}>
-            {streak > 0 ? `${streak}일 연속 활동` : "오늘 첫 활동 시작"}
-          </span>
+          {/* 상태 칩 — 온도 / 연속활동 */}
+          <div style={{ display: "flex", gap: S.sm, marginTop: S.md }}>
+            {[`공간온도 ${Number(temp).toFixed(1)}°`, streak > 0 ? `${streak}일 연속 활동` : "오늘 첫 활동 시작"].map(t => (
+              <span key={t} style={{ background: "rgba(214,167,86,0.10)", border: `1px solid ${GOLD_LINE}`,
+                borderRadius: R.full, padding: "5px 11px", fontSize: 11.5, fontWeight: 700, color: INK }}>
+                {t}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
