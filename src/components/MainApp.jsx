@@ -541,9 +541,17 @@ function homeStageOf(r, escrowData) {
   const esc = escrowData?.escrow ?? null;
   if (esc) {
     const step = Math.max(1, Number(esc.current_step) || 1);
+    // 사진이 올라와 고객 확인을 기다리는 단계(지급 줄 READY)가 먼저 — current_step 만 보면 착공 사진이 와도
+    // 「착공 준비 중」으로 남았다(점검 6차 09-25). 지급 줄 stage 2·3·4 = 착공·중간·완료.
+    const ready = (escrowData?.payouts ?? []).find(p => p.status === "READY" && Number(p.stage) >= 2);
+    const word = { 2: "착공", 3: "중간 점검", 4: "완료" };
+    const hasMid = !/^(1|2)STEP$/.test(esc.stage_plan ?? "");
     const label = esc.transaction_status === "DISPUTE" ? "이의 신청 검토 중"
-      : step <= 2 ? "착공 준비 중" : step === 3 ? "착공 확인 단계" : step === 4 ? "중간 점검 단계" : "완료 확인 단계";
-    return { heading: "진행 중인 공사", label, pct: Math.min(95, 20 + (step - 1) * 18), target: "escrow" };
+      : ready ? `${word[Number(ready.stage)] ?? "단계"} 사진이 올라왔어요 · 확인해 주세요`
+      : step <= 2 ? "업체가 착공 사진을 준비하고 있어요"
+      : step === 3 && hasMid ? "업체가 중간 점검 사진을 준비하고 있어요"
+      : "업체가 완료 사진을 준비하고 있어요";
+    return { heading: ready ? "확인할 사진이 있어요" : "진행 중인 공사", label, pct: Math.min(95, 20 + (step - 1) * 18), target: "escrow" };
   }
   if (r?.status === "escrow_pending") return { heading: "진행 중인 견적", label: "예약 확정 · 결제 대기", pct: 15, target: "bidstatus" };
   if (r?.status === "final_quote_submitted") return { heading: "최종 견적서가 도착했어요", label: "확인해 주세요", pct: 12, target: "bidstatus" };
@@ -1632,7 +1640,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // ── Path C: escrow_payments WHERE company_id ∈ candidateIds (direct) ─────
       const { data: escrowsDirect } = await supabase
         .from("escrow_payments")
-        .select("id, request_id, company_id, transaction_status, total_amount")
+        .select("id, request_id, company_id, transaction_status, total_amount, current_step, stage_plan")   // 파트너센터 카드 «지급·확정 %»가 계획대로(점검 6차 — 빠져 있어 3단계 계약도 4단계 10%로 보였다)
         .in("company_id", candidateIds);
 
       dev.escrow_direct_found = escrowsDirect?.length ?? 0;
@@ -1696,7 +1704,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       // ── Fetch escrow_payments by request_id ───────────────────────────────────
       const { data: escrowsByReq } = await supabase
         .from("escrow_payments")
-        .select("id, request_id, company_id, transaction_status, total_amount")
+        .select("id, request_id, company_id, transaction_status, total_amount, current_step, stage_plan")   // 파트너센터 카드 «지급·확정 %»가 계획대로(점검 6차 — 빠져 있어 3단계 계약도 4단계 10%로 보였다)
         .in("request_id", allRequestIds);
 
       // SSOT: "진행중 계약" 은 이 업체(candidateIds)의 escrow 만 인정한다.
@@ -1868,7 +1876,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           const same = (old !== undefined)
             && (old?.escrow?.id ?? null) === (data?.escrow?.id ?? null)
             && (old?.escrow?.transaction_status ?? null) === (data?.escrow?.transaction_status ?? null)
-            && (old?.payouts?.length ?? 0) === (data?.payouts?.length ?? 0);
+            && (old?.payouts?.length ?? 0) === (data?.payouts?.length ?? 0)
+            && (old?.escrow?.current_step ?? null) === (data?.escrow?.current_step ?? null)
+            && (old?.payouts ?? []).map(p => p.status).join() === (data?.payouts ?? []).map(p => p.status).join();   // 사진이 올라오면(READY) 홈 카드가 바뀌게
           return same ? prev : { ...prev, [r.id]: data ?? null };
         });
         // self-heal: 에스크로(계약)가 있는데 requests.status 가 아직 'open' 이면 in_progress 로 전이.

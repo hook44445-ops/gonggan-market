@@ -76,8 +76,13 @@ const fmtTs = (ts) => {
 // 신뢰는 아래 구조로 해결됩니다:
 // - 단계별 승인 / 업로드 기록 / 에스크로 보관 / 지급 조건 / 진행 기록
 const STAGE_META = [
-  { id: 1, label: "전액 예치",    sub: "고객이 총 금액을 공간마켓에 예치",              icon: "🔒", pct: 0,  confirmLabel: null, autoRelease: false },
-  { id: 2, label: "자재비 선지급", sub: "계약 완료 즉시 자동 지급 · 고객 확인 불필요",  icon: "💰", pct: 10, confirmLabel: null, autoRelease: true  },
+  // 결제가 열리기 전(PAYMENTS_LIVE=false)엔 «예치·지급» 대신 «계약서대로 직접» — 업체 화면도 고객 화면(CUSTOMER_DISPLAY)과 같은 말(점검 6차 09-25)
+  PAYMENTS_LIVE
+    ? { id: 1, label: "전액 예치",    sub: "고객이 총 금액을 공간마켓에 예치",              icon: "🔒", pct: 0,  confirmLabel: null, autoRelease: false }
+    : { id: 1, label: "계약 확정",    sub: "대금은 계약서 단계대로 고객과 직접 주고받아요",  icon: "🔒", pct: 0,  confirmLabel: null, autoRelease: false },
+  PAYMENTS_LIVE
+    ? { id: 2, label: "자재비 선지급", sub: "계약 완료 즉시 자동 지급 · 고객 확인 불필요",  icon: "💰", pct: 10, confirmLabel: null, autoRelease: true  }
+    : { id: 2, label: "자재비",       sub: "계약서대로 자재비를 먼저 받아요",               icon: "💰", pct: 10, confirmLabel: null, autoRelease: true  },
   { id: 3, label: "착공 확인",    sub: "착공 사진을 확인하고 승인하면 업체에 20% 지급",    icon: "🏗", pct: 20, confirmLabel: "착공 확인하기",    timelineLabel: "착공 확인 완료" },
   { id: 4, label: "중간 점검",    sub: "중간 점검 사진을 확인하고 승인하면 40% 지급",       icon: "🔍", pct: 40, confirmLabel: "중간점검 확인하기", timelineLabel: "중간점검 확인 완료" },
   { id: 5, label: "완료 확인",    sub: "완료 사진을 확인하고 승인하면 잔금 30% 지급",      icon: "✅", pct: 30, confirmLabel: "완료 확인하기",    timelineLabel: "완료 확인 · 정산 완료" },
@@ -108,9 +113,11 @@ const planStageMeta = (plan) => {
     if (s.id === 1 || s.id === 2) return { ...s, pct: pct[s.id] };
     const v = pct[s.id];
     const sub = s.id === 3
-        ? (v > 0 ? `착공 사진을 확인하고 승인하면 업체에 ${v}% 지급` : "착공 사진·위치를 기록해요 — 이 계약은 공사를 마친 뒤 한꺼번에 지급돼요")
-      : s.id === 4 ? `중간 점검 사진을 확인하고 승인하면 ${v}% 지급`
-      : (v >= 100 ? "완료 사진을 확인하고 승인하면 공사비 전액 지급" : `완료 사진을 확인하고 승인하면 잔금 ${v}% 지급`);
+        ? (v > 0 ? (PAYMENTS_LIVE ? `착공 사진을 확인하고 승인하면 업체에 ${v}% 지급` : `고객이 착공 사진을 확인하면 ${v}% 단계가 확정돼요`)
+                 : (PAYMENTS_LIVE ? "착공 사진·위치를 기록해요 — 이 계약은 공사를 마친 뒤 한꺼번에 지급돼요" : "착공 사진·위치를 기록해요 — 대금은 계약서대로"))
+      : s.id === 4 ? (PAYMENTS_LIVE ? `중간 점검 사진을 확인하고 승인하면 ${v}% 지급` : `고객이 중간 점검 사진을 확인하면 ${v}% 단계가 확정돼요`)
+      : PAYMENTS_LIVE ? (v >= 100 ? "완료 사진을 확인하고 승인하면 공사비 전액 지급" : `완료 사진을 확인하고 승인하면 잔금 ${v}% 지급`)
+      : `고객이 완료 사진을 확인하면 마지막 ${v}% 단계가 확정돼요`;
     return { ...s, pct: v, sub };
   });
 };
@@ -119,7 +126,7 @@ const planCustomerDisplay = (plan) => {
   return {
     ...CUSTOMER_DISPLAY,
     3: pct[3] > 0 ? CUSTOMER_DISPLAY[3]
-      : { ...CUSTOMER_DISPLAY[3], sub: "업체가 착공 사진을 올리면 확인해 주세요 — 공사비는 완료 확인 때 한꺼번에 지급돼요" },
+      : { ...CUSTOMER_DISPLAY[3], sub: PAYMENTS_LIVE ? "업체가 착공 사진을 올리면 확인해 주세요 — 공사비는 완료 확인 때 한꺼번에 지급돼요" : "업체가 착공 사진을 올리면 확인해 주세요 — 기록으로 남아요" },
   };
 };
 
@@ -1844,9 +1851,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                         </div>
                         {!isConsumer && (
                           <div style={{ fontSize: 11, color: col, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3 }}>
-                            {done ? "✓ 입금완료"
+                            {done ? (PAYMENTS_LIVE ? "✓ 입금완료" : "✓ 확정")
                               : status === "pending_customer" ? <><Icon emoji="⏳" size={11} color={col} /> 고객 확인 대기</>
-                              : active ? "● 신고 대기" : "미지급"}
+                              : active ? "● 신고 대기" : (PAYMENTS_LIVE ? "미지급" : "미확정")}
                           </div>
                         )}
                       </div>
@@ -1860,7 +1867,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}` }}>
                         <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm, display: "flex", alignItems: "center", gap: 5 }}><Icon emoji="📸" size={13} color={C.text1} /> {s.id === 3 ? "착공 사진 등록" : "사진 업로드"}</div>
                         <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.6, marginBottom: S.md }}>
-                          고객이 사진을 확인하면 {stage ? fmtMoney(stage.amount) : `${s.pct}%`} 지급 승인이 진행됩니다.
+                          {PAYMENTS_LIVE
+                            ? <>고객이 사진을 확인하면 {stage ? fmtMoney(stage.amount) : `${s.pct}%`} 지급 승인이 진행됩니다.</>
+                            : <>고객이 사진을 확인하면 이 단계({stage ? fmtMoney(stage.amount) : `${s.pct}%`})가 확정돼요 · 대금은 계약서대로</>}
                         </div>
                         {photos.length > 0 && (
                           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm, marginBottom: S.md }}>
@@ -1980,8 +1989,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       )}
                       {s.id !== 4 && (
                         <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
+                          {PAYMENTS_LIVE ? <>
                           {s.id === 3 && <>공사 시작 확인 후 <b>{stage ? fmtMoney(stage.amount) : "20%"}</b>이 업체에 지급됩니다</>}
                           {s.id === 5 && <>완료 확인 후 잔금 <b>{stage ? fmtMoney(stage.amount) : "30%"}</b>이 업체에 지급됩니다</>}
+                          </> : <>확인하면 이 단계(<b>{stage ? fmtMoney(stage.amount) : `${s.pct}%`}</b>)가 확정돼요 · 대금은 계약서대로 업체와 직접 주고받아요</>}
                         </div>
                       )}
                       <div style={{ display: "flex", gap: S.sm }}>
@@ -2244,12 +2255,14 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <div style={{ textAlign: "center", marginBottom: S.xxl }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}><Icon emoji="💸" size={44} color={C.brand} /></div>
               <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6 }}>
-                {confirmStage === 3 && ((stages[1]?.amount ?? 0) > 0 ? "공사 시작을 확인하고 업체에 지급할까요?" : "공사 시작을 확인할까요?")}
-                {confirmStage === 4 && "중간 공사를 확인하고 업체에 지급할까요?"}
-                {confirmStage === 5 && "공사 완료를 확인하고 업체에 잔금을 지급할까요?"}
+                {confirmStage === 3 && (PAYMENTS_LIVE && (stages[1]?.amount ?? 0) > 0 ? "공사 시작을 확인하고 업체에 지급할까요?" : "공사 시작을 확인할까요?")}
+                {confirmStage === 4 && (PAYMENTS_LIVE ? "중간 공사를 확인하고 업체에 지급할까요?" : "중간 공사를 확인할까요?")}
+                {confirmStage === 5 && (PAYMENTS_LIVE ? "공사 완료를 확인하고 업체에 잔금을 지급할까요?" : "공사 완료를 확인할까요?")}
               </div>
               <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
-                {(stages[confirmStage - 2]?.amount ?? 0) > 0
+                {!PAYMENTS_LIVE
+                  ? <>확인하면 이 단계{(stages[confirmStage - 2]?.amount ?? 0) > 0 ? <>(<b style={{ color: C.text1 }}>{fmtMoney(stages[confirmStage - 2]?.amount ?? 0)}</b>)</> : null}가 확정돼요.<br />대금은 계약서대로 업체와 직접 주고받아요.</>
+                  : (stages[confirmStage - 2]?.amount ?? 0) > 0
                   ? <><b style={{ color: C.text1 }}>{fmtMoney(stages[confirmStage - 2]?.amount ?? 0)}</b>을 업체에 지급합니다</>
                   : <>이 단계는 지급 없이 기록만 남아요. 공사비는 완료 확인 때 한꺼번에 지급돼요.</>}
               </div>
@@ -2274,7 +2287,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               <button onClick={() => { setConfirmStage(null); setApprovalError(null); }} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>취소</button>
               <button onClick={() => advanceStage(confirmStage)} style={{ flex: 2, padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand44}`,
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <Icon emoji="✅" size={15} color="#fff" /> {(isConsumer ? customerDisplay[confirmStage]?.confirmLabel : null) ?? stageMeta.find(x => x.id === confirmStage)?.confirmLabel ?? "승인하고 지급"}
+                <Icon emoji="✅" size={15} color="#fff" /> {(isConsumer ? customerDisplay[confirmStage]?.confirmLabel : null) ?? stageMeta.find(x => x.id === confirmStage)?.confirmLabel ?? (PAYMENTS_LIVE ? "승인하고 지급" : "확인")}
               </button>
             </div>
           </div>
