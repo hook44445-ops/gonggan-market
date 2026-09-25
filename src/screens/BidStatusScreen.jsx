@@ -874,12 +874,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           // onload가 영원히 오지 않아도 payingRef 영구 잠금 방지. 타임아웃/오류 시
           // catch로 fallback → runDBWrites 시뮬레이션 실행 → payingRef 해제.
           const tossMethod = getMethodMeta(selectedMethod)?.tossMethod ?? "카드";
-          dlog("[GONGGAN_DIAG][payChain:toss:beforeRequest]", { provider: ACTIVE_PROVIDER, tossMethod, amount: customerTotal, orderId: tossOrderId });
+          dlog("[GONGGAN_DIAG][payChain:toss:beforeRequest]", { provider: ACTIVE_PROVIDER, tossMethod, amountManwon: customerTotal, amountWon: Math.round(Number(customerTotal) * 10000), orderId: tossOrderId });
           // This will redirect to Toss — return value is never reached
+          // 토스 금액은 «원». 앱의 금액(customerTotal)은 만원 단위(예: 300.7 = 3,007,000원)라 그대로 넘기면
+          // 300.7원이 청구되고, 서버 금액 검사(원 단위 계약 금액 이상)에서 모든 공사 결제가 거절된다(09-26 발견).
           await getProvider(ACTIVE_PROVIDER).requestPayment({
             clientKey,
             tossMethod,
-            amount: customerTotal,
+            amount: Math.round(Number(customerTotal) * 10000),
             orderId: tossOrderId,
             orderName: `공간마켓 시공비 에스크로 (${request?.type ?? "시공"})`,
             customerName: "고객",

@@ -27,10 +27,31 @@ const Art = ({ src, size = 96 }) => (
     style={{ width: size, height: size, display: 'block', margin: '0 auto 12px', borderRadius: R.lg }} />
 );
 
-export default function ChatRequestModal({ balance = 0, toName = null, sending = false, onConfirm, onCancel, onGetTokens }) {
+export default function ChatRequestModal({ balance = 0, toName = null, sending = false, openRoom = false, onOpenRoom, onConfirm, onCancel, onGetTokens }) {
   const cost = TOKEN_COSTS.CHAT_REQUEST;
   const [text, setText] = useState('');
   const short = (balance ?? 0) < cost;
+
+  // ── 이미 대화 중인 상대 — 토큰 이야기 없이 방으로(09-26 R2). 신청해도 서버(134)가 같은 방을 돌려준다. ──
+  if (openRoom) {
+    return (
+      <Sheet>
+        <div style={{ textAlign: 'center', marginBottom: S.xl }}>
+          <Art src="/images/empty/chat-open.webp" size={88} />
+          <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 8 }}>{toName ? `${toName} 님과 이미 대화 중이에요` : '이미 대화 중이에요'}</div>
+          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>열려 있는 대화방에서 이어서 이야기하면 돼요.<br />토큰은 더 들지 않아요.</div>
+        </div>
+        <div style={{ display: 'flex', gap: S.sm }}>
+          <button onClick={onCancel} style={{ flex: 1, padding: S.xl, background: C.bg, color: C.text2, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+            닫기
+          </button>
+          <button onClick={() => onOpenRoom?.()} style={{ flex: 2, padding: S.xl, background: C.brand, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 4px 16px ${C.brand44}` }}>
+            대화방 열기
+          </button>
+        </div>
+      </Sheet>
+    );
+  }
 
   // ── 토큰이 모자랄 때 — 쓰기 전에 먼저 말한다 ──────────────────────
   if (short) {

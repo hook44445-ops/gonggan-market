@@ -22,6 +22,7 @@ import {
   checkLoungeSaved,
   incrementLoungeView,
   requestCommentChat,
+  findOpenLoungeChat,
   sendMessage,
   getUser,
   getCompanyByOwnerId,
@@ -279,6 +280,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const [chatTarget,  setChatTarget]        = useState(null);
   // 서버가 «토큰 부족»이라고 돌려준 잔액 — 있으면 시트가 이 값으로 부족 화면을 연다(L4: 화면 잔액이 틀릴 수 있다).
   const [chatShortBalance, setChatShortBalance] = useState(null);
+  const [chatOpenRoom, setChatOpenRoom] = useState(null); // 이미 수락된 두 사람의 방 { id, post_id }
   const [miniModal,   setMiniModal]         = useState(null); // 업체 미니 포트폴리오 { ownerId, nickname }
   const [commentSort] = useState('latest'); // 최신순 고정(전문가순·인기순 정렬 제거)
   const [chatSending, setChatSending]       = useState(false);
@@ -680,12 +682,19 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   const openChatSheet = (target = null) => {
     setChatTarget(target);
     setChatShortBalance(null);
+    setChatOpenRoom(null);
     setShowChat(true);
+    // 이미 대화 중인 상대면 시트가 «대화방 열기»로 바뀐다(R2) — 토큰 안내·메시지 쓰기를 건너뛴다.
+    const tid = target?.userId ?? post?.user_id;
+    if (user?.id && tid && tid !== user.id) {
+      findOpenLoungeChat(user.id, tid).then(r => { if (r) setChatOpenRoom(r); }).catch(() => {});
+    }
   };
   const closeChatSheet = () => {
     setShowChat(false);
     setChatTarget(null);
     setChatShortBalance(null);
+    setChatOpenRoom(null);
   };
 
   // 서버(SQL 133)가 신청 시점에 잔액을 본다 — 화면 잔액과 달라도 서버가 준 잔액으로 부족 화면을 연다(L4).
@@ -738,8 +747,13 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       if (handleInsufficientFromServer(data)) { keepOpen = true; return; }
       // 이미 열린 방 — 양방향(SQL 134). 돈이 더 들지 않으니 그 방으로 바로 간다(L5: 토스트만 떠서 갈 길이 없었다).
       if (data?.status === 'already_accepted') {
+        // 적어 둔 메시지를 버리지 않는다 — 그 방에 이어서 보낸다(R2).
+        if (data.request_id && text) {
+          const senderType = (user?.activeRole ?? user?.role) === 'company' ? 'company' : 'consumer';
+          try { await sendMessage(`lounge_${data.request_id}`, user.id, senderType, text); } catch { /* 방으로는 간다 */ }
+        }
         closeChatSheet();
-        showToast('이미 대화 중인 상대예요 — 대화방으로 갈게요');
+        showToast('이미 대화 중인 상대예요 — 적은 메시지를 대화방에 보냈어요');
         if (data.request_id) onOpenLoungeChat?.({ id: data.request_id, postId }, targetId);
         return;
       }
@@ -1382,6 +1396,13 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           balance={chatShortBalance ?? tokenBalance ?? 0}
           toName={chatTarget?.name ?? (chatTarget ? null : (post?.anonymous_nickname ?? null))}
           sending={chatSending}
+          openRoom={!!chatOpenRoom}
+          onOpenRoom={() => {
+            const r = chatOpenRoom;
+            const tid = chatTarget?.userId ?? post?.user_id;
+            closeChatSheet();
+            if (r?.id) onOpenLoungeChat?.({ id: r.id, postId: r.post_id ?? postId }, tid);
+          }}
           onConfirm={handleChatRequest}
           onCancel={closeChatSheet}
           onGetTokens={() => { closeChatSheet(); onTokenStore?.(); }}
