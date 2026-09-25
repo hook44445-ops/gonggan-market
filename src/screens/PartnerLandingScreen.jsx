@@ -25,6 +25,16 @@ const TEXT2 = "#4A554C";
 const TEXT3 = "#8A857E";
 const SANS  = "'Pretendard','Apple SD Gothic Neo',sans-serif";
 
+// 한도 계단 한 칸마다 엠블럼 · 금액 · 한 줄(대표 09-25 구간표 — lib/partnerTier 한도와 같은 값).
+//   «보증금 · 1,500만원 미만» 처럼 보증금을 걸어도 작아 보이던 칸을 «2,000만원까지 · 면허 없으면 1,500만원 미만»으로.
+const LADDER_VIEW = {
+  none:      { emblem: "join",      amount: "카드 보기",    note: "500만원까지 공사가 보여요 · 입찰은 사업자등록 뒤" },
+  biz:       { emblem: "biz",       amount: "500만원",      note: "입찰·계약이 열려요 · 홈택스 당일 발급" },
+  insurance: { emblem: "insurance", amount: "1,000만원",    note: "시공보험 증권 · 보험이 없으면 보증금 200만원으로도" },
+  premium:   { emblem: "deposit",   amount: "2,000만원~",   note: "공간보증 200만원부터 · 면허 없으면 1,500만원 미만" },
+  license:   { emblem: "license",   amount: "최대 1억원",   note: "실내건축공사업 등록 · 보증금의 10배까지" },
+};
+
 // ── Scroll-triggered fade ──────────────────────────────────────────────────────
 function useVisible(threshold = 0.1) {
   const ref = useRef(null);
@@ -203,9 +213,11 @@ export default function PartnerLandingScreen() {
 
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 20px" }}>
         {/* ── NAVY(웜 잉크) HERO ──────────────────────────────────── */}
-        <div ref={heroRef} style={{ background: FOREST,
-          color: "#F9F6F2", borderRadius: 28, padding: "28px 24px", margin: "16px 0 28px",
-          position: "relative", overflow: "hidden" }}>
+        {/* 히어로 그림(힉스필드 09-25): 완성된 공간을 보는 파트너 — 얼굴·글자 없음. 왼쪽은 글자 자리라 어둡게 덮는다. */}
+        <div ref={heroRef} style={{
+          background: `linear-gradient(100deg, rgba(20,38,28,.97) 0%, rgba(20,38,28,.88) 48%, rgba(20,38,28,.38) 100%), url(/images/partner/hero.webp) center/cover no-repeat, ${FOREST}`,
+          color: "#F9F6F2", borderRadius: 28, padding: "32px 24px 28px", margin: "16px 0 28px",
+          position: "relative", overflow: "hidden", minHeight: 320 }}>
           <h1 style={{ fontSize: "clamp(24px,6vw,36px)", fontWeight: 800, lineHeight: 1.1, margin: 0, wordBreak: "keep-all" }}>
             광고비 없이 수주하는<br /><span style={{ color: GOLD }}>공간파트너</span>
           </h1>
@@ -215,6 +227,12 @@ export default function PartnerLandingScreen() {
                 ② «예치된 고객»은 베타에 없는 약속이다(예치·보관 문구 금지 — 안전결제는 토스 승인 뒤에 열린다). */}
             광고비를 먼저 쓰지 않아도 됩니다. 견적을 요청한 고객에게만 연결됩니다.
           </p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "4px 0 2px" }}>
+            {["광고비 0원", "가입 1분", "서류는 원할 때 하나씩"].map((t) => (
+              <span key={t} style={{ fontSize: 12, fontWeight: 700, color: GOLD, border: "1px solid rgba(200,168,106,.45)",
+                background: "rgba(200,168,106,.10)", borderRadius: 999, padding: "5px 11px" }}>{t}</span>
+            ))}
+          </div>
           <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button onClick={() => goSignup("hero")} style={{ ...btn, maxWidth: 220, background: "#fff", color: NAVY }}>
               1분 가입
@@ -224,6 +242,20 @@ export default function PartnerLandingScreen() {
               이미 파트너신가요? 로그인 →
             </button>
           </div>
+        </div>
+
+        {/* ── 왜 공간마켓인가 — 세 줄(대표 09-25 「입점하고 싶게」). 결제·보관 약속과 수수료는 말하지 않는다. ── */}
+        <div style={{ display: "grid", gap: 10, margin: "0 0 30px" }}>
+          {[
+            ["요청한 고객에게만", "광고비·키워드 경쟁 없이, 공간·범위·예산을 적어 견적을 요청한 고객의 공사만 받습니다."],
+            ["기록이 편을 들어 줍니다", "계약·대화·현장 사진·위치가 공사 한 건에 남아, 추가비·하자 이야기가 나와도 확인할 것이 있습니다."],
+            ["낼수록 큰 공사", "서류는 가입 뒤 원할 때 하나씩. 사업자등록증 · 시공보험 · 보증금을 낼수록 맡을 수 있는 공사가 커집니다."],
+          ].map(([t, d]) => (
+            <div key={t} style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 16, padding: "14px 16px" }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>{t}</div>
+              <div style={{ fontSize: 13, color: TEXT2, lineHeight: 1.7, marginTop: 4, wordBreak: "keep-all" }}>{d}</div>
+            </div>
+          ))}
         </div>
 
         {/* ── 업체의 하루 (여정) — 수수료가 아니라 «현장이 어떻게 달라지는가»를 먼저 말한다 ── */}
@@ -257,7 +289,7 @@ export default function PartnerLandingScreen() {
                   <div style={{ marginTop: 11, display: "inline-flex", alignItems: "center", gap: 6,
                     background: "#F4F1EB", border: "1px solid #E8E1D8", borderRadius: 999, padding: "4px 11px",
                     fontSize: 11.5, fontWeight: 700, color: "#5A6B60" }}>
-                    앱 화면 · {j.proof}
+                    앱에서 · {j.proof}
                   </div>
                 </div>
               </div>
@@ -307,13 +339,19 @@ export default function PartnerLandingScreen() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
               {LADDER.map((r) => {
                 const premium = r.key === "premium";
+                const row = LADDER_VIEW[r.key] ?? {};
                 return (
-                  <div key={r.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+                  <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 12,
                     background: premium ? "rgba(200,168,106,.10)" : "rgba(255,255,255,.06)",
                     border: `1px solid ${premium ? "rgba(200,168,106,.55)" : "rgba(255,255,255,.08)"}`,
-                    padding: "13px 16px", borderRadius: 14, fontSize: 13 }}>
-                    <span style={{ fontWeight: premium ? 800 : 600, color: premium ? GOLD : "#F9F6F2" }}>{r.label.replace(/^\+ /, "")}</span>
-                    <b style={{ color: GOLD, whiteSpace: "nowrap" }}>{r.key === "license" ? `최대 ${limitText(r.limit)}` : limitText(r.limit)}</b>
+                    padding: "11px 14px", borderRadius: 14, fontSize: 13 }}>
+                    {row.emblem && <img src={`/images/emblem/${row.emblem}-sm.webp`} alt="" aria-hidden="true" width="34" height="34"
+                      style={{ width: 34, height: 34, objectFit: "contain", flexShrink: 0 }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: premium ? 800 : 700, color: premium ? GOLD : "#F9F6F2" }}>{r.label.replace(/^\+ /, "")}</div>
+                      {row.note && <div style={{ fontSize: 11.5, color: "#A9A397", marginTop: 2, wordBreak: "keep-all" }}>{row.note}</div>}
+                    </div>
+                    <b style={{ color: GOLD, whiteSpace: "nowrap" }}>{row.amount ?? limitText(r.limit)}</b>
                   </div>
                 );
               })}
@@ -339,7 +377,7 @@ export default function PartnerLandingScreen() {
             <div style={{ fontSize: 11, fontWeight: 800, color: GOLD, letterSpacing: "0.14em", marginBottom: 8 }}>PARTNER</div>
             <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, letterSpacing: "-0.02em" }}>가입은 1분이면 끝나요</div>
             <p style={{ fontSize: 13.5, color: TEXT3, lineHeight: 1.7, margin: "8px 0 18px", wordBreak: "keep-all" }}>
-              휴대폰 인증 후 업체명 · 영업 지역 · 공종만 적으면<br />바로 견적 요청을 보고 입찰할 수 있어요.
+              휴대폰 인증 후 업체명 · 영업 지역 · 공종만 적으면<br />바로 공사 카드가 보여요. 사업자등록증을 올리면 입찰이 열려요(홈택스 당일 발급).
             </p>
             <button onClick={() => goSignup("form")} className="gg-cta" style={{ ...btn, background: NAVY, color: "#fff" }}>
               휴대폰으로 가입하기
