@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { SHOW_DEBUG_UI, SHOW_BETA_UI } from "../constants/release";
+import { SHOW_DEBUG_UI, SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { LeafSprig, Icon } from "../components/common";
 import NotificationBell from "../components/NotificationBell";
@@ -16,6 +16,7 @@ import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import CustomerEvaluationModal from "../components/CustomerEvaluationModal";
 import PlatformEstimateModal from "../components/PlatformEstimateModal";
+import { StageNowPage } from "../components/v3/JourneyNow"; // 결제 전 단계 «지금 여기»(힉스필드 3-6)
 import EscrowNextCard from "../components/v3/EscrowNextCard"; // 맨 위 「지금 할 일」(표시 전용 · 로직 무변경)
 
 // Stage status values:
@@ -1398,6 +1399,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   const escrowResolveDone = bidFetchDone && !resolvedContractId;
   const noStatusButNoEscrow = (request == null || !request?.status) && escrowResolveDone;
 
+  // 결제 전 단계 화면의 «대화» 버튼 — 메인 화면 머리의 대화 버튼과 같은 조건·같은 값.
+  const preChatIds = { customerId: request?.user_id ?? resolvedCustomerId, companyId: resolvedBid?.companyId ?? contractData?.company_id };
+  const preChat = onOpenChat && preChatIds.customerId && preChatIds.companyId
+    ? () => onOpenChat({ ...preChatIds, companyName: resolvedBid?.company?.name ?? null }) : null;
+
   // ── 결제(에스크로) 전 단계 — 업체/의뢰인 화면 완전 분리(한 화면에 두 폼 동시 노출 금지) ──
   // 착공확인/사진업로드(메인 렌더)는 "현재 request 에 매칭되는 실제 에스크로(VALID tx)"가
   // 있을 때만 노출한다. status / resolvedContractId 기준으로 각 단계를 독립 return 처리.
@@ -1443,28 +1449,21 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         </div>
       );
     }
-    // 2) 의뢰인 결제 대기 (WaitingForPayment) — 최종견적 발송 완료(finalQuoteSent) 또는
-    //    계약 row 존재(결제 전). 최종견적 폼/착공 폼 모두 미노출.
+    // 2) 고객 확인 대기 — 최종견적 발송 완료(finalQuoteSent) 또는 계약 row 존재(결제 전). 최종견적 폼/착공 폼 모두 미노출.
+    //    결제가 열리기 전(PAYMENTS_LIVE=false)엔 «결제 기다림»이 아니라 «고객 확인 → 계약서대로 직접».
     return (
-      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
-        {photoViewer && (
-          <ImageViewerModal images={photoViewer.images} startIndex={photoViewer.index} onClose={() => setPhotoViewer(null)} />
-        )}
-        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
-          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>에스크로 안전 정산</div>
-        </div>
-        <div style={{ padding: "56px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 34, marginBottom: 12 }}>⏳</div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
-            의뢰인의 에스크로 결제를 기다리고 있습니다
-          </div>
-          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8 }}>
-            최종 견적서를 보냈어요.{"\n"}의뢰인이 에스크로 결제를 완료하면 착공 단계가 열립니다.
-          </div>
-          <button onClick={onBack} style={{ marginTop: 24, padding: "11px 24px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
-        </div>
-      </div>
+      <StageNowPage
+        header="최종 견적 보냄" onBack={onBack}
+        eyebrow="최종 견적서를 보냈어요"
+        heading="고객 확인을 기다리고 있어요"
+        lead={PAYMENTS_LIVE ? "고객이 확인하고 결제하면 착공 단계가 열려요." : "고객이 확인하면 계약서를 쓰고 착공해요."}
+        now={4}
+        cardDesc="고객이 최종 견적을 확인하고 예약을 확정하는 단계예요. 확정되면 내 공사 목록의 상태가 바뀌어요."
+        next="착공 사진을 올리면 고객이 보고 확인해요. 단계마다 사진이 기록으로 남아요."
+        note={PAYMENTS_LIVE ? null : "대금은 계약서에 적은 단계대로 고객과 직접 주고받아요 · 앱 안 안전결제는 정식 오픈 때 열려요."}
+        primary={preChat ? { label: "고객과 대화하기", onClick: preChat } : { label: "돌아가기", onClick: onBack }}
+        secondary={preChat ? { label: "돌아가기", onClick: onBack } : null}
+      />
     );
   }
 
@@ -1472,48 +1471,38 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
   //   기존엔 final_quote_submitted 가 아래 '대기' 게이트(isPreEscrowPhase)에 잡혀, 업체가
   //   최종견적을 보내도 고객이 "최종 견적을 기다리고 있어요" 막다른 화면에 멈췄음(상태 불일치).
   if (isConsumer && !hasRealEscrow && isQuoteReadyPhase) {
+    const openQuote = () => (onConfirmFinalQuote ? onConfirmFinalQuote() : onBack());
     return (
-      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
-        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
-          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>공사 안전 결제</div>
-        </div>
-        <div style={{ padding: "56px 24px", textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Icon emoji="📋" size={34} color={C.text3} /></div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
-            최종 견적이 도착했어요
-          </div>
-          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8 }}>
-            선택하신 업체가 최종 견적서를 보냈어요.{"\n"}견적 내용을 확인하고 에스크로 결제를 진행해 주세요.
-          </div>
-          <button onClick={() => (onConfirmFinalQuote ? onConfirmFinalQuote() : onBack())}
-            style={{ marginTop: 24, padding: "13px 28px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: `0 4px 16px ${C.brand44}` }}>
-            최종 견적 확인하고 결제하기 →
-          </button>
-        </div>
-      </div>
+      <StageNowPage
+        header="최종 견적 도착" onBack={onBack}
+        eyebrow="최종 견적 도착"
+        heading="최종 견적서가 도착했어요"
+        lead="현장을 본 업체가 최종 금액을 보냈어요."
+        now={4}
+        cardDesc={PAYMENTS_LIVE ? "내용을 확인하고 괜찮으면 결제하고 예약을 확정해요." : "내용을 확인하고 괜찮으면 예약을 확정해요. 그다음 계약서를 써요."}
+        next="착공 · 중간 · 완료 사진을 보고 단계마다 확인해요."
+        note={PAYMENTS_LIVE ? null : "대금은 계약서에 적은 단계대로 업체와 직접 주고받아요 · 앱 안 안전결제는 정식 오픈 때 열려요."}
+        primary={{ label: PAYMENTS_LIVE ? "최종 견적 확인하고 결제하기" : "최종 견적 확인하기", onClick: openQuote }}
+        secondary={preChat ? { label: "업체와 대화하기", onClick: preChat } : null}
+      />
     );
   }
 
   // [의뢰인] 결제 전(현장견적 단계) + 실제 에스크로 없음 → '최종 견적 대기' 안내만.
   if (isConsumer && !hasRealEscrow && (isPreEscrowPhase || noStatusButNoEscrow)) {
     return (
-      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
-        <div style={{ background: C.surface, padding: "14px 20px", borderBottom: `1px solid ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
-          <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>공사 안전 결제</div>
-        </div>
-        <div style={{ padding: "56px 24px", textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}><Icon emoji="📋" size={34} color={C.text3} /></div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 8 }}>
-            최종 견적을 기다리고 있어요
-          </div>
-          <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.8 }}>
-            선택하신 업체가 현장방문 후 최종 견적서를 보낼 예정입니다.{"\n"}최종 견적을 받으면 에스크로 결제를 진행할 수 있어요.{"\n"}결제가 완료되어야 착공 단계가 열립니다.
-          </div>
-          <button onClick={onBack} style={{ marginTop: 24, padding: "11px 24px", background: C.brand, color: "#fff", border: "none", borderRadius: R.full, fontWeight: 800, fontSize: 14, cursor: "pointer" }}>돌아가기</button>
-        </div>
-      </div>
+      <StageNowPage
+        header="최종 견적 준비 중" onBack={onBack}
+        eyebrow="업체를 골랐어요"
+        heading="업체가 최종 견적을 준비하고 있어요"
+        lead="현장을 보고 나서 최종 금액을 보내 줘요."
+        now={3}
+        cardTitle="현장 확인 · 상담"
+        cardDesc="방문 날짜나 궁금한 점은 대화방에서 업체와 바로 이야기해요. 최종 견적이 오면 알림으로 알려드려요."
+        next="최종 견적을 확인하고 괜찮으면 예약을 확정해요."
+        primary={preChat ? { label: "업체와 대화하기", onClick: preChat } : { label: "돌아가기", onClick: onBack }}
+        secondary={preChat ? { label: "돌아가기", onClick: onBack } : null}
+      />
     );
   }
 

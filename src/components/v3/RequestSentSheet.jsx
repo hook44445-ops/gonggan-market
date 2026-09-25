@@ -3,13 +3,14 @@
 //  · 그림·색은 「내 한도 · 서류」 가족(깊은 초록 · 아이보리 · 금 선) — /images/request-sent-v2.webp
 //  · 결제는 베타 기간 실제 방식 그대로 안내한다(앱 안 안전결제는 정식 서비스에서).
 import { C, R, S } from "../../constants";
+import { JOURNEY } from "./JourneyNow";
 
 const INK = "#F4EFE4";
 const GOLD = "#D6A756";
 const DEEP = "#0E2B1D";
 const GOLD_LINE = "rgba(214,167,86,0.35)";
 
-const JOURNEY = ["요청 보냄", "업체 검토", "견적 도착", "비교·상담", "계약", "시공", "완료·후기"];
+// 7단계 이름은 결제 전 단계 화면(EscrowScreen)과 한 곳에서 — JourneyNow.jsx
 const NOW = 1; // 0: 요청 보냄(완료) · 1: 업체 검토(지금)
 
 export default function RequestSentSheet({ onClose, onBrowse, onTrack }) {
