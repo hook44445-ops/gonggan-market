@@ -9,7 +9,8 @@
 // 미설정 시 graceful no-op.
 // ─────────────────────────────────────────────────────
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+
 import { sessionUserId } from "../../src/lib/sessionToken.server.js";
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
@@ -80,6 +81,9 @@ export const TYPE_TO_PREF_COLUMN = {
   CO_STAGE_APPROVED: "push_escrow",
   STAGE_APPROVE_REMINDER: "push_escrow",
   STAGE_AUTO_APPROVED: "push_escrow",
+  // 사업자등록(116) — SQL 이 만든 알림은 135 트리거가 같은 규칙으로 큐에 넣는다(여기는 앱 경로용 표)
+  BIZ_VERIFIED: "push_escrow",
+  BIZ_REQUIRED: "push_company_recommend",
   CO_DISPUTE_FILED: "push_escrow",
   // 라운지 1:1 대화 — push_chat 컬럼은 화면에 토글이 있는데 여태 아무 타입도 쓰지 않았다
   LOUNGE_CHAT_REQUEST: "push_chat",

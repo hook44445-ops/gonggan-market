@@ -50,6 +50,11 @@ export const NOTIF_META = {
   STAGE_APPROVE_REMINDER:  { tier: NOTIF_TIER.PROGRESS, icon: "⏳", priority: "HIGH" },
   STAGE_AUTO_APPROVED:     { tier: NOTIF_TIER.PROGRESS, icon: "✅", priority: "HIGH" },
   CO_DISPUTE_FILED:        { tier: NOTIF_TIER.PROGRESS, icon: "⚠️", priority: "HIGH" },
+  // 사업자등록(서버 116) — 선택된 업체에 72시간 안내, 확인되면 고객에게 「결제할 수 있어요」 · 관리자 확인 요청(116·123)
+  BIZ_REQUIRED:            { tier: NOTIF_TIER.PROGRESS, icon: "📄", priority: "HIGH" },
+  BIZ_VERIFIED:            { tier: NOTIF_TIER.PROGRESS, icon: "✅", priority: "HIGH" },
+  ADMIN_BIZ_PENDING:       { tier: NOTIF_TIER.PROGRESS, icon: "🗂️", priority: "HIGH" },
+  ADMIN_DOC_SUBMITTED:     { tier: NOTIF_TIER.PROGRESS, icon: "🗂️", priority: "NORMAL" },
   // ── 2단계 관심 ──────────────────────────────────────────
   REGION_NEW_COMPANY:    { tier: NOTIF_TIER.INTEREST, icon: "📍", priority: "NORMAL" },
   SAVED_NEW_PORTFOLIO:   { tier: NOTIF_TIER.INTEREST, icon: "🖼️", priority: "NORMAL" },
