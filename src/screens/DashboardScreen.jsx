@@ -436,8 +436,9 @@ export default function DashboardScreen({
             {/* Revenue card — 제목/금액/하단 2열(진행 좌 · 입금 예정 우) */}
             <div style={{ background:"#0E2B1D", border:"1px solid rgba(214,167,86,0.35)",
               borderRadius:R.xl, padding:`${S.xl}px`, marginBottom:S.lg, color:"#F4EFE4" }}>
+              {/* 결제가 열리기 전엔 앱이 돈을 보내지 않는다 — «정산·실수령»이 아니라 계약서에 적힌 금액이다(09-25) */}
               <div style={{ fontSize:11, color:"#D6A756", fontWeight:700, letterSpacing:"0.3px", marginBottom:6 }}>
-                이번 달 정산 수익 · 수수료 뺀 실수령
+                {PAYMENTS_LIVE ? "이번 달 정산 수익 · 수수료 뺀 실수령" : "이번 달 계약 금액 · 수수료 뺀 기준"}
               </div>
               <div style={{ fontSize:32, fontWeight:800, marginBottom:10, letterSpacing:"-0.5px" }}>
                 {thisMonthRevenue > 0 ? `${thisMonthRevenue.toLocaleString()}만원` : "—"}
@@ -446,7 +447,7 @@ export default function DashboardScreen({
                 paddingTop:S.sm, borderTop:"1px solid rgba(214,167,86,0.25)" }}>
                 <span style={{ flex:1, whiteSpace:"nowrap" }}>진행 {activeJobs.length}건</span>
                 <span style={{ flex:1, textAlign:"right", whiteSpace:"nowrap" }}>
-                  입금 예정 {pendingAmount > 0 ? `${pendingAmount.toLocaleString()}만원` : "—"}
+                  {PAYMENTS_LIVE ? "입금 예정" : "남은 단계"} {pendingAmount > 0 ? `${pendingAmount.toLocaleString()}만원` : "—"}
                 </span>
               </div>
             </div>

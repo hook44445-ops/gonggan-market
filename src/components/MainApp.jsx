@@ -1,4 +1,4 @@
-import { SHOW_BETA_UI } from "../constants/release";
+import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
 import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES, SPACE_TYPES } from "../constants";
@@ -5100,7 +5100,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     : bids > 0 ? `견적 ${bids}건 도착 · 비교해 보세요` : "우리 동네 검증 업체들이 요청을 보고 있어요. 견적이 오면 알려드려요",
                   done:step2done, active:!step2done || payPending, bidStep:(!step2done && bids > 0) || payPending, bidLabel: payPending ? "최종 견적 확인하기" : null, waitStep: waiting },
                 { label:"공사 진행",   sub: constructionSub,            done:isSettled, active:step3active, escrowStep:step3active },
-                { label:"완료 및 정산", sub: step4done ? "완료 확인 · 공사 기록이 남아 있어요" : "완료 확인 + 잔금 지급", done:step4done, recordStep: step4done && hasEscrow },
+                { label:"완료 및 정산", sub: step4done ? "완료 확인 · 공사 기록이 남아 있어요" : (PAYMENTS_LIVE ? "완료 확인 + 잔금 지급" : "완료 확인 · 대금은 계약서대로"), done:step4done, recordStep: step4done && hasEscrow },
               ];
 
               return (
