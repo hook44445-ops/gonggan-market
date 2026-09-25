@@ -72,3 +72,15 @@
 | 시공보험 경로 | 의뢰인 「500~1,000만원」 요청 → 테스트업체(한도 1,000만) 카드 열림 + 다음 단계 안내(스탠다드 → 자재비 10%) → 1,200만원 입력 시 「공간보증 프리미엄 200만원을 내면 입찰할 수 있어요」·제출 꺼짐 → 800만원 입찰 성공 → 의뢰인 비교 카드 엠블럼 사업자 ✓ · 시공보험 ✓ · 보증금 꺼짐 ✅ |
 | E18 (문제 아님) | 동의 창(견적 요청·입찰)이 다시 뜬 것처럼 보였음 — 기기마다 한 번(localStorage `gm_beta_ack_*`), 이 브라우저에선 처음이라 뜸. 두 번째 요청에선 안 뜸 ✅ |
 | **E19** | 공사 종류를 고르면 설명이 「욕실, 주방 — [점검 …」 순서로 저장(E3) → 서버의 점검용 판별(`like '[점검%'`)이 못 알아봄 → 점검 요청 번복에도 테스트 계정 온도가 깎임. 고침: SQL 129 — 설명 어디든 「[점검」이 있으면 점검용 |
+
+## 09-25 밤 에스크로 2·3·4단계 점검 (supabase/checks/escrow_plans_check.sql, 실행 뒤 전부 되돌림)
+
+| 계획 | 계약 때 지급 줄(앱은 10/20/40/30 으로 넣음 → 서버가 고침) | 흐름 | 끝 |
+|---|---|---|---|
+| 2STEP | 0 · 30 · 0 · 70 (자재·중간 CANCELLED) | 착공 승인 → 완료 48시간 자동 승인 ✅ | step 5 · SETTLED ✅ |
+| 3STEP | 0 · 30 · 40 · 30 | 착공 → 중간 → 완료 자동 승인 ✅ | step 5 · SETTLED ✅ |
+| 4STEP | 10(계약 즉시 APPROVED) · 20 · 40 · 30 | 착공 → 중간 → 완료 고객 승인 ✅ | step 5 · SETTLED ✅ |
+
+참고: current_step 1~4 제약은 운영에 없음(schema.sql 만 옛값) · 자동 승인 48시간 · cron `escrow_auto_approve_hourly` 켜짐. 화면(EscrowNextCard) 막대 2단계 3칸 · 3단계 4칸 · 4단계 5칸 확인.
+
+| **E20** | 에스크로 표 3개(escrow_payments · escrow_payouts · phase_photos) 정책이 `ALL:public` — anon 키만 있으면 누구나 지급 줄을 APPROVED 로 바꿀 수 있다. 지금은 실제 돈이 안 움직여(토스 상점 전) 피해 없음. **결제 열기 전에** 앱의 직접 UPDATE(approveEscrowPayoutByStage · advanceContractStep · markEscrowPhaseStarted · setEscrowPayoutReady)를 «본인 확인하는 서버 함수»로 옮기고 정책을 닫는다(인계 3-5 「관리자 문 잠그기」와 같은 종류 — 서버 세션 설계). |
