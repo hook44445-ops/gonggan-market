@@ -434,16 +434,16 @@ export default function DashboardScreen({
             )}
 
             {/* Revenue card — 제목/금액/하단 2열(진행 좌 · 입금 예정 우) */}
-            <div style={{ background:`linear-gradient(150deg,${C.brand},${C.brandD})`,
-              borderRadius:R.xl, padding:`${S.xl}px`, marginBottom:S.lg, color:"#fff" }}>
-              <div style={{ fontSize:11, opacity:0.7, letterSpacing:"0.3px", marginBottom:6 }}>
+            <div style={{ background:"#0E2B1D", border:"1px solid rgba(214,167,86,0.35)",
+              borderRadius:R.xl, padding:`${S.xl}px`, marginBottom:S.lg, color:"#F4EFE4" }}>
+              <div style={{ fontSize:11, color:"#D6A756", fontWeight:700, letterSpacing:"0.3px", marginBottom:6 }}>
                 이번 달 정산 수익 · 수수료 뺀 실수령
               </div>
               <div style={{ fontSize:32, fontWeight:800, marginBottom:10, letterSpacing:"-0.5px" }}>
                 {thisMonthRevenue > 0 ? `${thisMonthRevenue.toLocaleString()}만원` : "—"}
               </div>
               <div style={{ display:"flex", alignItems:"baseline", gap:S.md, fontSize:12, opacity:0.82,
-                paddingTop:S.sm, borderTop:"1px solid rgba(255,255,255,0.18)" }}>
+                paddingTop:S.sm, borderTop:"1px solid rgba(214,167,86,0.25)" }}>
                 <span style={{ flex:1, whiteSpace:"nowrap" }}>진행 {activeJobs.length}건</span>
                 <span style={{ flex:1, textAlign:"right", whiteSpace:"nowrap" }}>
                   입금 예정 {pendingAmount > 0 ? `${pendingAmount.toLocaleString()}만원` : "—"}
