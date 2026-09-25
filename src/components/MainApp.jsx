@@ -2524,8 +2524,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     const { data, error } = await acceptLoungeChatRequest(req.id, user.id);
     setLoungeInboxBusyId(null);
     if (error) { showToast(`수락 실패: ${error.message}`); return; }
-    if (data?.error === "INSUFFICIENT_TOKENS") { showToast(`상대방 토큰이 부족해요 (잔액 ${data.balance ?? 0})`); return; }
-    showToast("✅ 대화가 시작됐어요!");
+    // 신청 뒤 상대 잔액이 줄어든 드문 경우 — 내 잘못이 아니라는 걸 분명히 하고, 요청은 그대로 둔다.
+    if (data?.error === "INSUFFICIENT_TOKENS") {
+      showToast("상대방의 토큰이 모자라 지금은 열 수 없어요. 요청은 그대로 두었어요 — 상대가 토큰을 채우면 수락할 수 있어요.");
+      return;
+    }
+    showToast("대화가 시작됐어요");
     setLoungeReceivedReqs(prev => prev.filter(r => r.id !== req.id));
     setLoungeAcceptedReqs(prev => [{ ...req, status: "accepted" }, ...prev]);
   };
@@ -4615,8 +4619,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               // 스토리 작성자 대화 신청 — 댓글 작성자 대화 신청과 동일한 실제 RPC(request_comment_chat) 사용.
               // 기존 라운지 대화 정책 그대로(수락 시 신청자 20토큰 차감).
               if (!story?.user_id || story.user_id === user?.id) return;
+              // 토큰이 모자라면 토큰 화면으로 — 결제가 열리기 전엔 «충전»이라 말하지 않는다(09-25).
               if ((tokenBalance ?? 0) < TOKEN_COSTS.CHAT_REQUEST) {
-                showToast(`대화를 신청하려면 ${TOKEN_COSTS.CHAT_REQUEST}토큰이 필요합니다. 토큰 충전 후 다시 시도해주세요.`);
+                const need = TOKEN_COSTS.CHAT_REQUEST - (tokenBalance ?? 0);
+                showToast(PAYMENTS_LIVE
+                  ? `대화를 열려면 토큰이 ${need}개 더 필요해요`
+                  : `대화를 열려면 토큰이 ${need}개 더 필요해요 — 라운지 활동으로 모을 수 있어요`);
                 setTimeout(() => go("token-store"), 1200);
                 return;
               }
@@ -4626,8 +4634,14 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               try { const r = await requestCommentChat(user.id, story.user_id, story.id, null); data = r?.data ?? null; error = r?.error ?? null; }
               catch (e) { error = e; }
               if (error) { showToast(`대화 신청 실패: ${error.message ?? error}`); return; }
-              if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요 💬'); return; }
+              if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요'); return; }
               if (data?.status === 'already_pending')  { showToast('이미 대화 신청을 보냈어요'); return; }
+              // 서버(SQL 133)도 신청 시점에 잔액을 본다 — 화면 검사를 지나쳐도 여기서 막힌다.
+              if (data?.error === 'INSUFFICIENT_TOKENS') {
+                showToast(`토큰이 ${Math.max(0, (data.needed ?? TOKEN_COSTS.CHAT_REQUEST) - (data.balance ?? 0))}개 더 필요해요`);
+                setTimeout(() => go("token-store"), 1200);
+                return;
+              }
               refreshLoungeChatInbox?.();
               showToast("💬 대화 신청을 보냈어요! 수락 시 20토큰이 차감됩니다.");
             })}

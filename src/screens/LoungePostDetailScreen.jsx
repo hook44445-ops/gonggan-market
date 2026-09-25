@@ -669,11 +669,20 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   };
 
   // 대화 신청 전 토큰 확인 — 부족하면 토큰 스토어로 이동 (차감 정책 자체는 기존 유지: 수락 시 신청자 차감)
+  // 토큰이 모자라면 «메시지 보내기» 시트를 연다 — 시트가 부족 화면으로 바뀌어 안내한다(09-25).
+  //   예전엔 토스트를 띄우고 1.2초 뒤 토큰 상점으로 튕겼다(무슨 일이 난 건지 알기 어려웠다).
   const ensureChatTokens = () => {
     if ((tokenBalance ?? 0) >= TOKEN_COSTS.CHAT_REQUEST) return true;
-    showToast(`대화를 신청하려면 ${TOKEN_COSTS.CHAT_REQUEST}토큰이 필요합니다.\n토큰 충전 후 다시 시도해주세요.`);
-    setTimeout(() => onTokenStore?.(), 1200);
+    setShowChat(true);
     return false;
+  };
+
+  // 서버(SQL 133)가 신청 시점에 잔액을 본다 — 화면 검사를 지나쳐도 여기서 막힌다.
+  const handleInsufficientFromServer = (data) => {
+    if (data?.error !== 'INSUFFICIENT_TOKENS') return false;
+    showToast(`토큰이 ${Math.max(0, (data.needed ?? TOKEN_COSTS.CHAT_REQUEST) - (data.balance ?? 0))}개 더 필요해요`);
+    setShowChat(true);
+    return true;
   };
 
   // 메시지 작성 BottomSheet의 "보내기" 클릭 시에만 호출된다 — 절대 즉시 채팅방을 만들지 않는다.
@@ -709,6 +718,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       });
       if (error) { showToast('대화 신청에 실패했습니다. 다시 시도해주세요.'); return; }
       if (data?.error === 'SELF_REQUEST') { showToast('본인에게는 신청할 수 없어요'); return; }
+      if (handleInsufficientFromServer(data)) return;
       setChatSent(true);
       onChatRequested?.(); // 대화 탭 수락대기(Waiting Accept) 목록 즉시 갱신
       try {
@@ -850,6 +860,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         showToast('이미 대화 신청을 보냈어요');
       } else if (data?.error === 'SELF_REQUEST') {
         showToast('본인에게는 신청할 수 없어요');
+      } else if (handleInsufficientFromServer(data)) {
+        /* 시트가 부족 화면으로 열린다 */
       } else {
         setSentChatTargets(prev => new Set([...prev, comment.user_id]));
         onChatRequested?.(); // 대화 탭 수락대기 목록 즉시 갱신
@@ -1386,6 +1398,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           sending={chatSending}
           onConfirm={handleChatRequest}
           onCancel={() => setShowChat(false)}
+          onGetTokens={() => { setShowChat(false); onTokenStore?.(); }}
         />
       )}
 
