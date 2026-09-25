@@ -706,7 +706,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   }, [screen, activeRole]);
   const [toast, setToast] = useState(null);
   const [showReq, setShowReq] = useState(false);
-  const [reqPrefill, setReqPrefill] = useState(null);          // 라운지 채팅 → 견적요청 시 desc 초기값
+  const [reqPrefill, setReqPrefill] = useState(null);
+  // 견적 요청의 출처 — 라운지 대화방에서 왔으면 { roomId, partnerId } (09-26 R3: 제출 뒤 그 방에 기록 · 상대 업체 알림)
+  const [reqOrigin, setReqOrigin] = useState(null);          // 라운지 채팅 → 견적요청 시 desc 초기값
   const [loungeChat, setLoungeChat] = useState(null);          // { roomId, partner } — 라운지 1:1 채팅
   useEffect(() => { if (!showReq) setReqPrefill(null); }, [showReq]); // 모달 닫히면 prefill 초기화(다음 일반 견적요청 오염 방지)
   const [reqBlock, setReqBlock] = useState(null);   // null | { type, activeReq, remainingMs }
@@ -2659,15 +2661,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const handleOpenNewReq = async () => {
     const block = await checkRequestBlock();
     if (block) { setReqBlock(block); return; }
-    if (!hasConsented(user?.id, CONSUMER_CONSENT_TYPES)) {
-      setConsentGateConfig({
-        types: CONSUMER_CONSENT_TYPES,
-        title: "견적 요청 전 약관 동의",
-        betaKind: "quote",
-        onComplete: () => { setConsentGateConfig(null); setShowReq(true); },
-      });
-      return;
-    }
+    // 약관·베타 안내 확인은 «보내기» 순간 한 번(09-26 R3) — 예전엔 요청서를 열기도 전에 확인 창이 막아섰다.
     setShowReq(true);
   };
 
@@ -4586,9 +4580,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             onBack={() => setScreen("chatlist")}
             onLeft={() => { setLoungeReceivedReqs(prev => prev.filter(r => r.id !== loungeChat.partner?.requestId)); setLoungeSentReqs(prev => prev.filter(r => r.id !== loungeChat.partner?.requestId)); setLoungeAcceptedReqs(prev => prev.filter(r => r.id !== loungeChat.partner?.requestId)); }}
             onQuoteRequest={activeRole === "consumer" ? () => {
-              if (loungeChat.partner?.postTitle) {
-                setReqPrefill({ desc: `라운지 글 "${loungeChat.partner.postTitle}" 관련 상담에서 이어진 견적 요청입니다.\n` });
-              }
+              // 요청서 첫 줄에 출처 — 라운지 대화에서 이어진 요청(09-26 R3)
+              setReqPrefill({ desc: loungeChat.partner?.postTitle
+                ? `라운지 글 "${loungeChat.partner.postTitle}" 대화에서 이어진 견적 요청입니다.\n`
+                : "라운지 대화에서 이어진 견적 요청입니다.\n" });
+              setReqOrigin({ roomId: loungeChat.roomId, partnerId: loungeChat.partner?.userId ?? loungeChat.partner?.id ?? null });
               setScreen("home"); handleOpenNewReq();
             } : undefined}
             onOpenSource={(postId) => { setLoungePost({ id: postId, _deeplink: true }); go("lounge-detail"); }}
@@ -6315,7 +6311,17 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         );
       })()}
 
-      {showReq && <RequestModal initialData={reqPrefill} onClose={() => { setShowReq(false); setReqPrefill(null); }} onDone={async (form) => {
+      {showReq && <RequestModal initialData={reqPrefill} onClose={() => { setShowReq(false); setReqPrefill(null); setReqOrigin(null); }} onDone={async function submitReq(form) {
+        // 약관·베타 안내 확인 — 보내는 순간 한 번(이미 동의했으면 건너뜀). 확인하면 같은 내용으로 이어서 보낸다.
+        if (!form.__consented && !hasConsented(user?.id, CONSUMER_CONSENT_TYPES)) {
+          setConsentGateConfig({
+            types: CONSUMER_CONSENT_TYPES,
+            title: "견적 요청 전 약관 동의",
+            betaKind: "quote",
+            onComplete: () => { setConsentGateConfig(null); submitReq({ ...form, __consented: true }); },
+          });
+          return;
+        }
         // Pre-insert server-side duplicate guard
         const overrideTsInsert = localStorage.getItem(OVERRIDE_LS_KEY);
         if (overrideTsInsert) {
@@ -6408,6 +6414,32 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             setMyRequests(prev => prev.map(replace));
             setCustomerRequests(prev => prev.map(replace));
             earnToken("first_quote_request");
+            // 라운지 대화에서 이어진 요청 — 그 방에 기록을 남기고, 상대가 승인 업체면 그 업체에도 알린다(09-26 R3).
+            if (reqOrigin?.roomId) {
+              const origin = reqOrigin;
+              setReqOrigin(null);
+              (async () => {
+                let partnerCo = null;
+                try {
+                  if (origin.partnerId) {
+                    const { data: co } = await supabase.from("companies").select("id, name, company_status")
+                      .eq("owner_id", origin.partnerId).maybeSingle();
+                    if (co && (co.company_status == null || co.company_status === "ACTIVE")) partnerCo = co;
+                  }
+                } catch { partnerCo = null; }
+                const what = [saved.type ?? form.type, saved.size ?? form.size].filter(Boolean).join(" · ");
+                const line = partnerCo
+                  ? `견적 요청을 올렸어요${what ? ` (${what})` : ""}. 대화 중인 업체에도 알렸어요 — 입찰은 앱 안에서 받아요.`
+                  : `견적 요청을 올렸어요${what ? ` (${what})` : ""}. 업체들의 견적은 「내 견적」에서 비교할 수 있어요.`;
+                try { await sendMessage(origin.roomId, null, "system", line); } catch { /* 기록 실패해도 요청은 저장됨 */ }
+                if (partnerCo) {
+                  createNotification({
+                    userId: origin.partnerId, type: "NEW_REQUEST", title: "대화하던 고객이 견적 요청을 올렸어요",
+                    message: `${what || "새 견적 요청"} — 바로 입찰할 수 있어요.`, relatedId: saved.id, relatedType: "request",
+                  }).catch(() => {});
+                }
+              })();
+            }
             // 파트너 알림은 서버 트리거가 큐에 넣는다 — 여기선 바로 보내라고 깨우기만.
             wakePushDispatcher();
           }
