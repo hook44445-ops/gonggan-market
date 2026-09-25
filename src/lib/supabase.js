@@ -249,6 +249,10 @@ export const archiveRequestAuto = (id, reason) =>
 export const closeRequest = (id) =>
   supabase.from("requests").update({ status: "closed" }).eq("id", id);
 
+// 의뢰인 요청 취소 — 본인·업체 고르기 전(open)만(migration 127). 표 직접 수정은 세션 없는 앱에서 0건이었다.
+export const cancelMyRequest = (id, actorId, reason = null) =>
+  supabase.rpc("request_cancel_by_owner", { p_request_id: id, p_actor_id: actorId ?? null, p_reason: reason });
+
 // 고객 요청 수정 — 직접 UPDATE 는 없는 updated_at 칸(42703)과 정책(이 앱 로그인은 세션 없음)에 막혀
 // 「수정됐어요」만 뜨고 저장되지 않았다. 본인·open 상태를 확인하는 함수로 저장한다(migration 108).
 // 예산(budget_min/max)이 바뀔 때만 8칸 판(migration 126)을 부른다 — 입찰이 있으면 서버가 BUDGET_LOCKED_HAS_BIDS(E7).

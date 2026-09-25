@@ -81,6 +81,7 @@ import {
   getUserRequests,
   createRequest,
   closeRequest,
+  cancelMyRequest,
   updateRequest,
   repostRequest,
   createRequestRepost,
@@ -971,6 +972,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     setMyRequests(prev => prev.map(markClosed));
     setCustomerRequests(prev => prev.map(markClosed));
     await closeRequest(requestId);
+  };
+
+  // 의뢰인 요청 취소(E15) — 서버에서 된 뒤에만 화면을 바꾼다.
+  const handleCancelMyRequest = async (r) => {
+    if (!window.confirm("이 견적 요청을 취소할까요? 업체들에게 더 이상 보이지 않아요.")) return;
+    const { error } = await cancelMyRequest(r.id, user?.id);
+    if (error) {
+      showToast(/AFTER_SELECT_NOT_YET/.test(error.message ?? "")
+        ? "업체를 고른 뒤에는 여기서 취소할 수 없어요. 대화방에서 업체와 이야기해 주세요."
+        : "❌ 취소하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    const mark = x => x.id === r.id ? { ...x, status: "cancelled", isActive: false, isClosed: true } : x;
+    setMyRequests(prev => prev.map(mark));
+    setCustomerRequests(prev => prev.map(mark));
+    showToast("견적 요청을 취소했어요");
   };
 
   const handleRepost = async (requestId) => {
@@ -5121,6 +5138,23 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                         </div>
                       </div>
                     ))}
+                    {/* 요청 고치기·취소 — 업체를 고르기 전에만(E15). 지금 화면(v3)엔 이 입구가 없었다.
+                        예산은 입찰이 0건일 때만 바뀐다(서버 126). 고른 뒤 취소는 A4 결정과 함께. */}
+                    {!chosen && !inProgress && !isSettled && r.status === "open" && (
+                      <div style={{ display:"flex", gap:S.sm, marginTop:S.xl, paddingTop:S.lg, borderTop:`1px solid ${C.bgWarm}` }}>
+                        <button onClick={() => setEditRequest(r)}
+                          style={{ flex:1, padding:"10px", background:C.brandL, color:C.brand, border:`1px solid ${C.brandM}`, borderRadius:R.lg, fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                          요청 고치기
+                        </button>
+                        <button onClick={() => handleCancelMyRequest(r)}
+                          style={{ flex:1, padding:"10px", background:C.surface, color:C.text3, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                          요청 취소
+                        </button>
+                      </div>
+                    )}
+                    {!chosen && !inProgress && r.status === "open" && (r.bidCount ?? 0) > 0 && (
+                      <div style={{ fontSize:11.5, color:C.text4, marginTop:6 }}>입찰이 들어온 뒤에는 예산은 바꿀 수 없어요 · 다른 내용은 고칠 수 있어요</div>
+                    )}
                   </div>
                 </div>
               );
