@@ -9,7 +9,8 @@
 // 미설정 시 graceful no-op.
 // ─────────────────────────────────────────────────────
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import { sessionUserId } from "../../src/lib/sessionToken.server.js";
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -151,16 +152,12 @@ export function decidePushGate(pref, type) {
 // POST /api/push/enqueue  { action: "stats", adminId }  (+ sentinel 이면 x-admin-code 헤더)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function verifyAdmin(adminId, req) {
-  if (UUID_RE.test(adminId)) {
-    const { data: me } = await db.from("users").select("id, role").eq("id", adminId).maybeSingle();
-    return me && me.role === "admin";
-  }
-  if (adminId === "admin") {
-    const expected = process.env.ADMIN_CODE || process.env.VITE_ADMIN_CODE || "";
-    return !!expected && String(req.headers["x-admin-code"] ?? "") === expected;
-  }
-  return false;
+// 관리자 확인 — 로그인 토큰(Authorization: Bearer)의 사용자가 관리자일 때만(09-25, 예전 adminId · 관리자 코드 믿음 제거).
+async function verifyAdmin(_adminId, req) {
+  const uid = sessionUserId(req);
+  if (!uid) return false;
+  const { data: me } = await db.from("users").select("id, role").eq("id", uid).maybeSingle();
+  return !!me && me.role === "admin";
 }
 
 async function pushStats() {

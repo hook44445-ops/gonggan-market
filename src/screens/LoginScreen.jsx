@@ -7,6 +7,7 @@ import CompanyOnboarding from "./CompanyOnboarding";
 import { upsertUserByPhone, signupUserByPhone, getUserByPhone } from "../lib/supabase";
 import { IDENTITY_READY, startIdentityVerification, completeIdentityVerification, takeIdentityReturn } from "../lib/identity";
 import { getKnownUsers, knownUserToSession } from "../lib/deviceAuth";
+import { holdSignupTicket, exchangeSignupTicket } from "../lib/session";
 import { SHOW_DEBUG_UI } from "../constants/release";
 
 // 기기 인증 후 OTP 없는 재로그인은 App 의 AccountPicker(기기 인증)가 담당한다.
@@ -94,8 +95,9 @@ export default function LoginScreen({ onLogin, initialRole }) {
       if (data.user) {
         const isAdmin = data.user.role === "admin";
         const role = isAdmin ? "admin" : "company";
-        onLogin({ ...data.user, role, activeRole: role, isOperator: data.user.is_operator === true });
+        onLogin({ ...data.user, role, activeRole: role, isOperator: data.user.is_operator === true, sessionToken: data.token ?? null });
       } else {
+        holdSignupTicket(data.signupTicket);   // 가입 뒤 로그인 토큰으로 바꾼다(lib/session)
         // 새 업체 — 인증된 번호·이름으로 3단계 가입을 잇는다(번호는 서버가 확인한 값).
         setPhone(data.phone ?? "");
         setVerifiedName(data.name ?? "");
@@ -185,8 +187,9 @@ export default function LoginScreen({ onLogin, initialRole }) {
         const isAdmin = dbRole === "admin";
         const isOperator = data.user.is_operator === true || dbRole === "operator";
         const userRole = isAdmin ? "admin" : (pendingRole || dbRole || "consumer");
-        onLogin({ ...data.user, role: userRole, activeRole: userRole, isOperator });
+        onLogin({ ...data.user, role: userRole, activeRole: userRole, isOperator, sessionToken: data.token ?? null });
       } else {
+        holdSignupTicket(data.signupTicket);   // 가입 뒤 로그인 토큰으로 바꾼다(lib/session)
         // New user: go to onboarding with pendingRole
         setStep(3);
         setMsg("");
@@ -199,9 +202,9 @@ export default function LoginScreen({ onLogin, initialRole }) {
   };
 
   const handleAdminCode = () => {
-    const envCode = import.meta.env.VITE_ADMIN_CODE;
+    const envCode = null /* 관리자 코드 로그인 없앰 — 코드가 공개 JS 파일에 들어 있었다(09-25). 관리자는 전화번호 인증 관리자 계정으로 */;
     if (!envCode) {
-      setAdminCodeError("관리자 접근이 구성되지 않았습니다");
+      setAdminCodeError("관리자는 전화번호 인증으로 관리자 계정에 들어와 주세요");
       return;
     }
     if (adminCode === envCode) {
@@ -241,12 +244,13 @@ export default function LoginScreen({ onLogin, initialRole }) {
       return setMsg(`❌ 저장 실패 [${error.code ?? "?"}] ${error.message ?? ""}`
         + `${error.details ? " · " + error.details : ""}${error.hint ? " · " + error.hint : ""}`);
     }
-    onLogin(data ? { ...data, activeRole: "consumer" } : { ...profile, activeRole: "consumer" });
+    const sessionToken = data?.id ? await exchangeSignupTicket() : null;
+    onLogin(data ? { ...data, activeRole: "consumer", sessionToken } : { ...profile, activeRole: "consumer" });
   };
 
   const handleBypassLogin = async () => {
     if (!SHOW_DEBUG_UI) return; // bypass 완전 차단 (production)
-    const envCode = import.meta.env.VITE_ADMIN_CODE;
+    const envCode = null /* 관리자 코드 로그인 없앰 — 코드가 공개 JS 파일에 들어 있었다(09-25). 관리자는 전화번호 인증 관리자 계정으로 */;
     if (!envCode || bypassCode !== envCode) {
       setBypassCodeError("코드가 올바르지 않습니다");
       return;

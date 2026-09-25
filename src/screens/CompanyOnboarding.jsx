@@ -17,6 +17,7 @@
 import { useState } from "react";
 import { C, R, S, SPECIALTIES } from "../constants";
 import { signupUserByPhone, upsertCompany } from "../lib/supabase";
+import { exchangeSignupTicket } from "../lib/session";
 import { toE164KR } from "../lib/testAccounts";
 import RegionSelectSheet from "../components/RegionSelectSheet";
 import { getPrimaryRegion, regionKey } from "../constants/regions";
@@ -79,7 +80,9 @@ export default function CompanyOnboarding({ phone, verifiedName = "", onDone }) 
         early_partner_benefit_until: until.toISOString(),
       });
       if (cErr) throw cErr;
-      setJoined(userRow);
+      // 가입 뒤 로그인 토큰(인증 때 받은 가입 표로) — onDone 이 App.handleLogin 으로 넘긴다.
+      const sessionToken = await exchangeSignupTicket();
+      setJoined(sessionToken ? { ...userRow, sessionToken } : userRow);
     } catch {
       setError("가입을 마치지 못했어요. 잠시 후 다시 시도해 주세요.");
     } finally {

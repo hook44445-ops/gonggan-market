@@ -17,6 +17,7 @@ import { getUserByPhone, verifyOperatorPin, recordAppVisit } from "./lib/supabas
 import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
 } from "./lib/deviceAuth";
+import { saveSessionToken, setCurrentUserId, clearSessionTokens } from "./lib/session";
 
 const SESSION_TS_KEY   = "gonggan_login_at";
 const SESSION_USER_KEY = "gonggan_user";
@@ -184,6 +185,9 @@ export default function App() {
   // (supabase.auth 이벤트로는 커스텀 전화번호 세션을 건드리지 않음)
 
   const handleLogin = (u) => {
+    // 로그인 토큰(서버 서명) — 인증번호 확인 · 가입 뒤 받은 것을 기기에 둔다(lib/session). 없으면 예전처럼.
+    if (u?.sessionToken && u?.id) saveSessionToken(u.id, u.sessionToken);
+    setCurrentUserId(u?.isGuest ? null : (u?.id ?? null));
     dlog("[GONGGAN_DEBUG][App:handleLogin]", { userId: u?.id ?? null, role: u?.role ?? null, activeRole: u?.activeRole ?? null, ownerId: u?.ownerId ?? null, isGuest: u?.isGuest ?? false });
     if (!u.isGuest) {
       saveSession(u);
@@ -215,6 +219,7 @@ export default function App() {
   // 이후에는 전화번호 인증 화면부터 다시 시작한다.
   const handleForgetDevice = () => {
     clearDeviceAuth();
+    clearSessionTokens();   // 완전 로그아웃 — 로그인 토큰도
     clearSession();
     setUser(null);
     setPendingRole(null);
@@ -367,7 +372,7 @@ export default function App() {
   }
 
   const handleAdminLogin = async () => {
-    const adminCode = import.meta.env.VITE_ADMIN_CODE;
+    const adminCode = null /* 관리자 코드 로그인 없앰 — 코드가 공개 JS 파일에 들어 있었다(09-25). 관리자는 전화번호 인증 관리자 계정으로 */;
 
     // 1) 대표 관리자코드 로그인(기존 유지) — adminId='admin' 일 때만.
     if (adminId === "admin") {
