@@ -29,6 +29,10 @@ const PROJECT_STATUS_LABEL = {
   in_progress: "공사 진행 중",
   completed: "공사 완료",
 };
+// 공사 카드의 «지금 어디쯤» — 6칸 점 막대 + 힉스필드 단계 그림(/images/escrow, 공사 화면과 같은 가족)
+const PROJECT_PHASES = ["선택", "현장방문", "최종 견적", "결제", "공사", "완료"];
+const PROJECT_PHASE_OF = { site_visit: 1, site_visiting: 1, final_quote_submitted: 2, escrow_pending: 3, contracting: 3, in_progress: 4, completed: 5 };
+const PROJECT_ART_OF = { 1: 1, 2: 1, 3: 1, 4: 3, 5: 5 };
 
 // 채팅 메시지 표시 시간 — DB(timestamptz)는 UTC 로 저장/유지하고, 화면만 Asia/Seoul 로
 //   변환한다. 기존 getHours() 는 기기/브라우저(카카오 인앱 등) timezone 을 따라가서 UTC
@@ -524,10 +528,24 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
       {!isLounge && project && (
         <div style={{ background:C.surface, borderBottom:`1px solid ${C.bgWarm}`, padding:"10px 16px",
           display:"flex", alignItems:"center", gap:10 }}>
+          <img src={`/images/escrow/stage${PROJECT_ART_OF[PROJECT_PHASE_OF[project.status] ?? 1] ?? 1}.webp`} alt="" aria-hidden="true"
+            width={52} height={52} style={{ width:52, height:52, borderRadius:R.lg, objectFit:"cover", flexShrink:0, background:"#F7F1E6", alignSelf:"flex-start" }} />
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:11, fontWeight:800, color:C.brand, marginBottom:2 }}>{PROJECT_STATUS_LABEL[project.status] ?? "진행 중"}</div>
             <div style={{ fontSize:13, fontWeight:700, color:C.text1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
               {[project.space_type, project.size, project.region].filter(Boolean).join(" · ") || "공사"}
+            </div>
+            {/* 지금 어디쯤 — 지난 칸 채움 · 지금 칸 길게 */}
+            <div aria-label={`공사 ${PROJECT_PHASES.length}단계 중 ${(PROJECT_PHASE_OF[project.status] ?? 0) + 1}단계`}
+              style={{ display:"flex", gap:3, margin:"6px 0 2px" }}>
+              {PROJECT_PHASES.map((t, i) => {
+                const cur = PROJECT_PHASE_OF[project.status] ?? 0;
+                return <span key={t} title={t} style={{ height:4, borderRadius:R.full, flex: i === cur ? 2.2 : 1,
+                  background: i < cur ? C.brandM : i === cur ? C.brand : C.bgWarm }} />;
+              })}
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:9.5, color:C.text4, marginBottom:2 }}>
+              <span>선택</span><span>완료</span>
             </div>
             {/* 서로 존중의 약속 — 이 방의 약속이 내 평판에 남는다(역할별, 서버 규칙과 같은 문구) */}
             <div style={{ fontSize:11, color:C.text3, lineHeight:1.55, marginTop:3 }}>
