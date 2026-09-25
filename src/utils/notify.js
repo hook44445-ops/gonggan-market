@@ -44,6 +44,11 @@ export const NOTIF_META = {
   CO_ESCROW_MID_CHECK:     { tier: NOTIF_TIER.PROGRESS, icon: "🛡️", priority: "HIGH" },
   CO_CONSTRUCTION_DONE:    { tier: NOTIF_TIER.PROGRESS, icon: "🎉", priority: "HIGH" },
   CO_SETTLEMENT_DONE:      { tier: NOTIF_TIER.PROGRESS, icon: "💰", priority: "HIGH" },
+  // 착공·중간 승인 — 예전엔 완료 승인에만 알림이 가서, 업체가 다음 단계로 넘어가도 되는지 몰랐다(09-25)
+  CO_STAGE_APPROVED:       { tier: NOTIF_TIER.PROGRESS, icon: "✅", priority: "NORMAL" },
+  // 48시간 자동 승인(서버 112) — 고객에게 12시간 전 알림, 승인 뒤 양쪽에 통지
+  STAGE_APPROVE_REMINDER:  { tier: NOTIF_TIER.PROGRESS, icon: "⏳", priority: "HIGH" },
+  STAGE_AUTO_APPROVED:     { tier: NOTIF_TIER.PROGRESS, icon: "✅", priority: "HIGH" },
   CO_DISPUTE_FILED:        { tier: NOTIF_TIER.PROGRESS, icon: "⚠️", priority: "HIGH" },
   // ── 2단계 관심 ──────────────────────────────────────────
   REGION_NEW_COMPANY:    { tier: NOTIF_TIER.INTEREST, icon: "📍", priority: "NORMAL" },

@@ -911,20 +911,27 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         }
       }
 
-      // 업체에 '최종 정산 완료' 알림 — 고객 완료 승인 시점 1회. (MainApp 미러 효과는 SETTLED 를
-      // companyJobs 에서 제외하므로 여기서 직접 발송. 승인 핸들러는 클릭당 1회라 중복 없음.)
-      if (stageId === 5 && !stepFailed) {
+      // 업체에 승인 알림 — 예전엔 완료 승인(5)에만 보내, 착공·중간 승인은 대화방 기록만 남았다.
+      // 업체는 다음 단계로 넘어가도 되는지 알 길이 없었다(점검 6차 09-25). 이제 3·4·5 모두 보낸다.
+      if (!stepFailed) {
         const coOwnerId = resolvedBid?.company?.ownerId ?? null;
         const coReqId = request?.id ?? resolvedBid?.requestId ?? contractData?.request_id ?? null;
-        if (coOwnerId && coReqId) {
+        const word = { 3: "착공", 4: "중간 점검" }[stageId] ?? null;
+        if (coOwnerId && coReqId && (stageId === 5 || word)) {
+          const done = stageId === 5;
           createNotification({
             userId:      coOwnerId,
-            type:        "CO_SETTLEMENT_DONE",
-            title:       "최종 정산 완료",
-            message:     "고객이 완료를 승인했어요 🎉 최종 정산이 마무리됐습니다.",
+            type:        done ? "CO_SETTLEMENT_DONE" : "CO_STAGE_APPROVED",
+            title:       done ? (PAYMENTS_LIVE ? "최종 정산 완료" : "공사 완료 확인됨")
+                              : `${word} 승인됨`,
+            message:     done
+              ? (PAYMENTS_LIVE ? "고객이 완료를 승인했어요 — 최종 정산이 마무리됐습니다."
+                               : "고객이 완료를 확인했어요. 수고하셨습니다 — 대금은 계약서대로 주고받아요.")
+              : (PAYMENTS_LIVE ? `고객이 ${word} 사진을 확인했어요 — 해당 단계가 지급 승인됐습니다.`
+                               : `고객이 ${word} 사진을 확인했어요 — 다음 단계로 넘어가도 돼요.`),
             relatedId:   coReqId,
             relatedType: "escrow",
-            priority:    "HIGH",
+            priority:    done ? "HIGH" : "NORMAL",
           }).catch(() => {});
         }
       }
