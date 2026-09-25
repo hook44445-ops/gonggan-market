@@ -9,6 +9,7 @@ import { useState } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_BETA_UI } from "../constants/release"; // 베타: 공간보증 사전신청 문구
 import { selectCompanyGuarantee } from "../lib/supabase";
+import { gradeOpens } from "../lib/partnerTier";
 import {
   GUARANTEE_GRADES, GUARANTEE_GRADE_MAP, GUARANTEE_STATUS_META,
   GUARANTEE_FLOW_STEPS, wonFromManwon, guaranteeEmblemFile,
@@ -90,11 +91,18 @@ export default function GuaranteeCard({ company, actorId, onChange }) {
                   style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left",
                     background: sel ? C.brandL : C.surface2, border: `1.5px solid ${sel ? C.brand : C.bgWarm}`,
                     borderRadius: R.lg, padding: "12px 14px", cursor: "pointer" }}>
-                  <img src={`/images/emblem/${guaranteeEmblemFile(g.key)}-sm.webp`} alt="" width={44} height={44}
-                    style={{ width: 44, height: 44, flexShrink: 0, display: "block" }} />
+                  {/* 높은 등급은 장식(별살)이 커서 본체가 작아 보인다 — 본체를 베이직과 맞추고 장식은 칸 밖으로(LevelEmblem 과 같은 방식) */}
+                  <span style={{ position: "relative", width: 44, height: 44, flexShrink: 0 }}>
+                    <img src={`/images/emblem/${guaranteeEmblemFile(g.key)}-sm.webp`} alt="" width={64} height={64}
+                      style={{ position: "absolute", left: "50%", top: "50%", display: "block",
+                        width: g.key === "BASIC" ? 44 : 64, height: g.key === "BASIC" ? 44 : 64, transform: "translate(-50%, -50%)" }} />
+                  </span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>{g.label}</div>
                     <div style={{ fontSize: 12, color: C.text3 }}>예치금 {wonFromManwon(g.amount)}</div>
+                    {gradeOpens(g.amount).map(t => (
+                      <div key={t} style={{ fontSize: 11.5, color: C.brand, fontWeight: 700, marginTop: 2, lineHeight: 1.5 }}>· {t}</div>
+                    ))}
                   </div>
                   {sel && <span style={{ color: C.brand, fontWeight: 900 }}>✓</span>}
                 </button>
@@ -116,7 +124,8 @@ export default function GuaranteeCard({ company, actorId, onChange }) {
       ) : (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 12, background: C.surface2, borderRadius: R.lg, padding: "14px 16px", marginBottom: S.md }}>
-            <span style={{ fontSize: 30 }}>{grade?.emoji ?? "🛡"}</span>
+            <img src={`/images/emblem/${guaranteeEmblemFile(grade?.key)}-sm.webp`} alt="" width={48} height={48}
+              style={{ width: 48, height: 48, flexShrink: 0, display: "block" }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 16, fontWeight: 900, color: C.text1 }}>{grade?.label ?? "—"}</div>
               <div style={{ fontSize: 13, color: C.text2, fontWeight: 700 }}>예치금 {amount != null ? wonFromManwon(amount) : "—"}</div>
