@@ -7,7 +7,7 @@ import CompanyOnboarding from "./CompanyOnboarding";
 import { upsertUserByPhone, signupUserByPhone, getUserByPhone } from "../lib/supabase";
 import { IDENTITY_READY, startIdentityVerification, completeIdentityVerification, takeIdentityReturn } from "../lib/identity";
 import { getKnownUsers, knownUserToSession } from "../lib/deviceAuth";
-import { holdSignupTicket, exchangeSignupTicket } from "../lib/session";
+import { holdSignupTicket, exchangeSignupTicket, getSessionToken } from "../lib/session";
 import { SHOW_DEBUG_UI } from "../constants/release";
 
 // 기기 인증 후 OTP 없는 재로그인은 App 의 AccountPicker(기기 인증)가 담당한다.
@@ -141,7 +141,9 @@ export default function LoginScreen({ onLogin, initialRole }) {
     // 단, '선택한 역할(pendingRole)'을 우선한다. 같은 번호로 의뢰인/업체를 모두 쓸 수 있어야
     // 하므로, 선택 역할 계정이 이미 있으면 그걸 복원하고, 없으면 같은 번호 기준으로 역할만 바꿔
     // 즉시 세션을 구성한다(SMS 생략, 업체 계정 최초 생성도 이 경로로 처리).
-    const known = findKnownByPhone(phone);
+    // 단, 로그인 토큰(lib/session)이 살아 있을 때만 — 없으면 인증번호를 받아 토큰을 새로 받는다(09-25 보안).
+    const knownAny = findKnownByPhone(phone);
+    const known = knownAny && getSessionToken(knownAny.userId) ? knownAny : null;
     if (known) {
       const targetRole = pendingRole || known.role;
       const target = phoneDigits(toE164(phone));
