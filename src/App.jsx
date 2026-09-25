@@ -17,7 +17,7 @@ import { getUserByPhone, verifyOperatorPin, recordAppVisit } from "./lib/supabas
 import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
 } from "./lib/deviceAuth";
-import { saveSessionToken, setCurrentUserId, clearSessionTokens } from "./lib/session";
+import { saveSessionToken, setCurrentUserId, clearSessionTokens, getSessionToken } from "./lib/session";
 
 const SESSION_TS_KEY   = "gonggan_login_at";
 const SESSION_USER_KEY = "gonggan_user";
@@ -256,6 +256,13 @@ export default function App() {
     } catch {}
     setPickBusyId(null);
     const restored = fresh ?? base;
+    // 관리자는 로그인 토큰이 있어야 한다(관리자 함수는 토큰으로만 열린다 · 09-25) — 없으면 인증번호로.
+    if ((restored?.activeRole ?? restored?.role) === "admin" && !getSessionToken(restored?.id)) {
+      setShowAccountPicker(false);
+      setPendingRole(null);
+      setPhoneAuthMode(true);
+      return;
+    }
     dlog("[GONGGAN_DEBUG][AccountPicker:restore]", { using: fresh ? "server(fresh)" : "snapshot(base)", restoredUserId: restored?.id ?? null, restoredRole: restored?.activeRole ?? restored?.role ?? null, ownerId: restored?.ownerId ?? null });
     handleLogin(restored);
   };
