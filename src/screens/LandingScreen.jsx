@@ -28,6 +28,13 @@ const SANS = "'Pretendard Variable','Pretendard','Apple SD Gothic Neo',sans-seri
 // «예시»로 표시해 채우고, 하나도 없으면 칸을 숨긴다. 의뢰인 홈 「시공 사례」와 같은 정리(normalizeShowcases).
 const CASE_COUNT = 3;
 
+// 견적 비교 예시 — 화면에 «예시»로만 쓴다(실제 업체·실제 견적 아님). 같은 요청(아파트 부분 · 도배+바닥 · 20평대) 기준.
+const COMPARE_SAMPLE = [
+  { name: "예시 업체 A", price: "460만원", days: "4일", warranty: "1년", note: "자재 등급 표시", proofs: ["biz", "insurance"] },
+  { name: "예시 업체 B", price: "430만원", days: "5일", warranty: "6개월", note: "자재 미정", proofs: ["biz"] },
+  { name: "예시 업체 C", price: "520만원", days: "3일", warranty: "2년", note: "현장 실측 포함", proofs: ["biz", "insurance", "deposit"] },
+];
+
 // ── 여정 네 마디 — 랜딩의 뼈대 (2026-09-23) ─────────────────────────────────
 // 왜 이걸 넣나: 지금까지 랜딩 구조가 경쟁사(견적 매칭 앱)와 같았다 — 히어로 → 사례 → CTA → 설명.
 //   전부 «매칭까지»만 말한다. 그런데 공간마켓이 실제로 가진 것은 매칭 «이후»다:
@@ -173,8 +180,8 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         {/* ── HERO ──────────────────────────────────────────────────── */}
         <div className="gm-hero" style={{ position: "relative", borderRadius: 28, overflow: "hidden",
           margin: "20px 0 36px", minHeight: 560, background: "#E8E0D1", display: "flex", alignItems: "center" }}>
-          <div className="gg-drift" style={{ position: "absolute", inset: 0, backgroundImage: `url('/images/living.webp')`,
-            backgroundSize: "cover", backgroundPosition: "center", filter: "saturate(.88) brightness(.94)" }} />
+          <div className="gg-drift" style={{ position: "absolute", inset: 0, backgroundImage: `url('/images/landing/hero-warm.webp')`,   // 힉스필드 09-25 — 따뜻한 완성 공간(사람·글자 없음)
+            backgroundSize: "cover", backgroundPosition: "72% center" }} />
           <div className="gm-hero-ov" style={{ position: "absolute", inset: 0 }} />
           <div className="gm-hero-ct" style={{ position: "relative", zIndex: 2, padding: "36px 32px", maxWidth: 440 }}>
             <div style={{ display: "inline-flex", gap: 6, alignItems: "center", background: SK.forest,
@@ -198,6 +205,46 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
                 <span key={t} style={{ fontSize: 11, color: "#6B6560" }}>{t}</span>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* ── 견적 비교 예시 — «같은 조건으로 비교»를 말로만 하지 않고 보여 준다(대표 09-25 「맡기고 싶어지는지」).
+             예시임을 분명히(가짜 업체·가짜 숫자를 실제처럼 쓰지 않는다). 엠블럼은 앱 입찰 비교 카드와 같은 그림. ── */}
+        <div style={{ padding: "0 0 36px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: SK.gold, letterSpacing: "0.12em" }}>이렇게 비교해요</div>
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: "#fff", background: SK.forest, borderRadius: 999, padding: "2px 8px" }}>예시</span>
+          </div>
+          <h2 style={{ fontSize: "clamp(20px,4.5vw,26px)", fontWeight: 800, letterSpacing: "-0.03em", margin: "0 0 6px", lineHeight: 1.35 }}>
+            같은 요청, 업체마다 다른 견적을 나란히
+          </h2>
+          <p style={{ fontSize: 13, color: SK.muted, lineHeight: 1.7, margin: "0 0 14px", wordBreak: "keep-all" }}>
+            금액만이 아니라 기간 · 하자보수 · 업체가 낸 증빙을 한 줄로 봅니다. (아래는 모양을 보여 드리는 예시예요)
+          </p>
+          <div style={{ display: "grid", gap: 10 }}>
+            {COMPARE_SAMPLE.map((b) => (
+              <div key={b.name} style={{ background: SK.surface, border: `1px solid ${b.best ? SK.gold : SK.line}`, borderRadius: 18,
+                padding: "14px 16px", boxShadow: b.best ? "0 6px 20px rgba(200,168,106,.18)" : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                  <b style={{ fontSize: 15, letterSpacing: "-0.02em" }}>{b.name}</b>
+                  <b style={{ fontSize: 18, color: SK.forest, fontVariantNumeric: "tabular-nums" }}>{b.price}</b>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#3A4A40", marginTop: 4 }}>공사 {b.days} · 하자보수 {b.warranty} · {b.note}</div>
+                <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                  {[["biz", "사업자"], ["insurance", "시공보험"], ["deposit", "보증금"]].map(([k, label]) => {
+                    const on = b.proofs.includes(k);
+                    return (
+                      <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 700,
+                        color: on ? SK.forest : "#B3ADA4" }}>
+                        <img src={`/images/emblem/${k}-sm.webp`} alt="" aria-hidden="true" width="22" height="22"
+                          style={{ width: 22, height: 22, objectFit: "contain", filter: on ? "none" : "grayscale(1)", opacity: on ? 1 : .35 }} />
+                        {label}{on ? " ✓" : ""}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -237,7 +284,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
                   <div style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 6,
                     background: "#F4F1EB", border: `1px solid ${SK.line}`, borderRadius: 999, padding: "4px 11px",
                     fontSize: 11.5, fontWeight: 700, color: "#5A6B60" }}>
-                    앱 화면 · {j.proof}
+                    앱에서 · {j.proof}
                   </div>
                 </div>
               </div>
@@ -300,13 +347,11 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           </p>
           {/* 기능을 불릿으로 늘어놓지 않는다 — 흐름 세 마디로(검색 문구는 위 소개문에 그대로 있다) */}
           <div style={{ marginTop: 26 }}>
+            {/* 위 «공사 한 건이 지나가는 길»과 겹치던 세 마디 대신, 처음 온 고객의 걱정 세 가지에 답한다(대표 09-25). */}
             {[
-              ["견적을 모은다", "요청 한 번으로 우리 동네 업체들의 견적을 받고, 금액·기간·기록을 나란히 비교합니다."],
-              ["이야기를 나눈다", "업체와 앱 안에서 상담하고, 현장 사진과 주고받은 말이 그대로 남습니다."],
-              [SHOW_BETA_UI ? "기록으로 남긴다" : "단계로 정산한다",
-               SHOW_BETA_UI
-                 ? "착공·중간·완료 사진과 계약 내용이 단계마다 쌓여, 나중에 다시 볼 수 있습니다."
-                 : "착공·중간·완료를 확인할 때마다 단계별로 정산합니다."],
+              ["견적만 받아 보고 결정해도 돼요", "받은 견적은 비교만 해도 괜찮아요. 업체를 고르기 전에는 언제든 요청을 그만둘 수 있어요."],
+              ["증빙은 관리자가 확인한 것만", "사업자등록 · 시공보험 · 보증금 표시는 서류를 관리자가 확인한 업체에만 붙어요. 사업자 확인 전 업체는 입찰할 수 없어요."],
+              ["단계마다 사진으로 확인", "착공 · 중간 · 완료 사진을 보고 확인하면 다음 단계로 넘어가요. 48시간 안에 확인이 없으면 자동으로 넘어가니 알림을 켜 두세요."],
             ].map(([t, d], i) => (
               <div key={t} style={{ display: "flex", gap: 16, padding: "16px 0", borderTop: i === 0 ? "none" : `1px solid ${SK.line}` }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: SK.muted, letterSpacing: "0.08em", paddingTop: 3, flexShrink: 0 }}>
@@ -360,7 +405,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
       {/* 여정 카드 — 넓은 화면에서 2열, 아주 넓으면 사진이 왼쪽으로 */}
       {/* 반응형 · 카드 hover · 히어로 오버레이(A17 수직/데스크탑 수평) · 고정 CTA 게이트 */}
       <style>{`
-        .gm-hero-ov{ background: linear-gradient(180deg, rgba(249,246,242,.88) 0%, rgba(249,246,242,.92) 50%, rgba(249,246,242,.65) 100%) }
+        .gm-hero-ov{ background: linear-gradient(180deg, rgba(249,246,242,.86) 0%, rgba(249,246,242,.74) 55%, rgba(249,246,242,.12) 100%) }   /* 폰: 아래로 갈수록 사진이 살아나게(예전엔 전체가 흰 막으로 덮여 사진이 안 보였다) */
         @media (min-width: 600px){ .gm-hero-ov{ background: linear-gradient(90deg, #F9F6F2 0%, rgba(249,246,242,.92) 38%, rgba(249,246,242,.15) 72%, transparent 100%) } }
         @media (min-width: 780px){ .gm-grid{ grid-template-columns: repeat(3,1fr) } .gm-hero{ min-height: 620px } .gm-hero-ct{ max-width: 500px; padding: 48px } }
         @media (min-width: 780px){ .gm-journey{ grid-template-columns: repeat(2,1fr); gap: 18px } }
