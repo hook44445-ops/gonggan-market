@@ -520,11 +520,16 @@ function isRequestSettled(r, escrowData) {
   const escrow = escrowData?.escrow ?? null;
   if (escrow) {
     const tx = escrow.transaction_status;
-    // 2) 정산 완료(SETTLED) 또는 완료 보고(COMPLETED) → 완료.
-    if (tx === "SETTLED" || tx === "COMPLETED") return true;
+    // 2) 정산 완료(SETTLED) → 완료.
+    if (tx === "SETTLED") return true;
     // 완료 기록: 완료 단계(stage4) payout 승인 → 완료.
     const payout4 = (escrowData?.payouts ?? []).find(p => p.stage === 4);
     if (payout4?.status === "APPROVED") return true;
+    // 2-b) COMPLETED 는 업체가 완료를 «보고»한 상태 — 고객 승인 전이다(F6, 점검 6차 09-25).
+    //   완료 지급 줄이 READY(고객 확인 대기)면 아직 완료가 아니다. 예전엔 여기서 완료로 보고
+    //   홈 카드를 지워, 고객은 마이 › 계약·공사 기록에서만 「완료 사진 확인하기」를 찾을 수 있었다.
+    //   지급 줄을 못 읽은 경우(payout4 없음)는 예전처럼 완료로 둔다(안전한 기본값).
+    if (tx === "COMPLETED" && payout4?.status !== "READY") return true;
     // 3·4) MID_INSPECTION/STARTED 는 완료 아님 → isRequestInProgress(hasActiveEscrow)가 진행중 분류.
   }
   // 5) 그 외 raw status 가 명시적 완료면 active 에서 제외

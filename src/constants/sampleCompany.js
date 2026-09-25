@@ -18,12 +18,14 @@ export const SAMPLE_COMPANY = {
   responseTime: "1시간 이내",
   avgResponseHours: 1,
   completedJobs: 42,
+  rating: 4.9,                    // 견본 평점 — 화면마다 「예시」로 표시된다
   recontractRate: 30,
   asRate: 98,
   years: 8,
   specialties: ["아파트 전체", "욕실", "주방"],
   desc: "공간마켓에 입점한 업체는 이렇게 보여요. 시공 사진·후기·응답 속도가 한눈에 모입니다.",
   cover: P + "cover.webp",
+  logo: P + "logo.webp",          // 업체 얼굴 — 프로필 아바타(힉스필드 견본)
   portfolio: [
     { id: "s1", type: "아파트 전체", title: "32평 거실 전체 리모델링", area: "32평", tags: ["도배", "바닥", "조명"],
       beforePhotos: [P + "living-before.webp"], afterPhotos: [P + "living-after.webp", P + "cover.webp"],
