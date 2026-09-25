@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { MIN_BID_MANWON, isValidBidManwon } from "../utils/calculations";
 import { bidLimit, limitText, unlockFor, unlockMessage, limitStateOf, partnerTier, cardNudge, cardPreviewLimit } from "../lib/partnerTier";
 import { trustState } from "./TrustEmblems";
+import { MAX_BIDS_PER_REQUEST } from "../lib/reversalRule";
 import SpaceActivityRecord from "./SpaceActivityRecord"; // v5.5: 공간 활동기록 요약(Add Only)
 import { TempBadge } from "./common";
 import GuaranteeBadge from "./GuaranteeBadge";
@@ -279,6 +280,15 @@ export default function BidCard({
                     ✏️ 입찰 수정
                   </button>
                 )}
+              </div>
+            </div>
+          ) : (!isClosed && (Number(r.bidCount ?? r.bids) || 0) >= MAX_BIDS_PER_REQUEST) ? (
+            /* 입찰 5곳이 찼다(E17, 서버 128) — 좋은 업체가 헛수고하지 않게 */
+            <div key="cap" style={{ background: "#F8F5F0", borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, border: `1px solid ${C.bgWarm}` }}>
+              <span style={{ fontSize: 16 }}>🔒</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text3 }}>입찰 마감 · {MAX_BIDS_PER_REQUEST}곳이 입찰했어요</div>
+                <div style={{ fontSize: 11, color: C.text4, marginTop: 1 }}>요청 하나에 {MAX_BIDS_PER_REQUEST}곳까지 받아요 — 다음 요청을 기다려 주세요</div>
               </div>
             </div>
           ) : isClosed ? (
