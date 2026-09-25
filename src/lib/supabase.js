@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { safeStorageKey } from "./storageKey.js";
 import { authedDb, getCurrentUserId, isGuardedRpc, authHeader } from "./session";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { detectDirectDealKeywords } from "../constants/directDeal";
@@ -602,13 +603,16 @@ export const signedDocUrl = async (value, expiresIn = 600) => {
 };
 
 /** 민감 서류 업로드 — 공개 주소를 만들지 않고 «버킷/경로» 를 돌려준다(이 값을 DB 에 저장). */
-export const uploadDocument = async (bucket, path, file) => {
+// 파일 이름에 한글이 있으면 Storage 가 「Invalid key」로 거절한다 → 올리기 두 함수에서 한 번에 안전한 이름으로(점검 6차 09-25).
+export const uploadDocument = async (bucket, rawPath, file) => {
+  const path = safeStorageKey(rawPath);
   const { data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
   if (error) throw error;
   return `${bucket}/${data?.path ?? path}`;
 };
 
-export const uploadFile = async (bucket, path, file) => {
+export const uploadFile = async (bucket, rawPath, file) => {
+  const path = safeStorageKey(rawPath);
   const { data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
   if (error) throw error;
   // Use data.path (canonical path returned by storage) for getPublicUrl

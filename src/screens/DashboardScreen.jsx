@@ -3,7 +3,7 @@ import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { BIZ_GRACE_HOURS } from "../lib/contractGate";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S, SHADOW } from "../constants";
-import { SHOW_DEBUG_UI } from "../constants/release";
+import { SHOW_DEBUG_UI, PAYMENTS_LIVE } from "../constants/release";
 import { TempBadge, LeafSprig } from "../components/common";
 import BidCard from "../components/BidCard";
 import SpaceActivityRecord from "../components/SpaceActivityRecord"; // v5.4.0: 공간 활동기록(Add Only)
@@ -513,7 +513,7 @@ export default function DashboardScreen({
                       </div>
                       <div style={{ marginBottom:6 }}>
                         <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:C.text3, marginBottom:4 }}>
-                          <span>{job.contracted ? `공사비 ${job.paid}% 지급됨` : "계약 전 · 최종 견적·결제 대기"}</span>
+                          <span>{job.contracted ? (PAYMENTS_LIVE ? `공사비 ${job.paid}% 지급됨` : `확정된 단계 ${job.paid}%`) : (PAYMENTS_LIVE ? "계약 전 · 최종 견적·결제 대기" : "계약 전 · 최종 견적 대기")}</span>
                           {job.dDay != null && <span>D-{job.dDay}</span>}
                         </div>
                         <div style={{ background:C.bgWarm, borderRadius:R.full, height:4, overflow:"hidden" }}>
