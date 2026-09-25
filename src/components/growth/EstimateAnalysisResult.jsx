@@ -12,7 +12,7 @@ export default function EstimateAnalysisResult({ result, onClose }) {
       onClick={onClose}
       style={{
         position: "fixed", inset: 0, zIndex: 620,
-        background: "rgba(6,11,22,0.62)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
+        background: "rgba(8,20,14,0.62)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
         display: "flex", alignItems: "center", justifyContent: "center", padding: "0 22px",
       }}
     >
@@ -20,21 +20,21 @@ export default function EstimateAnalysisResult({ result, onClose }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%", maxWidth: 380, maxHeight: "86vh", overflowY: "auto",
-          background: "linear-gradient(135deg,#0C1526,#13203A)",
-          border: "1px solid rgba(255,255,255,0.1)", borderRadius: 22, padding: "26px 22px",
+          background: "linear-gradient(135deg,#0E2B1D,#173A28)",
+          border: "1px solid rgba(214,167,86,0.35)", borderRadius: 22, padding: "26px 22px",
           boxShadow: "0 20px 60px rgba(5,10,22,0.6)",
         }}
       >
         {/* 점수 + XP */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#7FA8E0", marginBottom: 8 }}>성실견적 분석</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#D6A756", marginBottom: 8 }}>성실견적 분석</div>
           <div style={{ fontSize: 46, fontWeight: 900, color: "#fff", lineHeight: 1 }}>
             {score}<span style={{ fontSize: 18, color: "rgba(255,255,255,0.5)" }}> 점</span>
           </div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 6 }}>{tier}</div>
           <div style={{
             display: "inline-block", marginTop: 14, padding: "8px 18px", borderRadius: 999,
-            background: "linear-gradient(135deg,#5B9DF9,#3D7FE0)", color: "#fff", fontSize: 16, fontWeight: 900,
+            background: "linear-gradient(135deg,#D6A756,#B98A3A)", color: "#0E2B1D", fontSize: 16, fontWeight: 900,
           }}>
             기록 인정 +{gainedXp} XP
           </div>
@@ -73,7 +73,7 @@ export default function EstimateAnalysisResult({ result, onClose }) {
               {improveItems.slice(0, 4).map((it) => (
                 <div key={it.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <span style={{ fontSize: 13, color: "rgba(255,255,255,0.78)" }}>□ {it.label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#5B9DF9" }}>+{it.potentialXp} XP 가능</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#D6A756" }}>+{it.potentialXp} XP 가능</span>
                 </div>
               ))}
             </div>
@@ -88,7 +88,7 @@ export default function EstimateAnalysisResult({ result, onClose }) {
           onClick={onClose}
           style={{
             width: "100%", padding: "14px", border: "none", borderRadius: 14,
-            background: "linear-gradient(135deg,#5B9DF9,#3D7FE0)", color: "#fff",
+            background: "linear-gradient(135deg,#D6A756,#B98A3A)", color: "#0E2B1D",
             fontSize: 15, fontWeight: 800, cursor: "pointer",
           }}
         >
