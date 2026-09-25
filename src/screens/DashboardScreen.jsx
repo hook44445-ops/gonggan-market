@@ -459,6 +459,8 @@ export default function DashboardScreen({
             {!jobsLoading && activeJobs.length === 0 && (
               <div style={{ background:C.surface, borderRadius:R.xl, padding:"26px 20px",
                 textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
+                <img src="/images/empty/no-project.webp" alt="" aria-hidden="true" width={104} height={104}
+                  style={{ width:104, height:104, display:"block", margin:"0 auto 10px", borderRadius:R.lg }} />
                 <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginBottom:5 }}>진행 중인 공사가 없습니다</div>
                 <div style={{ fontSize:12, color:C.text3 }}>새로운 견적 요청을 확인해보세요</div>
                 {/* 성장 여정(활동 단계) — 브랜드 철학. 기능 약속/보상/노출정책 미언급. */}
