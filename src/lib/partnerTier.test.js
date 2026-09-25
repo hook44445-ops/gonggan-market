@@ -244,3 +244,11 @@ test("보이는 카드 — 가입만 500 · 사업자만 1,000 · 보험부터 �
   assert.equal(cardPreviewLimit({ biz: true }), 1000);
   assert.equal(cardPreviewLimit({ biz: true, insurance: true }), null);
 });
+
+test("공간보증 등급이 여는 것 — 베이직은 없음, 위로 갈수록 입찰·자재비 선지급", async () => {
+  const { gradeOpens } = await import("./partnerTier.js");
+  assert.deepEqual(gradeOpens(50), []);
+  assert.deepEqual(gradeOpens(100), ["1,000만원까지 공사 자재비 10% 먼저 받기"]);
+  assert.deepEqual(gradeOpens(200), ["2,000만원까지 입찰 (시공보험 · 1,500만원부터 면허)", "2,000만원까지 공사 자재비 10% 먼저 받기"]);
+  assert.deepEqual(gradeOpens(1000), ["1억원까지 입찰 (시공보험 · 1,500만원부터 면허)", "1억원까지 공사 자재비 10% 먼저 받기"]);
+});

@@ -278,6 +278,19 @@ export const ADVANCE_MIN_MANWON = 500;
 //   500만~1,000만 → 100 · ~2,000만 → 200 · ~5,000만 → 500 · ~1억 → 1,000(만원)
 export const advanceNeed = (amt) => (amt <= 1000 ? 100 : amt <= 2000 ? 200 : amt <= 5000 ? 500 : 1000);
 
+// 공간보증 등급 고르기 — 이 보증금이 «여는 것»(3-6, #727 에서 베이직 줄만 빼고 되살림).
+//   규칙(bidLimit · advanceNeed)에서 계산한다 — 한도 표가 바뀌어도 문구가 따라온다. 여는 게 없으면 [](베이직).
+export function gradeOpens(depositManwon) {
+  const dep = Math.max(0, Number(depositManwon) || 0);
+  const base = bidLimit({ biz: true, insurance: true, license: true });
+  const withDep = bidLimit({ biz: true, insurance: true, depositManwon: dep, license: true });
+  const advUpTo = [1000, 2000, 5000, 10000].filter(e => advanceNeed(e) <= dep).pop() ?? 0;
+  const out = [];
+  if (withDep > base) out.push(`${limitText(withDep)}까지 입찰 (시공보험${withDep > LIMITS.UNLICENSED_CEILING ? " · 1,500만원부터 면허" : ""})`);
+  if (advUpTo > 0) out.push(`${limitText(advUpTo)}까지 공사 자재비 10% 먼저 받기`);
+  return out;
+}
+
 export function cardNudge(budgetManwon, state = {}) {
   const s = { biz: false, insurance: false, depositManwon: 0, license: false, ...state };
   const amt = Number(budgetManwon) || 0;
