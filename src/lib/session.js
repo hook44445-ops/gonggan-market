@@ -93,6 +93,10 @@ const GUARDED_EXACT = new Set([
   "list_test_accounts", "partner_leads_list", "partner_lead_set_status", "partner_lead_set_archive", "partner_lead_onboarding_set",
   "set_user_operator_by_phone", "set_user_test_account_by_phone", "unset_user_operator", "unset_user_test_account",
 ]);
+// 당사자 확인이 필요한 서버 함수 — 토큰 연결로 보낸다(서버 136 이 auth.uid() 로 고객·업체를 판정).
+const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add"]);
+export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }
+
 export function isGuardedRpc(fn) {
   const f = String(fn || "");
   if (f === "admin_verify_operator_pin") return false;

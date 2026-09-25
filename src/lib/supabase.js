@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { safeStorageKey } from "./storageKey.js";
-import { authedDb, getCurrentUserId, isGuardedRpc, authHeader } from "./session";
+import { authedDb, getCurrentUserId, isGuardedRpc, isTokenRpc, authHeader } from "./session";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { detectDirectDealKeywords } from "../constants/directDeal";
 import { SITE_VISIT_ESTIMATE_MS, SITE_VISIT_WARN_MS } from "../constants/policy";
@@ -24,7 +24,7 @@ export const supabase = createClient(
 // 130 을 켠 뒤엔 서버가 「관리자 인증이 필요해요」로 거절하고, 인증번호로 다시 로그인하면 된다.
 const rpcAnon = supabase.rpc.bind(supabase);
 supabase.rpc = (fn, args, opts) => {
-  if (isGuardedRpc(fn)) {
+  if (isGuardedRpc(fn) || isTokenRpc(fn)) {
     const db = authedDb(getCurrentUserId());
     if (db) return db.rpc(fn, args, opts);
   }
@@ -1351,22 +1351,38 @@ export const setEarlyPartner = (companyId, joinedAt) => {
 
 // async 래퍼: PostgREST 빌더는 thenable이지만 .catch가 없어 호출부에서 .catch 체이닝 시
 // "X.catch is not a function" 오류가 납니다. async로 감싸 실제 Promise를 반환합니다.
+// ── 에스크로 쓰기는 서버 함수로만(migration 136 · E20) ─────────────────────────────
+// 예전엔 앱이 escrow_payments·escrow_payouts·phase_photos 에 직접 썼다(정책 ALL:public → 조작 가능).
+// 당사자 판정은 서버가 로그인 토큰의 사용자로 한다. 토큰이 없으면 LOGIN_REQUIRED.
+const ESCROW_ERROR_TEXT = {
+  LOGIN_REQUIRED: "로그인이 풀렸어요 — 인증번호로 다시 로그인해 주세요",
+  NOT_PARTY: "이 공사의 고객·업체만 할 수 있어요",
+  COMPANY_ONLY: "업체만 할 수 있어요",
+  CUSTOMER_ONLY: "고객만 할 수 있어요",
+  LOCKED: "지금 상태에서는 진행할 수 없어요",
+  DISPUTE: "이의 신청 중에는 승인할 수 없어요",
+  HELD: "지급이 보류된 단계예요",
+};
+export const escrowAction = async (escrowId, action, stage = null, value = null) => {
+  const { data, error } = await supabase.rpc("escrow_action", {
+    p_escrow_id: escrowId, p_action: action, p_stage: stage, p_value: value,
+  });
+  if (error) return { data: null, error };
+  if (data?.error) return { data: null, error: { code: data.error, message: ESCROW_ERROR_TEXT[data.error] ?? data.error } };
+  return { data, error: null };
+};
+
+// 거래 상태 — 앱에서 바꾸는 건 «이의 신청(DISPUTE)» 하나뿐이다. 서버가 보류·상태를 함께 처리.
 export const updateTransactionStatus = async (paymentId, transactionStatus) =>
-  supabase
-    .from("escrow_payments")
-    .update({ transaction_status: transactionStatus })
-    .eq("id", paymentId)
-    .select("id, transaction_status")
-    .single();
+  transactionStatus === "DISPUTE"
+    ? escrowAction(paymentId, "dispute")
+    : { data: null, error: { code: "UNSUPPORTED", message: "지원하지 않는 상태 변경이에요" } };
 
 // 예상 완공일 — 업체가 계약 진행 화면에서 입력 (migration 015)
-export const updateEscrowExpectedEndDate = async (paymentId, expectedEndDate) =>
-  supabase
-    .from("escrow_payments")
-    .update({ expected_end_date: expectedEndDate })
-    .eq("id", paymentId)
-    .select("id, expected_end_date")
-    .single();
+export const updateEscrowExpectedEndDate = async (paymentId, expectedEndDate) => {
+  const { data, error } = await escrowAction(paymentId, "expected_end", null, expectedEndDate ?? "");
+  return { data: data ? { id: paymentId, expected_end_date: expectedEndDate } : null, error };
+};
 
 export const getContractByTransactionStatus = (transactionStatus) =>
   supabase
@@ -1525,13 +1541,8 @@ export const updateCompanyKpi = (companyId, kpi) =>
 
 // ── STEP 25: Dispute Status ───────────────────────────────────────────────────
 
-export const updateDisputeStatus = async (paymentId, disputeStatus) =>
-  supabase
-    .from("escrow_payments")
-    .update({ dispute_status: disputeStatus })
-    .eq("id", paymentId)
-    .select("id, dispute_status")
-    .single();
+// 이의 신청 표시 — 서버 dispute 동작이 dispute_status 까지 함께 적는다(두 번 불러도 같다).
+export const updateDisputeStatus = async (paymentId, _disputeStatus) => escrowAction(paymentId, "dispute");
 
 // ── STEP 26-1: Change Orders ──────────────────────────────────────────────────
 
@@ -1638,15 +1649,9 @@ export const getContractScope = (contractId) =>
 
 // ── STEP 26-3: Phase Photos ───────────────────────────────────────────────────
 
-export const addPhasePhotos = ({ contractId, step, photos, uploadedBy, uploaderRole, caption }) =>
-  supabase.from("phase_photos").insert({
-    contract_id:   contractId,
-    step,
-    photos,
-    uploaded_by:   uploadedBy,
-    uploader_role: uploaderRole,
-    caption:       caption ?? null,
-  }).select().single();
+// 단계 사진 기록 — 업체 당사자만(서버 phase_photos_add, 136). uploadedBy·uploaderRole 은 서버가 토큰으로 정한다.
+export const addPhasePhotos = ({ contractId, step, photos, caption }) =>
+  supabase.rpc("phase_photos_add", { p_contract_id: contractId, p_step: step, p_photos: photos ?? [], p_caption: caption ?? null });
 
 export const getPhasePhotos = (contractId, step = null) => {
   let q = supabase
@@ -2277,57 +2282,24 @@ export const getOrCreateEscrow = async ({ requestId, companyId, totalAmount }) =
 
 // H-6: 단계별 payout 생성 실패 시 방금 만든 escrow를 되돌리기 위한 롤백 헬퍼.
 // (payout 없는 escrow는 단계 표시가 깨지므로 고아 레코드를 남기지 않음)
-export const deleteEscrowRecord = (id) =>
-  supabase.from("escrow_payments").delete().eq("id", id);
+// 막 만든 빈 계약 되돌리기 — 서버가 15분 안·지급 승인 없음일 때만(136)
+export const deleteEscrowRecord = (id) => escrowAction(id, "rollback_delete");
 
 // STEP M: Create all 4 escrow payout records for a contract (with fee_snapshot)
-export const createEscrowPayoutsForContract = async (escrowId, companyId, totalAmount, feeRate = 0.04, vatRate = 0.1) => {
-  const feeSnapshot = { companyFeeRate: feeRate, vatRate, snapshotAt: new Date().toISOString() };
-  const stages = [
-    { stage: 1, percent: 10 },
-    { stage: 2, percent: 20 },
-    { stage: 3, percent: 40 },
-    { stage: 4, percent: 30 },
-  ];
-  const payouts = stages.map(s => {
-    const amount      = Math.round(totalAmount * s.percent / 100);
-    const platformFee = Math.round(amount * feeRate);
-    const vat         = Math.round(platformFee * vatRate);
-    return {
-      escrow_id:    escrowId,
-      company_id:   companyId,
-      stage:        s.stage,
-      percent:      s.percent,
-      amount,
-      platform_fee: platformFee,
-      vat,
-      net_amount:   amount - platformFee - vat,
-      fee_snapshot: feeSnapshot,
-      status:       "PENDING",
-    };
-  });
-  return supabase.from("escrow_payouts").insert(payouts).select();
-};
+// 지급 줄 4개 — 서버가 만든다(이미 있으면 그대로). 비율·금액·상태는 계약의 지급 계획대로(112 트리거).
+export const createEscrowPayoutsForContract = async (escrowId, _companyId, _totalAmount, _feeRate = 0.04, _vatRate = 0.1) =>
+  escrowAction(escrowId, "create_payouts");
 
 // Hold all non-final payouts when a dispute is filed
+// 관리자 «지급 보류» — admin_escrow_hold_all(136, 관리자 토큰). 고객·업체의 이의 신청은 escrowAction(…,"dispute").
 export const holdAllPayoutsForEscrow = async (escrowId) =>
-  supabase.from("escrow_payouts")
-    .update({ status: "HELD" })
-    .eq("escrow_id", escrowId)
-    .in("status", ["PENDING", "READY", "APPROVED"]);
+  supabase.rpc("admin_escrow_hold_all", { p_escrow_id: escrowId });
 
 // Approve a specific stage payout
-export const approveEscrowPayoutByStage = (escrowId, stage, approvedBy = null) =>
-  supabase.from("escrow_payouts")
-    .update({
-      status:      "APPROVED",
-      approved_by: approvedBy ?? null,
-      approved_at: new Date().toISOString(),
-    })
-    .eq("escrow_id", escrowId)
-    .eq("stage", stage)
-    .select()
-    .single();
+// 고객 단계 승인 — 지급 줄 승인 + 단계 전환 + (완료면) 정산·요청 완료를 서버가 한 번에(136).
+// stage = 지급 줄 번호(2 착공 · 3 중간 · 4 완료) → 화면 단계 = stage + 1
+export const approveEscrowPayoutByStage = (escrowId, stage, _approvedBy = null) =>
+  escrowAction(escrowId, "customer_approve", stage + 1);
 
 // ── Lounge ────────────────────────────────────────────────────────────────────
 
@@ -2509,58 +2481,14 @@ export const adminCleanupUserTestData = (adminId, userId, mode = "soft_cancel") 
 export const adminCleanupCompanyTestData = (adminId, companyId, mode = "soft_cancel") =>
   supabase.rpc("admin_cleanup_company_test_data", { p_admin_id: adminId, p_company_id: companyId, p_mode: mode });
 
-export const adminResolveDispute = async (paymentId, adminId, resolution, reason = null) => {
-  const { data: prev } = await supabase
-    .from("escrow_payments").select("dispute_status").eq("id", paymentId).single();
-
-  const { data, error } = await supabase
-    .from("escrow_payments")
-    .update({ dispute_status: resolution })
-    .eq("id", paymentId)
-    .select("id, dispute_status")
-    .single();
-
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id:    adminId || null,
-      action:      `DISPUTE_${resolution}`,
-      target_type: "dispute",
-      target_id:   paymentId,
-      before_val:  { dispute_status: prev?.dispute_status },
-      after_val:   { dispute_status: resolution },
-      reason,
-    });
-  }
+export const adminResolveDispute = async (paymentId, _adminId, resolution, reason = null) => {
+  const { data, error } = await supabase.rpc("admin_escrow_set_dispute", { p_escrow_id: paymentId, p_resolution: resolution, p_reason: reason });
   return { data, error };
 };
 
 
-export const adminSetPayoutStatus = async (payoutId, adminId, status, reason = null) => {
-  const { data: prev } = await supabase
-    .from("escrow_payouts").select("status").eq("id", payoutId).single();
-
-  const { data, error } = await supabase
-    .from("escrow_payouts")
-    .update({
-      status,
-      ...(status === "APPROVED" ? { approved_by: adminId, approved_at: new Date().toISOString() } : {}),
-    })
-    .eq("id", payoutId)
-    .select("id, status")
-    .single();
-
-  if (!error) {
-    await supabase.from("admin_logs").insert({
-      admin_id:    adminId || null,
-      action:      `SET_PAYOUT_${status}`,
-      target_type: "settlement",
-      target_id:   payoutId,
-      before_val:  { status: prev?.status },
-      after_val:   { status },
-      reason,
-    });
-  }
-
+export const adminSetPayoutStatus = async (payoutId, _adminId, status, reason = null) => {
+  const { data, error } = await supabase.rpc("admin_payout_set_status", { p_payout_id: payoutId, p_status: status, p_reason: reason });
   return { data, error };
 };
 
@@ -3554,40 +3482,19 @@ export const getCompanyBids = (userId) =>
 
 // ── EscrowScreen: advance escrow step on customer approval ───────────────────
 // Updates step{N}_approved_at, current_step, and optionally transaction_status
-export const advanceContractStep = (contractId, step, nextStep, txStatus = null) => {
-  const update = {
-    [`step${step}_approved_at`]: new Date().toISOString(),
-    current_step: nextStep,
-  };
-  if (txStatus) update.transaction_status = txStatus;
-  return supabase.from("escrow_payments")
-    .update(update)
-    .eq("id", contractId)
-    .select("id, current_step, transaction_status")
-    .single();
-};
+// 단계 전환은 고객 승인(approveEscrowPayoutByStage → 서버 customer_approve)이 함께 한다(136). 호환용으로 남김.
+export const advanceContractStep = async (contractId, _step, nextStep, txStatus = null) =>
+  ({ data: { id: contractId, current_step: nextStep, transaction_status: txStatus }, error: null });
 
 // ── EscrowScreen: company reports phase (착공/중간점검/완료) ───────────────────
 // Updates transaction_status, current_step, photos_uploaded_at together
-export const markEscrowPhaseStarted = (contractId, txStatus, currentStep) =>
-  supabase.from("escrow_payments")
-    .update({
-      transaction_status:  txStatus,
-      current_step:        currentStep,
-      photos_uploaded_at:  new Date().toISOString(),
-    })
-    .eq("id", contractId)
-    .select("id, transaction_status, current_step")
-    .single();
+// 업체 단계 보고 — 상태·단계·사진 시각 + 지급 줄 READY 를 서버가 한 번에(136). currentStep 2·3·4 = 화면 단계 3·4·5.
+export const markEscrowPhaseStarted = (contractId, _txStatus, currentStep) =>
+  escrowAction(contractId, "company_report", currentStep + 1);
 
 // ── EscrowScreen: set escrow_payouts stage to READY (customer approval pending) ─
-export const setEscrowPayoutReady = (escrowId, stage) =>
-  supabase.from("escrow_payouts")
-    .update({ status: "READY" })
-    .eq("escrow_id", escrowId)
-    .eq("stage", stage)
-    .select("id, status")
-    .single();
+// 지급 줄 READY 는 업체 보고(markEscrowPhaseStarted → company_report)가 함께 한다(136). 호환용으로 남김.
+export const setEscrowPayoutReady = async (escrowId, stage) => ({ data: { escrow_id: escrowId, stage, status: "READY" }, error: null });
 
 // ── Consumer: escrow + payouts for a request (for home card stage computation) ─
 export const getEscrowWithPayouts = async (requestId) => {
