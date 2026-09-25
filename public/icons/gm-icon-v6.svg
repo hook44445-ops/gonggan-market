@@ -1,3 +1,5 @@
+<!-- 공간마켓 아이콘 v6 — 모양(집·마주한 두 사람·열린 문)은 v5 그대로. 대표 09-25 「깨끗하고 상쾌한 느낌도」 → C안:
+     판은 먹빛 초록 #0E2B1D 그대로, 사람은 흰색 #FFFFFF, 지붕 선은 민트 #8FDDB6, 문은 한 톤 밝은 금 #E8BD62. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <rect width="1024" height="1024" rx="230" fill="#0E2B1D"/>
   <g fill="#FFFFFF">
