@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { TOKEN_EARN } from '../constants/lounge';
 import {
   getSpaceToken,
+  getTokenSummary,
   upsertSpaceToken,
   createSpaceTokenLog,
   getSpaceTokenLogs,
@@ -57,13 +58,20 @@ export function useSpaceToken(userId) {
   const load = useCallback(async () => {
     if (!userId) return;
     try {
-      const [tokenResult, logsResult, stats] = await Promise.all([
-        getSpaceToken(userId),
-        getSpaceTokenLogs(userId),
+      // 서버 함수(SQL 134)로 읽는다. 함수가 아직 없으면(실행 전) 예전 직접 읽기로 — 순서가 어긋나도 깨지지 않게.
+      const [summary, stats] = await Promise.all([
+        getTokenSummary(userId),
         getUserMissionStats(userId),
       ]);
-      const initBalance = tokenResult.data?.balance ?? 20;
-      const initLogs    = logsResult.data ?? [];
+      let initBalance, initLogs;
+      if (!summary.error && summary.data && typeof summary.data.balance === 'number') {
+        initBalance = summary.data.balance;
+        initLogs    = Array.isArray(summary.data.logs) ? summary.data.logs : [];
+      } else {
+        const [tokenResult, logsResult] = await Promise.all([getSpaceToken(userId), getSpaceTokenLogs(userId)]);
+        initBalance = tokenResult.data?.balance ?? 20;
+        initLogs    = logsResult.data ?? [];
+      }
       const { balance: finalBalance, logs: finalLogs } = await grantThresholds(userId, initBalance, initLogs, stats);
       balanceRef.current = finalBalance;
       logsRef.current    = finalLogs;

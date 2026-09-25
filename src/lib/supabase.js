@@ -3179,6 +3179,11 @@ export const likeLoungePost = async (postId) => {
 export const getSpaceToken = (userId) =>
   supabase.from("space_tokens").select("balance").eq("user_id", userId).maybeSingle();
 
+// 잔액·최근 내역을 서버 함수로 한 번에(SQL 134). 앱에 로그인 세션이 없어 표를 직접 읽으면 정책에 막히고,
+// 빈 값이 기본값 20 으로 보였다(점검 09-26 L3 — DB 30 인데 화면 20 · 「내역이 없어요」).
+export const getTokenSummary = (userId) =>
+  supabase.rpc("token_summary", { p_user_id: userId });
+
 export const upsertSpaceToken = (userId, balance) =>
   supabase
     .from("space_tokens")

@@ -27,7 +27,7 @@ const Art = ({ src, size = 96 }) => (
     style={{ width: size, height: size, display: 'block', margin: '0 auto 12px', borderRadius: R.lg }} />
 );
 
-export default function ChatRequestModal({ balance = 0, sending = false, onConfirm, onCancel, onGetTokens }) {
+export default function ChatRequestModal({ balance = 0, toName = null, sending = false, onConfirm, onCancel, onGetTokens }) {
   const cost = TOKEN_COSTS.CHAT_REQUEST;
   const [text, setText] = useState('');
   const short = (balance ?? 0) < cost;
@@ -85,7 +85,8 @@ export default function ChatRequestModal({ balance = 0, sending = false, onConfi
     <Sheet>
       <div style={{ textAlign: 'center', marginBottom: S.lg }}>
         <Art src="/images/empty/chat-open.webp" size={88} />
-        <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 8 }}>메시지 보내기</div>
+        {/* 누구에게 가는지 먼저 — 글 작성자·댓글 작성자 모두 같은 시트를 쓴다(09-26 L1) */}
+        <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 8 }}>{toName ? `${toName} 님에게 메시지` : '메시지 보내기'}</div>
         <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6 }}>
           메시지는 익명으로 전달돼요.<br />
           상대방이 수락하면 <strong style={{ color: C.brand }}>{cost}토큰</strong>이 차감됩니다.

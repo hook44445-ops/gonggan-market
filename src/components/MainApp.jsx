@@ -2529,9 +2529,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       showToast("상대방의 토큰이 모자라 지금은 열 수 없어요. 요청은 그대로 두었어요 — 상대가 토큰을 채우면 수락할 수 있어요.");
       return;
     }
-    showToast("대화가 시작됐어요");
     setLoungeReceivedReqs(prev => prev.filter(r => r.id !== req.id));
     setLoungeAcceptedReqs(prev => [{ ...req, status: "accepted" }, ...prev]);
+    // 수락 = 대화하겠다는 뜻 — 바로 그 방으로 들어간다(점검 09-26 L2: 토스트만 떠서 수락이 됐는지 몰랐다).
+    showToast("대화가 시작됐어요");
+    openLoungeChatRoom(req, req.requester_id ?? req.requesterId);
   };
 
   const handleLoungeInboxReject = async (req) => {
@@ -4634,7 +4636,13 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               try { const r = await requestCommentChat(user.id, story.user_id, story.id, null); data = r?.data ?? null; error = r?.error ?? null; }
               catch (e) { error = e; }
               if (error) { showToast(`대화 신청 실패: ${error.message ?? error}`); return; }
-              if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요'); return; }
+              // 이미 열린 방(양방향, SQL 134) — 그 방으로 바로(L5). 상대가 먼저 신청해 둔 경우 — 대화 탭에서 수락.
+              if (data?.status === 'already_accepted') {
+                showToast('이미 대화 중인 상대예요 — 대화방으로 갈게요');
+                if (data.request_id) openLoungeChatRoom({ id: data.request_id, postId: story.id }, story.user_id);
+                return;
+              }
+              if (data?.status === 'reverse_pending') { refreshLoungeChatInbox?.(); showToast('상대가 먼저 대화를 신청해 두었어요 — 대화 탭에서 수락하면 바로 열려요'); return; }
               if (data?.status === 'already_pending')  { showToast('이미 대화 신청을 보냈어요'); return; }
               // 서버(SQL 133)도 신청 시점에 잔액을 본다 — 화면 검사를 지나쳐도 여기서 막힌다.
               if (data?.error === 'INSUFFICIENT_TOKENS') {
@@ -4723,6 +4731,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             onTokenStore={() => requireAuth(() => go("token-store"))}
             onRequireLogin={() => setShowLoginRequired(true)}
             onChatRequested={() => { refreshLoungeChatInbox(); }}
+            onOpenLoungeChat={(req, partnerId) => { refreshLoungeChatInbox(); openLoungeChatRoom(req, partnerId); }}
             onEditPost={(post) => { setEditingLoungePost(post); setEditOriginScreen('lounge-detail'); go("lounge-edit"); }}
             onDeletePost={(id) => {
               setLocalLoungePosts(prev => prev.filter(p => p.id !== id));
