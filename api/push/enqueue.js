@@ -77,6 +77,9 @@ export const TYPE_TO_PREF_COLUMN = {
   CO_ESCROW_MID_CHECK: "push_escrow",
   CO_CONSTRUCTION_DONE: "push_escrow",
   CO_SETTLEMENT_DONE: "push_escrow",
+  CO_STAGE_APPROVED: "push_escrow",
+  STAGE_APPROVE_REMINDER: "push_escrow",
+  STAGE_AUTO_APPROVED: "push_escrow",
   CO_DISPUTE_FILED: "push_escrow",
   // 라운지 1:1 대화 — push_chat 컬럼은 화면에 토글이 있는데 여태 아무 타입도 쓰지 않았다
   LOUNGE_CHAT_REQUEST: "push_chat",
