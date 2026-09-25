@@ -1,14 +1,15 @@
 import { C } from "../../constants";
 
 // ─────────────────────────────────────────────────────
-// 공간마켓 브랜드 마크 — v3 (2026-09) 집 · 마주한 두 사람 · 열린 문
+// 공간마켓 브랜드 마크 — v6 (2026-09-25) 집 · 마주한 두 사람 · 열린 문 · 민트 지붕
 // 앱 아이콘/파비콘(public/icons/gm-logo.svg)과 같은 도형. 1024 그리드.
 // ─────────────────────────────────────────────────────
-const DOOR = "#D6A756";
-function MarkShapes({ color }) {
+const DOOR = "#E8BD62";
+const ROOF_MINT = "#8FDDB6";   // v6(09-25 대표 「깨끗하고 상쾌한 느낌」) — 초록 판·어두운 배경 위에서만 지붕을 민트로
+function MarkShapes({ color, roof = color }) {
   return (
     <>
-      <path d="M274 590 V410 L512 250 L750 410 V590" fill="none" stroke={color} strokeWidth="58" strokeLinejoin="round" />
+      <path d="M274 590 V410 L512 250 L750 410 V590" fill="none" stroke={roof} strokeWidth="58" strokeLinejoin="round" />
       <g fill={color}>
         <path d="M245 585 L303 585 L345 528 Q396 486 447 538 L447 730 L300 730 Q245 730 245 675 Z" />
         <path d="M779 585 L721 585 L679 528 Q630 488 574 540 L609 562 L612 730 L724 730 Q779 730 779 675 Z" />
@@ -21,15 +22,15 @@ function MarkShapes({ color }) {
 }
 
 export function LogoMark({ size = 32, rounded = true, bare = false, tone = "brand" }) {
-  // tone="brand": 딥그린 판 + 크림 도형(앱 아이콘과 같음) · bare 면 판 없이 브랜드색 도형
-  // tone="light": 판 없이 크림 도형(딥그린 배경/히어로 위)
+  // tone="brand": 딥그린 판 + 흰 도형 · 민트 지붕(앱 아이콘 v6 과 같음) · bare 면 판 없이 브랜드색 도형
+  // tone="light": 판 없이 흰 도형 + 민트 지붕(딥그린 배경/히어로 위)
   const onDark = tone === "light";
   const plate = !bare && !onDark;
   return (
     <svg width={size} height={size} viewBox={plate ? "0 0 1024 1024" : "200 200 624 580"} fill="none"
       xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      {plate && <rect width="1024" height="1024" rx={rounded ? 230 : 0} fill={C.brandD ?? "#17472F"} />}
-      <MarkShapes color={plate || onDark ? "#F4EFE4" : C.brand} />
+      {plate && <rect width="1024" height="1024" rx={rounded ? 230 : 0} fill="#0E2B1D" />}
+      <MarkShapes color={plate || onDark ? "#FFFFFF" : C.brand} roof={plate || onDark ? ROOF_MINT : C.brand} />
     </svg>
   );
 }

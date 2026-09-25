@@ -13,8 +13,8 @@
   "backgroundColor": "#F5F1EA",
   "enableNotifications": true,
   "startUrl": "/",
-  "iconUrl": "https://gongganmarket.com/icons/icon-512.svg",
-  "maskableIconUrl": "https://gongganmarket.com/icons/icon-512.svg",
+  "iconUrl": "https://gongganmarket.com/icons/icon-512-v6.png",
+  "maskableIconUrl": "https://gongganmarket.com/icons/icon-maskable-512-v6.png",
   "monochromeIconUrl": "",
   "splashScreenFadeOutDuration": 300,
   "signing": {

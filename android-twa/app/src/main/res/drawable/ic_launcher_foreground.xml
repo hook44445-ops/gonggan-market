@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 공간마켓 런처 아이콘 앞면 — 앱 로고 v3 그대로(집 · 마주한 두 사람 · 열린 문).
+<!-- 공간마켓 런처 아이콘 앞면 — 앱 로고 그대로(집 · 마주한 두 사람 · 열린 문). v6(09-25): 사람 흰색 · 지붕 민트 · 문 밝은 금.
      도형 원본: public/icons/gm-logo.svg (1024 그리드) · src/components/common/Brand.jsx 와 같은 path.
      1024 그리드의 마크(중심 512,475)를 108 어댑티브 화면 안전영역에 맞춘다: scale 0.118, translate(-6.4,-2.05). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -13,20 +13,20 @@
         android:translateX="-6.4"
         android:translateY="-2.05">
         <!-- 집 지붕 -->
-        <path android:strokeColor="#F4EFE4" android:strokeWidth="58" android:fillColor="#00000000"
+        <path android:strokeColor="#8FDDB6" android:strokeWidth="58" android:fillColor="#00000000"
             android:strokeLineJoin="round"
             android:pathData="M274,590 V410 L512,250 L750,410 V590"/>
         <!-- 마주한 두 사람 -->
-        <path android:fillColor="#F4EFE4"
+        <path android:fillColor="#FFFFFF"
             android:pathData="M245,585 L303,585 L345,528 Q396,486 447,538 L447,730 L300,730 Q245,730 245,675 Z"/>
-        <path android:fillColor="#F4EFE4"
+        <path android:fillColor="#FFFFFF"
             android:pathData="M779,585 L721,585 L679,528 Q630,488 574,540 L609,562 L612,730 L724,730 Q779,730 779,675 Z"/>
-        <path android:fillColor="#F4EFE4"
+        <path android:fillColor="#FFFFFF"
             android:pathData="M396,414 A41,41 0 1,1 396,496 A41,41 0 1,1 396,414 Z"/>
-        <path android:fillColor="#F4EFE4"
+        <path android:fillColor="#FFFFFF"
             android:pathData="M628,414 A41,41 0 1,1 628,496 A41,41 0 1,1 628,414 Z"/>
         <!-- 열린 문 -->
-        <path android:fillColor="#D6A756"
+        <path android:fillColor="#E8BD62"
             android:pathData="M491,507 L558,546 Q566,551 566,561 L566,671 Q566,680 558,685 L492,725 Q481,731 481,719 L481,517 Q481,502 491,507 Z"/>
     </group>
 </vector>
