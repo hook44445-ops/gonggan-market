@@ -5,7 +5,7 @@ import { bidLimit, limitText, unlockFor, unlockMessage, limitStateOf, partnerTie
 import { trustState } from "./TrustEmblems";
 import { MAX_BIDS_PER_REQUEST } from "../lib/reversalRule";
 import SpaceActivityRecord from "./SpaceActivityRecord"; // v5.5: 공간 활동기록 요약(Add Only)
-import { TempBadge } from "./common";
+import { TempBadge, Icon } from "./common";
 import GuaranteeBadge from "./GuaranteeBadge";
 import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
 import { BetaGateModal, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
@@ -87,9 +87,9 @@ export default function BidCard({
   if (previewCap != null && !alreadyBid && budgetMin > previewCap) return null;
   // 보이지만 아직 못 여는 카드 — 고객 예산 하한이 내 한도를 넘는다(대표 09-25 「입찰카드는 시공보험 등록해야 열리게」).
   const cardLocked = bizLocked || (!isGuest && budgetMin > 0 && budgetMin > maxBidAmount);
-  const lockLabel = bizLocked ? "🔒 사업자등록 후 입찰"
-    : !limitState.insurance ? "🔒 시공보험 등록 후 입찰"
-    : "🔒 서류 올리고 입찰";
+  const lockText = bizLocked ? "사업자등록 후 입찰"
+    : !limitState.insurance ? "시공보험 등록 후 입찰"
+    : "서류 올리고 입찰";
   // «무엇을 내면 열리는지»를 엠블럼으로(힉스필드 3-6) — 사업자 · 시공보험 · 보증금 · 실내건축공사업
   const nudgeEmblems = !nudge ? [] : nudge.key === "biz" ? ["biz"] : nudge.key === "insurance" ? ["insurance"]
     : nudge.key === "advance" ? ["deposit"]
@@ -108,7 +108,7 @@ export default function BidCard({
         </span>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, color: "#6F5A1E", lineHeight: 1.6, fontWeight: 600 }}>{nudgeEmblems.length ? "" : "🔓 "}{nudge.text}</div>
+        <div style={{ fontSize: 12, color: "#6F5A1E", lineHeight: 1.6, fontWeight: 600 }}>{nudge.text}</div>
         {nudge.cta && onGoDocuments && (
           <button onClick={(e) => { e.stopPropagation(); onGoDocuments(); }}
             style={{ marginTop: 6, background: C.surface, color: "#8A6D1E", border: "1px solid #EADFC4", borderRadius: R.full,
@@ -171,8 +171,8 @@ export default function BidCard({
     if (isSiteVisitRequested) {
       return (
         <div key="sv-requested" style={{ background: "#FFFBF0", borderRadius: R.lg, padding: S.lg, border: `1px solid #F0D080` }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: "#B08040", marginBottom: S.sm }}>
-            📅 현장견적 요청 도착
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#B08040", marginBottom: S.sm, display: "flex", alignItems: "center", gap: 5 }}>
+            <Icon emoji="📅" size={14} color="#B08040" /> 현장견적 요청 도착
           </div>
           <div style={{ fontSize: 12, color: C.text3, marginBottom: S.md }}>
             의뢰인이 현장 방문 견적을 요청했어요. 일정을 확인하고 수락해주세요.
@@ -320,7 +320,9 @@ export default function BidCard({
             /* 입찰 전 — 예산 + 입찰 버튼 */
             <div key="open" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 12, color: C.text3 }}>💰 고객 예산 {r.budget}</div>
+                <div style={{ fontSize: 12, color: C.text3, display: "flex", alignItems: "center", gap: 4 }}>
+                  <Icon emoji="💰" size={12} color={C.text3} /> 고객 예산 {r.budget}
+                </div>
                 <div style={{ fontSize: 11, color: C.text4, marginTop: 2 }}>경쟁 입찰 {r.bidCount ?? r.bids ?? 0}개</div>
               </div>
               <button
@@ -328,7 +330,12 @@ export default function BidCard({
                 style={{ background: cardLocked ? C.surface : C.brand, color: cardLocked ? "#8A6D1E" : "#fff",
                   border: cardLocked ? "1px solid #EADFC4" : "none", borderRadius: R.full, padding: "10px 20px", fontWeight: 800, fontSize: 13, cursor: "pointer",
                   boxShadow: cardLocked ? "none" : `0 3px 12px ${C.brand44}` }}>
-                {isGuest ? "🔒 입찰하기" : cardLocked ? lockLabel : "견적 입찰하기"}
+                {isGuest || cardLocked ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                    <Icon emoji="🔒" size={12} color={cardLocked ? "#8A6D1E" : "#fff"} />
+                    {isGuest ? "입찰하기" : lockText}
+                  </span>
+                ) : "견적 입찰하기"}
               </button>
             </div>
           )}

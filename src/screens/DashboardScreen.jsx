@@ -436,8 +436,9 @@ export default function DashboardScreen({
             {/* Revenue card — 제목/금액/하단 2열(진행 좌 · 입금 예정 우) */}
             <div style={{ background:"#0E2B1D", border:"1px solid rgba(214,167,86,0.35)",
               borderRadius:R.xl, padding:`${S.xl}px`, marginBottom:S.lg, color:"#F4EFE4" }}>
+              {/* 결제가 열리기 전엔 앱이 돈을 보내지 않는다 — «정산·실수령»이 아니라 계약서에 적힌 금액이다(09-25) */}
               <div style={{ fontSize:11, color:"#D6A756", fontWeight:700, letterSpacing:"0.3px", marginBottom:6 }}>
-                이번 달 정산 수익 · 수수료 뺀 실수령
+                {PAYMENTS_LIVE ? "이번 달 정산 수익 · 수수료 뺀 실수령" : "이번 달 계약 금액 · 수수료 뺀 기준"}
               </div>
               <div style={{ fontSize:32, fontWeight:800, marginBottom:10, letterSpacing:"-0.5px" }}>
                 {thisMonthRevenue > 0 ? `${thisMonthRevenue.toLocaleString()}만원` : "—"}
@@ -446,7 +447,7 @@ export default function DashboardScreen({
                 paddingTop:S.sm, borderTop:"1px solid rgba(214,167,86,0.25)" }}>
                 <span style={{ flex:1, whiteSpace:"nowrap" }}>진행 {activeJobs.length}건</span>
                 <span style={{ flex:1, textAlign:"right", whiteSpace:"nowrap" }}>
-                  입금 예정 {pendingAmount > 0 ? `${pendingAmount.toLocaleString()}만원` : "—"}
+                  {PAYMENTS_LIVE ? "입금 예정" : "남은 단계"} {pendingAmount > 0 ? `${pendingAmount.toLocaleString()}만원` : "—"}
                 </span>
               </div>
             </div>
@@ -458,6 +459,8 @@ export default function DashboardScreen({
             {!jobsLoading && activeJobs.length === 0 && (
               <div style={{ background:C.surface, borderRadius:R.xl, padding:"26px 20px",
                 textAlign:"center", border:`1px solid ${C.bgWarm}` }}>
+                <img src="/images/empty/no-project.webp" alt="" aria-hidden="true" width={104} height={104}
+                  style={{ width:104, height:104, display:"block", margin:"0 auto 10px", borderRadius:R.lg }} />
                 <div style={{ fontSize:13, fontWeight:700, color:C.text1, marginBottom:5 }}>진행 중인 공사가 없습니다</div>
                 <div style={{ fontSize:12, color:C.text3 }}>새로운 견적 요청을 확인해보세요</div>
                 {/* 성장 여정(활동 단계) — 브랜드 철학. 기능 약속/보상/노출정책 미언급. */}

@@ -1,4 +1,4 @@
-import { SHOW_BETA_UI } from "../constants/release";
+import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
 import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { C, R, S, GRADE, SHADOW, calcCustomerGrade, CUSTOMER_GRADES, SPACE_TYPES } from "../constants";
@@ -4367,7 +4367,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             {/* 내 지역만 보기 + 결과 0건 empty state */}
             {mapLocalOnly && mapLocalMatches.length === 0 && (
               <div style={{ textAlign:"center", padding:"32px 0", color:C.text3 }}>
-                <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}><Icon emoji="🔍" size={32} color={C.text3} /></div>
+                <img src="/images/empty/no-company.webp" alt="" aria-hidden="true" width={112} height={112}
+                  style={{ width:112, height:112, display:"block", margin:"0 auto 10px", borderRadius:R.lg }} />
                 <div style={{ fontSize:14, fontWeight:700, color:C.text2, marginBottom:6 }}>이 지역 등록 업체가 아직 없어요</div>
                 <div style={{ fontSize:12, lineHeight:1.6 }}>
                   활동지역을 변경하거나<br />"전체 보기"로 인근 업체를 확인해보세요
@@ -4835,7 +4836,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
             {isAllEmpty && (
               <div style={{ textAlign:"center", padding:"60px 20px" }}>
-                <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="💬" size={40} color={C.text3} /></div>
+                <img src="/images/empty/no-chat.webp" alt="" aria-hidden="true" width={128} height={128}
+                  style={{ width:128, height:128, display:"block", margin:"0 auto 12px", borderRadius:R.lg }} />
                 <div style={{ fontSize:15, fontWeight:700, color:C.text2, marginBottom:6 }}>아직 시작된 대화가 없어요</div>
                 {activeRole === "company" ? (
                   <div style={{ fontSize:13, color:C.text3, lineHeight:1.6 }}>고객 요청에 견적을 보내면 이곳에서 상담이 시작돼요.</div>
@@ -5100,7 +5102,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                     : bids > 0 ? `견적 ${bids}건 도착 · 비교해 보세요` : "우리 동네 검증 업체들이 요청을 보고 있어요. 견적이 오면 알려드려요",
                   done:step2done, active:!step2done || payPending, bidStep:(!step2done && bids > 0) || payPending, bidLabel: payPending ? "최종 견적 확인하기" : null, waitStep: waiting },
                 { label:"공사 진행",   sub: constructionSub,            done:isSettled, active:step3active, escrowStep:step3active },
-                { label:"완료 및 정산", sub: step4done ? "완료 확인 · 공사 기록이 남아 있어요" : "완료 확인 + 잔금 지급", done:step4done, recordStep: step4done && hasEscrow },
+                { label:"완료 및 정산", sub: step4done ? "완료 확인 · 공사 기록이 남아 있어요" : (PAYMENTS_LIVE ? "완료 확인 + 잔금 지급" : "완료 확인 · 대금은 계약서대로"), done:step4done, recordStep: step4done && hasEscrow },
               ];
 
               return (

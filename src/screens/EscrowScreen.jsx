@@ -1846,7 +1846,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                         <div style={{ fontSize: 13, fontWeight: 700, color: done ? C.green : active ? C.brand : C.text4 }}>
                           {isConsumer
                             ? fmtMoney(stage.amount)
-                            : <>{fmtMoney(stage.amount)}<span style={{ fontSize: 11, marginLeft: 4 }}>→실수령 {fmtMoney(stage.companyReceiveAmount)}</span></>
+                            : <>{fmtMoney(stage.amount)}<span style={{ fontSize: 11, marginLeft: 4 }}>{PAYMENTS_LIVE ? "→실수령 " : "· 수수료 뺀 "}{fmtMoney(stage.companyReceiveAmount)}</span></>
                           }
                         </div>
                         {!isConsumer && (
@@ -1963,7 +1963,9 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                   {!isConsumer && status === "done" && s.pct > 0 && (
                     <div style={{ background: C.greenL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
                       <Icon emoji="✅" size={16} color={C.green} />
-                      <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>입금 완료 · {fmtMoney(stage?.companyReceiveAmount ?? 0)}</span>
+                      <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>
+                        {PAYMENTS_LIVE ? "입금 완료" : "단계 확정"} · {fmtMoney(stage?.companyReceiveAmount ?? 0)}
+                      </span>
                     </div>
                   )}
 
