@@ -253,7 +253,7 @@ function splitIntoChunks(content, parts) {
 /* 공간 이야기 카테고리 — 여기에만 «이 동네 시공 사례»를 붙인다(연애·주식 글에 공사 사례는 소음이다). */
 const SPACE_CATEGORIES = new Set(['review', 'quote_worry', 'interior', 'room_deco', 'move_in']);
 
-export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost, onNavigate, onOpenPost, onChatRequested }) {
+export default function LoungePostDetailScreen({ postId, initialPost, user, tokenBalance, onBack, onSpendToken, onTokenStore, onRequireLogin, onEditPost, onDeletePost, onNavigate, onOpenPost, onChatRequested, onOpenLoungeChat }) {
   const { post: foundPost, comments, loading, commentsFetchError, addComment, likeComment, refetchComments } = useLoungePost(postId, initialPost);
   const post = foundPost ?? initialPost ?? null;
   // is_seed(운영글)는 매거진형(견적 CTA·대화신청만 숨김)이고 상호작용은 일반 글과 동일.
@@ -274,6 +274,11 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     } catch { return false; }
   });
   const [showChat,    setShowChat]          = useState(false);
+  // 대화 시트의 상대 — null 이면 글 작성자, 아니면 { userId, commentId, name }(댓글 작성자). 점검 09-26 L1:
+  //   댓글 작성자에게는 확인 없이 한 번 탭으로 신청이 나갔다(잔액·차감 안내 없음) → 같은 시트를 쓴다.
+  const [chatTarget,  setChatTarget]        = useState(null);
+  // 서버가 «토큰 부족»이라고 돌려준 잔액 — 있으면 시트가 이 값으로 부족 화면을 연다(L4: 화면 잔액이 틀릴 수 있다).
+  const [chatShortBalance, setChatShortBalance] = useState(null);
   const [miniModal,   setMiniModal]         = useState(null); // 업체 미니 포트폴리오 { ownerId, nickname }
   const [commentSort] = useState('latest'); // 최신순 고정(전문가순·인기순 정렬 제거)
   const [chatSending, setChatSending]       = useState(false);
@@ -671,16 +676,23 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   // 대화 신청 전 토큰 확인 — 부족하면 토큰 스토어로 이동 (차감 정책 자체는 기존 유지: 수락 시 신청자 차감)
   // 토큰이 모자라면 «메시지 보내기» 시트를 연다 — 시트가 부족 화면으로 바뀌어 안내한다(09-25).
   //   예전엔 토스트를 띄우고 1.2초 뒤 토큰 상점으로 튕겼다(무슨 일이 난 건지 알기 어려웠다).
-  const ensureChatTokens = () => {
-    if ((tokenBalance ?? 0) >= TOKEN_COSTS.CHAT_REQUEST) return true;
+  // 대화 시트 열기 — 토큰이 모자라면 시트가 스스로 «토큰이 필요해요» 화면이 된다.
+  const openChatSheet = (target = null) => {
+    setChatTarget(target);
+    setChatShortBalance(null);
     setShowChat(true);
-    return false;
+  };
+  const closeChatSheet = () => {
+    setShowChat(false);
+    setChatTarget(null);
+    setChatShortBalance(null);
   };
 
-  // 서버(SQL 133)가 신청 시점에 잔액을 본다 — 화면 검사를 지나쳐도 여기서 막힌다.
+  // 서버(SQL 133)가 신청 시점에 잔액을 본다 — 화면 잔액과 달라도 서버가 준 잔액으로 부족 화면을 연다(L4).
+  //   예전엔 시트를 그냥 다시 열어, 화면이 가짜 20 을 보면 «메시지 쓰기»가 떴고 댓글 경로에선 글 작성자에게 보내는 시트였다.
   const handleInsufficientFromServer = (data) => {
     if (data?.error !== 'INSUFFICIENT_TOKENS') return false;
-    showToast(`토큰이 ${Math.max(0, (data.needed ?? TOKEN_COSTS.CHAT_REQUEST) - (data.balance ?? 0))}개 더 필요해요`);
+    setChatShortBalance(typeof data.balance === 'number' ? data.balance : 0);
     setShowChat(true);
     return true;
   };
@@ -689,37 +701,58 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
   // 보내기 → 토큰 확인(부족 시 토큰 스토어 이동) → 메시지 요청 생성 → 첫 메시지 전송 순서.
   const handleChatRequest = async (messageText) => {
     if (chatSending) { return; }
-    if (chatSent)    { setShowChat(false); showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
-    if (isGuest) { setShowChat(false); onRequireLogin?.(); return; }
-    if (!user?.id || !post?.user_id) { setShowChat(false); showToast('상대 정보를 불러오는 중이에요'); return; }
-    // 게시글 본인 판정 — post.user_id === currentUser.id (directive ①: 각 경로별 작성자 id로만 self 판정)
-    if (post.user_id === user.id) { setShowChat(false); showToast('본인 글에는 메시지를 보낼 수 없어요'); return; }
+    if (!chatTarget && chatSent) { closeChatSheet(); showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
+    if (isGuest) { closeChatSheet(); onRequireLogin?.(); return; }
+    // 상대 — 시트를 연 곳(글 작성자 / 댓글 작성자)
+    const targetId  = chatTarget?.userId ?? post?.user_id;
+    const commentId = chatTarget?.commentId ?? null;
+    const isComment = !!chatTarget;
+    if (!user?.id || !targetId) { closeChatSheet(); showToast('상대 정보를 불러오는 중이에요'); return; }
+    // 본인 판정 — 각 경로의 작성자 id 로만(directive ①)
+    if (targetId === user.id) { closeChatSheet(); showToast(isComment ? '본인에게는 신청할 수 없어요' : '본인 글에는 메시지를 보낼 수 없어요'); return; }
     const text = (messageText ?? '').trim();
     if (!text) { showToast('메시지를 입력해주세요'); return; }
-    if (!ensureChatTokens()) { setShowChat(false); return; }
 
     setChatSending(true);
+    let keepOpen = false; // 서버가 «토큰 부족»이면 시트를 부족 화면으로 남겨 둔다
     // ⚠️ Supabase 빌더(PostgrestBuilder)는 PromiseLike(then만 존재) — .catch()가 없어 .catch 체이닝은
     //    동기 TypeError를 던진다. 과거 `requestCommentChat(...).catch(...)`가 setChatSending(false) 이전에
     //    던져져 "보내는 중..."에서 멈췄다. → try/catch/finally로 전환(반드시 loading 해제 + 실패 toast).
     try {
       // 라운지 메시지 요청 = lounge_chat_requests 생성(댓글 경로와 동일). 정확한 상대(post.user_id)에게 요청.
-      const { data, error } = await requestCommentChat(user.id, post.user_id, postId, null);
+      const { data, error } = await requestCommentChat(user.id, targetId, postId, commentId);
       // 진단: 신청자(나) 신원 + 저장 대상 + 반환 request_id 를 한 줄로 — 회사 받은목록 로그의
       // request_id 와 대조해 '저장된 target_id 와 회사 user.id 일치 여부'를 확인하기 위함.
       loungeChatDbg("대화신청 전송(post author)", {
         requesterId: user.id,
         activeRole:  user?.activeRole ?? user?.role,
-        targetId:    post.user_id,
+        targetId,
         postId,
+        commentId,
         requestId:   data?.request_id ?? null,
         status:      data?.status ?? null,
         rpcError:    error?.message ?? data?.error ?? null,
       });
       if (error) { showToast('대화 신청에 실패했습니다. 다시 시도해주세요.'); return; }
       if (data?.error === 'SELF_REQUEST') { showToast('본인에게는 신청할 수 없어요'); return; }
-      if (handleInsufficientFromServer(data)) return;
-      setChatSent(true);
+      if (handleInsufficientFromServer(data)) { keepOpen = true; return; }
+      // 이미 열린 방 — 양방향(SQL 134). 돈이 더 들지 않으니 그 방으로 바로 간다(L5: 토스트만 떠서 갈 길이 없었다).
+      if (data?.status === 'already_accepted') {
+        closeChatSheet();
+        showToast('이미 대화 중인 상대예요 — 대화방으로 갈게요');
+        if (data.request_id) onOpenLoungeChat?.({ id: data.request_id, postId }, targetId);
+        return;
+      }
+      // 상대가 나에게 먼저 신청해 둔 경우(SQL 134) — 새로 만들지 않는다. 대화 탭에서 수락하면 된다.
+      if (data?.status === 'reverse_pending') {
+        closeChatSheet();
+        onChatRequested?.();
+        showToast('상대가 먼저 대화를 신청해 두었어요 — 대화 탭에서 수락하면 바로 열려요');
+        return;
+      }
+      if (data?.status === 'already_pending') { closeChatSheet(); showToast('이미 대화 신청을 보냈어요. 대화 탭에서 확인하세요.'); return; }
+      if (isComment) setSentChatTargets(prev => new Set([...prev, targetId]));
+      else setChatSent(true);
       onChatRequested?.(); // 대화 탭 수락대기(Waiting Accept) 목록 즉시 갱신
       try {
         const key = 'lounge_chat_requests';
@@ -727,16 +760,14 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         prev.unshift({ postId, postTitle: post?.title ?? post?.content?.slice(0, 30), nickname: post?.anonymous_nickname, sentAt: new Date().toISOString() });
         localStorage.setItem(key, JSON.stringify(prev.slice(0, 50)));
       } catch {}
-      if (data?.status === 'already_accepted') { showToast('이미 대화 중인 상대예요'); return; }
-      if (data?.status === 'already_pending') { showToast('이미 메시지를 보냈어요. 대화 탭에서 확인하세요.'); return; }
       // 대화 신청 알림 — 게시글 메시지 경로에도 상대(post.user_id)에게 알림 생성(댓글 경로와 동일).
       // 신규 생성(created)일 때만 발송해 중복 알림 방지. 토큰/대화방 로직은 RPC 그대로, 알림만 추가.
       if (data?.status === 'created') {
         createNotification({
-          userId:      post.user_id,
+          userId:      targetId,
           type:        'LOUNGE_CHAT_REQUEST',
           title:       '새 대화 신청',
-          message:     '회원님의 글에 누군가 대화를 신청했어요.',
+          message:     isComment ? '회원님의 댓글에 누군가 대화를 신청했어요.' : '회원님의 글에 누군가 대화를 신청했어요.',
           relatedId:   postId,
           relatedType: 'lounge',
         }).catch(() => {});
@@ -759,7 +790,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       showToast('대화 신청에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setChatSending(false);
-      setShowChat(false);
+      if (!keepOpen) closeChatSheet();
     }
   };
 
@@ -821,64 +852,18 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     openReport({ type: 'comment', targetId: commentId });
   };
 
-  // 대화 신청 (댓글 작성자에게)
-  const handleCommentChatRequest = async (comment) => {
+  // 대화 신청 (댓글 작성자에게) — 바로 보내지 않고 같은 메시지 시트를 연다(점검 09-26 L1).
+  //   예전엔 「메시지 신청」 한 번 탭으로 확인 없이 나갔다 — 수락되면 20토큰이 빠지는 일인데 잔액·차감 안내가 없었다.
+  const handleCommentChatRequest = (comment) => {
     // directive ①: 댓글/대댓글은 '댓글 작성자 user_id'(comment.user_id) 기준으로만 self 판정.
-    // (post.user_id / company.owner_id / displayName 으로 판정 금지)
     const isSelf = comment?.user_id != null && comment.user_id === user?.id;
-    if (chatRequestBusy) return;
+    if (chatRequestBusy || chatSending) return;
     if (!isLoggedIn || !user?.id) { onRequireLogin?.(); return; }
-    // 자기 댓글만 차단(directive ①). 업체 댓글(타인)은 정상 진행되어야 한다.
-    if (isSelf) { setCommentAuthorSheet(null); showToast('본인에게는 신청할 수 없어요'); return; }
-    if (!ensureChatTokens()) { setCommentAuthorSheet(null); return; }
     setCommentAuthorSheet(null);
-    setChatRequestBusy(true);
-    try {
-      const { data, error } = await requestCommentChat(
-        user.id,
-        comment.user_id,
-        postId,
-        comment.id,
-      );
-      // 진단: 신청자(나) 신원 + 저장 대상(댓글 작성자) + 반환 request_id (회사 받은목록 로그와 대조용).
-      loungeChatDbg("대화신청 전송(comment author)", {
-        requesterId: user.id,
-        activeRole:  user?.activeRole ?? user?.role,
-        targetId:    comment.user_id,
-        postId,
-        commentId:   comment.id,
-        requestId:   data?.request_id ?? null,
-        status:      data?.status ?? null,
-        rpcError:    error?.message ?? data?.error ?? null,
-      });
-      const status = data?.status;
-      if (error) {
-        showToast(`대화 신청 실패: ${error.message}`);
-      } else if (status === 'already_accepted') {
-        showToast('이미 대화 중인 상대예요');
-      } else if (status === 'already_pending') {
-        showToast('이미 대화 신청을 보냈어요');
-      } else if (data?.error === 'SELF_REQUEST') {
-        showToast('본인에게는 신청할 수 없어요');
-      } else if (handleInsufficientFromServer(data)) {
-        /* 시트가 부족 화면으로 열린다 */
-      } else {
-        setSentChatTargets(prev => new Set([...prev, comment.user_id]));
-        onChatRequested?.(); // 대화 탭 수락대기 목록 즉시 갱신
-        showToast('💬 대화 신청을 보냈어요!\n상대가 수락하면 20토큰이 차감됩니다.');
-        // B단계: 대화 신청 알림(인앱 + 푸시 enqueue) — 토큰/대화방 로직은 위 RPC 그대로, 알림만 추가.
-        createNotification({
-          userId:      comment.user_id,
-          type:        'LOUNGE_CHAT_REQUEST',
-          title:       '새 대화 신청',
-          message:     '회원님의 댓글에 누군가 대화를 신청했어요.',
-          relatedId:   postId,
-          relatedType: 'lounge',
-        }).catch(() => {});
-      }
-    } finally {
-      setChatRequestBusy(false);
-    }
+    if (isSelf) { showToast('본인에게는 신청할 수 없어요'); return; }
+    if (!comment?.user_id) { showToast('상대 정보를 불러오는 중이에요'); return; }
+    if (sentChatTargets.has(comment.user_id)) { showToast('이미 대화 신청을 보냈어요. 대화 탭에서 확인하세요.'); return; }
+    openChatSheet({ userId: comment.user_id, commentId: comment.id ?? null, name: comment.name ?? null });
   };
 
   const handleBlock = () => {
@@ -1120,7 +1105,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               </button>
               <button onClick={() => {
                   if (isGuest) { onRequireLogin?.(); return; }
-                  if (!chatSent) setShowChat(true);
+                  if (!chatSent) openChatSheet(null);
                 }}
                 style={{ flex: 1, height: 28, borderRadius: 8, border: 'none', background: '#1E3D2F', color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
                 메시지
@@ -1170,7 +1155,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           <button
             onClick={() => {
               if (isGuest) { onRequireLogin?.(); return; }
-              if (!chatSent) setShowChat(true);
+              if (!chatSent) openChatSheet(null);
             }}
             disabled={chatSent}
             style={{ width: '100%', padding: S.xl, background: chatSent ? C.text4 : `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: '#fff', border: 'none', borderRadius: R.xl, fontWeight: 800, fontSize: 15, cursor: chatSent ? 'default' : 'pointer', boxShadow: chatSent ? 'none' : `0 4px 16px ${C.brand44}`, transition: 'background 0.2s' }}>
@@ -1394,11 +1379,12 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
       {showChat && (
         <ChatRequestModal
-          balance={tokenBalance ?? 0}
+          balance={chatShortBalance ?? tokenBalance ?? 0}
+          toName={chatTarget?.name ?? (chatTarget ? null : (post?.anonymous_nickname ?? null))}
           sending={chatSending}
           onConfirm={handleChatRequest}
-          onCancel={() => setShowChat(false)}
-          onGetTokens={() => { setShowChat(false); onTokenStore?.(); }}
+          onCancel={closeChatSheet}
+          onGetTokens={() => { closeChatSheet(); onTokenStore?.(); }}
         />
       )}
 
@@ -1418,8 +1404,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             if (isGuest) { onRequireLogin?.(); return; }
             if (miniModal.report?.type === 'comment' && miniModal.ownerId && miniModal.report?.targetId) {
               handleCommentChatRequest({ user_id: miniModal.ownerId, id: miniModal.report.targetId });
-            } else if (!chatSent && ensureChatTokens()) {
-              setShowChat(true);
+            } else if (!chatSent) {
+              openChatSheet(null);
             }
           }}
           onRequestQuote={(co) => { const id = miniModal.ownerId; onNavigate?.({ target: 'quote', companyId: id, company: co }); }}
@@ -1448,8 +1434,8 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
           alreadySent={commentAuthorSheet.isPostAuthor ? chatSent : sentChatTargets.has(commentAuthorSheet.comment.user_id)}
           busy={chatRequestBusy}
           onChat={commentAuthorSheet.isPostAuthor
-            ? () => { if (!chatSent && ensureChatTokens()) setShowChat(true); }
-            : () => handleCommentChatRequest(commentAuthorSheet.comment)}
+            ? () => { setCommentAuthorSheet(null); if (!chatSent) openChatSheet(null); }
+            : () => handleCommentChatRequest({ ...commentAuthorSheet.comment, name: resolveConsumerIdentity(commentAuthorSheet.comment) })}
           onReport={commentAuthorSheet.isPostAuthor
             ? () => openReport({ type: 'post', targetId: post.id })
             : () => handleCommentReportFromSheet(commentAuthorSheet.comment.id)}
