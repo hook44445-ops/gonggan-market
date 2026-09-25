@@ -6098,7 +6098,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               autoComplete="off"
               onKeyDown={e => {
                 if (e.key === "Enter") {
-                  const _ac = import.meta.env.VITE_ADMIN_CODE;
+                  const _ac = null /* 관리자 코드 로그인 없앰 — 코드가 공개 JS 파일에 들어 있었다(09-25). 관리자는 전화번호 인증 관리자 계정으로 */;
                   if (_ac && adminIdInput === "admin" && adminCodeInput === _ac) {
                     localStorage.setItem("admin_authed", "true");
                     setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError("");
@@ -6115,7 +6115,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 취소
               </button>
               <button onClick={() => {
-                const _ac = import.meta.env.VITE_ADMIN_CODE;
+                const _ac = null /* 관리자 코드 로그인 없앰 — 코드가 공개 JS 파일에 들어 있었다(09-25). 관리자는 전화번호 인증 관리자 계정으로 */;
                 if (_ac && adminIdInput === "admin" && adminCodeInput === _ac) {
                   localStorage.setItem("admin_authed", "true");
                   setShowAdminCodeModal(false); setAdminIdInput(""); setAdminCodeInput(""); setAdminCodeError("");

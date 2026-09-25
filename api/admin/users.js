@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import { sessionUserId } from "../../src/lib/sessionToken.server.js";
 
 // ── 관리자 고객 API (service role) ────────────────────────────────────────────
 // service role key 는 절대 프론트에 노출하지 않고 서버에서만 사용한다.
@@ -19,29 +20,23 @@ const USER_STATUSES = ["NORMAL", "TEMP_RESTRICTED", "SUSPENDED", "BLACKLISTED"];
 //  · uuid → users.role='admin' 검증 (전화번호 OTP 관리자)
 //  · 'admin' sentinel → 코드 관리자(DB row 없음). x-admin-code 헤더를 서버 ADMIN_CODE 와 대조.
 // 반환: { ok:true, authKind } | { ok:false, status, error }
+// 관리자 확인 — 서버가 서명한 로그인 토큰(Authorization: Bearer)의 사용자가 users.role='admin' 일 때만.
+//   예전엔 앱이 보낸 adminId(uuid)나 관리자 코드(x-admin-code)를 믿었는데, 관리자 uuid 는 공개 데이터로
+//   알 수 있었고 코드는 공개 JS 파일에 들어 있었다(총점검 09-25) → 전체 회원 목록(전화번호)이 샐 수 있었다.
 async function verifyAdmin(db, adminId, req) {
-  if (UUID_RE.test(adminId)) {
-    const { data: me, error: meErr } = await db
-      .from("users").select("id, role").eq("id", adminId).maybeSingle();
-    if (meErr) return { ok: false, status: 500, error: meErr.message };
-    if (!me || me.role !== "admin") return { ok: false, status: 403, error: "ADMIN_ONLY" };
-    return { ok: true, authKind: "uuid" };
-  }
-  if (adminId === "admin") {
-    const expected = process.env.ADMIN_CODE || process.env.VITE_ADMIN_CODE || "";
-    if (!expected) return { ok: false, status: 500, error: "ADMIN_CODE_NOT_CONFIGURED" };
-    const got = String(req.headers["x-admin-code"] ?? "");
-    if (got !== expected) return { ok: false, status: 403, error: "ADMIN_ONLY" };
-    return { ok: true, authKind: "admin" };
-  }
-  return { ok: false, status: 403, error: "ADMIN_ONLY" };
+  const uid = sessionUserId(req);
+  if (!uid) return { ok: false, status: 401, error: "관리자 인증이 필요해요 — 인증번호로 다시 로그인해 주세요" };
+  const { data: me, error: meErr } = await db.from("users").select("id, role").eq("id", uid).maybeSingle();
+  if (meErr) return { ok: false, status: 500, error: meErr.message };
+  if (!me || me.role !== "admin") return { ok: false, status: 403, error: "ADMIN_ONLY" };
+  return { ok: true, authKind: "token" };
 }
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-admin-code");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });

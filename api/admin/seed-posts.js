@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+import { sessionUserId } from "../../src/lib/sessionToken.server.js";
 
 // ── 라운지 운영(seed) 글 관리 목록 API (service role) ─────────────────────────
 // lounge_posts 의 is_seed=true 운영글 전체를 반환(숨김/비활성 포함) — RLS 우회 위해 서버에서만 service role 사용.
@@ -11,7 +12,7 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
@@ -19,30 +20,17 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "SERVICE_NOT_CONFIGURED: SUPABASE_SERVICE_ROLE_KEY 가 설정되지 않았습니다" });
   }
 
-  const adminId = String(req.query.adminId ?? "").trim();
-  if (!adminId) return res.status(401).json({ error: "MISSING_ADMIN_ID" });
-
   const db = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-  // uuid → DB role 검증 / 'admin' sentinel → 코드 관리자(x-admin-code 검증).
-  // 기존엔 'admin' 이 uuid 캐스트 에러(500)로 떨어져 코드 관리자가 항상 실패했다.
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (UUID_RE.test(adminId)) {
+  // 관리자·운영자 확인 — 서버가 서명한 로그인 토큰의 사용자로만(예전 adminId · x-admin-code 는 믿지 않는다, 09-25).
+  const uid = sessionUserId(req);
+  if (!uid) return res.status(401).json({ error: "관리자 인증이 필요해요 — 인증번호로 다시 로그인해 주세요" });
+  {
     const { data: me, error: meErr } = await db
-      .from("users").select("id, role, is_operator").eq("id", adminId).maybeSingle();
+      .from("users").select("id, role, is_operator").eq("id", uid).maybeSingle();
     if (meErr) return res.status(500).json({ error: meErr.message });
-    // operator 는 부가 권한(is_operator). 레거시 role='operator' 도 호환.
     const isMod = me && (me.role === "admin" || me.is_operator === true || me.role === "operator");
-    if (!isMod) {
-      return res.status(403).json({ error: "MODERATOR_ONLY" });
-    }
-  } else if (adminId === "admin") {
-    const expected = process.env.ADMIN_CODE || process.env.VITE_ADMIN_CODE || "";
-    if (!expected) return res.status(500).json({ error: "ADMIN_CODE_NOT_CONFIGURED" });
-    const got = String(req.headers["x-admin-code"] ?? "");
-    if (got !== expected) return res.status(403).json({ error: "MODERATOR_ONLY" });
-  } else {
-    return res.status(403).json({ error: "MODERATOR_ONLY" });
+    if (!isMod) return res.status(403).json({ error: "MODERATOR_ONLY" });
   }
 
   const { data, error } = await db

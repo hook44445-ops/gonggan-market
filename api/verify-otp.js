@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
+import { signSession, signTicket, verifyTicket } from "../src/lib/sessionToken.server.js";
 
 // 번호 확인 — 두 갈래.
 //
@@ -106,7 +107,8 @@ async function verifyIdentity(db, req, res) {
     await db.from("identity_verification_log").update({ user_id: user.id }).eq("id", id);
   }
 
-  return res.status(200).json({ verified: true, via: "identity", user, phone, name });
+  return res.status(200).json({ verified: true, via: "identity", user, phone, name,
+    token: user?.id ? signSession(user.id) : null, signupTicket: user?.id ? null : signTicket(phone) });
 }
 
 function hashCode(phone, code) {
@@ -129,6 +131,15 @@ export default async function handler(req, res) {
 
   // ② 휴대폰 본인인증 갈래
   if (req.body?.identityVerificationId) return verifyIdentity(db, req, res);
+
+  // ③ 가입 표 → 로그인 토큰(인증번호 확인 뒤 가입한 새 사용자). 인증번호는 1회용이라 가입 뒤엔 이 표로 토큰을 받는다.
+  if (req.body?.signupTicket) {
+    const t = verifyTicket(req.body.signupTicket);
+    if (!t) return res.status(401).json({ error: "가입 확인이 만료됐어요. 다시 인증해 주세요" });
+    const { data: u } = await db.from("users").select("*").eq("phone", t.phone).maybeSingle();
+    if (!u?.id) return res.status(404).json({ error: "가입한 사용자를 찾지 못했어요" });
+    return res.status(200).json({ verified: true, user: u, token: signSession(u.id) });
+  }
 
   // ① 문자 인증 갈래
   const { phone, code } = req.body ?? {};
@@ -178,8 +189,13 @@ export default async function handler(req, res) {
   if (error) {
     console.error("[verify-otp] Supabase lookup error:", error.message);
     // 조회 실패해도 인증 자체는 성공 — 프론트가 신규 가입 흐름으로 진행
-    return res.status(200).json({ verified: true, user: null });
+    return res.status(200).json({ verified: true, user: null, signupTicket: signTicket(phone) });
   }
 
-  return res.status(200).json({ verified: true, user: user ?? null });
+  // 로그인 토큰(SUPABASE_JWT_SECRET 이 없으면 null — 예전과 같은 동작). 새 사용자면 가입 표.
+  return res.status(200).json({
+    verified: true, user: user ?? null,
+    token: user?.id ? signSession(user.id) : null,
+    signupTicket: user?.id ? null : signTicket(phone),
+  });
 }

@@ -18,6 +18,8 @@ const STORE_ID = import.meta.env.VITE_PORTONE_STORE_ID;
 const CHANNEL_KEY = import.meta.env.VITE_PORTONE_IDENTITY_CHANNEL_KEY;
 const SDK_URL = "https://cdn.portone.io/v2/browser-sdk.js";
 
+import { saveSessionToken } from "./session";
+
 export const IDENTITY_READY = !!(STORE_ID && CHANNEL_KEY);
 
 const PURPOSE_KEY = "gm_identity_purpose";
@@ -71,6 +73,7 @@ export async function completeIdentityVerification(identityVerificationId, userI
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "본인인증을 확인하지 못했어요");
+  if (data?.token && data?.user?.id) saveSessionToken(data.user.id, data.token);   // 로그인 토큰(lib/session)
   return data;
 }
 
