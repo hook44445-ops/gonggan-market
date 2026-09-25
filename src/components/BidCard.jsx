@@ -90,17 +90,33 @@ export default function BidCard({
   const lockLabel = bizLocked ? "🔒 사업자등록 후 입찰"
     : !limitState.insurance ? "🔒 시공보험 등록 후 입찰"
     : "🔒 서류 올리고 입찰";
+  // «무엇을 내면 열리는지»를 엠블럼으로(힉스필드 3-6) — 사업자 · 시공보험 · 보증금 · 실내건축공사업
+  const nudgeEmblems = !nudge ? [] : nudge.key === "biz" ? ["biz"] : nudge.key === "insurance" ? ["insurance"]
+    : nudge.key === "advance" ? ["deposit"]
+    : [...new Set((unlockFor(budgetMax, limitState)?.need ?? []).flatMap(n => [
+        /사업자/.test(n) && "biz", /시공보험/.test(n) && "insurance", /보증금|공간보증/.test(n) && "deposit", /실내건축/.test(n) && "license",
+      ]).filter(Boolean))].slice(0, 3);
   const nudgeLine = nudge && (
     <div style={{ background: "#FBF7EC", border: "1px solid #EADFC4", borderRadius: R.lg, padding: `${S.sm}px ${S.md}px`,
-      marginTop: S.md, display: "flex", alignItems: "center", gap: S.sm }}>
-      <span style={{ flex: 1, fontSize: 12, color: "#6F5A1E", lineHeight: 1.6, fontWeight: 600 }}>🔓 {nudge.text}</span>
-      {nudge.cta && onGoDocuments && (
-        <button onClick={(e) => { e.stopPropagation(); onGoDocuments(); }}
-          style={{ flex: "0 0 auto", background: C.surface, color: "#8A6D1E", border: "1px solid #EADFC4", borderRadius: R.full,
-            padding: "6px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-          {nudge.cta}
-        </button>
+      marginTop: S.md, display: "flex", alignItems: "flex-start", gap: S.sm }}>
+      {nudgeEmblems.length > 0 && (
+        <span aria-hidden="true" style={{ display: "flex", flex: "0 0 auto", paddingTop: 2 }}>
+          {nudgeEmblems.map((f, i) => (
+            <img key={f} src={`/images/emblem/${f}-sm.webp`} alt="" width={36} height={36}
+              style={{ display: "block", marginLeft: i ? -10 : 0 }} />
+          ))}
+        </span>
       )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, color: "#6F5A1E", lineHeight: 1.6, fontWeight: 600 }}>{nudgeEmblems.length ? "" : "🔓 "}{nudge.text}</div>
+        {nudge.cta && onGoDocuments && (
+          <button onClick={(e) => { e.stopPropagation(); onGoDocuments(); }}
+            style={{ marginTop: 6, background: C.surface, color: "#8A6D1E", border: "1px solid #EADFC4", borderRadius: R.full,
+              padding: "5px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+            {nudge.cta} →
+          </button>
+        )}
+      </div>
     </div>
   );
   const bidPrice = parseInt(bidForm.price, 10);
