@@ -29,6 +29,9 @@ export const TRUST_EMBLEMS = [
   { key: "biz",       file: "biz",       label: "사업자",   earnedText: "사업자등록을 확인했습니다",     lockedText: "사업자등록이 아직 확인되지 않았습니다", hint: "사업자등록증을 내면 채워집니다" },
   { key: "insurance", file: "insurance", label: "시공보험", earnedText: "시공보험에 가입한 업체입니다",   lockedText: "시공보험 가입이 확인되지 않았습니다",   hint: "시공보험 증권을 내면 채워집니다" },
   { key: "deposit",   file: "deposit",   label: "보증금",   earnedText: "공간보증 보증금을 예치했습니다", lockedText: "보증금을 예치하지 않은 업체입니다",     hint: "공간보증에 참여하면 채워집니다" },
+  // 실내건축공사업 — 딴 업체에만 보인다(대표 09-25 「실내건축사업자 엠블럼도」). 동네 소규모 업체 대부분은 등록 대상이
+  // 아니어서, 빈 자리로 두면 멀쩡한 업체가 모두 «빠진 게 있는» 것처럼 보인다. 그래서 «보너스» 칸.
+  { key: "license",   file: "license",   label: "실내건축", earnedText: "실내건축공사업 등록 업체입니다", lockedText: "",                                     hint: "실내건축공사업 등록증을 내면 붙습니다", earnedOnly: true },
 ];
 
 // 업체 데이터 → 무엇을 땄나.
@@ -52,6 +55,8 @@ export function trustState(company = {}) {
     depositGrade: grade,
     depositFile: deposit ? guaranteeEmblemFile(company.guarantee_grade) : "deposit",
     depositManwon,
+    // 실내건축공사업 등록증 — 관리자가 승인할 때만 켜진다(adminReviewDocument → license_verified · 마이그레이션 118)
+    license:   (company.license_verified ?? company.licenseVerified) === true,
   };
 }
 
@@ -122,7 +127,9 @@ export function CompanyTrustRow({ company, style, forPartner = false }) {
   const s = trustState(company);
   const level = companyLevel(company);
   const st = stageFor(level);
-  const earnedCount = TRUST_EMBLEMS.filter(e => s[e.key]).length;
+  // 보너스 칸(실내건축)은 딴 경우에만 줄에 선다. 업체 본인 미리보기(forPartner)에는 빈 자리로 보여 다음 목표가 되게 한다.
+  const shown = TRUST_EMBLEMS.filter(e => !e.earnedOnly || s[e.key] || forPartner);
+  const earnedCount = shown.filter(e => s[e.key]).length;
   // 누른 엠블럼의 설명 — 관리자가 확인한 사실만 말한다(엠블럼을 켜는 기준과 같다).
   const explain = (() => {
     if (!openKey) return null;
@@ -133,6 +140,7 @@ export function CompanyTrustRow({ company, style, forPartner = false }) {
     if (e.key === "deposit") return `공간보증 ${s.depositGrade ?? ""}${s.depositManwon ? ` · 보증금 ${Number(s.depositManwon).toLocaleString("ko-KR")}만원` : ""} — 관리자가 입금을 확인한 보증금이에요`;
     if (e.key === "biz") return "사업자등록을 확인했습니다 — 관리자가 사업자등록증을 확인했어요";
     if (e.key === "insurance") return "시공보험에 가입한 업체입니다 — 관리자가 보험 증권을 확인했어요";
+    if (e.key === "license") return "실내건축공사업 등록 업체입니다 — 관리자가 등록증을 확인했어요";
     return e.earnedText;
   })();
 
@@ -152,10 +160,10 @@ export function CompanyTrustRow({ company, style, forPartner = false }) {
 
       {/* 증빙 셋 */}
       <div
-        aria-label={`신뢰 증빙 ${earnedCount}개 / ${TRUST_EMBLEMS.length}개`}
-        style={{ display: "flex", alignItems: "flex-start", gap: 10 }}
+        aria-label={`신뢰 증빙 ${earnedCount}개 / ${shown.length}개`}
+        style={{ display: "flex", alignItems: "flex-start", gap: shown.length > 3 ? 6 : 10 }}
       >
-        {TRUST_EMBLEMS.map(e => {
+        {shown.map(e => {
           const on = s[e.key];
           // 보증금 칸은 두 줄 「보증금 / 프리미엄」 — 등급 이름만 쓰면 고객이 무엇의 프리미엄인지 모른다(대표 09-25).
           const grade2 = e.key === "deposit" && on && s.depositGrade ? s.depositGrade : null;
