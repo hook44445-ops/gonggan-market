@@ -6,6 +6,7 @@
 //   ⚠️ 기존 엔진/발행 API 재사용(무수정) · additive. Regression Zero.
 // ════════════════════════════════════════════════════════════════════
 
+import { BROWSER_AI_AUTOPUBLISH } from "../constants/release";
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { runDay, DAY_PROGRAM } from "../lib/dayRunner";
@@ -39,6 +40,7 @@ export default function LiveOps({ published = [], adminUserId, showToast, onRelo
 
   // 화면 열려 있는 동안 도래분 자동 발행(ON & !EmergencyStop). 25초 간격.
   useEffect(() => {
+    if (!BROWSER_AI_AUTOPUBLISH) return;   // 브라우저 자동 발행 끔 — 서버 자율 사이클만 발행한다
     let alive = true;
     const pump = async () => {
       const c = getAutopilotConfig();
@@ -58,6 +60,7 @@ export default function LiveOps({ published = [], adminUserId, showToast, onRelo
   const setCfg = (patch) => { setAutopilotConfig(patch); refresh(); };
 
   const runToday = async () => {
+    if (!BROWSER_AI_AUTOPUBLISH) { showToast?.("브라우저 편성 실행은 꺼 두었어요 — 글은 서버 자율 사이클이 만들고 발행해요", false); return; }
     if (running) return;
     if (!window.confirm("오늘 편성(QT·인도점성술·Morning Brief·공간마켓·Time Trend)을 실제 생성하고 예약합니다.\n품질 통과분은 자동 승인되어, Auto Publish ON이면 곧 실제 발행됩니다. 진행할까요?")) return;
     setRunning(true); setItems({});

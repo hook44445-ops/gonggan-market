@@ -29,6 +29,9 @@ import { decidePublishMode } from "./publishModeDecider.js";
 import { computeBudget, canPublish, isRegular } from "./dailyPublishBudget.js";
 import { ensureImageUrls } from "./approvalImage.js";
 
+// 하루 AI 글 발행 총량 — dailyPublishBudget 의 총량(정기 10 + 수시 5)과 같게. 예약 발행에도 적용.
+const DAILY_PUBLISH_CAP = 15;
+
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const SB_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -57,6 +60,15 @@ async function sbGet(path) {
 }
 
 async function sbInsertDraft(row) {
+  const res = await sbInsertDraftRaw(row);
+  // ai_source 칸(SQL 140)이 아직 없으면 표시 없이 한 번 더 — 초안 만들기는 멈추지 않게(자동 승인은 표시 있는 것만이라 안전)
+  if (res.error && /ai_source/.test(String(res.error)) && row.ai_source) {
+    const { ai_source, ...rest } = row; // eslint-disable-line no-unused-vars
+    return sbInsertDraftRaw(rest);
+  }
+  return res;
+}
+async function sbInsertDraftRaw(row) {
   const r = await fetch(`${SB_URL}/rest/v1/lounge_posts`, {
     method: "POST",
     headers: {
@@ -98,7 +110,11 @@ async function autoApproveAndSchedule(now) {
   const res = { reviewed: 0, scheduled: 0, needsReview: 0, rows: [] };
   try {
     const drafts = (await sbGet(
-      `lounge_posts?publish_status=eq.draft&ai_topic=not.is.null&select=id,title,content,category,ai_topic,created_at&order=created_at.desc&limit=${MAX_APPROVE_PER_RUN}`
+      // 서버가 틀로 만든 초안(ai_source=server_template)만 자동 승인한다(09-26 검토).
+      //   예전엔 ai_topic 이 있는 초안이면 누가 만들었든 승인·발행 — 브라우저 AI 초안(아침 뉴스처럼 사설을 지어낼 수 있는 것),
+      //   AI 사장실 «승인», 검증용 초안까지 관리자 확인 없이 나갔다. 그 초안들은 관리자가 「AI 콘텐츠 공장」에서 직접 발행한다.
+      //   ai_source 칸이 없으면(SQL 140 전) 조회가 실패 → 이번 회차는 승인 0건(안전한 쪽).
+      `lounge_posts?publish_status=eq.draft&ai_topic=not.is.null&ai_source=eq.server_template&select=id,title,content,category,ai_topic,created_at&order=created_at.desc&limit=${MAX_APPROVE_PER_RUN}`
     )) ?? [];
     console.log(`${L} 후보 draft=${drafts.length}`);
     if (!drafts.length) return res;
@@ -233,6 +249,18 @@ async function publishDueScheduled(now = Date.now()) {
       return { ...diag, reason: "none_due" };
     }
 
+    // 하루 발행 한도(dailyPublishBudget 의 총량)를 예약 발행에도 — 예전엔 즉시 발행에만 적용됐다(09-26 검토).
+    const publishedToday = (await sbGet(
+      `lounge_posts?publish_status=eq.published&ai_topic=not.is.null&updated_at=gte.${encodeURIComponent(kstMidnightUtcIso(new Date(now)))}&select=id&limit=100`
+    )) ?? [];
+    const room = Math.max(0, DAILY_PUBLISH_CAP - publishedToday.length);
+    if (room === 0) {
+      console.log(`${L} 오늘 발행 한도(${DAILY_PUBLISH_CAP}) 도달 — 예약 발행 이월`);
+      diag.ok = true;
+      return { ...diag, reason: "daily_cap" };
+    }
+    dueIds.splice(room);
+
     // (6)(7) publish 실행 = DB UPDATE scheduled→published.
     // ⑯ 발행 폭주 방지: 한 사이클 최대 MAX_PUBLISH_PER_RUN 건만. 나머지(놓친 예약 포함)는 다음 Cron 회수.
     const batch = dueIds.slice(0, MAX_PUBLISH_PER_RUN);
@@ -326,6 +354,7 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
           publish_status: "draft", // ⚠️ 절대 published/scheduled 금지.
           scheduled_at: null,
           ai_topic: item.topic,
+          ai_source: "server_template", // 서버가 틀로 만든 초안 — 자동 승인은 이 표시가 있는 것만(09-26)
         });
         if (!error) {
           generated++;
