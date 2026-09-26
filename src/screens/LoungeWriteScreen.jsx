@@ -6,7 +6,7 @@ import { useState, useRef } from 'react';
 import { C, R, S, REGIONS, CITY_DISTRICTS } from '../constants';
 import { LOUNGE_CATEGORIES } from '../constants/lounge';
 import { getAnonymousNickname } from '../utils/anonymousNickname';
-import { IS_SUPABASE_READY, createLoungePost, updateLoungePost, adminUpdateLoungePost, uploadLoungeImage, enqueueLoungePostPush } from '../lib/supabase';
+import { IS_SUPABASE_READY, createLoungePost, updateLoungePost, adminUpdateLoungePost, uploadLoungeImage, enqueueLoungePostPush, wakePushDispatcher } from '../lib/supabase';
 
 const WRITABLE_CATS = LOUNGE_CATEGORIES.filter(c => c.group !== null);
 const MAX_IMAGES    = 5;
@@ -316,7 +316,8 @@ export default function LoungeWriteScreen({ user, onBack, onPublish, editPost = 
         setSubmitting(false);
         if (err) { setError('등록 중 오류가 발생했어요. 다시 시도해주세요.'); return; }
         // 적격 수신자에게 푸시 큐잉(작성자 제외·지역/카테고리 매칭·중복 방지는 RPC 내부 처리) — 실패해도 등록 흐름엔 영향 없음
-        if (!isEdit && data?.id) { try { await enqueueLoungePostPush(data.id); } catch {} }
+        // 새 글 푸시는 서버 트리거(139)도 넣는다(중복은 서버가 막음) — 여기선 바로 보내라고 깨우기까지
+        if (!isEdit && data?.id) { try { await enqueueLoungePostPush(data.id); } catch {} wakePushDispatcher(); }
         onPublish?.(data ?? newPost);
       } else {
         try {

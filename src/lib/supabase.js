@@ -789,6 +789,12 @@ export const getStagePlanPreview = async (companyRef, totalManwon) => {
   return !error && typeof data === "string" ? data : "4STEP";
 };
 
+// 관리자 공지 푸시(139) — 대상: all · consumer · company · lounge. 관리자 토큰으로(131 admin_*).
+export const adminPushAudienceCount = (audience) =>
+  supabase.rpc("admin_push_audience_count", { p_audience: audience });
+export const adminPushBroadcast = ({ title, body, url = "/", audience = "all" }) =>
+  supabase.rpc("admin_push_broadcast", { p_title: title, p_body: body, p_url: url, p_audience: audience });
+
 // 서버가 큐에 넣은 푸시를 지금 내보내게 깨운다(새 견적 요청 → 파트너 알림, migration 110). 실패해도 무시.
 export const wakePushDispatcher = () =>
   fetch("/api/push/enqueue", {

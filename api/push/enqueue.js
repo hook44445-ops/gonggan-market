@@ -86,6 +86,9 @@ export const TYPE_TO_PREF_COLUMN = {
   BIZ_REQUIRED: "push_company_recommend",
   CO_DISPUTE_FILED: "push_escrow",
   // 라운지 1:1 대화 — push_chat 컬럼은 화면에 토글이 있는데 여태 아무 타입도 쓰지 않았다
+  // 라운지 새 글·인기 글(139 서버가 직접 큐잉) — 「라운지 새 글」 토글. 관리자 공지(ANNOUNCEMENT)는 전체 수신만 본다(매핑 없음).
+  lounge_news: "push_lounge_activity",
+  lounge_hot: "push_lounge_activity",
   LOUNGE_CHAT_REQUEST: "push_chat",
   LOUNGE_CHAT_ACCEPTED: "push_chat",
   LOUNGE_CHAT_MESSAGE: "push_chat",

@@ -112,6 +112,13 @@ export default async function handler(req, res) {
     console.log('[autonomous-cycle] (1) 인증 통과 → runAutonomousCycle 호출');
     try {
       const result = await runAutonomousCycle({ now: Date.now() });
+      // 발행된 글의 라운지 새 글 푸시(139 트리거가 큐에 넣음)를 지금 내보낸다 — 크론은 하루 1회라 없으면 늦는다
+      {   // 예약 도래·즉시 발행 어느 쪽이든 — 큐가 비어 있으면 발송기는 금방 끝난다
+        try {
+          const base = process.env.PUSH_DISPATCH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+          if (base) await fetch(base.startsWith('http') ? `${base.replace(/\/$/, '')}/api/push/dispatch` : base, { method: 'POST' });
+        } catch { /* 다음 발송 때 나간다 */ }
+      }
       console.log(`[autonomous-cycle] 완료 published=${result?.publishDiag?.published ?? 0} scheduledTotal=${result?.publishDiag?.scheduledTotal ?? 0} due=${result?.publishDiag?.dueCount ?? 0}`);
       return sendJson(200, { mode: 'autonomous', ...result });
     } catch (e) {
