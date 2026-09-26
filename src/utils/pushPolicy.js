@@ -11,6 +11,8 @@ export const PUSH_TYPE = {
   ESTIMATE_NEWS: 'estimate_news',  // 견적 고민
   COMPANY_NEWS:  'company_news',   // 업체추천
   LOUNGE_ACTIVITY: 'lounge_activity', // 내 글 댓글/하트
+  LOUNGE_NEWS:   'lounge_news',    // 라운지 새 글(관심 카테고리) — 139 서버 트리거
+  LOUNGE_HOT:    'lounge_hot',     // 라운지 인기(HOT) 글 — 139
   CHAT:          'chat',           // 대화
   ESCROW:        'escrow',         // 계약/안전결제
 };
@@ -57,6 +59,8 @@ export const NEWS_TYPES = [
   PUSH_TYPE.REVIEW_NEWS,
   PUSH_TYPE.ESTIMATE_NEWS,
   PUSH_TYPE.COMPANY_NEWS,
+  PUSH_TYPE.LOUNGE_NEWS,   // 새 글·인기 글도 소식성 — 하루 3건 · 오전 10시~오후 9시(예전엔 즉시 알림 종류로 밤에도 나갈 수 있었다)
+  PUSH_TYPE.LOUNGE_HOT,
 ];
 
 // 소식성 타입 여부 (시간창/일일캡 적용 대상)
@@ -85,6 +89,8 @@ export function pushTypeToPrefColumn(type) {
     case PUSH_TYPE.ESTIMATE_NEWS:   return 'push_estimate_news';
     case PUSH_TYPE.COMPANY_NEWS:    return 'push_company_recommend';
     case PUSH_TYPE.LOUNGE_ACTIVITY: return 'push_lounge_activity';
+    case PUSH_TYPE.LOUNGE_NEWS:     return 'push_lounge_activity';
+    case PUSH_TYPE.LOUNGE_HOT:      return 'push_lounge_activity';
     case PUSH_TYPE.CHAT:            return 'push_chat';
     case PUSH_TYPE.ESCROW:          return 'push_escrow';
     default:                        return null;

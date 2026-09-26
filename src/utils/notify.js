@@ -48,6 +48,8 @@ export const NOTIF_META = {
   CO_STAGE_APPROVED:       { tier: NOTIF_TIER.PROGRESS, icon: "✅", priority: "NORMAL" },
   // 48시간 자동 승인(서버 112) — 고객에게 12시간 전 알림, 승인 뒤 양쪽에 통지
   STAGE_APPROVE_REMINDER:  { tier: NOTIF_TIER.PROGRESS, icon: "⏳", priority: "HIGH" },
+  // 관리자 공지(139 admin_push_broadcast)
+  ANNOUNCEMENT:            { tier: NOTIF_TIER.TRUST, icon: "📣", priority: "HIGH" },
   STAGE_AUTO_APPROVED:     { tier: NOTIF_TIER.PROGRESS, icon: "✅", priority: "HIGH" },
   CO_DISPUTE_FILED:        { tier: NOTIF_TIER.PROGRESS, icon: "⚠️", priority: "HIGH" },
   // 사업자등록(서버 116) — 선택된 업체에 72시간 안내, 확인되면 고객에게 「결제할 수 있어요」 · 관리자 확인 요청(116·123)
