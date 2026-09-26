@@ -4,6 +4,7 @@
 //     "## 제목"  → H2 느낌 소제목
 //     "### 제목" → H3 느낌 소제목
 //     "- 항목"   → 글머리 목록
+//     [글자](https://…) → 새 창 링크(뉴스·트렌드 글의 출처 — http(s) 만, nofollow)
 //     빈 줄       → 문단 간격
 //     그 외       → 일반 문단
 //   일반 사용자 글(마커 없음)은 그대로 문단으로 자연스럽게 렌더된다.
@@ -16,17 +17,24 @@ export function plainExcerpt(content = '') {
     .replace(/^#{1,6}\s+/gm, '')   // 소제목 마커 제거
     .replace(/^[-•]\s+/gm, '')      // 목록 마커 제거
     .replace(/\*\*(.+?)\*\*/g, '$1') // 굵게 마커 제거
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1') // 링크 → 글자만
     .replace(/\s*\n+\s*/g, ' ')     // 줄바꿈 → 공백
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
 
-// 인라인 **굵게** 처리
+// 인라인 **굵게** · [글자](https://…) 링크 처리
 function renderInline(text, keyBase) {
-  const parts = String(text).split(/(\*\*.+?\*\*)/g).filter(Boolean);
+  const parts = String(text).split(/(\*\*.+?\*\*|\[[^\]]+\]\(https?:\/\/[^\s)]+\))/g).filter(Boolean);
   return parts.map((p, i) => {
     const m = p.match(/^\*\*(.+?)\*\*$/);
     if (m) return <strong key={`${keyBase}-b${i}`} style={{ fontWeight: 800, color: C.text1 }}>{m[1]}</strong>;
+    const l = p.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (l) return (
+      <a key={`${keyBase}-a${i}`} href={l[2]} target="_blank" rel="noopener noreferrer nofollow"
+        onClick={(e) => e.stopPropagation()}
+        style={{ color: C.brand, fontWeight: 700, textDecoration: "underline", textUnderlineOffset: 2, wordBreak: "break-all" }}>{l[1]}</a>
+    );
     return <span key={`${keyBase}-t${i}`}>{p}</span>;
   });
 }
