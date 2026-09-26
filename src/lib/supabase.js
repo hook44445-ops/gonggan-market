@@ -1202,6 +1202,7 @@ export const adminListLoungeDrafts = () =>
     .eq("is_seed", true)
     .not("ai_topic", "is", null)
     .in("publish_status", ["draft", "scheduled"])
+    .or("is_deleted.is.null,is_deleted.eq.false")   // 삭제 표시한 옛 초안은 빼고(145)
     .order("created_at", { ascending: false })
     .limit(100);
 
