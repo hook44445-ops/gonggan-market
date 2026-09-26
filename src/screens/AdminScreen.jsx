@@ -94,7 +94,7 @@ import {
   getPaymentOrders, adminUpdatePaymentOrder,
   getDisputePayments, adminResolveDispute,
   getPendingPayouts, adminSetPayoutStatus,
-  apiAdminSetUserStatus, apiAdminAdjustUserTokens, apiAdminAdjustSpaceTemp,
+  apiAdminSetUserStatus, apiAdminAdjustUserTokens, apiAdminAdjustSpaceTemp, apiAdminLookupUser,
   adminGetLoungePosts, getLoungeReports,
   adminHideContent, adminUpdateLoungeReport, markNotificationRead,
   createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage, adminGetSeedLoungePosts,
@@ -614,8 +614,9 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], 
   const lookupUser = async (input) => {
     const val = input.trim();
     if (!val) return null;
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-    const { data } = isUUID ? await getUser(val) : await getUserByPhone(val);
+    // 서버에서 찾는다 — 표 직접 읽기는 로그인 세션이 없어 정책에 막혀 늘 「찾을 수 없음」이었다(09-26).
+    //   ID 또는 전화번호(010-…·01012345678·+8210… 무엇이든).
+    const { data } = await apiAdminLookupUser(val, adminUserId);
     return data ?? null;
   };
 

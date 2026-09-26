@@ -180,7 +180,13 @@ export default function LoginScreen({ onLogin, initialRole }) {
         body: JSON.stringify({ phone: toE164(phone), code }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "인증에 실패했습니다");
+      // 서버 「인증번호를 다시 요청해주세요」 = 만료됐거나, 그 뒤 새 번호가 발송돼 예전 번호가 된 것(09-26 대표가 겪음).
+      if (!res.ok) {
+        const m = String(data.error || "");
+        throw new Error(/다시 요청/.test(m)
+          ? "인증번호가 만료됐거나 새 번호가 발송됐어요. 「재발송」을 누르고 가장 최근 문자의 번호를 넣어 주세요."
+          : (m || "인증에 실패했습니다"));
+      }
 
       // 인증 성공 — 기기 인증/계정 기억은 App.handleLogin(onLogin) 에서 일괄 처리한다.
       if (data.user) {
@@ -444,8 +450,9 @@ export default function LoginScreen({ onLogin, initialRole }) {
             <input value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="010-0000-0000" maxLength={13}
               style={{ ...iS, flex: 1, marginBottom: 0 }} />
             <button onClick={sendCode} disabled={loading}
-              style={{ padding: "14px 16px", background: C.brand, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>
-              {codeSent ? "재발송" : "인증받기"}
+              style={{ padding: "14px 16px", background: C.brand, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13,
+                cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, whiteSpace: "nowrap" }}>
+              {loading ? "보내는 중…" : (codeSent ? "재발송" : "인증받기")}
             </button>
           </div>
           {codeSent && (
@@ -456,8 +463,9 @@ export default function LoginScreen({ onLogin, initialRole }) {
                   placeholder="000000" maxLength={6}
                   style={{ ...iS, flex: 1, marginBottom: 0, letterSpacing: 8, fontSize: 22, fontWeight: 800, textAlign: "center" }} />
                 <button onClick={verifyCode} disabled={loading}
-                  style={{ padding: "14px 16px", background: C.brand, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
-                  확인
+                  style={{ padding: "14px 16px", background: C.brand, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13,
+                    cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, whiteSpace: "nowrap" }}>
+                  {loading ? "확인 중…" : "확인"}
                 </button>
               </div>
             </>

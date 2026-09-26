@@ -60,6 +60,30 @@ export default async function handler(req, res) {
     const adminLogId = auth.authKind === "uuid" ? adminId : null; // sentinel 은 admin_logs.admin_id=NULL
 
     const action = String(body.action ?? "");
+
+    // 사용자 찾기 — 관리자 화면 「공간토큰 수동 관리」「공간온도 수동 조정」의 대상 찾기.
+    //   예전엔 앱이 users 표를 직접 읽었는데 로그인 세션이 없어 정책에 막혀, 어떤 번호·ID 로도
+    //   「사용자를 찾을 수 없습니다」였다(09-26). 전화번호는 010-…·01012345678·+8210… 무엇이든 받는다.
+    if (action === "lookup") {
+      const q = String(body.query ?? "").trim();
+      if (!q) return res.status(400).json({ error: "EMPTY_QUERY" });
+      let sel;
+      if (UUID_RE.test(q)) {
+        sel = db.from("users").select("id, name, phone, role").eq("id", q).limit(2);
+      } else {
+        const d = q.replace(/\D/g, "");
+        const cands = new Set([q]);
+        if (d.startsWith("0")) { cands.add(`+82${d.slice(1)}`); cands.add(d); }
+        if (d.startsWith("82")) { cands.add(`+${d}`); cands.add(`0${d.slice(2)}`); }
+        sel = db.from("users").select("id, name, phone, role").in("phone", [...cands]).limit(2);
+      }
+      const { data, error } = await sel;
+      if (error) return res.status(500).json({ error: error.message });
+      if (!data || data.length === 0) return res.status(404).json({ error: "USER_NOT_FOUND" });
+      if (data.length > 1) return res.status(409).json({ error: "AMBIGUOUS", count: data.length });
+      return res.status(200).json({ data: data[0] });
+    }
+
     const userId = String(body.userId ?? "").trim();
     const reason = body.reason != null ? String(body.reason) : null;
     if (!UUID_RE.test(userId)) return res.status(400).json({ error: "INVALID_USER_ID" });
