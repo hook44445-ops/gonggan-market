@@ -158,72 +158,13 @@ export default async function handler(req, res) {
     return;
   }
 
+  // 09-26: 일 1회 크론도 자율 사이클 하나로 — 예전엔 여기서 옛 틀(generateDraft·주제 단어로 카테고리)로 따로 글을 만들어
+  //   AI 글쓰기·라운지 카테고리 주제·카테고리 사진을 거치지 않은 초안이 섞였다(업체 글이 «생활» 칸으로 가는 등).
   try {
-    // 1) Trend Collect — enabled Provider만 실제 수집(Phase2: manual 시드만 활성).
-    const { items: collected, providerResults } = await collectAllTrends();
-
-    // 2) Duplicate Check 대상 — 최근 lounge_posts(ai_topic 존재, draft/scheduled/published 모두 포함).
-    const cutoffIso = new Date(Date.now() - LOOKBACK_HOURS * 3600 * 1000).toISOString();
-    const existing = await sbGet(
-      `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=ai_topic,title,created_at&limit=500`
-    ) ?? [];
-
-    // 3) 같은 배치/기존 저장분과 48시간 이내 중복 제거.
-    const fresh = filterNewTopics(collected, existing, 48).slice(0, MAX_DRAFTS_PER_RUN);
-
-    // 4) Topic Score/Priority + Category Mapping → 5) Draft Generate → 6) DRAFT 저장.
-    const created = [];
-    for (const item of fresh) {
-      const { category } = mapCategory(item.topic);
-      const score = scoreTopic({ topic: item.topic, region: item.region ?? null, collectedAt: item.collectedAt });
-      const priority = priorityFromScore(score.total);
-      /* 2026-09-23: 주제 풀이 주는 각도(질문형 제목)·브랜드 표시를 그대로 넘긴다 — 형식 회전과 AEO 제목이 여기서 살아난다. */
-      const draft = generateDraft({
-        issue:      item.topic,
-        spaceAngle: item.angle ?? null,
-        category:   item.category ?? category,
-        region:     item.region ?? null,
-        brand:      item.brand ?? null,
-      });
-
-      const { data, error } = await sbInsertDraft({
-        user_id:            null,
-        anonymous_nickname:  '공간마켓',
-        category:            draft.category,
-        title:               draft.title,
-        content:             draft.content,
-        region:              item.region ?? null,
-        /* 빈 image_urls 금지(§11) — 카테고리 후보 중 제목 해시로 고른다(같은 글=같은 그림, 다른 글=다른 그림). */
-        image_urls:          ensureImageUrls({ title: draft.title, content: draft.content }),
-        is_seed:             true,
-        is_visible:          false,   // ⚠️ 절대 true 로 두지 않음 — 관리자 승인 전 비공개.
-        publish_status:      'draft', // ⚠️ 절대 published/scheduled 로 두지 않음.
-        scheduled_at:        null,
-        ai_topic:            item.topic,
-        ai_source:           'server_template',   // 서버 틀 초안 표시(140) — 자동 승인은 이것만
-      });
-      if (!error) {
-        created.push({ id: data?.id ?? null, topic: item.topic, category: draft.category, priority, score: score.total, providerId: item.providerId });
-      }
-    }
-
-    // 7) 예약 발행 배치(승인된 예약만 시각 도래 시 실행) — 트렌드 수집과 독립, 실패해도 무해.
-    const scheduled = await publishDueScheduled();
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({
-      ok: true,
-      collected: collected.length,
-      providerResults: providerResults.map((r) => ({ providerId: r.providerId, status: r.status, count: r.items.length })),
-      deduped: fresh.length,
-      created: created.length,
-      drafts: created,
-      publishedScheduled: scheduled.published,
-    }));
+    const result = await runAutonomousCycle({ now: Date.now() });
+    return sendJson(200, { mode: 'daily', ...result });
   } catch (e) {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ ok: false, reason: e?.message ?? 'error', collected: 0, created: 0 }));
+    console.error('[check-trends] daily EXCEPTION', e?.stack || e?.message || String(e));
+    return sendJson(200, { ok: false, mode: 'daily', reason: e?.message ?? 'error' });
   }
 }

@@ -12,7 +12,7 @@
 // ⚠️ 비밀은 응답·로그에 절대 싣지 않는다.
 // ════════════════════════════════════════════════════════════════════
 
-import { pickLatestModels, defaultModels } from "./openRouterModels.js";
+import { pickLatestModels, defaultModels, pickNewest } from "./openRouterModels.js";
 import { voiceFor } from "../constants/categoryVoice.js";
 import { CATEGORY_LABEL } from "../constants/lounge.js";
 
@@ -34,7 +34,7 @@ export async function latestModels({ force = false } = {}) {
     clearTimeout(t);
     if (r.ok) {
       const j = await r.json();
-      cache = { at: Date.now(), models: pickLatestModels(j?.data ?? []), source: "openrouter" };
+      cache = { at: Date.now(), models: pickLatestModels(j?.data ?? []), newest: pickNewest(j?.data ?? []), source: "openrouter" };
       return cache;
     }
   } catch { /* 기본값으로 */ }
@@ -57,6 +57,7 @@ export async function llmStatus() {
     paid: !!KEY(), free: { gemini: !!GEMINI_KEY(), openrouter_free: !!KEY(), groq: !!GROQ_KEY() },
     writerModel: process.env.LOUNGE_LLM_MODEL || m.models.claude_magazine,
     models: m.models,
+    newest: m.newest ?? [],
     freeModel: KEY() ? await freeModel() : null,
     geminiModel: GEMINI_KEY() ? await geminiModel(GEMINI_KEY()) : null,
     modelsSource: m.source,
