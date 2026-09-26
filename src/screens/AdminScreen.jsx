@@ -96,7 +96,7 @@ import {
   getPendingPayouts, adminSetPayoutStatus,
   apiAdminSetUserStatus, apiAdminAdjustUserTokens, apiAdminAdjustSpaceTemp,
   adminGetLoungePosts, getLoungeReports,
-  adminHideContent, adminUpdateLoungeReport,
+  adminHideContent, adminUpdateLoungeReport, markNotificationRead,
   createSeedLoungePost, updateSeedLoungePost, deleteSeedLoungePost, uploadSeedLoungeImage, adminGetSeedLoungePosts,
   holdAllPayoutsForEscrow,
   getCompanyDocuments, adminReviewDocument, getPendingCompanyDocuments,
@@ -597,12 +597,17 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], 
   const [tempReason, setTempReason] = useState("");
   const [tempLoading, setTempLoading] = useState(false);
 
-  const toggleHide = (id) => {
+  // 신고된 글 숨김 — 서버에 실제로 숨긴다(09-26). 예전엔 이 브라우저 localStorage 에만 적어 사용자 화면엔 그대로 보였다.
+  const toggleHide = async (id) => {
+    const hide = !hiddenIds.includes(id);
+    const { error } = await adminHideContent("lounge_posts", id, adminUserId ?? null, hide, hide ? "신고 처리" : null);
+    if (error) { showToast?.(`처리 실패: ${error.message ?? "관리자 인증을 확인해 주세요"}`, false); return; }
     setHiddenIds(prev => {
-      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      const next = hide ? [...prev, id] : prev.filter(x => x !== id);
       try { localStorage.setItem("lounge_hidden", JSON.stringify(next)); } catch {}
       return next;
     });
+    showToast?.(hide ? "글을 숨겼어요" : "숨김을 풀었어요");
   };
 
   const lookupUser = async (input) => {
@@ -656,7 +661,8 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], 
         showToast?.("사용자를 찾을 수 없습니다", false);
         return;
       }
-      const { error } = await adminAdjustSpaceTemp(targetUser.id, adminUserId, delta, tempReason);
+      // 고객관리와 같은 서버 경로(api/admin/users) — 예전엔 import 되지 않은 함수를 불러 조용히 실패했다
+      const { error } = await apiAdminAdjustSpaceTemp(targetUser.id, adminUserId, delta, tempReason);
       if (error) {
         showToast?.(error.message ?? "처리 실패", false);
       } else {
@@ -678,7 +684,7 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], 
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
         {[["게시글 신고", `${postReports.length}건`, "📝"], ["댓글 신고", `${commentReports.length}건`, "💬"],
-          ["스토리 신고", `${storyReports.length}건`, "📸"], ["차단 처리", `${allBlocks.length}명`, "🚫"]].map(([label,val,icon]) => (
+          ["스토리 신고", `${storyReports.length}건`, "📸"]].map(([label,val,icon]) => (
           <div key={label} style={{ background: "#fff", borderRadius: R.lg, padding: S.xl, border: `1px solid ${C.bgWarm}`, textAlign: "center" }}>
             <div style={{ fontSize: 24, marginBottom: S.sm }}>{icon}</div>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text1 }}>{val}</div>
@@ -5552,6 +5558,15 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setOpsLoading(false);
   };
 
+  // 대시보드 「결제·분쟁·정산 대기」 숫자 — 대시보드를 열 때도 채운다(09-26).
+  //   예전엔 그 탭을 한 번 열어야 불러와서, 처음엔 늘 0 으로 보였다(할 일이 없는 것처럼).
+  useEffect(() => {
+    if (mainTab !== "dashboard") return;
+    getPaymentOrders({ limit: 100 }).then(({ data }) => { if (data) setPaymentOrders(data); }).catch?.(() => {});
+    getDisputePayments().then(({ data }) => { if (data) setDisputes(data); }).catch?.(() => {});
+    getPendingPayouts().then(({ data }) => { if (data) setSettlements(data); }).catch?.(() => {});
+  }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (tabLoaded[mainTab]) return;
     setTabLoaded(prev => ({ ...prev, [mainTab]: true }));
@@ -6152,14 +6167,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
           )}
           <IconVersionToggle />
           <UiVersionToggle />
-          {onHome && (
-            <button onClick={onHome}
-              style={{ background: C.bgWarm, border: "none", borderRadius: R.md,
-                padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.text2,
-                cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-              <Icon emoji="🏠" size={14} /> 홈으로
-            </button>
-          )}
+          {/* 「홈으로」는 뺐다 — 관리자 역할엔 홈 화면이 없어 누르면 곧바로 관리 화면으로 되돌아왔다(무반응). 나가기는 「←」(마이). */}
         </div>
       </div>
 
@@ -7008,20 +7016,20 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           )}
                           {order.status === "PAID" && (
                             <button onClick={() => setConfirm({
-                              emoji: "⏸", title: "지급 보류",
-                              msg: `결제 지급을 보류 처리합니다.`,
+                              emoji: "⏸", title: "결제 취소로 기록",
+                              msg: `이 결제를 «취소(CANCELLED)»로 기록합니다. 실제 카드 취소·환불은 토스 관리자 화면에서 따로 해야 해요. 공사대금 지급을 멈추려면 계약 상세의 「지급 보류」를 쓰세요.`,
                               needsReason: true,
                               onConfirm: async (reason) => {
                                 const { error } = await adminUpdatePaymentOrder(order.id, user?.id ?? null, { status: "CANCELLED", adminNote: reason });
                                 if (!error) {
                                   setPaymentOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "CANCELLED", admin_note: reason } : o));
-                                  showToast("지급 보류 처리 완료");
+                                  showToast("결제를 취소로 기록했어요");
                                 } else { showToast("처리 실패", false); }
                               },
                             })}
                               style={{ flex: 1, padding: "9px", background: "#FBF5E8", color: C.gold,
                                 border: `1px solid ${C.gold44}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                              지급 보류
+                              취소로 기록
                             </button>
                           )}
                         </div>
@@ -7666,8 +7674,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
                           <div style={{ display: "flex", gap: S.sm }}>
                             <button
                               onClick={async () => {
-                                const { data } = await updateReviewReward(rw.id, "SENT");
-                                if (data) setReviewRewards(prev => prev.map(r => r.id === rw.id ? { ...r, status: "SENT", sent_at: data.sent_at } : r));
+                                // 저장이 된 경우에만 «완료» — 예전엔 실패해도 성공 안내가 떴다
+                                const { data, error } = await updateReviewReward(rw.id, "SENT");
+                                if (error || !data) { showToast(`처리 실패: ${error?.message ?? "저장되지 않았어요"}`, false); return; }
+                                setReviewRewards(prev => prev.map(r => r.id === rw.id ? { ...r, status: "SENT", sent_at: data.sent_at } : r));
                                 showToast("쿠폰 발송 처리 완료");
                               }}
                               style={{ flex: 2, padding: "10px", background: C.brand, color: "#fff",
@@ -7676,9 +7686,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
                             </button>
                             <button
                               onClick={async () => {
-                                await updateReviewReward(rw.id, "CANCELED");
+                                const { data, error } = await updateReviewReward(rw.id, "CANCELED");
+                                if (error || !data) { showToast(`처리 실패: ${error?.message ?? "저장되지 않았어요"}`, false); return; }
                                 setReviewRewards(prev => prev.map(r => r.id === rw.id ? { ...r, status: "CANCELED" } : r));
-                                showToast("취소 처리됨", false);
+                                showToast("취소 처리됨");
                               }}
                               style={{ flex: 1, padding: "10px", background: C.surface2, color: C.text3,
                                 border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
@@ -7803,8 +7814,16 @@ export default function AdminScreen({ onBack, onHome, user }) {
                       padding: S.xl, marginBottom: S.sm,
                       border: `1px solid ${n.is_read ? C.bgWarm : C.brandM}`, cursor: "pointer" }}
                     onClick={() => {
-                      if (n.related_type === "company") setMainTab("companies");
-                      if (n.related_type === "dispute") setMainTab("disputes");
+                      // 누르면 읽음 + 관련 화면으로(09-26 — 예전엔 읽음 처리가 없고 업체·분쟁 두 종류만 갔다)
+                      if (!n.is_read) {
+                        markNotificationRead(n.id).then(() => {}, () => {});
+                        setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true } : x));
+                      }
+                      const t = n.type ?? "";
+                      if (n.related_type === "company" || t === "ADMIN_DOC_SUBMITTED" || t === "ADMIN_BIZ_PENDING") setMainTab("companies");
+                      else if (n.related_type === "dispute" || t.includes("DISPUTE")) setMainTab("disputes");
+                      else if (t.includes("DIRECT_DEAL")) setMainTab("direct_deal");
+                      else if (t.startsWith("PARTNER_LEAD")) setMainTab("partner_leads");
                     }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.xs }}>
                       <div style={{ fontSize: 14, fontWeight: n.is_read ? 600 : 800, color: C.text1 }}>{n.title}</div>
