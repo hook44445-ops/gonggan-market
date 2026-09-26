@@ -1327,8 +1327,8 @@ export const createAdminLog = (log) =>
 // 서버 방어: Supabase RLS에 "auth.jwt()->>'role' = 'admin'" 정책 필요.
 // 클라이언트 방어: admin_authed 세션이 없으면 빈 배열 반환(불필요한 DB 조회 차단).
 export const getAdminLogs = () => {
-  const isAdmin = typeof window !== "undefined" && localStorage.getItem("admin_authed") === "true";
-  if (!isAdmin) return Promise.resolve({ data: [], error: null });
+  // 로그인 토큰이 있을 때만(서버 정책이 관리자인지 판정). 예전 «admin_authed» 표시는 지금 로그인에서 안 생겨 늘 빈 목록이었다(09-26)
+  if (!authedDb(getCurrentUserId())) return Promise.resolve({ data: [], error: null });
   return adminDb().from("admin_logs").select("*").order("created_at", { ascending: false });
 };
 
@@ -1337,8 +1337,8 @@ export const getAdminLogs = () => {
 // 조회를 막으면 빈 배열이 반환될 수 있다(graceful). 이름 join 은 FK 모호성/실패
 // 위험을 피해 생략하고, 식별자만 노출한다.
 export const getAdminLoungeChatRequests = ({ limit = 200 } = {}) => {
-  const isAdmin = typeof window !== "undefined" && localStorage.getItem("admin_authed") === "true";
-  if (!isAdmin) return Promise.resolve({ data: [], error: null });
+  // 로그인 토큰이 있을 때만(서버 정책이 관리자인지 판정). 예전 «admin_authed» 표시는 지금 로그인에서 안 생겨 늘 빈 목록이었다(09-26)
+  if (!authedDb(getCurrentUserId())) return Promise.resolve({ data: [], error: null });
   return adminDb()
     .from("lounge_chat_requests")
     .select("id, post_id, requester_id, target_id, status, token_charged, accepted_at, created_at, requester_left_at, target_left_at")
