@@ -21,6 +21,7 @@ import { renderFromPlanLLM } from "./llmContentGenerator.js";
 import { readingTime } from "./readingExperience.js";
 import { relatedCategoryIds } from "../constants/knowledgeMap.js";
 import { CATEGORY_LABEL } from "../constants/lounge.js";
+import { josa } from "../constants/aiDraftWriter.js";
 
 const RAW_SECTIONS = ["오늘 무슨 일이 있었나", "왜 중요한가", "핵심 포인트", "앞으로 볼 것", "참고 키워드", "후속 콘텐츠 후보"];
 
@@ -60,24 +61,24 @@ function renderSection(title, topic, voice) {
     ].join("\n");
   }
   if (/비용|주의/.test(title)) {
-    return [`## ${title}`, `${t}은(는) 상황에 따라 편차가 큽니다. 무리한 결정을 미루고, 비교와 기록으로 판단 근거를 남겨두면 후회가 줄어듭니다.`].join("\n");
+    return [`## ${title}`, `${josa(t, "은", "는")} 상황에 따라 편차가 큽니다. 무리한 결정을 미루고, 비교와 기록으로 판단 근거를 남겨두면 후회가 줄어듭니다.`].join("\n");
   }
   if (/키워드/.test(title)) {
     return [`## ${title}`, `\`${t}\` 관련해 더 찾아볼 검색어를 메모해두면 다음 글이 쉬워집니다.`].join("\n");
   }
   if (/후속|앞으로 볼 것|전망/.test(title)) {
-    return [`## ${title}`, `${t}은(는) 한 번에 끝나는 주제가 아닙니다. 이어질 변화와 후속 이야기를 지켜볼 가치가 있습니다.`].join("\n");
+    return [`## ${title}`, `${josa(t, "은", "는")} 한 번에 끝나는 주제가 아닙니다. 이어질 변화와 후속 이야기를 지켜볼 가치가 있습니다.`].join("\n");
   }
   // 톤별 일반 문단.
   const flavor = {
-    empathy:        `${t}은(는) 정답이 있는 문제가 아닙니다. 지금 마음이 어떤지부터 가만히 들여다봐도 괜찮습니다.`,
-    insight_light:  `${t}을(를) 너무 진지하게 말고, 가볍게 그러나 한 뼘 더 깊이 들여다보면 재미가 생깁니다.`,
+    empathy:        `${josa(t, "은", "는")} 정답이 있는 문제가 아닙니다. 지금 마음이 어떤지부터 가만히 들여다봐도 괜찮습니다.`,
+    insight_light:  `${josa(t, "을", "를")} 너무 진지하게 말고, 가볍게 그러나 한 뼘 더 깊이 들여다보면 재미가 생깁니다.`,
     informational:  `${t}에 대해 알아두면 유용한 정보를 담담하게 정리합니다. 과장 없이, 사실 위주로.`,
-    contemplative:  `${t}을(를) 조용히 들여다봅니다. 문화와 역사의 결을 따라가면 오늘의 의미가 달라 보입니다.`,
-    analytical:     `${t}을(를) 감정이 아니라 데이터로 봅니다. 단정 대신 균형 잡힌 관점을 유지합니다.`,
+    contemplative:  `${josa(t, "을", "를")} 조용히 들여다봅니다. 문화와 역사의 결을 따라가면 오늘의 의미가 달라 보입니다.`,
+    analytical:     `${josa(t, "을", "를")} 감정이 아니라 데이터로 봅니다. 단정 대신 균형 잡힌 관점을 유지합니다.`,
     experiential:   `${t}에서 직접 겪은 것을 생생하게 남깁니다. 숫자보다 장면이 기억에 남습니다.`,
-    careful_health: `${t}은(는) 일반적인 정보일 뿐이며, 몸 상태는 사람마다 다릅니다. 필요하면 전문가와 상담하세요.`,
-    practical:      `${t}을(를) 실용적으로 정리합니다. 바로 써먹을 수 있는 것 위주로.`,
+    careful_health: `${josa(t, "은", "는")} 일반적인 정보일 뿐이며, 몸 상태는 사람마다 다릅니다. 필요하면 전문가와 상담하세요.`,
+    practical:      `${josa(t, "을", "를")} 실용적으로 정리합니다. 바로 써먹을 수 있는 것 위주로.`,
     general:        `${t}에 대해 편안하게 이야기해봅니다.`,
   }[voice.id] || `${t}에 대해 이야기합니다.`;
   return [`## ${title}`, flavor].join("\n");
@@ -94,12 +95,12 @@ export function renderFromPlan(plan) {
   const introByVoice = {
     empathy:        `요즘 ${topic}으로 마음이 복잡한 분들이 있습니다. 오늘은 관계와 마음의 흐름을 함께 짚어봅니다.`,
     insight_light:  `${topic}, 가볍게 보면 재밌고 깊게 보면 통찰이 있습니다.`,
-    informational:  `${topic}을(를) 준비하는 분들을 위해 핵심 정보를 정리했습니다.`,
-    contemplative:  `${topic}을(를) 조용히 들여다보는 시간입니다.`,
+    informational:  `${josa(topic, "을", "를")} 준비하는 분들을 위해 핵심 정보를 정리했습니다.`,
+    contemplative:  `${josa(topic, "을", "를")} 조용히 들여다보는 시간입니다.`,
     analytical:     `${topic}, 무슨 일이 있었고 왜 중요한지 데이터 관점에서 살펴봅니다.`,
     experiential:   `${topic} 이야기를 경험 그대로 나눠봅니다.`,
     careful_health: `${topic}에 대해 일반적으로 알려진 정보를 조심스럽게 정리합니다.`,
-    practical:      `${topic}을(를) 바로 써먹을 수 있게 실용적으로 정리했습니다.`,
+    practical:      `${josa(topic, "을", "를")} 바로 써먹을 수 있게 실용적으로 정리했습니다.`,
     general:        `${topic}에 대해 편하게 이야기해봅니다.`,
   };
 

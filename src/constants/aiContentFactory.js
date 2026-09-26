@@ -8,7 +8,7 @@
 
 // 공간 최상위 6개 도메인(철학 이미지 반영) — 카테고리는 이 중 하나에 속하는
 // "공간 안의 이야기"로 취급한다. UI 그룹핑/문서화 참고용(표시 전용).
-import { composeBody, titleFor, hashOf } from "./aiDraftWriter.js";
+import { composeBody, titleFor, hashOf, josa } from "./aiDraftWriter.js";
 
 export const SPACE_DOMAINS = [
   { id: "residential", label: "주거공간", categories: ["interior", "room_deco", "move_in"] },
@@ -78,7 +78,7 @@ export function classifyCategory(text, fallback = "daily") {
 //    Phase 2/3 에서 이 함수 시그니처(입력/출력)를 유지한 채 내부만 실제 AI 호출로 교체하면 된다.
 export function generateDraft({ issue, spaceAngle, category, region, brand = null, seed = null, variant = 0 } = {}) {
   const topic = String(issue ?? "").trim();
-  const angle = String(spaceAngle ?? "").trim() || `${topic}과(와) 공간의 관계`;
+  const angle = String(spaceAngle ?? "").trim() || `${josa(topic, "과", "와")} 공간의 관계`;   // 「폭우과(와)」 고침(09-26)
   const cat = category || classifyCategory(`${topic} ${angle}`);
   const where = region ? `${region}에서 ` : "";
 

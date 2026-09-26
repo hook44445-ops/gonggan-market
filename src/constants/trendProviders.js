@@ -1,4 +1,5 @@
-import { pickDailyTopics } from "./loungeTopicPool.js";
+import { pickDailyTopics, dayIndexOf } from "./loungeTopicPool.js";
+import { pickCategoryTopics } from "./loungeCategoryTopics.js";
 
 // ════════════════════════════════════════════════════════════════════
 // 공간라운지 AI 콘텐츠 공장 — Trend Provider 인터페이스 (Phase 2)
@@ -24,7 +25,13 @@ export const TREND_PROVIDER_KIND = {
    이제 주제는 loungeTopicPool 이 날짜로 돌려 준다(같은 날은 같은 결과 · 중복검사와 잘 맞는다). */
 async function collectManual() {
   const now = new Date();
-  return pickDailyTopics(6, now).map((t) => ({
+  /* 09-26 대표 「라운지 카테고리 주제에 맞게」 — 공간 주제와 라운지 카테고리 주제를 번갈아 낸다.
+     카테고리 쪽은 부동산·건강·연애·맛집·주식… 을 날마다 세 칸씩 차례로 돈다(loungeCategoryTopics). */
+  const space = pickDailyTopics(3, now);
+  const cats = pickCategoryTopics(3, dayIndexOf(now));
+  const mixed = [];
+  for (let i = 0; i < 3; i++) { if (cats[i]) mixed.push(cats[i]); if (space[i]) mixed.push(space[i]); }
+  return mixed.map((t) => ({
     providerId: "manual",
     topic:      t.topic,
     angle:      t.angle,

@@ -20,6 +20,8 @@ import { scoreTopic, priorityFromScore } from "./topicScore.js";
 import { mapCategory } from "./categoryMapper.js";
 import { filterNewTopics } from "./duplicateChecker.js";
 import { generateDraft } from "../constants/aiContentFactory.js";
+import { composeCategoryPost } from "../constants/loungeCategoryTopics.js";
+import { dayIndexOf } from "../constants/loungeTopicPool.js";
 import { slotKey, kstDateKey, kstIso, kstMidnightUtcIso } from "./cronRunGuard.js";
 import { classifyContentType } from "./contentTypes.js";
 import { schedulePublishAt } from "./publishScheduler.js";
@@ -339,10 +341,14 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
         )) ?? [];
       const fresh = filterNewTopics(collected, existing, 48).slice(0, need);
       for (const item of fresh) {
-        const { category } = mapCategory(item.topic);
+        // 주제가 카테고리를 들고 오면 그대로 쓴다(예전엔 주제 단어로 다시 맞혀 다른 칸으로 가기도 했다)
+        const category = item.category || mapCategory(item.topic).category;
         const score = scoreTopic({ topic: item.topic, region: item.region ?? null, collectedAt: item.collectedAt });
         const priority = priorityFromScore(score.total);
-        const draft = generateDraft({ issue: item.topic, spaceAngle: item.angle ?? null, category, region: item.region ?? null, brand: item.brand ?? null, variant: item.variant ?? 0 });
+        // 라운지 카테고리 주제(연애·주식·맛집…)는 그 카테고리에 맞는 작성기로 — 인테리어 틀(범위·자재·기간)을 쓰지 않는다(09-26)
+        const draft = item.audience === "category" && item.raw?.points
+          ? composeCategoryPost(item.raw, { day: dayIndexOf(new Date(now)) })
+          : generateDraft({ issue: item.topic, spaceAngle: item.angle ?? null, category, region: item.region ?? null, brand: item.brand ?? null, variant: item.variant ?? 0 });
         const { data, error } = await sbInsertDraft({
           user_id: null,
           anonymous_nickname: "공간마켓",
