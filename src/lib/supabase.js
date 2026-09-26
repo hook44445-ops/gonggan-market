@@ -2963,6 +2963,10 @@ export const flushPushQueue = (adminId) => pushAdminAction("flush", adminId);
 export const apiAdminSetUserStatus = (userId, adminId, status, reason = null) =>
   adminApiPost("/api/admin/users", adminId, { action: "set_status", userId, status, reason });
 
+// 관리자 사용자 찾기(ID 또는 전화번호 — 형식 무관) — 서버에서(표 직접 읽기는 정책에 막힌다, 09-26).
+export const apiAdminLookupUser = (query, adminId) =>
+  adminApiPost("/api/admin/users", adminId, { action: "lookup", query });
+
 export const apiAdminAdjustUserTokens = (userId, adminId, delta, reason = null) =>
   adminApiPost("/api/admin/users", adminId, { action: "adjust_tokens", userId, delta, reason });
 

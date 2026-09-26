@@ -50,13 +50,13 @@ begin
   end if;
 end $$;
 
--- ③ 금액 칸 소수 허용(이미 numeric 이면 그대로)
+-- ③ 금액 칸 소수 허용(이미 numeric 이면 그대로) — 운영은 bigint 였다(09-26 확인)
 do $$
 declare c text;
 begin
   foreach c in array array['amount', 'customer_fee', 'vat', 'total_amount'] loop
     if exists (select 1 from information_schema.columns
-                where table_schema = 'public' and table_name = 'payment_orders' and column_name = c and data_type = 'integer') then
+                where table_schema = 'public' and table_name = 'payment_orders' and column_name = c and data_type in ('integer', 'bigint', 'smallint')) then
       execute format('alter table public.payment_orders alter column %I type numeric', c);
     end if;
   end loop;
