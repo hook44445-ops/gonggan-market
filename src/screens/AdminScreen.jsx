@@ -5933,47 +5933,48 @@ export default function AdminScreen({ onBack, onHome, user }) {
   //   운영자가 3초 안에 찾도록 역할별 5분류(AI 운영센터/편성국/발행센터/무인운영/AI 분석실)+라운지·리뷰로
   //   나눈다. 나뉜 분류는 모두 기존 'can_contents' 권한을 유지 → 운영자 접근 범위·권한 모델 무변경.
   const TAB_LABEL = Object.fromEntries(MAIN_TABS);
+  // ── 관리자 메뉴(09-26 정리 1차) — 상단 10개 → 오늘·사람·거래·돈·공사 증빙·라운지·신고·콘텐츠 AI·설정 ──────
+  //   대표 「관리자 페이지 사용하기 쉽게 보기 좋게 구조적으로」. 데이터·화면은 그대로, 메뉴 위치만 옮긴다.
+  //   ⚠️ 운영자 권한(can_*)은 예전처럼 «탭마다» 그대로 — 메뉴를 섞어도 운영자가 볼 수 있는 탭은 바뀌지 않는다.
+  const TAB_PERM_BASE = {
+    can_operations:    ["dashboard", "companies", "customers", "partner_leads", "hidden"],
+    can_transactions:  ["transactions", "payments", "settlements", "disputes"],
+    can_project_proof: ["project_flow", "chat_overview", "direct_deal"],
+    can_contents: ["mission_control", "executive_office", "ceo_office", "trend_discovery", "editorial_schedule",
+      "publishing_priority", "story_engine", "programming", "lounge_ai_factory", "publishing_pipeline", "auto_publish",
+      "autopilot", "blog_publish", "operation_monitor", "live_ops", "e2e_validation", "ai_hq", "lounge_insights",
+      "lounge", "lounge_seeding", "seed", "reviews", "review_admin", "reports"],
+    can_system: ["finance", "notifications", "operator_setting", "tools", "admin_logs", "ai_cleanup"],
+  };
+  const TAB_PERM = {};
+  Object.entries(TAB_PERM_BASE).forEach(([perm, keys]) => keys.forEach((k) => { TAB_PERM[k] = perm; }));
+
   const CATEGORIES_DEF = [
-    { key: "operations",    label: "운영",         icon: "🏢", perm: "can_operations",
-      tabs: [["dashboard"], ["companies"], ["customers"], ["partner_leads", "파트너상담"], ["hidden"]] },
-    { key: "transactions",  label: "거래",         icon: "💳", perm: "can_transactions",
-      tabs: [["transactions"], ["payments"], ["settlements"], ["disputes"]] },
-    { key: "project_proof", label: "프로젝트증빙", icon: "📍", perm: "can_project_proof",
-      tabs: [["project_flow", "프로젝트증빙관리"], ["chat_overview", "채팅/대화 관리"], ["direct_deal", "직거래 의심"]] },
-    // ── 콘텐츠(AI 운영) 역할 기반 5분류 — 모두 can_contents 유지(재배치만) ──
-    { key: "ai_center",     label: "AI 운영센터",  icon: "🛰️", perm: "can_contents",
-      tabs: [["mission_control", "운영센터"], ["executive_office", "AI 품의·결재"], ["ceo_office", "AI 사장실"]] },
-    { key: "editorial",     label: "편성국",       icon: "🗞️", perm: "can_contents",
-      tabs: [["trend_discovery", "트렌드 발굴"], ["editorial_schedule", "자동 편성"], ["publishing_priority", "발행 우선순위"], ["story_engine", "연재 스토리"], ["programming", "콘텐츠 계획"], ["lounge_ai_factory", "AI 콘텐츠 공장"]] },
-    { key: "publishing",    label: "발행센터",     icon: "📤", perm: "can_contents",
-      tabs: [["publishing_pipeline", "발행 파이프라인"], ["auto_publish", "자동발행"], ["autopilot", "자동발행 대기"], ["blog_publish", "블로그 발행"]] },
-    { key: "autonomous",    label: "무인운영",     icon: "🤖", perm: "can_contents",
-      tabs: [["operation_monitor", "무인 운영"], ["live_ops", "라이브 운영"], ["e2e_validation", "실전 검증"]] },
-    { key: "ai_lab",        label: "AI 분석실",    icon: "🔬", perm: "can_contents",
-      tabs: [["ai_hq", "AI 운영본부"], ["lounge_insights", "라운지 인사이트"]] },
-    { key: "lounge_review", label: "라운지·리뷰",  icon: "📋", perm: "can_contents",
-      tabs: [["lounge", "라운지관리"], ["lounge_seeding", "라운지 시딩"], ["seed", "포토후기"], ["reviews", "리뷰관리"], ["review_admin", "리뷰 어드민"], ["reports", "신고관리"]] },
-    { key: "system",        label: "시스템",       icon: "⚙️", perm: "can_system",
-      tabs: [["finance"], ["notifications"], ["operator_setting"], ["tools"], ["admin_logs", "관리자로그"], ["ai_cleanup", "AI 청소센터"]] },
+    { key: "today",   label: "오늘",        icon: "📋",
+      tabs: [["dashboard", "오늘 할 일"]] },
+    { key: "people",  label: "사람",        icon: "👥",
+      tabs: [["companies", "업체"], ["customers", "고객"], ["partner_leads", "파트너 상담"], ["hidden", "숨김 요청"]] },
+    { key: "money",   label: "거래·돈",     icon: "💳",
+      tabs: [["transactions", "거래"], ["payments", "결제·환불"], ["settlements", "정산"], ["disputes", "분쟁"], ["finance", "재무 요약"]] },
+    { key: "proof",   label: "공사 증빙",   icon: "📍",
+      tabs: [["project_flow", "증빙·GPS"], ["chat_overview", "대화"], ["direct_deal", "직거래 의심"]] },
+    { key: "lounge",  label: "라운지·신고", icon: "💬",
+      tabs: [["lounge", "라운지"], ["reports", "신고"], ["reviews", "리뷰"], ["review_admin", "리뷰 쿠폰"], ["seed", "포토후기"], ["lounge_seeding", "라운지 시딩"]] },
+    { key: "content", label: "콘텐츠 AI",   icon: "🤖",
+      tabs: [["lounge_ai_factory", "AI 글 공장"], ["autopilot", "발행 대기"], ["publishing_pipeline", "발행 흐름"], ["auto_publish", "자동 발행"],
+             ["editorial_schedule", "자동 편성"], ["trend_discovery", "트렌드"], ["operation_monitor", "자율 운영 상태"], ["lounge_insights", "성과"], ["ai_hq", "AI 운영본부"]] },
+    { key: "settings", label: "설정",       icon: "⚙️",
+      tabs: [["notifications", "알림·푸시"], ["operator_setting", "운영자"], ["admin_logs", "관리자 기록"], ["tools", "정리 도구"], ["ai_cleanup", "AI 청소"],
+             // 실험실 — 지금 운영에 쓰지 않는 화면(데이터는 그대로, 입구만 여기로). 편성국(콘텐츠 계획)은 Mock 데이터.
+             ["mission_control", "실험: 운영센터"], ["executive_office", "실험: AI 결재"], ["ceo_office", "실험: AI 사장실"],
+             ["live_ops", "실험: 라이브 운영"], ["e2e_validation", "실험: 실전 검증"], ["programming", "실험: 콘텐츠 계획"],
+             ["story_engine", "실험: 연재"], ["blog_publish", "실험: 블로그"], ["publishing_priority", "실험: 발행 우선순위"]] },
   ];
+  const SETTINGS_TAB_KEYS = new Set(CATEGORIES_DEF.find((c) => c.key === "settings").tabs.map(([k]) => k));
   const isSuperAdmin = user?.role === "admin";
-  // 운영자(role='operator')는 로그인 시 주입된 permissions(can_*)로 대분류 노출 제한.
+  // 운영자(role='operator')는 로그인 시 주입된 permissions(can_*)로 «탭마다» 노출 제한.
   const myPerms = user?.permissions ?? null;
   const SUPER_ONLY_TABS = new Set(["operator_setting"]); // 일반 운영자 접근 불가
-  const adminCategories = CATEGORIES_DEF
-    .filter(c => isSuperAdmin || (myPerms && myPerms[c.perm]))
-    .map(c => ({
-      key: c.key, label: c.label, icon: c.icon,
-      tabs: c.tabs
-        .filter(([tk]) => isSuperAdmin || !SUPER_ONLY_TABS.has(tk))
-        .map(([tk, lbl]) => ({ key: tk, label: lbl || TAB_LABEL[tk] || tk })),
-    }))
-    .filter(c => c.tabs.length > 0);
-
-  // H-4: 본문(탭 콘텐츠) 접근도 메뉴와 동일 권한으로 게이트한다. 진입 경로(대시보드 카드·글로벌검색·
-  //      알림 클릭 등)와 무관하게 forbidden 탭 본문/액션 노출을 차단(superAdmin 예외 유지).
-  const TAB_PERM = {};
-  CATEGORIES_DEF.forEach(c => c.tabs.forEach(([tk]) => { TAB_PERM[tk] = c.perm; }));
   const canAccessTab = (tk) => {
     if (isSuperAdmin) return true;
     if (SUPER_ONLY_TABS.has(tk)) return false;
@@ -5981,6 +5982,14 @@ export default function AdminScreen({ onBack, onHome, user }) {
     if (!perm) return true;
     return !!myPerms && !!myPerms[perm];
   };
+  const adminCategories = CATEGORIES_DEF
+    .map(c => ({
+      key: c.key, label: c.label, icon: c.icon,
+      tabs: c.tabs
+        .filter(([tk]) => canAccessTab(tk))
+        .map(([tk, lbl]) => ({ key: tk, label: lbl || TAB_LABEL[tk] || tk })),
+    }))
+    .filter(c => c.tabs.length > 0);
 
   const DDR_TRIGGER_META = {
     keyword_detected: { label: "키워드 감지", color: C.red },
@@ -6168,8 +6177,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
               심사 대기 {stats.pending}건
             </div>
           )}
-          <IconVersionToggle />
-          <UiVersionToggle />
+          {/* 「아이콘 v2」「화면 v3」 개발 토글은 설정 메뉴 안으로 옮겼다(09-26) */}
           {/* 「홈으로」는 뺐다 — 관리자 역할엔 홈 화면이 없어 누르면 곧바로 관리 화면으로 되돌아왔다(무반응). 나가기는 「←」(마이). */}
         </div>
       </div>
@@ -6185,6 +6193,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
       {/* Main Tabs — 대분류(운영/거래/프로젝트증빙/콘텐츠/시스템) + 소분류 */}
       <AdminCategoryNav categories={adminCategories} mainTab={mainTab} onSelect={setMainTab} />
+      {SETTINGS_TAB_KEYS.has(mainTab) && (
+        <div style={{ display: "flex", alignItems: "center", gap: S.sm, padding: `${S.sm}px ${S.xl}px`, background: C.bg, borderBottom: `1px solid ${C.bgWarm}` }}>
+          <span style={{ fontSize: 11.5, color: C.text3, fontWeight: 700 }}>화면 설정</span>
+          <IconVersionToggle />
+          <UiVersionToggle />
+        </div>
+      )}
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 90px` }}>
 
@@ -6216,8 +6231,63 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── Dashboard ── */}
             {mainTab === "dashboard" && (
               <div>
-                <AdminVisitCards adminUserId={user?.id ?? null} />
-                <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
+                {/* ── 오늘 할 일(09-26 정리 1차) — 처리할 것부터. 누르면 그 화면으로 ── */}
+                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.lg, border: `1px solid ${C.bgWarm}`, marginBottom: S.lg }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>오늘 할 일</div>
+                  {[
+                    ["서류 확인 대기", docQueue.length, "companies", "업체가 올린 서류 — 오래 기다린 순은 아래"],
+                    ["업체 가입 심사", stats.pending, "companies", "승인해야 입찰할 수 있어요"],
+                    ["분쟁", null, "disputes", "이의 신청 · 조정"],
+                    ["직거래 의심 · 신고", null, "direct_deal", "대화·계약 밖 거래 신호"],
+                    ["정산", null, "settlements", "단계별 지급 기록"],
+                    ["파트너 상담", null, "partner_leads", "입점 문의"],
+                  ].map(([label, count, tab, sub], idx, arr) => (
+                    <button key={label} onClick={() => setMainTab(tab)}
+                      style={{ display: "flex", alignItems: "center", gap: S.md, width: "100%", textAlign: "left", background: "none", border: "none",
+                        borderBottom: idx < arr.length - 1 ? `1px solid ${C.bgWarm}` : "none", padding: `${S.sm}px 0`, cursor: "pointer", fontFamily: "inherit" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text1 }}>{label}</div>
+                        <div style={{ fontSize: 11.5, color: C.text4 }}>{sub}</div>
+                      </div>
+                      {/* 숫자는 지금 불러온 것만 — 분쟁·신고·정산·상담은 그 화면을 열어야 불러온다(가짜 0 을 보이지 않는다) */}
+                      {count != null
+                        ? <span style={{ minWidth: 28, textAlign: "center", fontSize: 14, fontWeight: 900, color: count > 0 ? C.gold : C.text4 }}>{count}</span>
+                        : <span style={{ fontSize: 12, color: C.brand, fontWeight: 700 }}>열기 ›</span>}
+                    </button>
+                  ))}
+                </div>
+
+                {/* STEP O — Emergency Switch */}
+                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `2px solid ${C.red33}`, marginBottom: S.lg }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginBottom: S.lg }}>
+                    <Icon emoji="🚨" size={18} color={C.red} />
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.red }}>긴급 운영 스위치</div>
+                    {opsLoading && <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>저장 중...</span>}
+                  </div>
+                  {[
+                    ["pause_new_payments",  "💳 신규 결제 중지",    "결제 버튼 비활성화"],
+                    ["pause_new_bids",      "📋 신규 입찰 중지",    "업체 입찰 제한"],
+                    ["pause_new_approvals", "✅ 신규 승인 중지",    "업체 가입 심사 중지"],
+                  ].map(([field, label, sub]) => (
+                    <div key={field} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1, display: "flex", alignItems: "center", gap: 5 }}>
+                          {(() => { const { emoji, rest } = splitLeadingEmoji(label); return <>{emoji && <Icon emoji={emoji} size={12} color={C.text1} />}{rest}</>; })()}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.text4 }}>{sub}</div>
+                      </div>
+                      <button
+                        onClick={() => toggleOps(field)}
+                        disabled={opsLoading}
+                        style={{ padding: "6px 16px", borderRadius: R.full, border: "none", fontWeight: 700, fontSize: 13, cursor: opsLoading ? "not-allowed" : "pointer",
+                          background: opsConfig[field] ? C.red : C.bgWarm,
+                          color: opsConfig[field] ? "#fff" : C.text3 }}>
+                        {opsConfig[field] ? "중지 중" : "정상"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
                 {/* 서류 확인 대기 — 업체가 올린 서류가 묻히지 않게(테스트업체 시공보험 증서가 6월부터 「확인 중」이었다, E10) */}
                 <div style={{ background: C.surface, borderRadius: R.xl, padding: S.lg, border: `1px solid ${docQueue.length ? C.gold : C.bgWarm}`, marginBottom: S.lg }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: S.sm }}>
@@ -6244,6 +6314,8 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     );
                   })}
                 </div>
+                <AdminVisitCards adminUserId={user?.id ?? null} />
+                <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📊" size={14} color={C.text1} /> 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
                   {[
@@ -6279,37 +6351,6 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   ))}
                 </div>
 
-                {/* STEP O — Emergency Switch */}
-                <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `2px solid ${C.red33}` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: S.sm, marginBottom: S.lg }}>
-                    <Icon emoji="🚨" size={18} color={C.red} />
-                    <div style={{ fontSize: 14, fontWeight: 800, color: C.red }}>긴급 운영 스위치</div>
-                    {opsLoading && <span style={{ fontSize: 11, color: C.text4, marginLeft: "auto" }}>저장 중...</span>}
-                  </div>
-                  {[
-                    ["pause_new_payments",  "💳 신규 결제 중지",    "결제 버튼 비활성화"],
-                    ["pause_new_bids",      "📋 신규 입찰 중지",    "업체 입찰 제한"],
-                    ["pause_new_approvals", "✅ 신규 승인 중지",    "업체 가입 심사 중지"],
-                  ].map(([field, label, sub]) => (
-                    <div key={field} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                      padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1, display: "flex", alignItems: "center", gap: 5 }}>
-                          {(() => { const { emoji, rest } = splitLeadingEmoji(label); return <>{emoji && <Icon emoji={emoji} size={12} color={C.text1} />}{rest}</>; })()}
-                        </div>
-                        <div style={{ fontSize: 11, color: C.text4 }}>{sub}</div>
-                      </div>
-                      <button
-                        onClick={() => toggleOps(field)}
-                        disabled={opsLoading}
-                        style={{ padding: "6px 16px", borderRadius: R.full, border: "none", fontWeight: 700, fontSize: 13, cursor: opsLoading ? "not-allowed" : "pointer",
-                          background: opsConfig[field] ? C.red : C.bgWarm,
-                          color: opsConfig[field] ? "#fff" : C.text3 }}>
-                        {opsConfig[field] ? "중지 중" : "정상"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
               </div>
             )}
 
