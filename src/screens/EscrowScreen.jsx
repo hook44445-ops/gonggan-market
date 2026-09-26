@@ -1,3 +1,4 @@
+import { requestHasLighting, LIGHT_CHECK } from "../constants/lightingGuide"; // 조명 확인 포인트(09-26)
 import { useState, useRef, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI, SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
@@ -1997,6 +1998,15 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                               style={{ borderRadius: R.md, overflow: "hidden", border: `1px solid ${C.brandM}`, aspectRatio: "4/3", cursor: "zoom-in" }}>
                               <DocImg src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { e.target.style.background = C.bgWarm; }} />
                             </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* 💡 조명 확인 포인트 — 요청에 조명이 있을 때만(09-26). 조명은 천장이 닫히면 못 옮긴다 */}
+                      {requestHasLighting(request) && LIGHT_CHECK[s.id] && (
+                        <div style={{ background: C.surface, borderRadius: R.md, padding: "10px 12px", marginBottom: S.md, border: `1px solid ${C.bgWarm}` }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1, marginBottom: 4 }}>💡 조명 확인 포인트{s.id === 4 ? " · 천장 닫기 전 마지막 기회" : ""}</div>
+                          {LIGHT_CHECK[s.id].map((t) => (
+                            <div key={t} style={{ fontSize: 12, color: C.text2, lineHeight: 1.6 }}>· {t}</div>
                           ))}
                         </div>
                       )}

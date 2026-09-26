@@ -3,6 +3,7 @@
 //   원본(RequestModal.jsx)은 보존되며, constants/release.UX_BETA=false 로 즉시 복구.
 //   개선: 진행단계+완료표시 / 필수항목 강조 / 입력순서 정리 / 버튼 확대 / 터치영역 확대.
 import { useState, useEffect, useRef } from "react";
+import { LIGHT_OPTIONS, LIGHT_NEEDS_CARPENTRY, splitLight, joinLight } from "../constants/lightingGuide"; // 조명 세부(09-26)
 import { C, R, S, SPACE_TYPES, STYLES } from "../constants";
 import { SHOW_BETA_UI } from "../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 import { BetaGateModal, BetaBanner, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
@@ -94,11 +95,16 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const [workTags, setWorkTags] = useState(() => splitDesc(initialData?.desc).tags);
-  const [workNote, setWorkNote] = useState(() => splitDesc(initialData?.desc).note);
+  // «더 알려 줄 것» 맨 앞의 「조명: …」 줄은 칩(조명 세부)으로 따로 들고 있다(09-26 대표 「견적 요청·진행에 조명 추가」)
+  const [lightTags, setLightTags] = useState(() => splitLight(splitDesc(initialData?.desc).note).light);
+  const [workNote, setWorkNote] = useState(() => splitLight(splitDesc(initialData?.desc).note).rest);
+  const wantsLight = workTags.includes("조명·전기");
   useEffect(() => {
-    const d = [workTags.join(", "), workNote.trim()].filter(Boolean).join(DESC_SEP);
+    const note = joinLight(wantsLight ? lightTags : [], workNote);
+    const d = [workTags.join(", "), note.trim()].filter(Boolean).join(DESC_SEP);
     setForm(f => (f.desc === d ? f : { ...f, desc: d }));
-  }, [workTags, workNote]);
+  }, [workTags, workNote, lightTags, wantsLight]);
+  const toggleLight = (t) => setLightTags(ls => (ls.includes(t) ? ls.filter(x => x !== t) : [...ls, t]));
   const toggleWorkTag = (tag) => setWorkTags(ts => (ts.includes(tag) ? ts.filter(t => t !== tag) : [...ts, tag]));
 
   // ── 표현(Beta) ─────────────────────────────────────────────────────
@@ -267,8 +273,25 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
               </button>
             )}
           </div>
+          {wantsLight && (
+            <div style={{ background: C.surface2, borderRadius: R.lg, padding: "10px 12px", marginBottom: 10 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1, marginBottom: 6 }}>💡 어떤 조명을 생각하세요? <span style={{ fontWeight: 500, color: C.text3 }}>(여러 개 · 몰라도 괜찮아요)</span></div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {LIGHT_OPTIONS.map(t => {
+                  const on = lightTags.includes(t);
+                  return (
+                    <button key={t} onClick={() => toggleLight(t)} aria-pressed={on}
+                      style={{ ...chip(on), padding: "6px 11px", minHeight: 32, fontSize: 12.5 }}>{on ? "✓ " : ""}{t}</button>
+                  );
+                })}
+              </div>
+              {lightTags.some(t => LIGHT_NEEDS_CARPENTRY.includes(t)) && (
+                <div style={{ fontSize: 11.5, color: C.text3, marginTop: 6, lineHeight: 1.5 }}>매입등·간접조명은 천장 목공이 함께 들어가는 경우가 많아요 — 업체가 견적에 같이 적어 드려요.</div>
+              )}
+            </div>
+          )}
           {workTags.length > 0 && (
-            <div style={{ fontSize: 12.5, color: C.brand, fontWeight: 700, marginBottom: 6 }}>고른 공사 · {workTags.join(", ")}</div>
+            <div style={{ fontSize: 12.5, color: C.brand, fontWeight: 700, marginBottom: 6 }}>고른 공사 · {workTags.join(", ")}{wantsLight && lightTags.length ? ` (조명: ${lightTags.join(", ")})` : ""}</div>
           )}
           <textarea placeholder={workTags.length ? "더 알려 줄 것 · 예) 거실만, 욕실 2개 중 1개" : "위에서 고르거나 직접 적어 주세요 · 예) 주방 확장, 욕실 2개 교체"} value={workNote}
             onChange={e => setWorkNote(e.target.value)} rows={4}
