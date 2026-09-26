@@ -11,10 +11,30 @@
 --       이미 겹친 주문번호가 있으면 색인을 만들지 않고 아래 확인 칸이 false(대표에게 알림 → 정리 뒤 다시 실행).
 --    ③ 금액 칸(amount·customer_fee·vat·total_amount)을 소수 허용(numeric)으로 — 앱 금액은 만원 단위 소수 1자리(예: 247.2)라
 --       정수 칸에 넣으면 기록이 실패했다.
---  확인 칸 3개(아래 select) — 셋 다 true 면 끝.
+--    ⓪ (09-26 실행 중 발견) 운영 payment_orders 에 order_id 칸이 없었다 — 42703 column "order_id" does not exist.
+--       이 칸들은 031 이 만들게 돼 있었는데 운영엔 031 이 실행되지 않았다. 그래서 토큰 구매 함수(099)와
+--       새 결제 서버(api/confirm-payment, #776)가 모두 «없는 칸»에 쓰고 있었다(결제가 닫혀 있어 아직 피해 없음).
+--       → 031 의 «칸 추가» 부분을 여기서 먼저 한다(add column if not exists — 있는 칸은 그대로).
+--  확인 칸 4개(아래 select) — 넷 다 true 면 끝.
 -- ============================================================
 
 set search_path = public, extensions;
+
+-- ⓪ 결제 기록 칸(031 에 있던 것) — 없으면 만든다
+alter table public.payment_orders
+  add column if not exists provider        text   not null default 'TOSS',
+  add column if not exists fee_amount       numeric,
+  add column if not exists net_amount       numeric,
+  add column if not exists order_id         text,        -- 토스 주문번호(orderId)
+  add column if not exists payment_key      text,        -- 토스 paymentKey(취소·환불에 필요)
+  add column if not exists raw_response     jsonb,
+  add column if not exists paid_at          timestamptz,
+  add column if not exists payment_source   text   not null default 'original',  -- original | change_order | token
+  add column if not exists change_order_id  uuid;
+
+alter table public.payment_transactions
+  add column if not exists provider       text,
+  add column if not exists payment_method text;
 
 -- ① 토큰 적립 함수 — 서버만
 revoke execute on function public.purchase_space_tokens(uuid, integer, integer, text, text, text, text) from public, anon, authenticated;
@@ -44,8 +64,10 @@ end $$;
 
 notify pgrst, 'reload schema';
 
--- 확인: 셋 다 true 면 끝
+-- 확인: 넷 다 true 면 끝
 select
+  exists (select 1 from information_schema.columns
+           where table_schema = 'public' and table_name = 'payment_orders' and column_name = 'payment_key')                  as order_columns_ok,
   not has_function_privilege('anon', 'public.purchase_space_tokens(uuid, integer, integer, text, text, text, text)', 'execute') as token_fn_closed_ok,
   exists (select 1 from pg_indexes where indexname = 'payment_orders_order_id_uq')                                                  as order_id_unique_ok,
   (select data_type from information_schema.columns
