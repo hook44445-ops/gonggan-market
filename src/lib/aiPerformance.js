@@ -10,7 +10,7 @@
 // ════════════════════════════════════════════════════════════════════
 
 import { getWorkbenchRecords } from "./editorWorkbench.js";
-import { AI_STAFF, DEPARTMENTS, staffStatus } from "./aiOrg.js";
+import { AI_STAFF, DEPARTMENTS, staffStatus, getServerLlmStatus } from "./aiOrg.js";
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const PRICE = {
@@ -123,7 +123,15 @@ export const HIRING_CANDIDATES = [
   { model: "mistralai/mistral-large", role: "다국어·요약", dept: "support" },
 ];
 export function hiringCandidates() {
-  const owned = new Set(AI_STAFF.map((s) => s.model));
+  const owned = new Set(AI_STAFF.map((s) => staffStatus(s).model));   // 지금 쓰는 모델(역할별 최신 반영)
+  // 서버가 OpenRouter 목록에서 읽은 «가장 최근 모델»이 있으면 그것으로(09-26 — 예전 목록은 코드에 박혀 1년 넘게 그대로였다)
+  const newest = getServerLlmStatus()?.newest;
+  if (Array.isArray(newest) && newest.length) {
+    const deptOf = (id) => /gemini|grok|flash/.test(id) ? "operations" : /claude|gpt-5|sonnet|opus/.test(id) ? "editorial" : "support";
+    return newest.filter((c) => !owned.has(c.model)).map((c) => ({
+      model: c.model, role: `신모델${c.created ? ` · ${c.created}` : ""}`, dept: deptOf(c.model), deptName: DEPARTMENTS[deptOf(c.model)]?.name || "",
+    }));
+  }
   return HIRING_CANDIDATES.filter((c) => !owned.has(c.model)).map((c) => ({ ...c, deptName: DEPARTMENTS[c.dept]?.name || c.dept }));
 }
 

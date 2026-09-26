@@ -21,7 +21,7 @@ export const ROLE_FAMILIES = {
 };
 
 /* 글쓰기에 맞지 않는 변형(무료·이미지·음성·검색·실험판 등)은 뺀다 */
-const SKIP = /:free|:beta|:thinking|:extended|:online|image|audio|vision|search|preview|exp|embed|lite|nano|guard|tts|realtime|deep-research|codex|-vl-|-vl$|coder|math/i;
+const SKIP = /:free|:batch|:beta|:thinking|:extended|:online|image|audio|vision|search|preview|exp|embed|lite|nano|guard|tts|realtime|deep-research|codex|-vl-|-vl$|coder|math/i;
 
 /** OpenRouter /api/v1/models 의 data 배열 → { [role]: modelId } */
 export function pickLatestModels(list = []) {
@@ -36,4 +36,14 @@ export function pickLatestModels(list = []) {
 
 export function defaultModels() {
   return Object.fromEntries(Object.entries(ROLE_FAMILIES).map(([r, f]) => [r, f.fallback]));
+}
+
+/* 채용 후보(대표 「추천 AI 가 늘 업데이트」) — 주요 회사의 가장 최근 모델 n개(글쓰기용 변형만) */
+const MAKERS = /^(anthropic|openai|google|x-ai|deepseek|qwen|meta-llama|mistralai)\//;
+export function pickNewest(list = [], n = 6) {
+  return (Array.isArray(list) ? list : [])
+    .filter((m) => m && typeof m.id === "string" && MAKERS.test(m.id) && !SKIP.test(m.id))
+    .sort((a, b) => (Number(b.created) || 0) - (Number(a.created) || 0))
+    .slice(0, n)
+    .map((m) => ({ model: m.id, name: m.name || m.id, created: m.created ? new Date(Number(m.created) * 1000).toISOString().slice(0, 10) : null }));
 }
