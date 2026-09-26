@@ -27,7 +27,7 @@ import { getEditorialConfig, setEditorialConfig } from "../lib/editorialConfig";
 import { resolveLoungeCategory } from "../lib/loungeCategoryMap";
 import { generateForWorkbench, saveWorkbenchRecord, PROMPT_VERSIONS } from "../lib/editorWorkbench";
 import { providerStatus, PROVIDER_CHOICES, LLM_PROVIDERS } from "../lib/llmProviders";
-import { orgChart, DEPARTMENTS } from "../lib/aiOrg";
+import { orgChart, DEPARTMENTS, setServerLlmStatus } from "../lib/aiOrg";
 import { recommend as aiRecommend } from "../lib/aiRecommend";
 import { planFusion } from "../lib/aiFusion";
 import { pipelineView } from "../lib/aiPipeline";
@@ -570,24 +570,8 @@ function ReportList({ reports, label, hiddenIds, onToggleHide }) {
 }
 
 // ── 라운지 관리 탭 ────────────────────────────────────────
-function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], loungeErr = null, showToast, adminUserId, onReload }) {
-  // 신고는 서버 목록(migration 113 ③)에서 — 예전엔 관리자 본인 브라우저 저장소를 읽어 실제 신고를 못 봤다.
-  const allReports = (loungeReports ?? []).map(r => ({
-    id: r.id, type: r.target_type, targetId: r.target_id, reason: r.reason,
-    createdAt: r.created_at, status: r.status, reporterName: r.reporter_name ?? null,
-  }));
-  const allBlocks  = (() => { try { return JSON.parse(localStorage.getItem("lounge_blocks")  ?? "[]"); } catch { return []; } })();
-  const [posts, setPosts] = useState(initPosts);
-  useEffect(() => { setPosts(initPosts); }, [initPosts]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [postFilter, setPostFilter] = useState("all"); // all | hidden | deleted
-  const [postSearch, setPostSearch] = useState(""); // 제목/본문 검색 — 기본 30건 슬라이스 밖의 글(예: 테스트 글)도 찾기 위함
-  const [postReasonId, setPostReasonId] = useState(null);
-  const [postReason, setPostReason] = useState("");
-  const [postActing, setPostActing] = useState(false);
-  const [hiddenIds, setHiddenIds] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("lounge_hidden") ?? "[]"); } catch { return []; }
-  });
-
+// ── 공간토큰·공간온도 수동 조정(09-26 정리 2차) — 라운지 관리와 고객 화면에 따로 있던 것을 «사람 › 고객» 한 곳으로 ──
+function UserAdjustPanel({ adminUserId, showToast }) {
   const [tokenTarget, setTokenTarget] = useState("");
   const [tokenAmount, setTokenAmount] = useState("");
   const [tokenReason, setTokenReason] = useState("");
@@ -597,19 +581,6 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], 
   const [tempDelta, setTempDelta]   = useState("");
   const [tempReason, setTempReason] = useState("");
   const [tempLoading, setTempLoading] = useState(false);
-
-  // 신고된 글 숨김 — 서버에 실제로 숨긴다(09-26). 예전엔 이 브라우저 localStorage 에만 적어 사용자 화면엔 그대로 보였다.
-  const toggleHide = async (id) => {
-    const hide = !hiddenIds.includes(id);
-    const { error } = await adminHideContent("lounge_posts", id, adminUserId ?? null, hide, hide ? "신고 처리" : null);
-    if (error) { showToast?.(`처리 실패: ${error.message ?? "관리자 인증을 확인해 주세요"}`, false); return; }
-    setHiddenIds(prev => {
-      const next = hide ? [...prev, id] : prev.filter(x => x !== id);
-      try { localStorage.setItem("lounge_hidden", JSON.stringify(next)); } catch {}
-      return next;
-    });
-    showToast?.(hide ? "글을 숨겼어요" : "숨김을 풀었어요");
-  };
 
   const lookupUser = async (input) => {
     const val = input.trim();
@@ -674,6 +645,102 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], 
     } finally {
       setTempLoading(false);
     }
+  };
+
+  return (
+    <div style={{ marginBottom: S.lg }}>
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="💰" size={14} color={C.text1} /> 공간토큰 수동 관리</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
+          <div style={{ display: "flex", gap: S.sm }}>
+            <input
+              value={tokenTarget} onChange={e => setTokenTarget(e.target.value)}
+              placeholder="사용자 ID 또는 전화번호"
+              style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+            <input
+              value={tokenAmount} onChange={e => setTokenAmount(e.target.value)}
+              placeholder="토큰 수" type="number" min="1"
+              style={{ width: 90, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          </div>
+          <input
+            value={tokenReason} onChange={e => setTokenReason(e.target.value)}
+            placeholder="지급/회수 사유 (선택)"
+            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <div style={{ display: "flex", gap: S.sm }}>
+            <button
+              onClick={() => handleTokenAdjust(true)} disabled={tokenLoading}
+              style={{ flex: 1, padding: "10px", background: tokenLoading ? C.bgWarm : C.brandL, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: tokenLoading ? "not-allowed" : "pointer" }}>
+              {tokenLoading ? "처리중…" : "+ 지급"}
+            </button>
+            <button
+              onClick={() => handleTokenAdjust(false)} disabled={tokenLoading}
+              style={{ flex: 1, padding: "10px", background: tokenLoading ? C.bgWarm : "#FEF0F0", color: C.red, border: `1px solid ${C.red33}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: tokenLoading ? "not-allowed" : "pointer" }}>
+              {tokenLoading ? "처리중…" : "- 회수"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🌡️" size={14} color={C.text1} /> 공간온도 수동 조정</div>
+        <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.md, border: `1px solid ${C.brandM}` }}>
+          <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>변경 사유를 반드시 입력하세요. 변경 기록은 adminLogs에 자동 저장됩니다.</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
+          <input
+            value={tempTarget} onChange={e => setTempTarget(e.target.value)}
+            placeholder="사용자 ID 또는 전화번호"
+            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <input
+            value={tempDelta} onChange={e => setTempDelta(e.target.value)}
+            placeholder="변경값 (+0.1 또는 -0.5)" type="number" step="0.1"
+            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <input
+            value={tempReason} onChange={e => setTempReason(e.target.value)}
+            placeholder="변경 사유 (필수)"
+            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
+          <button
+            onClick={handleTempAdjust} disabled={tempLoading}
+            style={{ padding: "12px", background: tempLoading ? C.bgWarm : C.brand, color: tempLoading ? C.text3 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: tempLoading ? "not-allowed" : "pointer", boxShadow: tempLoading ? "none" : `0 4px 14px ${C.brand44}` }}>
+            {tempLoading ? "처리중…" : "공간온도 조정하기"}
+          </button>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], loungeErr = null, showToast, adminUserId, onReload }) {
+  // 신고는 서버 목록(migration 113 ③)에서 — 예전엔 관리자 본인 브라우저 저장소를 읽어 실제 신고를 못 봤다.
+  const allReports = (loungeReports ?? []).map(r => ({
+    id: r.id, type: r.target_type, targetId: r.target_id, reason: r.reason,
+    createdAt: r.created_at, status: r.status, reporterName: r.reporter_name ?? null,
+  }));
+  const allBlocks  = (() => { try { return JSON.parse(localStorage.getItem("lounge_blocks")  ?? "[]"); } catch { return []; } })();
+  const [posts, setPosts] = useState(initPosts);
+  useEffect(() => { setPosts(initPosts); }, [initPosts]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [postFilter, setPostFilter] = useState("all"); // all | hidden | deleted
+  const [postSearch, setPostSearch] = useState(""); // 제목/본문 검색 — 기본 30건 슬라이스 밖의 글(예: 테스트 글)도 찾기 위함
+  const [postReasonId, setPostReasonId] = useState(null);
+  const [postReason, setPostReason] = useState("");
+  const [postActing, setPostActing] = useState(false);
+  const [hiddenIds, setHiddenIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("lounge_hidden") ?? "[]"); } catch { return []; }
+  });
+
+
+  // 신고된 글 숨김 — 서버에 실제로 숨긴다(09-26). 예전엔 이 브라우저 localStorage 에만 적어 사용자 화면엔 그대로 보였다.
+  const toggleHide = async (id) => {
+    const hide = !hiddenIds.includes(id);
+    const { error } = await adminHideContent("lounge_posts", id, adminUserId ?? null, hide, hide ? "신고 처리" : null);
+    if (error) { showToast?.(`처리 실패: ${error.message ?? "관리자 인증을 확인해 주세요"}`, false); return; }
+    setHiddenIds(prev => {
+      const next = hide ? [...prev, id] : prev.filter(x => x !== id);
+      try { localStorage.setItem("lounge_hidden", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    showToast?.(hide ? "글을 숨겼어요" : "숨김을 풀었어요");
   };
 
   const postReports    = allReports.filter(r => r.type === "post");
@@ -828,62 +895,8 @@ function LoungeManagementTab({ loungePosts: initPosts = [], loungeReports = [], 
       <ReportList reports={commentReports} label="💬 신고된 댓글"  hiddenIds={hiddenIds} onToggleHide={toggleHide} />
       <ReportList reports={storyReports}   label="📸 신고된 스토리" hiddenIds={hiddenIds} onToggleHide={toggleHide} />
 
-      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, marginBottom: S.lg, border: `1px solid ${C.bgWarm}` }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="💰" size={14} color={C.text1} /> 공간토큰 수동 관리</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
-          <div style={{ display: "flex", gap: S.sm }}>
-            <input
-              value={tokenTarget} onChange={e => setTokenTarget(e.target.value)}
-              placeholder="사용자 ID 또는 전화번호"
-              style={{ flex: 1, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-            <input
-              value={tokenAmount} onChange={e => setTokenAmount(e.target.value)}
-              placeholder="토큰 수" type="number" min="1"
-              style={{ width: 90, padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-          </div>
-          <input
-            value={tokenReason} onChange={e => setTokenReason(e.target.value)}
-            placeholder="지급/회수 사유 (선택)"
-            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-          <div style={{ display: "flex", gap: S.sm }}>
-            <button
-              onClick={() => handleTokenAdjust(true)} disabled={tokenLoading}
-              style={{ flex: 1, padding: "10px", background: tokenLoading ? C.bgWarm : C.brandL, color: C.brand, border: `1px solid ${C.brandM}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: tokenLoading ? "not-allowed" : "pointer" }}>
-              {tokenLoading ? "처리중…" : "+ 지급"}
-            </button>
-            <button
-              onClick={() => handleTokenAdjust(false)} disabled={tokenLoading}
-              style={{ flex: 1, padding: "10px", background: tokenLoading ? C.bgWarm : "#FEF0F0", color: C.red, border: `1px solid ${C.red33}`, borderRadius: R.lg, fontWeight: 700, fontSize: 13, cursor: tokenLoading ? "not-allowed" : "pointer" }}>
-              {tokenLoading ? "처리중…" : "- 회수"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ background: "#fff", borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🌡️" size={14} color={C.text1} /> 공간온도 수동 조정</div>
-        <div style={{ background: C.brandL, borderRadius: R.lg, padding: S.md, marginBottom: S.md, border: `1px solid ${C.brandM}` }}>
-          <div style={{ fontSize: 12, color: C.brand, lineHeight: 1.6 }}>변경 사유를 반드시 입력하세요. 변경 기록은 adminLogs에 자동 저장됩니다.</div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
-          <input
-            value={tempTarget} onChange={e => setTempTarget(e.target.value)}
-            placeholder="사용자 ID 또는 전화번호"
-            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-          <input
-            value={tempDelta} onChange={e => setTempDelta(e.target.value)}
-            placeholder="변경값 (+0.1 또는 -0.5)" type="number" step="0.1"
-            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-          <input
-            value={tempReason} onChange={e => setTempReason(e.target.value)}
-            placeholder="변경 사유 (필수)"
-            style={{ padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit" }} />
-          <button
-            onClick={handleTempAdjust} disabled={tempLoading}
-            style={{ padding: "12px", background: tempLoading ? C.bgWarm : C.brand, color: tempLoading ? C.text3 : "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 14, cursor: tempLoading ? "not-allowed" : "pointer", boxShadow: tempLoading ? "none" : `0 4px 14px ${C.brand44}` }}>
-            {tempLoading ? "처리중…" : "공간온도 조정하기"}
-          </button>
-        </div>
+      <div style={{ background: C.bg, borderRadius: R.lg, padding: S.md, marginBottom: S.lg, fontSize: 12, color: C.text3, lineHeight: 1.6 }}>
+        공간토큰 지급·회수와 공간온도 조정은 «사람 › 고객» 맨 위로 옮겼어요(한 곳에서 처리).
       </div>
 
       {posts.length > 0 && (
@@ -1585,6 +1598,16 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
   const [histTick, setHistTick] = useState(0);
   const [savingDraft, setSavingDraft] = useState(false);
   const [fusionSaved, setFusionSaved] = useState(null); // Phase 46 — 자동 저장 결과 { saved, duplicate, draftId }
+  // 서버 AI 글쓰기 연결 상태(09-26) — 조직도 «연결»·역할별 최신 모델이 이것을 따른다
+  const [srvLlm, setSrvLlm] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/trend/check-trends?mode=llm_status").then((r) => r.json()).then((j) => {
+      if (!alive) return;
+      setServerLlmStatus(j?.ok ? j : null); setSrvLlm(j?.ok ? j : { ok: false });
+    }).catch(() => { if (alive) setSrvLlm({ ok: false }); });
+    return () => { alive = false; };
+  }, []);
   const org = orgChart();
   const pipe = pipelineView({ autoPublishEnabled: (getAutoConfig().enabled === true) });
   const rec = topic.trim() ? aiRecommend(topic.trim()) : null;
@@ -1655,7 +1678,25 @@ function AIHeadquartersTab({ published = [], adminUserId, showToast, onReload })
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
         AI 는 <b>직원</b>, 총괄비서는 <b>팀장</b>, 관리자는 <b>최종 승인자</b>입니다. 주제만 입력하면 AI 들이 회의를 열어 담당을 정하고,
         콘텐츠 특성에 따라 여러 AI 를 조합(Fusion)해 분석→작성→검수→발행까지 편성합니다.
-        {" "}가동 직원 <b>{org.activeStaff}/{org.totalStaff}</b> · 모든 모델은 기존 <b>OpenRouter</b> 구조로 호출됩니다(구조/키 무변경).
+        {" "}가동 직원 <b>{org.activeStaff}/{org.totalStaff}</b> · 모델은 OpenRouter 목록에서 역할별 최신으로 자동 갱신됩니다.
+      </div>
+
+      {/* 서버 AI 글쓰기 연결(09-26) — 라운지 자동 글을 실제로 쓰는 AI */}
+      <div style={{ ...box, borderColor: srvLlm?.configured ? "#05966955" : C.gold44 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>
+          라운지 자동 글쓰기 AI {srvLlm == null ? "· 확인 중…" : srvLlm.configured ? <span style={{ color: "#059669" }}>· 연결됨</span> : <span style={{ color: C.gold }}>· 연결 전(틀 글로 운영 중)</span>}
+        </div>
+        {srvLlm?.ok === false && <div style={{ fontSize: 12, color: C.text3 }}>상태를 불러오지 못했어요. 새 버전 배포 뒤 다시 열어 주세요.</div>}
+        {srvLlm?.ok && (
+          <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.8 }}>
+            <div>차례: {srvLlm.order?.length ? srvLlm.order.map((p) => ({ openrouter: "OpenRouter 유료(플랜 A)", gemini: "Gemini 무료", openrouter_free: "OpenRouter 무료", groq: "Groq 무료" }[p] || p)).join(" → ") : "없음 — 키를 넣으면 바로 켜집니다"}</div>
+            <div>글쓰기 모델(플랜 A): <b>{srvLlm.writerModel}</b>{srvLlm.paid ? "" : " (키 없음)"}</div>
+            {srvLlm.geminiModel && <div>Gemini 무료: <b>{srvLlm.geminiModel}</b></div>}
+            {srvLlm.freeModel && <div>OpenRouter 무료: <b>{srvLlm.freeModel}</b></div>}
+            <div style={{ color: C.text4 }}>역할별 최신 모델 확인: {srvLlm.modelsSource === "openrouter" ? "OpenRouter 목록" : "기본값"} · {srvLlm.modelsCheckedAt ? new Date(srvLlm.modelsCheckedAt).toLocaleString("ko-KR") : "-"} (6시간마다 새로)</div>
+            {!srvLlm.configured && <div style={{ color: C.text3, marginTop: 4 }}>Vercel 환경변수에 OPENROUTER_API_KEY(프루비와 같은 키) 또는 무료용 GEMINI_API_KEY · GROQ_API_KEY 를 넣으면, AI 가 쓴 글만 자동 발행되고 틀 글은 초안으로 남습니다.</div>}
+          </div>
+        )}
       </div>
 
       {/* 운영현황 대시보드 */}
@@ -6733,6 +6774,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   </div>
                 ) : (
                   <>
+                    <UserAdjustPanel adminUserId={user?.id ?? null} showToast={showToast} />
                     <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
                       고객 목록 <span style={{ color: C.brand }}>{customers.length}명</span>
                     </div>

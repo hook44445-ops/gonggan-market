@@ -38,8 +38,16 @@ export const AI_STAFF = [
   { id: "qwen_translator",  name: "다국어 담당",       dept: "support",   provider: "openrouter", model: "qwen/qwen-2.5-72b-instruct", duty: "번역·다국어 콘텐츠",                 defaultFor: ["i18n"], cost: "low", quality: "mid" },
 ];
 
+// 서버 AI 글쓰기 상태(09-26) — api/trend/check-trends?mode=llm_status 가 알려 준다.
+//   예전엔 브라우저 키(VITE_…)만 봐서 늘 «Standby» 였다. 서버 키(OpenRouter·무료 AI)가 있으면 «연결»,
+//   모델 이름은 OpenRouter 목록에서 고른 «역할별 최신 모델»로 바꿔 보여 준다(추천도 같은 이름을 쓴다).
+let serverLlm = null;
+export function setServerLlmStatus(st) { serverLlm = st && typeof st === "object" ? st : null; }
+export function getServerLlmStatus() { return serverLlm; }
+
 const providerConnected = (provider) => {
   // Claude/OpenRouter 라우팅: OpenRouter 키(isLLMConfigured) 있으면 OpenRouter 경유 모델 사용 가능.
+  if (serverLlm?.configured) return true;
   if (provider === "openrouter" || provider === "claude") return isLLMConfigured();
   const st = providerStatus().find((p) => p.id === provider);
   // gpt/gemini 는 별도 키가 있으면 직접, 없어도 OpenRouter 슬러그로 호출 가능(키 있으면).
@@ -51,6 +59,7 @@ export function staffStatus(staff) {
   const connected = providerConnected(staff.provider);
   return {
     ...staff,
+    model: serverLlm?.models?.[staff.id] || staff.model,   // 역할별 최신 모델(서버가 6시간마다 새로)
     deptName: DEPARTMENTS[staff.dept]?.name || staff.dept,
     connected,
     statusLabel: connected ? "Active" : "Standby",

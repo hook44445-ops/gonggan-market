@@ -26,6 +26,7 @@ import { generateDraft } from '../../src/constants/aiContentFactory.js';
 import { ensureImageUrls } from '../../src/lib/approvalImage.js';
 import { authenticateCron } from '../../src/lib/cronAuth.js';
 import { runAutonomousCycle } from '../../src/lib/serverAutonomousCycle.js';
+import { llmStatus } from '../../src/lib/serverLoungeWriter.js';
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -110,6 +111,12 @@ export default async function handler(req, res) {
   // vercel.json rewrite: /api/cron/autonomous-cycle → 이 엔드포인트(?mode=autonomous).
   // 기존 일 1회 Vercel Cron 경로(mode 없음)는 아래 로직 그대로 — Regression Zero.
   // 인증: Authorization: Bearer <CRON_SECRET>. 미설정 503 · 불일치 401. 비밀 원문 미노출.
+  // AI 글쓰기 연결 상태(관리자 AI 운영본부·조직도) — 비밀 없음: 연결 여부·모델 이름만(09-26)
+  if (req.query?.mode === 'llm_status') {
+    try { return sendJson(200, { ok: true, ...(await llmStatus()) }); }
+    catch (e) { return sendJson(200, { ok: false, configured: false, reason: e?.message ?? 'error' }); }
+  }
+
   if (req.query?.mode === 'autonomous') {
     // (1) cron-job.org → autonomous-cycle API 도착 로그(비밀 미출력).
     console.log(`[autonomous-cycle] (1) API 도착 method=${req.method} ua=${(req.headers?.['user-agent'] || '').slice(0, 60)} hasAuth=${!!(req.headers?.authorization)}`);
