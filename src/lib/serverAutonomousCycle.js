@@ -365,7 +365,7 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
           title: draft.title,
           content: draft.content,
           region: item.region ?? null,
-          image_urls: ensureImageUrls({ title: draft.title, content: draft.content, content_type: classifyContentType(draft.title || item.topic) }), // §11 빈 image_urls 금지
+          image_urls: ensureImageUrls({ title: draft.title, content: draft.content, category: draft.category, content_type: classifyContentType(draft.title || item.topic) }), // §11 빈 image_urls 금지
           is_seed: true,
           is_visible: false, // ⚠️ 절대 true 금지 — 관리자 승인 전 비공개.
           publish_status: "draft", // ⚠️ 절대 published/scheduled 금지.
@@ -440,7 +440,7 @@ async function insertNews(post, publishAtMs, now) {
   return sbInsertDraft({
     user_id: null, anonymous_nickname: "공간마켓",
     category: post.category, title: post.title, content: post.content, region: null,
-    image_urls: ensureImageUrls({ title: post.title, content: post.content, content_type: classifyContentType(post.title) }),
+    image_urls: ensureImageUrls({ title: post.title, content: post.content, category: post.category, content_type: classifyContentType(post.title) }),
     is_seed: true, is_visible: false,
     publish_status: "scheduled", scheduled_at: at,
     ai_topic: post.ai_topic, ai_source: "server_news",

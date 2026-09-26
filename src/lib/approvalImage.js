@@ -78,6 +78,34 @@ const CATEGORY_IMAGES = {
   DEFAULT: ["/images/gonggan-hero.webp", "/images/sample/cover.webp", OG_DEFAULT],
 };
 
+
+// ── 라운지 카테고리 사진(09-26 · 힉스필드로 새로 만든 고화질 41장) ─────────────────────
+//   대표 「사진 품질이 떨어지면」. 글의 라운지 카테고리(연애·건강·주식…)가 있으면 그 카테고리 사진을 먼저 쓴다.
+//   예전엔 제목 단어로만 골라 연애·건강 글에 기본 그림이 붙었다. 사람 얼굴·글자·로고 없는 사진만.
+export const LOUNGE_CATEGORY_IMAGES = {
+  daily: ["/images/lounge/daily-1.webp", "/images/lounge/daily-2.webp"],
+  dating: ["/images/lounge/dating-1.webp", "/images/lounge/dating-2.webp"],
+  exercise: ["/images/lounge/exercise-1.webp", "/images/lounge/exercise-2.webp"],
+  free: ["/images/lounge/free-1.webp"],
+  health: ["/images/lounge/health-1.webp", "/images/lounge/health-2.webp"],
+  humor: ["/images/lounge/humor-1.webp"],
+  interior: ["/images/lounge/interior-1.webp", "/images/lounge/interior-2.webp", "/images/lounge/interior-3.webp", "/images/lounge/interior-4.webp"],
+  jobs: ["/images/lounge/jobs-1.webp", "/images/lounge/jobs-2.webp"],
+  local: ["/images/lounge/local-1.webp", "/images/lounge/local-2.webp"],
+  marriage: ["/images/lounge/marriage-1.webp", "/images/lounge/marriage-2.webp"],
+  move_in: ["/images/lounge/move_in-1.webp", "/images/lounge/move_in-2.webp"],
+  pet: ["/images/lounge/pet-1.webp", "/images/lounge/pet-2.webp"],
+  quote_worry: ["/images/lounge/quote_worry-1.webp", "/images/lounge/quote_worry-2.webp"],
+  realestate: ["/images/lounge/realestate-1.webp", "/images/lounge/realestate-2.webp"],
+  restaurant: ["/images/lounge/restaurant-1.webp", "/images/lounge/restaurant-2.webp"],
+  review: ["/images/lounge/review-1.webp", "/images/lounge/review-2.webp"],
+  room_deco: ["/images/lounge/room_deco-1.webp", "/images/lounge/room_deco-2.webp", "/images/lounge/room_deco-3.webp"],
+  "staff-talk": ["/images/lounge/staff-talk-1.webp", "/images/lounge/staff-talk-2.webp"],
+  stock: ["/images/lounge/stock-1.webp", "/images/lounge/stock-2.webp"],
+  travel: ["/images/lounge/travel-1.webp", "/images/lounge/travel-2.webp"],
+};
+const L = LOUNGE_CATEGORY_IMAGES;
+
 /* 같은 글은 같은 그림, 다른 글은 다른 그림 — 제목+본문 앞머리로 안정 해시. */
 function pickFrom(list, key) {
   if (!Array.isArray(list) || list.length === 0) return OG_DEFAULT;
@@ -88,6 +116,13 @@ function pickFrom(list, key) {
 }
 
 /* 예전 이름 호환 — 카테고리별 «대표 한 장»이 필요한 곳을 위해 남겨 둔다. */
+// 새 사진을 기존 풀에도 섞는다(뉴스·큐티·운세처럼 사건 오인 방지 브랜드 칸은 그대로)
+for (const [k, add] of Object.entries({
+  INTERIOR: [...L.interior, ...L.room_deco], SPACE_MARKET: [...L.quote_worry, ...L.review, ...L.move_in],
+  LIFESTYLE: [...L.daily, ...L.health], BUSINESS: [...L.realestate, ...L.stock, ...L["staff-talk"]],
+  TECH: [...L.jobs], TIME_TREND: [...L.local, ...L.free], DEFAULT: [...L.free, ...L.local],
+})) CATEGORY_IMAGES[k] = [...add, ...CATEGORY_IMAGES[k]];
+
 export const CATEGORY_IMAGE = Object.fromEntries(
   Object.entries(CATEGORY_IMAGES).map(([k, v]) => [k, v[0]]),
 );
@@ -103,7 +138,9 @@ export function pickRepresentativeImage(content = {}) {
   // ① 외부 검색 훅 — 현재 미구현(외부 이미지 API 필요). null 이면 카테고리/브랜드 기본으로.
   const external = null;
   const key = `${String(content.title ?? "")}|${String(content.content ?? "").slice(0, 60)}`;
-  const url = external || pickFrom(CATEGORY_IMAGES[category], key) || OG_DEFAULT;
+  // 라운지 카테고리가 있고 브랜드 칸(뉴스·큐티 등)이 아니면 그 카테고리 사진이 먼저
+  const loungeList = !["MORNING_BRIEF", "NEWS", "BREAKING", "EDITORIAL", "QT", "ASTROLOGY"].includes(category) ? L[content.category] : null;
+  const url = external || (loungeList ? pickFrom(loungeList, key) : null) || pickFrom(CATEGORY_IMAGES[category], key) || OG_DEFAULT;
   const brandCats = new Set(["MORNING_BRIEF", "NEWS", "BREAKING", "EDITORIAL", "QT", "ASTROLOGY"]);
   const source = external ? "external_search" : brandCats.has(category) ? "brand_default" : "category_default";
   const title = String(content.title ?? "").trim();
