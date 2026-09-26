@@ -14,6 +14,14 @@
 
 // 재해석 렌즈 — 이슈 키워드를 "공간 관점(spaceKeyword)"으로 끌어올린 뒤 기존 라운지
 // 카테고리로 착지시킨다. 위에서부터 첫 매칭을 사용한다(구체적인 규칙이 위, 일반 규칙이 아래).
+// 조사 — 받침으로 고른다(「폭우과(와)」 같은 표시가 제목에 그대로 나가던 것 고침, 09-26)
+const _b = (w) => { const c = String(w ?? "").trim().slice(-1).charCodeAt(0); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0; };
+const _rieul = (w) => { const c = String(w ?? "").trim().slice(-1).charCodeAt(0); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 === 8; };
+const gwa = (w) => `${w}${_b(w) ? "과" : "와"}`;
+const euro = (w) => `${w}${_b(w) && !_rieul(w) ? "으로" : "로"}`;
+const iga = (w) => `${w}${_b(w) ? "이" : "가"}`;
+const eul = (w) => `${w}${_b(w) ? "을" : "를"}`;
+
 export const SPACE_LENS = [
   { id: "weather",  match: ["폭염", "한파", "장마", "폭우", "미세먼지", "황사", "날씨", "계절", "환절기", "결로", "난방", "냉방"],
     spaceKeyword: "공간 관리",       category: "daily",
@@ -26,19 +34,19 @@ export const SPACE_LENS = [
     angle: (t) => `${t} 흐름 속 상업공간 준비 체크리스트` },
   { id: "future",   match: ["ai", "인공지능", "로봇", "스마트홈", "자동화", "iot", "메타버스"],
     spaceKeyword: "미래 공간",         category: "free",
-    angle: (t) => `${t}이(가) 바꾸는 미래의 공간` },
+    angle: (t) => `${iga(t)} 바꾸는 미래의 공간` },
   { id: "industry", match: ["주식", "증시", "코스피", "코스닥", "투자", "반도체", "경기", "경제성장", "환율"],
     spaceKeyword: "공간산업",         category: "stock",
-    angle: (t) => `${t}으로 읽는 공간산업의 방향` },
+    angle: (t) => `${euro(t)} 읽는 공간산업의 방향` },
   { id: "pet",      match: ["반려동물", "강아지", "고양이", "펫"],
     spaceKeyword: "함께 사는 공간",    category: "pet",
-    angle: (t) => `${t}과(와) 함께 사는 집 구조 만들기` },
+    angle: (t) => `${gwa(t)} 함께 사는 집 구조 만들기` },
   { id: "solo",     match: ["1인가구", "1인 가구", "자취", "혼자", "원룸"],
     spaceKeyword: "작은 공간",         category: "room_deco",
     angle: (t) => `${t} 시대, 작은 공간을 효율적으로 쓰는 법` },
   { id: "senior",   match: ["고령", "시니어", "노후", "실버"],
     spaceKeyword: "안전한 공간",       category: "health",
-    angle: (t) => `${t}를 위한 안전한 공간 디자인` },
+    angle: (t) => `${eul(t)} 위한 안전한 공간 디자인` },
   { id: "movein",   match: ["이사", "입주", "전입"],
     spaceKeyword: "새로운 공간",       category: "move_in",
     angle: (t) => `${t} 전에 확인하는 새 공간 체크리스트` },
@@ -47,7 +55,7 @@ export const SPACE_LENS = [
     angle: (t) => `${t}에서 만나는 머무는 공간 이야기` },
   { id: "family",   match: ["결혼", "신혼", "혼수", "출산", "육아"],
     spaceKeyword: "함께하는 공간",     category: "marriage",
-    angle: (t) => `${t}과(와) 함께 준비하는 공간` },
+    angle: (t) => `${gwa(t)} 함께 준비하는 공간` },
 ];
 
 // 기본 렌즈 — 매칭되는 규칙이 없을 때(모든 이슈는 결국 공간과 연결된다는 철학의 안전망).
@@ -55,7 +63,7 @@ const DEFAULT_LENS = {
   id: "life",
   spaceKeyword: "삶의 공간",
   category: "daily",
-  angle: (t) => `${t}을(를) 우리 공간의 관점에서 다시 보기`,
+  angle: (t) => `${eul(t)} 우리 공간의 관점에서 다시 보기`,
 };
 
 // 이슈 텍스트 → 공간 관점 재해석. 반환: { topic, spaceKeyword, spaceAngle, category, lensId, chain }
