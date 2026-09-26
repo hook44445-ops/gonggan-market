@@ -1,5 +1,5 @@
 import DocImg from "./DocImg";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { C, R, S } from "../constants";
 import {
   getAdminContractDetail, adminSetPayoutStatus, adminResolveDispute, holdAllPayoutsForEscrow,
@@ -105,6 +105,28 @@ export default function AdminContractDetail({ requestId = null, contractId = nul
     .filter((co) => ["paid", "completed"].includes(co.status) && !co.settled_at)
     .reduce((s, co) => s + Number(co.amount ?? 0), 0);
 
+  // 🖨 거래 명세 인쇄(09-26 · 대표 「거래 한 건 명세·정산 내역 출력」) — 지금 화면의 기록을 그대로 A4 로.
+  //   버튼·입력칸은 인쇄에서 뺀다. 사진은 이미 화면에 뜬 서명 주소를 그대로 쓴다.
+  const bodyRef = useRef(null);
+  const printDetail = () => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const w = window.open("", "_blank");
+    if (!w) { alert("팝업이 막혀 인쇄 창을 열 수 없어요. 이 사이트의 팝업을 허용해 주세요."); return; }
+    const now = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+    w.document.write(`<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>거래 명세 — ${String(escId ?? "").slice(0, 8)}</title>
+<style>@page{size:A4;margin:12mm} body{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#222;max-width:760px;margin:0 auto}
+button,input,textarea,select{display:none!important} h1{font-size:18px;margin:8px 0 2px} .meta{color:#666;font-size:11px;margin-bottom:10px}
+.notice{background:#f6f1e6;padding:6px 9px;border-radius:6px;font-size:10.5px;margin-bottom:10px} div{break-inside:avoid}</style></head><body>
+<h1>공간마켓 거래 명세 · 정산 기록</h1><div class="meta">출력 ${now} · 계약 ${String(escId ?? "—")}</div>
+<div class="notice">기록 확인용 내부 문서입니다(공간마켓은 판단자가 아니라 기록 보관자). 개인정보가 포함되어 있으니 당사자·조정 기관 외 공유 금지.</div>
+${el.innerHTML}</body></html>`);
+    w.document.close();
+    const imgs = [...w.document.images];
+    Promise.race([Promise.all(imgs.map((im) => (im.complete ? 1 : new Promise((r) => { im.onload = im.onerror = r; })))), new Promise((r) => setTimeout(r, 5000))])
+      .then(() => { w.focus(); w.print(); });
+  };
+
   const dispStatus = escrow?.dispute_status ?? null;
   const hasDispute = dispStatus && dispStatus !== "NONE";
 
@@ -118,9 +140,15 @@ export default function AdminContractDetail({ requestId = null, contractId = nul
             <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>계약 통합 상세</div>
             <div style={{ fontSize: 11, color: C.text3 }}>결제·정산·현장기록·추가견적·분쟁 기록 확인</div>
           </div>
+          {detail && !err && (
+            <button onClick={printDetail}
+              style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: R.full, border: `1px solid ${C.brand}`, background: C.surface, color: C.brand, fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
+              🖨 거래 명세 인쇄
+            </button>
+          )}
         </div>
 
-        <div style={{ padding: S.lg }}>
+        <div ref={bodyRef} style={{ padding: S.lg }}>
           {detail === null && <div style={{ fontSize: 13, color: C.text4, padding: 20, textAlign: "center" }}>불러오는 중…</div>}
           {err && <div style={{ fontSize: 12, color: C.red, padding: 12 }}>조회 오류: {err}</div>}
 
