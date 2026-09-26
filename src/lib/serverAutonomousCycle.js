@@ -28,6 +28,8 @@ import { findDuplicate, editorialKey } from "./editorialKey.js";
 import { decidePublishMode } from "./publishModeDecider.js";
 import { computeBudget, canPublish, isRegular } from "./dailyPublishBudget.js";
 import { ensureImageUrls } from "./approvalImage.js";
+import { fetchGoogleTrendsKR, fetchNaverNews, fetchKmaTomorrow } from "./trendSources.js";
+import { composeTrendRoundup, composeNewsPost, composeWeatherPost, kstYmd, ymdKey } from "./newsPosts.js";
 
 // 하루 AI 글 발행 총량 — dailyPublishBudget 의 총량(정기 10 + 수시 5)과 같게. 예약 발행에도 적용.
 const DAILY_PUBLISH_CAP = 15;
@@ -302,7 +304,7 @@ async function countTodayAiPosts(now = Date.now()) {
   const startIso = kstMidnightUtcIso(now);
   const rows =
     (await sbGet(
-      `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(startIso)}&select=id&limit=200`
+      `lounge_posts?ai_topic=not.is.null&or=(ai_source.is.null,ai_source.neq.server_news)&created_at=gte.${encodeURIComponent(startIso)}&select=id&limit=200`
     )) ?? [];
   return Array.isArray(rows) ? rows.length : 0;
 }
@@ -369,6 +371,11 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
 
   console.log(`${L} (2) 생성 단계: todayCount=${todayCount} need=${need} generated=${generated}`);
 
+  // 2-b) 실제 뉴스·트렌드·날씨 글(출처·링크가 있는 사실만) — 하루 종류별 한도, 예약 발행.
+  let news = null;
+  try { news = await runNewsStep(now); } catch (e) { news = { error: e?.message ?? "news_error" }; }
+  console.log(`${L} (2-b) 뉴스 단계: ${JSON.stringify(news)}`);
+
   // 3) AI 조직 4인 검토 → 자동 승인분 예약(scheduled) 전환.
   console.log(`${L} autoApproveAndSchedule 호출`);
   const board = await autoApproveAndSchedule(now);
@@ -393,7 +400,71 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
     publishDiag: { scheduledTotal: pub.scheduledTotal, dueCount: pub.dueCount, notDue: pub.notDue, published: pub.published, reason: pub.reason ?? null, rows: pub.rows ?? [] },
     generated,
     drafts,
+    news,
     published: pub.published,
     publishOk: pub.ok,
   };
+}
+
+// ── 실제 뉴스·트렌드·날씨 글(09-26 · 대표 「뉴스와 트렌드 발행으로 라운지 유입」) ──────────────
+//   · 트렌드 모음 — 하루 1건, KST 07시 이후 만들어 12:30 에 발행(점심 시간 · 푸시 창 안).
+//   · 공간 뉴스 — 네이버 키가 있을 때만, 하루 1건(집과 닿는 기사만) 18:30 발행.
+//   · 날씨와 집 — 기상청 키가 있을 때만, 내일 예보가 한파·폭염·비면 오늘 17:30 에 1건(06~17시에만 확인).
+//   글은 출처가 준 사실(키워드·검색량·기사 제목·링크·예보 수치)만 담고, 기사 본문은 옮기지 않는다(newsPosts.js).
+//   ai_source='server_news' 로 표시 · 바로 «예약» 상태로 넣고 발행은 publishDueScheduled(하루 발행 한도 공유)가 한다.
+//   같은 날 같은 종류는 ai_topic 으로 한 번만(재실행 무해).
+const NEWS_QUERIES = ["인테리어", "리모델링", "이사 입주", "전세", "아파트 하자", "층간소음", "곰팡이 결로"];
+const kstAt = (now, h, m) => { const { y, m: mo, d } = kstYmd(now); return Date.UTC(y, mo - 1, d, h, m) - 9 * 3600 * 1000; };
+
+async function newsExists(prefix) {
+  const rows = (await sbGet(`lounge_posts?ai_topic=like.${encodeURIComponent(prefix + "*")}&select=id&limit=1`)) ?? [];
+  return rows.length > 0;
+}
+async function insertNews(post, publishAtMs, now) {
+  const at = new Date(Math.max(publishAtMs, now + 5 * 60 * 1000)).toISOString();
+  return sbInsertDraft({
+    user_id: null, anonymous_nickname: "공간마켓",
+    category: post.category, title: post.title, content: post.content, region: null,
+    image_urls: ensureImageUrls({ title: post.title, content: post.content, content_type: classifyContentType(post.title) }),
+    is_seed: true, is_visible: false,
+    publish_status: "scheduled", scheduled_at: at,
+    ai_topic: post.ai_topic, ai_source: "server_news",
+  });
+}
+
+async function runNewsStep(now = Date.now()) {
+  const out = { trend: "skip", news: "skip", weather: "skip" };
+  const hourKst = new Date(now + 9 * 3600 * 1000).getUTCHours();
+  const today = ymdKey(kstYmd(now));
+
+  // ① 트렌드 모음
+  if (hourKst >= 7 && !(await newsExists(`트렌드 모음 ${today}`))) {
+    const post = composeTrendRoundup(await fetchGoogleTrendsKR(), { now });
+    if (!post) out.trend = "no_items";
+    else { const { error } = await insertNews(post, kstAt(now, 12, 30), now); out.trend = error ? `error:${error}` : "scheduled"; }
+  } else if (hourKst >= 7) out.trend = "done_today";
+
+  // ② 공간 뉴스(네이버 키 있을 때)
+  if (hourKst >= 9 && !(await newsExists(`공간 뉴스 ${today}`))) {
+    const q = NEWS_QUERIES[Math.floor(now / 86400000) % NEWS_QUERIES.length];
+    const { configured, items } = await fetchNaverNews(q);
+    if (!configured) out.news = "not_configured";
+    else {
+      const post = items.map((it) => composeNewsPost(it, { now })).find(Boolean);
+      if (!post) out.news = "no_items";
+      else { const { error } = await insertNews(post, kstAt(now, 18, 30), now); out.news = error ? `error:${error}` : "scheduled"; }
+    }
+  } else if (hourKst >= 9) out.news = "done_today";
+
+  // ③ 날씨와 집(기상청 키 있을 때) — 내일 예보가 한파·폭염·비일 때만
+  if (hourKst >= 6 && hourKst < 17 && !(await newsExists(`날씨와 집 ${ymdKey(kstYmd(now + 86400000)).replace(/-/g, "")}`))) {
+    const { configured, forecast } = await fetchKmaTomorrow({ now });
+    if (!configured) out.weather = "not_configured";
+    else {
+      const post = composeWeatherPost(forecast);
+      if (!post) out.weather = "calm_day";
+      else { const { error } = await insertNews(post, kstAt(now, 17, 30), now); out.weather = error ? `error:${error}` : "scheduled"; }
+    }
+  }
+  return out;
 }
