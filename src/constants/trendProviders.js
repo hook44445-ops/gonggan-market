@@ -27,10 +27,10 @@ async function collectManual() {
   const now = new Date();
   /* 09-26 대표 「라운지 카테고리 주제에 맞게」 — 공간 주제와 라운지 카테고리 주제를 번갈아 낸다.
      카테고리 쪽은 부동산·건강·연애·맛집·주식… 을 날마다 세 칸씩 차례로 돈다(loungeCategoryTopics). */
-  const space = pickDailyTopics(3, now);
-  const cats = pickCategoryTopics(3, dayIndexOf(now));
-  const mixed = [];
-  for (let i = 0; i < 3; i++) { if (cats[i]) mixed.push(cats[i]); if (space[i]) mixed.push(space[i]); }
+  //   대표 「인테리어 수요자와 공급자를 위한 글은 특히 자주」 — 공간 4 : 카테고리 2(공간 글이 앞에).
+  const space = pickDailyTopics(4, now);
+  const cats = pickCategoryTopics(2, dayIndexOf(now));
+  const mixed = [space[0], cats[0], space[1], space[2], cats[1], space[3]].filter(Boolean);
   return mixed.map((t) => ({
     providerId: "manual",
     topic:      t.topic,

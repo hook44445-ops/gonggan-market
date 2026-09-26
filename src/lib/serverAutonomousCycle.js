@@ -21,6 +21,7 @@ import { mapCategory } from "./categoryMapper.js";
 import { filterNewTopics } from "./duplicateChecker.js";
 import { generateDraft } from "../constants/aiContentFactory.js";
 import { composeCategoryPost } from "../constants/loungeCategoryTopics.js";
+import { writeLoungePost, llmWriterConfigured } from "./serverLoungeWriter.js";
 import { dayIndexOf } from "../constants/loungeTopicPool.js";
 import { slotKey, kstDateKey, kstIso, kstMidnightUtcIso } from "./cronRunGuard.js";
 import { classifyContentType } from "./contentTypes.js";
@@ -118,8 +119,9 @@ async function autoApproveAndSchedule(now) {
       //   예전엔 ai_topic 이 있는 초안이면 누가 만들었든 승인·발행 — 브라우저 AI 초안(아침 뉴스처럼 사설을 지어낼 수 있는 것),
       //   AI 사장실 «승인», 검증용 초안까지 관리자 확인 없이 나갔다. 그 초안들은 관리자가 「AI 콘텐츠 공장」에서 직접 발행한다.
       //   ai_source 칸이 없으면(SQL 140 전) 조회가 실패 → 이번 회차는 승인 0건(안전한 쪽).
-      `lounge_posts?publish_status=eq.draft&ai_topic=not.is.null&ai_source=eq.server_template&select=id,title,content,category,ai_topic,created_at&order=created_at.desc&limit=${MAX_APPROVE_PER_RUN}`
-    )) ?? [];
+      `lounge_posts?publish_status=eq.draft&ai_topic=not.is.null&ai_source=in.(server_llm,server_template)&select=id,title,content,category,ai_topic,ai_source,created_at&order=created_at.desc&limit=${MAX_APPROVE_PER_RUN * 2}`
+    ))?.filter((d) => d.ai_source === "server_llm" || !llmWriterConfigured())   // 대표 「품질이 떨어지면 제대로 된 글 쪽으로」 — AI 가 연결되면 틀 글은 자동 발행하지 않는다(초안으로 남음)
+      .slice(0, MAX_APPROVE_PER_RUN) ?? [];
     console.log(`${L} 후보 draft=${drafts.length}`);
     if (!drafts.length) return res;
 
@@ -340,13 +342,20 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
           `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=ai_topic,title,created_at&limit=500`
         )) ?? [];
       const fresh = filterNewTopics(collected, existing, 48).slice(0, need);
-      for (const item of fresh) {
+      // AI 글(OpenRouter) — 키가 있으면 한꺼번에(병렬) 받아 둔다. 실패·검사 탈락이면 null → 아래에서 틀 글(09-26)
+      const llmPosts = llmWriterConfigured()
+        ? await Promise.all(fresh.map((it) => writeLoungePost({ ...(it.raw ?? {}), ...it, points: it.raw?.points }).catch(() => null)))
+        : fresh.map(() => null);
+      for (const [idx, item] of fresh.entries()) {
         // 주제가 카테고리를 들고 오면 그대로 쓴다(예전엔 주제 단어로 다시 맞혀 다른 칸으로 가기도 했다)
         const category = item.category || mapCategory(item.topic).category;
         const score = scoreTopic({ topic: item.topic, region: item.region ?? null, collectedAt: item.collectedAt });
         const priority = priorityFromScore(score.total);
         // 라운지 카테고리 주제(연애·주식·맛집…)는 그 카테고리에 맞는 작성기로 — 인테리어 틀(범위·자재·기간)을 쓰지 않는다(09-26)
-        const draft = item.audience === "category" && item.raw?.points
+        const ai = llmPosts[idx];
+        const draft = ai
+          ? ai
+          : item.audience === "category" && item.raw?.points
           ? composeCategoryPost(item.raw, { day: dayIndexOf(new Date(now)) })
           : generateDraft({ issue: item.topic, spaceAngle: item.angle ?? null, category, region: item.region ?? null, brand: item.brand ?? null, variant: item.variant ?? 0 });
         const { data, error } = await sbInsertDraft({
@@ -356,17 +365,17 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
           title: draft.title,
           content: draft.content,
           region: item.region ?? null,
-          image_urls: ensureImageUrls({ title: draft.title, content: draft.content, content_type: classifyContentType(draft.title || item.topic) }), // §11 빈 image_urls 금지
+          image_urls: ensureImageUrls({ title: draft.title, content: draft.content, category: draft.category, content_type: classifyContentType(draft.title || item.topic) }), // §11 빈 image_urls 금지
           is_seed: true,
           is_visible: false, // ⚠️ 절대 true 금지 — 관리자 승인 전 비공개.
           publish_status: "draft", // ⚠️ 절대 published/scheduled 금지.
           scheduled_at: null,
           ai_topic: item.topic,
-          ai_source: "server_template", // 서버가 틀로 만든 초안 — 자동 승인은 이 표시가 있는 것만(09-26)
+          ai_source: ai ? "server_llm" : "server_template", // server_llm = AI(OpenRouter)가 쓴 글 · server_template = 틀 글
         });
         if (!error) {
           generated++;
-          drafts.push({ id: data?.id ?? null, topic: item.topic, category: draft.category, priority });
+          drafts.push({ id: data?.id ?? null, topic: item.topic, category: draft.category, priority, writer: ai ? `ai:${ai.model}` : "template" });
         }
       }
     } catch (e) {
@@ -431,7 +440,7 @@ async function insertNews(post, publishAtMs, now) {
   return sbInsertDraft({
     user_id: null, anonymous_nickname: "공간마켓",
     category: post.category, title: post.title, content: post.content, region: null,
-    image_urls: ensureImageUrls({ title: post.title, content: post.content, content_type: classifyContentType(post.title) }),
+    image_urls: ensureImageUrls({ title: post.title, content: post.content, category: post.category, content_type: classifyContentType(post.title) }),
     is_seed: true, is_visible: false,
     publish_status: "scheduled", scheduled_at: at,
     ai_topic: post.ai_topic, ai_source: "server_news",
