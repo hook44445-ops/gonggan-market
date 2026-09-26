@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { getProjectChatSummary } from "../lib/supabase";
+import { getProjectChatSummary, docObjectRef, signedDocUrl, PRIVATE_DOC_BUCKETS } from "../lib/supabase";
+import { buildEvidencePrintHtml } from "../utils/evidencePrint";
 import { manwonToWon, formatWon, contractFinance } from "../lib/financeUtils";
 import {
   flowStageLabel, paymentStatus, settlementStatus, escrowStatusLabel, shortId, fmtDate, txMatchesSearch,
@@ -311,6 +312,44 @@ function EvidenceDetail({ row, chat: chatPreloaded, onClose }) {
 
   const photoCps = cps.filter(c => photoN(c) > 0);
 
+  // 🖨 분쟁 증빙 한 장 인쇄(09-26) — 채팅·사진(서명 주소)까지 모아 새 창에 A4 기록물로
+  const [printing, setPrinting] = useState(false);
+  const printEvidence = async () => {
+    if (printing) return;
+    // 팝업 차단을 피하려고 창은 누르는 즉시 연다
+    const w = window.open("", "_blank");
+    if (!w) { alert("팝업이 막혀 인쇄 창을 열 수 없어요. 이 사이트의 팝업을 허용해 주세요."); return; }
+    w.document.write("<p style='font-family:sans-serif;padding:20px'>증빙을 모으는 중…</p>");
+    setPrinting(true);
+    try {
+      let c = chat;
+      if (!c) {
+        const s = await getProjectChatSummary({ customerId: row.customer?.id, companyId: row.company?.id, ownerId: row.company?.owner_id });
+        const kw = new Set();
+        (s.recent || []).forEach(m => scanKeywords(m.text).forEach(k => kw.add(k)));
+        c = { count: s.count, last: s.last, recent: s.recent, kw: [...kw] };
+        setChat(c);
+      }
+      const photoUrls = {};
+      await Promise.all(cps.map(async (cp, i) => {
+        const list = (cp.photos || []).map(p => (typeof p === "string" ? p : p?.url)).filter(Boolean);
+        photoUrls[cp.id ?? i] = await Promise.all(list.map(async (u) => {
+          const ref = docObjectRef(u);
+          if (ref && PRIVATE_DOC_BUCKETS.includes(ref.bucket)) { try { return (await signedDocUrl(u, 3600)) || u; } catch { return u; } }
+          return u;
+        }));
+      }));
+      const html = buildEvidencePrintHtml({ row, timeline: TIMELINE, fin, money: formatWon, chat: c, photoUrls });
+      w.document.open(); w.document.write(html); w.document.close();
+      // 사진이 다 뜬 뒤 인쇄 창
+      const imgs = [...w.document.images];
+      await Promise.race([Promise.all(imgs.map(im => im.complete ? 1 : new Promise(r => { im.onload = im.onerror = r; }))), new Promise(r => setTimeout(r, 6000))]);
+      w.focus(); w.print();
+    } catch (e) {
+      w.document.body.innerHTML = `<p style='font-family:sans-serif;padding:20px'>인쇄 준비 실패: ${String(e?.message || e).replace(/</g, "&lt;")}</p>`;
+    } finally { setPrinting(false); }
+  };
+
   return (
     <div onClick={onClose}
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 50, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
@@ -319,7 +358,12 @@ function EvidenceDetail({ row, chat: chatPreloaded, onClose }) {
           borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, padding: "18px 18px 40px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>증빙 상세</div>
-          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text3 }}>×</button>
+          <button onClick={printEvidence} disabled={printing}
+            style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: R.full, border: `1px solid ${C.brand}`, background: C.surface,
+              color: C.brand, fontWeight: 800, fontSize: 12, cursor: printing ? "default" : "pointer", opacity: printing ? 0.6 : 1 }}>
+            {printing ? "준비 중…" : "🖨 증빙 인쇄"}
+          </button>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text3 }}>×</button>
         </div>
         <div style={{ fontSize: 12, color: C.text3, marginBottom: 10 }}>
           {row.area || "—"} · {row.customer?.name || "—"} ↔ {row.company?.name || "미배정"} · req {shortId(row.request_id)}
