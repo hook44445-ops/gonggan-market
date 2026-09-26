@@ -13,12 +13,15 @@ const PUBLISH_HOUR = {
 };
 
 // 다음 발행 시각 제안. breaking=즉시(+5분), 그 외=오늘 해당 시(지났으면 내일).
+// 시각은 «한국 시간»으로 계산한다 — 서버(Vercel)는 UTC 라 예전엔 오후 2시 예약이 밤 11시(KST)에 나갔다(09-26 검토).
+const KST_OFFSET_MS = 9 * 3600 * 1000;
 export function schedulePublishAt(contentType, { now = Date.now() } = {}) {
   const hour = PUBLISH_HOUR[contentType];
   if (hour == null) return new Date(now + 5 * 60 * 1000); // 긴급 즉시
-  const d = new Date(now); d.setHours(hour, 0, 0, 0);
-  if (d.getTime() <= now) d.setDate(d.getDate() + 1); // 지난 시각이면 내일
-  return d;
+  const k = new Date(now + KST_OFFSET_MS);                 // KST 벽시계를 UTC 필드로
+  let at = Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate(), hour, 0, 0) - KST_OFFSET_MS;
+  if (at <= now) at += 24 * 3600 * 1000;                   // 지난 시각이면 내일
+  return new Date(at);
 }
 
 // 예약 시각이 도래한 작업들.

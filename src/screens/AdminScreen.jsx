@@ -59,7 +59,6 @@ import { activityRows, activitySummary, clearActivityLog, contentMixSummary } fr
 import { getSeriesList, upsertSeries, removeSeries, dueSeries, nextEpisodePrompt } from "../lib/storyEngine";
 import { dailyComposition, contentTypeMeta } from "../lib/contentTypes";
 import { typeToggles } from "../lib/autoPublish";
-import { morningBriefPrompt, morningBriefTitles } from "../lib/morningBrief";
 import { todayWordPrompt, todayWordTitle } from "../lib/todayWord";
 import { astrologyPrompt, astrologyTitle } from "../lib/indianAstrology";
 import { timeTrendCandidates } from "../lib/timeTrend";
@@ -2070,7 +2069,8 @@ function EditorialScheduleTab({ published = [], showToast }) {
   };
 
   const morning = [
-    { id: "morning_brief", label: "📰 Morning Brief", title: morningBriefTitles().editorials, prompt: morningBriefPrompt() },
+    // Morning Brief(신문 사설 정리)는 뺐다(09-26) — AI 가 오늘 사설을 실제로 볼 수 없어 사설을 지어낼 수 있다.
+    //   실제 뉴스는 서버가 출처·링크가 있는 헤드라인만 가져와 쓰는 방식으로 다시 만든다.
     { id: "qt", label: "📖 오늘 큐티 말씀", title: todayWordTitle(), prompt: todayWordPrompt() },
     { id: "astrology", label: "🔮 오늘의 인도점성술", title: astrologyTitle(), prompt: astrologyPrompt() },
   ];

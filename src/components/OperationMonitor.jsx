@@ -6,6 +6,7 @@
 //   ⚠️ 기존 엔진/발행 API 재사용(무수정) · additive. Regression Zero.
 // ════════════════════════════════════════════════════════════════════
 
+import { BROWSER_AI_AUTOPUBLISH } from "../constants/release";
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { ensureTodayProgram, isTodayGenerated } from "../lib/dayScheduler";
@@ -47,7 +48,7 @@ export default function OperationMonitor({ published = [], adminUserId, showToas
 
   // 무인 운영 모드 — 60초 사이클.
   useEffect(() => {
-    if (!autonomy) return;
+    if (!autonomy || !BROWSER_AI_AUTOPUBLISH) return;   // 브라우저 60초 무인 사이클 끔(서버 자율 사이클만)
     runCycle(true);
     const id = setInterval(() => runCycle(true), 60000);
     return () => clearInterval(id);
@@ -55,6 +56,7 @@ export default function OperationMonitor({ published = [], adminUserId, showToas
   }, [autonomy]);
 
   const toggleAutonomy = () => {
+    if (!BROWSER_AI_AUTOPUBLISH) { showToast?.("브라우저 무인 운영은 꺼 두었어요 — 서버 자율 사이클이 운영해요", false); return; }
     const next = !autonomy;
     try { localStorage.setItem(AUTONOMY_KEY, next ? "1" : "0"); } catch {}
     if (next) setAutopilotConfig({ autoPublishOn: true }); // 무인 운영은 자동발행 필요

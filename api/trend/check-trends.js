@@ -49,6 +49,15 @@ async function sbGet(path) {
 }
 
 async function sbInsertDraft(row) {
+  const res = await sbInsertDraftRaw(row);
+  // ai_source 칸(SQL 140) 전이면 표시 없이 한 번 더 — 초안 만들기는 멈추지 않는다
+  if (res.error && /ai_source/.test(String(res.error)) && row.ai_source) {
+    const { ai_source, ...rest } = row; // eslint-disable-line no-unused-vars
+    return sbInsertDraftRaw(rest);
+  }
+  return res;
+}
+async function sbInsertDraftRaw(row) {
   const r = await fetch(`${SB_URL}/rest/v1/lounge_posts`, {
     method: 'POST',
     headers: {
@@ -123,10 +132,17 @@ export default async function handler(req, res) {
       return sendJson(200, { mode: 'autonomous', ...result });
     } catch (e) {
       console.error('[autonomous-cycle] (8) 핸들러 EXCEPTION', e?.stack || e?.message || String(e));
-      return sendJson(200, { ok: false, mode: 'autonomous', reason: e?.message ?? 'error', stack: e?.stack ?? null });
+      return sendJson(200, { ok: false, mode: 'autonomous', reason: e?.message ?? 'error' });   // 스택은 로그에만(응답 노출 금지)
     }
   }
   // ───────────────────────────────────────────────────────────────────────
+
+  // 일 1회 경로도 인증(09-26 검토) — 예전엔 누구나 GET 한 번으로 초안을 만들고 예약 글을 발행시킬 수 있었다.
+  // Vercel Cron 은 CRON_SECRET 이 설정돼 있으면 Authorization: Bearer <CRON_SECRET> 을 자동으로 붙인다.
+  {
+    const auth = authenticateCron(req);
+    if (!auth.ok) return sendJson(auth.status, { ok: false, code: auth.code });
+  }
 
   if (!SB_URL || !SB_KEY) {
     res.statusCode = 200;
@@ -177,6 +193,7 @@ export default async function handler(req, res) {
         publish_status:      'draft', // ⚠️ 절대 published/scheduled 로 두지 않음.
         scheduled_at:        null,
         ai_topic:            item.topic,
+        ai_source:           'server_template',   // 서버 틀 초안 표시(140) — 자동 승인은 이것만
       });
       if (!error) {
         created.push({ id: data?.id ?? null, topic: item.topic, category: draft.category, priority, score: score.total, providerId: item.providerId });

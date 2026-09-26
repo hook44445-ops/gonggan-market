@@ -6,6 +6,7 @@
 //   ⚠️ Cron 없음: 화면 진입 시 도래분 처리 + "지금 처리" 버튼. Additive · Regression Zero.
 // ════════════════════════════════════════════════════════════════════
 
+import { BROWSER_AI_AUTOPUBLISH } from "../constants/release";
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import {
@@ -48,6 +49,7 @@ export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, 
 
   // 화면 진입 시 도래분 자동 처리(ON & !EmergencyStop 일 때만).
   useEffect(() => {
+    if (!BROWSER_AI_AUTOPUBLISH) return;   // 화면 진입만으로 발행하지 않는다(09-26)
     if (cfg.autoPublishOn && !cfg.emergencyStop) {
       processDuePublishes({ executor }).then((r) => { if (r.published > 0) { showToast?.(`🚀 자동 발행 ${r.published}건`); refresh(); onReload?.(); } });
     }
