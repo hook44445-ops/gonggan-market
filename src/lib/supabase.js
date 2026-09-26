@@ -31,6 +31,12 @@ supabase.rpc = (fn, args, opts) => {
   return rpcAnon(fn, args, opts);
 };
 
+// 관리자 화면의 표 직접 읽기·쓰기 — 로그인 토큰을 실어 보낸다(09-26).
+// 131 뒤 관리자 정책은 «토큰의 사용자(auth.uid())가 관리자인가»로 판단하는데, 예전엔 토큰 없이(anon) 보내
+// 결제관리·직거래 의심·관리자로그가 빈 화면이 되고 업체 상태·정보 수정, AI 초안 저장 등이 조용히 실패했다.
+// 토큰이 없으면(로그인 풀림) 예전 연결 그대로 — 서버가 막으면 화면이 «다시 로그인» 을 안내한다.
+export const adminDb = () => authedDb(getCurrentUserId()) ?? supabase;
+
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 
 export const signInWithPhone = (phone) =>
@@ -162,7 +168,7 @@ export const updateCompanyTemp = async (companyId, delta) => {
 };
 
 export const getPendingCompanies = () =>
-  supabase.from("companies").select("*").eq("doc_status", "pending");
+  adminDb().from("companies").select("*").eq("doc_status", "pending");
 
 export const reviewCompany = (id, status, rejectNote = null) =>
   supabase
@@ -910,14 +916,14 @@ export const createReviewReward = (data) =>
   supabase.from("review_rewards").insert(data).select().single();
 
 export const getReviewRewardsPending = () =>
-  supabase
+  adminDb()
     .from("review_rewards")
     .select("*, reviews(id, company_id, rating, content, image_urls, before_image_urls, after_image_urls, created_at, user_name)")
     .order("created_at", { ascending: false })
     .limit(200);
 
 export const updateReviewReward = (id, status) =>
-  supabase
+  adminDb()
     .from("review_rewards")
     .update({ status, ...(status === "SENT" ? { sent_at: new Date().toISOString() } : {}) })
     .eq("id", id)
@@ -1012,7 +1018,7 @@ const REVIEW_FULL_COLS = "id, company_id, rating, status, is_hidden, is_deleted,
 // 어드민 리뷰 조회 — migration 008(숨김/소프트삭제 컬럼) 적용 여부와 무관하게 항상 로드되도록 방어적 처리.
 // 1차: 전체 컬럼 조회 → 실패(컬럼 없음) 시 2차: 기본 컬럼만 조회 후 누락 필드를 기본값으로 합성.
 export const adminGetReviews = async ({ limit = 100 } = {}) => {
-  const full = await supabase
+  const full = await adminDb()
     .from("reviews")
     .select(REVIEW_FULL_COLS)
     .order("created_at", { ascending: false })
@@ -1020,7 +1026,7 @@ export const adminGetReviews = async ({ limit = 100 } = {}) => {
   if (!full.error) return full;
 
   // fallback: 컬럼 미적용 환경 — 기본 컬럼만 조회하고 누락 필드 기본값 합성
-  const base = await supabase
+  const base = await adminDb()
     .from("reviews")
     .select(REVIEW_BASE_COLS)
     .order("created_at", { ascending: false })
@@ -1130,7 +1136,7 @@ export const adminCreateLoungeDraft = async ({
   category, title, content, region = null, imageUrls = [],
   aiTopic = null, publishStatus = "draft", scheduledAt = null,
 }, adminId) => {
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("lounge_posts")
     .insert({
       user_id:            null,
@@ -1149,7 +1155,7 @@ export const adminCreateLoungeDraft = async ({
     .select("*")
     .single();
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id: adminId || null, action: "CREATE_AI_LOUNGE_DRAFT",
       target_type: "lounge_post", target_id: data?.id ?? null,
       after_val: { category, publish_status: publishStatus, ai_topic: aiTopic },
@@ -1167,14 +1173,14 @@ export const adminUpdateLoungeDraft = async (id, updates, adminId) => {
     delete patch.publishStatus;
     delete patch.scheduledAt;
   }
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("lounge_posts")
     .update(patch)
     .eq("id", id)
     .select("*")
     .single();
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id: adminId || null, action: "UPDATE_AI_LOUNGE_DRAFT",
       target_type: "lounge_post", target_id: id, after_val: patch,
     });
@@ -1184,7 +1190,7 @@ export const adminUpdateLoungeDraft = async (id, updates, adminId) => {
 
 // 초안/예약 목록(관리자 검수용) — 아직 발행되지 않은 AI 콘텐츠만.
 export const adminListLoungeDrafts = () =>
-  supabase
+  adminDb()
     .from("lounge_posts")
     .select("*")
     .eq("is_seed", true)
@@ -1195,7 +1201,7 @@ export const adminListLoungeDrafts = () =>
 
 // 발행 완료된 AI 콘텐츠 — 카테고리별 축적 현황/성과(8단계 Analytics, 조회수·좋아요 재사용).
 export const adminListPublishedAiContent = () =>
-  supabase
+  adminDb()
     .from("lounge_posts")
     .select("id, category, title, ai_topic, view_count, like_count, comment_count, created_at")
     .eq("is_seed", true)
@@ -1207,13 +1213,13 @@ export const adminListPublishedAiContent = () =>
 // 초안 전용 삭제 — 발행된 글은 대상에서 제외(안전장치: 이미 공개된 콘텐츠는 기존
 // adminSoftDeleteLoungePost 로만 처리).
 export const adminDeleteLoungeDraft = async (id, adminId) => {
-  const { error } = await supabase
+  const { error } = await adminDb()
     .from("lounge_posts")
     .delete()
     .eq("id", id)
     .neq("publish_status", "published");
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id: adminId || null, action: "DELETE_AI_LOUNGE_DRAFT",
       target_type: "lounge_post", target_id: id,
     });
@@ -1224,7 +1230,7 @@ export const adminDeleteLoungeDraft = async (id, adminId) => {
 // ── Admin Lounge Comments ─────────────────────────────────────────────────────
 
 export const adminGetLoungeComments = ({ limit = 200 } = {}) =>
-  supabase
+  adminDb()
     .from("lounge_comments")
     .select("id, post_id, user_id, content, is_hidden, is_deleted, created_at")
     .order("created_at", { ascending: false })
@@ -1232,14 +1238,14 @@ export const adminGetLoungeComments = ({ limit = 200 } = {}) =>
 
 export const adminSoftDeleteLoungeComment = async (id, adminId, reason) => {
   const now = new Date().toISOString();
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("lounge_comments")
     .update({ is_deleted: true, deleted_at: now, deleted_by: adminId || null })
     .eq("id", id)
     .select("id")
     .single();
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id: adminId || null, action: "DELETE_LOUNGE_COMMENT",
       target_type: "lounge_comment", target_id: id, reason,
     });
@@ -1248,14 +1254,14 @@ export const adminSoftDeleteLoungeComment = async (id, adminId, reason) => {
 };
 
 export const adminRestoreLoungeComment = async (id, adminId) => {
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("lounge_comments")
     .update({ is_deleted: false, deleted_at: null, deleted_by: null, is_hidden: false })
     .eq("id", id)
     .select("id")
     .single();
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id: adminId || null, action: "RESTORE_LOUNGE_COMMENT",
       target_type: "lounge_comment", target_id: id,
     });
@@ -1266,14 +1272,14 @@ export const adminRestoreLoungeComment = async (id, adminId) => {
 // ── Admin Company / User Info Edit ────────────────────────────────────────────
 
 export const adminUpdateCompanyInfo = async (id, fields, adminId) => {
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("companies")
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select("id, name, region, company_status")
     .single();
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id: adminId || null, action: "UPDATE_COMPANY_INFO",
       target_type: "company", target_id: id, after_val: fields,
     });
@@ -1282,14 +1288,14 @@ export const adminUpdateCompanyInfo = async (id, fields, adminId) => {
 };
 
 export const adminUpdateUserInfo = async (id, fields, adminId) => {
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("users")
     .update({ ...fields })
     .eq("id", id)
     .select("id, name, phone, region")
     .single();
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id: adminId || null, action: "UPDATE_USER_INFO",
       target_type: "user", target_id: id, after_val: fields,
     });
@@ -1317,7 +1323,7 @@ export const createAdminLog = (log) =>
 export const getAdminLogs = () => {
   const isAdmin = typeof window !== "undefined" && localStorage.getItem("admin_authed") === "true";
   if (!isAdmin) return Promise.resolve({ data: [], error: null });
-  return supabase.from("admin_logs").select("*").order("created_at", { ascending: false });
+  return adminDb().from("admin_logs").select("*").order("created_at", { ascending: false });
 };
 
 // 관리자 read-only: 라운지 대화 신청 전체 조회(상태/토큰 차감 표시용).
@@ -1327,7 +1333,7 @@ export const getAdminLogs = () => {
 export const getAdminLoungeChatRequests = ({ limit = 200 } = {}) => {
   const isAdmin = typeof window !== "undefined" && localStorage.getItem("admin_authed") === "true";
   if (!isAdmin) return Promise.resolve({ data: [], error: null });
-  return supabase
+  return adminDb()
     .from("lounge_chat_requests")
     .select("id, post_id, requester_id, target_id, status, token_charged, accepted_at, created_at, requester_left_at, target_left_at")
     .order("created_at", { ascending: false })
@@ -1825,10 +1831,10 @@ export const updateEscrowPayoutStatus = (id, status, approvedBy = null) =>
 // ── STEP G: Admin company status ──────────────────────────────────────────────
 
 export const adminSetCompanyStatus = async (companyId, adminId, companyStatus, reason = null) => {
-  const { data: prev } = await supabase
+  const { data: prev } = await adminDb()
     .from("companies").select("company_status").eq("id", companyId).single();
 
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("companies")
     .update({ company_status: companyStatus })
     .eq("id", companyId)
@@ -1836,7 +1842,7 @@ export const adminSetCompanyStatus = async (companyId, adminId, companyStatus, r
     .single();
 
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id: adminId || null,
       action: `SET_COMPANY_STATUS_${companyStatus}`,
       target_type: "company",
@@ -2382,7 +2388,7 @@ export const getPaymentTransactions = ({ orderId = null, limit = 50 } = {}) => {
 // ── Admin: Payment Order Management ──────────────────────────────────────────
 
 export const getPaymentOrders = ({ status = null, limit = 100, userId = null } = {}) => {
-  let q = supabase
+  let q = adminDb()
     .from("payment_orders")
     .select("*, users:user_id(id, name, phone)")
     .order("created_at", { ascending: false })
@@ -2393,14 +2399,14 @@ export const getPaymentOrders = ({ status = null, limit = 100, userId = null } =
 };
 
 export const adminUpdatePaymentOrder = async (id, adminId, { status, adminNote = null } = {}) => {
-  const { data: prev } = await supabase
+  const { data: prev } = await adminDb()
     .from("payment_orders").select("status").eq("id", id).single();
 
   const updateData = {};
   if (status) updateData.status = status;
   if (adminNote) updateData.admin_note = adminNote;
 
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("payment_orders")
     .update(updateData)
     .eq("id", id)
@@ -2408,7 +2414,7 @@ export const adminUpdatePaymentOrder = async (id, adminId, { status, adminNote =
     .single();
 
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id:    adminId || null,
       action:      `PAYMENT_${status ?? "UPDATE"}`,
       target_type: "payment",
@@ -2505,7 +2511,7 @@ export const getCompanyDocuments = (companyId) =>
 // 한도를 여는 서류와 정산용 서류만(동의·서약 서류는 자동 제출이라 넣지 않는다).
 export const REVIEW_QUEUE_DOC_TYPES = ["business_license", "insurance_certificate", "interior_license", "bankbook_copy", "qualification_license"];
 export const getPendingCompanyDocuments = () =>
-  supabase
+  adminDb()
     .from("company_documents")
     .select("id, company_id, document_type, review_status, created_at, updated_at")
     .in("review_status", ["submitted", "reviewing"])
@@ -2549,10 +2555,10 @@ export const adminReviewDocument = async (docId, adminId, reviewStatus, reason =
 // ── Admin: User status & space economy ────────────────────────────────────────
 
 export const adminSetUserStatus = async (userId, adminId, status, reason = null) => {
-  const { data: prev } = await supabase
+  const { data: prev } = await adminDb()
     .from("users").select("account_status").eq("id", userId).single();
 
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("users")
     .update({ account_status: status })
     .eq("id", userId)
@@ -2560,7 +2566,7 @@ export const adminSetUserStatus = async (userId, adminId, status, reason = null)
     .single();
 
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id:    adminId || null,
       action:      `SET_USER_STATUS_${status}`,
       target_type: "user",
@@ -2574,15 +2580,15 @@ export const adminSetUserStatus = async (userId, adminId, status, reason = null)
 };
 
 export const adminAdjustSpaceTemp = async (userId, adminId, delta, reason) => {
-  const { data: curr } = await supabase.from("users").select("space_temp").eq("id", userId).single();
+  const { data: curr } = await adminDb().from("users").select("space_temp").eq("id", userId).single();
   const prev = curr?.space_temp ?? 36.5;
   const next = Math.round(Math.min(99, Math.max(0, prev + delta)) * 10) / 10;
 
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("users").update({ space_temp: next }).eq("id", userId).select("id, space_temp").single();
 
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id:    adminId || null,
       action:      "TEMP_ADJUST",
       target_type: "user",
@@ -2596,15 +2602,15 @@ export const adminAdjustSpaceTemp = async (userId, adminId, delta, reason) => {
 };
 
 export const adminAdjustUserTokens = async (userId, adminId, delta, reason) => {
-  const { data: curr } = await supabase.from("users").select("space_tokens").eq("id", userId).single();
+  const { data: curr } = await adminDb().from("users").select("space_tokens").eq("id", userId).single();
   const prev = curr?.space_tokens ?? 0;
   const next = Math.max(0, prev + delta);
 
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("users").update({ space_tokens: next }).eq("id", userId).select("id, space_tokens").single();
 
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id:    adminId || null,
       action:      delta > 0 ? "TOKEN_GRANT" : "TOKEN_REVOKE",
       target_type: "user",
@@ -2620,7 +2626,7 @@ export const adminAdjustUserTokens = async (userId, adminId, delta, reason) => {
 // ── Admin: Lounge management ──────────────────────────────────────────────────
 
 export const adminGetLoungePosts = ({ hidden = null, limit = 100 } = {}) => {
-  let q = supabase.from("lounge_posts").select("*").order("created_at", { ascending: false }).limit(limit);
+  let q = adminDb().from("lounge_posts").select("*").order("created_at", { ascending: false }).limit(limit);
   if (hidden !== null) q = q.eq("is_hidden", hidden);
   return q;
 };
@@ -2665,7 +2671,7 @@ export const getLoungeReports = async ({ status = null, adminId = null } = {}) =
 };
 
 export const adminHideContent = async (table, id, adminId, hidden, reason = null) => {
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from(table)
     .update({ is_hidden: hidden, ...(hidden && reason ? { hidden_reason: reason } : {}) })
     .eq("id", id)
@@ -2673,7 +2679,7 @@ export const adminHideContent = async (table, id, adminId, hidden, reason = null
     .single();
 
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id:    adminId || null,
       action:      hidden ? `HIDE_${table.toUpperCase()}` : `UNHIDE_${table.toUpperCase()}`,
       target_type: "lounge",
@@ -2727,14 +2733,14 @@ export const archiveRequest = (id) =>
     .maybeSingle();
 
 export const adminGetHiddenRequests = () =>
-  supabase
+  adminDb()
     .from("requests")
     .select("id, space_type, area, size, style, description, status, created_at, archived_at, hidden_reason, user_id")
     .eq("is_hidden", true)
     .order("archived_at", { ascending: false, nullsFirst: false });
 
 export const adminRestoreRequest = (id) =>
-  supabase
+  adminDb()
     .from("requests")
     .update({ is_hidden: false, archived_at: null })
     .eq("id", id)
@@ -3244,13 +3250,13 @@ export const getMyLoungePosts = (userId) =>
     .order("created_at", { ascending: false });
 
 export const adminHideLoungePost = (postId, adminId, reason = "") =>
-  supabase
+  adminDb()
     .from("lounge_posts")
     .update({ is_hidden: true, hidden_by: adminId, hidden_reason: reason, updated_at: new Date().toISOString() })
     .eq("id", postId);
 
 export const adminUnhideLoungePost = (postId) =>
-  supabase
+  adminDb()
     .from("lounge_posts")
     .update({ is_hidden: false, hidden_by: null, hidden_reason: null, updated_at: new Date().toISOString() })
     .eq("id", postId);
@@ -3530,7 +3536,7 @@ export const getLoungeSeeds = (category = 'all') => {
 };
 
 export const adminGetLoungeSeeds = () =>
-  supabase
+  adminDb()
     .from('lounge_seed_posts')
     .select('*')
     .order('sort_order', { ascending: true })
@@ -3579,19 +3585,19 @@ export const getSeedLoungePosts = (category = 'all') => {
 };
 
 export const adminGetSeedLoungePosts = () =>
-  supabase.from('seed_lounge_posts').select('*')
+  adminDb().from('seed_lounge_posts').select('*')
     .order('is_recommended', { ascending: false })
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false });
 
 export const createSeedLoungePost = (data) =>
-  supabase.from('seed_lounge_posts').insert(data).select().single();
+  adminDb().from('seed_lounge_posts').insert(data).select().single();
 
 export const updateSeedLoungePost = (id, data) =>
-  supabase.from('seed_lounge_posts').update(data).eq('id', id).select().single();
+  adminDb().from('seed_lounge_posts').update(data).eq('id', id).select().single();
 
 export const deleteSeedLoungePost = (id) =>
-  supabase.from('seed_lounge_posts').delete().eq('id', id);
+  adminDb().from('seed_lounge_posts').delete().eq('id', id);
 
 export const uploadSeedLoungeImage = async (file) => {
   const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -3616,7 +3622,7 @@ export const adminVerifyUserIdentity = async (userId, adminId, status = "verifie
   if (isVerified) {
     return { data: null, error: { message: "본인인증은 본인이 앱에서 직접 해야 합니다. 관리자는 철회만 할 수 있어요." } };
   }
-  const { data, error } = await supabase
+  const { data, error } = await adminDb()
     .from("users")
     .update({
       is_identity_verified: isVerified,
@@ -3628,7 +3634,7 @@ export const adminVerifyUserIdentity = async (userId, adminId, status = "verifie
     .select("id, is_identity_verified, identity_verified_at, identity_provider, identity_verification_status")
     .single();
   if (!error) {
-    await supabase.from("admin_logs").insert({
+    await adminDb().from("admin_logs").insert({
       admin_id: adminId || null,
       action: isVerified ? "VERIFY_IDENTITY" : "REVOKE_IDENTITY",
       target_type: "user",
@@ -3646,7 +3652,7 @@ export const adminVerifyUserIdentity = async (userId, adminId, status = "verifie
 
 // 관리자 전원에게 알림 발송 (notifications 는 user 단위라 admin 들에게 fan-out)
 async function notifyAdmins({ type, title, message, relatedId = null, relatedType = null, priority = "HIGH" }) {
-  const { data: admins } = await supabase.from("users").select("id").eq("role", "admin");
+  const { data: admins } = await adminDb().from("users").select("id").eq("role", "admin");
   if (!admins || admins.length === 0) return;
   await Promise.all(
     admins.map((a) =>
@@ -3697,7 +3703,7 @@ export async function checkDirectDealKeyword(messageText, { requestId = null, co
 
 // 직거래 의심 목록 조회 (관리자)
 export const getDirectDealReports = ({ status = null, triggerType = null, limit = 100 } = {}) => {
-  let q = supabase.from("direct_deal_reports").select("*").order("detected_at", { ascending: false }).limit(limit);
+  let q = adminDb().from("direct_deal_reports").select("*").order("detected_at", { ascending: false }).limit(limit);
   if (status)      q = q.eq("status", status);
   if (triggerType) q = q.eq("trigger_type", triggerType);
   return q;
@@ -3708,7 +3714,7 @@ export const updateDirectDealReportStatus = (id, status, adminNote = null) => {
   const patch = { status };
   if (adminNote != null) patch.admin_note = adminNote;
   if (status === "confirmed" || status === "dismissed") patch.resolved_at = new Date().toISOString();
-  return supabase.from("direct_deal_reports").update(patch).eq("id", id).select().single();
+  return adminDb().from("direct_deal_reports").update(patch).eq("id", id).select().single();
 };
 
 // 포트폴리오 이미지 신고(LOUNGE-CONVERSION-v3.1) — 기존 direct_deal_reports 재사용.

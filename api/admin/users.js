@@ -181,6 +181,18 @@ export default async function handler(req, res) {
     } catch (e) {
       console.error("[admin/users] request_count failed", e?.message ?? e);
     }
+    // 토큰 잔액 — 앱이 보는 원장(space_tokens)으로 덮는다. 예전 목록은 쓰지 않는 users.space_tokens 를 보여 줬다.
+    try {
+      const ids = rows.map(u => u.id);
+      const bal = {};
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data: toks } = await db.from("space_tokens").select("user_id, balance").in("user_id", ids.slice(i, i + 200));
+        (toks ?? []).forEach(t => { bal[t.user_id] = t.balance; });
+      }
+      rows = rows.map(u => ({ ...u, space_tokens: bal[u.id] ?? 0 }));
+    } catch (e) {
+      console.error("[admin/users] space_tokens failed", e?.message ?? e);
+    }
   }
 
   return res.status(200).json({ data: rows });
