@@ -1,4 +1,5 @@
 import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
+import { authHeader, getCurrentUserId } from "../lib/session";
 import ChatRequestModal from "./lounge/ChatRequestModal";
 import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -103,8 +104,7 @@ import {
   getEscrowByRequest,
   getOrCreateEscrow,
   createEscrowPayoutsForContract,
-  createPaymentOrder,
-  createPaymentTransaction,
+  getEscrowPayouts,
   createNotification,
   requestCommentChat,
   findOpenLoungeChat,
@@ -2109,61 +2109,46 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         showToast("결제 확인 정보가 없어 진행하지 않았어요. 결제를 다시 시도해 주세요.");
         return;
       }
-      {
-        try {
-          const confirmRes = await fetch("/api/confirm-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentKey, orderId, amount }),
-          });
-          if (!confirmRes.ok) {
-            const j = await confirmRes.json().catch(() => ({}));
-            showToast(["PAYMENTS_PAUSED", "ALREADY_PAID"].includes(j?.code) ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
-            return;
-          }
-        } catch {
-          showToast("결제 서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      // 승인 + 결제 기록은 서버가 한다(09-26) — 로그인 토큰의 본인만. 앱은 서버가 준 계약 번호로 이어 간다.
+      let record = null;
+      try {
+        const confirmRes = await fetch("/api/confirm-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader(getCurrentUserId()) },
+          body: JSON.stringify({ paymentKey, orderId, amount }),
+        });
+        const j = await confirmRes.json().catch(() => ({}));
+        if (!confirmRes.ok) {
+          showToast(["PAYMENTS_PAUSED", "ALREADY_PAID", "LOGIN_REQUIRED", "NOT_OWNER", "BIZ_REQUIRED", "AMOUNT_MISMATCH"].includes(j?.code) ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
           return;
         }
+        record = j?.record ?? null;
+      } catch {
+        showToast("결제 서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+      if (record?.error) {
+        // 승인은 됐다(돈은 빠졌다) — 기록만 실패. 주문번호를 알려 고객센터가 찾게 한다.
+        showToast(`결제는 됐는데 기록을 저장하지 못했어요. 고객센터에 주문번호 ${orderId} 를 알려 주세요.`);
+        return;
+      }
+      if (record?.status === "READY") {
+        showToast("입금을 기다리고 있어요 — 입금이 확인되면 공사가 시작돼요.");
+        return;
       }
 
-      // DB writes — 멱등 에스크로 확보(중복 escrow_payments 생성 방지)
+      // 계약(에스크로) — 서버가 만든 것을 그대로 쓴다(없으면 멱등 확보).
       const { data: escrowData, created: escrowCreated } = await getOrCreateEscrow({
         requestId:   pending.requestId,
         companyId:   pending.companyId,
         totalAmount: pending.bidPrice,
       });
-      let pgContractId = escrowData?.id ?? null;
+      let pgContractId = record?.contractId ?? escrowData?.id ?? null;
 
       if (pgContractId) {
-        // 신규 생성된 에스크로에만 payout 4건 생성(기존 재사용 시 중복 생성 금지)
-        if (escrowCreated) {
+        // 지급 단계 줄은 아직 없을 때만 — 서버가 방금 만든 계약이면 created=false 로 돌아오므로 줄 수로 본다.
+        if (escrowCreated || !(await getEscrowPayouts(pgContractId).then((r) => (r?.data ?? []).length).catch(() => 0))) {
           await createEscrowPayoutsForContract(pgContractId, pending.companyId, pending.bidPrice, 0.04, 0.1);
-        }
-        const { data: newOrder } = await createPaymentOrder({
-          user_id:        pending.requestUserId ?? null,
-          bid_id:         pending.bidId,
-          request_id:     pending.requestId,
-          contract_id:    pgContractId,
-          amount:         pending.bidPrice,
-          customer_fee:   pending.fee,
-          vat:            Math.round((pending.fee ?? 0) * 0.1),
-          total_amount:   pending.customerTotal,
-          payment_method: pending.paymentMethod,
-          fee_snapshot:   { customerFeeRate: 0.03, companyFeeRate: 0.04, vatRate: 0.1 },
-          status:         "PAID",
-        });
-        if (newOrder) {
-          await createPaymentTransaction({
-            payment_order_id: newOrder.id,
-            pg_provider:      "toss",
-            pg_payment_key:   paymentKey ?? `toss_${Date.now()}`,
-            method:           pending.paymentMethod ?? "CARD",
-            amount:           pending.customerTotal,
-            status:           "DONE",
-            approved_at:      new Date().toISOString(),
-            raw_response:     { paymentKey, orderId, amount, method: pending.paymentMethod },
-          });
         }
         if (pending.companyOwnerId) {
           await createNotification({
@@ -2232,38 +2217,31 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         showToast("결제 확인 정보가 없어 진행하지 않았어요. 결제를 다시 시도해 주세요.");
         return;
       }
-      {
-        try {
-          const confirmRes = await fetch("/api/confirm-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentKey, orderId, amount }),
-          });
-          if (!confirmRes.ok) {
-            const j = await confirmRes.json().catch(() => ({}));
-            showToast(["PAYMENTS_PAUSED", "ALREADY_PAID"].includes(j?.code) ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
-            return;
-          }
-        } catch {
-          showToast("결제 서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      // 승인 + 주문 기록 + 토큰 적립은 서버가 한다(09-26) — 토큰 수는 서버가 상품표로 정한다(앱이 보낸 값 아님).
+      let record = null;
+      try {
+        const confirmRes = await fetch("/api/confirm-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader(getCurrentUserId()) },
+          body: JSON.stringify({ paymentKey, orderId, amount }),
+        });
+        const j = await confirmRes.json().catch(() => ({}));
+        if (!confirmRes.ok) {
+          showToast(["PAYMENTS_PAUSED", "LOGIN_REQUIRED", "UNKNOWN_PACKAGE"].includes(j?.code) ? j.error : "결제 확인에 실패했습니다. 고객센터에 문의해주세요.");
           return;
         }
+        record = j?.record ?? null;
+      } catch {
+        showToast("결제 서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+      if (record?.error || record?.credited === false) {
+        showToast(`결제는 됐는데 토큰 적립을 확인하지 못했어요. 고객센터에 주문번호 ${orderId} 를 알려 주세요.`);
+        return;
       }
 
-      // 주문 기록 + 토큰 적립(멱등: order_id 기준).
-      const { data, error } = await purchaseSpaceTokens({
-        userId:     pending.userId,
-        tokens:     pending.tokens,
-        price:      pending.price,
-        orderId:    orderId ?? pending.orderId,
-        paymentKey: paymentKey ?? `toss_${Date.now()}`,
-        method:     "CARD",
-        description: pending.description,
-      });
-      if (error || data?.error) { showToast("토큰 적립에 실패했어요. 고객센터에 문의해주세요."); return; }
-
       await reloadTokens?.();
-      showToast(`${Number(pending.tokens).toLocaleString()} 토큰이 지급됐어요`);
+      showToast(`${Number(record?.tokens ?? pending.tokens).toLocaleString()} 토큰이 지급됐어요`);
       setPrevScreen("my");
       setScreen("token-history");
     };

@@ -1,3 +1,4 @@
+import { authHeader, getCurrentUserId } from "../../../lib/session";
 import { isPaymentPaused } from "../../../lib/supabase";
 // ── TossPayments 어댑터 (실연동) ────────────────────────────────────────────
 // 화면 컴포넌트에서 Toss SDK 로딩/호출을 직접 하지 않도록 분리.
@@ -50,7 +51,7 @@ export async function requestPayment({
 export async function confirmPayment({ paymentKey, orderId, amount }) {
   const res = await fetch("/api/confirm-payment", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeader(getCurrentUserId()) },  // 서버는 로그인 토큰의 본인만 승인한다
     body: JSON.stringify({ paymentKey, orderId, amount }),
   });
   const data = await res.json().catch(() => ({}));

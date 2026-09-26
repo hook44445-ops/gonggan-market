@@ -14,7 +14,8 @@ export const ACTIVE_PROVIDER = "TOSS";
 // 결제수단. available=true 만 실제 결제 진행. 카카오/네이버페이는 가맹 승인 후 별도 PR.
 // tossMethod: TossPayments.requestPayment 의 method 인자(한글). 미지원 수단은 null.
 export const PAYMENT_METHODS = [
-  { id: "VIRTUAL_ACCOUNT", icon: "📋", label: "가상계좌",      desc: "가장 저렴한 결제수단",           available: true,  tossMethod: "가상계좌", badge: "🏆 추천" },
+  // 가상계좌는 «입금 통보(토스 웹훅)» 를 받아 기록을 PAID 로 바꾸는 서버가 붙은 뒤 연다(09-26) — 지금 열면 입금돼도 공사가 시작되지 않는다.
+  { id: "VIRTUAL_ACCOUNT", icon: "📋", label: "가상계좌",      desc: "가장 저렴한 결제수단",           available: false, soon: "입금 확인 연결 뒤 열려요", tossMethod: "가상계좌" },
   { id: "TRANSFER",        icon: "🏦", label: "계좌이체",      desc: "실시간 계좌이체",               available: true,  tossMethod: "계좌이체" },
   { id: "CARD",            icon: "💳", label: "신용/체크카드", desc: "할부 결제 가능",                available: true,  tossMethod: "카드" },
   { id: "KAKAO_PAY",       icon: "💛", label: "카카오페이",    desc: "간편결제 · 가맹 승인 후 제공",   available: false, tossMethod: null },

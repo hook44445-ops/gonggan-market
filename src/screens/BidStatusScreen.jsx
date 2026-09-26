@@ -974,7 +974,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               const isSelected = selectedMethod === m.id;
               return (
                 <div key={m.id}
-                  onClick={() => m.available ? setSelectedMethod(m.id) : showLocalToast(COMING_SOON_MESSAGE)}
+                  onClick={() => m.available ? setSelectedMethod(m.id) : showLocalToast(m.soon ?? COMING_SOON_MESSAGE)}
                   style={{
                     display:"flex", alignItems:"center", gap:S.md, padding:S.xl,
                     borderBottom: idx < PAYMENT_METHODS.length - 1 ? `1px solid ${C.bgWarm}` : "none",
@@ -990,7 +990,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
                       {!m.available && <span style={{ marginLeft:6, fontSize:10, fontWeight:700, color:C.red, background:C.bgWarm, borderRadius:R.full, padding:"1px 7px" }}>준비중</span>}
                     </div>
                     <div style={{ fontSize:11, color: m.available ? C.text3 : C.red }}>
-                      {m.available ? m.desc : "준비중 · 가맹 승인 후 제공"}
+                      {m.available ? m.desc : (m.soon ?? "준비중 · 가맹 승인 후 제공")}
                     </div>
                   </div>
                   <div style={{ width:20, height:20, borderRadius:"50%",

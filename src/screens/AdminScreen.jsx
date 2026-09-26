@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { authHeader } from "../lib/session";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
 import { Icon, splitLeadingEmoji } from "../components/common/Icon";
@@ -7015,10 +7016,38 @@ export default function AdminScreen({ onBack, onHome, user }) {
                               환불 기록
                             </button>
                           )}
-                          {order.status === "PAID" && (
+                          {order.status === "PAID" && order.payment_key && order.order_id && (
+                            // 실제 토스 취소(환불) — 서버(api/confirm-payment action=cancel)가 관리자 토큰을 확인하고 토스에 취소를 보낸다.
+                            //   업체에 이미 지급된 단계가 있거나(부분 환불은 토스 관리자 화면), 토큰을 이미 썼으면 서버가 막는다.
+                            <button onClick={() => setConfirm({
+                              emoji: "↩", title: "결제 취소(환불)",
+                              msg: `토스에 이 결제의 전액 취소를 보냅니다 — 고객에게 실제로 환불돼요.
+공사 결제면 계약도 «취소»가 되고, 토큰 구매면 산 토큰을 되돌립니다.
+되돌릴 수 없어요.`,
+                              needsReason: true,
+                              onConfirm: async (reason) => {
+                                try {
+                                  const r = await fetch("/api/confirm-payment", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json", ...authHeader(user?.id) },
+                                    body: JSON.stringify({ action: "cancel", orderId: order.order_id, reason }),
+                                  });
+                                  const j = await r.json().catch(() => ({}));
+                                  if (!r.ok) { showToast(j?.error ?? "취소하지 못했어요", false); return; }
+                                  setPaymentOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "CANCELLED" } : o));
+                                  showToast("토스 결제를 취소(환불)했어요");
+                                } catch { showToast("서버 연결에 실패했어요", false); }
+                              },
+                            })}
+                              style={{ flex: 1, padding: "9px", background: "#FBF5E8", color: C.gold,
+                                border: `1px solid ${C.gold44}`, borderRadius: R.lg, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                              결제 취소(환불)
+                            </button>
+                          )}
+                          {order.status === "PAID" && !(order.payment_key && order.order_id) && (
                             <button onClick={() => setConfirm({
                               emoji: "⏸", title: "결제 취소로 기록",
-                              msg: `이 결제를 «취소(CANCELLED)»로 기록합니다. 실제 카드 취소·환불은 토스 관리자 화면에서 따로 해야 해요. 공사대금 지급을 멈추려면 계약 상세의 「지급 보류」를 쓰세요.`,
+                              msg: `토스 결제번호가 없는 옛 기록이에요. «취소(CANCELLED)»로 기록만 합니다 — 실제 환불은 토스 관리자 화면에서 따로 해야 해요.`,
                               needsReason: true,
                               onConfirm: async (reason) => {
                                 const { error } = await adminUpdatePaymentOrder(order.id, user?.id ?? null, { status: "CANCELLED", adminNote: reason });
