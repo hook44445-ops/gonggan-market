@@ -37,6 +37,8 @@ export default function MyPageV3({
   onShowBusinessInfo,
   onTerms = () => {},
   onEditRegions,
+  isModerator = false,     // 관리자·운영자 — 운영 입구를 보여 준다
+  isAdmin = false,
 }) {
   const isCompany = activeRole === "company";
   const name = user?.name || (isCompany ? "파트너" : "회원");
@@ -131,6 +133,18 @@ export default function MyPageV3({
                  sub={companyRegions.length ? companyRegions.join(" · ") : "최대 2곳까지 설정"}
                  onClick={onEditRegions} />
             <Row emoji="📄" label="서류 관리" sub="사업자등록증·증빙" onClick={() => onGo("documents")} last />
+          </Card>
+        </Section>
+      )}
+
+      {/* ── 운영 — 관리자·운영자만. 새 마이(v3)에 입구가 없어 댓글 숨김을 할 수 없었다(09-26) ── */}
+      {isModerator && (
+        <Section title="운영">
+          <Card pad={`0 ${S.lg}px`}>
+            {isAdmin && (
+              <Row emoji="🛡️" label="관리자 화면" sub="업체·거래·라운지·설정" onClick={() => onGo("admin")} />
+            )}
+            <Row emoji="📋" label="운영자 게시판 관리" sub="추천글 등록 · 글·댓글 숨김" onClick={() => onGo("operator-board")} last />
           </Card>
         </Section>
       )}

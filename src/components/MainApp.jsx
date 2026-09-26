@@ -755,6 +755,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [localLoungePosts, setLocalLoungePosts]   = useState([]);
   const [localLoungeStories, setLocalLoungeStories] = useState([]);
   const { balance: tokenBalance, logs: tokenLogs, missionStats: tokenMissionStats, spend: spendToken, earn: earnToken, reload: reloadTokens } = useSpaceToken(user?.id);
+  // 마이·토큰 화면에 들어올 때 잔액을 다시 읽는다 — 관리자 지급·다른 기기 사용 뒤 옛 값이 남아 보였다(09-26: DB 50 · 화면 30).
+  useEffect(() => {
+    if (screen === "my" || screen === "token-store" || screen === "token-history") reloadTokens?.();
+  }, [screen]); // eslint-disable-line react-hooks/exhaustive-deps
   const { temperature } = useSpaceTemperature(user?.id);
 
   const [activeJobs, setActiveJobs] = useState([]);
@@ -5325,6 +5329,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               unreadTotal={unreadTotal}
               companyRegions={(companyServiceRegions ?? []).map(r => r.label ?? r.sigungu).filter(Boolean)}
               onEditRegions={() => setCompanyRegionSheetOpen(true)}
+              isModerator={isModerator}
+              isAdmin={user?.role === "admin"}
               onGo={(target) => {
                 if (target === "newreq") { requireAuth(() => handleOpenNewReq()); return; }
                 if (target === "lounge-settings" || target === "my-posts") { setScreen("lounge"); return; }
