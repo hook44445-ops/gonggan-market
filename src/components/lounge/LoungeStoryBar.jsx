@@ -11,10 +11,7 @@ import {
   createLoungeComment,
   softDeleteLoungePost,
   checkLoungePostLiked,
-  addLoungePostLike,
-  removeLoungePostLike,
-  likeLoungePost,
-  unlikeLoungePost,
+  setLoungePostLike,
   getUser,
   IS_SUPABASE_READY,
 } from '../../lib/supabase';
@@ -270,15 +267,15 @@ function StoryViewer({ stories, startIndex, onClose, onStoryDeleted, user, onAut
     if (isLiked) {
       setIsLiked(false);
       setLikeCount(c => Math.max(0, c - 1));
-      const { error } = await removeLoungePostLike(story.id, user.id);
+      const { data, error } = await setLoungePostLike(story.id, user.id, false);
       if (error) { setIsLiked(true); setLikeCount(c => c + 1); }
-      else await unlikeLoungePost(story.id);
+      else if (data?.like_count != null) setLikeCount(data.like_count);
     } else {
       setIsLiked(true);
       setLikeCount(c => c + 1);
-      const { error } = await addLoungePostLike(story.id, user.id);
+      const { data, error } = await setLoungePostLike(story.id, user.id, true);
       if (error) { setIsLiked(false); setLikeCount(c => Math.max(0, c - 1)); }
-      else await likeLoungePost(story.id);
+      else if (data?.like_count != null) setLikeCount(data.like_count);
     }
     setLikeLoading(false);
   };

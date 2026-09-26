@@ -2777,16 +2777,10 @@ export const getLoungePosts = async (category = "all") => {
 export const getLoungePost = (postId) =>
   supabase.from("lounge_posts").select("*").eq("id", postId).single();
 
-// 조회수 +1 — RPC(원자적) 우선, 미배포 시 read-modify-write 폴백.
+// 조회수 +1 — 서버 함수만(141). 예전 «읽고 +1 해서 직접 쓰기» 폴백은 누구나 글을 고칠 수 있는 권한에 기대고 있어 뺐다.
 export const incrementLoungeView = async (postId) => {
   if (!postId || String(postId).startsWith("seed_")) return;
-  const { error } = await supabase.rpc("increment_lounge_view", { p_post_id: postId });
-  if (!error) return;
-  const { data } = await supabase.from("lounge_posts").select("view_count").eq("id", postId).single();
-  await supabase
-    .from("lounge_posts")
-    .update({ view_count: (data?.view_count ?? 0) + 1 })
-    .eq("id", postId);
+  try { await supabase.rpc("increment_lounge_view", { p_post_id: postId }); } catch { /* 조회수는 흐름을 막지 않음 */ }
 };
 
 // ── 추천글(🔥) + 운영자(operator) 관리 ───────────────────────────────────────
@@ -2979,17 +2973,18 @@ export const apiAdminAdjustSpaceTemp = (userId, adminId, delta, reason = null) =
 export const fetchAdminSeedPosts = (adminId) =>
   adminApiGet("/api/admin/seed-posts", adminId);
 
-// is_seed 운영글 노출(활성/비활성) — is_visible 토글 (anon update 정책 허용)
+// is_seed 운영글 노출(활성/비활성) — is_visible 토글. 관리자 토큰으로(관리자 수정 정책 — 141/142 뒤 anon 수정 없음)
 export const setSeedPostVisible = (postId, visible) =>
-  supabase.from("lounge_posts")
+  adminDb().from("lounge_posts")
     .update({ is_visible: visible, updated_at: new Date().toISOString() })
     .eq("id", postId).select("id, is_visible").single();
 
 export const createLoungePost = (data) =>
   supabase.from("lounge_posts").insert(data).select().single();
 
+// 본인 글 수정 — 로그인 토큰으로(본인 수정 정책: auth.uid() = user_id). 토큰이 없으면 예전 연결(142 뒤엔 막힌다 → 다시 로그인).
 export const updateLoungePost = (postId, userId, updates) =>
-  supabase
+  (authedDb(userId) ?? supabase)
     .from("lounge_posts")
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq("id", postId)
@@ -2997,11 +2992,14 @@ export const updateLoungePost = (postId, userId, updates) =>
     .select()
     .single();
 
-export const softDeleteLoungePost = (postId, userId) =>
-  supabase.rpc("soft_delete_lounge_post", {
-    p_post_id: postId,
-    p_user_id: userId,
-  });
+// 본인 글 삭제(표시만 — 영구 삭제 아님). 서버가 로그인 토큰의 본인인지 본다(141).
+export const softDeleteLoungePost = async (postId, userId) => {
+  const res = await supabase.rpc("soft_delete_lounge_post", { p_post_id: postId, p_user_id: userId });
+  const m = res.error?.message ?? "";
+  if (/LOGIN_REQUIRED/.test(m)) return { ...res, error: { ...res.error, message: "로그인이 풀렸어요 — 다시 로그인한 뒤 지워 주세요" } };
+  if (/NOT_OWNER/.test(m))      return { ...res, error: { ...res.error, message: "내가 쓴 글만 지울 수 있어요" } };
+  return res;
+};
 
 export const getLoungeStories = () =>
   supabase
@@ -3031,7 +3029,7 @@ export const enforceUserStoryLimit = async (userId, limit = 3) => {
     .order("created_at", { ascending: false });
   const extra = (data ?? []).slice(limit);   // 최신 limit개 유지, 나머지 제거
   for (const s of extra) {
-    await supabase
+    await (authedDb(userId) ?? supabase)
       .from("lounge_posts")
       .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
       .eq("id", s.id)
@@ -3040,7 +3038,7 @@ export const enforceUserStoryLimit = async (userId, limit = 3) => {
 };
 
 export const softDeleteLoungeStory = (storyId, userId) =>
-  supabase
+  (authedDb(userId) ?? supabase)
     .from("lounge_posts")
     .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
     .eq("id", storyId)
@@ -3100,6 +3098,25 @@ export const softDeleteLoungeComment = (commentId, userId) =>
     .eq("id", commentId)
     .eq("user_id", userId);
 
+// 공감(좋아요) 켜기/끄기 — 서버 함수 하나로(141): 내 공감 줄을 넣거나 빼고, 실제로 바뀐 때만 숫자를 ±1(0 아래로 안 내려감).
+//   예전엔 공감 줄(본인만 쓸 수 있는 표)은 토큰 없이 보내 실패하고, 숫자는 누구나 직접 +1 해서
+//   같은 사람이 계속 누르면 숫자만 계속 올라갔다. 반환 { data: { liked, like_count }, error }.
+//   서버 함수가 아직 없으면(141 전) 예전 방식으로.
+export const setLoungePostLike = async (postId, userId, on) => {
+  const res = await supabase.rpc("lounge_post_like", { p_post_id: postId, p_on: !!on });
+  if (!res.error) return res;
+  const missing = res.error.code === "PGRST202" || res.error.code === "42883";
+  if (!missing) return res;
+  const db = authedDb(userId) ?? supabase;
+  const row = on
+    ? await db.from("lounge_post_likes").upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true })
+    : await db.from("lounge_post_likes").delete().eq("post_id", postId).eq("user_id", userId);
+  if (row.error) return { data: null, error: row.error };
+  const cnt = await (on ? likeLoungePost(postId) : unlikeLoungePost(postId));
+  return { data: { liked: !!on, like_count: cnt.data?.like_count ?? null }, error: null };
+};
+
+// (141 전 폴백 전용) 숫자 직접 ±1
 export const likeLoungePost = async (postId) => {
   const { data: current } = await supabase
     .from("lounge_posts")
@@ -3191,10 +3208,11 @@ export const getUserMissionStats = async (userId) => {
 
 // ── STEP SYNC-4: Lounge Likes ─────────────────────────────────────────────────
 
+// 내가 공감했는지 — 공감 표는 본인 줄만 읽을 수 있어 로그인 토큰으로. 표에 id 칸이 없어(post_id+user_id 가 키) post_id 로 확인.
 export const checkLoungePostLiked = (postId, userId) =>
-  supabase
+  (authedDb(userId) ?? supabase)
     .from("lounge_post_likes")
-    .select("id")
+    .select("post_id")
     .eq("post_id", postId)
     .eq("user_id", userId)
     .maybeSingle();

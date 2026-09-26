@@ -12,10 +12,7 @@ import {
   createLoungeComment,
   getRelatedLoungePosts,
   getNearbyPortfolios,
-  likeLoungePost,
-  unlikeLoungePost,
-  addLoungePostLike,
-  removeLoungePostLike,
+  setLoungePostLike,
   checkLoungePostLiked,
   addLoungeSave,
   removeLoungeSave,
@@ -524,12 +521,15 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     setLiked(next);
     setLikeCount(c => Math.max(0, c + (next ? 1 : -1)));
     if (next) {
+      const { data, error } = await setLoungePostLike(postId, user.id, true);
+      if (error) {   // 실패를 조용히 넘기지 않는다 — 화면을 되돌리고 알린다
+        setLiked(false); setLikeCount(c => Math.max(0, c - 1));
+        showToast(error.message === "LOGIN_REQUIRED" ? "다시 로그인하면 공감할 수 있어요" : "공감을 저장하지 못했어요");
+        return;
+      }
+      if (data?.like_count != null) setLikeCount(data.like_count);
       showToast('공감을 눌렀어요');
-      await Promise.all([
-        addLoungePostLike(postId, user.id),
-        likeLoungePost(postId),
-      ]);
-      if (IS_SUPABASE_READY && post?.user_id && user?.id && post.user_id !== user.id) {
+      if (data?.changed !== false && IS_SUPABASE_READY && post?.user_id && user?.id && post.user_id !== user.id) {
         createLoungeNotification({
           userId:      post.user_id,
           type:        'post_like',
@@ -540,10 +540,9 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         });
       }
     } else {
-      await Promise.all([
-        removeLoungePostLike(postId, user.id),
-        unlikeLoungePost(postId),
-      ]);
+      const { data, error } = await setLoungePostLike(postId, user.id, false);
+      if (error) { setLiked(true); setLikeCount(c => c + 1); showToast("공감 취소를 저장하지 못했어요"); return; }
+      if (data?.like_count != null) setLikeCount(data.like_count);
     }
   };
 
