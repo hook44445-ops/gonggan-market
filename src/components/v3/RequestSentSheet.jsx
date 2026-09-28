@@ -2,8 +2,11 @@
 //  · «지금 여기» 한 칸(7단계 중 2단계 · 업체 검토)과 바로 다음 일 하나만 크게 — 나머지 단계는 점으로
 //  · 그림·색은 「내 한도 · 서류」 가족(깊은 초록 · 아이보리 · 금 선) — /images/request-sent-v2.webp
 //  · 결제는 베타 기간 실제 방식 그대로 안내한다(앱 안 안전결제는 정식 서비스에서).
+import { useEffect, useState } from "react";
 import { C, R, S } from "../../constants";
 import { JOURNEY } from "./JourneyNow";
+import { familyMessage } from "../../lib/referral";
+import { myRefCode } from "../../lib/myRefCode";
 
 const INK = "#F4EFE4";
 const GOLD = "#D6A756";
@@ -13,7 +16,25 @@ const GOLD_LINE = "rgba(214,167,86,0.35)";
 // 7단계 이름은 결제 전 단계 화면(EscrowScreen)과 한 곳에서 — JourneyNow.jsx
 const NOW = 1; // 0: 요청 보냄(완료) · 1: 업체 검토(지금)
 
-export default function RequestSentSheet({ onClose, onBrowse, onTrack }) {
+export default function RequestSentSheet({ onClose, onBrowse, onTrack, userId = null }) {
+  // «가족에게 알리기» — 인테리어는 가족이 같이 정한다. 초대 링크만 싣는다(요청 내용 X · lib/referral familyMessage).
+  // 코드는 미리 받아 둔다 — 버튼에서 기다리면 아이폰이 공유창을 막는다.
+  const [refCode, setRefCode] = useState(null);
+  const [shared, setShared] = useState(false);
+  useEffect(() => {
+    if (!userId) return;
+    let alive = true;
+    myRefCode(userId).then(c => { if (alive) setRefCode(c); });
+    return () => { alive = false; };
+  }, [userId]);
+  const shareFamily = async () => {
+    const text = familyMessage(refCode);
+    try {
+      if (navigator.share) { await navigator.share({ title: "공간마켓", text }); setShared(true); return; }
+      await navigator.clipboard.writeText(text); setShared(true);
+    } catch { /* 공유 취소 */ }
+  };
+
   return (
     <div onClick={onClose}
       style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.6)", zIndex: 510,
@@ -71,6 +92,11 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack }) {
               style={{ height: 46, borderRadius: R.lg, border: `1px solid ${C.bgWarm}`, background: C.surface, color: C.text1,
                 fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
               내 요청 진행 보기
+            </button>
+            <button onClick={shareFamily}
+              style={{ height: 46, borderRadius: R.lg, border: `1.5px dashed ${GOLD}`, background: "#FFFDF8", color: C.text1,
+                fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+              {shared ? "보냈어요 · 견적 오면 같이 비교해요" : "가족에게 알리기 — 같이 비교해요"}
             </button>
           </div>
         </div>
