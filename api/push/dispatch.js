@@ -156,6 +156,10 @@ export default async function handler(req, res) {
   try {
     await fetch(`${SB_URL}/rest/v1/rpc/escrow_auto_approve_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
   } catch { /* noop */ }
+  // 견적이 3일째 없는 요청 — 고객에게 한 번(migration 152 · 한국 시간 9~21시만, 중복은 서버가 막음). 없으면(152 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/request_nudge_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
 
   // 발송 경로 결정: v1(서비스계정) 우선, 없으면 legacy(서버키) 폴백.
   const useV1 = !!SA;
