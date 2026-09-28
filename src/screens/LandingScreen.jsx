@@ -4,6 +4,7 @@ import { getTopReviews, getRecentPortfolios, getSeedReviews } from "../lib/supab
 import { normalizeShowcases } from "../lib/showcases";
 import { isTestCompanyName } from "../lib/testCompany";
 import AppFooter from "../components/AppFooter";
+import InviteWelcome from "../components/InviteWelcome";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
 import { consumerFaq, pageSeo, serviceSchema, faqSchema } from "../utils/siteSeo";
@@ -169,6 +170,8 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
       </div>
 
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 20px" }}>
+        {/* 초대 링크로 온 새 사람 — 가입 선물 안내 */}
+        {!hasSavedAccounts && <InviteWelcome style={{ marginTop: 14, maxWidth: 520 }} />}
         {/* 다시 오셨네요 — 저장 계정 */}
         {hasSavedAccounts && (
           <button onClick={() => onResume?.()} style={{ ...btnBase, marginTop: 14, background: SK.forest,
