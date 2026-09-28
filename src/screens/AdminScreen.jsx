@@ -120,7 +120,7 @@ import {
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee, adminSetCompanyDirect,
-  getAdminVisitStats,
+  getAdminVisitStats, getAdminGrowthStats,
   signedDocUrl,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
@@ -142,6 +142,7 @@ import PushHealthPanel from "./admin/PushHealthPanel";
 import AdminPushBroadcast from "../components/AdminPushBroadcast"; // 관리자 공지 푸시(139)
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
+import { growthCards, fmtCount } from "../lib/growthStats";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
 import AICleanupCenter from "../components/AICleanupCenter";
 import ChiefSecretaryBoard from "../components/ChiefSecretaryBoard";
@@ -252,6 +253,54 @@ function AdminVisitCards({ adminUserId }) {
       <div style={{ fontSize: 10.5, color: C.text4, marginTop: 6 }}>
         방문자 = 날짜 기준 고유 방문(로그인 user 또는 익명 세션). DAU=오늘 고유 방문 · MAU=최근 30일 고유 방문.
       </div>
+    </div>
+  );
+}
+
+// ── 성장 지표(150) — 가입·방문·요청·초대·테스터·업체 한 장. 대표 09-28 「1등 다운로드 앱」으로 가고 있는지. ──
+function AdminGrowthPanel() {
+  const [state, setState] = useState({ loading: true, stats: null, error: null });
+  useEffect(() => {
+    let alive = true;
+    getAdminGrowthStats().then(({ data, error }) => {
+      if (!alive) return;
+      const m = String(error?.message ?? "");
+      setState({ loading: false, stats: error ? null : data,
+        error: !error ? null : /admin_growth_stats/.test(m) ? "SQL 150 실행 뒤에 보여요" : /NOT_ADMIN/.test(m) ? "관리자 로그인(인증번호)이 필요해요" : "지표를 불러오지 못했어요" });
+    }).catch(() => alive && setState({ loading: false, stats: null, error: "지표를 불러오지 못했어요" }));
+    return () => { alive = false; };
+  }, []);
+  const cards = growthCards(state.stats ?? {});
+  const top = state.stats?.top_inviters ?? [];
+  return (
+    <div style={{ marginBottom: S.xl }}>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.sm, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🚀" size={14} color={C.text1} /> 성장 지표</div>
+      {state.error ? (
+        <div style={{ background: C.surface, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}`, fontSize: 12.5, color: C.text3 }}>{state.error}</div>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm }}>
+            {cards.map((c) => {
+              const body = (
+                <>
+                  <div style={{ fontSize: 11.5, color: C.text3, fontWeight: 700 }}>{c.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: C.text1, marginTop: 2 }}>{state.loading ? "…" : fmtCount(c.value)}</div>
+                  {c.sub && !state.loading && <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{c.sub}</div>}
+                </>
+              );
+              const box = { background: C.surface, borderRadius: R.lg, padding: `${S.md}px ${S.md}px`, border: `1px solid ${C.bgWarm}`, textDecoration: "none", display: "block" };
+              return c.href
+                ? <a key={c.key} href={c.href} style={box}>{body}</a>
+                : <div key={c.key} style={box}>{body}</div>;
+            })}
+          </div>
+          {top.length > 0 && (
+            <div style={{ marginTop: S.sm, background: C.surface, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}`, fontSize: 12.5, color: C.text2 }}>
+              <b>초대 많이 한 사람</b> · {top.map((t) => `${t.name} ${t.count}명`).join(" · ")}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -6376,6 +6425,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   })}
                 </div>
                 <AdminVisitCards adminUserId={user?.id ?? null} />
+                <AdminGrowthPanel />
                 <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📊" size={14} color={C.text1} /> 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>

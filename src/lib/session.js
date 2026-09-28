@@ -102,7 +102,9 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   // 147 — 테스터 신청 목록(관리자 · 대표 번호 계정)
   "tester_signups_list", "tester_signup_mark",
   // 149 — 업체 짧은 주소(업체 주인 · 관리자)
-  "company_set_slug"]);
+  "company_set_slug",
+  // 150 — 관리자 성장 지표
+  "admin_growth_stats"]);
 export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }
 
 export function isGuardedRpc(fn) {
