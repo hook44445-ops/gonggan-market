@@ -706,6 +706,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   }, [screen, activeRole]);
   const [toast, setToast] = useState(null);
   const [showReq, setShowReq] = useState(false);
+  const requestSubmitGuardRef = useRef(false); // 동일 화면의 연속 견적 제출 방지
   const [reqPrefill, setReqPrefill] = useState(null);
   // 견적 요청의 출처 — 라운지 대화방에서 왔으면 { roomId, partnerId } (09-26 R3: 제출 뒤 그 방에 기록 · 상대 업체 알림)
   const [reqOrigin, setReqOrigin] = useState(null);          // 라운지 채팅 → 견적요청 시 desc 초기값
@@ -6306,6 +6307,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           });
           return;
         }
+        if (requestSubmitGuardRef.current) return;
+        requestSubmitGuardRef.current = true;
+        try {
         // Pre-insert server-side duplicate guard
         const overrideTsInsert = localStorage.getItem(OVERRIDE_LS_KEY);
         if (overrideTsInsert) {
@@ -6438,6 +6442,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             // 파트너 알림은 서버 트리거가 큐에 넣는다 — 여기선 바로 보내라고 깨우기만.
             wakePushDispatcher();
           }
+        }
+        } finally {
+          requestSubmitGuardRef.current = false;
         }
       }} />}
 
