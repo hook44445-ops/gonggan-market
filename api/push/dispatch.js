@@ -160,6 +160,10 @@ export default async function handler(req, res) {
   try {
     await fetch(`${SB_URL}/rest/v1/rpc/request_nudge_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
   } catch { /* noop */ }
+  // 같은 요청을 동네 업체 쪽에서 — «지금 입찰하면 첫 견적이에요»(migration 153 · 한도 안 · 업체당 하루 3건)
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/request_partner_nudge_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
 
   // 발송 경로 결정: v1(서비스계정) 우선, 없으면 legacy(서버키) 폴백.
   const useV1 = !!SA;

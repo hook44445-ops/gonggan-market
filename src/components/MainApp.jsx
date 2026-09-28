@@ -2897,6 +2897,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // 파트너: 새 견적 요청(한도 안) → 입찰할 요청 목록이 있는 홈 / 한도 밖 → 「내 한도 · 서류」(migration 110).
     if (t === "NEW_REQUEST") { loadCompanyRequests?.(); go("home"); return; }
     if (t === "NEW_REQUEST_LOCKED") { setScreen("document-center"); return; }
+    // 09-28 새 알림 — 파트너 «첫 견적» 기회(153)는 입찰 목록으로 · 고객 «견적이 아직 없어요»(152)는 내 견적 ·
+    //   초대 가입(148)은 친구 초대 화면 · 테스터 신청(147 · 대표 번호)은 /testers 목록.
+    if (t === "REQUEST_FIRST_BID") { loadCompanyRequests?.(); go("home"); return; }
+    if (t === "REQUEST_NUDGE") { if (rid) setBidViewRequestId(rid); setScreen("timeline"); return; }
+    if (t === "REFERRAL_JOINED") { setScreen("invite"); return; }
+    if (t === "ADMIN_TESTER_SIGNUP") { window.location.href = "/testers"; return; }
     // 계약은 사업자부터(A안 · migration 116): 업체 → 서류 올리는 곳 / 의뢰인 → 그 요청의 결제 화면 / 관리자 → 관리 화면.
     if (t === "BIZ_REQUIRED" || t === "DOCUMENT_REVIEW") { setScreen("document-center"); return; }
     if (t === "BIZ_VERIFIED" && rid) { setBidViewRequestId(rid); go("bidstatus"); return; }
