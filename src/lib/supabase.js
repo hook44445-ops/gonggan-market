@@ -249,6 +249,13 @@ export const getExternalReviews = (companyId) =>
 export const submitExternalReview = ({ companyId, rating, content, workTitle = null }) =>
   supabase.rpc("external_review_submit", { p_company_id: companyId, p_rating: rating, p_content: content, p_work_title: workTitle });
 
+// 관리자 — 밖 공사 후기 목록(보이는 것 · 업체 이름 포함) · 숨기기(151 external_review_hide, 관리자 토큰)
+export const adminListExternalReviews = () =>
+  supabase.from("external_reviews").select("id, author_name, rating, work_title, content, created_at, company_id, companies(name)")
+    .order("created_at", { ascending: false }).limit(100);
+export const hideExternalReview = (id, hidden = true) =>
+  supabase.rpc("external_review_hide", { p_id: id, p_hidden: hidden });
+
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
 export const getAdminGrowthStats = () => supabase.rpc("admin_growth_stats");
 

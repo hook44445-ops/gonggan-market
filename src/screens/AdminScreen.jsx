@@ -120,7 +120,7 @@ import {
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee, adminSetCompanyDirect,
-  getAdminVisitStats, getAdminGrowthStats,
+  getAdminVisitStats, getAdminGrowthStats, adminListExternalReviews, hideExternalReview,
   signedDocUrl,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
@@ -301,6 +301,53 @@ function AdminGrowthPanel() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ── 공간마켓 밖 공사 후기(151) — 보이는 것만 나열, 문제 있으면 숨김(되살리기는 SQL: is_hidden=false) ──
+function ExternalReviewAdmin({ showToast }) {
+  const [rows, setRows] = useState([]);
+  const [state, setState] = useState({ loading: true, error: null });
+  const [busyId, setBusyId] = useState(null);
+  useEffect(() => {
+    adminListExternalReviews().then(({ data, error }) => {
+      setRows(data ?? []);
+      setState({ loading: false, error: error ? (/external_reviews/.test(String(error.message)) ? "SQL 151 실행 뒤에 보여요" : "불러오지 못했어요") : null });
+    });
+  }, []);
+  const hide = async (r) => {
+    if (!window.confirm(`«${String(r.content).slice(0, 30)}…» 후기를 숨길까요? 업체 페이지에서 바로 사라져요.`)) return;
+    setBusyId(r.id);
+    const { data, error } = await hideExternalReview(r.id, true);
+    setBusyId(null);
+    if (error || !data?.ok) { showToast?.(/NOT_ADMIN/.test(String(error?.message)) ? "관리자 로그인(인증번호)이 필요해요" : "숨기지 못했어요", false); return; }
+    setRows(prev => prev.filter(x => x.id !== r.id));
+    showToast?.("숨겼어요");
+  };
+  return (
+    <div style={{ marginTop: S.xxl }}>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🏠 공간마켓 밖 공사 후기</div>
+      <div style={{ fontSize: 12, color: C.text3, marginBottom: S.md }}>지인 공사 등 계약 기록 없는 후기 · 평점·온도에는 안 들어감 · 숨긴 것은 여기서 사라져요(되살리기는 SQL)</div>
+      {state.loading && <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중…</div>}
+      {state.error && <div style={{ fontSize: 13, color: C.text3 }}>{state.error}</div>}
+      {!state.loading && !state.error && rows.length === 0 && <div style={{ fontSize: 13, color: C.text3 }}>아직 없어요</div>}
+      {rows.map((r) => (
+        <div key={r.id} style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: S.md, marginBottom: S.sm }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: S.sm, alignItems: "baseline" }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text1 }}>{r.companies?.name ?? "업체"} · <span style={{ color: C.gold }}>{"★".repeat(Math.max(1, Math.min(5, r.rating)))}</span></div>
+            <div style={{ fontSize: 11.5, color: C.text3, whiteSpace: "nowrap" }}>{new Date(r.created_at).toLocaleDateString("ko-KR")}</div>
+          </div>
+          <div style={{ fontSize: 13.5, color: C.text1, lineHeight: 1.6, marginTop: 4 }}>{r.content}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+            <div style={{ fontSize: 12, color: C.text3 }}>{[r.work_title, r.author_name].filter(Boolean).join(" · ")}</div>
+            <button onClick={() => hide(r)} disabled={busyId === r.id}
+              style={{ padding: "6px 12px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`, background: C.surface, color: C.red, fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
+              {busyId === r.id ? "…" : "숨기기"}
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -7894,6 +7941,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
             )}
 
             {mainTab === "review_admin" && <ReviewAdminTab adminUserId={user?.id} showToast={showToast} />}
+            {mainTab === "review_admin" && <ExternalReviewAdmin showToast={showToast} />}
 
             {mainTab === "seed" && <SeedReviewTab />}
 
