@@ -447,7 +447,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
           {!useIdentity && (<>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 8 }}>전화번호</div>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-            <input value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="010-0000-0000" maxLength={13}
+            <input type="tel" inputMode="tel" autoComplete="tel-national" aria-label="전화번호"
+                value={phone} onChange={e => setPhone(fmtPhone(e.target.value))} placeholder="010-0000-0000" maxLength={13}
               style={{ ...iS, flex: 1, marginBottom: 0 }} />
             <button onClick={sendCode} disabled={loading}
               style={{ padding: "14px 16px", background: C.brand, color: "#fff", border: "none", borderRadius: R.md, fontWeight: 800, fontSize: 13,
@@ -459,7 +460,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
             <>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 8 }}>인증번호</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                <input type="text" inputMode="numeric" autoComplete="one-time-code" aria-label="인증번호"
+                  value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   placeholder="000000" maxLength={6}
                   style={{ ...iS, flex: 1, marginBottom: 0, letterSpacing: 8, fontSize: 22, fontWeight: 800, textAlign: "center" }} />
                 <button onClick={verifyCode} disabled={loading}
