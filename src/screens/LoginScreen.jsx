@@ -4,6 +4,7 @@ import { C, R, S, SPECIALTIES, CITY_DISTRICTS, fmtPhone } from "../constants";
 import { BADGES } from "../constants/badges";
 import { LogoMark, LeafSprig, Icon } from "../components/common";
 import CompanyOnboarding from "./CompanyOnboarding";
+import InviteWelcome from "../components/InviteWelcome";
 import { upsertUserByPhone, signupUserByPhone, getUserByPhone } from "../lib/supabase";
 import { IDENTITY_READY, startIdentityVerification, completeIdentityVerification, takeIdentityReturn } from "../lib/identity";
 import { getKnownUsers, knownUserToSession } from "../lib/deviceAuth";
@@ -332,6 +333,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
       {/* ── Step 1: 첫 화면 — 사진 한 장, 절제된 글, 장식 없는 선택 ── */}
       {step === 1 && (
         <div style={{ width: "100%", maxWidth: 420 }}>
+          <InviteWelcome style={{ marginBottom: 14 }} />
           {/* 사진 — 아침 빛이 드는 작업 책상. 아래는 배경색으로 천천히 사라진다. */}
           <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", marginBottom: 22 }}>
             <img src="/images/intro/hero.webp" alt="" width={900} height={600}
