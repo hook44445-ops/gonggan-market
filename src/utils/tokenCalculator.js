@@ -30,6 +30,8 @@ export function getEarnDescription(action) {
     posts_written_3:       '게시글 3개 작성',
     construction_review:   '인테리어 후기 작성',
     first_quote_request:   '첫 견적 요청',
+    referral_invite:       '친구 초대 보상',
+    referral_joined:       '친구 초대로 가입',
   };
   return map[action] ?? action;
 }

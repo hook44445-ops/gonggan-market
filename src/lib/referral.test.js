@@ -1,5 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 // 노드에는 localStorage 가 없다 — 테스트용 간이 저장소
 const store = new Map();
@@ -9,7 +11,7 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 };
 
-const { normalizeRefCode, refCodeFromSearch, inviteUrl, testerUrl, testerMessage, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } =
+const { REFERRAL_REWARD, normalizeRefCode, refCodeFromSearch, inviteUrl, testerUrl, testerMessage, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } =
   await import("./referral.js");
 
 beforeEach(() => store.clear());
@@ -52,4 +54,11 @@ test("테스터 모집 링크는 /download 로 · 초대 코드는 그대로", (
   assert.equal(testerUrl("AB2CD3"), "https://gongganmarket.com/download?ref=AB2CD3");
   assert.equal(testerUrl(null), "https://gongganmarket.com/download");
   assert.ok(testerMessage("AB2CD3").endsWith("https://gongganmarket.com/download?ref=AB2CD3"));
+});
+
+test("화면이 말하는 초대 보상이 서버(148)와 같다", () => {
+  const sql = readFileSync(fileURLToPath(new URL("../../supabase/migrations/148_referral_reward.sql", import.meta.url)), "utf-8");
+  assert.match(sql, new RegExp(`v_invitee_amt int := ${REFERRAL_REWARD.invitee};`));
+  assert.match(sql, new RegExp(`v_inviter_amt int := ${REFERRAL_REWARD.inviter};`));
+  assert.match(sql, new RegExp(`v_monthly_cap int := ${REFERRAL_REWARD.monthlyCap};`));
 });
