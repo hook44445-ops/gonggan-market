@@ -232,6 +232,17 @@ export const getMyReferral = () => supabase.rpc("referral_my_code");
 // 초대 코드로 들어온 새 사용자 → { ok, reason? }. 판정(가입 7일 안 · 처음 · 본인 아님)은 서버가 한다.
 export const claimReferral = (code) => supabase.rpc("referral_claim", { p_code: code });
 
+// ── 안드로이드 테스터 신청(147) ─────────────────────────────────────────────────
+// 신청은 누구나(/download) → 서버가 대표 번호 계정에 알림·푸시를 큐에 넣는다 → 곧바로 발송을 깨운다.
+export const submitTesterSignup = async ({ email, name = null, ref = null }) => {
+  const res = await supabase.rpc("tester_signup", { p_email: email, p_name: name, p_ref: ref });
+  if (!res.error && res.data?.ok && !res.data?.already) wakePushDispatcher();
+  return res;
+};
+// 목록 · 추가함 표시 — 관리자 또는 대표 번호 계정(로그인 토큰)
+export const getTesterSignups = () => supabase.rpc("tester_signups_list");
+export const markTesterSignup = (id, added) => supabase.rpc("tester_signup_mark", { p_id: id, p_added: !!added });
+
 // ── Requests ──────────────────────────────────────────────────────────────────
 
 export const createRequest = (data) =>
