@@ -82,3 +82,11 @@ test("업체 공개 페이지 주소 — 코드가 있으면 ?ref", () => {
   assert.equal(companyPageUrl("abc-1", null), "https://gongganmarket.com/p/abc-1");
   assert.equal(companyPageUrl(null, "AB2CD3"), "https://gongganmarket.com");
 });
+
+test("좋은 후기 뒤 업체 추천 문자 — 업체 페이지 + 내 초대 코드", async () => {
+  const { recommendMessage } = await import("./referral.js");
+  const m = recommendMessage("반듯수리", "bandeut", "ABC234");
+  assert.match(m, /반듯수리/);
+  assert.match(m, /\/p\/bandeut\?ref=ABC234$/);
+  assert.match(recommendMessage("", "x", null), /^우리 집 공사한 이 업체/);
+});

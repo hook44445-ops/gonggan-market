@@ -8,6 +8,8 @@ import { calcTempDelta, clampTemp } from "../utils/calculations";
 import { getReviews, createReview, createReviewReward, getEscrowWithPayouts } from "../lib/supabase";
 import { ratingUrlFor, recordAsk } from "../lib/storeRating";
 import { sendTieredNotification } from "../utils/notify";
+import { recommendMessage, REFERRAL_REWARD } from "../lib/referral";
+import { myRefCode } from "../lib/myRefCode";
 
 const normalizeReview = (row) => ({
   id:              row.id,
@@ -151,6 +153,37 @@ function ReviewCard({ rv, isNew }) {
   );
 }
 
+// 좋은 후기 직후 «이 업체를 지인에게» — 업체 페이지 링크(+내 초대 코드). 받은 사람이 가입하면 나 +30 · 친구 +20.
+function RecommendSheet({ company, code, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const text = recommendMessage(company?.name, company?.slug ?? company?.id, code);
+  const share = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: "공간마켓", text }); onClose(); } catch { /* 공유 취소 */ }
+      return;
+    }
+    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(onClose, 1200); }
+    catch { window.prompt("아래 내용을 복사해 보내 주세요", text); }
+  };
+  return (
+    <div role="dialog" aria-label="업체 추천" style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.55)", zIndex:30,
+      display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width:"100%", maxWidth:480, background:C.surface,
+        borderRadius:"22px 22px 0 0", padding:"24px 22px 30px", textAlign:"center" }}>
+        <div style={{ fontSize:30 }}>🤝</div>
+        <div style={{ fontSize:17, fontWeight:800, color:C.text1, marginTop:6 }}>집 고칠 지인이 있다면</div>
+        <div style={{ fontSize:13.5, color:C.text2, lineHeight:1.65, marginTop:8 }}>
+          {company?.name ?? "이 업체"}를 소개해 주세요.<br />지인이 이 링크로 가입하면 나는 공간토큰 {REFERRAL_REWARD.inviter}개, 지인은 {REFERRAL_REWARD.invitee}개를 받아요.
+        </div>
+        <button onClick={share} style={{ marginTop:18, width:"100%", padding:"15px", borderRadius:R.lg, background:C.brand, color:"#fff",
+          border:"none", fontSize:15, fontWeight:800, cursor:"pointer" }}>{copied ? "복사했어요" : "카카오톡·문자로 소개하기"}</button>
+        <button onClick={onClose} style={{ marginTop:10, width:"100%", padding:"12px", background:"none",
+          border:"none", color:C.text3, fontSize:13.5, fontWeight:700, cursor:"pointer" }}>다음에 할게요</button>
+      </div>
+    </div>
+  );
+}
+
 export default function ReviewScreen({ company, onBack, currentUser, requestId, contractId, onEarnToken }) {
   const [reviews,          setReviews]          = useState(company?.reviewList ?? []);
   const [showModal,        setShowModal]        = useState(false);
@@ -159,6 +192,9 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
   const [alreadyReviewed,  setAlreadyReviewed]  = useState(false);
   // 스토어 별점 요청 — 별 4~5개 후기를 막 남긴 순간에만(주소가 없으면 null 이라 안 보인다 · lib/storeRating)
   const [storeAsk, setStoreAsk] = useState(null);
+  // 업체 추천 부탁 — 별 4~5개 후기 직후. 스토어 별점 창이 있으면 그걸 닫은 뒤에 뜬다.
+  const [recommend, setRecommend] = useState(null);   // { pending, code } | null
+  const closeStoreAsk = () => { setStoreAsk(null); setRecommend(r => (r?.pending ? { ...r, pending: false } : r)); };
   const [submitDebug,      setSubmitDebug]      = useState(null);
   // C-2: 중복 제출 가드 + optimistic ID 충돌 방지용 카운터
   const submittingRef = useRef(false);
@@ -272,6 +308,10 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
           playPublic: import.meta.env.VITE_PLAY_PUBLIC === "1",
         });
         if (askUrl) { recordAsk(); setStoreAsk(askUrl); }
+        if (Number(data.rating) >= 4 && currentUser?.id && !currentUser?.isGuest) {
+          setRecommend({ pending: !!askUrl, code: null });
+          myRefCode(currentUser.id).then(code => setRecommend(r => (r ? { ...r, code } : r))).catch(() => {});
+        }
         // 공간온도는 서버가 후기 저장 때 올린다(migration 109) — 앱에서 직접 고치면 정책에 막혔다.
 
         // 신뢰 알림(3단계): 업체에 "후기 등록 · 공간온도 상승" 알림
@@ -447,7 +487,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
 
       {storeAsk && (
         <div role="dialog" aria-label="스토어 별점 부탁" style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.55)", zIndex:30,
-          display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={() => setStoreAsk(null)}>
+          display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={closeStoreAsk}>
           <div onClick={(e) => e.stopPropagation()} style={{ width:"100%", maxWidth:480, background:C.surface,
             borderRadius:"22px 22px 0 0", padding:"24px 22px 30px", textAlign:"center" }}>
             <div style={{ fontSize:30 }}>⭐</div>
@@ -455,13 +495,17 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
             <div style={{ fontSize:13.5, color:C.text2, lineHeight:1.65, marginTop:8 }}>
               스토어에 별점을 남겨 주세요.<br />다음에 집을 고칠 이웃이 믿을 수 있는 업체를 더 쉽게 찾게 돼요.
             </div>
-            <a href={storeAsk} target="_blank" rel="noopener noreferrer" onClick={() => setStoreAsk(null)}
+            <a href={storeAsk} target="_blank" rel="noopener noreferrer" onClick={closeStoreAsk}
               style={{ display:"block", marginTop:18, padding:"15px", borderRadius:R.lg, background:C.brand, color:"#fff",
                 fontSize:15, fontWeight:800, textDecoration:"none" }}>별점 남기러 가기</a>
-            <button onClick={() => setStoreAsk(null)} style={{ marginTop:10, width:"100%", padding:"12px", background:"none",
+            <button onClick={closeStoreAsk} style={{ marginTop:10, width:"100%", padding:"12px", background:"none",
               border:"none", color:C.text3, fontSize:13.5, fontWeight:700, cursor:"pointer" }}>다음에 할게요</button>
           </div>
         </div>
+      )}
+
+      {recommend && !recommend.pending && !storeAsk && (
+        <RecommendSheet company={company} code={recommend.code} onClose={() => setRecommend(null)} />
       )}
 
       {alreadyReviewed && (
