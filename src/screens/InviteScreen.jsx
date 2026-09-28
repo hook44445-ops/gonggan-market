@@ -36,7 +36,7 @@ export default function InviteScreen({ isCompany = false, onBack }) {
     return () => { alive = false; };
   }, []);
 
-  const link = state.code ? inviteUrl(state.code) : "";
+  const link = state.code ? inviteUrl(state.code, isCompany) : "";
   const message = state.code ? inviteMessage(state.code, isCompany) : "";
 
   // which: "invite"(가입 초대) | "tester"(안드로이드 테스트 참여)

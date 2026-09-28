@@ -29,6 +29,8 @@ test("주소에서 코드 꺼내기와 초대 링크", () => {
   assert.equal(refCodeFromSearch("?x=1"), null);
   assert.equal(inviteUrl("AB2CD3"), "https://gongganmarket.com/?ref=AB2CD3");
   assert.equal(inviteUrl("bad"), "https://gongganmarket.com");
+  assert.equal(inviteUrl("AB2CD3", true), "https://gongganmarket.com/partner?ref=AB2CD3");
+  assert.equal(inviteUrl("bad", true), "https://gongganmarket.com/partner");
 });
 
 test("보관한 코드는 30일 뒤 사라진다 · 지우면 없다", () => {
