@@ -6,6 +6,7 @@ import ReviewModal from "../components/ReviewModal";
 import ImageViewerModal from "../components/ImageViewerModal";
 import { calcTempDelta, clampTemp } from "../utils/calculations";
 import { getReviews, createReview, createReviewReward, getEscrowWithPayouts } from "../lib/supabase";
+import { ratingUrlFor, recordAsk } from "../lib/storeRating";
 import { sendTieredNotification } from "../utils/notify";
 
 const normalizeReview = (row) => ({
@@ -156,6 +157,8 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
   const [newId,            setNewId]            = useState(null);
   const [localTemp,        setLocalTemp]        = useState(company?.temp ?? 36.5);
   const [alreadyReviewed,  setAlreadyReviewed]  = useState(false);
+  // 스토어 별점 요청 — 별 4~5개 후기를 막 남긴 순간에만(주소가 없으면 null 이라 안 보인다 · lib/storeRating)
+  const [storeAsk, setStoreAsk] = useState(null);
   const [submitDebug,      setSubmitDebug]      = useState(null);
   // C-2: 중복 제출 가드 + optimistic ID 충돌 방지용 카운터
   const submittingRef = useRef(false);
@@ -264,6 +267,11 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
 
       if (reviewRow) {
         setAlreadyReviewed(true);
+        const askUrl = ratingUrlFor(data.rating, {
+          appStoreId: import.meta.env.VITE_APP_STORE_ID ?? "",
+          playPublic: import.meta.env.VITE_PLAY_PUBLIC === "1",
+        });
+        if (askUrl) { recordAsk(); setStoreAsk(askUrl); }
         // 공간온도는 서버가 후기 저장 때 올린다(migration 109) — 앱에서 직접 고치면 정책에 막혔다.
 
         // 신뢰 알림(3단계): 업체에 "후기 등록 · 공간온도 상승" 알림
@@ -434,6 +442,25 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
               cursor:"pointer", boxShadow:`0 8px 24px ${C.brand44}` }}>
             ✏️ 비포/애프터 포토리뷰 작성하기 (☕ 쿠폰 지급)
           </button>
+        </div>
+      )}
+
+      {storeAsk && (
+        <div role="dialog" aria-label="스토어 별점 부탁" style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.55)", zIndex:30,
+          display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={() => setStoreAsk(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width:"100%", maxWidth:480, background:C.surface,
+            borderRadius:"22px 22px 0 0", padding:"24px 22px 30px", textAlign:"center" }}>
+            <div style={{ fontSize:30 }}>⭐</div>
+            <div style={{ fontSize:17, fontWeight:800, color:C.text1, marginTop:6 }}>공간마켓이 도움이 됐다면</div>
+            <div style={{ fontSize:13.5, color:C.text2, lineHeight:1.65, marginTop:8 }}>
+              스토어에 별점을 남겨 주세요.<br />다음에 집을 고칠 이웃이 믿을 수 있는 업체를 더 쉽게 찾게 돼요.
+            </div>
+            <a href={storeAsk} target="_blank" rel="noopener noreferrer" onClick={() => setStoreAsk(null)}
+              style={{ display:"block", marginTop:18, padding:"15px", borderRadius:R.lg, background:C.brand, color:"#fff",
+                fontSize:15, fontWeight:800, textDecoration:"none" }}>별점 남기러 가기</a>
+            <button onClick={() => setStoreAsk(null)} style={{ marginTop:10, width:"100%", padding:"12px", background:"none",
+              border:"none", color:C.text3, fontSize:13.5, fontWeight:700, cursor:"pointer" }}>다음에 할게요</button>
+          </div>
         </div>
       )}
 
