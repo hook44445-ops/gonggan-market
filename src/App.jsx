@@ -111,6 +111,8 @@ export default function App() {
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [pickBusyId, setPickBusyId] = useState(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  // 초대로 가입 — 받은 공간토큰을 한 번 알린다(모르면 선물이 있었는지 모른다)
+  const [refWelcome, setRefWelcome] = useState(null);
   const [adminId, setAdminId] = useState("");
   const [adminPw, setAdminPw] = useState("");
   const [adminLoginErr, setAdminLoginErr] = useState("");
@@ -235,7 +237,14 @@ export default function App() {
     claimReferral(code)
       .then((res) => {
         if (shouldClearAfterClaim(res)) clearRefCode();
-        if (res?.data?.ok) wakePushDispatcher();   // 데려온 사람에게 «친구가 가입했어요» 푸시(148)
+        if (res?.data?.ok) {
+          wakePushDispatcher();   // 데려온 사람에게 «친구가 가입했어요» 푸시(148)
+          const n = Number(res.data.reward) || 0;
+          if (n > 0) {
+            setRefWelcome(n); setTimeout(() => setRefWelcome(null), 6000);
+            try { window.dispatchEvent(new Event("gonggan:tokens-changed")); } catch { /* noop */ }
+          }
+        }
       })
       .catch(() => { /* 다음 로그인에 다시 */ });
   };
@@ -427,6 +436,19 @@ export default function App() {
             setPhoneAuthMode(true);
           }}
         />
+        {refWelcome && (
+          <div role="status" onClick={() => setRefWelcome(null)}
+            style={{ position: "fixed", left: "50%", top: "calc(16px + env(safe-area-inset-top, 0px))", transform: "translateX(-50%)",
+              width: "calc(100% - 32px)", maxWidth: 440, zIndex: 9000, display: "flex", alignItems: "center", gap: 10,
+              background: "#0E2B1D", color: "#F4EFE4", borderRadius: 14, padding: "13px 15px", boxShadow: "0 10px 30px rgba(0,0,0,.25)",
+              fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif", cursor: "pointer" }}>
+            <span aria-hidden style={{ fontSize: 22 }}>🎁</span>
+            <span style={{ fontSize: 14, lineHeight: 1.45 }}>
+              <b style={{ fontWeight: 900 }}>가입 선물이 도착했어요</b><br />
+              친구 초대로 공간토큰 <b style={{ color: "#D6A756" }}>{refWelcome}개</b>를 받았어요
+            </span>
+          </div>
+        )}
       </ErrorBoundary>
     );
   }
