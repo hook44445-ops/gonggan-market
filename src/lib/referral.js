@@ -45,6 +45,11 @@ export function testerMessage(code) {
   return `공간마켓 안드로이드 앱 테스트에 참여해 주실 수 있을까요? 아래 링크에서 「테스트 참여」를 누르고 설치해 2주 정도만 지워지지 않게 두시면 큰 도움이 돼요. 참여가 안 된다고 나오면 쓰시는 구글(Gmail) 주소를 알려 주세요.\n${testerUrl(code)}`;
 }
 
+// 견적 요청 직후 «가족에게 알리기»(09-28) — 인테리어는 가족이 같이 정한다. 요청 내용(주소·예산)은 싣지 않는다(개인정보).
+export function familyMessage(code) {
+  return `우리 집 인테리어·집수리 견적을 공간마켓에서 받고 있어요. 업체 견적이 오면 같이 비교해 봐요! 이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개도 받아요.\n${inviteUrl(code)}`;
+}
+
 // 공유 링크에 내 초대 코드를 붙인다(라운지 글 공유 등 · 09-28) — 공유가 곧 초대가 된다.
 // 이미 ?ref 가 있으면 내 코드로 바꾸고, 코드가 없거나 모양이 틀리면 주소를 그대로 둔다.
 export function withRefCode(url, code) {

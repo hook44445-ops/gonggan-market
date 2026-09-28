@@ -6533,6 +6533,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           onClose={() => setReqDoneNotice(false)}
           onBrowse={() => { setShowcaseOpenId(null); setScreen("showcase"); }}
           onTrack={() => setScreen("timeline")}
+          userId={user?.isGuest ? null : (user?.id ?? null)}
         />
       )}
 

@@ -11,7 +11,7 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 };
 
-const { withRefCode, REFERRAL_REWARD, normalizeRefCode, refCodeFromSearch, inviteUrl, testerUrl, testerMessage, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } =
+const { familyMessage, withRefCode, REFERRAL_REWARD, normalizeRefCode, refCodeFromSearch, inviteUrl, testerUrl, testerMessage, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } =
   await import("./referral.js");
 
 beforeEach(() => store.clear());
@@ -68,4 +68,11 @@ test("공유 링크에 내 초대 코드 붙이기", () => {
   assert.equal(withRefCode("https://gongganmarket.com/x?a=1&ref=ZZZZZZ", "AB2CD3"), "https://gongganmarket.com/x?a=1&ref=AB2CD3");
   assert.equal(withRefCode("https://gongganmarket.com/x", null), "https://gongganmarket.com/x");
   assert.equal(withRefCode("", "AB2CD3"), "");
+});
+
+test("가족에게 알리기 — 초대 링크만 싣고 요청 내용은 싣지 않는다", () => {
+  const m = familyMessage("AB2CD3");
+  assert.ok(m.endsWith("https://gongganmarket.com/?ref=AB2CD3"));
+  assert.ok(!/만원|평|구\b/.test(m));
+  assert.ok(familyMessage(null).endsWith("https://gongganmarket.com"));
 });
