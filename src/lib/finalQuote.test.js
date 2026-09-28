@@ -45,3 +45,11 @@ test("C10: 요청 설명에 도배가 있으면 칩 맨 앞이 도배", () => {
   const t = suggestTrades({ description: "[점검] 시스템 점검용 요청입니다. 도배 — 실제 공사 아님.", space_type: "아파트 부분" });
   assert.equal(t[0], "도배");
 });
+
+test("작은 수리 요청(09-28)도 공정 칩 앞쪽에 온다", () => {
+  const t = suggestTrades({ description: "수전·세면대, 실리콘 — 세면대 아래로 물이 새요" });
+  assert.deepEqual(t.slice(0, 2), ["수전·세면대", "실리콘"]);
+  const h = suggestTrades({ description: "문 손잡이·경첩" });
+  assert.equal(h[0], "문 손잡이·경첩");
+});
+
