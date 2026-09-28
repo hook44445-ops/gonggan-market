@@ -41,14 +41,16 @@ export function refCodeFromSearch(search) {
   try { return normalizeRefCode(new URLSearchParams(search ?? "").get("ref")); } catch { return null; }
 }
 
-export function inviteUrl(code) {
+export function inviteUrl(code, isCompany = false) {
+  // 동료 사장님 초대는 파트너 소개(/partner)로 — 카카오톡 카드도 «파트너로 초대했어요»(api/prerender inviteOg)
   const c = normalizeRefCode(code);
-  return c ? `${SITE_URL}/?ref=${c}` : SITE_URL;
+  const path = isCompany ? "/partner" : "/";
+  return c ? `${SITE_URL}${path}?ref=${c}` : isCompany ? `${SITE_URL}/partner` : SITE_URL;
 }
 
 export function inviteMessage(code, isCompany = false) {
   return isCompany
-    ? `공간마켓에서 동네 인테리어·집수리 요청을 받아 보세요. 가입비 없이 바로 견적을 보낼 수 있고, 이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개를 드려요.\n${inviteUrl(code)}`
+    ? `공간마켓에서 동네 인테리어·집수리 요청을 받아 보세요. 가입비 없이 바로 견적을 보낼 수 있고, 이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개를 드려요.\n${inviteUrl(code, true)}`
     : `인테리어·집수리 견적을 여러 곳에서 나란히 비교해 볼 수 있어요. 이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개를 드려요.\n${inviteUrl(code)}`;
 }
 
