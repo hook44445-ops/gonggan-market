@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./styles/theme.css"; // 역할별(고객 그린 / 파트너 네이비) 색상 토큰
 import DebugOverlay from "./components/DebugOverlay";
+import AppInstallBanner from "./components/AppInstallBanner";
 import { SHOW_DEBUG_UI } from "./constants/release";
 
 // production 에서는 [GONGGAN_DEBUG]/[GONGGAN_DIAG] 콘솔 로그를 출력하지 않음(dev 는 기존대로 유지).
@@ -18,6 +19,8 @@ if (!SHOW_DEBUG_UI && typeof window !== "undefined" && !window.__GG_LOG_SILENCED
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
+    {/* 웹 방문자 → 앱 설치 입구(안드로이드 띠 · 아이폰 스마트 앱 배너). 앱 안에서는 안 보인다. */}
+    <AppInstallBanner />
     <App />
     {/* 디버그 오버레이 — dev 에서만 노출. production(import.meta.env.PROD)에서는 미렌더. 기능 코드는 유지. */}
     {SHOW_DEBUG_UI && <DebugOverlay />}
