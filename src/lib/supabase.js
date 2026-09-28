@@ -260,6 +260,10 @@ export const hideExternalReview = (id, hidden = true) =>
 export const setCompanyProfile = (companyId, { coverUrl = null, logoUrl = null, intro = null } = {}) =>
   supabase.rpc("company_set_profile", { p_company_id: companyId, p_cover_url: coverUrl, p_logo_url: logoUrl, p_intro: intro });
 
+// 초대왕 이벤트(155) — 순위판(누구나 · 로그인이면 내 순위) · 지급(관리자 · 기간 끝난 뒤 한 번)
+export const getReferralEventBoard = (eventId = "2026-10") => supabase.rpc("referral_event_board", { p_event: eventId });
+export const adminSettleReferralEvent = (eventId = "2026-10") => supabase.rpc("admin_referral_event_settle", { p_event: eventId });
+
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
 export const getAdminGrowthStats = () => supabase.rpc("admin_growth_stats");
 

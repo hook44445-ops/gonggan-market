@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { C, R, S, SHADOW } from "../constants";
-import { getMyReferral } from "../lib/supabase";
+import { getMyReferral, getReferralEventBoard } from "../lib/supabase";
+import { CURRENT_EVENT, eventStatus, eventLine, prizeFor } from "../lib/referralEvent";
 import { inviteUrl, inviteMessage, testerUrl, testerMessage, REFERRAL_REWARD } from "../lib/referral";
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -11,6 +12,13 @@ import { inviteUrl, inviteMessage, testerUrl, testerMessage, REFERRAL_REWARD } f
 export default function InviteScreen({ isCompany = false, onBack }) {
   const [state, setState] = useState({ loading: true, code: null, invited: 0, error: null });
   const [copied, setCopied] = useState(false);
+  // 초대왕 이벤트(155) — 순위판. SQL 전이거나 실패하면 카드만(순위 없이) 보인다.
+  const [board, setBoard] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    getReferralEventBoard(CURRENT_EVENT.id).then(({ data, error }) => { if (alive && !error && data?.ok) setBoard(data); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -65,6 +73,35 @@ export default function InviteScreen({ isCompany = false, onBack }) {
           {state.error}
         </div>
       )}
+
+      {/* 초대왕 이벤트 — 10월 한 달 · 1~3등 토큰(155) */}
+      {eventStatus(CURRENT_EVENT) !== "ended" || board ? (
+        <div style={{ background: "#0E2B1D", color: "#F4EFE4", borderRadius: R.xl, padding: S.lg, marginBottom: S.lg }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: S.sm }}>
+            <div style={{ fontSize: 16, fontWeight: 900 }}>🏆 {CURRENT_EVENT.title} 이벤트</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#D6A756", whiteSpace: "nowrap" }}>{eventLine(CURRENT_EVENT)}</div>
+          </div>
+          <div style={{ fontSize: 12.5, color: "rgba(244,239,228,0.8)", marginTop: 6, lineHeight: 1.6 }}>
+            10월 한 달 동안 내 링크로 가입한 사람이 가장 많은 세 분께 공간토큰을 드려요. 친구 초대 보상(+{REFERRAL_REWARD.inviter})과 따로예요.
+          </div>
+          {board?.me?.rank && (
+            <div style={{ marginTop: 10, fontSize: 13.5, fontWeight: 800 }}>
+              내 순위 {board.me.rank}등 · {board.me.count}명{prizeFor(board.me.rank) ? ` · 지금이면 +${prizeFor(board.me.rank)}` : ""}
+            </div>
+          )}
+          {(board?.top ?? []).length > 0 && (
+            <div style={{ marginTop: 10, borderTop: "1px solid rgba(214,167,86,0.35)", paddingTop: 8 }}>
+              {board.top.slice(0, 5).map((t) => (
+                <div key={t.rank} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0",
+                  color: t.rank <= 3 ? "#F4EFE4" : "rgba(244,239,228,0.7)", fontWeight: t.rank <= 3 ? 800 : 600 }}>
+                  <span>{t.rank}등 · {t.name}</span><span>{t.count}명</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {board?.settled && <div style={{ marginTop: 8, fontSize: 12, color: "#D6A756", fontWeight: 800 }}>상품 지급을 마쳤어요</div>}
+        </div>
+      ) : null}
 
       {state.code && (
         <>

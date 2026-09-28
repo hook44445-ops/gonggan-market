@@ -121,6 +121,7 @@ import {
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee, adminSetCompanyDirect,
   getAdminVisitStats, getAdminGrowthStats, adminListExternalReviews, hideExternalReview,
+  getReferralEventBoard, adminSettleReferralEvent,
   signedDocUrl,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
@@ -143,6 +144,7 @@ import AdminPushBroadcast from "../components/AdminPushBroadcast"; // 관리자 
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
 import { growthCards, fmtCount } from "../lib/growthStats";
+import { CURRENT_EVENT, eventStatus, eventLine, prizeFor } from "../lib/referralEvent";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
 import AICleanupCenter from "../components/AICleanupCenter";
 import ChiefSecretaryBoard from "../components/ChiefSecretaryBoard";
@@ -257,6 +259,51 @@ function AdminVisitCards({ adminUserId }) {
   );
 }
 
+// ── 초대왕 이벤트(155) — 순위판 + 기간 끝난 뒤 «상품 지급»(한 번만 · 서버가 막는다) ──
+function ReferralEventAdmin() {
+  const [board, setBoard] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => getReferralEventBoard(CURRENT_EVENT.id).then(({ data, error }) => {
+    if (error) setMsg(/referral_event_board/.test(String(error.message)) ? "SQL 155 실행 뒤에 보여요" : null);
+    else if (data?.ok) setBoard(data);
+  }).catch(() => {});
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const st = eventStatus(CURRENT_EVENT);
+  const settle = async () => {
+    if (!window.confirm(`${CURRENT_EVENT.title} 상위 ${CURRENT_EVENT.prizes.length}명에게 토큰을 지급할까요? 한 번만 됩니다.`)) return;
+    setBusy(true);
+    const { data, error } = await adminSettleReferralEvent(CURRENT_EVENT.id);
+    setBusy(false);
+    if (error) { setMsg(/NOT_ADMIN/.test(String(error.message)) ? "관리자 로그인(인증번호)이 필요해요" : "지급하지 못했어요"); return; }
+    setMsg(data?.ok ? `지급 완료 — ${(data.paid ?? []).map(p => `${p.rank}등 +${p.prize}`).join(" · ") || "대상 없음"}`
+      : data?.reason === "NOT_ENDED" ? "아직 기간이 안 끝났어요" : data?.reason === "ALREADY" ? "이미 지급했어요" : "지급하지 못했어요");
+    load();
+  };
+  return (
+    <div style={{ marginTop: S.sm, background: C.surface, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: S.sm, alignItems: "baseline" }}>
+        <b style={{ fontSize: 13.5, color: C.text1 }}>🏆 {CURRENT_EVENT.title}</b>
+        <span style={{ fontSize: 11.5, color: C.text3 }}>{eventLine(CURRENT_EVENT)}</span>
+      </div>
+      {(board?.top ?? []).length === 0
+        ? <div style={{ fontSize: 12.5, color: C.text3, marginTop: 6 }}>{st === "upcoming" ? "10월 1일에 시작해요" : "아직 참여가 없어요"}</div>
+        : board.top.slice(0, 10).map((t) => (
+          <div key={t.rank} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: C.text2, padding: "2px 0" }}>
+            <span>{t.rank}등 · {t.name}</span><span>{t.count}명{prizeFor(t.rank) ? ` → +${prizeFor(t.rank)}` : ""}</span>
+          </div>
+        ))}
+      {st === "ended" && !board?.settled && (
+        <button onClick={settle} disabled={busy} style={{ marginTop: 8, width: "100%", padding: "10px", borderRadius: R.md, border: "none", background: C.brand, color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+          {busy ? "지급 중…" : "상품 지급(한 번만)"}
+        </button>
+      )}
+      {board?.settled && <div style={{ marginTop: 6, fontSize: 12, color: C.brand, fontWeight: 700 }}>지급 완료</div>}
+      {msg && <div style={{ marginTop: 6, fontSize: 12, color: C.text2 }}>{msg}</div>}
+    </div>
+  );
+}
+
 // ── 성장 지표(150) — 가입·방문·요청·초대·테스터·업체 한 장. 대표 09-28 「1등 다운로드 앱」으로 가고 있는지. ──
 function AdminGrowthPanel() {
   const [state, setState] = useState({ loading: true, stats: null, error: null });
@@ -299,6 +346,7 @@ function AdminGrowthPanel() {
               <b>초대 많이 한 사람</b> · {top.map((t) => `${t.name} ${t.count}명`).join(" · ")}
             </div>
           )}
+          <ReferralEventAdmin />
         </>
       )}
     </div>
