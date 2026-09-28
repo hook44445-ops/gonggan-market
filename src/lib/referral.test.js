@@ -9,7 +9,7 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 };
 
-const { normalizeRefCode, refCodeFromSearch, inviteUrl, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } =
+const { normalizeRefCode, refCodeFromSearch, inviteUrl, testerUrl, testerMessage, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } =
   await import("./referral.js");
 
 beforeEach(() => store.clear());
@@ -46,4 +46,10 @@ test("서버에 못 보냈을 때(로그인 토큰 없음 · 146 전)만 코드�
   assert.equal(shouldClearAfterClaim({ error: { message: "LOGIN_REQUIRED" } }), false);
   assert.equal(shouldClearAfterClaim({ error: { message: "Could not find the function public.referral_claim" } }), false);
   assert.equal(shouldClearAfterClaim({ error: { message: "boom" } }), true);
+});
+
+test("테스터 모집 링크는 /download 로 · 초대 코드는 그대로", () => {
+  assert.equal(testerUrl("AB2CD3"), "https://gongganmarket.com/download?ref=AB2CD3");
+  assert.equal(testerUrl(null), "https://gongganmarket.com/download");
+  assert.ok(testerMessage("AB2CD3").endsWith("https://gongganmarket.com/download?ref=AB2CD3"));
 });

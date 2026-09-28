@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { C, R, S, SHADOW } from "../constants";
 import { getMyReferral } from "../lib/supabase";
-import { inviteUrl, inviteMessage } from "../lib/referral";
+import { inviteUrl, inviteMessage, testerUrl, testerMessage } from "../lib/referral";
 
 // ════════════════════════════════════════════════════════════════════════════
 // 친구 초대 — 내 초대 링크를 공유하고, 몇 명이 이 링크로 가입했는지 본다(대표 09-28 · 146).
@@ -31,16 +31,19 @@ export default function InviteScreen({ isCompany = false, onBack }) {
   const link = state.code ? inviteUrl(state.code) : "";
   const message = state.code ? inviteMessage(state.code, isCompany) : "";
 
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(message); setCopied(true); setTimeout(() => setCopied(false), 1800); }
-    catch { window.prompt("아래 링크를 복사해 주세요", link); }
+  // which: "invite"(가입 초대) | "tester"(안드로이드 테스트 참여)
+  const copy = async (which = "invite") => {
+    const text = which === "tester" ? testerMessage(state.code) : message;
+    try { await navigator.clipboard.writeText(text); setCopied(which); setTimeout(() => setCopied(false), 1800); }
+    catch { window.prompt("아래 링크를 복사해 주세요", which === "tester" ? testerUrl(state.code) : link); }
   };
-  const share = async () => {
+  const share = async (which = "invite") => {
+    const text = which === "tester" ? testerMessage(state.code) : message;
     if (navigator.share) {
-      try { await navigator.share({ title: "공간마켓", text: message }); } catch { /* 공유 취소 */ }
+      try { await navigator.share({ title: "공간마켓", text }); } catch { /* 공유 취소 */ }
       return;
     }
-    copy();
+    copy(which);
   };
 
   return (
@@ -71,12 +74,12 @@ export default function InviteScreen({ isCompany = false, onBack }) {
             <div style={{ fontSize: 30, fontWeight: 900, color: C.brand, letterSpacing: "0.18em", margin: "6px 0 4px" }}>{state.code}</div>
             <div style={{ fontSize: 12, color: C.text3, wordBreak: "break-all" }}>{link}</div>
             <div style={{ display: "flex", gap: S.sm, marginTop: S.lg }}>
-              <button onClick={copy}
+              <button onClick={() => copy("invite")}
                 style={{ flex: 1, padding: "12px 0", borderRadius: R.md, border: `1px solid ${C.bgWarm}`, background: C.surface,
                   color: C.text2, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                {copied ? "복사했어요" : "링크 복사"}
+                {copied === "invite" ? "복사했어요" : "링크 복사"}
               </button>
-              <button onClick={share}
+              <button onClick={() => share("invite")}
                 style={{ flex: 2, padding: "12px 0", borderRadius: R.md, border: "none", background: C.brand, color: "#fff",
                   fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
                 카카오톡·문자로 보내기
@@ -92,6 +95,27 @@ export default function InviteScreen({ isCompany = false, onBack }) {
 
           <div style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.6, marginTop: S.md, padding: `0 ${S.xs}px` }}>
             링크로 들어와 새로 가입한 사람만 셉니다. 이미 가입한 사람은 세지 않아요.
+          </div>
+
+          {/* 안드로이드 테스터 모집 — Play 정식 출시 전 비공개 테스트 참여자가 필요하다(09-28) */}
+          <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.xl, padding: S.lg, marginTop: S.xl }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>안드로이드 앱 테스터 모집</div>
+            <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.6, marginTop: 6 }}>
+              Play 스토어 정식 출시 전이라 앱을 먼저 설치해 줄 분이 필요해요.
+              링크를 받은 분이 「테스트 참여」 후 설치해 두면 됩니다. 이 링크로 가입해도 초대 수에 잡혀요.
+            </div>
+            <div style={{ display: "flex", gap: S.sm, marginTop: S.md }}>
+              <button onClick={() => copy("tester")}
+                style={{ flex: 1, padding: "11px 0", borderRadius: R.md, border: `1px solid ${C.bgWarm}`, background: C.surface,
+                  color: C.text2, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {copied === "tester" ? "복사했어요" : "링크 복사"}
+              </button>
+              <button onClick={() => share("tester")}
+                style={{ flex: 2, padding: "11px 0", borderRadius: R.md, border: `1.5px solid ${C.brand}`, background: C.brandL,
+                  color: C.brand, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+                테스터 부탁 보내기
+              </button>
+            </div>
           </div>
         </>
       )}
