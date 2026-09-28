@@ -84,6 +84,12 @@ export function useSpaceToken(userId) {
   }, [userId]);
 
   useEffect(() => { load(); }, [load]);
+  // 앱 밖(App)에서 서버가 토큰을 준 뒤 — 예: 초대 가입 선물(148) — 잔액을 다시 읽는다
+  useEffect(() => {
+    const onChanged = () => load();
+    window.addEventListener("gonggan:tokens-changed", onChanged);
+    return () => window.removeEventListener("gonggan:tokens-changed", onChanged);
+  }, [load]);
 
   const earn = useCallback(async (action, description) => {
     const amount = TOKEN_EARN[action.toUpperCase()] ?? TOKEN_EARN[action] ?? 0;
