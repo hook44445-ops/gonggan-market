@@ -50,6 +50,12 @@ export function familyMessage(code) {
   return `우리 집 인테리어·집수리 견적을 공간마켓에서 받고 있어요. 업체 견적이 오면 같이 비교해 봐요! 이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개도 받아요.\n${inviteUrl(code)}`;
 }
 
+// 좋은 후기 직후 «이 업체 추천» 문자 — 업체 페이지(/p/…?ref=내코드)로 보낸다. 받은 사람이 가입하면 초대로 잡힌다.
+export function recommendMessage(companyName, companyIdOrSlug, code) {
+  const name = String(companyName ?? "").trim() || "이 업체";
+  return `우리 집 공사한 ${name}, 꼼꼼하게 잘해 줬어요. 집 고칠 일 있으면 공간마켓에서 견적 받아 봐요. 이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개도 받아요.\n${companyPageUrl(companyIdOrSlug, code)}`;
+}
+
 // 업체 공개 페이지 주소(/p/짧은주소 또는 /p/업체ID) — 업체가 블로그·인스타·명함에 건다. 코드가 있으면 ?ref= 도(업체가 데려온 가입 = 초대).
 export function companyPageUrl(companyIdOrSlug, code) {
   if (!companyIdOrSlug) return SITE_URL;
