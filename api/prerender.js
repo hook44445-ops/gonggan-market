@@ -531,8 +531,9 @@ async function renderCompany(req, res, site, id) {
   const ref = String(id ?? '').trim();
   if (!ref || ref.length > 40) return notFound(req, res, site, '업체를 찾을 수 없어요.');
   const where = UUID_RE.test(ref) ? `id=eq.${encodeURIComponent(ref)}` : `slug=eq.${encodeURIComponent(ref.toLowerCase())}`;
-  let rows = await sb(`companies?${where}&select=id,name,region,specialties,completed_jobs,slug&limit=1`);
-  // 149 전에는 slug 칸이 없어 위 조회가 실패한다 — 업체 ID 주소는 예전처럼 보이게 한 번 더
+  // 154(커버·소개) → 149(slug) → 그 전 순서로 한 칸씩 빼며 조회 — SQL 이 아직 안 돌았어도 페이지는 나온다
+  let rows = await sb(`companies?${where}&select=id,name,region,specialties,completed_jobs,slug,cover_url,intro&limit=1`);
+  if (!rows) rows = await sb(`companies?${where}&select=id,name,region,specialties,completed_jobs,slug&limit=1`);
   if (!rows && UUID_RE.test(ref)) rows = await sb(`companies?${where}&select=id,name,region,specialties,completed_jobs&limit=1`);
   const co = rows && rows[0];
   if (!co || /테스트|(^|[^a-z])test([^a-z]|$)/i.test(String(co.name ?? ''))) return notFound(req, res, site, '업체를 찾을 수 없어요.');
@@ -541,13 +542,13 @@ async function renderCompany(req, res, site, id) {
   const reviews = (await sb(`reviews?company_id=eq.${encodeURIComponent(co.id)}&status=eq.published&select=rating,content&order=created_at.desc&limit=20`)) || [];
   const rated = reviews.filter((r) => Number(r.rating) > 0);
   const avg = rated.length ? (rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length).toFixed(1) : null;
-  const firstPhoto = works.map((w) => (w.after_photos && w.after_photos[0]) || (w.before_photos && w.before_photos[0])).find(Boolean);
+  const firstPhoto = works.map((w) => (w.after_photos && w.after_photos[0]) || (w.before_photos && w.before_photos[0])).find(Boolean) || co.cover_url || null;
 
   const canonical = `${site}/p/${co.slug || co.id}`;
   const region = co.region || '';
   const specialties = Array.isArray(co.specialties) ? co.specialties.filter(Boolean).slice(0, 6) : [];
   const title = `${co.name} — ${region ? `${region} ` : ''}인테리어·집수리 | 공간마켓`;
-  const description = [
+  const description = co.intro ? String(co.intro).replace(/\s+/g, ' ').slice(0, 150) : [
     `${co.name}의 시공 사례${works.length ? ` ${works.length}건` : ''}${avg ? `과 후기 평점 ${avg}` : ''}을 확인하고`,
     '공간마켓에서 무료로 견적을 받아 보세요.',
     specialties.length ? `${specialties.join('·')}.` : '',
@@ -555,6 +556,7 @@ async function renderCompany(req, res, site, id) {
 
   const bodyHtml = `<main>
 <h1>${esc(co.name)}</h1>
+${co.intro ? `<p>${esc(co.intro)}</p>` : ''}
 <p>${esc(region)}${specialties.length ? ` · ${esc(specialties.join(' · '))}` : ''}${co.completed_jobs ? ` · 완료 공사 ${esc(co.completed_jobs)}건` : ''}${avg ? ` · 후기 평점 ${esc(avg)} (${rated.length})` : ''}</p>
 ${works.length ? `<section><h2>시공 사례</h2><ul>${works.map((w) => {
     const img = (w.after_photos && w.after_photos[0]) || (w.before_photos && w.before_photos[0]);

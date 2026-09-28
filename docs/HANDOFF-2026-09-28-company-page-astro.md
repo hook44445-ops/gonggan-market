@@ -54,11 +54,11 @@ gonggan-market/
 | # | 구역 | 데이터(anon REST) | 비었을 때 |
 |---|---|---|---|
 | 1 | 머리: 공간마켓 로고(← 홈) | — | — |
-| 2 | ★커버 16:9 | `coverFor(company)` = 업로드 커버(없음) → 공종별 기본 그림 | 기본 그림 + 오른쪽 아래 «분위기 그림» |
-| 3 | 얼굴 · 업체명 · Lv · 공간온도 · «공간마켓 직영» | companies: name, temp, level/completed_jobs, is_direct, slug | 얼굴 = 이름 첫 글자(깊은 초록 원 · 금 글자) |
+| 2 | ★커버 16:9 | `coverFor(company)` = 업체가 올린 커버 `companies.cover_url`(154) → 없으면 공종별 기본 그림 | 기본 그림 + 오른쪽 아래 «분위기 그림» |
+| 3 | 얼굴 · 업체명 · Lv · 공간온도 · «공간마켓 직영» | companies: name, temp, level/completed_jobs, is_direct, slug, **logo_url(154)** | 얼굴 = 이름 첫 글자(깊은 초록 원 · 금 글자) |
 | 4 | 신뢰 줄 엠블럼 | verified · has_insurance · guarantee_status+guarantee_badge_visible · license_verified | 흐린 빈 자리(앱과 같은 규칙 — `src/components/TrustEmblems.jsx trustState` 그대로 옮김) |
 | 5 | KPI: 시공 · 후기 | completed_jobs · reviews 수 | 0 |
-| 6 | 영업지역 · 공종 태그 | region · service_regions · specialties | 숨김 |
+| 6 | 업체 소개글 · 영업지역 · 공종 태그 | **intro(154)** · region · service_regions · specialties | 숨김 |
 | 7 | 시공 사례 | `portfolios?company_id=…&order=created_at.desc&limit=12` (after_photos/before_photos) | ★빈 상태: 그림 + «첫 시공 사례를 준비하고 있어요 · 공사를 마치면 전·후 사진이 여기에 쌓여요» |
 | 8 | 후기 | `reviews?company_id=…&status=eq.published` | ★빈 상태: 그림 + «아직 후기가 없어요 · 공간마켓에서 계약한 공사만 후기를 남길 수 있어요» |
 | 9 | 하단 고정 CTA | — | «공간마켓에서 무료 견적 받기» |
