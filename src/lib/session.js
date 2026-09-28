@@ -98,7 +98,9 @@ const GUARDED_EXACT = new Set([
 const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set", "op_set_post_hot", "op_set_post_hidden", "op_set_comment_hidden",
   "lounge_post_like", "soft_delete_lounge_post",
   // 146 — 직영 표시(관리자) · 친구 초대(본인)
-  "admin_set_company_direct", "referral_my_code", "referral_claim"]);
+  "admin_set_company_direct", "referral_my_code", "referral_claim",
+  // 147 — 테스터 신청 목록(관리자 · 대표 번호 계정)
+  "tester_signups_list", "tester_signup_mark"]);
 export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }
 
 export function isGuardedRpc(fn) {

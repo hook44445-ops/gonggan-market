@@ -3,7 +3,10 @@
 // 모바일 우선 랜딩. 라우터 미사용 SPA — App.jsx 에서
 // window.location.pathname === "/download" 일 때 이 화면을 렌더한다.
 
+import { useState } from "react";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
+import { submitTesterSignup } from "../lib/supabase";
+import { pendingRefCode } from "../lib/referral";
 import { SHOW_BETA_UI } from "../constants/release";
 
 // 비공개 테스트 참여(Opt-in) 페이지 — 테스터 참여 완료 후에만 다운로드 버튼이 노출된다.
@@ -15,6 +18,64 @@ const C = {
   surface: "#ffffff", text1: "#3a352c", text2: "#5a5346", text3: "#7a7464",
   line: "#e4ddd0", accent: "#B5D4C5",
 };
+
+// 테스터 신청 — 비공개 테스트가 이메일 목록 방식이면 대표가 Play Console 에 메일을 넣어야 참여가 열린다(147).
+// 보내면 대표 휴대폰(공간마켓 앱)으로 푸시가 가고, 대표는 /testers 에서 목록을 본다.
+function TesterSignupForm() {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [state, setState] = useState({ busy: false, done: null, error: null });
+
+  const submit = async (ev) => {
+    ev.preventDefault();
+    if (state.busy) return;
+    const v = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) { setState({ busy: false, done: null, error: "메일 주소를 확인해 주세요" }); return; }
+    setState({ busy: true, done: null, error: null });
+    const { data, error } = await submitTesterSignup({ email: v, name: name.trim() || null, ref: pendingRefCode() });
+    if (error || !data?.ok) {
+      setState({ busy: false, done: null,
+        error: data?.reason === "BAD_EMAIL" ? "메일 주소를 확인해 주세요"
+          : data?.reason === "TOO_MANY" ? "신청이 몰리고 있어요 — 잠시 뒤 다시 보내 주세요"
+          : "보내지 못했어요 — 잠시 뒤 다시 시도해 주세요" });
+      return;
+    }
+    setState({ busy: false, done: data.already ? "already" : "new", error: null });
+  };
+
+  const input = {
+    width: "100%", boxSizing: "border-box", border: `1px solid ${C.line}`, borderRadius: 12,
+    padding: "13px 14px", fontSize: 15, color: C.text1, background: C.surface, outline: "none", marginTop: 8,
+  };
+
+  return (
+    <div style={{ marginTop: 14, background: C.surface, borderRadius: 14, padding: "16px", border: `1.5px solid ${C.green}`, textAlign: "left" }}>
+      <div style={{ fontSize: 14, fontWeight: 800, color: C.green }}>참여가 안 되나요? 구글 메일을 남겨 주세요</div>
+      <p style={{ fontSize: 12.5, lineHeight: 1.7, color: C.text2, margin: "6px 0 0" }}>
+        Play 스토어에 로그인된 구글(Gmail) 주소를 남기면 테스터로 등록해 드려요.
+        등록되면 위 「Google Play 테스트 참여하기」를 다시 눌러 주세요.
+      </p>
+      {state.done ? (
+        <div role="status" style={{ marginTop: 12, background: C.beige, borderRadius: 12, padding: "12px 14px", fontSize: 13.5, fontWeight: 700, color: C.green, lineHeight: 1.6 }}>
+          {state.done === "already" ? "이미 받은 메일이에요. 등록되는 대로 참여할 수 있어요." : "받았어요! 등록되면 테스트에 참여할 수 있어요. 고맙습니다 🙏"}
+        </div>
+      ) : (
+        <form onSubmit={submit}>
+          <input type="email" inputMode="email" autoComplete="email" required placeholder="예: hong@gmail.com"
+            aria-label="구글 메일 주소" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={120} style={input} />
+          <input placeholder="이름 또는 별명 (선택)" aria-label="이름 또는 별명" value={name}
+            onChange={(e) => setName(e.target.value)} maxLength={20} style={input} />
+          {state.error && <div role="alert" style={{ marginTop: 8, fontSize: 12.5, fontWeight: 700, color: "#C0392B" }}>{state.error}</div>}
+          <button type="submit" disabled={state.busy}
+            style={{ marginTop: 10, width: "100%", padding: "14px", borderRadius: 12, border: "none", background: C.green, color: "#fff",
+              fontSize: 15, fontWeight: 800, cursor: state.busy ? "default" : "pointer", opacity: state.busy ? 0.7 : 1 }}>
+            {state.busy ? "보내는 중…" : "테스터 신청 보내기"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
 
 export default function DownloadScreen() {
   useDocumentMeta({
@@ -111,9 +172,11 @@ export default function DownloadScreen() {
           </div>
           <p style={{ fontSize: 12.5, lineHeight: 1.75, color: C.text2, margin: 0 }}>
             테스트 대상으로 등록된 Google 계정으로 먼저 <b>‘테스터 참여’</b>를 완료해 주세요.<br />
-            참여할 수 없다는 안내가 나오면 계정을 확인하거나 위의 웹 이용 버튼을 눌러 주세요.
+            참여할 수 없다는 안내가 나오면 아래에 구글 메일을 남겨 주세요.
           </p>
         </div>
+
+        <TesterSignupForm />
 
         {/* 인앱 브라우저 안내 */}
         <div

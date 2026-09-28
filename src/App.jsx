@@ -10,6 +10,7 @@ import SafePaymentScreen from "./screens/SafePaymentScreen";
 import PartnerLandingScreen from "./screens/PartnerLandingScreen";
 import DeleteAccountScreen from "./screens/DeleteAccountScreen";
 import DownloadScreen from "./screens/DownloadScreen";
+import TesterListScreen from "./screens/TesterListScreen";
 import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { stashIdentityReturn } from "./lib/identity";
@@ -340,6 +341,14 @@ export default function App() {
       return (
         <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
           <DeleteAccountScreen />
+        </ErrorBoundary>
+      );
+    }
+    // 테스터 신청 목록(147) — 대표 휴대폰 푸시를 누르면 여기로 온다. 볼 수 있는지는 서버가 판정.
+    if (_staticPath === "/testers") {
+      return (
+        <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
+          <TesterListScreen />
         </ErrorBoundary>
       );
     }
