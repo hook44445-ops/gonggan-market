@@ -7,6 +7,7 @@ import { C, R, S } from "../../constants";
 import { JOURNEY } from "./JourneyNow";
 import { familyMessage } from "../../lib/referral";
 import { myRefCode } from "../../lib/myRefCode";
+import { installOfferAfterRequest, detectAndRememberInApp } from "../../lib/appInstall";
 
 const INK = "#F4EFE4";
 const GOLD = "#D6A756";
@@ -21,6 +22,16 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack, userId = 
   // 코드는 미리 받아 둔다 — 버튼에서 기다리면 아이폰이 공유창을 막는다.
   const [refCode, setRefCode] = useState(null);
   const [shared, setShared] = useState(false);
+  // 웹에서 요청한 사람 — «앱으로 알림 받기»(견적 도착을 놓치지 않게). 앱 안이면 안 보인다(lib/appInstall).
+  const [install, setInstall] = useState(null);
+  useEffect(() => {
+    try {
+      setInstall(installOfferAfterRequest({
+        ua: navigator.userAgent, inApp: detectAndRememberInApp(),
+        appStoreId: import.meta.env.VITE_APP_STORE_ID ?? "", playPublic: import.meta.env.VITE_PLAY_PUBLIC === "1",
+      }));
+    } catch { setInstall(null); }
+  }, []);
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -81,6 +92,21 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack, userId = 
             채팅·사진·현장 기록이 남아, 문제가 생기면 기록을 기준으로 함께 확인해요.<br />
             대금은 계약서에 적은 단계대로 업체와 직접 주고받아요 · 앱 안 안전결제는 정식 오픈 때 열려요.
           </div>
+
+          {install && (
+            <a href={install.url} target={install.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer"
+              style={{ display: "flex", alignItems: "center", gap: S.md, marginTop: S.md, padding: "12px 14px", borderRadius: R.lg,
+                background: DEEP, color: INK, textDecoration: "none" }}>
+              <span aria-hidden style={{ fontSize: 22 }}>🔔</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: 14, fontWeight: 800 }}>앱으로 견적 도착 알림 받기</span>
+                <span style={{ display: "block", fontSize: 12, color: "rgba(244,239,228,0.75)", marginTop: 2 }}>업체 견적이 오면 휴대폰으로 바로 알려드려요</span>
+              </span>
+              <span style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 800, color: DEEP, background: GOLD, borderRadius: R.full, padding: "6px 11px" }}>
+                {install.store === "App Store" ? "설치" : "앱 받기"}
+              </span>
+            </a>
+          )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: S.sm, marginTop: S.lg }}>
             <button onClick={() => { onClose?.(); onBrowse?.(); }} className="gg-cta"
