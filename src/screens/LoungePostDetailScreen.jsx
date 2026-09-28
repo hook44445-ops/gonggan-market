@@ -3,6 +3,8 @@
 // ─────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect, Fragment } from 'react';
+import { withRefCode } from "../lib/referral";
+import { myRefCode } from "../lib/myRefCode";
 import { C, R, S } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
 import { CATEGORY_LABEL, TOKEN_COSTS } from '../constants/lounge';
@@ -558,11 +560,22 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     }
   };
 
+  // 내 초대 코드 — 미리 받아 둔다. 공유 버튼에서 기다리면 아이폰이 «사용자 동작이 아님»으로 공유창을 막는다.
+  const [refCode, setRefCode] = useState(null);
+  useEffect(() => {
+    if (isGuest || !user?.id) return;
+    let alive = true;
+    myRefCode(user.id).then(c => { if (alive) setRefCode(c); });
+    return () => { alive = false; };
+  }, [isGuest, user?.id]);
+
   // 공유 — Web Share 우선, 미지원 시 링크 복사 (DB 불필요, 모든 글 공통)
   const handleShare = async () => {
     // 공유 URL은 정규 경로(/lounge/posts/{id}/{slug}) 사용 — 기존 OG/SEO 구조 그대로.
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const url = post?.id ? `${origin}${buildPostPath(post)}` : (typeof window !== 'undefined' ? window.location.href : '');
+    const plain = post?.id ? `${origin}${buildPostPath(post)}` : (typeof window !== 'undefined' ? window.location.href : '');
+    // 로그인한 사람의 공유는 초대가 된다 — 받은 사람이 가입하면 서로 토큰(146·148). 코드를 못 받으면 예전 주소 그대로.
+    const url = isGuest ? plain : withRefCode(plain, refCode);
     try {
       if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({ title: post?.title || '공간마켓 라운지', text: post?.title || '공간마켓 라운지', url });

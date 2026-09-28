@@ -45,6 +45,18 @@ export function testerMessage(code) {
   return `공간마켓 안드로이드 앱 테스트에 참여해 주실 수 있을까요? 아래 링크에서 「테스트 참여」를 누르고 설치해 2주 정도만 지워지지 않게 두시면 큰 도움이 돼요. 참여가 안 된다고 나오면 쓰시는 구글(Gmail) 주소를 알려 주세요.\n${testerUrl(code)}`;
 }
 
+// 공유 링크에 내 초대 코드를 붙인다(라운지 글 공유 등 · 09-28) — 공유가 곧 초대가 된다.
+// 이미 ?ref 가 있으면 내 코드로 바꾸고, 코드가 없거나 모양이 틀리면 주소를 그대로 둔다.
+export function withRefCode(url, code) {
+  const c = normalizeRefCode(code);
+  if (!c || !url) return url;
+  try {
+    const u = new URL(url, SITE_URL);
+    u.searchParams.set("ref", c);
+    return u.toString();
+  } catch { return url; }
+}
+
 // 링크로 들어왔을 때 보관(먼저 받은 코드를 지키지 않고 마지막 링크를 따른다 — 가장 최근에 권한 사람)
 export function stashRefCode(code, now = Date.now()) {
   const c = normalizeRefCode(code);

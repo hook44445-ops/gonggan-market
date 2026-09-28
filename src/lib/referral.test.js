@@ -11,7 +11,7 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 };
 
-const { REFERRAL_REWARD, normalizeRefCode, refCodeFromSearch, inviteUrl, testerUrl, testerMessage, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } =
+const { withRefCode, REFERRAL_REWARD, normalizeRefCode, refCodeFromSearch, inviteUrl, testerUrl, testerMessage, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } =
   await import("./referral.js");
 
 beforeEach(() => store.clear());
@@ -61,4 +61,11 @@ test("화면이 말하는 초대 보상이 서버(148)와 같다", () => {
   assert.match(sql, new RegExp(`v_invitee_amt int := ${REFERRAL_REWARD.invitee};`));
   assert.match(sql, new RegExp(`v_inviter_amt int := ${REFERRAL_REWARD.inviter};`));
   assert.match(sql, new RegExp(`v_monthly_cap int := ${REFERRAL_REWARD.monthlyCap};`));
+});
+
+test("공유 링크에 내 초대 코드 붙이기", () => {
+  assert.equal(withRefCode("https://gongganmarket.com/lounge/posts/1/slug", "ab2cd3"), "https://gongganmarket.com/lounge/posts/1/slug?ref=AB2CD3");
+  assert.equal(withRefCode("https://gongganmarket.com/x?a=1&ref=ZZZZZZ", "AB2CD3"), "https://gongganmarket.com/x?a=1&ref=AB2CD3");
+  assert.equal(withRefCode("https://gongganmarket.com/x", null), "https://gongganmarket.com/x");
+  assert.equal(withRefCode("", "AB2CD3"), "");
 });
