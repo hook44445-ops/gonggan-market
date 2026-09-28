@@ -6,6 +6,8 @@
 // 여기서는 메타태그 + 읽을 수 있는 본문이 채워진 정적 HTML 을 반환한다.
 // ─────────────────────────────────────────────────────
 
+import { coverFor } from '../src/lib/companyCover.js';
+
 import {
   SEO_CATEGORY,
   buildPostMeta,
@@ -580,7 +582,7 @@ ${bizHtml()}
     robots: invite ? 'noindex, follow' : 'index, follow',
     title: invite ? invite.title : title,
     description: invite ? invite.description : description,
-    ogImage: firstPhoto || '/og-space-v2.png',
+    ogImage: firstPhoto || coverFor(co),
     ogType: 'website',
     bodyHtml,
     structuredData: [

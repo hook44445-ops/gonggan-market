@@ -12,6 +12,7 @@ import { EXTERNAL_REVIEW_LABEL, EXTERNAL_REVIEW_NOTE } from "../lib/externalRevi
 import ExternalReviewSheet from "../components/ExternalReviewSheet";
 import { CompanyKpiTiles, deriveLevel, responseValue } from "../components/company/CompanyMetrics";
 import { CompanyTrustRow } from "../components/TrustEmblems";
+import { coverFor } from "../lib/companyCover.js";
 
 const normalize = (row) => {
   const before = row.before_photos ?? [];
@@ -90,6 +91,8 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
 
   if (!company) return null;
 
+  const displayCover = publicView ? coverFor(company) : company.cover;
+  const atmosphereCover = publicView && !company.cover;
   const g = GRADE(company.temp ?? 0);
   const gv = deriveLevel(company);
   const avgRating = reviewCount > 0
@@ -157,9 +160,15 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
             👀 <b>예시 화면이에요.</b> 실제 업체가 아니에요. 공간마켓에 입점한 업체는 이렇게 보여요.
           </div>
         )}
-        {company.cover && (
-          <div style={{ marginTop: S.md, borderRadius: R.xl, overflow: "hidden", aspectRatio: "16 / 9", background: C.surface2 }}>
-            <img src={company.cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        {displayCover && (
+          <div style={{ position: "relative", marginTop: S.md, borderRadius: R.xl, overflow: "hidden", aspectRatio: "16 / 9", background: C.surface2 }}>
+            <img src={displayCover} alt="" width={1200} height={675}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            {atmosphereCover && <span style={{
+              position: "absolute", right: 10, bottom: 10, padding: "4px 8px",
+              borderRadius: R.full, background: "#0E2B1D", color: "#F4EFE4",
+              border: "1px solid rgba(214,167,86,0.35)", fontSize: 11, lineHeight: 1.4,
+            }}>분위기 그림</span>}
           </div>
         )}
         {/* ── Hero ──────────────────────────────────────────── */}
@@ -168,8 +177,8 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
           <div style={{ display: "flex", alignItems: "center", gap: S.lg }}>
             {/* 업체 얼굴 — 로고가 있으면 그림, 없으면 이름 첫 글자 */}
             <div style={{ width: 68, height: 68, borderRadius: 20, flexShrink: 0, overflow: "hidden",
-              background: C.brandL, display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 28, fontWeight: 900, color: C.brand }}>
+              background: publicView ? "#0E2B1D" : C.brandL, display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 28, fontWeight: 900, color: publicView ? "#D6A756" : C.brand }}>
               {company.logo
                 ? <img src={company.logo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                 : (company.name ?? "?")[0]}
@@ -244,6 +253,13 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
           </Section>
         )}
 
+        {publicView && portfolio.length === 0 && (
+          <Section title="시공 포트폴리오">
+            <PublicEmptyState image="portfolio-first" title="첫 시공 사례를 준비하고 있어요"
+              description="공사를 마치면 전·후 사진이 여기에 쌓여요" />
+          </Section>
+        )}
+
         {/* ── 후기 (간결) ────────────────────────────────────── */}
         {reviewCount > 0 && (
           <Section title="시공 후기" sub={avgRating ? `★ ${avgRating} · ${reviewCount}건` : `${reviewCount}건`}>
@@ -282,6 +298,13 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
               border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 13, fontWeight: 800,
               color: C.text2, cursor: "pointer",
             }}>후기 전체보기 →</button>}
+          </Section>
+        )}
+
+        {publicView && reviewCount === 0 && (
+          <Section title="시공 후기">
+            <PublicEmptyState image="review-first" title="아직 후기가 없어요"
+              description="공간마켓에서 계약한 공사만 후기를 남길 수 있어요" />
           </Section>
         )}
 
@@ -371,6 +394,18 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
 }
 
 // 섹션 — 여백 중심, 선/카드 최소.
+function PublicEmptyState({ image, title, description }) {
+  return (
+    <div style={{ textAlign: "center", padding: "20px 16px", background: "#F4EFE4",
+      borderRadius: R.xl, border: "1px solid rgba(214,167,86,0.35)" }}>
+      <img src={`/images/empty/${image}.webp`} alt="" width={88} height={88} loading="lazy"
+        style={{ display: "block", margin: "0 auto 12px", borderRadius: 18 }} />
+      <div style={{ color: "#0E2B1D", fontSize: 14, fontWeight: 800, lineHeight: 1.6 }}>{title}</div>
+      <div style={{ color: C.text2, fontSize: 12, lineHeight: 1.7, marginTop: 4, wordBreak: "keep-all" }}>{description}</div>
+    </div>
+  );
+}
+
 function Section({ title, sub, children }) {
   return (
     <div style={{ marginTop: S.xxl }}>
