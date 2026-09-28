@@ -1,5 +1,6 @@
 import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
 import { authHeader, getCurrentUserId } from "../lib/session";
+import { peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget } from "../lib/preferredCompany";
 import ChatRequestModal from "./lounge/ChatRequestModal";
 import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -2657,6 +2658,21 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // 약관·베타 안내 확인은 «보내기» 순간 한 번(09-26 R3) — 예전엔 요청서를 열기도 전에 확인 창이 막아섰다.
     setShowReq(true);
   };
+
+  // 업체 페이지(/p/…)에서 «견적 받기»로 들어온 고객 — 로그인되면 요청서를 한 번 열어 준다(lib/preferredCompany)
+  useEffect(() => {
+    if (activeRole !== "consumer" || !user?.id || user?.isGuest) return;
+    const pref = peekPreferredCompany();
+    if (!pref || pref.opened) return;
+    markPreferredOpened();
+    const t = setTimeout(() => {
+      setScreen("home");
+      handleOpenNewReq();
+      if (pref.name) showToast(`요청을 올리면 ${pref.name}에 바로 알려 드려요`);
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRole, user?.id]);
 
   const addBid = async (request, bidData) => {
     if (currentUser?.companyStatus && currentUser.companyStatus !== "ACTIVE") {
@@ -6445,6 +6461,20 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             setMyRequests(prev => prev.map(replace));
             setCustomerRequests(prev => prev.map(replace));
             earnToken("first_quote_request");
+            // 업체 페이지에서 온 요청 — 그 업체에 먼저 알린다(다른 업체도 똑같이 입찰할 수 있다)
+            {
+              const pref = peekPreferredCompany();
+              const ownerId = preferredNotifyTarget(pref, user.id);
+              if (pref) clearPreferredCompany();
+              if (ownerId) {
+                const what = [saved.type ?? form.type, saved.size ?? form.size].filter(Boolean).join(" · ");
+                createNotification({
+                  userId: ownerId, type: "NEW_REQUEST", title: "내 업체 페이지에서 견적 요청이 왔어요",
+                  message: `${what || "새 견적 요청"} — 바로 입찰할 수 있어요.`, relatedId: saved.id, relatedType: "request",
+                  priority: "HIGH",
+                }).catch(() => {});
+              }
+            }
             // 라운지 대화에서 이어진 요청 — 그 방에 기록을 남기고, 상대가 승인 업체면 그 업체에도 알린다(09-26 R3).
             if (reqOrigin?.roomId) {
               const origin = reqOrigin;

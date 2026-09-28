@@ -364,8 +364,13 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
           position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30,
           background: C.surface, borderTop: `1px solid ${C.bgWarm}`,
           padding: `${S.md}px ${S.xl}px calc(${S.md}px + env(safe-area-inset-bottom))`,
-          display: "flex", justifyContent: "center",
+          display: "flex", flexDirection: "column", alignItems: "center",
         }}>
+          {publicView && company?.name && (
+            <div style={{ fontSize: 12, color: C.text2, fontWeight: 700, marginBottom: 6 }}>
+              요청을 올리면 {company.name}에 바로 알림이 가요
+            </div>
+          )}
           <button onClick={onRequest} style={{
             width: "100%", maxWidth: 440, padding: "16px", background: C.brand, color: "#fff",
             border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, minHeight: 56, cursor: "pointer",

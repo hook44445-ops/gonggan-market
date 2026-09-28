@@ -7,6 +7,7 @@ import PortfolioScreenBeta from "./PortfolioScreenBeta";
 import { getCurrentUserId, getSessionToken } from "../lib/session";
 import { rememberPendingReview } from "../lib/externalReview";
 import InviteWelcome from "../components/InviteWelcome";
+import { rememberPreferredCompany } from "../lib/preferredCompany";
 
 // ════════════════════════════════════════════════════════════════════════════
 // /p/업체ID — 업체 공개 페이지(대표 09-28 「1등 다운로드 앱」)
@@ -65,10 +66,15 @@ export default function PublicCompanyScreen({ companyRef }) {
     rememberPendingReview(c.slug || c.id);
     window.location.href = "/";
   };
+  // 견적 받기 — 이 업체를 기억해 두고 앱으로. 요청을 올리면 이 업체에 먼저 알린다(lib/preferredCompany).
+  const onRequest = () => {
+    rememberPreferredCompany({ id: c.id, name: c.name, ownerId: c.ownerId });
+    window.location.href = "/";
+  };
   return (
     <>
       {!loggedIn && <InviteWelcome style={{ margin: "12px 16px 0", borderRadius: 14 }} />}
-      <PortfolioScreenBeta company={c} publicView onBack={toHome} onRequest={toHome} onWriteExternal={onWriteExternal} writeOpen={writeOpen} />
+      <PortfolioScreenBeta company={c} publicView onBack={toHome} onRequest={onRequest} onWriteExternal={onWriteExternal} writeOpen={writeOpen} />
     </>
   );
 }
