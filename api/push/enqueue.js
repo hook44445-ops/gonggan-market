@@ -52,6 +52,8 @@ export const TYPE_TO_PREF_COLUMN = {
   // 파트너 — 새 견적 요청(한도 안/밖). 서버 트리거(migration 110)가 push_logs 에 직접 넣는다.
   NEW_REQUEST: "push_estimate_news",
   NEW_REQUEST_LOCKED: "push_estimate_news",
+  // 견적이 3일째 없는 요청 — 고객에게 한 번(migration 152, 서버가 push_logs 에 직접 넣는다)
+  REQUEST_NUDGE: "push_estimate_news",
   // 업체/관리
   COMPANY_APPROVED: "push_company_recommend",
   COMPANY_REJECTED: "push_company_recommend",
