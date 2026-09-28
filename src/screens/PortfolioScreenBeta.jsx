@@ -38,7 +38,8 @@ function useCountUp(target, ms = 240) {
   return v;
 }
 
-export default function PortfolioScreenBeta({ company, onChat: onChatProp, onReview: onReviewProp, onBack, onRequest }) {
+// publicView — 앱 밖 공개 페이지(/p/업체ID · PublicCompanyScreen). 상담·후기 대신 「무료 견적 받기」 하나.
+export default function PortfolioScreenBeta({ company, onChat: onChatProp, onReview: onReviewProp, onBack, onRequest, publicView = false }) {
   // 예시 업체(견본)는 상담·후기 대상이 아니다 → 버튼 대신 「이런 업체 만나기(무료 견적)」
   const isSample = !!company?.isSample;
   const onChat = isSample ? null : onChatProp;
@@ -286,7 +287,7 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
       </div>
 
       {/* ── 하단 고정 CTA ──────────────────────────────────── */}
-      {isSample && onRequest && (
+      {(isSample || publicView) && onRequest && (
         <div style={{
           position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30,
           background: C.surface, borderTop: `1px solid ${C.bgWarm}`,
@@ -297,7 +298,7 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
             width: "100%", maxWidth: 440, padding: "16px", background: C.brand, color: "#fff",
             border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, minHeight: 56, cursor: "pointer",
             boxShadow: `0 6px 20px ${C.brand44}`,
-          }}>이런 업체 만나기 · 무료 견적 받기</button>
+          }}>{publicView ? "공간마켓에서 무료 견적 받기" : "이런 업체 만나기 · 무료 견적 받기"}</button>
         </div>
       )}
       {onChat && (

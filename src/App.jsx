@@ -11,6 +11,7 @@ import PartnerLandingScreen from "./screens/PartnerLandingScreen";
 import DeleteAccountScreen from "./screens/DeleteAccountScreen";
 import DownloadScreen from "./screens/DownloadScreen";
 import TesterListScreen from "./screens/TesterListScreen";
+import PublicCompanyScreen from "./screens/PublicCompanyScreen";
 import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { stashIdentityReturn } from "./lib/identity";
@@ -344,6 +345,15 @@ export default function App() {
       return (
         <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
           <DeleteAccountScreen />
+        </ErrorBoundary>
+      );
+    }
+    // 업체 공개 페이지(/p/업체ID) — 로그인 없이 시공 사례·후기. 로그인한 사람도 같은 화면(링크를 받은 사람 시점).
+    if (_staticPath.startsWith("/p/")) {
+      const companyId = decodeURIComponent(window.location.pathname.replace(/\/+$/, "").split("/")[2] ?? "");
+      return (
+        <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
+          <PublicCompanyScreen companyId={companyId} />
         </ErrorBoundary>
       );
     }

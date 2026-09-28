@@ -520,6 +520,75 @@ function renderLlms(req, res, site) {
   res.end(lines.join('\n'));
 }
 
+// ─────────────────────────────────────────────────────
+// /p/업체ID — 업체 공개 페이지(09-28). 업체가 블로그·인스타·명함·카톡에 거는 주소라
+// 미리보기(카톡·네이버)와 검색에 업체 이름·사례 사진이 나와야 한다. 사람은 SPA(PublicCompanyScreen).
+// 테스트 업체(이름에 테스트/test)·없는 업체는 noindex.
+// ─────────────────────────────────────────────────────
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function renderCompany(req, res, site, id) {
+  if (!UUID_RE.test(String(id ?? ''))) return notFound(req, res, site, '업체를 찾을 수 없어요.');
+  const rows = await sb(`companies?id=eq.${encodeURIComponent(id)}&select=id,name,region,specialties,completed_jobs&limit=1`);
+  const co = rows && rows[0];
+  if (!co || /테스트|(^|[^a-z])test([^a-z]|$)/i.test(String(co.name ?? ''))) return notFound(req, res, site, '업체를 찾을 수 없어요.');
+
+  const works = (await sb(`portfolios?company_id=eq.${encodeURIComponent(id)}&select=title,space_type,area,after_photos,before_photos&order=created_at.desc&limit=6`)) || [];
+  const reviews = (await sb(`reviews?company_id=eq.${encodeURIComponent(id)}&status=eq.published&select=rating,content&order=created_at.desc&limit=20`)) || [];
+  const rated = reviews.filter((r) => Number(r.rating) > 0);
+  const avg = rated.length ? (rated.reduce((s, r) => s + Number(r.rating), 0) / rated.length).toFixed(1) : null;
+  const firstPhoto = works.map((w) => (w.after_photos && w.after_photos[0]) || (w.before_photos && w.before_photos[0])).find(Boolean);
+
+  const canonical = `${site}/p/${co.id}`;
+  const region = co.region || '';
+  const specialties = Array.isArray(co.specialties) ? co.specialties.filter(Boolean).slice(0, 6) : [];
+  const title = `${co.name} — ${region ? `${region} ` : ''}인테리어·집수리 | 공간마켓`;
+  const description = [
+    `${co.name}의 시공 사례${works.length ? ` ${works.length}건` : ''}${avg ? `과 후기 평점 ${avg}` : ''}을 확인하고`,
+    '공간마켓에서 무료로 견적을 받아 보세요.',
+    specialties.length ? `${specialties.join('·')}.` : '',
+  ].filter(Boolean).join(' ');
+
+  const bodyHtml = `<main>
+<h1>${esc(co.name)}</h1>
+<p>${esc(region)}${specialties.length ? ` · ${esc(specialties.join(' · '))}` : ''}${co.completed_jobs ? ` · 완료 공사 ${esc(co.completed_jobs)}건` : ''}${avg ? ` · 후기 평점 ${esc(avg)} (${rated.length})` : ''}</p>
+${works.length ? `<section><h2>시공 사례</h2><ul>${works.map((w) => {
+    const img = (w.after_photos && w.after_photos[0]) || (w.before_photos && w.before_photos[0]);
+    const label = [w.title, w.space_type, w.area].filter(Boolean).join(' · ');
+    return `<li>${img ? `<img src="${esc(img)}" alt="${esc(label || co.name)}" loading="lazy" />` : ''}${esc(label)}</li>`;
+  }).join('')}</ul></section>` : ''}
+${rated.length ? `<section><h2>후기</h2><ul>${rated.slice(0, 5).map((r) => `<li>${'★'.repeat(Math.round(Number(r.rating)))} ${esc(String(r.content ?? '').slice(0, 120))}</li>`).join('')}</ul></section>` : ''}
+${ctaHtml(site)}
+${bizHtml()}
+</main>`;
+
+  const html = htmlShell({
+    site,
+    canonical,
+    robots: 'index, follow',
+    title,
+    description,
+    ogImage: firstPhoto || '/og-space-v2.png',
+    ogType: 'website',
+    bodyHtml,
+    structuredData: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'HomeAndConstructionBusiness',
+        name: co.name,
+        url: canonical,
+        ...(region ? { areaServed: region } : {}),
+        ...(firstPhoto ? { image: resolveOgImage(site, firstPhoto) } : {}),
+        ...(avg ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: avg, reviewCount: rated.length } } : {}),
+      },
+      breadcrumbSchema([['공간마켓', '/'], [co.name, `/p/${co.id}`]], site),
+    ],
+  });
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
+  res.end(html);
+}
+
 export default async function handler(req, res) {
   const site = getSiteUrl(req);
   const parts = getPathParts(req);
@@ -531,6 +600,7 @@ export default async function handler(req, res) {
     if (page === 'llms')    return renderLlms(req, res, site);
     if (page === 'home')    return await renderHome(req, res, site);
     if (page === 'partner') return await renderPartner(req, res, site);
+    if (page === 'company') return await renderCompany(req, res, site, req.query && req.query.id);
 
     if (parts[0] === 'posts' && parts[1]) {
       return await renderPost(req, res, site, parts[1]);

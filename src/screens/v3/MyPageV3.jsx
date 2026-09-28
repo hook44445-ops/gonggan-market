@@ -17,6 +17,9 @@ import { Page, Section, Card, Row, StatTiles, EmptyInvite, Hero, Progress, Quiet
 import { C, R, S } from "../../constants";
 import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../../constants/release"; // 베타면 «안전결제 기록» 대신 «계약·공사 기록»
 import { BIZ_ROWS } from "../../components/AppFooter";
+import { useEffect, useState } from "react";
+import { companyPageUrl } from "../../lib/referral";
+import { myRefCode } from "../../lib/myRefCode";
 
 export default function MyPageV3({
   user = {},
@@ -39,8 +42,25 @@ export default function MyPageV3({
   onEditRegions,
   isModerator = false,     // 관리자·운영자 — 운영 입구를 보여 준다
   isAdmin = false,
+  companyId = null,        // 업체 공개 페이지(/p/업체ID) 공유용
 }) {
   const isCompany = activeRole === "company";
+  // 내 업체 페이지 공유 — 초대 코드를 미리 받아 둔다(버튼에서 기다리면 아이폰이 공유창을 막는다).
+  const [refCode, setRefCode] = useState(null);
+  const [pageShared, setPageShared] = useState(false);
+  useEffect(() => {
+    if (!isCompany || !companyId || !user?.id) return;
+    let alive = true;
+    myRefCode(user.id).then(c => { if (alive) setRefCode(c); });
+    return () => { alive = false; };
+  }, [isCompany, companyId, user?.id]);
+  const shareCompanyPage = async () => {
+    const url = companyPageUrl(companyId, refCode);
+    try {
+      if (navigator.share) { await navigator.share({ title: user?.name || "공간마켓", url }); setPageShared(true); return; }
+      await navigator.clipboard.writeText(url); setPageShared(true);
+    } catch { /* 공유 취소 */ }
+  };
   const name = user?.name || (isCompany ? "파트너" : "회원");
   const region = user?.region || "지역 미설정";
 
@@ -133,7 +153,11 @@ export default function MyPageV3({
             <Row emoji="📍" label="영업지역"
                  sub={companyRegions.length ? companyRegions.join(" · ") : "최대 2곳까지 설정"}
                  onClick={onEditRegions} />
-            <Row emoji="📄" label="서류 관리" sub="사업자등록증·증빙" onClick={() => onGo("documents")} last />
+            <Row emoji="📄" label="서류 관리" sub="사업자등록증·증빙" onClick={() => onGo("documents")} last={!companyId} />
+            {companyId && (
+              <Row emoji="🔗" label="내 업체 페이지 공유" sub={pageShared ? "주소를 보냈어요 · 블로그·인스타·명함에도 걸어 보세요" : "시공 사례·후기를 누구나 보는 주소"}
+                   onClick={shareCompanyPage} last />
+            )}
           </Card>
         </Section>
       )}
