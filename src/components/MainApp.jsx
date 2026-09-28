@@ -122,7 +122,7 @@ import {
   getRecentPortfolios,
   getPortfolios,
   getReviews,
-  getCompletedEscrowByCompany,
+  getCompletedEscrowByCompany, getExternalReviews,
   getPhasePhotosByContracts,
   getSeedReviews,
   updateCompanyServiceRegions,
@@ -1426,10 +1426,11 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     let alive = true;
     (async () => {
       const safe = (p) => Promise.resolve(p).catch(() => ({ data: [] }));
-      const [pf, done, revs] = await Promise.all([
+      const [pf, done, revs, ext] = await Promise.all([
         safe(getPortfolios(myCompanyRow.id)),
         safe(getCompletedEscrowByCompany(user.id)),
         safe(getReviews(myCompanyRow.id)),
+        safe(getExternalReviews(myCompanyRow.id)),   // 공간마켓 밖 공사 후기(151) — 시작 체크리스트용(평점엔 X)
       ]);
       const contracts = done?.data ?? [];
       const rows = (await safe(getPhasePhotosByContracts(contracts.map(c => c.id))))?.data ?? [];
@@ -1443,6 +1444,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         rating: rated.length ? Math.round((rated.reduce((a, n) => a + n, 0) / rated.length) * 10) / 10 : null,
         completed: contracts.length,
         readyFromJobs: contractsReadyForShowcase({ contracts, photoRows: rows, portfolios }).length,
+        extReviews: (ext?.data ?? []).length,
       });
     })();
     return () => { alive = false; };
@@ -5341,6 +5343,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               companyId={activeRole === "company" ? (myCompanyRow?.id ?? null) : null}
               companySlug={activeRole === "company" ? (myCompanyRow?.slug ?? null) : null}
               onSlugChange={(slug) => setMyCompanyRow(r => (r ? { ...r, slug } : r))}
+              companyRow={activeRole === "company" ? myCompanyRow : null}
+              partnerGrowth={activeRole === "company" ? partnerGrowth : null}
               onGo={(target) => {
                 if (target === "newreq") { requireAuth(() => handleOpenNewReq()); return; }
                 if (target === "lounge-settings" || target === "my-posts") { setScreen("lounge"); return; }
@@ -5348,6 +5352,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 if (target === "help") { setFaqExpanded(true); setScreen("my"); return; }
                 // 「내 한도 · 서류」 화면(DocumentCenterScreen) — 예전엔 파트너센터로 잘못 보냈다.
                 if (target === "documents") { setScreen("document-center"); return; }
+                // 시작 체크리스트 «첫 시공 사례» — 파트너센터 포트폴리오 탭으로
+                if (target === "dashboard-portfolio") { setDashTab("portfolio"); setScreen("dashboard"); return; }
                 setScreen(target);
               }}
               onLogout={onLogout}

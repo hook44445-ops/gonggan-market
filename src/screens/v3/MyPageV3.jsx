@@ -22,6 +22,7 @@ import { companyPageUrl } from "../../lib/referral";
 import { slugProblem, normalizeSlug } from "../../lib/companySlug";
 import { setCompanySlug } from "../../lib/supabase";
 import { reviewRequestUrl, reviewRequestMessage } from "../../lib/externalReview";
+import { partnerStartState, markPageShared, wasPageShared } from "../../lib/partnerStart";
 import { myRefCode } from "../../lib/myRefCode";
 
 export default function MyPageV3({
@@ -48,6 +49,8 @@ export default function MyPageV3({
   companyId = null,        // 업체 공개 페이지(/p/업체ID) 공유용
   companySlug = null,      // 짧은 주소(/p/짧은이름 · 149)
   onSlugChange,            // 저장되면 부모(myCompanyRow)에 반영
+  companyRow = null,       // 시작 체크리스트 — verified · has_insurance · slug
+  partnerGrowth = null,    // 시작 체크리스트 — showcases · reviews · extReviews
 }) {
   const isCompany = activeRole === "company";
   // 내 업체 페이지 공유 — 초대 코드를 미리 받아 둔다(버튼에서 기다리면 아이폰이 공유창을 막는다).
@@ -62,8 +65,8 @@ export default function MyPageV3({
   const shareCompanyPage = async () => {
     const url = companyPageUrl(companySlug || companyId, refCode);
     try {
-      if (navigator.share) { await navigator.share({ title: user?.name || "공간마켓", url }); setPageShared(true); return; }
-      await navigator.clipboard.writeText(url); setPageShared(true);
+      if (navigator.share) { await navigator.share({ title: user?.name || "공간마켓", url }); setPageShared(true); markPageShared(companyId); return; }
+      await navigator.clipboard.writeText(url); setPageShared(true); markPageShared(companyId);
     } catch { /* 공유 취소 */ }
   };
 
@@ -188,6 +191,43 @@ export default function MyPageV3({
       {/* ── 업체 전용 — 공간보증 / 영업지역 / 서류 ──────────────────── */}
       {isCompany && (
         <Section title="파트너 관리">
+          {companyId && (() => {
+            // 파트너 시작 체크리스트(09-28) — 다 끝나면 사라진다
+            const st = partnerStartState({ company: companyRow ?? {}, growth: partnerGrowth,
+              extReviews: partnerGrowth?.extReviews ?? 0, shared: pageShared || wasPageShared(companyId) });
+            if (st.complete) return null;
+            const run = (action) => {
+              if (action === "documents") onGo("documents");
+              else if (action === "slug") { setSlugDraft(companySlug ?? ""); setSlugMsg(null); setSlugOpen(true); }
+              else if (action === "portfolio") onGo("dashboard-portfolio");
+              else if (action === "askReview") askReview();
+              else if (action === "sharePage") shareCompanyPage();
+            };
+            return (
+              <Card tone="brand">
+                <Progress pct={Math.round((st.count / st.total) * 100)} label={`믿고 부르는 업체까지 ${st.count}/${st.total}`}
+                  right={st.next ? `다음 · ${st.next.label}` : ""} />
+                <div style={{ marginTop: S.md, display: "flex", flexDirection: "column", gap: 6 }}>
+                  {st.items.map((it) => (
+                    <button key={it.key} onClick={() => !it.done && run(it.action)} disabled={it.done}
+                      style={{ display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: it.key === st.next?.key ? C.surface : "transparent",
+                        border: it.key === st.next?.key ? `1px solid ${C.brandM}` : "1px solid transparent", borderRadius: R.md,
+                        padding: "8px 10px", cursor: it.done ? "default" : "pointer" }}>
+                      <span aria-hidden style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, display: "grid", placeItems: "center",
+                        fontSize: 12, fontWeight: 900, background: it.done ? C.brand : C.surface, color: it.done ? "#fff" : C.text4,
+                        border: it.done ? "none" : `1.5px solid ${C.bgWarm}` }}>{it.done ? "✓" : ""}</span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13.5, fontWeight: 800, color: it.done ? C.text3 : C.text1,
+                          textDecoration: it.done ? "line-through" : "none" }}>{it.label}</span>
+                        {!it.done && it.key === st.next?.key && <span style={{ display: "block", fontSize: 11.5, color: C.text3, marginTop: 2 }}>{it.hint}</span>}
+                      </span>
+                      {!it.done && <span style={{ color: C.text4, fontSize: 16 }}>›</span>}
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            );
+          })()}
           <Card pad={`0 ${S.lg}px`}>
             <Row emoji="🛡️" label="내 한도 · 서류" sub="얼마까지 입찰 · 다음 계단" onClick={() => onGo("documents")} />
             <Row emoji="📍" label="영업지역"
