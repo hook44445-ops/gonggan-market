@@ -6359,14 +6359,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         setMyRequests(prev => [optimistic, ...prev]);
         setCustomerRequests(prev => [optimistic, ...prev]);
         setShowReq(false);
-        showToast("✅ 요청이 접수됐어요");
-        setReqDoneNotice(true); // 완료 직후 — 에스크로 안전 보관 안내 카드 노출
+        showToast("견적 요청을 저장하고 있어요");
 
         // INSERT to Supabase
         if (user.id) {
           // C-1: form.budget 단일 문자열을 budget_min/budget_max 정수로 파싱
           const { min: budgetMin, max: budgetMax } = parseBudgetRange(form.budget);
-          const { data, error } = await createRequest({
+          let data = null;
+          let error = null;
+          try {
+            ({ data, error } = await createRequest({
             user_id:     user.id,
             status:      'open',
             area:        user.region ?? "",
@@ -6377,7 +6379,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             budget_min:  budgetMin,
             budget_max:  budgetMax,
             expires_at:  new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
-          });
+            }));
+          } catch (saveError) {
+            error = saveError;
+          }
           setReqCreateDebug({
             id:         data?.id ?? null,
             status:     data?.status ?? null,
@@ -6387,12 +6392,18 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             insertError: error?.message ?? null,
             _note: "신규 견적 요청",
           });
-          if (error) {
+          if (error || !data?.id) {
             // C-5: rollback optimistic UI + toast on failure
             setMyRequests(prev => prev.filter(r => r.id !== optimistic.id));
             setCustomerRequests(prev => prev.filter(r => r.id !== optimistic.id));
-            showToast("❌ 견적 요청 저장에 실패했어요. 다시 시도해주세요.");
+            setReqDoneNotice(false);
+            setReqPrefill(form);
+            setShowReq(true);
+            showToast("❌ 저장하지 못했어요. 작성 내용은 남겨 두었으니 다시 시도해주세요.");
           } else if (data) {
+            showToast("✅ 요청이 접수됐어요");
+            setReqDoneNotice(true);
+            setReqPrefill(null);
             const saved = normalizeRequest(data);
             const replace = r => r.id === optimistic.id ? saved : r;
             setMyRequests(prev => prev.map(replace));
