@@ -242,6 +242,13 @@ export const getMyReferral = () => supabase.rpc("referral_my_code");
 // 초대 코드로 들어온 새 사용자 → { ok, reason? }. 판정(가입 7일 안 · 처음 · 본인 아님)은 서버가 한다.
 export const claimReferral = (code) => supabase.rpc("referral_claim", { p_code: code });
 
+// 공간마켓 밖 공사 후기(151) — 따로 표시 · 평점·온도에 넣지 않음. 읽기는 누구나(숨김 제외), 쓰기는 로그인 토큰.
+export const getExternalReviews = (companyId) =>
+  supabase.from("external_reviews").select("id, author_name, rating, work_title, content, created_at")
+    .eq("company_id", companyId).order("created_at", { ascending: false }).limit(20);
+export const submitExternalReview = ({ companyId, rating, content, workTitle = null }) =>
+  supabase.rpc("external_review_submit", { p_company_id: companyId, p_rating: rating, p_content: content, p_work_title: workTitle });
+
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
 export const getAdminGrowthStats = () => supabase.rpc("admin_growth_stats");
 

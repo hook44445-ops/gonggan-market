@@ -17,6 +17,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { stashIdentityReturn } from "./lib/identity";
 import { getUserByPhone, verifyOperatorPin, recordAppVisit, claimReferral, wakePushDispatcher } from "./lib/supabase";
 import { refCodeFromSearch, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } from "./lib/referral";
+import { takePendingReview } from "./lib/externalReview";
 import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
 } from "./lib/deviceAuth";
@@ -218,6 +219,11 @@ export default function App() {
     setPhoneAuthMode(false);
     setShowAccountPicker(false);
     claimPendingReferral(u);
+    // 업체 페이지에서 «후기 남기기»를 누르고 로그인하러 왔으면 그 페이지로 되돌린다(151)
+    if (!u?.isGuest) {
+      const back = takePendingReview();
+      if (back) { window.location.href = back; }
+    }
   };
 
   // 친구 초대 — 초대 링크로 들어와 보관해 둔 코드를 로그인 뒤 한 번 서버에 알린다(146).

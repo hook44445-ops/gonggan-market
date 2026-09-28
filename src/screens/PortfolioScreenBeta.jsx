@@ -7,7 +7,9 @@ import { useState, useEffect, useRef } from "react";
 import { C, R, S, GRADE } from "../constants";
 import { TempBadge } from "../components/common";
 import PhotoModal from "../components/PhotoModal";
-import { getPortfolios, getReviews } from "../lib/supabase";
+import { getPortfolios, getReviews, getExternalReviews } from "../lib/supabase";
+import { EXTERNAL_REVIEW_LABEL, EXTERNAL_REVIEW_NOTE } from "../lib/externalReview";
+import ExternalReviewSheet from "../components/ExternalReviewSheet";
 import { CompanyKpiTiles, deriveLevel, responseValue } from "../components/company/CompanyMetrics";
 import { CompanyTrustRow } from "../components/TrustEmblems";
 
@@ -39,7 +41,9 @@ function useCountUp(target, ms = 240) {
 }
 
 // publicView — 앱 밖 공개 페이지(/p/업체ID · PublicCompanyScreen). 상담·후기 대신 「무료 견적 받기」 하나.
-export default function PortfolioScreenBeta({ company, onChat: onChatProp, onReview: onReviewProp, onBack, onRequest, publicView = false }) {
+// onWriteExternal — 공간마켓 밖 공사 후기 쓰기(151). 공개 페이지가 로그인 여부를 보고 넘긴다(없으면 버튼 숨김).
+// writeOpen — ?write=1(업체가 보낸 «후기 부탁» 링크)로 들어왔으면 쓰기 창을 바로 연다.
+export default function PortfolioScreenBeta({ company, onChat: onChatProp, onReview: onReviewProp, onBack, onRequest, publicView = false, onWriteExternal = null, writeOpen = false }) {
   // 예시 업체(견본)는 상담·후기 대상이 아니다 → 버튼 대신 「이런 업체 만나기(무료 견적)」
   const isSample = !!company?.isSample;
   const onChat = isSample ? null : onChatProp;
@@ -47,6 +51,16 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
   const [portfolio, setPortfolio] = useState(company?.portfolio ?? []);
   const [reviews, setReviews] = useState(company?.reviewList ?? []);
   const [photoWork, setPhotoWork] = useState(null);
+  // 공간마켓 밖 공사 후기(151) — 평점·온도 계산(reviews)과 따로. 표가 없으면(151 전) 빈 목록.
+  const [extReviews, setExtReviews] = useState([]);
+  const [extOpen, setExtOpen] = useState(false);
+  const [extDone, setExtDone] = useState(false);
+  const loadExt = () => {
+    if (!company?.id || company.isSample) return;
+    getExternalReviews(company.id).then(({ data, error }) => { if (!error && Array.isArray(data)) setExtReviews(data); }).catch(() => {});
+  };
+  useEffect(loadExt, [company?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (writeOpen && onWriteExternal) onWriteExternal(() => setExtOpen(true)); }, [writeOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   const [openReviewPhoto, setOpenReviewPhoto] = useState(null);
   const [scrolled, setScrolled] = useState(false);
   const scrollRef = useRef(null);
@@ -266,6 +280,38 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
               color: C.text2, cursor: "pointer",
             }}>후기 전체보기 →</button>}
           </Section>
+        )}
+
+        {/* ── 공간마켓 밖 공사 후기(151) — 평점·온도에 넣지 않고 따로 ── */}
+        {(extReviews.length > 0 || (publicView && onWriteExternal)) && (
+          <Section title={EXTERNAL_REVIEW_LABEL} sub={extReviews.length ? `${extReviews.length}건` : null}>
+            <div style={{ fontSize: 12, color: C.text3, marginBottom: S.sm }}>{EXTERNAL_REVIEW_NOTE}</div>
+            {extReviews.slice(0, 5).map(rv => {
+              const stars = Math.min(5, Math.max(1, Math.round(rv.rating ?? 0)));
+              return (
+                <div key={rv.id} style={{ padding: `${S.md}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
+                  <div style={{ fontSize: 13, color: C.gold, letterSpacing: 1, marginBottom: 5 }}>
+                    {"★".repeat(stars)}<span style={{ color: C.bgWarm }}>{"★".repeat(5 - stars)}</span>
+                  </div>
+                  <div style={{ fontSize: 14, color: C.text1, lineHeight: 1.6, marginBottom: 4 }}>{rv.content}</div>
+                  <div style={{ fontSize: 12, color: C.text3 }}>{[rv.work_title, rv.author_name].filter(Boolean).join(" · ")}</div>
+                </div>
+              );
+            })}
+            {publicView && onWriteExternal && (
+              extDone
+                ? <div style={{ marginTop: S.md, fontSize: 13, fontWeight: 700, color: C.brand }}>후기를 남겨 주셔서 고마워요!</div>
+                : <button onClick={() => onWriteExternal(() => setExtOpen(true))} style={{
+                    width: "100%", marginTop: S.md, padding: "12px", background: C.surface,
+                    border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, fontSize: 13, fontWeight: 800, color: C.text2, cursor: "pointer",
+                  }}>이 업체와 공사해 봤어요 · 후기 남기기</button>
+            )}
+          </Section>
+        )}
+        {extOpen && (
+          <ExternalReviewSheet companyId={company.id} companyName={company.name}
+            onClose={() => setExtOpen(false)}
+            onDone={() => { setExtOpen(false); setExtDone(true); loadExt(); }} />
         )}
 
         {/* ── 신뢰 타임라인 ──────────────────────────────────── */}
