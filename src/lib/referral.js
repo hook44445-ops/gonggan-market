@@ -50,6 +50,12 @@ export function familyMessage(code) {
   return `우리 집 인테리어·집수리 견적을 공간마켓에서 받고 있어요. 업체 견적이 오면 같이 비교해 봐요! 이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개도 받아요.\n${inviteUrl(code)}`;
 }
 
+// 업체 공개 페이지 주소(/p/업체ID) — 업체가 블로그·인스타·명함에 건다. 코드가 있으면 ?ref= 도(업체가 데려온 가입 = 초대).
+export function companyPageUrl(companyId, code) {
+  if (!companyId) return SITE_URL;
+  return withRefCode(`${SITE_URL}/p/${encodeURIComponent(companyId)}`, code);
+}
+
 // 공유 링크에 내 초대 코드를 붙인다(라운지 글 공유 등 · 09-28) — 공유가 곧 초대가 된다.
 // 이미 ?ref 가 있으면 내 코드로 바꾸고, 코드가 없거나 모양이 틀리면 주소를 그대로 둔다.
 export function withRefCode(url, code) {

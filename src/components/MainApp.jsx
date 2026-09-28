@@ -199,7 +199,8 @@ const PROJECT_STAGE_LABEL = {
   completed: "공사 완료",
 };
 
-const normalizeCompany = (row) => ({
+// 공개 업체 페이지(/p/업체ID · PublicCompanyScreen)도 같은 모양을 쓴다.
+export const normalizeCompany = (row) => ({
   id:            row.id,
   ownerId:       row.owner_id ?? null,
   name:          row.name ?? "업체",
@@ -5337,6 +5338,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               onEditRegions={() => setCompanyRegionSheetOpen(true)}
               isModerator={isModerator}
               isAdmin={user?.role === "admin"}
+              companyId={activeRole === "company" ? (myCompanyRow?.id ?? null) : null}
               onGo={(target) => {
                 if (target === "newreq") { requireAuth(() => handleOpenNewReq()); return; }
                 if (target === "lounge-settings" || target === "my-posts") { setScreen("lounge"); return; }
