@@ -6,6 +6,7 @@ const COVER_KEYS = new Map([
   ['바닥/도배', 'finish'], ['페인트', 'finish'], ['타일', 'finish'],
   ['집수리 일반', 'repair'], ['조명/전기', 'repair'], ['철거', 'repair'],
   ['아파트 전체/부분', 'space'], ['원룸', 'space'], ['카페/식당', 'space'],
+  ['아파트 전체', 'space'], ['아파트 부분', 'space'], ['원룸/오피스텔', 'space'],
   ['오피스', 'space'], ['상가', 'space'],
 ]);
 

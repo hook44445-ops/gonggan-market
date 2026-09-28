@@ -8,7 +8,7 @@ test('첫 공종이 공개 커버를 결정한다', () => {
     bath: ['욕실', '방수/누수', '줄눈/탄성코트'], kitchen: ['주방'],
     film: ['인테리어 필름', '몰딩/도어'], finish: ['바닥/도배', '페인트', '타일'],
     repair: ['집수리 일반', '조명/전기', '철거'],
-    space: ['아파트 전체/부분', '원룸', '카페/식당', '오피스', '상가'],
+    space: ['아파트 전체/부분', '아파트 전체', '아파트 부분', '원룸', '원룸/오피스텔', '카페/식당', '오피스', '상가'],
   };
   for (const [key, specialties] of Object.entries(groups)) {
     for (const specialty of specialties) assert.equal(coverKeyFor([specialty, '욕실']), key);
