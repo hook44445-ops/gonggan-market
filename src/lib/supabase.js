@@ -192,6 +192,46 @@ export const adminSetGuarantee = (adminId, companyId, { status = null, badgeVisi
     p_status: status, p_badge_visible: badgeVisible,
   });
 
+// 공간마켓 직영 표시 켜기/끄기 — 관리자만(146 · 로그인 토큰으로 판단). 카드 표시만 바뀌고 정렬·매칭은 그대로.
+export const adminSetCompanyDirect = (companyId, isDirect) =>
+  supabase.rpc("admin_set_company_direct", { p_company_id: companyId, p_direct: !!isDirect });
+
+// ── 업체 작업 장부(146) — 본인 행만(토큰의 사용자). 토큰이 없으면 LOGIN_REQUIRED ────────────
+const ledgerDb = (userId) => authedDb(userId);
+const LOGIN_REQUIRED = { data: null, error: { message: "LOGIN_REQUIRED" } };
+
+export const getLedgerEntries = async (userId) => {
+  const db = ledgerDb(userId);
+  if (!db) return LOGIN_REQUIRED;
+  return db.from("company_job_ledger").select("*").eq("user_id", userId)
+    .order("work_date", { ascending: false }).order("created_at", { ascending: false }).limit(500);
+};
+
+export const addLedgerEntry = async (userId, row) => {
+  const db = ledgerDb(userId);
+  if (!db) return LOGIN_REQUIRED;
+  return db.from("company_job_ledger").insert({ ...row, user_id: userId }).select().single();
+};
+
+export const updateLedgerEntry = async (userId, id, row) => {
+  const db = ledgerDb(userId);
+  if (!db) return LOGIN_REQUIRED;
+  return db.from("company_job_ledger").update({ ...row, updated_at: new Date().toISOString() })
+    .eq("id", id).eq("user_id", userId).select().single();
+};
+
+export const deleteLedgerEntry = async (userId, id) => {
+  const db = ledgerDb(userId);
+  if (!db) return LOGIN_REQUIRED;
+  return db.from("company_job_ledger").delete().eq("id", id).eq("user_id", userId);
+};
+
+// ── 친구 초대(146) — 로그인 토큰으로 «나»를 판단(lib/session TOKEN_RPCS) ─────────────────────
+// 내 초대 코드(없으면 서버가 만든다) + 데려온 사람 수 → { code, invited }
+export const getMyReferral = () => supabase.rpc("referral_my_code");
+// 초대 코드로 들어온 새 사용자 → { ok, reason? }. 판정(가입 7일 안 · 처음 · 본인 아님)은 서버가 한다.
+export const claimReferral = (code) => supabase.rpc("referral_claim", { p_code: code });
+
 // ── Requests ──────────────────────────────────────────────────────────────────
 
 export const createRequest = (data) =>

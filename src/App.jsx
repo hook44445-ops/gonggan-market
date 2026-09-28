@@ -13,7 +13,8 @@ import DownloadScreen from "./screens/DownloadScreen";
 import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { stashIdentityReturn } from "./lib/identity";
-import { getUserByPhone, verifyOperatorPin, recordAppVisit } from "./lib/supabase";
+import { getUserByPhone, verifyOperatorPin, recordAppVisit, claimReferral } from "./lib/supabase";
+import { refCodeFromSearch, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } from "./lib/referral";
 import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
 } from "./lib/deviceAuth";
@@ -112,6 +113,16 @@ export default function App() {
   const [adminLoginErr, setAdminLoginErr] = useState("");
 
   useEffect(() => {
+    // 친구 초대 링크(?ref=코드) — 코드를 기기에 보관하고 주소에서는 지운다(공유·새로고침 때 다시 붙지 않게).
+    try {
+      const refCode = refCodeFromSearch(window.location.search);
+      if (refCode) {
+        stashRefCode(refCode);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("ref");
+        window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+      }
+    } catch {}
     const saved = loadSavedSession();
     try {
       dlog("[GONGGAN_DEBUG][App:restore]", {
@@ -122,6 +133,7 @@ export default function App() {
     } catch {}
     if (saved) {
       setUser(saved);
+      claimPendingReferral(saved);   // 이미 로그인된 기기로 초대 링크를 연 경우(가입 7일 안이면 서버가 받는다)
     } else {
       // ── Deep Link + Guest Mode ──────────────────────────────────────────────
       // 공유 URL(/lounge/...)로 비회원이 들어오면 Landing(로그인 벽)으로 보내지 않고
@@ -203,6 +215,18 @@ export default function App() {
     setPendingRole(null);
     setPhoneAuthMode(false);
     setShowAccountPicker(false);
+    claimPendingReferral(u);
+  };
+
+  // 친구 초대 — 초대 링크로 들어와 보관해 둔 코드를 로그인 뒤 한 번 서버에 알린다(146).
+  // 가입 7일 안인지 · 이미 기록됐는지는 서버가 본다. 로그인 토큰이 없어 못 보냈으면 다음 로그인에 다시.
+  const claimPendingReferral = (u) => {
+    if (!u?.id || u.isGuest) return;
+    const code = pendingRefCode();
+    if (!code) return;
+    claimReferral(code)
+      .then((res) => { if (shouldClearAfterClaim(res)) clearRefCode(); })
+      .catch(() => { /* 다음 로그인에 다시 */ });
   };
 
   // 일반 로그아웃 — 현재 세션만 종료. 기기 인증/계정 목록은 보존한다.

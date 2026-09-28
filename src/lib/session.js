@@ -96,7 +96,9 @@ const GUARDED_EXACT = new Set([
 // 당사자 확인이 필요한 서버 함수 — 토큰 연결로 보낸다(서버 136 이 auth.uid() 로 고객·업체를 판정).
 // + 운영 스위치·라운지 운영자 함수(138 — 예전엔 앱이 보낸 사용자 ID 를 믿었다)
 const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set", "op_set_post_hot", "op_set_post_hidden", "op_set_comment_hidden",
-  "lounge_post_like", "soft_delete_lounge_post"]);
+  "lounge_post_like", "soft_delete_lounge_post",
+  // 146 — 직영 표시(관리자) · 친구 초대(본인)
+  "admin_set_company_direct", "referral_my_code", "referral_claim"]);
 export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }
 
 export function isGuardedRpc(fn) {

@@ -119,7 +119,7 @@ import {
   getPartnerLeads, setPartnerLeadStatus, setPartnerLeadOnboarding, setPartnerLeadArchive,
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
-  adminSetCompanyBadge, adminSetGuarantee,
+  adminSetCompanyBadge, adminSetGuarantee, adminSetCompanyDirect,
   getAdminVisitStats,
   signedDocUrl,
 } from "../lib/supabase";
@@ -4156,6 +4156,7 @@ const normalizeCompany = (row) => ({
   insuranceUploaded: !!row.insurance_url,
   verified: row.verified === true,
   license_verified: row.license_verified === true,
+  is_direct: row.is_direct === true,   // 공간마켓 직영(146)
   rejectNote: row.reject_note ?? "",
   // 공간보증(068) — 표시/관리용 pass-through.
   guarantee_grade:         row.guarantee_grade ?? null,
@@ -5774,6 +5775,25 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setActionLoading(false);
     setSelected(null);
     setConfirm(null);
+  };
+
+  // 공간마켓 직영 표시(146) — 운영사가 직접 시공하는 업체. 카드 표시만, 정렬·매칭엔 쓰지 않는다.
+  const handleDirect = async (company) => {
+    const next = !company.is_direct;
+    setActionLoading(true);
+    const { data, error } = await adminSetCompanyDirect(company.id, next);
+    if (!error) {
+      const patch = { is_direct: data?.is_direct ?? next };
+      setCompanies(prev => prev.map(c => c.id === company.id ? { ...c, ...patch } : c));
+      setSelected(prev => prev && prev.id === company.id ? { ...prev, ...patch } : prev);
+      showToast(patch.is_direct ? "직영 표시를 켰어요" : "직영 표시를 껐어요");
+    } else {
+      const msg = String(error?.message ?? "");
+      showToast(/NOT_ADMIN/.test(msg) ? "관리자 인증이 필요해요 — 다시 로그인해 주세요"
+        : /admin_set_company_direct/.test(msg) ? "직영 표시 실패 — SQL 146 실행이 필요해요"
+        : "직영 표시 변경 실패", false);
+    }
+    setActionLoading(false);
   };
 
   // 공간보증(068) 상태/배지 변경 — company_status(입찰 게이트)와 무관(독립).
@@ -8020,6 +8040,23 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 </div>
               );
             })()}
+
+            {/* ── 공간마켓 직영(146) — 운영사가 직접 시공하는 업체임을 카드에 밝힌다 ── */}
+            <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>공간마켓 직영</div>
+                  <div style={{ fontSize: 12, color: C.text3, marginTop: 3, lineHeight: 1.5 }}>
+                    켜면 업체 카드에 「공간마켓 직영」이 붙어요. 매칭·노출 순서는 바뀌지 않아요.
+                  </div>
+                </div>
+                <button disabled={actionLoading} onClick={() => handleDirect(selected)}
+                  style={{ flexShrink: 0, background: selected.is_direct ? C.surface : C.brand, color: selected.is_direct ? C.text2 : "#fff",
+                    border: selected.is_direct ? `1px solid ${C.bgWarm}` : "none", borderRadius: R.md, padding: "9px 14px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+                  {selected.is_direct ? "직영 끄기" : "직영 켜기"}
+                </button>
+              </div>
+            </div>
 
             {/* ── 공간보증(068) 관리 — company_status 게이트와 독립 ── */}
             {(() => {
