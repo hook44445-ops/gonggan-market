@@ -14,7 +14,7 @@ import TesterListScreen from "./screens/TesterListScreen";
 import AccountPicker from "./screens/AccountPicker";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { stashIdentityReturn } from "./lib/identity";
-import { getUserByPhone, verifyOperatorPin, recordAppVisit, claimReferral } from "./lib/supabase";
+import { getUserByPhone, verifyOperatorPin, recordAppVisit, claimReferral, wakePushDispatcher } from "./lib/supabase";
 import { refCodeFromSearch, stashRefCode, pendingRefCode, clearRefCode, shouldClearAfterClaim } from "./lib/referral";
 import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
@@ -226,7 +226,10 @@ export default function App() {
     const code = pendingRefCode();
     if (!code) return;
     claimReferral(code)
-      .then((res) => { if (shouldClearAfterClaim(res)) clearRefCode(); })
+      .then((res) => {
+        if (shouldClearAfterClaim(res)) clearRefCode();
+        if (res?.data?.ok) wakePushDispatcher();   // 데려온 사람에게 «친구가 가입했어요» 푸시(148)
+      })
       .catch(() => { /* 다음 로그인에 다시 */ });
   };
 

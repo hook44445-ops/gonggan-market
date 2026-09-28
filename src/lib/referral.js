@@ -4,6 +4,9 @@
 //   · 보상은 아직 없다(대표 결정 뒤). 화면은 «몇 명 데려왔는지»만 보여 준다.
 import { SITE_URL } from "../utils/siteSeo.js";
 
+// 초대 보상(148) — 서버 referral_claim 이 지급한다. 여기 값은 화면 안내용(SQL 과 같아야 한다 · referral.test.js 가 대조).
+export const REFERRAL_REWARD = { inviter: 30, invitee: 20, monthlyCap: 20 };
+
 const KEY = "gonggan_pending_ref";
 const KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 // 서버(146)가 만드는 코드와 같은 글자 — 헷갈리는 0/O · 1/I/L 없음
@@ -26,8 +29,8 @@ export function inviteUrl(code) {
 
 export function inviteMessage(code, isCompany = false) {
   return isCompany
-    ? `공간마켓에서 동네 인테리어·집수리 요청을 받아 보세요. 가입비 없이 바로 견적을 보낼 수 있어요.\n${inviteUrl(code)}`
-    : `인테리어·집수리 견적을 여러 곳에서 나란히 비교해 볼 수 있어요. 공간마켓 써 보세요.\n${inviteUrl(code)}`;
+    ? `공간마켓에서 동네 인테리어·집수리 요청을 받아 보세요. 가입비 없이 바로 견적을 보낼 수 있고, 이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개를 드려요.\n${inviteUrl(code)}`
+    : `인테리어·집수리 견적을 여러 곳에서 나란히 비교해 볼 수 있어요. 이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개를 드려요.\n${inviteUrl(code)}`;
 }
 
 // 안드로이드 앱 테스터 모집(09-28) — Play 정식 출시 전에는 비공개 테스트 참여자가 있어야 한다.

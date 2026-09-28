@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { C, R, S, SHADOW } from "../constants";
 import { getMyReferral } from "../lib/supabase";
-import { inviteUrl, inviteMessage, testerUrl, testerMessage } from "../lib/referral";
+import { inviteUrl, inviteMessage, testerUrl, testerMessage, REFERRAL_REWARD } from "../lib/referral";
 
 // ════════════════════════════════════════════════════════════════════════════
 // 친구 초대 — 내 초대 링크를 공유하고, 몇 명이 이 링크로 가입했는지 본다(대표 09-28 · 146).
@@ -70,6 +70,14 @@ export default function InviteScreen({ isCompany = false, onBack }) {
         <>
           <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.xl, padding: S.xl,
             boxShadow: SHADOW.soft, textAlign: "center" }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: S.sm, marginBottom: S.lg }}>
+              {[["친구가 가입하면 나", REFERRAL_REWARD.inviter], ["가입한 친구도", REFERRAL_REWARD.invitee]].map(([k, v]) => (
+                <div key={k} style={{ flex: 1, background: C.brandL, borderRadius: R.lg, padding: "10px 6px" }}>
+                  <div style={{ fontSize: 11.5, color: C.text2, fontWeight: 700 }}>{k}</div>
+                  <div style={{ fontSize: 19, fontWeight: 900, color: C.brand, marginTop: 2 }}>+{v} 토큰</div>
+                </div>
+              ))}
+            </div>
             <div style={{ fontSize: 12, color: C.text3, fontWeight: 700 }}>내 초대 코드</div>
             <div style={{ fontSize: 30, fontWeight: 900, color: C.brand, letterSpacing: "0.18em", margin: "6px 0 4px" }}>{state.code}</div>
             <div style={{ fontSize: 12, color: C.text3, wordBreak: "break-all" }}>{link}</div>
@@ -95,6 +103,7 @@ export default function InviteScreen({ isCompany = false, onBack }) {
 
           <div style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.6, marginTop: S.md, padding: `0 ${S.xs}px` }}>
             링크로 들어와 새로 가입한 사람만 셉니다. 이미 가입한 사람은 세지 않아요.
+            한 달에 {REFERRAL_REWARD.monthlyCap}명까지 보상해 드려요.
           </div>
 
           {/* 안드로이드 테스터 모집 — Play 정식 출시 전 비공개 테스트 참여자가 필요하다(09-28) */}
