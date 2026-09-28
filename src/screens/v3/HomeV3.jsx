@@ -14,6 +14,7 @@
 //  · 진행 중인 계약이 있으면 그것을 최상단으로 올려 '할 일'을 먼저 보여준다
 // ─────────────────────────────────────────────────────
 import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progress, FoldText } from "../../components/v3/ui";
+import { CURRENT_EVENT, eventLine, showEventStrip } from "../../lib/referralEvent";
 import { C, R, S } from "../../constants";
 import { SHOW_BETA_UI } from "../../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 
@@ -108,6 +109,20 @@ export default function HomeV3({
           />
         )}
       </div>
+
+      {/* ── 초대왕 이벤트 띠(155) — 시작 3일 전부터 마감까지 · 로그인한 사람만(초대 링크가 있어야 하니까) ── */}
+      {!user?.isGuest && user?.id && showEventStrip(CURRENT_EVENT) && (
+        <button onClick={() => onGo("invite")}
+          style={{ display: "flex", alignItems: "center", gap: S.md, width: "100%", textAlign: "left", border: "none", cursor: "pointer",
+            background: "#0E2B1D", color: "#F4EFE4", borderRadius: R.lg, padding: "12px 14px" }}>
+          <span aria-hidden style={{ fontSize: 22 }}>🏆</span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: "block", fontSize: 14, fontWeight: 900 }}>{CURRENT_EVENT.title} 이벤트</span>
+            <span style={{ display: "block", fontSize: 12, color: "rgba(244,239,228,0.8)", marginTop: 2 }}>{eventLine(CURRENT_EVENT)}</span>
+          </span>
+          <span style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 800, color: "#0E2B1D", background: "#D6A756", borderRadius: R.full, padding: "6px 11px" }}>초대하기</span>
+        </button>
+      )}
 
       {/* ── 진행 중인 계약 — 있으면 최상단. '지금 할 일'이 먼저다 ──── */}
       {activeContract && (

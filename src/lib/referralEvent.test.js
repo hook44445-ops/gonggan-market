@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { CURRENT_EVENT, eventStatus, daysLeft, prizeFor, eventLine } from "./referralEvent.js";
+import { CURRENT_EVENT, eventStatus, daysLeft, prizeFor, eventLine, showEventStrip } from "./referralEvent.js";
 
 const at = (iso) => Date.parse(iso);
 
@@ -28,4 +28,11 @@ test("상품 — 1~3등 300/200/100, 4등부터 0", () => {
 test("서버(155)와 기간·상품이 같다", () => {
   const sql = readFileSync(fileURLToPath(new URL("../../supabase/migrations/155_referral_event.sql", import.meta.url)), "utf-8");
   assert.ok(sql.includes("'2026-10', '10월 초대왕', '2026-10-01 00:00:00+09', '2026-11-01 00:00:00+09', array[300, 200, 100]"));
+});
+
+test("홈 띠 — 시작 3일 전부터 마감까지", () => {
+  assert.equal(showEventStrip(CURRENT_EVENT, at("2026-09-27T12:00:00+09:00")), false);
+  assert.equal(showEventStrip(CURRENT_EVENT, at("2026-09-28T12:00:00+09:00")), true);
+  assert.equal(showEventStrip(CURRENT_EVENT, at("2026-10-15T12:00:00+09:00")), true);
+  assert.equal(showEventStrip(CURRENT_EVENT, at("2026-11-01T00:00:01+09:00")), false);
 });
