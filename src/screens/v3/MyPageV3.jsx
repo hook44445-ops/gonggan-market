@@ -19,6 +19,8 @@ import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../../constants/release"; // 베타
 import { BIZ_ROWS } from "../../components/AppFooter";
 import { useEffect, useState } from "react";
 import { companyPageUrl } from "../../lib/referral";
+import { slugProblem, normalizeSlug } from "../../lib/companySlug";
+import { setCompanySlug } from "../../lib/supabase";
 import { myRefCode } from "../../lib/myRefCode";
 
 export default function MyPageV3({
@@ -43,6 +45,8 @@ export default function MyPageV3({
   isModerator = false,     // 관리자·운영자 — 운영 입구를 보여 준다
   isAdmin = false,
   companyId = null,        // 업체 공개 페이지(/p/업체ID) 공유용
+  companySlug = null,      // 짧은 주소(/p/짧은이름 · 149)
+  onSlugChange,            // 저장되면 부모(myCompanyRow)에 반영
 }) {
   const isCompany = activeRole === "company";
   // 내 업체 페이지 공유 — 초대 코드를 미리 받아 둔다(버튼에서 기다리면 아이폰이 공유창을 막는다).
@@ -55,11 +59,36 @@ export default function MyPageV3({
     return () => { alive = false; };
   }, [isCompany, companyId, user?.id]);
   const shareCompanyPage = async () => {
-    const url = companyPageUrl(companyId, refCode);
+    const url = companyPageUrl(companySlug || companyId, refCode);
     try {
       if (navigator.share) { await navigator.share({ title: user?.name || "공간마켓", url }); setPageShared(true); return; }
       await navigator.clipboard.writeText(url); setPageShared(true);
     } catch { /* 공유 취소 */ }
+  };
+
+  // 짧은 주소 정하기(149) — 명함·인스타에 넣을 수 있게. 규칙은 lib/companySlug(서버와 같음).
+  const [slugOpen, setSlugOpen] = useState(false);
+  const [slugDraft, setSlugDraft] = useState("");
+  const [slugMsg, setSlugMsg] = useState(null);
+  const [slugBusy, setSlugBusy] = useState(false);
+  const saveSlug = async () => {
+    const v = normalizeSlug(slugDraft);
+    const problem = v ? slugProblem(v) : null;
+    if (problem) { setSlugMsg(problem); return; }
+    setSlugBusy(true); setSlugMsg(null);
+    const { data, error } = await setCompanySlug(companyId, v);
+    setSlugBusy(false);
+    if (error || !data?.ok) {
+      const r = data?.reason;
+      const m = String(error?.message ?? "");
+      setSlugMsg(r === "TAKEN" ? "이미 다른 업체가 쓰는 주소예요" : r === "RESERVED" ? "쓸 수 없는 주소예요 — 다른 이름을 골라 주세요"
+        : r === "BAD_SLUG" ? (slugProblem(v) || "주소 모양을 확인해 주세요")
+        : /LOGIN_REQUIRED|JWT/.test(m) ? "로그인이 풀렸어요 — 인증번호로 다시 로그인해 주세요"
+        : /company_set_slug/.test(m) ? "아직 준비 중이에요(SQL 149)" : "저장하지 못했어요");
+      return;
+    }
+    onSlugChange?.(data.slug ?? null);
+    setSlugOpen(false);
   };
   const name = user?.name || (isCompany ? "파트너" : "회원");
   const region = user?.region || "지역 미설정";
@@ -155,6 +184,10 @@ export default function MyPageV3({
                  onClick={onEditRegions} />
             <Row emoji="📄" label="서류 관리" sub="사업자등록증·증빙" onClick={() => onGo("documents")} last={!companyId} />
             {companyId && (
+              <Row emoji="📌" label="내 업체 주소" sub={companySlug ? `gongganmarket.com/p/${companySlug}` : "짧은 주소 만들기 — 명함·인스타에 넣기 좋게"}
+                   onClick={() => { setSlugDraft(companySlug ?? ""); setSlugMsg(null); setSlugOpen(true); }} />
+            )}
+            {companyId && (
               <Row emoji="🔗" label="내 업체 페이지 공유" sub={pageShared ? "주소를 보냈어요 · 블로그·인스타·명함에도 걸어 보세요" : "시공 사례·후기를 누구나 보는 주소"}
                    onClick={shareCompanyPage} last />
             )}
@@ -244,6 +277,33 @@ export default function MyPageV3({
           ))}
         </div>
       </div>
+      {slugOpen && (
+        <div onClick={() => setSlugOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.55)", zIndex: 600,
+          display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label="내 업체 주소"
+            style={{ width: "100%", maxWidth: 480, background: C.surface, borderRadius: "22px 22px 0 0", padding: "22px 20px 30px" }}>
+            <div style={{ fontSize: 17, fontWeight: 900, color: C.text1 }}>내 업체 주소</div>
+            <div style={{ fontSize: 12.5, color: C.text3, marginTop: 4, lineHeight: 1.6 }}>
+              영문 소문자를 권해요(예: gangseo-repair). 한글도 되지만 일부 앱에서 주소가 길게 보여요.
+            </div>
+            <div style={{ display: "flex", alignItems: "center", marginTop: 14, border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, overflow: "hidden" }}>
+              <span style={{ padding: "12px 0 12px 12px", fontSize: 14, color: C.text3, whiteSpace: "nowrap" }}>…/p/</span>
+              <input value={slugDraft} onChange={(e) => { setSlugDraft(e.target.value); setSlugMsg(null); }} maxLength={20}
+                aria-label="짧은 주소" placeholder="gangseo-repair" autoCapitalize="none" autoCorrect="off"
+                style={{ flex: 1, minWidth: 0, border: "none", outline: "none", padding: "12px 12px 12px 2px", fontSize: 15, color: C.text1 }} />
+            </div>
+            {slugMsg && <div role="alert" style={{ marginTop: 8, fontSize: 12.5, fontWeight: 700, color: C.red }}>{slugMsg}</div>}
+            <div style={{ display: "flex", gap: S.sm, marginTop: 16 }}>
+              <button onClick={() => setSlugOpen(false)} style={{ flex: 1, padding: "13px 0", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
+                background: C.surface, color: C.text2, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>취소</button>
+              <button onClick={saveSlug} disabled={slugBusy} style={{ flex: 2, padding: "13px 0", borderRadius: R.md, border: "none",
+                background: C.brand, color: "#fff", fontSize: 14.5, fontWeight: 800, cursor: "pointer", opacity: slugBusy ? 0.7 : 1 }}>
+                {slugBusy ? "저장 중…" : slugDraft.trim() ? "이 주소로 정하기" : "짧은 주소 없애기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Page>
   );
 }

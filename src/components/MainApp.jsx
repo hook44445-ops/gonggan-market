@@ -5339,6 +5339,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               isModerator={isModerator}
               isAdmin={user?.role === "admin"}
               companyId={activeRole === "company" ? (myCompanyRow?.id ?? null) : null}
+              companySlug={activeRole === "company" ? (myCompanyRow?.slug ?? null) : null}
+              onSlugChange={(slug) => setMyCompanyRow(r => (r ? { ...r, slug } : r))}
               onGo={(target) => {
                 if (target === "newreq") { requireAuth(() => handleOpenNewReq()); return; }
                 if (target === "lounge-settings" || target === "my-posts") { setScreen("lounge"); return; }

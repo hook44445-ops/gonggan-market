@@ -350,10 +350,11 @@ export default function App() {
     }
     // 업체 공개 페이지(/p/업체ID) — 로그인 없이 시공 사례·후기. 로그인한 사람도 같은 화면(링크를 받은 사람 시점).
     if (_staticPath.startsWith("/p/")) {
-      const companyId = decodeURIComponent(window.location.pathname.replace(/\/+$/, "").split("/")[2] ?? "");
+      // 업체 ID(uuid) 또는 짧은 주소(149) — PublicCompanyScreen 이 가른다
+      const companyRef = decodeURIComponent(window.location.pathname.replace(/\/+$/, "").split("/")[2] ?? "");
       return (
         <ErrorBoundary onLogout={() => { window.location.href = "/"; }} activeRole="visitor">
-          <PublicCompanyScreen companyId={companyId} />
+          <PublicCompanyScreen companyRef={companyRef} />
         </ErrorBoundary>
       );
     }
