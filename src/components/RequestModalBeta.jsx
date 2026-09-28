@@ -204,10 +204,10 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           <Label required>평수</Label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
             {SIZE_QUICK.map(q => (
-              <button key={q} onClick={() => set("size", q)} style={chip(form.size === q)}>{q}</button>
+              <button key={q} onClick={() => set("size", q)} aria-pressed={form.size === q} style={chip(form.size === q)}>{q}</button>
             ))}
           </div>
-          <input placeholder="정확히 알면 적어 주세요 · 예: 32평" value={SIZE_QUICK.includes(form.size) ? "" : form.size}
+          <input aria-label="평수 직접 입력" placeholder="정확히 알면 적어 주세요 · 예: 32평" value={SIZE_QUICK.includes(form.size) ? "" : form.size}
             onChange={e => set("size", e.target.value)} style={iS} />
 
           <button disabled={!(form.type && form.size)} onClick={() => form.type && form.size && setStep(2)} style={{ ...primaryBtn(!!(form.type && form.size)), width: "100%", flex: "none", marginTop: 4 }}>
@@ -222,10 +222,10 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           <Label required>희망 예산</Label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
             {BUDGET_QUICK.map(q => (
-              <button key={q} onClick={() => set("budget", q)} style={chip(form.budget === q)}>{q}</button>
+              <button key={q} onClick={() => set("budget", q)} aria-pressed={form.budget === q} style={chip(form.budget === q)}>{q}</button>
             ))}
           </div>
-          <input placeholder="직접 적기 · 예: 2,500~3,000만원" value={BUDGET_QUICK.includes(form.budget) ? "" : form.budget}
+          <input aria-label="희망 예산 직접 입력" placeholder="직접 적기 · 예: 2,500~3,000만원" value={BUDGET_QUICK.includes(form.budget) ? "" : form.budget}
             onChange={e => set("budget", e.target.value)} style={iS} />
 
           <Label>마음에 드는 분위기</Label>
@@ -238,6 +238,7 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           </div>
           {isCustomStyle && (
             <input
+              aria-label="마음에 드는 분위기 직접 입력"
               placeholder="예: 빈티지, 한옥 모던, 컬러풀 팝아트..."
               value={form.style === "기타" ? "" : form.style}
               onChange={e => set("style", e.target.value)}
@@ -293,7 +294,7 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           {workTags.length > 0 && (
             <div style={{ fontSize: 12.5, color: C.brand, fontWeight: 700, marginBottom: 6 }}>고른 공사 · {workTags.join(", ")}{wantsLight && lightTags.length ? ` (조명: ${lightTags.join(", ")})` : ""}</div>
           )}
-          <textarea placeholder={workTags.length ? "더 알려 줄 것 · 예) 거실만, 욕실 2개 중 1개" : "위에서 고르거나 직접 적어 주세요 · 예) 주방 확장, 욕실 2개 교체"} value={workNote}
+          <textarea aria-label="공사 요청 내용" placeholder={workTags.length ? "더 알려 줄 것 · 예) 거실만, 욕실 2개 중 1개" : "위에서 고르거나 직접 적어 주세요 · 예) 주방 확장, 욕실 2개 교체"} value={workNote}
             onChange={e => setWorkNote(e.target.value)} rows={4}
             style={{ ...iS, minHeight: 110, resize: "none", lineHeight: 1.7, marginBottom: S.md }} />
 
