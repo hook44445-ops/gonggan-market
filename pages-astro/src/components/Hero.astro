@@ -1,0 +1,9 @@
+---
+import { coverFor,safeImage,levelFor } from '../lib/display.js';
+const { company:c }=Astro.props;
+const own=safeImage(c.cover_url || c.cover), logo=safeImage(c.logo_url);
+const temp=Number(c.temp);
+---
+<div class="cover"><img src={coverFor(c)} alt="" width="1200" height="675" fetchpriority="high"/>{!own && <span class="mood">분위기 그림</span>}</div>
+<div class="hero"><div class="avatar">{logo ? <img src={logo} alt="" width="68" height="68"/> : String(c.name || '?')[0]}</div><div><span class="level">Lv.{levelFor(c)}</span><span class="temperature">공간온도 {Number.isFinite(temp)?temp.toFixed(1):'36.5'}°</span><h1>{c.name}</h1></div></div>
+{c.is_direct === true && <details class="direct"><summary>공간마켓 직영</summary><p>공간마켓 운영사가 직접 시공하는 업체예요. 다른 파트너와 같은 기준으로 비교되고, 매칭·노출 순서에서 우대받지 않아요.</p></details>}

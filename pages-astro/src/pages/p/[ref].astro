@@ -1,0 +1,41 @@
+---
+import Base from '../../layouts/Base.astro';
+import Hero from '../../components/Hero.astro';
+import TrustRow from '../../components/TrustRow.astro';
+import Kpi from '../../components/Kpi.astro';
+import Works from '../../components/Works.astro';
+import Reviews from '../../components/Reviews.astro';
+import Cta from '../../components/Cta.astro';
+import RefStash from '../../components/RefStash.astro';
+import InstallBanner from '../../components/InstallBanner.astro';
+import {createReader,getCompanyByRef} from '../../lib/company.js';
+import {coverFor,safeImage} from '../../lib/display.js';
+export const prerender=false;
+const site=(import.meta.env.SITE_URL || process.env.SITE_URL || 'https://gongganmarket.com').replace(/\/$/,'');
+const read=createReader({url:import.meta.env.SUPABASE_URL || process.env.SUPABASE_URL,key:import.meta.env.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY});
+let data=null, unavailable=false;
+try{data=await getCompanyByRef(Astro.params.ref,read);}catch{unavailable=true;}
+Astro.response.status=data?200:unavailable?503:404;
+Astro.response.headers.set('Cache-Control',data?'public, s-maxage=600, stale-while-revalidate=86400':'no-store');
+if(unavailable)Astro.response.headers.set('Retry-After','60');
+const c=data?.company;
+const ref=c?.slug || c?.id || Astro.params.ref || '';
+const canonical=site+'/p/'+encodeURIComponent(ref);
+const title=c ? c.name+' — '+(c.region?c.region+' ':'')+'인테리어·집수리 | 공간마켓' : (unavailable?'잠시 후 다시 확인해 주세요':'업체를 찾을 수 없어요')+' | 공간마켓';
+const specialties=Array.isArray(c?.specialties)?c.specialties.filter(x=>typeof x==='string'):[];
+const description=c ? c.name+'의 시공 사례'+(data.workCount?' '+data.workCount+'건':'')+(data.stats.average?'과 후기 평점 '+data.stats.average:'')+'을 확인하고 공간마켓에서 무료로 견적을 받아 보세요. '+specialties.slice(0,6).join('·') : '공간마켓에서 우리 동네 인테리어·집수리 업체를 만나 보세요.';
+const realPhoto=data?.works.find(w=>w.photo)?.photo || safeImage(c?.cover_url);
+const image=new URL(realPhoto || (c?coverFor(c):'/og-space-v2.png'),site).href;
+const schema=c ? [
+ {'@context':'https://schema.org','@type':'HomeAndConstructionBusiness',name:c.name,url:canonical,...(c.region?{areaServed:c.region}:{}),...(realPhoto?{image:new URL(realPhoto,site).href}:{}),...(data.stats.average?{aggregateRating:{'@type':'AggregateRating',ratingValue:data.stats.average,reviewCount:data.stats.ratedCount}}:{})},
+ {'@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:[{'@type':'ListItem',position:1,name:'공간마켓',item:site+'/'},{'@type':'ListItem',position:2,name:c.name,item:canonical}]}
+] : [];
+const tags=[...new Set([c?.region,...(Array.isArray(c?.service_regions)?c.service_regions:[]),...specialties].filter(x=>typeof x==='string'&&x))];
+---
+<Base {title} {description} {canonical} {image} {schema} robots={c && !Astro.url.searchParams.has('ref')?'index, follow':'noindex, follow'}>
+<RefStash/><InstallBanner/>
+{data ? <><Hero company={c}/><TrustRow company={c}/><Kpi company={c} stats={data.stats}/>
+{(tags.length>0 || c.intro) && <section><h2>업체 소개</h2>{c.intro && <p>{String(c.intro).slice(0,300)}</p>}<div class="tags">{tags.map(tag=><span class="tag">{tag}</span>)}</div></section>}
+<Works works={data.works} count={data.workCount}/><Reviews reviews={data.reviews} stats={data.stats} external={data.external} externalCount={data.externalCount} {ref}/><Cta/></>
+: <section class="error"><h1>{unavailable?'잠시 후 다시 확인해 주세요':'업체를 찾을 수 없어요'}</h1><p>{unavailable?'업체 정보를 불러오지 못했어요. 잠시 후 다시 방문해 주세요.':'주소가 바뀌었거나 활동을 쉬고 있는 업체예요.'}</p><a class="text-link" href="https://gongganmarket.com/">공간마켓에서 다른 업체 보기 →</a></section>}
+</Base>

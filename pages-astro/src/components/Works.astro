@@ -1,0 +1,14 @@
+---
+import Empty from './Empty.astro';
+const {works,count}=Astro.props;
+---
+<section><h2>시공 포트폴리오 {count>0 && <small>{count}건</small>}</h2>{works.length ? <div class="works">{works.map(w=><figure class="work">{w.photo && <a href={w.photo} data-photo data-caption={w.title || '시공 사례'}><img src={w.photo} alt={w.title || '시공 사례'} width="640" height="400" loading="lazy"/></a>}<figcaption>{[w.title,w.space_type,w.area].filter(Boolean).join(' · ')}</figcaption></figure>)}</div> : <Empty kind="portfolio"/>}</section>
+<dialog id="photo-dialog" aria-label="시공 사진 크게 보기"><button type="button" data-close>닫기</button><img alt=""/></dialog>
+<script>
+const dialog=document.querySelector<HTMLDialogElement>('#photo-dialog');
+document.querySelectorAll<HTMLAnchorElement>('[data-photo]').forEach(link=>link.addEventListener('click',event=>{
+ if(!dialog || typeof dialog.showModal!=='function')return;
+ event.preventDefault();const image=dialog.querySelector('img')!;image.src=link.href;image.alt=link.dataset.caption || '시공 사례';dialog.showModal();
+}));
+dialog?.querySelector('[data-close]')?.addEventListener('click',()=>dialog.close());
+</script>
