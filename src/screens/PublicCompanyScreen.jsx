@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getCompany } from "../lib/supabase";
+import { getCompanyByRef } from "../lib/supabase";
 import { normalizeCompany } from "../components/MainApp";
 import { isTestCompany } from "../lib/testCompany";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
@@ -13,18 +13,18 @@ import PortfolioScreenBeta from "./PortfolioScreenBeta";
 //   테스트 업체·없는 업체는 «찾을 수 없어요».
 // ════════════════════════════════════════════════════════════════════════════
 
-export default function PublicCompanyScreen({ companyId }) {
+export default function PublicCompanyScreen({ companyRef }) {
   const [state, setState] = useState({ loading: true, company: null });
 
   useEffect(() => {
     let alive = true;
-    getCompany(companyId).then(({ data }) => {
+    getCompanyByRef(companyRef).then(({ data }) => {
       if (!alive) return;
       const ok = data && !isTestCompany(data);
-      setState({ loading: false, company: ok ? normalizeCompany(data) : null });
+      setState({ loading: false, company: ok ? { ...normalizeCompany(data), slug: data.slug ?? null } : null });
     }).catch(() => alive && setState({ loading: false, company: null }));
     return () => { alive = false; };
-  }, [companyId]);
+  }, [companyRef]);
 
   const c = state.company;
   useDocumentMeta({
@@ -32,7 +32,7 @@ export default function PublicCompanyScreen({ companyId }) {
     description: c
       ? `${c.name}의 시공 사례와 후기를 확인하고 공간마켓에서 무료로 견적을 받아 보세요.${c.region ? ` ${c.region} 인테리어·집수리.` : ""}`
       : "공간마켓 — 인테리어·집수리 견적 비교",
-    path: `/p/${companyId}`,
+    path: `/p/${c?.slug || c?.id || companyRef}`,
   });
 
   const toHome = () => { window.location.href = "/"; };

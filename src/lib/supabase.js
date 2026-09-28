@@ -117,6 +117,16 @@ export const getCompanies = () =>
 export const getCompany = (id) =>
   supabase.from("companies").select("*").eq("id", id).maybeSingle();
 
+// 업체 공개 페이지(/p/…) — 업체 ID(uuid) 또는 짧은 주소(149 slug) 어느 쪽이든.
+export const getCompanyByRef = (ref) => {
+  const r = String(ref ?? "").trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r)) return getCompany(r);
+  return supabase.from("companies").select("*").eq("slug", r.toLowerCase()).maybeSingle();
+};
+// 짧은 주소 정하기 — 업체 주인(로그인 토큰) 또는 관리자. 빈 값이면 없앤다. → { ok, slug?, reason? }
+export const setCompanySlug = (companyId, slug) =>
+  supabase.rpc("company_set_slug", { p_company_id: companyId, p_slug: slug ?? "" });
+
 export const getCompanyByOwnerId = (ownerId) =>
   supabase.from("companies").select("*").eq("owner_id", ownerId).maybeSingle();
 
