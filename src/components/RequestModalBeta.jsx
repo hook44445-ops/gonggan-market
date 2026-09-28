@@ -112,7 +112,8 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
     borderRadius: R.lg, fontSize: 15, outline: "none", boxSizing: "border-box",
     marginBottom: 14, fontFamily: "inherit", color: C.text1, background: C.surface, minHeight: 52 };
 
-  const isCustomStyle = form.style === "기타" || (!STYLES.includes(form.style) && !!form.style);
+  const [isCustomStyle, setIsCustomStyle] = useState(() =>
+    form.style === "기타" || (!STYLES.includes(form.style) && !!form.style));
 
   // 단계 메타 + 완료 표시(검증 조건은 원본과 동일)
   const steps = [
@@ -231,9 +232,12 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           <Label>마음에 드는 분위기</Label>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: isCustomStyle ? S.md : S.xl }}>
             {STYLES.map(st => (
-              <PhotoPick key={st} label={st} img={styleImgFor(form.type, st)} active={form.style === st} onClick={() => set("style", form.style === st ? "" : st)} ratio="1 / 1" />
+              <PhotoPick key={st} label={st} img={styleImgFor(form.type, st)} active={!isCustomStyle && form.style === st} onClick={() => {
+                setIsCustomStyle(false);
+                set("style", !isCustomStyle && form.style === st ? "" : st);
+              }} ratio="1 / 1" />
             ))}
-            <button onClick={() => set("style", "기타")} aria-pressed={isCustomStyle}
+            <button onClick={() => { if (!isCustomStyle) { setIsCustomStyle(true); set("style", "기타"); } }} aria-pressed={isCustomStyle}
               style={{ ...chip(isCustomStyle), borderRadius: R.lg, aspectRatio: "1 / 1", minHeight: 0, display: "grid", placeItems: "center" }}>✏️ 직접 적기</button>
           </div>
           {isCustomStyle && (
