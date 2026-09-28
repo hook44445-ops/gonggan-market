@@ -1,0 +1,4 @@
+<!-- Source: app src/lib/referral.js. Same origin storage, same schema and last-link attribution. -->
+<script is:inline>
+try{const url=new URL(location.href);const code=(url.searchParams.get('ref')||'').trim().toUpperCase();if(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/.test(code)){try{localStorage.setItem('gonggan_pending_ref',JSON.stringify({code,at:Date.now()}));}catch{}url.searchParams.delete('ref');history.replaceState(null,'',url.pathname+url.search+url.hash);}}catch{}
+</script>

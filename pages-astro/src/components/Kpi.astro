@@ -1,0 +1,4 @@
+---
+const {company,stats}=Astro.props;
+---
+<div class="kpi"><div><b>{Math.max(0,Number(company.completed_jobs)||0)}</b><span>시공</span></div><div><b>{stats.count}</b><span>계약 후기</span></div><div><b>{stats.average || '—'}</b><span>계약 후기 평점</span></div></div>
