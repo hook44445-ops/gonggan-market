@@ -24,9 +24,11 @@ export function draftFromContract(contract, photoRows) {
   const before = urls(photoRows, PHOTO_STEP.start).slice(0, MAX_PHOTOS);
   const req = contract?.requests ?? {};
   const space = req.space_type || req.type || null;
+  // 「평수 무관(작은 수리)」(요청서 09-28)는 평수가 아니다 — 제목에 넣으면 «평수 무관(작은 수리) 아파트 부분 시공»이 된다.
+  const size = /^평수 무관/.test(String(req.size ?? "")) ? null : (req.size || null);
   const total = Number(contract?.total_amount);
   return {
-    title: [req.size, space].filter(Boolean).join(" ") + (space || req.size ? " 시공" : "시공 사례"),
+    title: [size, space].filter(Boolean).join(" ") + (space || size ? " 시공" : "시공 사례"),
     space_type: space,
     area: req.area ?? null,
     size: req.size ?? null,

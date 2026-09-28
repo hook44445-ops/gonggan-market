@@ -60,3 +60,9 @@ test("계약 id로 이미 만든 사례도 빠진다(사진을 바꿔 저장했�
   const ready = contractsReadyForShowcase({ contracts: [contract], photoRows: rows, portfolios: [{ contract_id: "k1", after_photos: ["other"] }] });
   assert.equal(ready.length, 0);
 });
+
+test("「평수 무관(작은 수리)」는 제목에 넣지 않는다", () => {
+  const d = draftFromContract({ id: "k3", requests: { space_type: "아파트 부분", size: "평수 무관(작은 수리)" } },
+    [{ contract_id: "k3", step: PHOTO_STEP.done, photos: ["x"] }]);
+  assert.equal(d.title, "아파트 부분 시공");
+});
