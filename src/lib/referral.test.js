@@ -90,3 +90,14 @@ test("좋은 후기 뒤 업체 추천 문자 — 업체 페이지 + 내 초대 �
   assert.match(m, /\/p\/bandeut\?ref=ABC234$/);
   assert.match(recommendMessage("", "x", null), /^우리 집 공사한 이 업체/);
 });
+
+test("초대 링크 미리보기 카드 — 코드가 맞을 때만, 선물 금액은 보상표 그대로", async () => {
+  const { inviteOg, REFERRAL_REWARD } = await import("./referral.js");
+  assert.equal(inviteOg("home", "bad"), null);
+  assert.equal(inviteOg("home", undefined), null);
+  const h = inviteOg("home", "abc234");
+  assert.match(h.title, /초대/);
+  assert.ok(h.description.includes(`공간토큰 ${REFERRAL_REWARD.invitee}개`));
+  assert.match(inviteOg("partner", "ABC234").title, /파트너/);
+  assert.match(inviteOg("company", "ABC234", "반듯수리").title, /^반듯수리 — 지인이 추천/);
+});

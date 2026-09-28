@@ -17,6 +17,25 @@ export function normalizeRefCode(raw) {
   return CODE_RE.test(code) ? code : null;
 }
 
+// 초대 링크 미리보기(카카오톡·문자 카드) — 봇 프리렌더(api/prerender)가 ?ref= 가 붙은 주소에 쓴다.
+//   받은 사람이 카드만 보고도 «가입 선물»을 알게. 코드가 틀리면 null(평소 카드 그대로).
+export function inviteOg(kind, rawCode, companyName) {
+  if (!normalizeRefCode(rawCode)) return null;
+  const gift = `이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개`;
+  if (kind === "partner") return {
+    title: "동료 사장님이 공간마켓 파트너로 초대했어요",
+    description: `가입비·광고비 없이 우리 동네 인테리어·집수리 요청을 받아 보세요. ${gift}.`,
+  };
+  if (kind === "company") return {
+    title: `${String(companyName ?? "").trim() || "업체"} — 지인이 추천한 업체예요 | 공간마켓`,
+    description: `실제 공사한 지인이 추천했어요. 시공 사례·후기를 보고 무료로 견적을 받아 보세요. ${gift}.`,
+  };
+  return {
+    title: "친구가 공간마켓에 초대했어요 🎁",
+    description: `${gift}. 인테리어·집수리 견적을 여러 업체에서 받아 나란히 비교해 보세요.`,
+  };
+}
+
 // 주소의 ?ref= 에서 코드 — 없거나 모양이 틀리면 null
 export function refCodeFromSearch(search) {
   try { return normalizeRefCode(new URLSearchParams(search ?? "").get("ref")); } catch { return null; }
