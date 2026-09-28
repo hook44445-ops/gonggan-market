@@ -4,6 +4,7 @@
 // window.location.pathname === "/download" 일 때 이 화면을 렌더한다.
 
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
+import { SHOW_BETA_UI } from "../constants/release";
 
 // 비공개 테스트 참여(Opt-in) 페이지 — 테스터 참여 완료 후에만 다운로드 버튼이 노출된다.
 const PLAY_URL =
@@ -83,8 +84,20 @@ export default function DownloadScreen() {
             boxShadow: "0 6px 16px rgba(46,95,75,0.3)", letterSpacing: "-0.3px",
           }}
         >
-          공간마켓 앱 동의하고 다운로드하기
+          Google Play 테스트 참여하기
         </a>
+
+        <a href="/" style={{
+          display: "block", marginTop: 12, padding: "15px 18px", borderRadius: 14,
+          border: `1px solid ${C.green}`, color: C.green, background: C.surface,
+          textDecoration: "none", fontSize: 15, fontWeight: 800,
+        }}>
+          설치 없이 웹에서 시작하기
+        </a>
+        <p style={{ fontSize: 12.5, lineHeight: 1.75, color: C.text2, margin: "12px 0 0" }}>
+          아이폰을 사용하거나 테스트 참여가 어려우면 웹에서 이용해 주세요.<br />
+          견적 요청은 로그인 후 이용할 수 있어요.
+        </p>
 
         {/* 처음 참여 안내 — 테스터 참여 선완료 필요 */}
         <div
@@ -97,7 +110,8 @@ export default function DownloadScreen() {
             💡 처음 참여하는 경우
           </div>
           <p style={{ fontSize: 12.5, lineHeight: 1.75, color: C.text2, margin: 0 }}>
-            Google Play에서 먼저 <b>‘테스터 참여’</b>를 완료해야 다운로드가 가능합니다.
+            테스트 대상으로 등록된 Google 계정으로 먼저 <b>‘테스터 참여’</b>를 완료해 주세요.<br />
+            참여할 수 없다는 안내가 나오면 계정을 확인하거나 위의 웹 이용 버튼을 눌러 주세요.
           </p>
         </div>
 
@@ -119,7 +133,12 @@ export default function DownloadScreen() {
 
       {/* 신뢰 문구 */}
       <p style={{ fontSize: 12, lineHeight: 1.7, color: C.text3, margin: "22px 0 0", textAlign: "center", maxWidth: 420 }}>
-        공간마켓은 검증된 업체와 단계별 에스크로로<br />믿을 수 있는 인테리어 거래를 돕습니다.
+        {SHOW_BETA_UI ? (
+          <>베타 기간에는 견적·상담·계약 기록을 무료로 이용할 수 있어요.<br />
+            대금은 계약서 단계대로 업체와 직접 주고받아요.</>
+        ) : (
+          <>공간마켓은 검증된 업체와 단계별 에스크로로<br />믿을 수 있는 인테리어 거래를 돕습니다.</>
+        )}
       </p>
     </div>
   );
