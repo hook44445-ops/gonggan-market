@@ -1,4 +1,4 @@
-import { pickDailyTopics, dayIndexOf } from "./loungeTopicPool.js";
+import { pickDailyTopics, dayIndexOf, pickSeasonalTopic } from "./loungeTopicPool.js";
 import { pickCategoryTopics } from "./loungeCategoryTopics.js";
 
 // ════════════════════════════════════════════════════════════════════
@@ -30,6 +30,9 @@ async function collectManual() {
   //   대표 「인테리어 수요자와 공급자를 위한 글은 특히 자주」 — 공간 4 : 카테고리 2(공간 글이 앞에).
   const space = pickDailyTopics(4, now);
   const cats = pickCategoryTopics(2, dayIndexOf(now));
+  // 09-28 계절 집수리 — 공간 네 칸 중 마지막 칸을 그 달 주제로(하루 글 수는 그대로 · 검색 유입 → #815 견적 링크)
+  const season = pickSeasonalTopic(now);
+  if (season) space[3] = season;
   const mixed = [space[0], cats[0], space[1], space[2], cats[1], space[3]].filter(Boolean);
   return mixed.map((t) => ({
     providerId: "manual",
