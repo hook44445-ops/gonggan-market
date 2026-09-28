@@ -27,6 +27,18 @@ export function shouldShowAndroidBanner({ ua = "", inApp = false, closedAt = 0, 
   return !(now - Number(closedAt || 0) < QUIET_MS);
 }
 
+// 견적 요청 직후 «앱으로 알림 받기»(09-28) — 웹에서 요청한 사람은 견적 도착 알림이 필요한 순간이라 설치 전환이 가장 높다.
+// 앱 안이면 null. 아이폰은 App Store 번호가 있을 때만, 안드로이드는 비공개 테스트 중엔 /download.
+export function installOfferAfterRequest({ ua = "", inApp = false, appStoreId = "", playPublic = false } = {}) {
+  if (inApp) return null;
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    const id = String(appStoreId ?? "").replace(/\D/g, "");
+    return id ? { url: `https://apps.apple.com/app/id${id}`, store: "App Store" } : null;
+  }
+  if (/Android/i.test(ua)) return { url: androidInstallUrl(playPublic), store: playPublic ? "Google Play" : "테스트 앱" };
+  return null;
+}
+
 // 아이폰 스마트 앱 배너 메타 내용 — 번호가 없으면 null
 export function smartBannerContent(appStoreId, url = "") {
   const id = String(appStoreId ?? "").replace(/\D/g, "");
@@ -42,7 +54,10 @@ export function detectAndRememberInApp() {
   const remembered = safeGet(IN_APP_KEY) === "1";
   let standalone = false;
   try { standalone = window.matchMedia?.("(display-mode: standalone)")?.matches === true || window.navigator.standalone === true; } catch { /* noop */ }
-  const inApp = isInApp({ referrer: document.referrer, standalone, remembered });
+  // iOS 쉘(Expo · react-native-webview)은 window.ReactNativeWebView 를 심는다 — 사파리가 아니라 앱 안
+  let rnShell = false;
+  try { rnShell = typeof window.ReactNativeWebView !== "undefined"; } catch { /* noop */ }
+  const inApp = rnShell || isInApp({ referrer: document.referrer, standalone, remembered });
   if (inApp && !remembered) safeSet(IN_APP_KEY, "1");
   return inApp;
 }

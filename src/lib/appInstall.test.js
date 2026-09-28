@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isInApp, androidInstallUrl, shouldShowAndroidBanner, smartBannerContent } from "./appInstall.js";
+import { installOfferAfterRequest, isInApp, androidInstallUrl, shouldShowAndroidBanner, smartBannerContent } from "./appInstall.js";
 
 const ANDROID = "Mozilla/5.0 (Linux; Android 14; SM-S918N) Chrome/129";
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)";
@@ -32,4 +32,13 @@ test("아이폰 스마트 앱 배너 — 번호가 있을 때만", () => {
   assert.equal(smartBannerContent("6739012345"), "app-id=6739012345");
   assert.equal(smartBannerContent("6739012345", "https://gongganmarket.com/lounge/posts/1"),
     "app-id=6739012345, app-argument=https://gongganmarket.com/lounge/posts/1");
+});
+
+test("견적 요청 직후 앱 설치 제안 — 앱 안·PC·번호 없는 아이폰은 없음", () => {
+  assert.equal(installOfferAfterRequest({ ua: ANDROID, inApp: true }), null);
+  assert.equal(installOfferAfterRequest({ ua: "Mozilla/5.0 (Windows NT 10.0)" }), null);
+  assert.equal(installOfferAfterRequest({ ua: IPHONE, appStoreId: "" }), null);
+  assert.deepEqual(installOfferAfterRequest({ ua: IPHONE, appStoreId: "6739012345" }), { url: "https://apps.apple.com/app/id6739012345", store: "App Store" });
+  assert.deepEqual(installOfferAfterRequest({ ua: ANDROID }), { url: "/download", store: "테스트 앱" });
+  assert.equal(installOfferAfterRequest({ ua: ANDROID, playPublic: true }).store, "Google Play");
 });
