@@ -4752,7 +4752,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               setLoungePost(null);
               setLoungeRefreshKey(k => k + 1);
             }}
-            onNavigate={({ target, companyId, company }) => {
+            onNavigate={({ target, companyId, company, prefill }) => {
               // 라운지 → 거래 연결 CTA 라우팅 (버튼별 동작 분리: 포트폴리오/대화/견적이 서로 섞이지 않음)
               // 미니프로필이 이미 로드한 업체 객체(company)를 폴백으로 사용 → 로드된 목록에 없는 업체도 정확히 라우팅.
               const resolveCo = () =>
@@ -4760,6 +4760,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 || (company ? normalizeCompany(company) : null);
               if (target === "quote") { if (activeRole === "consumer") { setScreen("home"); handleOpenNewReq(); } else setScreen("home"); return; }
               if (target === "map") { setScreen("home"); setScreen("map"); return; }
+              // 라운지 글 내용으로 견적(09-28) — 글 낱말로 공사 칩을 미리 채운 요청서. 업체 계정은 지도로.
+              if (target === "quote_prefill") {
+                if (activeRole === "company") { setScreen("map"); return; }
+                requireAuth(() => { setReqPrefill(prefill ?? null); setScreen("home"); handleOpenNewReq(); });
+                return;
+              }
               // 대화하기 — 업체 상세 채팅으로만 이동(견적신청으로 새지 않음). 토큰 차감은 기존 대화신청/수락 로직 유지.
               if (target === "chat") { const co = resolveCo(); if (co) requireAuth(() => go("chat", co)); return; }
               // 포트폴리오 보기 — 업체 상세로만 이동(견적신청으로 새지 않음).
