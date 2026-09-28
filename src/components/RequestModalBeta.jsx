@@ -210,7 +210,7 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           <input placeholder="정확히 알면 적어 주세요 · 예: 32평" value={SIZE_QUICK.includes(form.size) ? "" : form.size}
             onChange={e => set("size", e.target.value)} style={iS} />
 
-          <button onClick={() => form.type && form.size && setStep(2)} style={{ ...primaryBtn(!!(form.type && form.size)), width: "100%", flex: "none", marginTop: 4 }}>
+          <button disabled={!(form.type && form.size)} onClick={() => form.type && form.size && setStep(2)} style={{ ...primaryBtn(!!(form.type && form.size)), width: "100%", flex: "none", marginTop: 4 }}>
             다음 →
           </button>
         </>}
@@ -248,7 +248,7 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
 
           <div style={{ display: "flex", gap: S.sm }}>
             <button onClick={() => setStep(1)} style={backBtn}>← 이전</button>
-            <button onClick={() => form.budget && setStep(3)} style={primaryBtn(!!form.budget)}>다음 →</button>
+            <button disabled={!form.budget} onClick={() => form.budget && setStep(3)} style={primaryBtn(!!form.budget)}>다음 →</button>
           </div>
         </>}
 
@@ -327,7 +327,7 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
 
           <div style={{ display: "flex", gap: S.sm }}>
             <button onClick={() => setStep(2)} style={backBtn}>← 이전</button>
-            <button onClick={() => form.desc && onDone(form)} className={form.desc ? "gg-cta" : undefined} style={primaryBtn(!!form.desc)}>{isEdit ? "✅ 수정 완료" : "🚀 견적 요청하기"}</button>
+            <button disabled={!form.desc} onClick={() => form.desc && onDone(form)} className={form.desc ? "gg-cta" : undefined} style={primaryBtn(!!form.desc)}>{isEdit ? "✅ 수정 완료" : "🚀 견적 요청하기"}</button>
           </div>
           {!isEdit && (
             <div style={{ textAlign: "center", fontSize: 12, color: C.text3, marginTop: S.md }}>
