@@ -20,6 +20,7 @@ import {
   renderSeoBodyHtml,
   buildPostStructuredData,
 } from '../src/utils/loungeSeo.js';
+import { inviteOg } from '../src/lib/referral.js';
 import {
   BIZ,
   BIZ_ROWS,
@@ -380,12 +381,14 @@ ${faqHtml(faq)}
 ${bizHtml()}
 </main>`;
 
+  // 초대 링크(/?ref=) — 카드에 가입 선물을 싣는다. 검색에는 안 올린다(원래 주소가 canonical).
+  const invite = inviteOg('home', req.query && req.query.ref);
   const html = htmlShell({
     site,
     canonical,
-    robots: 'index, follow',
-    title: seo.title,
-    description: seo.description,
+    robots: invite ? 'noindex, follow' : 'index, follow',
+    title: invite ? invite.title : seo.title,
+    description: invite ? invite.description : seo.description,
     ogImage: '/og-space-v2.png',
     ogType: 'website',
     bodyHtml,
@@ -433,12 +436,13 @@ ${faqHtml(faq)}
 ${bizHtml()}
 </main>`;
 
+  const invite = inviteOg('partner', req.query && req.query.ref);
   const html = htmlShell({
     site,
     canonical,
-    robots: 'index, follow',
-    title: seo.title,
-    description: seo.description,
+    robots: invite ? 'noindex, follow' : 'index, follow',
+    title: invite ? invite.title : seo.title,
+    description: invite ? invite.description : seo.description,
     ogImage: '/og-space-v2.png',
     ogType: 'website',
     bodyHtml,
@@ -568,12 +572,14 @@ ${ctaHtml(site)}
 ${bizHtml()}
 </main>`;
 
+  // 업체 추천 링크(/p/…?ref=) — «지인이 추천한 업체» 카드 + 가입 선물. 사진은 그대로.
+  const invite = inviteOg('company', req.query && req.query.ref, co.name);
   const html = htmlShell({
     site,
     canonical,
-    robots: 'index, follow',
-    title,
-    description,
+    robots: invite ? 'noindex, follow' : 'index, follow',
+    title: invite ? invite.title : title,
+    description: invite ? invite.description : description,
     ogImage: firstPhoto || '/og-space-v2.png',
     ogType: 'website',
     bodyHtml,
