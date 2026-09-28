@@ -195,9 +195,12 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
           <CompanyTrustRow company={company} style={{ marginTop: S.lg }} />
         </div>
 
-        {/* ── 업체소개 (Tag) ─────────────────────────────────── */}
-        {tags.length > 0 && (
+        {/* ── 업체소개 (업체가 쓴 글 154 + Tag) ─────────────────── */}
+        {(tags.length > 0 || company.intro) && (
           <Section title="업체 소개">
+            {company.intro && (
+              <div style={{ fontSize: 14, color: C.text1, lineHeight: 1.7, whiteSpace: "pre-line", marginBottom: tags.length ? S.md : 0 }}>{company.intro}</div>
+            )}
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {tags.map(t => (
                 <span key={t} style={{ background: C.surface, color: C.text2, border: `1px solid ${C.bgWarm}`,

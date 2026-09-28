@@ -23,6 +23,7 @@ import { slugProblem, normalizeSlug } from "../../lib/companySlug";
 import { setCompanySlug } from "../../lib/supabase";
 import { reviewRequestUrl, reviewRequestMessage } from "../../lib/externalReview";
 import { partnerStartState, markPageShared, wasPageShared } from "../../lib/partnerStart";
+import CompanyProfileSheet from "../../components/CompanyProfileSheet";
 import { myRefCode } from "../../lib/myRefCode";
 
 export default function MyPageV3({
@@ -49,7 +50,8 @@ export default function MyPageV3({
   companyId = null,        // 업체 공개 페이지(/p/업체ID) 공유용
   companySlug = null,      // 짧은 주소(/p/짧은이름 · 149)
   onSlugChange,            // 저장되면 부모(myCompanyRow)에 반영
-  companyRow = null,       // 시작 체크리스트 — verified · has_insurance · slug
+  companyRow = null,       // 시작 체크리스트 — verified · has_insurance · slug · (154) cover_url · logo_url · intro
+  onCompanyRowChange,      // 페이지 꾸미기 저장 뒤 부모(myCompanyRow)에 반영
   partnerGrowth = null,    // 시작 체크리스트 — showcases · reviews · extReviews
 }) {
   const isCompany = activeRole === "company";
@@ -79,6 +81,9 @@ export default function MyPageV3({
       await navigator.clipboard.writeText(text); setReviewAsked(true);
     } catch { /* 공유 취소 */ }
   };
+
+  // 내 업체 페이지 꾸미기(154)
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // 짧은 주소 정하기(149) — 명함·인스타에 넣을 수 있게. 규칙은 lib/companySlug(서버와 같음).
   const [slugOpen, setSlugOpen] = useState(false);
@@ -235,6 +240,11 @@ export default function MyPageV3({
                  onClick={onEditRegions} />
             <Row emoji="📄" label="서류 관리" sub="사업자등록증·증빙" onClick={() => onGo("documents")} last={!companyId} />
             {companyId && (
+              <Row emoji="📷" label="내 업체 페이지 꾸미기"
+                   sub={companyRow?.cover_url || companyRow?.intro ? "커버·로고·소개 고치기" : "커버 사진 · 로고 · 소개글 올리기"}
+                   onClick={() => setProfileOpen(true)} />
+            )}
+            {companyId && (
               <Row emoji="📌" label="내 업체 주소" sub={companySlug ? `gongganmarket.com/p/${companySlug}` : "짧은 주소 만들기 — 명함·인스타에 넣기 좋게"}
                    onClick={() => { setSlugDraft(companySlug ?? ""); setSlugMsg(null); setSlugOpen(true); }} />
             )}
@@ -332,6 +342,11 @@ export default function MyPageV3({
           ))}
         </div>
       </div>
+      {profileOpen && companyId && (
+        <CompanyProfileSheet companyId={companyId} initial={companyRow ?? {}}
+          onClose={() => setProfileOpen(false)}
+          onSaved={(p) => { onCompanyRowChange?.(p); setProfileOpen(false); }} />
+      )}
       {slugOpen && (
         <div onClick={() => setSlugOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.55)", zIndex: 600,
           display: "flex", alignItems: "flex-end", justifyContent: "center" }}>

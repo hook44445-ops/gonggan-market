@@ -256,6 +256,10 @@ export const adminListExternalReviews = () =>
 export const hideExternalReview = (id, hidden = true) =>
   supabase.rpc("external_review_hide", { p_id: id, p_hidden: hidden });
 
+// 업체 페이지 꾸미기(154) — 커버·로고는 photos/company/… 에 올린 뒤 주소를 넘긴다. null = 그대로, "" = 지우기.
+export const setCompanyProfile = (companyId, { coverUrl = null, logoUrl = null, intro = null } = {}) =>
+  supabase.rpc("company_set_profile", { p_company_id: companyId, p_cover_url: coverUrl, p_logo_url: logoUrl, p_intro: intro });
+
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
 export const getAdminGrowthStats = () => supabase.rpc("admin_growth_stats");
 

@@ -210,6 +210,10 @@ export const normalizeCompany = (row) => ({
   hasInsurance:  row.has_insurance ?? false,
   license_verified: row.license_verified ?? false, // 면허 — 입찰 한도(limitStateOf)가 본다
   is_direct:     row.is_direct === true,           // 공간마켓 직영(146) — 카드 표시만, 정렬·매칭엔 쓰지 않는다
+  // 업체 페이지 꾸미기(154) — 업체가 올린 커버·로고·소개(없으면 기존처럼 이름 첫 글자·커버 없음)
+  cover:         row.cover_url ?? null,
+  logo:          row.logo_url ?? null,
+  intro:         row.intro ?? "",
   completedJobs: row.completed_jobs ?? 0,
   recontractRate: row.recontract_rate ?? 0,
   asRate:        row.as_rate ?? 0,
@@ -5356,6 +5360,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               companySlug={activeRole === "company" ? (myCompanyRow?.slug ?? null) : null}
               onSlugChange={(slug) => setMyCompanyRow(r => (r ? { ...r, slug } : r))}
               companyRow={activeRole === "company" ? myCompanyRow : null}
+              onCompanyRowChange={(patch) => setMyCompanyRow(r => (r ? { ...r, ...patch } : r))}
               partnerGrowth={activeRole === "company" ? partnerGrowth : null}
               onGo={(target) => {
                 if (target === "newreq") { requireAuth(() => handleOpenNewReq()); return; }

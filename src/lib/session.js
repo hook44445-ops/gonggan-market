@@ -106,7 +106,9 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   // 150 — 관리자 성장 지표
   "admin_growth_stats",
   // 151 — 공간마켓 밖 공사 후기(쓴 사람 · 관리자 숨김)
-  "external_review_submit", "external_review_hide"]);
+  "external_review_submit", "external_review_hide",
+  // 154 — 업체 페이지 꾸미기(업체 주인 · 관리자)
+  "company_set_profile"]);
 export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }
 
 export function isGuardedRpc(fn) {
