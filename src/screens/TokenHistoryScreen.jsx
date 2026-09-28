@@ -52,7 +52,7 @@ export default function TokenHistoryScreen({ balance, logs = [], onBack }) {
               return (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `${S.lg}px ${S.xl}px`, borderBottom: i < filtered.length - 1 ? `1px solid ${C.bg}` : 'none' }}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{/^referral_/.test(log.action ?? '') ? desc : (log.description ?? desc)}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>{/^referral_(invite|joined)$/.test(log.action ?? '') ? desc : (log.description ?? desc)}</div>
                     <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{formatRelativeTime(log.created_at)}</div>
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 900, color: isEarn ? C.brand : C.red }}>

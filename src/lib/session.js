@@ -108,7 +108,9 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   // 151 — 공간마켓 밖 공사 후기(쓴 사람 · 관리자 숨김)
   "external_review_submit", "external_review_hide",
   // 154 — 업체 페이지 꾸미기(업체 주인 · 관리자)
-  "company_set_profile"]);
+  "company_set_profile",
+  // 155 — 초대왕 이벤트(순위판은 토큰이 있으면 «내 순위»도 · 지급은 관리자)
+  "referral_event_board", "admin_referral_event_settle"]);
 export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }
 
 export function isGuardedRpc(fn) {
