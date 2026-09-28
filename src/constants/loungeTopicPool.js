@@ -84,6 +84,49 @@ export const LOUNGE_TOPIC_POOL = [
   { topic: "결정 기록", angle: "바꾼 결정과 이유를 적어 두면 생기는 여유", category: "daily", audience: "brand", brand: "prubi" },
 ];
 
+// ── 계절 집수리(09-28 대표 「1등 다운로드 앱」) — 그 달에 사람들이 실제로 검색하는 작은 수리 ──
+// 날마다 공간 주제 한 칸을 이 목록이 맡는다(trendProviders). 라운지 글 → «이 글 같은 공사 견적»(#815)으로 이어지게
+// 제목·각도에 요청서 칩 낱말(결로·실리콘·수전·누수·도배…)을 그대로 쓴다. months = 한국 달(1~12).
+export const SEASONAL_TOPICS = [
+  // 겨울
+  { months: [12, 1, 2], topic: "겨울 결로와 곰팡이", angle: "겨울마다 생기는 결로·곰팡이, 단열부터 볼까요 실리콘부터 볼까요?", category: "daily", audience: "consumer", geo: true },
+  { months: [12, 1, 2], topic: "수도 동파 예방", angle: "한파 예보가 나오면 수전·배관은 어떻게 챙기나요?", category: "daily", audience: "consumer" },
+  { months: [12, 1, 2], topic: "외풍 막는 창호 손보기", angle: "창문 틈 외풍, 창호 교체 말고 먼저 할 수 있는 것", category: "interior", audience: "consumer", geo: true },
+  { months: [12, 1, 2], topic: "보일러 고장 첫 점검", angle: "보일러가 안 돌 때 업체 부르기 전에 확인할 세 가지(배관·분배기)", category: "daily", audience: "consumer" },
+  // 봄 — 이사철
+  { months: [3, 4, 5], topic: "이사철 도배·장판", angle: "이사 전 도배·장판만 바꾸면 얼마나 들고 며칠 걸리나요?", category: "move_in", audience: "consumer", geo: true },
+  { months: [3, 4, 5], topic: "욕실 실리콘 재시공", angle: "누렇게 변한 욕실 실리콘, 다시 쏘는 비용과 시기", category: "daily", audience: "consumer" },
+  { months: [3, 4, 5], topic: "방문·싱크대 필름", angle: "이사 전 방문·싱크대 필름으로 분위기 바꾸기", category: "interior", audience: "consumer", geo: true },
+  { months: [3, 4, 5], topic: "방충망 교체", angle: "모기 오기 전에 창문 방충망, 직접 할까 맡길까?", category: "daily", audience: "consumer" },
+  // 여름 — 장마
+  { months: [6, 7, 8], topic: "장마철 누수 점검", angle: "장마 시작 전 천장·베란다 누수, 어디부터 보나요?", category: "daily", audience: "consumer", geo: true },
+  { months: [6, 7, 8], topic: "욕실 곰팡이와 줄눈", angle: "장마철 욕실 곰팡이, 줄눈 시공이 답일까요?", category: "daily", audience: "consumer" },
+  { months: [6, 7, 8], topic: "에어컨 배관 구멍 마감", angle: "에어컨 설치 뒤 배관 구멍 틈, 어떻게 막나요?", category: "daily", audience: "consumer" },
+  { months: [6, 7, 8], topic: "베란다 방수", angle: "베란다 바닥에 물이 고일 때 방수 공사 기준", category: "interior", audience: "consumer", geo: true },
+  // 가을 — 월동 준비
+  { months: [9, 10, 11], topic: "월동 준비 창호·문풍지", angle: "난방 틀기 전에 창호 틈부터 막으면 무엇이 달라지나요?", category: "interior", audience: "consumer", geo: true },
+  { months: [9, 10, 11], topic: "난방 전 보일러 점검", angle: "첫 난방 전에 보일러·난방 배관 점검은 어떻게 하나요?", category: "daily", audience: "consumer" },
+  { months: [9, 10, 11], topic: "김장 전 주방 수전 교체", angle: "물 많이 쓰는 김장철, 주방 수전 교체 시기와 비용", category: "daily", audience: "consumer" },
+  { months: [9, 10, 11], topic: "결로 오기 전 단열 보강", angle: "결로가 생기기 전에 할 수 있는 단열 보강", category: "interior", audience: "consumer", geo: true },
+];
+
+/** 한국 시간 달(1~12) */
+export function koreanMonthOf(date = new Date()) {
+  const d = typeof date === "string" ? new Date(`${date}T00:00:00Z`) : date;
+  return new Date(d.getTime() + 9 * 3600000).getUTCMonth() + 1;
+}
+
+/** 오늘의 계절 집수리 주제 하나 — 그 달 목록을 날마다 차례로 돈다(같은 날은 같은 결과). */
+export function pickSeasonalTopic(date = new Date()) {
+  const month = koreanMonthOf(date);
+  const list = SEASONAL_TOPICS.filter(t => t.months.includes(month));
+  if (!list.length) return null;
+  const day = dayIndexOf(date);
+  const t = list[day % list.length];
+  const { months: _m, ...rest } = t;
+  return withRegion({ ...rest, seasonal: true }, day, Math.floor(day / list.length));
+}
+
 /** GEO 회전용 지역 — 서비스가 실제로 도는 곳부터. */
 export const LOUNGE_TOPIC_REGIONS = [
   "서울 강서구", "서울 마포구", "서울 송파구", "서울 노원구", "서울 은평구",
