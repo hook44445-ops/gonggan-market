@@ -30,6 +30,18 @@ export function inviteMessage(code, isCompany = false) {
     : `인테리어·집수리 견적을 여러 곳에서 나란히 비교해 볼 수 있어요. 공간마켓 써 보세요.\n${inviteUrl(code)}`;
 }
 
+// 안드로이드 앱 테스터 모집(09-28) — Play 정식 출시 전에는 비공개 테스트 참여자가 있어야 한다.
+//   /download(테스트 참여 안내)로 보내되 ?ref= 는 그대로 붙여, 참여자가 가입하면 초대 수에도 잡히게 한다.
+//   TWA 앱은 휴대폰의 크롬 저장소를 같이 써서, 웹에서 보관한 코드가 앱 첫 로그인까지 이어진다.
+export function testerUrl(code) {
+  const c = normalizeRefCode(code);
+  return `${SITE_URL}/download${c ? `?ref=${c}` : ""}`;
+}
+
+export function testerMessage(code) {
+  return `공간마켓 안드로이드 앱 테스트에 참여해 주실 수 있을까요? 아래 링크에서 「테스트 참여」를 누르고 설치해 2주 정도만 지워지지 않게 두시면 큰 도움이 돼요. 참여가 안 된다고 나오면 쓰시는 구글(Gmail) 주소를 알려 주세요.\n${testerUrl(code)}`;
+}
+
 // 링크로 들어왔을 때 보관(먼저 받은 코드를 지키지 않고 마지막 링크를 따른다 — 가장 최근에 권한 사람)
 export function stashRefCode(code, now = Date.now()) {
   const c = normalizeRefCode(code);
