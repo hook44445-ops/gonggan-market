@@ -25,6 +25,14 @@ export function daysLeft(ev = CURRENT_EVENT, now = Date.now()) {
   return kstDay(end) - kstDay(now);
 }
 
+// 홈 띠를 보일까 — 진행 중이거나, 시작 3일 전부터(«곧 시작» 예고)
+export function showEventStrip(ev = CURRENT_EVENT, now = Date.now()) {
+  const st = eventStatus(ev, now);
+  if (st === "live") return true;
+  if (st !== "upcoming") return false;
+  return Date.parse(ev.startsAt ?? ev.starts_at) - now <= 3 * 86400000;
+}
+
 export function prizeFor(rank, ev = CURRENT_EVENT) {
   const p = ev.prizes ?? [];
   return rank >= 1 && rank <= p.length ? p[rank - 1] : 0;
