@@ -5,6 +5,7 @@
 import { useState, useRef, useEffect, Fragment } from 'react';
 import { withRefCode } from "../lib/referral";
 import { myRefCode } from "../lib/myRefCode";
+import { requestPrefillFromPost } from "../lib/loungeToRequest";
 import { C, R, S } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
 import { CATEGORY_LABEL, TOKEN_COSTS } from '../constants/lounge';
@@ -1329,6 +1330,19 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
               );
             })}
           </div>
+          {/* 이 글 내용으로 견적 — 광고형 CTA 가 아니라 사례 아래 작은 링크 하나(Lounge CTA Simplification 유지 · 09-28).
+              글 낱말로 요청서 공사 칩을 미리 채운다(lib/loungeToRequest). 인테리어 낱말이 없으면 안 보인다. */}
+          {(() => {
+            const prefill = !isSynthSeed ? requestPrefillFromPost(post) : null;
+            if (!prefill) return null;
+            return (
+              <button onClick={() => onNavigate?.({ target: 'quote_prefill', prefill })}
+                style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: S.md, background: 'none', border: 'none',
+                  cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.brand, padding: S.sm }}>
+                이 글 같은 공사, 우리 동네 업체 견적 받아보기 ›
+              </button>
+            );
+          })()}
         </div>
       )}
 
