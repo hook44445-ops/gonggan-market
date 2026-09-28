@@ -204,6 +204,7 @@ export default function MyPageV3({
             const run = (action) => {
               if (action === "documents") onGo("documents");
               else if (action === "slug") { setSlugDraft(companySlug ?? ""); setSlugMsg(null); setSlugOpen(true); }
+              else if (action === "profile") setProfileOpen(true);
               else if (action === "portfolio") onGo("dashboard-portfolio");
               else if (action === "askReview") askReview();
               else if (action === "sharePage") shareCompanyPage();
