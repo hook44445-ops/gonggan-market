@@ -54,6 +54,8 @@ export const TYPE_TO_PREF_COLUMN = {
   NEW_REQUEST_LOCKED: "push_estimate_news",
   // 견적이 3일째 없는 요청 — 고객에게 한 번(migration 152, 서버가 push_logs 에 직접 넣는다)
   REQUEST_NUDGE: "push_estimate_news",
+  // 같은 요청을 동네 업체에 — «지금 입찰하면 첫 견적»(migration 153)
+  REQUEST_FIRST_BID: "push_estimate_news",
   // 업체/관리
   COMPANY_APPROVED: "push_company_recommend",
   COMPANY_REJECTED: "push_company_recommend",
