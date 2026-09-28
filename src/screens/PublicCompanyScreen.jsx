@@ -4,6 +4,8 @@ import { normalizeCompany } from "../components/MainApp";
 import { isTestCompany } from "../lib/testCompany";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import PortfolioScreenBeta from "./PortfolioScreenBeta";
+import { getCurrentUserId, getSessionToken } from "../lib/session";
+import { rememberPendingReview } from "../lib/externalReview";
 
 // ════════════════════════════════════════════════════════════════════════════
 // /p/업체ID — 업체 공개 페이지(대표 09-28 「1등 다운로드 앱」)
@@ -53,5 +55,14 @@ export default function PublicCompanyScreen({ companyRef }) {
       </div>
     );
   }
-  return <PortfolioScreenBeta company={c} publicView onBack={toHome} onRequest={toHome} />;
+  // 공간마켓 밖 공사 후기(151) — 로그인(토큰)돼 있으면 바로 쓰기, 아니면 기억해 두고 로그인으로(로그인 뒤 App 이 되돌린다).
+  const loggedIn = (() => { const uid = getCurrentUserId(); return !!(uid && getSessionToken(uid)); })();
+  // ?write=1(후기 부탁 링크) — 로그인돼 있을 때만 바로 연다. 아니면 페이지를 먼저 보여 주고 버튼으로 로그인.
+  const writeOpen = loggedIn && (() => { try { return new URLSearchParams(window.location.search).get("write") === "1"; } catch { return false; } })();
+  const onWriteExternal = (open) => {
+    if (loggedIn) { open(); return; }
+    rememberPendingReview(c.slug || c.id);
+    window.location.href = "/";
+  };
+  return <PortfolioScreenBeta company={c} publicView onBack={toHome} onRequest={toHome} onWriteExternal={onWriteExternal} writeOpen={writeOpen} />;
 }

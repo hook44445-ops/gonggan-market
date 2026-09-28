@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { companyPageUrl } from "../../lib/referral";
 import { slugProblem, normalizeSlug } from "../../lib/companySlug";
 import { setCompanySlug } from "../../lib/supabase";
+import { reviewRequestUrl, reviewRequestMessage } from "../../lib/externalReview";
 import { myRefCode } from "../../lib/myRefCode";
 
 export default function MyPageV3({
@@ -63,6 +64,16 @@ export default function MyPageV3({
     try {
       if (navigator.share) { await navigator.share({ title: user?.name || "공간마켓", url }); setPageShared(true); return; }
       await navigator.clipboard.writeText(url); setPageShared(true);
+    } catch { /* 공유 취소 */ }
+  };
+
+  // 지인 공사 후기 부탁(151) — «공간마켓 밖 공사 후기»로 따로 보인다(평점·온도 X)
+  const [reviewAsked, setReviewAsked] = useState(false);
+  const askReview = async () => {
+    const text = reviewRequestMessage(user?.name, reviewRequestUrl(companySlug || companyId, refCode));
+    try {
+      if (navigator.share) { await navigator.share({ title: "공사 후기 부탁", text }); setReviewAsked(true); return; }
+      await navigator.clipboard.writeText(text); setReviewAsked(true);
     } catch { /* 공유 취소 */ }
   };
 
@@ -186,6 +197,10 @@ export default function MyPageV3({
             {companyId && (
               <Row emoji="📌" label="내 업체 주소" sub={companySlug ? `gongganmarket.com/p/${companySlug}` : "짧은 주소 만들기 — 명함·인스타에 넣기 좋게"}
                    onClick={() => { setSlugDraft(companySlug ?? ""); setSlugMsg(null); setSlugOpen(true); }} />
+            )}
+            {companyId && (
+              <Row emoji="⭐" label="지인 공사 후기 부탁" sub={reviewAsked ? "보냈어요 · «공간마켓 밖 공사 후기»로 따로 보여요" : "공간마켓 밖에서 한 공사 — 평점엔 안 들어가요"}
+                   onClick={askReview} />
             )}
             {companyId && (
               <Row emoji="🔗" label="내 업체 페이지 공유" sub={pageShared ? "주소를 보냈어요 · 블로그·인스타·명함에도 걸어 보세요" : "시공 사례·후기를 누구나 보는 주소"}
