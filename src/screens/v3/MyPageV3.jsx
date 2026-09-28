@@ -19,6 +19,7 @@ import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../../constants/release"; // 베타
 import { BIZ_ROWS } from "../../components/AppFooter";
 import { useEffect, useState } from "react";
 import { companyPageUrl } from "../../lib/referral";
+import CompanyQrSheet from "../../components/CompanyQrSheet";
 import { slugProblem, normalizeSlug } from "../../lib/companySlug";
 import { setCompanySlug } from "../../lib/supabase";
 import { reviewRequestUrl, reviewRequestMessage } from "../../lib/externalReview";
@@ -58,6 +59,7 @@ export default function MyPageV3({
   // 내 업체 페이지 공유 — 초대 코드를 미리 받아 둔다(버튼에서 기다리면 아이폰이 공유창을 막는다).
   const [refCode, setRefCode] = useState(null);
   const [pageShared, setPageShared] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   useEffect(() => {
     if (!isCompany || !companyId || !user?.id) return;
     let alive = true;
@@ -255,10 +257,18 @@ export default function MyPageV3({
             )}
             {companyId && (
               <Row emoji="🔗" label="내 업체 페이지 공유" sub={pageShared ? "주소를 보냈어요 · 블로그·인스타·명함에도 걸어 보세요" : "시공 사례·후기를 누구나 보는 주소"}
-                   onClick={shareCompanyPage} last />
+                   onClick={shareCompanyPage} />
+            )}
+            {companyId && (
+              <Row emoji="🔳" label="명함·전단용 QR코드" sub="폰 카메라로 찍으면 내 업체 페이지가 열려요"
+                   onClick={() => setQrOpen(true)} last />
             )}
           </Card>
         </Section>
+      )}
+      {qrOpen && companyId && (
+        <CompanyQrSheet url={companyPageUrl(companySlug || companyId, refCode)} name={companyRow?.name ?? user?.name}
+          onClose={() => setQrOpen(false)} />
       )}
 
       {/* ── 운영 — 관리자·운영자만. 새 마이(v3)에 입구가 없어 댓글 숨김을 할 수 없었다(09-26) ── */}
