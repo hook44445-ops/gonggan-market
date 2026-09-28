@@ -108,7 +108,8 @@ export default function MyPageV3({
         <Card pad={`0 ${S.lg}px`}>
           {isCompany ? (<>
             <Row emoji="🏗" label="진행 중인 공사" sub="단계 사진·정산 현황" badge={s.inProgress || null} onClick={() => onGo("dashboard")} />
-            <Row emoji="✅" label="완료한 공사"   sub="정산 완료·고객 평가"   badge={s.completed || null}  onClick={() => onGo("dashboard")} last />
+            <Row emoji="✅" label="완료한 공사"   sub="정산 완료·고객 평가"   badge={s.completed || null}  onClick={() => onGo("dashboard")} />
+            <Row emoji="🧾" label="내 작업 장부" sub="지인 공사까지 · 월 순이익 · 시간당 순이익" onClick={() => onGo("job-ledger")} last />
           </>) : (<>
             <Row emoji="🏠" label="공간 이력"   sub="완료된 시공 기록"       badge={s.completed || null} onClick={() => onGo("space-history")} />
             <Row emoji="📋" label="받은 견적"   sub="다음 공사 때 참고용"     badge={s.requests || null}  onClick={() => onGo("timeline")} />
@@ -181,6 +182,7 @@ export default function MyPageV3({
       {/* ── 알림 · 고객센터 ─────────────────────────────────────────── */}
       <Section title="알림 · 도움">
         <Card pad={`0 ${S.lg}px`}>
+          <Row emoji="🤝" label={isCompany ? "동료 사장님 초대" : "친구 초대"} sub="내 초대 링크 · 가입한 사람 수" onClick={() => onGo("invite")} />
           <Row emoji="🔔" label="알림함" badge={unreadTotal || null} onClick={() => onGo("notifications")} />
           <Row emoji="❓" label="자주 묻는 질문" sub={SHOW_BETA_UI ? "계약 · 대금 · 분쟁" : "에스크로 · 환불 · 분쟁"} onClick={() => onGo("help")} />
           <Row emoji="💬" label="고객센터 문의" sub="070-7954-2740" onClick={onShowAppInfo} last />

@@ -36,6 +36,8 @@ import CustomerReviewHistoryScreen from "../screens/CustomerReviewHistoryScreen"
 import ChatScreen from "../screens/ChatScreen";
 import EscrowScreen from "../screens/EscrowScreen";
 import SpaceHistoryScreen from "../screens/SpaceHistoryScreen";
+import JobLedgerScreen from "../screens/JobLedgerScreen";
+import InviteScreen from "../screens/InviteScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import BidStatusScreen from "../screens/BidStatusScreen";
 import AdminScreen from "../screens/AdminScreen";
@@ -206,6 +208,7 @@ const normalizeCompany = (row) => ({
   badge:         row.badge ?? "basic",
   hasInsurance:  row.has_insurance ?? false,
   license_verified: row.license_verified ?? false, // 면허 — 입찰 한도(limitStateOf)가 본다
+  is_direct:     row.is_direct === true,           // 공간마켓 직영(146) — 카드 표시만, 정렬·매칭엔 쓰지 않는다
   completedJobs: row.completed_jobs ?? 0,
   recontractRate: row.recontract_rate ?? 0,
   asRate:        row.as_rate ?? 0,
@@ -4590,6 +4593,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               setScreen("chat");
             }
           }} />}
+        {screen==="job-ledger" && activeRole === "company" && user?.id && <JobLedgerScreen userId={user.id} onBack={() => setScreen("my")} />}
+        {screen==="invite" && user?.id && !user?.isGuest && <InviteScreen isCompany={activeRole === "company"} onBack={() => setScreen("my")} />}
         {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
         {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} onGoDocuments={() => setScreen("document-center")} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id}
           onBidSubmit={isGuestCompany ? null : (r, data) => addBid(r, data)} />}

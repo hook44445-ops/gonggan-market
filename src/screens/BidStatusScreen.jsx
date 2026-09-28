@@ -37,6 +37,7 @@ const normalizeCompany = (row) => ({
   // 신뢰 칸 — 관리자가 확인한 값만(카드 칩·엠블럼·레벨이 쓴다)
   hasInsurance: row.has_insurance ?? false,
   license_verified: row.license_verified ?? false,
+  is_direct: row.is_direct === true,   // 공간마켓 직영(146) — 표시만
   guarantee_status: row.guarantee_status ?? null,
   guarantee_grade: row.guarantee_grade ?? null,
   guarantee_amount: row.guarantee_amount ?? null,
