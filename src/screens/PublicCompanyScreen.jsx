@@ -6,6 +6,7 @@ import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import PortfolioScreenBeta from "./PortfolioScreenBeta";
 import { getCurrentUserId, getSessionToken } from "../lib/session";
 import { rememberPendingReview } from "../lib/externalReview";
+import InviteWelcome from "../components/InviteWelcome";
 
 // ════════════════════════════════════════════════════════════════════════════
 // /p/업체ID — 업체 공개 페이지(대표 09-28 「1등 다운로드 앱」)
@@ -64,5 +65,10 @@ export default function PublicCompanyScreen({ companyRef }) {
     rememberPendingReview(c.slug || c.id);
     window.location.href = "/";
   };
-  return <PortfolioScreenBeta company={c} publicView onBack={toHome} onRequest={toHome} onWriteExternal={onWriteExternal} writeOpen={writeOpen} />;
+  return (
+    <>
+      {!loggedIn && <InviteWelcome style={{ margin: "12px 16px 0", borderRadius: 14 }} />}
+      <PortfolioScreenBeta company={c} publicView onBack={toHome} onRequest={toHome} onWriteExternal={onWriteExternal} writeOpen={writeOpen} />
+    </>
+  );
 }

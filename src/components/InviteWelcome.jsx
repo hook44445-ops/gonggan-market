@@ -1,9 +1,14 @@
-import { pendingRefCode, REFERRAL_REWARD } from "../lib/referral";
+import { pendingRefCode, refCodeFromSearch, REFERRAL_REWARD } from "../lib/referral";
+import { getCurrentUserId } from "../lib/session";
 
 // 초대 링크(?ref=)로 들어온 사람에게 가입 선물을 먼저 알린다 — 모르면 그냥 둘러보고 나간다.
 //   코드는 App 이 첫 화면에서 기기에 보관해 둔다(30일). 가입 뒤 referral_claim(148)이 +20 을 준다.
+//   보관 전 첫 그림(주소에 ?ref= 가 아직 있을 때)도 잡는다. 이미 로그인한 사람에겐 안 보인다.
 export default function InviteWelcome({ style }) {
-  if (!pendingRefCode()) return null;
+  if (getCurrentUserId()) return null;
+  let code = pendingRefCode();
+  if (!code) { try { code = refCodeFromSearch(window.location.search); } catch { code = null; } }
+  if (!code) return null;
   return (
     <div role="note" style={{ display: "flex", alignItems: "center", gap: 10, background: "#0E2B1D", color: "#F4EFE4",
       borderRadius: 14, padding: "12px 14px", ...style }}>

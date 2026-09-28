@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import BreathTrustSection from "../components/BreathTrustSection"; // v2.0: 호흡과 신뢰(Add Only)
-import AppFooter from "../components/AppFooter"; // 사업자정보 푸터(법적 필수 · 삭제 금지)
+import AppFooter from "../components/AppFooter";
+import InviteWelcome from "../components/InviteWelcome"; // 사업자정보 푸터(법적 필수 · 삭제 금지)
 import CompanyCard from "../components/CompanyCard";
 import { LADDER, limitText } from "../lib/partnerTier";
 import { PARTNER_DEPOSIT_NOTE } from "../utils/siteSeo";
@@ -212,6 +213,7 @@ export default function PartnerLandingScreen() {
       </div>
 
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 20px" }}>
+        <InviteWelcome style={{ marginTop: 14, maxWidth: 520 }} />
         {/* ── NAVY(웜 잉크) HERO ──────────────────────────────────── */}
         {/* 히어로 그림(힉스필드 09-25): 완성된 공간을 보는 파트너 — 얼굴·글자 없음. 왼쪽은 글자 자리라 어둡게 덮는다. */}
         <div ref={heroRef} style={{
