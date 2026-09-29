@@ -15,6 +15,7 @@
 // ─────────────────────────────────────────────────────
 import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progress, FoldText } from "../../components/v3/ui";
 import { CURRENT_EVENT, eventLine, showEventStrip } from "../../lib/referralEvent";
+import EventAlertOptIn from "../../components/EventAlertOptIn";
 import { C, R, S } from "../../constants";
 import { SHOW_BETA_UI } from "../../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 
@@ -123,6 +124,7 @@ export default function HomeV3({
           <span style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 800, color: "#0E2B1D", background: "#D6A756", borderRadius: R.full, padding: "6px 11px" }}>초대하기</span>
         </button>
       )}
+      {!user?.isGuest && user?.id && showEventStrip(CURRENT_EVENT) && <EventAlertOptIn user={user} />}
 
       {/* ── 진행 중인 계약 — 있으면 최상단. '지금 할 일'이 먼저다 ──── */}
       {activeContract && (
