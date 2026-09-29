@@ -22,7 +22,7 @@ import { takePendingReview } from "./lib/externalReview";
 import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
 } from "./lib/deviceAuth";
-import { saveSessionToken, setCurrentUserId, clearSessionTokens, getSessionToken } from "./lib/session";
+import { saveSessionToken, setCurrentUserId, clearSessionTokens, getSessionToken, needsSessionToken } from "./lib/session";
 
 const SESSION_TS_KEY   = "gonggan_login_at";
 const SESSION_USER_KEY = "gonggan_user";
@@ -115,6 +115,8 @@ export default function App() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   // 초대로 가입 — 받은 공간토큰을 한 번 알린다(모르면 선물이 있었는지 모른다)
   const [refWelcome, setRefWelcome] = useState(null);
+  // 로그인 토큰이 없는 채로 남아 있는 로그인(09-25 이전 로그인 · 60일 지남) — 한 번만 인증번호로 다시(166)
+  const [tokenNoteHidden, setTokenNoteHidden] = useState(() => { try { return sessionStorage.getItem("gonggan_token_note_hidden") === "1"; } catch { return false; } });
   const [adminId, setAdminId] = useState("");
   const [adminPw, setAdminPw] = useState("");
   const [adminLoginErr, setAdminLoginErr] = useState("");
@@ -434,6 +436,15 @@ export default function App() {
     dlog("[GONGGAN_DEBUG][App:route]", { path: _path, currentUserId: user?.id ?? null, currentRole: user?.activeRole ?? user?.role ?? null, isGuest: user?.isGuest ?? false, pendingRole, phoneAuthMode, showAccountPicker, deviceVerified: isDeviceVerified() });
   }
 
+  const reauthenticate = () => {
+    inviteAuthPending.current = true;
+    setPendingRole(user?.activeRole === "company" ? "company" : "consumer");
+    setShowAccountPicker(false);
+    setPhoneAuthMode(true);
+    setUser(null);
+  };
+  const showTokenNote = !tokenNoteHidden && needsSessionToken(user, !!getSessionToken(user?.id));
+
   if (canEnterApp) {
     return (
       <ErrorBoundary onLogout={handleLogout} activeRole={user.activeRole ?? user.role ?? "consumer"}>
@@ -442,13 +453,7 @@ export default function App() {
           onLogout={handleLogout}
           onForgetDevice={handleForgetDevice}
           onLogin={handleLogin}
-          onReauthenticate={() => {
-            inviteAuthPending.current = true;
-            setPendingRole(user.activeRole === "company" ? "company" : "consumer");
-            setShowAccountPicker(false);
-            setPhoneAuthMode(true);
-            setUser(null);
-          }}
+          onReauthenticate={reauthenticate}
           onStartOnboarding={() => {
             // 업체 온보딩은 새 전화번호 인증/가입이 필요한 명시적 흐름.
             clearSession();
@@ -457,6 +462,26 @@ export default function App() {
             setPhoneAuthMode(true);
           }}
         />
+        {showTokenNote && (
+          <div role="status"
+            style={{ position: "fixed", left: "50%", bottom: "calc(84px + env(safe-area-inset-bottom, 0px))", transform: "translateX(-50%)",
+              width: "calc(100% - 32px)", maxWidth: 440, zIndex: 8900, display: "flex", alignItems: "center", gap: 10,
+              background: "#0E2B1D", color: "#F4EFE4", borderRadius: 14, padding: "12px 14px", boxShadow: "0 10px 30px rgba(0,0,0,.25)",
+              fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+            <span aria-hidden style={{ fontSize: 20 }}>🔒</span>
+            <span style={{ flex: 1, fontSize: 13.5, lineHeight: 1.45 }}>
+              <b style={{ fontWeight: 900 }}>내 공사 기록을 더 안전하게 지켜요</b><br />
+              인증번호로 한 번만 다시 로그인해 주세요
+            </span>
+            <button type="button" onClick={reauthenticate}
+              style={{ flexShrink: 0, border: 0, borderRadius: 10, padding: "9px 12px", background: "#D6A756", color: "#0E2B1D", fontWeight: 900, fontSize: 13, cursor: "pointer" }}>
+              인증하기
+            </button>
+            <button type="button" aria-label="닫기"
+              onClick={() => { setTokenNoteHidden(true); try { sessionStorage.setItem("gonggan_token_note_hidden", "1"); } catch { /* noop */ } }}
+              style={{ flexShrink: 0, border: 0, background: "transparent", color: "#F4EFE4", fontSize: 18, padding: 4, cursor: "pointer" }}>×</button>
+          </div>
+        )}
         {refWelcome && (
           <div role="status" onClick={() => setRefWelcome(null)}
             style={{ position: "fixed", left: "50%", top: "calc(16px + env(safe-area-inset-top, 0px))", transform: "translateX(-50%)",
