@@ -2,4 +2,4 @@
 import { trustFor } from '../lib/display.js';
 const {company}=Astro.props;
 ---
-<div class="trust" aria-label="업체 확인 정보">{trustFor(company).map(t=><details class:list={{locked:!t.earned}}><summary><img src={'/p/images/emblem/'+t.file+'-sm.webp'} alt="" width="44" height="44" loading="lazy"/>{t.label}<span class="muted"> · {t.earned?'확인':'미확인'}</span></summary><p>{t.earned?t.detail:'아직 확인되지 않았습니다'}</p></details>)}</div>
+<div class="trust" aria-label="업체 확인 정보">{trustFor(company).map(t=><details class:list={{locked:!t.earned}}><summary><img src={'/p/images/emblem/'+t.file+'-88-v1.webp'} alt="" width="44" height="44" loading="lazy"/>{t.label}<span class="muted"> · {t.earned?'확인':'미확인'}</span></summary><p>{t.earned?t.detail:'아직 확인되지 않았습니다'}</p></details>)}</div>
