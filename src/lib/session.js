@@ -73,6 +73,13 @@ export function authedDb(userId) {
   return clients.get(token);
 }
 
+// 로그인은 돼 있는데 토큰이 없다(09-25 이전 로그인 · 60일 지남) — 166 뒤 견적·현장방문·공사 기록 저장이
+// LOGIN_REQUIRED 로 막히므로 «한 번만 다시 인증» 을 안내한다. 게스트·운영자(번호 없는 코드 로그인)는 빼고.
+export function needsSessionToken(user, hasToken) {
+  if (!user?.id || user.isGuest || hasToken) return false;
+  return !!user.phone || user.role === "consumer" || user.role === "company" || user.activeRole === "company";
+}
+
 // 관리자 API(/api/admin/*) 등 우리 서버 호출에 붙일 헤더
 export function authHeader(userId) {
   const token = getSessionToken(userId);
@@ -95,6 +102,14 @@ const GUARDED_EXACT = new Set([
 ]);
 // 당사자 확인이 필요한 서버 함수 — 토큰 연결로 보낸다(서버 136 이 auth.uid() 로 고객·업체를 판정).
 // + 운영 스위치·라운지 운영자 함수(138 — 예전엔 앱이 보낸 사용자 ID 를 믿었다)
+export const S4_TOKEN_RPCS = [
+  "change_order_approve", "change_order_cancel", "change_order_complete", "change_order_create", "change_order_mark_paid",
+  "change_order_reject", "change_order_set_amount", "company_guarantee_select", "contract_bootstrap", "estimate_submit",
+  "estimate_upsert", "portfolio_delete", "portfolio_save", "project_checkpoint_save", "project_checkpoints_for_request",
+  "project_contract_checkpoint_save", "project_rooms_for_actor", "request_approve_final_quote", "request_cancel_by_owner",
+  "request_contract_direct", "request_mark_site_visit", "request_update_by_owner", "resolve_contract_id", "site_visit_checkin",
+  "site_visit_complete", "site_visit_create", "site_visit_request", "site_visit_respond",
+];
 const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set", "op_set_post_hot", "op_set_post_hidden", "op_set_comment_hidden",
   "lounge_post_like", "soft_delete_lounge_post",
   // 146 — 직영 표시(관리자) · 친구 초대(본인)
@@ -115,7 +130,9 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   "daily_checkin_status",
   "daily_checkin",
   // 155 — 초대왕 이벤트(순위판은 토큰이 있으면 «내 순위»도 · 지급은 관리자)
-  "referral_event_board", "admin_referral_event_settle"]);
+  "referral_event_board", "admin_referral_event_settle",
+  // 166 — 견적·현장방문·공사 기록(체크포인트)·추가공사·요청 함수(보완 S4 · 앱이 보낸 사용자 ID 를 믿지 않는다)
+  ...S4_TOKEN_RPCS]);
 export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }
 
 export function isGuardedRpc(fn) {

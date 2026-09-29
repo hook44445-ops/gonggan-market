@@ -179,14 +179,15 @@ export const updateCompanyTemp = async (companyId, delta) => {
   if (error) return { error };
   const current = typeof data?.temp === "number" ? data.temp : 36.5;
   const next    = Math.round(Math.min(99, Math.max(0, current + delta)) * 10) / 10;
-  return supabase.from("companies").update({ temp: next }).eq("id", companyId).select("temp").single();
+  // 관리자 점검(실측 뒤 72시간 미제출)에서만 부른다 — 업체 표 지킴(167)은 관리자 토큰만 온도를 바꾸게 한다.
+  return adminDb().from("companies").update({ temp: next }).eq("id", companyId).select("temp").single();
 };
 
 export const getPendingCompanies = () =>
   adminDb().from("companies").select("*").eq("doc_status", "pending");
 
 export const reviewCompany = (id, status, rejectNote = null) =>
-  supabase
+  adminDb()
     .from("companies")
     .update({ doc_status: status, reject_note: rejectNote, reviewed_at: new Date().toISOString() })
     .eq("id", id);
@@ -1649,7 +1650,7 @@ export const subscribeToNotifications = (userId, callback) =>
 // ── STEP 22: Company Status System ───────────────────────────────────────────
 
 export const setCompanyStatus = (companyId, companyStatus, adminId) =>
-  supabase
+  adminDb()
     .from("companies")
     .update({ company_status: companyStatus })
     .eq("id", companyId)
