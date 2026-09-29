@@ -55,3 +55,11 @@ test('광고 푸시(157) — 한국 9시~20시만 · 소식 캡과 따로', asyn
   assert.ok(sql.includes('p.push_marketing = true'), '동의한 사람만');
   assert.ok(sql.includes('v_hour < 9 or v_hour >= 20'), '쌓는 시간도 9~20시');
 });
+
+test('관리자 광고 현황(158) — event_promo 타입으로 센다', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { AD_TYPES } = await import('../utils/pushPolicy.js');
+  const sql = readFileSync(new URL('../../supabase/migrations/158_admin_marketing_stats.sql', import.meta.url), 'utf-8');
+  assert.ok(sql.includes(`type = '${AD_TYPES[0]}'`));
+  assert.ok(sql.includes("'NOT_ADMIN'"));
+});

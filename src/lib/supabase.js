@@ -272,6 +272,8 @@ export const setCompanyProfile = (companyId, { coverUrl = null, logoUrl = null, 
 
 // 초대왕 이벤트(155) — 순위판(누구나 · 로그인이면 내 순위) · 지급(관리자 · 기간 끝난 뒤 한 번)
 export const getReferralEventBoard = (eventId = "2026-10") => supabase.rpc("referral_event_board", { p_event: eventId });
+// 관리자 — 이벤트 알림(광고) 동의·발송 숫자(158)
+export const getAdminMarketingStats = () => supabase.rpc("admin_marketing_stats");
 export const adminSettleReferralEvent = (eventId = "2026-10") => supabase.rpc("admin_referral_event_settle", { p_event: eventId });
 
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
