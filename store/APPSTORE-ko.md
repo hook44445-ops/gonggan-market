@@ -89,6 +89,7 @@ Contact: biz@gonggansai.com / +82-70-7954-2740
 
 ### 2) 앱 안 결제 — 가이드라인 3.1.1
 - 공간토큰(디지털)은 **아이폰 앱 안에서 팔지 않는다** — 앱 쉘(window.ReactNativeWebView + 아이폰) 안에서는 «토큰 구매» 탭·충전 버튼이 숨고 «무료 미션»만 보인다(`isIosAppShell` · `tokenSalesOpen` · `src/constants/release.js`).
+- 안드로이드 Play 앱(TWA) 안에서도 같다 — Play 결제 정책(앱 안 디지털 상품은 구글 결제 또는 등록한 대체 결제). TWA 표시는 그 창에만 기억(`isAndroidAppShell` · sessionStorage)해 같은 폰 크롬 브라우저의 웹 구매는 막지 않는다.
 - 공사 대금(실물 서비스) 결제는 해당 없음. 앱 안에서 «웹에서 사세요» 같은 안내도 하지 않는다.
 
 ### 3) 이미 되어 있는 것

@@ -50,8 +50,24 @@ export function isIosAppShell() {
       && /iPhone|iPad|iPod/i.test(window.navigator?.userAgent ?? "");
   } catch { return false; }
 }
-// 토큰을 돈 주고 살 수 있는 화면을 보여도 되나 — 결제가 열렸고, 아이폰 앱 안이 아닐 때만
-export const tokenSalesOpen = () => PAYMENTS_LIVE && !isIosAppShell();
+// 안드로이드 Play 앱(TWA) 안인가 — Play 결제 정책도 앱 안 디지털 상품은 구글 결제(또는 등록한 대체 결제)만.
+//   TWA 는 첫 화면에만 referrer «android-app://» 가 붙는다 → 이 창(sessionStorage)에만 기억한다.
+//   (localStorage 에 두면 TWA 와 저장소를 같이 쓰는 크롬 브라우저에서도 구매가 숨겨진다)
+const TWA_SESSION_KEY = "gonggan_twa_session";
+export function isAndroidAppShell() {
+  try {
+    if (typeof document === "undefined") return false;
+    if (String(document.referrer ?? "").startsWith("android-app://")) {
+      try { sessionStorage.setItem(TWA_SESSION_KEY, "1"); } catch { /* noop */ }
+      return true;
+    }
+    return sessionStorage.getItem(TWA_SESSION_KEY) === "1";
+  } catch { return false; }
+}
+export const isStoreAppShell = () => isIosAppShell() || isAndroidAppShell();
+
+// 토큰을 돈 주고 살 수 있는 화면을 보여도 되나 — 결제가 열렸고, 스토어 앱(아이폰·Play) 안이 아닐 때만
+export const tokenSalesOpen = () => PAYMENTS_LIVE && !isStoreAppShell();
 
 // 브라우저(관리자 화면)에서 AI 글을 만들고 자동 발행하는 반복 작업 — 끔(09-26 AI 운영 검토).
 //   화면을 열어 두기만 해도 25초·60초마다 글이 발행됐고, 상태가 기기마다 따로라 중복이 생길 수 있었다.
