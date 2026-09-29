@@ -5,12 +5,12 @@ import { TempBadge, Stars, Divider } from "../components/common";
 import ReviewModal from "../components/ReviewModal";
 import ImageViewerModal from "../components/ImageViewerModal";
 import { calcTempDelta, clampTemp } from "../utils/calculations";
-import { getReviews, createReview, createReviewReward, getEscrowWithPayouts } from "../lib/supabase";
+import { getReviews, createReview, createReviewReward, getEscrowWithPayouts, getEstimateForRequest } from "../lib/supabase";
 import { ratingUrlFor, recordAsk } from "../lib/storeRating";
 import { sendTieredNotification } from "../utils/notify";
 import { recommendMessage, REFERRAL_REWARD } from "../lib/referral";
 import { myRefCode } from "../lib/myRefCode";
-import { suggestCarePresets } from "../lib/homeCare";
+import { suggestCarePresets, warrantyCareItem } from "../lib/homeCare";
 import { addHomeCareItem } from "../lib/supabase";
 import { kstDay } from "../lib/pageViews";
 
@@ -316,6 +316,15 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
         if (currentUser?.id && !currentUser?.isGuest) {
           const picks = suggestCarePresets(`${data.content ?? ""} ${(data.tags ?? []).join(" ")}`);
           if (picks.length) setCareSuggest({ items: picks, added: new Set(), err: null });
+          // 견적서의 하자보수 기간 → «끝나기 전 점검» 한 줄을 맨 앞에(끝나기 한 달 전에 알림함·푸시로 알려 준다)
+          if (requestId) {
+            getEstimateForRequest(requestId).then(({ data: est }) => {
+              const e = Array.isArray(est) ? est[0] : est;
+              const w = warrantyCareItem({ warrantyNote: e?.warranty_note, companyName: company?.name, doneOn: kstDay() });
+              if (!w) return;
+              setCareSuggest((cs) => ({ items: [w, ...(cs?.items ?? [])], added: cs?.added ?? new Set(), err: cs?.err ?? null }));
+            }).catch(() => {});
+          }
         }
         if (Number(data.rating) >= 4 && currentUser?.id && !currentUser?.isGuest) {
           setRecommend({ pending: !!askUrl, code: null });
@@ -404,14 +413,17 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
                 return (
                   <button key={p.kind} disabled={done}
                     onClick={async () => {
-                      const res = await addHomeCareItem(currentUser.id, { kind: p.kind, label: p.label, cycle_months: p.cycle, done_on: kstDay(), memo: `${company?.name ?? "업체"} 공사` .slice(0, 200) }).catch(() => null);
+                      const row = p.kind === "warranty"
+                        ? { kind: p.kind, label: p.label, cycle_months: p.cycle_months, done_on: p.done_on, memo: p.memo }
+                        : { kind: p.kind, label: p.label, cycle_months: p.cycle, done_on: kstDay(), memo: `${company?.name ?? "업체"} 공사` .slice(0, 200) };
+                      const res = await addHomeCareItem(currentUser.id, row).catch(() => null);
                       setCareSuggest((s) => s && (res?.data
                         ? { ...s, added: new Set([...s.added, p.kind]), err: null }
                         : { ...s, err: "지금은 적지 못했어요 · 마이 › 내 집 관리 수첩에서 적을 수 있어요" }));
                     }}
                     style={{ padding:"7px 11px", borderRadius:R.full, border:`1.5px solid ${done ? C.brand : C.bgWarm}`, background: done ? C.brandL : C.surface,
                       color: done ? C.brand : C.text2, fontSize:12.5, fontWeight:800, cursor: done ? "default" : "pointer" }}>
-                    {done ? "✓ " : "+ "}{p.label} · {p.cycle}개월
+                    {done ? "✓ " : "+ "}{p.kind === "warranty" ? `🛠 하자보수 ${p.until}까지 · 한 달 전에 알림` : `${p.label} · ${p.cycle}개월`}
                   </button>
                 );
               })}
