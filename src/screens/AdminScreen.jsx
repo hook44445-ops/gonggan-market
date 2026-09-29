@@ -121,7 +121,7 @@ import {
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee, adminSetCompanyDirect,
   getAdminVisitStats, getAdminGrowthStats, adminListExternalReviews, hideExternalReview,
-  getReferralEventBoard, adminSettleReferralEvent,
+  getReferralEventBoard, adminSettleReferralEvent, getAdminMarketingStats,
   signedDocUrl,
 } from "../lib/supabase";
 import { CATEGORY_LABEL } from "../constants/lounge";
@@ -262,6 +262,9 @@ function AdminVisitCards({ adminUserId }) {
 // ── 초대왕 이벤트(155) — 순위판 + 기간 끝난 뒤 «상품 지급»(한 번만 · 서버가 막는다) ──
 function ReferralEventAdmin() {
   const [board, setBoard] = useState(null);
+  // 이벤트 알림(광고) 현황(158) — SQL 전이면 줄이 안 보인다
+  const [mk, setMk] = useState(null);
+  useEffect(() => { getAdminMarketingStats().then(({ data, error }) => { if (!error && data?.ok) setMk(data); }).catch(() => {}); }, []);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
   const load = () => getReferralEventBoard(CURRENT_EVENT.id).then(({ data, error }) => {
@@ -299,6 +302,14 @@ function ReferralEventAdmin() {
         </button>
       )}
       {board?.settled && <div style={{ marginTop: 6, fontSize: 12, color: C.brand, fontWeight: 700 }}>지급 완료</div>}
+      {mk && (
+        <div style={{ marginTop: 8, borderTop: `1px solid ${C.bg}`, paddingTop: 6, fontSize: 12, color: C.text2, lineHeight: 1.7 }}>
+          <div>🔔 이벤트 알림(광고) 받을 사람 <b style={{ color: C.brand }}>{mk.reachable}명</b>
+            <span style={{ color: C.text3 }}> · 광고 동의 {mk.marketing_on} · 푸시 켬 {mk.push_on}</span></div>
+          <div style={{ color: C.text3 }}>최근 7일 동의 {mk.consent_7d} · 철회 {mk.withdraw_7d}
+            {" · "}이벤트 푸시 보냄 {mk.promo_sent} · 대기 {mk.promo_queued} · 건너뜀 {mk.promo_skipped}</div>
+        </div>
+      )}
       {msg && <div style={{ marginTop: 6, fontSize: 12, color: C.text2 }}>{msg}</div>}
     </div>
   );
