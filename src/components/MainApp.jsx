@@ -667,7 +667,7 @@ const FAQ_ITEMS = [
     a: "문의하기(아래 ‘문의하기’) 또는 이메일 biz@gonggansai.com 으로 연락주시면 순차적으로 도와드립니다." },
 ];
 
-export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding }) {
+export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding, onReauthenticate }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
   // 마운트 때 한 번 도는 딥링크 처리처럼 오래된 클로저에서도 지금 역할을 읽기 위한 ref.
   const activeRoleRef = useRef(activeRole);
@@ -687,6 +687,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     || user.is_operator === true
     || user.role === "operator";   // 레거시(028 마이그레이션 전) 호환
   const [screen, setScreen] = useState(() => {
+    // Explicit invite reauthentication returns here for customers and partners alike.
+    if (user.startAt === "invite" && user.id && !user.isGuest) return "invite";
     if (activeRole === "admin") return "admin";
     if (activeRole === "company") return "dashboard";
     if (user.startAt) return user.startAt;
@@ -4643,7 +4645,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             }
           }} />}
         {screen==="job-ledger" && activeRole === "company" && user?.id && <JobLedgerScreen userId={user.id} onBack={() => setScreen("my")} />}
-        {screen==="invite" && user?.id && !user?.isGuest && <InviteScreen isCompany={activeRole === "company"} onBack={() => setScreen("my")} />}
+        {screen==="invite" && user?.id && !user?.isGuest && <InviteScreen userId={user.id} isCompany={activeRole === "company"} onBack={() => setScreen("my")} onReauthenticate={onReauthenticate} />}
         {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
         {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} onGoDocuments={() => setScreen("document-center")} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id}
           onBidSubmit={isGuestCompany ? null : (r, data) => addBid(r, data)} />}

@@ -241,7 +241,12 @@ export const deleteLedgerEntry = async (userId, id) => {
 
 // ── 친구 초대(146) — 로그인 토큰으로 «나»를 판단(lib/session TOKEN_RPCS) ─────────────────────
 // 내 초대 코드(없으면 서버가 만든다) + 데려온 사람 수 → { code, invited }
-export const getMyReferral = () => supabase.rpc("referral_my_code");
+export const getMyReferral = (userId = getCurrentUserId()) => {
+  const db = authedDb(userId);
+  // Never send a personal referral request as anon or as a different cached account.
+  if (!db) return Promise.resolve({ data: null, error: { code: "INVITE_AUTH_REQUIRED" } });
+  return db.rpc("referral_my_code");
+};
 // 초대 코드로 들어온 새 사용자 → { ok, reason? }. 판정(가입 7일 안 · 처음 · 본인 아님)은 서버가 한다.
 export const claimReferral = (code) => supabase.rpc("referral_claim", { p_code: code });
 
