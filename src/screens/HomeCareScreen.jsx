@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { C, R, S } from "../constants";
 import { getHomeCareItems, addHomeCareItem, updateHomeCareItem, deleteHomeCareItem } from "../lib/supabase";
-import { HOME_CARE_PRESETS, careStatus, careLine, sortCare, buildCareRow } from "../lib/homeCare";
+import { HOME_CARE_PRESETS, careStatus, careLine, sortCare, buildCareRow, QUICK_SETUP_KINDS, QUICK_WHEN, quickSetupRows } from "../lib/homeCare";
 import { requestPrefillFromPost } from "../lib/loungeToRequest";
 import { kstDay } from "../lib/pageViews";
 
@@ -16,6 +16,8 @@ export default function HomeCareScreen({ userId, onBack, onRequest }) {
   const [form, setForm] = useState(null);
   const [formErr, setFormErr] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [quick, setQuick] = useState({});      // 30초 설정 답 { kind: recent|year|unknown|skip }
+  const [quickErr, setQuickErr] = useState(null);
   const today = kstDay();
 
   useEffect(() => {
@@ -43,6 +45,20 @@ export default function HomeCareScreen({ userId, onBack, onRequest }) {
     if (res?.error || !res?.data) { setFormErr("저장하지 못했어요 · 잠시 뒤 다시"); return; }
     setItems((prev) => form.id ? prev.map((x) => (x.id === form.id ? res.data : x)) : [res.data, ...prev]);
     setForm(null);
+  };
+  // 30초 설정 — 고른 것만 한꺼번에 적는다(하나라도 실패하면 된 것만 남기고 안내)
+  const saveQuick = async () => {
+    const rows = quickSetupRows(quick, today);
+    if (!rows.length) { setQuickErr("하나 이상 골라 주세요"); return; }
+    setBusy(true); setQuickErr(null);
+    const saved = [];
+    for (const r of rows) {
+      const res = await addHomeCareItem(userId, r).catch(() => null);
+      if (res?.data) saved.push(res.data);
+    }
+    setBusy(false);
+    if (saved.length) setItems((prev) => [...saved, ...prev]);
+    if (saved.length < rows.length) setQuickErr("몇 개는 적지 못했어요 · 아래 «+ 집 관리 기록 추가»로 적을 수 있어요");
   };
   const doneToday = async (it) => {
     const res = await updateHomeCareItem(userId, it.id, { done_on: today });
@@ -73,8 +89,34 @@ export default function HomeCareScreen({ userId, onBack, onRequest }) {
       {!state.loading && !state.error && (
         <>
           {sorted.length === 0 && !form && (
-            <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: S.lg, fontSize: 13, color: C.text2, lineHeight: 1.7 }}>
-              아직 기록이 없어요. 최근에 한 집 관리(실리콘·보일러 점검·에어컨 청소 등)를 적어 보세요.
+            <div style={{ background: C.surface, border: `1.5px solid ${C.brandM}`, borderRadius: R.lg, padding: "14px 14px 16px" }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: C.text1 }}>⏱ 30초 설정</div>
+              <div style={{ fontSize: 12.5, color: C.text2, marginTop: 3, lineHeight: 1.6 }}>
+                마지막으로 언제 했는지 대략 고르면, 다음에 살펴볼 때 알려 드려요. 모르면 «잘 모름» — 한 달 뒤에 알려 드려요.
+              </div>
+              {QUICK_SETUP_KINDS.map((kind) => {
+                const p = HOME_CARE_PRESETS.find((x) => x.kind === kind);
+                return (
+                  <div key={kind} style={{ marginTop: S.md }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 800, color: C.text1, marginBottom: 6 }}>{p.label}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {[...QUICK_WHEN, { key: "skip", label: "안 해요" }].map((w) => {
+                        const on = quick[kind] === w.key;
+                        return (
+                          <button key={w.key} onClick={() => setQuick((q) => ({ ...q, [kind]: on ? undefined : w.key }))} aria-pressed={on}
+                            style={{ padding: "7px 11px", borderRadius: R.full, border: `1.5px solid ${on ? C.brand : C.bgWarm}`, background: on ? C.brandL : C.surface,
+                              color: on ? C.brand : C.text2, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>{w.label}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {quickErr && <div style={{ fontSize: 12.5, color: "#B4432F", fontWeight: 700, marginTop: 10 }}>{quickErr}</div>}
+              <button onClick={saveQuick} disabled={busy}
+                style={{ marginTop: S.lg, width: "100%", padding: 13, borderRadius: R.md, border: "none", background: C.brand, color: "#fff", fontSize: 14.5, fontWeight: 800, cursor: busy ? "wait" : "pointer" }}>
+                {busy ? "적는 중…" : "수첩 만들기"}
+              </button>
             </div>
           )}
           {sorted.map((it) => {

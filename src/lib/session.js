@@ -66,7 +66,8 @@ export function authedDb(userId) {
   if (!token) return null;
   if (!clients.has(token)) {
     clients.clear();   // 토큰이 바뀌면 옛 연결은 버린다
-    clients.set(token, createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY, {
+    // 주소가 없는 빌드(로컬 점검)에서도 화면이 멈추지 않게 — lib/supabase 의 기본 연결과 같은 자리표시
+    clients.set(token, createClient(import.meta.env.VITE_SUPABASE_URL ?? "https://placeholder.supabase.co", import.meta.env.VITE_SUPABASE_ANON_KEY ?? "placeholder-anon-key", {
       accessToken: async () => token,
     }));
   }

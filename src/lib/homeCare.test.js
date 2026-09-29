@@ -90,3 +90,30 @@ test("공사 완료 화면에도 하자보수 제안 — 후기와 같은 요청
   assert.match(rv, /requestId && !warrantyOffered\(requestId\)/);
   assert.match(rv, /markWarrantyOffered\(requestId\)/);
 });
+
+import { quickSetupRows, QUICK_SETUP_KINDS } from "./homeCare.js";
+test("30초 설정 — 대략 날짜, 모름은 한 달 뒤 시기(바로 알림 X)", () => {
+  const rows = quickSetupRows({ boiler: "recent", aircon: "year", bath_silicone: "unknown", fan: "skip" }, "2026-09-29");
+  assert.equal(rows.length, 3);
+  const by = Object.fromEntries(rows.map((r) => [r.kind, r]));
+  assert.equal(by.boiler.done_on, "2026-08-29");
+  assert.equal(by.aircon.done_on, "2025-10-29");   // 12개월 주기 · 1년 전 → 11개월 전으로(한 달 뒤 시기)
+  assert.equal(by.bath_silicone.done_on, "2024-10-29");
+  assert.equal(nextDue(by.bath_silicone.done_on, by.bath_silicone.cycle_months), "2026-10-29");
+  for (const r of rows) {
+    assert.ok(buildCareRow(r).row, r.kind);
+    assert.notEqual(careStatus(r, "2026-09-29").state, "due");
+  }
+  assert.equal(quickSetupRows({}, "2026-09-29").length, 0);
+  assert.equal(QUICK_SETUP_KINDS.length, 4);
+});
+
+test("빈 수첩 30초 설정 · 홈 카드에서 수첩으로", () => {
+  const hc = readFileSync(new URL("../screens/HomeCareScreen.jsx", import.meta.url), "utf8");
+  assert.match(hc, /quickSetupRows\(quick, today\)/);
+  assert.match(hc, /⏱ 30초 설정/);
+  const home = readFileSync(new URL("../screens/v3/HomeV3.jsx", import.meta.url), "utf8");
+  assert.match(home, /onHomeCare=\{\(\) => onGo\("home-care"\)\}/);
+  const card = readFileSync(new URL("../components/DailyHomeCard.jsx", import.meta.url), "utf8");
+  assert.match(card, /canCheck && !isCompany && onHomeCare/);
+});
