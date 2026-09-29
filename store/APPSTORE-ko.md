@@ -76,9 +76,9 @@ App Store 검색은 **앱 이름 · 부제 · 키워드** 세 칸만 읽는다(�
 
 ```
 This app uses Korean phone-number login (SMS code). For review, please use:
-Phone: 010-XXXX-XXXX  →  tap "인증번호 받기" (Get code). No SMS is sent to this review number.
+Phone: 010-XXXX-XXXX  →  tap "인증받기" (Get code). No SMS is sent to this review number.
 Code: XXXXXX  →  enter it and tap "확인" (Confirm).
-You can also browse without logging in via "둘러보기" (Browse).
+You can also browse without logging in via "가입 없이 라운지 둘러보기" (Browse without signing up).
 Account deletion: My page (마이) > 회원탈퇴 (Delete account).
 User-generated posts (Lounge) can be reported and users can be blocked from each post menu.
 Digital tokens are not sold inside the iOS app; they are earned for free through in-app activities.
