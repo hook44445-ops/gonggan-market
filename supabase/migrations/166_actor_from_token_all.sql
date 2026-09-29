@@ -967,14 +967,17 @@ begin
   end if;
 
   -- 입찰 선택 단일화 + 요청 상태 전이(현장방문 견적 단계)
+  -- 운영 bids 에는 selected 칸이 없다 — 있으면 표시하고, 없으면 건너뛴다(선택의 원본은 requests.selected_bid_id)
   if p_bid_id is not null then
-    update public.bids set selected = (id = p_bid_id) where request_id = p_request_id;
+    begin
+      update public.bids set selected = (id = p_bid_id) where request_id = p_request_id;
+    exception when undefined_column then null;
+    end;
   end if;
   update public.requests
      set status = 'site_visit',
          selected_bid_id     = coalesce(p_bid_id, selected_bid_id),
-         selected_company_id = coalesce(p_company_id, selected_company_id),
-         updated_at = now()
+         selected_company_id = coalesce(p_company_id, selected_company_id)   -- 운영 requests 에는 updated_at 칸이 없다(108)
    where id = p_request_id
      and status in ('open','site_visit');
 
