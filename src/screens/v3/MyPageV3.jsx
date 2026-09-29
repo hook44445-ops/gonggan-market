@@ -23,7 +23,7 @@ import CompanyQrSheet from "../../components/CompanyQrSheet";
 import { slugProblem, normalizeSlug } from "../../lib/companySlug";
 import { setCompanySlug } from "../../lib/supabase";
 import { reviewRequestUrl, reviewRequestMessage } from "../../lib/externalReview";
-import { partnerStartState, markPageShared, wasPageShared } from "../../lib/partnerStart";
+import { partnerStartState, markPageShared, wasPageShared, markQrSaved, wasQrSaved } from "../../lib/partnerStart";
 import CompanyProfileSheet from "../../components/CompanyProfileSheet";
 import { myRefCode } from "../../lib/myRefCode";
 
@@ -60,6 +60,7 @@ export default function MyPageV3({
   const [refCode, setRefCode] = useState(null);
   const [pageShared, setPageShared] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [qrSaved, setQrSaved] = useState(false);
   useEffect(() => {
     if (!isCompany || !companyId || !user?.id) return;
     let alive = true;
@@ -201,7 +202,8 @@ export default function MyPageV3({
           {companyId && (() => {
             // 파트너 시작 체크리스트(09-28) — 다 끝나면 사라진다
             const st = partnerStartState({ company: companyRow ?? {}, growth: partnerGrowth,
-              extReviews: partnerGrowth?.extReviews ?? 0, shared: pageShared || wasPageShared(companyId) });
+              extReviews: partnerGrowth?.extReviews ?? 0, shared: pageShared || wasPageShared(companyId),
+              qrSaved: qrSaved || wasQrSaved(companyId) });
             if (st.complete) return null;
             const run = (action) => {
               if (action === "documents") onGo("documents");
@@ -210,6 +212,7 @@ export default function MyPageV3({
               else if (action === "portfolio") onGo("dashboard-portfolio");
               else if (action === "askReview") askReview();
               else if (action === "sharePage") shareCompanyPage();
+              else if (action === "qr") setQrOpen(true);
             };
             return (
               <Card tone="brand">
@@ -268,7 +271,7 @@ export default function MyPageV3({
       )}
       {qrOpen && companyId && (
         <CompanyQrSheet url={companyPageUrl(companySlug || companyId, refCode)} name={companyRow?.name ?? user?.name}
-          onClose={() => setQrOpen(false)} />
+          onClose={() => setQrOpen(false)} onSaved={() => { markQrSaved(companyId); setQrSaved(true); }} />
       )}
 
       {/* ── 운영 — 관리자·운영자만. 새 마이(v3)에 입구가 없어 댓글 숨김을 할 수 없었다(09-26) ── */}
