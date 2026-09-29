@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { inviteReturnAfterAuth } from "./lib/inviteAuth";
 import { dlog } from "./utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { SHOW_DEBUG_UI } from "./constants/release";
 import MainApp from "./components/MainApp";
@@ -100,6 +101,7 @@ function clearSession() {
 
 
 export default function App() {
+  const inviteAuthPending = useRef(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pendingRole, setPendingRole] = useState(null);
@@ -216,7 +218,9 @@ export default function App() {
       //      (rememberUser)에는 추가하지 않아 AccountPicker 직행을 막는다. 코드 admin 정책은 불변.
       saveSession(u);
     }
-    setUser(u);
+    const inviteReturn = inviteReturnAfterAuth(inviteAuthPending.current, u, !!getSessionToken(u?.id));
+    inviteAuthPending.current = false;
+    setUser(inviteReturn ? { ...u, startAt: inviteReturn } : u);
     setPendingRole(null);
     setPhoneAuthMode(false);
     setShowAccountPicker(false);
@@ -428,6 +432,13 @@ export default function App() {
           onLogout={handleLogout}
           onForgetDevice={handleForgetDevice}
           onLogin={handleLogin}
+          onReauthenticate={() => {
+            inviteAuthPending.current = true;
+            setPendingRole(user.activeRole === "company" ? "company" : "consumer");
+            setShowAccountPicker(false);
+            setPhoneAuthMode(true);
+            setUser(null);
+          }}
           onStartOnboarding={() => {
             // 업체 온보딩은 새 전화번호 인증/가입이 필요한 명시적 흐름.
             clearSession();
