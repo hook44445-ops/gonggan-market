@@ -1,6 +1,6 @@
 import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
 import { authHeader, getCurrentUserId } from "../lib/session";
-import { peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget } from "../lib/preferredCompany";
+import { peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget, PAGE_REQUEST_TITLE, pageRequestsFirst } from "../lib/preferredCompany";
 import ChatRequestModal from "./lounge/ChatRequestModal";
 import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -3120,6 +3120,18 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const FULL = ["showcase","cchat","chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   // 파트너: 입찰할 새 견적 요청 목록 — v2 홈과 v3 홈이 같은 목록을 쓴다(v3 홈에서 요청이 안 보이던 문제).
+  // 내 업체 페이지(/p/…)에서 온 요청 — 받은 알림(#831)으로 가려내 맨 위 + «내 페이지 손님»
+  const [pageRequestIds, setPageRequestIds] = useState(() => new Set());
+  useEffect(() => {
+    if (activeRole !== "company" || !user?.id) return;
+    let alive = true;
+    supabase.from("notifications").select("related_id").eq("user_id", user.id).eq("type", "NEW_REQUEST")
+      .eq("title", PAGE_REQUEST_TITLE).order("created_at", { ascending: false }).limit(50)
+      .then(({ data }) => { if (alive && Array.isArray(data)) setPageRequestIds(new Set(data.map(n => String(n.related_id)).filter(Boolean))); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [activeRole, user?.id, visibleBiddableRequests.length]);
+
   const renderPartnerRequests = () => (
     <>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
@@ -3147,7 +3159,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </div>
           </div>
         ) : (
-          visibleBiddableRequests.map(r => {
+          pageRequestsFirst(visibleBiddableRequests, pageRequestIds).map(r => {
             const _compId = currentUser?.id;
             const _ownId  = user?.id;
             const myBidFromState = submittedBids.find(b =>
@@ -3165,9 +3177,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               : null;
             const myBid = myBidFromState ?? myBidFromDb;
             const siteVisitForBid = siteVisitJobs.find(j => j.request?.id === r.id)?.siteVisit ?? null;
+            const fromMyPage = pageRequestIds.has(String(r.id));
             return (
+              <div key={r.id}>
+              {fromMyPage && (
+                <div style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:12, fontWeight:800, color:"#0E2B1D",
+                  background:"#F3E6C8", borderRadius:R.full, padding:"4px 10px", marginBottom:6 }}>
+                  ⭐ 내 페이지 손님 · 내 업체 페이지를 보고 요청했어요
+                </div>
+              )}
               <BidCard
-                key={r.id}
                 r={r}
                 currentUser={currentUser}
                 alreadyBid={!!myBid}
@@ -3177,6 +3196,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
                 onGoDocuments={() => setScreen("document-center")}
               />
+              </div>
             );
           })
         )}
@@ -6469,7 +6489,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               if (ownerId) {
                 const what = [saved.type ?? form.type, saved.size ?? form.size].filter(Boolean).join(" · ");
                 createNotification({
-                  userId: ownerId, type: "NEW_REQUEST", title: "내 업체 페이지에서 견적 요청이 왔어요",
+                  userId: ownerId, type: "NEW_REQUEST", title: PAGE_REQUEST_TITLE,
                   message: `${what || "새 견적 요청"} — 바로 입찰할 수 있어요.`, relatedId: saved.id, relatedType: "request",
                   priority: "HIGH",
                 }).catch(() => {});
