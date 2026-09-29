@@ -7,7 +7,7 @@ import { getDailyCheckinStatus, dailyCheckin } from "../lib/supabase";
 // 홈 «오늘의 집 관리 한 줄 + 출석 도장»(대표 09-29 「1등 재방문」)
 //   팁은 누구나(한국 날짜로 매일 바뀜). 도장은 로그인한 사람 — 하루 +1, 7일 연속마다 +5(162).
 //   SQL 전이거나 실패하면 도장 줄만 안 보이고 팁은 그대로.
-export default function DailyHomeCard({ user, isCompany = false, onTipRequest }) {
+export default function DailyHomeCard({ user, isCompany = false, onTipRequest, onHomeCare }) {
   const tip = pickDailyTip();
   const prefill = !isCompany ? tipRequestPrefill(tip, requestPrefillFromPost) : null;
   const canCheck = !!user?.id && !user?.isGuest;
@@ -56,6 +56,13 @@ export default function DailyHomeCard({ user, isCompany = false, onTipRequest })
         </button>
       )}
 
+      {canCheck && !isCompany && onHomeCare && (
+        <button onClick={onHomeCare}
+          style={{ display: "block", marginTop: 8, background: C.brandL, border: "none", borderRadius: R.md, padding: "9px 12px", width: "100%", textAlign: "left",
+            color: C.brand, fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
+          🗓 내 집 관리 수첩 · 다음에 할 때 알려 드려요 ›
+        </button>
+      )}
       {canCheck && st && (
         <div style={{ marginTop: S.md, paddingTop: S.md, borderTop: `1px dashed ${C.bgWarm}`, display: "flex", alignItems: "center", gap: S.md }}>
           <div style={{ flex: 1, minWidth: 0 }}>

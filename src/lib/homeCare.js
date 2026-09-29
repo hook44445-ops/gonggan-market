@@ -113,3 +113,35 @@ export function warrantyCareItem({ warrantyNote, companyName, doneOn } = {}) {
     months, until,
   };
 }
+
+// 30초 설정(빈 수첩) — 흔한 네 가지를 «마지막으로 언제» 한 번씩만 눌러 한꺼번에 적는다.
+//   recent = 3개월 안(한 달 전으로) · year = 1년쯤 전 · unknown = 모름 → 한 달 뒤 살펴볼 시기가 되게
+//   어느 답이든 설정하자마자 «시기 됨» 알림이 가지 않게 가장 이르면 한 달 뒤로 둔다.
+export const QUICK_SETUP_KINDS = ["boiler", "aircon", "bath_silicone", "fan"];
+export const QUICK_WHEN = [
+  { key: "recent", label: "최근" },
+  { key: "year", label: "1년쯤 전" },
+  { key: "unknown", label: "잘 모름" },
+];
+function minusMonths(day, months) {
+  const [y, m, d] = day.split("-").map(Number);
+  const total = y * 12 + (m - 1) - months;
+  const ny = Math.floor(total / 12), nm = total % 12;
+  const last = new Date(Date.UTC(ny, nm + 1, 0)).getUTCDate();
+  return `${ny}-${String(nm + 1).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}
+export function quickSetupRows(answers = {}, today) {
+  if (!isDate(today)) return [];
+  const out = [];
+  for (const kind of QUICK_SETUP_KINDS) {
+    const when = answers[kind];
+    if (!when || when === "skip") continue;
+    const p = HOME_CARE_PRESETS.find((x) => x.kind === kind);
+    let back = when === "recent" ? 1 : when === "year" ? 12 : when === "unknown" ? Math.max(0, p.cycle - 1) : null;
+    if (back == null) continue;
+    back = Math.min(back, Math.max(0, p.cycle - 1));   // 설정하자마자 알림이 가지 않게 — 가장 이르면 한 달 뒤
+    out.push({ kind, label: p.label, cycle_months: p.cycle, done_on: minusMonths(today, back),
+      memo: when === "unknown" ? "날짜를 몰라 대략 적었어요 — 한 번 살펴보고 «오늘 했어요»를 눌러 주세요" : "빠른 설정으로 대략 적었어요" });
+  }
+  return out;
+}

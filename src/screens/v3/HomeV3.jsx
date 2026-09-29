@@ -144,7 +144,7 @@ export default function HomeV3({
       )}
 
       {/* ── 오늘의 집 관리 + 출석 도장(162) — 공사가 없는 날에도 열 이유 ── */}
-      <DailyHomeCard user={user} isCompany={isCompany} onTipRequest={onTipRequest} />
+      <DailyHomeCard user={user} isCompany={isCompany} onTipRequest={onTipRequest} onHomeCare={() => onGo("home-care")} />
 
       {/* ── 우리 동네 이번 주(163) — 요청·견적 수는 매일 바뀐다 ── */}
       <RegionPulseCard region={user?.region} isCompany={isCompany}
