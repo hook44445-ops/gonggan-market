@@ -2923,7 +2923,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (t === "NEW_REQUEST_LOCKED") { setScreen("document-center"); return; }
     // 09-28 새 알림 — 파트너 «첫 견적» 기회(153)는 입찰 목록으로 · 고객 «견적이 아직 없어요»(152)는 내 견적 ·
     //   초대 가입(148)은 친구 초대 화면 · 테스터 신청(147 · 대표 번호)은 /testers 목록.
-    if (t === "REQUEST_FIRST_BID") { loadCompanyRequests?.(); go("home"); return; }
+    if (t === "REQUEST_FIRST_BID" || t === "REGION_REQUESTS_WEEKLY") { loadCompanyRequests?.(); go("home"); return; }
     if (t === "REQUEST_NUDGE") { if (rid) setBidViewRequestId(rid); setScreen("timeline"); return; }
     if (t === "REFERRAL_JOINED" || t === "REFERRAL_EVENT_PRIZE" || t === "REFERRAL_RANK") { setScreen("invite"); return; }
     if (t === "MARKETING_CONSENT" || t === "PAGE_VIEWS_WEEKLY") { setScreen("my"); return; }
