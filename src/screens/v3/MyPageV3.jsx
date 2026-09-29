@@ -20,6 +20,7 @@ import { BIZ_ROWS } from "../../components/AppFooter";
 import { useEffect, useState } from "react";
 import { companyPageUrl } from "../../lib/referral";
 import CompanyQrSheet from "../../components/CompanyQrSheet";
+import QuoteSheetMaker from "../../components/QuoteSheetMaker";
 import { getCompanyPageStats } from "../../lib/supabase";
 import { statsLine } from "../../lib/pageViews";
 import { slugProblem, normalizeSlug } from "../../lib/companySlug";
@@ -62,6 +63,7 @@ export default function MyPageV3({
   const [refCode, setRefCode] = useState(null);
   const [pageShared, setPageShared] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
   // 내 업체 페이지 방문 수(156) — SQL 전이거나 실패하면 원래 문구
   const [viewLine, setViewLine] = useState(null);
   useEffect(() => {
@@ -274,10 +276,18 @@ export default function MyPageV3({
             )}
             {companyId && (
               <Row emoji="🔳" label="명함·전단용 QR코드" sub="폰 카메라로 찍으면 내 업체 페이지가 열려요"
-                   onClick={() => setQrOpen(true)} last />
+                   onClick={() => setQrOpen(true)} />
+            )}
+            {companyId && (
+              <Row emoji="🧾" label="간단 견적서 만들기" sub="지인·전화 공사 견적을 이미지로 · 내 페이지 QR 포함"
+                   onClick={() => setQuoteOpen(true)} last />
             )}
           </Card>
         </Section>
+      )}
+      {quoteOpen && companyId && (
+        <QuoteSheetMaker companyName={companyRow?.name ?? user?.name} phone={user?.phone ?? ""}
+          pageUrl={companyPageUrl(companySlug || companyId, refCode)} onClose={() => setQuoteOpen(false)} />
       )}
       {qrOpen && companyId && (
         <CompanyQrSheet url={companyPageUrl(companySlug || companyId, refCode)} name={companyRow?.name ?? user?.name}
