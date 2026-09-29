@@ -9,11 +9,11 @@ import { TOKEN_PACKAGES, TOKEN_COSTS } from '../constants/lounge';
 import TokenBalance from '../components/token/TokenBalance';
 import TokenPackageCard from '../components/token/TokenPackageCard';
 import MissionList from '../components/token/MissionList';
-import { PAYMENTS_LIVE, isIosAppShell, tokenSalesOpen } from '../constants/release';
+import { PAYMENTS_LIVE, isStoreAppShell, tokenSalesOpen } from '../constants/release';
 
 export default function TokenStoreScreen({ user, balance, logs, missionStats, onBack, onBuy, onEarnToken, onHistory }) {
-  // 아이폰 앱 안에서는 «토큰 구매» 탭을 두지 않는다(App Store 3.1.1 · constants/release)
-  const iosShell = isIosAppShell();
+  // 스토어 앱(아이폰·Play) 안에서는 «토큰 구매» 탭을 두지 않는다(App Store 3.1.1 · Play 결제 정책 · constants/release)
+  const iosShell = isStoreAppShell();
   const [tab, setTab]   = useState(iosShell ? 'mission' : 'store');
   const [toast, setToast] = useState(null);
   const [buying, setBuying] = useState(false);
