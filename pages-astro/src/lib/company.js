@@ -22,7 +22,7 @@ export function createReader({url,key,fetcher=fetch}) {
   return { rows, count:total && total!=='*' ? Number(total) : rows.length };
  };
 }
-const legacyFields='id,name,region,specialties,completed_jobs,temp,verified,has_insurance,guarantee_status,guarantee_badge_visible,guarantee_grade,license_verified,is_direct,service_regions';
+const legacyFields='id,name,owner_id,region,specialties,completed_jobs,temp,verified,has_insurance,guarantee_status,guarantee_badge_visible,guarantee_grade,license_verified,is_direct,service_regions';
 // Never reveal a hidden/deleted review, even when its old status is still published.
 const reviewVisibility={status:'eq.published',and:'(or(is_hidden.is.null,is_hidden.eq.false),or(is_deleted.is.null,is_deleted.eq.false))'};
 export async function getCompanyByRef(raw, read) {

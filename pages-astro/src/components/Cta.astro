@@ -1,1 +1,12 @@
-<div class="cta"><a href="https://gongganmarket.com/">공간마켓에서 무료 견적 받기</a></div>
+---
+const {company}=Astro.props;
+---
+<div class="cta"><p>요청을 올리면 {company.name}에 바로 알림이 가요</p><a href="/" data-preferred-company={JSON.stringify({id:company.id,name:company.name ?? null,ownerId:company.owner_id ?? null})}>공간마켓에서 무료 견적 받기</a></div>
+<script>
+import {rememberPreferredCompany} from '../lib/preferredCompany.js';
+document.querySelector<HTMLAnchorElement>('[data-preferred-company]')?.addEventListener('click',event=>{
+ const link=event.currentTarget as HTMLAnchorElement;
+ try{rememberPreferredCompany(JSON.parse(link.dataset.preferredCompany || '{}'));}catch{}
+});
+</script>
+<style>.cta p{max-width:680px;margin:0 auto 8px;text-align:center;font-size:12px;line-height:1.5}</style>

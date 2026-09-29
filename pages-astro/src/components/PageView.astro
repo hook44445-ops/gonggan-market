@@ -1,0 +1,13 @@
+---
+const {company}=Astro.props;
+const url=import.meta.env.SUPABASE_URL || process.env.SUPABASE_URL;
+const key=import.meta.env.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+---
+<span hidden data-page-view data-company-id={company.id} data-owner-id={company.owner_id} data-url={url} data-anon-key={key}></span>
+<script>
+import {recordPageView} from '../lib/pageView.js';
+const el=document.querySelector<HTMLElement>('[data-page-view]');
+if(el){
+ try{void recordPageView({companyId:el.dataset.companyId,ownerId:el.dataset.ownerId,url:el.dataset.url,key:el.dataset.anonKey,storage:localStorage});}catch{}
+}
+</script>
