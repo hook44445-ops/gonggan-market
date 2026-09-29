@@ -17,6 +17,7 @@ import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progr
 import { CURRENT_EVENT, eventLine, showEventStrip } from "../../lib/referralEvent";
 import EventAlertOptIn from "../../components/EventAlertOptIn";
 import DailyHomeCard from "../../components/DailyHomeCard";
+import RegionPulseCard from "../../components/RegionPulseCard";
 import { C, R, S } from "../../constants";
 import { SHOW_BETA_UI } from "../../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 
@@ -144,6 +145,12 @@ export default function HomeV3({
 
       {/* ── 오늘의 집 관리 + 출석 도장(162) — 공사가 없는 날에도 열 이유 ── */}
       <DailyHomeCard user={user} isCompany={isCompany} onTipRequest={onTipRequest} />
+
+      {/* ── 우리 동네 이번 주(163) — 요청·견적 수는 매일 바뀐다 ── */}
+      <RegionPulseCard region={user?.region} isCompany={isCompany}
+        onAction={isCompany
+          ? () => { try { document.getElementById("partner-requests")?.scrollIntoView({ behavior: "smooth" }); } catch { /* noop */ } }
+          : onNewRequest} />
 
       {/* ── 파트너: 새 견적 요청 — 홈에서 바로 보고 입찰한다 ─────────── */}
       {isCompany && requestsSlot && (
