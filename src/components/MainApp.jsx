@@ -3322,6 +3322,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 onOpen: () => { setBidViewRequestId(op.id); setScreen((op.bidCount ?? 0) > 0 ? "bidstatus" : "timeline"); },
               } : null}
               onNewRequest={() => requireAuth(() => handleOpenNewReq())}
+              onTipRequest={(prefill) => requireAuth(() => { setReqPrefill(prefill ?? null); handleOpenNewReq(); })}
               onRequestType={(type) => requireAuth(() => {
                 if (SPACE_TYPES.includes(type)) setReqPrefill({ type });
                 handleOpenNewReq();
