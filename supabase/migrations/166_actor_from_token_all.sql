@@ -721,10 +721,14 @@ begin
   end if;
 
   -- 선택 입찰 단일화 — 같은 요청의 다른 입찰은 해제
+  -- 운영 bids 에는 selected 칸이 없다 — 있으면 표시하고, 없으면 건너뛴다(선택의 원본은 requests.selected_bid_id)
   if p_bid_id is not null then
-    update public.bids
-       set selected = (id = p_bid_id)
-     where request_id = p_request_id;
+    begin
+      update public.bids
+         set selected = (id = p_bid_id)
+       where request_id = p_request_id;
+    exception when undefined_column then null;
+    end;
   end if;
 
   -- 상태 결정:
@@ -741,8 +745,7 @@ begin
   update public.requests
      set status              = v_new_status,
          selected_company_id = coalesce(selected_company_id, p_company_id),
-         selected_bid_id     = coalesce(selected_bid_id, p_bid_id),
-         updated_at          = now()
+         selected_bid_id     = coalesce(selected_bid_id, p_bid_id)   -- 운영 requests 에는 updated_at 칸이 없다(108)
    where id = p_request_id;
 
   return v_new_status;
