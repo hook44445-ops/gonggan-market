@@ -37,3 +37,11 @@ test("출석 보상 — 매일 1 · 7일마다 +5 · 서버(162)와 같다", () 
   assert.ok(sql.includes(`v_earn := ${CHECKIN_REWARD.daily} + case when v_streak % ${CHECKIN_REWARD.bonusEvery} = 0 then ${CHECKIN_REWARD.weeklyBonus} else 0 end;`));
   assert.ok(sql.includes("(now() at time zone 'Asia/Seoul')::date"));
 });
+
+test("출석 알림(164) — 연속 2일 이상 · 하루 한 번 · 푸시는 광고 규칙", () => {
+  const sql = readFileSync(fileURLToPath(new URL("../../supabase/migrations/164_checkin_reminder.sql", import.meta.url)), "utf-8");
+  assert.ok(sql.includes("y.streak >= 2"));
+  assert.ok(sql.includes("n.type = 'CHECKIN_REMINDER'"));
+  assert.ok(sql.includes("'event_promo'") && sql.includes("'(광고) '") && sql.includes("push_marketing"));
+  assert.ok(sql.includes(`% ${CHECKIN_REWARD.bonusEvery} = 0 then ' 오늘은 7일 보너스 +${CHECKIN_REWARD.weeklyBonus} 날이에요.'`));
+});
