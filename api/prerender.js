@@ -22,7 +22,7 @@ import {
   renderSeoBodyHtml,
   buildPostStructuredData,
 } from '../src/utils/loungeSeo.js';
-import { inviteOg } from '../src/lib/referral.js';
+import { inviteOg, inviterName, normalizeRefCode } from '../src/lib/referral.js';
 import {
   BIZ,
   BIZ_ROWS,
@@ -54,6 +54,21 @@ function getSiteUrl(req) {
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host  = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
   return canonicalSite(host, proto);
+}
+
+// 초대한 사람 첫 글자(159) — 코드가 맞을 때만 부른다. SQL 전이거나 실패하면 null(평소 초대 카드)
+async function inviterFor(rawCode) {
+  const code = normalizeRefCode(rawCode);
+  if (!code || !SB_URL || !SB_KEY) return null;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/referral_inviter`, {
+      method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_code: code }),
+    });
+    if (!r.ok) return null;
+    return inviterName(await r.json());
+  } catch { return null; }
 }
 
 async function sb(path) {
@@ -384,7 +399,7 @@ ${bizHtml()}
 </main>`;
 
   // 초대 링크(/?ref=) — 카드에 가입 선물을 싣는다. 검색에는 안 올린다(원래 주소가 canonical).
-  const invite = inviteOg('home', req.query && req.query.ref);
+  const invite = inviteOg('home', req.query && req.query.ref, null, await inviterFor(req.query && req.query.ref));
   const html = htmlShell({
     site,
     canonical,
@@ -438,7 +453,7 @@ ${faqHtml(faq)}
 ${bizHtml()}
 </main>`;
 
-  const invite = inviteOg('partner', req.query && req.query.ref);
+  const invite = inviteOg('partner', req.query && req.query.ref, null, await inviterFor(req.query && req.query.ref));
   const html = htmlShell({
     site,
     canonical,
@@ -575,7 +590,7 @@ ${bizHtml()}
 </main>`;
 
   // 업체 추천 링크(/p/…?ref=) — «지인이 추천한 업체» 카드 + 가입 선물. 사진은 그대로.
-  const invite = inviteOg('company', req.query && req.query.ref, co.name);
+  const invite = inviteOg('company', req.query && req.query.ref, co.name, await inviterFor(req.query && req.query.ref));
   const html = htmlShell({
     site,
     canonical,
