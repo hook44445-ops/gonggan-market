@@ -180,6 +180,11 @@ export default async function handler(req, res) {
     await fetch(`${SB_URL}/rest/v1/rpc/company_page_weekly_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
   } catch { /* noop */ }
 
+  // 출석 연속 기록 끊기기 전 알림(migration 164) — 한국 17~20시 · 하루 한 번 · 푸시는 광고 동의자만. 없으면(164 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/checkin_reminder_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
+
   // 발송 경로 결정: v1(서비스계정) 우선, 없으면 legacy(서버키) 폴백.
   const useV1 = !!SA;
   let accessToken = null;
