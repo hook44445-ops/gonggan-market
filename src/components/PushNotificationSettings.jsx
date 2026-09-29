@@ -89,7 +89,9 @@ export default function PushNotificationSettings({ user }) {
       // 끄기 — 환경설정 OFF 저장(+ 가능 시 푸시 토큰 해제 best-effort).
       setBusy(true);
       try { await disablePush(); } catch {}
-      await persist({ ...DEFAULTS });
+      // 광고 동의(157)는 전체 알림과 따로 남는다 — 화면도 서버 값 그대로 보여 준다(끈 줄 알았는데 다시 켜면 광고가 오는 일 방지)
+      await persist({ ...DEFAULTS, push_marketing: prefs.push_marketing });
+      if (prefs.push_marketing) setNote("푸시 알림을 껐어요. 이벤트·혜택 알림(광고) 동의는 그대로예요 — 받지 않으려면 아래 스위치도 꺼 주세요.");
       setBusy(false);
       return;
     }
