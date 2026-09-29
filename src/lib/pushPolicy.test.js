@@ -63,3 +63,13 @@ test('관리자 광고 현황(158) — event_promo 타입으로 센다', async (
   assert.ok(sql.includes(`type = '${AD_TYPES[0]}'`));
   assert.ok(sql.includes("'NOT_ADMIN'"));
 });
+
+test('초대왕 순위 알림(160) — 푸시는 광고 규칙 그대로', async () => {
+  const { readFileSync } = await import('node:fs');
+  const sql = readFileSync(new URL('../../supabase/migrations/160_referral_rank_notify.sql', import.meta.url), 'utf-8');
+  assert.ok(sql.includes("'event_promo'"), '광고 타입으로 쌓아야 9~20시·동의 재확인이 적용된다');
+  assert.ok(sql.includes("'(광고) '"));
+  assert.ok(sql.includes("push_marketing"));
+  assert.ok(sql.includes('v_hour >= 9 and v_hour < 20'));
+  assert.ok(sql.includes("n.type = 'REFERRAL_RANK'"), '하루 한 번');
+});

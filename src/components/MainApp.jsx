@@ -2923,7 +2923,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     //   초대 가입(148)은 친구 초대 화면 · 테스터 신청(147 · 대표 번호)은 /testers 목록.
     if (t === "REQUEST_FIRST_BID") { loadCompanyRequests?.(); go("home"); return; }
     if (t === "REQUEST_NUDGE") { if (rid) setBidViewRequestId(rid); setScreen("timeline"); return; }
-    if (t === "REFERRAL_JOINED" || t === "REFERRAL_EVENT_PRIZE") { setScreen("invite"); return; }
+    if (t === "REFERRAL_JOINED" || t === "REFERRAL_EVENT_PRIZE" || t === "REFERRAL_RANK") { setScreen("invite"); return; }
     if (t === "MARKETING_CONSENT") { setScreen("my"); return; }
     if (t === "ADMIN_TESTER_SIGNUP") { window.location.href = "/testers"; return; }
     // 계약은 사업자부터(A안 · migration 116): 업체 → 서류 올리는 곳 / 의뢰인 → 그 요청의 결제 화면 / 관리자 → 관리 화면.
