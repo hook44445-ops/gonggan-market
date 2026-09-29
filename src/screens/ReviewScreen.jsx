@@ -11,6 +11,7 @@ import { sendTieredNotification } from "../utils/notify";
 import { recommendMessage, REFERRAL_REWARD } from "../lib/referral";
 import { myRefCode } from "../lib/myRefCode";
 import { suggestCarePresets, warrantyCareItem } from "../lib/homeCare";
+import BeforeAfterCard from "../components/BeforeAfterCard";
 import { addHomeCareItem } from "../lib/supabase";
 import { kstDay } from "../lib/pageViews";
 
@@ -199,6 +200,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
   const [recommend, setRecommend] = useState(null);   // { pending, code } | null
   // 내 집 관리 수첩(165)에 적어 두기 — 후기 글에서 고른 항목(최대 3개). 한 번 누르면 오늘 날짜로 들어간다.
   const [careSuggest, setCareSuggest] = useState(null);   // { items: [preset], added: Set<kind>, err } | null
+  const [baSuggest, setBaSuggest] = useState(null);   // { before, after, open }
   const closeStoreAsk = () => { setStoreAsk(null); setRecommend(r => (r?.pending ? { ...r, pending: false } : r)); };
   const [submitDebug,      setSubmitDebug]      = useState(null);
   // C-2: 중복 제출 가드 + optimistic ID 충돌 방지용 카운터
@@ -313,6 +315,10 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
           playPublic: import.meta.env.VITE_PLAY_PUBLIC === "1",
         });
         if (askUrl) { recordAsk(); setStoreAsk(askUrl); }
+        // 전·후 사진이 있으면 «자랑 카드» 제안(09-29 · 다운로드)
+        if (currentUser?.id && !currentUser?.isGuest && data.beforeImageUrls?.[0] && data.afterImageUrls?.[0]) {
+          setBaSuggest({ before: data.beforeImageUrls[0], after: data.afterImageUrls[0], open: false });
+        }
         if (currentUser?.id && !currentUser?.isGuest) {
           const picks = suggestCarePresets(`${data.content ?? ""} ${(data.tags ?? []).join(" ")}`);
           if (picks.length) setCareSuggest({ items: picks, added: new Set(), err: null });
@@ -400,6 +406,17 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
 
       <div style={{ padding:`${S.xl}px ${S.xl}px 100px` }}>
 
+        {baSuggest && (
+          <button onClick={() => setBaSuggest((b) => ({ ...b, open: true }))}
+            style={{ width:"100%", textAlign:"left", background:C.brandL, border:`1px solid ${C.brandM}`, borderRadius:R.lg, padding:"12px 14px", marginBottom:S.lg, cursor:"pointer" }}>
+            <b style={{ fontSize:13.5, color:C.brand }}>📸 전·후 사진 카드로 자랑하기</b>
+            <div style={{ fontSize:12, color:C.text2, marginTop:3 }}>한 장으로 만들어 카톡·인스타에 · 친구가 QR로 가입하면 선물</div>
+          </button>
+        )}
+        {baSuggest?.open && (
+          <BeforeAfterCard userId={currentUser?.id} initialBefore={baSuggest.before} initialAfter={baSuggest.after}
+            space={company?.type ?? ""} onClose={() => setBaSuggest((b) => ({ ...b, open: false }))} />
+        )}
         {careSuggest && (
           <div style={{ background:C.surface, border:`1px solid ${C.brandM}`, borderRadius:R.lg, padding:"12px 14px", marginBottom:S.lg }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>

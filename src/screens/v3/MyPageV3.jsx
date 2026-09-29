@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { companyPageUrl } from "../../lib/referral";
 import CompanyQrSheet from "../../components/CompanyQrSheet";
 import QuoteSheetMaker from "../../components/QuoteSheetMaker";
+import BeforeAfterCard from "../../components/BeforeAfterCard";
 import PushNotificationSettings from "../../components/PushNotificationSettings";
 import { getCompanyPageStats } from "../../lib/supabase";
 import { statsLine } from "../../lib/pageViews";
@@ -65,6 +66,7 @@ export default function MyPageV3({
   const [pageShared, setPageShared] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [baOpen, setBaOpen] = useState(false);   // 전·후 사진 카드
   const [pushOpen, setPushOpen] = useState(false);
   // 내 업체 페이지 방문 수(156) — SQL 전이거나 실패하면 원래 문구
   const [viewLine, setViewLine] = useState(null);
@@ -281,6 +283,10 @@ export default function MyPageV3({
                    onClick={() => setQrOpen(true)} />
             )}
             {companyId && (
+              <Row emoji="📸" label="전·후 사진 카드" sub="시공 전·후 한 장 · 내 페이지 QR 포함 · 인스타·카톡용"
+                   onClick={() => setBaOpen(true)} />
+            )}
+            {companyId && (
               <Row emoji="🧾" label="간단 견적서 만들기" sub="지인·전화 공사 견적을 이미지로 · 내 페이지 QR 포함"
                    onClick={() => setQuoteOpen(true)} last />
             )}
@@ -300,6 +306,10 @@ export default function MyPageV3({
       {quoteOpen && companyId && (
         <QuoteSheetMaker companyName={companyRow?.name ?? user?.name} phone={user?.phone ?? ""}
           pageUrl={companyPageUrl(companySlug || companyId, refCode)} userId={user?.id ?? null} onClose={() => setQuoteOpen(false)} />
+      )}
+      {baOpen && user?.id && (
+        <BeforeAfterCard userId={user.id} isCompany={isCompany && !!companyId} companyName={companyRow?.name ?? user?.name}
+          companyKey={companySlug || companyId} refCode={refCode} onClose={() => setBaOpen(false)} />
       )}
       {qrOpen && companyId && (
         <CompanyQrSheet url={companyPageUrl(companySlug || companyId, refCode)} name={companyRow?.name ?? user?.name}
@@ -352,6 +362,9 @@ export default function MyPageV3({
       <Section title="알림 · 도움">
         <Card pad={`0 ${S.lg}px`}>
           <Row emoji="🏠" label="내 집 관리 수첩" sub="실리콘·보일러·에어컨… 다음에 살펴볼 때를 알려 줘요" onClick={() => onGo("home-care")} />
+          {!isCompany && user?.id && (
+            <Row emoji="📸" label="전·후 사진 카드" sub="바뀐 우리 집 자랑 · 친구가 QR로 가입하면 선물" onClick={() => setBaOpen(true)} />
+          )}
           <Row emoji="🤝" label={isCompany ? "동료 사장님 초대" : "친구 초대"} sub="내 초대 링크 · 가입한 사람 수" onClick={() => onGo("invite")} />
           <Row emoji="🔔" label="알림함" badge={unreadTotal || null} onClick={() => onGo("notifications")} />
           <Row emoji="❓" label="자주 묻는 질문" sub={SHOW_BETA_UI ? "계약 · 대금 · 분쟁" : "에스크로 · 환불 · 분쟁"} onClick={() => onGo("help")} />
