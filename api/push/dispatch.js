@@ -175,6 +175,11 @@ export default async function handler(req, res) {
     await fetch(`${SB_URL}/rest/v1/rpc/referral_event_rank_notify_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
   } catch { /* noop */ }
 
+  // 업체 페이지 방문 수 주간 요약(migration 161) — 한국 월요일 9~20시에 한 번. 없으면(161 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/company_page_weekly_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
+
   // 발송 경로 결정: v1(서비스계정) 우선, 없으면 legacy(서버키) 폴백.
   const useV1 = !!SA;
   let accessToken = null;
