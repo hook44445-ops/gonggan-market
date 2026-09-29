@@ -2,7 +2,9 @@ import { useState } from "react";
 import { C, R, S } from "../constants";
 import { qrMatrix, qrSvgPath } from "../lib/qr";
 import { kstDay } from "../lib/pageViews";
-import { buildQuote, formatWon, quoteFileName, QUOTE_MAX_ITEMS, QUOTE_NOTICE } from "../lib/quoteSheet";
+import { buildQuote, formatWon, quoteFileName, quoteToLedgerForm, QUOTE_MAX_ITEMS, QUOTE_NOTICE } from "../lib/quoteSheet";
+import { buildLedgerRow } from "../lib/jobLedger";
+import { addLedgerEntry } from "../lib/supabase";
 
 // 간단 견적서 만들기(대표 09-29) — 적으면 이미지 한 장(1080 폭 PNG)으로. 저장은 하지 않는다(기기 사진첩·공유로).
 //   맨 아래 공간마켓 업체 페이지 QR — 받은 사람이 사례·후기를 보고 들어온다(가입하면 초대로 잡힌다).
@@ -60,12 +62,13 @@ export function drawQuote(canvas, q, { companyName, phone, pageUrl }) {
 
 const emptyItems = () => [{ name: "", amount: "" }, { name: "", amount: "" }, { name: "", amount: "" }];
 
-export default function QuoteSheetMaker({ companyName, phone, pageUrl, onClose }) {
+export default function QuoteSheetMaker({ companyName, phone, pageUrl, userId = null, onClose }) {
   const fmt = (p) => { const d = String(p ?? "").replace(/\D/g, "").replace(/^82/, "0"); return d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : d; };
   const [form, setForm] = useState({ title: "", customer: "", period: "", memo: "", vat: "included", items: emptyItems(), phone: fmt(phone) });
   const [err, setErr] = useState(null);
   const [img, setImg] = useState(null);   // { url, blob, name }
   const [msg, setMsg] = useState(null);
+  const [ledger, setLedger] = useState(null);   // null | "busy" | "done" | 오류 문구
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const setItem = (i, k, v) => setForm((f) => ({ ...f, items: f.items.map((it, j) => (j === i ? { ...it, [k]: v } : it)) }));
 
@@ -78,7 +81,8 @@ export default function QuoteSheetMaker({ companyName, phone, pageUrl, onClose }
       const blob = await new Promise((ok) => canvas.toBlob(ok, "image/png"));
       if (!blob) throw new Error("NO_BLOB");
       if (img?.url) URL.revokeObjectURL(img.url);
-      setImg({ url: URL.createObjectURL(blob), blob, name: quoteFileName(quote.title, kstDay()) });
+      setImg({ url: URL.createObjectURL(blob), blob, name: quoteFileName(quote.title, kstDay()), quote });
+      setLedger(null);
       setMsg(null);
     } catch { setErr("이 기기에선 이미지를 만들 수 없어요"); }
   };
@@ -94,6 +98,18 @@ export default function QuoteSheetMaker({ companyName, phone, pageUrl, onClose }
     a.href = img.url; a.download = img.name;
     document.body.appendChild(a); a.click(); a.remove();
     setMsg("이미지를 내려받았어요 · 문자·카톡에 붙여 보내세요");
+  };
+
+  // 작업 장부에 적어 두기(146) — 받은 금액은 0, 견적 금액은 메모(공사 뒤 장부에서 고친다)
+  const toLedger = async () => {
+    if (!img?.quote || !userId || ledger === "busy" || ledger === "done") return;
+    const { row, error } = buildLedgerRow(quoteToLedgerForm(img.quote, kstDay()));
+    if (error) { setLedger(error); return; }
+    setLedger("busy");
+    try {
+      const res = await addLedgerEntry(userId, row);
+      setLedger(res?.error ? "장부에 적지 못했어요 · 잠시 뒤 다시 눌러 주세요" : "done");
+    } catch { setLedger("장부에 적지 못했어요 · 잠시 뒤 다시 눌러 주세요"); }
   };
 
   const input = { width: "100%", boxSizing: "border-box", padding: "11px 12px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`,
@@ -117,6 +133,15 @@ export default function QuoteSheetMaker({ companyName, phone, pageUrl, onClose }
               카카오톡·문자로 보내기
             </button>
             {msg && <div style={{ fontSize: 12.5, color: C.text2, marginTop: 8, textAlign: "center" }}>{msg}</div>}
+            {userId && (
+              <button onClick={toLedger} disabled={ledger === "busy" || ledger === "done"}
+                style={{ marginTop: 8, width: "100%", padding: 12, borderRadius: R.lg, border: `1px solid ${C.brandM}`, background: C.brandL,
+                  color: C.brand, fontSize: 13.5, fontWeight: 800, cursor: ledger === "done" ? "default" : "pointer" }}>
+                {ledger === "done" ? "✓ 작업 장부에 적었어요 · 공사 뒤 받은 금액만 고쳐 주세요"
+                  : ledger === "busy" ? "적는 중…" : "📒 작업 장부에 적어 두기"}
+              </button>
+            )}
+            {ledger && ledger !== "busy" && ledger !== "done" && <div style={{ fontSize: 12.5, color: "#B4432F", marginTop: 6, textAlign: "center" }}>{ledger}</div>}
             <button onClick={() => setImg(null)} style={{ marginTop: 8, width: "100%", padding: 12, background: "none", border: "none", color: C.text2, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>
               고치기
             </button>

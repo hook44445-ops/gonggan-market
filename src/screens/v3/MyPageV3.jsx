@@ -299,7 +299,7 @@ export default function MyPageV3({
       )}
       {quoteOpen && companyId && (
         <QuoteSheetMaker companyName={companyRow?.name ?? user?.name} phone={user?.phone ?? ""}
-          pageUrl={companyPageUrl(companySlug || companyId, refCode)} onClose={() => setQuoteOpen(false)} />
+          pageUrl={companyPageUrl(companySlug || companyId, refCode)} userId={user?.id ?? null} onClose={() => setQuoteOpen(false)} />
       )}
       {qrOpen && companyId && (
         <CompanyQrSheet url={companyPageUrl(companySlug || companyId, refCode)} name={companyRow?.name ?? user?.name}

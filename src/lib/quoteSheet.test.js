@@ -25,3 +25,15 @@ test("파일 이름 — 못 쓰는 글자 빼기", () => {
   assert.equal(quoteFileName("욕실/주방: 수리?", "2026-10-02"), "견적서-욕실주방 수리-2026-10-02.png");
   assert.equal(quoteFileName("", "2026-10-02"), "견적서-견적-2026-10-02.png");
 });
+
+test("견적서 → 작업 장부 — 받은 금액은 0, 견적 금액은 메모", async () => {
+  const { quoteToLedgerForm } = await import("./quoteSheet.js");
+  const { buildLedgerRow } = await import("./jobLedger.js");
+  const { quote } = buildQuote({ title: "욕실 실리콘", customer: "김○○", items: [{ name: "a", amount: "230000" }] });
+  const { row, error } = buildLedgerRow(quoteToLedgerForm(quote, "2026-10-02"));
+  assert.equal(error, undefined);
+  assert.equal(row.revenue, 0);
+  assert.equal(row.source, "acquaintance");
+  assert.match(row.memo, /견적 230,000원\(부가세 포함\) · 김○○ 님/);
+  assert.equal(quoteToLedgerForm(null, "2026-10-02"), null);
+});
