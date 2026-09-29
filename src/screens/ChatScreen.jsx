@@ -6,7 +6,7 @@ import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import { detectDirectDealKeywords } from "../constants/directDeal";
 import { BADGES } from "../constants/badges";
-import { supabase, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId, markChatRoomRead, leaveLoungeChat, getProjectRooms, postProjectEvent, CHAT_PHOTO_PREFIX, isChatPhoto, chatPhotoUrl, uploadChatPhoto } from "../lib/supabase";
+import { supabase, chatDb, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId, markChatRoomRead, leaveLoungeChat, getProjectRooms, postProjectEvent, CHAT_PHOTO_PREFIX, isChatPhoto, chatPhotoUrl, uploadChatPhoto } from "../lib/supabase";
 
 const REPORT_REASONS = [
   "외부 연락처(카톡/전화) 요구",
@@ -289,7 +289,8 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
       if (!cancelled) setLoaded(true);
     });
 
-    const channel = supabase
+    const chatConn = chatDb();   // 168 — 실시간도 로그인 토큰으로(당사자만 받는다)
+    const channel = chatConn
       .channel(`chat:${roomId}`)
       .on("postgres_changes", {
         event: "INSERT", schema: "public", table: "chats",
@@ -318,7 +319,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      chatConn.removeChannel(channel);
       if (reqChannel) supabase.removeChannel(reqChannel);
     };
   }, [roomId, isLounge, partner?.requestId]);

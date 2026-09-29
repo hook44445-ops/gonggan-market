@@ -132,7 +132,9 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   // 155 — 초대왕 이벤트(순위판은 토큰이 있으면 «내 순위»도 · 지급은 관리자)
   "referral_event_board", "admin_referral_event_settle",
   // 166 — 견적·현장방문·공사 기록(체크포인트)·추가공사·요청 함수(보완 S4 · 앱이 보낸 사용자 ID 를 믿지 않는다)
-  ...S4_TOKEN_RPCS]);
+  ...S4_TOKEN_RPCS,
+  // 168 — 대화 읽음 처리(읽는 사람 = 토큰의 사용자)
+  "chat_mark_room_read"]);
 export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }
 
 export function isGuardedRpc(fn) {

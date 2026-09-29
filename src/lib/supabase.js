@@ -479,11 +479,15 @@ export const updateBid = (id, data) =>
   supabase.from("bids").update(data).eq("id", id).select().single();
 
 // ── Chats ─────────────────────────────────────────────────────────────────────
+// 대화는 그 방의 고객·업체(와 관리자)만 읽고 쓴다(168) — 서버가 로그인 토큰의 사용자로 판단하므로
+// 읽기·쓰기·실시간 구독 모두 토큰 연결로. 토큰이 없으면 예전 연결(168 뒤엔 빈 대화 — 다시 로그인 안내가 뜬다).
+export const userDb = () => authedDb(getCurrentUserId()) ?? supabase;
+export const chatDb = userDb;
 
 // 최신 limit개만 내림차순으로 조회 후 시간순(asc)으로 되돌려 반환 — 기존 호출부와 동일한
 // 반환 형태/정렬 유지. before(created_at) 커서를 주면 그 이전 메시지를 추가 로딩(더보기).
 export const getChatMessages = async (roomId, { limit = 50, before = null } = {}) => {
-  let q = supabase
+  let q = chatDb()
     .from("chats")
     .select("*")
     .eq("room_id", roomId)
@@ -515,7 +519,7 @@ export const buildRoomIdCandidates = ({ customerId, companyId, ownerId } = {}) =
 export const getChatsForProject = async ({ customerId, companyId, ownerId, limit = 50 } = {}) => {
   const rooms = buildRoomIdCandidates({ customerId, companyId, ownerId });
   if (!customerId || rooms.length === 0) return { data: [], error: null, rooms, matchedRoomIds: [] };
-  const { data, error } = await supabase
+  const { data, error } = await chatDb()
     .from("chats")
     .select("*")
     .in("room_id", rooms)
@@ -530,7 +534,7 @@ export const getChatsForProject = async ({ customerId, companyId, ownerId, limit
 export const getProjectChatSummary = async ({ customerId, companyId, ownerId } = {}) => {
   const rooms = buildRoomIdCandidates({ customerId, companyId, ownerId });
   if (!customerId || rooms.length === 0) return { count: 0, last: null, recent: [], rooms, matchedRoomIds: [], error: null };
-  const { data, error, count } = await supabase
+  const { data, error, count } = await chatDb()
     .from("chats")
     .select("text, created_at, sender_type, room_id", { count: "exact" })
     .in("room_id", rooms)
@@ -547,7 +551,7 @@ export const getProjectChatSummary = async ({ customerId, companyId, ownerId } =
 // 반환: [{ roomId, customerId, lastText, lastAt, customerName }] 최근 대화 순.
 export async function getCompanyChatRooms(companyId) {
   if (!companyId) return { data: [], error: null };
-  const { data, error } = await supabase
+  const { data, error } = await chatDb()
     .from("chats")
     .select("room_id, text, created_at, sender_type")
     .like("room_id", `%_${companyId}`)
@@ -605,7 +609,7 @@ export const postProjectEvent = async (customerId, companyIdOrOwnerId, text) => 
 };
 
 export const sendMessage = (roomId, senderId, senderType, text) =>
-  supabase.from("chats").insert({
+  chatDb().from("chats").insert({
     room_id: roomId,
     sender_id: senderId,
     sender_type: senderType,
@@ -623,7 +627,7 @@ export const markChatRoomRead = (roomId, readerId) =>
 export const getUnreadChatCounts = async (roomIds, readerId) => {
   const ids = (roomIds ?? []).filter(Boolean);
   if (ids.length === 0 || !readerId) return { data: {}, error: null };
-  const { data, error } = await supabase
+  const { data, error } = await chatDb()
     .from("chats")
     .select("room_id")
     .in("room_id", ids)
@@ -640,7 +644,7 @@ export const getUnreadChatCounts = async (roomIds, readerId) => {
 export const getRoomsWithMessages = async (roomIds) => {
   const ids = (roomIds ?? []).filter(Boolean);
   if (ids.length === 0) return { data: new Set(), error: null };
-  const { data, error } = await supabase
+  const { data, error } = await chatDb()
     .from("chats")
     .select("room_id")
     .in("room_id", ids);
@@ -649,7 +653,7 @@ export const getRoomsWithMessages = async (roomIds) => {
 };
 
 export const subscribeToChatRoom = (roomId, callback) =>
-  supabase
+  chatDb()
     .channel(`chat:${roomId}`)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "chats",
       filter: `room_id=eq.${roomId}` }, callback)
@@ -745,9 +749,9 @@ export const uploadDocument = async (bucket, rawPath, file) => {
   return `${bucket}/${data?.path ?? path}`;
 };
 
-export const uploadFile = async (bucket, rawPath, file) => {
+export const uploadFile = async (bucket, rawPath, file, db = supabase) => {
   const path = safeStorageKey(rawPath);
-  const { data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+  const { data, error } = await db.storage.from(bucket).upload(path, file, { upsert: true });
   if (error) throw error;
   // Use data.path (canonical path returned by storage) for getPublicUrl
   const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(data?.path ?? path);
@@ -769,7 +773,8 @@ export const uploadChatPhoto = async (file, roomId, userId) => {
   const ext  = (String(file?.name || "img.jpg").split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
   const rand = Math.random().toString(36).slice(2, 8);
   const path = `${safeRoom}/${userId || "guest"}_${Date.now()}_${rand}.${ext}`;
-  return uploadFile("chat-photos", path, file); // → publicUrl (실패 시 throw)
+  // 올리기는 방의 당사자만(168) — 토큰 연결로
+  return uploadFile("chat-photos", path, file, userDb()); // → publicUrl (실패 시 throw)
 };
 
 // ── Portfolios ────────────────────────────────────────────────────────────────
@@ -2634,9 +2639,10 @@ export const adminSetPayoutStatus = async (payoutId, _adminId, status, reason = 
 };
 
 // ── Company Documents ─────────────────────────────────────────────────────────
+// 업체 서류는 그 업체 주인·관리자만(169) — 서버가 토큰의 사용자로 판단하므로 토큰 연결(userDb)로.
 
 export const getCompanyDocuments = (companyId) =>
-  supabase
+  userDb()
     .from("company_documents")
     .select("*")
     .eq("company_id", companyId)
@@ -2657,14 +2663,14 @@ export const getPendingCompanyDocuments = () =>
 export const upsertCompanyDocument = (data) => {
   if (data.id) {
     const { id, ...rest } = data;
-    return supabase
+    return userDb()
       .from("company_documents")
       .update({ ...rest, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select()
       .single();
   }
-  return supabase
+  return userDb()
     .from("company_documents")
     .upsert({ ...data, updated_at: new Date().toISOString() }, { onConflict: "company_id,document_type" })
     .select()
@@ -2672,7 +2678,7 @@ export const upsertCompanyDocument = (data) => {
 };
 
 export const submitCompanyDocument = (docId) =>
-  supabase
+  userDb()
     .from("company_documents")
     .update({ review_status: "submitted", updated_at: new Date().toISOString() })
     .eq("id", docId)
@@ -4110,7 +4116,7 @@ export async function checkDirectDealSchedules() {
 
   // 데이터 수집 (소규모 운영 기준 일괄 조회)
   const [{ data: chats }, { data: requests }, { data: bids }, { data: escrows }] = await Promise.all([
-    supabase.from("chats").select("room_id, created_at").order("created_at", { ascending: true }),
+    chatDb().from("chats").select("room_id, created_at").order("created_at", { ascending: true }),
     supabase.from("requests").select("id, user_id, created_at"),
     supabase.from("bids").select("request_id, company_id, created_at"),
     supabase.from("escrow_payments").select("request_id, company_id, transaction_status, updated_at"),
