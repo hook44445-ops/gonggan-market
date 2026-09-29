@@ -12,6 +12,7 @@ import { recommendMessage, REFERRAL_REWARD } from "../lib/referral";
 import { myRefCode } from "../lib/myRefCode";
 import { suggestCarePresets, warrantyCareItem } from "../lib/homeCare";
 import BeforeAfterCard from "../components/BeforeAfterCard";
+import { warrantyOffered, markWarrantyOffered } from "../components/WarrantyCareOffer";
 import { addHomeCareItem } from "../lib/supabase";
 import { kstDay } from "../lib/pageViews";
 
@@ -323,7 +324,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
           const picks = suggestCarePresets(`${data.content ?? ""} ${(data.tags ?? []).join(" ")}`);
           if (picks.length) setCareSuggest({ items: picks, added: new Set(), err: null });
           // 견적서의 하자보수 기간 → «끝나기 전 점검» 한 줄을 맨 앞에(끝나기 한 달 전에 알림함·푸시로 알려 준다)
-          if (requestId) {
+          if (requestId && !warrantyOffered(requestId)) {
             getEstimateForRequest(requestId).then(({ data: est }) => {
               const e = Array.isArray(est) ? est[0] : est;
               const w = warrantyCareItem({ warrantyNote: e?.warranty_note, companyName: company?.name, doneOn: kstDay() });
@@ -434,6 +435,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
                         ? { kind: p.kind, label: p.label, cycle_months: p.cycle_months, done_on: p.done_on, memo: p.memo }
                         : { kind: p.kind, label: p.label, cycle_months: p.cycle, done_on: kstDay(), memo: `${company?.name ?? "업체"} 공사` .slice(0, 200) };
                       const res = await addHomeCareItem(currentUser.id, row).catch(() => null);
+                      if (res?.data && p.kind === "warranty") markWarrantyOffered(requestId);
                       setCareSuggest((s) => s && (res?.data
                         ? { ...s, added: new Set([...s.added, p.kind]), err: null }
                         : { ...s, err: "지금은 적지 못했어요 · 마이 › 내 집 관리 수첩에서 적을 수 있어요" }));

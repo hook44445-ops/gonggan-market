@@ -18,7 +18,8 @@ import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import CustomerEvaluationModal from "../components/CustomerEvaluationModal";
 import PlatformEstimateModal from "../components/PlatformEstimateModal";
 import { StageNowPage } from "../components/v3/JourneyNow"; // 결제 전 단계 «지금 여기»(힉스필드 3-6)
-import EscrowNextCard from "../components/v3/EscrowNextCard"; // 맨 위 「지금 할 일」(표시 전용 · 로직 무변경)
+import EscrowNextCard from "../components/v3/EscrowNextCard";
+import WarrantyCareOffer from "../components/WarrantyCareOffer"; // 완료 뒤 하자보수 끝나기 전 알림(09-29) // 맨 위 「지금 할 일」(표시 전용 · 로직 무변경)
 
 // Stage status values:
 // 'done'           — payment released
@@ -1560,6 +1561,10 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         disputed={!!disputeSubmitted}
         reviewed={!!reviewedForContract}
       />
+      {isConsumer && (stageStatus[5] === "done" || ["COMPLETED", "SETTLED"].includes(contractData?.transaction_status)) && (
+        <WarrantyCareOffer userId={userId} requestId={request?.id ?? resolvedBid?.requestId ?? contractData?.request_id ?? null}
+          companyName={resolvedBid?.company?.name ?? null} />
+      )}
       {/* ── STEP1: 현재 보호 금액 배너 (탭 시 금액 카드로 스크롤) ── */}
       {bidAmount > 0 && paid < 100 && (
         <div
