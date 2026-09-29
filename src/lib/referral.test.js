@@ -102,4 +102,16 @@ test("초대 링크 미리보기 카드 — 코드가 맞을 때만, 선물 금�
   assert.ok(h.description.includes(`공간토큰 ${REFERRAL_REWARD.invitee}개`));
   assert.match(inviteOg("partner", "ABC234").title, /파트너/);
   assert.match(inviteOg("company", "ABC234", "반듯수리").title, /^반듯수리 — 지인이 추천/);
+  assert.equal(inviteOg("home", "ABC234", null, "김○○").title, "김○○님이 공간마켓에 초대했어요 🎁");
+  assert.equal(inviteOg("partner", "ABC234", null, "박○○").title, "박○○ 사장님이 공간마켓 파트너로 초대했어요");
+  assert.match(inviteOg("company", "ABC234", "반듯수리", "이○○").title, /^반듯수리 — 이○○님이 추천/);
+  assert.match(inviteOg("home", "ABC234", null, "<script>").title, /^친구가/);
+});
+
+test("초대한 사람 표시 — «김○○» 모양만", async () => {
+  const { inviterName } = await import("./referral.js");
+  assert.equal(inviterName({ ok: true, name: "김○○" }), "김○○");
+  assert.equal(inviterName({ ok: false, name: "김○○" }), null);
+  assert.equal(inviterName({ ok: true, name: "김철수" }), null);
+  assert.equal(inviterName(null), null);
 });

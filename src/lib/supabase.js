@@ -250,6 +250,8 @@ export const getMyReferral = (userId = getCurrentUserId()) => {
   return db.rpc("referral_my_code");
 };
 // 초대 코드로 들어온 새 사용자 → { ok, reason? }. 판정(가입 7일 안 · 처음 · 본인 아님)은 서버가 한다.
+// 초대한 사람 첫 글자(159) — 누구나 · «김○○» + 업체 여부만
+export const getReferralInviter = (code) => supabase.rpc("referral_inviter", { p_code: code });
 export const claimReferral = (code) => supabase.rpc("referral_claim", { p_code: code });
 
 // 공간마켓 밖 공사 후기(151) — 따로 표시 · 평점·온도에 넣지 않음. 읽기는 누구나(숨김 제외), 쓰기는 로그인 토큰.
