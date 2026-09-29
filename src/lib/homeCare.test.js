@@ -81,3 +81,12 @@ test("후기 저장 뒤 견적서 하자보수 기간을 수첩 제안 맨 앞�
   assert.match(src, /warrantyCareItem\(\{ warrantyNote: e\?\.warranty_note/);
   assert.match(src, /p\.kind === "warranty"/);
 });
+
+test("공사 완료 화면에도 하자보수 제안 — 후기와 같은 요청엔 한 번만", () => {
+  const es = readFileSync(new URL("../screens/EscrowScreen.jsx", import.meta.url), "utf8");
+  assert.match(es, /isConsumer && \(stageStatus\[5\] === "done"/);
+  assert.match(es, /<WarrantyCareOffer userId=\{userId\}/);
+  const rv = readFileSync(new URL("../screens/ReviewScreen.jsx", import.meta.url), "utf8");
+  assert.match(rv, /requestId && !warrantyOffered\(requestId\)/);
+  assert.match(rv, /markWarrantyOffered\(requestId\)/);
+});
