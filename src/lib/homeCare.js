@@ -63,3 +63,25 @@ export function buildCareRow(form = {}) {
   if (memo.length > 200) return { error: "메모는 200자까지예요" };
   return { row: { kind: form.kind ?? null, label, cycle_months: cycle, done_on: form.done_on, memo: memo || null } };
 }
+
+// 공사 글(후기·요청 설명·업체 공종)에서 수첩 기본 항목 고르기 — 최대 3개 · 없으면 빈 배열(카드를 안 보인다)
+const SUGGEST_RULES = [
+  ["bath_silicone",   ["실리콘", "욕실", "화장실", "욕조", "세면대"]],
+  ["grout",           ["줄눈", "타일"]],
+  ["window_silicone", ["창틀", "샷시", "새시", "창호", "창문"]],
+  ["boiler",          ["보일러", "난방"]],
+  ["aircon",          ["에어컨"]],
+  ["faucet",          ["수전", "수도꼭지", "싱크"]],
+  ["screen",          ["방충망"]],
+  ["wallpaper",       ["도배", "벽지"]],
+  ["floor",           ["장판", "마루", "바닥"]],
+];
+export function suggestCarePresets(text) {
+  const hay = String(text ?? "");
+  const out = [];
+  for (const [kind, words] of SUGGEST_RULES) {
+    if (words.some((w) => hay.includes(w))) out.push(HOME_CARE_PRESETS.find((p) => p.kind === kind));
+    if (out.length >= 3) break;
+  }
+  return out.filter(Boolean);
+}

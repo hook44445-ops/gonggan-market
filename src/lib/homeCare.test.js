@@ -46,3 +46,11 @@ test("서버(165) — 본인 것만 · 30일에 한 번 · 9~20시", () => {
   assert.ok(sql.includes("v_hour < 9 or v_hour >= 20"));
   assert.ok(sql.includes("cycle_months between 1 and 240") && sql.includes("char_length(label) between 1 and 30"));
 });
+
+test("후기에서 수첩 항목 고르기 — 최대 3개 · 없으면 빈 배열", async () => {
+  const { suggestCarePresets } = await import("./homeCare.js");
+  assert.deepEqual(suggestCarePresets("욕실 타일 줄눈 새로 하고 실리콘도 다시 쐈어요").map((p) => p.kind), ["bath_silicone", "grout"]);
+  assert.deepEqual(suggestCarePresets("거실 도배랑 장판 교체").map((p) => p.kind), ["wallpaper", "floor"]);
+  assert.deepEqual(suggestCarePresets("친절하셨어요"), []);
+  assert.equal(suggestCarePresets("욕실 줄눈 창틀 보일러 에어컨").length, 3);
+});
