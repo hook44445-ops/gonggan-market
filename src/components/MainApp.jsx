@@ -2924,7 +2924,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (t === "REQUEST_FIRST_BID") { loadCompanyRequests?.(); go("home"); return; }
     if (t === "REQUEST_NUDGE") { if (rid) setBidViewRequestId(rid); setScreen("timeline"); return; }
     if (t === "REFERRAL_JOINED" || t === "REFERRAL_EVENT_PRIZE" || t === "REFERRAL_RANK") { setScreen("invite"); return; }
-    if (t === "MARKETING_CONSENT") { setScreen("my"); return; }
+    if (t === "MARKETING_CONSENT" || t === "PAGE_VIEWS_WEEKLY") { setScreen("my"); return; }
     if (t === "ADMIN_TESTER_SIGNUP") { window.location.href = "/testers"; return; }
     // 계약은 사업자부터(A안 · migration 116): 업체 → 서류 올리는 곳 / 의뢰인 → 그 요청의 결제 화면 / 관리자 → 관리 화면.
     if (t === "BIZ_REQUIRED" || t === "DOCUMENT_REVIEW") { setScreen("document-center"); return; }

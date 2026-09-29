@@ -31,3 +31,11 @@ test("서버(156) — 한국 날짜 · 7일 · 주인만", () => {
   assert.ok(sql.includes("day > v_day - 7"));
   assert.ok(sql.includes("'OWNER_ONLY'"));
 });
+
+test("주간 요약(161) — 월요일·한국 시간·지난주(월~일)·한 주 한 번", () => {
+  const sql = readFileSync(fileURLToPath(new URL("../../supabase/migrations/161_page_views_weekly.sql", import.meta.url)), "utf-8");
+  assert.ok(sql.includes("extract(isodow from v_today) <> 1"));
+  assert.ok(sql.includes("now() at time zone 'Asia/Seoul'"));
+  assert.ok(sql.includes("v.day >= v_last_mon and v.day < v_mon"));
+  assert.ok(sql.includes("n.type = 'PAGE_VIEWS_WEEKLY'"));
+});
