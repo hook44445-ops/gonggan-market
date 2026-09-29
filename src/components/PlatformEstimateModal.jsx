@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { supabase, createEstimate, updateEstimate, submitEstimate, uploadDocument, createNotification, postProjectEvent } from "../lib/supabase";
+import { supabase, createEstimate, updateEstimate, submitEstimate, setEstimateMaterialGrade, uploadDocument, createNotification, postProjectEvent } from "../lib/supabase";
+import { MATERIAL_GRADES } from "../lib/priceData";
 import { formatDueRemaining } from "../constants/policy";
 import EstimateCoachPanel from "./growth/EstimateCoachPanel";       // Space OS · AI 코치(라이브, Add Only)
 import EstimateAnalysisResult from "./growth/EstimateAnalysisResult"; // Space OS · 성실견적 분석 결과(제출 후)
@@ -51,6 +52,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
   const [durationDays, setDurationDays] = useState(restored.durationDays);
   const [note, setNote] = useState(restored.note);
   const [warrantyNote, setWarrantyNote] = useState(restored.warrantyNote);
+  const [materialGrade, setMaterialGrade] = useState(job.estimate?.material_grade ?? null); // 자재 등급(선택 · 170)
   const [step, setStep] = useState(1);            // 1 공정·금액 → 2 기간·사진 → 3 확인·전송
   const [stepMsg, setStepMsg] = useState(null);
   const [showExtra, setShowExtra] = useState(false); // 자재·특이사항·특약(선택) 펼치기
@@ -225,6 +227,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
     setSaving(false);
     if (result.error) { alert("저장 실패: " + result.error.message); return; }
     if (!estimateId) setEstimateId(result.data.id);
+    if (materialGrade) setEstimateMaterialGrade(estimateId ?? result.data?.id, materialGrade);
     const updated = { ...job, estimate: result.data };
     onChange(updated);
     alert("임시저장되었습니다");
@@ -243,6 +246,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
     } else {
       await updateEstimate(id, buildPayload(), userId);
     }
+    if (materialGrade) await setEstimateMaterialGrade(id, materialGrade);
     const { data, error } = await submitEstimate(id, job.siteVisit?.id ?? null, job.bid.request_id, userId);
     setSaving(false);
     if (error) { alert("제출 실패: " + error.message); return; }
@@ -397,6 +401,18 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
             ))}
           </div>
           <textarea value={warrantyNote} onChange={e => setWarrantyNote(e.target.value)} placeholder="보증 기간·범위를 적어 주세요" rows={2} style={{ ...area, marginBottom:S.xl }} />
+
+          <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:4 }}>자재 등급 <span style={{ fontSize:12, fontWeight:600, color:C.text3 }}>(선택)</span></div>
+          <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>고르면 우리 동네 평당 시세 통계에 쓰여요. 업체 이름은 남지 않아요.</div>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:S.xl }}>
+            {MATERIAL_GRADES.map(g => (
+              <button key={g.key} onClick={() => setMaterialGrade(prev => prev === g.key ? null : g.key)} aria-pressed={materialGrade === g.key}
+                style={{ padding:"9px 14px", borderRadius:R.full, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
+                  border:`1.5px solid ${materialGrade === g.key ? C.brand : C.bgWarm}`, background: materialGrade === g.key ? C.brandL : C.surface, color: materialGrade === g.key ? C.brand : C.text2 }}>
+                {materialGrade === g.key ? "✓ " : ""}{g.label}
+              </button>
+            ))}
+          </div>
 
           <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:4 }}>의뢰인에게 한마디</div>
           <div style={{ fontSize:12, color:C.text3, marginBottom:S.sm }}>현장에서 본 것, 금액이 이렇게 나온 이유를 짧게.</div>
