@@ -139,7 +139,17 @@ export default function App() {
       });
     } catch {}
     if (saved) {
-      setUser(saved);
+      // 푸시 딥링크 «/?open=invite»(157 이벤트 푸시) — 친구 초대 화면으로 연다(로그인된 기기만)
+      let openInvite = false;
+      try {
+        const u = new URL(window.location.href);
+        if (u.searchParams.get("open") === "invite") {
+          openInvite = !!saved.id && !saved.isGuest;
+          u.searchParams.delete("open");
+          window.history.replaceState({}, "", u.pathname + u.search + u.hash);
+        }
+      } catch { /* noop */ }
+      setUser(openInvite ? { ...saved, startAt: "invite" } : saved);
       claimPendingReferral(saved);   // 이미 로그인된 기기로 초대 링크를 연 경우(가입 7일 안이면 서버가 받는다)
     } else {
       // ── Deep Link + Guest Mode ──────────────────────────────────────────────

@@ -123,6 +123,8 @@ export const getCompanyByRef = (ref) => {
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r)) return getCompany(r);
   return supabase.from("companies").select("*").eq("slug", r.toLowerCase()).maybeSingle();
 };
+// 광고성 정보(이벤트·혜택) 수신 동의·철회(157) — 로그인 토큰의 본인만 · 결과는 서버가 알림함으로 알린다
+export const setMarketingConsent = (on) => supabase.rpc("marketing_consent_set", { p_on: !!on });
 // 업체 페이지 방문 수(156) — 세기는 누구나, 보기는 주인(로그인 토큰)·관리자
 export const recordCompanyPageView = (companyId) => supabase.rpc("company_page_view", { p_company_id: companyId });
 export const getCompanyPageStats = (companyId) => supabase.rpc("company_page_stats", { p_company_id: companyId });
