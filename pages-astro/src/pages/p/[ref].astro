@@ -36,6 +36,6 @@ const tags=[...new Set([c?.region,...(Array.isArray(c?.service_regions)?c.servic
 <RefStash/><InstallBanner/>
 {data ? <><Hero company={c}/><TrustRow company={c}/><Kpi company={c} stats={data.stats}/>
 {(tags.length>0 || c.intro) && <section><h2>업체 소개</h2>{c.intro && <p>{String(c.intro).slice(0,300)}</p>}<div class="tags">{tags.map(tag=><span class="tag">{tag}</span>)}</div></section>}
-<Works works={data.works} count={data.workCount}/><Reviews reviews={data.reviews} stats={data.stats} external={data.external} externalCount={data.externalCount} {ref}/><Cta/></>
+<Works works={data.works} count={data.workCount}/><Reviews reviews={data.reviews} stats={data.stats} external={data.external} externalCount={data.externalCount} {ref}/><Cta company={c}/></>
 : <section class="error"><h1>{unavailable?'잠시 후 다시 확인해 주세요':'업체를 찾을 수 없어요'}</h1><p>{unavailable?'업체 정보를 불러오지 못했어요. 잠시 후 다시 방문해 주세요.':'주소가 바뀌었거나 활동을 쉬고 있는 업체예요.'}</p><a class="text-link" href="https://gongganmarket.com/">공간마켓에서 다른 업체 보기 →</a></section>}
 </Base>
