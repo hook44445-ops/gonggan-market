@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { safeStorageKey } from "./storageKey.js";
+import { requestPriceFields, isMissingColumnError } from "./priceData.js";
 import { authedDb, getCurrentUserId, isGuardedRpc, isTokenRpc, authHeader } from "./session";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { detectDirectDealKeywords } from "../constants/directDeal";
@@ -322,8 +323,17 @@ export const markTesterSignup = (id, added) => supabase.rpc("tester_signup_mark"
 
 // ── Requests ──────────────────────────────────────────────────────────────────
 
-export const createRequest = (data) =>
-  supabase.from("requests").insert(data).select().single();
+// 가격 데이터 칸(평수 m²·건물 유형·지역 코드 · 170)을 이미 적힌 값에서 채워 같이 넣는다(lib/priceData).
+// 운영 DB 에 칸이 아직 없으면(170 전) 예전 그대로 한 번 더 저장 — 요청 저장은 절대 막지 않는다.
+export const createRequest = async (data) => {
+  const extra = Object.fromEntries(Object.entries(
+    requestPriceFields({ spaceType: data?.space_type, size: data?.size, area: data?.area }),
+  ).filter(([, v]) => v != null));
+  if (!Object.keys(extra).length) return supabase.from("requests").insert(data).select().single();
+  const res = await supabase.from("requests").insert({ ...data, ...extra }).select().single();
+  if (res.error && isMissingColumnError(res.error)) return supabase.from("requests").insert(data).select().single();
+  return res;
+};
 
 // 업체 입찰 목록 — requests.status 단일 기준. status='open' 만 노출.
 // (expires_at 기준 필터 제거 — 만료는 status='expired' 로 전이되어 자연 제외됨)
@@ -2094,6 +2104,13 @@ export const getEstimateForRequest = (requestId) =>
 // 견적서 수정(draft) — RPC 가 업체 소유자 검증.
 export const updateEstimate = (id, data, actorId = null) =>
   supabase.rpc("estimate_upsert", { p_actor_id: actorId, p_estimate_id: id, ...estimateRpcParams(data) });
+
+// 견적서 자재 등급(선택 · 170) — 시세 통계용. 칸·함수가 아직 없으면 조용히 넘어간다.
+export const setEstimateMaterialGrade = async (estimateId, grade) => {
+  if (!estimateId) return { data: false, error: null };
+  try { return await supabase.rpc("estimate_set_material_grade", { p_estimate_id: estimateId, p_grade: grade ?? null }); }
+  catch (e) { return { data: false, error: e }; }
+};
 
 // 견적서 제출 — estimate submitted + site_visit estimate_submitted + request final_quote_submitted
 // 세 갱신을 RPC 한 번에 원자적으로 처리(직접 UPDATE 는 RLS 차단). RPC 가 업체 소유자 검증.
