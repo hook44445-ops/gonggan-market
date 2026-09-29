@@ -32,6 +32,7 @@ export function getEarnDescription(action) {
     first_quote_request:   '첫 견적 요청',
     referral_invite:       '친구 초대 보상',
     referral_joined:       '친구 초대로 가입',
+    daily_checkin:         '출석 도장',
     referral_event:        '초대왕 이벤트 상품',
   };
   return map[action] ?? action;

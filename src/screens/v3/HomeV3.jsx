@@ -16,6 +16,7 @@
 import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progress, FoldText } from "../../components/v3/ui";
 import { CURRENT_EVENT, eventLine, showEventStrip } from "../../lib/referralEvent";
 import EventAlertOptIn from "../../components/EventAlertOptIn";
+import DailyHomeCard from "../../components/DailyHomeCard";
 import { C, R, S } from "../../constants";
 import { SHOW_BETA_UI } from "../../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 
@@ -65,6 +66,7 @@ export default function HomeV3({
   openRequest = null,      // 의뢰인: 진행 중이 아닌 최근 요청 { title, bidCount, onOpen }
   onGo = () => {},
   onNewRequest,
+  onTipRequest,             // 오늘의 집 관리 → 요청서 미리 채워 열기(고객)
   onRequestType,           // 의뢰인: 공간 유형을 고른 채 견적 요청 열기(type)
   requestsSlot = null,     // 파트너: 입찰할 새 견적 요청 목록(MainApp 이 그린다)
   onOpenShowcase,
@@ -139,6 +141,9 @@ export default function HomeV3({
           <Progress pct={activeContract.pct} />
         </Card>
       )}
+
+      {/* ── 오늘의 집 관리 + 출석 도장(162) — 공사가 없는 날에도 열 이유 ── */}
+      <DailyHomeCard user={user} isCompany={isCompany} onTipRequest={onTipRequest} />
 
       {/* ── 파트너: 새 견적 요청 — 홈에서 바로 보고 입찰한다 ─────────── */}
       {isCompany && requestsSlot && (
