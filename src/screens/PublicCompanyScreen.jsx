@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { getCompanyByRef } from "../lib/supabase";
+import { getCompanyByRef, recordCompanyPageView } from "../lib/supabase";
+import { shouldCountView, lastCountedDay, markViewCounted } from "../lib/pageViews";
 import { normalizeCompany } from "../components/MainApp";
 import { isTestCompany } from "../lib/testCompany";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
@@ -31,6 +32,13 @@ export default function PublicCompanyScreen({ companyRef }) {
   }, [companyRef]);
 
   const c = state.company;
+  // 방문 수(156) — 같은 기기 하루 한 번 · 주인이 자기 페이지를 연 건 안 셈. SQL 전이면 조용히 실패.
+  useEffect(() => {
+    if (!c?.id) return;
+    if (!shouldCountView({ companyId: c.id, ownerId: c.ownerId, viewerId: getCurrentUserId(), lastDay: lastCountedDay(c.id) })) return;
+    markViewCounted(c.id);
+    recordCompanyPageView(c.id).then(() => {}, () => {});
+  }, [c?.id]);
   useDocumentMeta({
     title: c ? `${c.name} — ${c.region || "우리 동네"} 인테리어·집수리 | 공간마켓` : "업체 — 공간마켓",
     description: c

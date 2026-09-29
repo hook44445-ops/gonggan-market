@@ -123,6 +123,9 @@ export const getCompanyByRef = (ref) => {
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r)) return getCompany(r);
   return supabase.from("companies").select("*").eq("slug", r.toLowerCase()).maybeSingle();
 };
+// 업체 페이지 방문 수(156) — 세기는 누구나, 보기는 주인(로그인 토큰)·관리자
+export const recordCompanyPageView = (companyId) => supabase.rpc("company_page_view", { p_company_id: companyId });
+export const getCompanyPageStats = (companyId) => supabase.rpc("company_page_stats", { p_company_id: companyId });
 // 짧은 주소 정하기 — 업체 주인(로그인 토큰) 또는 관리자. 빈 값이면 없앤다. → { ok, slug?, reason? }
 export const setCompanySlug = (companyId, slug) =>
   supabase.rpc("company_set_slug", { p_company_id: companyId, p_slug: slug ?? "" });
