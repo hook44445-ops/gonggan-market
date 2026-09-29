@@ -85,3 +85,31 @@ export function suggestCarePresets(text) {
   }
   return out.filter(Boolean);
 }
+
+// 하자보수 기간(견적서 «하자보수 조건» 글) → 개월. 「1년」「2년」「6개월」「무상 1년 · 방수 2년」 → 가장 긴 것. 없으면 null
+export function warrantyMonths(text) {
+  const s = String(text ?? "");
+  let best = 0;
+  for (const m of s.matchAll(/(\d+(?:\.\d+)?)\s*(년|개월|달)/g)) {
+    const n = Number(m[1]);
+    const months = m[2] === "년" ? Math.round(n * 12) : Math.round(n);
+    if (months > best) best = months;
+  }
+  return best >= 1 && best <= 120 ? best : null;
+}
+
+// 하자보수 끝나기 한 달 전에 «살펴볼 시기» 가 되게 — 수첩 한 줄(buildCareRow 모양). 기간이 없으면 null
+export function warrantyCareItem({ warrantyNote, companyName, doneOn } = {}) {
+  const months = warrantyMonths(warrantyNote);
+  if (!months || !isDate(doneOn)) return null;
+  const until = nextDue(doneOn, months);
+  const who = String(companyName ?? "").trim() || "업체";
+  return {
+    kind: "warranty",
+    label: "하자보수 끝나기 전 점검",
+    cycle_months: Math.max(1, months - 1),
+    done_on: doneOn,
+    memo: `${who} 하자보수 ${months % 12 === 0 ? `${months / 12}년` : `${months}개월`} · ${until}까지 — 끝나기 전에 집을 둘러보고 업체에 말해 두세요`.slice(0, 200),
+    months, until,
+  };
+}

@@ -54,3 +54,30 @@ test("후기에서 수첩 항목 고르기 — 최대 3개 · 없으면 빈 배�
   assert.deepEqual(suggestCarePresets("친절하셨어요"), []);
   assert.equal(suggestCarePresets("욕실 줄눈 창틀 보일러 에어컨").length, 3);
 });
+
+import { warrantyMonths, warrantyCareItem } from "./homeCare.js";
+test("하자보수 기간 읽기 — 가장 긴 것, 없으면 null", () => {
+  assert.equal(warrantyMonths("1년"), 12);
+  assert.equal(warrantyMonths("무상 하자보수 1년 · 방수 2년"), 24);
+  assert.equal(warrantyMonths("6개월"), 6);
+  assert.equal(warrantyMonths("시공 후 3달"), 3);
+  assert.equal(warrantyMonths(""), null);
+  assert.equal(warrantyMonths("협의"), null);
+});
+
+test("하자보수 수첩 줄 — 끝나기 한 달 전에 시기", () => {
+  const it = warrantyCareItem({ warrantyNote: "1년", companyName: "홍익시공", doneOn: "2026-10-01" });
+  assert.equal(it.cycle_months, 11);
+  assert.equal(it.until, "2027-10-01");
+  assert.equal(nextDue(it.done_on, it.cycle_months), "2027-09-01");
+  assert.match(it.memo, /홍익시공 하자보수 1년 · 2027-10-01까지/);
+  assert.ok(buildCareRow(it).row);
+  assert.equal(warrantyCareItem({ warrantyNote: "협의", doneOn: "2026-10-01" }), null);
+});
+
+test("후기 저장 뒤 견적서 하자보수 기간을 수첩 제안 맨 앞에", () => {
+  const src = readFileSync(new URL("../screens/ReviewScreen.jsx", import.meta.url), "utf8");
+  assert.match(src, /getEstimateForRequest\(requestId\)/);
+  assert.match(src, /warrantyCareItem\(\{ warrantyNote: e\?\.warranty_note/);
+  assert.match(src, /p\.kind === "warranty"/);
+});
