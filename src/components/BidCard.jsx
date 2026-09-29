@@ -10,6 +10,15 @@ import GuaranteeBadge from "./GuaranteeBadge";
 import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
 import { BetaGateModal, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 
+// 고객 확인 시각(173) — 「오늘 14:05」 · 「9/29」
+function viewedLabel(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const k = new Date(d.getTime() + 9 * 3600000), n = new Date(Date.now() + 9 * 3600000);
+  const same = k.toISOString().slice(0, 10) === n.toISOString().slice(0, 10);
+  return same ? `오늘 ${String(k.getUTCHours()).padStart(2, "0")}:${String(k.getUTCMinutes()).padStart(2, "0")}` : `${k.getUTCMonth() + 1}/${k.getUTCDate()}`;
+}
+
 export default function BidCard({
   r,
   currentUser,
@@ -269,6 +278,11 @@ export default function BidCard({
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.green }}>✅ 입찰 제출 완료</div>
                 <span style={{ fontSize: 20 }}>✅</span>
               </div>
+              {myBid?.viewedAt && (
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: C.brand, marginBottom: S.sm }}>
+                  👀 고객이 확인했어요 · {viewedLabel(myBid.viewedAt)} — 궁금한 점이 있는지 대화로 먼저 물어보세요
+                </div>
+              )}
               <div style={{ display: "flex", gap: S.sm, flexWrap: "wrap", marginBottom: S.sm }}>
                 <span style={{ background: C.surface, borderRadius: R.sm, padding: "4px 10px", fontSize: 13, fontWeight: 800, color: C.brand }}>
                   내 입찰가 {Number(bidForm.price || myBid?.price || 0).toLocaleString()}만원

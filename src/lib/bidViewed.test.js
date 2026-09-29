@@ -21,3 +21,10 @@ test("견적 비교 화면이 한 번 부르고, 업체는 알림을 누르면 �
   const main = readFileSync(new URL("../components/MainApp.jsx", import.meta.url), "utf8");
   assert.match(main, /t === "BID_VIEWED"\) && activeRole === "company"/);
 });
+
+test("업체 입찰 카드에 «고객이 확인했어요»(viewed_at 있을 때만)", () => {
+  const card = readFileSync(new URL("../components/BidCard.jsx", import.meta.url), "utf8");
+  assert.match(card, /myBid\?\.viewedAt && \(/);
+  const main = readFileSync(new URL("../components/MainApp.jsx", import.meta.url), "utf8");
+  assert.match(main, /viewedAt: row\.viewed_at \?\? null/);
+});

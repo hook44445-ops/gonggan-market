@@ -337,6 +337,7 @@ const normalizeBid = (row) => ({
   material: row.material_note ?? "",
   comment: row.comment ?? "",
   createdAt: row.created_at,
+  viewedAt: row.viewed_at ?? null,   // 고객이 견적 비교 화면에서 확인한 때(173)
   status: row.selected ? "selected" : "pending",
 });
 
