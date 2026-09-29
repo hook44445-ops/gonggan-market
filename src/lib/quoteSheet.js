@@ -45,3 +45,19 @@ export function quoteFileName(title, day) {
   const safe = String(title ?? "견적").replace(/[\\/:*?"<>|]/g, "").trim().slice(0, 30) || "견적";
   return `견적서-${safe}-${day}.png`;
 }
+
+// 견적서 → 작업 장부 한 줄(146 company_job_ledger). 견적은 아직 받은 돈이 아니라 «받은 금액»은 0 으로 두고,
+//   견적 금액은 메모에 남긴다 — 공사 뒤 장부에서 받은 금액을 고쳐 적는다(월 순이익이 미리 부풀지 않게).
+export function quoteToLedgerForm(quote, day) {
+  if (!quote) return null;
+  const who = quote.customer ? ` · ${quote.customer} 님` : "";
+  return {
+    title: quote.title,
+    work_date: day,
+    source: "acquaintance",
+    hours: "",
+    material_cost: "",
+    revenue: "",
+    memo: `견적 ${formatWon(quote.total)}(${quote.vatLine})${who} — 공사 뒤 받은 금액을 적어 주세요`.slice(0, 500),
+  };
+}
