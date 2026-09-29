@@ -216,7 +216,7 @@ export default function DownloadScreen() {
       {/* 신뢰 문구 */}
       <p style={{ fontSize: 12, lineHeight: 1.7, color: C.text3, margin: "22px 0 0", textAlign: "center", maxWidth: 420 }}>
         {SHOW_BETA_UI ? (
-          <>베타 기간에는 견적·상담·계약 기록을 무료로 이용할 수 있어요.<br />
+          <>오픈 기간에는 견적·상담·계약 기록을 무료로 이용할 수 있어요.<br />
             대금은 계약서 단계대로 업체와 직접 주고받아요.</>
         ) : (
           <>공간마켓은 검증된 업체와 단계별 에스크로로<br />믿을 수 있는 인테리어 거래를 돕습니다.</>

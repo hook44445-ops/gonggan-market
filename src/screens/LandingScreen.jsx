@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { SHOW_DEBUG_UI, SHOW_BETA_UI } from "../constants/release";
+import { SHOW_DEBUG_UI, SHOW_BETA_UI, isStoreAppShell } from "../constants/release";
 import { getTopReviews, getRecentPortfolios, getSeedReviews } from "../lib/supabase";
 import { normalizeShowcases } from "../lib/showcases";
 import { isTestCompanyName } from "../lib/testCompany";
@@ -152,7 +152,8 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <img src="/icons/gm-logo.svg" alt="" aria-hidden="true" width="30" height="30"
             style={{ width: 30, height: 30, borderRadius: 9, display: "block", flexShrink: 0 }} />
           <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>
-            공간마켓<span style={{ color: SK.muted, fontWeight: 500, fontSize: 11, letterSpacing: "0.14em", marginLeft: 7 }}>BETA</span>
+            공간마켓{/* 스토어 앱(아이폰·Play) 안에서는 «BETA» 를 빼다 — App Store 2.2(베타·체험판 금지) 오해 방지 */}
+            {!isStoreAppShell() && <span style={{ color: SK.muted, fontWeight: 500, fontSize: 11, letterSpacing: "0.14em", marginLeft: 7 }}>BETA</span>}
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, background: "#ECE7DF", padding: 4, borderRadius: 999 }}>
