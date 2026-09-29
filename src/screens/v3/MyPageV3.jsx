@@ -20,6 +20,8 @@ import { BIZ_ROWS } from "../../components/AppFooter";
 import { useEffect, useState } from "react";
 import { companyPageUrl } from "../../lib/referral";
 import CompanyQrSheet from "../../components/CompanyQrSheet";
+import { getCompanyPageStats } from "../../lib/supabase";
+import { statsLine } from "../../lib/pageViews";
 import { slugProblem, normalizeSlug } from "../../lib/companySlug";
 import { setCompanySlug } from "../../lib/supabase";
 import { reviewRequestUrl, reviewRequestMessage } from "../../lib/externalReview";
@@ -60,6 +62,14 @@ export default function MyPageV3({
   const [refCode, setRefCode] = useState(null);
   const [pageShared, setPageShared] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  // 내 업체 페이지 방문 수(156) — SQL 전이거나 실패하면 원래 문구
+  const [viewLine, setViewLine] = useState(null);
+  useEffect(() => {
+    if (!isCompany || !companyId) return;
+    let alive = true;
+    getCompanyPageStats(companyId).then(({ data, error }) => { if (alive && !error) setViewLine(statsLine(data)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [isCompany, companyId]);
   const [qrSaved, setQrSaved] = useState(false);
   useEffect(() => {
     if (!isCompany || !companyId || !user?.id) return;
@@ -259,7 +269,7 @@ export default function MyPageV3({
                    onClick={askReview} />
             )}
             {companyId && (
-              <Row emoji="🔗" label="내 업체 페이지 공유" sub={pageShared ? "주소를 보냈어요 · 블로그·인스타·명함에도 걸어 보세요" : "시공 사례·후기를 누구나 보는 주소"}
+              <Row emoji="🔗" label="내 업체 페이지 공유" sub={pageShared ? "주소를 보냈어요 · 블로그·인스타·명함에도 걸어 보세요" : (viewLine ?? "시공 사례·후기를 누구나 보는 주소")}
                    onClick={shareCompanyPage} />
             )}
             {companyId && (
