@@ -3,7 +3,8 @@ import { C, R, S } from "../constants";
 import { DOCUMENT_TEMPLATES } from "../constants/documentTemplates";
 import { SHOW_BETA_UI } from "../constants/release";
 import { GATE_CONTENT, GateBody, hasBetaAck, markBetaAck } from "./beta/BetaUI";
-import { recordConsents, getConsentTypes } from "../lib/supabase";
+import { recordConsents, getConsentTypes, upsertPushPreferences, setMarketingConsent } from "../lib/supabase";
+import { enablePush, isPushSupported, isPushConfigured } from "../lib/push";
 
 const STORAGE_KEY = (userId) => `gonggan_consents_${userId ?? "guest"}`;
 
@@ -70,6 +71,8 @@ export default function ConsentGate({ requiredTypes, userId, title, onComplete, 
     return items.length ? items.map((_, i) => `${ti}_${i}`) : [`${ti}_doc`];
   });
   const [checked, setChecked] = useState({});
+  // [선택] 이벤트·혜택 알림(광고 · 157) — 필수와 따로. «모두 동의»에 들어가지 않고, 미리 체크하지 않는다.
+  const [marketing, setMarketing] = useState(false);
   const [openIdx, setOpenIdx] = useState(null);
 
   if (!templates.length) return null;
@@ -86,6 +89,13 @@ export default function ConsentGate({ requiredTypes, userId, title, onComplete, 
     if (!allChecked) return;
     saveConsents(userId, requiredTypes);
     if (needBeta) markBetaAck(betaKind);
+    if (marketing && userId) {
+      (async () => {
+        try { if (isPushSupported() && isPushConfigured()) await enablePush(userId); } catch { /* 권한 거부여도 설정은 저장 */ }
+        try { await upsertPushPreferences(userId, { push_enabled: true, push_chat: true, push_escrow: true }); } catch { /* noop */ }
+        try { await setMarketingConsent(true); } catch { /* 서버가 결과를 알림함으로 통지 · 실패하면 마이 > 푸시 알림에서 다시 */ }
+      })();
+    }
     onComplete?.();
   };
 
@@ -181,6 +191,24 @@ export default function ConsentGate({ requiredTypes, userId, title, onComplete, 
             );
           })}
         </div>
+
+        {/* [선택] 광고 수신 동의 — 필수 동의와 떨어뜨려 둔다 */}
+        {userId && (
+          <button onClick={() => setMarketing(v => !v)}
+            style={{ marginTop: S.md, width: "100%", display: "flex", alignItems: "flex-start", gap: S.md, padding: `${S.md}px`,
+              borderRadius: R.lg, cursor: "pointer", textAlign: "left", background: "none", border: `1px dashed ${C.bgWarm}` }}>
+            <Check on={marketing} size={22} />
+            <span>
+              <span style={{ display: "block", fontSize: 13.5, fontWeight: 700, color: C.text1 }}>
+                <span style={{ color: C.text3, fontWeight: 800, marginRight: 4 }}>[선택]</span>이벤트·혜택 알림(광고) 받기
+              </span>
+              <span style={{ display: "block", fontSize: 11.5, color: C.text3, marginTop: 3, lineHeight: 1.55 }}>
+                공간마켓의 초대 이벤트·토큰 혜택 소식을 앱 푸시로 받아요(제목에 「(광고)」 · 낮 9시~저녁 8시). 푸시 알림도 함께 켜지고,
+                동의하지 않아도 이용에 불이익이 없어요. 마이 &gt; 푸시 알림에서 언제든 끌 수 있어요.
+              </span>
+            </span>
+          </button>
+        )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: S.sm, marginTop: S.lg }}>
           <button
