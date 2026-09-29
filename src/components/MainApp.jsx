@@ -1,4 +1,4 @@
-import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
+import { SHOW_BETA_UI, PAYMENTS_LIVE, isIosAppShell } from "../constants/release";
 import { authHeader, getCurrentUserId } from "../lib/session";
 import { peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget, PAGE_REQUEST_TITLE, pageRequestsFirst } from "../lib/preferredCompany";
 import ChatRequestModal from "./lounge/ChatRequestModal";
@@ -2840,6 +2840,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (!pkg) return;
     // 결제 전(토스 상점 개설 전)엔 구매를 열지 않는다 — 운영이 테스트 키라 테스트 결제로 실제 토큰이 적립될 수 있다.
     if (!PAYMENTS_LIVE) { showToast("토큰 구매는 정식 오픈 뒤 열려요. 지금은 무료 미션으로 모을 수 있어요."); return; }
+    if (isIosAppShell()) { showToast("앱에서는 무료 미션으로 토큰을 모을 수 있어요."); return; }
     if (!user?.id) { showToast("로그인 후 이용할 수 있어요."); return; }
     const tokens = (pkg.tokens ?? 0) + (pkg.bonus ?? 0);
     const price  = pkg.price ?? 0;
