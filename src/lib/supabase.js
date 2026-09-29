@@ -2105,6 +2105,9 @@ export const getEstimateForRequest = (requestId) =>
 export const updateEstimate = (id, data, actorId = null) =>
   supabase.rpc("estimate_upsert", { p_actor_id: actorId, p_estimate_id: id, ...estimateRpcParams(data) });
 
+// 고객이 견적 비교 화면을 열었다 — 입찰 업체에 «고객이 내 견적을 확인했어요» 한 번(173 · 요청 주인 토큰만)
+export const markBidsViewed = (requestId) => supabase.rpc("bids_mark_viewed", { p_request_id: requestId });
+
 // 견적서 자재 등급(선택 · 170) — 시세 통계용. 칸·함수가 아직 없으면 조용히 넘어간다.
 export const setEstimateMaterialGrade = async (estimateId, grade) => {
   if (!estimateId) return { data: false, error: null };

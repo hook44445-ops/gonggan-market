@@ -11,7 +11,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
-import { supabase, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, contractDirect, getEstimateForRequest, getPortfolios, postProjectEvent, getStagePlanPreview } from "../lib/supabase";
+import { supabase, markBidsViewed, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, contractDirect, getEstimateForRequest, getPortfolios, postProjectEvent, getStagePlanPreview } from "../lib/supabase";
 import QuoteDocument from "../components/QuoteDocument"; // 최종 견적서 미리보기·인쇄
 import { SORT_KEYS, sortBids, bidSummary, bidTags as calcBidTags } from "../lib/bidCompare"; // 입찰 비교(정렬·요약·표)
 import {
@@ -80,6 +80,15 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       return acc;
     }, {})
   );
+  // 고객이 견적을 봤다고 입찰 업체에 한 번 알린다(173 · 서버가 요청 주인·중복을 본다). 화면 들어올 때 한 번만.
+  const viewedMarkRef = useRef(null);
+  useEffect(() => {
+    const rid = request?.id;
+    if (!rid || String(rid).startsWith("tmp-") || bids.length === 0 || viewedMarkRef.current === rid) return;
+    viewedMarkRef.current = rid;
+    markBidsViewed(rid).catch(() => {});
+  }, [request?.id, bids.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [step, setStep] = useState("list");
   const [selBid, setSelBid] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);

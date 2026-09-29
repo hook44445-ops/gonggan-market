@@ -137,7 +137,9 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   // 168 — 대화 읽음 처리(읽는 사람 = 토큰의 사용자)
   "chat_mark_room_read",
   // 170 — 견적서 자재 등급(업체 주인)
-  "estimate_set_material_grade"]);
+  "estimate_set_material_grade",
+  // 173 — 고객이 견적을 봤다고 업체에 알림(요청 주인)
+  "bids_mark_viewed"]);
 export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }
 
 export function isGuardedRpc(fn) {

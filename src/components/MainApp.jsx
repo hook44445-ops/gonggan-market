@@ -2913,7 +2913,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     const rid = n.related_id ?? null;
     const t = n.type ?? "";
     // 업체: 현장견적 요청 도착·업체 선택 → 업체 대시보드(받은 요청·진행중).
-    if ((t === "SITE_VISIT_REQUESTED" || t === "COMPANY_SELECTED") && activeRole === "company") {
+    if ((t === "SITE_VISIT_REQUESTED" || t === "COMPANY_SELECTED" || t === "BID_VIEWED") && activeRole === "company") {
       if (rid) setBidViewRequestId(rid);
       go("dashboard");
       return;
