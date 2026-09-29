@@ -10,6 +10,9 @@ import { ratingUrlFor, recordAsk } from "../lib/storeRating";
 import { sendTieredNotification } from "../utils/notify";
 import { recommendMessage, REFERRAL_REWARD } from "../lib/referral";
 import { myRefCode } from "../lib/myRefCode";
+import { suggestCarePresets } from "../lib/homeCare";
+import { addHomeCareItem } from "../lib/supabase";
+import { kstDay } from "../lib/pageViews";
 
 const normalizeReview = (row) => ({
   id:              row.id,
@@ -194,6 +197,8 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
   const [storeAsk, setStoreAsk] = useState(null);
   // 업체 추천 부탁 — 별 4~5개 후기 직후. 스토어 별점 창이 있으면 그걸 닫은 뒤에 뜬다.
   const [recommend, setRecommend] = useState(null);   // { pending, code } | null
+  // 내 집 관리 수첩(165)에 적어 두기 — 후기 글에서 고른 항목(최대 3개). 한 번 누르면 오늘 날짜로 들어간다.
+  const [careSuggest, setCareSuggest] = useState(null);   // { items: [preset], added: Set<kind>, err } | null
   const closeStoreAsk = () => { setStoreAsk(null); setRecommend(r => (r?.pending ? { ...r, pending: false } : r)); };
   const [submitDebug,      setSubmitDebug]      = useState(null);
   // C-2: 중복 제출 가드 + optimistic ID 충돌 방지용 카운터
@@ -308,6 +313,10 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
           playPublic: import.meta.env.VITE_PLAY_PUBLIC === "1",
         });
         if (askUrl) { recordAsk(); setStoreAsk(askUrl); }
+        if (currentUser?.id && !currentUser?.isGuest) {
+          const picks = suggestCarePresets(`${data.content ?? ""} ${(data.tags ?? []).join(" ")}`);
+          if (picks.length) setCareSuggest({ items: picks, added: new Set(), err: null });
+        }
         if (Number(data.rating) >= 4 && currentUser?.id && !currentUser?.isGuest) {
           setRecommend({ pending: !!askUrl, code: null });
           myRefCode(currentUser.id).then(code => setRecommend(r => (r ? { ...r, code } : r))).catch(() => {});
@@ -381,6 +390,35 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
       </div>
 
       <div style={{ padding:`${S.xl}px ${S.xl}px 100px` }}>
+
+        {careSuggest && (
+          <div style={{ background:C.surface, border:`1px solid ${C.brandM}`, borderRadius:R.lg, padding:"12px 14px", marginBottom:S.lg }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <b style={{ fontSize:13.5, color:C.text1 }}>🏠 내 집 관리 수첩에 적어 둘까요?</b>
+              <button onClick={() => setCareSuggest(null)} aria-label="닫기" style={{ background:"none", border:"none", color:C.text3, fontSize:16, cursor:"pointer" }}>✕</button>
+            </div>
+            <div style={{ fontSize:12, color:C.text3, marginTop:3 }}>오늘 날짜로 적어 두면 다음에 살펴볼 때를 알려 드려요</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
+              {careSuggest.items.map((p) => {
+                const done = careSuggest.added.has(p.kind);
+                return (
+                  <button key={p.kind} disabled={done}
+                    onClick={async () => {
+                      const res = await addHomeCareItem(currentUser.id, { kind: p.kind, label: p.label, cycle_months: p.cycle, done_on: kstDay(), memo: `${company?.name ?? "업체"} 공사` .slice(0, 200) }).catch(() => null);
+                      setCareSuggest((s) => s && (res?.data
+                        ? { ...s, added: new Set([...s.added, p.kind]), err: null }
+                        : { ...s, err: "지금은 적지 못했어요 · 마이 › 내 집 관리 수첩에서 적을 수 있어요" }));
+                    }}
+                    style={{ padding:"7px 11px", borderRadius:R.full, border:`1.5px solid ${done ? C.brand : C.bgWarm}`, background: done ? C.brandL : C.surface,
+                      color: done ? C.brand : C.text2, fontSize:12.5, fontWeight:800, cursor: done ? "default" : "pointer" }}>
+                    {done ? "✓ " : "+ "}{p.label} · {p.cycle}개월
+                  </button>
+                );
+              })}
+            </div>
+            {careSuggest.err && <div style={{ fontSize:12, color:"#B4432F", marginTop:6 }}>{careSuggest.err}</div>}
+          </div>
+        )}
 
         {/* Coupon incentive banner */}
         {SHOW_DEBUG_UI && submitDebug && (   /* 운영 화면에 [DEV:review-submit] 가 보이던 것(C18) — 개발 모드에서만 */
