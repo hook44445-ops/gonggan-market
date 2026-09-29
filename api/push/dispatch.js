@@ -170,6 +170,11 @@ export default async function handler(req, res) {
     await fetch(`${SB_URL}/rest/v1/rpc/referral_event_push_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
   } catch { /* noop */ }
 
+  // 초대왕 순위 변동(migration 160) — 3등 안에 들거나 밀리면 알림함(+광고 동의자는 9~20시 푸시). 없으면(160 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/referral_event_rank_notify_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
+
   // 발송 경로 결정: v1(서비스계정) 우선, 없으면 legacy(서버키) 폴백.
   const useV1 = !!SA;
   let accessToken = null;
