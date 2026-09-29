@@ -224,11 +224,11 @@ set search_path = public, extensions as $$
            'company_owner_id', c.owner_id,
            -- 계약 업체 입찰(추가 반환) — 화면 resolvedBid 복원용(price 포함)
            'bid_id',           b.id,
-           'bid_price',        b.price,
-           'bid_period',       b.period_days,
-           'bid_material',     b.material_note,
-           'bid_comment',      b.comment,
-           'bid_selected',     b.selected
+           'bid_price',        to_jsonb(b) -> 'price',
+           'bid_period',       to_jsonb(b) -> 'period_days',
+           'bid_material',     to_jsonb(b) -> 'material_note',
+           'bid_comment',      to_jsonb(b) -> 'comment',
+           'bid_selected',     to_jsonb(b) -> 'selected'   -- 운영 bids 에 없는 칸이 있어도 멈추지 않게(없으면 null)
          )
     from public.escrow_payments ep
     left join public.requests  r on r.id = ep.request_id
@@ -907,7 +907,11 @@ begin
   if not exists (
     select 1 from public.bids b
      where b.id = p_bid_id and b.request_id = p_request_id
-       and b.company_id = p_company_id and b.selected = true
+       and b.company_id = p_company_id
+       -- 선택 정보의 원본은 requests.selected_bid_id / selected_company_id(082·105) — 운영 bids 에는 selected 칸이 없다
+       and exists (select 1 from public.requests r
+                    where r.id = p_request_id
+                      and (r.selected_bid_id = b.id or r.selected_company_id = p_company_id))
   ) then
     raise exception 'BID_NOT_SELECTED';
   end if;
