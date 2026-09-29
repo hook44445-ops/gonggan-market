@@ -35,3 +35,14 @@ export function preferredNotifyTarget(pref, userId) {
   if (!pref?.ownerId || !userId || pref.ownerId === userId) return null;
   return pref.ownerId;
 }
+
+// 업체에게 가는 알림 제목 — 업체 화면이 이 제목의 알림으로 «내 페이지 손님» 요청을 가려낸다(새 저장 없이)
+export const PAGE_REQUEST_TITLE = "내 업체 페이지에서 견적 요청이 왔어요";
+
+// 요청 목록 — 내 페이지 손님 요청을 맨 위로(나머지 순서는 그대로)
+export function pageRequestsFirst(list, pageIds) {
+  if (!pageIds?.size) return list;
+  const a = [], b = [];
+  for (const r of list) (pageIds.has(String(r.id)) ? a : b).push(r);
+  return [...a, ...b];
+}

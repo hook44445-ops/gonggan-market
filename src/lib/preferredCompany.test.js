@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 const store = new Map();
 globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
-const { rememberPreferredCompany, peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget } = await import("./preferredCompany.js");
+const { rememberPreferredCompany, peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget, pageRequestsFirst } = await import("./preferredCompany.js");
 
 beforeEach(() => store.clear());
 
@@ -24,4 +24,10 @@ test("알릴 사람 — 업체 주인만, 자기 업체에 요청하면 안 알�
   assert.equal(preferredNotifyTarget({ ownerId: "u9" }, "u9"), null);
   assert.equal(preferredNotifyTarget({ ownerId: null }, "u1"), null);
   assert.equal(preferredNotifyTarget(null, "u1"), null);
+});
+
+test("내 페이지 손님 요청을 맨 위로 — 나머지 순서 유지", () => {
+  const list = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
+  assert.deepEqual(pageRequestsFirst(list, new Set(["c"])).map(r => r.id), ["c", "a", "b", "d"]);
+  assert.equal(pageRequestsFirst(list, new Set()), list);
 });
