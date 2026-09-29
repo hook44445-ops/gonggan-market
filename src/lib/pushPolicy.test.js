@@ -38,3 +38,20 @@ test('소식성 시간창은 KST 10시~21시', () => {
 test('일일 캡은 3건', () => {
   assert.equal(NEWS_DAILY_CAP, 3);
 });
+
+test('광고 푸시(157) — 한국 9시~20시만 · 소식 캡과 따로', async () => {
+  const { isAdType, isWithinAdWindow, AD_TYPES } = await import('../utils/pushPolicy.js');
+  assert.equal(isAdType('event_promo'), true);
+  assert.equal(isNewsType('event_promo'), false);
+  assert.equal(isWithinAdWindow(new Date('2026-10-01T08:59:00+09:00')), false);
+  assert.equal(isWithinAdWindow(new Date('2026-10-01T09:00:00+09:00')), true);
+  assert.equal(isWithinAdWindow(new Date('2026-10-01T19:59:00+09:00')), true);
+  assert.equal(isWithinAdWindow(new Date('2026-10-01T20:00:00+09:00')), false);
+  const { readFileSync } = await import('node:fs');
+  const sql = readFileSync(new URL('../../supabase/migrations/157_marketing_consent_event_push.sql', import.meta.url), 'utf-8');
+  for (const t of AD_TYPES) assert.ok(sql.includes(`'${t}'`), `SQL 이 ${t} 타입으로 쌓아야 한다`);
+  assert.ok(sql.includes("'(광고) '"), '제목 맨 앞 (광고)');
+  assert.ok(sql.includes('수신거부'), '본문에 수신거부 방법');
+  assert.ok(sql.includes('p.push_marketing = true'), '동의한 사람만');
+  assert.ok(sql.includes('v_hour < 9 or v_hour >= 20'), '쌓는 시간도 9~20시');
+});

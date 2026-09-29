@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { companyPageUrl } from "../../lib/referral";
 import CompanyQrSheet from "../../components/CompanyQrSheet";
 import QuoteSheetMaker from "../../components/QuoteSheetMaker";
+import PushNotificationSettings from "../../components/PushNotificationSettings";
 import { getCompanyPageStats } from "../../lib/supabase";
 import { statsLine } from "../../lib/pageViews";
 import { slugProblem, normalizeSlug } from "../../lib/companySlug";
@@ -64,6 +65,7 @@ export default function MyPageV3({
   const [pageShared, setPageShared] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
   // 내 업체 페이지 방문 수(156) — SQL 전이거나 실패하면 원래 문구
   const [viewLine, setViewLine] = useState(null);
   useEffect(() => {
@@ -285,6 +287,16 @@ export default function MyPageV3({
           </Card>
         </Section>
       )}
+      {pushOpen && user?.id && (
+        <div role="dialog" aria-label="푸시 알림 설정" onClick={() => setPushOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.55)", zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", background: C.bg, borderRadius: "22px 22px 0 0", padding: "18px 16px 24px" }}>
+            <PushNotificationSettings user={user} />
+            <button onClick={() => setPushOpen(false)} style={{ width: "100%", padding: 12, background: "none", border: "none", color: C.text3, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>닫기</button>
+          </div>
+        </div>
+      )}
       {quoteOpen && companyId && (
         <QuoteSheetMaker companyName={companyRow?.name ?? user?.name} phone={user?.phone ?? ""}
           pageUrl={companyPageUrl(companySlug || companyId, refCode)} onClose={() => setQuoteOpen(false)} />
@@ -331,7 +343,8 @@ export default function MyPageV3({
           </div>
           <div style={{ borderTop: `1px solid ${C.bg}` }} />
           <Row emoji="✍️" label="내 활동" sub="내가 쓴 글 · 저장한 글 · 댓글" onClick={() => onGo("my-posts")} />
-          <Row emoji="🔔" label="라운지 알림 설정" sub="관심 카테고리 · 새 글 알림" onClick={() => onGo("lounge-settings")} last />
+          <Row emoji="🔔" label="라운지 알림 설정" sub="관심 카테고리 · 새 글 알림" onClick={() => onGo("lounge-settings")} />
+          <Row emoji="📣" label="푸시 알림 · 이벤트 알림" sub="받을 알림 고르기 · 이벤트·혜택(광고) 수신 동의" onClick={() => setPushOpen(true)} last />
         </Card>
       </Section>
 
