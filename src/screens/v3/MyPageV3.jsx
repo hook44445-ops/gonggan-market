@@ -351,6 +351,7 @@ export default function MyPageV3({
       {/* ── 알림 · 고객센터 ─────────────────────────────────────────── */}
       <Section title="알림 · 도움">
         <Card pad={`0 ${S.lg}px`}>
+          <Row emoji="🏠" label="내 집 관리 수첩" sub="실리콘·보일러·에어컨… 다음에 살펴볼 때를 알려 줘요" onClick={() => onGo("home-care")} />
           <Row emoji="🤝" label={isCompany ? "동료 사장님 초대" : "친구 초대"} sub="내 초대 링크 · 가입한 사람 수" onClick={() => onGo("invite")} />
           <Row emoji="🔔" label="알림함" badge={unreadTotal || null} onClick={() => onGo("notifications")} />
           <Row emoji="❓" label="자주 묻는 질문" sub={SHOW_BETA_UI ? "계약 · 대금 · 분쟁" : "에스크로 · 환불 · 분쟁"} onClick={() => onGo("help")} />

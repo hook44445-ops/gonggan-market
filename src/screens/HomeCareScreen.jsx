@@ -1,0 +1,148 @@
+import { useEffect, useMemo, useState } from "react";
+import { C, R, S } from "../constants";
+import { getHomeCareItems, addHomeCareItem, updateHomeCareItem, deleteHomeCareItem } from "../lib/supabase";
+import { HOME_CARE_PRESETS, careStatus, careLine, sortCare, buildCareRow } from "../lib/homeCare";
+import { requestPrefillFromPost } from "../lib/loungeToRequest";
+import { kstDay } from "../lib/pageViews";
+
+// 내 집 관리 수첩(165 · 대표 09-29 「1등 재방문」) — 언제 무엇을 했는지 적어 두면 다음 시기를 알려 준다.
+//   본인 것만(로그인 토큰). 시기가 되면 알림함으로 한 번 · 여기서 «견적 비교해 보기»로 이어진다(작은 글씨 — 광고 버튼 아님).
+const EMPTY = () => ({ kind: null, label: "", cycle_months: "", done_on: kstDay(), memo: "" });
+const BADGE = { due: { t: "시기 됨", bg: "#FBE9E4", c: "#B4432F" }, soon: { t: "곧", bg: "#FFF4DC", c: "#8A6A12" }, ok: null };
+
+export default function HomeCareScreen({ userId, onBack, onRequest }) {
+  const [items, setItems] = useState([]);
+  const [state, setState] = useState({ loading: true, error: null });
+  const [form, setForm] = useState(null);
+  const [formErr, setFormErr] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const today = kstDay();
+
+  useEffect(() => {
+    let alive = true;
+    getHomeCareItems(userId).then(({ data, error }) => {
+      if (!alive) return;
+      if (error) {
+        const m = String(error.message ?? "");
+        setState({ loading: false, error: /home_care_items/.test(m) ? "아직 준비 중이에요(SQL 165)" : /LOGIN_REQUIRED|JWT/.test(m) ? "로그인이 풀렸어요 — 다시 로그인해 주세요" : "불러오지 못했어요" });
+        return;
+      }
+      setItems(data ?? []); setState({ loading: false, error: null });
+    }).catch(() => alive && setState({ loading: false, error: "불러오지 못했어요" }));
+    return () => { alive = false; };
+  }, [userId]);
+
+  const sorted = useMemo(() => sortCare(items, today), [items, today]);
+
+  const save = async () => {
+    const { row, error } = buildCareRow(form);
+    if (error) { setFormErr(error); return; }
+    setBusy(true); setFormErr(null);
+    const res = form.id ? await updateHomeCareItem(userId, form.id, row) : await addHomeCareItem(userId, row);
+    setBusy(false);
+    if (res?.error || !res?.data) { setFormErr("저장하지 못했어요 · 잠시 뒤 다시"); return; }
+    setItems((prev) => form.id ? prev.map((x) => (x.id === form.id ? res.data : x)) : [res.data, ...prev]);
+    setForm(null);
+  };
+  const doneToday = async (it) => {
+    const res = await updateHomeCareItem(userId, it.id, { done_on: today });
+    if (!res?.error && res?.data) setItems((prev) => prev.map((x) => (x.id === it.id ? res.data : x)));
+  };
+  const remove = async (it) => {
+    if (!window.confirm(`«${it.label}» 기록을 지울까요?`)) return;
+    const res = await deleteHomeCareItem(userId, it.id);
+    if (!res?.error) setItems((prev) => prev.filter((x) => x.id !== it.id));
+  };
+
+  const input = { width: "100%", boxSizing: "border-box", padding: "11px 12px", borderRadius: R.md, border: `1px solid ${C.bgWarm}`, fontSize: 14.5, fontFamily: "inherit", color: C.text1, background: C.surface };
+  const lbl = { fontSize: 12.5, fontWeight: 700, color: C.text2, margin: "12px 0 6px" };
+
+  return (
+    <div style={{ paddingBottom: 40 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: S.md, marginBottom: S.lg }}>
+        <button onClick={onBack} aria-label="뒤로가기" style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
+        <div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>내 집 관리 수첩</div>
+          <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>언제 했는지 적어 두면 다음에 살펴볼 때를 알려 드려요</div>
+        </div>
+      </div>
+
+      {state.loading && <div style={{ fontSize: 13, color: C.text3, padding: S.lg, textAlign: "center" }}>불러오는 중…</div>}
+      {state.error && <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: S.lg, fontSize: 13, color: C.text2 }}>{state.error}</div>}
+
+      {!state.loading && !state.error && (
+        <>
+          {sorted.length === 0 && !form && (
+            <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: S.lg, fontSize: 13, color: C.text2, lineHeight: 1.7 }}>
+              아직 기록이 없어요. 최근에 한 집 관리(실리콘·보일러 점검·에어컨 청소 등)를 적어 보세요.
+            </div>
+          )}
+          {sorted.map((it) => {
+            const st = careStatus(it, today);
+            const b = BADGE[st.state];
+            const prefill = st.state !== "ok" && onRequest ? requestPrefillFromPost({ title: it.label, content: it.label }) : null;
+            return (
+              <div key={it.id} style={{ background: C.surface, border: `1px solid ${st.state === "due" ? "#E9B8AC" : C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginTop: S.sm }}>
+                <div style={{ display: "flex", alignItems: "center", gap: S.sm }}>
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 800, color: C.text1 }}>{it.label}</div>
+                  {b && <span style={{ fontSize: 11.5, fontWeight: 800, color: b.c, background: b.bg, borderRadius: R.full, padding: "3px 8px" }}>{b.t}</span>}
+                </div>
+                <div style={{ fontSize: 12.5, color: C.text2, marginTop: 4 }}>
+                  {it.done_on} 에 함 · {it.cycle_months}개월마다 · <b>{careLine(st)}</b>
+                </div>
+                {it.memo && <div style={{ fontSize: 12, color: C.text3, marginTop: 3 }}>{it.memo}</div>}
+                <div style={{ display: "flex", gap: S.md, marginTop: 8, flexWrap: "wrap" }}>
+                  <button onClick={() => doneToday(it)} style={{ background: "none", border: "none", padding: 0, color: C.brand, fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>오늘 했어요</button>
+                  <button onClick={() => { setFormErr(null); setForm({ ...it, cycle_months: String(it.cycle_months), memo: it.memo ?? "" }); }} style={{ background: "none", border: "none", padding: 0, color: C.text2, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>고치기</button>
+                  <button onClick={() => remove(it)} style={{ background: "none", border: "none", padding: 0, color: C.text3, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>지우기</button>
+                  {prefill && <button onClick={() => onRequest(prefill)} style={{ background: "none", border: "none", padding: 0, color: C.text3, fontSize: 12.5, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>견적 비교해 보기</button>}
+                </div>
+              </div>
+            );
+          })}
+
+          {form ? (
+            <div style={{ background: C.surface, border: `1.5px solid ${C.brand}`, borderRadius: R.lg, padding: "14px 14px 16px", marginTop: S.lg }}>
+              {!form.id && (
+                <>
+                  <div style={{ ...lbl, marginTop: 0 }}>무엇을 했나요</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {HOME_CARE_PRESETS.map((p) => (
+                      <button key={p.kind} onClick={() => setForm((f) => ({ ...f, kind: p.kind, label: p.label, cycle_months: String(p.cycle) }))}
+                        style={{ padding: "6px 10px", borderRadius: R.full, border: `1.5px solid ${form.kind === p.kind ? C.brand : C.bgWarm}`, background: form.kind === p.kind ? C.brandL : C.surface, color: form.kind === p.kind ? C.brand : C.text2, fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>{p.label}</button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div style={lbl}>이름</div>
+              <input style={input} value={form.label} maxLength={30} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value, kind: f.id ? f.kind : null }))} placeholder="예: 욕실 실리콘" />
+              <div style={{ display: "flex", gap: S.sm }}>
+                <div style={{ flex: 1 }}>
+                  <div style={lbl}>한 날짜</div>
+                  <input type="date" style={input} value={form.done_on} max={today} onChange={(e) => setForm((f) => ({ ...f, done_on: e.target.value }))} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={lbl}>주기(개월)</div>
+                  <input style={input} inputMode="numeric" value={form.cycle_months} onChange={(e) => setForm((f) => ({ ...f, cycle_months: e.target.value.replace(/\D/g, "").slice(0, 3) }))} placeholder="24" />
+                </div>
+              </div>
+              <div style={lbl}>메모(선택)</div>
+              <input style={input} value={form.memo} maxLength={200} onChange={(e) => setForm((f) => ({ ...f, memo: e.target.value }))} placeholder="예: 방곰팡이 실리콘 · ○○업체" />
+              <div style={{ fontSize: 11.5, color: C.text3, marginTop: 6 }}>주기는 흔히 권하는 값이에요. 집·자재에 따라 바꿔 적으세요.</div>
+              {formErr && <div style={{ fontSize: 13, color: "#B4432F", fontWeight: 700, marginTop: 8 }}>{formErr}</div>}
+              <div style={{ display: "flex", gap: S.sm, marginTop: S.md }}>
+                <button onClick={() => setForm(null)} style={{ flex: 1, padding: 12, borderRadius: R.md, border: `1px solid ${C.bgWarm}`, background: C.surface, color: C.text2, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>닫기</button>
+                <button onClick={save} disabled={busy} style={{ flex: 2, padding: 12, borderRadius: R.md, border: "none", background: C.brand, color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", opacity: busy ? 0.7 : 1 }}>{busy ? "저장 중…" : "저장"}</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => { setFormErr(null); setForm(EMPTY()); }}
+              style={{ marginTop: S.lg, width: "100%", padding: 14, borderRadius: R.lg, border: `1.5px dashed ${C.brand}`, background: C.brandL, color: C.brand, fontSize: 14.5, fontWeight: 800, cursor: "pointer" }}>
+              + 집 관리 기록 추가
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

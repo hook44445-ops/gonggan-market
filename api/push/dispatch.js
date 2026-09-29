@@ -185,6 +185,11 @@ export default async function handler(req, res) {
     await fetch(`${SB_URL}/rest/v1/rpc/checkin_reminder_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
   } catch { /* noop */ }
 
+  // 내 집 관리 수첩 시기 알림(migration 165) — 한국 9~20시 · 같은 항목 30일에 한 번. 없으면(165 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/home_care_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
+
   // 발송 경로 결정: v1(서비스계정) 우선, 없으면 legacy(서버키) 폴백.
   const useV1 = !!SA;
   let accessToken = null;

@@ -215,6 +215,28 @@ export const adminSetCompanyDirect = (companyId, isDirect) =>
 const ledgerDb = (userId) => authedDb(userId);
 const LOGIN_REQUIRED = { data: null, error: { message: "LOGIN_REQUIRED" } };
 
+// 내 집 관리 수첩(165) — 본인 것만(로그인 토큰 · RLS own)
+export const getHomeCareItems = async (userId) => {
+  const db = ledgerDb(userId);
+  if (!db) return LOGIN_REQUIRED;
+  return db.from("home_care_items").select("*").eq("user_id", userId).order("done_on", { ascending: false }).limit(100);
+};
+export const addHomeCareItem = async (userId, row) => {
+  const db = ledgerDb(userId);
+  if (!db) return LOGIN_REQUIRED;
+  return db.from("home_care_items").insert({ ...row, user_id: userId }).select().single();
+};
+export const updateHomeCareItem = async (userId, id, row) => {
+  const db = ledgerDb(userId);
+  if (!db) return LOGIN_REQUIRED;
+  return db.from("home_care_items").update({ ...row, updated_at: new Date().toISOString() }).eq("id", id).eq("user_id", userId).select().single();
+};
+export const deleteHomeCareItem = async (userId, id) => {
+  const db = ledgerDb(userId);
+  if (!db) return LOGIN_REQUIRED;
+  return db.from("home_care_items").delete().eq("id", id).eq("user_id", userId);
+};
+
 export const getLedgerEntries = async (userId) => {
   const db = ledgerDb(userId);
   if (!db) return LOGIN_REQUIRED;

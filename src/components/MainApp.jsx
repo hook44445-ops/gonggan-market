@@ -38,6 +38,7 @@ import ChatScreen from "../screens/ChatScreen";
 import EscrowScreen from "../screens/EscrowScreen";
 import SpaceHistoryScreen from "../screens/SpaceHistoryScreen";
 import JobLedgerScreen from "../screens/JobLedgerScreen";
+import HomeCareScreen from "../screens/HomeCareScreen";
 import InviteScreen from "../screens/InviteScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import BidStatusScreen from "../screens/BidStatusScreen";
@@ -2927,6 +2928,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (t === "REFERRAL_JOINED" || t === "REFERRAL_EVENT_PRIZE" || t === "REFERRAL_RANK") { setScreen("invite"); return; }
     if (t === "MARKETING_CONSENT" || t === "PAGE_VIEWS_WEEKLY") { setScreen("my"); return; }
     if (t === "CHECKIN_REMINDER") { setScreen("home"); return; }
+    if (t === "HOME_CARE_DUE") { setScreen("home-care"); return; }
     if (t === "ADMIN_TESTER_SIGNUP") { window.location.href = "/testers"; return; }
     // 계약은 사업자부터(A안 · migration 116): 업체 → 서류 올리는 곳 / 의뢰인 → 그 요청의 결제 화면 / 관리자 → 관리 화면.
     if (t === "BIZ_REQUIRED" || t === "DOCUMENT_REVIEW") { setScreen("document-center"); return; }
@@ -4649,6 +4651,10 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             }
           }} />}
         {screen==="job-ledger" && activeRole === "company" && user?.id && <JobLedgerScreen userId={user.id} onBack={() => setScreen("my")} />}
+        {screen==="home-care" && user?.id && !user?.isGuest && (
+          <HomeCareScreen userId={user.id} onBack={() => setScreen("my")}
+            onRequest={activeRole === "consumer" ? (prefill) => { setReqPrefill(prefill ?? null); setScreen("home"); handleOpenNewReq(); } : null} />
+        )}
         {screen==="invite" && user?.id && !user?.isGuest && <InviteScreen userId={user.id} isCompany={activeRole === "company"} onBack={() => setScreen("my")} onReauthenticate={onReauthenticate} />}
         {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
         {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} onGoDocuments={() => setScreen("document-center")} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id}
