@@ -139,3 +139,15 @@ export function buildPushCopy(type, ctx = {}) {
       return { title: ctx.title || '공간마켓 알림', body: ctx.body || '' };
   }
 }
+
+// 광고성 푸시(157 · 이벤트·혜택) — 정보통신망법 제50조: 본인 동의 · 「(광고)」 표시 · 야간(21~08시) 금지.
+//   여기선 보내는 시간만 더 좁게(한국 9시~20시) — 쌓는 쪽(SQL)도 같은 시간. 이틀 넘게 못 보낸 건 버린다.
+export const AD_TYPES = ['event_promo'];
+export const AD_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+export function isAdType(type) {
+  return AD_TYPES.includes(type);
+}
+export function isWithinAdWindow(date = new Date()) {
+  const { minutes } = kstHM(date);
+  return minutes >= 9 * 60 && minutes < 20 * 60;
+}

@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { inviteReturnAfterAuth } from "./lib/inviteAuth";
 import { dlog } from "./utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { SHOW_DEBUG_UI } from "./constants/release";
 import MainApp from "./components/MainApp";
@@ -100,6 +101,7 @@ function clearSession() {
 
 
 export default function App() {
+  const inviteAuthPending = useRef(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [pendingRole, setPendingRole] = useState(null);
@@ -137,7 +139,17 @@ export default function App() {
       });
     } catch {}
     if (saved) {
-      setUser(saved);
+      // 푸시 딥링크 «/?open=invite»(157 이벤트 푸시) — 친구 초대 화면으로 연다(로그인된 기기만)
+      let openInvite = false;
+      try {
+        const u = new URL(window.location.href);
+        if (u.searchParams.get("open") === "invite") {
+          openInvite = !!saved.id && !saved.isGuest;
+          u.searchParams.delete("open");
+          window.history.replaceState({}, "", u.pathname + u.search + u.hash);
+        }
+      } catch { /* noop */ }
+      setUser(openInvite ? { ...saved, startAt: "invite" } : saved);
       claimPendingReferral(saved);   // 이미 로그인된 기기로 초대 링크를 연 경우(가입 7일 안이면 서버가 받는다)
     } else {
       // ── Deep Link + Guest Mode ──────────────────────────────────────────────
@@ -216,7 +228,9 @@ export default function App() {
       //      (rememberUser)에는 추가하지 않아 AccountPicker 직행을 막는다. 코드 admin 정책은 불변.
       saveSession(u);
     }
-    setUser(u);
+    const inviteReturn = inviteReturnAfterAuth(inviteAuthPending.current, u, !!getSessionToken(u?.id));
+    inviteAuthPending.current = false;
+    setUser(inviteReturn ? { ...u, startAt: inviteReturn } : u);
     setPendingRole(null);
     setPhoneAuthMode(false);
     setShowAccountPicker(false);
@@ -428,6 +442,13 @@ export default function App() {
           onLogout={handleLogout}
           onForgetDevice={handleForgetDevice}
           onLogin={handleLogin}
+          onReauthenticate={() => {
+            inviteAuthPending.current = true;
+            setPendingRole(user.activeRole === "company" ? "company" : "consumer");
+            setShowAccountPicker(false);
+            setPhoneAuthMode(true);
+            setUser(null);
+          }}
           onStartOnboarding={() => {
             // 업체 온보딩은 새 전화번호 인증/가입이 필요한 명시적 흐름.
             clearSession();

@@ -8,10 +8,13 @@ import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { submitTesterSignup } from "../lib/supabase";
 import { pendingRefCode } from "../lib/referral";
 import { SHOW_BETA_UI } from "../constants/release";
+import { downloadPlan } from "../lib/appInstall";
+import { detectPlatform } from "../lib/storeRating";
 
-// 비공개 테스트 참여(Opt-in) 페이지 — 테스터 참여 완료 후에만 다운로드 버튼이 노출된다.
-const PLAY_URL =
-  "https://play.google.com/apps/testing/com.gonggansai.gongganmarket";
+// 버튼은 폰 종류·스토어 상태로 고른다(lib/appInstall downloadPlan) — 아이폰은 App Store(번호가 있을 때),
+//   안드로이드는 비공개 테스트 참여(정식 출시 뒤엔 Play 스토어), 컴퓨터는 둘 다.
+const APP_STORE_ID = import.meta.env.VITE_APP_STORE_ID ?? "";
+const PLAY_PUBLIC = import.meta.env.VITE_PLAY_PUBLIC === "1";
 
 const C = {
   green: "#2E5F4B", greenDark: "#1D3D2F", beige: "#F5F1EA", bg: "#f3f0ea",
@@ -78,6 +81,10 @@ function TesterSignupForm() {
 }
 
 export default function DownloadScreen() {
+  const plan = downloadPlan({
+    platform: typeof navigator !== "undefined" ? detectPlatform(navigator.userAgent, document.referrer) : null,
+    appStoreId: APP_STORE_ID, playPublic: PLAY_PUBLIC,
+  });
   useDocumentMeta({
     title: "공간마켓 앱 다운로드 — 안드로이드 비공개 테스트",
     description: "공간마켓 안드로이드 앱 비공개 테스트 참여 안내. 참여 후 Play 스토어에서 바로 다운로드할 수 있습니다.",
@@ -112,6 +119,7 @@ export default function DownloadScreen() {
           textAlign: "center", marginTop: 4,
         }}
       >
+        {plan.showTester && (
         <div
           style={{
             display: "inline-block", background: C.beige, color: C.green,
@@ -121,32 +129,39 @@ export default function DownloadScreen() {
         >
           비공개 사전체험판
         </div>
+        )}
 
         <h1 style={{ fontSize: 21, fontWeight: 800, color: C.text1, margin: "0 0 14px", lineHeight: 1.4, letterSpacing: "-0.4px" }}>
-          공간마켓 비공개 사전체험판
+          {plan.showTester ? "공간마켓 비공개 사전체험판" : "공간마켓 앱 받기"}
         </h1>
 
-        <p style={{ fontSize: 14, lineHeight: 1.85, color: C.text2, margin: "0 0 26px" }}>
-          현재 공간마켓은 비공개 사전체험판으로 운영 중입니다.<br />
-          아래 버튼을 누르면 Google Play 비공개 테스트 참여 페이지로 이동합니다.<br /><br />
-          ① ‘테스터 참여’ 버튼을 눌러 테스트에 참여합니다.<br />
-          ② 참여가 완료되면 ‘Google Play에서 다운로드’ 버튼이 나타납니다.<br />
-          ③ 공간마켓 앱을 설치하여 이용해주세요.
-        </p>
+        {plan.showTester ? (
+          <p style={{ fontSize: 14, lineHeight: 1.85, color: C.text2, margin: "0 0 26px" }}>
+            현재 공간마켓은 비공개 사전체험판으로 운영 중입니다.<br />
+            아래 버튼을 누르면 Google Play 비공개 테스트 참여 페이지로 이동합니다.<br /><br />
+            ① ‘테스터 참여’ 버튼을 눌러 테스트에 참여합니다.<br />
+            ② 참여가 완료되면 ‘Google Play에서 다운로드’ 버튼이 나타납니다.<br />
+            ③ 공간마켓 앱을 설치하여 이용해주세요.
+          </p>
+        ) : (
+          <p style={{ fontSize: 14, lineHeight: 1.85, color: C.text2, margin: "0 0 26px" }}>
+            {plan.buttons.length
+              ? "견적 도착·대화·계약 알림을 앱으로 바로 받아 보세요."
+              : "아이폰 앱은 곧 App Store에 올라와요. 그동안 웹에서 똑같이 이용할 수 있어요."}
+          </p>
+        )}
 
-        <a
-          href={PLAY_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "block", width: "100%", boxSizing: "border-box",
-            background: C.green, color: "#fff", textDecoration: "none",
-            fontSize: 16, fontWeight: 800, padding: "16px 18px", borderRadius: 14,
-            boxShadow: "0 6px 16px rgba(46,95,75,0.3)", letterSpacing: "-0.3px",
-          }}
-        >
-          Google Play 테스트 참여하기
-        </a>
+        {plan.buttons.map((b, i) => (
+          <a key={b.url} href={b.url} target="_blank" rel="noopener noreferrer"
+            style={{
+              display: "block", width: "100%", boxSizing: "border-box", marginTop: i ? 10 : 0,
+              background: C.green, color: "#fff", textDecoration: "none",
+              fontSize: 16, fontWeight: 800, padding: "16px 18px", borderRadius: 14,
+              boxShadow: "0 6px 16px rgba(46,95,75,0.3)", letterSpacing: "-0.3px",
+            }}>
+            {b.label}
+          </a>
+        ))}
 
         <a href="/" style={{
           display: "block", marginTop: 12, padding: "15px 18px", borderRadius: 14,
@@ -156,27 +171,31 @@ export default function DownloadScreen() {
           설치 없이 웹에서 시작하기
         </a>
         <p style={{ fontSize: 12.5, lineHeight: 1.75, color: C.text2, margin: "12px 0 0" }}>
-          아이폰을 사용하거나 테스트 참여가 어려우면 웹에서 이용해 주세요.<br />
+          {plan.iosWaiting && plan.showTester ? <>아이폰을 사용하거나 테스트 참여가 어려우면 웹에서 이용해 주세요.<br /></> : null}
           견적 요청은 로그인 후 이용할 수 있어요.
         </p>
 
-        {/* 처음 참여 안내 — 테스터 참여 선완료 필요 */}
-        <div
-          style={{
-            marginTop: 14, background: C.beige, borderRadius: 14, padding: "14px 16px",
-            border: `1px solid ${C.line}`, textAlign: "left",
-          }}
-        >
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.green, marginBottom: 6 }}>
-            💡 처음 참여하는 경우
-          </div>
-          <p style={{ fontSize: 12.5, lineHeight: 1.75, color: C.text2, margin: 0 }}>
-            테스트 대상으로 등록된 Google 계정으로 먼저 <b>‘테스터 참여’</b>를 완료해 주세요.<br />
-            참여할 수 없다는 안내가 나오면 아래에 구글 메일을 남겨 주세요.
-          </p>
-        </div>
+        {plan.showTester && (
+          <>
+            {/* 처음 참여 안내 — 테스터 참여 선완료 필요 */}
+            <div
+              style={{
+                marginTop: 14, background: C.beige, borderRadius: 14, padding: "14px 16px",
+                border: `1px solid ${C.line}`, textAlign: "left",
+              }}
+            >
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: C.green, marginBottom: 6 }}>
+                💡 처음 참여하는 경우
+              </div>
+              <p style={{ fontSize: 12.5, lineHeight: 1.75, color: C.text2, margin: 0 }}>
+                테스트 대상으로 등록된 Google 계정으로 먼저 <b>‘테스터 참여’</b>를 완료해 주세요.<br />
+                참여할 수 없다는 안내가 나오면 아래에 구글 메일을 남겨 주세요.
+              </p>
+            </div>
 
-        <TesterSignupForm />
+            <TesterSignupForm />
+          </>
+        )}
 
         {/* 인앱 브라우저 안내 */}
         <div
@@ -197,7 +216,7 @@ export default function DownloadScreen() {
       {/* 신뢰 문구 */}
       <p style={{ fontSize: 12, lineHeight: 1.7, color: C.text3, margin: "22px 0 0", textAlign: "center", maxWidth: 420 }}>
         {SHOW_BETA_UI ? (
-          <>베타 기간에는 견적·상담·계약 기록을 무료로 이용할 수 있어요.<br />
+          <>오픈 기간에는 견적·상담·계약 기록을 무료로 이용할 수 있어요.<br />
             대금은 계약서 단계대로 업체와 직접 주고받아요.</>
         ) : (
           <>공간마켓은 검증된 업체와 단계별 에스크로로<br />믿을 수 있는 인테리어 거래를 돕습니다.</>

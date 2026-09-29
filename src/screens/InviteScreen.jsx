@@ -1,19 +1,52 @@
 import { useEffect, useState } from "react";
 import { C, R, S, SHADOW } from "../constants";
-import { getMyReferral, getReferralEventBoard } from "../lib/supabase";
+import { getMyReferral, getReferralEventBoard, getReferralInviter } from "../lib/supabase";
 import { CURRENT_EVENT, eventStatus, eventLine, prizeFor } from "../lib/referralEvent";
-import { inviteUrl, inviteMessage, testerUrl, testerMessage, REFERRAL_REWARD } from "../lib/referral";
+import { inviteUrl, inviteMessage, testerUrl, testerMessage, REFERRAL_REWARD, inviteOg, inviterName } from "../lib/referral";
+import { inviteLoadError } from "../lib/inviteAuth";
 
 // ════════════════════════════════════════════════════════════════════════════
 // 친구 초대 — 내 초대 링크를 공유하고, 몇 명이 이 링크로 가입했는지 본다(대표 09-28 · 146).
 //   보상은 아직 없다(대표 결정 뒤) — 있는 척 쓰지 않는다.
 // ════════════════════════════════════════════════════════════════════════════
 
-export default function InviteScreen({ isCompany = false, onBack }) {
+// 친구 카톡에 뜨는 카드 모양(api/prerender inviteOg 와 같은 문구) — 보내기 전에 확인
+function InviteCardPreview({ code, isCompany, who, onWho }) {
+  useEffect(() => {
+    let alive = true;
+    getReferralInviter(code).then(({ data, error }) => { if (alive && !error) onWho(inviterName(data)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
+  const og = inviteOg(isCompany ? "partner" : "home", code, null, who);
+  if (!og) return null;
+  return (
+    <div style={{ marginTop: S.lg }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 6 }}>친구 카톡에는 이렇게 보여요</div>
+      <div style={{ background: "#B2C7D9", borderRadius: R.lg, padding: 12 }}>
+        <div style={{ maxWidth: 260, background: "#fff", borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,.08)" }}>
+          <img src="/og-space-v2.png" alt="" style={{ width: "100%", aspectRatio: "1.91 / 1", objectFit: "cover", display: "block" }} />
+          <div style={{ padding: "9px 11px 10px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#191919", lineHeight: 1.4 }}>{og.title}</div>
+            <div style={{ fontSize: 11.5, color: "#666", marginTop: 3, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{og.description}</div>
+            <div style={{ fontSize: 11, color: "#999", marginTop: 5 }}>gongganmarket.com</div>
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: C.text4, marginTop: 5, lineHeight: 1.5 }}>
+        이름은 첫 글자만 보여요. 카톡이 예전 카드를 기억하고 있으면 잠시 다르게 보일 수 있어요.
+      </div>
+    </div>
+  );
+}
+
+export default function InviteScreen({ userId, isCompany = false, onBack, onReauthenticate }) {
   const [state, setState] = useState({ loading: true, code: null, invited: 0, error: null });
   const [copied, setCopied] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   // 초대왕 이벤트(155) — 순위판. SQL 전이거나 실패하면 카드만(순위 없이) 보인다.
   const [board, setBoard] = useState(null);
+  // 카톡 카드 미리보기 — 친구가 보는 이름(159 · «김○○»). SQL 전·실패면 «친구가» 카드
+  const [myShown, setMyShown] = useState(null);
   useEffect(() => {
     let alive = true;
     getReferralEventBoard(CURRENT_EVENT.id).then(({ data, error }) => { if (alive && !error && data?.ok) setBoard(data); }).catch(() => {});
@@ -22,19 +55,19 @@ export default function InviteScreen({ isCompany = false, onBack }) {
 
   useEffect(() => {
     let alive = true;
-    getMyReferral().then(({ data, error }) => {
+    setState({ loading: true, code: null, invited: 0, error: null });
+    getMyReferral(userId).then(({ data, error }) => {
       if (!alive) return;
       if (error || !data?.code) {
-        const m = String(error?.message ?? "");
+        const failure = inviteLoadError(error);
         setState({ loading: false, code: null, invited: 0,
-          error: /LOGIN_REQUIRED|JWT|401/.test(m) ? "로그인이 풀렸어요 — 인증번호로 다시 로그인해 주세요"
-            : "초대 링크를 아직 만들 수 없어요 — 잠시 뒤 다시 열어 주세요" });
+          error: failure.message, needsAuth: failure.needsAuth });
         return;
       }
       setState({ loading: false, code: data.code, invited: Number(data.invited) || 0, error: null });
-    }).catch(() => alive && setState({ loading: false, code: null, invited: 0, error: "초대 링크를 불러오지 못했어요" }));
+    }).catch(error => { if(alive) { const failure=inviteLoadError(error); setState({ loading:false,code:null,invited:0,error:failure.message,needsAuth:failure.needsAuth }); } });
     return () => { alive = false; };
-  }, []);
+  }, [userId, attempt]);
 
   const link = state.code ? inviteUrl(state.code, isCompany) : "";
   const message = state.code ? inviteMessage(state.code, isCompany) : "";
@@ -69,8 +102,12 @@ export default function InviteScreen({ isCompany = false, onBack }) {
 
       {state.loading && <div style={{ fontSize: 13, color: C.text3, padding: S.lg, textAlign: "center" }}>불러오는 중…</div>}
       {state.error && (
-        <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: S.lg, fontSize: 13, color: C.text2 }}>
+        <div role="alert" style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: S.lg, fontSize: 13, color: C.text2 }}>
           {state.error}
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            {state.needsAuth && onReauthenticate && <button onClick={onReauthenticate} style={{ padding: "12px 16px", border: 0, borderRadius: R.md, background: C.brand, color: "#fff", cursor: "pointer" }}>본인 확인하고 초대하기</button>}
+            <button onClick={() => setAttempt(n => n + 1)} style={{ padding: "12px 16px", border: `1px solid ${C.bgWarm}`, borderRadius: R.md, background: C.surface, color: C.text1, cursor: "pointer" }}>다시 시도</button>
+          </div>
         </div>
       )}
 
@@ -131,6 +168,8 @@ export default function InviteScreen({ isCompany = false, onBack }) {
               </button>
             </div>
           </div>
+
+          <InviteCardPreview code={state.code} isCompany={isCompany} who={myShown} onWho={setMyShown} />
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: S.lg,
             background: C.brandL, border: `1px solid ${C.brandM}`, borderRadius: R.lg, padding: `${S.md}px ${S.lg}px` }}>

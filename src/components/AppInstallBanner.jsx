@@ -15,7 +15,9 @@ export default function AppInstallBanner() {
   useEffect(() => {
     const inApp = detectAndRememberInApp();
     // 아이폰 — 사파리가 알아서 그린다(앱 안 WKWebView 에선 무시됨)
-    const content = inApp ? null : smartBannerContent(APP_STORE_ID, window.location.href);
+    // 빌드 때 index.html 에 이미 넣었으면(vite.config appleSmartBanner) 그대로 둔다 — 사파리는 처음 HTML 만 읽는다
+    const already = !!document.querySelector('meta[name="apple-itunes-app"]');
+    const content = inApp || already ? null : smartBannerContent(APP_STORE_ID, window.location.href);
     let meta = null;
     if (content) {
       meta = document.createElement("meta");

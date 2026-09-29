@@ -15,11 +15,15 @@
 // ─────────────────────────────────────────────────────
 import { Page, Section, Card, Row, StatTiles, EmptyInvite, Hero, Progress, QuietList } from "../../components/v3/ui";
 import { C, R, S } from "../../constants";
-import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../../constants/release"; // 베타면 «안전결제 기록» 대신 «계약·공사 기록»
+import { SHOW_BETA_UI, PAYMENTS_LIVE, tokenSalesOpen } from "../../constants/release"; // 베타면 «안전결제 기록» 대신 «계약·공사 기록»
 import { BIZ_ROWS } from "../../components/AppFooter";
 import { useEffect, useState } from "react";
 import { companyPageUrl } from "../../lib/referral";
 import CompanyQrSheet from "../../components/CompanyQrSheet";
+import QuoteSheetMaker from "../../components/QuoteSheetMaker";
+import PushNotificationSettings from "../../components/PushNotificationSettings";
+import { getCompanyPageStats } from "../../lib/supabase";
+import { statsLine } from "../../lib/pageViews";
 import { slugProblem, normalizeSlug } from "../../lib/companySlug";
 import { setCompanySlug } from "../../lib/supabase";
 import { reviewRequestUrl, reviewRequestMessage } from "../../lib/externalReview";
@@ -60,6 +64,16 @@ export default function MyPageV3({
   const [refCode, setRefCode] = useState(null);
   const [pageShared, setPageShared] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
+  // 내 업체 페이지 방문 수(156) — SQL 전이거나 실패하면 원래 문구
+  const [viewLine, setViewLine] = useState(null);
+  useEffect(() => {
+    if (!isCompany || !companyId) return;
+    let alive = true;
+    getCompanyPageStats(companyId).then(({ data, error }) => { if (alive && !error) setViewLine(statsLine(data)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [isCompany, companyId]);
   const [qrSaved, setQrSaved] = useState(false);
   useEffect(() => {
     if (!isCompany || !companyId || !user?.id) return;
@@ -259,15 +273,33 @@ export default function MyPageV3({
                    onClick={askReview} />
             )}
             {companyId && (
-              <Row emoji="🔗" label="내 업체 페이지 공유" sub={pageShared ? "주소를 보냈어요 · 블로그·인스타·명함에도 걸어 보세요" : "시공 사례·후기를 누구나 보는 주소"}
+              <Row emoji="🔗" label="내 업체 페이지 공유" sub={pageShared ? "주소를 보냈어요 · 블로그·인스타·명함에도 걸어 보세요" : (viewLine ?? "시공 사례·후기를 누구나 보는 주소")}
                    onClick={shareCompanyPage} />
             )}
             {companyId && (
               <Row emoji="🔳" label="명함·전단용 QR코드" sub="폰 카메라로 찍으면 내 업체 페이지가 열려요"
-                   onClick={() => setQrOpen(true)} last />
+                   onClick={() => setQrOpen(true)} />
+            )}
+            {companyId && (
+              <Row emoji="🧾" label="간단 견적서 만들기" sub="지인·전화 공사 견적을 이미지로 · 내 페이지 QR 포함"
+                   onClick={() => setQuoteOpen(true)} last />
             )}
           </Card>
         </Section>
+      )}
+      {pushOpen && user?.id && (
+        <div role="dialog" aria-label="푸시 알림 설정" onClick={() => setPushOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(31,42,36,0.55)", zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", background: C.bg, borderRadius: "22px 22px 0 0", padding: "18px 16px 24px" }}>
+            <PushNotificationSettings user={user} />
+            <button onClick={() => setPushOpen(false)} style={{ width: "100%", padding: 12, background: "none", border: "none", color: C.text3, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>닫기</button>
+          </div>
+        </div>
+      )}
+      {quoteOpen && companyId && (
+        <QuoteSheetMaker companyName={companyRow?.name ?? user?.name} phone={user?.phone ?? ""}
+          pageUrl={companyPageUrl(companySlug || companyId, refCode)} userId={user?.id ?? null} onClose={() => setQuoteOpen(false)} />
       )}
       {qrOpen && companyId && (
         <CompanyQrSheet url={companyPageUrl(companySlug || companyId, refCode)} name={companyRow?.name ?? user?.name}
@@ -306,12 +338,13 @@ export default function MyPageV3({
             <button onClick={() => onGo("token-store")}
               style={{ background: C.brand, color: "#fff", border: "none", borderRadius: R.full,
                 padding: "9px 16px", fontSize: 12.5, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
-              {PAYMENTS_LIVE ? "충전" : "모으기"}
+              {tokenSalesOpen() ? "충전" : "모으기"}
             </button>
           </div>
           <div style={{ borderTop: `1px solid ${C.bg}` }} />
           <Row emoji="✍️" label="내 활동" sub="내가 쓴 글 · 저장한 글 · 댓글" onClick={() => onGo("my-posts")} />
-          <Row emoji="🔔" label="라운지 알림 설정" sub="관심 카테고리 · 새 글 알림" onClick={() => onGo("lounge-settings")} last />
+          <Row emoji="🔔" label="라운지 알림 설정" sub="관심 카테고리 · 새 글 알림" onClick={() => onGo("lounge-settings")} />
+          <Row emoji="📣" label="푸시 알림 · 이벤트 알림" sub="받을 알림 고르기 · 이벤트·혜택(광고) 수신 동의" onClick={() => setPushOpen(true)} last />
         </Card>
       </Section>
 

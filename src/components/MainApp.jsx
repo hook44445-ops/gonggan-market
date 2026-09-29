@@ -1,6 +1,6 @@
-import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
+import { SHOW_BETA_UI, PAYMENTS_LIVE, isStoreAppShell } from "../constants/release";
 import { authHeader, getCurrentUserId } from "../lib/session";
-import { peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget } from "../lib/preferredCompany";
+import { peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget, PAGE_REQUEST_TITLE, pageRequestsFirst } from "../lib/preferredCompany";
 import ChatRequestModal from "./lounge/ChatRequestModal";
 import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -667,7 +667,7 @@ const FAQ_ITEMS = [
     a: "문의하기(아래 ‘문의하기’) 또는 이메일 biz@gonggansai.com 으로 연락주시면 순차적으로 도와드립니다." },
 ];
 
-export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding }) {
+export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onStartOnboarding, onReauthenticate }) {
   const activeRole = user.activeRole ?? user.role ?? "consumer";
   // 마운트 때 한 번 도는 딥링크 처리처럼 오래된 클로저에서도 지금 역할을 읽기 위한 ref.
   const activeRoleRef = useRef(activeRole);
@@ -687,6 +687,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     || user.is_operator === true
     || user.role === "operator";   // 레거시(028 마이그레이션 전) 호환
   const [screen, setScreen] = useState(() => {
+    // Explicit invite reauthentication returns here for customers and partners alike.
+    if (user.startAt === "invite" && user.id && !user.isGuest) return "invite";
     if (activeRole === "admin") return "admin";
     if (activeRole === "company") return "dashboard";
     if (user.startAt) return user.startAt;
@@ -2838,6 +2840,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (!pkg) return;
     // 결제 전(토스 상점 개설 전)엔 구매를 열지 않는다 — 운영이 테스트 키라 테스트 결제로 실제 토큰이 적립될 수 있다.
     if (!PAYMENTS_LIVE) { showToast("토큰 구매는 정식 오픈 뒤 열려요. 지금은 무료 미션으로 모을 수 있어요."); return; }
+    if (isStoreAppShell()) { showToast("앱에서는 무료 미션으로 토큰을 모을 수 있어요."); return; }
     if (!user?.id) { showToast("로그인 후 이용할 수 있어요."); return; }
     const tokens = (pkg.tokens ?? 0) + (pkg.bonus ?? 0);
     const price  = pkg.price ?? 0;
@@ -2921,7 +2924,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     //   초대 가입(148)은 친구 초대 화면 · 테스터 신청(147 · 대표 번호)은 /testers 목록.
     if (t === "REQUEST_FIRST_BID") { loadCompanyRequests?.(); go("home"); return; }
     if (t === "REQUEST_NUDGE") { if (rid) setBidViewRequestId(rid); setScreen("timeline"); return; }
-    if (t === "REFERRAL_JOINED" || t === "REFERRAL_EVENT_PRIZE") { setScreen("invite"); return; }
+    if (t === "REFERRAL_JOINED" || t === "REFERRAL_EVENT_PRIZE" || t === "REFERRAL_RANK") { setScreen("invite"); return; }
+    if (t === "MARKETING_CONSENT" || t === "PAGE_VIEWS_WEEKLY") { setScreen("my"); return; }
     if (t === "ADMIN_TESTER_SIGNUP") { window.location.href = "/testers"; return; }
     // 계약은 사업자부터(A안 · migration 116): 업체 → 서류 올리는 곳 / 의뢰인 → 그 요청의 결제 화면 / 관리자 → 관리 화면.
     if (t === "BIZ_REQUIRED" || t === "DOCUMENT_REVIEW") { setScreen("document-center"); return; }
@@ -3120,6 +3124,18 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const FULL = ["showcase","cchat","chat","portfolio","review","escrow","dashboard","bidstatus","admin","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   const NO_PAD = ["escrow","dashboard","timeline","lounge","lounge-write","lounge-detail","lounge-story","token-store","token-history"].includes(screen);
   // 파트너: 입찰할 새 견적 요청 목록 — v2 홈과 v3 홈이 같은 목록을 쓴다(v3 홈에서 요청이 안 보이던 문제).
+  // 내 업체 페이지(/p/…)에서 온 요청 — 받은 알림(#831)으로 가려내 맨 위 + «내 페이지 손님»
+  const [pageRequestIds, setPageRequestIds] = useState(() => new Set());
+  useEffect(() => {
+    if (activeRole !== "company" || !user?.id) return;
+    let alive = true;
+    supabase.from("notifications").select("related_id").eq("user_id", user.id).eq("type", "NEW_REQUEST")
+      .eq("title", PAGE_REQUEST_TITLE).order("created_at", { ascending: false }).limit(50)
+      .then(({ data }) => { if (alive && Array.isArray(data)) setPageRequestIds(new Set(data.map(n => String(n.related_id)).filter(Boolean))); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [activeRole, user?.id, visibleBiddableRequests.length]);
+
   const renderPartnerRequests = () => (
     <>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.md }}>
@@ -3147,7 +3163,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </div>
           </div>
         ) : (
-          visibleBiddableRequests.map(r => {
+          pageRequestsFirst(visibleBiddableRequests, pageRequestIds).map(r => {
             const _compId = currentUser?.id;
             const _ownId  = user?.id;
             const myBidFromState = submittedBids.find(b =>
@@ -3165,9 +3181,16 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               : null;
             const myBid = myBidFromState ?? myBidFromDb;
             const siteVisitForBid = siteVisitJobs.find(j => j.request?.id === r.id)?.siteVisit ?? null;
+            const fromMyPage = pageRequestIds.has(String(r.id));
             return (
+              <div key={r.id}>
+              {fromMyPage && (
+                <div style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:12, fontWeight:800, color:"#0E2B1D",
+                  background:"#F3E6C8", borderRadius:R.full, padding:"4px 10px", marginBottom:6 }}>
+                  ⭐ 내 페이지 손님 · 내 업체 페이지를 보고 요청했어요
+                </div>
+              )}
               <BidCard
-                key={r.id}
                 r={r}
                 currentUser={currentUser}
                 alreadyBid={!!myBid}
@@ -3177,6 +3200,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 onRequiresAuth={isGuestCompany ? () => setShowRegisterPrompt(true) : null}
                 onGoDocuments={() => setScreen("document-center")}
               />
+              </div>
             );
           })
         )}
@@ -4623,7 +4647,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             }
           }} />}
         {screen==="job-ledger" && activeRole === "company" && user?.id && <JobLedgerScreen userId={user.id} onBack={() => setScreen("my")} />}
-        {screen==="invite" && user?.id && !user?.isGuest && <InviteScreen isCompany={activeRole === "company"} onBack={() => setScreen("my")} />}
+        {screen==="invite" && user?.id && !user?.isGuest && <InviteScreen userId={user.id} isCompany={activeRole === "company"} onBack={() => setScreen("my")} onReauthenticate={onReauthenticate} />}
         {screen==="space-history" && <SpaceHistoryScreen myRequests={myRequests} myRequestsEscrow={myRequestsEscrow} companies={companies} onBack={() => setScreen("my")} onOpenContract={(r) => { setBidViewRequestId(r.id); go("escrow"); }} />}
         {screen==="dashboard" && <DashboardScreen key={dashTab} initialTab={dashTab} onBack={() => { setDashTab("active"); setScreen("home"); }} onEscrow={() => go("escrow")} onOpenJob={(bid) => { if (bid) { setSelectedBid(bid); setBidViewRequestId(bid.requestId); } go("escrow"); }} onGoDocuments={() => setScreen("document-center")} companyJobs={companyJobs} companyJobsDebug={companyJobsDebug} allRequests={customerRequests} currentUser={currentUser} submittedBids={submittedBids} userId={user?.id}
           onBidSubmit={isGuestCompany ? null : (r, data) => addBid(r, data)} />}
@@ -6469,7 +6493,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               if (ownerId) {
                 const what = [saved.type ?? form.type, saved.size ?? form.size].filter(Boolean).join(" · ");
                 createNotification({
-                  userId: ownerId, type: "NEW_REQUEST", title: "내 업체 페이지에서 견적 요청이 왔어요",
+                  userId: ownerId, type: "NEW_REQUEST", title: PAGE_REQUEST_TITLE,
                   message: `${what || "새 견적 요청"} — 바로 입찰할 수 있어요.`, relatedId: saved.id, relatedType: "request",
                   priority: "HIGH",
                 }).catch(() => {});

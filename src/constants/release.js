@@ -41,6 +41,34 @@ export const SHOW_BETA_UI =
 //   결제 버튼 · 「공간마켓이 보관」 문구 · 에스크로 안내가 함께 켜진다. 그 전에는 모두 «결제 준비 중 · 계약서대로 직접».
 export const PAYMENTS_LIVE = !SHOW_BETA_UI;
 
+// 아이폰 앱(Expo 쉘 · WKWebView) 안인가 — 쉘이 window.ReactNativeWebView 를 심는다.
+//   App Store 가이드라인 3.1.1: 앱 안에서 디지털 상품(공간토큰)을 애플 결제 없이 팔거나 가격·외부 결제를 안내하면 반려.
+//   그래서 아이폰 앱 안에서는 토큰 구매 화면을 아예 보이지 않는다(공사 대금 같은 실물 서비스 결제는 해당 없음).
+export function isIosAppShell() {
+  try {
+    return typeof window !== "undefined" && typeof window.ReactNativeWebView !== "undefined"
+      && /iPhone|iPad|iPod/i.test(window.navigator?.userAgent ?? "");
+  } catch { return false; }
+}
+// 안드로이드 Play 앱(TWA) 안인가 — Play 결제 정책도 앱 안 디지털 상품은 구글 결제(또는 등록한 대체 결제)만.
+//   TWA 는 첫 화면에만 referrer «android-app://» 가 붙는다 → 이 창(sessionStorage)에만 기억한다.
+//   (localStorage 에 두면 TWA 와 저장소를 같이 쓰는 크롬 브라우저에서도 구매가 숨겨진다)
+const TWA_SESSION_KEY = "gonggan_twa_session";
+export function isAndroidAppShell() {
+  try {
+    if (typeof document === "undefined") return false;
+    if (String(document.referrer ?? "").startsWith("android-app://")) {
+      try { sessionStorage.setItem(TWA_SESSION_KEY, "1"); } catch { /* noop */ }
+      return true;
+    }
+    return sessionStorage.getItem(TWA_SESSION_KEY) === "1";
+  } catch { return false; }
+}
+export const isStoreAppShell = () => isIosAppShell() || isAndroidAppShell();
+
+// 토큰을 돈 주고 살 수 있는 화면을 보여도 되나 — 결제가 열렸고, 스토어 앱(아이폰·Play) 안이 아닐 때만
+export const tokenSalesOpen = () => PAYMENTS_LIVE && !isStoreAppShell();
+
 // 브라우저(관리자 화면)에서 AI 글을 만들고 자동 발행하는 반복 작업 — 끔(09-26 AI 운영 검토).
 //   화면을 열어 두기만 해도 25초·60초마다 글이 발행됐고, 상태가 기기마다 따로라 중복이 생길 수 있었다.
 //   아침 뉴스 정리는 AI 가 실제 사설을 볼 수 없어 신문사 사설을 지어낼 수 있었다.

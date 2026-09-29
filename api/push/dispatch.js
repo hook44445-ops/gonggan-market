@@ -18,7 +18,7 @@
 // ─────────────────────────────────────────────────────
 
 import crypto from 'crypto';
-import { isNewsType, isWithinNewsWindow, NEWS_DAILY_CAP, NEWS_TYPES } from '../../src/utils/pushPolicy.js';
+import { isNewsType, isWithinNewsWindow, NEWS_DAILY_CAP, NEWS_TYPES, isAdType, isWithinAdWindow, AD_MAX_AGE_MS, AD_TYPES } from '../../src/utils/pushPolicy.js';
 
 const SB_URL  = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -165,6 +165,21 @@ export default async function handler(req, res) {
     await fetch(`${SB_URL}/rest/v1/rpc/request_partner_nudge_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
   } catch { /* noop */ }
 
+  // 초대왕 이벤트 광고 푸시(migration 157) — 동의한 사람만 · 한국 9~20시 · 시작/마감 3일 전 한 번씩. 없으면(157 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/referral_event_push_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
+
+  // 초대왕 순위 변동(migration 160) — 3등 안에 들거나 밀리면 알림함(+광고 동의자는 9~20시 푸시). 없으면(160 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/referral_event_rank_notify_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
+
+  // 업체 페이지 방문 수 주간 요약(migration 161) — 한국 월요일 9~20시에 한 번. 없으면(161 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/company_page_weekly_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
+
   // 발송 경로 결정: v1(서비스계정) 우선, 없으면 legacy(서버키) 폴백.
   const useV1 = !!SA;
   let accessToken = null;
@@ -175,7 +190,9 @@ export default async function handler(req, res) {
     res.statusCode = 200; res.end(JSON.stringify({ ok: false, reason: 'no_fcm_credentials' })); return;
   }
 
-  const queued = await sbGet('push_logs?status=eq.queued&select=id,user_id,type,title,body,target_url,related_id&order=created_at.asc&limit=200');
+  // 광고 시간 밖이면 광고는 아예 안 가져온다 — 밀린 광고가 200칸을 차지해 계약·대화 알림을 막지 않게
+  const adFilter = isWithinAdWindow(new Date()) ? '' : `&type=not.in.(${AD_TYPES.join(',')})`;
+  const queued = await sbGet(`push_logs?status=eq.queued${adFilter}&select=id,user_id,type,title,body,target_url,related_id,created_at&order=created_at.asc&limit=200`);
   if (!Array.isArray(queued)) { res.statusCode = 200; res.end(JSON.stringify({ ok: false, reason: 'query_failed' })); return; }
 
   const now = new Date();
@@ -184,6 +201,23 @@ export default async function handler(req, res) {
 
   for (const log of queued) {
     summary.processed++;
+
+    // 광고성(157): 한국 9~20시에만 · 이틀 넘은 건 버림 · 보내기 직전에 동의가 아직 켜져 있는지 다시 본다
+    if (isAdType(log.type)) {
+      if (!isWithinAdWindow(now)) { continue; }
+      if (log.created_at && now.getTime() - Date.parse(log.created_at) > AD_MAX_AGE_MS) {
+        await markLog(log.id, { status: 'skipped', error_message: 'ad_expired', sent_at: now.toISOString() });
+        summary.skipped++;
+        continue;
+      }
+      const pref = await sbGet(`push_preferences?user_id=eq.${encodeURIComponent(log.user_id)}&select=push_enabled,push_marketing&limit=1`);
+      const p = Array.isArray(pref) ? pref[0] : null;
+      if (!p || p.push_enabled !== true || p.push_marketing !== true) {
+        await markLog(log.id, { status: 'skipped', error_message: 'ad_no_consent', sent_at: now.toISOString() });
+        summary.skipped++;
+        continue;
+      }
+    }
 
     // 소식성: 시간창 밖이면 보류(queued 유지), 하루 캡 초과면 skip
     if (isNewsType(log.type)) {

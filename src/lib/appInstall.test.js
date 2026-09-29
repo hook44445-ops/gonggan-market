@@ -42,3 +42,21 @@ test("견적 요청 직후 앱 설치 제안 — 앱 안·PC·번호 없는 아�
   assert.deepEqual(installOfferAfterRequest({ ua: ANDROID }), { url: "/download", store: "테스트 앱" });
   assert.equal(installOfferAfterRequest({ ua: ANDROID, playPublic: true }).store, "Google Play");
 });
+
+test("다운로드 화면 — 폰 종류별 버튼", async () => {
+  const { downloadPlan } = await import("./appInstall.js");
+  // 아이폰 · 번호 전: 스토어 버튼 없음 → 웹 안내
+  assert.deepEqual(downloadPlan({ platform: "ios" }), { buttons: [], showTester: false, iosWaiting: true });
+  // 아이폰 · 번호 뒤
+  const ios = downloadPlan({ platform: "ios", appStoreId: "6700000001" });
+  assert.equal(ios.buttons[0].url, "https://apps.apple.com/app/id6700000001");
+  assert.equal(ios.showTester, false);
+  // 안드로이드 · 비공개 테스트 중 / 정식 뒤
+  assert.match(downloadPlan({ platform: "android" }).buttons[0].url, /apps\/testing/);
+  assert.equal(downloadPlan({ platform: "android" }).showTester, true);
+  const pub = downloadPlan({ platform: "android", playPublic: true });
+  assert.match(pub.buttons[0].url, /store\/apps\/details/);
+  assert.equal(pub.showTester, false);
+  // 컴퓨터 — 둘 다
+  assert.equal(downloadPlan({ appStoreId: "1", playPublic: true }).buttons.length, 2);
+});

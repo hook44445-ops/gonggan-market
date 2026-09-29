@@ -109,6 +109,9 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   "external_review_submit", "external_review_hide",
   // 154 — 업체 페이지 꾸미기(업체 주인 · 관리자)
   "company_set_profile",
+  "company_page_stats",
+  "marketing_consent_set",
+  "admin_marketing_stats",
   // 155 — 초대왕 이벤트(순위판은 토큰이 있으면 «내 순위»도 · 지급은 관리자)
   "referral_event_board", "admin_referral_event_settle"]);
 export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }

@@ -9,10 +9,12 @@ import { TOKEN_PACKAGES, TOKEN_COSTS } from '../constants/lounge';
 import TokenBalance from '../components/token/TokenBalance';
 import TokenPackageCard from '../components/token/TokenPackageCard';
 import MissionList from '../components/token/MissionList';
-import { PAYMENTS_LIVE } from '../constants/release';
+import { PAYMENTS_LIVE, isStoreAppShell, tokenSalesOpen } from '../constants/release';
 
 export default function TokenStoreScreen({ user, balance, logs, missionStats, onBack, onBuy, onEarnToken, onHistory }) {
-  const [tab, setTab]   = useState('store');
+  // 스토어 앱(아이폰·Play) 안에서는 «토큰 구매» 탭을 두지 않는다(App Store 3.1.1 · Play 결제 정책 · constants/release)
+  const iosShell = isStoreAppShell();
+  const [tab, setTab]   = useState(iosShell ? 'mission' : 'store');
   const [toast, setToast] = useState(null);
   const [buying, setBuying] = useState(false);
 
@@ -23,7 +25,7 @@ export default function TokenStoreScreen({ user, balance, logs, missionStats, on
   const handleBuy = async (pkg) => {
     if (buying) return;
     // 결제 전(토스 상점 개설 전) — 구매를 막는다. 운영이 테스트 키라 결제창이 열리면 테스트 결제로 실제 토큰이 적립될 수 있다.
-    if (!PAYMENTS_LIVE) {
+    if (!tokenSalesOpen()) {
       showToast('토큰 구매는 정식 오픈 뒤 열려요. 지금은 무료 미션으로 모을 수 있어요.');
       setTab('mission');
       return;
@@ -50,11 +52,11 @@ export default function TokenStoreScreen({ user, balance, logs, missionStats, on
       </div>
 
       <div style={{ padding: `${S.xl}px ${S.xl}px 0` }}>
-        <TokenBalance balance={balance} onStore={() => setTab(PAYMENTS_LIVE ? 'store' : 'mission')} onHistory={onHistory} storeLabel={PAYMENTS_LIVE ? '토큰 충전' : '무료로 모으기'} />
+        <TokenBalance balance={balance} onStore={() => setTab(tokenSalesOpen() ? 'store' : 'mission')} onHistory={onHistory} storeLabel={tokenSalesOpen() ? '토큰 충전' : '무료로 모으기'} />
       </div>
 
       <div style={{ display: 'flex', margin: `${S.xl}px ${S.xl}px 0`, background: C.bg, borderRadius: R.lg, padding: S.xs }}>
-        {[['store','토큰 구매'],['mission','무료 미션'],['cost','사용 금액']].map(([id,label]) => (
+        {[['store','토큰 구매'],['mission','무료 미션'],['cost','사용 금액']].filter(([id]) => !(iosShell && id === 'store')).map(([id,label]) => (
           <button key={id} onClick={() => setTab(id)} style={{ flex: 1, padding: '10px', border: 'none', borderRadius: R.md, background: tab === id ? C.surface : 'transparent', color: tab === id ? C.brand : C.text3, fontWeight: tab === id ? 800 : 500, fontSize: 13, cursor: 'pointer', transition: 'background 0.15s' }}>
             {label}
           </button>
@@ -62,7 +64,7 @@ export default function TokenStoreScreen({ user, balance, logs, missionStats, on
       </div>
 
       <div style={{ padding: S.xl }}>
-        {tab === 'store' && (
+        {tab === 'store' && !iosShell && (
           <>
             {!PAYMENTS_LIVE && (
               <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7, marginBottom: S.md, background: C.brandL, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.brandM}` }}>

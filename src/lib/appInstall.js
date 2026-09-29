@@ -63,3 +63,16 @@ export function detectAndRememberInApp() {
 }
 export const closedAt = () => Number(safeGet(DISMISS_KEY) || 0);
 export const closeBanner = (now = Date.now()) => safeSet(DISMISS_KEY, String(now));
+
+// /download 화면 — 어떤 버튼을 앞에 둘지(대표 09-29 · 아이폰 출시 대비)
+//   platform: "ios" | "android" | null(컴퓨터 등) · appStoreId 없으면 아이폰도 웹 안내 · playPublic 이면 테스터 안내 대신 스토어
+export function downloadPlan({ platform = null, appStoreId = "", playPublic = false } = {}) {
+  const id = String(appStoreId ?? "").replace(/\D/g, "");
+  const ios = id ? { label: "App Store에서 받기", url: `https://apps.apple.com/app/id${id}` } : null;
+  const play = playPublic
+    ? { label: "Google Play에서 받기", url: "https://play.google.com/store/apps/details?id=com.gonggansai.gongganmarket" }
+    : { label: "Google Play 테스트 참여하기", url: "https://play.google.com/apps/testing/com.gonggansai.gongganmarket" };
+  if (platform === "ios") return { buttons: ios ? [ios] : [], showTester: false, iosWaiting: !ios };
+  if (platform === "android") return { buttons: [play], showTester: !playPublic, iosWaiting: false };
+  return { buttons: [...(ios ? [ios] : []), play], showTester: !playPublic, iosWaiting: !ios };
+}

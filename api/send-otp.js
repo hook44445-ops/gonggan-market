@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { SolapiMessageService } from "solapi";
+import { reviewLoginCode } from "../src/lib/reviewLogin.js";
 
 // OTP 발송 — Solapi SMS 사용(구 Twilio Verify 대체).
 // Solapi 는 SMS 발송만 제공하므로 코드 생성·저장(만료/시도제한)·검증을 서버가
@@ -60,13 +61,15 @@ export default async function handler(req, res) {
   };
   const lastMin = await countSince("phone", phone, 60 * 1000);
   if (lastMin != null && lastMin >= 1) return res.status(429).json({ error: "인증번호를 방금 보냈어요. 1분 뒤에 다시 요청해 주세요" });
-  const lastDay = await countSince("phone", phone, 24 * 3600 * 1000);
+  // 앱 심사용 번호(APP_REVIEW_PHONE · APP_REVIEW_CODE — 서버 전용) — 문자 없이 정해 둔 번호. 심사관이 여러 번 시도할 수 있어 하루 제한만 풀어 준다.
+  const reviewCode = reviewLoginCode(phone, { reviewPhone: process.env.APP_REVIEW_PHONE, reviewCode: process.env.APP_REVIEW_CODE });
+  const lastDay = reviewCode ? 0 : await countSince("phone", phone, 24 * 3600 * 1000);
   if (lastDay != null && lastDay >= 5) return res.status(429).json({ error: "오늘 인증번호를 너무 많이 요청했어요. 내일 다시 시도하거나 고객센터(070-7954-2740)로 연락해 주세요" });
   const ipHour = await countSince("ip", ip, 3600 * 1000);
   if (ipHour != null && ipHour >= 10) return res.status(429).json({ error: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요" });
 
   // 6자리 인증번호 생성(000000~999999, 앞자리 0 보존)
-  const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+  const code = reviewCode ?? String(crypto.randomInt(0, 1000000)).padStart(6, "0");
 
   // 전화번호당 1개의 활성 코드 — 재전송 시 갱신(upsert)
   const { error: upsertErr } = await db
@@ -87,8 +90,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "인증번호 발송에 실패했습니다" });
   }
 
-  // Solapi 로 SMS 발송(국내 번호 형식으로 변환)
-  try {
+  // Solapi 로 SMS 발송(국내 번호 형식으로 변환) — 심사용 번호는 보내지 않는다(없는 번호일 수 있고 요금만 나간다)
+  if (!reviewCode) try {
     const messageService = new SolapiMessageService(SOLAPI_KEY, SOLAPI_SECRET);
     await messageService.send({
       to:   toKoreanLocal(phone),

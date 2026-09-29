@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
-import { IS_SUPABASE_READY, getPushPreferences, upsertPushPreferences } from "../lib/supabase";
+import { IS_SUPABASE_READY, getPushPreferences, upsertPushPreferences, setMarketingConsent } from "../lib/supabase";
 import { enablePush, disablePush, isPushSupported, isPushConfigured } from "../lib/push";
 
 const SUB_TOGGLES = [
@@ -25,6 +25,7 @@ const DEFAULTS = {
   push_lounge_activity: false,
   push_chat: false,
   push_escrow: false,
+  push_marketing: false,
 };
 
 function Switch({ on, disabled, onClick }) {
@@ -88,7 +89,9 @@ export default function PushNotificationSettings({ user }) {
       // 끄기 — 환경설정 OFF 저장(+ 가능 시 푸시 토큰 해제 best-effort).
       setBusy(true);
       try { await disablePush(); } catch {}
-      await persist({ ...DEFAULTS });
+      // 광고 동의(157)는 전체 알림과 따로 남는다 — 화면도 서버 값 그대로 보여 준다(끈 줄 알았는데 다시 켜면 광고가 오는 일 방지)
+      await persist({ ...DEFAULTS, push_marketing: prefs.push_marketing });
+      if (prefs.push_marketing) setNote("푸시 알림을 껐어요. 이벤트·혜택 알림(광고) 동의는 그대로예요 — 받지 않으려면 아래 스위치도 꺼 주세요.");
       setBusy(false);
       return;
     }
@@ -114,6 +117,24 @@ export default function PushNotificationSettings({ user }) {
     // "견적/시공 후기" 토글은 업체추천도 함께 제어
     if (key === "push_estimate_news") next.push_company_recommend = next.push_estimate_news;
     await persist(next);
+  };
+
+  // 이벤트·혜택 알림(광고 · 157) — 따로 동의받는다. 전체 알림을 꺼도 동의 여부는 그대로 남는다(보내는 건 둘 다 켜졌을 때만).
+  const handleMarketing = async () => {
+    if (busy) return;
+    const on = !prefs.push_marketing;
+    setBusy(true); setNote(null);
+    try {
+      const { data, error } = await setMarketingConsent(on);
+      if (error || !data?.ok) throw error ?? new Error("FAIL");
+      setPrefs((p) => ({ ...p, push_marketing: on }));
+      setNote(on
+        ? `${data.day} 이벤트·혜택 알림(광고) 수신에 동의하셨어요. 언제든 여기서 끌 수 있어요.`
+        : `${data.day} 이벤트·혜택 알림(광고) 수신을 철회하셨어요.`);
+    } catch {
+      setNote("지금은 바꿀 수 없어요. 잠시 후 다시 시도해 주세요.");
+    }
+    setBusy(false);
   };
 
   if (loading) return null;
@@ -142,6 +163,17 @@ export default function PushNotificationSettings({ user }) {
             <Switch on={!!prefs[key]} disabled={!prefs.push_enabled || busy} onClick={() => handleSub(key)} />
           </div>
         ))}
+      </div>
+
+      <div style={{ borderTop: `1px solid ${C.bgWarm}`, marginTop: S.sm, paddingTop: S.md, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ flex: 1, minWidth: 0, marginRight: S.md }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text1 }}>이벤트·혜택 알림 (광고)</div>
+          <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2, lineHeight: 1.55 }}>
+            초대 이벤트·토큰 혜택 소식을 푸시로 받아요(선택). 한국 시간 낮 9시~저녁 8시에만, 제목에 「(광고)」를 붙여 보내요.
+            위 알림이 켜져 있어야 받을 수 있어요.
+          </div>
+        </div>
+        <Switch on={!!prefs.push_marketing} disabled={busy} onClick={handleMarketing} />
       </div>
     </div>
   );

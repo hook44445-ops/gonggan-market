@@ -123,6 +123,11 @@ export const getCompanyByRef = (ref) => {
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r)) return getCompany(r);
   return supabase.from("companies").select("*").eq("slug", r.toLowerCase()).maybeSingle();
 };
+// 광고성 정보(이벤트·혜택) 수신 동의·철회(157) — 로그인 토큰의 본인만 · 결과는 서버가 알림함으로 알린다
+export const setMarketingConsent = (on) => supabase.rpc("marketing_consent_set", { p_on: !!on });
+// 업체 페이지 방문 수(156) — 세기는 누구나, 보기는 주인(로그인 토큰)·관리자
+export const recordCompanyPageView = (companyId) => supabase.rpc("company_page_view", { p_company_id: companyId });
+export const getCompanyPageStats = (companyId) => supabase.rpc("company_page_stats", { p_company_id: companyId });
 // 짧은 주소 정하기 — 업체 주인(로그인 토큰) 또는 관리자. 빈 값이면 없앤다. → { ok, slug?, reason? }
 export const setCompanySlug = (companyId, slug) =>
   supabase.rpc("company_set_slug", { p_company_id: companyId, p_slug: slug ?? "" });
@@ -238,8 +243,15 @@ export const deleteLedgerEntry = async (userId, id) => {
 
 // ── 친구 초대(146) — 로그인 토큰으로 «나»를 판단(lib/session TOKEN_RPCS) ─────────────────────
 // 내 초대 코드(없으면 서버가 만든다) + 데려온 사람 수 → { code, invited }
-export const getMyReferral = () => supabase.rpc("referral_my_code");
+export const getMyReferral = (userId = getCurrentUserId()) => {
+  const db = authedDb(userId);
+  // Never send a personal referral request as anon or as a different cached account.
+  if (!db) return Promise.resolve({ data: null, error: { code: "INVITE_AUTH_REQUIRED" } });
+  return db.rpc("referral_my_code");
+};
 // 초대 코드로 들어온 새 사용자 → { ok, reason? }. 판정(가입 7일 안 · 처음 · 본인 아님)은 서버가 한다.
+// 초대한 사람 첫 글자(159) — 누구나 · «김○○» + 업체 여부만
+export const getReferralInviter = (code) => supabase.rpc("referral_inviter", { p_code: code });
 export const claimReferral = (code) => supabase.rpc("referral_claim", { p_code: code });
 
 // 공간마켓 밖 공사 후기(151) — 따로 표시 · 평점·온도에 넣지 않음. 읽기는 누구나(숨김 제외), 쓰기는 로그인 토큰.
@@ -262,6 +274,8 @@ export const setCompanyProfile = (companyId, { coverUrl = null, logoUrl = null, 
 
 // 초대왕 이벤트(155) — 순위판(누구나 · 로그인이면 내 순위) · 지급(관리자 · 기간 끝난 뒤 한 번)
 export const getReferralEventBoard = (eventId = "2026-10") => supabase.rpc("referral_event_board", { p_event: eventId });
+// 관리자 — 이벤트 알림(광고) 동의·발송 숫자(158)
+export const getAdminMarketingStats = () => supabase.rpc("admin_marketing_stats");
 export const adminSettleReferralEvent = (eventId = "2026-10") => supabase.rpc("admin_referral_event_settle", { p_event: eventId });
 
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
