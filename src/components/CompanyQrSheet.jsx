@@ -28,7 +28,7 @@ function drawCard(canvas, { matrix, name, url }) {
   ctx.fillText("공간마켓", CARD_W / 2, 1270);
 }
 
-export default function CompanyQrSheet({ url, name, onClose }) {
+export default function CompanyQrSheet({ url, name, onClose, onSaved }) {
   const matrix = useMemo(() => qrMatrix(url), [url]);
   const { d, size } = useMemo(() => qrSvgPath(matrix, 2), [matrix]);
   const [msg, setMsg] = useState(null);
@@ -41,7 +41,7 @@ export default function CompanyQrSheet({ url, name, onClose }) {
       if (!blob) throw new Error("NO_BLOB");
       const file = new File([blob], "공간마켓-업체QR.png", { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: `${name || "업체"} QR` }); setMsg("사진으로 저장하거나 인쇄소에 보내세요"); } catch { /* 취소 */ }
+        try { await navigator.share({ files: [file], title: `${name || "업체"} QR` }); setMsg("사진으로 저장하거나 인쇄소에 보내세요"); onSaved?.(); } catch { /* 취소 */ }
         return;
       }
       const a = document.createElement("a");
@@ -49,6 +49,7 @@ export default function CompanyQrSheet({ url, name, onClose }) {
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
       setMsg("이미지를 내려받았어요");
+      onSaved?.();
     } catch {
       setMsg("이 기기에선 저장이 안 돼요 — 화면을 캡처해 주세요");
     }

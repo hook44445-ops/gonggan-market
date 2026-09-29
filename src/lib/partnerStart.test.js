@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { partnerStartState, PARTNER_STEPS } from "./partnerStart.js";
 
-test("새 업체 — 0/7, 다음은 사업자등록", () => {
+test("새 업체 — 0/8, 다음은 사업자등록", () => {
   const s = partnerStartState({});
   assert.equal(s.total, PARTNER_STEPS.length);
   assert.equal(s.count, 0);
@@ -18,7 +18,7 @@ test("밖 공사 후기도 «첫 후기»로 친다 · 순서대로 다음 칸",
 });
 
 test("다 하면 complete", () => {
-  const s = partnerStartState({ company: { verified: true, hasInsurance: true, slug: "a", cover_url: "https://x/c.jpg", intro: "욕실 수리" }, growth: { showcases: 2, reviews: 1 }, shared: true });
+  const s = partnerStartState({ company: { verified: true, hasInsurance: true, slug: "a", cover_url: "https://x/c.jpg", intro: "욕실 수리" }, growth: { showcases: 2, reviews: 1 }, shared: true, qrSaved: true });
   assert.equal(s.complete, true);
   assert.equal(s.next, null);
 });
@@ -26,5 +26,5 @@ test("다 하면 complete", () => {
 test("커버만 있고 소개가 없으면 «페이지 꾸미기»는 아직", () => {
   const s = partnerStartState({ company: { verified: true, has_insurance: true, slug: "a", cover_url: "https://x/c.jpg", intro: " " } });
   assert.equal(s.items.find(i => i.key === "profile").done, false);
-  assert.equal(s.total, 7);
+  assert.equal(s.total, 8);
 });
