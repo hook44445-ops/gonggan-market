@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import { C, R, S } from '../../constants';
 import { TOKEN_COSTS } from '../../constants/lounge';
-import { PAYMENTS_LIVE } from '../../constants/release';
+import { PAYMENTS_LIVE, tokenSalesOpen } from '../../constants/release';
 
 const Sheet = ({ children }) => (
   <div style={{ position: 'fixed', inset: 0, background: 'rgba(31,42,36,0.65)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 500 }}>
@@ -70,7 +70,7 @@ export default function ChatRequestModal({ balance = 0, toName = null, sending =
         {/* 결제가 열리기 전엔 «충전»이라고 말하지 않는다 — 지금 실제로 가능한 길만 안내한다 */}
         <div style={{ background: C.brandL, border: `1px solid ${C.brandM}`, borderRadius: R.lg, padding: `${S.md}px ${S.lg}px`, marginBottom: S.xl }}>
           <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.8 }}>
-            {PAYMENTS_LIVE
+            {tokenSalesOpen()
               ? '토큰을 충전하거나, 라운지 활동으로도 모을 수 있어요.'
               : <>토큰 충전은 정식 오픈 때 열려요. 그때까지는 라운지 활동으로 모을 수 있어요 — 프로필 채우기 · 첫 글 · 첫 댓글 · 후기 남기기.</>}
           </div>
@@ -88,7 +88,7 @@ export default function ChatRequestModal({ balance = 0, toName = null, sending =
           </button>
           <button onClick={() => onGetTokens?.()}
             style={{ flex: 2, padding: S.xl, background: C.brand, color: '#fff', border: 'none', borderRadius: R.lg, fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: `0 4px 16px ${C.brand44}` }}>
-            {PAYMENTS_LIVE ? '토큰 채우러 가기' : '토큰 모으는 방법 보기'}
+            {tokenSalesOpen() ? '토큰 채우러 가기' : '토큰 모으는 방법 보기'}
           </button>
         </div>
       </Sheet>
