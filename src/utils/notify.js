@@ -27,6 +27,7 @@ export const NOTIF_TIER = {
 export const NOTIF_META = {
   // ── 1단계 진행 ──────────────────────────────────────────
   BID_RECEIVED:          { tier: NOTIF_TIER.PROGRESS, icon: "📋", priority: "HIGH" },
+  BID_COMPARE_NUDGE:     { tier: NOTIF_TIER.PROGRESS, icon: "⚖️", priority: "NORMAL" },   // 172 견적 비교 한 번
   REGION_REQUESTS_WEEKLY:{ tier: NOTIF_TIER.PROGRESS, icon: "📍", priority: "NORMAL" },   // 171 월요일 우리 동네 새 요청
   BID_ALL_IN:            { tier: NOTIF_TIER.PROGRESS, icon: "📋", priority: "HIGH" },
   QUOTE_DEADLINE:        { tier: NOTIF_TIER.PROGRESS, icon: "⏰", priority: "HIGH" },

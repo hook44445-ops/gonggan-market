@@ -160,6 +160,10 @@ export default async function handler(req, res) {
   try {
     await fetch(`${SB_URL}/rest/v1/rpc/request_nudge_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
   } catch { /* noop */ }
+  // 견적 2개 이상 받고 이틀째 못 고른 요청 — «최저~최고 · 차이» 한 번(migration 172). 없으면(172 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/bid_compare_nudge_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
   // 같은 요청을 동네 업체 쪽에서 — «지금 입찰하면 첫 견적이에요»(migration 153 · 한도 안 · 업체당 하루 3건)
   try {
     await fetch(`${SB_URL}/rest/v1/rpc/request_partner_nudge_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });

@@ -2935,7 +2935,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (t === "BIZ_VERIFIED" && rid) { setBidViewRequestId(rid); go("bidstatus"); return; }
     if (t === "ADMIN_BIZ_PENDING" || t === "ADMIN_DOC_SUBMITTED") { go("admin"); return; }
     // 의뢰인: 견적 도착(BID_RECEIVED/BID_ALL_IN) → 해당 Request 견적 비교(bidstatus).
-    if ((t === "BID_RECEIVED" || t === "BID_ALL_IN") && rid) {
+    if ((t === "BID_RECEIVED" || t === "BID_ALL_IN" || t === "BID_COMPARE_NUDGE") && rid) {
       setBidViewRequestId(rid);
       go("bidstatus");
       return;
