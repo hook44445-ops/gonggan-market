@@ -1,3 +1,66 @@
+# Phase 2 — 로컬 운영 확인 (2026-09-29 20:29~20:34 KST)
+
+이 절이 아래 Phase 1 기록보다 우선한다. 저장소 기준 e02d055, PR #862 원본 2128ad4. 운영 DB 변경·결제·가입·타 사용자 쓰기·파일 다운로드 없음. 메시지/문서/사진 본문과 식별자 행을 가져오지 않았다.
+
+## Production Truth
+
+| 항목 | 판정 | 직접 근거 / 한계 |
+|---|---|---|
+| Production URL | https://gongganmarket.com / HTTP 200 | 공개 HTML 직접 읽기 |
+| Vercel Production | CONFIGURED | x-vercel-id + GitHub deployment 6727844103 success |
+| Production SHA | 5a8cb7b1501fa17ed5c18f3896453c302da0c50f | 운영 JS의 VITE_VERCEL_GIT_COMMIT_SHA와 GitHub deployment 일치 |
+| Supabase | CONFIGURED | 공개 번들 프로젝트와 기존 로컬 설정의 프로젝트 일치; URL/키 값 미공개 |
+| APP_MODE | CONFIGURED — beta | 내려온 번들의 beta 상수/조건 확인, Vercel 비밀 환경변수 목록은 미접근 |
+| PAYMENTS_LIVE | 프런트 false(베타 게이트) | release.js와 컴파일된 조건 대조. 서버 PG 운영 가능 여부는 UNKNOWN |
+| Kakao Map | CONFIGURED(공개 SDK 참조) | 지도 렌더·도메인 허용·할당량은 미검증 |
+| Toss/PG secret·payout 연동 | UNKNOWN | 기존 로컬 설정에 없음; 서버 비밀 환경에 접근하지 않음 |
+| migration 전체 적용 상태 | UNKNOWN | 파일 번호나 대표 실행 이력으로 전체 적용을 단정하지 않음 |
+
+기존 로컬 환경 파일에는 Supabase URL/anon 키/SAFE_MODE만 CONFIGURED. Vercel 인증 파일·Supabase 관리 토큰·직접 DB 연결을 확인하지 못했다. 브라우저 콘솔 연결은 두 번 시간 초과. 공개 OpenAPI 루트는 HTTP 401. 따라서 pg_policies, relrowsecurity, pg_get_functiondef, grants, storage 정책 원문을 읽지 못했다. 자격 증명을 새로 만들거나 우회하지 않았다.
+
+## 운영 읽기 증거 (anon, HEAD, select=id&limit=0, Prefer=count=exact)
+
+| 대상 | 응답 / 익명에게 보이는 건수 | RLS enabled / SELECT 원문 / INSERT / UPDATE / DELETE / RPC definer·auth.uid |
+|---|---|---|
+| chats | 206 / 25 | 전부 UNKNOWN; 익명 SELECT의 건수 노출만 직접 확인 |
+| company_documents | 206 / 13 | 전부 UNKNOWN; 익명 SELECT의 건수 노출만 직접 확인 |
+| companies | 206 / 1 | 전부 UNKNOWN; 공개 프로필 읽기 자체는 의도된 기능 |
+| project_checkpoints | 200 / 0 | 전부 UNKNOWN; 0은 빈 테이블/정책 필터를 구별하지 못함 |
+| estimates | 200 / 0 | 전부 UNKNOWN; actor 검증 여부를 입증하지 못함 |
+| phase_photos | 206 / 27 | 전부 UNKNOWN; 쓰기 RPC의 안전성과 별개로 익명 읽기 범위 확인 필요 |
+| escrow_payments | 206 / 8 | 전부 UNKNOWN; 익명 계약 장부 건수 노출 |
+| escrow_payouts | 206 / 32 | 전부 UNKNOWN; 익명 지급 장부 건수 노출, 실제 송금 증거 아님 |
+
+건수는 해당 역할에 보이는 행 수이며 전체 고객·거래량·매출로 사용할 수 없다. SELECT 응답 성공은 INSERT/UPDATE 허용이나 전체 본문 노출을 입증하지 않는다. 악성 actor·타 room 조회/쓰기 시험은 하지 않았다. Storage 파일과 signed URL은 열지 않았다.
+
+## Security Matrix
+
+| 항목 | Repository suspicion | Production actual | Severity | Exploit condition / affected data | Required fix | App / DB 필요 | Rollback |
+|---|---|---|---|---|---|---|---|
+| S1 chats | 081/093 anon 광범위 정책 | VULNERABLE: 익명 SELECT 건수 25 노출. INSERT·다른 room 본문은 UNKNOWN | 높은 우선순위, 본문 영향 미확정 | 공개 anon으로 건수 접근; 대화 내용·room 구성은 읽지 않음 | 실제 room participant 정책 확보 후 읽기·쓰기·realtime 함께 제한 | App 필요 예상 / DB 필요 예상, 정의 확보 전 확정 금지 | 실제 운영 정의 스냅샷 확보 전 작성 불가; open 정책 복구를 안전한 rollback으로 보지 않음 |
+| S2 documents | 054 anon select/insert/update | VULNERABLE: 익명 SELECT 건수 13 노출. 변경·파일 접근은 UNKNOWN | 높은 우선순위, 파일 영향 미확정 | 비로그인 metadata 집계; 실제 문서 미열람 | owner/admin metadata + 승인 필드 권한 + private storage 확인 | App/DB 필요 예상 | 실제 정책/함수/Storage 스냅샷 필요 |
+| S3 companies | owner FOR ALL로 관리자 필드 수정 의심 | UNKNOWN: 실제 정책·column grant·trigger 미확보 | 잠재적 높음 | owner 토큰·직접 update가 가능한 경우 verified/badge 신뢰 영향 | owner 허용 필드 분리 + admin RPC 경로 검증 | UNKNOWN | 운영 정의 확보 후 설계 |
+| S4 GPS/estimate | 082/067/043/045가 p_actor_id를 신뢰 | UNKNOWN: 실제 함수 정의 미확보; 쓰기 시험 금지 준수 | 잠재적 높음 | definer가 actor를 신뢰할 때 작성자·프로젝트 위조 위험 | auth.uid + project membership + 연관 request/contract/company 일치 | App TOKEN_RPCS + DB 예상, 아직 적용 금지 | 배포된 함수 signature/body 확보 후 설계 |
+
+최종 상태: S1 BLOCKED(읽기 노출 확인, 수정 미완료), S2 BLOCKED(동일), S3 UNKNOWN, S4 UNKNOWN. FIXED/SAFE로 판정한 항목 없음.
+
+일반 room은 고객ID_업체ID, 라운지는 lounge_대화요청ID 구조(저장소). 실제 participant 정의·admin 예외·system 메시지 경로·Realtime JWT를 확보해야 S1을 닫을 수 있다. 업체 문서는 제출과 승인 권한을 구분해야 하며 단순 owner UPDATE 정책만으로는 부족하다.
+
+136의 escrow_action/_escrow_party/phase_photos_add와 관리자 함수는 코드상 auth.uid를 사용한다. phase_photos_add의 uploaded_by도 auth.uid로 고정한다. 그러나 운영 함수 정의가 같다는 증거는 없으므로 SAFE 판정 대신 CODE_READY. 사진/장부 읽기 노출은 이 쓰기 패턴으로 해결되지 않는다.
+
+## 수정 Gate / 테스트
+
+현재는 실제 정책·함수·grants·triggers·Storage 원문과 staging/test-account 검증 기반이 없어 안전한 migration/rollback을 완성할 수 없다. 취약점을 숨기지 않되 저장소의 옛 정책을 운영 정책으로 가정해 수정하지 않는다. 이번 변경은 Evidence 문서뿐이며 앱/DB 수정 0건.
+
+SEC1~SEC12는 미실행(NOT_RUN). anon/무관 사용자/당사자/admin 채팅, 문서 foreign/owner/admin, owner self-verify/admin 승인, forged actor/실actor/outsider checkpoint의 허용·거절을 staging에서 검증해야 한다. 운영에서는 쓰기 테스트를 하지 않는다. 전체 앱 tests/build를 이번에 실행했다고 주장하지 않는다(런타임 변경 없음).
+
+다음 자동 작업: 읽기 전용 관리 연결이 사용 가능해지면 정책·함수·열 권한·trigger·Storage만 수집 → 운영에서 확인된 취약점만 앱+SQL+rollback+SEC1~12+전체 tests/build 준비 → 대표의 Production migration 승인 직전 STOP. 현 단계에서는 불완전한 SQL 승인 요청을 올리지 않는다.
+
+로컬 증거: C:/Users/hook4/Documents/Codex/gonggan-security-evidence/production-summary.json, schema-summary.json. 원본 공개 번들 사본은 로컬에만 보관하고 키/사용자 내용은 PR에 넣지 않는다.
+
+---
+## 아래는 Phase 1 당시 기록(미확정 표현은 위 판정으로 대체)
+
 # 정부지원사업 준비 1 — 운영 확인 · 보안(P0) 점검 (2026-09-29)
 
 기준: `hook44445-ops/gonggan-market` main `e02d055` · 작성: 코드/SQL 읽기 전용 점검 · **운영 DB·운영 사이트는 이 작업 환경에서 접속 불가(네트워크 정책)** → 운영값은 모두 UNKNOWN.

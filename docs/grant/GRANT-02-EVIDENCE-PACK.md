@@ -1,3 +1,40 @@
+# Phase 2 Evidence 보정 — 2026-09-29
+
+이 절이 아래 Phase 1의 추정/표현보다 우선한다. 운영 사이트 HTTP 200, Vercel 배포와 공개 번들 SHA 5a8cb7b 일치, 로컬 Supabase 프로젝트 일치를 확인했다. 인증·거래 E2E는 실행하지 않았으므로 페이지 가용성 외 기능은 PRODUCTION_CONFIRMED로 올리지 않는다.
+
+## 실제 schema / 데이터 준비도
+
+GET select=<해당열>&limit=0으로 본문 없이 열 존재 여부만 확인했다.
+
+| field | UI input / request payload(current main) | Production DB | final estimate / index trigger | 판정 |
+|---|---|---|---|---|
+| requests.space_size_m2 | 전용 숫자㎡ 입력·payload 없음. 기존 size UI/p_size 존재 | 400 / 42703: 열 없음 | 저장소 013의 price/m² 분모, 운영 trigger UNKNOWN | NOT_COLLECTED |
+| requests.building_type | 전용 입력·payload 없음. space_type은 동일 개념으로 취급하지 않음 | 400 / 42703 | 013 그룹 조건, 운영 trigger UNKNOWN | NOT_COLLECTED |
+| requests.region_code | area 설명/지역 텍스트와 달리 표준 코드 payload 없음 | 400 / 42703 | 013 필수 조건, 운영 trigger UNKNOWN | NOT_COLLECTED |
+| estimates.material_grade | src 입력/전달 경로 검색 결과 없음 | 200: 열 존재만 확인 | 013 economy/standard/premium/luxury 조건 | NOT_COLLECTED(앱 경로), DB 값은 UNKNOWN |
+| estimates.labor_ratio | src 입력/전달 경로 없음 | 200: 열 존재만 확인 | 현 저장 경로 미확인 | NOT_COLLECTED(앱 경로), DB 값은 UNKNOWN |
+| requests.size/space_type | UI initialData.size, createRequest p_size/p_space_type 존재 | 둘 다 200 | m²/건물유형 표준값으로 직접 대체 불가 | PARTIAL |
+| space_price_index | 앱 입력 경로 없음 | 404 / PGRST205: API schema cache에 없음 | migration 013은 COMPLETED + 지역/면적/유형/등급 조건 필요 | NOT_COLLECTED/운영 집계 UNKNOWN |
+
+PGRST205만으로 실제 테이블 삭제·migration 미실행을 단정하지 않는다(미노출/schema cache 가능). 관찰되지 않은 누적량은 0이 아니라 UNKNOWN. AI 학습 데이터 확보·모델 학습·가격지표 운영은 현재 입증 불가.
+
+## 기능 및 결제
+
+| 기능 | 상태 | 제한 |
+|---|---|---|
+| 공개 홈페이지 전달 | PRODUCTION_CONFIRMED | HTTP 200·실제 번들 다운로드만, 전체 UI/E2E 아님 |
+| 회원가입·견적요청·입찰·견적비교·채팅 | CODE_READY | 코드 경로 존재. 운영 테스트 계정·사용자 쓰기 미실행 |
+| 현장방문·GPS·최종견적·계약 | CODE_READY | S3/S4 운영 권한 UNKNOWN; 성공 시나리오 미검증 |
+| 착공·중간·완료·후기 | CODE_READY | auth.uid 기반 코드 존재; 운영 함수와 동일성 미확인 |
+| 결제 | INTERNAL_LEDGER_ONLY(관측 범위) | 프런트 beta로 결제 닫힘, 장부 count만 확인. Toss secret·실송금·PG 계약은 UNKNOWN |
+
+익명 count로 보인 계약 8·지급 32는 실제 결제·송금·매출 건수가 아니다. 사진 27·채팅 25·문서 13도 학습 가능성·동의·비식별성·품질을 입증하지 않는다. 이 숫자를 지원서 성과 지표로 사용하지 않는다.
+
+보안 증거는 GRANT-01 Phase 2 참조. S1/S2 읽기 범위 노출은 확인됐으나 수정 미완료, S3/S4 미확정. 운영 기능 캡처/테스트 계정 로그인/실사용자 데이터 조작 없음. 과거 스토어 이미지의 BETA 제거 등 편집 여부는 제출 시 정확히 밝힌다.
+
+---
+## 아래는 Phase 1 코드 목록(운영 보장/수량 추정으로 사용 금지)
+
 # 정부지원사업 준비 2 — 제품 증거 모음(Evidence Pack) · 구조 · 데이터 (2026-09-29)
 
 기준: main `e02d055` · 저장소 코드/SQL 근거 · 운영 동작 확인 **UNKNOWN**(GRANT-01 참고) · 상태 등급: PRODUCTION / READY / PARTIAL / CODE_EXISTS / PLANNED.
@@ -27,7 +64,7 @@
 
 ### 이미 있는 실제 화면 캡처(스토어용 · 실제 앱 화면 · 저장소)
 `store/apple-ko/`: 01 랜딩 · 02 홈 · 03 공간 고르기 · 04 시공 사례 상세 · 05 시공 사례 · 06 약관 동의 · 07 지도 · 08 라운지 · 09 마이 · 10 파트너(업체 소개).
-(01 은 «BETA» 표시를 지운 수정본 — 스토어 제출용. 지원서엔 원본 여부를 밝히지 않아도 되는 일반 화면)
+(01 은 «BETA» 표시를 지운 수정본 — 스토어 제출용. 지원서에는 BETA 표시 제거 등 편집 여부와 당시 상태를 명시해야 함)
 
 ### 지원서에 필요한데 아직 없는 캡처(허구 UI 금지 — 실제 계정·실제 데이터로 찍어야 함)
 | 필요 캡처 | 찍는 방법(AI 수행 조건) |
@@ -81,8 +118,8 @@
 | 요청 | requests: area·space_type·size·style·description·budget_min/max·created_at | 예 | NO_DATA | 공간 유형·예산 구간(이미 구조화) | 중 — 설명에 주소·연락처 가능 → 비식별 필요 |
 | 입찰가 | bids: price·status·company_id | 예 | NO_DATA | 선택/비선택(자연 라벨) | 낮음 |
 | 최종견적 | estimates: items(jsonb)·total_price·duration_days·final_quote_photo_urls | 예 | NO_DATA | 항목 표준화 필요(자유 입력) | 낮음 |
-| AI 칸 | requests.space_size_m2·building_type·region_code · estimates.material_grade·labor_ratio | **아니오 — 앱이 값을 넣지 않음**(src 에 쓰는 코드 없음) | 0 추정 | — | — |
-| 가격 인덱스 | space_price_index(트리거) | **아니오 — 위 칸이 비어 집계 조건 불충족** | 0 추정 | — | 낮음 |
+| AI 칸 | requests.space_size_m2·building_type·region_code · estimates.material_grade·labor_ratio | **아니오 — 앱이 값을 넣지 않음**(src 에 쓰는 코드 없음) | UNKNOWN(Phase 2 운영 schema 확인 참조) | — | — |
+| 가격 인덱스 | space_price_index(트리거) | **아니오 — 위 칸이 비어 집계 조건 불충족** | UNKNOWN(Phase 2 운영 schema 확인 참조) | — | 낮음 |
 | 계약·공정 | escrow_payments: total_amount·current_step·status·expected_end_date · escrow_payouts: stage·amount·status·phase_duration_days·delay_days | 예(지연 칸은 채우는 코드 확인 필요) | NO_DATA | 지연/정상 · 분쟁 여부 | 중(금액) |
 | GPS | project_checkpoints 전 칸 | 예 | NO_DATA | 체크포인트 완결성 · 현장 일치 | **높음(위치)** — 1회 캡처·좌표 관리자만 |
 | 사진 | phase_photos · estimates 사진 · 후기 사진 | 예 | NO_DATA | 공정 단계(단계 번호가 라벨) | 중(실내 사진) |
