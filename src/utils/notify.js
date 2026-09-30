@@ -27,6 +27,7 @@ export const NOTIF_TIER = {
 export const NOTIF_META = {
   // ── 1단계 진행 ──────────────────────────────────────────
   BID_RECEIVED:          { tier: NOTIF_TIER.PROGRESS, icon: "📋", priority: "HIGH" },
+  SAVED_COMPANY_NEW:     { tier: NOTIF_TIER.PROGRESS, icon: "💚", priority: "LOW" },      // 179 찜한 업체 새 사례
   LOUNGE_WEEKLY:         { tier: NOTIF_TIER.PROGRESS, icon: "🔥", priority: "LOW" },      // 174 지난주 라운지 인기 글
   BID_VIEWED:            { tier: NOTIF_TIER.PROGRESS, icon: "👀", priority: "NORMAL" },   // 173 고객이 내 견적 확인
   BID_COMPARE_NUDGE:     { tier: NOTIF_TIER.PROGRESS, icon: "⚖️", priority: "NORMAL" },   // 172 견적 비교 한 번

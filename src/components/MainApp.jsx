@@ -2930,6 +2930,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (t === "MARKETING_CONSENT" || t === "PAGE_VIEWS_WEEKLY") { setScreen("my"); return; }
     if (t === "CHECKIN_REMINDER") { setScreen("home"); return; }
     if (t === "HOME_CARE_DUE") { setScreen("home-care"); return; }
+    if (t === "SAVED_COMPANY_NEW") { if (rid) window.location.href = `/p/${rid}`; return; }
     if (t === "LOUNGE_WEEKLY") { if (rid) { window.location.href = `/lounge/posts/${rid}`; } else { go("lounge"); } return; }
     if (t === "ADMIN_TESTER_SIGNUP") { window.location.href = "/testers"; return; }
     // 계약은 사업자부터(A안 · migration 116): 업체 → 서류 올리는 곳 / 의뢰인 → 그 요청의 결제 화면 / 관리자 → 관리 화면.

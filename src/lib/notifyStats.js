@@ -5,6 +5,7 @@ export const NOTIFY_LABELS = {
   BID_COMPARE_NUDGE: "⚖️ 견적 비교해 보셨나요",
   BID_VIEWED: "👀 고객이 견적 확인",
   LOUNGE_WEEKLY: "🔥 라운지 주간 인기 글",
+  SAVED_COMPANY_NEW: "💚 찜한 업체 새 사례",
   PAGE_VIEWS_WEEKLY: "📈 업체 페이지 방문 주간",
   CHECKIN_REMINDER: "✅ 출석 이어가기",
   REQUEST_NUDGE: "⏰ 견적이 아직 없어요",

@@ -1026,8 +1026,9 @@ export const getCompanyReviewScores = async (companyId) => {
 };
 
 // ── 관심 업체(위시리스트) ─────────────────────────────────────────────────────
+// 정책(017)이 «토큰의 사용자 = customer_id» 라 토큰 연결(userDb)로 — 예전엔 anon 이라 찜이 조용히 저장되지 않았다.
 export const getSavedCompanies = (customerId) =>
-  supabase
+  userDb()
     .from("saved_companies")
     .select("company_id, created_at, companies(*)")
     .eq("customer_id", customerId)
@@ -1035,15 +1036,15 @@ export const getSavedCompanies = (customerId) =>
 
 export const getSavedCompanyIds = async (customerId) => {
   if (!customerId) return [];
-  const { data } = await supabase.from("saved_companies").select("company_id").eq("customer_id", customerId);
+  const { data } = await userDb().from("saved_companies").select("company_id").eq("customer_id", customerId);
   return (data ?? []).map(r => r.company_id);
 };
 
 export const saveCompany = (customerId, companyId) =>
-  supabase.from("saved_companies").insert({ customer_id: customerId, company_id: companyId }).select().maybeSingle();
+  userDb().from("saved_companies").insert({ customer_id: customerId, company_id: companyId }).select().maybeSingle();
 
 export const unsaveCompany = (customerId, companyId) =>
-  supabase.from("saved_companies").delete().eq("customer_id", customerId).eq("company_id", companyId);
+  userDb().from("saved_companies").delete().eq("customer_id", customerId).eq("company_id", companyId);
 
 export const replyToReview = (reviewId, reply) =>
   supabase.from("reviews").update({ reply }).eq("id", reviewId);
