@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { C, R, S, SHADOW } from "../constants";
-import { getMyReferral, getReferralEventBoard, getReferralInviter } from "../lib/supabase";
+import { getMyReferral, getReferralEventBoard, getReferralInviter, getPeerInviteBoard } from "../lib/supabase";
+import { hasPeerBoard, peerMeLine, peerMeSub, peerMonthLabel } from "../lib/peerInvite";
 import { CURRENT_EVENT, eventStatus, eventLine, prizeFor } from "../lib/referralEvent";
 import { inviteUrl, inviteMessage, testerUrl, testerMessage, REFERRAL_REWARD, inviteOg, inviterName } from "../lib/referral";
 import { inviteLoadError } from "../lib/inviteAuth";
@@ -47,6 +48,14 @@ export default function InviteScreen({ userId, isCompany = false, onBack, onReau
   const [board, setBoard] = useState(null);
   // 카톡 카드 미리보기 — 친구가 보는 이름(159 · «김○○»). SQL 전·실패면 «친구가» 카드
   const [myShown, setMyShown] = useState(null);
+  // 업체 «동료 초대» 순위(183) — 업체 화면에서만. SQL 전이거나 실패하면 안 보인다.
+  const [peers, setPeers] = useState(null);
+  useEffect(() => {
+    if (!isCompany) return;
+    let alive = true;
+    getPeerInviteBoard().then(({ data, error }) => { if (alive && !error && hasPeerBoard(data)) setPeers(data); }).catch(() => {});
+    return () => { alive = false; };
+  }, [isCompany, attempt]);
   useEffect(() => {
     let alive = true;
     getReferralEventBoard(CURRENT_EVENT.id).then(({ data, error }) => { if (alive && !error && data?.ok) setBoard(data); }).catch(() => {});
@@ -168,6 +177,32 @@ export default function InviteScreen({ userId, isCompany = false, onBack, onReau
               </button>
             </div>
           </div>
+
+          {/* 업체 «동료 초대» 순위(183) — 사장님이 데려온 사장님(업체 등록까지) · 매달 새로 · 보상 약속 없음 */}
+          {isCompany && peers && (
+            <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.xl, padding: S.lg, marginTop: S.lg }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: S.sm }}>
+                <div style={{ fontSize: 14.5, fontWeight: 800, color: C.text1 }}>{peerMonthLabel(peers.since)} 동료 초대 순위</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, whiteSpace: "nowrap" }}>{peerMeLine(peers)}</div>
+              </div>
+              <div style={{ fontSize: 12, color: C.text3, marginTop: 4, lineHeight: 1.55 }}>
+                내 링크로 들어와 업체 등록까지 한 사장님 수예요. 매달 1일 새로 시작해요.
+              </div>
+              {peerMeSub(peers) && <div style={{ fontSize: 12, color: C.text2, marginTop: 6 }}>{peerMeSub(peers)}</div>}
+              {peers.top.length > 0 ? (
+                <div style={{ marginTop: 10, borderTop: `1px solid ${C.bg}`, paddingTop: 6 }}>
+                  {peers.top.slice(0, 5).map((t) => (
+                    <div key={t.rank} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0",
+                      color: t.rank <= 3 ? C.text1 : C.text2, fontWeight: t.rank <= 3 ? 800 : 600 }}>
+                      <span>{t.rank}등 · {t.name}</span><span>{t.count}곳</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12.5, color: C.text2, marginTop: 10 }}>이번 달 첫 동료 초대의 주인공이 되어 보세요.</div>
+              )}
+            </div>
+          )}
 
           <InviteCardPreview code={state.code} isCompany={isCompany} who={myShown} onWho={setMyShown} />
 

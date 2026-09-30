@@ -383,7 +383,7 @@ export default function MyPageV3({
           {!isCompany && user?.id && (
             <Row emoji="📸" label="전·후 사진 카드" sub="바뀐 우리 집 자랑 · 친구가 QR로 가입하면 선물" onClick={() => setBaOpen(true)} />
           )}
-          <Row emoji="🤝" label={isCompany ? "동료 사장님 초대" : "친구 초대"} sub="내 초대 링크 · 가입한 사람 수" onClick={() => onGo("invite")} />
+          <Row emoji="🤝" label={isCompany ? "동료 사장님 초대" : "친구 초대"} sub={isCompany ? "내 초대 링크 · 이번 달 동료 초대 순위" : "내 초대 링크 · 가입한 사람 수"} onClick={() => onGo("invite")} />
           <Row emoji="🔔" label="알림함" badge={unreadTotal || null} onClick={() => onGo("notifications")} />
           <Row emoji="❓" label="자주 묻는 질문" sub={SHOW_BETA_UI ? "계약 · 대금 · 분쟁" : "에스크로 · 환불 · 분쟁"} onClick={() => onGo("help")} />
           <Row emoji="💬" label="고객센터 문의" sub="070-7954-2740" onClick={onShowAppInfo} last />
