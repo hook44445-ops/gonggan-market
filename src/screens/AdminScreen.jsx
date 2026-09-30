@@ -120,7 +120,7 @@ import {
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee, adminSetCompanyDirect,
-  getAdminVisitStats, getAdminGrowthStats, getAdminNotifyStats, getAdminPriceDataStats, adminListExternalReviews, hideExternalReview,
+  getAdminVisitStats, getAdminGrowthStats, getAdminNotifyStats, getAdminPriceDataStats, getAdminPushReach, adminListExternalReviews, hideExternalReview,
   getReferralEventBoard, adminSettleReferralEvent, getAdminMarketingStats, getTesterSignups,
   signedDocUrl,
 } from "../lib/supabase";
@@ -144,7 +144,7 @@ import AdminPushBroadcast from "../components/AdminPushBroadcast"; // 관리자 
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
 import { growthCards, fmtCount } from "../lib/growthStats";
-import { notifyRows } from "../lib/notifyStats";
+import { notifyRows, pushReachLine } from "../lib/notifyStats";
 import { priceDataCards } from "../lib/priceIndex";
 import { CURRENT_EVENT, eventStatus, eventLine, prizeFor } from "../lib/referralEvent";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
@@ -384,6 +384,12 @@ function AdminPriceDataPanel() {
 // ── 알림별 읽음률(175) — 재방문 알림이 사람을 다시 데려오는지(최근 14일) ──
 function AdminNotifyStatsPanel() {
   const [state, setState] = useState({ loading: true, rows: [], error: null });
+  const [reach, setReach] = useState(null);   // 178 전이면 null(줄 안 보임)
+  useEffect(() => {
+    let alive = true;
+    getAdminPushReach().then(({ data, error }) => { if (alive && !error) setReach(pushReachLine(data)); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   useEffect(() => {
     let alive = true;
     getAdminNotifyStats().then(({ data, error }) => {
@@ -398,6 +404,7 @@ function AdminNotifyStatsPanel() {
     <div style={{ marginBottom: S.xl }}>
       <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🔔 알림별 읽음률 <span style={{ fontSize: 12, fontWeight: 600, color: C.text3 }}>최근 14일</span></div>
       <div style={{ fontSize: 11.5, color: C.text3, marginBottom: S.sm }}>읽음 = 알림함에서 누른 것. 재방문 알림이 사람을 데려오는지 봅니다.</div>
+      {reach && <div style={{ background: C.brandL, borderRadius: R.md, padding: "8px 11px", fontSize: 12.5, color: C.brand, fontWeight: 700, marginBottom: S.sm }}>📱 {reach}</div>}
       <div style={{ background: C.surface, borderRadius: R.lg, border: `1px solid ${C.bgWarm}`, overflow: "hidden" }}>
         {state.error ? <div style={{ padding: S.lg, fontSize: 12.5, color: C.text3 }}>{state.error}</div>
           : state.loading ? <div style={{ padding: S.lg, fontSize: 12.5, color: C.text3 }}>불러오는 중…</div>

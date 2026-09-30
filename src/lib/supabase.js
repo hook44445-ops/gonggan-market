@@ -319,6 +319,8 @@ export const getPriceIndex = ({ regionCode, spaceType, buildingType = null }) =>
   if (buildingType) q = q.eq("building_type", buildingType);
   return q;
 };
+// 푸시 받는 사람(178 · 관리자)
+export const getAdminPushReach = () => supabase.rpc("admin_push_reach");
 // 알림별 읽음률(175) — 최근 14일 종류마다 보냄·읽음(관리자 토큰)
 export const getAdminNotifyStats = () => supabase.rpc("admin_notify_stats");
 

@@ -27,3 +27,11 @@ export function notifyRows(list = []) {
     };
   });
 }
+
+// 푸시 받는 사람(178) — «전체 N명 중 M명(%) 폰으로 받아요 · 안드로이드 a · 광고 동의 c · 최근 7일 새로 켠 기기 d»
+export function pushReachLine(r) {
+  if (!r || !(Number(r.users) >= 0)) return null;
+  const users = Number(r.users) || 0, reach = Number(r.reach) || 0;
+  const pct = users > 0 ? Math.round((reach / users) * 100) : 0;
+  return `회원 ${users.toLocaleString("ko-KR")}명 중 ${reach.toLocaleString("ko-KR")}명(${pct}%)이 폰으로 받아요 · 안드로이드 ${Number(r.android) || 0} · 광고 동의 ${Number(r.marketing) || 0} · 최근 7일 새로 켠 사람 ${Number(r.new_7d) || 0}`;
+}
