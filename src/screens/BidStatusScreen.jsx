@@ -1172,7 +1172,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         )}
 
         {bids.length > 0 && <PriceIndexLine spaceType={request?.space_type ?? request?.type ?? ""} area={request?.area ?? ""} />}
-        {bids.length > 1 && <BidShareCard bids={bids} space={request?.space_type ?? request?.type ?? ""} userId={userId} />}
+        {bids.length > 1 && <BidShareCard bids={bids} space={request?.space_type ?? request?.type ?? ""} userId={userId} requestId={request?.id ?? null} />}
         {/* 표 보기 — 금액·기간·공간온도만 나란히. 누르면 그 업체 카드로 간다. */}
         {tableView && bids.length > 1 && (
           <div style={{ background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, overflow:"hidden", marginBottom:S.md }}>
