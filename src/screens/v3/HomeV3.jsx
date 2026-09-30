@@ -88,6 +88,7 @@ export default function HomeV3({
       <div style={{ paddingTop: S.xl }}>
         {isCompany ? (
           <Hero
+            art="/images/partner/hero-v2-wide.webp" clay="/images/landing/clay-bell.webp"
             eyebrow="공간사이 파트너"
             title={`${name}님, 오늘도 좋은 하루`}
             sub={newRequestCount > 0
@@ -105,6 +106,7 @@ export default function HomeV3({
           />
         ) : (
           <Hero
+            art="/images/landing/hero-living-wide.webp" clay="/images/landing/clay-house.webp"
             eyebrow="인테리어 · 집수리 비교견적"
             title="아무에게나 맡길 수 없으니까"
             sub={SHOW_BETA_UI
