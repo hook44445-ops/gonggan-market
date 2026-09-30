@@ -416,13 +416,21 @@ export const getActiveRequestByUser = (userId) =>
     .limit(1)
     .maybeSingle();
 
+// 본인 요청 마감·만료·숨기기(184) — 서버 함수(토큰의 사용자)로. 운영 요청 고치기 정책이 «auth.uid() = customer_id» 뿐이라
+//   user_id 로 쓰는 앱의 직접 수정은 0건(조용히 실패)이었다. 함수가 아직 없으면(184 전) 예전 방식 그대로.
+const requestOwnerState = async (id, action, reason, fallback) => {
+  const res = await supabase.rpc("request_owner_state", { p_request_id: id, p_action: action, p_reason: reason ?? null });
+  if (res.error && (res.error.code === "PGRST202" || res.error.code === "42883")) return fallback();
+  return res;
+};
+
 export const archiveRequestAuto = (id, reason) =>
-  userDb().from("requests")
+  requestOwnerState(id, "archive", reason, () => userDb().from("requests")
     .update({ is_hidden: true, archived_at: new Date().toISOString(), hidden_reason: reason })
-    .eq("id", id);
+    .eq("id", id));
 
 export const closeRequest = (id) =>
-  userDb().from("requests").update({ status: "closed" }).eq("id", id);
+  requestOwnerState(id, "close", null, () => userDb().from("requests").update({ status: "closed" }).eq("id", id));
 
 // 의뢰인 요청 취소 — 본인·업체 고르기 전(open)만(migration 127). 표 직접 수정은 세션 없는 앱에서 0건이었다.
 export const cancelMyRequest = (id, actorId, reason = null) =>
@@ -2565,11 +2573,12 @@ export const updateCustomerReportStatus = (id, status, adminNote = null) =>
 
 // ── STEP H: Payment Transactions ──────────────────────────────────────────────
 
+// 결제 기록 — 로그인 토큰으로(184: 그 결제 주문의 주인·관리자만). 서버 결제 승인(confirm-payment)은 service role 이라 무관.
 export const createPaymentTransaction = (data) =>
-  supabase.from("payment_transactions").insert(data).select().single();
+  userDb().from("payment_transactions").insert(data).select().single();
 
 export const getPaymentTransactions = ({ orderId = null, limit = 50 } = {}) => {
-  let q = supabase
+  let q = userDb()
     .from("payment_transactions")
     .select("*, payment_orders(id, amount, payment_method, status)")
     .order("created_at", { ascending: false })
@@ -2917,14 +2926,18 @@ export const createRequestRepost = (data) =>
   userDb().from("request_reposts").insert(data).select().single();
 
 export const expireRequest = (id) =>
-  userDb().from("requests").update({ status: "expired" }).eq("id", id);
+  requestOwnerState(id, "expire", null, () => userDb().from("requests").update({ status: "expired" }).eq("id", id));
 
-export const archiveRequest = (id) =>
-  userDb().from("requests")
+// 내 목록에서 숨기기 — 반환 data 는 { id, is_hidden }(0건이면 null · 화면이 «실패»로 안내)
+export const archiveRequest = async (id) => {
+  const res = await requestOwnerState(id, "archive", null, () => userDb().from("requests")
     .update({ is_hidden: true, archived_at: new Date().toISOString() })
     .eq("id", id)
     .select("id, is_hidden")
-    .maybeSingle();
+    .maybeSingle());
+  if (res.error || !res.data || !("ok" in res.data)) return res;
+  return { data: res.data.ok && res.data.is_hidden ? { id: res.data.id, is_hidden: true } : null, error: null };
+};
 
 export const adminGetHiddenRequests = () =>
   adminDb()
