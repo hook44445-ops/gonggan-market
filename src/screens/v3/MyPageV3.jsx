@@ -22,6 +22,7 @@ import { companyPageUrl } from "../../lib/referral";
 import CompanyQrSheet from "../../components/CompanyQrSheet";
 import QuoteSheetMaker from "../../components/QuoteSheetMaker";
 import BeforeAfterCard from "../../components/BeforeAfterCard";
+import ReviewShareCard from "../../components/ReviewShareCard";
 import PushNotificationSettings from "../../components/PushNotificationSettings";
 import { getCompanyPageStats } from "../../lib/supabase";
 import { statsLine } from "../../lib/pageViews";
@@ -67,6 +68,7 @@ export default function MyPageV3({
   const [qrOpen, setQrOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [baOpen, setBaOpen] = useState(false);   // 전·후 사진 카드
+  const [rvOpen, setRvOpen] = useState(false);   // 후기 카드(업체)
   const [pushOpen, setPushOpen] = useState(false);
   // 내 업체 페이지 방문 수(156) — SQL 전이거나 실패하면 원래 문구
   const [viewLine, setViewLine] = useState(null);
@@ -283,6 +285,10 @@ export default function MyPageV3({
                    onClick={() => setQrOpen(true)} />
             )}
             {companyId && (
+              <Row emoji="⭐" label="후기 카드" sub="받은 좋은 후기를 이미지로 · 내 페이지 QR 포함"
+                   onClick={() => setRvOpen(true)} />
+            )}
+            {companyId && (
               <Row emoji="📸" label="전·후 사진 카드" sub="시공 전·후 한 장 · 내 페이지 QR 포함 · 인스타·카톡용"
                    onClick={() => setBaOpen(true)} />
             )}
@@ -306,6 +312,10 @@ export default function MyPageV3({
       {quoteOpen && companyId && (
         <QuoteSheetMaker companyName={companyRow?.name ?? user?.name} phone={user?.phone ?? ""}
           pageUrl={companyPageUrl(companySlug || companyId, refCode)} userId={user?.id ?? null} onClose={() => setQuoteOpen(false)} />
+      )}
+      {rvOpen && companyId && (
+        <ReviewShareCard companyId={companyId} companyName={companyRow?.name ?? user?.name}
+          pageUrl={companyPageUrl(companySlug || companyId, refCode)} onClose={() => setRvOpen(false)} />
       )}
       {baOpen && user?.id && (
         <BeforeAfterCard userId={user.id} isCompany={isCompany && !!companyId} companyName={companyRow?.name ?? user?.name}
