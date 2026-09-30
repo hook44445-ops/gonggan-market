@@ -189,6 +189,11 @@ export default async function handler(req, res) {
     await fetch(`${SB_URL}/rest/v1/rpc/company_region_weekly_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
   } catch { /* noop */ }
 
+  // 라운지 주간 인기 글(migration 174) — 한국 월요일 9~20시 한 번 · 최근 60일 라운지 쓴 사람. 없으면(174 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/lounge_weekly_digest_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
+
   // 출석 연속 기록 끊기기 전 알림(migration 164) — 한국 17~20시 · 하루 한 번 · 푸시는 광고 동의자만. 없으면(164 전) 조용히 넘어감.
   try {
     await fetch(`${SB_URL}/rest/v1/rpc/checkin_reminder_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
