@@ -2,6 +2,8 @@
 
 받는 사람: 이 저장소에서 새로 이어받는 Claude 세션. **이 문서 하나로 시작**하고, 자세한 건 아래 «함께 읽을 문서»에서 찾는다.
 
+> ⏩ **09-30 오후 이어서: `docs/HANDOFF-2026-09-30-cloud-next-2.md`** — 3·4절(대기·다음 할 일)은 그 문서가 최신이다. 이 문서는 0~1절(규칙·구조)로 읽는다.
+
 ---
 
 ## 0. 규칙 (대표와 약속 — 바꾸지 않는다)
@@ -41,7 +43,7 @@
 - `push_logs` 에 `queued` 로 넣으면 `api/push/dispatch.js`(매일 18:00 KST cron + `wakePushDispatcher`)가 FCM 으로 보낸다 · 유니크 (user_id, type, related_id)
 - 알림 종류 추가 시 함께: `src/utils/notify.js NOTIF_META` · `src/lib/notifyStats.js NOTIFY_LABELS` · `MainApp.jsx openNotificationTarget`
 - 푸시 딥링크: `App.jsx` 가 `/?open=invite|review-card` 를 읽는다(새 값은 거기에 추가)
-- **아이폰 앱(Expo gonggan-ios)은 아직 푸시 없음** — 웹·안드로이드(TWA)만
+- 아이폰 앱(Expo gonggan-ios): 웹 수신·발송기 붙임(#902 · `ios_expo` → Expo Push) — 앱 EAS 첫 빌드 뒤 폰 확인
 
 ### 공유(다운로드 바퀴) — 캔버스 카드 + QR(`src/lib/qr.js qrMatrix/qrSvgPath`) + 초대 코드(`myRefCode`)
 - 👨‍👩‍👧 `BidShareCard`(견적 3개부터 큰 배너 · 요청마다 한 번) · 📸 `BeforeAfterCard` · ⭐ `ReviewShareCard` · 간단 견적서 · 명함 QR
@@ -79,11 +81,11 @@
 ## 4. 다음 할 일 — 순서대로
 
 1. **폰 확인에서 막힌 곳부터**(3절) — 새 기능보다 먼저
-2. **아이폰 푸시 받기**(로컬 Claude 가 규격 확정 뒤 · `docs/PLAN-2026-09-30-no1-download-revisit.md` 4절에 «확정» 이 적히면)
+2. ✅(#902) **아이폰 푸시 받기**(로컬 Claude 가 규격 확정 뒤 · `docs/PLAN-2026-09-30-no1-download-revisit.md` 4절에 «확정» 이 적히면)
    - 웹: WebView 메시지 `{ type: "gonggan:push-token", token, platform: "ios_expo" }` 수신 → `upsertFcmToken`(토큰 연결) · 아이폰 앱에서 «알림 켜기» → `{ type: "gonggan:push-ask" }` 를 앱으로
    - 발송기: `api/push/dispatch.js` 안에서 `platform = 'ios_expo'` 는 Expo Push API(`https://exp.host/--/api/v2/push/send`, `{ to, title, body, data: { url } }`) — **서버리스 함수 개수 늘리지 않기** · 광고(event_promo)는 지금처럼 동의·시간 확인 뒤
 3. **아이폰 로그인 유지 문제**가 로컬 QA(`docs/QA-2026-09-30-ios.md`)에 나오면 웹 쪽 보완(예: 토큰을 앱에 백업·복원하는 메시지) — 로컬과 규격 맞추기
-4. **업체 «동료 초대» 순위** — 보상은 대표 결정 전까지 문구만(«보상» 약속 금지)
+4. ✅(#904 · SQL 183) **업체 «동료 초대» 순위** — 보상은 대표 결정 전까지 문구만(«보상» 약속 금지)
 5. ✅(09-30 · SQL 184 — 결제 기록·시드 라운지 글·옛 표 2개 닫기 · 본인 요청 마감·만료·숨기기 = `request_owner_state` · 관리자 요청 고치기 정책. 일부러 누구나 쓰기로 둔 것: activity_logs · user_visits · partner_leads) **남은 보안 거리 점검**: 대표에게 `select tablename, policyname, cmd, roles, qual, with_check from pg_policies where schemaname='public' order by 1,3;` 결과를 받아 `true` 로 열린 UPDATE/DELETE 가 남았는지 본다(예: `requests` UPDATE 는 운영에 `auth.uid() = customer_id` 만 있어 **본인 요청 만료·마감·보관이 조용히 실패**할 수 있다 — 상태 바꾸기는 보안 함수로 옮기는 쪽을 먼저 검토)
 6. **주간 루프**(월요일): 관리자 숫자 → `docs/WEEKLY-YYYY-MM-DD.md` → 가장 약한 숫자 하나만 올리는 일(지시서 5절). 읽음률 20% 미만 알림은 문구·시각 조정
 
