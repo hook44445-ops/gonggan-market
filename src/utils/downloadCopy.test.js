@@ -54,7 +54,7 @@ test("계약 단계의 사업자등록 확인은 계속 말한다", () => {
   assert.ok(CONTRACT_CLAIM.test(home.description), "홈 설명에서 사라졌다");
   assert.ok(CONTRACT_CLAIM.test(pageSeo(false)["/"].description), "홈 설명(정식)에서 사라졌다");
   assert.ok(consumerFaq(true).some(({ a }) => CONTRACT_CLAIM.test(a)), "의뢰인 FAQ 에서 사라졌다");
-  assert.ok(CONTRACT_CLAIM.test(read("../screens/LandingScreen.jsx")), "랜딩에서 사라졌다");
+  // 랜딩 화면은 대표가 그대로 두라고 했다(2026-09-30) — 검색·스토어 쪽만 지킨다.
   // 말만 있고 막는 코드가 없으면 그게 더 나쁘다 — 게이트가 살아 있는지도 본다
   const gate = read("../lib/contractGate.js");
   assert.ok(/company\.verified === true/.test(gate), "contractGate 가 사업자 확인을 안 본다");
