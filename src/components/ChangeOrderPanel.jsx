@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { alertRpcError } from "./TokenNeededNote";
 import { C, R, S } from "../constants";
 import {
   getChangeOrders, createChangeOrder, setChangeOrderAmount,
@@ -72,7 +73,7 @@ export default function ChangeOrderPanel({ contractId, requestId = null, actorId
     setBusy(true);
     const { error } = await fn();
     setBusy(false);
-    if (error) { alert("처리 실패: " + (error.message ?? "")); return; }
+    if (error) { alertRpcError("처리 실패", error); return; }
     if (notifyArgs) notify(...notifyArgs);
     load();
     onChanged?.();
@@ -233,7 +234,7 @@ function CreateModal({ isCompany, actorId, contractId, edit, onClose, onDone }) 
       ? await setChangeOrderAmount(edit.id, { actorId, amount: amt, description, photos })
       : await createChangeOrder({ contractId, actorId, role: isCompany ? "company" : "consumer", reasonType, description, amount: amt, photos });
     setSaving(false);
-    if (error) { alert("저장 실패: " + (error.message ?? "")); return; }
+    if (error) { alertRpcError("저장 실패", error); return; }
     onDone();
   };
 
@@ -296,7 +297,7 @@ function ApproveModal({ order, actorId, onClose, onDone }) {
     setSaving(true);
     const { error } = await approveChangeOrder(order.id, actorId);
     setSaving(false);
-    if (error) { alert("승인 실패: " + (error.message ?? "")); return; }
+    if (error) { alertRpcError("승인 실패", error); return; }
     onDone();
   };
   return (

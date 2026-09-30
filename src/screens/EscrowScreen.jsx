@@ -19,7 +19,8 @@ import CustomerEvaluationModal from "../components/CustomerEvaluationModal";
 import PlatformEstimateModal from "../components/PlatformEstimateModal";
 import { StageNowPage } from "../components/v3/JourneyNow"; // 결제 전 단계 «지금 여기»(힉스필드 3-6)
 import EscrowNextCard from "../components/v3/EscrowNextCard";
-import WarrantyCareOffer from "../components/WarrantyCareOffer"; // 완료 뒤 하자보수 끝나기 전 알림(09-29) // 맨 위 「지금 할 일」(표시 전용 · 로직 무변경)
+import WarrantyCareOffer from "../components/WarrantyCareOffer";
+import TokenNeededNote from "../components/TokenNeededNote"; // 토큰 없는 로그인 안내(166~169) // 완료 뒤 하자보수 끝나기 전 알림(09-29) // 맨 위 「지금 할 일」(표시 전용 · 로직 무변경)
 
 // Stage status values:
 // 'done'           — payment released
@@ -1552,6 +1553,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         </div>
       </div>
 
+      <TokenNeededNote userId={userId} what="계약·공사 기록" />
       {/* ── 지금 할 일 + 5단계 막대 — 들어오자마자 «내가 뭘 하면 되나». stageStatus 만 읽는다(승인·지급 로직 무변경). ── */}
       <EscrowNextCard
         stageStatus={stageStatus}

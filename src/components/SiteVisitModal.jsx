@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { alertRpcError } from "./TokenNeededNote";
 import { C, R, S } from "../constants";
 import {
   createSiteVisit,
@@ -82,7 +83,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
       scheduled_at: scheduledAt,
     }, userId);
     setSaving(false);
-    if (error) { alert("저장 실패: " + error.message); return; }
+    if (error) { alertRpcError("저장 실패", error); return; }
     notifyCustomer("SITE_VISIT_SCHEDULED", "실측 일정이 등록되었습니다", `${schedDate} ${schedTime}에 실측 방문 예정입니다`, data.id);
     const updated = { ...job, siteVisit: data };
     onChange(updated);
@@ -120,7 +121,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
     const lng = loc?.lng ?? 126.9780;
     const { data, error } = await gpsCheckin(job.siteVisit.id, { lat, lng, photos }, userId);
     setSaving(false);
-    if (error) { alert("저장 실패: " + error.message); return; }
+    if (error) { alertRpcError("저장 실패", error); return; }
     // 현장방문 체크포인트(좌표+주소) 저장 — 실제 위치를 받은 경우에만.
     if (loc) {
       // 현장방문 증빙 체크포인트(관리자 증빙관리/타임라인 원본) — 실패를 조용히 넘기지 않고
@@ -155,7 +156,7 @@ export default function SiteVisitModal({ job, companyId, userId, onClose, onChan
       fieldNote,
     }, userId);
     setSaving(false);
-    if (error) { alert("저장 실패: " + error.message); return; }
+    if (error) { alertRpcError("저장 실패", error); return; }
     notifyCustomer("FIELD_ESTIMATE", "현장견적이 입력되었습니다", "실측이 완료되어 현장 견적이 등록되었습니다", data.id);
     const updated = { ...job, siteVisit: data };
     onChange(updated);
