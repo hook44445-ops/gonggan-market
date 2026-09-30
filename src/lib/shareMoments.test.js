@@ -25,3 +25,12 @@ test("181 — 고객이 쓴 별 5개만 · 하루 한 번 · 푸시는 9~21시 �
   assert.match(sql, /exception when others then null/);
   assert.match(sql, /as review_5star_ok;/);
 });
+
+import { proInviteMessage } from "./referral.js";
+
+test("아는 사장님 초대 — 파트너 소개로 · 보상 약속 없음", () => {
+  const m = proInviteMessage("ABCDEF");
+  assert.match(m, /\/partner\?ref=ABCDEF$/);
+  assert.doesNotMatch(m, /토큰|원|보상/);
+  assert.match(proInviteMessage(null), /\/partner$/);
+});
