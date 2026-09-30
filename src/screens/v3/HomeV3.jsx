@@ -13,6 +13,7 @@
 //  · 신뢰 숫자 3개(검증 업체/안전결제/평균 응답)로 안심을 즉시 제공
 //  · 진행 중인 계약이 있으면 그것을 최상단으로 올려 '할 일'을 먼저 보여준다
 // ─────────────────────────────────────────────────────
+import PushAskCard from "../../components/PushAskCard"; // 업체 새 요청 푸시 켜기(14일에 한 번)
 import RegionDonePhotos from "../../components/RegionDonePhotos"; // 우리 동네 최근 완공 사진(177)
 import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progress, FoldText } from "../../components/v3/ui";
 import { CURRENT_EVENT, eventLine, showEventStrip } from "../../lib/referralEvent";
@@ -156,7 +157,11 @@ export default function HomeV3({
 
       {/* ── 파트너: 새 견적 요청 — 홈에서 바로 보고 입찰한다 ─────────── */}
       {isCompany && requestsSlot && (
-        <div id="partner-requests" style={{ scrollMarginTop: 120 }}>{requestsSlot}</div>
+        <div id="partner-requests" style={{ scrollMarginTop: 120 }}>
+          <PushAskCard userId={user?.id} title="우리 동네 새 견적 요청, 폰으로 바로 받을까요?"
+            sub="새 요청·고객 대화·계약 소식만 · 광고는 따로 동의해야 와요" />
+          {requestsSlot}
+        </div>
       )}
 
       {/* ── 파트너: 내 업체 한눈에 — 고객에게 보이는 숫자 + 지금 할 한 가지 ───

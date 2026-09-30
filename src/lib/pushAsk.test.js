@@ -25,3 +25,10 @@ test("요청 보낸 화면에 연결", () => {
   assert.match(src, /shouldAskPush\(/);
   assert.match(src, /upsertPushPreferences\(userId, PUSH_ON_PREFS\)/);
 });
+
+test("업체 홈 새 요청 목록 위에도", () => {
+  const home = readFileSync(new URL("../screens/v3/HomeV3.jsx", import.meta.url), "utf8");
+  assert.match(home, /<PushAskCard userId=\{user\?\.id\} title="우리 동네 새 견적 요청, 폰으로 바로 받을까요\?"/);
+  const card = readFileSync(new URL("../components/PushAskCard.jsx", import.meta.url), "utf8");
+  assert.match(card, /upsertPushPreferences\(userId, PUSH_ON_PREFS\)/);
+});
