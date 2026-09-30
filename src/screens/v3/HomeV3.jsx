@@ -13,6 +13,7 @@
 //  · 신뢰 숫자 3개(검증 업체/안전결제/평균 응답)로 안심을 즉시 제공
 //  · 진행 중인 계약이 있으면 그것을 최상단으로 올려 '할 일'을 먼저 보여준다
 // ─────────────────────────────────────────────────────
+import RegionDonePhotos from "../../components/RegionDonePhotos"; // 우리 동네 최근 완공 사진(177)
 import { Page, Section, Card, Row, Hero, PhotoTile, TrustRow, EmptyInvite, Progress, FoldText } from "../../components/v3/ui";
 import { CURRENT_EVENT, eventLine, showEventStrip } from "../../lib/referralEvent";
 import EventAlertOptIn from "../../components/EventAlertOptIn";
@@ -151,6 +152,7 @@ export default function HomeV3({
         onAction={isCompany
           ? () => { try { document.getElementById("partner-requests")?.scrollIntoView({ behavior: "smooth" }); } catch { /* noop */ } }
           : onNewRequest} />
+      {!isCompany && <RegionDonePhotos region={user?.region} />}
 
       {/* ── 파트너: 새 견적 요청 — 홈에서 바로 보고 입찰한다 ─────────── */}
       {isCompany && requestsSlot && (
