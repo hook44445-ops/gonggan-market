@@ -6294,6 +6294,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       {editRequest && (
         <RequestModal
           isEdit
+          userId={user?.id ?? null}
           initialData={editRequest}
           onClose={() => setEditRequest(null)}
           onDone={(form) => handleUpdateRequest(form, editRequest.id)}
@@ -6406,7 +6407,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         );
       })()}
 
-      {showReq && <RequestModal initialData={reqPrefill} onClose={() => { setShowReq(false); setReqPrefill(null); setReqOrigin(null); }} onDone={async function submitReq(form) {
+      {showReq && <RequestModal userId={user?.id ?? null} initialData={reqPrefill} onClose={() => { setShowReq(false); setReqPrefill(null); setReqOrigin(null); }} onDone={async function submitReq(form) {
         // 약관·베타 안내 확인 — 보내는 순간 한 번(이미 동의했으면 건너뜀). 확인하면 같은 내용으로 이어서 보낸다.
         if (!form.__consented && !hasConsented(user?.id, CONSUMER_CONSENT_TYPES)) {
           setConsentGateConfig({

@@ -59,9 +59,13 @@ test("한 곳만 있으면 «가장 싼 곳»을 표시하지 않는다 — 비�
   assert.ok(!r.notes.some(n => n.includes("차이예요")));
 });
 
-test("최종 금액을 약속하지 않는다", () => {
+// 이 표는 «최종 금액을 고르는 표»가 아니라 «누구를 부를지 좁히는 표»다(대표 09-30).
+// 큰 공사는 어차피 실측 뒤 금액이 바뀐다 — 그 사실을 표가 먼저 말해야 한다.
+test("최종 금액을 약속하지 않고, 표의 쓸모를 먼저 말한다", () => {
   const r = compareBids([bid(), bid({ id: 2 })]);
-  assert.ok(r.notes.some(n => n.includes("현장 확인 뒤 견적서에서 확정")));
+  assert.ok(r.notes[0].includes("2~3곳"), "첫 줄이 «먼저 몇 곳만 불러 보라»여야 한다");
+  assert.ok(r.notes.some(n => n.includes("현장을 보고 나면 금액이 바뀝니다")), "금액이 바뀐다고 분명히 말한다");
+  assert.ok(!r.notes.some(n => /최종 금액은 .*확정입니다|금액이 그대로/.test(n)), "최종가를 약속하지 않는다");
 });
 
 test(`한 번에 ${MAX_COMPARE}곳까지만 — 폰에서 글자가 뭉개지지 않게`, () => {

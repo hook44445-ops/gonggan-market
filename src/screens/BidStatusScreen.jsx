@@ -8,6 +8,7 @@ import { getEscrowWithPayouts } from "../lib/supabase";
 import NotificationBell from "../components/NotificationBell";
 import BidCompareCard from "../components/BidCompareCard"; // UX Beta 입찰 비교 카드(Add Only)
 import BidCompareTable from "../components/BidCompareTable"; // 나란히 비교 표 — 자재·증빙까지(09-30)
+import { splitPhotos, requestGaps } from "../lib/requestPhotos"; // 요청서 현장 사진·빈 곳(09-30)
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
@@ -1173,6 +1174,30 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           </div>
         )}
 
+        {/* ── 요청서에 빈 곳이 있으면 먼저 알려 준다 (대표 2026-09-30) ─────────────
+            견적이 서로 벌어지는 건 업체 탓만이 아니다. 사진도 범위도 없이 평수·예산만
+            보내면 업체는 짐작으로 숫자를 던질 수밖에 없고, 현장에 가면 달라진다.
+            그 사실을 «업체가 이상하다»가 아니라 «여기를 채우면 가까워진다»로 말한다.
+            점수를 매기지 않는다 — 고객을 나무라는 화면이 아니다. */}
+        {bids.length > 0 && !requestGaps(request).filled && (
+          <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg,
+            padding: "12px 14px", marginBottom: S.md }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+              💡 견적이 서로 벌어졌다면
+            </div>
+            <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.65, wordBreak: "keep-all" }}>
+              {requestGaps(request).line}
+            </div>
+            <ul style={{ margin: "8px 0 0", padding: "0 0 0 16px" }}>
+              {requestGaps(request).gaps.map(g => (
+                <li key={g.key} style={{ fontSize: 11.5, color: C.text3, lineHeight: 1.6, marginBottom: 2 }}>
+                  <b style={{ color: C.text2 }}>{g.label}</b> — {g.why}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {bids.length > 0 && <PriceIndexLine spaceType={request?.space_type ?? request?.type ?? ""} area={request?.area ?? ""} />}
         {bids.length > 1 && <BidShareCard bids={bids} space={request?.space_type ?? request?.type ?? ""} userId={userId} requestId={request?.id ?? null} />}
         {/* 표 보기 — 금액·기간·공간온도만 나란히. 누르면 그 업체 카드로 간다. */}
@@ -1229,7 +1254,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               key={bid.id}
               id={`bid-${bid.id}`}
               photos={coPhotos[bid.company?.id ?? bid.companyId] ?? []}
-              requestText={[request?.type, request?.description, request?.desc].filter(Boolean).join(" ")}
+              requestText={splitPhotos([request?.type, request?.description, request?.desc].filter(Boolean).join(" ")).text}
               bid={bid}
               tags={bidTags(bid)}
               selected={bid.status === "selected" || selectedBid?.id === bid.id}

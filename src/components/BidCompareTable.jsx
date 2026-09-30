@@ -38,8 +38,8 @@ export default function BidCompareTable({ bids = [], onChat, onSelect, onOpenBid
   return (
     <div style={{ background: C.surface, border: line, borderRadius: R.lg, overflow: "hidden", marginBottom: S.md }}>
       <div style={{ padding: "11px 14px", borderBottom: line, background: C.brandL }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: C.brandD }}>나란히 비교 · {cols.length}곳</div>
-        <div style={{ fontSize: 11.5, color: C.brand, marginTop: 2 }}>자재 · 기간 · 증빙까지 같은 자리에서</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: C.brandD }}>먼저 누구를 부를까 · {cols.length}곳</div>
+        <div style={{ fontSize: 11.5, color: C.brand, marginTop: 2 }}>자재 · 기간 · 증빙을 보고 2~3곳만 고르세요</div>
       </div>
 
       {/* 업체 이름 줄 */}

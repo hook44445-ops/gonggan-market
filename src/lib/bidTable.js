@@ -110,14 +110,21 @@ export function compareBids(bids = []) {
   const missingCount = rows.reduce((n, r) => n + r.cells.filter(c => c.missing).length, 0);
 
   // 안내 — 지어낸 숫자 없이, 고객이 다음에 할 일만.
+  //
+  // ⚠️ 이 표는 «최종 금액을 고르는 표»가 아니다(대표 2026-09-30).
+  //    큰 공사는 어차피 현장 실측 뒤 최종 견적서에서 금액이 바뀐다.
+  //    실측은 반나절에 낯선 사람을 집에 들이는 일이라 현실적으로 2~3곳이 한계다.
+  //    그래서 이 표의 진짜 일은 **「누구를 부를지 좁히는 것」**이다. 문구도 그렇게 말한다.
+  //    (작은 공사는 현장 없이 입찰 금액 그대로 계약하는 길이 따로 있다 — request_contract_direct.)
   const notes = [];
+  notes.push("이 표는 금액을 고르는 표가 아니라, 먼저 2~3곳만 불러 볼지 고르는 표예요.");
   if (prices.length > 1 && high > low) {
     const gap = high - low;
     const pct = Math.round((gap / low) * 100);
     notes.push(`가장 싼 곳과 비싼 곳이 ${gap.toLocaleString("ko-KR")}만원(${pct}%) 차이예요. 자재와 기간을 같이 보세요.`);
   }
-  if (missingCount > 0) notes.push(`안 적힌 칸이 ${missingCount}개 있어요. 상담에서 물어보면 채워집니다.`);
-  notes.push("최종 금액은 현장 확인 뒤 견적서에서 확정돼요.");
+  if (missingCount > 0) notes.push(`안 적힌 칸이 ${missingCount}개 있어요 — 자재를 안 적은 곳은 숫자만 던진 것일 수 있어요.`);
+  notes.push("현장을 보고 나면 금액이 바뀝니다. 작은 공사는 현장 없이 이 금액 그대로 계약할 수도 있어요.");
 
   return { cols, rows, spread: prices.length > 1 ? { low, high, gap: high - low } : null, missingCount, notes };
 }
