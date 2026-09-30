@@ -6,6 +6,7 @@ export const NOTIFY_LABELS = {
   BID_VIEWED: "👀 고객이 견적 확인",
   LOUNGE_WEEKLY: "🔥 라운지 주간 인기 글",
   SAVED_COMPANY_NEW: "💚 찜한 업체 새 사례",
+  REVIEW_5STAR: "⭐ 별 5개 후기(업체)",
   PAGE_VIEWS_WEEKLY: "📈 업체 페이지 방문 주간",
   CHECKIN_REMINDER: "✅ 출석 이어가기",
   REQUEST_NUDGE: "⏰ 견적이 아직 없어요",
