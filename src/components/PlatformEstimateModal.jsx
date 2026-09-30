@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { alertRpcError } from "./TokenNeededNote";
 import { C, R, S } from "../constants";
 import { supabase, createEstimate, updateEstimate, submitEstimate, setEstimateMaterialGrade, uploadDocument, createNotification, postProjectEvent } from "../lib/supabase";
 import { MATERIAL_GRADES } from "../lib/priceData";
@@ -225,7 +226,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
       result = await createEstimate(buildPayload(), userId);
     }
     setSaving(false);
-    if (result.error) { alert("저장 실패: " + result.error.message); return; }
+    if (result.error) { alertRpcError("저장 실패", result.error); return; }
     if (!estimateId) setEstimateId(result.data.id);
     if (materialGrade) setEstimateMaterialGrade(estimateId ?? result.data?.id, materialGrade);
     const updated = { ...job, estimate: result.data };
@@ -240,7 +241,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
     let id = estimateId;
     if (!id) {
       const { data, error } = await createEstimate(buildPayload(), userId);
-      if (error) { setSaving(false); alert("저장 실패: " + error.message); return; }
+      if (error) { setSaving(false); alertRpcError("저장 실패", error); return; }
       id = data.id;
       setEstimateId(id);
     } else {
@@ -249,7 +250,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
     if (materialGrade) await setEstimateMaterialGrade(id, materialGrade);
     const { data, error } = await submitEstimate(id, job.siteVisit?.id ?? null, job.bid.request_id, userId);
     setSaving(false);
-    if (error) { alert("제출 실패: " + error.message); return; }
+    if (error) { alertRpcError("제출 실패", error); return; }
     // 의뢰인에게 '최종견적 도착' 알림 — 결제(계약) 알림보다 먼저 발생시켜 확인→결제 흐름을 유도(Add Only).
     // 결제/계약 알림은 결제 완료 시점에 별도 발생하므로 여기서는 계약 알림을 만들지 않는다.
     // 파트너센터 경로에선 job.request 에 user_id 가 없을 수 있다 → 요청에서 한 번 읽는다.

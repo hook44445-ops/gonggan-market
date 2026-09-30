@@ -20,3 +20,17 @@ export default function TokenNeededNote({ userId, what = "대화" }) {
     </div>
   );
 }
+
+// 서버가 «토큰의 사용자»로 거절했을 때(166~169) 영문 코드 대신 사람 말로 — 로그인 문제면 다시 인증으로 이어 준다.
+export function alertRpcError(prefix, error) {
+  const m = String(error?.message ?? error ?? "");
+  if (/LOGIN_REQUIRED|JWT/.test(m)) {
+    if (window.confirm("로그인이 풀렸어요. 보안을 위해 인증번호로 한 번만 다시 로그인할까요?\n(방금 적은 내용은 저장되지 않았어요)")) requestReauth();
+    return;
+  }
+  if (/NOT_(COMPANY|REQUEST|ESTIMATE|SITE_VISIT|PROJECT|CONTRACT)_?\w*/.test(m)) {
+    window.alert(`${prefix} — 이 공사의 당사자 계정이 아니에요. 고객·업체 계정을 바꿨다면 맞는 계정으로 다시 로그인해 주세요.`);
+    return;
+  }
+  window.alert(`${prefix}: ${m || "잠시 후 다시 시도해 주세요"}`);
+}

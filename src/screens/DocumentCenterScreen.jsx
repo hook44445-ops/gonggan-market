@@ -12,6 +12,7 @@
 // 그림: 힉스필드(gpt_image_2_5)로 뽑았다. 엠블럼은 신뢰 엠블럼(TrustEmblems)과 한 가족 —
 //   join(가입·열린 문) · biz · insurance · deposit · license(실내건축공사업). 배경은 /images/limit/hero.webp.
 // 값은 전부 «관리자가 확인한 것»만 본다(limitStateOf). 원본 업체 행(companyRow)이 있으면 그걸 쓴다.
+import TokenNeededNote from "../components/TokenNeededNote";
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { getCompanyDocuments } from "../lib/supabase";
@@ -259,6 +260,7 @@ export default function DocumentCenterScreen({ company, companyRow, user, onBack
 
   return (
     <div style={{ paddingBottom: 80 }}>
+      <TokenNeededNote userId={user?.id} what="서류" />
       <div style={{ display: "flex", alignItems: "center", gap: S.md, marginBottom: S.lg }}>
         <button onClick={onBack} aria-label="뒤로"
           style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.text3, padding: 0, fontWeight: 700 }}>
