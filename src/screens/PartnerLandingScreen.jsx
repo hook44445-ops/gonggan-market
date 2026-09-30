@@ -10,6 +10,7 @@ import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
 import { partnerFaq, pageSeo, faqSchema, breadcrumbSchema } from "../utils/siteSeo";
 import { applyRoleTheme } from "../utils/roleTheme";
+import { RequestPings, WorryStamps, Reveal, useInView } from "../components/landing/LandingMotion";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#121A16";
@@ -73,6 +74,37 @@ function track(event, params = {}) {
 // ── FAQ (V1.5) — 문구는 utils/siteSeo.js 단일 소스 ───────────────────────────────
 // 봇 프리렌더(api/prerender.js)가 같은 배열을 써서 화면과 색인 내용이 갈라지지 않는다.
 const FAQS = partnerFaq();
+
+// ── 사장님 걱정 → 도장 → 답 (대표 09-30 「업체의 니즈 · 입점하고 싶게 · 유머와 매력으로」) ──
+// ⚠️ 답은 실제로 있는 것만: 요청한 고객 연결 · 요청서(공간·범위·예산) · 계약·대화·사진 기록 · 증빙 엠블럼과 한도 계단(lib/partnerTier)
+//    · 후기 카드 QR(#878) · 월요일 우리 동네 새 요청(171). 결제·보관·수수료 약속은 하지 않는다.
+const PARTNER_WORRIES = [
+  { icon: "/images/landing/clay-bell.webp", q: "광고비는 매달 꼬박꼬박 나가는데, 전화기는 조용~",
+    a: <>견적을 <b>요청한 고객에게만</b> 연결돼요. 광고비 0원, 키워드 경쟁도 0.</> },
+  { icon: "/images/landing/clay-clipboard.webp", q: "가 보니 «그냥 가격만 알아보려고요.» 기름값만 날렸네요.",
+    a: <>요청서에 <b>공간 · 범위 · 예산</b>이 적혀 와요. 헛걸음은 줄이고, 될 현장에 집중.</> },
+  { icon: "/images/notif/viewed.webp", q: "다 끝나고 나서 «이것도 해 주기로 하셨잖아요?»",
+    a: <>계약 · 대화 · 현장 사진이 날짜별로 남아요. <b>기록이 사장님 편을 들어 줍니다.</b></> },
+  { icon: "/images/emblem/license-sm.webp", q: "실력은 자신 있는데, 작은 업체라고 안 믿어 줘요.",
+    a: <>서류를 낼 때마다 <b>엠블럼이 붙고, 맡을 수 있는 공사가 커져요.</b> 신뢰를 눈에 보이게.</> },
+  { icon: "/images/notif/lounge.webp", q: "끝내주게 끝낸 현장, 자랑할 데가 없어요.",
+    a: <>받은 후기를 <b>QR 들어간 홍보 카드</b>로 만들어요. 끝난 공사가 다음 고객을 데려옵니다.</> },
+  { icon: "/images/notif/region.webp", q: "월요일 아침, 커피보다 먼저 이번 주 일감 걱정.",
+    a: <>월요일마다 <b>우리 동네 새 견적 요청</b>을 모아 알려 드려요. 커피는 편하게 드세요.</> },
+];
+
+// 히어로 알림 — 앱에 실제로 오는 알림의 «모양» 예시(업종·금액은 예시)
+const PARTNER_PINGS = [
+  { icon: "/images/landing/clay-bell.webp", t: "새 견적 요청 · 예시", b: "아파트 부분 · 도배, 바닥", s: "20평대 · 300~500만원 · 우리 동네" },
+  { icon: "/images/notif/viewed.webp", t: "견적 확인 · 예시", b: "고객이 보낸 견적을 확인했어요", s: "대화방에서 이어서 이야기해요" },
+  { icon: "/images/notif/region.webp", t: "월요일 아침 · 예시", b: "이번 주 우리 동네 새 요청이 모였어요", s: "알림함 · 폰 알림" },
+  { icon: "/images/landing/clay-bell.webp", t: "새 견적 요청 · 예시", b: "카페/식당 · 조명·전기, 필름", s: "1,000~3,000만원" },
+];
+
+function LadderReveal({ children }) {
+  const [ref, inView] = useInView({ threshold: 0.2 });
+  return <div ref={ref} className={`lm-ladder ${inView ? "is-in" : ""}`} style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>{children}</div>;
+}
 
 // ── FAQ section(V1.5) ──────────────────────────────────────────────────────────
 function FaqItem({ q, a }) {
@@ -199,8 +231,9 @@ export default function PartnerLandingScreen() {
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           <img src="/icons/gm-logo.svg" alt="" aria-hidden="true" width="30" height="30"
             style={{ width: 30, height: 30, borderRadius: 9, display: "block", flexShrink: 0 }} />
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>
-            공간마켓
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+            <span style={{ fontSize: 9.5, fontWeight: 800, color: "#A98B4E", letterSpacing: "0.08em", marginBottom: 3, whiteSpace: "nowrap" }}>스마트한 프리미엄 인테리어 비교견적</span>
+            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>공간마켓</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, background: "#ECE7DF", padding: 4, borderRadius: 999 }}>
@@ -216,8 +249,8 @@ export default function PartnerLandingScreen() {
         <InviteWelcome style={{ marginTop: 14, maxWidth: 520 }} />
         {/* ── NAVY(웜 잉크) HERO ──────────────────────────────────── */}
         {/* 히어로 그림(힉스필드 09-25): 완성된 공간을 보는 파트너 — 얼굴·글자 없음. 왼쪽은 글자 자리라 어둡게 덮는다. */}
-        <div ref={heroRef} style={{
-          background: `linear-gradient(100deg, rgba(20,38,28,.97) 0%, rgba(20,38,28,.88) 48%, rgba(20,38,28,.38) 100%), url(/images/partner/hero.webp) center/cover no-repeat, ${FOREST}`,
+        <div ref={heroRef} className="gm-phero" style={{
+          background: `linear-gradient(100deg, rgba(20,38,28,.97) 0%, rgba(20,38,28,.88) 48%, rgba(20,38,28,.38) 100%), url(/images/partner/hero-v2-wide.webp) 72% center/cover no-repeat, ${FOREST}`,
           color: "#F9F6F2", borderRadius: 28, padding: "32px 24px 28px", margin: "16px 0 28px",
           position: "relative", overflow: "hidden", minHeight: 320 }}>
           <h1 style={{ fontSize: "clamp(24px,6vw,36px)", fontWeight: 800, lineHeight: 1.1, margin: 0, wordBreak: "keep-all" }}>
@@ -244,20 +277,20 @@ export default function PartnerLandingScreen() {
               이미 파트너신가요? 로그인 →
             </button>
           </div>
+          {/* 앱에서 실제로 오는 알림의 모양 — 톡톡 도착(예시) */}
+          <RequestPings items={PARTNER_PINGS} />
         </div>
 
-        {/* ── 왜 공간마켓인가 — 세 줄(대표 09-25 「입점하고 싶게」). 결제·보관 약속과 수수료는 말하지 않는다. ── */}
-        <div style={{ display: "grid", gap: 10, margin: "0 0 30px" }}>
-          {[
-            ["요청한 고객에게만", "광고비·키워드 경쟁 없이, 공간·범위·예산을 적어 견적을 요청한 고객의 공사만 받습니다."],
-            ["기록이 편을 들어 줍니다", "계약·대화·현장 사진·위치가 공사 한 건에 남아, 추가비·하자 이야기가 나와도 확인할 것이 있습니다."],
-            ["낼수록 큰 공사", "서류는 가입 뒤 원할 때 하나씩. 사업자등록증 · 시공보험 · 보증금을 낼수록 맡을 수 있는 공사가 커집니다."],
-          ].map(([t, d]) => (
-            <div key={t} style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 16, padding: "14px 16px" }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>{t}</div>
-              <div style={{ fontSize: 13, color: TEXT2, lineHeight: 1.7, marginTop: 4, wordBreak: "keep-all" }}>{d}</div>
-            </div>
-          ))}
+        {/* ── 사장님 걱정 → 도장 «쾅» → 답 ── */}
+        <div style={{ padding: "6px 0 34px" }}>
+          <Reveal>
+            <div style={{ fontSize: 12, fontWeight: 800, color: GOLDD, letterSpacing: "0.12em", marginBottom: 8 }}>사장님들 속사정, 압니다</div>
+            <h2 style={{ fontSize: "clamp(22px,4.8vw,30px)", fontWeight: 800, letterSpacing: "-0.035em", margin: "0 0 6px", lineHeight: 1.3, wordBreak: "keep-all" }}>
+              현장보다 힘든 건, 현장 밖의 일이죠
+            </h2>
+            <p style={{ fontSize: 13.5, color: TEXT3, lineHeight: 1.7, margin: "0 0 18px" }}>카드를 누르면 도장을 한 번 더 찍어요.</p>
+          </Reveal>
+          <WorryStamps items={PARTNER_WORRIES} cols3 />
         </div>
 
         {/* ── 업체의 하루 (여정) — 수수료가 아니라 «현장이 어떻게 달라지는가»를 먼저 말한다 ── */}
@@ -275,9 +308,9 @@ export default function PartnerLandingScreen() {
           </div>
           <div className="gm-pjourney" style={{ display: "grid", gap: 14 }}>
             {PARTNER_JOURNEY.map((j, i) => (
-              <div key={j.no} className="gg-rise" style={{
+              <Reveal key={j.no} delay={(i % 2) * 0.1} style={{
                 background: "#fff", border: "1px solid #E8E1D8", borderRadius: 20, overflow: "hidden",
-                display: "grid", gridTemplateColumns: "1fr", animationDelay: `${i * 0.06}s`,
+                display: "grid", gridTemplateColumns: "1fr",
               }}>
                 <img src={j.img} alt="" loading="lazy" aria-hidden="true"
                   style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
@@ -294,7 +327,7 @@ export default function PartnerLandingScreen() {
                     앱에서 · {j.proof}
                   </div>
                 </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -338,12 +371,12 @@ export default function PartnerLandingScreen() {
                 입찰은 사업자등록 확인 뒤에 열려요(홈택스 당일 발급). 공사 1건 기준입니다.
               </p>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
-              {LADDER.map((r) => {
+            <LadderReveal>
+              {LADDER.map((r, rungIdx) => {
                 const premium = r.key === "premium";
                 const row = LADDER_VIEW[r.key] ?? {};
                 return (
-                  <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 12,
+                  <div key={r.key} className="lm-rung" style={{ transitionDelay: `${rungIdx * 0.14}s`, display: "flex", alignItems: "center", gap: 12,
                     background: premium ? "rgba(200,168,106,.10)" : "rgba(255,255,255,.06)",
                     border: `1px solid ${premium ? "rgba(200,168,106,.55)" : "rgba(255,255,255,.08)"}`,
                     padding: "11px 14px", borderRadius: 14, fontSize: 13 }}>
@@ -357,7 +390,7 @@ export default function PartnerLandingScreen() {
                   </div>
                 );
               })}
-            </div>
+            </LadderReveal>
             <p style={{ textAlign: "center", fontSize: 11.5, color: "#9A958E", lineHeight: 1.6, margin: "12px 0 22px", wordBreak: "keep-all" }}>
               {PARTNER_DEPOSIT_NOTE} · 보증금은 선택이에요
             </p>
@@ -370,6 +403,30 @@ export default function PartnerLandingScreen() {
               <CompanyCard company={PREMIUM_SAMPLE} />
             </div>
           </div>
+        </div>
+
+        {/* ── 끝난 공사가 홍보물이 된다 — 후기 카드(#878 · 배경 힉스필드 09-30) · 문구는 예시 ── */}
+        <div className="gm-rcard-wrap" style={{ padding: "0 0 40px", display: "grid", gap: 20, alignItems: "center" }}>
+          <Reveal>
+            <div style={{ fontSize: 12, fontWeight: 800, color: GOLDD, letterSpacing: "0.12em", marginBottom: 8 }}>끝난 공사가 영업을 합니다</div>
+            <h2 style={{ fontSize: "clamp(22px,4.8vw,30px)", fontWeight: 800, letterSpacing: "-0.035em", margin: "0 0 8px", lineHeight: 1.3, wordBreak: "keep-all" }}>받은 후기, 홍보 카드 한 장으로</h2>
+            <p style={{ fontSize: 13.5, color: TEXT2, lineHeight: 1.75, margin: 0, wordBreak: "keep-all" }}>
+              고객이 남긴 후기를 카드로 만들면 아래에 우리 업체 페이지 QR이 들어가요. 단톡방·명함·가게 앞 어디든 붙이세요. 사장님 대신 카드가 말합니다.
+            </p>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <div style={{ position: "relative", aspectRatio: "4 / 5", maxWidth: 360, margin: "0 auto", borderRadius: 22, overflow: "hidden",
+              background: "#1D3D2F url('/images/cards/review-bg.webp') center/cover", color: "#F4EFE4", padding: "34px 30px", boxShadow: "0 24px 60px rgba(18,26,22,.25)", display: "flex", flexDirection: "column" }}>
+              <span style={{ alignSelf: "flex-start", fontSize: 10.5, fontWeight: 800, color: NAVY, background: GOLD, borderRadius: 999, padding: "2px 8px" }}>예시</span>
+              <div style={{ color: "#D6A756", fontSize: 18, letterSpacing: 3, marginTop: 26 }}>★★★★★</div>
+              <div style={{ fontSize: 21, fontWeight: 800, lineHeight: 1.45, marginTop: 12, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>“마감이 깔끔해서 집들이 때 칭찬만 들었어요.”</div>
+              <div style={{ fontSize: 12.5, opacity: .7, marginTop: 12 }}>고객 후기 · 욕실 리모델링</div>
+              <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+                <div aria-hidden="true" style={{ width: 58, height: 58, borderRadius: 10, background: "#fff", display: "grid", placeItems: "center", color: NAVY, fontSize: 11, fontWeight: 900 }}>QR</div>
+                <div style={{ fontSize: 12, lineHeight: 1.5, opacity: .85 }}>예시 인테리어<br /><span style={{ opacity: .7 }}>공간마켓 파트너</span></div>
+              </div>
+            </div>
+          </Reveal>
         </div>
 
         {/* ── 가입 — 입구는 하나(앱의 휴대폰 인증 → 3단계 가입) ──────────── */}
@@ -414,6 +471,8 @@ export default function PartnerLandingScreen() {
       {/* ── 모바일 하단 고정 CTA (골드 그라데이션 단일 버튼 · 검은테두리 제거 + 옅은 베이지 띠 + shimmer) ── */}
       <style>{`
         .gm-beta-dot{ animation: gmBlink 1.8s infinite }
+        @media (max-width: 699px){ .gm-phero{ background: linear-gradient(180deg, rgba(20,38,28,.96) 0%, rgba(20,38,28,.84) 52%, rgba(20,38,28,.55) 100%), url(/images/partner/hero-v2-tall.webp) center/cover no-repeat, #1A2E22 !important } }
+        @media (min-width: 780px){ .gm-rcard-wrap{ grid-template-columns: 1.1fr 1fr; gap: 40px !important } }
         /* 업체의 하루 — 넓은 화면에서는 2열, 더 넓으면 사진이 옆으로(고객 랜딩과 같은 규칙) */
         @media (min-width: 780px){ .gm-pjourney{ grid-template-columns: repeat(2,1fr); gap: 18px } }
         @media (min-width: 1040px){ .gm-pjourney > div{ grid-template-columns: 240px 1fr; align-items: stretch }

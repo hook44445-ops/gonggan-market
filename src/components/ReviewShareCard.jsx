@@ -4,6 +4,7 @@ import { qrMatrix, qrSvgPath } from "../lib/qr";
 import { kstDay } from "../lib/pageViews";
 import { shareableReviews, clampReview, stars } from "../lib/reviewShare";
 import { getReviews } from "../lib/supabase";
+import { loadCardBg, paintCardBg, CARD_BG } from "../lib/canvasImage";
 
 // 후기 카드(업체) — 받은 좋은 후기 하나를 골라 이미지 한 장으로(1080×1350) · 아래 내 업체 페이지 QR.
 //   공간마켓 안 후기만(밖 공사 후기는 넣지 않는다) · 고객 이름은 첫 글자만. 저장하지 않는다(공유·내려받기).
@@ -21,13 +22,14 @@ function wrap(ctx, text, maxW) {
   return lines;
 }
 
-export function drawReviewCard(canvas, { review, companyName, qrUrl }) {
+export function drawReviewCard(canvas, { review, companyName, qrUrl, bg = null }) {
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext("2d");
   const text = (s, x, y, size, weight = 700, color = "#1F2A24", align = "left") => {
     ctx.font = `${weight} ${size}px ${FONT}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(s, x, y);
   };
   ctx.fillStyle = "#1D3D2F"; ctx.fillRect(0, 0, W, H);
+  paintCardBg(ctx, bg, W); // 깊은 초록 종이 · 금 테 · 창가 빛(힉스필드) · 없으면 단색
   text("공간마켓 고객 후기", PAD, 140, 34, 800, "#D6A756");
   text(stars(review.rating), PAD, 230, 64, 900, "#D6A756");
   text("“", PAD - 10, 380, 160, 900, "rgba(244,239,228,0.25)");
@@ -57,6 +59,8 @@ export default function ReviewShareCard({ companyId, companyName, pageUrl, onClo
   const [pick, setPick] = useState(null);
   const [img, setImg] = useState(null);
   const [msg, setMsg] = useState(null);
+  const [bg, setBg] = useState(null);
+  useEffect(() => { let alive = true; loadCardBg(CARD_BG.review).then((img) => { if (alive) setBg(img); }); return () => { alive = false; }; }, []);
 
   useEffect(() => {
     let alive = true;
@@ -72,7 +76,7 @@ export default function ReviewShareCard({ companyId, companyName, pageUrl, onClo
     const review = list?.find((r) => r.id === pick);
     if (!review) return;
     try {
-      const canvas = drawReviewCard(document.createElement("canvas"), { review, companyName, qrUrl: pageUrl });
+      const canvas = drawReviewCard(document.createElement("canvas"), { review, companyName, qrUrl: pageUrl, bg });
       const blob = await new Promise((ok) => canvas.toBlob(ok, "image/png"));
       if (!blob) throw new Error("NO_BLOB");
       if (img?.url) URL.revokeObjectURL(img.url);

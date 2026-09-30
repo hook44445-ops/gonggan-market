@@ -3,6 +3,7 @@ import { C, R, S } from "../constants";
 import { warrantyCareItem } from "../lib/homeCare";
 import { kstDay } from "../lib/pageViews";
 import { getEstimateForRequest, addHomeCareItem } from "../lib/supabase";
+import ArtGlyph from "./common/ArtGlyph";
 
 // 공사 완료 뒤 «하자보수 끝나기 전 알림» 제안 — 후기를 안 쓰는 고객도 보게(09-29 · 재방문).
 //   견적서 하자보수 기간이 없거나, 이미 적었거나 닫았으면(요청마다 한 번) 안 보인다.
@@ -45,7 +46,7 @@ export default function WarrantyCareOffer({ userId, requestId, companyName }) {
   return (
     <div style={{ margin: `${S.md}px ${S.lg}px`, background: C.surface, border: `1px solid ${C.brandM}`, borderRadius: R.lg, padding: "12px 14px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <b style={{ fontSize: 13.5, color: C.text1 }}>🛠 하자보수는 {item.until}까지예요</b>
+        <b style={{ fontSize: 13.5, color: C.text1, display: "inline-flex", alignItems: "center", gap: 8 }}><ArtGlyph src="/images/emblem/warranty-sm.webp" emoji="🛠" size={34} />하자보수는 {item.until}까지예요</b>
         <button onClick={close} aria-label="닫기" style={{ background: "none", border: "none", color: C.text3, fontSize: 16, cursor: "pointer" }}>✕</button>
       </div>
       <div style={{ fontSize: 12, color: C.text3, marginTop: 3, lineHeight: 1.6 }}>

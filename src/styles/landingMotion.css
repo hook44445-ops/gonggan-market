@@ -1,0 +1,138 @@
+/* 랜딩 움직임(고객 / · 파트너 /partner) — 2026-09-30 대표 「프리미엄 1등 느낌 · 동적인 매력 · 걱정과 해결을 유머와 매력으로」.
+   원칙: 움직임은 «눈이 가야 할 곳»에만. 한 화면에 동시에 크게 움직이는 것은 하나. 움직임 줄이기 설정이면 전부 멈추고 결과만 보인다. */
+
+/* ── 나타나기(스크롤로 보일 때 한 번) ── */
+.lm-reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s cubic-bezier(.22,.61,.36,1), transform .7s cubic-bezier(.22,.61,.36,1); }
+.lm-reveal.is-in { opacity: 1; transform: none; }
+
+/* ── 히어로: 두 장면이 천천히 바뀐다(거실 → 주방) + 켄번스 ── */
+.lm-hero { position: relative; border-radius: 28px; overflow: hidden; margin: 18px 0 30px; min-height: 600px; background: #E8E0D1; isolation: isolate; }
+.lm-scene { position: absolute; inset: 0; opacity: 0; transition: opacity 1.6s ease; }
+.lm-scene.is-on { opacity: 1; }
+.lm-scene img { width: 100%; height: 100%; object-fit: cover; object-position: 70% 60%; display: block; transform-origin: 70% 60%; }
+.lm-scene.is-on img { animation: lm-kenburns 14s ease-out both; }
+@keyframes lm-kenburns { from { transform: scale(1.08); } to { transform: scale(1); } }
+.lm-hero-ov { position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(249,246,242,.94) 0%, rgba(249,246,242,.80) 42%, rgba(249,246,242,.10) 72%, rgba(249,246,242,0) 100%); }
+.lm-hero-ct { position: relative; z-index: 3; padding: 34px 24px 28px; max-width: 520px; }
+.lm-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 800; letter-spacing: .14em; color: #A98B4E; }
+.lm-eyebrow::before { content: ""; width: 22px; height: 1px; background: linear-gradient(90deg, #D6A756, rgba(214,167,86,0)); }
+.lm-h1 { font-size: clamp(31px, 6.4vw, 50px); font-weight: 800; line-height: 1.12; letter-spacing: -0.045em; margin: 12px 0 0; word-break: keep-all; color: #121A16; }
+.lm-h1 em { font-style: normal; background: linear-gradient(180deg, transparent 62%, rgba(214,167,86,.38) 62%); padding: 0 2px; }
+.lm-hero-sub { font-size: 15px; color: #3D3A36; font-weight: 500; line-height: 1.7; margin: 14px 0 22px; word-break: keep-all; }
+.lm-dots { position: absolute; z-index: 3; right: 18px; bottom: 16px; display: flex; gap: 6px; }
+.lm-dots button { width: 7px; height: 7px; border-radius: 99px; border: 0; padding: 0; background: rgba(18,26,22,.25); cursor: pointer; transition: width .4s, background .4s; }
+.lm-dots button.is-on { width: 22px; background: #121A16; }
+@media (min-width: 700px) {
+  .lm-hero { min-height: 640px; display: flex; align-items: center; }
+  .lm-hero-ov { background: linear-gradient(90deg, #F9F6F2 0%, rgba(249,246,242,.93) 36%, rgba(249,246,242,.2) 66%, rgba(249,246,242,0) 100%); }
+  .lm-hero-ct { padding: 56px 52px; }
+}
+
+/* 증빙 칩 — 하나씩 «딸깍» 켜진다 */
+.lm-proofs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.lm-proof { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px 6px 6px; border-radius: 999px; background: rgba(255,255,255,.86); border: 1px solid #E8E1D8; font-size: 12px; font-weight: 800; color: #1A2E22; box-shadow: 0 4px 14px rgba(18,26,22,.06);
+  opacity: 0; transform: translateY(8px) scale(.94); animation: lm-pop .55s cubic-bezier(.34,1.56,.64,1) both; }
+.lm-proof img { width: 22px; height: 22px; object-fit: contain; }
+@keyframes lm-pop { to { opacity: 1; transform: none; } }
+
+/* 떠다니는 점토 소품 — 히어로 가장자리에서 천천히 숨 쉰다 */
+.lm-clay { position: absolute; z-index: 2; pointer-events: none; filter: drop-shadow(0 14px 18px rgba(18,26,22,.18)); animation: lm-float 7s ease-in-out infinite; }
+.lm-clay img { width: 100%; height: auto; display: block; }
+@keyframes lm-float { 0%,100% { transform: translateY(0) rotate(var(--r,0deg)); } 50% { transform: translateY(-12px) rotate(calc(var(--r,0deg) + 4deg)); } }
+.lm-clay.c1 { width: 92px; right: 4%; top: 8%; --r: -12deg; animation-delay: -1s; }
+.lm-clay.c2 { width: 78px; right: 26%; bottom: 7%; --r: 8deg; animation-delay: -3s; }
+.lm-clay.c3 { width: 70px; right: 6%; bottom: 20%; --r: -4deg; animation-delay: -5s; }
+.lm-clay.c4 { width: 84px; left: 46%; top: 6%; --r: 6deg; animation-delay: -2s; }
+@media (max-width: 699px) { .lm-clay.c1 { width: 64px; right: 3%; top: auto; bottom: 36%; } .lm-clay.c2 { width: 58px; right: 20%; bottom: 3%; } .lm-clay.c3, .lm-clay.c4 { display: none; } }
+
+/* ── 걱정 → 도장 «쾅» → 답 ── */
+.lm-worries { display: grid; gap: 14px; }
+@media (min-width: 780px) { .lm-worries { grid-template-columns: repeat(2, 1fr); gap: 18px; } }
+@media (min-width: 1100px) { .lm-worries.is-3 { grid-template-columns: repeat(3, 1fr); } }
+.lm-worry { position: relative; background: #fff; border: 1px solid #E8E1D8; border-radius: 22px; padding: 20px 18px 18px; cursor: pointer; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+.lm-worry-top { display: flex; gap: 12px; align-items: flex-start; }
+.lm-worry-ic { width: 46px; height: 46px; flex-shrink: 0; object-fit: contain; }
+.lm-worry-q { font-size: 15.5px; font-weight: 800; line-height: 1.5; color: #121A16; letter-spacing: -0.02em; word-break: keep-all; padding-right: 60px; }
+.lm-worry-q::before { content: "“"; color: #C8A86A; margin-right: 1px; }
+.lm-worry-q::after { content: "”"; color: #C8A86A; margin-left: 1px; }
+.lm-worry-a { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: #F4F1EB; font-size: 13.5px; line-height: 1.7; color: #2F3E34; word-break: keep-all;
+  opacity: 0; transform: translateY(6px); transition: opacity .5s ease .55s, transform .5s ease .55s; }
+.lm-worry-a b { color: #1A2E22; }
+.lm-seal { position: absolute; top: 12px; right: 12px; width: 54px; height: 54px; border-radius: 50%; border: 2px solid #C8A86A; color: #A98B4E; display: grid; place-items: center; text-align: center;
+  font-size: 15px; font-weight: 900; line-height: 1.05; letter-spacing: .02em; background: radial-gradient(circle, rgba(214,167,86,.12), rgba(214,167,86,0) 70%); box-shadow: inset 0 0 0 3px rgba(255,255,255,.9), inset 0 0 0 4px rgba(200,168,106,.55);
+  opacity: 0; transform: scale(2.3) rotate(-24deg); }
+.lm-seal small { font-size: 8.5px; font-weight: 800; letter-spacing: -.02em; }
+.lm-worry.is-in .lm-seal { animation: lm-stamp .5s cubic-bezier(.2,1.4,.4,1) .2s both; }
+.lm-worry.is-in { animation: lm-thud .35s ease .42s both; }
+.lm-worry.is-in .lm-worry-a { opacity: 1; transform: none; }
+@keyframes lm-stamp { 0% { opacity: 0; transform: scale(2.3) rotate(-24deg); } 70% { opacity: 1; transform: scale(.92) rotate(-12deg); } 100% { opacity: 1; transform: scale(1) rotate(-12deg); } }
+@keyframes lm-thud { 0%,100% { transform: none; } 30% { transform: translateY(2px) scale(.995); } 60% { transform: translateY(-1px); } }
+
+/* ── 30초 요청서 미리 해 보기 ── */
+.lm-pick { background: #fff; border: 1px solid #E8E1D8; border-radius: 26px; padding: 22px 18px; box-shadow: 0 18px 50px rgba(18,26,22,.06); }
+.lm-spaces { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (min-width: 780px) { .lm-spaces { grid-template-columns: repeat(6, 1fr); } }
+.lm-space { position: relative; aspect-ratio: 1 / 1; border-radius: 14px; overflow: hidden; border: 2px solid transparent; padding: 0; cursor: pointer; background: #EFEAE0; transition: transform .25s, border-color .25s, box-shadow .25s; }
+.lm-space img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .6s; }
+.lm-space span { position: absolute; left: 7px; right: 7px; bottom: 6px; color: #fff; font-size: 12px; font-weight: 800; text-align: left; text-shadow: 0 1px 6px rgba(0,0,0,.45); }
+.lm-space::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,.55) 100%); }
+.lm-space span { z-index: 1; }
+.lm-space.is-on { border-color: #1A2E22; box-shadow: 0 8px 22px rgba(26,46,34,.25); transform: translateY(-2px); }
+.lm-space.is-on img { transform: scale(1.08); }
+.lm-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.lm-chip { border: 1px solid #E0D8CB; background: #FBF9F5; color: #3A4A40; border-radius: 999px; padding: 8px 13px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all .2s; }
+.lm-chip.is-on { background: #1A2E22; border-color: #1A2E22; color: #fff; animation: lm-chip-on .35s cubic-bezier(.34,1.56,.64,1); }
+@keyframes lm-chip-on { 0% { transform: scale(.9); } 100% { transform: scale(1); } }
+.lm-sum { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: #F4F1EB; font-size: 13.5px; line-height: 1.6; color: #2F3E34; min-height: 46px; }
+.lm-sum b { color: #1A2E22; }
+
+/* ── 견적 비교 예시 — 한 장씩 도착 · 금액이 올라간다 · 증빙이 차례로 켜진다 ── */
+.lm-bid { opacity: 0; transform: translateX(26px); transition: opacity .6s ease, transform .6s cubic-bezier(.22,.61,.36,1); }
+.lm-bids.is-in .lm-bid { opacity: 1; transform: none; }
+.lm-bid-proof { transition: opacity .4s ease, filter .4s ease; }
+
+/* ── 전·후 밀어 보기 ── */
+.lm-ba { position: relative; border-radius: 22px; overflow: hidden; aspect-ratio: 4 / 3; background: #ddd; user-select: none; touch-action: pan-y; }
+.lm-ba img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.lm-ba .after { clip-path: inset(0 0 0 var(--x, 50%)); }
+.lm-ba-bar { position: absolute; top: 0; bottom: 0; left: var(--x, 50%); width: 2px; background: #fff; transform: translateX(-1px); box-shadow: 0 0 12px rgba(0,0,0,.25); pointer-events: none; }
+.lm-ba-knob { position: absolute; top: 50%; left: var(--x, 50%); width: 46px; height: 46px; border-radius: 50%; background: #fff; transform: translate(-50%, -50%); display: grid; place-items: center; font-weight: 900; color: #1A2E22; box-shadow: 0 6px 18px rgba(0,0,0,.25); pointer-events: none; font-size: 14px; }
+.lm-ba-tag { position: absolute; top: 12px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; background: rgba(18,26,22,.72); color: #fff; }
+.lm-ba input[type=range] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0; }
+.lm-ba.is-hint .after, .lm-ba.is-hint .lm-ba-bar, .lm-ba.is-hint .lm-ba-knob { transition: clip-path 1.2s cubic-bezier(.65,0,.35,1), left 1.2s cubic-bezier(.65,0,.35,1); }
+
+/* ── 공사 이름 흐름 ── */
+.lm-marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.lm-marquee-row { display: flex; gap: 10px; width: max-content; animation: lm-marquee 38s linear infinite; padding: 5px 0; }
+.lm-marquee-row.rev { animation-direction: reverse; animation-duration: 44s; }
+.lm-marquee:hover .lm-marquee-row { animation-play-state: paused; }
+.lm-marquee-row span { white-space: nowrap; padding: 9px 16px; border-radius: 999px; background: #fff; border: 1px solid #E8E1D8; font-size: 13.5px; font-weight: 700; color: #2F3E34; }
+.lm-marquee-row span.gold { background: #1A2E22; color: #F2E6CC; border-color: #1A2E22; }
+@keyframes lm-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ── 저녁 CTA — 불 켜진 집 ── */
+.lm-dusk { position: relative; border-radius: 28px; overflow: hidden; color: #F4EFE4; text-align: center; padding: 64px 24px; margin: 30px 0; background: #14261C; isolation: isolate; }
+.lm-dusk-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: 70% center; animation: lm-kenburns 18s ease-out both; }
+.lm-dusk::before { content: ""; position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 50% 55%, rgba(20,38,28,.58) 0%, rgba(20,38,28,.84) 72%); }
+.lm-dusk::after { content: ""; position: absolute; left: 50%; top: 50%; width: 520px; height: 220px; transform: translate(-50%, -50%); z-index: -1; background: radial-gradient(ellipse, rgba(214,167,86,.18), rgba(214,167,86,0) 70%); animation: lm-glow 5s ease-in-out infinite; }
+@keyframes lm-glow { 0%,100% { opacity: .6; } 50% { opacity: 1; } }
+
+/* ── 파트너: 새 요청 알림이 톡톡 도착 ── */
+.lm-pings { position: relative; height: 176px; margin-top: 18px; max-width: 380px; }
+.lm-ping { position: absolute; left: 0; right: 0; display: flex; gap: 11px; align-items: center; background: rgba(255,255,255,.96); color: #121A16; border-radius: 18px; padding: 11px 13px; box-shadow: 0 14px 34px rgba(0,0,0,.28); transition: transform .7s cubic-bezier(.22,.61,.36,1), opacity .7s ease; }
+.lm-ping img { width: 40px; height: 40px; flex-shrink: 0; }
+.lm-ping-t { font-size: 11px; font-weight: 800; color: #A98B4E; letter-spacing: .02em; }
+.lm-ping-b { font-size: 13.5px; font-weight: 800; margin-top: 2px; line-height: 1.35; word-break: keep-all; }
+.lm-ping-s { font-size: 11.5px; color: #6B6560; margin-top: 2px; }
+
+/* ── 등급 계단 — 한 칸씩 켜지며 올라간다 ── */
+.lm-ladder .lm-rung { opacity: 0; transform: translateY(14px); transition: opacity .55s ease, transform .55s cubic-bezier(.22,.61,.36,1); }
+.lm-ladder.is-in .lm-rung { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lm-reveal, .lm-bid, .lm-ladder .lm-rung, .lm-worry-a { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .lm-scene.is-on img, .lm-dusk-bg, .lm-clay, .lm-marquee-row, .lm-dusk::after, .lm-proof, .lm-worry.is-in, .lm-chip.is-on { animation: none !important; opacity: 1; transform: none; }
+  .lm-seal { opacity: 1; transform: rotate(-12deg); }
+  .lm-worry.is-in .lm-seal { animation: none; }
+  .lm-scene { transition: none; }
+}

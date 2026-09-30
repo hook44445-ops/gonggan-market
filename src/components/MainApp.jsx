@@ -1,6 +1,7 @@
 import { SHOW_BETA_UI, PAYMENTS_LIVE, isStoreAppShell } from "../constants/release";
 import { authHeader, getCurrentUserId } from "../lib/session";
 import { peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget, PAGE_REQUEST_TITLE, pageRequestsFirst } from "../lib/preferredCompany";
+import { takeLandingPick } from "../lib/landingPick";
 import ChatRequestModal from "./lounge/ChatRequestModal";
 import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -2674,6 +2675,21 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       handleOpenNewReq();
       if (pref.name) showToast(`요청을 올리면 ${pref.name}에 바로 알려 드려요`);
     }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRole, user?.id]);
+
+  // 랜딩 «30초 요청서 미리 해 보기»에서 공간·공사를 고르고 온 고객 — 로그인되면 그 칸이 채워진 요청서를 한 번 열어 준다(lib/landingPick).
+  //   꺼내면서 지우므로 두 번 열리지 않는다. 고른 것이 없으면 아무 일도 없다.
+  useEffect(() => {
+    if (activeRole !== "consumer" || !user?.id || user?.isGuest) return;
+    const prefill = takeLandingPick();
+    if (!prefill) return;
+    const t = setTimeout(() => {
+      setReqPrefill(prefill);
+      setScreen("home");
+      handleOpenNewReq();
+    }, 700);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRole, user?.id]);
