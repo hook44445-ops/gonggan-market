@@ -152,6 +152,7 @@ import { useCompanyList } from "../hooks/useCompanyList";
 import { applyRoleTheme } from "../utils/roleTheme";
 import { useUiVersion } from "../hooks/useUiVersion";
 import MyPageV3 from "../screens/v3/MyPageV3";
+import InviteProCard from "./InviteProCard";
 import HomeV3 from "../screens/v3/HomeV3";
 import ShowcaseV3 from "../screens/v3/ShowcaseV3";
 import RequestSentSheet from "./v3/RequestSentSheet";
@@ -4396,6 +4397,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   {mapLocalOnly ? "전체 보기" : "내 지역만"}
                 </button>
               </div>
+            )}
+            {mapIsFallback && activeRole !== "company" && user?.id && !user?.isGuest && (
+              <div style={{ marginTop:-6, marginBottom:S.md }}><InviteProCard userId={user.id} compact /></div>
             )}
 
             {/* 업체 수 헤더 */}
