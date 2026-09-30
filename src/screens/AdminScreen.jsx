@@ -120,7 +120,7 @@ import {
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee, adminSetCompanyDirect,
-  getAdminVisitStats, getAdminGrowthStats, getAdminNotifyStats, adminListExternalReviews, hideExternalReview,
+  getAdminVisitStats, getAdminGrowthStats, getAdminNotifyStats, getAdminPriceDataStats, adminListExternalReviews, hideExternalReview,
   getReferralEventBoard, adminSettleReferralEvent, getAdminMarketingStats, getTesterSignups,
   signedDocUrl,
 } from "../lib/supabase";
@@ -145,6 +145,7 @@ import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
 import { growthCards, fmtCount } from "../lib/growthStats";
 import { notifyRows } from "../lib/notifyStats";
+import { priceDataCards } from "../lib/priceIndex";
 import { CURRENT_EVENT, eventStatus, eventLine, prizeFor } from "../lib/referralEvent";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
 import AICleanupCenter from "../components/AICleanupCenter";
@@ -344,6 +345,39 @@ function AdminTesterShortcut() {
       )}
       <span aria-hidden style={{ color: C.text3, fontSize: 18 }}>›</span>
     </a>
+  );
+}
+
+// ── 가격 데이터 쌓임(176) — 평수·건물 유형·지역 코드·자재 등급·시세표가 실제로 쌓이는지 ──
+function AdminPriceDataPanel() {
+  const [state, setState] = useState({ loading: true, stats: null, error: null });
+  useEffect(() => {
+    let alive = true;
+    getAdminPriceDataStats().then(({ data, error }) => {
+      if (!alive) return;
+      const m = String(error?.message ?? "");
+      setState({ loading: false, stats: error ? null : data,
+        error: !error ? null : /admin_price_data_stats/.test(m) ? "SQL 176 실행 뒤에 보여요" : /NOT_ADMIN/.test(m) ? "관리자 로그인(인증번호)이 필요해요" : "불러오지 못했어요" });
+    }).catch(() => alive && setState({ loading: false, stats: null, error: "불러오지 못했어요" }));
+    return () => { alive = false; };
+  }, []);
+  return (
+    <div style={{ marginBottom: S.xl }}>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>📊 가격 데이터 쌓임</div>
+      {state.error ? (
+        <div style={{ background: C.surface, borderRadius: R.lg, padding: S.lg, border: `1px solid ${C.bgWarm}`, fontSize: 12.5, color: C.text3 }}>{state.error}</div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: S.sm }}>
+          {priceDataCards(state.stats ?? {}).map((c) => (
+            <div key={c.label} style={{ background: C.surface, borderRadius: R.lg, padding: S.md, border: `1px solid ${C.bgWarm}` }}>
+              <div style={{ fontSize: 11, color: C.text3, fontWeight: 700 }}>{c.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: C.text1, marginTop: 2 }}>{state.loading ? "…" : fmtCount(c.value)}</div>
+              {!state.loading && <div style={{ fontSize: 10.5, color: C.text3, marginTop: 2 }}>{c.sub}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -6599,6 +6633,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 <AdminVisitCards adminUserId={user?.id ?? null} />
                 <AdminGrowthPanel />
                 <AdminNotifyStatsPanel />
+                <AdminPriceDataPanel />
                 <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📊" size={14} color={C.text1} /> 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
