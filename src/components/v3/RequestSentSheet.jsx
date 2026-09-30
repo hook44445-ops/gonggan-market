@@ -8,6 +8,10 @@ import { JOURNEY } from "./JourneyNow";
 import { familyMessage } from "../../lib/referral";
 import { myRefCode } from "../../lib/myRefCode";
 import { installOfferAfterRequest, detectAndRememberInApp } from "../../lib/appInstall";
+import { shouldAskPush, lastPushAsk, markPushAsk, PUSH_ON_PREFS, pushFailText } from "../../lib/pushAsk";
+import { enablePush, isPushSupported, isPushConfigured } from "../../lib/push";
+import { upsertPushPreferences } from "../../lib/supabase";
+import { isIosAppShell } from "../../constants/release";
 
 const INK = "#F4EFE4";
 const GOLD = "#D6A756";
@@ -32,6 +36,22 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack, userId = 
       }));
     } catch { setInstall(null); }
   }, []);
+  // 이 기기에서 푸시를 켤 수 있으면 «견적 오면 폰으로 알려 드릴까요?»(14일에 한 번 · 앱 설치 안내가 보일 땐 안 보임)
+  const [pushAsk, setPushAsk] = useState(null);   // null=안 보임 · "ask" · "busy" · "done" · 실패 문구
+  useEffect(() => {
+    try {
+      if (userId && shouldAskPush({ supported: isPushSupported(), configured: isPushConfigured(),
+        permission: typeof Notification !== "undefined" ? Notification.permission : "denied",
+        iosShell: isIosAppShell(), lastAskedAt: lastPushAsk() })) { setPushAsk("ask"); markPushAsk(); }
+    } catch { /* 안 보임 */ }
+  }, [userId]);
+  const turnOnPush = async () => {
+    if (pushAsk === "busy" || pushAsk === "done") return;
+    setPushAsk("busy");
+    const res = await enablePush(userId).catch(() => ({ ok: false }));
+    if (res?.ok) { try { await upsertPushPreferences(userId, PUSH_ON_PREFS); } catch { /* 토큰은 저장됨 */ } setPushAsk("done"); }
+    else setPushAsk(pushFailText(res?.reason));
+  };
   useEffect(() => {
     if (!userId) return;
     let alive = true;
@@ -106,6 +126,29 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack, userId = 
                 {install.store === "App Store" ? "설치" : "앱 받기"}
               </span>
             </a>
+          )}
+
+          {!install && pushAsk && (
+            <div style={{ marginTop: S.md, padding: "12px 14px", borderRadius: R.lg, background: DEEP, color: INK }}>
+              <div style={{ display: "flex", alignItems: "center", gap: S.md }}>
+                <span aria-hidden style={{ fontSize: 22 }}>🔔</span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 14, fontWeight: 800 }}>{pushAsk === "done" ? "알림을 켰어요" : "견적이 오면 폰으로 알려 드릴까요?"}</span>
+                  <span style={{ display: "block", fontSize: 12, color: "rgba(244,239,228,0.75)", marginTop: 2 }}>
+                    {pushAsk === "done" ? "견적·대화·계약 소식을 바로 알려 드려요(광고 아님)" : "견적 도착·대화·계약 소식만 · 광고는 따로 동의해야 와요"}
+                  </span>
+                </span>
+                {(pushAsk === "ask" || pushAsk === "busy") && (
+                  <button onClick={turnOnPush} disabled={pushAsk === "busy"}
+                    style={{ flexShrink: 0, border: 0, fontSize: 12.5, fontWeight: 800, color: DEEP, background: GOLD, borderRadius: R.full, padding: "7px 12px", cursor: "pointer" }}>
+                    {pushAsk === "busy" ? "…" : "알림 켜기"}
+                  </button>
+                )}
+              </div>
+              {pushAsk !== "ask" && pushAsk !== "busy" && pushAsk !== "done" && (
+                <div style={{ fontSize: 12, color: "#F4D9A0", marginTop: 6 }}>{pushAsk}</div>
+              )}
+            </div>
           )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: S.sm, marginTop: S.lg }}>
