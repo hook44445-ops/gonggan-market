@@ -84,7 +84,7 @@
    - 발송기: `api/push/dispatch.js` 안에서 `platform = 'ios_expo'` 는 Expo Push API(`https://exp.host/--/api/v2/push/send`, `{ to, title, body, data: { url } }`) — **서버리스 함수 개수 늘리지 않기** · 광고(event_promo)는 지금처럼 동의·시간 확인 뒤
 3. **아이폰 로그인 유지 문제**가 로컬 QA(`docs/QA-2026-09-30-ios.md`)에 나오면 웹 쪽 보완(예: 토큰을 앱에 백업·복원하는 메시지) — 로컬과 규격 맞추기
 4. **업체 «동료 초대» 순위** — 보상은 대표 결정 전까지 문구만(«보상» 약속 금지)
-5. **남은 보안 거리 점검**: 대표에게 `select tablename, policyname, cmd, roles, qual, with_check from pg_policies where schemaname='public' order by 1,3;` 결과를 받아 `true` 로 열린 UPDATE/DELETE 가 남았는지 본다(예: `requests` UPDATE 는 운영에 `auth.uid() = customer_id` 만 있어 **본인 요청 만료·마감·보관이 조용히 실패**할 수 있다 — 상태 바꾸기는 보안 함수로 옮기는 쪽을 먼저 검토)
+5. ✅(09-30 · SQL 184 — 결제 기록·시드 라운지 글·옛 표 2개 닫기 · 본인 요청 마감·만료·숨기기 = `request_owner_state` · 관리자 요청 고치기 정책. 일부러 누구나 쓰기로 둔 것: activity_logs · user_visits · partner_leads) **남은 보안 거리 점검**: 대표에게 `select tablename, policyname, cmd, roles, qual, with_check from pg_policies where schemaname='public' order by 1,3;` 결과를 받아 `true` 로 열린 UPDATE/DELETE 가 남았는지 본다(예: `requests` UPDATE 는 운영에 `auth.uid() = customer_id` 만 있어 **본인 요청 만료·마감·보관이 조용히 실패**할 수 있다 — 상태 바꾸기는 보안 함수로 옮기는 쪽을 먼저 검토)
 6. **주간 루프**(월요일): 관리자 숫자 → `docs/WEEKLY-YYYY-MM-DD.md` → 가장 약한 숫자 하나만 올리는 일(지시서 5절). 읽음률 20% 미만 알림은 문구·시각 조정
 
 ---
