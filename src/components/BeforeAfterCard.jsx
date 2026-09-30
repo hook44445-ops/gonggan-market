@@ -5,25 +5,17 @@ import { kstDay } from "../lib/pageViews";
 import { CARD_W, CARD_H, coverCrop, cardTitle, cardFooter, cardFileName } from "../lib/beforeAfter";
 import { inviteUrl, companyPageUrl, REFERRAL_REWARD } from "../lib/referral";
 import { myRefCode } from "../lib/myRefCode";
+import { loadImage, loadCardBg, paintCardBg, CARD_BG } from "../lib/canvasImage";
 
 // 전·후 사진 카드 — 사진 두 장을 고르면 한 장짜리 이미지(1080×1350). 저장하지 않는다(기기 사진첩·공유로).
 //   고객: 아래 QR = 내 초대 링크 · 업체: 아래 QR = 내 업체 페이지
 const FONT = "'Pretendard','Apple SD Gothic Neo',sans-serif";
 
-function loadImage(src) {
-  return new Promise((ok, fail) => {
-    const img = new Image();
-    if (!String(src).startsWith("blob:") && !String(src).startsWith("data:")) img.crossOrigin = "anonymous";
-    img.onload = () => ok(img);
-    img.onerror = () => fail(new Error("IMG"));
-    img.src = src;
-  });
-}
-
 export async function drawBeforeAfter(canvas, { before, after, title, footer, qrUrl }) {
   canvas.width = CARD_W; canvas.height = CARD_H;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#F6F3EE"; ctx.fillRect(0, 0, CARD_W, CARD_H);
+  paintCardBg(ctx, await loadCardBg(CARD_BG.beforeAfter), CARD_W); // 리넨 종이(힉스필드) · 못 오면 단색
   const text = (s, x, y, size, weight = 700, color = "#1F2A24", align = "left") => {
     ctx.font = `${weight} ${size}px ${FONT}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(s, x, y);
   };

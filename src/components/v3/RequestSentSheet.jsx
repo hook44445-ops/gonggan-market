@@ -12,6 +12,7 @@ import { shouldAskPush, lastPushAsk, markPushAsk, PUSH_ON_PREFS, pushFailText } 
 import { enablePush, isPushSupported, isPushConfigured } from "../../lib/push";
 import { upsertPushPreferences } from "../../lib/supabase";
 import { isIosAppShell } from "../../constants/release";
+import ArtGlyph from "../common/ArtGlyph";
 
 const INK = "#F4EFE4";
 const GOLD = "#D6A756";
@@ -117,7 +118,7 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack, userId = 
             <a href={install.url} target={install.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer"
               style={{ display: "flex", alignItems: "center", gap: S.md, marginTop: S.md, padding: "12px 14px", borderRadius: R.lg,
                 background: DEEP, color: INK, textDecoration: "none" }}>
-              <span aria-hidden style={{ fontSize: 22 }}>🔔</span>
+              <ArtGlyph src="/images/intro/push-bell.webp" emoji="🔔" size={36} />
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 800 }}>앱으로 견적 도착 알림 받기</span>
                 <span style={{ display: "block", fontSize: 12, color: "rgba(244,239,228,0.75)", marginTop: 2 }}>업체 견적이 오면 휴대폰으로 바로 알려드려요</span>
@@ -131,7 +132,7 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack, userId = 
           {!install && pushAsk && (
             <div style={{ marginTop: S.md, padding: "12px 14px", borderRadius: R.lg, background: DEEP, color: INK }}>
               <div style={{ display: "flex", alignItems: "center", gap: S.md }}>
-                <span aria-hidden style={{ fontSize: 22 }}>🔔</span>
+                <ArtGlyph src="/images/intro/push-bell.webp" emoji="🔔" size={36} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: 14, fontWeight: 800 }}>{pushAsk === "done" ? "알림을 켰어요" : "견적이 오면 폰으로 알려 드릴까요?"}</span>
                   <span style={{ display: "block", fontSize: 12, color: "rgba(244,239,228,0.75)", marginTop: 2 }}>

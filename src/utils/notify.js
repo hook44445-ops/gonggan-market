@@ -24,15 +24,17 @@ export const NOTIF_TIER = {
 };
 
 // 알림 type → 티어/아이콘/우선순위. 아이콘은 NotifPanel 의 NOTIF_META 와 합쳐 사용.
+// img: 알림함 그림(힉스필드 09-30 · public/images/notif) — 없거나 못 오면 icon(이모지)으로 돌아간다
 export const NOTIF_META = {
   // ── 1단계 진행 ──────────────────────────────────────────
+  HOME_CARE_DUE:         { tier: NOTIF_TIER.PROGRESS, icon: "🏠", priority: "NORMAL", img: "/images/notif/home-care.webp" }, // 내 집 관리 수첩 시기
   BID_RECEIVED:          { tier: NOTIF_TIER.PROGRESS, icon: "📋", priority: "HIGH" },
-  SAVED_COMPANY_NEW:     { tier: NOTIF_TIER.PROGRESS, icon: "💚", priority: "LOW" },      // 179 찜한 업체 새 사례
+  SAVED_COMPANY_NEW:     { tier: NOTIF_TIER.PROGRESS, icon: "💚", priority: "LOW", img: "/images/notif/saved.webp" },      // 179 찜한 업체 새 사례
   REVIEW_5STAR:          { tier: NOTIF_TIER.PROGRESS, icon: "⭐", priority: "NORMAL" },   // 181 별 5개 후기 → 후기 카드
-  LOUNGE_WEEKLY:         { tier: NOTIF_TIER.PROGRESS, icon: "🔥", priority: "LOW" },      // 174 지난주 라운지 인기 글
-  BID_VIEWED:            { tier: NOTIF_TIER.PROGRESS, icon: "👀", priority: "NORMAL" },   // 173 고객이 내 견적 확인
-  BID_COMPARE_NUDGE:     { tier: NOTIF_TIER.PROGRESS, icon: "⚖️", priority: "NORMAL" },   // 172 견적 비교 한 번
-  REGION_REQUESTS_WEEKLY:{ tier: NOTIF_TIER.PROGRESS, icon: "📍", priority: "NORMAL" },   // 171 월요일 우리 동네 새 요청
+  LOUNGE_WEEKLY:         { tier: NOTIF_TIER.PROGRESS, icon: "🔥", priority: "LOW", img: "/images/notif/lounge.webp" },      // 174 지난주 라운지 인기 글
+  BID_VIEWED:            { tier: NOTIF_TIER.PROGRESS, icon: "👀", priority: "NORMAL", img: "/images/notif/viewed.webp" },   // 173 고객이 내 견적 확인
+  BID_COMPARE_NUDGE:     { tier: NOTIF_TIER.PROGRESS, icon: "⚖️", priority: "NORMAL", img: "/images/notif/compare.webp" },   // 172 견적 비교 한 번
+  REGION_REQUESTS_WEEKLY:{ tier: NOTIF_TIER.PROGRESS, icon: "📍", priority: "NORMAL", img: "/images/notif/region.webp" },   // 171 월요일 우리 동네 새 요청
   BID_ALL_IN:            { tier: NOTIF_TIER.PROGRESS, icon: "📋", priority: "HIGH" },
   QUOTE_DEADLINE:        { tier: NOTIF_TIER.PROGRESS, icon: "⏰", priority: "HIGH" },
   FINAL_QUOTE_ARRIVED:   { tier: NOTIF_TIER.PROGRESS, icon: "📋", priority: "HIGH" },
@@ -64,9 +66,9 @@ export const NOTIF_META = {
   ADMIN_BIZ_PENDING:       { tier: NOTIF_TIER.PROGRESS, icon: "🗂️", priority: "HIGH" },
   ADMIN_DOC_SUBMITTED:     { tier: NOTIF_TIER.PROGRESS, icon: "🗂️", priority: "NORMAL" },
   // ── 2단계 관심 ──────────────────────────────────────────
-  REGION_NEW_COMPANY:    { tier: NOTIF_TIER.INTEREST, icon: "📍", priority: "NORMAL" },
-  SAVED_NEW_PORTFOLIO:   { tier: NOTIF_TIER.INTEREST, icon: "🖼️", priority: "NORMAL" },
-  REGION_ACTIVITY:       { tier: NOTIF_TIER.INTEREST, icon: "📍", priority: "NORMAL" },
+  REGION_NEW_COMPANY:    { tier: NOTIF_TIER.INTEREST, icon: "📍", priority: "NORMAL", img: "/images/notif/region.webp" },
+  SAVED_NEW_PORTFOLIO:   { tier: NOTIF_TIER.INTEREST, icon: "🖼️", priority: "NORMAL", img: "/images/notif/saved.webp" },
+  REGION_ACTIVITY:       { tier: NOTIF_TIER.INTEREST, icon: "📍", priority: "NORMAL", img: "/images/notif/region.webp" },
   SAVED_TEMP_UP:         { tier: NOTIF_TIER.INTEREST, icon: "🌡️", priority: "NORMAL" },
   // ── 3단계 신뢰 ──────────────────────────────────────────
   TEMP_UP:               { tier: NOTIF_TIER.TRUST, icon: "🌡️", priority: "NORMAL" },
@@ -75,8 +77,8 @@ export const NOTIF_META = {
   RECONTRACT:            { tier: NOTIF_TIER.TRUST, icon: "🔄", priority: "NORMAL" },
   TRUST_MILESTONE:       { tier: NOTIF_TIER.TRUST, icon: "🏆", priority: "NORMAL" },
   // ── 4단계 라운지 ────────────────────────────────────────
-  LOUNGE_COMMENT:        { tier: NOTIF_TIER.LOUNGE, icon: "💬", priority: "LOW" },
-  LOUNGE_WEEKLY_HOT:     { tier: NOTIF_TIER.LOUNGE, icon: "🔥", priority: "LOW" },
+  LOUNGE_COMMENT:        { tier: NOTIF_TIER.LOUNGE, icon: "💬", priority: "LOW", img: "/images/notif/lounge.webp" },
+  LOUNGE_WEEKLY_HOT:     { tier: NOTIF_TIER.LOUNGE, icon: "🔥", priority: "LOW", img: "/images/notif/lounge.webp" },
   LOUNGE_REGION_REVIEW:  { tier: NOTIF_TIER.LOUNGE, icon: "🏘️", priority: "LOW" },
 };
 

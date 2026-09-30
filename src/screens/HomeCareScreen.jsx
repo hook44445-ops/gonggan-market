@@ -6,6 +6,7 @@ import { requestPrefillFromPost } from "../lib/loungeToRequest";
 import { kstDay } from "../lib/pageViews";
 import { requestReauth } from "../components/TokenNeededNote";
 
+
 // 내 집 관리 수첩(165 · 대표 09-29 「1등 재방문」) — 언제 무엇을 했는지 적어 두면 다음 시기를 알려 준다.
 //   본인 것만(로그인 토큰). 시기가 되면 알림함으로 한 번 · 여기서 «견적 비교해 보기»로 이어진다(작은 글씨 — 광고 버튼 아님).
 const EMPTY = () => ({ kind: null, label: "", cycle_months: "", done_on: kstDay(), memo: "" });
@@ -98,6 +99,8 @@ export default function HomeCareScreen({ userId, onBack, onRequest }) {
         <>
           {sorted.length === 0 && !form && (
             <div style={{ background: C.surface, border: `1.5px solid ${C.brandM}`, borderRadius: R.lg, padding: "14px 14px 16px" }}>
+              <img src="/images/empty/home-care.webp" alt="" aria-hidden="true" width="720" height="480" onError={(e) => { e.currentTarget.style.display = "none"; }}
+                style={{ width: "100%", maxWidth: 300, height: "auto", display: "block", margin: "0 auto 8px", borderRadius: 14 }} />
               <div style={{ fontSize: 15, fontWeight: 900, color: C.text1 }}>⏱ 30초 설정</div>
               <div style={{ fontSize: 12.5, color: C.text2, marginTop: 3, lineHeight: 1.6 }}>
                 마지막으로 언제 했는지 대략 고르면, 다음에 살펴볼 때 알려 드려요. 모르면 «잘 모름» — 한 달 뒤에 알려 드려요.
