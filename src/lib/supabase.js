@@ -309,6 +309,14 @@ export const adminSettleReferralEvent = (eventId = "2026-10") => supabase.rpc("a
 
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
 export const getAdminGrowthStats = () => supabase.rpc("admin_growth_stats");
+// 가격 데이터 쌓임(176 · 관리자) · 시세표(170 · 누구나 읽기)
+export const getAdminPriceDataStats = () => supabase.rpc("admin_price_data_stats");
+export const getPriceIndex = ({ regionCode, spaceType, buildingType = null }) => {
+  let q = supabase.from("space_price_index").select("price_per_m2, sample_count, material_grade")
+    .eq("region_code", regionCode).eq("space_type", spaceType).gt("sample_count", 0);
+  if (buildingType) q = q.eq("building_type", buildingType);
+  return q;
+};
 // 알림별 읽음률(175) — 최근 14일 종류마다 보냄·읽음(관리자 토큰)
 export const getAdminNotifyStats = () => supabase.rpc("admin_notify_stats");
 

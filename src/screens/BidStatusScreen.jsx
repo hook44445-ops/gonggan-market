@@ -20,7 +20,8 @@ import {
 } from "../services/payment";
 
 import { BIZ_GRACE_HOURS } from "../lib/contractGate";
-import BidShareCard from "../components/BidShareCard"; // 견적 비교표 이미지 → 가족에게(09-29 · 다운로드)
+import BidShareCard from "../components/BidShareCard";
+import PriceIndexLine from "../components/PriceIndexLine"; // 우리 동네 평당 시세(170 · 표본 5건 이상일 때만) // 견적 비교표 이미지 → 가족에게(09-29 · 다운로드)
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
 const AUTO_APPROVE_HOURS = 48;   // 서버 자동 승인(migration 112 · pg_cron)과 같은 값
@@ -1170,6 +1171,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
           </div>
         )}
 
+        {bids.length > 0 && <PriceIndexLine spaceType={request?.space_type ?? request?.type ?? ""} area={request?.area ?? ""} />}
         {bids.length > 1 && <BidShareCard bids={bids} space={request?.space_type ?? request?.type ?? ""} userId={userId} />}
         {/* 표 보기 — 금액·기간·공간온도만 나란히. 누르면 그 업체 카드로 간다. */}
         {tableView && bids.length > 1 && (
