@@ -12,18 +12,25 @@
 //            ※ Google 이 Legacy(fcm/send)를 폐기했으므로 실발송은 v1 이 정상 경로.
 //   · 폴백:  env FCM_SERVER_KEY(Legacy) — v1 미설정 환경에서만 사용(과거 동작 유지).
 //
+// 아이폰 앱(Expo · PLAN-2026-09-30 4절): platform='ios_expo' 토큰은 Expo 로 보낸다
+//   POST https://exp.host/--/api/v2/push/send { to, title, body, data: { url } } — 키 없이 된다.
+//   (Expo 쪽에서 «Enhanced security» 를 켰을 때만 env EXPO_ACCESS_TOKEN — 서버 전용, VITE_ 금지)
+//   기기에서 앱이 지워진 토큰(DeviceNotRegistered)은 끈다(is_active=false · 지우지 않음).
+//
 // 필요 env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY(RLS 우회),
-//           그리고 FIREBASE_SERVICE_ACCOUNT(v1) 또는 FCM_SERVER_KEY(legacy) 중 하나.
-// 미설정 시 graceful no-op(앱/큐/DB 에 영향 없음).
+//           그리고 FIREBASE_SERVICE_ACCOUNT(v1) 또는 FCM_SERVER_KEY(legacy) 중 하나(웹·안드로이드).
+// FCM 미설정이어도 아이폰(Expo)은 나간다. 웹 토큰만 있는 알림은 FCM 이 될 때까지 queued 로 둔다.
 // ─────────────────────────────────────────────────────
 
 import crypto from 'crypto';
+import { EXPO_PUSH_URL, NATIVE_PUSH_PLATFORM, expoPushMessage, readExpoTickets } from '../../src/lib/nativePush.js';
 import { isNewsType, isWithinNewsWindow, NEWS_DAILY_CAP, NEWS_TYPES, isAdType, isWithinAdWindow, AD_MAX_AGE_MS, AD_TYPES } from '../../src/utils/pushPolicy.js';
 
 const SB_URL  = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const FCM_KEY = process.env.FCM_SERVER_KEY || '';                 // Legacy(폴백 전용)
 const SA_RAW  = process.env.FIREBASE_SERVICE_ACCOUNT || '';        // HTTP v1(서비스계정 JSON)
+const EXPO_TOKEN = process.env.EXPO_ACCESS_TOKEN || '';           // 선택(Expo Enhanced security 켠 경우만)
 
 // ── 서비스계정 파싱(1회) ──────────────────────────────────────────────
 function parseServiceAccount(raw) {
@@ -146,6 +153,26 @@ async function sendFcmLegacy(token, log) {
   return { ok: ok && (detail?.success ?? 1) >= 1, detail };
 }
 
+// ── Expo(아이폰 앱) 발송 — 한 알림을 그 사람의 아이폰 토큰 전부에 한 번에 ─────────
+async function sendExpo(tokens, log) {
+  try {
+    const r = await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(EXPO_TOKEN ? { Authorization: `Bearer ${EXPO_TOKEN}` } : {}),
+      },
+      body: JSON.stringify(tokens.map((t) => expoPushMessage(t, log))),
+    });
+    let json = null;
+    try { json = await r.json(); } catch {}
+    return readExpoTickets(tokens, json);
+  } catch (e) {
+    return { okCount: 0, deadTokens: [], lastErr: String(e?.message || 'expo_fetch_failed').slice(0, 300) };
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
@@ -205,13 +232,16 @@ export default async function handler(req, res) {
   } catch { /* noop */ }
 
   // 발송 경로 결정: v1(서비스계정) 우선, 없으면 legacy(서버키) 폴백.
+  //   FCM 이 안 돼도 아이폰(Expo)은 보낸다 — 웹 토큰만 있는 알림은 queued 로 남겨 다음에.
   const useV1 = !!SA;
   let accessToken = null;
+  let fcmReady = true;
+  let fcmReason = null;
   if (useV1) {
     accessToken = await getAccessToken();
-    if (!accessToken) { res.statusCode = 200; res.end(JSON.stringify({ ok: false, reason: 'fcm_v1_auth_failed' })); return; }
+    if (!accessToken) { fcmReady = false; fcmReason = 'fcm_v1_auth_failed'; }
   } else if (!FCM_KEY) {
-    res.statusCode = 200; res.end(JSON.stringify({ ok: false, reason: 'no_fcm_credentials' })); return;
+    fcmReady = false; fcmReason = 'no_fcm_credentials';
   }
 
   // 광고 시간 밖이면 광고는 아예 안 가져온다 — 밀린 광고가 200칸을 차지해 계약·대화 알림을 막지 않게
@@ -220,7 +250,7 @@ export default async function handler(req, res) {
   if (!Array.isArray(queued)) { res.statusCode = 200; res.end(JSON.stringify({ ok: false, reason: 'query_failed' })); return; }
 
   const now = new Date();
-  const summary = { processed: 0, sent: 0, failed: 0, skipped: 0, transport: useV1 ? 'v1' : 'legacy' };
+  const summary = { processed: 0, sent: 0, failed: 0, skipped: 0, held: 0, expo_sent: 0, transport: fcmReady ? (useV1 ? 'v1' : 'legacy') : 'expo_only', ...(fcmReason ? { fcm: fcmReason } : {}) };
   const since24h = new Date(now.getTime() - 24 * 3600000).toISOString();
 
   for (const log of queued) {
@@ -261,21 +291,35 @@ export default async function handler(req, res) {
       }
     }
 
-    const tokens = await sbGet(`fcm_tokens?user_id=eq.${encodeURIComponent(log.user_id)}&is_active=eq.true&select=token`);
+    const tokens = await sbGet(`fcm_tokens?user_id=eq.${encodeURIComponent(log.user_id)}&is_active=eq.true&select=token,platform`);
     if (!Array.isArray(tokens) || tokens.length === 0) {
       await markLog(log.id, { status: 'skipped', error_message: 'no_token', sent_at: now.toISOString() });
       summary.skipped++;
       continue;
     }
+    const expoTokens = tokens.filter((t) => t.platform === NATIVE_PUSH_PLATFORM).map((t) => t.token);
+    const fcmTokens = tokens.filter((t) => t.platform !== NATIVE_PUSH_PLATFORM).map((t) => t.token);
+    // FCM 이 지금 안 되고 아이폰 토큰도 없으면 — 버리지 않고 다음 차례에
+    if (!fcmReady && expoTokens.length === 0) { summary.held++; continue; }
 
     let anyOk = false;
     let lastErr = null;
-    for (const t of tokens) {
-      const { ok, detail } = useV1
-        ? await sendFcmV1(accessToken, t.token, log)
-        : await sendFcmLegacy(t.token, log);
-      if (ok) anyOk = true;
-      else lastErr = JSON.stringify(detail)?.slice(0, 300) ?? 'fcm_error';
+    if (fcmReady) {
+      for (const token of fcmTokens) {
+        const { ok, detail } = useV1
+          ? await sendFcmV1(accessToken, token, log)
+          : await sendFcmLegacy(token, log);
+        if (ok) anyOk = true;
+        else lastErr = JSON.stringify(detail)?.slice(0, 300) ?? 'fcm_error';
+      }
+    }
+    if (expoTokens.length > 0) {
+      const { okCount, deadTokens, lastErr: expoErr } = await sendExpo(expoTokens, log);
+      if (okCount > 0) { anyOk = true; summary.expo_sent++; }
+      if (expoErr) lastErr = expoErr;
+      for (const dead of deadTokens) {
+        await sbPatch(`fcm_tokens?token=eq.${encodeURIComponent(dead)}`, { is_active: false, updated_at: now.toISOString() });
+      }
     }
 
     if (anyOk) { await markLog(log.id, { status: 'sent', sent_at: now.toISOString() }); summary.sent++; }

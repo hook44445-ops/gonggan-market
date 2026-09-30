@@ -127,11 +127,12 @@ export default function PushHealthPanel({ adminId, showToast }) {
             <Stat label="건너뜀 7일" value={stats.skipped7} />
             <Stat label="활성 기기" value={stats.tokensActive} tone={stats.tokensActive === 0 ? C.red : C.text1} />
             <Stat label="알림 켠 사람" value={stats.prefsOn} />
+            {stats.tokensIos != null && <Stat label="아이폰 앱 기기" value={stats.tokensIos} />}
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
             <EnvDot ok={stats.env?.fcmV1 || stats.env?.fcmLegacy} label="FCM 자격증명"
-              hint="FIREBASE_SERVICE_ACCOUNT 또는 FCM_SERVER_KEY 가 없어 한 건도 못 나간다" />
+              hint="FIREBASE_SERVICE_ACCOUNT 또는 FCM_SERVER_KEY 가 없어 웹·안드로이드는 못 나간다(아이폰 앱은 Expo 로 나감)" />
             <EnvDot ok={!!stats.env?.dispatchUrl} label="즉시 발송 주소"
               hint="PUSH_DISPATCH_URL / VERCEL_URL 이 없어 「지금 발송」이 동작하지 않는다" />
           </div>

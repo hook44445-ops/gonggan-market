@@ -9,7 +9,7 @@ import { familyMessage } from "../../lib/referral";
 import { myRefCode } from "../../lib/myRefCode";
 import { installOfferAfterRequest, detectAndRememberInApp } from "../../lib/appInstall";
 import { shouldAskPush, lastPushAsk, markPushAsk, PUSH_ON_PREFS, pushFailText } from "../../lib/pushAsk";
-import { enablePush, isPushSupported, isPushConfigured } from "../../lib/push";
+import { enablePush, isPushSupported, isPushConfigured, hasNativePush, pushPermission } from "../../lib/push";
 import { upsertPushPreferences } from "../../lib/supabase";
 import { isIosAppShell } from "../../constants/release";
 import ArtGlyph from "../common/ArtGlyph";
@@ -42,8 +42,8 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack, userId = 
   useEffect(() => {
     try {
       if (userId && shouldAskPush({ supported: isPushSupported(), configured: isPushConfigured(),
-        permission: typeof Notification !== "undefined" ? Notification.permission : "denied",
-        iosShell: isIosAppShell(), lastAskedAt: lastPushAsk() })) { setPushAsk("ask"); markPushAsk(); }
+        permission: pushPermission(),
+        iosShell: isIosAppShell() && !hasNativePush(), lastAskedAt: lastPushAsk() })) { setPushAsk("ask"); markPushAsk(); }
     } catch { /* 안 보임 */ }
   }, [userId]);
   const turnOnPush = async () => {
