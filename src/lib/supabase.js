@@ -53,11 +53,11 @@ export const getSession = () => supabase.auth.getSession();
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 export const upsertUser = (profile) =>
-  supabase.from("users").upsert(profile).select().single();
+  userDb().from("users").upsert(profile).select().single();
 
 // Upsert by phone (no Supabase auth id required)
 export const upsertUserByPhone = (profile) =>
-  supabase.from("users").upsert(profile, { onConflict: "phone" }).select().single();
+  userDb().from("users").upsert(profile, { onConflict: "phone" }).select().single();
 
 // 신규 회원가입 — security-definer RPC(migration 048) 경유.
 // 이 앱은 Twilio OTP + anon key 라 auth.uid()=NULL → users INSERT 정책
@@ -80,12 +80,12 @@ export const updateUserActivityRegions = async (id, activityRegions, regionText,
     ...(defaultRegionId !== undefined ? { default_activity_region_id: defaultRegionId ?? null } : {}),
     ...(regionText ? { region: regionText } : {}),
   };
-  const res = await supabase.from("users").update(full).eq("id", id).select().maybeSingle();
+  const res = await userDb().from("users").update(full).eq("id", id).select().maybeSingle();
   if (res.error) {
     // eslint-disable-next-line no-console
     console.warn("[region] users.activity_regions 저장 실패 → region text fallback:", res.error?.message);
     if (regionText) {
-      const fb = await supabase.from("users").update({ region: regionText }).eq("id", id).select().maybeSingle();
+      const fb = await userDb().from("users").update({ region: regionText }).eq("id", id).select().maybeSingle();
       await refetchRegionDebug("users", id);
       return fb;
     }
@@ -145,8 +145,9 @@ export const getCompanyByIdOrOwner = async (ref) => {
   return supabase.from("companies").select("*").eq("id", ref).maybeSingle();
 };
 
-export const upsertCompany = (data) =>
-  supabase.from("companies").upsert(data, { onConflict: "owner_id" }).select().single();
+// 업체 저장 — 운영 정책이 «토큰의 사용자 = owner_id» 라 토큰 연결로. 가입 직후처럼 현재 사용자가 아직 없으면 db 를 넘긴다.
+export const upsertCompany = (data, db = userDb()) =>
+  db.from("companies").upsert(data, { onConflict: "owner_id" }).select().single();
 
 // 영업지역(service_regions jsonb) 업데이트 — region text(primary) + default id 동기화
 // 신규 컬럼이 없으면 legacy region text 만이라도 저장(crash 금지).
@@ -156,12 +157,12 @@ export const updateCompanyServiceRegions = async (id, serviceRegions, regionText
     ...(defaultRegionId !== undefined ? { default_service_region_id: defaultRegionId ?? null } : {}),
     ...(regionText ? { region: regionText } : {}),
   };
-  const res = await supabase.from("companies").update(full).eq("id", id).select().maybeSingle();
+  const res = await userDb().from("companies").update(full).eq("id", id).select().maybeSingle();
   if (res.error) {
     // eslint-disable-next-line no-console
     console.warn("[region] companies.service_regions 저장 실패 → region text fallback:", res.error?.message);
     if (regionText) {
-      const fb = await supabase.from("companies").update({ region: regionText }).eq("id", id).select().maybeSingle();
+      const fb = await userDb().from("companies").update({ region: regionText }).eq("id", id).select().maybeSingle();
       await refetchRegionDebug("companies", id);
       return fb;
     }
@@ -910,16 +911,16 @@ const isColumnError = (res) =>
   res.error && /column|schema cache|does not exist|PGRST204|42703/i.test(res.error.message ?? res.error.code ?? "");
 
 export const createReview = async (data) => {
-  let res = await supabase.from("reviews").insert(data).select().single();
+  let res = await userDb().from("reviews").insert(data).select().single();
   if (isColumnError(res)) {
     // 1차 폴백 — Part2 확장컬럼(017 미적용) 제거 후 재시도.
     const base = { ...data };
     for (const f of REVIEW_EXT_FIELDS) delete base[f];
-    res = await supabase.from("reviews").insert(base).select().single();
+    res = await userDb().from("reviews").insert(base).select().single();
     if (isColumnError(res)) {
       // 2차 폴백 — 계약 스코프 컬럼(087 미적용)까지 제거 후 재시도(후기 저장 보장).
       for (const f of REVIEW_SCOPE_FIELDS) delete base[f];
-      res = await supabase.from("reviews").insert(base).select().single();
+      res = await userDb().from("reviews").insert(base).select().single();
     }
   }
   return res;
@@ -1047,7 +1048,7 @@ export const unsaveCompany = (customerId, companyId) =>
   userDb().from("saved_companies").delete().eq("customer_id", customerId).eq("company_id", companyId);
 
 export const replyToReview = (reviewId, reply) =>
-  supabase.from("reviews").update({ reply }).eq("id", reviewId);
+  userDb().from("reviews").update({ reply }).eq("id", reviewId);
 
 export const getReviewByContract = (contractId) =>
   supabase
@@ -1077,7 +1078,7 @@ export const getReviewsByUser = (userId) =>
     .order("created_at", { ascending: false });
 
 export const createReviewReward = (data) =>
-  supabase.from("review_rewards").insert(data).select().single();
+  userDb().from("review_rewards").insert(data).select().single();
 
 export const getReviewRewardsPending = () =>
   adminDb()
@@ -1143,13 +1144,13 @@ export const getSeedReviews = ({ limit = 20, activeOnly = true } = {}) => {
 };
 
 export const createSeedReview = (row) =>
-  supabase.from("seed_reviews").insert(row).select().single();
+  userDb().from("seed_reviews").insert(row).select().single();
 
 export const updateSeedReview = (id, updates) =>
-  supabase.from("seed_reviews").update(updates).eq("id", id).select().single();
+  userDb().from("seed_reviews").update(updates).eq("id", id).select().single();
 
 export const deleteSeedReview = (id) =>
-  supabase.from("seed_reviews").delete().eq("id", id);
+  userDb().from("seed_reviews").delete().eq("id", id);
 
 export const uploadSeedReviewImage = async (file, slot) => {
   const bucket = "seed-review-images";
@@ -1510,7 +1511,7 @@ export const getAdminLoungeChatRequests = ({ limit = 200 } = {}) => {
 export const setEarlyPartner = (companyId, joinedAt) => {
   const benefitUntil = new Date(joinedAt);
   benefitUntil.setFullYear(benefitUntil.getFullYear() + 1);
-  return supabase.from("companies").update({
+  return userDb().from("companies").update({
     is_early_partner: true,
     early_partner_joined_at: joinedAt,
     early_partner_benefit_until: benefitUntil.toISOString(),
@@ -1566,7 +1567,7 @@ export const getContractByTransactionStatus = (transactionStatus) =>
 // async: 호출부에서 fire-and-forget으로 .catch(()=>{})를 거는 곳이 많습니다.
 // 빌더 그대로 반환하면 .catch가 없어 오류 → async로 실제 Promise 반환 + 실행 보장.
 export const logActivity = async ({ userId, role, action, targetType, targetId, metadata = {} }) =>
-  supabase.from("activity_logs").insert({
+  userDb().from("activity_logs").insert({
     user_id:     userId ?? null,
     role,
     action,
@@ -1597,7 +1598,7 @@ export const getContractTimeline = (contractId) =>
 // ── STEP 21: Notifications ────────────────────────────────────────────────────
 
 export const createNotification = async ({ userId, type, title, message, relatedId, relatedType, priority = "NORMAL" }) => {
-  const result = await supabase.from("notifications").insert({
+  const result = await userDb().from("notifications").insert({
     user_id:      userId,
     type,
     title,
@@ -1634,7 +1635,7 @@ export const deleteUserAccount = async (userId, phone) => {
 };
 
 export const getUserNotifications = (userId, { unreadOnly = false, limit = 30 } = {}) => {
-  let q = supabase
+  let q = userDb()
     .from("notifications")
     .select("*")
     .eq("user_id", userId)
@@ -1645,7 +1646,7 @@ export const getUserNotifications = (userId, { unreadOnly = false, limit = 30 } 
 };
 
 export const getUnreadCount = async (userId) => {
-  const { count, error } = await supabase
+  const { count, error } = await userDb()
     .from("notifications")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
@@ -1654,20 +1655,20 @@ export const getUnreadCount = async (userId) => {
 };
 
 export const markNotificationRead = (notificationId) =>
-  supabase
+  userDb()
     .from("notifications")
     .update({ is_read: true })
     .eq("id", notificationId);
 
 export const markAllNotificationsRead = (userId) =>
-  supabase
+  userDb()
     .from("notifications")
     .update({ is_read: true })
     .eq("user_id", userId)
     .eq("is_read", false);
 
 export const subscribeToNotifications = (userId, callback) =>
-  supabase
+  userDb()
     .channel(`notifications:${userId}`)
     .on("postgres_changes", {
       event:  "INSERT",
@@ -1697,7 +1698,7 @@ export const getActiveCompanies = () =>
 // ── STEP 24: Company KPI ──────────────────────────────────────────────────────
 
 export const updateCompanyKpi = (companyId, kpi) =>
-  supabase
+  userDb()
     .from("companies")
     .update({
       avg_response_hours: kpi.avgResponseHours  ?? undefined,
@@ -1760,7 +1761,7 @@ export const createChangeOrderPaymentOrder = ({
   contractId, requestId = null, userId = null, changeOrderId, amount,
   feeAmount = 0, paymentMethod = "CARD", provider = "TOSS", status = "PENDING", rawResponse = null,
 }) =>
-  supabase.from("payment_orders").insert({
+  userDb().from("payment_orders").insert({
     contract_id:     contractId,
     request_id:      requestId,
     user_id:         userId,
@@ -1777,14 +1778,14 @@ export const createChangeOrderPaymentOrder = ({
   }).select().single();
 
 export const updateChangeOrderPaymentOrder = (id, { status, rawResponse = null, paidAt = null }) =>
-  supabase.from("payment_orders").update({
+  userDb().from("payment_orders").update({
     status,
     ...(rawResponse != null && { raw_response: rawResponse }),
     ...(paidAt && { paid_at: paidAt }),
   }).eq("id", id).select().single();
 
 export const getChangeOrderPaymentOrder = (changeOrderId) =>
-  supabase.from("payment_orders")
+  userDb().from("payment_orders")
     .select("*")
     .eq("change_order_id", changeOrderId)
     .eq("payment_source", "change_order")
@@ -1968,16 +1969,16 @@ export const adminReviewCompany = (companyId, adminId, docStatus, rejectNote = n
 // ── STEP H: Payment Orders ────────────────────────────────────────────────────
 
 export const createPaymentOrder = (data) =>
-  supabase.from("payment_orders").insert(data).select().single();
+  userDb().from("payment_orders").insert(data).select().single();
 
 export const getPaymentOrder = (id) =>
-  supabase.from("payment_orders").select("*").eq("id", id).single();
+  userDb().from("payment_orders").select("*").eq("id", id).single();
 
 export const getPaymentOrderByBid = (bidId) =>
-  supabase.from("payment_orders").select("*").eq("bid_id", bidId).maybeSingle();
+  userDb().from("payment_orders").select("*").eq("bid_id", bidId).maybeSingle();
 
 export const updatePaymentOrderStatus = (id, status) =>
-  supabase.from("payment_orders").update({ status }).eq("id", id).select().single();
+  userDb().from("payment_orders").update({ status }).eq("id", id).select().single();
 
 // ── STEP H: Escrow Payouts ────────────────────────────────────────────────────
 
@@ -2074,7 +2075,7 @@ export const getSiteVisitsByCompany = (companyId) =>
   supabase.from("site_visits").select("*").eq("company_id", companyId).order("created_at", { ascending: false });
 
 export const updateSiteVisit = (id, data) =>
-  supabase.from("site_visits").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+  userDb().from("site_visits").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
 
 // GPS 체크인 — 버튼 클릭 시점 1회 위치 기록(실시간 추적 아님). RPC 가 현장방문 소유자 검증.
 export const gpsCheckin = (id, { lat, lng, photos }, actorId = null) =>
@@ -2896,7 +2897,7 @@ export const repostRequest = async (requestId) => {
 };
 
 export const createRequestRepost = (data) =>
-  supabase.from("request_reposts").insert(data).select().single();
+  userDb().from("request_reposts").insert(data).select().single();
 
 export const expireRequest = (id) =>
   supabase.from("requests").update({ status: "expired" }).eq("id", id);
@@ -3228,7 +3229,7 @@ export const getLoungeComments = (postId) =>
     .order("created_at", { ascending: true });
 
 export const createLoungeComment = (data) =>
-  supabase.from("lounge_comments").insert(data).select().single();
+  userDb().from("lounge_comments").insert(data).select().single();
 
 // 관련글 — SEO 내부링크용. 같은 카테고리 인기글 우선, 부족분은 최신글로 보강.
 // 관련글 — 같은 카테고리 안에서 **같은 동네 글을 먼저** 준다(2026-09-23).
@@ -3266,7 +3267,7 @@ export const getRelatedLoungePosts = async (category, excludeId, limit = 4, regi
 };
 
 export const softDeleteLoungeComment = (commentId, userId) =>
-  supabase
+  userDb()
     .from("lounge_comments")
     .update({ is_deleted: true, deleted_at: new Date().toISOString(), deleted_by: userId })
     .eq("id", commentId)
@@ -3316,14 +3317,14 @@ export const getTokenSummary = (userId) =>
   supabase.rpc("token_summary", { p_user_id: userId });
 
 export const upsertSpaceToken = (userId, balance) =>
-  supabase
+  userDb()
     .from("space_tokens")
     .upsert({ user_id: userId, balance }, { onConflict: "user_id" })
     .select("balance")
     .single();
 
 export const createSpaceTokenLog = ({ userId, type, action, amount, description }) =>
-  supabase.from("space_token_logs").insert({
+  userDb().from("space_token_logs").insert({
     user_id:     userId,
     type,
     action,
@@ -3392,12 +3393,12 @@ export const checkLoungePostLiked = (postId, userId) =>
     .maybeSingle();
 
 export const addLoungePostLike = (postId, userId) =>
-  supabase
+  userDb()
     .from("lounge_post_likes")
     .upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
 
 export const removeLoungePostLike = (postId, userId) =>
-  supabase
+  userDb()
     .from("lounge_post_likes")
     .delete()
     .eq("post_id", postId)
@@ -3420,7 +3421,7 @@ export const unlikeLoungePost = async (postId) => {
 // ── STEP SYNC-4: Lounge Saves ─────────────────────────────────────────────────
 
 export const checkLoungeSaved = (postId, userId) =>
-  supabase
+  userDb()
     .from("lounge_saves")
     .select("id")
     .eq("post_id", postId)
@@ -3428,12 +3429,12 @@ export const checkLoungeSaved = (postId, userId) =>
     .maybeSingle();
 
 export const addLoungeSave = (postId, userId) =>
-  supabase
+  userDb()
     .from("lounge_saves")
     .upsert({ post_id: postId, user_id: userId }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
 
 export const removeLoungeSave = (postId, userId) =>
-  supabase
+  userDb()
     .from("lounge_saves")
     .delete()
     .eq("post_id", postId)
@@ -3462,7 +3463,7 @@ export const adminUnhideLoungePost = (postId) =>
 // ── Notifications ─────────────────────────────────────────────────────────────
 
 export const getNotifications = (userId) =>
-  supabase
+  userDb()
     .from("notifications")
     .select("*")
     .eq("user_id", userId)
@@ -3470,20 +3471,20 @@ export const getNotifications = (userId) =>
     .limit(50);
 
 export const markAllNotifsRead = (userId) =>
-  supabase
+  userDb()
     .from("notifications")
     .update({ is_read: true })
     .eq("user_id", userId)
     .eq("is_read", false);
 
 export const markNotifRead = (notifId) =>
-  supabase
+  userDb()
     .from("notifications")
     .update({ is_read: true })
     .eq("id", notifId);
 
 export const createLoungeNotification = ({ userId, type, title, message, relatedId = null, relatedType = null }) =>
-  supabase.from("notifications").insert({
+  userDb().from("notifications").insert({
     user_id:      userId,
     type,
     title,
@@ -3497,7 +3498,7 @@ export const createLoungeNotification = ({ userId, type, title, message, related
 
 // 기기 토큰 등록(동일 토큰 upsert, 동일 유저 여러 기기 허용)
 export const upsertFcmToken = ({ userId, token, platform = "web", deviceInfo = null }) =>
-  supabase
+  userDb()
     .from("fcm_tokens")
     .upsert(
       { user_id: userId, token, platform, device_info: deviceInfo, is_active: true, updated_at: new Date().toISOString(), last_used_at: new Date().toISOString() },
@@ -3507,14 +3508,14 @@ export const upsertFcmToken = ({ userId, token, platform = "web", deviceInfo = n
     .maybeSingle();
 
 export const deactivateFcmToken = (token) =>
-  supabase.from("fcm_tokens").update({ is_active: false, updated_at: new Date().toISOString() }).eq("token", token);
+  userDb().from("fcm_tokens").update({ is_active: false, updated_at: new Date().toISOString() }).eq("token", token);
 
 // 수신 설정 조회/저장 (유저당 1행, 기본 전체 OFF)
 export const getPushPreferences = (userId) =>
-  supabase.from("push_preferences").select("*").eq("user_id", userId).maybeSingle();
+  userDb().from("push_preferences").select("*").eq("user_id", userId).maybeSingle();
 
 export const upsertPushPreferences = (userId, prefs) =>
-  supabase
+  userDb()
     .from("push_preferences")
     .upsert({ user_id: userId, ...prefs, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
     .select("*")
@@ -3606,7 +3607,7 @@ export const fetchAcceptedReceivedChatRequests = (userId, limit = 50) =>
 
 // Primary: PAID orders only (used for payment confirmation flow)
 export const getPaymentOrderByRequest = (requestId) =>
-  supabase.from("payment_orders")
+  userDb().from("payment_orders")
     .select("*")
     .eq("request_id", requestId)
     .eq("status", "PAID")
@@ -3616,7 +3617,7 @@ export const getPaymentOrderByRequest = (requestId) =>
 
 // Fallback: any status — catches DEPOSITED / PENDING orders that also carry contract_id
 export const getPaymentOrderByRequestAny = (requestId) =>
-  supabase.from("payment_orders")
+  userDb().from("payment_orders")
     .select("*")
     .eq("request_id", requestId)
     .order("created_at", { ascending: false })
@@ -3873,7 +3874,7 @@ export async function checkDirectDealKeyword(messageText, { requestId = null, co
   const detected = detectDirectDealKeywords(messageText);
   if (detected.length === 0) return [];
 
-  await supabase.from("direct_deal_reports").insert({
+  await userDb().from("direct_deal_reports").insert({
     request_id:  requestId,
     company_id:  companyId,
     customer_id: customerId,
@@ -3940,7 +3941,7 @@ export const getCompanyLoungeStats = async (userId) => {
   } catch { return empty; }
 };
 export const createPortfolioReport = ({ companyId = null, reporterId = null, imageUrl = null, reason = null, postId = null, portfolioId = null } = {}) =>
-  supabase.from("direct_deal_reports").insert({
+  userDb().from("direct_deal_reports").insert({
     company_id:   companyId,
     trigger_type: "manual_report",
     status:       "pending",
@@ -4011,13 +4012,13 @@ export async function checkSiteVisitFollowUp() {
   for (const v of overdue ?? []) {
     const key = `no_estimate_72h:${v.id}`;
     if (flaggedKey.has(key)) continue;
-    await supabase.from("direct_deal_reports").insert({
+    await userDb().from("direct_deal_reports").insert({
       request_id: v.request_id ?? null,
       company_id: v.company_id ?? null,
       trigger_type: "no_estimate_72h",
       trigger_detail: { site_visit_id: v.id, completed_at: v.completed_at },
     });
-    await supabase.from("site_visits").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", v.id);
+    await userDb().from("site_visits").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", v.id);
     if (v.company_id) await updateCompanyTemp(v.company_id, -3);
     await notifyAdmins({
       type: "DIRECT_DEAL_DETECTED",
@@ -4042,7 +4043,7 @@ export async function checkSiteVisitFollowUp() {
     const hasContract = await checkContractExists(v.request_id, v.company_id);
     if (hasContract) continue;
 
-    await supabase.from("direct_deal_reports").insert({
+    await userDb().from("direct_deal_reports").insert({
       request_id: v.request_id ?? null,
       company_id: v.company_id ?? null,
       trigger_type: "no_contract_7d",
@@ -4095,7 +4096,7 @@ export async function checkSiteVisitFollowUp() {
 // ── 직거래 수동 신고 (트리거 5: manual_report) ────────────────────────────────
 // 채팅 화면 신고 버튼 → 사유 선택 후 insert. 중복 신고는 허용(증거 누적).
 export async function reportDirectDeal({ requestId = null, companyId = null, customerId = null, reporterId = null, reportReason = null } = {}) {
-  const { error } = await supabase.from("direct_deal_reports").insert({
+  const { error } = await userDb().from("direct_deal_reports").insert({
     request_id:  requestId,
     company_id:  companyId,
     customer_id: customerId,
@@ -4140,7 +4141,7 @@ export async function checkDirectDealSchedules() {
   const flag = async (trigger_type, { requestId = null, companyId = null, customerId = null, detail = {} }) => {
     const key = `${trigger_type}:${requestId ?? ""}:${companyId ?? ""}:${customerId ?? ""}`;
     if (seen.has(key)) return false;
-    const { error } = await supabase.from("direct_deal_reports").insert({
+    const { error } = await userDb().from("direct_deal_reports").insert({
       request_id: requestId, company_id: companyId, customer_id: customerId,
       trigger_type, trigger_detail: detail,
     });

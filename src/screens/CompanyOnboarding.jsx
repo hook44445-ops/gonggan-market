@@ -16,8 +16,8 @@
 
 import { useState } from "react";
 import { C, R, S, SPECIALTIES } from "../constants";
-import { signupUserByPhone, upsertCompany } from "../lib/supabase";
-import { exchangeSignupTicket } from "../lib/session";
+import { supabase, signupUserByPhone, upsertCompany } from "../lib/supabase";
+import { exchangeSignupTicket, authedDb } from "../lib/session";
 import { toE164KR } from "../lib/testAccounts";
 import RegionSelectSheet from "../components/RegionSelectSheet";
 import { getPrimaryRegion, regionKey } from "../constants/regions";
@@ -65,6 +65,9 @@ export default function CompanyOnboarding({ phone, verifiedName = "", onDone }) 
       if (uErr || !userRow?.id) throw uErr || new Error("user");
       const joinedAt = new Date();
       const until = new Date(joinedAt); until.setFullYear(until.getFullYear() + 1);
+      // 로그인 토큰을 먼저 받는다 — 업체 표는 «토큰의 사용자 = owner_id» 만 저장된다(운영 정책). 예전엔 업체 저장 뒤에
+      // 토큰을 받아, 토큰 없이 저장하다 막혀 «가입을 마치지 못했어요»가 났다.
+      const sessionToken = await exchangeSignupTicket();
       const { error: cErr } = await upsertCompany({
         owner_id: userRow.id,
         name: form.bizName.trim(),
@@ -78,10 +81,9 @@ export default function CompanyOnboarding({ phone, verifiedName = "", onDone }) 
         is_early_partner: true,
         early_partner_joined_at: joinedAt.toISOString(),
         early_partner_benefit_until: until.toISOString(),
-      });
+      }, authedDb(userRow.id) ?? supabase);
       if (cErr) throw cErr;
-      // 가입 뒤 로그인 토큰(인증 때 받은 가입 표로) — onDone 이 App.handleLogin 으로 넘긴다.
-      const sessionToken = await exchangeSignupTicket();
+      // 받은 토큰은 onDone 이 App.handleLogin 으로 넘긴다.
       setJoined(sessionToken ? { ...userRow, sessionToken } : userRow);
     } catch {
       setError("가입을 마치지 못했어요. 잠시 후 다시 시도해 주세요.");
