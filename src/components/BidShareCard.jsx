@@ -5,12 +5,13 @@ import { kstDay } from "../lib/pageViews";
 import { bidShareRows, bidShareTitle, bidShareText, showMoment, momentKey } from "../lib/bidShare";
 import { inviteUrl } from "../lib/referral";
 import { myRefCode } from "../lib/myRefCode";
+import { loadCardBg, paintCardBg, CARD_BG } from "../lib/canvasImage";
 
 // 견적 비교표 한 장(가족과 같이 고르기) — 업체 이름·금액·기간·공간온도 + 내 초대 QR. 저장하지 않는다(공유·내려받기).
 const W = 1080, PAD = 64;
 const FONT = "'Pretendard','Apple SD Gothic Neo',sans-serif";
 
-export function drawBidShare(canvas, { title, rows, qrUrl, day }) {
+export function drawBidShare(canvas, { title, rows, qrUrl, day, bg = null }) {
   const rowH = 96;
   const H = 300 + rows.length * rowH + 300;
   canvas.width = W; canvas.height = H;
@@ -19,6 +20,7 @@ export function drawBidShare(canvas, { title, rows, qrUrl, day }) {
     ctx.font = `${weight} ${size}px ${FONT}`; ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(s, x, y);
   };
   ctx.fillStyle = "#F6F3EE"; ctx.fillRect(0, 0, W, H);
+  paintCardBg(ctx, bg, W); // 종이 + 오른쪽 위 줄자·견본(힉스필드) · 없으면 단색
   ctx.fillStyle = "#1D3D2F"; ctx.fillRect(0, 0, W, 14);
   text(title, PAD, 118, 54, 900, "#1D3D2F");
   text(`${day} · 받은 견적 ${rows.length}곳`, PAD, 172, 30, 600, "#5C6B61");
@@ -62,6 +64,8 @@ export default function BidShareCard({ bids, space, userId, requestId = null }) 
   const [code, setCode] = useState(null);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [bg, setBg] = useState(null);
+  useEffect(() => { let alive = true; loadCardBg(CARD_BG.bidCompare).then((img) => { if (alive) setBg(img); }); return () => { alive = false; }; }, []);
   // 초대 코드를 미리 받아 둔다(버튼에서 기다리면 아이폰이 공유창을 막는다)
   useEffect(() => {
     if (!userId) return;
@@ -81,7 +85,7 @@ export default function BidShareCard({ bids, space, userId, requestId = null }) 
     setBusy(true); setMsg(null);
     try {
       const url = code ? inviteUrl(code) : "https://gongganmarket.com";
-      const canvas = drawBidShare(document.createElement("canvas"), { title: bidShareTitle(space), rows, qrUrl: url, day: kstDay() });
+      const canvas = drawBidShare(document.createElement("canvas"), { title: bidShareTitle(space), rows, qrUrl: url, day: kstDay(), bg });
       const blob = await new Promise((ok) => canvas.toBlob(ok, "image/png"));
       if (!blob) throw new Error("NO_BLOB");
       const file = new File([blob], `견적비교_${kstDay().replace(/-/g, "")}.png`, { type: "image/png" });

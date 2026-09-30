@@ -37,6 +37,14 @@ function relTime(iso) {
 
 const PREVIEW_COUNT = 2; // 마이페이지 알림함 미리보기 2개(나머지는 '더보기'). UI 표시 전용.
 
+// 그림이 있으면 그림, 못 오면 지금 아이콘(이모지) 그대로
+function NotifGlyph({ img, emoji, dim }) {
+  const [bad, setBad] = useState(false);
+  if (img && !bad) return <img src={img} alt="" aria-hidden="true" width="22" height="22" onError={() => setBad(true)}
+    style={{ width: 22, height: 22, objectFit: "contain", opacity: dim ? 0.55 : 1 }} />;
+  return <Icon emoji={emoji} size={14} color={dim ? C.text3 : C.brand} />;
+}
+
 export default function NotificationInbox({ user, onRead, onNavigate }) {
   const userId = user?.id ?? null;
   const [items, setItems]     = useState([]);
@@ -115,6 +123,7 @@ export default function NotificationInbox({ user, onRead, onNavigate }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {visible.map(n => {
               const icon = NOTIF_META[n.type]?.icon ?? "🔔";
+              const img = NOTIF_META[n.type]?.img ?? null;
               return (
                 <div key={n.id} onClick={() => handleTap(n)}
                   style={{
@@ -127,7 +136,7 @@ export default function NotificationInbox({ user, onRead, onNavigate }) {
                   <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
                     background: n.is_read ? C.bg : C.surface,
                     display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
-                    <Icon emoji={icon} size={14} color={n.is_read ? C.text3 : C.brand} />
+                    <NotifGlyph img={img} emoji={icon} dim={n.is_read} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
