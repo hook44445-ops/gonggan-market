@@ -51,14 +51,34 @@ test("스토어 문안의 앱 아이콘이 manifest 와 같은 판이다", () =>
     `스토어 문안 아이콘이 manifest(v${cur[1]}) 와 다르다: ${row.trim()}`);
 });
 
-// 스토어에 올릴 문안에 «사업자등록 확인 업체만 견적» 류를 다시 쓰지 않는다.
-// 가입만 해도 300만원까지 입찰한다(src/lib/partnerTier.js LIMITS.NONE).
-// 「사실이 아닌 것」이자 「더 좋은 말(어디까지 증빙했는지 보인다)을 버리는 것」이다.
-test("스토어 문안이 없는 검증을 광고하지 않는다", () => {
-  const banned = /확인 업체만 견적|사업자등록을? 확인한? 업체(의|가|만|들)/;
-  for (const [name, full] of [["APPSTORE-ko.md", doc], ["ASO-ko.md", aso]]) {
-    // «⚠️ 지금 사실이 아니다» 처럼 잘못을 적어 둔 경고 줄은 빼고 본다.
-    const body = full.split("\n").filter(l => !/⚠️|사실이 아니|정정|고침|박혀 있/.test(l)).join("\n");
-    assert.ok(!banned.test(body), `${name} 에 없는 검증 광고가 남아 있다`);
-  }
+// 스토어 문안도 사업자등록을 «계약»에 붙인다(사실 · contractGate 로 막혀 있다).
+// «견적·입찰»에 붙이면 사실이 아니다 — 가입만 해도 300만원까지 입찰한다(partnerTier LIMITS.NONE).
+//
+// 설명하는 글(«왜 고쳤나» 같은 메모)에는 틀린 문구가 인용으로 나올 수밖에 없다.
+// 그래서 문서 전체가 아니라 «실제로 스토어에 붙여 넣는 칸»만 본다.
+function section(full, title, stops) {
+  const i = full.indexOf(`## ${title}`);
+  assert.ok(i >= 0, `칸이 없다: ${title}`);
+  const rest = full.slice(i + title.length + 3);
+  const ends = stops.map(t => rest.indexOf(`## ${t}`)).filter(n => n >= 0);
+  return rest.slice(0, ends.length ? Math.min(...ends) : rest.length);
+}
+
+test("스토어에 붙여 넣는 칸이 견적에 없는 검증을 붙이지 않는다", () => {
+  const banned = /확인 업체만 견적|사업자등록을? 확인한? 업체[^.]{0,24}(견적을? 보|견적을? 받|입찰)/;
+  const cells = [
+    ["APPSTORE 앱 이름", field("앱 이름")],
+    ["APPSTORE 부제", field("부제")],
+    ["APPSTORE 프로모션 텍스트", field("프로모션 텍스트")],
+    ["ASO 앱 이름", section(aso, "앱 이름 (30자)", ["간단한 설명"])],
+    ["ASO 간단한 설명", section(aso, "간단한 설명 (80자) — 매력", ["자세한 설명"])],
+    ["ASO 자세한 설명", section(aso, "자세한 설명 (4000자)", ["이미지 (Play)"])],
+  ];
+  for (const [name, text] of cells) assert.ok(!banned.test(text), `${name} 에 없는 검증 광고가 있다`);
+});
+
+// 반대로 «계약은 사업자등록 확인 업체와만» 은 코드로 막혀 있는 우리만의 말이다 — 자세한 설명에서 빠지지 않게.
+test("스토어 자세한 설명이 계약 단계의 사업자등록 확인을 말한다", () => {
+  const body = section(aso, "자세한 설명 (4000자)", ["이미지 (Play)"]);
+  assert.ok(/계약은 사업자등록을 확인한 업체와만/.test(body), "ASO 자세한 설명에서 사라졌다");
 });

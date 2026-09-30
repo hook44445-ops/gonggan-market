@@ -150,8 +150,8 @@ const JOURNEY = [
   {
     no: "02", when: "고르는 날",
     title: "금액만이 아니라 근거를 봅니다",
-    desc: "공정·기간·보증을 나란히 놓고 비교합니다. 업체가 올린 시공 사례와 고객 후기도 같은 자리에서 확인합니다.",
-    proof: "견적 비교 · 시공 사례",
+    desc: "공정·기간·보증을 나란히 놓고 비교합니다. 계약은 사업자등록을 확인한 업체와만 맺습니다.",
+    proof: "견적 비교 · 사업자 확인",
     img: "/images/journey/step2.webp",
   },
   {
@@ -290,7 +290,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             인테리어, 비교는 <em>쉽게</em><br />공사는 <em>품격 있게</em>
           </h1>
           <p className="lm-hero-sub gg-rise gg-d2">
-            확인된 업체들이 같은 조건으로 견적을 보내요. 계약 · 현장 사진 · 진행 단계가 한 자리에 남아 끝까지 안심. 가입비 0원 · 견적 무료.
+            같은 조건으로 견적을 받고, 계약은 사업자등록을 확인한 업체와만. 현장 사진과 진행 단계가 한 자리에 남아 끝까지 안심. 가입비 0원 · 견적 무료.
           </p>
           <button onClick={goConsumer} className="gg-rise gg-d3 gg-cta" style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
             무료 비교견적 받기 →
@@ -441,7 +441,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <h2 style={{ fontSize: "clamp(22px,5vw,32px)", fontWeight: 800, lineHeight: 1.3, margin: "12px 0 0", letterSpacing: "-0.035em", wordBreak: "keep-all" }}>
             업체는 찾아다니지 마세요.<br />견적이 찾아옵니다
           </h2>
-          <p style={{ opacity: .72, fontSize: 13.5, marginTop: 12, lineHeight: 1.7, wordBreak: "keep-all" }}>요청서 한 장이면, 확인된 업체들이 같은 조건으로 견적을 보내요. 가입비 0원 · 견적 무료.</p>
+          <p style={{ opacity: .72, fontSize: 13.5, marginTop: 12, lineHeight: 1.7, wordBreak: "keep-all" }}>요청서 한 장이면 업체들이 같은 조건으로 견적을 보내요. 계약은 사업자등록을 확인한 업체와만. 가입비 0원 · 견적 무료.</p>
           <button onClick={goConsumer} className="gg-cta gg-cta-gold" style={{ ...btnBase, maxWidth: 340, background: "linear-gradient(180deg,#E2CB98 0%,#C8A86A 100%)",
             color: "#121A16", margin: "22px auto 0" }}>
             무료 비교견적 받기
