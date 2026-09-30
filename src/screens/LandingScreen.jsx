@@ -445,7 +445,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         {/* ── 업체 입구 — 고객 랜딩에서도 «입점하고 싶게» 한 줄 ── */}
         <a href="/partner" className="gm-partner-teaser" style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 14, textDecoration: "none",
           color: "#F4EFE4", borderRadius: 22, overflow: "hidden", margin: "0 0 20px", padding: "20px 20px",
-          background: "linear-gradient(100deg, rgba(20,38,28,.96) 0%, rgba(20,38,28,.86) 55%, rgba(20,38,28,.45) 100%), url('/images/partner/hero-v2-wide.webp') 70% center/cover" }}>
+          background: "linear-gradient(100deg, rgba(22,41,74,.96) 0%, rgba(22,41,74,.84) 55%, rgba(22,41,74,.40) 100%), url('/images/partner/hero-cool-wide.webp') 70% center/cover" }}>
           <span>
             <span style={{ display: "block", fontSize: 11.5, fontWeight: 800, color: "#D6A756", letterSpacing: ".1em" }}>인테리어 사장님이신가요?</span>
             <span style={{ display: "block", fontSize: 17, fontWeight: 800, marginTop: 6, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>광고비 0원 · 요청한 고객에게만 · 가입 1분</span>

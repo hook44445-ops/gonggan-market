@@ -136,3 +136,10 @@
   .lm-worry.is-in .lm-seal { animation: none; }
   .lm-scene { transition: none; }
 }
+
+/* ── 파트너(/partner) 쿨 네이비 — 09-30 대표 「파트너는 푸른 쿨톤 · 신뢰적 요소로」 · 고객 쪽 따뜻한 칸은 그대로 ── */
+.lm-cool .lm-worry { border-color: #E2E7EF; }
+.lm-cool .lm-worry-a { background: #EEF2F8; color: #2F3B4B; }
+.lm-cool .lm-worry-a b { color: #16294A; }
+.lm-cool .lm-proof { background: rgba(255,255,255,.94); border-color: #D5DCE7; color: #16294A; }
+.lm-cool .lm-ping-s { color: #5E6B7E; }
