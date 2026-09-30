@@ -79,17 +79,24 @@ psql -h /tmp -p 55432 -U postgres
 ## 4. 다음 할 일 — 순서대로
 
 1. **3절에서 막힌 곳부터**(새 기능보다 먼저)
-1-1. **남은 열린 정책 전수 확인**(184 뒤 마무리) — 대표에게 아래 결과를 받아 `true` 로 열린
-   INSERT/UPDATE/DELETE 가 더 없는지 본다. 일부러 열어 둔 셋(activity_logs · user_visits ·
-   partner_leads)만 남아야 정상이다.
-   ```sql
-   select tablename, policyname, cmd, roles, qual, with_check
-     from pg_policies
-    where schemaname = 'public'
-      and cmd in ('ALL','INSERT','UPDATE','DELETE')
-      and (coalesce(qual,'') = 'true' or coalesce(with_check,'') = 'true')
-    order by 1, 3;
-   ```
+1-1. ✅ **남은 열린 정책 전수 확인 — 09-30 완료. 보안 점검 ⑤ 종료.**
+   대표가 운영에서 뽑은 결과(`cmd in ('ALL','INSERT','UPDATE','DELETE')` 이면서 `qual`/`with_check` 가 `true`):
+
+   | 표 | 정책 | cmd |
+   |---|---|---|
+   | activity_logs | g180_al_insert | INSERT |
+   | partner_leads | partner_leads: anon insert | INSERT |
+   | user_visits | user_visits_insert | INSERT |
+
+   **셋뿐이고 전부 INSERT** — 일부러 열어 둔 「넣기만 되는」 표들이다(활동 기록 · 파트너 문의 양식 · 방문 수).
+   `ALL`·`UPDATE`·`DELETE` 로 열린 것은 **하나도 남지 않았다**. 184 전에 있던
+   `payment_transactions`(누구나 남의 결제 기록 읽기·고치기·지우기) · `seed_lounge_posts` ·
+   `portfolio_projects` · `escrow_contracts` 가 모두 닫혔다.
+
+   > 남는 위험(알고 두는 것): 이 세 표는 누구나 **줄을 넣을 수는** 있다(스팸·숫자 부풀리기).
+   > 읽기·고치기·지우기는 안 된다. 실제로 쓰레기 줄이 들어오기 시작하면 그때
+   > 파트너 문의 양식에 사람 확인(캡차 등)이나 IP 당 제한을 붙이는 쪽으로 본다.
+
 2. **아이폰 로그인 유지** — `docs/QA-2026-09-30-ios.md` 가 생기면(로컬 몫) 웹 쪽 보완(예: 토큰을 앱에 백업·복원하는 메시지 · 규격은 로컬과 맞춘다). 아직 파일 없음
 3. **⑥ 월요일 주간 숫자 루프** — 관리자 숫자 → `docs/WEEKLY-YYYY-MM-DD.md` → 가장 약한 숫자 하나만 올리는 일(PLAN 5절) · 읽음률 20% 미만 알림은 문구·시각 조정
 4. 결제사가 정해지면 2절 «할 일» 1~5
