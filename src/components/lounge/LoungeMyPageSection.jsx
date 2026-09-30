@@ -21,7 +21,8 @@ import {
   getPushPreferences,
   upsertPushPreferences,
 } from '../../lib/supabase';
-import { enablePush, disablePush } from '../../lib/push';
+import { enablePush, disablePush, hasNativePush, pushPermission } from '../../lib/push';
+import { pushFailText } from '../../lib/pushAsk';
 import { Spinner } from '../v3/ui';
 
 // ── 로컬스토리지 헬퍼 ──────────────────────────────────
@@ -650,7 +651,7 @@ function NotifSettings({ user }) {
 
   const [enabled,    setEnabled]  = useState(() => load('lounge_notif_enabled', false));
   const [selected,   setSelected] = useState(() => load('lounge_notif_cats', []));
-  const [permStatus, setPermStatus] = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'default');
+  const [permStatus, setPermStatus] = useState(() => hasNativePush() ? pushPermission() : typeof Notification !== 'undefined' ? Notification.permission : 'default');
   const [toast,      setToast]    = useState(null);
   const [busy,       setBusy]     = useState(false);
 
@@ -714,7 +715,8 @@ function NotifSettings({ user }) {
     const ua = navigator.userAgent || '';
     return /KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\/|DaumApps|everytimeApp/i.test(ua);
   })();
-  const notifUnsupported = typeof window !== 'undefined' && !('Notification' in window);
+  const nativeApp = hasNativePush();   // 아이폰 앱 안 — 권한은 앱이 묻는다(브라우저 안내 X)
+  const notifUnsupported = !nativeApp && typeof window !== 'undefined' && !('Notification' in window);
 
   const handleToggle = async () => {
     if (busy) return;
@@ -742,6 +744,7 @@ function NotifSettings({ user }) {
     // 4) 안내
     if (!next) { showToast('알림을 껐어요'); return; }
     if (pushResult?.ok) { showToast('✅ 알림을 켰어요!'); return; }
+    if (nativeApp) { showToast(`알림 설정은 저장됐어요. ${pushFailText(pushResult?.reason)}`); return; }
     if (notifUnsupported || isInApp) { showToast('알림 설정을 저장했어요. 기기 푸시는 우측 상단 ⋯ → 다른 브라우저로 열면 받을 수 있어요'); return; }
     if (pushResult?.reason === 'permission_denied') { showToast('알림 설정은 저장됐어요. 기기 푸시는 주소창 자물쇠🔒 → 알림 허용으로 받을 수 있어요'); return; }
     showToast('✅ 알림 설정을 저장했어요!');
@@ -750,7 +753,7 @@ function NotifSettings({ user }) {
   // 권한이 막힌 상태 안내 문구(인라인 배너용)
   const blockedHelp = notifUnsupported && isInApp
     ? '카카오톡·인스타 등 앱 안에서는 기기 푸시를 받을 수 없어요. 우측 상단 ⋯ 메뉴 → "다른 브라우저로 열기"로 접속하면 받을 수 있어요. (알림 설정 자체는 저장돼요)'
-    : permStatus === 'denied'
+    : !nativeApp && permStatus === 'denied'
     ? '브라우저에서 기기 푸시가 차단돼 있어요. 주소창의 자물쇠🔒 아이콘 → 알림 → "허용"으로 바꾸면 받을 수 있어요. (알림 설정 자체는 저장돼요)'
     : null;
 

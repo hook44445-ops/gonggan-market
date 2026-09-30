@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { C, R, S } from "../constants";
 import { shouldAskPush, lastPushAsk, markPushAsk, PUSH_ON_PREFS, pushFailText } from "../lib/pushAsk";
-import { enablePush, isPushSupported, isPushConfigured } from "../lib/push";
+import { enablePush, isPushSupported, isPushConfigured, hasNativePush, pushPermission } from "../lib/push";
 import { upsertPushPreferences } from "../lib/supabase";
 import { isIosAppShell } from "../constants/release";
 import ArtGlyph from "./common/ArtGlyph";
@@ -12,8 +12,8 @@ export default function PushAskCard({ userId, title, sub }) {
   useEffect(() => {
     try {
       if (userId && shouldAskPush({ supported: isPushSupported(), configured: isPushConfigured(),
-        permission: typeof Notification !== "undefined" ? Notification.permission : "denied",
-        iosShell: isIosAppShell(), lastAskedAt: lastPushAsk() })) { setSt("ask"); markPushAsk(); }
+        permission: pushPermission(),
+        iosShell: isIosAppShell() && !hasNativePush(), lastAskedAt: lastPushAsk() })) { setSt("ask"); markPushAsk(); }
     } catch { /* 안 보임 */ }
   }, [userId]);
   if (!st) return null;

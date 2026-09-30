@@ -176,21 +176,23 @@ async function verifyAdmin(_adminId, req) {
 
 async function pushStats() {
   const since = new Date(Date.now() - 7 * 24 * 3600000).toISOString();
-  const countOf = async (build) => {
-    const { count } = await build.select("id", { count: "exact", head: true });
+  // select() 를 먼저 불러야 eq/gte 를 붙일 수 있다(supabase-js v2 — from().eq 는 없다)
+  const countOf = async (table, where = (q) => q) => {
+    const { count } = await where(db.from(table).select("id", { count: "exact", head: true }));
     return count ?? 0;
   };
 
   const [queued, sent7, failed7, skipped7] = await Promise.all([
-    countOf(db.from("push_logs").eq("status", "queued")),
-    countOf(db.from("push_logs").eq("status", "sent").gte("sent_at", since)),
-    countOf(db.from("push_logs").eq("status", "failed").gte("sent_at", since)),
-    countOf(db.from("push_logs").eq("status", "skipped").gte("sent_at", since)),
+    countOf("push_logs", (q) => q.eq("status", "queued")),
+    countOf("push_logs", (q) => q.eq("status", "sent").gte("sent_at", since)),
+    countOf("push_logs", (q) => q.eq("status", "failed").gte("sent_at", since)),
+    countOf("push_logs", (q) => q.eq("status", "skipped").gte("sent_at", since)),
   ]);
 
-  const [tokensActive, prefsOn] = await Promise.all([
-    countOf(db.from("fcm_tokens").eq("is_active", true)),
-    countOf(db.from("push_preferences").eq("push_enabled", true)),
+  const [tokensActive, prefsOn, tokensIos] = await Promise.all([
+    countOf("fcm_tokens", (q) => q.eq("is_active", true)),
+    countOf("push_preferences", (q) => q.eq("push_enabled", true)),
+    countOf("fcm_tokens", (q) => q.eq("is_active", true).eq("platform", "ios_expo")),   // 아이폰 앱(Expo)
   ]);
 
   // 가장 오래 큐에 남아 있는 한 건 — 디스패처가 죽었는지 바로 드러난다
@@ -208,7 +210,7 @@ async function pushStats() {
     .eq("status", "sent").order("sent_at", { ascending: false }).limit(10);
 
   return {
-    queued, sent7, failed7, skipped7, tokensActive, prefsOn,
+    queued, sent7, failed7, skipped7, tokensActive, prefsOn, tokensIos,
     oldestQueuedAt: oldest?.created_at ?? null,
     recentFails: recentFails ?? [],
     recentSent: recentSent ?? [],
@@ -216,6 +218,7 @@ async function pushStats() {
       // 값은 절대 내보내지 않는다. 설정됐는지만 본다.
       fcmV1: !!process.env.FIREBASE_SERVICE_ACCOUNT,
       fcmLegacy: !!process.env.FCM_SERVER_KEY,
+      expoToken: !!process.env.EXPO_ACCESS_TOKEN,   // 선택 — 없어도 아이폰 발송은 된다
       dispatchUrl: !!(process.env.PUSH_DISPATCH_URL || process.env.VERCEL_URL),
     },
   };

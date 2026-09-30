@@ -5,7 +5,8 @@
 import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { IS_SUPABASE_READY, getPushPreferences, upsertPushPreferences, setMarketingConsent } from "../lib/supabase";
-import { enablePush, disablePush, isPushSupported, isPushConfigured } from "../lib/push";
+import { enablePush, disablePush, isPushSupported, isPushConfigured, hasNativePush } from "../lib/push";
+import { pushFailText } from "../lib/pushAsk";
 
 const SUB_TOGGLES = [
   { key: "push_local_news",      label: "동네 소식",        desc: "우리 동네 새 공간 이야기" },
@@ -101,7 +102,9 @@ export default function PushNotificationSettings({ user }) {
     try {
       if (isPushSupported() && isPushConfigured()) {
         const res = await enablePush(user?.id);
-        if (res && !res.ok && res.reason === "permission_denied") {
+        if (res && !res.ok && hasNativePush()) {
+          setNote(`알림 설정은 저장됐어요. ${pushFailText(res.reason)}`);   // 아이폰 앱 — 거짓 «켜졌어요» 없이 이유만
+        } else if (res && !res.ok && res.reason === "permission_denied") {
           setNote("브라우저 알림 권한이 거부됐어요. 설정에서 허용하면 푸시도 함께 받을 수 있어요.");
         }
       }

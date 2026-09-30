@@ -23,6 +23,7 @@ import {
   isDeviceVerified, getKnownUsers, rememberUser, clearDeviceAuth, knownUserToSession,
 } from "./lib/deviceAuth";
 import { saveSessionToken, setCurrentUserId, clearSessionTokens, getSessionToken, needsSessionToken } from "./lib/session";
+import { initNativePushBridge, syncNativePushToken } from "./lib/push";
 
 const SESSION_TS_KEY   = "gonggan_login_at";
 const SESSION_USER_KEY = "gonggan_user";
@@ -123,6 +124,10 @@ export default function App() {
     window.addEventListener("gonggan:reauth", on);
     return () => window.removeEventListener("gonggan:reauth", on);
   }, []);
+  // 아이폰 앱 푸시(PLAN 4절) — 앱이 페이지가 뜰 때마다 보내 주는 기기 토큰을 로그인(토큰 연결)한 사람 것으로 저장. 앱 밖이면 아무것도 안 함.
+  const hasSessionToken = !!(user?.id && getSessionToken(user.id));
+  useEffect(() => { initNativePushBridge(); }, []);
+  useEffect(() => { syncNativePushToken(user?.isGuest ? null : user?.id ?? null); }, [user?.id, user?.isGuest, hasSessionToken]);
   const [tokenNoteHidden, setTokenNoteHidden] = useState(() => { try { return sessionStorage.getItem("gonggan_token_note_hidden") === "1"; } catch { return false; } });
   const [adminId, setAdminId] = useState("");
   const [adminPw, setAdminPw] = useState("");
