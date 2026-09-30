@@ -8,7 +8,7 @@ import { getEscrowWithPayouts } from "../lib/supabase";
 import NotificationBell from "../components/NotificationBell";
 import BidCompareCard from "../components/BidCompareCard"; // UX Beta 입찰 비교 카드(Add Only)
 import BidCompareTable from "../components/BidCompareTable"; // 나란히 비교 표 — 자재·증빙까지(09-30)
-import { splitPhotos, requestGaps } from "../lib/requestPhotos"; // 요청서 현장 사진·빈 곳(09-30)
+import { descTextOf, requestGaps } from "../lib/requestPhotos"; // 요청서 현장 사진·빈 곳(09-30)
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
@@ -1254,7 +1254,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               key={bid.id}
               id={`bid-${bid.id}`}
               photos={coPhotos[bid.company?.id ?? bid.companyId] ?? []}
-              requestText={splitPhotos([request?.type, request?.description, request?.desc].filter(Boolean).join(" ")).text}
+              requestText={[request?.type, descTextOf(request)].filter(Boolean).join(" ")}
               bid={bid}
               tags={bidTags(bid)}
               selected={bid.status === "selected" || selectedBid?.id === bid.id}

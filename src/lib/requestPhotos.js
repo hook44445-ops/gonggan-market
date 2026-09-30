@@ -51,13 +51,31 @@ export function josa(word, withBatchim, withoutBatchim) {
   return (code - 0xac00) % 28 === 0 ? withoutBatchim : withBatchim;
 }
 
+// ── 읽는 쪽은 여기 하나만 부른다 ───────────────────────────────────────────
+// 칸(requests.photos)이 있으면 그것, 없으면 desc 마커. 두 길을 화면이 몰라도 되게 한다.
+//   · SQL 185 전  → 마커에서 읽는다(지금 그대로 돈다)
+//   · SQL 185 뒤  → 칸에서 읽는다(트리거가 마커를 칸으로 옮겨 준다)
+// 요청 «고치기»는 RPC(request_update_by_owner)에 사진 칸이 없어서 앞으로도 마커로 저장된다.
+// 그래서 마커는 「옛날 방식」이 아니라 계속 쓰는 길이다 — 지우지 말 것.
+export function photosOf(request = {}) {
+  const r = request ?? {};
+  const col = Array.isArray(r.photos) ? r.photos.map(u => String(u ?? "").trim()).filter(Boolean) : [];
+  if (col.length) return col.slice(0, MAX_REQUEST_PHOTOS);
+  return splitPhotos(r.desc ?? r.description ?? "").photos;
+}
+
+// 사람이 읽는 글만(사진 마커 제거). 업체 화면에 날주소가 새지 않게 여기만 쓴다.
+export function descTextOf(request = {}) {
+  const r = request ?? {};
+  return splitPhotos(r.desc ?? r.description ?? "").text;
+}
+
 // ── 요청서가 얼마나 채워졌나 ────────────────────────────────────────────────
 // 「견적이 왜 벌어지나」를 업체 탓으로 돌리지 않으려면, 고객에게 먼저 보여 줘야 한다.
 // 점수를 매기지 않는다 — 「무엇이 비었는지」와 「채우면 무엇이 좋아지는지」만 말한다.
 export function requestGaps(req = {}, photoCount = null) {
   const request = req ?? {};   // null 이 와도 깨지지 않게(기본값은 undefined 일 때만 걸린다)
-  const { photos } = splitPhotos(request.desc ?? request.description ?? "");
-  const n = photoCount == null ? photos.length : photoCount;
+  const n = photoCount == null ? photosOf(request).length : photoCount;
   const note = String(request.desc ?? request.description ?? "");
   const { text } = splitPhotos(note);
 

@@ -303,6 +303,8 @@ const normalizeRequest = (row) => {
     })(),
     style: row.style ?? "",
     desc: row.description ?? row.desc ?? "",
+    // 현장 사진 — SQL 185 로 칸이 생기면 여기로 온다. 없으면 undefined 라 desc 마커로 읽힌다(photosOf).
+    photos: Array.isArray(row.photos) ? row.photos : undefined,
     area: row.area ?? "",
     user: "의뢰인",
     bids: bidCount,

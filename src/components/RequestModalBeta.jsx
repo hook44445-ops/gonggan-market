@@ -7,7 +7,7 @@ import { LIGHT_OPTIONS, LIGHT_NEEDS_CARPENTRY, splitLight, joinLight } from "../
 import { C, R, S, SPACE_TYPES, STYLES } from "../constants";
 import { SHOW_BETA_UI } from "../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 import { BetaGateModal, BetaBanner, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
-import { splitPhotos, joinPhotos, MAX_REQUEST_PHOTOS } from "../lib/requestPhotos"; // 현장 사진(09-30) — desc 안에 담는다
+import { splitPhotos, joinPhotos, photosOf, MAX_REQUEST_PHOTOS } from "../lib/requestPhotos"; // 현장 사진(09-30)
 import { uploadRequestPhoto } from "../lib/supabase";
 
 // 고르기 쉬운 입력 — 사진으로 고르고, 자주 쓰는 값은 한 번에 누른다. (직접 입력도 그대로 된다)
@@ -100,7 +100,7 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   // 현장 사진 — 옛 요청서를 고칠 때도 desc 안 마커에서 그대로 되읽는다
-  const [photos, setPhotos] = useState(() => splitPhotos(initialData?.desc).photos);
+  const [photos, setPhotos] = useState(() => photosOf(initialData));
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoErr, setPhotoErr] = useState("");
   const [workTags, setWorkTags] = useState(() => splitDesc(initialData?.desc).tags);

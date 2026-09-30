@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { splitPhotos, joinPhotos, requestGaps, josa, PHOTO_MARK, MAX_REQUEST_PHOTOS } from "./requestPhotos.js";
+import { splitPhotos, joinPhotos, requestGaps, josa, photosOf, descTextOf, PHOTO_MARK, MAX_REQUEST_PHOTOS } from "./requestPhotos.js";
 
 test("사진 없는 옛 요청서는 글이 그대로 나온다 — 기존 요청이 깨지지 않는다", () => {
   const { text, photos } = splitPhotos("도배, 바닥 — 안방만 해주세요");
@@ -72,4 +72,28 @@ test("받침에 맞는 조사 — 「평수이(가)」처럼 쓰지 않는다", 
   assert.equal(josa("abc", "이", "가"), "가");          // 한글이 아니면 기본값
   const line = requestGaps({ desc: "", size: "24" }).line;
   assert.ok(!line.includes("이(가)"), `조사가 「이(가)」로 남았다: ${line}`);
+});
+
+// ── 칸(requests.photos)과 마커, 두 길 ────────────────────────────────
+test("칸이 있으면 칸에서, 없으면 마커에서 읽는다", () => {
+  const marker = joinPhotos("글", ["https://a/mark.jpg"]);
+  assert.deepEqual(photosOf({ desc: marker }), ["https://a/mark.jpg"]);           // SQL 185 전
+  assert.deepEqual(photosOf({ desc: marker, photos: ["https://a/col.jpg"] }),
+    ["https://a/col.jpg"]);                                                        // SQL 185 뒤 — 칸이 이긴다
+  assert.deepEqual(photosOf({ desc: marker, photos: [] }), ["https://a/mark.jpg"]); // 빈 칸이면 마커로
+  assert.deepEqual(photosOf({}), []);
+  assert.deepEqual(photosOf(null), []);
+});
+
+test("업체 화면에 주는 글에는 어느 길이든 날주소가 없다", () => {
+  const marker = joinPhotos("안방 곰팡이", ["https://a/1.jpg"]);
+  assert.equal(descTextOf({ desc: marker }), "안방 곰팡이");
+  assert.equal(descTextOf({ description: marker, photos: ["https://a/1.jpg"] }), "안방 곰팡이");
+  assert.ok(!descTextOf({ desc: marker }).includes("https://"));
+});
+
+test("빈 곳 판정도 칸을 먼저 본다", () => {
+  const g = requestGaps({ desc: "도배 — 안방 곰팡이랑 장판", size: "24", photos: ["https://a/1.jpg"] });
+  assert.equal(g.photoCount, 1);
+  assert.ok(!g.gaps.some(x => x.key === "photo"));
 });

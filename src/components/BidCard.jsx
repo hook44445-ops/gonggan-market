@@ -9,7 +9,7 @@ import { TempBadge, Icon } from "./common";
 import GuaranteeBadge from "./GuaranteeBadge";
 import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
 import { BetaGateModal, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
-import { splitPhotos } from "../lib/requestPhotos"; // 요청서 현장 사진(09-30) — 날주소가 새지 않게 여기서 갈라낸다
+import { photosOf, descTextOf } from "../lib/requestPhotos"; // 요청서 현장 사진(09-30) — 칸이 있으면 칸, 없으면 desc 마커
 
 // 고객 확인 시각(173) — 「오늘 14:05」 · 「9/29」
 function viewedLabel(iso) {
@@ -268,18 +268,18 @@ export default function BidCard({
             {r.area}{r.style ? ` · ${r.style}` : r.distance ? ` · ${r.distance}` : ""}
           </div>
           {/* 요청 내용 — 사진 마커는 갈라내고 글만. 날주소가 보이면 안 된다. */}
-          <div style={{ fontSize: 13, color: C.text2, marginBottom: S.md, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{splitPhotos(r.desc).text}</div>
+          <div style={{ fontSize: 13, color: C.text2, marginBottom: S.md, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{descTextOf(r)}</div>
 
           {/* ── 고객이 올린 현장 사진 (대표 2026-09-30) ──────────────────────
               현장에 가기 전에 «지금 이 상태»를 보고 금액을 잡을 수 있어야,
               입찰가와 최종 견적서가 덜 벌어진다. 누르면 원본을 새 창에서 본다. */}
-          {splitPhotos(r.desc).photos.length > 0 && (
+          {photosOf(r).length > 0 && (
             <div style={{ marginBottom: S.lg }}>
               <div style={{ fontSize: 11.5, fontWeight: 700, color: C.brand, marginBottom: 6 }}>
-                📷 고객이 올린 현장 사진 {splitPhotos(r.desc).photos.length}장
+                📷 고객이 올린 현장 사진 {photosOf(r).length}장
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {splitPhotos(r.desc).photos.map((u, i) => (
+                {photosOf(r).map((u, i) => (
                   <a key={u} href={u} target="_blank" rel="noreferrer"
                     style={{ width: 68, height: 68, borderRadius: R.md, overflow: "hidden", background: C.bgWarm, display: "block" }}>
                     <img src={u} alt={`현장 사진 ${i + 1}`} loading="lazy"
