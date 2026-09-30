@@ -153,6 +153,7 @@ export default function MyPageV3({
       {/* ── 히어로 — 첫인상. 인사 + 상태 칩 + 핵심 행동 ───────────────── */}
       <div style={{ paddingTop: S.xl }}>
         <Hero
+          art={isCompany ? "/images/partner/hero-v2-wide.webp" : "/images/landing/hero-kitchen-wide.webp"}
           eyebrow={`${region} · ${isCompany ? "검증 파트너" : "의뢰인"}`}
           title={`${name}님, 반가워요`}
           sub={isCompany

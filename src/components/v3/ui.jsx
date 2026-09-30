@@ -7,9 +7,44 @@
 //  3) 온도: 상단에 인사/성취를 보여주는 히어로를 둬 첫 화면에서 기분이 좋게 한다.
 //  4) 테마: 색은 전부 C 토큰만 사용 → 고객(그린)/파트너(네이비) 자동 전환.
 // ─────────────────────────────────────────────────────
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import "../../styles/v3Motion.css";
 import { C, R, S, SHADOW } from "../../constants";
 import Icon from "../common/Icon";
+
+
+/* ── 움직임 도우미(2026-09-30) — 보이면 한 번 · 움직임 줄이기면 바로 결과 ── */
+const reduceMotion = () => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
+function useSeen(threshold = 0.2) {
+  const ref = useRef(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined" || reduceMotion()) { setSeen(true); return; }
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setSeen(true); io.disconnect(); } }, { threshold });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [threshold]);
+  return [ref, seen];
+}
+/* 숫자가 0에서 올라간다 — «36.5°»·«12곳»처럼 앞 숫자만 세고 뒤 글자는 그대로. 숫자가 아니면 그대로 보인다. */
+function CountText({ value, start }) {
+  const m = typeof value === "number" ? [null, String(value), ""] : String(value ?? "").match(/^(\d+(?:\.\d+)?)(.*)$/);
+  const target = m ? Number(m[1]) : null;
+  const decimals = m && m[1].includes(".") ? m[1].split(".")[1].length : 0;
+  const [v, setV] = useState(() => (target == null || reduceMotion() ? target : 0));
+  useEffect(() => {
+    if (target == null || !start) return;
+    if (reduceMotion()) { setV(target); return; }
+    let raf; const t0 = performance.now();
+    const tick = (t) => { const k = Math.min(1, (t - t0) / 900); setV(target * (1 - Math.pow(1 - k, 3))); if (k < 1) raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, start]);
+  if (target == null) return <>{value}</>;
+  return <>{Number(v ?? target).toFixed(decimals)}{m[2]}</>;
+}
 
 /* 화면 전체를 감싸는 래퍼 — 좌우 여백과 섹션 리듬을 고정한다. */
 export function Page({ children, pad = true }) {
@@ -24,8 +59,9 @@ export function Page({ children, pad = true }) {
 
 /* 섹션 — 제목(선택) + 우측 액션(선택) + 본문. 제목이 없으면 여백만 잡는다. */
 export function Section({ title, action, onAction, children, tight = false }) {
+  const [ref, seen] = useSeen(0.08);
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: tight ? S.sm : S.md }}>
+    <section ref={ref} className={`v3-reveal${seen ? " is-in" : ""}`} style={{ display: "flex", flexDirection: "column", gap: tight ? S.sm : S.md }}>
       {(title || action) && (
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: `0 ${S.xs}px` }}>
           {title && <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: C.text1, letterSpacing: "-0.35px" }}>{title}</h2>}
@@ -92,15 +128,16 @@ export function Row({ emoji, label, sub, value, badge, onClick, last = false }) 
 
 /* 통계 타일 — 탭 가능한 요약 숫자. 빈 값이어도 초라해 보이지 않게 라벨을 살린다. */
 export function StatTiles({ items }) {
+  const [ref, seen] = useSeen(0.3);
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${items.length}, 1fr)`, gap: S.sm }}>
+    <div ref={ref} style={{ display: "grid", gridTemplateColumns: `repeat(${items.length}, 1fr)`, gap: S.sm }}>
       {items.map(({ label, value, emoji, onClick }, i) => (
         <div key={i} onClick={onClick}
           style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg,
             padding: `${S.md}px ${S.xs}px`, textAlign: "center", cursor: onClick ? "pointer" : "default",
             boxShadow: SHADOW.soft }}>
           {emoji && <div style={{ marginBottom: 4 }}><Icon emoji={emoji} size={16} color={C.text3} /></div>}
-          <div style={{ fontSize: 20, fontWeight: 900, color: value ? C.brand : C.text4, lineHeight: 1.1 }}>{value ?? 0}</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: value ? C.brand : C.text4, lineHeight: 1.1 }}><CountText value={value ?? 0} start={seen} /></div>
           <div style={{ fontSize: 11, color: C.text3, marginTop: 3 }}>{label}</div>
         </div>
       ))}
@@ -125,20 +162,23 @@ export function EmptyInvite({ text, cta, onCta }) {
 }
 
 /* 히어로 — 첫인상 담당. 브랜드 그라데이션 + 인사 + 요약 지표. */
-export function Hero({ eyebrow, title, sub, chips = [], actions = [] }) {
+export function Hero({ eyebrow, title, sub, chips = [], actions = [], art = null, clay = null }) {
   return (
-    <div style={{ position: "relative", overflow: "hidden", borderRadius: R.xl,
+    <div style={{ position: "relative", overflow: "hidden", borderRadius: R.xl, isolation: "isolate",
       background: `linear-gradient(135deg, ${C.brand}, ${C.brandD})`, color: "#fff",
       padding: `${S.xxl}px ${S.xl}px`, boxShadow: SHADOW.brand }}>
       {/* 은은한 광택 — 단색 면을 덜 밋밋하게 */}
       <div aria-hidden style={{ position: "absolute", right: -60, top: -70, width: 190, height: 190,
         borderRadius: "50%", background: "rgba(255,255,255,0.08)", pointerEvents: "none" }} />
-      {eyebrow && <div style={{ fontSize: 11.5, opacity: 0.75, marginBottom: 6, letterSpacing: "0.2px" }}>{eyebrow}</div>}
-      <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: "-0.6px", lineHeight: 1.32 }}>{title}</div>
-      {sub && <div style={{ fontSize: 12.5, opacity: 0.78, marginTop: 7, lineHeight: 1.62, letterSpacing: "-0.1px" }}>{sub}</div>}
+      {/* 힉스필드 사진이 오른쪽에서 천천히 흐른다(글자 쪽은 초록 판 그대로 — 대비 유지) · 그림이 안 오면 지금 모양 그대로 */}
+      {art && <div className="v3-hero-art" aria-hidden><img src={art} alt="" loading="lazy" decoding="async" onError={(e) => { e.currentTarget.style.display = "none"; }} /></div>}
+      {clay && <div className="v3-hero-clay" aria-hidden><img src={clay} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} /></div>}
+      {eyebrow && <div style={{ position: "relative", fontSize: 11.5, opacity: 0.75, marginBottom: 6, letterSpacing: "0.2px" }}>{eyebrow}</div>}
+      <div style={{ position: "relative", fontSize: 21, fontWeight: 900, letterSpacing: "-0.6px", lineHeight: 1.32, paddingRight: clay ? 56 : 0 }}>{title}</div>
+      {sub && <div style={{ position: "relative", fontSize: 12.5, opacity: 0.78, marginTop: 7, lineHeight: 1.62, letterSpacing: "-0.1px" }}>{sub}</div>}
 
       {chips.length > 0 && (
-        <div style={{ display: "flex", gap: 6, marginTop: S.lg, flexWrap: "wrap" }}>
+        <div style={{ position: "relative", display: "flex", gap: 6, marginTop: S.lg, flexWrap: "wrap" }}>
           {chips.map((c, i) => (
             <span key={i} style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.2)",
               borderRadius: R.full, padding: "5px 10px", fontSize: 11, fontWeight: 700,
@@ -148,7 +188,7 @@ export function Hero({ eyebrow, title, sub, chips = [], actions = [] }) {
       )}
 
       {actions.length > 0 && (
-        <div style={{ display: "flex", gap: S.sm, marginTop: S.lg }}>
+        <div style={{ position: "relative", display: "flex", gap: S.sm, marginTop: S.lg }}>
           {actions.map(({ label, onClick, primary }, i) => (
             <button key={i} onClick={onClick} className={primary ? "gg-cta" : undefined}
               style={{ flex: 1, height: 44, borderRadius: R.lg, fontSize: 14, fontWeight: 800, cursor: "pointer",
@@ -167,16 +207,17 @@ export function Hero({ eyebrow, title, sub, chips = [], actions = [] }) {
 /* 진행 바 — 등급/레벨처럼 '쌓이는 느낌'을 주는 요소. */
 export function Progress({ pct, label, right }) {
   const v = Math.max(0, Math.min(100, pct ?? 0));
+  const [ref, seen] = useSeen(0.4);
   return (
-    <div>
+    <div ref={ref}>
       {(label || right) && (
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
           {label && <span style={{ fontSize: 12.5, fontWeight: 700, color: C.text2 }}>{label}</span>}
           {right && <span style={{ fontSize: 12, color: C.text3 }}>{right}</span>}
         </div>
       )}
-      <div style={{ height: 7, borderRadius: R.full, background: C.bgWarm, overflow: "hidden" }}>
-        <div style={{ width: `${v}%`, height: "100%", borderRadius: R.full,
+      <div className="v3-bar" style={{ height: 7, borderRadius: R.full, background: C.bgWarm, overflow: "hidden" }}>
+        <div className={`v3-bar-fill${seen && v > 0 ? " is-in" : ""}`} style={{ width: `${seen ? v : 0}%`, height: "100%", borderRadius: R.full,
           background: `linear-gradient(90deg, ${C.brandSoft}, ${C.brand})`, transition: "width .4s ease" }} />
       </div>
     </div>
@@ -203,7 +244,7 @@ export function QuietList({ items }) {
 /* 사진 타일 — 시공 사례처럼 '보여주는' 콘텐츠. 첫인상에서 가장 강한 요소. */
 export function PhotoTile({ src, title, meta, onClick, height = 150 }) {
   return (
-    <div onClick={onClick} style={{ cursor: onClick ? "pointer" : "default", borderRadius: R.lg,
+    <div onClick={onClick} className="v3-photo" style={{ cursor: onClick ? "pointer" : "default", borderRadius: R.lg,
       overflow: "hidden", background: C.surface, border: `1px solid ${C.bgWarm}`, boxShadow: SHADOW.soft }}>
       <div style={{ position: "relative", height, background: C.bgWarm }}>
         {/* 이미지 로드 실패(네트워크·CDN 장애) 시 깨진 alt 대신 중립 배경만 남긴다. */}
@@ -225,13 +266,14 @@ export function PhotoTile({ src, title, meta, onClick, height = 150 }) {
 
 /* 신뢰 지표 줄 — 숫자 3개로 '안심'을 즉시 전달한다(사회적 증거). */
 export function TrustRow({ items }) {
+  const [ref, seen] = useSeen(0.3);
   return (
-    <div style={{ display: "flex", background: C.surface, border: `1px solid ${C.bgWarm}`,
+    <div ref={ref} style={{ display: "flex", background: C.surface, border: `1px solid ${C.bgWarm}`,
       borderRadius: R.xl, padding: `${S.lg}px ${S.sm}px`, boxShadow: SHADOW.soft }}>
       {items.map(({ value, label }, i) => (
         <div key={i} style={{ flex: 1, textAlign: "center", position: "relative" }}>
           {i > 0 && <div style={{ position: "absolute", left: 0, top: 4, bottom: 4, width: 1, background: C.bgWarm }} />}
-          <div style={{ fontSize: 17, fontWeight: 900, color: C.brand, lineHeight: 1.2 }}>{value}</div>
+          <div style={{ fontSize: 17, fontWeight: 900, color: C.brand, lineHeight: 1.2 }}><CountText value={value} start={seen} /></div>
           <div style={{ fontSize: 11, color: C.text3, marginTop: 3 }}>{label}</div>
         </div>
       ))}
