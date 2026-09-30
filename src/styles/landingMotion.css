@@ -143,3 +143,6 @@
 .lm-cool .lm-worry-a b { color: #16294A; }
 .lm-cool .lm-proof { background: rgba(255,255,255,.94); border-color: #D5DCE7; color: #16294A; }
 .lm-cool .lm-ping-s { color: #5E6B7E; }
+
+/* ── 광고 영상 카드 ── */
+.lm-ad { border-radius: 24px; overflow: hidden; box-shadow: 0 24px 60px rgba(18,26,22,.18); border: 1px solid rgba(214,167,86,.35); background: #1D3D2F; }
