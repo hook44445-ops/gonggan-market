@@ -21,7 +21,7 @@ import { resolveMapCenter } from "../hooks/useMapCenter";
 import { getActivityRegions, getServiceRegions, getPrimaryRegion, getPrimaryRegionId, regionKey, makeRegionEntry } from "../constants/regions";
 import { getMatchedCompaniesWithTier } from "../utils/regionMatching";
 import { isJunkText } from "../utils/dataHygiene";
-import { updateUserActivityRegions, getSavedCompanyIds, getSavedCompanies, saveCompany, unsaveCompany, getCustomerTrust, getUserSpaceTemp } from "../lib/supabase";
+import { updateUserActivityRegions, getSavedCompanyIds, getSavedCompanies, saveCompany, unsaveCompany, getCustomerTrust, getUserSpaceTemp, userDb } from "../lib/supabase";
 import CompanyCardOriginal from "./CompanyCard";
 import CompanyCardBeta from "./CompanyCardBeta";
 import { UX_BETA } from "../constants/release";
@@ -1654,7 +1654,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
 
       // ── Path B: payment_orders fallback (when bids.request_id is NULL) ───────
       if (bidIds.length > 0) {
-        const { data: payOrders } = await supabase
+        const { data: payOrders } = await userDb()
           .from("payment_orders")
           .select("bid_id, request_id, contract_id")
           .in("bid_id", bidIds);
@@ -3135,7 +3135,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   useEffect(() => {
     if (activeRole !== "company" || !user?.id) return;
     let alive = true;
-    supabase.from("notifications").select("related_id").eq("user_id", user.id).eq("type", "NEW_REQUEST")
+    userDb().from("notifications").select("related_id").eq("user_id", user.id).eq("type", "NEW_REQUEST")
       .eq("title", PAGE_REQUEST_TITLE).order("created_at", { ascending: false }).limit(50)
       .then(({ data }) => { if (alive && Array.isArray(data)) setPageRequestIds(new Set(data.map(n => String(n.related_id)).filter(Boolean))); })
       .catch(() => {});
