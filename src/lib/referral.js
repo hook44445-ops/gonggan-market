@@ -30,7 +30,8 @@ export function inviteOg(kind, rawCode, companyName, inviter = null) {
   const gift = `이 링크로 가입하면 공간토큰 ${REFERRAL_REWARD.invitee}개`;
   const who = inviterName({ ok: true, name: inviter });
   if (kind === "partner") return {
-    title: who ? `${who} 사장님이 공간마켓 파트너로 초대했어요` : "동료 사장님이 공간마켓 파트너로 초대했어요",
+    // 고객도 «아는 사장님»을 초대한다(09-30 InviteProCard) — 누가 보냈는지 모르므로 «사장님» 을 붙이지 않는다
+    title: who ? `${who}님이 공간마켓 파트너로 초대했어요` : "지인이 공간마켓 파트너로 초대했어요",
     description: `가입비·광고비 없이 우리 동네 인테리어·집수리 요청을 받아 보세요. ${gift}.`,
   };
   if (kind === "company") return {
