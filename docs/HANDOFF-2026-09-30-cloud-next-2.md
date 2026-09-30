@@ -32,7 +32,7 @@ psql -h /tmp -p 55432 -U postgres
 |---|---|---|
 | **아이폰 앱 푸시**: 웹 수신(`src/lib/nativePush.js` 규칙 한 곳 · `lib/push.js` 앱 다리) + 발송기 Expo 발송(`api/push/dispatch.js` · `ios_expo`) · 푸시 점검 숫자 칸 버그 고침(`from().eq` → `select` 먼저) · «아이폰 앱 기기» 수 | #902 | — |
 | **업체 «동료 초대» 순위**: `peer_invite_board()` — 이번 달(한국) 내 링크로 가입해 업체 등록까지 한 사장님 수 · 업체 주인끼리 · 보상 없음 · 초대 화면(업체)에 칸 | #904 | 183 ✅ |
-| **보안 점검 ⑤**: 결제 기록·시드 라운지 글·옛 표 2개 열린 정책 닫기 · 본인 요청 마감·만료·숨기기 = `request_owner_state`(예전엔 정책이 `customer_id` 기준이라 **0건 · 조용한 실패**) · 관리자 요청 고치기 정책 | #905 | **184 대표 실행 대기** |
+| **보안 점검 ⑤**: 결제 기록·시드 라운지 글·옛 표 2개 열린 정책 닫기 · 본인 요청 마감·만료·숨기기 = `request_owner_state`(예전엔 정책이 `customer_id` 기준이라 **0건 · 조용한 실패**) · 관리자 요청 고치기 정책 | #905 | 184 ✅ |
 
 ### 아이폰 푸시 — 지금 동작 (규격: `docs/PLAN-2026-09-30-no1-download-revisit.md` 4절)
 - 앱 안(`window.GongganApp.push === true` + `ReactNativeWebView.postMessage`)이면 기존 «알림 켜기» 6곳이 그대로 앱 권한 창으로(`gonggan:push-ask`)
@@ -66,7 +66,8 @@ psql -h /tmp -p 55432 -U postgres
 
 ## 3. 대표 확인 대기 (답이 오면 거기부터)
 
-- [ ] **SQL 184 실행** → «트루 3개» → 폰 확인: 고객 마이 › 내 요청 **숨기기** → 새로고침해도 안 돌아옴 · 관리자 › 숨긴 요청 **되돌리기**
+- [x] **SQL 184 실행 — 09-30 «트루 3개» 완료**(no_open · req_admin_update · owner_state_fn)
+- [ ] **184 폰 확인**: 고객 마이 › 내 요청 **숨기기** → 새로고침해도 안 돌아옴 · 관리자 › 숨긴 요청 **되돌리기** · 요청 **마감** · 결제 기록은 내 것만
 - [ ] **182 폰 확인**: 재로그인 → 견적 요청 · 업체 입찰 → 입찰 수정 · 라운지 글·댓글·좋아요 · 다음 날 라운지 자동 글
 - [ ] **180 폰 확인**: 알림함 · 후기 쓰기 · 업체 답글 · 푸시 설정 켜고 끄기 · 라운지 댓글 고치기
 - [ ] 푸시 폰 확인: 안드로이드 마이 › 푸시 켜기 → 관리자 «푸시 점검» 활성 기기 +1 · FCM 초록불 · «지금 발송» 수신 / 아이폰은 EAS 첫 빌드 뒤 같은 순서 + «아이폰 앱 기기» +1
@@ -78,6 +79,17 @@ psql -h /tmp -p 55432 -U postgres
 ## 4. 다음 할 일 — 순서대로
 
 1. **3절에서 막힌 곳부터**(새 기능보다 먼저)
+1-1. **남은 열린 정책 전수 확인**(184 뒤 마무리) — 대표에게 아래 결과를 받아 `true` 로 열린
+   INSERT/UPDATE/DELETE 가 더 없는지 본다. 일부러 열어 둔 셋(activity_logs · user_visits ·
+   partner_leads)만 남아야 정상이다.
+   ```sql
+   select tablename, policyname, cmd, roles, qual, with_check
+     from pg_policies
+    where schemaname = 'public'
+      and cmd in ('ALL','INSERT','UPDATE','DELETE')
+      and (coalesce(qual,'') = 'true' or coalesce(with_check,'') = 'true')
+    order by 1, 3;
+   ```
 2. **아이폰 로그인 유지** — `docs/QA-2026-09-30-ios.md` 가 생기면(로컬 몫) 웹 쪽 보완(예: 토큰을 앱에 백업·복원하는 메시지 · 규격은 로컬과 맞춘다). 아직 파일 없음
 3. **⑥ 월요일 주간 숫자 루프** — 관리자 숫자 → `docs/WEEKLY-YYYY-MM-DD.md` → 가장 약한 숫자 하나만 올리는 일(PLAN 5절) · 읽음률 20% 미만 알림은 문구·시각 조정
 4. 결제사가 정해지면 2절 «할 일» 1~5
