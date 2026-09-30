@@ -7,6 +7,8 @@ import { LIGHT_OPTIONS, LIGHT_NEEDS_CARPENTRY, splitLight, joinLight } from "../
 import { C, R, S, SPACE_TYPES, STYLES } from "../constants";
 import { SHOW_BETA_UI } from "../constants/release"; // 베타면 결제 약속 대신 «기록이 남는다»를 말한다(정식 전환 시 원문 복귀)
 import { BetaGateModal, BetaBanner, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
+import { splitPhotos, joinPhotos, photosOf, MAX_REQUEST_PHOTOS } from "../lib/requestPhotos"; // 현장 사진(09-30)
+import { uploadRequestPhoto } from "../lib/supabase";
 
 // 고르기 쉬운 입력 — 사진으로 고르고, 자주 쓰는 값은 한 번에 누른다. (직접 입력도 그대로 된다)
 const SPACE_IMG = {
@@ -62,7 +64,7 @@ function PhotoPick({ label, img, active, onClick, ratio = "4 / 3" }) {
   );
 }
 
-export default function RequestModalBeta({ onClose, onDone, initialData = null, isEdit = false }) {
+export default function RequestModalBeta({ onClose, onDone, initialData = null, isEdit = false, userId = null }) {
   // ── 로직(원본 동일) ────────────────────────────────────────────────
   const [step, setStep] = useState(1);
   const [moreTags, setMoreTags] = useState(false);
@@ -97,16 +99,21 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
     desc:   initialData?.desc   ?? "",
   });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  // 현장 사진 — 옛 요청서를 고칠 때도 desc 안 마커에서 그대로 되읽는다
+  const [photos, setPhotos] = useState(() => photosOf(initialData));
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoErr, setPhotoErr] = useState("");
   const [workTags, setWorkTags] = useState(() => splitDesc(initialData?.desc).tags);
   // «더 알려 줄 것» 맨 앞의 「조명: …」 줄은 칩(조명 세부)으로 따로 들고 있다(09-26 대표 「견적 요청·진행에 조명 추가」)
-  const [lightTags, setLightTags] = useState(() => splitLight(splitDesc(initialData?.desc).note).light);
-  const [workNote, setWorkNote] = useState(() => splitLight(splitDesc(initialData?.desc).note).rest);
+  const [lightTags, setLightTags] = useState(() => splitLight(splitDesc(splitPhotos(initialData?.desc).text).note).light);
+  const [workNote, setWorkNote] = useState(() => splitLight(splitDesc(splitPhotos(initialData?.desc).text).note).rest);
   const wantsLight = workTags.includes("조명·전기");
   useEffect(() => {
     const note = joinLight(wantsLight ? lightTags : [], workNote);
-    const d = [workTags.join(", "), note.trim()].filter(Boolean).join(DESC_SEP);
+    const body = [workTags.join(", "), note.trim()].filter(Boolean).join(DESC_SEP);
+    const d = joinPhotos(body, photos);   // 사진 주소는 desc 끝에 마커로(새 칸·새 SQL 없음)
     setForm(f => (f.desc === d ? f : { ...f, desc: d }));
-  }, [workTags, workNote, lightTags, wantsLight]);
+  }, [workTags, workNote, lightTags, wantsLight, photos]);
   const toggleLight = (t) => setLightTags(ls => (ls.includes(t) ? ls.filter(x => x !== t) : [...ls, t]));
   const toggleWorkTag = (tag) => setWorkTags(ts => (ts.includes(tag) ? ts.filter(t => t !== tag) : [...ts, tag]));
 
@@ -304,6 +311,54 @@ export default function RequestModalBeta({ onClose, onDone, initialData = null, 
           <textarea aria-label="공사 요청 내용" placeholder={workTags.length ? "더 알려 줄 것 · 예) 거실만, 욕실 2개 중 1개" : "위에서 고르거나 직접 적어 주세요 · 예) 주방 확장, 욕실 2개 교체"} value={workNote}
             onChange={e => setWorkNote(e.target.value)} rows={4}
             style={{ ...iS, minHeight: 110, resize: "none", lineHeight: 1.7, marginBottom: S.md }} />
+
+          {/* ── 현장 사진 (대표 2026-09-30) ──────────────────────────────────
+              업체는 평수·예산·태그만 보고 금액을 던져 왔다. 그러니 현장에 가면 달라진다.
+              여기서 «지금 이 상태»를 보여 주면 입찰가와 최종 견적서가 덜 벌어진다.
+              올리기는 선택이다 — 없으면 요청 자체를 못 하게 막지 않는다. */}
+          <div style={{ marginBottom: S.md }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 2 }}>
+              지금 상태 사진 <span style={{ color: C.text4, fontWeight: 600 }}>(선택 · {MAX_REQUEST_PHOTOS}장까지)</span>
+            </div>
+            <div style={{ fontSize: 11.5, color: C.text3, marginBottom: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
+              고칠 곳을 찍어 올리면 <b style={{ color: C.brand }}>업체가 현장에 오기 전에</b> 보고 견적을 냅니다 — 나중에 금액이 덜 바뀝니다.
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {photos.map((u, i) => (
+                <div key={u} style={{ position: "relative", width: 72, height: 72, borderRadius: R.md, overflow: "hidden", background: C.bgWarm }}>
+                  <img src={u} alt={`현장 사진 ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <button type="button" aria-label={`사진 ${i + 1} 지우기`}
+                    onClick={() => setPhotos(ps => ps.filter(x => x !== u))}
+                    style={{ position: "absolute", top: 2, right: 2, width: 20, height: 20, borderRadius: "50%",
+                      background: "rgba(31,42,36,.72)", color: "#fff", border: "none", fontSize: 13, lineHeight: 1,
+                      cursor: "pointer", padding: 0 }}>×</button>
+                </div>
+              ))}
+              {photos.length < MAX_REQUEST_PHOTOS && (
+                <label style={{ width: 72, height: 72, borderRadius: R.md, border: `1.5px dashed ${C.bgWarm}`,
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  cursor: photoBusy ? "wait" : "pointer", color: C.text3, fontSize: 11, gap: 2, background: C.surface }}>
+                  <span style={{ fontSize: 18 }}>{photoBusy ? "…" : "＋"}</span>
+                  <span>{photoBusy ? "올리는 중" : "사진"}</span>
+                  <input type="file" accept="image/*" disabled={photoBusy} style={{ display: "none" }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      setPhotoErr(""); setPhotoBusy(true);
+                      try {
+                        const url = await uploadRequestPhoto(file, userId);
+                        setPhotos(ps => (ps.length < MAX_REQUEST_PHOTOS ? [...ps, url] : ps));
+                      } catch (err) {
+                        // 사진이 안 올라가도 요청 자체는 보낼 수 있어야 한다
+                        setPhotoErr("사진을 올리지 못했어요. 사진 없이도 요청은 보낼 수 있어요.");
+                      } finally { setPhotoBusy(false); }
+                    }} />
+                </label>
+              )}
+            </div>
+            {photoErr && <div style={{ fontSize: 11.5, color: C.red, marginTop: 6 }}>{photoErr}</div>}
+          </div>
 
           {/* 보내기 전 한눈에 — 고른 내용을 카드로 */}
           <div style={{ border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: "12px 14px", marginBottom: S.sm,

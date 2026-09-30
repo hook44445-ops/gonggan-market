@@ -96,6 +96,15 @@ export default function BidCompareCard({ bid, onChat, onSelect, onOpenCompany, s
         </div>
         <div style={{ fontSize: 11.5, color: C.text4, marginTop: 4 }}>현장 확인 뒤 최종 견적서로 확정돼요</div>
 
+        {/* 주요 자재 — 업체가 입찰할 때 이미 적어 낸 값(bids.material_note)인데 카드에 없었다(09-30).
+            금액 차이의 이유가 대개 여기에 있어서, 금액 바로 아래에 둔다. 안 적었으면 줄 자체를 만들지 않는다
+            (카드 한 장에서 «안 적음»은 잔소리다 — 빈 칸을 드러내는 일은 나란히 비교 표가 맡는다). */}
+        {bid.material && (
+          <div style={{ marginTop: 8, fontSize: 12.5, color: C.text2, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            <span style={{ color: C.text4, fontWeight: 700 }}>자재 </span>{bid.material}
+          </div>
+        )}
+
         {/* 왜 이 업체 — 실제 기록이 있을 때만, 얇은 선 아래 한 줄 */}
         {why.length > 0 && (
           <div style={{ borderTop: `1px solid ${C.bgWarm}`, marginTop: 14, paddingTop: 10, fontSize: 12, color: C.text2, lineHeight: 1.6 }}>
