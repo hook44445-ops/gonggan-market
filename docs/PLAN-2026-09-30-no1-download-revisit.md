@@ -102,6 +102,11 @@
 | 서버 → Expo | `POST https://exp.host/--/api/v2/push/send` `{ to, title, body, data: { url } }` | `platform = 'ios_expo'` 토큰만 · 광고(event_promo)는 지금처럼 동의·9~20시 확인 뒤 |
 | 알림 누름 | 앱이 `data.url`(**`/`로 시작하는 경로 또는 gongganmarket.com 주소만**)을 연다 | 앱이 꺼져 있다가 켜져도 첫 화면 뒤에 그 화면으로 |
 
+**누르면 여는 주소 — 확정(추가 지시서 2절 · 앱 쪽 `gonggan-ios/App.js`에 이미 들어 있음)**
+- 앱은 `data.url` 이 **`/`로 시작하는 우리 경로**이거나 `https://(…)gongganmarket.com/…` 일 때만 연다 — 다른 도메인은 **무시**(피싱 통로 금지)
+- 앱이 떠 있어도 `location.href = <url>` 로 **새로 불러온다**(웹 `App.jsx`가 처음 열릴 때 `?open=`을 읽으므로) · 꺼져 있다가 알림으로 켜지면 첫 화면이 뜬 **뒤에** 연다
+- 발송기가 쓸 주소: `/?open=review-card`(181 별 5개 후기) · `/?open=invite` · `/p/<업체>`(179 찜한 업체 새 사례) · `/lounge/posts/<id>`(174) · 그 밖 `/`
+
 ⚠️ `data`는 **문자열**이다(`JSON.parse(e.data)`) — 다른 창의 `message`와 섞이니 `type`이 `gonggan:`으로 시작하는 것만 받는다.
 
 **대표 — 아이폰 첫 빌드(터미널 · 한 번)**: `eas init`(프로젝트 연결) → `eas build -p ios --profile production` → 중간에 «Push Notifications 설정?»에 **Yes** → «새 APNs 키 만들기?»에 **Yes**(키 파일을 따로 만들 필요 없다 · 키·비밀번호는 채팅에 붙이지 않는다).
