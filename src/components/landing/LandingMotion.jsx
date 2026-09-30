@@ -203,3 +203,25 @@ export function RequestPings({ items, interval = 2600 }) {
     </div>
   );
 }
+
+// ── 광고 영상(클레이 · 23초 · 소리 없음) — 화면에 보일 때만 재생하고 벗어나면 멈춘다(데이터·배터리 아끼기).
+//    움직임 줄이기면 자동재생하지 않고 재생 단추를 둔다. 영상이 못 오면 포스터 그림만 남는다.
+export function AdVideo({ src = "/video/gonggan-ad.mp4", poster = "/video/gonggan-ad-poster.jpg", label = "공간마켓 소개 영상" }) {
+  const ref = useRef(null);
+  const [calm] = useState(() => reduceMotion());
+  useEffect(() => {
+    const v = ref.current;
+    if (!v || calm || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { v.play?.().catch(() => {}); } else { v.pause?.(); }
+    }, { threshold: 0.45 });
+    io.observe(v);
+    return () => io.disconnect();
+  }, [calm]);
+  return (
+    <div className="lm-ad">
+      <video ref={ref} src={src} poster={poster} muted loop playsInline preload="none" controls={calm}
+        aria-label={label} style={{ width: "100%", height: "auto", display: "block", aspectRatio: "16 / 9", background: "#1D3D2F" }} />
+    </div>
+  );
+}

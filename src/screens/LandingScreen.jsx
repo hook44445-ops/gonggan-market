@@ -8,7 +8,7 @@ import InviteWelcome from "../components/InviteWelcome";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
 import { consumerFaq, pageSeo, serviceSchema, faqSchema } from "../utils/siteSeo";
-import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView } from "../components/landing/LandingMotion";
+import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView, AdVideo } from "../components/landing/LandingMotion";
 import { saveLandingPick, LANDING_WORK_TAGS } from "../lib/landingPick";
 
 // ── HTML 시안(gonggan_FINAL_BALANCED.html) 이식 · 고객 랜딩 ────────────────────
@@ -297,6 +297,12 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           </button>
           <ProofChips />
         </HeroScenes>
+
+        {/* ── 23초 광고(힉스필드 클레이 · 09-30 대표 «수요자는 비교견적 하고 싶게 · 파트너는 입점하고 싶게») ── */}
+        <Reveal style={{ padding: "4px 0 34px" }}>
+          <div className="lm-eyebrow" style={{ marginBottom: 12 }}>23초로 보는 공간마켓</div>
+          <AdVideo />
+        </Reveal>
 
         {/* ── 걱정 → 도장 «쾅» → 답 — 처음 온 고객의 속마음부터(대표 09-30) ── */}
         <div style={{ padding: "18px 0 38px" }}>

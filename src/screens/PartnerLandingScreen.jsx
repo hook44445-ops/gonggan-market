@@ -10,7 +10,7 @@ import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
 import { partnerFaq, pageSeo, faqSchema, breadcrumbSchema } from "../utils/siteSeo";
 import { applyRoleTheme } from "../utils/roleTheme";
-import { RequestPings, WorryStamps, Reveal, useInView, ProofChips } from "../components/landing/LandingMotion";
+import { RequestPings, WorryStamps, Reveal, useInView, AdVideo, ProofChips } from "../components/landing/LandingMotion";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const NAVY  = "#16202E";   // 파트너 = 쿨 네이비(앱 안 [data-role="company"] 와 같은 값 · 09-30 대표 「푸른 쿨톤 · 신뢰적 요소로」)
@@ -297,6 +297,12 @@ export default function PartnerLandingScreen() {
           </Reveal>
           <WorryStamps items={PARTNER_WORRIES} cols3 />
         </div>
+
+        {/* ── 23초 광고 — 고객이 비교하고, 사장님은 새 요청을 받는다 ── */}
+        <Reveal style={{ padding: "0 0 34px" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: GOLDD, letterSpacing: "0.12em", marginBottom: 12 }}>23초로 보는 공간마켓</div>
+          <AdVideo label="공간마켓 소개 영상 — 고객의 비교견적과 파트너의 새 요청" />
+        </Reveal>
 
         {/* ── 업체의 하루 (여정) — 수수료가 아니라 «현장이 어떻게 달라지는가»를 먼저 말한다 ── */}
         <div style={{ padding: "4px 0 30px" }}>
