@@ -4,6 +4,7 @@ import { getHomeCareItems, addHomeCareItem, updateHomeCareItem, deleteHomeCareIt
 import { HOME_CARE_PRESETS, careStatus, careLine, sortCare, buildCareRow, QUICK_SETUP_KINDS, QUICK_WHEN, quickSetupRows } from "../lib/homeCare";
 import { requestPrefillFromPost } from "../lib/loungeToRequest";
 import { kstDay } from "../lib/pageViews";
+import { requestReauth } from "../components/TokenNeededNote";
 
 // 내 집 관리 수첩(165 · 대표 09-29 「1등 재방문」) — 언제 무엇을 했는지 적어 두면 다음 시기를 알려 준다.
 //   본인 것만(로그인 토큰). 시기가 되면 알림함으로 한 번 · 여기서 «견적 비교해 보기»로 이어진다(작은 글씨 — 광고 버튼 아님).
@@ -84,7 +85,14 @@ export default function HomeCareScreen({ userId, onBack, onRequest }) {
       </div>
 
       {state.loading && <div style={{ fontSize: 13, color: C.text3, padding: S.lg, textAlign: "center" }}>불러오는 중…</div>}
-      {state.error && <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: S.lg, fontSize: 13, color: C.text2 }}>{state.error}</div>}
+      {state.error && (
+        <div style={{ background: C.surface, border: `1px solid ${C.bgWarm}`, borderRadius: R.lg, padding: S.lg, fontSize: 13, color: C.text2 }}>
+          {state.error}
+          {/로그인/.test(state.error) && (
+            <button onClick={requestReauth} style={{ display: "block", marginTop: 10, border: 0, borderRadius: R.md, padding: "9px 12px", background: C.brand, color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>인증번호로 다시 로그인</button>
+          )}
+        </div>
+      )}
 
       {!state.loading && !state.error && (
         <>
