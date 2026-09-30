@@ -6,6 +6,7 @@ import { TempBadge } from "../components/common";
 import ProtectionNotice from "../components/ProtectionNotice";
 import { detectDirectDealKeywords } from "../constants/directDeal";
 import { BADGES } from "../constants/badges";
+import TokenNeededNote from "../components/TokenNeededNote";
 import { supabase, chatDb, getChatMessages, sendMessage, checkDirectDealKeyword, reportDirectDeal, getUser, getCompanyByOwnerId, markChatRoomRead, leaveLoungeChat, getProjectRooms, postProjectEvent, CHAT_PHOTO_PREFIX, isChatPhoto, chatPhotoUrl, uploadChatPhoto } from "../lib/supabase";
 
 const REPORT_REASONS = [
@@ -424,6 +425,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
 
   return (
     <div style={{ display:"flex", flexDirection:"column", height:"100dvh", maxHeight:"100dvh", background:C.ivory, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
+      <TokenNeededNote userId={user?.id} what="대화" />
       <div style={{ background:C.surface, borderBottom:`1px solid ${C.bgWarm}`,
         padding:`max(env(safe-area-inset-top),10px) 14px 11px`, boxShadow:SHADOW.soft,
         display:"flex", alignItems:"center", gap:S.sm, position:"sticky", top:0, zIndex:10 }}>

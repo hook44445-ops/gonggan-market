@@ -116,6 +116,13 @@ export default function App() {
   // 초대로 가입 — 받은 공간토큰을 한 번 알린다(모르면 선물이 있었는지 모른다)
   const [refWelcome, setRefWelcome] = useState(null);
   // 로그인 토큰이 없는 채로 남아 있는 로그인(09-25 이전 로그인 · 60일 지남) — 한 번만 인증번호로 다시(166)
+  // 화면 안 «인증하기»(TokenNeededNote) → 인증번호 화면으로. reauthenticate 는 아래에서 만든다.
+  const reauthRef = useRef(null);
+  useEffect(() => {
+    const on = () => reauthRef.current?.();
+    window.addEventListener("gonggan:reauth", on);
+    return () => window.removeEventListener("gonggan:reauth", on);
+  }, []);
   const [tokenNoteHidden, setTokenNoteHidden] = useState(() => { try { return sessionStorage.getItem("gonggan_token_note_hidden") === "1"; } catch { return false; } });
   const [adminId, setAdminId] = useState("");
   const [adminPw, setAdminPw] = useState("");
@@ -443,6 +450,7 @@ export default function App() {
     setPhoneAuthMode(true);
     setUser(null);
   };
+  reauthRef.current = reauthenticate;
   const showTokenNote = !tokenNoteHidden && needsSessionToken(user, !!getSessionToken(user?.id));
 
   if (canEnterApp) {
