@@ -120,7 +120,7 @@ import {
   getChatsForProject,
   adminCleanupRequest, adminCleanupUserTestData, adminCleanupCompanyTestData,
   adminSetCompanyBadge, adminSetGuarantee, adminSetCompanyDirect,
-  getAdminVisitStats, getAdminGrowthStats, adminListExternalReviews, hideExternalReview,
+  getAdminVisitStats, getAdminGrowthStats, getAdminNotifyStats, adminListExternalReviews, hideExternalReview,
   getReferralEventBoard, adminSettleReferralEvent, getAdminMarketingStats, getTesterSignups,
   signedDocUrl,
 } from "../lib/supabase";
@@ -144,6 +144,7 @@ import AdminPushBroadcast from "../components/AdminPushBroadcast"; // 관리자 
 import AdminLogView from "../components/AdminLogView";
 import AdminKpiPanel from "../components/AdminKpiPanel";
 import { growthCards, fmtCount } from "../lib/growthStats";
+import { notifyRows } from "../lib/notifyStats";
 import { CURRENT_EVENT, eventStatus, eventLine, prizeFor } from "../lib/referralEvent";
 import AdminGlobalSearch from "../components/AdminGlobalSearch";
 import AICleanupCenter from "../components/AICleanupCenter";
@@ -343,6 +344,40 @@ function AdminTesterShortcut() {
       )}
       <span aria-hidden style={{ color: C.text3, fontSize: 18 }}>›</span>
     </a>
+  );
+}
+
+// ── 알림별 읽음률(175) — 재방문 알림이 사람을 다시 데려오는지(최근 14일) ──
+function AdminNotifyStatsPanel() {
+  const [state, setState] = useState({ loading: true, rows: [], error: null });
+  useEffect(() => {
+    let alive = true;
+    getAdminNotifyStats().then(({ data, error }) => {
+      if (!alive) return;
+      const m = String(error?.message ?? "");
+      setState({ loading: false, rows: error ? [] : notifyRows(data),
+        error: !error ? null : /admin_notify_stats/.test(m) ? "SQL 175 실행 뒤에 보여요" : /NOT_ADMIN/.test(m) ? "관리자 로그인(인증번호)이 필요해요" : "불러오지 못했어요" });
+    }).catch(() => alive && setState({ loading: false, rows: [], error: "불러오지 못했어요" }));
+    return () => { alive = false; };
+  }, []);
+  return (
+    <div style={{ marginBottom: S.xl }}>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🔔 알림별 읽음률 <span style={{ fontSize: 12, fontWeight: 600, color: C.text3 }}>최근 14일</span></div>
+      <div style={{ fontSize: 11.5, color: C.text3, marginBottom: S.sm }}>읽음 = 알림함에서 누른 것. 재방문 알림이 사람을 데려오는지 봅니다.</div>
+      <div style={{ background: C.surface, borderRadius: R.lg, border: `1px solid ${C.bgWarm}`, overflow: "hidden" }}>
+        {state.error ? <div style={{ padding: S.lg, fontSize: 12.5, color: C.text3 }}>{state.error}</div>
+          : state.loading ? <div style={{ padding: S.lg, fontSize: 12.5, color: C.text3 }}>불러오는 중…</div>
+          : state.rows.length === 0 ? <div style={{ padding: S.lg, fontSize: 12.5, color: C.text3 }}>최근 14일 알림이 없어요</div>
+          : state.rows.map((r) => (
+            <div key={r.type} style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 52px", gap: 6, alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.bg}`, fontSize: 12.5 }}>
+              <span style={{ color: C.text1, fontWeight: 700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.label}</span>
+              <span style={{ textAlign: "right", color: C.text2 }}>보냄 {fmtCount(r.sent)}</span>
+              <span style={{ textAlign: "right", color: C.text2 }}>읽음 {fmtCount(r.read)}</span>
+              <span style={{ textAlign: "right", fontWeight: 900, color: r.rate != null && r.rate >= 50 ? C.brand : C.text1 }}>{r.rate == null ? "—" : `${r.rate}%`}</span>
+            </div>
+          ))}
+      </div>
+    </div>
   );
 }
 
@@ -6563,6 +6598,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 </div>
                 <AdminVisitCards adminUserId={user?.id ?? null} />
                 <AdminGrowthPanel />
+                <AdminNotifyStatsPanel />
                 <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
                 <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📊" size={14} color={C.text1} /> 현황 요약</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>

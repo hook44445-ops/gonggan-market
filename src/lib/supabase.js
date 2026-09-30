@@ -309,6 +309,8 @@ export const adminSettleReferralEvent = (eventId = "2026-10") => supabase.rpc("a
 
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
 export const getAdminGrowthStats = () => supabase.rpc("admin_growth_stats");
+// 알림별 읽음률(175) — 최근 14일 종류마다 보냄·읽음(관리자 토큰)
+export const getAdminNotifyStats = () => supabase.rpc("admin_notify_stats");
 
 // ── 안드로이드 테스터 신청(147) ─────────────────────────────────────────────────
 // 신청은 누구나(/download) → 서버가 대표 번호 계정에 알림·푸시를 큐에 넣는다 → 곧바로 발송을 깨운다.
