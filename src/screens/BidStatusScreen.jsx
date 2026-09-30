@@ -7,6 +7,7 @@ import { TempBadge, Icon, splitLeadingEmoji } from "../components/common";
 import { getEscrowWithPayouts } from "../lib/supabase";
 import NotificationBell from "../components/NotificationBell";
 import BidCompareCard from "../components/BidCompareCard"; // UX Beta 입찰 비교 카드(Add Only)
+import BidCompareTable from "../components/BidCompareTable"; // 나란히 비교 표 — 자재·증빙까지(09-30)
 import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
@@ -1197,6 +1198,18 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               );
             })}
           </div>
+        )}
+
+        {/* 나란히 비교 — 위 표는 «전체 훑기»(금액·기간·온도), 이 표는 «깊게 보기».
+            자재·낸 증빙·업체 한마디까지 같은 자리에 놓고, 안 적은 칸은 가리지 않고 «안 적음»으로 드러낸다.
+            업체가 입찰할 때 이미 적어 낸 값이라 새 칸·새 SQL 이 없다. */}
+        {tableView && bids.length > 1 && (
+          <BidCompareTable
+            bids={sortedBids}
+            onChat={(b) => b && onChat(b.company ?? { id: b.companyId, name: "업체" })}
+            onSelect={(b) => b && selectBid(b)}
+            onOpenBid={(id) => { setTableView(false); setTimeout(() => document.getElementById(`bid-${id}`)?.scrollIntoView({ behavior:"smooth", block:"center" }), 60); }}
+          />
         )}
         {bids.length === 0 ? (
           <div style={{
