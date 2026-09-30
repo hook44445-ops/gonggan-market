@@ -60,6 +60,8 @@ export default function MyPageV3({
   companyRow = null,       // 시작 체크리스트 — verified · has_insurance · slug · (154) cover_url · logo_url · intro
   onCompanyRowChange,      // 페이지 꾸미기 저장 뒤 부모(myCompanyRow)에 반영
   partnerGrowth = null,    // 시작 체크리스트 — showcases · reviews · extReviews
+  openSheet = null,        // 181 별 5개 후기 알림 → "review-card" 면 후기 카드를 바로 연다
+  onSheetOpened,
 }) {
   const isCompany = activeRole === "company";
   // 내 업체 페이지 공유 — 초대 코드를 미리 받아 둔다(버튼에서 기다리면 아이폰이 공유창을 막는다).
@@ -70,6 +72,11 @@ export default function MyPageV3({
   const [baOpen, setBaOpen] = useState(false);   // 전·후 사진 카드
   const [rvOpen, setRvOpen] = useState(false);   // 후기 카드(업체)
   const [pushOpen, setPushOpen] = useState(false);
+  useEffect(() => {
+    if (openSheet !== "review-card") return;
+    if (isCompany && companyId) setRvOpen(true);
+    onSheetOpened?.();
+  }, [openSheet, isCompany, companyId]); // eslint-disable-line react-hooks/exhaustive-deps
   // 내 업체 페이지 방문 수(156) — SQL 전이거나 실패하면 원래 문구
   const [viewLine, setViewLine] = useState(null);
   useEffect(() => {

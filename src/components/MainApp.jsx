@@ -153,6 +153,7 @@ import { useCompanyList } from "../hooks/useCompanyList";
 import { applyRoleTheme } from "../utils/roleTheme";
 import { useUiVersion } from "../hooks/useUiVersion";
 import MyPageV3 from "../screens/v3/MyPageV3";
+import InviteProCard from "./InviteProCard";
 import HomeV3 from "../screens/v3/HomeV3";
 import ShowcaseV3 from "../screens/v3/ShowcaseV3";
 import RequestSentSheet from "./v3/RequestSentSheet";
@@ -692,11 +693,15 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
   const [screen, setScreen] = useState(() => {
     // Explicit invite reauthentication returns here for customers and partners alike.
     if (user.startAt === "invite" && user.id && !user.isGuest) return "invite";
+    // 181 별 5개 후기 푸시 → 마이(업체면 후기 카드가 바로 열린다)
+    if (user.startAt === "review-card" && user.id && !user.isGuest) return "my";
     if (activeRole === "admin") return "admin";
     if (activeRole === "company") return "dashboard";
     if (user.startAt) return user.startAt;
     return "home";
   });
+  // 마이에서 바로 열 시트(181 별 5개 후기 → 후기 카드). 한 번 열면 비운다.
+  const [mySheet, setMySheet] = useState(() => (user.startAt === "review-card" ? "review-card" : null));
   const [prevScreen, setPrevScreen] = useState("home");
   const [selCo, setSelCo] = useState(null);
   // 마이페이지: "이 기기 인증 삭제(완전 로그아웃)" 확인 토글
@@ -2947,6 +2952,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (t === "CHECKIN_REMINDER") { setScreen("home"); return; }
     if (t === "HOME_CARE_DUE") { setScreen("home-care"); return; }
     if (t === "SAVED_COMPANY_NEW") { if (rid) window.location.href = `/p/${rid}`; return; }
+    if (t === "REVIEW_5STAR") { setMySheet("review-card"); setScreen("my"); return; }
     if (t === "LOUNGE_WEEKLY") { if (rid) { window.location.href = `/lounge/posts/${rid}`; } else { go("lounge"); } return; }
     if (t === "ADMIN_TESTER_SIGNUP") { window.location.href = "/testers"; return; }
     // 계약은 사업자부터(A안 · migration 116): 업체 → 서류 올리는 곳 / 의뢰인 → 그 요청의 결제 화면 / 관리자 → 관리 화면.
@@ -4408,6 +4414,9 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 </button>
               </div>
             )}
+            {mapIsFallback && activeRole !== "company" && user?.id && !user?.isGuest && (
+              <div style={{ marginTop:-6, marginBottom:S.md }}><InviteProCard userId={user.id} compact /></div>
+            )}
 
             {/* 업체 수 헤더 */}
             {(() => {
@@ -5429,6 +5438,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               companyRow={activeRole === "company" ? myCompanyRow : null}
               onCompanyRowChange={(patch) => setMyCompanyRow(r => (r ? { ...r, ...patch } : r))}
               partnerGrowth={activeRole === "company" ? partnerGrowth : null}
+              openSheet={mySheet}
+              onSheetOpened={() => setMySheet(null)}
               onGo={(target) => {
                 if (target === "newreq") { requireAuth(() => handleOpenNewReq()); return; }
                 if (target === "lounge-settings" || target === "my-posts") { setScreen("lounge"); return; }

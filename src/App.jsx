@@ -148,17 +148,18 @@ export default function App() {
       });
     } catch {}
     if (saved) {
-      // 푸시 딥링크 «/?open=invite»(157 이벤트 푸시) — 친구 초대 화면으로 연다(로그인된 기기만)
-      let openInvite = false;
+      // 푸시 딥링크 «/?open=invite»(157 이벤트 푸시) — 친구 초대 화면 · «/?open=review-card»(181 별 5개 후기) — 마이의 후기 카드(로그인된 기기만)
+      let openAt = null;
       try {
         const u = new URL(window.location.href);
-        if (u.searchParams.get("open") === "invite") {
-          openInvite = !!saved.id && !saved.isGuest;
+        const o = u.searchParams.get("open");
+        if (o === "invite" || o === "review-card") {
+          openAt = saved.id && !saved.isGuest ? o : null;
           u.searchParams.delete("open");
           window.history.replaceState({}, "", u.pathname + u.search + u.hash);
         }
       } catch { /* noop */ }
-      setUser(openInvite ? { ...saved, startAt: "invite" } : saved);
+      setUser(openAt ? { ...saved, startAt: openAt } : saved);
       claimPendingReferral(saved);   // 이미 로그인된 기기로 초대 링크를 연 경우(가입 7일 안이면 서버가 받는다)
     } else {
       // ── Deep Link + Guest Mode ──────────────────────────────────────────────

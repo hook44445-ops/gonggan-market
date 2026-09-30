@@ -30,6 +30,7 @@ export const NOTIF_META = {
   HOME_CARE_DUE:         { tier: NOTIF_TIER.PROGRESS, icon: "🏠", priority: "NORMAL", img: "/images/notif/home-care.webp" }, // 내 집 관리 수첩 시기
   BID_RECEIVED:          { tier: NOTIF_TIER.PROGRESS, icon: "📋", priority: "HIGH" },
   SAVED_COMPANY_NEW:     { tier: NOTIF_TIER.PROGRESS, icon: "💚", priority: "LOW", img: "/images/notif/saved.webp" },      // 179 찜한 업체 새 사례
+  REVIEW_5STAR:          { tier: NOTIF_TIER.PROGRESS, icon: "⭐", priority: "NORMAL" },   // 181 별 5개 후기 → 후기 카드
   LOUNGE_WEEKLY:         { tier: NOTIF_TIER.PROGRESS, icon: "🔥", priority: "LOW", img: "/images/notif/lounge.webp" },      // 174 지난주 라운지 인기 글
   BID_VIEWED:            { tier: NOTIF_TIER.PROGRESS, icon: "👀", priority: "NORMAL", img: "/images/notif/viewed.webp" },   // 173 고객이 내 견적 확인
   BID_COMPARE_NUDGE:     { tier: NOTIF_TIER.PROGRESS, icon: "⚖️", priority: "NORMAL", img: "/images/notif/compare.webp" },   // 172 견적 비교 한 번

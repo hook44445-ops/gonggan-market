@@ -21,6 +21,7 @@ import {
 
 import { BIZ_GRACE_HOURS } from "../lib/contractGate";
 import BidShareCard from "../components/BidShareCard";
+import InviteProCard from "../components/InviteProCard";
 import PriceIndexLine from "../components/PriceIndexLine"; // 우리 동네 평당 시세(170 · 표본 5건 이상일 때만) // 견적 비교표 이미지 → 가족에게(09-29 · 다운로드)
 
 const SAFE_MODE = import.meta.env.VITE_SAFE_MODE === "true";
@@ -1172,7 +1173,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         )}
 
         {bids.length > 0 && <PriceIndexLine spaceType={request?.space_type ?? request?.type ?? ""} area={request?.area ?? ""} />}
-        {bids.length > 1 && <BidShareCard bids={bids} space={request?.space_type ?? request?.type ?? ""} userId={userId} />}
+        {bids.length > 1 && <BidShareCard bids={bids} space={request?.space_type ?? request?.type ?? ""} userId={userId} requestId={request?.id ?? null} />}
         {/* 표 보기 — 금액·기간·공간온도만 나란히. 누르면 그 업체 카드로 간다. */}
         {tableView && bids.length > 1 && (
           <div style={{ background:C.surface, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, overflow:"hidden", marginBottom:S.md }}>
@@ -1206,6 +1207,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}><Icon emoji="💬" size={36} color={C.text3} /></div>
               <div style={{ fontSize:14, fontWeight:700, color:C.text3 }}>인근 업체들이 견적을 검토 중입니다</div>
               <div style={{ fontSize:12, color:C.text4, marginTop:6 }}>보통 24시간 내 입찰이 시작됩니다</div>
+              <InviteProCard userId={userId} />
             </div>
           </div>
         ) : (

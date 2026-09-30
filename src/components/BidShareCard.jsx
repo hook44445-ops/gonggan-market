@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { C, R, S } from "../constants";
 import { qrMatrix, qrSvgPath } from "../lib/qr";
 import { kstDay } from "../lib/pageViews";
-import { bidShareRows, bidShareTitle, bidShareText } from "../lib/bidShare";
+import { bidShareRows, bidShareTitle, bidShareText, showMoment, momentKey } from "../lib/bidShare";
 import { inviteUrl } from "../lib/referral";
 import { myRefCode } from "../lib/myRefCode";
 import { loadCardBg, paintCardBg, CARD_BG } from "../lib/canvasImage";
@@ -57,8 +57,10 @@ export function drawBidShare(canvas, { title, rows, qrUrl, day, bg = null }) {
   return canvas;
 }
 
-export default function BidShareCard({ bids, space, userId }) {
+export default function BidShareCard({ bids, space, userId, requestId = null }) {
   const rows = bidShareRows(bids);
+  const [sentNow, setSentNow] = useState(false);
+  const moment = !sentNow && showMoment(rows.length, requestId, typeof localStorage !== "undefined" ? localStorage : null);
   const [code, setCode] = useState(null);
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -73,6 +75,11 @@ export default function BidShareCard({ bids, space, userId }) {
   }, [userId]);
   if (rows.length < 2) return null;
 
+  const sent = () => {
+    setSentNow(true);
+    if (requestId) { try { localStorage.setItem(momentKey(requestId), "1"); } catch { /* noop */ } }
+  };
+
   const share = async () => {
     if (busy) return;
     setBusy(true); setMsg(null);
@@ -83,16 +90,32 @@ export default function BidShareCard({ bids, space, userId }) {
       if (!blob) throw new Error("NO_BLOB");
       const file = new File([blob], `견적비교_${kstDay().replace(/-/g, "")}.png`, { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
-        try { await navigator.share({ files: [file], text: bidShareText(code, url) }); setMsg("보냈어요 · 같이 골라 봐요"); } catch { /* 취소 */ }
+        try { await navigator.share({ files: [file], text: bidShareText(code, url) }); setMsg("보냈어요 · 같이 골라 봐요"); sent(); } catch { /* 취소 */ }
       } else {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob); a.download = file.name;
         document.body.appendChild(a); a.click(); a.remove();
         setMsg("이미지를 내려받았어요 · 카톡에 붙여 보내세요");
+        sent();
       }
     } catch { setMsg("이 기기에선 이미지를 만들 수 없어요"); }
     setBusy(false);
   };
+
+  if (moment) {
+    return (
+      <div style={{ marginBottom: S.sm, padding: "14px 14px 12px", borderRadius: R.lg, background: C.brand, color: "#fff" }}>
+        <div style={{ fontSize: 15.5, fontWeight: 900 }}>🎉 견적 {rows.length}개 왔어요</div>
+        <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 4, lineHeight: 1.5 }}>금액·기간·공간온도를 한 장으로 — 가족과 같이 보면 고르기 쉬워요</div>
+        <button onClick={share} disabled={busy}
+          style={{ marginTop: 10, width: "100%", padding: "11px 12px", borderRadius: R.full, border: "none", background: "#fff",
+            color: C.brand, fontSize: 14, fontWeight: 900, cursor: busy ? "wait" : "pointer" }}>
+          👨‍👩‍👧 가족과 같이 보기
+        </button>
+        {msg && <div style={{ fontSize: 12, marginTop: 6 }}>{msg}</div>}
+      </div>
+    );
+  }
 
   return (
     <div style={{ marginBottom: S.sm }}>
