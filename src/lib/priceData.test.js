@@ -47,7 +47,7 @@ test("요청 저장은 가격 칸이 없는 DB 에서도 예전처럼(칸 없음
   const lib = readFileSync(new URL("./supabase.js", import.meta.url), "utf8");
   const i = lib.indexOf("export const createRequest = async");
   const body = lib.slice(i, lib.indexOf("};", i));
-  assert.match(body, /isMissingColumnError\(res\.error\)\) return supabase\.from\("requests"\)\.insert\(data\)/);
+  assert.match(body, /isMissingColumnError\(res\.error\)\) return asLoginRequired\(await userDb\(\)\.from\("requests"\)\.insert\(data\)/);
   const sql = readFileSync(new URL("../../supabase/migrations/170_price_data_fields.sql", import.meta.url), "utf8");
   for (const c of ["space_size_m2", "building_type", "region_code"]) assert.match(sql, new RegExp(`add column if not exists ${c}`));
   assert.match(sql, /c\.owner_id = auth\.uid\(\)/);

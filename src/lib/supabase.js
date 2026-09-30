@@ -344,10 +344,11 @@ export const createRequest = async (data) => {
   const extra = Object.fromEntries(Object.entries(
     requestPriceFields({ spaceType: data?.space_type, size: data?.size, area: data?.area }),
   ).filter(([, v]) => v != null));
-  if (!Object.keys(extra).length) return supabase.from("requests").insert(data).select().single();
-  const res = await supabase.from("requests").insert({ ...data, ...extra }).select().single();
-  if (res.error && isMissingColumnError(res.error)) return supabase.from("requests").insert(data).select().single();
-  return res;
+  // 쓰기는 로그인 토큰으로(182 — 남 이름으로 요청 쓰기 막기). 토큰이 없어 거절되면 다시 인증 안내.
+  if (!Object.keys(extra).length) return asLoginRequired(await userDb().from("requests").insert(data).select().single());
+  const res = await userDb().from("requests").insert({ ...data, ...extra }).select().single();
+  if (res.error && isMissingColumnError(res.error)) return asLoginRequired(await userDb().from("requests").insert(data).select().single());
+  return asLoginRequired(res);
 };
 
 // 업체 입찰 목록 — requests.status 단일 기준. status='open' 만 노출.
@@ -414,12 +415,12 @@ export const getActiveRequestByUser = (userId) =>
     .maybeSingle();
 
 export const archiveRequestAuto = (id, reason) =>
-  supabase.from("requests")
+  userDb().from("requests")
     .update({ is_hidden: true, archived_at: new Date().toISOString(), hidden_reason: reason })
     .eq("id", id);
 
 export const closeRequest = (id) =>
-  supabase.from("requests").update({ status: "closed" }).eq("id", id);
+  userDb().from("requests").update({ status: "closed" }).eq("id", id);
 
 // 의뢰인 요청 취소 — 본인·업체 고르기 전(open)만(migration 127). 표 직접 수정은 세션 없는 앱에서 0건이었다.
 export const cancelMyRequest = (id, actorId, reason = null) =>
@@ -442,8 +443,8 @@ export const updateRequest = (id, data, actorId) =>
 
 // ── Bids ──────────────────────────────────────────────────────────────────────
 
-export const createBid = (data) =>
-  supabase.from("bids").insert(data).select().single();
+export const createBid = async (data) =>
+  asLoginRequired(await userDb().from("bids").insert(data).select().single());
 
 // 입찰 + 업체 정보. 예전엔 입찰 줄만 가져와(select("*")) 비교 목록이 늘 기본값
 // («선택된 파트너 · 36.5° · Lv.1»)이었다(C1). bids.company_id 는 companies.id 일 수도,
@@ -501,13 +502,27 @@ export const contractDirect = (requestId, bidId, actorId) =>
 
 // 업체 입찰 내용 수정 — 한 요청당 1입찰 정책에서 재제출은 수정으로 처리
 export const updateBid = (id, data) =>
-  supabase.from("bids").update(data).eq("id", id).select().single();
+  userDb().from("bids").update(data).eq("id", id).select().single();
 
 // ── Chats ─────────────────────────────────────────────────────────────────────
 // 대화는 그 방의 고객·업체(와 관리자)만 읽고 쓴다(168) — 서버가 로그인 토큰의 사용자로 판단하므로
 // 읽기·쓰기·실시간 구독 모두 토큰 연결로. 토큰이 없으면 예전 연결(168 뒤엔 빈 대화 — 다시 로그인 안내가 뜬다).
 export const userDb = () => authedDb(getCurrentUserId()) ?? supabase;
 export const chatDb = userDb;
+
+// 남 이름으로 쓰기 막기(182) 뒤 — 토큰 없는 로그인(09-25 이전)은 서버가 거절한다(42501).
+//   영문 오류 대신 «다시 인증» 으로 이어 준다(방금 적은 내용은 저장되지 않았다고 알린다).
+export function asLoginRequired(res) {
+  if (!res?.error || authedDb(getCurrentUserId())) return res;
+  const m = `${res.error.code ?? ""} ${res.error.message ?? ""}`;
+  if (!/42501|row-level security/i.test(m)) return res;
+  try {
+    if (window.confirm("보안이 강화돼 인증번호로 한 번만 다시 로그인해야 저장돼요.\n(방금 적은 내용은 저장되지 않았어요) 지금 인증할까요?")) {
+      window.dispatchEvent(new Event("gonggan:reauth"));
+    }
+  } catch { /* noop */ }
+  return { ...res, error: { ...res.error, message: "LOGIN_REQUIRED — 인증번호로 한 번만 다시 로그인해 주세요" } };
+}
 
 // 최신 limit개만 내림차순으로 조회 후 시간순(asc)으로 되돌려 반환 — 기존 호출부와 동일한
 // 반환 형태/정렬 유지. before(created_at) 커서를 주면 그 이전 메시지를 추가 로딩(더보기).
@@ -2900,10 +2915,10 @@ export const createRequestRepost = (data) =>
   userDb().from("request_reposts").insert(data).select().single();
 
 export const expireRequest = (id) =>
-  supabase.from("requests").update({ status: "expired" }).eq("id", id);
+  userDb().from("requests").update({ status: "expired" }).eq("id", id);
 
 export const archiveRequest = (id) =>
-  supabase.from("requests")
+  userDb().from("requests")
     .update({ is_hidden: true, archived_at: new Date().toISOString() })
     .eq("id", id)
     .select("id, is_hidden")
@@ -3154,8 +3169,8 @@ export const setSeedPostVisible = (postId, visible) =>
     .update({ is_visible: visible, updated_at: new Date().toISOString() })
     .eq("id", postId).select("id, is_visible").single();
 
-export const createLoungePost = (data) =>
-  supabase.from("lounge_posts").insert(data).select().single();
+export const createLoungePost = async (data) =>
+  asLoginRequired(await userDb().from("lounge_posts").insert(data).select().single());
 
 // 본인 글 수정 — 로그인 토큰으로(본인 수정 정책: auth.uid() = user_id). 토큰이 없으면 예전 연결(142 뒤엔 막힌다 → 다시 로그인).
 export const updateLoungePost = (postId, userId, updates) =>
@@ -3187,8 +3202,8 @@ export const getLoungeStories = () =>
     .gt("story_expires_at", new Date().toISOString())
     .order("created_at", { ascending: false });
 
-export const createLoungeStory = (data) =>
-  supabase.from("lounge_posts").insert({ ...data, is_story: true }).select().single();
+export const createLoungeStory = async (data) =>
+  asLoginRequired(await userDb().from("lounge_posts").insert({ ...data, is_story: true }).select().single());
 
 // 일반 사용자 스토리 보관 한도 — 항상 최근 N개(기본 3)만 유지. 초과분(가장 오래된 것부터)은
 // soft-delete(하드 삭제 아님). 운영자(무제한) 스토리에는 호출하지 않는다. DB 마이그레이션 없음.
@@ -3228,8 +3243,8 @@ export const getLoungeComments = (postId) =>
     .or("is_hidden.is.null,is_hidden.eq.false")
     .order("created_at", { ascending: true });
 
-export const createLoungeComment = (data) =>
-  userDb().from("lounge_comments").insert(data).select().single();
+export const createLoungeComment = async (data) =>
+  asLoginRequired(await userDb().from("lounge_comments").insert(data).select().single());
 
 // 관련글 — SEO 내부링크용. 같은 카테고리 인기글 우선, 부족분은 최신글로 보강.
 // 관련글 — 같은 카테고리 안에서 **같은 동네 글을 먼저** 준다(2026-09-23).
