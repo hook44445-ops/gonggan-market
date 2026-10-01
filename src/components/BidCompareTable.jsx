@@ -7,7 +7,9 @@
 //   ⚠️ 표현 전용. 선택·상담은 콜백으로 그대로 위임한다(입찰·선택·계약 로직 무수정).
 //   값은 전부 src/lib/bidTable.js 가 만든다. 이 파일은 그리기만 한다.
 //   빈 칸을 흐리게 «안 적음»으로 보여 주는 것이 이 화면의 핵심이다 — 가려 주면 비교가 아니라 광고가 된다.
+import { useEffect } from "react";
 import { C, R, S } from "../constants";
+import { trackUsp } from "../lib/uspTrack"; // USP 3 «비교표를 봄» 기록(187)
 import { compareBids, MAX_COMPARE } from "../lib/bidTable";
 
 // 긴 글(자재·한마디)이 표 높이를 밀어내지 않게 3줄에서 자른다. 전체 글은 카드에서 본다.
@@ -31,6 +33,8 @@ function Cell({ c, wrap }) {
 
 export default function BidCompareTable({ bids = [], onChat, onSelect, onOpenBid }) {
   const { cols, rows, notes } = compareBids(bids);
+  const requestId = bids?.[0]?.requestId ?? bids?.[0]?.request_id ?? null;
+  useEffect(() => { if (cols.length >= 2 && requestId) trackUsp(3, { targetId: requestId, role: "consumer" }); }, [cols.length, requestId]);
   if (cols.length < 2) return null;   // 한 곳은 «비교»가 아니다
 
   const grid = `84px repeat(${cols.length}, minmax(0, 1fr))`;

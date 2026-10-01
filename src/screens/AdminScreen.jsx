@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import UspBoardPanel from "./admin/UspBoardPanel"; // USP 12 사용→전환(187)
 import { authHeader } from "../lib/session";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { C, R, S } from "../constants";
@@ -6639,6 +6640,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 </div>
                 <AdminVisitCards adminUserId={user?.id ?? null} />
                 <AdminGrowthPanel />
+                <UspBoardPanel />
                 <AdminNotifyStatsPanel />
                 <AdminPriceDataPanel />
                 <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />

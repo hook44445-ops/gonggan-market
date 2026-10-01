@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { trackUsp } from "../lib/uspTrack"; // USP 12 «공유» 사용 기록(187)
 import { C, R, S } from "../constants";
 import { qrMatrix, qrSvgPath } from "../lib/qr";
 import { kstDay } from "../lib/pageViews";
@@ -90,7 +91,7 @@ export default function BidShareCard({ bids, space, userId, requestId = null }) 
       if (!blob) throw new Error("NO_BLOB");
       const file = new File([blob], `견적비교_${kstDay().replace(/-/g, "")}.png`, { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
-        try { await navigator.share({ files: [file], text: bidShareText(code, url) }); setMsg("보냈어요 · 같이 골라 봐요"); sent(); } catch { /* 취소 */ }
+        trackUsp(12, { meta: { kind: "bid_compare" } }); try { await navigator.share({ files: [file], text: bidShareText(code, url) }); setMsg("보냈어요 · 같이 골라 봐요"); sent(); } catch { /* 취소 */ }
       } else {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob); a.download = file.name;

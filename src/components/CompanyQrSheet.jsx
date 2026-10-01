@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { trackUsp } from "../lib/uspTrack"; // USP 12 «공유» 사용 기록(187)
 import { C, R, S } from "../constants";
 import { qrMatrix, qrSvgPath } from "../lib/qr";
 
@@ -41,7 +42,7 @@ export default function CompanyQrSheet({ url, name, onClose, onSaved }) {
       if (!blob) throw new Error("NO_BLOB");
       const file = new File([blob], "공간마켓-업체QR.png", { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: `${name || "업체"} QR` }); setMsg("사진으로 저장하거나 인쇄소에 보내세요"); onSaved?.(); } catch { /* 취소 */ }
+        trackUsp(12, { meta: { kind: "company_qr" } }); try { await navigator.share({ files: [file], title: `${name || "업체"} QR` }); setMsg("사진으로 저장하거나 인쇄소에 보내세요"); onSaved?.(); } catch { /* 취소 */ }
         return;
       }
       const a = document.createElement("a");

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { trackUsp } from "../lib/uspTrack"; // USP 12 «공유» 사용 기록(187)
 import { C, R, S, SHADOW } from "../constants";
 import { getMyReferral, getReferralEventBoard, getReferralInviter, getPeerInviteBoard } from "../lib/supabase";
 import { hasPeerBoard, peerMeLine, peerMeSub, peerMonthLabel } from "../lib/peerInvite";
@@ -88,6 +89,7 @@ export default function InviteScreen({ userId, isCompany = false, onBack, onReau
     catch { window.prompt("아래 링크를 복사해 주세요", which === "tester" ? testerUrl(state.code) : link); }
   };
   const share = async (which = "invite") => {
+    trackUsp(12, { meta: { kind: which === "tester" ? "tester" : "invite" } });
     const text = which === "tester" ? testerMessage(state.code) : message;
     if (navigator.share) {
       try { await navigator.share({ title: "공간마켓", text }); } catch { /* 공유 취소 */ }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { trackUsp } from "../lib/uspTrack"; // USP 12 «공유» 사용 기록(187)
 import { C, R, S } from "../constants";
 import { qrMatrix, qrSvgPath } from "../lib/qr";
 import { kstDay } from "../lib/pageViews";
@@ -89,7 +90,7 @@ export default function ReviewShareCard({ companyId, companyName, pageUrl, onClo
     if (!img) return;
     const file = new File([img.blob], img.name, { type: "image/png" });
     if (navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: "고객 후기" }); setMsg("보냈어요"); } catch { /* 취소 */ }
+      trackUsp(12, { meta: { kind: "review_card" } }); try { await navigator.share({ files: [file], title: "고객 후기" }); setMsg("보냈어요"); } catch { /* 취소 */ }
       return;
     }
     const a = document.createElement("a");
