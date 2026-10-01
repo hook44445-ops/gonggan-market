@@ -1548,7 +1548,7 @@ export const getPaymentFeeRules = () =>
 // ── Admin Logs ────────────────────────────────────────────────────────────────
 
 export const createAdminLog = (log) =>
-  supabase.from("admin_logs").insert(log).select().single();
+  adminDb().from("admin_logs").insert(log).select().single();   // 로그인 토큰 필요(016 — 토큰 없이는 저장이 안 됐다)
 
 // H-D: admin_logs는 관리자 전용 테이블.
 // 서버 방어: Supabase RLS에 "auth.jwt()->>'role' = 'admin'" 정책 필요.
@@ -1644,7 +1644,7 @@ export const logActivity = async ({ userId, role, action, targetType, targetId, 
   });
 
 export const getActivityLogs = ({ targetType, targetId, limit = 50 } = {}) => {
-  let q = supabase
+  let q = adminDb()   // 활동 기록 읽기는 관리자만(180)
     .from("activity_logs")
     .select("*")
     .order("created_at", { ascending: false })
@@ -1654,13 +1654,18 @@ export const getActivityLogs = ({ targetType, targetId, limit = 50 } = {}) => {
   return q;
 };
 
-export const getContractTimeline = (contractId) =>
-  supabase
+// 계약 타임라인 — 그 계약 당사자·관리자만(SQL 200 contract_timeline). 180 뒤 활동 기록 표는 관리자만 읽어
+//   토큰 없이 읽던 이 화면은 비어 있었다. 함수가 아직 없으면(200 전) 예전처럼 표를 읽는다(토큰 연결).
+export const getContractTimeline = async (contractId) => {
+  const rpc = await supabase.rpc("contract_timeline", { p_contract_id: contractId });
+  if (!rpc.error) return { data: Array.isArray(rpc.data) ? rpc.data : [], error: null };
+  return userDb()
     .from("activity_logs")
     .select("*")
     .eq("target_type", "contract")
     .eq("target_id", contractId)
     .order("created_at", { ascending: true });
+};
 
 // ── STEP 21: Notifications ────────────────────────────────────────────────────
 
@@ -2136,10 +2141,10 @@ export const respondSiteVisit = (siteVisitId, action, actorId = null) =>
   supabase.rpc("site_visit_respond", { p_actor_id: actorId, p_id: siteVisitId, p_action: action });
 
 export const getSiteVisitForBid = (bidId) =>
-  supabase.from("site_visits").select("*").eq("bid_id", bidId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  userDb().from("site_visits").select("*").eq("bid_id", bidId).order("created_at", { ascending: false }).limit(1).maybeSingle();
 
 export const getSiteVisitsByCompany = (companyId) =>
-  supabase.from("site_visits").select("*").eq("company_id", companyId).order("created_at", { ascending: false });
+  userDb().from("site_visits").select("*").eq("company_id", companyId).order("created_at", { ascending: false });
 
 export const updateSiteVisit = (id, data) =>
   userDb().from("site_visits").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id).select().single();
@@ -2176,7 +2181,7 @@ export const createEstimate = (data, actorId = null) =>
   supabase.rpc("estimate_upsert", { p_actor_id: actorId, p_estimate_id: null, ...estimateRpcParams(data) });
 
 export const getEstimateForSiteVisit = (siteVisitId) =>
-  supabase.from("estimates").select("*").eq("site_visit_id", siteVisitId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  userDb().from("estimates").select("*").eq("site_visit_id", siteVisitId).order("created_at", { ascending: false }).limit(1).maybeSingle();
 
 // 최종 견적서 조회 — OTP(anon) 세션은 estimates RLS(auth.uid() IS NOT NULL)에 막혀
 // 직접 SELECT 시 row 가 있어도 data:null 이 된다. SECURITY DEFINER RPC(046)로 우회 조회.
@@ -2433,10 +2438,10 @@ export const getCompanyActiveJobs = async (companyId, extraIds = []) => {
   const jobs = await Promise.all(entries.map(async ({ request, bid }) => {
     let sv = null, est = null;
     if (bid?.id) {
-      const { data: svRow } = await supabase.from("site_visits").select("*").eq("bid_id", bid.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const { data: svRow } = await userDb().from("site_visits").select("*").eq("bid_id", bid.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
       sv = svRow ?? null;
       if (sv) {
-        const { data: estRow } = await supabase.from("estimates").select("*").eq("site_visit_id", sv.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        const { data: estRow } = await userDb().from("estimates").select("*").eq("site_visit_id", sv.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
         est = estRow ?? null;
       }
     }
@@ -2593,7 +2598,7 @@ export const isPaymentPaused = async () => {
 // ── STEP L: customer_reports ──────────────────────────────────────────────────
 
 export const createCustomerReport = ({ reporterId, reportedId, reportType, description, contractId }) =>
-  supabase.from("customer_reports").insert({
+  userDb().from("customer_reports").insert({
     reporter_id: reporterId ?? null,
     reported_id: reportedId,
     report_type: reportType,
@@ -2602,7 +2607,7 @@ export const createCustomerReport = ({ reporterId, reportedId, reportType, descr
   }).select().single();
 
 export const getCustomerReports = ({ status } = {}) => {
-  let q = supabase.from("customer_reports")
+  let q = adminDb().from("customer_reports")
     .select("*, reporter:reporter_id(name, phone), reported:reported_id(name, phone)")
     .order("created_at", { ascending: false });
   if (status) q = q.eq("status", status);
@@ -2610,7 +2615,7 @@ export const getCustomerReports = ({ status } = {}) => {
 };
 
 export const updateCustomerReportStatus = (id, status, adminNote = null) =>
-  supabase.from("customer_reports")
+  adminDb().from("customer_reports")
     .update({ status, ...(adminNote && { admin_note: adminNote }) })
     .eq("id", id)
     .select().single();
@@ -4066,7 +4071,7 @@ export async function checkSiteVisitFollowUp() {
   };
 
   // ── 48h 경과 + 견적서 미제출 → 기한 임박 알림 (still 'completed' = 미제출) ──
-  const { data: due48 } = await supabase
+  const { data: due48 } = await userDb()
     .from("site_visits").select("*")
     .eq("status", "completed")
     .lt("completed_at", h48).gte("completed_at", h72);
@@ -4087,7 +4092,7 @@ export async function checkSiteVisitFollowUp() {
   }
 
   // ── 72h 경과 + 견적서 미제출 → 매칭 취소 + 온도 -3 + 플래그 ──
-  const { data: overdue } = await supabase
+  const { data: overdue } = await userDb()
     .from("site_visits").select("*")
     .eq("status", "completed")
     .lt("completed_at", h72);
@@ -4115,7 +4120,7 @@ export async function checkSiteVisitFollowUp() {
   }
 
   // ── 7d 경과 + 견적서 제출 + 계약 없음 → 양측 문의 + 플래그 ──
-  const { data: submitted } = await supabase
+  const { data: submitted } = await userDb()
     .from("site_visits").select("*")
     .eq("status", "estimate_submitted")
     .lt("completed_at", d7);
