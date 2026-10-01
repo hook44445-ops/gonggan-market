@@ -138,7 +138,7 @@ export default function RequestModal({ onClose, onDone, initialData = null, isEd
             marginBottom:S.xl, fontSize:13, color:C.navy, fontWeight:600,
             display:"flex", gap:8, alignItems:"center" }}>
             <span>🛡</span>
-            <span>{SHOW_BETA_UI ? "인근 검증 업체에게만 공개돼요" : "인근 검증 업체에게만 공개 · 에스크로 안전 정산 적용"}</span>
+            <span>{SHOW_BETA_UI ? "인근 검증 업체에게만 공개돼요" : "인근 검증 업체에게만 공개 · 단계별 안전지급 적용"}</span>
           </div>
           <div style={{ display:"flex", gap:S.sm }}>
             <button onClick={() => setStep(2)} style={{ flex:0.5, padding:S.xl, background:C.bg, color:C.text2, border:`1.5px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>← 이전</button>

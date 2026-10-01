@@ -16,7 +16,7 @@ const fmt = (iso) => {
 
 /* 에스크로 날짜 칸 → 한국어 이름(없는 칸은 칸 이름 그대로) */
 const STEP_LABEL = {
-  created_at: "계약 생성", step1_deposited_at: "에스크로 결제(입금)", step2_approved_at: "착공 승인",
+  created_at: "계약 생성", step1_deposited_at: "안전결제(입금)", step2_approved_at: "착공 승인",
   step3_approved_at: "중간 점검 승인", step4_approved_at: "완료 확인", step5_completed_at: "정산 완료",
   expected_completion_at: "예상 완공일", dispute_opened_at: "이의 신청", updated_at: "마지막 변경",
 };

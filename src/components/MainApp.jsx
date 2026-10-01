@@ -406,8 +406,8 @@ const computeCustomerStage = (r, escrowData) => {
   };
   if (r.status === "escrow_pending" && !escrow) return {
     badge: "결제 대기", badgeBg: C.brandL, badgeFg: C.brand,
-    label: "에스크로 결제 대기", sub: "최종 견적을 승인했어요 · 안전결제를 진행해주세요",
-    action: "bids", cta: "에스크로 결제하기",
+    label: "안전결제 대기", sub: "최종 견적을 승인했어요 · 안전결제를 진행해주세요",
+    action: "bids", cta: "안전결제하기",
   };
 
   if (!escrow) {
@@ -643,7 +643,7 @@ function FavEmptyState({ title, desc, onGo }) {
 
 // 마이페이지 "도움말 · 고객센터" FAQ — 기본 5개만 노출(faqExpanded=false), "더보기"로 전체 노출
 const FAQ_ITEMS = [
-  { q: "에스크로 결제란 무엇인가요?",
+  { q: "공간안전결제(단계별 안전지급)란 무엇인가요?",
     a: SHOW_BETA_UI
       ? "공사비를 착공·중간·완료 단계마다 나눠 지급하는 안전결제 방식으로, 정식 서비스에서 제공됩니다. 지금 오픈 기간에는 계약서에 적은 단계대로 업체와 직접 주고받고, 단계와 사진은 앱에 기록됩니다."
       : "공사비를 공간마켓이 안전하게 보관하고, 착공·중간·완료 단계를 확인할 때마다 업체에 나눠 지급하는 안전결제 방식입니다. 고객은 단계별로 직접 승인합니다." },
@@ -659,14 +659,14 @@ const FAQ_ITEMS = [
       : "지급되지 않은 금액은 분쟁 검토 후 환불 또는 정산 처리됩니다. 채팅·사진·GPS 기록을 기준으로 검토합니다." },
   { q: "공간마켓 보호 범위가 무엇인가요?",
     a: SHOW_BETA_UI
-      ? "오픈 기간에는 계약서·단계·사진·대화 기록과, 분쟁 시 그 기록 제공이 적용됩니다. 앱 안 안전결제(에스크로)는 정식 서비스에서 제공되며, 그 전까지는 계약서에 적은 단계대로 업체와 직접 진행합니다."
-      : "공간안전결제로 진행하시면 토스페이먼츠 에스크로 보호, 단계별 정산, 계약서 보관, 분쟁 중재 지원이 모두 적용됩니다. 플랫폼 밖 거래는 보호 범위에 포함되지 않습니다.",
+      ? "오픈 기간에는 계약서·단계·사진·대화 기록과, 분쟁 시 그 기록 제공이 적용됩니다. 앱 안 안전결제(단계별 안전지급)는 정식 서비스에서 제공되며, 그 전까지는 계약서에 적은 단계대로 업체와 직접 진행합니다."
+      : "공간안전결제로 진행하시면 대금 보관과 단계별 안전지급, 계약서 보관, 분쟁 중재 지원이 모두 적용됩니다. 플랫폼 밖 거래는 보호 범위에 포함되지 않습니다.",
     extra: <ProtectionNotice variant="full" /> },
   { q: "분쟁이 생기면 어떻게 되나요?",
     a: "공간마켓이 기록을 토대로 원만한 해결을 도와드립니다. 단, 공간마켓은 법적 판단을 내리는 기관이 아닙니다.",
     extra: <DisputeNotice variant="full" /> },
   { q: "강제로 환불받을 수 있나요?",
-    a: "공간마켓은 강제 환불을 집행하는 기관이 아닙니다. 양측 합의를 통한 환불 협의를 도와드립니다. 에스크로 정산 보류는 가능합니다." },
+    a: "분쟁이 생기면 공간마켓이 계약서·단계·현장 사진 기록을 바탕으로 양측의 환불 협의를 돕습니다. 공간안전결제로 진행한 거래는 협의가 끝날 때까지 다음 단계 지급을 보류합니다." },
   { q: "공사 품질이 마음에 안 들어요.",
     a: "공간마켓은 공사 품질을 전문적으로 감정하는 기관이 아닙니다. 계약서와 시공 사진 기록을 토대로 업체와 협의를 도와드립니다." },
   { q: "직접 업체와 거래하면 안 되나요?",
@@ -3465,7 +3465,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               </div>
               <div style={{ display:"flex" }}>
                 {[
-                  (SHOW_BETA_UI ? { icon:"🗂", title:"기록이 남는 거래", sub:"계약·사진·단계" } : { icon:"🛡", title:"안전한 거래", sub:"에스크로 보호" }),
+                  (SHOW_BETA_UI ? { icon:"🗂", title:"기록이 남는 거래", sub:"계약·사진·단계" } : { icon:"🛡", title:"안전한 거래", sub:"단계별 안전지급" }),
                   { icon:"✓",  title:"신뢰 파트너", sub:"검증된 업체" },
                   { icon:"🤝", title:"따뜻한 연결", sub:"사람과 공간 사이" },
                 ].map((item, i, arr) => (
@@ -3768,7 +3768,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                       color:"#fff", border:"none", borderRadius:R.lg,
                                       fontWeight:800, fontSize:14, cursor:"pointer",
                                       boxShadow:`0 3px 12px ${C.brand44}` }}>
-                                    {stage?.cta ?? "에스크로 확인하기"} →
+                                    {stage?.cta ?? "공사 단계 확인하기"} →
                                   </button>
                                 </div>
                               ) : (stage?.action === "bids" || r.bidCount > 0) ? (
@@ -3839,7 +3839,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                                       color:"#fff", border:"none", borderRadius:R.lg,
                                       fontWeight:700, fontSize:13, cursor:"pointer",
                                       display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
-                                    <Icon emoji="🏗" size={13} color="#fff" /> 에스크로 보기
+                                    <Icon emoji="🏗" size={13} color="#fff" /> 공사 단계 보기
                                   </button>
                                 ) : (stage?.action === "bids" || r.bidCount > 0) ? (
                                   <button onClick={() => { setBidViewRequestId(r.id); setScreen("bidstatus"); }}
@@ -4179,7 +4179,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               {[
                 { icon:"🔍", title:"프로젝트 매칭",     desc:"인근 견적 요청 확인 후 입찰 제출" },
                 { icon:"📝", title:"계약 & 착공",        desc:"고객 선택 시 착공금 30% 즉시 수령" },
-                { icon:"🏗",  title:"단계별 공사 진행",  desc: SHOW_BETA_UI ? "중간 점검 사진 공유 · 단계 기록" : "중간 점검 사진 공유 · 에스크로 보호" },
+                { icon:"🏗",  title:"단계별 공사 진행",  desc: SHOW_BETA_UI ? "중간 점검 사진 공유 · 단계 기록" : "중간 점검 사진 공유 · 단계별 안전지급" },
                 { icon:"💰", title:"단계별 정산",        desc:"고객 승인 후 중도금 40% 수령" },
                 { icon:"⭐", title:"완료 & 리뷰",        desc:"잔금 30% 수령 · 공간온도 상승" },
               ].map(({ icon, title, desc }, i, arr) => (
@@ -5275,7 +5275,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                               style={{ marginTop:S.sm, padding:"8px 16px",
                                 background: csStage?.badge === "확인 필요" ? "#C07000" : C.brand,
                                 color:"#fff", border:"none", borderRadius:R.full, fontWeight:700, fontSize:12, cursor:"pointer", boxShadow:`0 3px 10px ${C.brand44}` }}>
-                              {csStage?.cta ?? "에스크로 진행현황 보기"} →
+                              {csStage?.cta ?? "공사 진행현황 보기"} →
                             </button>
                           )}
                           {step.recordStep && (
@@ -6605,7 +6605,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             </div>
             <div style={{ background:C.navyL, borderRadius:R.lg, padding:S.md, marginBottom:S.xl, display:"flex", gap:S.sm, alignItems:"center", border:`1px solid ${C.trustM}` }}>
               <Icon emoji="🛡" size={16} color={C.navy} />
-              <span style={{ fontSize:12, color:C.navy, fontWeight:600 }}>선택한 업체와 에스크로 안전 정산으로 진행됩니다</span>
+              <span style={{ fontSize:12, color:C.navy, fontWeight:600 }}>선택한 업체와 단계별 안전지급으로 진행됩니다</span>
             </div>
             <div style={{ display:"flex", gap:S.sm }}>
               <button onClick={() => setBidAlert(null)} style={{ flex:1, padding:S.xl, background:C.bg, color:C.text2, border:`1px solid ${C.bgWarm}`, borderRadius:R.lg, fontWeight:700, fontSize:15, cursor:"pointer" }}>나중에</button>

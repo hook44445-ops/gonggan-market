@@ -96,8 +96,10 @@ test('베타에서는 Service 스키마에 에스크로를 넣지 않는다', ()
   const names = (beta) =>
     serviceSchema(beta).hasOfferCatalog.itemListElement.map((o) => o.itemOffered.name);
 
-  assert.ok(!names(true).some((n) => n.includes('에스크로')));
-  assert.ok(names(false).some((n) => n.includes('에스크로')));
+  // 10-01 명칭 정리: 고객에게는 «에스크로» 대신 «단계별 안전지급»(docs/PAYMENTS 7절) — 베타엔 둘 다 없다
+  assert.ok(!names(true).some((n) => /에스크로|단계별 안전지급/.test(n)));
+  assert.ok(names(false).some((n) => n.includes('단계별 안전지급')));
+  assert.ok(!names(false).some((n) => n.includes('에스크로')));
 });
 
 test('베타 FAQ·설명은 에스크로를 «예정»으로만 말한다', () => {
@@ -105,7 +107,8 @@ test('베타 FAQ·설명은 에스크로를 «예정»으로만 말한다', () =
   assert.match(betaAnswer, /토스페이먼츠 승인 뒤 열립니다/);
 
   assert.ok(!pageSeo(true)['/'].description.includes('에스크로'));
-  assert.ok(pageSeo(false)['/'].description.includes('에스크로'));
+  assert.ok(pageSeo(false)['/'].description.includes('단계별 안전지급'));
+  assert.ok(!pageSeo(false)['/'].description.includes('에스크로'));
 });
 
 // ─────────────────────────────────────────────────────

@@ -15,8 +15,8 @@ test("증빙 한 장 — 요약·단계·GPS·사진·채팅·신고가 모두 �
     money: (n) => `₩${n.toLocaleString()}`, photoUrls: { cp1: ["https://x/signed.jpg"] },
     chat: { count: 2, last: "2026-09-22T00:00:00Z", recent: [{ sender_type: "customer", created_at: "2026-09-22T00:00:00Z", text: "010-1234 계좌로 보낼게요" }], kw: ["계좌"] },
   });
-  for (const s of ["공간마켓 공사 증빙 기록", "₩3,000,000", "에스크로 결제(입금)", "완료 확인", "서울 강서구", "https://x/signed.jpg", "계좌로 보낼게요", "직거래 의심 키워드", "keyword", "✓ 계약"]) assert.ok(html.includes(s), s);
-  assert.ok(html.indexOf("계약 생성") < html.indexOf("에스크로 결제(입금)"), "단계는 시간순");
+  for (const s of ["공간마켓 공사 증빙 기록", "₩3,000,000", "안전결제(입금)", "완료 확인", "서울 강서구", "https://x/signed.jpg", "계좌로 보낼게요", "직거래 의심 키워드", "keyword", "✓ 계약"]) assert.ok(html.includes(s), s);
+  assert.ok(html.indexOf("계약 생성") < html.indexOf("안전결제(입금)"), "단계는 시간순");
 });
 
 test("채팅 글은 HTML 로 해석되지 않는다", () => {
