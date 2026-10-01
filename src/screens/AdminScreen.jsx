@@ -5829,6 +5829,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
   const [docQueue, setDocQueue] = useState([]);
   // «오늘 할 일» 숫자(SQL 201) — 없으면 null → «열기 ›»
   const [todayCounts, setTodayCounts] = useState(null);
+  // 첫 화면 «숫자 보기»(방문 · 성장 · USP · 주간 한 장 · 알림 · 가격 · KPI · 현황) — 기본 접힘 · 열어 두면 다음에도 열림(이 기기)
+  const [showNumbers, setShowNumbers] = useState(() => { try { return localStorage.getItem("gonggan_admin_numbers_open") === "1"; } catch { return false; } });
+  const toggleNumbers = () => setShowNumbers((v) => { try { localStorage.setItem("gonggan_admin_numbers_open", v ? "0" : "1"); } catch { /* 기기 저장 불가 — 이번만 */ } return !v; });
   const loadTodayCounts = () => getAdminTodayCounts()
     .then(({ data, error }) => setTodayCounts(!error && data && typeof data === "object" ? data : null))
     .catch(() => setTodayCounts(null));
@@ -6295,15 +6298,18 @@ export default function AdminScreen({ onBack, onHome, user }) {
       tabs: [["project_flow", "증빙·GPS"], ["chat_overview", "대화"], ["direct_deal", "직거래 의심"]] },
     { key: "lounge",  label: "라운지·신고", icon: "💬",
       tabs: [["lounge", "라운지"], ["reports", "신고"], ["reviews", "리뷰"], ["review_admin", "리뷰 쿠폰"], ["seed", "포토후기"], ["lounge_seeding", "라운지 시딩"]] },
-    { key: "content", label: "콘텐츠 AI",   icon: "🤖",
-      tabs: [["lounge_ai_factory", "AI 글 공장"], ["autopilot", "발행 대기"], ["publishing_pipeline", "발행 흐름"], ["auto_publish", "자동 발행"],
-             ["editorial_schedule", "자동 편성"], ["trend_discovery", "트렌드"], ["operation_monitor", "자율 운영 상태"], ["lounge_insights", "성과"], ["ai_hq", "AI 운영본부"]] },
-    { key: "settings", label: "설정",       icon: "⚙️",
+    // 10-01: 자주 쓰는 3개(글 공장 · 발행 대기 · 성과)만 앞에 — 나머지는 «더 보기»(세 번째 칸 true)
+    { key: "content", label: "콘텐츠 AI",   icon: "🤖", moreLabel: "더 보기",
+      tabs: [["lounge_ai_factory", "AI 글 공장"], ["autopilot", "발행 대기"], ["lounge_insights", "성과"],
+             ["publishing_pipeline", "발행 흐름", true], ["auto_publish", "자동 발행", true], ["editorial_schedule", "자동 편성", true],
+             ["trend_discovery", "트렌드", true], ["operation_monitor", "자율 운영 상태", true], ["ai_hq", "AI 운영본부", true]] },
+    { key: "settings", label: "설정",       icon: "⚙️", moreLabel: "실험실",
       tabs: [["notifications", "알림·푸시"], ["operator_setting", "운영자"], ["admin_logs", "관리자 기록"], ["tools", "정리 도구"], ["ai_cleanup", "AI 청소"],
              // 실험실 — 지금 운영에 쓰지 않는 화면(데이터는 그대로, 입구만 여기로). 편성국(콘텐츠 계획)은 Mock 데이터.
-             ["mission_control", "실험: 운영센터"], ["executive_office", "실험: AI 결재"], ["ceo_office", "실험: AI 사장실"],
-             ["live_ops", "실험: 라이브 운영"], ["e2e_validation", "실험: 실전 검증"], ["programming", "실험: 콘텐츠 계획"],
-             ["story_engine", "실험: 연재"], ["blog_publish", "실험: 블로그"], ["publishing_priority", "실험: 발행 우선순위"]] },
+             //   10-01: «실험실 ▾»를 눌러야 보인다(세 번째 칸 true)
+             ["mission_control", "실험: 운영센터", true], ["executive_office", "실험: AI 결재", true], ["ceo_office", "실험: AI 사장실", true],
+             ["live_ops", "실험: 라이브 운영", true], ["e2e_validation", "실험: 실전 검증", true], ["programming", "실험: 콘텐츠 계획", true],
+             ["story_engine", "실험: 연재", true], ["blog_publish", "실험: 블로그", true], ["publishing_priority", "실험: 발행 우선순위", true]] },
   ];
   const SETTINGS_TAB_KEYS = new Set(CATEGORIES_DEF.find((c) => c.key === "settings").tabs.map(([k]) => k));
   const isSuperAdmin = user?.role === "admin";
@@ -6319,10 +6325,10 @@ export default function AdminScreen({ onBack, onHome, user }) {
   };
   const adminCategories = CATEGORIES_DEF
     .map(c => ({
-      key: c.key, label: c.label, icon: c.icon,
+      key: c.key, label: c.label, icon: c.icon, moreLabel: c.moreLabel,
       tabs: c.tabs
         .filter(([tk]) => canAccessTab(tk))
-        .map(([tk, lbl]) => ({ key: tk, label: lbl || TAB_LABEL[tk] || tk })),
+        .map(([tk, lbl, more]) => ({ key: tk, label: lbl || TAB_LABEL[tk] || tk, more: !!more })),
     }))
     .filter(c => c.tabs.length > 0);
 
@@ -6643,47 +6649,63 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     );
                   })}
                 </div>
-                <AdminVisitCards adminUserId={user?.id ?? null} />
-                <AdminGrowthPanel />
-                <UspBoardPanel />
-                <WeeklyDigestPanel />
-                <AdminNotifyStatsPanel />
-                <AdminPriceDataPanel />
-                <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
-                <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📊" size={14} color={C.text1} /> 현황 요약</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
-                  {[
-                    ["업체 심사 대기", stats.pending,    C.gold,    "companies"],
-                    ["승인된 업체",    stats.approved,   C.green,   "companies"],
-                    ["등록 고객",      stats.customers,  C.brand,   "customers"],
-                    ["결제 대기",      stats.payments,   C.gold,    "payments"],
-                    ["분쟁 대기",      stats.disputes,   C.red,     "disputes"],
-                    ["정산 대기",      stats.settlements, C.brand,  "settlements"],
-                    ["반려된 업체",    stats.rejected,   C.text4,   "companies"],
-                  ].map(([label, count, color, tab]) => (
-                    <div key={label} onClick={() => setMainTab(tab)}
-                      style={{ background: C.surface, borderRadius: R.lg,
-                        padding: S.xl, textAlign: "center", border: `1px solid ${C.bgWarm}`, cursor: "pointer" }}>
-                      <div style={{ fontSize: 28, fontWeight: 900, color }}>{count}</div>
-                      <div style={{ fontSize: 12, color: C.text3, marginTop: 4 }}>{label}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, marginBottom: S.lg }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🛡" size={14} color={C.text1} /> 공간마켓 운영 현황</div>
-                  {[
-                    ["공간안전결제 에스크로 수수료 (고객)", "3.7% (VAT 포함, 고정)"],
-                    ["공간멤버십파트너 이용수수료 (업체)", "4.4% (VAT 포함 · 계약 성사 시에만)"],
-                    ["에스크로 구조",        "500만 미만 30/70 · 이상 30/40/30 · 공간보증 10/20/40/30"],
-                    ["초기 파트너 혜택",     "가입 1개월 수수료 0% · 배지 우선"],
-                  ].map(([k, v]) => (
-                    <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                      padding: `${S.xs}px 0`, borderBottom: `1px solid ${C.trustM}` }}>
-                      <span style={{ fontSize: 13, color: C.text3 }}>{k}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{v}</span>
-                    </div>
-                  ))}
-                </div>
+                {/* 숫자 보기 — 매일 처리할 것(위)과 살펴볼 숫자(여기)를 나눠 첫 화면을 짧게(10-01 대표 «보기 쉽게») */}
+                <button onClick={toggleNumbers}
+                  style={{ display: "flex", alignItems: "center", gap: S.sm, width: "100%", textAlign: "left", background: C.surface,
+                    border: `1px solid ${C.bgWarm}`, borderRadius: R.xl, padding: S.lg, marginBottom: S.lg, cursor: "pointer", fontFamily: "inherit" }}>
+                  <Icon emoji="📊" size={16} color={C.text1} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>숫자 보기</div>
+                    <div style={{ fontSize: 11.5, color: C.text4 }}>방문 · 성장 · USP · 주간 한 장 · 알림 · 가격 · KPI · 현황 요약</div>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: C.brand }}>{showNumbers ? "접기 ▴" : "펼치기 ▾"}</span>
+                </button>
+                {showNumbers && (
+                  <>
+                  <AdminVisitCards adminUserId={user?.id ?? null} />
+                  <AdminGrowthPanel />
+                  <UspBoardPanel />
+                  <WeeklyDigestPanel />
+                  <AdminNotifyStatsPanel />
+                  <AdminPriceDataPanel />
+                  <AdminKpiPanel adminUserId={user?.id ?? null} companies={companies} customers={customers} />
+                  <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="📊" size={14} color={C.text1} /> 현황 요약</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: S.sm, marginBottom: S.xl }}>
+                    {[
+                      ["업체 심사 대기", stats.pending,    C.gold,    "companies"],
+                      ["승인된 업체",    stats.approved,   C.green,   "companies"],
+                      ["등록 고객",      stats.customers,  C.brand,   "customers"],
+                      // 탭을 열기 전엔 목록을 안 불러와 0 이 사실이 아니다 → 모르면 «—»(분쟁은 SQL 201 숫자)
+                      ["결제 대기",      tabLoaded.payments ? stats.payments : null,   C.gold,    "payments"],
+                      ["분쟁 대기",      todayCounts?.disputes ?? (tabLoaded.disputes ? stats.disputes : null),   C.red,     "disputes"],
+                      ["정산 대기",      tabLoaded.settlements ? stats.settlements : null, C.brand,  "settlements"],
+                      ["반려된 업체",    stats.rejected,   C.text4,   "companies"],
+                    ].map(([label, count, color, tab]) => (
+                      <div key={label} onClick={() => setMainTab(tab)}
+                        style={{ background: C.surface, borderRadius: R.lg,
+                          padding: S.xl, textAlign: "center", border: `1px solid ${C.bgWarm}`, cursor: "pointer" }}>
+                        <div style={{ fontSize: 28, fontWeight: 900, color: count == null ? C.text4 : color }}>{count ?? "—"}</div>
+                        <div style={{ fontSize: 12, color: C.text3, marginTop: 4 }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, marginBottom: S.lg }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🛡" size={14} color={C.text1} /> 공간마켓 운영 현황</div>
+                    {[
+                      ["공간안전결제 에스크로 수수료 (고객)", "3.7% (VAT 포함, 고정)"],
+                      ["공간멤버십파트너 이용수수료 (업체)", "4.4% (VAT 포함 · 계약 성사 시에만)"],
+                      ["에스크로 구조",        "500만 미만 30/70 · 이상 30/40/30 · 공간보증 10/20/40/30"],
+                      ["초기 파트너 혜택",     "가입 1개월 수수료 0% · 배지 우선"],
+                    ].map(([k, v]) => (
+                      <div key={k} style={{ display: "flex", justifyContent: "space-between",
+                        padding: `${S.xs}px 0`, borderBottom: `1px solid ${C.trustM}` }}>
+                        <span style={{ fontSize: 13, color: C.text3 }}>{k}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                  </>
+                )}
 
               </div>
             )}

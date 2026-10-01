@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { C } from "../constants";
 import { Icon } from "./common";
+import { splitTabs } from "../lib/adminNav";
 
 // ── 관리자 IA 네비게이션 — 상단 대분류(5) + 하단 소분류 ──────────────────────
-// categories: [{ key, label, icon, tabs: [{ key, label }] }] (권한 필터링 완료본)
+// categories: [{ key, label, icon, moreLabel?, tabs: [{ key, label, more? }] }] (권한 필터링 완료본 · more = «더 보기» 안)
 // mainTab: 현재 선택된 소분류 key / onSelect: 소분류 클릭 핸들러
 export default function AdminCategoryNav({ categories, mainTab, onSelect }) {
   // 현재 mainTab 이 속한 대분류를 활성화. 없으면 첫 대분류.
@@ -17,6 +18,8 @@ export default function AdminCategoryNav({ categories, mainTab, onSelect }) {
   }, [mainTab]);
 
   const cat = categories.find(c => c.key === activeCat) || categories[0];
+  const [moreOpen, setMoreOpen] = useState({});
+  const nav = splitTabs(cat?.tabs || [], { mainTab, open: !!moreOpen[cat?.key] });
 
   const pickCategory = (catKey) => {
     setActiveCat(catKey);
@@ -45,9 +48,9 @@ export default function AdminCategoryNav({ categories, mainTab, onSelect }) {
           );
         })}
       </div>
-      {/* 소분류 */}
+      {/* 소분류 — 자주 쓰는 탭 먼저 · 나머지는 «더 보기»(adminNav) */}
       <div style={{ display: "flex", overflowX: "auto", gap: 6, padding: "9px 14px", background: C.bg }}>
-        {(cat?.tabs || []).map(t => {
+        {[...nav.front, ...(nav.expanded ? nav.rest : [])].map(t => {
           const on = t.key === mainTab;
           return (
             <button key={t.key} onClick={() => onSelect(t.key)}
@@ -58,6 +61,13 @@ export default function AdminCategoryNav({ categories, mainTab, onSelect }) {
             </button>
           );
         })}
+        {nav.showMore && !nav.rest.some(t => t.key === mainTab) && (
+          <button onClick={() => setMoreOpen(v => ({ ...v, [cat.key]: !v[cat.key] }))}
+            style={{ padding: "6px 13px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap",
+              border: `1px dashed ${C.bgWarm}`, cursor: "pointer", background: "transparent", color: C.text3 }}>
+            {nav.expanded ? "접기 ▴" : `${cat.moreLabel || "더 보기"} ▾`}
+          </button>
+        )}
       </div>
     </div>
   );
