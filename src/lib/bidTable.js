@@ -8,12 +8,13 @@
 //   항목별 최종 견적서(QuoteDocument)는 이미 잘 만들어져 있지만 «업체를 고른 뒤»에 나온다.
 //
 // 이 파일이 지키는 것
-//   1) 있는 데이터만 쓴다. 표 하나 만들자고 새 칸·새 SQL 을 만들지 않는다.
+//   1) 있는 데이터만 쓴다. (예외 하나: «포함 항목» — 본질 ② · bids.includes · SQL 186 · lib/bidIncludes)
 //   2) **빈 칸을 빈 칸으로 보여준다.** 비교의 핵심은 같은 것끼리 놓는 게 아니라
 //      «무엇이 빠졌는지»가 보이는 것이다. 안 적은 업체를 가려 주면 비교가 아니라 광고가 된다.
 //   3) 없는 숫자를 지어내지 않는다. 최종 금액은 현장 확인 뒤 견적서에서 확정된다.
 //
 // 순수 JS — React·DOM 없음(테스트가 그대로 부른다).
+import { includesCell, hasIncludes } from "./bidIncludes.js";
 
 export const MAX_COMPARE = 3;
 
@@ -54,11 +55,12 @@ export function bidColumn(bid = {}) {
     price, period,
     perDay: perDay(price, period),
     material, comment, proofs,
+    includes: bid.includes ?? null,
     proofCount: Object.values(proofs).filter(Boolean).length,
     done: num(company.completedJobs),
     rating: Number(company.rating) > 0 ? Number(company.rating) : null,
     // 고객이 물어봐야 하는 것 — 이 업체가 «안 적은» 칸
-    missing: [!period && "공사 기간", !material && "주요 자재", !comment && "업체 한마디"].filter(Boolean),
+    missing: [!period && "공사 기간", !material && "주요 자재", !hasIncludes(bid.includes) && "포함 항목", !comment && "업체 한마디"].filter(Boolean),
   };
 }
 
@@ -101,6 +103,8 @@ export function compareBids(bids = []) {
     { key: "period",   label: "공사 기간",  cells: cols.map(c => cell(c.period, "일")) },
     { key: "perDay",   label: "하루당",     cells: cols.map(c => cell(c.perDay, "만원")), hint: "금액 ÷ 공사 기간" },
     { key: "material", label: "주요 자재",  cells: cols.map(c => cell(c.material)), wrap: true },
+    // 본질 ② — 부가세·철거·폐기물·자재비가 들었는지 · AS. «별도»·«안 적음»은 계약 때 추가금이 될 수 있는 자리
+    { key: "includes", label: "포함 항목",  cells: cols.map(c => includesCell(c.includes)), wrap: true },
     { key: "proof",    label: "낸 증빙",    cells: cols.map(proofCell) },
     // 0건은 «안 적음»이 아니라 사실이다 — 새 업체를 «뭔가 빠뜨린 업체»처럼 보이게 하지 않는다.
     { key: "done",     label: "완료 공사",  cells: cols.map(c => (c.done ? { text: `${c.done}건`, missing: false } : { text: "아직 없음", missing: false })) },
@@ -122,6 +126,9 @@ export function compareBids(bids = []) {
     const gap = high - low;
     const pct = Math.round((gap / low) * 100);
     notes.push(`가장 싼 곳과 비싼 곳이 ${gap.toLocaleString("ko-KR")}만원(${pct}%) 차이예요. 자재와 기간을 같이 보세요.`);
+  }
+  if (rows.find(r => r.key === "includes").cells.some(c => c.missing || c.warn)) {
+    notes.push("«별도»나 «안 적음»인 항목은 계약 때 추가금이 될 수 있어요 — 계약 전에 꼭 물어보세요.");
   }
   if (missingCount > 0) notes.push(`안 적힌 칸이 ${missingCount}개 있어요 — 자재를 안 적은 곳은 숫자만 던진 것일 수 있어요.`);
   notes.push("현장을 보고 나면 금액이 바뀝니다. 작은 공사는 현장 없이 이 금액 그대로 계약할 수도 있어요.");

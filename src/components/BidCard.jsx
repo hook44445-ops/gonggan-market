@@ -10,6 +10,7 @@ import GuaranteeBadge from "./GuaranteeBadge";
 import { recordCompanyActivity } from "../utils/growthStore"; // 연속 활동 기록(표시 보조 · Add Only)
 import { BetaGateModal, hasBetaAck } from "./beta/BetaUI"; // 베타 안내(Add Only · SHOW_BETA_UI 게이트)
 import { photosOf, descTextOf } from "../lib/requestPhotos"; // 요청서 현장 사진(09-30) — 칸이 있으면 칸, 없으면 desc 마커
+import { INCLUDE_ITEMS, AS_OPTIONS, normalizeIncludes, hasIncludes } from "../lib/bidIncludes"; // 견적 포함 항목(본질 ② · 186)
 
 // 고객 확인 시각(173) — 「오늘 14:05」 · 「9/29」
 function viewedLabel(iso) {
@@ -35,7 +36,7 @@ export default function BidCard({
   const [showForm, setShowForm] = useState(false);
   const [bidBetaAck, setBidBetaAck] = useState(() => hasBetaAck("bid")); // 최초 1회 확인 후 재노출 안 함
   const [submitting, setSubmitting] = useState(false);
-  const [bidForm, setBidForm] = useState({ price: "", period: "", material: "", comment: "" });
+  const [bidForm, setBidForm] = useState({ price: "", period: "", material: "", comment: "", includes: {} });
   const setBF = (k, v) => setBidForm(f => ({ ...f, [k]: v }));
   const isGuest = !onBidSubmit && !!onRequiresAuth;
   const hasBid = submitted || !!myBid;
@@ -75,6 +76,7 @@ export default function BidCard({
       period:   src.period != null ? String(src.period) : (bidForm.period || ""),
       material: src.material ?? bidForm.material ?? "",
       comment:  src.comment ?? bidForm.comment ?? "",
+      includes: normalizeIncludes(src.includes ?? bidForm.includes),
     });
     setShowForm(true);
   };
@@ -160,6 +162,8 @@ export default function BidCard({
       period:   parseInt(bidForm.period, 10),
       material: bidForm.material,
       comment:  bidForm.comment,
+      // 하나도 안 눌렀으면 보내지 않는다(고객 표에 «안 적음») — 186 전이면 저장 함수가 칸을 빼고 다시 저장
+      ...(hasIncludes(bidForm.includes) ? { includes: normalizeIncludes(bidForm.includes) } : {}),
     });
     setSubmitting(false);
     if (ok) {
@@ -434,6 +438,55 @@ export default function BidCard({
 
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 6 }}>주요 자재 설명</div>
             <input value={bidForm.material} onChange={e => setBF("material", e.target.value)} placeholder="예: LX하우시스 바닥재, 대림 욕실" style={iS} />
+
+            {/* 견적 포함 항목(본질 ②) — 안 눌러도 입찰은 된다. 고객 비교표에 «포함 / 별도 / 안 적음»이 그대로 보인다 */}
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 4 }}>이 금액에 포함된 것</div>
+            <div style={{ fontSize: 11.5, color: C.text3, marginBottom: 8, lineHeight: 1.5 }}>
+              고객이 견적을 나란히 비교할 때 보여요. «별도»로 적어도 괜찮아요 — 나중에 추가금 다툼이 줄어요.
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              {INCLUDE_ITEMS.map(({ key, label }) => {
+                const cur = bidForm.includes?.[key];
+                const pick = (v) => setBidForm(f => {
+                  const next = { ...(f.includes ?? {}) };
+                  if (next[key] === v) delete next[key]; else next[key] = v;
+                  return { ...f, includes: next };
+                });
+                const chip = (v, text) => (
+                  <button type="button" onClick={() => pick(v)} aria-pressed={cur === v}
+                    style={{ padding: "6px 12px", borderRadius: R.full, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                      border: `1.5px solid ${cur === v ? (v ? C.brand : "#C98A2B") : C.bgWarm}`,
+                      background: cur === v ? (v ? C.brandL : "#FBF3E4") : C.surface,
+                      color: cur === v ? (v ? C.brand : "#8A5A12") : C.text3 }}>{text}</button>
+                );
+                return (
+                  <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "5px 0" }}>
+                    <span style={{ fontSize: 13, color: C.text1, fontWeight: 600 }}>{label}</span>
+                    <span style={{ display: "flex", gap: 6 }}>{chip(true, "포함")}{chip(false, "별도")}</span>
+                  </div>
+                );
+              })}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "5px 0", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 13, color: C.text1, fontWeight: 600 }}>AS 기간</span>
+                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {AS_OPTIONS.map(m => {
+                    const on = bidForm.includes?.as_months === m;
+                    return (
+                      <button key={m} type="button" aria-pressed={on}
+                        onClick={() => setBidForm(f => {
+                          const next = { ...(f.includes ?? {}) };
+                          if (next.as_months === m) delete next.as_months; else next.as_months = m;
+                          return { ...f, includes: next };
+                        })}
+                        style={{ padding: "6px 10px", borderRadius: R.full, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                          border: `1.5px solid ${on ? C.brand : C.bgWarm}`, background: on ? C.brandL : C.surface, color: on ? C.brand : C.text3 }}>
+                        {m ? `${m}개월` : "없음"}
+                      </button>
+                    );
+                  })}
+                </span>
+              </div>
+            </div>
 
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text2, marginBottom: 6 }}>의뢰인에게 한마디</div>
             <textarea value={bidForm.comment} onChange={e => setBF("comment", e.target.value)} placeholder="예: 12년 경력, 욕실·주방 전문. 중간 점검 사진 매번 공유해드립니다." rows={3} style={{ ...iS, resize: "none", lineHeight: 1.7 }} />

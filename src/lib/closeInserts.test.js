@@ -18,6 +18,7 @@ test("앱 — 요청·입찰·라운지 쓰기는 토큰 연결로(익명 연결
   assert.doesNotMatch(lib, /supabase\.from\("requests"\)\.(insert|update)/);
   assert.doesNotMatch(lib, /supabase\.from\("bids"\)\.(insert|update)\(data\)/);
   assert.doesNotMatch(lib, /supabase\.from\("lounge_posts"\)\.insert/);
-  assert.match(lib, /asLoginRequired\(await userDb\(\)\.from\("bids"\)\.insert/);
+  // 186 뒤: 포함 항목 칸이 없으면 빼고 다시 저장하는 감싸개 안에서도 토큰 연결(userDb)로 쓴다
+  assert.match(lib, /asLoginRequired\(await (withoutIncludesRetry\(data, \(d\) => )?userDb\(\)\.from\("bids"\)\.insert/);
   assert.match(lib, /asLoginRequired\(await userDb\(\)\.from\("lounge_comments"\)\.insert/);
 });

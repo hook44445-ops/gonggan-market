@@ -3,6 +3,7 @@
 //   순서: 사진 → 업체 → 전문분야 → 금액 → 왜 이 업체 → 지표(CompanyMetrics 재사용) → 버튼.
 //   사진은 업체가 올린 진짜 시공 사례가 있으면 그것, 없으면 자재 이미지에 「분위기 이미지」라고 밝힌다.
 import { C, R, S } from "../constants";
+import { includesLine, includesCell } from "../lib/bidIncludes"; // 견적 포함 항목(본질 ②)
 import { TempBadge } from "./common";
 import { fmtMoney } from "../utils/calculations";
 import { responseValue } from "./company/CompanyMetrics";
@@ -102,6 +103,14 @@ export default function BidCompareCard({ bid, onChat, onSelect, onOpenCompany, s
         {bid.material && (
           <div style={{ marginTop: 8, fontSize: 12.5, color: C.text2, lineHeight: 1.5, wordBreak: "keep-all" }}>
             <span style={{ color: C.text4, fontWeight: 700 }}>자재 </span>{bid.material}
+          </div>
+        )}
+
+        {/* 포함 항목(본질 ② · 186) — 업체가 적었을 때만 한 줄. 별도·안 적음이 있으면 호박색(계약 전에 물어볼 것) */}
+        {includesLine(bid.includes) && (
+          <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5, wordBreak: "keep-all",
+            color: includesCell(bid.includes).warn ? "#8A5A12" : C.text2 }}>
+            <span style={{ color: C.text4, fontWeight: 700 }}>포함 </span>{includesLine(bid.includes)}
           </div>
         )}
 

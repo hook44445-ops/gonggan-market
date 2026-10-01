@@ -340,6 +340,7 @@ const normalizeBid = (row) => ({
   period: row.period_days,
   material: row.material_note ?? "",
   comment: row.comment ?? "",
+  includes: row.includes ?? null,   // 견적 포함 항목(186)
   createdAt: row.created_at,
   viewedAt: row.viewed_at ?? null,   // 고객이 견적 비교 화면에서 확인한 때(173)
   status: row.selected ? "selected" : "pending",
@@ -2751,6 +2752,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           period_days:   bidData.period,
           material_note: bidData.material,
           comment:       bidData.comment,
+          ...(bidData.includes ? { includes: bidData.includes } : {}),
         });
         if (updErr) { showToast(`입찰 수정 실패: ${updErr.message}`); return false; }
         if (upd) {
@@ -2775,6 +2777,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         period_days:   bidData.period,
         material_note: bidData.material,
         comment:       bidData.comment,
+        ...(bidData.includes ? { includes: bidData.includes } : {}),
       });
       if (error) {
         console.error('[BID_SUBMIT_FAILED]', error);

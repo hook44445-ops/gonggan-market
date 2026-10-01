@@ -55,6 +55,7 @@ const normalizeBid = (row) => ({
   company: row.companies ? normalizeCompany(row.companies) : { ...DEFAULT_COMPANY, id: row.company_id },
   price: row.price, period: row.period_days,
   material: row.material_note ?? "", comment: row.comment ?? "",
+  includes: row.includes ?? null,   // 견적 포함 항목(186)
   createdAt: row.created_at, status: row.selected ? "selected" : "pending",
 });
 
