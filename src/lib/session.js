@@ -146,6 +146,8 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   "token_earn", "token_spend", "token_summary", "consent_record", "consent_types_for",
   // 192 — 계약(에스크로) 만들기(요청 주인 · 입찰 업체)
   "escrow_get_or_create",
+  // 193 — 업체 선택(현장견적 요청 · 요청 주인만)
+  "request_site_visit",
   // 166 — 견적·현장방문·공사 기록(체크포인트)·추가공사·요청 함수(보완 S4 · 앱이 보낸 사용자 ID 를 믿지 않는다)
   ...S4_TOKEN_RPCS,
   // 168 — 대화 읽음 처리(읽는 사람 = 토큰의 사용자)
