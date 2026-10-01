@@ -56,7 +56,7 @@ export function typeToggles(cfg = getAutoConfig()) {
   return {
     morning_brief: cfg.typeMorningBrief !== false,
     qt: cfg.typeQt !== false,
-    astrology: cfg.typeAstrology !== false,
+    astrology: cfg.typeAstrology !== false,   // 10-01: 인도점성술 → 별자리 운세(같은 칸)
     series: cfg.typeSeries !== false,
     space_market: cfg.typeSpaceMarket !== false,
     trend_past: cfg.typeTimeTrend !== false,

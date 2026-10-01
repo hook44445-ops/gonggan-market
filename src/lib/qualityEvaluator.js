@@ -3,7 +3,7 @@
 //
 //   초안을 100점 기준 9개 항목으로 평가한다. 점수를 임의로 올리거나 기준을 낮추지 않는다 —
 //   실제 본문 신호(길이·구조·근거어휘·질문충족·중복·문체 등)로 결정론적으로 계산한다.
-//   유형(뉴스/공간마켓/QT/인도점성술/Time Trend)별로 평가 포인트를 달리 적용한다.
+//   유형(뉴스/공간마켓/QT/별자리 운세/Time Trend)별로 평가 포인트를 달리 적용한다.
 //
 //   ⚠️ Regression Zero: 기존 Safety Gate(autoPublishGate.evaluateGate)는 그대로 두고(무수정),
 //     기존 scoreUsefulness/checkSeo/checkBannedWords 신호만 재사용한다. 순수 함수 · 저장/API 없음.
@@ -144,8 +144,8 @@ export function evaluateQuality(draft = {}) {
   } else if (group === "astrology") {
     const hasDisclaimer = /오락|참고|재미|엔터/.test(full);
     const deterministic = /반드시|틀림없이|확정|예언|무조건/.test(full);
-    if (!hasDisclaimer) { toneNatural = clamp(toneNatural - 2, 0, 5); typeNotes.push("인도점성술형: 오락·참고 고지 필요"); }
-    if (deterministic) { factuality = clamp(factuality - 4, 0, 15); typeNotes.push("인도점성술형: 단정적 예언 표현"); }
+    if (!hasDisclaimer) { toneNatural = clamp(toneNatural - 2, 0, 5); typeNotes.push("운세형: 오락·참고 고지 필요"); }
+    if (deterministic) { factuality = clamp(factuality - 4, 0, 15); typeNotes.push("운세형: 단정적 예언 표현"); }
   } else if (group === "trend") {
     const hasPast = /과거|예전|이전|했었/.test(full), hasNow = /현재|지금|요즘/.test(full), hasFuture = /미래|전망|예상|앞으로/.test(full);
     if (!(hasPast && hasNow && hasFuture)) { structure = clamp(structure - 2, 0, 15); typeNotes.push("Time Trend형: 과거·현재·미래 구분 부족"); }

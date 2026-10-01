@@ -36,7 +36,7 @@ const BASE_COVERAGE_AREAS = [
   { id: "health",    label: "건강",       category: "health",      keywords: ["건강", "운동", "수면", "다이어트"] },
   { id: "startup",   label: "창업",       category: "startup",     keywords: ["창업", "상가", "매장", "자영업"] },
   { id: "pet",       label: "반려동물",   category: "pet",         keywords: ["반려동물", "강아지", "고양이", "펫"] },
-  { id: "astrology", label: "인도점성술", category: null,          keywords: ["점성술", "사주", "타로", "별자리", "운세"] },
+  { id: "astrology", label: "별자리 운세", category: null,          keywords: ["별자리", "운세"] },   // 10-01: 인도점성술 → 별자리
 ];
 
 // 기존 영역 + Content Areas 신규 영역(중복 id 제외) — 순서상 기존이 앞(동작 불변), 신규가 뒤.

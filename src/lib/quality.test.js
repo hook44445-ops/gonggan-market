@@ -77,7 +77,7 @@ test("유형별 평가: 뉴스형 과도한 해석·출처 부족 감점 / 점�
   const news = evaluateQuality(S4_news);
   assert.ok(news.weakPoints.some((w) => w.includes("뉴스형")), "뉴스형 약점 사유 존재");
   const astro = evaluateQuality(S5_astro);
-  assert.ok(astro.weakPoints.some((w) => w.includes("인도점성술형")), "점성술형 약점 사유 존재");
+  assert.ok(astro.weakPoints.some((w) => w.includes("운세형")), "운세형 약점 사유 존재");
 });
 
 test("보완 프롬프트/평가 프롬프트는 JSON·약점 지침을 포함", () => {

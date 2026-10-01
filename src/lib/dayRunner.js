@@ -1,15 +1,16 @@
 // ════════════════════════════════════════════════════════════════════
 // 공간마켓 Day Runner — 오늘 하루 실제 자동 운영 (Phase 37)
 //
-//   오늘 편성(QT·인도점성술·Morning Brief·공간마켓·Time Trend)을 실제로 생성 → 검수 →
+//   오늘 편성(QT·별자리 운세·Morning Brief·공간마켓·Time Trend — 인도점성술은 10-01 별자리로 바꿈)을 실제로 생성 → 검수 →
 //   품질 통과분 자동 승인(초안 저장) → 예약. 이후 Autopilot Worker 가 실제 발행한다.
 //   ⚠️ 테스트 글이 아니라 "실제 라운지 글"이다.
 //
 //   ⚠️ 기존 엔진 재사용(무수정): callLLM · fusionRunner · automationSteps.autoReview ·
-//   publishQueue · publishScheduler · 아침 콘텐츠 프롬프트(morningBrief/todayWord/indianAstrology) ·
+//   publishQueue · publishScheduler · 아침 콘텐츠 프롬프트(morningBrief/todayWord/zodiacHoroscope) ·
 //   timeTrend. 실제 저장(createDraft)은 주입. DB/Migration 없음. Regression Zero.
 // ════════════════════════════════════════════════════════════════════
 
+import { zodiacPrompt, zodiacTitle } from "./zodiacHoroscope.js";
 import { callLLM } from "./llmClient.js";
 import { runFusion } from "./fusionRunner.js";
 import { autoReview } from "./automationSteps.js";
@@ -17,11 +18,11 @@ import { enqueuePublish, updatePublishJob, getAutopilotConfig } from "./publishQ
 import { schedulePublishAt } from "./publishScheduler.js";
 import { morningBriefPrompt, morningBriefTitles } from "./morningBrief.js";
 import { todayWordPrompt, todayWordTitle } from "./todayWord.js";
-import { astrologyPrompt, astrologyTitle } from "./indianAstrology.js";
 import { timeTrendCandidates } from "./timeTrend.js";
 import { logActivity } from "./activityLog.js";
 
 // 오늘 자동 운영할 편성(고정 아침 3 + 공간마켓 1 + Time Trend 1). 확장 가능.
+// 10-01 대표: 인도점성술은 빼고 «별자리 운세»로 · 큐티는 둔다(콘텐츠 종류 id 는 예전 그대로 astrology)
 export const DAY_PROGRAM = ["qt", "astrology", "morning_brief", "space_market", "trend_present"];
 
 const SYS = "당신은 공간마켓(공간라운지)의 전문 에디터입니다. 담백하고 신뢰감 있게, 첫 줄은 제목으로 씁니다.";
@@ -43,9 +44,9 @@ async function generateItem(type, { published = [], signal = null } = {}) {
       const { text, usage } = await callLLM({ system: SYS, user: todayWordPrompt(), temperature: 0.55, maxTokens: 1400, signal });
       return { ok: !!text, title: todayWordTitle(), body: text, contentType: type, costKRW: costOf(usage) };
     }
-    if (type === "astrology") {
-      const { text, usage } = await callLLM({ system: SYS, user: astrologyPrompt(), temperature: 0.75, maxTokens: 2000, signal });
-      return { ok: !!text, title: astrologyTitle(), body: text, contentType: type, costKRW: costOf(usage) };
+    if (type === "astrology") {   // 오늘의 별자리 운세(12별자리 · 오락·참고 고지)
+      const { text, usage } = await callLLM({ system: SYS, user: zodiacPrompt(), temperature: 0.75, maxTokens: 2200, signal });
+      return { ok: !!text, title: zodiacTitle(), body: text, contentType: type, costKRW: costOf(usage) };
     }
     // 주제형은 Fusion(다단계) 재사용.
     const topic = type === "space_market" ? "오늘의 공간·인테리어 실전 팁"

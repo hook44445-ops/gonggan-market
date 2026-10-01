@@ -32,3 +32,20 @@ test("«지금 트렌드 확인» — 크론 비밀 키 대신 관리자 토큰 
   assert.match(adm, /trendCheckResult\.generated/);
   assert.doesNotMatch(adm, /trendCheckResult\.collected/);
 });
+
+test("10-01 대표 — 인도점성술은 빼고 별자리 운세로 · 큐티는 둔다 · 서버 트렌드 운세 글은 자동 발행 안 함", async () => {
+  const day = readFileSync(new URL("./dayRunner.js", import.meta.url), "utf8");
+  assert.match(day, /export const DAY_PROGRAM = \["qt", "astrology", "morning_brief", "space_market", "trend_present"\];/);
+  assert.match(day, /zodiacPrompt\(\)/);
+  assert.doesNotMatch(adm, /indianAstrology|인도점성술 포함|인도점성술 대상|오늘의 인도점성술/);
+  assert.match(adm, /\{ id: "qt", label: "📖 오늘 큐티 말씀"/);
+  assert.match(adm, /\{ id: "astrology", label: "⭐ 오늘의 별자리 운세"/);
+  const { zodiacPrompt, ZODIAC_SIGNS, ZODIAC_DISCLAIMER } = await import("./zodiacHoroscope.js");
+  assert.equal(ZODIAC_SIGNS.length, 12);
+  const p = zodiacPrompt(Date.parse("2026-10-02T00:00:00Z"));
+  assert.match(p, /양자리\(3\/21~4\/19\)/);
+  assert.match(p, /단정적 예언/);
+  assert.ok(p.includes(ZODIAC_DISCLAIMER));
+  const cycle = readFileSync(new URL("./serverAutonomousCycle.js", import.meta.url), "utf8");
+  assert.match(cycle, /if \(type === "astrology"\) \{\s+res\.needsReview \+= 1;/);
+});

@@ -144,6 +144,12 @@ async function autoApproveAndSchedule(now) {
     for (const d of drafts) {
       res.reviewed += 1;
       const type = classifyContentType(d.title || d.ai_topic || "");
+      // 10-01 대표: 인도점성술은 빼고 별자리 운세는 관리자 화면에서 만든다 — 서버가 트렌드로 쓴 운세·별자리 초안은 자동 발행하지 않는다(초안으로 남겨 관리자가 판단)
+      if (type === "astrology") {
+        res.needsReview += 1;
+        res.rows.push({ id: d.id, type, decision: "NEEDS_REVIEW", reason: ["astrology=서버 트렌드 운세 글은 자동 발행 안 함(별자리 운세는 관리자 화면에서)"] });
+        continue;
+      }
       // §7①·§14 — 긴급(breaking)도 파이프라인 통과. 단 Hard Fail 이면 decidePublishMode 가 HOLD 로 차단.
       const eligible = true;
       const at = schedulePublishAt(type, { now });
