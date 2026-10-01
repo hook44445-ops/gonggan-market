@@ -80,7 +80,7 @@ export default function ChiefSecretaryBoard() {
       </div>
       <div style={{ fontSize: 10.5, color: C.text3, marginBottom: S.sm, lineHeight: 1.6 }}>
         Fusion→대표이미지→품의서→4인 서명→BOARD_APPROVED→총괄비서실장 인수→발행 전 과정을 표시합니다. 사장 승인 단계 없음 ·
-        4인 검토는 기본 <b>규칙 기반</b>이며, {llmOn ? <b style={{ color: C.brand }}>카드의 “🤖 실제 LLM 검수”로 실 LLM 4인 검수 가능</b> : <b style={{ color: C.gold }}>LLM 미설정(실 검수하려면 VITE_LLM_API_KEY)</b>}.
+        4인 검토는 기본 <b>규칙 기반</b>이며, {llmOn ? <b style={{ color: C.brand }}>카드의 “🤖 실제 LLM 검수”로 실 LLM 4인 검수 가능</b> : <b style={{ color: C.gold }}>LLM 미설정(실 검수하려면 서버 OPENROUTER_API_KEY)</b>}.
       </div>
 
       {showLog && (

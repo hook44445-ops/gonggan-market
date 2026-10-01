@@ -3043,7 +3043,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const updateEdCfg = (patch) => { const next = setEditorialConfig(patch); setEdCfg(next); };
   const handleEditorialGenerate = async () => {
     if (!issue.trim()) { showToast?.("주제(트렌드 제목)를 입력하세요"); return; }
-    if (!isLLMConfigured()) { showToast?.("LLM 미설정(VITE_LLM_API_KEY 필요) — 실제 매거진 생성 불가"); return; }
+    if (!isLLMConfigured()) { showToast?.("AI 미설정 — 서버 AI 키(OPENROUTER_API_KEY)를 Vercel 에 넣어 주세요"); return; }
     setEdGen(true); setEdResult(null);
     try {
       const r = await generateEditorial({
@@ -3123,11 +3123,17 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     setCheckingTrends(true);
     setTrendCheckResult(null);
     try {
-      const res = await fetch("/api/trend/check-trends");
-      const json = await res.json();
+      // 10-01 — 관리자 로그인 토큰으로(서버가 크론 비밀 키 대신 받는다 · 예전엔 키 없이 불러 막혔다)
+      const res = await fetch("/api/trend/check-trends", { headers: authHeader(adminUserId) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) {
+        setTrendCheckResult(null);
+        showToast?.(res.status === 401 ? "관리자 인증이 필요해요 — 인증번호로 다시 로그인해 주세요" : `트렌드 확인 실패 — ${json?.reason ?? json?.code ?? res.status}`);
+        return;
+      }
       setTrendCheckResult(json);
-      if (json?.created > 0) showToast?.(`🔎 트렌드 ${json.created}건을 초안으로 저장했습니다`);
-      else showToast?.("새로운(중복 아닌) 트렌드 이슈가 없습니다");
+      const made = Number(json?.generated ?? 0), pub = Number(json?.published ?? 0) + Number(json?.boardDiag?.immediate ?? 0);
+      showToast?.(made || pub ? `🔎 초안 ${made}건 · 올림 ${pub}건` : "새로 만들 트렌드 글이 없어요(오늘 목표를 채웠거나 중복)");
       onReload?.();
     } catch (e) {
       showToast?.("트렌드 확인 실패: " + (e?.message ?? String(e)));
@@ -3975,7 +3981,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
               {st.todayCount > 0 ? ` · 오늘 ${st.todayCount}회 · ₩${st.todayCostKRW}` : ""}
             </span>
           ) : (
-            <span style={{ marginLeft: 10, fontSize: 11, color: C.gold }}>⚪ LLM 미설정 (VITE_LLM_API_KEY 필요)</span>
+            <span style={{ marginLeft: 10, fontSize: 11, color: C.gold }}>⚪ AI 미설정 (서버 OPENROUTER_API_KEY 필요)</span>
           );
         })()}
 
@@ -4165,7 +4171,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
         </div>
         {trendCheckResult && (
           <div style={{ fontSize: 11, color: C.text3, marginBottom: S.sm, background: C.bg, borderRadius: R.sm, padding: "6px 10px" }}>
-            수집 {trendCheckResult.collected ?? 0}건 · 중복 제외 후 {trendCheckResult.deduped ?? 0}건 · 초안 생성 {trendCheckResult.created ?? 0}건
+            초안 {trendCheckResult.generated ?? 0}건 · 자동 승인 {(trendCheckResult.boardDiag?.immediate ?? 0) + (trendCheckResult.boardDiag?.scheduled ?? 0)}건(바로 {trendCheckResult.boardDiag?.immediate ?? 0} · 예약 {trendCheckResult.boardDiag?.scheduled ?? 0}) · 예약 글 올림 {trendCheckResult.published ?? 0}건 · 오늘 {trendCheckResult.todayCount ?? 0}/{trendCheckResult.targetPerDay ?? 5}
           </div>
         )}
         {trendQueue.length === 0 ? (
