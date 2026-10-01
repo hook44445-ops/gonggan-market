@@ -1581,7 +1581,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         const selIds = (selectedRequests ?? []).map(r => r.id).filter(Boolean);
         let txByReq = {};
         if (selIds.length > 0) {
-          const { data: selEsc } = await supabase
+          const { data: selEsc } = await userDb()
             .from("escrow_payments")
             .select("request_id, transaction_status")
             .in("request_id", selIds);
@@ -1678,7 +1678,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       }
 
       // ── Path C: escrow_payments WHERE company_id ∈ candidateIds (direct) ─────
-      const { data: escrowsDirect } = await supabase
+      const { data: escrowsDirect } = await userDb()
         .from("escrow_payments")
         .select("id, request_id, company_id, transaction_status, total_amount, current_step, stage_plan")   // 파트너센터 카드 «지급·확정 %»가 계획대로(점검 6차 — 빠져 있어 3단계 계약도 4단계 10%로 보였다)
         .in("company_id", candidateIds);
@@ -1742,7 +1742,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
       const requestMap = Object.fromEntries((reqs ?? []).map(r => [r.id, r]));
 
       // ── Fetch escrow_payments by request_id ───────────────────────────────────
-      const { data: escrowsByReq } = await supabase
+      const { data: escrowsByReq } = await userDb()
         .from("escrow_payments")
         .select("id, request_id, company_id, transaction_status, total_amount, current_step, stage_plan")   // 파트너센터 카드 «지급·확정 %»가 계획대로(점검 6차 — 빠져 있어 3단계 계약도 4단계 10%로 보였다)
         .in("request_id", allRequestIds);
