@@ -32,3 +32,16 @@ test("앱 — 네 함수를 토큰으로 부르고, 토큰 없으면 다시 인�
   const lounge = readFileSync(new URL("../constants/lounge.js", import.meta.url), "utf8");
   assert.match(lounge, /COMPANY_CHAT_BLOCKED_TEXT/);
 });
+
+test("190 — 대화 신청 표: 두 사람·관리자만 읽기 · 직접 쓰기 닫기 · 앱은 토큰으로 읽는다", () => {
+  const sql190 = readFileSync(new URL("../../supabase/migrations/190_lounge_chat_requests_owner_only.sql", import.meta.url), "utf8");
+  assert.match(sql190, /cmd in \('INSERT', 'UPDATE', 'DELETE', 'ALL'\)/);
+  assert.match(sql190, /g190_lcr_read on public\.lounge_chat_requests for select/);
+  assert.match(sql190, /as owner_read,/);
+  assert.match(sql190, /as no_direct_write;/);
+  // 앱의 대화함 읽기는 토큰 연결(userDb) — 익명 연결로 읽지 않는다
+  assert.doesNotMatch(lib, /supabase\s*\n?\s*\.from\("lounge_chat_requests"\)/);
+  const chat = readFileSync(new URL("../screens/ChatScreen.jsx", import.meta.url), "utf8");
+  assert.doesNotMatch(chat, /await supabase\s*\n\s*\.from\("lounge_chat_requests"\)/);
+  assert.match(chat, /reqChannel = chatConn/);
+});

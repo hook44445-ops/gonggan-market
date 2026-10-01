@@ -3604,7 +3604,8 @@ export const enqueueLoungePostPush = (postId) =>
 // 서버(SQL 134 request_comment_chat)가 같은 판정을 한 번 더 한다. 없거나 못 읽으면 null.
 export const findOpenLoungeChat = async (meId, otherId) => {
   if (!meId || !otherId) return null;
-  const { data } = await supabase
+  // 190 뒤: 대화 신청은 두 사람(과 관리자)만 읽는다 — 로그인 토큰으로
+  const { data } = await userDb()
     .from("lounge_chat_requests")
     .select("id, post_id")
     .eq("status", "accepted")
@@ -3646,7 +3647,7 @@ export const leaveLoungeChat = (requestId, userId) =>
 
 // 내가 보낸 대화 신청 목록 (내가 나간 건 제외)
 export const fetchMyChatRequests = (userId, limit = 50) =>
-  supabase
+  userDb()   // 190 — 두 사람만 읽는다(로그인 토큰)
     .from("lounge_chat_requests")
     .select("id, post_id, target_id, status, token_charged, created_at, accepted_at, source_comment_id, lounge_posts(title, anonymous_nickname)")
     .eq("requester_id", userId)
@@ -3656,7 +3657,7 @@ export const fetchMyChatRequests = (userId, limit = 50) =>
 
 // 내가 받은 대화 신청 목록 (pending, 내가 나간 건 제외)
 export const fetchReceivedChatRequests = (userId, limit = 50) =>
-  supabase
+  userDb()   // 190 — 두 사람만 읽는다(로그인 토큰)
     .from("lounge_chat_requests")
     .select("id, post_id, requester_id, status, token_charged, created_at, source_comment_id, lounge_posts(title, anonymous_nickname), lounge_comments(anonymous_nickname, content)")
     .eq("target_id", userId)
@@ -3667,7 +3668,7 @@ export const fetchReceivedChatRequests = (userId, limit = 50) =>
 
 // 내가 받은 대화 신청 중 수락된 목록 — 라운지 채팅방 재진입용 (additive, 기존 pending 조회 무변경)
 export const fetchAcceptedReceivedChatRequests = (userId, limit = 50) =>
-  supabase
+  userDb()   // 190 — 두 사람만 읽는다(로그인 토큰)
     .from("lounge_chat_requests")
     .select("id, post_id, requester_id, status, created_at, accepted_at, lounge_posts(title, anonymous_nickname)")
     .eq("target_id", userId)

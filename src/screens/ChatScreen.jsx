@@ -242,7 +242,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
     async function init() {
       let pending = false;
       if (isLounge && partner?.requestId) {
-        const { data: reqRow } = await supabase
+        const { data: reqRow } = await chatDb()   // 190 — 두 사람만 읽는다(로그인 토큰)
           .from("lounge_chat_requests")
           .select("status, requester_id, target_id")
           .eq("id", partner.requestId)
@@ -307,7 +307,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
     // 라운지: 보고 있는 동안 상대가 수락/거절하면 입력 게이트를 즉시 갱신
     let reqChannel = null;
     if (isLounge && partner?.requestId) {
-      reqChannel = supabase
+      reqChannel = chatConn   // 190 — 실시간도 로그인 토큰으로(두 사람만 받는다)
         .channel(`lounge_chat_request:${partner.requestId}`)
         .on("postgres_changes", {
           event: "UPDATE", schema: "public", table: "lounge_chat_requests",
@@ -321,7 +321,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
     return () => {
       cancelled = true;
       chatConn.removeChannel(channel);
-      if (reqChannel) supabase.removeChannel(reqChannel);
+      if (reqChannel) chatConn.removeChannel(reqChannel);
     };
   }, [roomId, isLounge, partner?.requestId]);
 
