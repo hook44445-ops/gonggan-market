@@ -2508,6 +2508,8 @@ export const getOrCreateEscrow = async ({ requestId, companyId, totalAmount }) =
   if (!rpc.error && rpc.data?.row) {
     return { data: rpc.data.row, created: rpc.data.created === true, error: null };
   }
+  // 192 — 요청 주인·입찰 업체·서버만 만든다. 당사자가 아니면 폴백도 하지 않는다.
+  if (!rpc.error && rpc.data?.error) return { data: null, created: false, error: { message: rpc.data.error } };
 
   // ── 폴백(RPC 미배포 환경) ──────────────────────────────────────────
   const findActive = async () => {
