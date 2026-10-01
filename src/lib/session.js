@@ -154,6 +154,8 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   "estimate_get_for_request", "change_orders_for_contract",
   // 198 — 매일 미션 «오늘» 숫자(본인)
   "token_mission_today",
+  // 199 — 라운지 신고(신고자 = 토큰) · 조회수(한 사람 하루 한 번 — 로그인했으면 계정으로)
+  "lounge_report_create", "increment_lounge_view", "company_page_view",
   // 166 — 견적·현장방문·공사 기록(체크포인트)·추가공사·요청 함수(보완 S4 · 앱이 보낸 사용자 ID 를 믿지 않는다)
   ...S4_TOKEN_RPCS,
   // 168 — 대화 읽음 처리(읽는 사람 = 토큰의 사용자)
