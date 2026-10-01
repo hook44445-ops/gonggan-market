@@ -1600,8 +1600,8 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
     <div>
       {/* 10-01 콘텐츠 AI 점검 — 예약 시각 · 기기 저장을 사실대로 */}
       <div style={{ background: "#FBF5E8", border: `1px solid ${C.gold}`, borderRadius: R.lg, padding: "8px 12px", fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
-        ⚠️ 예약한 글은 <b>그 시각에 바로 올라가지 않을 수 있어요</b> — 서버의 예약 발행 확인은 하루 한 번(아침 6시)이에요.
-        자동 발행 켜기 · 설정 · 기록은 <b>이 기기(브라우저)에만</b> 저장돼요.
+        ⚠️ 예약한 글은 <b>그 시각에 바로 올라가지 않을 수 있어요</b> — 서버가 «시각 지난 예약 글»을 올리는 건 자율 사이클이 돌 때예요
+        (매일 아침 6시 크론 · 외부 스케줄러를 설정했다면 그 주기). 자동 발행 켜기 · 설정 · 기록은 <b>이 기기(브라우저)에만</b> 저장돼요.
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="⚙️" size={14} color={C.text1} /> 자동발행 OS (Production)</div>
