@@ -7,8 +7,9 @@ import { NOTIFY_LABELS } from "./notifyStats.js";
 const sql = readFileSync(new URL("../../supabase/migrations/202_bid_result_notify.sql", import.meta.url), "utf8");
 const main = readFileSync(new URL("../components/MainApp.jsx", import.meta.url), "utf8");
 
-test("202 — 선택이 생기거나 바뀔 때만 · 입찰마다 한 번 · 고객·고른 업체 제외", () => {
-  assert.match(sql, /after update of selected_bid_id, selected_company_id on public\.requests/);
+test("202 — 입금 뒤 «공사 중»이 되는 순간에만 · 입찰마다 한 번 · 고객·계약 업체 제외", () => {
+  assert.match(sql, /after update of status on public\.requests/);
+  assert.match(sql, /if new\.status is distinct from 'in_progress' or old\.status is not distinct from 'in_progress' then/);
   assert.match(sql, /where request_id = new\.id and id <> v_sel_bid and result_notified_at is null/);
   assert.match(sql, /v_owner = new\.user_id or v_owner = v_sel_owner then continue/);
 });

@@ -4,7 +4,7 @@ export const NOTIFY_LABELS = {
   REGION_REQUESTS_WEEKLY: "📍 업체 주간 동네 요청",
   BID_COMPARE_NUDGE: "⚖️ 견적 비교해 보셨나요",
   BID_VIEWED: "👀 고객이 견적 확인",
-  BID_NOT_SELECTED: "📮 다른 업체 선택됨(업체)",
+  BID_NOT_SELECTED: "📮 다른 업체와 계약됨(업체)",
   LOUNGE_WEEKLY: "🔥 라운지 주간 인기 글",
   SAVED_COMPANY_NEW: "💚 찜한 업체 새 사례",
   REVIEW_5STAR: "⭐ 별 5개 후기(업체)",

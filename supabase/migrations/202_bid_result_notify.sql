@@ -1,14 +1,18 @@
 -- ============================================================
---  Migration 202: «이번 요청은 다른 업체가 선택됐어요» — 떨어진 업체에 결과 알림 · 입찰 한 건에 한 번
+--  Migration 202: «이번 요청은 다른 업체와 계약됐어요» — 떨어진 업체에 결과 알림 · 입금(공사 시작) 뒤 · 입찰 한 건에 한 번
 --  Supabase SQL Editor 에서 실행하세요. 여러 번 실행해도 안전합니다.
 --  순서: 상관없음(앱은 알림 이름 · 누르면 갈 곳만 더했다 — 앱 배포 전이면 알림함에 그대로 보이고 누르면 홈).
 --
 --  왜(본질 개선 · 대표 10-01 «떨어진 업체에 결과 알림» · 업체 USP 10 «허공에 던지는 견적»):
 --    · 고객이 업체를 고르면 고른 업체에만 소식이 가고, 견적을 낸 다른 업체는 아무 소식도 못 받았다 —
 --      결과를 모르니 다음 견적을 고칠 수도 없고, «던져 놓고 끝»이라 업체가 떠난다.
---  하는 일 — 요청에 «선택된 입찰»이 처음 기록되거나 바뀌면(requests.selected_bid_id · selected_company_id):
+--  언제(대표 10-01 «떨어진 건 최종견적을 고르고 입금할 때까지 모르는 거야»):
+--    · 현장견적을 요청할 업체를 고른 것만으로는 아직 «떨어진» 게 아니다(현장을 보고 다른 업체로 바꿀 수 있다).
+--    · 최종 견적을 승인하고 입금해 요청이 «공사 중(in_progress)»이 되는 순간에만 알린다.
+--      (결제 없이 끝난 요청 · 취소된 요청에는 알리지 않는다)
+--  하는 일 — 요청이 in_progress 로 바뀌면(그 요청의 선택된 입찰 · 없으면 선택된 업체의 입찰 = 계약한 견적):
 --    · 그 요청의 나머지 입찰 업체(주인)에게 알림 한 번(bids.result_notified_at 로 두 번 X)
---      제목 «이번 요청은 다른 업체가 선택됐어요»
+--      제목 «이번 요청은 다른 업체와 계약됐어요»
 --      내용 «{동네 · 공간} — 내 견적은 {N}곳 중 {k}번째로 낮았어요»(1등은 «가장 낮았어요» · 꼴찌는 «가장 높았어요») + 팁 한 줄(아래)
 --        · 내 견적이 포함 항목(부가세·철거·폐기물·자재·AS — 186)을 고른 견적보다 적게 적었으면
 --          «고른 견적은 포함 항목을 더 자세히 적었어요 — 다음엔 포함 항목을 적어 보세요»
@@ -45,12 +49,12 @@ declare
   v_total    int;
   v_hour     int  := extract(hour from (now() at time zone 'Asia/Seoul'))::int;
   v_where    text;
-  v_title    text := '이번 요청은 다른 업체가 선택됐어요';
+  v_title    text := '이번 요청은 다른 업체와 계약됐어요';
   v_msg      text;
   b record; v_owner uuid; v_rank int; v_pref jsonb; v_sel_owner uuid;
 begin
-  if new.selected_bid_id is not distinct from old.selected_bid_id
-     and new.selected_company_id is not distinct from old.selected_company_id then
+  -- 입금 뒤 «공사 중»이 되는 순간에만(현장견적 단계의 선택은 아직 결정이 아니다)
+  if new.status is distinct from 'in_progress' or old.status is not distinct from 'in_progress' then
     return new;
   end if;
   if new.selected_bid_id is null and new.selected_company_id is null then return new; end if;
@@ -86,7 +90,7 @@ begin
       select count(*) + 1 into v_rank from public.bids x
        where x.request_id = new.id and x.price is not null and b.price is not null and x.price < b.price;
       v_msg := coalesce(nullif(v_where, '') || ' — ', '')
-        || case when b.price is null or v_total <= 1 then '고객이 다른 견적을 골랐어요.'
+        || case when b.price is null or v_total <= 1 then '고객이 다른 업체와 계약했어요.'
                 when v_rank = 1 then '내 견적은 ' || v_total || '곳 중 가장 낮았어요.'
                 when v_rank >= v_total then '내 견적은 ' || v_total || '곳 중 가장 높았어요.'
                 else '내 견적은 ' || v_total || '곳 중 ' || v_rank || '번째로 낮았어요.' end
@@ -117,14 +121,14 @@ exception when others then
 end; $$;
 
 drop trigger if exists trg_bid_result_notify on public.requests;
-create trigger trg_bid_result_notify after update of selected_bid_id, selected_company_id on public.requests
+create trigger trg_bid_result_notify after update of status on public.requests
   for each row execute function public.trg_bid_result_notify();
 
 notify pgrst, 'reload schema';
 
 -- ── 확인 ──────────────────────────────────────────────────────
 --  ① result_col: 입찰에 «결과 알림 보냄» 칸이 있다(두 번 보내지 않게)
---  ② result_trigger: 요청에 업체가 골라지면 떨어진 업체에 알리는 장치가 있다
+--  ② result_trigger: 입금 뒤 공사가 시작되면 떨어진 업체에 알리는 장치가 있다
 select
   exists (select 1 from information_schema.columns
            where table_schema = 'public' and table_name = 'bids' and column_name = 'result_notified_at') as result_col,
