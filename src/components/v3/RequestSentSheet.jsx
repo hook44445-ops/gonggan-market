@@ -3,6 +3,7 @@
 //  · 그림·색은 「내 한도 · 서류」 가족(깊은 초록 · 아이보리 · 금 선) — /images/request-sent-v2.webp
 //  · 결제는 베타 기간 실제 방식 그대로 안내한다(앱 안 안전결제는 정식 서비스에서).
 import { useEffect, useState } from "react";
+import { trackUsp } from "../../lib/uspTrack"; // USP 12 «공유» 사용 기록(187)
 import { C, R, S } from "../../constants";
 import { JOURNEY } from "./JourneyNow";
 import { familyMessage } from "../../lib/referral";
@@ -60,6 +61,7 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack, userId = 
     return () => { alive = false; };
   }, [userId]);
   const shareFamily = async () => {
+    trackUsp(12, { meta: { kind: "family" } });
     const text = familyMessage(refCode);
     try {
       if (navigator.share) { await navigator.share({ title: "공간마켓", text }); setShared(true); return; }

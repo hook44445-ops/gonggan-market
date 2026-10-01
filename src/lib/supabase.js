@@ -312,6 +312,8 @@ export const adminSettleReferralEvent = (eventId = "2026-10") => supabase.rpc("a
 
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
 export const getAdminGrowthStats = () => supabase.rpc("admin_growth_stats");
+// USP 12 «사용 → 전환»(187) — 관리자만 · p_days 기간
+export const getAdminUspBoard = (days = 30) => supabase.rpc("admin_usp_board", { p_days: days });
 // 홈 «우리 동네 최근 완공» 사진(177 · 공개 후기만 · 로그인 없이)
 export const getRegionDonePhotos = (region) => supabase.rpc("region_done_photos", { p_region: region });
 // 가격 데이터 쌓임(176 · 관리자) · 시세표(170 · 누구나 읽기)

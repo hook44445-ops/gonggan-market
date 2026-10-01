@@ -2,6 +2,7 @@ import { SHOW_BETA_UI, PAYMENTS_LIVE, isStoreAppShell } from "../constants/relea
 import { authHeader, getCurrentUserId } from "../lib/session";
 import { peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget, PAGE_REQUEST_TITLE, pageRequestsFirst } from "../lib/preferredCompany";
 import { takeLandingPick } from "../lib/landingPick";
+import { trackUsp } from "../lib/uspTrack";
 import ChatRequestModal from "./lounge/ChatRequestModal";
 import { isGuaranteeBadgeVisible } from "../constants/guarantee";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -2693,6 +2694,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (activeRole !== "consumer" || !user?.id || user?.isGuest) return;
     const prefill = takeLandingPick();
     if (!prefill) return;
+    trackUsp(1, { role: "consumer" });   // USP 1 «30초 요청서»를 고르고 로그인 — 3일 안 요청은 서버가 센다(187)
     const t = setTimeout(() => {
       setReqPrefill(prefill);
       setScreen("home");

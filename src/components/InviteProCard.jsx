@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { trackUsp } from "../lib/uspTrack"; // USP 12 «공유» 사용 기록(187)
 import { C, R } from "../constants";
 import { proInviteMessage } from "../lib/referral";
 import { myRefCode } from "../lib/myRefCode";
@@ -19,6 +20,7 @@ export default function InviteProCard({ userId, compact = false }) {
   if (!userId) return null;
 
   const share = async () => {
+    trackUsp(12, { meta: { kind: "pro_invite" } });
     const text = proInviteMessage(code);
     try {
       if (navigator.share) { await navigator.share({ title: "공간마켓 파트너", text }); setDone("보냈어요 · 고마워요"); return; }

@@ -3,9 +3,10 @@ import { C, R } from "../constants";
 import { requestPriceFields } from "../lib/priceData";
 import { priceIndexSummary } from "../lib/priceIndex";
 import { getPriceIndex } from "../lib/supabase";
+import { trackUsp } from "../lib/uspTrack"; // USP 4 «시세를 봄» 기록(187)
 
 // 견적 비교 화면 한 줄 — «우리 동네 비슷한 공사 평균 평당 약 N만원 · 완공 M건 기준». 표본 5건 미만·표 없음이면 안 보인다.
-export default function PriceIndexLine({ spaceType, area }) {
+export default function PriceIndexLine({ spaceType, area, requestId = null }) {
   const [sum, setSum] = useState(null);
   useEffect(() => {
     const f = requestPriceFields({ spaceType, area });
@@ -16,6 +17,7 @@ export default function PriceIndexLine({ spaceType, area }) {
       .catch(() => {});
     return () => { alive = false; };
   }, [spaceType, area]);
+  useEffect(() => { if (sum && requestId) trackUsp(4, { targetId: requestId, role: "consumer" }); }, [sum, requestId]);
   if (!sum) return null;
   return (
     <div style={{ background: C.bg, border: `1px dashed ${C.bgWarm}`, borderRadius: R.md, padding: "8px 11px", marginBottom: 8, fontSize: 12.5, color: C.text2 }}>
