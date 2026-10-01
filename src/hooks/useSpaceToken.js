@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TOKEN_EARN } from '../constants/lounge';
+import { DAILY_MISSIONS, earnedToday } from '../utils/tokenCalculator';
 import {
   getSpaceToken,
   getTokenSummary,
@@ -11,20 +12,12 @@ import {
   spendSpaceToken,
 } from '../lib/supabase';
 
-const THRESHOLD_MISSIONS = [
-  { action: 'likes_received_20',   key: 'likes_received', threshold: 20 },
-  { action: 'comments_written_10', key: 'comments',       threshold: 10 },
-  { action: 'posts_written_3',     key: 'posts',          threshold: 3  },
-];
+// 매일 미션(좋아요 20 · 댓글 10 · 글 3) — «오늘(한국 날짜)» 숫자로, 하루 한 번(서버 198 과 같다)
+const THRESHOLD_MISSIONS = DAILY_MISSIONS;
+const REPEAT_DAILY_ACTIONS = new Set(THRESHOLD_MISSIONS.map(m => m.action));
 
-// 매일 반복 미션(좋아요20/댓글10/게시글3) — 마지막 획득 후 24시간 지나면 재지급
-const REPEAT_WINDOW_MS = 24 * 3600000;
-const REPEAT_24H_ACTIONS = new Set(THRESHOLD_MISSIONS.map(m => m.action));
-
-export function earnedWithinWindow(logs, action, now = Date.now()) {
-  const last = logs.find(l => l.type === 'earn' && l.action === action);
-  return !!last && now - new Date(last.created_at).getTime() < REPEAT_WINDOW_MS;
-}
+// 예전 이름 유지(호출부 호환) — 이제 «오늘 이미 받았나»
+export const earnedWithinWindow = earnedToday;
 
 async function grantThresholds(userId, balance, logs, stats) {
   if (!stats) return { balance, logs };
@@ -37,7 +30,7 @@ async function grantThresholds(userId, balance, logs, stats) {
     const amount = TOKEN_EARN[action.toUpperCase()] ?? TOKEN_EARN[action] ?? 0;
     if (!amount) continue;
     if (!userId) continue;
-    // 서버가 24시간 중복을 다시 확인하고 적립한다(migration 111). 적립된 경우에만 화면에 반영.
+    // 서버가 «오늘 숫자»와 하루 한 번을 다시 확인하고 적립한다(198). 적립된 경우에만 화면에 반영.
     const { data } = await earnSpaceToken(userId, action, null);
     if (data?.status !== 'earned') continue;
     const log = { type: 'earn', action, amount: data.amount ?? amount, description: action, created_at: new Date().toISOString() };
@@ -96,8 +89,8 @@ export function useSpaceToken(userId) {
     if (!amount) return false;
 
     let alreadyEarned;
-    if (REPEAT_24H_ACTIONS.has(action)) {
-      // 매일 반복 미션: 24시간 이내 재지급 차단
+    if (REPEAT_DAILY_ACTIONS.has(action)) {
+      // 매일 미션: 오늘(한국 날짜) 이미 받았으면 다시 주지 않는다
       alreadyEarned = earnedWithinWindow(logsRef.current, action);
     } else if (action === 'construction_review') {
       // 후기 보상: 완료된 계약 1건당 1회 — description(계약 식별 포함) 단위로 중복 차단
