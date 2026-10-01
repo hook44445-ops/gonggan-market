@@ -2950,6 +2950,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     }
     // 파트너: 새 견적 요청(한도 안) → 입찰할 요청 목록이 있는 홈 / 한도 밖 → 「내 한도 · 서류」(migration 110).
     if (t === "NEW_REQUEST") { loadCompanyRequests?.(); go("home"); return; }
+    // 202 — 떨어진 견적 결과(«다른 업체가 선택됐어요») → 다음 요청에 입찰할 수 있는 홈으로
+    if (t === "BID_NOT_SELECTED") { loadCompanyRequests?.(); go("home"); return; }
     if (t === "NEW_REQUEST_LOCKED") { setScreen("document-center"); return; }
     // 09-28 새 알림 — 파트너 «첫 견적» 기회(153)는 입찰 목록으로 · 고객 «견적이 아직 없어요»(152)는 내 견적 ·
     //   초대 가입(148)은 친구 초대 화면 · 테스터 신청(147 · 대표 번호)은 /testers 목록.
