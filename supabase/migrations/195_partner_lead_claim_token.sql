@@ -2,6 +2,9 @@
 --  Migration 195: 업체 신청서 이어받기(partner_lead_claim_for_company · partner_lead_mark_claimed) — 로그인한 본인 번호로만
 --  Supabase SQL Editor 에서 실행하세요. 여러 번 실행해도 안전합니다.
 --  ⚠ 순서: 앱 배포(이 두 함수를 로그인 토큰으로 부르는 버전) → 이 SQL.
+--  ⚠ 10-01 운영 실행 때 «type public.partner_leads does not exist» — 신청서 표(065)가 없는 DB 가 있다.
+--     표가 없으면 이 두 함수도 만들어질 수 없어 구멍도 없다 → 표가 있을 때만 바꾸고, 없으면 건너뛴다.
+--     (함수 안 변수는 표 이름 대신 record 로 — 표가 없어도 SQL 이 멈추지 않게)
 --
 --  왜(10-01 점검):
 --    · partner_lead_claim_for_company(070)는 anon 실행 + «넘긴 전화번호»를 그대로 믿었다 —
@@ -9,19 +12,27 @@
 --      사업자등록증 · 보험증권 파일 주소를 받아 갈 수 있었다(업체 전화번호는 공개된 경우가 많다).
 --    · partner_lead_mark_claimed(069)는 anon 실행 + 확인 없음 — 남의 신청서를 아무 업체에 «이어받음» 처리할 수 있었다
 --      (진짜 업체가 나중에 가입하면 보증 정보가 복사되지 않는다).
---  바꾼 뒤
+--  바꾼 뒤(표가 있을 때)
 --    · claim: 로그인 토큰의 사용자 «본인 전화번호(users.phone)»로만 찾는다(넘긴 번호는 관리자일 때만 씀).
 --             토큰이 없으면 null(앱은 null 이면 그냥 넘어간다).
 --    · mark_claimed: 토큰 필요(없으면 42501) · 업체 주인이 본인이고 · 신청서 전화번호가 본인 번호일 때만.
 --             아니면 {"claimed":false,"error":"NOT_OWNER"} — 관리자는 그대로.
 --    · 두 함수 anon 실행 권한 회수 · 돌려주는 값은 070/069 그대로
 --  되돌리기: 070 의 partner_lead_claim_for_company · 069 의 partner_lead_mark_claimed 를 다시 실행한다(«grant … to anon» 포함).
---  확인 칸 2개(맨 아래 select) — 둘 다 true 면 끝.
+--  확인 칸 3개(맨 아래 select) — leads_table 은 표가 있는지(정보) · 나머지 둘이 true 면 끝.
 -- ============================================================
 
 set search_path = public, extensions;
 
--- 1) 승인된 신청서 찾기 — 본인 번호로만
+do $do$
+begin
+  if to_regclass('public.partner_leads') is null then
+    raise notice '195: partner_leads 표가 없다 — 건너뜀(이 DB 에는 두 함수도 없다)';
+    return;
+  end if;
+
+  -- 1) 승인된 신청서 찾기 — 본인 번호로만
+  execute $sql$
 create or replace function public.partner_lead_claim_for_company(
   p_phone text
 ) returns jsonb
@@ -30,7 +41,7 @@ set search_path = public, extensions as $fn$
 declare
   v_uid   uuid := auth.uid();
   v_phone text;
-  v_row   public.partner_leads;
+  v_row   record;
 begin
   if v_uid is null then return null; end if;
   -- 195: 본인 번호(관리자만 넘긴 번호로 찾을 수 있다)
@@ -49,7 +60,7 @@ begin
    order by l.approved_at desc nulls last, l.created_at desc
    limit 1;
 
-  if v_row.id is null then return null; end if;
+  if not found then return null; end if;
 
   return jsonb_build_object(
     'lead_id',              v_row.id,
@@ -64,9 +75,11 @@ begin
     'business_license_url', v_row.business_license_url,
     'insurance_file_url',   v_row.insurance_file_url
   );
-end; $fn$;
+end; $fn$
+  $sql$;
 
--- 2) 이어받음 확정 — 내 업체 · 내 번호의 신청서만
+  -- 2) 이어받음 확정 — 내 업체 · 내 번호의 신청서만
+  execute $sql$
 create or replace function public.partner_lead_mark_claimed(
   p_lead_id    uuid,
   p_company_id uuid
@@ -74,9 +87,9 @@ create or replace function public.partner_lead_mark_claimed(
 language plpgsql security definer
 set search_path = public, extensions as $fn$
 declare
-  v_uid   uuid := auth.uid();
-  v_phone text;
-  v_row   public.partner_leads;
+  v_uid     uuid := auth.uid();
+  v_phone   text;
+  v_claimed uuid;
 begin
   if v_uid is null then raise exception 'LOGIN_REQUIRED' using errcode = '42501'; end if;
   if p_lead_id is null or p_company_id is null then
@@ -100,23 +113,35 @@ begin
     company_id = p_company_id,
     updated_at = now()
   where id = p_lead_id and company_id is null   -- idempotent: 최초 1회만
-  returning * into v_row;
+  returning id into v_claimed;
 
-  return jsonb_build_object('claimed', v_row.id is not null, 'lead_id', p_lead_id);
-end; $fn$;
+  return jsonb_build_object('claimed', v_claimed is not null, 'lead_id', p_lead_id);
+end; $fn$
+  $sql$;
 
-revoke execute on function public.partner_lead_claim_for_company(text) from public, anon;
-revoke execute on function public.partner_lead_mark_claimed(uuid, uuid) from public, anon;
-grant execute on function public.partner_lead_claim_for_company(text) to authenticated;
-grant execute on function public.partner_lead_mark_claimed(uuid, uuid) to authenticated;
+  execute 'revoke execute on function public.partner_lead_claim_for_company(text) from public, anon';
+  execute 'revoke execute on function public.partner_lead_mark_claimed(uuid, uuid) from public, anon';
+  execute 'grant execute on function public.partner_lead_claim_for_company(text) to authenticated';
+  execute 'grant execute on function public.partner_lead_mark_claimed(uuid, uuid) to authenticated';
+end $do$;
 
 notify pgrst, 'reload schema';
 
 -- ── 확인 ──────────────────────────────────────────────────────
+--  ⓪ leads_table: 신청서 표가 있는가(정보 — false 면 두 함수도 없어서 ①②는 «구멍 없음»으로 true)
 --  ① own_phone_only: 두 함수가 로그인한 본인 번호로만 판단한다
 --  ② no_anon: 로그인 안 한 사람(anon)은 두 함수를 부를 수 없다
 select
-  position('195: 본인 번호' in pg_get_functiondef('public.partner_lead_claim_for_company(text)'::regprocedure)) > 0
-  and position('NOT_OWNER' in pg_get_functiondef('public.partner_lead_mark_claimed(uuid,uuid)'::regprocedure)) > 0 as own_phone_only,
-  not has_function_privilege('anon', 'public.partner_lead_claim_for_company(text)', 'execute')
-  and not has_function_privilege('anon', 'public.partner_lead_mark_claimed(uuid,uuid)', 'execute') as no_anon;
+  to_regclass('public.partner_leads') is not null as leads_table,
+  coalesce(
+    (to_regprocedure('public.partner_lead_claim_for_company(text)') is null
+       or position('195: 본인 번호' in pg_get_functiondef(to_regprocedure('public.partner_lead_claim_for_company(text)'))) > 0)
+    and (to_regprocedure('public.partner_lead_mark_claimed(uuid,uuid)') is null
+       or position('NOT_OWNER' in pg_get_functiondef(to_regprocedure('public.partner_lead_mark_claimed(uuid,uuid)'))) > 0),
+    false) as own_phone_only,
+  coalesce(
+    (to_regprocedure('public.partner_lead_claim_for_company(text)') is null
+       or not has_function_privilege('anon', to_regprocedure('public.partner_lead_claim_for_company(text)'), 'execute'))
+    and (to_regprocedure('public.partner_lead_mark_claimed(uuid,uuid)') is null
+       or not has_function_privilege('anon', to_regprocedure('public.partner_lead_mark_claimed(uuid,uuid)'), 'execute')),
+    false) as no_anon;
