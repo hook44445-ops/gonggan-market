@@ -18,10 +18,17 @@ test("195 — 확정은 내 업체 + 내 번호 신청서만 · anon 회수", ()
   assert.match(sql, /c\.id = p_company_id and c\.owner_id = v_uid/);
   assert.match(sql, /'error', 'NOT_OWNER'/);
   for (const fn of ["partner_lead_claim_for_company", "partner_lead_mark_claimed"]) {
-    assert.match(sql, new RegExp(`revoke execute on function public\\.${fn}\\([^)]*\\) from public, anon;`));
+    assert.match(sql, new RegExp(`revoke execute on function public\\.${fn}\\([^)]*\\) from public, anon'`));
     assert.doesNotMatch(sql, new RegExp(`grant execute on function public\\.${fn}\\([^)]*\\) to anon`));
     assert.ok(isTokenRpc(fn), fn);
   }
+  assert.match(sql, /as leads_table,/);
   assert.match(sql, /as own_phone_only,/);
   assert.match(sql, /as no_anon;/);
+});
+
+test("195 — 신청서 표가 없는 DB 에서도 멈추지 않는다(10-01 운영 오류)", () => {
+  assert.match(sql, /if to_regclass\('public\.partner_leads'\) is null then/);
+  assert.doesNotMatch(sql.replace(/--[^\n]*/g, ""), /public\.partner_leads;/);   // 표 이름을 변수 타입으로 쓰지 않는다
+  assert.doesNotMatch(sql.replace(/--[^\n]*/g, ""), /'::regprocedure/);          // 확인 칸도 함수가 없으면 멈추지 않게
 });
