@@ -5,9 +5,8 @@
 //   서버리스 함수를 추가하지 않는다(Vercel 12 functions 한도 유지) — 관리자 브라우저에서
 //   직접 호출하는 클라이언트 fetch 다. 기본은 OpenRouter(브라우저 호출 허용).
 //
-//   ⚠️ 보안: VITE_ 환경변수는 브라우저 번들에 노출된다. 키가 설정되지 않으면 LLM 경로는
-//   전혀 동작하지 않고(isLLMConfigured=false) 기존 Mock 렌더러로 폴백한다 — 즉 "옵트인,
-//   기본 OFF" 다. 활성화 시에는 반드시 사용 한도가 제한된 OpenRouter 키를 권장한다.
+//   ⚠️ 보안(10-01 바꿈): VITE_ 환경변수는 브라우저 번들에 노출된다 — 그래서 브라우저는 키를 읽지 않고
+//   서버 통로(check-trends?mode=llm_chat · 관리자 토큰)로 보낸다. 서버에 키가 없으면 Mock 렌더러로 폴백.
 //
 //   Timeout / Retry / AbortController / Rate Limit / Error Handling 을 모두 포함한다.
 // ════════════════════════════════════════════════════════════════════
@@ -22,12 +21,19 @@ function readEnv() {
 }
 const ENV = readEnv();
 
-const PROVIDER = (ENV.VITE_LLM_PROVIDER || "openrouter").toLowerCase();
-const API_KEY  = ENV.VITE_LLM_API_KEY || ENV.VITE_OPENROUTER_API_KEY || "";
-const MODEL    = ENV.VITE_LLM_MODEL || (PROVIDER === "anthropic" ? "claude-3-5-sonnet-latest" : "anthropic/claude-3.5-sonnet");
-const BASE_URL = ENV.VITE_LLM_BASE_URL || (PROVIDER === "anthropic" ? "https://api.anthropic.com" : "https://openrouter.ai/api/v1");
-const TIMEOUT_MS  = Number(ENV.VITE_LLM_TIMEOUT_MS) || 30000;
-const MAX_RETRIES = Number.isFinite(Number(ENV.VITE_LLM_MAX_RETRIES)) ? Number(ENV.VITE_LLM_MAX_RETRIES) : 2;
+// 10-01 — 브라우저(관리자 화면)는 AI 회사에 직접 가지 않는다. VITE_ 키는 공개 앱 코드에 들어가므로 읽지 않고,
+//   서버 통로(/api/trend/check-trends?mode=llm_chat · 관리자 로그인 토큰 · 서버 키 OPENROUTER_API_KEY)로 보낸다.
+//   서버(Node)에서 이 모듈을 쓸 때만 서버 환경변수의 키를 읽는다(VITE_ 아님).
+const IN_BROWSER = typeof window !== "undefined" && typeof document !== "undefined";
+const PROXY_URL = "/api/trend/check-trends?mode=llm_chat";
+const STATUS_URL = "/api/trend/check-trends?mode=llm_status";
+const PROVIDER = IN_BROWSER ? "server" : (ENV.LLM_PROVIDER || "openrouter").toLowerCase();
+const API_KEY  = IN_BROWSER ? "" : (ENV.LLM_API_KEY || ENV.OPENROUTER_API_KEY || "");
+// 브라우저는 모델을 정하지 않는다(null → 서버 글쓰기 모델). 서버에서는 예전처럼.
+const MODEL    = IN_BROWSER ? null : (ENV.LLM_MODEL || (PROVIDER === "anthropic" ? "claude-3-5-sonnet-latest" : "anthropic/claude-3.5-sonnet"));
+const BASE_URL = ENV.LLM_BASE_URL || (PROVIDER === "anthropic" ? "https://api.anthropic.com" : "https://openrouter.ai/api/v1");
+const TIMEOUT_MS  = Number(ENV.VITE_LLM_TIMEOUT_MS) || (IN_BROWSER ? 60000 : 30000);   // 서버 통로는 서버 시간(최대 60초)까지 기다린다
+const MAX_RETRIES = Number.isFinite(Number(ENV.VITE_LLM_MAX_RETRIES)) ? Number(ENV.VITE_LLM_MAX_RETRIES) : (IN_BROWSER ? 1 : 2);   // 서버 통로는 한 번만 다시(비용)
 
 // Phase 27 — 모델 폴백 체인. 지정 모델이 404(모델 없음/엔드포인트 없음)이면 다음 모델로 자동 전환.
 //   auth(401/403)·timeout·rate-limit 은 폴백하지 않는다(원인을 가리지 않기 위해).
@@ -39,27 +45,43 @@ const DEFAULT_OPENROUTER_FALLBACKS = [
   "openai/gpt-4o-mini",
 ];
 function fallbackModels() {
-  const raw = String(ENV.VITE_LLM_MODEL_FALLBACKS || "").trim();
+  if (IN_BROWSER) return [];   // 모델 바꾸기는 서버가 한다(없는 모델이면 서버 글쓰기 모델로)
+  const raw = String(ENV.LLM_MODEL_FALLBACKS || "").trim();
   if (raw) return raw.split(",").map((s) => s.trim()).filter(Boolean);
   return PROVIDER === "anthropic" ? [] : DEFAULT_OPENROUTER_FALLBACKS;
 }
 // 시도할 모델 순서: 요청 모델(또는 기본) → 폴백들(중복 제거).
 function modelCandidates(primary) {
   const first = primary || MODEL;
+  if (IN_BROWSER) return [first ?? null];
   const seen = new Set(), out = [];
   for (const m of [first, ...fallbackModels()]) { const k = String(m || "").trim(); if (k && !seen.has(k)) { seen.add(k); out.push(k); } }
   return out;
 }
 
-// 키가 있어야만 LLM 경로를 켠다(없으면 항상 Mock 폴백).
+// 서버 AI 연결 상태(브라우저) — null = 아직 모름(낙관적으로 켜 둔다) · false = 서버 키 없음(Mock 폴백).
+let serverStatus = null;
+export async function refreshLLMStatus() {
+  if (!IN_BROWSER) return null;
+  try {
+    const r = await fetch(STATUS_URL);
+    const j = await r.json();
+    serverStatus = { configured: !!j?.paid, model: j?.writerModel ?? null };
+  } catch { /* 모르면 그대로 */ }
+  return serverStatus;
+}
+if (IN_BROWSER) { refreshLLMStatus(); }
+
+// 브라우저: 서버에 AI 키가 있을 때(모르면 켠다) · 서버: 서버 키가 있을 때. 없으면 호출부는 Mock 으로 폴백.
 export function isLLMConfigured() {
+  if (IN_BROWSER) return serverStatus?.configured !== false;
   return Boolean(API_KEY);
 }
 
 export const DEFAULT_MODEL = MODEL;
 
 export function llmConfig() {
-  return { provider: PROVIDER, model: MODEL, configured: isLLMConfigured(), timeoutMs: TIMEOUT_MS, maxRetries: MAX_RETRIES };
+  return { provider: PROVIDER, model: IN_BROWSER ? (serverStatus?.model ?? "서버 글쓰기 모델") : MODEL, configured: isLLMConfigured(), timeoutMs: TIMEOUT_MS, maxRetries: MAX_RETRIES };
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -112,8 +134,18 @@ function makeController(externalSignal) {
 }
 
 // Provider 별 요청 조립. model 미지정 시 env 기본 모델(Phase 18: 관리자 모델 변경 지원).
-function buildRequest({ system, user, temperature, maxTokens, model }) {
+function buildRequest({ system, user, temperature, maxTokens, model, auth = {} }) {
   const useModel = model || MODEL;
+  if (IN_BROWSER) {
+    // 서버 통로 — 키 없이 관리자 로그인 토큰만 싣는다
+    return {
+      url: PROXY_URL,
+      headers: { "content-type": "application/json", ...auth },
+      body: { system, user, temperature, maxTokens, model: useModel },
+      extractText: (json) => json?.text || "",
+      extractUsage: (json) => json?.usage || { promptTokens: null, completionTokens: null, totalTokens: null },
+    };
+  }
   if (PROVIDER === "anthropic") {
     return {
       url: `${BASE_URL.replace(/\/$/, "")}/v1/messages`,
@@ -174,7 +206,7 @@ function buildRequest({ system, user, temperature, maxTokens, model }) {
 //   usage = { promptTokens, completionTokens, totalTokens }  (관리자 로그용)
 //   opts: { system, user, temperature=0.85, maxTokens=2400, signal }
 export async function callLLM({ system = "", user = "", temperature = 0.85, maxTokens = 2400, model = null, signal = null } = {}) {
-  if (!isLLMConfigured()) throw new LLMError("LLM 미설정 (VITE_LLM_API_KEY 필요)", { status: 0, retryable: false });
+  if (!isLLMConfigured()) throw new LLMError("AI 미설정 — 서버 AI 키(OPENROUTER_API_KEY)를 Vercel 에 넣어 주세요", { status: 0, retryable: false });
   if (!user.trim()) throw new LLMError("empty prompt", { status: 0, retryable: false });
 
   const candidates = modelCandidates(model);
@@ -201,7 +233,11 @@ export async function callLLM({ system = "", user = "", temperature = 0.85, maxT
 
 // 단일 모델에 대한 요청(재시도 포함). 실패 시 리치 LLMError throw.
 async function callModel({ system, user, temperature, maxTokens, model, signal }) {
-  const req = buildRequest({ system, user, temperature, maxTokens, model });
+  let auth = {};
+  if (IN_BROWSER) {
+    try { const ses = await import("./session.js"); auth = ses.authHeader(ses.getCurrentUserId()); } catch { auth = {}; }
+  }
+  const req = buildRequest({ system, user, temperature, maxTokens, model, auth });
   let lastErr = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -220,6 +256,13 @@ async function callModel({ system, user, temperature, maxTokens, model, signal }
           lastErr = new LLMError(`HTTP ${res.status}`, { status: res.status, retryable: true, url: req.url, model, provider: PROVIDER, responseBody: bodyText });
           await sleep(backoff);
           continue;
+        }
+        if (IN_BROWSER && res.status === 503 && /NO_SERVER_KEY/.test(bodyText)) {
+          serverStatus = { configured: false, model: null };
+          throw new LLMError("AI 미설정 — 서버 AI 키(OPENROUTER_API_KEY)를 Vercel 에 넣어 주세요", { status: 503, retryable: false, url: req.url, model, provider: PROVIDER, responseBody: bodyText });
+        }
+        if (IN_BROWSER && res.status === 401) {
+          throw new LLMError("관리자 인증이 필요해요 — 인증번호로 다시 로그인해 주세요", { status: 401, retryable: false, url: req.url, model, provider: PROVIDER, responseBody: bodyText });
         }
         throw new LLMError(
           buildHttpErrorMessage({ status: res.status, url: req.url, model, provider: PROVIDER, bodyText }),

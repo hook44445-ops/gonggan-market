@@ -21,9 +21,10 @@ function readEnv() {
 const ENV = readEnv();
 const TIMEOUT_MS = Number(ENV.VITE_LLM_TIMEOUT_MS) || 30000;
 
-// 각 Provider 의 키(브라우저 노출 위해 VITE_ 접두 필요 — 없는 Provider 는 비활성).
-const OPENAI_KEY = ENV.VITE_OPENAI_API_KEY || ENV.OPENAI_API_KEY || "";
-const GEMINI_KEY = ENV.VITE_GEMINI_API_KEY || ENV.GEMINI_API_KEY || "";
+// 각 Provider 의 키 — 10-01: VITE_ 키는 읽지 않는다(공개 앱 코드에 들어간다). 브라우저에서는 GPT·Gemini 직접 연결이 꺼지고
+//   Claude(= 서버 통로 · llmClient)로 안전 폴백한다(resolveProvider). 서버(Node)에서만 서버 환경변수 키를 쓴다.
+const OPENAI_KEY = ENV.OPENAI_API_KEY || "";
+const GEMINI_KEY = ENV.GEMINI_API_KEY || "";
 const GPT_MODEL    = ENV.VITE_OPENAI_MODEL || "gpt-4o-mini";
 const GEMINI_MODEL = ENV.VITE_GEMINI_MODEL || "gemini-1.5-flash";
 

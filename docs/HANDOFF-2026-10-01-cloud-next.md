@@ -174,6 +174,29 @@ select count(*) from public.requests where array_length(photos, 1) > 0;
 
 > **PR #922(약관 개정)는 열어 둔다** — 결제사가 정해진 뒤 고친다(PR 댓글에 1~5 순서).
 
+## 2-8. 📌 내일(10-02) 대표 할 일 — AI 키 정리 (10-01 밤 저장)
+
+> 왜: 공간마켓 프로젝트의 `VITE_LLM_API_KEY`(07-10)는 **공개 앱 코드에 들어간다**(`VITE_` = 브라우저 번들) — 누구나 꺼내 쓸 수 있다.
+> 그리고 공간마켓 서버에는 AI 키가 없어 **09-26 뒤 자동 라운지 글은 전부 «틀 글»**이었다(최근 14일 `server_template` 28건 모두 발행).
+
+1. **OpenRouter → Keys** 에서 07-10 쯤 만든 키(= `VITE_LLM_API_KEY` 값 — 앞자리 `sk-or-` 로 맞춰 보기) **삭제(Revoke)**
+2. OpenRouter 에서 **공간마켓용 새 키** 만들기(프로젝트마다 따로 — 비용이 따로 보인다)
+3. Vercel **gonggan-market** 프로젝트에 **`OPENROUTER_API_KEY`**(앞에 `VITE_` 없이)로 넣기
+4. Vercel 에서 **`VITE_LLM_API_KEY` 지우기**(팀 공유 변수면 연결된 프로젝트 먼저 확인)
+5. **Redeploy**
+6. 확인: 관리자 «AI 운영본부»의 AI 연결 상태가 «연결됨 · openrouter» · 다음 사이클부터 라운지 글이 `server_llm` 으로(아래 SQL)
+
+```sql
+select coalesce(ai_source, '(표시 없음)') as 누가_썼나, count(*) as 글_수,
+       count(*) filter (where publish_status = 'published') as 올라간_글,
+       max(created_at at time zone 'Asia/Seoul') as 마지막
+  from public.lounge_posts
+ where ai_topic is not null and created_at > now() - interval '3 days'
+ group by 1 order by 2 desc;
+```
+
+- 코드(클라우드)는 같은 날 «관리자 화면 AI 를 서버를 거쳐 쓰기»로 바꿔 둔다 — 3번의 키 하나로 서버 글 · 관리자 화면 글이 모두 돈다.
+
 ## 3. 기다리는 것 — 답이 오면 거기부터
 
 | 무엇 | 누구 | 오면 할 일 |

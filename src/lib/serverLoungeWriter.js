@@ -204,6 +204,47 @@ async function callOpenAiCompatible(url, key, model, system, user, signal, extra
 
 const OR_HEADERS = () => ({ "HTTP-Referer": process.env.SITE_URL || "https://gongganmarket.com", "X-Title": "Gonggan Market Lounge" });
 
+// 10-01 — 관리자 화면 AI(브라우저)가 «서버 키»로 쓰게 하는 통로(키를 앱 코드에 싣지 않는다 · VITE_ 키 폐기).
+//   글자 그대로 돌려준다(JSON 강제 X). 모델은 «회사/모델» 꼴만 받고, 없거나 이상하면 서버 글쓰기 모델.
+//   반환 { text, model, usage } 또는 { error, status?, detail? } — 키가 없으면 error: "NO_SERVER_KEY".
+export async function adminChat({ system = "", user = "", temperature = 0.85, maxTokens = 2400, model = null } = {}, { timeoutMs = 55000, retried = false } = {}) {
+  const key = KEY();
+  if (!key) return { error: "NO_SERVER_KEY" };
+  const fallback = await writerModel();
+  const useModel = typeof model === "string" && /^[a-z0-9._-]+\/[a-z0-9._:-]+$/i.test(model) ? model : fallback;
+  const mt = Math.max(100, Math.min(Number(maxTokens) || 2400, 6000));
+  const temp = Math.max(0, Math.min(Number.isFinite(Number(temperature)) ? Number(temperature) : 0.85, 1.5));
+  try {
+    return await withTimeout(timeoutMs, async (signal) => {
+      const r = await fetch(CHAT_URL, {
+        method: "POST", signal,
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...OR_HEADERS() },
+        body: JSON.stringify({
+          model: useModel, temperature: temp, max_tokens: mt,
+          messages: [...(system ? [{ role: "system", content: String(system).slice(0, 20000) }] : []),
+                     { role: "user", content: String(user).slice(0, 40000) }],
+        }),
+      });
+      const raw = await r.text().catch(() => "");
+      if (!r.ok) {
+        // 고른 모델이 없으면 서버 글쓰기 모델로 한 번 더
+        if ((r.status === 404 || r.status === 400) && !retried && useModel !== fallback) {
+          return adminChat({ system, user, temperature, maxTokens, model: null }, { timeoutMs, retried: true });
+        }
+        return { error: `HTTP_${r.status}`, status: r.status, detail: raw.slice(0, 300), model: useModel };
+      }
+      let j = null; try { j = JSON.parse(raw); } catch { /* 빈 응답 */ }
+      const u = j?.usage || {};
+      return {
+        text: j?.choices?.[0]?.message?.content ?? "", model: useModel,
+        usage: { promptTokens: u.prompt_tokens ?? null, completionTokens: u.completion_tokens ?? null, totalTokens: u.total_tokens ?? null },
+      };
+    });
+  } catch (e) {
+    return { error: e?.name === "AbortError" ? "TIMEOUT" : "NETWORK", detail: String(e?.message || e).slice(0, 200) };
+  }
+}
+
 /* Gemini — 모델 목록에서 가장 최근 flash(무료 등급이 넉넉한 계열). GEMINI_MODEL 로 바꿀 수 있다. */
 let gemCache = { at: 0, model: null };
 async function geminiModel(key) {

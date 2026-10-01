@@ -22,11 +22,10 @@ import { collectAllTrends } from '../../src/lib/trendCollector.js';
 import { scoreTopic, priorityFromScore } from '../../src/lib/topicScore.js';
 import { mapCategory } from '../../src/lib/categoryMapper.js';
 import { filterNewTopics } from '../../src/lib/duplicateChecker.js';
-import { generateDraft } from '../../src/constants/aiContentFactory.js';
-import { ensureImageUrls } from '../../src/lib/approvalImage.js';
 import { authenticateCron } from '../../src/lib/cronAuth.js';
 import { runAutonomousCycle } from '../../src/lib/serverAutonomousCycle.js';
-import { llmStatus } from '../../src/lib/serverLoungeWriter.js';
+import { llmStatus, adminChat } from '../../src/lib/serverLoungeWriter.js';
+import { sessionUserId } from '../../src/lib/sessionToken.server.js';
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -47,6 +46,15 @@ async function sbGet(path) {
   } catch {
     return null;
   }
+}
+
+// 관리자(또는 운영자) 로그인 토큰인가 — 서버가 서명한 토큰의 사용자 역할로만(10-01)
+async function isAdminSession(req) {
+  const uid = sessionUserId(req);
+  if (!uid || !/^[0-9a-f-]{36}$/i.test(uid)) return false;
+  const rows = await sbGet(`users?id=eq.${uid}&select=role,is_operator&limit=1`);
+  const me = Array.isArray(rows) ? rows[0] : null;
+  return !!me && (me.role === 'admin' || me.role === 'operator' || me.is_operator === true);
 }
 
 async function sbInsertDraft(row) {
@@ -117,6 +125,19 @@ export default async function handler(req, res) {
     catch (e) { return sendJson(200, { ok: false, configured: false, reason: e?.message ?? 'error' }); }
   }
 
+  // 10-01 — 관리자 화면 AI 통로: 브라우저는 AI 회사에 직접 가지 않고(키를 앱에 싣지 않는다) 여기로 온다.
+  //   관리자·운영자 로그인 토큰만 · 서버 키(OPENROUTER_API_KEY)로 · 새 서버 함수 없이(12/12).
+  if (req.query?.mode === 'llm_chat') {
+    if (req.method !== 'POST') return sendJson(405, { ok: false, error: 'METHOD' });
+    if (!(await isAdminSession(req))) return sendJson(401, { ok: false, error: 'ADMIN_ONLY', message: '관리자 인증이 필요해요 — 인증번호로 다시 로그인해 주세요' });
+    let body = req.body;
+    if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
+    const out = await adminChat(body ?? {});
+    if (out.error === 'NO_SERVER_KEY') return sendJson(503, { ok: false, error: 'NO_SERVER_KEY', message: '서버 AI 키(OPENROUTER_API_KEY)가 아직 없어요 — Vercel 에 넣고 다시 배포해 주세요' });
+    if (out.error) return sendJson(502, { ok: false, ...out });
+    return sendJson(200, { ok: true, ...out });
+  }
+
   if (req.query?.mode === 'autonomous') {
     // (1) cron-job.org → autonomous-cycle API 도착 로그(비밀 미출력).
     console.log(`[autonomous-cycle] (1) API 도착 method=${req.method} ua=${(req.headers?.['user-agent'] || '').slice(0, 60)} hasAuth=${!!(req.headers?.authorization)}`);
@@ -146,9 +167,14 @@ export default async function handler(req, res) {
 
   // 일 1회 경로도 인증(09-26 검토) — 예전엔 누구나 GET 한 번으로 초안을 만들고 예약 글을 발행시킬 수 있었다.
   // Vercel Cron 은 CRON_SECRET 이 설정돼 있으면 Authorization: Bearer <CRON_SECRET> 을 자동으로 붙인다.
+  //   10-01: 관리자 화면 «지금 트렌드 확인»은 크론 비밀 키 대신 관리자 로그인 토큰으로(예전엔 키 없이 불러 막혔다).
+  let manual = false;
   {
     const auth = authenticateCron(req);
-    if (!auth.ok) return sendJson(auth.status, { ok: false, code: auth.code });
+    if (!auth.ok) {
+      if (await isAdminSession(req)) manual = true;
+      else return sendJson(auth.status === 503 ? 401 : auth.status, { ok: false, code: auth.code });
+    }
   }
 
   if (!SB_URL || !SB_KEY) {
@@ -162,7 +188,7 @@ export default async function handler(req, res) {
   //   AI 글쓰기·라운지 카테고리 주제·카테고리 사진을 거치지 않은 초안이 섞였다(업체 글이 «생활» 칸으로 가는 등).
   try {
     const result = await runAutonomousCycle({ now: Date.now() });
-    return sendJson(200, { mode: 'daily', ...result });
+    return sendJson(200, { mode: manual ? 'manual' : 'daily', ...result });
   } catch (e) {
     console.error('[check-trends] daily EXCEPTION', e?.stack || e?.message || String(e));
     return sendJson(200, { ok: false, mode: 'daily', reason: e?.message ?? 'error' });

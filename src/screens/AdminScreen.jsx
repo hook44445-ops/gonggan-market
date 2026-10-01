@@ -1601,7 +1601,7 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
       {/* 10-01 콘텐츠 AI 점검 — 예약 시각 · 기기 저장을 사실대로 */}
       <div style={{ background: "#FBF5E8", border: `1px solid ${C.gold}`, borderRadius: R.lg, padding: "8px 12px", fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
         ⚠️ 예약한 글은 <b>그 시각에 바로 올라가지 않을 수 있어요</b> — 서버가 «시각 지난 예약 글»을 올리는 건 자율 사이클이 돌 때예요
-        (매일 아침 6시 크론 · 외부 스케줄러를 설정했다면 그 주기). 자동 발행 켜기 · 설정 · 기록은 <b>이 기기(브라우저)에만</b> 저장돼요.
+        (Vercel 크론 하루 한 번 — 한국 오후 3시 · 외부 스케줄러가 도는 주기 — 10-01 운영에서 새벽·아침에도 돈 기록이 있다). 자동 발행 켜기 · 설정 · 기록은 <b>이 기기(브라우저)에만</b> 저장돼요.
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="⚙️" size={14} color={C.text1} /> 자동발행 OS (Production)</div>
@@ -2620,7 +2620,7 @@ function TrendDiscoveryTab({ published = [], adminUserId, showToast, onReload })
     <div>
       {/* 10-01 콘텐츠 AI 점검 — 이 탭의 주제는 견본(mockTrendProvider)이다. 진짜로 착각하지 않게 */}
       <div style={{ background: "#FBF5E8", border: `1px solid ${C.gold}`, borderRadius: R.lg, padding: "8px 12px", fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
-        ⚠️ 이 화면의 주제는 <b>예시</b>예요(실제 트렌드 아님). 실제 트렌드(구글 급상승 등)는 매일 아침 서버가 모아
+        ⚠️ 이 화면의 주제는 <b>예시</b>예요(실제 트렌드 아님). 실제 트렌드(구글 급상승 등)는 서버가 하루 여러 번 모아
         «AI 글 공장»에 <b>초안</b>으로 넣어요 — 거기서 «지금 트렌드 확인»을 누르면 바로 모아요.
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
@@ -3043,7 +3043,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
   const updateEdCfg = (patch) => { const next = setEditorialConfig(patch); setEdCfg(next); };
   const handleEditorialGenerate = async () => {
     if (!issue.trim()) { showToast?.("주제(트렌드 제목)를 입력하세요"); return; }
-    if (!isLLMConfigured()) { showToast?.("LLM 미설정(VITE_LLM_API_KEY 필요) — 실제 매거진 생성 불가"); return; }
+    if (!isLLMConfigured()) { showToast?.("AI 미설정 — 서버 AI 키(OPENROUTER_API_KEY)를 Vercel 에 넣어 주세요"); return; }
     setEdGen(true); setEdResult(null);
     try {
       const r = await generateEditorial({
@@ -3117,18 +3117,23 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     onReload?.();
   };
 
-  // Phase 2 — Trend Scheduler 수동 트리거(cron 은 3시간마다 자동 호출, 여기서는 즉시 확인용).
-  // 결과는 항상 DRAFT 로만 저장되며(api/trend/check-trends.js 하드코딩 규칙), 자동 발행 없음.
+  // Phase 2 — Trend Scheduler 수동 트리거(즉시 확인용). 서버 자율 사이클 1회 — 서버 초안은 규칙 검토를 통과하면 자동 발행된다(serverAutonomousCycle).
   const handleCheckTrendsNow = async () => {
     if (checkingTrends) return;
     setCheckingTrends(true);
     setTrendCheckResult(null);
     try {
-      const res = await fetch("/api/trend/check-trends");
-      const json = await res.json();
+      // 10-01 — 관리자 로그인 토큰으로(서버가 크론 비밀 키 대신 받는다 · 예전엔 키 없이 불러 막혔다)
+      const res = await fetch("/api/trend/check-trends", { headers: authHeader(adminUserId) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) {
+        setTrendCheckResult(null);
+        showToast?.(res.status === 401 ? "관리자 인증이 필요해요 — 인증번호로 다시 로그인해 주세요" : `트렌드 확인 실패 — ${json?.reason ?? json?.code ?? res.status}`);
+        return;
+      }
       setTrendCheckResult(json);
-      if (json?.created > 0) showToast?.(`🔎 트렌드 ${json.created}건을 초안으로 저장했습니다`);
-      else showToast?.("새로운(중복 아닌) 트렌드 이슈가 없습니다");
+      const made = Number(json?.generated ?? 0), pub = Number(json?.published ?? 0) + Number(json?.boardDiag?.immediate ?? 0);
+      showToast?.(made || pub ? `🔎 초안 ${made}건 · 올림 ${pub}건` : "새로 만들 트렌드 글이 없어요(오늘 목표를 채웠거나 중복)");
       onReload?.();
     } catch (e) {
       showToast?.("트렌드 확인 실패: " + (e?.message ?? String(e)));
@@ -3976,7 +3981,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
               {st.todayCount > 0 ? ` · 오늘 ${st.todayCount}회 · ₩${st.todayCostKRW}` : ""}
             </span>
           ) : (
-            <span style={{ marginLeft: 10, fontSize: 11, color: C.gold }}>⚪ LLM 미설정 (VITE_LLM_API_KEY 필요)</span>
+            <span style={{ marginLeft: 10, fontSize: 11, color: C.gold }}>⚪ AI 미설정 (서버 OPENROUTER_API_KEY 필요)</span>
           );
         })()}
 
@@ -4159,12 +4164,14 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
           </button>
         </div>
         <div style={{ fontSize: 11, color: C.text3, marginBottom: S.sm, lineHeight: 1.6 }}>
-          3시간마다 자동 수집(Vercel Cron) + 수동 확인 버튼. 중복 이슈(48시간 이내 동일 title/topic)는
-          자동으로 걸러지며, 결과는 항상 초안(DRAFT)으로만 저장됩니다(자동 발행 없음).
+          서버가 하루 여러 번(Vercel 크론 한국 오후 3시 + 외부 스케줄러) 실제 트렌드로 초안을 만들고, 48시간 안 같은 주제는 거른다.
+          서버가 만든 글은 규칙 검토(작가·사실·SEO·편집장 점수)를 통과하면 <b>스스로 올리거나 예약한다(하루 최대 15건)</b> —
+          서버에 AI 키(OPENROUTER_API_KEY)가 없으면 «틀 글»이 올라가고, 있으면 AI 글만 올리고 틀 글은 초안으로 남긴다.
+          이 화면에서 브라우저로 만든 초안은 자동으로 올라가지 않는다(여기서 직접 발행).
         </div>
         {trendCheckResult && (
           <div style={{ fontSize: 11, color: C.text3, marginBottom: S.sm, background: C.bg, borderRadius: R.sm, padding: "6px 10px" }}>
-            수집 {trendCheckResult.collected ?? 0}건 · 중복 제외 후 {trendCheckResult.deduped ?? 0}건 · 초안 생성 {trendCheckResult.created ?? 0}건
+            초안 {trendCheckResult.generated ?? 0}건 · 자동 승인 {(trendCheckResult.boardDiag?.immediate ?? 0) + (trendCheckResult.boardDiag?.scheduled ?? 0)}건(바로 {trendCheckResult.boardDiag?.immediate ?? 0} · 예약 {trendCheckResult.boardDiag?.scheduled ?? 0}) · 예약 글 올림 {trendCheckResult.published ?? 0}건 · 오늘 {trendCheckResult.todayCount ?? 0}/{trendCheckResult.targetPerDay ?? 5}
           </div>
         )}
         {trendQueue.length === 0 ? (
