@@ -20,7 +20,8 @@ function Cell({ c, wrap }) {
   if (c.missing) return <span style={{ color: C.text4, fontSize: 12.5, fontStyle: "italic" }}>{c.text}</span>;
   return (
     <span>
-      <span style={{ color: c.best ? C.brand : C.text1, fontWeight: c.best ? 800 : 700, fontSize: 13.5,
+      {/* 포함 항목(본질 ②)에 «별도»·«안 적음»이 섞이면 — 계약 때 추가금이 될 수 있는 자리라 호박색 */}
+      <span style={{ color: c.best ? C.brand : c.warn ? "#8A5A12" : C.text1, fontWeight: c.best ? 800 : 700, fontSize: c.warn ? 12.5 : 13.5,
         ...(wrap ? clamp3 : null) }}>{c.text}</span>
       {c.best && c.bestText && <span style={{ display: "block", fontSize: 10.5, color: C.brand, fontWeight: 800, marginTop: 2 }}>{c.bestText}</span>}
       {c.sub && <span style={{ display: "block", fontSize: 10.5, color: C.text3, marginTop: 2 }}>{c.sub}</span>}

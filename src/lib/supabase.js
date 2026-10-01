@@ -453,8 +453,18 @@ export const updateRequest = (id, data, actorId) =>
 
 // ── Bids ──────────────────────────────────────────────────────────────────────
 
+// 견적 «포함 항목»(bids.includes · 186) — 칸이 아직 없으면(186 전) 그 칸만 빼고 다시 저장한다(입찰은 절대 막지 않는다).
+const withoutIncludesRetry = async (data, run) => {
+  const res = await run(data);
+  if (res.error && data && "includes" in data && isMissingColumnError(res.error, ["includes"])) {
+    const { includes: _drop, ...rest } = data;
+    return run(rest);
+  }
+  return res;
+};
+
 export const createBid = async (data) =>
-  asLoginRequired(await userDb().from("bids").insert(data).select().single());
+  asLoginRequired(await withoutIncludesRetry(data, (d) => userDb().from("bids").insert(d).select().single()));
 
 // 입찰 + 업체 정보. 예전엔 입찰 줄만 가져와(select("*")) 비교 목록이 늘 기본값
 // («선택된 파트너 · 36.5° · Lv.1»)이었다(C1). bids.company_id 는 companies.id 일 수도,
@@ -512,7 +522,7 @@ export const contractDirect = (requestId, bidId, actorId) =>
 
 // 업체 입찰 내용 수정 — 한 요청당 1입찰 정책에서 재제출은 수정으로 처리
 export const updateBid = (id, data) =>
-  userDb().from("bids").update(data).eq("id", id).select().single();
+  withoutIncludesRetry(data, (d) => userDb().from("bids").update(d).eq("id", id).select().single());
 
 // ── Chats ─────────────────────────────────────────────────────────────────────
 // 대화는 그 방의 고객·업체(와 관리자)만 읽고 쓴다(168) — 서버가 로그인 토큰의 사용자로 판단하므로
