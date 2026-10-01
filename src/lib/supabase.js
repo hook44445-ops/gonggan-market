@@ -749,34 +749,34 @@ export const subscribeToBidInserts = (requestId, callback) =>
 // ── Escrow Payments ───────────────────────────────────────────────────────────
 
 export const getEscrowPayment = (requestId) =>
-  supabase.from("escrow_payments").select("*").eq("request_id", requestId).maybeSingle();
+  userDb().from("escrow_payments").select("*").eq("request_id", requestId).maybeSingle();
 
 // 계약(escrow_payments.id) 단독 진입 시 request_id/company_id 복원용(읽기 전용).
 // contract_bootstrap RPC 는 companies 조인(c.id = ep.company_id)에 의존해, escrow.company_id
 // 가 owner_id 로 저장된 레코드에선 당사자 매칭 실패로 null 을 반환한다. 이 헬퍼는 조인 없이
 // escrow_payments 를 id 로 직접 읽어 request_id 를 복원한다(스키마/RLS/결제 로직 무변경, 조회만).
 export const getEscrowById = (id) =>
-  supabase.from("escrow_payments")
+  userDb().from("escrow_payments")
     .select("id, request_id, company_id, total_amount")
     .eq("id", id).maybeSingle();
 
 export const createEscrowPayment = (data) =>
-  supabase.from("escrow_payments").insert(data).select().single();
+  userDb().from("escrow_payments").insert(data).select().single();
 
 export const uploadEscrowPhotos = (paymentId, photoUrls) =>
-  supabase
+  userDb()
     .from("escrow_payments")
     .update({ inspection_photos: photoUrls, photos_uploaded_at: new Date().toISOString() })
     .eq("id", paymentId);
 
 export const approveEscrowStep = (paymentId, step) =>
-  supabase
+  userDb()
     .from("escrow_payments")
     .update({ [`step_${step}_approved_at`]: new Date().toISOString(), current_step: step + 1 })
     .eq("id", paymentId);
 
 export const disputeEscrowStep = (paymentId, step, reason) =>
-  supabase
+  userDb()
     .from("escrow_payments")
     .update({ [`step_${step}_disputed`]: true, dispute_reason: reason, disputed_at: new Date().toISOString() })
     .eq("id", paymentId);
@@ -1624,7 +1624,7 @@ export const updateEscrowExpectedEndDate = async (paymentId, expectedEndDate) =>
 };
 
 export const getContractByTransactionStatus = (transactionStatus) =>
-  supabase
+  userDb()
     .from("escrow_payments")
     .select("*, requests(*), companies(*)")
     .eq("transaction_status", transactionStatus);
@@ -1893,7 +1893,7 @@ export const addPhasePhotos = ({ contractId, step, photos, caption }) =>
   supabase.rpc("phase_photos_add", { p_contract_id: contractId, p_step: step, p_photos: photos ?? [], p_caption: caption ?? null });
 
 export const getPhasePhotos = (contractId, step = null) => {
-  let q = supabase
+  let q = userDb()
     .from("phase_photos")
     .select("*")
     .eq("contract_id", contractId)
@@ -1906,7 +1906,7 @@ export const getPhasePhotos = (contractId, step = null) => {
 export const getPhasePhotosByContracts = async (contractIds = []) => {
   const ids = (contractIds ?? []).filter(Boolean);
   if (ids.length === 0) return { data: [], error: null };
-  return supabase
+  return userDb()
     .from("phase_photos")
     .select("contract_id, step, photos, created_at")
     .in("contract_id", ids)
@@ -1918,7 +1918,7 @@ export const getPhasePhotosByContracts = async (contractIds = []) => {
 export const getRepresentativePhotosByContracts = async (contractIds = []) => {
   const ids = (contractIds ?? []).filter(Boolean);
   if (ids.length === 0) return {};
-  const { data, error } = await supabase
+  const { data, error } = await userDb()
     .from("phase_photos")
     .select("contract_id, photos, created_at")
     .in("contract_id", ids)
@@ -1999,7 +1999,7 @@ export const getUsers = ({ role } = {}) => {
 // ── Company dashboard: active escrow jobs ─────────────────────────────────────
 
 export const getCompanyEscrowJobs = (companyId) =>
-  supabase
+  userDb()
     .from("escrow_payments")
     .select("*, requests(space_type, area, size)")
     .eq("company_id", companyId)
@@ -2008,7 +2008,7 @@ export const getCompanyEscrowJobs = (companyId) =>
 
 // Returns SETTLED/COMPLETED escrow rows for the 완료 tab (company_id = users.id)
 export const getCompletedEscrowByCompany = (companyId) =>
-  supabase
+  userDb()
     .from("escrow_payments")
     .select("id, request_id, total_amount, transaction_status, created_at, current_step, requests(area, space_type, type, size)")
     .eq("company_id", companyId)
@@ -2050,13 +2050,13 @@ export const updatePaymentOrderStatus = (id, status) =>
 // ── STEP H: Escrow Payouts ────────────────────────────────────────────────────
 
 export const createEscrowPayout = (data) =>
-  supabase.from("escrow_payouts").insert(data).select().single();
+  userDb().from("escrow_payouts").insert(data).select().single();
 
 export const getEscrowPayouts = (escrowId) =>
-  supabase.from("escrow_payouts").select("*").eq("escrow_id", escrowId).order("stage");
+  userDb().from("escrow_payouts").select("*").eq("escrow_id", escrowId).order("stage");
 
 export const updateEscrowPayoutStatus = (id, status, approvedBy = null) =>
-  supabase.from("escrow_payouts").update({
+  userDb().from("escrow_payouts").update({
     status,
     ...(approvedBy && { approved_by: approvedBy, approved_at: new Date().toISOString() }),
   }).eq("id", id).select().single();
@@ -2395,7 +2395,7 @@ export const getCompanyActiveJobs = async (companyId, extraIds = []) => {
     .in("selected_company_id", candidateIds);
 
   // ③ escrow 직접 연결(계약 업체) → request_id 확보
-  const { data: escrows } = await supabase
+  const { data: escrows } = await userDb()
     .from("escrow_payments")
     .select("request_id, company_id")
     .in("company_id", candidateIds);
@@ -2480,7 +2480,7 @@ export const getCompanyStatus = (companyId) =>
 
 export const createEscrowRecord = async (data) => {
   dlog("[GONGGAN_DEBUG][createEscrow]", { requestId: data.requestId ?? null, companyId: data.companyId ?? null, totalAmount: data.totalAmount });
-  const res = await supabase.from("escrow_payments").insert({
+  const res = await userDb().from("escrow_payments").insert({
     request_id:          data.requestId ?? null,
     company_id:          data.companyId ?? null,
     total_amount:        data.totalAmount,
@@ -2513,7 +2513,7 @@ export const getOrCreateEscrow = async ({ requestId, companyId, totalAmount }) =
 
   // ── 폴백(RPC 미배포 환경) ──────────────────────────────────────────
   const findActive = async () => {
-    const { data } = await supabase.from("escrow_payments").select("*")
+    const { data } = await userDb().from("escrow_payments").select("*")
       .eq("request_id", requestId)
       .not("transaction_status", "in", "(CANCELLED,SETTLED)")
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -2706,7 +2706,7 @@ const attachCompanies = async (res) => {
 };
 
 export const getDisputePayments = async () =>
-  attachCompanies(await supabase
+  attachCompanies(await userDb()
     .from("escrow_payments")
     .select("*, requests(id, space_type, area, user_id)")
     .not("dispute_status", "is", null)
@@ -2715,7 +2715,7 @@ export const getDisputePayments = async () =>
 // ── Admin: Pending Payouts ────────────────────────────────────────────────────
 
 export const getPendingPayouts = async () =>
-  attachCompanies(await supabase
+  attachCompanies(await userDb()
     .from("escrow_payouts")
     .select("*, escrow_payments(id, total_amount, transaction_status)")
     .in("status", ["PENDING", "READY", "APPROVED", "HELD"])
@@ -3715,7 +3715,7 @@ export const contractBootstrap = (contractId, actorId) =>
   supabase.rpc("contract_bootstrap", { p_contract_id: contractId, p_actor_id: actorId });
 
 export const getEscrowByRequest = (requestId) =>
-  supabase.from("escrow_payments")
+  userDb().from("escrow_payments")
     .select("*")
     .eq("request_id", requestId)
     .order("created_at", { ascending: false })
@@ -3724,7 +3724,7 @@ export const getEscrowByRequest = (requestId) =>
 
 // Two-dimension lookup: request_id + company_id (works when RLS allows by company)
 export const getEscrowByCompanyAndRequest = (requestId, companyId) =>
-  supabase.from("escrow_payments")
+  userDb().from("escrow_payments")
     .select("*")
     .eq("request_id", requestId)
     .eq("company_id", companyId)
@@ -3736,7 +3736,7 @@ export const getEscrowByCompanyAndRequest = (requestId, companyId) =>
 // (phase_photos.uploaded_by = company userId; contract_id = escrow_payments.id)
 // afterDate: only photos uploaded AFTER this ISO string — prevents matching old completed jobs
 export const getPhasePhotosByUploader = (uploadedBy, afterDate = null) => {
-  let q = supabase.from("phase_photos")
+  let q = userDb().from("phase_photos")
     .select("contract_id, step, photos, created_at")
     .eq("uploaded_by", uploadedBy)
     .order("created_at", { ascending: false })
@@ -3747,7 +3747,7 @@ export const getPhasePhotosByUploader = (uploadedBy, afterDate = null) => {
 
 // Recover escrow_id from escrow_payouts by company_id (alternative path if above fails)
 export const getEscrowPayoutsByCompanyId = (companyId) =>
-  supabase.from("escrow_payouts")
+  userDb().from("escrow_payouts")
     .select("escrow_id, stage, status, created_at")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
@@ -3779,7 +3779,7 @@ export const setEscrowPayoutReady = async (escrowId, stage) => ({ data: { escrow
 
 // ── Consumer: escrow + payouts for a request (for home card stage computation) ─
 export const getEscrowWithPayouts = async (requestId) => {
-  const { data: escrow, error } = await supabase
+  const { data: escrow, error } = await userDb()
     .from("escrow_payments")
     .select("*")
     .eq("request_id", requestId)
@@ -3787,7 +3787,7 @@ export const getEscrowWithPayouts = async (requestId) => {
     .limit(1)
     .maybeSingle();
   if (error || !escrow) return { data: null, error: error ?? null };
-  const { data: payouts } = await supabase
+  const { data: payouts } = await userDb()
     .from("escrow_payouts")
     .select("*")
     .eq("escrow_id", escrow.id)
@@ -3938,7 +3938,7 @@ async function notifyAdmins({ type, title, message, relatedId = null, relatedTyp
 
 // 해당 request+company 에 계약(escrow_payments)이 존재하는지
 export async function checkContractExists(requestId, companyId) {
-  let q = supabase.from("escrow_payments").select("id", { count: "exact", head: true });
+  let q = userDb().from("escrow_payments").select("id", { count: "exact", head: true });
   if (requestId) q = q.eq("request_id", requestId);
   if (companyId) q = q.eq("company_id", companyId);
   const { count } = await q;
@@ -4231,7 +4231,7 @@ export async function checkDirectDealSchedules() {
     chatDb().from("chats").select("room_id, created_at").order("created_at", { ascending: true }),
     supabase.from("requests").select("id, user_id, created_at"),
     supabase.from("bids").select("request_id, company_id, created_at"),
-    supabase.from("escrow_payments").select("request_id, company_id, transaction_status, updated_at"),
+    userDb().from("escrow_payments").select("request_id, company_id, transaction_status, updated_at"),
   ]);
 
   // 채팅방 집계 — room_id = `${customerId}_${companyId}` (uuid 는 '_' 없음)

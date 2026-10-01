@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 // spaceActivity.js — "공간 활동기록" 실데이터 집계 (v5.4.0 · 읽기 전용)
 //   활동이 기록이 되고, 기록이 프로젝트로 이어진다 — 의 데이터 계층.
-//   ⚠️ Mock 금지: 반드시 실제 DB(기존 테이블)만 집계한다. 스키마/RPC 변경 없음.
+//   ⚠️ Mock 금지: 반드시 실제 DB(기존 테이블)만 집계한다. (완료 프로젝트만 서버 함수 company_done_projects · 196)
 //   · 회사 범위 지표(프로젝트 완료/견적 응답/리뷰)는 companyId 로 집계.
 //   · 라운지 지표(라운지 답변/시공사례)는 ownerId(=users.id) 로 집계.
 //   · 데이터가 없으면 0 을 그대로 반환(숫자 가공 금지) → UI 에서 빈 상태 안내.
@@ -25,6 +25,32 @@ const cnt = async (builder) => {
   catch { return 0; }
 };
 
+// 업체의 완료 프로젝트 수 · 최근 완료 날짜 3개 — 공개 숫자.
+//   196 뒤 계약 표(escrow_payments)는 당사자·관리자만 읽는다 → 숫자만 서버 함수(company_done_projects)로.
+//   함수가 아직 없으면(SQL 196 전) 예전처럼 표를 직접 센다. 세션 동안 업체별 한 번만 묻는다.
+const _done = new Map();
+export function companyDoneProjects(companyId) {
+  if (!companyId) return Promise.resolve({ count: 0, recent: [] });
+  if (_done.has(companyId)) return _done.get(companyId);
+  const p = (async () => {
+    try {
+      const { data, error } = await supabase.rpc("company_done_projects", { p_company_id: companyId });
+      if (!error && data) return { count: Number(data.count) || 0, recent: Array.isArray(data.recent) ? data.recent : [] };
+    } catch { /* 예전 방식으로 */ }
+    const [count, list] = await Promise.all([
+      cnt(supabase.from("escrow_payments").select("id", { count: "exact", head: true })
+        .eq("company_id", companyId).in("transaction_status", ["SETTLED", "COMPLETED"])),
+      supabase.from("escrow_payments").select("created_at").eq("company_id", companyId)
+        .in("transaction_status", ["SETTLED", "COMPLETED"])
+        .order("created_at", { ascending: false }).limit(3)
+        .then(({ data }) => data ?? [], () => []),
+    ]);
+    return { count, recent: list.map((x) => x.created_at) };
+  })().catch(() => ({ count: 0, recent: [] }));
+  _done.set(companyId, p);
+  return p;
+}
+
 // 세션 메모 캐시 — 동일 업체가 여러 입찰 카드에 반복 노출돼도 중복 쿼리를 막는다.
 // 읽기 전용 집계라 세션 내 약간의 staleness 는 허용. 키: companyId|ownerId|countsOnly.
 const _cache = new Map();
@@ -43,11 +69,9 @@ async function buildRecent({ ownerId, companyId }) {
         .catch(() => {})
     );
     tasks.push(
-      supabase.from("escrow_payments").select("created_at").eq("company_id", companyId)
-        .in("transaction_status", ["SETTLED", "COMPLETED"])
-        .order("created_at", { ascending: false }).limit(3)
-        .then(({ data }) => (data ?? []).forEach((r) =>
-          items.push({ type: "프로젝트", at: r.created_at, label: "프로젝트 완료" })))
+      companyDoneProjects(companyId)
+        .then(({ recent }) => recent.forEach((at) =>
+          items.push({ type: "프로젝트", at, label: "프로젝트 완료" })))
         .catch(() => {})
     );
   }
@@ -88,9 +112,7 @@ async function _compute({ ownerId = null, companyId = null, countsOnly = false }
   };
   const jobs = [];
   if (companyId) {
-    jobs.push(cnt(supabase.from("escrow_payments").select("id", { count: "exact", head: true })
-      .eq("company_id", companyId).in("transaction_status", ["SETTLED", "COMPLETED"]))
-      .then((n) => { r.projectsCompleted = n; }));
+    jobs.push(companyDoneProjects(companyId).then(({ count }) => { r.projectsCompleted = count; }));
     jobs.push(cnt(supabase.from("bids").select("id", { count: "exact", head: true })
       .eq("company_id", companyId))
       .then((n) => { r.bidResponses = n; }));
