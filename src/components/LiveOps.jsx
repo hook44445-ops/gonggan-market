@@ -62,7 +62,7 @@ export default function LiveOps({ published = [], adminUserId, showToast, onRelo
   const runToday = async () => {
     if (!BROWSER_AI_AUTOPUBLISH) { showToast?.("브라우저 편성 실행은 꺼 두었어요 — 글은 서버 자율 사이클이 만들고 발행해요", false); return; }
     if (running) return;
-    if (!window.confirm("오늘 편성(QT·Morning Brief·공간마켓·Time Trend)을 실제 생성하고 예약합니다.\n품질 통과분은 자동 승인되어, Auto Publish ON이면 곧 실제 발행됩니다. 진행할까요?")) return;
+    if (!window.confirm("오늘 편성(QT·별자리 운세·Morning Brief·공간마켓·Time Trend)을 실제 생성하고 예약합니다.\n품질 통과분은 자동 승인되어, Auto Publish ON이면 곧 실제 발행됩니다. 진행할까요?")) return;
     setRunning(true); setItems({});
     try {
       const r = await runDay({ createDraft }, { mode: "realtime", published, onItem: (type, status, ex) => setItems((p) => ({ ...p, [type]: { status, ...ex } })) });

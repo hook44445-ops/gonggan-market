@@ -5,7 +5,7 @@
 //   모든 글을 억지로 공간 관점으로 연결하지 않는다. 타입별로 공간관점 적용 여부를 명시한다.
 //
 //   하루 최대 11개(상한선, 목표 아님). 품질 통과분만 발행.
-//   고정 아침 3개(큐티/인도점성술/모닝브리핑) + 긴급뉴스 3 + 공간마켓 1 + 연재 1 + 타임트렌드 3.
+//   고정 아침 3개(큐티/별자리 운세/모닝브리핑) + 긴급뉴스 3 + 공간마켓 1 + 연재 1 + 타임트렌드 3.
 //
 //   ⚠️ Regression Zero: 순수 함수 · DB/API/Cron/Migration 없음. 편성/분류 데이터만 조립한다.
 // ════════════════════════════════════════════════════════════════════
@@ -13,7 +13,7 @@
 // 콘텐츠 타입 정의. spacePerspective=true 인 타입에만 공간 관점을 기본 적용한다.
 export const CONTENT_TYPES = {
   qt:            { id: "qt",            label: "오늘 큐티 말씀",     icon: "📖", slot: "05:00", spacePerspective: false, seoFirst: true,  news: false },
-  astrology:     { id: "astrology",     label: "오늘의 인도점성술",  icon: "🔮", slot: "06:00", spacePerspective: false, seoFirst: true,  news: false },
+  astrology:     { id: "astrology",     label: "오늘의 별자리 운세",  icon: "⭐", slot: "06:00", spacePerspective: false, seoFirst: true,  news: false },
   morning_brief: { id: "morning_brief", label: "Morning Brief",       icon: "📰", slot: "07:00", spacePerspective: false, seoFirst: true,  news: true  },
   breaking:      { id: "breaking",      label: "실시간 긴급뉴스",    icon: "🚨", slot: "수시",  spacePerspective: false, seoFirst: false, news: true  },
   space_market:  { id: "space_market",  label: "공간마켓 콘텐츠",    icon: "🏠", slot: "낮",    spacePerspective: true,  seoFirst: false, news: false },

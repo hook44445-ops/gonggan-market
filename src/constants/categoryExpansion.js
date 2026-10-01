@@ -34,7 +34,7 @@ export const EXPANSION_AREAS = [
   { id: "religion",  label: "종교",       kind: "candidate", category: null, voice: "contemplative" },
   { id: "society",   label: "사회",       kind: "candidate", category: null, voice: "analytical" },
   { id: "ai",        label: "AI",         kind: "candidate", category: null, voice: "analytical" },
-  // 인도점성술은 10-01 대표 결정으로 뺐다.
+  { id: "astrology", label: "별자리 운세", kind: "candidate", category: null, voice: "informational" },   // 10-01: 인도점성술 → 별자리
 ];
 
 // 추천(추천만) 대상 — 개념 영역 중 제외 목록에 없는 것들. 관리자 승인 전까지 정식 카테고리 아님.

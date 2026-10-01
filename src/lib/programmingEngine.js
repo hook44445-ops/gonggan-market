@@ -16,7 +16,7 @@ const MEMO_KEY = "space_programming_memo_v1";
 
 // ── 편성 그룹(자동) ─────────────────────────────────────────────────
 export const PROGRAM_GROUPS = [
-  { id: "morning",  label: "🌅 Morning",  desc: "하루를 여는 고정 콘텐츠",       types: ["qt", "morning_brief"]   /* 인도점성술은 10-01 뺌 */ },
+  { id: "morning",  label: "🌅 Morning",  desc: "하루를 여는 고정 콘텐츠",       types: ["qt", "astrology", "morning_brief"]   /* astrology = 별자리 운세(10-01) */ },
   { id: "realtime", label: "🚨 Realtime", desc: "수시 발생 즉시 대응",           types: ["breaking"] },
   { id: "day",      label: "☀️ Day",      desc: "낮 시간대 공간·트렌드",         types: ["space_market", "trend_past", "trend_present", "trend_future"] },
   { id: "evening",  label: "🌙 Evening",  desc: "저녁 재방문 콘텐츠",           types: ["series"] },
@@ -47,7 +47,7 @@ export const DEFAULT_TIME = {
 // ── 기본편성 설명 ───────────────────────────────────────────────────
 export const PROGRAM_DESC = {
   qt: "하루를 여는 말씀·묵상 — 공유/저장/검색 노출",
-  astrology: "1~12월생 월별 운세 — 쉽고 재미있게, 공유형",
+  astrology: "12별자리 운세 + 오늘 집에서 할 한 가지 — 쉽고 재미있게, 공유형 · 오락·참고 고지",
   morning_brief: "11개 신문사설 · 주요신문 헤드라인 · 매-세-지 요약 — 검색노출용 정리",
   breaking: "속보·긴급 이슈 즉시 발행 — 순수 뉴스(공간 관점 미적용)",
   space_market: "인테리어·견적·시공·집수리·고객사례 — 공간 관점 기본 적용",
