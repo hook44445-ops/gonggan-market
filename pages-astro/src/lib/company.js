@@ -40,7 +40,8 @@ export async function getCompanyByRef(raw, read) {
  if (!company || isTestCompany(company)) return null;
  const [works, firstReviews, external] = await Promise.all([
   read('portfolios',{company_id:'eq.'+company.id,select:'id,title,space_type,area,after_photos,before_photos',order:'created_at.desc,id.desc',limit:'12'}),
-  read('reviews',{company_id:'eq.'+company.id,...reviewVisibility,select:'id,rating,content,space_type,user_name,image_urls',order:'created_at.desc,id.desc',limit:'1000'}),
+  // Render only five bodies. Remaining pages need ratings, not large text/photo arrays.
+  read('reviews',{company_id:'eq.'+company.id,...reviewVisibility,select:'id,rating,content,space_type,user_name,image_urls',order:'created_at.desc,id.desc',limit:'5'}),
   read('external_reviews',{company_id:'eq.'+company.id,is_hidden:'eq.false',select:'id,author_name,rating,work_title,content',order:'created_at.desc,id.desc',limit:'5'}).catch(error=>{
    if (['42P01','PGRST205'].includes(error.code)) return {rows:[],count:0};
    throw error;
