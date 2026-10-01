@@ -37,6 +37,30 @@ test('직접 올린 커버 우선, 확인되지 않은 서류로 엠블럼을 �
  assert.equal(trustFor({guarantee_status:'ACTIVE',guarantee_badge_visible:true,guarantee_grade:'PREMIUM'})[2].earned,true);
  assert.ok(!jsonLd({name:'</script><script>alert(1)</script>'}).includes('<'));
 });
+test('후기 1,205건도 본문은 최신 5개만 읽고 전체 평점과 건수는 보존한다',async()=>{
+ const all=Array.from({length:1205},(_,id)=>({id,rating:id<5?1:5,content:'긴 후기 '.repeat(400),image_urls:['https://example.com/photo.webp']}));
+ const calls=[];
+ const result=await getCompanyByRef('our-home',async(table,p)=>{
+  if(table==='companies')return {rows:[co],count:1};
+  if(table!=='reviews')return empty;
+  calls.push(p);
+  const rows=all.slice(Number(p.offset||0),Number(p.offset||0)+Number(p.limit)).map(r=>p.select.includes('content')?r:{id:r.id,rating:r.rating});
+  return {rows,count:all.length};
+ });
+ assert.deepEqual(calls.map(p=>[p.offset||'0',p.limit]),[['0','5'],['5','1000'],['1005','1000']]);
+ assert.equal(calls.filter(p=>p.select.includes('content')).length,1);
+ assert.ok(calls.slice(1).every(p=>p.select==='id,rating'));
+ assert.equal(result.stats.count,1205);assert.equal(result.stats.average,'5.0');
+ assert.deepEqual(result.reviews.map(r=>r.id),[0,1,2,3,4]);
+ assert.ok(result.reviews.every(r=>r.content&&r.image_urls.length===1));
+});
+test('남은 후기 페이지를 읽지 못하면 부분 평점을 표시하지 않는다',async()=>{
+ await assert.rejects(getCompanyByRef('our-home',async(table,p)=>{
+  if(table==='companies')return {rows:[co],count:1};
+  if(table!=='reviews')return empty;
+  return p.offset?empty:{rows:[{id:1,rating:5}],count:6};
+ }),DataUnavailable);
+});
 test('anon REST는 GET·공개 필드만 요청하고 HTTP 오류를 숨기지 않는다',async()=>{
  let opts,url;
  const read=createReader({url:'https://example.invalid',key:'anon-fixture',fetcher:async(u,o)=>{url=u;opts=o;return {ok:true,json:async()=>[co],headers:new Headers({'content-range':'0-0/1'})};}});
