@@ -1598,6 +1598,11 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
 
   return (
     <div>
+      {/* 10-01 콘텐츠 AI 점검 — 예약 시각 · 기기 저장을 사실대로 */}
+      <div style={{ background: "#FBF5E8", border: `1px solid ${C.gold}`, borderRadius: R.lg, padding: "8px 12px", fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
+        ⚠️ 예약한 글은 <b>그 시각에 바로 올라가지 않을 수 있어요</b> — 서버의 예약 발행 확인은 하루 한 번(아침 6시)이에요.
+        자동 발행 켜기 · 설정 · 기록은 <b>이 기기(브라우저)에만</b> 저장돼요.
+      </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="⚙️" size={14} color={C.text1} /> 자동발행 OS (Production)</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2613,6 +2618,11 @@ function TrendDiscoveryTab({ published = [], adminUserId, showToast, onReload })
 
   return (
     <div>
+      {/* 10-01 콘텐츠 AI 점검 — 이 탭의 주제는 견본(mockTrendProvider)이다. 진짜로 착각하지 않게 */}
+      <div style={{ background: "#FBF5E8", border: `1px solid ${C.gold}`, borderRadius: R.lg, padding: "8px 12px", fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
+        ⚠️ 이 화면의 주제는 <b>예시</b>예요(실제 트렌드 아님). 실제 트렌드(구글 급상승 등)는 매일 아침 서버가 모아
+        «AI 글 공장»에 <b>초안</b>으로 넣어요 — 거기서 «지금 트렌드 확인»을 누르면 바로 모아요.
+      </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🧭" size={14} color={C.text1} /> AI 트렌드 발굴 (기획 AI)</div>
         <button onClick={() => setSeed(s => s + 1)}

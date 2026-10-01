@@ -112,6 +112,11 @@ export default function AutoPublishPanel({ drafts = [], adminUserId, showToast, 
 
   return (
     <div>
+      {/* 10-01 콘텐츠 AI 점검 — 예약 시각 · 기기 저장을 사실대로 */}
+      <div style={{ background: "#FBF5E8", border: `1px solid ${C.gold}`, borderRadius: R.lg, padding: "8px 12px", fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
+        ⚠️ 여기서 예약한 글은 <b>이 기기(브라우저)에만</b> 기록돼요 — 서버가 대신 올려 주지 않아요.
+        예약 시각이 지나면 이 화면에서 <b>«▶ 지금 처리»</b>를 눌러야 올라가요(화면을 여는 것만으로는 올리지 않아요).
+      </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>🛫 AI Autopilot (자동발행 대기)</div>
         <div style={{ display: "flex", gap: 8 }}>
