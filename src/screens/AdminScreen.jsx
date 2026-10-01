@@ -113,6 +113,7 @@ import {
   getCompaniesByOwnerIds,
   adminVerifyUserIdentity,
   getDirectDealReports, updateDirectDealReportStatus, checkSiteVisitFollowUp, checkDirectDealSchedules,
+  getAdminTodayCounts, getCustomerReports, updateCustomerReportStatus,
   getOperators, rpcSetOperatorByPhone, rpcUnsetOperator,
   adminListOperators, adminRegisterOperator, adminUpdatePermissions, adminResetPin, adminUnregisterOperator,
   getTestAccounts, rpcSetTestAccountByPhone, rpcUnsetTestAccount,
@@ -154,6 +155,7 @@ import AICleanupCenter from "../components/AICleanupCenter";
 import ChiefSecretaryBoard from "../components/ChiefSecretaryBoard";
 import LoungeInsightsDashboard from "../components/LoungeInsightsDashboard";
 import { toE164KR } from "../lib/testAccounts";
+import { todayRows, sortTodayRows, mergeReports } from "../lib/adminInbox";
 
 // 라운지 시딩 카테고리 — 통합 Category Master(LOUNGE_CATEGORIES) 기준. 작성 가능 카테고리만 사용.
 // 관리자/사용자/글쓰기/라운지피드가 동일 마스터를 공유(오래된 slug worry/food/chat 제거).
@@ -5825,6 +5827,11 @@ export default function AdminScreen({ onBack, onHome, user }) {
 
   // 서류 확인 대기(E10) — 첫 화면에서 오래 기다린 서류부터. 서류 창을 닫으면 다시 읽는다.
   const [docQueue, setDocQueue] = useState([]);
+  // «오늘 할 일» 숫자(SQL 201) — 없으면 null → «열기 ›»
+  const [todayCounts, setTodayCounts] = useState(null);
+  const loadTodayCounts = () => getAdminTodayCounts()
+    .then(({ data, error }) => setTodayCounts(!error && data && typeof data === "object" ? data : null))
+    .catch(() => setTodayCounts(null));
   const [docQueueErr, setDocQueueErr] = useState(null);
   const [openDocReviewFor, setOpenDocReviewFor] = useState(null);
   useEffect(() => {
@@ -5874,6 +5881,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
     getDisputePayments().then(({ data }) => { if (data) setDisputes(data); }).catch?.(() => {});
     getPendingPayouts().then(({ data }) => { if (data) setSettlements(data); }).catch?.(() => {});
   }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 첫 화면을 열 때마다 «오늘 할 일» 숫자를 새로 센다(처리하고 돌아오면 줄어든 숫자가 보이게)
+  useEffect(() => { if (mainTab === "dashboard") loadTodayCounts(); }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (tabLoaded[mainTab]) return;
@@ -5967,16 +5977,17 @@ export default function AdminScreen({ onBack, onHome, user }) {
       })();
     }
     if (mainTab === "reports") {
-      // 운영 DB에 customer_reports 테이블이 없으므로 direct_deal_reports 기준으로 조회.
-      // 데이터가 없으면(또는 오류) 크래시 없이 빈 목록("신고 0건")으로 표시.
+      // 신고 = 라운지 신고 + 업체가 올린 고객 신고(10-01 — 예전엔 직거래 의심을 다시 보여 줬다).
+      //   한쪽이 실패해도 다른 쪽은 보인다 · 둘 다 실패하면 오류 안내.
       setReportsLoading(true);
       setReportsErr(null);
-      getDirectDealReports()
-        .then(({ data, error }) => {
-          if (error) { setReportsErr(null); setReports([]); }
-          else setReports(data ?? []);
+      Promise.allSettled([getLoungeReports({ adminId: user?.id ?? "admin" }), getCustomerReports()])
+        .then(([lr, cr]) => {
+          const lounge   = lr.status === "fulfilled" && !lr.value?.error ? (lr.value?.data ?? []) : null;
+          const customer = cr.status === "fulfilled" && !cr.value?.error ? (cr.value?.data ?? []) : null;
+          if (lounge == null && customer == null) setReportsErr("관리자 인증이 풀렸을 수 있어요 — 인증번호로 다시 로그인해 주세요");
+          setReports(mergeReports(lounge ?? [], customer ?? []));
         })
-        .catch(() => { setReportsErr(null); setReports([]); })
         .finally(() => setReportsLoading(false));
     }
     if (mainTab === "reviews") {
@@ -6559,14 +6570,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                 {/* ── 오늘 할 일(09-26 정리 1차) — 처리할 것부터. 누르면 그 화면으로 ── */}
                 <div style={{ background: C.surface, borderRadius: R.xl, padding: S.lg, border: `1px solid ${C.bgWarm}`, marginBottom: S.lg }}>
                   <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.sm }}>오늘 할 일</div>
-                  {[
-                    ["서류 확인 대기", docQueue.length, "companies", "업체가 올린 서류 — 오래 기다린 순은 아래"],
-                    ["업체 가입 심사", stats.pending, "companies", "승인해야 입찰할 수 있어요"],
-                    ["분쟁", null, "disputes", "이의 신청 · 조정"],
-                    ["직거래 의심 · 신고", null, "direct_deal", "대화·계약 밖 거래 신호"],
-                    ["정산", null, "settlements", "단계별 지급 기록"],
-                    ["파트너 상담", null, "partner_leads", "입점 문의"],
-                  ].map(([label, count, tab, sub], idx, arr) => (
+                  {sortTodayRows(todayRows(todayCounts, { docQueue: docQueue.length, pendingCompanies: stats.pending })).map(([label, count, tab, sub], idx, arr) => (
                     <button key={label} onClick={() => setMainTab(tab)}
                       style={{ display: "flex", alignItems: "center", gap: S.md, width: "100%", textAlign: "left", background: "none", border: "none",
                         borderBottom: idx < arr.length - 1 ? `1px solid ${C.bgWarm}` : "none", padding: `${S.sm}px 0`, cursor: "pointer", fontFamily: "inherit" }}>
@@ -6574,7 +6578,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                         <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text1 }}>{label}</div>
                         <div style={{ fontSize: 11.5, color: C.text4 }}>{sub}</div>
                       </div>
-                      {/* 숫자는 지금 불러온 것만 — 분쟁·신고·정산·상담은 그 화면을 열어야 불러온다(가짜 0 을 보이지 않는다) */}
+                      {/* 숫자는 서버가 센 것만(SQL 201) — 모르면 «열기 ›»(가짜 0 을 보이지 않는다) · 처리할 것이 있는 줄이 위로 */}
                       {count != null
                         ? <span style={{ minWidth: 28, textAlign: "center", fontSize: 14, fontWeight: 900, color: count > 0 ? C.gold : C.text4 }}>{count}</span>
                         : <span style={{ fontSize: 12, color: C.brand, fontWeight: 700 }}>열기 ›</span>}
@@ -7846,15 +7850,19 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── Customer Reports ── */}
             {mainTab === "reports" && (
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: S.md }}>
-                  신고 <span style={{ color: C.red }}>{reports.length}건</span>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1, marginBottom: 4 }}>
+                  신고 <span style={{ color: C.red }}>{reports.filter(r => r.open).length}건 대기</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.text4 }}> · 전체 {reports.length}</span>
+                </div>
+                <div style={{ fontSize: 12, color: C.text4, marginBottom: S.md }}>
+                  라운지에서 사용자가 누른 신고와, 업체가 고객을 신고한 것을 한곳에서 봐요. 직거래 의심은 «공사 증빙 › 직거래 의심»에 있어요.
                 </div>
                 {reportsLoading ? (
                   <div style={{ textAlign: "center", padding: "60px 0", fontSize: 14, color: C.text3 }}>불러오는 중…</div>
                 ) : reportsErr ? (
                   <div style={{ textAlign: "center", padding: "40px 0" }}>
                     <div style={{ display:"flex", justifyContent:"center", marginBottom: 12 }}><Icon emoji="⚠️" size={36} color={C.text3} /></div>
-                    <div style={{ fontSize: 14, color: C.red, marginBottom: 4 }}>신고 목록을 불러오지 못했습니다</div>
+                    <div style={{ fontSize: 14, color: C.red, marginBottom: 4 }}>신고 목록을 불러오지 못했어요</div>
                     <div style={{ fontSize: 12, color: C.text3 }}>{reportsErr}</div>
                   </div>
                 ) : reports.length === 0 ? (
@@ -7863,41 +7871,51 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     <div style={{ fontSize: 14, color: C.text3 }}>신고 내역 없음</div>
                   </div>
                 ) : reports.map(r => {
-                  // direct_deal_reports 기준 — 종결 상태(confirmed/dismissed/resolved)는 처리완료로 표시.
-                  const st = String(r.status ?? "").toLowerCase();
-                  const isResolved = ["resolved", "dismissed", "confirmed"].includes(st);
-                  const title = r.report_type ?? r.trigger_type ?? "신고";
-                  const when  = r.created_at ?? r.detected_at ?? null;
-                  const desc  = r.description ?? r.reason ?? r.detail ?? "";
+                  // 처리: 라운지 신고 → resolved/dismissed(113) · 고객 신고 → RESOLVED(200 관리자 처리 정책)
+                  const done = (ok, next) => {
+                    if (ok) {
+                      setReports(prev => prev.map(x => x.id === r.id && x.source === r.source ? { ...x, open: false, raw: { ...x.raw, status: next } } : x));
+                      loadTodayCounts();
+                    } else showToast("처리하지 못했어요 — 다시 눌러 주세요", false);
+                    setActionLoading(false);
+                  };
+                  const act = (kind) => {
+                    setActionLoading(true);
+                    if (r.source === "lounge") {
+                      adminUpdateLoungeReport(r.id, kind, null, user?.id ?? null)
+                        .then(({ data, error }) => done(!error && data?.ok !== false, kind))
+                        .catch(() => done(false));
+                    } else {
+                      updateCustomerReportStatus(r.id, "RESOLVED", kind === "dismissed" ? "기각" : null)
+                        .then(({ error }) => done(!error, "RESOLVED"))
+                        .catch(() => done(false));
+                    }
+                  };
                   return (
-                  <div key={r.id} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${C.bgWarm}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: S.sm }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{title}</div>
-                        <div style={{ fontSize: 11, color: C.text3 }}>{when ? new Date(when).toLocaleDateString("ko-KR") : ""}</div>
+                  <div key={`${r.source}:${r.id}`} style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: S.sm, border: `1px solid ${r.open ? C.gold : C.bgWarm}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: S.sm, marginBottom: S.sm }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: r.source === "lounge" ? C.brand : "#9B59B6", marginBottom: 2 }}>{r.sourceLabel}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text1 }}>{r.title}</div>
+                        <div style={{ fontSize: 11, color: C.text3 }}>{r.who}{r.at ? ` · ${new Date(r.at).toLocaleDateString("ko-KR")}` : ""}</div>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: isResolved ? C.green : C.gold,
-                        background: isResolved ? C.greenL : "#FBF5E8",
-                        borderRadius: R.full, padding: "3px 10px" }}>
-                        {isResolved ? "처리완료" : "검토중"}
+                      <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: r.open ? C.gold : C.green,
+                        background: r.open ? "#FBF5E8" : C.greenL, borderRadius: R.full, padding: "3px 10px" }}>
+                        {r.open ? "대기" : "처리완료"}
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: C.text2, marginBottom: S.sm }}>{desc}</div>
-                    {!isResolved && (
-                      <button
-                        disabled={actionLoading}
-                        onClick={() => {
-                          setActionLoading(true);
-                          updateDirectDealReportStatus(r.id, "dismissed").then(({ error }) => {
-                            if (!error) setReports(prev => prev.map(x => x.id === r.id ? { ...x, status: "dismissed" } : x));
-                            else showToast("처리 실패", false);
-                            setActionLoading(false);
-                          });
-                        }}
-                        style={{ padding: "7px 16px", borderRadius: R.lg, background: C.brand, color: "#fff",
-                          border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                        처리 완료
-                      </button>
+                    {r.desc && <div style={{ fontSize: 12, color: C.text2, marginBottom: S.sm, whiteSpace: "pre-wrap" }}>{r.desc}</div>}
+                    {r.open && (
+                      <div style={{ display: "flex", gap: S.sm }}>
+                        <button disabled={actionLoading} onClick={() => act("resolved")}
+                          style={{ padding: "7px 16px", borderRadius: R.lg, background: C.brand, color: "#fff", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                          처리 완료
+                        </button>
+                        <button disabled={actionLoading} onClick={() => act("dismissed")}
+                          style={{ padding: "7px 16px", borderRadius: R.lg, background: C.bgWarm, color: C.text2, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                          문제없음(기각)
+                        </button>
+                      </div>
                     )}
                   </div>
                   );

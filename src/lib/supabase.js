@@ -2606,6 +2606,9 @@ export const createCustomerReport = ({ reporterId, reportedId, reportType, descr
     contract_id: contractId ?? null,
   }).select().single();
 
+// 관리자 «오늘 할 일» 숫자 한 번에(SQL 201) — 관리자 함수라 관리자 토큰으로 간다(isGuardedRpc).
+export const getAdminTodayCounts = () => supabase.rpc("admin_today_counts");
+
 export const getCustomerReports = ({ status } = {}) => {
   let q = adminDb().from("customer_reports")
     .select("*, reporter:reporter_id(name, phone), reported:reported_id(name, phone)")
