@@ -1601,7 +1601,7 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
       {/* 10-01 콘텐츠 AI 점검 — 예약 시각 · 기기 저장을 사실대로 */}
       <div style={{ background: "#FBF5E8", border: `1px solid ${C.gold}`, borderRadius: R.lg, padding: "8px 12px", fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
         ⚠️ 예약한 글은 <b>그 시각에 바로 올라가지 않을 수 있어요</b> — 서버가 «시각 지난 예약 글»을 올리는 건 자율 사이클이 돌 때예요
-        (매일 아침 6시 크론 · 외부 스케줄러를 설정했다면 그 주기). 자동 발행 켜기 · 설정 · 기록은 <b>이 기기(브라우저)에만</b> 저장돼요.
+        (Vercel 크론 하루 한 번 — 한국 오후 3시 · 외부 스케줄러가 도는 주기 — 10-01 운영에서 새벽·아침에도 돈 기록이 있다). 자동 발행 켜기 · 설정 · 기록은 <b>이 기기(브라우저)에만</b> 저장돼요.
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, display:"flex", alignItems:"center", gap:6}}><Icon emoji="⚙️" size={14} color={C.text1} /> 자동발행 OS (Production)</div>
@@ -2620,7 +2620,7 @@ function TrendDiscoveryTab({ published = [], adminUserId, showToast, onReload })
     <div>
       {/* 10-01 콘텐츠 AI 점검 — 이 탭의 주제는 견본(mockTrendProvider)이다. 진짜로 착각하지 않게 */}
       <div style={{ background: "#FBF5E8", border: `1px solid ${C.gold}`, borderRadius: R.lg, padding: "8px 12px", fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: S.md }}>
-        ⚠️ 이 화면의 주제는 <b>예시</b>예요(실제 트렌드 아님). 실제 트렌드(구글 급상승 등)는 매일 아침 서버가 모아
+        ⚠️ 이 화면의 주제는 <b>예시</b>예요(실제 트렌드 아님). 실제 트렌드(구글 급상승 등)는 서버가 하루 여러 번 모아
         «AI 글 공장»에 <b>초안</b>으로 넣어요 — 거기서 «지금 트렌드 확인»을 누르면 바로 모아요.
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.sm, marginBottom: 4 }}>
@@ -3117,8 +3117,7 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
     onReload?.();
   };
 
-  // Phase 2 — Trend Scheduler 수동 트리거(cron 은 3시간마다 자동 호출, 여기서는 즉시 확인용).
-  // 결과는 항상 DRAFT 로만 저장되며(api/trend/check-trends.js 하드코딩 규칙), 자동 발행 없음.
+  // Phase 2 — Trend Scheduler 수동 트리거(즉시 확인용). 서버 자율 사이클 1회 — 서버 초안은 규칙 검토를 통과하면 자동 발행된다(serverAutonomousCycle).
   const handleCheckTrendsNow = async () => {
     if (checkingTrends) return;
     setCheckingTrends(true);
@@ -4159,8 +4158,10 @@ function LoungeAiFactoryTab({ drafts = [], published = [], loading = false, fetc
           </button>
         </div>
         <div style={{ fontSize: 11, color: C.text3, marginBottom: S.sm, lineHeight: 1.6 }}>
-          3시간마다 자동 수집(Vercel Cron) + 수동 확인 버튼. 중복 이슈(48시간 이내 동일 title/topic)는
-          자동으로 걸러지며, 결과는 항상 초안(DRAFT)으로만 저장됩니다(자동 발행 없음).
+          서버가 하루 여러 번(Vercel 크론 한국 오후 3시 + 외부 스케줄러) 실제 트렌드로 초안을 만들고, 48시간 안 같은 주제는 거른다.
+          서버가 만든 글은 규칙 검토(작가·사실·SEO·편집장 점수)를 통과하면 <b>스스로 올리거나 예약한다(하루 최대 15건)</b> —
+          서버에 AI 키(OPENROUTER_API_KEY)가 없으면 «틀 글»이 올라가고, 있으면 AI 글만 올리고 틀 글은 초안으로 남긴다.
+          이 화면에서 브라우저로 만든 초안은 자동으로 올라가지 않는다(여기서 직접 발행).
         </div>
         {trendCheckResult && (
           <div style={{ fontSize: 11, color: C.text3, marginBottom: S.sm, background: C.bg, borderRadius: R.sm, padding: "6px 10px" }}>
