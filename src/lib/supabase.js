@@ -313,6 +313,15 @@ export const adminSettleReferralEvent = (eventId = "2026-10") => supabase.rpc("a
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
 export const getAdminGrowthStats = () => supabase.rpc("admin_growth_stats");
 // USP 12 «사용 → 전환»(187) — 관리자만 · p_days 기간
+// 라운지 카테고리별 최근 글 수(탭 순서용 · 읽기만 · 실패하면 null → 예전 순서) — lib/loungeTabs
+export const getLoungeCategoryCounts = async (days = 60) => {
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const res = await supabase.from("lounge_posts").select("category")
+    .gte("created_at", since).eq("is_story", false).not("is_deleted", "eq", true).not("is_hidden", "eq", true)
+    .limit(3000);
+  return res.error ? { data: null, error: res.error } : { data: res.data ?? [], error: null };
+};
+
 export const getAdminUspBoard = async (days = 30) => {
   // 라운지 13~15(188)는 따로 불러 붙인다 — 188 전이거나 실패해도 USP 1~12 는 그대로 보인다
   const [main, lounge] = await Promise.all([
