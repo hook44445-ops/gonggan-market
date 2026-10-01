@@ -86,8 +86,8 @@ export default function DownloadScreen() {
     appStoreId: APP_STORE_ID, playPublic: PLAY_PUBLIC,
   });
   useDocumentMeta({
-    title: "공간마켓 앱 다운로드 — 안드로이드 비공개 테스트",
-    description: "공간마켓 안드로이드 앱 비공개 테스트 참여 안내. 참여 후 Play 스토어에서 바로 다운로드할 수 있습니다.",
+    title: "공간마켓 시작하기 — 웹에서 바로 · 앱 사전체험판",
+    description: "공간마켓은 설치 없이 웹에서 바로 쓸 수 있어요. 안드로이드 앱은 비공개 사전체험판 참여 후 Play 스토어에서 받을 수 있습니다.",
     path: "/download",
   });
 
@@ -132,16 +132,16 @@ export default function DownloadScreen() {
         )}
 
         <h1 style={{ fontSize: 21, fontWeight: 800, color: C.text1, margin: "0 0 14px", lineHeight: 1.4, letterSpacing: "-0.4px" }}>
-          {plan.showTester ? "공간마켓 비공개 사전체험판" : "공간마켓 앱 받기"}
+          {plan.showTester ? "공간마켓 시작하기" : "공간마켓 앱 받기"}
         </h1>
 
         {plan.showTester ? (
-          <p style={{ fontSize: 14, lineHeight: 1.85, color: C.text2, margin: "0 0 26px" }}>
-            현재 공간마켓은 비공개 사전체험판으로 운영 중입니다.<br />
-            아래 버튼을 누르면 Google Play 비공개 테스트 참여 페이지로 이동합니다.<br /><br />
-            ① ‘테스터 참여’ 버튼을 눌러 테스트에 참여합니다.<br />
-            ② 참여가 완료되면 ‘Google Play에서 다운로드’ 버튼이 나타납니다.<br />
-            ③ 공간마켓 앱을 설치하여 이용해주세요.
+          /* 웹 먼저 — 앱은 아직 비공개 테스트라 3단계·구글 계정 등록이 필요하다.
+             공유 카드·QR 로 들어온 사람에게 그 문턱을 먼저 들이밀면 대부분 빠져나간다.
+             Play 참여 경로는 지우지 않고 아래로 내린다. */
+          <p style={{ fontSize: 14, lineHeight: 1.85, color: C.text2, margin: "0 0 20px" }}>
+            설치 없이 <strong style={{ color: C.text1 }}>웹에서 바로</strong> 쓸 수 있어요.<br />
+            앱은 아직 비공개 사전체험판이라 참여 신청이 필요해요.
           </p>
         ) : (
           <p style={{ fontSize: 14, lineHeight: 1.85, color: C.text2, margin: "0 0 26px" }}>
@@ -151,29 +151,66 @@ export default function DownloadScreen() {
           </p>
         )}
 
+        {/* 사전체험판일 때는 웹이 첫 버튼(꽉 찬 초록), 앱은 아래 테두리 버튼 */}
+        {plan.showTester && (
+          <>
+            <a href="/" style={{
+              display: "block", width: "100%", boxSizing: "border-box",
+              background: C.green, color: "#fff", textDecoration: "none",
+              fontSize: 16, fontWeight: 800, padding: "16px 18px", borderRadius: 14,
+              boxShadow: "0 6px 16px rgba(46,95,75,0.3)", letterSpacing: "-0.3px",
+            }}>
+              웹에서 바로 시작하기
+            </a>
+            <p style={{ fontSize: 12.5, lineHeight: 1.75, color: C.text2, margin: "12px 0 0" }}>
+              견적 요청은 로그인 후 이용할 수 있어요.
+            </p>
+
+            <div style={{ height: 1, background: C.line, margin: "22px 0 18px" }} />
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text2, marginBottom: 12 }}>
+              앱으로 받고 싶다면
+            </div>
+          </>
+        )}
+
         {plan.buttons.map((b, i) => (
           <a key={b.url} href={b.url} target="_blank" rel="noopener noreferrer"
             style={{
               display: "block", width: "100%", boxSizing: "border-box", marginTop: i ? 10 : 0,
-              background: C.green, color: "#fff", textDecoration: "none",
-              fontSize: 16, fontWeight: 800, padding: "16px 18px", borderRadius: 14,
-              boxShadow: "0 6px 16px rgba(46,95,75,0.3)", letterSpacing: "-0.3px",
+              textDecoration: "none", fontSize: 16, fontWeight: 800,
+              padding: "16px 18px", borderRadius: 14, letterSpacing: "-0.3px",
+              ...(plan.showTester
+                ? { border: `1px solid ${C.green}`, color: C.green, background: C.surface }
+                : { background: C.green, color: "#fff", boxShadow: "0 6px 16px rgba(46,95,75,0.3)" }),
             }}>
             {b.label}
           </a>
         ))}
 
-        <a href="/" style={{
-          display: "block", marginTop: 12, padding: "15px 18px", borderRadius: 14,
-          border: `1px solid ${C.green}`, color: C.green, background: C.surface,
-          textDecoration: "none", fontSize: 15, fontWeight: 800,
-        }}>
-          설치 없이 웹에서 시작하기
-        </a>
-        <p style={{ fontSize: 12.5, lineHeight: 1.75, color: C.text2, margin: "12px 0 0" }}>
-          {plan.iosWaiting && plan.showTester ? <>아이폰을 사용하거나 테스트 참여가 어려우면 웹에서 이용해 주세요.<br /></> : null}
-          견적 요청은 로그인 후 이용할 수 있어요.
-        </p>
+        {plan.showTester && (
+          <p style={{ fontSize: 12.5, lineHeight: 1.85, color: C.text3, margin: "12px 0 0", textAlign: "left" }}>
+            ① ‘테스터 참여’ 버튼을 눌러 테스트에 참여합니다.<br />
+            ② 참여가 완료되면 ‘Google Play에서 다운로드’ 버튼이 나타납니다.<br />
+            ③ 공간마켓 앱을 설치하여 이용해주세요.
+          </p>
+        )}
+
+        {/* 정식 출시 뒤에는 앱이 첫 버튼이고 웹이 아래 */}
+        {!plan.showTester && (
+          <>
+            <a href="/" style={{
+              display: "block", marginTop: 12, padding: "15px 18px", borderRadius: 14,
+              border: `1px solid ${C.green}`, color: C.green, background: C.surface,
+              textDecoration: "none", fontSize: 15, fontWeight: 800,
+            }}>
+              설치 없이 웹에서 시작하기
+            </a>
+            <p style={{ fontSize: 12.5, lineHeight: 1.75, color: C.text2, margin: "12px 0 0" }}>
+              {plan.iosWaiting ? <>아이폰 앱은 준비 중이에요. 그동안 웹에서 이용해 주세요.<br /></> : null}
+              견적 요청은 로그인 후 이용할 수 있어요.
+            </p>
+          </>
+        )}
 
         {plan.showTester && (
           <>

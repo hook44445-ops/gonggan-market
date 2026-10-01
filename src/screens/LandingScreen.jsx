@@ -8,7 +8,7 @@ import InviteWelcome from "../components/InviteWelcome";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
 import { consumerFaq, pageSeo, serviceSchema, faqSchema } from "../utils/siteSeo";
-import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView } from "../components/landing/LandingMotion";
+import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView, AdVideo } from "../components/landing/LandingMotion";
 import { saveLandingPick, LANDING_WORK_TAGS } from "../lib/landingPick";
 
 // ── HTML 시안(gonggan_FINAL_BALANCED.html) 이식 · 고객 랜딩 ────────────────────
@@ -143,7 +143,7 @@ const JOURNEY = [
   {
     no: "01", when: "요청한 날",
     title: "같은 조건으로 모읍니다",
-    desc: "어떤 공간을 어디까지 고칠지 한 번만 적으면, 사업자등록을 확인한 업체들이 같은 조건으로 견적을 보냅니다.",
+    desc: "어떤 공간을 어디까지 고칠지 한 번만 적으면, 업체들이 같은 조건을 보고 견적을 보냅니다.",
     proof: "요청서 · 업체 비교",
     img: "/images/journey/step1.webp",
   },
@@ -298,6 +298,12 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <ProofChips />
         </HeroScenes>
 
+        {/* ── 23초 광고(힉스필드 클레이 · 09-30 대표 «수요자는 비교견적 하고 싶게 · 파트너는 입점하고 싶게») ── */}
+        <Reveal style={{ padding: "4px 0 34px" }}>
+          <div className="lm-eyebrow" style={{ marginBottom: 12 }}>23초로 보는 공간마켓</div>
+          <AdVideo />
+        </Reveal>
+
         {/* ── 걱정 → 도장 «쾅» → 답 — 처음 온 고객의 속마음부터(대표 09-30) ── */}
         <div style={{ padding: "18px 0 38px" }}>
           <Reveal>
@@ -445,7 +451,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         {/* ── 업체 입구 — 고객 랜딩에서도 «입점하고 싶게» 한 줄 ── */}
         <a href="/partner" className="gm-partner-teaser" style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 14, textDecoration: "none",
           color: "#F4EFE4", borderRadius: 22, overflow: "hidden", margin: "0 0 20px", padding: "20px 20px",
-          background: "linear-gradient(100deg, rgba(20,38,28,.96) 0%, rgba(20,38,28,.86) 55%, rgba(20,38,28,.45) 100%), url('/images/partner/hero-v2-wide.webp') 70% center/cover" }}>
+          background: "linear-gradient(100deg, rgba(22,41,74,.96) 0%, rgba(22,41,74,.84) 55%, rgba(22,41,74,.40) 100%), url('/images/partner/hero-cool-wide.webp') 70% center/cover" }}>
           <span>
             <span style={{ display: "block", fontSize: 11.5, fontWeight: 800, color: "#D6A756", letterSpacing: ".1em" }}>인테리어 사장님이신가요?</span>
             <span style={{ display: "block", fontSize: 17, fontWeight: 800, marginTop: 6, letterSpacing: "-0.02em", wordBreak: "keep-all" }}>광고비 0원 · 요청한 고객에게만 · 가입 1분</span>

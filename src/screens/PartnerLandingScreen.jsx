@@ -10,21 +10,21 @@ import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
 import { partnerFaq, pageSeo, faqSchema, breadcrumbSchema } from "../utils/siteSeo";
 import { applyRoleTheme } from "../utils/roleTheme";
-import { RequestPings, WorryStamps, Reveal, useInView } from "../components/landing/LandingMotion";
+import { RequestPings, WorryStamps, Reveal, useInView, AdVideo, ProofChips } from "../components/landing/LandingMotion";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
-const NAVY  = "#121A16";
-const NAVY2 = "#1E2A22";
-const NAVY3 = "#2C3A30";
-const FOREST = "#1A2E22"; // 파트너 히어로 배경(웜 포레스트)
-const OK    = "#2D5A27";  // 타임라인 배지/초록 점
+const NAVY  = "#16202E";   // 파트너 = 쿨 네이비(앱 안 [data-role="company"] 와 같은 값 · 09-30 대표 「푸른 쿨톤 · 신뢰적 요소로」)
+const NAVY2 = "#1D2A3D";
+const NAVY3 = "#2A3A52";
+const FOREST = "#16294A"; // 파트너 히어로 배경(딥 네이비)
+const OK    = "#24406B";  // 타임라인 배지/점(네이비)
 const GOLD  = "#C8A86A";
 const GOLDD = "#A98B4E";
 const GOLDB = "rgba(200,168,106,0.12)";
 const WHITE = "#FFFFFF";
-const OFF   = "#F9F6F2";
-const TEXT2 = "#4A554C";
-const TEXT3 = "#8A857E";
+const OFF   = "#F3F5F8";
+const TEXT2 = "#3A4657";
+const TEXT3 = "#6B7686";
 const SANS  = "'Pretendard','Apple SD Gothic Neo',sans-serif";
 
 // 한도 계단 한 칸마다 엠블럼 · 금액 · 한 줄(대표 09-25 구간표 — lib/partnerTier 한도와 같은 값).
@@ -79,7 +79,7 @@ const FAQS = partnerFaq();
 // ⚠️ 답은 실제로 있는 것만: 요청한 고객 연결 · 요청서(공간·범위·예산) · 계약·대화·사진 기록 · 증빙 엠블럼과 한도 계단(lib/partnerTier)
 //    · 후기 카드 QR(#878) · 월요일 우리 동네 새 요청(171). 결제·보관·수수료 약속은 하지 않는다.
 const PARTNER_WORRIES = [
-  { icon: "/images/landing/clay-bell.webp", q: "광고비는 매달 꼬박꼬박 나가는데, 전화기는 조용~",
+  { icon: "/images/landing/clay-bell-navy.webp", q: "광고비는 매달 꼬박꼬박 나가는데, 전화기는 조용~",
     a: <>견적을 <b>요청한 고객에게만</b> 연결돼요. 광고비 0원, 키워드 경쟁도 0.</> },
   { icon: "/images/landing/clay-clipboard.webp", q: "가 보니 «그냥 가격만 알아보려고요.» 기름값만 날렸네요.",
     a: <>요청서에 <b>공간 · 범위 · 예산</b>이 적혀 와요. 헛걸음은 줄이고, 될 현장에 집중.</> },
@@ -95,10 +95,10 @@ const PARTNER_WORRIES = [
 
 // 히어로 알림 — 앱에 실제로 오는 알림의 «모양» 예시(업종·금액은 예시)
 const PARTNER_PINGS = [
-  { icon: "/images/landing/clay-bell.webp", t: "새 견적 요청 · 예시", b: "아파트 부분 · 도배, 바닥", s: "20평대 · 300~500만원 · 우리 동네" },
+  { icon: "/images/landing/clay-bell-navy.webp", t: "새 견적 요청 · 예시", b: "아파트 부분 · 도배, 바닥", s: "20평대 · 300~500만원 · 우리 동네" },
   { icon: "/images/notif/viewed.webp", t: "견적 확인 · 예시", b: "고객이 보낸 견적을 확인했어요", s: "대화방에서 이어서 이야기해요" },
   { icon: "/images/notif/region.webp", t: "월요일 아침 · 예시", b: "이번 주 우리 동네 새 요청이 모였어요", s: "알림함 · 폰 알림" },
-  { icon: "/images/landing/clay-bell.webp", t: "새 견적 요청 · 예시", b: "카페/식당 · 조명·전기, 필름", s: "1,000~3,000만원" },
+  { icon: "/images/landing/clay-bell-navy.webp", t: "새 견적 요청 · 예시", b: "카페/식당 · 조명·전기, 필름", s: "1,000~3,000만원" },
 ];
 
 function LadderReveal({ children }) {
@@ -111,7 +111,7 @@ function FaqItem({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{
-      background: WHITE, border: `1px solid #EFEAE0`, borderRadius: 12,
+      background: WHITE, border: `1px solid #E6EBF2`, borderRadius: 12,
       overflow: "hidden",
     }}>
       <button
@@ -132,7 +132,7 @@ function FaqItem({ q, a }) {
       {open && (
         <div style={{
           padding: "0 16px 16px", fontSize: 13.5, color: TEXT2, lineHeight: 1.65,
-          borderTop: `1px solid #F4EFE6`, paddingTop: 14,
+          borderTop: `1px solid #EDF1F7`, paddingTop: 14,
         }}>
           {a}
         </div>
@@ -179,8 +179,8 @@ export default function PartnerLandingScreen() {
   };
   const okBadge = {
     display: "inline-flex", alignItems: "center", padding: "4px 10px", borderRadius: 999,
-    fontSize: 11, fontWeight: 700, background: "#E7F0E6", color: OK,
-    border: "1px solid #C8D8C5", whiteSpace: "nowrap", flexShrink: 0,
+    fontSize: 11, fontWeight: 700, background: "#EBEFF7", color: OK,
+    border: "1px solid #B6C5DE", whiteSpace: "nowrap", flexShrink: 0,
   };
   /* ── 업체의 하루 — 2026-09-23 ─────────────────────────────────────────────
      왜: 이 페이지는 「가입 절차 안내서」였다(30초·확인·승인·검증 배지 나열). 사진은 한 장도 없고,
@@ -221,12 +221,12 @@ export default function PartnerLandingScreen() {
   };
 
   return (
-    <div style={{ fontFamily: SANS, background: OFF, color: NAVY, minHeight: "100vh", letterSpacing: "-0.02em", WebkitFontSmoothing: "antialiased", overflowX: "hidden" }}>
+    <div className="lm-cool" style={{ fontFamily: SANS, background: OFF, color: NAVY, minHeight: "100vh", letterSpacing: "-0.02em", WebkitFontSmoothing: "antialiased", overflowX: "hidden" }}>
 
       {/* ── TOPNAV (고객/파트너 · 라우팅 유지) ─────────────────────── */}
-      <div className="gm-topnav" style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(249,246,242,.85)",
+      <div className="gm-topnav" style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(243,245,248,.88)",
         backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
-        borderBottom: "1px solid #E8E1D8", display: "flex", justifyContent: "space-between",
+        borderBottom: "1px solid #E2E7EF", display: "flex", justifyContent: "space-between",
         alignItems: "center", padding: "10px 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           <img src="/icons/gm-logo.svg" alt="" aria-hidden="true" width="30" height="30"
@@ -236,7 +236,7 @@ export default function PartnerLandingScreen() {
             <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>공간마켓</div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 6, background: "#ECE7DF", padding: 4, borderRadius: 999 }}>
+        <div style={{ display: "flex", gap: 6, background: "#E4E9F1", padding: 4, borderRadius: 999 }}>
           <button className="gm-tab" onClick={() => { window.location.href = "/"; }} style={{ padding: "8px 16px", borderRadius: 999,
             border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: SANS,
             background: "transparent", color: TEXT3 }}>고객</button>
@@ -250,7 +250,7 @@ export default function PartnerLandingScreen() {
         {/* ── NAVY(웜 잉크) HERO ──────────────────────────────────── */}
         {/* 히어로 그림(힉스필드 09-25): 완성된 공간을 보는 파트너 — 얼굴·글자 없음. 왼쪽은 글자 자리라 어둡게 덮는다. */}
         <div ref={heroRef} className="gm-phero" style={{
-          background: `linear-gradient(100deg, rgba(20,38,28,.97) 0%, rgba(20,38,28,.88) 48%, rgba(20,38,28,.38) 100%), url(/images/partner/hero-v2-wide.webp) 72% center/cover no-repeat, ${FOREST}`,
+          background: `linear-gradient(100deg, rgba(22,41,74,.97) 0%, rgba(22,41,74,.86) 48%, rgba(22,41,74,.30) 100%), url(/images/partner/hero-cool-wide.webp) 70% center/cover no-repeat, ${FOREST}`,
           color: "#F9F6F2", borderRadius: 28, padding: "32px 24px 28px", margin: "16px 0 28px",
           position: "relative", overflow: "hidden", minHeight: 320 }}>
           <h1 style={{ fontSize: "clamp(24px,6vw,36px)", fontWeight: 800, lineHeight: 1.1, margin: 0, wordBreak: "keep-all" }}>
@@ -277,6 +277,11 @@ export default function PartnerLandingScreen() {
               이미 파트너신가요? 로그인 →
             </button>
           </div>
+          {/* 신뢰 요소 — 서류를 낸 만큼 붙는 표시(관리자가 확인한 서류에만 · lib/partnerTier 계단과 같은 넷) */}
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#C9D6EA", letterSpacing: ".04em" }}>관리자가 서류를 확인한 업체에만 붙어요</div>
+            <ProofChips base={0.4} items={[["biz", "사업자"], ["insurance", "시공보험"], ["deposit", "보증금"], ["license", "실내건축 면허"]]} />
+          </div>
           {/* 앱에서 실제로 오는 알림의 모양 — 톡톡 도착(예시) */}
           <RequestPings items={PARTNER_PINGS} />
         </div>
@@ -292,6 +297,12 @@ export default function PartnerLandingScreen() {
           </Reveal>
           <WorryStamps items={PARTNER_WORRIES} cols3 />
         </div>
+
+        {/* ── 23초 광고 — 고객이 비교하고, 사장님은 새 요청을 받는다 ── */}
+        <Reveal style={{ padding: "0 0 34px" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: GOLDD, letterSpacing: "0.12em", marginBottom: 12 }}>23초로 보는 공간마켓</div>
+          <AdVideo label="공간마켓 소개 영상 — 고객의 비교견적과 파트너의 새 요청" />
+        </Reveal>
 
         {/* ── 업체의 하루 (여정) — 수수료가 아니라 «현장이 어떻게 달라지는가»를 먼저 말한다 ── */}
         <div style={{ padding: "4px 0 30px" }}>
@@ -309,7 +320,7 @@ export default function PartnerLandingScreen() {
           <div className="gm-pjourney" style={{ display: "grid", gap: 14 }}>
             {PARTNER_JOURNEY.map((j, i) => (
               <Reveal key={j.no} delay={(i % 2) * 0.1} style={{
-                background: "#fff", border: "1px solid #E8E1D8", borderRadius: 20, overflow: "hidden",
+                background: "#fff", border: "1px solid #E2E7EF", borderRadius: 20, overflow: "hidden",
                 display: "grid", gridTemplateColumns: "1fr",
               }}>
                 <img src={j.img} alt="" loading="lazy" aria-hidden="true"
@@ -320,10 +331,10 @@ export default function PartnerLandingScreen() {
                     <span style={{ fontSize: 11.5, color: TEXT3 }}>{j.when}</span>
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 800, color: NAVY, letterSpacing: "-0.02em", lineHeight: 1.4 }}>{j.title}</div>
-                  <div style={{ fontSize: 13.5, color: "#3A4A40", lineHeight: 1.75, marginTop: 7, wordBreak: "keep-all" }}>{j.desc}</div>
+                  <div style={{ fontSize: 13.5, color: "#34404F", lineHeight: 1.75, marginTop: 7, wordBreak: "keep-all" }}>{j.desc}</div>
                   <div style={{ marginTop: 11, display: "inline-flex", alignItems: "center", gap: 6,
-                    background: "#F4F1EB", border: "1px solid #E8E1D8", borderRadius: 999, padding: "4px 11px",
-                    fontSize: 11.5, fontWeight: 700, color: "#5A6B60" }}>
+                    background: "#EEF2F8", border: "1px solid #E2E7EF", borderRadius: 999, padding: "4px 11px",
+                    fontSize: 11.5, fontWeight: 700, color: "#4E5B6E" }}>
                     앱에서 · {j.proof}
                   </div>
                 </div>
@@ -337,15 +348,15 @@ export default function PartnerLandingScreen() {
           <h3 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 16px" }}>가입부터 프리미엄까지</h3>
           <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 12 }}>
             {/* 연결선: dot(32px) 중앙(15px)에 정렬 */}
-            <div style={{ position: "absolute", left: 15, top: 16, bottom: 16, width: 2, background: "#E8E1D8", borderRadius: 2 }} />
+            <div style={{ position: "absolute", left: 15, top: 16, bottom: 16, width: 2, background: "#E2E7EF", borderRadius: 2 }} />
             {STEPS.map((s, i) => (
               <div key={i} style={{ position: "relative", zIndex: 1, display: "grid",
                 gridTemplateColumns: "32px 1fr", gap: 14, alignItems: "center" }}>
                 <div style={{ width: 32, height: 32, minWidth: 32, borderRadius: "50%",
-                  background: i === 0 ? NAVY : "#E7F0E6", border: i === 0 ? "2px solid " + NAVY : "2px solid #C8D8C5",
+                  background: i === 0 ? NAVY : "#EBEFF7", border: i === 0 ? "2px solid " + NAVY : "2px solid #B6C5DE",
                   color: i === 0 ? "#fff" : OK, display: "flex", alignItems: "center",
                   justifyContent: "center", fontWeight: 800, fontSize: 13, flexShrink: 0 }}>{i + 1}</div>
-                <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 16,
+                <div style={{ background: "#fff", border: "1px solid #E2E7EF", borderRadius: 16,
                   padding: "14px 16px", minHeight: 56, display: "flex", justifyContent: "space-between",
                   alignItems: "center", gap: 10 }}>
                   <div style={{ minWidth: 0 }}>
@@ -367,7 +378,7 @@ export default function PartnerLandingScreen() {
             <div style={{ textAlign: "center", marginBottom: 18 }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: GOLD, letterSpacing: "0.14em", marginBottom: 8 }}>PREMIUM PARTNER</div>
               <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.4, wordBreak: "keep-all" }}>증빙을 낼수록, 더 큰 공사를</div>
-              <p style={{ fontSize: 12.5, color: "#9A958E", lineHeight: 1.6, margin: "8px 0 0", wordBreak: "keep-all" }}>
+              <p style={{ fontSize: 12.5, color: "#9AA6B8", lineHeight: 1.6, margin: "8px 0 0", wordBreak: "keep-all" }}>
                 입찰은 사업자등록 확인 뒤에 열려요(홈택스 당일 발급). 공사 1건 기준입니다.
               </p>
             </div>
@@ -384,18 +395,18 @@ export default function PartnerLandingScreen() {
                       style={{ width: 34, height: 34, objectFit: "contain", flexShrink: 0 }} />}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: premium ? 800 : 700, color: premium ? GOLD : "#F9F6F2" }}>{r.label.replace(/^\+ /, "")}</div>
-                      {row.note && <div style={{ fontSize: 11.5, color: "#A9A397", marginTop: 2, wordBreak: "keep-all" }}>{row.note}</div>}
+                      {row.note && <div style={{ fontSize: 11.5, color: "#A7B2C3", marginTop: 2, wordBreak: "keep-all" }}>{row.note}</div>}
                     </div>
                     <b style={{ color: GOLD, whiteSpace: "nowrap" }}>{row.amount ?? limitText(r.limit)}</b>
                   </div>
                 );
               })}
             </LadderReveal>
-            <p style={{ textAlign: "center", fontSize: 11.5, color: "#9A958E", lineHeight: 1.6, margin: "12px 0 22px", wordBreak: "keep-all" }}>
+            <p style={{ textAlign: "center", fontSize: 11.5, color: "#9AA6B8", lineHeight: 1.6, margin: "12px 0 22px", wordBreak: "keep-all" }}>
               {PARTNER_DEPOSIT_NOTE} · 보증금은 선택이에요
             </p>
 
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: "#D9D2C4", margin: "0 0 10px", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "#D5DCE7", margin: "0 0 10px", display: "flex", alignItems: "center", gap: 8 }}>
               의뢰인에게는 이렇게 보여요
               <span style={{ fontSize: 10.5, fontWeight: 800, color: NAVY, background: GOLD, borderRadius: 999, padding: "2px 8px" }}>예시</span>
             </div>
@@ -431,7 +442,7 @@ export default function PartnerLandingScreen() {
 
         {/* ── 가입 — 입구는 하나(앱의 휴대폰 인증 → 3단계 가입) ──────────── */}
         <div id="partner-consult-form" style={{ padding: "8px 0 36px", scrollMarginTop: 16 }}>
-          <div style={{ background: "#fff", border: "1px solid #E8E1D8", borderRadius: 24, padding: "24px 20px",
+          <div style={{ background: "#fff", border: "1px solid #E2E7EF", borderRadius: 24, padding: "24px 20px",
             maxWidth: 520, margin: "0 auto", boxShadow: "0 4px 24px rgba(18,26,22,.04)", textAlign: "center" }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: GOLD, letterSpacing: "0.14em", marginBottom: 8 }}>PARTNER</div>
             <div style={{ fontSize: 20, fontWeight: 800, color: NAVY, letterSpacing: "-0.02em" }}>가입은 1분이면 끝나요</div>
@@ -444,7 +455,7 @@ export default function PartnerLandingScreen() {
             <div style={{ fontSize: 12, color: TEXT3, marginTop: 12 }}>서류 · 보증금은 가입 뒤에 원할 때 내면 됩니다</div>
           </div>
 
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid #EFEAE0", textAlign: "center", maxWidth: 520, margin: "24px auto 0" }}>
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid #E6EBF2", textAlign: "center", maxWidth: 520, margin: "24px auto 0" }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: NAVY, marginBottom: 4 }}>이미 가입하셨나요?</div>
             <div style={{ fontSize: 12, color: TEXT3, marginBottom: 14, lineHeight: 1.6 }}>가입한 휴대폰 번호로 로그인하세요.</div>
             <button onClick={goCompanyLogin} style={{ ...btn, background: "transparent", color: NAVY, border: `1px solid ${NAVY}` }}>업체 로그인</button>
@@ -461,17 +472,17 @@ export default function PartnerLandingScreen() {
       </div>
 
       {/* ── 사업자정보 푸터 + 개인정보/이용약관 (법적 필수 · 삭제 금지) ── */}
-      <div style={{ padding: "20px 20px 96px", background: "#EFEAE0", borderTop: "1px solid #E8E1D8", textAlign: "center" }}>
+      <div style={{ padding: "20px 20px 96px", background: "#E6EBF2", borderTop: "1px solid #E2E7EF", textAlign: "center" }}>
         <AppFooter />
         <button onClick={() => { window.location.href = "/"; }} style={{ marginTop: 16, background: "transparent",
-          border: "1px solid #D6D0C8", borderRadius: 99, padding: "7px 20px", cursor: "pointer",
+          border: "1px solid #CBD3DF", borderRadius: 99, padding: "7px 20px", cursor: "pointer",
           fontSize: 13, color: TEXT3, fontFamily: SANS }}>공간마켓 홈으로</button>
       </div>
 
       {/* ── 모바일 하단 고정 CTA (골드 그라데이션 단일 버튼 · 검은테두리 제거 + 옅은 베이지 띠 + shimmer) ── */}
       <style>{`
         .gm-beta-dot{ animation: gmBlink 1.8s infinite }
-        @media (max-width: 699px){ .gm-phero{ background: linear-gradient(180deg, rgba(20,38,28,.96) 0%, rgba(20,38,28,.84) 52%, rgba(20,38,28,.55) 100%), url(/images/partner/hero-v2-tall.webp) center/cover no-repeat, #1A2E22 !important } }
+        @media (max-width: 699px){ .gm-phero{ background: linear-gradient(180deg, rgba(22,41,74,.96) 0%, rgba(22,41,74,.84) 52%, rgba(22,41,74,.5) 100%), url(/images/partner/hero-cool-tall.webp) center/cover no-repeat, #16294A !important } }
         @media (min-width: 780px){ .gm-rcard-wrap{ grid-template-columns: 1.1fr 1fr; gap: 40px !important } }
         /* 업체의 하루 — 넓은 화면에서는 2열, 더 넓으면 사진이 옆으로(고객 랜딩과 같은 규칙) */
         @media (min-width: 780px){ .gm-pjourney{ grid-template-columns: repeat(2,1fr); gap: 18px } }

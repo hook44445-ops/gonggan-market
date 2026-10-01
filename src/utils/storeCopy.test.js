@@ -35,3 +35,50 @@ test("키워드는 띄어쓰기 없이 · 겹치지 않게 · 이름·부제 낱
 test("베타에서 에스크로를 운영 중이라 말하지 않는다", () => {
   assert.ok(!/에스크로로|안전결제로 보호/.test(field("프로모션 텍스트")));
 });
+
+// ── 스토어 자산이 앱과 갈라지지 않게 (2026-09-30) ──────────────────
+// 09-30 점검에서 store/ASO-ko.md 가 아이콘을 «icon-512-v3.png» 로 가리키고 있었다.
+// manifest 는 v6 이라, 이대로 스토어에 올렸으면 폰 아이콘과 스토어 아이콘이 달랐다.
+const aso = readFileSync(fileURLToPath(new URL("../../store/ASO-ko.md", import.meta.url)), "utf-8");
+const manifest = readFileSync(fileURLToPath(new URL("../../public/manifest.json", import.meta.url)), "utf-8");
+
+test("스토어 문안의 앱 아이콘이 manifest 와 같은 판이다", () => {
+  const cur = manifest.match(/icon-512-v(\d+)\.png/);
+  assert.ok(cur, "manifest 에서 512 아이콘을 못 찾았다");
+  const row = aso.split("\n").find(l => l.includes("앱 아이콘 512"));
+  assert.ok(row, "store/ASO-ko.md 에 «앱 아이콘 512» 줄이 없다");
+  assert.ok(row.includes(`icon-512-v${cur[1]}.png`),
+    `스토어 문안 아이콘이 manifest(v${cur[1]}) 와 다르다: ${row.trim()}`);
+});
+
+// 스토어 문안도 사업자등록을 «계약»에 붙인다(사실 · contractGate 로 막혀 있다).
+// «견적·입찰»에 붙이면 사실이 아니다 — 가입만 해도 300만원까지 입찰한다(partnerTier LIMITS.NONE).
+//
+// 설명하는 글(«왜 고쳤나» 같은 메모)에는 틀린 문구가 인용으로 나올 수밖에 없다.
+// 그래서 문서 전체가 아니라 «실제로 스토어에 붙여 넣는 칸»만 본다.
+function section(full, title, stops) {
+  const i = full.indexOf(`## ${title}`);
+  assert.ok(i >= 0, `칸이 없다: ${title}`);
+  const rest = full.slice(i + title.length + 3);
+  const ends = stops.map(t => rest.indexOf(`## ${t}`)).filter(n => n >= 0);
+  return rest.slice(0, ends.length ? Math.min(...ends) : rest.length);
+}
+
+test("스토어에 붙여 넣는 칸이 견적에 없는 검증을 붙이지 않는다", () => {
+  const banned = /확인 업체만 견적|사업자등록을? 확인한? 업체[^.]{0,24}(견적을? 보|견적을? 받|입찰)/;
+  const cells = [
+    ["APPSTORE 앱 이름", field("앱 이름")],
+    ["APPSTORE 부제", field("부제")],
+    ["APPSTORE 프로모션 텍스트", field("프로모션 텍스트")],
+    ["ASO 앱 이름", section(aso, "앱 이름 (30자)", ["간단한 설명"])],
+    ["ASO 간단한 설명", section(aso, "간단한 설명 (80자) — 매력", ["자세한 설명"])],
+    ["ASO 자세한 설명", section(aso, "자세한 설명 (4000자)", ["이미지 (Play)"])],
+  ];
+  for (const [name, text] of cells) assert.ok(!banned.test(text), `${name} 에 없는 검증 광고가 있다`);
+});
+
+// 반대로 «계약은 사업자등록 확인 업체와만» 은 코드로 막혀 있는 우리만의 말이다 — 자세한 설명에서 빠지지 않게.
+test("스토어 자세한 설명이 계약 단계의 사업자등록 확인을 말한다", () => {
+  const body = section(aso, "자세한 설명 (4000자)", ["이미지 (Play)"]);
+  assert.ok(/계약은 사업자등록을 확인한 업체와만/.test(body), "ASO 자세한 설명에서 사라졌다");
+});

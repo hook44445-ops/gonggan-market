@@ -827,6 +827,18 @@ export const uploadChatPhoto = async (file, roomId, userId) => {
   return uploadFile("chat-photos", path, file, userDb()); // → publicUrl (실패 시 throw)
 };
 
+// ── 요청서 현장 사진 (대표 2026-09-30) ────────────────────────────────────────
+// 고객이 «지금 이 상태»를 찍어 올린다. 업체가 현장에 가기 전에 보고 입찰하므로
+// 입찰가와 최종 견적서가 덜 벌어진다 — 채팅 사진과 같은 목적이지만, 채팅은 «입찰한 뒤»라 늦다.
+// 버킷은 채팅 사진과 같은 'chat-photos' 를 쓴다(088 정책이 경로가 아니라 버킷 단위라 그대로 된다).
+// 새 버킷·새 SQL 없음. 주소는 requests.desc 안에 마커로 담는다(src/lib/requestPhotos.js).
+export const uploadRequestPhoto = async (file, userId) => {
+  const ext  = (String(file?.name || "img.jpg").split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const rand = Math.random().toString(36).slice(2, 8);
+  const path = `request/${userId || "guest"}_${Date.now()}_${rand}.${ext}`;
+  return uploadFile("chat-photos", path, file, userDb()); // → publicUrl (실패 시 throw)
+};
+
 // ── Portfolios ────────────────────────────────────────────────────────────────
 
 export const getPortfolios = (companyId) =>
