@@ -152,6 +152,8 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   "partner_lead_claim_for_company", "partner_lead_mark_claimed",
   // 197 — 최종 견적서 · 추가공사 목록(당사자만)
   "estimate_get_for_request", "change_orders_for_contract",
+  // 198 — 매일 미션 «오늘» 숫자(본인)
+  "token_mission_today",
   // 166 — 견적·현장방문·공사 기록(체크포인트)·추가공사·요청 함수(보완 S4 · 앱이 보낸 사용자 ID 를 믿지 않는다)
   ...S4_TOKEN_RPCS,
   // 168 — 대화 읽음 처리(읽는 사람 = 토큰의 사용자)

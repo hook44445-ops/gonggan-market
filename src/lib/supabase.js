@@ -3446,12 +3446,18 @@ export const getUserMissionStats = async (userId) => {
     supabase.from("requests").select("id", { count: "exact", head: true }).eq("user_id", userId),
   ]);
   const likesReceived = (likesRes.data ?? []).reduce((sum, r) => sum + (r.like_count ?? 0), 0);
+  // 매일 미션 진행도 — «오늘(한국 날짜)» 숫자는 서버가 센다(198 · 받은 좋아요는 앱이 못 읽는다). 없으면 0.
+  let today = null;
+  try { const { data, error } = await supabase.rpc("token_mission_today"); if (!error && data) today = data; } catch { /* 0 */ }
   return {
     posts:          postsRes.count      ?? 0,
     comments:       commentsRes.count   ?? 0,
     stories:        storiesRes.count    ?? 0,
     likes_received: likesReceived,
     requests:       requestsRes.count   ?? 0,
+    posts_today:    Number(today?.posts ?? 0),
+    comments_today: Number(today?.comments ?? 0),
+    likes_today:    Number(today?.likes_received ?? 0),
   };
 };
 
