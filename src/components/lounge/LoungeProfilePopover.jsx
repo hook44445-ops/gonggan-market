@@ -8,6 +8,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { C, R } from '../../constants';
 import { getCompanyByOwnerId } from '../../lib/supabase';
+import { LOUNGE_COMPANY_MESSAGE } from '../../constants/lounge';
 import { getSpaceActivityRecord } from '../../lib/spaceActivity';
 import { getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
 import { trackUsp } from '../../lib/uspTrack'; // 라운지 15 «업체 참여 → 미니 포트폴리오 열림»(188)
@@ -158,11 +159,16 @@ export default function LoungeProfilePopover({
         <Divider />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Row icon="📁" label="포트폴리오" onClick={() => act(onViewPortfolio, company)} />
-          <Row icon="💬" label={alreadySent ? '신청 보냄' : busy ? '처리 중...' : '메시지'}
-            disabled={disabled} onClick={() => {
-              if (disabled) return;
-              act(onRequestChat, company); // self는 메시지 핸들러가 '본인에게는 신청할 수 없어요'로 처리
-            }} />
+          {LOUNGE_COMPANY_MESSAGE ? (
+            <Row icon="💬" label={alreadySent ? '신청 보냄' : busy ? '처리 중...' : '메시지'}
+              disabled={disabled} onClick={() => {
+                if (disabled) return;
+                act(onRequestChat, company); // self는 메시지 핸들러가 '본인에게는 신청할 수 없어요'로 처리
+              }} />
+          ) : onRequestQuote && (
+            // 입찰 전 연결 대신 — 요청서를 열어 동네 업체들이 같은 조건으로 견적을 보내게(이 업체에만 가는 건 아니다)
+            <Row icon="📝" label="우리 동네 견적 받아보기" onClick={() => act(onRequestQuote, company)} />
+          )}
           {onReport && <Row icon="🚩" label="신고" danger onClick={() => act(onReport)} />}
         </div>
       </>

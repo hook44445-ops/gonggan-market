@@ -51,6 +51,11 @@ export const LOUNGE_CATEGORIES = [
 // "더보기" 접힘 기준 — 이사입주(index 7)까지 노출, 부동산부터 접힘
 export const LOUNGE_PREVIEW_COUNT = 8;
 
+// 라운지 업체 카드의 «메시지»(입찰 전 고객–업체 대화) — 대표 10-01 «업체 카드에서 끄기».
+//   09-30 «입찰 전 고객–업체 연결 금지»와 맞춘다(직거래 유출 창구). 사례·후기 보기와 «견적 받아보기»는 그대로.
+//   고객끼리 대화 신청은 그대로. 되돌리려면 true(앱 표시만 — 서버 함수는 그대로다).
+export const LOUNGE_COMPANY_MESSAGE = false;
+
 // 비활성 카테고리 id — 게시글 노출 제외(soft, is_visible=false). 복구 시 이 목록에서 제거.
 // 반려동물(pet)·여행(travel)은 재활성화로 제거. 게임/대화해요만 비활성 유지.
 // 업체추천(recommend)은 칩에서만 내리고 기존 글은 계속 노출해야 하므로 여기 포함하지 않음.
