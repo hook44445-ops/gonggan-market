@@ -9,7 +9,7 @@ import { requestPrefillFromPost } from "../lib/loungeToRequest";
 import { trackUsp } from "../lib/uspTrack"; // 라운지 13 «글 → 견적 링크»(188)
 import { C, R, S } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
-import { CATEGORY_LABEL, TOKEN_COSTS } from '../constants/lounge';
+import { CATEGORY_LABEL, TOKEN_COSTS, COMPANY_CHAT_BLOCKED_TEXT } from '../constants/lounge';
 import { useLoungePost } from '../hooks/useLounge';
 import { getAnonymousNickname, formatLoungeRelativeTime, getAnonymousAvatarByNickname, getGenderEmoji } from '../utils/anonymousNickname';
 import {
@@ -758,6 +758,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       });
       if (error) { showToast('대화 신청에 실패했습니다. 다시 시도해주세요.'); return; }
       if (data?.error === 'SELF_REQUEST') { showToast('본인에게는 신청할 수 없어요'); return; }
+      if (data?.error === 'COMPANY_CHAT_BLOCKED') { closeChatSheet(); showToast(COMPANY_CHAT_BLOCKED_TEXT); return; }   // 189 — 입찰 전 고객–업체 연결 금지
       if (handleInsufficientFromServer(data)) { keepOpen = true; return; }
       // 이미 열린 방 — 양방향(SQL 134). 돈이 더 들지 않으니 그 방으로 바로 간다(L5: 토스트만 떠서 갈 길이 없었다).
       if (data?.status === 'already_accepted') {

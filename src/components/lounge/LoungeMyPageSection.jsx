@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { C, R, S } from '../../constants';
 import { SHOW_DEBUG_UI } from '../../constants/release';
-import { SPACE_TEMPERATURE_BASE, TOKEN_EARN, CATEGORY_LABEL, LOUNGE_CATEGORIES, LOUNGE_INACTIVE_CATEGORIES } from '../../constants/lounge';
+import { SPACE_TEMPERATURE_BASE, TOKEN_EARN, CATEGORY_LABEL, LOUNGE_CATEGORIES, LOUNGE_INACTIVE_CATEGORIES, COMPANY_CHAT_BLOCKED_TEXT } from '../../constants/lounge';
 import { formatRelativeTime } from '../../utils/anonymousNickname';
 import {
   IS_SUPABASE_READY,
@@ -330,6 +330,8 @@ function ChatHistoryScreen({ userId, onBack, onOpenChat }) {
     if (status === 'already_accepted') {
       showToast('이미 수락된 대화예요');
       openChat(req, req.requester_id);
+    } else if (data?.error === 'COMPANY_CHAT_BLOCKED') {
+      showToast(COMPANY_CHAT_BLOCKED_TEXT);
     } else if (data?.error === 'INSUFFICIENT_TOKENS') {
       showToast(`토큰이 부족해요 (상대방 잔액: ${data.balance ?? 0}토큰)`);
     } else {

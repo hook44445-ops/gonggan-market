@@ -55,6 +55,8 @@ export const LOUNGE_PREVIEW_COUNT = 8;
 //   09-30 «입찰 전 고객–업체 연결 금지»와 맞춘다(직거래 유출 창구). 사례·후기 보기와 «견적 받아보기»는 그대로.
 //   고객끼리 대화 신청은 그대로. 되돌리려면 true(앱 표시만 — 서버 함수는 그대로다).
 export const LOUNGE_COMPANY_MESSAGE = false;
+// 서버(SQL 189)가 고객 ↔ 업체 라운지 대화를 막을 때(COMPANY_CHAT_BLOCKED) 보여 줄 말 — 막는 이유 대신 갈 길을 말한다
+export const COMPANY_CHAT_BLOCKED_TEXT = "업체와의 대화는 견적을 받은 뒤 계약 화면에서 열려요 — «우리 동네 견적 받아보기»로 시작해 보세요";
 
 // 비활성 카테고리 id — 게시글 노출 제외(soft, is_visible=false). 복구 시 이 목록에서 제거.
 // 반려동물(pet)·여행(travel)은 재활성화로 제거. 게임/대화해요만 비활성 유지.

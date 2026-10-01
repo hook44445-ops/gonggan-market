@@ -3614,27 +3614,28 @@ export const findOpenLoungeChat = async (meId, otherId) => {
   return data?.[0] ?? null;
 };
 
-export const requestCommentChat = (requesterId, targetId, postId, commentId) =>
-  supabase.rpc("request_comment_chat", {
+// 189 뒤: 서버는 로그인 토큰의 사용자로만 판단한다(넘기는 ID 는 예전 호환용) · 토큰 없으면 «다시 인증» 안내
+export const requestCommentChat = async (requesterId, targetId, postId, commentId) =>
+  asLoginRequired(await supabase.rpc("request_comment_chat", {
     p_requester_id: requesterId,
     p_target_id:    targetId,
     p_post_id:      postId,
     p_comment_id:   commentId,
-  });
+  }));
 
 // 수락: 요청자 20토큰 차감 + status=accepted (idempotent, security definer)
-export const acceptLoungeChatRequest = (requestId, acceptorId) =>
-  supabase.rpc("accept_lounge_chat", {
+export const acceptLoungeChatRequest = async (requestId, acceptorId) =>
+  asLoginRequired(await supabase.rpc("accept_lounge_chat", {
     p_request_id:  requestId,
     p_acceptor_id: acceptorId,
-  });
+  }));
 
 // 거절: target만 가능, 토큰 차감 없음 (idempotent, security definer, migration 078)
-export const rejectLoungeChatRequest = (requestId, rejectorId) =>
-  supabase.rpc("reject_lounge_chat", {
+export const rejectLoungeChatRequest = async (requestId, rejectorId) =>
+  asLoginRequired(await supabase.rpc("reject_lounge_chat", {
     p_request_id:  requestId,
     p_rejector_id: rejectorId,
-  });
+  }));
 
 // 나가기: 내 목록에서만 숨김(soft) — 메시지/행 hard delete 없음 (idempotent, migration 078)
 export const leaveLoungeChat = (requestId, userId) =>

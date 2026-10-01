@@ -12,7 +12,7 @@ import { loungeChatDbg } from "../utils/loungeChatDebug"; // 라운지 대화 �
 import { TempBadge, CertBadge, Divider, BrandLockup, LeafSprig, LogoMark, Icon, splitLeadingEmoji } from "./common";
 import { SHOW_DEBUG_UI, IDENTITY_VERIFY_READY } from "../constants/release";
 import { startIdentityVerification, completeIdentityVerification, takeIdentityReturn } from "../lib/identity";
-import { TOKEN_COSTS } from "../constants/lounge";
+import { TOKEN_COSTS, COMPANY_CHAT_BLOCKED_TEXT } from "../constants/lounge";
 import { getAnonymousNickname, formatRelativeTime } from "../utils/anonymousNickname";
 import LiveFeed from "./LiveFeed";
 import RegionSelectorBar from "./RegionSelectorBar";
@@ -2537,6 +2537,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     const { data, error } = await acceptLoungeChatRequest(req.id, user.id);
     setLoungeInboxBusyId(null);
     if (error) { showToast(`수락 실패: ${error.message}`); return; }
+    if (data?.error === "COMPANY_CHAT_BLOCKED") { showToast(COMPANY_CHAT_BLOCKED_TEXT); return; }
     // 신청 뒤 상대 잔액이 줄어든 드문 경우 — 내 잘못이 아니라는 걸 분명히 하고, 요청은 그대로 둔다.
     if (data?.error === "INSUFFICIENT_TOKENS") {
       showToast("상대방의 토큰이 모자라 지금은 열 수 없어요. 요청은 그대로 두었어요 — 상대가 토큰을 채우면 수락할 수 있어요.");
@@ -3127,6 +3128,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     catch (e) { error = e; }
     if (error) { setStoryChat(null); showToast("대화 신청에 실패했어요. 다시 시도해 주세요."); return; }
     if (data?.error === "SELF_REQUEST") { setStoryChat(null); showToast("본인에게는 신청할 수 없어요"); return; }
+    if (data?.error === "COMPANY_CHAT_BLOCKED") { setStoryChat(null); showToast(COMPANY_CHAT_BLOCKED_TEXT); return; }
     // 서버(SQL 133)가 신청 시점에 잔액을 본다 — 모자라면 시트를 «토큰이 필요해요»로 바꾼다
     if (data?.error === "INSUFFICIENT_TOKENS") {
       setStoryChat(prev => prev && ({ ...prev, shortBalance: typeof data.balance === "number" ? data.balance : 0, sending: false }));
