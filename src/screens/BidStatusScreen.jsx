@@ -13,7 +13,7 @@ import ProtectionNotice from "../components/ProtectionNotice";
 import DisputeNotice from "../components/DisputeNotice";
 import SpaceProtectionBadge from "../components/SpaceProtectionBadge";
 import { fmtMoney, calculateStagePayments } from "../utils/calculations";
-import { supabase, markBidsViewed, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, contractDirect, getEstimateForRequest, getPortfolios, postProjectEvent, getStagePlanPreview } from "../lib/supabase";
+import { supabase, asLoginRequired, markBidsViewed, getBidsForRequest, createPaymentOrder, getPaymentOrderByBid, updatePaymentOrderStatus, createPaymentTransaction, setRequestInProgress, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createNotification, logActivity, getPaymentOrderByRequest, requestSiteVisit, resolveCompanyId, approveFinalQuote, contractDirect, getEstimateForRequest, getPortfolios, postProjectEvent, getStagePlanPreview } from "../lib/supabase";
 import QuoteDocument from "../components/QuoteDocument"; // 최종 견적서 미리보기·인쇄
 import { SORT_KEYS, sortBids, bidSummary, bidTags as calcBidTags } from "../lib/bidCompare"; // 입찰 비교(정렬·요약·표)
 import {
@@ -253,11 +253,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
       // 3. 상태 전이는 RPC(SECURITY DEFINER)로 일괄 처리 — 프론트 직접 update 는
       //    OTP 커스텀 인증(auth.uid()=null)으로 RLS 에 막힘. RPC 가 RLS 우회.
       //    requests.update + bids.update + site_visits.insert 를 서버에서 원자적으로 수행.
-      const { data: rpcData, error: rpcError } = await supabase.rpc('request_site_visit', {
+      // 193 — 요청 주인만(로그인 토큰). 토큰이 없으면 다시 인증 안내.
+      const { data: rpcData, error: rpcError } = asLoginRequired(await supabase.rpc('request_site_visit', {
         p_request_id: request.id,
         p_bid_id: selBid.id,
         p_company_id: resolvedCompanyId,
-      });
+      }));
 
       if (rpcError || !rpcData?.ok) {
         console.error('[SITE_VISIT_RPC_FAILED]', rpcError, rpcData);
