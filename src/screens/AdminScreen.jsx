@@ -63,7 +63,6 @@ import { getSeriesList, upsertSeries, removeSeries, dueSeries, nextEpisodePrompt
 import { dailyComposition, contentTypeMeta } from "../lib/contentTypes";
 import { typeToggles } from "../lib/autoPublish";
 import { todayWordPrompt, todayWordTitle } from "../lib/todayWord";
-import { astrologyPrompt, astrologyTitle } from "../lib/indianAstrology";
 import { timeTrendCandidates } from "../lib/timeTrend";
 import {
   getBlogConfig, setBlogConfig, getBlogLog, buildBlogPost, publishToBlog,
@@ -1660,7 +1659,6 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
               ["budgetMonthKRW", "이번달 예산(₩·0=무제한)", "num"],
               ["typeMorningBrief", "Morning Brief 포함", "bool"],
               ["typeQt", "오늘 큐티 말씀 포함", "bool"],
-              ["typeAstrology", "오늘의 인도점성술 포함", "bool"],
               ["typeSeries", "연재 1개 포함", "bool"],
               ["typeSpaceMarket", "공간마켓 1개 포함", "bool"],
               ["typeTimeTrend", "Time Trend 3개 포함", "bool"],
@@ -2247,7 +2245,7 @@ function BlogPublishTab({ published = [], showToast }) {
     ["tagAuto", "태그 자동생성", "bool"], ["appendUrl", "Space Lounge URL 첨부", "bool"],
     ["maxRetry", "최대 Retry", "num"], ["dailyMax", "하루 최대 업로드", "num"],
     ["typeMorningBrief", "Morning Brief 대상", "bool"], ["typeQt", "큐티 말씀 대상", "bool"],
-    ["typeAstrology", "인도점성술 대상", "bool"], ["typeSpaceMarket", "공간마켓 대상", "bool"],
+    ["typeSpaceMarket", "공간마켓 대상", "bool"],
     ["typeSeries", "연재 대상", "bool"], ["typeTimeTrend", "Time Trend 대상", "bool"],
     ["typeBreaking", "긴급뉴스 대상(기본 OFF)", "bool"],
   ];
@@ -2366,7 +2364,7 @@ function BlogPublishTab({ published = [], showToast }) {
 
 // ── 자동 편성(Phase 24 Morning Brief) — 하루 편성표 + 아침 콘텐츠 프롬프트 생성 ──────
 //   "뉴스는 뉴스로, 공간마켓은 공간마켓으로." 타입별 편성 상한(11)·공간관점 적용 여부 표시.
-//   각 아침 콘텐츠(모닝브리핑/큐티/인도점성술/타임트렌드)의 생성 프롬프트를 복사해 AI 공장에서
+//   각 아침 콘텐츠(모닝브리핑/큐티/타임트렌드)의 생성 프롬프트를 복사해 AI 공장에서
 //   생성·검수·발행한다(엔진/발행 흐름 재사용 · DB/Cron 없음).
 function EditorialScheduleTab({ published = [], showToast }) {
   const [tick, setTick] = useState(0); void tick;
@@ -2385,7 +2383,7 @@ function EditorialScheduleTab({ published = [], showToast }) {
     // Morning Brief(신문 사설 정리)는 뺐다(09-26) — AI 가 오늘 사설을 실제로 볼 수 없어 사설을 지어낼 수 있다.
     //   실제 뉴스는 서버가 출처·링크가 있는 헤드라인만 가져와 쓰는 방식으로 다시 만든다.
     { id: "qt", label: "📖 오늘 큐티 말씀", title: todayWordTitle(), prompt: todayWordPrompt() },
-    { id: "astrology", label: "🔮 오늘의 인도점성술", title: astrologyTitle(), prompt: astrologyPrompt() },
+    // 오늘의 인도점성술은 10-01 대표 결정으로 뺐다(큐티는 둔다).
   ];
 
   return (

@@ -144,6 +144,12 @@ async function autoApproveAndSchedule(now) {
     for (const d of drafts) {
       res.reviewed += 1;
       const type = classifyContentType(d.title || d.ai_topic || "");
+      // 10-01 대표: 인도점성술(운세)은 뺀다 — 운세·별자리 글은 자동으로 올리지 않는다(초안으로 남겨 관리자가 판단)
+      if (type === "astrology") {
+        res.needsReview += 1;
+        res.rows.push({ id: d.id, type, decision: "NEEDS_REVIEW", reason: ["astrology=대표 결정으로 자동 발행 안 함"] });
+        continue;
+      }
       // §7①·§14 — 긴급(breaking)도 파이프라인 통과. 단 Hard Fail 이면 decidePublishMode 가 HOLD 로 차단.
       const eligible = true;
       const at = schedulePublishAt(type, { now });

@@ -32,3 +32,16 @@ test("«지금 트렌드 확인» — 크론 비밀 키 대신 관리자 토큰 
   assert.match(adm, /trendCheckResult\.generated/);
   assert.doesNotMatch(adm, /trendCheckResult\.collected/);
 });
+
+test("10-01 대표 — 인도점성술은 뺀다(만드는 입구 · 서버 자동 발행) · 큐티는 둔다", async () => {
+  const { DAY_PROGRAM } = await import("./dayRunner.js").catch(() => ({ DAY_PROGRAM: null }));
+  const day = readFileSync(new URL("./dayRunner.js", import.meta.url), "utf8");
+  assert.match(day, /export const DAY_PROGRAM = \["qt", "morning_brief", "space_market", "trend_present"\];/);
+  if (DAY_PROGRAM) assert.ok(!DAY_PROGRAM.includes("astrology") && DAY_PROGRAM.includes("qt"));
+  assert.doesNotMatch(adm, /indianAstrology|오늘의 인도점성술 포함|인도점성술 대상/);
+  assert.match(adm, /\{ id: "qt", label: "📖 오늘 큐티 말씀"/);
+  const cycle = readFileSync(new URL("./serverAutonomousCycle.js", import.meta.url), "utf8");
+  assert.match(cycle, /if \(type === "astrology"\) \{\s+res\.needsReview \+= 1;/);
+  const ap = readFileSync(new URL("./autoPublish.js", import.meta.url), "utf8");
+  assert.match(ap, /astrology: false,/);
+});

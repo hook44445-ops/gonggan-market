@@ -16,7 +16,7 @@ const MEMO_KEY = "space_programming_memo_v1";
 
 // ── 편성 그룹(자동) ─────────────────────────────────────────────────
 export const PROGRAM_GROUPS = [
-  { id: "morning",  label: "🌅 Morning",  desc: "하루를 여는 고정 콘텐츠",       types: ["qt", "astrology", "morning_brief"] },
+  { id: "morning",  label: "🌅 Morning",  desc: "하루를 여는 고정 콘텐츠",       types: ["qt", "morning_brief"]   /* 인도점성술은 10-01 뺌 */ },
   { id: "realtime", label: "🚨 Realtime", desc: "수시 발생 즉시 대응",           types: ["breaking"] },
   { id: "day",      label: "☀️ Day",      desc: "낮 시간대 공간·트렌드",         types: ["space_market", "trend_past", "trend_present", "trend_future"] },
   { id: "evening",  label: "🌙 Evening",  desc: "저녁 재방문 콘텐츠",           types: ["series"] },

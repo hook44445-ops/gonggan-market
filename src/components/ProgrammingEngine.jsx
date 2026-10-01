@@ -36,7 +36,7 @@ export default function ProgrammingEngine({ published = [], showToast }) {
     <div>
       <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🗂️ 편성국 (Daily Programming)</div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
-        공간라운지의 <b>기본 편성 시스템</b>입니다. 🔒 고정편성(큐티·인도점성술·Morning Brief·긴급뉴스·공간마켓·연재·Time Trend)은
+        공간라운지의 <b>기본 편성 시스템</b>입니다. 🔒 고정편성(큐티·Morning Brief·긴급뉴스·공간마켓·연재·Time Trend)은
         <b> 삭제·순서변경·OFF 불가</b> — 안정적으로 깔고 갑니다. 필요한 편성만 <b>추가</b>합니다.
       </div>
 
