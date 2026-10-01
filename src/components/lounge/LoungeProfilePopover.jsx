@@ -10,6 +10,7 @@ import { C, R } from '../../constants';
 import { getCompanyByOwnerId } from '../../lib/supabase';
 import { getSpaceActivityRecord } from '../../lib/spaceActivity';
 import { getAnonymousAvatarByNickname } from '../../utils/anonymousNickname';
+import { trackUsp } from '../../lib/uspTrack'; // 라운지 15 «업체 참여 → 미니 포트폴리오 열림»(188)
 import { resolveCompanyIdentity } from '../../utils/identityResolver';
 
 const W = 110; // 초미니 팝오버 폭 — 추가 ~30% 축소(155→110): 닉네임 옆 가벼운 정보 위젯 수준
@@ -44,6 +45,11 @@ export default function LoungeProfilePopover({
   const [company, setCompany] = useState(null);
   const [rec, setRec] = useState(null);
   const [pos, setPos] = useState(null);
+
+  // 라운지 15 — 업체 미니 포트폴리오가 열렸다(본인 것은 세지 않는다 · 하루 한 번)
+  useEffect(() => {
+    if (role === 'company' && ownerId && ownerId !== currentUserId) trackUsp(15, { targetId: ownerId, targetType: 'company' });
+  }, [role, ownerId, currentUserId]);
 
   // 데이터 로드(읽기 전용) — company: 업체정보 + 활동집계 / consumer: 활동집계
   useEffect(() => {

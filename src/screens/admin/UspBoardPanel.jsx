@@ -29,7 +29,7 @@ export default function UspBoardPanel() {
   return (
     <div style={{ marginBottom: S.xl }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: S.sm, marginBottom: S.sm }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>USP 12 · 사용 → 전환</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>USP 12 + 라운지 · 사용 → 전환</div>
         <div style={{ display: "flex", gap: 4 }}>
           {PERIODS.map((d) => (
             <button key={d} onClick={() => setDays(d)}
@@ -48,7 +48,13 @@ export default function UspBoardPanel() {
             {state.loading ? "불러오는 중…" : uspSummary(rows)}
           </div>
           {rows.map((r) => (
-            <div key={r.id} style={{ padding: "9px 12px", borderTop: line }}>
+            <div key={r.id}>
+            {r.id === 13 && (
+              <div style={{ padding: "7px 12px", borderTop: line, background: C.bg, fontSize: 11.5, fontWeight: 800, color: C.text2 }}>
+                공간라운지 — 건강 지표(docs/LOUNGE-USP)
+              </div>
+            )}
+            <div style={{ padding: "9px 12px", borderTop: line }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: S.sm }}>
                 <span style={{ fontSize: 13, fontWeight: 800, color: C.text1, minWidth: 0 }}>
                   <span style={{ color: C.text4, fontWeight: 700, marginRight: 4 }}>{r.id}</span>{r.label}
@@ -68,9 +74,10 @@ export default function UspBoardPanel() {
                 )}
               </div>
             </div>
+            </div>
           ))}
           <div style={{ padding: "8px 12px", borderTop: line, fontSize: 11, color: C.text4, lineHeight: 1.5 }}>
-            1·3·4·12 는 앱이 남긴 «사용» 기록(이번 버전부터 쌓임), 나머지는 이미 있는 DB 기록으로 셉니다. 표본이 적을 땐 %를 믿지 마세요.
+            1·3·4·12·13·15 는 앱이 남긴 기록(그 버전부터 쌓임), 나머지는 이미 있는 DB 기록으로 셉니다. 13~15 는 SQL 188 뒤에 나옵니다. 표본이 적을 땐 %를 믿지 마세요.
           </div>
         </div>
       )}

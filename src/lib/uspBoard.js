@@ -19,6 +19,10 @@ export const USP_LIST = [
   { id: 10, who: "업체", label: "«고객이 내 견적 확인» 알림", used: "알림 받은 업체",         conv: "14일 안에 다른 요청에 입찰", base: null },
   { id: 11, who: "업체", label: "증빙만큼 커지는 한도", used: "승인된 서류가 있는 업체",      conv: "기간 안에 입찰",            base: "승인 서류 없는 업체" },
   { id: 12, who: "업체", label: "공유(페이지·카드·QR·초대)", used: "공유한 사람",              conv: "초대로 1명+ 가입",          base: null },
+  // 공간라운지(docs/LOUNGE-USP-2026-10-01.md 5절 · SQL 188 admin_lounge_usp_rows)
+  { id: 13, who: "라운지", label: "라운지 → 견적",      used: "글에서 견적 링크 누른 사람",   conv: "3일 안 요청",               base: null },
+  { id: 14, who: "라운지", label: "사람이 쓴 글",        used: "라운지 글",                    conv: "사람 글(운영 글 아님)",     base: null },
+  { id: 15, who: "라운지", label: "업체 참여",          used: "글·답을 쓴 업체",              conv: "미니 포트폴리오가 열린 업체", base: null },
 ];
 
 const num = (v) => (v == null || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -49,7 +53,8 @@ export function uspRows(data) {
 
 // 표 위 한 줄 — 가장 강한 것·약한 것(표본 5 이상만 · 지어낸 판단 없이 숫자로만)
 export function uspSummary(rows, minSample = 5) {
-  const ok = (rows ?? []).filter((r) => r.rate != null && (r.used ?? 0) >= minSample);
+  // 라운지 줄(13~15)은 «전환»이 아니라 건강 지표(사람 글 비율 등)라 강·약 비교에서 뺀다
+  const ok = (rows ?? []).filter((r) => r.who !== "라운지" && r.rate != null && (r.used ?? 0) >= minSample);
   if (!ok.length) return "아직 표본이 적어요 — USP 마다 «사용» 5건이 넘으면 강한 것·약한 것을 보여 드려요.";
   const sorted = [...ok].sort((a, b) => b.rate - a.rate);
   const top = sorted[0], low = sorted[sorted.length - 1];
@@ -65,5 +70,5 @@ export function uspDedupKey(uspId, targetId = null, now = Date.now()) {
 }
 
 // 앱이 직접 남기는 USP(나머지는 DB 사실로 센다)
-export const TRACKED_USPS = [1, 3, 4, 12];
+export const TRACKED_USPS = [1, 3, 4, 12, 13, 15];
 export const uspAction = (uspId) => `usp_${Number(uspId)}`;

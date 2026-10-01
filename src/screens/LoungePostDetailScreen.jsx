@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, Fragment } from 'react';
 import { withRefCode } from "../lib/referral";
 import { myRefCode } from "../lib/myRefCode";
 import { requestPrefillFromPost } from "../lib/loungeToRequest";
+import { trackUsp } from "../lib/uspTrack"; // 라운지 13 «글 → 견적 링크»(188)
 import { C, R, S } from '../constants';
 import { SHOW_DEBUG_UI } from '../constants/release';
 import { CATEGORY_LABEL, TOKEN_COSTS } from '../constants/lounge';
@@ -1336,7 +1337,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
             const prefill = !isSynthSeed ? requestPrefillFromPost(post) : null;
             if (!prefill) return null;
             return (
-              <button onClick={() => onNavigate?.({ target: 'quote_prefill', prefill })}
+              <button onClick={() => { trackUsp(13, { targetId: post?.id, targetType: 'lounge_post', role: 'consumer' }); onNavigate?.({ target: 'quote_prefill', prefill }); }}
                 style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: S.md, background: 'none', border: 'none',
                   cursor: 'pointer', fontSize: 13, fontWeight: 700, color: C.brand, padding: S.sm }}>
                 이 글 같은 공사, 우리 동네 업체 견적 받아보기 ›

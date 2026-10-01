@@ -138,6 +138,8 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   "request_owner_state",
   // 187 — USP 사용→전환 표(관리자)
   "admin_usp_board",
+  // 188 — 라운지 측정 3줄(관리자)
+  "admin_lounge_usp_rows",
   // 166 — 견적·현장방문·공사 기록(체크포인트)·추가공사·요청 함수(보완 S4 · 앱이 보낸 사용자 ID 를 믿지 않는다)
   ...S4_TOKEN_RPCS,
   // 168 — 대화 읽음 처리(읽는 사람 = 토큰의 사용자)

@@ -313,7 +313,16 @@ export const adminSettleReferralEvent = (eventId = "2026-10") => supabase.rpc("a
 // 관리자 «성장 지표»(150) — 가입·방문·요청·초대·테스터·업체 숫자 한 장. 관리자 토큰만.
 export const getAdminGrowthStats = () => supabase.rpc("admin_growth_stats");
 // USP 12 «사용 → 전환»(187) — 관리자만 · p_days 기간
-export const getAdminUspBoard = (days = 30) => supabase.rpc("admin_usp_board", { p_days: days });
+export const getAdminUspBoard = async (days = 30) => {
+  // 라운지 13~15(188)는 따로 불러 붙인다 — 188 전이거나 실패해도 USP 1~12 는 그대로 보인다
+  const [main, lounge] = await Promise.all([
+    supabase.rpc("admin_usp_board", { p_days: days }),
+    Promise.resolve(supabase.rpc("admin_lounge_usp_rows", { p_days: days })).catch(() => ({ error: true })),
+  ]);
+  if (main.error) return main;
+  const extra = !lounge?.error && Array.isArray(lounge?.data?.rows) ? lounge.data.rows : [];
+  return { data: { ...(main.data ?? {}), rows: [...(main.data?.rows ?? []), ...extra] }, error: null };
+};
 // 홈 «우리 동네 최근 완공» 사진(177 · 공개 후기만 · 로그인 없이)
 export const getRegionDonePhotos = (region) => supabase.rpc("region_done_photos", { p_region: region });
 // 가격 데이터 쌓임(176 · 관리자) · 시세표(170 · 누구나 읽기)
