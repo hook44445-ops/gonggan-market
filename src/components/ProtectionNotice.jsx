@@ -37,7 +37,7 @@ export default function ProtectionNotice({ variant = "short", defaultOpen = fals
       }}>
         <span style={{ fontSize: 16, flexShrink: 0 }}>🛡️</span>
         <div>
-          <b style={{ color: C.brand }}>공간안전결제</b>로 진행하시면 에스크로 보호, 거래 기록,
+          <b style={{ color: C.brand }}>공간안전결제</b>로 진행하시면 단계별 안전지급, 거래 기록,
           분쟁 지원이 적용됩니다.<br />
           플랫폼 밖 거래는 공간마켓 보호 범위에 포함되지 않습니다.
         </div>
@@ -69,7 +69,7 @@ export default function ProtectionNotice({ variant = "short", defaultOpen = fals
           </div>
           <div style={{ background: C.brandL, borderRadius: 10, padding: "12px 14px", marginBottom: S.md }}>
             {[
-              "토스페이먼츠 에스크로 보호",
+              "대금 보관 · 단계별 안전지급",
               "착공·중간·완료 단계별 정산",
               "계약서 자동 보관",
               "분쟁 발생 시 중재 지원",
@@ -85,7 +85,7 @@ export default function ProtectionNotice({ variant = "short", defaultOpen = fals
           </div>
           <div style={{ background: C.surface2, borderRadius: 10, padding: "12px 14px", marginBottom: S.md }}>
             {[
-              "에스크로 보호 없음",
+              "단계별 안전지급 없음",
               "분쟁 중재 없음",
               "거래 기록 없음",
             ].map(t => (

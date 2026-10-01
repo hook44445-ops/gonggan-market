@@ -21,7 +21,7 @@ export const DOC_TYPE_LABELS = {
   portfolio:             "포트폴리오/시공사진",
   // 동의·서약 서류
   operation_pledge:      "업체 운영 준수서약",
-  escrow_agreement:      "에스크로 및 정산 동의서",
+  escrow_agreement:      "단계별 안전지급 및 정산 동의서",
   service_terms:         "서비스 이용약관",
   privacy_policy:        "개인정보 수집·이용 동의",
   location_terms:        "위치기반서비스 이용 동의",
@@ -38,7 +38,7 @@ const CHECKLIST_LABELS = {
   as_duty:         "하자보수 AS 의무 이행 동의",
   quality:         "품질 관리 및 안전 수칙 준수 동의",
   policy:          "공간마켓 운영 정책 준수 동의",
-  phase_structure: "에스크로 단계별 정산 구조 이해",
+  phase_structure: "단계별 안전지급 구조 이해",
   phase_delay:     "단계 미완료 시 정산 지연 동의",
   dispute:         "분쟁 발생 시 공간마켓 중재 동의",
   final_approval:  "고객 최종 승인 후 정산 동의",

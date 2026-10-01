@@ -40,7 +40,7 @@ export const PROJECT_STATUS_META = {
   REQUESTED:    { label: '견적 요청',  description: '공간 견적이 요청된 단계',        sortOrder: 1, color: '#7A8A7E', bg: '#F0EDE8', icon: '📋' },
   BIDDING:      { label: '입찰 중',    description: '업체들이 입찰하는 단계',          sortOrder: 2, color: '#B08040', bg: '#FBF5E8', icon: '💬' },
   CONTRACTED:   { label: '계약 체결',  description: '업체 선정 후 계약이 체결된 단계',  sortOrder: 3, color: '#1D3D2F', bg: '#E8F0EC', icon: '📝' },
-  ESCROW:       { label: '예치 완료',  description: '공간안전결제(에스크로) 예치 단계',  sortOrder: 4, color: '#2E5F4B', bg: '#EAF2EE', icon: '🔒' },
+  ESCROW:       { label: '예치 완료',  description: '공간안전결제 예치 단계',  sortOrder: 4, color: '#2E5F4B', bg: '#EAF2EE', icon: '🔒' },
   CONSTRUCTION: { label: '시공 중',    description: '실제 공사가 진행되는 단계',        sortOrder: 5, color: '#1D3D2F', bg: '#E8F0EC', icon: '🏗' },
   INSPECTION:   { label: '점검 중',    description: '중간/완료 점검 단계',             sortOrder: 6, color: '#B08040', bg: '#FBF5E8', icon: '🔍' },
   COMPLETED:    { label: '시공 완료',  description: '공사가 완료된 단계',              sortOrder: 7, color: '#2E5F4B', bg: '#EAF2EE', icon: '🎉' },
@@ -119,7 +119,7 @@ export const TIMELINE_TYPES = [
   { key: 'request',      label: '견적요청', description: '공간 견적 요청', isActive: true, sortOrder: 1 },
   { key: 'bid',          label: '입찰',     description: '업체 입찰',      isActive: true, sortOrder: 2 },
   { key: 'contract',     label: '계약',     description: '계약 체결',      isActive: true, sortOrder: 3 },
-  { key: 'escrow',       label: '에스크로', description: '예치/정산',      isActive: true, sortOrder: 4 },
+  { key: 'escrow',       label: '안전결제', description: '예치/정산',      isActive: true, sortOrder: 4 },
   { key: 'construction', label: '시공',     description: '공사 진행',      isActive: true, sortOrder: 5 },
   { key: 'completion',   label: '완료',     description: '시공 완료',      isActive: true, sortOrder: 6 },
 ];

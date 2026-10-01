@@ -48,7 +48,7 @@ const REQ_STATUS_META = {
   site_visiting:         { label: "현장방문 견적 요청", color: C.brand,   bucket: "in_progress", nextAction: "📅 현장실측 후 추가견적/금액확정" },
   visit_requested:       { label: "현장방문 견적 요청", color: C.brand,   bucket: "in_progress", nextAction: "현장방문 후 최종 견적서 제출" },
   final_quote_submitted: { label: "최종견적 검토중",    color: "#9B59B6", bucket: "in_progress", nextAction: "의뢰인 승인 대기" },
-  escrow_pending:        { label: "결제 대기",          color: "#E8A51B", bucket: "in_progress", nextAction: "의뢰인 에스크로 결제 대기" },
+  escrow_pending:        { label: "결제 대기",          color: "#E8A51B", bucket: "in_progress", nextAction: "의뢰인 안전결제 대기" },
 };
 
 const STEP_INFO = {
@@ -79,7 +79,7 @@ const normalizeEscrowRow = (row) => {
     total:       row.total_amount ?? 0,
     txStatus:    row.transaction_status ?? "CONTRACTED",
     dashboardBucket: txMeta.bucket ?? "in_progress",
-    nextAction:  txMeta.nextAction ?? "에스크로 상세 →",
+    nextAction:  txMeta.nextAction ?? "공사 단계 상세 →",
   };
 };
 
@@ -148,7 +148,7 @@ const normalizeCompanyJob = ({ bid, request, escrow }) => {
     total,
     txStatus:    txStatus ?? reqStatus.toUpperCase(),
     dashboardBucket: txMeta.bucket ?? "in_progress",
-    nextAction:  txMeta.nextAction ?? "에스크로 상세 →",
+    nextAction:  txMeta.nextAction ?? "공사 단계 상세 →",
   };
 };
 

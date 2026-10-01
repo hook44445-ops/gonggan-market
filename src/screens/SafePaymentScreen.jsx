@@ -32,7 +32,7 @@ export default function SafePaymentScreen() {
   useDocumentMeta({
     title: "공간안전결제 안내 — 공간마켓",
     description:
-      "공간마켓 공간안전결제(에스크로) 상품 안내입니다. 시공 대금의 단계별 안전지급 구조, 서비스 제공기간, 환불 정책을 확인할 수 있습니다.",
+      "공간마켓 공간안전결제 상품 안내입니다. 시공 대금의 단계별 안전지급 구조, 서비스 제공기간, 환불 정책을 확인할 수 있습니다.",
     path: "/safe-payment",
   });
 
@@ -99,7 +99,7 @@ export default function SafePaymentScreen() {
           <p style={{ fontSize: 14, lineHeight: 1.85, color: "#4a443a", margin: 0 }}>
             공간마켓은 인테리어·집수리 시공이 필요한 고객과 검증된 시공업체를 연결하는
             <strong> 통신판매중개 플랫폼</strong>입니다. 계약 시 고객이 시공대금을
-            <strong> 공간안전결제(에스크로)</strong>로 예치하면, 공사 진행 단계마다 고객이
+            <strong> 공간안전결제(단계별 안전지급)</strong>로 예치하면, 공사 진행 단계마다 고객이
             사진을 확인·승인한 뒤 업체에 안전하게 지급됩니다. 업체에게 대금이 한 번에
             지급되지 않아 고객과 업체 모두를 보호합니다.
           </p>
