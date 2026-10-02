@@ -20,6 +20,8 @@ import {
   serviceSchema,
   faqSchema,
   breadcrumbSchema,
+  USP_SUMMARY,
+  COMPANY_SITE,
 } from './siteSeo.js';
 
 import prerender from '../../api/prerender.js';
@@ -601,4 +603,33 @@ test('베타 FAQ·설명은 결제 질문 밖에서 에스크로·안전결제�
   // 질문(«가입하면 바로 입찰할 수 있나요?»)은 사람이 묻는 말이라 두고, 답과 설명만 본다
   const answers = [...consumerFaq(true), ...partnerFaq()].map((f) => f.a).join(' ') + ' ' + pageSeo(true)['/partner'].description;
   assert.ok(!/바로 입찰|승인을 기다리지 않고/.test(answers), '사업자등록 확인 전엔 입찰이 잠긴다(124)');
+});
+
+// ─────────────────────────────────────────────────────
+// 10-02 llms.txt 최신판 — USP «문제 → 해결» 문장 · 엔티티 일관성 · 결제 줄은 기존 그대로
+// ─────────────────────────────────────────────────────
+test('llms.txt 가 USP 최신판의 «문제 → 해결»을 사실대로 담는다', async () => {
+  const { body } = await invoke(prerender, { page: 'llms' });
+  assert.ok(body.includes(USP_SUMMARY.oneLine));
+  for (const [p, a] of [...USP_SUMMARY.consumer, ...USP_SUMMARY.partner]) assert.ok(body.includes(`- ${p} → ${a}`), `USP 줄 누락: ${p}`);
+  assert.equal(USP_SUMMARY.consumer.length + USP_SUMMARY.partner.length, 12, 'USP 는 12줄(고객 8 · 업체 4)');
+  // USP 요약에는 결제·순위·숫자 약속이 없다(USP 4절)
+  const usp = [USP_SUMMARY.oneLine, ...USP_SUMMARY.consumer.flat(), ...USP_SUMMARY.partner.flat()].join(' ');
+  assert.ok(!/에스크로|안전결제|안전지급|대금 보관|최저가|1위|1등|바로 입찰/.test(usp));
+  // 입찰은 사업자등록 확인 뒤(SQL 124)
+  assert.ok(body.includes('입찰은 사업자등록증이 확인된 뒤에 열립니다'));
+  // 결제 줄은 기존 그대로(대표 10-02)
+  if (isBetaServer()) assert.ok(body.includes('토스페이먼츠 승인 후 제공 예정'));
+});
+
+test('엔티티 일관성 — 서비스·운영사·도메인·사업자번호가 llms.txt 와 Organization 에서 같은 글자다', async () => {
+  const { body } = await invoke(prerender, { page: 'llms' });
+  for (const v of [BIZ.serviceName, BIZ.legalName, BIZ.bizNo, BIZ.telecomSalesNo, COMPANY_SITE, 'gongganmarket.com']) {
+    assert.ok(body.includes(v), `llms.txt 에 없다: ${v}`);
+  }
+  const org = organizationSchema();
+  assert.deepEqual(org.sameAs, [COMPANY_SITE]);
+  assert.equal(org.name, BIZ.serviceName);
+  assert.equal(org.legalName, BIZ.legalName);
+  assert.equal(org.taxID, BIZ.bizNo);
 });
