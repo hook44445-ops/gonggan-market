@@ -408,7 +408,7 @@ ${bizHtml()}
     robots: invite ? 'noindex, follow' : 'index, follow',
     title: invite ? invite.title : seo.title,
     description: invite ? invite.description : seo.description,
-    ogImage: '/og-space-v2.png',
+    ogImage: '/og-space-v3.png',
     ogType: 'website',
     bodyHtml,
     structuredData: [
@@ -462,7 +462,7 @@ ${bizHtml()}
     robots: invite ? 'noindex, follow' : 'index, follow',
     title: invite ? invite.title : seo.title,
     description: invite ? invite.description : seo.description,
-    ogImage: '/og-space-v2.png',
+    ogImage: '/og-space-v3.png',
     ogType: 'website',
     bodyHtml,
     structuredData: [

@@ -293,7 +293,7 @@ export function organizationSchema(site = SITE_URL) {
     legalName: BIZ.legalName,
     url: `${site}/`,
     logo: { '@type': 'ImageObject', url: `${site}/favicon-v3.png` },
-    image: `${site}/og-space-v2.png`,
+    image: `${site}/og-space-v3.png`,
     sameAs: [COMPANY_SITE],
     email: BIZ.email,
     telephone: BIZ.tel,
