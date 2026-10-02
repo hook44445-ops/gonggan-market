@@ -40,8 +40,8 @@
 |---|---|---|
 | 1 | `docs/USP-2026-10-02.md` | ✅ #951 머지 |
 | 2 | 스토어 문안 ↔ USP 새 판 + `storeCopy.test.js` 보강 | ✅ PR 열림(머지 대기) — «바로 입찰» 거짓 문구 · 4절 금지 문구 검사 · **결제 안내는 기존 그대로**(대표 10-02) |
-| 3 | `siteSeo.js` FAQ·메타 = USP 새 판 문장(화면·프리렌더 동시) + `siteSeo.test.js` | 다음 |
-| 4 | `llms.txt` 최신판 | |
+| 3 | `siteSeo.js` FAQ·메타 = USP 새 판 문장(화면·프리렌더 동시) + `siteSeo.test.js` | ✅ #952 에 함께(머지 대기) — FAQ 고객 +3 · 업체 +2 · 설명 · h1 을 화면과 같게 · 결제 FAQ 는 기존 그대로 |
+| 4 | `llms.txt` 최신판 | 다음 |
 | 5 | 지역 × 공사 롱테일 — 업체 있는 지역부터 1~2개 | |
 | 6 | 각 PR 본문: 바꾼 것 · 공식 문서 출처 · 확인 못 한 것 | 매번 |
 
@@ -55,3 +55,11 @@
 ## 9. 검증
 
 `npm test` · `npm run build` · 바꾼 화면 폰·PC 확인 · 프리렌더를 `curl -A Yeti` 로 받아 새 문장 확인 · «확인했다 / 확인 못 했다» 구분(실제 순위·답변엔진 인용은 이 환경에서 확인 불가).
+
+## 10. 공식 문서 확인 기록 (10-02)
+
+| 규칙 | 출처 | 확인 |
+|---|---|---|
+| AI 개요·AI 모드: 특별한 마크업 없음 · 중요한 내용은 텍스트로 · **구조화 데이터는 화면에 보이는 글과 같게** · robots 허용 · 내부 링크 | Google Search Central «AI features and your website» (developers.google.com/search/docs/appearance/ai-features) | 검색 결과 요약으로 확인 — 이 환경에서 원문 열기는 막힘 |
+| FAQ 리치결과: 2023-08 정부·보건 사이트로 축소 → **2026 모두 종료**(보도) | Google 블로그 2023-08 «Changes to HowTo and FAQ rich results» · 2026 종료는 제3자 보도(techwyse 등) | 2026 종료는 **공식 원문 확인 못 함** — FAQPage 스키마는 화면 FAQ 와 같은 글이라 그대로 둔다(해 없음 · 답변엔진용) |
+| 네이버: Yeti 는 JS 실행이 약함 → 서버가 본문을 준다 · robots.txt · 사이트맵 | 네이버 서치어드바이저 가이드 | **원문 확인 못 함**(이 환경에서 searchadvisor.naver.com 접속 막힘) — 기존 `api/prerender.js` 방식 유지 |
