@@ -1643,6 +1643,20 @@ export const logActivity = async ({ userId, role, action, targetType, targetId, 
     metadata,
   });
 
+// 업체 가입 깔때기(관리자 «숫자 보기») — 앞 단계는 기록(activity_logs), 뒤 단계는 실제 표에서(lib/partnerFunnel)
+export const getPartnerFunnel = async (days = 14, actions = []) => {
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const [logs, cos, bids] = await Promise.all([
+    adminDb().from("activity_logs").select("action").in("action", actions).gte("created_at", since).limit(5000),
+    adminDb().from("companies").select("id, owner_id, name, verified").gte("created_at", since).limit(2000),
+    adminDb().from("bids").select("company_id").gte("created_at", since).limit(5000),
+  ]);
+  return {
+    logs: logs.error ? null : logs.data, companies: cos.error ? null : cos.data, bids: bids.error ? null : bids.data,
+    error: logs.error || cos.error || bids.error || null,
+  };
+};
+
 export const getActivityLogs = ({ targetType, targetId, limit = 50 } = {}) => {
   let q = adminDb()   // 활동 기록 읽기는 관리자만(180)
     .from("activity_logs")

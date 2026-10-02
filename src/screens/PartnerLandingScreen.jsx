@@ -5,6 +5,7 @@ import InviteWelcome from "../components/InviteWelcome"; // 사업자정보 푸�
 import CompanyCard from "../components/CompanyCard";
 import { LADDER, limitText } from "../lib/partnerTier";
 import { PARTNER_DEPOSIT_NOTE } from "../utils/siteSeo";
+import { trackPartnerFunnel } from "../lib/partnerFunnel";
 import { SHOW_BETA_UI } from "../constants/release";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
@@ -145,6 +146,8 @@ function FaqItem({ q, a }) {
 export default function PartnerLandingScreen() {
   // 파트너 전용 페이지 — 네이비 테마 적용
   useEffect(() => { applyRoleTheme("company"); return () => applyRoleTheme("consumer"); }, []);
+  // 업체 가입 깔때기 1단계(10-02) — 사람만 센다(봇은 vercel rewrite 로 프리렌더를 받아 이 화면을 실행하지 않는다)
+  useEffect(() => { trackPartnerFunnel("partner_landing_view"); }, []);
 
   const [heroRef, heroVis] = useVisible(0.05);
 
@@ -164,7 +167,8 @@ export default function PartnerLandingScreen() {
   // 로그인 관문 통과 → 보증금 등급 → 표시용 계좌 입금 안내였다. 입구가 둘로 갈라져 있었고,
   // 관리자 승인 전엔 들어올 수 없었다(대표: 「들어오는 건 쉽게」).
   const goSignup = (source = "hero") => {
-    track("partner_join_click", { source }); // V1.5 전환 이벤트
+    track("partner_join_click", { source }); // V1.5 전환 이벤트(GA — 설치돼 있지 않으면 아무 데도 안 남는다)
+    trackPartnerFunnel("partner_join_click", { source }); // 10-02 업체 가입 깔때기(관리자 «숫자 보기»)
     window.location.href = "/?login=company";
   };
   const goCompanyLogin = () => {

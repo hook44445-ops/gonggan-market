@@ -699,6 +699,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     if (user.startAt === "invite" && user.id && !user.isGuest) return "invite";
     // 181 별 5개 후기 푸시 → 마이(업체면 후기 카드가 바로 열린다)
     if (user.startAt === "review-card" && user.id && !user.isGuest) return "my";
+    // 10-02 업체 가입 마친 화면 «사업자등록증 올리기» → 서류 화면으로 바로(입찰은 사업자등록 확인 뒤 — 124)
+    if (user.startAt === "document-center" && user.id && !user.isGuest && activeRole === "company") return "document-center";
     if (activeRole === "admin") return "admin";
     if (activeRole === "company") return "dashboard";
     if (user.startAt) return user.startAt;

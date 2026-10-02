@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import UspBoardPanel from "./admin/UspBoardPanel"; // USP 12 사용→전환(187)
+import PartnerFunnelPanel from "./admin/PartnerFunnelPanel"; // 업체 가입 깔때기(10-02)
 import WeeklyDigestPanel from "./admin/WeeklyDigestPanel"; // 월요일 주간 숫자 한 장(PLAN 5절)
 import { authHeader } from "../lib/session";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
@@ -8,7 +9,7 @@ import { Icon, splitLeadingEmoji } from "../components/common/Icon";
 import { useIconVersion } from "../hooks/useIconVersion";
 import { useUiVersion } from "../hooks/useUiVersion";
 import { BADGES, requiredDeposit, depositRatePct, BADGE_ORDER } from "../constants/badges";
-import { bidLimit, limitStateOf, limitText } from "../lib/partnerTier";
+import { bidLimit, limitStateOf, limitText, LIMITS } from "../lib/partnerTier";
 import { COMPANY_STATUS_META, USER_STATUS_META } from "../constants";
 import { LOUNGE_CATEGORIES } from "../constants/lounge";
 import { ISSUE_PRESETS, generateDraft, classifyCategory } from "../constants/aiContentFactory";
@@ -6060,8 +6061,9 @@ export default function AdminScreen({ onBack, onHome, user }) {
         await createNotification({
           userId:      company.ownerId,
           type:        "COMPANY_APPROVED",
-          title:       "업체 승인 완료",
-          message:     `${company.name} 업체가 승인되었습니다. 이제 견적 요청을 받을 수 있습니다.`,
+          // 10-02: 승인 = 사업자등록 확인 → 입찰이 열린다(124). 예전 «이제 견적 요청을 받을 수 있습니다»는 이미 보이던 것이라 무엇이 열렸는지 몰랐다
+          title:       "사업자등록이 확인됐어요 — 입찰이 열렸어요",
+          message:     `${company.name} — 이제 공사 1건 ${limitText(LIMITS.BIZ)}까지 입찰할 수 있어요. 시공보험 증권을 올리면 ${limitText(LIMITS.BIZ_BACKED)}까지 커져요.`,
           relatedId:   company.id,
           relatedType: "company",
         });
@@ -6682,6 +6684,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   <>
                   <AdminVisitCards adminUserId={user?.id ?? null} />
                   <AdminGrowthPanel />
+                  <PartnerFunnelPanel />
                   <UspBoardPanel />
                   <WeeklyDigestPanel />
                   <AdminNotifyStatsPanel />
