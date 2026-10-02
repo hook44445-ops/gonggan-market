@@ -1,9 +1,10 @@
 // 파트너 가입 — 「들어오는 건 쉽게, 안의 시스템은 단단하게」(대표 2026-09-24).
 //
-// 받는 것은 셋뿐이다: 업체명 · 영업 지역 · 공종. 끝나면 바로 기본 파트너로 활동한다(1건 300만원까지).
+// 받는 것은 셋뿐이다: 업체명 · 영업 지역 · 공종. 끝나면 바로 동네 요청 카드를 본다.
 // 사업자등록증·시공보험·보증금은 가입에서 받지 않는다 — 안에서 원할 때 하나씩 내면 한도가 오른다
-// (lib/partnerTier.js 의 계단). 그래서 가입 즉시 company_status=ACTIVE 로 둔다: 안전은 승인 대기가 아니라
-// 수주 한도가 맡는다.
+// (lib/partnerTier.js 의 계단). 가입 즉시 company_status=ACTIVE 로 둔다: 안전은 승인 대기가 아니라 수주 한도가 맡는다.
+// ⚠️ 10-02: SQL 124(09-25)부터 사업자등록 확인 전엔 입찰이 잠긴다(LIMITS.NONE = 0) — 예전 «가입만 300만원까지»는 옛 값.
+//    그래서 가입 마친 화면은 «바로 입찰»이 아니라 «사업자등록증 올리기»를 먼저 권한다(업체 가입 깔때기 — lib/partnerFunnel).
 //
 // 예전 가입(5단계 + 결제 화면)에서 걷어낸 것 — 거짓이거나 입구를 막던 것:
 //   · 사업자번호 「✓ 인증」 버튼 — 숫자 10자리면 조회 없이 인증으로 바뀌었다
@@ -22,6 +23,7 @@ import { toE164KR } from "../lib/testAccounts";
 import RegionSelectSheet from "../components/RegionSelectSheet";
 import { getPrimaryRegion, regionKey } from "../constants/regions";
 import { PartnerNextStep } from "../components/partner/PartnerLadder";
+import { trackPartnerFunnel, FUNNEL_DOC_CTA } from "../lib/partnerFunnel";
 
 const INK = "#1F2A24";
 const MUTED = "#8C8577";
@@ -77,7 +79,7 @@ export default function CompanyOnboarding({ phone, verifiedName = "", onDone }) 
         default_service_region_id: primarySR ? (primarySR.id ?? regionKey(primarySR.city, primarySR.district)) : null,
         specialties: form.specialties,
         desc: form.desc.trim() || null,
-        company_status: "ACTIVE",               // 가입 즉시 활동 — 안전은 수주 한도(가입만 300만원)가 맡는다
+        company_status: "ACTIVE",               // 가입 즉시 활동(카드 보기) — 입찰은 사업자등록 확인 뒤(124)
         is_early_partner: true,
         early_partner_joined_at: joinedAt.toISOString(),
         early_partner_benefit_until: until.toISOString(),
@@ -101,11 +103,17 @@ export default function CompanyOnboarding({ phone, verifiedName = "", onDone }) 
           기본 파트너로 시작했어요
         </div>
         <div style={{ fontSize: 14, color: MUTED, lineHeight: 1.75, marginTop: 8, marginBottom: 22 }}>
-          지금부터 우리 동네 견적 요청을 보고 입찰할 수 있어요.
+          지금부터 우리 동네 견적 요청을 볼 수 있어요. 입찰은 사업자등록증을 올리고 확인이 끝나면 열려요 — 홈택스에서 당일 발급돼요.
         </div>
 
         <PartnerNextStep state={{}} style={{ marginBottom: 24 }} />
-        <button onClick={() => onDone(joined)} style={primary(true)}>공간마켓 시작하기</button>
+        <button onClick={() => { trackPartnerFunnel(FUNNEL_DOC_CTA); onDone({ ...joined, startAt: "document-center" }); }} style={primary(true)}>
+          사업자등록증 올리기
+        </button>
+        <button onClick={() => onDone(joined)}
+          style={{ width: "100%", marginTop: 10, padding: 14, background: "none", border: "none", color: C.text3, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+          먼저 동네 요청 둘러보기
+        </button>
       </div>
     );
   }
@@ -138,7 +146,7 @@ export default function CompanyOnboarding({ phone, verifiedName = "", onDone }) 
         <input value={form.name} onChange={e => set("name", e.target.value)} placeholder="홍길동"
           readOnly={!!verifiedName}
           style={{ ...iS, marginBottom: 24, ...(verifiedName ? { background: "#F4F1EA", color: C.text2 } : {}) }} />
-        <button onClick={() => ok1 && setStep(2)} style={primary(ok1)}>다음</button>
+        <button onClick={() => { if (!ok1) return; trackPartnerFunnel("partner_onboard_region"); setStep(2); }} style={primary(ok1)}>다음</button>
       </>}
 
       {step === 2 && <>
@@ -175,7 +183,7 @@ export default function CompanyOnboarding({ phone, verifiedName = "", onDone }) 
           subtitle="영업하실 지역을 최대 2곳까지 고를 수 있어요"
           onSave={(entries) => { set("serviceRegions", entries); setRegionSheetOpen(false); }}
         />
-        <button onClick={() => ok2 && setStep(3)} style={primary(ok2)}>다음</button>
+        <button onClick={() => { if (!ok2) return; trackPartnerFunnel("partner_onboard_specialty"); setStep(3); }} style={primary(ok2)}>다음</button>
       </>}
 
       {step === 3 && <>
