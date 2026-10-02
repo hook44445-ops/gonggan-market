@@ -557,3 +557,48 @@ test('프리렌더·llms.txt 도 같은 이메일을 낸다', async () => {
   assert.ok(llms.includes(BIZ.email));
   assert.ok(!llms.includes('gmail.com'));
 });
+
+// ─────────────────────────────────────────────────────
+// 10-02 USP 최신판(docs/USP-2026-10-02.md) — 화면·프리렌더·답변엔진이 같은 말을 쓴다
+//   Google «AI 기능과 웹사이트»: 중요한 내용은 텍스트로 · 구조화 데이터는 화면에 보이는 글과 같게.
+//   (FAQ 리치결과는 더 이상 안 나오지만 FAQPage 는 유효한 스키마 — 화면 FAQ 와 같은 글이면 둔다.)
+// ─────────────────────────────────────────────────────
+
+const plainH1 = (src) => {
+  const m = src.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+  assert.ok(m, 'h1 이 없다');
+  return m[1].replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/<br\s*\/?>/g, ' ').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+};
+
+test('프리렌더 h1 이 화면 히어로 h1 과 같은 문장이다(고객·업체 랜딩)', () => {
+  const home = readFileSync(fileURLToPath(new URL('../screens/LandingScreen.jsx', import.meta.url)), 'utf-8');
+  const partner = readFileSync(fileURLToPath(new URL('../screens/PartnerLandingScreen.jsx', import.meta.url)), 'utf-8');
+  for (const beta of [true, false]) {
+    assert.equal(pageSeo(beta)['/'].h1.replace(/\s+/g, ' '), plainH1(home));
+    assert.equal(pageSeo(beta)['/partner'].h1.replace(/\s+/g, ' '), plainH1(partner));
+  }
+});
+
+test('FAQ 가 USP 최신판의 답을 담는다 — 포함 항목 · 믿을 업체 · 추가금 · 작은 수리 · 광고비 없이 · 홍보', () => {
+  const c = consumerFaq(true);
+  const p = partnerFaq();
+  const find = (list, w) => list.find((f) => f.q.includes(w));
+  assert.match(find(c, '무엇을 봐야')?.a ?? '', /부가세·철거·폐기물 처리·자재비/);
+  assert.match(find(c, '믿어도 되는지')?.a ?? '', /입찰은 사업자등록이 확인된 업체에만/);
+  assert.match(find(c, '추가금')?.a ?? '', /고객이 승인해야/);
+  assert.ok(find(c, '작은 수리'));
+  assert.match(find(p, '광고비 없이')?.a ?? '', /입찰은 사업자등록증 확인 뒤/);
+  assert.ok(find(p, '홍보'));
+  // 결제 FAQ 는 기존 그대로(대표 10-02 «결제 약속은 기존 것으로»)
+  assert.ok(find(c, '공간안전결제'));
+});
+
+test('베타 FAQ·설명은 결제 질문 밖에서 에스크로·안전결제를 말하지 않고, 순위·숫자 약속도 없다', () => {
+  const all = [...consumerFaq(true).filter((f) => !f.q.includes('공간안전결제')), ...partnerFaq()]
+    .map((f) => f.q + ' ' + f.a).join(' ') + ' ' + pageSeo(true)['/'].description + ' ' + pageSeo(true)['/partner'].description;
+  assert.ok(!/에스크로|안전결제|안전지급|대금 보관/.test(all), '결제 말이 결제 질문 밖에 있다');
+  assert.ok(!/최저가|1위|1등|업계 최초/.test(all), '순위·최저 근거 없음');
+  // 질문(«가입하면 바로 입찰할 수 있나요?»)은 사람이 묻는 말이라 두고, 답과 설명만 본다
+  const answers = [...consumerFaq(true), ...partnerFaq()].map((f) => f.a).join(' ') + ' ' + pageSeo(true)['/partner'].description;
+  assert.ok(!/바로 입찰|승인을 기다리지 않고/.test(answers), '사업자등록 확인 전엔 입찰이 잠긴다(124)');
+});

@@ -15,7 +15,7 @@
 - USP 정본: `docs/USP-2026-10-02.md`(최신판 — 1번 PR) · 옛 판 10-01
 - SEO 단일 소스: `src/utils/siteSeo.js` · `siteSeo.test.js` · `docs/SEO_AEO_GEO.md` · `docs/MARKETING-SYSTEM-SEO-GEO-AEO.md` · `docs/SEO_BACKLOG.md` · `docs/LOUNGE_SEO_POLICY.md`
 - 네이버: `api/prerender.js`(Yeti 본문) · `/robots.txt`·`/sitemap.xml`·`/llms.txt` = `api/*` rewrite · `public/naver*.html` · `index.html` JSON-LD
-- 결제: `PAYMENTS_LIVE` 꺼짐 · 토스 «1회 1천만 원 초과 판매 입점 불가(판매 금액 기준)» · 이니시스 10-02 문의, 답 대기 · **쪼개기 결제 안 함**
+- 결제: `PAYMENTS_LIVE` 꺼짐 · **결제 약속 문구는 기존 그대로(바꾸지 않는다)** · **결제 기준(금액대·결제사 진행)은 문서·문안에 아직 넣지 않는다 — 대표 10-02 «결제 기준 아직 넣지 마»**
 - 광고 영상 `gonggan-ad.mp4`(23초) — 자막은 USP 새 판 2-1
 - 손대면 안 되는 것: `HANDOFF-2026-10-01-cloud-next.md` 2절 — `LandingScreen.jsx` 그대로 · 스토어 01 배지 · 입찰 전 연결 금지 · «보통 24시간 내» 그대로
 
@@ -29,7 +29,7 @@
 
 ## 3~6. 내용
 
-- 3 USP 새 판: 본질 ② · 영상과 같은 말 · 보여 주는 순서 칸 · 4절(결제 1천만 원 기준) 갱신
+- 3 USP 새 판: 본질 ② · 영상과 같은 말 · 보여 주는 순서 칸 · 4절 갱신(결제 기준은 넣지 않음 — 대표 10-02)
 - 4 ASO: iOS 제목 30 + 부제 30 + 키워드 100자 / Play 긴 설명 전부 — 같은 글 복사 금지 · 설명 틀 = 걱정 → 해결(1~8) → 업체(9~12) → 신뢰 → 전환 · `storeCopy.test.js` 에 «USP 문서에 없는 약속» 검사 · 콘솔 업로드는 대표·로컬
 - 5 SEO: 규칙은 **공식 문서로 지금 확인 후 PR 본문에 출처**(Google Search Central · 네이버 서치어드바이저) · 지역 × 공사 롱테일은 **업체가 있는 지역만**(얇은 문서 금지) · `/p/<slug>` 검증 사실만 구조화 · `Organization`/서비스/`FAQPage` 점검 · 영상 preload none · 네이버는 `api/prerender.js` 본문 = 화면 최신 문장
 - 6 AEO·GEO: `llms.txt` 최신판(사실만 · 결제 게이팅 유지) · «질문 한 줄 → 2~3문장 답» 문단 · 엔티티 일관성(공간마켓 · 공간사이 · gongganmarket.com · 사업자번호 · 통신판매업 번호) · 바깥 글은 대표 몫
@@ -38,20 +38,28 @@
 
 | # | 할 일 | 상태 |
 |---|---|---|
-| 1 | `docs/USP-2026-10-02.md` | ✅ PR 열림(머지 대기) |
-| 2 | 스토어 문안 ↔ USP 새 판 + `storeCopy.test.js` 보강 | 다음 |
-| 3 | `siteSeo.js` FAQ·메타 = USP 새 판 문장(화면·프리렌더 동시) + `siteSeo.test.js` | |
-| 4 | `llms.txt` 최신판 | |
+| 1 | `docs/USP-2026-10-02.md` | ✅ #951 머지 |
+| 2 | 스토어 문안 ↔ USP 새 판 + `storeCopy.test.js` 보강 | ✅ PR 열림(머지 대기) — «바로 입찰» 거짓 문구 · 4절 금지 문구 검사 · **결제 안내는 기존 그대로**(대표 10-02) |
+| 3 | `siteSeo.js` FAQ·메타 = USP 새 판 문장(화면·프리렌더 동시) + `siteSeo.test.js` | ✅ #952 에 함께(머지 대기) — FAQ 고객 +3 · 업체 +2 · 설명 · h1 을 화면과 같게 · 결제 FAQ 는 기존 그대로 |
+| 4 | `llms.txt` 최신판 | 다음 |
 | 5 | 지역 × 공사 롱테일 — 업체 있는 지역부터 1~2개 | |
 | 6 | 각 PR 본문: 바꾼 것 · 공식 문서 출처 · 확인 못 한 것 | 매번 |
 
 ## 8. 대표 몫
 
 - Search Console · 네이버 서치어드바이저 사이트맵/수집 요청
-- 이니시스 회신 → 결제 금액대 설계(1천만 원 미만 토스 먼저 · 고액은 PG 확정 뒤)
+- 결제사 회신 → 결제 기준 설계(대표 지시 전엔 문서·문안에 넣지 않는다)
 - 업체 10곳(병목) · 바깥 글 첫 몇 개
 - (10-02 추가) Play 프로모션 동영상: 영상에 **자막 5줄**이 있다 — Play 정책 확인 뒤 올리기
 
 ## 9. 검증
 
 `npm test` · `npm run build` · 바꾼 화면 폰·PC 확인 · 프리렌더를 `curl -A Yeti` 로 받아 새 문장 확인 · «확인했다 / 확인 못 했다» 구분(실제 순위·답변엔진 인용은 이 환경에서 확인 불가).
+
+## 10. 공식 문서 확인 기록 (10-02)
+
+| 규칙 | 출처 | 확인 |
+|---|---|---|
+| AI 개요·AI 모드: 특별한 마크업 없음 · 중요한 내용은 텍스트로 · **구조화 데이터는 화면에 보이는 글과 같게** · robots 허용 · 내부 링크 | Google Search Central «AI features and your website» (developers.google.com/search/docs/appearance/ai-features) | 검색 결과 요약으로 확인 — 이 환경에서 원문 열기는 막힘 |
+| FAQ 리치결과: 2023-08 정부·보건 사이트로 축소 → **2026 모두 종료**(보도) | Google 블로그 2023-08 «Changes to HowTo and FAQ rich results» · 2026 종료는 제3자 보도(techwyse 등) | 2026 종료는 **공식 원문 확인 못 함** — FAQPage 스키마는 화면 FAQ 와 같은 글이라 그대로 둔다(해 없음 · 답변엔진용) |
+| 네이버: Yeti 는 JS 실행이 약함 → 서버가 본문을 준다 · robots.txt · 사이트맵 | 네이버 서치어드바이저 가이드 | **원문 확인 못 함**(이 환경에서 searchadvisor.naver.com 접속 막힘) — 기존 `api/prerender.js` 방식 유지 |
