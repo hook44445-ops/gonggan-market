@@ -129,3 +129,14 @@ test("스토어 자세한 설명이 계약 단계의 사업자등록 확인을 �
   const body = section(aso, "자세한 설명 (4000자)", ["이미지 (Play)"]);
   assert.ok(/계약은 사업자등록을 확인한 업체와만/.test(body), "ASO 자세한 설명에서 사라졌다");
 });
+
+// 10-02 로컬: App Store 설명에 «━»·«✓» 를 넣으면 거절된다 → «■»·«·» 로. App Store 설명은 ASO 자세한 설명을 그대로 붙여 넣는다.
+test("App Store 에 붙여 넣는 칸에 «━»·«✓» 가 없다(애플 거절)", () => {
+  const appstoreCells = [
+    ["APPSTORE 앱 이름", field("앱 이름")], ["APPSTORE 부제", field("부제")], ["APPSTORE 키워드", field("키워드")],
+    ["APPSTORE 프로모션 텍스트", field("프로모션 텍스트")],
+    ["ASO 자세한 설명(= App Store 설명)", section(aso, "자세한 설명 (4000자)", ["이미지 (Play)"])],
+    ["APPSTORE 새로운 기능", section(doc, "이번 버전의 새로운 기능", ["카테고리"])],
+  ];
+  for (const [name, text] of appstoreCells) assert.ok(!/[━✓✔]/.test(text), `${name} 에 «━»·«✓» 가 있다 — «■»·«·» 로`);
+});

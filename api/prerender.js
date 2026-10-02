@@ -25,8 +25,6 @@ import {
 import { inviteOg, inviterName, normalizeRefCode } from '../src/lib/referral.js';
 import {
   BIZ,
-  BIZ_ROWS,
-  ESCROW_STAGES,
   PARTNER_LADDER,
   PARTNER_DEPOSIT_NOTE,
   PARTNER_STEPS,
@@ -44,6 +42,7 @@ import {
   USP_SUMMARY,
   COMPANY_SITE,
 } from '../src/utils/siteSeo.js';
+import { faqHtml, bizHtml, homeBodyHtml, publicPageBodyHtml, PUBLIC_PAGES } from '../src/utils/prerenderParts.js';
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -334,71 +333,13 @@ async function renderRegion(req, res, site, regionSlug) {
 //    베타(토스 승인 전)에는 에스크로를 «운영 중»이라고 쓰지 않는다 — isBetaServer().
 // ─────────────────────────────────────────────────────
 
-function faqHtml(items) {
-  if (!items || !items.length) return '';
-  return `<section>
-<h2>자주 묻는 질문</h2>
-${items.map(({ q, a }) => `<h3>${esc(q)}</h3>\n<p>${esc(a)}</p>`).join('\n')}
-</section>`;
-}
-
-// 사업자 정보 — 전자상거래법상 공개 의무. 검색·답변엔진의 개체(entity) 인식에도 쓰인다.
-function bizHtml() {
-  return `<footer>
-<h2>사업자 정보</h2>
-<ul>${BIZ_ROWS.map(([k, v]) => `<li>${esc(k)}: ${esc(v)}</li>`).join('')}</ul>
-<p>${esc(BIZ.legalName)}(${esc(BIZ.serviceName)})는 통신판매중개자로서 시공 계약의 당사자가 아닙니다.</p>
-</footer>`;
-}
-
 async function renderHome(req, res, site) {
   const beta = isBetaServer();
   const seo = pageSeo(beta)['/'];
   const faq = consumerFaq(beta);
   const canonical = `${site}/`;
 
-  // 화면(LandingScreen)의 「소개문 → 흐름 세 마디 → FAQ」 구조를 그대로 따른다.
-  const flow = [
-    ['견적을 모은다', '요청 한 번으로 우리 동네 업체들의 견적을 받고, 금액·기간·기록을 나란히 비교합니다.'],
-    ['이야기를 나눈다', '업체와 앱 안에서 상담하고, 현장 사진과 주고받은 말이 그대로 남습니다.'],
-    beta
-      ? ['기록으로 남긴다', '착공·중간·완료 사진과 계약 내용이 단계마다 쌓여, 나중에 다시 볼 수 있습니다.']
-      : ['단계로 정산한다', '착공·중간·완료를 확인할 때마다 단계별로 정산합니다.'],
-  ];
-
-  const escrowHtml = beta
-    ? ''
-    : `<section>
-<h2>공간안전결제 단계별 지급 비율</h2>
-<ul>${ESCROW_STAGES.map(([name, desc, pct]) => `<li>${esc(name)} ${esc(pct)} — ${esc(desc)}</li>`).join('')}</ul>
-</section>`;
-
-  const bodyHtml = `<main>
-<h1>${esc(seo.h1)}</h1>
-<p>${esc(seo.description)}</p>
-
-<section>
-<h2>공간마켓은 어떤 서비스인가요?</h2>
-<p>공간마켓은 우리 동네 집수리·인테리어·리모델링 업체를 쉽고 편하게 비교하고 상담할 수 있는 플랫폼입니다.</p>
-<p>집수리, 도배, 장판, 욕실, 주방, 리모델링, 상업공간, 부분시공 등 견적이 필요한 다양한 시공에 맞는 업체를 찾아 견적을 비교하고 상담할 수 있습니다.</p>
-</section>
-
-<section>
-<h2>공간마켓 이용 흐름</h2>
-<ol>${flow.map(([t, d]) => `<li><strong>${esc(t)}</strong> — ${esc(d)}</li>`).join('')}</ol>
-</section>
-${escrowHtml}
-${faqHtml(faq)}
-
-<section>
-<h2>인테리어 업체이신가요?</h2>
-<p>공간마켓 공간파트너는 가입비·광고비 없이 바로 시작하고, 증빙을 낼수록 더 큰 공사를 받습니다.</p>
-<p><a href="${site}/partner">파트너 입점 안내 보기</a></p>
-</section>
-
-<p><a href="${site}/lounge">공간마켓 라운지 — 공간 이야기 보기</a></p>
-${bizHtml()}
-</main>`;
+  const bodyHtml = homeBodyHtml({ site, beta });
 
   // 초대 링크(/?ref=) — 카드에 가입 선물을 싣는다. 검색에는 안 올린다(원래 주소가 canonical).
   const invite = inviteOg('home', req.query && req.query.ref, null, await inviterFor(req.query && req.query.ref));
@@ -417,6 +358,29 @@ ${bizHtml()}
       serviceSchema(beta, site),
       faqSchema(faq, site, '/'),
     ],
+  });
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
+  res.end(html);
+}
+
+// 공개 페이지(10-02) — /safe-payment · /tokens · /privacy · /terms · /refund · /download.
+//   네이버(Yeti)에게 빈 페이지였다. 글·제목은 화면과 같은 데이터(content/publicPages · siteSeo pageSeo).
+function renderPublic(req, res, site, page) {
+  const beta = isBetaServer();
+  const path = `/${page}`;
+  const seo = pageSeo(beta)[path];
+  const bodyHtml = publicPageBodyHtml(page, { site, beta });
+  const html = htmlShell({
+    site,
+    canonical: `${site}${path}`,
+    robots: 'index, follow',
+    title: seo.title,
+    description: seo.description,
+    ogType: 'website',
+    bodyHtml,
+    structuredData: [organizationSchema(site), breadcrumbSchema([['공간마켓', '/'], [seo.title.replace(/ — 공간마켓$/, ''), path]], site)],
   });
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -495,6 +459,8 @@ function renderLlms(req, res, site) {
     `# ${BIZ.serviceName}`,
     '',
     `> ${seo['/'].description}`,
+    // 10-02: 구글 AI 개요가 «공간안전결제로 예치할 수 있다»고 답했다 — 결제가 열리기 전엔 이 사실을 맨 위에 먼저
+    beta ? '> 결제 안내: 공간안전결제는 정식 오픈 후 제공 예정입니다. 지금은 계약서에 적은 단계대로 업체와 직접 진행합니다.' : '',
     '',
     `${BIZ.serviceName}(${site.replace(/^https?:\/\//, '')})은 인테리어·집수리·리모델링을 맡기려는 «의뢰인»과 시공 «업체»를 연결하는 통신판매중개 플랫폼입니다. 운영사는 ${BIZ.legalName}(${COMPANY_SITE} · 대표 ${BIZ.ceo}, 사업자등록번호 ${BIZ.bizNo}, 통신판매업신고 ${BIZ.telecomSalesNo})입니다.`,
     '',
@@ -529,7 +495,7 @@ function renderLlms(req, res, site) {
     '## 주요 링크',
     `- 홈(의뢰인): ${site}/`,
     `- 파트너 입점 안내(업체): ${site}/partner`,
-    `- 공간안전결제 안내: ${site}/safe-payment`,
+    beta ? `- 공간안전결제 안내(정식 오픈 후 제공 예정): ${site}/safe-payment` : `- 공간안전결제 안내: ${site}/safe-payment`,
     `- 라운지(공간 이야기): ${site}/lounge`,
     `- 환불 정책: ${site}/refund`,
     `- 이용약관: ${site}/terms`,
@@ -641,6 +607,7 @@ export default async function handler(req, res) {
     if (page === 'llms')    return renderLlms(req, res, site);
     if (page === 'home')    return await renderHome(req, res, site);
     if (page === 'partner') return await renderPartner(req, res, site);
+    if (PUBLIC_PAGES.includes(page)) return renderPublic(req, res, site, page);
     if (page === 'company') return await renderCompany(req, res, site, req.query && req.query.id);
 
     if (parts[0] === 'posts' && parts[1]) {

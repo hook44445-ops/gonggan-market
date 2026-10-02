@@ -6,35 +6,26 @@ import { PAYMENTS_LIVE } from "../constants/release";
 // (실제 계약·결제는 앱 로그인 후 견적→선택→결제 흐름에서 진행)
 
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
+import { pageSeo } from "../utils/siteSeo";
+import RichText from "../components/RichText";
+import {
+  SAFE_PAYMENT_NOT_LIVE, safePaymentH1, SAFE_PAYMENT_INTRO, SAFE_PAYMENT_STAGES, SAFE_PAYMENT_AMOUNT_PLANS,
+  SAFE_PAYMENT_GUARANTEE_NOTE, SAFE_PAYMENT_PERIOD, SAFE_PAYMENT_PRICE_LINES, SAFE_PAYMENT_BROKER, SAFE_PAYMENT_REFUND, SAFE_PAYMENT_CTA_NOTE,
+} from "../content/publicPages";
 import AppFooter from "../components/AppFooter";
 
 function goHome() {
   window.location.href = "/";
 }
 
-// 단계별 안전지급 비율 — EscrowScreen STAGE_META 와 동일.
-const STAGES = [
-  ["전액 예치", "결제 시 시공대금 전액을 공간마켓이 안전하게 보관", "결제"],
-  ["착공 확인", "착공 사진을 고객이 확인·승인하면 지급 — 500만원 이상 공사는 자재비 포함", "30%"],
-  ["중간 점검", "500만원 이상 공사 — 중간 점검 사진을 고객이 확인·승인하면 지급", "40%"],
-  ["완료 확인", "완료 사진을 고객이 확인·승인하면 잔금 지급 — 500만원 미만 공사는 70%", "30%"],
-  ["공간보증 업체", "보증금을 건 업체는 500만원 이상 공사에서 결제 직후 자재비 10%를 먼저 받고, 착공 확인 때 20%", "자재비 10%"],
-];
-
-// 공사 금액별 지급 구조(서버 escrow_stage_plan · migration 112·120 과 같은 규칙)
-const AMOUNT_PLANS = [
-  ["500만원 미만", "착공 확인 30% → 완료 확인 70%", "사업자등록을 확인한 업체"],
-  ["500만~1,000만원", "착공 확인 30%(자재비 포함) → 중간 점검 40% → 완료 확인 30%", "사업자등록 + 시공보험(없으면 보증금 200만원). 보증금 100만원 이상을 건 업체는 결제 직후 자재비 10%를 먼저 받고 착공 20%"],
-  ["1,000만원 초과 ~ 1억원", "결제 직후 자재비 10% → 착공 확인 20% → 중간 점검 40% → 완료 확인 30%", "사업자등록 + 시공보험 + 공사 구간 보증금(10% 이상)을 모두 갖춘 업체만 맡습니다. 1,500만원 이상은 실내건축공사업 등록 업체만"],
-];
+// 글은 content/publicPages.js 한 곳 — 봇 프리렌더(api/prerender.js)도 같은 데이터(10-02 · 네이버에 빈 페이지였다).
+const STAGES = SAFE_PAYMENT_STAGES;
+const AMOUNT_PLANS = SAFE_PAYMENT_AMOUNT_PLANS;
 
 export default function SafePaymentScreen() {
-  useDocumentMeta({
-    title: "공간안전결제 안내 — 공간마켓",
-    description:
-      "공간마켓 공간안전결제 상품 안내입니다. 시공 대금의 단계별 안전지급 구조, 서비스 제공기간, 환불 정책을 확인할 수 있습니다.",
-    path: "/safe-payment",
-  });
+  // 결제가 열리기 전에는 제목·설명 맨 앞에 «정식 오픈 후 제공 예정»(siteSeo pageSeo — 10-02)
+  const meta = pageSeo(!PAYMENTS_LIVE)["/safe-payment"];
+  useDocumentMeta({ title: meta.title, description: meta.description, path: "/safe-payment" });
 
   return (
     <div
@@ -86,22 +77,17 @@ export default function SafePaymentScreen() {
         {/* 지금 상태 — 결제가 아직 열리지 않았으면 먼저 말한다(없는 기능을 약속하지 않기) */}
         {!PAYMENTS_LIVE && (
           <div style={{ background: "#FBF7EC", border: "1px solid #EADFC4", borderRadius: 12, padding: "12px 14px", marginBottom: 20, fontSize: 13, lineHeight: 1.75, color: "#6F5A1E" }}>
-            <b>지금은 오픈 준비 중이에요.</b> 토스페이먼츠 승인 뒤 아래 방식으로 결제·지급됩니다. 그 전까지는 계약서에 적은 단계대로
-            업체와 직접 주고받고, 단계 확인·사진·GPS 기록은 앱에 남습니다.
+            <RichText segs={SAFE_PAYMENT_NOT_LIVE} />
           </div>
         )}
 
         {/* 상품 개요 */}
         <section style={{ marginBottom: 26 }}>
           <h1 style={{ fontSize: 20, fontWeight: 900, color: "#2E5F4B", margin: "0 0 10px" }}>
-            공간안전결제 (시공대금 에스크로)
+            {safePaymentH1(PAYMENTS_LIVE)}
           </h1>
           <p style={{ fontSize: 14, lineHeight: 1.85, color: "#4a443a", margin: 0 }}>
-            공간마켓은 인테리어·집수리 시공이 필요한 고객과 검증된 시공업체를 연결하는
-            <strong> 통신판매중개 플랫폼</strong>입니다. 계약 시 고객이 시공대금을
-            <strong> 공간안전결제(단계별 안전지급)</strong>로 예치하면, 공사 진행 단계마다 고객이
-            사진을 확인·승인한 뒤 업체에 안전하게 지급됩니다. 업체에게 대금이 한 번에
-            지급되지 않아 고객과 업체 모두를 보호합니다.
+            <RichText segs={SAFE_PAYMENT_INTRO} />
           </p>
         </section>
 
@@ -163,8 +149,7 @@ export default function SafePaymentScreen() {
             ))}
           </div>
           <p style={{ fontSize: 12.5, color: "#6b6456", lineHeight: 1.7, margin: "10px 2px 0" }}>
-            업체 보증금(공간보증)은 공사 금액 구간 끝의 10% 이상입니다 — 1,000만원까지 100만원, 2,000만원까지 200만원,
-            5,000만원까지 500만원, 1억원까지 1,000만원. 결제 직후 먼저 나가는 자재비 10%는 늘 이 보증금 안에 있습니다.
+            {SAFE_PAYMENT_GUARANTEE_NOTE}
           </p>
         </section>
 
@@ -182,9 +167,7 @@ export default function SafePaymentScreen() {
             서비스 제공기간
           </div>
           <div style={{ fontSize: 14, lineHeight: 1.8, color: "#4a443a" }}>
-            시공(용역) 서비스로, 규모에 따라 <strong>통상 1개월, 최대 3개월</strong> 이내에
-            공사가 완료됩니다. 각 계약의 예상 공사 기간은 견적·계약 화면에 명시되며, 완료
-            확인 시점에 서비스 제공이 종료됩니다.
+            <RichText segs={SAFE_PAYMENT_PERIOD} />
           </div>
         </section>
 
@@ -202,12 +185,7 @@ export default function SafePaymentScreen() {
             결제 금액 및 수단
           </div>
           <div style={{ fontSize: 13.5, lineHeight: 1.85, color: "#4a443a" }}>
-            결제 금액은 시공 견적에 따라 상이하며, 시공비에 공간안전결제 이용료가 더해집니다.
-            상세 금액과 수수료는 결제 직전 화면에서 안내됩니다.
-            <br />
-            단건 결제 기준 상품 금액 최고가 : <strong>최대 100,000,000원(1억원)</strong>
-            <br />
-            결제수단 : 신용·체크카드, 계좌이체, 가상계좌 (고액 결제는 계좌이체·가상계좌 권장)
+            {SAFE_PAYMENT_PRICE_LINES.map((line, i) => <span key={i}>{i > 0 && <br />}<RichText segs={line} /></span>)}
           </div>
         </section>
 
@@ -217,9 +195,7 @@ export default function SafePaymentScreen() {
             통신판매중개자 고지
           </h2>
           <p style={{ fontSize: 13, lineHeight: 1.8, color: "#6b6456", margin: 0 }}>
-            공간사이(공간마켓)는 통신판매중개자로서 시공 계약의 당사자가 아니며, 시공의 이행·
-            품질·하자보수 등에 대한 책임은 해당 시공업체에 있습니다. 공간마켓은 안전한 대금
-            보관·단계별 지급·거래 기록 보관 등 신뢰 인프라를 제공합니다.
+            {SAFE_PAYMENT_BROKER}
           </p>
         </section>
 
@@ -237,9 +213,7 @@ export default function SafePaymentScreen() {
             환불 정책
           </div>
           <div style={{ fontSize: 13.5, lineHeight: 1.8, color: "#4a443a" }}>
-            착공 전에는 예치금 전액 환불이 가능하며, 공사 진행 중에는 이미 지급이 완료된
-            단계를 제외한 잔여 예치금에 대해 환불이 가능합니다. 분쟁 시 저장된 기록을 근거로
-            검토합니다.
+            {SAFE_PAYMENT_REFUND}
           </div>
           <a
             href="/refund"
@@ -267,7 +241,7 @@ export default function SafePaymentScreen() {
           공간마켓에서 견적 요청하기
         </button>
         <div style={{ fontSize: 12, color: "#8a8275", textAlign: "center", marginTop: 8 }}>
-          견적·계약·결제는 공간마켓 로그인(휴대폰 본인확인) 후 진행됩니다.
+          {SAFE_PAYMENT_CTA_NOTE}
         </div>
 
         {/* 사업자 정보 + 법적고지 */}

@@ -4,22 +4,23 @@
 // 비회원도 확인할 수 있도록 노출한다(구매 자체는 앱 로그인 후 진행).
 
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
-import { TOKEN_PACKAGES, TOKEN_COSTS } from "../constants/lounge";
+import { TOKEN_PACKAGES } from "../constants/lounge";
+import { PAYMENTS_LIVE } from "../constants/release";
+import { pageSeo } from "../utils/siteSeo";
+import RichText from "../components/RichText";
+import { TOKEN_NOT_LIVE, TOKEN_INTRO, TOKEN_PERIOD, TOKEN_MAX_PRICE, TOKEN_USES, TOKEN_REFUND } from "../content/publicPages";
 import AppFooter from "../components/AppFooter";
 
 function goHome() {
   window.location.href = "/";
 }
 
-const maxPrice = Math.max(...TOKEN_PACKAGES.map((p) => p.price));
+const maxPrice = TOKEN_MAX_PRICE;   // 글은 content/publicPages.js — 봇 프리렌더도 같은 데이터(10-02)
 
 export default function TokenProductScreen() {
-  useDocumentMeta({
-    title: "공간토큰 구매 — 공간마켓",
-    description:
-      "공간라운지에서 사용하는 공간토큰 상품 안내입니다. 패키지별 가격, 서비스 제공기간, 환불 정책을 확인할 수 있습니다.",
-    path: "/tokens",
-  });
+  // 판매가 열리기 전에는 제목·설명 맨 앞에 «정식 오픈 후 판매 예정»(siteSeo pageSeo — 10-02)
+  const meta = pageSeo(!PAYMENTS_LIVE)["/tokens"];
+  useDocumentMeta({ title: meta.title, description: meta.description, path: "/tokens" });
 
   return (
     <div
@@ -63,21 +64,25 @@ export default function TokenProductScreen() {
           ‹
         </button>
         <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.3px" }}>
-          공간토큰 구매
+          {PAYMENTS_LIVE ? "공간토큰 구매" : "공간토큰 안내"}
         </div>
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "22px 20px 40px" }}>
+        {/* 지금 상태 — 판매가 열리기 전이면 먼저 말한다(없는 기능을 «지금 된다»고 읽히지 않게 · 10-02) */}
+        {!PAYMENTS_LIVE && (
+          <div style={{ background: "#FBF7EC", border: "1px solid #EADFC4", borderRadius: 12, padding: "12px 14px", marginBottom: 20, fontSize: 13, lineHeight: 1.75, color: "#6F5A1E" }}>
+            <RichText segs={TOKEN_NOT_LIVE} />
+          </div>
+        )}
+
         {/* 상품 개요 */}
         <section style={{ marginBottom: 26 }}>
           <h1 style={{ fontSize: 20, fontWeight: 900, color: "#2E5F4B", margin: "0 0 10px" }}>
             공간토큰 (공간라운지 이용권)
           </h1>
           <p style={{ fontSize: 14, lineHeight: 1.85, color: "#4a443a", margin: 0 }}>
-            공간토큰은 공간마켓의 커뮤니티 서비스 <strong>공간라운지</strong>에서 사용하는
-            디지털 이용권입니다. 다른 이용자에게 <strong>대화 신청</strong>을 보내거나,
-            내가 쓴 글을 <strong>상단에 노출</strong>하고, 전문가 답변을 <strong>강조</strong>하는 등
-            라운지 내 활동에 사용합니다. 결제 완료 즉시 계정에 지급되는 <strong>디지털 상품</strong>입니다.
+            <RichText segs={TOKEN_INTRO} />
           </p>
         </section>
 
@@ -95,8 +100,7 @@ export default function TokenProductScreen() {
             서비스 제공기간
           </div>
           <div style={{ fontSize: 14, lineHeight: 1.8, color: "#4a443a" }}>
-            결제 완료 <strong>즉시</strong> 토큰이 계정에 지급됩니다(디지털 상품, 별도 배송 없음).
-            지급된 토큰은 유효기간 없이 라운지 서비스 이용 시 차감됩니다.
+            <RichText segs={TOKEN_PERIOD} />
           </div>
         </section>
 
@@ -147,11 +151,7 @@ export default function TokenProductScreen() {
             토큰 사용처
           </h2>
           <ul style={{ margin: 0, paddingLeft: 18 }}>
-            {[
-              `라운지 대화 신청 — ${TOKEN_COSTS.CHAT_REQUEST}토큰`,
-              `글 상단 노출 — ${TOKEN_COSTS.POST_BOOST_MIN}~${TOKEN_COSTS.POST_BOOST_MAX}토큰`,
-              `전문가 답변 강조 — ${TOKEN_COSTS.EXPERT_HIGHLIGHT_MIN}~${TOKEN_COSTS.EXPERT_HIGHLIGHT_MAX}토큰`,
-            ].map((t, i) => (
+            {TOKEN_USES.map((t, i) => (
               <li key={i} style={{ fontSize: 13.5, lineHeight: 1.9, color: "#4a443a" }}>
                 {t}
               </li>
@@ -173,8 +173,7 @@ export default function TokenProductScreen() {
             환불 정책
           </div>
           <div style={{ fontSize: 13.5, lineHeight: 1.8, color: "#4a443a" }}>
-            미사용 토큰은 결제일로부터 <strong>7일 이내 청약철회(전액 환불)</strong>가 가능하며,
-            일부라도 사용한 경우 환불이 제한됩니다.
+            <RichText segs={TOKEN_REFUND} />
           </div>
           <a
             href="/refund"
