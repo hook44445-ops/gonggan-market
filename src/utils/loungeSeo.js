@@ -7,7 +7,7 @@
 
 // 기본 OG 이미지 (절대경로는 호출부에서 site origin 과 합성)
 // 공유 미리보기 기본 그림 — 카카오톡·페이스북은 SVG 미리보기를 못 띄운다(09-26). 사이트 대표 PNG 와 같은 것.
-export const DEFAULT_OG_PATH = '/og-space-v2.png';
+export const DEFAULT_OG_PATH = '/og-space-v3.png';
 
 // SEO 카테고리 슬러그 ↔ 내부 카테고리 id 매핑
 //  요청서 슬러그(좌) → 앱 내부 LOUNGE_CATEGORIES id(우)

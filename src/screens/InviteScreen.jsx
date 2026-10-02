@@ -26,7 +26,7 @@ function InviteCardPreview({ code, isCompany, who, onWho }) {
       <div style={{ fontSize: 12, fontWeight: 700, color: C.text3, marginBottom: 6 }}>친구 카톡에는 이렇게 보여요</div>
       <div style={{ background: "#B2C7D9", borderRadius: R.lg, padding: 12 }}>
         <div style={{ maxWidth: 260, background: "#fff", borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,.08)" }}>
-          <img src="/og-space-v2.png" alt="" style={{ width: "100%", aspectRatio: "1.91 / 1", objectFit: "cover", display: "block" }} />
+          <img src="/og-space-v3.png" alt="" style={{ width: "100%", aspectRatio: "1.91 / 1", objectFit: "cover", display: "block" }} />
           <div style={{ padding: "9px 11px 10px" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#191919", lineHeight: 1.4 }}>{og.title}</div>
             <div style={{ fontSize: 11.5, color: "#666", marginTop: 3, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{og.description}</div>
