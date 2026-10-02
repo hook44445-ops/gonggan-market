@@ -12,7 +12,7 @@ import { classifyContentType } from "./contentTypes.js";
 
 export const BRAND_DEFAULT = "/images/landing-hero-interior.jpg";
 // 공유 미리보기에 쓰일 수 있어 SVG 는 쓰지 않는다 — 카카오톡·페이스북이 SVG 미리보기를 못 띄운다(09-26).
-export const OG_DEFAULT = "/og-space-v2.png";
+export const OG_DEFAULT = "/og-space-v3.png";
 
 // §12 이미지 카테고리.
 export const IMAGE_CATEGORIES = ["NEWS", "BREAKING", "MORNING_BRIEF", "EDITORIAL", "QT", "ASTROLOGY", "INTERIOR", "SPACE_MARKET", "TIME_TREND", "LIFESTYLE", "BUSINESS", "TECH", "DEFAULT"];

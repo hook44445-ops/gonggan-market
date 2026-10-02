@@ -26,7 +26,7 @@ const title=c ? c.name+' — '+(c.region?c.region+' ':'')+'인테리어·집수�
 const specialties=Array.isArray(c?.specialties)?c.specialties.filter(x=>typeof x==='string'):[];
 const description=c ? c.name+'의 시공 사례'+(data.workCount?' '+data.workCount+'건':'')+(data.stats.average?'과 후기 평점 '+data.stats.average:'')+'을 확인하고 공간마켓에서 무료로 견적을 받아 보세요. '+specialties.slice(0,6).join('·') : '공간마켓에서 우리 동네 인테리어·집수리 업체를 만나 보세요.';
 const realPhoto=data?.works.find(w=>w.photo)?.photo || safeImage(c?.cover_url);
-const image=new URL(realPhoto || (c?coverFor(c):'/og-space-v2.png'),site).href;
+const image=new URL(realPhoto || (c?coverFor(c):'/og-space-v3.png'),site).href;
 const schema=c ? [
  {'@context':'https://schema.org','@type':'HomeAndConstructionBusiness',name:c.name,url:canonical,...(c.region?{areaServed:c.region}:{}),...(realPhoto?{image:new URL(realPhoto,site).href}:{}),...(data.stats.average?{aggregateRating:{'@type':'AggregateRating',ratingValue:data.stats.average,reviewCount:data.stats.ratedCount}}:{})},
  {'@context':'https://schema.org','@type':'BreadcrumbList',itemListElement:[{'@type':'ListItem',position:1,name:'공간마켓',item:site+'/'},{'@type':'ListItem',position:2,name:c.name,item:canonical}]}
