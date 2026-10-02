@@ -10,6 +10,9 @@ import { pendingRefCode } from "../lib/referral";
 import { SHOW_BETA_UI } from "../constants/release";
 import { downloadPlan } from "../lib/appInstall";
 import { detectPlatform } from "../lib/storeRating";
+import { pageSeo } from "../utils/siteSeo";
+import RichText from "../components/RichText";
+import { DOWNLOAD_INTRO, DOWNLOAD_STEPS, downloadTrust } from "../content/publicPages";   // 봇 프리렌더도 같은 글(10-02)
 
 // 버튼은 폰 종류·스토어 상태로 고른다(lib/appInstall downloadPlan) — 아이폰은 App Store(번호가 있을 때),
 //   안드로이드는 비공개 테스트 참여(정식 출시 뒤엔 Play 스토어), 컴퓨터는 둘 다.
@@ -86,8 +89,8 @@ export default function DownloadScreen() {
     appStoreId: APP_STORE_ID, playPublic: PLAY_PUBLIC,
   });
   useDocumentMeta({
-    title: "공간마켓 시작하기 — 웹에서 바로 · 앱 사전체험판",
-    description: "공간마켓은 설치 없이 웹에서 바로 쓸 수 있어요. 안드로이드 앱은 비공개 사전체험판 참여 후 Play 스토어에서 받을 수 있습니다.",
+    title: pageSeo(SHOW_BETA_UI)["/download"].title,
+    description: pageSeo(SHOW_BETA_UI)["/download"].description,
     path: "/download",
   });
 
@@ -140,8 +143,7 @@ export default function DownloadScreen() {
              공유 카드·QR 로 들어온 사람에게 그 문턱을 먼저 들이밀면 대부분 빠져나간다.
              Play 참여 경로는 지우지 않고 아래로 내린다. */
           <p style={{ fontSize: 14, lineHeight: 1.85, color: C.text2, margin: "0 0 20px" }}>
-            설치 없이 <strong style={{ color: C.text1 }}>웹에서 바로</strong> 쓸 수 있어요.<br />
-            앱은 아직 비공개 사전체험판이라 참여 신청이 필요해요.
+            <RichText segs={DOWNLOAD_INTRO} strongStyle={{ color: C.text1 }} />
           </p>
         ) : (
           <p style={{ fontSize: 14, lineHeight: 1.85, color: C.text2, margin: "0 0 26px" }}>
@@ -189,9 +191,7 @@ export default function DownloadScreen() {
 
         {plan.showTester && (
           <p style={{ fontSize: 12.5, lineHeight: 1.85, color: C.text3, margin: "12px 0 0", textAlign: "left" }}>
-            ① ‘테스터 참여’ 버튼을 눌러 테스트에 참여합니다.<br />
-            ② 참여가 완료되면 ‘Google Play에서 다운로드’ 버튼이 나타납니다.<br />
-            ③ 공간마켓 앱을 설치하여 이용해주세요.
+            <RichText segs={DOWNLOAD_STEPS.join("\n")} />
           </p>
         )}
 
@@ -252,12 +252,7 @@ export default function DownloadScreen() {
 
       {/* 신뢰 문구 */}
       <p style={{ fontSize: 12, lineHeight: 1.7, color: C.text3, margin: "22px 0 0", textAlign: "center", maxWidth: 420 }}>
-        {SHOW_BETA_UI ? (
-          <>오픈 기간에는 견적·상담·계약 기록을 무료로 이용할 수 있어요.<br />
-            대금은 계약서 단계대로 업체와 직접 주고받아요.</>
-        ) : (
-          <>공간마켓은 검증된 업체와 단계별 안전지급으로<br />믿을 수 있는 인테리어 거래를 돕습니다.</>
-        )}
+        <RichText segs={downloadTrust(SHOW_BETA_UI).join("\n")} />
       </p>
     </div>
   );
