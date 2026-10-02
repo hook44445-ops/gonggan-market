@@ -392,7 +392,9 @@ test('ASO 문안이 코드의 사실과 어긋나지 않는다', () => {
 test('ASO 문안이 베타에서 에스크로를 운영 중이라 말하지 않는다', () => {
   if (!isBetaServer()) return;
   const aso = readFileSync(fileURLToPath(new URL('../../store/ASO-ko.md', import.meta.url)), 'utf-8');
-  assert.ok(aso.includes('정식 서비스에서 제공'), '에스크로가 아직 열리지 않았다는 안내가 빠졌다');
+  // 10-02: «정식 서비스에서 제공»(미래 약속)이 아니라 «아직 열리지 않았다»(사실)만 — 결제사 미정(USP 4절)
+  assert.ok(aso.includes('앱 안 결제는 아직 열리지 않았습니다'), '앱 안 결제가 아직 열리지 않았다는 안내가 빠졌다');
+  assert.ok(!aso.slice(aso.indexOf('## 앱 이름')).includes('정식 서비스에서 제공'), '결제를 미래에 제공한다고 약속한다');
 });
 
 // ─────────────────────────────────────────────────────
