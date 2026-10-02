@@ -15,7 +15,7 @@
 - USP 정본: `docs/USP-2026-10-02.md`(최신판 — 1번 PR) · 옛 판 10-01
 - SEO 단일 소스: `src/utils/siteSeo.js` · `siteSeo.test.js` · `docs/SEO_AEO_GEO.md` · `docs/MARKETING-SYSTEM-SEO-GEO-AEO.md` · `docs/SEO_BACKLOG.md` · `docs/LOUNGE_SEO_POLICY.md`
 - 네이버: `api/prerender.js`(Yeti 본문) · `/robots.txt`·`/sitemap.xml`·`/llms.txt` = `api/*` rewrite · `public/naver*.html` · `index.html` JSON-LD
-- 결제: `PAYMENTS_LIVE` 꺼짐 · **결제 기준(금액대·결제사 진행)은 문서·문안에 아직 넣지 않는다 — 대표 10-02 «결제 기준 아직 넣지 마»**
+- 결제: `PAYMENTS_LIVE` 꺼짐 · **결제 약속 문구는 기존 그대로(바꾸지 않는다)** · **결제 기준(금액대·결제사 진행)은 문서·문안에 아직 넣지 않는다 — 대표 10-02 «결제 기준 아직 넣지 마»**
 - 광고 영상 `gonggan-ad.mp4`(23초) — 자막은 USP 새 판 2-1
 - 손대면 안 되는 것: `HANDOFF-2026-10-01-cloud-next.md` 2절 — `LandingScreen.jsx` 그대로 · 스토어 01 배지 · 입찰 전 연결 금지 · «보통 24시간 내» 그대로
 
@@ -39,7 +39,7 @@
 | # | 할 일 | 상태 |
 |---|---|---|
 | 1 | `docs/USP-2026-10-02.md` | ✅ #951 머지 |
-| 2 | 스토어 문안 ↔ USP 새 판 + `storeCopy.test.js` 보강 | ✅ PR 열림(머지 대기) — «바로 입찰» 거짓 문구 · 결제 약속 지움 · 4절 금지 문구 검사 |
+| 2 | 스토어 문안 ↔ USP 새 판 + `storeCopy.test.js` 보강 | ✅ PR 열림(머지 대기) — «바로 입찰» 거짓 문구 · 4절 금지 문구 검사 · **결제 안내는 기존 그대로**(대표 10-02) |
 | 3 | `siteSeo.js` FAQ·메타 = USP 새 판 문장(화면·프리렌더 동시) + `siteSeo.test.js` | 다음 |
 | 4 | `llms.txt` 최신판 | |
 | 5 | 지역 × 공사 롱테일 — 업체 있는 지역부터 1~2개 | |
