@@ -17,6 +17,20 @@ if (!SHOW_DEBUG_UI && typeof window !== "undefined" && !window.__GG_LOG_SILENCED
   };
 }
 
+// 배포가 바뀐 뒤 옛 탭·앱이 사라진 조각(chunk)을 부르면 빈 화면이 된다 → 한 번만 새로고침해 새 판을 받는다.
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (event) => {
+    try {
+      if (sessionStorage.getItem("gg_chunk_reload") === "1") return;
+      sessionStorage.setItem("gg_chunk_reload", "1");
+    } catch { /* 저장소 막힘이면 그냥 한 번 새로고침 */ }
+    event.preventDefault();
+    window.location.reload();
+  });
+  window.addEventListener("load", () => {
+    setTimeout(() => { try { sessionStorage.removeItem("gg_chunk_reload"); } catch { /* 무시 */ } }, 10000);
+  });
+}
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     {/* 웹 방문자 → 앱 설치 입구(안드로이드 띠 · 아이폰 스마트 앱 배너). 앱 안에서는 안 보인다. */}
