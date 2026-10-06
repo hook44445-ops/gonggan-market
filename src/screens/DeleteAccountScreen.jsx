@@ -1,6 +1,6 @@
 // 공간랜드 계정 삭제 페이지 (/delete-account)
 // - Google Play "데이터 보안 → 계정 삭제 URL" 대응 공개 페이지
-//   (https://gongganmarket.com/delete-account)
+//   (https://gongganland.com/delete-account)
 // - 동시에 앱(TWA) 내 [마이페이지 → 설정 → 회원탈퇴] 진입점이기도 하다.
 //   로그인 세션이 있으면 실제 탈퇴 플로우(안내 → 동의 → 확인 → 처리)를,
 //   없으면 안내 + 로그인 유도를 표시한다.

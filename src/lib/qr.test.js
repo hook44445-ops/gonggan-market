@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { qrMatrix, qrSvgPath } from "./qr.js";
 
 test("업체 페이지 주소 QR — 정사각 · 위치 찾기 무늬(왼쪽 위 7칸 테두리)", () => {
-  const m = qrMatrix("https://gongganmarket.com/p/bandeut?ref=ABC234");
+  const m = qrMatrix("https://gongganland.com/p/bandeut?ref=ABC234");
   const n = m.length;
   assert.ok(n >= 21 && (n - 17) % 4 === 0);
   assert.ok(m.every((row) => row.length === n));

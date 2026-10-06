@@ -44,13 +44,14 @@ export function nativeDeniedReason(reason) {
   return reason === "denied" || reason === "not_granted" ? "permission_denied" : `native_${reason || "unknown"}`;
 }
 
-// 알림을 눌렀을 때 앱이 열 주소 — «/»로 시작하는 경로 또는 gongganmarket.com 주소만(앱도 같은 규칙으로 한 번 더 본다)
+// 알림을 눌렀을 때 앱이 열 주소 — «/»로 시작하는 경로 또는 우리 도메인(gongganland.com · 옛 gongganmarket.com) 주소만(앱도 같은 규칙으로 한 번 더 본다)
+const OUR_DOMAINS = ["gongganland.com", "gongganmarket.com"];
 export function safeAppUrl(target) {
   const s = typeof target === "string" ? target.trim() : "";
   if (s.startsWith("/") && !s.startsWith("//") && !s.includes("\\")) return s;
   try {
     const u = new URL(s);
-    if (u.protocol === "https:" && (u.hostname === "gongganmarket.com" || u.hostname.endsWith(".gongganmarket.com"))) return u.toString();
+    if (u.protocol === "https:" && OUR_DOMAINS.some((d) => u.hostname === d || u.hostname.endsWith("." + d))) return u.toString();
   } catch { /* 주소 아님 */ }
   return "/";
 }

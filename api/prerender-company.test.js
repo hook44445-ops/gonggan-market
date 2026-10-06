@@ -23,12 +23,12 @@ test('업체 공유 이미지는 실제 사례 우선이며 기본 커버를 시
   async function render() {
     let html;
     const res = { setHeader() {}, end(value) { html = value; } };
-    await handler({ headers: { host: 'gongganmarket.com' }, query: { page: 'company', id: 'our-home' } }, res);
+    await handler({ headers: { host: 'gongganland.com' }, query: { page: 'company', id: 'our-home' } }, res);
     assert.equal(res.statusCode, 200);
     return html;
   }
   const empty = await render();
-  assert.match(empty, /property="og:image" content="https:\/\/gongganmarket.com\/images\/company-cover\/bath.webp"/);
+  assert.match(empty, /property="og:image" content="https:\/\/gongganland.com\/images\/company-cover\/bath.webp"/);
   assert.doesNotMatch(empty, /"aggregateRating"/);
   assert.doesNotMatch(empty, /"image":"[^" ]*company-cover/);
   assert.doesNotMatch(empty, /<h2>시공 사례<\/h2>/);

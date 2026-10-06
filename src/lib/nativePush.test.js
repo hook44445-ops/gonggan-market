@@ -43,14 +43,15 @@ test("거절 이유 → 웹 공통 이유", () => {
   assert.equal(nativeDeniedReason(""), "native_unknown");
 });
 
-test("알림 누르면 열 주소 — 경로 또는 gongganmarket.com 만", () => {
+test("알림 누르면 열 주소 — 경로 또는 gongganland.com 만", () => {
   assert.equal(safeAppUrl("/?open=invite"), "/?open=invite");
-  assert.equal(safeAppUrl("https://gongganmarket.com/c/abc"), "https://gongganmarket.com/c/abc");
-  assert.equal(safeAppUrl("https://www.gongganmarket.com/x"), "https://www.gongganmarket.com/x");
+  assert.equal(safeAppUrl("https://gongganland.com/c/abc"), "https://gongganland.com/c/abc");
+  assert.equal(safeAppUrl("https://www.gongganland.com/x"), "https://www.gongganland.com/x");
+  assert.equal(safeAppUrl("https://gongganmarket.com/c/abc"), "https://gongganmarket.com/c/abc"); // 옛 도메인 알림도 계속 연다
   assert.equal(safeAppUrl("//evil.com"), "/");
-  assert.equal(safeAppUrl("https://evil.com/?gongganmarket.com"), "/");
-  assert.equal(safeAppUrl("https://gongganmarket.com.evil.com/"), "/");
-  assert.equal(safeAppUrl("http://gongganmarket.com/"), "/");
+  assert.equal(safeAppUrl("https://evil.com/?gongganland.com"), "/");
+  assert.equal(safeAppUrl("https://gongganland.com.evil.com/"), "/");
+  assert.equal(safeAppUrl("http://gongganland.com/"), "/");
   assert.equal(safeAppUrl("javascript:alert(1)"), "/");
   assert.equal(safeAppUrl(null), "/");
 });

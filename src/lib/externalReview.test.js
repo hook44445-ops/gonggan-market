@@ -23,8 +23,8 @@ test("입력 확인 — 별점·5~500자·공사 이름 40자", () => {
 });
 
 test("후기 부탁 링크 — ?write=1 + 초대 코드", () => {
-  assert.equal(reviewRequestUrl("gangseo-repair", "AB2CD3"), "https://gongganmarket.com/p/gangseo-repair?write=1&ref=AB2CD3");
-  assert.equal(reviewRequestUrl("gangseo-repair", null), "https://gongganmarket.com/p/gangseo-repair?write=1");
+  assert.equal(reviewRequestUrl("gangseo-repair", "AB2CD3"), "https://gongganland.com/p/gangseo-repair?write=1&ref=AB2CD3");
+  assert.equal(reviewRequestUrl("gangseo-repair", null), "https://gongganland.com/p/gangseo-repair?write=1");
   assert.ok(reviewRequestMessage("강서 집수리", "https://x").startsWith("강서 집수리입니다."));
   assert.equal(reviewReasonText("OWN_COMPANY"), "내 업체에는 후기를 남길 수 없어요");
 });

@@ -277,7 +277,7 @@ export default function MyPageV3({
                    onClick={() => setProfileOpen(true)} />
             )}
             {companyId && (
-              <Row emoji="📌" label="내 업체 주소" sub={companySlug ? `gongganmarket.com/p/${companySlug}` : "짧은 주소 만들기 — 명함·인스타에 넣기 좋게"}
+              <Row emoji="📌" label="내 업체 주소" sub={companySlug ? `gongganland.com/p/${companySlug}` : "짧은 주소 만들기 — 명함·인스타에 넣기 좋게"}
                    onClick={() => { setSlugDraft(companySlug ?? ""); setSlugMsg(null); setSlugOpen(true); }} />
             )}
             {companyId && (

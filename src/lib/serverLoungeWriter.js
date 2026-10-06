@@ -202,7 +202,7 @@ async function callOpenAiCompatible(url, key, model, system, user, signal, extra
   return data?.choices?.[0]?.message?.content ?? "";
 }
 
-const OR_HEADERS = () => ({ "HTTP-Referer": process.env.SITE_URL || "https://gongganmarket.com", "X-Title": "Gonggan Land Lounge" });
+const OR_HEADERS = () => ({ "HTTP-Referer": process.env.SITE_URL || "https://gongganland.com", "X-Title": "Gonggan Land Lounge" });
 
 // 10-01 — 관리자 화면 AI(브라우저)가 «서버 키»로 쓰게 하는 통로(키를 앱 코드에 싣지 않는다 · VITE_ 키 폐기).
 //   글자 그대로 돌려준다(JSON 강제 X). 모델은 «회사/모델» 꼴만 받고, 없거나 이상하면 서버 글쓰기 모델.

@@ -83,7 +83,7 @@ export default function BeforeAfterCard({ userId, isCompany = false, companyName
     return () => { alive = false; };
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const qrUrl = isCompany && companyKey ? companyPageUrl(companyKey, code) : (code ? inviteUrl(code) : "https://gongganmarket.com");
+  const qrUrl = isCompany && companyKey ? companyPageUrl(companyKey, code) : (code ? inviteUrl(code) : "https://gongganland.com");
 
   const make = async () => {
     if (!before || !after) { setErr("공사 전·후 사진을 한 장씩 골라 주세요"); return; }
