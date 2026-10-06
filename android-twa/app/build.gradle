@@ -16,10 +16,10 @@ android {
 
     signingConfigs {
         release {
-            storeFile     file('../gonggan-release.keystore')
-            storePassword 'GongganMarket2026!'
+            storeFile     file(System.getenv('GONGGAN_KEYSTORE') ?: '../gonggan-release.keystore')
+            storePassword System.getenv('GONGGAN_STORE_PASSWORD') ?: (project.findProperty('GONGGAN_STORE_PASSWORD') ?: '')
             keyAlias      'gonggan-market'
-            keyPassword   'GongganMarket2026!'
+            keyPassword   System.getenv('GONGGAN_KEY_PASSWORD') ?: (project.findProperty('GONGGAN_KEY_PASSWORD') ?: '')
         }
     }
 
