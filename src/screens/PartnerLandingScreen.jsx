@@ -267,7 +267,7 @@ export default function PartnerLandingScreen() {
             광고비를 먼저 쓰지 않아도 됩니다. 견적을 요청한 고객에게만 연결됩니다.
           </p>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "4px 0 2px" }}>
-            {["광고비 0원", "가입 1분", "서류는 원할 때 하나씩"].map((t) => (
+            {["광고비 0원", "가입 1분", "PG 가입 없이", "서류는 원할 때 하나씩"].map((t) => (
               <span key={t} style={{ fontSize: 12, fontWeight: 700, color: GOLD, border: "1px solid rgba(200,168,106,.45)",
                 background: "rgba(200,168,106,.10)", borderRadius: 999, padding: "5px 11px" }}>{t}</span>
             ))}
