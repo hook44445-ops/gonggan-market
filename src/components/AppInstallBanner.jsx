@@ -39,7 +39,7 @@ export default function AppInstallBanner() {
       <img src="/icons/icon-192-v6.png" alt="" width={30} height={30} style={{ borderRadius: 8, flexShrink: 0, background: "#fff" }}
         onError={(e) => { e.currentTarget.style.display = "none"; }} />
       <div style={{ flex: 1, minWidth: 0, lineHeight: 1.35 }}>
-        <div style={{ fontSize: 13, fontWeight: 800 }}>공간마켓 앱</div>
+        <div style={{ fontSize: 13, fontWeight: 800 }}>공간랜드 앱</div>
         <div style={{ fontSize: 11.5, opacity: 0.8 }}>견적 도착을 알림으로 받아요</div>
       </div>
       <a href={androidInstallUrl(PLAY_PUBLIC)}

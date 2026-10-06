@@ -34,10 +34,10 @@ export const TRUST_EMBLEMS = [
   { key: "license",   file: "license",   label: "실내건축", earnedText: "실내건축공사업 등록 업체입니다", lockedText: "",                                     hint: "실내건축공사업 등록증을 내면 붙습니다", earnedOnly: true },
 ];
 
-// 공간마켓 직영 업체인가. 표시에만 쓴다 — 정렬·매칭·한도 계산에 넣지 않는다.
+// 공간랜드 직영 업체인가. 표시에만 쓴다 — 정렬·매칭·한도 계산에 넣지 않는다.
 // 플랫폼이 선수로도 뛰면 다른 파트너가 «좋은 요청은 운영자가 가져간다»고 느끼기 쉽다(대표 09-28).
 // 그래서 숨기지 않고 카드에 밝히고, 순서는 다른 업체와 같은 규칙으로 정한다.
-export const DIRECT_EXPLAIN = "공간마켓 운영사가 직접 시공하는 업체예요. 다른 파트너와 같은 기준으로 비교되고, 매칭·노출 순서에서 우대받지 않아요";
+export const DIRECT_EXPLAIN = "공간랜드 운영사가 직접 시공하는 업체예요. 다른 파트너와 같은 기준으로 비교되고, 매칭·노출 순서에서 우대받지 않아요";
 export function isDirectCompany(company = {}) {
   return (company?.is_direct ?? company?.isDirect) === true;
 }
@@ -65,7 +65,7 @@ export function trustState(company = {}) {
     depositManwon,
     // 실내건축공사업 등록증 — 관리자가 승인할 때만 켜진다(adminReviewDocument → license_verified · 마이그레이션 118)
     license:   (company.license_verified ?? company.licenseVerified) === true,
-    // 공간마켓 직영 — 운영사가 직접 시공하는 업체(관리자만 켠다 · 마이그레이션 146).
+    // 공간랜드 직영 — 운영사가 직접 시공하는 업체(관리자만 켠다 · 마이그레이션 146).
     //   증빙이 아니라 «누가 운영하는지» 밝히는 표시다. 매칭·노출 순서에는 쓰지 않는다(isDirectCompany 주석).
     direct:    isDirectCompany(company),
   };
@@ -164,7 +164,7 @@ export function CompanyTrustRow({ company, style, forPartner = false }) {
         style={{ display: "inline-flex", alignItems: "center", gap: 5, marginBottom: 10, cursor: "pointer",
           padding: "3px 10px", borderRadius: 999, border: `1px solid ${GOLD}`, background: "#FBF7EC",
           fontSize: 11, fontWeight: 800, color: "#5E4B18", letterSpacing: "0.02em" }}>
-        공간마켓 직영
+        공간랜드 직영
       </div>
     )}
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>

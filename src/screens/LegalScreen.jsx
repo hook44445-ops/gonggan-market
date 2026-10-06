@@ -8,7 +8,7 @@ import { SHOW_BETA_UI } from "../constants/release";
 import { PRIVACY, TERMS, REFUND } from "../content/publicPages";
 
 // 글(개인정보처리방침 · 이용약관 · 환불 정책)은 content/publicPages.js 한 곳 — 봇 프리렌더(api/prerender.js)도 같은 데이터를 읽는다(10-02).
-//   제목·설명은 utils/siteSeo.js pageSeo — 예전엔 제목이 «공간마켓 공간마켓 …»으로 두 번 붙었다.
+//   제목·설명은 utils/siteSeo.js pageSeo — 예전엔 제목이 «공간랜드 공간랜드 …»으로 두 번 붙었다.
 
 function goHome() {
   // 라우터 미사용 — 홈으로 이동 시 전체 새로고침으로 안전하게 루트 진입.

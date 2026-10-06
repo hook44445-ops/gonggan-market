@@ -23,7 +23,7 @@ export function bidShareTitle(space) {
 }
 
 export function bidShareText(code, inviteUrl) {
-  return `견적이 왔어요! 어디가 나을지 같이 봐 줘요 🙏${code ? `\n공간마켓 — 이 링크로 가입하면 공간토큰 선물: ${inviteUrl}` : ""}`;
+  return `견적이 왔어요! 어디가 나을지 같이 봐 줘요 🙏${code ? `\n공간랜드 — 이 링크로 가입하면 공간토큰 선물: ${inviteUrl}` : ""}`;
 }
 
 // 견적 3개 이상 온 순간 — 그 요청에서 한 번 보내기 전까지만 크게 보여 준다(보낸 뒤엔 원래 버튼)

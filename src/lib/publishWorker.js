@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Publish Worker — 예약 도래분 자동 발행 (Phase 35)
+// 공간랜드 Publish Worker — 예약 도래분 자동 발행 (Phase 35)
 //
 //   scheduled → publishing → published(성공) / failed(재시도 초과).
 //   Safety Gate(품질 90+·승인·예약 존재), Auto Publish ON/OFF, Emergency Stop, Retry 1~3.

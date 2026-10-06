@@ -82,7 +82,7 @@ test('화면과 봇이 같은 글 — 화면은 content/publicPages 를 읽고, 
   assert.ok(!/const PRIVACY = \{/.test(legal));
   assert.match(pay, /<RichText segs=\{SAFE_PAYMENT_NOT_LIVE\} \/>/);
   assert.match(pay, /\{safePaymentH1\(PAYMENTS_LIVE\)\}/);
-  assert.ok(!pay.includes('공간마켓은 인테리어·집수리 시공이 필요한 고객과'));
+  assert.ok(!pay.includes('공간랜드는 인테리어·집수리 시공이 필요한 고객과'));
   assert.match(tok, /<RichText segs=\{TOKEN_NOT_LIVE\} \/>/);
   assert.match(dl, /<RichText segs=\{DOWNLOAD_INTRO\}/);
   // 제목·설명도 pageSeo 한 곳

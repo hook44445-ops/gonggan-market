@@ -473,7 +473,7 @@ export default function DashboardScreen({
               <div style={{ background:"#FBF7EC", border:"1px solid #EADFC4", borderRadius:R.xl, padding:S.lg, marginBottom:S.md }}>
                 <div style={{ fontSize:14, fontWeight:800, color:"#8A6D1E", marginBottom:6 }}>선택됐어요! 계약하려면 사업자등록증이 필요해요</div>
                 <div style={{ fontSize:12.5, color:C.text2, lineHeight:1.75 }}>
-                  공간마켓은 사업자등록을 마친 업체와만 계약해요. 사업자등록증은 홈택스에서 당일 발급돼요.
+                  공간랜드는 사업자등록을 마친 업체와만 계약해요. 사업자등록증은 홈택스에서 당일 발급돼요.
                   올리면 관리자가 확인한 뒤 의뢰인이 결제할 수 있어요. 선택 후 {BIZ_GRACE_HOURS}시간이 지나면
                   의뢰인이 공간온도 부담 없이 다른 업체를 고를 수 있어요.
                 </div>

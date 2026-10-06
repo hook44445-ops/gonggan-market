@@ -45,7 +45,7 @@ export default function SpaceProtectionBadge({ variant = "badge", style }) {
         padding: "14px 16px", ...style,
       }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: C.brand, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-          {SHOW_BETA_UI ? "🗂️ 이 거래는 기록이 남아요" : "🛡️ 공간마켓 보호 적용"}
+          {SHOW_BETA_UI ? "🗂️ 이 거래는 기록이 남아요" : "🛡️ 공간랜드 보호 적용"}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 10px" }}>
           {(SHOW_BETA_UI ? BETA_ITEMS : PROTECTION_ITEMS).map((t) => (
@@ -67,7 +67,7 @@ export default function SpaceProtectionBadge({ variant = "badge", style }) {
     }}>
       <span style={{ fontSize: 18, flexShrink: 0 }}>{SHOW_BETA_UI ? "🗂️" : "🛡️"}</span>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 800, color: C.navy }}>{SHOW_BETA_UI ? "계약·사진·단계가 기록되고 있어요" : "공간마켓 안전거래로 보호 중"}</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: C.navy }}>{SHOW_BETA_UI ? "계약·사진·단계가 기록되고 있어요" : "공간랜드 안전거래로 보호 중"}</div>
         <div style={{ fontSize: 12, color: C.text3, marginTop: 2, lineHeight: 1.6 }}>
           {SHOW_BETA_UI ? "대금은 계약서에 적은 단계대로 업체와 직접 주고받아요." : "직거래 시 이 보호가 사라집니다."}
         </div>

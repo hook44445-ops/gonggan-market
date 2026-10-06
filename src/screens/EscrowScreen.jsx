@@ -81,7 +81,7 @@ const fmtTs = (ts) => {
 const STAGE_META = [
   // 결제가 열리기 전(PAYMENTS_LIVE=false)엔 «예치·지급» 대신 «계약서대로 직접» — 업체 화면도 고객 화면(CUSTOMER_DISPLAY)과 같은 말(점검 6차 09-25)
   PAYMENTS_LIVE
-    ? { id: 1, label: "전액 예치",    sub: "고객이 총 금액을 공간마켓에 예치",              icon: "🔒", pct: 0,  confirmLabel: null, autoRelease: false }
+    ? { id: 1, label: "전액 예치",    sub: "고객이 총 금액을 공간랜드에 예치",              icon: "🔒", pct: 0,  confirmLabel: null, autoRelease: false }
     : { id: 1, label: "계약 확정",    sub: "대금은 계약서 단계대로 고객과 직접 주고받아요",  icon: "🔒", pct: 0,  confirmLabel: null, autoRelease: false },
   PAYMENTS_LIVE
     ? { id: 2, label: "자재비 선지급", sub: "계약 완료 즉시 자동 지급 · 고객 확인 불필요",  icon: "💰", pct: 10, confirmLabel: null, autoRelease: true  }
@@ -95,7 +95,7 @@ const STAGE_META = [
 const CUSTOMER_DISPLAY = {
   1: SHOW_BETA_UI
      ? { label: "계약 확정",     sub: "대금은 계약서 단계대로 업체와 직접 주고받아요",       confirmLabel: null }
-     : { label: "결제 완료",       sub: "공사비를 공간마켓이 안전하게 보관합니다",             confirmLabel: null },
+     : { label: "결제 완료",       sub: "공사비를 공간랜드가 안전하게 보관합니다",             confirmLabel: null },
   2: SHOW_BETA_UI
      ? { label: "자재비",           sub: "계약서대로 자재비를 먼저 주고받아요",                  confirmLabel: null }
      : { label: "자재비 지급",      sub: "계약 완료 후 자재비가 업체에 먼저 지급됩니다",         confirmLabel: null },
@@ -1732,7 +1732,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
               <div style={{ fontSize: 14, fontWeight: 800, color: C.red, marginBottom: 3 }}>분쟁 접수 — 계약 일시 동결</div>
               <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6 }}>
                 이의 신청이 접수되어 모든 단계 승인 및 지급이 동결됩니다.<br />
-                공간마켓 중재팀이 검토 후 연락드립니다 (영업일 1~2일).
+                공간랜드 중재팀이 검토 후 연락드립니다 (영업일 1~2일).
               </div>
             </div>
           </div>
@@ -1759,11 +1759,11 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             <>
               <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>{SHOW_BETA_UI ? "총 계약 금액" : "공간안전결제 예치 금액 (시공비 + 공간안전결제 이용료)"}</div>
               <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(SHOW_BETA_UI ? bidAmount : customerTotal)}</div>
-              <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>{SHOW_BETA_UI ? "대금은 계약서 단계대로 업체와 직접 주고받아요 · 단계마다 사진을 확인해 주세요" : "공간마켓이 보관 중 · 사진 확인 후 단계별로 업체에 지급됩니다"}</div>
+              <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>{SHOW_BETA_UI ? "대금은 계약서 단계대로 업체와 직접 주고받아요 · 단계마다 사진을 확인해 주세요" : "공간랜드가 보관 중 · 사진 확인 후 단계별로 업체에 지급됩니다"}</div>
             </>
           ) : (
             <>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>{SHOW_BETA_UI ? "총 계약 금액" : "총 계약 금액 (공간마켓 보관중)"}</div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>{SHOW_BETA_UI ? "총 계약 금액" : "총 계약 금액 (공간랜드 보관중)"}</div>
               <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(bidAmount)}</div>
               <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>{SHOW_BETA_UI ? "단계마다 완료를 알리고 계약서대로 받으세요" : "고객 예치 완료 · 단계별 완료 신고 후 입금됩니다"}</div>
             </>
@@ -2057,7 +2057,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       <Icon emoji="⚠️" size={16} color={C.red} />
                       <div>
                         <div style={{ fontSize: 13, color: C.red, fontWeight: 700 }}>이의 신청 접수됨</div>
-                        <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>공간마켓 중재팀이 검토 후 연락드립니다 (영업일 1~2일)</div>
+                        <div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>공간랜드 중재팀이 검토 후 연락드립니다 (영업일 1~2일)</div>
                       </div>
                     </div>
                   )}
@@ -2264,7 +2264,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
             {!SHOW_BETA_UI && (
             <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.text1, marginBottom: S.md, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="🏦" size={14} color={C.text1} /> {isConsumer ? "결제 보관 안내" : "예치금 보관 안내"}</div>
-              {[["보관", "공간마켓 법인 신탁 계좌"], ["환급", "탈퇴 7일 내 전액"], ["분쟁", "중재 후 판정 지급"], ["향후", "은행 신탁 연계 예정"]].map(([k, v]) => (
+              {[["보관", "공간랜드 법인 신탁 계좌"], ["환급", "탈퇴 7일 내 전액"], ["분쟁", "중재 후 판정 지급"], ["향후", "은행 신탁 연계 예정"]].map(([k, v]) => (
                 <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: `${S.xs}px 0`, borderBottom: `1px solid ${C.bgWarm}` }}>
                   <span style={{ fontSize: 12, color: C.text3 }}>{k}</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: C.text1 }}>{v}</span>
@@ -2331,7 +2331,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
           <div style={{ background: C.surface, borderRadius: "24px 24px 0 0", width: "100%", maxWidth: 480, padding: "24px 24px 40px" }}>
             <div style={{ width: 36, height: 4, background: C.bgWarm, borderRadius: R.full, margin: "0 auto 20px" }} />
             <div style={{ fontSize: 18, fontWeight: 800, color: C.text1, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Icon emoji="⚠️" size={18} color={C.red} /> 이의 신청</div>
-            <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6, marginBottom: S.md }}>시공 상태가 계약 내용과 다를 경우 이의를 신청하세요.<br />공간마켓 중재팀이 검토 후 연락드립니다.</div>
+            <div style={{ fontSize: 13, color: C.text3, lineHeight: 1.6, marginBottom: S.md }}>시공 상태가 계약 내용과 다를 경우 이의를 신청하세요.<br />공간랜드 중재팀이 검토 후 연락드립니다.</div>
             <div style={{ marginBottom: S.lg }}>
               <DisputeNotice variant="full" />
             </div>

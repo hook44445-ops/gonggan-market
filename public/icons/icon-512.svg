@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- 공간마켓 01 공간·연결형 — maskable (full-bleed deep green, safe-zone mark) -->
+  <!-- 공간랜드 01 공간·연결형 — maskable (full-bleed deep green, safe-zone mark) -->
   <rect width="512" height="512" fill="#2E5F4B"/>
   <!-- mark: 48-grid geometry scaled into central safe area -->
   <g transform="translate(34 34) scale(9.25)" fill="none" stroke="#F7F3E9" stroke-width="2.2">

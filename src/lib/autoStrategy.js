@@ -30,7 +30,7 @@ export const CONTENT_TYPE_STRATEGY = {
   qt:            { mode: "voice", promptVersion: "v2", temperature: 0.55, style: "말씀/묵상" },
   astrology:     { mode: "voice", promptVersion: "v2", temperature: 0.75, style: "월별 운세" },
   breaking:      { mode: "raw",   promptVersion: "v1", temperature: 0.45, style: "긴급 뉴스" },
-  space_market:  { mode: "space", promptVersion: "v3", temperature: 0.75, style: "공간마켓(공간관점)" },
+  space_market:  { mode: "space", promptVersion: "v3", temperature: 0.75, style: "공간랜드(공간관점)" },
   series:        { mode: "voice", promptVersion: "v3", temperature: 1.0,  style: "연재 스토리" },
   trend_past:    { mode: "voice", promptVersion: "v3", temperature: 0.75, style: "Time Trend · Past" },
   trend_present: { mode: "voice", promptVersion: "v2", temperature: 0.65, style: "Time Trend · Present" },
@@ -71,7 +71,7 @@ export function analyzeStrategy(issue, { categoryHint = null, typeHint = null } 
   let mode, promptVersion, temperature, style;
   const typeStrat = CONTENT_TYPE_STRATEGY[contentType];
   if (typeStrat && (typeHint || contentType !== "trend_present")) {
-    // 명시 타입(또는 뉴스/큐티/운세/연재/공간마켓/트렌드 Past·Future 등)은 타입 전략을 그대로 쓴다.
+    // 명시 타입(또는 뉴스/큐티/운세/연재/공간랜드/트렌드 Past·Future 등)은 타입 전략을 그대로 쓴다.
     ({ mode, promptVersion, temperature, style } = typeStrat);
   } else if (isStory) {
     mode = "voice"; promptVersion = "v3"; temperature = 1.0; style = "연재 스토리";

@@ -208,7 +208,7 @@ export function unlockFor(amountManwon, state = {}) {
 const hasBatchim = (ch) => { const c = (ch || "").charCodeAt(0) - 0xAC00; return c >= 0 && c <= 11171 && c % 28 !== 0; };
 export function unlockMessage(u) {
   if (!u) return null;
-  if (u.over) return "공간마켓에서는 공사 1건 1억원까지 입찰할 수 있어요";
+  if (u.over) return "공간랜드에서는 공사 1건 1억원까지 입찰할 수 있어요";
   const text = u.need.join(" + ");
   return `이 공사는 ${text}${hasBatchim(text.trim().slice(-1)) ? "을" : "를"} 내면 입찰할 수 있어요`;
 }

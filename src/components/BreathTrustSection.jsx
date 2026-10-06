@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 // ════════════════════════════════════════════════════════════════════════════
 // BreathTrustSection — "호흡과 신뢰" (Landing Page Upgrade v2.0)
-//   업체 랜딩페이지에 공간마켓 브랜드 철학(라운지 기반 호흡·신뢰)을 전달하는 신규 섹션.
+//   업체 랜딩페이지에 공간랜드 브랜드 철학(라운지 기반 호흡·신뢰)을 전달하는 신규 섹션.
 //   · Add Only — 기존 컴포넌트/스타일/라우팅/API/DB 미접촉.
 //   · 전문가 카드/인기 콘텐츠는 Mock UI(DB·API 미연결). 향후 실제 라운지와 연결 예정.
 //   · 랭킹/TOP/베스트/추천 금지 → "함께 호흡하는 공간파트너" + 활동 배지로만 표현.
@@ -90,7 +90,7 @@ export default function BreathTrustSection() {
             fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
             padding: "4px 12px", borderRadius: 99, marginBottom: 12,
           }}>
-            공간마켓 라운지
+            공간랜드 라운지
           </div>
           <div style={{ fontSize: 24, fontWeight: 900, color: NAVY, lineHeight: 1.35, marginBottom: 8 }}>
             호흡과 신뢰
@@ -215,7 +215,7 @@ export default function BreathTrustSection() {
           오늘의 활동이 내일의 프로젝트가 됩니다.
         </div>
         <div style={{ fontSize: 12.5, color: TEXT2, textAlign: "center", lineHeight: 1.75 }}>
-          공간마켓은 업체를 경쟁시키지 않습니다.<br />
+          공간랜드는 업체를 경쟁시키지 않습니다.<br />
           모든 성실한 활동을 가치 있는 기록으로 남깁니다.<br />
           호흡과 신뢰를 함께 쌓아가며 더 좋은 프로젝트를 만들어갑니다.
         </div>

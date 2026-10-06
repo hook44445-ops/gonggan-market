@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 E2E Validator — 실제 Production 검증 (Phase 36)
+// 공간랜드 E2E Validator — 실제 Production 검증 (Phase 36)
 //
 //   실제 OpenRouter 호출로 전 과정을 수행한다:
 //     ① Research → ② Fusion → ③ SEO → ④ Review → ⑤ Approval(초안 저장) →

@@ -14,7 +14,7 @@ test("짧은 주소 규칙", () => {
   assert.match(slugProblem("-abc"), /하이픈/);
   assert.match(slugProblem("abc_def"), /하이픈/);
   assert.match(slugProblem("admin"), /쓸 수 없는/);
-  assert.match(slugProblem("공간마켓"), /쓸 수 없는/);
+  assert.match(slugProblem("공간랜드"), /쓸 수 없는/);
 });
 
 test("업체 ID(uuid)와 짧은 주소를 가른다", () => {
@@ -22,8 +22,8 @@ test("업체 ID(uuid)와 짧은 주소를 가른다", () => {
   assert.equal(isUuid("gangseo-repair"), false);
 });
 
-test("서버(149)와 예약어·글자 규칙이 같다", () => {
-  const sql = readFileSync(fileURLToPath(new URL("../../supabase/migrations/149_company_slug.sql", import.meta.url)), "utf-8");
+test("서버(149→204)와 예약어·글자 규칙이 같다", () => {
+  const sql = readFileSync(fileURLToPath(new URL("../../supabase/migrations/204_slug_reserved_gongganland.sql", import.meta.url)), "utf-8");
   for (const w of RESERVED_SLUGS) assert.ok(sql.includes(`'${w}'`), `SQL 예약어에 없음: ${w}`);
   assert.ok(sql.includes("^[가-힣a-z0-9]([가-힣a-z0-9-]{0,18}[가-힣a-z0-9])?$"), "SQL 글자 규칙이 다르다");
 });

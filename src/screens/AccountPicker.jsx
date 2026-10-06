@@ -57,7 +57,7 @@ export default function AccountPicker({ users = [], busyId = null, onPick, onAdd
             <div style={{ fontSize: 10, color: C.text3, letterSpacing: "0.2em", marginBottom: 7 }}>BY 공간사이</div>
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <LogoMark size={24} bare />
-              <span style={{ fontSize: 24, fontWeight: 700, color: C.text1, letterSpacing: "-0.03em", lineHeight: 1.2 }}>공간마켓</span>
+              <span style={{ fontSize: 24, fontWeight: 700, color: C.text1, letterSpacing: "-0.03em", lineHeight: 1.2 }}>공간랜드</span>
             </div>
           </div>
         </div>

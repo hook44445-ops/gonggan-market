@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────
-// 공간마켓 라운지 sitemap.xml (Vercel Serverless)
+// 공간랜드 라운지 sitemap.xml (Vercel Serverless)
 //   공개 글(is_deleted/false·is_hidden/false·is_visible≠false) + 카테고리/지역 랜딩 URL
 // ─────────────────────────────────────────────────────
 

@@ -68,7 +68,7 @@ export async function llmStatus() {
 const AUDIENCE = {
   consumer: "집을 고치거나 꾸미려는 사람(인테리어 수요자)",
   partner: "인테리어·시공 업체 사장님(공급자)",
-  brand: "공간마켓 라운지 독자",
+  brand: "공간랜드 라운지 독자",
   category: "이 주제를 좋아하는 라운지 독자",
 };
 
@@ -78,12 +78,12 @@ export function buildLoungePrompt(item) {
   const voice = voiceFor(cat, item.topic);
   const region = item.region ? `지역: ${item.region} — 제목 앞부분과 첫 문단, 본문 한두 곳에 자연스럽게(GEO). 지역 사정은 지어내지 말고 «지역마다 다를 수 있는 것»으로만.` : "지역: 없음";
   const brand = item.brand
-    ? "이 글은 공간마켓(비교견적·공사 기록) 또는 PRUBI(기록 앱)를 «쓰는 법» 정보로 소개하는 글이다. 광고 문구·과장 없이 실제 사용 흐름으로."
-    : "공간마켓 언급은 꼭 필요할 때 마지막에 한 문장만. 억지로 넣지 않는다.";
+    ? "이 글은 공간랜드(비교견적·공사 기록) 또는 PRUBI(기록 앱)를 «쓰는 법» 정보로 소개하는 글이다. 광고 문구·과장 없이 실제 사용 흐름으로."
+    : "공간랜드 언급은 꼭 필요할 때 마지막에 한 문장만. 억지로 넣지 않는다.";
   const hint = item.points ? `참고 핵심(더 깊게 풀어 쓸 것): ${item.points.join(" / ")}` : "";
 
   const system = [
-    "너는 한국 커뮤니티 «공간마켓 라운지»의 수석 에디터다. 네이버·구글 검색 1페이지에 오르고, 검색 결과에서 가장 먼저 클릭되고,",
+    "너는 한국 커뮤니티 «공간랜드 라운지»의 수석 에디터다. 네이버·구글 검색 1페이지에 오르고, 검색 결과에서 가장 먼저 클릭되고,",
     "그 분야 «덕후»가 끝까지 읽고 저장·공유하는 글을 쓴다. 한국어 존댓말, 읽기 쉬운 짧은 문장.",
     "",
     "반드시 지킬 것:",
@@ -202,7 +202,7 @@ async function callOpenAiCompatible(url, key, model, system, user, signal, extra
   return data?.choices?.[0]?.message?.content ?? "";
 }
 
-const OR_HEADERS = () => ({ "HTTP-Referer": process.env.SITE_URL || "https://gongganmarket.com", "X-Title": "Gonggan Market Lounge" });
+const OR_HEADERS = () => ({ "HTTP-Referer": process.env.SITE_URL || "https://gongganmarket.com", "X-Title": "Gonggan Land Lounge" });
 
 // 10-01 — 관리자 화면 AI(브라우저)가 «서버 키»로 쓰게 하는 통로(키를 앱 코드에 싣지 않는다 · VITE_ 키 폐기).
 //   글자 그대로 돌려준다(JSON 강제 X). 모델은 «회사/모델» 꼴만 받고, 없거나 이상하면 서버 글쓰기 모델.

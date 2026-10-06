@@ -9,7 +9,7 @@ export function priceIndexSummary(rows = []) {
   if (n < MIN_SAMPLES) return null;
   const perM2 = ok.reduce((s, r) => s + Number(r.price_per_m2) * Number(r.sample_count), 0) / n;   // 만원/m²
   const perPyeong = Math.round(perM2 * PYEONG_M2);
-  return { samples: n, perPyeong, line: `비슷한 공사 평균 평당 약 ${perPyeong.toLocaleString("ko-KR")}만원 · 공간마켓 완공 ${n}건 기준` };
+  return { samples: n, perPyeong, line: `비슷한 공사 평균 평당 약 ${perPyeong.toLocaleString("ko-KR")}만원 · 공간랜드 완공 ${n}건 기준` };
 }
 
 // 관리자 «가격 데이터 쌓임»(176) → 칸

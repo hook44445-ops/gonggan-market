@@ -1,4 +1,4 @@
-/* 앱 안 v3 공용 부품의 움직임(2026-09-30 대표 「공간마켓 전체 구조적·동적 요소 부족 — 힉스필드와 함께」).
+/* 앱 안 v3 공용 부품의 움직임(2026-09-30 대표 「공간랜드 전체 구조적·동적 요소 부족 — 힉스필드와 함께」).
    원칙: 한 화면에서 크게 움직이는 것은 히어로 사진 하나 · 나머지는 «한 번» 나타나고 멈춘다 · 움직임 줄이기면 전부 멈춤. */
 .v3-reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s cubic-bezier(.22,.61,.36,1), transform .6s cubic-bezier(.22,.61,.36,1); }
 .v3-reveal.is-in { opacity: 1; transform: none; }

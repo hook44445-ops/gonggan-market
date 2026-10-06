@@ -344,7 +344,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
               <div style={{ fontSize: 10, color: C.text3, letterSpacing: "0.2em", marginBottom: 7 }}>BY 공간사이</div>
               <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                 <LogoMark size={26} bare />
-                <span style={{ fontSize: 27, fontWeight: 700, color: C.text1, letterSpacing: "-0.03em", lineHeight: 1.2 }}>공간마켓</span>
+                <span style={{ fontSize: 27, fontWeight: 700, color: C.text1, letterSpacing: "-0.03em", lineHeight: 1.2 }}>공간랜드</span>
               </div>
             </div>
           </div>
@@ -410,7 +410,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                 if (next >= 5) { setTapCount(0); setShowAdminModal(true); }
               }}
               style={{ fontSize: 10.5, color: C.text4, cursor: "default", userSelect: "none", letterSpacing: "0.06em" }}>
-              공간마켓 v1.0.0
+              공간랜드 v1.0.0
             </div>
           </div>
         </div>
@@ -495,7 +495,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
                 if (next >= 5) { setStep2TapCount(0); setShowBypassModal(true); }
               }}
               style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
-              공간마켓 v1.0.0
+              공간랜드 v1.0.0
             </div>
           </div>
         </div>
@@ -584,7 +584,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
             style={{ width: "100%", padding: S.xl, background: C.brand, color: "#fff", border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, cursor: "pointer", boxShadow: `0 6px 20px ${C.brand44}`, opacity: loading ? 0.7 : 1,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             {loading ? "저장 중..." : (
-              <>공간마켓 시작하기{selectedServices.length > 0 ? ` (${selectedServices.length}개 선택)` : ""} <Icon emoji="🚀" size={16} color="#fff" /></>
+              <>공간랜드 시작하기{selectedServices.length > 0 ? ` (${selectedServices.length}개 선택)` : ""} <Icon emoji="🚀" size={16} color="#fff" /></>
             )}
           </button>
           <button onClick={() => { setConsumerStep(2); setSelectedDistrict(""); }}
@@ -644,10 +644,10 @@ export default function LoginScreen({ onLogin, initialRole }) {
             }}>
               <div style={{ padding: "30px 22px 26px" }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", opacity: 0.85, marginBottom: 10, letterSpacing: "0.02em" }}>
-                  공간마켓 신뢰거래 플랫폼
+                  공간랜드 신뢰거래 플랫폼
                 </div>
                 <div style={{ fontSize: 23, fontWeight: 900, color: "#fff", lineHeight: 1.35, marginBottom: 18, letterSpacing: "-0.3px" }}>
-                  공간마켓,<br/>안전한 인테리어 거래의 시작
+                  공간랜드,<br/>안전한 인테리어 거래의 시작
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
                   {[
@@ -672,9 +672,9 @@ export default function LoginScreen({ onLogin, initialRole }) {
               </div>
             </div>
 
-            {/* ═══ 2. 공간마켓이 지키는 기준 (4 카드) ═══ */}
+            {/* ═══ 2. 공간랜드가 지키는 기준 (4 카드) ═══ */}
             <div style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간마켓이 지키는 기준</div>
+              <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>공간랜드가 지키는 기준</div>
               <div style={{ fontSize: 19, fontWeight: 900, color: C.text1, marginBottom: 14 }}>실제 구조로 안전을 지켜요</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 {[
@@ -803,7 +803,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
             {/* ═══ 7. 에스크로 안전정산 (단계형) ═══ */}
             <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, marginBottom: 28, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginBottom: 6 }}>{SHOW_BETA_UI ? "단계별 확인" : "에스크로 안전정산"}</div>
-              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 16 }}>{SHOW_BETA_UI ? "단계마다 확인하고 기록해요" : "공사비는 공간마켓이 보관해요"}</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: C.text1, marginBottom: 16 }}>{SHOW_BETA_UI ? "단계마다 확인하고 기록해요" : "공사비는 공간랜드가 보관해요"}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 {[
                   { icon: "📝", step: "계약" },
@@ -822,11 +822,11 @@ export default function LoginScreen({ onLogin, initialRole }) {
               </div>
             </div>
 
-            {/* ═══ 8. 공간마켓 라운지 (보조 서비스 · 축소) ═══ */}
+            {/* ═══ 8. 공간랜드 라운지 (보조 서비스 · 축소) ═══ */}
             <div style={{ background: C.surface, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <Icon emoji="💬" size={18} color={C.brand} />
-                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>공간마켓 라운지</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text1 }}>공간랜드 라운지</div>
                 <span style={{ background: C.surface2, color: C.text3, borderRadius: R.full, padding: "2px 9px", fontSize: 10.5, fontWeight: 700, border: `1px solid ${C.bgWarm}` }}>보조 서비스</span>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>

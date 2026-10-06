@@ -54,7 +54,7 @@ export function drawBidShare(canvas, { title, rows, qrUrl, day, bg = null }) {
   }
   const tx = qrUrl ? PAD + 210 : PAD;
   text("같이 골라 주세요", tx, top + 80, 36, 900);
-  text("공간마켓 · QR로 가입하면 공간토큰 선물", tx, top + 130, 27, 600, "#5C6B61");
+  text("공간랜드 · QR로 가입하면 공간토큰 선물", tx, top + 130, 27, 600, "#5C6B61");
   return canvas;
 }
 

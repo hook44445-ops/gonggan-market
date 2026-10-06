@@ -1,10 +1,10 @@
-// 공간마켓 밖 공사 후기(지인 공사 등 · 151) — 대표 결정 09-28 «1번: 따로 표시, 평점·온도에 넣지 않음».
+// 공간랜드 밖 공사 후기(지인 공사 등 · 151) — 대표 결정 09-28 «1번: 따로 표시, 평점·온도에 넣지 않음».
 //   업체가 «후기 부탁 링크»(/p/주소?write=1&ref=코드)를 보내면, 받은 사람이 로그인해 별점·한 줄을 남긴다.
 //   로그인 전이면 기기에 «어느 업체에 쓰려 했는지»를 남겨 두고, 로그인 뒤 그 페이지로 되돌린다.
 import { SITE_URL } from "../utils/siteSeo.js";
 import { withRefCode } from "./referral.js";
 
-export const EXTERNAL_REVIEW_LABEL = "공간마켓 밖 공사 후기";
+export const EXTERNAL_REVIEW_LABEL = "공간랜드 밖 공사 후기";
 export const EXTERNAL_REVIEW_NOTE = "계약 기록이 없는 후기예요 · 평점과 공간온도에는 들어가지 않아요";
 const PENDING_KEY = "gonggan_pending_review";
 const KEEP_MS = 7 * 24 * 60 * 60 * 1000;

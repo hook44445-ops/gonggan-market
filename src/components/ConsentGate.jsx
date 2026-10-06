@@ -203,7 +203,7 @@ export default function ConsentGate({ requiredTypes, userId, title, onComplete, 
                 <span style={{ color: C.text3, fontWeight: 800, marginRight: 4 }}>[선택]</span>이벤트·혜택 알림(광고) 받기
               </span>
               <span style={{ display: "block", fontSize: 11.5, color: C.text3, marginTop: 3, lineHeight: 1.55 }}>
-                공간마켓의 초대 이벤트·토큰 혜택 소식을 앱 푸시로 받아요(제목에 「(광고)」 · 낮 9시~저녁 8시). 푸시 알림도 함께 켜지고,
+                공간랜드의 초대 이벤트·토큰 혜택 소식을 앱 푸시로 받아요(제목에 「(광고)」 · 낮 9시~저녁 8시). 푸시 알림도 함께 켜지고,
                 동의하지 않아도 이용에 불이익이 없어요. 마이 &gt; 푸시 알림에서 언제든 끌 수 있어요.
               </span>
             </span>

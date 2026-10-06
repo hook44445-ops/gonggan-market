@@ -41,7 +41,7 @@ export function whyThisCompany(company = {}) {
   const jobs = Number(company.completedJobs) || 0;
   const re = Number(company.recontractRate) || 0;
   const as = Number(company.asRate) || 0;
-  if (jobs >= 10) out.push(`공간마켓 시공 ${jobs}건`);
+  if (jobs >= 10) out.push(`공간랜드 시공 ${jobs}건`);
   if (re >= 30) out.push(`재계약 ${Math.round(re)}%`);
   if (as >= 90) out.push(`A/S 응답 ${Math.round(as)}%`);
   if (company.hasInsurance) out.push("보험 가입");

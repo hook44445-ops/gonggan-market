@@ -1,4 +1,4 @@
-// 공간마켓 알림 → FCM 큐 연결(Phase 1) 단위 테스트
+// 공간랜드 알림 → FCM 큐 연결(Phase 1) 단위 테스트
 // 실행: node --test api/push/enqueue.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";

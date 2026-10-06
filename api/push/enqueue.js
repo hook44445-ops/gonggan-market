@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────
-// 공간마켓 알림 → FCM 큐 연결 (Phase 1)
+// 공간랜드 알림 → FCM 큐 연결 (Phase 1)
 //
 // createNotification() 이 notifications insert 성공 후 best-effort 로 호출한다.
 // push_preferences(전체/카테고리 토글) 확인 후 push_logs 에 큐잉한다.
@@ -323,7 +323,7 @@ export default async function handler(req, res) {
     const { error } = await db.from("push_logs").insert({
       user_id: userId,
       type,
-      title: title || "공간마켓",
+      title: title || "공간랜드",
       body: message || "",
       target_url: buildTargetUrl(relatedType, relId, type),
       related_id: relId,

@@ -1,7 +1,7 @@
 ---
 const {company}=Astro.props;
 ---
-<div class="cta"><p>요청을 올리면 {company.name}에 바로 알림이 가요</p><a href="/" data-preferred-company={JSON.stringify({id:company.id,name:company.name ?? null,ownerId:company.owner_id ?? null})}>공간마켓에서 무료 견적 받기</a></div>
+<div class="cta"><p>요청을 올리면 {company.name}에 바로 알림이 가요</p><a href="/" data-preferred-company={JSON.stringify({id:company.id,name:company.name ?? null,ownerId:company.owner_id ?? null})}>공간랜드에서 무료 견적 받기</a></div>
 <script>
 import {rememberPreferredCompany} from '../lib/preferredCompany.js';
 document.querySelector<HTMLAnchorElement>('[data-preferred-company]')?.addEventListener('click',event=>{

@@ -37,10 +37,10 @@ const CHECKLIST_LABELS = {
   privacy:         "고객 개인정보 보호 서약",
   as_duty:         "하자보수 AS 의무 이행 동의",
   quality:         "품질 관리 및 안전 수칙 준수 동의",
-  policy:          "공간마켓 운영 정책 준수 동의",
+  policy:          "공간랜드 운영 정책 준수 동의",
   phase_structure: "단계별 안전지급 구조 이해",
   phase_delay:     "단계 미완료 시 정산 지연 동의",
-  dispute:         "분쟁 발생 시 공간마켓 중재 동의",
+  dispute:         "분쟁 발생 시 공간랜드 중재 동의",
   final_approval:  "고객 최종 승인 후 정산 동의",
 };
 

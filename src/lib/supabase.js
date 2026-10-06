@@ -210,7 +210,7 @@ export const adminSetGuarantee = (adminId, companyId, { status = null, badgeVisi
     p_status: status, p_badge_visible: badgeVisible,
   });
 
-// 공간마켓 직영 표시 켜기/끄기 — 관리자만(146 · 로그인 토큰으로 판단). 카드 표시만 바뀌고 정렬·매칭은 그대로.
+// 공간랜드 직영 표시 켜기/끄기 — 관리자만(146 · 로그인 토큰으로 판단). 카드 표시만 바뀌고 정렬·매칭은 그대로.
 export const adminSetCompanyDirect = (companyId, isDirect) =>
   supabase.rpc("admin_set_company_direct", { p_company_id: companyId, p_direct: !!isDirect });
 
@@ -284,7 +284,7 @@ export const dailyCheckin = () => supabase.rpc("daily_checkin");
 export const getReferralInviter = (code) => supabase.rpc("referral_inviter", { p_code: code });
 export const claimReferral = (code) => supabase.rpc("referral_claim", { p_code: code });
 
-// 공간마켓 밖 공사 후기(151) — 따로 표시 · 평점·온도에 넣지 않음. 읽기는 누구나(숨김 제외), 쓰기는 로그인 토큰.
+// 공간랜드 밖 공사 후기(151) — 따로 표시 · 평점·온도에 넣지 않음. 읽기는 누구나(숨김 제외), 쓰기는 로그인 토큰.
 export const getExternalReviews = (companyId) =>
   supabase.from("external_reviews").select("id, author_name, rating, work_title, content, created_at")
     .eq("company_id", companyId).order("created_at", { ascending: false }).limit(20);
@@ -1372,7 +1372,7 @@ export const adminCreateLoungeDraft = async ({
     .from("lounge_posts")
     .insert({
       user_id:            null,
-      anonymous_nickname: "공간마켓",
+      anonymous_nickname: "공간랜드",
       category,
       title,
       content,
@@ -4161,7 +4161,7 @@ export async function checkSiteVisitFollowUp() {
         userId: req.user_id,
         type: "CONTRACT_FOLLOWUP",
         title: "계약은 어떻게 진행되고 있나요?",
-        message: "실측·견적 이후 계약 진행 상태를 알려주세요. 공간마켓 안전결제로 진행하시면 보호받을 수 있습니다.",
+        message: "실측·견적 이후 계약 진행 상태를 알려주세요. 공간랜드 안전결제로 진행하시면 보호받을 수 있습니다.",
         relatedId: v.request_id ?? null,
         relatedType: "request",
         priority: "NORMAL",

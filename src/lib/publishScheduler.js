@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Publish Scheduler — 편성 시간 기반 예약 (Phase 35)
+// 공간랜드 Publish Scheduler — 편성 시간 기반 예약 (Phase 35)
 //   승인된 발행 작업을 콘텐츠 타입의 편성 시간(큐티 05·운세 06·Morning Brief 07·긴급 수시 등)에
 //   맞춰 예약(scheduledAt)한다. 실제 발행은 Publish Worker 가 시각 도래 시 수행.
 //   ⚠️ 순수 함수 · DB/Cron 없음. Regression Zero.

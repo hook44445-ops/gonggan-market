@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Self-Healing — 무인 운영 자동 복구 (Phase 38)
+// 공간랜드 Self-Healing — 무인 운영 자동 복구 (Phase 38)
 //   Watchdog 이상 → 자동 복구: 예약 누락→예약 · 실패→재큐 · 도래 미처리→Worker 재실행 ·
 //   오늘 미생성→자동 생성. Recovered 로 로그.
 //   ⚠️ 기존 엔진 재사용(무수정): publishQueue/scheduler/worker · dayScheduler. Regression Zero.

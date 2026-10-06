@@ -41,7 +41,7 @@ test("공간 뉴스 — 집과 닿는 기사만, 본문 없이 제목·링크·�
   const p = composeNewsPost({ title: "가을 이사철 도배 수요 늘어", url: "https://a.com/3", source: "a.com" }, { now: NOW });
   assert.equal(p.category, "move_in");
   assert.ok(p.content.includes("[가을 이사철 도배 수요 늘어](https://a.com/3) (a.com)"));
-  assert.ok(p.content.includes("## 공간마켓 체크포인트"));
+  assert.ok(p.content.includes("## 공간랜드 체크포인트"));
 });
 
 test("날씨와 집 — 평범한 날은 쓰지 않고, 한파면 수치 그대로", () => {

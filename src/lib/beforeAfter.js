@@ -29,11 +29,11 @@ export function cardFooter({ isCompany = false, companyName = "", reward = 20 } 
     };
   }
   return {
-    head: "공간마켓에서 견적 비교하고 고쳤어요",
+    head: "공간랜드에서 견적 비교하고 고쳤어요",
     sub: `QR로 가입하면 공간토큰 ${reward}개를 드려요`,
   };
 }
 
 export function cardFileName(day) {
-  return `공간마켓_전후_${String(day ?? "").replace(/-/g, "")}.png`;
+  return `공간랜드_전후_${String(day ?? "").replace(/-/g, "")}.png`;
 }

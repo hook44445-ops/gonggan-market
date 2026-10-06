@@ -3,7 +3,7 @@ import { C, R, S } from "../constants";
 import { submitExternalReview } from "../lib/supabase";
 import { externalReviewProblem, reviewReasonText, EXTERNAL_REVIEW_LABEL, EXTERNAL_REVIEW_NOTE } from "../lib/externalReview";
 
-// 공간마켓 밖 공사 후기 쓰기(151) — 업체 공개 페이지에서. 평점·공간온도에는 들어가지 않는다고 미리 말한다.
+// 공간랜드 밖 공사 후기 쓰기(151) — 업체 공개 페이지에서. 평점·공간온도에는 들어가지 않는다고 미리 말한다.
 export default function ExternalReviewSheet({ companyId, companyName, onClose, onDone }) {
   const [rating, setRating] = useState(0);
   const [workTitle, setWorkTitle] = useState("");

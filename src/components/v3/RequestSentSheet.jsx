@@ -64,7 +64,7 @@ export default function RequestSentSheet({ onClose, onBrowse, onTrack, userId = 
     trackUsp(12, { meta: { kind: "family" } });
     const text = familyMessage(refCode);
     try {
-      if (navigator.share) { await navigator.share({ title: "공간마켓", text }); setShared(true); return; }
+      if (navigator.share) { await navigator.share({ title: "공간랜드", text }); setShared(true); return; }
       await navigator.clipboard.writeText(text); setShared(true);
     } catch { /* 공유 취소 */ }
   };

@@ -26,7 +26,7 @@ function drawCard(canvas, { matrix, name, url }) {
   ctx.fillStyle = "#7A8A7E"; ctx.font = "500 30px 'Pretendard','Apple SD Gothic Neo',sans-serif";
   ctx.fillText(url.replace(/^https?:\/\//, "").replace(/\?ref=.*$/, ""), CARD_W / 2, 1175);
   ctx.fillStyle = "#2E5F4B"; ctx.font = "800 36px 'Pretendard','Apple SD Gothic Neo',sans-serif";
-  ctx.fillText("공간마켓", CARD_W / 2, 1270);
+  ctx.fillText("공간랜드", CARD_W / 2, 1270);
 }
 
 export default function CompanyQrSheet({ url, name, onClose, onSaved }) {
@@ -40,7 +40,7 @@ export default function CompanyQrSheet({ url, name, onClose, onSaved }) {
       drawCard(canvas, { matrix, name, url });
       const blob = await new Promise((ok) => canvas.toBlob(ok, "image/png"));
       if (!blob) throw new Error("NO_BLOB");
-      const file = new File([blob], "공간마켓-업체QR.png", { type: "image/png" });
+      const file = new File([blob], "공간랜드-업체QR.png", { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
         trackUsp(12, { meta: { kind: "company_qr" } }); try { await navigator.share({ files: [file], title: `${name || "업체"} QR` }); setMsg("사진으로 저장하거나 인쇄소에 보내세요"); onSaved?.(); } catch { /* 취소 */ }
         return;

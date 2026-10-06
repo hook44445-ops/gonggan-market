@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Automation Queue — AI 자동화 작업 대기열 (Phase 32)
+// 공간랜드 Automation Queue — AI 자동화 작업 대기열 (Phase 32)
 //
 //   주제 하나를 넣으면 리서치→작성→SEO→이미지→검수→승인대기까지 흐르는 "작업(job)"으로 관리한다.
 //   상태: queued → running → approval_pending → scheduled → published / failed

@@ -150,7 +150,7 @@ export const calcCustomerGrade = (completedJobs = 0) => {
 };
 
 export const ESCROW_STEPS = [
-  { id:1, label:"전액 예치",    sub:"고객이 총 금액을 공간마켓에 예치",                pct:0,  icon:"🔒", done:true  },
+  { id:1, label:"전액 예치",    sub:"고객이 총 금액을 공간랜드에 예치",                pct:0,  icon:"🔒", done:true  },
   { id:2, label:"자재비 선지급", sub:"계약 완료 즉시 자동 지급 (고객 확인 없음)",       pct:10, icon:"💰", done:true  },
   { id:3, label:"착공 확인",    sub:"고객 착공 확인 후 업체에 20% 지급",              pct:20, icon:"🏗", done:false, active:false },
   { id:4, label:"중간점검",     sub:"고객 중간점검 확인 후 업체에 40% 지급",           pct:40, icon:"🔍", done:false },

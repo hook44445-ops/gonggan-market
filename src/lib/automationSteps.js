@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Automation Steps — 리서치/SEO/이미지/검수 단계 (Phase 32)
+// 공간랜드 Automation Steps — 리서치/SEO/이미지/검수 단계 (Phase 32)
 //
 //   각 단계는 기존 엔진을 "호출만" 한다:
 //     - 리서치: 기존 callLLM(OpenRouter, Perplexity 슬러그 시도 → 실패 시 자동 대체)
@@ -22,7 +22,7 @@ export async function autoResearch(topic, { signal = null } = {}) {
   if (!t) return { notes: "", ok: false };
   try {
     const { text } = await callLLM({
-      system: "당신은 공간마켓의 리서처입니다. 사실 중심으로 간결히 정리합니다.",
+      system: "당신은 공간랜드의 리서처입니다. 사실 중심으로 간결히 정리합니다.",
       user: `주제 "${t}" 에 대해 글 작성에 쓸 핵심 사실·배경·수치·관점을 5~8개 불릿으로 정리하라. 확실하지 않은 것은 표시하라.`,
       model: "perplexity/llama-3.1-sonar-large-128k-online", // 미가용 시 callLLM 내부 대체
       temperature: 0.4, maxTokens: 700, signal,

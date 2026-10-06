@@ -1,5 +1,5 @@
 // 후기 카드(업체 · 다운로드) — 받은 좋은 후기 한 줄 + 내 업체 페이지 QR 한 장(1080×1350).
-//   공간마켓 안 후기(reviews)만 · 별 4개 이상 · 고객 이름은 첫 글자만(김○○). 계산·문구만(그리기는 components/ReviewShareCard).
+//   공간랜드 안 후기(reviews)만 · 별 4개 이상 · 고객 이름은 첫 글자만(김○○). 계산·문구만(그리기는 components/ReviewShareCard).
 
 export function maskName(name) {
   const n = String(name ?? "").trim();

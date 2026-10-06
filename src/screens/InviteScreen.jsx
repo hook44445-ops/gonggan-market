@@ -92,7 +92,7 @@ export default function InviteScreen({ userId, isCompany = false, onBack, onReau
     trackUsp(12, { meta: { kind: which === "tester" ? "tester" : "invite" } });
     const text = which === "tester" ? testerMessage(state.code) : message;
     if (navigator.share) {
-      try { await navigator.share({ title: "공간마켓", text }); } catch { /* 공유 취소 */ }
+      try { await navigator.share({ title: "공간랜드", text }); } catch { /* 공유 취소 */ }
       return;
     }
     copy(which);

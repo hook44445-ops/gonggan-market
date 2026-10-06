@@ -67,7 +67,7 @@ test("정기/비정기 분류 + 예산 집계", () => {
   assert.equal(isRegular("breaking"), false);
   const today = editorialDateKST(Date.now());
   const mk = (title, st) => ({ title, publish_status: st, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-  const recs = [mk("오늘 큐티 말씀", "published"), mk("공간마켓 팁", "published"), mk("속보 긴급 사고", "published")];
+  const recs = [mk("오늘 큐티 말씀", "published"), mk("공간랜드 팁", "published"), mk("속보 긴급 사고", "published")];
   const b = computeBudget(recs, { now: Date.now() });
   assert.equal(b.total.pub, 3);
   assert.ok(b.regular.pub >= 2 && b.irregular.pub >= 1);

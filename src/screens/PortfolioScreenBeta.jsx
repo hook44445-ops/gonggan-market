@@ -42,7 +42,7 @@ function useCountUp(target, ms = 240) {
 }
 
 // publicView — 앱 밖 공개 페이지(/p/업체ID · PublicCompanyScreen). 상담·후기 대신 「무료 견적 받기」 하나.
-// onWriteExternal — 공간마켓 밖 공사 후기 쓰기(151). 공개 페이지가 로그인 여부를 보고 넘긴다(없으면 버튼 숨김).
+// onWriteExternal — 공간랜드 밖 공사 후기 쓰기(151). 공개 페이지가 로그인 여부를 보고 넘긴다(없으면 버튼 숨김).
 // writeOpen — ?write=1(업체가 보낸 «후기 부탁» 링크)로 들어왔으면 쓰기 창을 바로 연다.
 export default function PortfolioScreenBeta({ company, onChat: onChatProp, onReview: onReviewProp, onBack, onRequest, publicView = false, onWriteExternal = null, writeOpen = false }) {
   // 예시 업체(견본)는 상담·후기 대상이 아니다 → 버튼 대신 「이런 업체 만나기(무료 견적)」
@@ -52,7 +52,7 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
   const [portfolio, setPortfolio] = useState(company?.portfolio ?? []);
   const [reviews, setReviews] = useState(company?.reviewList ?? []);
   const [photoWork, setPhotoWork] = useState(null);
-  // 공간마켓 밖 공사 후기(151) — 평점·온도 계산(reviews)과 따로. 표가 없으면(151 전) 빈 목록.
+  // 공간랜드 밖 공사 후기(151) — 평점·온도 계산(reviews)과 따로. 표가 없으면(151 전) 빈 목록.
   const [extReviews, setExtReviews] = useState([]);
   const [extOpen, setExtOpen] = useState(false);
   const [extDone, setExtDone] = useState(false);
@@ -157,7 +157,7 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
         {isSample && (
           <div style={{ margin: `${S.sm}px 0 0`, background: "#FFF6E5", border: "1px solid #F3D9A4", borderRadius: R.lg,
             padding: "10px 14px", fontSize: 12.5, color: "#7A5200", lineHeight: 1.6 }}>
-            👀 <b>예시 화면이에요.</b> 실제 업체가 아니에요. 공간마켓에 입점한 업체는 이렇게 보여요.
+            👀 <b>예시 화면이에요.</b> 실제 업체가 아니에요. 공간랜드에 입점한 업체는 이렇게 보여요.
           </div>
         )}
         {displayCover && (
@@ -304,11 +304,11 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
         {publicView && reviewCount === 0 && (
           <Section title="시공 후기">
             <PublicEmptyState image="review-first" title="아직 후기가 없어요"
-              description="공간마켓에서 계약한 공사만 후기를 남길 수 있어요" />
+              description="공간랜드에서 계약한 공사만 후기를 남길 수 있어요" />
           </Section>
         )}
 
-        {/* ── 공간마켓 밖 공사 후기(151) — 평점·온도에 넣지 않고 따로 ── */}
+        {/* ── 공간랜드 밖 공사 후기(151) — 평점·온도에 넣지 않고 따로 ── */}
         {(extReviews.length > 0 || (publicView && onWriteExternal)) && (
           <Section title={EXTERNAL_REVIEW_LABEL} sub={extReviews.length ? `${extReviews.length}건` : null}>
             <div style={{ fontSize: 12, color: C.text3, marginBottom: S.sm }}>{EXTERNAL_REVIEW_NOTE}</div>
@@ -375,7 +375,7 @@ export default function PortfolioScreenBeta({ company, onChat: onChatProp, onRev
             width: "100%", maxWidth: 440, padding: "16px", background: C.brand, color: "#fff",
             border: "none", borderRadius: R.lg, fontWeight: 800, fontSize: 16, minHeight: 56, cursor: "pointer",
             boxShadow: `0 6px 20px ${C.brand44}`,
-          }}>{publicView ? "공간마켓에서 무료 견적 받기" : "이런 업체 만나기 · 무료 견적 받기"}</button>
+          }}>{publicView ? "공간랜드에서 무료 견적 받기" : "이런 업체 만나기 · 무료 견적 받기"}</button>
         </div>
       )}
       {onChat && (

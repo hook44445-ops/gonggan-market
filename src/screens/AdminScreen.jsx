@@ -201,7 +201,7 @@ const SEED_TITLE_EXAMPLES = [
 
 const BLANK_LOUNGE_SEED = {
   category: 'interior', seed_type: '운영', title: '', content: '',
-  region: '', author_name: '공간마켓',
+  region: '', author_name: '공간랜드',
   expert_company_name: '', expert_badge: '', expert_job: '',
   sort_order: 0, is_recommended: false, is_active: true,
 };
@@ -475,7 +475,7 @@ function AdminGrowthPanel() {
   );
 }
 
-// ── 공간마켓 밖 공사 후기(151) — 보이는 것만 나열, 문제 있으면 숨김(되살리기는 SQL: is_hidden=false) ──
+// ── 공간랜드 밖 공사 후기(151) — 보이는 것만 나열, 문제 있으면 숨김(되살리기는 SQL: is_hidden=false) ──
 function ExternalReviewAdmin({ showToast }) {
   const [rows, setRows] = useState([]);
   const [state, setState] = useState({ loading: true, error: null });
@@ -497,7 +497,7 @@ function ExternalReviewAdmin({ showToast }) {
   };
   return (
     <div style={{ marginTop: S.xxl }}>
-      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🏠 공간마켓 밖 공사 후기</div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4 }}>🏠 공간랜드 밖 공사 후기</div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.md }}>지인 공사 등 계약 기록 없는 후기 · 평점·온도에는 안 들어감 · 숨긴 것은 여기서 사라져요(되살리기는 SQL)</div>
       {state.loading && <div style={{ fontSize: 13, color: C.text3 }}>불러오는 중…</div>}
       {state.error && <div style={{ fontSize: 13, color: C.text3 }}>{state.error}</div>}
@@ -1232,7 +1232,7 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
       title: s.title ?? '',
       content: s.content,
       region: s.region ?? '',
-      author_name: s.author_name ?? '공간마켓',
+      author_name: s.author_name ?? '공간랜드',
       expert_company_name: s.expert_company_name ?? '',
       expert_badge: s.expert_badge ?? '',
       expert_job: s.expert_job ?? '',
@@ -1267,7 +1267,7 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
       title:               form.title,
       content:             form.content,
       region:              form.region?.trim() || null,
-      author_name:         form.author_name?.trim() || '공간마켓',
+      author_name:         form.author_name?.trim() || '공간랜드',
       image_urls:          images,
       sort_order:          Number(form.sort_order) || 0,
       is_recommended:      !!form.is_recommended,
@@ -1431,7 +1431,7 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11, color: C.text3, marginBottom: 4 }}>작성자 표시명</div>
                 <input value={form.author_name} onChange={e => setForm(f => ({ ...f, author_name: e.target.value }))}
-                  placeholder="공간마켓"
+                  placeholder="공간랜드"
                   style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${C.bgWarm}`, borderRadius: R.md, fontSize: 13, outline: "none", background: "#fff", color: C.text1, fontFamily: "inherit", boxSizing: "border-box" }} />
               </div>
             </div>
@@ -1503,7 +1503,7 @@ function LoungeSeedingTab({ seeds = [], loading = false, fetchErr = null, onRelo
                 {form.title?.trim() && <div style={{ fontSize: 13, fontWeight: 800, color: C.text1, marginBottom: 2 }}>{form.title.trim()}</div>}
                 <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5, whiteSpace: "pre-wrap", maxHeight: 60, overflow: "hidden" }}>{(form.content ?? '').trim() || '내용 미리보기'}</div>
                 <div style={{ fontSize: 10, color: C.text4, marginTop: 4 }}>
-                  by {form.author_name?.trim() || '공간마켓'}
+                  by {form.author_name?.trim() || '공간랜드'}
                   {!!SEED_TYPES.find(t => t.id === form.seed_type)?.expert && form.expert_company_name?.trim() && ` · ${form.expert_company_name.trim()}`}
                   {!!SEED_TYPES.find(t => t.id === form.seed_type)?.expert && form.expert_badge?.trim() && ` · ${form.expert_badge.trim()}`}
                 </div>
@@ -1663,7 +1663,7 @@ function AutoPublishTab({ drafts = [], published = [], adminUserId, showToast, o
               ["typeQt", "오늘 큐티 말씀 포함", "bool"],
               ["typeAstrology", "오늘의 별자리 운세 포함", "bool"],
               ["typeSeries", "연재 1개 포함", "bool"],
-              ["typeSpaceMarket", "공간마켓 1개 포함", "bool"],
+              ["typeSpaceMarket", "공간랜드 1개 포함", "bool"],
               ["typeTimeTrend", "Time Trend 3개 포함", "bool"],
             ].map(([key, label, type]) => (
               <label key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 11, color: C.text2, background: C.bg, borderRadius: R.md, padding: "6px 9px" }}>
@@ -2248,7 +2248,7 @@ function BlogPublishTab({ published = [], showToast }) {
     ["tagAuto", "태그 자동생성", "bool"], ["appendUrl", "Space Lounge URL 첨부", "bool"],
     ["maxRetry", "최대 Retry", "num"], ["dailyMax", "하루 최대 업로드", "num"],
     ["typeMorningBrief", "Morning Brief 대상", "bool"], ["typeQt", "큐티 말씀 대상", "bool"],
-    ["typeAstrology", "별자리 운세 대상", "bool"], ["typeSpaceMarket", "공간마켓 대상", "bool"],
+    ["typeAstrology", "별자리 운세 대상", "bool"], ["typeSpaceMarket", "공간랜드 대상", "bool"],
     ["typeSeries", "연재 대상", "bool"], ["typeTimeTrend", "Time Trend 대상", "bool"],
     ["typeBreaking", "긴급뉴스 대상(기본 OFF)", "bool"],
   ];
@@ -2366,7 +2366,7 @@ function BlogPublishTab({ published = [], showToast }) {
 }
 
 // ── 자동 편성(Phase 24 Morning Brief) — 하루 편성표 + 아침 콘텐츠 프롬프트 생성 ──────
-//   "뉴스는 뉴스로, 공간마켓은 공간마켓으로." 타입별 편성 상한(11)·공간관점 적용 여부 표시.
+//   "뉴스는 뉴스로, 공간랜드는 공간랜드로." 타입별 편성 상한(11)·공간관점 적용 여부 표시.
 //   각 아침 콘텐츠(모닝브리핑/큐티/별자리 운세/타임트렌드)의 생성 프롬프트를 복사해 AI 공장에서
 //   생성·검수·발행한다(엔진/발행 흐름 재사용 · DB/Cron 없음).
 function EditorialScheduleTab({ published = [], showToast }) {
@@ -2394,7 +2394,7 @@ function EditorialScheduleTab({ published = [], showToast }) {
     <div>
       <div style={{ fontSize: 16, fontWeight: 800, color: C.text1, marginBottom: 4, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🗞️" size={14} color={C.text1} /> 자동 편성 (Daily Editorial)</div>
       <div style={{ fontSize: 12, color: C.text3, marginBottom: S.lg, lineHeight: 1.6 }}>
-        하루 최대 <b>{comp.cap}개</b>(상한선 · 품질 통과분만 발행). <b>뉴스는 뉴스로, 공간마켓은 공간 관점으로, 연재는 연재로</b> —
+        하루 최대 <b>{comp.cap}개</b>(상한선 · 품질 통과분만 발행). <b>뉴스는 뉴스로, 공간랜드는 공간 관점으로, 연재는 연재로</b> —
         타입별로 공간 관점 적용 여부가 다릅니다. 각 콘텐츠는 프롬프트를 복사해 <b>AI 콘텐츠 공장</b>에서 생성·검수·발행합니다.
       </div>
 
@@ -4440,7 +4440,7 @@ const normalizeCompany = (row) => ({
   insuranceUploaded: !!row.insurance_url,
   verified: row.verified === true,
   license_verified: row.license_verified === true,
-  is_direct: row.is_direct === true,   // 공간마켓 직영(146)
+  is_direct: row.is_direct === true,   // 공간랜드 직영(146)
   rejectNote: row.reject_note ?? "",
   // 공간보증(068) — 표시/관리용 pass-through.
   guarantee_grade:         row.guarantee_grade ?? null,
@@ -6074,7 +6074,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
     setConfirm(null);
   };
 
-  // 공간마켓 직영 표시(146) — 운영사가 직접 시공하는 업체. 카드 표시만, 정렬·매칭엔 쓰지 않는다.
+  // 공간랜드 직영 표시(146) — 운영사가 직접 시공하는 업체. 카드 표시만, 정렬·매칭엔 쓰지 않는다.
   const handleDirect = async (company) => {
     const next = !company.is_direct;
     setActionLoading(true);
@@ -6529,7 +6529,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
           style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: C.text1, padding: 0 }}>←</button>
         <div>
           <div style={{ fontSize: 16, fontWeight: 800, color: C.text1 }}>관리자 대시보드</div>
-          <div style={{ fontSize: 11, color: C.text4 }}>공간마켓 운영 관리</div>
+          <div style={{ fontSize: 11, color: C.text4 }}>공간랜드 운영 관리</div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: S.sm }}>
           {stats.pending > 0 && (
@@ -6711,7 +6711,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                     ))}
                   </div>
                   <div style={{ background: C.navyL, borderRadius: R.xl, padding: S.xl, border: `1px solid ${C.trustM}`, marginBottom: S.lg }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🛡" size={14} color={C.text1} /> 공간마켓 운영 현황</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: S.md, display:"flex", alignItems:"center", gap:6}}><Icon emoji="🛡" size={14} color={C.text1} /> 공간랜드 운영 현황</div>
                     {[
                       ["공간안전결제 에스크로 수수료 (고객)", "3.7% (VAT 포함, 고정)"],
                       ["공간멤버십파트너 이용수수료 (업체)", "4.4% (VAT 포함 · 계약 성사 시에만)"],
@@ -8372,13 +8372,13 @@ export default function AdminScreen({ onBack, onHome, user }) {
               );
             })()}
 
-            {/* ── 공간마켓 직영(146) — 운영사가 직접 시공하는 업체임을 카드에 밝힌다 ── */}
+            {/* ── 공간랜드 직영(146) — 운영사가 직접 시공하는 업체임을 카드에 밝힌다 ── */}
             <div style={{ background: C.surface2, borderRadius: R.lg, padding: S.lg, marginBottom: S.xl, border: `1px solid ${C.bgWarm}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>공간마켓 직영</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text1 }}>공간랜드 직영</div>
                   <div style={{ fontSize: 12, color: C.text3, marginTop: 3, lineHeight: 1.5 }}>
-                    켜면 업체 카드에 「공간마켓 직영」이 붙어요. 매칭·노출 순서는 바뀌지 않아요.
+                    켜면 업체 카드에 「공간랜드 직영」이 붙어요. 매칭·노출 순서는 바뀌지 않아요.
                   </div>
                 </div>
                 <button disabled={actionLoading} onClick={() => handleDirect(selected)}

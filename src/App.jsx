@@ -429,7 +429,7 @@ export default function App() {
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         gap: 18, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif",
       }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", letterSpacing: "-0.5px" }}>공간마켓</div>
+        <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", letterSpacing: "-0.5px" }}>공간랜드</div>
         <div style={{
           width: 28, height: 28, border: "3px solid rgba(255,255,255,0.3)",
           borderTopColor: "#fff", borderRadius: "50%", animation: "ggLoadSpin 0.8s linear infinite",

@@ -130,7 +130,7 @@ export function providerStatus() {
 }
 
 // Auto 규칙(함수 1개에서 관리) — 콘텐츠 유형 → Provider.
-//   매거진/공간마켓/공간라운지 → Claude · 뉴스/트렌드 → Gemini · SEO/정보형 → GPT.
+//   매거진/공간랜드/공간라운지 → Claude · 뉴스/트렌드 → Gemini · SEO/정보형 → GPT.
 export function autoProvider(contentType) {
   const t = String(contentType || "");
   if (/breaking|news|뉴스|trend_present|trend_past|trend_future|트렌드|trend/.test(t)) return "gemini";

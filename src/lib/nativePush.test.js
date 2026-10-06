@@ -58,7 +58,7 @@ test("알림 누르면 열 주소 — 경로 또는 gongganmarket.com 만", () =
 test("Expo 메시지 모양", () => {
   assert.deepEqual(expoPushMessage(TOKEN, { title: "새 견적", body: "3건", target_url: "/?open=bids" }),
     { to: TOKEN, title: "새 견적", body: "3건", data: { url: "/?open=bids" }, sound: "default" });
-  assert.equal(expoPushMessage(TOKEN, {}).title, "공간마켓");
+  assert.equal(expoPushMessage(TOKEN, {}).title, "공간랜드");
 });
 
 test("Expo 응답 — 성공 수 · 지워진 기기 토큰", () => {

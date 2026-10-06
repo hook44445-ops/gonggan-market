@@ -184,7 +184,7 @@ function PortfolioWriteModal({ companyId, ownerId, onClose, onSaved }) {
           <div style={{ fontSize:12.5, color:C.text2, lineHeight:1.7 }}>
             포트폴리오는 자유롭게 등록할 수 있어요.{' '}
             다만 <b>전화번호·카카오톡·홈페이지·QR코드</b>처럼 직접 연락이 가능한 정보가 담긴 사진이나 설명은
-            삭제되거나 신고될 수 있어요. 연락은 공간마켓 안에서 안전하게 진행해 주세요.
+            삭제되거나 신고될 수 있어요. 연락은 공간랜드 안에서 안전하게 진행해 주세요.
           </div>
         </div>
 

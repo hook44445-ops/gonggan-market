@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Fusion Executor — 단일 단계 실행 + 모델 Fallback (Phase 31)
+// 공간랜드 Fusion Executor — 단일 단계 실행 + 모델 Fallback (Phase 31)
 //
 //   한 단계를 기존 callLLM(OpenRouter) 로 실행한다. 지정 모델이 실패하면
 //   Claude → GPT → Gemini → DeepSeek 순으로 대체 시도한다(기존 호출 구조 재사용).

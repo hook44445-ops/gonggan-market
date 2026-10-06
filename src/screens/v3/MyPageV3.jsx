@@ -95,12 +95,12 @@ export default function MyPageV3({
   const shareCompanyPage = async () => {
     const url = companyPageUrl(companySlug || companyId, refCode);
     try {
-      if (navigator.share) { await navigator.share({ title: user?.name || "공간마켓", url }); setPageShared(true); markPageShared(companyId); return; }
+      if (navigator.share) { await navigator.share({ title: user?.name || "공간랜드", url }); setPageShared(true); markPageShared(companyId); return; }
       await navigator.clipboard.writeText(url); setPageShared(true); markPageShared(companyId);
     } catch { /* 공유 취소 */ }
   };
 
-  // 지인 공사 후기 부탁(151) — «공간마켓 밖 공사 후기»로 따로 보인다(평점·온도 X)
+  // 지인 공사 후기 부탁(151) — «공간랜드 밖 공사 후기»로 따로 보인다(평점·온도 X)
   const [reviewAsked, setReviewAsked] = useState(false);
   const askReview = async () => {
     const text = reviewRequestMessage(user?.name, reviewRequestUrl(companySlug || companyId, refCode));
@@ -281,7 +281,7 @@ export default function MyPageV3({
                    onClick={() => { setSlugDraft(companySlug ?? ""); setSlugMsg(null); setSlugOpen(true); }} />
             )}
             {companyId && (
-              <Row emoji="⭐" label="지인 공사 후기 부탁" sub={reviewAsked ? "보냈어요 · «공간마켓 밖 공사 후기»로 따로 보여요" : "공간마켓 밖에서 한 공사 — 평점엔 안 들어가요"}
+              <Row emoji="⭐" label="지인 공사 후기 부탁" sub={reviewAsked ? "보냈어요 · «공간랜드 밖 공사 후기»로 따로 보여요" : "공간랜드 밖에서 한 공사 — 평점엔 안 들어가요"}
                    onClick={askReview} />
             )}
             {companyId && (

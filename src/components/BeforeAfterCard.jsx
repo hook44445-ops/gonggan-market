@@ -46,7 +46,7 @@ export async function drawBeforeAfter(canvas, { before, after, title, footer, qr
   const tx = qrUrl ? PX + 240 : PX + 10;
   text(footer.head, tx, top + 88, 36, 900);
   text(footer.sub, tx, top + 140, 28, 600, "#5C6B61");
-  text("공간마켓", tx, top + 192, 30, 900, "#2E5F4B");
+  text("공간랜드", tx, top + 192, 30, 900, "#2E5F4B");
   return canvas;
 }
 
