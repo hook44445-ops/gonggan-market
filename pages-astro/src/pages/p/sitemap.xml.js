@@ -2,7 +2,7 @@ import {createReader,companySitemap} from '../../lib/company.js';
 import {xml} from '../../lib/display.js';
 export const prerender=false;
 export async function GET(){
- const site=(import.meta.env.SITE_URL || process.env.SITE_URL || 'https://gongganmarket.com').replace(/\/$/,'');
+ const site=(import.meta.env.SITE_URL || process.env.SITE_URL || 'https://gongganland.com').replace(/\/$/,'');
  const read=createReader({url:import.meta.env.SUPABASE_URL || process.env.SUPABASE_URL,key:import.meta.env.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY});
  try{
   const rows=await companySitemap(read);

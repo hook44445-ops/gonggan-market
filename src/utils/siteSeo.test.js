@@ -31,7 +31,7 @@ import sitemapHandler from '../../api/sitemap.js';
 // ── 핸들러 호출용 최소 mock ───────────────────────────
 function invoke(handler, query = {}) {
   const req = {
-    headers: { host: 'gongganmarket.com', 'x-forwarded-proto': 'https' },
+    headers: { host: 'gongganland.com', 'x-forwarded-proto': 'https' },
     query,
     url: '/',
   };
@@ -119,7 +119,7 @@ test('베타 FAQ·설명은 에스크로를 «예정»으로만 말한다', () =
 
 test('faqSchema 는 Question/acceptedAnswer 쌍으로 변환한다', () => {
   const items = partnerFaq();
-  const schema = faqSchema(items, 'https://gongganmarket.com', '/partner');
+  const schema = faqSchema(items, 'https://gongganland.com', '/partner');
   assert.equal(schema['@type'], 'FAQPage');
   assert.equal(schema.mainEntity.length, items.length);
   for (const [i, entry] of schema.mainEntity.entries()) {
@@ -161,7 +161,7 @@ test('프리렌더 홈이 화면과 같은 FAQ·사업자정보를 담는다', a
   assert.ok(body.includes(BIZ.bizNo));
   assert.ok(body.includes(BIZ.telecomSalesNo));
   assert.match(body, /<h1>/);
-  assert.match(body, /rel="canonical" href="https:\/\/gongganmarket\.com\/"/);
+  assert.match(body, /rel="canonical" href="https:\/\/gongganland\.com\/"/);
   assert.match(body, /name="robots" content="index, follow"/);
 });
 
@@ -180,7 +180,7 @@ test('프리렌더 파트너가 한도 계단을 숫자 그대로 담고, 수수
     assert.ok(body.includes(g.limit), `한도 누락: ${g.name}`);
   }
   for (const { q } of partnerFaq()) assert.ok(body.includes(q), `질문 누락: ${q}`);
-  assert.match(body, /rel="canonical" href="https:\/\/gongganmarket\.com\/partner"/);
+  assert.match(body, /rel="canonical" href="https:\/\/gongganland\.com\/partner"/);
 });
 
 // ─────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ test('robots 가 비공개 경로를 막고 사이트맵을 절대 URL 로 알�
   for (const p of ['/api/', '/mypage', '/login', '/admin']) {
     assert.ok(body.includes(`Disallow: ${p}`), `차단 누락: ${p}`);
   }
-  assert.ok(body.includes('Sitemap: https://gongganmarket.com/sitemap.xml'));
+  assert.ok(body.includes('Sitemap: https://gongganland.com/sitemap.xml'));
 });
 
 test('robots 가 네이버(Yeti)와 생성형 답변엔진 크롤러를 명시 허용한다', async () => {
@@ -209,11 +209,11 @@ test('sitemap 이 실재하는 라우트만 싣는다(soft 404 재발 방지)', 
   assert.match(headers['Content-Type'], /application\/xml/);
 
   for (const p of ['/', '/partner', '/safe-payment', '/tokens', '/refund', '/terms', '/privacy']) {
-    assert.ok(body.includes(`<loc>https://gongganmarket.com${p}</loc>`), `누락: ${p}`);
+    assert.ok(body.includes(`<loc>https://gongganland.com${p}</loc>`), `누락: ${p}`);
   }
   // App.jsx 에 분기가 없는 경로들 — 예전 정적 사이트맵이 싣던 soft 404.
   for (const dead of ['/request', '/company', '/login', '/mypage']) {
-    assert.ok(!body.includes(`<loc>https://gongganmarket.com${dead}</loc>`), `죽은 URL 재등장: ${dead}`);
+    assert.ok(!body.includes(`<loc>https://gongganland.com${dead}</loc>`), `죽은 URL 재등장: ${dead}`);
   }
 });
 
@@ -457,11 +457,14 @@ test('JS 를 실행하지 않는 수집기는 프리렌더를, 사람은 SPA 를
 // ─────────────────────────────────────────────────────
 
 test('canonicalSite 는 운영 도메인을 apex 하나로 모은다', () => {
-  for (const h of ['gongganmarket.com', 'www.gongganmarket.com', 'WWW.GonggangMarket.com'.toLowerCase().replace('gonggangmarket', 'gongganmarket')]) {
+  for (const h of ['gongganland.com', 'www.gongganland.com', 'WWW.GonggangMarket.com'.toLowerCase().replace('gonggangmarket', 'gongganmarket')]) {
     assert.equal(canonicalSite(h), SITE_URL, `고정 실패: ${h}`);
   }
   // 포트가 붙어도 운영 도메인이면 고정
-  assert.equal(canonicalSite('www.gongganmarket.com:443'), SITE_URL);
+  assert.equal(canonicalSite('www.gongganland.com:443'), SITE_URL);
+  // 옛 도메인(공간마켓)으로 들어와도 정식은 새 주소(10-07 이전)
+  assert.equal(SITE_URL, 'https://gongganland.com');
+  assert.equal(canonicalSite('gongganmarket.com'), SITE_URL);
   // 값이 없으면 안전하게 정식 주소
   assert.equal(canonicalSite(''), SITE_URL);
   assert.equal(canonicalSite(undefined), SITE_URL);
@@ -477,7 +480,7 @@ test('canonicalSite 는 preview·localhost 는 건드리지 않는다', () => {
 
 test('www 로 들어온 봇 요청도 canonical·og:url 이 apex 를 가리킨다', async () => {
   const req = {
-    headers: { host: 'www.gongganmarket.com', 'x-forwarded-host': 'www.gongganmarket.com', 'x-forwarded-proto': 'https' },
+    headers: { host: 'www.gongganland.com', 'x-forwarded-host': 'www.gongganland.com', 'x-forwarded-proto': 'https' },
     query: { page: 'home' },
     url: '/',
   };
@@ -492,14 +495,14 @@ test('www 로 들어온 봇 요청도 canonical·og:url 이 apex 를 가리킨�
 
   assert.ok(out.body.includes(`rel="canonical" href="${SITE_URL}/"`), 'canonical 이 apex 가 아니다');
   assert.ok(out.body.includes(`property="og:url" content="${SITE_URL}/"`), 'og:url 이 apex 가 아니다');
-  assert.ok(!out.body.includes('www.gongganmarket.com'), 'www 주소가 문서에 남아 있다');
+  assert.ok(!out.body.includes('www.gongganland.com'), 'www 주소가 문서에 남아 있다');
 });
 
 test('사이트맵·robots 도 www 요청에서 apex URL 만 낸다', async () => {
   const mk = () => {
     const out = { body: '', headers: {} };
     return [
-      { headers: { host: 'www.gongganmarket.com', 'x-forwarded-host': 'www.gongganmarket.com', 'x-forwarded-proto': 'https' }, query: {}, url: '/' },
+      { headers: { host: 'www.gongganland.com', 'x-forwarded-host': 'www.gongganland.com', 'x-forwarded-proto': 'https' }, query: {}, url: '/' },
       { set statusCode(v) {}, get statusCode() { return 200; }, setHeader(k, v) { out.headers[k] = v; }, end(b) { out.body = b; } },
       out,
     ];
@@ -507,7 +510,7 @@ test('사이트맵·robots 도 www 요청에서 apex URL 만 낸다', async () =
 
   const [rq1, rs1, o1] = mk();
   await sitemapHandler(rq1, rs1);
-  assert.ok(!o1.body.includes('www.gongganmarket.com'), '사이트맵에 www URL 이 섞였다');
+  assert.ok(!o1.body.includes('www.gongganland.com'), '사이트맵에 www URL 이 섞였다');
   assert.ok(o1.body.includes(`<loc>${SITE_URL}/</loc>`));
 
   const [rq2, rs2, o2] = mk();
@@ -624,7 +627,7 @@ test('llms.txt 가 USP 최신판의 «문제 → 해결»을 사실대로 담는
 
 test('엔티티 일관성 — 서비스·운영사·도메인·사업자번호가 llms.txt 와 Organization 에서 같은 글자다', async () => {
   const { body } = await invoke(prerender, { page: 'llms' });
-  for (const v of [BIZ.serviceName, BIZ.legalName, BIZ.bizNo, BIZ.telecomSalesNo, COMPANY_SITE, 'gongganmarket.com']) {
+  for (const v of [BIZ.serviceName, BIZ.legalName, BIZ.bizNo, BIZ.telecomSalesNo, COMPANY_SITE, 'gongganland.com']) {
     assert.ok(body.includes(v), `llms.txt 에 없다: ${v}`);
   }
   const org = organizationSchema();

@@ -85,7 +85,7 @@ export default function BidShareCard({ bids, space, userId, requestId = null }) 
     if (busy) return;
     setBusy(true); setMsg(null);
     try {
-      const url = code ? inviteUrl(code) : "https://gongganmarket.com";
+      const url = code ? inviteUrl(code) : "https://gongganland.com";
       const canvas = drawBidShare(document.createElement("canvas"), { title: bidShareTitle(space), rows, qrUrl: url, day: kstDay(), bg });
       const blob = await new Promise((ok) => canvas.toBlob(ok, "image/png"));
       if (!blob) throw new Error("NO_BLOB");

@@ -11,7 +11,7 @@ import { pageSeo, consumerFaq } from './siteSeo.js';
 const read = (p) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'utf-8');
 
 function invoke(query = {}) {
-  const req = { headers: { host: 'gongganmarket.com', 'x-forwarded-proto': 'https' }, query, url: '/' };
+  const req = { headers: { host: 'gongganland.com', 'x-forwarded-proto': 'https' }, query, url: '/' };
   const out = { statusCode: 200, headers: {}, body: '' };
   const res = { set statusCode(v) { out.statusCode = v; }, get statusCode() { return out.statusCode; },
     setHeader(k, v) { out.headers[k] = v; }, end(b) { out.body = b; } };
@@ -36,7 +36,7 @@ test('빌드 때 index.html #root 안에 홈 본문(봇 프리렌더와 같은 �
 
 test('봇 홈 프리렌더도 같은 본문을 낸다(화면 · 정적 본문 · 봇이 한 문장)', async () => {
   const { body } = await invoke({ page: 'home' });
-  assert.ok(body.includes(homeBodyHtml({ site: 'https://gongganmarket.com', beta: true })));
+  assert.ok(body.includes(homeBodyHtml({ site: 'https://gongganland.com', beta: true })));
 });
 
 test('공개 페이지 6개 — 봇 rewrite 가 있고 본문이 비지 않는다', async () => {
@@ -48,7 +48,7 @@ test('공개 페이지 6개 — 봇 rewrite 가 있고 본문이 비지 않는�
     const { statusCode, body } = await invoke({ page: p });
     assert.equal(statusCode, 200);
     assert.ok(body.includes(`<title>${pageSeo(true)[`/${p}`].title.replace(/&/g, '&amp;')}</title>`), `제목: ${p}`);
-    assert.match(body, new RegExp(`rel="canonical" href="https://gongganmarket.com/${p}"`));
+    assert.match(body, new RegExp(`rel="canonical" href="https://gongganland.com/${p}"`));
     const main = body.slice(body.indexOf('<main>'));
     assert.ok(plain(main).length > 300, `${p} 본문이 너무 짧다`);
     assert.ok(main.includes('통신판매중개자'), `${p} 사업자 정보 누락`);
@@ -70,7 +70,7 @@ test('결제·토큰 판매 전: «정식 오픈 후 … 예정»이 제목 · �
   const { body: llms } = await invoke({ page: 'llms' });
   const lines = llms.split('\n');
   assert.equal(lines[2], '> 결제 안내: 공간안전결제는 정식 오픈 후 제공 예정입니다. 지금은 계약서에 적은 단계대로 업체와 직접 진행합니다.');
-  assert.ok(llms.includes('- 공간안전결제 안내(정식 오픈 후 제공 예정): https://gongganmarket.com/safe-payment'));
+  assert.ok(llms.includes('- 공간안전결제 안내(정식 오픈 후 제공 예정): https://gongganland.com/safe-payment'));
 });
 
 test('화면과 봇이 같은 글 — 화면은 content/publicPages 를 읽고, 옛 문장을 따로 들고 있지 않다', () => {

@@ -13,7 +13,7 @@
 
 import { LADDER, limitText } from '../lib/partnerTier.js';
 
-export const SITE_URL = 'https://gongganmarket.com';
+export const SITE_URL = 'https://gongganland.com';
 
 // ── 정식 호스트 고정 (www ↔ apex) ─────────────────────
 // 2026-09-24 서치콘솔: 홈이 「중복 페이지, Google에서 사용자와 다른 표준을 선택함」으로
@@ -26,7 +26,9 @@ export const SITE_URL = 'https://gongganmarket.com';
 //
 // → 운영 도메인(www 포함)으로 들어온 요청은 언제나 apex 하나로 고정한다.
 //   preview(*.vercel.app)·localhost 는 요청 호스트를 그대로 써야 링크가 끊기지 않는다.
-export const SITE_HOSTS = ['gongganmarket.com', 'www.gongganmarket.com'];
+// 2026-10-07 도메인 이전(공간랜드) — 옛 gongganmarket.com 으로 들어와도 정식은 새 주소 하나.
+//   옛 주소는 앱(iOS WebView·TWA)이 새 주소를 아는 판으로 바뀐 뒤 301 로 넘긴다.
+export const SITE_HOSTS = ['gongganland.com', 'www.gongganland.com', 'gongganmarket.com', 'www.gongganmarket.com'];
 
 export function canonicalSite(host, proto = 'https') {
   const raw = String(host || '').trim();

@@ -1,7 +1,7 @@
 ---
 const publicPlay=(import.meta.env.PLAY_PUBLIC || process.env.PLAY_PUBLIC)==='1';
 ---
-<div class="install" id="install-banner" hidden><span>견적 소식을 앱에서</span><a href={publicPlay?'https://play.google.com/store/apps/details?id=com.gonggansai.gongganmarket':'https://gongganmarket.com/download'}>앱으로 보기</a><button type="button" aria-label="앱 설치 안내 닫기">×</button></div>
+<div class="install" id="install-banner" hidden><span>견적 소식을 앱에서</span><a href={publicPlay?'https://play.google.com/store/apps/details?id=com.gonggansai.gongganmarket':'https://gongganland.com/download'}>앱으로 보기</a><button type="button" aria-label="앱 설치 안내 닫기">×</button></div>
 <!-- Source: app src/lib/appInstall.js, including TWA/WKWebView and 14-day dismissal. -->
 <script is:inline>
 (()=>{const el=document.getElementById('install-banner');if(!el)return;const get=k=>{try{return localStorage.getItem(k)}catch{return null}};const set=(k,v)=>{try{localStorage.setItem(k,v)}catch{}};const inside=typeof window.ReactNativeWebView!=='undefined'||document.referrer.startsWith('android-app://')||matchMedia('(display-mode: standalone)').matches||navigator.standalone===true||get('gonggan_in_app')==='1';if(inside)set('gonggan_in_app','1');if(/Android/i.test(navigator.userAgent)&&!inside&&!(Date.now()-Number(get('gonggan_install_banner_closed')||0)<14*24*60*60*1000))el.hidden=false;el.querySelector('button').addEventListener('click',()=>{el.hidden=true;set('gonggan_install_banner_closed',String(Date.now()));});})();

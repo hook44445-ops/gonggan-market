@@ -13,7 +13,7 @@ Node 22.12 이상. `npm ci`, `npm test`, `npm run dev`, `npm run build`.
 
 ## 운영 전환 전 대표가 할 것
 
-1. Vercel 새 프로젝트 `gonggan-pages`, Root Directory `pages-astro`, Node 24. 환경변수 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SITE_URL=https://gongganmarket.com`. Apple 등록 뒤 `APP_STORE_ID`, Play 공개 뒤 `PLAY_PUBLIC=1`. 현재 비공개 테스트면 0.
+1. Vercel 새 프로젝트 `gonggan-pages`, Root Directory `pages-astro`, Node 24. 환경변수 `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SITE_URL=https://gongganland.com`. Apple 등록 뒤 `APP_STORE_ID`, Play 공개 뒤 `PLAY_PUBLIC=1`. 현재 비공개 테스트면 0.
 2. 새 프로젝트 미리보기에서 실제 업체 UUID/한글 slug/사례 있음/없음/없는 주소를 확인한다. 로컬 fixture 검증은 운영 DB·정책 검증을 대신하지 않는다.
 3. 별도 **운영 전환 PR**에서 아래 순서로 기존 `vercel.json.rewrites` 맨 앞에 추가한다. 실제 도메인을 확인하기 전 임의 도메인을 커밋하지 않는다.
 

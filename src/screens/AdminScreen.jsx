@@ -342,7 +342,7 @@ function AdminTesterShortcut() {
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: "block", fontSize: 14.5, fontWeight: 800, color: C.text1 }}>안드로이드 테스터 신청 목록</span>
         <span style={{ display: "block", fontSize: 12, color: C.text3, marginTop: 2 }}>
-          {info ? `신청 ${info.total}명 · Play 추가 대기 ${info.waiting}명` : "gongganmarket.com/testers · 메일 복사 → Play Console 테스터 목록"}
+          {info ? `신청 ${info.total}명 · Play 추가 대기 ${info.waiting}명` : "gongganland.com/testers · 메일 복사 → Play Console 테스터 목록"}
         </span>
       </span>
       {info?.waiting > 0 && (

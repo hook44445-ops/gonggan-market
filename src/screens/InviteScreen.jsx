@@ -30,7 +30,7 @@ function InviteCardPreview({ code, isCompany, who, onWho }) {
           <div style={{ padding: "9px 11px 10px" }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#191919", lineHeight: 1.4 }}>{og.title}</div>
             <div style={{ fontSize: 11.5, color: "#666", marginTop: 3, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{og.description}</div>
-            <div style={{ fontSize: 11, color: "#999", marginTop: 5 }}>gongganmarket.com</div>
+            <div style={{ fontSize: 11, color: "#999", marginTop: 5 }}>gongganland.com</div>
           </div>
         </div>
       </div>

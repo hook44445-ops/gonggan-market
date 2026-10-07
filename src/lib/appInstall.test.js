@@ -30,8 +30,8 @@ test("설치 주소 — 비공개 테스트 중엔 참여 안내, 정식 출시 
 test("아이폰 스마트 앱 배너 — 번호가 있을 때만", () => {
   assert.equal(smartBannerContent(""), null);
   assert.equal(smartBannerContent("6739012345"), "app-id=6739012345");
-  assert.equal(smartBannerContent("6739012345", "https://gongganmarket.com/lounge/posts/1"),
-    "app-id=6739012345, app-argument=https://gongganmarket.com/lounge/posts/1");
+  assert.equal(smartBannerContent("6739012345", "https://gongganland.com/lounge/posts/1"),
+    "app-id=6739012345, app-argument=https://gongganland.com/lounge/posts/1");
 });
 
 test("견적 요청 직후 앱 설치 제안 — 앱 안·PC·번호 없는 아이폰은 없음", () => {

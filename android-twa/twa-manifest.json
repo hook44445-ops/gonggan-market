@@ -1,6 +1,6 @@
 {
   "packageId": "com.gonggansai.gongganmarket",
-  "host": "gongganmarket.com",
+  "host": "gongganland.com",
   "name": "공간랜드",
   "launcherName": "공간랜드",
   "display": "standalone",
@@ -13,8 +13,8 @@
   "backgroundColor": "#F5F1EA",
   "enableNotifications": true,
   "startUrl": "/",
-  "iconUrl": "https://gongganmarket.com/icons/icon-512-v6.png",
-  "maskableIconUrl": "https://gongganmarket.com/icons/icon-maskable-512-v6.png",
+  "iconUrl": "https://gongganland.com/icons/icon-512-v6.png",
+  "maskableIconUrl": "https://gongganland.com/icons/icon-maskable-512-v6.png",
   "monochromeIconUrl": "",
   "splashScreenFadeOutDuration": 300,
   "signing": {
@@ -26,7 +26,7 @@
   "appVersionName": "1.0.17",
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://gongganmarket.com/manifest.json",
+  "webManifestUrl": "https://gongganland.com/manifest.json",
   "fallbackType": "customtabs",
   "features": {},
   "alphaDependencies": {

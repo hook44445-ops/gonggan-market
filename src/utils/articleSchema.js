@@ -15,7 +15,7 @@ function ptMinutes(min) {
   return `PT${Math.max(1, Math.round(min))}M`;
 }
 
-// Article JSON-LD 객체. origin 은 절대 URL 합성을 위한 사이트 origin(예: https://gongganmarket.com).
+// Article JSON-LD 객체. origin 은 절대 URL 합성을 위한 사이트 origin(예: https://gongganland.com).
 export function buildArticleSchema(post, origin = "") {
   if (!post) return null;
   const meta = buildPostMeta(post);

@@ -21,7 +21,7 @@ test("싼 순 · 최대 5곳 · 가격 없는 입찰 빼기 · 가장 싼 곳 �
 test("제목·보낼 글 — 주소·예산 없음", () => {
   assert.equal(bidShareTitle("욕실"), "우리 집 욕실 견적 비교");
   assert.equal(bidShareTitle(""), "우리 집 견적 비교");
-  assert.match(bidShareText("AB2CD3", "https://gongganmarket.com/?ref=AB2CD3"), /\?ref=AB2CD3/);
+  assert.match(bidShareText("AB2CD3", "https://gongganland.com/?ref=AB2CD3"), /\?ref=AB2CD3/);
   assert.doesNotMatch(bidShareText(null, ""), /ref=/);
 });
 

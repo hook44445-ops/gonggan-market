@@ -59,7 +59,7 @@ App Store 검색은 **앱 이름 · 부제 · 키워드** 세 칸만 읽는다(�
 
 - 기본 카테고리: 라이프스타일 · 보조: 비즈니스
 - 연령 등급: 4+
-- 지원 URL: https://gongganmarket.com · 개인정보처리방침: https://gongganmarket.com/privacy
+- 지원 URL: https://gongganland.com · 개인정보처리방침: https://gongganland.com/privacy
 - 스크린샷: `store/apple-ko/*.png` 10장(이미 App Store Connect 에 올림 — 09-24)
   🚫 **첫 장은 바꾸지 않는다 — 대표 결정(2026-09-30).** 배지 「사업자등록 확인 업체만 견적」 그대로 간다.
   까닭과 기록해 둘 사실 관계는 `docs/HANDOFF-2026-10-01-local.md` §2.

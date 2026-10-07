@@ -27,10 +27,10 @@ test("코드 모양 — 6자리 · 대문자로 · 헷갈리는 글자는 거절
 test("주소에서 코드 꺼내기와 초대 링크", () => {
   assert.equal(refCodeFromSearch("?ref=ab2cd3&x=1"), "AB2CD3");
   assert.equal(refCodeFromSearch("?x=1"), null);
-  assert.equal(inviteUrl("AB2CD3"), "https://gongganmarket.com/?ref=AB2CD3");
-  assert.equal(inviteUrl("bad"), "https://gongganmarket.com");
-  assert.equal(inviteUrl("AB2CD3", true), "https://gongganmarket.com/partner?ref=AB2CD3");
-  assert.equal(inviteUrl("bad", true), "https://gongganmarket.com/partner");
+  assert.equal(inviteUrl("AB2CD3"), "https://gongganland.com/?ref=AB2CD3");
+  assert.equal(inviteUrl("bad"), "https://gongganland.com");
+  assert.equal(inviteUrl("AB2CD3", true), "https://gongganland.com/partner?ref=AB2CD3");
+  assert.equal(inviteUrl("bad", true), "https://gongganland.com/partner");
 });
 
 test("보관한 코드는 30일 뒤 사라진다 · 지우면 없다", () => {
@@ -53,9 +53,9 @@ test("서버에 못 보냈을 때(로그인 토큰 없음 · 146 전)만 코드�
 });
 
 test("테스터 모집 링크는 /download 로 · 초대 코드는 그대로", () => {
-  assert.equal(testerUrl("AB2CD3"), "https://gongganmarket.com/download?ref=AB2CD3");
-  assert.equal(testerUrl(null), "https://gongganmarket.com/download");
-  assert.ok(testerMessage("AB2CD3").endsWith("https://gongganmarket.com/download?ref=AB2CD3"));
+  assert.equal(testerUrl("AB2CD3"), "https://gongganland.com/download?ref=AB2CD3");
+  assert.equal(testerUrl(null), "https://gongganland.com/download");
+  assert.ok(testerMessage("AB2CD3").endsWith("https://gongganland.com/download?ref=AB2CD3"));
 });
 
 test("화면이 말하는 초대 보상이 서버(148)와 같다", () => {
@@ -66,23 +66,23 @@ test("화면이 말하는 초대 보상이 서버(148)와 같다", () => {
 });
 
 test("공유 링크에 내 초대 코드 붙이기", () => {
-  assert.equal(withRefCode("https://gongganmarket.com/lounge/posts/1/slug", "ab2cd3"), "https://gongganmarket.com/lounge/posts/1/slug?ref=AB2CD3");
-  assert.equal(withRefCode("https://gongganmarket.com/x?a=1&ref=ZZZZZZ", "AB2CD3"), "https://gongganmarket.com/x?a=1&ref=AB2CD3");
-  assert.equal(withRefCode("https://gongganmarket.com/x", null), "https://gongganmarket.com/x");
+  assert.equal(withRefCode("https://gongganland.com/lounge/posts/1/slug", "ab2cd3"), "https://gongganland.com/lounge/posts/1/slug?ref=AB2CD3");
+  assert.equal(withRefCode("https://gongganland.com/x?a=1&ref=ZZZZZZ", "AB2CD3"), "https://gongganland.com/x?a=1&ref=AB2CD3");
+  assert.equal(withRefCode("https://gongganland.com/x", null), "https://gongganland.com/x");
   assert.equal(withRefCode("", "AB2CD3"), "");
 });
 
 test("가족에게 알리기 — 초대 링크만 싣고 요청 내용은 싣지 않는다", () => {
   const m = familyMessage("AB2CD3");
-  assert.ok(m.endsWith("https://gongganmarket.com/?ref=AB2CD3"));
+  assert.ok(m.endsWith("https://gongganland.com/?ref=AB2CD3"));
   assert.ok(!/만원|평|구\b/.test(m));
-  assert.ok(familyMessage(null).endsWith("https://gongganmarket.com"));
+  assert.ok(familyMessage(null).endsWith("https://gongganland.com"));
 });
 
 test("업체 공개 페이지 주소 — 코드가 있으면 ?ref", () => {
-  assert.equal(companyPageUrl("abc-1", "AB2CD3"), "https://gongganmarket.com/p/abc-1?ref=AB2CD3");
-  assert.equal(companyPageUrl("abc-1", null), "https://gongganmarket.com/p/abc-1");
-  assert.equal(companyPageUrl(null, "AB2CD3"), "https://gongganmarket.com");
+  assert.equal(companyPageUrl("abc-1", "AB2CD3"), "https://gongganland.com/p/abc-1?ref=AB2CD3");
+  assert.equal(companyPageUrl("abc-1", null), "https://gongganland.com/p/abc-1");
+  assert.equal(companyPageUrl(null, "AB2CD3"), "https://gongganland.com");
 });
 
 test("좋은 후기 뒤 업체 추천 문자 — 업체 페이지 + 내 초대 코드", async () => {
