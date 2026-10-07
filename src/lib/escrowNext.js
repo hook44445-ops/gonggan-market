@@ -31,7 +31,7 @@ export function nextAction({ stageStatus = {}, isConsumer, labels = {}, settled 
   const name = (id) => PHOTO_WORD[id] ?? labels[id] ?? `${id}단계`;
   if (disputed) {
     return { tone: "warn", stageId: null, title: "이의 신청을 확인하고 있어요",
-      sub: "공간마켓이 기록(사진·GPS·채팅)을 보고 연락드려요. 그동안 단계 진행은 잠시 멈춥니다.", cta: null, anchor: null };
+      sub: "공간랜드가 기록(사진·GPS·채팅)을 보고 연락드려요. 그동안 단계 진행은 잠시 멈춥니다.", cta: null, anchor: null };
   }
   if (settled || stageStatus[5] === "done") {
     return isConsumer

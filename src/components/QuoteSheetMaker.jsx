@@ -8,7 +8,7 @@ import { buildLedgerRow } from "../lib/jobLedger";
 import { addLedgerEntry } from "../lib/supabase";
 
 // 간단 견적서 만들기(대표 09-29) — 적으면 이미지 한 장(1080 폭 PNG)으로. 저장은 하지 않는다(기기 사진첩·공유로).
-//   맨 아래 공간마켓 업체 페이지 QR — 받은 사람이 사례·후기를 보고 들어온다(가입하면 초대로 잡힌다).
+//   맨 아래 공간랜드 업체 페이지 QR — 받은 사람이 사례·후기를 보고 들어온다(가입하면 초대로 잡힌다).
 const W = 1080, PAD = 72;
 const FONT = "'Pretendard','Apple SD Gothic Neo',sans-serif";
 
@@ -56,8 +56,8 @@ export function drawQuote(canvas, q, { companyName, phone, pageUrl }) {
   }
   const tx = pageUrl ? PAD + 230 : PAD;
   text("시공 사례·후기 보기", tx, top + 100, 34, 800);
-  text(pageUrl ? "휴대폰 카메라로 QR을 찍어 보세요" : "공간마켓에서 업체를 찾아보세요", tx, top + 150, 27, 600, "#5C6B61");
-  text("공간마켓", tx, top + 200, 30, 900, "#2E5F4B");
+  text(pageUrl ? "휴대폰 카메라로 QR을 찍어 보세요" : "공간랜드에서 업체를 찾아보세요", tx, top + 150, 27, 600, "#5C6B61");
+  text("공간랜드", tx, top + 200, 30, 900, "#2E5F4B");
   return canvas;
 }
 

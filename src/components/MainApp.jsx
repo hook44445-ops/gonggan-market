@@ -214,7 +214,7 @@ export const normalizeCompany = (row) => ({
   badge:         row.badge ?? "basic",
   hasInsurance:  row.has_insurance ?? false,
   license_verified: row.license_verified ?? false, // 면허 — 입찰 한도(limitStateOf)가 본다
-  is_direct:     row.is_direct === true,           // 공간마켓 직영(146) — 카드 표시만, 정렬·매칭엔 쓰지 않는다
+  is_direct:     row.is_direct === true,           // 공간랜드 직영(146) — 카드 표시만, 정렬·매칭엔 쓰지 않는다
   // 업체 페이지 꾸미기(154) — 업체가 올린 커버·로고·소개(없으면 기존처럼 이름 첫 글자·커버 없음)
   cover:         row.cover_url ?? null,
   logo:          row.logo_url ?? null,
@@ -646,31 +646,31 @@ const FAQ_ITEMS = [
   { q: "공간안전결제(단계별 안전지급)란 무엇인가요?",
     a: SHOW_BETA_UI
       ? "공사비를 착공·중간·완료 단계마다 나눠 지급하는 안전결제 방식으로, 정식 서비스에서 제공됩니다. 지금 오픈 기간에는 계약서에 적은 단계대로 업체와 직접 주고받고, 단계와 사진은 앱에 기록됩니다."
-      : "공사비를 공간마켓이 안전하게 보관하고, 착공·중간·완료 단계를 확인할 때마다 업체에 나눠 지급하는 안전결제 방식입니다. 고객은 단계별로 직접 승인합니다." },
+      : "공사비를 공간랜드가 안전하게 보관하고, 착공·중간·완료 단계를 확인할 때마다 업체에 나눠 지급하는 안전결제 방식입니다. 고객은 단계별로 직접 승인합니다." },
   { q: "시공에 문제가 생기면 어떻게 하나요?",
     a: "각 단계 승인 화면에서 ‘이의 제기’로 보류할 수 있어요. 사진·대화·계약 기록이 모두 저장되며, 분쟁 시 관리자가 검토해 중재합니다." },
   { q: "환불은 어떻게 받나요?",
     a: SHOW_BETA_UI
-      ? "오픈 기간에는 대금을 업체에 직접 지급하므로, 환불도 계약서에 적은 조건대로 업체와 정합니다. 공간마켓은 계약·사진·대화 기록을 드려 협의를 돕습니다."
+      ? "오픈 기간에는 대금을 업체에 직접 지급하므로, 환불도 계약서에 적은 조건대로 업체와 정합니다. 공간랜드는 계약·사진·대화 기록을 드려 협의를 돕습니다."
       : "아직 지급되지 않은 예치금은 환불 대상입니다. 단계 미승인 상태의 잔여 금액은 관리자 검토 후 결제 수단으로 환불됩니다." },
   { q: "공사가 중단되면 어떻게 되나요?",
     a: SHOW_BETA_UI
       ? "남은 대금과 정산은 계약서 조건대로 업체와 정합니다. 채팅·사진·GPS 기록을 협의 근거로 드립니다."
       : "지급되지 않은 금액은 분쟁 검토 후 환불 또는 정산 처리됩니다. 채팅·사진·GPS 기록을 기준으로 검토합니다." },
-  { q: "공간마켓 보호 범위가 무엇인가요?",
+  { q: "공간랜드 보호 범위가 무엇인가요?",
     a: SHOW_BETA_UI
       ? "오픈 기간에는 계약서·단계·사진·대화 기록과, 분쟁 시 그 기록 제공이 적용됩니다. 앱 안 안전결제(단계별 안전지급)는 정식 서비스에서 제공되며, 그 전까지는 계약서에 적은 단계대로 업체와 직접 진행합니다."
       : "공간안전결제로 진행하시면 대금 보관과 단계별 안전지급, 계약서 보관, 분쟁 중재 지원이 모두 적용됩니다. 플랫폼 밖 거래는 보호 범위에 포함되지 않습니다.",
     extra: <ProtectionNotice variant="full" /> },
   { q: "분쟁이 생기면 어떻게 되나요?",
-    a: "공간마켓이 기록을 토대로 원만한 해결을 도와드립니다. 단, 공간마켓은 법적 판단을 내리는 기관이 아닙니다.",
+    a: "공간랜드가 기록을 토대로 원만한 해결을 도와드립니다. 단, 공간랜드는 법적 판단을 내리는 기관이 아닙니다.",
     extra: <DisputeNotice variant="full" /> },
   { q: "강제로 환불받을 수 있나요?",
-    a: "분쟁이 생기면 공간마켓이 계약서·단계·현장 사진 기록을 바탕으로 양측의 환불 협의를 돕습니다. 공간안전결제로 진행한 거래는 협의가 끝날 때까지 다음 단계 지급을 보류합니다." },
+    a: "분쟁이 생기면 공간랜드가 계약서·단계·현장 사진 기록을 바탕으로 양측의 환불 협의를 돕습니다. 공간안전결제로 진행한 거래는 협의가 끝날 때까지 다음 단계 지급을 보류합니다." },
   { q: "공사 품질이 마음에 안 들어요.",
-    a: "공간마켓은 공사 품질을 전문적으로 감정하는 기관이 아닙니다. 계약서와 시공 사진 기록을 토대로 업체와 협의를 도와드립니다." },
+    a: "공간랜드는 공사 품질을 전문적으로 감정하는 기관이 아닙니다. 계약서와 시공 사진 기록을 토대로 업체와 협의를 도와드립니다." },
   { q: "직접 업체와 거래하면 안 되나요?",
-    a: "거래 방식은 전적으로 고객님의 선택입니다. 다만 공간마켓의 보호와 기록은 공간안전결제를 통한 거래에서만 제공됩니다." },
+    a: "거래 방식은 전적으로 고객님의 선택입니다. 다만 공간랜드의 보호와 기록은 공간안전결제를 통한 거래에서만 제공됩니다." },
   { q: "고객센터 연락처",
     a: "문의하기(아래 ‘문의하기’) 또는 이메일 biz@gonggansai.com 으로 연락주시면 순차적으로 도와드립니다." },
 ];
@@ -1451,7 +1451,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         safe(getPortfolios(myCompanyRow.id)),
         safe(getCompletedEscrowByCompany(user.id)),
         safe(getReviews(myCompanyRow.id)),
-        safe(getExternalReviews(myCompanyRow.id)),   // 공간마켓 밖 공사 후기(151) — 시작 체크리스트용(평점엔 X)
+        safe(getExternalReviews(myCompanyRow.id)),   // 공간랜드 밖 공사 후기(151) — 시작 체크리스트용(평점엔 X)
       ]);
       const contracts = done?.data ?? [];
       const rows = (await safe(getPhasePhotosByContracts(contracts.map(c => c.id))))?.data ?? [];
@@ -3675,12 +3675,12 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl,
               marginBottom:S.xl, border:`1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize:14, fontWeight:800, color:C.text1, marginBottom:S.lg, textAlign:"center" }}>
-                공간마켓은 이렇게 작동해요
+                공간랜드는 이렇게 작동해요
               </div>
               {[
                 { step:"1", icon:"📋", title:"견적 요청", sub:"공사 내용 입력하면\n인근 검증 업체에 자동 전달" },
                 { step:"2", icon:"💰", title:"입찰 비교", sub:"업체들이 금액·기간 제출\n공간온도 보고 비교 선택" },
-                { step:"3", icon:"🛡", title:"안전 결제", sub:"고객 돈은 공간마켓 보관\n단계 확인 후 업체에 지급" },
+                { step:"3", icon:"🛡", title:"안전 결제", sub:"고객 돈은 공간랜드 보관\n단계 확인 후 업체에 지급" },
               ].map((item, i, arr) => (
                 <div key={item.step} style={{ display:"flex", gap:S.md, alignItems:"flex-start",
                   marginBottom: i < arr.length-1 ? S.lg : 0 }}>
@@ -4963,7 +4963,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간마켓</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간랜드</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>대화</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>{activeRole === "company" ? "고객과 나눈 이야기" : "파트너와 나눈 이야기"}</div>
               </div>
@@ -5347,7 +5347,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               )}
               <LogoMark size={34} />
               <div>
-                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간마켓</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간랜드</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>관심</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>마음이 머문 공간과 이야기를 모았어요</div>
               </div>
@@ -5587,7 +5587,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:S.xl }}>
               <LogoMark size={34} />
               <div>
-                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간마켓</div>
+                <div style={{ fontSize:11, color:C.brand, marginBottom:2, letterSpacing:"0.3px", fontWeight:600 }}>공간랜드</div>
                 <div style={{ fontSize:20, fontWeight:800, color:C.text1, letterSpacing:"-0.4px" }}>마이페이지</div>
                 <div style={{ fontSize:12, color:C.text3, marginTop:3, lineHeight:1.6 }}>나의 공간 여정을 한눈에</div>
               </div>
@@ -6068,7 +6068,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
             <div style={{ background: "transparent", padding: `${S.md}px 4px 0`, marginBottom: S.sm, borderTop: `1px solid ${C.bgWarm}` }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.text4, margin: `${S.md}px 0 2px` }}>앱 정보</div>
               {[
-                { label: "문의하기",                onClick: () => { window.location.href = "mailto:biz@gonggansai.com?subject=" + encodeURIComponent("[공간마켓] 문의"); } },
+                { label: "문의하기",                onClick: () => { window.location.href = "mailto:biz@gonggansai.com?subject=" + encodeURIComponent("[공간랜드] 문의"); } },
                 { label: "개인정보처리방침",         onClick: () => setTermsDocType("privacy_policy") },
                 { label: "이용약관",                onClick: () => setTermsDocType("service_terms") },
                 { label: "위치기반서비스 이용약관",   onClick: () => setTermsDocType("location_terms") },
@@ -6098,7 +6098,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                   }
                 }}
                 style={{ fontSize: 11, color: C.text4, cursor: "default", userSelect: "none" }}>
-                공간마켓 v1.0.0
+                공간랜드 v1.0.0
               </div>
             </div>
             <AppFooter />
@@ -6178,7 +6178,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               </div>
             </div>
             <div style={{ background:C.brandL, borderRadius:R.lg, padding:S.lg, marginBottom:S.xl }}>
-              {["견적 입찰 가능","채팅 상담 가능","🛡 공간마켓 인증 배지","상단 노출 우선순위"].map(t => {
+              {["견적 입찰 가능","채팅 상담 가능","🛡 공간랜드 인증 배지","상단 노출 우선순위"].map(t => {
                 const { emoji, rest } = splitLeadingEmoji(t);
                 return (
                   <div key={t} style={{ fontSize:13, color:C.brand, fontWeight:600, marginBottom:4, display:"flex", alignItems:"center", gap:5 }}>

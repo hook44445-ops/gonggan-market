@@ -98,9 +98,9 @@ export function buildEvidencePrintHtml({ row, timeline = [], fin = {}, money = (
   table.chat td.t { width: 22%; white-space: nowrap; color: #666; } table.chat td.w { width: 10%; color: #666; }
   tr { break-inside: avoid; } @media screen { body { max-width: 860px; margin: 20px auto; } }
 </style></head><body>
-<h1>공간마켓 공사 증빙 기록</h1>
+<h1>공간랜드 공사 증빙 기록</h1>
 <div class="meta">출력 ${fmt(now)}${printedBy ? ` · 출력자 ${e(printedBy)}` : ""} · 요청 ${e(row?.request_id || "—")}</div>
-<div class="notice">분쟁 조정·확인용 내부 기록입니다. 개인정보가 포함되어 있으니 당사자·조정 기관 외에 공유하지 마세요. 원본 데이터는 공간마켓 서버에 보관되어 있습니다.</div>
+<div class="notice">분쟁 조정·확인용 내부 기록입니다. 개인정보가 포함되어 있으니 당사자·조정 기관 외에 공유하지 마세요. 원본 데이터는 공간랜드 서버에 보관되어 있습니다.</div>
 <h2>거래 요약</h2><table>${summary}</table>
 <h2>진행 단계</h2><ul class="tl">${tl}</ul>
 <h2>단계 승인 · 결제 기록</h2><table><tr><th style="width:30%">시각</th><th>내용</th></tr>${stepRows}</table>

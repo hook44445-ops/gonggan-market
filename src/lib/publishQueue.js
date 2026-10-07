@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Publish Queue — AI Autopilot 발행 큐 (Phase 35)
+// 공간랜드 Publish Queue — AI Autopilot 발행 큐 (Phase 35)
 //
 //   승인된 콘텐츠의 발행 상태를 명확히 관리한다:
 //     draft → review → approval_pending → approved → scheduled → publishing → published / failed

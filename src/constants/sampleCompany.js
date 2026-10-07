@@ -23,7 +23,7 @@ export const SAMPLE_COMPANY = {
   asRate: 98,
   years: 8,
   specialties: ["아파트 전체", "욕실", "주방"],
-  desc: "공간마켓에 입점한 업체는 이렇게 보여요. 시공 사진·후기·응답 속도가 한눈에 모입니다.",
+  desc: "공간랜드에 입점한 업체는 이렇게 보여요. 시공 사진·후기·응답 속도가 한눈에 모입니다.",
   cover: P + "cover.webp",
   logo: P + "logo.webp",          // 업체 얼굴 — 프로필 아바타(힉스필드 견본)
   portfolio: [

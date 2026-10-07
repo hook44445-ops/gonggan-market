@@ -39,5 +39,5 @@ export const ONBOARDING_STATUS_META = {
 export const DEPOSIT_MOCK = {
   bank:    "국민은행",
   account: "123456-78-123456",
-  owner:   "공간마켓",
+  owner:   "공간랜드",
 };

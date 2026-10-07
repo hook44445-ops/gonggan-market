@@ -14,7 +14,7 @@ test("폼 값 → 저장할 행: 쉼표·원 글자를 걷어 내고 시간은 0
   });
 });
 
-test("빈 이름·날짜 없음은 막는다 · 모르는 출처는 공간마켓", () => {
+test("빈 이름·날짜 없음은 막는다 · 모르는 출처는 공간랜드", () => {
   assert.match(buildLedgerRow({ title: " ", work_date: "2026-12-10" }).error, /이름/);
   assert.match(buildLedgerRow({ title: "필름", work_date: "" }).error, /날짜/);
   assert.equal(buildLedgerRow({ title: "필름", work_date: "2026-12-10", source: "zzz" }).row.source, "gonggan");

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────
-// 공간마켓 푸시알림 정책 (순수 ESM · 의존성 0)
+// 공간랜드 푸시알림 정책 (순수 ESM · 의존성 0)
 // 클라이언트(target_url/문구)와 서버리스 dispatch(시간창/캡) 양쪽에서 import.
 // ─────────────────────────────────────────────────────
 
@@ -136,7 +136,7 @@ export function buildPushCopy(type, ctx = {}) {
     case PUSH_TYPE.ESCROW:
       return { title: ctx.title || '안전결제 확인이 필요해요', body: ctx.body || '진행 상황을 확인해주세요' };
     default:
-      return { title: ctx.title || '공간마켓 알림', body: ctx.body || '' };
+      return { title: ctx.title || '공간랜드 알림', body: ctx.body || '' };
   }
 }
 

@@ -132,7 +132,7 @@ export default function ShowcaseV3({ items = [], initialId = null, onBack, onReq
     <Page>
       <TopBar title="시공 사례" onBack={onBack} />
       <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.6, marginTop: -S.sm }}>
-        공간마켓에서 공사를 마친 의뢰인의 사진과 후기예요. 마음에 드는 사례를 눌러 비슷한 공사를 요청해 보세요.
+        공간랜드에서 공사를 마친 의뢰인의 사진과 후기예요. 마음에 드는 사례를 눌러 비슷한 공사를 요청해 보세요.
       </div>
 
       {types.length > 1 && (

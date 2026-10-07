@@ -1,4 +1,4 @@
-// 공간마켓 다운로드 안내 페이지 (/download)
+// 공간랜드 다운로드 안내 페이지 (/download)
 // 인스타 프로필 링크 등 인앱 브라우저에서 Play Store 이동이 막히는 문제를 위한
 // 모바일 우선 랜딩. 라우터 미사용 SPA — App.jsx 에서
 // window.location.pathname === "/download" 일 때 이 화면을 렌더한다.
@@ -26,7 +26,7 @@ const C = {
 };
 
 // 테스터 신청 — 비공개 테스트가 이메일 목록 방식이면 대표가 Play Console 에 메일을 넣어야 참여가 열린다(147).
-// 보내면 대표 휴대폰(공간마켓 앱)으로 푸시가 가고, 대표는 /testers 에서 목록을 본다.
+// 보내면 대표 휴대폰(공간랜드 앱)으로 푸시가 가고, 대표는 /testers 에서 목록을 본다.
 function TesterSignupForm() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -110,7 +110,7 @@ export default function DownloadScreen() {
       {/* 브랜드 헤더 */}
       <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ color: "#fff", fontSize: 22, fontWeight: 800, letterSpacing: "-0.5px" }}>
-          공간마켓
+          공간랜드
         </div>
       </div>
 
@@ -135,7 +135,7 @@ export default function DownloadScreen() {
         )}
 
         <h1 style={{ fontSize: 21, fontWeight: 800, color: C.text1, margin: "0 0 14px", lineHeight: 1.4, letterSpacing: "-0.4px" }}>
-          {plan.showTester ? "공간마켓 시작하기" : "공간마켓 앱 받기"}
+          {plan.showTester ? "공간랜드 시작하기" : "공간랜드 앱 받기"}
         </h1>
 
         {plan.showTester ? (

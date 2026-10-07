@@ -1,4 +1,4 @@
-/* 공간마켓 FCM 서비스워커 — 백그라운드 알림 표시 + 클릭 시 딥링크 이동.
+/* 공간랜드 FCM 서비스워커 — 백그라운드 알림 표시 + 클릭 시 딥링크 이동.
    firebase config 는 등록 시 query string 으로 전달받는다(SW 는 env 접근 불가). */
 /* eslint-disable no-undef */
 
@@ -22,7 +22,7 @@ if (cfg.apiKey && cfg.projectId) {
   messaging.onBackgroundMessage((payload) => {
     const n = payload.notification || {};
     const data = payload.data || {};
-    self.registration.showNotification(n.title || '공간마켓', {
+    self.registration.showNotification(n.title || '공간랜드', {
       body: n.body || '',
       icon: '/icons/icon-192-v2.png',
       badge: '/icons/icon-192-v2.png',

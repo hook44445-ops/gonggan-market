@@ -23,7 +23,7 @@ export default function InviteProCard({ userId, compact = false }) {
     trackUsp(12, { meta: { kind: "pro_invite" } });
     const text = proInviteMessage(code);
     try {
-      if (navigator.share) { await navigator.share({ title: "공간마켓 파트너", text }); setDone("보냈어요 · 고마워요"); return; }
+      if (navigator.share) { await navigator.share({ title: "공간랜드 파트너", text }); setDone("보냈어요 · 고마워요"); return; }
       await navigator.clipboard.writeText(text); setDone("복사했어요 · 카톡에 붙여 보내세요");
     } catch { /* 공유 취소 */ }
   };

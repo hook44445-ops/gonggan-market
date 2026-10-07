@@ -6,7 +6,7 @@ import {
 } from "../lib/supabase";
 
 // 관리자 계약 통합 상세 — 원계약 결제·정산·GPS 현장기록·추가견적·분쟁을 한 화면에서 "기록 확인".
-// 공간마켓은 판단자가 아니라 기록 보관자 → 문구는 기록/상태 중심(정당/부당 표현 금지).
+// 공간랜드는 판단자가 아니라 기록 보관자 → 문구는 기록/상태 중심(정당/부당 표현 금지).
 // 실제 돈 이동 없음: 정산/분쟁 액션은 상태 기록만(자동 송금/환불/정산 금지).
 
 const fmtTs = (ts) => (ts ? new Date(ts).toLocaleString("ko-KR") : "—");
@@ -118,8 +118,8 @@ export default function AdminContractDetail({ requestId = null, contractId = nul
 <style>@page{size:A4;margin:12mm} body{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#222;max-width:760px;margin:0 auto}
 button,input,textarea,select{display:none!important} h1{font-size:18px;margin:8px 0 2px} .meta{color:#666;font-size:11px;margin-bottom:10px}
 .notice{background:#f6f1e6;padding:6px 9px;border-radius:6px;font-size:10.5px;margin-bottom:10px} div{break-inside:avoid}</style></head><body>
-<h1>공간마켓 거래 명세 · 정산 기록</h1><div class="meta">출력 ${now} · 계약 ${String(escId ?? "—")}</div>
-<div class="notice">기록 확인용 내부 문서입니다(공간마켓은 판단자가 아니라 기록 보관자). 개인정보가 포함되어 있으니 당사자·조정 기관 외 공유 금지.</div>
+<h1>공간랜드 거래 명세 · 정산 기록</h1><div class="meta">출력 ${now} · 계약 ${String(escId ?? "—")}</div>
+<div class="notice">기록 확인용 내부 문서입니다(공간랜드는 판단자가 아니라 기록 보관자). 개인정보가 포함되어 있으니 당사자·조정 기관 외 공유 금지.</div>
 ${el.innerHTML}</body></html>`);
     w.document.close();
     const imgs = [...w.document.images];
@@ -319,7 +319,7 @@ ${el.innerHTML}</body></html>`);
               </Section>
 
               <div style={{ fontSize: 11, color: C.text4, textAlign: "center", padding: "8px 0", lineHeight: 1.7 }}>
-                공간마켓은 판단자가 아니라 기록 보관자입니다.<br />관리자는 기록을 확인하고 상태를 관리합니다. (자동 송금/환불/정산 없음)
+                공간랜드는 판단자가 아니라 기록 보관자입니다.<br />관리자는 기록을 확인하고 상태를 관리합니다. (자동 송금/환불/정산 없음)
               </div>
             </>
           )}

@@ -158,7 +158,7 @@ export default function PartnerLandingScreen() {
   // FAQ 를 그대로 구조화해 답변엔진이 숫자를 정확히 인용하게 한다.
   useJsonLd("partner", [
     faqSchema(FAQS, undefined, "/partner"),
-    breadcrumbSchema([["공간마켓", "/"], ["파트너 입점 안내", "/partner"]]),
+    breadcrumbSchema([["공간랜드", "/"], ["파트너 입점 안내", "/partner"]]),
   ]);
 
   // 가입·로그인 — 입구는 하나다. 앱의 /?login=company 가 휴대폰 인증 → 새 번호면 3단계 가입
@@ -237,7 +237,7 @@ export default function PartnerLandingScreen() {
             style={{ width: 30, height: 30, borderRadius: 9, display: "block", flexShrink: 0 }} />
           <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
             <span style={{ fontSize: 9.5, fontWeight: 800, color: "#A98B4E", letterSpacing: "0.08em", marginBottom: 3, whiteSpace: "nowrap" }}>스마트한 프리미엄 인테리어 비교견적</span>
-            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>공간마켓</div>
+            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>공간랜드</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, background: "#E4E9F1", padding: 4, borderRadius: 999 }}>
@@ -267,7 +267,7 @@ export default function PartnerLandingScreen() {
             광고비를 먼저 쓰지 않아도 됩니다. 견적을 요청한 고객에게만 연결됩니다.
           </p>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "4px 0 2px" }}>
-            {["광고비 0원", "가입 1분", "서류는 원할 때 하나씩"].map((t) => (
+            {["광고비 0원", "가입 1분", "PG 가입 없이", "서류는 원할 때 하나씩"].map((t) => (
               <span key={t} style={{ fontSize: 12, fontWeight: 700, color: GOLD, border: "1px solid rgba(200,168,106,.45)",
                 background: "rgba(200,168,106,.10)", borderRadius: 999, padding: "5px 11px" }}>{t}</span>
             ))}
@@ -304,8 +304,8 @@ export default function PartnerLandingScreen() {
 
         {/* ── 23초 광고 — 고객이 비교하고, 사장님은 새 요청을 받는다 ── */}
         <Reveal style={{ padding: "0 0 34px" }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: GOLDD, letterSpacing: "0.12em", marginBottom: 12 }}>23초로 보는 공간마켓</div>
-          <AdVideo label="공간마켓 소개 영상 — 고객의 비교견적과 파트너의 새 요청" />
+          <div style={{ fontSize: 12, fontWeight: 800, color: GOLDD, letterSpacing: "0.12em", marginBottom: 12 }}>23초로 보는 공간랜드</div>
+          <AdVideo label="공간랜드 소개 영상 — 고객의 비교견적과 파트너의 새 요청" />
         </Reveal>
 
         {/* ── 업체의 하루 (여정) — 수수료가 아니라 «현장이 어떻게 달라지는가»를 먼저 말한다 ── */}
@@ -318,7 +318,7 @@ export default function PartnerLandingScreen() {
               수주보다 먼저, 현장이 편해집니다
             </h2>
             <p style={{ fontSize: 13.5, color: TEXT3, lineHeight: 1.75, margin: "10px 0 0", wordBreak: "keep-all" }}>
-              고객을 연결해 주는 곳은 많습니다. 공간마켓은 그 뒤 — 견적·계약·현장 사진이 한곳에 남아, 다투는 자리가 줄어듭니다.
+              고객을 연결해 주는 곳은 많습니다. 공간랜드는 그 뒤 — 견적·계약·현장 사진이 한곳에 남아, 다투는 자리가 줄어듭니다.
             </p>
           </div>
           <div className="gm-pjourney" style={{ display: "grid", gap: 14 }}>
@@ -438,7 +438,7 @@ export default function PartnerLandingScreen() {
               <div style={{ fontSize: 12.5, opacity: .7, marginTop: 12 }}>고객 후기 · 욕실 리모델링</div>
               <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 12 }}>
                 <div aria-hidden="true" style={{ width: 58, height: 58, borderRadius: 10, background: "#fff", display: "grid", placeItems: "center", color: NAVY, fontSize: 11, fontWeight: 900 }}>QR</div>
-                <div style={{ fontSize: 12, lineHeight: 1.5, opacity: .85 }}>예시 인테리어<br /><span style={{ opacity: .7 }}>공간마켓 파트너</span></div>
+                <div style={{ fontSize: 12, lineHeight: 1.5, opacity: .85 }}>예시 인테리어<br /><span style={{ opacity: .7 }}>공간랜드 파트너</span></div>
               </div>
             </div>
           </Reveal>
@@ -480,7 +480,7 @@ export default function PartnerLandingScreen() {
         <AppFooter />
         <button onClick={() => { window.location.href = "/"; }} style={{ marginTop: 16, background: "transparent",
           border: "1px solid #CBD3DF", borderRadius: 99, padding: "7px 20px", cursor: "pointer",
-          fontSize: 13, color: TEXT3, fontFamily: SANS }}>공간마켓 홈으로</button>
+          fontSize: 13, color: TEXT3, fontFamily: SANS }}>공간랜드 홈으로</button>
       </div>
 
       {/* ── 모바일 하단 고정 CTA (골드 그라데이션 단일 버튼 · 검은테두리 제거 + 옅은 베이지 띠 + shimmer) ── */}

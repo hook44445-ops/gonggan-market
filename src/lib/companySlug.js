@@ -5,7 +5,7 @@
 export const SLUG_RE = /^[가-힣a-z0-9](?:[가-힣a-z0-9-]{0,18}[가-힣a-z0-9])?$/;
 // 앱 경로·운영 이름과 겹치는 것
 export const RESERVED_SLUGS = ["admin", "api", "app", "download", "testers", "lounge", "partner", "privacy", "terms", "refund",
-  "tokens", "my", "p", "login", "gongganmarket", "공간마켓", "공간사이", "운영자", "관리자", "test", "테스트"];
+  "tokens", "my", "p", "login", "gongganmarket", "gongganland", "공간마켓", "공간랜드", "공간사이", "운영자", "관리자", "test", "테스트"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const isUuid = (v) => UUID_RE.test(String(v ?? ""));

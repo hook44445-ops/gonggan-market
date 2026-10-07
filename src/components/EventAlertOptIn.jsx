@@ -61,10 +61,10 @@ export default function EventAlertOptIn({ user }) {
             style={{ width: "100%", maxWidth: 480, background: C.surface, borderRadius: "22px 22px 0 0", padding: "22px 22px 30px" }}>
             <div style={{ fontSize: 17, fontWeight: 800, color: C.text1 }}>이벤트·혜택 알림(광고) 받기</div>
             <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.7, marginTop: 10 }}>
-              · 보내는 곳: 공간마켓<br />
+              · 보내는 곳: 공간랜드<br />
               · 내용: {CURRENT_EVENT.title} 같은 초대 이벤트·공간토큰 혜택 소식(시작·마감 무렵)<br />
               · 방법: 앱 푸시 · 제목에 「(광고)」 표시 · 한국 시간 낮 9시~저녁 8시에만<br />
-              · 동의는 선택이에요. 안 해도 공간마켓을 똑같이 쓸 수 있고, 마이 &gt; 푸시 알림에서 언제든 끌 수 있어요.<br />
+              · 동의는 선택이에요. 안 해도 공간랜드를 똑같이 쓸 수 있고, 마이 &gt; 푸시 알림에서 언제든 끌 수 있어요.<br />
               · 푸시 알림도 함께 켜져요(대화·계약 알림 포함).
             </div>
             {done && <div style={{ fontSize: 13, color: C.brand, fontWeight: 700, marginTop: 12, lineHeight: 1.5 }}>{done}</div>}

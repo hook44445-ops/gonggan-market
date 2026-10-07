@@ -22,7 +22,7 @@ const NUMBER_PATTERNS = [
 
 // 채팅창 경고 배너 문구
 export const DIRECT_DEAL_WARNING =
-  "⚠️ 직거래 유도는 공간마켓 이용약관 위반입니다.\n이 대화는 기록되며, 적발 시 계정이 정지될 수 있습니다.";
+  "⚠️ 직거래 유도는 공간랜드 이용약관 위반입니다.\n이 대화는 기록되며, 적발 시 계정이 정지될 수 있습니다.";
 
 // 메시지에서 감지된 키워드 배열 반환 (없으면 빈 배열)
 export function detectDirectDealKeywords(text) {

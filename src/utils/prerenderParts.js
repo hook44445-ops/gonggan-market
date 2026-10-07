@@ -65,13 +65,13 @@ export function homeBodyHtml({ site = SITE_URL, beta = true } = {}) {
 <p>${esc(seo.description)}</p>
 
 <section>
-<h2>공간마켓은 어떤 서비스인가요?</h2>
-<p>공간마켓은 우리 동네 집수리·인테리어·리모델링 업체를 쉽고 편하게 비교하고 상담할 수 있는 플랫폼입니다.</p>
+<h2>공간랜드는 어떤 서비스인가요?</h2>
+<p>공간랜드는 우리 동네 집수리·인테리어·리모델링 업체를 쉽고 편하게 비교하고 상담할 수 있는 플랫폼입니다.</p>
 <p>집수리, 도배, 장판, 욕실, 주방, 리모델링, 상업공간, 부분시공 등 견적이 필요한 다양한 시공에 맞는 업체를 찾아 견적을 비교하고 상담할 수 있습니다.</p>
 </section>
 
 <section>
-<h2>공간마켓 이용 흐름</h2>
+<h2>공간랜드 이용 흐름</h2>
 <ol>${flow.map(([t, d]) => `<li><strong>${esc(t)}</strong> — ${esc(d)}</li>`).join('')}</ol>
 </section>
 ${escrowHtml}
@@ -79,11 +79,11 @@ ${faqHtml(faq)}
 
 <section>
 <h2>인테리어 업체이신가요?</h2>
-<p>공간마켓 공간파트너는 가입비·광고비 없이 바로 시작하고, 증빙을 낼수록 더 큰 공사를 받습니다.</p>
+<p>공간랜드 공간파트너는 가입비·광고비 없이 바로 시작하고, 증빙을 낼수록 더 큰 공사를 받습니다.</p>
 <p><a href="${site}/partner">파트너 입점 안내 보기</a></p>
 </section>
 
-<p><a href="${site}/lounge">공간마켓 라운지 — 공간 이야기 보기</a></p>
+<p><a href="${site}/lounge">공간랜드 라운지 — 공간 이야기 보기</a></p>
 ${bizHtml()}
 </main>`;
 }
@@ -115,7 +115,7 @@ ${live ? '' : `<p>${segHtml(SAFE_PAYMENT_NOT_LIVE)}</p>\n`}<p>${segHtml(SAFE_PAY
 <section><h2>결제 금액 및 수단</h2><p>${SAFE_PAYMENT_PRICE_LINES.map(segHtml).join('<br>')}</p></section>
 <section><h2>통신판매중개자 고지</h2><p>${esc(SAFE_PAYMENT_BROKER)}</p></section>
 <section><h2>환불 정책</h2><p>${esc(SAFE_PAYMENT_REFUND)}</p><p><a href="${site}/refund">환불 정책 자세히 보기</a></p></section>
-<p>${esc(SAFE_PAYMENT_CTA_NOTE)} <a href="${site}/">공간마켓에서 견적 요청하기</a></p>
+<p>${esc(SAFE_PAYMENT_CTA_NOTE)} <a href="${site}/">공간랜드에서 견적 요청하기</a></p>
 ${bizHtml()}
 </main>`;
   }
@@ -136,7 +136,7 @@ ${bizHtml()}
   }
   if (page === 'download') {
     return `<main>
-<h1>공간마켓 시작하기</h1>
+<h1>공간랜드 시작하기</h1>
 <p>${segHtml(DOWNLOAD_INTRO)}</p>
 <p><a href="${site}/">웹에서 바로 시작하기</a></p>
 <h2>앱으로 받고 싶다면</h2>

@@ -26,7 +26,7 @@ test("전문분야로 자재 이미지를 고르고, 없으면 주거", () => {
 test("«왜 이 업체»는 실제 값이 기준을 넘을 때만", () => {
   assert.deepEqual(whyThisCompany({ completedJobs: 0, recontractRate: 0, asRate: 0 }), []);
   assert.deepEqual(whyThisCompany({ completedJobs: 12, recontractRate: 41, asRate: 95, hasInsurance: true }),
-    ["공간마켓 시공 12건", "재계약 41%", "A/S 응답 95%"]);
+    ["공간랜드 시공 12건", "재계약 41%", "A/S 응답 95%"]);
 });
 
 test("요청한 공사와 겹치는 전문분야가 앞에 온다", () => {

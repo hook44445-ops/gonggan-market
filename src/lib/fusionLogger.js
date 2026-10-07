@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Fusion Logger — Fusion 실행을 Activity Log 에 기록 (Phase 31)
+// 공간랜드 Fusion Logger — Fusion 실행을 Activity Log 에 기록 (Phase 31)
 //   기존 activityLog.logActivity 를 호출만 한다(엔진 무수정). Regression Zero.
 // ════════════════════════════════════════════════════════════════════
 

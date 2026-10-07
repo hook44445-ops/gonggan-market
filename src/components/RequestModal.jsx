@@ -127,7 +127,7 @@ export default function RequestModal({ onClose, onDone, initialData = null, isEd
             marginBottom:S.sm, fontSize:12, color:C.text3, lineHeight:1.8 }}>
             {SHOW_BETA_UI ? (<>
               📋 <b style={{color:C.brand}}>계약부터 준공까지 기록이 남아요</b><br/>
-              계약서·공사 사진·GPS 진행 기록이 공간마켓에 남습니다 · 대금은 계약서 단계대로 업체와 직접 주고받아요
+              계약서·공사 사진·GPS 진행 기록이 공간랜드에 남습니다 · 대금은 계약서 단계대로 업체와 직접 주고받아요
             </>) : (<>
               🔒 <b style={{color:C.brand}}>공간안전결제</b> — 토스페이먼츠가 공사대금을 안전하게 보호합니다<br/>
               단계별 안전정산 후 공사 완료 시 최종 지급 · 가상계좌 이용 시 이용료 660원<br/>

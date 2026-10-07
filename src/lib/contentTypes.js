@@ -1,11 +1,11 @@
 // ════════════════════════════════════════════════════════════════════
 // 공간라운지 Content Types — 콘텐츠 성격 분류 + 일일 편성 (Phase 24 Morning Brief)
 //
-//   핵심 철학: "뉴스는 뉴스로, 공간마켓 글은 공간마켓 글로, 연재는 연재로."
+//   핵심 철학: "뉴스는 뉴스로, 공간랜드 글은 공간랜드 글로, 연재는 연재로."
 //   모든 글을 억지로 공간 관점으로 연결하지 않는다. 타입별로 공간관점 적용 여부를 명시한다.
 //
 //   하루 최대 11개(상한선, 목표 아님). 품질 통과분만 발행.
-//   고정 아침 3개(큐티/별자리 운세/모닝브리핑) + 긴급뉴스 3 + 공간마켓 1 + 연재 1 + 타임트렌드 3.
+//   고정 아침 3개(큐티/별자리 운세/모닝브리핑) + 긴급뉴스 3 + 공간랜드 1 + 연재 1 + 타임트렌드 3.
 //
 //   ⚠️ Regression Zero: 순수 함수 · DB/API/Cron/Migration 없음. 편성/분류 데이터만 조립한다.
 // ════════════════════════════════════════════════════════════════════
@@ -16,7 +16,7 @@ export const CONTENT_TYPES = {
   astrology:     { id: "astrology",     label: "오늘의 별자리 운세",  icon: "⭐", slot: "06:00", spacePerspective: false, seoFirst: true,  news: false },
   morning_brief: { id: "morning_brief", label: "Morning Brief",       icon: "📰", slot: "07:00", spacePerspective: false, seoFirst: true,  news: true  },
   breaking:      { id: "breaking",      label: "실시간 긴급뉴스",    icon: "🚨", slot: "수시",  spacePerspective: false, seoFirst: false, news: true  },
-  space_market:  { id: "space_market",  label: "공간마켓 콘텐츠",    icon: "🏠", slot: "낮",    spacePerspective: true,  seoFirst: false, news: false },
+  space_market:  { id: "space_market",  label: "공간랜드 콘텐츠",    icon: "🏠", slot: "낮",    spacePerspective: true,  seoFirst: false, news: false },
   series:        { id: "series",        label: "연재 스토리",        icon: "📚", slot: "저녁",  spacePerspective: false, seoFirst: false, news: false },
   trend_past:    { id: "trend_past",    label: "Time Trend · Past",  icon: "⏮️", slot: "낮",    spacePerspective: false, seoFirst: false, news: false },
   trend_present: { id: "trend_present", label: "Time Trend · Present",icon: "⏺️", slot: "낮",    spacePerspective: false, seoFirst: false, news: false },
@@ -35,7 +35,7 @@ export const DAILY_QUOTA = {
 const NEWS_WORDS = /속보|긴급|발표|금리|정책|전쟁|재난|사고|증시|주가|환율|규제|선거|판결|엔비디아|삼성|openai|claude|반도체|실적|국제|정부|한은|연준|fed/i;
 const QT_WORDS = /큐티|말씀|묵상|성경|기도|은혜|믿음|신앙|하나님|예수/i;
 const ASTRO_WORDS = /점성|운세|별자리|띠|사주|타로|astrology/i;
-const SPACE_WORDS = /인테리어|시공|견적|집수리|리모델|입주|이사|공간마켓|평면|셀프인테리어|집꾸미|업체|고객사례/i;
+const SPACE_WORDS = /인테리어|시공|견적|집수리|리모델|입주|이사|공간랜드|평면|셀프인테리어|집꾸미|업체|고객사례/i;
 const STORY_WORDS = /연재|이야기|소설|에세이|씨의|하루|시즌|episode|스토리/i;
 
 // 주제/힌트 텍스트 → 콘텐츠 타입 추정(명시 typeHint 우선).

@@ -8,7 +8,7 @@ export const PARTNER_STEPS = [
   { key: "slug",      label: "내 업체 주소 만들기", hint: "명함·인스타에 넣을 짧은 주소(/p/…)",                   action: "slug" },
   { key: "profile",   label: "커버 사진·소개글 올리기", hint: "링크를 연 고객이 가장 먼저 보는 곳이에요",           action: "profile" },
   { key: "showcase",  label: "첫 시공 사례 올리기", hint: "전·후 사진 한 쌍이면 페이지가 살아나요",                 action: "portfolio" },
-  { key: "review",    label: "첫 후기 받기",       hint: "지인 공사도 «공간마켓 밖 공사 후기»로 받을 수 있어요",     action: "askReview" },
+  { key: "review",    label: "첫 후기 받기",       hint: "지인 공사도 «공간랜드 밖 공사 후기»로 받을 수 있어요",     action: "askReview" },
   { key: "share",     label: "내 업체 페이지 알리기", hint: "블로그·인스타·카톡에 주소를 걸어요",                    action: "sharePage" },
   { key: "qr",        label: "명함·전단 QR 저장",   hint: "명함·현장 안내문에 붙이면 폰 카메라로 바로 내 페이지",     action: "qr" },
 ];

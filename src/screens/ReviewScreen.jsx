@@ -164,7 +164,7 @@ function RecommendSheet({ company, code, onClose }) {
   const text = recommendMessage(company?.name, company?.slug ?? company?.id, code);
   const share = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: "공간마켓", text }); onClose(); } catch { /* 공유 취소 */ }
+      try { await navigator.share({ title: "공간랜드", text }); onClose(); } catch { /* 공유 취소 */ }
       return;
     }
     try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(onClose, 1200); }
@@ -560,7 +560,7 @@ export default function ReviewScreen({ company, onBack, currentUser, requestId, 
           <div onClick={(e) => e.stopPropagation()} style={{ width:"100%", maxWidth:480, background:C.surface,
             borderRadius:"22px 22px 0 0", padding:"24px 22px 30px", textAlign:"center" }}>
             <div style={{ fontSize:30 }}>⭐</div>
-            <div style={{ fontSize:17, fontWeight:800, color:C.text1, marginTop:6 }}>공간마켓이 도움이 됐다면</div>
+            <div style={{ fontSize:17, fontWeight:800, color:C.text1, marginTop:6 }}>공간랜드가 도움이 됐다면</div>
             <div style={{ fontSize:13.5, color:C.text2, lineHeight:1.65, marginTop:8 }}>
               스토어에 별점을 남겨 주세요.<br />다음에 집을 고칠 이웃이 믿을 수 있는 업체를 더 쉽게 찾게 돼요.
             </div>

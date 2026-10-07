@@ -1,7 +1,7 @@
 import { C } from "../../constants";
 
 // ─────────────────────────────────────────────────────
-// 공간마켓 브랜드 마크 — v6 (2026-09-25) 집 · 마주한 두 사람 · 열린 문 · 민트 지붕
+// 공간랜드 브랜드 마크 — v6 (2026-09-25) 집 · 마주한 두 사람 · 열린 문 · 민트 지붕
 // 앱 아이콘/파비콘(public/icons/gm-logo.svg)과 같은 도형. 1024 그리드.
 // ─────────────────────────────────────────────────────
 const DOOR = "#E8BD62";
@@ -36,7 +36,7 @@ export function LogoMark({ size = 32, rounded = true, bare = false, tone = "bran
 }
 
 // ─────────────────────────────────────────────────────
-// 공간마켓 워드마크 (마크 + 텍스트) — 앱 이름이 앞, 회사는 작게
+// 공간랜드 워드마크 (마크 + 텍스트) — 앱 이름이 앞, 회사는 작게
 // ─────────────────────────────────────────────────────
 export function BrandLockup({ size = 32, dark = false }) {
   return (
@@ -44,7 +44,7 @@ export function BrandLockup({ size = 32, dark = false }) {
       <LogoMark size={size} />
       <div>
         <div style={{ fontSize: size * 0.5, fontWeight: 900, lineHeight: 1.15, letterSpacing: "-0.4px",
-          color: dark ? "#fff" : C.brandD }}>공간마켓</div>
+          color: dark ? "#fff" : C.brandD }}>공간랜드</div>
         <div style={{ fontSize: size * 0.28, lineHeight: 1, letterSpacing: "0.2px",
           color: dark ? "rgba(255,255,255,0.7)" : C.text3 }}>by 공간사이</div>
       </div>

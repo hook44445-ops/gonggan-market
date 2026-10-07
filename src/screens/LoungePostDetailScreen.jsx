@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────
-// 공간마켓 라운지 시스템
+// 공간랜드 라운지 시스템
 // ─────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect, Fragment } from 'react';
@@ -580,7 +580,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
     const url = isGuest ? plain : withRefCode(plain, refCode);
     try {
       if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({ title: post?.title || '공간마켓 라운지', text: post?.title || '공간마켓 라운지', url });
+        await navigator.share({ title: post?.title || '공간랜드 라운지', text: post?.title || '공간랜드 라운지', url });
         return;
       }
     } catch { return; } // 사용자가 공유 취소
@@ -644,7 +644,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
       const isReply  = !!replyTo?.id;
 
       // 푸시/앱 내 알림 문구 규칙
-      //  · 제목 = 게시글 본문 첫 줄(없으면 "공간마켓 라운지", 45자 초과 시 말줄임)
+      //  · 제목 = 게시글 본문 첫 줄(없으면 "공간랜드 라운지", 45자 초과 시 말줄임)
       //  · 본문 = 댓글 내용(60자 초과 시 말줄임 / 사진만 있으면 안내문구 / 비어있으면 기본문구)
       const firstLine = (post?.content ?? '')
         .split('\n')
@@ -652,7 +652,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
         .find(Boolean) ?? '';
       const notifTitle = firstLine
         ? (firstLine.length > 45 ? `${firstLine.slice(0, 45)}…` : firstLine)
-        : '공간마켓 라운지';
+        : '공간랜드 라운지';
       const hasCommentImage = Array.isArray(data?.image_urls) && data.image_urls.length > 0;
       const notifBody = content
         ? (content.length > 60 ? `${content.slice(0, 60)}…` : content)
@@ -1057,7 +1057,7 @@ export default function LoungePostDetailScreen({ postId, initialPost, user, toke
 
         {(() => {
           const photos = post.image_urls ?? [];
-          const altOf  = (i) => (post.title ? `${post.title}${photos.length > 1 ? ` (${i + 1})` : ''}` : '공간마켓 라운지 이미지');
+          const altOf  = (i) => (post.title ? `${post.title}${photos.length > 1 ? ` (${i + 1})` : ''}` : '공간랜드 라운지 이미지');
           const open   = (i) => setImgViewer({ urls: photos, index: i });
           const big    = (i, extra = {}) => (
             <div key={`ph-${i}`} style={{ position: 'relative', margin: `0 0 ${S.lg}px`, ...extra }}>

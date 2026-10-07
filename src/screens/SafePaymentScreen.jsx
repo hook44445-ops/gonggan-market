@@ -1,5 +1,5 @@
 import { PAYMENTS_LIVE } from "../constants/release";
-// 토스 PG 심사용 공개 상품 페이지 (로그인 없이 접근 가능) — 공간마켓 본류.
+// 토스 PG 심사용 공개 상품 페이지 (로그인 없이 접근 가능) — 공간랜드 본류.
 // 라우터 미사용 SPA — App.jsx 에서 window.location.pathname === "/safe-payment" 일 때 렌더.
 // 공간안전결제(에스크로) 상품/서비스의 설명·결제 구조·단계별 지급·서비스 제공기간·
 // 단건 최고가·통신판매중개자 고지·환불정책을 비회원도 확인할 수 있도록 노출한다.
@@ -238,7 +238,7 @@ export default function SafePaymentScreen() {
             cursor: "pointer",
           }}
         >
-          공간마켓에서 견적 요청하기
+          공간랜드에서 견적 요청하기
         </button>
         <div style={{ fontSize: 12, color: "#8a8275", textAlign: "center", marginTop: 8 }}>
           {SAFE_PAYMENT_CTA_NOTE}

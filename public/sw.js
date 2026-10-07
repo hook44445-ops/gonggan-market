@@ -1,4 +1,4 @@
-// 공간마켓 Service Worker — 캐시 무력화(no-cache) 버전
+// 공간랜드 Service Worker — 캐시 무력화(no-cache) 버전
 //
 // 배경: 과거 버전의 SW가 index.html/정적자산을 cache-first 로 보관해, 새 배포
 // 이후에도 기기(특히 TWA 내장 크롬)에 옛 UI가 계속 표시되는 문제가 반복됐다.

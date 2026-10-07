@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────
-// 공간마켓 라운지 시스템
+// 공간랜드 라운지 시스템
 // ─────────────────────────────────────────────────────
 
 import { useState, useRef, useEffect } from 'react';
@@ -509,7 +509,7 @@ export default function LoungeScreen({ user, extraPosts = [], extraStories = [],
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <LogoMark size={30} />
             <div>
-              <div style={{ fontSize: 11, color: C.text3, marginBottom: 2, letterSpacing: '0.3px' }}>공간마켓</div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 2, letterSpacing: '0.3px' }}>공간랜드</div>
               <div style={{ fontSize: 19, fontWeight: 800, color: C.text1, letterSpacing: '-0.5px' }}>라운지</div>
             </div>
           </div>

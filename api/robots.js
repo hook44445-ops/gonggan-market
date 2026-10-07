@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────
-// 공간마켓 robots.txt (Vercel Serverless)
+// 공간랜드 robots.txt (Vercel Serverless)
 //
 // ⚠️ public/robots.txt 를 만들면 안 된다. Vercel 은 rewrites 를 «파일시스템 확인 뒤»에
 //    적용하므로 정적 파일이 있으면 이 함수가 영영 호출되지 않는다(예전에 그 상태였다).

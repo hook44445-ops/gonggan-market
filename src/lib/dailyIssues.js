@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════
 // 공간라운지 AI 편집국 — "오늘의 이슈" 자동 생성 (Phase 2·AI Editor)
 //
-//   매일 사회·경제·주식·부동산·문화·라이프·AI·날씨·계절 + 공간마켓 내부 데이터를
+//   매일 사회·경제·주식·부동산·문화·라이프·AI·날씨·계절 + 공간랜드 내부 데이터를
 //   분석해 "오늘의 이슈 Top20" 을 만든다. 편집회의(aiEditor.js)의 입력이 된다.
 //
 //   Phase 2 는 결정론적이다 — 도메인별 시드 이슈 + 트렌드 Provider 수집분을 합쳐
@@ -25,7 +25,7 @@ export const ISSUE_DOMAINS = [
   { id: "season",    label: "계절",   seeds: ["환절기", "이사철"] },
 ];
 
-// 도메인 가중치 — 공간마켓 서비스 특성상 주거/부동산/생활 계열을 조금 더 위로 올린다(표시 순서용).
+// 도메인 가중치 — 공간랜드 서비스 특성상 주거/부동산/생활 계열을 조금 더 위로 올린다(표시 순서용).
 const DOMAIN_WEIGHT = {
   realestate: 6, life: 6, weather: 5, season: 5, economy: 4,
   society: 4, ai: 3, culture: 3, stock: 2,
@@ -33,7 +33,7 @@ const DOMAIN_WEIGHT = {
 
 // 오늘의 이슈 Top-N 생성.
 //   trends:   외부에서 수집한 TrendItem[](선택) — collectAllTrends().items 를 그대로 넣으면 된다.
-//   internal: 공간마켓 내부 데이터 힌트(선택) — [{ topic, domain }] 형태(예: 급증 검색어).
+//   internal: 공간랜드 내부 데이터 힌트(선택) — [{ topic, domain }] 형태(예: 급증 검색어).
 //   반환: [{ topic, domain, domainLabel, source, weight }] (weight 내림차순, 중복 슬러그 제거).
 export function generateDailyIssues({ trends = [], internal = [], limit = 20 } = {}) {
   const pool = [];

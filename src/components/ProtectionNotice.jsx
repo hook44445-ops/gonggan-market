@@ -3,9 +3,9 @@ import { useState } from "react";
 import { C, R, S } from "../constants";
 
 // ─────────────────────────────────────────────────────
-// 공간마켓 보호 범위 안내 — 경고 톤 금지, 보호/안내/따뜻함.
+// 공간랜드 보호 범위 안내 — 경고 톤 금지, 보호/안내/따뜻함.
 //   variant="short" : 간단 안내 박스 (항상 펼침)
-//   variant="full"  : 아코디언 ("공간마켓 보호 범위 보기 ▼")
+//   variant="full"  : 아코디언 ("공간랜드 보호 범위 보기 ▼")
 // 색상: 딥그린/아이보리만. 빨강·주황 금지.
 // ─────────────────────────────────────────────────────
 export default function ProtectionNotice({ variant = "short", defaultOpen = false }) {
@@ -39,7 +39,7 @@ export default function ProtectionNotice({ variant = "short", defaultOpen = fals
         <div>
           <b style={{ color: C.brand }}>공간안전결제</b>로 진행하시면 단계별 안전지급, 거래 기록,
           분쟁 지원이 적용됩니다.<br />
-          플랫폼 밖 거래는 공간마켓 보호 범위에 포함되지 않습니다.
+          플랫폼 밖 거래는 공간랜드 보호 범위에 포함되지 않습니다.
         </div>
       </div>
     );
@@ -57,7 +57,7 @@ export default function ProtectionNotice({ variant = "short", defaultOpen = fals
           padding: "14px 16px", background: "none", border: "none", cursor: "pointer",
           fontSize: 14, fontWeight: 700, color: C.text1, fontFamily: "inherit", textAlign: "left",
         }}>
-        <span>🛡️ 공간마켓 보호 범위 보기</span>
+        <span>🛡️ 공간랜드 보호 범위 보기</span>
         <span style={{ fontSize: 13, color: C.text3, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
       </button>
       {open && (
@@ -65,7 +65,7 @@ export default function ProtectionNotice({ variant = "short", defaultOpen = fals
           <div style={{ marginBottom: S.md }}>
             공간안전결제를 선택하시면<br /><br />
             공사가 끝날 때까지 여러분의 돈은 <b style={{ color: C.brand }}>토스페이먼츠</b>가
-            안전하게 보관합니다. 문제가 생기면 공간마켓이 원만한 해결을 도와드립니다.
+            안전하게 보관합니다. 문제가 생기면 공간랜드가 원만한 해결을 도와드립니다.
           </div>
           <div style={{ background: C.brandL, borderRadius: 10, padding: "12px 14px", marginBottom: S.md }}>
             {[
@@ -81,7 +81,7 @@ export default function ProtectionNotice({ variant = "short", defaultOpen = fals
             ))}
           </div>
           <div style={{ color: C.text3, marginBottom: S.sm }}>
-            플랫폼 밖 거래는 공간마켓이 도와드리기 어렵습니다.
+            플랫폼 밖 거래는 공간랜드가 도와드리기 어렵습니다.
           </div>
           <div style={{ background: C.surface2, borderRadius: 10, padding: "12px 14px", marginBottom: S.md }}>
             {[

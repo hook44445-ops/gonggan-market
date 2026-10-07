@@ -42,7 +42,7 @@ function adaptSeedPost(s) {
     id:                   `seed_${s.id}`,
     _seed_post_id:        s.id,
     user_id:              null,
-    anonymous_nickname:   s.author_name ?? '공간마켓',
+    anonymous_nickname:   s.author_name ?? '공간랜드',
     category:             s.category,
     title:                s.title ?? null,
     content:              s.content,

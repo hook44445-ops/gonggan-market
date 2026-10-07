@@ -21,7 +21,7 @@ test("아래 띠 — 고객은 초대 선물, 업체는 사례", () => {
   assert.match(cardFooter({}).sub, /공간토큰 20개/);
   assert.match(cardFooter({ isCompany: true, companyName: "홍익시공" }).head, /홍익시공 시공 사례/);
   assert.doesNotMatch(cardFooter({ isCompany: true }).sub, /토큰/);
-  assert.equal(cardFileName("2026-09-29"), "공간마켓_전후_20260929.png");
+  assert.equal(cardFileName("2026-09-29"), "공간랜드_전후_20260929.png");
 });
 
 import { readFileSync } from "node:fs";

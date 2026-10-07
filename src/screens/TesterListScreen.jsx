@@ -4,7 +4,7 @@ import { useDocumentMeta } from "../hooks/useDocumentMeta";
 
 // ════════════════════════════════════════════════════════════════════════════
 // /testers — 안드로이드 테스터 신청 목록(대표 09-28 · 147)
-//   /download 에서 누가 구글 메일을 남기면 대표 휴대폰(공간마켓 앱)으로 푸시가 오고, 누르면 여기로 온다.
+//   /download 에서 누가 구글 메일을 남기면 대표 휴대폰(공간랜드 앱)으로 푸시가 오고, 누르면 여기로 온다.
 //   Play Console › 비공개 테스트 › 테스터 목록에 메일을 붙여 넣은 뒤 「추가함」을 눌러 표시한다.
 //   볼 수 있는 사람: 관리자 또는 대표 번호 계정(로그인 토큰 — 서버가 판정). 메일은 개인정보라 검색에 걸리지 않게 noindex.
 // ════════════════════════════════════════════════════════════════════════════
@@ -21,7 +21,7 @@ const fmt = (iso) => {
 };
 
 export default function TesterListScreen() {
-  useDocumentMeta({ title: "테스터 신청 목록 — 공간마켓", description: "관리자 전용", path: "/testers" });
+  useDocumentMeta({ title: "테스터 신청 목록 — 공간랜드", description: "관리자 전용", path: "/testers" });
   useEffect(() => {   // 검색에 걸리지 않게(목록은 로그인 토큰 없이는 비어 있지만 페이지 자체도 막는다)
     const m = document.createElement("meta");
     m.name = "robots"; m.content = "noindex, nofollow";
@@ -37,7 +37,7 @@ export default function TesterListScreen() {
       if (error) {
         const m = String(error.message ?? "");
         setState({ loading: false, error: /OWNER_ONLY/.test(m)
-          ? "공간마켓 앱에서 대표 번호(관리자) 계정으로 로그인한 뒤 이 알림을 다시 열어 주세요."
+          ? "공간랜드 앱에서 대표 번호(관리자) 계정으로 로그인한 뒤 이 알림을 다시 열어 주세요."
           : /tester_signups_list/.test(m) ? "아직 준비 중이에요(SQL 147)." : "목록을 불러오지 못했어요." });
         return;
       }
@@ -66,7 +66,7 @@ export default function TesterListScreen() {
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif", color: C.text1 }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 16px 48px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <a href="/" aria-label="공간마켓 홈" style={{ fontSize: 22, color: C.text1, textDecoration: "none" }}>←</a>
+          <a href="/" aria-label="공간랜드 홈" style={{ fontSize: 22, color: C.text1, textDecoration: "none" }}>←</a>
           <div>
             <div style={{ fontSize: 18, fontWeight: 800 }}>테스터 신청 목록</div>
             <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>Play Console › 비공개 테스트 › 테스터 목록에 넣어 주세요</div>

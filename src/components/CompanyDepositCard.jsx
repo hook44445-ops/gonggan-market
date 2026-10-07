@@ -81,7 +81,7 @@ export default function CompanyDepositCard({ badge = "standard", hasInsurance = 
         {/* Details rows */}
         <div style={{ padding:S.xl }}>
           {[
-            ["보관 방식",  "공간마켓 법인 신탁 계좌"],
+            ["보관 방식",  "공간랜드 법인 신탁 계좌"],
             ["수주 한도",  current.maxJob === 99999 ? "무제한" : `${current.maxJob.toLocaleString()}만원`],
             ["보증예치 비율",`${ratePct}%${hasInsurance ? " (시공보험 가입)" : " (시공보험 미가입)"}`],
             ["환급 조건",  "분쟁 없을 시 정해진 조건에 따라 반환"],

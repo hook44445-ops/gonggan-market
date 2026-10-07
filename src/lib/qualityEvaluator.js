@@ -3,7 +3,7 @@
 //
 //   초안을 100점 기준 9개 항목으로 평가한다. 점수를 임의로 올리거나 기준을 낮추지 않는다 —
 //   실제 본문 신호(길이·구조·근거어휘·질문충족·중복·문체 등)로 결정론적으로 계산한다.
-//   유형(뉴스/공간마켓/QT/별자리 운세/Time Trend)별로 평가 포인트를 달리 적용한다.
+//   유형(뉴스/공간랜드/QT/별자리 운세/Time Trend)별로 평가 포인트를 달리 적용한다.
 //
 //   ⚠️ Regression Zero: 기존 Safety Gate(autoPublishGate.evaluateGate)는 그대로 두고(무수정),
 //     기존 scoreUsefulness/checkSeo/checkBannedWords 신호만 재사용한다. 순수 함수 · 저장/API 없음.
@@ -134,8 +134,8 @@ export function evaluateQuality(draft = {}) {
     if (!hasSource) { factuality = clamp(factuality - 4, 0, 15); typeNotes.push("뉴스형: 출처 부족"); }
     if (countHits(full, OPINION) > 0) { factuality = clamp(factuality - 3, 0, 15); typeNotes.push("뉴스형: 과도한 해석"); }
   } else if (group === "space_market") {
-    if (u.spaceRelevanceAux < 40) { searchIntent = clamp(searchIntent - 3, 0, 15); typeNotes.push("공간마켓형: 공간 관점 약함"); }
-    if (countHits(full, PROMO) > 0) { toneNatural = clamp(toneNatural - 2, 0, 5); typeNotes.push("공간마켓형: 과도한 홍보"); }
+    if (u.spaceRelevanceAux < 40) { searchIntent = clamp(searchIntent - 3, 0, 15); typeNotes.push("공간랜드형: 공간 관점 약함"); }
+    if (countHits(full, PROMO) > 0) { toneNatural = clamp(toneNatural - 2, 0, 5); typeNotes.push("공간랜드형: 과도한 홍보"); }
   } else if (group === "qt") {
     const hasScripture = /[0-9]:[0-9]|장\s?\d|편|말씀|성경/.test(full);
     const hasApply = /적용|질문|묵상|오늘/.test(full);

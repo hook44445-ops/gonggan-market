@@ -145,7 +145,7 @@ export default function QuoteDocument({ estimate = {}, companyName, request = {}
         )}
 
         <div style={{ fontSize: 10.5, color: "#9A9D96", borderTop: "1px solid #E4E0D8", paddingTop: 10, lineHeight: 1.7 }}>
-          공간마켓에서 업체가 현장 확인 후 작성한 견적서입니다. 금액 단위: 원(부가세 포함 여부는 업체와 확인해 주세요).
+          공간랜드에서 업체가 현장 확인 후 작성한 견적서입니다. 금액 단위: 원(부가세 포함 여부는 업체와 확인해 주세요).
         </div>
       </div>
     </div>,

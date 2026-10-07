@@ -8,7 +8,7 @@
 export const MINOR_WORK_LIMIT_WON = 15_000_000;
 
 export const LEDGER_SOURCES = [
-  { key: "gonggan",      label: "공간마켓" },
+  { key: "gonggan",      label: "공간랜드" },
   { key: "acquaintance", label: "지인" },
   { key: "other",        label: "기타" },
 ];

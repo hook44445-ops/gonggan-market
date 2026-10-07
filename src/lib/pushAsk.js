@@ -17,6 +17,6 @@ export const markPushAsk = (now = Date.now()) => { try { localStorage.setItem(KE
 export const PUSH_ON_PREFS = { push_enabled: true, push_estimate_news: true, push_chat: true, push_escrow: true };
 
 export function pushFailText(reason) {
-  if (reason === "permission_denied") return "알림이 막혀 있어요 · 폰 설정 › 알림에서 공간마켓(또는 브라우저)을 켜 주세요";
+  if (reason === "permission_denied") return "알림이 막혀 있어요 · 폰 설정 › 알림에서 공간랜드(또는 브라우저)을 켜 주세요";
   return "지금은 켤 수 없어요 · 마이 › 푸시 알림에서 다시 켤 수 있어요";
 }

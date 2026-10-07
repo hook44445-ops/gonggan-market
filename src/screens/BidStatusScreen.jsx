@@ -42,7 +42,7 @@ const normalizeCompany = (row) => ({
   // 신뢰 칸 — 관리자가 확인한 값만(카드 칩·엠블럼·레벨이 쓴다)
   hasInsurance: row.has_insurance ?? false,
   license_verified: row.license_verified ?? false,
-  is_direct: row.is_direct === true,   // 공간마켓 직영(146) — 표시만
+  is_direct: row.is_direct === true,   // 공간랜드 직영(146) — 표시만
   guarantee_status: row.guarantee_status ?? null,
   guarantee_grade: row.guarantee_grade ?? null,
   guarantee_amount: row.guarantee_amount ?? null,
@@ -153,7 +153,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   // 결제가 실제로 열렸는가(constants/release PAYMENTS_LIVE = 정식 모드) — 꺼져 있으면 보관 약속도 결제 버튼도 없다.
   const payBlocked = bizPending || (!PAYMENTS_LIVE && !SAFE_MODE);
   const planNotice = bizPending
-    ? { title: "업체의 사업자 확인을 기다리고 있어요", body: `공간마켓은 사업자등록을 마친 업체와만 계약해요. 업체에 사업자등록증 제출을 안내했고(홈택스에서 당일 발급), 확인되면 알림으로 알려 드릴게요. 선택 후 ${BIZ_GRACE_HOURS}시간이 지나도 확인이 안 되면 다른 업체를 골라도 공간온도에 영향이 없어요.` }
+    ? { title: "업체의 사업자 확인을 기다리고 있어요", body: `공간랜드는 사업자등록을 마친 업체와만 계약해요. 업체에 사업자등록증 제출을 안내했고(홈택스에서 당일 발급), 확인되면 알림으로 알려 드릴게요. 선택 후 ${BIZ_GRACE_HOURS}시간이 지나도 확인이 안 되면 다른 업체를 골라도 공간온도에 영향이 없어요.` }
     : stagePlan === "2STEP"
       ? { title: "대금은 두 번에 나눠서", body: "500만원 미만 공사는 착공을 확인할 때 30%, 완료를 확인할 때 70%가 지급돼요." }
       : stagePlan === "3STEP"
@@ -900,7 +900,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             tossMethod,
             amount: Math.round(Number(customerTotal) * 10000),
             orderId: tossOrderId,
-            orderName: `공간마켓 시공비 에스크로 (${request?.type ?? "시공"})`,
+            orderName: `공간랜드 시공비 에스크로 (${request?.type ?? "시공"})`,
             customerName: "고객",
             successUrl: window.location.origin + "/?pg_success=1",
             failUrl:    window.location.origin + "/?pg_fail=1",
@@ -979,7 +979,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
             <div style={{ fontSize:12, color:C.text2, lineHeight:1.8 }}>
               {PAYMENTS_LIVE
-                ? `결제한 금액은 공간마켓이 보관하고, 사진을 보고 단계를 확인할 때마다 업체에 지급돼요. ${AUTO_APPROVE_HOURS}시간 안에 확인이 없으면 자동으로 승인되고, 이의를 신청하면 남은 단계는 멈춰요.`
+                ? `결제한 금액은 공간랜드가 보관하고, 사진을 보고 단계를 확인할 때마다 업체에 지급돼요. ${AUTO_APPROVE_HOURS}시간 안에 확인이 없으면 자동으로 승인되고, 이의를 신청하면 남은 단계는 멈춰요.`
                 : "토스페이먼츠 상점이 열리면 이 화면에서 바로 결제할 수 있어요. 견적 내용은 그대로 남아 있어요."}
               <br/>채팅 · 사진 · GPS 기록이 이 공사 한 건에 저장되고, 분쟁이 생기면 그 기록으로 검토합니다.
             </div>

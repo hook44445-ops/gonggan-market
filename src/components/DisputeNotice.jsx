@@ -3,7 +3,7 @@ import { useState } from "react";
 import { C, R, S } from "../constants";
 
 // ─────────────────────────────────────────────────────
-// 분쟁 지원 범위 안내 — 공간마켓은 판사가 아니다. 기록 기반 합의 지원.
+// 분쟁 지원 범위 안내 — 공간랜드는 판사가 아니다. 기록 기반 합의 지원.
 //   variant="short" : 간단 안내 박스
 //   variant="full"  : 아코디언 ("분쟁 지원 범위 보기 ▼")
 // 색상: 딥그린/아이보리/네이비만. 빨강·주황 금지(분쟁 화면이라도 경고색 X).
@@ -20,9 +20,9 @@ export default function DisputeNotice({ variant = "short", defaultOpen = false }
       }}>
         <span style={{ fontSize: 16, flexShrink: 0 }}>🤝</span>
         <div>
-          분쟁이 생기면 공간마켓이 <b style={{ color: C.brand }}>기록을 토대로</b> 원만한 해결을
+          분쟁이 생기면 공간랜드가 <b style={{ color: C.brand }}>기록을 토대로</b> 원만한 해결을
           도와드립니다.<br />
-          단, 공간마켓은 법적 판단을 내리는 기관이 아닙니다.
+          단, 공간랜드는 법적 판단을 내리는 기관이 아닙니다.
         </div>
       </div>
     );
@@ -45,7 +45,7 @@ export default function DisputeNotice({ variant = "short", defaultOpen = false }
       </button>
       {open && (
         <div style={{ padding: "0 16px 16px", fontSize: 14, lineHeight: 1.8, color: C.text2 }}>
-          <div style={{ fontWeight: 700, color: C.brand, marginBottom: S.xs }}>공간마켓이 해드릴 수 있는 것</div>
+          <div style={{ fontWeight: 700, color: C.brand, marginBottom: S.xs }}>공간랜드가 해드릴 수 있는 것</div>
           <div style={{ background: C.brandL, borderRadius: 10, padding: "12px 14px", marginBottom: S.md }}>
             {[
               "계약서·사진·채팅 기록 제공",
@@ -58,7 +58,7 @@ export default function DisputeNotice({ variant = "short", defaultOpen = false }
               </div>
             ))}
           </div>
-          <div style={{ fontWeight: 700, color: C.text2, marginBottom: S.xs }}>공간마켓이 할 수 없는 것</div>
+          <div style={{ fontWeight: 700, color: C.text2, marginBottom: S.xs }}>공간랜드가 할 수 없는 것</div>
           <div style={{ background: C.surface2, borderRadius: 10, padding: "12px 14px", marginBottom: S.md }}>
             {[
               "법적 판단 및 판결",
@@ -72,7 +72,7 @@ export default function DisputeNotice({ variant = "short", defaultOpen = false }
             ))}
           </div>
           <div style={{ marginBottom: S.sm }}>
-            공간마켓은 판사가 아닙니다. 기록을 근거로 양측이 합의할 수 있도록 돕는 역할입니다.
+            공간랜드는 판사가 아닙니다. 기록을 근거로 양측이 합의할 수 있도록 돕는 역할입니다.
           </div>
           <div style={{ color: C.text3 }}>
             법적 해결이 필요하시면 <b style={{ color: C.text2 }}>한국소비자원</b> 또는

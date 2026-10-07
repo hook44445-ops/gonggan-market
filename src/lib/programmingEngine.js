@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Daily Programming Engine V2 — 기본 편성 시스템 (Phase 34)
+// 공간랜드 Daily Programming Engine V2 — 기본 편성 시스템 (Phase 34)
 //
 //   Daily Editorial "목록"을 AI 편성국의 "기본 편성 시스템"으로 승격한다.
 //   고정편성(잠금 🔒) + 그룹(Morning/Realtime/Day/Evening) + 편성타입 + 기본시간 +

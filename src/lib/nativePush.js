@@ -59,7 +59,7 @@ export function safeAppUrl(target) {
 export function expoPushMessage(token, log = {}) {
   return {
     to: token,
-    title: log.title || "공간마켓",
+    title: log.title || "공간랜드",
     body: log.body || "",
     data: { url: safeAppUrl(log.target_url) },
     sound: "default",

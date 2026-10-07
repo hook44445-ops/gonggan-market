@@ -117,7 +117,7 @@ function WorryCard({ w, i }) {
         {w.icon && <img className="lm-worry-ic" src={w.icon} alt="" aria-hidden="true" loading="lazy" />}
         <div className="lm-worry-q">{w.q}</div>
       </div>
-      <div className="lm-seal" aria-hidden="true">{w.seal ?? <span><small>공간마켓</small><br />해결</span>}</div>
+      <div className="lm-seal" aria-hidden="true">{w.seal ?? <span><small>공간랜드</small><br />해결</span>}</div>
       <div className="lm-worry-a">{w.a}</div>
     </div>
   );
@@ -206,7 +206,7 @@ export function RequestPings({ items, interval = 2600 }) {
 
 // ── 광고 영상(클레이 · 23초 · 소리 없음) — 화면에 보일 때만 재생하고 벗어나면 멈춘다(데이터·배터리 아끼기).
 //    움직임 줄이기면 자동재생하지 않고 재생 단추를 둔다. 영상이 못 오면 포스터 그림만 남는다.
-export function AdVideo({ src = "/video/gonggan-ad.mp4", poster = "/video/gonggan-ad-poster.jpg", label = "공간마켓 소개 영상" }) {
+export function AdVideo({ src = "/video/gonggan-ad.mp4", poster = "/video/gonggan-ad-poster.jpg", label = "공간랜드 소개 영상" }) {
   const ref = useRef(null);
   const [calm] = useState(() => reduceMotion());
   useEffect(() => {

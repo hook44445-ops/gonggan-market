@@ -106,7 +106,7 @@ export function spaceLoungeFooter(cfg = getBlogConfig()) {
     '<hr style="margin:32px 0;border:none;border-top:1px solid #e5e5e5;" />',
     '<p style="margin:12px 0;">더 다양한 콘텐츠는 Space Lounge에서 확인하세요.</p>',
     `<p style="margin:12px 0;"><a href="${esc(url)}" target="_blank" rel="noopener">▶ Space Lounge 바로가기</a></p>`,
-    '<p style="margin:12px 0;color:#888;">#공간라운지 #SpaceLounge #공간마켓</p>',
+    '<p style="margin:12px 0;color:#888;">#공간라운지 #SpaceLounge #공간랜드</p>',
   ].join("\n");
 }
 
@@ -116,7 +116,7 @@ export function buildBlogSeo(post = {}) {
   const body = String(post.content ?? post.body ?? "").replace(/[#*>-]/g, " ").replace(/\s+/g, " ").trim();
   const contentType = post.contentType || classifyContentType(title);
   const typeLabel = contentTypeMeta(contentType).label;
-  const base = ["공간라운지", "SpaceLounge", "공간마켓", typeLabel];
+  const base = ["공간라운지", "SpaceLounge", "공간랜드", typeLabel];
   // 제목/본문에서 키워드 후보(2글자+ 명사류 근사).
   const words = (title + " " + body.slice(0, 200)).split(/[\s,·:;!?()[\]"']+/).filter((w) => w.length >= 2);
   const seen = new Set(), keywords = [];

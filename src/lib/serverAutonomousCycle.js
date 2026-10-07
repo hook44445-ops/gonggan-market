@@ -366,7 +366,7 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
           : generateDraft({ issue: item.topic, spaceAngle: item.angle ?? null, category, region: item.region ?? null, brand: item.brand ?? null, variant: item.variant ?? 0 });
         const { data, error } = await sbInsertDraft({
           user_id: null,
-          anonymous_nickname: "공간마켓",
+          anonymous_nickname: "공간랜드",
           category: draft.category,
           title: draft.title,
           content: draft.content,
@@ -444,7 +444,7 @@ async function newsExists(prefix) {
 async function insertNews(post, publishAtMs, now) {
   const at = new Date(Math.max(publishAtMs, now + 5 * 60 * 1000)).toISOString();
   return sbInsertDraft({
-    user_id: null, anonymous_nickname: "공간마켓",
+    user_id: null, anonymous_nickname: "공간랜드",
     category: post.category, title: post.title, content: post.content, region: null,
     image_urls: ensureImageUrls({ title: post.title, content: post.content, category: post.category, content_type: classifyContentType(post.title) }),
     is_seed: true, is_visible: false,

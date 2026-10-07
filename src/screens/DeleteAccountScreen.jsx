@@ -1,4 +1,4 @@
-// 공간마켓 계정 삭제 페이지 (/delete-account)
+// 공간랜드 계정 삭제 페이지 (/delete-account)
 // - Google Play "데이터 보안 → 계정 삭제 URL" 대응 공개 페이지
 //   (https://gongganmarket.com/delete-account)
 // - 동시에 앱(TWA) 내 [마이페이지 → 설정 → 회원탈퇴] 진입점이기도 하다.
@@ -75,7 +75,7 @@ export default function DeleteAccountScreen() {
         <button onClick={goHome} aria-label="홈으로" style={{ background: "rgba(255,255,255,0.15)",
           border: "none", color: "#fff", borderRadius: 8, width: 34, height: 34, fontSize: 18,
           cursor: "pointer", flexShrink: 0 }}>‹</button>
-        <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.3px" }}>공간마켓 계정 삭제</div>
+        <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.3px" }}>공간랜드 계정 삭제</div>
       </div>
 
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "22px 20px 60px" }}>
@@ -86,14 +86,14 @@ export default function DeleteAccountScreen() {
               회원탈퇴가 완료되었습니다.
             </div>
             <p style={{ fontSize: 13.5, lineHeight: 1.85, color: C.text2, margin: 0 }}>
-              그동안 공간마켓을 이용해주셔서 감사합니다.<br />
+              그동안 공간랜드를 이용해주셔서 감사합니다.<br />
               잠시 후 홈으로 이동합니다.
             </p>
           </div>
         ) : (
           <>
             <p style={{ fontSize: 13.5, lineHeight: 1.85, color: C.text2, margin: "0 0 18px" }}>
-              앱 또는 본 페이지에서 공간마켓 계정 삭제(회원탈퇴)를 요청할 수 있습니다.
+              앱 또는 본 페이지에서 공간랜드 계정 삭제(회원탈퇴)를 요청할 수 있습니다.
               회원탈퇴 시 개인정보는 개인정보처리방침에 따라 처리됩니다.
             </p>
 

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────
-// 공간마켓 라운지 SEO 공용 유틸
+// 공간랜드 라운지 SEO 공용 유틸
 //
 // 이 파일은 클라이언트(React)와 서버리스 함수(/api/*) 양쪽에서 import 한다.
 // 따라서 의존성 0, import.meta / react / DOM 사용 금지 (순수 ESM).
@@ -12,11 +12,11 @@ export const DEFAULT_OG_PATH = '/og-space-v3.png';
 // SEO 카테고리 슬러그 ↔ 내부 카테고리 id 매핑
 //  요청서 슬러그(좌) → 앱 내부 LOUNGE_CATEGORIES id(우)
 export const SEO_CATEGORY = {
-  interior: { id: 'interior',    title: '인테리어 고민과 시공 이야기',     desc: '인테리어 시공·자재·공간 활용 고민을 나누는 공간마켓 라운지입니다.' },
-  estimate: { id: 'quote_worry', title: '인테리어 견적 고민 모음',         desc: '리모델링·인테리어 견적과 비용 고민을 모은 공간마켓 라운지입니다.' },
-  review:   { id: 'review',      title: '실제 시공후기와 공간 이야기',     desc: '실제 시공 전후 후기와 공간 변화 이야기를 모은 공간마켓 라운지입니다.' },
-  company:  { id: 'recommend',   title: '믿을 수 있는 인테리어 업체 이야기', desc: '인테리어 업체 추천과 경험담을 나누는 공간마켓 라운지입니다.' },
-  moving:   { id: 'move_in',     title: '이사·입주 준비와 공간 정보',       desc: '이사·입주 준비와 새 공간 꾸미기 정보를 나누는 공간마켓 라운지입니다.' },
+  interior: { id: 'interior',    title: '인테리어 고민과 시공 이야기',     desc: '인테리어 시공·자재·공간 활용 고민을 나누는 공간랜드 라운지입니다.' },
+  estimate: { id: 'quote_worry', title: '인테리어 견적 고민 모음',         desc: '리모델링·인테리어 견적과 비용 고민을 모은 공간랜드 라운지입니다.' },
+  review:   { id: 'review',      title: '실제 시공후기와 공간 이야기',     desc: '실제 시공 전후 후기와 공간 변화 이야기를 모은 공간랜드 라운지입니다.' },
+  company:  { id: 'recommend',   title: '믿을 수 있는 인테리어 업체 이야기', desc: '인테리어 업체 추천과 경험담을 나누는 공간랜드 라운지입니다.' },
+  moving:   { id: 'move_in',     title: '이사·입주 준비와 공간 정보',       desc: '이사·입주 준비와 새 공간 꾸미기 정보를 나누는 공간랜드 라운지입니다.' },
   humor:    { id: 'humor',       title: '인테리어 유머',                   desc: '인테리어 현장에서 있었던 재미있는 이야기와 공감되는 에피소드를 만나보세요.' },
   startup:  { id: 'startup',     title: '인테리어 창업 이야기',             desc: '인테리어 업체 운영, 창업, 마케팅 경험을 공유합니다.' },
   'staff-talk': { id: 'staff-talk', title: '인테리어 사장님 수다', desc: '인테리어 업체 사장님들의 진솔한 이야기, 현장 에피소드, 고객 이야기, 업체 운영 고민을 나눠보세요.' },
@@ -166,11 +166,11 @@ export function buildPostMeta(post) {
   const titleBase = (post?.title && String(post.title).trim())
     || String(post?.content ?? '').trim().slice(0, 40)
     || '라운지 글';
-  const title = `${titleBase} | 공간마켓 라운지`;
+  const title = `${titleBase} | 공간랜드 라운지`;
   // 설명문 — 「한 줄 답」이 있으면 그것(검색 결과·AI 답변에 그대로 인용되는 문장), 없으면 첫 일반 문단.
   const o = seoOutline(post?.content);
   const plain = stripInline(String(post?.content ?? '').replace(/^\|.*$/gm, ' ').replace(/^#{1,6}\s+/gm, ''));
-  const description = clip(o.answer || o.lead || plain, 150) || '공간마켓 라운지에서 공간 이야기를 나눠보세요.';
+  const description = clip(o.answer || o.lead || plain, 150) || '공간랜드 라운지에서 공간 이야기를 나눠보세요.';
   // 대표 그림 — SVG 는 건너뛴다(이미 발행된 AI 글 일부가 SVG 를 첫 그림으로 가졌다).
   const firstRaster = (Array.isArray(post?.image_urls) ? post.image_urls : []).find((u) => u && !/\.svg(\?|#|$)/i.test(u));
   const imagePath = firstRaster || DEFAULT_OG_PATH;
@@ -232,7 +232,7 @@ export function buildPostStructuredData({ post, site, canonical, meta, ogImageUr
   const catTitle = seoSlug ? SEO_CATEGORY[seoSlug]?.title : null;
   const publishedTime = post?.created_at ? new Date(post.created_at).toISOString() : undefined;
   const modifiedTime = post?.updated_at ? new Date(post.updated_at).toISOString() : publishedTime;
-  const headline = meta.title.replace(/\s*\|\s*공간마켓 라운지$/, '');
+  const headline = meta.title.replace(/\s*\|\s*공간랜드 라운지$/, '');
   const keywords = [catTitle, post?.region, ...o.headings.filter((h) => h.level === 2).map((h) => h.text)]
     .filter((k) => k && !/자주\s*묻는\s*질문|^정리$/.test(k));
   const list = [{
@@ -247,14 +247,14 @@ export function buildPostStructuredData({ post, site, canonical, meta, ogImageUr
     articleSection: catTitle || undefined,
     keywords: keywords.length ? keywords.join(', ') : undefined,
     ...(post?.region ? { contentLocation: { '@type': 'Place', name: post.region } } : {}),
-    author: { '@type': 'Organization', name: '공간마켓' },
-    publisher: { '@type': 'Organization', name: '공간마켓', logo: { '@type': 'ImageObject', url: `${site}/favicon-v2.png` } },
+    author: { '@type': 'Organization', name: '공간랜드' },
+    publisher: { '@type': 'Organization', name: '공간랜드', logo: { '@type': 'ImageObject', url: `${site}/favicon-v2.png` } },
     mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
   }, {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: '공간마켓 라운지', item: `${site}/lounge` },
+      { '@type': 'ListItem', position: 1, name: '공간랜드 라운지', item: `${site}/lounge` },
       ...(seoSlug ? [{ '@type': 'ListItem', position: 2, name: catTitle, item: `${site}${buildCategoryPath(seoSlug)}` }] : []),
       { '@type': 'ListItem', position: seoSlug ? 3 : 2, name: headline, item: canonical },
     ],
@@ -273,7 +273,7 @@ export function buildPostStructuredData({ post, site, canonical, meta, ogImageUr
 export function buildRegionMeta(region) {
   const r = String(region ?? '').trim();
   return {
-    title: `${r} 인테리어 이야기 | 공간마켓 라운지`,
-    description: `${r}의 인테리어·리모델링·이사 고민과 공간 이야기를 모은 공간마켓 라운지입니다.`,
+    title: `${r} 인테리어 이야기 | 공간랜드 라운지`,
+    description: `${r}의 인테리어·리모델링·이사 고민과 공간 이야기를 모은 공간랜드 라운지입니다.`,
   };
 }

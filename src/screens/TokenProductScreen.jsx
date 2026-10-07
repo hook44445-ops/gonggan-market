@@ -201,7 +201,7 @@ export default function TokenProductScreen() {
           앱에서 공간토큰 구매하기
         </button>
         <div style={{ fontSize: 12, color: "#8a8275", textAlign: "center", marginTop: 8 }}>
-          구매는 공간마켓 로그인(휴대폰 본인확인) 후 진행됩니다.
+          구매는 공간랜드 로그인(휴대폰 본인확인) 후 진행됩니다.
         </div>
 
         {/* 사업자 정보 + 법적고지(약관·개인정보·환불) */}

@@ -136,7 +136,7 @@ function CompareDemo() {
 
 // ── 여정 네 마디 — 랜딩의 뼈대 (2026-09-23) ─────────────────────────────────
 // 왜 이걸 넣나: 지금까지 랜딩 구조가 경쟁사(견적 매칭 앱)와 같았다 — 히어로 → 사례 → CTA → 설명.
-//   전부 «매칭까지»만 말한다. 그런데 공간마켓이 실제로 가진 것은 매칭 «이후»다:
+//   전부 «매칭까지»만 말한다. 그런데 공간랜드가 실제로 가진 것은 매칭 «이후»다:
 //   계약·채팅·현장 사진·단계가 앱에 남는다. 그래서 랜딩 자체를 공사 한 건의 흐름으로 세운다.
 // ⚠️ 각 마디는 앱에 **실제로 있는 화면**만 가리킨다(없는 기능을 그리지 않는다).
 const JOURNEY = [
@@ -253,7 +253,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             {/* 대표 09-30 «로고 위에 작게» · 스마트/실속/내실 중 «스마트한»(비교와 붙고 프리미엄과 안 부딪힌다) — 순위(1등)가 아니라 본질을 말한다. 순위 문구는 근거가 생길 때만(표시광고법 · 지시서 §6) */}
             <span style={{ fontSize: 9.5, fontWeight: 800, color: "#A98B4E", letterSpacing: "0.08em", marginBottom: 3, whiteSpace: "nowrap" }}>스마트한 프리미엄 인테리어 비교견적</span>
             <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.03em" }}>
-            공간마켓{/* 스토어 앱(아이폰·Play) 안에서는 «BETA» 를 빼다 — App Store 2.2(베타·체험판 금지) 오해 방지 */}
+            공간랜드{/* 스토어 앱(아이폰·Play) 안에서는 «BETA» 를 빼다 — App Store 2.2(베타·체험판 금지) 오해 방지 */}
             {!isStoreAppShell() && <span style={{ color: SK.muted, fontWeight: 500, fontSize: 11, letterSpacing: "0.14em", marginLeft: 7 }}>BETA</span>}
           </div>
           </div>
@@ -300,7 +300,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
 
         {/* ── 23초 광고(힉스필드 클레이 · 09-30 대표 «수요자는 비교견적 하고 싶게 · 파트너는 입점하고 싶게») ── */}
         <Reveal style={{ padding: "4px 0 34px" }}>
-          <div className="lm-eyebrow" style={{ marginBottom: 12 }}>23초로 보는 공간마켓</div>
+          <div className="lm-eyebrow" style={{ marginBottom: 12 }}>23초로 보는 공간랜드</div>
           <AdVideo />
         </Reveal>
 
@@ -353,7 +353,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
               견적에서 끝나지 않습니다
             </h2>
             <p style={{ fontSize: 13.5, color: SK.muted, lineHeight: 1.75, margin: "10px 0 0", wordBreak: "keep-all" }}>
-              업체를 연결해 주는 곳은 많습니다. 공간마켓은 그다음 — 고르고, 공사하고, 끝난 뒤까지 한 화면에 둡니다.
+              업체를 연결해 주는 곳은 많습니다. 공간랜드는 그다음 — 고르고, 공사하고, 끝난 뒤까지 한 화면에 둡니다.
             </p>
           </div>
 
@@ -463,9 +463,9 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
 
         {/* ── SEO 소개문 ────────────────────────────────────────────── */}
         <div style={{ padding: "36px 0 8px" }}>
-          <h2 style={{ textAlign: "center", fontSize: 22, fontWeight: 900, color: SK.forest, marginBottom: 16 }}>공간마켓</h2>
+          <h2 style={{ textAlign: "center", fontSize: 22, fontWeight: 900, color: SK.forest, marginBottom: 16 }}>공간랜드</h2>
           <p style={{ fontSize: 14, lineHeight: 1.8, color: "#3A4A40", margin: "0 0 12px" }}>
-            공간마켓은 우리 동네 집수리·인테리어·리모델링 업체를 쉽고 편하게 비교하고 상담할 수 있는 플랫폼입니다.
+            공간랜드는 우리 동네 집수리·인테리어·리모델링 업체를 쉽고 편하게 비교하고 상담할 수 있는 플랫폼입니다.
           </p>
           <p style={{ fontSize: 14, lineHeight: 1.8, color: "#3A4A40", margin: "0 0 20px" }}>
             집수리, 도배, 장판, 욕실, 주방, 리모델링, 상업공간, 부분시공 등 견적이 필요한 다양한 시공에 맞는 업체를 찾아 견적을 비교하고 상담할 수 있습니다.
@@ -509,7 +509,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             if (next >= 5) { setVersionTapCount(0); onAdminTap && onAdminTap(); }
           }}
           style={{ fontSize: 12, color: SK.muted, cursor: "default", userSelect: "none", letterSpacing: "0.03em", fontWeight: 500 }}>
-          공간마켓 v1.0.0
+          공간랜드 v1.0.0
         </div>
       </div>
 

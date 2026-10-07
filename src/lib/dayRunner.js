@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Day Runner — 오늘 하루 실제 자동 운영 (Phase 37)
+// 공간랜드 Day Runner — 오늘 하루 실제 자동 운영 (Phase 37)
 //
-//   오늘 편성(QT·별자리 운세·Morning Brief·공간마켓·Time Trend — 인도점성술은 10-01 별자리로 바꿈)을 실제로 생성 → 검수 →
+//   오늘 편성(QT·별자리 운세·Morning Brief·공간랜드·Time Trend — 인도점성술은 10-01 별자리로 바꿈)을 실제로 생성 → 검수 →
 //   품질 통과분 자동 승인(초안 저장) → 예약. 이후 Autopilot Worker 가 실제 발행한다.
 //   ⚠️ 테스트 글이 아니라 "실제 라운지 글"이다.
 //
@@ -21,11 +21,11 @@ import { todayWordPrompt, todayWordTitle } from "./todayWord.js";
 import { timeTrendCandidates } from "./timeTrend.js";
 import { logActivity } from "./activityLog.js";
 
-// 오늘 자동 운영할 편성(고정 아침 3 + 공간마켓 1 + Time Trend 1). 확장 가능.
+// 오늘 자동 운영할 편성(고정 아침 3 + 공간랜드 1 + Time Trend 1). 확장 가능.
 // 10-01 대표: 인도점성술은 빼고 «별자리 운세»로 · 큐티는 둔다(콘텐츠 종류 id 는 예전 그대로 astrology)
 export const DAY_PROGRAM = ["qt", "astrology", "morning_brief", "space_market", "trend_present"];
 
-const SYS = "당신은 공간마켓(공간라운지)의 전문 에디터입니다. 담백하고 신뢰감 있게, 첫 줄은 제목으로 씁니다.";
+const SYS = "당신은 공간랜드(공간라운지)의 전문 에디터입니다. 담백하고 신뢰감 있게, 첫 줄은 제목으로 씁니다.";
 const splitTB = (text) => {
   const lines = String(text || "").split(/\r?\n/); const i = lines.findIndex((l) => l.trim());
   if (i === -1) return { title: "", body: String(text || "").trim() };

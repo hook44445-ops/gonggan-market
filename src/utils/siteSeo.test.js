@@ -220,7 +220,7 @@ test('sitemap 이 실재하는 라우트만 싣는다(soft 404 재발 방지)', 
 test('llms.txt 가 베타 사실과 양면(수요·공급) 요약을 담는다', async () => {
   const { body, headers } = await invoke(prerender, { page: 'llms' });
   assert.match(headers['Content-Type'], /text\/plain/);
-  assert.match(body, /^# 공간마켓/);
+  assert.match(body, /^# 공간랜드/);
   assert.ok(body.includes('의뢰인(수요자)이 받는 것'));
   assert.ok(body.includes('시공 업체(공급자)가 받는 것'));
   assert.ok(!body.includes('4.4%'));

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────
-// 공간마켓 라운지 봇 프리렌더 (Vercel Serverless)
+// 공간랜드 라운지 봇 프리렌더 (Vercel Serverless)
 //
 // vercel.json 의 user-agent 기반 rewrite 로 "크롤러만" 이 함수에 도달한다.
 // 실제 사용자는 /index.html (SPA) 를 그대로 받는다.
@@ -144,7 +144,7 @@ ${verificationMetas().map(([n, v]) => `<meta name="${n}" content="${esc(v)}" />`
 <meta name="robots" content="${esc(robots)}" />
 <link rel="canonical" href="${esc(canonical)}" />
 <meta property="og:type" content="${esc(ogType)}" />
-<meta property="og:site_name" content="공간마켓" />
+<meta property="og:site_name" content="공간랜드" />
 <meta property="og:locale" content="ko_KR" />
 <meta property="og:title" content="${esc(title)}" />
 <meta property="og:description" content="${esc(description)}" />
@@ -166,7 +166,7 @@ ${bodyHtml}
 function ctaHtml(site) {
   return `<section>
 <h2>비슷한 공간 고민이 있으신가요?</h2>
-<p>공간마켓에서 안전하게 비교견적을 받아보세요.</p>
+<p>공간랜드에서 안전하게 비교견적을 받아보세요.</p>
 <p><a href="${site}/">무료 견적 요청하기</a></p>
 </section>`;
 }
@@ -176,11 +176,11 @@ function notFound(req, res, site, msg) {
     site,
     canonical: `${site}/lounge`,
     robots: 'noindex, nofollow',
-    title: '공간마켓 라운지',
+    title: '공간랜드 라운지',
     description: msg || '요청하신 글을 찾을 수 없어요.',
     ogImage: DEFAULT_OG_PATH,
     ogType: 'website',
-    bodyHtml: `<main><h1>공간마켓 라운지</h1><p>${esc(msg || '요청하신 글을 찾을 수 없어요.')}</p><p><a href="${site}/lounge">라운지로 가기</a></p>${ctaHtml(site)}</main>`,
+    bodyHtml: `<main><h1>공간랜드 라운지</h1><p>${esc(msg || '요청하신 글을 찾을 수 없어요.')}</p><p><a href="${site}/lounge">라운지로 가기</a></p>${ctaHtml(site)}</main>`,
   });
   res.statusCode = 404;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -238,7 +238,7 @@ ${imagesHtml}
 </article>
 ${relatedHtml}
 ${ctaHtml(site)}
-<p><a href="${canonical}">공간마켓 앱에서 보기</a></p>
+<p><a href="${canonical}">공간랜드 앱에서 보기</a></p>
 </main>`;
 
   // 구조화 데이터 — Article(+분류·지역·언어·키워드) · 빵부스러기 · FAQ(문답 2쌍 이상).
@@ -281,7 +281,7 @@ async function renderCategory(req, res, site, seoSlug) {
     site,
     canonical,
     robots: 'index, follow',
-    title: `${cfg.title} | 공간마켓 라운지`,
+    title: `${cfg.title} | 공간랜드 라운지`,
     description: cfg.desc,
     ogImage: DEFAULT_OG_PATH,
     ogType: 'website',
@@ -324,7 +324,7 @@ async function renderRegion(req, res, site, regionSlug) {
 // ─────────────────────────────────────────────────────
 // 정적 랜딩 프리렌더 (홈 · 파트너)
 //
-// 왜 필요한가: 네이버 Yeti 는 자바스크립트를 사실상 실행하지 않는다. SPA 인 공간마켓은
+// 왜 필요한가: 네이버 Yeti 는 자바스크립트를 사실상 실행하지 않는다. SPA 인 공간랜드는
 // 홈/파트너 페이지가 네이버에 «빈 문서»로 보였다(제목·설명 외에 본문이 없다).
 // 라운지에 이미 쓰고 있던 user-agent 기반 봇 rewrite 를 이 두 페이지에도 확장한다.
 //
@@ -380,7 +380,7 @@ function renderPublic(req, res, site, page) {
     description: seo.description,
     ogType: 'website',
     bodyHtml,
-    structuredData: [organizationSchema(site), breadcrumbSchema([['공간마켓', '/'], [seo.title.replace(/ — 공간마켓$/, ''), path]], site)],
+    structuredData: [organizationSchema(site), breadcrumbSchema([['공간랜드', '/'], [seo.title.replace(/ — 공간랜드$/, ''), path]], site)],
   });
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -415,7 +415,7 @@ async function renderPartner(req, res, site) {
 </section>
 ${faqHtml(faq)}
 
-<p><a href="${site}/">공간마켓 홈</a></p>
+<p><a href="${site}/">공간랜드 홈</a></p>
 ${bizHtml()}
 </main>`;
 
@@ -432,7 +432,7 @@ ${bizHtml()}
     structuredData: [
       organizationSchema(site),
       faqSchema(faq, site, '/partner'),
-      breadcrumbSchema([['공간마켓', '/'], ['파트너 입점 안내', '/partner']], site),
+      breadcrumbSchema([['공간랜드', '/'], ['파트너 입점 안내', '/partner']], site),
     ],
   });
   res.statusCode = 200;
@@ -467,10 +467,10 @@ function renderLlms(req, res, site) {
     '## 한 문장',
     USP_SUMMARY.oneLine,
     '',
-    '## 의뢰인의 문제 → 공간마켓이 푸는 방법',
+    '## 의뢰인의 문제 → 공간랜드가 푸는 방법',
     ...USP_SUMMARY.consumer.map(([p, a]) => `- ${p} → ${a}`),
     '',
-    '## 시공 업체의 문제 → 공간마켓이 푸는 방법',
+    '## 시공 업체의 문제 → 공간랜드가 푸는 방법',
     ...USP_SUMMARY.partner.map(([p, a]) => `- ${p} → ${a}`),
     '',
     '## 의뢰인(수요자)이 받는 것',
@@ -545,10 +545,10 @@ async function renderCompany(req, res, site, id) {
   const canonical = `${site}/p/${co.slug || co.id}`;
   const region = co.region || '';
   const specialties = Array.isArray(co.specialties) ? co.specialties.filter(Boolean).slice(0, 6) : [];
-  const title = `${co.name} — ${region ? `${region} ` : ''}인테리어·집수리 | 공간마켓`;
+  const title = `${co.name} — ${region ? `${region} ` : ''}인테리어·집수리 | 공간랜드`;
   const description = co.intro ? String(co.intro).replace(/\s+/g, ' ').slice(0, 150) : [
     `${co.name}의 시공 사례${works.length ? ` ${works.length}건` : ''}${avg ? `과 후기 평점 ${avg}` : ''}을 확인하고`,
-    '공간마켓에서 무료로 견적을 받아 보세요.',
+    '공간랜드에서 무료로 견적을 받아 보세요.',
     specialties.length ? `${specialties.join('·')}.` : '',
   ].filter(Boolean).join(' ');
 
@@ -587,7 +587,7 @@ ${bizHtml()}
         ...(firstPhoto ? { image: resolveOgImage(site, firstPhoto) } : {}),
         ...(avg ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: avg, reviewCount: rated.length } } : {}),
       },
-      breadcrumbSchema([['공간마켓', '/'], [co.name, `/p/${co.slug || co.id}`]], site),
+      breadcrumbSchema([['공간랜드', '/'], [co.name, `/p/${co.slug || co.id}`]], site),
     ],
   });
   res.statusCode = 200;
@@ -619,7 +619,7 @@ export default async function handler(req, res) {
     if (parts[0] === 'region' && parts[1]) {
       return await renderRegion(req, res, site, parts[1]);
     }
-    return notFound(req, res, site, '공간마켓 라운지입니다.');
+    return notFound(req, res, site, '공간랜드 라운지입니다.');
   } catch {
     return notFound(req, res, site, '잠시 후 다시 시도해주세요.');
   }

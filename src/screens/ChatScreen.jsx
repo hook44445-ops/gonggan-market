@@ -603,7 +603,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
               <div style={{ textAlign:"center", padding:"20px 0" }}>
                 <div style={{ fontSize:40, marginBottom:12 }}>🛡️</div>
                 <div style={{ fontSize:16, fontWeight:800, color:C.text1, marginBottom:6 }}>신고가 접수됐어요</div>
-                <div style={{ fontSize:14, color:C.text3, lineHeight:1.7 }}>공간마켓이 대화 기록을 토대로 확인 후 조치합니다. 안전한 거래를 위해 견적·계약은 공간마켓 안에서 진행해주세요.</div>
+                <div style={{ fontSize:14, color:C.text3, lineHeight:1.7 }}>공간랜드가 대화 기록을 토대로 확인 후 조치합니다. 안전한 거래를 위해 견적·계약은 공간랜드 안에서 진행해주세요.</div>
                 <button onClick={() => setReportOpen(false)}
                   style={{ width:"100%", marginTop:20, padding:"13px", background:C.brand, border:"none", borderRadius:R.lg, color:"#fff", fontWeight:700, fontSize:14, cursor:"pointer" }}>확인</button>
               </div>
@@ -641,7 +641,7 @@ export default function ChatScreen({ company, companyId: companyIdProp = null, u
             display:"flex", alignItems:"center", gap:6, textAlign:"left" }}>
           <span style={{ fontSize:12, flexShrink:0 }}>🛡</span>
           <span style={{ flex:1, fontSize:11.5, color:C.text3, lineHeight:1.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-            견적·계약은 공간마켓 안에서 — 대화가 기록으로 남아요
+            견적·계약은 공간랜드 안에서 — 대화가 기록으로 남아요
           </span>
           <span style={{ fontSize:11, color:C.text4, fontWeight:700, flexShrink:0 }}>{guideOpen ? "접기" : "자세히"}</span>
         </button>

@@ -1,7 +1,7 @@
 import { C, R } from "../../constants";
 
 const META = {
-  platform: { t:"공간마켓 인증", c:C.navy,  bg:C.navyL,  i:"🛡" },
+  platform: { t:"공간랜드 인증", c:C.navy,  bg:C.navyL,  i:"🛡" },
   insurance:{ t:"시공보험 가입", c:C.green, bg:C.greenL, i:"🔒" },
   biz:      { t:"사업자 등록",   c:C.text3, bg:C.bgWarm, i:"📋" },
 };

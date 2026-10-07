@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────
-// 공간마켓 푸시 발송 디스패처 (Vercel Serverless)
+// 공간랜드 푸시 발송 디스패처 (Vercel Serverless)
 //
 // queued push_logs 를 읽어 FCM 으로 발송한다.
 // - 소식성(news) 타입: 발송 시간창(10~21시 KST) + 하루 최대 3회 적용
@@ -117,7 +117,7 @@ async function sendFcmV1(accessToken, token, log) {
       body: JSON.stringify({
         message: {
           token,
-          notification: { title: log.title || '공간마켓', body: log.body || '' },
+          notification: { title: log.title || '공간랜드', body: log.body || '' },
           // v1 data 값은 모두 문자열이어야 한다.
           data: {
             target_url: String(log.target_url || '/'),
@@ -143,7 +143,7 @@ async function sendFcmLegacy(token, log) {
     headers: { Authorization: `key=${FCM_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       to: token,
-      notification: { title: log.title || '공간마켓', body: log.body || '' },
+      notification: { title: log.title || '공간랜드', body: log.body || '' },
       data: { target_url: log.target_url || '/', type: log.type || '', related_id: String(log.related_id ?? '') },
     }),
   });

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════
-// 공간마켓 Daily Summary — 일일 요약 · 7일 검증 · Health Trend (Phase 38)
+// 공간랜드 Daily Summary — 일일 요약 · 7일 검증 · Health Trend (Phase 38)
 //   매일(자정 개념) 오늘 지표를 요약 저장하고, 최근 7일 추이와 Day1~Day7 PASS 를 만든다.
 //   Cron 없음 — 호출 시점에 오늘 요약을 upsert(하루 1행 유지).
 //   ⚠️ 기존 집계 재사용 · localStorage. Regression Zero.

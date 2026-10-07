@@ -24,7 +24,7 @@ export default function AppInfoModal({ onClose }) {
 
         <div style={{ display:"flex", alignItems:"center", gap:S.sm, marginBottom:S.xl }}>
           <div style={{ fontSize:22 }}>📱</div>
-          <div style={{ fontSize:18, fontWeight:900, color:C.text1 }}>공간마켓</div>
+          <div style={{ fontSize:18, fontWeight:900, color:C.text1 }}>공간랜드</div>
         </div>
 
         <div style={{ background:C.bg, borderRadius:R.md, padding:S.lg, border:`1px solid ${C.bgWarm}` }}>

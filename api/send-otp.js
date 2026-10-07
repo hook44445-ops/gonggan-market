@@ -96,7 +96,7 @@ export default async function handler(req, res) {
     await messageService.send({
       to:   toKoreanLocal(phone),
       from: SOLAPI_SENDER,
-      text: `[공간마켓] 인증번호 ${code}를 입력해주세요.`,
+      text: `[공간랜드] 인증번호 ${code}를 입력해주세요.`,
     });
   } catch (err) {
     console.error("[send-otp] Solapi send error:", err?.message || err);

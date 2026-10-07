@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">공간마켓</string>
+    <string name="app_name">공간랜드</string>
     <!-- 정식 production 도메인 (sitemap.xml canonical). TWA는 이 URL의 최신 웹앱을 로드한다. -->
     <string name="default_url">https://gongganmarket.com/</string>
     <string name="asset_host">gongganmarket.com</string>

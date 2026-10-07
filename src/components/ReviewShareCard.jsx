@@ -8,7 +8,7 @@ import { getReviews } from "../lib/supabase";
 import { loadCardBg, paintCardBg, CARD_BG } from "../lib/canvasImage";
 
 // 후기 카드(업체) — 받은 좋은 후기 하나를 골라 이미지 한 장으로(1080×1350) · 아래 내 업체 페이지 QR.
-//   공간마켓 안 후기만(밖 공사 후기는 넣지 않는다) · 고객 이름은 첫 글자만. 저장하지 않는다(공유·내려받기).
+//   공간랜드 안 후기만(밖 공사 후기는 넣지 않는다) · 고객 이름은 첫 글자만. 저장하지 않는다(공유·내려받기).
 const W = 1080, H = 1350, PAD = 80;
 const FONT = "'Pretendard','Apple SD Gothic Neo',sans-serif";
 
@@ -31,7 +31,7 @@ export function drawReviewCard(canvas, { review, companyName, qrUrl, bg = null }
   };
   ctx.fillStyle = "#1D3D2F"; ctx.fillRect(0, 0, W, H);
   paintCardBg(ctx, bg, W); // 깊은 초록 종이 · 금 테 · 창가 빛(힉스필드) · 없으면 단색
-  text("공간마켓 고객 후기", PAD, 140, 34, 800, "#D6A756");
+  text("공간랜드 고객 후기", PAD, 140, 34, 800, "#D6A756");
   text(stars(review.rating), PAD, 230, 64, 900, "#D6A756");
   text("“", PAD - 10, 380, 160, 900, "rgba(244,239,228,0.25)");
   ctx.font = `800 52px ${FONT}`;
@@ -51,7 +51,7 @@ export function drawReviewCard(canvas, { review, companyName, qrUrl, bg = null }
   const tx = qrUrl ? PAD + 240 : PAD;
   text(String(companyName || "우리 업체").slice(0, 14), tx, top + 100, 44, 900, "#1D3D2F");
   text("QR을 찍으면 시공 사례·후기를 볼 수 있어요", tx, top + 155, 28, 600, "#5C6B61");
-  text("공간마켓에서 견적 받기", tx, top + 205, 28, 800, "#2E5F4B");
+  text("공간랜드에서 견적 받기", tx, top + 205, 28, 800, "#2E5F4B");
   return canvas;
 }
 
@@ -81,7 +81,7 @@ export default function ReviewShareCard({ companyId, companyName, pageUrl, onClo
       const blob = await new Promise((ok) => canvas.toBlob(ok, "image/png"));
       if (!blob) throw new Error("NO_BLOB");
       if (img?.url) URL.revokeObjectURL(img.url);
-      setImg({ url: URL.createObjectURL(blob), blob, name: `공간마켓_후기_${kstDay().replace(/-/g, "")}.png` });
+      setImg({ url: URL.createObjectURL(blob), blob, name: `공간랜드_후기_${kstDay().replace(/-/g, "")}.png` });
       setMsg(null);
     } catch { setMsg("이 기기에선 이미지를 만들 수 없어요"); }
   };
@@ -121,7 +121,7 @@ export default function ReviewShareCard({ companyId, companyName, pageUrl, onClo
           <div style={{ fontSize: 13, color: C.text3, padding: S.lg, textAlign: "center" }}>후기를 불러오는 중…</div>
         ) : list.length === 0 ? (
           <div style={{ background: C.bg, borderRadius: R.lg, padding: S.lg, marginTop: S.lg, fontSize: 13, color: C.text2, lineHeight: 1.7 }}>
-            아직 카드로 만들 후기가 없어요(별 4개 이상 · 공간마켓 안 후기). 공사를 마친 고객에게 후기를 부탁해 보세요.
+            아직 카드로 만들 후기가 없어요(별 4개 이상 · 공간랜드 안 후기). 공사를 마친 고객에게 후기를 부탁해 보세요.
           </div>
         ) : (
           <>
