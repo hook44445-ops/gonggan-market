@@ -4,11 +4,12 @@
 // 사업자 정보의 단일 소스는 utils/siteSeo.js 다 — 푸터·사업자정보 모달·법적고지뿐 아니라
 // 봇 프리렌더의 JSON-LD(Organization)도 같은 값을 쓴다. 여기서는 재노출만 한다
 // (기존 import 경로 `from "./AppFooter"` 를 깨지 않기 위해).
-import { BIZ_ROWS, TELECOM_SALES_NO } from "../utils/siteSeo";
+import { BIZ_ROWS, TELECOM_SALES_NO, IP_FOOTER_LINE } from "../utils/siteSeo";
 
 export { BIZ_ROWS, TELECOM_SALES_NO };
 
-export default function AppFooter() {
+// showIp — 특허·상표 출원 한 줄. 고객 랜딩에서만 켠다(대표 10-07 «두 곳만»).
+export default function AppFooter({ showIp = false }) {
   return (
     <div style={{ padding: "2px 8px 14px", textAlign: "center", lineHeight: 1.75 }}>
       <div style={{ fontSize: 13, color: "rgba(44,62,50,0.6)", letterSpacing: "-0.2px", fontWeight: 500, marginBottom: 10, lineHeight: 1.6 }}>
@@ -24,6 +25,11 @@ export default function AppFooter() {
           </div>
         ))}
       </div>
+      {showIp && (
+        <div style={{ marginTop: 6, fontSize: 10.5, color: "#948C7F", letterSpacing: "0.01em" }}>
+          {IP_FOOTER_LINE}
+        </div>
+      )}
       {/* 판매 상품 안내 링크 — 토스 PG 심사용(비회원 열람용 상품 페이지). */}
       <div style={{ marginTop: 10, fontSize: 11, color: "#7A7670" }}>
         <a href="/safe-payment" style={{ color: "#8a8275", textDecoration: "underline", fontWeight: 600 }}>

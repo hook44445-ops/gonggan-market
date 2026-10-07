@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FileText } from "lucide-react";
 import { SHOW_DEBUG_UI, SHOW_BETA_UI, isStoreAppShell } from "../constants/release";
 import { getTopReviews, getRecentPortfolios, getSeedReviews } from "../lib/supabase";
 import { normalizeShowcases } from "../lib/showcases";
@@ -7,7 +8,7 @@ import AppFooter from "../components/AppFooter";
 import InviteWelcome from "../components/InviteWelcome";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
-import { consumerFaq, pageSeo, serviceSchema, faqSchema } from "../utils/siteSeo";
+import { consumerFaq, pageSeo, serviceSchema, faqSchema, IP_FILINGS, PATENT_LABEL, PATENT_DETAIL } from "../utils/siteSeo";
 import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView, AdVideo } from "../components/landing/LandingMotion";
 import { saveLandingPick, LANDING_WORK_TAGS } from "../lib/landingPick";
 
@@ -192,6 +193,22 @@ function FaqRow({ q, a }) {
   );
 }
 
+// ── 특허출원 배지 — 히어로 주 CTA 바로 위 한 줄(대표 10-07 «CTA 위 배지 + 푸터 한 줄» 두 곳만).
+// 누르거나 올리면 번호·출원일만 보인다(명세서 내용은 싣지 않는다). 폰에서는 곁들임 «· 공사대금 단계 확정 방식»을 뺀다.
+// ⚠️ 문구는 siteSeo.PATENT_* 그대로 — «출원»을 빼거나 «특허 받은/등록/®»로 바꾸지 않는다(특허법 224조).
+function PatentBadge() {
+  const [open, setOpen] = useState(false);
+  return (
+    <button type="button" className={`lm-ip gg-rise gg-d3 ${open ? "is-open" : ""}`} aria-describedby="lm-ip-tip"
+      onClick={() => setOpen((v) => !v)} onBlur={() => setOpen(false)}>
+      <FileText size={14} strokeWidth={2} aria-hidden="true" className="lm-ip-ic" />
+      <b>{PATENT_LABEL}</b>
+      <span className="lm-ip-sub">· {IP_FILINGS.patentTopic}</span>
+      <span role="tooltip" id="lm-ip-tip" className="lm-ip-tip">{PATENT_DETAIL}</span>
+    </button>
+  );
+}
+
 const btnBase = {
   padding: "15px 26px", borderRadius: 999, border: "none", fontWeight: 800, fontSize: 15,
   cursor: "pointer", transition: "transform .08s, opacity .15s", display: "inline-flex",
@@ -292,6 +309,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           <p className="lm-hero-sub gg-rise gg-d2">
             확인된 업체들이 같은 조건으로 견적을 보내요. 계약 · 현장 사진 · 진행 단계가 한 자리에 남아 끝까지 안심. 가입비 0원 · 견적 무료.
           </p>
+          <PatentBadge />
           <button onClick={goConsumer} className="gg-rise gg-d3 gg-cta" style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
             무료 비교견적 받기 →
           </button>
@@ -501,7 +519,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
 
       {/* ── 사업자정보 푸터 (법적 필수 · 삭제 금지) ───────────────────── */}
       <div style={{ padding: "20px 20px 36px", background: "#EFEAE0", borderTop: `1px solid ${SK.line}`, textAlign: "center" }}>
-        <AppFooter />
+        <AppFooter showIp />
         <div style={{ height: 1, background: SK.line, margin: "12px auto 14px", maxWidth: 260, opacity: 0.7 }} />
         <div onClick={() => {
             const next = versionTapCount + 1;
@@ -535,6 +553,18 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         @media (min-width: 1040px){ .gm-journey > div{ grid-template-columns: 240px 1fr; align-items: stretch } .gm-journey img{ height: 100% !important; min-height: 190px } }
         .gm-card:hover{ transform: translateY(-3px); box-shadow: 0 12px 32px rgba(18,26,22,.08) }
         button:active{ transform: scale(.985) }
+        .lm-ip{ position: relative; display: flex; width: fit-content; align-items: center; gap: 6px; max-width: 100%; margin: -8px 0 12px;
+          padding: 6px 13px; border: 1px solid #D6A756; border-radius: 999px; background: rgba(255,255,255,.55);
+          font: inherit; font-size: 12.5px; color: #1A2E22; letter-spacing: -0.01em; white-space: nowrap; cursor: pointer; }
+        .lm-ip b{ font-weight: 800 }
+        .lm-ip-ic{ color: #A98B4E; flex-shrink: 0 }
+        .lm-ip-sub{ color: #5A6B60; font-weight: 500 }
+        .lm-ip-tip{ position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5; padding: 7px 11px; border-radius: 10px;
+          background: #121A16; color: #fff; font-size: 11.5px; font-weight: 600; white-space: nowrap;
+          box-shadow: 0 6px 18px rgba(18,26,22,.18); opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity .15s, transform .15s }
+        .lm-ip:hover .lm-ip-tip, .lm-ip:focus-visible .lm-ip-tip, .lm-ip.is-open .lm-ip-tip{ opacity: 1; transform: none }
+        .lm-ip:active{ transform: none }
+        @media (max-width: 480px){ .lm-ip-sub{ display: none } }
         .gm-sticky-cta{ display: none }
         @media (max-width: 640px){ .gm-sticky-cta{ display: flex } }
         @media (max-width: 380px){

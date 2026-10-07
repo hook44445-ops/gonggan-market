@@ -67,6 +67,19 @@ export const BIZ_ROWS = [
   ['이메일', BIZ.email],
 ];
 
+// ── 특허·상표 출원 표시 (대표 10-07) — 고객 랜딩 «주 CTA 위 배지 + 푸터 한 줄» 두 곳에만 쓴다.
+// ⚠️ 등록 전이다. 반드시 «출원»을 붙인다 — «특허 받은/특허 기술/특허 등록/Patent/®» 처럼 등록으로
+//    읽히는 말은 특허법 224조(허위표시) 위반. 심사청구 전이라 «심사중»도 쓰지 않는다. 상표도 ® 금지.
+export const IP_FILINGS = {
+  patentNo: '10-2026-0192050',
+  patentFiledAt: '2026.10.07',
+  patentTopic: '공사대금 단계 확정 방식',
+  trademarkNo: '40-2026-0209520',
+};
+export const PATENT_LABEL = `특허출원 ${IP_FILINGS.patentNo}`;
+export const PATENT_DETAIL = `${PATENT_LABEL} · ${IP_FILINGS.patentFiledAt} 출원`;
+export const IP_FOOTER_LINE = `${PATENT_LABEL} · 상표출원 ${IP_FILINGS.trademarkNo}`;
+
 // ── 검색엔진 사이트 소유확인 ──────────────────────────
 // 봇 user-agent 로 / 를 요청하면 index.html 이 아니라 프리렌더가 나간다.
 // 그래서 소유확인 메타는 «양쪽 모두»에 같은 값으로 있어야 한다 — 한쪽만 있으면
