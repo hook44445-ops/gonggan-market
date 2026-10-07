@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url';
 import {
   BIZ,
   BIZ_ROWS,
+  IP_FILINGS,
+  PATENT_LABEL,
+  PATENT_DETAIL,
+  IP_FOOTER_LINE,
   PARTNER_LADDER,
   PARTNER_STEPS,
   verificationMetas,
@@ -635,4 +639,15 @@ test('엔티티 일관성 — 서비스·운영사·도메인·사업자번호�
   assert.equal(org.name, BIZ.serviceName);
   assert.equal(org.legalName, BIZ.legalName);
   assert.equal(org.taxID, BIZ.bizNo);
+});
+
+// 특허·상표 «출원» 표시 — 등록으로 읽히면 특허법 224조(허위표시). 심사청구 전이라 «심사중»도 안 쓴다.
+test('특허·상표 표시는 «출원»만 · 등록으로 읽히는 말 없음', () => {
+  assert.equal(PATENT_LABEL, '특허출원 10-2026-0192050');
+  assert.equal(PATENT_DETAIL, '특허출원 10-2026-0192050 · 2026.10.07 출원');
+  assert.equal(IP_FOOTER_LINE, '특허출원 10-2026-0192050 · 상표출원 40-2026-0209520');
+  const all = [PATENT_LABEL, PATENT_DETAIL, IP_FOOTER_LINE, IP_FILINGS.patentTopic].join(' ');
+  for (const bad of ['®', '™', 'Patent', '특허 받은', '특허받은', '특허 기술', '특허기술', '특허 등록', '특허등록', '등록특허', '심사중', '심사 중']) {
+    assert.ok(!all.includes(bad), `금지어: ${bad}`);
+  }
 });

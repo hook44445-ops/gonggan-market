@@ -5,7 +5,7 @@
 //   그래서 빌드 때 이 홈 본문을 index.html #root 안에 넣는다(새 서버 함수 없음 · 12/12).
 // ⚠️ 클로킹 금지: 문장은 화면(LandingScreen)이 실제로 보여주는 것과 같다 — FAQ·설명·사업자정보는 utils/siteSeo.js 의 같은 값.
 import {
-  BIZ, BIZ_ROWS, ESCROW_STAGES, consumerFaq, pageSeo, SITE_URL,
+  BIZ, BIZ_ROWS, ESCROW_STAGES, consumerFaq, pageSeo, SITE_URL, IP_FOOTER_LINE,
 } from './siteSeo.js';
 import {
   LEGAL_DOCS, SAFE_PAYMENT_NOT_LIVE, safePaymentH1, SAFE_PAYMENT_INTRO, SAFE_PAYMENT_STAGES, SAFE_PAYMENT_AMOUNT_PLANS,
@@ -32,11 +32,12 @@ ${items.map(({ q, a }) => `<h3>${esc(q)}</h3>\n<p>${esc(a)}</p>`).join('\n')}
 }
 
 // 사업자 정보 — 전자상거래법상 공개 의무. 검색·답변엔진의 개체(entity) 인식에도 쓰인다.
-export function bizHtml() {
+// ip — 특허·상표 출원 한 줄. 화면(AppFooter showIp)처럼 홈(고객 랜딩)에서만 켠다.
+export function bizHtml({ ip = false } = {}) {
   return `<footer>
 <h2>사업자 정보</h2>
 <ul>${BIZ_ROWS.map(([k, v]) => `<li>${esc(k)}: ${esc(v)}</li>`).join('')}</ul>
-<p>${esc(BIZ.legalName)}(${esc(BIZ.serviceName)})는 통신판매중개자로서 시공 계약의 당사자가 아닙니다.</p>
+${ip ? `<p>${esc(IP_FOOTER_LINE)}</p>\n` : ''}<p>${esc(BIZ.legalName)}(${esc(BIZ.serviceName)})는 통신판매중개자로서 시공 계약의 당사자가 아닙니다.</p>
 </footer>`;
 }
 
@@ -84,7 +85,7 @@ ${faqHtml(faq)}
 </section>
 
 <p><a href="${site}/lounge">공간랜드 라운지 — 공간 이야기 보기</a></p>
-${bizHtml()}
+${bizHtml({ ip: true })}
 </main>`;
 }
 
