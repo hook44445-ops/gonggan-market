@@ -183,6 +183,10 @@ export default async function handler(req, res) {
   try {
     await fetch(`${SB_URL}/rest/v1/rpc/escrow_auto_approve_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });
   } catch { /* noop */ }
+  // 공정 묶음 분할 결제 — 가상계좌 입금 기한 하루 전 알림 · 기한 지난 계좌 닫기(migration 205). 없으면(205 전) 조용히 넘어감.
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/bundle_va_due_tick`, { method: 'POST', headers: sbHeaders(), body: '{}' });
+  } catch { /* noop */ }
   // 견적이 3일째 없는 요청 — 고객에게 한 번(migration 152 · 한국 시간 9~21시만, 중복은 서버가 막음). 없으면(152 전) 조용히 넘어감.
   try {
     await fetch(`${SB_URL}/rest/v1/rpc/request_nudge_due`, { method: 'POST', headers: sbHeaders(), body: '{}' });

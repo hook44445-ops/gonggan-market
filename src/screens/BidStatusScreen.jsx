@@ -1,7 +1,9 @@
 import { RESPECT_FOR_CUSTOMER } from "../constants/mutualRespect";
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
-import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
+import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI, PAYMENTS_LIVE, BUNDLE_PAY_LIVE, SHOW_BUNDLE_PLAN } from "../constants/release";
+import BundlePayPanel from "../components/BundlePayPanel"; // 공정 묶음 분할 결제(10-07 · SQL 205)
+import { BUNDLE_LIMIT_WON, toWon } from "../lib/bundlePay";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge, Icon, splitLeadingEmoji } from "../components/common";
 import { getEscrowWithPayouts } from "../lib/supabase";
@@ -151,7 +153,9 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   //   결제 승인 서버(api/confirm-payment)도 같은 규칙으로 한 번 더 막는다.
   const bizPending = stagePlan === "1STEP" || (!!selBid?.company?.id && selBid.company.verified === false);
   // 결제가 실제로 열렸는가(constants/release PAYMENTS_LIVE = 정식 모드) — 꺼져 있으면 보관 약속도 결제 버튼도 없다.
-  const payBlocked = bizPending || (!PAYMENTS_LIVE && !SAFE_MODE);
+  // 토스 1회 판매 상한 — 1천만 원 이상은 한 번에 결제하지 않는다(서버 api/confirm-payment 도 OVER_SINGLE_LIMIT 로 막는다).
+  const overSingleLimit = !SAFE_MODE && toWon(effectivePrice) >= BUNDLE_LIMIT_WON;
+  const payBlocked = bizPending || (!PAYMENTS_LIVE && !SAFE_MODE) || overSingleLimit;
   const planNotice = bizPending
     ? { title: "업체의 사업자 확인을 기다리고 있어요", body: `공간랜드는 사업자등록을 마친 업체와만 계약해요. 업체에 사업자등록증 제출을 안내했고(홈택스에서 당일 발급), 확인되면 알림으로 알려 드릴게요. 선택 후 ${BIZ_GRACE_HOURS}시간이 지나도 확인이 안 되면 다른 업체를 골라도 공간온도에 영향이 없어요.` }
     : stagePlan === "2STEP"
@@ -944,6 +948,26 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         <BidScreenHeader title={isQuotePhase && finalEstimate ? "최종 견적 확인 · 결제" : "결제 수단 선택"} onBack={goBack} userId={userId} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           {isQuotePhase && renderQuoteCard()}
+          {/* 공정 묶음 분할 결제 — 토스 1회 판매 1천만 원 상한 때문에 견적서를 묶음으로 나눠 받는다.
+              결제가 열리기 전(BUNDLE_PAY_LIVE=false)엔 미리 보기만(버튼 꺼짐) · 열리면 아래 한 번에 결제 대신 이 화면으로 낸다. */}
+          {SHOW_BUNDLE_PLAN && isQuotePhase && request?.id && (
+            <BundlePayPanel
+              requestId={request.id}
+              estimate={finalEstimate}
+              fallbackTotalManwon={effectivePrice}
+              onToast={showLocalToast}
+              onBeforePay={async () => {
+                if (bizPending) { showLocalToast(planNotice.title); return false; }
+                // 예약 확정 = 첫 결제 시작(한 번에 결제와 같은 자리) — 실패하면 결제로 넘어가지 않는다.
+                if (reqStatus === "final_quote_submitted") {
+                  const { error: apErr } = await approveFinalQuote(request.id, userId).catch((e) => ({ error: e }));
+                  if (apErr) { showLocalToast("예약 확정에 실패했어요. 잠시 후 다시 시도해 주세요."); return false; }
+                }
+                return true;
+              }}
+            />
+          )}
+          {!(BUNDLE_PAY_LIVE && SHOW_BUNDLE_PLAN && isQuotePhase) && (<>
           {/* Amount summary — 계산식(시공비 + 이용료 = 총액) + 단계별 안전 지급 */}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ fontSize:13, color:C.text3, marginBottom:10, fontWeight:700 }}>{SHOW_BETA_UI ? "결제 금액" : "공간안전결제 예치 금액"}</div>
@@ -1051,11 +1075,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             {bizPending ? "업체 사업자 확인 대기 중"
               : !PAYMENTS_LIVE && !SAFE_MODE ? "결제 준비 중 — 곧 열려요"
+              : overSingleLimit ? "1천만 원 이상은 묶음으로 나눠 결제해요"
               : paymentLoading ? "처리 중..."
               : SAFE_MODE ? <><Icon emoji="🔧" size={15} color="#fff" /> 테스트 예치 (SAFE_MODE)</>
               : selectedMethod ? <><Icon emoji="🔒" size={15} color="#fff" /> {fmtMoney(customerTotal)} 결제하기</>
               : "결제 수단을 선택하세요"}
           </button>
+          </>)}
         </div>
         {localToast && (() => {
           const { emoji, rest } = splitLeadingEmoji(localToast);

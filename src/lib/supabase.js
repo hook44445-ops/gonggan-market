@@ -2482,6 +2482,15 @@ export const getCompanyActiveJobs = async (companyId, extraIds = []) => {
 // 요청 상태 전이(open → in_progress). anon 직접 UPDATE 는 RLS(auth.uid()=user_id, 커스텀 OTP라
 // null)에 막혀 반영되지 않으므로 security definer RPC(migration 030)로 처리. 실제 활성 에스크로가
 // 있을 때만 전이된다(RPC 내부 검증). 반환 { data, error } — 기존 호출부 호환.
+// 공정 묶음 분할 결제(SQL 205) — 로그인 토큰으로(lib/session TOKEN_RPCS). 금액·상태 검사는 서버가 한다.
+//   { data } — data.error 가 있으면 서버가 거절한 이유(코드).
+export const getBundlePlan = (requestId) =>
+  supabase.rpc("bundle_plan_get", { p_request_id: requestId });
+export const startBundlePart = ({ requestId, seq, amountWon, method }) =>
+  supabase.rpc("bundle_part_start", { p_request_id: requestId, p_seq: seq, p_amount_won: amountWon, p_method: method });
+export const abandonBundlePart = (orderId) =>
+  supabase.rpc("bundle_part_abandon", { p_order_id: orderId });
+
 export const setRequestInProgress = (requestId) =>
   supabase.rpc("request_mark_in_progress", { p_request_id: requestId });
 

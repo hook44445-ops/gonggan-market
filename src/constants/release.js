@@ -41,6 +41,15 @@ export const SHOW_BETA_UI =
 //   결제 버튼 · 「공간랜드가 보관」 문구 · 에스크로 안내가 함께 켜진다. 그 전에는 모두 «결제 준비 중 · 계약서대로 직접».
 export const PAYMENTS_LIVE = !SHOW_BETA_UI;
 
+// 공정 묶음 분할 결제(10-07 · SQL 205 · lib/bundlePay) — 토스 «1회 판매 1천만 원 초과 입점 불가» 때문에
+//   최종 견적서를 1천만 원 미만 묶음으로 나눠 받는다. 스위치는 셋이고 «모두» 켜져야 실제 결제 버튼이 눌린다:
+//     ① PAYMENTS_LIVE(VITE_APP_MODE=production) ② VITE_BUNDLE_PAY="on" ③ 서버 ops_config.bundle_pay_open = true
+//   그 전에는 «결제가 열리면 이렇게 나눠 낼 수 있어요» 미리 보기만(버튼은 꺼짐).
+//   토스가 «안 된다»고 하면 VITE_BUNDLE_PAY="off" — 묶음 화면을 숨기고 예전 한 번에 결제(1천만 미만)만.
+export const BUNDLE_PAY_MODE = import.meta.env.VITE_BUNDLE_PAY ?? "preview";   // "on" | "preview" | "off"
+export const BUNDLE_PAY_LIVE = PAYMENTS_LIVE && BUNDLE_PAY_MODE === "on";
+export const SHOW_BUNDLE_PLAN = BUNDLE_PAY_MODE !== "off";
+
 // 아이폰 앱(Expo 쉘 · WKWebView) 안인가 — 쉘이 window.ReactNativeWebView 를 심는다.
 //   App Store 가이드라인 3.1.1: 앱 안에서 디지털 상품(공간토큰)을 애플 결제 없이 팔거나 가격·외부 결제를 안내하면 반려.
 //   그래서 아이폰 앱 안에서는 토큰 구매 화면을 아예 보이지 않는다(공사 대금 같은 실물 서비스 결제는 해당 없음).

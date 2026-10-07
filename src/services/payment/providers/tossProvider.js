@@ -29,8 +29,9 @@ export async function loadSdk(timeoutMs = 15000) {
 
 // 결제창 호출. 성공 시 successUrl 로 리다이렉트되므로 보통 반환되지 않는다.
 // tossMethod 는 한글 method 인자("카드"/"계좌이체"/"가상계좌").
+// extra: 수단별 추가 옵션(예: 가상계좌 입금 기한 validHours) — 공정 묶음 분할 결제(lib/bundlePay)가 쓴다.
 export async function requestPayment({
-  clientKey, tossMethod, amount, orderId, orderName, customerName, successUrl, failUrl,
+  clientKey, tossMethod, amount, orderId, orderName, customerName, successUrl, failUrl, extra = {},
 }) {
   if (!clientKey) throw new Error("Missing Toss client key");
   if (!tossMethod) throw new Error("Unsupported Toss payment method");
@@ -43,7 +44,7 @@ export async function requestPayment({
   const TossPayments = await loadSdk();
   const toss = TossPayments(clientKey);
   return toss.requestPayment(tossMethod, {
-    amount, orderId, orderName, customerName, successUrl, failUrl,
+    ...extra, amount, orderId, orderName, customerName, successUrl, failUrl,
   });
 }
 

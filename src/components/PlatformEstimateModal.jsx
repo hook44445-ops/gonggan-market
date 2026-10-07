@@ -10,6 +10,8 @@ import { analyzeEstimate } from "../constants/spaceOs";
 import QuoteDocument from "./QuoteDocument"; // 견적서 미리보기·인쇄
 import { QUOTE_STEPS, DURATION_PRESETS, WARRANTY_PRESETS, suggestTrades, applyTrade, restoreQuote, filledItems, stepBlocker, makeEmptyItem } from "../lib/finalQuote";
 import DocImg from "./DocImg";
+import { SHOW_BUNDLE_PLAN, BUNDLE_PAY_LIVE } from "../constants/release";
+import { splitIntoBundles, quoteLines, fmtWon } from "../lib/bundlePay"; // 공정 묶음 분할 결제 미리 보기(10-07)
 
 function Backdrop({ onClose, children }) {
   return (
@@ -469,6 +471,26 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
               공사 {durationDays || "—"}일 · 현장 사진 {photoUrls.length}장{warrantyNote ? ` · ${warrantyNote}` : ""}
             </div>
             {note && <div style={{ fontSize:12.5, color:C.text3, lineHeight:1.7, marginTop:4, whiteSpace:"pre-wrap" }}>“{note}”</div>}
+            {/* 고객 결제는 공정 묶음(각 1천만 원 미만)으로 나뉜다 — 1천만 원 이상 공정은 1차·2차로. 업체 지급은 계약 전체 금액 기준 단계 그대로. */}
+            {SHOW_BUNDLE_PLAN && (() => {
+              const bundles = splitIntoBundles(quoteLines(buildPayload()));
+              if (bundles.length < 2) return null;
+              return (
+                <div style={{ marginTop:S.md, paddingTop:S.sm, borderTop:`1px dashed ${C.bgWarm}` }}>
+                  <div style={{ fontSize:12, fontWeight:800, color:C.text2 }}>
+                    {BUNDLE_PAY_LIVE ? "고객은 이렇게 나눠 결제해요" : "결제가 열리면 고객은 이렇게 나눠 결제해요"} · 묶음 {bundles.length}개
+                  </div>
+                  {bundles.map(b => (
+                    <div key={b.seq} style={{ display:"flex", justifyContent:"space-between", gap:S.md, fontSize:12, color:C.text2, padding:"2px 0" }}>
+                      <span>{b.seq}. {b.label}</span><span style={{ fontWeight:700, flexShrink:0 }}>{fmtWon(b.amountWon)}</span>
+                    </div>
+                  ))}
+                  <div style={{ fontSize:11.5, color:C.text3, lineHeight:1.6, marginTop:4 }}>
+                    묶음마다 1천만 원 미만이에요. 대금 지급은 지금처럼 계약 전체 금액 기준 단계대로예요.
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           <button onClick={() => setShowDoc(true)}
