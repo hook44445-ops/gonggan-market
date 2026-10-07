@@ -1,7 +1,7 @@
 node_modules
 dist
 .env.local
-# Android build artifacts (keystore intentionally tracked — this is a private repo)
+# Android build artifacts — 서명 키(*.keystore·*.jks)는 저장소에 두지 않는다
 android-twa/.gradle/
 android-twa/build/
 android-twa/app/build/

@@ -7,8 +7,8 @@ VERCEL_URL="gongganland.com"   # 정식 production 도메인 (TWA가 로드하�
 PACKAGE_ID="com.gonggansai.gongganmarket"
 KEYSTORE="gonggan-release.keystore"
 KEY_ALIAS="gonggan-market"
-KEY_PASS="GongganMarket2026!"
-STORE_PASS="GongganMarket2026!"
+KEY_PASS="${GONGGAN_KEY_PASSWORD:?GONGGAN_KEY_PASSWORD 환경변수를 넣고 실행하세요}"
+STORE_PASS="${GONGGAN_STORE_PASSWORD:?GONGGAN_STORE_PASSWORD 환경변수를 넣고 실행하세요}"
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

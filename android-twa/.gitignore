@@ -4,7 +4,7 @@ build/
 app/build/
 local.properties
 
-# Do NOT ignore the keystore — it is intentionally included so the CI/CD
-# chain can build and sign APKs from this repo. Store this repo private.
-# If you move to a public repo, remove the keystore and manage it via
-# CI secrets (ANDROID_KEYSTORE base64, ANDROID_KEY_ALIAS, ANDROID_STORE_PASSWORD).
+# 서명 키는 저장소에 두지 않는다(10-06). 키는 D:/project/keys · 비밀번호는 환경변수
+# GONGGAN_KEYSTORE · GONGGAN_STORE_PASSWORD · GONGGAN_KEY_PASSWORD 로 넘긴다.
+*.keystore
+*.jks
