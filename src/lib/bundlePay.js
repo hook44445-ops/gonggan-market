@@ -24,6 +24,9 @@ export const BUNDLE_METHODS = [
 
 export const toWon = (manwon) => Math.round((Number(manwon) || 0) * 10_000);
 
+// 고객 결제 화면 한 줄(대표 10-08) — 묶음·한 번에 결제 둘 다. 카드·가상계좌 수수료는 고객 화면 어디에도 쓰지 않는다.
+export const NO_EXTRA_CHARGE = "어떤 수단으로 내셔도 추가 요금은 없습니다";
+
 // 최종 견적서 → 공정 줄([{ name, won }]). 같은 공정 이름은 한 줄로 합친다(공정 = 판매 단위라 쪼개지지 않게).
 //   견적 합계와 줄 합계가 다르면: 합계가 더 크면 «기타» 줄로 맞추고, 더 작으면(할인 등) 공정을 믿지 않고 «공사 전체» 한 줄.
 export function quoteLines(estimate, fallbackTotalManwon = null) {

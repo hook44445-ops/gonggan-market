@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { C, R, S } from "../constants";
 import { BUNDLE_PAY_LIVE } from "../constants/release";
 import {
-  BUNDLE_METHODS, VA_DUE_DAYS, PART_ERRORS, splitIntoBundles, quoteLines, planSummary, checkPartAmount, fmtWon, headline,
+  BUNDLE_METHODS, VA_DUE_DAYS, PART_ERRORS, NO_EXTRA_CHARGE, splitIntoBundles, quoteLines, planSummary, checkPartAmount, fmtWon, headline,
 } from "../lib/bundlePay";
 import { getBundlePlan, startBundlePart, requestBundleRefund } from "../lib/supabase";
 import { getProvider } from "../services/payment";
@@ -275,6 +275,8 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
                     })}
                   </div>
 
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.brand, marginTop: S.sm }}>{NO_EXTRA_CHARGE}</div>
+
                   <button type="button" onClick={pay} disabled={!live || !!amountErr || busy}
                     style={{ width: "100%", height: 50, marginTop: S.md, borderRadius: R.lg, border: "none", fontSize: 15, fontWeight: 800, fontFamily: "inherit",
                       background: live && !amountErr ? C.brand : C.bgWarm, color: live && !amountErr ? "#fff" : C.text3, cursor: live && !amountErr ? "pointer" : "not-allowed" }}>
@@ -297,7 +299,7 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
         <li>입금이 막히면 남은 금액만 카드로 내셔도 돼요. 카드 여러 장도 괜찮아요.</li>
         <li>입금이 확인되면 바로 고객님과 업체에 알려 드려요.</li>
         <li>업체에는 묶음과 상관없이 계약 전체 금액 기준으로, 단계를 확인할 때마다 나눠 지급돼요.</li>
-        <li>결제 수단과 상관없이 견적 금액 그대로 내요. 공간안전결제 이용료는 고객님 금액에 더하지 않아요.</li>
+        <li>{NO_EXTRA_CHARGE} — 견적 금액 그대로 내요.</li>
         <li>입금 기한이 지나 멈추면 낸 금액은 그대로 두고, 이어서 낼지 환불을 요청할지 고르실 수 있어요.</li>
       </ul>
     </section>

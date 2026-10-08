@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI, PAYMENTS_LIVE, BUNDLE_PAY_LIVE, SHOW_BUNDLE_PLAN } from "../constants/release";
 import BundlePayPanel from "../components/BundlePayPanel"; // 공정 묶음 분할 결제(10-07 · SQL 205)
-import { BUNDLE_LIMIT_WON, toWon } from "../lib/bundlePay";
+import { BUNDLE_LIMIT_WON, toWon, NO_EXTRA_CHARGE } from "../lib/bundlePay";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge, Icon, splitLeadingEmoji } from "../components/common";
 import { getEscrowWithPayouts } from "../lib/supabase";
@@ -552,13 +552,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               {/* 베타: 이용료·예치 총액을 보이지 않는다(앱이 돈을 받지 않는다). 공사 금액 한 줄만. */}
               {(SHOW_BETA_UI ? [["공사 금액", fmtMoney(effectivePrice)]] : [
                 ["시공비", fmtMoney(effectivePrice)],
-                ["공간안전결제 이용료", "더하지 않아요 · 업체 지급분에서 빠져요"],
               ]).map(([k, v]) => (
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.text2, marginBottom:2 }}>
                   <span>{k}</span>
-                  <span style={{ fontWeight:700, color: k === "공간안전결제 이용료" ? C.text3 : C.text2 }}>{v}</span>
+                  <span style={{ fontWeight:700, color:C.text2 }}>{v}</span>
                 </div>
               ))}
+              {/* 대표 10-08: 고객 추가 요금 0원 — 카드·가상계좌 수수료는 고객 화면에 표시하지 않는다(토스 정산 때 우리 쪽에서만 차감) */}
+              {!SHOW_BETA_UI && <div style={{ fontSize:12, color:C.brand, fontWeight:700, marginBottom:2 }}>{NO_EXTRA_CHARGE}</div>}
               {!SHOW_BETA_UI && (<>
               <div style={{ height:1, background:C.brandM, margin:`${S.xs}px 0` }} />
               <div style={{ display:"flex", justifyContent:"space-between" }}>
@@ -970,16 +971,15 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             />
           )}
           {!(BUNDLE_PAY_LIVE && SHOW_BUNDLE_PLAN && isQuotePhase) && (<>
-          {/* Amount summary — 견적 금액 그대로(이용료는 업체 지급분에서 · 결제수단과 무관) + 단계별 안전 지급 */}
+          {/* Amount summary — 견적 금액 그대로(추가 요금 0원 · 수수료는 고객 화면에 표시하지 않음) + 단계별 안전 지급 */}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ fontSize:13, color:C.text3, marginBottom:10, fontWeight:700 }}>{SHOW_BETA_UI ? "결제 금액" : "공간안전결제 예치 금액"}</div>
             <div style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", fontSize:13 }}>
               <span style={{ color:C.text2 }}>시공비</span>
               <span style={{ fontWeight:700, color:C.text1 }}>{fmtMoney(effectivePrice)}</span>
             </div>
-            <div style={{ display:"flex", justifyContent:"space-between", padding:"5px 0 9px", fontSize:13, borderBottom:`1px solid ${C.bgWarm}` }}>
-              <span style={{ color:C.text2 }}>공간안전결제 이용료</span>
-              <span style={{ fontWeight:700, color:C.text3 }}>더하지 않아요 · 업체 지급분에서 빠져요</span>
+            <div style={{ padding:"5px 0 9px", fontSize:12.5, fontWeight:700, color:C.brand, borderBottom:`1px solid ${C.bgWarm}` }}>
+              {NO_EXTRA_CHARGE}
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", padding:"10px 0 2px" }}>
               <span style={{ fontSize:14, fontWeight:800, color:C.text1 }}>총 결제금액</span>
