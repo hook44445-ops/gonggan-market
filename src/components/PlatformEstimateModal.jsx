@@ -364,7 +364,7 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
               <input value={it.material} onChange={e => updateItem(it.id, "material", e.target.value)} placeholder="자재·규격 (선택)" style={{ ...inp, width:"100%", marginBottom:S.sm }} />
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1.3fr auto", gap:S.sm, alignItems:"center" }}>
                 <input type="number" inputMode="decimal" value={it.qty} onChange={e => updateItem(it.id, "qty", e.target.value)} placeholder="수량" style={inp} />
-                <input type="number" inputMode="decimal" value={it.unitPrice} onChange={e => updateItem(it.id, "unitPrice", e.target.value)} placeholder="단가(만원)" style={inp} />
+                <input type="number" inputMode="decimal" value={it.unitPrice} onChange={e => updateItem(it.id, "unitPrice", e.target.value)} placeholder="단가(만원·부가세 포함)" style={inp} />
                 <div style={{ fontSize:13, fontWeight:800, color:C.brand, textAlign:"right", minWidth:56 }}>
                   {Math.round((Number(it.qty) || 0) * (Number(it.unitPrice) || 0)).toLocaleString()}만
                 </div>
@@ -467,6 +467,8 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
               <span style={{ fontSize:14, fontWeight:800, color:C.brand }}>총 견적</span>
               <span style={{ fontSize:22, fontWeight:900, color:C.brand }}>{Math.round(totalPrice).toLocaleString()}만원</span>
             </div>
+            {/* 고객에게는 «부가세 포함 총액»으로 보인다(공급가액·부가세로 나눠서) — 금액은 부가세 포함으로 적는다(법률 답 10-08) */}
+            <div style={{ fontSize:11.5, color:C.text3, marginTop:2 }}>부가세 포함 금액이에요 · 고객에게 공급가액·부가세로 나눠 보여요</div>
             <div style={{ fontSize:12.5, color:C.text2, lineHeight:1.8, marginTop:S.sm }}>
               공사 {durationDays || "—"}일 · 현장 사진 {photoUrls.length}장{warrantyNote ? ` · ${warrantyNote}` : ""}
             </div>

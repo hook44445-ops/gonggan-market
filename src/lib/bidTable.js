@@ -15,6 +15,7 @@
 //
 // 순수 JS — React·DOM 없음(테스트가 그대로 부른다).
 import { includesCell, hasIncludes } from "./bidIncludes.js";
+import { bidTotalWithVat } from "./priceVat.js";
 
 export const MAX_COMPARE = 3;
 
@@ -44,7 +45,9 @@ export const PROOF_LABEL = { biz: "사업자등록", insurance: "시공보험", 
 // 한 업체의 칸 — 표의 세로 한 줄.
 export function bidColumn(bid = {}) {
   const company = bid.company ?? {};
-  const price = num(bid.price);
+  // 고객에게 보이는 금액 = 부가세 포함 총액(업체가 «부가세 별도»를 눌렀으면 ×1.1 · 표시만 · 법률 답 10-08)
+  const vat = bidTotalWithVat(num(bid.price), bid.includes);
+  const price = num(vat.total);
   const period = num(bid.period ?? bid.period_days);
   const material = text(bid.material ?? bid.material_note);
   const comment = text(bid.comment);
@@ -52,7 +55,7 @@ export function bidColumn(bid = {}) {
   return {
     id: bid.id,
     name: text(company.name) || "파트너",
-    price, period,
+    price, period, priceNote: vat.vatState === "out" ? "부가세 더한 금액" : null,   // «안 적음»은 «포함 항목» 줄이 따로 말한다
     perDay: perDay(price, period),
     material, comment, proofs,
     includes: bid.includes ?? null,
@@ -86,7 +89,7 @@ export function compareBids(bids = []) {
       missing: false,
       best: low > 0 && c.price === low && prices.length > 1,
       bestText: "가장 낮음",
-      sub: gap ? `+${gap.toLocaleString("ko-KR")}만원` : null,
+      sub: [gap ? `+${gap.toLocaleString("ko-KR")}만원` : null, c.priceNote].filter(Boolean).join(" · ") || null,
     };
   };
 

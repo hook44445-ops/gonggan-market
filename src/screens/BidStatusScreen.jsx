@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
 import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI, PAYMENTS_LIVE, BUNDLE_PAY_LIVE, SHOW_BUNDLE_PLAN, PAY_METHODS } from "../constants/release";
 import BundlePayPanel from "../components/BundlePayPanel"; // 공정 묶음 분할 결제(10-07 · SQL 205)
+import QuotePriceSummary from "../components/QuotePriceSummary"; // 최종 견적서 금액 블록(부가세 포함 총액 · 법률 답 10-08)
 import { BUNDLE_LIMIT_WON, toWon, NO_EXTRA_CHARGE } from "../lib/bundlePay";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge, Icon, splitLeadingEmoji } from "../components/common";
@@ -500,9 +501,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
                   ))}
                 </div>
               )}
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:C.brandL, borderRadius:R.md, padding:S.md, marginBottom:finalEstimate.note || finalEstimate.warranty_note || finalEstimate.duration_days ? S.md : 0 }}>
-                <span style={{ fontSize:13, fontWeight:800, color:C.brand }}>총 견적 금액</span>
-                <span style={{ fontSize:18, fontWeight:900, color:C.brand }}>{fmtMoney(finalEstimate.total_price ?? 0)}</span>
+              <div style={{ borderRadius:R.md, overflow:"hidden", marginBottom:finalEstimate.note || finalEstimate.warranty_note || finalEstimate.duration_days ? S.md : 0 }}>
+                <QuotePriceSummary totalManwon={finalEstimate.total_price ?? 0} ink={C.text1} sub={C.text3} accent={C.brand} bg={C.brandL} line={C.brandM} />
               </div>
               {finalEstimate.duration_days != null && (
                 <div style={{ fontSize:12, color:C.text2, marginBottom:S.xs }}>⏱ 예상 공사기간 <b>{finalEstimate.duration_days}일</b></div>

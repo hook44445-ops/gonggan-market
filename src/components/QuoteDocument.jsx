@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import DocImg from "./DocImg";
+import QuotePriceSummary from "./QuotePriceSummary"; // 공급가액·부가세·합계·고객 이용료 0원·고객 총 부담액(법률 답 10-08)
 
 // 최종 견적서 — 미리보기 + 인쇄/PDF 저장(A4 한 장 모양).
 // 파트너(작성 중 폼)와 의뢰인(받은 견적) 둘 다 같은 문서를 본다. estimate 는 estimates 행 모양
@@ -86,9 +87,8 @@ export default function QuoteDocument({ estimate = {}, companyName, request = {}
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", background: "#F3F6F2", padding: "12px 14px", marginBottom: 16 }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>합계 금액</span>
-          <span style={{ fontSize: 22, fontWeight: 900, color: "#2F5D46" }}>{won(total)}</span>
+        <div style={{ marginBottom: 16 }}>
+          <QuotePriceSummary totalManwon={total} />
         </div>
 
         <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 18 }}>
@@ -117,7 +117,7 @@ export default function QuoteDocument({ estimate = {}, companyName, request = {}
             ))}
             <tr>
               <td style={{ ...td, borderBottom: "1.5px solid #1F2A24" }} />
-              <td style={{ ...td, textAlign: "right", fontWeight: 800, borderBottom: "1.5px solid #1F2A24" }}>합계</td>
+              <td style={{ ...td, textAlign: "right", fontWeight: 800, borderBottom: "1.5px solid #1F2A24" }}>공사대금 합계(부가세 포함)</td>
               <td className="qd-wide" colSpan={2} style={{ ...td, borderBottom: "1.5px solid #1F2A24" }} />
               <td style={{ ...td, textAlign: "right", fontWeight: 900, borderBottom: "1.5px solid #1F2A24" }}>{won(total)}</td>
             </tr>
@@ -145,7 +145,7 @@ export default function QuoteDocument({ estimate = {}, companyName, request = {}
         )}
 
         <div style={{ fontSize: 10.5, color: "#9A9D96", borderTop: "1px solid #E4E0D8", paddingTop: 10, lineHeight: 1.7 }}>
-          공간랜드에서 업체가 현장 확인 후 작성한 견적서입니다. 금액 단위: 원(부가세 포함 여부는 업체와 확인해 주세요).
+          공간랜드에서 업체가 현장 확인 후 작성한 견적서입니다. 금액 단위: 원 · 모든 금액은 부가세 포함입니다.
         </div>
       </div>
     </div>,
