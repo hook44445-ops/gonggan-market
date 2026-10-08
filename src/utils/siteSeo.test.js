@@ -9,6 +9,7 @@ import {
   IP_FILINGS,
   PATENT_LABEL,
   PATENT_DETAIL,
+  PATENT_MESSAGE,
   IP_FOOTER_LINE,
   PARTNER_LADDER,
   PARTNER_STEPS,
@@ -646,8 +647,14 @@ test('특허·상표 표시는 «출원»만 · 등록으로 읽히는 말 없�
   assert.equal(PATENT_LABEL, '특허출원 10-2026-0192050');
   assert.equal(PATENT_DETAIL, '특허출원 10-2026-0192050 · 2026.10.07 출원');
   assert.equal(IP_FOOTER_LINE, '특허출원 10-2026-0192050 · 상표출원 40-2026-0209520');
-  const all = [PATENT_LABEL, PATENT_DETAIL, IP_FOOTER_LINE, IP_FILINGS.patentTopic].join(' ');
+  const all = [PATENT_LABEL, PATENT_DETAIL, IP_FOOTER_LINE, PATENT_MESSAGE].join(' ');
   for (const bad of ['®', '™', 'Patent', '특허 받은', '특허받은', '특허 기술', '특허기술', '특허 등록', '특허등록', '등록특허', '심사중', '심사 중']) {
     assert.ok(!all.includes(bad), `금지어: ${bad}`);
+  }
+  // 설명 — 결제 미개통이라 약속형 말 없이 «방식»으로 끝난다(대표 10-08)
+  assert.ok(IP_FILINGS.patentTopic.endsWith('방식'));
+  assert.equal(PATENT_MESSAGE, '최종 견적서를 바탕으로, 공사 단계별 사진을 확인하고 고객 승인 후 그 단계만큼 지급되는 방식');
+  for (const bad of ['지켜 드', '지켜드', '맡기세요', '안심하세요', '보장']) {
+    assert.ok(!PATENT_MESSAGE.includes(bad), `약속형 말: ${bad}`);
   }
 });

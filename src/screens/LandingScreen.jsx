@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { FileText } from "lucide-react";
-import { SHOW_DEBUG_UI, SHOW_BETA_UI, isStoreAppShell } from "../constants/release";
+import { FileText, Camera, Plus } from "lucide-react";
+import { SHOW_DEBUG_UI, SHOW_BETA_UI, isStoreAppShell, PAYMENTS_LIVE } from "../constants/release";
 import { getTopReviews, getRecentPortfolios, getSeedReviews } from "../lib/supabase";
 import { normalizeShowcases } from "../lib/showcases";
 import { isTestCompanyName } from "../lib/testCompany";
@@ -8,7 +8,7 @@ import AppFooter from "../components/AppFooter";
 import InviteWelcome from "../components/InviteWelcome";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
-import { consumerFaq, pageSeo, serviceSchema, faqSchema, IP_FILINGS, PATENT_LABEL, PATENT_DETAIL } from "../utils/siteSeo";
+import { consumerFaq, pageSeo, serviceSchema, faqSchema, IP_FILINGS, PATENT_LABEL, PATENT_DETAIL, PATENT_MESSAGE } from "../utils/siteSeo";
 import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView, AdVideo } from "../components/landing/LandingMotion";
 import { saveLandingPick, LANDING_WORK_TAGS } from "../lib/landingPick";
 
@@ -171,6 +171,80 @@ const JOURNEY = [
   },
 ];
 
+// ── 단계 확정 방식(특허출원) — 주 장면은 «고객이 알기 어려운 단열재»(대표 10-08) ─────────────────
+// 왜: PG 통화에서 «고객이 확인한 뒤에도 불만이면?»에 답한 예시 — 단열재는 6cm든 3cm든 마감하면 겉이 똑같다.
+//   그래서 섹션의 주인공을 단열재 단면으로 두고, 흐름(견적서 → 사진 → 승인 → 그 단계만큼)은 그 아래에 받친다.
+//   경쟁 앱은 «연결»까지 — 공간랜드는 연결 이후의 견적서 · 공사 과정 · 기록까지(경쟁사 이름은 쓰지 않는다).
+// 그림: 힉스필드(10-08 · 앞면은 같고 옆 단면만 두께가 다른 두 시료, 글자·숫자·사람 없음). 6cm/3cm는 HTML로 얹는다.
+// 폰은 제목 → 그림 → 설명 순(그림이 주인공), PC는 왼쪽 제목·설명 / 오른쪽 그림.
+// ⚠️ 앱에 실제로 있는 것만: 최종 견적서(공정별 항목 · 자재 기록 · 규격 · A/S, PlatformEstimateModal) ·
+//    단계 사진 업로드와 촬영 위치·시각(project_checkpoints lat/lng/captured_at) · 고객 확인 · 대화방 기록 ·
+//    이의 신청 시 남은 단계 보류(136). 결제(보관·지급)는 PAYMENTS_LIVE 전 — «맡기세요/지켜 드립니다/안전결제» 금지,
+//    문장 끝은 «~방식», «~남습니다».
+// ⚠️ «나란히 비교·비교 화면·자동 대조»처럼 새 비교 기능으로 읽히는 말 금지 — «증거로 함께 확인»(대표 10-08 · 특허 청구항 11·13 범위:
+//    최종 견적서 저장, 이의 시 기록을 단계 증빙과 함께 판단 자료로 제공). «분쟁이 생기면»도 쓰지 않는다. 짝 사이 기호도 ↔ 대신 +.
+const STAGE_FLOW = [
+  { no: "01", title: "최종 견적서", desc: "공정별 항목 · 자재 · 규격 · A/S 기간이 기준이 됩니다." },
+  { no: "02", title: "단계별 사진", desc: "착공 · 중간 · 완료마다 현장 사진과 촬영 위치 · 시각이 기록됩니다." },
+  { no: "03", title: "고객 확인 · 승인", desc: "단계 사진을 보고 확인 · 승인합니다. 대화도 대화방에 남습니다." },
+  { no: "04", title: "그 단계만큼 · 이의 시 보류",
+    desc: PAYMENTS_LIVE
+      ? "승인한 단계만큼 지급되는 방식입니다. 이의를 신청하면 남은 단계는 모두 보류됩니다."
+      : "승인한 단계만큼 금액이 확정되는 방식입니다(대금은 지금 계약서대로). 이의를 신청하면 남은 단계는 모두 보류됩니다." },
+];
+
+function StageProof() {
+  return (
+    <section className="lm-sp" aria-labelledby="lm-sp-h">
+      <div className="lm-sp-grid">
+        <Reveal className="lm-sp-head">
+          <div className="lm-sp-ip"><FileText size={13} strokeWidth={2.2} aria-hidden="true" />{PATENT_LABEL}</div>
+          <h2 id="lm-sp-h" className="lm-sp-h">마감하면 안 보이는 <em>단열재 두께,</em><br />기록으로 남깁니다</h2>
+        </Reveal>
+
+        <Reveal delay={0.1} className="lm-sp-scene">
+          <img src="/images/landing/insulation-section.webp" srcSet="/images/landing/insulation-section-sm.webp 900w, /images/landing/insulation-section.webp 1600w"
+            sizes="(min-width: 960px) 560px, 100vw" loading="lazy"
+            alt="마감면은 똑같지만 옆 단면을 보면 왼쪽은 단열재가 두껍고 오른쪽은 얇은 두 벽체 시료" />
+          <span className="lm-sp-ex">예시</span>
+          <span className="lm-sp-mm lm-sp-mm-l">6cm</span>
+          <span className="lm-sp-mm lm-sp-mm-r">3cm</span>
+          <span className="lm-sp-same">마감면은 똑같아요</span>
+        </Reveal>
+
+        <Reveal className="lm-sp-body">
+          <p className="lm-sp-lead">
+            단열재는 6cm든 3cm든 마감하고 나면 겉은 똑같습니다. 견적서의 약속과 시공 중 사진과 기록을{" "}
+            <b>증거로 함께 확인할 수 있습니다.</b> 약속대로 시공한 업체에게는 그 사실을 보여 주는 기록이 됩니다.
+          </p>
+          <div className="lm-sp-pair">
+            <div><FileText size={16} strokeWidth={2} aria-hidden="true" /><small>최종 견적서의 약속</small><b>단열재 6cm</b></div>
+            <Plus size={16} strokeWidth={2.4} aria-hidden="true" className="lm-sp-vs" />
+            <div><Camera size={16} strokeWidth={2} aria-hidden="true" /><small>시공 중 사진</small><b>위치 · 시각 기록</b></div>
+          </div>
+        </Reveal>
+
+      </div>
+
+      <Reveal delay={0.05} className="lm-sp-how">
+        <p className="lm-sp-msg"><b>{PATENT_LABEL}</b> · {PATENT_MESSAGE}</p>
+        <ol className="lm-sp-flow">
+          {STAGE_FLOW.map((f) => (
+            <li key={f.no}>
+              <span className="lm-sp-no">{f.no}</span>
+              <span>
+                <b>{f.title}</b>
+                <span className="lm-sp-desc">{f.desc}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+        <p className="lm-sp-note">업체를 연결해 주는 곳은 많습니다. 공간랜드는 연결 이후의 견적서 · 공사 과정 · 기록까지 남깁니다.</p>
+      </Reveal>
+    </section>
+  );
+}
+
 // FAQ(유지 · 삭제 금지) — 문구는 utils/siteSeo.js 단일 소스.
 // 봇 프리렌더(api/prerender.js)가 같은 배열을 써서 화면과 색인 내용이 갈라지지 않는다.
 const FAQ_ITEMS = consumerFaq(SHOW_BETA_UI);
@@ -194,18 +268,24 @@ function FaqRow({ q, a }) {
 }
 
 // ── 특허출원 배지 — 히어로 주 CTA 바로 위 한 줄(대표 10-07 «CTA 위 배지 + 푸터 한 줄» 두 곳만).
-// 누르거나 올리면 번호·출원일만 보인다(명세서 내용은 싣지 않는다). 폰에서는 곁들임 «· 공사대금 단계 확정 방식»을 뺀다.
-// ⚠️ 문구는 siteSeo.PATENT_* 그대로 — «출원»을 빼거나 «특허 받은/등록/®»로 바꾸지 않는다(특허법 224조).
+// 누르거나 올리면 번호·출원일만 보인다(명세서 내용은 싣지 않는다).
+// 설명(대표 10-08 «… 그 단계만큼 지급되는 방식»)은 길어서 알약 안에 넣으면 PC 히어로 폭(520px)에서도 넘친다 —
+// 배지는 번호만, 설명은 배지 바로 아래 작은 한 줄로 둔다(PC·폰 같은 모양).
+// 앞머리 «최종 견적서를 바탕으로,»는 PC에만 — 폰(≤480px)은 넘쳐서 뺀다(번호 한 줄 + 설명 한 줄).
+// ⚠️ 문구는 siteSeo.PATENT_* · IP_FILINGS 그대로 — «출원»을 빼거나 «특허 받은/등록/®»로 바꾸지 않는다(특허법 224조).
+//    결제 미개통이라 «지켜 드립니다·맡기세요» 같은 약속형 말도 붙이지 않는다(문장 끝은 «방식»).
 function PatentBadge() {
   const [open, setOpen] = useState(false);
   return (
-    <button type="button" className={`lm-ip gg-rise gg-d3 ${open ? "is-open" : ""}`} aria-describedby="lm-ip-tip"
-      onClick={() => setOpen((v) => !v)} onBlur={() => setOpen(false)}>
-      <FileText size={14} strokeWidth={2} aria-hidden="true" className="lm-ip-ic" />
-      <b>{PATENT_LABEL}</b>
-      <span className="lm-ip-sub">· {IP_FILINGS.patentTopic}</span>
-      <span role="tooltip" id="lm-ip-tip" className="lm-ip-tip">{PATENT_DETAIL}</span>
-    </button>
+    <div className="lm-ip-wrap gg-rise gg-d3">
+      <button type="button" className={`lm-ip ${open ? "is-open" : ""}`} aria-describedby="lm-ip-tip"
+        onClick={() => setOpen((v) => !v)} onBlur={() => setOpen(false)}>
+        <FileText size={14} strokeWidth={2} aria-hidden="true" className="lm-ip-ic" />
+        <b>{PATENT_LABEL}</b>
+        <span role="tooltip" id="lm-ip-tip" className="lm-ip-tip">{PATENT_DETAIL}</span>
+      </button>
+      <div className="lm-ip-sub"><span className="lm-ip-lead">{IP_FILINGS.patentLead} </span>{IP_FILINGS.patentTopic}</div>
+    </div>
   );
 }
 
@@ -405,6 +485,9 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           </div>
         </div>
 
+        {/* ── 단계 확정 방식(특허출원 10-2026-0192050) — 여정 다음, 전·후 앞에 «추가»(대표 10-08 · 기존 섹션은 그대로) ── */}
+        <StageProof />
+
         {/* ── 전·후 밀어 보기 — 끝나면 자랑할 차례(고객 전·후 사진 카드 #868 · 사진은 예시) ── */}
         <div className="gm-ba-wrap" style={{ padding: "12px 0 36px", display: "grid", gap: 18, alignItems: "center" }}>
           <Reveal>
@@ -553,18 +636,63 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         @media (min-width: 1040px){ .gm-journey > div{ grid-template-columns: 240px 1fr; align-items: stretch } .gm-journey img{ height: 100% !important; min-height: 190px } }
         .gm-card:hover{ transform: translateY(-3px); box-shadow: 0 12px 32px rgba(18,26,22,.08) }
         button:active{ transform: scale(.985) }
-        .lm-ip{ position: relative; display: flex; width: fit-content; align-items: center; gap: 6px; max-width: 100%; margin: -8px 0 12px;
+        .lm-ip-wrap{ margin: -8px 0 12px }
+        .lm-ip{ position: relative; display: flex; width: fit-content; align-items: center; gap: 6px; max-width: 100%; margin: 0;
           padding: 6px 13px; border: 1px solid #D6A756; border-radius: 999px; background: rgba(255,255,255,.55);
           font: inherit; font-size: 12.5px; color: #1A2E22; letter-spacing: -0.01em; white-space: nowrap; cursor: pointer; }
         .lm-ip b{ font-weight: 800 }
         .lm-ip-ic{ color: #A98B4E; flex-shrink: 0 }
-        .lm-ip-sub{ color: #5A6B60; font-weight: 500 }
+        .lm-ip-sub{ margin: 6px 0 0 4px; font-size: 11.5px; line-height: 1.5; color: #5A6B60; font-weight: 500; word-break: keep-all; text-wrap: balance }
+        @media (max-width: 480px){ .lm-ip-sub{ margin-left: 2px; font-size: 10px; letter-spacing: -0.04em } }
         .lm-ip-tip{ position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5; padding: 7px 11px; border-radius: 10px;
           background: #121A16; color: #fff; font-size: 11.5px; font-weight: 600; white-space: nowrap;
           box-shadow: 0 6px 18px rgba(18,26,22,.18); opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity .15s, transform .15s }
         .lm-ip:hover .lm-ip-tip, .lm-ip:focus-visible .lm-ip-tip, .lm-ip.is-open .lm-ip-tip{ opacity: 1; transform: none }
         .lm-ip:active{ transform: none }
-        @media (max-width: 480px){ .lm-ip-sub{ display: none } }
+        .lm-sp{ margin: 6px 0 40px; border-radius: 26px; padding: 30px 22px; color: #F4EFE4;
+          background: radial-gradient(120% 80% at 0% 0%, #24503C 0%, #163626 48%, #0E2B1D 100%); }
+        .lm-sp-grid{ display: grid; gap: 18px }
+        @media (min-width: 960px){ .lm-sp{ padding: 44px 44px 36px } .lm-sp-grid{ grid-template-columns: 1fr 1.15fr; grid-template-areas: "head scene" "body scene"; column-gap: 40px; row-gap: 0; align-items: center }
+          .lm-sp-head{ grid-area: head; align-self: end } .lm-sp-body{ grid-area: body; align-self: start } .lm-sp-scene{ grid-area: scene } }
+        .lm-sp-ip{ display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid rgba(214,167,86,.7); border-radius: 999px;
+          color: #E3BD72; font-size: 12px; font-weight: 800; letter-spacing: .01em }
+        .lm-sp-h{ font-size: clamp(24px,5vw,34px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.28; margin: 14px 0 0; word-break: keep-all }
+        @media (min-width: 960px){ .lm-sp-h{ margin-bottom: 14px } }
+        .lm-sp-h em{ font-style: normal; color: #E3BD72 }
+        .lm-sp-lead{ font-size: 14px; line-height: 1.75; color: rgba(244,239,228,.82); margin: 0; word-break: keep-all }
+        .lm-sp-lead b{ color: #F4EFE4 }
+        .lm-sp-pair{ display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; margin-top: 16px }
+        .lm-sp-pair > div{ display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; padding: 11px 12px;
+          border-radius: 14px; background: #F9F6F2; color: #121A16 }
+        .lm-sp-pair > div svg{ grid-row: span 2; color: #A98B4E }
+        .lm-sp-pair small{ font-size: 11px; color: #8A857E; font-weight: 600; white-space: nowrap }
+        .lm-sp-pair b{ font-size: 14px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap }
+        .lm-sp-vs{ color: #E3BD72 }
+        .lm-sp-scene{ position: relative; border-radius: 20px; overflow: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.3) }
+        .lm-sp-scene img{ display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover }
+        .lm-sp-ex{ position: absolute; left: 12px; top: 12px; font-size: 11px; font-weight: 800; color: #fff; background: rgba(14,43,29,.82); border-radius: 999px; padding: 3px 9px }
+        /* 6cm/3cm — 그림 속 단열재 띠(왼쪽 x≈28% · 오른쪽 x≈60%) 바로 위에 얹는다 */
+        .lm-sp-mm{ position: absolute; top: 15%; transform: translateX(-50%); padding: 4px 10px; border-radius: 999px;
+          font-size: clamp(12px,2.6vw,15px); font-weight: 800; letter-spacing: -0.01em; background: #0E2B1D; color: #E3BD72; border: 1px solid rgba(214,167,86,.8) }
+        .lm-sp-mm::after{ content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: clamp(10px,3vw,22px); background: rgba(14,43,29,.7) }
+        .lm-sp-mm-l{ left: 28.4% }
+        .lm-sp-mm-r{ left: 59.8% }
+        .lm-sp-same{ position: absolute; right: 12px; bottom: 12px; font-size: 11.5px; font-weight: 800; color: #0E2B1D; background: rgba(249,246,242,.92); border-radius: 999px; padding: 4px 10px }
+        .lm-sp-how{ margin-top: 26px; padding-top: 22px; border-top: 1px solid rgba(244,239,228,.14) }
+        .lm-sp-msg{ font-size: 14px; font-weight: 600; line-height: 1.65; margin: 0 0 14px; word-break: keep-all }
+        .lm-sp-msg b{ color: #E3BD72; font-weight: 800 }
+        .lm-sp-flow{ list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
+        @media (min-width: 960px){ .lm-sp-flow{ grid-template-columns: repeat(4,1fr) } }
+        .lm-sp-flow li{ display: flex; gap: 10px; padding: 12px; border-radius: 14px; background: rgba(244,239,228,.06); border: 1px solid rgba(244,239,228,.1) }
+        .lm-sp-no{ flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+          background: rgba(214,167,86,.16); color: #E3BD72; font-size: 10.5px; font-weight: 800; letter-spacing: .04em }
+        .lm-sp-flow b{ display: block; font-size: 13.5px; font-weight: 800; letter-spacing: -0.02em; word-break: keep-all }
+        .lm-sp-desc{ display: block; font-size: 12px; line-height: 1.55; color: rgba(244,239,228,.7); margin-top: 3px; word-break: keep-all }
+        .lm-sp-note{ font-size: 12.5px; line-height: 1.65; color: rgba(244,239,228,.6); margin: 14px 0 0; word-break: keep-all }
+        @media (max-width: 380px){ .lm-sp{ padding: 24px 16px; border-radius: 20px } .lm-sp-pair > div{ padding: 9px 9px; column-gap: 6px } .lm-sp-pair b{ font-size: 12.5px }
+          .lm-sp-flow{ grid-template-columns: 1fr } }
+        @media (max-width: 600px){ .lm-sp-scene img{ aspect-ratio: 4 / 3 } .lm-sp-mm-l{ left: 21.2% } .lm-sp-mm-r{ left: 63.1% } }
+        @media (max-width: 480px){ .lm-ip-lead{ display: none } .lm-sp-pair{ grid-template-columns: 1fr } .lm-sp-vs{ justify-self: center } }
         .gm-sticky-cta{ display: none }
         @media (max-width: 640px){ .gm-sticky-cta{ display: flex } }
         @media (max-width: 380px){
