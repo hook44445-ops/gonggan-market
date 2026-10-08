@@ -10,6 +10,7 @@ import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
 import { consumerFaq, pageSeo, serviceSchema, faqSchema, IP_FILINGS, PATENT_LABEL, PATENT_DETAIL, PATENT_MESSAGE } from "../utils/siteSeo";
 import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView, AdVideo } from "../components/landing/LandingMotion";
+import { trackConsumerFunnel } from "../lib/consumerFunnel";
 import { saveLandingPick, isDraftComplete, LANDING_WORK_TAGS, LANDING_SIZES, LANDING_BUDGETS, LANDING_MEMO_MAX } from "../lib/landingPick";
 import { QUOTE_START_ID, quoteCtaTarget } from "../lib/quoteEntry";
 
@@ -79,6 +80,8 @@ function RequestPreview({ onStart }) {
   const draft = { type, tags, size, budget, memo };
   const ready = isDraftComplete(draft);
   const opened = !!(type && tags.length);
+  // 깔때기 «요청서 쓰기 시작» — 공간이나 공사를 처음 고른 순간(같은 창에서 한 번 · lib/consumerFunnel)
+  useEffect(() => { if (type || tags.length) trackConsumerFunnel("consumer_draft_start"); }, [type, tags.length]);
   const toggle = (t) => setTags((xs) => (xs.includes(t) ? xs.filter((x) => x !== t) : xs.length >= 5 ? xs : [...xs, t]));
   const summary = !type && !tags.length
     ? <>공간 하나, 공사 하나만 골라 보세요. <b>요청서가 반쯤 채워진 채로</b> 열려요.</>
@@ -338,6 +341,9 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
     faqSchema(FAQ_ITEMS, undefined, "/"),
   ]);
 
+  // 깔때기 «첫 화면 방문»(같은 창에서 한 번 · 개수만)
+  useEffect(() => { trackConsumerFunnel("consumer_landing_view"); }, []);
+
   const [cases, setCases] = useState([]);
   useEffect(() => {
     let alive = true;
@@ -354,10 +360,11 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
   }, []);
   const hasReal = cases.some((c) => !c.isSeed);
 
-  const goConsumer = () => onSelectRole("consumer");
+  const goConsumer = () => { trackConsumerFunnel("consumer_quote_cta"); onSelectRole("consumer"); };
   // «무료 비교견적 받기» 단추들 — 처음 온 사람은 인증 대신 아래 요청서(① 공간 ② 고칠 곳)로 내려간다(lib/quoteEntry).
   //   이 기기에서 이미 인증한 사람은 지금처럼 계정 선택으로.
   const goQuote = () => {
+    trackConsumerFunnel("consumer_quote_cta");
     if (quoteCtaTarget({ hasSavedAccounts }) === "account") return goConsumer();
     const el = document.getElementById(QUOTE_START_ID);
     if (!el) return goConsumer();
