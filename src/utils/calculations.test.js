@@ -40,3 +40,10 @@ test("사업자 확인 전 — 1STEP(결제는 막히고, 칸은 기록용 3칸)
 test("단계 비율 합은 늘 100", () => {
   for (const [k, v] of Object.entries(STAGE_PLANS)) assert.equal(v.reduce((a, b) => a + b, 0), 100, k);
 });
+
+test("고객 결제 금액 = 견적 금액 그대로(이용료를 더하지 않는다 · 대표 10-08)", async () => {
+  const { calculateCustomerTotal, calcCustomerFee } = await import("./calculations.js");
+  assert.equal(calculateCustomerTotal(300), 300);
+  assert.equal(calculateCustomerTotal(247.2), 247.2);
+  assert.equal(calcCustomerFee(3000), 0);
+});

@@ -9,6 +9,7 @@ import ChangeOrderPanel from "../components/ChangeOrderPanel";
 import ImageViewerModal from "../components/ImageViewerModal"; // QA: 단계 사진 확대보기(Add Only)
 import DocImg from "../components/DocImg";
 import { fmtMoney, calculateCustomerTotal, calculateStagePayments, STAGE_PLANS, normalizePlan, planUsesStage } from "../utils/calculations";
+import { fmtWon, toWon } from "../lib/bundlePay";
 import { isStoredPhoto, postProjectEvent, uploadDocument, updateTransactionStatus, updateEscrowExpectedEndDate, logActivity, approveEscrowPayoutByStage, createNotification, getOpsConfig, getContractTimeline, getPaymentOrderByRequest, getPaymentOrderByRequestAny, getBidById, getCompanyByIdOrOwner, getEscrowByRequest, getEscrowByCompanyAndRequest, getPhasePhotosByUploader, getEscrowPayoutsByCompanyId, getBidsForRequest, getEscrowPayouts, getPhasePhotos, addPhasePhotos, advanceContractStep, markEscrowPhaseStarted, setEscrowPayoutReady, getReviewByContract, getOrCreateEscrow, createEscrowPayoutsForContract, deleteEscrowRecord, createCustomerEvaluation, hasCustomerEvaluation, setRequestInProgress, setRequestCompleted, saveProjectCheckpoint, saveContractCheckpoint, getProjectCheckpoints, getEstimateForRequest, resolveContractId, contractBootstrap } from "../lib/supabase";
 import { captureCheckpointLocation } from "../utils/kakaoGeocode";
 import { buildGpsMissingNote, parseGpsMissingReason } from "../utils/gpsCheckpoint"; // GPS 누락 사유 note 마커(무스키마 변경)
@@ -1757,7 +1758,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         <div id="escrow-amount-card" style={{ background: `linear-gradient(135deg,${C.navy},${C.navyM})`, borderRadius: R.xl, padding: S.xxl, marginBottom: S.xl, color: "#fff" }}>
           {isConsumer ? (
             <>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>{SHOW_BETA_UI ? "총 계약 금액" : "공간안전결제 예치 금액 (시공비 + 공간안전결제 이용료)"}</div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>{SHOW_BETA_UI ? "총 계약 금액" : "공간안전결제 예치 금액 (견적 금액 그대로)"}</div>
               <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(SHOW_BETA_UI ? bidAmount : customerTotal)}</div>
               <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>{SHOW_BETA_UI ? "대금은 계약서 단계대로 업체와 직접 주고받아요 · 단계마다 사진을 확인해 주세요" : "공간랜드가 보관 중 · 사진 확인 후 단계별로 업체에 지급됩니다"}</div>
             </>
@@ -1865,7 +1866,8 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                         <div style={{ fontSize: 13, fontWeight: 700, color: done ? C.green : active ? C.brand : C.text4 }}>
                           {isConsumer
                             ? fmtMoney(stage.amount)
-                            : <>{fmtMoney(stage.amount)}<span style={{ fontSize: 11, marginLeft: 4 }}>{PAYMENTS_LIVE ? "→실수령 " : "· 수수료 뺀 "}{fmtMoney(stage.companyReceiveAmount)}</span></>
+                            : PAYMENTS_LIVE ? fmtMoney(stage.amount)
+                            : <>{fmtMoney(stage.amount)}<span style={{ fontSize: 11, marginLeft: 4 }}>· 수수료 뺀 {fmtMoney(stage.companyReceiveAmount)}</span></>
                           }
                         </div>
                         {!isConsumer && (
@@ -1878,6 +1880,12 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                       </div>
                     )}
                   </div>
+                  {/* 업체 지급 내역(대표 10-08) — 공간안전결제 이용료(4.4%, 부가세 포함) 차감 → 실제 받는 금액 */}
+                  {PAYMENTS_LIVE && !isConsumer && stage && stage.amount > 0 && (
+                    <div style={{ fontSize: 11.5, color: C.text2, lineHeight: 1.5, marginBottom: 2 }}>
+                      공간안전결제 이용료 {fmtWon(toWon(stage.amount - stage.companyReceiveAmount))} 차감 → 실제 받는 금액 <b style={{ color: C.text1 }}>{fmtWon(toWon(stage.companyReceiveAmount))}</b>
+                    </div>
+                  )}
                   <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5, marginBottom: active ? S.md : 0 }}>{isConsumer ? (customerDisplay[s.id]?.sub ?? s.sub) : s.sub}</div>
 
                   {/* ── Company action buttons (stages 2, 3, 4) ── */}
@@ -1983,7 +1991,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                     <div style={{ background: C.greenL, borderRadius: R.lg, padding: S.md, display: "flex", alignItems: "center", gap: S.sm, marginTop: S.sm }}>
                       <Icon emoji="✅" size={16} color={C.green} />
                       <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>
-                        {PAYMENTS_LIVE ? "입금 완료" : "단계 확정"} · {fmtMoney(stage?.companyReceiveAmount ?? 0)}
+                        {PAYMENTS_LIVE ? `입금 완료 · 실제 받은 금액 ${fmtWon(toWon(stage?.companyReceiveAmount ?? 0))}` : `단계 확정 · ${fmtMoney(stage?.companyReceiveAmount ?? 0)}`}
                       </span>
                     </div>
                   )}

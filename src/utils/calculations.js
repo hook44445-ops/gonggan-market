@@ -1,9 +1,10 @@
 // 수수료 정책 (최종 확정)
-//  · 고객: "공간안전결제 에스크로 수수료" 3.7% (VAT 포함, 고정) — 토스페이먼츠 에스크로
+//  · 고객: 추가 요금 0원(대표 10-08 최종 확정) — 카드·가상계좌·계좌이체 모두 같은 금액(견적 금액 그대로)
+//  · 공간안전결제 이용료 = 업체 4.4%(매출 4.0% + 부가세 0.4%) — 단계별 지급 때 지급분에서 차감
 //  · 업체: "공간멤버십파트너 수수료" — 가입일(companies.created_at) 기준 단계형
 //          0~30일 0% → 31~60일 2.2% → 61일~ 4.4%
 const feeConfig = {
-  customerRate: 0.037,   // VAT 포함, 고정
+  customerRate: 0,       // 대표 10-08: 고객 추가 요금 0원
   vatRate: 0.1,          // (legacy 계산 호환용)
 };
 
@@ -11,7 +12,8 @@ const feeConfig = {
 // ⚠️ 실제 결제 요율의 source of truth 는 DB(payment_fee_rules, migration 031)이며
 //    결제 화면은 services/payment 로 규칙에서 요율을 조회한다. 이 상수는 규칙 미조회 시
 //    폴백 및 표시용 계산기(EscrowCalculator 등)의 기본값으로만 사용한다.
-export const CUSTOMER_ESCROW_RATE = 0.037;
+// 대표 10-08: 고객 금액에 이용료를 더하지 않는다(업체 지급분에서 빠진다 · 수단별 수수료는 우리 비용) — 0.
+export const CUSTOMER_ESCROW_RATE = 0;
 
 export const fmtMoney = (amount) => {
   if (amount == null || isNaN(amount)) return "—";

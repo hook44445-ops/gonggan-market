@@ -37,7 +37,7 @@ beforeEach(() => {
     const ok = (v) => ({ ok: true, json: async () => v, text: async () => JSON.stringify(v) });
     if (u.startsWith("https://api.tosspayments.com")) {
       tossCalls++;
-      return ok({ status: "DONE", method: "카드", totalAmount: 2_490_000, approvedAt: "2026-09-26T00:00:00+09:00", secret: "s3cr3t" });
+      return ok({ status: "DONE", method: "카드", totalAmount: 2_400_000, approvedAt: "2026-09-26T00:00:00+09:00", secret: "s3cr3t" });
     }
     if (u.includes("/rpc/contract_base_price")) return ok(base);               // 만원
     if (init.method === "POST" || init.method === "PATCH") {
@@ -58,9 +58,16 @@ beforeEach(() => {
 afterEach(() => { globalThis.fetch = realFetch; });
 
 test("공사 결제 — 계약 금액 이상이면 토스 승인까지 간다", async () => {
-  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_490_000 });
+  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_400_000 });
   assert.equal(res.statusCode, 200);
   assert.equal(tossCalls, 1);
+});
+
+test("공사 결제 — 계약 금액보다 많아도(이용료·수단별 수수료를 더한 금액) 토스에 보내지 않는다 — 고객은 견적 금액 그대로(대표 10-08)", async () => {
+  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_490_001 });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, "AMOUNT_MISMATCH");
+  assert.equal(tossCalls, 0);
 });
 
 test("공사 결제 — 계약 금액보다 적으면 토스에 보내지 않는다(AMOUNT_MISMATCH)", async () => {
@@ -79,13 +86,13 @@ test("모르는 주문번호(order_…)는 검사를 건너뛰지 못하고 거�
 
 test("계약 금액을 못 읽으면(119 실행 전 등) 예전처럼 막지 않는다", async () => {
   base = null;
-  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_490_000 });
+  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_400_000 });
   assert.equal(res.statusCode, 200);
   assert.equal(tossCalls, 1);
 });
 
 test("로그인 토큰이 없으면 토스에 보내지 않는다", async () => {
-  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_490_000 }, { auth: false });
+  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_400_000 }, { auth: false });
   assert.equal(res.statusCode, 401);
   assert.equal(res.body.code, "LOGIN_REQUIRED");
   assert.equal(tossCalls, 0);
@@ -93,14 +100,14 @@ test("로그인 토큰이 없으면 토스에 보내지 않는다", async () => 
 
 test("공사 결제 — 남의 요청이면 토스에 보내지 않는다", async () => {
   token = signSession("00000000-0000-4000-8000-000000000000");
-  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_490_000 });
+  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_400_000 });
   assert.equal(res.statusCode, 403);
   assert.equal(res.body.code, "NOT_OWNER");
   assert.equal(tossCalls, 0);
 });
 
 test("공사 결제 — 승인 뒤 서버가 계약·결제 기록을 만든다(만원 단위 · secret 은 앱에 안 보냄)", async () => {
-  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_490_000 });
+  const res = await call({ paymentKey: "pk", orderId: `gm_${REQ}_1`, amount: 2_400_000 });
   assert.equal(res.statusCode, 200);
   const po = writes.find((x) => x.u.endsWith("/payment_orders"));
   assert.equal(po.body.status, "PAID");
@@ -108,7 +115,8 @@ test("공사 결제 — 승인 뒤 서버가 계약·결제 기록을 만든다(
   assert.equal(po.body.contract_id, "esc1");
   assert.equal(po.body.bid_id, "b1");
   assert.equal(po.body.amount, 240);
-  assert.equal(po.body.total_amount, 249);
+  assert.equal(po.body.total_amount, 240);
+  assert.equal(po.body.customer_fee, 0);                 // 고객 이용료 없음(대표 10-08)
   assert.equal(po.body.order_id, `gm_${REQ}_1`);
   assert.equal(res.body.record.contractId, "esc1");
   assert.ok(!("secret" in (res.body.data ?? {})));

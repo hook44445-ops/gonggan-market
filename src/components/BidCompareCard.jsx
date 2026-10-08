@@ -6,6 +6,7 @@ import { C, R, S } from "../constants";
 import { includesLine, includesCell } from "../lib/bidIncludes"; // 견적 포함 항목(본질 ②)
 import { TempBadge } from "./common";
 import { fmtMoney } from "../utils/calculations";
+import { bidTotalWithVat } from "../lib/priceVat"; // 첫 가격 노출 = 부가세 포함 총액(전자상거래법 21조의2)
 import { responseValue } from "./company/CompanyMetrics";
 import { FoldText } from "./v3/ui";
 import { cardVisual, whyThisCompany, specialtyChips } from "../lib/companyLook";
@@ -91,9 +92,12 @@ export default function BidCompareCard({ bid, onChat, onSelect, onOpenCompany, s
         {/* 금액 — 카드에서 가장 큰 글자 하나 */}
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: S.md, marginTop: 14 }}>
           <span style={{ fontSize: 30, fontWeight: 800, color: C.text1, lineHeight: 1.05, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>
-            {fmtMoney(bid.price)}
+            {fmtMoney(bidTotalWithVat(bid.price, bid.includes).total)}
           </span>
           <span style={{ fontSize: 12.5, color: C.text3, whiteSpace: "nowrap" }}>공사 {bid.period}일</span>
+        </div>
+        <div style={{ fontSize: 11.5, color: bidTotalWithVat(bid.price, bid.includes).vatState === "none" ? "#8A5A12" : C.text3, marginTop: 4 }}>
+          {bidTotalWithVat(bid.price, bid.includes).note}
         </div>
         <div style={{ fontSize: 11.5, color: C.text4, marginTop: 4 }}>현장 확인 뒤 최종 견적서로 확정돼요</div>
 

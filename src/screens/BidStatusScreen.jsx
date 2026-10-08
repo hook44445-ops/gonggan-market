@@ -1,7 +1,10 @@
 import { RESPECT_FOR_CUSTOMER } from "../constants/mutualRespect";
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
-import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
+import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI, PAYMENTS_LIVE, BUNDLE_PAY_LIVE, SHOW_BUNDLE_PLAN, PAY_METHODS } from "../constants/release";
+import BundlePayPanel from "../components/BundlePayPanel"; // 공정 묶음 분할 결제(10-07 · SQL 205)
+import QuotePriceSummary from "../components/QuotePriceSummary"; // 최종 견적서 금액 블록(부가세 포함 총액 · 법률 답 10-08)
+import { BUNDLE_LIMIT_WON, toWon, NO_EXTRA_CHARGE } from "../lib/bundlePay";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
 import { TempBadge, Icon, splitLeadingEmoji } from "../components/common";
 import { getEscrowWithPayouts } from "../lib/supabase";
@@ -18,7 +21,7 @@ import QuoteDocument from "../components/QuoteDocument"; // 최종 견적서 미
 import { SORT_KEYS, sortBids, bidSummary, bidTags as calcBidTags } from "../lib/bidCompare"; // 입찰 비교(정렬·요약·표)
 import {
   PAYMENT_METHODS, COMING_SOON_MESSAGE, ACTIVE_PROVIDER, getMethodMeta,
-  loadFeeRules, feeRateFromRules, computeFeeWithRate, getProvider,
+  computeFeeWithRate, getProvider,
 } from "../services/payment";
 
 import { BIZ_GRACE_HOURS } from "../lib/contractGate";
@@ -151,7 +154,9 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
   //   결제 승인 서버(api/confirm-payment)도 같은 규칙으로 한 번 더 막는다.
   const bizPending = stagePlan === "1STEP" || (!!selBid?.company?.id && selBid.company.verified === false);
   // 결제가 실제로 열렸는가(constants/release PAYMENTS_LIVE = 정식 모드) — 꺼져 있으면 보관 약속도 결제 버튼도 없다.
-  const payBlocked = bizPending || (!PAYMENTS_LIVE && !SAFE_MODE);
+  // 토스 1회 판매 상한 — 1천만 원 이상은 한 번에 결제하지 않는다(서버 api/confirm-payment 도 OVER_SINGLE_LIMIT 로 막는다).
+  const overSingleLimit = !SAFE_MODE && toWon(effectivePrice) >= BUNDLE_LIMIT_WON;
+  const payBlocked = bizPending || (!PAYMENTS_LIVE && !SAFE_MODE) || overSingleLimit;
   const planNotice = bizPending
     ? { title: "업체의 사업자 확인을 기다리고 있어요", body: `공간랜드는 사업자등록을 마친 업체와만 계약해요. 업체에 사업자등록증 제출을 안내했고(홈택스에서 당일 발급), 확인되면 알림으로 알려 드릴게요. 선택 후 ${BIZ_GRACE_HOURS}시간이 지나도 확인이 안 되면 다른 업체를 골라도 공간온도에 영향이 없어요.` }
     : stagePlan === "2STEP"
@@ -336,10 +341,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
   // 수수료 규칙(payment_fee_rules) — 3.7% 하드코딩 대신 DB 규칙에서 요율 조회.
   // 미조회 시 service 의 폴백 요율 사용(시드값과 동일 → 동작 보존).
-  const [feeRules, setFeeRules] = useState(null);
-  useEffect(() => { loadFeeRules().then(setFeeRules).catch(() => {}); }, []);
+  // 대표 10-08: 고객 결제 금액은 결제수단과 상관없이 견적 금액 그대로.
+  //   카드·가상계좌·계좌이체 수수료는 PG 가 우리에게만 매기는 비용이고(여신전문금융업법 19조 — 고객에게 넘기지 않는다),
+  //   공간안전결제 이용료는 업체에 단계별로 지급할 때 지급분에서 빠진다(escrow_payouts.platform_fee · net_amount, SQL 112).
+  //   그래서 고객 쪽 이용료율은 0 — 예전 수단별 요율(payment_fee_rules)은 우리 비용 기록용으로만 남긴다.
   // 결제수단별 요율(만원 단위 금액 기준). 수단 미선택 시 CARD 기준으로 미리보기.
-  const rateFor = (method) => feeRateFromRules(feeRules, method ?? "CARD", ACTIVE_PROVIDER);
+  const rateFor = () => 0;
 
   // SELECT bids when screen loads (or request changes)
   useEffect(() => {
@@ -494,9 +501,8 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
                   ))}
                 </div>
               )}
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", background:C.brandL, borderRadius:R.md, padding:S.md, marginBottom:finalEstimate.note || finalEstimate.warranty_note || finalEstimate.duration_days ? S.md : 0 }}>
-                <span style={{ fontSize:13, fontWeight:800, color:C.brand }}>총 견적 금액</span>
-                <span style={{ fontSize:18, fontWeight:900, color:C.brand }}>{fmtMoney(finalEstimate.total_price ?? 0)}</span>
+              <div style={{ borderRadius:R.md, overflow:"hidden", marginBottom:finalEstimate.note || finalEstimate.warranty_note || finalEstimate.duration_days ? S.md : 0 }}>
+                <QuotePriceSummary totalManwon={finalEstimate.total_price ?? 0} ink={C.text1} sub={C.text3} accent={C.brand} bg={C.brandL} line={C.brandM} />
               </div>
               {finalEstimate.duration_days != null && (
                 <div style={{ fontSize:12, color:C.text2, marginBottom:S.xs }}>⏱ 예상 공사기간 <b>{finalEstimate.duration_days}일</b></div>
@@ -546,18 +552,19 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               {/* 베타: 이용료·예치 총액을 보이지 않는다(앱이 돈을 받지 않는다). 공사 금액 한 줄만. */}
               {(SHOW_BETA_UI ? [["공사 금액", fmtMoney(effectivePrice)]] : [
                 ["시공비", fmtMoney(effectivePrice)],
-                ["공간안전결제 이용료", selectedMethod ? `+${fmtMoney(escrowFee)}` : "결제수단에 따라 달라집니다"],
               ]).map(([k, v]) => (
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.text2, marginBottom:2 }}>
                   <span>{k}</span>
-                  <span style={{ fontWeight:700, color: (k === "공간안전결제 이용료" && !selectedMethod) ? C.text3 : C.text2 }}>{v}</span>
+                  <span style={{ fontWeight:700, color:C.text2 }}>{v}</span>
                 </div>
               ))}
+              {/* 대표 10-08: 고객 추가 요금 0원 — 카드·가상계좌 수수료는 고객 화면에 표시하지 않는다(토스 정산 때 우리 쪽에서만 차감) */}
+              {!SHOW_BETA_UI && <div style={{ fontSize:12, color:C.brand, fontWeight:700, marginBottom:2 }}>{NO_EXTRA_CHARGE}</div>}
               {!SHOW_BETA_UI && (<>
               <div style={{ height:1, background:C.brandM, margin:`${S.xs}px 0` }} />
               <div style={{ display:"flex", justifyContent:"space-between" }}>
                 <span style={{ fontSize:13, fontWeight:800, color:C.text1 }}>총 예치 금액</span>
-                <span style={{ fontSize:14, fontWeight:900, color:C.brand }}>{selectedMethod ? fmtMoney(customerTotal) : "결제수단 선택 시 확정"}</span>
+                <span style={{ fontSize:14, fontWeight:900, color:C.brand }}>{fmtMoney(customerTotal)}</span>
               </div>
               </>)}
             </div>
@@ -944,16 +951,35 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
         <BidScreenHeader title={isQuotePhase && finalEstimate ? "최종 견적 확인 · 결제" : "결제 수단 선택"} onBack={goBack} userId={userId} />
         <div style={{ padding:`${S.xl}px ${S.xl}px 40px` }}>
           {isQuotePhase && renderQuoteCard()}
-          {/* Amount summary — 계산식(시공비 + 이용료 = 총액) + 단계별 안전 지급 */}
+          {/* 공정 묶음 분할 결제 — 토스 1회 판매 1천만 원 상한 때문에 견적서를 묶음으로 나눠 받는다.
+              결제가 열리기 전(BUNDLE_PAY_LIVE=false)엔 미리 보기만(버튼 꺼짐) · 열리면 아래 한 번에 결제 대신 이 화면으로 낸다. */}
+          {SHOW_BUNDLE_PLAN && isQuotePhase && request?.id && (
+            <BundlePayPanel
+              requestId={request.id}
+              estimate={finalEstimate}
+              fallbackTotalManwon={effectivePrice}
+              onToast={showLocalToast}
+              onBeforePay={async () => {
+                if (bizPending) { showLocalToast(planNotice.title); return false; }
+                // 예약 확정 = 첫 결제 시작(한 번에 결제와 같은 자리) — 실패하면 결제로 넘어가지 않는다.
+                if (reqStatus === "final_quote_submitted") {
+                  const { error: apErr } = await approveFinalQuote(request.id, userId).catch((e) => ({ error: e }));
+                  if (apErr) { showLocalToast("예약 확정에 실패했어요. 잠시 후 다시 시도해 주세요."); return false; }
+                }
+                return true;
+              }}
+            />
+          )}
+          {!(BUNDLE_PAY_LIVE && SHOW_BUNDLE_PLAN && isQuotePhase) && (<>
+          {/* Amount summary — 견적 금액 그대로(추가 요금 0원 · 수수료는 고객 화면에 표시하지 않음) + 단계별 안전 지급 */}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ fontSize:13, color:C.text3, marginBottom:10, fontWeight:700 }}>{SHOW_BETA_UI ? "결제 금액" : "공간안전결제 예치 금액"}</div>
             <div style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", fontSize:13 }}>
               <span style={{ color:C.text2 }}>시공비</span>
               <span style={{ fontWeight:700, color:C.text1 }}>{fmtMoney(effectivePrice)}</span>
             </div>
-            <div style={{ display:"flex", justifyContent:"space-between", padding:"5px 0 9px", fontSize:13, borderBottom:`1px solid ${C.bgWarm}` }}>
-              <span style={{ color:C.text2 }}>공간안전결제 이용료</span>
-              <span style={{ fontWeight:700, color:C.text1 }}>{fmtMoney(fee)}</span>
+            <div style={{ padding:"5px 0 9px", fontSize:12.5, fontWeight:700, color:C.brand, borderBottom:`1px solid ${C.bgWarm}` }}>
+              {NO_EXTRA_CHARGE}
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", padding:"10px 0 2px" }}>
               <span style={{ fontSize:14, fontWeight:800, color:C.text1 }}>총 결제금액</span>
@@ -987,14 +1013,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
           {/* Payment method selection */}
           <div style={{ background:C.surface, borderRadius:R.xl, overflow:"hidden", marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-            {PAYMENT_METHODS.map((m, idx) => {
+            {PAYMENT_METHODS.filter((m) => PAY_METHODS.includes(m.id)).map((m, idx, shown) => {
               const isSelected = selectedMethod === m.id;
               return (
                 <div key={m.id}
                   onClick={() => m.available ? setSelectedMethod(m.id) : showLocalToast(m.soon ?? COMING_SOON_MESSAGE)}
                   style={{
                     display:"flex", alignItems:"center", gap:S.md, padding:S.xl,
-                    borderBottom: idx < PAYMENT_METHODS.length - 1 ? `1px solid ${C.bgWarm}` : "none",
+                    borderBottom: idx < shown.length - 1 ? `1px solid ${C.bgWarm}` : "none",
                     cursor: "pointer",
                     background: isSelected ? C.brandL : C.surface,
                     opacity: m.available ? 1 : 0.5,
@@ -1051,11 +1077,13 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
             {bizPending ? "업체 사업자 확인 대기 중"
               : !PAYMENTS_LIVE && !SAFE_MODE ? "결제 준비 중 — 곧 열려요"
+              : overSingleLimit ? "1천만 원 이상은 묶음으로 나눠 결제해요"
               : paymentLoading ? "처리 중..."
               : SAFE_MODE ? <><Icon emoji="🔧" size={15} color="#fff" /> 테스트 예치 (SAFE_MODE)</>
               : selectedMethod ? <><Icon emoji="🔒" size={15} color="#fff" /> {fmtMoney(customerTotal)} 결제하기</>
               : "결제 수단을 선택하세요"}
           </button>
+          </>)}
         </div>
         {localToast && (() => {
           const { emoji, rest } = splitLeadingEmoji(localToast);

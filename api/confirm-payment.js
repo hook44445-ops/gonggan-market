@@ -1,6 +1,7 @@
 import { contractGate, BIZ_REQUIRED_MESSAGE } from "../src/lib/contractGate.js";
 import { verifySession } from "../src/lib/sessionToken.server.js";
 import { TOKEN_PACKAGES } from "../src/constants/lounge.js";
+import { BUNDLE_LIMIT_WON } from "../src/lib/bundlePay.js";
 
 // ─────────────────────────────────────────────────────
 // 결제 승인 · 기록 · 취소(환불) — 토스페이먼츠(09-26 «결제 열기 준비»)
@@ -25,13 +26,15 @@ export default async function handler(req, res) {
   const uid = sessionUserId(req);
 
   if (req.body?.action === "cancel") return cancelPayment(req, res, { secretKey, uid });
+  // 가상계좌 입금 통보(토스 웹훅 DEPOSIT_CALLBACK) — 로그인 없이 온다. 토스에서 결제를 다시 읽어 그 결과만 믿는다.
+  if (isDepositCallback(req.body)) return depositCallback(req, res, { secretKey });
 
   const { paymentKey, orderId, amount } = req.body ?? {};
   if (!paymentKey || !orderId || !amount) return res.status(400).json({ error: "Missing required fields" });
 
-  // 아는 주문만 승인한다 — 공사 결제(gm_{요청ID}_…)와 공간토큰(token_…). 예전엔 다른 주문번호(order_…)로 오면
-  // 아래 중복·사업자·금액 검사를 모두 건너뛸 수 있었다(총점검 09-24 6차).
-  if (!/^(gm_|token_)/.test(String(orderId))) {
+  // 아는 주문만 승인한다 — 공사 결제(gm_{요청ID}_…) · 공정 묶음 분할 결제(gb_{묶음}_…, SQL 205) · 공간토큰(token_…).
+  // 예전엔 다른 주문번호(order_…)로 오면 아래 중복·사업자·금액 검사를 모두 건너뛸 수 있었다(총점검 09-24 6차).
+  if (!/^(gm_|gb_|token_)/.test(String(orderId))) {
     return res.status(400).json({ error: "알 수 없는 주문이에요. 결제를 다시 시작해 주세요.", code: "UNKNOWN_ORDER" });
   }
 
@@ -49,12 +52,19 @@ export default async function handler(req, res) {
     return res.status(409).json({ error: "지금은 새 결제를 잠시 멈췄어요. 잠시 후 다시 시도해 주세요.", code: "PAYMENTS_PAUSED" });
   }
 
+  // 공정 묶음 분할 결제 — 결제 한 건(주문번호 하나)씩. 검사·기록은 서버 함수(SQL 205)가 한다.
+  if (String(orderId).startsWith("gb_")) return confirmBundlePart(res, { secretKey, uid, paymentKey, orderId, amount });
+
   // 같은 공사 두 번 결제 막기(C17) — 공사 결제 주문번호는 gm_{요청ID}_{시각}. 그 공사에 이미 PAID 결제가 있으면
   // 토스 승인(confirm)을 하지 않는다 → 두 번째 결제는 매입되지 않는다(돈이 빠져나가지 않음).
   // 같은 주문번호를 다시 보낸 것(복귀 화면 새로고침)은 «이미 기록됨»으로 돌려준다.
   const reqMatch = /^gm_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})_/i.exec(String(orderId));
   const recorded = await orderByOrderId(orderId);
   if (recorded) return res.status(200).json({ success: true, already: true, record: recordView(recorded) });
+  // 같은 공사를 묶음으로 나눠 내기 시작했으면(입금 완료·입금 대기) 한 번에 결제로 다시 받지 않는다 — 두 번 받는 길을 막는다.
+  if (reqMatch && await bundleStarted(reqMatch[1])) {
+    return res.status(409).json({ error: "이 공사는 묶음으로 나눠 내는 중이에요. 결제 화면에서 남은 금액을 이어서 내 주세요.", code: "BUNDLE_IN_PROGRESS" });
+  }
   if (reqMatch && await alreadyPaid(reqMatch[1])) {
     return res.status(409).json({
       error: "이미 결제된 공사예요. 같은 공사를 두 번 결제할 수 없어요 — 공사 화면에서 진행 상황을 확인해 주세요.",
@@ -77,39 +87,24 @@ export default async function handler(req, res) {
     }
   }
 
-  // 금액 검사 — 결제 금액이 이 공사의 계약 금액(최종 견적서, 없으면 선택한 입찰가)보다 적으면 승인하지 않는다.
-  // 이용료는 결제수단마다 달라 «이상»만 본다. 금액을 못 읽으면(조회 실패) 예전처럼 막지 않는다.
+  // 금액 검사 — 결제 금액이 이 공사의 계약 금액(최종 견적서, 없으면 선택한 입찰가)과 «똑같아야» 승인한다.
+  //   대표 10-08: 고객 금액에 이용료·결제수단별 수수료를 더하지 않는다(이용료는 업체 지급분에서 · 수수료는 우리 비용).
+  //   금액을 못 읽으면(조회 실패) 예전처럼 막지 않는다.
   let base = null;
   if (reqMatch) {
     base = await contractBaseWon(reqMatch[1]);
-    if (base && Number(amount) < base) {
+    if (base && Number(amount) !== Math.round(base)) {
       return res.status(409).json({ error: "결제 금액이 계약 금액과 맞지 않아요. 결제를 다시 시작해 주세요.", code: "AMOUNT_MISMATCH" });
+    }
+    // 토스 1회 판매 상한(1천만 원) — 한 번에 결제로는 받지 않는다. 그 이상은 공정 묶음(gb_)으로 나눠 내거나 계약서대로 직접.
+    if (Number(amount) >= BUNDLE_LIMIT_WON) {
+      return res.status(409).json({ error: "1천만 원 이상 공사는 한 번에 결제할 수 없어요. 공정 묶음으로 나눠 내 주세요.", code: "OVER_SINGLE_LIMIT" });
     }
   }
 
-  const auth = Buffer.from(`${secretKey}:`).toString("base64");
-  let data;
-  try {
-    const r = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
-      method: "POST",
-      headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ paymentKey, orderId, amount }),
-    });
-    data = await r.json();
-    if (!r.ok) {
-      // 이미 승인된 결제(복귀 화면 두 번 처리 등) — 토스에서 결제를 다시 읽어 기록을 이어 간다.
-      if (data?.code === "ALREADY_PROCESSED_PAYMENT") {
-        const g = await fetch(`https://api.tosspayments.com/v1/payments/${encodeURIComponent(paymentKey)}`, { headers: { Authorization: `Basic ${auth}` } });
-        if (!g.ok) return res.status(400).json({ error: data.message ?? "Toss confirm failed", code: data.code });
-        data = await g.json();
-        if (data?.orderId !== orderId) return res.status(400).json({ error: "주문 정보가 맞지 않아요.", code: "ORDER_MISMATCH" });
-      } else {
-        return res.status(400).json({ error: data.message ?? "Toss confirm failed", code: data.code });
-      }
-    }
-  } catch {
-    return res.status(500).json({ error: "Internal server error" });
-  }
+  const confirmed = await tossConfirm(secretKey, { paymentKey, orderId, amount });
+  if (confirmed.fail) return res.status(confirmed.fail.status).json(confirmed.fail.body);
+  const data = confirmed.data;
 
   // 기록 — 실패해도 승인은 이미 됐다(돈은 빠졌다). 앱에 «기록 실패 + 주문번호»를 알려 고객센터가 찾을 수 있게.
   let record = null;
@@ -121,6 +116,101 @@ export default async function handler(req, res) {
     record = { error: e?.message ?? "record_failed" };
   }
   return res.status(200).json({ success: true, data: publicToss(data), record });
+}
+
+// 토스 승인 — 이미 승인된 결제(복귀 화면 두 번 처리 등)면 토스에서 결제를 다시 읽어 기록을 이어 간다.
+//   { data } 또는 { fail: { status, body } }
+async function tossConfirm(secretKey, { paymentKey, orderId, amount }) {
+  const auth = Buffer.from(`${secretKey}:`).toString("base64");
+  try {
+    const r = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
+      method: "POST",
+      headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentKey, orderId, amount }),
+    });
+    let data = await r.json();
+    if (!r.ok) {
+      if (data?.code === "ALREADY_PROCESSED_PAYMENT") {
+        const g = await fetch(`https://api.tosspayments.com/v1/payments/${encodeURIComponent(paymentKey)}`, { headers: { Authorization: `Basic ${auth}` } });
+        if (!g.ok) return { fail: { status: 400, body: { error: data.message ?? "Toss confirm failed", code: data.code } } };
+        data = await g.json();
+        if (data?.orderId !== orderId) return { fail: { status: 400, body: { error: "주문 정보가 맞지 않아요.", code: "ORDER_MISMATCH" } } };
+      } else {
+        return { fail: { status: 400, body: { error: data.message ?? "Toss confirm failed", code: data.code } } };
+      }
+    }
+    return { data };
+  } catch {
+    return { fail: { status: 500, body: { error: "Internal server error" } } };
+  }
+}
+
+// ── 공정 묶음 분할 결제(SQL 205) ─────────────────────────────────────
+//   결제 1회 = 주문번호 1개(gb_…). 토스 승인 «전에» 서버 함수가 본다: 이 결제 건이 열려 있는가 · 요청 주인인가 ·
+//   금액이 결제 건과 «똑같은가»(앱이 보낸 금액은 믿지 않는다 — 결제 건은 서버가 남은 금액 안에서 만들었다).
+//   여기서 막히면 토스 승인을 하지 않는다 = 돈이 빠져나가지 않는다. 묶음 표를 못 읽으면 막는다(새 결제라 예전 동작이 없다).
+const BUNDLE_ERRORS = {
+  NOT_FOUND: "결제 정보를 찾지 못했어요. 결제 화면에서 다시 시작해 주세요.",
+  PART_CLOSED: "기한이 지났거나 닫힌 결제예요. 결제 화면에서 남은 금액을 다시 내 주세요.",
+  OVER_REMAINING: "그사이 다른 결제로 이 묶음이 채워졌어요. 결제 화면에서 남은 금액을 확인해 주세요.",
+};
+async function confirmBundlePart(res, { secretKey, uid, paymentKey, orderId, amount }) {
+  const chk = await sbRpc("bundle_part_for_confirm", { p_order_id: orderId });
+  if (!chk) return res.status(503).json({ error: "결제 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.", code: "BUNDLE_UNAVAILABLE" });
+  if (chk.error) return res.status(409).json({ error: BUNDLE_ERRORS[chk.error] ?? "결제를 진행할 수 없어요.", code: chk.error });
+  if (chk.user_id !== uid) return res.status(403).json({ error: "내 요청의 공사만 결제할 수 있어요.", code: "NOT_OWNER" });
+  if (Number(amount) !== Number(chk.amount_won)) {
+    return res.status(409).json({ error: "결제 금액이 맞지 않아요. 결제 화면에서 다시 시작해 주세요.", code: "AMOUNT_MISMATCH" });
+  }
+  if (chk.status === "already") return res.status(200).json({ success: true, already: true, record: { bundle: true, partStatus: chk.part_status } });
+
+  const confirmed = await tossConfirm(secretKey, { paymentKey, orderId, amount });
+  if (confirmed.fail) return res.status(confirmed.fail.status).json(confirmed.fail.body);
+  // 토스 결과(가상계좌 secret 포함)를 서버 함수가 반영 — secret 은 입금 통보 확인용으로 DB 에만, 앱엔 보내지 않는다.
+  const settled = await sbRpc("bundle_part_settle", { p_order_id: orderId, p_toss: confirmed.data });
+  const record = !settled || settled.error
+    ? { bundle: true, error: settled?.error ?? "record_failed" }
+    : { bundle: true, partStatus: settled.part_status, paidCount: settled.paid_count ?? null, count: settled.count ?? null,
+        leftWon: settled.left_won ?? null, contractReady: !!settled.contract_ready, contractId: settled.escrow_id ?? null,
+        dueAt: settled.due_at ?? null, virtualAccount: settled.part_status === "WAITING_FOR_DEPOSIT" ? publicVa(confirmed.data?.virtualAccount) : null };
+  return res.status(200).json({ success: true, data: publicToss(confirmed.data), record });
+}
+
+// 가상계좌 입금 통보 — 토스 웹훅(DEPOSIT_CALLBACK). 새 형식({eventType, data})과 예전 형식({secret, status, orderId}) 둘 다.
+//   상점 관리자 → 웹훅 주소 https://gongganland.com/api/confirm-payment (토스 회신 뒤 대표가 등록)
+function isDepositCallback(body) {
+  if (!body || typeof body !== "object" || body.action) return false;
+  if (body.eventType === "DEPOSIT_CALLBACK") return true;
+  return !!(body.secret && body.orderId && !body.paymentKey);
+}
+async function depositCallback(req, res, { secretKey }) {
+  const b = req.body ?? {};
+  const ev = b.data && typeof b.data === "object" ? b.data : b;
+  const orderId = String(ev.orderId ?? "");
+  // 한 번에 결제(gm_)의 가상계좌는 아직 닫혀 있다(services/payment/constants) — 묶음 결제만 받는다.
+  if (!orderId.startsWith("gb_")) return res.status(200).json({ ok: true, ignored: true });
+  const okSecret = await sbRpc("bundle_part_secret_ok", { p_order_id: orderId, p_secret: String(ev.secret ?? "") });
+  if (okSecret !== true) return res.status(200).json({ ok: false, code: "SECRET_MISMATCH" });
+  const auth = Buffer.from(`${secretKey}:`).toString("base64");
+  let pay;
+  try {
+    const g = await fetch(`https://api.tosspayments.com/v1/payments/orders/${encodeURIComponent(orderId)}`, { headers: { Authorization: `Basic ${auth}` } });
+    if (!g.ok) return res.status(502).json({ ok: false, code: "TOSS_READ_FAILED" });   // 토스가 다시 보낸다
+    pay = await g.json();
+  } catch {
+    return res.status(502).json({ ok: false, code: "TOSS_READ_FAILED" });
+  }
+  if (pay?.orderId !== orderId) return res.status(200).json({ ok: false, code: "ORDER_MISMATCH" });
+  const settled = await sbRpc("bundle_part_settle", { p_order_id: orderId, p_toss: pay });
+  if (!settled) return res.status(500).json({ ok: false, code: "RECORD_FAILED" });       // 토스가 다시 보낸다
+  return res.status(200).json({ ok: true, status: settled.part_status ?? settled.status ?? null });
+}
+
+const publicVa = (va) => (va ? { bankCode: va.bankCode ?? null, bank: va.bank ?? null, accountNumber: va.accountNumber ?? null, dueDate: va.dueDate ?? null } : null);
+
+async function bundleStarted(requestId) {
+  const rows = await sbGet(`payment_bundle_parts?request_id=eq.${encodeURIComponent(requestId)}&status=in.(DONE,WAITING_FOR_DEPOSIT)&select=id&limit=1`);
+  return Array.isArray(rows) && rows.length > 0;
 }
 
 // ── 로그인 토큰 ────────────────────────────────────────────────────
@@ -157,6 +247,16 @@ async function sbWrite(method, path, body, prefer = "return=representation") {
     return r.ok ? { data: json } : { error: json?.message ?? text ?? `http_${r.status}`, code: json?.code };
   } catch (err) {
     return { error: err?.message ?? "fetch_failed" };
+  }
+}
+
+async function sbRpc(fn, args) {
+  const e = sbEnv(); if (!e) return null;
+  try {
+    const r = await fetch(`${e.url}/rest/v1/rpc/${fn}`, { method: "POST", headers: e.h, body: JSON.stringify(args ?? {}) });
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
   }
 }
 
@@ -197,7 +297,7 @@ async function recordConstructionPayment({ uid, request, requestId, baseWon, ord
 
   const row = {
     user_id: uid, request_id: requestId, bid_id: request?.selected_bid_id ?? null, contract_id: contractId,
-    amount: baseMan ?? totalMan, customer_fee: baseMan != null ? Math.max(0, Math.round((totalMan - baseMan) * 10) / 10) : 0, vat: 0,
+    amount: baseMan ?? totalMan, customer_fee: 0, vat: 0,   // 고객 이용료 없음(대표 10-08)
     total_amount: totalMan, payment_method: toss?.method ?? null,
     status: done ? "PAID" : "READY", provider: "TOSS", payment_source: "original",
     order_id: orderId, payment_key: paymentKey, paid_at: done ? (toss?.approvedAt ?? new Date().toISOString()) : null,
@@ -276,6 +376,8 @@ async function cancelPayment(req, res, { secretKey, uid }) {
   }
 
   const nowIso = new Date().toISOString();
+  // 분할 결제 건(gb_)이면 묶음 진행에서도 뺀다 — 환불 요청 큐(SQL 205)에서 결제 건마다 환불할 때
+  if (String(order.order_id ?? "").startsWith("gb_")) await sbRpc("bundle_part_refunded", { p_order_id: order.order_id });
   await sbWrite("PATCH", `payment_orders?id=eq.${order.id}`, {
     status: "CANCELLED", raw_response: { ...(order.raw_response ?? {}), cancel: { at: nowIso, reason, by: uid, tossStatus: data?.status ?? null } },
   }, "return=minimal");

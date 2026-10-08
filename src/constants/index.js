@@ -158,9 +158,9 @@ export const ESCROW_STEPS = [
 ];
 
 export const FEE_CONFIG = {
-  // 고객: 공간안전결제 에스크로 수수료 3.7% (VAT 포함, 고정)
-  customerRate: 0.037,
-  // 업체: 공간멤버십파트너 이용수수료 — 4.4%(VAT 포함) 고정. 표기/추산용.
+  // 고객: 추가 요금 0원(대표 10-08 최종 확정 — 카드·가상계좌·계좌이체 모두 같음, 수수료는 우리 쪽에서만 차감)
+  customerRate: 0,
+  // 업체: 공간안전결제 이용료 = 4.4%(매출 4.0% + 부가세 0.4%) — 단계별 지급 때 지급분에서 차감(escrow_payouts.platform_fee·vat·net_amount).
   companyRate:  0.044,
   vatRate:      0.1,
 };

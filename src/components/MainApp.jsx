@@ -1,5 +1,7 @@
 import { SHOW_BETA_UI, PAYMENTS_LIVE, isStoreAppShell } from "../constants/release";
 import { authHeader, getCurrentUserId } from "../lib/session";
+import { abandonBundlePart } from "../lib/supabase";
+import { fmtWon } from "../lib/bundlePay";
 import { peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget, PAGE_REQUEST_TITLE, pageRequestsFirst } from "../lib/preferredCompany";
 import { takeLandingPick } from "../lib/landingPick";
 import { trackUsp } from "../lib/uspTrack";
@@ -2115,10 +2117,63 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     }).catch(() => {});
   }, []);
 
+  // 공정 묶음 분할 결제(gb_ 주문 · SQL 205) — 토스에서 돌아옴. 승인·기록은 서버가 하고, 앱은 결과만 알려 준다.
+  //   결제창을 닫고 돌아오면(pg_fail) 그 결제 건을 닫아 남은 금액을 바로 다시 연다.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get("orderId");
+    if (!String(orderId ?? "").startsWith("gb_")) return;
+    const ok = params.get("pg_success") === "1";
+    if (!ok && params.get("pg_fail") !== "1") return;
+    window.history.replaceState({}, "", window.location.pathname);
+    let bp = null;
+    try { bp = JSON.parse(localStorage.getItem("pg_bundle_pending") ?? "null"); } catch { /* noop */ }
+    try { localStorage.removeItem("pg_bundle_pending"); } catch { /* noop */ }
+    const back = (screenName) => {
+      if (!bp?.requestId) return;
+      setBidViewRequestId(bp.requestId);
+      setScreen(screenName);
+      setPrevScreen("home");
+    };
+    if (!ok) {
+      abandonBundlePart(orderId).catch(() => {});
+      showToast("결제가 끝나지 않았어요. 남은 금액은 그대로예요 — 다시 나눠 낼 수 있어요.");
+      back("bidstatus");
+      return;
+    }
+    const paymentKey = params.get("paymentKey");
+    const amount = Number(params.get("amount")) || 0;
+    (async () => {
+      if (!(paymentKey && amount)) { showToast("결제 확인 정보가 없어 진행하지 않았어요. 결제를 다시 시도해 주세요."); return; }
+      let j = {}, okRes = false;
+      try {
+        const r = await fetch("/api/confirm-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader(getCurrentUserId()) },
+          body: JSON.stringify({ paymentKey, orderId, amount }),
+        });
+        okRes = r.ok;
+        j = await r.json().catch(() => ({}));
+      } catch {
+        showToast("결제 서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        return;
+      }
+      if (!okRes) { showToast(j?.error ?? "결제 확인에 실패했습니다. 고객센터에 문의해주세요."); back("bidstatus"); return; }
+      const rec = j?.record ?? {};
+      if (rec.error) showToast(`결제는 됐는데 기록을 저장하지 못했어요. 고객센터에 주문번호 ${orderId} 를 알려 주세요.`);
+      else if (rec.partStatus === "WAITING_FOR_DEPOSIT") showToast("입금할 계좌가 나왔어요 — 결제 화면에서 계좌번호와 기한을 확인해 주세요.");
+      else if (rec.contractReady) showToast("결제가 모두 끝나 계약이 확정됐어요 — 착공 단계가 열렸어요.");
+      else if (rec.count) showToast(`결제됐어요 · ${rec.count}개 중 ${rec.paidCount}개 묶음 완료 · 남은 금액 ${fmtWon(rec.leftWon)}`);
+      else showToast("결제됐어요.");
+      back(rec.contractReady ? "escrow" : "bidstatus");
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle TossPayments redirect return
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("pg_success") !== "1") return;
+    if (String(params.get("orderId") ?? "").startsWith("gb_")) return;   // 묶음 결제는 위에서
 
     // Clean URL immediately
     window.history.replaceState({}, "", window.location.pathname);
