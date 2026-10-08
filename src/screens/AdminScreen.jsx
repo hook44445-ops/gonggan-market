@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import UspBoardPanel from "./admin/UspBoardPanel"; // USP 12 사용→전환(187)
 import PartnerFunnelPanel from "./admin/PartnerFunnelPanel"; // 업체 가입 깔때기(10-02)
+import ConsumerFunnelPanel from "./admin/ConsumerFunnelPanel"; // 고객 견적 깔때기(10-09)
 import WeeklyDigestPanel from "./admin/WeeklyDigestPanel"; // 월요일 주간 숫자 한 장(PLAN 5절)
 import { authHeader } from "../lib/session";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
@@ -6684,6 +6685,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
                   <>
                   <AdminVisitCards adminUserId={user?.id ?? null} />
                   <AdminGrowthPanel />
+                  <ConsumerFunnelPanel />
                   <PartnerFunnelPanel />
                   <UspBoardPanel />
                   <WeeklyDigestPanel />

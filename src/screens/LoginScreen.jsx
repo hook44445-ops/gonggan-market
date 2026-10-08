@@ -11,6 +11,7 @@ import { getKnownUsers, knownUserToSession } from "../lib/deviceAuth";
 import { holdSignupTicket, exchangeSignupTicket, getSessionToken } from "../lib/session";
 import { SHOW_DEBUG_UI } from "../constants/release";
 import { hasLandingSend } from "../lib/landingPick";
+import { trackConsumerFunnel } from "../lib/consumerFunnel";
 
 // 기기 인증 후 OTP 없는 재로그인은 App 의 AccountPicker(기기 인증)가 담당한다.
 // LoginScreen 은 전화번호 인증 화면(최초 1회 / 다른 번호로 로그인)이지만, 입력 번호가
@@ -139,6 +140,8 @@ export default function LoginScreen({ onLogin, initialRole }) {
 
   const sendCode = async () => {
     if (phone.replace(/-/g, "").length < 10) return setMsg("올바른 전화번호를 입력해주세요");
+    const isConsumerAuth = pendingRole !== "company" && pendingRole !== "admin";
+    if (isConsumerAuth) trackConsumerFunnel("consumer_auth_start");   // 고객 깔때기(개수만 · 10-09)
     // 동일 번호(이미 이 기기에서 인증된 계정) → SMS 재발송 없이 즉시 세션 복원.
     // 단, '선택한 역할(pendingRole)'을 우선한다. 같은 번호로 의뢰인/업체를 모두 쓸 수 있어야
     // 하므로, 선택 역할 계정이 이미 있으면 그걸 복원하고, 없으면 같은 번호 기준으로 역할만 바꿔
@@ -150,6 +153,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
       const targetRole = pendingRole || known.role;
       const target = phoneDigits(toE164(phone));
       const exact = getKnownUsers().find(k => phoneDigits(k.phone) === target && k.role === targetRole);
+      if (isConsumerAuth) trackConsumerFunnel("consumer_auth_done");   // 이 기기 인증된 번호 — 문자 없이 바로 완료
       if (exact) { onLogin(knownUserToSession(exact)); return; }
       onLogin({ ...knownUserToSession(known), role: targetRole, activeRole: targetRole });
       return;
@@ -191,6 +195,7 @@ export default function LoginScreen({ onLogin, initialRole }) {
       }
 
       // 인증 성공 — 기기 인증/계정 기억은 App.handleLogin(onLogin) 에서 일괄 처리한다.
+      if (pendingRole !== "company" && pendingRole !== "admin") trackConsumerFunnel("consumer_auth_done");   // 고객 깔때기(10-09)
       if (data.user) {
         // admin 만 DB 역할을 우선. operator 는 부가 권한(플래그)일 뿐 사용자 유형을 바꾸지 않음.
         const dbRole = data.user.role;

@@ -1657,6 +1657,19 @@ export const getPartnerFunnel = async (days = 14, actions = []) => {
   };
 };
 
+// 고객 견적 깔때기(관리자 «숫자 보기» · 10-09) — 앞 5단계는 기록, «요청 발송»은 requests 표에서(lib/consumerFunnel)
+export const getConsumerFunnel = async (days = 14, actions = []) => {
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const [logs, reqs] = await Promise.all([
+    adminDb().from("activity_logs").select("action, created_at").in("action", actions).gte("created_at", since).limit(20000),
+    adminDb().from("requests").select("created_at").gte("created_at", since).limit(5000),
+  ]);
+  return {
+    logs: logs.error ? null : logs.data, requests: reqs.error ? null : reqs.data,
+    error: logs.error || reqs.error || null,
+  };
+};
+
 export const getActivityLogs = ({ targetType, targetId, limit = 50 } = {}) => {
   let q = adminDb()   // 활동 기록 읽기는 관리자만(180)
     .from("activity_logs")
