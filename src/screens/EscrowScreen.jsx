@@ -1757,7 +1757,7 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
         <div id="escrow-amount-card" style={{ background: `linear-gradient(135deg,${C.navy},${C.navyM})`, borderRadius: R.xl, padding: S.xxl, marginBottom: S.xl, color: "#fff" }}>
           {isConsumer ? (
             <>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>{SHOW_BETA_UI ? "총 계약 금액" : "공간안전결제 예치 금액 (시공비 + 공간안전결제 이용료)"}</div>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>{SHOW_BETA_UI ? "총 계약 금액" : "공간안전결제 예치 금액 (견적 금액 그대로)"}</div>
               <div style={{ fontSize: 32, fontWeight: 900, marginBottom: 4 }}>{fmtMoney(SHOW_BETA_UI ? bidAmount : customerTotal)}</div>
               <div style={{ fontSize: 13, opacity: 0.75, marginBottom: S.xl }}>{SHOW_BETA_UI ? "대금은 계약서 단계대로 업체와 직접 주고받아요 · 단계마다 사진을 확인해 주세요" : "공간랜드가 보관 중 · 사진 확인 후 단계별로 업체에 지급됩니다"}</div>
             </>

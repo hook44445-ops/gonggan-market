@@ -20,7 +20,7 @@ import QuoteDocument from "../components/QuoteDocument"; // 최종 견적서 미
 import { SORT_KEYS, sortBids, bidSummary, bidTags as calcBidTags } from "../lib/bidCompare"; // 입찰 비교(정렬·요약·표)
 import {
   PAYMENT_METHODS, COMING_SOON_MESSAGE, ACTIVE_PROVIDER, getMethodMeta,
-  loadFeeRules, feeRateFromRules, computeFeeWithRate, getProvider,
+  computeFeeWithRate, getProvider,
 } from "../services/payment";
 
 import { BIZ_GRACE_HOURS } from "../lib/contractGate";
@@ -340,10 +340,12 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
   // 수수료 규칙(payment_fee_rules) — 3.7% 하드코딩 대신 DB 규칙에서 요율 조회.
   // 미조회 시 service 의 폴백 요율 사용(시드값과 동일 → 동작 보존).
-  const [feeRules, setFeeRules] = useState(null);
-  useEffect(() => { loadFeeRules().then(setFeeRules).catch(() => {}); }, []);
+  // 대표 10-08: 고객 결제 금액은 결제수단과 상관없이 견적 금액 그대로.
+  //   카드·가상계좌·계좌이체 수수료는 PG 가 우리에게만 매기는 비용이고(여신전문금융업법 19조 — 고객에게 넘기지 않는다),
+  //   공간안전결제 이용료는 업체에 단계별로 지급할 때 지급분에서 빠진다(escrow_payouts.platform_fee · net_amount, SQL 112).
+  //   그래서 고객 쪽 이용료율은 0 — 예전 수단별 요율(payment_fee_rules)은 우리 비용 기록용으로만 남긴다.
   // 결제수단별 요율(만원 단위 금액 기준). 수단 미선택 시 CARD 기준으로 미리보기.
-  const rateFor = (method) => feeRateFromRules(feeRules, method ?? "CARD", ACTIVE_PROVIDER);
+  const rateFor = () => 0;
 
   // SELECT bids when screen loads (or request changes)
   useEffect(() => {
@@ -550,18 +552,18 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
               {/* 베타: 이용료·예치 총액을 보이지 않는다(앱이 돈을 받지 않는다). 공사 금액 한 줄만. */}
               {(SHOW_BETA_UI ? [["공사 금액", fmtMoney(effectivePrice)]] : [
                 ["시공비", fmtMoney(effectivePrice)],
-                ["공간안전결제 이용료", selectedMethod ? `+${fmtMoney(escrowFee)}` : "결제수단에 따라 달라집니다"],
+                ["공간안전결제 이용료", "더하지 않아요 · 업체 지급분에서 빠져요"],
               ]).map(([k, v]) => (
                 <div key={k} style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.text2, marginBottom:2 }}>
                   <span>{k}</span>
-                  <span style={{ fontWeight:700, color: (k === "공간안전결제 이용료" && !selectedMethod) ? C.text3 : C.text2 }}>{v}</span>
+                  <span style={{ fontWeight:700, color: k === "공간안전결제 이용료" ? C.text3 : C.text2 }}>{v}</span>
                 </div>
               ))}
               {!SHOW_BETA_UI && (<>
               <div style={{ height:1, background:C.brandM, margin:`${S.xs}px 0` }} />
               <div style={{ display:"flex", justifyContent:"space-between" }}>
                 <span style={{ fontSize:13, fontWeight:800, color:C.text1 }}>총 예치 금액</span>
-                <span style={{ fontSize:14, fontWeight:900, color:C.brand }}>{selectedMethod ? fmtMoney(customerTotal) : "결제수단 선택 시 확정"}</span>
+                <span style={{ fontSize:14, fontWeight:900, color:C.brand }}>{fmtMoney(customerTotal)}</span>
               </div>
               </>)}
             </div>
@@ -968,7 +970,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             />
           )}
           {!(BUNDLE_PAY_LIVE && SHOW_BUNDLE_PLAN && isQuotePhase) && (<>
-          {/* Amount summary — 계산식(시공비 + 이용료 = 총액) + 단계별 안전 지급 */}
+          {/* Amount summary — 견적 금액 그대로(이용료는 업체 지급분에서 · 결제수단과 무관) + 단계별 안전 지급 */}
           <div style={{ background:C.surface, borderRadius:R.xl, padding:S.xl, marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
             <div style={{ fontSize:13, color:C.text3, marginBottom:10, fontWeight:700 }}>{SHOW_BETA_UI ? "결제 금액" : "공간안전결제 예치 금액"}</div>
             <div style={{ display:"flex", justifyContent:"space-between", padding:"5px 0", fontSize:13 }}>
@@ -977,7 +979,7 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", padding:"5px 0 9px", fontSize:13, borderBottom:`1px solid ${C.bgWarm}` }}>
               <span style={{ color:C.text2 }}>공간안전결제 이용료</span>
-              <span style={{ fontWeight:700, color:C.text1 }}>{fmtMoney(fee)}</span>
+              <span style={{ fontWeight:700, color:C.text3 }}>더하지 않아요 · 업체 지급분에서 빠져요</span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", padding:"10px 0 2px" }}>
               <span style={{ fontSize:14, fontWeight:800, color:C.text1 }}>총 결제금액</span>

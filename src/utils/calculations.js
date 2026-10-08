@@ -11,7 +11,8 @@ const feeConfig = {
 // ⚠️ 실제 결제 요율의 source of truth 는 DB(payment_fee_rules, migration 031)이며
 //    결제 화면은 services/payment 로 규칙에서 요율을 조회한다. 이 상수는 규칙 미조회 시
 //    폴백 및 표시용 계산기(EscrowCalculator 등)의 기본값으로만 사용한다.
-export const CUSTOMER_ESCROW_RATE = 0.037;
+// 대표 10-08: 고객 금액에 이용료를 더하지 않는다(업체 지급분에서 빠진다 · 수단별 수수료는 우리 비용) — 0.
+export const CUSTOMER_ESCROW_RATE = 0;
 
 export const fmtMoney = (amount) => {
   if (amount == null || isNaN(amount)) return "—";

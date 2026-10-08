@@ -27,7 +27,8 @@ export const COMING_SOON_MESSAGE = "간편결제는 가맹 승인 후 제공될 
 
 // fee_rules(payment_fee_rules) 미적용·미조회 시 최후 폴백 비율.
 // ⚠️ 하드코딩된 요금이 아니라 "규칙 미조회 시 안전 폴백"이다. 실제 요율은 DB 규칙이 우선.
-export const DEFAULT_CUSTOMER_FEE_RATE = 0.037;
+// 대표 10-08: 고객 금액에 결제수단별 수수료·이용료를 더하지 않는다(여신전문금융업법 19조) — 0.
+export const DEFAULT_CUSTOMER_FEE_RATE = 0;
 
 export const isMethodAvailable = (id) =>
   PAYMENT_METHODS.find((m) => m.id === id)?.available === true;

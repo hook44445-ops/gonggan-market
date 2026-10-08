@@ -31,3 +31,13 @@ test("면책처럼 읽히는 문장·정해지지 않은 결제사 이름이 없
     assert.doesNotMatch(t, /강제 환불을 집행하는 기관이 아닙니다|보호할 수 없습니다|토스페이먼츠 에스크로/, f);
   }
 });
+
+// 대표 10-08: 고객 금액은 결제수단과 상관없이 견적 금액 그대로 — 이용료는 업체 지급분에서, 수단별 수수료는 우리 비용(여신전문금융업법 19조).
+test("결제수단에 따라 고객 금액이 달라진다는 문구 · 이용료를 더한다는 문구가 없다", () => {
+  const files = [...PUBLIC, "../screens/BidStatusScreen.jsx", "../screens/EscrowScreen.jsx", "../content/publicPages.js",
+    "../components/RequestModalBeta.jsx", "../components/BundlePayPanel.jsx"];
+  for (const f of files) {
+    const t = visibleText(readFileSync(new URL(f, import.meta.url), "utf8"));
+    assert.doesNotMatch(t, /결제수단에 따라 달라집|이용료가 더해|시공비 \+ 공간안전결제 이용료|이용료 660원|카드면 \+/, f);
+  }
+});

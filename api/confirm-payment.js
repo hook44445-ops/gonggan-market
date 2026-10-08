@@ -87,12 +87,13 @@ export default async function handler(req, res) {
     }
   }
 
-  // 금액 검사 — 결제 금액이 이 공사의 계약 금액(최종 견적서, 없으면 선택한 입찰가)보다 적으면 승인하지 않는다.
-  // 이용료는 결제수단마다 달라 «이상»만 본다. 금액을 못 읽으면(조회 실패) 예전처럼 막지 않는다.
+  // 금액 검사 — 결제 금액이 이 공사의 계약 금액(최종 견적서, 없으면 선택한 입찰가)과 «똑같아야» 승인한다.
+  //   대표 10-08: 고객 금액에 이용료·결제수단별 수수료를 더하지 않는다(이용료는 업체 지급분에서 · 수수료는 우리 비용).
+  //   금액을 못 읽으면(조회 실패) 예전처럼 막지 않는다.
   let base = null;
   if (reqMatch) {
     base = await contractBaseWon(reqMatch[1]);
-    if (base && Number(amount) < base) {
+    if (base && Number(amount) !== Math.round(base)) {
       return res.status(409).json({ error: "결제 금액이 계약 금액과 맞지 않아요. 결제를 다시 시작해 주세요.", code: "AMOUNT_MISMATCH" });
     }
     // 토스 1회 판매 상한(1천만 원) — 한 번에 결제로는 받지 않는다. 그 이상은 공정 묶음(gb_)으로 나눠 내거나 계약서대로 직접.
@@ -296,7 +297,7 @@ async function recordConstructionPayment({ uid, request, requestId, baseWon, ord
 
   const row = {
     user_id: uid, request_id: requestId, bid_id: request?.selected_bid_id ?? null, contract_id: contractId,
-    amount: baseMan ?? totalMan, customer_fee: baseMan != null ? Math.max(0, Math.round((totalMan - baseMan) * 10) / 10) : 0, vat: 0,
+    amount: baseMan ?? totalMan, customer_fee: 0, vat: 0,   // 고객 이용료 없음(대표 10-08)
     total_amount: totalMan, payment_method: toss?.method ?? null,
     status: done ? "PAID" : "READY", provider: "TOSS", payment_source: "original",
     order_id: orderId, payment_key: paymentKey, paid_at: done ? (toss?.approvedAt ?? new Date().toISOString()) : null,
