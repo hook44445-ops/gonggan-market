@@ -22,6 +22,7 @@ import {
   renderSeoBodyHtml,
   buildPostStructuredData,
 } from '../src/utils/loungeSeo.js';
+import { uniqueByTitle, duplicateTarget } from '../src/lib/loungeDuplicates.js';
 import { inviteOg, inviterName, normalizeRefCode } from '../src/lib/referral.js';
 import {
   BIZ,
@@ -195,7 +196,22 @@ async function renderPost(req, res, site, id) {
   if (!post) return notFound(req, res, site, '삭제됐거나 존재하지 않는 글이에요.');
 
   const meta = buildPostMeta(post);
-  const canonical = `${site}${buildPostPath(post)}`;
+  let canonical = `${site}${buildPostPath(post)}`;
+
+  // 같은 제목·같은 본문으로 반복 발행된 글(10-08 점검 253장) — 가장 먼저 만든 공개 글 하나로 모은다(lib/loungeDuplicates).
+  //   숨긴 사본 → 301 원본 · 공개 사본(본문까지 같음) → canonical 원본. 제목만 같고 내용이 다르면 그대로.
+  if (post.title && post.title.trim() && !post.is_deleted) {
+    const origRows = await sb(
+      `lounge_posts?title=eq.${encodeURIComponent(post.title)}&is_story=eq.false&is_deleted=not.eq.true&is_hidden=not.eq.true&is_visible=not.eq.false&select=id,title,content,created_at&order=created_at.asc,id.asc&limit=1`
+    );
+    const dup = duplicateTarget(post, Array.isArray(origRows) ? origRows[0] : null);
+    if (dup?.action === 'redirect') {
+      res.statusCode = 301;
+      res.setHeader('Location', `${site}${buildPostPath(dup.target)}`);
+      return res.end();
+    }
+    if (dup?.action === 'canonical') canonical = `${site}${buildPostPath(dup.target)}`;
+  }
 
   // noindex 조건: 비공개 / 개인정보·외부거래 의심 / 직거래 신고 누적
   let indexable = isPostPublic(post);
@@ -271,10 +287,10 @@ async function renderCategory(req, res, site, seoSlug) {
   const canonical = `${site}${buildCategoryPath(seoSlug)}`;
 
   const posts = await sb(
-    `lounge_posts?category=eq.${encodeURIComponent(cfg.id)}&is_story=eq.false&is_deleted=not.eq.true&is_hidden=not.eq.true&is_visible=not.eq.false&select=id,title,content&order=created_at.desc&limit=30`
+    `lounge_posts?category=eq.${encodeURIComponent(cfg.id)}&is_story=eq.false&is_deleted=not.eq.true&is_hidden=not.eq.true&is_visible=not.eq.false&select=id,title,content,created_at&order=created_at.desc&limit=60`
   );
   const listHtml = Array.isArray(posts) && posts.length
-    ? `<ul>${posts.map((p) => `<li><a href="${site}${buildPostPath(p)}">${esc((p.title && p.title.trim()) || String(p.content ?? '').slice(0, 40))}</a></li>`).join('')}</ul>`
+    ? `<ul>${uniqueByTitle(posts).map((p) => `<li><a href="${site}${buildPostPath(p)}">${esc((p.title && p.title.trim()) || String(p.content ?? '').slice(0, 40))}</a></li>`).join('')}</ul>`
     : '<p>아직 등록된 글이 없어요.</p>';
 
   const html = htmlShell({
@@ -299,10 +315,10 @@ async function renderRegion(req, res, site, regionSlug) {
   const canonical = `${site}${buildRegionPath(region)}`;
 
   const posts = await sb(
-    `lounge_posts?region=eq.${encodeURIComponent(region)}&is_story=eq.false&is_deleted=not.eq.true&is_hidden=not.eq.true&is_visible=not.eq.false&select=id,title,content&order=created_at.desc&limit=30`
+    `lounge_posts?region=eq.${encodeURIComponent(region)}&is_story=eq.false&is_deleted=not.eq.true&is_hidden=not.eq.true&is_visible=not.eq.false&select=id,title,content,created_at&order=created_at.desc&limit=60`
   );
   const listHtml = Array.isArray(posts) && posts.length
-    ? `<ul>${posts.map((p) => `<li><a href="${site}${buildPostPath(p)}">${esc((p.title && p.title.trim()) || String(p.content ?? '').slice(0, 40))}</a></li>`).join('')}</ul>`
+    ? `<ul>${uniqueByTitle(posts).map((p) => `<li><a href="${site}${buildPostPath(p)}">${esc((p.title && p.title.trim()) || String(p.content ?? '').slice(0, 40))}</a></li>`).join('')}</ul>`
     : '<p>아직 등록된 글이 없어요.</p>';
 
   const html = htmlShell({
@@ -596,6 +612,32 @@ ${bizHtml()}
   res.end(html);
 }
 
+// 라운지 허브(/lounge) — 전엔 봇에게 404였다(10-08). 최근 글을 제목마다 한 편씩 + 카테고리 길.
+async function renderLoungeHub(req, res, site) {
+  const posts = await sb(
+    `lounge_posts?is_story=eq.false&is_deleted=not.eq.true&is_hidden=not.eq.true&is_visible=not.eq.false&select=id,title,content,created_at&order=created_at.desc&limit=200`
+  );
+  const list = Array.isArray(posts) ? uniqueByTitle(posts).slice(0, 60) : [];
+  const listHtml = list.length
+    ? `<ul>${list.map((p) => `<li><a href="${site}${buildPostPath(p)}">${esc((p.title && p.title.trim()) || String(p.content ?? '').slice(0, 40))}</a></li>`).join('')}</ul>`
+    : '<p>아직 등록된 글이 없어요.</p>';
+  const catHtml = `<ul>${Object.entries(SEO_CATEGORY).map(([slug, c]) => `<li><a href="${site}${buildCategoryPath(slug)}">${esc(c.title)}</a></li>`).join('')}</ul>`;
+  const desc = '인테리어·집수리 이야기와 공간 고민을 나누는 공간랜드 라운지 — 가입 없이 읽을 수 있어요.';
+  const html = htmlShell({
+    site,
+    canonical: `${site}/lounge`,
+    robots: 'index, follow',
+    title: '공간랜드 라운지 | 인테리어·집수리 이야기',
+    description: desc,
+    ogImage: DEFAULT_OG_PATH,
+    ogType: 'website',
+    bodyHtml: `<main><h1>공간랜드 라운지</h1><p>${esc(desc)}</p><section><h2>주제별</h2>${catHtml}</section><section><h2>최근 글</h2>${listHtml}</section>${ctaHtml(site)}</main>`,
+  });
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.end(html);
+}
+
 export default async function handler(req, res) {
   const site = getSiteUrl(req);
   const parts = getPathParts(req);
@@ -619,6 +661,7 @@ export default async function handler(req, res) {
     if (parts[0] === 'region' && parts[1]) {
       return await renderRegion(req, res, site, parts[1]);
     }
+    if (!parts.length) return await renderLoungeHub(req, res, site);
     return notFound(req, res, site, '공간랜드 라운지입니다.');
   } catch {
     return notFound(req, res, site, '잠시 후 다시 시도해주세요.');

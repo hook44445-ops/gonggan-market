@@ -18,7 +18,7 @@
 import { collectAllTrends } from "./trendCollector.js";
 import { scoreTopic, priorityFromScore } from "./topicScore.js";
 import { mapCategory } from "./categoryMapper.js";
-import { filterNewTopics } from "./duplicateChecker.js";
+import { filterNewTopics, TOPIC_REPEAT_HOURS } from "./duplicateChecker.js";
 import { generateDraft } from "../constants/aiContentFactory.js";
 import { composeCategoryPost } from "../constants/loungeCategoryTopics.js";
 import { writeLoungePost, llmWriterConfigured } from "./serverLoungeWriter.js";
@@ -49,7 +49,7 @@ const MAX_DRAFTS_PER_RUN = 3;
 // KST 하루 목표 draft 수(초과 생성 방지).
 const DAILY_DRAFT_TARGET = 5;
 // 중복 검사 대상 조회 기간(48h window 보다 넉넉히 조회 후 라이브러리에서 정확히 필터).
-const LOOKBACK_HOURS = 72;
+const LOOKBACK_HOURS = TOPIC_REPEAT_HOURS + 24;   // 중복 창(30일)보다 하루 넉넉히 읽는다(10-08 · 전엔 72시간)
 
 async function sbGet(path) {
   if (!SB_URL || !SB_KEY) return null;
@@ -127,7 +127,7 @@ async function autoApproveAndSchedule(now) {
 
     const cutoffIso = new Date(now - LOOKBACK_HOURS * 3600 * 1000).toISOString();
     const existing = (await sbGet(
-      `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=id,title,ai_topic,created_at,updated_at,publish_status,scheduled_at&limit=500`
+      `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=id,title,ai_topic,created_at,updated_at,publish_status,scheduled_at&order=created_at.desc&limit=3000`
     )) ?? [];
     // §16 일일 발행 예산(정기 10/비정기 5/총 15) — 오늘 발행 수 집계 후 사이클 중 증분.
     const budget = computeBudget(existing, { now });
@@ -345,9 +345,9 @@ export async function runAutonomousCycle({ now = Date.now() } = {}) {
       const cutoffIso = new Date(now - LOOKBACK_HOURS * 3600 * 1000).toISOString();
       const existing =
         (await sbGet(
-          `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=ai_topic,title,created_at&limit=500`
+          `lounge_posts?ai_topic=not.is.null&created_at=gte.${encodeURIComponent(cutoffIso)}&select=ai_topic,title,created_at&limit=3000`
         )) ?? [];
-      const fresh = filterNewTopics(collected, existing, 48).slice(0, need);
+      const fresh = filterNewTopics(collected, existing, TOPIC_REPEAT_HOURS).slice(0, need);
       // AI 글(OpenRouter) — 키가 있으면 한꺼번에(병렬) 받아 둔다. 실패·검사 탈락이면 null → 아래에서 틀 글(09-26)
       const llmPosts = llmWriterConfigured()
         ? await Promise.all(fresh.map((it) => writeLoungePost({ ...(it.raw ?? {}), ...it, points: it.raw?.points }).catch(() => null)))
