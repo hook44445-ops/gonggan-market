@@ -20,8 +20,8 @@ export function peekPreferredCompany(now = Date.now()) {
 }
 
 // 요청서를 한 번 열었다고 표시 — 앱을 다시 켤 때마다 요청서가 튀어나오지 않게
-export function markPreferredOpened() {
-  const v = peekPreferredCompany();
+export function markPreferredOpened(now = Date.now()) {
+  const v = peekPreferredCompany(now);
   if (!v) return;
   try { localStorage.setItem(KEY, JSON.stringify({ ...v, opened: true })); } catch { /* noop */ }
 }

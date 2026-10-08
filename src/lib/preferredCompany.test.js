@@ -13,8 +13,8 @@ test("기억 → 3일 안에만 · 열었다 표시 · 지우기", () => {
   assert.equal(peekPreferredCompany(t0 + 1000).name, "반듯수리");
   assert.equal(peekPreferredCompany(t0 + 1000).opened, false);
   assert.equal(peekPreferredCompany(t0 + 3 * 86400000 + 1), null);
-  markPreferredOpened();
-  assert.equal(peekPreferredCompany().opened, true);
+  markPreferredOpened(t0 + 2000);
+  assert.equal(peekPreferredCompany(t0 + 2000).opened, true);
   clearPreferredCompany();
   assert.equal(peekPreferredCompany(), null);
 });

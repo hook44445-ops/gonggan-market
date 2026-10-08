@@ -10,7 +10,7 @@ import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
 import { consumerFaq, pageSeo, serviceSchema, faqSchema, IP_FILINGS, PATENT_LABEL, PATENT_DETAIL, PATENT_MESSAGE } from "../utils/siteSeo";
 import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView, AdVideo } from "../components/landing/LandingMotion";
-import { saveLandingPick, LANDING_WORK_TAGS } from "../lib/landingPick";
+import { saveLandingPick, isDraftComplete, LANDING_WORK_TAGS, LANDING_SIZES, LANDING_BUDGETS, LANDING_MEMO_MAX } from "../lib/landingPick";
 import { QUOTE_START_ID, quoteCtaTarget } from "../lib/quoteEntry";
 
 // ── HTML 시안(gonggan_FINAL_BALANCED.html) 이식 · 고객 랜딩 ────────────────────
@@ -72,6 +72,13 @@ const WORK_ROWS = [
 function RequestPreview({ onStart }) {
   const [type, setType] = useState("");
   const [tags, setTags] = useState([]);
+  // ③④⑤ — ①②를 고르면 펼쳐진다. 다 쓰면 «보내기» → 번호 확인 → 쓴 그대로 발송(10-09 «먼저 쓰고, 보낼 때 인증»).
+  const [size, setSize] = useState("");
+  const [budget, setBudget] = useState("");
+  const [memo, setMemo] = useState("");
+  const draft = { type, tags, size, budget, memo };
+  const ready = isDraftComplete(draft);
+  const opened = !!(type && tags.length);
   const toggle = (t) => setTags((xs) => (xs.includes(t) ? xs.filter((x) => x !== t) : xs.length >= 5 ? xs : [...xs, t]));
   const summary = !type && !tags.length
     ? <>공간 하나, 공사 하나만 골라 보세요. <b>요청서가 반쯤 채워진 채로</b> 열려요.</>
@@ -96,11 +103,33 @@ function RequestPreview({ onStart }) {
         ))}
       </div>
       <div className="lm-sum" aria-live="polite">{summary}</div>
-      <button type="button" className="gg-cta" onClick={() => { saveLandingPick({ type, tags }); onStart(); }}
+      {opened && <>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#1A2E22", margin: "18px 0 10px" }}>③ 평수는요?</div>
+        <div className="lm-chips">
+          {LANDING_SIZES.map((t) => (
+            <button key={t} type="button" className={`lm-chip ${size === t ? "is-on" : ""}`} aria-pressed={size === t} onClick={() => setSize((v) => (v === t ? "" : t))}>{t}</button>
+          ))}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#1A2E22", margin: "18px 0 10px" }}>④ 생각해 둔 예산은요?</div>
+        <div className="lm-chips">
+          {LANDING_BUDGETS.map((t) => (
+            <button key={t} type="button" className={`lm-chip ${budget === t ? "is-on" : ""}`} aria-pressed={budget === t} onClick={() => setBudget((v) => (v === t ? "" : t))}>{t}</button>
+          ))}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#1A2E22", margin: "18px 0 10px" }}>⑤ 업체에 전할 말 <span style={{ fontWeight: 600, color: "#8A857E" }}>(선택)</span></div>
+        <textarea aria-label="업체에 전할 말" value={memo} maxLength={LANDING_MEMO_MAX} rows={3}
+          onChange={(e) => setMemo(e.target.value)} placeholder="예: 다음 달 이사 전에 끝내고 싶어요 · 욕실 타일이 들떠 있어요"
+          style={{ width: "100%", boxSizing: "border-box", border: "1px solid #E8E1D8", borderRadius: 14, padding: "12px 14px", fontSize: 14, fontFamily: "inherit", lineHeight: 1.5, resize: "vertical", background: "#fff", color: "#1A2E22" }} />
+      </>}
+      <button type="button" className="gg-cta" onClick={() => { saveLandingPick({ ...draft, send: ready }); onStart(); }}
         style={{ ...btnBase, marginTop: 14, background: "#121A16", color: "#fff" }}>
-        {type || tags.length ? "이 조건으로 무료 견적 받기 →" : "무료 비교견적 받기 →"}
+        {ready ? "견적 요청 보내기 →" : type || tags.length ? "이 조건으로 무료 견적 받기 →" : "무료 비교견적 받기 →"}
       </button>
-      <div style={{ fontSize: 11.5, color: "#8A857E", textAlign: "center", marginTop: 8 }}>휴대폰 인증 뒤 요청서에 그대로 채워져요 · 보내기 전까지는 아무것도 나가지 않아요</div>
+      <div style={{ fontSize: 11.5, color: "#8A857E", textAlign: "center", marginTop: 8 }}>
+        {ready
+          ? "보낼 때 휴대폰 번호 확인 한 번 · 확인이 끝나면 쓴 그대로 업체들에게 가요"
+          : "휴대폰 인증 뒤 요청서에 그대로 채워져요 · 보내기 전까지는 아무것도 나가지 않아요"}
+      </div>
     </div>
   );
 }
