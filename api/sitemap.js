@@ -5,6 +5,7 @@
 
 import { SEO_CATEGORY, buildPostPath, buildCategoryPath, buildRegionPath } from '../src/utils/loungeSeo.js';
 import { canonicalSite } from '../src/utils/siteSeo.js';
+import { uniqueByTitle } from '../src/lib/loungeDuplicates.js';
 
 const SB_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SB_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -56,6 +57,7 @@ const STATIC_PAGES = [
   { path: '/safe-payment',  changefreq: 'monthly', priority: '0.7' },
   { path: '/tokens',        changefreq: 'monthly', priority: '0.6' },
   { path: '/download',      changefreq: 'monthly', priority: '0.6' },
+  { path: '/lounge',        changefreq: 'daily',   priority: '0.7' },   // 라운지 허브(10-08 — 전엔 로봇에게 404)
   { path: '/refund',        changefreq: 'yearly',  priority: '0.3' },
   { path: '/terms',         changefreq: 'yearly',  priority: '0.3' },
   { path: '/privacy',       changefreq: 'yearly',  priority: '0.3' },
@@ -81,7 +83,7 @@ export default async function handler(req, res) {
   );
   const regions = new Set();
   if (Array.isArray(posts)) {
-    for (const p of posts) {
+    for (const p of uniqueByTitle(posts)) {
       entries.push(urlEntry(site, buildPostPath(p), p.updated_at || p.created_at));
       if (p.region && String(p.region).trim()) regions.add(String(p.region).trim());
     }
