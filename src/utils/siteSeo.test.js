@@ -650,4 +650,9 @@ test('특허·상표 표시는 «출원»만 · 등록으로 읽히는 말 없�
   for (const bad of ['®', '™', 'Patent', '특허 받은', '특허받은', '특허 기술', '특허기술', '특허 등록', '특허등록', '등록특허', '심사중', '심사 중']) {
     assert.ok(!all.includes(bad), `금지어: ${bad}`);
   }
+  // 설명 — 결제 미개통이라 약속형 말 없이 «방식»으로 끝난다(대표 10-08)
+  assert.ok(IP_FILINGS.patentTopic.endsWith('방식'));
+  for (const bad of ['지켜 드', '지켜드', '맡기세요', '안심하세요', '보장']) {
+    assert.ok(!IP_FILINGS.patentTopic.includes(bad), `약속형 말: ${bad}`);
+  }
 });

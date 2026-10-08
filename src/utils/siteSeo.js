@@ -73,7 +73,7 @@ export const BIZ_ROWS = [
 export const IP_FILINGS = {
   patentNo: '10-2026-0192050',
   patentFiledAt: '2026.10.07',
-  patentTopic: '공사대금 단계 확정 방식',
+  patentTopic: '공사 단계별 사진을 확인하고 고객 승인 후 그 단계만큼 지급되는 방식',
   trademarkNo: '40-2026-0209520',
 };
 export const PATENT_LABEL = `특허출원 ${IP_FILINGS.patentNo}`;

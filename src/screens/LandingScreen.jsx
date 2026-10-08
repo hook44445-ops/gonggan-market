@@ -194,18 +194,23 @@ function FaqRow({ q, a }) {
 }
 
 // ── 특허출원 배지 — 히어로 주 CTA 바로 위 한 줄(대표 10-07 «CTA 위 배지 + 푸터 한 줄» 두 곳만).
-// 누르거나 올리면 번호·출원일만 보인다(명세서 내용은 싣지 않는다). 폰에서는 곁들임 «· 공사대금 단계 확정 방식»을 뺀다.
-// ⚠️ 문구는 siteSeo.PATENT_* 그대로 — «출원»을 빼거나 «특허 받은/등록/®»로 바꾸지 않는다(특허법 224조).
+// 누르거나 올리면 번호·출원일만 보인다(명세서 내용은 싣지 않는다).
+// 설명(대표 10-08 «… 그 단계만큼 지급되는 방식»)은 길어서 알약 안에 넣으면 PC 히어로 폭(520px)에서도 넘친다 —
+// 배지는 번호만, 설명은 배지 바로 아래 작은 한 줄로 둔다(PC·폰 같은 모양).
+// ⚠️ 문구는 siteSeo.PATENT_* · IP_FILINGS 그대로 — «출원»을 빼거나 «특허 받은/등록/®»로 바꾸지 않는다(특허법 224조).
+//    결제 미개통이라 «지켜 드립니다·맡기세요» 같은 약속형 말도 붙이지 않는다(문장 끝은 «방식»).
 function PatentBadge() {
   const [open, setOpen] = useState(false);
   return (
-    <button type="button" className={`lm-ip gg-rise gg-d3 ${open ? "is-open" : ""}`} aria-describedby="lm-ip-tip"
-      onClick={() => setOpen((v) => !v)} onBlur={() => setOpen(false)}>
-      <FileText size={14} strokeWidth={2} aria-hidden="true" className="lm-ip-ic" />
-      <b>{PATENT_LABEL}</b>
-      <span className="lm-ip-sub">· {IP_FILINGS.patentTopic}</span>
-      <span role="tooltip" id="lm-ip-tip" className="lm-ip-tip">{PATENT_DETAIL}</span>
-    </button>
+    <div className="lm-ip-wrap gg-rise gg-d3">
+      <button type="button" className={`lm-ip ${open ? "is-open" : ""}`} aria-describedby="lm-ip-tip"
+        onClick={() => setOpen((v) => !v)} onBlur={() => setOpen(false)}>
+        <FileText size={14} strokeWidth={2} aria-hidden="true" className="lm-ip-ic" />
+        <b>{PATENT_LABEL}</b>
+        <span role="tooltip" id="lm-ip-tip" className="lm-ip-tip">{PATENT_DETAIL}</span>
+      </button>
+      <div className="lm-ip-sub">{IP_FILINGS.patentTopic}</div>
+    </div>
   );
 }
 
@@ -553,18 +558,19 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         @media (min-width: 1040px){ .gm-journey > div{ grid-template-columns: 240px 1fr; align-items: stretch } .gm-journey img{ height: 100% !important; min-height: 190px } }
         .gm-card:hover{ transform: translateY(-3px); box-shadow: 0 12px 32px rgba(18,26,22,.08) }
         button:active{ transform: scale(.985) }
-        .lm-ip{ position: relative; display: flex; width: fit-content; align-items: center; gap: 6px; max-width: 100%; margin: -8px 0 12px;
+        .lm-ip-wrap{ margin: -8px 0 12px }
+        .lm-ip{ position: relative; display: flex; width: fit-content; align-items: center; gap: 6px; max-width: 100%; margin: 0;
           padding: 6px 13px; border: 1px solid #D6A756; border-radius: 999px; background: rgba(255,255,255,.55);
           font: inherit; font-size: 12.5px; color: #1A2E22; letter-spacing: -0.01em; white-space: nowrap; cursor: pointer; }
         .lm-ip b{ font-weight: 800 }
         .lm-ip-ic{ color: #A98B4E; flex-shrink: 0 }
-        .lm-ip-sub{ color: #5A6B60; font-weight: 500 }
+        .lm-ip-sub{ margin: 6px 0 0 4px; font-size: 11.5px; line-height: 1.5; color: #5A6B60; font-weight: 500; word-break: keep-all; text-wrap: balance }
+        @media (max-width: 480px){ .lm-ip-sub{ margin-left: 2px; font-size: 10px; letter-spacing: -0.04em } }
         .lm-ip-tip{ position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5; padding: 7px 11px; border-radius: 10px;
           background: #121A16; color: #fff; font-size: 11.5px; font-weight: 600; white-space: nowrap;
           box-shadow: 0 6px 18px rgba(18,26,22,.18); opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity .15s, transform .15s }
         .lm-ip:hover .lm-ip-tip, .lm-ip:focus-visible .lm-ip-tip, .lm-ip.is-open .lm-ip-tip{ opacity: 1; transform: none }
         .lm-ip:active{ transform: none }
-        @media (max-width: 480px){ .lm-ip-sub{ display: none } }
         .gm-sticky-cta{ display: none }
         @media (max-width: 640px){ .gm-sticky-cta{ display: flex } }
         @media (max-width: 380px){
