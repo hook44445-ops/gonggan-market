@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileText, Camera, ArrowLeftRight } from "lucide-react";
+import { FileText, Camera, Plus } from "lucide-react";
 import { SHOW_DEBUG_UI, SHOW_BETA_UI, isStoreAppShell, PAYMENTS_LIVE } from "../constants/release";
 import { getTopReviews, getRecentPortfolios, getSeedReviews } from "../lib/supabase";
 import { normalizeShowcases } from "../lib/showcases";
@@ -181,10 +181,12 @@ const JOURNEY = [
 //    단계 사진 업로드와 촬영 위치·시각(project_checkpoints lat/lng/captured_at) · 고객 확인 · 대화방 기록 ·
 //    이의 신청 시 남은 단계 보류(136). 결제(보관·지급)는 PAYMENTS_LIVE 전 — «맡기세요/지켜 드립니다/안전결제» 금지,
 //    문장 끝은 «~방식», «~남습니다».
+// ⚠️ «나란히 비교·비교 화면·자동 대조»처럼 새 비교 기능으로 읽히는 말 금지 — «증거로 함께 확인»(대표 10-08 · 특허 청구항 11·13 범위:
+//    최종 견적서 저장, 이의 시 기록을 단계 증빙과 함께 판단 자료로 제공). «분쟁이 생기면»도 쓰지 않는다. 짝 사이 기호도 ↔ 대신 +.
 const STAGE_FLOW = [
   { no: "01", title: "최종 견적서", desc: "공정별 항목 · 자재 · 규격 · A/S 기간이 기준이 됩니다." },
   { no: "02", title: "단계별 사진", desc: "착공 · 중간 · 완료마다 현장 사진과 촬영 위치 · 시각이 기록됩니다." },
-  { no: "03", title: "고객 확인 · 승인", desc: "사진을 견적서와 나란히 보고 확인합니다. 대화도 대화방에 남습니다." },
+  { no: "03", title: "고객 확인 · 승인", desc: "단계 사진을 보고 확인 · 승인합니다. 대화도 대화방에 남습니다." },
   { no: "04", title: "그 단계만큼 · 이의 시 보류",
     desc: PAYMENTS_LIVE
       ? "승인한 단계만큼 지급되는 방식입니다. 이의를 신청하면 남은 단계는 모두 보류됩니다."
@@ -212,12 +214,12 @@ function StageProof() {
 
         <Reveal className="lm-sp-body">
           <p className="lm-sp-lead">
-            단열재는 6cm든 3cm든 마감하고 나면 겉은 똑같습니다. 최종 견적서의 약속(6cm)과 시공 중 사진이 <b>함께 남아</b>,
-            실제와 다르더라도 나중에 나란히 비교할 수 있습니다. 약속대로 시공한 업체에게는 그 사실을 보여 주는 기록이 됩니다.
+            단열재는 6cm든 3cm든 마감하고 나면 겉은 똑같습니다. 최종 견적서의 약속(6cm)과 시공 중 사진 기록을
+            <b>증거로 함께 확인할 수 있습니다.</b> 약속대로 시공한 업체에게는 그 사실을 보여 주는 기록이 됩니다.
           </p>
           <div className="lm-sp-pair">
             <div><FileText size={16} strokeWidth={2} aria-hidden="true" /><small>최종 견적서의 약속</small><b>단열재 6cm</b></div>
-            <ArrowLeftRight size={16} strokeWidth={2.2} aria-hidden="true" className="lm-sp-vs" />
+            <Plus size={16} strokeWidth={2.4} aria-hidden="true" className="lm-sp-vs" />
             <div><Camera size={16} strokeWidth={2} aria-hidden="true" /><small>시공 중 사진</small><b>위치 · 시각 기록</b></div>
           </div>
         </Reveal>
@@ -690,7 +692,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         @media (max-width: 380px){ .lm-sp{ padding: 24px 16px; border-radius: 20px } .lm-sp-pair > div{ padding: 9px 9px; column-gap: 6px } .lm-sp-pair b{ font-size: 12.5px }
           .lm-sp-flow{ grid-template-columns: 1fr } }
         @media (max-width: 600px){ .lm-sp-scene img{ aspect-ratio: 4 / 3 } .lm-sp-mm-l{ left: 21.2% } .lm-sp-mm-r{ left: 63.1% } }
-        @media (max-width: 480px){ .lm-ip-lead{ display: none } .lm-sp-pair{ grid-template-columns: 1fr } .lm-sp-vs{ justify-self: center; transform: rotate(90deg) } }
+        @media (max-width: 480px){ .lm-ip-lead{ display: none } .lm-sp-pair{ grid-template-columns: 1fr } .lm-sp-vs{ justify-self: center } }
         .gm-sticky-cta{ display: none }
         @media (max-width: 640px){ .gm-sticky-cta{ display: flex } }
         @media (max-width: 380px){
