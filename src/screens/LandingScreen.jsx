@@ -11,6 +11,7 @@ import { useJsonLd } from "../hooks/useJsonLd";
 import { consumerFaq, pageSeo, serviceSchema, faqSchema, IP_FILINGS, PATENT_LABEL, PATENT_DETAIL, PATENT_MESSAGE } from "../utils/siteSeo";
 import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView, AdVideo } from "../components/landing/LandingMotion";
 import { saveLandingPick, LANDING_WORK_TAGS } from "../lib/landingPick";
+import { QUOTE_START_ID, quoteCtaTarget } from "../lib/quoteEntry";
 
 // ── HTML 시안(gonggan_FINAL_BALANCED.html) 이식 · 고객 랜딩 ────────────────────
 // 디자인/레이아웃/컬러/타이포는 시안과 거의 동일. 기능·라우팅·상태는 기존 그대로
@@ -325,6 +326,16 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
   const hasReal = cases.some((c) => !c.isSeed);
 
   const goConsumer = () => onSelectRole("consumer");
+  // «무료 비교견적 받기» 단추들 — 처음 온 사람은 인증 대신 아래 요청서(① 공간 ② 고칠 곳)로 내려간다(lib/quoteEntry).
+  //   이 기기에서 이미 인증한 사람은 지금처럼 계정 선택으로.
+  const goQuote = () => {
+    if (quoteCtaTarget({ hasSavedAccounts }) === "account") return goConsumer();
+    const el = document.getElementById(QUOTE_START_ID);
+    if (!el) return goConsumer();
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    el.classList.remove("is-cued"); void el.offsetWidth; el.classList.add("is-cued");   // 어디부터인지 한 번 반짝
+  };
   const scrollTop  = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   return (
@@ -390,7 +401,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             확인된 업체들이 같은 조건으로 견적을 보내요. 계약 · 현장 사진 · 진행 단계가 한 자리에 남아 끝까지 안심. 가입비 0원 · 견적 무료.
           </p>
           <PatentBadge />
-          <button onClick={goConsumer} className="gg-rise gg-d3 gg-cta" style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
+          <button onClick={goQuote} className="gg-rise gg-d3 gg-cta" style={{ ...btnBase, maxWidth: 340, background: SK.ink, color: "#fff" }}>
             무료 비교견적 받기 →
           </button>
           <ProofChips />
@@ -415,7 +426,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         </div>
 
         {/* ── 30초 요청서 미리 해 보기 — 고른 것이 로그인 뒤 요청서에 그대로 채워진다 ── */}
-        <div style={{ padding: "0 0 40px" }}>
+        <div id={QUOTE_START_ID} className="lm-quote-start" style={{ padding: "0 0 40px" }}>
           <Reveal>
             <div className="lm-eyebrow">30초면 충분해요</div>
             <h2 style={{ fontSize: "clamp(22px,4.8vw,30px)", fontWeight: 800, letterSpacing: "-0.035em", margin: "10px 0 16px", lineHeight: 1.3, wordBreak: "keep-all" }}>
@@ -543,7 +554,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
             업체는 찾아다니지 마세요.<br />견적이 찾아옵니다
           </h2>
           <p style={{ opacity: .72, fontSize: 13.5, marginTop: 12, lineHeight: 1.7, wordBreak: "keep-all" }}>요청서 한 장이면, 확인된 업체들이 같은 조건으로 견적을 보내요. 가입비 0원 · 견적 무료.</p>
-          <button onClick={goConsumer} className="gg-cta gg-cta-gold" style={{ ...btnBase, maxWidth: 340, background: "linear-gradient(180deg,#E2CB98 0%,#C8A86A 100%)",
+          <button onClick={goQuote} className="gg-cta gg-cta-gold" style={{ ...btnBase, maxWidth: 340, background: "linear-gradient(180deg,#E2CB98 0%,#C8A86A 100%)",
             color: "#121A16", margin: "22px auto 0" }}>
             무료 비교견적 받기
           </button>
@@ -619,7 +630,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", zIndex: 60,
         display: "flex", alignItems: "center", gap: 12, background: SK.ink,
         borderRadius: 999, padding: 6, boxShadow: "0 8px 24px rgba(18,26,22,.18)" }}>
-        <button onClick={goConsumer} className="gg-cta" style={{ flex: 1, background: SK.forest, color: "#fff", border: "none",
+        <button onClick={goQuote} className="gg-cta" style={{ flex: 1, background: SK.forest, color: "#fff", border: "none",
           fontWeight: 800, fontSize: 15, padding: "15px 20px", borderRadius: 999, cursor: "pointer",
           fontFamily: SANS }}>무료 비교견적 받기</button>
         <div onClick={scrollTop} role="button" aria-label="맨 위로" style={{ width: 44, height: 44,
@@ -649,6 +660,10 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           box-shadow: 0 6px 18px rgba(18,26,22,.18); opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity .15s, transform .15s }
         .lm-ip:hover .lm-ip-tip, .lm-ip:focus-visible .lm-ip-tip, .lm-ip.is-open .lm-ip-tip{ opacity: 1; transform: none }
         .lm-ip:active{ transform: none }
+        .lm-quote-start{ scroll-margin-top: 64px }
+        .lm-quote-start.is-cued .lm-pick{ animation: lm-cue 1.4s ease-out }
+        @keyframes lm-cue{ 0%{ box-shadow: 0 0 0 0 rgba(200,168,106,.0) } 25%{ box-shadow: 0 0 0 4px rgba(200,168,106,.55) } 100%{ box-shadow: 0 18px 50px rgba(18,26,22,.06) } }
+        @media (prefers-reduced-motion: reduce){ .lm-quote-start.is-cued .lm-pick{ animation: none } }
         .lm-sp{ margin: 6px 0 40px; border-radius: 26px; padding: 30px 22px; color: #F4EFE4;
           background: radial-gradient(120% 80% at 0% 0%, #24503C 0%, #163626 48%, #0E2B1D 100%); }
         .lm-sp-grid{ display: grid; gap: 18px }
