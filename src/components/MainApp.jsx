@@ -3256,6 +3256,174 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     ? [["🏠","홈","home"],["💬","라운지","lounge"],["＋","무료 견적","__request"],["🗨","대화","chatlist"],["👤","마이","my"]]
     : [["📋","요청","home"],["💬","라운지","lounge"],["❤️","관심","favorites"],["🗨","대화","chatlist"],["👤","내정보","my"]];
 
+  // 견적 요청 보내기 — 요청서(RequestModal onDone)와 «랜딩에서 쓰고 보내기 → 인증»한 요청(takeLandingDraft) 둘 다 이 길 하나로.
+  //   중복·쿨다운 막기 · 약관 동의 · 로그인 확인(user.id) 은 그대로 여기서 한다(인증 없이 업체에 가지 않는다).
+  async function submitReq(form) {
+    // 약관·베타 안내 확인 — 보내는 순간 한 번(이미 동의했으면 건너뜀). 확인하면 같은 내용으로 이어서 보낸다.
+    if (!form.__consented && !hasConsented(user?.id, CONSUMER_CONSENT_TYPES)) {
+      setConsentGateConfig({
+        types: CONSUMER_CONSENT_TYPES,
+        title: "견적 요청 전 약관 동의",
+        betaKind: "quote",
+        onComplete: () => { setConsentGateConfig(null); submitReq({ ...form, __consented: true }); },
+      });
+      return;
+    }
+    if (requestSubmitGuardRef.current) return;
+    requestSubmitGuardRef.current = true;
+    try {
+    // Pre-insert server-side duplicate guard
+    const overrideTsInsert = localStorage.getItem(OVERRIDE_LS_KEY);
+    if (overrideTsInsert) {
+      const remainingMs = Math.max(0, COOLDOWN_MS - (Date.now() - parseInt(overrideTsInsert, 10)));
+      if (remainingMs > 0) {
+        setShowReq(false);
+        setReqBlock({ type: "COOLDOWN_BLOCK", remainingMs });
+        return;
+      }
+      localStorage.removeItem(OVERRIDE_LS_KEY);
+    }
+    // C-6: block guests before any optimistic update
+    if (!user?.id) {
+      setShowReq(false);
+      showToast("견적 요청은 로그인 후 이용할 수 있어요");
+      return;
+    }
+
+    const { data: dup } = await getActiveRequestByUser(user.id);
+    if (dup) {
+      setShowReq(false);
+      if (dup.status === "open") {
+        const remainingMs = Math.max(0, QUOTE_COOLDOWN_MS - (Date.now() - new Date(dup.created_at).getTime()));
+        if (remainingMs > 0) {
+          setReqBlock({ type: "QUOTE_COMPARISON_BLOCK", activeReq: dup, remainingMs });
+          return;
+        }
+        // 7일 경과 — 허용
+      } else {
+        setReqBlock({ type: "HARD_BLOCK", activeReq: dup });
+        return;
+      }
+    }
+
+    // Optimistic local entry (shown immediately)
+    const _now = Date.now();
+    const optimistic = {
+      id: `tmp-${_now}`,
+      user_id: user.id ?? null,
+      type: form.type, size: form.size, budget: form.budget,
+      style: form.style, desc: form.desc,
+      area: user.region ?? "", user: user.name,
+      bids: 0, bidCount: 0, time: "방금", status: "open",
+      createdAt: new Date(_now).toISOString(),
+      expiresAt: new Date(_now + REQUEST_TTL_MS).toISOString(),
+      daysLeft: 7,
+      isExpiredByTime: false,
+      isActive: true,
+      isClosed: false,
+    };
+    setMyRequests(prev => [optimistic, ...prev]);
+    setCustomerRequests(prev => [optimistic, ...prev]);
+    setShowReq(false);
+    showToast("견적 요청을 저장하고 있어요");
+
+    // INSERT to Supabase
+    if (user.id) {
+      // C-1: form.budget 단일 문자열을 budget_min/budget_max 정수로 파싱
+      const { min: budgetMin, max: budgetMax } = parseBudgetRange(form.budget);
+      let data = null;
+      let error = null;
+      try {
+        ({ data, error } = await createRequest({
+        user_id:     user.id,
+        status:      'open',
+        area:        user.region ?? "",
+        space_type:  form.type,
+        size:        form.size,
+        style:       form.style,
+        description: form.desc ?? "",
+        budget_min:  budgetMin,
+        budget_max:  budgetMax,
+        expires_at:  new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
+        }));
+      } catch (saveError) {
+        error = saveError;
+      }
+      setReqCreateDebug({
+        id:         data?.id ?? null,
+        status:     data?.status ?? null,
+        expires_at: data?.expires_at ?? null,
+        space_type: data?.space_type ?? null,
+        user_id:    data?.user_id ?? null,
+        insertError: error?.message ?? null,
+        _note: "신규 견적 요청",
+      });
+      if (error || !data?.id) {
+        // C-5: rollback optimistic UI + toast on failure
+        setMyRequests(prev => prev.filter(r => r.id !== optimistic.id));
+        setCustomerRequests(prev => prev.filter(r => r.id !== optimistic.id));
+        setReqDoneNotice(false);
+        setReqPrefill(form);
+        setShowReq(true);
+        showToast("❌ 저장하지 못했어요. 작성 내용은 남겨 두었으니 다시 시도해주세요.");
+      } else if (data) {
+        showToast("✅ 요청이 접수됐어요");
+        setReqDoneNotice(true);
+        setReqPrefill(null);
+        const saved = normalizeRequest(data);
+        const replace = r => r.id === optimistic.id ? saved : r;
+        setMyRequests(prev => prev.map(replace));
+        setCustomerRequests(prev => prev.map(replace));
+        earnToken("first_quote_request");
+        // 업체 페이지에서 온 요청 — 그 업체에 먼저 알린다(다른 업체도 똑같이 입찰할 수 있다)
+        {
+          const pref = peekPreferredCompany();
+          const ownerId = preferredNotifyTarget(pref, user.id);
+          if (pref) clearPreferredCompany();
+          if (ownerId) {
+            const what = [saved.type ?? form.type, saved.size ?? form.size].filter(Boolean).join(" · ");
+            createNotification({
+              userId: ownerId, type: "NEW_REQUEST", title: PAGE_REQUEST_TITLE,
+              message: `${what || "새 견적 요청"} — 바로 입찰할 수 있어요.`, relatedId: saved.id, relatedType: "request",
+              priority: "HIGH",
+            }).catch(() => {});
+          }
+        }
+        // 라운지 대화에서 이어진 요청 — 그 방에 기록을 남기고, 상대가 승인 업체면 그 업체에도 알린다(09-26 R3).
+        if (reqOrigin?.roomId) {
+          const origin = reqOrigin;
+          setReqOrigin(null);
+          (async () => {
+            let partnerCo = null;
+            try {
+              if (origin.partnerId) {
+                const { data: co } = await supabase.from("companies").select("id, name, company_status")
+                  .eq("owner_id", origin.partnerId).maybeSingle();
+                if (co && (co.company_status == null || co.company_status === "ACTIVE")) partnerCo = co;
+              }
+            } catch { partnerCo = null; }
+            const what = [saved.type ?? form.type, saved.size ?? form.size].filter(Boolean).join(" · ");
+            const line = partnerCo
+              ? `견적 요청을 올렸어요${what ? ` (${what})` : ""}. 대화 중인 업체에도 알렸어요 — 입찰은 앱 안에서 받아요.`
+              : `견적 요청을 올렸어요${what ? ` (${what})` : ""}. 업체들의 견적은 「내 견적」에서 비교할 수 있어요.`;
+            try { await sendMessage(origin.roomId, null, "system", line); } catch { /* 기록 실패해도 요청은 저장됨 */ }
+            if (partnerCo) {
+              createNotification({
+                userId: origin.partnerId, type: "NEW_REQUEST", title: "대화하던 고객이 견적 요청을 올렸어요",
+                message: `${what || "새 견적 요청"} — 바로 입찰할 수 있어요.`, relatedId: saved.id, relatedType: "request",
+              }).catch(() => {});
+            }
+          })();
+        }
+        // 파트너 알림은 서버 트리거가 큐에 넣는다 — 여기선 바로 보내라고 깨우기만.
+        wakePushDispatcher();
+      }
+    }
+    } finally {
+      requestSubmitGuardRef.current = false;
+    }
+  }
+
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Pretendard','Apple SD Gothic Neo',sans-serif" }}>
 
@@ -6420,171 +6588,7 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
         );
       })()}
 
-      {showReq && <RequestModal userId={user?.id ?? null} initialData={reqPrefill} onClose={() => { setShowReq(false); setReqPrefill(null); setReqOrigin(null); }} onDone={async function submitReq(form) {
-        // 약관·베타 안내 확인 — 보내는 순간 한 번(이미 동의했으면 건너뜀). 확인하면 같은 내용으로 이어서 보낸다.
-        if (!form.__consented && !hasConsented(user?.id, CONSUMER_CONSENT_TYPES)) {
-          setConsentGateConfig({
-            types: CONSUMER_CONSENT_TYPES,
-            title: "견적 요청 전 약관 동의",
-            betaKind: "quote",
-            onComplete: () => { setConsentGateConfig(null); submitReq({ ...form, __consented: true }); },
-          });
-          return;
-        }
-        if (requestSubmitGuardRef.current) return;
-        requestSubmitGuardRef.current = true;
-        try {
-        // Pre-insert server-side duplicate guard
-        const overrideTsInsert = localStorage.getItem(OVERRIDE_LS_KEY);
-        if (overrideTsInsert) {
-          const remainingMs = Math.max(0, COOLDOWN_MS - (Date.now() - parseInt(overrideTsInsert, 10)));
-          if (remainingMs > 0) {
-            setShowReq(false);
-            setReqBlock({ type: "COOLDOWN_BLOCK", remainingMs });
-            return;
-          }
-          localStorage.removeItem(OVERRIDE_LS_KEY);
-        }
-        // C-6: block guests before any optimistic update
-        if (!user?.id) {
-          setShowReq(false);
-          showToast("견적 요청은 로그인 후 이용할 수 있어요");
-          return;
-        }
-
-        const { data: dup } = await getActiveRequestByUser(user.id);
-        if (dup) {
-          setShowReq(false);
-          if (dup.status === "open") {
-            const remainingMs = Math.max(0, QUOTE_COOLDOWN_MS - (Date.now() - new Date(dup.created_at).getTime()));
-            if (remainingMs > 0) {
-              setReqBlock({ type: "QUOTE_COMPARISON_BLOCK", activeReq: dup, remainingMs });
-              return;
-            }
-            // 7일 경과 — 허용
-          } else {
-            setReqBlock({ type: "HARD_BLOCK", activeReq: dup });
-            return;
-          }
-        }
-
-        // Optimistic local entry (shown immediately)
-        const _now = Date.now();
-        const optimistic = {
-          id: `tmp-${_now}`,
-          user_id: user.id ?? null,
-          type: form.type, size: form.size, budget: form.budget,
-          style: form.style, desc: form.desc,
-          area: user.region ?? "", user: user.name,
-          bids: 0, bidCount: 0, time: "방금", status: "open",
-          createdAt: new Date(_now).toISOString(),
-          expiresAt: new Date(_now + REQUEST_TTL_MS).toISOString(),
-          daysLeft: 7,
-          isExpiredByTime: false,
-          isActive: true,
-          isClosed: false,
-        };
-        setMyRequests(prev => [optimistic, ...prev]);
-        setCustomerRequests(prev => [optimistic, ...prev]);
-        setShowReq(false);
-        showToast("견적 요청을 저장하고 있어요");
-
-        // INSERT to Supabase
-        if (user.id) {
-          // C-1: form.budget 단일 문자열을 budget_min/budget_max 정수로 파싱
-          const { min: budgetMin, max: budgetMax } = parseBudgetRange(form.budget);
-          let data = null;
-          let error = null;
-          try {
-            ({ data, error } = await createRequest({
-            user_id:     user.id,
-            status:      'open',
-            area:        user.region ?? "",
-            space_type:  form.type,
-            size:        form.size,
-            style:       form.style,
-            description: form.desc ?? "",
-            budget_min:  budgetMin,
-            budget_max:  budgetMax,
-            expires_at:  new Date(Date.now() + REQUEST_TTL_MS).toISOString(),
-            }));
-          } catch (saveError) {
-            error = saveError;
-          }
-          setReqCreateDebug({
-            id:         data?.id ?? null,
-            status:     data?.status ?? null,
-            expires_at: data?.expires_at ?? null,
-            space_type: data?.space_type ?? null,
-            user_id:    data?.user_id ?? null,
-            insertError: error?.message ?? null,
-            _note: "신규 견적 요청",
-          });
-          if (error || !data?.id) {
-            // C-5: rollback optimistic UI + toast on failure
-            setMyRequests(prev => prev.filter(r => r.id !== optimistic.id));
-            setCustomerRequests(prev => prev.filter(r => r.id !== optimistic.id));
-            setReqDoneNotice(false);
-            setReqPrefill(form);
-            setShowReq(true);
-            showToast("❌ 저장하지 못했어요. 작성 내용은 남겨 두었으니 다시 시도해주세요.");
-          } else if (data) {
-            showToast("✅ 요청이 접수됐어요");
-            setReqDoneNotice(true);
-            setReqPrefill(null);
-            const saved = normalizeRequest(data);
-            const replace = r => r.id === optimistic.id ? saved : r;
-            setMyRequests(prev => prev.map(replace));
-            setCustomerRequests(prev => prev.map(replace));
-            earnToken("first_quote_request");
-            // 업체 페이지에서 온 요청 — 그 업체에 먼저 알린다(다른 업체도 똑같이 입찰할 수 있다)
-            {
-              const pref = peekPreferredCompany();
-              const ownerId = preferredNotifyTarget(pref, user.id);
-              if (pref) clearPreferredCompany();
-              if (ownerId) {
-                const what = [saved.type ?? form.type, saved.size ?? form.size].filter(Boolean).join(" · ");
-                createNotification({
-                  userId: ownerId, type: "NEW_REQUEST", title: PAGE_REQUEST_TITLE,
-                  message: `${what || "새 견적 요청"} — 바로 입찰할 수 있어요.`, relatedId: saved.id, relatedType: "request",
-                  priority: "HIGH",
-                }).catch(() => {});
-              }
-            }
-            // 라운지 대화에서 이어진 요청 — 그 방에 기록을 남기고, 상대가 승인 업체면 그 업체에도 알린다(09-26 R3).
-            if (reqOrigin?.roomId) {
-              const origin = reqOrigin;
-              setReqOrigin(null);
-              (async () => {
-                let partnerCo = null;
-                try {
-                  if (origin.partnerId) {
-                    const { data: co } = await supabase.from("companies").select("id, name, company_status")
-                      .eq("owner_id", origin.partnerId).maybeSingle();
-                    if (co && (co.company_status == null || co.company_status === "ACTIVE")) partnerCo = co;
-                  }
-                } catch { partnerCo = null; }
-                const what = [saved.type ?? form.type, saved.size ?? form.size].filter(Boolean).join(" · ");
-                const line = partnerCo
-                  ? `견적 요청을 올렸어요${what ? ` (${what})` : ""}. 대화 중인 업체에도 알렸어요 — 입찰은 앱 안에서 받아요.`
-                  : `견적 요청을 올렸어요${what ? ` (${what})` : ""}. 업체들의 견적은 「내 견적」에서 비교할 수 있어요.`;
-                try { await sendMessage(origin.roomId, null, "system", line); } catch { /* 기록 실패해도 요청은 저장됨 */ }
-                if (partnerCo) {
-                  createNotification({
-                    userId: origin.partnerId, type: "NEW_REQUEST", title: "대화하던 고객이 견적 요청을 올렸어요",
-                    message: `${what || "새 견적 요청"} — 바로 입찰할 수 있어요.`, relatedId: saved.id, relatedType: "request",
-                  }).catch(() => {});
-                }
-              })();
-            }
-            // 파트너 알림은 서버 트리거가 큐에 넣는다 — 여기선 바로 보내라고 깨우기만.
-            wakePushDispatcher();
-          }
-        }
-        } finally {
-          requestSubmitGuardRef.current = false;
-        }
-      }} />}
+      {showReq && <RequestModal userId={user?.id ?? null} initialData={reqPrefill} onClose={() => { setShowReq(false); setReqPrefill(null); setReqOrigin(null); }} onDone={submitReq} />}
 
       {bidAlert && activeRole !== "company" && (
         <div style={{ position:"fixed", inset:0, background:"rgba(31,42,36,0.65)", display:"flex", alignItems:"flex-end", justifyContent:"center", zIndex:400 }}>
