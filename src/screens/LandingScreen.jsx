@@ -214,7 +214,7 @@ function StageProof() {
 
         <Reveal className="lm-sp-body">
           <p className="lm-sp-lead">
-            단열재는 6cm든 3cm든 마감하고 나면 겉은 똑같습니다. 최종 견적서의 약속(6cm)과 시공 중 사진 기록을{" "}
+            단열재는 6cm든 3cm든 마감하고 나면 겉은 똑같습니다. 견적서의 약속과 시공 중 사진과 기록을{" "}
             <b>증거로 함께 확인할 수 있습니다.</b> 약속대로 시공한 업체에게는 그 사실을 보여 주는 기록이 됩니다.
           </p>
           <div className="lm-sp-pair">
