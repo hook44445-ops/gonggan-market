@@ -10,6 +10,7 @@ import {
 import {
   LEGAL_DOCS, SAFE_PAYMENT_NOT_LIVE, safePaymentH1, SAFE_PAYMENT_INTRO, SAFE_PAYMENT_STAGES, SAFE_PAYMENT_AMOUNT_PLANS,
   SAFE_PAYMENT_GUARANTEE_NOTE, SAFE_PAYMENT_PERIOD, SAFE_PAYMENT_PRICE_LINES, SAFE_PAYMENT_BROKER, SAFE_PAYMENT_REFUND,
+  SAFE_PAYMENT_AFTER_CONFIRM_TITLE, SAFE_PAYMENT_AFTER_CONFIRM, SAFE_PAYMENT_AFTER_CONFIRM_NOTE,
   SAFE_PAYMENT_CTA_NOTE, TOKEN_NOT_LIVE, TOKEN_INTRO, TOKEN_PERIOD, TOKEN_MAX_PRICE, TOKEN_USES, TOKEN_REFUND,
   DOWNLOAD_INTRO, DOWNLOAD_STEPS, downloadTrust, segHtml,
 } from '../content/publicPages.js';
@@ -106,6 +107,11 @@ ${live ? '' : `<p>${segHtml(SAFE_PAYMENT_NOT_LIVE)}</p>\n`}<p>${segHtml(SAFE_PAY
 <section>
 <h2>단계별 안전지급 구조</h2>
 <ol>${SAFE_PAYMENT_STAGES.map(([name, desc, pct]) => `<li><strong>${esc(name)}</strong> ${esc(pct)} — ${esc(desc)}</li>`).join('')}</ol>
+</section>
+<section>
+<h2>${esc(SAFE_PAYMENT_AFTER_CONFIRM_TITLE)}</h2>
+<ul>${SAFE_PAYMENT_AFTER_CONFIRM.map(([name, desc]) => `<li><strong>${esc(name)}</strong> — ${esc(desc)}</li>`).join('')}</ul>
+<p>${esc(SAFE_PAYMENT_AFTER_CONFIRM_NOTE)}</p>
 </section>
 <section>
 <h2>공사 금액별 지급 구조</h2>
