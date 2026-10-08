@@ -502,6 +502,10 @@ export default function PlatformEstimateModal({ job, companyId, companyName, use
                 <div style={{ fontSize:11, color:C.text4, lineHeight:1.6, marginBottom:S.sm }}>
                   자재마다 필요한 정보가 달라요. 자유롭게 기록하세요. (향후 AI가 자재명으로 입력항목을 자동 추천)
                 </div>
+                {/* 대표 10-08 — 마감 뒤 안 보이는 자재(단열재 등)는 규격을 적어 두면 단계 사진과 함께 기록이 된다. 약속형 말 없이 «기록으로 남아요» */}
+                <div style={{ fontSize:11.5, color:C.text2, lineHeight:1.6, marginBottom:S.sm, padding:"8px 10px", background:C.bg, borderRadius:R.sm, border:`1px solid ${C.bgWarm}` }}>
+                  <b>예: 단열재 6cm</b> — 두께·규격을 적어 두면 시공 사진과 함께 기록으로 남아요.
+                </div>
                 {materials.map((m, idx) => (
                   <div key={m.id} style={{ background:C.bg, borderRadius:R.md, padding:S.md, marginBottom:S.sm, border:`1px solid ${C.bgWarm}` }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:S.sm }}>
