@@ -11,6 +11,7 @@ import RichText from "../components/RichText";
 import {
   SAFE_PAYMENT_NOT_LIVE, safePaymentH1, SAFE_PAYMENT_INTRO, SAFE_PAYMENT_STAGES, SAFE_PAYMENT_AMOUNT_PLANS,
   SAFE_PAYMENT_GUARANTEE_NOTE, SAFE_PAYMENT_PERIOD, SAFE_PAYMENT_PRICE_LINES, SAFE_PAYMENT_BROKER, SAFE_PAYMENT_REFUND, SAFE_PAYMENT_CTA_NOTE,
+  SAFE_PAYMENT_AFTER_CONFIRM_TITLE, SAFE_PAYMENT_AFTER_CONFIRM, SAFE_PAYMENT_AFTER_CONFIRM_NOTE,
 } from "../content/publicPages";
 import AppFooter from "../components/AppFooter";
 
@@ -132,6 +133,22 @@ export default function SafePaymentScreen() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* 단계를 확인한 뒤에도 불만이 있으면 — 이의 신청 · A/S · 기록 · 단열재 예시(대표 10-08) */}
+        <section style={{ marginBottom: 26 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 800, color: "#2E5F4B", margin: "0 0 12px" }}>
+            {SAFE_PAYMENT_AFTER_CONFIRM_TITLE}
+          </h2>
+          <div style={{ background: "#fff", border: "1px solid #e6ded0", borderRadius: 14, overflow: "hidden" }}>
+            {SAFE_PAYMENT_AFTER_CONFIRM.map(([name, desc], i) => (
+              <div key={name} style={{ padding: "13px 16px", borderBottom: i < SAFE_PAYMENT_AFTER_CONFIRM.length - 1 ? "1px solid #f0ebe1" : "none" }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#3a352c" }}>{name}</div>
+                <div style={{ fontSize: 12.5, color: "#6b6456", lineHeight: 1.65, marginTop: 3 }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: "#8a8272", lineHeight: 1.6, margin: "10px 2px 0" }}>{SAFE_PAYMENT_AFTER_CONFIRM_NOTE}</p>
         </section>
 
         {/* 금액별 지급 구조 — 금액이 클수록 업체 조건이 단단해진다(대표 09-25 「진입은 쉽게, 갈수록 단단하게」) */}

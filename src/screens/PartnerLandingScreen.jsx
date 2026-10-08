@@ -4,9 +4,9 @@ import AppFooter from "../components/AppFooter";
 import InviteWelcome from "../components/InviteWelcome"; // 사업자정보 푸터(법적 필수 · 삭제 금지)
 import CompanyCard from "../components/CompanyCard";
 import { LADDER, limitText } from "../lib/partnerTier";
-import { PARTNER_DEPOSIT_NOTE } from "../utils/siteSeo";
+import { PARTNER_DEPOSIT_NOTE, PATENT_LABEL, PATENT_MESSAGE } from "../utils/siteSeo";
 import { trackPartnerFunnel } from "../lib/partnerFunnel";
-import { SHOW_BETA_UI } from "../constants/release";
+import { SHOW_BETA_UI, PAYMENTS_LIVE } from "../constants/release";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
 import { partnerFaq, pageSeo, faqSchema, breadcrumbSchema } from "../utils/siteSeo";
@@ -105,6 +105,53 @@ const PARTNER_PINGS = [
 function LadderReveal({ children }) {
   const [ref, inView] = useInView({ threshold: 0.2 });
   return <div ref={ref} className={`lm-ladder ${inView ? "is-in" : ""}`} style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>{children}</div>;
+}
+
+// ── 약속대로 시공했다면, 기록이 말해 줍니다 — 업체 관점의 단열재 예시(대표 10-08 · 특허출원 10-2026-0192050) ──
+// 고객 랜딩 «마감하면 안 보이는 단열재 두께» 섹션과 같은 그림(힉스필드 · 글자·숫자 없음), 6cm/3cm는 HTML.
+// ⚠️ 앱에 있는 것만: 최종 견적서 자재 기록(두께·규격 자유입력 · PlatformEstimateModal) · 단계 사진(촬영 위치·시각) ·
+//    대화방 기록 · 이의 신청 시 남은 단계 보류. «지켜 드립니다·분쟁이 생기면·나란히 비교»는 쓰지 않는다 — «증거로 함께 확인 · 기록이 됩니다».
+const PARTNER_PROOF = [
+  { no: "01", t: "견적서에 규격까지", d: "최종 견적서의 자재 기록 칸에 «단열재 6cm»처럼 두께 · 규격을 적어 둡니다." },
+  { no: "02", t: "닫기 전에 사진 한 장", d: "착공 · 중간 · 완료마다 현장 사진을 올리면 촬영 위치 · 시각이 함께 기록됩니다." },
+  { no: "03", t: "승인한 단계만큼",
+    d: PAYMENTS_LIVE
+      ? "고객이 사진을 확인 · 승인한 단계만큼 지급되는 방식입니다. 이의가 들어오면 남은 단계만 보류됩니다."
+      : "고객이 사진을 확인 · 승인한 단계만큼 금액이 확정되는 방식입니다(대금은 지금 계약서대로). 이의가 들어오면 남은 단계만 보류됩니다." },
+];
+
+function PartnerProof() {
+  return (
+    <section className="lm-pp" aria-labelledby="lm-pp-h">
+      <div className="lm-pp-grid">
+        <Reveal>
+          <div className="lm-pp-ip">{PATENT_LABEL}</div>
+          <h2 id="lm-pp-h" className="lm-pp-h">약속대로 시공했다면,<br /><em>기록이 말해 줍니다</em></h2>
+          <p className="lm-pp-lead">
+            단열재를 6cm로 견적 냈다면, 마감한 뒤에는 고객도 두께를 알 수 없습니다. 최종 견적서에 적은 자재 · 규격과
+            단계마다 올린 시공 사진이 함께 남아, 견적서의 약속과 시공 중 사진과 기록을 증거로 함께 확인할 수 있습니다.
+            <b> 약속대로 시공한 업체에게는 그 사실을 보여 주는 기록이 됩니다.</b>
+          </p>
+        </Reveal>
+        <Reveal delay={0.1} className="lm-pp-scene">
+          <img src="/images/landing/insulation-section.webp" srcSet="/images/landing/insulation-section-sm.webp 900w, /images/landing/insulation-section.webp 1600w"
+            sizes="(min-width: 960px) 540px, 100vw" loading="lazy"
+            alt="마감면은 똑같지만 옆 단면을 보면 왼쪽은 단열재가 두껍고 오른쪽은 얇은 두 벽체 시료" />
+          <span className="lm-pp-mm lm-pp-mm-l">6cm</span>
+          <span className="lm-pp-mm lm-pp-mm-r">3cm</span>
+          <span className="lm-pp-same">마감면은 똑같아요</span>
+        </Reveal>
+      </div>
+      <Reveal delay={0.05}>
+        <ol className="lm-pp-flow">
+          {PARTNER_PROOF.map((f) => (
+            <li key={f.no}><span className="lm-pp-no">{f.no}</span><span><b>{f.t}</b><span>{f.d}</span></span></li>
+          ))}
+        </ol>
+        <p className="lm-pp-msg"><b>{PATENT_LABEL}</b> · {PATENT_MESSAGE}</p>
+      </Reveal>
+    </section>
+  );
 }
 
 // ── FAQ section(V1.5) ──────────────────────────────────────────────────────────
@@ -347,6 +394,9 @@ export default function PartnerLandingScreen() {
           </div>
         </div>
 
+        {/* ── 약속대로 시공했다면, 기록이 말해 줍니다 — 업체의 하루 다음에 «추가»(대표 10-08 · 기존 섹션 그대로) ── */}
+        <PartnerProof />
+
         {/* ── TIMELINE : 신청부터 수주까지 (dot 32px 일관 · 카드별 배지 · 중앙 연결선) ── */}
         <div style={{ padding: "36px 0" }}>
           <h3 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 16px" }}>가입부터 프리미엄까지</h3>
@@ -486,6 +536,32 @@ export default function PartnerLandingScreen() {
       {/* ── 모바일 하단 고정 CTA (골드 그라데이션 단일 버튼 · 검은테두리 제거 + 옅은 베이지 띠 + shimmer) ── */}
       <style>{`
         .gm-beta-dot{ animation: gmBlink 1.8s infinite }
+        .lm-pp{ margin: 0 0 30px; border-radius: 26px; padding: 28px 22px; color: #F4F6FA;
+          background: radial-gradient(120% 80% at 0% 0%, #24406B 0%, #1A2E4E 50%, #16202E 100%) }
+        .lm-pp-grid{ display: grid; gap: 20px }
+        @media (min-width: 960px){ .lm-pp{ padding: 40px 40px 32px } .lm-pp-grid{ grid-template-columns: 1fr 1.1fr; gap: 36px; align-items: center } }
+        .lm-pp-ip{ display: inline-block; padding: 5px 12px; border: 1px solid rgba(200,168,106,.7); border-radius: 999px; color: #D9C49A; font-size: 12px; font-weight: 800 }
+        .lm-pp-h{ font-size: clamp(23px,4.8vw,32px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.3; margin: 14px 0 12px; word-break: keep-all }
+        .lm-pp-h em{ font-style: normal; color: #D9C49A }
+        .lm-pp-lead{ font-size: 14px; line-height: 1.75; color: rgba(244,246,250,.8); margin: 0; word-break: keep-all }
+        .lm-pp-lead b{ color: #fff }
+        .lm-pp-scene{ position: relative; border-radius: 20px; overflow: hidden; box-shadow: 0 22px 44px rgba(0,0,0,.3) }
+        .lm-pp-scene img{ display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover }
+        .lm-pp-mm{ position: absolute; top: 15%; transform: translateX(-50%); padding: 4px 10px; border-radius: 999px; font-size: clamp(12px,2.6vw,15px); font-weight: 800;
+          background: #16202E; color: #D9C49A; border: 1px solid rgba(200,168,106,.8) }
+        .lm-pp-mm::after{ content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: clamp(10px,3vw,22px); background: rgba(22,32,46,.7) }
+        .lm-pp-mm-l{ left: 28.4% } .lm-pp-mm-r{ left: 59.8% }
+        .lm-pp-same{ position: absolute; right: 12px; bottom: 12px; font-size: 11.5px; font-weight: 800; color: #16202E; background: rgba(243,245,248,.93); border-radius: 999px; padding: 4px 10px }
+        @media (max-width: 600px){ .lm-pp-scene img{ aspect-ratio: 4 / 3 } .lm-pp-mm-l{ left: 21.2% } .lm-pp-mm-r{ left: 63.1% } }
+        .lm-pp-flow{ list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 10px }
+        @media (min-width: 780px){ .lm-pp-flow{ grid-template-columns: repeat(3,1fr) } }
+        .lm-pp-flow li{ display: flex; gap: 10px; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1) }
+        .lm-pp-no{ flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: rgba(200,168,106,.18); color: #D9C49A; font-size: 10.5px; font-weight: 800 }
+        .lm-pp-flow b{ display: block; font-size: 13.5px; font-weight: 800; letter-spacing: -0.02em }
+        .lm-pp-flow li span span{ display: block; font-size: 12px; line-height: 1.55; color: rgba(244,246,250,.72); margin-top: 3px; word-break: keep-all }
+        .lm-pp-msg{ font-size: 12.5px; line-height: 1.65; color: rgba(244,246,250,.75); margin: 14px 0 0; word-break: keep-all }
+        .lm-pp-msg b{ color: #D9C49A }
+        @media (max-width: 380px){ .lm-pp{ padding: 24px 16px; border-radius: 20px } }
         @media (max-width: 699px){ .gm-phero{ background: linear-gradient(180deg, rgba(22,41,74,.96) 0%, rgba(22,41,74,.84) 52%, rgba(22,41,74,.5) 100%), url(/images/partner/hero-cool-tall.webp) center/cover no-repeat, #16294A !important } }
         @media (min-width: 780px){ .gm-rcard-wrap{ grid-template-columns: 1.1fr 1fr; gap: 40px !important } }
         /* 업체의 하루 — 넓은 화면에서는 2열, 더 넓으면 사진이 옆으로(고객 랜딩과 같은 규칙) */

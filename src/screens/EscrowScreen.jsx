@@ -30,6 +30,14 @@ import TokenNeededNote from "../components/TokenNeededNote"; // 토큰 없는 �
 
 // 단계 사진 자동 승인(A3, migration 112) — 서버 설정(ops_config.auto_approve_hours)을 읽어 켜진 경우에만
 // 카운트다운·「자동 승인」 문구를 보인다. 기준 시각은 업체가 사진을 올린 서버 시각(escrow_payouts.ready_at).
+// 견적서 확인 포인트(대표 10-08) — 고객 단계 확인 카드에 한 줄. 마감 뒤 안 보이는 것(단열재 두께 등)은 닫기 전 사진이 기록이 된다.
+//   안내만(새 기능 없음): 사진·확인 기록이 앱에 남는 것은 실제(project_checkpoints · escrow_payouts).
+const QUOTE_CHECK = {
+  3: "최종 견적서에 적힌 공정·자재가 착공 사진에 보이는지 확인해 보세요. 사진과 확인 기록은 앱에 남아요.",
+  4: "마감하면 안 보이는 자재·규격(예: 단열재 6cm)이 최종 견적서와 같은지 사진으로 확인해 보세요. 사진과 확인 기록은 앱에 남아요.",
+  5: "최종 견적서의 공정·자재와 A/S(하자보수) 기간을 다시 확인해 보세요. 사진과 확인 기록은 공사가 끝난 뒤에도 남아요.",
+};
+
 function CountdownTimer({ deadlineMs, hours }) {
   const [remaining, setRemaining] = useState(() => deadlineMs ? Math.max(0, deadlineMs - Date.now()) : 0);
   useEffect(() => {
@@ -2015,6 +2023,14 @@ export default function EscrowScreen({ onBack, activeRole, selectedBid, contract
                           {LIGHT_CHECK[s.id].map((t) => (
                             <div key={t} style={{ fontSize: 12, color: C.text2, lineHeight: 1.6 }}>· {t}</div>
                           ))}
+                        </div>
+                      )}
+                      {/* 견적서 확인 포인트(대표 10-08 · 단열재 예시) — 안내만. 견적서를 이 화면에 띄우는 기능은 아직 없다(PR 본문 «제안»).
+                          «나란히 비교·자동 대조»처럼 새 기능으로 읽히는 말은 쓰지 않는다. */}
+                      {QUOTE_CHECK[s.id] && (
+                        <div style={{ background: C.surface, borderRadius: R.md, padding: "10px 12px", marginBottom: S.md, border: `1px solid ${C.bgWarm}` }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 800, color: C.text1, marginBottom: 4 }}>견적서 확인 포인트{s.id === 4 ? " · 벽·천장 닫기 전" : ""}</div>
+                          <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6 }}>{QUOTE_CHECK[s.id]}</div>
                         </div>
                       )}
                       {s.id !== 4 && (
