@@ -109,3 +109,12 @@ test("금액 표기 · 수단 목록(가상계좌 먼저 · 요금 차이 표시
   assert.equal(BUNDLE_METHODS[0].id, "VIRTUAL_ACCOUNT");
   assert.ok(BUNDLE_METHODS.every((m) => !/%|수수료|추가 요금|\+/.test(`${m.label}${m.desc}`)));
 });
+
+test("환불 기한 = 접수일 + 3영업일(토·일 빼고)", async () => {
+  const { addBusinessDays } = await import("./bundlePay.js");
+  const ymd = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  assert.equal(ymd(addBusinessDays(new Date(2026, 9, 7, 15))), "10/12");   // 수요일 접수 → 목·금·월 → 10/12(월)
+  assert.equal(ymd(addBusinessDays(new Date(2026, 9, 9, 10))), "10/14");   // 금요일 접수 → 월·화·수
+  assert.equal(ymd(addBusinessDays(new Date(2026, 9, 10, 10))), "10/14");  // 토요일 접수 → 월·화·수
+  assert.equal(addBusinessDays("not a date"), null);
+});

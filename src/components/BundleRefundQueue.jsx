@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { C, R, S } from "../constants";
 import { adminBundleRefundList, adminBundleRefundSet } from "../lib/supabase";
 import { authHeader } from "../lib/session";
-import { fmtWon } from "../lib/bundlePay";
+import { fmtWon, addBusinessDays, REFUND_BUSINESS_DAYS } from "../lib/bundlePay";
 
 export default function BundleRefundQueue({ userId, showToast, setConfirm }) {
   const [rows, setRows] = useState([]);
@@ -56,6 +56,9 @@ export default function BundleRefundQueue({ userId, showToast, setConfirm }) {
       {rows.map((row) => {
         const orders = Array.isArray(row.orders) ? row.orders : [];
         const allDone = orders.length > 0 && orders.every((o) => refunded[o.order_id]);
+        // 환불 기한 = 접수일 + 3영업일(청약철회 환급 원칙) — 지나면 빨갛게
+        const due = addBusinessDays(row.created_at);
+        const overdue = due && Date.now() > due.getTime();
         return (
           <div key={row.id} style={{ background: C.surface, borderRadius: R.lg, padding: S.md, marginTop: S.md, border: `1px solid ${C.bgWarm}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: S.sm }}>
@@ -65,6 +68,11 @@ export default function BundleRefundQueue({ userId, showToast, setConfirm }) {
             <div style={{ fontSize: 11.5, color: C.text3, marginTop: 2 }}>
               {new Date(row.created_at).toLocaleString("ko-KR")}{row.reason ? ` · “${row.reason}”` : ""}
             </div>
+            {due && (
+              <div style={{ fontSize: 12, fontWeight: 800, marginTop: 4, color: overdue ? C.red : "#8A6420" }}>
+                환불 기한 {due.getMonth() + 1}월 {due.getDate()}일(접수 + {REFUND_BUSINESS_DAYS}영업일){overdue ? " · 기한 지남" : ""}
+              </div>
+            )}
             {orders.map((o) => (
               <div key={o.order_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: S.sm, marginTop: 6, fontSize: 12, color: C.text2 }}>
                 <span>{o.method === "VIRTUAL_ACCOUNT" ? "가상계좌" : "카드"} {fmtWon(o.amount_won)}</span>

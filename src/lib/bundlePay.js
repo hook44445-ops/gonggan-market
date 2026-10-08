@@ -24,6 +24,21 @@ export const BUNDLE_METHODS = [
 
 export const toWon = (manwon) => Math.round((Number(manwon) || 0) * 10_000);
 
+// 환불 기한 — 청약철회 시 3영업일 안에 환급(법률 검토 10-08). 접수일 다음 날부터 토·일을 빼고 센다.
+//   공휴일은 빼지 않는다(달력이 없다) — 연휴 앞뒤엔 관리자가 더 일찍 처리한다.
+export const REFUND_BUSINESS_DAYS = 3;
+export function addBusinessDays(date, n = REFUND_BUSINESS_DAYS) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  let left = n;
+  while (left > 0) {
+    d.setDate(d.getDate() + 1);
+    const w = d.getDay();
+    if (w !== 0 && w !== 6) left--;
+  }
+  return d;
+}
+
 // 고객 결제 화면 한 줄(대표 10-08) — 묶음·한 번에 결제 둘 다. 카드·가상계좌 수수료는 고객 화면 어디에도 쓰지 않는다.
 export const NO_EXTRA_CHARGE = "어떤 수단으로 내셔도 추가 요금은 없습니다";
 
