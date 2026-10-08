@@ -26,7 +26,11 @@
 --    bundle_part_settle(주문번호, 토스 결과)      서버만 — 토스 승인·입금 통보 결과 반영 → 묶음 PAID → 모두면 계약 확정
 --    bundle_part_abandon(주문번호)               고객만 — 결제창을 닫고 돌아오면 그 건을 닫아 남은 금액을 바로 다시 연다
 --    bundle_va_due_tick()                       서버·pg_cron — 입금 기한 하루 전 알림 · 기한 지난 계좌 닫기
---  대표에게 물을 것(코드는 설정값·TODO): 기한 지나 일부만 낸 계약 처리(자동 환불 여부) → ops_config.bundle_expired_policy
+--    bundle_refund_request(요청, 사유)          고객만 — 기한이 지나 멈춘 결제: «이어서 내기» 대신 «환불 요청»(관리자 처리 큐로)
+--    admin_bundle_refund_list / _set           관리자 — 환불 요청 큐 · 처리 완료/반려(실제 환불은 결제관리의 «결제 취소(환불)»)
+--    bundle_part_refunded(주문번호)             서버만 — 관리자 환불(api/confirm-payment cancel) 뒤 그 결제 건을 묶음 진행에서 뺀다
+--  대표 결정(10-08): 기한 지나 일부만 낸 경우 자동 환불은 없다 — 낸 돈은 보류하고 알리고, 이어서 낼지 환불받을지는 «고객이 판단».
+--    공간안전결제 이용료는 고객 금액에 더하지 않는다 — 업체 지급분에서 빠진다(escrow_payouts.platform_fee · net_amount, 112 트리거).
 --  확인 칸(맨 아래 select) — 모두 true 면 끝.
 -- ============================================================
 
@@ -36,8 +40,9 @@ set search_path = public, extensions;
 alter table public.ops_config add column if not exists bundle_pay_open       boolean not null default false; -- 토스 OK 뒤 대표가 true
 alter table public.ops_config add column if not exists bundle_va_due_days    int     not null default 7;     -- 가상계좌 입금 기한(일)
 alter table public.ops_config add column if not exists bundle_card_hold_min  int     not null default 30;    -- 카드 창을 열고 끝내지 않은 건이 금액을 잡는 시간
--- 기한 지나 일부만 낸 계약 — 지금은 'HOLD'(낸 돈 그대로 두고 고객·관리자 알림)만 구현. 'REFUND'(자동 환불)는 대표 결정 뒤.
-alter table public.ops_config add column if not exists bundle_expired_policy text    not null default 'HOLD';
+-- 기한 지나 일부만 낸 계약(대표 10-08) — 'CUSTOMER_CHOICE': 낸 돈은 그대로 두고 알린 뒤, 고객이 «이어서 내기 / 환불 요청»을 고른다.
+--   환불 요청은 관리자 처리 큐(admin_bundle_refund_list)로 간다. 자동 환불은 하지 않는다.
+alter table public.ops_config add column if not exists bundle_expired_policy text    not null default 'CUSTOMER_CHOICE';
 
 -- 2) 표 --------------------------------------------------------------------------
 create table if not exists public.payment_bundles (
@@ -78,6 +83,23 @@ create table if not exists public.payment_bundle_parts (
 create index if not exists payment_bundle_parts_bundle_idx  on public.payment_bundle_parts (bundle_id);
 create index if not exists payment_bundle_parts_request_idx on public.payment_bundle_parts (request_id);
 create index if not exists payment_bundle_parts_due_idx     on public.payment_bundle_parts (due_at) where status = 'WAITING_FOR_DEPOSIT';
+
+-- 고객의 환불 요청(관리자 처리 큐) — 요청당 열린 요청은 하나
+create table if not exists public.bundle_refund_requests (
+  id          uuid primary key default gen_random_uuid(),
+  request_id  uuid not null,
+  user_id     uuid not null,
+  paid_won    bigint not null default 0,                -- 요청 때 낸 금액(참고 — 실제 환불은 결제 건마다)
+  reason      text,
+  status      text not null default 'REQUESTED' check (status in ('REQUESTED', 'DONE', 'REJECTED')),
+  admin_note  text,
+  handled_by  uuid,
+  handled_at  timestamptz,
+  created_at  timestamptz not null default now()
+);
+create unique index if not exists bundle_refund_requests_open_uq on public.bundle_refund_requests (request_id) where status = 'REQUESTED';
+alter table public.bundle_refund_requests enable row level security;
+revoke all on public.bundle_refund_requests from anon, authenticated;
 
 alter table public.payment_bundles      enable row level security;
 alter table public.payment_bundle_parts enable row level security;
@@ -238,7 +260,7 @@ returns jsonb language plpgsql security definer
 set search_path = public, extensions as $$
 declare
   v_uid uuid := auth.uid(); v_req public.requests; v_cust boolean; v_comp boolean; v_admin boolean;
-  v_ops public.ops_config; v_saved boolean; v_bundles jsonb; v_src jsonb; v_escrow uuid;
+  v_ops public.ops_config; v_saved boolean; v_bundles jsonb; v_src jsonb; v_escrow uuid; v_stalled boolean; v_refund jsonb;
 begin
   if v_uid is null then return jsonb_build_object('error', 'LOGIN_REQUIRED'); end if;
   select * into v_req from public.requests where id = p_request_id;
@@ -280,7 +302,18 @@ begin
       from jsonb_array_elements(public.bundle_split(v_src -> 'lines')) x;
   end if;
 
+  v_stalled := v_escrow is null
+    and exists (select 1 from public.payment_bundle_parts p where p.request_id = p_request_id and p.status = 'DONE')
+    and exists (select 1 from public.payment_bundle_parts p where p.request_id = p_request_id and p.status = 'EXPIRED' and p.method = 'VIRTUAL_ACCOUNT')
+    and not exists (select 1 from public.payment_bundle_parts p where p.request_id = p_request_id and p.status <> 'DONE'
+                     and public._bundle_part_holds(p, v_ops.bundle_card_hold_min));
+  select jsonb_build_object('status', f.status, 'created_at', f.created_at, 'paid_won', f.paid_won, 'handled_at', f.handled_at)
+    into v_refund
+    from public.bundle_refund_requests f where f.request_id = p_request_id order by f.created_at desc limit 1;
+
   return jsonb_build_object(
+    -- 멈춘 결제 — 일부 냈고, 기한 지난 가상계좌가 있고, 지금 기다리는 입금이 없고, 계약 전. 고객이 «이어서 내기 / 환불 요청»을 고른다.
+    'stalled', v_stalled, 'refund_request', v_refund,
     'saved', v_saved, 'open', coalesce(v_ops.bundle_pay_open, false) and not coalesce(v_ops.pause_new_payments, false),
     'va_due_days', coalesce(v_ops.bundle_va_due_days, 7), 'escrow_id', v_escrow,
     'bundles', v_bundles,
@@ -328,6 +361,10 @@ begin
   -- 계약은 사업자부터(A안) — 선택 업체의 사업자 확인 전이면 결제를 시작하지 않는다
   if not exists (select 1 from public.companies c where v_req.selected_company_id in (c.id, c.owner_id) and coalesce(c.verified, false)) then
     return jsonb_build_object('error', 'BIZ_REQUIRED');
+  end if;
+  -- 고객이 환불을 요청해 둔 공사 — 관리자가 처리하기 전엔 새로 받지 않는다
+  if exists (select 1 from public.bundle_refund_requests f where f.request_id = p_request_id and f.status = 'REQUESTED') then
+    return jsonb_build_object('error', 'REFUND_REQUESTED');
   end if;
 
   -- 묶음 저장 — 처음 결제할 때. 결제 건이 하나도 없으면 견적서가 바뀐 경우 다시 나눈다(결제가 시작된 뒤엔 그대로).
@@ -552,14 +589,115 @@ end; $$;
 revoke execute on function public.bundle_part_abandon(text) from public, anon;
 grant execute on function public.bundle_part_abandon(text) to authenticated;
 
+-- 환불 요청(고객) — 기한이 지나 멈춘 결제에서만. 관리자 처리 큐로 가고, 그동안 새 결제는 받지 않는다.
+create or replace function public.bundle_refund_request(p_request_id uuid, p_reason text default null)
+returns jsonb language plpgsql security definer
+set search_path = public, extensions as $$
+declare v_uid uuid := auth.uid(); v_req public.requests; v_hold int; v_paid bigint; v_id uuid;
+begin
+  if v_uid is null then return jsonb_build_object('error', 'LOGIN_REQUIRED'); end if;
+  perform pg_advisory_xact_lock(hashtextextended('bundle:' || p_request_id::text, 0));
+  select * into v_req from public.requests where id = p_request_id;
+  if v_req.id is null then return jsonb_build_object('error', 'NOT_FOUND'); end if;
+  if v_req.user_id is distinct from v_uid then return jsonb_build_object('error', 'NOT_OWNER'); end if;
+  if exists (select 1 from public.escrow_payments e where e.request_id = p_request_id
+              and coalesce(e.transaction_status, '') not in ('CANCELLED', 'REFUNDED')) then
+    return jsonb_build_object('error', 'ALREADY_CONTRACTED');
+  end if;
+  if exists (select 1 from public.bundle_refund_requests f where f.request_id = p_request_id and f.status = 'REQUESTED') then
+    return jsonb_build_object('status', 'already');
+  end if;
+  select coalesce(bundle_card_hold_min, 30) into v_hold from public.ops_config where id = 1;
+  select coalesce(sum(amount_won), 0) into v_paid from public.payment_bundle_parts where request_id = p_request_id and status = 'DONE';
+  if v_paid <= 0 then return jsonb_build_object('error', 'NOTHING_PAID'); end if;
+  if not exists (select 1 from public.payment_bundle_parts p where p.request_id = p_request_id and p.status = 'EXPIRED' and p.method = 'VIRTUAL_ACCOUNT') then
+    return jsonb_build_object('error', 'NOT_STALLED');
+  end if;
+  if exists (select 1 from public.payment_bundle_parts p where p.request_id = p_request_id and p.status <> 'DONE'
+              and public._bundle_part_holds(p, v_hold)) then
+    return jsonb_build_object('error', 'PENDING_DEPOSIT');            -- 아직 입금을 기다리는 계좌가 있다
+  end if;
+  insert into public.bundle_refund_requests (request_id, user_id, paid_won, reason)
+  values (p_request_id, v_uid, v_paid, left(nullif(trim(coalesce(p_reason, '')), ''), 500))
+  returning id into v_id;
+  insert into public.notifications (user_id, type, title, message, related_id, related_type)
+  select u.id, 'BUNDLE_REFUND_REQUESTED', '분할 결제 환불 요청이 왔어요',
+         '고객이 낸 ' || public._won_text(v_paid) || ' 환불을 요청했어요. 결제관리에서 처리해 주세요.', p_request_id, 'request'
+    from public.users u where u.role = 'admin';
+  insert into public.notifications (user_id, type, title, message, related_id, related_type)
+  values (v_uid, 'BUNDLE_REFUND_REQUESTED', '환불 요청을 받았어요',
+          '낸 ' || public._won_text(v_paid) || '을 확인한 뒤 환불해 드릴게요.', p_request_id, 'request');
+  return jsonb_build_object('status', 'ok', 'id', v_id, 'paid_won', v_paid);
+end; $$;
+revoke execute on function public.bundle_refund_request(uuid, text) from public, anon;
+grant execute on function public.bundle_refund_request(uuid, text) to authenticated;
+
+-- 관리자 처리 큐 — 열린 요청(먼저 온 순) · 고객 · 환불할 결제 건(주문번호)
+create or replace function public.admin_bundle_refund_list()
+returns jsonb language plpgsql stable security definer
+set search_path = public, extensions as $$
+begin
+  if not exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin') then raise exception 'ADMIN_ONLY'; end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', f.id, 'request_id', f.request_id, 'paid_won', f.paid_won, 'reason', f.reason, 'created_at', f.created_at,
+             'customer', (select jsonb_build_object('name', u.name, 'phone', u.phone) from public.users u where u.id = f.user_id),
+             'orders', coalesce((select jsonb_agg(jsonb_build_object('order_id', p.order_id, 'amount_won', p.amount_won,
+                                                                     'method', p.method, 'paid_at', p.paid_at) order by p.paid_at)
+                                   from public.payment_bundle_parts p where p.request_id = f.request_id and p.status = 'DONE'), '[]'::jsonb))
+           order by f.created_at)
+      from public.bundle_refund_requests f where f.status = 'REQUESTED'), '[]'::jsonb);
+end; $$;
+revoke execute on function public.admin_bundle_refund_list() from public, anon;
+grant execute on function public.admin_bundle_refund_list() to authenticated;
+
+create or replace function public.admin_bundle_refund_set(p_id uuid, p_status text, p_note text default null)
+returns jsonb language plpgsql security definer
+set search_path = public, extensions as $$
+declare f public.bundle_refund_requests;
+begin
+  if not exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin') then raise exception 'ADMIN_ONLY'; end if;
+  if p_status not in ('DONE', 'REJECTED') then return jsonb_build_object('error', 'BAD_STATUS'); end if;
+  update public.bundle_refund_requests
+     set status = p_status, admin_note = p_note, handled_by = auth.uid(), handled_at = now()
+   where id = p_id and status = 'REQUESTED' returning * into f;
+  if f.id is null then return jsonb_build_object('error', 'NOT_OPEN'); end if;
+  insert into public.notifications (user_id, type, title, message, related_id, related_type)
+  values (f.user_id, 'BUNDLE_REFUND_' || p_status,
+          case when p_status = 'DONE' then '환불을 마쳤어요' else '환불 요청을 처리하지 못했어요' end,
+          case when p_status = 'DONE' then '낸 금액을 결제한 수단으로 돌려드렸어요. 카드사·은행에 따라 며칠 걸릴 수 있어요.'
+               else coalesce(nullif(p_note, ''), '자세한 내용은 고객센터로 문의해 주세요.') end,
+          f.request_id, 'request');
+  insert into public.admin_logs (admin_id, action, target_type, target_id, after_val, reason)
+  values (auth.uid(), 'BUNDLE_REFUND_' || p_status, 'request', f.request_id, jsonb_build_object('refund_request', f.id), p_note);
+  return jsonb_build_object('status', 'ok');
+end; $$;
+revoke execute on function public.admin_bundle_refund_set(uuid, text, text) from public, anon;
+grant execute on function public.admin_bundle_refund_set(uuid, text, text) to authenticated;
+
+-- 관리자 환불(api/confirm-payment action=cancel) 뒤 — 그 결제 건을 묶음 진행에서 뺀다(서버만)
+create or replace function public.bundle_part_refunded(p_order_id text)
+returns jsonb language plpgsql security definer
+set search_path = public, extensions as $$
+declare p public.payment_bundle_parts;
+begin
+  update public.payment_bundle_parts set status = 'CANCELED'
+   where order_id = p_order_id and status = 'DONE' returning * into p;
+  if p.id is null then return jsonb_build_object('status', 'unchanged'); end if;
+  perform public._bundle_recalc(p.bundle_id);
+  return jsonb_build_object('status', 'ok');
+end; $$;
+revoke execute on function public.bundle_part_refunded(text) from public, anon, authenticated;
+grant  execute on function public.bundle_part_refunded(text) to service_role;
+
 -- 9) 입금 기한 — 하루 전 알림 · 기한 지난 계좌 닫기 (pg_cron 매시간 · 없으면 /api/push/dispatch 가 돌 때) ------
 create or replace function public.bundle_va_due_tick()
 returns jsonb language plpgsql security definer
 set search_path = public, extensions as $$
 declare r record; v_reminded int := 0; v_expired int := 0; v_policy text;
 begin
-  select coalesce(bundle_expired_policy, 'HOLD') into v_policy from public.ops_config where id = 1;
-  v_policy := coalesce(v_policy, 'HOLD');
+  select coalesce(bundle_expired_policy, 'CUSTOMER_CHOICE') into v_policy from public.ops_config where id = 1;
+  v_policy := coalesce(v_policy, 'CUSTOMER_CHOICE');
 
   -- ① 하루 전 알림 — 한 번만
   for r in
@@ -585,17 +723,22 @@ begin
      for update of p skip locked
   loop
     update public.payment_bundle_parts set status = 'EXPIRED' where id = r.id;
-    insert into public.notifications (user_id, type, title, message, related_id, related_type)
-    values (r.user_id, 'BUNDLE_VA_EXPIRED', '입금 기한이 지나 계좌가 닫혔어요',
-            public._won_text(r.amount_won) || ' 계좌는 더 이상 받지 않아요. 남은 금액은 결제 화면에서 다시 나눠 낼 수 있어요.',
-            r.request_id, 'request');
-    -- TODO(대표 결정): 일부만 낸 채 멈춘 계약 — v_policy = 'REFUND' 면 낸 금액 자동 환불(토스 취소 API, 서버).
-    --   지금은 'HOLD'만: 낸 금액은 그대로 두고 관리자에게 알린다(관리자가 연락·환불 판단).
+    -- 대표 10-08: 자동 환불 없음. 낸 돈은 그대로 두고 알린다 — 이어서 낼지 환불받을지는 고객이 결제 화면에서 고른다.
     if exists (select 1 from public.payment_bundle_parts x where x.request_id = r.request_id and x.status = 'DONE') then
       insert into public.notifications (user_id, type, title, message, related_id, related_type)
+      values (r.user_id, 'BUNDLE_VA_EXPIRED', '입금 기한이 지나 계좌가 닫혔어요',
+              public._won_text(r.amount_won) || ' 계좌는 더 이상 받지 않아요. 낸 금액은 그대로 있어요 — 결제 화면에서 이어서 내거나 환불을 요청할 수 있어요.',
+              r.request_id, 'request');
+      insert into public.notifications (user_id, type, title, message, related_id, related_type)
       select u.id, 'BUNDLE_STALLED', '분할 결제가 멈춘 공사가 있어요',
-             '입금 기한이 지난 계좌가 있고 일부 묶음만 결제됐어요(처리: ' || v_policy || '). 고객에게 연락해 주세요.', r.request_id, 'request'
+             '입금 기한이 지난 계좌가 있고 일부 묶음만 결제됐어요. 고객이 이어서 낼지 환불을 요청할지 고릅니다(처리: ' || v_policy || ').',
+             r.request_id, 'request'
         from public.users u where u.role = 'admin';
+    else
+      insert into public.notifications (user_id, type, title, message, related_id, related_type)
+      values (r.user_id, 'BUNDLE_VA_EXPIRED', '입금 기한이 지나 계좌가 닫혔어요',
+              public._won_text(r.amount_won) || ' 계좌는 더 이상 받지 않아요. 결제 화면에서 다시 나눠 낼 수 있어요.',
+              r.request_id, 'request');
     end if;
     v_expired := v_expired + 1;
   end loop;
@@ -624,4 +767,5 @@ select
      = '철거·도배,바닥 1차,바닥 2차'                                                                  as split_limit_ok,
   not has_function_privilege('anon', 'public.bundle_part_start(uuid,int,bigint,text)', 'execute')    as start_no_anon_ok,
   not has_function_privilege('authenticated', 'public.bundle_part_settle(text,jsonb)', 'execute')    as settle_server_only_ok,
-  (select not bundle_pay_open from public.ops_config where id = 1)                                    as still_closed_ok;
+  (select not bundle_pay_open from public.ops_config where id = 1)                                    as still_closed_ok,
+  exists (select 1 from pg_proc where proname = 'admin_bundle_refund_list')                            as refund_queue_ok;

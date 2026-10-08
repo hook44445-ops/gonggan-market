@@ -157,6 +157,7 @@ import LoungeInsightsDashboard from "../components/LoungeInsightsDashboard";
 import { toE164KR } from "../lib/testAccounts";
 import { zodiacPrompt, zodiacTitle } from "../lib/zodiacHoroscope";
 import { todayRows, sortTodayRows, mergeReports } from "../lib/adminInbox";
+import BundleRefundQueue from "../components/BundleRefundQueue"; // 분할 결제 환불 요청 큐(SQL 205 · 대표 10-08)
 
 // 라운지 시딩 카테고리 — 통합 Category Master(LOUNGE_CATEGORIES) 기준. 작성 가능 카테고리만 사용.
 // 관리자/사용자/글쓰기/라운지피드가 동일 마스터를 공유(오래된 slug worry/food/chat 제거).
@@ -7361,6 +7362,7 @@ export default function AdminScreen({ onBack, onHome, user }) {
             {/* ── Payment Management ── */}
             {mainTab === "payments" && (
               <div>
+                <BundleRefundQueue userId={user?.id} showToast={showToast} setConfirm={setConfirm} />
                 <div style={{ display: "flex", gap: S.xs, marginBottom: S.lg, overflowX: "auto" }}>
                   {[["all","전체"], ["PENDING","대기"], ["PAID","완료"], ["FAILED","실패"], ["REFUNDED","환불"]].map(([v, l]) => (
                     <button key={v} onClick={() => setPaymentFilter(v)}

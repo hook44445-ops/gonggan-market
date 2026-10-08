@@ -167,7 +167,7 @@ const TOKEN_RPCS = new Set(["escrow_action", "phase_photos_add", "ops_config_set
   // 173 — 고객이 견적을 봤다고 업체에 알림(요청 주인)
   "bids_mark_viewed",
   // 205 — 공정 묶음 분할 결제(보기: 당사자 · 결제 시작·창 닫음: 요청 주인)
-  "bundle_plan_get", "bundle_part_start", "bundle_part_abandon"]);
+  "bundle_plan_get", "bundle_part_start", "bundle_part_abandon", "bundle_refund_request"]);
 export function isTokenRpc(fn) { return TOKEN_RPCS.has(String(fn || "")); }
 
 export function isGuardedRpc(fn) {

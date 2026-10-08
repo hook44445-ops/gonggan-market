@@ -138,3 +138,19 @@ test("입금 통보(웹훅) — secret 이 맞으면 토스에서 다시 읽어 
   res = await call({ orderId: "gm_x_1", secret: "s", status: "DONE" }, { auth: false });
   assert.equal(res.body.ignored, true);
 });
+
+test("관리자 환불(취소) — 분할 결제 건(gb_)이면 묶음 진행에서도 뺀다(bundle_part_refunded)", async () => {
+  const prev = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    const ok = (v) => ({ ok: true, json: async () => v, text: async () => JSON.stringify(v) });
+    if (u.includes("/users?")) return ok([{ role: "admin" }]);
+    if (u.includes("/payment_orders?order_id=eq.")) return ok([{ id: "po9", order_id: ORDER, payment_key: "pk9", status: "PAID", payment_source: "bundle", contract_id: null }]);
+    if (u.startsWith("https://api.tosspayments.com") && u.endsWith("/cancel")) return ok({ status: "CANCELED" });
+    if (init.method === "PATCH" || (init.method === "POST" && !u.includes("/rpc/"))) return ok(null);
+    return prev(url, init);
+  };
+  const res = await call({ action: "cancel", orderId: ORDER, reason: "고객 환불 요청" });
+  assert.equal(res.statusCode, 200);
+  assert.ok(rpcs.some((r) => r.fn === "bundle_part_refunded" && r.body.p_order_id === ORDER));
+});

@@ -9,7 +9,7 @@ import { BUNDLE_PAY_LIVE } from "../constants/release";
 import {
   BUNDLE_METHODS, VA_DUE_DAYS, PART_ERRORS, splitIntoBundles, quoteLines, planSummary, checkPartAmount, fmtWon, headline,
 } from "../lib/bundlePay";
-import { getBundlePlan, startBundlePart } from "../lib/supabase";
+import { getBundlePlan, startBundlePart, requestBundleRefund } from "../lib/supabase";
 import { getProvider } from "../services/payment";
 import { ACTIVE_PROVIDER } from "../services/payment/constants";
 
@@ -35,7 +35,8 @@ const PART_LABEL = { DONE: "완료", WAITING_FOR_DEPOSIT: "입금 대기", REQUE
 // 서버 응답(205) → 화면 모양. 서버를 못 읽으면 견적서로 미리 보기.
 function fromServer(p) {
   const bundles = (p.bundles ?? []).map((b) => ({ ...b, amountWon: Number(b.amount_won) || 0 }));
-  return { source: "server", open: !!p.open, vaDueDays: p.va_due_days ?? VA_DUE_DAYS, bundles, escrowId: p.escrow_id ?? null };
+  return { source: "server", open: !!p.open, vaDueDays: p.va_due_days ?? VA_DUE_DAYS, bundles, escrowId: p.escrow_id ?? null,
+    stalled: !!p.stalled, refundRequest: p.refund_request ?? null };
 }
 function fromQuote(estimate, fallbackManwon) {
   return { source: "local", open: false, vaDueDays: VA_DUE_DAYS, escrowId: null,
@@ -48,6 +49,7 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
   const [amountText, setAmountText] = useState("");
   const [method, setMethod] = useState(BUNDLE_METHODS[0].id);
   const [busy, setBusy] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (previewPlan || !requestId) return;
@@ -57,11 +59,14 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
       if (!error && data && !data.error && Array.isArray(data.bundles)) setPlan(fromServer(data));
     }).catch(() => {});
     return () => { alive = false; };
-  }, [requestId, previewPlan]);
+  }, [requestId, previewPlan, reloadKey]);
 
   const summary = useMemo(() => planSummary(plan.bundles, {}), [plan]);
-  const live = BUNDLE_PAY_LIVE && plan.source === "server" && plan.open;
-  const preview = !live;
+  // 환불을 요청해 둔 동안엔 새로 받지 않는다(서버 bundle_part_start 도 REFUND_REQUESTED 로 막는다)
+  const refundOpen = plan.refundRequest?.status === "REQUESTED";
+  const opened = BUNDLE_PAY_LIVE && plan.source === "server" && plan.open;   // 결제가 열렸나(미리 보기가 아님)
+  const live = opened && !refundOpen;                                          // 지금 낼 수 있나
+  const preview = !opened;
   useEffect(() => { if (summary.contractReady && plan.source === "server") onContractReady?.(plan.escrowId); }, [summary.contractReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!summary.count) return null;
@@ -102,6 +107,25 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
 
   const pct = (n) => `${Math.max(0, Math.min(100, (n / (summary.totalWon || 1)) * 100))}%`;
 
+  // 기한이 지나 멈춘 결제 — 이어서 낼지, 낸 금액 환불을 요청할지 고객이 고른다(대표 10-08 · 자동 환불 없음)
+  const askRefund = async () => {
+    if (busy || !requestId) return;
+    if (!window.confirm(`낸 금액 ${fmtWon(summary.paidWon)}의 환불을 요청할까요?\n관리자가 확인한 뒤 결제한 수단으로 돌려드려요. 요청하면 이 공사의 결제는 멈춰요.`)) return;
+    setBusy(true);
+    try {
+      const { data, error } = await requestBundleRefund(requestId);
+      if (error || !data || data.error) { onToast?.(PART_ERRORS[data?.error] ?? "환불 요청을 보내지 못했어요. 잠시 후 다시 시도해 주세요."); return; }
+      onToast?.("환불 요청을 보냈어요. 확인한 뒤 알려 드릴게요.");
+      setReloadKey((k) => k + 1);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const continuePaying = () => {
+    const row = summary.rows.find((r) => r.progress.remainingWon > 0);
+    if (row) { setOpenSeq(row.seq); setAmountText(row.progress.remainingWon.toLocaleString("ko-KR")); }
+  };
+
   return (
     <section aria-label="공사비 나눠 내기" style={{ background: C.surface, borderRadius: R.xl, border: `1px solid ${C.bgWarm}`, overflow: "hidden", marginBottom: S.lg }}>
       {/* 머리 — 결제 전엔 «열리면» 미리 보기 */}
@@ -129,6 +153,31 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
           </div>
         )}
       </div>
+
+      {/* 멈춘 결제 — 이어서 내기 / 환불 요청 · 환불 요청 뒤엔 상태만 */}
+      {refundOpen ? (
+        <div role="status" style={{ margin: `${S.md}px ${S.lg}px 0`, padding: S.md, borderRadius: R.lg, background: "#FBF3E2", border: "1px solid #EADFC4", fontSize: 12.5, color: C.text2, lineHeight: 1.7 }}>
+          <b style={{ color: "#8A6420" }}>환불 요청을 받았어요</b><br />
+          낸 금액 {fmtWon(plan.refundRequest.paid_won ?? summary.paidWon)}을 확인한 뒤 결제한 수단으로 돌려드려요. 그동안 이 공사의 결제는 멈춰 있어요.
+        </div>
+      ) : plan.stalled && (
+        <div role="status" style={{ margin: `${S.md}px ${S.lg}px 0`, padding: S.md, borderRadius: R.lg, background: "#FBF3E2", border: "1px solid #EADFC4" }}>
+          <div style={{ fontSize: 13.5, fontWeight: 800, color: "#8A6420" }}>입금 기한이 지나 결제가 멈췄어요</div>
+          <div style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.7, marginTop: 4 }}>
+            낸 금액 {fmtWon(summary.paidWon)}은 그대로 있어요. 남은 금액을 이어서 내시거나, 낸 금액의 환불을 요청하실 수 있어요.
+          </div>
+          <div style={{ display: "flex", gap: S.sm, marginTop: S.sm }}>
+            <button type="button" onClick={continuePaying}
+              style={{ flex: 1, height: 42, borderRadius: R.md, border: "none", background: C.brand, color: "#fff", fontWeight: 800, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" }}>
+              이어서 내기
+            </button>
+            <button type="button" onClick={askRefund} disabled={busy}
+              style={{ flex: 1, height: 42, borderRadius: R.md, border: `1px solid ${C.bgWarm}`, background: C.surface, color: C.text1, fontWeight: 800, fontSize: 13.5, cursor: busy ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+              환불 요청
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 묶음 목록 */}
       <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -177,7 +226,7 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
                   )}
                 </div>
               </div>
-              {canPay && (
+              {canPay && !refundOpen && (
                 <div style={{ padding: `0 ${S.lg}px ${S.md}px 54px` }}>
                   <button type="button" onClick={() => toggle(row)} aria-expanded={isOpen}
                     style={{ border: `1px solid ${C.brandM}`, background: isOpen ? C.brandL : C.surface, color: C.brand, borderRadius: R.full,
@@ -248,6 +297,8 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
         <li>입금이 막히면 남은 금액만 카드로 내셔도 돼요. 카드 여러 장도 괜찮아요.</li>
         <li>입금이 확인되면 바로 고객님과 업체에 알려 드려요.</li>
         <li>업체에는 묶음과 상관없이 계약 전체 금액 기준으로, 단계를 확인할 때마다 나눠 지급돼요.</li>
+        <li>결제 수단과 상관없이 견적 금액 그대로 내요. 공간안전결제 이용료는 고객님 금액에 더하지 않아요.</li>
+        <li>입금 기한이 지나 멈추면 낸 금액은 그대로 두고, 이어서 낼지 환불을 요청할지 고르실 수 있어요.</li>
       </ul>
     </section>
   );

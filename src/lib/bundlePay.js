@@ -156,4 +156,8 @@ export const PART_ERRORS = {
   BIZ_REQUIRED: "업체의 사업자 확인이 끝나면 결제할 수 있어요.",
   PAYMENTS_PAUSED: "지금은 새 결제를 잠시 멈췄어요. 잠시 후 다시 시도해 주세요.",
   LOGIN_REQUIRED: "로그인이 풀렸어요. 다시 로그인한 뒤 결제해 주세요.",
+  REFUND_REQUESTED: "환불을 요청해 두셨어요. 관리자가 처리한 뒤 다시 결제할 수 있어요.",
+  NOTHING_PAID: "아직 낸 금액이 없어 환불할 게 없어요.",
+  NOT_STALLED: "입금 기한이 지난 계좌가 있을 때만 환불을 요청할 수 있어요.",
+  PENDING_DEPOSIT: "아직 입금을 기다리는 계좌가 있어요. 기한이 지난 뒤 다시 골라 주세요.",
 };

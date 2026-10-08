@@ -2490,6 +2490,13 @@ export const startBundlePart = ({ requestId, seq, amountWon, method }) =>
   supabase.rpc("bundle_part_start", { p_request_id: requestId, p_seq: seq, p_amount_won: amountWon, p_method: method });
 export const abandonBundlePart = (orderId) =>
   supabase.rpc("bundle_part_abandon", { p_order_id: orderId });
+// 기한이 지나 멈춘 결제 — 고객이 «환불 요청»을 고르면 관리자 처리 큐로(대표 10-08 · 자동 환불 없음)
+export const requestBundleRefund = (requestId, reason = null) =>
+  supabase.rpc("bundle_refund_request", { p_request_id: requestId, p_reason: reason });
+// 관리자 — 환불 요청 큐 · 처리 완료/반려(admin_ 이름이라 관리자 토큰으로 간다)
+export const adminBundleRefundList = () => supabase.rpc("admin_bundle_refund_list");
+export const adminBundleRefundSet = (id, status, note = null) =>
+  supabase.rpc("admin_bundle_refund_set", { p_id: id, p_status: status, p_note: note });
 
 export const setRequestInProgress = (requestId) =>
   supabase.rpc("request_mark_in_progress", { p_request_id: requestId });

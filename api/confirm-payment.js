@@ -375,6 +375,8 @@ async function cancelPayment(req, res, { secretKey, uid }) {
   }
 
   const nowIso = new Date().toISOString();
+  // 분할 결제 건(gb_)이면 묶음 진행에서도 뺀다 — 환불 요청 큐(SQL 205)에서 결제 건마다 환불할 때
+  if (String(order.order_id ?? "").startsWith("gb_")) await sbRpc("bundle_part_refunded", { p_order_id: order.order_id });
   await sbWrite("PATCH", `payment_orders?id=eq.${order.id}`, {
     status: "CANCELLED", raw_response: { ...(order.raw_response ?? {}), cancel: { at: nowIso, reason, by: uid, tossStatus: data?.status ?? null } },
   }, "return=minimal");
