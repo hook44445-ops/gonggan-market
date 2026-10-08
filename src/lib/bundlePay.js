@@ -24,6 +24,14 @@ export const BUNDLE_METHODS = [
 
 export const toWon = (manwon) => Math.round((Number(manwon) || 0) * 10_000);
 
+// 받을 결제 수단(대표 10-08) — 첫 개통은 가상계좌만. «VIRTUAL_ACCOUNT,CARD,TRANSFER» 처럼 쉼표로.
+//   모르는 값은 버리고, 비면 가상계좌만. 카드·계좌이체 코드는 지우지 않고 이 목록으로 숨긴다.
+export const PAY_METHOD_IDS = ["VIRTUAL_ACCOUNT", "CARD", "TRANSFER"];
+export function parsePayMethods(raw) {
+  const list = String(raw ?? "").split(",").map((s) => s.trim().toUpperCase()).filter((s) => PAY_METHOD_IDS.includes(s));
+  return list.length ? [...new Set(list)] : ["VIRTUAL_ACCOUNT"];
+}
+
 // 환불 기한 — 청약철회 시 3영업일 안에 환급(법률 검토 10-08). 접수일 다음 날부터 토·일을 빼고 센다.
 //   공휴일은 빼지 않는다(달력이 없다) — 연휴 앞뒤엔 관리자가 더 일찍 처리한다.
 export const REFUND_BUSINESS_DAYS = 3;
@@ -178,4 +186,5 @@ export const PART_ERRORS = {
   NOTHING_PAID: "아직 낸 금액이 없어 환불할 게 없어요.",
   NOT_STALLED: "입금 기한이 지난 계좌가 있을 때만 환불을 요청할 수 있어요.",
   PENDING_DEPOSIT: "아직 입금을 기다리는 계좌가 있어요. 기한이 지난 뒤 다시 골라 주세요.",
+  METHOD_OFF: "지금은 이 결제 수단을 받지 않아요. 가상계좌로 내 주세요.",
 };

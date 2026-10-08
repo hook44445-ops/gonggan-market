@@ -5,7 +5,7 @@
 //  · 서버(205)를 못 읽으면 견적서로 앱이 같은 규칙으로 나눠 미리 보여 준다(저장·결제는 하지 않는다)
 import { useEffect, useMemo, useState } from "react";
 import { C, R, S } from "../constants";
-import { BUNDLE_PAY_LIVE } from "../constants/release";
+import { BUNDLE_PAY_LIVE, PAY_METHODS } from "../constants/release";
 import {
   BUNDLE_METHODS, VA_DUE_DAYS, PART_ERRORS, NO_EXTRA_CHARGE, splitIntoBundles, quoteLines, planSummary, checkPartAmount, fmtWon, headline,
 } from "../lib/bundlePay";
@@ -36,7 +36,7 @@ const PART_LABEL = { DONE: "완료", WAITING_FOR_DEPOSIT: "입금 대기", REQUE
 function fromServer(p) {
   const bundles = (p.bundles ?? []).map((b) => ({ ...b, amountWon: Number(b.amount_won) || 0 }));
   return { source: "server", open: !!p.open, vaDueDays: p.va_due_days ?? VA_DUE_DAYS, bundles, escrowId: p.escrow_id ?? null,
-    stalled: !!p.stalled, refundRequest: p.refund_request ?? null };
+    stalled: !!p.stalled, refundRequest: p.refund_request ?? null, payMethods: Array.isArray(p.pay_methods) ? p.pay_methods : null };
 }
 function fromQuote(estimate, fallbackManwon) {
   return { source: "local", open: false, vaDueDays: VA_DUE_DAYS, escrowId: null,
@@ -47,7 +47,12 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
   const [plan, setPlan] = useState(() => previewPlan ?? fromQuote(estimate, fallbackTotalManwon));
   const [openSeq, setOpenSeq] = useState(null);
   const [amountText, setAmountText] = useState("");
-  const [method, setMethod] = useState(BUNDLE_METHODS[0].id);
+  // 받을 수단만(앱 설정 VITE_PAY_METHODS ∩ 서버 ops_config.pay_methods) — 기본 가상계좌만
+  const methods = BUNDLE_METHODS.filter((m) => PAY_METHODS.includes(m.id)
+    && (!Array.isArray(plan.payMethods) || plan.payMethods.includes(m.id)));
+  const cardOn = methods.some((m) => m.id === "CARD");
+  const [pickedMethod, setMethod] = useState(BUNDLE_METHODS[0].id);
+  const method = methods.some((m) => m.id === pickedMethod) ? pickedMethod : (methods[0]?.id ?? BUNDLE_METHODS[0].id);
   const [busy, setBusy] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -257,7 +262,7 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
                   {amountText && amountErr && <div role="alert" style={{ fontSize: 12, color: C.red, marginTop: 6 }}>{PART_ERRORS[amountErr]}</div>}
 
                   <div role="radiogroup" aria-label="결제 수단" style={{ display: "grid", gap: 6, marginTop: S.md }}>
-                    {BUNDLE_METHODS.map((m) => {
+                    {methods.map((m) => {
                       const on = method === m.id;
                       return (
                         <button key={m.id} type="button" role="radio" aria-checked={on} onClick={() => setMethod(m.id)}
@@ -296,7 +301,7 @@ export default function BundlePayPanel({ requestId, estimate, fallbackTotalManwo
       <ul style={{ margin: 0, padding: `${S.xs}px ${S.lg}px ${S.lg}px ${S.lg + 16}px`, fontSize: 12, color: C.text2, lineHeight: 1.8, background: C.surface }}>
         <li>가상계좌는 결제할 때마다 새 계좌번호가 나와요. 입금 기한은 {plan.vaDueDays}일이고, 하루 전에 알려 드려요.</li>
         <li>하루 이체 한도를 넘으면 며칠에 나눠 넣으셔도 됩니다.</li>
-        <li>입금이 막히면 남은 금액만 카드로 내셔도 돼요. 카드 여러 장도 괜찮아요.</li>
+        {cardOn && <li>입금이 막히면 남은 금액만 카드로 내셔도 돼요. 카드 여러 장도 괜찮아요.</li>}
         <li>입금이 확인되면 바로 고객님과 업체에 알려 드려요.</li>
         <li>업체에는 묶음과 상관없이 계약 전체 금액 기준으로, 단계를 확인할 때마다 나눠 지급돼요.</li>
         <li>{NO_EXTRA_CHARGE} — 견적 금액 그대로 내요.</li>

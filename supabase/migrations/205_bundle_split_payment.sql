@@ -40,6 +40,9 @@ set search_path = public, extensions;
 alter table public.ops_config add column if not exists bundle_pay_open       boolean not null default false; -- 토스 OK 뒤 대표가 true
 alter table public.ops_config add column if not exists bundle_va_due_days    int     not null default 7;     -- 가상계좌 입금 기한(일)
 alter table public.ops_config add column if not exists bundle_card_hold_min  int     not null default 30;    -- 카드 창을 열고 끝내지 않은 건이 금액을 잡는 시간
+-- 받을 결제 수단(대표 10-08) — 첫 개통은 가상계좌만(건당 660원 · 카드 약 3.5% · 계좌이체 2.5%). 카드를 열 땐 '{VIRTUAL_ACCOUNT,CARD}'.
+--   앱 화면은 VITE_PAY_METHODS 로 같은 목록을 쓴다 — 둘을 맞춰 바꾼다. 서버(bundle_part_start)가 이 목록 밖 수단은 거절한다.
+alter table public.ops_config add column if not exists pay_methods text[] not null default '{VIRTUAL_ACCOUNT}';
 -- 기한 지나 일부만 낸 계약(대표 10-08) — 'CUSTOMER_CHOICE': 낸 돈은 그대로 두고 알린 뒤, 고객이 «이어서 내기 / 환불 요청»을 고른다.
 --   환불 요청은 관리자 처리 큐(admin_bundle_refund_list)로 간다. 자동 환불은 하지 않는다.
 alter table public.ops_config add column if not exists bundle_expired_policy text    not null default 'CUSTOMER_CHOICE';
@@ -316,6 +319,7 @@ begin
     'stalled', v_stalled, 'refund_request', v_refund,
     'saved', v_saved, 'open', coalesce(v_ops.bundle_pay_open, false) and not coalesce(v_ops.pause_new_payments, false),
     'va_due_days', coalesce(v_ops.bundle_va_due_days, 7), 'escrow_id', v_escrow,
+    'pay_methods', to_jsonb(coalesce(v_ops.pay_methods, '{VIRTUAL_ACCOUNT}')),
     'bundles', v_bundles,
     'count', jsonb_array_length(v_bundles),
     'paid_count', (select count(*) from jsonb_array_elements(v_bundles) x where x ->> 'status' = 'PAID'),
@@ -341,6 +345,7 @@ begin
   if not coalesce(v_ops.bundle_pay_open, false) then return jsonb_build_object('error', 'NOT_OPEN'); end if;
   if coalesce(v_ops.pause_new_payments, false) then return jsonb_build_object('error', 'PAYMENTS_PAUSED'); end if;
   if p_method not in ('CARD', 'VIRTUAL_ACCOUNT') then return jsonb_build_object('error', 'BAD_METHOD'); end if;
+  if not (p_method = any(coalesce(v_ops.pay_methods, '{VIRTUAL_ACCOUNT}'))) then return jsonb_build_object('error', 'METHOD_OFF'); end if;
 
   perform pg_advisory_xact_lock(hashtextextended('bundle:' || p_request_id::text, 0));
   select * into v_req from public.requests where id = p_request_id for update;
@@ -694,10 +699,12 @@ grant  execute on function public.bundle_part_refunded(text) to service_role;
 create or replace function public.bundle_va_due_tick()
 returns jsonb language plpgsql security definer
 set search_path = public, extensions as $$
-declare r record; v_reminded int := 0; v_expired int := 0; v_policy text;
+declare r record; v_reminded int := 0; v_expired int := 0; v_policy text; v_card boolean;
 begin
   select coalesce(bundle_expired_policy, 'CUSTOMER_CHOICE') into v_policy from public.ops_config where id = 1;
   v_policy := coalesce(v_policy, 'CUSTOMER_CHOICE');
+  -- 카드를 받을 때만 «남은 금액만 카드로»를 권한다
+  select 'CARD' = any(coalesce(pay_methods, '{VIRTUAL_ACCOUNT}')) into v_card from public.ops_config where id = 1;
 
   -- ① 하루 전 알림 — 한 번만
   for r in
@@ -710,7 +717,8 @@ begin
   loop
     insert into public.notifications (user_id, type, title, message, related_id, related_type)
     values (r.user_id, 'BUNDLE_VA_DUE_SOON', '내일까지 ' || public._won_text(r.amount_won) || '을 입금해 주세요',
-            r.label || ' 묶음 · 이체 한도에 걸리면 남은 금액만 카드로 내셔도 돼요.', r.request_id, 'request');
+            r.label || ' 묶음 · ' || case when coalesce(v_card, false) then '이체 한도에 걸리면 남은 금액만 카드로 내셔도 돼요.'
+                                         else '하루 이체 한도를 넘으면 며칠에 나눠 넣으셔도 됩니다.' end, r.request_id, 'request');
     update public.payment_bundle_parts set reminded_at = now() where id = r.id;
     v_reminded := v_reminded + 1;
   end loop;

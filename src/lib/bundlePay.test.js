@@ -118,3 +118,12 @@ test("환불 기한 = 접수일 + 3영업일(토·일 빼고)", async () => {
   assert.equal(ymd(addBusinessDays(new Date(2026, 9, 10, 10))), "10/14");  // 토요일 접수 → 월·화·수
   assert.equal(addBusinessDays("not a date"), null);
 });
+
+test("받을 결제 수단 설정 — 기본은 가상계좌만, 모르는 값은 버린다(대표 10-08 · 첫 개통 가상계좌만)", async () => {
+  const { parsePayMethods } = await import("./bundlePay.js");
+  assert.deepEqual(parsePayMethods(undefined), ["VIRTUAL_ACCOUNT"]);
+  assert.deepEqual(parsePayMethods(""), ["VIRTUAL_ACCOUNT"]);
+  assert.deepEqual(parsePayMethods("virtual_account, card"), ["VIRTUAL_ACCOUNT", "CARD"]);
+  assert.deepEqual(parsePayMethods("CARD,KAKAO_PAY,CARD"), ["CARD"]);
+  assert.deepEqual(parsePayMethods("nope"), ["VIRTUAL_ACCOUNT"]);
+});

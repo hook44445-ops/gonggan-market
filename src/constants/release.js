@@ -1,3 +1,5 @@
+import { parsePayMethods } from "../lib/bundlePay.js";
+
 // ─────────────────────────────────────────────────────
 // 출시(Release) 모드 제어 — Google Play / 웹 production 대비
 //
@@ -49,6 +51,9 @@ export const PAYMENTS_LIVE = !SHOW_BETA_UI;
 export const BUNDLE_PAY_MODE = import.meta.env.VITE_BUNDLE_PAY ?? "preview";   // "on" | "preview" | "off"
 export const BUNDLE_PAY_LIVE = PAYMENTS_LIVE && BUNDLE_PAY_MODE === "on";
 export const SHOW_BUNDLE_PLAN = BUNDLE_PAY_MODE !== "off";
+// 받을 결제 수단(대표 10-08 · 첫 개통은 가상계좌만) — VITE_PAY_METHODS="VIRTUAL_ACCOUNT,CARD" 처럼. 기본 가상계좌만.
+//   서버 ops_config.pay_methods 와 같게 맞춘다(서버가 목록 밖 수단은 거절). 목록에 없는 수단은 화면에서 숨긴다.
+export const PAY_METHODS = parsePayMethods(import.meta.env.VITE_PAY_METHODS);
 
 // 아이폰 앱(Expo 쉘 · WKWebView) 안인가 — 쉘이 window.ReactNativeWebView 를 심는다.
 //   App Store 가이드라인 3.1.1: 앱 안에서 디지털 상품(공간토큰)을 애플 결제 없이 팔거나 가격·외부 결제를 안내하면 반려.

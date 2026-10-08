@@ -67,3 +67,11 @@ test("업체 지급 내역 — «공간안전결제 이용료 … 차감 → 실
   assert.equal(start.amount, 200);
   assert.equal(start.companyReceiveAmount, 191.2);                         // 4.4% 차감
 });
+
+test("결제 수단은 설정(PAY_METHODS)으로만 보인다 — 카드가 꺼지면 «남은 금액만 카드로»도 숨김", () => {
+  const panel = readFileSync(new URL("../components/BundlePayPanel.jsx", import.meta.url), "utf8");
+  assert.match(panel, /BUNDLE_METHODS\.filter\(\(m\) => PAY_METHODS\.includes\(m\.id\)/);
+  assert.match(panel, /\{cardOn && <li>입금이 막히면 남은 금액만 카드로/);
+  const bid = readFileSync(new URL("../screens/BidStatusScreen.jsx", import.meta.url), "utf8");
+  assert.match(bid, /PAYMENT_METHODS\.filter\(\(m\) => PAY_METHODS\.includes\(m\.id\)\)/);
+});

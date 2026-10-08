@@ -1,7 +1,7 @@
 import { RESPECT_FOR_CUSTOMER } from "../constants/mutualRespect";
 import { useState, useEffect, useRef } from "react";
 import { C, R, S } from "../constants";
-import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI, PAYMENTS_LIVE, BUNDLE_PAY_LIVE, SHOW_BUNDLE_PLAN } from "../constants/release";
+import { SHOW_DEBUG_UI, UX_BETA, SHOW_BETA_UI, PAYMENTS_LIVE, BUNDLE_PAY_LIVE, SHOW_BUNDLE_PLAN, PAY_METHODS } from "../constants/release";
 import BundlePayPanel from "../components/BundlePayPanel"; // 공정 묶음 분할 결제(10-07 · SQL 205)
 import { BUNDLE_LIMIT_WON, toWon, NO_EXTRA_CHARGE } from "../lib/bundlePay";
 import { dlog } from "../utils/devLog"; // 프로덕션 무출력 진단 로거(운영 콘솔 정리)
@@ -1013,14 +1013,14 @@ export default function BidStatusScreen({ onBack, onChat, onEscrow, onReview, bi
 
           {/* Payment method selection */}
           <div style={{ background:C.surface, borderRadius:R.xl, overflow:"hidden", marginBottom:S.lg, border:`1px solid ${C.bgWarm}` }}>
-            {PAYMENT_METHODS.map((m, idx) => {
+            {PAYMENT_METHODS.filter((m) => PAY_METHODS.includes(m.id)).map((m, idx, shown) => {
               const isSelected = selectedMethod === m.id;
               return (
                 <div key={m.id}
                   onClick={() => m.available ? setSelectedMethod(m.id) : showLocalToast(m.soon ?? COMING_SOON_MESSAGE)}
                   style={{
                     display:"flex", alignItems:"center", gap:S.md, padding:S.xl,
-                    borderBottom: idx < PAYMENT_METHODS.length - 1 ? `1px solid ${C.bgWarm}` : "none",
+                    borderBottom: idx < shown.length - 1 ? `1px solid ${C.bgWarm}` : "none",
                     cursor: "pointer",
                     background: isSelected ? C.brandL : C.surface,
                     opacity: m.available ? 1 : 0.5,
