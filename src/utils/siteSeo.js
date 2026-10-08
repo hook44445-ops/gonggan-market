@@ -73,10 +73,13 @@ export const BIZ_ROWS = [
 export const IP_FILINGS = {
   patentNo: '10-2026-0192050',
   patentFiledAt: '2026.10.07',
+  patentLead: '최종 견적서를 바탕으로,', // 폰 배지에서는 길어서 뺀다(PC 배지·랜딩 섹션·스토어엔 붙인다)
   patentTopic: '공사 단계별 사진을 확인하고 고객 승인 후 그 단계만큼 지급되는 방식',
   trademarkNo: '40-2026-0209520',
 };
 export const PATENT_LABEL = `특허출원 ${IP_FILINGS.patentNo}`;
+// 대표 10-08 확정 핵심 문장 — 랜딩 «단계 확정 방식» 섹션 · 스토어 이미지가 같은 말을 쓴다.
+export const PATENT_MESSAGE = `${IP_FILINGS.patentLead} ${IP_FILINGS.patentTopic}`;
 export const PATENT_DETAIL = `${PATENT_LABEL} · ${IP_FILINGS.patentFiledAt} 출원`;
 export const IP_FOOTER_LINE = `${PATENT_LABEL} · 상표출원 ${IP_FILINGS.trademarkNo}`;
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { FileText } from "lucide-react";
-import { SHOW_DEBUG_UI, SHOW_BETA_UI, isStoreAppShell } from "../constants/release";
+import { FileText, Camera } from "lucide-react";
+import { SHOW_DEBUG_UI, SHOW_BETA_UI, isStoreAppShell, PAYMENTS_LIVE } from "../constants/release";
 import { getTopReviews, getRecentPortfolios, getSeedReviews } from "../lib/supabase";
 import { normalizeShowcases } from "../lib/showcases";
 import { isTestCompanyName } from "../lib/testCompany";
@@ -8,7 +8,7 @@ import AppFooter from "../components/AppFooter";
 import InviteWelcome from "../components/InviteWelcome";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
-import { consumerFaq, pageSeo, serviceSchema, faqSchema, IP_FILINGS, PATENT_LABEL, PATENT_DETAIL } from "../utils/siteSeo";
+import { consumerFaq, pageSeo, serviceSchema, faqSchema, IP_FILINGS, PATENT_LABEL, PATENT_DETAIL, PATENT_MESSAGE } from "../utils/siteSeo";
 import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView, AdVideo } from "../components/landing/LandingMotion";
 import { saveLandingPick, LANDING_WORK_TAGS } from "../lib/landingPick";
 
@@ -171,6 +171,71 @@ const JOURNEY = [
   },
 ];
 
+// ── 단계 확정 방식(특허출원) — 대표 10-08 확정 문장 + 단열재 예시 ─────────────────────────
+// 왜: PG 통화에서 «고객이 확인한 뒤에도 불만이면?»에 답한 예시(단열재 6cm·3cm는 마감 뒤엔 모른다)를 화면에 세운다.
+//   경쟁 앱은 «연결»까지 — 공간랜드는 연결 이후의 견적서 · 공사 과정 · 기록까지(경쟁사 이름은 쓰지 않는다).
+// ⚠️ 앱에 실제로 있는 것만: 최종 견적서(공정별 항목 · 자재 기록 · 규격 · A/S, PlatformEstimateModal) ·
+//    단계 사진 업로드와 촬영 위치·시각(project_checkpoints lat/lng/captured_at) · 고객 확인 · 대화방 기록 ·
+//    이의 신청 시 남은 단계 보류(136). 결제(보관·지급)는 PAYMENTS_LIVE 전 — «맡기세요/지켜 드립니다/안전결제» 금지,
+//    문장 끝은 «~방식», «~남습니다».
+const STAGE_FLOW = [
+  { no: "01", title: "최종 견적서", desc: "공정별 항목 · 자재 · 규격 · A/S 기간을 적은 최종 견적서가 기준이 됩니다." },
+  { no: "02", title: "단계별 사진", desc: "착공 · 중간 · 완료마다 업체가 현장 사진을 올리고, 촬영 위치와 시각이 함께 기록됩니다." },
+  { no: "03", title: "고객 확인 · 승인", desc: "사진을 견적서와 나란히 보고 확인합니다. 주고받은 말은 대화방에 그대로 남습니다." },
+  { no: "04", title: "그 단계만큼 · 이의 시 보류",
+    desc: PAYMENTS_LIVE
+      ? "승인한 단계만큼 지급되는 방식입니다. 이의를 신청하면 남은 단계는 모두 보류됩니다."
+      : "승인한 단계만큼 금액이 확정되는 방식입니다(대금은 지금 계약서대로 주고받습니다). 이의를 신청하면 남은 단계는 모두 보류됩니다." },
+];
+
+function StageProof() {
+  return (
+    <section className="lm-sp" aria-labelledby="lm-sp-h">
+      <div className="lm-sp-grid">
+        <Reveal>
+          <div className="lm-sp-ip"><FileText size={13} strokeWidth={2.2} aria-hidden="true" />{PATENT_LABEL}</div>
+          <h2 id="lm-sp-h" className="lm-sp-h">견적서의 약속을,<br /><em>단계마다 사진으로</em> 확인합니다</h2>
+          <p className="lm-sp-lead">{PATENT_MESSAGE}.</p>
+          <p className="lm-sp-note">업체를 연결해 주는 곳은 많습니다. 공간랜드는 연결 이후의 견적서 · 공사 과정 · 기록까지 남깁니다.</p>
+          <ol className="lm-sp-flow">
+            {STAGE_FLOW.map((f) => (
+              <li key={f.no}>
+                <span className="lm-sp-no">{f.no}</span>
+                <span>
+                  <b>{f.title}</b>
+                  <span className="lm-sp-desc">{f.desc}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </Reveal>
+
+        {/* 단열재 예시 카드 — 그림은 힉스필드(10-08 · 왼쪽 시공 중 단열재 / 오른쪽 마감 벽, 글자·사람 없음). 글자는 전부 HTML. */}
+        <Reveal delay={0.1} className="lm-sp-card">
+          <div className="lm-sp-photo">
+            <img src="/images/landing/stage-proof-wall.webp" srcSet="/images/landing/stage-proof-wall-sm.webp 800w, /images/landing/stage-proof-wall.webp 1600w"
+              sizes="(min-width: 960px) 520px, 100vw" alt="벽 왼쪽은 단열재가 드러난 시공 중 모습, 오른쪽은 마감이 끝나 단열재가 보이지 않는 모습" loading="lazy" />
+            <span className="lm-sp-tag lm-sp-tag-l">시공 중</span>
+            <span className="lm-sp-tag lm-sp-tag-r">마감 후</span>
+          </div>
+          <div className="lm-sp-body">
+            <span className="lm-sp-ex">예시 · 단열재</span>
+            <div className="lm-sp-q">6cm든 3cm든, 마감하고 나면 고객은 알기 어렵습니다.</div>
+            <div className="lm-sp-pair">
+              <div><FileText size={15} strokeWidth={2} aria-hidden="true" /><small>최종 견적서</small><b>단열재 6cm</b></div>
+              <div><Camera size={15} strokeWidth={2} aria-hidden="true" /><small>시공 중 사진</small><b>위치 · 시각 기록</b></div>
+            </div>
+            <p className="lm-sp-a">
+              견적서의 약속과 시공 중 사진이 <b>함께 남아</b>, 실제와 다르더라도 나중에 나란히 비교할 수 있습니다.
+              약속대로 시공한 업체에게는 그 사실을 보여 주는 기록이 됩니다.
+            </p>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
 // FAQ(유지 · 삭제 금지) — 문구는 utils/siteSeo.js 단일 소스.
 // 봇 프리렌더(api/prerender.js)가 같은 배열을 써서 화면과 색인 내용이 갈라지지 않는다.
 const FAQ_ITEMS = consumerFaq(SHOW_BETA_UI);
@@ -197,6 +262,7 @@ function FaqRow({ q, a }) {
 // 누르거나 올리면 번호·출원일만 보인다(명세서 내용은 싣지 않는다).
 // 설명(대표 10-08 «… 그 단계만큼 지급되는 방식»)은 길어서 알약 안에 넣으면 PC 히어로 폭(520px)에서도 넘친다 —
 // 배지는 번호만, 설명은 배지 바로 아래 작은 한 줄로 둔다(PC·폰 같은 모양).
+// 앞머리 «최종 견적서를 바탕으로,»는 PC에만 — 폰(≤480px)은 넘쳐서 뺀다(번호 한 줄 + 설명 한 줄).
 // ⚠️ 문구는 siteSeo.PATENT_* · IP_FILINGS 그대로 — «출원»을 빼거나 «특허 받은/등록/®»로 바꾸지 않는다(특허법 224조).
 //    결제 미개통이라 «지켜 드립니다·맡기세요» 같은 약속형 말도 붙이지 않는다(문장 끝은 «방식»).
 function PatentBadge() {
@@ -209,7 +275,7 @@ function PatentBadge() {
         <b>{PATENT_LABEL}</b>
         <span role="tooltip" id="lm-ip-tip" className="lm-ip-tip">{PATENT_DETAIL}</span>
       </button>
-      <div className="lm-ip-sub">{IP_FILINGS.patentTopic}</div>
+      <div className="lm-ip-sub"><span className="lm-ip-lead">{IP_FILINGS.patentLead} </span>{IP_FILINGS.patentTopic}</div>
     </div>
   );
 }
@@ -410,6 +476,9 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           </div>
         </div>
 
+        {/* ── 단계 확정 방식(특허출원 10-2026-0192050) — 여정 다음, 전·후 앞에 «추가»(대표 10-08 · 기존 섹션은 그대로) ── */}
+        <StageProof />
+
         {/* ── 전·후 밀어 보기 — 끝나면 자랑할 차례(고객 전·후 사진 카드 #868 · 사진은 예시) ── */}
         <div className="gm-ba-wrap" style={{ padding: "12px 0 36px", display: "grid", gap: 18, alignItems: "center" }}>
           <Reveal>
@@ -571,6 +640,43 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           box-shadow: 0 6px 18px rgba(18,26,22,.18); opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity .15s, transform .15s }
         .lm-ip:hover .lm-ip-tip, .lm-ip:focus-visible .lm-ip-tip, .lm-ip.is-open .lm-ip-tip{ opacity: 1; transform: none }
         .lm-ip:active{ transform: none }
+        .lm-sp{ margin: 6px 0 40px; border-radius: 26px; padding: 30px 22px; color: #F4EFE4;
+          background: radial-gradient(120% 80% at 0% 0%, #24503C 0%, #163626 48%, #0E2B1D 100%); }
+        .lm-sp-grid{ display: grid; gap: 26px }
+        @media (min-width: 960px){ .lm-sp{ padding: 44px 44px } .lm-sp-grid{ grid-template-columns: 1fr 1.05fr; gap: 44px; align-items: center } }
+        .lm-sp-ip{ display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid rgba(214,167,86,.7); border-radius: 999px;
+          color: #E3BD72; font-size: 12px; font-weight: 800; letter-spacing: .01em }
+        .lm-sp-h{ font-size: clamp(23px,4.8vw,32px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.3; margin: 14px 0 12px; word-break: keep-all }
+        .lm-sp-h em{ font-style: normal; color: #E3BD72 }
+        .lm-sp-lead{ font-size: 14.5px; font-weight: 600; line-height: 1.7; color: #F4EFE4; margin: 0; word-break: keep-all }
+        .lm-sp-note{ font-size: 13px; line-height: 1.7; color: rgba(244,239,228,.66); margin: 8px 0 0; word-break: keep-all }
+        .lm-sp-flow{ list-style: none; margin: 20px 0 0; padding: 0; display: grid }
+        .lm-sp-flow li{ display: flex; gap: 14px; padding: 13px 0; border-top: 1px solid rgba(244,239,228,.12) }
+        .lm-sp-flow li:first-child{ border-top: none; padding-top: 4px }
+        .lm-sp-no{ flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+          background: rgba(214,167,86,.16); color: #E3BD72; font-size: 11.5px; font-weight: 800; letter-spacing: .04em }
+        .lm-sp-flow b{ display: block; font-size: 15px; font-weight: 800; letter-spacing: -0.02em }
+        .lm-sp-desc{ display: block; font-size: 13px; line-height: 1.65; color: rgba(244,239,228,.74); margin-top: 3px; word-break: keep-all }
+        .lm-sp-card{ background: #F9F6F2; color: #121A16; border-radius: 22px; overflow: hidden; box-shadow: 0 24px 48px rgba(0,0,0,.28) }
+        .lm-sp-photo{ position: relative }
+        .lm-sp-photo img{ display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover }
+        .lm-sp-tag{ position: absolute; top: 12px; padding: 4px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 800;
+          background: rgba(14,43,29,.82); color: #F4EFE4 }
+        .lm-sp-tag-l{ left: 12px }
+        .lm-sp-tag-r{ right: 12px; background: rgba(249,246,242,.92); color: #0E2B1D }
+        .lm-sp-body{ padding: 18px 18px 20px }
+        .lm-sp-ex{ display: inline-block; font-size: 11px; font-weight: 800; color: #fff; background: #1A2E22; border-radius: 999px; padding: 2px 9px }
+        .lm-sp-q{ font-size: 16.5px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.45; margin: 10px 0 12px; word-break: keep-all }
+        .lm-sp-pair{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+        .lm-sp-pair > div{ display: grid; grid-template-columns: auto 1fr; column-gap: 7px; align-items: center; padding: 10px 12px;
+          border: 1px solid #E8E1D8; border-radius: 14px; background: #fff }
+        .lm-sp-pair svg{ grid-row: span 2; color: #A98B4E }
+        .lm-sp-pair small{ font-size: 11px; color: #8A857E; font-weight: 600 }
+        .lm-sp-pair b{ font-size: 13.5px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap }
+        .lm-sp-a{ font-size: 13.5px; line-height: 1.75; color: #3A4A40; margin: 12px 0 0; word-break: keep-all }
+        .lm-sp-a b{ color: #121A16 }
+        @media (max-width: 380px){ .lm-sp{ padding: 24px 16px; border-radius: 20px } .lm-sp-pair > div{ padding: 9px 10px } .lm-sp-pair b{ font-size: 12.5px } }
+        @media (max-width: 480px){ .lm-ip-lead{ display: none } }
         .gm-sticky-cta{ display: none }
         @media (max-width: 640px){ .gm-sticky-cta{ display: flex } }
         @media (max-width: 380px){
