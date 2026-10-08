@@ -1,7 +1,7 @@
 import { SHOW_BETA_UI, PAYMENTS_LIVE, isStoreAppShell } from "../constants/release";
 import { authHeader, getCurrentUserId } from "../lib/session";
 import { peekPreferredCompany, markPreferredOpened, clearPreferredCompany, preferredNotifyTarget, PAGE_REQUEST_TITLE, pageRequestsFirst } from "../lib/preferredCompany";
-import { takeLandingPick } from "../lib/landingPick";
+import { takeLandingDraft } from "../lib/landingPick";
 import { trackUsp } from "../lib/uspTrack";
 import ChatRequestModal from "./lounge/ChatRequestModal";
 import { isGuaranteeBadgeVisible } from "../constants/guarantee";
@@ -2691,16 +2691,22 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeRole, user?.id]);
 
-  // 랜딩 «30초 요청서 미리 해 보기»에서 공간·공사를 고르고 온 고객 — 로그인되면 그 칸이 채워진 요청서를 한 번 열어 준다(lib/landingPick).
-  //   꺼내면서 지우므로 두 번 열리지 않는다. 고른 것이 없으면 아무 일도 없다.
+  // 랜딩 «30초 요청서»에서 쓰고 온 고객(lib/landingPick) — 꺼내면서 지우므로 두 번 열리거나 두 번 나가지 않는다.
+  //   · «견적 요청 보내기»를 누르고 번호 확인을 마친 사람(send) → 쓴 그대로 submitReq 로 보낸다(약관 동의·중복·쿨다운 확인은 그 안에서 그대로).
+  //   · 고르기만 하고 온 사람 → 그 칸이 채워진 요청서를 한 번 열어 준다.
   useEffect(() => {
     if (activeRole !== "consumer" || !user?.id || user?.isGuest) return;
-    const prefill = takeLandingPick();
-    if (!prefill) return;
+    const draft = takeLandingDraft();
+    if (!draft) return;
     trackUsp(1, { role: "consumer" });   // USP 1 «30초 요청서»를 고르고 로그인 — 3일 안 요청은 서버가 센다(187)
     const t = setTimeout(() => {
-      setReqPrefill(prefill);
       setScreen("home");
+      if (draft.send) {
+        const desc = (draft.form.desc ?? "").replace(/\s*—\s*$/, "");
+        submitReq({ style: "", ...draft.form, desc });
+        return;
+      }
+      setReqPrefill(draft.form);
       handleOpenNewReq();
     }, 700);
     return () => clearTimeout(t);

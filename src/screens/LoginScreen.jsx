@@ -10,6 +10,7 @@ import { IDENTITY_READY, startIdentityVerification, completeIdentityVerification
 import { getKnownUsers, knownUserToSession } from "../lib/deviceAuth";
 import { holdSignupTicket, exchangeSignupTicket, getSessionToken } from "../lib/session";
 import { SHOW_DEBUG_UI } from "../constants/release";
+import { hasLandingSend } from "../lib/landingPick";
 
 // 기기 인증 후 OTP 없는 재로그인은 App 의 AccountPicker(기기 인증)가 담당한다.
 // LoginScreen 은 전화번호 인증 화면(최초 1회 / 다른 번호로 로그인)이지만, 입력 번호가
@@ -428,6 +429,13 @@ export default function LoginScreen({ onLogin, initialRole }) {
           <div style={{ fontSize: 13, color: C.text3, marginBottom: S.xxl }}>
             {useIdentity ? "번호와 이름을 한 번에 확인해요. 가입된 계정이 없으면 이어서 가입합니다." : "가입된 계정이 없으면 자동으로 가입됩니다"}
           </div>
+          {/* 랜딩에서 요청서를 다 쓰고 «보내기»를 누르고 온 고객 — 왜 번호를 묻는지 먼저 말한다(10-09 일감 2). */}
+          {pendingRole !== "company" && pendingRole !== "admin" && hasLandingSend() && (
+            <div role="status" style={{ background: C.brandL, borderRadius: R.lg, padding: S.lg, fontSize: 13.5, color: C.text1, lineHeight: 1.6, marginTop: -12, marginBottom: S.xl, fontWeight: 600 }}>
+              이 요청을 업체에 보내려면 번호 확인이 필요해요(업체 연락·사기 방지).<br />
+              <span style={{ fontWeight: 500, color: C.text2 }}>확인이 끝나면 쓰신 요청서가 그대로 보내져요.</span>
+            </div>
+          )}
           {useIdentity && (
             <>
               <button onClick={startIdentity} disabled={loading}
