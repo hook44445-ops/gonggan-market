@@ -4,6 +4,10 @@
 //   흡수해 비교한다.
 // ════════════════════════════════════════════════════════════════════
 
+// 10-08 라운지 점검: 48시간 창이라 같은 제목이 이틀마다 다시 만들어졌다(제목 133개로 글 387장).
+//   같은 주제는 30일 안에 다시 만들지 않는다 — lib/loungeDuplicates TITLE_REPEAT_DAYS 와 같은 기간.
+export const TOPIC_REPEAT_HOURS = 30 * 24;
+
 export function slugify(text) {
   return String(text ?? "")
     .toLowerCase()

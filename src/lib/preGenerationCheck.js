@@ -14,7 +14,7 @@
 //   결정론적(외부 API 없음). Phase 4 에서 의미 유사도(임베딩)로 판단부를 교체하면 된다.
 // ════════════════════════════════════════════════════════════════════
 
-import { isDuplicateTopic, slugify } from "./duplicateChecker.js";
+import { isDuplicateTopic, slugify, TOPIC_REPEAT_HOURS } from "./duplicateChecker.js";
 import { reinterpretThroughSpace } from "../constants/spacePhilosophy.js";
 import { classifyCategory } from "../constants/aiContentFactory.js";
 import { relatedArticles, postSignature, relatednessScore } from "./spaceGraph.js";
@@ -42,7 +42,7 @@ export function preGenerationCheck({ topic, category } = {}, existingPosts = [])
   const existingCount = pool.length;
 
   // ② 중복 여부(48h 슬러그 동일) — Phase 2 duplicateChecker 재사용.
-  const isDuplicate = isDuplicateTopic(t, pool, 48);
+  const isDuplicate = isDuplicateTopic(t, pool, TOPIC_REPEAT_HOURS);
 
   // ④ 관련 글 연결 — 공간 그래프로 "같이 보면 좋은 글" 후보를 뽑는다.
   const pseudoPost = { id: `__candidate_${slugify(t)}`, title: t, ai_topic: t, category: cat, tags: [] };
