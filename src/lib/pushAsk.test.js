@@ -32,3 +32,13 @@ test("업체 홈 새 요청 목록 위에도", () => {
   const card = readFileSync(new URL("../components/PushAskCard.jsx", import.meta.url), "utf8");
   assert.match(card, /upsertPushPreferences\(userId, PUSH_ON_PREFS\)/);
 });
+
+test("설정 화면 — 이 기기 푸시가 안 켜진 이유를 코드와 함께(Android·웹도 · 10-09)", async () => {
+  const { pushDiagText } = await import("./pushAsk.js");
+  assert.match(pushDiagText({ reason: "permission_denied" }), /폰 설정.*\(permission_denied\)$/);
+  assert.match(pushDiagText({ reason: "error", message: "Registration failed - push service error" }), /\(error · Registration failed/);
+  assert.match(pushDiagText({}), /\(unknown\)$/);
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../components/PushNotificationSettings.jsx", import.meta.url), "utf8");
+  assert.ok(src.includes("pushDiagText(res)"), "Android·웹 실패 이유를 보여 주지 않는다");
+});
