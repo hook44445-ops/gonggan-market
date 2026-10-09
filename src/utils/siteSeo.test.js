@@ -653,8 +653,21 @@ test('특허·상표 표시는 «출원»만 · 등록으로 읽히는 말 없�
   }
   // 설명 — 결제 미개통이라 약속형 말 없이 «방식»으로 끝난다(대표 10-08)
   assert.ok(IP_FILINGS.patentTopic.endsWith('방식'));
+  // 히어로 배지 아래 짧은 줄(대표 10-09 2번 안) — «지급» 대신 «확정»(결제 미개통) · 폰 한 줄
+  assert.equal(IP_FILINGS.patentShort, '최종 견적서 기준 · 공사대금 단계 확정 방식');
+  assert.ok(!IP_FILINGS.patentShort.includes('지급') && IP_FILINGS.patentShort.length <= 26);
   assert.equal(PATENT_MESSAGE, '최종 견적서를 바탕으로, 공사 단계별 사진을 확인하고 고객 승인 후 그 단계만큼 지급되는 방식');
   for (const bad of ['지켜 드', '지켜드', '맡기세요', '안심하세요', '보장']) {
     assert.ok(!PATENT_MESSAGE.includes(bad), `약속형 말: ${bad}`);
   }
+});
+
+test('히어로 특허 배지 — 짧은 설명 · 누르면 단열재 «단계 확정 방식» 섹션으로', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../screens/LandingScreen.jsx', import.meta.url), 'utf8');
+  const badge = src.slice(src.indexOf('function PatentBadge'), src.indexOf('const btnBase'));
+  assert.ok(badge.includes('IP_FILINGS.patentShort'));
+  assert.ok(!badge.includes('patentTopic'), '배지 아래에 긴 설명이 남아 있다');
+  assert.ok((badge.match(/onClick=\{goStageProof\}/g) ?? []).length === 2, '배지·설명 둘 다 섹션으로 가야 한다');
+  assert.ok(src.includes('getElementById("stage-proof")') && src.includes('id="stage-proof"'));
 });
