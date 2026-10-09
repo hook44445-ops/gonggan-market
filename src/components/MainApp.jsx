@@ -5074,6 +5074,18 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
           />
         )}
 
+        {screen==="notifications" && (
+          <div style={{ padding: `${S.lg}px ${S.lg}px 120px` }}>
+            <button type="button" onClick={() => setScreen("my")} aria-label="마이로 돌아가기"
+              style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: "4px 0", marginBottom: S.md,
+                fontSize: 17, fontWeight: 800, color: C.text1, cursor: "pointer", fontFamily: "inherit" }}>
+              ← 알림함
+            </button>
+            <NotificationInbox user={user} onNavigate={openNotificationTarget} />
+            <PushNotificationSettings user={user} />
+          </div>
+        )}
+
         {screen==="token-history" && (
           <TokenHistoryScreen
             balance={tokenBalance}
@@ -5630,7 +5642,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
               onGo={(target) => {
                 if (target === "newreq") { requireAuth(() => handleOpenNewReq()); return; }
                 if (target === "lounge-settings" || target === "my-posts") { setScreen("lounge"); return; }
-                if (target === "notifications") { setScreen("timeline"); return; }
+                // 알림함 — 예전엔 «내 견적·시공 진행»(timeline)으로 잘못 보냈다(대표 10-09). 알림 목록 화면으로.
+                if (target === "notifications") { setScreen("notifications"); return; }
                 if (target === "help") { setFaqExpanded(true); setScreen("my"); return; }
                 // 「내 한도 · 서류」 화면(DocumentCenterScreen) — 예전엔 파트너센터로 잘못 보냈다.
                 if (target === "documents") { setScreen("document-center"); return; }
