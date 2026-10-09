@@ -26,6 +26,7 @@ export function pushDiagText(res) {
     not_configured: "푸시 설정이 아직 준비되지 않았어요",
     no_token: "알림 주소(토큰)를 받지 못했어요 · 잠시 뒤 다시 켜 주세요",
     no_user: "로그인 뒤 다시 켜 주세요",
+    save_failed: "이 기기를 저장하지 못했어요 · 마이 › 로그아웃 뒤 인증번호로 다시 로그인하고 켜 주세요",
   }[reason] ?? "이 기기 푸시를 켜지 못했어요";
   const detail = res?.message ? ` · ${String(res.message).slice(0, 80)}` : "";
   return `${why} (${reason}${detail})`;

@@ -42,3 +42,11 @@ test("설정 화면 — 이 기기 푸시가 안 켜진 이유를 코드와 함�
   const src = readFileSync(new URL("../components/PushNotificationSettings.jsx", import.meta.url), "utf8");
   assert.ok(src.includes("pushDiagText(res)"), "Android·웹 실패 이유를 보여 주지 않는다");
 });
+
+test("토큰 저장이 막히면 «성공»이 아니라 save_failed (10-09)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("./push.js", import.meta.url), "utf8");
+  assert.match(src, /const saved = await upsertFcmToken\([\s\S]{0,200}if \(saved\?\.error\)[\s\S]{0,80}save_failed/);
+  const { pushDiagText } = await import("./pushAsk.js");
+  assert.match(pushDiagText({ reason: "save_failed", message: "new row violates row-level security" }), /다시 로그인.*\(save_failed · new row violates/);
+});

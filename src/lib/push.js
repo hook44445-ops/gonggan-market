@@ -173,12 +173,17 @@ export async function enablePush(userId) {
     const token = await messaging.__getToken(messaging, { vapidKey, serviceWorkerRegistration: reg });
     if (!token) return { ok: false, reason: "no_token" };
 
-    await upsertFcmToken({
+    // 저장 결과를 본다 — 예전엔 저장이 막혀도(로그인 토큰 없음·남의 토큰 등) «성공»으로 돌아가
+    //   Android 앱에서 «알림 받기»를 켜도 활성 기기 0 · 아무 말 없음이었다(대표 10-09).
+    const saved = await upsertFcmToken({
       userId,
       token,
       platform: "web",
       deviceInfo: { ua: navigator.userAgent?.slice(0, 200) ?? null },
     });
+    if (saved?.error) {
+      return { ok: false, reason: "save_failed", message: saved.error.message ?? saved.error.code ?? "" };
+    }
     try { sessionStorage.setItem("fcm_token", token); } catch {}
     return { ok: true, token };
   } catch (err) {
