@@ -8,7 +8,7 @@ import AppFooter from "../components/AppFooter";
 import InviteWelcome from "../components/InviteWelcome";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { useJsonLd } from "../hooks/useJsonLd";
-import { consumerFaq, pageSeo, serviceSchema, faqSchema, IP_FILINGS, PATENT_LABEL, PATENT_DETAIL, PATENT_MESSAGE } from "../utils/siteSeo";
+import { consumerFaq, pageSeo, serviceSchema, faqSchema, IP_FILINGS, PATENT_LABEL, PATENT_MESSAGE } from "../utils/siteSeo";
 import { HeroScenes, ProofChips, WorryStamps, BeforeAfter, WorkMarquee, Reveal, CountUp, useInView, AdVideo } from "../components/landing/LandingMotion";
 import { trackConsumerFunnel } from "../lib/consumerFunnel";
 import { saveLandingPick, isDraftComplete, LANDING_WORK_TAGS, LANDING_SIZES, LANDING_BUDGETS, LANDING_MEMO_MAX } from "../lib/landingPick";
@@ -228,7 +228,7 @@ const STAGE_FLOW = [
 
 function StageProof() {
   return (
-    <section className="lm-sp" aria-labelledby="lm-sp-h">
+    <section id="stage-proof" className="lm-sp" aria-labelledby="lm-sp-h">
       <div className="lm-sp-grid">
         <Reveal className="lm-sp-head">
           <div className="lm-sp-ip"><FileText size={13} strokeWidth={2.2} aria-hidden="true" />{PATENT_LABEL}</div>
@@ -301,23 +301,27 @@ function FaqRow({ q, a }) {
 }
 
 // ── 특허출원 배지 — 히어로 주 CTA 바로 위 한 줄(대표 10-07 «CTA 위 배지 + 푸터 한 줄» 두 곳만).
-// 누르거나 올리면 번호·출원일만 보인다(명세서 내용은 싣지 않는다).
-// 설명(대표 10-08 «… 그 단계만큼 지급되는 방식»)은 길어서 알약 안에 넣으면 PC 히어로 폭(520px)에서도 넘친다 —
-// 배지는 번호만, 설명은 배지 바로 아래 작은 한 줄로 둔다(PC·폰 같은 모양).
-// 앞머리 «최종 견적서를 바탕으로,»는 PC에만 — 폰(≤480px)은 넘쳐서 뺀다(번호 한 줄 + 설명 한 줄).
+// 10-09 대표: 아래 설명은 짧게(IP_FILINGS.patentShort) · 배지나 설명을 누르면 단열재 «단계 확정 방식» 섹션으로 내려간다
+//   (긴 설명 PATENT_MESSAGE 와 출원일은 그 섹션에 그대로 — 대표 «마감재 쪽 긴 설명은 냅둬»). 폰에서도 번호 한 줄 + 설명 한 줄.
 // ⚠️ 문구는 siteSeo.PATENT_* · IP_FILINGS 그대로 — «출원»을 빼거나 «특허 받은/등록/®»로 바꾸지 않는다(특허법 224조).
 //    결제 미개통이라 «지켜 드립니다·맡기세요» 같은 약속형 말도 붙이지 않는다(문장 끝은 «방식»).
+function goStageProof() {
+  const el = typeof document !== "undefined" ? document.getElementById("stage-proof") : null;
+  if (!el) return;
+  const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+}
+
 function PatentBadge() {
-  const [open, setOpen] = useState(false);
   return (
     <div className="lm-ip-wrap gg-rise gg-d3">
-      <button type="button" className={`lm-ip ${open ? "is-open" : ""}`} aria-describedby="lm-ip-tip"
-        onClick={() => setOpen((v) => !v)} onBlur={() => setOpen(false)}>
+      <button type="button" className="lm-ip" onClick={goStageProof} aria-label={`${PATENT_LABEL} — 최종 견적서 기준 공사대금 단계 확정 방식 자세히 보기`}>
         <FileText size={14} strokeWidth={2} aria-hidden="true" className="lm-ip-ic" />
         <b>{PATENT_LABEL}</b>
-        <span role="tooltip" id="lm-ip-tip" className="lm-ip-tip">{PATENT_DETAIL}</span>
       </button>
-      <div className="lm-ip-sub"><span className="lm-ip-lead">{IP_FILINGS.patentLead} </span>{IP_FILINGS.patentTopic}</div>
+      <button type="button" className="lm-ip-sub" onClick={goStageProof}>
+        {IP_FILINGS.patentShort} <span className="lm-ip-more" aria-hidden="true">자세히 ›</span>
+      </button>
     </div>
   );
 }
@@ -684,17 +688,17 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         .gm-card:hover{ transform: translateY(-3px); box-shadow: 0 12px 32px rgba(18,26,22,.08) }
         button:active{ transform: scale(.985) }
         .lm-ip-wrap{ margin: -8px 0 12px }
+        #stage-proof{ scroll-margin-top: 12px }
         .lm-ip{ position: relative; display: flex; width: fit-content; align-items: center; gap: 6px; max-width: 100%; margin: 0;
           padding: 6px 13px; border: 1px solid #D6A756; border-radius: 999px; background: rgba(255,255,255,.55);
           font: inherit; font-size: 12.5px; color: #1A2E22; letter-spacing: -0.01em; white-space: nowrap; cursor: pointer; }
         .lm-ip b{ font-weight: 800 }
         .lm-ip-ic{ color: #A98B4E; flex-shrink: 0 }
-        .lm-ip-sub{ margin: 6px 0 0 4px; font-size: 11.5px; line-height: 1.5; color: #5A6B60; font-weight: 500; word-break: keep-all; text-wrap: balance }
-        @media (max-width: 480px){ .lm-ip-sub{ margin-left: 2px; font-size: 10px; letter-spacing: -0.04em } }
-        .lm-ip-tip{ position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5; padding: 7px 11px; border-radius: 10px;
-          background: #121A16; color: #fff; font-size: 11.5px; font-weight: 600; white-space: nowrap;
-          box-shadow: 0 6px 18px rgba(18,26,22,.18); opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity .15s, transform .15s }
-        .lm-ip:hover .lm-ip-tip, .lm-ip:focus-visible .lm-ip-tip, .lm-ip.is-open .lm-ip-tip{ opacity: 1; transform: none }
+        .lm-ip-sub{ display: block; margin: 6px 0 0 4px; padding: 0; border: 0; background: none; cursor: pointer; font-family: inherit; text-align: left;
+          font-size: 11.5px; line-height: 1.5; color: #5A6B60; font-weight: 500; word-break: keep-all }
+        .lm-ip-more{ margin-left: 4px; color: #A98B4E; font-weight: 700; white-space: nowrap }
+        .lm-ip-sub:hover .lm-ip-more{ text-decoration: underline }
+        @media (max-width: 480px){ .lm-ip-sub{ margin-left: 2px; font-size: 11px; letter-spacing: -0.03em } }
         .lm-ip:active{ transform: none }
         .lm-quote-start{ scroll-margin-top: 64px }
         .lm-quote-start.is-cued .lm-pick{ animation: lm-cue 1.4s ease-out }
@@ -743,7 +747,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
         @media (max-width: 380px){ .lm-sp{ padding: 24px 16px; border-radius: 20px } .lm-sp-pair > div{ padding: 9px 9px; column-gap: 6px } .lm-sp-pair b{ font-size: 12.5px }
           .lm-sp-flow{ grid-template-columns: 1fr } }
         @media (max-width: 600px){ .lm-sp-scene img{ aspect-ratio: 4 / 3 } .lm-sp-mm-l{ left: 21.2% } .lm-sp-mm-r{ left: 63.1% } }
-        @media (max-width: 480px){ .lm-ip-lead{ display: none } .lm-sp-pair{ grid-template-columns: 1fr } .lm-sp-vs{ justify-self: center } }
+        @media (max-width: 480px){ .lm-sp-pair{ grid-template-columns: 1fr } .lm-sp-vs{ justify-self: center } }
         .gm-sticky-cta{ display: none }
         @media (max-width: 640px){ .gm-sticky-cta{ display: flex } }
         @media (max-width: 380px){
