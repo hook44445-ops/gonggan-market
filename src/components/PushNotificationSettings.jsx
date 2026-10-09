@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { C, R, S } from "../constants";
 import { IS_SUPABASE_READY, getPushPreferences, upsertPushPreferences, setMarketingConsent } from "../lib/supabase";
 import { enablePush, disablePush, isPushSupported, isPushConfigured, hasNativePush } from "../lib/push";
-import { pushFailText } from "../lib/pushAsk";
+import { pushFailText, pushDiagText } from "../lib/pushAsk";
 
 const SUB_TOGGLES = [
   { key: "push_local_news",      label: "동네 소식",        desc: "우리 동네 새 공간 이야기" },
@@ -104,9 +104,12 @@ export default function PushNotificationSettings({ user }) {
         const res = await enablePush(user?.id);
         if (res && !res.ok && hasNativePush()) {
           setNote(`알림 설정은 저장됐어요. ${pushFailText(res.reason)}`);   // 아이폰 앱 — 거짓 «켜졌어요» 없이 이유만
-        } else if (res && !res.ok && res.reason === "permission_denied") {
-          setNote("브라우저 알림 권한이 거부됐어요. 설정에서 허용하면 푸시도 함께 받을 수 있어요.");
+        } else if (res && !res.ok) {
+          // Android 앱·웹 — 예전엔 «권한 거부»만 말하고 나머지 실패는 조용히 «켜짐»으로 남았다(10-09 토큰 0).
+          setNote(`알림함에는 그대로 쌓여요. 다만 이 기기 푸시는 아직 꺼져 있어요 — ${pushDiagText(res)}`);
         }
+      } else {
+        setNote(`알림함에는 그대로 쌓여요. 다만 이 기기 푸시는 아직 꺼져 있어요 — ${pushDiagText({ reason: isPushSupported() ? "not_configured" : "unsupported" })}`);
       }
     } catch {}
     // 기본적으로 동네/인테리어/견적 + 라운지 새 글(전 카테고리) ON 으로 시작.

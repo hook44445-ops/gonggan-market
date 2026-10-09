@@ -16,6 +16,21 @@ export const markPushAsk = (now = Date.now()) => { try { localStorage.setItem(KE
 // 켜면 같이 켜는 것 — 내 요청·대화·계약 소식(광고 아님). 광고(push_marketing)는 따로 동의(157).
 export const PUSH_ON_PREFS = { push_enabled: true, push_estimate_news: true, push_chat: true, push_escrow: true };
 
+// 설정 화면용 — 왜 이 기기 푸시가 안 켜졌는지 사실대로(대표 10-09: Android 에서 켰는데 토큰 0 · 아무 말 없었다).
+//   이유 코드를 괄호로 같이 보여 준다 — 대표가 폰 화면을 찍어 보내면 바로 원인을 안다.
+export function pushDiagText(res) {
+  const reason = res?.reason ?? "unknown";
+  const why = {
+    permission_denied: "알림 권한이 꺼져 있어요 · 폰 설정 › 앱 › 공간랜드 › 알림을 허용해 주세요",
+    unsupported: "이 기기·앱에서는 휴대폰 푸시를 지원하지 않아요",
+    not_configured: "푸시 설정이 아직 준비되지 않았어요",
+    no_token: "알림 주소(토큰)를 받지 못했어요 · 잠시 뒤 다시 켜 주세요",
+    no_user: "로그인 뒤 다시 켜 주세요",
+  }[reason] ?? "이 기기 푸시를 켜지 못했어요";
+  const detail = res?.message ? ` · ${String(res.message).slice(0, 80)}` : "";
+  return `${why} (${reason}${detail})`;
+}
+
 export function pushFailText(reason) {
   if (reason === "permission_denied") return "알림이 막혀 있어요 · 폰 설정 › 알림에서 공간랜드(또는 브라우저)을 켜 주세요";
   return "지금은 켤 수 없어요 · 마이 › 푸시 알림에서 다시 켤 수 있어요";
