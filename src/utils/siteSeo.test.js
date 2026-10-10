@@ -662,12 +662,13 @@ test('특허·상표 표시는 «출원»만 · 등록으로 읽히는 말 없�
   }
 });
 
-test('히어로 특허 배지 — 짧은 설명 · 누르면 단열재 «단계 확정 방식» 섹션으로', async () => {
+test('히어로 특허 배지 — 배지 하나 + «›» · 누르면 단열재 «단계 확정 방식» 섹션으로(10-10 설명 줄 뺌)', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../screens/LandingScreen.jsx', import.meta.url), 'utf8');
   const badge = src.slice(src.indexOf('function PatentBadge'), src.indexOf('const btnBase'));
-  assert.ok(badge.includes('IP_FILINGS.patentShort'));
+  assert.ok(!badge.includes('lm-ip-sub'), '첫 화면 배지 아래 설명 줄은 뺐다(10-10)');
+  assert.ok(badge.includes('lm-ip-go'), '누를 수 있다는 «›» 표시');
   assert.ok(!badge.includes('patentTopic'), '배지 아래에 긴 설명이 남아 있다');
-  assert.ok((badge.match(/onClick=\{goStageProof\}/g) ?? []).length === 2, '배지·설명 둘 다 섹션으로 가야 한다');
+  assert.ok((badge.match(/onClick=\{goStageProof\}/g) ?? []).length === 1, '배지가 섹션으로 간다');
   assert.ok(src.includes('getElementById("stage-proof")') && src.includes('id="stage-proof"'));
 });
