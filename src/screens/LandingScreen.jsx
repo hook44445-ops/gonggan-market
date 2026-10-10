@@ -301,7 +301,7 @@ function FaqRow({ q, a }) {
 }
 
 // ── 특허출원 배지 — 히어로 주 CTA 바로 위 한 줄(대표 10-07 «CTA 위 배지 + 푸터 한 줄» 두 곳만).
-// 10-09 대표: 아래 설명은 짧게(IP_FILINGS.patentShort) · 배지나 설명을 누르면 단열재 «단계 확정 방식» 섹션으로 내려간다
+// 10-10 대표: 첫 화면 배지 아래 설명 줄은 뺀다(«자세히»로 가면 된다) — 배지 하나 + «›», 누르면 단열재 «단계 확정 방식» 섹션으로 내려간다
 //   (긴 설명 PATENT_MESSAGE 와 출원일은 그 섹션에 그대로 — 대표 «마감재 쪽 긴 설명은 냅둬»). 폰에서도 번호 한 줄 + 설명 한 줄.
 // ⚠️ 문구는 siteSeo.PATENT_* · IP_FILINGS 그대로 — «출원»을 빼거나 «특허 받은/등록/®»로 바꾸지 않는다(특허법 224조).
 //    결제 미개통이라 «지켜 드립니다·맡기세요» 같은 약속형 말도 붙이지 않는다(문장 끝은 «방식»).
@@ -318,9 +318,7 @@ function PatentBadge() {
       <button type="button" className="lm-ip" onClick={goStageProof} aria-label={`${PATENT_LABEL} — 최종 견적서 기준 공사대금 단계 확정 방식 자세히 보기`}>
         <FileText size={14} strokeWidth={2} aria-hidden="true" className="lm-ip-ic" />
         <b>{PATENT_LABEL}</b>
-      </button>
-      <button type="button" className="lm-ip-sub" onClick={goStageProof}>
-        {IP_FILINGS.patentShort} <span className="lm-ip-more" aria-hidden="true">자세히 ›</span>
+        <span className="lm-ip-go" aria-hidden="true">›</span>
       </button>
     </div>
   );
@@ -694,11 +692,7 @@ export default function LandingScreen({ onSelectRole, onAdminTap, hasSavedAccoun
           font: inherit; font-size: 12.5px; color: #1A2E22; letter-spacing: -0.01em; white-space: nowrap; cursor: pointer; }
         .lm-ip b{ font-weight: 800 }
         .lm-ip-ic{ color: #A98B4E; flex-shrink: 0 }
-        .lm-ip-sub{ display: block; margin: 6px 0 0 4px; padding: 0; border: 0; background: none; cursor: pointer; font-family: inherit; text-align: left;
-          font-size: 11.5px; line-height: 1.5; color: #5A6B60; font-weight: 500; word-break: keep-all }
-        .lm-ip-more{ margin-left: 4px; color: #A98B4E; font-weight: 700; white-space: nowrap }
-        .lm-ip-sub:hover .lm-ip-more{ text-decoration: underline }
-        @media (max-width: 480px){ .lm-ip-sub{ margin-left: 2px; font-size: 11px; letter-spacing: -0.03em } }
+        .lm-ip-go{ margin-left: 2px; color: #A98B4E; font-weight: 800 }
         .lm-ip:active{ transform: none }
         .lm-quote-start{ scroll-margin-top: 64px }
         .lm-quote-start.is-cued .lm-pick{ animation: lm-cue 1.4s ease-out }
