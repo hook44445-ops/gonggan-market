@@ -5652,7 +5652,8 @@ export default function MainApp({ user, onLogout, onForgetDevice, onLogin, onSta
                 setScreen(target);
               }}
               onLogout={onLogout}
-              onForgetDevice={() => setShowForgetConfirm(true)}
+              // 새 마이페이지에는 확인 칸이 없어 «눌러도 안 먹힘»(대표 10-11) — 여기서 바로 묻고 지운다
+              onForgetDevice={() => { if (window.confirm("이 기기 인증을 삭제할까요?\n\n이 폰에 저장된 계정 목록과 로그인 정보가 지워지고, 다음에는 전화번호 인증부터 다시 시작해요.")) onForgetDevice(); }}
               onDeleteAccount={() => { window.location.href = "/delete-account"; }}
               onShowAppInfo={() => setShowAppInfo(true)}
               onShowBusinessInfo={() => setShowBusinessInfo(true)}

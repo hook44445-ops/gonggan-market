@@ -69,21 +69,19 @@ export default async function handler(req, res) {
   }
 
   // 3) 익명화 + soft-delete.
-  //    - 개인정보(이름/전화/지역/관심사/아바타) 제거
+  //    - 개인정보(이름/전화/지역/관심사) 제거
   //    - phone 을 토큰값으로 치환 → 원 번호 해제(동일 번호 재가입 가능) + unique 제약 유지
-  //    - account_status='SUSPENDED'(기존 허용값)로 일반 계정 취급 차단
+  //    - users 에는 account_status·avatar_url 칸이 없다(10-11 «schema cache» 500 원인) — 막는 건 is_deleted + 번호 해제로 충분(번호로 다시 못 찾음)
   const nowIso = new Date().toISOString();
   const { error: updErr } = await db
     .from("users")
     .update({
       is_deleted:     true,
       deleted_at:     nowIso,
-      account_status: "SUSPENDED",
       name:           "탈퇴한 회원",
       phone:          `deleted:${userId}`,
       region:         null,
       interests:      [],
-      avatar_url:     null,
       updated_at:     nowIso,
     })
     .eq("id", userId)
